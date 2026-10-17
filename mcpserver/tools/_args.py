@@ -8,7 +8,7 @@ consistent phrasing is one thing to learn.
 """
 
 from datetime import datetime
-from typing import Optional, Tuple
+from typing import Literal, Optional, Tuple
 
 
 def parse_ts(label: str, value: Optional[str]) -> Optional[datetime]:
@@ -24,9 +24,23 @@ def parse_ts(label: str, value: Optional[str]) -> Optional[datetime]:
 def window(start: str, end: str) -> Tuple[datetime, datetime]:
     """Parse a required ``[start, end]`` pair of ISO 8601 timestamps."""
     try:
-        return datetime.fromisoformat(start), datetime.fromisoformat(end)
+        start_dt, end_dt = datetime.fromisoformat(start), datetime.fromisoformat(end)
     except ValueError as exc:
         raise ValueError('start and end must be ISO 8601 timestamps') from exc
+    # The services clamp a reversed window to an empty one, which reads as "no
+    # data" rather than "wrong arguments"; REST refuses it, so this does too.
+    try:
+        reversed_window = end_dt < start_dt
+    except TypeError as exc:
+        raise ValueError('start and end must both carry a UTC offset, or neither') from exc
+    if reversed_window:
+        raise ValueError('end must not be before start.')
+    return start_dt, end_dt
+
+
+# Spelled out so the schema rejects anything else: the service treats every
+# value but 'month' as a week, so a typo would quietly return weekly data.
+Bucket = Literal['week', 'month']
 
 
 def clamp(value: int, *, low: int, high: int) -> int:

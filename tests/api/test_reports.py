@@ -149,6 +149,16 @@ class TestPassThroughReports:
             # Its unflagged siblings keep working.
             assert (await c.get('/api/reports/activity-trends', params=WINDOW)).status_code == 200
 
+    async def test_volunteer_hour_trends_without_the_flag_404s_for_a_non_admin_too(self, db, app):
+        """The flag is checked before the role, so a player can't tell a
+        switched-off feature from one they lack the role for."""
+        await TenantFeatureFlag.filter(
+            tenant_id=1, flag=FeatureFlag.VOLUNTEERS.value,
+        ).update(available=False, enabled=False)
+        _, raw = await create_user_token(username='player')
+        async with client_for(app, raw) as c:
+            assert (await c.get('/api/reports/volunteer-hour-trends', params=WINDOW)).status_code == 404
+
 
 class TestTelemetry:
     async def test_staff_reads_the_summary_and_leaderboards(self, db, app):

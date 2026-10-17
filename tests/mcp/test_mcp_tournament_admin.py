@@ -243,3 +243,16 @@ class TestDiscordEvents:
         assert payload['discord_events_enabled'] is True
         await tournament.refresh_from_db()
         assert tournament.discord_event_duration_minutes == 90
+
+    async def test_a_non_admin_is_refused_whether_or_not_the_tournament_exists(self, db):
+        """The permission check comes first, as on REST, so the answer can't be
+        used to probe which tournament ids exist."""
+        _, raw = await _member_token(write=True)
+        tournament = await Tournament.create(name='Cup')
+        async with mcp_session() as client:
+            for tournament_id in (tournament.id, tournament.id + 999):
+                is_error, payload = await call_tool(
+                    client, raw, 'update_tournament_discord_events', tenant=TENANT,
+                    tournament_id=tournament_id, enabled=True,
+                )
+                assert is_error and 'forbidden:' in payload, (tournament_id, payload)

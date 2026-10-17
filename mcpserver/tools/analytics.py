@@ -20,7 +20,7 @@ from application.services import AnalyticsService, ReportsService
 from mcpserver.auth import Gate, current_actor
 from mcpserver.registry import register
 from mcpserver.schemas import TenantArg
-from mcpserver.tools._args import clamp, parse_ts, window
+from mcpserver.tools._args import Bucket, clamp, parse_ts, window
 
 # How many busiest intervals a forecast reports. Enough to see the shape of a
 # day's peak; short enough that the answer is still readable.
@@ -122,7 +122,7 @@ async def crew_participation_trends(
     start: str,
     end: str,
     tenant: TenantArg = None,
-    bucket: str = 'week',
+    bucket: Bucket = 'week',
     tournament_id: Optional[int] = None,
 ) -> Dict[str, Any]:
     """Commentator and tracker signups versus approvals over time.
@@ -140,7 +140,7 @@ async def activity_trends(
     start: str,
     end: str,
     tenant: TenantArg = None,
-    bucket: str = 'week',
+    bucket: Bucket = 'week',
 ) -> Dict[str, Any]:
     """Audit-log volume over time, grouped by action namespace.
 

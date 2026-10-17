@@ -332,7 +332,6 @@ async def update_tournament_discord_events(
     `{match}` and `{players}`; an empty string restores the default. Changes
     reach Discord on the next sync.
     """
-    await _tournament(tournament_id)
     tournament = await DiscordEventSyncService().update_settings(
         current_actor().user, tournament_id,
         enabled=enabled, duration_minutes=duration_minutes,
