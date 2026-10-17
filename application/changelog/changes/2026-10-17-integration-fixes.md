@@ -4,3 +4,4 @@
 - Races the racetime bot finishes now report their result to start.gg as well as Challonge, for tournaments that send results back.
 - A slow or unreachable Challonge now gives up after 20 seconds with a clear error instead of hanging for minutes.
 - Email and Telegram copies of a DM no longer drop double underscores from names like dark__link.
+- Importing DK64 Randomizer presets now retries when the DK64 site is briefly busy or down, instead of failing on the first error.

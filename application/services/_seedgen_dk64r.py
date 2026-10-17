@@ -20,7 +20,13 @@ import aiohttp
 import application.services._seedgen_codes as seed_codes
 from application.services._seedgen_types import RemotePreset, RolledSeed
 from application.utils.mocks.mock_dk64 import MockDK64Session, is_mock_dk64
-from application.utils.seed_provider import SeedProviderBadResponse
+from application.utils.seed_provider import (
+    SeedProviderBadResponse,
+    SeedProviderError,
+    SeedProviderInvalidRequest,
+    SeedProviderRateLimited,
+    SeedProviderUnavailable,
+)
 from models import Preset
 
 # DK64 Randomizer (api.dk64rando.com) — a task-queue backend: submit → poll →
@@ -55,7 +61,7 @@ class DK64RBackend:
                 f"{DK64R_API_BASE}/get_presets", params={'branch': branch},
             ) as resp:
                 if resp.status != 200:
-                    raise ValueError(await self._dk64r_error(resp, 'list the presets'))
+                    raise await self._dk64r_error(resp, 'list the presets')
                 data = await resp.json()
 
         if not isinstance(data, list):
@@ -166,7 +172,7 @@ class DK64RBackend:
             json={'settings': settings_string}, params=params,
         ) as resp:
             if resp.status != 200:
-                raise ValueError(await self._dk64r_error(resp, 'convert settings'))
+                raise await self._dk64r_error(resp, 'convert settings')
             data = await resp.json()
         if not isinstance(data, dict):
             raise ValueError('DK64 Randomizer returned an unexpected settings payload.')
@@ -179,7 +185,7 @@ class DK64RBackend:
             json={'settings_data': json.dumps(settings_dict)}, params=params,
         ) as resp:
             if resp.status != 200:
-                raise ValueError(await self._dk64r_error(resp, 'submit the seed'))
+                raise await self._dk64r_error(resp, 'submit the seed')
             data = await resp.json()
         task_id = (data or {}).get('task_id')
         if not task_id:
@@ -213,7 +219,7 @@ class DK64RBackend:
             f"{DK64R_API_BASE}/task-status/{task_id}", params=params,
         ) as resp:
             if resp.status != 200:
-                raise ValueError(await self._dk64r_error(resp, 'generate the seed'))
+                raise await self._dk64r_error(resp, 'generate the seed')
             data = await resp.json()
         status = (data or {}).get('status')
         if status == 'finished':
@@ -230,8 +236,12 @@ class DK64RBackend:
         return None
 
     @staticmethod
-    async def _dk64r_error(resp, action: str) -> str:
-        """Best-effort upstream error text for a failed DK64R call."""
+    async def _dk64r_error(resp, action: str) -> SeedProviderError:
+        """The failed DK64R call as the shared taxonomy, keeping its upstream text.
+
+        A plain ``ValueError`` here was classed "bad response" and never retried,
+        so a 503 or 429 failed the call outright.
+        """
         detail = ''
         try:
             body = await resp.json()
@@ -243,4 +253,14 @@ class DK64RBackend:
             except Exception:
                 detail = ''
         suffix = f': {detail}' if detail else ''
-        return f"DK64 Randomizer failed to {action} (HTTP {resp.status}){suffix}"
+        message = f"DK64 Randomizer failed to {action} (HTTP {resp.status}){suffix}"
+        if resp.status == 429:
+            cls = SeedProviderRateLimited
+        elif 500 <= resp.status < 600:
+            cls = SeedProviderUnavailable
+        else:
+            cls = SeedProviderInvalidRequest
+        return cls(
+            message, provider='dk64r', operation=action,
+            status_code=resp.status, provider_message=detail or None,
+        )
