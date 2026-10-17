@@ -20,6 +20,7 @@ SDK once, before the FastAPI app is built, and only when `SENTRY_DSN` is set.
 | **Loop stalls** | the [watchdog](#blocked-event-loop-watchdog) | WARNING from 0.5s, an ERROR issue from 2s, grouped by the blocking line. |
 | **Metrics** | [`sentry_metrics.py`](../../application/utils/sentry_metrics.py); on with Sentry unless `SENTRY_METRICS=off` | See [Metrics](#metrics). Explore > Metrics in Sentry. |
 | **Health alerts** | `ServiceHealthService._alert` → `capture_message` | Fingerprinted on probe + status, tagged `health_probe` / `health_status`, so one outage is one issue. |
+| **Browser errors + replays** | the JavaScript SDK on every page, same DSN | See [Browser errors](#browser-errors-platform--monitoring). Tagged `surface: browser`; server events carry `surface: server`. |
 
 Every event carries `environment`, `release` (`SENTRY_RELEASE`, else
 `wizzrobe@<GIT_SHA[:12]>`; `publish.yml` bakes `GIT_SHA` into the image), and
@@ -106,6 +107,50 @@ Code: [`application/utils/log_levels.py`](../../application/utils/log_levels.py)
 (levels, known loggers, applying to the tree),
 [`LogLevelService`](../reference/services.md#log_level_servicepy--loglevelservice),
 [`pages/platform_logging.py`](../../pages/platform_logging.py).
+
+## Browser errors (`/platform` → Monitoring)
+
+People's browsers report to the same Sentry project as the server, through the
+JavaScript SDK (errors + Session Replay, no tracing). It loads on every page
+built by `BaseLayout`, `render_platform_chrome` or the waiting screen, and only
+when `SENTRY_DSN` is set and browser errors are switched on.
+
+- **The bundle is vendored**, `static/vendor/sentry/bundle.replay.min.js`
+  (`@sentry/browser` 11.4.0), so venue Wi-Fi and CDN blocklists don't decide
+  whether it loads. Bump it by downloading the same file name from
+  `browser.sentry-cdn.com/<version>/`.
+- **What it catches.** A websocket UI hides most browser errors from
+  `window.onerror`: Vue hands render and slot-template errors to
+  `app.config.errorHandler`, and NiceGUI only `console.error`s an error raised
+  while it applies a server update. [`static/js/sentry-browser.js`](../../static/js/sentry-browser.js)
+  hooks both (tagged `caught_by: vue` / `console`) on top of the SDK's own
+  uncaught-error and unhandled-rejection handlers.
+- **Replays** buffer the last minute in memory and upload only with an error,
+  with all text and inputs masked and media blocked. The tab reports its replay
+  id to the server (`wiz_sentry_replay` → `app.storage.client`), and
+  `_enrich_event` puts it on any server event raised in that tab's websocket
+  handlers. When a tap fails on the server, `frontend.py`'s catch-all tells the
+  tab to upload its buffer, so the server's issue links to a recording of what
+  was tapped.
+- **Noise never leaves the browser.** `allowUrls` limits events to stacks in our
+  own scripts; `beforeSend` drops anything matching an ignore rule (a
+  case-insensitive substring of the message or of a stack frame's URL). The
+  built-in rules (`application/utils/browser_monitoring.py`) cover extensions,
+  dropped connections and browser quirks; super-admins add the rest.
+- **Runtime controls**, `/platform` → Monitoring (super-admin): send on/off,
+  replay on/off, share sent (100/50/25/10%), and the ignore rules. Changes are
+  pushed to every open tab at once; turning sending back on reaches a tab on its
+  next page load, since a tab built while it was off never loaded the SDK.
+  Stored in `BrowserMonitoringSettings` / `BrowserErrorIgnoreRule` (global),
+  loaded at startup into an in-memory snapshot the page builds read.
+- Not feature-flagged: it's a platform surface gated on `SUPER_ADMIN`.
+
+To silence a noisy browser error, add a rule from its Sentry title rather than
+resolving the issue in Sentry.
+
+Code: [`BrowserMonitoringService`](../reference/services.md#browser_monitoring_servicepy--browsermonitoringservice),
+[`theme/browser_monitoring.py`](../../theme/browser_monitoring.py),
+[`pages/platform_monitoring.py`](../../pages/platform_monitoring.py).
 
 ## Blocked event loop (watchdog)
 

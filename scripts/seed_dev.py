@@ -37,6 +37,7 @@ from models import (
     ApiToken,
     ApiTokenOrigin,
     AuditLog,
+    BrowserErrorIgnoreRule,
     EmergencyContact,
     FeatureFlag,
     FeatureFlagGroup,
@@ -200,6 +201,17 @@ async def seed_log_levels(users: dict[str, User]) -> None:
         defaults={'level': 'WARNING', 'updated_by': users['super_admin']},
     )
     print('  log level override ok (global)')
+
+
+async def seed_browser_monitoring(users: dict[str, User]) -> None:
+    """One super-admin ignore rule, so /platform's Monitoring tab shows an
+    added rule (with its ⋮) below the built-in ones. Settings stay at their
+    defaults: no row means on, replay on, everything sent."""
+    await BrowserErrorIgnoreRule.get_or_create(
+        pattern="Cannot read properties of null (reading 'focus')", match='message',
+        defaults={'created_by': users['super_admin']},
+    )
+    print('  browser ignore rule ok (global)')
 
 
 async def seed_feature_groups() -> dict:
@@ -788,6 +800,7 @@ async def seed_all() -> None:
     users = await seed_users()
     await seed_super_admin(users)
     await seed_log_levels(users)
+    await seed_browser_monitoring(users)
     await seed_table_preferences(users)
     await seed_mcp_oauth(users)
     await seed_push_devices(users)

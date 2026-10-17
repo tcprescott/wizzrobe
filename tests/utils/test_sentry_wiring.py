@@ -8,6 +8,7 @@ request scope is gone, and scoped tags that never outlive their block.
 import asyncio
 import logging
 
+import pytest
 import sentry_sdk
 
 from application.tenant_context import tenant_scope
@@ -18,7 +19,7 @@ class TestEnrichment:
     def test_tags_tenant_in_scope(self):
         with tenant_scope(42):
             event = wiring._before_send({'tags': {'worker': 'x'}}, None)
-        assert event['tags'] == {'worker': 'x', 'tenant_id': '42'}
+        assert event['tags'] == {'worker': 'x', 'tenant_id': '42', 'surface': 'server'}
 
     def test_no_tenant_no_tag(self):
         with tenant_scope(None):
@@ -199,6 +200,45 @@ class TestFlush:
 
     async def test_flush_sentry_is_safe_without_init(self):
         await wiring.flush_sentry()
+
+
+class TestBrowserSdk:
+    @pytest.fixture(autouse=True)
+    def _restore_snapshot(self):
+        from application.utils import browser_monitoring
+        saved = browser_monitoring.current()
+        yield
+        browser_monitoring.replace(saved)
+
+    def test_nothing_loads_without_a_dsn(self, monkeypatch):
+        monkeypatch.delenv('SENTRY_DSN', raising=False)
+        assert wiring.browser_sdk_config() is None
+
+    def test_nothing_loads_while_paused(self, monkeypatch):
+        from application.utils import browser_monitoring
+        monkeypatch.setenv('SENTRY_DSN', 'https://key@o1.ingest.us.sentry.io/2')
+        browser_monitoring.replace(browser_monitoring.Snapshot(enabled=False))
+        assert wiring.browser_sdk_config() is None
+
+    def test_config_shares_the_server_dsn_and_tags_the_surface(self, monkeypatch):
+        from application.utils import browser_monitoring
+        monkeypatch.setenv('SENTRY_DSN', 'https://key@o1.ingest.us.sentry.io/2')
+        browser_monitoring.replace(browser_monitoring.Snapshot(
+            sample_rate=0.5, rules=(browser_monitoring.IgnoreRule('boom', 'message'),)))
+        with tenant_scope(7):
+            config = wiring.browser_sdk_config()
+        assert config['dsn'] == 'https://key@o1.ingest.us.sentry.io/2'
+        assert config['tags'] == {'surface': 'browser', 'tenant_id': '7'}
+        assert config['sampleRate'] == 0.5
+        assert config['rules'] == [{'pattern': 'boom', 'match': 'message'}]
+        assert {'pattern': 'ResizeObserver loop', 'match': 'message'} in config['builtin']
+
+    def test_server_events_carry_surface_and_replay(self, monkeypatch):
+        monkeypatch.setattr(wiring, 'client_stash', lambda: {wiring.REPLAY_ID_KEY: 'a' * 32})
+        with tenant_scope(None):
+            event = wiring._before_send({}, None)
+        assert event['tags']['surface'] == 'server'
+        assert event['contexts']['replay'] == {'replay_id': 'a' * 32}
 
 
 class TestStaleSocketSession:

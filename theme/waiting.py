@@ -19,6 +19,7 @@ import time
 from nicegui import app, ui
 
 from theme.assets import asset_url
+from theme.browser_monitoring import install_browser_monitoring
 from theme.chrome import apply_brand_palette, install_timezone_detection
 from theme.empty_state import cat_fact
 
@@ -93,6 +94,7 @@ async def waiting_screen(message: str = 'Loading…', *, brand: str | None = Non
     ui.add_head_html('<link rel="apple-touch-icon" href="/static/icons/apple-touch-icon.png">')
     apply_brand_palette(colors)
     install_timezone_detection()
+    install_browser_monitoring()
 
     # The default content wrapper's padding would push a 100dvh child into a
     # scrollbar; this page has nothing else in it, so drop it.

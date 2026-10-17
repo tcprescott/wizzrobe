@@ -243,6 +243,10 @@ _EXCLUDED_BY_DESIGN = frozenset({
     # tenant-scoped webhook would reach nobody.
     AuditActions.LOG_LEVEL_SET,
     AuditActions.LOG_LEVEL_CLEARED,
+    # Browser-side Sentry settings: platform-level (tenant=NULL), same reasoning.
+    AuditActions.BROWSER_MONITORING_UPDATED,
+    AuditActions.BROWSER_IGNORE_RULE_ADDED,
+    AuditActions.BROWSER_IGNORE_RULE_REMOVED,
     # Racetime bot runtime health: platform-level (tenant=NULL) connection-state
     # transitions written by the connection loop. A webhook is tenant-scoped, so
     # a platform-level health event would reach zero subscribers — kept audit-only.

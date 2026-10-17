@@ -286,6 +286,11 @@ class AuditActions:
     LOG_LEVEL_SET = 'log_level.set'
     LOG_LEVEL_CLEARED = 'log_level.cleared'
 
+    # Browser-side Sentry (platform-level, tenant=NULL; set on /platform)
+    BROWSER_MONITORING_UPDATED = 'browser_monitoring.updated'
+    BROWSER_IGNORE_RULE_ADDED = 'browser_ignore_rule.added'
+    BROWSER_IGNORE_RULE_REMOVED = 'browser_ignore_rule.removed'
+
     # Racetime race-room lifecycle (tenant-scoped; mirrored on the event bus as
     # ``race_room.*`` domain events — the system user is the actor)
     RACE_ROOM_CREATED = 'race_room.created'

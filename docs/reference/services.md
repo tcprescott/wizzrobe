@@ -1460,6 +1460,21 @@ The **provider-parameterized account-linking engine** behind both secondary-iden
 
 These are the **identity-link** OAuth credentials only; the race-room bots use their own per-category credentials on `RacetimeBot` rows. Collaborators: `AuditService`, the [OAuth identity clients](#oauth-identity-clients), the [mock switches](#mock-switches).
 
+### browser_monitoring_service.py — BrowserMonitoringService
+
+Browser-side Sentry behind `/platform` → Monitoring ([observability.md](../features/observability.md#browser-errors-platform--monitoring)). SUPER_ADMIN-gated, no tenant context; audit rows are platform-level (`tenant=NULL`). Every change reloads the in-memory snapshot (`application/utils/browser_monitoring.py`) that page builds read; the page then pushes it to open tabs (`theme/browser_monitoring.push_to_open_tabs`).
+
+| Method | Returns | Description |
+|---|---|---|
+| `load()` | `Snapshot` | Rebuild the snapshot from the database. Startup (`main.py` lifespan) and after each change. |
+| `get_settings(actor)` | `SettingsView` | Send / replay / share, with who changed it and when. |
+| `update_settings(actor, *, enabled, replay_on_error, sample_rate)` | `Snapshot` | `sample_rate` must be one of `SAMPLE_RATES`; audits `browser_monitoring.updated` with the previous values. |
+| `list_rules(actor)` | `[IgnoreRuleRow]` | Added rules (oldest first), then the built-ins (`id=None`). |
+| `add_rule(actor, pattern, match)` | `Snapshot` | 3–200 characters, `message` or `url`, not a built-in or existing rule; audits `browser_ignore_rule.added`. |
+| `remove_rule(actor, rule_id)` | `Snapshot` | Audits `browser_ignore_rule.removed`. |
+
+Collaborators: `AuditService`, `BrowserMonitoringRepository`.
+
 ### log_level_service.py — LogLevelService
 
 Runtime per-logger levels behind `/platform` → Logging ([observability.md](../features/observability.md#runtime-log-levels-platform--logging)). SUPER_ADMIN-gated, no tenant context; audit rows are platform-level (`tenant=NULL`). A change is applied to the live logging tree and stored as a `LogLevelOverride`.

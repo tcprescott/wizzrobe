@@ -1212,6 +1212,31 @@ Named stream stage ("Stage 1", "Stage 2", …) that matches can be assigned to.
 
 Constraint: `unique_together (('tenant', 'name'),)`. Relationship: reverse accessor `matches`.
 
+#### `BrowserMonitoringSettings`
+
+**Global** singleton (`id=1`; no row means the defaults). How the browser Sentry SDK behaves, set on `/platform` → Monitoring. See [observability.md](../features/observability.md#browser-errors-platform--monitoring).
+
+| Field | Type | Null / default | Notes |
+|---|---|---|---|
+| `enabled` | `BooleanField` | `True` | Whether pages load the SDK and send errors |
+| `replay_on_error` | `BooleanField` | `True` | Masked replay buffered and sent with an error |
+| `sample_rate` | `FloatField` | `1.0` | Share of browser errors sent; one of `browser_monitoring.SAMPLE_RATES` |
+| `updated_by` | FK → `User` | null, `SET_NULL` | Who last changed it; the audit row keeps the history |
+| `updated_at` | `DatetimeField` | auto | |
+
+#### `BrowserErrorIgnoreRule`
+
+**Global**. A super-admin's rule for a browser error that never reaches Sentry: the browser drops an error whose message (`match='message'`) or a stack frame URL (`match='url'`) contains `pattern`, case-insensitively. The built-in rules live in code (`application/utils/browser_monitoring.py`), not here.
+
+| Field | Type | Null / default | Notes |
+|---|---|---|---|
+| `pattern` | `CharField(200)` | not null | 3–200 characters |
+| `match` | `CharField(16)` | `'message'` | `message` or `url` |
+| `created_by` | FK → `User` | null, `SET_NULL` | |
+| `created_at` | `DatetimeField` | auto | |
+
+Constraint: `unique_together (('pattern', 'match'),)`.
+
 #### `LogLevelOverride`
 
 **Global** (no `tenant` FK). One stored level for a stdlib logger, set by a super-admin on `/platform` → Logging and reapplied at startup by `LogLevelService.apply_persisted`. See [observability.md](../features/observability.md#runtime-log-levels-platform--logging).
@@ -2215,6 +2240,7 @@ Consult the source for full signatures.
 | `MatcherinoLoginRepository` | [`matcherino_login_repository.py`](../../application/repositories/matcherino_login_repository.py) | `MatcherinoLogin` | `get_current` (the tenant's one row, `updated_by`/`alert_user` prefetched), `upsert` (also re-arms the alert), `delete_current`, `set_alert_user`, `claim_alert(now)` (one conditional `UPDATE`; the login only for the caller that won), `clear_alert` |
 | `RandomizerCredentialRepository` | [`randomizer_credential_repository.py`](../../application/repositories/randomizer_credential_repository.py) | `RandomizerCredential` | `list_all`, `get_by_natural_key`, `upsert`, `delete_by_natural_key`, `configured_pairs` |
 | `AsyncQualifierRepository`, `AsyncQualifierPoolRepository`, `AsyncQualifierPermalinkRepository`, `AsyncQualifierRunRepository`, `AsyncQualifierLiveRaceRepository`, `AsyncQualifierReviewNoteRepository` (one module) | [`async_qualifier_repository.py`](../../application/repositories/async_qualifier_repository.py) | `AsyncQualifier`, `AsyncQualifierPool`, `AsyncQualifierPermalink`, `AsyncQualifierRun`, `AsyncQualifierLiveRace`, `AsyncQualifierReviewNote` | Qualifier/pool/permalink/run CRUD + `list_active`, `get_with_permalinks`, `list_for_pool`, `list_for_user`; **unscoped** worker scans `list_active_all`, `list_in_progress_all`, `list_stale_claims_all`; draw support `lock_user_for_draw` (SELECT … FOR UPDATE), `get_active_for_user`, `played_permalink_ids_for_user_in_pool`, `valid_run_counts_by_permalink_for_pool` (a `GROUP BY`), `count_valid_runs_for_user_in_pool`; the availability read's batched pair `played_permalink_ids_for_user_by_pool` / `valid_run_counts_for_user_by_pool` (keyed by pool, one query each whatever the pool count) and `count_self_spent_reattempts`; scoring/review `list_scored_for_leaderboard` (the board's projected read — scoring finishers *and* spent-but-unscoreable slots), `list_valid_for_qualifier`, `list_approved_finished_for_permalink`, `list_pending_review`, `pending_review_backlog`, `settle_review`, `outcome_tally_for_users`, `list_for_qualifier(limit=, offset=)` + `count_for_qualifier` (the API's paged runs read); live races `get_by_racetime_slug`, `list_for_live_race`; review notes `list_for_run`, `create` |
+| `BrowserMonitoringRepository` | [`browser_monitoring_repository.py`](../../application/repositories/browser_monitoring_repository.py) | `BrowserMonitoringSettings`, `BrowserErrorIgnoreRule` | **Global — never tenant-scoped.** `get_settings`, `save_settings` (upserts `id=1`), `list_rules`, `get_rule`, `find_rule`, `create_rule`, `delete_rule` |
 | `LogLevelOverrideRepository` | [`log_level_override_repository.py`](../../application/repositories/log_level_override_repository.py) | `LogLevelOverride` | **Global — never tenant-scoped.** `list_all` (prefetches `updated_by`), `get_by_name`, `upsert(logger_name, level, updated_by)`, `delete` |
 | `RacetimeBotRepository` | [`racetime_bot_repository.py`](../../application/repositories/racetime_bot_repository.py) | `RacetimeBot`, `RacetimeBotTenant` | **Global — never tenant-scoped** (bots managed on `/platform` with explicit ids). bots `list_all`, `list_active`, `get_by_id`, `get_by_category`, `create`, `update`, `delete`; SUPER_ADMIN authorization grants `get_grant`, `list_grants_for_bot`, `create_grant`, `set_grant_active`, `delete_grant`, `list_active_for_tenant(tenant_id)` (explicit id, no ambient scope) |
 | `RacetimeRoomRepository` | [`racetime_room_repository.py`](../../application/repositories/racetime_room_repository.py) | `RacetimeRoom` | Scoped `get_by_id`, `get_by_match`, `for_matches`, `list_all`, `create`, `update`; **unscoped routing** `get_by_slug` (inbound racetime events carry only the slug → resolve slug→room→tenant with no ambient scope, like the API-token-hash lookup); worker scans `list_open_all`, `matches_due_for_auto_open(window_start, window_end)` |

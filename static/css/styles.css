@@ -7131,6 +7131,26 @@ ol.wiz-help-list { list-style-type: decimal; }
 .wiz-name-chips:not(.is-open) > .wiz-name-chip--more { display: none; }
 .wiz-name-chips__toggle { margin-top: -4px; }
 
+/* /platform → Monitoring: settings beside the ignore rules on desktop, stacked
+   on a phone (pages/platform_monitoring.py). */
+.wiz-platform-monitoring {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 16px;
+    align-items: start;
+}
+@media (min-width: 1024px) {
+    .wiz-platform-monitoring { grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); }
+}
+.wiz-rule-pattern {
+    font-family: var(--font-mono);
+    font-size: 0.8125rem;
+    background: var(--surface-sunken);
+    border-radius: 4px;
+    padding: 2px 6px;
+    word-break: break-all;
+}
+
 /* Busy button (theme/busy.py): while a slow action runs the pressed button
    says what it's doing beside a spinner, on a quiet neutral fill so it reads
    as "not pressable right now" in either mode. Quasar's bg- and text- colour
