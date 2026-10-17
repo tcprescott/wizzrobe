@@ -140,7 +140,7 @@ leaves the screen usable and no other caller can grant write without it.
 
 ## Choosing a community
 
-Every tool except `whoami`, `list_tenants` and the platform tools (`runtime_stats`, `platform_*`) takes a required `tenant` argument
+Every tool except `whoami`, `list_tenants`, `server_version` and the platform tools (`runtime_stats`, `platform_*`) takes a required `tenant` argument
 — a community slug. `list_tenants` returns the slugs the caller may use.
 
 **Membership floor.** A tool reaches a community only where its user belongs —
@@ -198,6 +198,7 @@ a role — and the connection one is both cheaper and the common case.
 |---|---|---|
 | `whoami` | GLOBAL | Identity, roles, enabled flags per community, **and `can_write`**. The cheapest way to orient. |
 | `list_tenants` | GLOBAL | The slugs every other tool needs, with the same roles/flags. |
+| `server_version` | GLOBAL | Which build is running: version, commit, commit date, source link. The server's MCP handshake (`serverInfo.version`) carries the same version. |
 
 Both report each community's live feature flags. A flag is not a permission, so
 it goes to everyone who can see the community — and reporting it lets a client

@@ -134,7 +134,9 @@ Every boolean variable below uses one grammar (`env_flag` in `application/utils/
 | `SENTRY_PROFILES_SAMPLE_RATE` | no | `1.0` in production, else `0` | `application/utils/sentry.py` | Share of *traced* requests also profiled, so a slow trace shows which functions burned the CPU. Relative to `SENTRY_TRACES_SAMPLE_RATE`: the defaults profile 10% of requests. |
 | `SENTRY_RELEASE` | no | `wizzrobe@<GIT_SHA>` | `application/utils/sentry.py` | Release name on every Sentry event. Defaults from `GIT_SHA`; unset when neither is present. |
 | `SENTRY_METRICS` | no | on | `application/utils/sentry_metrics.py` | `off` stops application metrics (load every 30s, per-route request counts and timings, worker tick times). Only read when `SENTRY_DSN` is set. See [observability.md](features/observability.md#metrics). |
-| `GIT_SHA` | no | baked in by `publish.yml` | `Dockerfile` | The commit the image was built from (a build arg). Feeds the Sentry release. |
+| `GIT_SHA` | no | baked in by `publish.yml` | `Dockerfile` | The commit the image was built from (a build arg). Feeds the Sentry release, `/about`, `GET /api/version` and the MCP `server_version` tool. |
+| `GIT_COMMIT_DATE` | no | baked in by `publish.yml` | `application/utils/build_info.py` | ISO time of that commit (a build arg). Dates the version as `YYYY.MM.DD` (UTC) when `APP_VERSION` is unset. |
+| `APP_VERSION` | no | the tag on a `v*` tag build | `application/utils/build_info.py` | Overrides the version outright (a leading `v` is dropped). With neither this nor `GIT_COMMIT_DATE`, the version reads `dev`. |
 | `TELEMETRY_ENABLED` | no | `true` | `application/utils/environment.py` | Runtime kill-switch for telemetry **capture**; reads and reports are unaffected. See [telemetry.md](features/telemetry.md). |
 | `CHALLONGE_CLIENT_ID` | no | — | `application/services/challonge_service.py` | Challonge OAuth client ID. The integration counts as configured only when this and the secret are both set. |
 | `CHALLONGE_CLIENT_SECRET` | no | — | `application/services/challonge_service.py` | Used for the service-account and per-player authorization-code exchanges. |

@@ -13,7 +13,7 @@ from tests.mcp.conftest import create_oauth_token, list_tools, mcp_session
 
 # Tools that legitimately take no community, because they are how a caller
 # discovers which communities exist.
-GLOBAL_TOOLS = {'whoami', 'list_tenants'}
+GLOBAL_TOOLS = {'whoami', 'list_tenants', 'server_version'}
 
 # Super-admin tools: they take no `tenant` either (they reach every community),
 # and are listed only to a super admin.
@@ -107,6 +107,7 @@ READ_TOOLS = {
     'my_equipment_checkouts',
     'my_reschedule_requests',
     'my_volunteer_shifts',
+    'server_version',
     'stage_utilization',
     'suggest_match_time',
     'telemetry_summary',

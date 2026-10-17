@@ -25,6 +25,7 @@ from middleware.public_cache import PublicCacheMiddleware
 from middleware.tenant import TenantMiddleware, TransportPrefixMiddleware
 from middleware.watch_mode import WatchModeMiddleware
 from pages import (
+    about,
     admin,
     auth,
     brackets,
@@ -314,6 +315,7 @@ def init(fastapi_app: FastAPI) -> None:
     community_events.create()
     cat_facts.create()
     changelog.create()
+    about.create()
     ui.run_with(
         fastapi_app,
         # mount_path='/gui',  # NOTE this can be omitted if you want the paths passed to @ui.page to be at the root

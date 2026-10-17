@@ -2081,6 +2081,10 @@ QR code generation for equipment assets ([qrcode_util.py](../../application/util
 | `asset_qr_png_bytes(url)` | `bytes` | The QR code rendered as PNG bytes. |
 | `asset_qr_data_uri(url)` | `str` | The QR code as a `data:image/png;base64` URI for inline `<img>` display. |
 
+### build_info.py
+
+Which build is running ([build_info.py](../../application/utils/build_info.py)). `build_info()` (cached) returns a `BuildInfo` with `version`, `commit`, `commit_date`, `commit_short` and `source_url`, from the `GIT_SHA`, `GIT_COMMIT_DATE` and `APP_VERSION` build args. The version is `APP_VERSION` (leading `v` dropped), else the commit's UTC date as `YYYY.MM.DD`, else `dev`. Read by `/about`, `GET /api/version`, the MCP `server_version` tool and the MCP handshake.
+
 ### sentry.py
 
 Sentry error-monitoring initialization ([sentry.py](../../application/utils/sentry.py)). Wires the Sentry Python SDK into the process; a no-op unless `SENTRY_DSN` is set, so local dev and tests are unaffected. Once initialized it auto-instruments FastAPI/Starlette and stdlib `logging`, capturing unhandled exceptions and `logger.error`/`logger.exception` records across the request path, NiceGUI pages, and the Discord bot.
