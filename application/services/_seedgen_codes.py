@@ -10,6 +10,8 @@ because each retry mints a new, publicly-numbered seed upstream.
 """
 
 import asyncio
+import base64
+import binascii
 import logging
 import random
 import re
@@ -120,6 +122,57 @@ def avianart_code(result) -> Optional[list[str]]:
     return names
 
 
+# seed_display.asm's WordTable, in order: the options screen shows four of these.
+VARIA_CODE_NAMES = (
+    'GEEMER', 'RIPPER', 'ATOMIC', 'POWAMP', 'SCISER', 'NAMIHE', 'PUROMI', 'ALCOON',
+    'BEETOM', 'OWTCH', 'ZEBBO', 'ZEELA', 'HOLTZ', 'VIOLA', 'WAVER', 'RINKA',
+    'BOYON', 'CHOOT', 'KAGO', 'SKREE', 'COVERN', 'EVIR', 'TATORI', 'OUM',
+    'PUYO', 'YARD', 'ZOA', 'FUNE', 'GAMET', 'GERUTA', 'SOVA', 'BULL',
+)
+# SNES $DFFF00, the four seed bytes the options screen reads, as a ROM offset.
+_VARIA_CODE_OFFSET = 0x2FFF00
+
+
+def _ips_bytes(patch: bytes, start: int, length: int) -> dict[int, int]:
+    """The bytes an IPS patch writes in ``[start, start + length)``, by offset from ``start``."""
+    found: dict[int, int] = {}
+    if patch[:5] != b'PATCH':
+        return found
+    i = 5
+    while i + 3 <= len(patch) and patch[i:i + 3] != b'EOF':
+        if i + 5 > len(patch):
+            break
+        offset = int.from_bytes(patch[i:i + 3], 'big')
+        size = int.from_bytes(patch[i + 3:i + 5], 'big')
+        i += 5
+        if size == 0:
+            run, value = int.from_bytes(patch[i:i + 2], 'big'), patch[i + 2:i + 3]
+            data, i = value * run, i + 3
+        else:
+            data, i = patch[i:i + size], i + size
+        lo, hi = max(offset, start), min(offset + len(data), start + length)
+        for at in range(lo, hi):
+            found[at - start] = data[at - offset]
+    return found
+
+
+def varia_code(ips_b64) -> Optional[list[str]]:
+    """VARIA's four options-screen enemy names, read from the base64 IPS it returned.
+
+    The ROM picks each name with the low five bits of one byte at $DFFF00-03.
+    """
+    if not isinstance(ips_b64, str):
+        return None
+    try:
+        patch = base64.b64decode(ips_b64, validate=True)
+    except (binascii.Error, ValueError):
+        return None
+    seed_bytes = _ips_bytes(patch, _VARIA_CODE_OFFSET, 4)
+    if len(seed_bytes) != 4:
+        return None
+    return [VARIA_CODE_NAMES[seed_bytes[n] & 0x1F] for n in range(4)]
+
+
 def dash_code_from_page(html: str) -> Optional[list[str]]:
     """DASH has no seed API; its seed page embeds the signature in its data."""
     found = _DASH_SIGNATURE.search(html or '')
@@ -177,6 +230,6 @@ def mock_code(randomizer: str) -> Optional[list[str]]:
     """A believable code for ``MOCK_SEEDGEN``, so dev shows the line."""
     if randomizer in ('alttpr', 'ootr', 'avianart'):
         return random.choices(ALTTPR_CODE_NAMES, k=5)
-    if randomizer in ('smmap', 'smdash', 'sm', 'smz3'):
+    if randomizer in ('smmap', 'smdash', 'sm', 'smz3', 'smvaria'):
         return random.choices(_MOCK_ENEMIES, k=4)
     return None
