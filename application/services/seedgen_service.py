@@ -78,27 +78,6 @@ async def _read_bundled_preset(path: str) -> str:
     return await asyncio.to_thread(Path(path).read_text, encoding='utf-8')
 
 
-_FF1R_HOST = 'finalfantasyrandomizer.com'
-
-
-def _ff1r_reference_url(settings: Optional[dict]) -> str:
-    """The FFR flags link a preset holds, checked, or ``ValueError`` naming what's wrong."""
-    url = settings.get('url') if isinstance(settings, dict) else None
-    if not isinstance(url, str) or not url.strip():
-        raise ValueError('A Final Fantasy preset needs a "url": the flags link copied from finalfantasyrandomizer.com.')
-    unknown = set(settings) - {'url'}
-    if unknown:
-        raise ValueError(f"A Final Fantasy preset holds only a flags link, not {', '.join(sorted(unknown))}.")
-    url = url.strip()
-    parsed = urllib.parse.urlparse(url)
-    host = (parsed.hostname or '').lower()
-    if parsed.scheme != 'https' or not (host == _FF1R_HOST or host.endswith('.' + _FF1R_HOST)):
-        raise ValueError('That isn\'t a finalfantasyrandomizer.com link. Copy the link from the site\'s address bar.')
-    if not urllib.parse.parse_qs(parsed.query).get('f', [''])[0]:
-        raise ValueError('That link has no flags in it (the "f=" part). Copy it again after setting the flags.')
-    return url
-
-
 # The bare domain 308s to www, and the generate call is read without following
 # redirects, so it has to start on the host that answers it.
 _DASH_BASE_URL = 'https://www.dashrando.net'
@@ -221,7 +200,7 @@ class SeedGenerationService(DK64RBackend):
         checked here as well, as are AVIANART and VARIA preset names and samus.link settings.
         """
         if randomizer == 'ff1r':
-            return {'url': _ff1r_reference_url(settings)}
+            return {'url': local_rolls.ff1r_reference_url(settings)}
         if randomizer == 'aosr':
             return {'url': local_rolls.aosr_reference_url(settings)}
         if randomizer in local_rolls.FLAG_GAMES:
@@ -274,8 +253,8 @@ class SeedGenerationService(DK64RBackend):
     @staticmethod
     def describe_ff1r_link(url: str) -> str:
         """The site version an FFR flags link pins, for the Presets tab, or ``ValueError``."""
-        host = urllib.parse.urlparse(_ff1r_reference_url({'url': url})).hostname or ''
-        prefix = host.lower()[:-len(_FF1R_HOST)].rstrip('.')
+        host = urllib.parse.urlparse(local_rolls.ff1r_reference_url({'url': url})).hostname or ''
+        prefix = host.lower()[:-len(local_rolls.FF1R_HOST)].rstrip('.')
         return prefix.replace('-', '.') if prefix and prefix != 'www' else 'latest'
 
     @staticmethod
@@ -489,7 +468,7 @@ class SeedGenerationService(DK64RBackend):
         try:
             if preset is None:
                 raise ValueError('Final Fantasy needs a preset with a flags link. Add one on the Presets tab.')
-            reference = _ff1r_reference_url(preset.settings)
+            reference = local_rolls.ff1r_reference_url(preset.settings)
         except ValueError as e:
             raise SeedProviderInvalidRequest(str(e), provider='ff1r', operation='generate_seed') from None
         seed = ('%008x' % random.randrange(16 ** 8)).upper()
