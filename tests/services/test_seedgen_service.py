@@ -60,7 +60,7 @@ class TestAvailableRandomizers:
     def test_exact_membership(self):
         assert set(SeedGenerationService.AVAILABLE_RANDOMIZERS) == {
             'alttpr', 'avianart', 'ff1r', 'z1r', 'z2r', 'smb3r', 'aosr', 'sm', 'smz3',
-            'smmap', 'ootr', 'smdash', 'dk64r', 'wwr', 'test',
+            'smmap', 'ootr', 'smdash', 'smvaria', 'dk64r', 'wwr', 'test',
         }
 
     def test_wwr_is_no_longer_a_stub(self):

@@ -1,6 +1,9 @@
 """The randomizers a player runs on their own machine: Zelda 1, Zelda 2, SMB3R
 and Aria of Sorrow. A roll is a fresh seed beside the preset's flags (or inside
 its link); nothing goes upstream, so ``MOCK_SEEDGEN`` leaves these alone.
+
+Final Fantasy's flags-link check lives here too: that game is also built in the
+player's browser, though its roll is mocked like the hosted ones.
 """
 
 import random
@@ -11,6 +14,27 @@ from typing import Optional
 from application.services._seedgen_types import RolledSeed
 from application.utils.seed_provider import SeedProviderInvalidRequest
 from models import Preset
+
+FF1R_HOST = 'finalfantasyrandomizer.com'
+
+
+def ff1r_reference_url(settings: Optional[dict]) -> str:
+    """The FFR flags link a preset holds, checked, or ``ValueError`` naming what's wrong."""
+    url = settings.get('url') if isinstance(settings, dict) else None
+    if not isinstance(url, str) or not url.strip():
+        raise ValueError('A Final Fantasy preset needs a "url": the flags link copied from finalfantasyrandomizer.com.')
+    unknown = set(settings or {}) - {'url'}
+    if unknown:
+        raise ValueError(f"A Final Fantasy preset holds only a flags link, not {', '.join(sorted(unknown))}.")
+    url = url.strip()
+    parsed = urllib.parse.urlparse(url)
+    host = (parsed.hostname or '').lower()
+    if parsed.scheme != 'https' or not (host == FF1R_HOST or host.endswith('.' + FF1R_HOST)):
+        raise ValueError('That isn\'t a finalfantasyrandomizer.com link. Copy the link from the site\'s address bar.')
+    if not urllib.parse.parse_qs(parsed.query).get('f', [''])[0]:
+        raise ValueError('That link has no flags in it (the "f=" part). Copy it again after setting the flags.')
+    return url
+
 
 # Randomizers a player runs on their own machine from a seed and a flag string.
 FLAG_GAMES = {'z1r': 'Zelda 1', 'z2r': 'Zelda 2', 'smb3r': 'Super Mario Bros. 3'}
