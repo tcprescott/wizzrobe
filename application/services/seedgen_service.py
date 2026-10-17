@@ -3,7 +3,7 @@ Seed Generation Service - Business Logic Layer
 
 Handles random seed generation for various randomizers.
 Supports: ALTTPR, AVIANART, FF1R, Z1R, Z2R, SMB3R, AoSR, SM, SMZ3, SMMAP, OOTR,
-DK64R, DASH, WWR, and Test.
+DK64R, DASH, VARIA, WWR, and Test.
 """
 
 import asyncio
@@ -45,6 +45,7 @@ from application.services._seedgen_types import (
     RolledSeed,
     WWPermalinkInfo,
 )
+from application.services._seedgen_varia import VARIA_GENERATION_TIMEOUT, generate_varia, varia_settings
 from application.utils.mocks.mock_seedgen import is_mock_seedgen
 from application.utils.seed_provider import (
     PROVIDER_MAX_ATTEMPTS,
@@ -120,6 +121,7 @@ class SeedGenerationService(DK64RBackend):
         'smmap',
         'ootr',
         'smdash',
+        'smvaria',
         'dk64r',
         'wwr',
         'test',
@@ -139,6 +141,7 @@ class SeedGenerationService(DK64RBackend):
         'smmap': 'Super Metroid Map Rando',
         'ootr': 'Ocarina of Time',
         'smdash': 'Super Metroid DASH',
+        'smvaria': 'Super Metroid VARIA',
         'dk64r': 'Donkey Kong 64',
         'wwr': 'Wind Waker',
         'test': 'Test randomizer',
@@ -151,7 +154,8 @@ class SeedGenerationService(DK64RBackend):
     # Randomizers whose generator resolves a ``Preset`` (its settings feed the
     # roll). Anything else ignores the preset and rolls hard-coded settings.
     PRESET_AWARE_RANDOMIZERS: ClassVar[Set[str]] = {
-        'alttpr', 'aosr', 'avianart', 'dk64r', 'ff1r', 'sm', 'smb3r', 'smdash', 'smz3', 'wwr', 'z1r', 'z2r',
+        'alttpr', 'aosr', 'avianart', 'dk64r', 'ff1r', 'sm', 'smb3r', 'smdash', 'smvaria', 'smz3', 'wwr',
+        'z1r', 'z2r',
     }
 
     # Rolls that ``MOCK_SEEDGEN`` leaves alone. DK64R mocks one layer down (see
@@ -192,6 +196,7 @@ class SeedGenerationService(DK64RBackend):
     PROVIDER_TIMEOUTS: ClassVar[dict] = {
         'avianart': AVIANART_MAX_POLLS * AVIANART_POLL_INTERVAL + 30.0,
         'dk64r': DK64R_GENERATION_TIMEOUT + 60.0,
+        'smvaria': VARIA_GENERATION_TIMEOUT + 10.0,
     }
     PROVIDER_ATTEMPTS: ClassVar[dict] = {
         # AVIANART builds a game per generate call; its polls run inside the attempt.
@@ -200,6 +205,8 @@ class SeedGenerationService(DK64RBackend):
         # DASH saves the seed upstream before answering, so a retry after a
         # timeout mints a second seed and orphans the first.
         'smdash': 1,
+        # VARIA stores every seed it builds, so a retry orphans one.
+        'smvaria': 1,
     }
 
     @staticmethod
@@ -211,7 +218,7 @@ class SeedGenerationService(DK64RBackend):
         and one that isn't a permalink, or doesn't fit its vendored build, is
         refused with a ``ValueError`` rather than at the desk minutes before a race.
         FFR, AoSR and the flag-string games are built locally too, so theirs are
-        checked here as well, as are AVIANART preset names and samus.link settings.
+        checked here as well, as are AVIANART and VARIA preset names and samus.link settings.
         """
         if randomizer == 'ff1r':
             return {'url': _ff1r_reference_url(settings)}
@@ -223,6 +230,8 @@ class SeedGenerationService(DK64RBackend):
             return {'preset': avianart_preset_name(settings)}
         if randomizer in ('sm', 'smz3'):
             return samus_settings(randomizer, settings)
+        if randomizer == 'smvaria':
+            return varia_settings(settings)
         if randomizer != 'wwr':
             return settings
         permalink = settings.get('permalink')
@@ -390,6 +399,7 @@ class SeedGenerationService(DK64RBackend):
             'smmap': self._generate_smmap,
             'ootr': self._generate_ootr,
             'smdash': self._generate_smdash,
+            'smvaria': self._generate_smvaria,
             'dk64r': self._generate_dk64r,
             'wwr': self._generate_wwr,
             'test': self._generate_test,
@@ -513,6 +523,10 @@ class SeedGenerationService(DK64RBackend):
     async def _generate_sm(self, preset: Optional[Preset] = None) -> RolledSeed:
         """Generate a Super Metroid Randomizer seed on sm.samus.link."""
         return await generate_samus('sm', preset.settings if preset is not None else None)
+
+    async def _generate_smvaria(self, preset: Optional[Preset] = None) -> RolledSeed:
+        """Generate a Super Metroid VARIA Randomizer race seed."""
+        return await generate_varia(preset.settings if preset is not None else None)
 
     async def _generate_smz3(self, preset: Optional[Preset] = None) -> RolledSeed:
         """Generate an SMZ3 Combo Randomizer seed on samus.link."""
