@@ -16,6 +16,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Callable, Optional
 
 from application.utils.timezone import to_local, today_local
+from theme.busy import slot_busy_template
 from theme.tables.match_slots import seed_value_template
 
 #: The board's columns. Kept short on purpose: anything wider than "which match,
@@ -394,10 +395,11 @@ _NEXT_CHIP = """<span v-if="!['Scheduled', 'Checked in', 'Late'].includes(props.
 # several seconds and a second press would only be refused. A queued roll then
 # holds the button on its clock until the seed lands.
 _NEXT_BUTTON = """<q-btn v-if="props.row._next && props.row._next.event" no-caps no-wrap unelevated color="primary" :outline="!props.row._next.primary"
-                   class="run-sheet__step" :label="props.row._next.label" :loading="!!props.row._busy"
-                   :icon="props.row._next.event === 'roll' ? 'casino' : (props.row._next.event === 'start' ? 'play_arrow' : undefined)"
+                   class="run-sheet__step" :class="{'wiz-busy-btn': !!props.row._busy}" :disable="!!props.row._busy"
+                   :label="props.row._busy ? 'Rolling…' : props.row._next.label"
+                   :icon="props.row._busy ? undefined : (props.row._next.event === 'roll' ? 'casino' : (props.row._next.event === 'start' ? 'play_arrow' : undefined))"
                    :aria-label="props.row._next.label + ': ' + (props.row._who || props.row.title)"
-                   @click.stop="props.row._next.event === 'roll' && (props.row._busy = true); $parent.$emit(props.row._next.event, { key: props.row.id })" />
+                   @click.stop="props.row._next.event === 'roll' && (props.row._busy = true); $parent.$emit(props.row._next.event, { key: props.row.id })">""" + slot_busy_template('props.row._busy') + """</q-btn>
 <q-btn v-else-if="props.row._next && props.row._next.rolling" no-caps no-wrap unelevated disable class="run-sheet__step"
        :aria-label="(props.row.seed_rolling_label || 'Rolling…') + ': ' + (props.row._who || props.row.title)">
     <q-spinner size="16px" class="q-mr-sm" aria-hidden="true" />{{ props.row.seed_rolling_label || 'Rolling…' }}

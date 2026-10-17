@@ -67,6 +67,16 @@ class SystemConfigService:
         return config.value if config else None
 
     @staticmethod
+    async def list_entries(actor: Optional[User]) -> List[Tuple[str, str]]:
+        """Every configuration entry in this community as ``(name, value)``, for staff."""
+        await AuthService.ensure(
+            await AuthService.is_staff(actor),
+            "Only Staff can read system configuration",
+        )
+        entries = await SystemConfiguration.filter(tenant_id=require_tenant_id()).order_by('name')
+        return [(e.name, e.value) for e in entries]
+
+    @staticmethod
     async def set_raw(key: str, value: str, actor: User) -> SystemConfiguration:
         await AuthService.ensure(
             await AuthService.is_staff(actor),

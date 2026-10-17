@@ -73,3 +73,50 @@ class LogLevelOverride(Model):
 
     class Meta:
         table = 'logleveloverride'
+
+
+class BrowserMonitoringSettings(Model):
+    """How the browser-side Sentry SDK behaves, set on ``/platform`` → Monitoring.
+
+    **Global** and a singleton (``id=1``): the browser reports to the same Sentry
+    project as the server, so these are properties of the deployment. No row
+    means the defaults: on, replay on error, every error sent.
+    """
+
+    id = fields.IntField(pk=True)
+    enabled = fields.BooleanField(default=True)
+    replay_on_error = fields.BooleanField(default=True)
+    # Share of browser errors sent, 0.0–1.0, for throttling a flood.
+    sample_rate = fields.FloatField(default=1.0)
+    # SET_NULL: the setting outlives whoever changed it; the audit row keeps who.
+    updated_by: fields.ForeignKeyNullableRelation = fields.ForeignKeyField(
+        'models.User', related_name='browser_monitoring_updates',
+        null=True, on_delete=fields.SET_NULL,
+    )
+    updated_at = fields.DatetimeField(auto_now=True)
+
+    class Meta:
+        table = 'browsermonitoringsettings'
+
+
+class BrowserErrorIgnoreRule(Model):
+    """A super-admin's rule for a browser error that should never reach Sentry.
+
+    **Global**. ``pattern`` is a case-insensitive substring of the error's
+    message (``match='message'``) or of a script URL in its stack
+    (``match='url'``). The browser drops a matching error before sending it, so
+    a rule added mid-event silences that error in every open tab at once.
+    """
+
+    id = fields.IntField(pk=True)
+    pattern = fields.CharField(max_length=200)
+    match = fields.CharField(max_length=16, default='message')
+    created_by: fields.ForeignKeyNullableRelation = fields.ForeignKeyField(
+        'models.User', related_name='browser_error_ignore_rules',
+        null=True, on_delete=fields.SET_NULL,
+    )
+    created_at = fields.DatetimeField(auto_now_add=True)
+
+    class Meta:
+        table = 'browsererrorignorerule'
+        unique_together = (('pattern', 'match'),)

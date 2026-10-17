@@ -82,6 +82,18 @@ class WhoAmI(BaseModel):
     )
 
 
+class ServerVersion(BaseModel):
+    """Which build of Wizzrobe is answering."""
+
+    version: str = Field(
+        description="Release tag when built from one, else the commit's UTC date as YYYY.MM.DD; `dev` for a local checkout."
+    )
+    commit: Optional[str] = Field(None, description="Full git commit hash the build came from; null for a local checkout.")
+    commit_short: Optional[str] = Field(None, description="First seven characters of `commit`.")
+    commit_date: Optional[datetime] = Field(None, description="When that commit was made (UTC).")
+    source_url: str = Field(description="The source code at that commit.")
+
+
 class TournamentSummary(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 

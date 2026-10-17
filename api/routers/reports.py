@@ -48,7 +48,7 @@ from api.schemas.reports import (
     VolunteerHourTrendsResponse,
 )
 from application.services import AnalyticsService, ReportsService
-from models import FeatureFlag
+from models import FeatureFlag, User
 
 router = APIRouter(
     prefix="/reports",
@@ -94,11 +94,12 @@ async def capacity_forecast(
     start: datetime = StartQuery,
     end: datetime = EndQuery,
     tournament_id: Optional[int] = Query(None, description="Limit to one tournament."),
+    actor: User = Depends(require_api_actor),
 ):
     start, end = _window(start, end)
     service = ReportsService()
     raw = await service.generate_capacity_forecast(
-        start=start, end=end, tournament_id=tournament_id,
+        start=start, end=end, tournament_id=tournament_id, actor=actor,
     )
     counts = raw['player_counts']
     capacity = raw['max_capacity']
@@ -136,11 +137,12 @@ async def stage_utilization(
     end: datetime = EndQuery,
     tournament_id: Optional[int] = Query(None, description="Limit to one tournament."),
     stage_id: Optional[int] = Query(None, description="Limit to one stage."),
+    actor: User = Depends(require_api_actor),
 ):
     start, end = _window(start, end)
     raw = await ReportsService().stage_utilization(
         start=start, end=end,
-        tournament_id=tournament_id, stage_id=stage_id,
+        tournament_id=tournament_id, stage_id=stage_id, actor=actor,
     )
     return StageUtilizationResponse(
         stages=[
@@ -174,10 +176,11 @@ async def match_operations(
     start: datetime = StartQuery,
     end: datetime = EndQuery,
     tournament_id: Optional[int] = Query(None, description="Limit to one tournament."),
+    actor: User = Depends(require_api_actor),
 ):
     start, end = _window(start, end)
     return await ReportsService().match_operations(
-        start=start, end=end, tournament_id=tournament_id,
+        start=start, end=end, tournament_id=tournament_id, actor=actor,
     )
 
 
@@ -202,11 +205,12 @@ async def crew_coverage(
     approved_only: bool = Query(
         False, description="Count only approved signups toward the hours total."
     ),
+    actor: User = Depends(require_api_actor),
 ):
     start, end = _window(start, end)
     return await ReportsService().crew_coverage(
         start=start, end=end, tournament_id=tournament_id,
-        user_id=user_id, approved_only=approved_only,
+        user_id=user_id, approved_only=approved_only, actor=actor,
     )
 
 
@@ -225,9 +229,10 @@ async def matches_active_at(
     instant: datetime = Query(..., description="The moment to look at (UTC ISO 8601)."),
     tournament_id: Optional[int] = Query(None, description="Limit to one tournament."),
     limit: int = Query(50, ge=1, le=200, description="Maximum matches to return."),
+    actor: User = Depends(require_api_actor),
 ):
     matches = await ReportsService().matches_active_at(
-        instant=instant, tournament_id=tournament_id,
+        instant=instant, tournament_id=tournament_id, actor=actor,
     )
     return [
         ActiveMatchRow(
@@ -257,10 +262,11 @@ async def tournament_health(
     start: datetime = StartQuery,
     end: datetime = EndQuery,
     tournament_id: Optional[int] = Query(None, description="Limit to one tournament."),
+    actor: User = Depends(require_api_actor),
 ):
     start, end = _window(start, end)
     report = await AnalyticsService().tournament_health(
-        start=start, end=end, tournament_id=tournament_id,
+        start=start, end=end, tournament_id=tournament_id, actor=actor,
     )
     return report['rows']
 
@@ -282,10 +288,11 @@ async def crew_participation_trends(
     end: datetime = EndQuery,
     bucket: Bucket = BucketQuery,
     tournament_id: Optional[int] = Query(None, description="Limit to one tournament."),
+    actor: User = Depends(require_api_actor),
 ):
     start, end = _window(start, end)
     return await AnalyticsService().crew_participation_trends(
-        start=start, end=end, bucket=bucket, tournament_id=tournament_id,
+        start=start, end=end, bucket=bucket, tournament_id=tournament_id, actor=actor,
     )
 
 
@@ -305,9 +312,10 @@ async def activity_trends(
     start: datetime = StartQuery,
     end: datetime = EndQuery,
     bucket: Bucket = BucketQuery,
+    actor: User = Depends(require_api_actor),
 ):
     start, end = _window(start, end)
-    return await AnalyticsService().activity_trends(start=start, end=end, bucket=bucket)
+    return await AnalyticsService().activity_trends(start=start, end=end, bucket=bucket, actor=actor)
 
 
 @router.get(
@@ -326,8 +334,9 @@ async def volunteer_hour_trends(
     start: datetime = StartQuery,
     end: datetime = EndQuery,
     bucket: Bucket = BucketQuery,
+    actor: User = Depends(require_api_actor),
 ):
     start, end = _window(start, end)
     return await AnalyticsService().volunteer_hour_trends(
-        start=start, end=end, bucket=bucket,
+        start=start, end=end, bucket=bucket, actor=actor,
     )

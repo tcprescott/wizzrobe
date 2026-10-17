@@ -25,6 +25,7 @@ from middleware.public_cache import PublicCacheMiddleware
 from middleware.tenant import TenantMiddleware, TransportPrefixMiddleware
 from middleware.watch_mode import WatchModeMiddleware
 from pages import (
+    about,
     admin,
     auth,
     brackets,
@@ -61,6 +62,7 @@ from pages import help as help_pages
 from pages._oauth_link import register_link_handoff_pages
 from theme.a11y import install_tooltip_labels
 from theme.assets import cache_control
+from theme.browser_monitoring import flush_replay
 from theme.layout_probe import install_layout_probe
 from theme.notify import install_toast_position
 
@@ -96,6 +98,10 @@ def _handle_unhandled_ui_exception(exc: Exception) -> None:
     _ui_logger.exception('Unhandled exception in a UI event handler', exc_info=exc)
     try:
         ui.notify('Something went wrong. Please try again.', color='negative')
+    except Exception:
+        pass
+    try:
+        flush_replay()
     except Exception:
         pass
 
@@ -314,6 +320,7 @@ def init(fastapi_app: FastAPI) -> None:
     community_events.create()
     cat_facts.create()
     changelog.create()
+    about.create()
     ui.run_with(
         fastapi_app,
         # mount_path='/gui',  # NOTE this can be omitted if you want the paths passed to @ui.page to be at the root

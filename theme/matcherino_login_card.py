@@ -22,6 +22,7 @@ from nicegui import background_tasks, context, ui
 
 from application.services import MatcherinoLoginService
 from application.utils.timezone import format_local_display
+from theme.busy import busy_click
 from theme.connection import REQUIRES_SOCKET_CLASS
 from theme.dialog import ConfirmationDialog
 from theme.notify import notify_error
@@ -161,7 +162,7 @@ async def matcherino_login_card() -> None:
                     ).props('flat color=negative dense').classes(REQUIRES_SOCKET_CLASS)
                 ui.button(
                     'Save', icon='save',
-                    on_click=lambda: background_tasks.create(save(token_input, context.client)),
+                    on_click=busy_click('Checking…', lambda: save(token_input, context.client)),
                 ).props('color=primary dense').classes(REQUIRES_SOCKET_CLASS)
             if status.configured:
                 options = {0: 'Nobody', **{u.id: u.preferred_name for u in candidates}}

@@ -19,6 +19,7 @@ from typing import Callable, Optional
 from nicegui import app, context, ui
 
 from theme.assets import asset_url
+from theme.browser_monitoring import install_browser_monitoring
 
 # Above-the-fold weights; the rest of the family loads on demand from styles.css.
 _PRELOAD_FONTS = (
@@ -194,8 +195,10 @@ def render_platform_chrome(
     # headers could not be dragged wider.
     ui.add_head_html(f'<script src="{asset_url("js/table-columns.js")}"></script>')
     ui.add_head_html(f'<script defer src="{asset_url("js/a11y.js")}"></script>')
+    ui.add_head_html(f'<script defer src="{asset_url("js/busy.js")}"></script>')
     ui.add_head_html(f'<script defer src="{asset_url("js/dialog-keyboard.js")}"></script>')
     install_timezone_detection()
+    install_browser_monitoring()
     # The shipped phoenix defaults, not a tenant override: these surfaces belong
     # to the platform, and the consent screen in particular grants a credential
     # that is not scoped to any one community.

@@ -1,6 +1,7 @@
 """The write surface: match management and your own participation.
 
-Scoped to exactly what ``api/routers/match_actions.py`` exposes, tool for tool.
+Scoped to exactly what ``api/routers/match_actions.py`` (and crew approval from
+``api/routers/crew.py``) exposes, tool for tool.
 That is the whole rule, and it is worth stating because the alternative — adding
 whichever writes seemed useful — leaves two surfaces that drift apart and a
 question with no answer when the next one is proposed. A write that belongs here
@@ -352,6 +353,28 @@ async def generate_match_seed(
     return SeedResultResponse(message=message, seed_url=seed_url)
 
 
+async def set_crew_approval(
+    crew_id: int,
+    role: CrewRole,
+    approved: bool,
+    tenant: TenantArg = None,
+) -> OperationResult:
+    """Approve or reject someone's `commentator` or `tracker` signup.
+
+    `crew_id` is the signup's `id` from `list_match_crew`. Approving DMs them
+    asking them to confirm; rejecting an approved signup clears their
+    confirmation and DMs them that they're off the crew. Sending the state the
+    signup is already in changes nothing. Staff, admins of the match's
+    tournament and its crew coordinators.
+    """
+    actor = current_actor().user
+    service = CrewService()
+    crew_member = require_found(await service.get_crew_member_by_id(crew_id, role), 'Crew signup')
+    await service.update_crew_approval(crew_member, role, approved, actor=actor)  # type: ignore[arg-type]
+    verdict = 'Approved' if approved else 'Rejected'
+    return OperationResult(detail=f'{verdict} {role} signup {crew_id}.')
+
+
 # --- Your own participation -------------------------------------------------
 
 
@@ -475,6 +498,7 @@ def register_tools(mcp: MCPServer) -> None:
     write_tool(record_match_result, 'Record result')
     write_tool(set_match_review, 'Flag or clear review')
     write_tool(generate_match_seed, 'Generate seed')
+    write_tool(set_crew_approval, 'Approve or reject crew')
     write_tool(signup_as_crew, 'Sign up as crew')
     write_tool(withdraw_crew_signup, 'Withdraw crew signup', destructive=True)
     write_tool(acknowledge_match, 'Acknowledge match')

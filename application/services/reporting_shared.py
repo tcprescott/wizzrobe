@@ -12,7 +12,7 @@ from datetime import datetime
 from typing import Optional
 
 from application.utils.timezone import to_local
-from models import Tournament
+from models import Tournament, User
 
 # Fallback match length (minutes) when a match has no finish time and its
 # tournament defines no average duration.
@@ -60,3 +60,26 @@ def is_crew_covered(
     """
     need_commentators, need_trackers = crew_requirement(tournament)
     return commentators_approved >= need_commentators and trackers_approved >= need_trackers
+
+
+async def ensure_report_reader(actor: Optional[User]) -> None:
+    """The Reports tab's audience: staff, a tournament admin or a crew coordinator.
+
+    Checked here as well as at each entry surface, so a new page, tool or
+    handler that reaches a report inherits the gate. The system actor (workers)
+    passes.
+    """
+    from application.services.auth_service import AuthService
+
+    if AuthService.is_system(actor) or await AuthService.can_view_admin(actor):
+        return
+    raise PermissionError('Only staff, tournament admins and crew coordinators can read reports.')
+
+
+async def ensure_volunteer_report_reader(actor: Optional[User]) -> None:
+    """The volunteer reports also admit a volunteer coordinator."""
+    from application.services.auth_service import AuthService
+
+    if AuthService.is_system(actor) or await AuthService.can_view_volunteer_admin(actor):
+        return
+    raise PermissionError('Only staff and volunteer coordinators can read volunteer reports.')

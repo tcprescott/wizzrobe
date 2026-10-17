@@ -354,6 +354,27 @@ class TestAsyncQualifiers:
         assert [p['name'] for p in payload['pools']] == ['Pool A']
         assert payload['pools'][0]['permalink_count'] == 0
 
+    async def test_a_member_reads_open_qualifiers_without_their_pools(self, db):
+        """The Qualifiers page lists open qualifiers to every member; the
+        connector must too, keeping pools and closed ones behind the admin gate."""
+        _, raw = await create_oauth_token(username='mcp-player', roles=[Role.VOLUNTEER])
+        open_q = await AsyncQualifier.create(
+            name='Season 5 Quals', is_active=True,
+            opens_at=datetime(2026, 10, 1, tzinfo=timezone.utc),
+        )
+        await AsyncQualifier.create(name='Draft Quals', is_active=False)
+        await AsyncQualifierPool.create(qualifier=open_q, name='Pool A')
+        async with mcp_session() as client:
+            is_error, listed = await call_tool(client, raw, 'list_async_qualifiers', tenant=TENANT)
+            assert not is_error, listed
+            assert [q['name'] for q in listed['result']] == ['Season 5 Quals']
+            is_error, payload = await call_tool(
+                client, raw, 'get_async_qualifier', tenant=TENANT, qualifier_id=open_q.id,
+            )
+        assert not is_error, payload
+        assert payload['name'] == 'Season 5 Quals'
+        assert payload['pools'] == []
+
     async def test_leaderboard_is_readable_by_a_qualifier_admin(self, db):
         """An empty board is still the right answer; a refusal would not be."""
         _, raw = await _staff()

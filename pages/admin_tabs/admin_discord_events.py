@@ -13,6 +13,7 @@ from application.services import (
     DiscordEventSyncService,
     get_user_from_session,
 )
+from theme.busy import busy_click
 from theme.dialog._helpers import dialog_actions, form_dialog
 from theme.notify import notify_error
 from theme.page_header import page_header
@@ -176,7 +177,7 @@ async def admin_discord_events_page() -> None:
             with ui.row().classes('full-width'):
                 ui.button(
                     'Sync now', icon='sync',
-                    on_click=lambda: background_tasks.create(sync_now(context.client)),
+                    on_click=busy_click('Syncing…', lambda: sync_now(context.client)),
                 ).props('color=primary')
                 ui.space()
                 refresh_button(refresh_tables, tooltip='Refresh')

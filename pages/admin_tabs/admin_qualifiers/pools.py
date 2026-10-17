@@ -33,6 +33,7 @@ from pages.admin_tabs.admin_qualifiers.shared import (
     POOLS_TAB,
     RUNS_TAB,
 )
+from theme.busy import busy_click, current_busy
 from theme.dialog._helpers import dialog_actions, form_dialog
 from theme.dialog.confirmation_dialog import ConfirmationDialog
 from theme.empty_state import empty_panel
@@ -260,7 +261,8 @@ def build_pools_tab(
             async def submit():
                 try:
                     created = await service.roll_permalinks(
-                        await current(), pool_id, count=int(count_in.value or 1))
+                        await current(), pool_id, count=int(count_in.value or 1),
+                        on_progress=lambda n, total: current_busy().progress('Rolling', n, total))
                 except (ValueError, PermissionError) as e:
                     notify_error(e)
                     return
@@ -270,7 +272,7 @@ def build_pools_tab(
 
             with dialog_actions().classes('justify-end'):
                 ui.button('Cancel', on_click=dialog.close).props('flat')
-                ui.button('Roll', icon='casino', on_click=submit).props('color=primary')
+                ui.button('Roll', icon='casino', on_click=busy_click('Rolling…', submit)).props('color=primary')
         dialog.open()
 
     def _delete_pool(pool) -> None:

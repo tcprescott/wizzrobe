@@ -37,6 +37,10 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v7
 
+      - name: Read commit date
+        id: commit
+        run: echo "date=$(git log -1 --format=%cI)" >> "$GITHUB_OUTPUT"
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v4
 
@@ -68,5 +72,7 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           build-args: |
             GIT_SHA=${{ github.sha }}
+            GIT_COMMIT_DATE=${{ steps.commit.outputs.date }}
+            APP_VERSION=${{ github.ref_type == 'tag' && github.ref_name || '' }}
           cache-from: type=gha
           cache-to: type=gha,mode=max

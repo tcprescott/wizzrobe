@@ -105,6 +105,7 @@ async def admin_triforce_texts_page() -> None:
                     rows = await service.list_for_moderation(
                         state['tournament_id'],
                         status=_to_status(state['status']),
+                        actor=actor,
                     )
                 with table_container:
                     if not rows:

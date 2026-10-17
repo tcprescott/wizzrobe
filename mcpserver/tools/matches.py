@@ -132,7 +132,7 @@ async def match_operations_report(
     Requires admin access.
     """
     return await ReportsService().match_operations(
-        start=start, end=end, tournament_id=tournament_id,
+        start=start, end=end, tournament_id=tournament_id, actor=current_actor().user,
     )
 
 

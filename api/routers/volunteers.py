@@ -319,11 +319,7 @@ async def hours(
     end: date | None = Query(None, description="Last event day to count (local date)"),
     actor: User = Depends(require_api_actor),
 ):
-    await AuthService.ensure(
-        await AuthService.can_manage_volunteers(actor),
-        "Only volunteer coordinators can read the volunteer hours roster.",
-    )
-    summaries = await VolunteerHoursService().roster(start=start, end=end)
+    summaries = await VolunteerHoursService().roster(actor=actor, start=start, end=end)
     return [_hours_resp(s) for s in summaries]
 
 

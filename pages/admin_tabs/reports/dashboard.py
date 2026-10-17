@@ -126,10 +126,10 @@ async def dashboard_page(
 
         with pin_client_context():
             forecast, ops, coverage, utilization, max_stages = await asyncio.gather(
-                reports_service.generate_capacity_forecast(bounds_start, bounds_end),
-                reports_service.match_operations(bounds_start, bounds_end),
-                reports_service.crew_coverage(bounds_start, bounds_end),
-                reports_service.stage_utilization(bounds_start, bounds_end),
+                reports_service.generate_capacity_forecast(bounds_start, bounds_end, actor=viewer),
+                reports_service.match_operations(bounds_start, bounds_end, actor=viewer),
+                reports_service.crew_coverage(bounds_start, bounds_end, actor=viewer),
+                reports_service.stage_utilization(bounds_start, bounds_end, actor=viewer),
                 SystemConfigService.get_max_concurrent_stages(),
             )
 

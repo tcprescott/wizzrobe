@@ -58,3 +58,14 @@ class TestStateSummary:
 
         assert tone in _TONE_CHIP
         assert set(STATUS_TONES.values()) <= set(_TONE_CHIP)
+
+
+class TestPlayerDialogTenantBinding:
+    """Sentry SGLMAN-16: the player's tournament/opponent re-run needs the tenant."""
+
+    def test_selection_reruns_carry_the_render_context(self):
+        from theme.dialog.match_dialog import UserMatchDialog
+
+        src = inspect.getsource(UserMatchDialog.open)
+        assert 'background_tasks.create(update_selection_options())' not in src
+        assert src.count('scoped_background(render_context, update_selection_options())') == 2

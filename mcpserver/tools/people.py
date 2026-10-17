@@ -133,7 +133,7 @@ async def crew_coverage_report(
     start_dt, end_dt = _window(start, end)
     return await ReportsService().crew_coverage(
         start=start_dt, end=end_dt,
-        tournament_id=tournament_id, approved_only=approved_only,
+        tournament_id=tournament_id, approved_only=approved_only, actor=current_actor().user,
     )
 
 
@@ -161,16 +161,16 @@ async def get_player_availability(
         raise ValueError(
             f'user_ids is limited to {MAX_AVAILABILITY_USERS} players per call'
         )
-    if wanted != [actor.user.id] and not await AuthService.is_staff(actor.user):
-        raise PermissionError("Staff access required to view other players' availability")
+    # Staff-or-self first, so a player naming strangers learns nothing about
+    # who belongs here; the membership check then keeps staff inside the wall.
+    windows_by_user = await PlayerAvailabilityService().availability_map_as(
+        wanted, start_dt, end_dt, actor=actor.user,
+    )
     await TenantMembershipService.require_community_users(
         [uid for uid in wanted if uid != actor.user.id], actor.user,
     )
 
     service = UserService()
-    windows_by_user = await PlayerAvailabilityService().availability_map(
-        wanted, start_dt, end_dt,
-    )
     out: List[PlayerAvailability] = []
     for user_id in wanted:
         user = await service.get_user_by_id(user_id)

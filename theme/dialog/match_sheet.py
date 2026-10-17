@@ -20,6 +20,7 @@ from nicegui import app, ui
 from application.content import parse_user_blocks
 from application.errors import NotFoundError
 from application.services import MatchCommentService, get_user_from_session
+from theme.busy import busy
 from theme.clipboard import copy_to_clipboard
 from theme.dialog._helpers import dialog_actions, dialog_header
 from theme.dialog.confirmation_dialog import ConfirmationDialog
@@ -225,6 +226,13 @@ class MatchSheet:
         """
         self.view._bg(handler(*args))
 
+    def _run_busy(self, e, text: str, handler, *args) -> None:
+        """``_run`` for a slow callback, with the pressed button busy meanwhile."""
+        async def go() -> None:
+            async with busy(e.sender, text):
+                await handler(*args)
+        self.view._bg(go())
+
     def _find(self, match_id) -> Optional[dict]:
         rows = self.view.table.rows if self.view else []
         return next((r for r in rows if r.get('id') == match_id), None)
@@ -381,7 +389,8 @@ class MatchSheet:
                 ui.button('Copy', on_click=lambda: copy_to_clipboard(seed, 'Seed')) \
                     .props('outline dense no-caps color=primary').classes('match-sheet__check-act')
             elif not row.get('seed_rolling_since') and self.access.can_run_row(row) and seed_rollable(row):
-                ui.button('Generate', on_click=lambda: self._run(self.handlers.on_generate_seed, row['id'])) \
+                ui.button('Generate', on_click=lambda e: self._run_busy(
+                    e, 'Rolling…', self.handlers.on_generate_seed, row['id'])) \
                     .props('outline dense no-caps color=primary').classes('match-sheet__check-act')
         if seed and row.get('seed_code'):
             ui.label(row['seed_code']).classes('seed-code')

@@ -182,7 +182,7 @@ async def admin_volunteer_roster_page() -> None:
             positions = await position_service.list_all()
             position_by_id = {p.id: p for p in positions}
 
-            hours_by_user = {s.user_id: s for s in await hours_service.roster()}
+            hours_by_user = {s.user_id: s for s in await hours_service.roster(actor=actor)}
 
             all_quals = await qualification_service.list_all_qualifications()
             qual_map: dict[int, list[str]] = {}

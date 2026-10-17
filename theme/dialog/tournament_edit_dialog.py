@@ -16,6 +16,7 @@ from application.services import (
 from application.services.tournament_service import DELETE_CONFIRMATION_PHRASE
 from application.tenant_context import require_tenant_id
 from models import FeatureFlag
+from theme.busy import busy_click
 from theme.dialog._helpers import (
     datetime_to_local_input,
     dialog_actions,
@@ -419,7 +420,7 @@ class TournamentDialog:
                                 with self.dialog:
                                     notify_error(e)
 
-                        ui.button('Link & Sync', icon='sync', on_click=link_and_sync).props('flat color=primary')
+                        ui.button('Link & Sync', icon='sync', on_click=busy_click('Syncing…', link_and_sync)).props('flat color=primary')
 
                     if self.tournament and startgg_live and not self.tournament.challonge_tournament_id:
                         await render_startgg_section(self.tournament, dialog)

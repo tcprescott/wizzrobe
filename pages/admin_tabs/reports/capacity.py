@@ -73,7 +73,7 @@ async def capacity_page(
 
         bounds_start, bounds_end = display_bounds(start_d, end_d)
         forecast = await reports_service.generate_capacity_forecast(
-            bounds_start, bounds_end, tournament_id=tournament_id,
+            bounds_start, bounds_end, tournament_id=tournament_id, actor=viewer,
         )
 
         intervals = forecast['intervals']
@@ -155,7 +155,7 @@ async def capacity_page(
                 f'Matches active at {format_local_display(focus_dt)}', icon='schedule',
             )
             with focus_panel.body:
-                focused_matches = await reports_service.matches_active_at(focus_dt, tournament_id=tournament_id)
+                focused_matches = await reports_service.matches_active_at(focus_dt, tournament_id=tournament_id, actor=viewer)
                 if not focused_matches:
                     ui.label('No active matches at this instant.').classes('italic-note')
                 else:

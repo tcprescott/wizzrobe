@@ -16,7 +16,7 @@ _Method-level reference for `application/services/` and `application/utils/`. Pa
 | `tournament_strategies/` | The strategy registry the engines register into |
 | `_bracket/` | Private mixins composed into `BracketService` (see [BracketService](#bracket_servicepy--bracketservice)) |
 
-A few private top-level modules hold the halves of a service that would push it past the length budget: `_tournament_signup.py` (`TournamentSignupMixin`), `_reschedule_notifications.py` (`RescheduleNotificationMixin`), and `_seedgen_dk64r.py` / `_seedgen_avianart.py` / `_seedgen_samus.py` / `_seedgen_types.py` (the DK64R, AVIANART and samus.link backends and the seed value objects).
+A few private top-level modules hold the halves of a service that would push it past the length budget: `_tournament_signup.py` (`TournamentSignupMixin`), `_reschedule_notifications.py` (`RescheduleNotificationMixin`), and `_seedgen_dk64r.py` / `_seedgen_avianart.py` / `_seedgen_samus.py` / `_seedgen_varia.py` / `_seedgen_types.py` (the DK64R, AVIANART, samus.link and VARIA backends and the seed value objects).
 
 Each public subpackage re-exports its names and `application/services/__init__.py` re-exports those in turn, so **`from application.services import MatchService` works regardless of which module a service lives in** — that is the import form callers should use. `bracket_engines`/`tournament_strategies` are the deliberate exception: they are imported by path. `application/utils/` follows the same shape: helpers sit at the top level, with `clients/` for the third-party HTTP clients (Challonge, Matcherino, racetime, SpeedGaming, Twitch, OAuth identity) and `mocks/` for the `MOCK_*` flags and their offline stand-ins.
 
@@ -1020,11 +1020,11 @@ Generates randomizer seeds from the presets in `presets/`. Deep dive (per-random
 
 | Member | Returns | Description |
 |---|---|---|
-| `AVAILABLE_RANDOMIZERS` (class attr) | `list[str]` | Supported generator keys: `alttpr`, `avianart`, `ff1r`, `z1r`, `z2r`, `smb3r`, `aosr`, `sm`, `smz3`, `smmap`, `ootr`, `smdash`, `dk64r`, `wwr`, `test`. Drives the tournament dialog dropdown and the `generate_seed` validity check. |
+| `AVAILABLE_RANDOMIZERS` (class attr) | `list[str]` | Supported generator keys: `alttpr`, `avianart`, `ff1r`, `z1r`, `z2r`, `smb3r`, `aosr`, `sm`, `smz3`, `smmap`, `ootr`, `smdash`, `smvaria`, `dk64r`, `wwr`, `test`. Drives the tournament dialog dropdown and the `generate_seed` validity check. |
 | `STUB_RANDOMIZERS` (class attr) | `set[str]` | Registered for selection but not wired to an upstream — rolling one raises `ValueError`. Empty today. |
 | `PRESET_AWARE_RANDOMIZERS` (class attr) | `set[str]` | Generators that resolve the `Preset`'s settings (every key but `ootr`, `smmap` and `test`, which ignore it). |
 | `MOCK_EXEMPT_RANDOMIZERS` (class attr) | `set[str]` | Randomizers `MOCK_SEEDGEN` leaves alone: `dk64r` (mocks its queue instead), `wwr`, `z1r`, `z2r`, `smb3r` and `aosr` (built locally, nothing upstream to fake). |
-| `normalize_preset_settings(randomizer, settings)` (static) | `dict` | The per-randomizer check `PresetService` runs before saving. Passes most settings through; for `wwr` decodes the permalink, refuses one that isn't (`ValueError`), and returns `{"permalink": <trimmed>}`; FFR/AoSR links, flag strings, AVIANART preset names and samus.link settings are checked the same way. |
+| `normalize_preset_settings(randomizer, settings)` (static) | `dict` | The per-randomizer check `PresetService` runs before saving. Passes most settings through; for `wwr` decodes the permalink, refuses one that isn't (`ValueError`), and returns `{"permalink": <trimmed>}`; FFR/AoSR links, flag strings, AVIANART and VARIA preset names and samus.link settings are checked the same way. |
 | `describe_wwr_permalink(permalink)` (static) | `WWPermalinkInfo` | Build, exact version and headline settings summary (`None` for a build with no vendored tables) of a Wind Waker permalink, for the Presets tab. `ValueError` for a non-permalink. |
 | `describe_ff1r_link(url)` (static) | `str` | The site version an FFR flags link pins (`4.9.7` from `4-9-7.finalfantasyrandomizer.com`, `latest` for the bare host), for the Presets tab. `ValueError` for a link `normalize_preset_settings` would refuse. |
 | `example_flag_seed(randomizer, flags)` (static) / `rolls_from_flags(randomizer)` | `str` / `bool` | A sample `"<seed> - <flags>"` for the Presets tab (`z1r`, `z2r`, `smb3r`), and whether a randomizer rolls that way. `ValueError` for flags `normalize_preset_settings` would refuse. |
@@ -1038,7 +1038,7 @@ Generates randomizer seeds from the presets in `presets/`. Deep dive (per-random
 | `REMOTE_PRESET_BRANCHES` (class attr) / `offers_remote_presets(randomizer)` / `remote_preset_branches(randomizer)` | `dict` / `bool` / `list[str]` | Randomizers that publish a preset catalogue over their API (`avianart`, and `dk64r` per branch), and the predicates the Presets tab's import dialog renders from. |
 | `list_remote_presets(randomizer, *, branch=None)` | `list[RemotePreset]` | Fetch that catalogue, mapped into `RemotePreset(name, settings, description)` with settings already storable on a `Preset`. |
 
-The DK64R backend (task queue, settings-string expansion, preset catalogue) lives in the private `_seedgen_dk64r.py` as the `DK64RBackend` mixin; AVIANART and samus.link (SM, SMZ3) in `_seedgen_avianart.py` and `_seedgen_samus.py`; the Wind Waker permalink codec (decode/encode/reseed, the seed-name port, settings decoding against the vendored `_wwr_data/<version>/` tables) in the private, pure-stdlib `_seedgen_wwr.py`; the value objects shared with everything that persists a roll (`RolledSeed`, `RemotePreset`, `AsyncRollSubmission`, `AsyncRollPoll`, `WWPermalinkInfo`) live in `_seedgen_types.py`.
+The DK64R backend (task queue, settings-string expansion, preset catalogue) lives in the private `_seedgen_dk64r.py` as the `DK64RBackend` mixin; AVIANART, samus.link (SM, SMZ3) and VARIA in `_seedgen_avianart.py`, `_seedgen_samus.py` and `_seedgen_varia.py`; the Wind Waker permalink codec (decode/encode/reseed, the seed-name port, settings decoding against the vendored `_wwr_data/<version>/` tables) in the private, pure-stdlib `_seedgen_wwr.py`; the value objects shared with everything that persists a roll (`RolledSeed`, `RemotePreset`, `AsyncRollSubmission`, `AsyncRollPoll`, `WWPermalinkInfo`) live in `_seedgen_types.py`.
 
 Collaborators: `TriforceTextService` (text selection), `RandomizerCredentialService` (roll-time credential resolution — raises `MissingCredentialError` when this community has not set one), `pyz3r`/`aiohttp` for external randomizer APIs.
 
@@ -1461,6 +1461,21 @@ The **provider-parameterized account-linking engine** behind both secondary-iden
 | Client | `TwitchClient` / `MockTwitchClient` | `RacetimeClient` / `MockRacetimeClient` |
 
 These are the **identity-link** OAuth credentials only; the race-room bots use their own per-category credentials on `RacetimeBot` rows. Collaborators: `AuditService`, the [OAuth identity clients](#oauth-identity-clients), the [mock switches](#mock-switches).
+
+### browser_monitoring_service.py — BrowserMonitoringService
+
+Browser-side Sentry behind `/platform` → Monitoring ([observability.md](../features/observability.md#browser-errors-platform--monitoring)). SUPER_ADMIN-gated, no tenant context; audit rows are platform-level (`tenant=NULL`). Every change reloads the in-memory snapshot (`application/utils/browser_monitoring.py`) that page builds read; the page then pushes it to open tabs (`theme/browser_monitoring.push_to_open_tabs`).
+
+| Method | Returns | Description |
+|---|---|---|
+| `load()` | `Snapshot` | Rebuild the snapshot from the database. Startup (`main.py` lifespan) and after each change. |
+| `get_settings(actor)` | `SettingsView` | Send / replay / share, with who changed it and when. |
+| `update_settings(actor, *, enabled, replay_on_error, sample_rate)` | `Snapshot` | `sample_rate` must be one of `SAMPLE_RATES`; audits `browser_monitoring.updated` with the previous values. |
+| `list_rules(actor)` | `[IgnoreRuleRow]` | Added rules (oldest first), then the built-ins (`id=None`). |
+| `add_rule(actor, pattern, match)` | `Snapshot` | 3–200 characters, `message` or `url`, not a built-in or existing rule; audits `browser_ignore_rule.added`. |
+| `remove_rule(actor, rule_id)` | `Snapshot` | Audits `browser_ignore_rule.removed`. |
+
+Collaborators: `AuditService`, `BrowserMonitoringRepository`.
 
 ### log_level_service.py — LogLevelService
 
@@ -2082,6 +2097,10 @@ QR code generation for equipment assets ([qrcode_util.py](../../application/util
 |---|---|---|
 | `asset_qr_png_bytes(url)` | `bytes` | The QR code rendered as PNG bytes. |
 | `asset_qr_data_uri(url)` | `str` | The QR code as a `data:image/png;base64` URI for inline `<img>` display. |
+
+### build_info.py
+
+Which build is running ([build_info.py](../../application/utils/build_info.py)). `build_info()` (cached) returns a `BuildInfo` with `version`, `commit`, `commit_date`, `commit_short` and `source_url`, from the `GIT_SHA`, `GIT_COMMIT_DATE` and `APP_VERSION` build args. The version is `APP_VERSION` (leading `v` dropped), else the commit's UTC date as `YYYY.MM.DD`, else `dev`. Read by `/about`, `GET /api/version`, the MCP `server_version` tool and the MCP handshake.
 
 ### sentry.py
 

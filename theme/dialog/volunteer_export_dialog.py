@@ -15,6 +15,7 @@ from application.utils.csv_export import (
     timestamped_filename,
 )
 from application.utils.timezone import parse_local_datetime
+from theme.busy import busy_click
 from theme.dialog._helpers import (
     dialog_actions,
     dialog_header,
@@ -81,5 +82,5 @@ class VolunteerExportDialog:
 
             with dialog_actions().classes('justify-end'):
                 ui.button('Cancel', on_click=dialog.close).props('flat')
-                ui.button('Download ZIP', icon='download', on_click=download).props('color=primary')
+                ui.button('Download ZIP', icon='download', on_click=busy_click('Building ZIP…', download)).props('color=primary')
         dialog.open()

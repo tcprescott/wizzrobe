@@ -9,6 +9,7 @@ from application.tenant_context import get_current_tenant_id, tenant_scope
 from application.utils.tenant_urls import login_path
 from models import FeatureFlag, User
 from theme.assets import asset_url
+from theme.browser_monitoring import install_browser_monitoring
 from theme.chrome import apply_brand_palette, cookie_dark_pref, dark_mode_button, install_timezone_detection
 from theme.connection import install_connection_watch
 from theme.nav_badges import bottom_nav_tab, drawer_tab_badge, nav_icon
@@ -386,15 +387,14 @@ class BaseLayout:
         install_timezone_detection()
         # A dropped socket eats a click silently; this makes the page say so.
         install_connection_watch()
-        # Drag-to-resize headers on any table carrying data-wiz-table-key. In the
-        # head, not the body, for the same reason as install_connection_watch:
-        # markup added from a lazy tab build never executes its <script>.
+        # Drag-to-resize table headers; in the head because a lazy tab build's <script> never runs.
         ui.add_head_html(f'<script src="{asset_url("js/table-columns.js")}"></script>')
         ui.add_head_html(f'<script defer src="{asset_url("js/a11y.js")}"></script>')
+        ui.add_head_html(f'<script defer src="{asset_url("js/busy.js")}"></script>')
         ui.add_head_html(f'<script defer src="{asset_url("js/dialog-keyboard.js")}"></script>')
         install_usage_capture(self._tenant_id)
-        # Phoenix brand palette: gold primary, ember secondary — overridable per
-        # tenant (theme/base loads TenantThemeService.get_current_theme).
+        install_browser_monitoring()
+        # Phoenix palette (gold primary, ember secondary), overridable per tenant via TenantThemeService.
         apply_brand_palette(colors)
         if self._chromeless:
             # The one control a kiosk still needs: a room's lighting is not the

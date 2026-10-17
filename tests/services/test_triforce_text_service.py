@@ -158,10 +158,10 @@ async def test_list_for_moderation_filters_by_status(db):
     await svc.moderate(a.id, True, admin)
     await svc.moderate(r.id, False, admin)
 
-    pending = await svc.list_for_moderation(t.id, status='pending')
-    approved = await svc.list_for_moderation(t.id, status='approved')
-    rejected = await svc.list_for_moderation(t.id, status='rejected')
-    all_rows = await svc.list_for_moderation(t.id)
+    pending = await svc.list_for_moderation(t.id, status='pending', actor=admin)
+    approved = await svc.list_for_moderation(t.id, status='approved', actor=admin)
+    rejected = await svc.list_for_moderation(t.id, status='rejected', actor=admin)
+    all_rows = await svc.list_for_moderation(t.id, actor=admin)
 
     assert [x.id for x in pending] == [p.id]
     assert [x.id for x in approved] == [a.id]
@@ -259,3 +259,13 @@ async def test_delete_removes_row_and_audits(db):
     assert await TriforceText.filter(id=entry.id).exists() is False
     actions = await AuditLog.all().values_list('action', flat=True)
     assert AuditActions.TRIFORCE_TEXT_DELETED in actions
+
+
+async def test_list_for_moderation_refuses_a_non_moderator(db):
+    """The service makes the moderator check itself, so a caller that forgets it
+    (a new page, tool or handler) can't list another tournament's pool."""
+    svc = TriforceTextService()
+    alice = await _make_user(11, 'alice')
+    t = await _make_tournament([])
+    with pytest.raises(PermissionError):
+        await svc.list_for_moderation(t.id, actor=alice)

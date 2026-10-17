@@ -19,6 +19,7 @@ from application.tenant_context import get_current_tenant_id, is_host_mode
 from application.utils.mocks.mock_discord import is_mock_discord
 from models import Role, TournamentGrant
 from pages.admin_tabs.volunteer_role_mappings import TAB_LABEL, volunteer_role_mappings_section
+from theme.busy import busy, busy_click, is_busy
 from theme.dialog._helpers import dialog_actions, form_dialog
 from theme.dialog.confirmation_dialog import ConfirmationDialog
 from theme.notify import notify_error
@@ -424,7 +425,9 @@ async def admin_discord_roles_page(volunteer_mappings: bool = False) -> None:
                 update_summary()
                 dialog.open()
 
-            async def sync_all_users(client):
+            async def sync_all_users(client, button):
+                if is_busy(button):
+                    return
                 with client:
                     with form_dialog(
                         'Re-sync Discord roles?', card_classes='dialog-card dialog-card--sm',
@@ -439,10 +442,10 @@ async def admin_discord_roles_page(volunteer_mappings: bool = False) -> None:
                             ui.button('Sync', icon='sync', on_click=lambda: confirm.submit(True)).props('color=primary')
                     if not await confirm:
                         return
-                    ui.notify('Syncing Discord roles for this community…')
                     try:
-                        current = await get_user_from_session(app.storage.user)
-                        result = await service.sync_all_users(current)
+                        async with busy(button, 'Syncing roles…'):
+                            current = await get_user_from_session(app.storage.user)
+                            result = await service.sync_all_users(current)
                     except (ValueError, PermissionError) as e:
                         notify_error(e)
                         return
@@ -460,10 +463,10 @@ async def admin_discord_roles_page(volunteer_mappings: bool = False) -> None:
             with table_container:
                 with ui.row().classes('full-width items-center'):
                     if can_manage:
-                        ui.button('Add Mappings', icon='add', on_click=open_add_dialog).props('color=primary')
+                        ui.button('Add Mappings', icon='add', on_click=busy_click('Loading roles…', open_add_dialog)).props('color=primary')
                         ui.button(
                             'Sync All Users', icon='sync',
-                            on_click=lambda: background_tasks.create(sync_all_users(context.client)),
+                            on_click=lambda e: background_tasks.create(sync_all_users(context.client, e.sender)),
                         ).props('outline color=primary').tooltip(
                             'Apply current mappings to this community now'
                         )

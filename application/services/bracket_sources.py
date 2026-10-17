@@ -18,7 +18,7 @@ the contract. Native brackets live in Wizzrobe, so they have nothing to sync.
 
 import logging
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Protocol
+from typing import Callable, Dict, List, Optional, Protocol
 
 from application.services.challonge_service import ChallongeService
 from application.services.feature_flag_service import FeatureFlagService
@@ -181,13 +181,19 @@ async def sync_tournament(tournament: Tournament, actor: User) -> SyncResult:
     return SyncResult(tournament.id, tournament.name, source.label, summary)
 
 
-async def sync_all(tournaments: List[Tournament], actor: User) -> List[SyncResult]:
-    """Sync every linked tournament in the list; a failure is reported, not raised."""
+async def sync_all(tournaments: List[Tournament], actor: User,
+                   on_progress: Optional[Callable[[str], None]] = None) -> List[SyncResult]:
+    """Sync every linked tournament in the list; a failure is reported, not raised.
+
+    ``on_progress(name)`` is called before each tournament's sync.
+    """
     results: List[SyncResult] = []
     for tournament in tournaments:
         source = await source_for(tournament)
         if source is None:
             continue
+        if on_progress is not None:
+            on_progress(tournament.name)
         try:
             summary = await source.sync(tournament, actor)
             results.append(SyncResult(tournament.id, tournament.name, source.label, summary))

@@ -16,6 +16,7 @@ from application.services import FeatureFlagService, UserService
 from application.tenant_context import tenant_scope
 from models import BracketEntryStatus, BracketState, FeatureFlag
 from theme.brackets import state_color, state_label
+from theme.busy import busy_click
 from theme.dialog._helpers import dialog_actions, form_dialog, submit_on_enter
 from theme.dialog.confirmation_dialog import ConfirmationDialog
 from theme.notify import notify_error
@@ -157,6 +158,7 @@ async def open_manage(row, client, *, service, tenant_id, tournament_id, on_chan
 
                     confirm = ConfirmationDialog(
                         message, on_confirm=confirmed, confirm_text='Start bracket',
+                        busy_text='Starting…',
                     )
                     confirm.open()
 
@@ -244,7 +246,7 @@ def _render_roster(
 
     with ui.row().classes('items-center gap-2 w-full'):
         ui.label('Add entrant to tournament').classes('section-title col min-w-0')
-        ui.button('Import roster', icon='group_add', on_click=import_roster) \
+        ui.button('Import roster', icon='group_add', on_click=busy_click('Importing…', import_roster)) \
             .props('flat dense color=primary').tooltip(
                 "Adds every player enrolled in this tournament who isn't already "
                 'an entrant, each linked to their account'

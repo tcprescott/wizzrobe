@@ -26,6 +26,7 @@ from pages.admin_tabs.admin_qualifiers.shared import (
     live_race_color,
     live_race_label,
 )
+from theme.busy import busy_click
 from theme.dialog._helpers import dialog_actions, form_dialog
 from theme.dialog.confirmation_dialog import ConfirmationDialog
 from theme.empty_state import empty_panel
@@ -101,7 +102,7 @@ def build_live_tab(
                         # a click that only produces a refusal.
                         if can_open:
                             ui.button('Open room', icon='meeting_room',
-                                      on_click=lambda lid=lr.id: _open_room(lid)
+                                      on_click=busy_click('Opening room…', lambda lid=lr.id: _open_room(lid))
                                       ).props('flat color=primary')
                         elif not cancelled:
                             _result_action(lr, as_button=True)

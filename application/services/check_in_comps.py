@@ -22,6 +22,7 @@ from application.repositories import CheckInEntrantRepository, UserRepository, U
 from application.services.check_in_rules import VOLUNTEER_COMP
 from application.services.feature_flag_service import FeatureFlagService
 from application.services.system_config_service import SystemConfigService
+from application.services.user_service import UserService
 from application.services.volunteer.volunteer_hours import VolunteerHoursService
 from models import CheckInEntrant, CheckInEntrantSource, CheckInEvent, CheckInLinkMethod, FeatureFlag, Role
 
@@ -49,7 +50,8 @@ async def comped_users(event: CheckInEvent) -> Dict[int, List[str]]:
     if event.comp_volunteers and await FeatureFlagService().is_enabled(FeatureFlag.VOLUNTEERS):
         tiers = await SystemConfigService.get_volunteer_comp_tiers()
         if tiers:
-            for summary in await VolunteerHoursService().roster():
+            system = await UserService().get_system_user()
+            for summary in await VolunteerHoursService().roster(actor=system):
                 if summary.hours >= tiers[0]:
                     reasons.setdefault(summary.user_id, []).append(VOLUNTEER_COMP)
     return reasons

@@ -40,7 +40,7 @@ from enum import Enum
 from typing import Awaitable, Callable, Dict, List, Optional, Tuple
 
 from application.utils.timezone import to_utc_aware
-from models import FeatureFlag
+from models import FeatureFlag, User
 
 logger = logging.getLogger(__name__)
 
@@ -360,7 +360,7 @@ class ServiceHealthService:
             ))
         return sorted(results, key=_board_sort_key)
 
-    async def tenant_subset(self, tenant_id: int) -> List[ProbeResult]:
+    async def tenant_subset(self, tenant_id: int, *, actor: Optional[User]) -> List[ProbeResult]:
         """The read-only subset a tenant's STAFF may see: its authorized racetime
         bots and its own Challonge connection. Probed live (not from the platform
         cache) so it reflects only this tenant's dependencies.
@@ -368,6 +368,12 @@ class ServiceHealthService:
         Assumes the caller has established this tenant's scope, so the Challonge
         read resolves to the tenant's own connection.
         """
+        from application.services.auth_service import AuthService
+
+        await AuthService.ensure(
+            await AuthService.is_staff(actor),
+            'Only Staff can read service health.',
+        )
         results: List[ProbeResult] = []
 
         from application.services.racetime_bot_service import RacetimeBotService

@@ -9,6 +9,8 @@ exercises the five async methods that query the ``db`` fixture:
 
 from datetime import datetime, timezone
 
+import pytest
+
 from application.services.reports_service import ReportsService
 from application.utils.timezone import EASTERN_TZ
 from models import (
@@ -25,7 +27,14 @@ from models import (
 UTC = timezone.utc
 
 
+from tests.api_helpers import create_community_member
 from tests.factories import utc
+
+
+async def _actor():
+    """Reports gate their reader; these tests read as the system actor."""
+    from application.services.user_service import UserService
+    return await UserService().get_system_user()
 
 
 def to_display(y, mo, d, h=0, mi=0):
@@ -68,7 +77,7 @@ class TestGenerateCapacityForecast:
         # -> player_count falls back to tournament.players_per_match == 2.
         m_b = await Match.create(tournament=t, scheduled_at=utc(2025, 10, 23, 19, 0))
 
-        out = await ReportsService().generate_capacity_forecast(FORECAST_START, FORECAST_END)
+        out = await ReportsService().generate_capacity_forecast(FORECAST_START, FORECAST_END, actor=(await _actor()))
 
         assert out['interval_minutes'] == 15
         assert out['start'] == FORECAST_START
@@ -93,7 +102,7 @@ class TestGenerateCapacityForecast:
         assert any(set(ids) == {m_a.id, m_b.id} for ids in out['match_ids_per_interval'])
 
     async def test_end_before_start_collapses_to_single_interval(self, db):
-        out = await ReportsService().generate_capacity_forecast(FORECAST_END, FORECAST_START)
+        out = await ReportsService().generate_capacity_forecast(FORECAST_END, FORECAST_START, actor=(await _actor()))
         assert out['end'] == out['start'] == FORECAST_END
         assert len(out['intervals']) == 1
         assert out['player_counts'] == [0]
@@ -105,13 +114,13 @@ class TestGenerateCapacityForecast:
         # 10:00 ET scheduled -> window [09:00, 11:30], entirely before 13:00.
         await Match.create(tournament=t, scheduled_at=utc(2025, 10, 23, 14, 0))
 
-        out = await ReportsService().generate_capacity_forecast(FORECAST_START, FORECAST_END)
+        out = await ReportsService().generate_capacity_forecast(FORECAST_START, FORECAST_END, actor=(await _actor()))
         assert all(c == 0 for c in out['player_counts'])
         assert all(ids == [] for ids in out['match_ids_per_interval'])
 
     async def test_max_capacity_reads_system_config(self, db):
         await SystemConfiguration.create(name='max_concurrent_players', value='100')
-        out = await ReportsService().generate_capacity_forecast(FORECAST_START, FORECAST_END)
+        out = await ReportsService().generate_capacity_forecast(FORECAST_START, FORECAST_END, actor=(await _actor()))
         assert out['max_capacity'] == 100
 
     async def test_tournament_filter(self, db):
@@ -121,7 +130,7 @@ class TestGenerateCapacityForecast:
         await Match.create(tournament=t2, scheduled_at=utc(2025, 10, 23, 18, 0))
 
         out = await ReportsService().generate_capacity_forecast(
-            FORECAST_START, FORECAST_END, tournament_id=t1.id,
+            FORECAST_START, FORECAST_END, tournament_id=t1.id, actor=(await _actor()),
         )
         # Only t1's match (2 players via fallback) is ever counted.
         assert max(out['player_counts']) == 2
@@ -129,7 +138,7 @@ class TestGenerateCapacityForecast:
     async def test_peak_times_over_forecast_output(self, db):
         t = await Tournament.create(name='Cup', players_per_match=2, average_match_duration=90)
         await Match.create(tournament=t, scheduled_at=utc(2025, 10, 23, 18, 0))
-        out = await ReportsService().generate_capacity_forecast(FORECAST_START, FORECAST_END)
+        out = await ReportsService().generate_capacity_forecast(FORECAST_START, FORECAST_END, actor=(await _actor()))
         peaks = ReportsService.peak_times(out['intervals'], out['player_counts'], top_n=3)
         assert len(peaks) == 3
         assert peaks[0][1] == max(out['player_counts']) == 2
@@ -148,7 +157,7 @@ class TestMatchesActiveAt:
         # B: window [17:00, 19:30] -> not live at 14:00.
         await Match.create(tournament=t, scheduled_at=utc(2025, 10, 23, 22, 0))
 
-        active = await ReportsService().matches_active_at(to_display(2025, 10, 23, 14, 0))
+        active = await ReportsService().matches_active_at(to_display(2025, 10, 23, 14, 0), actor=(await _actor()))
         assert [m.id for m in active] == [m_a.id]
 
     async def test_tournament_filter(self, db):
@@ -158,7 +167,7 @@ class TestMatchesActiveAt:
         await Match.create(tournament=t2, scheduled_at=utc(2025, 10, 23, 18, 0))
 
         active = await ReportsService().matches_active_at(
-            to_display(2025, 10, 23, 14, 0), tournament_id=t1.id,
+            to_display(2025, 10, 23, 14, 0), tournament_id=t1.id, actor=(await _actor()),
         )
         assert [m.id for m in active] == [m1.id]
 
@@ -166,7 +175,7 @@ class TestMatchesActiveAt:
         t = await Tournament.create(name='Cup', average_match_duration=90)
         await Match.create(tournament=t, scheduled_at=utc(2025, 10, 23, 18, 0))
         # 20:00 ET is after A's window end (15:30) but still inside the prefetch band.
-        active = await ReportsService().matches_active_at(to_display(2025, 10, 23, 20, 0))
+        active = await ReportsService().matches_active_at(to_display(2025, 10, 23, 20, 0), actor=(await _actor()))
         assert active == []
 
 
@@ -209,7 +218,7 @@ class TestMatchOperations:
 
     async def test_rows_capture_delay_duration_and_lag(self, db):
         t, t2, stage, m1, m2, m3, m4 = await self._seed()
-        out = await ReportsService().match_operations(DAY_START, DAY_END)
+        out = await ReportsService().match_operations(DAY_START, DAY_END, actor=(await _actor()))
         rows = {r['match_id']: r for r in out['rows']}
         assert len(rows) == 4
 
@@ -235,7 +244,7 @@ class TestMatchOperations:
 
     async def test_per_tournament_aggregates(self, db):
         t, t2, *_ = await self._seed()
-        out = await ReportsService().match_operations(DAY_START, DAY_END)
+        out = await ReportsService().match_operations(DAY_START, DAY_END, actor=(await _actor()))
         aggs = {a['tournament_id']: a for a in out['aggregates']}
 
         a = aggs[t.id]
@@ -259,7 +268,7 @@ class TestMatchOperations:
 
     async def test_tournament_filter(self, db):
         t, t2, *_ = await self._seed()
-        out = await ReportsService().match_operations(DAY_START, DAY_END, tournament_id=t.id)
+        out = await ReportsService().match_operations(DAY_START, DAY_END, tournament_id=t.id, actor=(await _actor()))
         assert {r['tournament_id'] for r in out['rows']} == {t.id}
         assert [a['tournament_id'] for a in out['aggregates']] == [t.id]
 
@@ -300,7 +309,7 @@ class TestCrewCoverage:
 
     async def test_coverage_rows_and_gap_flag(self, db):
         t, alice, bob, cara, m1, m2, m3 = await self._seed()
-        out = await ReportsService().crew_coverage(DAY_START, DAY_END)
+        out = await ReportsService().crew_coverage(DAY_START, DAY_END, actor=(await _actor()))
         rows = {r['match_id']: r for r in out['coverage_rows']}
         assert len(rows) == 3
 
@@ -323,7 +332,7 @@ class TestCrewCoverage:
 
     async def test_contribution_rows_hours_and_order(self, db):
         t, alice, bob, cara, *_ = await self._seed()
-        out = await ReportsService().crew_coverage(DAY_START, DAY_END)
+        out = await ReportsService().crew_coverage(DAY_START, DAY_END, actor=(await _actor()))
         contrib = {c['user_id']: c for c in out['contribution_rows']}
 
         a = contrib[alice.id]
@@ -344,7 +353,7 @@ class TestCrewCoverage:
 
     async def test_user_id_filter(self, db):
         t, alice, bob, cara, m1, m2, m3 = await self._seed()
-        out = await ReportsService().crew_coverage(DAY_START, DAY_END, user_id=alice.id)
+        out = await ReportsService().crew_coverage(DAY_START, DAY_END, user_id=alice.id, actor=(await _actor()))
         # coverage_rows only include matches Alice touched (M1, M2 -- not M3).
         assert {r['match_id'] for r in out['coverage_rows']} == {m1.id, m2.id}
         # contribution_rows are limited to Alice.
@@ -352,7 +361,7 @@ class TestCrewCoverage:
 
     async def test_approved_only_excludes_uncovered_hours_from_total(self, db):
         t, alice, bob, cara, *_ = await self._seed()
-        out = await ReportsService().crew_coverage(DAY_START, DAY_END, approved_only=True)
+        out = await ReportsService().crew_coverage(DAY_START, DAY_END, approved_only=True, actor=(await _actor()))
         contrib = {c['user_id']: c for c in out['contribution_rows']}
 
         a = contrib[alice.id]
@@ -373,7 +382,7 @@ class TestCrewCoverage:
         await Commentator.create(user=u, match=m1, approved=True)
         await Commentator.create(user=u, match=m2, approved=True)
 
-        out = await ReportsService().crew_coverage(DAY_START, DAY_END, tournament_id=t1.id)
+        out = await ReportsService().crew_coverage(DAY_START, DAY_END, tournament_id=t1.id, actor=(await _actor()))
         assert {r['match_id'] for r in out['coverage_rows']} == {m1.id}
         assert contrib_hours(out, u.id) == 2.0  # only the t1 signup
 
@@ -390,7 +399,7 @@ class TestCrewCoverage:
         )
         await Commentator.create(user=alice, match=match, approved=True)
 
-        row = (await ReportsService().crew_coverage(DAY_START, DAY_END))['coverage_rows'][0]
+        row = (await ReportsService().crew_coverage(DAY_START, DAY_END, actor=(await _actor())))['coverage_rows'][0]
         assert row['trackers_approved'] == 0
         assert row['trackers_required'] == 0
         assert row['commentators_required'] == 1
@@ -414,7 +423,7 @@ class TestCrewCoverage:
         await Commentator.create(user=bob, match=two, approved=True)
 
         rows = {r['match_id']: r for r in
-                (await ReportsService().crew_coverage(DAY_START, DAY_END))['coverage_rows']}
+                (await ReportsService().crew_coverage(DAY_START, DAY_END, actor=(await _actor())))['coverage_rows']}
         assert rows[one.id]['coverage_gap'] is True   # one approved, two needed
         assert rows[two.id]['coverage_gap'] is False
 
@@ -426,7 +435,7 @@ class TestCrewCoverage:
         match = await Match.create(
             tournament=t, scheduled_at=utc(2025, 10, 23, 18, 0), is_stream_candidate=True,
         )
-        row = (await ReportsService().crew_coverage(DAY_START, DAY_END))['coverage_rows'][0]
+        row = (await ReportsService().crew_coverage(DAY_START, DAY_END, actor=(await _actor())))['coverage_rows'][0]
         assert row['match_id'] == match.id
         assert row['coverage_gap'] is False
 
@@ -492,7 +501,7 @@ class TestStageUtilization:
 
     async def test_per_stage_hours_gaps_and_unplaced(self, db):
         t, alpha, beta, inactive = await self._seed()
-        out = await ReportsService().stage_utilization(DAY_START, DAY_END)
+        out = await ReportsService().stage_utilization(DAY_START, DAY_END, actor=(await _actor()))
 
         stages = {r['stage_id']: r for r in out['stages']}
         # Only active stages appear; the inactive stage is absent.
@@ -515,13 +524,13 @@ class TestStageUtilization:
 
     async def test_stages_sorted_by_name(self, db):
         await self._seed()
-        out = await ReportsService().stage_utilization(DAY_START, DAY_END)
+        out = await ReportsService().stage_utilization(DAY_START, DAY_END, actor=(await _actor()))
         assert [r['stage_name'] for r in out['stages']] == ['Alpha', 'Beta']
 
     async def test_stage_id_filter(self, db):
         t, alpha, beta, inactive = await self._seed()
         out = await ReportsService().stage_utilization(
-            DAY_START, DAY_END, stage_id=alpha.id,
+            DAY_START, DAY_END, stage_id=alpha.id, actor=(await _actor()),
         )
         assert [r['stage_id'] for r in out['stages']] == [alpha.id]
 
@@ -542,9 +551,18 @@ class TestStageUtilization:
             finished_at=utc(2025, 10, 23, 23, 0),
         )
         out = await ReportsService().stage_utilization(
-            DAY_START, DAY_END, tournament_id=t1.id,
+            DAY_START, DAY_END, tournament_id=t1.id, actor=(await _actor()),
         )
         stages = {r['stage_id']: r for r in out['stages']}
         # Only t1's 2-hour block is counted.
         assert stages[alpha.id]['scheduled_hours'] == 2.0
         assert len(stages[alpha.id]['matches']) == 1
+
+
+async def test_reports_refuse_a_plain_member(db):
+    """The service is the gate, so a new caller that forgets the check still can't read."""
+    member = await create_community_member(discord_id=88001, username='member')
+    with pytest.raises(PermissionError):
+        await ReportsService().crew_coverage(DAY_START, DAY_END, actor=member)
+    with pytest.raises(PermissionError):
+        await ReportsService().stage_utilization(DAY_START, DAY_END, actor=member)

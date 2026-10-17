@@ -98,14 +98,21 @@ class VolunteerHoursService:
 
     @requires_feature(FeatureFlag.VOLUNTEERS)
     async def roster(
-        self, *, start: Optional[date] = None, end: Optional[date] = None,
+        self, *, actor: Optional[User], start: Optional[date] = None, end: Optional[date] = None,
     ) -> List[HoursSummary]:
-        """Every volunteer's total, for the coordinator.
+        """Every volunteer's total, for the coordinator (or the system actor,
+        which reads it to work out check-in comps).
 
         Anyone who served published hours in the window is included even if
         they no longer hold a volunteer role — the hours were still served, and
         the comp is for the hours.
         """
+        from application.services.auth_service import AuthService
+
+        await AuthService.ensure(
+            AuthService.is_system(actor) or await AuthService.can_manage_volunteers(actor),
+            'Only volunteer coordinators can read the volunteer hours roster.',
+        )
         window = await self._window(start, end)
         tiers = await SystemConfigService.get_volunteer_comp_tiers()
         assignments = await self.assignment_repository.published_for_window(*window)

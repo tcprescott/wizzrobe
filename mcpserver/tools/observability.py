@@ -131,12 +131,10 @@ async def get_system_config(
 
     Requires staff access.
     """
-    from models import SystemConfiguration
+    from application.services import SystemConfigService
 
-    entries = await SystemConfiguration.filter(
-        tenant_id=require_tenant_id()
-    ).order_by('name')
-    return [{'name': e.name, 'value': e.value} for e in entries]
+    entries = await SystemConfigService.list_entries(current_actor().user)
+    return [{'name': name, 'value': value} for name, value in entries]
 
 
 async def list_service_health(
@@ -148,7 +146,7 @@ async def list_service_health(
     This is the tenant subset — the platform-wide board is a super-admin surface
     and is not exposed here.
     """
-    probes = await ServiceHealthService().tenant_subset(require_tenant_id())
+    probes = await ServiceHealthService().tenant_subset(require_tenant_id(), actor=current_actor().user)
     return [
         ServiceHealthProbe(
             key=probe.key,

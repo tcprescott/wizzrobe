@@ -231,15 +231,22 @@ class StartggClient:
         # One retry on a rate-limit answer: the limit is a rolling minute, so a
         # short wait usually clears a burst from a manual sync on top of the worker.
         for attempt in range(2):
-            async with aiohttp.ClientSession(timeout=_TIMEOUT) as session:
-                async with session.post(
-                    API_URL, json={'query': query, 'variables': variables}, headers=headers,
-                ) as resp:
-                    status = resp.status
-                    try:
-                        payload = await resp.json(content_type=None)
-                    except ValueError as e:
-                        raise StartggAPIError(f'start.gg returned non-JSON ({status})', status) from e
+            # Sentry SGLMAN-15: a raw timeout skipped the per-event handler, so one
+            # slow answer aborted the community's whole sync and reported as an error.
+            try:
+                async with aiohttp.ClientSession(timeout=_TIMEOUT) as session:
+                    async with session.post(
+                        API_URL, json={'query': query, 'variables': variables}, headers=headers,
+                    ) as resp:
+                        status = resp.status
+                        try:
+                            payload = await resp.json(content_type=None)
+                        except ValueError as e:
+                            raise StartggAPIError(f'start.gg returned non-JSON ({status})', status) from e
+            except asyncio.TimeoutError as e:
+                raise StartggAPIError("start.gg didn't answer in time; try again shortly.") from e
+            except aiohttp.ClientError as e:
+                raise StartggAPIError(f"Couldn't reach start.gg ({type(e).__name__}).") from e
             if status == 429 and attempt == 0:
                 await asyncio.sleep(5)
                 continue

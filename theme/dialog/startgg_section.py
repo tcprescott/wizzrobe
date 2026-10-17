@@ -8,6 +8,7 @@ from nicegui import app, ui
 
 from application.services import StartggService, get_user_from_session
 from application.utils.timezone import format_local_display
+from theme.busy import busy_click
 from theme.dialog.confirmation_dialog import ConfirmationDialog
 from theme.dialog.startgg_entrants_dialog import StartggEntrantsDialog
 from theme.notify import notify_error
@@ -48,7 +49,7 @@ async def render_startgg_section(tournament, dialog) -> None:
                     ui.notify(f"Linked and synced: {result['entrants']} entrants.", color='positive')
                 body.refresh()
 
-            ui.button('Link & Sync', icon='sync', on_click=link).props('flat color=primary')
+            ui.button('Link & Sync', icon='sync', on_click=busy_click('Syncing…', link)).props('flat color=primary')
             return
 
         synced = (
@@ -128,7 +129,7 @@ async def render_startgg_section(tournament, dialog) -> None:
             ).open()
 
         with ui.row().classes('items-center gap-2'):
-            ui.button('Sync now', icon='sync', on_click=sync).props('flat color=primary')
+            ui.button('Sync now', icon='sync', on_click=busy_click('Syncing…', sync)).props('flat color=primary')
             ui.button(
                 'Entrants', icon='group',
                 on_click=lambda: StartggEntrantsDialog(tournament).open(),

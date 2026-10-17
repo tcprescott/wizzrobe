@@ -140,7 +140,7 @@ leaves the screen usable and no other caller can grant write without it.
 
 ## Choosing a community
 
-Every tool except `whoami`, `list_tenants` and the platform tools (`runtime_stats`, `platform_*`) takes a required `tenant` argument
+Every tool except `whoami`, `list_tenants`, `server_version` and the platform tools (`runtime_stats`, `platform_*`) takes a required `tenant` argument
 — a community slug. `list_tenants` returns the slugs the caller may use.
 
 **Membership floor.** A tool reaches a community only where its user belongs —
@@ -198,6 +198,7 @@ a role — and the connection one is both cheaper and the common case.
 |---|---|---|
 | `whoami` | GLOBAL | Identity, roles, enabled flags per community, **and `can_write`**. The cheapest way to orient. |
 | `list_tenants` | GLOBAL | The slugs every other tool needs, with the same roles/flags. |
+| `server_version` | GLOBAL | Which build is running: version, commit, commit date, source link. The server's MCP handshake (`serverInfo.version`) carries the same version. |
 
 Both report each community's live feature flags. A flag is not a permission, so
 it goes to everyone who can see the community — and reporting it lets a client
@@ -363,7 +364,7 @@ discovers a round-trip later.
 | `list_presets`, `get_preset`, `list_randomizers` | ACTOR | — |
 | `list_triforce_texts` | ACTOR | `TRIFORCE_TEXTS` |
 | `list_race_room_profiles`, `get_race_room` | ACTOR | `RACETIME_ROOMS` |
-| `list_race_rooms` | STAFF | `RACETIME_ROOMS` |
+| `list_race_rooms` | ACTOR (service: Staff or Sync admin) | `RACETIME_ROOMS` |
 | `list_speedgaming_links`, `list_speedgaming_episodes` | ACTOR | `SPEEDGAMING_ETL` |
 
 `list_randomizers` is the peer of `GET /seeds/randomizers`: it filters on the
@@ -379,15 +380,15 @@ any crew coordinator.
 Several sit at ACTOR because the *service* carries the real check
 (`can_manage_presets`, `ensure_can_manage_sync`); mirroring the router's gate
 rather than inventing a stricter one keeps both surfaces answering the same
-question. `list_race_rooms` is the exception at STAFF, matching
-`GET /race-rooms/open`, whose service read has no gate of its own.
+question. `list_race_rooms` follows the same shape: the service's
+`list_open_rooms_for_current_tenant` lets Staff and Sync admins through.
 
 ### Feature-gated competition
 | Tool | Gate | Flag |
 |---|---|---|
 | `list_brackets`, `get_bracket`, `list_bracket_matches` | ACTOR | `BRACKETS` |
 | `list_bracket_entrants`, `get_bracket_standings` | ACTOR | `BRACKETS` |
-| `list_async_qualifiers`, `get_async_qualifier` | ACTOR | `ASYNC_QUALIFIERS` |
+| `list_async_qualifiers`, `get_async_qualifier` | ACTOR (admins get every qualifier they run and its pools; members get the open ones, without pools, as `/qualifiers` shows them) | `ASYNC_QUALIFIERS` |
 | `get_async_qualifier_leaderboard` | ACTOR | `ASYNC_QUALIFIERS` |
 | `list_async_qualifier_live_races` | ACTOR | `ASYNC_QUALIFIERS` |
 
@@ -438,6 +439,7 @@ replaces the whole asset.
 | Scheduling | `create_match`, `submit_match_request`, `update_match`, `delete_match` |
 | Stream and stations | `set_match_stream_candidate`, `assign_match_stage`, `assign_match_stations` |
 | Lifecycle | `seat_match`, `start_match`, `finish_match`, `confirm_match`, `record_match_result`, `set_match_review`, `generate_match_seed` |
+| Crew approval | `set_crew_approval` (staff, tournament admins, crew coordinators) |
 | Your own participation | `signup_as_crew`, `withdraw_crew_signup`, `acknowledge_match`, `watch_match`, `unwatch_match`, `offer_match_for_stream`, `withdraw_stream_offer`, `sign_up_for_tournament`, `withdraw_from_tournament` |
 | Check-in desk (`EVENT_CHECK_IN`) | `check_in_attendee`, `undo_attendee_check_in`, `link_attendee`, `unlink_attendee`, `add_walk_up`, `sync_check_in_event` |
 | Volunteers (`VOLUNTEERS`) | `check_in_volunteer` |

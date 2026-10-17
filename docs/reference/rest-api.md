@@ -26,7 +26,7 @@ The intro, including the getting-started recipes, is `api_description()` in the 
 
 ## Authentication
 
-**Every endpoint requires a personal bearer token**, with two exceptions: the unauthenticated `GET /api/health` liveness probe (see [Health](#health-apihealth--healthpy)) and `POST /api/web-push/rotate` (see [Web push](#web-push-apiweb-push--web_pushpy)), whose only caller is a service worker with no session to present.
+**Every endpoint requires a personal bearer token**, with three exceptions: the unauthenticated `GET /api/health` liveness probe (see [Health](#health-apihealth--healthpy)), `GET /api/version` (see [Version](#version-apiversion--versionpy)), and `POST /api/web-push/rotate` (see [Web push](#web-push-apiweb-push--web_pushpy)), whose only caller is a service worker with no session to present.
 
 Generate a token on the home **Profile** tab (the *API tokens & AI clients* card), then send it on each request:
 
@@ -75,6 +75,9 @@ One module per group under [`api/routers/`](../../api/routers/), named after the
 
 ### Health (`/api/health`) · `health.py`
 - `GET /health` — **unauthenticated** liveness probe. Performs a trivial DB round-trip and returns `{"status": "ok"}`; returns `503` when the database is unreachable. Used by the container `HEALTHCHECK`.
+
+### Version (`/api/version`) · `version.py`
+- `GET /version` — **unauthenticated**. Which build is answering: `version` (the tag, else the commit's UTC date as `YYYY.MM.DD`, else `dev`), `commit`, `commit_short`, `commit_date` and `source_url`, from `application/utils/build_info.py`. The same values are printed on `/about` and returned by the MCP `server_version` tool.
 
 ### Web push (`/api/web-push`) · `web_push.py`
 - `POST /web-push/rotate` — **unauthenticated**. Called by `static/sw.js` on `pushsubscriptionchange` to re-point a stored device row at the subscription its push service reissued. There is no session or token in that context; the request authenticates by carrying the retired subscription's `auth` secret, and a wrong secret returns the same `404` as an unknown endpoint. Detail: [features/web-push.md](../features/web-push.md#authenticating-a-rotation).
@@ -270,8 +273,8 @@ owning service (`TenantService`, `FeatureFlagService`, `PasswordAuthService.set_
 - `GET /platform/log-levels` · `PUT` (`{logger, level}`) · `DELETE ?logger=`.
 
 ### Race rooms (`/api/race-rooms`) · `race_rooms.py`
-- `GET /race-rooms/open` (Staff; filtered to your tenant) · `GET /race-rooms/by-match/{match_id}`.
-- `POST /race-rooms` (`{match_id}`, manual create) · `POST /{id}/cancel` (`{reason?}`) · `PATCH /{id}/status` (`{status}`). Cancel/status add an explicit `can_manage_sync` gate (the service transitions are system-path/ungated). System internals (`get_by_slug`, `record_finish`, websocket event dispatch, auto-create) are **not** exposed.
+- `GET /race-rooms/open` (Staff or Sync admin, checked in the service; filtered to your tenant) · `GET /race-rooms/by-match/{match_id}`.
+- `POST /race-rooms` (`{match_id}`, manual create) · `POST /{id}/cancel` (`{reason?}`) · `PATCH /{id}/status` (`{status}`). Cancel/status go through `cancel_room_as` / `set_status_as`, which check `can_manage_sync`; the plain transitions stay ungated for system paths (match cancellation, the racetime handler). System internals (`get_by_slug`, `record_finish`, websocket event dispatch, auto-create) are **not** exposed.
 
 ### SpeedGaming (`/api/speedgaming`) · `speedgaming.py`
 SpeedGaming schedule ETL event links (service gate `can_manage_sync`).

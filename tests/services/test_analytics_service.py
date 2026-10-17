@@ -32,6 +32,12 @@ UTC = timezone.utc
 from tests.factories import utc
 
 
+async def _actor():
+    """Reports gate their reader; these tests read as the system actor."""
+    from application.services.user_service import UserService
+    return await UserService().get_system_user()
+
+
 def to_display(y, mo, d, h=0, mi=0):
     return datetime(y, mo, d, h, mi, tzinfo=EASTERN_TZ)
 
@@ -308,7 +314,7 @@ class TestCrewParticipationTrends:
         await Commentator.create(user=u1, match=m_b, approved=True)
         await Tracker.create(user=u3, match=m_b, approved=True)
 
-        out = await AnalyticsService().crew_participation_trends(WINDOW_START, WINDOW_END, 'week')
+        out = await AnalyticsService().crew_participation_trends(WINDOW_START, WINDOW_END, 'week', actor=(await _actor()))
 
         assert out['commentator_approved'] == [0, 1, 0, 1, 0]
         assert out['tracker_approved'] == [0, 1, 0, 1, 0]
@@ -331,7 +337,7 @@ class TestCrewParticipationTrends:
         await Commentator.create(user=u, match=m2, approved=True)
 
         out = await AnalyticsService().crew_participation_trends(
-            WINDOW_START, WINDOW_END, 'week', tournament_id=t1.id,
+            WINDOW_START, WINDOW_END, 'week', tournament_id=t1.id, actor=(await _actor()),
         )
         assert out['totals']['commentator_approved'] == 1
 
@@ -343,7 +349,7 @@ class TestCrewParticipationTrends:
         m = await Match.create(tournament=t, scheduled_at=WINDOW_END)
         await Commentator.create(user=u, match=m, approved=True)
 
-        out = await AnalyticsService().crew_participation_trends(WINDOW_START, WINDOW_END, 'week')
+        out = await AnalyticsService().crew_participation_trends(WINDOW_START, WINDOW_END, 'week', actor=(await _actor()))
         assert len(out['bucket_labels']) == 5  # [Sep29, Oct6, Oct13, Oct20, Oct27]
         assert out['totals']['commentator_approved'] == 0
 
@@ -367,7 +373,7 @@ class TestVolunteerHourTrends:
         await VolunteerAssignment.create(shift=s1, user=u_b)
         await VolunteerAssignment.create(shift=s2, user=u_a, checked_in_at=utc(2025, 10, 22, 12))
 
-        out = await AnalyticsService().volunteer_hour_trends(WINDOW_START, WINDOW_END, 'week')
+        out = await AnalyticsService().volunteer_hour_trends(WINDOW_START, WINDOW_END, 'week', actor=(await _actor()))
 
         assert out['scheduled_hours'] == [0, 8.0, 0, 2.0, 0]
         assert out['checked_in_hours'] == [0, 4.0, 0, 2.0, 0]
@@ -407,7 +413,7 @@ class TestTournamentHealthDB:
         await Commentator.create(user=u1, match=m2, approved=True)
         await Tracker.create(user=u2, match=m2, approved=False)
 
-        out = await AnalyticsService().tournament_health(WINDOW_START, WINDOW_END)
+        out = await AnalyticsService().tournament_health(WINDOW_START, WINDOW_END, actor=(await _actor()))
         row = next(r for r in out['rows'] if r['tournament_id'] == t.id)
 
         assert row['matches_total'] == 2
@@ -434,7 +440,7 @@ class TestTournamentHealthDB:
             )
             await Commentator.create(user=u1, match=match, approved=True)
 
-        out = await AnalyticsService().tournament_health(WINDOW_START, WINDOW_END)
+        out = await AnalyticsService().tournament_health(WINDOW_START, WINDOW_END, actor=(await _actor()))
         row = next(r for r in out['rows'] if r['tournament_id'] == t.id)
         assert row['coverage_pct'] == 100.0
 
@@ -451,7 +457,7 @@ class TestTournamentHealthDB:
             started_at=utc(2099, 10, 9, 16, 5), finished_at=utc(2099, 10, 9, 17, 35),
         )
         out = await AnalyticsService().tournament_health(
-            to_display(2025, 10, 1), to_display(2100, 1, 1),
+            to_display(2025, 10, 1), to_display(2100, 1, 1), actor=(await _actor()),
         )
         row = next(r for r in out['rows'] if r['tournament_id'] == t.id)
         assert row['matches_finished'] == 2
@@ -464,7 +470,7 @@ class TestTournamentHealthDB:
         await Match.create(tournament=t1, scheduled_at=utc(2025, 10, 8, 16))
         await Match.create(tournament=t2, scheduled_at=utc(2025, 10, 8, 16))
         out = await AnalyticsService().tournament_health(
-            WINDOW_START, WINDOW_END, tournament_id=t1.id,
+            WINDOW_START, WINDOW_END, tournament_id=t1.id, actor=(await _actor()),
         )
         assert len(out['rows']) == 1
         assert out['rows'][0]['tournament_id'] == t1.id
@@ -483,7 +489,7 @@ class TestActivityTrendsDB:
             # created_at is auto_now_add; override it after insert for bucketing.
             await AuditLog.filter(id=log.id).update(created_at=created)
 
-        out = await AnalyticsService().activity_trends(WINDOW_START, WINDOW_END, 'week')
+        out = await AnalyticsService().activity_trends(WINDOW_START, WINDOW_END, 'week', actor=(await _actor()))
 
         assert out['total'] == 3
         by_cat = {c['category']: c for c in out['categories']}
@@ -500,7 +506,7 @@ class TestActivityTrendsDB:
 
 class TestActivityExtent:
     async def test_empty_tenant_has_no_extent(self, db):
-        assert await AnalyticsService().activity_extent() == (None, None)
+        assert await AnalyticsService().activity_extent(actor=(await _actor())) == (None, None)
 
     async def test_spans_every_source(self, db):
         t = await Tournament.create(name='T')
@@ -516,7 +522,7 @@ class TestActivityExtent:
         log = await AuditLog.create(user=u, action='match.created', details='{}')
         await AuditLog.filter(id=log.id).update(created_at=utc(2025, 9, 1, 12))
 
-        first, last = await AnalyticsService().activity_extent()
+        first, last = await AnalyticsService().activity_extent(actor=(await _actor()))
 
         # Eastern dates: the audit row is the earliest, the shift the latest.
         assert first == date(2025, 9, 1)
@@ -527,7 +533,7 @@ class TestActivityExtent:
         await Match.create(tournament=t, scheduled_at=utc(2025, 10, 8, 16))
         await Match.create(tournament=t, scheduled_at=utc(2025, 10, 8, 20))
 
-        assert await AnalyticsService().activity_extent() == (
+        assert await AnalyticsService().activity_extent(actor=(await _actor())) == (
             date(2025, 10, 8), date(2025, 10, 8),
         )
 
@@ -546,7 +552,7 @@ class TestActivityExtent:
             slots_needed=1,
         )
 
-        assert await AnalyticsService().activity_extent(tournament_id=t1.id) == (
+        assert await AnalyticsService().activity_extent(tournament_id=t1.id, actor=(await _actor())) == (
             date(2025, 10, 8), date(2025, 10, 8),
         )
 
@@ -554,4 +560,4 @@ class TestActivityExtent:
         t = await Tournament.create(name='T')
         await Match.create(tournament=t, scheduled_at=None)
 
-        assert await AnalyticsService().activity_extent(tournament_id=t.id) == (None, None)
+        assert await AnalyticsService().activity_extent(tournament_id=t.id, actor=(await _actor())) == (None, None)

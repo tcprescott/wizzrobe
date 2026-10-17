@@ -10,6 +10,7 @@ from application.services import AuthService, ChallongeService, get_user_from_se
 from application.tenant_context import require_tenant_id
 from application.utils.timezone import format_local_display
 from models import Tournament
+from theme.busy import busy_click
 from theme.dialog.challonge_participants_dialog import ChallongeParticipantsDialog
 from theme.dialog.confirmation_dialog import ConfirmationDialog
 from theme.empty_state import empty_panel
@@ -186,7 +187,7 @@ async def admin_challonge_page() -> None:
                             # Return the coroutine so NiceGUI awaits it in the button's
                             # slot; a bare background task has no slot, so the notify /
                             # refresh calls in sync_one would raise and be lost.
-                            on_click=lambda _=None, tid=t.id: sync_one(tid),
+                            on_click=busy_click('Syncing…', lambda _=None, tid=t.id: sync_one(tid)),
                         ).props('flat color=primary')
                         with more_menu(t.name):
                             for action in service.stage_actions_for(t):
@@ -219,7 +220,7 @@ async def admin_challonge_page() -> None:
 
             ConfirmationDialog(
                 action.confirm, on_confirm=do_advance, confirm_text=action.label,
-                tone='primary', title=action.label,
+                tone='primary', title=action.label, busy_text='Updating Challonge…',
             ).open()
 
         def confirm_unlink(tournament) -> None:

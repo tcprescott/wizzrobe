@@ -36,6 +36,7 @@ from theme.brackets import (
     state_color,
     state_label,
 )
+from theme.busy import busy_click
 from theme.dialog._helpers import dialog_actions, form_dialog
 from theme.dialog.confirmation_dialog import ConfirmationDialog
 from theme.notify import notify_error
@@ -314,7 +315,7 @@ async def admin_brackets_page() -> None:
                     'cannot be undone. To rule on a tie first, use Results → '
                     'Standings.',
                     on_confirm=do_complete,
-                    confirm_text='Complete stage',
+                    confirm_text='Complete stage', busy_text='Completing…',
                 )
                 confirm.open()
 
@@ -380,7 +381,8 @@ async def admin_brackets_page() -> None:
                         ui.button('Cancel', on_click=dialog.close).props('flat')
                         if not plan.already_seeded:
                             ui.button(
-                                'Advance', icon='fast_forward', on_click=do_advance,
+                                'Advance', icon='fast_forward',
+                                on_click=busy_click('Advancing…', do_advance),
                             ).props('color=primary')
                 dialog.open()
 

@@ -21,13 +21,15 @@ from typing import Dict, List, Optional, Sequence, Tuple
 
 from application.services.reporting_shared import (
     ON_TIME_THRESHOLD_MIN,
+    ensure_report_reader,
+    ensure_volunteer_report_reader,
     is_crew_covered,
     to_display,
     window_hours,
 )
 from application.tenant_context import require_tenant_id
 from application.utils.timezone import combine_local, now_local, to_local
-from models import AuditLog, Match, VolunteerShift
+from models import AuditLog, Match, User, VolunteerShift
 
 # Weights for the composite tournament-health score. Components with no data
 # (e.g. no stream candidates) are dropped and the remaining weights renormalize,
@@ -186,12 +188,14 @@ class AnalyticsService:
         end: datetime,
         bucket: str = 'week',
         tournament_id: Optional[int] = None,
+        *, actor: Optional[User],
     ) -> Dict:
         """Commentator/tracker signups & approvals per time bucket.
 
         Participation is bucketed by the match's ``scheduled_at`` (when the work
         happens), not the signup timestamp.
         """
+        await ensure_report_reader(actor)
         bucket = self._normalize_bucket(bucket)
         bucket_starts, index_map, q_start, q_end = self._bucket_axis(start, end, bucket)
         n = len(bucket_starts)
@@ -263,6 +267,7 @@ class AnalyticsService:
         start: datetime,
         end: datetime,
         bucket: str = 'week',
+        *, actor: Optional[User],
     ) -> Dict:
         """Scheduled vs checked-in volunteer hours per time bucket.
 
@@ -270,6 +275,7 @@ class AnalyticsService:
         bucket of its ``starts_at``; checked-in hours only count assignments that
         were actually checked in. Needed hours use ``slots_needed`` for fill rate.
         """
+        await ensure_volunteer_report_reader(actor)
         bucket = self._normalize_bucket(bucket)
         bucket_starts, index_map, q_start, q_end = self._bucket_axis(start, end, bucket)
         n = len(bucket_starts)
@@ -354,12 +360,14 @@ class AnalyticsService:
         start: datetime,
         end: datetime,
         tournament_id: Optional[int] = None,
+        *, actor: Optional[User],
     ) -> Dict:
         """Per-tournament health scorecards for matches scheduled in the window.
 
         Completion is measured only against matches whose scheduled time has
         already passed, so upcoming matches never drag a score down.
         """
+        await ensure_report_reader(actor)
         start = self._local(start)
         end = self._local(end)
         now = now_local()
@@ -490,12 +498,14 @@ class AnalyticsService:
         start: datetime,
         end: datetime,
         bucket: str = 'week',
+        *, actor: Optional[User],
     ) -> Dict:
         """Audit-log action volume per bucket, grouped by action namespace.
 
         The category is the part of the ``verb.object`` action string before the
         dot (e.g. ``match``, ``crew``, ``tournament``).
         """
+        await ensure_report_reader(actor)
         bucket = self._normalize_bucket(bucket)
         start = self._local(start)
         end = self._local(end)
@@ -537,6 +547,7 @@ class AnalyticsService:
 
     async def activity_extent(
         self, tournament_id: Optional[int] = None,
+        *, actor: Optional[User],
     ) -> Tuple[Optional[date], Optional[date]]:
         """Earliest and latest **local dates** with any activity this trends.
 
@@ -551,6 +562,7 @@ class AnalyticsService:
         "narrowed" window would silently widen back out to every other event's
         shifts.
         """
+        await ensure_report_reader(actor)
         tid = require_tenant_id()
         match_q = Match.filter(tenant_id=tid, scheduled_at__isnull=False)
         if tournament_id:

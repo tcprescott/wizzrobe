@@ -319,6 +319,18 @@ class RaceRoomService:
         )
 
     # feature-gate: exempt — lifecycle of an already-open room (see above).
+    async def cancel_room_as(
+        self, room: RacetimeRoom, *, actor: Optional[User], reason: Optional[str] = None,
+    ) -> None:
+        """A person calling a room off by hand: staff or a sync admin. Calling off
+        the match (``cancel_room`` from match cancellation) needs no sync role."""
+        await AuthService.ensure(
+            await AuthService.can_manage_sync(actor),
+            'You do not have permission to cancel a racetime room.',
+        )
+        await self.cancel_room(room, actor=actor, reason=reason)
+
+    # feature-gate: exempt — lifecycle of an already-open room (see above).
     async def record_finish(
         self, room: RacetimeRoom, entrants: List[RaceEntrant], *, actor: Optional[User] = None,
     ) -> None:

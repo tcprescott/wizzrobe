@@ -165,6 +165,18 @@ async def _apply_stored_log_levels() -> None:
     except Exception:
         logger.exception('Could not apply stored log levels; continuing with defaults')
 
+async def _load_browser_monitoring() -> None:
+    """Load the browser Sentry settings a super-admin set on /platform.
+
+    Same rule as the log levels: a failure leaves the defaults in place rather
+    than stopping boot.
+    """
+    from application.services import BrowserMonitoringService
+    try:
+        await BrowserMonitoringService().load()
+    except Exception:
+        logger.exception('Could not load browser monitoring settings; continuing with defaults')
+
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     """
@@ -177,6 +189,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         await init_db()
     with _startup_step('stored log levels'):
         await _apply_stored_log_levels()
+        await _load_browser_monitoring()
     with _startup_step('discord bot'):
         # Importing discordbot registers its interaction handlers and DM view
         # factories with discord_service's registries — the one-way wiring that

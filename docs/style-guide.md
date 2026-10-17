@@ -167,6 +167,21 @@ row in equal halves; on desktop it's a right-aligned pair.
 labels say which is which (Decline, Reject, Remove, Clear, Withdraw, Cancel
 against Approve, Confirm, Save, Assign, Publish).
 
+**A slow button says what it's doing.** Anything that waits on another
+service (a randomizer, racetime.gg, Challonge, start.gg, SpeedGaming, Discord,
+Matcherino) or loops over many rows can take seconds. Wire it with
+`busy_click('Syncing…', handler)` (`theme/busy.py`): while it runs the button
+swaps its content for a spinner and the busy words on a neutral fill, ignores
+further presses, and shows a seconds count after three seconds
+(`static/js/busy.js`). A job that knows its size reports it with
+`current_busy().progress('Rolling', n, total)` ("Rolling 7 of 25…"). A ⋮ menu
+item closes as it's tapped, so the same words go on a spinner toast instead
+(`async with busy(None, …)`). A confirmation in front of a slow action passes
+`busy_text=` to `ConfirmationDialog`, which keeps the dialog open with its
+confirm button busy until the work is done. A `ui.table` slot button binds
+`:loading` and `wiz-busy-btn` to a row flag and drops in
+`slot_busy_template('Rolling…')`. Icon-only buttons keep a plain spinner.
+
 **Help is one "?" at the end of the heading row.** See the Help row above; in a
 dialog title it sits just before Close and matches it (a "Help" pill on desktop,
 a grey disc on a phone). It opens as a 24rem popover on desktop and as a bottom

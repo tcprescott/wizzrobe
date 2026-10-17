@@ -19,6 +19,7 @@ The presentation layer owns these strings; they contain no business logic and no
 data access. ``register_body_slots`` wires them onto a ``ui.table``.
 """
 
+from theme.busy import slot_busy_template
 from theme.tables.match_access import MatchBoardAccess
 
 
@@ -322,17 +323,16 @@ SEED_ROLLABLE = ("props.row.tournament_seed_generator && !props.row.is_racetime"
                  " && props.row.players && props.row.players.length"
                  " && !['Finished', 'Confirmed'].includes(props.row.state)")
 
-SEED_SLOT = '''<q-td :props="props" :class="[props.row._flash ? 'wiz-row-flash' : '', props.row._removed ? 'wiz-row-removed' : '']" :inert="props.row._removed ? '' : null" :data-wiz-row="props.row.id">
+SEED_SLOT = ('''<q-td :props="props" :class="[props.row._flash ? 'wiz-row-flash' : '', props.row._removed ? 'wiz-row-removed' : '']" :inert="props.row._removed ? '' : null" :data-wiz-row="props.row.id">
     <span v-if="props.row.seed_rolling_since && !props.value" class="st-pending">
         <q-spinner size="16px" class="q-mr-xs" />{{ props.row.seed_rolling_label }}
         <q-tooltip>This randomizer generates seeds on a queue, which takes a few minutes. The players are DMed as soon as it lands — you can leave this page.</q-tooltip>
     </span>
     <q-btn v-if="__ROLLABLE__ && !props.value && !props.row.seed_rolling_since"
-           :loading="props.row._generating_seed"
-           :disabled="props.row._generating_seed"
+           :disable="!!props.row._generating_seed" :class="{'wiz-busy-btn': !!props.row._generating_seed}"
            @click="(props.row._generating_seed = true, $parent.$emit('roll', props))"
-           icon="casino" color="primary" size="sm">
-        Generate
+           :icon="props.row._generating_seed ? undefined : 'casino'" color="primary" size="sm">
+        ''' + slot_busy_template('props.row._generating_seed') + '''{{ props.row._generating_seed ? 'Rolling…' : 'Generate' }}
     </q-btn>
     <q-icon v-if="props.row.seed_roll_error && !props.value && !props.row.seed_rolling_since"
             name="error_outline" class="st-pending q-ml-xs" size="xs">
@@ -345,7 +345,7 @@ SEED_SLOT = '''<q-td :props="props" :class="[props.row._flash ? 'wiz-row-flash' 
             <q-tooltip>Can't receive a Discord DM: {{ props.row.seed_dm_blocked.join(', ') }} — hand them the seed. Shows who is unreachable, not whether a DM arrived.</q-tooltip>
         </q-icon>
     </span>
-</q-td>'''.replace('__ROLLABLE__', SEED_ROLLABLE).replace('__SEED_VALUE__', seed_value_template('props.value'))
+</q-td>''').replace('__ROLLABLE__', SEED_ROLLABLE).replace('__SEED_VALUE__', seed_value_template('props.value'))
 
 # Carries the capability flags — must be registered through ``_fill``, not raw.
 STATE_SLOT = '''<q-td :props="props" :class="[props.row._flash ? 'wiz-row-flash' : '', props.row._removed ? 'wiz-row-removed' : '']" :inert="props.row._removed ? '' : null" :data-wiz-row="props.row.id">

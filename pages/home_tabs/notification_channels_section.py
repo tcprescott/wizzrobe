@@ -22,6 +22,7 @@ from application.services.notification_channel_service import (
 )
 from models import User
 from pages.discord_email_oauth import LINK_ROUTE as DISCORD_EMAIL_ROUTE
+from theme.busy import busy, busy_click, is_busy
 from theme.dialog._helpers import dialog_actions, dialog_more_menu, form_dialog, submit_on_enter
 from theme.dialog.confirmation_dialog import ConfirmationDialog
 from theme.menu import menu_action
@@ -135,14 +136,14 @@ class ChannelRows:
             submit_on_enter(dialog, lambda: confirm() if state['sent_to'] else send_code())
 
         async def send_code() -> None:
-            send_button.disable()
+            if is_busy(send_button):
+                return
             try:
-                sent_to = await self.service.start_email_verification(user, address.value or '')
+                async with busy(send_button, 'Sending…'):
+                    sent_to = await self.service.start_email_verification(user, address.value or '')
             except ValueError as err:
                 ui.notify(str(err), color='warning')
                 return
-            finally:
-                send_button.enable()
             state['sent_to'] = sent_to
             sent_label.set_text(f'We sent a 6-digit code to {sent_to}. Type it here to confirm.')
             code_block.set_visibility(True)
@@ -199,7 +200,7 @@ class ChannelRows:
                 ui.switch(value=user.telegram_notifications, on_change=self._toggle_telegram) \
                     .props('aria-label="Telegram notifications"')
             else:
-                ui.button('Connect', on_click=self.open_telegram_sheet).props('outline no-caps')
+                ui.button('Connect', on_click=busy_click('Connecting…', self.open_telegram_sheet)).props('outline no-caps')
 
     async def _toggle_telegram(self, e) -> None:
         try:
@@ -321,14 +322,14 @@ def _open_test_sheet(user: User, rows: Optional[ChannelRows], devices: int) -> N
 
     async def do_send() -> None:
         chosen = [c for c, box in boxes.items() if box.value]
-        send.disable()
+        if is_busy(send):
+            return
         try:
-            results = await NotificationChannelService().send_test(user, chosen)
+            async with busy(send, 'Sending…'):
+                results = await NotificationChannelService().send_test(user, chosen)
         except ValueError as err:
             ui.notify(str(err), color='warning')
             return
-        finally:
-            send.enable()
         dialog.close()
         sent = [names[c] for c, ok in results.items() if ok]
         failed = [names[c] for c, ok in results.items() if not ok]

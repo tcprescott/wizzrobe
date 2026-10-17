@@ -580,6 +580,7 @@ class TournamentService(TournamentSignupMixin):
             await AuthService.can_grant_roles(actor),
             "Only Staff can grant Tournament Admin",
         )
+        await TenantMembershipService.require_community_users([target.id], actor)
         await self.repository.set_tournament_grant(
             tournament, target, TournamentGrant.TOURNAMENT_ADMIN, granted=True
         )
@@ -614,6 +615,7 @@ class TournamentService(TournamentSignupMixin):
             await AuthService.can_grant_roles(actor),
             "Only Staff can grant Crew Coordinator",
         )
+        await TenantMembershipService.require_community_users([target.id], actor)
         await self.repository.set_tournament_grant(
             tournament, target, TournamentGrant.CREW_COORDINATOR, granted=True
         )

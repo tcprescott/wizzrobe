@@ -13,9 +13,10 @@ from mcp.server.mcpserver import MCPServer
 from application.services import AuthService, FeatureFlagService
 from application.services.tenant_service import TenantService
 from application.tenant_context import tenant_scope
+from application.utils.build_info import build_info
 from mcpserver.auth import Gate, belongs_to_tenant, current_actor
 from mcpserver.registry import register
-from mcpserver.schemas import TenantInfo, WhoAmI
+from mcpserver.schemas import ServerVersion, TenantInfo, WhoAmI
 
 
 async def _tenants_for_actor() -> List[TenantInfo]:
@@ -82,6 +83,22 @@ async def whoami() -> WhoAmI:
     )
 
 
+async def server_version() -> ServerVersion:
+    """Report which build of Wizzrobe is running: version, commit and its date.
+
+    Quote it when reporting a bug, or to check whether a fix has been deployed.
+    """
+    info = build_info()
+    return ServerVersion(
+        version=info.version,
+        commit=info.commit,
+        commit_short=info.commit_short,
+        commit_date=info.commit_date,
+        source_url=info.source_url,
+    )
+
+
 def register_tools(mcp: MCPServer) -> None:
     register(mcp, list_tenants, gate=Gate.GLOBAL, title='List communities')
     register(mcp, whoami, gate=Gate.GLOBAL, title='Who am I')
+    register(mcp, server_version, gate=Gate.GLOBAL, title='Server version')

@@ -96,7 +96,7 @@ async def volunteer_hour_trends(
     """
     start_dt, end_dt = _window(start, end)
     return await AnalyticsService().volunteer_hour_trends(
-        start=start_dt, end=end_dt, bucket=bucket,
+        start=start_dt, end=end_dt, bucket=bucket, actor=current_actor().user,
     )
 
 

@@ -46,6 +46,7 @@ from api.routers import (
     tournaments,
     triforce,
     users,
+    version,
     volunteers,
     web_push,
     webhooks,
@@ -53,8 +54,9 @@ from api.routers import (
 from models import FeatureFlag
 
 router = APIRouter(dependencies=[Depends(rate_limit), Depends(tenant_context_scope)])
-# Unauthenticated liveness probe (no auth dependency on this router).
+# Unauthenticated liveness probe and build version (no auth dependency on these routers).
 router.include_router(health.router)
+router.include_router(version.router)
 router.include_router(matches.router)
 router.include_router(match_actions.router)
 router.include_router(crew.router)

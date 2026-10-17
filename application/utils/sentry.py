@@ -21,6 +21,12 @@ Four things on top of the SDK defaults make an event diagnosable mid-event:
 * **Ambient tags** on every event and log: the tenant in scope and, inside a
   NiceGUI websocket handler where the request-scoped user is gone, the signed-in
   user. Workers, queues and bot handlers add their own with :func:`sentry_tags`.
+
+The browser reports to the same project through the JavaScript SDK
+(:func:`browser_sdk_config`, ``static/js/sentry-browser.js``). Server events
+carry ``surface: server`` and browser ones ``surface: browser`` so either side
+filters out cleanly, and a server error raised by a tap names that tab's
+session replay, so the issue links to a recording of what was tapped.
 """
 
 import asyncio
@@ -32,8 +38,8 @@ from typing import Any, Dict, Iterator, Optional
 import sentry_sdk
 from sentry_sdk.integrations.logging import LoggingIntegration, ignore_logger_for_sentry_logs
 
-from application.tenant_context import get_current_tenant_id
-from application.utils import sentry_metrics
+from application.tenant_context import client_stash, get_current_tenant_id
+from application.utils import browser_monitoring, sentry_metrics
 from application.utils.environment import get_environment, is_production
 from application.utils.log_levels import level_number
 from application.utils.timer_teardown import is_timer_teardown_race
@@ -57,6 +63,36 @@ _GRACEFUL_SHUTDOWN_CANCEL = 'timeout graceful shutdown exceeded'
 
 #: How long the lifespan shutdown waits for queued events and logs to ship.
 _SHUTDOWN_FLUSH_TIMEOUT = 2.0
+
+#: Where theme/browser_monitoring.py keeps the tab's replay id in ``app.storage.client``.
+REPLAY_ID_KEY = 'sentry_replay_id'
+
+
+#: engine.io's ERROR for a poll that names a session the server no longer holds:
+#: a tab left open across a deploy, or a phone waking from sleep. The browser
+#: opens a fresh session on its own, so nobody can act on the report.
+_STALE_SESSION_PREFIXES = ('Invalid session ', "'Session is disconnected' ")
+
+
+class StaleSocketSessionFilter(logging.Filter):
+    """Downgrades engine.io's stale-session error to a WARNING.
+
+    Sentry SGLMAN-13/14. Still in the container log and Sentry Logs, so a burst
+    after a deploy stays visible, but no longer opens an issue.
+    """
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        if record.levelno >= logging.ERROR and record.getMessage().startswith(_STALE_SESSION_PREFIXES):
+            record.levelno = logging.WARNING
+            record.levelname = logging.getLevelName(logging.WARNING)
+        return True
+
+
+def install_stale_session_filter() -> None:
+    """Attach the filter to the ``engineio.server`` logger once; safe to call repeatedly."""
+    engineio_logger = logging.getLogger('engineio.server')
+    if not any(isinstance(f, StaleSocketSessionFilter) for f in engineio_logger.filters):
+        engineio_logger.addFilter(StaleSocketSessionFilter())
 
 
 def _scrub_event(event: Dict[str, Any], hint: Optional[Dict[str, Any]]) -> Dict[str, Any]:
@@ -97,18 +133,28 @@ def _session_user() -> Optional[Dict[str, Any]]:
     return {'id': str(ident), 'username': storage.get('username')}
 
 
+def _session_replay_id() -> Optional[str]:
+    """The browser replay recording this tab, when a websocket handler raised."""
+    stash = client_stash()
+    return stash.get(REPLAY_ID_KEY) if stash is not None else None
+
+
 def _enrich_event(event: Dict[str, Any]) -> Dict[str, Any]:
-    tenant_id = get_current_tenant_id()
-    if tenant_id is not None:
-        tags = event.get('tags')
-        if isinstance(tags, dict):
+    tags = event.get('tags')
+    if tags is None:
+        tags = event['tags'] = {}
+    if isinstance(tags, dict):
+        tags.setdefault('surface', 'server')
+        tenant_id = get_current_tenant_id()
+        if tenant_id is not None:
             tags.setdefault('tenant_id', str(tenant_id))
-        elif tags is None:
-            event['tags'] = {'tenant_id': str(tenant_id)}
     if not event.get('user'):
         user = _session_user()
         if user is not None:
             event['user'] = user
+    replay_id = _session_replay_id()
+    if replay_id:
+        event.setdefault('contexts', {}).setdefault('replay', {'replay_id': replay_id})
     return event
 
 
@@ -206,6 +252,33 @@ def _release() -> Optional[str]:
     return f'wizzrobe@{sha[:12]}' if sha else None
 
 
+def browser_sdk_config() -> Optional[Dict[str, Any]]:
+    """What a page hands the browser SDK, or ``None`` to not load it at all.
+
+    The browser shares the server's DSN (one Sentry project), so with no
+    ``SENTRY_DSN`` nothing loads; nor does it while a super-admin has browser
+    errors switched off. Built per page build, so the user and tenant are the
+    viewer's.
+    """
+    dsn = (os.environ.get('SENTRY_DSN') or '').strip()
+    snapshot = browser_monitoring.current()
+    if not dsn or not snapshot.enabled:
+        return None
+    tags = {'surface': 'browser'}
+    tenant_id = get_current_tenant_id()
+    if tenant_id is not None:
+        tags['tenant_id'] = str(tenant_id)
+    return {
+        'dsn': dsn,
+        'environment': get_environment(),
+        'release': _release(),
+        'user': _session_user(),
+        'tags': tags,
+        'builtin': [{'pattern': r.pattern, 'match': r.match} for r in browser_monitoring.BUILTIN_RULES],
+        **browser_monitoring.live_config(snapshot),
+    }
+
+
 def init_sentry() -> None:
     """Initialize Sentry when ``SENTRY_DSN`` is configured; otherwise do nothing.
 
@@ -218,6 +291,7 @@ def init_sentry() -> None:
         return
 
     logs_level = _sentry_logs_level()
+    install_stale_session_filter()
     for name in _NOISY_FOR_SENTRY_LOGS:
         ignore_logger_for_sentry_logs(name)
 

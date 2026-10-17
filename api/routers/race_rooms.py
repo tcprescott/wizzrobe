@@ -7,7 +7,6 @@ from fastapi import APIRouter, Depends, status
 from api.dependencies import (
     ServiceErrorRoute,
     require_api_actor,
-    require_staff,
     require_write_actor,
 )
 from api.schemas.race_rooms import (
@@ -18,7 +17,6 @@ from api.schemas.race_rooms import (
 )
 from application.errors import require_found
 from application.services import (
-    AuthService,
     MatchService,
     RaceRoomService,
     RacetimeRoomService,
@@ -45,11 +43,11 @@ async def _load_room_or_404(room_id: int) -> RacetimeRoom:
     summary="List open race rooms",
     description=(
         "Lists this community's race rooms that are open or in progress.\n\n"
-        "**Who can call this:** Staff."
+        "**Who can call this:** Staff or Sync admin."
     ),
 )
-async def list_open(actor: User = Depends(require_staff)):
-    return await RacetimeRoomService().list_open_rooms_for_current_tenant()
+async def list_open(actor: User = Depends(require_api_actor)):
+    return await RacetimeRoomService().list_open_rooms_for_current_tenant(actor)
 
 
 @router.get(
@@ -95,12 +93,8 @@ async def create_room(payload: RaceRoomCreateRequest, actor: User = Depends(requ
     ),
 )
 async def cancel_room(room_id: int, payload: RaceRoomCancelRequest, actor: User = Depends(require_write_actor)):
-    await AuthService.ensure(
-        await AuthService.can_manage_sync(actor),
-        "You do not have permission to cancel a racetime room.",
-    )
     room = await _load_room_or_404(room_id)
-    await RaceRoomService().cancel_room(room, actor=actor, reason=payload.reason)
+    await RaceRoomService().cancel_room_as(room, actor=actor, reason=payload.reason)
     return room
 
 
@@ -116,9 +110,5 @@ async def cancel_room(room_id: int, payload: RaceRoomCancelRequest, actor: User 
     ),
 )
 async def set_status(room_id: int, payload: RaceRoomStatusUpdateRequest, actor: User = Depends(require_write_actor)):
-    await AuthService.ensure(
-        await AuthService.can_manage_sync(actor),
-        "You do not have permission to change a racetime room.",
-    )
     room = await _load_room_or_404(room_id)
-    return await RacetimeRoomService().set_status(room, payload.status)
+    return await RacetimeRoomService().set_status_as(room, payload.status, actor=actor)

@@ -44,6 +44,7 @@ depend on — do not change):
     open_hard_preset               -> props.row
 """
 
+from theme.busy import slot_busy_template
 from theme.tables.match_access import MatchBoardAccess
 from theme.tables.match_slots import (
     CREW_CAN_SIGN_UP_JS,
@@ -224,10 +225,11 @@ _SEED_DETAIL = '''
                     <q-spinner size="14px" class="q-mr-xs" />{{ props.row.seed_rolling_label }}
                 </span>
                 <q-btn v-if="__RUN__ && __ROLLABLE__ && !props.row.generated_seed && !props.row.seed_rolling_since"
-                       :loading="props.row._generating_seed" :disabled="props.row._generating_seed"
-                       icon="casino" color="primary" size="sm" dense outline
+                       :disable="!!props.row._generating_seed"
+                       :class="{'wiz-busy-btn': !!props.row._generating_seed}"
+                       :icon="props.row._generating_seed ? undefined : 'casino'" color="primary" size="sm" dense outline
                        @click="(props.row._generating_seed = true, $parent.$emit('roll', { key: props.row.id }))">
-                    Generate
+                    ''' + slot_busy_template('props.row._generating_seed') + '''{{ props.row._generating_seed ? 'Rolling…' : 'Generate' }}
                 </q-btn>
                 <span v-if="props.row.seed_roll_error && !props.row.generated_seed && !props.row.seed_rolling_since"
                       class="st-pending" style="flex-basis: 100%;">

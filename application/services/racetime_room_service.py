@@ -13,7 +13,8 @@ from typing import List, Optional
 
 from application.repositories import RacetimeRoomRepository
 from application.repositories._tenant import scoped
-from models import Match, RaceRoomStatus, RacetimeRoom
+from application.services.auth_service import AuthService
+from models import Match, RaceRoomStatus, RacetimeRoom, User
 
 
 class RacetimeRoomService:
@@ -33,13 +34,28 @@ class RacetimeRoomService:
         """Not-yet-terminal rooms across all tenants (unscoped, for re-adoption)."""
         return await self.repository.list_open_all()
 
-    async def list_open_rooms_for_current_tenant(self) -> List[RacetimeRoom]:
-        """Not-yet-terminal rooms for the current tenant only (scoped, for the API)."""
+    async def list_open_rooms_for_current_tenant(self, actor: Optional[User]) -> List[RacetimeRoom]:
+        """Not-yet-terminal rooms for the current tenant: staff or a sync admin,
+        who manage them on Admin → Racetime."""
+        await AuthService.ensure(
+            await AuthService.can_manage_sync(actor),
+            'You do not have permission to list racetime rooms.',
+        )
         return await scoped(
             RacetimeRoom.filter(
                 status__in=[RaceRoomStatus.OPEN, RaceRoomStatus.IN_PROGRESS],
             )
         ).prefetch_related('tenant').order_by('id')
+
+    async def set_status_as(
+        self, room: RacetimeRoom, status: RaceRoomStatus, *, actor: Optional[User],
+    ) -> RacetimeRoom:
+        """A person correcting a room's cached status: staff or a sync admin."""
+        await AuthService.ensure(
+            await AuthService.can_manage_sync(actor),
+            'You do not have permission to change a racetime room.',
+        )
+        return await self.set_status(room, status)
 
     async def set_status(self, room: RacetimeRoom, status: RaceRoomStatus) -> RacetimeRoom:
         """Write a room's cached lifecycle status (tenant-scoped).

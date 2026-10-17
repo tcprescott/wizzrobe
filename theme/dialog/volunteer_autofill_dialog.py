@@ -14,6 +14,7 @@ from application.services.volunteer.volunteer_autoschedule_service import (
     DEFAULT_MAX_HOURS,
     DraftPolicy,
 )
+from theme.busy import busy_click
 from theme.dialog._helpers import dialog_actions, dialog_header, mobile_sheet
 
 
@@ -79,13 +80,13 @@ class VolunteerAutofillDialog:
                 # button's behaviour rather than silently filling nothing.
                 if not position_ids or len(position_ids) == len(options):
                     position_ids = None
-                dialog.close()
                 if self.on_submit:
                     await self.on_submit(policy, position_ids)
+                dialog.close()
 
             with dialog_actions().classes('justify-end'):
                 ui.button('Cancel', on_click=dialog.close).props('flat')
-                ui.button('Create draft', icon='smart_toy', on_click=submit) \
+                ui.button('Create draft', icon='smart_toy', on_click=busy_click('Creating draft…', submit)) \
                     .props('color=primary')
 
             dialog.open()

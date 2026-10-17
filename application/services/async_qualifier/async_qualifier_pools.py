@@ -11,7 +11,7 @@ for the run lifecycle and review, which is where its rules actually live.
 """
 
 from dataclasses import dataclass
-from typing import List, Optional, Sequence, Tuple
+from typing import Callable, List, Optional, Sequence, Tuple
 
 from application.errors import NotFoundError, require_found
 from application.feature_flags import requires_feature
@@ -213,9 +213,14 @@ class PoolManagementMixin:
 
     @requires_feature(FeatureFlag.ASYNC_QUALIFIERS)
     async def roll_permalinks(
-        self, actor: Optional[User], pool_id: int, *, count: int
+        self, actor: Optional[User], pool_id: int, *, count: int,
+        on_progress: Optional[Callable[[int, int], None]] = None,
     ) -> List[AsyncQualifierPermalink]:
-        """Roll ``count`` fresh seeds from the pool's preset into permalinks."""
+        """Roll ``count`` fresh seeds from the pool's preset into permalinks.
+
+        ``on_progress(n, count)`` is called before the n-th roll, so a caller can
+        say how far a batch that takes minutes has got.
+        """
         pool = require_found(await self.pool_repository.get_with_permalinks(pool_id), "Pool")
         await self._ensure_pool_admin(actor, pool)
         # Re-checked here and not only in the picker: a pool created before DK64
@@ -231,7 +236,9 @@ class PoolManagementMixin:
         # batch aborts with nothing half-written.
         seedgen = SeedGenerationService()
         created: List[AsyncQualifierPermalink] = []
-        for _ in range(count):
+        for n in range(1, count + 1):
+            if on_progress is not None:
+                on_progress(n, count)
             call = await seedgen.generate_seed_call(
                 preset.randomizer, preset, surface='qualifier',
             )

@@ -37,6 +37,7 @@ from models import FeatureFlag
 from pages.home_tabs._link_section import open_sign_in_first_dialog
 from pages.home_tabs.challonge_link_section import CONFIG as _CHALLONGE_LINK_SECTION
 from pages.home_tabs.triforce_texts import open_triforce_dialog, supporting_tournament_ids
+from theme.busy import busy_click
 from theme.dialog.challonge_signup_dialog import open_challonge_signup_dialog
 from theme.dialog.confirmation_dialog import ConfirmationDialog
 from theme.empty_state import empty_panel
@@ -284,8 +285,9 @@ async def tournaments_tab() -> None:
             ConfirmationDialog(
                 message=f'Withdraw from {tournament.name}? Once sign-ups close you’ll '
                         'need staff to put you back in.',
-                on_confirm=lambda: background_tasks.create(withdraw(tournament.id, client)),
+                on_confirm=lambda: withdraw(tournament.id, client),
                 confirm_text='Withdraw', cancel_text='Stay in', title='Withdraw?',
+                busy_text='Withdrawing…',
             ).open()
 
         def render_card(card: TournamentSignupCard) -> None:
@@ -374,8 +376,7 @@ async def tournaments_tab() -> None:
                     elif card.can_sign_up:
                         ui.button(
                             'Sign up', icon='how_to_reg',
-                            on_click=lambda _e, tid=t.id: background_tasks.create(
-                                sign_up(tid, context.client)),
+                            on_click=busy_click('Signing up…', lambda _e, tid=t.id: sign_up(tid, context.client)),
                         ).props('color=primary no-caps')
                     elif card.needs_challonge_link:
                         ui.button(

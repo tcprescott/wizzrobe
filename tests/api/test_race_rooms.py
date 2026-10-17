@@ -53,6 +53,17 @@ class TestOpenList:
             assert resp.status_code == 403
 
 
+    async def test_a_sync_admin_lists_and_cancels_open_rooms(self, db, app):
+        """Sync admins run the Racetime tab, so they read the list as well as cancel."""
+        _, raw = await create_user_token(username='sync', roles=[Role.SYNC_ADMIN])
+        room = await _make_room(slug='alttp/match-sync')
+        async with client_for(app, raw) as c:
+            resp = await c.get('/api/race-rooms/open')
+            assert resp.status_code == 200
+            assert {r['slug'] for r in resp.json()} == {'alttp/match-sync'}
+            resp = await c.post(f'/api/race-rooms/{room.id}/cancel', json={'reason': 'called off'})
+            assert resp.status_code == 200
+
 class TestByMatch:
     async def test_by_match_success(self, db, app):
         _, raw = await create_user_token(username='reader')

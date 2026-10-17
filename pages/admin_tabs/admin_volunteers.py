@@ -577,7 +577,7 @@ async def admin_volunteers_page(day: str | None = None) -> None:
                 message=(f'Publish {pending} draft assignment(s)? Each volunteer gets a '
                          'Discord DM asking them to acknowledge. This cannot be undone — '
                          'removing an assignment afterwards notifies them again.'),
-                on_confirm=on_confirm, confirm_text='Publish & notify',
+                on_confirm=on_confirm, confirm_text='Publish & notify', busy_text='Publishing…',
             )
             confirm.open()
 

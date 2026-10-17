@@ -82,7 +82,7 @@ async def stages_page(
         data = await ReportsService().stage_utilization(
             bounds_start, bounds_end,
             tournament_id=tournament_id,
-            stage_id=stage_id_int,
+            stage_id=stage_id_int, actor=viewer,
         )
         stages = data['stages']
 

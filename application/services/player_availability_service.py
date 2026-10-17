@@ -38,6 +38,23 @@ class PlayerAvailabilityService:
     async def availability_for(self, user: User) -> List[PlayerAvailability]:
         return await self.repository.list_for_user(user)
 
+    @staticmethod
+    async def _ensure_can_read(actor: Optional[User], user_ids: Sequence[int]) -> None:
+        """Your own windows, or anyone's for staff."""
+        from application.services.auth_service import AuthService
+
+        if actor is not None and all(uid == actor.id for uid in user_ids):
+            return
+        await AuthService.ensure(
+            await AuthService.is_staff(actor),
+            "Staff access required to view other players' availability",
+        )
+
+    async def availability_of(self, target: User, *, actor: Optional[User]) -> List[PlayerAvailability]:
+        """``target``'s windows, read by ``actor``: themselves or staff."""
+        await self._ensure_can_read(actor, [target.id])
+        return await self.repository.list_for_user(target)
+
     async def set_windows(
         self,
         user: User,
@@ -84,6 +101,13 @@ class PlayerAvailabilityService:
         """Map user_id -> availability windows overlapping [start, end]."""
         rows = await self.repository.for_users_overlapping(user_ids, start, end)
         return availability_windows.group_by_user(rows)
+
+    async def availability_map_as(
+        self, user_ids: List[int], start: datetime, end: datetime, *, actor: Optional[User],
+    ) -> Dict[int, List[PlayerAvailability]]:
+        """:meth:`availability_map` for a person asking: their own, or anyone's for staff."""
+        await self._ensure_can_read(actor, user_ids)
+        return await self.availability_map(user_ids, start, end)
 
     @staticmethod
     def covers(

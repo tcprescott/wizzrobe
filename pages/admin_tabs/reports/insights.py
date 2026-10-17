@@ -9,9 +9,9 @@ import asyncio
 from datetime import date, timedelta
 from typing import List, Optional
 
-from nicegui import ui
+from nicegui import app, ui
 
-from application.services import AnalyticsService
+from application.services import AnalyticsService, get_user_from_session
 from application.timezone_context import pin_client_context
 from application.utils.timezone import now_local
 from theme.section import section_panel
@@ -56,7 +56,7 @@ WEEKLY_BUCKET_LIMIT_DAYS = 180
 
 
 async def _default_range(
-    analytics, start: Optional[str], end: Optional[str],
+    analytics, viewer, start: Optional[str], end: Optional[str],
     tournament_id: Optional[int] = None,
 ) -> tuple[date, date]:
     """The window to open on. Explicit dates win; otherwise follow the data.
@@ -73,7 +73,7 @@ async def _default_range(
         return s, e
 
     today = now_local().date()
-    first, last = await analytics.activity_extent(tournament_id=tournament_id)
+    first, last = await analytics.activity_extent(tournament_id=tournament_id, actor=viewer)
     if first is None or last is None:
         return today - timedelta(days=DEFAULT_TREND_DAYS), today
 
@@ -102,7 +102,8 @@ async def insights_page(
     **_unused,
 ) -> None:
     analytics = AnalyticsService()
-    start_d, end_d = await _default_range(analytics, start, end, tournament_id)
+    viewer = await get_user_from_session(app.storage.user)
+    start_d, end_d = await _default_range(analytics, viewer, start, end, tournament_id)
     # Only *default* the bucket — an explicit choice is the operator's.
     bucket = _normalize_bucket(bucket) if bucket else _default_bucket(start_d, end_d)
     bounds_start, bounds_end = display_bounds(start_d, end_d)
@@ -141,7 +142,7 @@ async def insights_page(
             await tournament_filter(tournament_id, on_change=lambda t_id: nav(tournament_id=t_id))
             report_jumps(ranges, start_d, end_d, on_pick=lambda s, e: nav(start=s, end=e))
 
-        crew, hours, health, activity = await _load(analytics, bounds_start, bounds_end, bucket, tournament_id)
+        crew, hours, health, activity = await _load(analytics, viewer, bounds_start, bounds_end, bucket, tournament_id)
         palette = await chart_palette()
 
         # Volunteer shifts and audit logs are not tournament-scoped in the data
@@ -154,13 +155,13 @@ async def insights_page(
         await _activity_section(activity, palette, scoped)
 
 
-async def _load(analytics, start, end, bucket, tournament_id):
+async def _load(analytics, viewer, start, end, bucket, tournament_id):
     with pin_client_context():
         return await asyncio.gather(
-            analytics.crew_participation_trends(start, end, bucket, tournament_id=tournament_id),
-            analytics.volunteer_hour_trends(start, end, bucket),
-            analytics.tournament_health(start, end, tournament_id=tournament_id),
-            analytics.activity_trends(start, end, bucket),
+            analytics.crew_participation_trends(start, end, bucket, tournament_id=tournament_id, actor=viewer),
+            analytics.volunteer_hour_trends(start, end, bucket, actor=viewer),
+            analytics.tournament_health(start, end, tournament_id=tournament_id, actor=viewer),
+            analytics.activity_trends(start, end, bucket, actor=viewer),
         )
 
 

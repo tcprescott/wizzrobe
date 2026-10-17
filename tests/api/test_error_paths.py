@@ -239,7 +239,7 @@ class TestStageDetail:
 class TestTournamentMembership:
     async def test_staff_add_and_remove_admin(self, db, app):
         _, raw = await create_user_token(username='boss', roles=[Role.STAFF])
-        target = await User.create(discord_id=7171, username='ta')
+        target = await create_community_member(discord_id=7171, username='ta')
         t = await Tournament.create(name='Cup')
         async with client_for(app, raw) as c:
             added = await c.post(f'/api/tournaments/{t.id}/admins', json={'user_id': target.id})
@@ -249,7 +249,7 @@ class TestTournamentMembership:
 
     async def test_staff_add_and_remove_crew_coordinator(self, db, app):
         _, raw = await create_user_token(username='boss', roles=[Role.STAFF])
-        target = await User.create(discord_id=7272, username='cc')
+        target = await create_community_member(discord_id=7272, username='cc')
         t = await Tournament.create(name='Cup')
         async with client_for(app, raw) as c:
             added = await c.post(
@@ -259,6 +259,17 @@ class TestTournamentMembership:
             assert added.json() == {'detail': 'Crew coordinator added'}
             removed = await c.delete(f'/api/tournaments/{t.id}/crew-coordinators/{target.id}')
             assert removed.status_code == 204
+
+    async def test_granting_an_account_from_outside_the_community_is_404(self, db, app):
+        _, raw = await create_user_token(username='boss', roles=[Role.STAFF])
+        outsider = await User.create(discord_id=7474, username='elsewhere')
+        t = await Tournament.create(name='Cup')
+        async with client_for(app, raw) as c:
+            for path in ('admins', 'crew-coordinators'):
+                resp = await c.post(f'/api/tournaments/{t.id}/{path}', json={'user_id': outsider.id})
+                assert resp.status_code == 404, (path, resp.text)
+        assert not await t.admins.filter(id=outsider.id).exists()
+        assert not await t.crew_coordinators.filter(id=outsider.id).exists()
 
     async def test_add_admin_missing_tournament_is_404(self, db, app):
         _, raw = await create_user_token(username='boss', roles=[Role.STAFF])

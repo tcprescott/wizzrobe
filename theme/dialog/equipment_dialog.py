@@ -6,6 +6,7 @@ from nicegui import ui
 
 from application.services import EquipmentService, TenantService, UserService
 from models import Equipment, EquipmentStatus, User
+from theme.busy import busy_click
 from theme.dialog._helpers import dialog_actions, dialog_header, mobile_sheet
 
 _WIZ_OWNER = ''  # empty owner value ⇒ owned by the community (its tenant)
@@ -156,6 +157,7 @@ class EquipmentDialog:
 
             with dialog_actions().classes('justify-end'):
                 ui.button('Cancel', on_click=dialog.close).props('flat')
-                ui.button('Save' if is_edit else 'Create', on_click=submit).props('color=primary')
+                ui.button('Save' if is_edit else 'Create',
+                          on_click=busy_click('Saving…' if is_edit else 'Creating…', submit)).props('color=primary')
 
             dialog.open()

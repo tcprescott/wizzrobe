@@ -7,6 +7,7 @@ from application.tenant_context import get_current_tenant_id
 from application.utils.safe_url import http_url_or_empty
 from application.utils.timezone import format_local_display
 from application.utils.tournament_signup import SignupWindow, signup_window_state
+from theme.busy import busy
 from theme.dialog import TournamentDialog
 from theme.dialog.tournament_edit_dialog import confirm_tournament_delete
 from theme.dialog.tournament_players_dialog import TournamentPlayersDialog
@@ -413,7 +414,8 @@ class TournamentTableView:
             return
         actor = await get_user_from_session(app.storage.user)
         try:
-            result = await bracket_sources.sync_tournament(t, actor)
+            async with busy(None, f'Syncing {t.name}…'):
+                result = await bracket_sources.sync_tournament(t, actor)
         except (ValueError, PermissionError) as e:
             notify_error(e)
             return
@@ -425,12 +427,25 @@ class TournamentTableView:
         await self.update_row_by_id(t.id)
 
     async def sync_all(self):
+        # The menu closes as it's tapped, so nothing stops a second tap
+        # starting a second run over the same brackets.
+        if getattr(self, '_syncing_all', False):
+            return
+        self._syncing_all = True
+        try:
+            await self._sync_all()
+        finally:
+            self._syncing_all = False
+
+    async def _sync_all(self):
         actor = await get_user_from_session(app.storage.user)
         tournaments = await self.get_query().order_by('name')
         if self.sync_sites is not None:
             live = await bracket_sources.live_sources()
             tournaments = [t for t in tournaments if _bracket_site(t, live) in self.sync_sites]
-        results = await bracket_sources.sync_all(list(tournaments), actor)
+        async with busy(None, 'Syncing brackets…') as state:
+            results = await bracket_sources.sync_all(
+                list(tournaments), actor, on_progress=lambda name: state.say(f'Syncing {name}…'))
         if not results:
             ui.notify('No tournaments here are linked to a bracket site.', color='warning')
             return

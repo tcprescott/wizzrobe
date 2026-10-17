@@ -12,6 +12,7 @@ from application.services.reporting_shared import (
     DEFAULT_MATCH_DURATION_MIN,
     ON_TIME_THRESHOLD_MIN,
     crew_requirement,
+    ensure_report_reader,
     is_crew_covered,
     to_display,
     window_hours,
@@ -70,8 +71,10 @@ class ReportsService:
         start: datetime,
         end: datetime,
         tournament_id: Optional[int] = None,
+        *, actor: Optional[User],
     ) -> Dict:
         """Compute concurrent-player counts at intervals across [start, end]."""
+        await ensure_report_reader(actor)
         start = self._local(start)
         end = self._local(end)
         if end < start:
@@ -147,7 +150,9 @@ class ReportsService:
         self,
         instant: datetime,
         tournament_id: Optional[int] = None,
+        *, actor: Optional[User],
     ) -> List[Match]:
+        await ensure_report_reader(actor)
         instant = self._local(instant)
         query = Match.all().filter(
             scheduled_at__gte=instant - timedelta(hours=24),
@@ -174,7 +179,9 @@ class ReportsService:
         start: datetime,
         end: datetime,
         tournament_id: Optional[int] = None,
+        *, actor: Optional[User],
     ) -> Dict:
+        await ensure_report_reader(actor)
         start = self._local(start)
         end = self._local(end)
         query = Match.all().filter(
@@ -271,7 +278,9 @@ class ReportsService:
         tournament_id: Optional[int] = None,
         user_id: Optional[int] = None,
         approved_only: bool = False,
+        *, actor: Optional[User],
     ) -> Dict:
+        await ensure_report_reader(actor)
         start = self._local(start)
         end = self._local(end)
 
@@ -376,7 +385,9 @@ class ReportsService:
         end: datetime,
         tournament_id: Optional[int] = None,
         stage_id: Optional[int] = None,
+        *, actor: Optional[User],
     ) -> Dict:
+        await ensure_report_reader(actor)
         start = self._local(start)
         end = self._local(end)
 

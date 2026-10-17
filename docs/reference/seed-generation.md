@@ -14,8 +14,9 @@ Tournaments for randomized games need a freshly rolled game ("seed") for every m
 | [`application/services/_seedgen_dk64r.py`](../../application/services/_seedgen_dk64r.py) | `DK64RBackend`: every DK64R call — settings conversion, submit/poll, and the published preset catalogue |
 | [`application/services/_seedgen_avianart.py`](../../application/services/_seedgen_avianart.py) | AVIANART: generate, poll until built, and the published preset catalogue |
 | [`application/services/_seedgen_samus.py`](../../application/services/_seedgen_samus.py) | samus.link: Super Metroid (`sm.samus.link`) and SMZ3 (`samus.link`) rolls |
+| [`application/services/_seedgen_varia.py`](../../application/services/_seedgen_varia.py) | Super Metroid VARIA: settings + skills presets, race roll on randommetroidsolver.pythonanywhere.com |
 | [`application/services/_seedgen_types.py`](../../application/services/_seedgen_types.py) | `RolledSeed`, `RemotePreset`, `AsyncRollSubmission`, `AsyncRollPoll` |
-| [`presets/`](../../presets) | Built-in settings files (`alttpr/`, `dk64r/`, `ff1r/`, `ootr/`, `sm/`, `smdash/`, `smmap/`, `smz3/`, `wwr/`, `z1r/`) — starting rows imported into the `Preset` table |
+| [`presets/`](../../presets) | Built-in settings files (`alttpr/`, `dk64r/`, `ff1r/`, `ootr/`, `sm/`, `smdash/`, `smmap/`, `smvaria/`, `smz3/`, `wwr/`, `z1r/`) — starting rows imported into the `Preset` table |
 | [`models/tournament.py`](../../models/tournament.py), [`models/match.py`](../../models/match.py) | `Tournament.seed_generator`, `Tournament.preset`, `Tournament.hard_preset`, `Preset`, `GeneratedSeeds`, `ProviderTask`; `Match.generated_seed`, `Match.preset_override` |
 | [`theme/dialog/tournament_edit_dialog.py`](../../theme/dialog/tournament_edit_dialog.py) | The Seed Preset select on the tournament create/edit dialog |
 | [`pages/admin_tabs/admin_presets.py`](../../pages/admin_tabs/admin_presets.py) | Admin **Presets** tab: preset CRUD, import built-ins, and a per-row **Test roll** |
@@ -65,15 +66,15 @@ The seed is displayed on the home Schedule and Player tabs and in the admin matc
 
 ```python
 AVAILABLE_RANDOMIZERS = ['alttpr', 'avianart', 'ff1r', 'z1r', 'z2r', 'smb3r', 'aosr', 'sm', 'smz3',
-                         'smmap', 'ootr', 'smdash', 'dk64r', 'wwr', 'test']
+                         'smmap', 'ootr', 'smdash', 'smvaria', 'dk64r', 'wwr', 'test']
 STUB_RANDOMIZERS = set()                                # registered but not wired (none today)
 PRESET_AWARE_RANDOMIZERS = everything but 'ootr', 'smmap', 'test'  # use preset.settings when given
 MOCK_EXEMPT_RANDOMIZERS = {'aosr', 'dk64r', 'smb3r', 'wwr', 'z1r', 'z2r'}  # MOCK_SEEDGEN leaves these alone
 ASYNC_RANDOMIZERS = {'dk64r'}                           # task-queue backends (submit now, collect later)
 TRIFORCE_TEXT_RANDOMIZERS = {'alttpr'}                  # can embed community triforce texts
 REMOTE_PRESET_BRANCHES = {'avianart': (), 'dk64r': ('stable', 'dev')}   # upstream preset catalogues
-PROVIDER_TIMEOUTS = {'avianart': 150.0, 'dk64r': 660.0}
-PROVIDER_ATTEMPTS = {'avianart': 1, 'dk64r': 1, 'smdash': 1}
+PROVIDER_TIMEOUTS = {'avianart': 150.0, 'dk64r': 660.0, 'smvaria': 100.0}
+PROVIDER_ATTEMPTS = {'avianart': 1, 'dk64r': 1, 'smdash': 1, 'smvaria': 1}
 ```
 
 `AVAILABLE_RANDOMIZERS` is the full validity set — it drives `MatchScheduleService`'s validity check and stays whole regardless of what any tenant has configured. What a tenant may *select* is the narrower `SeedGenerationService.available_randomizers(configured)`, which drops randomizers whose credential this community has not supplied; the tournament dialog, the Presets tab, and the REST `/seeds/randomizers` catalogue all render that filtered list. See [Per-tenant credentials](#per-tenant-credentials).
@@ -129,6 +130,7 @@ To promote a stub to a real backend, replace the `ValueError("… not yet implem
 | `_generate_aosr` | yes | Local URL: a random seed swapped into the preset's aosrando.surge.sh link |
 | `_generate_avianart` | yes | Generate + poll on avianart.games for `preset.settings['preset']`; see [avianart](#avianart) |
 | `_generate_sm`, `_generate_smz3` | yes | `POST /api/randomizers/<id>/generate` on sm.samus.link / samus.link with the preset's settings |
+| `_generate_smvaria` | yes | Fetch the named settings and skills presets, then `POST /randomizerWebService` as a race seed; see [smvaria](#smvaria) |
 | `_generate_smmap` | yes | HTTP POST to maprando.com with `presets/smmap/community_race_s5.json` |
 | `_generate_ootr` | yes | HTTP POST to ootrandomizer.com with `presets/ootr/sgl2026.json` |
 | `_generate_dk64r` | yes | Task-queue roll against api.dk64rando.com from `preset.settings` (else `presets/dk64r/sgl.json`); needs the tenant's `dk64r.api_key` (Donkey Kong 64) |
@@ -204,6 +206,7 @@ The UI maps these to `ui.notify` colors and silently skips the "already in progr
 | `aosr` | Aria of Sorrow Randomizer | none (URL built locally) | none | — | `https://aosrando.surge.sh/?...&seed=<n>` | Needs a preset, `{"url": "<aosrando.surge.sh link>"}`. The site reads its options and seed from the query and patches the player's ROM in the browser; the roll swaps in a random signed 32-bit `seed` |
 | `sm` | Super Metroid Randomizer | `https://sm.samus.link/api/randomizers/sm/generate` | [`presets/sm/`](../../presets/sm) | — | `https://sm.samus.link/seed/<slug>` | Needs a preset: the flat settings object the site's form sends. `seed`, `race` and `spoilerKey` are dropped from it and every roll sends `seed: ""`, `race: "true"`. The slug is the returned `guid` as URL-safe base64. Keyless |
 | `smz3` | SMZ3 Combo Randomizer | `https://samus.link/api/randomizers/smz3/generate` | [`presets/smz3/`](../../presets/smz3) | — | `https://samus.link/seed/<slug>` | As `sm`. Multiworld is not supported |
+| `smvaria` | Super Metroid VARIA Randomizer | `https://randommetroidsolver.pythonanywhere.com/randomizerWebService` | [`presets/smvaria/`](../../presets/smvaria) | — | `https://randommetroidsolver.pythonanywhere.com/customizer/<seedKey>` | Needs a preset, `{"settings_preset": "<name>"}` plus optional `skills_preset` and `overrides`. See [smvaria](#smvaria). Keyless |
 | `smmap` | Super Metroid Map Rando | `https://maprando.com/randomize` | [`presets/smmap/community_race_s5.json`](../../presets/smmap/community_race_s5.json) | `smmap.spoiler_token` | `https://maprando.com<seed_url>` | `multipart/form-data` with a `spoiler_token` part (never defaulted — a leaked token unlocks spoiler logs for race seeds) and a `settings` part carrying the raw preset JSON |
 | `ootr` | Ocarina of Time Randomizer | `https://ootrandomizer.com/api/sglive/seed/create` | [`presets/ootr/sgl2026.json`](../../presets/ootr/sgl2026.json) | `ootr.api_key` | `https://ootrandomizer.com/seed/get?id=<id>` | JSON body POST with query params `key`, `version=dev_9.1.38-0` (the generatorDev build SGL 2026 races on), `encrypt=true`, status checked through the envelope's `raise_for_status`; an unset key raises rather than sending `key=None`, and a response with no `id` raises `SeedProviderBadResponse` |
 | `dk64r` | Donkey Kong 64 Randomizer | `https://api.dk64rando.com/api` (task queue) | [`presets/dk64r/sgl.json`](../../presets/dk64r/sgl.json) | `dk64r.api_key` | `https://dk64randomizer.com/randomizer.html?seed_id=<seed_number>` | Asynchronous submit → poll → result; see below |
@@ -246,6 +249,14 @@ DK64R is the one randomizer that does **not** take the `MOCK_SEEDGEN` short-circ
 
 `generate_avianart` posts `action=generate&preset=<name>` with `[{"args": {"race": true}}]`, which answers `"status": "generating"` and a hash, then polls `action=permlink&hash=<hash>` every 3 s (40 polls at most) until the status is gone or `finished`. A plain preset builds in about 6 s, a door rando preset in about 15 s. `failure` raises `SeedProviderInvalidRequest`; that is also how an unknown preset name shows up, since generate accepts any name. The whole roll is one attempt (`PROVIDER_ATTEMPTS`) because every generate builds a game, and the provider budget is raised to cover the polls. `action=presets` is the catalogue `list_remote_presets('avianart')` reads (no branches).
 
+### smvaria
+
+VARIA ([theonlydude/RandomMetroidSolver](https://github.com/theonlydude/RandomMetroidSolver)) builds seeds from two of its own named presets: a settings preset (`rando_presets/<name>.json` upstream: item split, progression, area rando) and a skills preset (`standard_presets/<name>.json`: the techniques logic may expect). A Wizzrobe preset is `{"settings_preset": "Season_Races", "skills_preset": "expert", "overrides": {"areaRandomization": "light"}}`; only `settings_preset` is required, and without `skills_preset` the roll uses the one the settings preset names in its own `preset` key.
+
+`generate_varia` posts `randoPresetWebService` (`randoPreset=default`, `origin=extStats`), then the named settings preset, lays the overrides on top, fetches the skills preset from `presetWebService`, and posts every setting as a form field to `randomizerWebService` with the skills JSON as `paramsFileTarget`, `raceMode=on` and `seed=0`. List values are sent comma-joined. The service fills any parameter it doesn't receive with its own default (and says so in `errorMsg`), which is what keeps a roll working when upstream adds a setting. A 400 carries VARIA's reason (an unknown preset, a value outside a setting's allowed list); `status: NOK` raises `SeedProviderInvalidRequest` with `errorMsg` as the provider message. Overrides may not set `seed`, `raceMode`, `preset` or `paramsFileTarget`. One attempt per roll, because each generate stores a seed upstream. A live roll takes about 8 s; the service caps the randomizer at 20 s.
+
+`settings_snapshot` is the form as sent, minus the skills JSON, plus `skills_preset`. There's no catalogue endpoint for settings presets, so the four tournament ones ship as built-ins under `presets/smvaria/` (`season_races`, `varia_weekly`, `sgl23online`, `default`); any other upstream name works typed into the JSON editor.
+
 ### wwr
 
 The Wind Waker Randomizer has no hosted generator: each player builds their own ISO from a **permalink**, `base64(VERSION + b"\0" + seed_name + b"\0" + packed option bits)`, zlib-compressed first by tanjo3's dev builds (their permalinks start `eJx`; the 1.10.0 release's start `MS4`). So `_generate_wwr(preset)` is a string operation in [`_seedgen_wwr.py`](../../application/services/_seedgen_wwr.py): decode the preset's reference permalink, swap its seed name, encode it the way it came in. The version and option bytes pass through untouched, so **any build rolls**, including ones Wizzrobe has no tables for.
@@ -270,6 +281,7 @@ The file-select symbols racers compare before starting ("Code: Bow · Hookshot �
 | `smdash` | the `signature` in the `/seed/<key>` page's Next.js payload (one extra GET, no API) | 4 enemy names |
 | `avianart` | `fshash` in the finished permlink response, or `spoiler.meta.hash` for door rando presets (whose short names, like `Powder`, are mapped to the ALTTPR list) | 5 item names |
 | `sm`, `smz3` | `hash` in the generate response | 4 enemy names |
+| `smvaria` | the four bytes the IPS patch writes at SNES `$DFFF00` (ROM `0x2FFF00`), low 5 bits each, into `seed_display.asm`'s 32-name table | 4 enemy names |
 | `ootr` | `settingsLog.file_hash` from `GET /api/v2/seed/details`; for an encrypted seed only a key with `locked_encrypt_spoiler_access` gets it, and a seed still generating answers 204 | 5 item names |
 
 `ff1r` (hashed in the browser from the RNG state after the whole randomization), `z1r` (closed-source tool), `wwr` (see above), `z2r`, `smb3r` and `aosr` (all built on the player's machine) have none. `MOCK_SEEDGEN` returns a believable code for the randomizers that have one.
@@ -335,6 +347,7 @@ presets/                       # built-in files imported into the Preset table
 │   └── sgl26.json             # _generate_smdash fallback: {"preset": "sgl26"}
 ├── smmap/
 │   └── community_race_s5.json # used by _generate_smmap (hard-coded until coverage expansion)
+├── smvaria/                   # VARIA tournament settings presets by name (Season_Races, VARIA_Weekly, SGL23Online, default)
 └── smz3/                      # SahasrahBot's SMZ3 presets (normal/hard/casual, with and without keysanity)
 ```
 

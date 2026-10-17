@@ -8,6 +8,7 @@ would leave clients unable to start the flow they need.
 """
 
 from application.services.api_token_service import MCP_TOKEN_PREFIX
+from application.utils.build_info import build_info
 from models import Role
 from tests.api_helpers import create_user_token
 from tests.mcp.conftest import auth, call_tool, create_oauth_token, mcp_session, rpc
@@ -203,6 +204,22 @@ class TestOrientationTools:
         assert payload['username'] == 'alice'
         assert [t['slug'] for t in payload['tenants']] == ['default']
         assert Role.STAFF.value in payload['tenants'][0]['roles']
+
+    async def test_server_version_reports_the_build(self, db, monkeypatch):
+        build_info.cache_clear()
+        monkeypatch.setenv('GIT_SHA', 'abcdef1234567890')
+        monkeypatch.setenv('GIT_COMMIT_DATE', '2026-10-17T09:30:00-07:00')
+        monkeypatch.delenv('APP_VERSION', raising=False)
+        _, raw = await create_oauth_token()
+        try:
+            async with mcp_session() as client:
+                is_error, payload = await call_tool(client, raw, 'server_version')
+        finally:
+            build_info.cache_clear()
+        assert not is_error, payload
+        assert payload['version'] == '2026.10.17'
+        assert payload['commit_short'] == 'abcdef1'
+        assert payload['source_url'].endswith('/tree/abcdef1234567890')
 
     async def test_list_tenants_hides_communities_without_a_role(self, db):
         """A role-less user must not learn which communities exist."""

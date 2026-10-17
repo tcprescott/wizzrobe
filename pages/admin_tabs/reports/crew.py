@@ -95,7 +95,7 @@ async def crew_page(
         data = await ReportsService().crew_coverage(
             bounds_start, bounds_end,
             tournament_id=tournament_id,
-            user_id=user_id_int,
+            user_id=user_id_int, actor=viewer,
         )
 
         coverage_rows = data['coverage_rows']

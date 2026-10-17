@@ -17,7 +17,7 @@ from typing import Any, Dict, List, Optional
 from mcp.server.mcpserver import MCPServer
 
 from application.services import AnalyticsService, ReportsService
-from mcpserver.auth import Gate
+from mcpserver.auth import Gate, current_actor
 from mcpserver.registry import register
 from mcpserver.schemas import TenantArg
 from mcpserver.tools._args import clamp, parse_ts, window
@@ -42,7 +42,7 @@ async def capacity_forecast(
     start_dt, end_dt = window(start, end)
     service = ReportsService()
     raw = await service.generate_capacity_forecast(
-        start=start_dt, end=end_dt, tournament_id=tournament_id,
+        start=start_dt, end=end_dt, tournament_id=tournament_id, actor=current_actor().user,
     )
     intervals = raw['intervals']
     counts = raw['player_counts']
@@ -82,7 +82,7 @@ async def stage_utilization(
     start_dt, end_dt = window(start, end)
     raw = await ReportsService().stage_utilization(
         start=start_dt, end=end_dt,
-        tournament_id=tournament_id, stage_id=stage_id,
+        tournament_id=tournament_id, stage_id=stage_id, actor=current_actor().user,
     )
     return {
         'stages': [
@@ -113,7 +113,7 @@ async def tournament_health(
     """
     start_dt, end_dt = window(start, end)
     report = await AnalyticsService().tournament_health(
-        start=start_dt, end=end_dt, tournament_id=tournament_id,
+        start=start_dt, end=end_dt, tournament_id=tournament_id, actor=current_actor().user,
     )
     return report['rows']
 
@@ -132,7 +132,7 @@ async def crew_participation_trends(
     """
     start_dt, end_dt = window(start, end)
     return await AnalyticsService().crew_participation_trends(
-        start=start_dt, end=end_dt, bucket=bucket, tournament_id=tournament_id,
+        start=start_dt, end=end_dt, bucket=bucket, tournament_id=tournament_id, actor=current_actor().user,
     )
 
 
@@ -149,7 +149,7 @@ async def activity_trends(
     """
     start_dt, end_dt = window(start, end)
     return await AnalyticsService().activity_trends(
-        start=start_dt, end=end_dt, bucket=bucket,
+        start=start_dt, end=end_dt, bucket=bucket, actor=current_actor().user,
     )
 
 
@@ -168,7 +168,7 @@ async def matches_active_at(
     if moment is None:
         raise ValueError('instant must be an ISO 8601 timestamp')
     matches = await ReportsService().matches_active_at(
-        instant=moment, tournament_id=tournament_id,
+        instant=moment, tournament_id=tournament_id, actor=current_actor().user,
     )
     return [
         {

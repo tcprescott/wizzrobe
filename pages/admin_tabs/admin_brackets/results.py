@@ -230,7 +230,7 @@ def _render_standings(bracket, standings, *, service, actor, tenant_id, on_done)
         f"Complete “{bracket.name}”? This writes every entrant's final rank from "
         'the standings above and locks the stage — it cannot be undone.',
         on_confirm=do_complete,
-        confirm_text='Complete stage',
+        confirm_text='Complete stage', busy_text='Completing…',
     )
     ui.button(
         'Complete stage from these standings', icon='flag', on_click=confirm.open,

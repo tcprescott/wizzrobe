@@ -11,6 +11,7 @@ import pytest
 
 from application.errors import FeatureDisabledError
 from application.services.feature_flag_service import reset_flag_cache
+from application.services.user_service import UserService
 from application.services.volunteer.volunteer_hours import VolunteerHoursService, merged_hours
 from application.tenant_context import tenant_scope
 from models import (
@@ -211,7 +212,7 @@ class TestForUser:
 class TestRoster:
     async def test_lists_role_holders_with_no_hours(self, fixtures):
         with tenant_scope(fixtures['tenant'].id):
-            summaries = await VolunteerHoursService().roster()
+            summaries = await VolunteerHoursService().roster(actor=await UserService().get_system_user())
         assert [s.user_id for s in summaries] == [fixtures['user'].id]
         assert summaries[0].hours == 0.0
 
@@ -221,14 +222,20 @@ class TestRoster:
             await UserRole.create(user=other, role=Role.VOLUNTEER, tenant_id=fixtures['tenant'].id)
         await _assign(fixtures, _dt(8), _dt(12), user=other)
         with tenant_scope(fixtures['tenant'].id):
-            summaries = await VolunteerHoursService().roster()
+            summaries = await VolunteerHoursService().roster(actor=await UserService().get_system_user())
         assert [s.user_id for s in summaries] == [other.id, fixtures['user'].id]
 
     async def test_drafts_do_not_count_on_the_roster(self, fixtures):
         await _assign(fixtures, _dt(8), _dt(12), auto_generated=True)
         with tenant_scope(fixtures['tenant'].id):
-            summaries = await VolunteerHoursService().roster()
+            summaries = await VolunteerHoursService().roster(actor=await UserService().get_system_user())
         assert summaries[0].hours == 0.0
+
+
+    async def test_refuses_a_plain_volunteer(self, fixtures):
+        with tenant_scope(fixtures['tenant'].id):
+            with pytest.raises(PermissionError):
+                await VolunteerHoursService().roster(actor=fixtures['user'])
 
 
 class TestFeatureGate:
@@ -243,7 +250,7 @@ class TestFeatureGate:
         tenant = await Tenant.create(name='Bare', slug='bare-hours2')
         with tenant_scope(tenant.id):
             with pytest.raises(FeatureDisabledError):
-                await VolunteerHoursService().roster()
+                await VolunteerHoursService().roster(actor=None)
 
 
 # ---------------------------------------------------------------------------

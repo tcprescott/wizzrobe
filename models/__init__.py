@@ -107,7 +107,13 @@ from .preferences import UserTablePreference
 from .racetime import RaceRoomProfile, RacetimeBot, RacetimeBotTenant, RacetimeRoom
 from .speedgaming import SpeedGamingEpisode, SpeedGamingEventLink
 from .startgg import StartggEntrant, StartggPhase, StartggPool, StartggSet
-from .system import LogLevelOverride, RoomToken, SystemConfiguration
+from .system import (
+    BrowserErrorIgnoreRule,
+    BrowserMonitoringSettings,
+    LogLevelOverride,
+    RoomToken,
+    SystemConfiguration,
+)
 from .tenant import (
     ProfileNudgeDismissal,
     Tenant,
@@ -188,6 +194,8 @@ __all__ = [
     'BracketMatchGameState',
     'BracketMatchState',
     'BracketState',
+    'BrowserErrorIgnoreRule',
+    'BrowserMonitoringSettings',
     # challonge
     'ChallongeApiUsage',
     'ChallongeConnection',

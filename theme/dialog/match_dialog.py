@@ -10,6 +10,7 @@ from application.services import (
 )
 from application.tenant_context import require_tenant_id, tenant_scope
 from models import FeatureFlag, RaceRoomStatus
+from theme.busy import busy_click
 from theme.dialog import _match_bracket_link as bracket_link
 from theme.dialog._helpers import (
     dialog_header,
@@ -21,6 +22,7 @@ from theme.dialog.match_dialog_base import (
     enrolment_preview,
 )
 from theme.help import resolve_help
+from theme.tables.admin_crud import capture_render_context, scoped_background
 
 # The empty-Tournament hints differ by audience: an admin can go and make one, a
 # player requesting a match cannot.
@@ -113,7 +115,8 @@ class AdminMatchDialog(BaseMatchDialog):
                     await self.on_submit(self.match)
 
             ui.button(
-                'Create racetime room', icon='sports_esports', on_click=create_room,
+                'Create racetime room', icon='sports_esports',
+                on_click=busy_click('Opening room…', create_room),
             ).props('outline color=secondary')
 
     def _render_existing_room(self, room, can_sync: bool) -> None:
@@ -131,11 +134,7 @@ class AdminMatchDialog(BaseMatchDialog):
             with client:
                 actor = await get_user_from_session(app.storage.user)
                 try:
-                    await AuthService.ensure(
-                        await AuthService.can_manage_sync(actor),
-                        'You do not have permission to cancel a racetime room.',
-                    )
-                    await RaceRoomService().cancel_room(room, actor=actor)
+                    await RaceRoomService().cancel_room_as(room, actor=actor)
                 except (ValueError, PermissionError) as e:
                     ui.notify(str(e), color='warning')
                     return
@@ -579,8 +578,17 @@ class UserMatchDialog(BaseMatchDialog):
                         selected_opponent.disable()
 
                 await update_selection_options()
-                selected_tournament.on('update:model-value', lambda: background_tasks.create(update_selection_options()))
-                show_all_tournaments.on('update:model-value', lambda: background_tasks.create(update_selection_options()))
+                # Sentry SGLMAN-16: the re-run is a background task with no tenant
+                # bound, so picking a tournament raised and left Opponent empty.
+                render_context = capture_render_context()
+                selected_tournament.on(
+                    'update:model-value',
+                    lambda: scoped_background(render_context, update_selection_options()),
+                )
+                show_all_tournaments.on(
+                    'update:model-value',
+                    lambda: scoped_background(render_context, update_selection_options()),
+                )
 
                 date, time = self._render_date_time_inputs(defaults['date'], defaults['time'])
 

@@ -184,6 +184,7 @@ async def test_a_reviewer_without_discord_is_skipped_rather_than_crashing(db, ca
     service = AsyncQualifierService()
     staff = await _staff(900416, 'backlog_staff_f')
     silent = await User.create(username='backlog_no_discord')
+    await TenantMembership.create(user=silent, tenant_id=1)
     player = await User.create(discord_id='900417', username='backlog_runner_f')
     qualifier, _ = await _submitted_run(
         service, staff, player, waited=rules.REVIEW_BACKLOG_AGE + timedelta(hours=1))

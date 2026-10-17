@@ -36,6 +36,15 @@ from models import (
 )
 
 
+async def _platform_admin():
+    """``tenant_subset`` is staff-only; a super admin is staff in every community."""
+    from models import Role, User, UserRole
+
+    user, _ = await User.get_or_create(discord_id=93001, defaults={'username': 'platform'})
+    await UserRole.get_or_create(user=user, role=Role.SUPER_ADMIN, tenant=None)
+    return user
+
+
 def _result(key, status, *, label='X', category='core', message='') -> ProbeResult:
     return ProbeResult(key, label, category, status, message, datetime.now(timezone.utc))
 
@@ -157,7 +166,7 @@ class TestTenantSubset:
                 challonge_username='svc',
                 token_expires_at=datetime.now(timezone.utc) + timedelta(days=1),
             )
-            subset = await ServiceHealthService().tenant_subset(tenant.id)
+            subset = await ServiceHealthService().tenant_subset(tenant.id, actor=await _platform_admin())
 
         by_key = {r.key: r for r in subset}
         assert by_key['racetime_bots'].status == ServiceStatus.DOWN
@@ -166,7 +175,7 @@ class TestTenantSubset:
     async def test_subset_empty_without_dependencies(self, db):
         tenant = await Tenant.get(id=1)
         with tenant_scope(tenant.id):
-            subset = await ServiceHealthService().tenant_subset(tenant.id)
+            subset = await ServiceHealthService().tenant_subset(tenant.id, actor=await _platform_admin())
         assert subset == []
 
     async def test_subset_skips_challonge_when_the_feature_is_off(self, db):
@@ -185,6 +194,17 @@ class TestTenantSubset:
                 challonge_username='svc',
                 token_expires_at=datetime.now(timezone.utc) + timedelta(days=90),
             )
-            subset = await ServiceHealthService().tenant_subset(tenant.id)
+            subset = await ServiceHealthService().tenant_subset(tenant.id, actor=await _platform_admin())
 
         assert [r.key for r in subset] == []
+
+
+
+async def test_tenant_subset_refuses_a_non_staff_member(db):
+    from models import Tenant, User
+
+    tenant = await Tenant.create(name='Health', slug='health-gate')
+    member = await User.create(discord_id=93002, username='member')
+    with tenant_scope(tenant.id):
+        with pytest.raises(PermissionError):
+            await ServiceHealthService().tenant_subset(tenant.id, actor=member)

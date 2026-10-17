@@ -17,7 +17,7 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 
-from models import Match, MatchPlayers, Role, Stage, Tournament, User
+from models import Commentator, Match, MatchPlayers, Role, Stage, Tournament, User
 from tests.api_helpers import create_community_member
 from tests.mcp.conftest import call_tool, create_oauth_token, mcp_session
 
@@ -47,6 +47,7 @@ WRITE_CALLS = {
     'record_match_result': {'match_id': 1, 'winner_id': 1},
     'set_match_review': {'match_id': 1, 'needs_review': True},
     'generate_match_seed': {'match_id': 1},
+    'set_crew_approval': {'crew_id': 1, 'role': 'commentator', 'approved': True},
     'signup_as_crew': {'match_id': 1, 'role': 'commentator'},
     'withdraw_crew_signup': {'match_id': 1, 'role': 'commentator'},
     'acknowledge_match': {'match_id': 1},
@@ -240,6 +241,35 @@ class TestTheWritesLand:
         assert not is_error, payload
         assert payload['ok'] is True
         assert not await Match.filter(id=match.id).exists()
+
+    async def test_a_crew_coordinator_approves_a_signup(self, db):
+        coordinator, raw = await create_oauth_token(roles=[Role.VOLUNTEER], write=True)
+        match = await _match()
+        await match.tournament.crew_coordinators.add(coordinator)
+        crew = await create_community_member(discord_id=771010, username='caster')
+        signup = await Commentator.create(match=match, user=crew)
+        async with mcp_session() as client:
+            is_error, payload = await call_tool(
+                client, raw, 'set_crew_approval', tenant=TENANT,
+                crew_id=signup.id, role='commentator', approved=True,
+            )
+        assert not is_error, payload
+        await signup.refresh_from_db()
+        assert signup.approved is True
+
+    async def test_crew_approval_refuses_a_plain_volunteer(self, db):
+        _, raw = await create_oauth_token(roles=[Role.VOLUNTEER], write=True)
+        match = await _match()
+        crew = await create_community_member(discord_id=771011, username='caster')
+        signup = await Commentator.create(match=match, user=crew)
+        async with mcp_session() as client:
+            is_error, payload = await call_tool(
+                client, raw, 'set_crew_approval', tenant=TENANT,
+                crew_id=signup.id, role='commentator', approved=True,
+            )
+        assert is_error and 'forbidden:' in payload, payload
+        await signup.refresh_from_db()
+        assert signup.approved is False
 
     async def test_a_tournament_in_another_community_cannot_be_scheduled_into(self, db):
         """A bare id must not be able to plant a match across the boundary.

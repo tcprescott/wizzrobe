@@ -9,9 +9,9 @@ on load so a staffer can see, e.g., their Challonge token expiring before it bre
 a race day.
 """
 
-from nicegui import ui
+from nicegui import app, ui
 
-from application.services import ServiceHealthService, ServiceStatus
+from application.services import ServiceHealthService, ServiceStatus, get_user_from_session
 from application.tenant_context import get_current_tenant_id
 from pages.admin_tabs.links import CHALLONGE, admin_url
 from pages.service_health_view import build_refreshable_board
@@ -31,10 +31,12 @@ async def admin_service_health_page() -> None:
         tenant_id = get_current_tenant_id()
         health = ServiceHealthService()
 
+        viewer = await get_user_from_session(app.storage.user)
+
         async def _load():
             if tenant_id is None:
                 return []
-            return await health.tenant_subset(tenant_id)
+            return await health.tenant_subset(tenant_id, actor=viewer)
 
         build_refreshable_board(_load, action_for=_route_out)
 

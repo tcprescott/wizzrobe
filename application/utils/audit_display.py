@@ -45,7 +45,7 @@ AREAS: tuple[AuditArea, ...] = (
     AuditArea('settings', 'Settings', (
         'system_config.', 'theme.', 'timezone.', 'profile_nudges.', 'station.', 'stage.',
         'discord.', 'discord_role.', 'discord_event.', 'apitoken.', 'roomtoken.', 'log_level.',
-        'oauth_app.', 'oauth_grant.',
+        'oauth_app.', 'oauth_grant.', 'browser_monitoring.', 'browser_ignore_rule.',
         'racetime_bot.', 'race_room_profile.', 'sg_sync.', 'feature_flag.', 'feature_group.',
         'webhook.', 'tenant.', 'platform.',
     )),
@@ -348,6 +348,9 @@ ACTION_LABELS: dict[str, str] = {
     'roomtoken.revoked': 'Revoked a room link',
     'log_level.set': 'Changed the log level',
     'log_level.cleared': 'Reset the log level',
+    'browser_monitoring.updated': 'Changed browser error reporting',
+    'browser_ignore_rule.added': 'Ignored a browser error',
+    'browser_ignore_rule.removed': 'Stopped ignoring a browser error',
     'racetime_bot.created': 'Added a racetime bot',
     'racetime_bot.updated': 'Edited a racetime bot',
     'racetime_bot.deleted': 'Deleted a racetime bot',

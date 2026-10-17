@@ -115,12 +115,19 @@ class TriforceTextService:
         self,
         tournament_id: int,
         status: Optional[str] = None,
+        *,
+        actor: Optional[User],
     ) -> List[TriforceText]:
-        """List submissions for moderation.
+        """List submissions for moderation: staff, or an admin of this tournament.
 
         ``status`` may be ``None`` (all), ``'pending'``, ``'approved'``, or
         ``'rejected'``.
         """
+        if not (
+            await AuthService.is_staff(actor)
+            or await AuthService.is_tournament_admin(actor, tournament_id)
+        ):
+            raise PermissionError('You do not have permission to moderate this pool.')
         tournament = await Tournament.get_or_none(id=tournament_id, tenant_id=require_tenant_id())
         if tournament is None:
             return []

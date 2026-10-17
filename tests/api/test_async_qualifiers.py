@@ -11,7 +11,7 @@ import pytest
 
 from application.tenant_context import tenant_scope
 from models import AsyncQualifier, AsyncQualifierRun, Role, Tenant, User
-from tests.api_helpers import build_api_app, client_for, create_user_token, enable_all_features
+from tests.api_helpers import build_api_app, client_for, create_community_member, create_user_token, enable_all_features
 
 UTC = timezone.utc
 
@@ -138,7 +138,7 @@ class TestAdminManagement:
 
     async def test_add_and_remove_admin(self, db, app):
         _, raw = await _admin_token()
-        target = await User.create(discord_id=778899, username='reviewer')
+        target = await create_community_member(discord_id=778899, username='reviewer')
         async with client_for(app, raw) as c:
             qid = await _open_qualifier(c, name='With Admins')
             add = await c.post(f'/api/async-qualifiers/{qid}/admins', json={'user_id': target.id})
@@ -147,6 +147,16 @@ class TestAdminManagement:
             assert target.id in {u['id'] for u in listed.json()}
             remove = await c.delete(f'/api/async-qualifiers/{qid}/admins/{target.id}')
             assert remove.status_code == 204
+
+    async def test_add_admin_from_outside_the_community_404(self, db, app):
+        _, raw = await _admin_token()
+        outsider = await User.create(discord_id=778900, username='elsewhere')
+        async with client_for(app, raw) as c:
+            qid = await _open_qualifier(c)
+            resp = await c.post(f'/api/async-qualifiers/{qid}/admins', json={'user_id': outsider.id})
+            assert resp.status_code == 404
+            listed = await c.get(f'/api/async-qualifiers/{qid}/admins')
+            assert outsider.id not in {u['id'] for u in listed.json()}
 
     async def test_add_admin_unknown_user_404(self, db, app):
         _, raw = await _admin_token()

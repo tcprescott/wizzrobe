@@ -181,15 +181,24 @@ async def _visible_entrants(tournament_id: int):
 async def list_async_qualifiers(
     tenant: TenantArg = None,
 ) -> List[Dict[str, Any]]:
-    """List the community's async qualifiers."""
-    actor = current_actor()
-    qualifiers = await AsyncQualifierService().list_qualifiers(actor.user)
+    """List the community's async qualifiers.
+
+    A qualifier admin or reviewer gets every qualifier they administer; anyone
+    else gets the open ones, as the Qualifiers page lists them.
+    """
+    service = AsyncQualifierService()
+    try:
+        qualifiers = await service.list_qualifiers(current_actor().user)
+    except PermissionError:
+        qualifiers = await service.list_open_qualifiers()
     return [
         {
             'id': q.id,
             'name': q.name,
-            'active': getattr(q, 'active', None),
-            'tournament_id': q.tournament_id,
+            'active': q.is_active,
+            'event_name': q.event_name,
+            'opens_at': q.opens_at,
+            'closes_at': q.closes_at,
         }
         for q in qualifiers
     ]
@@ -202,12 +211,17 @@ async def get_async_qualifier(
     """Get one async qualifier's configuration and its pools.
 
     `results_public` says whether the leaderboard is visible to entrants yet;
-    while it is false only a qualifier admin can read the standings.
+    while it is false only a qualifier admin can read the standings. `pools` is
+    filled for the qualifier's admins only; everyone else gets the empty list.
     """
     service = AsyncQualifierService()
     actor = current_actor()
-    qualifier = await service.get_qualifier(actor.user, qualifier_id)
-    pools = await service.list_pools(actor.user, qualifier_id)
+    try:
+        qualifier = await service.get_qualifier(actor.user, qualifier_id)
+        pools = await service.list_pools(actor.user, qualifier_id)
+    except PermissionError:
+        qualifier = await service.get_qualifier_for_player(qualifier_id)
+        pools = []
     return QualifierDetail(
         id=qualifier.id,
         name=qualifier.name,
