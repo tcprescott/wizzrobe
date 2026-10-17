@@ -1,6 +1,7 @@
 """The start.gg mirror: linking, entrant mapping, booking, DMs and writeback."""
 
 import copy
+from datetime import datetime, timezone
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -129,6 +130,15 @@ class TestLinkAndMirror:
         client.full['entrants'] = [e for e in client.full['entrants'] if e['entrant_id'] != '9008']
         await StartggService().sync_event(tournament.id, actor, force=True)
         assert not await StartggEntrant.filter(tournament=tournament, entrant_id='9008').exists()
+
+    async def test_throttle_tolerates_a_naive_sync_time(self, db, client, sent):
+        await _players()
+        tournament, actor = await _linked(client)
+        await Tournament.filter(id=tournament.id).update(
+            startgg_last_synced_at=datetime.now(timezone.utc).replace(tzinfo=None),
+        )
+        counts = await StartggService().sync_event(tournament.id, actor)
+        assert counts['skipped'] == 1
 
     async def test_feature_off_refuses(self, db, client, monkeypatch):
         from application.services.feature_flag_service import FeatureFlagService

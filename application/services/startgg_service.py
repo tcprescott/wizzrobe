@@ -46,6 +46,7 @@ from application.utils.clients.startgg_client import (
     parse_event_slug,
 )
 from application.utils.mocks.mock_startgg import MockStartggClient, is_mock_startgg
+from application.utils.timezone import to_utc_aware
 from models import (
     FeatureFlag,
     Match,
@@ -188,7 +189,7 @@ class StartggService:
         if not tournament.startgg_event_slug:
             raise ValueError("This tournament isn't linked to a start.gg event yet.")
         last = tournament.startgg_last_synced_at
-        if not force and last and datetime.now(timezone.utc) - last < _SYNC_THROTTLE:
+        if not force and last and datetime.now(timezone.utc) - to_utc_aware(last) < _SYNC_THROTTLE:
             return {'entrants': await self.repository.count_entrants(tournament), 'skipped': 1}
         full = await self._fetch(tournament.startgg_event_slug)
         return await self._apply(tournament, full, actor, audit=True)
