@@ -185,7 +185,8 @@ Its *Stage* says *Candidate* on the schedule boards, and the *Streamed, plus
 possible streams* match alert DMs you about these.
 
 **Suggest a time**: the button in the scheduling dialogs that picks a slot
-neither player has blocked out. It fills in the form but doesn't book anything.
+neither player has blocked out and the room has space for. It fills in the form
+but doesn't book anything. See [How Suggest a time works](/help/suggest-a-time).
 
 **Tournament admin**: the person who runs a particular tournament. They can do
 most of what staff can, but only in their own tournament.
