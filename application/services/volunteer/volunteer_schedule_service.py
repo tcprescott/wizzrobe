@@ -464,18 +464,20 @@ class VolunteerScheduleService:
             await self.role_mapping_service.reconcile_users(actor, [details['user_id']])
             await self._notify_removed(user, shift)
 
-    @requires_feature(FeatureFlag.VOLUNTEERS)
-    async def acknowledge(self, assignment_id: int, user: User) -> VolunteerAssignment:
-        """Self-acknowledge an assignment. Idempotent."""
+    async def _own_published(self, assignment_id: int, user: User, verb: str) -> VolunteerAssignment:
         assignment = require_found(
             await self.assignment_repository.get_by_id(assignment_id), "Volunteer assignment"
         )
         if assignment.user_id != user.id:
-            raise ValueError("You can only acknowledge your own assignments.")
+            raise ValueError(f"You can only {verb} your own assignments.")
         if assignment.auto_generated:
-            raise ValueError(
-                "That shift is still a draft — your coordinator has not confirmed it yet."
-            )
+            raise ValueError("That shift is still a draft — your coordinator has not confirmed it yet.")
+        return assignment
+
+    @requires_feature(FeatureFlag.VOLUNTEERS)
+    async def acknowledge(self, assignment_id: int, user: User) -> VolunteerAssignment:
+        """Self-acknowledge an assignment. Idempotent."""
+        assignment = await self._own_published(assignment_id, user, "acknowledge")
         if assignment.acknowledged_at is not None:
             return assignment
         assignment.acknowledged_at = datetime.now(timezone.utc)
@@ -496,15 +498,7 @@ class VolunteerScheduleService:
         Frees the slot immediately and DMs the coordinators — a schedule showing
         someone who has already said no is worse than an open one.
         """
-        assignment = require_found(
-            await self.assignment_repository.get_by_id(assignment_id), "Volunteer assignment"
-        )
-        if assignment.user_id != user.id:
-            raise ValueError("You can only release your own assignments.")
-        if assignment.auto_generated:
-            raise ValueError(
-                "That shift is still a draft — your coordinator has not confirmed it yet."
-            )
+        assignment = await self._own_published(assignment_id, user, "release")
         shift = assignment.shift
         if assignment.checked_in_at is not None:
             raise ValueError(
