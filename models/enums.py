@@ -118,6 +118,7 @@ class FeatureFlag(str, Enum):
     EMERGENCY_CONTACTS = 'emergency_contacts'
     NOTIFICATION_CHANNELS = 'notification_channels'
     STARTGG = 'startgg'
+    DISCORD_ROLE_SYNC = 'discord_role_sync'
 
 
 class BracketFormat(str, Enum):
@@ -299,6 +300,19 @@ class CheckInTierLanyard(str, Enum):
     VIP = 'vip'
     BASE = 'base'
     DAY_PASS = 'day_pass'
+
+
+class DiscordRoleRuleKind(str, Enum):
+    """Who a :class:`~models.DiscordRoleRule` hands its Discord role to.
+
+    ``TOURNAMENT`` names its tournament and ``BADGE`` its lanyard; the other two
+    take no target.
+    """
+
+    ANY_TOURNAMENT = 'any_tournament'
+    LIVE_MATCH = 'live_match'
+    TOURNAMENT = 'tournament'
+    BADGE = 'badge'
 
 
 class CheckInLinkMethod(str, Enum):

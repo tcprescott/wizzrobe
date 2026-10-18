@@ -36,6 +36,7 @@ from .check_in import CheckInEntrant, CheckInEvent, CheckInPass, CheckInTier, Ma
 from .column_guards import FieldValueError, install_column_guards
 from .community_event import CommunityEvent, CommunityEventSeen, CommunityEventSubscription
 from .discord_events import DiscordScheduledEvent, StaffRequestDM
+from .discord_role_sync import DiscordRoleGrant, DiscordRoleRule, DiscordRoleSyncState
 from .emergency_contact import EmergencyContact
 from .enums import (
     STATION_REGEXES,
@@ -60,6 +61,7 @@ from .enums import (
     CheckInTierLanyard,
     CommunityEventStatus,
     DiscordEventSource,
+    DiscordRoleRuleKind,
     EquipmentStatus,
     FeatureFlag,
     FeedbackCategory,
@@ -218,7 +220,11 @@ __all__ = [
     'CommunityEventSubscription',
     'ContactVerification',
     'DiscordEventSource',
+    'DiscordRoleGrant',
     'DiscordRoleMapping',
+    'DiscordRoleRule',
+    'DiscordRoleRuleKind',
+    'DiscordRoleSyncState',
     # discord events
     'DiscordScheduledEvent',
     'DiscordTournamentGrant',

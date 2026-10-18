@@ -45,7 +45,8 @@ community owns or produces is tenant-scoped.**
 `ChallongeApiUsage.period` → `(tenant, period)`; `DiscordRoleMapping` →
 `(tenant, discord_role_id, app_role)` and
 `(tenant, discord_role_id, tournament_grant, tournament)`;
-`DiscordTournamentGrant` → `(tournament, user, grant)`;
+`DiscordTournamentGrant` → `(tournament, user, grant)`; `DiscordRoleRule` →
+`(tenant, key)`; `DiscordRoleGrant` → `(tenant, user, discord_role_id)`;
 `UserRole` → `(user, role, tenant)`. The
 `RacetimeBotTenant` grant is unique on `(bot, tenant)`; `RacetimeRoom.slug` stays
 **globally** unique — it is the tenant-routing key for inbound racetime events.
@@ -1840,6 +1841,32 @@ unchanged-since-last check). The materialized `Match` is reached via the reverse
 | `synced_at` / `sync_error` | | null | Per-episode outcome |
 
 Constraints: unique `(tenant, sg_episode_id)`; indexes on `tenant`, `event_link`.
+
+### Discord roles from Wizzrobe
+
+The outbound role sync ([discord.md](../features/discord.md#app--guild-role-sync-discord-roles-from-wizzrobe)),
+behind `FeatureFlag.DISCORD_ROLE_SYNC`. All three are tenant-scoped and read and
+written through `discord_role_sync_repository`.
+
+#### `DiscordRoleRule`
+One Discord role handed out to everyone a rule covers. `key` is the identity
+within the tenant (`any_tournament`, `live_match`, `tournament:<id>`,
+`badge:<lanyard>`), unique on `(tenant, key)`. `kind` is a `DiscordRoleRuleKind`
+(`any_tournament` / `live_match` / `tournament` / `badge`); `tournament` (FK,
+CASCADE) and `lanyard` (`CheckInTierLanyard`) name the target for the last two.
+`discord_role_id` / `discord_role_name` is the role. `problem` (text) is why the
+bot can't hand it out, written by each sync; `holding` is how many qualifying
+people held it at the last sync.
+
+#### `DiscordRoleGrant`
+The ledger of roles Wizzrobe itself added: `(tenant, user, discord_role_id)`,
+unique. Written after Discord confirms an add and deleted after it confirms the
+removal; only roles with a row are ever taken back.
+
+#### `DiscordRoleSyncState`
+One per tenant (`OneToOne`): `last_synced_at`, `last_error`, `in_place`, `added`,
+`removed`, and `unreachable` (JSON list of `{user_id, name, reason}`, reason
+`no_discord` or `not_in_server`, capped at 300).
 
 ### Discord Events mirror
 

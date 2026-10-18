@@ -228,6 +228,15 @@ FEATURE_FLAG_REGISTRY: Dict[FeatureFlag, FeatureFlagSpec] = {
             ),
         ),
         FeatureFlagSpec(
+            FeatureFlag.DISCORD_ROLE_SYNC,
+            'Discord Roles from Wizzrobe',
+            "Hand out roles in the community's Discord server to players, "
+            "people in a match right now, each tournament's entrants and badge "
+            'holders. Only roles Wizzrobe gave are ever taken back.',
+            'Community',
+            service_modules=('application/services/discord/discord_role_sync_service.py',),
+        ),
+        FeatureFlagSpec(
             FeatureFlag.COMMUNITY_EVENTS,
             'Community Events',
             'Members submit the meetups, panels and side events they are running '
