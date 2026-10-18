@@ -45,7 +45,8 @@ community owns or produces is tenant-scoped.**
 `ChallongeApiUsage.period` → `(tenant, period)`; `DiscordRoleMapping` →
 `(tenant, discord_role_id, app_role)` and
 `(tenant, discord_role_id, tournament_grant, tournament)`;
-`DiscordTournamentGrant` → `(tournament, user, grant)`;
+`DiscordTournamentGrant` → `(tournament, user, grant)`; `DiscordRoleRule` →
+`(tenant, key)`; `DiscordRoleGrant` → `(tenant, user, discord_role_id)`;
 `UserRole` → `(user, role, tenant)`. The
 `RacetimeBotTenant` grant is unique on `(bot, tenant)`; `RacetimeRoom.slug` stays
 **globally** unique — it is the tenant-routing key for inbound racetime events.
@@ -169,6 +170,7 @@ erDiagram
     StartggPool ||--o{ StartggSet : "pool"
     StartggEntrant |o--o{ StartggSet : "entrant1 / entrant2 / winner"
     Match |o--o{ StartggSet : "match"
+    Tenant ||--o| StartggConnection : "tenant"
 
     Tournament ||--o{ Bracket : "tournament"
     Tournament ||--o{ BracketEntrant : "tournament"
@@ -374,7 +376,7 @@ How someone became a member (`TenantMembership.source`, `max_length=32`, nullabl
 `STAFF` = `'staff'` (Add Member, Add User, the `/platform` first-admin grant),
 `JOIN_REQUEST` = `'join_request'`, `DISCORD_AUTO_JOIN` = `'discord_auto_join'`, `OPEN` = `'open'`,
 `ROLE_GRANT` = `'role_grant'` (a role staff granted), `DISCORD_ROLE` =
-`'discord_role'` (the Discord role sync), `IMPORT` = `'import'` (SpeedGaming).
+`'discord_role'` (the Discord role sync), `IMPORT` = `'import'` (SpeedGaming), `DISCORD_IMPORT` = `'discord_import'` (Admin → Users › Import from Discord).
 
 ### `JoinRequestStatus`
 
@@ -861,7 +863,7 @@ Tournament metadata and configuration; the root aggregate for matches, enrollmen
 | `challonge_community` | `CharField(64)` | null | Organization subdomain for `<community>.challonge.com` tournaments; v2.1 calls are scoped under `/communities/<community>/` |
 | `challonge_tournament_url` | `CharField(255)` | null | Challonge bracket URL |
 | `challonge_last_synced_at` | `DatetimeField` | null | Last successful Challonge sync (UTC) |
-| `challonge_state` | `CharField(32)` | null | The linked bracket's Challonge state as of the last sync (`pending`, `group_stages_underway`, `underway`, `awaiting_review`, …); drives which stage action Admin → Challonge offers |
+| `challonge_state` | `CharField(32)` | null | The linked bracket's Challonge state as of the last sync (`pending`, `group_stages_underway`, `underway`, `awaiting_review`, …); drives which stage action the Tournaments row ⋮ offers |
 | `challonge_group_stage` | `BooleanField` | default `False` | The linked bracket has a group stage, as of the last sync |
 | `challonge_tournament_type` | `CharField(32)` | null | Challonge's bracket type as of the last sync (`single elimination`, `double elimination`, …); tells the round schedule how to name elimination rounds (migration 111) |
 | `startgg_event_id` | `CharField(64)` | null | Linked start.gg event id (migration 107) |
@@ -1399,13 +1401,13 @@ Append-only engagement telemetry — *how* people use the tool, as opposed to th
 | `category` | `CharField(32)` | not null, indexed | Coarse bucket: `page`, `interaction`, or `domain` |
 | `event_type` | `CharField(100)` | not null, indexed | Namespaced `object.verb` name — the `EventType` string for domain rows, else e.g. `page.view` / `report.viewed` |
 | `path` | `CharField(512)` | null | Route the event happened on (page views + interactions); null for domain events |
-| `session_id` | `CharField(64)` | null, indexed | Per-browser correlation id (NiceGUI `app.storage.browser` id) for session reconstruction; null for bus events |
+| `session_id` | `CharField(64)` | null | Per-browser correlation id (NiceGUI `app.storage.browser` id) for session reconstruction; null for bus events |
 | `details` | `TextField` | null | JSON-encoded dict (page params / event payload, plus `actor_username`) |
 | `target` | `CharField(200)` | null | The control a `tab.view` / `ui.*` row is about (tab slug, button or field name, dialog title); the `controls` leaderboard groups by it |
 | `device` | `CharField(16)` | null | `phone` / `tablet` / `desktop` from the viewport width, on client-reported `ui.*` rows only |
 | `created_at` | `DatetimeField` | `auto_now_add`, indexed | |
 
-Indexes: `created_at`, `category`, `event_type`, `session_id`, and `user` — the report's aggregation and filter dimensions. Capture honors the `TELEMETRY_ENABLED` kill-switch.
+Indexes: `created_at`, `category`, `event_type`, `user`, and `(tenant, session_id)` — the report's aggregation and filter dimensions. The composite replaced a lone `session_id` index in migration 114: counting a community's distinct sessions through the lone index took 12s at 1.5M rows. Capture honors the `TELEMETRY_ENABLED` kill-switch.
 
 #### `TriforceText`
 
@@ -1840,6 +1842,32 @@ unchanged-since-last check). The materialized `Match` is reached via the reverse
 
 Constraints: unique `(tenant, sg_episode_id)`; indexes on `tenant`, `event_link`.
 
+### Discord roles from Wizzrobe
+
+The outbound role sync ([discord.md](../features/discord.md#app--guild-role-sync-discord-roles-from-wizzrobe)),
+behind `FeatureFlag.DISCORD_ROLE_SYNC`. All three are tenant-scoped and read and
+written through `discord_role_sync_repository`.
+
+#### `DiscordRoleRule`
+One Discord role handed out to everyone a rule covers. `key` is the identity
+within the tenant (`any_tournament`, `live_match`, `tournament:<id>`,
+`badge:<lanyard>`), unique on `(tenant, key)`. `kind` is a `DiscordRoleRuleKind`
+(`any_tournament` / `live_match` / `tournament` / `badge`); `tournament` (FK,
+CASCADE) and `lanyard` (`CheckInTierLanyard`) name the target for the last two.
+`discord_role_id` / `discord_role_name` is the role. `problem` (text) is why the
+bot can't hand it out, written by each sync; `holding` is how many qualifying
+people held it at the last sync.
+
+#### `DiscordRoleGrant`
+The ledger of roles Wizzrobe itself added: `(tenant, user, discord_role_id)`,
+unique. Written after Discord confirms an add and deleted after it confirms the
+removal; only roles with a row are ever taken back.
+
+#### `DiscordRoleSyncState`
+One per tenant (`OneToOne`): `last_synced_at`, `last_error`, `in_place`, `added`,
+`removed`, and `unreachable` (JSON list of `{user_id, name, reason}`, reason
+`no_discord` or `not_in_server`, capped at 300).
+
 ### Discord Events mirror
 
 Mirrors the Wizzrobe schedule into each tenant guild's **Discord Scheduled Events**,
@@ -2110,6 +2138,19 @@ Constraint: `unique_together (('tournament', 'entrant_id'),)`.
 | `score1` / `score2` / `completed_at` | | null | Result as start.gg reports it |
 | `match` | FK → `Match` | null, `SET_NULL` | The booked Wizzrobe match. `related_name='startgg_sets'` |
 
+#### `StartggConnection`
+
+A community's start.gg sign-in (Settings → Integrations). One per tenant; tokens are secrets, never shown or logged.
+
+| Field | Type | Null / default | Notes |
+|---|---|---|---|
+| `tenant` | OneToOne → `Tenant` | not null, `CASCADE` | One sign-in per community |
+| `access_token` / `refresh_token` | `TextField` | refresh null | 7-day access token, refreshed a day early |
+| `token_expires_at` | `DatetimeField` | null | |
+| `scopes` | `CharField(255)` | null | `user.identity tournament.reporter` |
+| `startgg_user_id` / `startgg_username` | `CharField(64)` / `CharField(255)` | null | The signed-in start.gg account |
+| `connected_by` | FK → `User` | null, `SET_NULL` | |
+
 Constraint: `unique_together (('tournament', 'set_id'),)`.
 
 ## Match lifecycle
@@ -2231,8 +2272,8 @@ Consult the source for full signatures.
 | `VolunteerQualificationRepository` | [`volunteer_qualification_repository.py`](../../application/repositories/volunteer_qualification_repository.py) | `VolunteerQualification` | `qualified_position_ids`, `qualified_user_ids_for_position`, `set_for_user`, `list_all` |
 | `VolunteerRoleMappingRepository` | [`volunteer_role_mapping_repository.py`](../../application/repositories/volunteer_role_mapping_repository.py) | `VolunteerRoleMapping` | `TenantScopedRepository` CRUD, `get_by_id` / `list_all` (prefetch `position`), `exists` |
 | `PlayerAvailabilityRepository` | [`player_availability_repository.py`](../../application/repositories/player_availability_repository.py) | `PlayerAvailability` | `get_by_id`, `list_for_user`, `for_users_overlapping`, `create`, `delete`, `delete_for_user` |
-| `StartggRepository` | [`startgg_repository.py`](../../application/repositories/startgg_repository.py) | `StartggEntrant`, `StartggPhase`, `StartggPool`, `StartggSet`, start.gg columns on `Tournament` | link: `set_event_link`, `record_sync`, `set_bookable_phase`, `set_report_results`, `linked_tournaments`, `linked_tenant_ids` (cross-tenant, worker only); identity: `users_by_startgg_ids`, `users_by_discord_ids`, `members_by_lower_name`; entrants: `list_entrants`, `count_entrants`, `get_entrant`, `upsert_entrant`, `set_entrant_user`, `dismiss_suggestion`, `entrant_tournament_ids_for_user`; structure: `upsert_phase`, `upsert_pool`, `upsert_set`, `list_phases`, `list_pools`, `list_sets`, `get_set`, `sets_for_match`, `link_match`, `open_unbooked_sets_for_user`; cleanup: `prune`, `delete_mirror` |
-| `ChallongeRepository` | [`challonge_repository.py`](../../application/repositories/challonge_repository.py) | `ChallongeConnection`, `ChallongeParticipant`, `ChallongeMatch`, `ChallongeApiUsage` | connection: `get_connection`, `list_all_connections`, `save_connection`, `update_connection_tokens`, `clear_connection`; mirror teardown: `delete_mirror` (drops a tournament's participants + matches, leaving the scheduled `Match` rows) and `prune_mirror` (each sync drops the rows Challonge no longer has, same rule); participants: `upsert_participant`, `resolve_users_by_challonge_ids`, `get_participant`, `list_participants`, `participant_tournament_ids_for_user`; matches: `upsert_match`, `get_match`, `get_challonge_match_for_match`, `link_match`, `unscheduled_open_matches_for_user`; counts/sync: `count_participants`, `count_matches`, `set_last_synced_at`; usage metering: `increment_api_usage`, `get_monthly_usage` |
+| `StartggRepository` | [`startgg_repository.py`](../../application/repositories/startgg_repository.py) | `StartggEntrant`, `StartggPhase`, `StartggPool`, `StartggSet`, `StartggConnection`, start.gg columns on `Tournament` | sign-in: `get_connection`, `save_connection`, `update_connection_tokens`, `clear_connection`; link: `set_event_link`, `record_sync`, `set_bookable_phase`, `set_report_results`, `linked_tournaments`, `linked_tenant_ids` (cross-tenant, worker only); identity: `users_by_startgg_ids`, `users_by_discord_ids`, `members_by_lower_name`; entrants: `list_entrants`, `count_entrants`, `count_unmatched_entrants`, `get_entrant`, `upsert_entrant`, `set_entrant_user`, `dismiss_suggestion`, `entrant_tournament_ids_for_user`; structure: `upsert_phase`, `upsert_pool`, `upsert_set`, `list_phases`, `list_pools`, `list_sets`, `get_set`, `sets_for_match`, `link_match`, `open_unbooked_sets_for_user`; cleanup: `prune`, `delete_mirror` |
+| `ChallongeRepository` | [`challonge_repository.py`](../../application/repositories/challonge_repository.py) | `ChallongeConnection`, `ChallongeParticipant`, `ChallongeMatch`, `ChallongeApiUsage` | connection: `get_connection`, `list_all_connections`, `save_connection`, `update_connection_tokens`, `clear_connection`; mirror teardown: `delete_mirror` (drops a tournament's participants + matches, leaving the scheduled `Match` rows) and `prune_mirror` (each sync drops the rows Challonge no longer has, same rule); participants: `upsert_participant`, `resolve_users_by_challonge_ids`, `get_participant`, `list_participants`, `count_unmatched_participants`, `participant_tournament_ids_for_user`; matches: `upsert_match`, `get_match`, `get_challonge_match_for_match`, `link_match`, `unscheduled_open_matches_for_user`; counts/sync: `count_participants`, `count_matches`, `set_last_synced_at`; usage metering: `increment_api_usage`, `get_monthly_usage` |
 | `WebPushRepository` | [`web_push_repository.py`](../../application/repositories/web_push_repository.py) | `WebPushSubscription` | `get_by_endpoint`, `get_by_id`, `list_for_user`, `list_for_discord_id`, `upsert` (re-binds an existing endpoint), `rotate`, `delete`, `delete_by_endpoint`, `touch_last_used` |
 | `NotificationChannelRepository` | [`notification_channel_repository.py`](../../application/repositories/notification_channel_repository.py) | `User` (channel columns), `ContactVerification` | `replace_verification`, `get_verification`, `get_verification_by_hash`, `count_attempt`, `delete_verification`, `delete_expired`, `set_email`, `set_email_notifications`, `get_by_telegram_chat`, `set_telegram`, `set_telegram_notifications`, `get_user`, `get_by_discord_id` |
 | `TablePreferenceRepository` | [`table_preference_repository.py`](../../application/repositories/table_preference_repository.py) | `UserTablePreference` | **Global — never tenant-scoped** (the model has no tenant column). `all_for_user` (one query; the only read a page build makes), `get`, `upsert`, `delete`, `delete_all_for_user` |

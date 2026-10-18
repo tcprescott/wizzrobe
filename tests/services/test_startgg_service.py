@@ -8,6 +8,7 @@ import pytest
 
 from application.errors import FeatureDisabledError
 from application.services import bracket_sources
+from application.services.startgg_connection_service import StartggConnectionService
 from application.services.startgg_service import StartggService
 from application.utils.clients.startgg_client import StartggAPIError, parse_event_slug
 from application.utils.mocks.mock_startgg import mock_event_full
@@ -48,8 +49,14 @@ class FakeClient:
 @pytest.fixture
 def client(monkeypatch):
     fake = FakeClient()
-    monkeypatch.setattr(StartggService, '_client', staticmethod(lambda: fake))
-    monkeypatch.setattr(StartggService, 'is_configured', staticmethod(lambda: True))
+    async def _client(self):
+        return fake
+
+    async def has_access(self):
+        return True
+
+    monkeypatch.setattr(StartggService, '_client', _client)
+    monkeypatch.setattr(StartggConnectionService, 'has_access', has_access)
     return fake
 
 

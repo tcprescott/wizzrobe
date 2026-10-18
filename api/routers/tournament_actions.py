@@ -323,8 +323,8 @@ async def unlink_challonge(tournament_id: int, actor: User = Depends(require_wri
     response_model=ChallongeSyncResponse,
     summary="Sync a tournament's Challonge bracket now",
     description=(
-        "Pulls the latest entrants and matches from Challonge, the same as Sync now on the "
-        "Challonge tab.\n\n"
+        "Pulls the latest entrants and matches from Challonge, the same as Sync bracket in "
+        "the tournament's ⋮ on Admin → Tournaments.\n\n"
         "**Who can call this:** Staff, or an admin of this tournament."
     ),
 )

@@ -208,6 +208,19 @@ tournament grant on an active tournament. An unmapped role, leaving the server
 account is never renamed by this path; the new one takes the member's Discord
 username and global avatar hash, exactly what a first login would store.
 
+### Importing the whole server
+
+Admin → Users › Actions › **Import from Discord…** (`DiscordMemberImportService`,
+staff only) goes further than role sync: every human in the community's linked
+server gets an account and a membership (`MembershipSource.DISCORD_IMPORT`,
+"Discord import" in the Via column), roles or not. It exists so staff can enroll
+and map people (a Challonge entrant, a bracket seat) before they ever sign in.
+The dialog previews the counts first: people to add, already members, bots
+skipped, and people removed from the community skipped (a removal block is never
+lifted). Accounts match on Discord id, existing ones keep their name, nobody is
+DM'd, and one `tenant.members_imported` audit row and event covers the run. A
+second run only picks up people who joined the server since.
+
 ### Membership for anyone in the server
 
 Role sync only makes members of people holding a mapped role. A community that
@@ -266,6 +279,56 @@ Audit actions: `discord_role.mapping_added` / `.mapping_removed` for staff edits
 `role.discord_sync_granted` / `.discord_sync_revoked` for the login sync (actor =
 the signing-in user), `user.provisioned` (`source: discord_role_sync`) for an
 account the sync created.
+
+## App → guild-role sync (Discord Roles from Wizzrobe)
+
+The reverse direction, behind `FeatureFlag.DISCORD_ROLE_SYNC` (off by default):
+Wizzrobe hands out roles in the community's server from what it knows. Staff set
+it up on **Settings → Discord → Discord Roles from Wizzrobe**, a checklist with a
+role picker per rule; a blank picker means the rule is off.
+
+| Rule (`DiscordRoleRuleKind`) | Who gets the role |
+|---|---|
+| `any_tournament` | Enrolled (`TournamentPlayers`) in any **active** tournament |
+| `live_match` | A player of a match that has started and not finished, started within the last 12 h (`LIVE_MATCH_WINDOW`) |
+| `tournament` | Enrolled in that one tournament |
+| `badge` (`lanyard`) | Holds an unrefunded, unremoved badge of that lanyard (VIP, Base, Day pass) in an **open** check-in event, linked to their account. Needs `EVENT_CHECK_IN` |
+
+Pieces: `models/discord_role_sync.py` (`DiscordRoleRule`, the `DiscordRoleGrant`
+ledger, `DiscordRoleSyncState`), `DiscordRoleSyncRepository`,
+`DiscordRoleSyncService`, `discord_role_sync_worker`, and the page
+`pages/admin_tabs/admin_discord_role_sync.py`.
+
+- **Only roles we gave come off.** A `DiscordRoleGrant` row is written after
+  Discord confirms an add, and only those rows are ever removed. A role the
+  person already held (a moderator gave it) gets no row, so it's never taken.
+  Clearing a rule takes its roles back on the next sync; Actions → *Remove every
+  role Wizzrobe gave…* clears every rule and syncs at once. Turning the feature
+  off leaves roles where they are, so clear first.
+- **Roles the bot can't manage are refused.** `role_problem()` checks Manage
+  Roles, the role's position against the bot's top role (`bot_role_access`), and
+  managed roles (boosts, bot and integration roles). `set_rule` refuses such a
+  role; the picker greys it out with the reason. Every sync re-checks: a rule
+  that broke later (roles reordered, permission removed) gets `problem` set, is
+  shown in red, and is skipped, its grants kept so the roles come off once fixed.
+- **No loops with Role Mappings.** A Discord role can't be both a mapping
+  (Discord → app role) and a rule here: everyone the rule covers would be granted
+  the mapped app role. Both services refuse the second use.
+- **Outages change nothing.** A run that can't read the server's roles, the bot's
+  access or the member snapshot records `last_error` and writes nothing. A
+  "bot not connected" failure mid-run stops the run; a one-off refusal is counted
+  and the rest carry on.
+- **Cadence.** The worker ticks every 15 s. A rule change, `match.started` /
+  `match.finished` / `match.deleted`, `tournament.enrolled` / `.withdrawn` and
+  the check-in sync and link events mark the tenant for the next tick; every
+  community with rules or grants also gets a full pass every 10 min, which
+  catches Challonge/start.gg roster syncs that publish no event.
+- People without a linked Discord account or not in the server are listed on the
+  card ("See who"), capped at 300.
+
+Audit actions: `discord_role.rule_set`, `.rule_cleared`, `.rules_reset`. The
+role writes themselves aren't audited per person; Discord's own audit log shows
+them with the reason "Wizzrobe role sync".
 
 ## Tournament notification preferences
 

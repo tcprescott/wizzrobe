@@ -222,7 +222,19 @@ FEATURE_FLAG_REGISTRY: Dict[FeatureFlag, FeatureFlagSpec] = {
             'let players book their matches. Results are recorded on start.gg; each '
             'tournament can opt in to reporting confirmed results back.',
             'Community',
-            service_modules=('application/services/startgg_service.py',),
+            service_modules=(
+                'application/services/startgg_service.py',
+                'application/services/startgg_connection_service.py',
+            ),
+        ),
+        FeatureFlagSpec(
+            FeatureFlag.DISCORD_ROLE_SYNC,
+            'Discord Roles from Wizzrobe',
+            "Hand out roles in the community's Discord server to players, "
+            "people in a match right now, each tournament's entrants and badge "
+            'holders. Only roles Wizzrobe gave are ever taken back.',
+            'Community',
+            service_modules=('application/services/discord/discord_role_sync_service.py',),
         ),
         FeatureFlagSpec(
             FeatureFlag.COMMUNITY_EVENTS,

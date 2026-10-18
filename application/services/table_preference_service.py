@@ -100,6 +100,17 @@ class TablePreferenceService:
         await self.repository.upsert(user.id, table_key, clean)
         return clean
 
+    async def set_page_size(self, user: User, table_key: str, page_size: int) -> dict:
+        """Persist the rows-per-page picked in a table's footer.
+
+        Read-modify-write like :meth:`set_width`, and lock-free for the same reason.
+        """
+        merged = dict(await self.get(user, table_key) or {})
+        merged['page_size'] = page_size
+        clean = self.validate(merged)
+        await self.repository.upsert(user.id, table_key, clean)
+        return clean
+
     async def reset(self, user: User, table_key: str) -> None:
         """Forget one table's layout, restoring the shipped defaults."""
         await self.repository.delete(user.id, table_key)

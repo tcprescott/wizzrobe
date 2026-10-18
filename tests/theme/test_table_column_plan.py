@@ -158,3 +158,10 @@ class TestKeys:
         declared = [v for k, v in vars(TableKeys).items()
                     if not k.startswith('_') and isinstance(v, str)]
         assert len(declared) == len(set(declared))
+
+    def test_a_footer_page_size_alone_does_not_light_the_gear(self):
+        # Rows per page is the footer's, not the gear's; the gear's dot only
+        # tracks what the gear itself can change.
+        plan = effective_columns(DEFAULTS, {'page_size': 100}, page_size=25)
+        assert plan.page_size == 100
+        assert plan.is_customized is False

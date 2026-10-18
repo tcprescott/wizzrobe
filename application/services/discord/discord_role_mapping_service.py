@@ -12,6 +12,7 @@ from typing import Iterable, List, Optional, Sequence, Set, Tuple
 
 from application.errors import require_found
 from application.repositories.discord_role_mapping_repository import DiscordRoleMappingRepository
+from application.repositories.discord_role_sync_repository import DiscordRoleSyncRepository
 from application.repositories.discord_tournament_grant_repository import (
     DiscordTournamentGrantRepository,
 )
@@ -65,6 +66,7 @@ class DiscordRoleMappingService:
         self.mapping_repository = DiscordRoleMappingRepository()
         self.role_repository = UserRoleRepository()
         self.grant_repository = DiscordTournamentGrantRepository()
+        self.sync_repository = DiscordRoleSyncRepository()
         self.tournament_repository = TournamentRepository()
         self.audit_service = AuditService()
 
@@ -180,6 +182,14 @@ class DiscordRoleMappingService:
         if (app_role is None) == (tournament_grant is None):
             raise ValueError("Choose either an application role or a tournament grant")
 
+        if discord_role_id in await self.sync_repository.rule_role_ids():
+            # The reverse of DiscordRoleSyncService's INBOUND_CONFLICT: a role
+            # Wizzrobe hands out to every player would then grant this to them.
+            raise ValueError(
+                "Wizzrobe already gives this Discord role out (Discord roles from "
+                "Wizzrobe). Mapping it here would grant this to everyone it covers, "
+                "so pick a different role."
+            )
         details = {
             'guild_id': guild_id,
             'discord_role_id': discord_role_id,

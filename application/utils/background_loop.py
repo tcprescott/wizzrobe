@@ -175,6 +175,10 @@ async def for_each_tenant_scoped(
     log = logger or _default_logger
     batch = [(item, tenant_id_of(item)) for item in items]
     active = await TenantRepository.active_ids(t for _, t in batch if t is not None)
+    # Once per community, not per item: a reminder worker hands this hundreds of
+    # rows from one community, and re-reading the tenant for each was most of
+    # its tick.
+    zones: Dict[int, str] = {}
     for item, tenant_id in batch:
         if tenant_id is None or tenant_id not in active:
             continue
@@ -186,8 +190,9 @@ async def for_each_tenant_scoped(
                 # no viewer, so anything it renders locally (a reminder DM, an export)
                 # would otherwise fall back to the default zone and tell every
                 # community the same wrong time.
-                tz = await TimezoneService.tenant_timezone_name(tenant_id)
-                with tz_scope(tz):
+                if tenant_id not in zones:
+                    zones[tenant_id] = await TimezoneService.tenant_timezone_name(tenant_id)
+                with tz_scope(zones[tenant_id]):
                     await handle(item)
             except Exception:
                 log.exception(

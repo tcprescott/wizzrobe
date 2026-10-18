@@ -325,11 +325,11 @@ class TournamentDialog:
                     preset_input = ui.select(
                         preset_options, label='Seed Preset', value=default_preset,
                     ).classes('input-full-width').props(
-                        'hint="Picks the randomizer and the settings seeds roll with. Manage presets under Presets."'
+                        'hint="Picks the randomizer and the settings seeds roll with. Manage them under Admin → Seed Presets."'
                     )
                     if not presets:
                         ui.label(
-                            'No presets yet — add one under Online Play → Presets, '
+                            'No presets yet — add one under Admin → Seed Presets, '
                             'or import a randomizer\'s published presets there.'
                         ).classes('text-caption text-grey')
 

@@ -34,7 +34,7 @@ much crew is still needed. Everyone signed up as crew is listed under that.
 
 An empty cell or "None" just means there's nothing to show yet. A match usually
 gets its stage, seed and crew at different times. "needs crew" in orange means a
-role is still short of approved crew while signup is open.
+match on a stage is still short of approved crew while signup is open.
 
 ## Match states
 
@@ -64,7 +64,7 @@ There are four filters above the board.
 
 | Filter | Narrows the board to |
 |---|---|
-| Day | All dates, Today, Tomorrow, or the next 7 days. "Today" is your today. |
+| Day | All dates, Today, Tomorrow, or the next 7 days. "Today" is your today. Admin → Match Schedule opens on Today; the other boards open on All dates. |
 | Tournament | One or more tournaments. |
 | Stage | One or more stages, handy for following one stream. |
 | State | The match states you pick. |

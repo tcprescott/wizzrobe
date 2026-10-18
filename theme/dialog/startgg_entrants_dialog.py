@@ -12,6 +12,7 @@ from nicegui import app, ui
 from application.services import StartggService, UserService, get_user_from_session
 from theme.dialog._helpers import dialog_actions, dialog_header, mobile_sheet
 from theme.notify import notify_error
+from theme.pickers import member_select
 from theme.steady import steady_refreshable
 
 
@@ -45,7 +46,7 @@ class StartggEntrantsDialog:
     async def open(self) -> None:
         service = StartggService()
         actor = await get_user_from_session(app.storage.user)
-        members = {u.id: _person(u) for u in await UserService().get_community_people()}
+        members = {u.id: _person(u) for u in await UserService().get_community_people_summaries()}
 
         with ui.dialog() as dialog, ui.card().classes('dialog-card'):
             mobile_sheet(dialog)
@@ -92,11 +93,10 @@ class StartggEntrantsDialog:
                                     on_click=lambda _=None, e=entrant: assign(e, e.suggested_user.id),
                                 ).props('flat color=primary')
                         with ui.row().classes('items-center w-full gap-2'):
-                            options = dict(members)
                             if entrant.user is not None:
-                                options.setdefault(entrant.user.id, _person(entrant.user))
-                            picker = ui.select(
-                                options=options, label='Member', with_input=True,
+                                members.setdefault(entrant.user.id, _person(entrant.user))
+                            picker = member_select(
+                                members, label='Member',
                                 value=entrant.user.id if entrant.user is not None else None,
                             ).props('dense outlined').classes('grow min-w-56')
                             if entrant.user_assigned_manually:

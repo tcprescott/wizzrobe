@@ -97,6 +97,9 @@ _EXCLUDED_BY_DESIGN = frozenset({
     # Discord role mapping / sync plumbing.
     AuditActions.DISCORD_ROLE_MAPPING_ADDED,
     AuditActions.DISCORD_ROLE_MAPPING_REMOVED,
+    AuditActions.DISCORD_ROLE_RULE_SET,
+    AuditActions.DISCORD_ROLE_RULE_CLEARED,
+    AuditActions.DISCORD_ROLE_RULES_RESET,
     AuditActions.ROLE_DISCORD_SYNC_GRANTED,
     AuditActions.ROLE_DISCORD_SYNC_REVOKED,
     AuditActions.ROLE_DISCORD_SYNC_BULK,
@@ -221,6 +224,8 @@ _EXCLUDED_BY_DESIGN = frozenset({
     AuditActions.STARTGG_SUGGESTION_DISMISSED,
     AuditActions.STARTGG_REPORTING_SET,
     AuditActions.STARTGG_RESULT_REPORTED,
+    AuditActions.STARTGG_CONNECTED,
+    AuditActions.STARTGG_DISCONNECTED,
     # Twitch account linking.
     AuditActions.TWITCH_LINKED,
     AuditActions.TWITCH_UNLINKED,

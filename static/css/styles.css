@@ -962,6 +962,20 @@ body:has(.wiz-header) .q-notifications__list--top {
     color: var(--fg);
 }
 
+/* The info card at the drawer's foot (Event Guide, Help, Feedback): reference
+   items set apart from the navigation above them. */
+.q-drawer .wiz-drawer-info {
+    background: var(--surface);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-lg);
+    margin: 0 var(--space-1);
+    padding: 2px 0 6px;
+}
+
+.q-drawer .wiz-drawer-info .wiz-drawer-group {
+    padding-top: var(--space-2);
+}
+
 /* Drawer section headers (grouped admin nav): a quiet grey label between
    destination clusters, not a clickable item. */
 .q-drawer .wiz-drawer-group {
@@ -5076,6 +5090,11 @@ ol.wiz-help-list { list-style-type: decimal; }
 /* A table needs more room than a paragraph: at the reading width its third
    column ran under the scrollbar. The phone sheet is full width already. */
 .q-menu.wiz-help-menu:has(.wiz-help-table) { width: min(32rem, calc(100vw - 2rem)); }
+
+/* ColorSelect's menu (theme/pickers.py): a disabled option's caption explains
+   why, and without a cap the long ones stretched the menu to the page edge. */
+.q-menu.wiz-color-select-menu { max-width: min(28rem, calc(100vw - 2rem)) !important; }
+.wiz-select-icon { color: var(--fg-muted); }
 .wiz-help-menu-body .wiz-help-table { min-width: 0; }
 
 .wiz-help-view { gap: 0; width: 100%; }
@@ -7337,4 +7356,56 @@ ol.wiz-help-list { list-style-type: decimal; }
         top: var(--space-2);
         right: var(--space-2);
     }
+}
+
+/* Admin → Users › Import from Discord: the preview counts, two to a row on
+   every width so the dialog reads the same on a phone. */
+.wiz-import-stats {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--space-2);
+    width: 100%;
+}
+
+.wiz-import-stat {
+    background: var(--surface-sunken);
+    border-radius: 8px;
+    padding: var(--space-2) var(--space-3);
+}
+
+.wiz-import-stat__value {
+    font-size: 1.375rem;
+    font-weight: 700;
+    line-height: 1.2;
+}
+
+.wiz-import-stat__label {
+    font-size: 0.8125rem;
+    color: var(--fg-secondary);
+}
+
+.wiz-import-stat--accent {
+    background: var(--accent-soft);
+}
+
+.wiz-import-stat--accent .wiz-import-stat__value {
+    color: var(--wiz-link);
+}
+
+.wiz-import-note {
+    width: 100%;
+    background: var(--surface-sunken);
+    border-radius: 8px;
+    padding: var(--space-2) var(--space-3);
+    font-size: 0.8125rem;
+}
+
+/* A group heading inside a row's ⋮ menu (slot_more_menu's SlotHeader). */
+.q-item__label--header.wiz-menu-header {
+    padding: 10px 16px 4px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--fg-muted);
 }

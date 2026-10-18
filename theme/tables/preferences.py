@@ -91,7 +91,9 @@ class TableKeys:
     ADMIN_USERS = 'admin.users'
     # _v2 since the board became six short columns with the description hidden:
     # rule 3 would have kept every v1 layout's Description and duration columns.
-    ADMIN_TOURNAMENTS = 'admin.tournaments_v2'
+    # _v3 since the Bracket column joined beside Signups: rule 3 would have
+    # appended it past the ⋮ on every saved v2 layout.
+    ADMIN_TOURNAMENTS = 'admin.tournaments_v3'
     ADMIN_BRACKETS = 'admin.brackets'
     ADMIN_CHECK_IN_EVENTS = 'admin.check_in_events'
     ADMIN_DISCORD_EVENTS = 'admin.discord_events'
@@ -316,7 +318,6 @@ def effective_columns(
     is_customized = (
         _signature(columns, visible, widths)
         != _signature(shipped, default_visible, {})
-        or resolved_page_size != page_size
         or resolved_density != density
         or resolved_wrap != wrap
     )
@@ -345,10 +346,15 @@ class TableCustomization:
     density: str
     wrap: bool
     plan: ColumnPlan
+    pager: bool = True
     badge: Any = None          # the gear's "modified" dot, when a gear was rendered
 
 
 _STASH = '_wiz_table_customization'
+
+# Quasar's footer order: ascending, with 0 ("All") last. The service's
+# ALLOWED_PAGE_SIZES is the same set; test_table_preferences pins the two together.
+ROWS_PER_PAGE_OPTIONS: Final[list[int]] = [10, 25, 50, 100, 0]
 
 
 def customization_of(table: ui.table) -> Optional[TableCustomization]:
@@ -365,6 +371,7 @@ def customize_table(
     page_size: Optional[int] = None,
     density: str = 'comfortable',
     wrap: bool = False,
+    pager: bool = True,
 ) -> ColumnPlan:
     """Apply this viewer's saved preferences to ``table``'s **desktop** view.
 
@@ -382,13 +389,23 @@ def customize_table(
 
     ``page_size`` defaults to whatever the table was constructed with, so a
     report that ships ``pagination=25`` keeps it until someone chooses otherwise.
+
+    Rows per page lives in the table's footer and nowhere else: picking a size
+    there saves it for this viewer (:func:`_wire_page_size_saves`). ``pager=False``
+    is for a table that pages on the server and draws its own pager — it gets no
+    footer, and every row it is handed is shown.
     """
-    if page_size is None:
+    if not pager:
+        page_size = 0
+    elif page_size is None:
         pagination = table._props.get('pagination') or {}
         page_size = pagination.get('rowsPerPage', 0) or 0
 
+    saved = table_prefs_for(key)
+    if not pager and saved:
+        saved = {k: v for k, v in saved.items() if k != 'page_size'}
     plan = effective_columns(
-        defaults, table_prefs_for(key), required,
+        defaults, saved, required,
         page_size=page_size, density=density, wrap=wrap,
     )
     custom = TableCustomization(
@@ -399,14 +416,54 @@ def customize_table(
         density=density,
         wrap=wrap,
         plan=plan,
+        pager=pager,
     )
     setattr(table, _STASH, custom)
     # Read off the DOM by static/js/table-columns.js to know which table a
     # dragged header belongs to; nothing else identifies one.
     table._props['data-wiz-table-key'] = key
-    _apply_plan(table, plan)
+    _apply_plan(table, plan, pager=pager)
     _wire_width_drags(table, key)
+    if pager:
+        _wire_page_size_saves(table, key)
     return plan
+
+
+def _wire_page_size_saves(table: ui.table, key: str) -> None:
+    """Save the footer's rows-per-page pick as this viewer's preference.
+
+    ``update:pagination`` also fires on every page turn and sort, so only a
+    changed ``rowsPerPage`` is written. A signed-out viewer keeps the choice for
+    the life of the page. ``context.client`` is captured at build time for the
+    same reason as :func:`_wire_width_drags`.
+    """
+    client = context.client
+
+    async def _persist(args) -> None:
+        if not isinstance(args, Mapping):
+            return
+        size = args.get('rowsPerPage')
+        custom = customization_of(table)
+        if custom is None or not isinstance(size, int) or isinstance(size, bool) \
+                or size == custom.plan.page_size:
+            return
+        with client:
+            actor = await current_actor()
+            if actor is None:
+                return
+            try:
+                saved = await TablePreferenceService().set_page_size(actor, key, size)
+            except ValueError as e:
+                ui.notify(str(e), color='warning')
+                return
+            # Quasar already shows the new size; the stashed plan follows so the
+            # gear's Confirm and the next comparison here see it too.
+            custom.plan = effective_columns(
+                custom.defaults, saved, custom.required,
+                page_size=custom.page_size, density=custom.density, wrap=custom.wrap,
+            )
+
+    table.on('update:pagination', lambda e: background_tasks.create(_persist(e.args)))
 
 
 def _wire_width_drags(table: ui.table, key: str) -> None:
@@ -470,13 +527,13 @@ def apply_saved_config(table: ui.table, saved: Optional[Mapping]) -> ColumnPlan:
         page_size=custom.page_size, density=custom.density, wrap=custom.wrap,
     )
     custom.plan = plan
-    _apply_plan(table, plan)
+    _apply_plan(table, plan, pager=custom.pager)
     if custom.badge is not None:
         custom.badge.set_visibility(plan.is_customized)
     return plan
 
 
-def _apply_plan(table: ui.table, plan: ColumnPlan) -> None:
+def _apply_plan(table: ui.table, plan: ColumnPlan, *, pager: bool = True) -> None:
     """Push a plan onto the live table.
 
     Quasar renders columns in array order and resolves ``body-cell-<name>`` slots
@@ -489,9 +546,13 @@ def _apply_plan(table: ui.table, plan: ColumnPlan) -> None:
     table._props['visible-columns'] = list(plan.visible)
 
     pagination = dict(table._props.get('pagination') or {})
-    pagination['rowsPerPage'] = plan.page_size
+    pagination['rowsPerPage'] = plan.page_size if pager else 0
     table._props['pagination'] = pagination
-    table._props['hide-pagination'] = plan.page_size == 0
+    # The footer stays even on "All": it is the only place to pick a size again.
+    table._props['hide-pagination'] = not pager
+    if pager:
+        table._props['rows-per-page-options'] = list(ROWS_PER_PAGE_OPTIONS)
+        table._props['rows-per-page-label'] = 'Rows per page:'
 
     # Set as a real bool, not via .props('dense=true'): the prop string parser
     # stores 'true', and Quasar reads a non-empty string as truthy either way —

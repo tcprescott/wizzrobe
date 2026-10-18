@@ -36,6 +36,7 @@ from .check_in import CheckInEntrant, CheckInEvent, CheckInPass, CheckInTier, Ma
 from .column_guards import FieldValueError, install_column_guards
 from .community_event import CommunityEvent, CommunityEventSeen, CommunityEventSubscription
 from .discord_events import DiscordScheduledEvent, StaffRequestDM
+from .discord_role_sync import DiscordRoleGrant, DiscordRoleRule, DiscordRoleSyncState
 from .emergency_contact import EmergencyContact
 from .enums import (
     STATION_REGEXES,
@@ -60,6 +61,7 @@ from .enums import (
     CheckInTierLanyard,
     CommunityEventStatus,
     DiscordEventSource,
+    DiscordRoleRuleKind,
     EquipmentStatus,
     FeatureFlag,
     FeedbackCategory,
@@ -104,7 +106,7 @@ from .mcp import McpAuthorizationCode, McpOAuthClient
 from .preferences import UserTablePreference
 from .racetime import RaceRoomProfile, RacetimeBot, RacetimeBotTenant, RacetimeRoom
 from .speedgaming import SpeedGamingEpisode, SpeedGamingEventLink
-from .startgg import StartggEntrant, StartggPhase, StartggPool, StartggSet
+from .startgg import StartggConnection, StartggEntrant, StartggPhase, StartggPool, StartggSet
 from .system import (
     BrowserErrorIgnoreRule,
     BrowserMonitoringSettings,
@@ -218,7 +220,11 @@ __all__ = [
     'CommunityEventSubscription',
     'ContactVerification',
     'DiscordEventSource',
+    'DiscordRoleGrant',
     'DiscordRoleMapping',
+    'DiscordRoleRule',
+    'DiscordRoleRuleKind',
+    'DiscordRoleSyncState',
     # discord events
     'DiscordScheduledEvent',
     'DiscordTournamentGrant',
@@ -279,6 +285,7 @@ __all__ = [
     'StaffRequestDM',
     'StaffRequestKind',
     'Stage',
+    'StartggConnection',
     'StartggEntrant',
     'StartggPhase',
     'StartggPool',

@@ -124,8 +124,10 @@ The board has a Commentators column and a Trackers column. Each starts with
 approved crew against what the match needs, so "1/2" means one approved
 commentator out of two. People still waiting for approval don't count, so a
 match can have three signups and still say "needs crew". **Needs crew** uses the
-same rule to decide whether a match is covered. On a phone, each card names the
-role instead ("Commentary 1/2").
+same rule to decide whether a match is covered. Crew only works matches on a
+stage, so a match with no stage yet just shows how many have signed up and
+never says "needs crew". On a phone, each card names the role instead
+("Commentary 1/2").
 
 Your own **Sign up** or **Withdraw** sits in a shaded box under the count, in
 the same place on every match. When there's nothing you can do, the button is

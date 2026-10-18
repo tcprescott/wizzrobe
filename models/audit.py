@@ -53,7 +53,10 @@ class TelemetryEvent(Model):
     path = fields.CharField(max_length=512, null=True)
     # Per-browser correlation id (NiceGUI app.storage.browser id) so a user's
     # journey can be reconstructed as an ordered session; null for bus events.
-    session_id = fields.CharField(max_length=64, null=True, index=True)
+    # Indexed with ``tenant`` (Meta) rather than alone: the engagement summary's
+    # distinct-session count over a community's history took 12s on a bare
+    # session index at a few years' volume, and 0.2s on this one.
+    session_id = fields.CharField(max_length=64, null=True)
     details = fields.TextField(null=True)
     # The control a ``ui.*`` interaction row is about (a button's name, a dialog's
     # title, a tab's slug); a column rather than a details key so the "which
@@ -66,4 +69,4 @@ class TelemetryEvent(Model):
 
     class Meta:
         table = 'telemetryevent'
-        indexes = (('user',),)
+        indexes = (('user',), ('tenant', 'session_id'))

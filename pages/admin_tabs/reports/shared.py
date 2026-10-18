@@ -654,8 +654,10 @@ async def paginated_event_log(
         table.add_slot('body', _EVENT_LOG_BODY_ROWCLICK if on_row_click else _EVENT_LOG_BODY_PLAIN)
         if on_row_click is not None:
             table.on('row-click', lambda e: on_row_click(clicked_row(e)))
+        # pager=False: this table pages on the server with the buttons below.
         enable_mobile_grid(table, columns, table_key=table_key,
-                           row_click_event='row-click' if on_row_click else None)
+                           row_click_event='row-click' if on_row_click else None,
+                           pager=False)
         ui.label(note).classes('italic-note')
 
         total_pages = max(1, (total + page_size - 1) // page_size)

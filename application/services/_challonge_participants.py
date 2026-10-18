@@ -74,6 +74,11 @@ class ChallongeParticipantAssignmentMixin(ChallongeNotificationMixin):
         return rows
 
     @requires_feature(FeatureFlag.CHALLONGE)
+    async def count_unmatched_participants(self, tournament_ids: List[int]) -> Dict[int, int]:
+        """How many entrants on each linked bracket still need a Wizzrobe user."""
+        return await self.repository.count_unmatched_participants(tournament_ids)
+
+    @requires_feature(FeatureFlag.CHALLONGE)
     async def assign_participant_user(
         self, participant_id: int, user_id: int, actor: User,
     ) -> ChallongeParticipant:

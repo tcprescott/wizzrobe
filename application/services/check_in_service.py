@@ -552,8 +552,9 @@ class CheckInService:
         if not target:
             return []
         taken = await self._taken_user_ids(entrant.event, for_link=True)
-        candidates = suggestion_candidates(await UserRepository.get_community_people(), taken)
-        return suggested_users(target, candidates, limit)
+        candidates = suggestion_candidates(await UserRepository.get_community_people_summaries(), taken)
+        picks = await asyncio.to_thread(suggested_users, target, candidates, limit)
+        return await UserRepository.get_in_order([pick.id for pick in picks])
 
     @requires_feature(FeatureFlag.EVENT_CHECK_IN)
     async def suggestion_counts(
@@ -564,7 +565,7 @@ class CheckInService:
         if all(e.user_id is not None for e in entrants):
             return {}
         taken = await self._taken_user_ids(event, for_link=True)
-        candidates = suggestion_candidates(await UserRepository.get_community_people(), taken)
+        candidates = suggestion_candidates(await UserRepository.get_community_people_summaries(), taken)
         return await asyncio.to_thread(count_suggestions, entrants, candidates, limit)
 
     @requires_feature(FeatureFlag.EVENT_CHECK_IN)
@@ -583,14 +584,14 @@ class CheckInService:
             return []
         taken = await self._taken_user_ids(event, for_link=for_link)
         matches = [
-            user for user in await UserRepository.get_community_people()
-            if user.id not in taken and any(
+            person.id for person in await UserRepository.get_community_people_summaries()
+            if person.id not in taken and any(
                 needle in norm_name(name)
-                for name in (user.username, user.display_name, user.twitch_username,
-                             user.matcherino_username)
+                for name in (person.username, person.display_name, person.twitch_username,
+                             person.matcherino_username)
             )
         ]
-        return matches[:limit]
+        return await UserRepository.get_in_order(matches[:limit])
 
     async def _taken_user_ids(self, event: CheckInEvent, *, for_link: bool) -> set[int]:
         taken = await self.entrants.linked_user_ids(event)

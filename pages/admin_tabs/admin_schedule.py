@@ -221,6 +221,7 @@ async def admin_schedule_page(
                         # The admin's job *is* the Finished-not-yet-Confirmed set, so it
                         # must be on screen without them discovering the State filter.
                         default_state_filter=['Scheduled', 'Checked In', 'Started', 'Finished'],
+                        default_day_scope='Today',
                         match_ids=[match_id] if match_id else None,
                         scope_tournament_ids=tournament_ids,
                         on_rows_changed=_rows_changed,

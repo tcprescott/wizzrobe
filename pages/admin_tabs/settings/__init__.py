@@ -23,11 +23,15 @@ from application.table_preferences_context import current_table_prefs, table_pre
 from application.tenant_context import get_current_tenant_id, tenant_scope
 from application.timezone_context import current_timezone_name, tz_scope
 from models import FeatureFlag
+from pages.admin_tabs.admin_challonge import admin_challonge_connection_page
 from pages.admin_tabs.admin_discord_events import admin_discord_events_page
+from pages.admin_tabs.admin_discord_role_sync import TAB_LABEL as ROLE_SYNC_TAB_LABEL
+from pages.admin_tabs.admin_discord_role_sync import admin_discord_role_sync_page
 from pages.admin_tabs.admin_discord_roles import admin_discord_roles_page
 from pages.admin_tabs.admin_features import admin_features_page
 from pages.admin_tabs.admin_profile_reminders import admin_profile_reminders_page
 from pages.admin_tabs.admin_randomizer_keys import admin_randomizer_keys_page
+from pages.admin_tabs.admin_startgg import admin_startgg_connection_page
 from pages.admin_tabs.admin_theme import admin_theme_page
 from pages.admin_tabs.admin_timezone import admin_timezone_page
 from pages.admin_tabs.admin_webhooks import admin_webhooks_page
@@ -53,6 +57,7 @@ LEGACY_TAB_PANES: dict[str, str] = {
     'discord-events': 'discord',
     'webhooks': 'integrations',
     'randomizer-keys': 'integrations',
+    'challonge': 'integrations',
     'profile-reminders': 'members',
 }
 
@@ -137,6 +142,8 @@ def build_settings_panes(access, live: set) -> list[SettingsPane]:
             admin_discord_roles_page, {'volunteer_mappings': FeatureFlag.VOLUNTEERS in live},
             refresh_label='Role Mappings',
         ))
+    if is_staff and FeatureFlag.DISCORD_ROLE_SYNC in live:
+        discord.append(EmbeddedPage(admin_discord_role_sync_page, refresh_label=ROLE_SYNC_TAB_LABEL))
     if is_staff or access.is_sync_admin:
         discord.append(EmbeddedPage(admin_discord_events_page, refresh_label='Discord Events'))
     if discord:
@@ -146,6 +153,10 @@ def build_settings_panes(access, live: set) -> list[SettingsPane]:
             embedded=tuple(discord),
         ))
     integrations: list[EmbeddedPage] = []
+    if is_staff and FeatureFlag.CHALLONGE in live:
+        integrations.append(EmbeddedPage(admin_challonge_connection_page))
+    if is_staff and FeatureFlag.STARTGG in live:
+        integrations.append(EmbeddedPage(admin_startgg_connection_page))
     if is_staff:
         integrations.append(EmbeddedPage(admin_webhooks_page, refresh_label='Webhooks'))
     if is_staff or access.is_preset_manager:

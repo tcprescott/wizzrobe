@@ -29,6 +29,7 @@ from . import (
     staff_request_dms,
     startgg_sync_worker,
     telegram_bot_worker,
+    telemetry_retention,
 )
 from .accommodation_service import AccommodationService
 from .analytics_service import AnalyticsService
@@ -60,10 +61,13 @@ from .discord import (
     DiscordEventSyncService,
     DiscordLinkService,
     DiscordLoginService,
+    DiscordMemberImportService,
     DiscordRoleMappingService,
+    DiscordRoleSyncService,
     DiscordService,
     discord_event_worker,
     discord_queue,
+    discord_role_sync_worker,
 )
 from .emergency_contact_service import EmergencyContactService
 from .equipment_service import EquipmentService
@@ -116,6 +120,7 @@ from .speedgaming_etl_service import SpeedGamingETLService
 from .speedgaming_sync_service import SpeedGamingSyncService
 from .staff_alert_service import StaffAlertService
 from .stage_service import StageService
+from .startgg_connection_service import StartggConnectionService
 from .startgg_link_service import StartggLinkService
 from .startgg_service import StartggService
 from .station_service import StationService
@@ -178,7 +183,9 @@ __all__ = [
     'DiscordEventSyncService',
     'DiscordLinkService',
     'DiscordLoginService',
+    'DiscordMemberImportService',
     'DiscordRoleMappingService',
+    'DiscordRoleSyncService',
     'DiscordService',
     'DraftPolicy',
     'EmergencyContactService',
@@ -240,6 +247,7 @@ __all__ = [
     'SpeedGamingSyncService',
     'StaffAlertService',
     'StageService',
+    'StartggConnectionService',
     'StartggLinkService',
     'StartggService',
     'StationService',
@@ -285,6 +293,7 @@ __all__ = [
     'community_event_reminder',
     'discord_event_worker',
     'discord_queue',
+    'discord_role_sync_worker',
     'get_user_from_discord_id',
     'get_user_from_session',
     'notification_links',
@@ -299,6 +308,7 @@ __all__ = [
     'staff_request_dms',
     'startgg_sync_worker',
     'telegram_bot_worker',
+    'telemetry_retention',
     'validate_async_qualifier_config',
     'validate_bracket_config',
     'validate_counts',

@@ -31,9 +31,10 @@ aren't decided yet) and Confirmed. A time in orange with a {chip:pending:Late} c
 means the match is past its start and nobody's checked it in.
 
 The Commentators and Trackers columns count signups against what the tournament
-needs, so "1/2" is one signup for two places. Until the match starts, a role that's
-short says "needs crew" in orange, and one with enough signups you haven't approved
-yet says "to approve". The names are listed under the count, with a tick for
+needs, so "1/2" is one signup for two places. Until the match starts, a role
+that's short says "needs crew" in orange, and one with enough signups you haven't
+approved yet says "to approve". A match with no stage needs no crew, so it shows
+just the signup count. The names are listed under the count, with a tick for
 approved and a clock and "to approve" for the rest.
 
 Tap a line to open the match. Its next step (**Check in**, **Start match**,

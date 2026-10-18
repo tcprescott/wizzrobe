@@ -125,6 +125,10 @@ class AuditActions:
     ROLE_DISCORD_SYNC_GRANTED = 'role.discord_sync_granted'
     ROLE_DISCORD_SYNC_REVOKED = 'role.discord_sync_revoked'
     ROLE_DISCORD_SYNC_BULK = 'role.discord_sync_bulk'
+    # Outbound: Discord roles Wizzrobe hands out (DiscordRoleSyncService)
+    DISCORD_ROLE_RULE_SET = 'discord_role.rule_set'
+    DISCORD_ROLE_RULE_CLEARED = 'discord_role.rule_cleared'
+    DISCORD_ROLE_RULES_RESET = 'discord_role.rules_reset'
     # Tenant ↔ Discord server link (tenant-scoped; stamped with the tenant)
     DISCORD_SERVER_LINKED = 'discord.server_linked'
     DISCORD_SERVER_UNLINKED = 'discord.server_unlinked'
@@ -258,6 +262,8 @@ class AuditActions:
     STARTGG_SUGGESTION_DISMISSED = 'startgg.suggestion_dismissed'
     STARTGG_REPORTING_SET = 'startgg.reporting_set'
     STARTGG_RESULT_REPORTED = 'startgg.result_reported'
+    STARTGG_CONNECTED = 'startgg.connected'
+    STARTGG_DISCONNECTED = 'startgg.disconnected'
     TWITCH_LINKED = 'twitch.linked'
     TWITCH_UNLINKED = 'twitch.unlinked'
 
@@ -469,6 +475,8 @@ class AuditActions:
     TENANT_DELETED = 'tenant.deleted'
     TENANT_MEMBER_ADDED = 'tenant.member_added'
     TENANT_MEMBER_REMOVED = 'tenant.member_removed'
+    # Admin → Users › Import from Discord: one row for the whole run.
+    TENANT_MEMBERS_IMPORTED = 'tenant.members_imported'
     # The self-serve enrollment path. The request is written by someone who is
     # not yet in the tenant, so its audit row is stamped with the *target*
     # tenant rather than the requester's ambient one.

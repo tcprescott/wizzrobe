@@ -8,7 +8,9 @@ a real sync writes them: StartggEntrant, StartggPhase, StartggPool, StartggSet.
 player_one and player_two share an open
 semifinal, so My Schedule shows a start.gg row to book. They map through the
 start.gg accounts linked on their profiles; Player Three and Four map only by
-name, so the Entrants dialog has suggestions to confirm. Must run inside the
+name, so the Entrants dialog has suggestions to confirm. The community is
+signed in to start.gg as the mock account, so Settings → Integrations shows
+the access check. Must run inside the
 tenant's ``tenant_scope``.
 Idempotent: re-running re-syncs the same mock event.
 """
@@ -16,8 +18,12 @@ from datetime import datetime
 
 from application.repositories import StartggRepository
 from application.services.startgg_service import StartggService
-from application.utils.mocks.mock_startgg import MOCK_LINKED_ACCOUNTS, mock_event_full
-from models import Tenant, Tournament, User
+from application.utils.mocks.mock_startgg import (
+    MOCK_CONNECTED_USER_ID,
+    MOCK_LINKED_ACCOUNTS,
+    mock_event_full,
+)
+from models import StartggConnection, Tenant, Tournament, User
 
 _SLUG = 'tournament/wizzrobe-dev/event/ootr-singles'
 
@@ -48,6 +54,11 @@ async def seed_startgg_for_tenant(
         await StartggRepository.set_event_link(
             tournament, full['event']['event_id'], _SLUG, full['event']['name'],
         )
+    await StartggConnection.get_or_create(tenant=tenant, defaults={
+        'access_token': 'mock-access', 'refresh_token': 'mock-refresh',
+        'scopes': 'user.identity tournament.reporter',
+        'startgg_user_id': MOCK_CONNECTED_USER_ID, 'startgg_username': 'MockGGOne', 'connected_by': staff,
+    })
     # The mirror itself, exactly as a sync writes it. Not audited: no one
     # pressed anything.
     await StartggService()._apply(tournament, full, staff, audit=False)

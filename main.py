@@ -274,6 +274,11 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         # Idle without STARTGG_API_TOKEN; skips tenants with STARTGG off.
         from application.services import startgg_sync_worker
         startgg_sync_worker.start()
+        # Discord roles Wizzrobe hands out: syncs a community soon after a rule
+        # change or a match/enrollment/badge event, and every 10 minutes in full.
+        # Only communities with rules; skips tenants with DISCORD_ROLE_SYNC off.
+        from application.services import discord_role_sync_worker
+        discord_role_sync_worker.start()
         # Telegram bot: binds chats from profile Connect links and answers /stop.
         # Only with a bot token, and never against a mocked Discord.
         from application.services import telegram_bot_worker
@@ -304,8 +309,9 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     if loop_watchdog_enabled():
         loop_watchdog.start()
     metrics_sampler.start()
-    from application.services import active_users_metrics
+    from application.services import active_users_metrics, telemetry_retention
     active_users_metrics.start()
+    telemetry_retention.start()
     # The MCP transport's session manager owns a task group that each per-request
     # server task is started on; entering it here (and exiting it around the
     # yield) means /mcp stops accepting calls before the workers below tear down,
@@ -316,10 +322,12 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         yield
     try:
         await active_users_metrics.stop()
+        await telemetry_retention.stop()
         await race_room_worker.stop()
         await seed_roll_worker.stop()
         await check_in_sync_worker.stop()
         await startgg_sync_worker.stop()
+        await discord_role_sync_worker.stop()
         await telegram_bot_worker.stop()
         await speedgaming_sync_worker.stop()
         await discord_event_worker.stop()

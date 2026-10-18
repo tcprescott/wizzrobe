@@ -4,13 +4,30 @@ User Repository - Data Access Layer
 Handles database operations for users.
 """
 
-from typing import List, Optional
+from collections import Counter
+from typing import Dict, Iterable, List, NamedTuple, Optional, Tuple
 
 from tortoise.expressions import Q
 
 from application.repositories._base import TenantScopedRepository
 from application.repositories._tenant import current_tenant_id
-from models import SYSTEM_USER_DISCORD_ID, Role, User
+from models import SYSTEM_USER_DISCORD_ID, Role, Tournament, User, UserRole
+
+
+class PersonSummary(NamedTuple):
+    """The few columns a person picker or name search reads, without the rest of ``User``."""
+
+    id: int
+    username: str
+    display_name: Optional[str]
+    twitch_username: Optional[str]
+    matcherino_username: Optional[str]
+    discord_id: Optional[int]
+    is_active: bool
+
+    @property
+    def preferred_name(self) -> str:
+        return self.display_name if self.display_name else self.username
 
 
 class UserRepository(TenantScopedRepository[User]):
@@ -40,8 +57,38 @@ class UserRepository(TenantScopedRepository[User]):
         return {u.id: u for u in rows}
 
     @staticmethod
+    async def get_in_order(user_ids: List[int]) -> List[User]:
+        """The users with ``user_ids``, in that order, skipping any that no longer exist."""
+        found = await UserRepository.get_by_ids(user_ids)
+        return [found[uid] for uid in user_ids if uid in found]
+
+    @staticmethod
     async def get_by_discord_id(discord_id: str) -> Optional[User]:
         return await User.get_or_none(discord_id=discord_id)
+
+    @staticmethod
+    async def get_by_discord_ids(discord_ids: Iterable[int]) -> dict[int, User]:
+        """Resolve many Discord ids in one query, keyed by Discord id."""
+        wanted = list(set(discord_ids))
+        if not wanted:
+            return {}
+        rows = await User.filter(discord_id__in=wanted)
+        return {u.discord_id: u for u in rows if u.discord_id is not None}
+
+    @staticmethod
+    async def bulk_create_from_discord(members: Iterable[Tuple[int, str, Optional[str]]]) -> None:
+        """New accounts for ``(discord_id, username, avatar)`` rows, in one insert.
+
+        Ignores conflicts, so an account a concurrent login made in between is
+        kept as it is rather than failing the batch; re-read with
+        :meth:`get_by_discord_ids` to learn what exists.
+        """
+        rows = [
+            User(discord_id=discord_id, username=username, discord_avatar=avatar or None)
+            for discord_id, username, avatar in members
+        ]
+        if rows:
+            await User.bulk_create(rows, ignore_conflicts=True)
 
     @staticmethod
     async def get_all(
@@ -108,6 +155,51 @@ class UserRepository(TenantScopedRepository[User]):
         per-community picker rendered outside a tenant is a bug, and this is
         where it should surface loudly.
         """
+        return await UserRepository._community_people_query(
+            role=role, has_discord=has_discord,
+            include_user_ids=include_user_ids, include_inactive=include_inactive,
+        ).order_by('username').distinct()
+
+    @staticmethod
+    async def get_community_people_summaries(
+        *,
+        include_user_ids: Optional[List[int]] = None,
+        include_inactive: bool = False,
+    ) -> List[PersonSummary]:
+        """:meth:`get_community_people`, as :class:`PersonSummary` rows.
+
+        For pickers and name searches over the whole community. Hydrating a
+        ``User`` sets about forty fields, which for a community of 2,000 held
+        the one event loop for most of a second in production; seven scalars a
+        row cost a few milliseconds. Fetch the people actually chosen with
+        :meth:`get_by_ids`.
+        """
+        rows = await UserRepository._community_people_query(
+            include_user_ids=include_user_ids, include_inactive=include_inactive,
+        ).order_by('username').distinct().values_list(*PersonSummary._fields)
+        return [PersonSummary(*row) for row in rows]
+
+    @staticmethod
+    async def role_summary(tenant_id: int) -> Tuple[Dict[int, List[Role]], Counter, Counter]:
+        """Each user's roles in ``tenant_id``, and how many of its tournaments
+        each one admins and crew-coordinates: three flat reads, no ``User`` rows."""
+        roles: Dict[int, List[Role]] = {}
+        for user_id, role in await UserRole.filter(tenant_id=tenant_id).order_by('id').values_list('user_id', 'role'):
+            roles.setdefault(user_id, []).append(role)
+        admins = Counter(await Tournament.filter(tenant_id=tenant_id, admins__id__isnull=False)
+                         .values_list('admins__id', flat=True))
+        coordinators = Counter(await Tournament.filter(tenant_id=tenant_id, crew_coordinators__id__isnull=False)
+                               .values_list('crew_coordinators__id', flat=True))
+        return roles, admins, coordinators
+
+    @staticmethod
+    def _community_people_query(
+        *,
+        role: Optional[Role] = None,
+        has_discord: bool = False,
+        include_user_ids: Optional[List[int]] = None,
+        include_inactive: bool = False,
+    ):
         tenant_id = current_tenant_id()
         query = User.filter(tenant_memberships__tenant_id=tenant_id)
         if include_user_ids:
@@ -128,7 +220,7 @@ class UserRepository(TenantScopedRepository[User]):
             query = query.filter(roles__role=role, roles__tenant_id=tenant_id)
         if has_discord:
             query = query.exclude(discord_id=None)
-        return await query.order_by('username').distinct()
+        return query
 
     @staticmethod
     async def search_by_name(

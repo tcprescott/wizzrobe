@@ -9,7 +9,9 @@ rather than adding another hand-written call at every spot:
 * match confirmation calls :func:`on_match_confirmed`,
 * My Schedule lists :func:`list_bookable_for_user` and books through
   :func:`schedule`,
-* Admin → Tournaments syncs through :func:`sync_tournament` / :func:`sync_all`.
+* Admin → Tournaments syncs through :func:`sync_tournament` / :func:`sync_all`,
+  links and unlinks through :func:`link` / :func:`unlink`, and counts entrants
+  still waiting for a member through :func:`unmatched_entrant_counts`.
 
 Challonge is registered for syncing and booking; its result push and My
 Schedule rows still run through ``ChallongeService`` directly until it moves
@@ -19,6 +21,7 @@ onto the rest of the contract. Native brackets live in Wizzrobe, so they have no
 import logging
 from dataclasses import dataclass, field
 from typing import Callable, Dict, List, Optional, Protocol, Tuple
+from urllib.parse import urlparse
 
 from application.services.auth_service import AuthService
 from application.services.bracket_service import BracketService
@@ -107,6 +110,12 @@ class BracketSource(Protocol):
 
     async def on_match_confirmed(self, match: Match, actor: Optional[User]) -> None: ...
 
+    async def link(self, tournament: Tournament, id_or_url: str, actor: User) -> str: ...
+
+    async def unlink(self, tournament: Tournament, actor: User) -> None: ...
+
+    async def count_unmatched(self, tournament_ids: List[int]) -> Dict[int, int]: ...
+
 
 class StartggSource:
     key = 'startgg'
@@ -145,6 +154,16 @@ class StartggSource:
             key, scheduled_date, scheduled_time, actor, allow_outside_round=allow_outside_round,
         )
 
+    async def link(self, tournament: Tournament, id_or_url: str, actor: User) -> str:
+        counts = await StartggService().link_event(tournament.id, id_or_url, actor)
+        return f"{counts.get('entrants', 0)} entrants, {counts.get('sets', 0)} matches"
+
+    async def unlink(self, tournament: Tournament, actor: User) -> None:
+        await StartggService().unlink_event(tournament.id, actor)
+
+    async def count_unmatched(self, tournament_ids: List[int]) -> Dict[int, int]:
+        return await StartggService().count_unmatched_entrants(tournament_ids)
+
     async def on_match_confirmed(self, match: Match, actor: Optional[User]) -> None:
         await StartggService().report_result_if_linked(match, actor)
 
@@ -173,6 +192,16 @@ class ChallongeSource:
         return await ChallongeService().schedule_challonge_match(
             key, scheduled_date, scheduled_time, actor, allow_outside_round=allow_outside_round,
         )
+
+    async def link(self, tournament: Tournament, id_or_url: str, actor: User) -> str:
+        await ChallongeService().link_tournament(tournament.id, id_or_url, actor)
+        return 'linked and synced'
+
+    async def unlink(self, tournament: Tournament, actor: User) -> None:
+        await ChallongeService().unlink_tournament(tournament.id, actor)
+
+    async def count_unmatched(self, tournament_ids: List[int]) -> Dict[int, int]:
+        return await ChallongeService().count_unmatched_participants(tournament_ids)
 
     async def on_match_confirmed(self, match: Match, actor: Optional[User]) -> None:
         return None
@@ -335,6 +364,52 @@ async def sync_all(tournaments: List[Tournament], actor: User,
         except (ValueError, PermissionError) as e:
             results.append(SyncResult(tournament.id, tournament.name, source.label, '', error=str(e)))
     return results
+
+
+_SITE_HOSTS = {'challonge.com': 'challonge', 'start.gg': 'startgg'}
+
+
+def site_for_link(value: str) -> Optional[str]:
+    """The site key a pasted bracket link points at, or None for a bare id."""
+    value = (value or '').strip()
+    if not value:
+        return None
+    host = (urlparse(value if '://' in value else f'https://{value}').hostname or '').lower()
+    for domain, key in _SITE_HOSTS.items():
+        if host == domain or host.endswith('.' + domain):
+            return key
+    return None
+
+
+async def link(source_key: str, tournament: Tournament, id_or_url: str, actor: User) -> str:
+    """Link ``tournament`` to a bracket on ``source_key`` and mirror it."""
+    return await by_key(source_key).link(tournament, id_or_url, actor)
+
+
+async def unlink(tournament: Tournament, actor: User) -> str:
+    """Detach ``tournament`` from whichever live site it follows; returns that site's label."""
+    source = await source_for(tournament)
+    if source is None:
+        raise ValueError(f"{tournament.name} isn't linked to a bracket site.")
+    await source.unlink(tournament, actor)
+    return source.label
+
+
+async def unmatched_entrant_counts(tournaments: List[Tournament]) -> Dict[int, int]:
+    """Linked-bracket entrants still waiting for a Wizzrobe user, per tournament id.
+
+    A soft read for the Tournaments board: a site that fails just shows no count.
+    """
+    counts: Dict[int, int] = {}
+    for source in await live_sources():
+        ids = [t.id for t in tournaments if source.linked(t)]
+        if not ids:
+            continue
+        try:
+            counts.update(await source.count_unmatched(ids))
+        except Exception:
+            logger.warning('Unmatched-entrant count failed for %s', source.label, exc_info=True)
+    return counts
 
 
 def site_labels() -> Dict[str, str]:

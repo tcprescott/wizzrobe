@@ -2,12 +2,13 @@
 
 Two clients live here:
 
-* :class:`StartggClient` reads a public event with the platform's personal
-  access token (``STARTGG_API_TOKEN``): its phases, pools, entrants, standings
-  and sets. Nothing is ever written to start.gg.
-* :class:`StartggOAuthClient` links a player's start.gg account (scope
-  ``user.identity``). Its token is used once to read ``currentUser`` and
-  discarded, like the Twitch and racetime links.
+* :class:`StartggClient` reads an event (phases, pools, entrants, standings and
+  sets) and reports a set's winner, with either a community's start.gg sign-in
+  or the platform's personal access token (``STARTGG_API_TOKEN``).
+* :class:`StartggOAuthClient` runs both OAuth flows: a player linking their
+  start.gg account (scope ``user.identity``, token used once and discarded)
+  and staff signing the community in (``tournament.reporter`` too, token kept
+  and refreshed).
 
 Both return **normalized** dicts so the service layer never sees the wire shape:
 
@@ -31,7 +32,7 @@ import asyncio
 import os
 import re
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Set, Tuple
 from urllib.parse import urlparse
 
 import aiohttp
@@ -48,6 +49,7 @@ from application.utils.clients.oauth_identity_client import (
 API_URL = 'https://api.start.gg/gql/alpha'
 AUTHORIZE_URL = 'https://start.gg/oauth/authorize'
 TOKEN_URL = 'https://api.start.gg/oauth/access_token'
+REFRESH_URL = 'https://api.start.gg/oauth/refresh'
 
 _ENTRANT_PAGE = 50
 _SET_PAGE = 40
@@ -217,6 +219,32 @@ mutation Report($setId: ID!, $winnerId: ID!) {
 
 _ME_QUERY = 'query { currentUser { id slug player { gamerTag } } }'
 
+_ADMIN_TOURNAMENTS_QUERY = """
+query AdminTournaments($page: Int!, $perPage: Int!) {
+  currentUser {
+    id
+    tournaments(query: {page: $page, perPage: $perPage, filter: {tournamentView: "admin"}}) {
+      pageInfo { totalPages }
+      nodes { slug }
+    }
+  }
+}
+"""
+
+_TOURNAMENT_ADMINS_QUERY = """
+query TournamentAdmins($slug: String) {
+  tournament(slug: $slug) { id owner { id } admins { id } }
+}
+"""
+
+_ADMIN_PAGE = 50
+_ADMIN_PAGES = 4
+
+
+def tournament_slug(event_slug: str) -> str:
+    """``tournament/x/event/y`` -> ``tournament/x``, the slug admin roles hang off."""
+    return event_slug.split('/event/', 1)[0]
+
 
 class StartggClient:
     """Read-only start.gg API client using a personal access token."""
@@ -226,7 +254,10 @@ class StartggClient:
 
     async def _query(self, query: str, variables: Dict[str, Any]) -> Dict[str, Any]:
         if not self.token:
-            raise StartggAPIError('No start.gg API token is set (STARTGG_API_TOKEN).')
+            raise StartggAPIError(
+                "start.gg isn't connected: sign in under Settings → Integrations, "
+                'or set STARTGG_API_TOKEN.'
+            )
         headers = {'Authorization': f'Bearer {self.token}', 'Content-Type': 'application/json'}
         # One retry on a rate-limit answer: the limit is a rolling minute, so a
         # short wait usually clears a burst from a manual sync on top of the worker.
@@ -253,7 +284,8 @@ class StartggClient:
             break
         if status in (401, 403):
             raise StartggAPIError(
-                'start.gg refused the API token. It may have expired; make a new one.', status,
+                'start.gg refused the sign-in. Reconnect start.gg under Settings → '
+                'Integrations (or replace an expired STARTGG_API_TOKEN).', status,
             )
         if status >= 400:
             raise StartggAPIError(f'start.gg request failed ({status})', status)
@@ -346,6 +378,31 @@ class StartggClient:
     async def report_winner(self, set_id: str, winner_entrant_id: str) -> None:
         await self._query(_REPORT_MUTATION, {'setId': set_id, 'winnerId': winner_entrant_id})
 
+    async def get_admin_tournament_slugs(self) -> Tuple[Optional[str], Set[str]]:
+        """The signed-in account's id and the tournaments it holds an admin role on.
+
+        Capped at a few pages: a staff account admins a handful of tournaments,
+        and this runs when the Integrations card opens.
+        """
+        slugs: Set[str] = set()
+        user_id: Optional[str] = None
+        for page in range(1, _ADMIN_PAGES + 1):
+            data = await self._query(_ADMIN_TOURNAMENTS_QUERY, {'page': page, 'perPage': _ADMIN_PAGE})
+            me = data.get('currentUser') or {}
+            user_id = opt_str(me.get('id'))
+            block = me.get('tournaments') or {}
+            slugs.update(n['slug'] for n in block.get('nodes') or [] if n and n.get('slug'))
+            if page >= int((block.get('pageInfo') or {}).get('totalPages') or 1):
+                break
+        return user_id, slugs
+
+    async def get_tournament_admin_ids(self, slug: str) -> Set[str]:
+        """Owner plus admins of a tournament, as far as this account may see them."""
+        data = await self._query(_TOURNAMENT_ADMINS_QUERY, {'slug': slug})
+        node = data.get('tournament') or {}
+        ids = [(node.get('owner') or {}).get('id')] + [a.get('id') for a in node.get('admins') or [] if a]
+        return {str(i) for i in ids if i is not None}
+
     async def get_event_full(self, slug: str) -> Dict[str, Any]:
         """The event's shape, every entrant, and every pool's standings and sets."""
         event = await self.get_event(slug)
@@ -358,9 +415,11 @@ class StartggClient:
 
 
 # ----------------------------------------------------------------------
-# Player account linking (OAuth, scope user.identity)
+# OAuth: player account linking (user.identity) and the community sign-in
+# (user.identity tournament.reporter)
 # ----------------------------------------------------------------------
 _PLAYER_SCOPE = 'user.identity'
+CONNECT_SCOPE = 'user.identity tournament.reporter'
 
 
 def build_authorize_url(client_id: str, redirect_uri: str, scope: str, state: str) -> str:
@@ -393,21 +452,38 @@ class StartggOAuthClient(OAuthIdentityClient):
         extract_identity=_extract_identity,
     )
 
-    async def exchange_code(self, code: str, redirect_uri: str) -> Dict[str, Any]:
-        body = {
+    async def exchange_code(
+        self, code: str, redirect_uri: str, scope: str = _PLAYER_SCOPE,
+    ) -> Dict[str, Any]:
+        return await self._token_request(TOKEN_URL, {
             'grant_type': 'authorization_code',
-            'client_id': self.client_id,
-            'client_secret': self.client_secret,
             'code': code,
-            'scope': _PLAYER_SCOPE,
+            'scope': scope,
             'redirect_uri': redirect_uri,
-        }
-        async with aiohttp.ClientSession(timeout=_TIMEOUT) as session:
-            async with session.post(TOKEN_URL, json=body) as resp:
-                payload = await resp.json(content_type=None)
-                if resp.status >= 400:
-                    raise StartggAPIError(f'start.gg token request failed ({resp.status})', resp.status)
-                return payload
+        })
+
+    async def refresh(self, refresh_token: str, redirect_uri: str, scope: str) -> Dict[str, Any]:
+        # start.gg wants the original scope and redirect URI repeated on a refresh.
+        return await self._token_request(REFRESH_URL, {
+            'grant_type': 'refresh_token',
+            'refresh_token': refresh_token,
+            'scope': scope,
+            'redirect_uri': redirect_uri,
+        })
+
+    async def _token_request(self, url: str, body: Dict[str, Any]) -> Dict[str, Any]:
+        body = {**body, 'client_id': self.client_id, 'client_secret': self.client_secret}
+        try:
+            async with aiohttp.ClientSession(timeout=_TIMEOUT) as session:
+                async with session.post(url, json=body) as resp:
+                    payload = await resp.json(content_type=None)
+                    if resp.status >= 400:
+                        raise StartggAPIError(f'start.gg token request failed ({resp.status})', resp.status)
+                    return payload
+        except asyncio.TimeoutError as e:
+            raise StartggAPIError("start.gg didn't answer in time; try again shortly.") from e
+        except aiohttp.ClientError as e:
+            raise StartggAPIError(f"Couldn't reach start.gg ({type(e).__name__}).") from e
 
     async def get_me(self, access_token: str) -> Dict[str, Any]:
         headers = {'Authorization': f'Bearer {access_token}', 'Content-Type': 'application/json'}
@@ -430,8 +506,16 @@ class MockStartggOAuthClient(StartggOAuthClient):
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__('mock', 'mock')
 
-    async def exchange_code(self, code: str, redirect_uri: str) -> Dict[str, Any]:
-        return {'access_token': 'mock-access', 'token_type': 'Bearer', 'expires_in': 604800}
+    async def exchange_code(
+        self, code: str, redirect_uri: str, scope: str = _PLAYER_SCOPE,
+    ) -> Dict[str, Any]:
+        return {
+            'access_token': 'mock-access', 'refresh_token': 'mock-refresh',
+            'token_type': 'Bearer', 'expires_in': 604800,
+        }
+
+    async def refresh(self, refresh_token: str, redirect_uri: str, scope: str) -> Dict[str, Any]:
+        return await self.exchange_code('mock', redirect_uri, scope)
 
     async def get_me(self, access_token: str) -> Dict[str, Any]:
         idx = int(os.environ.get('MOCK_STARTGG_IDENTITY', '1'))
