@@ -870,7 +870,7 @@ Tournament metadata and configuration; the root aggregate for matches, enrollmen
 | `startgg_event_slug` | `CharField(255)` | null | `tournament/<t>/event/<e>`; set means the tournament follows that start.gg event |
 | `startgg_event_name` | `CharField(255)` | null | Event name as of the last sync |
 | `startgg_last_synced_at` | `DatetimeField` | null | Last successful start.gg sync (UTC) |
-| `startgg_bookable_phase_id` | `CharField(64)` | null | The phase players book from; null = the event's last phase |
+| `startgg_bookable_phase_id` | `CharField(64)` | null | The phase players book from; null = the earliest ACTIVE phase, else the event's last phase |
 | `startgg_report_results` | `BooleanField` | default `False` | Opt-in writeback of confirmed results to start.gg (migration 108) |
 | `config` | `JSONField` | null | Hybrid-config JSON half (messaging templates, scoring params, strategy choices). Written only through `TournamentService`, which validates it with `validate_tournament_config` (unknown keys raise `ValueError`); typed knobs stay their own columns. A `round_schedule` key holds each Challonge/start.gg stage's booking window (`RoundScheduleService`). See [online-tournaments.md](../features/online-tournaments.md) |
 | `preset` | FK → `Preset` | null, `SET_NULL` | Seed-rolling preset; resolves the randomizer + settings for seed generation and overrides `seed_generator` when set. `related_name='tournaments'` |
