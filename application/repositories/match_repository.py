@@ -6,12 +6,24 @@ Returns domain objects (Match, MatchPlayers, etc.) without business logic.
 """
 
 from datetime import datetime
-from typing import List, Optional
+from typing import List, Optional, Tuple
 
 from tortoise.expressions import Q
+from tortoise.query_utils import Prefetch
 
 from application.repositories._tenant import current_tenant_id, scoped
-from models import Match, MatchPlayers, User
+from models import Commentator, Match, MatchPlayers, Tracker, User
+
+#: The person fields a schedule row reads (``MatchDisplayService`` names and DM
+#: badges). ``User`` is ~45 columns wide and a 1,300-match board loads ~5,000 of
+#: them, so building the whole row for each was a fifth of the board's load.
+#: Anything that reads a person off :meth:`MatchRepository.get_all` must stay
+#: inside this list or add to it.
+BOARD_USER_FIELDS = ('id', 'discord_id', 'display_name', 'username', 'dm_notifications')
+
+
+def _board_user() -> Prefetch:
+    return Prefetch('user', queryset=User.all().only(*BOARD_USER_FIELDS))
 
 
 class MatchRepository:
@@ -137,6 +149,7 @@ class MatchRepository:
         crew_discord_id: Optional[str] = None,
         exclude_racetime: bool = False,
         match_ids: Optional[List[int]] = None,
+        scheduled_window: Optional[Tuple[datetime, datetime]] = None,
         prefetch_relations: bool = True
     ) -> List[Match]:
         """
@@ -153,6 +166,8 @@ class MatchRepository:
             match_ids: Restrict to these IDs. Still tenant-scoped, so an ID from
                 another community narrows the result to nothing rather than
                 leaking a row.
+            scheduled_window: Half-open ``(start, end)`` on ``scheduled_at``; an
+                unscheduled match falls outside every window
             prefetch_relations: Whether to prefetch related objects
 
         Returns:
@@ -165,6 +180,11 @@ class MatchRepository:
 
         if only_upcoming:
             query = query.filter(finished_at__isnull=True)
+
+        if scheduled_window is not None:
+            query = query.filter(
+                scheduled_at__gte=scheduled_window[0], scheduled_at__lt=scheduled_window[1],
+            )
 
         if exclude_racetime:
             # ``Tournament.is_racetime_enabled`` is a Python property over the
@@ -189,14 +209,11 @@ class MatchRepository:
         if prefetch_relations:
             query = query.prefetch_related(
                 'tournament',
-                'players',
-                'players__user',
+                Prefetch('players', queryset=scoped(MatchPlayers.all()).prefetch_related(_board_user())),
                 'stage',
                 'generated_seed',
-                'commentators',
-                'commentators__user',
-                'trackers',
-                'trackers__user',
+                Prefetch('commentators', queryset=scoped(Commentator.all()).prefetch_related(_board_user())),
+                Prefetch('trackers', queryset=scoped(Tracker.all()).prefetch_related(_board_user())),
                 # The bracket seam, for the schedule's "part of <bracket>" link.
                 # A batched prefetch, so it costs a fixed few queries rather
                 # than one per row; most matches have no game row at all. The

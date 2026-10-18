@@ -31,10 +31,11 @@ CONSTRUCTION_SITES = {
 }
 
 
-def _view(storage_key='match', default_state_filter=None):
+def _view(storage_key='match', default_state_filter=None, default_day_scope='All dates'):
     view = MatchTableView.__new__(MatchTableView)
     view.storage_key = storage_key
     view.default_state_filter = default_state_filter
+    view.default_day_scope = default_day_scope
     # The badge reads every filter widget; an unbuilt view has none.
     view.tournament_filter = None
     view.stage_filter = None
@@ -211,6 +212,22 @@ def test_the_day_filter_counts_toward_the_mobile_badge():
     assert view._active_filter_count() == 0
 
     view.day_filter = SimpleNamespace(value='Today')
+    assert view._active_filter_count() == 1
+
+
+def test_the_admin_board_opens_on_today_and_today_is_not_a_custom_filter():
+    """Thomas's pick: All dates sent all ~1,300 rows on every open. Opening on
+    Today must not light the badge, but switching to All dates must."""
+    from types import SimpleNamespace
+
+    src = (REPO / 'pages/admin_tabs/admin_schedule.py').read_text()
+    assert "default_day_scope='Today'" in src
+
+    view = _view('admin_schedule', DEFAULT_STATE_FILTER, default_day_scope='Today')
+    view.state_filter = SimpleNamespace(value=list(DEFAULT_STATE_FILTER))
+    view.day_filter = SimpleNamespace(value='Today')
+    assert view._active_filter_count() == 0
+    view.day_filter = SimpleNamespace(value='All dates')
     assert view._active_filter_count() == 1
 
 

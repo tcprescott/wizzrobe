@@ -123,6 +123,14 @@ a phone. The in-app report has no controls view yet.
 Aggregations run in the database (`GROUP BY` / `COUNT DISTINCT` via
 `TelemetryRepository`), never by loading the table into memory.
 
+## Retention
+
+Rows older than about 13 months (396 days) are deleted once a day by
+[`application/services/telemetry_retention.py`](../../application/services/telemetry_retention.py),
+in every community, in batches of 5,000. Thirteen months keeps this year's event
+and last year's side by side; at roughly 1.5M rows a year per busy community,
+keeping everything would slow every report year on year.
+
 ## Configuration
 
 `TELEMETRY_ENABLED` (default on) is a runtime kill-switch for **capture** — set

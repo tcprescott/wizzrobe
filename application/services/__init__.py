@@ -29,6 +29,7 @@ from . import (
     staff_request_dms,
     startgg_sync_worker,
     telegram_bot_worker,
+    telemetry_retention,
 )
 from .accommodation_service import AccommodationService
 from .analytics_service import AnalyticsService
@@ -307,6 +308,7 @@ __all__ = [
     'staff_request_dms',
     'startgg_sync_worker',
     'telegram_bot_worker',
+    'telemetry_retention',
     'validate_async_qualifier_config',
     'validate_bracket_config',
     'validate_counts',

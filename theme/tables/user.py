@@ -5,6 +5,7 @@ from application.tenant_context import get_current_tenant_id
 from application.utils.timezone import format_local_display
 from theme.empty_state import no_data_slot
 from theme.tables.admin_crud import capture_render_context, scoped_background
+from theme.tables.plain_rows import set_plain_rows
 from theme.tables.preferences import customize_table, row_count_label, sticky_header
 
 _ROW_FIELDS = (
@@ -208,8 +209,7 @@ class UserTableView:
         if self.decorate_row:
             for row in rows:
                 self.decorate_row(row)
-        self.table.rows = rows
-        self.table.update()
+        set_plain_rows(self.table, rows)
 
     @staticmethod
     def _format_user_row(u, tid=None):

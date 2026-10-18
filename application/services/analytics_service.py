@@ -19,6 +19,7 @@ import asyncio
 from datetime import date, datetime, time, timedelta
 from typing import Dict, List, Optional, Sequence, Tuple
 
+from application.repositories import AuditRepository
 from application.services.reporting_shared import (
     ON_TIME_THRESHOLD_MIN,
     ensure_report_reader,
@@ -28,6 +29,7 @@ from application.services.reporting_shared import (
     window_hours,
 )
 from application.tenant_context import require_tenant_id
+from application.timezone_context import current_timezone_name
 from application.utils.timezone import combine_local, now_local, to_local
 from models import AuditLog, Match, User, VolunteerShift
 
@@ -511,22 +513,21 @@ class AnalyticsService:
         end = self._local(end)
         bucket_starts = self.iter_bucket_starts(start.date(), end.date(), bucket)
         index_map = self._index_map(bucket_starts, bucket)
-        n = len(bucket_starts)
+        n_buckets = len(bucket_starts)
 
-        logs = await AuditLog.filter(tenant_id=require_tenant_id()).filter(
-            created_at__gte=start, created_at__lte=end,
-        ).only('id', 'action', 'created_at')
-
+        counts = await AuditRepository.daily_category_counts(start, end, current_timezone_name())
+        bucket_of_day: Dict[date, Optional[int]] = {}
         per_category: Dict[str, List[int]] = {}
         total = 0
-        for log in logs:
-            idx = self._bucket_index(index_map, log.created_at, bucket)
+        for (category, day), n in counts.items():
+            if day not in bucket_of_day:
+                bucket_of_day[day] = index_map.get(self.bucket_start(day, bucket))
+            idx = bucket_of_day[day]
             if idx is None:
                 continue
-            category = (log.action or 'other').split('.', 1)[0]
-            series = per_category.setdefault(category, [0] * n)
-            series[idx] += 1
-            total += 1
+            series = per_category.setdefault(category, [0] * n_buckets)
+            series[idx] += n
+            total += n
 
         categories = [
             {'category': cat, 'counts': counts, 'total': sum(counts)}
