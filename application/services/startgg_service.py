@@ -38,6 +38,7 @@ from application.services.auth_service import AuthService
 from application.services.discord import discord_queue
 from application.services.feature_flag_service import FeatureFlagService
 from application.services.match.match_service import MatchService
+from application.services.round_schedule_service import RoundScheduleService
 from application.tenant_context import require_tenant_id
 from application.utils.clients.startgg_client import (
     StartggAPIError,
@@ -418,6 +419,11 @@ class StartggService:
                 'Both players need to be matched to a Wizzrobe account first. Linking start.gg '
                 'on your profile does it, or ask staff.'
             )
+        rounds = RoundScheduleService()
+        await rounds.check_booking(
+            await rounds.window_for_startgg_set(row), row.tournament,
+            scheduled_date, scheduled_time, actor,
+        )
         match = await MatchService().submit_match_request(
             tournament_id=row.tournament_id,  # type: ignore[attr-defined]
             scheduled_date=scheduled_date,

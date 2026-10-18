@@ -13,11 +13,53 @@ concrete keys their strategies read; PR 0 ships the substrate with only the
 cross-cutting messaging-templates facet.
 """
 
+from datetime import datetime, time
 from typing import Any, Dict, Optional
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, field_validator, model_validator
 
 from application.utils.config_validation import validate_config_blob
+
+
+class RoundScheduleEntry(BaseModel):
+    """When one stage of a linked bracket may be booked (see ``round_windows``).
+
+    ``opens_at``/``closes_at`` are UTC ISO-8601 instants; ``daily_from`` and
+    ``daily_until`` are ``HH:MM`` on the community's clock and come as a pair.
+    """
+
+    model_config = ConfigDict(extra='forbid')
+
+    opens_at: Optional[str] = None
+    closes_at: Optional[str] = None
+    daily_from: Optional[str] = None
+    daily_until: Optional[str] = None
+
+    @field_validator('opens_at', 'closes_at')
+    @classmethod
+    def _instant(cls, v: Optional[str]) -> Optional[str]:
+        if v is not None:
+            datetime.fromisoformat(v)
+        return v
+
+    @field_validator('daily_from', 'daily_until')
+    @classmethod
+    def _clock(cls, v: Optional[str]) -> Optional[str]:
+        if v is not None:
+            time.fromisoformat(v)
+        return v
+
+    @model_validator(mode='after')
+    def _consistent(self) -> 'RoundScheduleEntry':
+        if self.opens_at and self.closes_at and (
+            datetime.fromisoformat(self.closes_at) <= datetime.fromisoformat(self.opens_at)
+        ):
+            raise ValueError('A stage has to close after it opens.')
+        if (self.daily_from is None) != (self.daily_until is None):
+            raise ValueError('Daily hours need both a start and an end.')
+        if self.daily_from is not None and self.daily_from == self.daily_until:
+            raise ValueError('Daily hours have to end at a different time than they start.')
+        return self
 
 
 class TournamentConfig(BaseModel):
@@ -35,6 +77,9 @@ class TournamentConfig(BaseModel):
     # Substitution is ``str.format``-style ``{placeholder}`` only — never ``eval``
     # (see the config/code-boundary design constraint). Values are plain strings.
     messaging_templates: Optional[Dict[str, str]] = None
+    # Booking windows for a Challonge or start.gg bracket's stages, keyed by the
+    # stage keys in ``round_windows``. Native brackets keep theirs on the stage.
+    round_schedule: Optional[Dict[str, RoundScheduleEntry]] = None
 
 
 def validate_tournament_config(

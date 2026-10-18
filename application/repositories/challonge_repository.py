@@ -219,6 +219,7 @@ class ChallongeRepository:
         participant1: Optional[ChallongeParticipant],
         participant2: Optional[ChallongeParticipant],
         winner_participant: Optional[ChallongeParticipant],
+        group_stage: bool = False,
     ) -> ChallongeMatch:
         match, _ = await ChallongeMatch.get_or_create(
             tenant_id=current_tenant_id(),
@@ -231,6 +232,8 @@ class ChallongeRepository:
         match.participant1 = participant1
         match.participant2 = participant2
         match.winner_participant = winner_participant
+        if group_stage:
+            match.group_stage = True
         await match.save()
         return match
 
@@ -300,12 +303,15 @@ class ChallongeRepository:
     @staticmethod
     async def record_sync(
         tournament: Tournament, when: datetime, state: Optional[str], group_stage: bool,
+        tournament_type: Optional[str] = None,
     ) -> None:
         tournament.challonge_last_synced_at = when
         tournament.challonge_state = state  # type: ignore[assignment]
         tournament.challonge_group_stage = group_stage
+        tournament.challonge_tournament_type = (tournament_type or '')[:32] or None  # type: ignore[assignment]
         await tournament.save(update_fields=[
             'challonge_last_synced_at', 'challonge_state', 'challonge_group_stage',
+            'challonge_tournament_type',
         ])
 
     # ------------------------------------------------------------------

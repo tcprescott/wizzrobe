@@ -9,6 +9,7 @@ from application.utils.timezone import format_local_display
 from application.utils.tournament_signup import SignupWindow, signup_window_state
 from theme.busy import busy
 from theme.dialog import TournamentDialog
+from theme.dialog.round_schedule_dialog import RoundScheduleDialog
 from theme.dialog.tournament_edit_dialog import confirm_tournament_delete
 from theme.dialog.tournament_players_dialog import TournamentPlayersDialog
 from theme.empty_state import no_data_slot
@@ -100,6 +101,7 @@ def _tournament_row(t, live_sites=()) -> dict:
     state = signup_window_state(t.signups_open_at, t.signups_close_at)
     return {
         'bracket_site': _bracket_site(t, live_sites),
+        'round_schedule': bool(getattr(t, 'challonge_tournament_id', None) or getattr(t, 'startgg_event_slug', None)),
         'id': t.id,
         'name': t.name,
         'tournament_format': t.tournament_format or '',
@@ -231,6 +233,8 @@ class TournamentTableView:
         items = [
             SlotItem('edit', 'Edit tournament…', 'edit_tournament'),
             SlotItem('group', 'Manage players…', 'show_players'),
+            SlotItem('event_note', 'Round schedule…', 'round_schedule',
+                     v_if='props.row.round_schedule'),
         ]
         if self.can_sync:
             items += [
@@ -346,6 +350,7 @@ class TournamentTableView:
         self.table.on('edit_tournament', self.handle_edit_tournament)
         self.table.on('show_players', self.handle_show_players)
         self.table.on('sync_bracket', self.handle_sync_bracket)
+        self.table.on('round_schedule', self.handle_round_schedule)
         self.table.on('open_bracket', lambda e: self._open_link(e, 'bracket_url'))
         self.table.on('open_rules', lambda e: self._open_link(e, 'rules_url'))
         self.table.on('delete_tournament', self.handle_delete_tournament)
@@ -407,6 +412,12 @@ class TournamentTableView:
         # The dialog writes now, so the player-count column has to follow it.
         dialog = TournamentPlayersDialog(t, on_change=self.refresh)
         await dialog.open()
+
+    async def handle_round_schedule(self, event):
+        t = await self._load(event)
+        if not t:
+            return
+        await RoundScheduleDialog(t).open()
 
     async def handle_sync_bracket(self, event):
         t = await self._load(event)

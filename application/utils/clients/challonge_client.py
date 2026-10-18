@@ -8,7 +8,7 @@ The client returns **normalized** Python dicts so the service layer never has
 to know the JSON:API wire shape:
 
     me               -> {'user_id', 'username'}
-    tournament       -> {'id', 'name', 'url', 'state'}
+    tournament       -> {'id', 'name', 'url', 'state', 'group_stage', 'tournament_type'}
     participant      -> {'participant_id', 'name', 'challonge_user_id', 'username', 'misc'}
     match            -> {'match_id', 'state', 'round',
                          'player1_participant_id', 'player2_participant_id',
@@ -102,6 +102,7 @@ def _normalize_tournament(resource: Dict[str, Any]) -> Dict[str, Any]:
         'url': _attr(resource, 'full_challonge_url', 'url'),
         'state': _attr(resource, 'state'),
         'group_stage': bool(_attr(resource, 'group_stage_enabled')),
+        'tournament_type': _attr(resource, 'tournament_type'),
     }
 
 
@@ -478,7 +479,7 @@ class MockChallongeClient(ChallongeClient):
     async def get_tournament(self, tournament_id: str, community: Optional[str] = None) -> Dict[str, Any]:
         return {'id': str(tournament_id), 'name': 'Mock Challonge Tournament',
                 'url': f'https://challonge.com/{tournament_id}', 'state': 'underway',
-                'group_stage': False}
+                'group_stage': False, 'tournament_type': 'single elimination'}
 
     async def list_participants(
         self, tournament_id: str, community: Optional[str] = None,

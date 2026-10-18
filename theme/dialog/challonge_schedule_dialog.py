@@ -10,13 +10,14 @@ availability/occupancy-aware suggestion on open.
 
 from nicegui import context, ui
 
-from application.services import ChallongeService
+from application.services import ChallongeService, RoundScheduleService
 from application.tenant_context import get_current_tenant_id, tenant_scope
 from application.utils.match_labels import challonge_round_label
 from application.utils.timezone import next_whole_hour_local
 from theme.dialog._helpers import (
     FieldError,
     booked_notice,
+    booking_window_line,
     dialog_actions,
     dialog_header,
     matchup_line,
@@ -50,6 +51,7 @@ class ChallongeScheduleDialog:
         default_date = slot.strftime('%Y-%m-%d')
         default_time = slot.strftime('%H:%M')
         player_ids = [cm.participant1.user_id, cm.participant2.user_id]
+        window_text = await RoundScheduleService().describe_for_challonge_match(cm)
 
         with ui.dialog() as dialog, ui.card().classes('dialog-card dialog-card--sm'):
             self.dialog = dialog
@@ -60,6 +62,7 @@ class ChallongeScheduleDialog:
             )
             with ui.column().classes('q-pa-md gap-2'):
                 matchup_line(cm.tournament.name, challonge_round_label(cm.round))
+                booking_window_line(window_text)
                 ui.label('Pick a time you both can play.').classes('text-caption text-grey-7')
 
                 with ui.row().classes('form-pair items-center gap-2'):
@@ -74,6 +77,7 @@ class ChallongeScheduleDialog:
                     date=date,
                     time=time,
                     missing_message='Unable to suggest a time for this match.',
+                    challonge_match_id=cm.id,
                 )
 
             async def submit():

@@ -139,6 +139,30 @@ async def seed_challonge_for_tenant(
         defaults={"round": 2, "state": ChallongeMatchState.PENDING},
     )
 
+    # Mid-groups, so all three are group matches; the round schedule bounds the
+    # group stage and plans the elimination rounds Challonge hasn't created yet
+    # (Admin -> Tournaments -> Round schedule…, and the window line on My Schedule).
+    await ChallongeMatch.filter(
+        tournament=tournament, challonge_match_id__in=["cm_1", "cm_2", "cm_3"], group_stage=False,
+    ).update(group_stage=True)
+    config = dict(tournament.config or {})
+    if "round_schedule" not in config:
+        day = now_utc.replace(minute=0, second=0, microsecond=0)
+        config["round_schedule"] = {
+            "group": {
+                "opens_at": (day - timedelta(days=1)).isoformat(),
+                "closes_at": (day + timedelta(days=3)).isoformat(),
+            },
+            "e1": {
+                "opens_at": (day + timedelta(days=3)).isoformat(),
+                "closes_at": (day + timedelta(days=4)).isoformat(),
+                "daily_from": "18:00", "daily_until": "23:00",
+            },
+            "e0": {"closes_at": (day + timedelta(days=5)).isoformat()},
+        }
+        tournament.config = config
+        await tournament.save(update_fields=["config"])
+
     await _seed_open_challonge_bracket(tenant, users, now_utc)
 
     usage_period = today.strftime("%Y-%m")

@@ -49,6 +49,7 @@ from theme.dialog._helpers import (
     render_suggest_time_button,
     submit_on_enter,
 )
+from theme.dialog.round_schedule_dialog import confirm_outside_window
 from theme.help import resolve_help
 
 
@@ -153,7 +154,7 @@ class BracketScheduleDialog:
                         missing_message='Unable to suggest a time for this match.',
                     )
 
-            async def submit():
+            async def submit(allow_outside_round: bool = False):
                 if not (date.value and time.value):
                     error.show('Choose a date and a time.')
                     return
@@ -164,6 +165,7 @@ class BracketScheduleDialog:
                             scheduled_date=date.value,
                             scheduled_time=time.value,
                             game_number=self.game_number,
+                            allow_outside_round=allow_outside_round,
                         )
                 except AlreadyBookedError as e:
                     with self.dialog:
@@ -171,6 +173,9 @@ class BracketScheduleDialog:
                                   color='warning', multi_line=True)
                         dialog.close()
                 except (PermissionError, ValueError) as e:
+                    with self.dialog:
+                        if confirm_outside_window(e, lambda: submit(True)):
+                            return
                     error.show(str(e))
                     return
                 else:

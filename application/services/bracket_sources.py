@@ -22,6 +22,7 @@ from typing import Callable, Dict, List, Optional, Protocol
 
 from application.services.challonge_service import ChallongeService
 from application.services.feature_flag_service import FeatureFlagService
+from application.services.round_schedule_service import RoundScheduleService
 from application.services.startgg_service import StartggService
 from models import FeatureFlag, Match, Tournament, User
 
@@ -39,6 +40,8 @@ class BookableMatch:
     round_label: str
     opponent_name: str
     player_ids: List[int] = field(default_factory=list)
+    # "Book between Sat 6 pm and Sun 11 pm", from the tournament's round schedule.
+    window_text: Optional[str] = None
 
 
 @dataclass
@@ -82,6 +85,7 @@ class StartggSource:
 
     async def list_bookable_for_user(self, user: User) -> List[BookableMatch]:
         rows = await StartggService().list_unbooked_sets_for_user(user)
+        rounds = RoundScheduleService()
         out = []
         for row in rows:
             me_first = row.entrant1.user_id == user.id
@@ -92,6 +96,7 @@ class StartggSource:
                 round_label=row.round_text or f'Round {row.round}',
                 opponent_name=opponent.name,
                 player_ids=[row.entrant1.user_id, row.entrant2.user_id],
+                window_text=await rounds.describe_for_startgg_set(row),
             ))
         return out
 

@@ -35,6 +35,8 @@ from application.repositories.bracket_repository import BracketRepository
 from application.repositories.player_availability_repository import PlayerAvailabilityRepository
 from application.services.auth_service import AuthService
 from application.services.player_availability_service import PlayerAvailabilityService
+from application.services.round_schedule_service import RoundScheduleService
+from application.services.round_windows import RoundWindow
 from application.services.system_config_service import SystemConfigService
 from application.services.timezone_service import TimezoneService
 from application.tenant_context import require_tenant_id
@@ -83,6 +85,8 @@ class MatchSuggestionService:
         *,
         exclude_match_id: Optional[int] = None,
         actor: Optional[User] = None,
+        challonge_match_id: Optional[int] = None,
+        startgg_set_id: Optional[int] = None,
     ) -> datetime:
         """Return a UTC datetime representing the best slot for the match.
 
@@ -91,6 +95,10 @@ class MatchSuggestionService:
 
         ``bracket_match_id`` clamps both searches to the matchup's round window,
         as a hard bound: the match must fit inside it end to end.
+        ``challonge_match_id`` and ``startgg_set_id`` do the same from the
+        tournament's round schedule (``RoundScheduleService``), daily hours
+        included; with none of the three, a rescheduled bracket match
+        (``exclude_match_id``) is held to its own stage's window.
 
         ``exclude_match_id`` is the match being rescheduled, whose current slot
         must not count against its own players or the room.
@@ -119,7 +127,16 @@ class MatchSuggestionService:
         now = now_local(tz)
 
         round_start, round_end = await self._round_window(bracket_match_id, tz)
-        in_round = round_start is not None or round_end is not None
+        stage = await RoundScheduleService().window_for(
+            bracket_match_id=bracket_match_id, challonge_match_id=challonge_match_id,
+            startgg_set_id=startgg_set_id,
+            match_id=exclude_match_id if bracket_match_id is None else None,
+        )
+        stage_window = stage.window if stage is not None else None
+        if stage_window is not None and bracket_match_id is None:
+            round_start = stage_window.opens.astimezone(tz) if stage_window.opens else None
+            round_end = stage_window.closes.astimezone(tz) if stage_window.closes else None
+        in_round = round_start is not None or round_end is not None or stage_window is not None
         # A round that opens later moves the whole search forward; one that has
         # already opened leaves the "no earlier than now" floor alone.
         if round_start is not None:
@@ -142,9 +159,9 @@ class MatchSuggestionService:
 
         # --- Primary search: next 4 hours ---
         primary_end = now + timedelta(hours=_PRIMARY_WINDOW_HOURS)
-        primary_candidates = self._generate_candidates(
+        primary_candidates = self._in_stage_hours(self._generate_candidates(
             now, primary_end, hours_map, duration, event_start, event_end, tz, round_end,
-        )
+        ), stage_window, duration, tz)
         result = self._best_candidate(
             primary_candidates, player_ids, avail_map, existing_matches, duration, capacity,
         )
@@ -152,9 +169,9 @@ class MatchSuggestionService:
             return result
 
         # --- Fallback search: full remaining event window ---
-        fallback_candidates = self._generate_candidates(
+        fallback_candidates = self._in_stage_hours(self._generate_candidates(
             now, None, hours_map, duration, event_start, event_end, tz, round_end,
-        )
+        ), stage_window, duration, tz)
         primary_set = {s for s, _ in primary_candidates}
         fallback_candidates = [(s, e) for s, e in fallback_candidates if s not in primary_set]
         result = self._best_candidate(
@@ -173,6 +190,16 @@ class MatchSuggestionService:
     # ------------------------------------------------------------------
     # Internals
     # ------------------------------------------------------------------
+
+    @staticmethod
+    def _in_stage_hours(
+        candidates: List[Tuple[datetime, datetime]], window: Optional[RoundWindow],
+        duration: timedelta, tz,
+    ) -> List[Tuple[datetime, datetime]]:
+        """Drop slots outside a stage's daily hours (its open/close already bound the grid)."""
+        if window is None or not window.has_daily_hours:
+            return candidates
+        return [(s, e) for s, e in candidates if window.slot_fits(s, duration, tz)]
 
     async def _round_window(
         self, bracket_match_id: Optional[int], tz,

@@ -430,6 +430,7 @@ class AdminMatchDialog(BaseMatchDialog):
                         tracker_ids=new_tracker_ids,
                         comment=comment_value,
                         actor=actor,
+                        allow_outside_round=getattr(self, 'allow_outside_round', False),
                     )
                     if (stage_id or None) != self.match.stage_id:
                         await self.match_service.assign_stage(
