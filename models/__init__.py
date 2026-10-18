@@ -104,7 +104,7 @@ from .mcp import McpAuthorizationCode, McpOAuthClient
 from .preferences import UserTablePreference
 from .racetime import RaceRoomProfile, RacetimeBot, RacetimeBotTenant, RacetimeRoom
 from .speedgaming import SpeedGamingEpisode, SpeedGamingEventLink
-from .startgg import StartggEntrant, StartggPhase, StartggPool, StartggSet
+from .startgg import StartggConnection, StartggEntrant, StartggPhase, StartggPool, StartggSet
 from .system import (
     BrowserErrorIgnoreRule,
     BrowserMonitoringSettings,
@@ -279,6 +279,7 @@ __all__ = [
     'StaffRequestDM',
     'StaffRequestKind',
     'Stage',
+    'StartggConnection',
     'StartggEntrant',
     'StartggPhase',
     'StartggPool',

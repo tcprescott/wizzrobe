@@ -112,3 +112,32 @@ class StartggSet(Model):
         table = 'startggset'
         unique_together = (('tournament', 'set_id'),)
         indexes = (('match',), ('entrant1',), ('entrant2',))
+
+
+class StartggConnection(Model):
+    """A community's start.gg sign-in: the staff member's OAuth grant that syncs
+    and reports results run as.
+
+    One row per tenant. Tokens are secrets: shown to no one and never logged.
+    ``STARTGG_API_TOKEN`` is the read-only fallback when a community has none.
+    """
+
+    id = fields.IntField(pk=True)
+    tenant: fields.OneToOneRelation = fields.OneToOneField(
+        'models.Tenant', related_name='startgg_connection', on_delete=fields.CASCADE,
+    )
+    tenant_id: int
+    access_token = fields.TextField()
+    refresh_token = fields.TextField(null=True)
+    token_expires_at = fields.DatetimeField(null=True)
+    scopes = fields.CharField(max_length=255, null=True)
+    startgg_user_id = fields.CharField(max_length=64, null=True)
+    startgg_username = fields.CharField(max_length=255, null=True)
+    connected_by: fields.ForeignKeyNullableRelation = fields.ForeignKeyField(
+        'models.User', related_name='startgg_connections', null=True, on_delete=fields.SET_NULL,
+    )
+    created_at = fields.DatetimeField(auto_now_add=True)
+    updated_at = fields.DatetimeField(auto_now=True)
+
+    class Meta:
+        table = 'startggconnection'

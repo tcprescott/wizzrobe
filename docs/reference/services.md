@@ -55,6 +55,7 @@ Services are the business-logic layer of the [three-layer architecture](../refac
 | `BracketService` | [bracket_service.py](../../application/services/bracket_service.py) | Native bracket lifecycle: author stages, roster/enroll/seed, start (generate + persist), report results + advance, complete, multi-stage advancement, scheduling seam, best-of-N series (`SeriesMixin`: game numbering, clinch, the racetime auto-open hold) | [brackets.md](../features/brackets.md) |
 | `ChallongeService` | [challonge_service.py](../../application/services/challonge_service.py) | Challonge OAuth, bracket sync, scheduling, result push | — |
 | `StartggService` | [startgg_service.py](../../application/services/startgg_service.py) | start.gg event mirror, entrant mapping, booking, opt-in result writeback | — |
+| `StartggConnectionService` | [startgg_connection_service.py](../../application/services/startgg_connection_service.py) | A community's start.gg sign-in: connect, token refresh, platform-token fallback, per-tournament reporting access | — |
 | `StartggLinkService` | [startgg_link_service.py](../../application/services/startgg_link_service.py) | Player start.gg account linking (`IdentityLinkService`) | — |
 | `bracket_sources` | [bracket_sources.py](../../application/services/bracket_sources.py) | Shared contract for linked bracket sites: result hook, My Schedule bookables, sync | — |
 | `startgg_sync_worker` | [startgg_sync_worker.py](../../application/services/startgg_sync_worker.py) | Re-syncs linked start.gg events every 2 minutes | — |
