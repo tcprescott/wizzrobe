@@ -204,3 +204,7 @@ class TestUserRoleRepository:
         users = await UserRoleRepository.list_users_with_role(Role.STAFF)
         assert {u.id for u in users} == {u1.id, u2.id}
         assert await UserRoleRepository.list_users_with_role(Role.EQUIPMENT_MANAGER) == []
+        u2.is_active = False
+        await u2.save(update_fields=['is_active'])
+        active = await UserRoleRepository.list_users_with_role(Role.STAFF, active_only=True)
+        assert {u.id for u in active} == {u1.id}

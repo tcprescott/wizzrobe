@@ -16,6 +16,7 @@ fans out over tenant-scoped rows stays a few lines.
 from __future__ import annotations
 
 import asyncio
+import contextvars
 import logging
 import time
 import weakref
@@ -80,7 +81,7 @@ class BackgroundLoop:
                 self._last_started = time.time()
                 began = time.monotonic()
                 try:
-                    await self._tick()
+                    await self._run_tick()
                 except Exception as e:  # never let the loop die
                     self._failures += 1
                     sentry_metrics.count('worker.tick_failures', attributes={'worker': self.name})
@@ -96,6 +97,16 @@ class BackgroundLoop:
                 if elapsed >= SLOW_TICK_SECONDS:
                     self._logger.warning('%s tick took %.1fs', self.name, elapsed)
             await asyncio.sleep(self._interval)
+
+    async def _run_tick(self) -> None:
+        # A fresh copy of the loop's context per tick. The loop is one task for
+        # the life of the process, so a per-request cache a tick sets (the live
+        # feature-flag set) would otherwise be read on every later tick, and a
+        # flag toggled after boot would never reach the worker.
+        async def tick() -> None:
+            await self._tick()
+
+        await asyncio.create_task(tick(), context=contextvars.copy_context())
 
     def stats(self) -> Dict[str, object]:
         return {

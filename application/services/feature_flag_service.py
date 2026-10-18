@@ -45,8 +45,8 @@ _VALID_KEYS = {flag.value for flag in FeatureFlag}
 # the number of guarded calls in a request. A contextvar (not a module dict) is
 # what makes this safe: it is per-task, so one user's tenant state can never be
 # read by another's request — the module-level-state trap that plain caching here
-# would walk straight into. Writes clear it; a worker gets a fresh cache per
-# ``tenant_scope`` because it enters a new context.
+# would walk straight into. Writes clear it; ``BackgroundLoop`` runs each worker
+# tick in a fresh context, so a worker re-reads flags every tick.
 _flag_cache: contextvars.ContextVar[Optional[Dict[int, Set[FeatureFlag]]]] = (
     contextvars.ContextVar('feature_flag_cache', default=None)
 )

@@ -147,7 +147,7 @@ class MatcherinoLoginService:
         await AuthService.ensure(await AuthService.can_manage_check_in(actor), _STAFF_DENIED)
         from application.repositories.user_role_repository import UserRoleRepository
 
-        staff = await UserRoleRepository.list_users_with_role(Role.STAFF)
+        staff = await UserRoleRepository.list_users_with_role(Role.STAFF, active_only=True)
         return sorted((u for u in staff if not u.is_system), key=lambda u: u.preferred_name.lower())
 
     @requires_feature(FeatureFlag.EVENT_CHECK_IN)

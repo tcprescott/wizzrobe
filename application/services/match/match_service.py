@@ -402,7 +402,15 @@ class MatchService(
         hard_preset_before = await self.hard_preset_service.snapshot(match)
 
         if update_fields:
-            await self.repository.update(match, **update_fields)
+            # A moved match re-arms its stage reminder, as a stage change does
+            # (``assign_stage``); kept out of ``update_fields`` so audit and event
+            # payloads still list only what the caller changed.
+            rearm = (
+                {'stage_reminder_sent_at': None}
+                if 'scheduled_at' in update_fields and update_fields['scheduled_at'] != old_scheduled_at
+                else {}
+            )
+            await self.repository.update(match, **update_fields, **rearm)
 
         removed_players: List[User] = []
         if player_ids is not None:

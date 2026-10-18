@@ -487,6 +487,7 @@ class VolunteerScheduleService:
         )
         return assignment
 
+    @requires_feature(FeatureFlag.VOLUNTEERS)
     async def release(
         self, assignment_id: int, user: User, reason: Optional[str] = None,
     ) -> None:
@@ -500,6 +501,10 @@ class VolunteerScheduleService:
         )
         if assignment.user_id != user.id:
             raise ValueError("You can only release your own assignments.")
+        if assignment.auto_generated:
+            raise ValueError(
+                "That shift is still a draft — your coordinator has not confirmed it yet."
+            )
         shift = assignment.shift
         if assignment.checked_in_at is not None:
             raise ValueError(
