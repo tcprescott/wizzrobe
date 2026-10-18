@@ -106,8 +106,8 @@ schedule, sign up for its tournaments or be scheduled. Signing in isn't enough
 on its own.
 
 **Needs crew**: the switch above Event › Schedule that shows only matches still
-short of approved crew. A match that's still short also says *needs crew* next to
-its crew count. See [Signing up as crew](/help/crew#signing-up).
+on a stage and still short of approved crew. A match that's still short also says
+*needs crew* next to its crew count. See [Signing up as crew](/help/crew#signing-up).
 
 **Needs review**: a finished match a proctor flagged for an admin to look at. Its
 status on Admin › Schedule and Proctor Station says *Flagged*, and the match's own

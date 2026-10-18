@@ -425,9 +425,13 @@ class MatchDisplayService:
             # How much approved crew the match needs, per role, so the home
             # board's Needs crew switch can tell a covered match from an open
             # one. Same numbers (and same no-tournament default) as the
-            # coverage report's ``crew_requirement``.
+            # coverage report's ``crew_requirement``. Crew only works a match
+            # on a stage, so a match without one needs none: every board,
+            # filter and checklist reads "needed" from this.
             'crew_required': dict(zip(
-                ('commentators', 'trackers'), crew_requirement(match.tournament), strict=True,
+                ('commentators', 'trackers'),
+                crew_requirement(match.tournament) if match.stage_id else (0, 0),  # type: ignore[attr-defined]
+                strict=True,
             )),
             'commentators': [
                 {
