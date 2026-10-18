@@ -138,3 +138,40 @@ def bulk_add_summary(new: int, existing: int, *, empty_hint: str) -> str:
     if existing:
         text += f"; {existing} already {'exists' if existing == 1 else 'exist'} and will be skipped"
     return text + '.'
+
+
+MEMBER_MATCH_LIMIT = 25
+
+
+def member_matches(members: Mapping[int, str], text: str, keep: Optional[int] = None,
+                   limit: int = MEMBER_MATCH_LIMIT) -> dict[int, str]:
+    """The first ``limit`` members whose name contains ``text``, plus ``keep`` (the current pick)."""
+    needle = (text or '').strip().casefold()
+    found: dict[int, str] = {keep: members[keep]} if keep is not None and keep in members else {}
+    if len(needle) < 2:
+        return found
+    for user_id, name in members.items():
+        if len(found) > limit:
+            break
+        if needle in name.casefold():
+            found.setdefault(user_id, name)
+    return found
+
+
+def member_select(members: Mapping[int, str], *, value: Optional[int], label: str) -> ui.select:
+    """A single-member picker that ships only matches for what's typed, not the whole community.
+
+    A select per row with every member as an option sent 2,000 options per
+    row and held the event loop for five to nine seconds on a big community.
+    """
+    picker = ui.select(options=member_matches(members, '', value), label=label,
+                       value=value, with_input=True)
+    picker.props('input-debounce=200')
+    picker.add_slot('no-option', '''<q-item><q-item-section class="text-grey-7">
+        Type at least two letters of a name</q-item-section></q-item>''')
+
+    def search(e) -> None:
+        picker.set_options(member_matches(members, e.args, picker.value), value=picker.value)
+
+    picker.on('input-value', search)
+    return picker
