@@ -88,21 +88,26 @@ class StartggRepository:
 
     @staticmethod
     async def members_by_lower_name(names: Iterable[str], tenant_id: int) -> Dict[str, List[User]]:
-        """This community's members whose username or display name matches, lower-cased.
+        """This community's members whose username, display name or linked
+        start.gg gamer tag matches, lower-cased.
 
         Global user table filtered to one tenant's membership, for same-name
-        suggestions.
+        suggestions. The gamer tag catches a player whose start.gg entry was added
+        by name with no account behind it, so their link has no id to match.
         """
         wanted = list({n.lower() for n in names if n})
         if not wanted:
             return {}
         member_ids = await TenantMembership.filter(tenant_id=tenant_id).values_list('user_id', flat=True)
-        users = await User.annotate(lu=Lower('username'), ld=Lower('display_name')).filter(
-            Q(lu__in=wanted) | Q(ld__in=wanted), id__in=list(member_ids), is_active=True,
+        users = await User.annotate(
+            lu=Lower('username'), ld=Lower('display_name'), lg=Lower('startgg_username'),
+        ).filter(
+            Q(lu__in=wanted) | Q(ld__in=wanted) | Q(lg__in=wanted), id__in=list(member_ids), is_active=True,
         )
         found: Dict[str, List[User]] = {}
         for user in users:
-            for key in {(user.username or '').lower(), (user.display_name or '').lower()}:
+            names = (user.username, user.display_name, user.startgg_username)
+            for key in {(n or '').lower() for n in names}:
                 if key in wanted:
                     found.setdefault(key, []).append(user)
         return found
