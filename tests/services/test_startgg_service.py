@@ -1,12 +1,14 @@
 """The start.gg mirror: linking, entrant mapping, booking, DMs and writeback."""
 
 import copy
+from datetime import datetime, timezone
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
 from application.errors import FeatureDisabledError
 from application.services import bracket_sources
+from application.services.startgg_connection_service import StartggConnectionService
 from application.services.startgg_service import StartggService
 from application.utils.clients.startgg_client import StartggAPIError, parse_event_slug
 from application.utils.mocks.mock_startgg import mock_event_full
@@ -47,8 +49,14 @@ class FakeClient:
 @pytest.fixture
 def client(monkeypatch):
     fake = FakeClient()
-    monkeypatch.setattr(StartggService, '_client', staticmethod(lambda: fake))
-    monkeypatch.setattr(StartggService, 'is_configured', staticmethod(lambda: True))
+    async def _client(self):
+        return fake
+
+    async def has_access(self):
+        return True
+
+    monkeypatch.setattr(StartggService, '_client', _client)
+    monkeypatch.setattr(StartggConnectionService, 'has_access', has_access)
     return fake
 
 
@@ -111,6 +119,14 @@ class TestLinkAndMirror:
         assert e3.user_id is None and e3.suggested_user_id == three.id
         assert e4.suggested_user_id is None
 
+    async def test_entry_with_no_account_suggests_the_member_who_linked_that_tag(self, db, client, sent):
+        """An admin-added start.gg entry carries no account, so a link can't map it by id."""
+        client.full['entrants'][2].update(name='Inc', gamer_tag='Inc', startgg_user_id=None)
+        inc = await make_member(13, 'inc7', startgg_user_id='3449391', startgg_username='Inc')
+        tournament, _ = await _linked(client)
+        entrant = await StartggEntrant.get(tournament=tournament, entrant_id='9003')
+        assert entrant.user_id is None and entrant.suggested_user_id == inc.id
+
     async def test_discord_connected_on_startgg_maps(self, db, client, sent):
         client.full['entrants'][2]['discord_id'] = '555'
         three = await make_member(555, 'three')
@@ -130,6 +146,15 @@ class TestLinkAndMirror:
         await StartggService().sync_event(tournament.id, actor, force=True)
         assert not await StartggEntrant.filter(tournament=tournament, entrant_id='9008').exists()
 
+    async def test_throttle_tolerates_a_naive_sync_time(self, db, client, sent):
+        await _players()
+        tournament, actor = await _linked(client)
+        await Tournament.filter(id=tournament.id).update(
+            startgg_last_synced_at=datetime.now(timezone.utc).replace(tzinfo=None),
+        )
+        counts = await StartggService().sync_event(tournament.id, actor)
+        assert counts['skipped'] == 1
+
     async def test_feature_off_refuses(self, db, client, monkeypatch):
         from application.services.feature_flag_service import FeatureFlagService
 
@@ -140,6 +165,27 @@ class TestLinkAndMirror:
         tournament = await Tournament.create(name='T')
         with pytest.raises(FeatureDisabledError):
             await StartggService().link_event(tournament.id, SLUG, actor)
+
+
+    async def test_only_staff_link_and_unlink(self, db, client, sent, monkeypatch):
+        from application.services.auth_service import AuthService
+
+        tournament, actor = await _linked(client)
+
+        async def no(*_a, **_k):
+            return False
+
+        async def ensure(ok, message):
+            if not ok:
+                raise PermissionError(message)
+
+        monkeypatch.setattr(AuthService, 'is_staff', no)
+        monkeypatch.setattr(AuthService, 'ensure', ensure)
+        with pytest.raises(PermissionError, match='Only staff'):
+            await StartggService().unlink_event(tournament.id, actor)
+        with pytest.raises(PermissionError, match='Only staff'):
+            await StartggService().link_event(tournament.id, SLUG, actor)
+        await StartggService().sync_event(tournament.id, actor, force=True)
 
 
 class TestMatchupReady:

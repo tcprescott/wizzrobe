@@ -97,7 +97,8 @@ class SchedulingMixin(ComposedBracketService):
 
     async def schedule_bracket_match(
         self, actor: Optional[User], bracket_match_id: int,
-        *, game_number: Optional[int] = None, **match_kwargs: Any,
+        *, game_number: Optional[int] = None, allow_outside_round: bool = False,
+        **match_kwargs: Any,
     ) -> Match:
         """Schedule an OPEN bracket match into a real ``Match``.
 
@@ -167,6 +168,16 @@ class SchedulingMixin(ComposedBracketService):
         number = await self.next_game_number(bracket_match, best_of)
 
         from application.services.match.match_service import MatchService
+        from application.services.round_schedule_service import RoundScheduleService
+
+        # The round's window binds players; staff confirm past it with
+        # ``allow_outside_round`` (see RoundScheduleService).
+        rounds = RoundScheduleService()
+        await rounds.check_booking(
+            await rounds.window_for_bracket_match(bracket_match), bracket.tournament,
+            match_kwargs.get('scheduled_date') or '', match_kwargs.get('scheduled_time') or '',
+            actor, allow_outside_round=allow_outside_round,
+        )
 
         title = self._game_title(bracket, bracket_match, number, best_of)
         if privileged:

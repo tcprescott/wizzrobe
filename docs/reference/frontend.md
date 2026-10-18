@@ -516,7 +516,7 @@ Two tab functions live in this module.
 
 ### Bracket links on Admin → Tournaments (`theme/tables/tournament.py`)
 
-The **Bracket** column shows the live site a tournament follows (`bracket_sources.live_sources()`), Challonge's stage label and the last sync. The row ⋮ carries, for sites the viewer manages (staff: every live site; a tournament admin: start.gg): **Sync bracket**, the one Challonge stage step `stage_actions_for` offers (confirmed, then `advance_stage`; refused with a reconnect notice without `tournaments:write`), **Bracket entrants…** (`ChallongeParticipantsDialog` / `StartggEntrantsDialog`) and **Unlink bracket…** (`bracket_sources.unlink`). An unlinked row offers **Link a bracket…** (`theme/dialog/link_bracket_dialog.py`), one field that reads the site off the pasted link (`bracket_sources.site_for_link`) and calls `bracket_sources.link`.
+The **Bracket** column shows the live site a tournament follows (`bracket_sources.live_sources()`), Challonge's stage label and the last sync. On a linked row the ⋮ carries, for staff and the tournament's admins (`can_sync`), **Sync bracket**, the one Challonge stage step `stage_actions_for` offers (confirmed, then `advance_stage`; refused with a reconnect notice without `tournaments:write`) and **Bracket entrants…** (`ChallongeParticipantsDialog` / `StartggEntrantsDialog`). Linking and unlinking are staff-only on both sites (`can_link`): **Unlink bracket…** (`bracket_sources.unlink`) on a linked row, and on an unlinked row **Link a bracket…** (`theme/dialog/link_bracket_dialog.py`), one field that reads the site off the pasted link (`bracket_sources.site_for_link`) and calls `bracket_sources.link`.
 
 ### Admin brackets (`pages/admin_tabs/admin_brackets/`)
 

@@ -157,10 +157,14 @@ async def notify_review_queue_waiting(
         if not reviewer.discord_id or reviewer.is_placeholder:
             continue
         try:
-            await service.send_dm(int(reviewer.discord_id), message, link=link)
-            sent += 1
+            ok, _err = await service.send_dm(int(reviewer.discord_id), message, link=link)
         except Exception:
             logger.warning("Failed to DM review-queue notification", exc_info=True)
+            continue
+        if ok:
+            sent += 1
+        else:
+            logger.warning("Review-queue DM to %s failed: %s", reviewer.discord_id, _err)
     return sent
 
 

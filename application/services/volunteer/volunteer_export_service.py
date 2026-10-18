@@ -13,7 +13,7 @@ app.
 
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Dict, List, Mapping, Optional, Sequence
+from typing import Dict, List, Mapping, Optional, Sequence, Tuple
 
 from application.feature_flags import requires_feature
 from application.repositories import (
@@ -29,6 +29,7 @@ from application.services.auth_service import AuthService
 from application.services.volunteer.volunteer_availability_service import (
     VolunteerAvailabilityService,
 )
+from application.services.volunteer.volunteer_hours import merged_hours
 from application.services.volunteer.volunteer_pool_service import VolunteerPoolService
 from application.timezone_context import current_timezone_name
 from application.utils.timezone import (
@@ -234,15 +235,16 @@ class VolunteerExportService:
         windows_by_user: Mapping[int, Sequence[VolunteerAvailability]],
         shifts: Sequence,
     ) -> ExportSheet:
-        assigned_hours: Dict[int, float] = {}
-        assigned_count: Dict[int, int] = {}
+        assigned_windows: Dict[int, List[Tuple[datetime, datetime]]] = {}
         for shift in shifts:
             for assignment in shift.assignments:
-                assigned_count[assignment.user_id] = assigned_count.get(assignment.user_id, 0) + 1
-                assigned_hours[assignment.user_id] = round(
-                    assigned_hours.get(assignment.user_id, 0.0)
-                    + _hours(shift.starts_at, shift.ends_at), 2
+                assigned_windows.setdefault(assignment.user_id, []).append(
+                    (shift.starts_at, shift.ends_at)
                 )
+        # Overlapping shifts count once, as on the Hours roster: the CSV is what
+        # comp tiers get checked against when it's forwarded.
+        assigned_count = {uid: len(w) for uid, w in assigned_windows.items()}
+        assigned_hours = {uid: round(merged_hours(w), 2) for uid, w in assigned_windows.items()}
 
         rows = []
         for user in sorted(users.values(), key=lambda u: u.preferred_name.lower()):

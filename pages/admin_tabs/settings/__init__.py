@@ -29,6 +29,7 @@ from pages.admin_tabs.admin_discord_roles import admin_discord_roles_page
 from pages.admin_tabs.admin_features import admin_features_page
 from pages.admin_tabs.admin_profile_reminders import admin_profile_reminders_page
 from pages.admin_tabs.admin_randomizer_keys import admin_randomizer_keys_page
+from pages.admin_tabs.admin_startgg import admin_startgg_connection_page
 from pages.admin_tabs.admin_theme import admin_theme_page
 from pages.admin_tabs.admin_timezone import admin_timezone_page
 from pages.admin_tabs.admin_webhooks import admin_webhooks_page
@@ -150,6 +151,8 @@ def build_settings_panes(access, live: set) -> list[SettingsPane]:
     integrations: list[EmbeddedPage] = []
     if is_staff and FeatureFlag.CHALLONGE in live:
         integrations.append(EmbeddedPage(admin_challonge_connection_page))
+    if is_staff and FeatureFlag.STARTGG in live:
+        integrations.append(EmbeddedPage(admin_startgg_connection_page))
     if is_staff:
         integrations.append(EmbeddedPage(admin_webhooks_page, refresh_label='Webhooks'))
     if is_staff or access.is_preset_manager:

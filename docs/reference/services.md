@@ -55,6 +55,7 @@ Services are the business-logic layer of the [three-layer architecture](../refac
 | `BracketService` | [bracket_service.py](../../application/services/bracket_service.py) | Native bracket lifecycle: author stages, roster/enroll/seed, start (generate + persist), report results + advance, complete, multi-stage advancement, scheduling seam, best-of-N series (`SeriesMixin`: game numbering, clinch, the racetime auto-open hold) | [brackets.md](../features/brackets.md) |
 | `ChallongeService` | [challonge_service.py](../../application/services/challonge_service.py) | Challonge OAuth, bracket sync, scheduling, result push | — |
 | `StartggService` | [startgg_service.py](../../application/services/startgg_service.py) | start.gg event mirror, entrant mapping, booking, opt-in result writeback | — |
+| `StartggConnectionService` | [startgg_connection_service.py](../../application/services/startgg_connection_service.py) | A community's start.gg sign-in: connect, token refresh, platform-token fallback, per-tournament reporting access | — |
 | `StartggLinkService` | [startgg_link_service.py](../../application/services/startgg_link_service.py) | Player start.gg account linking (`IdentityLinkService`) | — |
 | `bracket_sources` | [bracket_sources.py](../../application/services/bracket_sources.py) | Shared contract for linked bracket sites: result hook, My Schedule bookables, sync | — |
 | `startgg_sync_worker` | [startgg_sync_worker.py](../../application/services/startgg_sync_worker.py) | Re-syncs linked start.gg events every 2 minutes | — |
@@ -205,8 +206,6 @@ Writes and queries `AuditLog` rows. Every mutating service action records who di
 | `write_log(actor, action, details=None)` | `AuditLog` | Audit-only write (no event) — for changes with no paired event. JSON-encodes `details` (non-serializable values fall back to `str`). Raises `ValueError` if `actor` is `None`. |
 | `list_logs(*, start=None, end=None, user_id=None, action_contains=None, limit=100, offset=0)` | `list[AuditLog]` | Filtered, paginated log listing (delegates to `AuditRepository`). |
 | `count_logs(*, start=None, end=None, user_id=None, action_contains=None)` | `int` | Count matching the same filters as `list_logs`. |
-| `get_logs_for_user(user, limit=None)` | `list[AuditLog]` | A user's entries, most recent first. |
-| `get_recent_logs(limit=100)` | `list[AuditLog]` | Most recent entries across all users, with `user` prefetched. |
 
 Collaborators: `AuditRepository`, the [event bus](../features/event-system.md).
 
@@ -313,6 +312,14 @@ Paths come from the pure [`app_links.py`](#additional-utilities), shared with th
 ### startgg_service.py — StartggService
 
 A read-only mirror of a linked start.gg event (`StartggEntrant`/`Phase`/`Pool`/`Set`), gated by `FeatureFlag.STARTGG`. `link_event` (refuses a Challonge link or a native bracket), `unlink_event`, `sync_event(force)` (20 s throttle), `sync_linked_events` (worker, unaudited), `set_bookable_phase`, `set_report_results`; staff entrant mapping `list_entrants`, `assign_entrant`, `confirm_all_suggestions`, `dismiss_suggestion`, `clear_entrant`; players `list_unbooked_sets_for_user`, `schedule_set` (through `MatchService.submit_match_request(from_bracket=True)`); the public page reads `get_event_view`. A sync DMs both players of each set that newly became bookable. `report_result_if_linked` is the soft-gated writeback: only when the tournament opted in, re-reading the set and skipping it when start.gg already has a result. Detail: [startgg.md](../features/startgg.md).
+
+### round_schedule_service.py — RoundScheduleService
+
+Per-stage booking windows for Challonge and start.gg tournaments (`Tournament.config['round_schedule']`), and enforcement for those plus native brackets (`Bracket.config['rounds']`). Staff editor: `list_stages` (group stage / pool phases, each elimination round keyed back from the final, placeholder rows before Challonge creates the elimination matches), `save_schedule` (audited `tournament.round_schedule_updated`). Lookups: `window_for(...)`, `window_for_challonge_match`, `window_for_startgg_set`, `window_for_bracket_match`, `window_for_match`, plus `describe_for_*` for the player-facing line. Enforcement: `check_time` / `check_booking` / `check_match_time` raise `RoundWindowError` (a `ValueError`) whose `can_override` is true for staff and tournament admins, who resubmit with `allow_outside_round=True`. Called from Challonge, start.gg and native booking, `MatchService.update_match`, reschedule requests and Suggest a time. The pure window maths and stage keys live in `round_windows.py`.
+
+### round_windows.py — module functions
+
+Pure: `RoundWindow` (opens, closes, daily hours on the community clock; `slot_fits`, `describe`), `elimination_keys`, `winners_final_round`, `stage_label`, `stage_sort_key`, `placeholder_keys`, `window_to_config`.
 
 ### bracket_sources.py — module functions
 

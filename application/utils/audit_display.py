@@ -125,6 +125,7 @@ ACTION_LABELS: dict[str, str] = {
     'tournament.crew_coordinator_revoked': 'Removed a crew coordinator',
     'tournament.prize_pool_updated': 'Updated a prize pool',
     'tournament.payout_updated': 'Updated a payout',
+    'tournament.round_schedule_updated': 'Changed a round schedule',
     'bracket.created': 'Created a bracket',
     'bracket.updated': 'Edited a bracket',
     'bracket.deleted': 'Deleted a bracket',
@@ -300,6 +301,8 @@ ACTION_LABELS: dict[str, str] = {
     'startgg.suggestion_dismissed': 'Dismissed a start.gg match suggestion',
     'startgg.reporting_set': 'Changed start.gg result reporting',
     'startgg.result_reported': 'Sent a result to start.gg',
+    'startgg.connected': 'Connected start.gg',
+    'startgg.disconnected': 'Disconnected start.gg',
     # Community
     'community_event.submitted': 'Submitted a community event',
     'community_event.updated': 'Edited a community event',

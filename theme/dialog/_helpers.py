@@ -224,6 +224,8 @@ def render_suggest_time_button(
     missing_message: str,
     get_bracket_match_id: Callable[[], object] = lambda: None,
     exclude_match_id: Optional[int] = None,
+    challonge_match_id: Optional[int] = None,
+    startgg_set_id: Optional[int] = None,
 ) -> None:
     """The 'Suggest a time' button shared by every match-scheduling dialog.
 
@@ -234,6 +236,8 @@ def render_suggest_time_button(
     evaluated at click time so callers can source them from selects that change
     after the dialog opens. ``get_bracket_match_id`` clamps the suggestion to a
     bracket matchup's round window; omit it outside a bracket-run tournament.
+    ``challonge_match_id``/``startgg_set_id`` clamp it to that matchup's stage
+    in the tournament's round schedule.
     ``exclude_match_id`` is the match being edited, so its current slot doesn't
     count as taken.
     """
@@ -252,6 +256,8 @@ def render_suggest_time_button(
                 player_ids=player_ids,
                 bracket_match_id=get_bracket_match_id(),
                 exclude_match_id=exclude_match_id,
+                challonge_match_id=challonge_match_id,
+                startgg_set_id=startgg_set_id,
             )
             date.value = format_local_date(suggested)
             time.value = format_local_time(suggested)
@@ -320,6 +326,15 @@ class FieldError:
         self.row.set_visibility(False)
         for field in self.fields:
             field.props(remove='error')
+
+
+def booking_window_line(text: Optional[str]) -> None:
+    """The stage's booking window under a matchup line, when it has one."""
+    if not text:
+        return
+    with ui.row().classes('wiz-pick-row__window no-wrap items-start gap-1'):
+        ui.icon('schedule', size='16px')
+        ui.label(text)
 
 
 def matchup_line(tournament_name: str, round_label: str) -> None:

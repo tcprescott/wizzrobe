@@ -38,6 +38,8 @@ from application.services.auth_service import AuthService
 from application.services.discord import discord_queue
 from application.services.feature_flag_service import FeatureFlagService
 from application.services.match.match_service import MatchService
+from application.services.round_schedule_service import RoundScheduleService
+from application.services.startgg_connection_service import StartggConnectionService
 from application.tenant_context import require_tenant_id
 from application.utils.clients.startgg_client import (
     StartggAPIError,
@@ -46,6 +48,7 @@ from application.utils.clients.startgg_client import (
     parse_event_slug,
 )
 from application.utils.mocks.mock_startgg import MockStartggClient, is_mock_startgg
+from application.utils.timezone import to_utc_aware
 from models import (
     FeatureFlag,
     Match,
@@ -63,6 +66,7 @@ logger = logging.getLogger(__name__)
 # A manual Sync within this window of the last one is a no-op, so a double-tap
 # doesn't spend start.gg's per-minute budget twice.
 _SYNC_THROTTLE = timedelta(seconds=20)
+_LINK_STAFF_ONLY = "Only staff can link or unlink a tournament's start.gg event"
 
 
 def _display(user: Optional[User]) -> str:
@@ -83,18 +87,25 @@ class StartggService:
         self.repository = StartggRepository()
         self.tournament_repository = TournamentRepository()
         self.audit_service = AuditService()
+        self.connection_service = StartggConnectionService()
 
     # ------------------------------------------------------------------
     # Configuration
     # ------------------------------------------------------------------
     @staticmethod
     def is_configured() -> bool:
-        """True when the platform's start.gg API token is set (or mock is on)."""
-        return is_mock_startgg() or bool(os.getenv('STARTGG_API_TOKEN'))
+        """True when the server can reach start.gg at all: a platform API token,
+        an OAuth app communities sign in with, or mock."""
+        return (
+            is_mock_startgg()
+            or bool(os.getenv('STARTGG_API_TOKEN'))
+            or StartggConnectionService.is_configured()
+        )
 
-    @staticmethod
-    def _client() -> Any:
-        return MockStartggClient() if is_mock_startgg() else StartggClient()
+    async def _client(self) -> Any:
+        if is_mock_startgg():
+            return MockStartggClient()
+        return StartggClient(await self.connection_service.api_token() or '')
 
     @staticmethod
     def event_url(tournament: Tournament) -> Optional[str]:
@@ -112,7 +123,7 @@ class StartggService:
 
     async def _fetch(self, slug: str) -> Dict[str, Any]:
         try:
-            return await self._client().get_event_full(slug)
+            return await (await self._client()).get_event_full(slug)
         except StartggAPIError as e:
             if e.status == 404:
                 raise ValueError(f"start.gg has no event at {event_url(slug)}.") from e
@@ -124,8 +135,12 @@ class StartggService:
     @requires_feature(FeatureFlag.STARTGG)
     async def link_event(self, tournament_id: int, id_or_url: str, actor: User) -> Dict[str, int]:
         tournament = await self._editable_tournament(tournament_id, actor)
-        if not self.is_configured():
-            raise ValueError('start.gg is not set up on this server yet (no API token).')
+        await AuthService.ensure(await AuthService.is_staff(actor), _LINK_STAFF_ONLY)
+        if not await self.connection_service.has_access():
+            raise ValueError(
+                "start.gg isn't connected for this community yet. A staff member can "
+                'connect it under Settings → Integrations.'
+            )
         if tournament.challonge_tournament_id:
             raise ValueError(
                 'This tournament is linked to Challonge. Unlink it there first; a tournament '
@@ -150,6 +165,7 @@ class StartggService:
     @requires_feature(FeatureFlag.STARTGG)
     async def unlink_event(self, tournament_id: int, actor: User) -> None:
         tournament = await self._editable_tournament(tournament_id, actor)
+        await AuthService.ensure(await AuthService.is_staff(actor), _LINK_STAFF_ONLY)
         if not tournament.startgg_event_slug:
             raise ValueError("This tournament isn't linked to start.gg.")
         old = {'event_id': tournament.startgg_event_id, 'slug': tournament.startgg_event_slug}
@@ -188,7 +204,7 @@ class StartggService:
         if not tournament.startgg_event_slug:
             raise ValueError("This tournament isn't linked to a start.gg event yet.")
         last = tournament.startgg_last_synced_at
-        if not force and last and datetime.now(timezone.utc) - last < _SYNC_THROTTLE:
+        if not force and last and datetime.now(timezone.utc) - to_utc_aware(last) < _SYNC_THROTTLE:
             return {'entrants': await self.repository.count_entrants(tournament), 'skipped': 1}
         full = await self._fetch(tournament.startgg_event_slug)
         return await self._apply(tournament, full, actor, audit=True)
@@ -202,7 +218,7 @@ class StartggService:
         synced = 0
         for tournament in await self.repository.linked_tournaments():
             try:
-                full = await self._client().get_event_full(tournament.startgg_event_slug)
+                full = await (await self._client()).get_event_full(tournament.startgg_event_slug)
                 await self._apply(tournament, full, actor, audit=False)
                 synced += 1
             except StartggAPIError as e:
@@ -418,6 +434,11 @@ class StartggService:
                 'Both players need to be matched to a Wizzrobe account first. Linking start.gg '
                 'on your profile does it, or ask staff.'
             )
+        rounds = RoundScheduleService()
+        await rounds.check_booking(
+            await rounds.window_for_startgg_set(row), row.tournament,
+            scheduled_date, scheduled_time, actor,
+        )
         match = await MatchService().submit_match_request(
             tournament_id=row.tournament_id,  # type: ignore[attr-defined]
             scheduled_date=scheduled_date,
@@ -616,7 +637,7 @@ class StartggService:
         )
         if entrant is None:
             raise ValueError("The match winner isn't one of the start.gg set's players.")
-        client = self._client()
+        client = await self._client()
         current = await client.get_set_state(row.set_id)
         if current['complete']:
             # start.gg already has a result (an admin reported it): theirs stands.

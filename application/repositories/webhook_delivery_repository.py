@@ -25,7 +25,7 @@ class WebhookDeliveryRepository:
         """Most recent delivery attempts first for a single webhook."""
         return (
             await scoped(WebhookDelivery.filter(webhook=webhook))
-            .order_by('-created_at')
+            .order_by('-created_at', '-id')
             .offset(offset)
             .limit(limit)
         )

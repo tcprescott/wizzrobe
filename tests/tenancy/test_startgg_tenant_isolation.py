@@ -47,3 +47,17 @@ async def test_startgg_mirror_is_isolated(two_tenants):
     with tenant_scope(b.id):
         assert [r.id for r in await StartggRepository.open_unbooked_sets_for_user(player)] == [sb.id]
         assert await StartggRepository.get_entrant(ea.id) is None
+
+
+async def test_startgg_connection_is_per_community(two_tenants):
+    """One community's StartggConnection (its start.gg sign-in) is invisible to another."""
+    a, b = two_tenants
+    with tenant_scope(a.id):
+        await StartggRepository.save_connection(access_token='a-token', startgg_username='A')
+    with tenant_scope(b.id):
+        assert await StartggRepository.get_connection() is None
+        await StartggRepository.save_connection(access_token='b-token', startgg_username='B')
+        assert await StartggRepository.clear_connection() == 1
+    with tenant_scope(a.id):
+        connection = await StartggRepository.get_connection()
+        assert connection is not None and connection.access_token == 'a-token'

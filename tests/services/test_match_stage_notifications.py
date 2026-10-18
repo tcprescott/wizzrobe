@@ -241,3 +241,26 @@ def test_stage_embed_is_not_coloured_like_a_schedule_change():
     embed = stage_embed(title='📺 You are on stage', tournament='Cup', stage_name='Kraid')
     assert COLOR_STAGE not in (COLOR_SCHEDULED, COLOR_RESCHEDULED)
     assert embed.colour.value == COLOR_STAGE
+
+
+async def test_moving_the_match_arms_the_reminder_again(fixture, stub_discord_queue):
+    """A reminder sent for the old time must not suppress the one for the new time."""
+    match_id = fixture['match'].id
+    await Match.filter(id=match_id).update(stage_reminder_sent_at=utc(2026, 10, 23, 17))
+
+    await MatchService().update_match(
+        match_id, scheduled_at=utc(2026, 10, 23, 20), actor=fixture['staff'],
+    )
+    await _drain(stub_discord_queue)
+
+    assert (await Match.get(id=match_id)).stage_reminder_sent_at is None
+
+
+async def test_an_edit_that_keeps_the_time_leaves_the_reminder_sent(fixture, stub_discord_queue):
+    match_id = fixture['match'].id
+    await Match.filter(id=match_id).update(stage_reminder_sent_at=utc(2026, 10, 23, 17))
+
+    await MatchService().update_match(match_id, comment='Bring a controller', actor=fixture['staff'])
+    await _drain(stub_discord_queue)
+
+    assert (await Match.get(id=match_id)).stage_reminder_sent_at is not None

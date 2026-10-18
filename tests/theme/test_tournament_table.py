@@ -69,23 +69,25 @@ def _linked(**overrides):
 
 def test_a_challonge_row_carries_its_stage_and_next_step():
     row = _tournament_row(_linked(challonge_tournament_id='123', challonge_state='group_stages_underway',
-                                  challonge_group_stage=True), _SITES, frozenset({'challonge', 'startgg'}))
+                                  challonge_group_stage=True), _SITES, can_sync=True, can_link=True)
     assert row['bracket_site'] == 'challonge'
     assert row['bracket_label'] == 'Challonge'
     assert row['bracket_stage'] == 'Group stage underway'
     assert row['bracket_synced'] == 'Never synced'
     assert row['bracket_manage'] is True
+    assert row['bracket_unlinkable'] is True
     assert row['bracket_linkable'] is False
     assert row['stage_action'] == 'advance_to_bracket'
 
 
-def test_a_tournament_admin_sees_challonge_but_cannot_manage_it():
-    row = _tournament_row(_linked(challonge_tournament_id='123'), _SITES, frozenset({'startgg'}))
+def test_a_tournament_admin_syncs_but_cannot_unlink():
+    row = _tournament_row(_linked(challonge_tournament_id='123'), _SITES, can_sync=True)
     assert row['bracket_label'] == 'Challonge'
-    assert row['bracket_manage'] is False
+    assert row['bracket_manage'] is True
+    assert row['bracket_unlinkable'] is False
 
 
-def test_an_unlinked_row_offers_link_only_to_someone_who_can_link():
-    assert _tournament_row(_linked(), _SITES, frozenset({'startgg'}))['bracket_linkable'] is True
-    assert _tournament_row(_linked(), _SITES, frozenset())['bracket_linkable'] is False
-    assert _tournament_row(_linked(), (), frozenset({'startgg'}))['bracket_linkable'] is False
+def test_an_unlinked_row_offers_link_only_to_staff():
+    assert _tournament_row(_linked(), _SITES, can_sync=True, can_link=True)['bracket_linkable'] is True
+    assert _tournament_row(_linked(), _SITES, can_sync=True)['bracket_linkable'] is False
+    assert _tournament_row(_linked(), (), can_sync=True, can_link=True)['bracket_linkable'] is False

@@ -12,6 +12,7 @@ from theme.dialog import TournamentDialog
 from theme.dialog.challonge_participants_dialog import ChallongeParticipantsDialog
 from theme.dialog.confirmation_dialog import ConfirmationDialog
 from theme.dialog.link_bracket_dialog import open_link_bracket_dialog
+from theme.dialog.round_schedule_dialog import RoundScheduleDialog
 from theme.dialog.startgg_entrants_dialog import StartggEntrantsDialog
 from theme.dialog.tournament_edit_dialog import confirm_tournament_delete
 from theme.dialog.tournament_players_dialog import TournamentPlayersDialog
@@ -100,11 +101,12 @@ def _bracket_site(t, live_sites) -> str:
     return next((s.key for s in live_sites if s.linked(t)), '')
 
 
-def _bracket_fields(t, live_sites, manage_sites) -> dict:
+def _bracket_fields(t, live_sites, can_sync=False, can_link=False) -> dict:
     """The Bracket column and the row ⋮'s bracket items for one tournament.
 
-    ``manage_sites`` are the site keys this viewer may sync, link and unlink:
-    a tournament admin manages start.gg, while Challonge stays staff's.
+    ``can_sync`` covers Sync, the Challonge stage step and Entrants, which a
+    tournament admin may run on their own rows; ``can_link`` (staff only)
+    covers linking and unlinking.
     """
     site = _bracket_site(t, live_sites)
     label = next((s.label for s in live_sites if s.key == site), '')
@@ -121,18 +123,19 @@ def _bracket_fields(t, live_sites, manage_sites) -> dict:
         'bracket_label': label,
         'bracket_stage': stage,
         'bracket_synced': f'Synced {format_local_display(synced_at)}' if synced_at else 'Never synced',
-        'bracket_manage': bool(site) and site in manage_sites,
-        # Offered on an unlinked row when the viewer can link at least one live site.
-        'bracket_linkable': not site and any(s.key in manage_sites for s in live_sites),
+        'bracket_manage': bool(site) and can_sync,
+        'bracket_unlinkable': bool(site) and can_link,
+        'bracket_linkable': not site and can_link and bool(live_sites),
         'stage_action': action.key if action else '',
         'stage_action_label': action.label if action else '',
     }
 
 
-def _tournament_row(t, live_sites=(), manage_sites=frozenset()) -> dict:
+def _tournament_row(t, live_sites=(), can_sync=False, can_link=False) -> dict:
     state = signup_window_state(t.signups_open_at, t.signups_close_at)
     return {
-        **_bracket_fields(t, live_sites, manage_sites),
+        **_bracket_fields(t, live_sites, can_sync, can_link),
+        'round_schedule': bool(getattr(t, 'challonge_tournament_id', None) or getattr(t, 'startgg_event_slug', None)),
         'id': t.id,
         'name': t.name,
         'tournament_format': t.tournament_format or '',
@@ -240,13 +243,12 @@ class TournamentTableView:
     """Encapsulates the tournament table UI and logic for admin/player dashboards."""
     def __init__(self, columns, get_query, extra_slots=None, submit_tournament_callback=None,
                  table_key=None, searchable=False, can_delete=False, can_sync=False,
-                 sync_sites=None):
+                 can_link=False):
         self.columns = columns
         # Offer Sync bracket (row) and Sync all linked brackets (toolbar).
         self.can_sync = can_sync
-        # The bracket-site keys the viewer may sync, or None for every live one:
-        # a tournament admin syncs start.gg but not Challonge, which is staff's.
-        self.sync_sites = sync_sites
+        # Offer Link a bracket… and Unlink bracket…; the services keep these staff-only.
+        self.can_link = can_link
         self._live_sites: list = []
         # When set, this view's desktop columns follow the viewer's saved layout.
         self.table_key = table_key
@@ -275,6 +277,8 @@ class TournamentTableView:
         items = [
             SlotItem('edit', 'Edit tournament…', 'edit_tournament'),
             SlotItem('group', 'Manage players…', 'show_players'),
+            SlotItem('event_note', 'Round schedule…', 'round_schedule',
+                     v_if='props.row.round_schedule'),
         ]
         if self.can_sync:
             items += [
@@ -295,9 +299,9 @@ class TournamentTableView:
             SlotItem('open_in_new', 'Open bracket', 'open_bracket', v_if='props.row.bracket_url'),
             SlotItem('open_in_new', 'Open rules', 'open_rules', v_if='props.row.rules_url'),
         ]
-        if self.can_sync:
+        if self.can_link:
             items.append(SlotItem('link_off', 'Unlink bracket…', 'unlink_bracket',
-                                  negative=True, v_if='props.row.bracket_manage'))
+                                  negative=True, v_if='props.row.bracket_unlinkable'))
         if self.can_delete:
             # Only an inactive tournament can be deleted; the service enforces it too.
             items.append(SlotItem('delete_forever', 'Delete tournament…', 'delete_tournament',
@@ -410,6 +414,7 @@ class TournamentTableView:
         self.table.on('bracket_entrants', self.handle_bracket_entrants)
         self.table.on('link_bracket', self.handle_link_bracket)
         self.table.on('unlink_bracket', self.handle_unlink_bracket)
+        self.table.on('round_schedule', self.handle_round_schedule)
         self.table.on('open_bracket', lambda e: self._open_link(e, 'bracket_url'))
         self.table.on('open_rules', lambda e: self._open_link(e, 'rules_url'))
         self.table.on('delete_tournament', self.handle_delete_tournament)
@@ -441,15 +446,8 @@ class TournamentTableView:
         self.table.rows[idx] = self._row(t)
         self.table.update()
 
-    @property
-    def _manage_sites(self) -> frozenset:
-        if not self.can_sync:
-            return frozenset()
-        keys = {s.key for s in self._live_sites}
-        return frozenset(keys if self.sync_sites is None else keys & set(self.sync_sites))
-
     def _row(self, t) -> dict:
-        return _tournament_row(t, self._live_sites, self._manage_sites)
+        return _tournament_row(t, self._live_sites, self.can_sync, self.can_link)
 
     @staticmethod
     def _event_row(event) -> dict:
@@ -478,6 +476,12 @@ class TournamentTableView:
         # The dialog writes now, so the player-count column has to follow it.
         dialog = TournamentPlayersDialog(t, on_change=self.refresh)
         await dialog.open()
+
+    async def handle_round_schedule(self, event):
+        t = await self._load(event)
+        if not t:
+            return
+        await RoundScheduleDialog(t).open()
 
     async def handle_sync_bracket(self, event):
         t = await self._load(event)
@@ -541,8 +545,7 @@ class TournamentTableView:
         t = await self._load(event)
         if not t:
             return
-        sites = [s for s in self._live_sites if s.key in self._manage_sites]
-        open_link_bracket_dialog(t, sites, on_linked=lambda: self.update_row_by_id(t.id))
+        open_link_bracket_dialog(t, self._live_sites, on_linked=lambda: self.update_row_by_id(t.id))
 
     async def handle_unlink_bracket(self, event):
         t = await self._load(event)
@@ -587,9 +590,6 @@ class TournamentTableView:
     async def _sync_all(self):
         actor = await get_user_from_session(app.storage.user)
         tournaments = await self.get_query().order_by('name')
-        if self.sync_sites is not None:
-            live = await bracket_sources.live_sources()
-            tournaments = [t for t in tournaments if _bracket_site(t, live) in self.sync_sites]
         async with busy(None, 'Syncing brackets…') as state:
             results = await bracket_sources.sync_all(
                 list(tournaments), actor, on_progress=lambda name: state.say(f'Syncing {name}…'))

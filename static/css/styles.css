@@ -5354,6 +5354,17 @@ ol.wiz-help-list { list-style-type: decimal; }
 
 /* Why a row can't be booked yet, said on the row: a tooltip never shows on a
    phone. */
+/* A stage's booking window under a matchup ("Book between Sat 6 pm and …"). */
+.wiz-pick-row__window {
+    color: var(--status-pending);
+    font-size: var(--text-sm);
+    line-height: 1.4;
+    margin-top: 2px;
+}
+.wiz-pick-row__window .q-icon {
+    margin-top: 1px;
+}
+
 .wiz-pick-row__note {
     background: var(--surface-alt);
     border-radius: var(--radius-sm);
@@ -7181,3 +7192,79 @@ ol.wiz-help-list { list-style-type: decimal; }
     opacity: 0.85;
 }
 .wiz-busy__elapsed:empty { display: none; }
+
+/* Round schedule (theme/dialog/round_schedule_dialog.py): a table of stages on
+   desktop, one card per stage on a phone. */
+.round-schedule__note {
+    background: var(--surface-alt);
+    border-radius: var(--radius-sm);
+    padding: var(--space-2) var(--space-3);
+    color: var(--fg-secondary);
+    font-size: var(--text-sm);
+}
+.round-schedule__row {
+    display: grid;
+    grid-template-columns: minmax(10rem, 1.4fr) 1fr 1fr 1fr auto 2.5rem;
+    gap: var(--space-3);
+    align-items: center;
+    padding: var(--space-3) var(--space-2);
+    border-bottom: 1px solid var(--border-subtle);
+}
+.round-schedule__row:not(.round-schedule__row--head):hover {
+    background: var(--accent-soft);
+}
+.round-schedule__row--head {
+    font-size: var(--text-xs);
+    font-weight: 600;
+    color: var(--fg-muted);
+    padding-top: 0;
+}
+.round-schedule__cell {
+    font-size: var(--text-sm);
+}
+.round-schedule__k {
+    display: none;
+}
+.round-schedule__mono {
+    font-family: var(--font-mono);
+}
+.round-schedule__menu {
+    justify-self: end;
+}
+@media (max-width: 599.98px) {
+    .round-schedule__row--head {
+        display: none;
+    }
+    .round-schedule__row {
+        grid-template-columns: auto 1fr;
+        gap: 2px var(--space-3);
+        border: 1px solid var(--border-subtle);
+        border-radius: var(--radius-md);
+        margin-bottom: var(--space-2);
+        padding: var(--space-3);
+        position: relative;
+    }
+    .round-schedule__stage {
+        grid-column: 1 / -1;
+        padding-right: 2.5rem;
+        margin-bottom: var(--space-1);
+    }
+    .round-schedule__cell {
+        display: contents;
+    }
+    .round-schedule__k {
+        display: block;
+        color: var(--fg-muted);
+        font-size: var(--text-sm);
+    }
+    .round-schedule__booked > .wiz-chip {
+        grid-column: 1 / -1;
+        justify-self: start;
+        margin-top: var(--space-1);
+    }
+    .round-schedule__menu {
+        position: absolute;
+        top: var(--space-2);
+        right: var(--space-2);
+    }
+}

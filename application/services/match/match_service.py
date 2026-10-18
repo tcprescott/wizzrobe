@@ -270,6 +270,7 @@ class MatchService(
         clear_confirmed: bool = False,
         clear_seed: bool = False,
         actor: Optional[User] = None,
+        allow_outside_round: bool = False,
     ) -> Match:
         """
         Update a match with validation.
@@ -296,6 +297,8 @@ class MatchService(
             clear_finished: Clear finished_at timestamp
             clear_confirmed: Clear confirmed_at timestamp
             clear_seed: Clear generated seed
+            allow_outside_round: Staff confirmed a time outside the bracket
+                stage's booking window (``RoundScheduleService``).
             clear_stage: Clear stage assignment
             admin_user: User making the update
 
@@ -377,6 +380,8 @@ class MatchService(
             await self.assert_within_tournament_hours(
                 scheduled_at, tournament_id if tournament_id is not None else match.tournament_id,
             )
+            if scheduled_at != old_scheduled_at:
+                await self._check_round_window(match, scheduled_at, actor, allow_outside_round)
             update_fields['scheduled_at'] = scheduled_at
 
         if comment is not None:
@@ -402,7 +407,15 @@ class MatchService(
         hard_preset_before = await self.hard_preset_service.snapshot(match)
 
         if update_fields:
-            await self.repository.update(match, **update_fields)
+            # A moved match re-arms its stage reminder, as a stage change does
+            # (``assign_stage``); kept out of ``update_fields`` so audit and event
+            # payloads still list only what the caller changed.
+            rearm = (
+                {'stage_reminder_sent_at': None}
+                if 'scheduled_at' in update_fields and update_fields['scheduled_at'] != old_scheduled_at
+                else {}
+            )
+            await self.repository.update(match, **update_fields, **rearm)
 
         removed_players: List[User] = []
         if player_ids is not None:
@@ -723,6 +736,17 @@ class MatchService(
         match_live.publish(match.id)
 
         return match
+
+    async def _check_round_window(
+        self, match: Match, scheduled_at: datetime, actor: Optional[User], allow_outside_round: bool,
+    ) -> None:
+        from application.services.round_schedule_service import RoundScheduleService
+
+        tournament = await self.tournament_repository.get_by_id(match.tournament_id)  # type: ignore[attr-defined]
+        if tournament is not None:
+            await RoundScheduleService().check_match_time(
+                match, tournament, scheduled_at, actor, allow_outside_round=allow_outside_round,
+            )
 
     async def assert_within_tournament_hours(
         self, scheduled_at: datetime, tournament_id: Optional[int],

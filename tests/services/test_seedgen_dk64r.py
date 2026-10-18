@@ -96,6 +96,30 @@ async def dk64r_key(db):
 
 
 class TestGenerateDk64r:
+    async def test_a_temporary_upstream_error_is_retried(self, service, monkeypatch, dk64r_key):
+        stub = _DK64RStub([
+            (503, {'error': 'busy'}),
+            (200, [{'name': 'Keeper', 'settings_string': 'y'}]),
+        ])
+        import aiohttp
+        monkeypatch.setattr(aiohttp, 'ClientSession', stub)
+        monkeypatch.setattr('asyncio.sleep', _noop_sleep)
+
+        presets = await service.list_remote_presets('dk64r')
+        assert [p.name for p in presets] == ['Keeper']
+        assert len(stub.calls) == 2
+
+    async def test_a_rejected_request_is_not_retried(self, service, monkeypatch, dk64r_key):
+        from application.utils.seed_provider import SeedProviderInvalidRequest
+
+        stub = _DK64RStub([(400, {'error': 'bad branch'})], default=(200, []))
+        import aiohttp
+        monkeypatch.setattr(aiohttp, 'ClientSession', stub)
+
+        with pytest.raises(SeedProviderInvalidRequest, match=r'list the presets.*bad branch'):
+            await service.list_remote_presets('dk64r')
+        assert len(stub.calls) == 1
+
     async def test_missing_credential_raises(self, service, db):
         preset = _preset({'settings_string': 's'})
         with pytest.raises(ValueError, match='DK64 Randomizer API key is not configured'):

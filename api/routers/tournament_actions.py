@@ -321,11 +321,11 @@ async def unlink_challonge(tournament_id: int, actor: User = Depends(require_wri
 @router.post(
     "/{tournament_id}/challonge/sync",
     response_model=ChallongeSyncResponse,
-    summary="Sync a tournament's Challonge bracket now (Staff only)",
+    summary="Sync a tournament's Challonge bracket now",
     description=(
         "Pulls the latest entrants and matches from Challonge, the same as Sync bracket in "
         "the tournament's ⋮ on Admin → Tournaments.\n\n"
-        "**Who can call this:** Staff."
+        "**Who can call this:** Staff, or an admin of this tournament."
     ),
 )
 async def sync_challonge(tournament_id: int, actor: User = Depends(require_write_actor)):

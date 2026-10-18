@@ -137,3 +137,17 @@ async def test_a_resend_needs_a_checked_in_linked_row_and_a_desk_role(service, s
     with pytest.raises(PermissionError):
         await CheckInDeskService().send_test_dm(member, named.id)
     assert await discord.flush() == []
+
+
+async def test_a_desk_volunteer_cannot_resend_for_a_closed_event(service, staff, desk, event, discord):
+    from application.errors import NotFoundError
+    from models import CheckInEventStatus
+
+    _, entrant = await _member_walk_up(service, staff, event)
+    await discord.flush()
+    event.status = CheckInEventStatus.CLOSED
+    await event.save(update_fields=['status'])
+
+    with pytest.raises(NotFoundError):
+        await CheckInDeskService().send_test_dm(desk, entrant.id)
+    await CheckInDeskService().send_test_dm(staff, entrant.id)

@@ -2,8 +2,8 @@
 start.gg Repository - Data Access Layer
 
 Pure data access for the read-only start.gg mirror (entrants, phases, pools,
-sets), each tournament's event link, and the lookups that map entrants to
-Wizzrobe users. No business logic.
+sets), each tournament's event link, the community's start.gg sign-in, and the
+lookups that map entrants to Wizzrobe users. No business logic.
 """
 
 from datetime import datetime
@@ -15,6 +15,7 @@ from tortoise.functions import Lower
 from application.repositories._tenant import current_tenant_id, scoped
 from models import (
     Match,
+    StartggConnection,
     StartggEntrant,
     StartggPhase,
     StartggPool,
@@ -70,6 +71,37 @@ class StartggRepository:
         return set(cast(List[int], rows))
 
     # ------------------------------------------------------------------
+    # The community's start.gg sign-in
+    # ------------------------------------------------------------------
+    @staticmethod
+    async def get_connection() -> Optional[StartggConnection]:
+        return await scoped(StartggConnection.all()).first()
+
+    @staticmethod
+    async def save_connection(**values: Any) -> StartggConnection:
+        connection, _ = await StartggConnection.update_or_create(
+            tenant_id=current_tenant_id(), defaults=values,
+        )
+        return connection
+
+    @staticmethod
+    async def update_connection_tokens(
+        connection: StartggConnection,
+        access_token: str,
+        refresh_token: Optional[str],
+        token_expires_at: Optional[datetime],
+    ) -> None:
+        connection.access_token = access_token
+        if refresh_token:
+            connection.refresh_token = refresh_token
+        connection.token_expires_at = token_expires_at  # type: ignore[assignment]  # null=True field
+        await connection.save()
+
+    @staticmethod
+    async def clear_connection() -> int:
+        return await scoped(StartggConnection.all()).delete()
+
+    # ------------------------------------------------------------------
     # Identity lookups (global: users are not tenant-scoped)
     # ------------------------------------------------------------------
     @staticmethod
@@ -88,21 +120,26 @@ class StartggRepository:
 
     @staticmethod
     async def members_by_lower_name(names: Iterable[str], tenant_id: int) -> Dict[str, List[User]]:
-        """This community's members whose username or display name matches, lower-cased.
+        """This community's members whose username, display name or linked
+        start.gg gamer tag matches, lower-cased.
 
         Global user table filtered to one tenant's membership, for same-name
-        suggestions.
+        suggestions. The gamer tag catches a player whose start.gg entry was added
+        by name with no account behind it, so their link has no id to match.
         """
         wanted = list({n.lower() for n in names if n})
         if not wanted:
             return {}
         member_ids = await TenantMembership.filter(tenant_id=tenant_id).values_list('user_id', flat=True)
-        users = await User.annotate(lu=Lower('username'), ld=Lower('display_name')).filter(
-            Q(lu__in=wanted) | Q(ld__in=wanted), id__in=list(member_ids), is_active=True,
+        users = await User.annotate(
+            lu=Lower('username'), ld=Lower('display_name'), lg=Lower('startgg_username'),
+        ).filter(
+            Q(lu__in=wanted) | Q(ld__in=wanted) | Q(lg__in=wanted), id__in=list(member_ids), is_active=True,
         )
         found: Dict[str, List[User]] = {}
         for user in users:
-            for key in {(user.username or '').lower(), (user.display_name or '').lower()}:
+            names = (user.username, user.display_name, user.startgg_username)
+            for key in {(n or '').lower() for n in names}:
                 if key in wanted:
                     found.setdefault(key, []).append(user)
         return found
@@ -213,7 +250,7 @@ class StartggRepository:
     @staticmethod
     async def sets_for_match(match: Match) -> List[StartggSet]:
         return await scoped(StartggSet.filter(match_id=match.id)).prefetch_related(
-            'tournament', 'entrant1', 'entrant2',
+            'tournament', 'entrant1', 'entrant2', 'pool__phase',
         )
 
     @staticmethod

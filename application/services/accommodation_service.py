@@ -332,7 +332,7 @@ class AccommodationService:
             body, embed = await self._staff_card(member, changed=changed)
             link = await notification_links.admin_ada_request(request.id)
             staff = [
-                u for u in await UserRoleRepository.list_users_with_role(Role.STAFF)
+                u for u in await UserRoleRepository.list_users_with_role(Role.STAFF, active_only=True)
                 if u.id != member.id
             ]
             await staff_request_dms.send(

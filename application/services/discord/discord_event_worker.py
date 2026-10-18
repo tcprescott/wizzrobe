@@ -31,7 +31,7 @@ async def _tick() -> None:
     from application.services.discord.discord_event_reconciler_service import DiscordEventReconcilerService
     from application.services.user_service import UserService
 
-    tenants = [t for t in await TenantRepository.list_all() if t.discord_guild_id is not None]
+    tenants = [t for t in await TenantRepository.list_all() if t.discord_guild_id is not None and t.is_active]
     if not tenants:
         return
 

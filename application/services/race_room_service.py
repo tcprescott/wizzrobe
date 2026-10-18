@@ -376,6 +376,7 @@ class RaceRoomService:
         if match is not None:
             self._publish_match_result(match, results, actor)
             await self._push_challonge(match, actor)
+            await self._notify_bracket_sources(match, actor)
             await self._settle_bracket(match, actor)
 
     # ---- result mapping --------------------------------------------------
@@ -472,6 +473,13 @@ class RaceRoomService:
             await ChallongeService().push_result_if_linked(match, actor)
         except Exception:
             logger.exception('challonge push failed for match %s', match.id)
+
+    async def _notify_bracket_sources(self, match: Match, actor: User) -> None:
+        # The confirm path reaches start.gg through this hook; a bot-finished
+        # race must too, or its result never leaves Wizzrobe.
+        from application.services import bracket_sources
+
+        await bracket_sources.on_match_confirmed(match, actor)
 
     async def _system_actor(self) -> User:
         return await UserService().get_system_user()

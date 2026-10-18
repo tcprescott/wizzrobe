@@ -8,7 +8,7 @@ The client returns **normalized** Python dicts so the service layer never has
 to know the JSON:API wire shape:
 
     me               -> {'user_id', 'username'}
-    tournament       -> {'id', 'name', 'url', 'state'}
+    tournament       -> {'id', 'name', 'url', 'state', 'group_stage', 'tournament_type'}
     participant      -> {'participant_id', 'name', 'challonge_user_id', 'username', 'misc'}
     match            -> {'match_id', 'state', 'round',
                          'player1_participant_id', 'player2_participant_id',
@@ -26,7 +26,8 @@ from __future__ import annotations
 
 import asyncio
 import os
-from typing import Any, Awaitable, Callable, Dict, List, Optional
+from contextlib import asynccontextmanager
+from typing import Any, AsyncIterator, Awaitable, Callable, Dict, List, Optional
 from urllib.parse import quote
 
 import aiohttp
@@ -49,6 +50,19 @@ class ChallongeAPIError(Exception):
     def __init__(self, message: str, status: Optional[int] = None):
         super().__init__(message)
         self.status = status
+
+
+@asynccontextmanager
+async def _session() -> AsyncIterator[aiohttp.ClientSession]:
+    # Callers only catch ChallongeAPIError, so a hung or unreachable Challonge
+    # must surface as one rather than escape as a raw aiohttp/timeout error.
+    try:
+        async with aiohttp.ClientSession(timeout=_TIMEOUT) as session:
+            yield session
+    except asyncio.TimeoutError as e:
+        raise ChallongeAPIError('Challonge did not respond in time') from e
+    except aiohttp.ClientError as e:
+        raise ChallongeAPIError(f'Could not reach Challonge: {e}') from e
 
 
 def build_authorize_url(
@@ -102,6 +116,7 @@ def _normalize_tournament(resource: Dict[str, Any]) -> Dict[str, Any]:
         'url': _attr(resource, 'full_challonge_url', 'url'),
         'state': _attr(resource, 'state'),
         'group_stage': bool(_attr(resource, 'group_stage_enabled')),
+        'tournament_type': _attr(resource, 'tournament_type'),
     }
 
 
@@ -198,7 +213,7 @@ class ChallongeClient:
 
     async def _token_request(self, data: Dict[str, str]) -> Dict[str, Any]:
         await self._count_request()
-        async with aiohttp.ClientSession(timeout=_TIMEOUT) as session:
+        async with _session() as session:
             async with session.post(TOKEN_URL, data=data) as resp:
                 payload = await resp.json()
                 if resp.status >= 400:
@@ -370,7 +385,7 @@ class ChallongeClient:
 
     async def _raw_get(self, path: str, token: str) -> Dict[str, Any]:
         await self._count_request()
-        async with aiohttp.ClientSession(timeout=_TIMEOUT) as session:
+        async with _session() as session:
             async with session.get(BASE_URL + path, headers=self._headers(token)) as resp:
                 return await self._parse(resp)
 
@@ -478,7 +493,7 @@ class MockChallongeClient(ChallongeClient):
     async def get_tournament(self, tournament_id: str, community: Optional[str] = None) -> Dict[str, Any]:
         return {'id': str(tournament_id), 'name': 'Mock Challonge Tournament',
                 'url': f'https://challonge.com/{tournament_id}', 'state': 'underway',
-                'group_stage': False}
+                'group_stage': False, 'tournament_type': 'single elimination'}
 
     async def list_participants(
         self, tournament_id: str, community: Optional[str] = None,

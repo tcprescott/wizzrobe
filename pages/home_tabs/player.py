@@ -12,6 +12,7 @@ from application.services import (
     MatchHardPresetService,
     MatchRescheduleService,
     MatchService,
+    RoundScheduleService,
     TournamentService,
     bracket_sources,
     get_user_from_session,
@@ -143,6 +144,7 @@ class _Pick:
     round_label: str
     on_click: Callable
     blocked: str | None = None
+    window_text: str | None = None
 
 
 def _render_picks(picks: list[_Pick]) -> None:
@@ -171,6 +173,10 @@ def _render_picks(picks: list[_Pick]) -> None:
                                 ui.label(f'vs {pick.opponent_name}').classes('wiz-pick-row__opponent')
                                 if pick.round_label:
                                     ui.label(pick.round_label).classes('text-caption text-grey-7')
+                                if pick.window_text and not pick.blocked:
+                                    with ui.row().classes('wiz-pick-row__window no-wrap items-start gap-1'):
+                                        ui.icon('schedule', size='16px')
+                                        ui.label(pick.window_text)
                             if not pick.blocked:
                                 ui.button('Pick a time', on_click=pick.on_click) \
                                     .props('color=primary outline no-caps')
@@ -433,6 +439,7 @@ async def render_player_dashboard(
                     + [x.tournament for x in external],
                 )).classes('text-caption text-grey-7')
                 picks: list[_Pick] = []
+                round_schedule = RoundScheduleService()
                 for cm in challonge_rows:
                     me_is_p1 = cm.participant1 is not None and cm.participant1.user_id == user.id
                     opponent = cm.participant2 if me_is_p1 else cm.participant1
@@ -454,6 +461,7 @@ async def render_player_dashboard(
                             f"Can't book yet: {opponent_name} isn't matched to a "
                             "Wizzrobe account. Staff can match them."
                         ),
+                        window_text=await round_schedule.describe_for_challonge_match(cm),
                     ))
 
                 for x in external:
@@ -465,6 +473,7 @@ async def render_player_dashboard(
                     picks.append(_Pick(
                         x.tournament.id, x.tournament.name, x.source_label,
                         x.opponent_name, x.round_label, do_external,
+                        window_text=x.window_text,
                     ))
 
                 for bm in matchups:
@@ -499,6 +508,7 @@ async def render_player_dashboard(
                     picks.append(_Pick(
                         bm.bracket.tournament_id, bm.bracket.tournament.name, None,
                         opponent_name, _round_label(bm, best_of, number), do_schedule,
+                        window_text=await round_schedule.describe_for_bracket_match(bm),
                     ))
 
                 _render_picks(picks)

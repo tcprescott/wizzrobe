@@ -29,6 +29,7 @@ from application.services.audit_service import AuditActions, AuditService
 from application.services.auth_service import AuthService
 from application.services.feature_flag_service import FeatureFlagService
 from application.services.match.match_service import MatchService
+from application.services.round_schedule_service import RoundScheduleService
 from application.utils.clients.challonge_client import (
     ChallongeAPIError,
     ChallongeClient,
@@ -491,7 +492,7 @@ class ChallongeService(
 
         # The full fetch already carries the bracket, so mirror it without a
         # second round-trip.
-        await self._mirror_bracket(tournament, full['participants'], full['matches'], actor)
+        await self._mirror_bracket(tournament, full['participants'], full['matches'], actor, remote)
         await self._record_sync(tournament, remote)
         return tournament
 
@@ -542,8 +543,8 @@ class ChallongeService(
             await self.tournament_repository.get_by_id(tournament_id), f"Tournament {tournament_id}"
         )
         await AuthService.ensure(
-            await AuthService.is_staff(actor),
-            "Only staff can sync a tournament's Challonge bracket",
+            await AuthService.can_edit_tournament(actor, tournament),
+            "Only staff and this tournament's admins can sync its Challonge bracket",
         )
         return await self._sync_tournament(tournament, actor, force=force)
 
@@ -570,16 +571,14 @@ class ChallongeService(
             tournament.challonge_tournament_id, community=tournament.challonge_community,
         )
         refuse_empty_started_bracket(full, await self.repository.count_participants(tournament))
-        result = await self._mirror_bracket(
-            tournament, full['participants'], full['matches'], actor,
-        )
+        result = await self._mirror_bracket(tournament, full['participants'], full['matches'], actor, full['tournament'])
         await self._record_sync(tournament, full['tournament'])
         return result
 
     async def _record_sync(self, tournament: Tournament, remote: Dict[str, Any]) -> None:
         await self.repository.record_sync(
             tournament, datetime.now(timezone.utc),
-            remote.get('state'), bool(remote.get('group_stage')),
+            remote.get('state'), bool(remote.get('group_stage')), remote.get('tournament_type'),
         )
 
     @staticmethod
@@ -594,7 +593,7 @@ class ChallongeService(
         tournament: Tournament,
         remote_participants: List[Dict[str, Any]],
         remote_matches: List[Dict[str, Any]],
-        actor: User,
+        actor: User, remote_tournament: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, int]:
         bookable_before = await self._bookable_match_ids(tournament)
         # Participants -> resolve to linked wizzrobe users by Challonge account id.
@@ -646,6 +645,7 @@ class ChallongeService(
                 participant1=p1,
                 participant2=p2,
                 winner_participant=winner,
+                group_stage=RoundScheduleService.group_stage_running(remote_tournament),
             )
 
         # A reset or cleared roster on Challonge; a hand assignment goes with its entrant.
@@ -699,6 +699,7 @@ class ChallongeService(
                 "Both players must link their Challonge account before this match can be scheduled."
             )
 
+        await RoundScheduleService().check_challonge_booking(cmatch, scheduled_date, scheduled_time, actor)
         match = await MatchService().submit_match_request(
             tournament_id=cmatch.tournament_id,
             scheduled_date=scheduled_date,

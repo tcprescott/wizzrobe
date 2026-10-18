@@ -60,7 +60,9 @@ TEST_WINDOW_SECONDS = 600
 
 _SUBJECT_LIMIT = 90
 _BODY_LIMIT = 4000
-_MARKDOWN = re.compile(r'\*\*|__|\\(?=[\[\]])')
+# Same tokens web push strips: templates only emit **bold** and the bracket
+# escape, and member names legitimately contain __.
+_MARKDOWN = re.compile(r'\*\*|\\(?=[\[\]])')
 # Deliberately plain: one @, a dotted domain, no spaces, quotes or brackets.
 # The confirmation code is the real proof; this only stops obvious junk and
 # anything that could smuggle a second recipient or a header.
