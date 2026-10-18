@@ -83,8 +83,9 @@ class UserRoleRepository:
         return await UserRole.filter(role=role, tenant_id=_tenant_id_for_role(role)).exists()
 
     @staticmethod
-    async def list_users_with_role(role: Role) -> List[User]:
-        rows = await UserRole.filter(
-            role=role, tenant_id=_tenant_id_for_role(role)
-        ).prefetch_related('user')
+    async def list_users_with_role(role: Role, *, active_only: bool = False) -> List[User]:
+        query = UserRole.filter(role=role, tenant_id=_tenant_id_for_role(role))
+        if active_only:
+            query = query.filter(user__is_active=True)
+        rows = await query.prefetch_related('user')
         return [r.user for r in rows]

@@ -278,6 +278,19 @@ class TestMatchOperations:
 # ---------------------------------------------------------------------------
 
 
+    async def test_counts_a_timestamp_without_its_pair(self, db):
+        # Insights counts started/finished on the timestamp alone; Reports agrees,
+        # so a result recorded without a start still counts as finished.
+        t = await Tournament.create(name='Solo')
+        await Match.create(tournament=t, scheduled_at=utc(2025, 10, 23, 16, 0),
+                           finished_at=utc(2025, 10, 23, 17, 0))
+        out = await ReportsService().match_operations(DAY_START, DAY_END, actor=(await _actor()))
+        agg = next(a for a in out['aggregates'] if a['tournament_id'] == t.id)
+        assert agg['matches_started'] == 0
+        assert agg['matches_finished'] == 1
+        assert agg['avg_duration_min'] is None
+
+
 class TestCrewCoverage:
     async def _seed(self):
         # avg 60 -> each match window is exactly 2.0 hours (sched-1h .. sched+60m).

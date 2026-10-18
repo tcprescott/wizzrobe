@@ -1,8 +1,7 @@
-"""Linking, unlinking and syncing a Challonge bracket is staff's job.
+"""Linking and unlinking a Challonge bracket is staff's job; syncing is not.
 
-The service used to admit the tournament's admin while the web app kept the
-Challonge controls on the staff-only tab, so a tournament admin could do over
-REST and MCP what the app never offered them. Thomas chose staff only.
+Thomas's rule (2026-10-18), the same for Challonge and start.gg: a tournament's
+admins sync its bracket, only staff link and unlink one.
 """
 
 import pytest
@@ -25,14 +24,29 @@ async def tournament_admin(linked, db):
     return ta
 
 
-async def test_a_tournament_admin_cannot_link_unlink_or_sync(linked, tournament_admin):
+async def test_a_tournament_admin_cannot_link_or_unlink(linked, tournament_admin):
     service = ChallongeService()
     with pytest.raises(PermissionError):
         await service.link_tournament(linked.id, 'T2', tournament_admin)
     with pytest.raises(PermissionError):
         await service.unlink_tournament(linked.id, tournament_admin)
+
+
+async def test_a_tournament_admin_can_sync(linked, tournament_admin, monkeypatch):
+    async def fake_sync(self, tournament, actor, force=False):
+        return {'participants': 0, 'matches': 0}
+
+    monkeypatch.setattr(ChallongeService, '_sync_tournament', fake_sync)
+    assert await ChallongeService().sync_bracket(linked.id, tournament_admin, force=True) == {
+        'participants': 0, 'matches': 0,
+    }
+
+
+async def test_a_plain_member_cannot_sync(linked, db):
+    member = await User.create(discord_id=6102, username='member')
+    await TenantMembership.create(user=member, tenant_id=1)
     with pytest.raises(PermissionError):
-        await service.sync_bracket(linked.id, tournament_admin, force=True)
+        await ChallongeService().sync_bracket(linked.id, member, force=True)
 
 
 async def test_staff_pass_the_gate(linked, db):

@@ -70,7 +70,7 @@ async def notify_staff_of_submission(event: CommunityEvent, host: User) -> None:
         embed = event_embed(event, title='📅 Community event to review', color=COLOR_JOIN_REQUEST,
                             community_name=community, description=message)
         link = await notification_links.admin_community_event(event.id)
-        staff = [u for u in await UserRoleRepository.list_users_with_role(Role.STAFF) if u.id != host.id]
+        staff = [u for u in await UserRoleRepository.list_users_with_role(Role.STAFF, active_only=True) if u.id != host.id]
         await staff_request_dms.send(StaffRequestKind.COMMUNITY_EVENT, event.id, staff, message,
                                      embed=embed, link=link)
     except Exception:

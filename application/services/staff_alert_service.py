@@ -101,9 +101,9 @@ class StaffAlertService:
             if user.is_active and await AuthService.can_manage_volunteers(user):
                 recipients.setdefault(user.id, user)
         if not recipients:
-            for user in await UserRoleRepository.list_users_with_role(Role.STAFF):
+            for user in await UserRoleRepository.list_users_with_role(Role.STAFF, active_only=True):
                 recipients.setdefault(user.id, user)
-        for user in await UserRoleRepository.list_users_with_role(Role.VOLUNTEER_COORDINATOR):
+        for user in await UserRoleRepository.list_users_with_role(Role.VOLUNTEER_COORDINATOR, active_only=True):
             recipients.setdefault(user.id, user)
         return list(recipients.values())
 

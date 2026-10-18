@@ -205,8 +205,6 @@ Writes and queries `AuditLog` rows. Every mutating service action records who di
 | `write_log(actor, action, details=None)` | `AuditLog` | Audit-only write (no event) — for changes with no paired event. JSON-encodes `details` (non-serializable values fall back to `str`). Raises `ValueError` if `actor` is `None`. |
 | `list_logs(*, start=None, end=None, user_id=None, action_contains=None, limit=100, offset=0)` | `list[AuditLog]` | Filtered, paginated log listing (delegates to `AuditRepository`). |
 | `count_logs(*, start=None, end=None, user_id=None, action_contains=None)` | `int` | Count matching the same filters as `list_logs`. |
-| `get_logs_for_user(user, limit=None)` | `list[AuditLog]` | A user's entries, most recent first. |
-| `get_recent_logs(limit=100)` | `list[AuditLog]` | Most recent entries across all users, with `user` prefetched. |
 
 Collaborators: `AuditRepository`, the [event bus](../features/event-system.md).
 

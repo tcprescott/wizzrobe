@@ -202,8 +202,7 @@ class TournamentTableView:
         self.columns = columns
         # Offer Sync bracket (row) and Sync all linked brackets (toolbar).
         self.can_sync = can_sync
-        # The bracket-site keys the viewer may sync, or None for every live one:
-        # a tournament admin syncs start.gg but not Challonge, which is staff's.
+        # The bracket-site keys the viewer may sync, or None for every live one.
         self.sync_sites = sync_sites
         self._live_sites: list = []
         # When set, this view's desktop columns follow the viewer's saved layout.

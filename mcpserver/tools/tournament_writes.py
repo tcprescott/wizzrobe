@@ -310,7 +310,7 @@ async def sync_challonge_tournament(
 ) -> OperationResult:
     """Pull the latest entrants and matches from a linked Challonge bracket now.
 
-    Staff only. Linked brackets also sync on their own.
+    Staff, or an admin of this tournament. Linked brackets also sync on their own.
     """
     await _tournament(tournament_id)
     counts = await ChallongeService().sync_bracket(tournament_id, current_actor().user, force=True)

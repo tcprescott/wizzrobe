@@ -152,6 +152,27 @@ class TestLinkAndMirror:
             await StartggService().link_event(tournament.id, SLUG, actor)
 
 
+    async def test_only_staff_link_and_unlink(self, db, client, sent, monkeypatch):
+        from application.services.auth_service import AuthService
+
+        tournament, actor = await _linked(client)
+
+        async def no(*_a, **_k):
+            return False
+
+        async def ensure(ok, message):
+            if not ok:
+                raise PermissionError(message)
+
+        monkeypatch.setattr(AuthService, 'is_staff', no)
+        monkeypatch.setattr(AuthService, 'ensure', ensure)
+        with pytest.raises(PermissionError, match='Only staff'):
+            await StartggService().unlink_event(tournament.id, actor)
+        with pytest.raises(PermissionError, match='Only staff'):
+            await StartggService().link_event(tournament.id, SLUG, actor)
+        await StartggService().sync_event(tournament.id, actor, force=True)
+
+
 class TestMatchupReady:
     async def test_open_set_in_last_phase_is_announced_once(self, db, client, sent):
         await _players()

@@ -543,8 +543,8 @@ class ChallongeService(
             await self.tournament_repository.get_by_id(tournament_id), f"Tournament {tournament_id}"
         )
         await AuthService.ensure(
-            await AuthService.is_staff(actor),
-            "Only staff can sync a tournament's Challonge bracket",
+            await AuthService.can_edit_tournament(actor, tournament),
+            "Only staff and this tournament's admins can sync its Challonge bracket",
         )
         return await self._sync_tournament(tournament, actor, force=force)
 

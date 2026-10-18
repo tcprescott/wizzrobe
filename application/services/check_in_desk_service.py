@@ -14,11 +14,12 @@ re-sending the check-in test DM, which touches only the DM columns.
 
 from typing import List, Tuple
 
-from application.errors import NotFoundError, require_found
+from application.errors import require_found
 from application.events import check_in_live
 from application.feature_flags import requires_feature
 from application.repositories import CheckInEntrantRepository, CheckInEventRepository
 from application.services.auth_service import AuthService
+from application.services.check_in_accounts import desk_entrant, ensure_desk_sees
 from application.services.check_in_dm import start_dm_check
 from models import CheckInEntrant, CheckInEvent, CheckInEventStatus, FeatureFlag, User
 
@@ -44,9 +45,9 @@ class CheckInDeskService:
     async def roster_for(self, actor: User, event_id: int) -> Tuple[CheckInEvent, List[CheckInEntrant]]:
         """An event and its roster, for someone working the desk."""
         await AuthService.ensure(await AuthService.can_run_check_in_desk(actor), _DESK_DENIED)
-        event = require_found(await self.events.get_by_id(event_id), 'Check-in event')
-        if event.status != CheckInEventStatus.OPEN and not await AuthService.can_manage_check_in(actor):
-            raise NotFoundError('Check-in event not found')
+        event = await ensure_desk_sees(
+            actor, require_found(await self.events.get_by_id(event_id), 'Check-in event'),
+        )
         return event, await self.entrants.list_for_event(event)
 
     @requires_feature(FeatureFlag.EVENT_CHECK_IN)
@@ -57,7 +58,9 @@ class CheckInDeskService:
         with no linked account, since there's nobody to message.
         """
         await AuthService.ensure(await AuthService.can_run_check_in_desk(actor), _DESK_DENIED)
-        entrant = require_found(await self.entrants.get_by_id(entrant_id), 'Roster entry')
+        entrant = await desk_entrant(
+            actor, require_found(await self.entrants.get_by_id(entrant_id), 'Roster entry'),
+        )
         if entrant.checked_in_at is None:
             raise ValueError(f'Check {entrant.display_name} in first.')
         if entrant.user is None or not entrant.user.discord_id:

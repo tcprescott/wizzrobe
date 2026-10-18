@@ -593,7 +593,7 @@ class TenantMembershipService:
         from application.services.tenant_service import TenantService
 
         community = await TenantService.community_name(tenant_id)
-        staff = await UserRoleRepository.list_users_with_role(Role.STAFF)
+        staff = await UserRoleRepository.list_users_with_role(Role.STAFF, active_only=True)
         body = join_requested_dm(
             community, requester.display_name or requester.username, message or '',
         )

@@ -102,7 +102,7 @@ class TelemetryRepository:
             start=start, end=end, category=category, event_type=event_type,
             user_id=user_id, session_id=session_id, path_contains=path_contains,
         )
-        query = query.order_by('-created_at').offset(offset).limit(limit)
+        query = query.order_by('-created_at', '-id').offset(offset).limit(limit)
         return await query.prefetch_related('user')
 
     @classmethod

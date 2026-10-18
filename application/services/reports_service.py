@@ -239,14 +239,18 @@ class ReportsService:
                 '_start_delay_seen': 0,
             })
             stats['matches_total'] += 1
-            if start_delay is not None:
+            # Counted on the timestamp alone, as Insights counts them; the
+            # averages below still need both ends of their interval.
+            if started:
                 stats['matches_started'] += 1
+            if finished:
+                stats['matches_finished'] += 1
+            if start_delay is not None:
                 stats['start_delay_total'] += start_delay
                 stats['_start_delay_seen'] += 1
                 if abs(start_delay) <= ON_TIME_THRESHOLD_MIN:
                     stats['on_time_count'] += 1
             if duration is not None:
-                stats['matches_finished'] += 1
                 stats['duration_total'] += duration
                 stats['_duration_seen'] += 1
 
