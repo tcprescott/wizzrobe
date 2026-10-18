@@ -213,7 +213,7 @@ class StartggRepository:
     @staticmethod
     async def sets_for_match(match: Match) -> List[StartggSet]:
         return await scoped(StartggSet.filter(match_id=match.id)).prefetch_related(
-            'tournament', 'entrant1', 'entrant2',
+            'tournament', 'entrant1', 'entrant2', 'pool__phase',
         )
 
     @staticmethod

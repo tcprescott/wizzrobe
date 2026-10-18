@@ -15,6 +15,7 @@ from application.utils.timezone import next_whole_hour_local
 from theme.dialog._helpers import (
     FieldError,
     booked_notice,
+    booking_window_line,
     dialog_actions,
     dialog_header,
     matchup_line,
@@ -52,6 +53,7 @@ class BracketSourceScheduleDialog:
             )
             with ui.column().classes('q-pa-md gap-2'):
                 matchup_line(item.tournament.name, item.round_label)
+                booking_window_line(item.window_text)
                 ui.label('Pick a time you both can play.').classes('text-caption text-grey-7')
                 with ui.row().classes('form-pair items-center gap-2'):
                     date = native_date_input('Date', slot.strftime('%Y-%m-%d'), required=True)
@@ -64,6 +66,7 @@ class BracketSourceScheduleDialog:
                     date=date,
                     time=time,
                     missing_message='Unable to suggest a time for this match.',
+                    startgg_set_id=item.key if item.source == 'startgg' else None,
                 )
 
             async def submit():

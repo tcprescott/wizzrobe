@@ -41,6 +41,7 @@ from application.repositories import (
 from application.services._reschedule_notifications import RescheduleNotificationMixin
 from application.services.audit_service import AuditActions, AuditService
 from application.services.auth_service import AuthService
+from application.services.round_schedule_service import RoundScheduleService
 from models import (
     Match,
     MatchRescheduleRequest,
@@ -354,6 +355,7 @@ class MatchRescheduleService(RescheduleNotificationMixin):
             if proposed_at <= datetime.now(timezone.utc):
                 raise ValueError("Pick a time in the future.")
             await self._assert_schedulable(proposed_at, match.tournament_id)  # type: ignore[attr-defined]
+            await RoundScheduleService().check_match_time(match, tournament, proposed_at, actor)
 
         request = await self.repository.create(
             match=match,
@@ -529,8 +531,10 @@ class MatchRescheduleService(RescheduleNotificationMixin):
                 raise ValueError(
                     "This request didn't name a time — pick one before approving it."
                 )
+            # The player's proposal was held to the stage's window when they
+            # made it; a staff counter-offer is staff's call to make.
             await match_service.update_match(
-                match_id, scheduled_at=final_at, actor=actor,
+                match_id, scheduled_at=final_at, actor=actor, allow_outside_round=True,
             )
             await self.repository.update(
                 request,

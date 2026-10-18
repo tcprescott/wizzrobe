@@ -22,6 +22,7 @@ from . import (
     oauth_handoff_service,
     race_room_worker,
     reporting_shared,
+    round_windows,
     seed_roll_worker,
     service_health_worker,
     speedgaming_sync_worker,
@@ -106,6 +107,7 @@ from .racetime_service import RacetimeService
 from .randomizer_credential_service import RandomizerCredentialService
 from .reports_service import ReportsService
 from .room_token_service import RoomTokenService
+from .round_schedule_service import RoundScheduleService, RoundWindowError, ScheduleStage
 from .runtime_stats_service import RuntimeStatsService
 from .seed_roll_service import SeedRollService
 from .seedgen_service import SeedGenerationService
@@ -225,7 +227,10 @@ __all__ = [
     'RandomizerCredentialService',
     'ReportsService',
     'RoomTokenService',
+    'RoundScheduleService',
+    'RoundWindowError',
     'RuntimeStatsService',
+    'ScheduleStage',
     'SeedGenerationService',
     'SeedRollService',
     'ServiceHealthService',
@@ -287,6 +292,7 @@ __all__ = [
     'race_room_worker',
     'reporting_shared',
     'require_found',
+    'round_windows',
     'seed_roll_worker',
     'service_health_worker',
     'speedgaming_sync_worker',

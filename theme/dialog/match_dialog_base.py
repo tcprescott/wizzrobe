@@ -45,6 +45,7 @@ from theme.dialog._helpers import (
 )
 from theme.dialog.clash_warning import confirm_local_time
 from theme.dialog.confirmation_dialog import ConfirmationDialog
+from theme.dialog.round_schedule_dialog import confirm_outside_window
 from theme.menu import menu_action
 from theme.notify import notify_error
 
@@ -566,7 +567,12 @@ class BaseMatchDialog:
                         await self.on_submit(self.match)
                 except (ValueError, PermissionError) as e:
                     with self.dialog:
-                        notify_error(e)
+                        if not confirm_outside_window(e, save_outside_round):
+                            notify_error(e)
+
+            async def save_outside_round() -> None:
+                self.allow_outside_round = True
+                await save()
 
             latest_match = await self.match_service.get_match_by_id(self.match.id)
             if latest_match and latest_match.updated_at != self._initial_updated_at:

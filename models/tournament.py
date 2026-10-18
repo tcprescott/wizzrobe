@@ -38,6 +38,10 @@ class Tournament(Model):
     # so the admin page can offer the next stage action without an API call.
     challonge_state = fields.CharField(max_length=32, null=True)
     challonge_group_stage = fields.BooleanField(default=False)
+    # Challonge's own format name ("single elimination", "double elimination", …)
+    # for the elimination stage, so its round schedule can offer the right rows
+    # before Challonge has created any elimination matches.
+    challonge_tournament_type = fields.CharField(max_length=32, null=True)
     # A linked start.gg event, read only: its organisers record results on
     # start.gg and the sync mirrors them in. ``startgg_event_slug`` is the
     # ``tournament/<t>/event/<e>`` path the API looks events up by.

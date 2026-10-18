@@ -50,6 +50,7 @@ from theme.dialog._helpers import (
     submit_on_enter,
 )
 from theme.dialog.clash_warning import confirm_local_time
+from theme.dialog.round_schedule_dialog import confirm_outside_window
 from theme.help import resolve_help
 
 
@@ -154,17 +155,19 @@ class BracketScheduleDialog:
                         missing_message='Unable to suggest a time for this match.',
                     )
 
-            async def submit():
+            async def submit(allow_outside_round: bool = False):
                 if not (date.value and time.value):
                     error.show('Choose a date and a time.')
                     return
-                with self._scope():
-                    go_ahead = await confirm_local_time(
-                        tournament_id=self.tournament_id, player_ids=self.player_ids,
-                        date_value=date.value, time_value=time.value, actor=self.actor,
-                    )
-                if not go_ahead:
-                    return
+                # A "Book anyway" resubmit has already been past the clash sheet.
+                if not allow_outside_round:
+                    with self._scope():
+                        go_ahead = await confirm_local_time(
+                            tournament_id=self.tournament_id, player_ids=self.player_ids,
+                            date_value=date.value, time_value=time.value, actor=self.actor,
+                        )
+                    if not go_ahead:
+                        return
                 try:
                     with self._scope():
                         await self.bracket_service.schedule_bracket_match(
@@ -172,17 +175,21 @@ class BracketScheduleDialog:
                             scheduled_date=date.value,
                             scheduled_time=time.value,
                             game_number=self.game_number,
+                            allow_outside_round=allow_outside_round,
                         )
                 except AlreadyBookedError as e:
-                    with self.dialog:
+                    with dialog:
                         ui.notify(e.describe(format_local_display(e.scheduled_at)),
                                   color='warning', multi_line=True)
                         dialog.close()
                 except (PermissionError, ValueError) as e:
+                    with dialog:
+                        if confirm_outside_window(e, lambda: submit(True)):
+                            return
                     error.show(str(e))
                     return
                 else:
-                    with self.dialog:
+                    with dialog:
                         ui.notify(self._booked_message(), color='positive', multi_line=True)
                         dialog.close()
                 await self._after_submit()

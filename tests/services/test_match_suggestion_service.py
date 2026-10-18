@@ -385,3 +385,20 @@ class TestBestCandidate:
         )
         assert result is not None
         assert result.astimezone(EASTERN_TZ).hour == 14
+
+
+class TestInStageHours:
+    def test_keeps_only_slots_inside_daily_hours(self):
+        from datetime import time
+
+        from application.services.round_windows import RoundWindow
+
+        window = RoundWindow(daily_from=time(18), daily_until=time(23))
+        hour = timedelta(hours=1)
+        slots = [(_local(h), _local(h) + hour) for h in (12, 18, 22, 23)]
+        kept = MatchSuggestionService._in_stage_hours(slots, window, hour, EASTERN_TZ)
+        assert [s.hour for s, _ in kept] == [18, 22]
+
+    def test_no_window_keeps_everything(self):
+        slots = [(_local(12), _local(13))]
+        assert MatchSuggestionService._in_stage_hours(slots, None, timedelta(hours=1), EASTERN_TZ) == slots

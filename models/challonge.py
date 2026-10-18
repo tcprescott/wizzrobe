@@ -69,6 +69,10 @@ class ChallongeMatch(Model):
     challonge_match_id = fields.CharField(max_length=64)
     round = fields.IntField(null=True)
     state = fields.CharEnumField(ChallongeMatchState, default=ChallongeMatchState.PENDING, max_length=20)
+    # Challonge numbers group and elimination rounds from 1 alike and doesn't
+    # label which is which, so a match seen while the group stage runs is marked
+    # here once and stays marked (see ChallongeService._mirror_bracket).
+    group_stage = fields.BooleanField(default=False)
     participant1 = fields.ForeignKeyField('models.ChallongeParticipant', related_name='matches_as_p1', null=True, on_delete=fields.SET_NULL)
     participant2 = fields.ForeignKeyField('models.ChallongeParticipant', related_name='matches_as_p2', null=True, on_delete=fields.SET_NULL)
     winner_participant = fields.ForeignKeyField('models.ChallongeParticipant', related_name='matches_as_winner', null=True, on_delete=fields.SET_NULL)

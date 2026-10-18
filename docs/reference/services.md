@@ -314,6 +314,14 @@ Paths come from the pure [`app_links.py`](#additional-utilities), shared with th
 
 A read-only mirror of a linked start.gg event (`StartggEntrant`/`Phase`/`Pool`/`Set`), gated by `FeatureFlag.STARTGG`. `link_event` (refuses a Challonge link or a native bracket), `unlink_event`, `sync_event(force)` (20 s throttle), `sync_linked_events` (worker, unaudited), `set_bookable_phase`, `set_report_results`; staff entrant mapping `list_entrants`, `assign_entrant`, `confirm_all_suggestions`, `dismiss_suggestion`, `clear_entrant`; players `list_unbooked_sets_for_user`, `schedule_set` (through `MatchService.submit_match_request(from_bracket=True)`); the public page reads `get_event_view`. A sync DMs both players of each set that newly became bookable. `report_result_if_linked` is the soft-gated writeback: only when the tournament opted in, re-reading the set and skipping it when start.gg already has a result. Detail: [startgg.md](../features/startgg.md).
 
+### round_schedule_service.py — RoundScheduleService
+
+Per-stage booking windows for Challonge and start.gg tournaments (`Tournament.config['round_schedule']`), and enforcement for those plus native brackets (`Bracket.config['rounds']`). Staff editor: `list_stages` (group stage / pool phases, each elimination round keyed back from the final, placeholder rows before Challonge creates the elimination matches), `save_schedule` (audited `tournament.round_schedule_updated`). Lookups: `window_for(...)`, `window_for_challonge_match`, `window_for_startgg_set`, `window_for_bracket_match`, `window_for_match`, plus `describe_for_*` for the player-facing line. Enforcement: `check_time` / `check_booking` / `check_match_time` raise `RoundWindowError` (a `ValueError`) whose `can_override` is true for staff and tournament admins, who resubmit with `allow_outside_round=True`. Called from Challonge, start.gg and native booking, `MatchService.update_match`, reschedule requests and Suggest a time. The pure window maths and stage keys live in `round_windows.py`.
+
+### round_windows.py — module functions
+
+Pure: `RoundWindow` (opens, closes, daily hours on the community clock; `slot_fits`, `describe`), `elimination_keys`, `winners_final_round`, `stage_label`, `stage_sort_key`, `placeholder_keys`, `window_to_config`.
+
 ### bracket_sources.py — module functions
 
 The shared contract for brackets that live on another site (`BracketSource` protocol; `StartggSource`, and `ChallongeSource` for sync only so far). `on_match_confirmed` (called from match confirmation, isolates each site's failure), `list_bookable_for_user` / `schedule` (My Schedule), `sync_tournament` / `sync_all` (Admin → Tournaments), `live_sources`, `source_for`.

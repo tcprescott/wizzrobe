@@ -199,6 +199,10 @@ class EventType:
     TOURNAMENT_PRIZE_POOL_UPDATED = 'tournament.prize_pool_updated'
     TOURNAMENT_PAYOUT_UPDATED = 'tournament.payout_updated'
 
+    # The booking windows of a tournament's stages changed; booking clients
+    # holding a cached window should re-read it. Carries ``tournament_id``.
+    TOURNAMENT_ROUND_SCHEDULE_UPDATED = 'tournament.round_schedule_updated'
+
     # Event check-in (mirrors AuditActions.CHECK_IN_*). Someone arriving is what
     # a subscriber wants to hear about (a welcome post, a live attendance count),
     # and the roster mutations around it keep a mirror honest. Creating and
@@ -264,6 +268,7 @@ class EventType:
         TENANT_JOIN_REQUESTED, TENANT_JOIN_APPROVED, TENANT_JOIN_DENIED,
         TOURNAMENT_ENROLLED, TOURNAMENT_WITHDRAWN,
         TOURNAMENT_PRIZE_POOL_UPDATED, TOURNAMENT_PAYOUT_UPDATED,
+        TOURNAMENT_ROUND_SCHEDULE_UPDATED,
         CHECK_IN_EVENT_SYNCED, CHECK_IN_ENTRANT_CHECKED_IN,
         CHECK_IN_ENTRANT_CHECK_IN_UNDONE, CHECK_IN_ENTRANT_LINKED,
         CHECK_IN_ENTRANT_UNLINKED, CHECK_IN_ENTRANT_WALK_UP_ADDED,
