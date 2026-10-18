@@ -5094,6 +5094,7 @@ ol.wiz-help-list { list-style-type: decimal; }
 /* ColorSelect's menu (theme/pickers.py): a disabled option's caption explains
    why, and without a cap the long ones stretched the menu to the page edge. */
 .q-menu.wiz-color-select-menu { max-width: min(28rem, calc(100vw - 2rem)) !important; }
+.wiz-select-icon { color: var(--fg-muted); }
 .wiz-help-menu-body .wiz-help-table { min-width: 0; }
 
 .wiz-help-view { gap: 0; width: 100%; }
