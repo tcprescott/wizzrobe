@@ -962,6 +962,20 @@ body:has(.wiz-header) .q-notifications__list--top {
     color: var(--fg);
 }
 
+/* The info card at the drawer's foot (Event Guide, Help, Feedback): reference
+   items set apart from the navigation above them. */
+.q-drawer .wiz-drawer-info {
+    background: var(--surface);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-lg);
+    margin: 0 var(--space-1);
+    padding: 2px 0 6px;
+}
+
+.q-drawer .wiz-drawer-info .wiz-drawer-group {
+    padding-top: var(--space-2);
+}
+
 /* Drawer section headers (grouped admin nav): a quiet grey label between
    destination clusters, not a clickable item. */
 .q-drawer .wiz-drawer-group {
