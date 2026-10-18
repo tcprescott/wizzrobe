@@ -254,6 +254,7 @@ class DK64RBackend:
                 detail = ''
         suffix = f': {detail}' if detail else ''
         message = f"DK64 Randomizer failed to {action} (HTTP {resp.status}){suffix}"
+        cls: type[SeedProviderError]
         if resp.status == 429:
             cls = SeedProviderRateLimited
         elif 500 <= resp.status < 600:
