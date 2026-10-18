@@ -207,6 +207,7 @@ _EXCLUDED_BY_DESIGN = frozenset({
     AuditActions.CHALLONGE_PARTICIPANT_ASSIGNED,
     AuditActions.CHALLONGE_PARTICIPANT_UNASSIGNED,
     AuditActions.CHALLONGE_STAGE_ADVANCED,
+    AuditActions.CHALLONGE_MATCH_LINKED,
     # A player's own Challonge sign-up/withdrawal publishes tournament.enrolled /
     # tournament.withdrawn, the roster events every other enrolment path shares.
     AuditActions.CHALLONGE_PARTICIPANT_SIGNED_UP,
@@ -224,6 +225,7 @@ _EXCLUDED_BY_DESIGN = frozenset({
     AuditActions.STARTGG_SUGGESTION_DISMISSED,
     AuditActions.STARTGG_REPORTING_SET,
     AuditActions.STARTGG_RESULT_REPORTED,
+    AuditActions.STARTGG_SET_LINKED,
     AuditActions.STARTGG_CONNECTED,
     AuditActions.STARTGG_DISCONNECTED,
     # Twitch account linking.

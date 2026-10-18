@@ -249,6 +249,7 @@ class AuditActions:
     CHALLONGE_PARTICIPANT_WITHDRAWN = 'challonge.participant_withdrawn'
     CHALLONGE_STAGE_ADVANCED = 'challonge.stage_advanced'
     CHALLONGE_WEBHOOK_SYNCED = 'challonge.webhook_synced'
+    CHALLONGE_MATCH_LINKED = 'challonge.match_linked'
 
     # Twitch integration
     STARTGG_LINKED = 'startgg.linked'
@@ -262,6 +263,7 @@ class AuditActions:
     STARTGG_SUGGESTION_DISMISSED = 'startgg.suggestion_dismissed'
     STARTGG_REPORTING_SET = 'startgg.reporting_set'
     STARTGG_RESULT_REPORTED = 'startgg.result_reported'
+    STARTGG_SET_LINKED = 'startgg.set_linked'
     STARTGG_CONNECTED = 'startgg.connected'
     STARTGG_DISCONNECTED = 'startgg.disconnected'
     TWITCH_LINKED = 'twitch.linked'

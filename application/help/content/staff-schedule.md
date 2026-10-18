@@ -73,6 +73,12 @@ names them, and **Fix entrant** opens the place to match them. **All**,
 **Ready to book** and **Needs account** narrow the list, and the search finds a
 player.
 
+If the match was already scheduled by hand (with **New match**, say), link it
+instead of booking a second one. When a match with the same two players is on the
+schedule, the row says so and **Link** attaches it in one tap; otherwise use the
+row's ⋮ › **Link an existing match…**. Only unconfirmed matches with exactly the
+matchup's two players can be linked, because the result counts for that matchup.
+
 ### Who sees what
 
 Other people use this board too. Each role only gets the controls it can use.

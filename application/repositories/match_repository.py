@@ -12,7 +12,16 @@ from tortoise.expressions import Q
 from tortoise.query_utils import Prefetch
 
 from application.repositories._tenant import current_tenant_id, scoped
-from models import Commentator, Match, MatchPlayers, Tracker, User
+from models import (
+    BracketMatchGame,
+    ChallongeMatch,
+    Commentator,
+    Match,
+    MatchPlayers,
+    StartggSet,
+    Tracker,
+    User,
+)
 
 #: The person fields a schedule row reads (``MatchDisplayService`` names and DM
 #: badges). ``User`` is ~45 columns wide and a 1,300-match board loads ~5,000 of
@@ -339,6 +348,26 @@ class MatchRepository:
         if player:
             await player.delete()
     
+    @staticmethod
+    async def bracket_link_candidates(tournament_ids: List[int]) -> List[Match]:
+        """Unconfirmed matches in these tournaments that back no bracket matchup."""
+        if not tournament_ids:
+            return []
+        linked = {
+            *await scoped(ChallongeMatch.filter(
+                tournament_id__in=tournament_ids, match_id__isnull=False,
+            )).values_list('match_id', flat=True),
+            *await scoped(StartggSet.filter(
+                tournament_id__in=tournament_ids, match_id__isnull=False,
+            )).values_list('match_id', flat=True),
+            *await scoped(BracketMatchGame.filter(
+                bracket_match__bracket__tournament_id__in=tournament_ids, match_id__isnull=False,
+            )).values_list('match_id', flat=True),
+        }
+        return await scoped(Match.filter(
+            tournament_id__in=tournament_ids, confirmed_at__isnull=True,
+        )).exclude(id__in=list(linked)).prefetch_related('players__user', 'stage').order_by('scheduled_at', 'id')
+
     @staticmethod
     async def get_players(match: "Match | int") -> List[MatchPlayers]:
         """

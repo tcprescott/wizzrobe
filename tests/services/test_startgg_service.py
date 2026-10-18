@@ -255,6 +255,19 @@ class TestBooking:
             await StartggService().schedule_set(pool_set.id, '2026-10-23', '14:00', one)
 
 
+class TestLinkExistingMatch:
+    async def test_staff_link_a_hand_made_match_to_its_set(self, db, client, sent):
+        one, two = await _players()
+        tournament, actor = await _linked(client)
+        match = await Match.create(tournament=tournament)
+        await MatchPlayers.create(match=match, user=one)
+        await MatchPlayers.create(match=match, user=two)
+        row = await StartggSet.get(tournament=tournament, set_id='8101')
+        await bracket_sources.link_existing('startgg', row.id, match.id, actor)
+        assert (await StartggSet.get(id=row.id)).match_id == match.id
+        assert await AuditLog.filter(action='startgg.set_linked').count() == 1
+
+
 class TestBookablePhase:
     @staticmethod
     def _phases(*states):

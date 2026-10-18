@@ -106,3 +106,45 @@ async def test_a_bystander_still_cannot_book_someone_elses_matchup(world):
         await bracket_sources.schedule(
             'challonge', world['ready'].id, when.strftime('%Y-%m-%d'), '14:00', world['player'],
         )
+
+
+async def _hand_made(tournament, *players, **extra):
+    match = await Match.create(tournament=tournament, **extra)
+    for user in players:
+        await MatchPlayers.create(match=match, user=user)
+    return match
+
+
+async def test_a_hand_made_match_with_the_same_players_is_suggested(world):
+    match = await _hand_made(world['alttp'], world['andy'], world['benny'])
+    await _hand_made(world['alttp'], world['andy'], world['staff'])
+    await _hand_made(world['alttp'], world['andy'], world['benny'], confirmed_at=datetime.now(timezone.utc))
+    rows = {r.key: r for r in await bracket_sources.list_unbooked(world['staff'])}
+    assert [m.id for m in rows[world['ready'].id].same_player_matches] == [match.id]
+
+
+async def test_linking_a_hand_made_match_books_the_matchup(world):
+    match = await _hand_made(world['alttp'], world['andy'], world['benny'])
+    await bracket_sources.link_existing('challonge', world['ready'].id, match.id, world['admin'])
+    assert (await ChallongeMatch.get(id=world['ready'].id)).match_id == match.id
+    keys = {r.key for r in await bracket_sources.list_unbooked(world['staff'])}
+    assert world['ready'].id not in keys
+
+
+async def test_a_match_with_other_players_cannot_be_linked(world):
+    match = await _hand_made(world['alttp'], world['andy'], world['staff'])
+    with pytest.raises(ValueError, match="players"):
+        await bracket_sources.link_existing('challonge', world['ready'].id, match.id, world['staff'])
+
+
+async def test_a_match_already_linked_elsewhere_cannot_be_linked_again(world):
+    with pytest.raises(ValueError, match="can't be linked"):
+        await bracket_sources.link_existing(
+            'challonge', world['ready'].id, world['booked'].match_id, world['staff'],
+        )
+
+
+async def test_players_cannot_link_matches(world):
+    match = await _hand_made(world['alttp'], world['andy'], world['benny'])
+    with pytest.raises(PermissionError):
+        await bracket_sources.link_existing('challonge', world['ready'].id, match.id, world['andy'])

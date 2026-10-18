@@ -73,6 +73,9 @@ class UnbookedMatch:
     unlinked_entrants: List[Tuple[int, str]] = field(default_factory=list)
     best_of: int = 1
     game_number: int = 1
+    # Matches already on the schedule with exactly these two players and no
+    # bracket link: what staff most likely booked by hand for this matchup.
+    same_player_matches: List[Match] = field(default_factory=list)
 
     @property
     def ready(self) -> bool:
@@ -333,8 +336,39 @@ async def list_unbooked(actor: Optional[User]) -> List[UnbookedMatch]:
                 unlinked_entrants=[(e.id, e.display_name) for e in (a, b) if e.user_id is None],
             ))
 
+    await _attach_same_player_matches(out)
     out.sort(key=lambda u: (u.tournament.name.lower(), u.tournament.id))
     return out
+
+
+async def _attach_same_player_matches(items: List[UnbookedMatch]) -> None:
+    ready = [i for i in items if i.ready]
+    if not ready:
+        return
+    from application.services.match.match_service import MatchService
+
+    by_key: Dict[Tuple[int, frozenset], List[Match]] = {}
+    for match in await MatchService().bracket_link_candidates(sorted({i.tournament.id for i in ready})):
+        players = frozenset(p.user_id for p in match.players)  # type: ignore[attr-defined]
+        by_key.setdefault((match.tournament_id, players), []).append(match)  # type: ignore[attr-defined]
+    for item in ready:
+        item.same_player_matches = by_key.get((item.tournament.id, frozenset(item.player_ids)), [])
+
+
+async def link_existing(source_key: str, key: int, match_id: int, actor: User) -> None:
+    """Record ``match_id``, scheduled by hand, as the match for this unbooked matchup.
+
+    Staff and the tournament's admins only, and only a match with the matchup's
+    own two players: each site settles the matchup by whose rank is whose.
+    """
+    if source_key == 'challonge':
+        await ChallongeService().link_existing_match(key, match_id, actor)
+    elif source_key == 'startgg':
+        await StartggService().link_existing_match(key, match_id, actor)
+    elif source_key == 'bracket':
+        await BracketService().link_match_to_bracket_match(actor, key, match_id)
+    else:
+        raise ValueError(f'Unknown bracket source: {source_key}')
 
 
 async def sync_tournament(tournament: Tournament, actor: User) -> SyncResult:

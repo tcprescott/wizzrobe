@@ -438,6 +438,23 @@ class StartggService:
         ]
 
     @requires_feature(FeatureFlag.STARTGG)
+    async def link_existing_match(self, set_pk: int, match_id: int, actor: User) -> Match:
+        """Record that a match scheduled by hand is this set's, as booking it would have."""
+        row = require_found(await self.repository.get_set(set_pk), 'start.gg match')
+        await self._editable_tournament(row.tournament_id, actor)  # type: ignore[attr-defined]
+        if row.match_id is not None:  # type: ignore[attr-defined]
+            raise ValueError('This matchup is already booked.')
+        if row.state != StartggSetState.OPEN or not _is_real_set(row.set_id):
+            raise ValueError("This matchup isn't ready yet.")
+        players = [e.user_id if e else None for e in (row.entrant1, row.entrant2)]
+        match = await MatchService().require_bracket_linkable(match_id, row.tournament_id, players)  # type: ignore[attr-defined]
+        await self.repository.link_match(row, match)
+        await self.audit_service.write_log(actor, AuditActions.STARTGG_SET_LINKED, {
+            'tournament_id': row.tournament_id, 'set_id': row.set_id, 'match_id': match.id,  # type: ignore[attr-defined]
+        })
+        return match
+
+    @requires_feature(FeatureFlag.STARTGG)
     async def schedule_set(
         self, set_pk: int, scheduled_date: str, scheduled_time: str, actor: User,
         comment: Optional[str] = None, *, allow_outside_round: bool = False,

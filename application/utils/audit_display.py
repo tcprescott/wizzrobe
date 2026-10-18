@@ -290,6 +290,7 @@ ACTION_LABELS: dict[str, str] = {
     'challonge.participant_withdrawn': 'Withdrew on Challonge',
     'challonge.stage_advanced': 'Advanced a Challonge stage',
     'challonge.webhook_synced': 'Challonge sent an update',
+    'challonge.match_linked': 'Linked a match to its Challonge matchup',
     # start.gg
     'startgg.linked': 'Linked a start.gg account',
     'startgg.unlinked': 'Unlinked a start.gg account',
@@ -302,6 +303,7 @@ ACTION_LABELS: dict[str, str] = {
     'startgg.suggestion_dismissed': 'Dismissed a start.gg match suggestion',
     'startgg.reporting_set': 'Changed start.gg result reporting',
     'startgg.result_reported': 'Sent a result to start.gg',
+    'startgg.set_linked': 'Linked a match to its start.gg matchup',
     'startgg.connected': 'Connected start.gg',
     'startgg.disconnected': 'Disconnected start.gg',
     # Community

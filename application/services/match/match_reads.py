@@ -71,6 +71,29 @@ class MatchReadsMixin:
             return RELATION_WATCHER
         return RELATION_NONE
 
+    async def bracket_link_candidates(self, tournament_ids: List[int]) -> List[Match]:
+        """Matches staff could link to a bracket matchup: unconfirmed and unlinked."""
+        return await self.repository.bracket_link_candidates(tournament_ids)
+
+    async def require_bracket_linkable(
+        self, match_id: int, tournament_id: int, player_ids: List[Optional[int]],
+    ) -> Match:
+        """Load ``match_id`` if it may back a bracket matchup with these players, else raise.
+
+        The players must be exactly the matchup's two: a site's result is read
+        off whose rank is whose, so a mismatched link would report nothing.
+        """
+        candidates = await self.repository.bracket_link_candidates([tournament_id])
+        match = next((m for m in candidates if m.id == match_id), None)
+        if match is None:
+            raise ValueError(
+                "That match can't be linked: it's in another tournament, already "
+                "linked to a bracket, or already confirmed."
+            )
+        if {p.user_id for p in match.players} != set(player_ids):
+            raise ValueError("That match's players aren't this matchup's two players.")
+        return match
+
     async def get_match_players(self, match: Match) -> List[MatchPlayers]:
         return await self.repository.get_players(match)
 

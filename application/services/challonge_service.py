@@ -22,6 +22,7 @@ from application.errors import require_found
 from application.feature_flags import requires_feature
 from application.repositories import ChallongeRepository, TournamentRepository, UserRepository
 from application.services._challonge_communities import ChallongeCommunitiesMixin, not_found_message
+from application.services._challonge_link import ChallongeLinkMixin
 from application.services._challonge_participants import ChallongeParticipantAssignmentMixin
 from application.services._challonge_signup import ChallongeSignupMixin, misc_user_id, refuse_empty_started_bracket
 from application.services._challonge_stages import ChallongeStageMixin
@@ -86,7 +87,7 @@ def _as_aware_utc(dt: Optional[datetime]) -> Optional[datetime]:
 
 class ChallongeService(
     ChallongeParticipantAssignmentMixin, ChallongeStageMixin, ChallongeSignupMixin,
-    ChallongeCommunitiesMixin,
+    ChallongeCommunitiesMixin, ChallongeLinkMixin,
 ):
     """Business logic for the Challonge integration."""
 
