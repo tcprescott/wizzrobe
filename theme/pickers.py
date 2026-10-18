@@ -74,7 +74,11 @@ class FilterMultiSelect(ui.select):
 
 _SINGLE_OPTION_SLOT = '''
 <q-item v-bind="props.itemProps">
-    <q-item-section side v-if="props.opt.color !== undefined" class="q-pr-sm">
+    <q-item-section side v-if="props.opt.icon" class="q-pr-sm">
+        <q-icon :name="props.opt.icon" size="sm" class="wiz-select-icon"
+                :style="props.opt.color !== undefined ? {color: props.opt.color} : {}" />
+    </q-item-section>
+    <q-item-section side v-else-if="props.opt.color !== undefined" class="q-pr-sm">
         <q-icon name="circle" size="xs" :style="{color: props.opt.color}" />
     </q-item-section>
     <q-item-section>
@@ -86,7 +90,10 @@ _SINGLE_OPTION_SLOT = '''
 
 _SINGLE_SELECTED_SLOT = '''
 <span class="row items-center no-wrap">
-    <q-icon v-if="props.opt.color !== undefined" name="circle" size="xs"
+    <q-icon v-if="props.opt.icon" :name="props.opt.icon" size="sm"
+            class="wiz-select-icon q-mr-sm"
+            :style="props.opt.color !== undefined ? {color: props.opt.color} : {}" />
+    <q-icon v-else-if="props.opt.color !== undefined" name="circle" size="xs"
             class="q-mr-xs" :style="{color: props.opt.color}" />
     <span class="ellipsis">{{ props.opt.label }}</span>
 </span>
@@ -94,11 +101,12 @@ _SINGLE_SELECTED_SLOT = '''
 
 
 class ColorSelect(ui.select):
-    """A single-choice ``ui.select`` whose options can carry a colour dot, a caption, and be disabled.
+    """A single-choice ``ui.select`` whose options can carry a colour dot or icon, a caption, and be disabled.
 
     ``extras`` works as on :class:`FilterMultiSelect`, plus ``'disable': True``
     greys an option out (its caption should say why) so it can be read but not
-    picked.
+    picked, and ``'icon'`` draws that icon (muted, or in ``'color'``) in place of
+    the dot, both in the list and beside the chosen value.
     """
 
     def __init__(
