@@ -11,7 +11,8 @@ date and time for you. This page explains exactly how it picks one, so you can
 tell why it chose 10:30 and not 9:30.
 
 It only fills in the form. Nothing's booked or held until you save, and you can
-change the time before you do.
+change the time before you do. Saving checks the time again, see
+[Checking the time when you save](/help/suggest-a-time#checking-the-time-when-you-save).
 
 ## What it looks at
 
@@ -101,19 +102,44 @@ fit, so it would look further ahead and pick 14:00.
 ## What it doesn't check
 
 - **Crew and volunteer shifts.** If you're commentating, tracking or working a
-  shift at a time, it can still suggest that time. Block it out under When you
-  can't play if you want it skipped.
+  shift at a time, Suggest a time can still pick it. Block it out under When you
+  can't play if you want it skipped. The check when you save does catch these.
 - **Requests waiting for staff.** A request to move a match doesn't hold its new
   time until staff approve it.
 - **Matches running long.** Other matches are counted at their tournament's
   average length.
 - **Someone else booking at the same moment.** Two people pressing the button
-  at once can both get the same slot. Nothing's held until you save.
+  at once can both get the same slot. Nothing's held until you save, and the
+  check when you save is what catches it.
 
 It also reads days without hours differently from saving. When staff set hours
 for some days and leave others blank, Suggest a time treats the blank days as
 closed and never offers them, but a time typed in by hand on one of those days
-still saves.
+still saves (after the check below warns you).
+
+## Checking the time when you save
+
+Whatever time you end up with, suggested or typed, it's checked again when you
+press **Schedule**, **Submit**, **Create** or **Save**. If something might be
+wrong, a *Check this time* sheet lists why:
+
+- a player is already in another match then,
+- a player is commentating or tracking a match then,
+- a player isn't free then (a volunteer shift or a time they blocked out),
+- the room would hold more players than it's allowed,
+- the match would run past closing,
+- no hours are set for that day, or the day is outside the event.
+
+Press **Change time** to go back, or **Schedule anyway** to book it. It never
+stops you. A start time outside the day's hours is different: that one can't be
+saved at all.
+
+You see the details of your own shifts and blocked-out times. For another
+player you only see that they aren't free, not why. Staff and the tournament's
+admins see everything.
+
+Changing something other than the time when you edit a match doesn't bring the
+check up again.
 
 ## When it can't find anything
 
