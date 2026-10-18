@@ -239,7 +239,7 @@ def run_sheet_crew(row: dict) -> list[dict]:
         crew.append({
             'key': key, 'label': label, 'count': count,
             'short': open_ and len(people) < need,
-            'unapproved': open_ and len(people) >= need > approved,
+            'unapproved': open_ and (len(people) >= need > approved if need else len(people) > approved),
             'people': crew_people(people),
             'empty': open_ and not people,
         })

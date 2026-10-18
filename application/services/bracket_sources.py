@@ -10,7 +10,8 @@ rather than adding another hand-written call at every spot:
 * My Schedule lists :func:`list_bookable_for_user` and books through
   :func:`schedule`,
 * Admin → Tournaments syncs through :func:`sync_tournament` / :func:`sync_all`,
-  and links and unlinks through :func:`link` / :func:`unlink`.
+  links and unlinks through :func:`link` / :func:`unlink`, and counts entrants
+  still waiting for a member through :func:`unmatched_entrant_counts`.
 
 Challonge is registered for syncing only; its result push and My Schedule rows
 still run through ``ChallongeService`` directly until it moves onto the rest of
@@ -76,6 +77,8 @@ class BracketSource(Protocol):
 
     async def unlink(self, tournament: Tournament, actor: User) -> None: ...
 
+    async def count_unmatched(self, tournament_ids: List[int]) -> Dict[int, int]: ...
+
 
 class StartggSource:
     key = 'startgg'
@@ -116,6 +119,9 @@ class StartggSource:
     async def unlink(self, tournament: Tournament, actor: User) -> None:
         await StartggService().unlink_event(tournament.id, actor)
 
+    async def count_unmatched(self, tournament_ids: List[int]) -> Dict[int, int]:
+        return await StartggService().count_unmatched_entrants(tournament_ids)
+
     async def on_match_confirmed(self, match: Match, actor: Optional[User]) -> None:
         await StartggService().report_result_if_linked(match, actor)
 
@@ -146,6 +152,9 @@ class ChallongeSource:
 
     async def unlink(self, tournament: Tournament, actor: User) -> None:
         await ChallongeService().unlink_tournament(tournament.id, actor)
+
+    async def count_unmatched(self, tournament_ids: List[int]) -> Dict[int, int]:
+        return await ChallongeService().count_unmatched_participants(tournament_ids)
 
     async def on_match_confirmed(self, match: Match, actor: Optional[User]) -> None:
         return None
@@ -254,6 +263,23 @@ async def unlink(tournament: Tournament, actor: User) -> str:
         raise ValueError(f"{tournament.name} isn't linked to a bracket site.")
     await source.unlink(tournament, actor)
     return source.label
+
+
+async def unmatched_entrant_counts(tournaments: List[Tournament]) -> Dict[int, int]:
+    """Linked-bracket entrants still waiting for a Wizzrobe user, per tournament id.
+
+    A soft read for the Tournaments board: a site that fails just shows no count.
+    """
+    counts: Dict[int, int] = {}
+    for source in await live_sources():
+        ids = [t.id for t in tournaments if source.linked(t)]
+        if not ids:
+            continue
+        try:
+            counts.update(await source.count_unmatched(ids))
+        except Exception:
+            logger.warning('Unmatched-entrant count failed for %s', source.label, exc_info=True)
+    return counts
 
 
 def site_labels() -> Dict[str, str]:

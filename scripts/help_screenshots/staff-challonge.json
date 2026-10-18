@@ -36,7 +36,7 @@
         "n": 2
       },
       {
-        "selector": ".q-menu .q-item:has-text('Bracket entrants')",
+        "selector": ".q-menu .q-item:has-text('Match entrants to members')",
         "n": 3
       }
     ],
@@ -59,7 +59,7 @@
         "click": "[aria-label=\"More for Wizzrobe Dev Tournament\"] >> visible=true"
       },
       {
-        "click": ".q-menu .q-item:has-text(\"Bracket entrants\")"
+        "click": ".q-menu .q-item:has-text(\"Match entrants to members\")"
       },
       {
         "waitFor": ".q-dialog"

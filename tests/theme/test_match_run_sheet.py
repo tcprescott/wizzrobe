@@ -100,6 +100,13 @@ class TestCrew:
         assert arrange_run_sheet([row])[0]['_crew'][0]['short'] is False
 
 
+    def test_no_need_means_no_needs_crew_but_still_to_approve(self):
+        # A match off stage needs no crew (the display row sends zeros).
+        row = _row(1, 'Scheduled', crew_wanted={'commentators': True},
+                   crew_required={'commentators': 0}, commentators=[{'approved': False}])
+        crew = arrange_run_sheet([row])[0]['_crew'][0]
+        assert (crew['count'], crew['short'], crew['unapproved']) == ('1', False, True)
+
 class TestReadiness:
     def _items(self, **extra):
         from theme.dialog.match_sheet import readiness

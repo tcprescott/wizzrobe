@@ -91,3 +91,25 @@ def test_an_unlinked_row_offers_link_only_to_staff():
     assert _tournament_row(_linked(), _SITES, can_sync=True, can_link=True)['bracket_linkable'] is True
     assert _tournament_row(_linked(), _SITES, can_sync=True)['bracket_linkable'] is False
     assert _tournament_row(_linked(), (), can_sync=True, can_link=True)['bracket_linkable'] is False
+
+
+def test_a_row_names_how_many_entrants_still_need_a_member():
+    t = _linked(challonge_tournament_id='123')
+    assert _tournament_row(t, _SITES, unmatched={1: 4})['unmatched_label'] == '4 unmatched'
+    assert _tournament_row(t, _SITES, unmatched={1: 0})['unmatched_label'] == ''
+    assert _tournament_row(t, _SITES)['unmatched_label'] == ''
+
+
+def test_the_row_menu_groups_tournament_items_above_the_bracket_site():
+    from theme.tables.tournament import TournamentTableView
+
+    view = TournamentTableView.__new__(TournamentTableView)
+    view.can_sync = view.can_link = view.can_delete = True
+    html = view._more_menu()
+    order = ['>Tournament<', 'Edit tournament…', 'Players…', '{{ props.row.bracket_label }} bracket',
+             'Sync now', 'Match entrants to members…', 'Open on {{ props.row.bracket_label }}',
+             'Unlink {{ props.row.bracket_label }} bracket…', 'Delete tournament…']
+    positions = [html.index(label) for label in order]
+    assert positions == sorted(positions)
+    assert 'props.row.unmatched_label' in html
+    assert 'Bracket entrants' not in html

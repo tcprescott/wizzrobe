@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from html import escape
-from typing import Optional, Sequence
+from typing import Optional, Sequence, Union
 
 from nicegui import ui
 
@@ -31,30 +31,52 @@ class SlotItem:
     event: str
     negative: bool = False
     v_if: Optional[str] = None
+    # A row expression; when it's truthy its text shows as a chip at the item's end.
+    badge: Optional[str] = None
 
 
-def slot_more_menu(name_expr: str, items: Sequence[SlotItem], *, extra_class: str = '') -> str:
+@dataclass(frozen=True)
+class SlotHeader:
+    """A small heading that starts a group of ⋮ items, under a separator unless it's first.
+
+    ``label`` may hold ``{{ }}`` row expressions; ``v_if`` should be true whenever
+    any item of its group shows, so a heading never sits over nothing.
+    """
+    label: str
+    v_if: Optional[str] = None
+
+
+def slot_more_menu(name_expr: str, items: Sequence[Union[SlotItem, SlotHeader]], *,
+                   extra_class: str = '') -> str:
     """A row's ⋮ menu for a ``ui.table`` slot, named ``'More for ' + <name_expr>``.
 
     Destructive items go last under one separator, so pass them last; the
     separator shows whenever any of them does.
     """
-    def item_html(it: SlotItem) -> str:
+    def item_html(it: Union[SlotItem, SlotHeader], first: bool) -> str:
         cond = f' v-if="{escape(it.v_if)}"' if it.v_if else ''
+        if isinstance(it, SlotHeader):
+            sep = '' if first else f'<q-separator{cond}/>'
+            return f'{sep}<q-item-label header{cond} class="wiz-menu-header">{escape(it.label)}</q-item-label>'
         cls = ' class="text-negative"' if it.negative else ''
+        badge = (
+            f'<q-item-section side v-if="{escape(it.badge)}">'
+            f'<span class="wiz-chip wiz-chip--pending">{{{{ {escape(it.badge)} }}}}</span></q-item-section>'
+            if it.badge else ''
+        )
         return (
             f'<q-item{cond} clickable{cls} @click="$parent.$emit(\'{it.event}\', props.row)">'
             f'<q-item-section avatar><q-icon name="{it.icon}"/></q-item-section>'
-            f'<q-item-section>{escape(it.label)}</q-item-section></q-item>'
+            f'<q-item-section>{escape(it.label)}</q-item-section>{badge}</q-item>'
         )
 
-    plain = [it for it in items if not it.negative]
-    negative = [it for it in items if it.negative]
-    body = ''.join(item_html(it) for it in plain)
+    plain = [it for it in items if isinstance(it, SlotHeader) or not it.negative]
+    negative = [it for it in items if isinstance(it, SlotItem) and it.negative]
+    body = ''.join(item_html(it, i == 0) for i, it in enumerate(plain))
     if negative:
         conds = [it.v_if for it in negative]
         sep_if = '' if not plain or None in conds else ' v-if="' + escape(' || '.join(f'({c})' for c in conds)) + '"'
-        body += (f'<q-separator{sep_if}/>' if plain else '') + ''.join(item_html(it) for it in negative)
+        body += (f'<q-separator{sep_if}/>' if plain else '') + ''.join(item_html(it, False) for it in negative)
     return (
         f'<q-btn flat round dense icon="more_vert" color="grey-7" class="{extra_class}"\n'
         f'       :aria-label="\'More for \' + {name_expr}">'
