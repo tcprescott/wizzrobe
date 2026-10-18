@@ -76,8 +76,14 @@ linked bracket" without naming a site. Each site is a `BracketSource`
   failure is isolated),
 - My Schedule lists `list_bookable_for_user` and books through `schedule`,
 - Admin → Tournaments' row **Sync bracket** and Actions → **Sync all linked
-  brackets** use `sync_tournament` / `sync_all`.
+  brackets** use `sync_tournament` / `sync_all`,
+- Match Schedule's **Not booked yet** view lists `list_unbooked(actor)` (every
+  site's open, unbooked matchups plus native brackets', scoped to staff or the
+  actor's administered tournaments) and books through `schedule`. Staff and
+  tournament admins book for the players via `MatchService.book_from_bracket`,
+  which routes them through `create_match`; `allow_outside_round` carries their
+  "Book anyway".
 
-start.gg implements all of it. Challonge implements `sync` only; its result
-push and My Schedule rows still run through `ChallongeService` until they move
-onto the contract. Native brackets live in Wizzrobe and have nothing to sync.
+start.gg implements all of it. Challonge implements `sync` and `schedule`; its
+result push and My Schedule rows still run through `ChallongeService` until they
+move onto the contract. Native brackets live in Wizzrobe and have nothing to sync.
