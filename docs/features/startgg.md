@@ -68,8 +68,8 @@ and the Tournaments tab says so.
 
 ## Booking and DMs
 
-Only sets in the **bookable phase** can be booked (the last phase by default;
-staff pick another under Integrations). A set is bookable when it is OPEN on
+Only sets in the **bookable phase** can be booked (by default the earliest phase start.gg
+has under way, else the last phase; staff can pin one under Integrations). A set is bookable when it is OPEN on
 start.gg, is a real set (not a `preview_` id), has both entrants mapped and has
 no match yet. A sync that makes a set newly bookable DMs both players with a
 link straight to the picker (`/home/player?startgg=<set id>`); booking goes

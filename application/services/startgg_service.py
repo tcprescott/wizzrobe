@@ -355,10 +355,14 @@ class StartggService:
     # ------------------------------------------------------------------
     @staticmethod
     def bookable_phase_id(tournament: Tournament, phases: List[StartggPhase]) -> Optional[str]:
-        """The phase players book from: the chosen one, else the event's last phase."""
+        """The phase players book from: the chosen one, else the earliest phase
+        start.gg has under way, else the event's last phase."""
         if tournament.startgg_bookable_phase_id:
             return tournament.startgg_bookable_phase_id
         ordered = sorted(phases, key=lambda p: (p.phase_order, p.id))
+        active = [p for p in ordered if p.state == 'ACTIVE']
+        if active:
+            return active[0].phase_id
         return ordered[-1].phase_id if ordered else None
 
     @staticmethod

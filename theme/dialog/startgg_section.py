@@ -68,7 +68,7 @@ async def render_startgg_section(tournament, dialog) -> None:
             .classes('text-caption text-muted')
 
         phases = await service.list_phases(tournament.id, actor)
-        options = {_LAST_PHASE: 'Last phase (default)'}
+        options = {_LAST_PHASE: 'The phase in progress (default)'}
         options.update({p.phase_id: p.name for p in phases})
 
         async def set_phase(e) -> None:

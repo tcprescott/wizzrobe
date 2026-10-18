@@ -2,6 +2,7 @@
 
 import copy
 from datetime import datetime, timezone
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -252,6 +253,30 @@ class TestBooking:
         pool_set = await StartggSet.get(tournament=tournament, set_id='8001')
         with pytest.raises(ValueError, match='ready'):
             await StartggService().schedule_set(pool_set.id, '2026-10-23', '14:00', one)
+
+
+class TestBookablePhase:
+    @staticmethod
+    def _phases(*states):
+        return [SimpleNamespace(phase_id=str(i), phase_order=i, id=i, state=st) for i, st in enumerate(states, 1)]
+
+    def test_defaults_to_the_phase_under_way(self):
+        tournament = SimpleNamespace(startgg_bookable_phase_id=None)
+        phases = self._phases('ACTIVE', 'CREATED')
+        assert StartggService.bookable_phase_id(tournament, phases) == '1'
+
+    def test_moves_on_when_the_next_phase_starts(self):
+        tournament = SimpleNamespace(startgg_bookable_phase_id=None)
+        phases = self._phases('COMPLETED', 'ACTIVE')
+        assert StartggService.bookable_phase_id(tournament, phases) == '2'
+
+    def test_falls_back_to_the_last_phase_when_none_is_under_way(self):
+        tournament = SimpleNamespace(startgg_bookable_phase_id=None)
+        assert StartggService.bookable_phase_id(tournament, self._phases('CREATED', 'CREATED')) == '2'
+
+    def test_a_staff_pick_wins(self):
+        tournament = SimpleNamespace(startgg_bookable_phase_id='2')
+        assert StartggService.bookable_phase_id(tournament, self._phases('ACTIVE', 'CREATED')) == '2'
 
 
 class TestWriteback:
