@@ -234,6 +234,18 @@ class StartggRepository:
         )).prefetch_related('tournament', 'pool__phase', 'entrant1__user', 'entrant2__user')
 
     @staticmethod
+    async def open_unbooked_sets(tournament_ids: Optional[List[int]] = None) -> List[StartggSet]:
+        """Every open, unbooked set in active tournaments; ``None`` means all of them."""
+        qs = scoped(StartggSet.filter(
+            state=StartggSetState.OPEN, match_id__isnull=True, tournament__is_active=True,
+        ))
+        if tournament_ids is not None:
+            qs = qs.filter(tournament_id__in=tournament_ids)
+        return await qs.prefetch_related(
+            'tournament', 'pool__phase', 'entrant1__user', 'entrant2__user',
+        ).order_by('tournament_id', 'round', 'identifier', 'id')
+
+    @staticmethod
     async def prune(
         tournament: Tournament, *, entrant_ids: Set[str], phase_ids: Set[str],
         pool_ids: Set[str], set_ids: Set[str],

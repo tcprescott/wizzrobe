@@ -346,3 +346,15 @@ class ChallongeRepository:
         )).prefetch_related(
             'tournament', 'participant1__user', 'participant2__user',
         )
+
+    @staticmethod
+    async def unscheduled_open_matches(tournament_ids: Optional[List[int]] = None) -> List[ChallongeMatch]:
+        """Every open, unbooked bracket match in active tournaments; ``None`` means all of them."""
+        qs = scoped(ChallongeMatch.filter(
+            state=ChallongeMatchState.OPEN, match_id__isnull=True, tournament__is_active=True,
+        ))
+        if tournament_ids is not None:
+            qs = qs.filter(tournament_id__in=tournament_ids)
+        return await qs.prefetch_related(
+            'tournament', 'participant1__user', 'participant2__user',
+        ).order_by('tournament_id', 'round', 'id')

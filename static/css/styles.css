@@ -6334,6 +6334,69 @@ ol.wiz-help-list { list-style-type: decimal; }
     }
 }
 
+/* Match Schedule's view switch and its "Not booked yet" view
+   (theme/unbooked_board.py): open bracket matchups nobody has booked, one
+   group per tournament like the players' pick-a-time card. A row is one line
+   on desktop (matchup, round, actions) and stacks on a phone. */
+.schedule-view-switch {
+    align-self: flex-start;
+    margin-bottom: var(--space-3);
+}
+.unbooked-board__search {
+    min-width: 0;
+    max-width: 22rem;
+}
+.unbooked-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(8rem, 12rem) auto;
+    align-items: center;
+    gap: var(--space-1) var(--space-3);
+    padding: var(--space-2) var(--space-3);
+    border-top: 1px solid var(--border-subtle);
+}
+.unbooked-row__matchup {
+    font-weight: 700;
+    overflow-wrap: anywhere;
+}
+.unbooked-row__note,
+.unbooked-row__round {
+    color: var(--fg-secondary);
+    font-size: var(--text-sm);
+    line-height: 1.4;
+}
+.unbooked-row__note--blocked {
+    color: var(--status-pending);
+}
+.unbooked-row__actions {
+    justify-content: flex-end;
+}
+@media (max-width: 1023.98px) {
+    .unbooked-board__filters {
+        flex-wrap: wrap;
+    }
+    .unbooked-board__search {
+        max-width: none;
+        flex-basis: 100%;
+    }
+    .unbooked-row {
+        grid-template-columns: minmax(0, 1fr) auto;
+    }
+    .unbooked-row__who {
+        grid-column: 1 / -1;
+    }
+    .unbooked-row__round {
+        grid-column: 1 / -1;
+        grid-row: 2;
+    }
+    .unbooked-row__actions {
+        grid-column: 1 / -1;
+        justify-content: space-between;
+    }
+    .unbooked-row__chip {
+        margin-left: auto;
+    }
+}
+
 .match-inbox {
     gap: 0.5rem;
 }

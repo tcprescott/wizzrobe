@@ -252,6 +252,35 @@ class MatchService(
 
         return match
 
+    async def book_from_bracket(
+        self,
+        tournament_id: int,
+        scheduled_date: str,
+        scheduled_time: str,
+        player_ids: List[int],
+        actor: User,
+        comment: Optional[str] = None,
+    ) -> Match:
+        """Book a linked bracket site's matchup, whoever is booking it.
+
+        Staff and the tournament's admins book on the players' behalf through
+        :meth:`create_match`, as they do for a native bracket; anyone else goes
+        through :meth:`submit_match_request`, which only lets a player of the
+        matchup in. Both skip the player-request toggle and the roster
+        membership check, because the bracket supplied the players.
+        """
+        if await AuthService.is_staff(actor) or await AuthService.is_tournament_admin(actor, tournament_id):
+            return await self.create_match(
+                tournament_id=tournament_id, scheduled_date=scheduled_date,
+                scheduled_time=scheduled_time, player_ids=player_ids,
+                comment=comment, actor=actor, from_bracket=True,
+            )
+        return await self.submit_match_request(
+            tournament_id=tournament_id, scheduled_date=scheduled_date,
+            scheduled_time=scheduled_time, player_ids=player_ids,
+            actor=actor, comment=comment, from_bracket=True,
+        )
+
     async def update_match(
         self,
         match_id: int,

@@ -267,15 +267,15 @@ class TestScheduleChallongeMatch:
 
         created_match = await Match.create(tournament=tournament)
         fake_ms = MagicMock()
-        fake_ms.submit_match_request = AsyncMock(return_value=created_match)
+        fake_ms.book_from_bracket = AsyncMock(return_value=created_match)
         monkeypatch.setattr('application.services.challonge_service.MatchService', lambda: fake_ms)
 
         returned = await make_service().schedule_challonge_match(
             challonge_match_pk=cmatch.id, scheduled_date='2026-06-12', scheduled_time='14:30', actor=actor,
         )
         assert returned.id == created_match.id
-        fake_ms.submit_match_request.assert_awaited_once()
-        _, kwargs = fake_ms.submit_match_request.call_args
+        fake_ms.book_from_bracket.assert_awaited_once()
+        _, kwargs = fake_ms.book_from_bracket.call_args
         assert sorted(kwargs['player_ids']) == sorted([actor.id, opponent.id])
 
         await cmatch.refresh_from_db()

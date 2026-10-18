@@ -407,9 +407,25 @@ class StartggService:
         ]
 
     @requires_feature(FeatureFlag.STARTGG)
+    async def list_unbooked_sets(self, tournament_ids: Optional[List[int]] = None) -> List[StartggSet]:
+        """Sets in each tournament's bookable phase that nobody has booked yet. Callers authorize."""
+        rows = await self.repository.open_unbooked_sets(tournament_ids)
+        phases: Dict[int, Optional[str]] = {}
+        for row in rows:
+            if row.tournament_id not in phases:  # type: ignore[attr-defined]
+                phases[row.tournament_id] = self.bookable_phase_id(  # type: ignore[attr-defined]
+                    row.tournament, await self.repository.list_phases(row.tournament),
+                )
+        return [
+            r for r in rows
+            if _is_real_set(r.set_id) and r.entrant1 is not None and r.entrant2 is not None
+            and r.pool.phase.phase_id == phases[r.tournament_id]  # type: ignore[attr-defined]
+        ]
+
+    @requires_feature(FeatureFlag.STARTGG)
     async def schedule_set(
         self, set_pk: int, scheduled_date: str, scheduled_time: str, actor: User,
-        comment: Optional[str] = None,
+        comment: Optional[str] = None, *, allow_outside_round: bool = False,
     ) -> Match:
         row = require_found(await self.repository.get_set(set_pk), 'start.gg match')
         if row.match_id is not None:  # type: ignore[attr-defined]
@@ -426,19 +442,15 @@ class StartggService:
         rounds = RoundScheduleService()
         await rounds.check_booking(
             await rounds.window_for_startgg_set(row), row.tournament,
-            scheduled_date, scheduled_time, actor,
+            scheduled_date, scheduled_time, actor, allow_outside_round=allow_outside_round,
         )
-        match = await MatchService().submit_match_request(
+        match = await MatchService().book_from_bracket(
             tournament_id=row.tournament_id,  # type: ignore[attr-defined]
             scheduled_date=scheduled_date,
             scheduled_time=scheduled_time,
             player_ids=[e1.user.id, e2.user.id],
             actor=actor,
             comment=comment,
-            # The bracket is the sanctioned path here, and the service authorizes
-            # the actor as one of the set's players, so the tournament's
-            # player-request toggle doesn't apply.
-            from_bracket=True,
         )
         await self.repository.link_match(row, match)
         return match

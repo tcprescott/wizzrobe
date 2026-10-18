@@ -227,16 +227,15 @@ class TestBooking:
         tournament, _ = await _linked(client)
         created = await Match.create(tournament=tournament)
         fake = MagicMock()
-        fake.submit_match_request = AsyncMock(return_value=created)
+        fake.book_from_bracket = AsyncMock(return_value=created)
         monkeypatch.setattr('application.services.startgg_service.MatchService', lambda: fake)
 
         bookable = await bracket_sources.list_bookable_for_user(one)
         assert [b.opponent_name for b in bookable] == ['Player Two']
         await bracket_sources.schedule('startgg', bookable[0].key, '2026-10-23', '14:00', one)
 
-        _, kwargs = fake.submit_match_request.call_args
+        _, kwargs = fake.book_from_bracket.call_args
         assert sorted(kwargs['player_ids']) == sorted([one.id, two.id])
-        assert kwargs['from_bracket'] is True
         assert (await StartggSet.get(set_id='8101')).match_id == created.id
         assert await bracket_sources.list_bookable_for_user(one) == []
 

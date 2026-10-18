@@ -10,9 +10,9 @@ date/time inputs.
 
 Two modes, because the two surfaces address different people: pass
 ``opponent_name`` for a player scheduling their own matchup ("Schedule vs Bob"),
-or ``matchup_label`` for staff scheduling someone else's ("Alice vs Bob"). Only
-the player mode gets a Suggest a time button — it needs the two user ids, which
-the staff bracket view does not carry. Shares the button with the non-bracket
+or ``matchup_label`` for staff scheduling someone else's ("Alice vs Bob"). The
+Suggest a time button needs the two user ids, which the staff bracket view does
+not carry; Match Schedule's "Not booked yet" view does. Shares the button with the non-bracket
 UserMatchDialog match-request dialog (``theme/dialog/match_dialog.py``).
 
 ``tenant_id`` is optional: pass it from a detached client event (the bracket
@@ -119,7 +119,10 @@ class BracketScheduleDialog:
         if self.tenant_id is None:
             self.tenant_id = get_current_tenant_id()
         default_date, default_time = self._defaults()
-        can_suggest = bool(self.opponent_name and self.tournament_id and len(self.player_ids) == 2)
+        can_suggest = bool(
+            (self.opponent_name or self.matchup_label) and self.tournament_id
+            and len(self.player_ids) == 2
+        )
 
         with ui.dialog() as dialog, ui.card().classes('dialog-card dialog-card--sm'):
             self.dialog = dialog
@@ -142,9 +145,10 @@ class BracketScheduleDialog:
                 error = FieldError(date, time)
 
                 if can_suggest:
-                    # Player mode only (opponent_name is set from the player
-                    # dashboard). The suggestion runs in this click's own
-                    # request-scoped tenant context.
+                    # Needs both players' ids: the player dashboard and Match
+                    # Schedule's "Not booked yet" view pass them, the staff
+                    # bracket view doesn't. The suggestion runs in this click's
+                    # own request-scoped tenant context.
                     render_suggest_time_button(
                         dialog,
                         get_tournament_id=lambda: self.tournament_id,

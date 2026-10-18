@@ -5,9 +5,9 @@ from typing import Any
 
 from nicegui import background_tasks, context, ui
 
-from application.services import MatchRescheduleService
+from application.services import FeatureFlagService, MatchRescheduleService
 from application.tenant_context import require_tenant_id
-from models import Match, RescheduleRequestStatus
+from models import FeatureFlag, Match, RescheduleRequestStatus
 from pages.admin_tabs.links import SCHEDULE, admin_url
 from theme.dialog.match_dialog import AdminMatchDialog
 from theme.dialog.match_sheet import MatchSheet
@@ -22,6 +22,7 @@ from theme.tables.match_access import MatchBoardAccess
 from theme.tables.match_lifecycle import MatchLifecycleHandlers
 from theme.tables.match_run_sheet import RUN_SHEET_COLUMNS
 from theme.tables.preferences import TableKeys
+from theme.unbooked_board import UnbookedBoard
 
 
 async def _render_inbox(inbox, anchor, request_id, open_decision, client, *, may_decide: bool) -> None:
@@ -41,6 +42,15 @@ async def _render_inbox(inbox, anchor, request_id, open_decision, client, *, may
         await inbox.render()
     if request_id is not None and may_decide:
         await open_decision(int(request_id), client)
+
+
+#: The bracket features whose matchups the "Not booked yet" view lists.
+_BRACKET_FLAGS = frozenset({FeatureFlag.CHALLONGE, FeatureFlag.STARTGG, FeatureFlag.BRACKETS})
+
+
+async def _render_unbooked(board: UnbookedBoard, anchor, client) -> None:
+    with client, anchor:
+        await board.render()
 
 
 async def admin_schedule_page(
@@ -175,26 +185,58 @@ async def admin_schedule_page(
             # task once the board exists (the inbox reads the board's rows).
             inbox_anchor = ui.column().classes('schedule-layout__inbox gap-0')
             with ui.column().classes('schedule-layout__board gap-0'):
-                table_view = MatchTableView(
-                    columns=RUN_SHEET_COLUMNS,
-                    get_query=get_query,
-                    admin_controls=True,
-                    access=access,
-                    storage_key='admin_schedule',
-                    table_key=TableKeys.ADMIN_SCHEDULE,
-                    show_accommodations=True,
-                    show_comment_counts=True,
-                    searchable=True,
-                    # The admin's job *is* the Finished-not-yet-Confirmed set, so it
-                    # must be on screen without them discovering the State filter.
-                    default_state_filter=['Scheduled', 'Checked In', 'Started', 'Finished'],
-                    match_ids=[match_id] if match_id else None,
-                    scope_tournament_ids=tournament_ids,
-                    on_rows_changed=_rows_changed,
-                    layout='run_sheet',
-                    on_open_match=sheet.open,
-                    **handlers.callbacks(),
+                # Staff and tournament admins can book a bracket's matchups for
+                # its players, so they get the matchups nobody has booked yet
+                # as a second view of the board.
+                show_unbooked = access.edit and bool(
+                    _BRACKET_FLAGS & await FeatureFlagService().enabled_flags()
                 )
+                switch: Any = None
+                if show_unbooked:
+                    def _switch_views(view: str) -> None:
+                        booked_box.set_visibility(view != 'unbooked')
+                        unbooked_box.set_visibility(view == 'unbooked')
+                        if view == 'unbooked':
+                            unbooked.refresh()
+
+                    switch = ui.toggle(
+                        {'booked': 'Booked', 'unbooked': 'Not booked yet'}, value='booked',
+                        on_change=lambda e: _switch_views(e.value),
+                    ).props('no-caps dense unelevated aria-label="Show"') \
+                        .classes('wiz-segmented schedule-view-switch')
+                booked_box = ui.column().classes('full-width gap-0')
+                unbooked_box = ui.column().classes('full-width gap-0')
+                unbooked_box.set_visibility(False)
+                with booked_box:
+                    table_view = MatchTableView(
+                        columns=RUN_SHEET_COLUMNS,
+                        get_query=get_query,
+                        admin_controls=True,
+                        access=access,
+                        storage_key='admin_schedule',
+                        table_key=TableKeys.ADMIN_SCHEDULE,
+                        show_accommodations=True,
+                        show_comment_counts=True,
+                        searchable=True,
+                        # The admin's job *is* the Finished-not-yet-Confirmed set, so it
+                        # must be on screen without them discovering the State filter.
+                        default_state_filter=['Scheduled', 'Checked In', 'Started', 'Finished'],
+                        match_ids=[match_id] if match_id else None,
+                        scope_tournament_ids=tournament_ids,
+                        on_rows_changed=_rows_changed,
+                        layout='run_sheet',
+                        on_open_match=sheet.open,
+                        **handlers.callbacks(),
+                    )
+                if show_unbooked:
+                    unbooked = UnbookedBoard(
+                        on_count=lambda n: switch.set_options(
+                            {'booked': 'Booked', 'unbooked': f'Not booked yet · {n}' if n else 'Not booked yet'},
+                            value=switch.value,
+                        ),
+                        on_booked=lambda: table_view.refresh(),
+                        can_open_native_entrants=access.edit_scope is None,
+                    )
         handlers.table_view = table_view
         sheet.view = table_view
         inbox.view = table_view
@@ -205,6 +247,8 @@ async def admin_schedule_page(
             inbox, inbox_anchor, reschedule_request,
             _open_decision, context.client, may_decide=access.edit,
         ))
+        if show_unbooked:
+            background_tasks.create(_render_unbooked(unbooked, unbooked_box, context.client))
 
         async def _on_live_change(_match_id, _change_type) -> None:
             """Re-read the inbox when anything about a match changes elsewhere.
