@@ -9,6 +9,7 @@ import re
 from datetime import date, time
 from typing import Dict, List, Optional, Tuple
 
+from application.repositories._save import save_fields
 from application.services.audit_service import AuditActions, AuditService
 from application.services.auth_service import AuthService
 from application.tenant_context import require_tenant_id
@@ -87,7 +88,7 @@ class SystemConfigService:
         old_value = config.value if config else None
         if config:
             config.value = value
-            await config.save()
+            await save_fields(config, 'value')
             result = config
         else:
             result = await SystemConfiguration.create(name=key, value=value, tenant_id=tenant_id)

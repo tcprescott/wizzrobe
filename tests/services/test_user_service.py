@@ -52,6 +52,7 @@ def make_user(user_id=1, **overrides):
         discord_id='123',
         updated_at=datetime(2025, 1, 15, 12, 0, tzinfo=timezone.utc),
         save=AsyncMock(),
+        _meta=SimpleNamespace(fields_map={}),
     )
     defaults.update(overrides)
     return SimpleNamespace(**defaults)
@@ -87,7 +88,7 @@ class TestUpdateUserPersonalInfo:
         await service.update_user_personal_info(
             user, actor=user, display_name='New Name',
         )
-        user.save.assert_awaited_once()
+        user.save.assert_awaited_once_with(update_fields=['display_name'])
 
     async def test_no_save_when_nothing_provided(self, service):
         user = make_user()

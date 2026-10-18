@@ -15,6 +15,7 @@ from datetime import datetime, timedelta, timezone
 from typing import List, Optional
 
 from application.repositories import ProviderTaskRepository
+from application.repositories._save import save_fields
 from models import ProviderTask, ProviderTaskStatus, User
 
 logger = logging.getLogger(__name__)
@@ -69,7 +70,7 @@ class ProviderTaskService:
         task.provider_params = provider_params
         task.settings_snapshot = settings
         task.status = ProviderTaskStatus.RUNNING
-        await task.save()
+        await save_fields(task, 'provider_task_id', 'provider_params', 'settings_snapshot', 'status')
         return task
 
     async def claim(self, task: ProviderTask, status: ProviderTaskStatus) -> bool:

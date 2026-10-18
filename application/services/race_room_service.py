@@ -37,6 +37,7 @@ from application.errors import require_found
 from application.events import Event, EventType, event_bus
 from application.feature_flags import requires_feature
 from application.repositories import RacetimeRoomRepository
+from application.repositories._save import save_fields
 from application.services.audit_service import AuditActions, AuditService
 from application.services.auth_service import AuthService
 from application.services.user_service import UserService
@@ -296,7 +297,7 @@ class RaceRoomService:
             if match.seated_at is None:
                 match.seated_at = now
             match.started_at = now
-            await match.save()
+            await save_fields(match, 'seated_at', 'started_at')
         await self.room_repository.update(
             room, status=RaceRoomStatus.IN_PROGRESS,
             opened_at=(room.opened_at or now),
@@ -349,13 +350,13 @@ class RaceRoomService:
         for mp, (rank, ftime) in results.items():
             mp.finish_rank = rank
             mp.finish_time = ftime
-            await mp.save()
+            await save_fields(mp, 'finish_rank', 'finish_time')
 
         if match is not None:
             if match.started_at is None:
                 match.started_at = now
             match.finished_at = now
-            await match.save()
+            await save_fields(match, 'started_at', 'finished_at')
 
         await self.room_repository.update(room, status=RaceRoomStatus.FINISHED)
 

@@ -7,6 +7,7 @@ Volunteers placed into shifts.
 from datetime import datetime
 from typing import List, Optional, Sequence, Set, cast
 
+from application.repositories._save import save_fields
 from application.repositories._tenant import current_tenant_id, scoped
 from models import User, VolunteerAssignment, VolunteerShift
 
@@ -59,12 +60,9 @@ class VolunteerAssignmentRepository:
 
     @staticmethod
     async def save(
-        assignment: VolunteerAssignment, update_fields: Optional[Sequence[str]] = None,
+        assignment: VolunteerAssignment, update_fields: Sequence[str],
     ) -> VolunteerAssignment:
-        if update_fields is None:
-            await assignment.save()
-        else:
-            await assignment.save(update_fields=[*update_fields, 'updated_at'])
+        await save_fields(assignment, *update_fields)
         return assignment
 
     @staticmethod

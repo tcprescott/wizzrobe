@@ -108,6 +108,7 @@ EXPECTED_WIRING = {
     "check_api_route_auth": {("PostToolUse", "Write|Edit")},
     "check_audit_actions": {("PostToolUse", "Write|Edit")},
     "check_audit_actor": {("PostToolUse", "Write|Edit")},
+    "check_bare_save": {("PreToolUse", "Write|Edit")},
     "check_dry_regressions": {("PreToolUse", "Write|Edit")},
     "check_event_types": {("PostToolUse", "Write|Edit")},
     "check_feature_flag_gating": {("PostToolUse", "Write|Edit")},

@@ -13,6 +13,7 @@ from tortoise.transactions import in_transaction
 from application.errors import require_found
 from application.events import Event, EventType, event_bus, match_live
 from application.repositories import CommentatorRepository, MatchRepository, TrackerRepository
+from application.repositories._save import save_fields
 from application.services import notification_links
 from application.services.audit_service import AuditActions, AuditService
 from application.services.auth_service import AuthService
@@ -362,7 +363,7 @@ class CrewService:
             crew_member.acknowledged_at = None
 
         async with in_transaction():
-            await crew_member.save()
+            await save_fields(crew_member, 'approved', 'approved_by', 'acknowledged_at')
             details = {
                 'crew_type': crew_type,
                 'crew_id': crew_member.id,

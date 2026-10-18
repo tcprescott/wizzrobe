@@ -11,6 +11,7 @@ from typing import Generic, List, Optional, Type, TypeVar
 from tortoise.expressions import Q
 from tortoise.models import Model
 
+from application.repositories._save import save_fields
 from application.repositories._tenant import current_tenant_id, scoped
 from models import Match, User
 
@@ -85,7 +86,7 @@ class CrewRepository(Generic[T]):
     async def update(cls, crew_member: T, **fields) -> T:
         """Update a crew entry."""
         await crew_member.update_from_dict(fields)
-        await crew_member.save()
+        await save_fields(crew_member, *fields)
         return crew_member
 
     @classmethod

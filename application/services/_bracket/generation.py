@@ -11,6 +11,7 @@ from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Tuple
 
 from application.events import EventType
+from application.repositories._save import save_fields
 from application.services._bracket._composed import ComposedBracketService
 from application.services.audit_service import AuditActions
 from application.services.auth_service import AuthService
@@ -280,7 +281,7 @@ class GenerationMixin(ComposedBracketService):
             await self._start_generative(bracket, num_entries, seed_to_entry, engine, config_dict)
 
         bracket.state = BracketState.ACTIVE
-        await bracket.save()
+        await save_fields(bracket, 'state')
 
         details = {
             'bracket_id': bracket.id,
@@ -345,7 +346,7 @@ class GenerationMixin(ComposedBracketService):
         for entry in entries:
             if entry.seed != seed_of[entry.id]:
                 entry.seed = seed_of[entry.id]
-                await entry.save()
+                await save_fields(entry, 'seed')
         return {e.seed: e for e in entries}
 
     async def _start_generative(
@@ -397,7 +398,7 @@ class GenerationMixin(ComposedBracketService):
                 bm.loser_to_slot = gm.loser_to.slot
                 changed = True
             if changed:
-                await bm.save()
+                await save_fields(bm, 'winner_to', 'winner_to_slot', 'loser_to', 'loser_to_slot')
 
         # Materialize initial state: auto-complete every structural bye and
         # propagate its winner, iterating to a fixpoint (byes never create new
@@ -427,7 +428,7 @@ class GenerationMixin(ComposedBracketService):
                 match.state = BracketMatchState.OPEN
             else:
                 match.state = BracketMatchState.PENDING
-            await match.save()
+            await save_fields(match, 'state')
 
     async def _start_swiss(
         self,
@@ -475,7 +476,7 @@ class GenerationMixin(ComposedBracketService):
         """
         match.winner = winner_entry
         match.state = BracketMatchState.COMPLETE
-        await match.save()
+        await save_fields(match, 'winner', 'state')
 
         if match.winner_to_id is None:
             return None
@@ -486,5 +487,5 @@ class GenerationMixin(ComposedBracketService):
             target.entry1 = winner_entry
         else:
             target.entry2 = winner_entry
-        await target.save()
+        await save_fields(target, 'entry1' if match.winner_to_slot == 1 else 'entry2')
         return target

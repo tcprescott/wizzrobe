@@ -25,6 +25,7 @@ from datetime import datetime, timezone
 from typing import Dict, List, Optional, Sequence, Set, Tuple
 
 from application.events import EventType
+from application.repositories._save import save_fields
 from application.services._bracket._composed import ComposedBracketService
 from application.services.audit_service import AuditActions
 from application.services.bracket_config import validate_best_of
@@ -268,7 +269,7 @@ class SeriesMixin(ComposedBracketService):
         for game in games:
             game.state = BracketMatchGameState.CANCELLED
             game.cancelled_reason = reason
-            await game.save()
+            await save_fields(game, 'state', 'cancelled_reason')
             await self.audit_service.write_and_publish(
                 actor, AuditActions.BRACKET_GAME_CANCELLED,
                 {

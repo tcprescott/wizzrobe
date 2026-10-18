@@ -16,6 +16,7 @@ from typing import Any, Iterable, List, Mapping, Optional
 from application.errors import require_found
 from application.events import EventType
 from application.feature_flags import requires_feature
+from application.repositories._save import save_fields
 from application.repositories.tournament_payout_repository import (
     TournamentPayoutRepository,
 )
@@ -197,7 +198,7 @@ class PayoutService:
         bonus = self._validate_money(bonus, 'Bonus')
         tournament.prize_pool = pool  # type: ignore[assignment]
         tournament.prize_bonus = bonus  # type: ignore[assignment]
-        await tournament.save()
+        await save_fields(tournament, 'prize_pool', 'prize_bonus')
         await self.audit_service.write_and_publish(
             actor,
             AuditActions.TOURNAMENT_PRIZE_POOL_UPDATED,
@@ -271,7 +272,7 @@ class PayoutService:
                     f'{payout.place}.'
                 )
         payout.entrant = entrant
-        await payout.save()
+        await save_fields(payout, 'entrant')
         await self.audit_service.write_and_publish(
             actor,
             AuditActions.TOURNAMENT_PAYOUT_UPDATED,

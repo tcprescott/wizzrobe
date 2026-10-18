@@ -380,8 +380,8 @@ class TestMatchLifecycleEvents:
     async def test_record_result_publishes_result_recorded_event(self, service, captured_events):
         from application.events import EventType
 
-        p1 = SimpleNamespace(id=10, finish_rank=None, save=AsyncMock())
-        p2 = SimpleNamespace(id=11, finish_rank=None, save=AsyncMock())
+        p1 = SimpleNamespace(id=10, finish_rank=None, save=AsyncMock(), _meta=SimpleNamespace(fields_map={}))
+        p2 = SimpleNamespace(id=11, finish_rank=None, save=AsyncMock(), _meta=SimpleNamespace(fields_map={}))
         match = make_match(tournament_id=9, players=[p1, p2])
         service.repository.get_by_id = AsyncMock(return_value=match)
 
@@ -431,7 +431,7 @@ class TestMatchLifecycleEvents:
             system_config_service.SystemConfigService, 'get_station_format', free_format
         )
 
-        player = SimpleNamespace(id=10, assigned_station=None, save=AsyncMock())
+        player = SimpleNamespace(id=10, assigned_station=None, save=AsyncMock(), _meta=SimpleNamespace(fields_map={}))
         match = make_match(tournament_id=9, players=[player])
         service.repository.get_by_id = AsyncMock(return_value=match)
 

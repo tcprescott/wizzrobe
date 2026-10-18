@@ -21,6 +21,7 @@ from urllib.parse import urlparse
 from application.errors import require_found
 from application.feature_flags import requires_feature
 from application.repositories import ChallongeRepository, TournamentRepository, UserRepository
+from application.repositories._save import save_fields
 from application.services._challonge_communities import ChallongeCommunitiesMixin, not_found_message
 from application.services._challonge_link import ChallongeLinkMixin
 from application.services._challonge_participants import ChallongeParticipantAssignmentMixin
@@ -289,7 +290,7 @@ class ChallongeService(ChallongeParticipantAssignmentMixin, ChallongeStageMixin,
         user.challonge_user_id = cuid
         user.challonge_username = (challonge_username or '').strip() or None
         user.challonge_linked_at = datetime.now(timezone.utc)
-        await user.save()
+        await save_fields(user, 'challonge_user_id', 'challonge_username', 'challonge_linked_at')
         details = {
             'user_id': user.id,
             'challonge_user_id': cuid,
@@ -380,7 +381,7 @@ class ChallongeService(ChallongeParticipantAssignmentMixin, ChallongeStageMixin,
         await self._ensure_may_link_for(user, actor)
         old_username = user.challonge_username
         user.challonge_username = new_username
-        await user.save()
+        await save_fields(user, 'challonge_username')
         await self.audit_service.write_log(
             actor, AuditActions.CHALLONGE_PLAYER_USERNAME_UPDATED,
             {'user_id': user.id, 'old_username': old_username, 'new_username': new_username},
@@ -391,7 +392,7 @@ class ChallongeService(ChallongeParticipantAssignmentMixin, ChallongeStageMixin,
         user.challonge_user_id = None
         user.challonge_username = None
         user.challonge_linked_at = None
-        await user.save()
+        await save_fields(user, 'challonge_user_id', 'challonge_username', 'challonge_linked_at')
         await self.audit_service.write_log(
             actor, AuditActions.CHALLONGE_PLAYER_UNLINKED, {'user_id': user.id},
         )
@@ -475,14 +476,13 @@ class ChallongeService(ChallongeParticipantAssignmentMixin, ChallongeStageMixin,
             raise ValueError(f"Could not find that Challonge tournament: {e}") from e
 
         remote = full['tournament']
-        tournament.challonge_tournament_id = remote.get('id') or identifier
-        tournament.challonge_community = community  # type: ignore[assignment]
-        tournament.challonge_tournament_url = remote.get('url')
         # A bracket-run tournament schedules only what the bracket produced, so
         # close the manual player-request path. Staff can re-open it per
         # tournament from the tournament editor.
-        tournament.allow_player_match_requests = False
-        await tournament.save()
+        await self.tournament_repository.update(
+            tournament, challonge_tournament_id=remote.get('id') or identifier, challonge_community=community,
+            challonge_tournament_url=remote.get('url'), allow_player_match_requests=False,
+        )
 
         await self.audit_service.write_log(
             actor, AuditActions.CHALLONGE_TOURNAMENT_LINKED,
@@ -523,13 +523,10 @@ class ChallongeService(ChallongeParticipantAssignmentMixin, ChallongeStageMixin,
             'participants_removed': participants,
             'matches_removed': matches,
         }
-        tournament.challonge_tournament_id = None
-        tournament.challonge_community = None  # type: ignore[assignment]
-        tournament.challonge_tournament_url = None
-        tournament.challonge_last_synced_at = None
-        tournament.challonge_state = None  # type: ignore[assignment]
-        tournament.challonge_group_stage = False
-        await tournament.save()
+        await self.tournament_repository.update(
+            tournament, challonge_tournament_id=None, challonge_community=None, challonge_tournament_url=None,
+            challonge_last_synced_at=None, challonge_state=None, challonge_group_stage=False,
+        )
 
         await self.audit_service.write_log(
             actor, AuditActions.CHALLONGE_TOURNAMENT_UNLINKED, details,

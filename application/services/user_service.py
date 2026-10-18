@@ -8,6 +8,7 @@ import re
 from datetime import datetime
 from typing import Dict, Iterable, List, Optional, Set
 
+from application.repositories._save import save_fields
 from application.repositories.tenant_membership_repository import TenantMembershipRepository
 from application.repositories.tournament_repository import TournamentRepository
 from application.repositories.user_repository import PersonSummary, UserRepository
@@ -309,39 +310,39 @@ class UserService:
         same user (self-edit); permission check is performed at the page level
         via authentication.
         """
-        any_provided = False
+        provided: List[str] = []
         changed: Dict[str, object] = {}
         if display_name is not None:
-            any_provided = True
+            provided.append('display_name')
             new_value = _clean_name(display_name, 'Display name')
             if new_value != user.display_name:
                 changed['display_name'] = new_value
             user.display_name = new_value
         if pronouns is not None:
-            any_provided = True
+            provided.append('pronouns')
             new_value = _clean_name(pronouns, 'Pronouns')
             if new_value != user.pronouns:
                 changed['pronouns'] = new_value
             user.pronouns = new_value
         if dm_notifications is not None:
-            any_provided = True
+            provided.append('dm_notifications')
             if dm_notifications != user.dm_notifications:
                 changed['dm_notifications'] = dm_notifications
             user.dm_notifications = dm_notifications
         if dm_match_comments is not None:
-            any_provided = True
+            provided.append('dm_match_comments')
             if dm_match_comments != user.dm_match_comments:
                 changed['dm_match_comments'] = dm_match_comments
             user.dm_match_comments = dm_match_comments
         if matcherino_username is not None:
-            any_provided = True
+            provided.append('matcherino_username')
             new_value = matcherino_username.strip() or None
             if new_value != user.matcherino_username:
                 changed['matcherino_username'] = new_value
             user.matcherino_username = new_value  # type: ignore[assignment]
 
-        if any_provided:
-            await user.save()
+        if provided:
+            await save_fields(user, *provided)
         if changed:
             await self.audit_service.write_log(
                 actor,
