@@ -352,6 +352,7 @@ class ChallongeRepository:
         """Every open, unbooked bracket match in active tournaments; ``None`` means all of them."""
         qs = scoped(ChallongeMatch.filter(
             state=ChallongeMatchState.OPEN, match_id__isnull=True, tournament__is_active=True,
+            participant1_id__isnull=False, participant2_id__isnull=False,
         ))
         if tournament_ids is not None:
             qs = qs.filter(tournament_id__in=tournament_ids)

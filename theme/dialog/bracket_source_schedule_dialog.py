@@ -103,7 +103,7 @@ class BracketSourceScheduleDialog:
                             return
                     error.show(str(e))
                     return
-                with self.dialog:
+                with dialog:
                     ui.notify(
                         f'Booked {self.matchup_label}.' if self.matchup_label else booked_notice(
                             item.opponent_name,

@@ -679,10 +679,7 @@ class ChallongeService(
     @requires_feature(FeatureFlag.CHALLONGE)
     async def list_unbooked_matches(self, tournament_ids: Optional[List[int]] = None) -> List[ChallongeMatch]:
         """Open matches nobody has booked yet, for the staff board. Callers authorize."""
-        return [
-            cm for cm in await self.repository.unscheduled_open_matches(tournament_ids)
-            if cm.participant1 is not None and cm.participant2 is not None
-        ]
+        return await self.repository.unscheduled_open_matches(tournament_ids)
 
     @requires_feature(FeatureFlag.CHALLONGE)
     async def schedule_challonge_match(
@@ -692,8 +689,7 @@ class ChallongeService(
         scheduled_time: str,
         actor: User,
         comment: Optional[str] = None,
-        *,
-        allow_outside_round: bool = False,
+        *, allow_outside_round: bool = False,
     ) -> Match:
         cmatch = require_found(
             await self.repository.get_match(challonge_match_pk), "Challonge match"
@@ -713,12 +709,7 @@ class ChallongeService(
             cmatch, scheduled_date, scheduled_time, actor, allow_outside_round=allow_outside_round,
         )
         match = await MatchService().book_from_bracket(
-            tournament_id=cmatch.tournament_id,
-            scheduled_date=scheduled_date,
-            scheduled_time=scheduled_time,
-            player_ids=[p1.user_id, p2.user_id],
-            actor=actor,
-            comment=comment,
+            cmatch.tournament_id, scheduled_date, scheduled_time, [p1.user_id, p2.user_id], actor, comment,
         )
         await self.repository.link_match(cmatch, match)
         return match

@@ -7,7 +7,7 @@ composed class, the same way :class:`CancellationMixin` does.
 """
 
 from datetime import datetime, timezone
-from typing import Any, List, Optional
+from typing import Any, List, Optional, cast
 
 from application.errors import require_found
 from application.events import EventType, match_live
@@ -17,6 +17,7 @@ from application.repositories import (
 )
 from application.services._tournament_signup import record_enrolment_change
 from application.services.audit_service import AuditActions, AuditService
+from application.services.auth_service import AuthService
 from application.services.match.match_request_guard import assert_player_requests_allowed
 from application.services.tenant_membership_service import TenantMembershipService
 from application.utils.timezone import parse_local_datetime
@@ -37,6 +38,36 @@ class MatchRequestMixin:
     repository: MatchRepository
     tournament_repository: TournamentRepository
     match_schedule_service: Any
+
+    async def book_from_bracket(
+        self,
+        tournament_id: int,
+        scheduled_date: str,
+        scheduled_time: str,
+        player_ids: List[int],
+        actor: User,
+        comment: Optional[str] = None,
+    ) -> Match:
+        """Book a linked bracket site's matchup, whoever is booking it.
+
+        Staff and the tournament's admins book on the players' behalf through
+        :meth:`create_match`, as they do for a native bracket; anyone else goes
+        through :meth:`submit_match_request`, which only lets a player of the
+        matchup in. Both skip the player-request toggle and the roster
+        membership check, because the bracket supplied the players.
+        """
+        if await AuthService.is_staff(actor) or await AuthService.is_tournament_admin(actor, tournament_id):
+            # create_match lives on the host MatchService.
+            return await cast(Any, self).create_match(
+                tournament_id=tournament_id, scheduled_date=scheduled_date,
+                scheduled_time=scheduled_time, player_ids=player_ids,
+                comment=comment, actor=actor, from_bracket=True,
+            )
+        return await self.submit_match_request(
+            tournament_id=tournament_id, scheduled_date=scheduled_date,
+            scheduled_time=scheduled_time, player_ids=player_ids,
+            actor=actor, comment=comment, from_bracket=True,
+        )
 
     async def submit_match_request(
         self,
