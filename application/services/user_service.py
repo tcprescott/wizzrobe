@@ -10,7 +10,7 @@ from typing import Dict, Iterable, List, Optional, Set
 
 from application.repositories.tenant_membership_repository import TenantMembershipRepository
 from application.repositories.tournament_repository import TournamentRepository
-from application.repositories.user_repository import UserRepository
+from application.repositories.user_repository import PersonSummary, UserRepository
 from application.repositories.user_role_repository import UserRoleRepository
 from application.services._tournament_signup import record_enrolment_change
 from application.services.audit_service import AuditActions, AuditService
@@ -119,6 +119,11 @@ class UserService:
         """
         return await self.repository.get_all(role=role, has_discord=has_discord)
 
+    async def member_role_summary(self, tenant_id: int):
+        """Roles, tournament-admin and crew-coordinator counts per user in ``tenant_id``,
+        for the members table: see :meth:`UserRepository.role_summary`."""
+        return await self.repository.role_summary(tenant_id)
+
     async def get_community_people(
         self,
         *,
@@ -148,6 +153,19 @@ class UserService:
             has_discord=has_discord,
             include_user_ids=include_user_ids,
             include_inactive=include_inactive,
+        )
+
+    async def get_community_people_summaries(
+        self,
+        *,
+        include_user_ids: Optional[List[int]] = None,
+        include_inactive: bool = False,
+    ) -> List[PersonSummary]:
+        """:meth:`get_community_people` as light rows (id, names, ``discord_id``,
+        ``is_active``, ``preferred_name``) for a picker: a 2,000-member community
+        costs milliseconds instead of a second of the shared event loop."""
+        return await self.repository.get_community_people_summaries(
+            include_user_ids=include_user_ids, include_inactive=include_inactive,
         )
 
     async def get_current_user_from_storage(self, storage_discord_id: Optional[str]) -> Optional[User]:

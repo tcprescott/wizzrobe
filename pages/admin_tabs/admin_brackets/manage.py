@@ -36,7 +36,7 @@ async def open_manage(row, client, *, service, tenant_id, tournament_id, on_chan
         # Fetched once for the whole dialog: the link picker is rebuilt on every
         # refresh, and re-reading the user list per refresh would be a query per
         # entrant added.
-        users = await UserService().get_community_people()
+        users = await UserService().get_community_people_summaries()
         user_names = {u.id: u.preferred_name or u.username for u in users}
         with tenant_scope(tenant_id):
             qualifiers_live = await FeatureFlagService().is_enabled(

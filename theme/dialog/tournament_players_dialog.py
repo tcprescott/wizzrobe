@@ -108,7 +108,7 @@ class TournamentPlayersDialog:
                         tp.user_id
                         for tp in await service.get_enrolled_players(self.tournament)
                     }
-                    members = await UserService().get_community_people()
+                    members = await UserService().get_community_people_summaries()
                     add_select.options = {
                         u.id: (u.display_name or u.username)
                         for u in members if u.id not in enrolled

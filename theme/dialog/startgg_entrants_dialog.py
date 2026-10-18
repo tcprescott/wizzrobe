@@ -45,7 +45,7 @@ class StartggEntrantsDialog:
     async def open(self) -> None:
         service = StartggService()
         actor = await get_user_from_session(app.storage.user)
-        members = {u.id: _person(u) for u in await UserService().get_community_people()}
+        members = {u.id: _person(u) for u in await UserService().get_community_people_summaries()}
 
         with ui.dialog() as dialog, ui.card().classes('dialog-card'):
             mobile_sheet(dialog)

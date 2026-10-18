@@ -165,7 +165,7 @@ class AdminMatchDialog(BaseMatchDialog):
         # include_inactive: a SpeedGaming placeholder entrant is inactive by
         # construction, and a synced match's roster already contains it — leaving
         # it out of the options would blank an existing player's chip.
-        users = await self.user_service.get_community_people(include_inactive=True)
+        users = await self.user_service.get_community_people_summaries(include_inactive=True)
         stages = await self.stage_service.get_all_stages()
         tournaments, entrant_counts = await self.tournament_service.list_schedulable(
             await get_user_from_session(app.storage.user),
@@ -494,7 +494,7 @@ class UserMatchDialog(BaseMatchDialog):
         # include_inactive: a SpeedGaming placeholder entrant is inactive by
         # construction, and a synced match's roster already contains it — leaving
         # it out of the options would blank an existing player's chip.
-        users = await self.user_service.get_community_people(include_inactive=True)
+        users = await self.user_service.get_community_people_summaries(include_inactive=True)
 
         user = await self.user_service.get_user_by_discord_id(self.discord_id)
         if not user:
