@@ -85,10 +85,8 @@ def _as_aware_utc(dt: Optional[datetime]) -> Optional[datetime]:
     return dt.replace(tzinfo=timezone.utc) if dt.tzinfo is None else dt.astimezone(timezone.utc)
 
 
-class ChallongeService(
-    ChallongeParticipantAssignmentMixin, ChallongeStageMixin, ChallongeSignupMixin,
-    ChallongeCommunitiesMixin, ChallongeLinkMixin,
-):
+class ChallongeService(ChallongeParticipantAssignmentMixin, ChallongeStageMixin, ChallongeSignupMixin,
+                       ChallongeCommunitiesMixin, ChallongeLinkMixin):
     """Business logic for the Challonge integration."""
 
     def __init__(self) -> None:
