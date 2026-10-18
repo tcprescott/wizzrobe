@@ -6,12 +6,13 @@ from typing import Awaitable, Callable, Iterable, Optional
 from nicegui import background_tasks, ui
 
 from application.services import EquipmentService, UserService
+from application.services.user_service import PersonSummary
 from models import SYSTEM_USER_DISCORD_ID, User
 from theme.dialog._helpers import dialog_actions, dialog_header, mobile_sheet
 from theme.notify import notify_error
 
 
-def _borrower_options(users: Iterable[User]) -> dict[str, str]:
+def _borrower_options(users: Iterable[User | PersonSummary]) -> dict[str, str]:
     """Selectable borrowers, keyed by id.
 
     The two hard exclusions are applied here as well as in the scoped read, so

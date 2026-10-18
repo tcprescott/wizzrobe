@@ -22,7 +22,7 @@ from application.services import (
     UserService,
     get_user_from_session,
 )
-from application.services.async_qualifier.async_qualifier_rules import display_name
+from application.services.async_qualifier.async_qualifier_rules import display_name_of
 from application.tenant_context import require_tenant_id, tenant_scope
 from application.utils.timezone import parse_local_datetime
 from pages.admin_tabs.admin_qualifiers.live_races import build_live_tab
@@ -136,7 +136,7 @@ async def admin_qualifiers_page(
         # people, like every other person picker — a live race is raced by members,
         # and the global User table is not this page's business.
         state['racer_options'] = {
-            person.id: display_name(person)
+            person.id: display_name_of(person.display_name, person.username, person.id)
             for person in await UserService().get_community_people_summaries()
         }
         if POOLS_TAB not in state['loaded']:
@@ -160,7 +160,7 @@ async def admin_qualifiers_page(
         # The community's own people, minus whoever is already on the roster. The
         # picker's default, not an authorization rule — ``add_admin`` gates that.
         state['reviewer_options'] = {
-            person.id: display_name(person)
+            person.id: display_name_of(person.display_name, person.username, person.id)
             for person in await UserService().get_community_people_summaries()
             if person.id not in already
         }

@@ -211,11 +211,16 @@ SUGGESTION_THRESHOLD = 0.6
 class NamedPerson(Protocol):
     """A ``User``, or just its name columns (``PersonSummary``): all the scoring reads."""
 
-    id: int
-    username: str
-    display_name: Optional[str]
-    twitch_username: Optional[str]
-    matcherino_username: Optional[str]
+    @property
+    def id(self) -> int: ...
+    @property
+    def username(self) -> str: ...
+    @property
+    def display_name(self) -> Optional[str]: ...
+    @property
+    def twitch_username(self) -> Optional[str]: ...
+    @property
+    def matcherino_username(self) -> Optional[str]: ...
 
 
 def suggestion_candidates(
