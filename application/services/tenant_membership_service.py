@@ -217,6 +217,35 @@ class TenantMembershipService:
         )
         await self._notify_member(user, member_added_dm, by_staff=True)
 
+    async def bulk_add_members(
+        self, actor: User, users: Iterable[User], source: MembershipSource,
+    ) -> List[User]:
+        """Put many people in this community at once, quietly; returns who was added.
+
+        For an import, so the per-person extras of :meth:`add_member` are
+        dropped on purpose: no welcome DM to each, and no audit row or event per
+        person (the caller writes one for the run). Never lifts a removal block:
+        anyone blocked here is skipped, as are inactive and system accounts.
+        Pending join requests from the people added are closed as approved.
+        """
+        await AuthService.ensure(
+            await AuthService.can_grant_roles(actor),
+            'Only Staff can manage community membership',
+        )
+        tenant_id = require_tenant_id()
+        candidates = {u.id: u for u in users if u.is_active and not u.is_system}
+        already = await TenantMembershipRepository.member_ids(candidates, tenant_id)
+        blocked = await TenantMembershipRepository.blocked_ids(candidates, tenant_id)
+        added = [u for uid, u in candidates.items() if uid not in already and uid not in blocked]
+        if not added:
+            return []
+        await TenantMembershipRepository.bulk_add([u.id for u in added], tenant_id, source)
+        added_ids = {u.id for u in added}
+        for request in await TenantJoinRequestRepository.list_pending(tenant_id):
+            if request.user_id in added_ids:
+                await _close_pending_request(request.user, tenant_id, actor)
+        return added
+
     async def remove_member(self, actor: User, user: User) -> None:
         """Take a user out of this community.
 

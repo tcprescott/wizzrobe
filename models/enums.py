@@ -553,6 +553,7 @@ class MembershipSource(str, Enum):
     ROLE_GRANT = 'role_grant'                # a role granted by staff
     DISCORD_ROLE = 'discord_role'            # a role from the Discord role sync
     IMPORT = 'import'                        # the SpeedGaming import
+    DISCORD_IMPORT = 'discord_import'        # Admin → Users › Import from Discord
 
 
 class JoinRequestStatus(str, Enum):

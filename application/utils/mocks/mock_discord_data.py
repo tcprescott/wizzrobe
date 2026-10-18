@@ -85,6 +85,19 @@ MOCK_GUILD_ROSTER: Dict[int, str] = {
     3000000000000000005: 'guild_only_stream_manager',
 }
 
+# More never-signed-in guild members, holding no mapped role, so Admin → Users ›
+# Import from Discord has someone to bring in. One is a bot, which the import
+# skips. Same id block as ``MOCK_GUILD_ROSTER``.
+MOCK_GUILD_IMPORTABLE: Dict[int, str] = {
+    3000000000000000101: 'aerinon',
+    3000000000000000102: 'bigbadbeef',
+    3000000000000000103: 'cassidoo_rando',
+    3000000000000000104: 'darkwing99',
+    3000000000000000105: 'echo.zelda',
+    3000000000000000199: 'carl-bot',
+}
+MOCK_GUILD_BOTS: Set[int] = {3000000000000000199}
+
 
 # Discord ids that are **not** in any mock server. Everyone else is, which is
 # what the role-sync fixtures above already assume. ``outsider`` is the seeded

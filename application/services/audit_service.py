@@ -471,6 +471,8 @@ class AuditActions:
     TENANT_DELETED = 'tenant.deleted'
     TENANT_MEMBER_ADDED = 'tenant.member_added'
     TENANT_MEMBER_REMOVED = 'tenant.member_removed'
+    # Admin → Users › Import from Discord: one row for the whole run.
+    TENANT_MEMBERS_IMPORTED = 'tenant.members_imported'
     # The self-serve enrollment path. The request is written by someone who is
     # not yet in the tenant, so its audit row is stamped with the *target*
     # tenant rather than the requester's ambient one.

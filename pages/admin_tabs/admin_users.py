@@ -6,6 +6,7 @@ from nicegui import app, context, ui
 
 from application.services import (
     AccommodationService,
+    DiscordMemberImportService,
     NotFoundError,
     TenantMembershipService,
     UserService,
@@ -17,6 +18,7 @@ from application.utils.timezone import format_local_datetime, format_local_displ
 from models import MembershipSource, Role, User
 from pages.admin_tabs.admin_accommodations import render_accommodation_panel
 from theme.accommodation_copy import STATUS_LABELS
+from theme.busy import busy, busy_click
 from theme.dialog import AdminUserDialog
 from theme.dialog._helpers import dialog_actions, form_dialog
 from theme.dialog.confirmation_dialog import ConfirmationDialog
@@ -42,6 +44,7 @@ JOIN_SOURCE_LABELS: dict = {
     MembershipSource.ROLE_GRANT: 'Role grant',
     MembershipSource.DISCORD_ROLE: 'Discord role sync',
     MembershipSource.IMPORT: 'SpeedGaming import',
+    MembershipSource.DISCORD_IMPORT: 'Discord import',
 }
 
 _JOINED_VIA_SLOT = '''<q-td :props="props">
@@ -58,6 +61,16 @@ _EMERGENCY_CONTACT_ITEM = '''
                     <q-item-section avatar><q-icon name="contact_phone"/></q-item-section>
                     <q-item-section>Emergency contact…</q-item-section>
                 </q-item>'''
+
+
+def _count(n: int, one: str, many: str) -> str:
+    return f'{n} {one if n == 1 else many}'
+
+
+def _import_stat(value: int, label: str, *, accent: bool = False) -> None:
+    with ui.element('div').classes('wiz-import-stat' + (' wiz-import-stat--accent' if accent else '')):
+        ui.label(str(value)).classes('wiz-import-stat__value')
+        ui.label(label).classes('wiz-import-stat__label')
 
 
 def _row_actions(emergency_contacts: bool) -> str:
@@ -326,6 +339,62 @@ async def _members_panel(
             dialog = AdminUserDialog(on_submit=after_submit)
             await dialog.open()
 
+        async def import_from_discord():
+            actor = await get_user_from_session(app.storage.user)
+            service = DiscordMemberImportService()
+            try:
+                preview = await service.preview(actor)
+            except (ValueError, PermissionError) as e:
+                notify_error(e)
+                return
+
+            with form_dialog('Import from Discord', card_classes='dialog-card dialog-card--sm gap-2') as dialog:
+                ui.markdown(
+                    f'The **{preview.server_name}** Discord server has '
+                    f'**{_count(preview.people, "person", "people")}**.'
+                ).classes('wiz-import-lead')
+                with ui.element('div').classes('wiz-import-stats'):
+                    _import_stat(preview.new_members, 'to add as members', accent=True)
+                    _import_stat(preview.already_members, 'already members')
+                    _import_stat(preview.bots, 'bots, skipped')
+                    _import_stat(preview.removed, 'removed from this community, skipped')
+                if preview.new_members:
+                    ui.label(
+                        f'{_count(preview.new_accounts, "of them gets", "of them get")} a new '
+                        'Wizzrobe account, ready for them when they sign in with Discord. '
+                        'Nobody gets a DM.'
+                    ).classes('text-caption text-grey')
+                else:
+                    ui.label('Everyone in the server is already a member.').classes('text-caption text-grey')
+                ui.label(
+                    "Safe to run again later: it only adds people who aren't members yet."
+                ).classes('wiz-import-note')
+
+                async def submit(e):
+                    async with busy(e.sender, 'Importing…'):
+                        try:
+                            result = await service.run(actor)
+                        except (ValueError, PermissionError) as err:
+                            notify_error(err)
+                            return
+                    dialog.close()
+                    ui.notify(
+                        f'Added {_count(result.members_added, "person", "people")} from Discord'
+                        f' ({_count(result.accounts_created, "new account", "new accounts")})',
+                        color='positive',
+                    )
+                    await table_view.refresh()
+
+                with dialog_actions().classes('justify-end'):
+                    ui.button('Cancel', on_click=dialog.close).props('flat')
+                    import_button = ui.button(
+                        f'Import {_count(preview.new_members, "person", "people")}'
+                        if preview.new_members else 'Nothing to import',
+                        icon='download', on_click=submit,
+                    ).props('color=primary')
+                    import_button.set_enabled(preview.new_members > 0)
+            dialog.open()
+
         async def add_member():
             actor = await get_user_from_session(app.storage.user)
             candidates = await TenantMembershipService().addable_users()
@@ -511,6 +580,10 @@ async def _members_panel(
             preferences_button(table_view.table)
         with more_menu:
             menu_action('add', 'Add user', add_user)
+            menu_action(
+                'group_add', 'Import from Discord…',
+                busy_click('Reading the Discord server…', import_from_discord),
+            )
             # The plan's columns, not the shipped list: the export matches what
             # the person is looking at, hidden columns and all.
             csv_export_menu_item(
