@@ -222,6 +222,14 @@ async def test_a_dm_is_copied_to_email_and_telegram(player, transports):
     assert transports['telegram'][-1] == {'chat_id': 5555, 'text': 'Your match is up\nStation 4', 'url': 'https://x.test/m/1'}
 
 
+async def test_the_copy_keeps_underscores_in_names(player, transports):
+    await _with_both(player)
+    await NotificationChannelService().mirror_dm(700, '**Match** vs dark__link')
+
+    assert transports['email'][-1]['subject'] == 'Match vs dark__link'
+    assert transports['telegram'][-1]['text'] == 'Match vs dark__link'
+
+
 async def test_a_silent_dm_reaches_telegram_quietly(player, transports):
     await _with_both(player)
     await NotificationChannelService().mirror_dm(700, 'Match started', silent=True)

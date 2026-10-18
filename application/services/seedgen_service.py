@@ -171,8 +171,8 @@ class SeedGenerationService(DK64RBackend):
     # queue whose *whole* roll (submit → poll → result) legitimately runs for
     # minutes, so the outer budget has to exceed the poll deadline rather than
     # cut it short — and re-running that roll would submit a second generation
-    # task, so it gets exactly one attempt. Retrying the individual requests
-    # inside it is safe and is handled within the generator.
+    # task, so it gets exactly one attempt. Its other calls (the preset list)
+    # take the default attempts and retry a 429 or 5xx.
     PROVIDER_TIMEOUTS: ClassVar[dict] = {
         'avianart': AVIANART_MAX_POLLS * AVIANART_POLL_INTERVAL + 30.0,
         'dk64r': DK64R_GENERATION_TIMEOUT + 60.0,

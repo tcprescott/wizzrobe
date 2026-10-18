@@ -26,7 +26,8 @@ from __future__ import annotations
 
 import asyncio
 import os
-from typing import Any, Awaitable, Callable, Dict, List, Optional
+from contextlib import asynccontextmanager
+from typing import Any, AsyncIterator, Awaitable, Callable, Dict, List, Optional
 from urllib.parse import quote
 
 import aiohttp
@@ -49,6 +50,19 @@ class ChallongeAPIError(Exception):
     def __init__(self, message: str, status: Optional[int] = None):
         super().__init__(message)
         self.status = status
+
+
+@asynccontextmanager
+async def _session() -> AsyncIterator[aiohttp.ClientSession]:
+    # Callers only catch ChallongeAPIError, so a hung or unreachable Challonge
+    # must surface as one rather than escape as a raw aiohttp/timeout error.
+    try:
+        async with aiohttp.ClientSession(timeout=_TIMEOUT) as session:
+            yield session
+    except asyncio.TimeoutError as e:
+        raise ChallongeAPIError('Challonge did not respond in time') from e
+    except aiohttp.ClientError as e:
+        raise ChallongeAPIError(f'Could not reach Challonge: {e}') from e
 
 
 def build_authorize_url(
@@ -198,7 +212,7 @@ class ChallongeClient:
 
     async def _token_request(self, data: Dict[str, str]) -> Dict[str, Any]:
         await self._count_request()
-        async with aiohttp.ClientSession(timeout=_TIMEOUT) as session:
+        async with _session() as session:
             async with session.post(TOKEN_URL, data=data) as resp:
                 payload = await resp.json()
                 if resp.status >= 400:
@@ -370,7 +384,7 @@ class ChallongeClient:
 
     async def _raw_get(self, path: str, token: str) -> Dict[str, Any]:
         await self._count_request()
-        async with aiohttp.ClientSession(timeout=_TIMEOUT) as session:
+        async with _session() as session:
             async with session.get(BASE_URL + path, headers=self._headers(token)) as resp:
                 return await self._parse(resp)
 
