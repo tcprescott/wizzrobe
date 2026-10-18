@@ -24,6 +24,17 @@ class TournamentRepository(TenantScopedRepository[Tournament]):
 
     model = Tournament
 
+    @classmethod
+    async def update(cls, obj: Tournament, **fields: Any) -> Tournament:
+        # Writes only the named columns: the edit dialog holds the tournament it
+        # opened with, and a full save would put back settings changed since then
+        # (the start.gg section saves its own fields as they change).
+        for key, value in fields.items():
+            setattr(obj, key, value)
+        if fields:
+            await obj.save(update_fields=[*fields, 'updated_at'])
+        return obj
+
     @staticmethod
     async def get_by_id(tournament_id: int, prefetch_players: bool = False) -> Optional[Tournament]:
         """
