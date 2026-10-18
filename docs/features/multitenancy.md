@@ -167,7 +167,10 @@ Every **per-community person list** joins through it —
 `UserService.get_community_people`, which is what the match, equipment and
 bracket pickers, the Users tab, `GET /users` and the MCP `list_users` tool all
 read. That is the same basis the access gate below checks, so a picker cannot
-offer someone the app would turn away at the door. `get_all_users` still answers
+offer someone the app would turn away at the door. Pickers and name searches
+read it through `get_community_people_summaries` (same filters, seven columns
+per row as `PersonSummary`): a hydrated `User` per member held the event loop
+for about a second on a 2,000-member community. `get_all_users` still answers
 "every account on the platform" and has two deliberate callers, both labelled on
 screen: `/platform`'s first-admin picker, choosing from every account precisely
 because the target community has no members yet, and the checkout dialog's

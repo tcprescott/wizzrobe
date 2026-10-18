@@ -43,7 +43,7 @@ class CheckoutDialog:
         user_service = UserService()
         # The actor is force-included: a manager checking something out to
         # themselves must always be in their own picker.
-        community = await user_service.get_community_people(include_user_ids=[self.actor.id])
+        community = await user_service.get_community_people_summaries(include_user_ids=[self.actor.id])
         options = _borrower_options(community)
         with ui.dialog() as dialog, ui.card().classes('dialog-card dialog-card--sm'):
             mobile_sheet(dialog)
@@ -61,7 +61,7 @@ class CheckoutDialog:
                 async def apply_scope() -> None:
                     people = (
                         await user_service.get_all_users() if widen.value
-                        else await user_service.get_community_people(
+                        else await user_service.get_community_people_summaries(
                             include_user_ids=[self.actor.id],
                         )
                     )

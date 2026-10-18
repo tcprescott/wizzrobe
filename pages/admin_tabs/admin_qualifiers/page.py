@@ -137,7 +137,7 @@ async def admin_qualifiers_page(
         # and the global User table is not this page's business.
         state['racer_options'] = {
             person.id: display_name(person)
-            for person in await UserService().get_community_people()
+            for person in await UserService().get_community_people_summaries()
         }
         if POOLS_TAB not in state['loaded']:
             # The New Live Race dialog picks a pool and one of its permalinks, so
@@ -161,7 +161,7 @@ async def admin_qualifiers_page(
         # picker's default, not an authorization rule — ``add_admin`` gates that.
         state['reviewer_options'] = {
             person.id: display_name(person)
-            for person in await UserService().get_community_people()
+            for person in await UserService().get_community_people_summaries()
             if person.id not in already
         }
 

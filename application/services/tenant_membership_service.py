@@ -22,7 +22,6 @@ from application.events import Event, EventType, event_bus
 from application.repositories.api_token_repository import ApiTokenRepository
 from application.repositories.tenant_join_request_repository import TenantJoinRequestRepository
 from application.repositories.tenant_membership_repository import TenantMembershipRepository
-from application.repositories.user_repository import UserRepository
 from application.repositories.user_role_repository import UserRoleRepository
 from application.services.audit_service import AuditActions, AuditService
 from application.services.auth_service import AuthService
@@ -175,7 +174,7 @@ class TenantMembershipService:
 
     async def memberships_by_user(self) -> Dict[int, TenantMembership]:
         """This community's membership rows keyed by user id: when and how each joined."""
-        rows = await TenantMembershipRepository.list_for_tenant(require_tenant_id())
+        rows = await TenantMembershipRepository.list_rows_for_tenant(require_tenant_id())
         return {m.user_id: m for m in rows}
 
     async def addable_users(self) -> List[User]:
@@ -188,11 +187,7 @@ class TenantMembershipService:
         for what it does, rather than as a bare ``get_all_users()`` call in the
         page.
         """
-        members = {u.id for u in await self.list_members()}
-        return [
-            u for u in await UserRepository.get_all()
-            if u.id not in members and not u.is_system
-        ]
+        return await TenantMembershipRepository.non_members(require_tenant_id())
 
     async def is_member(self, user: User) -> bool:
         return await TenantMembershipRepository.is_member(user.id, require_tenant_id())
