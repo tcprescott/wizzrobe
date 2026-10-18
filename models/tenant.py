@@ -56,6 +56,7 @@ class TenantMembership(Model):
     tenant = fields.ForeignKeyField('models.Tenant', related_name='memberships', on_delete=fields.CASCADE)
     user = fields.ForeignKeyField('models.User', related_name='tenant_memberships', on_delete=fields.CASCADE)
     user_id: int
+    tenant_id: int
     # How they got in, so staff can tell a Discord auto-join from a hand-added
     # member; ``created_at`` is when. Null on rows from before it was recorded.
     source = fields.CharEnumField(MembershipSource, max_length=32, null=True)

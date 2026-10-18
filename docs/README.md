@@ -52,6 +52,7 @@ How each shipped subsystem behaves.
 | [features/multitenancy.md](features/multitenancy.md) | `/t/<slug>` and custom-domain addressing, tenant context, query scoping, per-tenant roles, `/platform` |
 | [features/feature-flags.md](features/feature-flags.md) | Two-tier per-tenant flags: super-admin availability + tenant enable, and how to gate a subsystem |
 | [features/mcp-server.md](features/mcp-server.md) | Remote MCP server at `/mcp`: typed tools, reads by default and writes on request, OAuth 2.1 only |
+| [features/oauth-apps.md](features/oauth-apps.md) | The `/oauth` authorization server for third-party apps: registration, consent, PKCE, community-bound grants, rotation and reuse detection |
 | [features/webhooks.md](features/webhooks.md) | Staff-managed outbound webhooks: signing, retries, delivery log |
 | [features/event-system.md](features/event-system.md) | In-process event bus: publish/subscribe, `EventType` registry, `match_live` |
 | [features/audit-logging.md](features/audit-logging.md) | `AuditService`, `AuditActions` naming, `write_and_publish` |

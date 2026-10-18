@@ -92,6 +92,8 @@ from .matcherino_login_service import MatcherinoLoginService, MatcherinoLoginSta
 from .mcp_auth_service import McpAuthService
 from .my_timeline_service import MyTimelineService
 from .notification_channel_service import NotificationChannelService
+from .oauth_app_service import OAuthAppService
+from .oauth_grant_service import OAuthGrantService
 from .password_auth_service import PasswordAuthService
 from .payout_service import PayoutService
 from .platform_admin_service import AccountOverview, CommunityOverview, PlatformAdminService
@@ -212,6 +214,8 @@ __all__ = [
     'MyTimelineService',
     'NotFoundError',
     'NotificationChannelService',
+    'OAuthAppService',
+    'OAuthGrantService',
     'PasswordAuthService',
     'PayoutService',
     'PlatformAdminService',

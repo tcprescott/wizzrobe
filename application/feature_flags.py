@@ -247,6 +247,14 @@ FEATURE_FLAG_REGISTRY: Dict[FeatureFlag, FeatureFlagSpec] = {
                              'application/services/check_in_sync_worker.py',
                              'application/services/matcherino_login_service.py'),
         ),
+        FeatureFlagSpec(
+            FeatureFlag.THIRD_PARTY_APPS,
+            'Third-party Apps',
+            'Members can sign in to outside apps with their Wizzrobe account and '
+            'let them use the API on their behalf, limited to what they approve.',
+            'Community',
+            service_modules=('application/services/oauth_grant_service.py',),
+        ),
     )
 }
 
