@@ -34,7 +34,7 @@ much crew is still needed. Everyone signed up as crew is listed under that.
 
 An empty cell or "None" just means there's nothing to show yet. A match usually
 gets its stage, seed and crew at different times. "needs crew" in orange means a
-role is still short of approved crew while signup is open.
+match on a stage is still short of approved crew while signup is open.
 
 ## Match states
 
