@@ -485,11 +485,12 @@ async def admin_discord_roles_page(volunteer_mappings: bool = False) -> None:
                 with search_row:
                     search_input(table, placeholder='Search mappings…')
 
-                table.add_slot('body-cell-actions', f'<q-td :props="props">{_ROW_ACTIONS}</q-td>')
+                if can_manage:
+                    table.add_slot('body-cell-actions', f'<q-td :props="props">{_ROW_ACTIONS}</q-td>')
 
                 table.on('delete', lambda e: background_tasks.create(delete_mapping(e.args, context.client)))
 
-                enable_mobile_grid(table, columns, actions=_ROW_ACTIONS,
+                enable_mobile_grid(table, columns, actions=_ROW_ACTIONS if can_manage else '',
                                    table_key=TableKeys.ADMIN_DISCORD_ROLES,
                                    selectable=can_manage)
                 _sync_remove_button()

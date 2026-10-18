@@ -23,7 +23,7 @@ from application.feature_flags import requires_feature
 from application.repositories import ChallongeRepository, TournamentRepository, UserRepository
 from application.services._challonge_communities import ChallongeCommunitiesMixin, not_found_message
 from application.services._challonge_participants import ChallongeParticipantAssignmentMixin
-from application.services._challonge_signup import ChallongeSignupMixin, misc_user_id
+from application.services._challonge_signup import ChallongeSignupMixin, misc_user_id, refuse_empty_started_bracket
 from application.services._challonge_stages import ChallongeStageMixin
 from application.services.audit_service import AuditActions, AuditService
 from application.services.auth_service import AuthService
@@ -569,6 +569,7 @@ class ChallongeService(
         full = await self._api_client().get_tournament_full(
             tournament.challonge_tournament_id, community=tournament.challonge_community,
         )
+        refuse_empty_started_bracket(full, await self.repository.count_participants(tournament))
         result = await self._mirror_bracket(
             tournament, full['participants'], full['matches'], actor,
         )

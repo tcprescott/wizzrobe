@@ -36,7 +36,13 @@ MAX_LEAD_MINUTES = 24 * 60
 async def _tick() -> None:
     from application.repositories import MatchRepository
     from application.services.discord import discord_queue
+    from application.services.discord.discord_service import discord_bot_down
     from application.services.match.match_schedule_service import MatchScheduleService
+
+    if discord_bot_down():
+        # Reminders are stamped before their DM is queued; wait for the bot so
+        # they go out after a reconnect rather than being stamped and lost.
+        return
 
     now = datetime.now(timezone.utc)
     window_end = now + timedelta(minutes=MAX_LEAD_MINUTES)

@@ -18,8 +18,8 @@ here, so the two are never confused at the call site.
 """
 
 from application.events import bus as event_bus
-from application.events import dispatch_queue
+from application.events import dispatch_queue, webhook_queue
 from application.events.event import Event
 from application.events.event_types import EventType
 
-__all__ = ['Event', 'EventType', 'dispatch_queue', 'event_bus']
+__all__ = ['Event', 'EventType', 'dispatch_queue', 'event_bus', 'webhook_queue']

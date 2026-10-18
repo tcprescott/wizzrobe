@@ -162,13 +162,9 @@ async def get_shift(shift_id: int, actor: User = Depends(require_api_actor)):
 )
 async def create_shift(payload: VolunteerShiftCreate, actor: User = Depends(require_write_actor)):
     service = VolunteerScheduleService()
-    await service.create_shift(actor, **payload.model_dump())
-    # Re-fetch with relations for a complete response.
-    shifts = await service.list_shifts_for_window(payload.starts_at, payload.ends_at)
-    created = next((s for s in shifts if s.position_id == payload.position_id
-                    and s.starts_at == payload.starts_at), None)
+    shift = await service.create_shift(actor, **payload.model_dump())
     # create_shift has already required can_manage_volunteers.
-    return _shift_resp(created or shifts[-1], include_drafts=True)
+    return _shift_resp(require_found(await service.get_shift(shift.id), "Shift"), include_drafts=True)
 
 
 @router.patch(

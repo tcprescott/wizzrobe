@@ -19,6 +19,7 @@ from typing import ClassVar, Dict, List, Optional, Set
 import aiohttp
 import yaml
 from pyz3r import ALTTPR
+from pyz3r.exceptions import Pyz3rException
 
 import application.services._seedgen_codes as seed_codes
 import application.services._seedgen_local as local_rolls
@@ -447,10 +448,18 @@ class SeedGenerationService(DK64RBackend):
         if triforce_text:
             settings.setdefault('texts', {})['end_triforce'] = "{NOBORDER}\n" + triforce_text
 
-        seed = await ALTTPR.generate(
-            settings=settings,
-            endpoint='/api/customizer',
-        )
+        try:
+            seed = await ALTTPR.generate(
+                settings=settings,
+                endpoint='/api/customizer',
+            )
+        except Pyz3rException as e:
+            # pyz3r has already retried five times, so this is terminal here
+            # rather than another round of retries; only an outage gets here.
+            raise SeedProviderBadResponse(
+                "alttpr.com didn't make the seed. It may be down, so try again in a minute.",
+                provider='alttpr', operation='generate_seed',
+            ) from e
         return RolledSeed(
             url=seed.url, settings=settings, code=seed_codes.alttpr_code(seed.data.get('patch')),
         )
@@ -520,7 +529,7 @@ class SeedGenerationService(DK64RBackend):
         spoiler_token = await self._credential('smmap', 'spoiler_token')
         settings = await _read_bundled_preset("presets/smmap/community_race_s5.json")
 
-        async with aiohttp.ClientSession() as session:
+        async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=120)) as session:
             with aiohttp.MultipartWriter('form-data') as mpwriter:
                 mpwriter.append(spoiler_token).set_content_disposition('form-data', name='spoiler_token')
                 mpwriter.append(settings).set_content_disposition('form-data', name='settings')

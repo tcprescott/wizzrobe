@@ -40,11 +40,33 @@ def roster_locked(challonge_state: Optional[str]) -> bool:
     return bool(challonge_state) and challonge_state not in _ROSTER_OPEN_STATES
 
 
+def refuse_empty_started_bracket(full: dict, mirrored_participants: int) -> None:
+    """A started bracket can't lose every entrant.
+
+    An answer that says it did is Challonge degrading, and pruning the mirror on
+    it would unlink every booked match.
+    """
+    if (not full['participants'] and mirrored_participants
+            and roster_locked(full['tournament'].get('state'))):
+        raise ValueError(
+            "Challonge sent back a started bracket with no entrants, so nothing "
+            "was changed. Try Sync again in a few minutes."
+        )
+
+
 def misc_user_id(misc: Optional[str]) -> Optional[int]:
     if not misc or not misc.startswith(MISC_USER_PREFIX):
         return None
     tail = misc[len(MISC_USER_PREFIX):]
     return int(tail) if tail.isdigit() else None
+
+
+_CHALLONGE_DOWN = "Challonge isn't answering right now. Try again in a few minutes."
+
+
+def _challonge_down(error: ChallongeAPIError) -> bool:
+    """No answer at all, or Challonge's own server error: not a refusal."""
+    return error.status is None or error.status >= 500
 
 
 class ChallongeSignupMixin:
@@ -111,11 +133,13 @@ class ChallongeSignupMixin:
                 misc=f'{MISC_USER_PREFIX}{user.id}',
                 community=tournament.challonge_community,
             )
-        except ChallongeAPIError:
+        except ChallongeAPIError as e:
             logger.warning(
                 'Challonge refused sign-up: tournament=%s user=%s', tournament.id, user.id,
                 exc_info=True,
             )
+            if _challonge_down(e):
+                raise ValueError(_CHALLONGE_DOWN) from None
             raise ValueError(
                 f"Challonge wouldn't add you to {tournament.name}. The bracket may have "
                 'started or be full. Ask staff if you think it should have worked.'
@@ -157,6 +181,8 @@ class ChallongeSignupMixin:
                     'Challonge refused withdrawal: tournament=%s user=%s',
                     tournament.id, user.id, exc_info=True,
                 )
+                if _challonge_down(e):
+                    raise ValueError(_CHALLONGE_DOWN) from None
                 raise ValueError(
                     f"Challonge wouldn't remove you from {tournament.name}. Ask staff."
                 ) from None

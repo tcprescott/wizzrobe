@@ -211,6 +211,29 @@ class TestShifts:
             assert body['position_id'] == pos.id
             assert body['slots_needed'] == 2
 
+    async def test_create_shift_returns_the_new_shift_beside_a_twin(self, db, app):
+        """The response used to be guessed from the window by position and start,
+        so a second shift at the same time came back as the first one."""
+        _, raw = await _coordinator_token()
+        pos = await VolunteerPosition.create(name='Desk')
+        existing = await VolunteerShift.create(
+            position=pos, starts_at=utc(2025, 10, 8, 12), ends_at=utc(2025, 10, 8, 16), label='First',
+        )
+        async with client_for(app, raw) as c:
+            resp = await c.post(
+                '/api/volunteers/shifts',
+                json={
+                    'position_id': pos.id,
+                    'starts_at': iso(2025, 10, 8, 12),
+                    'ends_at': iso(2025, 10, 8, 18),
+                    'label': 'Second',
+                },
+            )
+            assert resp.status_code == 201
+            body = resp.json()
+            assert body['id'] != existing.id
+            assert body['label'] == 'Second'
+
     async def test_create_shift_end_before_start_bad_request(self, db, app):
         _, raw = await _coordinator_token()
         pos = await VolunteerPosition.create(name='Desk')

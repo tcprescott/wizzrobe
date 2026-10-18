@@ -20,6 +20,7 @@ hides what a viewer can't use (walk-ups and removal are staff-only) so nobody
 taps a button the service will refuse.
 """
 
+from datetime import datetime, timedelta, timezone
 from typing import Dict, List, Optional
 
 from nicegui import background_tasks, context, ui
@@ -85,6 +86,20 @@ _DM_TEXT = {
     'pending': 'Sending', 'sent': 'Reaches them', 'blocked': "Can't DM them",
     'opted_out': 'DMs off in Wizzrobe', 'failed': 'Not tested (Discord down)',
 }
+
+# A test DM still "sending" after this was dropped by a restart (the queue is in
+# memory), so offer "send it again" instead of a spinner that never settles.
+_DM_PENDING_GIVE_UP = timedelta(minutes=5)
+
+
+def _dm_status(entrant) -> str:
+    if not entrant.dm_status:
+        return ''
+    status = entrant.dm_status.value
+    if (status == 'pending' and entrant.dm_checked_at is not None
+            and datetime.now(timezone.utc) - entrant.dm_checked_at > _DM_PENDING_GIVE_UP):
+        return 'failed'
+    return status
 
 _FILTER_LABELS = {
     'all': 'All',
@@ -375,8 +390,8 @@ def _row(entrant: CheckInEntrant, can_manage: bool, volunteers: set[int], sugges
             and entrant.link_method != CheckInLinkMethod.MANUAL
         ),
         'can_remove': walk_up and can_manage,
-        'dm_status': entrant.dm_status.value if entrant.dm_status else '',
-        'dm_text': _DM_TEXT.get(entrant.dm_status.value, '') if entrant.dm_status else '',
+        'dm_status': _dm_status(entrant),
+        'dm_text': _DM_TEXT.get(_dm_status(entrant), ''),
         'can_test_dm': checked_in and user is not None and bool(user.discord_id),
         'can_check_in_anyway': withdrawn and not checked_in and can_manage,
         'search': search,

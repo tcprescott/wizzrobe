@@ -25,7 +25,7 @@ from urllib.parse import urlparse
 import httpx
 
 from application.errors import require_found
-from application.events import Event, EventType, dispatch_queue
+from application.events import Event, EventType, webhook_queue
 from application.repositories import WebhookDeliveryRepository, WebhookRepository
 from application.services.audit_service import AuditActions, AuditService
 from application.services.auth_service import AuthService
@@ -268,7 +268,7 @@ class WebhookService:
         for webhook in await self.repository.list_active():
             subscribed = webhook.event_types or []
             if EventType.WILDCARD in subscribed or event.event_type in subscribed:
-                dispatch_queue.enqueue(
+                webhook_queue.enqueue(
                     _deliver_scoped(self._deliver_one(webhook, event), webhook.tenant_id)
                 )
 
@@ -331,7 +331,7 @@ class WebhookService:
                         break
                     error = f"HTTP {status}"
                 except httpx.HTTPError as exc:
-                    error = str(exc)
+                    error = str(exc) or type(exc).__name__
                 if attempt < self.MAX_ATTEMPTS - 1:
                     await asyncio.sleep(self.RETRY_BACKOFF_BASE ** attempt)
         if not success:

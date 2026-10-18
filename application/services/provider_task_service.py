@@ -11,7 +11,7 @@ task means is domain work with its own audit trail and notifications.
 """
 
 import logging
-from datetime import timedelta
+from datetime import datetime, timedelta, timezone
 from typing import List, Optional
 
 from application.repositories import ProviderTaskRepository
@@ -24,6 +24,10 @@ logger = logging.getLogger(__name__)
 # the point is to release a row nobody will ever collect, not to race the
 # provider.
 TASK_MAX_AGE = timedelta(minutes=20)
+# A task that never got the provider's handle is a submit that died with the
+# process (a restart mid-roll). Nothing will ever poll it, and while it stays
+# active it blocks re-rolling the match, so it retires much sooner.
+HANDLELESS_MAX_AGE = timedelta(minutes=5)
 
 
 class ProviderTaskService:
@@ -105,13 +109,17 @@ class ProviderTaskService:
         two would tell an admin the roll broke when it did not.
         """
         abandoned = 0
-        for task in await self.repository.stale(TASK_MAX_AGE):
+        cutoff = datetime.now(timezone.utc) - TASK_MAX_AGE
+        for task in await self.repository.stale(HANDLELESS_MAX_AGE):
+            if task.provider_task_id is not None and task.created_at >= cutoff:
+                continue
             task.error = task.error or 'Timed out waiting for the provider.'
             if await self.claim(task, ProviderTaskStatus.ABANDONED):
                 await task.save(update_fields=['error'])
                 abandoned += 1
                 logger.error(
                     'Abandoned provider task %s (%s/%s) after %s',
-                    task.id, task.provider, task.operation, TASK_MAX_AGE,
+                    task.id, task.provider, task.operation,
+                    datetime.now(timezone.utc) - task.created_at,
                 )
         return abandoned

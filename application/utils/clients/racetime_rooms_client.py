@@ -16,6 +16,7 @@ slug without touching the network, so dev and tests can open rooms freely.
 
 from __future__ import annotations
 
+import asyncio
 import secrets
 import time
 from dataclasses import dataclass
@@ -163,8 +164,10 @@ class RacetimeRoomsClient:
                             f'({resp.status}){": " + reason if reason else ""}'
                         )
                     return slug_from_location(resp.headers.get('Location'))
-        except aiohttp.ClientError as exc:
-            raise RacetimeAPIError(f'could not reach racetime.gg: {exc}') from exc
+        except (aiohttp.ClientError, asyncio.TimeoutError) as exc:
+            raise RacetimeAPIError(
+                f'could not reach racetime.gg: {exc or type(exc).__name__}'
+            ) from exc
 
     async def _token(self, session, client_id: str, client_secret: str) -> str:
         cached = _tokens.get(client_id)
@@ -175,6 +178,8 @@ class RacetimeRoomsClient:
             'client_secret': client_secret,
             'grant_type': 'client_credentials',
         }) as resp:
+            if resp.status >= 500:
+                raise RacetimeAPIError(f'racetime.gg is having trouble ({resp.status})')
             if resp.status >= 400:
                 raise RacetimeAPIError(
                     f'racetime rejected the bot credentials ({resp.status})'

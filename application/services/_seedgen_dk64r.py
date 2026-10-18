@@ -143,7 +143,9 @@ class DK64RBackend:
         if is_mock_dk64():
             return MockDK64Session()
         api_key = await self._credential('dk64r', 'api_key')
-        return aiohttp.ClientSession(headers={'X-API-Key': api_key})
+        return aiohttp.ClientSession(
+            headers={'X-API-Key': api_key}, timeout=aiohttp.ClientTimeout(total=60),
+        )
 
     async def _dk64r_resolve_settings(
         self, session, settings: dict, settings_string: Optional[str], params: dict,

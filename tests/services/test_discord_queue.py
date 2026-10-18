@@ -201,6 +201,9 @@ class TestStartStop:
         await dq.stop()  # must not raise
 
     async def test_stop_cancels_and_clears_task(self):
+        # start() queues the boot wait and stop() drains it, so the queue has to
+        # belong to this test's loop rather than an earlier test's.
+        dq._queue = asyncio.Queue()
         dq._worker_task = None
         dq.start()
         task = dq._worker_task

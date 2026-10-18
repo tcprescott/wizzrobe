@@ -21,6 +21,9 @@ from application.utils.sentry import sentry_tags
 
 _default_logger = logging.getLogger(__name__)
 
+_DRAIN_SECONDS = 5
+_DRAIN_POLL_SECONDS = 0.05
+
 _queues: 'weakref.WeakSet[CoroutineQueue]' = weakref.WeakSet()
 
 
@@ -52,6 +55,7 @@ class CoroutineQueue:
         )
         self._queue: asyncio.Queue[Coroutine] = asyncio.Queue()
         self._worker_task: Optional[asyncio.Task] = None
+        self._busy = False
         _queues.add(self)
 
     def qsize(self) -> int:
@@ -60,6 +64,7 @@ class CoroutineQueue:
     async def _worker(self) -> None:
         while True:
             coro = await self._queue.get()
+            self._busy = True
             label = coroutine_label(coro)
             with sentry_tags(queue=self.name, queued_call=label):
                 try:
@@ -67,6 +72,7 @@ class CoroutineQueue:
                 except Exception:
                     self._logger.exception("%s worker error in %s", self.name, label)
                 finally:
+                    self._busy = False
                     self._queue.task_done()
 
     def start(self) -> None:
@@ -75,6 +81,14 @@ class CoroutineQueue:
     async def stop(self) -> None:
         if self._worker_task is None:
             return
+        # A short drain so a routine restart delivers what was already queued
+        # (the DM a click just sent) rather than discarding it.
+        # Polled rather than ``Queue.join()``: the queue outlives an event loop
+        # in tests, and join's internal Event is bound to the first loop.
+        for _ in range(int(_DRAIN_SECONDS / _DRAIN_POLL_SECONDS)):
+            if not (self._queue.qsize() or self._busy):
+                break
+            await asyncio.sleep(_DRAIN_POLL_SECONDS)
         pending = self._queue.qsize()
         if pending:
             self._logger.warning(self._drop_warning, pending)

@@ -825,8 +825,9 @@ Offers the earliest 30-minute candidate slot that fits both the players and the 
 | Method | Returns | Description |
 |---|---|---|
 | `suggest_match_time(tournament_id, player_ids, bracket_match_id=None)` | `datetime` | Best UTC start time for the match. `bracket_match_id` confines the search to that matchup's round window. Raises `ValueError` when no eligible slot exists within the event schedule (or, when given, the round window — the message names which). |
+| `find_clashes(tournament_id, player_ids, scheduled_at, *, actor, exclude_match_id=None)` | `list[Clash]` | Why a chosen time might not work, each a `Clash(kind, message)` (`ClashKind`): a player already playing or on approved crew then, a player's published volunteer shift (when `VOLUNTEERS` is live) or blocked-out time, the room past `max_concurrent_players`, the match running past closing, a day with no hours, or a date outside the event. **Advisory**: `theme/dialog/clash_warning.py` shows them on a "Check this time" sheet before every booking dialog saves, and the person can save anyway. Shifts and blocked-out times are spelled out only to the player themselves, Staff and tournament admins; anyone else gets "isn't free then". Same permission gate as `suggest_match_time`. |
 
-Collaborators: `PlayerAvailabilityRepository`, `BracketRepository` (`get_match_with_bracket`, for the round window), `SystemConfigService` (`get_tournament_hours`, `get_event_window`), [`timezone.py`](#timezonepy), queries `Match`/`Tournament` directly.
+Collaborators: `PlayerAvailabilityRepository`, `BracketRepository` (`get_match_with_bracket`, for the round window), `VolunteerAssignmentRepository` and `UserRepository` (for `find_clashes`), `SystemConfigService` (`get_tournament_hours`, `get_event_window`), [`timezone.py`](#timezonepy), queries `Match`/`Tournament` directly.
 
 ### match_watcher_service.py — MatchWatcherService
 

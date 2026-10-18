@@ -33,7 +33,7 @@ import mcpserver
 from api.openapi_docs import api_description
 from api.openapi_docs import install as install_openapi_docs
 from application.events import dispatch_queue as event_dispatch_queue
-from application.events import event_bus
+from application.events import event_bus, webhook_queue
 from application.services import TelemetryService, WebhookService, web_push_service
 from application.services.discord import discord_queue
 from application.services.discord.discord_service import get_discord_bot
@@ -117,6 +117,31 @@ def _log_bot_task_result(task: asyncio.Task) -> None:
         logger.error('Discord bot task exited with an exception', exc_info=exc)
 
 
+_BOT_RETRY_SECONDS = 30
+
+
+async def _run_discord_bot(bot, token: str) -> None:
+    """Keep trying to bring the bot up until it connects.
+
+    discord.py reconnects on its own once logged in, but ``login()`` runs outside
+    that loop: one failed attempt (Discord down while the container restarts) left
+    the bot dead, and every DM and button with it, until the next restart.
+    """
+    import discord
+    while True:
+        try:
+            await bot.start(token)
+            return
+        except discord.LoginFailure:
+            raise
+        except Exception:
+            logger.warning('Discord bot could not connect; retrying in %ss',
+                           _BOT_RETRY_SECONDS, exc_info=True)
+        await bot.close()
+        bot.clear()
+        await asyncio.sleep(_BOT_RETRY_SECONDS)
+
+
 async def init_discord_bot() -> None:
     """
     Initialize the Discord bot.
@@ -128,7 +153,7 @@ async def init_discord_bot() -> None:
     token = os.environ.get('DISCORD_TOKEN')
     bot = get_discord_bot()
     if token:
-        _bot_task = asyncio.create_task(bot.start(token))
+        _bot_task = asyncio.create_task(_run_discord_bot(bot, token))
         _bot_task.add_done_callback(_log_bot_task_result)
     else:
         logger.warning('DISCORD_TOKEN not set. Discord features will not work.')
@@ -269,6 +294,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         # Central event bus: start the async-subscriber worker and register the
         # webhook delivery subscriber (fans published events out to staff webhooks).
         event_dispatch_queue.start()
+        webhook_queue.start()
         event_bus.subscribe_async(WebhookService().deliver_event)
         # Engagement telemetry: mirror every published domain event into the
         # TelemetryEvent log (page views / interactions are captured separately from
@@ -304,6 +330,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         await stage_reminder.stop()
         await community_event_reminder.stop()
         await event_dispatch_queue.stop()
+        await webhook_queue.stop()
         await discord_queue.stop()
         await web_push_service.aclose_http_client()
         await close_discord_bot()

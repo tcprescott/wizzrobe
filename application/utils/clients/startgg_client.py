@@ -299,6 +299,9 @@ class StartggClient:
             data = await self._query(
                 _ENTRANTS_QUERY, {'id': event_id, 'page': page, 'perPage': _ENTRANT_PAGE},
             )
+            if data.get('event') is None:
+                # A null event would mirror as "no entrants" and prune the roster.
+                raise StartggAPIError(f'start.gg returned no event {event_id}.')
             block = ((data.get('event') or {}).get('entrants')) or {}
             rows.extend(_normalize_entrant(n) for n in block.get('nodes') or [])
             if page >= int((block.get('pageInfo') or {}).get('totalPages') or 1):
@@ -314,7 +317,9 @@ class StartggClient:
                 'id': phase_group_id, 'page': page, 'perPage': _SET_PAGE,
                 'standings': _STANDINGS_PAGE if page == 1 else 1,
             })
-            group = data.get('phaseGroup') or {}
+            group = data.get('phaseGroup')
+            if group is None:
+                raise StartggAPIError(f'start.gg returned no pool {phase_group_id}.')
             if page == 1:
                 standings = [
                     {'entrant_id': str(n['entrant']['id']), 'placement': n.get('placement')}

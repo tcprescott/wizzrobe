@@ -269,6 +269,7 @@ class TestDiscordService:
         discord_user.send = AsyncMock(return_value=sent_message)
         bot = MagicMock()
         bot.is_ready.return_value = True
+        bot.get_user.return_value = None
         bot.fetch_user = AsyncMock(return_value=discord_user)
         monkeypatch.setattr(ds, '_mirror_dm_to_web_push', lambda *a, **kw: None)
         service = object.__new__(ds._RealDiscordService)
