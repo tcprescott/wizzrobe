@@ -56,7 +56,6 @@ _TOKEN_REFRESH_BUFFER = timedelta(minutes=5)
 # Collapse rapid repeat syncs (double-clicks, webhook bursts) — a non-forced
 # sync within this window of the last one is treated as a no-op.
 _SYNC_THROTTLE_WINDOW = timedelta(seconds=60)
-_GROUP_STAGE_STATES = frozenset({'group_stages_underway', 'group_stages_finalized'})
 
 # The Challonge plan's monthly request quota, surfaced in the admin UI.
 CHALLONGE_MONTHLY_QUOTA = 500
@@ -572,9 +571,7 @@ class ChallongeService(
             tournament.challonge_tournament_id, community=tournament.challonge_community,
         )
         refuse_empty_started_bracket(full, await self.repository.count_participants(tournament))
-        result = await self._mirror_bracket(
-            tournament, full['participants'], full['matches'], actor, full['tournament'],
-        )
+        result = await self._mirror_bracket(tournament, full['participants'], full['matches'], actor, full['tournament'])
         await self._record_sync(tournament, full['tournament'])
         return result
 
@@ -596,8 +593,7 @@ class ChallongeService(
         tournament: Tournament,
         remote_participants: List[Dict[str, Any]],
         remote_matches: List[Dict[str, Any]],
-        actor: User,
-        remote_tournament: Optional[Dict[str, Any]] = None,
+        actor: User, remote_tournament: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, int]:
         bookable_before = await self._bookable_match_ids(tournament)
         # Participants -> resolve to linked wizzrobe users by Challonge account id.
@@ -636,12 +632,6 @@ class ChallongeService(
             )
             participant_by_cid[rp['participant_id']] = participant
 
-        # While the group stage runs, every match Challonge has is a group match;
-        # the elimination matches only exist once the final stage starts.
-        remote_tournament = remote_tournament or {}
-        in_group_stage = bool(remote_tournament.get('group_stage')) and (
-            remote_tournament.get('state') in _GROUP_STAGE_STATES
-        )
         # Matches -> mirror with resolved participant FKs.
         for rm in remote_matches:
             p1 = participant_by_cid.get(rm.get('player1_participant_id'))
@@ -655,7 +645,7 @@ class ChallongeService(
                 participant1=p1,
                 participant2=p2,
                 winner_participant=winner,
-                group_stage=in_group_stage,
+                group_stage=RoundScheduleService.group_stage_running(remote_tournament),
             )
 
         # A reset or cleared roster on Challonge; a hand assignment goes with its entrant.
@@ -709,11 +699,7 @@ class ChallongeService(
                 "Both players must link their Challonge account before this match can be scheduled."
             )
 
-        rounds = RoundScheduleService()
-        await rounds.check_booking(
-            await rounds.window_for_challonge_match(cmatch), cmatch.tournament,
-            scheduled_date, scheduled_time, actor,
-        )
+        await RoundScheduleService().check_challonge_booking(cmatch, scheduled_date, scheduled_time, actor)
         match = await MatchService().submit_match_request(
             tournament_id=cmatch.tournament_id,
             scheduled_date=scheduled_date,

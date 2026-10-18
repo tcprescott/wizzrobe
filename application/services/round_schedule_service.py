@@ -28,6 +28,7 @@ from application.services.auth_service import AuthService
 from application.services.round_windows import (
     GROUP_KEY,
     RoundWindow,
+    challonge_group_stage_running,
     elimination_keys,
     placeholder_keys,
     stage_label,
@@ -116,6 +117,10 @@ class RoundScheduleService:
             "You can't change this tournament's round schedule.",
         )
         return tournament
+
+    @staticmethod
+    def group_stage_running(remote_tournament: Optional[dict]) -> bool:
+        return challonge_group_stage_running(remote_tournament)
 
     @staticmethod
     def source_label(tournament: Tournament) -> Optional[str]:
@@ -363,6 +368,15 @@ class RoundScheduleService:
             return  # The booking itself reports the bad input.
         await self.check_time(
             found, tournament, scheduled_at, actor, allow_outside_round=allow_outside_round,
+        )
+
+    async def check_challonge_booking(
+        self, cm: ChallongeMatch, scheduled_date: str, scheduled_time: str,
+        actor: Optional[User], *, allow_outside_round: bool = False,
+    ) -> None:
+        await self.check_booking(
+            await self.window_for_challonge_match(cm), cm.tournament,
+            scheduled_date, scheduled_time, actor, allow_outside_round=allow_outside_round,
         )
 
     async def check_match_time(

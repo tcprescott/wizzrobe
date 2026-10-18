@@ -278,3 +278,13 @@ class TestGroupStageFlag:
             )
         cm = await ChallongeMatch.get(challonge_match_id='x')
         assert cm.group_stage is True
+
+
+@pytest.mark.parametrize('remote, expected', [
+    ({'group_stage': True, 'state': 'group_stages_underway'}, True),
+    ({'group_stage': True, 'state': 'underway'}, False),
+    ({'group_stage': False, 'state': 'underway'}, False),
+    (None, False),
+])
+def test_group_stage_running(remote, expected):
+    assert RoundScheduleService.group_stage_running(remote) is expected

@@ -128,6 +128,20 @@ def _day_time(dt: datetime, tz) -> str:
     return f"{local.strftime('%a')} {_clock(local.time())}"
 
 
+_CHALLONGE_GROUP_STATES = frozenset({'group_stages_underway', 'group_stages_finalized'})
+
+
+def challonge_group_stage_running(remote_tournament: Optional[dict]) -> bool:
+    """Whether a Challonge tournament is in its group stage.
+
+    While it is, every match Challonge has is a group match: the elimination
+    matches only exist once the final stage starts, and Challonge doesn't label
+    group matches any other way.
+    """
+    remote = remote_tournament or {}
+    return bool(remote.get('group_stage')) and remote.get('state') in _CHALLONGE_GROUP_STATES
+
+
 def window_to_config(
     opens: Optional[datetime], closes: Optional[datetime],
     daily_from: Optional[str], daily_until: Optional[str],
