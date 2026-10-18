@@ -81,7 +81,7 @@ async def admin_challonge_connection_page(tournaments_url: str = '/admin/tournam
             count = await Tournament.filter(
                 challonge_tournament_id__isnull=False, tenant_id=require_tenant_id(),
             ).count()
-            with ui.row().classes('items-center gap-1'):
+            with ui.row().classes('items-baseline gap-1'):
                 if count:
                     noun = 'tournament is' if count == 1 else 'tournaments are'
                     ui.label(f'{count} {noun} linked to Challonge.').classes('text-caption text-muted')

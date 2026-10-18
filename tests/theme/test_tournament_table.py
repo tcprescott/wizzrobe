@@ -45,3 +45,47 @@ def test_board_shows_seven_columns_and_hides_the_description():
     visible = [c['name'] for c in tournament_columns() if not c.get('hidden')]
     assert visible == ['name', 'signups', 'bracket', 'seed_generator', 'match_length',
                        'player_count', 'actions']
+
+
+class _Site:
+    def __init__(self, key, label, field):
+        self.key, self.label, self._field = key, label, field
+
+    def linked(self, t):
+        return bool(getattr(t, self._field, None))
+
+
+_SITES = (_Site('startgg', 'start.gg', 'startgg_event_slug'),
+          _Site('challonge', 'Challonge', 'challonge_tournament_id'))
+
+
+def _linked(**overrides):
+    base = dict(startgg_event_slug=None, challonge_tournament_id=None, challonge_state=None,
+                challonge_group_stage=False, challonge_last_synced_at=None,
+                startgg_last_synced_at=None)
+    base.update(overrides)
+    return _tournament(**base)
+
+
+def test_a_challonge_row_carries_its_stage_and_next_step():
+    row = _tournament_row(_linked(challonge_tournament_id='123', challonge_state='group_stages_underway',
+                                  challonge_group_stage=True), _SITES, frozenset({'challonge', 'startgg'}))
+    assert row['bracket_site'] == 'challonge'
+    assert row['bracket_label'] == 'Challonge'
+    assert row['bracket_stage'] == 'Group stage underway'
+    assert row['bracket_synced'] == 'Never synced'
+    assert row['bracket_manage'] is True
+    assert row['bracket_linkable'] is False
+    assert row['stage_action'] == 'advance_to_bracket'
+
+
+def test_a_tournament_admin_sees_challonge_but_cannot_manage_it():
+    row = _tournament_row(_linked(challonge_tournament_id='123'), _SITES, frozenset({'startgg'}))
+    assert row['bracket_label'] == 'Challonge'
+    assert row['bracket_manage'] is False
+
+
+def test_an_unlinked_row_offers_link_only_to_someone_who_can_link():
+    assert _tournament_row(_linked(), _SITES, frozenset({'startgg'}))['bracket_linkable'] is True
+    assert _tournament_row(_linked(), _SITES, frozenset())['bracket_linkable'] is False
+    assert _tournament_row(_linked(), (), frozenset({'startgg'}))['bracket_linkable'] is False

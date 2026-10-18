@@ -2,12 +2,22 @@
   {
     "name": "linked",
     "user": "staff_user",
-    "viewport": "desktop",
-    "path": "/admin/challonge",
+    "viewport": {
+      "width": 1280,
+      "height": 900
+    },
+    "path": "/admin/tournaments",
     "selector": ".q-page",
     "setup": [
       {
-        "click": "[aria-label=\"More for Wizzrobe Dev Tournament\"]"
+        "fill": "input[placeholder^='Search tournaments']",
+        "value": "Wizzrobe Dev"
+      },
+      {
+        "wait": 600
+      },
+      {
+        "click": "[aria-label=\"More for Wizzrobe Dev Tournament\"] >> visible=true"
       },
       {
         "waitFor": ".q-menu"
@@ -18,15 +28,15 @@
     ],
     "annotate": [
       {
-        "selector": ".page-container-narrow button:has-text('Sync')",
+        "selector": "th:has-text('Bracket')",
         "n": 1
       },
       {
-        "selector": "[aria-label=\"More for Wizzrobe Dev Tournament\"]",
+        "selector": "[aria-label=\"More for Wizzrobe Dev Tournament\"] >> visible=true",
         "n": 2
       },
       {
-        "selector": ".q-menu .q-item:has-text('Entrants')",
+        "selector": ".q-menu .q-item:has-text('Bracket entrants')",
         "n": 3
       }
     ],
@@ -36,13 +46,20 @@
     "name": "entrants",
     "user": "staff_user",
     "viewport": "desktop",
-    "path": "/admin/challonge",
+    "path": "/admin/tournaments",
     "setup": [
       {
-        "click": "[aria-label=\"More for Wizzrobe Dev Tournament\"]"
+        "fill": "input[placeholder^='Search tournaments']",
+        "value": "Wizzrobe Dev"
       },
       {
-        "click": ".q-menu .q-item:has-text(\"Entrants\")"
+        "wait": 600
+      },
+      {
+        "click": "[aria-label=\"More for Wizzrobe Dev Tournament\"] >> visible=true"
+      },
+      {
+        "click": ".q-menu .q-item:has-text(\"Bracket entrants\")"
       },
       {
         "waitFor": ".q-dialog"
