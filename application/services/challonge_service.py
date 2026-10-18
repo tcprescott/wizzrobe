@@ -477,16 +477,12 @@ class ChallongeService(
             raise ValueError(f"Could not find that Challonge tournament: {e}") from e
 
         remote = full['tournament']
-        tournament.challonge_tournament_id = remote.get('id') or identifier
-        tournament.challonge_community = community  # type: ignore[assignment]
-        tournament.challonge_tournament_url = remote.get('url')
         # A bracket-run tournament schedules only what the bracket produced, so
         # close the manual player-request path. Staff can re-open it per
         # tournament from the tournament editor.
-        tournament.allow_player_match_requests = False
-        await save_fields(
-            tournament, 'challonge_tournament_id', 'challonge_community', 'challonge_tournament_url',
-            'allow_player_match_requests',
+        await self.tournament_repository.update(
+            tournament, challonge_tournament_id=remote.get('id') or identifier, challonge_community=community,
+            challonge_tournament_url=remote.get('url'), allow_player_match_requests=False,
         )
 
         await self.audit_service.write_log(
@@ -528,15 +524,9 @@ class ChallongeService(
             'participants_removed': participants,
             'matches_removed': matches,
         }
-        tournament.challonge_tournament_id = None
-        tournament.challonge_community = None  # type: ignore[assignment]
-        tournament.challonge_tournament_url = None
-        tournament.challonge_last_synced_at = None
-        tournament.challonge_state = None  # type: ignore[assignment]
-        tournament.challonge_group_stage = False
-        await save_fields(
-            tournament, 'challonge_tournament_id', 'challonge_community', 'challonge_tournament_url',
-            'challonge_last_synced_at', 'challonge_state', 'challonge_group_stage',
+        await self.tournament_repository.update(
+            tournament, challonge_tournament_id=None, challonge_community=None, challonge_tournament_url=None,
+            challonge_last_synced_at=None, challonge_state=None, challonge_group_stage=False,
         )
 
         await self.audit_service.write_log(
