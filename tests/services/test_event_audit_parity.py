@@ -221,6 +221,8 @@ _EXCLUDED_BY_DESIGN = frozenset({
     AuditActions.STARTGG_SUGGESTION_DISMISSED,
     AuditActions.STARTGG_REPORTING_SET,
     AuditActions.STARTGG_RESULT_REPORTED,
+    AuditActions.STARTGG_CONNECTED,
+    AuditActions.STARTGG_DISCONNECTED,
     # Twitch account linking.
     AuditActions.TWITCH_LINKED,
     AuditActions.TWITCH_UNLINKED,

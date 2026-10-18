@@ -258,6 +258,8 @@ class AuditActions:
     STARTGG_SUGGESTION_DISMISSED = 'startgg.suggestion_dismissed'
     STARTGG_REPORTING_SET = 'startgg.reporting_set'
     STARTGG_RESULT_REPORTED = 'startgg.result_reported'
+    STARTGG_CONNECTED = 'startgg.connected'
+    STARTGG_DISCONNECTED = 'startgg.disconnected'
     TWITCH_LINKED = 'twitch.linked'
     TWITCH_UNLINKED = 'twitch.unlinked'
 

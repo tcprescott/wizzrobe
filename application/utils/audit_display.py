@@ -301,6 +301,8 @@ ACTION_LABELS: dict[str, str] = {
     'startgg.suggestion_dismissed': 'Dismissed a start.gg match suggestion',
     'startgg.reporting_set': 'Changed start.gg result reporting',
     'startgg.result_reported': 'Sent a result to start.gg',
+    'startgg.connected': 'Connected start.gg',
+    'startgg.disconnected': 'Disconnected start.gg',
     # Community
     'community_event.submitted': 'Submitted a community event',
     'community_event.updated': 'Edited a community event',

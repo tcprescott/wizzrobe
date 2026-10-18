@@ -19,6 +19,8 @@ bracket, and the other two refuse a start.gg-linked one.
 | `models/startgg.py` | `StartggEntrant`, `StartggPhase`, `StartggPool`, `StartggSet` and `StartggSetState`; `Tournament.startgg_*`, `User.startgg_*`. See [data-model.md](../reference/data-model.md). |
 | `application/repositories/startgg_repository.py` | Tenant-scoped mirror reads and writes, prune, `sets_for_match`. |
 | `application/services/startgg_service.py` | `StartggService`: link, sync, entrant mapping, booking, the public view, writeback. |
+| `application/services/startgg_connection_service.py` | `StartggConnectionService`: the community's start.gg sign-in (`StartggConnection`), token refresh, which token a call uses, and the per-tournament access check. |
+| `pages/admin_tabs/admin_startgg.py`, `pages/startgg_oauth.py` | The start.gg card of Settings → Integrations; `/startgg/connect` and the shared OAuth callback. |
 | `application/services/startgg_link_service.py` | `StartggLinkService`: players link their start.gg account on Profile (`user.identity`). |
 | `application/services/bracket_sources.py` | The shared contract every external bracket site plugs into (below). |
 | `application/services/startgg_sync_worker.py` | Re-syncs every linked event every 2 minutes. |
@@ -29,11 +31,29 @@ bracket, and the other two refuse a start.gg-linked one.
 
 ## Configuration
 
-`STARTGG_API_TOKEN` (a start.gg Personal Access Token) turns the mirror on;
-`STARTGG_CLIENT_ID` / `STARTGG_CLIENT_SECRET` turn on the profile link, whose
-callback is `{BASE_URL}/startgg/oauth/callback`. See the env table in
-[deployment.md](../deployment.md). Writeback needs the token's account to be a
-Reporter (or admin) on the start.gg event.
+`STARTGG_CLIENT_ID` / `STARTGG_CLIENT_SECRET` (a start.gg OAuth app) turn on
+both the player profile link and the staff **community sign-in**; both use the
+one redirect URI `{BASE_URL}/startgg/oauth/callback`, and the pending
+`startgg_connect_state` tells the callback a sign-in is the staff flow.
+`STARTGG_API_TOKEN` (a Personal Access Token) is optional: a community with no
+sign-in syncs and reports with it. See the env table in
+[deployment.md](../deployment.md).
+
+### The community sign-in
+
+Staff press **Connect start.gg** on Settings → Integrations and sign in with
+`user.identity tournament.reporter`. The grant is one `StartggConnection` row
+per community; every start.gg call in that community (syncs, the worker,
+writeback) uses it. Access tokens last 7 days and refresh a day before they
+lapse, under a per-community lock because start.gg may rotate the refresh
+token. A refresh that fails falls back to `STARTGG_API_TOKEN` (or the stale
+token) and the card says to reconnect.
+
+Reporting needs the signed-in account to hold an admin role, **Reporter** or
+higher, on the start.gg *tournament* (its Settings → Admin Permissions). The
+card checks each linked tournament: yes if start.gg lists it among the
+account's admin-view tournaments or lists the account among its owner/admins;
+"Read only" when both answer no; "Couldn't check" when neither answers.
 
 ## Mapping entrants to members
 

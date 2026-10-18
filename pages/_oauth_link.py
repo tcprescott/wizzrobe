@@ -481,6 +481,8 @@ class IdentityLinkFlow:
     ``provider_label`` is woven verbatim into log lines and toasts (``'racetime'``
     / ``'Twitch'``), so it doubles as the display name in messages.
     ``provider_key`` is the stable lowercase slug routed through the handoff.
+    ``other_callback`` lets a second flow share the one registered redirect URI:
+    it gets the callback URL first and answers True when it completed it.
     """
 
     provider_key: str
@@ -494,6 +496,7 @@ class IdentityLinkFlow:
     authorize_url: Callable[[str], str]
     is_mock: Callable[[], bool]
     display_name: Callable[[dict], Optional[str]]
+    other_callback: Optional[Callable[[str], Awaitable[bool]]] = None
 
 
 async def _flow_exchange(flow: IdentityLinkFlow, code: str) -> dict:
@@ -574,6 +577,8 @@ def register_identity_link_pages(flow: IdentityLinkFlow) -> None:
             return
         # Cross-host handoff leg (platform host): exchange + mint + hand back.
         if await handle_link_handoff_callback(url):
+            return
+        if flow.other_callback is not None and await flow.other_callback(url):
             return
         user = await get_user_from_session(app.storage.user)
         expected_state = app.storage.user.pop(flow.state_key, None)

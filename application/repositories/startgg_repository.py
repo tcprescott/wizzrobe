@@ -2,8 +2,8 @@
 start.gg Repository - Data Access Layer
 
 Pure data access for the read-only start.gg mirror (entrants, phases, pools,
-sets), each tournament's event link, and the lookups that map entrants to
-Wizzrobe users. No business logic.
+sets), each tournament's event link, the community's start.gg sign-in, and the
+lookups that map entrants to Wizzrobe users. No business logic.
 """
 
 from datetime import datetime
@@ -15,6 +15,7 @@ from tortoise.functions import Lower
 from application.repositories._tenant import current_tenant_id, scoped
 from models import (
     Match,
+    StartggConnection,
     StartggEntrant,
     StartggPhase,
     StartggPool,
@@ -68,6 +69,37 @@ class StartggRepository:
         """Cross-tenant: every tenant with at least one linked event, for the sync worker."""
         rows = await Tournament.filter(startgg_event_slug__isnull=False).values_list('tenant_id', flat=True)
         return set(cast(List[int], rows))
+
+    # ------------------------------------------------------------------
+    # The community's start.gg sign-in
+    # ------------------------------------------------------------------
+    @staticmethod
+    async def get_connection() -> Optional[StartggConnection]:
+        return await scoped(StartggConnection.all()).first()
+
+    @staticmethod
+    async def save_connection(**values: Any) -> StartggConnection:
+        connection, _ = await StartggConnection.update_or_create(
+            tenant_id=current_tenant_id(), defaults=values,
+        )
+        return connection
+
+    @staticmethod
+    async def update_connection_tokens(
+        connection: StartggConnection,
+        access_token: str,
+        refresh_token: Optional[str],
+        token_expires_at: Optional[datetime],
+    ) -> None:
+        connection.access_token = access_token
+        if refresh_token:
+            connection.refresh_token = refresh_token
+        connection.token_expires_at = token_expires_at  # type: ignore[assignment]  # null=True field
+        await connection.save()
+
+    @staticmethod
+    async def clear_connection() -> int:
+        return await scoped(StartggConnection.all()).delete()
 
     # ------------------------------------------------------------------
     # Identity lookups (global: users are not tenant-scoped)

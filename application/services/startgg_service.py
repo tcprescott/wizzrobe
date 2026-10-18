@@ -39,6 +39,7 @@ from application.services.discord import discord_queue
 from application.services.feature_flag_service import FeatureFlagService
 from application.services.match.match_service import MatchService
 from application.services.round_schedule_service import RoundScheduleService
+from application.services.startgg_connection_service import StartggConnectionService
 from application.tenant_context import require_tenant_id
 from application.utils.clients.startgg_client import (
     StartggAPIError,
@@ -86,18 +87,25 @@ class StartggService:
         self.repository = StartggRepository()
         self.tournament_repository = TournamentRepository()
         self.audit_service = AuditService()
+        self.connection_service = StartggConnectionService()
 
     # ------------------------------------------------------------------
     # Configuration
     # ------------------------------------------------------------------
     @staticmethod
     def is_configured() -> bool:
-        """True when the platform's start.gg API token is set (or mock is on)."""
-        return is_mock_startgg() or bool(os.getenv('STARTGG_API_TOKEN'))
+        """True when the server can reach start.gg at all: a platform API token,
+        an OAuth app communities sign in with, or mock."""
+        return (
+            is_mock_startgg()
+            or bool(os.getenv('STARTGG_API_TOKEN'))
+            or StartggConnectionService.is_configured()
+        )
 
-    @staticmethod
-    def _client() -> Any:
-        return MockStartggClient() if is_mock_startgg() else StartggClient()
+    async def _client(self) -> Any:
+        if is_mock_startgg():
+            return MockStartggClient()
+        return StartggClient(await self.connection_service.api_token() or '')
 
     @staticmethod
     def event_url(tournament: Tournament) -> Optional[str]:
@@ -115,7 +123,7 @@ class StartggService:
 
     async def _fetch(self, slug: str) -> Dict[str, Any]:
         try:
-            return await self._client().get_event_full(slug)
+            return await (await self._client()).get_event_full(slug)
         except StartggAPIError as e:
             if e.status == 404:
                 raise ValueError(f"start.gg has no event at {event_url(slug)}.") from e
@@ -128,8 +136,11 @@ class StartggService:
     async def link_event(self, tournament_id: int, id_or_url: str, actor: User) -> Dict[str, int]:
         tournament = await self._editable_tournament(tournament_id, actor)
         await AuthService.ensure(await AuthService.is_staff(actor), _LINK_STAFF_ONLY)
-        if not self.is_configured():
-            raise ValueError('start.gg is not set up on this server yet (no API token).')
+        if not await self.connection_service.has_access():
+            raise ValueError(
+                "start.gg isn't connected for this community yet. A staff member can "
+                'connect it under Settings → Integrations.'
+            )
         if tournament.challonge_tournament_id:
             raise ValueError(
                 'This tournament is linked to Challonge. Unlink it there first; a tournament '
@@ -207,7 +218,7 @@ class StartggService:
         synced = 0
         for tournament in await self.repository.linked_tournaments():
             try:
-                full = await self._client().get_event_full(tournament.startgg_event_slug)
+                full = await (await self._client()).get_event_full(tournament.startgg_event_slug)
                 await self._apply(tournament, full, actor, audit=False)
                 synced += 1
             except StartggAPIError as e:
@@ -626,7 +637,7 @@ class StartggService:
         )
         if entrant is None:
             raise ValueError("The match winner isn't one of the start.gg set's players.")
-        client = self._client()
+        client = await self._client()
         current = await client.get_set_state(row.set_id)
         if current['complete']:
             # start.gg already has a result (an admin reported it): theirs stands.

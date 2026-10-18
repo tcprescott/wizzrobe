@@ -11,7 +11,7 @@ would show a bracket nobody is in.
 """
 
 from datetime import datetime, timezone
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional, Set, Tuple
 
 from application.utils.environment import env_flag, is_production
 
@@ -26,6 +26,9 @@ def is_mock_startgg() -> bool:
         )
     return enabled
 
+
+# The start.gg account a mock community sign-in reports as.
+MOCK_CONNECTED_USER_ID = '30001'
 
 # The start.gg account ids the dev seed links to player_one and player_two.
 MOCK_LINKED_ACCOUNTS = {'player_one': '39001', 'player_two': '39002'}
@@ -113,3 +116,11 @@ class MockStartggClient:
 
     async def report_winner(self, set_id: str, winner_entrant_id: str) -> None:
         return None
+
+    async def get_admin_tournament_slugs(self) -> Tuple[Optional[str], Set[str]]:
+        # The mock account admins nothing, so the card's per-tournament check
+        # falls through to get_tournament_admin_ids below.
+        return MOCK_CONNECTED_USER_ID, set()
+
+    async def get_tournament_admin_ids(self, slug: str) -> Set[str]:
+        return {MOCK_CONNECTED_USER_ID}
