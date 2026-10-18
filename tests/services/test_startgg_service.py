@@ -111,6 +111,14 @@ class TestLinkAndMirror:
         assert e3.user_id is None and e3.suggested_user_id == three.id
         assert e4.suggested_user_id is None
 
+    async def test_entry_with_no_account_suggests_the_member_who_linked_that_tag(self, db, client, sent):
+        """An admin-added start.gg entry carries no account, so a link can't map it by id."""
+        client.full['entrants'][2].update(name='Inc', gamer_tag='Inc', startgg_user_id=None)
+        inc = await make_member(13, 'inc7', startgg_user_id='3449391', startgg_username='Inc')
+        tournament, _ = await _linked(client)
+        entrant = await StartggEntrant.get(tournament=tournament, entrant_id='9003')
+        assert entrant.user_id is None and entrant.suggested_user_id == inc.id
+
     async def test_discord_connected_on_startgg_maps(self, db, client, sent):
         client.full['entrants'][2]['discord_id'] = '555'
         three = await make_member(555, 'three')
