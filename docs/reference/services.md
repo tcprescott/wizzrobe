@@ -452,9 +452,9 @@ Admin → Users › Import from Discord. Gives every human in the community's li
 | Method | Returns | Description |
 |---|---|---|
 | `preview(actor)` | `DiscordImportPreview` | What a run would do now, without writing: `server_name`, `people` (humans), `new_accounts`, `new_members`, `already_members`, `bots`, `removed`. |
-| `run(actor)` | `DiscordImportResult` | Bulk-inserts the missing accounts (`UserRepository.bulk_create_from_discord`, conflicts ignored), then `TenantMembershipService.bulk_add_members(..., MembershipSource.DISCORD_IMPORT)`. One audit row for the run, `tenant.members_imported` + `EventType.TENANT_MEMBERS_IMPORTED`, carrying the counts and `created_user_ids` / `added_user_ids`. |
+| `run(actor)` | `DiscordImportResult` | Bulk-inserts the missing accounts (`UserRepository.bulk_create_from_discord`, conflicts ignored), then one `TenantMembershipRepository.bulk_add` (`MembershipSource.DISCORD_IMPORT`) for the people not yet members, closing their pending join requests (`close_pending_request`); no per-person DM, audit row or event. One audit row for the run, `tenant.members_imported` + `EventType.TENANT_MEMBERS_IMPORTED`, carrying the counts and `created_user_ids` / `added_user_ids`. |
 
-Collaborators: `DiscordService.list_members` / `.get_guild_summary`, `UserRepository`, `TenantMembershipRepository`, `TenantMembershipService`, `AuditService`.
+Collaborators: `DiscordService.list_members` / `.get_guild_summary`, `UserRepository`, `TenantMembershipRepository`, `TenantJoinRequestRepository`, `AuditService`.
 
 ### discord_role_mapping_service.py — DiscordRoleMappingService
 
@@ -1218,7 +1218,6 @@ Who belongs to a community, and who may change that. Membership is the **wider s
 | `is_member(user)` | `bool` | Membership check for the tenant in scope. |
 | `addable_users()` | `list[User]` | Accounts not in this community yet — the Add Member picker. Deliberately reads the *global* list (identity is shared), which is why it is a named service method rather than a bare `get_all_users()` in the page. |
 | `add_member(actor, user)` | `None` | Idempotent; closes a pending join request (decider = actor, `closed_request_id` in the audit details) and DMs the person. Audited `tenant.member_added` + `EventType.TENANT_MEMBER_ADDED`. |
-| `bulk_add_members(actor, users, source)` | `list[User]` | Staff-only, quiet bulk add for an import: one insert, no per-person DM, audit row or event (the caller writes one for the run). Skips blocked, inactive and system accounts and never lifts a block; closes pending join requests of those added. Returns who was added. |
 | `remove_member(actor, user)` | `None` | **Refuses** while the user holds any role here — silently cascading a revoke because staff clicked Remove is the invisible side effect this defends against. Withdraws their ADA request and DMs them. Audited `tenant.member_removed` + event. |
 | `ensure_member(user, *, actor=None, source=None)` | `TenantJoinRequest \| None` | Idempotent, **unaudited** membership for the in-scope tenant, recording `source` on a new row. The invariant's hook, called from role grants that are audited in their own right. Returns the pending request it closed (decider = `actor`) so the caller's audit row can carry `closed_request_id`, and DMs the person in that case. |
 | `memberships_by_user()` | `dict[int, TenantMembership]` | This community's rows keyed by user id: when (`created_at`) and how (`source`) each joined. |

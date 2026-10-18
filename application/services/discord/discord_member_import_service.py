@@ -10,16 +10,17 @@ run only picks up people who joined the server since.
 
 import logging
 from dataclasses import dataclass
-from typing import List
+from typing import Iterable, List
 
 from application.events import EventType
+from application.repositories.tenant_join_request_repository import TenantJoinRequestRepository
 from application.repositories.tenant_membership_repository import TenantMembershipRepository
 from application.repositories.user_repository import UserRepository
 from application.services.audit_service import AuditActions, AuditService
 from application.services.auth_service import AuthService
 from application.services.discord.discord_guild_ops import GuildMember
 from application.services.discord.discord_service import DiscordService
-from application.services.tenant_membership_service import TenantMembershipService
+from application.services.tenant_membership_service import close_pending_request
 from application.services.tenant_service import TenantService
 from application.tenant_context import require_tenant_id
 from models import MembershipSource, User
@@ -96,9 +97,7 @@ class DiscordMemberImportService:
         )
         accounts = await UserRepository.get_by_discord_ids(m.id for m in plan.humans)
         created = [u for did, u in accounts.items() if did not in plan.existing]
-        added = await TenantMembershipService().bulk_add_members(
-            actor, accounts.values(), MembershipSource.DISCORD_IMPORT,
-        )
+        added = await self._add_members(actor, accounts.values())
         result = DiscordImportResult(
             accounts_created=len(created),
             members_added=len(added),
@@ -120,6 +119,33 @@ class DiscordMemberImportService:
             EventType.TENANT_MEMBERS_IMPORTED,
         )
         return result
+
+    @staticmethod
+    async def _add_members(actor: User, users: Iterable[User]) -> List[User]:
+        """Quietly add ``users`` here and return who was added.
+
+        Unlike ``TenantMembershipService.add_member``, no welcome DM, audit row
+        or event per person: the run writes one. Blocked, inactive and system
+        accounts are skipped and a block is never lifted; pending join requests
+        from the people added are closed as approved.
+        """
+        tenant_id = require_tenant_id()
+        candidates = {u.id: u for u in users if u.is_active and not u.is_system}
+        skip = (
+            await TenantMembershipRepository.member_ids(candidates, tenant_id)
+            | await TenantMembershipRepository.blocked_ids(candidates, tenant_id)
+        )
+        added = [u for uid, u in candidates.items() if uid not in skip]
+        if not added:
+            return []
+        await TenantMembershipRepository.bulk_add(
+            [u.id for u in added], tenant_id, MembershipSource.DISCORD_IMPORT,
+        )
+        added_ids = {u.id for u in added}
+        for request in await TenantJoinRequestRepository.list_pending(tenant_id):
+            if request.user_id in added_ids:
+                await close_pending_request(request.user, tenant_id, actor)
+        return added
 
     async def _plan(self, actor: User) -> _Plan:
         await AuthService.ensure(

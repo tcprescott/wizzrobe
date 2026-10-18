@@ -96,7 +96,7 @@ class JoinMode(str, Enum):
         return self in (JoinMode.DISCORD_OR_REQUEST, JoinMode.DISCORD)
 
 
-async def _close_pending_request(
+async def close_pending_request(
     user: User, tenant_id: int, decided_by: Optional[User],
 ) -> Optional[TenantJoinRequest]:
     """Close ``user``'s pending request here as approved, if they have one.
@@ -208,7 +208,7 @@ class TenantMembershipService:
             return
         await TenantMembershipRepository.add(user, tenant_id, MembershipSource.STAFF)
         await TenantMembershipRepository.unblock(user.id, tenant_id)
-        closed = await _close_pending_request(user, tenant_id, actor)
+        closed = await close_pending_request(user, tenant_id, actor)
         details: dict = {'target_user_id': user.id}
         if closed is not None:
             details['closed_request_id'] = closed.id
@@ -216,35 +216,6 @@ class TenantMembershipService:
             actor, AuditActions.TENANT_MEMBER_ADDED, details, EventType.TENANT_MEMBER_ADDED,
         )
         await self._notify_member(user, member_added_dm, by_staff=True)
-
-    async def bulk_add_members(
-        self, actor: User, users: Iterable[User], source: MembershipSource,
-    ) -> List[User]:
-        """Put many people in this community at once, quietly; returns who was added.
-
-        For an import, so the per-person extras of :meth:`add_member` are
-        dropped on purpose: no welcome DM to each, and no audit row or event per
-        person (the caller writes one for the run). Never lifts a removal block:
-        anyone blocked here is skipped, as are inactive and system accounts.
-        Pending join requests from the people added are closed as approved.
-        """
-        await AuthService.ensure(
-            await AuthService.can_grant_roles(actor),
-            'Only Staff can manage community membership',
-        )
-        tenant_id = require_tenant_id()
-        candidates = {u.id: u for u in users if u.is_active and not u.is_system}
-        already = await TenantMembershipRepository.member_ids(candidates, tenant_id)
-        blocked = await TenantMembershipRepository.blocked_ids(candidates, tenant_id)
-        added = [u for uid, u in candidates.items() if uid not in already and uid not in blocked]
-        if not added:
-            return []
-        await TenantMembershipRepository.bulk_add([u.id for u in added], tenant_id, source)
-        added_ids = {u.id for u in added}
-        for request in await TenantJoinRequestRepository.list_pending(tenant_id):
-            if request.user_id in added_ids:
-                await _close_pending_request(request.user, tenant_id, actor)
-        return added
 
     async def remove_member(self, actor: User, user: User) -> None:
         """Take a user out of this community.
@@ -430,7 +401,7 @@ class TenantMembershipService:
                 if not await SystemConfigService.get_bool(KEY_OPEN_MEMBERSHIP):
                     return False
                 await TenantMembershipRepository.add(user, tenant_id, MembershipSource.OPEN)
-                closed = await _close_pending_request(user, tenant_id, None)
+                closed = await close_pending_request(user, tenant_id, None)
                 details: dict = {'target_user_id': user.id, 'source': 'open'}
                 if closed is not None:
                     details['closed_request_id'] = closed.id
@@ -512,7 +483,7 @@ class TenantMembershipService:
                 # (the gate shows a welcome), so no DM to them. Staff aren't
                 # DM'd either: nothing needs doing, and the Users tab marks the
                 # member "Joined via Discord".
-                closed = await _close_pending_request(user, tenant_id, None)
+                closed = await close_pending_request(user, tenant_id, None)
                 details: dict = {'target_user_id': user.id, 'source': 'discord_auto_join'}
                 if closed is not None:
                     details['closed_request_id'] = closed.id
@@ -812,7 +783,7 @@ class TenantMembershipService:
             await TenantMembershipRepository.unblock(user.id, tenant_id)
         if not await TenantMembershipRepository.add_returning_created(user, tenant_id, source):
             return None
-        closed = await _close_pending_request(user, tenant_id, actor)
+        closed = await close_pending_request(user, tenant_id, actor)
         if closed is not None:
             await TenantMembershipService._notify_member(user, member_added_dm, by_staff=False)
         return closed

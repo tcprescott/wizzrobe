@@ -349,10 +349,10 @@ async def _members_panel(
                 return
 
             with form_dialog('Import from Discord', card_classes='dialog-card dialog-card--sm gap-2') as dialog:
-                ui.markdown(
-                    f'The **{preview.server_name}** Discord server has '
-                    f'**{_count(preview.people, "person", "people")}**.'
-                ).classes('wiz-import-lead')
+                ui.label(
+                    f'The {preview.server_name} Discord server has '
+                    f'{_count(preview.people, "person", "people")}.'
+                )
                 with ui.element('div').classes('wiz-import-stats'):
                     _import_stat(preview.new_members, 'to add as members', accent=True)
                     _import_stat(preview.already_members, 'already members')
