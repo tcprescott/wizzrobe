@@ -533,13 +533,12 @@ class BaseLayout:
                             tab_item.props(add='active')
                         self._tab_item_refs[tab['label']] = tab_item
 
+            # The info card and the copyright sit at the foot of the drawer
+            # when the nav fits, and fall to its scroll-end when it is long.
+            ui.space()
             if self._tenant_id is not None:
                 self._render_drawer_help()
 
-            # Copyright and source link live at the foot of the drawer (every
-            # page renders the drawer, so this replaces the old desktop-only
-            # footer meta row).
-            ui.space()
             with ui.row().classes('items-center q-px-md q-pb-xs no-wrap'):
                 ui.icon('code').props('size=xs').classes('wiz-drawer-github-link')
                 ui.link('GitHub', 'https://github.com/tcprescott/wizzrobe', new_tab=True) \
@@ -547,7 +546,7 @@ class BaseLayout:
             ui.label(self._copyright).classes('text-caption q-px-md q-pb-md wiz-drawer-copyright')
 
     def _render_drawer_help(self) -> None:
-        """The drawer's public foot: Event Information, Help, Feedback.
+        """The drawer's info card: Event Guide, Qualifiers, Help, Feedback.
 
         Only inside a community — off one there is no /help or /event-info to
         reach, and an item pointing at the page it sits on is a circle.
@@ -555,8 +554,8 @@ class BaseLayout:
         from theme.dialog import FeedbackDialog
 
         current_path = current_local_url().split('?', 1)[0]
-        ui.separator()
-        with ui.list().props('padding'):
+        with ui.list().props('padding').classes('wiz-drawer-info'):
+            ui.item_label('Info & support').props('header').classes('wiz-drawer-group')
             # Above Help, and ungated on ``self.user`` for the same reason:
             # the event handbook answers the questions people have before
             # they sign in, and some of its readers never will.
