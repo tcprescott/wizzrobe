@@ -17,7 +17,6 @@ from application.tenant_context import get_current_tenant_id
 from middleware.auth import protected_page, protected_tab_page
 from models import FeatureFlag, Role
 from pages.admin_tabs.admin_brackets import admin_brackets_page
-from pages.admin_tabs.admin_challonge import admin_challonge_page
 from pages.admin_tabs.admin_check_in import admin_check_in_page
 from pages.admin_tabs.admin_community_events import admin_community_events_page
 from pages.admin_tabs.admin_equipment import admin_equipment_page
@@ -187,8 +186,6 @@ def build_admin_tabs(
         tabs.append({'label': 'Racetime', 'icon': 'flag', 'group': 'Online play', 'content': admin_racetime_page})
     if (is_staff or access.is_sync_admin) and FeatureFlag.SPEEDGAMING_ETL in live:
         tabs.append({'label': 'SpeedGaming', 'icon': 'sync_alt', 'group': 'Online play', 'content': admin_speedgaming_page})
-    if is_staff and FeatureFlag.CHALLONGE in live:
-        tabs.append({'label': 'Challonge', 'icon': 'account_tree', 'group': 'Online play', 'content': admin_challonge_page})
     if is_staff and FeatureFlag.BRACKETS in live:
         tabs.append({'label': 'Brackets', 'icon': 'schema', 'group': 'Online play', 'content': admin_brackets_page})
     if (is_staff or is_ta_any) and FeatureFlag.TRIFORCE_TEXTS in live:

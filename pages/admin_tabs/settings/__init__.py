@@ -23,6 +23,7 @@ from application.table_preferences_context import current_table_prefs, table_pre
 from application.tenant_context import get_current_tenant_id, tenant_scope
 from application.timezone_context import current_timezone_name, tz_scope
 from models import FeatureFlag
+from pages.admin_tabs.admin_challonge import admin_challonge_connection_page
 from pages.admin_tabs.admin_discord_events import admin_discord_events_page
 from pages.admin_tabs.admin_discord_roles import admin_discord_roles_page
 from pages.admin_tabs.admin_features import admin_features_page
@@ -53,6 +54,7 @@ LEGACY_TAB_PANES: dict[str, str] = {
     'discord-events': 'discord',
     'webhooks': 'integrations',
     'randomizer-keys': 'integrations',
+    'challonge': 'integrations',
     'profile-reminders': 'members',
 }
 
@@ -146,6 +148,8 @@ def build_settings_panes(access, live: set) -> list[SettingsPane]:
             embedded=tuple(discord),
         ))
     integrations: list[EmbeddedPage] = []
+    if is_staff and FeatureFlag.CHALLONGE in live:
+        integrations.append(EmbeddedPage(admin_challonge_connection_page))
     if is_staff:
         integrations.append(EmbeddedPage(admin_webhooks_page, refresh_label='Webhooks'))
     if is_staff or access.is_preset_manager:

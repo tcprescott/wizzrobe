@@ -91,7 +91,9 @@ class TableKeys:
     ADMIN_USERS = 'admin.users'
     # _v2 since the board became six short columns with the description hidden:
     # rule 3 would have kept every v1 layout's Description and duration columns.
-    ADMIN_TOURNAMENTS = 'admin.tournaments_v2'
+    # _v3 since the Bracket column joined beside Signups: rule 3 would have
+    # appended it past the ⋮ on every saved v2 layout.
+    ADMIN_TOURNAMENTS = 'admin.tournaments_v3'
     ADMIN_BRACKETS = 'admin.brackets'
     ADMIN_CHECK_IN_EVENTS = 'admin.check_in_events'
     ADMIN_DISCORD_EVENTS = 'admin.discord_events'

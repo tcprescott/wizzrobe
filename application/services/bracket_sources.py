@@ -9,7 +9,8 @@ rather than adding another hand-written call at every spot:
 * match confirmation calls :func:`on_match_confirmed`,
 * My Schedule lists :func:`list_bookable_for_user` and books through
   :func:`schedule`,
-* Admin → Tournaments syncs through :func:`sync_tournament` / :func:`sync_all`.
+* Admin → Tournaments syncs through :func:`sync_tournament` / :func:`sync_all`,
+  and links and unlinks through :func:`link` / :func:`unlink`.
 
 Challonge is registered for syncing only; its result push and My Schedule rows
 still run through ``ChallongeService`` directly until it moves onto the rest of
@@ -19,6 +20,7 @@ the contract. Native brackets live in Wizzrobe, so they have nothing to sync.
 import logging
 from dataclasses import dataclass, field
 from typing import Callable, Dict, List, Optional, Protocol
+from urllib.parse import urlparse
 
 from application.services.challonge_service import ChallongeService
 from application.services.feature_flag_service import FeatureFlagService
@@ -67,6 +69,10 @@ class BracketSource(Protocol):
 
     async def on_match_confirmed(self, match: Match, actor: Optional[User]) -> None: ...
 
+    async def link(self, tournament: Tournament, id_or_url: str, actor: User) -> str: ...
+
+    async def unlink(self, tournament: Tournament, actor: User) -> None: ...
+
 
 class StartggSource:
     key = 'startgg'
@@ -98,6 +104,13 @@ class StartggSource:
     async def schedule(self, key: int, scheduled_date: str, scheduled_time: str, actor: User) -> Match:
         return await StartggService().schedule_set(key, scheduled_date, scheduled_time, actor)
 
+    async def link(self, tournament: Tournament, id_or_url: str, actor: User) -> str:
+        counts = await StartggService().link_event(tournament.id, id_or_url, actor)
+        return f"{counts.get('entrants', 0)} entrants, {counts.get('sets', 0)} matches"
+
+    async def unlink(self, tournament: Tournament, actor: User) -> None:
+        await StartggService().unlink_event(tournament.id, actor)
+
     async def on_match_confirmed(self, match: Match, actor: Optional[User]) -> None:
         await StartggService().report_result_if_linked(match, actor)
 
@@ -121,6 +134,13 @@ class ChallongeSource:
 
     async def schedule(self, key: int, scheduled_date: str, scheduled_time: str, actor: User) -> Match:
         raise ValueError('Book Challonge matches from their own row.')
+
+    async def link(self, tournament: Tournament, id_or_url: str, actor: User) -> str:
+        await ChallongeService().link_tournament(tournament.id, id_or_url, actor)
+        return 'linked and synced'
+
+    async def unlink(self, tournament: Tournament, actor: User) -> None:
+        await ChallongeService().unlink_tournament(tournament.id, actor)
 
     async def on_match_confirmed(self, match: Match, actor: Optional[User]) -> None:
         return None
@@ -200,6 +220,35 @@ async def sync_all(tournaments: List[Tournament], actor: User,
         except (ValueError, PermissionError) as e:
             results.append(SyncResult(tournament.id, tournament.name, source.label, '', error=str(e)))
     return results
+
+
+_SITE_HOSTS = {'challonge.com': 'challonge', 'start.gg': 'startgg'}
+
+
+def site_for_link(value: str) -> Optional[str]:
+    """The site key a pasted bracket link points at, or None for a bare id."""
+    value = (value or '').strip()
+    if not value:
+        return None
+    host = (urlparse(value if '://' in value else f'https://{value}').hostname or '').lower()
+    for domain, key in _SITE_HOSTS.items():
+        if host == domain or host.endswith('.' + domain):
+            return key
+    return None
+
+
+async def link(source_key: str, tournament: Tournament, id_or_url: str, actor: User) -> str:
+    """Link ``tournament`` to a bracket on ``source_key`` and mirror it."""
+    return await by_key(source_key).link(tournament, id_or_url, actor)
+
+
+async def unlink(tournament: Tournament, actor: User) -> str:
+    """Detach ``tournament`` from whichever live site it follows; returns that site's label."""
+    source = await source_for(tournament)
+    if source is None:
+        raise ValueError(f"{tournament.name} isn't linked to a bracket site.")
+    await source.unlink(tournament, actor)
+    return source.label
 
 
 def site_labels() -> Dict[str, str]:

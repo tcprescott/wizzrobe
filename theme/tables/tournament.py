@@ -2,13 +2,17 @@ from nicegui import app, ui
 from tortoise.functions import Count
 
 from application.content import parse_blocks
-from application.services import bracket_sources, get_user_from_session
+from application.services import ChallongeService, bracket_sources, get_user_from_session
 from application.tenant_context import get_current_tenant_id
 from application.utils.safe_url import http_url_or_empty
 from application.utils.timezone import format_local_display
 from application.utils.tournament_signup import SignupWindow, signup_window_state
 from theme.busy import busy
 from theme.dialog import TournamentDialog
+from theme.dialog.challonge_participants_dialog import ChallongeParticipantsDialog
+from theme.dialog.confirmation_dialog import ConfirmationDialog
+from theme.dialog.link_bracket_dialog import open_link_bracket_dialog
+from theme.dialog.startgg_entrants_dialog import StartggEntrantsDialog
 from theme.dialog.tournament_edit_dialog import confirm_tournament_delete
 from theme.dialog.tournament_players_dialog import TournamentPlayersDialog
 from theme.empty_state import no_data_slot
@@ -96,10 +100,39 @@ def _bracket_site(t, live_sites) -> str:
     return next((s.key for s in live_sites if s.linked(t)), '')
 
 
-def _tournament_row(t, live_sites=()) -> dict:
+def _bracket_fields(t, live_sites, manage_sites) -> dict:
+    """The Bracket column and the row ⋮'s bracket items for one tournament.
+
+    ``manage_sites`` are the site keys this viewer may sync, link and unlink:
+    a tournament admin manages start.gg, while Challonge stays staff's.
+    """
+    site = _bracket_site(t, live_sites)
+    label = next((s.label for s in live_sites if s.key == site), '')
+    stage = ''
+    synced_at = None
+    if site == 'challonge':
+        stage = ChallongeService.stage_label_for(t) or ''
+        synced_at = t.challonge_last_synced_at
+    elif site == 'startgg':
+        synced_at = t.startgg_last_synced_at
+    action = next(iter(ChallongeService.stage_actions_for(t)), None) if site == 'challonge' else None
+    return {
+        'bracket_site': site,
+        'bracket_label': label,
+        'bracket_stage': stage,
+        'bracket_synced': f'Synced {format_local_display(synced_at)}' if synced_at else 'Never synced',
+        'bracket_manage': bool(site) and site in manage_sites,
+        # Offered on an unlinked row when the viewer can link at least one live site.
+        'bracket_linkable': not site and any(s.key in manage_sites for s in live_sites),
+        'stage_action': action.key if action else '',
+        'stage_action_label': action.label if action else '',
+    }
+
+
+def _tournament_row(t, live_sites=(), manage_sites=frozenset()) -> dict:
     state = signup_window_state(t.signups_open_at, t.signups_close_at)
     return {
-        'bracket_site': _bracket_site(t, live_sites),
+        **_bracket_fields(t, live_sites, manage_sites),
         'id': t.id,
         'name': t.name,
         'tournament_format': t.tournament_format or '',
@@ -147,6 +180,15 @@ _LENGTH_CELL = '''
     <span v-else class="tournament-table__unset">Not set</span>
 '''
 
+_BRACKET_CELL = '''
+    <template v-if="props.row.bracket_site">
+        <span class="wiz-chip wiz-chip--neutral">{{ props.row.bracket_label }}</span>
+        <span v-if="props.row.bracket_stage" class="q-ml-xs">{{ props.row.bracket_stage }}</span>
+        <div class="tournament-table__sub">{{ props.row.bracket_synced }}</div>
+    </template>
+    <span v-else class="tournament-table__unset">Not linked</span>
+'''
+
 _PLAYERS_CELL = '''
     <a href="#" class="table-link" :aria-label="props.row.player_count + ' players in ' + props.row.name"
        @click.prevent="$parent.$emit('show_players', props.row)">{{ props.row.player_count }}</a>
@@ -161,7 +203,7 @@ _LENGTH_SORT = (
 
 
 def tournament_columns() -> list[dict]:
-    """The Tournaments board's columns: six visible, the rest offered in the gear.
+    """The Tournaments board's columns: seven visible, the rest offered in the gear.
 
     The description, the active flag and players-per-match are still here for
     anyone who wants them back, but hidden by default: the description was the
@@ -174,6 +216,8 @@ def tournament_columns() -> list[dict]:
         # Not sortable: the cell is a state plus the date it moves on, and sorting
         # that string is neither chronological nor state order.
         {'name': 'signups', 'label': 'Signups', 'field': 'signups', 'align': 'left'},
+        {'name': 'bracket', 'label': 'Bracket', 'field': 'bracket_label',
+         'sortable': True, 'align': 'left'},
         {'name': 'seed_generator', 'label': 'Seed', 'field': 'seed_generator',
          'sortable': True, 'align': 'left'},
         {'name': 'match_length', 'label': 'Match length', 'field': 'match_length',
@@ -235,14 +279,25 @@ class TournamentTableView:
         if self.can_sync:
             items += [
                 SlotItem('sync', 'Sync bracket from start.gg', 'sync_bracket',
-                         v_if="props.row.bracket_site === 'startgg'"),
+                         v_if="props.row.bracket_manage && props.row.bracket_site === 'startgg'"),
                 SlotItem('sync', 'Sync bracket from Challonge', 'sync_bracket',
-                         v_if="props.row.bracket_site === 'challonge'"),
+                         v_if="props.row.bracket_manage && props.row.bracket_site === 'challonge'"),
+                # Challonge offers at most one stage step from any state, so the
+                # label rides on the row.
+                SlotItem('skip_next', '{{ props.row.stage_action_label }}…', 'stage_action',
+                         v_if='props.row.bracket_manage && props.row.stage_action'),
+                SlotItem('group', 'Bracket entrants…', 'bracket_entrants',
+                         v_if='props.row.bracket_manage'),
+                SlotItem('add_link', 'Link a bracket…', 'link_bracket',
+                         v_if='props.row.bracket_linkable'),
             ]
         items += [
             SlotItem('open_in_new', 'Open bracket', 'open_bracket', v_if='props.row.bracket_url'),
             SlotItem('open_in_new', 'Open rules', 'open_rules', v_if='props.row.rules_url'),
         ]
+        if self.can_sync:
+            items.append(SlotItem('link_off', 'Unlink bracket…', 'unlink_bracket',
+                                  negative=True, v_if='props.row.bracket_manage'))
         if self.can_delete:
             # Only an inactive tournament can be deleted; the service enforces it too.
             items.append(SlotItem('delete_forever', 'Delete tournament…', 'delete_tournament',
@@ -279,6 +334,7 @@ class TournamentTableView:
         self.table.add_slot('body-cell-signups', f'<q-td :props="props">{_SIGNUPS_CELL}</q-td>')
         self.table.add_slot('body-cell-seed_generator', f'<q-td :props="props">{_SEED_CELL}</q-td>')
         self.table.add_slot('body-cell-match_length', f'<q-td :props="props">{_LENGTH_CELL}</q-td>')
+        self.table.add_slot('body-cell-bracket', f'<q-td :props="props">{_BRACKET_CELL}</q-td>')
         self.table.add_slot('body-cell-player_count', f'<q-td :props="props">{_PLAYERS_CELL}</q-td>')
         self.table.add_slot('body-cell-actions', f'<q-td :props="props">{self._more_menu()}</q-td>')
         self.table.add_slot('body-cell-description', '''<q-td :props="props">
@@ -302,6 +358,10 @@ class TournamentTableView:
                 <div>
                     <div class="tournament-grid-card__label">Signups</div>
                     <div class="tournament-grid-card__value">{_SIGNUPS_CELL}</div>
+                </div>
+                <div>
+                    <div class="tournament-grid-card__label">Bracket</div>
+                    <div class="tournament-grid-card__value">{_BRACKET_CELL}</div>
                 </div>
                 <div>
                     <div class="tournament-grid-card__label">Players</div>
@@ -346,6 +406,10 @@ class TournamentTableView:
         self.table.on('edit_tournament', self.handle_edit_tournament)
         self.table.on('show_players', self.handle_show_players)
         self.table.on('sync_bracket', self.handle_sync_bracket)
+        self.table.on('stage_action', self.handle_stage_action)
+        self.table.on('bracket_entrants', self.handle_bracket_entrants)
+        self.table.on('link_bracket', self.handle_link_bracket)
+        self.table.on('unlink_bracket', self.handle_unlink_bracket)
         self.table.on('open_bracket', lambda e: self._open_link(e, 'bracket_url'))
         self.table.on('open_rules', lambda e: self._open_link(e, 'rules_url'))
         self.table.on('delete_tournament', self.handle_delete_tournament)
@@ -359,11 +423,8 @@ class TournamentTableView:
         # row just to len() it.
         tournament_query = self.get_query().annotate(player_count=Count('players'))
         all_tournaments = await tournament_query.order_by('name')
-        self._live_sites = [
-            s for s in (await bracket_sources.live_sources() if self.can_sync else [])
-            if self.sync_sites is None or s.key in self.sync_sites
-        ]
-        self.table.rows = [_tournament_row(t, self._live_sites) for t in all_tournaments]
+        self._live_sites = await bracket_sources.live_sources()
+        self.table.rows = [self._row(t) for t in all_tournaments]
         self.table.update()
 
     async def update_row_by_id(self, tournament_id):
@@ -377,8 +438,18 @@ class TournamentTableView:
         t = await tournament_query.filter(id=tournament_id).first()
         if not t:
             return  # Tournament not found
-        self.table.rows[idx] = _tournament_row(t, self._live_sites)
+        self.table.rows[idx] = self._row(t)
         self.table.update()
+
+    @property
+    def _manage_sites(self) -> frozenset:
+        if not self.can_sync:
+            return frozenset()
+        keys = {s.key for s in self._live_sites}
+        return frozenset(keys if self.sync_sites is None else keys & set(self.sync_sites))
+
+    def _row(self, t) -> dict:
+        return _tournament_row(t, self._live_sites, self._manage_sites)
 
     @staticmethod
     def _event_row(event) -> dict:
@@ -425,6 +496,82 @@ class TournamentTableView:
         ui.notify(f'Synced {result.tournament_name} from {result.source_label}: {result.summary}.',
                   color='positive')
         await self.update_row_by_id(t.id)
+
+    async def handle_stage_action(self, event):
+        t = await self._load(event)
+        if not t:
+            return
+        service = ChallongeService()
+        action = next(iter(service.stage_actions_for(t)), None)
+        if action is None:
+            ui.notify(f'{t.name} has no stage to move on to. Sync it to pick up changes made on Challonge.',
+                      color='warning')
+            return
+        if not await service.can_change_stages():
+            ui.notify('Reconnect Challonge under Settings → Integrations to let Wizzrobe change '
+                      'tournament stages.', color='warning')
+            return
+
+        async def do_advance() -> None:
+            actor = await get_user_from_session(app.storage.user)
+            try:
+                await service.advance_stage(t.id, action.key, actor)
+            except (ValueError, PermissionError) as e:
+                notify_error(e)
+                return
+            ui.notify(f'{t.name}: {action.label.lower()} done.', color='positive')
+            await self.update_row_by_id(t.id)
+
+        ConfirmationDialog(
+            action.confirm, on_confirm=do_advance, confirm_text=action.label,
+            tone='primary', title=action.label, busy_text='Updating Challonge…',
+        ).open()
+
+    async def handle_bracket_entrants(self, event):
+        t = await self._load(event)
+        if not t:
+            return
+        site = _bracket_site(t, self._live_sites)
+        if site == 'challonge':
+            await ChallongeParticipantsDialog(t).open()
+        elif site == 'startgg':
+            await StartggEntrantsDialog(t).open()
+
+    async def handle_link_bracket(self, event):
+        t = await self._load(event)
+        if not t:
+            return
+        sites = [s for s in self._live_sites if s.key in self._manage_sites]
+        open_link_bracket_dialog(t, sites, on_linked=lambda: self.update_row_by_id(t.id))
+
+    async def handle_unlink_bracket(self, event):
+        t = await self._load(event)
+        if not t:
+            return
+        site = _bracket_site(t, self._live_sites)
+        if site == 'challonge':
+            message = (f'Unlink “{t.name}” from Challonge? Its mirrored entrants and bracket '
+                       'matches are removed here. The bracket on Challonge is untouched, and '
+                       'linking it again re-imports it. Scheduled matches stay as they are.')
+        else:
+            message = (f'Unlink “{t.name}” from start.gg? Its pools and bracket are removed '
+                       'here and players can no longer book from it. The event on start.gg is '
+                       'untouched, and scheduled matches stay as they are.')
+
+        async def do_unlink() -> None:
+            actor = await get_user_from_session(app.storage.user)
+            if actor is None:
+                return
+            try:
+                label = await bracket_sources.unlink(t, actor)
+            except (ValueError, PermissionError) as e:
+                notify_error(e)
+                return
+            ui.notify(f'{t.name} unlinked from {label}.', color='positive')
+            await self.update_row_by_id(t.id)
+
+        ConfirmationDialog(message, on_confirm=do_unlink, confirm_text='Unlink',
+                           title='Unlink bracket?').open()
 
     async def sync_all(self):
         # The menu closes as it's tapped, so nothing stops a second tap

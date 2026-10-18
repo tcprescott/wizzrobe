@@ -41,6 +41,7 @@ def test_row_drops_links_that_are_not_http():
     assert row['rules_url'] == 'https://example.com/rules'
 
 
-def test_board_shows_six_columns_and_hides_the_description():
+def test_board_shows_seven_columns_and_hides_the_description():
     visible = [c['name'] for c in tournament_columns() if not c.get('hidden')]
-    assert visible == ['name', 'signups', 'seed_generator', 'match_length', 'player_count', 'actions']
+    assert visible == ['name', 'signups', 'bracket', 'seed_generator', 'match_length',
+                       'player_count', 'actions']
