@@ -463,6 +463,11 @@ class StartggService:
         return await self.repository.list_entrants(tournament)
 
     @requires_feature(FeatureFlag.STARTGG)
+    async def count_unmatched_entrants(self, tournament_ids: List[int]) -> Dict[int, int]:
+        """How many entrants on each linked event still need a Wizzrobe user."""
+        return await self.repository.count_unmatched_entrants(tournament_ids)
+
+    @requires_feature(FeatureFlag.STARTGG)
     async def list_phases(self, tournament_id: int, actor: User) -> List[StartggPhase]:
         tournament = await self._editable_tournament(tournament_id, actor)
         return await self.repository.list_phases(tournament)

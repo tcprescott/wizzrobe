@@ -65,17 +65,19 @@ already has a native bracket, linking is refused.
 
 :::snippet admin-challonge-sync
 Challonge can't tell Wizzrobe when something changes on its site. Wizzrobe
-re-reads the bracket when you link it, when you pick **Sync bracket from
-Challonge** in its ⋮ menu, when you change its stage from Wizzrobe, and after it pushes a result. If you
+re-reads the bracket when you link it, when you pick **Sync now** under
+**Challonge bracket** in its ⋮ menu, when you change its stage from Wizzrobe, and after it pushes a result. If you
 edit the bracket on Challonge's own site, nothing here changes until one of those
 happens.
 :::
 
-The **Bracket** column (1) on Tournaments shows the site, the bracket's stage and
-when it last synced. The row's ⋮ menu (2) holds everything else. Sync after any
-change you make on Challonge.
+The **Bracket** column (1) on Tournaments shows the site, the bracket's stage,
+how many entrants still need a member, and when it last synced. The row's ⋮
+menu (2) splits in two: **Tournament** for what Wizzrobe keeps, and **Challonge
+bracket** for everything that talks to Challonge. Sync after any change you make
+on Challonge.
 
-![Admin → Tournaments with the Bracket column marked 1 showing Challonge and the group stage, and a linked tournament's ⋮ menu marked 2 and open, showing Sync bracket from Challonge, Finalize groups and start bracket, Bracket entrants (marked 3) and Unlink bracket](/static/help/staff-challonge/linked.webp "One linked tournament in its group stage, with its ⋮ menu open. **Bracket entrants** (3) is covered below.")
+![Admin → Tournaments with the Bracket column marked 1 showing Challonge and the group stage, and a linked tournament's ⋮ menu marked 2 and open, showing a Tournament group and a Challonge bracket group with Sync now, Finalize groups and start bracket, Match entrants to members (marked 3) and Open on Challonge, then Unlink Challonge bracket](/static/help/staff-challonge/linked.webp "One linked tournament in its group stage, with its ⋮ menu open. **Match entrants to members** (3) is covered below.")
 
 ## Matching entrants to members
 
@@ -83,8 +85,9 @@ A player who's linked their Challonge account on their Profile is matched to the
 entrant automatically. Anyone added to the bracket by name has no account to match,
 and none of their matches can be booked until someone's assigned.
 
-**Bracket entrants…**, in the tournament's ⋮ menu on Tournaments, lists the bracket's
-entrants with the unmatched ones first.
+**Match entrants to members…**, under **Challonge bracket** in the tournament's ⋮
+menu on Tournaments, lists the bracket's entrants with the unmatched ones first.
+While anyone's unmatched, the menu item and the Bracket column both show how many.
 
 | Chip | Means |
 |---|---|
@@ -126,7 +129,7 @@ Challonge and sync the bracket.
 
 ## Unlinking
 
-**Unlink bracket…**, near the bottom of the tournament's ⋮ menu, asks first,
+**Unlink Challonge bracket…**, at the bottom of the tournament's ⋮ menu, asks first,
 then removes the mirrored entrants and bracket matches from Wizzrobe. The bracket
 on Challonge isn't touched, and linking again re-imports it. Matches that are
 already scheduled stay exactly as they are. Unlinking is also how you move a
