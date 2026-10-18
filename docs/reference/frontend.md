@@ -347,10 +347,10 @@ Tab visibility — a user sees the union of every row they match. "(any)" means 
 | Schedule | Operations | Staff, Tournament Admin (any), Crew Coordinator (any), Broadcast Tech (`STREAM_MANAGER`) | — |
 | Users | Operations | Staff | — |
 | Tournaments | Operations | Staff, Tournament Admin (any) | — |
+| Seed Presets | Operations | Staff, Preset Manager | — |
 | Stages | Operations | Staff, Broadcast Tech (`STREAM_MANAGER`) | — |
 | Payouts | Operations | Staff, Tournament Admin (any) | `PAYOUTS` |
 | Check-in | Operations | Staff | `EVENT_CHECK_IN` |
-| Presets | Online play | Staff, Preset Manager | — |
 | Qualifiers | Online play | Staff, Qualifier Admin, qualifier admin (any) | `ASYNC_QUALIFIERS` |
 | Racetime | Online play | Staff, Sync Admin | `RACETIME_ROOMS` |
 | SpeedGaming | Online play | Staff, Sync Admin | `SPEEDGAMING_ETL` |

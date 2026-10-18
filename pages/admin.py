@@ -166,6 +166,10 @@ def build_admin_tabs(
                                   'ada_request': ada_request})})
     if is_staff or is_ta_any:
         tabs.append({'label': 'Tournaments', 'icon': 'emoji_events', 'group': 'Operations', 'content': admin_tournaments_page})
+    # Beside Tournaments because that's where a preset is attached, and every
+    # seed roll (on-site proctor rows as much as racetime rooms) reads it there.
+    if is_staff or access.is_preset_manager:
+        tabs.append({'label': 'Seed Presets', 'icon': 'tune', 'group': 'Operations', 'aliases': ('presets',), 'content': admin_presets_page})
     if is_staff or access.is_stream_manager:
         tabs.append({'label': 'Stages', 'icon': 'tv', 'group': 'Operations', 'content': admin_stages_page})
     # A tournament admin belongs here: posting their event's payout block is the
@@ -174,8 +178,6 @@ def build_admin_tabs(
         tabs.append({'label': 'Payouts', 'icon': 'payments', 'group': 'Operations', 'content': admin_payouts_page})
     if is_staff and FeatureFlag.EVENT_CHECK_IN in live:
         tabs.append({'label': 'Check-in Roster', 'icon': 'fact_check', 'group': 'Operations', 'aliases': ('check-in',), 'content': admin_check_in_page})
-    if is_staff or access.is_preset_manager:
-        tabs.append({'label': 'Seed Presets', 'icon': 'tune', 'group': 'Online play', 'aliases': ('presets',), 'content': admin_presets_page})
     if (is_staff or access.is_qualifier_admin or is_qa_any) and FeatureFlag.ASYNC_QUALIFIERS in live:
         # The "runs are waiting" DM lands here with a qualifier and a tab, so a
         # reviewer arrives at the queue rather than at a list to go and search.
