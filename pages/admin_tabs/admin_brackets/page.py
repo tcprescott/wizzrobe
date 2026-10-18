@@ -435,8 +435,8 @@ async def admin_brackets_page() -> None:
                 ui.label(
                     'No tournament is eligible for a native bracket — every one in '
                     'this community is linked to a Challonge bracket, which a '
-                    'native bracket cannot coexist with. Unlink one from the '
-                    'Challonge tab to move it across.'
+                    'native bracket cannot coexist with. Unlink one from its ⋮ '
+                    'on Tournaments to move it across.'
                 ).classes('text-caption text-warning')
 
             with toolbar:

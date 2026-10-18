@@ -123,7 +123,7 @@ open page reloads.
 - A sync that gets an empty or partial answer now refuses instead of pruning.
 - After: report the missed results on Challonge by hand, press Sync once, and
   check the Players list and booked matches look right. Reconnect under
-  Admin → Challonge if calls fail with 401.
+  Admin → Settings → Integrations if calls fail with 401.
 
 ### start.gg
 

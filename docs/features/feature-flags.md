@@ -82,7 +82,7 @@ the key is set, and rolling without one raises. See
 | `racetime_rooms` | Online tournaments | no | admin Racetime tab, race-room + profile API, auto-open worker | `race_room_service.py` (the worker delegates to it) |
 | `speedgaming_etl` | Online tournaments | no | admin SpeedGaming tab, `/speedgaming` API, sync worker | `speedgaming_sync_service.py`, `speedgaming_sync_worker.py` |
 | `brackets` | Online tournaments | no (ships dark) | admin Brackets tab, the home Event switcher's Brackets view, public bracket pages (`/tournament/{id}/brackets`, `/brackets/{id}`), `/brackets` API | `bracket_service.py` |
-| `challonge` | Community | **yes** | admin Challonge tab, the profile's Challonge link row (no REST router exists) | `challonge_service.py`; `push_result_if_linked` soft-skips |
+| `challonge` | Community | **yes** | the Challonge card on Settings → Integrations, the bracket items in the Tournaments row ⋮, the profile's Challonge link row (no REST router exists) | `challonge_service.py`; `push_result_if_linked` soft-skips |
 | `equipment` | Community | **yes** | `/equipment`, the Profile "Equipment you have out" card, admin Equipment tab, `api/routers/equipment.py` | `equipment_service.py` |
 | `volunteers` | Community | **yes** | `/volunteer` + its nav link, admin Volunteers/Schedule, `/volunteers` API | `volunteer/` (reminder worker skips) |
 | `triforce_texts` | Community | **yes** | the Tournaments-card Triforce button, admin Triforce tab, `/triforce-texts` API | `triforce_text_service.py`; the seed-roll text embed soft-returns `None` |

@@ -468,7 +468,7 @@ class ChallongeService(
             if community and e.status == 403:
                 raise ValueError(
                     f"Challonge won't let the connected account read tournaments in the '{community}' "
-                    f"community. In Admin → Challonge, enter '{community}' as the community and "
+                    f"community. Under Admin → Settings → Integrations, enter '{community}' as the community and "
                     f"reconnect, signing in as one of its admins."
                 ) from e
             if e.status == 404:

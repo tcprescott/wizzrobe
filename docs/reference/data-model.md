@@ -862,7 +862,7 @@ Tournament metadata and configuration; the root aggregate for matches, enrollmen
 | `challonge_community` | `CharField(64)` | null | Organization subdomain for `<community>.challonge.com` tournaments; v2.1 calls are scoped under `/communities/<community>/` |
 | `challonge_tournament_url` | `CharField(255)` | null | Challonge bracket URL |
 | `challonge_last_synced_at` | `DatetimeField` | null | Last successful Challonge sync (UTC) |
-| `challonge_state` | `CharField(32)` | null | The linked bracket's Challonge state as of the last sync (`pending`, `group_stages_underway`, `underway`, `awaiting_review`, …); drives which stage action Admin → Challonge offers |
+| `challonge_state` | `CharField(32)` | null | The linked bracket's Challonge state as of the last sync (`pending`, `group_stages_underway`, `underway`, `awaiting_review`, …); drives which stage action the Tournaments row ⋮ offers |
 | `challonge_group_stage` | `BooleanField` | default `False` | The linked bracket has a group stage, as of the last sync |
 | `challonge_tournament_type` | `CharField(32)` | null | Challonge's bracket type as of the last sync (`single elimination`, `double elimination`, …); tells the round schedule how to name elimination rounds (migration 111) |
 | `startgg_event_id` | `CharField(64)` | null | Linked start.gg event id (migration 107) |

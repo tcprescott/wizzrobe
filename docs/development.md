@@ -138,7 +138,7 @@ Profile → **Connected accounts** hides any provider whose integration is not c
 
 | Switch | Makes appear | Canned identities (`MOCK_<PROVIDER>_IDENTITY`, `1`–`4`, default `1`) |
 |---|---|---|
-| `MOCK_CHALLONGE` | the Challonge row (also gated on `FeatureFlag.CHALLONGE`) plus the staff service connection at `/admin/challonge` | `1001`…`1004` / `mockone`…`mockfour` |
+| `MOCK_CHALLONGE` | the Challonge row (also gated on `FeatureFlag.CHALLONGE`) plus the staff service connection on `/admin/settings/integrations` | `1001`…`1004` / `mockone`…`mockfour` |
 | `MOCK_TWITCH` | the Twitch row | `20001`…`20004` / `MockTwitchOne`…`Four` |
 | `MOCK_RACETIME` | the racetime.gg row | `mockrt0001`…`mockrt0004` / `MockRacerOne`…`Four` |
 | `MOCK_STARTGG` | the start.gg row (also gated on `FeatureFlag.STARTGG`); linking any event link loads one canned event | `30001`…`30002` / `MockGGOne`…`MockGGTwo` |

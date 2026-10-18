@@ -84,7 +84,7 @@ async def seed_challonge_for_tenant(
     if "participants:write" not in (conn.scopes or "").split():
         conn.scopes = f"{conn.scopes or ''} participants:write".strip()
         await conn.save()
-    # Remembered communities for the Admin → Challonge chip row: one in use by
+    # Remembered communities for the Challonge card's chip row (Settings → Integrations): one in use by
     # nothing (removable) beside the tournament-derived ones.
     config = dict(tenant.config or {})
     if not config.get("challonge_communities"):

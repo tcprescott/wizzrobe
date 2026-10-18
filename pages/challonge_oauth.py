@@ -51,7 +51,7 @@ logger = logging.getLogger(__name__)
 _PROVIDER_LABEL = 'Challonge'
 _PROVIDER_KEY = 'challonge'
 
-_ADMIN_RETURN = '/admin/challonge'
+_ADMIN_RETURN = '/admin/settings/integrations'
 _PROFILE_RETURN = '/home/profile'
 # Where a link started from the Tournaments tab's "Link Challonge to sign up"
 # lands, so the player finishes signing up where they began. A fixed key, never
@@ -167,7 +167,7 @@ def create() -> None:
         # says which one this callback completes. Four outcomes, named — the old
         # two-branch guess fell through to the service flow whenever *neither*
         # state was pending (a replay, a stale tab, a hand-typed URL), and that
-        # flow returns to /admin/challonge, so a player was answered with a 403
+        # flow returns to the admin area, so a player was answered with a 403
         # about the admin area.
         state = returned_state(url)
         if player_state is not None and state == player_state:
