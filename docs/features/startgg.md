@@ -95,7 +95,8 @@ linked bracket" without naming a site. Each site is a `BracketSource`
 - match confirmation calls `bracket_sources.on_match_confirmed` (each site's
   failure is isolated),
 - My Schedule lists `list_bookable_for_user` and books through `schedule`,
-- Admin → Tournaments' row **Sync bracket** and Actions → **Sync all linked
+- Admin → Tournaments' row **Sync now** (under the row ⋮'s *start.gg bracket*
+  group) and Actions → **Sync all linked
   brackets** use `sync_tournament` / `sync_all`.
 
 start.gg implements all of it. Challonge implements `sync` only; its result

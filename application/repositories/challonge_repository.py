@@ -10,6 +10,7 @@ from datetime import datetime, timezone
 from typing import Dict, List, Optional, Set
 
 from tortoise.expressions import Q
+from tortoise.functions import Count
 
 from application.repositories._tenant import current_tenant_id, scoped
 from models import (
@@ -163,6 +164,16 @@ class ChallongeRepository:
     @staticmethod
     async def list_participants(tournament: Tournament) -> List[ChallongeParticipant]:
         return await scoped(ChallongeParticipant.filter(tournament=tournament)).prefetch_related('user')
+
+    @staticmethod
+    async def count_unmatched_participants(tournament_ids: List[int]) -> Dict[int, int]:
+        """Entrants with no Wizzrobe user, per tournament; tournaments with none are left out."""
+        if not tournament_ids:
+            return {}
+        rows = await scoped(ChallongeParticipant.filter(
+            tournament_id__in=tournament_ids, user_id__isnull=True,
+        )).annotate(n=Count('id')).group_by('tournament_id').values('tournament_id', 'n')
+        return {r['tournament_id']: r['n'] for r in rows}
 
     @staticmethod
     async def get_participant_by_id(participant_pk: int) -> Optional[ChallongeParticipant]:

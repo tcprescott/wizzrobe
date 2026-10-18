@@ -10,7 +10,7 @@ from datetime import datetime
 from typing import Any, Dict, Iterable, List, Optional, Set, cast
 
 from tortoise.expressions import Q
-from tortoise.functions import Lower
+from tortoise.functions import Count, Lower
 
 from application.repositories._tenant import current_tenant_id, scoped
 from models import (
@@ -152,6 +152,16 @@ class StartggRepository:
         return await scoped(StartggEntrant.filter(tournament=tournament)).prefetch_related(
             'user', 'suggested_user',
         ).order_by('name')
+
+    @staticmethod
+    async def count_unmatched_entrants(tournament_ids: List[int]) -> Dict[int, int]:
+        """Entrants with no Wizzrobe user, per tournament; tournaments with none are left out."""
+        if not tournament_ids:
+            return {}
+        rows = await scoped(StartggEntrant.filter(
+            tournament_id__in=tournament_ids, user_id__isnull=True,
+        )).annotate(n=Count('id')).group_by('tournament_id').values('tournament_id', 'n')
+        return {r['tournament_id']: r['n'] for r in rows}
 
     @staticmethod
     async def count_entrants(tournament: Tournament) -> int:
