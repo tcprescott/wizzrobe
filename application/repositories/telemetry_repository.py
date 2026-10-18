@@ -7,6 +7,7 @@ are computed in the database (GROUP BY / COUNT) so the report never loads the
 full high-volume table into memory.
 """
 
+import asyncio
 from datetime import datetime
 from typing import Dict, List, Optional, Tuple
 
@@ -248,3 +249,21 @@ class TelemetryRepository:
             .values('path', 'event_type', 'target', 'uses', 'users', 'phone')
         )
         return list(rows)
+
+    @staticmethod
+    async def delete_before(cutoff: datetime, batch: int = 5000) -> int:
+        """Delete every row created before ``cutoff``, ``batch`` rows at a time.
+
+        tenant-scope: exempt — retention is one platform-wide window. Batched so a
+        first run over a year of backlog holds no long lock and yields to the event
+        loop between batches.
+        """
+        deleted = 0
+        while True:
+            ids = await TelemetryEvent.filter(created_at__lt=cutoff).limit(batch).values_list('id', flat=True)
+            if not ids:
+                return deleted
+            deleted += await TelemetryEvent.filter(id__in=list(ids)).delete()
+            if len(ids) < batch:
+                return deleted
+            await asyncio.sleep(0)

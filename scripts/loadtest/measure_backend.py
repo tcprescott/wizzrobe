@@ -51,6 +51,7 @@ WORKERS = {
     'community_event_reminder': 'application.services.community_event_reminder',
     'active_users_metrics': 'application.services.active_users_metrics',
     'speedgaming_sync': 'application.services.speedgaming_sync_worker',
+    'telemetry_retention': 'application.services.telemetry_retention',
 }
 
 

@@ -209,11 +209,11 @@ class MatchRepository:
         if prefetch_relations:
             query = query.prefetch_related(
                 'tournament',
-                Prefetch('players', queryset=MatchPlayers.all().prefetch_related(_board_user())),
+                Prefetch('players', queryset=scoped(MatchPlayers.all()).prefetch_related(_board_user())),
                 'stage',
                 'generated_seed',
-                Prefetch('commentators', queryset=Commentator.all().prefetch_related(_board_user())),
-                Prefetch('trackers', queryset=Tracker.all().prefetch_related(_board_user())),
+                Prefetch('commentators', queryset=scoped(Commentator.all()).prefetch_related(_board_user())),
+                Prefetch('trackers', queryset=scoped(Tracker.all()).prefetch_related(_board_user())),
                 # The bracket seam, for the schedule's "part of <bracket>" link.
                 # A batched prefetch, so it costs a fixed few queries rather
                 # than one per row; most matches have no game row at all. The

@@ -28,7 +28,9 @@ DEFAULT_STATE_FILTER = ['Scheduled', 'Checked In', 'Started']
 # Day scopes for the Day filter. The board had no day or now anchor at all, so
 # an operator standing at a venue scrolled ~8 screenfuls of phone to find a
 # match by eye — the cards carry every detail and nothing narrowed them to the
-# day being run. ``ALL_DAYS`` is the default, so nothing is hidden until asked.
+# day being run. ``ALL_DAYS`` is the default, so nothing is hidden until asked,
+# except on the admin board, which opens on Today: at 1,300 matches All dates
+# sent every row (2MB) on each open.
 ALL_DAYS = 'All dates'
 DAY_SCOPES = [ALL_DAYS, 'Today', 'Tomorrow', 'Next 7 days']
 
@@ -54,6 +56,8 @@ def day_scope_window(scope: str):
 
 class MatchFiltersMixin:
     """The filter strip, its stored state, and the options it offers."""
+
+    default_day_scope: str = ALL_DAYS
 
     def _skey(self, name: str) -> str:
         """Session key for one of this view's filters.
@@ -150,7 +154,7 @@ class MatchFiltersMixin:
         default_states = set(self.default_state_filter or DEFAULT_STATE_FILTER)
         if self.state_filter and set(self.state_filter.value or []) != default_states:
             count += 1
-        if self.day_filter and self.day_filter.value not in (None, ALL_DAYS):
+        if self.day_filter and self.day_filter.value not in (None, self.default_day_scope):
             count += 1
         return count
 
@@ -226,7 +230,7 @@ class MatchFiltersMixin:
                 self.day_filter = ui.select(
                     options=list(DAY_SCOPES),
                     label='Day',
-                    value=tenant_session_get(self._skey('day_filter'), ALL_DAYS),
+                    value=tenant_session_get(self._skey('day_filter'), self.default_day_scope),
                     on_change=self._on_day_filter_change,
                 ).classes('match-filter-field').props('outlined dense options-dense')
 

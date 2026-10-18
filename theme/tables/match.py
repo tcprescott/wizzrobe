@@ -83,7 +83,7 @@ class MatchTableView(MatchFiltersMixin, MatchTableHandlersMixin, MatchBoardHoldM
                  on_edit_result=None, on_set_stage=None, on_assign_stations=None,
                  player_discord_id=None, crew_discord_id=None, grid_breakpoint='lt.md',
                  row_sort=None, row_filter=None, exclude_racetime=False, on_rows_changed=None, actions_first=False,
-                 storage_key='match', default_state_filter=None, match_ids=None,
+                 storage_key='match', default_state_filter=None, default_day_scope=ALL_DAYS, match_ids=None,
                  scope_tournament_ids=None, table_key=None, searchable=False,
                  show_accommodations=False, layout='table', on_open_match=None,
                  run_sheet_group=None, proctor_run_sheet=False, show_comment_counts=False):
@@ -137,6 +137,7 @@ class MatchTableView(MatchFiltersMixin, MatchTableHandlersMixin, MatchBoardHoldM
         # site; the fallback exists only so a bare view still works.
         self.storage_key = storage_key
         self.default_state_filter = default_state_filter
+        self.default_day_scope = default_day_scope
         # Board-shaping hooks. ``row_sort`` reorders the fetched rows (the
         # proctor board sorts by what needs doing next rather than by clock),
         # ``exclude_racetime`` drops rows no on-site proctor can act on,
@@ -483,7 +484,7 @@ class MatchTableView(MatchFiltersMixin, MatchTableHandlersMixin, MatchBoardHoldM
         # link for the reason the state filter is: a link to one match must not
         # land on an empty board.
         window = None if self.match_ids else day_scope_window(
-            self.day_filter.value if self.day_filter else ALL_DAYS)
+            self.day_filter.value if self.day_filter else self.default_day_scope)
         scheduled_window = None
         if window:
             scheduled_window = (

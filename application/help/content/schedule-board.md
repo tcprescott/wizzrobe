@@ -64,7 +64,7 @@ There are four filters above the board.
 
 | Filter | Narrows the board to |
 |---|---|
-| Day | All dates, Today, Tomorrow, or the next 7 days. "Today" is your today. |
+| Day | All dates, Today, Tomorrow, or the next 7 days. "Today" is your today. Admin → Match Schedule opens on Today; the other boards open on All dates. |
 | Tournament | One or more tournaments. |
 | Stage | One or more stages, handy for following one stream. |
 | State | The match states you pick. |

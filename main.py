@@ -309,8 +309,9 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     if loop_watchdog_enabled():
         loop_watchdog.start()
     metrics_sampler.start()
-    from application.services import active_users_metrics
+    from application.services import active_users_metrics, telemetry_retention
     active_users_metrics.start()
+    telemetry_retention.start()
     # The MCP transport's session manager owns a task group that each per-request
     # server task is started on; entering it here (and exiting it around the
     # yield) means /mcp stops accepting calls before the workers below tear down,
@@ -321,6 +322,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         yield
     try:
         await active_users_metrics.stop()
+        await telemetry_retention.stop()
         await race_room_worker.stop()
         await seed_roll_worker.stop()
         await check_in_sync_worker.stop()
