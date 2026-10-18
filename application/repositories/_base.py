@@ -43,9 +43,16 @@ class TenantScopedRepository(Generic[T]):
 
     @classmethod
     async def update(cls, obj: T, **fields: Any) -> T:
+        # Writes only the named columns. A caller often holds a row loaded long
+        # before (an edit dialog's tournament), and a full save would put back
+        # every column changed since then by anyone else.
         for key, value in fields.items():
             setattr(obj, key, value)
-        await obj.save()
+        if fields:
+            fmap = obj._meta.fields_map
+            columns = [getattr(fmap.get(k), 'source_field', None) or k for k in fields]
+            columns += [n for n, f in fmap.items() if getattr(f, 'auto_now', False)]
+            await obj.save(update_fields=columns)
         return obj
 
     @classmethod
