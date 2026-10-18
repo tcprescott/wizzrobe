@@ -54,6 +54,21 @@ that's waiting on you instead of on the clock. See
 
 ![A match opened from the board: its next step, Check in, marked 1, then the Ready to play? checklist of players, stations, stage, seed and crew, each ticked or flagged, with the stations' Assign fix marked 2 and Edit match at the bottom marked 3](/static/help/staff-schedule/match-sheet.webp "Tap a line to open the match: its next step (1), a fix on the checklist (2), and **Edit match** (3).")
 
+### Matchups nobody has booked
+
+Challonge, start.gg and Wizzrobe brackets turn up matchups that are ready to play,
+and only their two players see them, on My Schedule. Switch the board from
+**Booked** to **Not booked yet** to see every one that's still waiting, grouped by
+tournament. The switch counts them.
+
+**Book…** schedules a matchup for both players, the same as a player booking it,
+with Suggest a time and the clash check. Outside the round's booking window you're
+warned and can book anyway. A matchup marked {chip:pending:Needs account} has a
+player who isn't matched to a Wizzrobe account yet, so nobody can book it. The line
+names them, and **Fix entrant** opens the place to match them. **All**,
+**Ready to book** and **Needs account** narrow the list, and the search finds a
+player.
+
 ### Who sees what
 
 Other people use this board too. Each role only gets the controls it can use.

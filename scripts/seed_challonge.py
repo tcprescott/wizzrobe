@@ -131,6 +131,15 @@ async def seed_challonge_for_tenant(
             "participant1": participants["cp_2"], "participant2": participants["cp_4"],
         },
     )
+    # Open, but one side is the name-only entrant: the "Needs account" row on
+    # Match Schedule's Not booked yet view, whose Fix entrant opens Entrants.
+    await ChallongeMatch.get_or_create(
+        tournament=tournament, challonge_match_id="cm_4", tenant=tenant,
+        defaults={
+            "round": 1, "state": ChallongeMatchState.OPEN,
+            "participant1": participants["cp_1"], "participant2": participants["cp_5"],
+        },
+    )
     # Round 2, waiting on round 1: PENDING is what most of a freshly mirrored
     # bracket looks like, and both its slots are unknown — which is also the only
     # mirrored row with no participants to render.
@@ -139,11 +148,11 @@ async def seed_challonge_for_tenant(
         defaults={"round": 2, "state": ChallongeMatchState.PENDING},
     )
 
-    # Mid-groups, so all three are group matches; the round schedule bounds the
+    # Mid-groups, so all of them are group matches; the round schedule bounds the
     # group stage and plans the elimination rounds Challonge hasn't created yet
     # (Admin -> Tournaments -> Round schedule…, and the window line on My Schedule).
     await ChallongeMatch.filter(
-        tournament=tournament, challonge_match_id__in=["cm_1", "cm_2", "cm_3"], group_stage=False,
+        tournament=tournament, challonge_match_id__in=["cm_1", "cm_2", "cm_3", "cm_4"], group_stage=False,
     ).update(group_stage=True)
     config = dict(tournament.config or {})
     if "round_schedule" not in config:

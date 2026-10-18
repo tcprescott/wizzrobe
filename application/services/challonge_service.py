@@ -677,6 +677,11 @@ class ChallongeService(
         return await self.repository.unscheduled_open_matches_for_user(user)
 
     @requires_feature(FeatureFlag.CHALLONGE)
+    async def list_unbooked_matches(self, tournament_ids: Optional[List[int]] = None) -> List[ChallongeMatch]:
+        """Open matches nobody has booked yet, for the staff board. Callers authorize."""
+        return await self.repository.unscheduled_open_matches(tournament_ids)
+
+    @requires_feature(FeatureFlag.CHALLONGE)
     async def schedule_challonge_match(
         self,
         challonge_match_pk: int,
@@ -684,6 +689,7 @@ class ChallongeService(
         scheduled_time: str,
         actor: User,
         comment: Optional[str] = None,
+        *, allow_outside_round: bool = False,
     ) -> Match:
         cmatch = require_found(
             await self.repository.get_match(challonge_match_pk), "Challonge match"
@@ -699,17 +705,11 @@ class ChallongeService(
                 "Both players must link their Challonge account before this match can be scheduled."
             )
 
-        await RoundScheduleService().check_challonge_booking(cmatch, scheduled_date, scheduled_time, actor)
-        match = await MatchService().submit_match_request(
-            tournament_id=cmatch.tournament_id,
-            scheduled_date=scheduled_date,
-            scheduled_time=scheduled_time,
-            player_ids=[p1.user_id, p2.user_id],
-            actor=actor,
-            comment=comment,
-            # The bracket is the sanctioned scheduling path for a Challonge-linked
-            # tournament, so this bypasses its allow_player_match_requests toggle.
-            from_bracket=True,
+        await RoundScheduleService().check_challonge_booking(
+            cmatch, scheduled_date, scheduled_time, actor, allow_outside_round=allow_outside_round,
+        )
+        match = await MatchService().book_from_bracket(
+            cmatch.tournament_id, scheduled_date, scheduled_time, [p1.user_id, p2.user_id], actor, comment,
         )
         await self.repository.link_match(cmatch, match)
         return match

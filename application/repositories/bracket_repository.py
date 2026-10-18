@@ -302,6 +302,23 @@ class BracketRepository(TenantScopedRepository[Bracket]):
             'bracket', 'entry1__entrant__user', 'entry2__entrant__user', 'games',
         ).order_by('bracket__stage_order', 'round', 'position')
 
+    async def open_matches_for_tournaments(
+        self, tournament_ids: Optional[List[int]] = None
+    ) -> List[BracketMatch]:
+        """Every OPEN matchup in active tournaments; ``None`` means all of them.
+
+        Excludes a cancelled stage's matchups, as ``open_matches_for_tournament`` does.
+        """
+        from models import BracketMatchState, BracketState
+        qs = scoped(BracketMatch.filter(
+            state=BracketMatchState.OPEN, bracket__tournament__is_active=True,
+        )).exclude(bracket__state=BracketState.CANCELLED)
+        if tournament_ids is not None:
+            qs = qs.filter(bracket__tournament_id__in=tournament_ids)
+        return await qs.prefetch_related(
+            'bracket__tournament', 'entry1__entrant__user', 'entry2__entrant__user', 'games',
+        ).order_by('bracket__tournament_id', 'bracket__stage_order', 'round', 'position')
+
     # --- BracketMatchGame -------------------------------------------------
     async def create_game(self, **fields) -> BracketMatchGame:
         return await BracketMatchGame.create(tenant_id=current_tenant_id(), **fields)

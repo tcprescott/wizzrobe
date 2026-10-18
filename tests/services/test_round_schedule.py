@@ -255,7 +255,7 @@ class TestEnforcement:
         await p1.save()
         await p2.save()
         fake_ms = MagicMock()
-        fake_ms.submit_match_request = AsyncMock(return_value=await Match.create(tournament=t))
+        fake_ms.book_from_bracket = AsyncMock(return_value=await Match.create(tournament=t))
         monkeypatch.setattr('application.services.challonge_service.MatchService', lambda: fake_ms)
         monkeypatch.setattr('application.timezone_context.current_zone', lambda: UTC, raising=False)
 
@@ -263,7 +263,7 @@ class TestEnforcement:
             await ChallongeService().schedule_challonge_match(
                 challonge_match_pk=made[2].id, scheduled_date='2026-10-21', scheduled_time='12:00', actor=alice,
             )
-        fake_ms.submit_match_request.assert_not_awaited()
+        fake_ms.book_from_bracket.assert_not_awaited()
 
 
 class TestGroupStageFlag:

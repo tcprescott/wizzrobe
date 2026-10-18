@@ -10,6 +10,7 @@ from typing import Any, Dict, List, Optional
 
 from application.errors import AlreadyBookedError, require_found
 from application.events import EventType
+from application.feature_flags import requires_feature
 from application.repositories import MatchAcknowledgmentRepository, MatchRepository
 from application.services._bracket._composed import ComposedBracketService
 from application.services.audit_service import AuditActions
@@ -20,6 +21,7 @@ from models import (
     BracketMatchGameState,
     BracketMatchState,
     BracketState,
+    FeatureFlag,
     Match,
     User,
 )
@@ -41,6 +43,23 @@ class SchedulingMixin(ComposedBracketService):
         return [
             m for m in matches
             if self._both_entrants_linked(m) and self._has_free_game_slot(m)
+        ]
+
+    @requires_feature(FeatureFlag.BRACKETS)
+    async def list_unbooked_matchups(
+        self, tournament_ids: Optional[List[int]] = None
+    ) -> List[BracketMatch]:
+        """OPEN matchups with a game still to book and none booked, for the staff board.
+
+        A series with a game already booked is waiting on that game, not on a
+        booking, so it is left out. Callers authorize.
+        """
+        matches = await self.repository.open_matches_for_tournaments(tournament_ids)
+        return [
+            m for m in matches
+            if m.entry1 is not None and m.entry2 is not None
+            and self._has_free_game_slot(m)
+            and not any(g.state == BracketMatchGameState.SCHEDULED for g in m.games)
         ]
 
     def _has_free_game_slot(self, bracket_match: BracketMatch) -> bool:

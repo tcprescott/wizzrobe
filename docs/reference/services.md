@@ -325,7 +325,7 @@ Pure: `RoundWindow` (opens, closes, daily hours on the community clock; `slot_fi
 
 ### bracket_sources.py — module functions
 
-The shared contract for brackets that live on another site (`BracketSource` protocol; `StartggSource`, and `ChallongeSource` for sync only so far). `on_match_confirmed` (called from match confirmation, isolates each site's failure), `list_bookable_for_user` / `schedule` (My Schedule), `sync_tournament` / `sync_all` (Admin → Tournaments), `unmatched_entrant_counts(tournaments)` (the Tournaments board's "N unmatched" chip; a failing site just shows no count), `live_sources`, `source_for`.
+The shared contract for brackets that live on another site (`BracketSource` protocol; `StartggSource`, and `ChallongeSource` for sync and booking so far). `list_unbooked` (Match Schedule's Not booked yet view: open, unbooked matchups across Challonge, start.gg and native brackets, as `UnbookedMatch`), `on_match_confirmed` (called from match confirmation, isolates each site's failure), `list_bookable_for_user` / `schedule` (My Schedule), `sync_tournament` / `sync_all` (Admin → Tournaments), `unmatched_entrant_counts(tournaments)` (the Tournaments board's "N unmatched" chip; a failing site just shows no count), `live_sources`, `source_for`.
 
 ### challonge_service.py — ChallongeService
 
