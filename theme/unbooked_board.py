@@ -8,12 +8,13 @@ or make it for them. A matchup that can't be booked yet says why on the row and
 offers the fix instead of Book….
 """
 
-from typing import Awaitable, Callable, Optional
+from typing import Any, Awaitable, Callable, Optional
 
 from nicegui import ui
 
-from application.services import bracket_sources
+from application.services import BracketService, UserService, bracket_sources
 from application.services.bracket_sources import BookableMatch, UnbookedMatch
+from theme.dialog._helpers import dialog_actions, form_dialog, submit_on_enter
 from theme.dialog.bracket_schedule_dialog import BracketScheduleDialog
 from theme.dialog.bracket_source_schedule_dialog import BracketSourceScheduleDialog
 from theme.empty_state import empty_state
@@ -136,8 +137,7 @@ class UnbookedBoard:
             for rows in groups.values():
                 with ui.element('section').classes('wiz-pick-group unbooked-group'):
                     with ui.row().classes('wiz-pick-group__head items-center no-wrap gap-2'):
-                        head = ui.label(f'{rows[0].tournament.name} · {len(rows)}').classes('col min-w-0')
-                        head.tag = 'h3'
+                        ui.label(f'{rows[0].tournament.name} · {len(rows)}').classes('col min-w-0')
                         ui.label(rows[0].source_label).classes('wiz-chip wiz-chip--neutral')
                     for item in rows:
                         self._row(item)
@@ -219,6 +219,42 @@ class UnbookedBoard:
             from theme.dialog.startgg_entrants_dialog import StartggEntrantsDialog
             await StartggEntrantsDialog(item.tournament, on_change=self._reload).open()
         elif self.can_open_native_entrants:
-            from application.utils.app_links import admin_url
-            ui.navigate.to(admin_url('brackets'))
+            await self._link_native_entrants(item)
+
+    async def _link_native_entrants(self, item: UnbookedMatch) -> None:
+        """Link a native matchup's unlinked entrants to members, as Brackets › Manage does."""
+        people = await UserService().get_community_people()
+        names = {u.id: u.preferred_name or u.username for u in people}
+        with form_dialog(f'Match entrants — {item.matchup}', card_classes='dialog-card dialog-card--sm') as dialog:
+            pickers: list[tuple[int, Any]] = []
+            with ui.column().classes('q-pa-md gap-2 full-width'):
+                ui.label(
+                    'Pick the member each entrant is. Once both are linked, the matchup can be booked.'
+                ).classes('text-caption text-grey-7')
+                for entrant_id, name in item.unlinked_entrants:
+                    picker = ui.select(names, label=name, with_input=True) \
+                        .props('outlined dense clearable').classes('full-width')
+                    pickers.append((entrant_id, picker))
+
+            async def save() -> None:
+                actor = await current_actor()
+                chosen = [(eid, p.value) for eid, p in pickers if p.value]
+                if not chosen:
+                    ui.notify('Pick a member first.', color='warning')
+                    return
+                try:
+                    for entrant_id, user_id in chosen:
+                        await BracketService().set_entrant_user(actor, entrant_id, int(user_id))
+                except (ValueError, PermissionError) as e:
+                    notify_error(e)
+                    return
+                ui.notify('Entrants linked.', color='positive')
+                dialog.close()
+                await self._reload()
+
+            with dialog_actions().classes('justify-end'):
+                ui.button('Cancel', on_click=dialog.close).props('flat')
+                ui.button('Save', icon='link', on_click=save).props('color=primary')
+            submit_on_enter(dialog, save)
+        dialog.open()
 

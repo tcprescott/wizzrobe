@@ -275,8 +275,8 @@ class TestScheduleChallongeMatch:
         )
         assert returned.id == created_match.id
         fake_ms.book_from_bracket.assert_awaited_once()
-        _, kwargs = fake_ms.book_from_bracket.call_args
-        assert sorted(kwargs['player_ids']) == sorted([actor.id, opponent.id])
+        args, _ = fake_ms.book_from_bracket.call_args
+        assert sorted(args[3]) == sorted([actor.id, opponent.id])
 
         await cmatch.refresh_from_db()
         assert cmatch.match_id == created_match.id

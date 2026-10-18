@@ -18,7 +18,7 @@ onto the rest of the contract. Native brackets live in Wizzrobe, so they have no
 
 import logging
 from dataclasses import dataclass, field
-from typing import Callable, Dict, List, Optional, Protocol
+from typing import Callable, Dict, List, Optional, Protocol, Tuple
 
 from application.services.auth_service import AuthService
 from application.services.bracket_service import BracketService
@@ -66,6 +66,8 @@ class UnbookedMatch:
     unlinked: List[str] = field(default_factory=list)
     window_text: Optional[str] = None
     bracket_id: Optional[int] = None
+    # A native matchup's unlinked entrants as ``(entrant id, name)``, for linking them in place.
+    unlinked_entrants: List[Tuple[int, str]] = field(default_factory=list)
     best_of: int = 1
     game_number: int = 1
 
@@ -299,6 +301,7 @@ async def list_unbooked(actor: Optional[User]) -> List[UnbookedMatch]:
                 player_names=names, player_ids=[a.user_id, b.user_id], unlinked=unlinked,
                 window_text=await rounds.describe_for_bracket_match(bm),
                 bracket_id=bm.bracket_id, best_of=best_of, game_number=number,
+                unlinked_entrants=[(e.id, e.display_name) for e in (a, b) if e.user_id is None],
             ))
 
     out.sort(key=lambda u: (u.tournament.name.lower(), u.tournament.id))

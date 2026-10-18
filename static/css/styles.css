@@ -6342,6 +6342,9 @@ ol.wiz-help-list { list-style-type: decimal; }
     align-self: flex-start;
     margin-bottom: var(--space-3);
 }
+.unbooked-group {
+    width: 100%;
+}
 .unbooked-board__search {
     min-width: 0;
     max-width: 22rem;
@@ -6353,6 +6356,10 @@ ol.wiz-help-list { list-style-type: decimal; }
     gap: var(--space-1) var(--space-3);
     padding: var(--space-2) var(--space-3);
     border-top: 1px solid var(--border-subtle);
+}
+.unbooked-row__chip {
+    flex: none;
+    white-space: nowrap;
 }
 .unbooked-row__matchup {
     font-weight: 700;
