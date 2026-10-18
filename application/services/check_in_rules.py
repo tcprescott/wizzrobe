@@ -9,7 +9,7 @@ the reads and writes around these.
 import difflib
 import re
 from dataclasses import dataclass, field
-from typing import Dict, Iterable, List, Optional, Sequence, Set, Tuple
+from typing import Dict, Iterable, List, Optional, Protocol, Sequence, Set, Tuple
 
 from models import CheckInEntrant, CheckInEntrantSource, CheckInLinkMethod, CheckInPass, CheckInTierLanyard, User
 
@@ -208,7 +208,24 @@ def refuse_comp_row(entrant: CheckInEntrant) -> None:
 SUGGESTION_THRESHOLD = 0.6
 
 
-def suggestion_candidates(people: Sequence[User], taken: set[int]) -> List[Tuple[User, frozenset[str]]]:
+class NamedPerson(Protocol):
+    """A ``User``, or just its name columns (``PersonSummary``): all the scoring reads."""
+
+    @property
+    def id(self) -> int: ...
+    @property
+    def username(self) -> str: ...
+    @property
+    def display_name(self) -> Optional[str]: ...
+    @property
+    def twitch_username(self) -> Optional[str]: ...
+    @property
+    def matcherino_username(self) -> Optional[str]: ...
+
+
+def suggestion_candidates(
+    people: Sequence[NamedPerson], taken: set[int],
+) -> List[Tuple[NamedPerson, frozenset[str]]]:
     candidates = []
     for user in people:
         if user.id in taken:
@@ -222,7 +239,9 @@ def suggestion_candidates(people: Sequence[User], taken: set[int]) -> List[Tuple
     return candidates
 
 
-def suggested_users(target: str, candidates: Sequence[Tuple[User, frozenset[str]]], limit: int) -> List[User]:
+def suggested_users(
+    target: str, candidates: Sequence[Tuple[NamedPerson, frozenset[str]]], limit: int,
+) -> List[NamedPerson]:
     """The best-scoring candidates at or above the threshold, as ``difflib.get_close_matches`` prunes.
 
     The two cheap upper bounds skip the full ratio for names that can't reach
@@ -230,7 +249,7 @@ def suggested_users(target: str, candidates: Sequence[Tuple[User, frozenset[str]
     """
     matcher = difflib.SequenceMatcher()
     matcher.set_seq1(target)
-    scored: List[Tuple[float, User]] = []
+    scored: List[Tuple[float, NamedPerson]] = []
     for user, names in candidates:
         best = 0.0
         for name in names:
@@ -245,7 +264,7 @@ def suggested_users(target: str, candidates: Sequence[Tuple[User, frozenset[str]
 
 
 def count_suggestions(
-    entrants: Sequence[CheckInEntrant], candidates: Sequence[Tuple[User, frozenset[str]]], limit: int,
+    entrants: Sequence[CheckInEntrant], candidates: Sequence[Tuple[NamedPerson, frozenset[str]]], limit: int,
 ) -> Dict[int, int]:
     """How many of ``candidates`` each unlinked row would be offered. Comps can't be linked, so they're skipped."""
     return {

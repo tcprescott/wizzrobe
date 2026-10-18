@@ -1,11 +1,26 @@
 from nicegui import ui
 
+from application.services import UserService
 from application.tenant_context import get_current_tenant_id
 from application.utils.timezone import format_local_display
 from theme.empty_state import no_data_slot
 from theme.tables.admin_crud import capture_render_context, scoped_background
 from theme.tables.plain_rows import set_plain_rows
 from theme.tables.preferences import customize_table, row_count_label, sticky_header
+
+_ROW_FIELDS = (
+    'id', 'username', 'display_name', 'pronouns', 'discord_id', 'challonge_username',
+    'challonge_user_id', 'is_active', 'created_at', 'updated_at',
+)
+
+
+def _role_labels(roles, ta_count: int, cc_count: int) -> list:
+    labels = list(dict.fromkeys(role.label for role in roles))
+    if ta_count:
+        labels.append(f'TA({ta_count})')
+    if cc_count:
+        labels.append(f'CC({cc_count})')
+    return labels
 
 
 class UserTableView:
@@ -177,15 +192,20 @@ class UserTableView:
     async def refresh(self, *_, **__):
         if self.before_refresh:
             await self.before_refresh()
-        user_query = self.get_query()
-        all_users = await user_query.order_by('username').prefetch_related(
-            'roles', 'admin_tournaments', 'crew_coordinated_tournaments'
-        )
-        # Use the tenant captured at build, NOT a live get_current_tenant_id():
-        # refresh() is also driven by the filter/toolbar/tab-switch handlers as
-        # bare background tasks that have lost the tenant, where a live resolve
-        # returns None and would re-leak cross-tenant role grants.
-        rows = [self._format_user_row(u, self._tenant_id) for u in all_users]
+        # Plain columns, not hydrated Users: a ~40-field model per member held the
+        # one event loop for over a second on a community of 2,000.
+        users = await self.get_query().order_by('username').values(*_ROW_FIELDS)
+        rows = []
+        if users:
+            # Use the tenant captured at build, NOT a live get_current_tenant_id():
+            # refresh() is also driven by the filter/toolbar/tab-switch handlers as
+            # bare background tasks that have lost the tenant, where a live resolve
+            # returns None and would re-leak cross-tenant role grants.
+            roles, admins, coordinators = await UserService().member_role_summary(self._tenant_id)
+            rows = [
+                self._row(u, _role_labels(roles.get(u['id'], []), admins[u['id']], coordinators[u['id']]))
+                for u in users
+            ]
         if self.decorate_row:
             for row in rows:
                 self.decorate_row(row)
@@ -197,35 +217,29 @@ class UserTableView:
         # same identity may hold STAFF in several communities and SUPER_ADMIN with
         # tenant=NULL), so an unscoped render both duplicates chips and leaks other
         # communities' grants into this admin — the display counterpart of the
-        # scoping AuthService.get_roles already applies. Dedupe within the tenant.
-        seen = set()
-        role_labels = []
-        for r in u.roles:
-            if tid is not None and r.tenant_id != tid:
-                continue
-            label = r.role.label
-            if label not in seen:
-                seen.add(label)
-                role_labels.append(label)
+        # scoping AuthService.get_roles already applies.
+        roles = [r.role for r in u.roles if tid is None or r.tenant_id == tid]
         # Tournaments are tenant-scoped too; count only those in this tenant.
         ta_count = sum(1 for t in u.admin_tournaments if tid is None or t.tenant_id == tid)
         cc_count = sum(1 for t in u.crew_coordinated_tournaments if tid is None or t.tenant_id == tid)
-        if ta_count:
-            role_labels.append(f'TA({ta_count})')
-        if cc_count:
-            role_labels.append(f'CC({cc_count})')
+        return UserTableView._row(
+            {name: getattr(u, name) for name in _ROW_FIELDS}, _role_labels(roles, ta_count, cc_count),
+        )
+
+    @staticmethod
+    def _row(u: dict, role_labels: list) -> dict:
         return {
-            'id': u.id,
-            'username': u.username,
-            'display_name': u.display_name or '',
-            'preferred_name': u.preferred_name or '',
-            'pronouns': u.pronouns or '',
-            'discord_id': u.discord_id,
-            'challonge': u.challonge_username or u.challonge_user_id or '',
-            'is_active': u.is_active,
+            'id': u['id'],
+            'username': u['username'],
+            'display_name': u['display_name'] or '',
+            'preferred_name': u['display_name'] or u['username'] or '',
+            'pronouns': u['pronouns'] or '',
+            'discord_id': u['discord_id'],
+            'challonge': u['challonge_username'] or u['challonge_user_id'] or '',
+            'is_active': u['is_active'],
             'roles': ', '.join(role_labels),
-            'created_at': format_local_display(u.created_at),
-            'updated_at': format_local_display(u.updated_at),
+            'created_at': format_local_display(u['created_at']),
+            'updated_at': format_local_display(u['updated_at']),
         }
 
     async def update_row_by_id(self, user_id):
