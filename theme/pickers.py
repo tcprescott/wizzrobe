@@ -72,6 +72,62 @@ class FilterMultiSelect(ui.select):
         return [self._decorate(o) for o in super()._value_to_model_value(value)]
 
 
+_SINGLE_OPTION_SLOT = '''
+<q-item v-bind="props.itemProps">
+    <q-item-section side v-if="props.opt.color !== undefined" class="q-pr-sm">
+        <q-icon name="circle" size="xs" :style="{color: props.opt.color}" />
+    </q-item-section>
+    <q-item-section>
+        <q-item-label>{{ props.opt.label }}</q-item-label>
+        <q-item-label caption v-if="props.opt.caption">{{ props.opt.caption }}</q-item-label>
+    </q-item-section>
+</q-item>
+'''
+
+_SINGLE_SELECTED_SLOT = '''
+<span class="row items-center no-wrap">
+    <q-icon v-if="props.opt.color !== undefined" name="circle" size="xs"
+            class="q-mr-xs" :style="{color: props.opt.color}" />
+    <span class="ellipsis">{{ props.opt.label }}</span>
+</span>
+'''
+
+
+class ColorSelect(ui.select):
+    """A single-choice ``ui.select`` whose options can carry a colour dot, a caption, and be disabled.
+
+    ``extras`` works as on :class:`FilterMultiSelect`, plus ``'disable': True``
+    greys an option out (its caption should say why) so it can be read but not
+    picked.
+    """
+
+    def __init__(
+        self,
+        options: Mapping[Any, str],
+        *,
+        label: str,
+        value: Any = None,
+        extras: Optional[Mapping[Any, Mapping[str, Any]]] = None,
+    ) -> None:
+        self._extras = dict(extras or {})
+        super().__init__(options=dict(options), label=label, value=value)
+        self.props('options-dense option-disable=disable popup-content-class=wiz-color-select-menu')
+        self.add_slot('option', _SINGLE_OPTION_SLOT)
+        self.add_slot('selected-item', _SINGLE_SELECTED_SLOT)
+
+    def _decorate(self, option: dict) -> dict:
+        extra = self._extras.get(self._values[option['value']])
+        return {**option, **extra} if extra else option
+
+    def _update_options(self) -> None:
+        super()._update_options()
+        self._props['options'] = [self._decorate(o) for o in self._props['options']]
+
+    def _value_to_model_value(self, value: Any) -> Any:
+        model = super()._value_to_model_value(value)
+        return self._decorate(model) if isinstance(model, dict) else model
+
+
 def bulk_add_summary(new: int, existing: int, *, empty_hint: str) -> str:
     """The "what Add will do" line under a many-to-many add dialog."""
     if not new and not existing:

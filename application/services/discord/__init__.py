@@ -16,6 +16,7 @@ from application.services.discord import (
     discord_guild_ops,
     discord_member_events,
     discord_queue,
+    discord_role_sync_worker,
     discord_scheduled_events,
 )
 from application.services.discord.discord_email_service import DiscordEmailService
@@ -26,6 +27,7 @@ from application.services.discord.discord_event_sync_service import DiscordEvent
 from application.services.discord.discord_link_service import DiscordLinkService
 from application.services.discord.discord_login_service import DiscordLoginService
 from application.services.discord.discord_role_mapping_service import DiscordRoleMappingService
+from application.services.discord.discord_role_sync_service import DiscordRoleSyncService
 from application.services.discord.discord_service import DiscordService
 
 __all__ = [
@@ -35,10 +37,12 @@ __all__ = [
     'DiscordLinkService',
     'DiscordLoginService',
     'DiscordRoleMappingService',
+    'DiscordRoleSyncService',
     'DiscordService',
     'discord_event_worker',
     'discord_guild_ops',
     'discord_member_events',
     'discord_queue',
+    'discord_role_sync_worker',
     'discord_scheduled_events',
 ]

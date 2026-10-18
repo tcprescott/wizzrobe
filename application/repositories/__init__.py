@@ -34,6 +34,7 @@ from .community_event_repository import (
     CommunityEventSubscriptionRepository,
 )
 from .discord_role_mapping_repository import DiscordRoleMappingRepository
+from .discord_role_sync_repository import DiscordRoleSyncRepository
 from .discord_scheduled_event_repository import DiscordScheduledEventRepository
 from .discord_tournament_grant_repository import DiscordTournamentGrantRepository
 from .emergency_contact_repository import EmergencyContactRepository
@@ -113,6 +114,7 @@ __all__ = [
     'CommunityEventSeenRepository',
     'CommunityEventSubscriptionRepository',
     'DiscordRoleMappingRepository',
+    'DiscordRoleSyncRepository',
     'DiscordScheduledEventRepository',
     'DiscordTournamentGrantRepository',
     'EmergencyContactRepository',

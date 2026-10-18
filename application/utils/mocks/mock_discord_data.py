@@ -18,7 +18,7 @@ To enrich the mock: add guilds to :data:`MOCK_GUILDS`, add roles to a guild's
 a never-signed-in member to :data:`MOCK_GUILD_ROSTER`.
 """
 
-from typing import Dict, List, Set
+from typing import Dict, List, Set, Union
 
 # --- Guild ids (match seed_dev.TENANT_SPECS) --------------------------------
 GUILD_WIZ_DEFAULT = 1000000000000000001
@@ -37,22 +37,35 @@ ROLE_COMMENTATOR = 2000000000000000011
 ROLE_TRACKER = 2000000000000000012
 ROLE_RESTREAMER = 2000000000000000013
 
+# Unmapped roles that the outbound role sync's checklist can hand out.
+ROLE_COMPETITOR = 2000000000000000030
+ROLE_NOW_PLAYING = 2000000000000000031
+ROLE_VIP = 2000000000000000032
+ROLE_ATTENDEE = 2000000000000000033
+
 # Not mappable: Discord's @everyone and a bot's own managed role, so the
 # "Add mapping" picker has something to leave out.
 ROLE_EVERYONE = 2000000000000000000
 ROLE_BOT = 2000000000000000020
 
 _STANDARD_ROLES: List[Dict[str, object]] = [
-    {"id": ROLE_ADMIN, "name": "Admin", "color": 0xE74C3C, "mappable": True},
-    {"id": ROLE_STAFF, "name": "Wizzrobe Staff", "color": 0x9B59B6, "mappable": True},
-    {"id": ROLE_PROCTOR, "name": "Proctors", "color": 0x3498DB, "mappable": True},
-    {"id": ROLE_STREAM_MANAGER, "name": "Stream Managers", "color": 0xE67E22, "mappable": True},
-    {"id": ROLE_VOLUNTEER, "name": "Volunteers", "color": 0x2ECC71, "mappable": True},
-    {"id": ROLE_COMMENTATOR, "name": "Commentators", "color": 0, "mappable": True},
-    {"id": ROLE_TRACKER, "name": "Trackers", "color": 0x1ABC9C, "mappable": True},
-    {"id": ROLE_RESTREAMER, "name": "Restreamers", "color": 0xF1C40F, "mappable": True},
-    {"id": ROLE_BOT, "name": "Wizzrobe", "color": 0x5865F2, "mappable": False},
-    {"id": ROLE_EVERYONE, "name": "@everyone", "color": 0, "mappable": False},
+    # ``position`` is Discord's role order (higher outranks lower). The bot's own
+    # role sits below Admin and Staff, so the role sync's picker has roles it
+    # must refuse as "above the bot's role".
+    {"id": ROLE_ADMIN, "name": "Admin", "color": 0xE74C3C, "mappable": True, "position": 14},
+    {"id": ROLE_STAFF, "name": "Wizzrobe Staff", "color": 0x9B59B6, "mappable": True, "position": 13},
+    {"id": ROLE_BOT, "name": "Wizzrobe", "color": 0x5865F2, "mappable": False, "position": 12},
+    {"id": ROLE_PROCTOR, "name": "Proctors", "color": 0x3498DB, "mappable": True, "position": 11},
+    {"id": ROLE_STREAM_MANAGER, "name": "Stream Managers", "color": 0xE67E22, "mappable": True, "position": 10},
+    {"id": ROLE_VOLUNTEER, "name": "Volunteers", "color": 0x2ECC71, "mappable": True, "position": 9},
+    {"id": ROLE_COMMENTATOR, "name": "Commentators", "color": 0, "mappable": True, "position": 8},
+    {"id": ROLE_TRACKER, "name": "Trackers", "color": 0x1ABC9C, "mappable": True, "position": 7},
+    {"id": ROLE_RESTREAMER, "name": "Restreamers", "color": 0xF1C40F, "mappable": True, "position": 6},
+    {"id": ROLE_VIP, "name": "SGL VIP", "color": 0xF1C40F, "mappable": True, "position": 5},
+    {"id": ROLE_ATTENDEE, "name": "SGL Attendee", "color": 0x1ABC9C, "mappable": True, "position": 4},
+    {"id": ROLE_COMPETITOR, "name": "Competitor", "color": 0x3BA55D, "mappable": True, "position": 3},
+    {"id": ROLE_NOW_PLAYING, "name": "Now Playing", "color": 0xE67E22, "mappable": True, "position": 2},
+    {"id": ROLE_EVERYONE, "name": "@everyone", "color": 0, "mappable": False, "position": 0},
 ]
 
 # owner_id 1 matches the dev seed's first user; member_can_manage_guild treats
@@ -133,6 +146,22 @@ def member_role_ids(guild_id: int, user_id: int) -> Set[int]:
     if user_id in MOCK_MEMBER_ROLES:
         return set(MOCK_MEMBER_ROLES[user_id]) & {r["id"] for r in roles_for(guild_id)}
     return _default_member_roles(guild_id, user_id)
+
+
+def bot_access(guild_id: int) -> Dict[str, Union[bool, int]]:
+    """The mock bot holds Manage Roles; its own role is ``ROLE_BOT``'s position."""
+    top = next(int(str(r["position"])) for r in roles_for(guild_id) if r["id"] == ROLE_BOT)
+    return {"manage_roles": True, "top_position": top}
+
+
+def give_role(guild_id: int, user_id: int, role_id: int, add: bool) -> None:
+    """Record a role the mock bot added or removed, so the next read sees it."""
+    held = member_role_ids(guild_id, user_id)
+    if add:
+        held.add(role_id)
+    else:
+        held.discard(role_id)
+    MOCK_MEMBER_ROLES[user_id] = held
 
 
 def is_guild_member(guild_id: int, user_id: int) -> bool:

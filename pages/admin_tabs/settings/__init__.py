@@ -25,6 +25,8 @@ from application.timezone_context import current_timezone_name, tz_scope
 from models import FeatureFlag
 from pages.admin_tabs.admin_challonge import admin_challonge_connection_page
 from pages.admin_tabs.admin_discord_events import admin_discord_events_page
+from pages.admin_tabs.admin_discord_role_sync import TAB_LABEL as ROLE_SYNC_TAB_LABEL
+from pages.admin_tabs.admin_discord_role_sync import admin_discord_role_sync_page
 from pages.admin_tabs.admin_discord_roles import admin_discord_roles_page
 from pages.admin_tabs.admin_features import admin_features_page
 from pages.admin_tabs.admin_profile_reminders import admin_profile_reminders_page
@@ -140,6 +142,8 @@ def build_settings_panes(access, live: set) -> list[SettingsPane]:
             admin_discord_roles_page, {'volunteer_mappings': FeatureFlag.VOLUNTEERS in live},
             refresh_label='Role Mappings',
         ))
+    if is_staff and FeatureFlag.DISCORD_ROLE_SYNC in live:
+        discord.append(EmbeddedPage(admin_discord_role_sync_page, refresh_label=ROLE_SYNC_TAB_LABEL))
     if is_staff or access.is_sync_admin:
         discord.append(EmbeddedPage(admin_discord_events_page, refresh_label='Discord Events'))
     if discord:

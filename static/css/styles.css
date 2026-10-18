@@ -5076,6 +5076,10 @@ ol.wiz-help-list { list-style-type: decimal; }
 /* A table needs more room than a paragraph: at the reading width its third
    column ran under the scrollbar. The phone sheet is full width already. */
 .q-menu.wiz-help-menu:has(.wiz-help-table) { width: min(32rem, calc(100vw - 2rem)); }
+
+/* ColorSelect's menu (theme/pickers.py): a disabled option's caption explains
+   why, and without a cap the long ones stretched the menu to the page edge. */
+.q-menu.wiz-color-select-menu { max-width: min(28rem, calc(100vw - 2rem)) !important; }
 .wiz-help-menu-body .wiz-help-table { min-width: 0; }
 
 .wiz-help-view { gap: 0; width: 100%; }

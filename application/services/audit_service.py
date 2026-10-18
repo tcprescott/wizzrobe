@@ -125,6 +125,10 @@ class AuditActions:
     ROLE_DISCORD_SYNC_GRANTED = 'role.discord_sync_granted'
     ROLE_DISCORD_SYNC_REVOKED = 'role.discord_sync_revoked'
     ROLE_DISCORD_SYNC_BULK = 'role.discord_sync_bulk'
+    # Outbound: Discord roles Wizzrobe hands out (DiscordRoleSyncService)
+    DISCORD_ROLE_RULE_SET = 'discord_role.rule_set'
+    DISCORD_ROLE_RULE_CLEARED = 'discord_role.rule_cleared'
+    DISCORD_ROLE_RULES_RESET = 'discord_role.rules_reset'
     # Tenant ↔ Discord server link (tenant-scoped; stamped with the tenant)
     DISCORD_SERVER_LINKED = 'discord.server_linked'
     DISCORD_SERVER_UNLINKED = 'discord.server_unlinked'

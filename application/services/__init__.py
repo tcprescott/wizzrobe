@@ -61,9 +61,11 @@ from .discord import (
     DiscordLinkService,
     DiscordLoginService,
     DiscordRoleMappingService,
+    DiscordRoleSyncService,
     DiscordService,
     discord_event_worker,
     discord_queue,
+    discord_role_sync_worker,
 )
 from .emergency_contact_service import EmergencyContactService
 from .equipment_service import EquipmentService
@@ -180,6 +182,7 @@ __all__ = [
     'DiscordLinkService',
     'DiscordLoginService',
     'DiscordRoleMappingService',
+    'DiscordRoleSyncService',
     'DiscordService',
     'DraftPolicy',
     'EmergencyContactService',
@@ -287,6 +290,7 @@ __all__ = [
     'community_event_reminder',
     'discord_event_worker',
     'discord_queue',
+    'discord_role_sync_worker',
     'get_user_from_discord_id',
     'get_user_from_session',
     'notification_links',

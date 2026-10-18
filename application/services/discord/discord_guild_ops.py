@@ -103,7 +103,9 @@ class GuildOpsMixin:
 
         Returns:
             Tuple[success, data]
-            - On success: (True, [{"id": int, "name": str}, ...])
+            - On success: (True, [{"id": int, "name": str, "color": int,
+              "mappable": bool, "position": int}, ...]) — ``position`` is
+              Discord's role order, higher outranking lower.
             - On failure: (False, error_message)
         """
         try:
@@ -135,6 +137,7 @@ class GuildOpsMixin:
                     "name": r.name,
                     "color": r.color.value,
                     "mappable": not (r.is_default() or r.is_bot_managed() or r.is_integration()),
+                    "position": r.position,
                 }
                 for r in roles_list
             ]
@@ -222,6 +225,71 @@ class GuildOpsMixin:
             (success, message)
         """
         return await self._modify_role(guild_id, user_id, role_id, reason, add=False)
+
+    async def bot_role_access(self, guild_id: int) -> Tuple[bool, Union[Dict[str, Union[bool, int]], str]]:
+        """What the bot itself may do with roles in ``guild_id``.
+
+        ``(True, {"manage_roles": bool, "top_position": int})``: whether it holds
+        Manage Roles (Administrator implies it), and the position of its highest
+        role. Discord lets a bot hand out only roles strictly below that.
+        """
+        try:
+            if self._bot is None:
+                return False, "Discord bot not initialized"
+            if not self._bot.is_ready():
+                return False, "Discord bot is not connected. Please try again in a moment."
+            guild = self._bot.get_guild(guild_id)
+            if guild is None:
+                return False, "The bot is not in this server."
+            me = guild.me
+            if me is None:
+                me = await guild.fetch_member(self._bot.user.id)
+            perms = me.guild_permissions
+            return True, {
+                "manage_roles": bool(perms.administrator or perms.manage_roles),
+                "top_position": me.top_role.position,
+            }
+        except discord.Forbidden:
+            return False, "The bot cannot access this server."
+        except discord.HTTPException as e:
+            return False, f"Discord HTTP error while reading the bot's roles: {e!s}"
+        except Exception as e:
+            log_discord_failure("Failed to read the bot's roles", e)
+            return False, f"Failed to read the bot's roles: {e!s}"
+
+    async def member_role_snapshot(
+        self, guild_id: int, user_ids: AbstractSet[int],
+    ) -> Tuple[bool, Union[Dict[int, FrozenSet[int]], str]]:
+        """The roles each of ``user_ids`` holds in ``guild_id``; absent ids aren't members.
+
+        One pass over the member cache when the guild is chunked (the bot asks
+        for the members intent), else one paged walk of the REST member list,
+        rather than a fetch per person.
+        """
+        try:
+            if self._bot is None:
+                return False, "Discord bot not initialized"
+            if not self._bot.is_ready():
+                return False, "Discord bot is not connected. Please try again in a moment."
+            if not user_ids:
+                return True, {}
+            guild = self._bot.get_guild(guild_id)
+            if guild is None:
+                return False, "The bot is not in this server."
+            if guild.chunked:
+                members = [m for m in (guild.get_member(uid) for uid in user_ids) if m is not None]
+            else:
+                members = [m async for m in guild.fetch_members(limit=None) if m.id in user_ids]
+            return True, {
+                m.id: frozenset(r.id for r in m.roles if r.id != guild_id) for m in members
+            }
+        except discord.Forbidden:
+            return False, "Bot lacks permissions to read guild members"
+        except discord.HTTPException as e:
+            return False, f"Discord HTTP error while reading members: {e!s}"
+        except Exception as e:
+            log_discord_failure("Failed to read members", e)
+            return False, f"Failed to read members: {e!s}"
 
     async def get_member_role_ids(self, guild_id: int, user_id: int) -> Tuple[bool, Union[Set[int], str]]:
         """
@@ -424,11 +492,24 @@ class MockGuildOpsMixin:
 
     async def add_role_to_user(self, guild_id: int, user_id: int, role_id: int, reason: Optional[str] = None) -> Tuple[bool, str]:
         print(f"[MOCK Discord] add_role guild={guild_id} user={user_id} role={role_id} reason={reason!r}")
+        mock_discord_data.give_role(guild_id, user_id, role_id, add=True)
         return True, "Role added (mock)"
 
     async def remove_role_from_user(self, guild_id: int, user_id: int, role_id: int, reason: Optional[str] = None) -> Tuple[bool, str]:
         print(f"[MOCK Discord] remove_role guild={guild_id} user={user_id} role={role_id} reason={reason!r}")
+        mock_discord_data.give_role(guild_id, user_id, role_id, add=False)
         return True, "Role removed (mock)"
+
+    async def bot_role_access(self, guild_id: int) -> Tuple[bool, Union[Dict[str, Union[bool, int]], str]]:
+        return True, mock_discord_data.bot_access(guild_id)
+
+    async def member_role_snapshot(
+        self, guild_id: int, user_ids: AbstractSet[int],
+    ) -> Tuple[bool, Union[Dict[int, FrozenSet[int]], str]]:
+        return True, {
+            uid: frozenset(mock_discord_data.member_role_ids(guild_id, uid))
+            for uid in user_ids if mock_discord_data.is_guild_member(guild_id, uid)
+        }
 
     async def get_member_role_ids(self, guild_id: int, user_id: int) -> Tuple[bool, Union[Set[int], str]]:
         print(f"[MOCK Discord] get_member_role_ids guild={guild_id} user={user_id}")
