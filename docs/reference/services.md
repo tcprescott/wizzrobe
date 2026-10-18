@@ -68,6 +68,7 @@ Services are the business-logic layer of the [three-layer architecture](../refac
 | `DiscordEventSyncService` | [discord_event_sync_service.py](../../application/services/discord/discord_event_sync_service.py) | Admin surface over the reconciler: per-tournament opt-in + "reconcile now" | [discord.md](../features/discord.md) |
 | `DiscordLinkService` | [discord_link_service.py](../../application/services/discord/discord_link_service.py) | Verified tenant↔Discord-server link (bot-authorization OAuth + authority re-check) | [multitenancy.md](../features/multitenancy.md) |
 | `DiscordLoginService` | [discord_login_service.py](../../application/services/discord/discord_login_service.py) | One-time login links the bot hands out (`/login`, the login panel) and the panel's STAFF gate | [discord.md](../features/discord.md#log-in-from-discord) |
+| `DiscordMemberImportService` | [discord_member_import_service.py](../../application/services/discord/discord_member_import_service.py) | Admin → Users › Import from Discord: an account and a membership for everyone in the linked server | [discord.md](../features/discord.md) |
 | `DiscordRoleMappingService` | [discord_role_mapping_service.py](../../application/services/discord/discord_role_mapping_service.py) | Discord-role→app-role mapping CRUD and login-time role sync | [discord.md](../features/discord.md) |
 | `DiscordRoleSyncService` | [discord_role_sync_service.py](../../application/services/discord/discord_role_sync_service.py) | The Discord roles Wizzrobe hands out (players, live match, per tournament, badges): rules, bot-permission checks, and the sync; `discord_role_sync_worker` runs it | [discord.md](../features/discord.md#app--guild-role-sync-discord-roles-from-wizzrobe) |
 | `discord_member_events` (module) | [discord_member_events.py](../../application/services/discord/discord_member_events.py) | The bot's `GUILD_MEMBER_*` listeners: app-role re-sync and the cached avatar hash | [discord-integration.md](discord-integration.md) |
@@ -446,6 +447,17 @@ Crew (commentator/tracker) self-signup, the approval workflow, and crew-side ack
 
 Collaborators: `CommentatorRepository`, `TrackerRepository`, `MatchRepository` (signup match lookup, `commitments_for_user`), `TournamentRepository`, `AuditService`, `DiscordService` (via `discord_queue`).
 
+### discord_member_import_service.py — DiscordMemberImportService
+
+Admin → Users › Import from Discord. Gives every human in the community's linked server an account (matched on `discord_id`, so nobody is duplicated) and a membership, so staff can enroll and map people who have never signed in. Staff-only (`can_grant_roles`); a missing server link or a Discord failure is a `ValueError`. Bots, people removed from the community (`TenantMemberBlock`), and inactive or system accounts are skipped. No DMs. Safe to rerun: a second run only adds people new to the server.
+
+| Method | Returns | Description |
+|---|---|---|
+| `preview(actor)` | `DiscordImportPreview` | What a run would do now, without writing: `server_name`, `people` (humans), `new_accounts`, `new_members`, `already_members`, `bots`, `removed`. |
+| `run(actor)` | `DiscordImportResult` | Bulk-inserts the missing accounts (`UserRepository.bulk_create_from_discord`, conflicts ignored), then one `TenantMembershipRepository.bulk_add` (`MembershipSource.DISCORD_IMPORT`) for the people not yet members, closing their pending join requests (`close_pending_request`); no per-person DM, audit row or event. One audit row for the run, `tenant.members_imported` + `EventType.TENANT_MEMBERS_IMPORTED`, carrying the counts and `created_user_ids` / `added_user_ids`. |
+
+Collaborators: `DiscordService.list_members` / `.get_guild_summary`, `UserRepository`, `TenantMembershipRepository`, `TenantJoinRequestRepository`, `AuditService`.
+
 ### discord_role_mapping_service.py — DiscordRoleMappingService
 
 CRUD for `DiscordRoleMapping` plus the login-time sync that maps a user's Discord guild roles onto application roles **and** onto per-tournament grants. Feature doc: [discord.md](../features/discord.md).
@@ -513,7 +525,8 @@ Every `send_dm_with_*` also takes the optional `embed=None, link=None` pair and 
 | `add_role_to_user(guild_id, user_id, role_id, reason=None)` | `(bool, str)` | Grant a Discord role to a guild member. |
 | `remove_role_from_user(guild_id, user_id, role_id, reason=None)` | `(bool, str)` | Remove a Discord role from a guild member. |
 | `get_member_role_ids(guild_id, user_id)` | `(bool, set[int] \| str)` | The member's role ids (`@everyone` excluded); `(True, set())` for a non-member. Feeds `DiscordRoleMappingService.sync_user_roles`. |
-| `list_members_with_roles(guild_id, role_ids)` | `(bool, list[GuildMember] \| str)` | Every non-bot member holding at least one of `role_ids`, as frozen `GuildMember(id, username, avatar, role_ids)` records. Reads the member cache when the guild is chunked, otherwise pages `fetch_members`. Feeds the provisioning step of `sync_all_users`. |
+| `list_members(guild_id)` | `(bool, list[GuildMember] \| str)` | Every member, bots included, as frozen `GuildMember(id, username, avatar, role_ids, bot)` records. Reads the member cache when the guild is chunked, otherwise pages `fetch_members`. Feeds `DiscordMemberImportService`. |
+| `list_members_with_roles(guild_id, role_ids)` | `(bool, list[GuildMember] \| str)` | `list_members` narrowed to non-bot members holding at least one of `role_ids`. Feeds the provisioning step of `sync_all_users`. |
 | `get_guild_summary(guild_id)` | `(bool, {id, name} \| str)` | Name of a guild the bot can see (renders the connected-server label; confirms bot presence). |
 | `is_guild_member(guild_id, user_id)` | `(bool, bool \| str)` | Whether a user is in the guild. `ok=False` when the bot can't tell. Feeds `TenantMembershipService.join_via_discord`. |
 | `member_can_manage_guild(guild_id, user_id)` | `(bool, bool \| str)` | Whether a user is owner / Administrator / has Manage Server. **Fails closed** (`ok=False`) if the bot can't determine it. The authority check behind `DiscordLinkService`. |

@@ -376,7 +376,7 @@ How someone became a member (`TenantMembership.source`, `max_length=32`, nullabl
 `STAFF` = `'staff'` (Add Member, Add User, the `/platform` first-admin grant),
 `JOIN_REQUEST` = `'join_request'`, `DISCORD_AUTO_JOIN` = `'discord_auto_join'`, `OPEN` = `'open'`,
 `ROLE_GRANT` = `'role_grant'` (a role staff granted), `DISCORD_ROLE` =
-`'discord_role'` (the Discord role sync), `IMPORT` = `'import'` (SpeedGaming).
+`'discord_role'` (the Discord role sync), `IMPORT` = `'import'` (SpeedGaming), `DISCORD_IMPORT` = `'discord_import'` (Admin → Users › Import from Discord).
 
 ### `JoinRequestStatus`
 

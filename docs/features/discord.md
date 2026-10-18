@@ -208,6 +208,19 @@ tournament grant on an active tournament. An unmapped role, leaving the server
 account is never renamed by this path; the new one takes the member's Discord
 username and global avatar hash, exactly what a first login would store.
 
+### Importing the whole server
+
+Admin → Users › Actions › **Import from Discord…** (`DiscordMemberImportService`,
+staff only) goes further than role sync: every human in the community's linked
+server gets an account and a membership (`MembershipSource.DISCORD_IMPORT`,
+"Discord import" in the Via column), roles or not. It exists so staff can enroll
+and map people (a Challonge entrant, a bracket seat) before they ever sign in.
+The dialog previews the counts first: people to add, already members, bots
+skipped, and people removed from the community skipped (a removal block is never
+lifted). Accounts match on Discord id, existing ones keep their name, nobody is
+DM'd, and one `tenant.members_imported` audit row and event covers the run. A
+second run only picks up people who joined the server since.
+
 ### Membership for anyone in the server
 
 Role sync only makes members of people holding a mapped role. A community that

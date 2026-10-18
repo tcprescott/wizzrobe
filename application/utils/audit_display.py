@@ -225,6 +225,7 @@ ACTION_LABELS: dict[str, str] = {
     'notification_telegram.unlinked': 'Disconnected Telegram',
     'tenant.member_added': 'Added a member to the community',
     'tenant.member_removed': 'Removed a member from the community',
+    'tenant.members_imported': 'Imported members from Discord',
     'tenant.join_requested': 'Asked to join the community',
     'tenant.join_approved': 'Approved a join request',
     'tenant.join_denied': 'Turned down a join request',

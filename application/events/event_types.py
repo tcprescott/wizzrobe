@@ -179,6 +179,9 @@ class EventType:
     # webhook subscriber can see or act on.
     TENANT_MEMBER_ADDED = 'tenant.member_added'
     TENANT_MEMBER_REMOVED = 'tenant.member_removed'
+    # A bulk import from the community's Discord server, one event per run
+    # carrying every added member's id rather than one event per person.
+    TENANT_MEMBERS_IMPORTED = 'tenant.members_imported'
     # The join-request lifecycle. A subscriber routing "someone wants in" to a
     # staff channel is the point; the decisions close the loop for it.
     TENANT_JOIN_REQUESTED = 'tenant.join_requested'
@@ -264,7 +267,7 @@ class EventType:
         BRACKET_ENTRY_RETIRED, BRACKET_CANCELLED,
         BRACKET_GAME_SCHEDULED, BRACKET_GAME_COMPLETED, BRACKET_GAME_CANCELLED,
         BRACKET_GAME_LINKED, BRACKET_GAME_UNLINKED, BRACKET_GAME_RELEASED,
-        TENANT_MEMBER_ADDED, TENANT_MEMBER_REMOVED,
+        TENANT_MEMBER_ADDED, TENANT_MEMBER_REMOVED, TENANT_MEMBERS_IMPORTED,
         TENANT_JOIN_REQUESTED, TENANT_JOIN_APPROVED, TENANT_JOIN_DENIED,
         TOURNAMENT_ENROLLED, TOURNAMENT_WITHDRAWN,
         TOURNAMENT_PRIZE_POOL_UPDATED, TOURNAMENT_PAYOUT_UPDATED,

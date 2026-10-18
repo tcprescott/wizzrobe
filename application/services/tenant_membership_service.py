@@ -96,7 +96,7 @@ class JoinMode(str, Enum):
         return self in (JoinMode.DISCORD_OR_REQUEST, JoinMode.DISCORD)
 
 
-async def _close_pending_request(
+async def close_pending_request(
     user: User, tenant_id: int, decided_by: Optional[User],
 ) -> Optional[TenantJoinRequest]:
     """Close ``user``'s pending request here as approved, if they have one.
@@ -208,7 +208,7 @@ class TenantMembershipService:
             return
         await TenantMembershipRepository.add(user, tenant_id, MembershipSource.STAFF)
         await TenantMembershipRepository.unblock(user.id, tenant_id)
-        closed = await _close_pending_request(user, tenant_id, actor)
+        closed = await close_pending_request(user, tenant_id, actor)
         details: dict = {'target_user_id': user.id}
         if closed is not None:
             details['closed_request_id'] = closed.id
@@ -401,7 +401,7 @@ class TenantMembershipService:
                 if not await SystemConfigService.get_bool(KEY_OPEN_MEMBERSHIP):
                     return False
                 await TenantMembershipRepository.add(user, tenant_id, MembershipSource.OPEN)
-                closed = await _close_pending_request(user, tenant_id, None)
+                closed = await close_pending_request(user, tenant_id, None)
                 details: dict = {'target_user_id': user.id, 'source': 'open'}
                 if closed is not None:
                     details['closed_request_id'] = closed.id
@@ -483,7 +483,7 @@ class TenantMembershipService:
                 # (the gate shows a welcome), so no DM to them. Staff aren't
                 # DM'd either: nothing needs doing, and the Users tab marks the
                 # member "Joined via Discord".
-                closed = await _close_pending_request(user, tenant_id, None)
+                closed = await close_pending_request(user, tenant_id, None)
                 details: dict = {'target_user_id': user.id, 'source': 'discord_auto_join'}
                 if closed is not None:
                     details['closed_request_id'] = closed.id
@@ -783,7 +783,7 @@ class TenantMembershipService:
             await TenantMembershipRepository.unblock(user.id, tenant_id)
         if not await TenantMembershipRepository.add_returning_created(user, tenant_id, source):
             return None
-        closed = await _close_pending_request(user, tenant_id, actor)
+        closed = await close_pending_request(user, tenant_id, actor)
         if closed is not None:
             await TenantMembershipService._notify_member(user, member_added_dm, by_staff=False)
         return closed

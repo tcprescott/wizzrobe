@@ -4,7 +4,7 @@ User Repository - Data Access Layer
 Handles database operations for users.
 """
 
-from typing import List, Optional
+from typing import Iterable, List, Optional, Tuple
 
 from tortoise.expressions import Q
 
@@ -42,6 +42,30 @@ class UserRepository(TenantScopedRepository[User]):
     @staticmethod
     async def get_by_discord_id(discord_id: str) -> Optional[User]:
         return await User.get_or_none(discord_id=discord_id)
+
+    @staticmethod
+    async def get_by_discord_ids(discord_ids: Iterable[int]) -> dict[int, User]:
+        """Resolve many Discord ids in one query, keyed by Discord id."""
+        wanted = list(set(discord_ids))
+        if not wanted:
+            return {}
+        rows = await User.filter(discord_id__in=wanted)
+        return {u.discord_id: u for u in rows if u.discord_id is not None}
+
+    @staticmethod
+    async def bulk_create_from_discord(members: Iterable[Tuple[int, str, Optional[str]]]) -> None:
+        """New accounts for ``(discord_id, username, avatar)`` rows, in one insert.
+
+        Ignores conflicts, so an account a concurrent login made in between is
+        kept as it is rather than failing the batch; re-read with
+        :meth:`get_by_discord_ids` to learn what exists.
+        """
+        rows = [
+            User(discord_id=discord_id, username=username, discord_avatar=avatar or None)
+            for discord_id, username, avatar in members
+        ]
+        if rows:
+            await User.bulk_create(rows, ignore_conflicts=True)
 
     @staticmethod
     async def get_all(
