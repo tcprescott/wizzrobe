@@ -35,13 +35,18 @@ async def _tick() -> None:
     from application.services import notification_links
     from application.services._community_event_notifications import event_embed
     from application.services.discord import discord_queue
-    from application.services.discord.discord_service import DiscordService
+    from application.services.discord.discord_service import DiscordService, discord_bot_down
     from application.services.feature_flag_service import FeatureFlagService
     from application.services.system_config_service import SystemConfigService
     from application.services.tenant_service import TenantService
     from application.utils.discord_embeds import COLOR_CHECKED_IN, time_field
     from application.utils.discord_messages_community_events import reminder_dm
     from models import FeatureFlag
+
+    if discord_bot_down():
+        # Reminders are stamped before their DM is queued; wait for the bot so
+        # they go out after a reconnect rather than being stamped and lost.
+        return
 
     now = datetime.now(timezone.utc)
     # Cross-tenant scan; each subscription is acted on inside its own tenant.

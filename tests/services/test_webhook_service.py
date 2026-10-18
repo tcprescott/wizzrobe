@@ -197,7 +197,7 @@ class TestDelivery:
 
         enqueued = []
         monkeypatch.setattr(
-            'application.services.webhook_service.dispatch_queue.enqueue',
+            'application.services.webhook_service.webhook_queue.enqueue',
             lambda coro: (enqueued.append(coro), coro.close()),
         )
         await WebhookService().deliver_event(Event.create(EventType.MATCH_CREATED, {}))

@@ -19,6 +19,7 @@ import logging
 import os
 import random
 import secrets
+from concurrent.futures import ThreadPoolExecutor
 from typing import Optional
 from urllib.parse import parse_qs, quote, urlencode, urlparse
 
@@ -72,10 +73,20 @@ config = {
     "STORAGE_SECRET": os.getenv("STORAGE_SECRET"),
 }
 
+# validate_token=False: validating is a blocking, timeout-less GET to Discord at
+# import time, so a Discord outage during a restart stopped the whole site booting.
 discordClient = (
-    APIClient(config["DISCORD_TOKEN"], client_secret=config["DISCORD_CLIENT_SECRET"])
+    APIClient(config["DISCORD_TOKEN"], validate_token=False,
+              client_secret=config["DISCORD_CLIENT_SECRET"])
     if not is_mock_discord() else None
 )
+
+# zenora's requests calls carry no timeout. Its own small pool keeps logins stuck
+# on a stalled Discord from filling the default pool that password hashing and
+# web-push encryption share, and the wait below gives the user an answer.
+_OAUTH_POOL = ThreadPoolExecutor(max_workers=4, thread_name_prefix='discord-oauth')
+_OAUTH_TIMEOUT_SECONDS = 20
+_ROLE_SYNC_TIMEOUT_SECONDS = 10
 
 def _platform_redirect_uri() -> str:
     """Discord OAuth callback on the platform host (path mode + platform surface).
@@ -411,10 +422,21 @@ def create() -> None:
                 access_token = discordClient.oauth.get_access_token(
                     code, redirect_uri,
                 ).access_token
-                bearer_client = APIClient(access_token, bearer=True)
+                bearer_client = APIClient(access_token, validate_token=False, bearer=True)
                 return bearer_client.users.get_current_user()
 
-            current_user = await asyncio.to_thread(_exchange_and_fetch)
+            try:
+                current_user = await asyncio.wait_for(
+                    asyncio.get_running_loop().run_in_executor(_OAUTH_POOL, _exchange_and_fetch),
+                    _OAUTH_TIMEOUT_SECONDS,
+                )
+            except asyncio.TimeoutError:
+                logger.warning('Discord did not answer the OAuth exchange within %ss',
+                               _OAUTH_TIMEOUT_SECONDS)
+                stash_notice("Discord isn't answering right now. Give it a minute and try again.",
+                             color='negative')
+                await wait.navigate_to('/login')
+                return
 
             user, _created = await UserService().provision_from_discord_login(
                 current_user.id, current_user.username,
@@ -465,7 +487,12 @@ def create() -> None:
 
             # Map the user's Discord guild roles onto application roles.
             # Self-defensive: never raises, so login is never blocked.
-            await DiscordRoleMappingService().sync_user_roles(user)
+            try:
+                await asyncio.wait_for(
+                    DiscordRoleMappingService().sync_user_roles(user), _ROLE_SYNC_TIMEOUT_SECONDS,
+                )
+            except asyncio.TimeoutError:
+                logger.warning('Role sync for user %s timed out; keeping current roles', user.id)
 
             # referrer_path was pinned to a tenant-qualified path at /login, so
             # this returns to the originating community even though the callback

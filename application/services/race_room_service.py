@@ -427,7 +427,9 @@ class RaceRoomService:
         try:
             from application.services.match.match_schedule_service import MatchScheduleService
 
-            await MatchScheduleService().generate_seed(match.id, actor)
+            ok, message, _url = await MatchScheduleService().generate_seed(match.id, actor)
+            if not ok:
+                logger.warning('seed attach for match %s refused: %s', match.id, message)
         except Exception:
             logger.exception('seed attach failed for match %s', match.id)
 

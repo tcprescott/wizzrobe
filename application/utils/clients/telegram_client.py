@@ -6,6 +6,7 @@ updates by long polling (:func:`get_updates`), so no public webhook URL needs
 registering.
 """
 
+import asyncio
 import logging
 import os
 from dataclasses import dataclass
@@ -16,6 +17,12 @@ import httpx
 logger = logging.getLogger(__name__)
 
 _TIMEOUT = httpx.Timeout(40.0, connect=5.0)
+# The 40s above is sized for the getUpdates long poll; a send that slow would
+# hold the shared notification queue and a person's "Send test" click.
+_SEND_TIMEOUT = httpx.Timeout(10.0, connect=5.0)
+# How long the poller rests after Telegram failed to answer, so an outage is a
+# warning every quarter minute rather than every second.
+_POLL_BACKOFF_SECONDS = 15
 
 _client: Optional[httpx.AsyncClient] = None
 _bot_username: Optional[str] = None
@@ -56,9 +63,9 @@ async def aclose() -> None:
         _client = None
 
 
-async def _call(method: str, payload: dict) -> Optional[dict]:
+async def _call(method: str, payload: dict, http_timeout: httpx.Timeout = _SEND_TIMEOUT) -> Optional[dict]:
     try:
-        response = await _get_client().post(_url(method), json=payload)
+        response = await _get_client().post(_url(method), json=payload, timeout=http_timeout)
     except httpx.HTTPError as exc:
         # The token is in the URL, so never log the exception's request.
         logger.warning('Telegram %s failed: %s', method, type(exc).__name__)
@@ -113,8 +120,11 @@ async def get_updates(offset: Optional[int], poll_seconds: int = 25) -> List[Tel
     if offset is not None:
         payload['offset'] = offset
     try:
-        body = await _call('getUpdates', payload)
+        body = await _call('getUpdates', payload, http_timeout=_TIMEOUT)
     except TelegramBlocked:
+        body = None
+    if body is None:
+        await asyncio.sleep(_POLL_BACKOFF_SECONDS)
         return []
     updates: List[TelegramUpdate] = []
     for raw in (body or {}).get('result', []):

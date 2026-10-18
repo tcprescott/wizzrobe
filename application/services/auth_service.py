@@ -374,6 +374,8 @@ class AuthService:
         match is theirs. Confirming is deliberately *not* here; see
         ``can_confirm_match``.
         """
+        if AuthService.is_system(user):
+            return True
         if await AuthService.is_staff(user) or await AuthService.is_proctor(user):
             return True
         if match.stage_id is not None and await AuthService.is_stream_manager(user):  # type: ignore[attr-defined]
