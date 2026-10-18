@@ -110,8 +110,13 @@ class TestMembersTable:
         await tournament.crew_coordinators.add(member, crowd[1])
 
         class Table:
+            # set_plain_rows writes props['rows'] directly, as on a ui.table.
             def __init__(self) -> None:
-                self.rows: list = []
+                self.props: dict = {'rows': []}
+
+            @property
+            def rows(self) -> list:
+                return self.props['rows']
 
             def update(self) -> None:
                 pass
