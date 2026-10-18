@@ -61,6 +61,10 @@ and only their two players see them, on My Schedule. Switch the board from
 **Booked** to **Not booked yet** to see every one that's still waiting, grouped by
 tournament. The switch counts them.
 
+A matchup only shows up once both players are known. A Challonge or start.gg
+bracket has none until it's started on that site and synced here, so the view
+stays empty while signups are still open.
+
 **Book…** schedules a matchup for both players, the same as a player booking it,
 with Suggest a time and the clash check. Outside the round's booking window you're
 warned and can book anyway. A matchup marked {chip:pending:Needs account} has a

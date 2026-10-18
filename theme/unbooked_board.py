@@ -124,7 +124,10 @@ class UnbookedBoard:
     @ui.refreshable_method
     def _rows(self) -> None:
         if not self._items:
-            empty_state('Every open bracket matchup is booked.')
+            empty_state(
+                'Nothing waiting to be booked. A matchup shows up here once its bracket '
+                'has started and synced and both players are known.'
+            )
             return
         visible = self._visible()
         if not visible:
