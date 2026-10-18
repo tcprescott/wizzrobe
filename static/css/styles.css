@@ -6393,6 +6393,22 @@ ol.wiz-help-list { list-style-type: decimal; }
 .unbooked-row__note--blocked {
     color: var(--status-pending);
 }
+.unbooked-row__suggestion {
+    margin-top: 0.5rem;
+    padding: 0.4rem 0.6rem;
+    border: 1px dashed var(--accent);
+    background: var(--accent-soft);
+    border-radius: 8px;
+    font-size: var(--text-sm);
+    line-height: 1.4;
+}
+.unbooked-row__suggestion-icon {
+    color: var(--wiz-link);
+    flex: none;
+}
+.unbooked-link__empty {
+    color: var(--fg-secondary);
+}
 .unbooked-row__actions {
     justify-content: flex-end;
 }

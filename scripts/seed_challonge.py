@@ -13,6 +13,7 @@ from models import (
     ChallongeMatchState,
     ChallongeParticipant,
     Match,
+    MatchPlayers,
     Tenant,
     Tournament,
     User,
@@ -131,6 +132,15 @@ async def seed_challonge_for_tenant(
             "participant1": participants["cp_2"], "participant2": participants["cp_4"],
         },
     )
+    # Staff booked cm_2's two players by hand (New match) instead of from the
+    # bracket: the row on Not booked yet that suggests linking it.
+    hand_booked, created = await Match.get_or_create(
+        tournament=tournament, tenant=tenant, title="Booked by hand",
+        defaults={"scheduled_at": now_utc + timedelta(days=1, hours=2)},
+    )
+    if created:
+        for uname in ("player_two", "player_four"):
+            await MatchPlayers.create(match=hand_booked, user=users[uname], tenant=tenant)
     # Open, but one side is the name-only entrant: the "Needs account" row on
     # Match Schedule's Not booked yet view, whose Fix entrant opens Entrants.
     await ChallongeMatch.get_or_create(

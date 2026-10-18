@@ -14,6 +14,8 @@ from nicegui import ui
 
 from application.services import BracketService, UserService, bracket_sources
 from application.services.bracket_sources import BookableMatch, UnbookedMatch
+from application.utils.timezone import format_local_display
+from models import Match
 from theme.dialog._helpers import dialog_actions, form_dialog, submit_on_enter
 from theme.dialog.bracket_schedule_dialog import BracketScheduleDialog
 from theme.dialog.bracket_source_schedule_dialog import BracketSourceScheduleDialog
@@ -33,6 +35,17 @@ def _bracket_link(item: UnbookedMatch) -> Optional[str]:
     if item.source == 'challonge':
         return item.tournament.challonge_tournament_url or item.tournament.bracket_url or None
     return None
+
+
+def _when(match: Match) -> str:
+    return format_local_display(match.scheduled_at) if match.scheduled_at else 'No time set'
+
+
+def _suggestion(item: UnbookedMatch) -> str:
+    found = item.same_player_matches
+    if len(found) == 1:
+        return f'Looks like {_when(found[0])}, already on the schedule with the same players.'
+    return f'{len(found)} matches with these players are already on the schedule.'
 
 
 def _note(item: UnbookedMatch) -> str:
@@ -157,18 +170,29 @@ class UnbookedBoard:
                 ui.label(_note(item)).classes(
                     'unbooked-row__note' + (' unbooked-row__note--blocked' if not item.ready else '')
                 )
+                if item.same_player_matches:
+                    with ui.row().classes('unbooked-row__suggestion items-center no-wrap gap-2'):
+                        ui.icon('link').classes('unbooked-row__suggestion-icon')
+                        ui.label(_suggestion(item)).classes('col min-w-0')
+                        ui.button('Link', on_click=lambda _=None, i=item: self._link(i)) \
+                            .props('color=primary no-caps dense').classes('q-px-sm')
             ui.label(item.round_label).classes('unbooked-row__round')
+            suggested = bool(item.same_player_matches)
             with ui.row().classes('unbooked-row__actions items-center no-wrap gap-1'):
-                if item.ready:
+                if item.ready and not suggested:
                     ui.button('Book…', on_click=lambda _=None, i=item: self._book(i)) \
                         .props('color=primary no-caps')
-                elif self._can_fix(item):
+                elif not item.ready and self._can_fix(item):
                     ui.button('Fix entrant', on_click=lambda _=None, i=item: self._fix(i)) \
                         .props('outline color=primary no-caps')
                 link = _bracket_link(item)
                 fixable = self._can_fix(item)
-                if link or (item.ready and fixable):
+                if link or item.ready:
                     with more_menu(item.matchup):
+                        if suggested:
+                            menu_action('event', 'Book a new match…', lambda _=None, i=item: self._book(i))
+                        if item.ready:
+                            menu_action('link', 'Link an existing match…', lambda _=None, i=item: self._link(i))
                         if link:
                             external = not link.startswith('/')
                             menu_action(
@@ -213,6 +237,53 @@ class UnbookedBoard:
         await BracketSourceScheduleDialog(
             bookable, actor, on_submit=self._after_booking, matchup_label=item.matchup,
         ).open()
+
+    async def _link(self, item: UnbookedMatch) -> None:
+        """Pick the hand-made match that is really this matchup's, and record it."""
+        found = item.same_player_matches
+        with form_dialog('Link an existing match', card_classes='dialog-card dialog-card--sm') as dialog:
+            with ui.column().classes('q-pa-md gap-2 full-width'):
+                ui.label(
+                    f'{item.matchup} · {item.round_label}. Pick the match that was already '
+                    'scheduled for it. Its result will count for this matchup.'
+                ).classes('text-caption text-grey-7')
+                if not found:
+                    ui.label(
+                        'No unconfirmed match with these two players is on the schedule. '
+                        "Fix a match's players with Edit match first, or book a new one."
+                    ).classes('unbooked-link__empty')
+                    picker = None
+                else:
+                    options = {
+                        m.id: f"{_when(m)} · {m.stage.name if m.stage else 'No stage'}"
+                        for m in found
+                    }
+                    picker = ui.radio(options, value=found[0].id).props('dense').classes('unbooked-link__options')
+
+            async def save() -> None:
+                if picker is None or picker.value is None:
+                    dialog.close()
+                    return
+                actor = await current_actor()
+                if actor is None:
+                    ui.notify('Log in again to link this.', color='warning')
+                    return
+                try:
+                    await bracket_sources.link_existing(item.source, item.key, int(picker.value), actor)
+                except (ValueError, PermissionError) as e:
+                    with dialog:
+                        notify_error(e)
+                    return
+                ui.notify(f'Linked {item.matchup} to its match.', color='positive')
+                dialog.close()
+                await self._after_booking()
+
+            if picker is not None:
+                with dialog_actions().classes('justify-end'):
+                    ui.button('Cancel', on_click=dialog.close).props('flat')
+                    ui.button('Link match', icon='link', on_click=save).props('color=primary')
+                submit_on_enter(dialog, save)
+        dialog.open()
 
     async def _fix(self, item: UnbookedMatch) -> None:
         if item.source == 'challonge':

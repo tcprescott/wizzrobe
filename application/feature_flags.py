@@ -124,7 +124,8 @@ FEATURE_FLAG_REGISTRY: Dict[FeatureFlag, FeatureFlagSpec] = {
             established=True,
             service_modules=('application/services/challonge_service.py',
                              'application/services/_challonge_participants.py',
-                             'application/services/_challonge_stages.py'),
+                             'application/services/_challonge_stages.py',
+                             'application/services/_challonge_link.py'),
         ),
         FeatureFlagSpec(
             FeatureFlag.EQUIPMENT,
