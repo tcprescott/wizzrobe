@@ -529,7 +529,7 @@ async def _render_desk(service: CheckInService, user, event: CheckInEvent) -> No
         table.add_slot('no-data', '''<div class="full-width text-center text-grey-7 q-pa-lg">
             {{ props.filter ? 'Nobody matches that search.' : 'Nobody here yet.' }}</div>''')
         # After the card slot, never before: the card must not follow a saved layout.
-        customize_table(table, _COLUMNS, key=TableKeys.CHECK_IN_DESK, page_size=0)
+        customize_table(table, _COLUMNS, key=TableKeys.CHECK_IN_DESK, pager=False)
         with box_slot:
             box = search_input(table, placeholder='Search by name or badge code', width='w-full')
             box.props('autofocus outlined').classes('col')

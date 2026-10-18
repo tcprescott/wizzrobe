@@ -242,7 +242,7 @@ async def _crew_section(crew: dict, start_d: date, end_d: date, palette: ChartPa
         if not rows:
             ui.label('No crew contributors in this window.').classes('italic-note')
         else:
-            table = ui.table(columns=columns, rows=rows, pagination=15, row_key='name').classes('full-width')
+            table = ui.table(columns=columns, rows=rows, pagination=10, row_key='name').classes('full-width')
             enable_mobile_grid(table, columns, table_key=TableKeys.REPORTS_INSIGHTS_CREW)
 
 
@@ -304,7 +304,7 @@ async def _volunteer_section(
         if not rows:
             ui.label('No volunteer assignments in this window.').classes('italic-note')
         else:
-            table = ui.table(columns=columns, rows=rows, pagination=15, row_key='name').classes('full-width')
+            table = ui.table(columns=columns, rows=rows, pagination=10, row_key='name').classes('full-width')
             enable_mobile_grid(table, columns, table_key=TableKeys.REPORTS_INSIGHTS_PLAYERS)
 
 

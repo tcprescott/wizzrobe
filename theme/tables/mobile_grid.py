@@ -93,6 +93,7 @@ def enable_mobile_grid(
     required: Optional[AbstractSet[str]] = None,
     wrap: bool = False,
     selectable: bool = False,
+    pager: bool = True,
 ) -> ui.table:
     """Make ``table`` render as stacked cards below ``breakpoint``.
 
@@ -133,6 +134,9 @@ def enable_mobile_grid(
         selectable: put a selection checkbox on each card, for a table built
             with ``selection='multiple'``. QTable's own checkbox column does not
             exist in grid mode, so without it a phone cannot select anything.
+        pager: with ``table_key``, whether the footer offers rows per page.
+            ``False`` only for a table that pages on the server with its own
+            controls.
     """
     field_slots = field_slots or {}
     table.props(f':grid="Quasar.Screen.{breakpoint}"')
@@ -196,5 +200,5 @@ def enable_mobile_grid(
         from theme.tables.preferences import DEFAULT_REQUIRED, customize_table
         customize_table(table, columns, key=table_key,
                         required=required if required is not None else DEFAULT_REQUIRED,
-                        wrap=wrap)
+                        wrap=wrap, pager=pager)
     return table
