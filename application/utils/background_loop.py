@@ -161,19 +161,22 @@ async def for_each_tenant_scoped(
 ) -> None:
     """Run ``handle(item)`` for each item inside its own ``tenant_scope``.
 
-    Items whose ``tenant_id_of`` is ``None`` are skipped; a per-item failure is
+    Items whose ``tenant_id_of`` is ``None``, or whose community a platform admin
+    has deactivated, are skipped; a per-item failure is
     logged (with ``describe(item)`` for context) and isolated so the rest of the
     batch still runs. This is the fan-out shape shared by the tenant-scoped ticks.
 
     Binds the community's display timezone as well as its tenant, so a worker
     that formats a time gets that community's clock rather than the fallback.
     """
+    from application.repositories.tenant_repository import TenantRepository
     from application.services.timezone_service import TimezoneService
 
     log = logger or _default_logger
-    for item in items:
-        tenant_id = tenant_id_of(item)
-        if tenant_id is None:
+    batch = [(item, tenant_id_of(item)) for item in items]
+    active = await TenantRepository.active_ids(t for _, t in batch if t is not None)
+    for item, tenant_id in batch:
+        if tenant_id is None or tenant_id not in active:
             continue
         # The tenant is bound around the except too, so the failure is logged
         # (and reaches Sentry) tagged with the community it happened in.

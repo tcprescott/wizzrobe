@@ -63,6 +63,7 @@ logger = logging.getLogger(__name__)
 # A manual Sync within this window of the last one is a no-op, so a double-tap
 # doesn't spend start.gg's per-minute budget twice.
 _SYNC_THROTTLE = timedelta(seconds=20)
+_LINK_STAFF_ONLY = "Only staff can link or unlink a tournament's start.gg event"
 
 
 def _display(user: Optional[User]) -> str:
@@ -124,6 +125,7 @@ class StartggService:
     @requires_feature(FeatureFlag.STARTGG)
     async def link_event(self, tournament_id: int, id_or_url: str, actor: User) -> Dict[str, int]:
         tournament = await self._editable_tournament(tournament_id, actor)
+        await AuthService.ensure(await AuthService.is_staff(actor), _LINK_STAFF_ONLY)
         if not self.is_configured():
             raise ValueError('start.gg is not set up on this server yet (no API token).')
         if tournament.challonge_tournament_id:
@@ -150,6 +152,7 @@ class StartggService:
     @requires_feature(FeatureFlag.STARTGG)
     async def unlink_event(self, tournament_id: int, actor: User) -> None:
         tournament = await self._editable_tournament(tournament_id, actor)
+        await AuthService.ensure(await AuthService.is_staff(actor), _LINK_STAFF_ONLY)
         if not tournament.startgg_event_slug:
             raise ValueError("This tournament isn't linked to start.gg.")
         old = {'event_id': tournament.startgg_event_id, 'slug': tournament.startgg_event_slug}

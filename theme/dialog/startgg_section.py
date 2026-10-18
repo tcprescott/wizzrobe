@@ -6,7 +6,7 @@ reporting results back, and open the entrant matching dialog.
 
 from nicegui import app, ui
 
-from application.services import StartggService, get_user_from_session
+from application.services import AuthService, StartggService, get_user_from_session
 from application.utils.timezone import format_local_display
 from theme.busy import busy_click
 from theme.dialog.confirmation_dialog import ConfirmationDialog
@@ -25,8 +25,11 @@ async def render_startgg_section(tournament, dialog) -> None:
     @steady_refreshable
     async def body() -> None:
         actor = await get_user_from_session(app.storage.user)
+        can_link = await AuthService.is_staff(actor)
         if not tournament.startgg_event_slug:
             ui.label('Not linked to a start.gg event.').classes('text-caption text-muted')
+            if not can_link:
+                return
             link_input = ui.input(
                 'start.gg event link',
                 placeholder='https://www.start.gg/tournament/…/event/…',
@@ -134,6 +137,7 @@ async def render_startgg_section(tournament, dialog) -> None:
                 'Entrants', icon='group',
                 on_click=lambda: StartggEntrantsDialog(tournament).open(),
             ).props('flat color=primary')
-            ui.button('Unlink', icon='link_off', on_click=unlink).props('flat color=negative')
+            if can_link:
+                ui.button('Unlink', icon='link_off', on_click=unlink).props('flat color=negative')
 
     await body()

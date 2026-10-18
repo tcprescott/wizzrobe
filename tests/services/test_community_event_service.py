@@ -150,6 +150,13 @@ async def test_a_non_member_cannot_submit():
         await CommunityEventService().submit(outsider, _draft())
 
 
+async def test_a_super_admin_joins_first_like_everyone():
+    admin = await make_user(discord_id=604, username='platform')
+    await UserRole.create(user=admin, role=Role.SUPER_ADMIN, tenant=None)
+    with pytest.raises(PermissionError, match='members'):
+        await CommunityEventService().submit(admin, _draft())
+
+
 @pytest.mark.parametrize('overrides, message', [
     ({'title': '   '}, 'title'),
     ({'title': 'x' * 121}, 'title'),

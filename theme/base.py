@@ -200,7 +200,7 @@ class BaseLayout:
     def offers_feedback(self) -> bool:
         """Whether this viewer may send this community feedback here.
 
-        A member (or super-admin) where ``FEEDBACK`` is live — the same test the
+        A member where ``FEEDBACK`` is live — the same test the
         drawer's item uses, so every Feedback affordance agrees with it.
         """
         return bool(self.user) and self._is_member and self._show_feedback
@@ -224,12 +224,12 @@ class BaseLayout:
         if self._show_admin is not True and self.user is not None and self._tenant_id is not None:
             self._show_admin = await AuthService.can_open_admin(self.user)
         if self.user is not None and self._tenant_id is not None:
-            self._is_member = (
-                await AuthService.is_super_admin(self.user)
-                or await TenantService.is_member(self.user.id, self._tenant_id)
-            )
-        if self._is_member:
-            self._show_feedback = await FeatureFlagService().is_enabled(FeatureFlag.FEEDBACK)
+            joined = await TenantService.is_member(self.user.id, self._tenant_id)
+            self._is_member = joined or await AuthService.is_super_admin(self.user)
+            # Feedback is for people who joined; a super-admin joins first, as
+            # for every other sign-up (the service refuses them otherwise).
+            if joined:
+                self._show_feedback = await FeatureFlagService().is_enabled(FeatureFlag.FEEDBACK)
         if self._tenant_id is not None:
             self._show_event_info = await FeatureFlagService().is_enabled(FeatureFlag.EVENT_INFO)
         if self._is_member:

@@ -48,7 +48,6 @@ async def admin_tournaments_page() -> None:
             submit_tournament_callback=add_tournament if can_create else None,
             table_key=TableKeys.ADMIN_TOURNAMENTS, searchable=True, can_delete=can_create,
             can_sync=True,
-            sync_sites=None if can_create else frozenset({'startgg'}),
         )
         
         # Route through the view's _bg so the tab-switch refresh rebinds the

@@ -144,10 +144,7 @@ class CommunityEventService:
         from application.services.tenant_membership_service import TenantMembershipService
 
         await AuthService.ensure(
-            actor is not None and (
-                await AuthService.is_super_admin(actor)
-                or await TenantMembershipService().is_member(actor)
-            ),
+            actor is not None and await TenantMembershipService().is_member(actor),
             'Community events are for members of this community. Ask to join it first.',
         )
 

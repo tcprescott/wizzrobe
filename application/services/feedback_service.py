@@ -48,8 +48,7 @@ class FeedbackService:
         from application.services.tenant_membership_service import TenantMembershipService
 
         await AuthService.ensure(
-            await AuthService.is_super_admin(actor)
-            or await TenantMembershipService().is_member(actor),
+            await TenantMembershipService().is_member(actor),
             'Only members of this community can send it feedback. Ask to join it first.',
         )
 
