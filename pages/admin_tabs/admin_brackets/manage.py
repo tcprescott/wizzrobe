@@ -20,6 +20,7 @@ from theme.busy import busy_click
 from theme.dialog._helpers import dialog_actions, form_dialog, submit_on_enter
 from theme.dialog.confirmation_dialog import ConfirmationDialog
 from theme.notify import notify_error
+from theme.pickers import member_select
 from theme.steady import steady_refreshable
 from theme.tables.admin_crud import current_actor
 
@@ -202,8 +203,8 @@ def _render_roster(
     async def link_user(entrant) -> None:
         """Attach (or detach) one entrant's user account."""
         with form_dialog(f'Link user — {entrant.display_name}', card_classes='dialog-card dialog-card--sm') as link_dialog:
-            picker = ui.select(
-                user_names, value=entrant.user_id, label='User', with_input=True,
+            picker = member_select(
+                user_names, value=entrant.user_id, label='User',
             ).props('clearable').classes('w-full')
             ui.label(
                 'A linked entrant can be scheduled, DMed their matchup and joined '
@@ -257,8 +258,8 @@ def _render_roster(
         # A picker over preferred names, not the raw User.id this field used to
         # ask for: that id is displayed by no screen in the app, so only someone
         # with database access could fill it.
-        user_in = ui.select(
-            user_names, label='User (optional)', with_input=True,
+        user_in = member_select(
+            user_names, value=None, label='User (optional)',
         ).props('clearable').classes('col-12 col-sm')
 
         async def add_entrant() -> None:
