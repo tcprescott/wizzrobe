@@ -10,6 +10,7 @@ from typing import Any, Dict, List
 
 from mcp.server.mcpserver import MCPServer
 
+from api.schemas.brackets import StandingsGroupResponse
 from application.errors import require_found
 from application.services import BracketService
 from application.services.async_qualifier.async_qualifier_live_race_service import (
@@ -53,26 +54,12 @@ async def list_brackets(
 async def get_bracket_standings(
     bracket_id: int,
     tenant: TenantArg = None,
-) -> List[Dict[str, Any]]:
-    """Get current standings for a bracket, grouped as the bracket format defines."""
+) -> List[StandingsGroupResponse]:
+    """Get current standings for a round-robin or Swiss bracket, one group per pool."""
     service = BracketService()
     require_found(await service.get_visible_bracket(current_actor().user, bracket_id), 'Bracket')
     groups = await service.standings(bracket_id)
-    return [
-        {
-            'group': getattr(group, 'name', None),
-            'rows': [
-                {
-                    'rank': getattr(row, 'rank', None),
-                    'entrant': getattr(row, 'label', None) or getattr(row, 'name', None),
-                    'wins': getattr(row, 'wins', None),
-                    'losses': getattr(row, 'losses', None),
-                }
-                for row in getattr(group, 'rows', [])
-            ],
-        }
-        for group in groups
-    ]
+    return [StandingsGroupResponse.model_validate(group) for group in groups]
 
 
 async def get_bracket(

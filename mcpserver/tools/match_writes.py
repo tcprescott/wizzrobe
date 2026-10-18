@@ -193,7 +193,8 @@ async def delete_match(
 ) -> OperationResult:
     """Delete a match. This cannot be undone — confirm with the user first.
 
-    Players and crew are notified that it is off.
+    Nobody is notified: players and crew are not told it is off, so tell them
+    yourself or have staff call the match off in the app, which does send DMs.
     """
     actor = current_actor().user
     await MatchService().delete_match(match_id, actor=actor)

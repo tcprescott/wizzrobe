@@ -26,6 +26,10 @@ from mcpserver.registry import register
 from mcpserver.schemas import EquipmentDetail, EquipmentSummary, LoanRecord, TenantArg
 from models import EquipmentStatus, FeatureFlag
 
+# A busy controller collects hundreds of loans over an event, and every equipment
+# write tool hands back this detail; REST caps its history at 200 for the same reason.
+MAX_LOANS = 25
+
 
 def _name(user) -> Optional[str]:
     return user.preferred_name if user else None
@@ -82,10 +86,11 @@ async def get_equipment(
     equipment_id: int,
     tenant: TenantArg = None,
 ) -> EquipmentDetail:
-    """Get one asset with its full checkout history, most recent first."""
+    """Get one asset with its most recent checkouts, newest first, and the total count."""
     service = EquipmentService()
     asset = require_found(await service.get_asset(equipment_id), 'Equipment')
-    loans = await service.loan_history(asset)
+    # Newest first, so an open loan is always inside the window.
+    loans = await service.loan_history(asset, limit=MAX_LOANS)
     open_loan = next((loan for loan in loans if loan.checked_in_at is None), None)
     return EquipmentDetail(
         id=asset.id,
@@ -96,6 +101,7 @@ async def get_equipment(
         borrower=_name(getattr(open_loan, 'borrower', None)),
         description=asset.description,
         loans=[_loan(loan) for loan in loans],
+        loan_count=await service.loan_count(asset),
     )
 
 

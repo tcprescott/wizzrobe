@@ -328,7 +328,9 @@ async def activity_trends(
         "Fails with 400 when `end` is before `start`.\n\n"
         "**Who can call this:** Staff, Volunteer coordinators, tournament admins or crew coordinators."
     ),
-    dependencies=[Depends(require_volunteer_admin), Depends(require_feature(FeatureFlag.VOLUNTEERS))],
+    # Feature before role, like every other gated route: a switched-off feature
+    # is hidden from everyone, so a non-admin must get the same 404 staff do.
+    dependencies=[Depends(require_feature(FeatureFlag.VOLUNTEERS)), Depends(require_volunteer_admin)],
 )
 async def volunteer_hour_trends(
     start: datetime = StartQuery,

@@ -333,7 +333,10 @@ class EquipmentDetail(EquipmentSummary):
     """
 
     description: Optional[str] = None
-    loans: List[LoanRecord] = Field(default_factory=list)
+    loans: List[LoanRecord] = Field(
+        default_factory=list, description='The most recent checkouts, newest first.',
+    )
+    loan_count: int = Field(0, description='Checkouts ever recorded; more than `loans` when it is cut short.')
 
 
 class PresetSummary(BaseModel):
