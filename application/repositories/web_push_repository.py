@@ -3,6 +3,7 @@ from typing import List, Optional
 
 from tortoise.exceptions import IntegrityError
 
+from application.repositories._save import save_fields
 from models import User, WebPushSubscription
 
 
@@ -49,7 +50,7 @@ class WebPushRepository:
         subscription.p256dh = p256dh
         subscription.auth = auth
         subscription.user_agent = user_agent
-        await subscription.save()
+        await save_fields(subscription, 'user', 'p256dh', 'auth', 'user_agent')
         return subscription
 
     async def rotate(
@@ -72,7 +73,7 @@ class WebPushRepository:
         subscription.auth = auth
         if user_agent:
             subscription.user_agent = user_agent
-        await subscription.save()
+        await save_fields(subscription, 'endpoint', 'p256dh', 'auth', 'user_agent')
         return subscription
 
     async def delete(self, subscription: WebPushSubscription) -> None:

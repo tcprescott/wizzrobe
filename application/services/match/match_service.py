@@ -20,6 +20,7 @@ from application.repositories import (
     TrackerRepository,
     UserRepository,
 )
+from application.repositories._save import save_fields
 from application.services._tournament_signup import record_enrolment_change
 from application.services.audit_service import AuditActions, AuditService
 from application.services.auth_service import AuthService
@@ -718,7 +719,7 @@ class MatchService(
         ranks: Dict[int, int] = {}
         for player in match.players:
             player.finish_rank = 1 if player.id == winner_id else 2
-            await player.save()
+            await save_fields(player, 'finish_rank')
             ranks[player.id] = player.finish_rank
 
         await self.audit_service.write_and_publish(

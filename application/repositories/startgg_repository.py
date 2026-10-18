@@ -12,6 +12,7 @@ from typing import Any, Dict, Iterable, List, Optional, Set, cast
 from tortoise.expressions import Q
 from tortoise.functions import Count, Lower
 
+from application.repositories._save import save_fields
 from application.repositories._tenant import current_tenant_id, scoped
 from models import (
     Match,
@@ -95,7 +96,7 @@ class StartggRepository:
         if refresh_token:
             connection.refresh_token = refresh_token
         connection.token_expires_at = token_expires_at  # type: ignore[assignment]  # null=True field
-        await connection.save()
+        await save_fields(connection, 'access_token', 'refresh_token', 'token_expires_at')
 
     @staticmethod
     async def clear_connection() -> int:

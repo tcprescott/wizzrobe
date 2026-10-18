@@ -21,6 +21,7 @@ from urllib.parse import urlparse
 from application.errors import require_found
 from application.feature_flags import requires_feature
 from application.repositories import ChallongeRepository, TournamentRepository, UserRepository
+from application.repositories._save import save_fields
 from application.services._challonge_communities import ChallongeCommunitiesMixin, not_found_message
 from application.services._challonge_participants import ChallongeParticipantAssignmentMixin
 from application.services._challonge_signup import ChallongeSignupMixin, misc_user_id, refuse_empty_started_bracket
@@ -290,7 +291,7 @@ class ChallongeService(
         user.challonge_user_id = cuid
         user.challonge_username = (challonge_username or '').strip() or None
         user.challonge_linked_at = datetime.now(timezone.utc)
-        await user.save()
+        await save_fields(user, 'challonge_user_id', 'challonge_username', 'challonge_linked_at')
         details = {
             'user_id': user.id,
             'challonge_user_id': cuid,
@@ -381,7 +382,7 @@ class ChallongeService(
         await self._ensure_may_link_for(user, actor)
         old_username = user.challonge_username
         user.challonge_username = new_username
-        await user.save()
+        await save_fields(user, 'challonge_username')
         await self.audit_service.write_log(
             actor, AuditActions.CHALLONGE_PLAYER_USERNAME_UPDATED,
             {'user_id': user.id, 'old_username': old_username, 'new_username': new_username},
@@ -392,7 +393,7 @@ class ChallongeService(
         user.challonge_user_id = None
         user.challonge_username = None
         user.challonge_linked_at = None
-        await user.save()
+        await save_fields(user, 'challonge_user_id', 'challonge_username', 'challonge_linked_at')
         await self.audit_service.write_log(
             actor, AuditActions.CHALLONGE_PLAYER_UNLINKED, {'user_id': user.id},
         )
@@ -483,7 +484,10 @@ class ChallongeService(
         # close the manual player-request path. Staff can re-open it per
         # tournament from the tournament editor.
         tournament.allow_player_match_requests = False
-        await tournament.save()
+        await save_fields(
+            tournament, 'challonge_tournament_id', 'challonge_community', 'challonge_tournament_url',
+            'allow_player_match_requests',
+        )
 
         await self.audit_service.write_log(
             actor, AuditActions.CHALLONGE_TOURNAMENT_LINKED,
@@ -530,7 +534,10 @@ class ChallongeService(
         tournament.challonge_last_synced_at = None
         tournament.challonge_state = None  # type: ignore[assignment]
         tournament.challonge_group_stage = False
-        await tournament.save()
+        await save_fields(
+            tournament, 'challonge_tournament_id', 'challonge_community', 'challonge_tournament_url',
+            'challonge_last_synced_at', 'challonge_state', 'challonge_group_stage',
+        )
 
         await self.audit_service.write_log(
             actor, AuditActions.CHALLONGE_TOURNAMENT_UNLINKED, details,

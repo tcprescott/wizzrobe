@@ -481,7 +481,7 @@ class VolunteerScheduleService:
         if assignment.acknowledged_at is not None:
             return assignment
         assignment.acknowledged_at = datetime.now(timezone.utc)
-        await self.assignment_repository.save(assignment)
+        await self.assignment_repository.save(assignment, update_fields=['acknowledged_at'])
         await self.audit_service.write_and_publish(
             user, AuditActions.VOLUNTEER_ACKNOWLEDGED,
             {'assignment_id': assignment.id, 'shift_id': assignment.shift_id},

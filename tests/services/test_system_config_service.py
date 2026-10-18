@@ -32,7 +32,9 @@ def stub_storage(monkeypatch):
     async def fake_get_or_none(**kwargs):
         name = kwargs.get('name')
         if name in storage:
-            return SimpleNamespace(name=name, value=storage[name], save=AsyncMock())
+            return SimpleNamespace(
+                name=name, value=storage[name], save=AsyncMock(), _meta=SimpleNamespace(fields_map={}),
+            )
         return None
 
     async def fake_create(**kwargs):
@@ -137,8 +139,8 @@ class TestSetRaw:
             name = kwargs.get('name')
             if name not in stub_storage:
                 return None
-            obj = SimpleNamespace(name=name, value=stub_storage[name])
-            async def _save():
+            obj = SimpleNamespace(name=name, value=stub_storage[name], _meta=SimpleNamespace(fields_map={}))
+            async def _save(update_fields=None):
                 stub_storage[name] = obj.value
             obj.save = _save
             return obj
@@ -158,8 +160,8 @@ class TestSetRaw:
             name = kwargs.get('name')
             if name not in stub_storage:
                 return None
-            ns = SimpleNamespace(name=name, value=stub_storage[name])
-            async def _save():
+            ns = SimpleNamespace(name=name, value=stub_storage[name], _meta=SimpleNamespace(fields_map={}))
+            async def _save(update_fields=None):
                 stub_storage[name] = ns.value
             ns.save = _save
             return ns

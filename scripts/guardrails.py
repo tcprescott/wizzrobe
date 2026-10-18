@@ -50,6 +50,7 @@ FILE_CHECKS = [
     "check_api_route_auth",
     "check_audit_actions",
     "check_audit_actor",
+    "check_bare_save",
     "check_dry_regressions",
     "check_event_types",
     "check_feature_flag_gating",

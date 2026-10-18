@@ -1,5 +1,6 @@
 from typing import List, Optional, Set, cast
 
+from application.repositories._save import save_fields
 from application.repositories._tenant import current_tenant_id, scoped
 from models import MatchNotificationLevel, Tournament, TournamentNotificationPreference, User
 
@@ -25,7 +26,7 @@ class TournamentNotificationRepository:
             tournament=tournament,
         )
         pref.match_notifications = match_notifications
-        await pref.save()
+        await save_fields(pref, 'match_notifications')
         return pref
 
     async def set_staff_alerts(self, user: User, tournament: Tournament, on: bool) -> TournamentNotificationPreference:

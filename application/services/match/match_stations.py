@@ -16,6 +16,7 @@ nothing.
 from typing import Optional
 
 from application.events import EventType, match_live
+from application.repositories._save import save_fields
 from application.services.audit_service import AuditActions
 from application.services.auth_service import AuthService
 from application.services.match import _station_copy
@@ -98,7 +99,7 @@ class StationAssignmentMixin:
         for player in match.players:
             if player.id in assignments:
                 player.assigned_station = assignments[player.id]
-                await player.save()
+                await save_fields(player, 'assigned_station')
 
         await self.audit_service.write_and_publish(
             actor,

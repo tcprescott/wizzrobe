@@ -11,6 +11,7 @@ from typing import List, Optional
 
 from application.errors import require_found
 from application.events import EventType
+from application.repositories._save import save_fields
 from application.services._bracket._composed import ComposedBracketService
 from application.services.audit_service import AuditActions
 from application.services.auth_service import AuthService
@@ -141,7 +142,7 @@ class AdvancementMixin(ComposedBracketService):
         match.entry2_score = entry2_score  # type: ignore[assignment]  # nullable IntField, typed int by Tortoise
         match.forfeit = forfeit
         match.state = BracketMatchState.COMPLETE
-        await match.save()
+        await save_fields(match, 'winner', 'entry1_score', 'entry2_score', 'forfeit', 'state')
 
         details = {
             'bracket_id': bracket.id,
@@ -194,7 +195,7 @@ class AdvancementMixin(ComposedBracketService):
                 self._place(reset, match.loser_to_slot, loser_entry)
                 was_open = reset.state == BracketMatchState.OPEN
                 reset.state = BracketMatchState.OPEN
-                await reset.save()
+                await save_fields(reset, 'entry1', 'entry2', 'state')
                 if not was_open:
                     await self.notify_matchup_ready(reset)
             return
@@ -209,7 +210,7 @@ class AdvancementMixin(ComposedBracketService):
             loser_target = await self.repository.get_match(match.loser_to_id)
             if loser_target is not None:
                 self._place(loser_target, match.loser_to_slot, loser_entry)
-                await loser_target.save()
+                await save_fields(loser_target, self._slot_field(match.loser_to_slot))
                 if is_elim:
                     await self._set_entry_status(
                         loser_entry, BracketEntryStatus.ACTIVE
@@ -252,13 +253,17 @@ class AdvancementMixin(ComposedBracketService):
         else:
             match.entry2 = entry
 
+    @staticmethod
+    def _slot_field(slot: Optional[int]) -> str:
+        return 'entry1' if slot == 1 else 'entry2'
+
     async def _clear_match_slots(self, match: BracketMatch) -> None:
         """Empty a match's entry slots and reset it to PENDING (idempotent)."""
         match.entry1 = None
         match.entry2 = None
         match.winner = None
         match.state = BracketMatchState.PENDING
-        await match.save()
+        await save_fields(match, 'entry1', 'entry2', 'winner', 'state')
 
     @staticmethod
     async def _set_entry_status(
@@ -266,7 +271,7 @@ class AdvancementMixin(ComposedBracketService):
     ) -> None:
         if entry.status != status:
             entry.status = status
-            await entry.save()
+            await save_fields(entry, 'status')
 
     async def _settle_match(self, match: BracketMatch, _depth: int = 0) -> None:
         """Set a match's state after one of its slots changed.
@@ -285,7 +290,7 @@ class AdvancementMixin(ComposedBracketService):
 
         if has1 and has2:
             match.state = BracketMatchState.OPEN
-            await match.save()
+            await save_fields(match, 'state')
             # Keyed on the transition, not the state: a matchup whose two slots
             # fill at different times settles twice, and its entrants must be
             # invited to schedule exactly once (D7).
@@ -297,13 +302,13 @@ class AdvancementMixin(ComposedBracketService):
             empty_slot = 2 if has1 else 1
             if await self._slot_can_fill(match.id, empty_slot):
                 match.state = BracketMatchState.PENDING
-                await match.save()
+                await save_fields(match, 'state')
                 return
             present_id = match.entry1_id if has1 else match.entry2_id
             present = await self.repository.get_entry(present_id)
             if present is None:
                 match.state = BracketMatchState.PENDING
-                await match.save()
+                await save_fields(match, 'state')
                 return
             target = await self._propagate_winner(match, present)
             if target is not None:
@@ -313,7 +318,7 @@ class AdvancementMixin(ComposedBracketService):
             return
 
         match.state = BracketMatchState.PENDING
-        await match.save()
+        await save_fields(match, 'state')
 
     async def _slot_can_fill(
         self, match_id: int, slot: int, _seen: Optional[set] = None
@@ -425,7 +430,7 @@ class AdvancementMixin(ComposedBracketService):
         match.entry1_score = entry1_score  # type: ignore[assignment]  # nullable IntField, typed int by Tortoise
         match.entry2_score = entry2_score  # type: ignore[assignment]  # nullable IntField, typed int by Tortoise
         match.forfeit = forfeit
-        await match.save()
+        await save_fields(match, 'winner', 'entry1_score', 'entry2_score', 'forfeit')
 
         await self._advance_after_result(bracket, match, winner_entry, loser_entry)
         if bracket.state == BracketState.COMPLETE:

@@ -12,6 +12,7 @@ from typing import Dict, List, Optional, Set
 from tortoise.expressions import Q
 from tortoise.functions import Count
 
+from application.repositories._save import save_fields
 from application.repositories._tenant import current_tenant_id, scoped
 from models import (
     ChallongeApiUsage,
@@ -75,7 +76,10 @@ class ChallongeRepository:
             existing.scopes = scopes
             existing.challonge_username = challonge_username
             existing.connected_by = connected_by
-            await existing.save()
+            await save_fields(
+                existing, 'access_token', 'refresh_token', 'token_expires_at', 'scopes',
+                'challonge_username', 'connected_by',
+            )
             return existing
         return await ChallongeConnection.create(
             tenant_id=current_tenant_id(),
@@ -98,7 +102,7 @@ class ChallongeRepository:
         if refresh_token:
             connection.refresh_token = refresh_token
         connection.token_expires_at = token_expires_at
-        await connection.save()
+        await save_fields(connection, 'access_token', 'refresh_token', 'token_expires_at')
 
     @staticmethod
     async def linked_tournament_communities() -> Dict[str, int]:
@@ -136,7 +140,7 @@ class ChallongeRepository:
         participant.name = name
         participant.challonge_user_id = challonge_user_id
         participant.user = user
-        await participant.save()
+        await save_fields(participant, 'name', 'challonge_user_id', 'user')
         return participant
 
     @staticmethod
@@ -245,7 +249,9 @@ class ChallongeRepository:
         match.winner_participant = winner_participant
         if group_stage:
             match.group_stage = True
-        await match.save()
+        await save_fields(
+            match, 'round', 'state', 'participant1', 'participant2', 'winner_participant', 'group_stage',
+        )
         return match
 
     @staticmethod
@@ -269,7 +275,7 @@ class ChallongeRepository:
     @staticmethod
     async def link_match(challonge_match: ChallongeMatch, match: Match) -> None:
         challonge_match.match = match
-        await challonge_match.save()
+        await save_fields(challonge_match, 'match')
 
     @staticmethod
     async def count_participants(tournament: Tournament) -> int:

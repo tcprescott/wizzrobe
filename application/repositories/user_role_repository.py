@@ -11,6 +11,7 @@ SUPER_ADMIN operations target the global (NULL-tenant) row.
 
 from typing import Iterable, List, Optional, Set, cast
 
+from application.repositories._save import save_fields
 from application.repositories._tenant import current_tenant_id
 from models import Role, RoleSource, User, UserRole
 
@@ -38,7 +39,7 @@ class UserRoleRepository:
         if not created and source == RoleSource.MANUAL and instance.source != RoleSource.MANUAL:
             instance.source = RoleSource.MANUAL
             instance.granted_by = granted_by
-            await instance.save()
+            await save_fields(instance, 'source', 'granted_by')
         return instance
 
     @staticmethod

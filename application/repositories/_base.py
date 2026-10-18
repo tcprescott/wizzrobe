@@ -23,6 +23,7 @@ from typing import Any, Generic, Optional, Type, TypeVar
 
 from tortoise.models import Model
 
+from application.repositories._save import save_fields
 from application.repositories._tenant import current_tenant_id
 
 T = TypeVar("T", bound=Model)
@@ -49,10 +50,7 @@ class TenantScopedRepository(Generic[T]):
         for key, value in fields.items():
             setattr(obj, key, value)
         if fields:
-            fmap = obj._meta.fields_map
-            columns = [getattr(fmap.get(k), 'source_field', None) or k for k in fields]
-            columns += [n for n, f in fmap.items() if getattr(f, 'auto_now', False)]
-            await obj.save(update_fields=columns)
+            await save_fields(obj, *fields)
         return obj
 
     @classmethod

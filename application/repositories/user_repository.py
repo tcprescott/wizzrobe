@@ -10,6 +10,7 @@ from typing import Dict, Iterable, List, NamedTuple, Optional, Tuple
 from tortoise.expressions import Q
 
 from application.repositories._base import TenantScopedRepository
+from application.repositories._save import save_fields
 from application.repositories._tenant import current_tenant_id
 from models import SYSTEM_USER_DISCORD_ID, Role, Tournament, User, UserRole
 
@@ -356,14 +357,14 @@ class UserRepository(TenantScopedRepository[User]):
         user.is_active = True
         if username:
             user.username = username
-        await user.save()
+        await save_fields(user, 'discord_id', 'is_placeholder', 'is_active', 'username')
         return user
 
     @staticmethod
     async def set_timezone(user: User, timezone_name: Optional[str]) -> None:
         """Persist a user's display-timezone preference (``None`` clears it)."""
         user.timezone = timezone_name
-        await user.save()
+        await save_fields(user, 'timezone')
 
     @staticmethod
     async def update_discord_info(
@@ -379,7 +380,7 @@ class UserRepository(TenantScopedRepository[User]):
         user.username = username
         if avatar is not None:
             user.discord_avatar = avatar
-        await user.save()
+        await save_fields(user, 'username', 'discord_avatar')
 
     @staticmethod
     async def set_discord_avatar(user: User, avatar: Optional[str]) -> bool:

@@ -314,6 +314,18 @@ won't match a longer name (`MyClient.current`), and the class genuinely has no s
 attribute, so false positives are **0** (measured: 1 hit across 264 `.py` files — the live
 bug itself; `check_slot_context.py`'s doc literal is skipped by the `/.claude/` guard).
 
+### Stale saves — `scripts/check_bare_save.py` (PreToolUse: Write|Edit)
+Blocks a net-new bare `.save()` in `application/`, `api/`, `discordbot/`, `mcpserver/`,
+`middleware/`, `models/` and `racetimebot/`. A bare save writes every column from the
+instance it holds, so a row loaded earlier puts back whatever changed since: the
+tournament editor wiped start.gg settings that way (PR #535), and two semifinals
+reported together could blank each other's slot in the final. Use
+`save_fields(obj, 'field', ...)` (`application/repositories/_save.py`, maps FKs to their
+id column and adds `auto_now` stamps), `save(update_fields=[...])`, or a queryset
+`.update(...)`. Skipped: a name the same function built with a model constructor (an
+insert), calls with positional args (PIL, files), and a line tagged
+`# full-save: <reason>`. AST-based, net-new counting like `check_dry_regressions.py`.
+
 ### DRY regressions — `scripts/check_dry_regressions.py` (PreToolUse: Write|Edit)
 Blocks re-introduction of the copy-paste shapes the 2026-07 code-quality audit
 removed, each message naming the shared primitive that replaced the shape:
