@@ -49,6 +49,7 @@ from theme.dialog._helpers import (
     render_suggest_time_button,
     submit_on_enter,
 )
+from theme.dialog.clash_warning import confirm_local_time
 from theme.dialog.round_schedule_dialog import confirm_outside_window
 from theme.help import resolve_help
 
@@ -158,6 +159,15 @@ class BracketScheduleDialog:
                 if not (date.value and time.value):
                     error.show('Choose a date and a time.')
                     return
+                # A "Book anyway" resubmit has already been past the clash sheet.
+                if not allow_outside_round:
+                    with self._scope():
+                        go_ahead = await confirm_local_time(
+                            tournament_id=self.tournament_id, player_ids=self.player_ids,
+                            date_value=date.value, time_value=time.value, actor=self.actor,
+                        )
+                    if not go_ahead:
+                        return
                 try:
                     with self._scope():
                         await self.bracket_service.schedule_bracket_match(

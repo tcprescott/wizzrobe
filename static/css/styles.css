@@ -4520,6 +4520,15 @@ body.wiz-offline .wiz-requires-socket {
     overflow-wrap: anywhere;
 }
 
+/* The reasons on the "Check this time" sheet (theme/dialog/clash_warning.py). */
+.wiz-clash-list {
+    margin: 0;
+    padding-left: 1.25rem;
+    list-style: disc;
+}
+
+.wiz-clash-list > li + li { margin-top: 4px; }
+
 .wiz-help-prose > :first-child { margin-top: 0; }
 
 /* Long-form reading measure. Uncapped, the article column tracks the viewport

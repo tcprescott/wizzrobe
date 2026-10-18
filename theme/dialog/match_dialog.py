@@ -476,6 +476,8 @@ class AdminMatchDialog(BaseMatchDialog):
                     do_update=do_update,
                     do_create=do_create,
                     create_success_message='Match created successfully',
+                    scheduled=(date_value, time_value),
+                    confirm_label='Save anyway' if self.match else 'Create anyway',
                 )
 
             self._render_submit_footer(dialog, submit, create_label='Create')
@@ -653,6 +655,8 @@ class UserMatchDialog(BaseMatchDialog):
                     do_update=do_update,
                     do_create=do_create,
                     create_success_message='Match submitted successfully',
+                    scheduled=(date_value, time_value),
+                    confirm_label='Save anyway' if self.match else 'Submit anyway',
                 )
 
             self._render_submit_footer(dialog, submit, create_label='Submit')

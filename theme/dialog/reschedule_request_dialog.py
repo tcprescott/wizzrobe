@@ -23,6 +23,7 @@ from theme.dialog._helpers import (
     native_date_input,
     native_time_input,
 )
+from theme.dialog.clash_warning import confirm_time
 from theme.notify import notify_error
 
 KIND_OPTIONS = {
@@ -114,6 +115,14 @@ class RescheduleRequestDialog:
                             proposed_at = parse_local_datetime(date_value, time_value)
                         except ValueError as e:
                             ui.notify(str(e), color='warning')
+                            return
+                        await self.match.fetch_related('players')
+                        if not await confirm_time(
+                            tournament_id=self.match.tournament_id,  # type: ignore[attr-defined]
+                            player_ids=[p.user_id for p in self.match.players],  # type: ignore[attr-defined]
+                            scheduled_at=proposed_at, actor=self.actor,
+                            exclude_match_id=self.match.id, confirm_label='Ask anyway',
+                        ):
                             return
 
                 try:

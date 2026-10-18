@@ -126,6 +126,9 @@ If neither of you has blocked anything out, every hour of the event is fair game
 Block out what doesn't work for you under When you can't play.
 :::
 
+The whole set of rules, with an example, is in
+[How Suggest a time works](/help/suggest-a-time).
+
 ## When you can't play
 
 :::snippet player-availability

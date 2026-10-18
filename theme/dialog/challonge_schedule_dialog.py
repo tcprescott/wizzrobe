@@ -27,6 +27,7 @@ from theme.dialog._helpers import (
     render_suggest_time_button,
     submit_on_enter,
 )
+from theme.dialog.clash_warning import confirm_local_time
 from theme.help import resolve_help
 
 
@@ -83,6 +84,11 @@ class ChallongeScheduleDialog:
             async def submit():
                 if not (date.value and time.value):
                     error.show('Choose a date and a time.')
+                    return
+                if not await confirm_local_time(
+                    tournament_id=cm.tournament_id, player_ids=player_ids,
+                    date_value=date.value, time_value=time.value, actor=self.actor,
+                ):
                     return
                 try:
                     await self.challonge_service.schedule_challonge_match(

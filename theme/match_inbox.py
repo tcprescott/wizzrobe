@@ -19,6 +19,7 @@ from application.services import MatchRescheduleService
 from application.tenant_context import require_tenant_id
 from application.utils.timezone import format_local_time, to_local, today_local
 from models import Match, RescheduleRequestKind
+from theme.dialog.clash_warning import confirm_time
 from theme.help import ResolvedHelp, help_button, resolve_help
 from theme.notify import notify_error
 from theme.tables.admin_crud import capture_render_context, current_actor, scoped_background
@@ -174,6 +175,13 @@ class MatchInbox:
                     actor = await current_actor()
                     if actor is None:
                         ui.notify('Log in again to decide this.', color='warning')
+                        return
+                    if not await confirm_time(
+                        tournament_id=r.match.tournament_id,
+                        player_ids=[p.user_id for p in r.match.players],
+                        scheduled_at=r.proposed_at, actor=actor,
+                        exclude_match_id=r.match_id, confirm_label='Move it anyway',
+                    ):
                         return
                     try:
                         await MatchRescheduleService().approve(r.id, actor)

@@ -30,6 +30,7 @@ from application.utils.timezone import (
     format_local_time,
     next_whole_hour_local,
     now_local,
+    parse_local_datetime,
 )
 from models import Match, PresetOverride
 from theme.dialog._helpers import (
@@ -42,6 +43,7 @@ from theme.dialog._helpers import (
     render_suggest_time_button,
     submit_on_enter,
 )
+from theme.dialog.clash_warning import confirm_local_time
 from theme.dialog.confirmation_dialog import ConfirmationDialog
 from theme.dialog.round_schedule_dialog import confirm_outside_window
 from theme.menu import menu_action
@@ -505,6 +507,8 @@ class BaseMatchDialog:
         do_update: Callable[[], Awaitable[None]],
         do_create: Callable[[], Awaitable[None]],
         create_success_message: str,
+        scheduled: tuple = (None, None),
+        confirm_label: str = 'Save anyway',
     ) -> None:
         """Shared submit pipeline for both match dialogs.
 
@@ -515,11 +519,24 @@ class BaseMatchDialog:
 
         ``required_fields`` is an ordered ``{label: value}`` mapping; any falsy value
         marks its label as missing.
+
+        ``scheduled`` is the ``(date, time)`` as typed. A new time goes through
+        the "Check this time" sheet first; an edit that keeps the match's time
+        doesn't, so fixing a comment never re-raises a clash already accepted.
         """
         missing = [label for label, value in required_fields.items() if not value]
         if missing:
             with self.dialog:
                 ui.notify(f'Please fill required field(s): {", ".join(missing)}.', color='warning')
+            return
+
+        if self._time_changed(*scheduled) and not await confirm_local_time(
+            tournament_id=tournament_id, player_ids=player_ids,
+            date_value=scheduled[0], time_value=scheduled[1],
+            actor=await get_user_from_session(app.storage.user),
+            exclude_match_id=self.match.id if self.match else None,
+            confirm_label=confirm_label,
+        ):
             return
 
         try:
@@ -586,6 +603,14 @@ class BaseMatchDialog:
             except (ValueError, PermissionError) as e:
                 with self.dialog:
                     notify_error(e)
+
+    def _time_changed(self, date_value: Optional[str], time_value: Optional[str]) -> bool:
+        if not (self.match and self.match.scheduled_at):
+            return True
+        try:
+            return parse_local_datetime(date_value or '', time_value or '') != self.match.scheduled_at
+        except ValueError:
+            return True
 
     def _render_submit_footer(self, dialog, submit, *, create_label: str) -> None:
         """Render the shared footer (Delete/Cancel/primary) and wire Enter-to-submit.
