@@ -1049,10 +1049,21 @@ A new table needs a `table_key` or a `# table-prefs: exempt — <reason>` commen
 [`check_table_prefs.py`](../../.claude/scripts/check_table_prefs.py) and
 `tests/theme/test_table_preferences_coverage.py` enforce both halves.
 
+**Rows per page lives in the table footer, and only there.** `customize_table`
+gives every customized table Quasar's footer with `ROWS_PER_PAGE_OPTIONS`
+(10, 25, 50, 100, All — the same set `TablePreferenceService.ALLOWED_PAGE_SIZES`
+accepts) and saves a pick there as the viewer's `page_size` for that table
+(`set_page_size`). The footer stays on "All" too, since it is the only way back.
+The Preferences gear has no page-size control: two controls that could disagree
+is the bug this replaced. A table that pages on the server and draws its own pager
+(the audit/telemetry event log) passes `pager=False`, which drops the footer and
+shows every row it is handed; so does the check-in desk, which is search-first.
+Ship only a size the footer offers — `test_every_shipped_page_size_is_one_the_footer_offers`
+fails on anything else.
+
 **A table with no `pagination=` renders every row it is given.** `page_size` falls
 back to whatever the table was constructed with, and `ui.table(...)` with no
-`pagination` argument means `0` — which Quasar reads as *all rows*, and
-`hide-pagination` then removes even the footer that would offer a page size. This is
+`pagination` argument means `0` — which Quasar reads as *all rows*. This is
 not theoretical: the async-qualifier Runs tab shipped that way and put 3,129 rows and
 43,714 DOM nodes into a **151,156-pixel** page, with the drill-down's own tab strip
 scrolled far out of reach. Pass `pagination={'rowsPerPage': 25, 'page': 1}` (the

@@ -152,6 +152,24 @@ class TestPersistence:
         with pytest.raises(ValueError):
             await TablePreferenceService().set_width(user, 'admin.users', 'username', 9999)
 
+    async def test_set_page_size_keeps_the_rest_of_the_layout(self, db):
+        user = await make_user()
+        service = TablePreferenceService()
+        await service.save(user, 'admin.users', {
+            'columns': [{'name': 'username', 'visible': True, 'width': 200}],
+            'density': 'compact', 'page_size': 25,
+        })
+        config = await service.set_page_size(user, 'admin.users', 100)
+        assert config['page_size'] == 100
+        assert config['density'] == 'compact'
+        assert config['columns'][0]['width'] == 200
+        assert (await service.get(user, 'admin.users'))['page_size'] == 100
+
+    async def test_set_page_size_rejects_a_size_the_footer_does_not_offer(self, db):
+        user = await make_user()
+        with pytest.raises(ValueError, match='Rows per page'):
+            await TablePreferenceService().set_page_size(user, 'admin.users', 15)
+
     async def test_preferences_are_not_tenant_scoped(self, two_tenants):
         # The decision, pinned: one person carries one answer between communities.
         tenant_a, tenant_b = two_tenants
