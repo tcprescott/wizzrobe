@@ -91,7 +91,7 @@ class RoundWindow:
             return False
         if self.closes is not None and end > self.closes:
             return False
-        if self.has_daily_hours:
+        if self.daily_from is not None and self.daily_until is not None:
             local = start.astimezone(tz)
             day_open = datetime.combine(local.date(), self.daily_from, tzinfo=tz)
             day_close = datetime.combine(local.date(), self.daily_until, tzinfo=tz)
@@ -110,7 +110,7 @@ class RoundWindow:
             parts.append(f'Book by {_day_time(self.closes, tz)}')
         elif self.opens:
             parts.append(f'Opens {_day_time(self.opens, tz)}')
-        if self.has_daily_hours:
+        if self.daily_from is not None and self.daily_until is not None:
             hours = f'{_clock(self.daily_from)} to {_clock(self.daily_until)}'
             parts.append(f'only {hours} each day' if not parts else f'{hours} each day')
         text = ', '.join(parts)

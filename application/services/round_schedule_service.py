@@ -178,7 +178,7 @@ class RoundScheduleService:
         sets = await self.startgg_repository.list_sets(tournament)
         out: List[ScheduleStage] = []
         for phase in phases:
-            phase_sets = [s for s in sets if s.pool.phase_id == phase.id]  # type: ignore[attr-defined]
+            phase_sets = [s for s in sets if s.pool.phase_id == phase.id]
             if not _is_elimination(phase):
                 row = ScheduleStage(phase.phase_id, phase.name, '')
                 for s in phase_sets:
@@ -244,6 +244,7 @@ class RoundScheduleService:
         saved = _schedule_config(cm.tournament)
         if not saved:
             return None
+        key: Optional[str] = None
         if cm.group_stage:
             key = GROUP_KEY
         else:
@@ -262,7 +263,7 @@ class RoundScheduleService:
         if not _is_elimination(phase):
             window = RoundWindow.from_config(saved.get(phase.phase_id))
             return StageWindow(phase.name, window) if window else None
-        sets = [s for s in await self.startgg_repository.list_sets(row.tournament) if s.pool.phase_id == phase.id]  # type: ignore[attr-defined]
+        sets = [s for s in await self.startgg_repository.list_sets(row.tournament) if s.pool.phase_id == phase.id]
         key = _startgg_keys(phase, sets).get(row.round)
         found = _stage_window(saved, key, row.round)
         if found is not None and row.round_text:

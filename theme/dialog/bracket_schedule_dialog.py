@@ -178,18 +178,18 @@ class BracketScheduleDialog:
                             allow_outside_round=allow_outside_round,
                         )
                 except AlreadyBookedError as e:
-                    with self.dialog:
+                    with dialog:
                         ui.notify(e.describe(format_local_display(e.scheduled_at)),
                                   color='warning', multi_line=True)
                         dialog.close()
                 except (PermissionError, ValueError) as e:
-                    with self.dialog:
+                    with dialog:
                         if confirm_outside_window(e, lambda: submit(True)):
                             return
                     error.show(str(e))
                     return
                 else:
-                    with self.dialog:
+                    with dialog:
                         ui.notify(self._booked_message(), color='positive', multi_line=True)
                         dialog.close()
                 await self._after_submit()

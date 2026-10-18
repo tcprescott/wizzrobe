@@ -11,7 +11,7 @@ typed on it too.
 """
 
 from datetime import datetime
-from typing import Awaitable, Callable, Dict, List, Optional
+from typing import Any, Awaitable, Callable, Dict, List, Optional
 
 from nicegui import app, ui
 
@@ -83,7 +83,7 @@ class RoundScheduleDialog:
         # key -> {'opens', 'closes'} as datetime-local strings on the community
         # clock, plus 'daily_from'/'daily_until' as HH:MM; '' means unset.
         self.drafts: Dict[str, Dict[str, str]] = {}
-        self.tz = None
+        self.tz: Any = None
         self.tenant_id = get_current_tenant_id()
 
     async def open(self) -> None:
@@ -256,6 +256,8 @@ class RoundScheduleDialog:
 
     async def _save(self) -> None:
         actor = await get_user_from_session(app.storage.user)
+        if actor is None:
+            return
         try:
             with tenant_scope(self.tenant_id):
                 await self.service.save_schedule(self.tournament.id, self._entries(), actor)
