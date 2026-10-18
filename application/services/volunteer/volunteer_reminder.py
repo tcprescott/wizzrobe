@@ -9,6 +9,7 @@ assignment is only reminded once.
 
 import logging
 from datetime import datetime, timedelta, timezone
+from typing import Dict
 
 from application.tenant_context import tenant_scope
 from application.utils.background_loop import for_each_tenant_scoped, run_worker_loop
@@ -67,19 +68,24 @@ async def _tick() -> None:
         return
 
     discord_service = DiscordService()
+    # Read once per community per tick: the scan window holds every assignment
+    # of the next day, and a setting read per row was most of the tick's queries.
+    leads: Dict[int, int] = {}
 
     async def _remind(assignment) -> None:
         if not await FeatureFlagService().is_enabled(FeatureFlag.VOLUNTEERS):
             return  # tenant has Volunteers disabled
         tenant_id = assignment.tenant_id
-        lead = await SystemConfigService.get_volunteer_reminder_lead_minutes()
-        if lead > MAX_LEAD_MINUTES:
-            logger.warning(
-                'Tenant %s volunteer_reminder_lead_minutes=%s exceeds the %s-minute '
-                'scan window; assignments further out are reminded only once they '
-                'enter the window.',
-                tenant_id, lead, MAX_LEAD_MINUTES,
-            )
+        if tenant_id not in leads:
+            leads[tenant_id] = await SystemConfigService.get_volunteer_reminder_lead_minutes()
+            if leads[tenant_id] > MAX_LEAD_MINUTES:
+                logger.warning(
+                    'Tenant %s volunteer_reminder_lead_minutes=%s exceeds the %s-minute '
+                    'scan window; assignments further out are reminded only once they '
+                    'enter the window.',
+                    tenant_id, leads[tenant_id], MAX_LEAD_MINUTES,
+                )
+        lead = leads[tenant_id]
         shift = assignment.shift
         # Not yet within this tenant's lead window — leave un-stamped so a
         # later tick reminds it once it enters the window.

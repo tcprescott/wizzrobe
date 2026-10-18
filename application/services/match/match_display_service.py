@@ -10,7 +10,7 @@ Read-only: no writes, no audit, no Discord notifications.
 """
 
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 from application.repositories import (
     MatchAcknowledgmentRepository,
@@ -105,7 +105,8 @@ class MatchDisplayService:
         user_discord_id: Optional[str] = None,
         crew_discord_id: Optional[str] = None,
         exclude_racetime: bool = False,
-        match_ids: Optional[List[int]] = None
+        match_ids: Optional[List[int]] = None,
+        scheduled_window: Optional[Tuple[datetime, datetime]] = None,
     ) -> List[Dict[str, Any]]:
         """
         Get matches formatted for table display.
@@ -119,6 +120,9 @@ class MatchDisplayService:
             exclude_racetime: Drop matches run by a racetime.gg tournament — the
                 proctor board's rows are the ones a proctor can actually act on
             match_ids: Restrict to these match IDs (a deep-linked board)
+            scheduled_window: Half-open ``(start, end)`` on the scheduled time,
+                applied in the database so a one-day board does not load the
+                whole event
 
         Returns:
             List of formatted match dictionaries
@@ -131,6 +135,7 @@ class MatchDisplayService:
             crew_discord_id=crew_discord_id,
             exclude_racetime=exclude_racetime,
             match_ids=match_ids,
+            scheduled_window=scheduled_window,
             prefetch_relations=True
         )
 

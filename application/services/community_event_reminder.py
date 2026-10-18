@@ -11,6 +11,7 @@ community's lead, as the volunteer shift reminder does.
 
 import logging
 from datetime import datetime, timedelta, timezone
+from typing import Dict
 
 from application.tenant_context import tenant_scope
 from application.utils.background_loop import for_each_tenant_scoped, run_worker_loop
@@ -57,12 +58,16 @@ async def _tick() -> None:
         return
 
     discord_service = DiscordService()
+    # Read once per community per tick, not once per subscription.
+    leads: Dict[int, int] = {}
 
     async def _remind(subscription) -> None:
         if not await FeatureFlagService().is_enabled(FeatureFlag.COMMUNITY_EVENTS):
             return
         event = subscription.event
-        lead = await SystemConfigService.get_community_event_reminder_lead_minutes()
+        if subscription.tenant_id not in leads:
+            leads[subscription.tenant_id] = await SystemConfigService.get_community_event_reminder_lead_minutes()
+        lead = leads[subscription.tenant_id]
         if event.starts_at > now + timedelta(minutes=lead):
             return
         # Stamp first so a delivery failure (or a restart) doesn't re-send.

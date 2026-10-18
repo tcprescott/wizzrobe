@@ -100,28 +100,41 @@ def _name_chips(
     people: list[tuple[str, bool]], *, label: str, admin: bool = False,
     total: Optional[int] = None,
 ) -> None:
-    """Names as wrapping pills: the viewer first with "(you)", the rest A to Z."""
+    """Names as wrapping pills: the viewer first with "(you)", the rest A to Z.
+
+    Only the preview is built up front; the rest are built the first time the
+    list is opened. A 300-player bracket's full list was ~600 elements per card,
+    and fourteen cards of them made this tab the slowest page at event size.
+    """
     ordered = sorted(people, key=lambda p: (not p[1], p[0].lower()))
     box = ui.element('div').classes('wiz-name-chips').props(f'role=list aria-label="{label}"')
-    with box:
-        for i, (name, mine) in enumerate(ordered):
-            classes = 'wiz-name-chip'
-            if admin:
-                classes += ' wiz-name-chip--admin'
-            if mine:
-                classes += ' wiz-name-chip--me'
-            if i >= _NAME_PREVIEW:
-                classes += ' wiz-name-chip--more'
-            with ui.element('span').classes(classes).props('role=listitem'):
-                ui.label(name).classes('wiz-name-chip__name')
+
+    def chips(start: int, stop: Optional[int] = None) -> None:
+        with box:
+            for i, (name, mine) in enumerate(ordered[start:stop], start):
+                classes = 'wiz-name-chip'
+                if admin:
+                    classes += ' wiz-name-chip--admin'
                 if mine:
-                    ui.label('(you)').classes('wiz-you')
+                    classes += ' wiz-name-chip--me'
+                if i >= _NAME_PREVIEW:
+                    classes += ' wiz-name-chip--more'
+                with ui.element('span').classes(classes).props('role=listitem'):
+                    ui.label(name).classes('wiz-name-chip__name')
+                    if mine:
+                        ui.label('(you)').classes('wiz-you')
+
+    chips(0, _NAME_PREVIEW)
     if len(ordered) <= _NAME_PREVIEW:
         return
     show_all = f'Show all {total or len(ordered)}'
+    built = {'rest': False}
 
     def toggle() -> None:
         opening = 'is-open' not in box.classes
+        if opening and not built['rest']:
+            built['rest'] = True
+            chips(_NAME_PREVIEW)
         if opening:
             box.classes(add='is-open')
         else:

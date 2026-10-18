@@ -1,5 +1,5 @@
 import asyncio
-from datetime import datetime
+from datetime import datetime, timezone
 
 from nicegui import app, background_tasks, context, ui
 
@@ -40,6 +40,7 @@ from theme.tables.match_slots import (
     MY_ACTIONS_COLUMN,
     register_body_slots,
 )
+from theme.tables.plain_rows import set_plain_rows
 from theme.tables.preferences import (
     customize_table,
     preferences_button,
@@ -476,6 +477,20 @@ class MatchTableView(MatchFiltersMixin, MatchTableHandlersMixin, MatchBoardHoldM
             state_filter = []
         only_upcoming = bool(state_filter) and not ({'Finished', 'Confirmed'} & set(state_filter))
 
+        # The day scope goes to the database for the same reason: "Today" on a
+        # 1,300-match event is ~300 rows, and hydrating the other thousand only to
+        # drop them here cost most of the board's load. Suspended under a deep
+        # link for the reason the state filter is: a link to one match must not
+        # land on an empty board.
+        window = None if self.match_ids else day_scope_window(
+            self.day_filter.value if self.day_filter else ALL_DAYS)
+        scheduled_window = None
+        if window:
+            scheduled_window = (
+                datetime.fromtimestamp(window[0], timezone.utc),
+                datetime.fromtimestamp(window[1], timezone.utc),
+            )
+
         rows = await self.display_service.get_matches_for_display(
             tournament_ids=tournament_ids,
             stage_ids=stage_ids,
@@ -484,23 +499,12 @@ class MatchTableView(MatchFiltersMixin, MatchTableHandlersMixin, MatchBoardHoldM
             crew_discord_id=self.crew_discord_id,
             exclude_racetime=self.exclude_racetime,
             match_ids=self.match_ids,
+            scheduled_window=scheduled_window,
         )
 
         # Client-side filter by state (narrows within the fetched set)
         if state_filter:
             rows = [row for row in rows if row.get('state') in state_filter]
-
-        # ...then by day. Suspended under a deep link for the reason the state
-        # filter is: a link to one match must not land on an empty board.
-        window = None if self.match_ids else day_scope_window(
-            self.day_filter.value if self.day_filter else ALL_DAYS)
-        if window:
-            start, end = window
-            rows = [
-                row for row in rows
-                if row.get('scheduled_ts') is not None
-                and start <= row['scheduled_ts'] < end
-            ]
 
         watched_ids = await self._fetch_watched_ids()
         volunteered_ids = await self._fetch_stream_volunteered_ids()
@@ -525,9 +529,8 @@ class MatchTableView(MatchFiltersMixin, MatchTableHandlersMixin, MatchBoardHoldM
             rows = self.row_sort(rows)
         rows = self._arrange(rows)
 
-        self.table.rows = rows
+        set_plain_rows(self.table, rows)
         self._release_hold()
-        self.table.update()
         self._notify_rows_changed()
 
     def _stage_options(self):

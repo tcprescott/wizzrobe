@@ -1401,13 +1401,13 @@ Append-only engagement telemetry — *how* people use the tool, as opposed to th
 | `category` | `CharField(32)` | not null, indexed | Coarse bucket: `page`, `interaction`, or `domain` |
 | `event_type` | `CharField(100)` | not null, indexed | Namespaced `object.verb` name — the `EventType` string for domain rows, else e.g. `page.view` / `report.viewed` |
 | `path` | `CharField(512)` | null | Route the event happened on (page views + interactions); null for domain events |
-| `session_id` | `CharField(64)` | null, indexed | Per-browser correlation id (NiceGUI `app.storage.browser` id) for session reconstruction; null for bus events |
+| `session_id` | `CharField(64)` | null | Per-browser correlation id (NiceGUI `app.storage.browser` id) for session reconstruction; null for bus events |
 | `details` | `TextField` | null | JSON-encoded dict (page params / event payload, plus `actor_username`) |
 | `target` | `CharField(200)` | null | The control a `tab.view` / `ui.*` row is about (tab slug, button or field name, dialog title); the `controls` leaderboard groups by it |
 | `device` | `CharField(16)` | null | `phone` / `tablet` / `desktop` from the viewport width, on client-reported `ui.*` rows only |
 | `created_at` | `DatetimeField` | `auto_now_add`, indexed | |
 
-Indexes: `created_at`, `category`, `event_type`, `session_id`, and `user` — the report's aggregation and filter dimensions. Capture honors the `TELEMETRY_ENABLED` kill-switch.
+Indexes: `created_at`, `category`, `event_type`, `user`, and `(tenant, session_id)` — the report's aggregation and filter dimensions. The composite replaced a lone `session_id` index in migration 114: counting a community's distinct sessions through the lone index took 12s at 1.5M rows. Capture honors the `TELEMETRY_ENABLED` kill-switch.
 
 #### `TriforceText`
 
