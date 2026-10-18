@@ -126,9 +126,10 @@ class MatchLifecycleHandlers:
             if success:
                 ui.notify(message, color='positive')
             else:
-                # Check if it's just "already in progress" (not an error per se)
                 if "already in progress" in message.lower():
-                    pass  # Skip notification, just refresh
+                    # Said, not swallowed: a roll stranded by a restart blocks
+                    # re-rolls for a while, and silence read as a dead button.
+                    ui.notify(message, color='info')
                 else:
                     ui.notify(message, color='warning' if "already been generated" in message else 'negative')
 

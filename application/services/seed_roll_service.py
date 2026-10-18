@@ -10,14 +10,22 @@ because every attempt consumes a real, publicly-numbered seed upstream and a
 silent retry loop spends them where nobody is watching.
 """
 
+import asyncio
 import logging
 from typing import Optional
+
+import aiohttp
 
 from application.errors import MissingCredentialError
 from application.events import EventType, match_live
 from application.services.audit_service import AuditActions, AuditService
 from application.services.provider_task_service import ProviderTaskService
 from application.services.seedgen_service import SeedGenerationService
+from application.utils.seed_provider import (
+    SeedProviderRateLimited,
+    SeedProviderTimeout,
+    SeedProviderUnavailable,
+)
 from models import Match, Preset, ProviderTask, ProviderTaskStatus, User
 
 logger = logging.getLogger(__name__)
@@ -86,6 +94,14 @@ class SeedRollService:
                 task.provider_params,
                 task.settings_snapshot,
             )
+        except (aiohttp.ClientError, asyncio.TimeoutError, SeedProviderTimeout,
+                SeedProviderUnavailable, SeedProviderRateLimited) as exc:
+            # The provider blipped, not the roll: the seed may still be building
+            # upstream. Poll again next tick; sweep_stale retires it if it never
+            # comes back.
+            logger.warning('Provider task %s (%s) poll failed, will retry: %s',
+                           task.id, task.provider, exc or type(exc).__name__)
+            return ProviderTaskStatus(task.status)
         except Exception as exc:
             logger.error(
                 'Provider task %s (%s) failed: %s', task.id, task.provider, exc, exc_info=exc,

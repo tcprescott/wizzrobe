@@ -41,7 +41,7 @@ async def _tick() -> None:
     from application.repositories import VolunteerAssignmentRepository
     from application.services import notification_links
     from application.services.discord import discord_queue
-    from application.services.discord.discord_service import DiscordService
+    from application.services.discord.discord_service import DiscordService, discord_bot_down
     from application.services.feature_flag_service import FeatureFlagService
     from application.services.system_config_service import SystemConfigService
     from application.services.tenant_service import TenantService
@@ -51,6 +51,11 @@ async def _tick() -> None:
         volunteer_reminder_dm,
     )
     from models import FeatureFlag
+
+    if discord_bot_down():
+        # Reminders are stamped before their DM is queued; wait for the bot so
+        # they go out after a reconnect rather than being stamped and lost.
+        return
 
     now = datetime.now(timezone.utc)
     await _start_dms(now)

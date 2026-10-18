@@ -548,7 +548,7 @@ class TestClientPaths:
     def _client(self):
         from application.utils.clients.challonge_client import ChallongeClient
         client = ChallongeClient('id', 'secret', token_provider=AsyncMock(return_value='tok'))
-        client._authed_request = AsyncMock(return_value={'data': {}})
+        client._authed_request = AsyncMock(return_value={'data': {'id': '1'}})
         return client
 
     async def test_root_tournament_path(self):

@@ -435,6 +435,7 @@ def real_svc_ready(monkeypatch):
     discord_user.send = AsyncMock()
     stub_bot = MagicMock()
     stub_bot.is_ready.return_value = True
+    stub_bot.get_user.return_value = None
     stub_bot.fetch_user = AsyncMock(return_value=discord_user)
 
     mirrored: list[int] = []

@@ -24,6 +24,7 @@ callback, which never stores a token).
 
 from __future__ import annotations
 
+import asyncio
 import os
 from typing import Any, Awaitable, Callable, Dict, List, Optional
 from urllib.parse import quote
@@ -34,6 +35,9 @@ AUTHORIZE_URL = 'https://api.challonge.com/oauth/authorize'
 TOKEN_URL = 'https://api.challonge.com/oauth/token'
 BASE_URL = 'https://api.challonge.com/v2.1'
 _PAGE_SIZE = 100
+# aiohttp's default is five minutes, long enough to freeze a staff click or the
+# DM queue a result push rides on while Challonge is down.
+_TIMEOUT = aiohttp.ClientTimeout(total=20)
 
 TokenProvider = Callable[..., Awaitable[str]]
 RequestHook = Callable[[], Awaitable[None]]
@@ -194,7 +198,7 @@ class ChallongeClient:
 
     async def _token_request(self, data: Dict[str, str]) -> Dict[str, Any]:
         await self._count_request()
-        async with aiohttp.ClientSession() as session:
+        async with aiohttp.ClientSession(timeout=_TIMEOUT) as session:
             async with session.post(TOKEN_URL, data=data) as resp:
                 payload = await resp.json()
                 if resp.status >= 400:
@@ -252,6 +256,10 @@ class ChallongeClient:
             '?include_participants=1&include_matches=1',
         )
         resource = data.get('data') or {}
+        if not resource.get('id'):
+            # A sync prunes whatever this answer leaves out, so an empty or
+            # truncated 200 must never read as "the bracket is now empty".
+            raise ChallongeAPIError('Challonge returned no tournament in its answer')
         tournament = _normalize_tournament(resource)
         participants: List[Dict[str, Any]] = []
         matches: List[Dict[str, Any]] = []
@@ -362,7 +370,7 @@ class ChallongeClient:
 
     async def _raw_get(self, path: str, token: str) -> Dict[str, Any]:
         await self._count_request()
-        async with aiohttp.ClientSession() as session:
+        async with aiohttp.ClientSession(timeout=_TIMEOUT) as session:
             async with session.get(BASE_URL + path, headers=self._headers(token)) as resp:
                 return await self._parse(resp)
 
@@ -386,15 +394,24 @@ class ChallongeClient:
     ) -> Dict[str, Any]:
         if self._token_provider is None:
             raise ChallongeAPIError('No token provider configured for authenticated calls')
-        token = await self._token_provider()
-        async with aiohttp.ClientSession() as session:
+        try:
+            return await self._send(self._token_provider, method, path, json)
+        except (aiohttp.ClientError, asyncio.TimeoutError) as e:
+            raise ChallongeAPIError(f"Challonge didn't answer ({type(e).__name__})") from e
+
+    async def _send(
+        self, token_provider: TokenProvider, method: str, path: str,
+        json: Optional[Dict[str, Any]],
+    ) -> Dict[str, Any]:
+        token = await token_provider()
+        async with aiohttp.ClientSession(timeout=_TIMEOUT) as session:
             await self._count_request()
             async with session.request(
                 method, BASE_URL + path, headers=self._headers(token), json=json,
             ) as resp:
                 if resp.status == 401:
                     # Token may have expired between refresh checks — force one refresh + retry.
-                    token = await self._token_provider(force_refresh=True)
+                    token = await token_provider(force_refresh=True)
                     await self._count_request()
                     async with session.request(
                         method, BASE_URL + path, headers=self._headers(token), json=json,

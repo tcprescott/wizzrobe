@@ -4,7 +4,9 @@ Discord Service - Business Logic Layer
 Handles Discord-related operations like sending DMs.
 """
 
+import asyncio
 import logging
+import os
 from typing import Awaitable, Callable, Dict, Optional, Tuple
 
 import discord
@@ -39,6 +41,7 @@ DM_UNREACHABLE = frozenset({DM_USER_NOT_FOUND, DM_REFUSED})
 # Not a failure: the recipient turned Discord DMs off on their profile. Any
 # device notifications still went out through the mirror.
 DM_DISCORD_OFF = "Discord DMs are turned off for this user"
+DM_SEND_TIMEOUT_SECONDS = 45
 
 # Called with ``(channel_id, message_id)`` once Discord has accepted a DM, so a
 # sender can find the message again to edit it.
@@ -236,7 +239,11 @@ def get_discord_bot() -> commands.Bot:
         intents.members = True
         intents.dm_messages = True
         
-        _bot_instance = commands.Bot(command_prefix='!', intents=intents)
+        # max_ratelimit_timeout: a 429 otherwise sleeps as long as Discord asks,
+        # holding up every DM queued behind it.
+        _bot_instance = commands.Bot(
+            command_prefix='!', intents=intents, max_ratelimit_timeout=30,
+        )
 
         async def setup_hook() -> None:
             await _install_app_commands(_bot_instance)
@@ -366,21 +373,29 @@ class DiscordService(GuildOpsMixin, ScheduledEventsMixin):
             if not await discord_dms_enabled(user_id):
                 return True, DM_DISCORD_OFF
 
-            user = await self._bot.fetch_user(user_id)
-            kwargs: dict = {'silent': silent}
-            view = _with_link_button(
-                view_factory() if view_factory is not None else None, link,
-            )
-            if view is not None:
-                kwargs['view'] = view
-            if embed is not None:
-                # Embed is the Discord representation; content omitted to avoid
-                # showing the plain text above the card.
-                sent = await user.send(embed=embed, **kwargs)
-            else:
-                sent = await user.send(message, **kwargs)
+            async def _send():
+                user = self._bot.get_user(user_id) or await self._bot.fetch_user(user_id)
+                kwargs: dict = {'silent': silent}
+                view = _with_link_button(
+                    view_factory() if view_factory is not None else None, link,
+                )
+                if view is not None:
+                    kwargs['view'] = view
+                if embed is not None:
+                    # Embed is the Discord representation; content omitted to avoid
+                    # showing the plain text above the card.
+                    return await user.send(embed=embed, **kwargs)
+                return await user.send(message, **kwargs)
+
+            # Every DM shares one serial queue, and discord.py's HTTP calls have
+            # no deadline of their own, so one stalled send delayed every match
+            # call behind it.
+            sent = await asyncio.wait_for(_send(), DM_SEND_TIMEOUT_SECONDS)
             await _run_sent_hook(on_sent, sent.channel.id, sent.id)
             return True, "Message sent successfully."
+        except asyncio.TimeoutError:
+            logger.warning('Discord DM to %s timed out after %ss', user_id, DM_SEND_TIMEOUT_SECONDS)
+            return False, "Discord didn't answer in time. Please try again in a moment."
         except discord.NotFound:
             return False, DM_USER_NOT_FOUND
         except discord.Forbidden:
@@ -613,3 +628,15 @@ _RealDiscordService = DiscordService
 
 if is_mock_discord():
     DiscordService = MockDiscordService  # type: ignore[misc,assignment]
+
+
+def discord_bot_down() -> bool:
+    """True when a real bot should be connected and isn't.
+
+    For workers that stamp a reminder as sent before queueing the DM: while this
+    holds they wait, so the reminder goes out after the reconnect instead of
+    being stamped and dropped.
+    """
+    if is_mock_discord() or _bot_instance is None or not os.environ.get('DISCORD_TOKEN'):
+        return False
+    return not _bot_instance.is_ready()

@@ -39,6 +39,7 @@ client therefore handles explicitly:
 
 from __future__ import annotations
 
+import asyncio
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
@@ -141,20 +142,24 @@ class SpeedGamingClient:
         if content_type:
             params['type'] = content_type
         timeout = aiohttp.ClientTimeout(total=REQUEST_TIMEOUT_SECONDS)
-        async with aiohttp.ClientSession(timeout=timeout) as session:
-            async with session.get(SCHEDULE_URL, params=params) as resp:
-                text = await resp.text()
-                if resp.status >= 400:
-                    raise SpeedGamingAPIError(
-                        f"SpeedGaming schedule request failed ({resp.status}): {text[:200]}"
-                    )
-                import json as _json
-                try:
-                    payload = _json.loads(text)
-                except ValueError as e:
-                    raise SpeedGamingAPIError(
-                        f"SpeedGaming API returned non-JSON: {text[:200]}"
-                    ) from e
+        try:
+            async with aiohttp.ClientSession(timeout=timeout) as session:
+                async with session.get(SCHEDULE_URL, params=params) as resp:
+                    text = await resp.text()
+                    status = resp.status
+        except (aiohttp.ClientError, asyncio.TimeoutError) as e:
+            raise SpeedGamingAPIError(f"SpeedGaming didn't answer ({type(e).__name__})") from e
+        if status >= 400:
+            raise SpeedGamingAPIError(
+                f"SpeedGaming schedule request failed ({status}): {text[:200]}"
+            )
+        import json as _json
+        try:
+            payload = _json.loads(text)
+        except ValueError as e:
+            raise SpeedGamingAPIError(
+                f"SpeedGaming API returned non-JSON: {text[:200]}"
+            ) from e
         return _validate_schedule_payload(payload, event_slug)
 
 

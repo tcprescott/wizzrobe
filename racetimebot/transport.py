@@ -148,7 +148,7 @@ class RealRacetimeTransport(RacetimeTransport):
             'grant_type': 'client_credentials',
         }
         try:
-            async with aiohttp.ClientSession() as session:
+            async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=20)) as session:
                 async with session.post(self.OAUTH_EXCHANGE_URL, data=data) as resp:
                     if resp.status in (400, 401, 403):
                         body = await resp.text()

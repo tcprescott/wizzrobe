@@ -333,6 +333,9 @@ def init(fastapi_app: FastAPI) -> None:
         language='en-US',
         storage_secret=(os.environ.get('STORAGE_SECRET') or '').strip(),  # required; enforced by validate_security_config()
         session_middleware_kwargs=_session_middleware_kwargs(),
+        # NiceGUI's 3s default dropped the page, and anything half-typed in a
+        # dialog, whenever a phone locked or venue Wi-Fi blinked.
+        reconnect_timeout=30,
     )
     # Installed on the wrapping app, so it sits *outside* the session middleware
     # ui.run_with just added — that is the only place a Set-Cookie can be taken

@@ -69,7 +69,7 @@ async def send_email(
             headers={'Authorization': f'Bearer {os.getenv("SENDGRID_API_KEY", "")}'},
         )
     except httpx.HTTPError as exc:
-        logger.warning('SendGrid send failed: %s', exc)
+        logger.warning('SendGrid send failed: %s', str(exc) or type(exc).__name__)
         return False
     if response.status_code >= 400:
         logger.warning('SendGrid refused a send with HTTP %s: %s', response.status_code, response.text[:300])

@@ -59,6 +59,10 @@ from models import GeneratedSeeds, Match, User
 
 logger = logging.getLogger(__name__)
 
+# Bracket pushes ride the serial DM queue; a provider that hangs must not hold
+# every match call behind it.
+_BRACKET_PUSH_SECONDS = 90
+
 _LIFECYCLE_FIELDS = ('seated_at', 'started_at', 'finished_at', 'confirmed_at', 'needs_review')
 
 
@@ -353,7 +357,9 @@ class MatchScheduleService(MatchNotificationMixin):
         async def _push_challonge_result() -> None:
             from application.services.challonge_service import ChallongeService
             try:
-                await ChallongeService().push_result_if_linked(match, actor)
+                await asyncio.wait_for(
+                    ChallongeService().push_result_if_linked(match, actor), _BRACKET_PUSH_SECONDS,
+                )
             except Exception:
                 logger.exception("challonge auto-push failed for match %s", match.id)
 
@@ -363,7 +369,12 @@ class MatchScheduleService(MatchNotificationMixin):
         # shared bracket-source hook; it isolates each site's failure itself.
         async def _notify_bracket_sources() -> None:
             from application.services import bracket_sources
-            await bracket_sources.on_match_confirmed(match, actor)
+            try:
+                await asyncio.wait_for(
+                    bracket_sources.on_match_confirmed(match, actor), _BRACKET_PUSH_SECONDS,
+                )
+            except asyncio.TimeoutError:
+                logger.error("bracket site report timed out for match %s", match.id)
 
         discord_queue.enqueue(_notify_bracket_sources())
 

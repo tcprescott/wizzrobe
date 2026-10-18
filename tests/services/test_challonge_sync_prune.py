@@ -49,7 +49,8 @@ async def test_drops_entrants_and_matches_challonge_no_longer_has(db):
     assert not await ChallongeMatch.filter(tournament=tournament).exists()
     assert await Match.filter(id=scheduled.id).exists()
 
-    # Roster cleared on Challonge.
+    # Roster cleared on Challonge, which only a reset bracket allows.
+    full['tournament']['state'] = 'pending'
     full['participants'] = []
     await service.sync_bracket(tournament.id, actor, force=True)
     assert not await ChallongeParticipant.filter(tournament=tournament).exists()
