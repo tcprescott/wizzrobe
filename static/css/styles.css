@@ -6871,6 +6871,53 @@ ol.wiz-help-list { list-style-type: decimal; }
     margin-top: 0.5rem;
 }
 
+/* A listing card: the facts, then a footer under a hairline holding the
+   count and the attendance buttons, so the buttons never squeeze the title. */
+.wiz-community-event.wiz-ce-card {
+    padding: 0;
+    gap: 0;
+    overflow: hidden;
+}
+.wiz-ce-card__main {
+    padding: var(--space-3);
+    gap: var(--space-2) var(--space-3);
+}
+.wiz-ce-card__foot.nicegui-row {
+    padding: var(--space-1) var(--space-2) var(--space-1) var(--space-3);
+    border-top: 1px solid var(--border-subtle);
+    background: var(--surface-alt);
+    min-height: 3rem;
+    gap: 0 var(--space-2);
+    flex-wrap: wrap;
+}
+.wiz-ce-card__foot > .wiz-community-event__meta { flex: 1 1 6rem; }
+.wiz-ce-card__foot > .nicegui-row { margin-left: auto; flex-wrap: nowrap; }
+.wiz-ce-tile.nicegui-column {
+    flex: 0 0 auto;
+    min-width: 4.25rem;
+    padding: var(--space-2);
+    gap: 0;
+    align-items: center;
+    border-radius: var(--radius-md);
+    background: var(--surface-sunken);
+    border: 1px solid var(--border-subtle);
+}
+.wiz-ce-tile__main {
+    font-weight: 700;
+    font-size: var(--text-lg);
+    color: var(--fg);
+    line-height: 1.2;
+}
+.wiz-ce-tile--date .wiz-ce-tile__main { font-size: 1.75rem; }
+.wiz-ce-tile__small {
+    font-size: var(--text-sm);
+    color: var(--fg-secondary);
+}
+.wiz-community-event__when {
+    font-weight: 600;
+    color: var(--fg);
+}
+
 /* A checkbox label that wraps on a phone: Quasar centres the box on the whole
    block, so it floats between the lines. Pin it to the first line instead; on a
    one-line label the padding lands the text exactly where centring did. */

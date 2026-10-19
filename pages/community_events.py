@@ -33,11 +33,13 @@ from models import CommunityEvent, CommunityEventStatus, FeatureFlag, User
 from theme.base import BaseLayout
 from theme.community_events import (
     chip,
+    date_tile,
     day_label,
     disclaimer,
     is_live,
     meta_row,
     status_chip,
+    time_tile,
     when_line,
 )
 from theme.dialog.community_event_dialog import CommunityEventDialog
@@ -46,9 +48,11 @@ from theme.empty_state import empty_state
 from theme.error_page import render_not_found
 from theme.help import help_icon
 from theme.help.render import render_user_blocks
+from theme.menu import menu_action, more_menu
 from theme.nav_badges import set_nav_count
 from theme.notify import notify_error
 from theme.page_header import page_header
+from theme.section import section_panel
 from theme.steady import steady_refreshable
 
 __all__ = ['create']
@@ -146,7 +150,7 @@ def attendance_controls(event: CommunityEvent, state: dict) -> tuple[str, ...]:
 
 def _attendance(service, user, event: CommunityEvent, state: dict, on_change) -> None:
     controls = attendance_controls(event, state)
-    with ui.row().classes('items-center justify-end gap-1'):
+    with ui.row().classes('items-center justify-end gap-1 no-wrap'):
         if 'rsvp' in controls:
             _rsvp_button(service, user, event, event.id in state['going'],
                          state['going_counts'].get(event.id, 0), on_change)
@@ -160,26 +164,51 @@ async def _attendance_state(service: CommunityEventService, user: User, event_id
     return {'subscribed': subscribed, 'counts': counts, 'going': going, 'going_counts': going_counts}
 
 
+def _count_text(event: CommunityEvent, state: dict) -> str:
+    if event.rsvp_enabled:
+        return going_line(event, state['going_counts'].get(event.id, 0))
+    count = state['counts'].get(event.id)
+    return f'{count} subscribed' if count else ''
+
+
+def _title_row(event: CommunityEvent, *, new: bool = False, link: bool = True, own: bool = False) -> None:
+    with ui.row().classes('items-center gap-2 min-w-0'):
+        if link:
+            ui.link(event.title, f'{INDEX}/{event.id}').classes('wiz-community-event__title')
+        if new:
+            chip('New', 'new')
+        if own or event.status is not CommunityEventStatus.APPROVED:
+            status_chip(event)
+        elif is_live(event):
+            chip('Happening now', 'live')
+
+
+def _meta(event: CommunityEvent) -> None:
+    with ui.column().classes('gap-1'):
+        if event.location:
+            meta_row('place', event.location)
+        meta_row('person', f'Hosted by {event.host.preferred_name}')
+
+
 def _event_card(service, user, event: CommunityEvent, state: dict, on_change, *, new: bool = False) -> None:
-    with ui.card().classes('wiz-community-event full-width'):
-        with ui.row().classes('items-start justify-between no-wrap full-width gap-2'):
+    with ui.card().classes('wiz-community-event wiz-ce-card full-width'):
+        with ui.row().classes('wiz-ce-card__main no-wrap items-start full-width'):
+            time_tile(event)
             with ui.column().classes('gap-1 col min-w-0'):
-                with ui.row().classes('items-center gap-2'):
-                    ui.link(event.title, f'{INDEX}/{event.id}').classes('wiz-community-event__title')
-                    if new:
-                        chip('New', 'new')
-                with ui.row().classes('items-center gap-2'):
-                    if is_live(event):
-                        chip('Happening now', 'live')
-                    ui.label(when_line(event)).classes('wiz-community-event__meta')
-                if event.location:
-                    meta_row('place', event.location)
-                meta_row('person', f'Hosted by {event.host.preferred_name}')
-                if event.rsvp_enabled:
-                    meta_row('how_to_reg', going_line(event, state['going_counts'].get(event.id, 0)))
-                elif state['counts'].get(event.id):
-                    meta_row('notifications', f"{state['counts'][event.id]} subscribed")
+                _title_row(event, new=new)
+                _meta(event)
+        with ui.row().classes('wiz-ce-card__foot items-center justify-between full-width'):
+            ui.label(_count_text(event, state)).classes('wiz-community-event__meta')
             _attendance(service, user, event, state, on_change)
+
+
+def _own_card(event: CommunityEvent) -> None:
+    with ui.card().classes('wiz-community-event wiz-ce-card full-width'):
+        with ui.column().classes('wiz-ce-card__main full-width'):
+            _title_row(event, own=True)
+            meta_row('schedule', when_line(event, with_day=True))
+            if event.status is CommunityEventStatus.REJECTED and event.review_note:
+                meta_row('feedback', f'Staff said: {event.review_note}')
 
 
 async def community_events_view() -> None:
@@ -238,13 +267,7 @@ async def community_events_view() -> None:
             ui.label('Your events').classes('wiz-community-event__day')
             with ui.element('div').classes('wiz-tile-grid'):
                 for event in events:
-                    with ui.card().classes('wiz-community-event full-width'):
-                        with ui.row().classes('items-center gap-2'):
-                            ui.link(event.title, f'{INDEX}/{event.id}').classes('wiz-community-event__title')
-                            status_chip(event)
-                        ui.label(when_line(event, with_day=True)).classes('wiz-community-event__meta')
-                        if event.status is CommunityEventStatus.REJECTED and event.review_note:
-                            meta_row('feedback', f'Staff said: {event.review_note}')
+                    _own_card(event)
 
         async def refresh_all(_saved=None) -> None:
             upcoming.refresh()
@@ -288,51 +311,49 @@ def create() -> None:
                 ui.link('← All community events', LISTING).classes('text-caption')
                 page_header(current.title)
                 disclaimer()
-                with ui.row().classes('items-center gap-2'):
-                    if current.status is not CommunityEventStatus.APPROVED:
-                        status_chip(current)
-                    elif is_live(current):
-                        chip('Happening now', 'live')
-                if current.status is CommunityEventStatus.REJECTED and current.review_note:
-                    meta_row('feedback', f'Staff said: {current.review_note}')
-                meta_row('schedule', when_line(current, with_day=True))
-                if current.location:
-                    meta_row('place', current.location)
-                meta_row('person', f'Hosted by {current.host.preferred_name}')
-
-                with ui.row().classes('items-center gap-2 wrap'):
-                    if current.status is CommunityEventStatus.APPROVED:
-                        state = await _attendance_state(service, user, [current.id])
-                        _attendance(service, user, current, state, body.refresh)
-                        if current.rsvp_enabled:
-                            ui.label(going_line(current, state['going_counts'].get(current.id, 0))) \
+                approved = current.status is CommunityEventStatus.APPROVED
+                state: dict = await _attendance_state(service, user, [current.id]) if approved else {}
+                with ui.card().classes('wiz-community-event wiz-ce-card full-width'):
+                    with ui.column().classes('wiz-ce-card__main full-width'):
+                        if not approved or is_live(current):
+                            _title_row(current, link=False)
+                        if current.status is CommunityEventStatus.REJECTED and current.review_note:
+                            meta_row('feedback', f'Staff said: {current.review_note}')
+                        with ui.row().classes('no-wrap items-center gap-3 full-width'):
+                            date_tile(current)
+                            with ui.column().classes('gap-1 col min-w-0'):
+                                ui.label(when_line(current)).classes('wiz-community-event__when')
+                                _meta(current)
+                    manage = can_manage and current.status is not CommunityEventStatus.CANCELLED
+                    if approved or manage:
+                        with ui.row().classes('wiz-ce-card__foot items-center justify-between full-width'):
+                            ui.label(_count_text(current, state) if approved else '') \
                                 .classes('wiz-community-event__meta')
-                        elif state['counts'].get(current.id):
-                            ui.label(f"{state['counts'][current.id]} subscribed") \
-                                .classes('wiz-community-event__meta')
-                    if can_manage and current.status is not CommunityEventStatus.CANCELLED:
-                        ui.button('Cancel event', icon='event_busy', on_click=lambda: _confirm_cancel(current)) \
-                            .props('flat color=negative')
-                        ui.button(
-                            'Edit', icon='edit',
-                            on_click=lambda: CommunityEventDialog(
-                                user, current, is_staff=is_staff, on_saved=_after_save,
-                            ).open(),
-                        ).props('flat')
+                            with ui.row().classes('items-center gap-1 no-wrap'):
+                                if approved:
+                                    _attendance(service, user, current, state, body.refresh)
+                                if manage:
+                                    with more_menu(current.title):
+                                        menu_action('edit', 'Edit', lambda: CommunityEventDialog(
+                                            user, current, is_staff=is_staff, on_saved=_after_save,
+                                        ).open())
+                                        menu_action('event_busy', 'Cancel event…',
+                                                    lambda: _confirm_cancel(current), negative=True)
 
                 if current.description:
-                    with ui.column().classes('wiz-community-event__body gap-0 full-width'):
+                    about = await section_panel('About this event', icon='notes', user=user)
+                    with about.body.classes('wiz-community-event__body'):
                         render_user_blocks(parse_user_blocks(current.description))
 
                 if can_manage and current.rsvp_enabled:
                     attendees = await service.list_attendees(user, current.id)
-                    ui.label("Who's going").classes('wiz-community-event__day')
-                    if attendees:
-                        with ui.column().classes('gap-1'):
+                    going = await section_panel("Who's going", icon='groups', user=user)
+                    with going.body:
+                        if attendees:
                             for person in attendees:
                                 meta_row('person', person.preferred_name)
-                    else:
-                        ui.label('No RSVPs yet.').classes('text-muted')
+                        else:
+                            ui.label('No RSVPs yet.').classes('text-muted')
 
         async def _after_save(_saved) -> None:
             body.refresh()

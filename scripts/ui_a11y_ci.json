@@ -83,6 +83,7 @@
     { "name": "event-info", "path": "/event-info" },
     { "name": "event-info-article", "path": "/event-info/attending" },
     { "name": "community-events", "path": "/home/community" },
+    { "name": "community-event-detail", "path": "/community-events/1" },
     { "name": "admin-community-events", "path": "/admin/community-events" },
     { "name": "platform", "path": "/platform", "platform": true }
   ]
