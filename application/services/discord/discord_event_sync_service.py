@@ -14,11 +14,11 @@ from application.errors import require_found
 from application.repositories import DiscordScheduledEventRepository, TournamentRepository
 from application.services.audit_service import AuditActions, AuditService
 from application.services.auth_service import AuthService
-from application.services.discord.discord_service import DiscordService
 from application.services.discord.discord_event_reconciler_service import (
     DiscordEventReconcilerService,
     ReconcileResult,
 )
+from application.services.discord.discord_service import DiscordService
 from application.services.tenant_service import TenantService
 from application.tenant_context import require_tenant_id
 from models import DiscordScheduledEvent, Tenant, Tournament, User

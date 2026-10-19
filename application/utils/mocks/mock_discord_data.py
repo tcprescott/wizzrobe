@@ -80,6 +80,8 @@ MOCK_GUILDS: Dict[int, dict] = {
         "name": "Second Community",
         "owner_id": 1,
         "roles": [dict(r) for r in _STANDARD_ROLES],
+        # So dev shows Admin → Settings → Discord Events locked and paused.
+        "bot_can_create_events": False,
     },
 }
 
@@ -212,7 +214,9 @@ def set_bot_can_create_events(guild_id: int, allowed: bool) -> None:
 
 
 def bot_can_create_events(guild_id: int) -> bool:
-    return guild_id not in _guilds_without_event_permission
+    if guild_id in _guilds_without_event_permission:
+        return False
+    return guild_id not in MOCK_GUILDS or bool(MOCK_GUILDS[guild_id].get("bot_can_create_events", True))
 
 
 def reset_scheduled_events() -> None:
