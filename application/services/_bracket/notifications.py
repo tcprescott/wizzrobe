@@ -287,7 +287,11 @@ class BracketNotificationMixin(ComposedBracketService):
         schedule_link: Optional[DMLink],
         rebook: bool,
     ) -> None:
-        """One entrant's DM. ``send_dm`` honours the Discord on/off switch."""
+        """One entrant's DM. ``send_dm`` honours the Discord on/off switch.
+
+        Silent: the matchup waits in the player's Pick-a-time list, so the DM
+        is a heads-up rather than a summons.
+        """
         from application.services.discord.discord_service import DiscordService
         from application.services.match.match_schedule_service import (
             _community_name,
@@ -315,6 +319,7 @@ class BracketNotificationMixin(ComposedBracketService):
         )
         success, err = await DiscordService().send_dm(
             user.discord_id, message, embed=embed, link=schedule_link,
+            silent=True,
         )
         if not success:
             logger.warning(

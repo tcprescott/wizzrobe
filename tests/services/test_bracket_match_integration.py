@@ -518,6 +518,31 @@ class TestMatchupReadyNotification:
         # nothing is sent — not "you advanced", not "you're eliminated".
         assert sent == []
 
+    @pytest.mark.parametrize('rebook', [False, True])
+    async def test_the_invitation_arrives_silently(self, monkeypatch, rebook):
+        """Ready-to-book is a heads-up: the matchup waits in Pick a time."""
+        from application.services._bracket.notifications import (
+            BracketNotificationMixin,
+        )
+        from application.services.discord.discord_service import DiscordService
+
+        calls: list = []
+
+        async def _send_dm(self, user_id, message, **kwargs):
+            calls.append(kwargs)
+            return True, ''
+
+        monkeypatch.setattr(DiscordService, 'send_dm', _send_dm)
+        user = await User.create(discord_id=3001, username='silent')
+        await BracketNotificationMixin._send_matchup_ready(
+            user=user, opponent_name='P2', opponent_seed=2,
+            tournament_name='Cup', round_name='Round 1', best_of=1,
+            schedule_link=None, rebook=rebook,
+        )
+
+        assert len(calls) == 1
+        assert calls[0]['silent'] is True
+
 
 class TestBracketLineForMatch:
     async def test_a_series_game_carries_round_game_and_standing(self, service):

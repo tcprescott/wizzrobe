@@ -22,7 +22,7 @@ DMs fire on match lifecycle transitions:
 | Stage reminder | the same audience, `stage_reminder_minutes` before the match |
 | Stream candidate | tournament subscribers, with crew-signup buttons |
 | Crew signup | the tournament's admins and crew coordinators (`get_crew_owners`), so a pending signup doesn't wait for someone to open the board |
-| Matchup ready to schedule | both entrants of a bracket matchup (also re-sent as a *rebook* if its game is later called off) |
+| Matchup ready to schedule | both entrants of a bracket matchup (also re-sent as a *rebook* if its game is later called off), sent **silent**: the matchup also waits in the player's Pick-a-time list |
 
 That last one is the only bracket-specific message — there are deliberately no
 advancement or elimination DMs. See
