@@ -123,7 +123,9 @@ async def admin_discord_events_page() -> None:
                 except (ValueError, PermissionError) as e:
                     notify_error(e)
                     return
-                if result.errors:
+                if result.setup_error:
+                    ui.notify(f"Couldn't sync: {result.setup_error}", color='warning', multi_line=True)
+                elif result.errors:
                     ui.notify(
                         f"Sync finished with {result.errors} error(s); "
                         f"{result.created} created, {result.updated} updated",

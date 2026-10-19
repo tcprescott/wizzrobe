@@ -200,10 +200,26 @@ _scheduled_events: Dict[int, dict] = {}
 _next_scheduled_event_id = _SCHEDULED_EVENT_ID_BASE
 
 
+_guilds_without_event_permission: Set[int] = set()
+
+
+def set_bot_can_create_events(guild_id: int, allowed: bool) -> None:
+    """Test/dev hook: pretend the bot lacks Create Events in ``guild_id``."""
+    if allowed:
+        _guilds_without_event_permission.discard(guild_id)
+    else:
+        _guilds_without_event_permission.add(guild_id)
+
+
+def bot_can_create_events(guild_id: int) -> bool:
+    return guild_id not in _guilds_without_event_permission
+
+
 def reset_scheduled_events() -> None:
     """Clear the mock scheduled-event store (test isolation)."""
     global _next_scheduled_event_id
     _scheduled_events.clear()
+    _guilds_without_event_permission.clear()
     _next_scheduled_event_id = _SCHEDULED_EVENT_ID_BASE
 
 
