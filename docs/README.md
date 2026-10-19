@@ -59,6 +59,7 @@ How each shipped subsystem behaves.
 | [features/observability.md](features/observability.md) | Sentry wiring (events, logs, traces, tenant/worker tags), which failures log at ERROR, runtime log levels on `/platform` |
 | [features/web-push.md](features/web-push.md) | Declarative Web Push device notifications mirroring Discord DMs |
 | [features/notification-channels.md](features/notification-channels.md) | Email (SendGrid) and Telegram copies of Discord DMs, confirmation, tests |
+| [features/notification-settings.md](features/notification-settings.md) | Admin → Notifications: the catalogue of every DM, per-community off/silent/ping per recipient, on-shift staff alerts, `send_dm(notice=...)` |
 | [features/admin-reports.md](features/admin-reports.md) | Crew hours, match export, audit viewer, trended insights |
 | [features/ada-accommodations.md](features/ada-accommodations.md) | Per-community ADA accommodation requests from the profile, a STAFF queue with status and private notes. Behind `FeatureFlag.ADA_ACCOMMODATIONS` |
 | [features/community-events.md](features/community-events.md) | Members-only `/community-events`: member-submitted, staff-approved events with Discord reminders for subscribers, and the reusable Tiptap markdown editor. Behind `FeatureFlag.COMMUNITY_EVENTS` |

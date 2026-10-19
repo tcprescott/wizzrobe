@@ -190,6 +190,12 @@ Engagement telemetry (Staff; `TelemetryService` re-checks that itself).
 ### Notifications (`/api/notifications`) · `notifications.py`
 - `GET /preferences` · `PUT /preferences`.
 
+### Notification settings (`/api/notification-settings`) · `notification_settings.py`
+Which messages this community sends, to whom, and whether they ping — the Admin → Notifications grid. **Staff** for reads and writes (`require_staff` / `require_staff_write`), re-checked in `NotificationSettingsService`. Schemas in [`api/schemas/notification_settings.py`](../../api/schemas/notification_settings.py). See [notification-settings.md](../features/notification-settings.md).
+- `GET /notification-settings` — every catalogue cell as a `NotificationSettingResponse`: `notice`, `group`, `title`, `when`, `recipient`, `recipient_label`, `who`, `mode` (`off` / `silent` / `ping`), `default`, `changed`.
+- `PUT /notification-settings/{notice}/{recipient}` — body `NotificationSettingUpdate {mode}`; returns the updated row. Choosing the default clears the override; an unknown notice or a recipient the message doesn't have is `400`. Audited as `notification_setting.changed`.
+- `POST /notification-settings/reset` — clears every override; returns `NotificationSettingsReset {reset}` (how many went back). Audited as `notification_settings.reset`.
+
 ### Audit (`/api/audit-logs`) · `audit.py`
 - `GET /audit-logs` — paginated, **Staff only** (the log carries webhook receiver URLs, role grants and accommodation requests). Filters: `start`/`end` (UTC time bounds), `user_id`, `action_contains` (substring match on the action string); paginate with `limit` (1–500, default 100) and `offset` (default 0). Response includes the matching-entry `total`.
 

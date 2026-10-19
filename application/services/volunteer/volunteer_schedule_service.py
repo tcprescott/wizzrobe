@@ -20,17 +20,11 @@ from application.repositories import (
     VolunteerPositionRepository,
     VolunteerShiftRepository,
 )
+from application.services import notification_catalog as notices
 from application.services.audit_service import AuditActions, AuditService
 from application.services.auth_service import AuthService
 from application.services.discord import discord_queue
 from application.services.discord.discord_service import DiscordService
-from application.services.notification_catalog import (
-    SHIFT_ASSIGNED,
-    SHIFT_GIVEN_BACK,
-    SHIFT_MOVED,
-    SHIFT_REMOVED,
-    VOLUNTEERS,
-)
 from application.services.tenant_membership_service import TenantMembershipService
 from application.services.timezone_service import TimezoneService
 from application.services.volunteer.volunteer_role_mapping_service import (
@@ -702,7 +696,7 @@ class VolunteerScheduleService:
         )
         discord_queue.enqueue(
             self.discord_service.send_dm_with_volunteer_acknowledgment_button(
-                int(discord_id), message, assignment.id, embed=embed, notice=SHIFT_ASSIGNED.to(VOLUNTEERS),
+                int(discord_id), message, assignment.id, embed=embed, notice=notices.SHIFT_ASSIGNED.to(notices.VOLUNTEERS),
             )
         )
 
@@ -731,7 +725,7 @@ class VolunteerScheduleService:
             description='No action needed.',
         )
         discord_queue.enqueue(
-            self.discord_service.send_dm(int(discord_id), message, embed=embed, notice=SHIFT_REMOVED.to(VOLUNTEERS))
+            self.discord_service.send_dm(int(discord_id), message, embed=embed, notice=notices.SHIFT_REMOVED.to(notices.VOLUNTEERS))
         )
 
     async def _notify_shift_moved(
@@ -765,7 +759,7 @@ class VolunteerScheduleService:
         )
         discord_queue.enqueue(
             self.discord_service.send_dm_with_volunteer_acknowledgment_button(
-                int(discord_id), message, assignment.id, embed=embed, notice=SHIFT_MOVED.to(VOLUNTEERS),
+                int(discord_id), message, assignment.id, embed=embed, notice=notices.SHIFT_MOVED.to(notices.VOLUNTEERS),
             )
         )
 
@@ -803,6 +797,4 @@ class VolunteerScheduleService:
         )
         # The ask is "find cover", so the button opens the roster on the day of
         # the shift rather than on whatever day the schedule defaults to.
-        await notify_coordinators(
-            shift, message, embed, link_label='Find cover', notice=SHIFT_GIVEN_BACK,
-        )
+        await notify_coordinators(shift, message, embed, link_label='Find cover', notice=notices.SHIFT_GIVEN_BACK)

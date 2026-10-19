@@ -34,6 +34,7 @@ This file is the lean, always-loaded guide: the behavioral rules to follow on ev
 | In-app help (`/help` articles, help icons, the safe markdown model) | [docs/features/help.md](docs/features/help.md) |
 | In-app changelog (`/changelog`, the weekly "What's new" entries) | [docs/features/changelog.md](docs/features/changelog.md) |
 | Discord bot, notifications, role sync, mock mode | [docs/features/discord.md](docs/features/discord.md) |
+| Notification settings (catalogue of every DM, off/silent/ping per community, `send_dm(notice=)`) | [docs/features/notification-settings.md](docs/features/notification-settings.md) |
 | Crew signup, match acknowledgment, watching | [docs/features/match-participation.md](docs/features/match-participation.md) |
 | Online tournaments (presets, race rooms, qualifiers, SG sync) | [docs/features/online-tournaments.md](docs/features/online-tournaments.md) |
 | start.gg brackets (mirror, booking, writeback, bracket-source contract) | [docs/features/startgg.md](docs/features/startgg.md) |

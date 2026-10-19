@@ -29,6 +29,11 @@ advancement or elimination DMs. See
 [brackets.md → Notifications](brackets.md#notifications). Its button opens the
 schedule dialog directly; see [Calls to action](#calls-to-action).
 
+The table shows the shipped behaviour. Each community can override any row per
+kind of recipient (off, silent, or ping) on Admin → Notifications; the defaults,
+including the silent matchup-ready DM and silent started/finished copies, live in
+the [notification catalogue](#notification-settings-and-the-catalogue).
+
 **Series context.** A match that is one game of a bracket matchup leads its info
 block with `Round: Semifinals · Game 2 of 3 · Series 1-0`, resolved once by
 `BracketService.match_dm_context` and threaded through `_match_descriptor`. Empty
@@ -168,6 +173,39 @@ nobody. So `MatchService._cancel_match` resolves recipients and builds the messa
 *before* the delete. Recipients get a plain DM rather than the watcher variant,
 whose Unwatch button would carry the id of a match that no longer exists. The card
 uses `COLOR_CANCELLED`, the palette's only negative colour.
+
+## Notification settings and the catalogue
+
+[`application/services/notification_catalog.py`](../../application/services/notification_catalog.py)
+is the source of truth for every DM Wizzrobe sends: one `Notice` per message
+(key, group, title, what sends it) with a default `NotificationMode` (`off`,
+`silent`, `ping`) for each kind of recipient it reaches. A community stores only
+what it changed from those defaults (`NotificationSetting`); staff edit them on
+Admin → Notifications. Full detail:
+[notification-settings.md](notification-settings.md).
+
+`send_dm` (and every `send_dm_with_*`) takes `notice=`, a `NoticeTarget` such as
+`MATCH_SCHEDULED.to(PLAYERS)`. When given, the community's mode decides:
+`off` returns `(True, DM_NOTICE_OFF)` before anything is sent or mirrored to
+devices, email or Telegram; `silent` forces Discord's `@silent` (and quiet
+device and Telegram copies) whatever `silent=` the caller passed; `ping` forces
+a normal message. The user's own Discord-DM switch still applies afterwards.
+
+**Adding a DM.** Declare a `Notice` with `_notice(...)` in the catalogue (a new
+key, never a reused one: keys are stored, so renaming one drops every override
+saved against it), give each recipient column a default, and pass
+`notice=YOUR_NOTICE.to(<recipient>)` on the `send_dm` call. A sender that skips
+`notice=` can't be turned off or quietened by any community.
+
+**Staff alerts are tagged.** A match alert (a player's comment, a reschedule
+request) or a volunteer alert (running late, shift given back) resolves its
+recipients through `StaffAlertService.tagged_match_alert_recipients` /
+`tagged_volunteer_alert_recipients`, which pair each person with the column that
+governs their copy: `ON_DUTY` for whoever holds a shift with staff alerts on right
+now (even if they also admin the tournament), `ADMINS` for the tournament's
+admins or the volunteer coordinators, and `STAFF` only for the fallback when
+nobody is on shift. The sender passes that tag to `notice.to(...)`, so a
+community can, say, keep the on-shift desk pinging and silence the fallback.
 
 ## Guild-role → app-role sync
 
