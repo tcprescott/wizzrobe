@@ -37,6 +37,7 @@ async def seed_crew_for_tenant(
     finished = matches["finished"]
     stage3 = matches["stage3"]
     future = matches["future"]
+    scheduled = matches["scheduled"]
 
     approved = {"approved": True, "approved_by": staff, "acknowledged_at": now}
 
@@ -73,6 +74,12 @@ async def seed_crew_for_tenant(
     await Tracker.get_or_create(
         match=future, user=players[0], tenant=tenant,
         defaults={"approved": True, "approved_by": staff},
+    )
+
+    # Approved on a match with **no stage yet**: crew is only needed on stage,
+    # so the stream manager's My Schedule timeline draws this slot dashed.
+    await Tracker.get_or_create(
+        match=scheduled, user=sm, tenant=tenant, defaults=approved,
     )
 
     # A **fully crewed** restream: two approved commentators and an approved
