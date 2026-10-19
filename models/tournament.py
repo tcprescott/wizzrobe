@@ -140,6 +140,11 @@ class Tournament(Model):
     # than storing a zero that reads as "decided, and it's nothing".
     prize_pool = fields.DecimalField(max_digits=10, decimal_places=2, null=True)
     prize_bonus = fields.DecimalField(max_digits=10, decimal_places=2, null=True)
+    # The game's slug on sglive.speedgaming.org (``wwr`` for /wwr/). While set,
+    # the sglive pool worker owns ``prize_pool`` and staff can't type over it;
+    # ``prize_pool_synced_at`` is when the worker last read a value for it.
+    sglive_slug = fields.CharField(max_length=64, null=True)
+    prize_pool_synced_at = fields.DatetimeField(null=True)
     admins = fields.ManyToManyField('models.User', related_name='admin_tournaments', through='TournamentAdmins')
     crew_coordinators = fields.ManyToManyField(
         'models.User',

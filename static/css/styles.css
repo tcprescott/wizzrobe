@@ -4725,6 +4725,43 @@ ol.wiz-help-list { list-style-type: decimal; }
 
 .wiz-event-tournament__name { font-weight: 700; }
 
+.wiz-event-tournament__title {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.25rem 0.5rem;
+}
+
+.wiz-sglive-synced {
+    padding: 0.5rem 0.75rem;
+    border-radius: var(--radius-md);
+    background: color-mix(in srgb, currentColor 6%, transparent);
+    font-size: 0.9rem;
+}
+
+.wiz-sglive-link {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem 1rem;
+    padding: 0.6rem 0;
+    border-bottom: 1px solid color-mix(in srgb, currentColor 14%, transparent);
+}
+
+.wiz-sglive-link__game { flex: 1 1 auto; min-width: 0; }
+
+.wiz-sglive-link__pick { flex: 0 0 16rem; }
+
+@media (max-width: 599px) {
+    .wiz-sglive-link { flex-wrap: wrap; }
+    .wiz-sglive-link__pick { flex: 1 1 100%; }
+}
+
+.wiz-event-tournaments__foot {
+    color: var(--fg-muted);
+    font-size: 0.85rem;
+    margin: -0.5rem 0 1rem;
+}
+
 .wiz-event-tournament__meta {
     color: var(--fg-muted);
     font-size: 0.9rem;

@@ -103,6 +103,7 @@ class AuditActions:
     # who set the pool, and who decided each placement's share.
     TOURNAMENT_PRIZE_POOL_UPDATED = 'tournament.prize_pool_updated'
     TOURNAMENT_PAYOUT_UPDATED = 'tournament.payout_updated'
+    TOURNAMENT_SGLIVE_LINK_UPDATED = 'tournament.sglive_link_updated'
 
     # User
     USER_CREATED = 'user.created'

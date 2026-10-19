@@ -270,6 +270,11 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         # and skips tenants with EVENT_CHECK_IN off.
         from application.services import check_in_sync_worker
         check_in_sync_worker.start()
+        # sglive prize pools: reads sglive.speedgaming.org every 15 minutes into
+        # linked tournaments' pools. Idle until staff link one; skips tenants
+        # with PAYOUTS off.
+        from application.services import sglive_pool_worker
+        sglive_pool_worker.start()
         # start.gg mirror: re-reads linked events every two minutes (no webhooks).
         # Idle without STARTGG_API_TOKEN; skips tenants with STARTGG off.
         from application.services import startgg_sync_worker
@@ -326,6 +331,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         await race_room_worker.stop()
         await seed_roll_worker.stop()
         await check_in_sync_worker.stop()
+        await sglive_pool_worker.stop()
         await startgg_sync_worker.stop()
         await discord_role_sync_worker.stop()
         await telegram_bot_worker.stop()

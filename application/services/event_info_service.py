@@ -24,6 +24,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, replace
 from datetime import datetime
+from decimal import Decimal
 from pathlib import Path
 from typing import Optional
 
@@ -41,7 +42,7 @@ from application.services.feature_flag_service import FeatureFlagService
 from application.tenant_context import require_tenant_id
 from application.utils.safe_url import http_url_or_empty
 from application.utils.tournament_signup import SignupWindow, signup_window_state
-from models import FeatureFlag, Role, User
+from models import FeatureFlag, Role, Tournament, User
 
 __all__ = ['EventGuide', 'EventInfoService', 'HandbookTournament']
 
@@ -57,6 +58,20 @@ class HandbookTournament:
     bracket_url: str
     signups: SignupWindow
     signups_close_at: Optional[datetime]
+    # Pool plus bonus, when Prize Payouts is on and the total is above zero.
+    prize_total: Optional[Decimal] = None
+    # When the pool last came from sglive.speedgaming.org, if it syncs.
+    prize_synced_at: Optional[datetime] = None
+
+
+def _prize_fields(t: Tournament) -> dict:
+    total = (t.prize_pool or Decimal(0)) + (t.prize_bonus or Decimal(0))
+    if total <= 0:
+        return {}
+    return {
+        'prize_total': total,
+        'prize_synced_at': t.prize_pool_synced_at if t.sglive_slug else None,
+    }
 
 
 @dataclass(frozen=True)
@@ -160,6 +175,7 @@ class EventInfoService:
         if await FeatureFlagService().is_enabled(FeatureFlag.BRACKETS):
             published = {b.tournament_id for b in await BracketService().list_all_visible_brackets(None)}
         startgg_live = await FeatureFlagService().is_enabled(FeatureFlag.STARTGG)
+        payouts_live = await FeatureFlagService().is_enabled(FeatureFlag.PAYOUTS)
         rows = []
         for t in await TournamentService().get_all_tournaments(active_only=True):
             if t.is_test:
@@ -178,6 +194,7 @@ class EventInfoService:
                 bracket_url=bracket,
                 signups=signup_window_state(t.signups_open_at, t.signups_close_at),
                 signups_close_at=t.signups_close_at,
+                **(_prize_fields(t) if payouts_live else {}),
             ))
         return sorted(rows, key=lambda r: r.name.lower())
 
