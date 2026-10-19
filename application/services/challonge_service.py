@@ -572,12 +572,8 @@ class ChallongeService(ChallongeParticipantAssignmentMixin, ChallongeStageMixin,
         return result
 
     async def _record_sync(self, tournament: Tournament, remote: Dict[str, Any]) -> None:
-        from application.services._challonge_signup import roster_locked
-        was, now = tournament.challonge_state, remote.get('state')
-        if was and not roster_locked(was) and roster_locked(now):
-            from application.services import opt_in_notifications
-            from application.services.discord import discord_queue
-            discord_queue.enqueue(opt_in_notifications.bracket_started(tournament.id))
+        from application.services._challonge_signup import announce_if_started
+        announce_if_started(tournament, remote.get('state'))
         await self.repository.record_sync(
             tournament, datetime.now(timezone.utc),
             remote.get('state'), bool(remote.get('group_stage')), remote.get('tournament_type'),
