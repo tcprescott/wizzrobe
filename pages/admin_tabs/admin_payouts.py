@@ -78,6 +78,16 @@ def _suggest_links(games, tournaments: dict[int, str]) -> dict[str, int]:
     return suggestions
 
 
+def _notify_synced(missing: list[str]) -> None:
+    if missing:
+        ui.notify(
+            f"sglive no longer lists {', '.join(missing)}; those pools kept their last amount.",
+            color='warning',
+        )
+    else:
+        ui.notify('Prize pools updated from sglive', color='positive')
+
+
 def _status(overview) -> dict:
     """What is still missing on this tournament's split, in one chip."""
     if not overview.place_count:
@@ -376,13 +386,7 @@ async def admin_payouts_page() -> None:
             except (ValueError, PermissionError) as e:
                 notify_error(e)
                 return
-            if missing:
-                ui.notify(
-                    f"sglive no longer lists {', '.join(missing)}; those pools kept their last amount.",
-                    color='warning',
-                )
-            else:
-                ui.notify('Prize pools updated from sglive', color='positive')
+            _notify_synced(missing)
             await refresh_table()
 
         async def copy_block(row, client):
