@@ -166,13 +166,18 @@ _MESSAGE = r'''
 
 _BODY = (
     r'''
-<q-tr :props="props" class="wiz-sent__row" tabindex="0"
-      :aria-expanded="props.expand ? 'true' : 'false'"
-      @click="props.expand = !props.expand" @keydown.enter="props.expand = !props.expand">
+<q-tr :props="props" class="wiz-sent__row" @click="props.expand = !props.expand">
     <q-td v-for="col in props.cols" :key="col.name" :props="props">
-        <template v-if="col.name === 'message'">'''
+        <template v-if="col.name === 'message'">
+            <div class="wiz-sent__msg-row">'''
     + _MESSAGE
-    + r'''<div v-if="props.expand">''' + _DETAIL + r'''</div>
+    + r'''<q-btn flat dense round size="sm" color="primary"
+                   :icon="props.expand ? 'expand_less' : 'expand_more'"
+                   :aria-label="props.expand ? 'Hide details' : 'Show details'"
+                   :aria-expanded="props.expand ? 'true' : 'false'"
+                   @click.stop="props.expand = !props.expand" />
+            </div>
+            <div v-if="props.expand">''' + _DETAIL + r'''</div>
         </template>
         <template v-else-if="col.name === 'result'">''' + _RESULT + r'''</template>
         <template v-else-if="col.name === 'to'"><b>{{ col.value }}</b></template>
