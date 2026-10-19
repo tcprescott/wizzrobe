@@ -30,7 +30,7 @@ import frontend
 # would otherwise win the race against the basicConfig below and strip the log
 # format for the whole process.
 import mcpserver
-from api.openapi_docs import api_description
+from api.openapi_docs import api_description, warm_openapi
 from api.openapi_docs import install as install_openapi_docs
 from application.events import dispatch_queue as event_dispatch_queue
 from application.events import event_bus, webhook_queue
@@ -313,6 +313,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     # Started after boot so migrations and the first imports don't read as stalls.
     if loop_watchdog_enabled():
         loop_watchdog.start()
+    warm_openapi(app)
     metrics_sampler.start()
     from application.services import active_users_metrics, telemetry_retention
     active_users_metrics.start()

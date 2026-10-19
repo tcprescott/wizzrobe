@@ -161,6 +161,15 @@ class TestGracefulShutdownNoise:
         }
         assert wiring._before_send(event, {}) is None
 
+    def test_drops_write_to_a_gone_browser(self):
+        from uvicorn.protocols.utils import ClientDisconnected
+        exc = ClientDisconnected()
+        assert wiring._before_send({'exception': {}}, self._hint(exc)) is None
+
+    def test_keeps_other_os_errors(self):
+        exc = ConnectionResetError('db socket reset')
+        assert wiring._before_send({'exception': {}}, self._hint(exc)) is not None
+
     def test_keeps_other_cancelled_errors(self):
         exc = asyncio.CancelledError()
         assert wiring._before_send({}, self._hint(exc)) is not None
@@ -255,6 +264,11 @@ class TestStaleSocketSession:
 
     def test_disconnected_session_is_downgraded(self):
         record = self._record("'Session is disconnected' abc (further occurrences ...)")
+        wiring.StaleSocketSessionFilter().filter(record)
+        assert record.levelno == logging.WARNING
+
+    def test_invalid_websocket_upgrade_is_downgraded(self):
+        record = self._record('Invalid websocket upgrade (further occurrences of this error will be logged with level INFO)')
         wiring.StaleSocketSessionFilter().filter(record)
         assert record.levelno == logging.WARNING
 
