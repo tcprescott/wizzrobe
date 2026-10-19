@@ -3,7 +3,8 @@
 The fourth write module, held to the same rule as the others: each tool
 mirrors one REST endpoint, from ``api/routers/stage_actions.py``,
 ``api/routers/volunteers.py``, ``api/routers/users.py``,
-``api/routers/equipment.py`` and ``api/routers/payouts.py``. A write that
+``api/routers/equipment.py``, ``api/routers/payouts.py`` and
+``api/routers/notification_settings.py``. A write that
 belongs here belongs in the REST router too, and vice versa.
 
 Every tool is registered at ``Gate.ACTOR`` with ``write=True``, mirroring
@@ -21,6 +22,7 @@ from typing import Callable, List, Optional
 from mcp.server.mcpserver import MCPServer
 from pydantic import BaseModel, Field
 
+from api.schemas.notification_settings import NotificationSettingResponse
 from api.schemas.payouts import PayoutLineRequest
 from api.schemas.volunteers import (
     AssignResponse,
@@ -33,6 +35,7 @@ from api.schemas.volunteers import (
 from application.errors import require_found
 from application.services import (
     EquipmentService,
+    NotificationSettingsService,
     PayoutService,
     StageService,
     TenantMembershipService,
@@ -340,6 +343,35 @@ async def revoke_community_role(
     return OperationResult(detail=f'Revoked {parsed.value} from user {user_id}.')
 
 
+# --- Notification settings --------------------------------------------------------------
+
+
+async def set_notification_setting(
+    notice: str,
+    recipient: str,
+    mode: str,
+    tenant: TenantArg = None,
+) -> NotificationSettingResponse:
+    """Set how one message reaches one kind of recipient. Staff only.
+
+    `notice` and `recipient` come from `list_notification_settings`; `mode` is
+    `off`, `silent` or `ping`. Choosing the default clears the override.
+    Mirrors `PUT /api/notification-settings/{notice}/{recipient}`.
+    """
+    return NotificationSettingResponse.from_row(await NotificationSettingsService.set_mode(current_actor().user, notice, recipient, mode))
+
+
+async def reset_notification_settings(
+    tenant: TenantArg = None,
+) -> OperationResult:
+    """Put every notification back to its default. Staff only.
+
+    Mirrors `POST /api/notification-settings/reset`.
+    """
+    count = await NotificationSettingsService.reset_all(current_actor().user)
+    return OperationResult(detail=f'{count} setting(s) back to default.')
+
+
 # --- Equipment ------------------------------------------------------------------------
 
 
@@ -506,6 +538,9 @@ def register_tools(mcp: MCPServer) -> None:
     write_tool(remove_community_member, 'Remove community member', destructive=True)
     write_tool(grant_community_role, 'Grant community role')
     write_tool(revoke_community_role, 'Revoke community role', destructive=True)
+
+    write_tool(set_notification_setting, 'Set notification setting')
+    write_tool(reset_notification_settings, 'Reset notification settings', destructive=True)
 
     equipment = FeatureFlag.EQUIPMENT
     write_tool(create_equipment, 'Create equipment', equipment)

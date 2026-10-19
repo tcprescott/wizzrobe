@@ -18,6 +18,7 @@ from . import (
     check_in_sales,
     check_in_sync_worker,
     community_event_reminder,
+    notification_catalog,
     notification_links,
     oauth_handoff_service,
     race_room_worker,
@@ -97,6 +98,7 @@ from .matcherino_login_service import MatcherinoLoginService, MatcherinoLoginSta
 from .mcp_auth_service import McpAuthService
 from .my_timeline_service import MyTimelineService
 from .notification_channel_service import NotificationChannelService
+from .notification_settings_service import NotificationSettingsService
 from .password_auth_service import PasswordAuthService
 from .payout_service import PayoutService
 from .platform_admin_service import AccountOverview, CommunityOverview, PlatformAdminService
@@ -219,6 +221,7 @@ __all__ = [
     'MyTimelineService',
     'NotFoundError',
     'NotificationChannelService',
+    'NotificationSettingsService',
     'PasswordAuthService',
     'PayoutService',
     'PlatformAdminService',
@@ -297,6 +300,7 @@ __all__ = [
     'discord_role_sync_worker',
     'get_user_from_discord_id',
     'get_user_from_session',
+    'notification_catalog',
     'notification_links',
     'oauth_handoff_service',
     'race_room_worker',

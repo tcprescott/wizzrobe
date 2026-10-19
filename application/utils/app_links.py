@@ -26,6 +26,7 @@ USERS = 'members'
 QUALIFIERS = 'qualifiers'
 CHECK_IN = 'check-in-roster'
 COMMUNITY_EVENTS = 'community-events'
+NOTIFICATIONS = 'notifications'
 
 # Home tab slugs.
 HOME_PLAYER = 'player'

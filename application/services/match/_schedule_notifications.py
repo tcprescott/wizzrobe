@@ -26,6 +26,21 @@ from application.services.match._match_recipients import (
     collect_match_recipients,
 )
 from application.services.match.match_hard_preset_service import MatchHardPresetService
+from application.services.notification_catalog import (
+    CREW,
+    FOLLOWERS,
+    MATCH_CANCELLED,
+    MATCH_SCHEDULED,
+    PLAYERS,
+    REMOVED_FROM_MATCH,
+    STAGE_CALL,
+    STAGE_CLEARED,
+    STAGE_REMINDER,
+    STREAM_CANDIDATE,
+    WATCHERS,
+    Notice,
+    NoticeTarget,
+)
 from application.tenant_context import require_tenant_id
 from application.utils.discord_embeds import (
     COLOR_RESCHEDULED,
@@ -56,6 +71,11 @@ from models import Match, MatchPlayers
 logger = logging.getLogger(__name__)
 
 _AUDIENCES = (AUDIENCE_PLAYER, AUDIENCE_CREW, AUDIENCE_WATCHER)
+_RECIPIENTS = {AUDIENCE_PLAYER: PLAYERS, AUDIENCE_CREW: CREW, AUDIENCE_WATCHER: WATCHERS}
+
+
+def _target(notice: Notice, recipient: MatchRecipient) -> NoticeTarget:
+    return notice.to(_RECIPIENTS[recipient.audience])
 
 
 def _for_crew(
@@ -83,8 +103,7 @@ class MatchNotificationMixin:
 
     async def notify_match_participants(
         self, match: Match, message: str, embed: Optional[discord.Embed] = None,
-        *, silent: bool = False, players: bool = True,
-        player_copies: Optional[dict] = None,
+        *, notice: Notice, player_copies: Optional[dict] = None,
     ) -> None:
         """
         Send a DM to all opted-in players, approved crew, and watchers for a match.
@@ -93,9 +112,9 @@ class MatchNotificationMixin:
         (whether or not they are also a player/crew) receives the DM with an
         Unwatch button so they can opt out from Discord. ``embed`` is the
         colour-coded card rendered on Discord; the ``message`` text still feeds
-        the web-push mirror. ``silent`` sends every copy without a ping;
-        ``players=False`` leaves the players out (crew and watchers still hear).
-        ``player_copies`` maps a player's Discord id to their own ``(text,
+        the web-push mirror. ``notice`` is the catalogued message, whose
+        community setting decides per audience whether each copy pings, goes
+        silent, or isn't sent. ``player_copies`` maps a player's Discord id to their own ``(text,
         embed)``, used in place of the shared one.
 
         Never raises; partial DM failures are logged and swallowed so the
@@ -104,15 +123,13 @@ class MatchNotificationMixin:
         try:
             recipients = await collect_match_audience(match)
             for discord_id, recipient in recipients.items():
-                if not players and recipient.audience == AUDIENCE_PLAYER:
-                    continue
                 if player_copies and recipient.audience == AUDIENCE_PLAYER and discord_id in player_copies:
                     text, card = player_copies[discord_id]
                 else:
                     text, card = _for_crew(recipient.crew_roles, message, embed)
                 await self._send_one(
                     match, discord_id, recipient, text, embed=card, link=None,
-                    log_label='notify_match_participants', silent=silent,
+                    log_label='notify_match_participants', notice=_target(notice, recipient),
                 )
         except Exception:
             logger.exception("notify_match_participants unexpected error for match %s", match.id)
@@ -133,8 +150,7 @@ class MatchNotificationMixin:
         notify_acknowledgment_request. ``message`` is the crew copy and carries a
         button to their slot; ``watcher_message`` (defaulting to ``message``) is
         what someone who only watches reads, since "a match you're on crew for"
-        is false for them. Watchers get the Unwatch button and a silent copy,
-        since nothing is asked of them. ``embed`` is the
+        is false for them. Watchers get the Unwatch button. ``embed`` is the
         colour-coded Discord card; a crew member's copy names their slot, with
         ``crew_message(crew_roles)`` (when given) writing their text. Never
         raises; per-DM failures are logged and swallowed.
@@ -151,7 +167,7 @@ class MatchNotificationMixin:
                     await self._send_one(
                         match, discord_id, recipient, watcher_message or message,
                         embed=embed, link=None, log_label='notify_match_crew',
-                        silent=True,
+                        notice=MATCH_SCHEDULED.to(WATCHERS),
                     )
                     continue
                 roles = recipient.crew_roles
@@ -161,6 +177,7 @@ class MatchNotificationMixin:
                 await self._send_one(
                     match, discord_id, recipient, text,
                     embed=card, link=crew_link, log_label='notify_match_crew',
+                    notice=MATCH_SCHEDULED.to(CREW),
                 )
         except Exception:
             logger.exception("notify_match_crew unexpected error for match %s", match.id)
@@ -189,7 +206,7 @@ class MatchNotificationMixin:
         stage_name = match.stage.name if match.stage else ''
         if stage_name:
             await self._notify_stage(
-                match,
+                match, STAGE_CALL,
                 build=lambda names, when, audience, roles: stage_assigned_dm(
                     match.tournament.name, stage_name, when,
                     player_names=names, audience=audience, crew_roles=roles,
@@ -209,7 +226,7 @@ class MatchNotificationMixin:
             )
             return
         await self._notify_stage(
-            match,
+            match, STAGE_CLEARED,
             build=lambda names, when, audience, roles: stage_cleared_dm(
                 match.tournament.name, when, player_names=names, audience=audience,
                 crew_roles=roles,
@@ -231,7 +248,7 @@ class MatchNotificationMixin:
         match nobody changed.
         """
         await self._notify_stage(
-            match,
+            match, STAGE_REMINDER,
             build=lambda names, when, audience, roles: stage_reminder_dm(
                 match.tournament.name, stage_name, when,
                 player_names=names, audience=audience, crew_roles=roles,
@@ -269,6 +286,7 @@ class MatchNotificationMixin:
     async def _notify_stage(
         self,
         match: Match,
+        notice: Notice,
         *,
         build,
         stage_name: str,
@@ -280,8 +298,7 @@ class MatchNotificationMixin:
 
         ``build(player_names, scheduled_display, audience, crew_roles)`` returns
         the text; ``titles``/``descriptions`` are the card's, keyed by audience,
-        and a crew member's title names their slot. A watcher's copy is silent:
-        players and crew have to be somewhere, a watcher only follows along.
+        and a crew member's title names their slot.
         """
         try:
             await match.fetch_related('tournament', 'players__user')
@@ -303,7 +320,7 @@ class MatchNotificationMixin:
                     match, discord_id, recipient,
                     build(player_names, when, audience, recipient.crew_roles),
                     embed=embed, link=links.get(audience), log_label=log_label,
-                    silent=audience == AUDIENCE_WATCHER,
+                    notice=_target(notice, recipient),
                 )
         except Exception:
             logger.exception("%s unexpected error for match %s", log_label, match.id)
@@ -313,6 +330,8 @@ class MatchNotificationMixin:
         recipients: dict[int, MatchRecipient],
         message: str,
         embed: Optional[discord.Embed] = None,
+        *,
+        notice: Notice = MATCH_CANCELLED,
     ) -> None:
         """DM a **pre-resolved** recipient set that their match was cancelled.
 
@@ -335,7 +354,7 @@ class MatchNotificationMixin:
             try:
                 text, card = _for_crew(recipient.crew_roles, message, embed)
                 success, err = await self.discord_service.send_dm(
-                    discord_id, text, embed=card,
+                    discord_id, text, embed=card, notice=_target(notice, recipient),
                 )
                 if not success:
                     logger.warning(
@@ -360,7 +379,7 @@ class MatchNotificationMixin:
         for discord_id in discord_ids:
             try:
                 success, err = await self.discord_service.send_dm(
-                    discord_id, message, embed=embed,
+                    discord_id, message, embed=embed, notice=REMOVED_FROM_MATCH.to(PLAYERS),
                 )
                 if not success:
                     logger.warning(
@@ -381,17 +400,17 @@ class MatchNotificationMixin:
         embed: Optional[discord.Embed],
         link: Optional[DMLink],
         log_label: str,
-        silent: bool = False,
+        notice: NoticeTarget,
     ) -> None:
         """One DM of a per-audience fan-out; a failure is logged, not raised."""
         try:
             if recipient.is_watcher:
                 success, err = await self.discord_service.send_dm_with_unwatch_button(
-                    discord_id, message, match.id, embed=embed, link=link, silent=silent,
+                    discord_id, message, match.id, embed=embed, link=link, notice=notice,
                 )
             else:
                 success, err = await self.discord_service.send_dm(
-                    discord_id, message, embed=embed, link=link, silent=silent,
+                    discord_id, message, embed=embed, link=link, notice=notice,
                 )
         except Exception:
             logger.exception("%s DM raised for %s", log_label, discord_id)
@@ -453,6 +472,7 @@ class MatchNotificationMixin:
                     continue
                 success, err = await self.discord_service.send_dm_with_acknowledgment_button(
                     ack.user.discord_id, message, match.id, embed=embed, link=link,
+                    notice=MATCH_SCHEDULED.to(PLAYERS),
                 )
                 if not success:
                     logger.warning(
@@ -472,9 +492,8 @@ class MatchNotificationMixin:
         Send match-scheduled DM with crew signup buttons to tournament subscribers.
 
         ``embed`` is the colour-coded Discord card; the ``message`` text still
-        feeds the web-push mirror. Silent: a follower is keeping an eye on the
-        tournament, not being asked to be anywhere. Never raises; per-DM
-        failures are logged and swallowed.
+        feeds the web-push mirror. Never raises; per-DM failures are logged and
+        swallowed.
         """
         try:
             from application.repositories import TournamentNotificationRepository
@@ -487,7 +506,7 @@ class MatchNotificationMixin:
                 if user.discord_id not in exclude_discord_ids:
                     success, err = await self.discord_service.send_dm_with_crew_buttons(
                         user.discord_id, message, match.id, embed=embed, link=link,
-                        silent=True,
+                        notice=MATCH_SCHEDULED.to(FOLLOWERS),
                     )
                     if not success:
                         logger.warning(
@@ -545,6 +564,7 @@ class MatchNotificationMixin:
                 if user.discord_id not in exclude_discord_ids:
                     success, err = await self.discord_service.send_dm_with_crew_buttons(
                         user.discord_id, msg, match.id, embed=embed, link=link,
+                        notice=STREAM_CANDIDATE.to(FOLLOWERS),
                     )
                     if not success:
                         logger.warning(

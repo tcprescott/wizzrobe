@@ -7,12 +7,13 @@ tenant scope.
 
 import logging
 from datetime import datetime
-from typing import Optional, Sequence
+from typing import Optional, Sequence, Tuple
 
 from application.services.discord.discord_service import DiscordService
+from application.services.notification_catalog import PLAYER_COMMENT, PLAYERS, STAFF_COMMENT
 from application.utils.discord_embeds import COLOR_RESCHEDULED, match_embed
 from application.utils.discord_messages import match_comment_dm, player_comment_staff_dm
-from models import User
+from models import NotificationRecipient, User
 
 logger = logging.getLogger(__name__)
 
@@ -52,7 +53,7 @@ async def notify_match_comment(
             if not user.discord_id:
                 continue
             success, err = await discord_service.send_dm(
-                user.discord_id, message, embed=embed, link=link,
+                user.discord_id, message, embed=embed, link=link, notice=STAFF_COMMENT.to(PLAYERS),
             )
             if not success:
                 logger.warning("notify_match_comment DM failed for %s: %s", user.discord_id, err)
@@ -68,7 +69,7 @@ async def notify_staff_of_player_comment(
     body: str,
     when: Optional[datetime],
     player_names: Sequence[str],
-    recipients: Sequence[User],
+    recipients: Sequence[Tuple[User, NotificationRecipient]],
 ) -> None:
     """DM the match's alert recipients a player's comment. Never raises."""
     from application.services import notification_links
@@ -87,11 +88,11 @@ async def notify_staff_of_player_comment(
         )
         link = await notification_links.admin_match_comments(match_id)
         discord_service = DiscordService()
-        for user in recipients:
+        for user, why in recipients:
             if not user.discord_id:
                 continue
             success, err = await discord_service.send_dm(
-                user.discord_id, message, embed=embed, link=link,
+                user.discord_id, message, embed=embed, link=link, notice=PLAYER_COMMENT.to(why),
             )
             if not success:
                 logger.warning("notify_staff_of_player_comment DM failed for %s: %s", user.discord_id, err)

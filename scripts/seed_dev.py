@@ -47,6 +47,9 @@ from models import (
     MatchComment,
     MatchCommentKind,
     McpOAuthClient,
+    NotificationMode,
+    NotificationRecipient,
+    NotificationSetting,
     PlayerAvailability,
     ProfileNudgeDismissal,
     RacetimeBot,
@@ -747,6 +750,34 @@ async def seed_profile_reminders(tenant: Tenant, users: dict[str, User]) -> None
     )
 
 
+async def seed_notification_settings(tenant: Tenant, users: dict[str, User]) -> None:
+    """A handful of Admin → Notifications overrides on the default community.
+
+    Rows exist only where staff chose something other than the catalogue
+    default, so each one here differs from it: together they show every
+    recipient column and every mode as "changed" on the settings page. The
+    second community keeps the defaults, which is what most communities see.
+    """
+    if tenant.slug != 'default':
+        return
+    for notice, recipient, mode in (
+        ('match_confirmed', NotificationRecipient.WATCHERS, NotificationMode.OFF),
+        ('match_scheduled', NotificationRecipient.FOLLOWERS, NotificationMode.OFF),
+        ('match_finished', NotificationRecipient.PLAYERS, NotificationMode.SILENT),
+        ('matchup_ready', NotificationRecipient.PLAYERS, NotificationMode.PING),
+        ('match_checked_in', NotificationRecipient.CREW, NotificationMode.SILENT),
+        ('shift_reminder', NotificationRecipient.VOLUNTEERS, NotificationMode.SILENT),
+        ('player_comment', NotificationRecipient.ON_DUTY, NotificationMode.SILENT),
+        ('crew_signup', NotificationRecipient.ADMINS, NotificationMode.SILENT),
+        ('volunteer_late', NotificationRecipient.STAFF, NotificationMode.OFF),
+        ('welcome', NotificationRecipient.MEMBERS, NotificationMode.SILENT),
+    ):
+        await NotificationSetting.update_or_create(
+            tenant=tenant, notice=notice, recipient=recipient,
+            defaults={'mode': mode, 'updated_by': users['staff_user']},
+        )
+
+
 async def seed_watch_layout_votes(tenant: Tenant) -> None:
     """A few rows in the retired layout-trial table, which the seed-coverage test still counts."""
     for session_id, layout, vote in (
@@ -859,6 +890,7 @@ async def seed_all() -> None:
         await assign_feature_group(tenant, groups)
         await seed_for_tenant(tenant, users, bots)
         await seed_profile_reminders(tenant, users)
+        await seed_notification_settings(tenant, users)
         await seed_watch_layout_votes(tenant)
         await seed_match_comments(tenant, users)
         await seed_staff_request_dms(tenant, users)

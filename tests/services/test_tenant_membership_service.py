@@ -375,8 +375,8 @@ def dm_log(monkeypatch):
     from application.services.discord import DiscordService
 
     async def fake_send(self, user_id, message, view_factory=None, embed=None, link=None,
-                        on_sent=None):
-        sent.append({'to': user_id, 'text': message, 'link': link})
+                        on_sent=None, notice=None):
+        sent.append({'to': user_id, 'text': message, 'link': link, 'notice': notice})
         if on_sent is not None:
             await on_sent(user_id, 1000 + len(sent))
         return True, ''

@@ -23,6 +23,7 @@ from application.events import EventType
 from application.repositories import TournamentRepository
 from application.services._challonge_signup import roster_locked
 from application.services.audit_service import AuditActions, AuditService
+from application.services.notification_catalog import PLAYERS, SIGNED_UP
 from application.services.tenant_membership_service import TenantMembershipService
 from application.utils.clients.startgg_client import event_url
 from application.utils.discord_embeds import COLOR_SCHEDULED
@@ -375,7 +376,7 @@ class TournamentSignupMixin:
             link = await notification_links.home_tournaments()
             discord_queue.enqueue(
                 DiscordService().send_dm(
-                    int(user.discord_id), body, embed=embed, link=link,
+                    int(user.discord_id), body, embed=embed, link=link, notice=SIGNED_UP.to(PLAYERS),
                 )
             )
         except Exception:

@@ -35,6 +35,15 @@ from application.services.match._match_recipients import (  # noqa: F401  (re-ex
 from application.services.match._schedule_notifications import MatchNotificationMixin
 from application.services.match.match_hard_preset_service import MatchHardPresetService
 from application.services.match.match_status import has_recorded_result
+from application.services.notification_catalog import (
+    MATCH_CHECKED_IN,
+    MATCH_CONFIRMED,
+    MATCH_FINISHED,
+    MATCH_STARTED,
+    PLAYERS,
+    SEED_READY,
+    Notice,
+)
 from application.services.seedgen_service import SeedGenerationService
 from application.services.triforce_text_service import TriforceTextService
 from application.tenant_context import require_tenant_id
@@ -177,9 +186,8 @@ class MatchScheduleService(MatchNotificationMixin):
         audit_action: str,
         event_type: str,
         build_message: Callable[[Match, str, str], tuple],
+        notice: Notice,
         authorize: Optional[Callable] = None,
-        silent: bool = False,
-        notify_players: bool = True,
         build_player_copies: Optional[Callable[[Match, str, str], dict]] = None,
     ) -> None:
         """Shared match lifecycle transition: authorize, validate, stamp, audit, notify.
@@ -194,9 +202,8 @@ class MatchScheduleService(MatchNotificationMixin):
         the floor transitions a proctor owns. ``confirm_match`` overrides it with
         ``AuthService.can_confirm_match``, which excludes PROCTOR.
 
-        ``silent`` sends the DM without a ping, for a transition nobody has to
-        act on; ``notify_players=False`` leaves the players out of it.
-        ``build_player_copies`` takes the same arguments as ``build_message``
+        ``notice`` is the catalogued message; the community's setting for it
+        decides who hears and whether it pings. ``build_player_copies`` takes the same arguments as ``build_message``
         and returns ``{discord_id: (text, embed)}`` for players who get their
         own version.
         """
@@ -233,8 +240,7 @@ class MatchScheduleService(MatchNotificationMixin):
             build_player_copies(match, community, bracket_line) if build_player_copies else None
         )
         discord_queue.enqueue(self.notify_match_participants(
-            match, message, embed, silent=silent, players=notify_players,
-            player_copies=player_copies,
+            match, message, embed, notice=notice, player_copies=player_copies,
         ))
         match_live.publish(match.id)
 
@@ -262,6 +268,7 @@ class MatchScheduleService(MatchNotificationMixin):
             timestamp_field="seated_at",
             audit_action=AuditActions.MATCH_SEATED,
             event_type=EventType.MATCH_SEATED,
+            notice=MATCH_CHECKED_IN,
             build_message=lambda m, c, b: _checked_in_notification(m, c, b),
             build_player_copies=_checked_in_player_copies,
         )
@@ -280,10 +287,7 @@ class MatchScheduleService(MatchNotificationMixin):
             audit_action=AuditActions.MATCH_STARTED,
             event_type=EventType.MATCH_STARTED,
             build_message=lambda m, c, b: _state_notification(m, c, "Started", b),
-            # The players are sitting at the station and know; crew and
-            # watchers get a quiet note rather than a ping.
-            silent=True,
-            notify_players=False,
+            notice=MATCH_STARTED,
         )
 
     async def finish_match(self, match: Match, actor: Optional[User] = None) -> None:
@@ -300,8 +304,7 @@ class MatchScheduleService(MatchNotificationMixin):
             audit_action=AuditActions.MATCH_FINISHED,
             event_type=EventType.MATCH_FINISHED,
             build_message=lambda m, c, b: _state_notification(m, c, "Finished", b),
-            silent=True,
-            notify_players=False,
+            notice=MATCH_FINISHED,
         )
 
     async def confirm_match(self, match: Match, actor: Optional[User] = None) -> None:
@@ -328,8 +331,7 @@ class MatchScheduleService(MatchNotificationMixin):
             event_type=EventType.MATCH_CONFIRMED,
             build_message=lambda m, c, b: _state_notification(m, c, "Confirmed", b),
             authorize=AuthService.can_confirm_match,
-            # A record of the result; nobody has anything left to do.
-            silent=True,
+            notice=MATCH_CONFIRMED,
         )
 
         # Confirming a flagged result *is* the resolution — the admin has now
@@ -636,7 +638,7 @@ class MatchScheduleService(MatchNotificationMixin):
                     )
                     success, err = await self.discord_service.send_dm(
                         player.user.discord_id, dm_message,
-                        embed=seed_embed, link=seed_link,
+                        embed=seed_embed, link=seed_link, notice=SEED_READY.to(PLAYERS),
                     )
                     if not success:
                         logger.warning(

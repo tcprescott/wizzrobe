@@ -15,6 +15,7 @@ from application.events import EventType
 from application.feature_flags import requires_feature
 from application.repositories import VolunteerAssignmentRepository
 from application.services.audit_service import AuditActions, AuditService
+from application.services.notification_catalog import VOLUNTEER_LATE
 from application.utils.discord_messages_volunteer import LATE_CHOICES, late_label
 from models import FeatureFlag, User, VolunteerAssignment
 
@@ -177,7 +178,10 @@ class VolunteerArrivalService:
             ends=shift.ends_at,
             description=running_late_description(volunteer.preferred_name, minutes),
         )
-        await notify_coordinators(shift, message, embed, link_label='Open the schedule')
+        await notify_coordinators(
+            shift, message, embed, link_label='Open the schedule',
+            notice=VOLUNTEER_LATE,
+        )
 
 
 def describe_late(assignment: VolunteerAssignment) -> Optional[str]:

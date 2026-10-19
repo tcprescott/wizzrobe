@@ -36,6 +36,13 @@ async def start_dm_check(entrant: CheckInEntrant, event_name: str) -> None:
     if not user.dm_notifications:
         await _record(entrant, CheckInDmStatus.OPTED_OUT, now)
         return
+    from application.services.notification_catalog import CHECKED_IN, MEMBERS
+    from application.services.notification_settings_service import NotificationSettingsService
+    from models import NotificationMode
+
+    # Turned off in Admin → Notifications: no DM, so no result for the desk to show.
+    if await NotificationSettingsService.mode_for(CHECKED_IN.to(MEMBERS)) is NotificationMode.OFF:
+        return
     await _record(entrant, CheckInDmStatus.PENDING, now)
 
     from application.services import notification_links
@@ -57,8 +64,11 @@ async def start_dm_check(entrant: CheckInEntrant, event_name: str) -> None:
 async def _deliver(entrant_id: int, event_id: int, discord_id: int, body: str, embed, link) -> None:
     from application.services.discord import DiscordService
     from application.services.discord.discord_service import DM_UNREACHABLE
+    from application.services.notification_catalog import CHECKED_IN, MEMBERS
 
-    ok, message = await DiscordService().send_dm(discord_id, body, embed=embed, link=link)
+    ok, message = await DiscordService().send_dm(
+        discord_id, body, embed=embed, link=link, notice=CHECKED_IN.to(MEMBERS),
+    )
     if ok:
         status = CheckInDmStatus.SENT
     elif message in DM_UNREACHABLE:

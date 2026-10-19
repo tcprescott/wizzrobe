@@ -1,0 +1,380 @@
+"""Every notification Wizzrobe sends, who it goes to, and how by default.
+
+The catalogue is code: a sender names its entry (``MATCH_SCHEDULED.to(PLAYERS)``)
+and passes it to ``DiscordService.send_dm(notice=...)``, which looks up the
+community's choice (Admin → Notifications) and sends it pinging, silent, or not
+at all. A community stores only what it changed from these defaults.
+
+Keys are stored in ``NotificationSetting.notice``, so renaming one drops the
+overrides saved against it. Add an entry rather than reusing one for a new
+message, and keep each sender pointed at the entry that describes it.
+"""
+
+from dataclasses import dataclass
+from typing import Dict, List, Mapping, Optional
+
+from models import NotificationMode, NotificationRecipient
+
+OFF = NotificationMode.OFF
+SILENT = NotificationMode.SILENT
+PING = NotificationMode.PING
+
+PLAYERS = NotificationRecipient.PLAYERS
+CREW = NotificationRecipient.CREW
+WATCHERS = NotificationRecipient.WATCHERS
+FOLLOWERS = NotificationRecipient.FOLLOWERS
+VOLUNTEERS = NotificationRecipient.VOLUNTEERS
+ON_DUTY = NotificationRecipient.ON_DUTY
+ADMINS = NotificationRecipient.ADMINS
+STAFF = NotificationRecipient.STAFF
+MEMBERS = NotificationRecipient.MEMBERS
+
+
+@dataclass(frozen=True)
+class NoticeTarget:
+    """One notification as it goes to one kind of recipient."""
+
+    key: str
+    recipient: NotificationRecipient
+
+    @property
+    def default(self) -> NotificationMode:
+        return CATALOG[self.key].defaults[self.recipient]
+
+
+@dataclass(frozen=True)
+class Notice:
+    key: str
+    group: str
+    title: str
+    when: str
+    defaults: Mapping[NotificationRecipient, NotificationMode]
+    # Who each recipient column means for this message, where the column name
+    # alone would mislead ("Staff" is the on-duty desk for some, all staff for others).
+    who: Mapping[NotificationRecipient, str]
+
+    def to(self, recipient: NotificationRecipient) -> NoticeTarget:
+        if recipient not in self.defaults:
+            raise KeyError(f'{self.key} has no {recipient.value} recipient')
+        return NoticeTarget(self.key, recipient)
+
+
+GROUPS = (
+    'Matches', 'Brackets', 'Reschedule requests', 'Crew', 'Volunteer shifts',
+    'Community', 'Event check-in', 'Async qualifiers',
+)
+
+CATALOG: Dict[str, Notice] = {}
+
+
+def _notice(
+    key: str, group: str, title: str, when: str,
+    defaults: Mapping[NotificationRecipient, NotificationMode],
+    who: Optional[Mapping[NotificationRecipient, str]] = None,
+) -> Notice:
+    assert group in GROUPS and key not in CATALOG
+    notice = Notice(key, group, title, when, dict(defaults), dict(who or {}))
+    CATALOG[key] = notice
+    return notice
+
+
+_ON_SHIFT = "Whoever's on a shift with staff alerts on (the Admin Desk) and can act on it"
+_ON_SHIFT_ROSTER = "Whoever's on a shift with staff alerts on and can manage volunteers"
+_TOURNAMENT_ADMINS = "The tournament's admins, unless they turned its alerts off"
+_FALLBACK = 'Every staff member, only when nobody is on shift'
+
+# Matches
+MATCH_SCHEDULED = _notice(
+    'match_scheduled', 'Matches', 'Match scheduled or rescheduled',
+    'A match is booked, its time changes, or players are added to it',
+    {PLAYERS: PING, CREW: PING, WATCHERS: SILENT, FOLLOWERS: SILENT},
+    {PLAYERS: "Players who haven't acknowledged yet (with Acknowledge)",
+     FOLLOWERS: 'People following the tournament, at their follow level'},
+)
+STREAM_CANDIDATE = _notice(
+    'stream_candidate', 'Matches', 'Stream candidate',
+    'A match without a stage is flagged as a possible stream',
+    {FOLLOWERS: PING},
+    {FOLLOWERS: 'Followers on "Streamed, plus possible streams"'},
+)
+MATCH_CHECKED_IN = _notice(
+    'match_checked_in', 'Matches', 'Match checked in',
+    'A proctor or staff member checks the match in',
+    {PLAYERS: PING, CREW: PING, WATCHERS: PING},
+)
+MATCH_STARTED = _notice(
+    'match_started', 'Matches', 'Match started', 'The match is started',
+    {PLAYERS: OFF, CREW: SILENT, WATCHERS: SILENT},
+)
+MATCH_FINISHED = _notice(
+    'match_finished', 'Matches', 'Match finished', 'The match is finished',
+    {PLAYERS: OFF, CREW: SILENT, WATCHERS: SILENT},
+)
+MATCH_CONFIRMED = _notice(
+    'match_confirmed', 'Matches', 'Result confirmed', 'Staff confirm the result',
+    {PLAYERS: SILENT, CREW: SILENT, WATCHERS: SILENT},
+)
+SEED_READY = _notice(
+    'seed_ready', 'Matches', 'Seed ready', "The match's seed is rolled",
+    {PLAYERS: PING},
+)
+STAGE_CALL = _notice(
+    'stage_call', 'Matches', 'On stage', "A match's stage is set or changed",
+    {PLAYERS: PING, CREW: PING, WATCHERS: SILENT},
+)
+STAGE_CLEARED = _notice(
+    'stage_cleared', 'Matches', 'Stage call cancelled',
+    "A match's stage is cleared, so it's back in the tournament room",
+    {PLAYERS: PING, CREW: PING, WATCHERS: SILENT},
+)
+STAGE_REMINDER = _notice(
+    'stage_reminder', 'Matches', 'Stage match coming up',
+    "Before a stage match, at the tournament's reminder lead",
+    {PLAYERS: PING, CREW: PING, WATCHERS: SILENT},
+)
+MATCH_CANCELLED = _notice(
+    'match_cancelled', 'Matches', 'Match cancelled',
+    'Staff cancel the match (deleting one sends nothing)',
+    {PLAYERS: PING, CREW: PING, WATCHERS: PING},
+)
+MATCH_CANCELLED_ON_REQUEST = _notice(
+    'match_cancelled_on_request', 'Matches', 'Match cancelled on request',
+    "Staff approve a player's cancel request",
+    {PLAYERS: PING, CREW: PING, WATCHERS: PING},
+)
+SERIES_GAME_CANCELLED = _notice(
+    'series_game_cancelled', 'Matches', 'Leftover series game cancelled',
+    'A best-of series is decided early and its booked games are called off',
+    {PLAYERS: PING, CREW: PING, WATCHERS: PING},
+)
+REMOVED_FROM_MATCH = _notice(
+    'removed_from_match', 'Matches', 'Removed from a match',
+    'Staff take a player off a match', {PLAYERS: PING},
+)
+RACE_ROOM_OPEN = _notice(
+    'race_room_open', 'Matches', 'Race room open',
+    "The match's racetime.gg room opens", {PLAYERS: PING},
+)
+STAFF_COMMENT = _notice(
+    'staff_comment', 'Matches', 'Staff comment on a match',
+    'Staff post a "Message players" comment',
+    {PLAYERS: PING},
+    {PLAYERS: 'Players with "Staff comments on my matches" on'},
+)
+PLAYER_COMMENT = _notice(
+    'player_comment', 'Matches', 'Player comment on a match',
+    'A player comments on their match',
+    {ON_DUTY: PING, ADMINS: PING, STAFF: PING},
+    {ON_DUTY: _ON_SHIFT, ADMINS: _TOURNAMENT_ADMINS, STAFF: _FALLBACK},
+)
+HARDER_SETTINGS_OFFER = _notice(
+    'harder_settings_offer', 'Matches', 'Harder settings available',
+    'A match is scheduled in a tournament with a harder preset', {PLAYERS: PING},
+)
+HARDER_SETTINGS_AGREED = _notice(
+    'harder_settings_agreed', 'Matches', 'Harder settings agreed',
+    'Every player opts in to the harder preset', {PLAYERS: PING},
+)
+HARDER_SETTINGS_DROPPED = _notice(
+    'harder_settings_dropped', 'Matches', 'Back to the standard settings',
+    'A player backs out or the roster changes, so the harder preset is off', {PLAYERS: PING},
+)
+SETTINGS_SET_BY_STAFF = _notice(
+    'settings_set_by_staff', 'Matches', 'Settings set by staff',
+    "Staff force the match's preset", {PLAYERS: PING},
+)
+SETTINGS_RELEASED = _notice(
+    'settings_released', 'Matches', 'Settings back in players\' hands',
+    'Staff release a forced preset, so players choose again', {PLAYERS: PING},
+)
+
+# Brackets
+MATCHUP_READY = _notice(
+    'matchup_ready', 'Brackets', 'Matchup ready to schedule',
+    'A bracket matchup becomes bookable', {PLAYERS: SILENT},
+)
+MATCHUP_REOPENED = _notice(
+    'matchup_reopened', 'Brackets', 'Matchup open again',
+    "A booked bracket game is called off and can be booked again", {PLAYERS: SILENT},
+)
+SIGNED_UP = _notice(
+    'signed_up', 'Brackets', 'Signed up for a tournament',
+    'A player signs themselves up', {PLAYERS: PING},
+)
+
+# Reschedule requests
+RESCHEDULE_REQUEST = _notice(
+    'reschedule_request', 'Reschedule requests', 'Reschedule or cancel request',
+    'A player asks to move or cancel a match',
+    {PLAYERS: PING, ON_DUTY: PING, ADMINS: PING, STAFF: PING},
+    {PLAYERS: 'The opponent, asked to agree (head-to-head only)',
+     ON_DUTY: _ON_SHIFT, ADMINS: _TOURNAMENT_ADMINS, STAFF: _FALLBACK},
+)
+RESCHEDULE_DECLINED = _notice(
+    'reschedule_declined', 'Reschedule requests', 'Request declined',
+    'Staff decline a reschedule or cancel request',
+    {PLAYERS: PING}, {PLAYERS: 'The player who asked'},
+)
+CANCEL_APPROVED = _notice(
+    'cancel_approved', 'Reschedule requests', 'Cancel request approved',
+    "Staff approve a cancel request (an approved move sends only the match's own message)",
+    {PLAYERS: PING}, {PLAYERS: 'The player who asked'},
+)
+
+# Crew
+CREW_SIGNUP = _notice(
+    'crew_signup', 'Crew', 'New commentator or tracker signup',
+    'Someone signs up for a crew slot',
+    {ADMINS: PING}, {ADMINS: "The tournament's admins and crew coordinators"},
+)
+CREW_ASSIGNED = _notice(
+    'crew_assigned', 'Crew', 'Crew assignment',
+    'A signup is approved, or staff add crew directly', {CREW: PING},
+)
+CREW_UNASSIGNED = _notice(
+    'crew_unassigned', 'Crew', 'Crew assignment withdrawn',
+    'Approval is removed, or staff drop approved crew', {CREW: PING},
+)
+CREW_WITHDREW = _notice(
+    'crew_withdrew', 'Crew', 'Commentator or tracker withdrew',
+    'Approved crew drop out',
+    {ADMINS: PING}, {ADMINS: "The tournament's admins, crew coordinators and whoever approved them"},
+)
+
+# Volunteer shifts
+SHIFT_ASSIGNED = _notice(
+    'shift_assigned', 'Volunteer shifts', 'Shift assigned',
+    'A coordinator assigns a shift or publishes a draft', {VOLUNTEERS: PING},
+)
+SHIFT_MOVED = _notice(
+    'shift_moved', 'Volunteer shifts', 'Shift moved', "A shift's time changes",
+    {VOLUNTEERS: PING},
+)
+SHIFT_REMOVED = _notice(
+    'shift_removed', 'Volunteer shifts', 'Shift removed',
+    'A volunteer is unassigned or the shift is deleted', {VOLUNTEERS: PING},
+)
+SHIFT_REMINDER = _notice(
+    'shift_reminder', 'Volunteer shifts', 'Shift reminder',
+    "Before a shift, at the community's reminder lead", {VOLUNTEERS: PING},
+)
+SHIFT_STARTING = _notice(
+    'shift_starting', 'Volunteer shifts', 'Shift starting (I\'m here / Running late)',
+    'At shift start, if the volunteer has not checked in', {VOLUNTEERS: PING},
+)
+SHIFT_GIVEN_BACK = _notice(
+    'shift_given_back', 'Volunteer shifts', 'Volunteer gave a shift back',
+    'A volunteer gives a shift back',
+    {ON_DUTY: PING, ADMINS: PING, STAFF: PING},
+    {ON_DUTY: _ON_SHIFT_ROSTER, ADMINS: 'Volunteer coordinators', STAFF: _FALLBACK},
+)
+VOLUNTEER_LATE = _notice(
+    'volunteer_late', 'Volunteer shifts', 'Volunteer running late',
+    'A volunteer taps Running late',
+    {ON_DUTY: PING, ADMINS: PING, STAFF: PING},
+    {ON_DUTY: _ON_SHIFT_ROSTER, ADMINS: 'Volunteer coordinators', STAFF: _FALLBACK},
+)
+
+# Community
+JOIN_REQUEST = _notice(
+    'join_request', 'Community', 'Join request', 'Someone asks to join',
+    {STAFF: PING}, {STAFF: 'All staff'},
+)
+JOIN_APPROVED = _notice(
+    'join_approved', 'Community', 'Join request approved',
+    'Staff approve a join request', {MEMBERS: PING}, {MEMBERS: 'The person who asked'},
+)
+JOIN_DECLINED = _notice(
+    'join_declined', 'Community', 'Join request declined',
+    'Staff decline a join request', {MEMBERS: PING}, {MEMBERS: 'The person who asked'},
+)
+WELCOME = _notice(
+    'welcome', 'Community', 'Welcome in',
+    'Staff add someone, or a role grant closes their pending request', {MEMBERS: PING},
+)
+MEMBERSHIP_REMOVED = _notice(
+    'membership_removed', 'Community', 'Membership removed',
+    'Staff remove a member', {MEMBERS: PING},
+)
+ADA_REQUEST = _notice(
+    'ada_request', 'Community', 'ADA request', 'A member opens one',
+    {STAFF: PING}, {STAFF: 'All staff'},
+)
+ADA_CHANGED = _notice(
+    'ada_changed', 'Community', 'ADA request changed',
+    'A member edits or reopens their request', {STAFF: PING}, {STAFF: 'All staff'},
+)
+EVENT_TO_REVIEW = _notice(
+    'community_event_review', 'Community', 'Community event to review',
+    'A member submits or resubmits an event', {STAFF: PING}, {STAFF: 'All staff'},
+)
+EVENT_APPROVED = _notice(
+    'community_event_approved', 'Community', 'Community event approved',
+    'Staff approve an event', {MEMBERS: PING}, {MEMBERS: 'The host'},
+)
+EVENT_REJECTED = _notice(
+    'community_event_rejected', 'Community', 'Community event not listed',
+    'Staff turn an event down, or take a listed one down',
+    {MEMBERS: PING}, {MEMBERS: 'The host'},
+)
+EVENT_MOVED = _notice(
+    'community_event_moved', 'Community', 'Community event moved',
+    "An approved event's time changes",
+    {FOLLOWERS: PING}, {FOLLOWERS: "The event's subscribers"},
+)
+EVENT_CANCELLED = _notice(
+    'community_event_cancelled', 'Community', 'Community event cancelled',
+    'An approved event is called off',
+    {FOLLOWERS: PING}, {FOLLOWERS: "The event's subscribers"},
+)
+EVENT_REMINDER = _notice(
+    'community_event_reminder', 'Community', 'Community event reminder',
+    "Before an event, at the community's reminder lead",
+    {FOLLOWERS: PING}, {FOLLOWERS: "The event's subscribers"},
+)
+
+# Event check-in
+CHECKED_IN = _notice(
+    'checked_in', 'Event check-in', "You're checked in",
+    'The desk checks someone in (the desk also sees whether it arrived)',
+    {MEMBERS: PING}, {MEMBERS: 'The attendee'},
+)
+MATCHERINO_REFUSED = _notice(
+    'matcherino_refused', 'Event check-in', 'Matcherino login refused',
+    'The roster sync is refused by Matcherino',
+    {STAFF: PING}, {STAFF: 'The staff member who saved the login'},
+)
+
+# Async qualifiers
+RUN_APPROVED = _notice(
+    'run_approved', 'Async qualifiers', 'Run approved',
+    'A reviewer approves a run, or overturns a rejection',
+    {PLAYERS: PING}, {PLAYERS: 'The runner'},
+)
+RUN_REJECTED = _notice(
+    'run_rejected', 'Async qualifiers', 'Run rejected',
+    'A reviewer rejects a run, or overturns an approval',
+    {PLAYERS: PING}, {PLAYERS: 'The runner'},
+)
+REATTEMPT_GRANTED = _notice(
+    'reattempt_granted', 'Async qualifiers', 'Re-attempt granted',
+    "A reviewer frees the runner's slot", {PLAYERS: PING}, {PLAYERS: 'The runner'},
+)
+RUN_EXPIRING = _notice(
+    'run_expiring', 'Async qualifiers', 'Run expiring',
+    'An hour before an open run is forfeited', {PLAYERS: PING}, {PLAYERS: 'The runner'},
+)
+RUN_EXPIRED = _notice(
+    'run_expired', 'Async qualifiers', 'Run expired',
+    'An open run is forfeited', {PLAYERS: PING}, {PLAYERS: 'The runner'},
+)
+REVIEW_QUEUE = _notice(
+    'review_queue', 'Async qualifiers', 'Review queue waiting',
+    'The oldest unreviewed run is six hours old (at most daily)',
+    {ADMINS: PING}, {ADMINS: 'Qualifier admins'},
+)
+
+
+def notices() -> List[Notice]:
+    """The catalogue in display order: by group, then as declared."""
+    return sorted(CATALOG.values(), key=lambda n: GROUPS.index(n.group))

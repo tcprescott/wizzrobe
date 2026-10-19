@@ -23,7 +23,7 @@ def captured_dms(monkeypatch):
     sent: list[tuple[int, str, object]] = []
 
     class _Fake:
-        async def send_dm(self, discord_id, message, view_factory=None, embed=None, link=None):
+        async def send_dm(self, discord_id, message, view_factory=None, embed=None, link=None, notice=None):
             sent.append((discord_id, message, link))
             return True, 'ok'
 

@@ -138,6 +138,7 @@ TAG_GROUPS: List[tuple[str, List[tuple[str, str]]]] = [
         ('Webhooks', 'Outbound webhooks that POST to your server when events happen.'),
         ('Discord role mappings', 'Discord roles granted to people with a given Wizzrobe role.'),
         ('System config', 'Community settings stored as key/value pairs.'),
+        ('Notification settings', 'Which DMs the community sends, to whom, and whether they ping.'),
     ]),
     ('Reports', [
         ('Reports', 'Operational reports: stage use, crew coverage, tournament health and trends.'),

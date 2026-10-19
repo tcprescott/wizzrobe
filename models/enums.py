@@ -630,3 +630,36 @@ class PresetOverride(str, Enum):
 
     HARD = 'hard'
     STANDARD = 'standard'
+
+
+class NotificationMode(str, Enum):
+    """How one kind of recipient gets one notification.
+
+    ``OFF`` sends nothing on any channel; ``SILENT`` delivers without a ping or
+    phone buzz (Discord's @silent; email can't be quiet); ``PING`` is a normal
+    message.
+    """
+
+    OFF = 'off'
+    SILENT = 'silent'
+    PING = 'ping'
+
+
+class NotificationRecipient(str, Enum):
+    """The kinds of people a notification goes to, the columns of the settings grid."""
+
+    PLAYERS = 'players'
+    CREW = 'crew'
+    WATCHERS = 'watchers'
+    FOLLOWERS = 'followers'
+    VOLUNTEERS = 'volunteers'
+    # Whoever holds a shift with staff alerts on right now (the Admin Desk).
+    ON_DUTY = 'on_duty'
+    # The admins or coordinators of the thing the message is about.
+    ADMINS = 'admins'
+    STAFF = 'staff'
+    MEMBERS = 'members'
+
+    @property
+    def label(self) -> str:
+        return {'on_duty': 'On shift', 'staff': 'All staff'}.get(self.value, self.value.capitalize())

@@ -1,3 +1,4 @@
+
 """Reschedule-request notifications: who is told a request exists, and how it went.
 
 Split out of ``match_reschedule_service`` as pure code motion when that module
@@ -19,11 +20,13 @@ has already fanned the reschedule out to both players.
 
 import logging
 from datetime import datetime, timezone
-from typing import Optional, Sequence
+from typing import Optional, Sequence, Tuple
 
+from application.services.notification_catalog import CANCEL_APPROVED, PLAYERS, RESCHEDULE_DECLINED, RESCHEDULE_REQUEST
 from models import (
     Match,
     MatchRescheduleRequest,
+    NotificationRecipient,
     RescheduleRequestKind,
     StaffRequestKind,
     User,
@@ -121,7 +124,7 @@ class RescheduleNotificationMixin:
         discord_queue.enqueue(service.send_dm_with_reschedule_agree_button(
             int(opponent.discord_id), opponent_body, request.id,
             embed=opponent_embed,
-            link=await notification_links.player_agree(request.id),
+            link=await notification_links.player_agree(request.id), notice=RESCHEDULE_REQUEST.to(PLAYERS),
         ))
 
     async def _mark_staff_dms(
@@ -181,7 +184,7 @@ class RescheduleNotificationMixin:
             logger.exception('reschedule request %s: staff DM edit failed', request.id)
 
     @staticmethod
-    async def _deciders(match: Match) -> Sequence[User]:
+    async def _deciders(match: Match) -> Sequence[Tuple[User, NotificationRecipient]]:
         """Whoever could answer this: the admin on duty and the tournament's admins.
 
         A match alert (see ``StaffAlertService``), so it no longer pings every
@@ -193,7 +196,7 @@ class RescheduleNotificationMixin:
         from application.services.auth_service import AuthService
         from application.services.staff_alert_service import StaffAlertService
 
-        return await StaffAlertService.match_alert_recipients(
+        return await StaffAlertService.tagged_match_alert_recipients(
             match, can_act=AuthService.can_crud_match,
         )
 
@@ -271,6 +274,6 @@ class RescheduleNotificationMixin:
         )
         discord_queue.enqueue(
             DiscordService().send_dm(
-                int(requester.discord_id), body, embed=embed, link=link,
+                int(requester.discord_id), body, embed=embed, link=link, notice=(CANCEL_APPROVED if approved else RESCHEDULE_DECLINED).to(PLAYERS),
             )
         )

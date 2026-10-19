@@ -37,7 +37,7 @@ def discord(monkeypatch):
 
     fake = Fake()
 
-    async def send_dm(_self, user_id, message, view_factory=None, embed=None, link=None):
+    async def send_dm(_self, user_id, message, view_factory=None, embed=None, link=None, notice=None):
         fake.sent.append({'to': user_id, 'text': message, 'link': link})
         return fake.reply
 

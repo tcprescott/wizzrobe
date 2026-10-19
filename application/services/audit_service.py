@@ -344,6 +344,8 @@ class AuditActions:
     NOTIFICATION_EMAIL_REMOVED = 'notification_email.removed'
     NOTIFICATION_TELEGRAM_LINKED = 'notification_telegram.linked'
     NOTIFICATION_TELEGRAM_UNLINKED = 'notification_telegram.unlinked'
+    NOTIFICATION_SETTING_CHANGED = 'notification_setting.changed'
+    NOTIFICATION_SETTINGS_RESET = 'notification_settings.reset'
 
     # Presets (seed-rolling settings)
     PRESET_CREATED = 'preset.created'

@@ -12,11 +12,13 @@ from unittest.mock import AsyncMock
 import pytest
 
 from application.services.match.match_service import MatchService
+from application.services.notification_catalog import CREW, PLAYERS, STAGE_CALL, WATCHERS
 from models import (
     Commentator,
     Match,
     MatchPlayers,
     MatchWatcher,
+    NotificationMode,
     Role,
     Stage,
     Tournament,
@@ -180,10 +182,15 @@ async def test_each_audience_gets_its_own_copy_and_button(
     watching = by_id[6]
     assert watching['message'].startswith("A match you're watching in **Cup**")
     assert watching['link'].url.endswith('/home/schedule')
-    # Players and crew have somewhere to be; a watcher only follows along.
-    assert watching['silent'] is True
-    assert not any(by_id[pid].get('silent') for pid in (1, 2))
-    assert not crew.get('silent')
+    # Players and crew have somewhere to be; a watcher only follows along,
+    # so the catalogue quiets only the watcher's copy.
+    assert watching['notice'] == STAGE_CALL.to(WATCHERS)
+    assert watching['notice'].default is NotificationMode.SILENT
+    for pid in (1, 2):
+        assert by_id[pid]['notice'] == STAGE_CALL.to(PLAYERS)
+    assert crew['notice'] == STAGE_CALL.to(CREW)
+    assert STAGE_CALL.to(PLAYERS).default is NotificationMode.PING
+    assert STAGE_CALL.to(CREW).default is NotificationMode.PING
 
 
 async def test_reminder_dm_names_the_stage_and_the_time(

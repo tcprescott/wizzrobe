@@ -40,6 +40,7 @@ from application.repositories import RacetimeRoomRepository
 from application.repositories._save import save_fields
 from application.services.audit_service import AuditActions, AuditService
 from application.services.auth_service import AuthService
+from application.services.notification_catalog import PLAYERS, RACE_ROOM_OPEN
 from application.services.user_service import UserService
 from application.tenant_context import require_tenant_id
 from application.utils.clients import racetime_rooms_client
@@ -210,7 +211,7 @@ class RaceRoomService:
                 user = player.user
                 if user.discord_id:
                     discord_queue.enqueue(service.send_dm(
-                        int(user.discord_id), body, embed=embed, link=link,
+                        int(user.discord_id), body, embed=embed, link=link, notice=RACE_ROOM_OPEN.to(PLAYERS),
                     ))
         except Exception:
             logger.exception('race room open DM failed for match %s', match.id)

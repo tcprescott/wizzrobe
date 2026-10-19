@@ -7515,3 +7515,103 @@ ol.wiz-help-list { list-style-type: decimal; }
     text-transform: uppercase;
     color: var(--fg-muted);
 }
+
+/* Admin → Notifications: one row per message, one column per recipient. Each
+   cell is a chip-like button tinted by its mode; a changed cell carries a solid
+   border so overrides stand out against the defaults. */
+.wiz-notify-cell {
+    --chip-c: var(--status-neutral);
+    min-height: 28px;
+    padding: 0 8px;
+    border-radius: var(--radius-sm);
+    font-size: var(--text-xs);
+    font-weight: 700;
+    background: color-mix(in srgb, var(--chip-c) 12%, transparent);
+    color: color-mix(in srgb, var(--chip-c) 80%, var(--fg));
+    border: 1px dashed color-mix(in srgb, var(--chip-c) 30%, transparent);
+}
+
+.wiz-notify-cell .q-btn__content {
+    flex-wrap: nowrap;
+    white-space: nowrap;
+}
+
+.wiz-notify-cell .q-icon {
+    font-size: 16px;
+    margin-right: 4px;
+}
+
+.wiz-notify-cell--ping      { --chip-c: var(--status-live); }
+.wiz-notify-cell--silent    { --chip-c: var(--status-neutral); }
+.wiz-notify-cell--off       { --chip-c: var(--status-cancelled); }
+
+.wiz-notify-cell--changed {
+    border-style: solid;
+    border-color: color-mix(in srgb, var(--chip-c) 80%, var(--fg));
+}
+
+.wiz-notify-grid {
+    overflow-x: auto;
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-md);
+    background: var(--surface);
+}
+
+.wiz-notify-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: var(--text-md);
+}
+
+.wiz-notify-table th {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    background: var(--surface-alt);
+    color: var(--fg-secondary);
+    font-size: var(--text-xs);
+    font-weight: 700;
+    text-align: left;
+    padding: var(--space-2);
+    border-bottom: 1px solid var(--border-strong);
+}
+
+.wiz-notify-table td {
+    padding: var(--space-2);
+    border-bottom: 1px solid var(--border-subtle);
+    vertical-align: middle;
+}
+
+.wiz-notify-table__name {
+    min-width: 16rem;
+}
+
+.wiz-notify-table th.wiz-notify-table__col,
+.wiz-notify-table td.wiz-notify-table__col {
+    text-align: center;
+    white-space: nowrap;
+}
+
+.wiz-notify-table__group td {
+    background: var(--surface-sunken);
+    color: var(--fg);
+    font-weight: 700;
+    font-size: var(--text-sm);
+}
+
+.wiz-notify-filter {
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius-sm);
+    color: var(--fg-secondary);
+}
+
+.wiz-notify-filter--on {
+    border-color: var(--wiz-link);
+    color: var(--wiz-link);
+    background: var(--accent-soft);
+}
+
+.wiz-notify-card__row {
+    padding: var(--space-2) 0;
+    border-top: 1px solid var(--border-subtle);
+}

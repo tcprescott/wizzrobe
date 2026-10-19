@@ -525,6 +525,15 @@ class TestMatchupReadyNotification:
             BracketNotificationMixin,
         )
         from application.services.discord.discord_service import DiscordService
+        from application.services.notification_catalog import (
+            MATCHUP_READY,
+            MATCHUP_REOPENED,
+            PLAYERS,
+        )
+        from application.services.notification_settings_service import (
+            NotificationSettingsService,
+        )
+        from models import NotificationMode
 
         calls: list = []
 
@@ -541,7 +550,11 @@ class TestMatchupReadyNotification:
         )
 
         assert len(calls) == 1
-        assert calls[0]['silent'] is True
+        notice = calls[0]['notice']
+        assert notice == (MATCHUP_REOPENED if rebook else MATCHUP_READY).to(PLAYERS)
+        assert notice.default is NotificationMode.SILENT
+        # With nothing changed in Admin → Notifications, send_dm resolves it silent.
+        assert await NotificationSettingsService.mode_for(notice) is NotificationMode.SILENT
 
 
 class TestBracketLineForMatch:
