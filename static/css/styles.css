@@ -2470,12 +2470,18 @@ body:has(.wiz-header) .q-notifications__list--top {
 }
 
 .wiz-watch-tourn__foot {
-    display: flex;
-    flex-wrap: wrap;
-    column-gap: 0.25em;
     margin: var(--space-3) 0 0;
     color: var(--fg-muted);
     font-size: 0.85rem;
+}
+
+.wiz-watch-tourn__foot > * {
+    display: inline;
+}
+
+/* The live view's pieces are separate elements with no text between them. */
+.wiz-watch-tourn__foot > * + * {
+    margin-left: 0.25em;
 }
 
 .wiz-watch-links {
