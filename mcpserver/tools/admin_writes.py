@@ -3,7 +3,8 @@
 The fourth write module, held to the same rule as the others: each tool
 mirrors one REST endpoint, from ``api/routers/stage_actions.py``,
 ``api/routers/volunteers.py``, ``api/routers/users.py``,
-``api/routers/equipment.py`` and ``api/routers/payouts.py``. A write that
+``api/routers/equipment.py``, ``api/routers/payouts.py`` and
+``api/routers/notification_settings.py``. A write that
 belongs here belongs in the REST router too, and vice versa.
 
 Every tool is registered at ``Gate.ACTOR`` with ``write=True``, mirroring
@@ -21,6 +22,8 @@ from typing import Callable, List, Optional
 from mcp.server.mcpserver import MCPServer
 from pydantic import BaseModel, Field
 
+from api.schemas.notification_settings import NotificationSettingResponse
+from api.schemas.notifications import MyNotificationResponse, MyNotificationsResponse
 from api.schemas.payouts import PayoutLineRequest
 from api.schemas.volunteers import (
     AssignResponse,
@@ -33,6 +36,8 @@ from api.schemas.volunteers import (
 from application.errors import require_found
 from application.services import (
     EquipmentService,
+    NotificationPreferenceService,
+    NotificationSettingsService,
     PayoutService,
     StageService,
     TenantMembershipService,
@@ -340,6 +345,68 @@ async def revoke_community_role(
     return OperationResult(detail=f'Revoked {parsed.value} from user {user_id}.')
 
 
+# --- Notification settings --------------------------------------------------------------
+
+
+async def set_notification_setting(
+    notice: str,
+    recipient: str,
+    mode: str,
+    tenant: TenantArg = None,
+) -> NotificationSettingResponse:
+    """Set how one message reaches one kind of recipient. Staff only.
+
+    `notice` and `recipient` come from `list_notification_settings`; `mode` is
+    `off`, `silent` or `ping`. Choosing the default clears the override.
+    Mirrors `PUT /api/notification-settings/{notice}/{recipient}`.
+    """
+    return NotificationSettingResponse.from_row(await NotificationSettingsService.set_mode(current_actor().user, notice, recipient, mode))
+
+
+async def reset_notification_settings(
+    tenant: TenantArg = None,
+) -> OperationResult:
+    """Put every notification back to its default. Staff only.
+
+    Mirrors `POST /api/notification-settings/reset`.
+    """
+    count = await NotificationSettingsService.reset_all(current_actor().user)
+    return OperationResult(detail=f'{count} setting(s) back to default.')
+
+
+async def set_my_notification_preset(
+    preset: str,
+    tenant: TenantArg = None,
+) -> MyNotificationsResponse:
+    """Choose your own notification preset in this community: `everything`,
+    `needs_me` (ping only when you have something to do) or `quiet` (ping only
+    what can't wait). Messages you changed one by one keep your choice.
+
+    Mirrors `PUT /api/notifications/messages/preset`.
+    """
+    return MyNotificationsResponse.from_mine(
+        await NotificationPreferenceService.set_preset(current_actor().user, preset),
+    )
+
+
+async def set_my_notification(
+    notice: str,
+    recipient: str,
+    mode: Optional[str] = None,
+    tenant: TenantArg = None,
+) -> MyNotificationResponse:
+    """Choose how one message reaches you: `off`, `silent` or `ping`, or leave
+    `mode` out to follow your preset again.
+
+    `notice` and `recipient` come from `my_notification_settings`. Your
+    community's setting is a ceiling, so you can make a message quieter, never
+    louder. Mirrors `PUT /api/notifications/messages/{notice}/{recipient}`.
+    """
+    return MyNotificationResponse.from_row(
+        await NotificationPreferenceService.set_mode(current_actor().user, notice, recipient, mode),
+    )
+
+
 # --- Equipment ------------------------------------------------------------------------
 
 
@@ -506,6 +573,11 @@ def register_tools(mcp: MCPServer) -> None:
     write_tool(remove_community_member, 'Remove community member', destructive=True)
     write_tool(grant_community_role, 'Grant community role')
     write_tool(revoke_community_role, 'Revoke community role', destructive=True)
+
+    write_tool(set_notification_setting, 'Set notification setting')
+    write_tool(reset_notification_settings, 'Reset notification settings', destructive=True)
+    write_tool(set_my_notification_preset, 'Set my notification preset')
+    write_tool(set_my_notification, 'Set my notification')
 
     equipment = FeatureFlag.EQUIPMENT
     write_tool(create_equipment, 'Create equipment', equipment)

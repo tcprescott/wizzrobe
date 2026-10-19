@@ -20,6 +20,7 @@ from application.events import EventType, match_live
 from application.services.audit_service import AuditActions
 from application.services.auth_service import AuthService
 from application.services.discord import discord_queue
+from application.services.notification_catalog import MATCH_CANCELLED, Notice
 from models import Match, User
 
 logger = logging.getLogger(__name__)
@@ -90,6 +91,7 @@ class CancellationMixin:
 
     async def cancel_match(
         self, match_id: int, actor: Optional[User] = None, *, reason: str = '',
+        notice: Notice = MATCH_CANCELLED,
     ) -> None:
         """Call a scheduled match off, telling everyone who was expecting it."""
         match = await self._require_match(match_id)
@@ -97,10 +99,11 @@ class CancellationMixin:
             await AuthService.can_crud_match(actor, match),
             f"User cannot cancel match {match_id}",
         )
-        await self._cancel_match(match, actor, reason=reason)
+        await self._cancel_match(match, actor, reason=reason, notice=notice)
 
     async def _cancel_match(
         self, match: Match, actor: Optional[User], *, reason: str = '',
+        notice: Notice = MATCH_CANCELLED,
     ) -> None:
         """Cancel a match — WITHOUT the CRUD gate.
 
@@ -159,7 +162,7 @@ class CancellationMixin:
 
         discord_queue.enqueue(
             self.match_schedule_service.notify_match_cancelled(
-                recipients, message, embed,
+                recipients, message, embed, notice=notice,
             )
         )
 

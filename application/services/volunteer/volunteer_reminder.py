@@ -11,6 +11,7 @@ import logging
 from datetime import datetime, timedelta, timezone
 from typing import Dict
 
+from application.services.notification_catalog import SHIFT_REMINDER, SHIFT_STARTING, VOLUNTEERS
 from application.tenant_context import tenant_scope
 from application.utils.background_loop import for_each_tenant_scoped, run_worker_loop
 
@@ -125,10 +126,10 @@ async def _tick() -> None:
         # carries the way out: My Shifts, with this shift's give-back dialog open.
         link = await notification_links.volunteer_release(assignment.id)
         if acknowledged:
-            send = discord_service.send_dm(int(discord_id), message, embed=embed, link=link)
+            send = discord_service.send_dm(int(discord_id), message, embed=embed, link=link, notice=SHIFT_REMINDER.to(VOLUNTEERS))
         else:
             send = discord_service.send_dm_with_volunteer_acknowledgment_button(
-                int(discord_id), message, assignment.id, embed=embed, link=link,
+                int(discord_id), message, assignment.id, embed=embed, link=link, notice=SHIFT_REMINDER.to(VOLUNTEERS),
             )
         # Close the DM over the tenant scope so its deep links / web-push
         # mirror resolve under the right tenant when the worker runs it.
@@ -198,7 +199,7 @@ async def _start_dms(now: datetime) -> None:
         )
         link = await notification_links.volunteer_my_shifts()
         send = discord_service.send_dm_with_volunteer_arrival_buttons(
-            int(discord_id), message, assignment.id, embed=embed, link=link,
+            int(discord_id), message, assignment.id, embed=embed, link=link, notice=SHIFT_STARTING.to(VOLUNTEERS),
         )
         discord_queue.enqueue(_scoped_dm(assignment.tenant_id, send))
 

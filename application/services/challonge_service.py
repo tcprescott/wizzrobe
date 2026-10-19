@@ -572,6 +572,8 @@ class ChallongeService(ChallongeParticipantAssignmentMixin, ChallongeStageMixin,
         return result
 
     async def _record_sync(self, tournament: Tournament, remote: Dict[str, Any]) -> None:
+        from application.services._challonge_signup import announce_if_started
+        announce_if_started(tournament, remote.get('state'))
         await self.repository.record_sync(
             tournament, datetime.now(timezone.utc),
             remote.get('state'), bool(remote.get('group_stage')), remote.get('tournament_type'),

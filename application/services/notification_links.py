@@ -31,6 +31,7 @@ from application.utils.app_links import (
     HOME_SCHEDULE,
     HOME_TOURNAMENTS,
     SCHEDULE,
+    TOURNAMENTS,
     USERS,
     VOL_SCHEDULE,
     admin_ada_request_url,
@@ -301,6 +302,11 @@ async def admin_volunteer_schedule(
 ) -> Optional[DMLink]:
     """The volunteer schedule, on the day of the shift that just opened up."""
     return await link_for(label, admin_url(VOL_SCHEDULE, day=day))
+
+
+async def admin_tournaments(*, label: str = 'Open tournaments') -> Optional[DMLink]:
+    """Admin → Tournaments, where a tournament's players are managed."""
+    return await link_for(label, admin_url(TOURNAMENTS))
 
 
 async def admin_users(*, label: str = 'Review the request') -> Optional[DMLink]:

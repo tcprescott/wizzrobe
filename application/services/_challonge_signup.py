@@ -40,6 +40,16 @@ def roster_locked(challonge_state: Optional[str]) -> bool:
     return bool(challonge_state) and challonge_state not in _ROSTER_OPEN_STATES
 
 
+def announce_if_started(tournament: Tournament, new_state: Optional[str]) -> None:
+    """Queue the opt-in bracket-started DM when a sync sees the bracket leave
+    pending or check-in. A first sync (no previous state) announces nothing."""
+    was = tournament.challonge_state
+    if was and not roster_locked(was) and roster_locked(new_state):
+        from application.services import opt_in_notifications
+        from application.services.discord import discord_queue
+        discord_queue.enqueue(opt_in_notifications.bracket_started(tournament.id))
+
+
 def refuse_empty_started_bracket(full: dict, mirrored_participants: int) -> None:
     """A started bracket can't lose every entrant.
 
@@ -203,3 +213,9 @@ class ChallongeSignupMixin:
             EventType.TOURNAMENT_ENROLLED if added else EventType.TOURNAMENT_WITHDRAWN,
             event_extra={'user_id': user.id},
         )
+        if not added:
+            from application.services import opt_in_notifications
+            from application.services.discord import discord_queue
+            discord_queue.enqueue(opt_in_notifications.enrolment_changed(
+                tournament.id, user.id, user.id, added=False,
+            ))

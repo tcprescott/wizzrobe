@@ -43,7 +43,7 @@ AREAS: tuple[AuditArea, ...] = (
     AuditArea('startgg', 'start.gg', ('startgg.',)),
     AuditArea('community', 'Community', ('community_event.', 'feedback.')),
     AuditArea('settings', 'Settings', (
-        'system_config.', 'theme.', 'timezone.', 'profile_nudges.', 'station.', 'stage.',
+        'system_config.', 'notification_setting.', 'notification_settings.', 'theme.', 'timezone.', 'profile_nudges.', 'station.', 'stage.',
         'discord.', 'discord_role.', 'discord_event.', 'apitoken.', 'roomtoken.', 'log_level.',
         'browser_monitoring.', 'browser_ignore_rule.',
         'racetime_bot.', 'race_room_profile.', 'sg_sync.', 'feature_flag.', 'feature_group.',
@@ -318,6 +318,8 @@ ACTION_LABELS: dict[str, str] = {
     'feedback.reopened': 'Reopened feedback',
     # Settings
     'system_config.updated': 'Changed a setting',
+    'notification_setting.changed': 'Changed how a notification is sent',
+    'notification_settings.reset': 'Reset notification settings to defaults',
     'theme.updated': 'Changed the colours',
     'theme.logo_updated': 'Uploaded a logo',
     'theme.logo_removed': 'Removed the logo',

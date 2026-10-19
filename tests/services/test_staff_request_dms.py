@@ -43,7 +43,7 @@ def discord(monkeypatch):
     message_ids = iter(range(5001, 6000))
 
     async def fake_send(self, user_id, message, view_factory=None, embed=None, link=None,
-                        on_sent=None):
+                        on_sent=None, notice=None):
         log['sent'].append(user_id)
         if on_sent is not None:
             await on_sent(user_id, next(message_ids))

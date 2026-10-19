@@ -10,6 +10,7 @@ import discord
 
 from application.services.discord import discord_queue
 from application.services.discord.discord_service import DiscordService
+from application.services.notification_catalog import Notice
 from application.services.timezone_service import TimezoneService
 from application.utils.timezone import to_local
 from models import VolunteerShift
@@ -17,12 +18,13 @@ from models import VolunteerShift
 
 async def notify_coordinators(
     shift: VolunteerShift, message: str, embed: discord.Embed, *, link_label: str,
+    notice: Notice,
 ) -> None:
     """Queue the DM to the coordinators and whoever is on duty. Never raises on delivery."""
     from application.services import notification_links
     from application.services.staff_alert_service import StaffAlertService
 
-    recipients = await StaffAlertService.volunteer_alert_recipients()
+    recipients = await StaffAlertService.tagged_volunteer_alert_recipients()
     if not recipients:
         return
 
@@ -35,10 +37,10 @@ async def notify_coordinators(
         day = local.date() if local else None
     link = await notification_links.admin_volunteer_schedule(day, label=link_label)
     discord_service = DiscordService()
-    for coordinator in recipients:
+    for coordinator, why in recipients:
         discord_id = getattr(coordinator, 'discord_id', None)
         if not discord_id:
             continue
         discord_queue.enqueue(
-            discord_service.send_dm(int(discord_id), message, embed=embed, link=link)
+            discord_service.send_dm(int(discord_id), message, embed=embed, link=link, notice=notice.to(why))
         )

@@ -71,14 +71,15 @@ class SentMessageService:
         """Log a DM about to go out. ``None`` outside a community, or if the write fails.
 
         ``notice`` is the catalogue entry a sender passes to ``send_dm``; only its
-        ``key`` and ``audience`` are kept, so the report can name the message type.
+        ``key`` and ``recipient`` are kept (as ``notice_key`` and ``audience``), so the report
+        can name the message type.
         """
         tenant_id = get_current_tenant_id()
         if tenant_id is None or not discord_id:
             return None
         try:
             recipient = await UserRepository.get_by_discord_id(str(discord_id))
-            audience = getattr(notice, 'audience', None)
+            audience = getattr(notice, 'recipient', None)
             row = await self.repository.create(
                 recipient_id=recipient.id if recipient else None,
                 discord_id=str(discord_id),

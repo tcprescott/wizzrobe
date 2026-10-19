@@ -91,3 +91,16 @@ async def test_only_staff_read_the_log():
     rows = await service.list_messages(actor=staff, search='stage')
     assert [r.discord_id for r in rows] == ['906']
     assert (await service.totals(actor=staff))['sent'] == 2
+
+
+async def test_the_notice_is_logged_and_an_off_notice_is_not():
+    from application.services.notification_catalog import MATCH_STARTED, MATCHUP_READY, PLAYERS
+
+    await make_user(discord_id=907, username='notice')
+    await MockDiscordService().send_dm(907, 'Ready to book', notice=MATCHUP_READY.to(PLAYERS))
+    row = await SentMessage.get(discord_id='907')
+    assert (row.notice_key, row.audience, row.silent) == ('matchup_ready', 'players', True)
+
+    # Off by default for players: nothing went out, so nothing is logged.
+    await MockDiscordService().send_dm(907, 'Match started', notice=MATCH_STARTED.to(PLAYERS))
+    assert await SentMessage.filter(discord_id='907').count() == 1

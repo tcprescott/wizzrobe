@@ -11,43 +11,65 @@ best-effort: a Discord failure never undoes the decision that prompted it.
 """
 
 import logging
-from typing import Callable, Iterable, Optional, Tuple
+from typing import Callable, Iterable, Optional, Tuple, Union
 
 import discord
 
 from application.repositories.staff_request_dm_repository import StaffRequestDMRepository
 from application.services.discord import discord_queue
 from application.services.discord.discord_service import DiscordService
+from application.services.notification_catalog import (
+    ADA_REQUEST,
+    EVENT_TO_REVIEW,
+    JOIN_REQUEST,
+    RESCHEDULE_REQUEST,
+    STAFF,
+    Notice,
+)
 from application.utils.discord_messages import DMLink
-from models import StaffRequestKind, User
+from models import NotificationRecipient, StaffRequestKind, User
 
 logger = logging.getLogger(__name__)
 
 # ``you`` → the edited card: the reader who decided it reads "You", not their name.
 CardBuilder = Callable[[bool], discord.Embed]
 
+_NOTICES: dict[StaffRequestKind, Notice] = {
+    StaffRequestKind.JOIN_REQUEST: JOIN_REQUEST,
+    StaffRequestKind.ADA_REQUEST: ADA_REQUEST,
+    StaffRequestKind.COMMUNITY_EVENT: EVENT_TO_REVIEW,
+    StaffRequestKind.RESCHEDULE_REQUEST: RESCHEDULE_REQUEST,
+}
+
 
 async def send(
     kind: StaffRequestKind,
     object_id: int,
-    recipients: Iterable[User],
+    recipients: Iterable[Union[User, Tuple[User, NotificationRecipient]]],
     message: str,
     *,
     embed: discord.Embed,
     link: Optional[DMLink],
+    notice: Optional[Notice] = None,
 ) -> None:
     """Queue the DM to each recipient, remembering every copy that lands.
 
     A new round (a resubmitted event, an ADA request asked again) starts over:
     the copies from an earlier round keep the outcome they were edited to.
+    A bare user is told as all staff; a ``(user, recipient)`` pair (from
+    ``StaffAlertService``) says which notification setting governs their copy.
+    ``notice`` overrides the kind's own setting for a variant (a changed ADA
+    request).
     """
     await StaffRequestDMRepository.forget(kind, object_id)
     service = DiscordService()
-    for user in recipients:
+    notice = notice or _NOTICES[kind]
+    for entry in recipients:
+        user, why = entry if isinstance(entry, tuple) else (entry, STAFF)
         if user.discord_id:
             discord_queue.enqueue(service.send_dm(
                 int(user.discord_id), message, embed=embed, link=link,
-                on_sent=_recorder(kind, object_id, user.id),
+                on_sent=_recorder(kind, object_id, user.id), notice=notice.to(why),
             ))
 
 

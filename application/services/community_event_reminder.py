@@ -13,6 +13,7 @@ import logging
 from datetime import datetime, timedelta, timezone
 from typing import Dict
 
+from application.services.notification_catalog import EVENT_REMINDER, FOLLOWERS
 from application.tenant_context import tenant_scope
 from application.utils.background_loop import for_each_tenant_scoped, run_worker_loop
 
@@ -82,7 +83,7 @@ async def _tick() -> None:
             community_name=await TenantService.current_community_name(), description=message,
         )
         link = await notification_links.community_event(event.id)
-        send = discord_service.send_dm(int(user.discord_id), message, embed=embed, link=link)
+        send = discord_service.send_dm(int(user.discord_id), message, embed=embed, link=link, notice=EVENT_REMINDER.to(FOLLOWERS))
         discord_queue.enqueue(_scoped_dm(subscription.tenant_id, send))
 
     await for_each_tenant_scoped(

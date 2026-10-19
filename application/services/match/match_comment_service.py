@@ -124,7 +124,7 @@ class MatchCommentService:
         try:
             # Resolved here, in the request's tenant scope; the queue worker
             # that sends the DMs runs outside it.
-            recipients = await StaffAlertService.match_alert_recipients(
+            recipients = await StaffAlertService.tagged_match_alert_recipients(
                 match, can_act=AuthService.can_run_match, exclude=(author.id,),
             )
         except Exception:

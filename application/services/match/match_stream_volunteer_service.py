@@ -56,6 +56,9 @@ class MatchStreamVolunteerService:
                 EventType.MATCH_STREAM_VOLUNTEERED,
                 event_extra={'tournament_id': match.tournament_id},
             )
+            from application.services import opt_in_notifications
+            from application.services.discord import discord_queue
+            discord_queue.enqueue(opt_in_notifications.stream_offer(match_id, user.id, user.preferred_name))
         return row
 
     async def withdraw(self, match_id: int, user: User) -> bool:

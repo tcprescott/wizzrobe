@@ -133,7 +133,7 @@ TAG_GROUPS: List[tuple[str, List[tuple[str, str]]]] = [
         ('Users', 'People in this community, their profiles and roles.'),
         ('Membership', 'Requests to join the community, and answering them.'),
         ('Player availability', 'When players say they can and can\'t play.'),
-        ('Notifications', 'Which Discord and push notifications you receive.'),
+        ('Notifications', 'Which messages reach you and whether they ping, and the tournaments you follow.'),
         ('API tokens', 'Your personal API tokens.'),
     ]),
     ('Setup', [
@@ -142,6 +142,7 @@ TAG_GROUPS: List[tuple[str, List[tuple[str, str]]]] = [
         ('Webhooks', 'Outbound webhooks that POST to your server when events happen.'),
         ('Discord role mappings', 'Discord roles granted to people with a given Wizzrobe role.'),
         ('System config', 'Community settings stored as key/value pairs.'),
+        ('Notification settings', 'Which DMs the community sends, to whom, and whether they ping.'),
     ]),
     ('Reports', [
         ('Reports', 'Operational reports: stage use, crew coverage, tournament health and trends.'),

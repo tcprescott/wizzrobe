@@ -352,7 +352,7 @@ def captured_dms(monkeypatch):
         # Mirrors the real signature: a fake narrower than the thing it stands
         # in for turns an added argument into "no DM was sent at all", which is
         # exactly how the link button first went missing here.
-        async def send_dm(self, discord_id, message, view_factory=None, embed=None, link=None):
+        async def send_dm(self, discord_id, message, view_factory=None, embed=None, link=None, notice=None):
             sent.append((discord_id, message, link))
             return True, 'ok'
 

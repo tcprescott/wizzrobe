@@ -314,6 +314,8 @@ model needs in one call to find one person.
 | `list_sent_messages` | STAFF |
 | `telemetry_summary`, `telemetry_top`, `get_system_config` | STAFF |
 | `list_service_health`, `list_webhooks`, `list_webhook_deliveries` | STAFF |
+| `list_notification_settings` | STAFF |
+| `my_notification_settings` | ACTOR (your own) |
 | `list_feedback` | STAFF | `FEEDBACK` |
 | `runtime_stats` | PLATFORM (SUPER_ADMIN, checked again in `RuntimeStatsService`) |
 
@@ -325,6 +327,9 @@ role cannot read it.
 
 `list_webhooks` never returns the signing secret, and `list_service_health` is
 the **tenant subset** only — the platform-wide board is `platform_service_health`.
+`list_notification_settings` mirrors `GET /api/notification-settings`: every
+message once per kind of recipient, with this community's mode and the default
+(see [notification-settings.md](notification-settings.md)).
 
 ### Platform (super admin)
 The `/platform` page's tabs, in `mcpserver/tools/platform.py` (reads) and
@@ -404,11 +409,11 @@ field, whatever its size.
 
 ## Writes
 
-Sixty-seven tools, served only to a connection approved for writing: twenty-one in
+Sixty-nine tools, served only to a connection approved for writing: twenty-one in
 [`mcpserver/tools/match_writes.py`](../../mcpserver/tools/match_writes.py), nine in
 [`mcpserver/tools/event_writes.py`](../../mcpserver/tools/event_writes.py), thirteen in
 [`mcpserver/tools/tournament_writes.py`](../../mcpserver/tools/tournament_writes.py),
-twenty-two in [`mcpserver/tools/admin_writes.py`](../../mcpserver/tools/admin_writes.py),
+twenty-four in [`mcpserver/tools/admin_writes.py`](../../mcpserver/tools/admin_writes.py),
 plus `sign_up_for_tournament` and `withdraw_from_tournament`, which live beside the
 other tournament tools in
 [`mcpserver/tools/tournaments.py`](../../mcpserver/tools/tournaments.py).
@@ -422,7 +427,7 @@ REST routes expose, tool for tool: `api/routers/match_actions.py`,
 position/shift/assignment writes and `POST /volunteers/assignments/{id}/check-in`
 in `api/routers/volunteers.py`, the role and membership writes in
 `api/routers/users.py`, the asset and lending writes in `api/routers/equipment.py`,
-`api/routers/payouts.py`, and `PATCH /discord-events/tournaments/{id}`.
+`api/routers/payouts.py`, `api/routers/notification_settings.py`, and `PATCH /discord-events/tournaments/{id}`.
 The event-day set was added for SG Live 2026, where the desk, coordinators and
 staff run the floor from their phones; the admin set followed so staff can set
 up and adjust tournaments, the schedule and the floor from a connected client.
@@ -452,6 +457,7 @@ replaces the whole asset.
 | Members and roles | `add_community_member`, `remove_community_member`, `grant_community_role`, `revoke_community_role` |
 | Equipment (`EQUIPMENT`) | `create_equipment`, `update_equipment`, `delete_equipment`, `check_out_equipment`, `check_in_equipment` |
 | Payouts (`PAYOUTS`) | `set_tournament_prize_pool`, `set_tournament_payout_split` |
+| Notification settings | `set_notification_setting`, `reset_notification_settings` (staff, checked in `NotificationSettingsService`); `set_my_notification_preset`, `set_my_notification` (any member, own settings only) |
 
 Every one is registered at **ACTOR**, mirroring `require_write_actor`: holding a
 live token approved for writing is the bar at this layer, and the real check is
@@ -473,7 +479,8 @@ gets; `STAFF`/`ADMIN` gates still apply on top.
 
 Every write that removes something rather than adding or amending it (the
 `delete_*`, `remove_*`, `withdraw_*`, `unassign_volunteer`, `revoke_community_role`,
-`undo_attendee_check_in`, `unlink_attendee` and `unlink_challonge_tournament`) is
+`undo_attendee_check_in`, `unlink_attendee`, `unlink_challonge_tournament` and
+`reset_notification_settings`) is
 additionally annotated `destructiveHint`, which is how a client decides how hard to
 ask before proceeding. `tests/mcp/test_mcp_catalogue.py` holds the exact list.
 `delete_tournament` also needs `confirmation="permanently delete"` and an inactive

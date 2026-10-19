@@ -85,6 +85,12 @@ def listed_at(event: CommunityEvent) -> datetime:
     return event.reviewed_at or event.created_at
 
 
+def _announce_listing(event: CommunityEvent) -> None:
+    from application.services import opt_in_notifications
+    from application.services.discord import discord_queue
+    discord_queue.enqueue(opt_in_notifications.event_listed(event.id))
+
+
 def _now() -> datetime:
     return datetime.now(timezone.utc)
 
@@ -270,6 +276,7 @@ class CommunityEventService:
         if listed:
             await self._record(actor, AuditActions.COMMUNITY_EVENT_APPROVED,
                                EventType.COMMUNITY_EVENT_APPROVED, event, automatic=True)
+            _announce_listing(event)
         else:
             await notify.notify_staff_of_submission(event, actor)
         return event
@@ -440,6 +447,7 @@ class CommunityEventService:
             return event
         if event.status is CommunityEventStatus.CANCELLED:
             raise ValueError("This event was cancelled, so it can't be approved.")
+        first_listing = event.status is CommunityEventStatus.PENDING
         await self.repository.update(
             event, status=CommunityEventStatus.APPROVED,
             reviewed_by=actor, reviewed_at=_now(), review_note=None,
@@ -448,6 +456,8 @@ class CommunityEventService:
                            EventType.COMMUNITY_EVENT_APPROVED, event)
         await notify.notify_host_of_decision(event, event.host, approved=True)
         await notify.mark_staff_dms_decided(event, actor, approved=True)
+        if first_listing:
+            _announce_listing(event)
         return event
 
     @requires_feature(FeatureFlag.COMMUNITY_EVENTS)

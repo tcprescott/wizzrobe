@@ -384,11 +384,11 @@ class UserService:
         # at the same granularity or its copy drifts with nothing to show why.
         for tournament_id in sorted(removed_ids):
             await record_enrolment_change(
-                self.audit_service, actor, user, tournament_id, added=False,
+                self.audit_service, actor, user, tournament_id, added=False, notify=True,
             )
         for tournament_id in sorted(created_ids):
             await record_enrolment_change(
-                self.audit_service, actor, user, tournament_id, added=True,
+                self.audit_service, actor, user, tournament_id, added=True, notify=True,
             )
 
     async def create_user(
@@ -603,5 +603,5 @@ class UserService:
                     added.append(tournament_id)
             for tournament_id in sorted(added):
                 await record_enrolment_change(
-                    self.audit_service, actor, user, tournament_id, added=True,
+                    self.audit_service, actor, user, tournament_id, added=True, notify=True,
                 )

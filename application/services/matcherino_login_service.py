@@ -33,6 +33,7 @@ from application.feature_flags import requires_feature
 from application.repositories import MatcherinoLoginRepository
 from application.services.audit_service import AuditActions, AuditService
 from application.services.auth_service import AuthService
+from application.services.notification_catalog import MATCHERINO_REFUSED, STAFF
 from application.utils.clients.matcherino_client import (
     MAX_REFRESH_TOKEN_LENGTH,
     MatcherinoAPIError,
@@ -201,4 +202,4 @@ class MatcherinoLoginService:
             community_name=community, description=body,
         )
         link = await notification_links.admin_matcherino_login()
-        discord_queue.enqueue(DiscordService().send_dm(int(recipient.discord_id), body, embed=embed, link=link))
+        discord_queue.enqueue(DiscordService().send_dm(int(recipient.discord_id), body, embed=embed, link=link, notice=MATCHERINO_REFUSED.to(STAFF)))

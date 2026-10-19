@@ -11,6 +11,15 @@ from datetime import datetime, timezone
 from typing import Iterable, Optional
 
 from application.services import staff_request_dms
+from application.services.notification_catalog import (
+    EVENT_APPROVED,
+    EVENT_CANCELLED,
+    EVENT_MOVED,
+    EVENT_REJECTED,
+    FOLLOWERS,
+    MEMBERS,
+    NoticeTarget,
+)
 from models import CommunityEvent, Role, StaffRequestKind, User
 
 logger = logging.getLogger(__name__)
@@ -47,13 +56,13 @@ def format_duration(minutes: int) -> str:
     return f'{hours}h' if hours else f'{mins}m'
 
 
-async def _send(recipients: Iterable[User], message: str, embed, link) -> None:
+async def _send(recipients: Iterable[User], message: str, embed, link, notice: NoticeTarget) -> None:
     from application.services.discord import DiscordService, discord_queue
 
     service = DiscordService()
     for user in recipients:
         if _wants_dm(user):
-            discord_queue.enqueue(service.send_dm(int(user.discord_id), message, embed=embed, link=link))
+            discord_queue.enqueue(service.send_dm(int(user.discord_id), message, embed=embed, link=link, notice=notice))
 
 
 async def notify_staff_of_submission(event: CommunityEvent, host: User) -> None:
@@ -148,7 +157,7 @@ async def notify_host_of_decision(event: CommunityEvent, host: User, *, approved
             title, color = '📅 Community event not listed', COLOR_CANCELLED
             link = await notification_links.community_event(event.id, label='Edit the event')
         embed = event_embed(event, title=title, color=color, community_name=community, description=message)
-        await _send([host], message, embed, link)
+        await _send([host], message, embed, link, (EVENT_APPROVED if approved else EVENT_REJECTED).to(MEMBERS))
     except Exception:
         logger.exception('community event %s: host notification failed', event.id)
 
@@ -171,6 +180,6 @@ async def notify_subscribers(event: CommunityEvent, subscribers: Iterable[User],
             title, color = '🕑 Community event moved', COLOR_RESCHEDULED
         embed = event_embed(event, title=title, color=color, community_name=community, description=message)
         link = await notification_links.community_event(event.id)
-        await _send(subscribers, message, embed, link)
+        await _send(subscribers, message, embed, link, (EVENT_CANCELLED if cancelled else EVENT_MOVED).to(FOLLOWERS))
     except Exception:
         logger.exception('community event %s: subscriber notification failed', event.id)

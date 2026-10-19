@@ -19,6 +19,14 @@ from application.services.audit_service import AuditActions, AuditService
 from application.services.auth_service import AuthService
 from application.services.discord import discord_queue
 from application.services.discord.discord_service import DiscordService
+from application.services.notification_catalog import (
+    ADMINS,
+    CREW,
+    CREW_ASSIGNED,
+    CREW_SIGNUP,
+    CREW_UNASSIGNED,
+    CREW_WITHDREW,
+)
 from application.services.tenant_service import TenantService
 from application.utils.discord_embeds import COLOR_CANCELLED, COLOR_CREW, notification_embed, time_field
 from application.utils.discord_messages_crew import (
@@ -571,7 +579,7 @@ class CrewService:
                 # Acknowledging is one button; the other opens the crew member's
                 # own card for this match, where Confirm and Withdraw both live.
                 # The whole community board left them hunting for their row.
-                link=await notification_links.crew_match(crew_member.match.id),
+                link=await notification_links.crew_match(crew_member.match.id), notice=CREW_ASSIGNED.to(CREW),
             )
         )
 
@@ -602,7 +610,7 @@ class CrewService:
         )
 
         discord_queue.enqueue(
-            self.discord_service.send_dm(int(discord_id), message, embed=embed)
+            self.discord_service.send_dm(int(discord_id), message, embed=embed, notice=CREW_UNASSIGNED.to(CREW))
         )
 
     async def _notify_crew_owners_of_signup(self, match, volunteer: User, crew_type: str) -> None:
@@ -654,7 +662,7 @@ class CrewService:
         for owner in owners:
             discord_queue.enqueue(
                 self.discord_service.send_dm(
-                    int(owner.discord_id), message, embed=embed, link=link,
+                    int(owner.discord_id), message, embed=embed, link=link, notice=CREW_SIGNUP.to(ADMINS),
                 )
             )
 
@@ -728,6 +736,6 @@ class CrewService:
                 continue
             discord_queue.enqueue(
                 self.discord_service.send_dm(
-                    int(discord_id), message, embed=embed, link=link,
+                    int(discord_id), message, embed=embed, link=link, notice=CREW_WITHDREW.to(ADMINS),
                 )
             )

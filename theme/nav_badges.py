@@ -53,7 +53,7 @@ NAV_ICON_NAMES: frozenset[str] = frozenset({
     'account_circle', 'account_tree', 'admin_panel_settings', 'analytics', 'assignment_ind',
     'calendar_view_week', 'celebration', 'checklist', 'circle', 'edit_calendar', 'emoji_events',
     'event_available', 'fact_check', 'feedback', 'flag', 'groups', 'help', 'home', 'how_to_reg',
-    'inventory_2', 'live_tv', 'manage_accounts', 'menu_book', 'monitor_heart', 'payments',
+    'inventory_2', 'live_tv', 'manage_accounts', 'menu_book', 'monitor_heart', 'notifications', 'payments',
     'rate_review', 'schema', 'settings', 'sports_esports', 'stadium', 'sync_alt', 'timer', 'tune',
     'tv', 'view_timeline', 'volunteer_activism',
 })

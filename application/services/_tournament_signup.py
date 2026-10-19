@@ -23,6 +23,7 @@ from application.events import EventType
 from application.repositories import TournamentRepository
 from application.services._challonge_signup import roster_locked
 from application.services.audit_service import AuditActions, AuditService
+from application.services.notification_catalog import PLAYERS, SIGNED_UP
 from application.services.tenant_membership_service import TenantMembershipService
 from application.utils.clients.startgg_client import event_url
 from application.utils.discord_embeds import COLOR_SCHEDULED
@@ -117,6 +118,7 @@ async def record_enrolment_change(
     tournament_id: int,
     *,
     added: bool,
+    notify: bool = False,
 ) -> None:
     """The audit row and the event every enrolment change shares.
 
@@ -152,6 +154,14 @@ async def record_enrolment_change(
         EventType.TOURNAMENT_ENROLLED if added else EventType.TOURNAMENT_WITHDRAWN,
         event_extra={'tournament_id': tournament_id, 'user_id': target.id},
     )
+    # Only a person's own hand on a roster tells anyone: a bracket sync or the
+    # auto-enrol behind scheduling is not news (``notify`` is False there).
+    if notify and actor is not None:
+        from application.services import opt_in_notifications
+        from application.services.discord import discord_queue
+        discord_queue.enqueue(opt_in_notifications.enrolment_changed(
+            tournament_id, target.id, actor.id, added=added,
+        ))
 
 
 class TournamentSignupMixin:
@@ -343,7 +353,7 @@ class TournamentSignupMixin:
         self, actor: User, target: User, tournament: Tournament, *, added: bool,
     ) -> None:
         return await record_enrolment_change(
-            self.audit_service, actor, target, tournament.id, added=added,
+            self.audit_service, actor, target, tournament.id, added=added, notify=True,
         )
 
     async def _notify_signup(self, user: User, tournament: Tournament) -> None:
@@ -375,7 +385,7 @@ class TournamentSignupMixin:
             link = await notification_links.home_tournaments()
             discord_queue.enqueue(
                 DiscordService().send_dm(
-                    int(user.discord_id), body, embed=embed, link=link,
+                    int(user.discord_id), body, embed=embed, link=link, notice=SIGNED_UP.to(PLAYERS),
                 )
             )
         except Exception:

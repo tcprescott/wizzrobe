@@ -21,6 +21,7 @@ from pages.admin_tabs.admin_check_in import admin_check_in_page
 from pages.admin_tabs.admin_community_events import admin_community_events_page
 from pages.admin_tabs.admin_equipment import admin_equipment_page
 from pages.admin_tabs.admin_feedback import admin_feedback_page
+from pages.admin_tabs.admin_notifications import admin_notifications_page
 from pages.admin_tabs.admin_payouts import admin_payouts_page
 from pages.admin_tabs.admin_presets import admin_presets_page
 from pages.admin_tabs.admin_qualifiers import admin_qualifiers_page
@@ -213,6 +214,7 @@ def build_admin_tabs(
                      'content': (reports_page, (), {**reports_kwargs, 'only': VOLUNTEER_REPORTS})})
     if is_staff:
         tabs.append({'label': 'Service Health', 'icon': 'monitor_heart', 'group': 'System', 'content': admin_service_health_page})
+        tabs.append({'label': 'Notifications', 'icon': 'notifications', 'group': 'System', 'content': admin_notifications_page})
     # Every setting lives under one entry with its own menu; the panes keep
     # their old tabs' role gates, so a sync admin or preset manager still finds
     # the one pane they had, and the retired slugs resolve to it.

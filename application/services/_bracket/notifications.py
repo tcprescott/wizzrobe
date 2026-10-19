@@ -29,6 +29,7 @@ from application.services import notification_links
 from application.services._bracket._composed import ComposedBracketService
 from application.services.bracket_engines.round_names import RoundNode, round_names
 from application.services.discord import discord_queue
+from application.services.notification_catalog import MATCHUP_READY, MATCHUP_REOPENED, PLAYERS
 from application.utils.discord_embeds import matchup_ready_embed
 from application.utils.discord_messages import DMLink, matchup_ready_dm
 from models import (
@@ -287,7 +288,11 @@ class BracketNotificationMixin(ComposedBracketService):
         schedule_link: Optional[DMLink],
         rebook: bool,
     ) -> None:
-        """One entrant's DM. ``send_dm`` honours the Discord on/off switch."""
+        """One entrant's DM. ``send_dm`` honours the Discord on/off switch.
+
+        Silent by default (see the catalogue): the matchup waits in the
+        player's Pick-a-time list, so the DM is a heads-up rather than a summons.
+        """
         from application.services.discord.discord_service import DiscordService
         from application.services.match.match_schedule_service import (
             _community_name,
@@ -315,6 +320,7 @@ class BracketNotificationMixin(ComposedBracketService):
         )
         success, err = await DiscordService().send_dm(
             user.discord_id, message, embed=embed, link=schedule_link,
+            notice=(MATCHUP_REOPENED if rebook else MATCHUP_READY).to(PLAYERS),
         )
         if not success:
             logger.warning(

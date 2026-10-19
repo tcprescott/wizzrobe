@@ -12,6 +12,7 @@ import pytest
 
 import application.services.discord as discord_pkg
 from application.services import MatchCommentService, StaffAlertService
+from application.services.notification_catalog import ADMINS, ON_DUTY
 from application.tenant_context import tenant_scope
 from models import (
     Match,
@@ -218,7 +219,8 @@ class TestPlayerCommentDM:
         assert len(dms) == 1
         await dms.pop()
         [call] = sent
-        assert _names(call['recipients']) == ['desk', 'ta']
+        tagged = sorted((u.username, r) for u, r in call['recipients'])
+        assert tagged == [('desk', ON_DUTY), ('ta', ADMINS)]
         assert call['body'] == "Running late, train's delayed"
         assert call['match_id'] == m.id
 

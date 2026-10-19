@@ -302,6 +302,10 @@ _EXCLUDED_BY_DESIGN = frozenset({
     AuditActions.NOTIFICATION_EMAIL_REMOVED,
     AuditActions.NOTIFICATION_TELEGRAM_LINKED,
     AuditActions.NOTIFICATION_TELEGRAM_UNLINKED,
+    # Which DMs a community sends and whether they ping (Admin → Notifications):
+    # tenant-internal delivery config, not a domain event a subscriber acts on.
+    AuditActions.NOTIFICATION_SETTING_CHANGED,
+    AuditActions.NOTIFICATION_SETTINGS_RESET,
     # Tenant ↔ Discord-server connection: admin infrastructure configuration,
     # not a tournament domain event a webhook subscriber would act on.
     AuditActions.DISCORD_SERVER_LINKED,

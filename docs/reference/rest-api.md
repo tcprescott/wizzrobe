@@ -188,7 +188,18 @@ Engagement telemetry (Staff; `TelemetryService` re-checks that itself).
 - `GET /telemetry/top?dimension=&start=&end=&limit=` — `dimension` is `paths`, `event_types`, `users` or `controls` (tabs, buttons, menu items, dialogs and fields per page, with distinct users and phone uses).
 
 ### Notifications (`/api/notifications`) · `notifications.py`
-- `GET /preferences` · `PUT /preferences`.
+Your own settings; any member. Schemas in [`api/schemas/notifications.py`](../../api/schemas/notifications.py).
+- `GET /preferences` · `PUT /preferences` — tournaments you follow.
+- `GET /messages` — `MyNotificationsResponse {preset, changed, messages}`: every message that can reach you, each with `notice`, `recipient`, `section`, `title`, `when`, `community`, `preset`, `override`, `mode` (the quieter of the community's setting and yours) and `changed`. Staff alerts only for people who can see the admin side.
+- `PUT /messages/preset` — body `{preset}`: `everything`, `needs_me` or `quiet`; overrides stay.
+- `PUT /messages/{notice}/{recipient}` — body `{mode}`, `null` back to the preset. Unknown notice or recipient is `400`.
+- `POST /messages/reset` — clears your overrides, keeps the preset. See [notification-settings.md](../features/notification-settings.md#personal-choices).
+
+### Notification settings (`/api/notification-settings`) · `notification_settings.py`
+Which messages this community sends, to whom, and whether they ping — the Admin → Notifications grid. **Staff** for reads and writes (`require_staff` / `require_staff_write`), re-checked in `NotificationSettingsService`. Schemas in [`api/schemas/notification_settings.py`](../../api/schemas/notification_settings.py). See [notification-settings.md](../features/notification-settings.md).
+- `GET /notification-settings` — every catalogue cell as a `NotificationSettingResponse`: `notice`, `group`, `title`, `when`, `recipient`, `recipient_label`, `who`, `mode` (`off` / `silent` / `ping`), `default`, `changed`.
+- `PUT /notification-settings/{notice}/{recipient}` — body `NotificationSettingUpdate {mode}`; returns the updated row. Choosing the default clears the override; an unknown notice or a recipient the message doesn't have is `400`. Audited as `notification_setting.changed`.
+- `POST /notification-settings/reset` — clears every override; returns `NotificationSettingsReset {reset}` (how many went back). Audited as `notification_settings.reset`.
 
 ### Sent messages (`/api/sent-messages`) · `sent_messages.py`
 - `GET /sent-messages` — every DM sent in the community, newest first, **Staff only**. Filters: `start`/`end` (UTC), `user_id` (recipient), `search` (text or recipient name), `problems_only` (blocked or failed); paginate with `limit` (1–500, default 50) and `offset`. Response carries `total`, window `counts` (`sent`, `silent`, `off_or_blocked`, `failed`) and each message's per-channel result. `discord_id` is a number, like the rest of REST.

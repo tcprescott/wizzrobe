@@ -29,6 +29,7 @@ from application.repositories._save import save_fields
 from application.services._bracket._composed import ComposedBracketService
 from application.services.audit_service import AuditActions
 from application.services.bracket_config import validate_best_of
+from application.services.notification_catalog import SERIES_GAME_CANCELLED
 from models import (
     Bracket,
     BracketMatch,
@@ -296,7 +297,9 @@ class SeriesMixin(ComposedBracketService):
             try:
                 match = await service.get_by_id(game.match_id)
                 if match is not None:
-                    await service._cancel_match(match, actor, reason=reason)
+                    await service._cancel_match(
+                        match, actor, reason=reason, notice=SERIES_GAME_CANCELLED,
+                    )
             except Exception:
                 logger.exception(
                     'clinch cancel failed for match %s (game %s)',

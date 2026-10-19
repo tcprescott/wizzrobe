@@ -548,7 +548,7 @@ run-sheet line; the staff count includes private notes, which is why players
 never get counts.
 
 A `staff_to_players` message DMs each player whose `User.dm_match_comments` is on
-(default on; Profile → "Staff comments on your matches"). The DM's button opens
+(default on; Profile → Notifications → Customize → "Staff comment on a match", which keeps the flag in step). The DM's button opens
 `/home/player?comments=<match_id>`, which narrows My Schedule to that match and
 opens its sheet. Every add and delete audits and emits `match.comment_added` /
 `match.comment_deleted`, with `kind` in the payload so a webhook can drop private

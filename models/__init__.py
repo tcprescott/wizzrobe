@@ -70,6 +70,9 @@ from .enums import (
     MatchCommentKind,
     MatchNotificationLevel,
     MembershipSource,
+    NotificationMode,
+    NotificationPreset,
+    NotificationRecipient,
     PresetOverride,
     ProviderTaskStatus,
     RaceRoomStatus,
@@ -104,6 +107,8 @@ from .match import (
     Tracker,
 )
 from .mcp import McpAuthorizationCode, McpOAuthClient
+from .notification_preference import NotificationPreference
+from .notification_setting import NotificationSetting
 from .preferences import UserTablePreference
 from .racetime import RaceRoomProfile, RacetimeBot, RacetimeBotTenant, RacetimeRoom
 from .speedgaming import SpeedGamingEpisode, SpeedGamingEventLink
@@ -261,6 +266,11 @@ __all__ = [
     'McpAuthorizationCode',
     'McpOAuthClient',
     'MembershipSource',
+    'NotificationMode',
+    'NotificationPreference',
+    'NotificationPreset',
+    'NotificationRecipient',
+    'NotificationSetting',
     # volunteer
     'PlayerAvailability',
     'Preset',

@@ -83,3 +83,10 @@ class TournamentNotificationRepository:
             p.user for p in prefs
             if p.user.discord_id
         ]
+
+    async def get_followers(self, tournament_id: int) -> List[User]:
+        """Users following the tournament at any level."""
+        prefs = await scoped(TournamentNotificationPreference.filter(
+            tournament_id=tournament_id,
+        ).exclude(match_notifications=MatchNotificationLevel.NONE)).prefetch_related('user').all()
+        return [p.user for p in prefs if p.user.discord_id]

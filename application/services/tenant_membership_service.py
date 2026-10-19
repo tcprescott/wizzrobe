@@ -25,6 +25,14 @@ from application.repositories.tenant_membership_repository import TenantMembersh
 from application.repositories.user_role_repository import UserRoleRepository
 from application.services.audit_service import AuditActions, AuditService
 from application.services.auth_service import AuthService
+from application.services.notification_catalog import (
+    JOIN_APPROVED,
+    JOIN_DECLINED,
+    MEMBERS,
+    MEMBERSHIP_REMOVED,
+    WELCOME,
+    NoticeTarget,
+)
 from application.tenant_context import require_tenant_id, tenant_scope
 from application.utils.discord_embeds import (
     COLOR_CANCELLED,
@@ -210,7 +218,7 @@ class TenantMembershipService:
         await self.audit_service.write_and_publish(
             actor, AuditActions.TENANT_MEMBER_ADDED, details, EventType.TENANT_MEMBER_ADDED,
         )
-        await self._notify_member(user, member_added_dm, by_staff=True)
+        await self._notify_member(user, member_added_dm, WELCOME.to(MEMBERS), by_staff=True)
 
     async def remove_member(self, actor: User, user: User) -> None:
         """Take a user out of this community.
@@ -263,7 +271,7 @@ class TenantMembershipService:
         from application.services.emergency_contact_service import EmergencyContactService
         await EmergencyContactService().remove_for_removed_member(actor, user)
         await self._notify_member(
-            user, member_removed_dm,
+            user, member_removed_dm, MEMBERSHIP_REMOVED.to(MEMBERS),
             can_ask=await self.get_join_mode(tenant_id) in (
                 JoinMode.DISCORD_OR_REQUEST, JoinMode.REQUEST,
             ),
@@ -635,7 +643,7 @@ class TenantMembershipService:
             link = invite
         discord_queue.enqueue(
             DiscordService().send_dm(
-                int(requester.discord_id), body, embed=embed, link=link,
+                int(requester.discord_id), body, embed=embed, link=link, notice=(JOIN_APPROVED if approved else JOIN_DECLINED).to(MEMBERS),
             )
         )
 
@@ -663,7 +671,7 @@ class TenantMembershipService:
         return DMLink('Join the Discord server', url) if url else None
 
     @staticmethod
-    async def _notify_member(user: User, build, **kwargs) -> None:
+    async def _notify_member(user: User, build, notice: NoticeTarget, **kwargs) -> None:
         """DM ``user`` about their own membership, with a link when they're in."""
         from application.services import notification_links
         from application.services.discord import DiscordService, discord_queue
@@ -683,7 +691,7 @@ class TenantMembershipService:
             )
             link = await notification_links.home_tournaments(label='Find a tournament') if joined else None
             discord_queue.enqueue(
-                DiscordService().send_dm(int(user.discord_id), body, embed=embed, link=link)
+                DiscordService().send_dm(int(user.discord_id), body, embed=embed, link=link, notice=notice)
             )
         except Exception:
             logger.exception('Membership DM to user %s failed', user.id)
@@ -780,5 +788,5 @@ class TenantMembershipService:
             return None
         closed = await close_pending_request(user, tenant_id, actor)
         if closed is not None:
-            await TenantMembershipService._notify_member(user, member_added_dm, by_staff=False)
+            await TenantMembershipService._notify_member(user, member_added_dm, WELCOME.to(MEMBERS), by_staff=False)
         return closed

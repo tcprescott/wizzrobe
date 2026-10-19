@@ -41,6 +41,7 @@ from application.repositories import (
 from application.services._reschedule_notifications import RescheduleNotificationMixin
 from application.services.audit_service import AuditActions, AuditService
 from application.services.auth_service import AuthService
+from application.services.notification_catalog import MATCH_CANCELLED_ON_REQUEST
 from application.services.round_schedule_service import RoundScheduleService
 from models import (
     Match,
@@ -474,6 +475,11 @@ class MatchRescheduleService(RescheduleNotificationMixin):
         await self._mark_staff_dms(
             request, 'withdrawn', actor=actor, tournament_name=request.match.tournament.name,
         )
+        from application.services import opt_in_notifications
+        from application.services.discord import discord_queue
+        discord_queue.enqueue(opt_in_notifications.request_withdrawn(
+            request.match_id, actor.id, request.kind is RescheduleRequestKind.CANCEL,  # type: ignore[attr-defined]
+        ))
         return request
 
     # ---- the decision --------------------------------------------------
@@ -523,6 +529,7 @@ class MatchRescheduleService(RescheduleNotificationMixin):
         if request.kind is RescheduleRequestKind.CANCEL:
             await match_service.cancel_match(
                 match_id, actor=actor, reason=note or request.reason,
+                notice=MATCH_CANCELLED_ON_REQUEST,
             )
             final_at = None
         else:
