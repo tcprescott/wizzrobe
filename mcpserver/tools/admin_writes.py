@@ -363,6 +363,22 @@ async def set_notification_setting(
     return NotificationSettingResponse.from_row(await NotificationSettingsService.set_mode(current_actor().user, notice, recipient, mode))
 
 
+async def set_staff_notification_setting(
+    notice: str,
+    choice: str,
+    tenant: TenantArg = None,
+) -> List[NotificationSettingResponse]:
+    """Set how one message reaches staff, in one choice. Staff only.
+
+    `choice` is `ping_all` (whoever is on shift plus the admins, all staff when
+    nobody is on shift), `ping_on_duty` (admins off, same fallback), `silent` or
+    `off`. Sets the message's `on_duty`, `admins` and `staff` rows together and
+    returns them. Mirrors `PUT /api/notification-settings/{notice}/staff-alerts`.
+    """
+    rows = await NotificationSettingsService.set_staff_choice(current_actor().user, notice, choice)
+    return [NotificationSettingResponse.from_row(r) for r in rows]
+
+
 async def reset_notification_settings(
     tenant: TenantArg = None,
 ) -> OperationResult:
@@ -575,6 +591,7 @@ def register_tools(mcp: MCPServer) -> None:
     write_tool(revoke_community_role, 'Revoke community role', destructive=True)
 
     write_tool(set_notification_setting, 'Set notification setting')
+    write_tool(set_staff_notification_setting, 'Set staff notification setting')
     write_tool(reset_notification_settings, 'Reset notification settings', destructive=True)
     write_tool(set_my_notification_preset, 'Set my notification preset')
     write_tool(set_my_notification, 'Set my notification')

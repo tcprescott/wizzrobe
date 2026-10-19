@@ -11,7 +11,8 @@ message, and keep each sender pointed at the entry that describes it.
 """
 
 from dataclasses import dataclass
-from typing import Dict, List, Mapping, Optional
+from enum import Enum
+from typing import Dict, List, Mapping, Optional, Tuple
 
 from models import NotificationMode, NotificationRecipient
 
@@ -57,6 +58,15 @@ class Notice:
         if recipient not in self.defaults:
             raise KeyError(f'{self.key} has no {recipient.value} recipient')
         return NoticeTarget(self.key, recipient)
+
+    @property
+    def section(self) -> str:
+        """The subheading it sits under inside its group, or '' for a group with none."""
+        return _SECTION_OF.get(self.key, '')
+
+    @property
+    def staff_recipients(self) -> Tuple[NotificationRecipient, ...]:
+        return tuple(r for r in STAFF_RECIPIENTS if r in self.defaults)
 
 
 GROUPS = (
@@ -456,9 +466,114 @@ REVIEW_QUEUE = _notice(
 )
 
 
+# Subheadings inside the bigger groups, in display order. A group missing here
+# shows its messages under the group heading alone.
+SECTIONS: Dict[str, Tuple[Tuple[str, Tuple[Notice, ...]], ...]] = {
+    'Matches': (
+        ('Booking', (
+            MATCH_SCHEDULED, OPPONENT_ACKNOWLEDGED, STREAM_CANDIDATE, MATCH_CANCELLED,
+            MATCH_CANCELLED_ON_REQUEST, SERIES_GAME_CANCELLED, REMOVED_FROM_MATCH,
+        )),
+        ('Match day', (
+            MATCH_CHECKED_IN, SEED_READY, STATION_ASSIGNED, RACE_ROOM_OPEN, STAGE_CALL,
+            STAGE_CLEARED, STAGE_REMINDER, MATCH_STARTED, MATCH_FINISHED,
+        )),
+        ('Results', (MATCH_CONFIRMED, MATCH_RESULT)),
+        ('Comments and staff alerts', (
+            STAFF_COMMENT, PLAYER_COMMENT, MATCH_FLAGGED, STREAM_OFFER, SEED_FAILED,
+        )),
+        ('Seed settings', (
+            HARDER_SETTINGS_OFFER, HARDER_SETTINGS_AGREED, HARDER_SETTINGS_DROPPED,
+            SETTINGS_SET_BY_STAFF, SETTINGS_RELEASED,
+        )),
+    ),
+    'Volunteer shifts': (
+        ('Your shifts', (SHIFT_ASSIGNED, SHIFT_MOVED, SHIFT_REMOVED, SHIFT_REMINDER, SHIFT_STARTING)),
+        ('Staff alerts', (SHIFT_GIVEN_BACK, VOLUNTEER_LATE, VOLUNTEER_ARRIVED)),
+    ),
+    'Community': (
+        ('Membership', (JOIN_REQUEST, JOIN_APPROVED, JOIN_DECLINED, WELCOME, MEMBERSHIP_REMOVED)),
+        ('ADA', (ADA_REQUEST, ADA_CHANGED)),
+        ('Community events', (
+            EVENT_TO_REVIEW, EVENT_APPROVED, EVENT_LISTED, EVENT_REJECTED, EVENT_MOVED,
+            EVENT_CANCELLED, EVENT_REMINDER,
+        )),
+    ),
+}
+_SECTION_OF: Dict[str, str] = {
+    n.key: name for sections in SECTIONS.values() for name, members in sections for n in members
+}
+_SECTION_ORDER: Dict[str, int] = {
+    n.key: i
+    for sections in SECTIONS.values()
+    for i, n in enumerate(n for _, members in sections for n in members)
+}
+
+
 def notices() -> List[Notice]:
-    """The catalogue in display order: by group, then as declared."""
-    return sorted(CATALOG.values(), key=lambda n: GROUPS.index(n.group))
+    """The catalogue in display order: by group, then section, then as declared."""
+    declared = {key: i for i, key in enumerate(CATALOG)}
+    return sorted(
+        CATALOG.values(),
+        key=lambda n: (GROUPS.index(n.group), _SECTION_ORDER.get(n.key, declared[n.key])),
+    )
+
+
+# The staff columns staff set together from one "Staff" dropdown on the settings
+# page. The per-recipient settings stay the stored truth; a choice writes all of
+# a message's staff recipients at once, and a mix that matches no choice reads
+# back as custom.
+STAFF_RECIPIENTS = (ON_DUTY, ADMINS, STAFF)
+
+
+class StaffChoice(str, Enum):
+    PING_ALL = 'ping_all'
+    PING_ON_DUTY = 'ping_on_duty'
+    SILENT = 'silent'
+    OFF = 'off'
+
+    @property
+    def label(self) -> str:
+        return {
+            'ping_all': 'Ping all', 'ping_on_duty': 'Ping on-duty',
+            'silent': 'Silent', 'off': 'Off',
+        }[self.value]
+
+
+def staff_modes(notice: Notice, choice: StaffChoice) -> Dict[NotificationRecipient, NotificationMode]:
+    """What ``choice`` sets each of the message's staff recipients to.
+
+    Ping on-duty drops the tournament admins but keeps the all-staff fallback, so
+    a message still reaches someone when nobody is on shift. It only exists for a
+    message with an on-shift recipient.
+    """
+    recipients = notice.staff_recipients
+    if not recipients:
+        raise ValueError(f'{notice.title} has no staff recipients.')
+    if choice is StaffChoice.PING_ON_DUTY:
+        if ON_DUTY not in recipients:
+            raise ValueError(f'{notice.title} has no on-shift recipient.')
+        return {r: OFF if r is ADMINS else PING for r in recipients}
+    mode = {StaffChoice.PING_ALL: PING, StaffChoice.SILENT: SILENT, StaffChoice.OFF: OFF}[choice]
+    return {r: mode for r in recipients}
+
+
+def staff_choices(notice: Notice) -> List[StaffChoice]:
+    """The choices the Staff dropdown offers for ``notice``."""
+    if not notice.staff_recipients:
+        return []
+    return [c for c in StaffChoice if c is not StaffChoice.PING_ON_DUTY or ON_DUTY in notice.staff_recipients]
+
+
+def staff_choice_for(
+    notice: Notice, modes: Mapping[NotificationRecipient, NotificationMode],
+) -> Optional[StaffChoice]:
+    """The choice the message's staff recipients add up to, or None for a custom mix."""
+    current = {r: modes[r] for r in notice.staff_recipients}
+    for choice in staff_choices(notice):
+        if staff_modes(notice, choice) == current:
+            return choice
+    return None
 
 
 # What each message asks of the person who gets it, for the presets on Profile →

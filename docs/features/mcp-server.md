@@ -458,7 +458,7 @@ replaces the whole asset.
 | Members and roles | `add_community_member`, `remove_community_member`, `grant_community_role`, `revoke_community_role` |
 | Equipment (`EQUIPMENT`) | `create_equipment`, `update_equipment`, `delete_equipment`, `check_out_equipment`, `check_in_equipment` |
 | Payouts (`PAYOUTS`) | `set_tournament_prize_pool`, `set_tournament_payout_split` |
-| Notification settings | `set_notification_setting`, `reset_notification_settings` (staff, checked in `NotificationSettingsService`); `set_my_notification_preset`, `set_my_notification` (any member, own settings only) |
+| Notification settings | `set_notification_setting`, `set_staff_notification_setting`, `reset_notification_settings` (staff, checked in `NotificationSettingsService`); `set_my_notification_preset`, `set_my_notification` (any member, own settings only) |
 
 Every one is registered at **ACTOR**, mirroring `require_write_actor`: holding a
 live token approved for writing is the bar at this layer, and the real check is

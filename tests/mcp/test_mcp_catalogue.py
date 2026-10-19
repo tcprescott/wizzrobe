@@ -175,6 +175,7 @@ WRITE_TOOLS = {
     'set_my_notification',
     'set_my_notification_preset',
     'set_notification_setting',
+    'set_staff_notification_setting',
     'set_tournament_payout_split',
     'set_tournament_prize_pool',
     'sign_up_for_tournament',

@@ -16,7 +16,7 @@ exactly the defaults.
 | Recipient tagging for staff alerts | `StaffAlertService.tagged_match_alert_recipients` / `tagged_volunteer_alert_recipients` |
 | Page | `pages/admin_tabs/admin_notifications.py` |
 | REST | `api/routers/notification_settings.py`, `api/schemas/notification_settings.py` |
-| MCP | `list_notification_settings` (`mcpserver/tools/observability.py`), `set_notification_setting`, `reset_notification_settings` (`mcpserver/tools/admin_writes.py`) |
+| MCP | `list_notification_settings` (`mcpserver/tools/observability.py`), `set_notification_setting`, `set_staff_notification_setting`, `reset_notification_settings` (`mcpserver/tools/admin_writes.py`) |
 | A person's own choices | `application/services/notification_preference_service.py` (`NotificationPreferenceService`), `NotificationPreference` (`models/notification_preference.py`, migration 118), `NotificationPreferenceRepository` |
 | Profile page | `pages/home_tabs/notification_preferences_section.py`, rendered by `player_edit_info.py` |
 | Personal REST / MCP | `/api/notifications/messages*` in `api/routers/notifications.py`; `my_notification_settings`, `set_my_notification_preset`, `set_my_notification` |
@@ -30,6 +30,13 @@ Community, Event check-in, Async qualifiers. Each carries a stable `key`
 for every recipient kind it reaches, and an optional `who` note for a column
 whose label would mislead (for a staff alert, "All staff" means the fallback
 only). `CATALOG` maps key to `Notice`; `notices()` lists them in display order.
+
+`SECTIONS` splits the three big groups into subheadings, each a card on the
+page: Matches into Booking, Match day, Results, Comments and staff alerts, and
+Seed settings; Volunteer shifts into Your shifts and Staff alerts; Community into
+Membership, ADA and Community events. `Notice.section` reads it back (`''` for a
+group without subheadings), and `notices()` orders by it. A new message in one of
+those groups must be added to a section; `TestSections` fails otherwise.
 
 Keys are stored in `NotificationSetting.notice`. Renaming one silently drops
 every override saved against it, so a new message gets a new key.
@@ -64,6 +71,24 @@ request, a volunteer running late or giving a shift back):
 `StaffAlertService` returns each recipient tagged with that column, and the
 sender passes the tag on as `notice.to(tag)`.
 
+**One Staff choice.** The page shows the three as a single Staff dropdown
+(`StaffChoice` in the catalogue). The per-recipient rows stay the stored truth;
+a choice writes all of a message's staff rows at once (`staff_modes`):
+
+| Choice | `on_duty` | `admins` | `staff` |
+|---|---|---|---|
+| `ping_all` | ping | ping | ping |
+| `ping_on_duty` | ping | off | ping |
+| `silent` | silent | silent | silent |
+| `off` | off | off | off |
+
+`ping_on_duty` keeps the all-staff fallback on purpose (Thomas, 2026-10-19): an
+alert still reaches someone when nobody is on shift. It is offered only where the
+message has an `on_duty` row; a message that goes only to all staff or only to
+admins gets Ping (`ping_all`), Silent and Off. A mix written cell by cell (REST,
+MCP) that matches no choice reads back as `staff_choice: null` and shows as
+Custom, with the mix spelled out at the top of the dropdown.
+
 ## How a send is decided
 
 A sender passes `notice=MATCH_SCHEDULED.to(PLAYERS)` (a `NoticeTarget`) to
@@ -89,16 +114,19 @@ another process (the app runs [one worker](../scaling-roadmap.md)).
 
 Staff only, enforced in the service (`AuthService.is_staff`) for every surface:
 
-- **Page.** One row per message, one column per recipient kind; tap a cell for
-  Off, Silent, Ping or back to the default. It saves at once. Reset all to
-  defaults sits in the Actions menu behind a confirmation. On a phone each row is
-  a card of chips.
+- **Page.** One card per section (layout B, Thomas 2026-10-19), two across on a
+  wide screen; each card has a row per message and only the recipient columns
+  its messages use, with the staff columns merged into Staff. Tap a cell for
+  Off, Silent, Ping (or a Staff choice) or back to the default. It saves at
+  once. Reset all to defaults sits in the Actions menu behind a confirmation. On
+  a phone the same cards list each message's cells as labelled chips.
 - **REST.** `GET /api/notification-settings`,
   `PUT /api/notification-settings/{notice}/{recipient}` (`{mode}`),
+  `PUT /api/notification-settings/{notice}/staff-alerts` (`{choice}`),
   `POST /api/notification-settings/reset`. See
   [rest-api.md](../reference/rest-api.md#notification-settings-apinotification-settings--notification_settingspy).
 - **MCP.** `list_notification_settings`, `set_notification_setting`,
-  `reset_notification_settings` (destructive). See [mcp-server.md](mcp-server.md).
+  `set_staff_notification_setting`, `reset_notification_settings` (destructive). See [mcp-server.md](mcp-server.md).
 
 Choosing the default deletes the override row. A real change audits
 `notification_setting.changed` (`notice`, `title`, `recipient`, `old`, `new`); a

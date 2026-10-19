@@ -9,6 +9,7 @@ from api.schemas.notification_settings import (
     NotificationSettingResponse,
     NotificationSettingsReset,
     NotificationSettingUpdate,
+    StaffNotificationUpdate,
 )
 from application.services import NotificationSettingsService
 from models import NotificationRecipient, User
@@ -31,6 +32,26 @@ router = APIRouter(
 )
 async def list_notification_settings(actor: User = Depends(require_staff)):
     return [NotificationSettingResponse.from_row(r) for r in await NotificationSettingsService.list_settings(actor)]
+
+
+@router.put(
+    "/{notice}/staff-alerts",
+    response_model=List[NotificationSettingResponse],
+    summary="Set how one message reaches staff, in one choice",
+    description=(
+        "The Staff dropdown on the settings page: sets the message's `on_duty`, `admins` and "
+        "`staff` rows together and returns them. `ping_all` = ping all three (the all-staff row "
+        "only fires when nobody is on shift), `ping_on_duty` = admins off, the others ping, "
+        "`silent` and `off` set all three. Fails with 400 for a message with no staff "
+        "recipients, or `ping_on_duty` on one with no `on_duty` row.\n\n"
+        "**Who can call this:** Staff."
+    ),
+)
+async def set_staff_notification_setting(
+    notice: str, body: StaffNotificationUpdate, actor: User = Depends(require_staff_write),
+):
+    rows = await NotificationSettingsService.set_staff_choice(actor, notice, body.choice)
+    return [NotificationSettingResponse.from_row(r) for r in rows]
 
 
 @router.put(

@@ -16,7 +16,15 @@ from typing import Dict, List, Optional, Tuple
 from application.repositories import NotificationSettingRepository
 from application.services.audit_service import AuditActions, AuditService
 from application.services.auth_service import AuthService
-from application.services.notification_catalog import CATALOG, Notice, NoticeTarget, notices
+from application.services.notification_catalog import (
+    CATALOG,
+    Notice,
+    NoticeTarget,
+    StaffChoice,
+    notices,
+    staff_choice_for,
+    staff_modes,
+)
 from application.tenant_context import get_current_tenant_id
 from models import NotificationMode, NotificationRecipient, User
 
@@ -36,6 +44,9 @@ class NotificationSettingRow:
     notice: Notice
     recipient: NotificationRecipient
     mode: NotificationMode
+    # On a staff recipient's row, what the message's staff recipients add up to
+    # on the Staff dropdown; None on other rows and for a custom mix.
+    staff_choice: Optional[StaffChoice] = None
 
     @property
     def default(self) -> NotificationMode:
@@ -85,11 +96,41 @@ class NotificationSettingsService:
             await AuthService.is_staff(actor), 'Only staff can see notification settings',
         )
         overrides = await NotificationSettingRepository.overrides()
+        return [row for n in notices() for row in cls._rows(n, overrides)]
+
+    @staticmethod
+    def _rows(notice: Notice, overrides: Overrides) -> List[NotificationSettingRow]:
+        modes = {r: overrides.get((notice.key, r), d) for r, d in notice.defaults.items()}
+        choice = staff_choice_for(notice, modes) if notice.staff_recipients else None
         return [
-            NotificationSettingRow(n, r, overrides.get((n.key, r), default))
-            for n in notices()
-            for r, default in n.defaults.items()
+            NotificationSettingRow(notice, r, m, choice if r in notice.staff_recipients else None)
+            for r, m in modes.items()
         ]
+
+    @staticmethod
+    def _notice(notice_key: str) -> Notice:
+        notice = CATALOG.get(notice_key)
+        if notice is None:
+            raise ValueError('That is not a notification setting.')
+        return notice
+
+    @classmethod
+    async def _write(
+        cls, actor: User, notice: Notice, modes: Dict[NotificationRecipient, NotificationMode],
+        overrides: Overrides,
+    ) -> Dict[NotificationRecipient, NotificationMode]:
+        """Store ``modes`` for ``notice``, choosing the default deletes. Returns the old modes."""
+        old = {r: overrides.get((notice.key, r), notice.defaults[r]) for r in modes}
+        for recipient, mode in modes.items():
+            if mode == old[recipient]:
+                continue
+            if mode == notice.defaults[recipient]:
+                await NotificationSettingRepository.delete(notice.key, recipient)
+            else:
+                await NotificationSettingRepository.upsert(notice.key, recipient, mode, actor.id)
+            overrides[(notice.key, recipient)] = mode
+        cls._forget(get_current_tenant_id())
+        return old
 
     @classmethod
     async def set_mode(
@@ -100,28 +141,52 @@ class NotificationSettingsService:
         await AuthService.ensure(
             await AuthService.is_staff(actor), 'Only staff can change notification settings',
         )
-        notice = CATALOG.get(notice_key)
+        notice = cls._notice(notice_key)
         try:
             recipient = NotificationRecipient(recipient)
             mode = NotificationMode(mode)
         except ValueError:
             raise ValueError('That is not a notification setting.') from None
-        if notice is None or recipient not in notice.defaults:
+        if recipient not in notice.defaults:
             raise ValueError('That is not a notification setting.')
         overrides = await NotificationSettingRepository.overrides()
-        old = overrides.get((notice.key, recipient), notice.defaults[recipient])
-        if mode == notice.defaults[recipient]:
-            await NotificationSettingRepository.delete(notice.key, recipient)
-        else:
-            await NotificationSettingRepository.upsert(notice.key, recipient, mode, actor.id)
-        cls._forget(get_current_tenant_id())
+        old = (await cls._write(actor, notice, {recipient: mode}, overrides))[recipient]
         if old != mode:
             await AuditService().write_log(
                 actor, AuditActions.NOTIFICATION_SETTING_CHANGED,
                 {'notice': notice.key, 'title': notice.title, 'recipient': recipient.value,
                  'old': old.value, 'new': mode.value},
             )
-        return NotificationSettingRow(notice, recipient, mode)
+        return next(r for r in cls._rows(notice, overrides) if r.recipient is recipient)
+
+    @classmethod
+    async def set_staff_choice(
+        cls, actor: User, notice_key: str, choice: StaffChoice | str,
+    ) -> List[NotificationSettingRow]:
+        """Set every staff recipient of one message from the Staff dropdown.
+
+        Returns the message's staff rows as they now stand.
+        """
+        await AuthService.ensure(
+            await AuthService.is_staff(actor), 'Only staff can change notification settings',
+        )
+        notice = cls._notice(notice_key)
+        try:
+            choice = StaffChoice(choice)
+        except ValueError:
+            raise ValueError('That is not a staff notification choice.') from None
+        modes = staff_modes(notice, choice)
+        overrides = await NotificationSettingRepository.overrides()
+        old = await cls._write(actor, notice, modes, overrides)
+        if old != modes:
+            was = staff_choice_for(notice, old)
+            await AuditService().write_log(
+                actor, AuditActions.NOTIFICATION_SETTING_CHANGED,
+                {'notice': notice.key, 'title': notice.title, 'recipient': 'staff_alerts',
+                 'old': was.value if was else 'custom',
+                 'new': choice.value},
+            )
+        return [r for r in cls._rows(notice, overrides) if r.recipient in modes]
 
     @classmethod
     async def reset_all(cls, actor: User) -> int:
