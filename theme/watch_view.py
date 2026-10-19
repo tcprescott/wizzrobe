@@ -26,7 +26,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from decimal import Decimal
-from typing import List, Optional
+from typing import Dict, List, Optional
 
 from application.utils.clients.sglive_client import SGLIVE_URL
 from application.utils.money import format_money
@@ -110,6 +110,8 @@ class WatchView:
     tournaments: List[WatchTournament] = field(default_factory=list)
     timezone_label: str = ''
     primary_color: Optional[str] = None
+    # The community's theme (TenantThemeService), for its logo icons.
+    icons: Dict[str, str] = field(default_factory=dict)
     generated_at: Optional[datetime] = None
 
 
@@ -475,6 +477,7 @@ def render_watch_document(view: WatchView, *, root_path: str = '', refresh_url: 
         body=body,
         refresh_seconds=0,
         primary_color=view.primary_color,
+        icons=view.icons,
         generated_at=view.generated_at,
         footer_links=f'updates itself every {STATIC_REFRESH_SECONDS}s',
     )

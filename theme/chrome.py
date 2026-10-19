@@ -20,6 +20,7 @@ from nicegui import app, context, ui
 
 from theme.assets import asset_url
 from theme.browser_monitoring import install_browser_monitoring
+from theme.favicon import icon_links_html
 
 # Above-the-fold weights; the rest of the family loads on demand from styles.css.
 _PRELOAD_FONTS = (
@@ -105,15 +106,13 @@ def apply_brand_palette(colors: dict[str, str]) -> None:
         '.body--dark .text-secondary,.q-dark .text-secondary{color:var(--wiz-ember)!important;}'
         '</style>'
     )
+    ui.add_head_html(icon_links_html(colors))
     logo = colors.get('logo')
     if logo:
         # The uploaded logo takes the brand mark's place (still the decorative
-        # ::before, so the community name stays the header's accessible text)
-        # and the browser tab icon. Declared after NiceGUI's favicon link, and
-        # browsers use the last icon declared. The URL is service-built from an
-        # int id and a hex hash, so it is safe inside url().
-        mime = 'image/svg+xml' if logo.endswith('.svg') else 'image/webp'
-        ui.add_head_html(f'<link rel="icon" type="{mime}" href="{logo}">')
+        # ::before, so the community name stays the header's accessible text).
+        # The URL is service-built from an int id and a hex hash, so it is safe
+        # inside url().
         ui.add_head_html(f'<style>:root{{--wiz-brand-logo:url("{logo}");}}</style>')
         ui.query('body').classes('wiz-has-logo')
 
@@ -188,7 +187,6 @@ def render_platform_chrome(
         )
     ui.add_head_html(f'<link rel="stylesheet" href="{asset_url("css/styles.css")}">')
     ui.add_head_html('<meta name="robots" content="noindex, nofollow">')
-    ui.add_head_html('<link rel="apple-touch-icon" href="/static/icons/apple-touch-icon.png">')
     # The same scripts BaseLayout loads: dialog naming and focus return,
     # drag-to-resize table headers, and keeping dialogs above the phone
     # keyboard. Without them a /platform dialog had no name and its table

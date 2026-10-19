@@ -229,6 +229,26 @@ def _register_root_routes(fastapi_app: FastAPI) -> None:
     async def _brand_logo(tenant_id: int, sha256: str, request: Request) -> Response:
         return await _brand_logo_response(tenant_id, sha256, 'webp', request)
 
+    # The same logo as a square PNG tab / home-screen icon, rendered on demand
+    # from the stored bytes (TenantLogoService.render_icon). Same hash, so same
+    # caching; a logo that won't render is a 404 and the page's other icons win.
+    @fastapi_app.get('/brand-logo/{tenant_id}/{sha256}-{side}.png', include_in_schema=False)
+    async def _brand_logo_icon(tenant_id: int, sha256: str, side: int, request: Request) -> Response:
+        from application.services import TenantLogoService
+
+        etag = f'"{sha256}-{side}"'
+        headers = {
+            'Cache-Control': 'public, max-age=31536000, immutable',
+            'ETag': etag,
+            'X-Content-Type-Options': 'nosniff',
+        }
+        content = await TenantLogoService.get_icon_png(tenant_id, sha256, side)
+        if content is None:
+            return Response(status_code=404, headers={'Cache-Control': 'no-store'})
+        if request.headers.get('if-none-match') == etag:
+            return Response(status_code=304, headers=headers)
+        return Response(content, media_type='image/png', headers=headers)
+
     @fastapi_app.get('/brand-logo/{tenant_id}/{sha256}.svg', include_in_schema=False)
     async def _brand_logo_svg(tenant_id: int, sha256: str, request: Request) -> Response:
         return await _brand_logo_response(tenant_id, sha256, 'svg', request)
