@@ -22,8 +22,11 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import datetime
+from decimal import Decimal
 from typing import List, Optional
 
+from application.utils.clients.sglive_client import SGLIVE_URL
+from application.utils.money import format_money
 from application.utils.safe_url import http_url_or_empty
 from theme.brackets.static_view.document import _document
 from theme.brackets.static_view.markup import _esc, _tag
@@ -83,6 +86,10 @@ class WatchTournament:
     #: Absolute (Challonge, or another site) or root-relative (``/live/...``).
     bracket_url: str = ''
     rules_url: str = ''
+    #: Pool plus bonus, when Prize Payouts is on and the total is above zero.
+    prize_total: Optional[Decimal] = None
+    #: True when the pool comes from sglive.speedgaming.org.
+    prize_synced: bool = False
 
 
 @dataclass
@@ -255,12 +262,27 @@ def _coming(view: WatchView) -> str:
     return _tag('div', 'wizs-card', body)
 
 
+# Material's "payments" glyph: the static page loads no icon font.
+_PAYMENTS_ICON = (
+    '<svg class="wiz-watch-tourn__icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">'
+    '<path fill="currentColor" d="M19 14V6c0-1.1-.9-2-2-2H3c-1.1 0-2 .9-2 2v8c0 1.1.9 2 2 2h14'
+    'c1.1 0 2-.9 2-2zm-9-1c-1.66 0-3-1.34-3-3s1.34-3 3-3 3 1.34 3 3-1.34 3-3 3zm13-6v11'
+    'c0 1.1-.9 2-2 2H4v-2h17V7h2z"/></svg>'
+)
+
+
 def _tournaments(view: WatchView, root: str) -> str:
     body = _tag('h2', 'wiz-watch__h2', 'Tournaments')
     if not view.tournaments:
         return _tag('div', 'wizs-card', body + _tag('div', 'wizs-muted', 'No brackets are up yet.'))
     for t in view.tournaments:
-        line = _tag('span', 'wiz-watch-row__players', _esc(t.name))
+        title = _tag('span', 'wiz-watch-row__players', _esc(t.name))
+        if t.prize_total is not None:
+            title += (
+                f'<span class="wiz-chip wiz-chip--ok">{_PAYMENTS_ICON}'
+                f'{_esc(format_money(t.prize_total))} prize pool</span>'
+            )
+        line = _tag('span', 'wiz-watch-tourn__title', title)
         if t.status:
             line += f'<span class="wiz-chip wiz-chip--{_esc(t.tone)}">{_esc(t.status)}</span>'
         links = ''
@@ -275,6 +297,13 @@ def _tournaments(view: WatchView, root: str) -> str:
             _tag('div', 'wiz-watch-tourn__line', line)
             + (_tag('div', 'wizs-muted', _esc(t.format)) if t.format else '')
             + (_tag('div', 'wiz-watch-links', links) if links else ''),
+        )
+    if any(t.prize_synced for t in view.tournaments):
+        body += _tag(
+            'p', 'wiz-watch-tourn__foot',
+            "Prize pools include SpeedGaming's bonus and update from "
+            f'<a href="{_esc(SGLIVE_URL)}" target="_blank" rel="noopener noreferrer">'
+            'sglive.speedgaming.org</a> every 15 minutes.',
         )
     return _tag('div', 'wizs-card', body)
 

@@ -12,6 +12,8 @@ from typing import Dict, FrozenSet, Optional
 
 from nicegui import ui
 
+from application.utils.clients.sglive_client import SGLIVE_URL
+from application.utils.money import format_money
 from application.utils.safe_url import http_url_or_empty
 from pages.admin_tabs.links import SCHEDULE, admin_url
 from theme.menu import menu_action, more_menu
@@ -170,7 +172,12 @@ class LiveWatch:
                 for t in view.tournaments:
                     with ui.element('div').classes('wiz-watch-tourn'):
                         with ui.element('div').classes('wiz-watch-tourn__line'):
-                            ui.label(t.name).classes('wiz-watch-row__players')
+                            with ui.element('span').classes('wiz-watch-tourn__title'):
+                                ui.label(t.name).classes('wiz-watch-row__players')
+                                if t.prize_total is not None:
+                                    with ui.element('span').classes('wiz-chip wiz-chip--ok'):
+                                        ui.icon('payments').classes('text-sm')
+                                        ui.label(f'{format_money(t.prize_total)} prize pool')
                             if t.status:
                                 ui.label(t.status).classes(f'wiz-chip wiz-chip--{t.tone}')
                         if t.format:
@@ -182,6 +189,11 @@ class LiveWatch:
                             rules = http_url_or_empty(t.rules_url)
                             if rules:
                                 ui.link('Rules ↗', rules, new_tab=True)
+                if any(t.prize_synced for t in view.tournaments):
+                    with ui.element('p').classes('wiz-watch-tourn__foot'):
+                        ui.label("Prize pools include SpeedGaming's bonus and update from")
+                        ui.link('sglive.speedgaming.org', SGLIVE_URL, new_tab=True)
+                        ui.label('every 15 minutes.')
 
     def _paint_buttons(self) -> None:
         for stage_id, button in self._buttons.items():

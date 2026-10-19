@@ -64,7 +64,8 @@ class HandbookTournament:
     prize_synced_at: Optional[datetime] = None
 
 
-def _prize_fields(t: Tournament) -> dict:
+def prize_fields(t: Tournament) -> dict:
+    """``prize_total`` and ``prize_synced_at`` for a public list, or ``{}`` with no pool."""
     total = (t.prize_pool or Decimal(0)) + (t.prize_bonus or Decimal(0))
     if total <= 0:
         return {}
@@ -194,7 +195,7 @@ class EventInfoService:
                 bracket_url=bracket,
                 signups=signup_window_state(t.signups_open_at, t.signups_close_at),
                 signups_close_at=t.signups_close_at,
-                **(_prize_fields(t) if payouts_live else {}),
+                **(prize_fields(t) if payouts_live else {}),
             ))
         return sorted(rows, key=lambda r: r.name.lower())
 
