@@ -5908,14 +5908,66 @@ ol.wiz-help-list { list-style-type: decimal; }
     margin-left: -4px;
 }
 
-.wiz-vgrid__now {
+/* The now line and the pointer line (static/js/timeline.js moves both, by
+   transform so the move is never a layout shift), with their time tags in the
+   pinned hour column. */
+.wiz-vgrid__now,
+.wiz-vgrid__cursor {
     position: absolute;
+    top: 0;
     left: 0;
     right: 0;
     height: 0;
     z-index: 2;
-    border-top: 2px solid var(--status-live);
     pointer-events: none;
+}
+
+.wiz-vgrid__now {
+    margin-top: -1px;
+    border-top: 2px solid var(--status-live);
+}
+
+.wiz-vgrid__cursor {
+    border-top: 1px dashed var(--fg-secondary);
+}
+
+.wiz-vgrid__tag {
+    position: absolute;
+    top: 0;
+    right: 4px;
+    z-index: 4;
+    margin-top: -9px;
+    padding: 0 5px;
+    font-size: 0.6875rem;
+    font-weight: 700;
+    line-height: 18px;
+    border-radius: 6px;
+    white-space: nowrap;
+    pointer-events: none;
+}
+
+.wiz-vgrid__tag--now {
+    color: var(--surface);
+    background: var(--status-live);
+}
+
+/* Above the now tag, so the time under the pointer always reads. */
+.wiz-vgrid__tag--cursor {
+    z-index: 5;
+    color: var(--surface);
+    background: var(--fg);
+}
+
+.wiz-vgrid__now[hidden],
+.wiz-vgrid__cursor[hidden],
+.wiz-vgrid__tag[hidden] {
+    display: none;
+}
+
+/* A phone has no hover: pressing and dragging down the hour column moves the
+   pointer line instead, so the column must not scroll the page. */
+.wiz-vgrid__times {
+    touch-action: pan-x;
 }
 
 /* The Columns button and a page's own toolbar travel as one group, pushed to
