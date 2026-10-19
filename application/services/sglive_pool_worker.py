@@ -1,6 +1,6 @@
 """sglive.speedgaming.org prize pool sync worker.
 
-Every 15 minutes, reads the sglive leaderboard once and writes each linked
+Every 15 minutes, reads the sglive data feed once and writes each linked
 tournament's total into its ``prize_pool``, inside that tournament's
 ``tenant_scope`` as the reserved system ``User``. Skips communities with Prize
 Payouts turned off.
@@ -31,7 +31,7 @@ async def _tick() -> None:
     from application.services.feature_flag_service import FeatureFlagService
     from application.services.payout_service import PayoutService
     from application.services.user_service import UserService
-    from application.utils.clients.sglive_client import SgliveAPIError, fetch_leaderboard
+    from application.utils.clients.sglive_client import SgliveAPIError, fetch_games
     from models import FeatureFlag
 
     linked = await TournamentPayoutRepository.list_sglive_linked_all()
@@ -39,7 +39,7 @@ async def _tick() -> None:
         return
 
     try:
-        games = await fetch_leaderboard()
+        games = await fetch_games()
     except SgliveAPIError as e:
         level = logging.WARNING if str(e) == _last_error else logging.ERROR
         logger.log(level, 'sglive prize pool read failed: %s', e)

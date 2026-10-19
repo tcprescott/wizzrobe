@@ -339,7 +339,6 @@ async def admin_payouts_page() -> None:
                 {tid: name for tid, name in tournaments.items() if tid not in current.values()},
             )
             options: dict[int | None, str] = {None: 'Not linked', **tournaments}
-            games = sorted(games, key=lambda g: not g.onsite)
             pickers: dict[str, ui.select] = {}
             with table_container:
                 with form_dialog('Link sglive pages') as dialog:
@@ -352,8 +351,7 @@ async def admin_payouts_page() -> None:
                         for game in games:
                             with ui.element('div').classes('wiz-sglive-link'):
                                 with ui.column().classes('gap-0 wiz-sglive-link__game'):
-                                    ui.label(game.name + ('' if game.onsite else ' (online)')) \
-                                        .classes('text-weight-bold')
+                                    ui.label(game.name).classes('text-weight-bold')
                                     ui.label(f'${game.total:,.2f} on sglive').classes('text-caption text-grey')
                                 pickers[game.slug] = ui.select(
                                     options,

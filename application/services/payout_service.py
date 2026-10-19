@@ -305,10 +305,10 @@ class PayoutService:
 
     @requires_feature(FeatureFlag.PAYOUTS)
     async def fetch_sglive_games(self, actor: User) -> List[SgliveGame]:
-        """Every game on the sglive leaderboard, for the link screen."""
+        """Every game on sglive with its total, for the link screen."""
         await self._require_any_manageable(actor)
         try:
-            return await sglive_client.fetch_leaderboard()
+            return await sglive_client.fetch_games()
         except SgliveAPIError as e:
             raise ValueError(f"Couldn't read sglive.speedgaming.org: {e}") from e
 
@@ -365,7 +365,7 @@ class PayoutService:
         last value.
         """
         try:
-            games = await sglive_client.fetch_leaderboard()
+            games = await sglive_client.fetch_games()
         except SgliveAPIError as e:
             raise ValueError(f"Couldn't read sglive.speedgaming.org: {e}") from e
         return await self.apply_sglive_games(games, actor)

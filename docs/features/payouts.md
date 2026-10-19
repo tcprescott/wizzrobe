@@ -84,12 +84,10 @@ payout run and the reader of the block is the person who can go and ask for it.
 ## Syncing from sglive.speedgaming.org
 
 SpeedGaming Live's site sorts Matcherino contributions into per-game pools and
-shows them as a leaderboard on its homepage. It has no API, so
-`application/utils/clients/sglive_client.py` parses that HTML (`table.sub-leaderboard`
-rows: slug from the `a.leaderboard-link` href, the dollar total, and on-site vs
-online from which header image the row follows). A page with no rows raises
-`SgliveAPIError` instead of returning an empty list. Swapping in a JSON feed
-later means replacing `fetch_leaderboard` only.
+serves them as JSON at `https://sglive.speedgaming.org/data/` (`tournaments[]`
+with `slug`, `short_name`, `donations_total` as `"$1,054.00"`, and the donor
+list). `application/utils/clients/sglive_client.py` reads it; a payload with no
+games raises `SgliveAPIError` instead of returning an empty list.
 
 | Piece | |
 |---|---|

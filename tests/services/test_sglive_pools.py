@@ -13,9 +13,9 @@ from tests.conftest import DEFAULT_TEST_TENANT_ID
 from tests.factories import make_user
 
 GAMES = [
-    SgliveGame(slug='wwr', name='Wind Waker Randomizer', total=Decimal('1701.00'), onsite=True),
+    SgliveGame(slug='wwr', name='Wind Waker Randomizer', total=Decimal('1701.00')),
     SgliveGame(slug='alttpr', name='A Link to the Past Randomizer Tournament',
-               total=Decimal('1054.00'), onsite=True),
+               total=Decimal('1054.00')),
 ]
 
 
@@ -30,13 +30,13 @@ async def staff(db):
 def sglive(monkeypatch):
     state = {'games': list(GAMES), 'calls': 0, 'error': None}
 
-    async def fake_fetch(url=sglive_client.SGLIVE_URL):
+    async def fake_fetch(url=sglive_client.DATA_URL):
         state['calls'] += 1
         if state['error']:
             raise SgliveAPIError(state['error'])
         return state['games']
 
-    monkeypatch.setattr(sglive_client, 'fetch_leaderboard', fake_fetch)
+    monkeypatch.setattr(sglive_client, 'fetch_games', fake_fetch)
     return state
 
 
@@ -108,7 +108,7 @@ async def test_a_sync_only_audits_a_pool_that_moved(staff, sglive):
     await service.sync_sglive_pools(staff)
     assert await AuditLog.filter(action='tournament.prize_pool_updated').count() == before
 
-    sglive['games'] = [SgliveGame('wwr', 'Wind Waker Randomizer', Decimal('1800.00'), True)]
+    sglive['games'] = [SgliveGame('wwr', 'Wind Waker Randomizer', Decimal('1800.00'))]
     await service.sync_sglive_pools(staff)
     assert (await _reload(ww)).prize_pool == Decimal('1800.00')
     assert await AuditLog.filter(action='tournament.prize_pool_updated').count() == before + 1
