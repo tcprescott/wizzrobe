@@ -189,6 +189,7 @@ def _row(match, stage_name: str = '') -> WatchMatch:
         trackers=_crew(match.trackers),
         match_id=match.id,
         tournament_id=match.tournament_id,
+        started_at=match.started_at,
     )
 
 

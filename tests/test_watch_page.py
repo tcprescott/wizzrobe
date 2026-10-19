@@ -296,3 +296,38 @@ def test_a_twitch_stage_names_its_channel_as_the_link_spells_it():
                            channel='speedgaming', channel_name='SpeedGaming')],
     ))
     assert 'twitch.tv/SpeedGaming' in body
+
+
+def test_twitch_stages_are_tiles_led_by_the_stream_still():
+    from datetime import datetime, timedelta, timezone
+
+    started = datetime.now(timezone.utc) - timedelta(minutes=42)
+    body = render_watch_document(WatchView(
+        community='C',
+        stages=[
+            WatchStage(id=1, name='Main', stream_url='https://twitch.tv/SpeedGaming',
+                       channel='speedgaming', channel_name='SpeedGaming',
+                       on_now=WatchMatch(time='20:00', players='A vs B', started_at=started)),
+            WatchStage(id=2, name='Side', stream_url='https://twitch.tv/sg2', channel='sg2',
+                       on_now=WatchMatch(time='21:00', players='C vs D')),
+        ],
+    ))
+    assert 'previews-ttv/live_user_speedgaming-640x360.jpg' in body
+    assert 'referrerpolicy="no-referrer"' in body
+    assert body.count('class="wiz-onair"') == 1
+    assert f'data-since="{int(started.timestamp())}"' in body
+    assert '42 min in' in body
+    assert 'Getting ready' in body
+    assert '1 live' in body
+
+
+def test_live_for_counts_minutes_then_hours():
+    from datetime import datetime, timedelta, timezone
+
+    from theme.watch_view import live_for
+
+    now = datetime(2026, 10, 22, 12, 0, tzinfo=timezone.utc)
+    assert live_for(None, now) == ''
+    assert live_for(now - timedelta(minutes=5), now) == '5 min in'
+    assert live_for(now - timedelta(minutes=72), now) == '1 h 12 min in'
+    assert live_for(now + timedelta(minutes=1), now) == '0 min in'

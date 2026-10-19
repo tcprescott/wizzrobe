@@ -1,7 +1,8 @@
 """The Watch page theater: one Twitch player above the stage columns.
 
-Nothing from Twitch loads until a viewer presses a stage's Watch button, so the
-page sets no Twitch cookies for people who only read the schedule. One player
+No player loads until a viewer taps a stage's tile, so the page sets no Twitch
+cookies for people who only read the schedule (the tiles' stills are plain
+images from Twitch's CDN). One player
 at a time: watching another stage swaps the channel rather than stacking a
 second stream.
 """
