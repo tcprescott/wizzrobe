@@ -190,7 +190,7 @@ as a broken app. Detail: [docs/features/discord.md](docs/features/discord.md#cal
 - **Actions follow one layout**: a page toolbar is one main button plus an Actions menu, a row or card is one button plus a ⋮ (`more_vert`) menu, destructive items come last and confirm first, and in any pair the negative action is on the left and the positive on the right. Match lists are run sheets (`MatchTableView(layout='run_sheet')`).
 - **Mockups before building, and phone and desktop as one design**: see the guide's "Before you build".
 
-`tests/theme/test_style_guide.py` and `tests/test_a11y_names.py` check the source; the CI `browser` job runs `scripts/ui_a11y_scan.js` (axe plus a tint-aware contrast check, light and dark) over `scripts/ui_a11y_ci.json`. Add a new page to that list.
+`tests/theme/test_style_guide.py` and `tests/test_a11y_names.py` check the source; the CI `browser-a11y` job runs `scripts/ui_a11y_scan.js` (axe plus a tint-aware contrast check, light and dark) over `scripts/ui_a11y_ci.json`. Add a new page to that list.
 
 ## Timezone handling
 
