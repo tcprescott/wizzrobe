@@ -24,7 +24,7 @@ belong to the community. Gated by :attr:`~models.FeatureFlag.COMMUNITY_EVENTS`.
 
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
-from typing import Dict, List, Optional, Set
+from typing import Dict, List, Optional, Set, Tuple
 
 from tortoise.transactions import in_transaction
 
@@ -241,6 +241,28 @@ class CommunityEventService:
         mine = await self.subscriptions.event_ids_for_user(actor.id, event_ids)
         counts = await self.subscriptions.counts_for(event_ids)
         return mine, counts
+
+    @requires_feature(FeatureFlag.COMMUNITY_EVENTS)
+    async def list_attending(
+        self, actor: User, start: datetime, end: datetime,
+    ) -> List[Tuple[CommunityEvent, str]]:
+        """Approved events overlapping ``start``–``end`` that ``actor`` is part of.
+
+        Each comes with how: ``'hosting'`` their own, ``'going'`` an RSVP
+        (which only counts while the event takes RSVPs), else ``'reminder'``.
+        """
+        await self._ensure_member(actor)
+        after = start - _RUNNING_LOOKBACK
+        attending: Dict[int, Tuple[CommunityEvent, str]] = {}
+        for row in await self.subscriptions.list_for_user_starting(actor.id, after, end):
+            going = row.going and row.event.rsvp_enabled
+            attending[row.event_id] = (row.event, 'going' if going else 'reminder')
+        for event in await self.repository.list_hosted_starting(actor.id, after, end):
+            attending[event.id] = (event, 'hosting')
+        return sorted(
+            (pair for pair in attending.values() if ends_at(pair[0]) > start),
+            key=lambda pair: (pair[0].starts_at, pair[0].id),
+        )
 
     # --- the host's side --------------------------------------------------
 

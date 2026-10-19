@@ -12,6 +12,7 @@ from datetime import date, datetime, time, timedelta
 from typing import Any, List, Optional, Sequence, Tuple
 
 from application.repositories import MatchRepository, VolunteerAssignmentRepository
+from application.services.community_event_service import CommunityEventService, ends_at
 from application.services.crew_service import CrewService
 from application.services.player_availability_service import PlayerAvailabilityService
 from application.services.system_config_service import SystemConfigService
@@ -21,6 +22,12 @@ from models import User, VolunteerAvailabilityStatus
 MATCH = 'match'
 CREW = 'crew'
 SHIFT = 'shift'
+#: A community event they host, RSVP'd to or asked a reminder for.
+COMMUNITY = 'community'
+#: How they're attending a community event, strongest first.
+HOSTING = 'hosting'
+GOING = 'going'
+REMINDER = 'reminder'
 #: Time the player blocked out under "When you can't play". Not a commitment:
 #: the page draws it behind the blocks rather than in a lane of its own.
 UNAVAILABLE = 'unavailable'
@@ -42,6 +49,9 @@ class TimelineItem:
     match_id: int = 0
     #: The shift's assignment, for its details dialog.
     assignment: Any = None
+    event_id: int = 0
+    #: ``HOSTING``, ``GOING`` or ``REMINDER`` for a community event, else empty.
+    attending: str = ''
 
 
 @dataclass(frozen=True)
@@ -109,6 +119,7 @@ class MyTimelineService:
         self.assignment_repository = VolunteerAssignmentRepository()
         self.crew_service = CrewService()
         self.availability_service = PlayerAvailabilityService()
+        self.community_service = CommunityEventService()
 
     async def window(self) -> Tuple[datetime, datetime]:
         """The event's days on the viewer's clock, each running 06:00 to 06:00."""
@@ -117,8 +128,11 @@ class MyTimelineService:
         shift = timedelta(hours=DAY_STARTS_AT_HOUR)
         return lo + shift, hi + shift
 
-    async def items(self, user: User, *, include_shifts: bool) -> List[TimelineItem]:
-        """``include_shifts`` is the caller's ``FeatureFlag.VOLUNTEERS`` check."""
+    async def items(
+        self, user: User, *, include_shifts: bool, include_community: bool = False,
+    ) -> List[TimelineItem]:
+        """``include_shifts`` is the caller's ``FeatureFlag.VOLUNTEERS`` check,
+        ``include_community`` its ``FeatureFlag.COMMUNITY_EVENTS`` one."""
         start, end = await self.window()
         crew_roles = {
             row['match_id']: row['role']
@@ -140,6 +154,16 @@ class MyTimelineService:
                     detail=shift.label or '',
                     assignment=assignment,
                 ))
+        if include_community:
+            for event, attending in await self.community_service.list_attending(user, start, end):
+                lo = max(to_utc_aware(event.starts_at), start)
+                hi = min(to_utc_aware(ends_at(event)), end)
+                for a, b in split_by_event_day(lo, hi):
+                    items.append(TimelineItem(
+                        kind=COMMUNITY, starts_at=a, ends_at=b,
+                        title=event.title, detail=event.location or '',
+                        event_id=event.id, attending=attending,
+                    ))
         items.sort(key=lambda i: i.starts_at)
         return items
 

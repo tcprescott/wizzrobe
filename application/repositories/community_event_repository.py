@@ -50,6 +50,20 @@ class CommunityEventRepository(TenantScopedRepository[CommunityEvent]):
         ).order_by('-starts_at', '-id').prefetch_related('host')
 
     @staticmethod
+    async def list_hosted_starting(
+        host_id: int, starts_after: datetime, starts_before: datetime,
+    ) -> List[CommunityEvent]:
+        """``host_id``'s approved events starting in the range."""
+        return await scoped(
+            CommunityEvent.filter(
+                host_id=host_id,
+                status=CommunityEventStatus.APPROVED,
+                starts_at__gte=starts_after,
+                starts_at__lt=starts_before,
+            )
+        )
+
+    @staticmethod
     async def count_by_status(status: CommunityEventStatus) -> int:
         return await scoped(CommunityEvent.filter(status=status)).count()
 
@@ -105,6 +119,20 @@ class CommunityEventSubscriptionRepository(TenantScopedRepository[CommunityEvent
         return await scoped(
             CommunityEventSubscription.filter(event_id=event_id, going=True)
         ).order_by('created_at', 'id').prefetch_related('user')
+
+    @staticmethod
+    async def list_for_user_starting(
+        user_id: int, starts_after: datetime, starts_before: datetime,
+    ) -> List[CommunityEventSubscription]:
+        """``user_id``'s reminders and RSVPs on approved events starting in the range."""
+        return await scoped(
+            CommunityEventSubscription.filter(
+                user_id=user_id,
+                event__status=CommunityEventStatus.APPROVED,
+                event__starts_at__gte=starts_after,
+                event__starts_at__lt=starts_before,
+            )
+        ).prefetch_related('event')
 
     @staticmethod
     async def lock_event(event_id: int) -> None:

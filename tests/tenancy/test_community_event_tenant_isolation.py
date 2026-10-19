@@ -45,6 +45,9 @@ async def test_community_events_do_not_leak_across_tenants(two_tenants):
             with pytest.raises(ValueError):
                 await call
         assert await service.unseen_ids(member) == set()
+        window = (datetime.now(timezone.utc), datetime.now(timezone.utc) + timedelta(days=1))
+        assert await service.list_attending(member, *window) == []
+        assert await service.list_attending(staff, *window) == []
         await service.mark_seen(member)
         mine, counts = await service.subscription_state(member, [listed.id])
         assert mine == set() and counts == {}

@@ -572,3 +572,49 @@ async def test_whats_new_is_for_members_only(staff, dms):
     for call in (service.unseen_ids(outsider), service.mark_seen(outsider)):
         with pytest.raises(PermissionError):
             await call
+
+
+async def test_list_attending_says_how_each_event_is_attended(member, other_member, staff):
+    service = CommunityEventService()
+    start, end = _soon(0), _soon(48)
+    await service.submit(staff, _draft(title='Hosted'))
+    going = await service.submit(member, _draft(title='Going', rsvp_enabled=True, starts_at=_soon(6)))
+    reminded = await service.submit(member, _draft(title='Reminded', starts_at=_soon(7)))
+    later = await service.submit(member, _draft(title='Too late', starts_at=_soon(72)))
+    await service.approve(staff, going.id)
+    await service.approve(staff, reminded.id)
+    await service.approve(staff, later.id)
+    pending = await service.submit(other_member, _draft(title='Pending'))
+    await service.rsvp(staff, going.id)
+    for event in (reminded, later, pending):
+        await CommunityEventSubscription.create(
+            event_id=event.id, user=staff, tenant_id=DEFAULT_TEST_TENANT_ID,
+        )
+
+    attending = await service.list_attending(staff, start, end)
+
+    assert [(e.title, how) for e, how in attending] == [
+        ('Hosted', 'hosting'), ('Going', 'going'), ('Reminded', 'reminder'),
+    ]
+    assert (await service.list_attending(other_member, start, end)) == []
+
+
+async def test_an_rsvp_counts_as_a_reminder_once_rsvps_close(member, staff):
+    service = CommunityEventService()
+    event = await service.submit(member, _draft(rsvp_enabled=True))
+    await service.approve(staff, event.id)
+    await service.rsvp(staff, event.id)
+    await CommunityEvent.filter(id=event.id).update(rsvp_enabled=False)
+
+    attending = await service.list_attending(staff, _soon(0), _soon(24))
+
+    assert [how for _, how in attending] == ['reminder']
+
+
+async def test_list_attending_keeps_an_event_still_running(member, staff):
+    service = CommunityEventService()
+    event = await service.submit(staff, _draft(duration_minutes=180))
+    await CommunityEvent.filter(id=event.id).update(starts_at=_soon(-1))
+
+    assert [e.id for e, _ in await service.list_attending(staff, _soon(0), _soon(24))] == [event.id]
+    assert await service.list_attending(staff, _soon(3), _soon(24)) == []

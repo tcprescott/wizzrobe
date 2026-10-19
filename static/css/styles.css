@@ -4825,6 +4825,26 @@ body.wiz-offline .wiz-requires-socket {
 .wiz-tl--match { --tl-kind: var(--status-live); }
 .wiz-tl--crew  { --tl-kind: var(--status-pending); }
 .wiz-tl--shift { --tl-kind: var(--status-ok); }
+.wiz-tl--community { --tl-kind: var(--status-info); }
+
+.wiz-tl-block__tag {
+    flex: none;
+    padding: 0 6px;
+    border-radius: 999px;
+    font-size: 0.7rem;
+    font-weight: 600;
+    line-height: 1rem;
+    color: var(--fg);
+    background: color-mix(in srgb, var(--tl-kind) 24%, transparent);
+}
+
+/* A community event they only asked a reminder for: optional, so dashed. */
+.wiz-tl-block.wiz-tl-block--maybe,
+.wiz-tl-block.wiz-tl-block--maybe:hover {
+    background: var(--surface);
+    border-style: dashed;
+    border-left-style: dashed;
+}
 
 .wiz-tl .wiz-vgrid__col {
     flex: 1 1 auto;
