@@ -5,7 +5,10 @@ from datetime import date, datetime, timedelta, timezone
 from types import SimpleNamespace
 
 from application.services.my_timeline_service import (
+    COMMUNITY,
+    GOING,
     MATCH,
+    REMINDER,
     SHIFT,
     UNAVAILABLE,
     MyTimelineService,
@@ -127,3 +130,43 @@ async def test_unavailable_keeps_only_cant_play_windows_inside_the_event(monkeyp
     assert [(i.kind, i.starts_at, i.ends_at, i.detail) for i in items] == [
         (UNAVAILABLE, lo, lo + timedelta(hours=2), 'Flight'),
     ]
+
+
+async def test_community_events_join_the_timeline_one_piece_per_day(monkeypatch):
+    lo = datetime(2026, 10, 22, 6, 0, tzinfo=UTC)
+    hi = datetime(2026, 10, 26, 6, 0, tzinfo=UTC)
+    service = MyTimelineService()
+
+    async def window():
+        return lo, hi
+
+    async def none(*_args, **_kwargs):
+        return []
+
+    def event(id_, start, minutes, location=None):
+        return SimpleNamespace(id=id_, title=f'Event {id_}', location=location,
+                               starts_at=start, duration_minutes=minutes)
+
+    overnight = event(1, datetime(2026, 10, 23, 22, 0, tzinfo=UTC), 600, 'Lobby')
+    early = event(2, lo - timedelta(hours=1), 120)
+
+    async def list_attending(_user, start, end):
+        assert (start, end) == (lo, hi)
+        return [(overnight, GOING), (early, REMINDER)]
+
+    monkeypatch.setattr(service, 'window', window)
+    monkeypatch.setattr(service.crew_service, 'list_my_commitments', none)
+    monkeypatch.setattr(service.match_repository, 'commitments_for_user', none)
+    monkeypatch.setattr(service.community_service, 'list_attending', list_attending)
+    monkeypatch.setattr('application.services.my_timeline_service.split_by_event_day',
+                        lambda a, b: split_by_event_day(a, b, 'UTC'))
+
+    items = await service.items(SimpleNamespace(id=1), include_shifts=False, include_community=True)
+
+    assert [(i.kind, i.event_id, i.attending, i.starts_at, i.ends_at, i.detail) for i in items] == [
+        (COMMUNITY, 2, REMINDER, lo, lo + timedelta(hours=1), ''),
+        (COMMUNITY, 1, GOING, overnight.starts_at, datetime(2026, 10, 24, 6, 0, tzinfo=UTC), 'Lobby'),
+        (COMMUNITY, 1, GOING, datetime(2026, 10, 24, 6, 0, tzinfo=UTC),
+         datetime(2026, 10, 24, 8, 0, tzinfo=UTC), 'Lobby'),
+    ]
+    assert await service.items(SimpleNamespace(id=1), include_shifts=False) == []

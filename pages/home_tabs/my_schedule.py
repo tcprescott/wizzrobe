@@ -89,7 +89,11 @@ async def my_schedule_tab(
     @steady_refreshable
     async def body() -> None:
         if state['view'] == 'timeline':
-            await my_timeline_view(include_shifts=volunteer is not None, on_blocked=edit_availability)
+            await my_timeline_view(
+                include_shifts=volunteer is not None,
+                include_community=FeatureFlag.COMMUNITY_EVENTS in live,
+                on_blocked=edit_availability,
+            )
         else:
             await list_view()
 
