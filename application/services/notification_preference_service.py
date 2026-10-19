@@ -50,7 +50,8 @@ SECTIONS: Tuple[Tuple[str, str], ...] = (
     ('Async qualifiers', 'Runs you submitted'),
     ('Matches you crew', 'When you\'re commentating or tracking'),
     ('Matches you watch', 'Matches you tapped the bell on'),
-    ('Tournaments and events you follow', "Other people's matches, and community events you subscribed to"),
+    ('Tournaments and events you follow',
+     "Other people's matches, new events and qualifiers, and community events you subscribed to"),
     ('Volunteer shifts', "Shifts you're on"),
     ('Your membership', 'Joining, events you host, event check-in'),
     ('Staff alerts', 'Requests and problems someone on staff has to handle'),
@@ -93,6 +94,8 @@ def section_for(target: NoticeTarget) -> str:
         if group == 'Async qualifiers':
             return 'Async qualifiers'
         return 'Your matches'
+    if recipient is NotificationRecipient.MEMBERS and is_opt_in(target):
+        return 'Tournaments and events you follow'
     return {
         NotificationRecipient.CREW: 'Matches you crew',
         NotificationRecipient.WATCHERS: 'Matches you watch',

@@ -333,6 +333,8 @@ class MatchScheduleService(MatchNotificationMixin):
             authorize=AuthService.can_confirm_match,
             notice=MATCH_CONFIRMED,
         )
+        from application.services import opt_in_notifications
+        discord_queue.enqueue(opt_in_notifications.match_result(match.id))
 
         # Confirming a flagged result *is* the resolution — the admin has now
         # looked at it, which is all the flag ever asked for. A separate

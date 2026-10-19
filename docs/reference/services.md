@@ -1372,7 +1372,7 @@ A person's own choices, one row per (tenant, user). Classmethods; every write ac
 
 ### opt_in_notifications.py — module functions
 
-Senders for the opt-in DMs (`notification_catalog._OPT_IN`), each a never-raising coroutine handed to `discord_queue.enqueue`: `opponent_acknowledged`, `stations_assigned`, `match_flagged`, `seed_failed`, `stream_offer`, `request_withdrawn`, `enrolment_changed` (staff add/remove → the player; a self-withdrawal → the tournament's admins), `bracket_result`, `volunteer_arrived`, `qualifier_window`. Each first asks `NotificationPreferenceService.opted_in_user_ids`, so nothing loads when nobody opted in. See [notification-settings.md](../features/notification-settings.md#opt-in-messages).
+Senders for the opt-in DMs (`notification_catalog._OPT_IN`), each a never-raising coroutine handed to `discord_queue.enqueue`: `opponent_acknowledged`, `stations_assigned`, `match_flagged`, `seed_failed`, `stream_offer`, `request_withdrawn`, `enrolment_changed` (staff add/remove → the player; a self-withdrawal → the tournament's admins), `match_result` (on confirm, to players and followers), `bracket_started`, `event_listed`, `volunteer_arrived`, `qualifier_window`. Each first asks `NotificationPreferenceService.opted_in_user_ids`, so nothing loads when nobody opted in. See [notification-settings.md](../features/notification-settings.md#opt-in-messages).
 
 ### check_in_dm.py — module functions
 

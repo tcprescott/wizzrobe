@@ -292,6 +292,9 @@ class GenerationMixin(ComposedBracketService):
         await self.audit_service.write_and_publish(
             actor, AuditActions.BRACKET_STARTED, details, EventType.BRACKET_STARTED,
         )
+        from application.services import opt_in_notifications
+        from application.services.discord import discord_queue
+        discord_queue.enqueue(opt_in_notifications.bracket_started(bracket.tournament_id))
         # Generation writes the opening round straight to OPEN rather than
         # transitioning into it, so ``_settle_match``'s per-transition DM never
         # sees round 1 (D7). Announce them here instead — after the state pass,

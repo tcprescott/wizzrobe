@@ -12,8 +12,9 @@ from typing import Iterable, Optional, Sequence, Set, Tuple
 
 from application.repositories import (
     AsyncQualifierRunRepository,
-    BracketRepository,
+    CommunityEventRepository,
     MatchRepository,
+    TournamentNotificationRepository,
     TournamentRepository,
     UserRepository,
 )
@@ -21,8 +22,11 @@ from application.services.discord.discord_service import DiscordService
 from application.services.notification_catalog import (
     ADDED_TO_TOURNAMENT,
     ADMINS,
-    BRACKET_RESULT,
+    BRACKET_STARTED,
+    EVENT_LISTED,
+    FOLLOWERS,
     MATCH_FLAGGED,
+    MATCH_RESULT,
     MEMBERS,
     OPPONENT_ACKNOWLEDGED,
     PLAYER_WITHDREW,
@@ -51,7 +55,7 @@ from application.utils.discord_embeds import (
     notification_embed,
 )
 from application.utils.discord_messages import DMLink
-from models import BracketEntryStatus, Match, NotificationRecipient, User
+from models import Match, NotificationRecipient, User
 
 logger = logging.getLogger(__name__)
 
@@ -269,38 +273,88 @@ async def _player_withdrew(tournament_id: int, player_id: int) -> None:
                 await notification_links.admin_tournaments())
 
 
-async def bracket_result(
-    tournament_name: str, round_name: str, winner_entry_id: int, loser_entry_id: int,
-) -> None:
-    """Tell both players of a decided Wizzrobe bracket match where it leaves them."""
+async def match_result(match_id: int) -> None:
+    """Send a confirmed match's placings to its players and the tournament's
+    followers who opted in. Followers get it at their follow level, like the
+    scheduled DM; a player gets only the player copy."""
     from application.services import notification_links
     try:
-        chosen = await _any_opted_in(BRACKET_RESULT, [PLAYERS])
+        players_chose = await _any_opted_in(MATCH_RESULT, [PLAYERS])
+        followers_chose = await _any_opted_in(MATCH_RESULT, [FOLLOWERS])
+        match = await _match(match_id) if players_chose or followers_chose else None
+        if match is None:
+            return
+        entries = sorted(match.players, key=lambda p: (p.finish_rank is None, p.finish_rank or 0))  # type: ignore[attr-defined]
+        if not any(p.finish_rank for p in entries):
+            return
+        player_ids = {p.user_id for p in entries}
+        message = text.match_result_dm(
+            match.tournament.name,
+            [(p.user.preferred_name, p.finish_rank, p.finish_time) for p in entries],
+        )
+        embed = await _match_embed(match, '🏁 Match result', COLOR_CONFIRMED, message)
+        players = [(p.user, PLAYERS) for p in entries if p.user_id in players_chose]
+        if players:
+            await _send(MATCH_RESULT, players, message, embed, await notification_links.player_match(match_id))
+        if followers_chose:
+            followers = await TournamentNotificationRepository().get_match_notification_subscribers(
+                match.tournament_id, has_stage=bool(match.stage_id),  # type: ignore[attr-defined]
+            )
+            recipients = [(u, FOLLOWERS) for u in followers
+                          if u.id in followers_chose and u.id not in player_ids]
+            if recipients:
+                await _send(MATCH_RESULT, recipients, message, embed,
+                            await notification_links.community_schedule())
+    except Exception:
+        logger.exception('match_result DM failed for match %s', match_id)
+
+
+async def bracket_started(tournament_id: int) -> None:
+    """Tell the tournament's followers who opted in that its bracket started."""
+    from application.services import notification_links
+    try:
+        chosen = await _any_opted_in(BRACKET_STARTED, [FOLLOWERS])
         if not chosen:
             return
-        repository = BracketRepository()
-        winner = await repository.get_entry(winner_entry_id)
-        loser = await repository.get_entry(loser_entry_id)
-        if winner is None or loser is None:
+        tournament = await TournamentRepository.get_by_id(tournament_id)
+        if tournament is None:
             return
-        await winner.fetch_related('entrant__user')
-        await loser.fetch_related('entrant__user')
-        winner_name, loser_name = winner.entrant.display_name, loser.entrant.display_name
-        link = await notification_links.home_tournaments(label='View tournaments')
-        community = await _community()
-        if winner.entrant.user and winner.entrant.user.id in chosen:
-            message = text.bracket_won_dm(loser_name, round_name, tournament_name)
-            embed = notification_embed(title='🏆 You won', color=COLOR_CONFIRMED, description=message,
-                                       community_name=community)
-            await _send(BRACKET_RESULT, [(winner.entrant.user, PLAYERS)], message, embed, link)
-        if loser.entrant.user and loser.entrant.user.id in chosen:
-            out = loser.status == BracketEntryStatus.ELIMINATED
-            message = text.bracket_lost_dm(winner_name, round_name, tournament_name, out=out)
-            embed = notification_embed(title='Bracket result', color=COLOR_SCHEDULED, description=message,
-                                       community_name=community)
-            await _send(BRACKET_RESULT, [(loser.entrant.user, PLAYERS)], message, embed, link)
+        followers = await TournamentNotificationRepository().get_followers(tournament_id)
+        recipients = [(u, FOLLOWERS) for u in followers if u.id in chosen]
+        if not recipients:
+            return
+        message = text.bracket_started_dm(tournament.name)
+        embed = notification_embed(title='🏁 Bracket started', color=COLOR_SCHEDULED, description=message,
+                                   community_name=await _community())
+        await _send(BRACKET_STARTED, recipients, message, embed, await notification_links.home_tournaments())
     except Exception:
-        logger.exception('bracket_result DM failed for entries %s/%s', winner_entry_id, loser_entry_id)
+        logger.exception('bracket_started DM failed for tournament %s', tournament_id)
+
+
+async def event_listed(event_id: int) -> None:
+    """Tell members who opted in that a new community event is listed."""
+    from application.services import notification_links
+    from application.services._community_event_notifications import event_embed
+    from application.utils.discord_messages_community_events import literal
+    try:
+        chosen = await _any_opted_in(EVENT_LISTED, [MEMBERS])
+        if not chosen:
+            return
+        event = await CommunityEventRepository().get_by_id(event_id)
+        if event is None:
+            return
+        await event.fetch_related('host')
+        users = await UserRepository.get_by_ids(sorted(chosen - {event.host_id}))
+        recipients = [(u, MEMBERS) for u in users.values() if u.is_active]
+        if not recipients:
+            return
+        community = await _community()
+        message = text.event_listed_dm(literal(event.title), literal(event.host.preferred_name))
+        embed = event_embed(event, title='📅 New community event', color=COLOR_SCHEDULED,
+                            community_name=community, description=message)
+        await _send(EVENT_LISTED, recipients, message, embed, await notification_links.community_event(event_id))
+    except Exception:
+        logger.exception('event_listed DM failed for event %s', event_id)
 
 
 async def volunteer_arrived(shift, volunteer_name: str) -> None:

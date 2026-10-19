@@ -119,6 +119,13 @@ MATCH_CONFIRMED = _notice(
     'match_confirmed', 'Matches', 'Result confirmed', 'Staff confirm the result',
     {PLAYERS: SILENT, CREW: SILENT, WATCHERS: SILENT},
 )
+MATCH_RESULT = _notice(
+    'match_result', 'Matches', 'Match result',
+    'Staff confirm the result, with who placed where',
+    {PLAYERS: PING, FOLLOWERS: PING},
+    {PLAYERS: _opted_in('Every player in the match'),
+     FOLLOWERS: _opted_in('People following the tournament, at their follow level')},
+)
 SEED_READY = _notice(
     'seed_ready', 'Matches', 'Seed ready', "The match's seed is rolled",
     {PLAYERS: PING},
@@ -233,10 +240,10 @@ SIGNED_UP = _notice(
     'signed_up', 'Brackets', 'Signed up for a tournament',
     'A player signs themselves up', {PLAYERS: PING},
 )
-BRACKET_RESULT = _notice(
-    'bracket_result', 'Brackets', 'Bracket result',
-    "A Wizzrobe bracket match's result moves you on or knocks you out",
-    {PLAYERS: PING}, {PLAYERS: _opted_in('Both players')},
+BRACKET_STARTED = _notice(
+    'bracket_started', 'Brackets', 'Bracket started',
+    "A tournament's bracket starts, in Wizzrobe or on Challonge",
+    {FOLLOWERS: PING}, {FOLLOWERS: _opted_in('People following the tournament')},
 )
 ADDED_TO_TOURNAMENT = _notice(
     'added_to_tournament', 'Brackets', 'Added to a tournament',
@@ -372,6 +379,11 @@ EVENT_TO_REVIEW = _notice(
 EVENT_APPROVED = _notice(
     'community_event_approved', 'Community', 'Community event approved',
     'Staff approve an event', {MEMBERS: PING}, {MEMBERS: 'The host'},
+)
+EVENT_LISTED = _notice(
+    'community_event_listed', 'Community', 'New community event',
+    'Staff list a new community event', {MEMBERS: PING},
+    {MEMBERS: _opted_in('Every member but the host')},
 )
 EVENT_REJECTED = _notice(
     'community_event_rejected', 'Community', 'Community event not listed',
@@ -512,7 +524,9 @@ _OPT_IN: Dict[str, frozenset] = {
     OPPONENT_ACKNOWLEDGED.key: frozenset({PLAYERS}),
     MATCH_FLAGGED.key: _STAFF_ALERTS,
     STREAM_OFFER.key: _STAFF_ALERTS,
-    BRACKET_RESULT.key: frozenset({PLAYERS}),
+    MATCH_RESULT.key: frozenset({PLAYERS, FOLLOWERS}),
+    BRACKET_STARTED.key: frozenset({FOLLOWERS}),
+    EVENT_LISTED.key: frozenset({MEMBERS}),
     ADDED_TO_TOURNAMENT.key: frozenset({PLAYERS}),
     REMOVED_FROM_TOURNAMENT.key: frozenset({PLAYERS}),
     PLAYER_WITHDREW.key: frozenset({ADMINS}),

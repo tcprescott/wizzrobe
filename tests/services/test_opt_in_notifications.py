@@ -6,6 +6,10 @@ from application.services import opt_in_notifications
 from application.services.match import MatchService
 from application.services.notification_catalog import (
     ADMINS,
+    BRACKET_STARTED,
+    EVENT_LISTED,
+    FOLLOWERS,
+    MATCH_RESULT,
     MATCH_SCHEDULED,
     MEMBERS,
     OPPONENT_ACKNOWLEDGED,
@@ -19,11 +23,15 @@ from application.services.notification_catalog import (
 from application.services.notification_preference_service import NotificationPreferenceService
 from models import (
     AsyncQualifier,
+    CommunityEvent,
+    CommunityEventStatus,
     Match,
+    MatchNotificationLevel,
     MatchPlayers,
     NotificationMode,
     NotificationPreset,
     Tournament,
+    TournamentNotificationPreference,
 )
 from tests.factories import make_member, utc
 
@@ -71,7 +79,7 @@ async def test_nobody_gets_an_opt_in_message_by_default():
     mine = await NotificationPreferenceService.get_mine(player)
     opt_in_rows = [r for r in mine.rows if r.opt_in]
     assert opt_in_rows and all(r.effective is OFF for r in opt_in_rows)
-    assert len([t for t in targets() if is_opt_in(t)]) >= 13
+    assert len([t for t in targets() if is_opt_in(t)]) >= 17
 
 
 async def test_opponent_acknowledged_reaches_only_the_opponent_who_opted_in(sent):
@@ -122,3 +130,68 @@ async def test_a_qualifier_opening_reaches_members_who_opted_in(sent):
     qualifier = await AsyncQualifier.create(name='Q1')
     await opt_in_notifications.qualifier_window(qualifier, opened=True)
     assert sent == [(9108, QUALIFIER_OPENED.to(MEMBERS))]
+
+
+async def _follow(user, tournament, level=MatchNotificationLevel.ALL):
+    await TournamentNotificationPreference.create(user=user, tournament=tournament, match_notifications=level)
+
+
+async def test_a_confirmed_result_reaches_players_and_followers_who_opted_in(sent):
+    alice = await make_member(discord_id=9110, username='res_a')
+    bob = await make_member(discord_id=9111, username='res_b')
+    fan = await make_member(discord_id=9112, username='res_fan')
+    casual = await make_member(discord_id=9113, username='res_casual')
+    tournament, match = await _match(alice, bob)
+    await MatchPlayers.filter(match=match, user=alice).update(finish_rank=1, finish_time=3725)
+    await MatchPlayers.filter(match=match, user=bob).update(finish_rank=2)
+    await _follow(fan, tournament)
+    await _follow(casual, tournament, MatchNotificationLevel.STREAMED)
+    await _follow(alice, tournament)
+    for user in (fan, casual, alice):
+        await NotificationPreferenceService.set_mode(user, MATCH_RESULT.key, FOLLOWERS, PING)
+    await NotificationPreferenceService.set_mode(bob, MATCH_RESULT.key, PLAYERS, PING)
+
+    await opt_in_notifications.match_result(match.id)
+    assert sorted(sent) == [(9111, MATCH_RESULT.to(PLAYERS)), (9112, MATCH_RESULT.to(FOLLOWERS))]
+
+
+async def test_no_result_dm_without_a_recorded_result(sent):
+    alice = await make_member(discord_id=9114, username='nores')
+    bob = await make_member(discord_id=9115, username='nores2')
+    _, match = await _match(alice, bob)
+    await NotificationPreferenceService.set_mode(alice, MATCH_RESULT.key, PLAYERS, PING)
+    await opt_in_notifications.match_result(match.id)
+    assert sent == []
+
+
+def test_result_text_names_the_winner_and_the_order():
+    from application.utils.discord_messages_opt_in import match_result_dm
+    assert match_result_dm('Cup', [('Alice', 1, 3725), ('Bob', 2, None)]) == \
+        '**Alice** beat Bob in 1:02:05 in Cup.'
+    text = match_result_dm('Cup', [('A', 1, None), ('B', 2, 60), ('C', None, None)])
+    assert text.splitlines() == ['Cup result:', '1st: **A**', '2nd: **B** (0:01:00)', "Didn't finish: C"]
+
+
+async def test_a_bracket_start_reaches_followers_who_opted_in(sent):
+    fan = await make_member(discord_id=9116, username='bs_fan')
+    lapsed = await make_member(discord_id=9117, username='bs_lapsed')
+    tournament = await Tournament.create(name='Cup')
+    await _follow(fan, tournament, MatchNotificationLevel.STREAMED)
+    await _follow(lapsed, tournament, MatchNotificationLevel.NONE)
+    for user in (fan, lapsed):
+        await NotificationPreferenceService.set_mode(user, BRACKET_STARTED.key, FOLLOWERS, PING)
+    await opt_in_notifications.bracket_started(tournament.id)
+    assert sent == [(9116, BRACKET_STARTED.to(FOLLOWERS))]
+
+
+async def test_a_new_event_reaches_members_who_opted_in_but_not_the_host(sent):
+    host = await make_member(discord_id=9118, username='ev_host')
+    keen = await make_member(discord_id=9119, username='ev_keen')
+    for user in (host, keen):
+        await NotificationPreferenceService.set_mode(user, EVENT_LISTED.key, MEMBERS, PING)
+    event = await CommunityEvent.create(
+        host=host, title='Board games', starts_at=utc(2026, 10, 23, 20), duration_minutes=60,
+        status=CommunityEventStatus.APPROVED,
+    )
+    await opt_in_notifications.event_listed(event.id)
+    assert sent == [(9119, EVENT_LISTED.to(MEMBERS))]

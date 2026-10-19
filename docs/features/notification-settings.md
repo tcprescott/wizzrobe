@@ -23,7 +23,7 @@ exactly the defaults.
 
 ## The catalogue
 
-`notification_catalog.py` declares one `Notice` per message, 73 of them, in
+`notification_catalog.py` declares one `Notice` per message, 75 of them, in
 eight `GROUPS`: Matches, Brackets, Reschedule requests, Crew, Volunteer shifts,
 Community, Event check-in, Async qualifiers. Each carries a stable `key`
 (`match_scheduled`), a `title` and `when` for the settings grid, a default mode
@@ -166,7 +166,9 @@ the ceiling. Text is in `application/utils/discord_messages_opt_in.py`.
 |---|---|---|
 | `opponent_acknowledged` | players | `acknowledge_match` |
 | `station_assigned` | players | `assign_stations` |
-| `bracket_result` | players | native bracket `_record_result` (not Challonge or start.gg) |
+| `match_result` | players; followers at their follow level (players skip the follower copy) | `confirm_match`, from the recorded `finish_rank` / `finish_time`, for every tournament |
+| `bracket_started` | followers at any level | native `start_bracket`; a Challonge sync that sees the state leave pending/check-in |
+| `community_event_listed` | members but the host (Profile list puts it under "Tournaments and events you follow") | `CommunityEventService.approve` of a pending event, or a staff submission listed straight away |
 | `added_to_tournament` / `removed_from_tournament` | players | `record_enrolment_change(notify=True)`: roster dialog, admin user dialog; never a sync or scheduling auto-enrol |
 | `player_withdrew` | admins (`StaffAlertService.tournament_alert_admins`) | self-withdraw, Challonge withdraw |
 | `request_withdrawn` | the opponent (head-to-head only) | `MatchRescheduleService.withdraw` |
