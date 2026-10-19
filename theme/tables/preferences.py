@@ -134,6 +134,7 @@ class TableKeys:
     REPORTS_INSIGHTS_PLAYERS = 'reports.insights_players'
     REPORTS_MATCH_OPS_DETAIL = 'reports.match_ops_detail'
     REPORTS_MATCH_OPS_SUMMARY = 'reports.match_ops_summary'
+    REPORTS_SENT_MESSAGES = 'reports.sent_messages'
     REPORTS_STAGE_MATCHES = 'reports.stage_matches'
     REPORTS_STAGE_SUMMARY = 'reports.stage_summary'
     REPORTS_TELEMETRY_LOG = 'reports.telemetry_log'

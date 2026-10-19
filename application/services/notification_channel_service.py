@@ -38,6 +38,7 @@ from itsdangerous import BadSignature, URLSafeSerializer
 from application.feature_flags import requires_feature
 from application.repositories import NotificationChannelRepository
 from application.services.audit_service import AuditActions, AuditService
+from application.services.sent_message_service import SentMessageRef, SentMessageService
 from application.utils.clients import sendgrid_client, telegram_client
 from application.utils.environment import get_base_url
 from application.utils.mocks.mock_discord import is_mock_discord
@@ -380,6 +381,7 @@ class NotificationChannelService:
     async def mirror_dm(
         self, discord_id: int, message: str, navigate: Optional[str] = None,
         label: Optional[str] = None, silent: bool = False,
+        ref: Optional[SentMessageRef] = None,
     ) -> None:
         """Copy one Discord DM to the recipient's email and Telegram.
 
@@ -401,10 +403,13 @@ class NotificationChannelService:
             reset_flag_cache()
             if not await FeatureFlagService().is_enabled(FeatureFlag.NOTIFICATION_CHANNELS):
                 return
-            if wants_email:
-                await self._email(user, message, navigate, label)
-            if wants_telegram:
+            emailed = await self._email(user, message, navigate, label) if wants_email else None
+            telegrammed = (
                 await self._telegram(user, message, navigate, label, silent=silent)
+                if wants_telegram else None
+            )
+            if ref is not None:
+                await SentMessageService().record_channels(ref, email=emailed, telegram=telegrammed)
         except Exception:
             logger.exception('email/Telegram DM mirror failed for discord id %s', discord_id)
 

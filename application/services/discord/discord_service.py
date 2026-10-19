@@ -28,8 +28,10 @@ from application.services.discord.discord_scheduled_events import (
     ScheduledEventsMixin,
 )
 from application.services.notification_catalog import NoticeTarget
+from application.services.sent_message_service import SentMessageRef, SentMessageService
 from application.services.web_push_service import WebPushService
 from application.utils.discord_messages import DMLink
+from models import SentMessageStatus
 
 logger = logging.getLogger(__name__)
 
@@ -45,6 +47,16 @@ DM_DISCORD_OFF = "Discord DMs are turned off for this user"
 # The community turned this message off for this kind of recipient (Admin → Notifications).
 DM_NOTICE_OFF = "This notification is turned off in the community's notification settings"
 DM_SEND_TIMEOUT_SECONDS = 45
+
+def sent_message_status(result: Tuple[bool, str]) -> Tuple[SentMessageStatus, Optional[str]]:
+    """How a ``send_dm`` result reads in the Sent messages log, with any error."""
+    ok, detail = result
+    if ok:
+        return (SentMessageStatus.DISCORD_OFF if detail == DM_DISCORD_OFF else SentMessageStatus.DELIVERED), None
+    if detail in DM_UNREACHABLE:
+        return SentMessageStatus.BLOCKED, detail
+    return SentMessageStatus.FAILED, detail
+
 
 # Called with ``(channel_id, message_id)`` once Discord has accepted a DM, so a
 # sender can find the message again to edit it.
@@ -77,6 +89,7 @@ async def _apply_notice(notice: NoticeTarget) -> Tuple[bool, bool]:
 
 def _mirror_dm_to_web_push(
     user_id: int, message: str, navigate: Optional[str] = None, silent: bool = False,
+    ref: Optional[SentMessageRef] = None,
 ) -> None:
     """Fan every outgoing DM out to the recipient's web-push devices.
 
@@ -94,12 +107,13 @@ def _mirror_dm_to_web_push(
     if not WebPushService.is_configured():
         return
     event_dispatch_queue.enqueue(
-        WebPushService().mirror_dm(user_id, message, navigate=navigate, silent=silent)
+        WebPushService().mirror_dm(user_id, message, navigate=navigate, silent=silent, ref=ref)
     )
 
 
 def _mirror_dm_to_channels(
     user_id: int, message: str, link: Optional[DMLink] = None, silent: bool = False,
+    ref: Optional[SentMessageRef] = None,
 ) -> None:
     """Fan every outgoing DM out to the recipient's email and Telegram too.
 
@@ -127,6 +141,7 @@ def _mirror_dm_to_channels(
                 navigate=link.url if link else None,
                 label=link.label if link else None,
                 silent=silent,
+                ref=ref,
             )
 
     event_dispatch_queue.enqueue(_run())
@@ -369,6 +384,8 @@ class DiscordService(GuildOpsMixin, ScheduledEventsMixin):
             muted, silent = await _apply_notice(notice)
             if muted:
                 return True, DM_NOTICE_OFF
+        log = SentMessageService()
+        ref = await log.record_attempt(user_id, message, embed=embed, link=link, silent=silent, notice=notice)
         # Mirror before the bot-readiness checks so device notifications still
         # go out when the bot is down or the user blocks Discord DMs. Corollary:
         # a (False, ...) return means the *Discord* send failed — subscribed
@@ -376,9 +393,23 @@ class DiscordService(GuildOpsMixin, ScheduledEventsMixin):
         # mirror always uses the plain text, even when an embed carries the DM.
         if mirror:
             _mirror_dm_to_web_push(
-                user_id, message, navigate=link.url if link else None, silent=silent,
+                user_id, message, navigate=link.url if link else None, silent=silent, ref=ref,
             )
-            _mirror_dm_to_channels(user_id, message, link, silent=silent)
+            _mirror_dm_to_channels(user_id, message, link, silent=silent, ref=ref)
+        result = await self._send_to_discord(user_id, message, view_factory, embed, link, on_sent, silent)
+        await log.record_result(ref, *sent_message_status(result))
+        return result
+
+    async def _send_to_discord(
+        self,
+        user_id: int,
+        message: str,
+        view_factory: Optional[Callable[[], discord.ui.View]],
+        embed: Optional[discord.Embed],
+        link: Optional[DMLink],
+        on_sent: Optional[DMSentHook],
+        silent: bool,
+    ) -> Tuple[bool, str]:
         try:
             if self._bot is None:
                 logger.error('Discord DM to %s not sent: bot not initialized', user_id)
@@ -585,10 +616,27 @@ class MockDiscordService(MockGuildOpsMixin, MockScheduledEventsMixin):
             if muted:
                 print(f"[MOCK Discord DM] -> {user_id}: skipped, {notice.key}:{notice.recipient.value} is off")
                 return True, DM_NOTICE_OFF
+        log = SentMessageService()
+        ref = await log.record_attempt(user_id, message, embed=embed, link=link, silent=silent, notice=notice)
+        result = await self._mock_send(user_id, message, embed, link, on_sent, mirror, silent, ref)
+        await log.record_result(ref, *sent_message_status(result))
+        return result
+
+    async def _mock_send(
+        self,
+        user_id: int,
+        message: str,
+        embed: Optional["discord.Embed"],
+        link: Optional[DMLink],
+        on_sent: Optional[DMSentHook],
+        mirror: bool,
+        silent: bool,
+        ref: Optional[SentMessageRef],
+    ) -> Tuple[bool, str]:
         # Email and Telegram mirror in mock mode too: their transports print
         # instead of sending, so there's no external side effect to fear.
         if mirror:
-            _mirror_dm_to_channels(user_id, message, link, silent=silent)
+            _mirror_dm_to_channels(user_id, message, link, silent=silent, ref=ref)
         # Deliberately no web-push mirror: mock mode must have no external side
         # effects (a dev with a prod DB snapshot + prod VAPID keys would push
         # to real users' phones). Real delivery requires the real service.

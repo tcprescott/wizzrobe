@@ -311,6 +311,7 @@ model needs in one call to find one person.
 | Tool | Gate |
 |---|---|
 | `list_audit_log` | STAFF |
+| `list_sent_messages` | STAFF |
 | `telemetry_summary`, `telemetry_top`, `get_system_config` | STAFF |
 | `list_service_health`, `list_webhooks`, `list_webhook_deliveries` | STAFF |
 | `list_notification_settings` | STAFF |

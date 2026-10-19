@@ -11,7 +11,7 @@ exactly the defaults.
 |---|---|
 | Catalogue of every DM and its defaults | `application/services/notification_catalog.py` |
 | Overrides, the lookup `send_dm` makes, staff writes | `application/services/notification_settings_service.py` (`NotificationSettingsService`) |
-| Data | `NotificationSetting` (`models/notification_setting.py`, migration 116), `NotificationSettingRepository` |
+| Data | `NotificationSetting` (`models/notification_setting.py`, migration 117), `NotificationSettingRepository` |
 | Enforcement | `send_dm(notice=...)` in `application/services/discord/discord_service.py` |
 | Recipient tagging for staff alerts | `StaffAlertService.tagged_match_alert_recipients` / `tagged_volunteer_alert_recipients` |
 | Page | `pages/admin_tabs/admin_notifications.py` |

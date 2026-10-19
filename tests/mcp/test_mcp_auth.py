@@ -25,6 +25,7 @@ ADMIN_TOOLS = {
 }
 STAFF_TOOLS = {
     'list_audit_log': {},
+    'list_sent_messages': {},
     'list_users': {},
     'telemetry_summary': {},
     'get_system_config': {},

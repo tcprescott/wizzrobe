@@ -1,7 +1,9 @@
+from typing import Optional
+
 from tortoise import fields
 from tortoise.models import Model
 
-from .enums import DiscordEventSource, StaffRequestKind
+from .enums import DiscordEventSource, SentMessageStatus, StaffRequestKind
 
 
 class DiscordScheduledEvent(Model):
@@ -65,3 +67,42 @@ class StaffRequestDM(Model):
         table = 'staff_request_dm'
         table_description = 'Staff DMs about a pending request, edited once someone decides it.'
         indexes = (('tenant', 'kind', 'object_id'),)
+
+
+class SentMessage(Model):
+    """One DM Wizzrobe sent, as the recipient got it, and how each channel went.
+
+    Written by ``DiscordService.send_dm`` (the chokepoint every notification
+    flows through) so staff can answer "did they get told?" from Admin →
+    Reports. ``body`` and ``embed`` can hold staff-private text, so the log is
+    staff-only and tenant-scoped. ``discord_id`` is kept beside the nullable
+    ``recipient`` because a DM to an id with no account still goes out.
+    """
+
+    id = fields.IntField(pk=True)
+    tenant: fields.ForeignKeyRelation = fields.ForeignKeyField(
+        'models.Tenant', related_name='sent_messages', on_delete=fields.CASCADE)
+    tenant_id: int
+    recipient: fields.ForeignKeyNullableRelation = fields.ForeignKeyField(
+        'models.User', related_name='sent_messages', null=True, on_delete=fields.SET_NULL)
+    recipient_id: Optional[int]
+    discord_id = fields.CharField(max_length=32)
+    title = fields.CharField(max_length=256, null=True)
+    body = fields.TextField()
+    embed = fields.JSONField(null=True)  # type: ignore[var-annotated]
+    link_label = fields.CharField(max_length=80, null=True)
+    link_url = fields.CharField(max_length=1024, null=True)
+    silent = fields.BooleanField(default=False)
+    notice_key = fields.CharField(max_length=64, null=True)
+    audience = fields.CharField(max_length=32, null=True)
+    status = fields.CharEnumField(SentMessageStatus, max_length=16, default=SentMessageStatus.PENDING)
+    error = fields.CharField(max_length=500, null=True)
+    push_devices = fields.IntField(null=True)
+    email_sent = fields.BooleanField(null=True)
+    telegram_sent = fields.BooleanField(null=True)
+    created_at = fields.DatetimeField(auto_now_add=True)
+
+    class Meta:
+        table = 'sent_message'
+        table_description = 'Every DM sent in a community, for the staff Sent messages report.'
+        indexes = (('tenant', 'created_at'), ('tenant', 'recipient'))

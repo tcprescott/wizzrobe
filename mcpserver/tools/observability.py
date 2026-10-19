@@ -21,6 +21,7 @@ from application.services import (
     AuditService,
     FeedbackService,
     RuntimeStatsService,
+    SentMessageService,
     ServiceHealthService,
     TelemetryService,
     WebhookService,
@@ -34,6 +35,8 @@ from mcpserver.schemas import (
     AuditPage,
     FeedbackEntry,
     RuntimeStats,
+    SentMessageInfo,
+    SentMessagePage,
     ServiceHealthProbe,
     TenantArg,
     WebhookDeliveryInfo,
@@ -80,6 +83,54 @@ async def list_audit_log(
                 details=decode_json_details(log.details), created_at=log.created_at,
             )
             for log in logs
+        ],
+    )
+
+
+async def list_sent_messages(
+    tenant: TenantArg = None,
+    start: Optional[str] = None,
+    end: Optional[str] = None,
+    user_id: Optional[int] = None,
+    search: Optional[str] = None,
+    problems_only: bool = False,
+    limit: int = 50,
+    offset: int = 0,
+) -> SentMessagePage:
+    """Every DM Wizzrobe sent in the community, newest first, and whether it got there.
+
+    Requires Staff. Use it to check whether someone was told about something:
+    filter by `user_id`, or `search` the text and recipient names.
+    `problems_only` keeps the ones Discord refused or failed to deliver. Each
+    row says what Discord did (`status`, `error`) and whether the device, email
+    and Telegram copies went out. `counts` totals the whole time window. Times
+    are UTC.
+    """
+    limit = clamp(limit, low=1, high=MAX_ROWS)
+    offset = max(0, offset)
+    start_dt, end_dt = parse_ts('start', start), parse_ts('end', end)
+    service = SentMessageService()
+    actor = current_actor().user
+    query: Dict[str, Any] = dict(
+        actor=actor, start=start_dt, end=end_dt, problems_only=problems_only,
+        search=search or None, recipient_id=user_id,
+    )
+    total = await service.count_messages(**query)
+    messages = await service.list_messages(**query, limit=limit, offset=offset)
+    counts = await service.totals(actor=actor, start=start_dt, end=end_dt)
+    return SentMessagePage(
+        total=total, limit=limit, offset=offset, counts=counts,
+        items=[
+            SentMessageInfo(
+                id=m.id, recipient_id=m.recipient_id,
+                recipient_name=m.recipient.preferred_name if m.recipient else None,
+                discord_id=int(m.discord_id), title=m.title, body=m.body,
+                link_label=m.link_label, link_url=m.link_url, silent=m.silent,
+                notice_key=m.notice_key, audience=m.audience, status=m.status.value,
+                error=m.error, push_devices=m.push_devices, email_sent=m.email_sent,
+                telegram_sent=m.telegram_sent, created_at=m.created_at,
+            )
+            for m in messages
         ],
     )
 
@@ -266,6 +317,7 @@ async def runtime_stats() -> RuntimeStats:
 
 def register_tools(mcp: MCPServer) -> None:
     register(mcp, list_audit_log, gate=Gate.STAFF, title='Search audit log')
+    register(mcp, list_sent_messages, gate=Gate.STAFF, title='List sent messages')
     register(mcp, telemetry_summary, gate=Gate.STAFF, title='Telemetry summary')
     register(mcp, telemetry_top, gate=Gate.STAFF, title='Telemetry leaderboards')
     register(mcp, get_system_config, gate=Gate.STAFF, title='Get system config')

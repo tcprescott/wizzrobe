@@ -663,3 +663,16 @@ class NotificationRecipient(str, Enum):
     @property
     def label(self) -> str:
         return {'on_duty': 'On shift', 'staff': 'All staff'}.get(self.value, self.value.capitalize())
+
+
+class SentMessageStatus(str, Enum):
+    """What Discord did with one logged DM (:class:`SentMessage`).
+
+    ``(str, Enum)`` (not ``StrEnum``) — render ``.value`` in f-strings.
+    """
+
+    PENDING = 'pending'
+    DELIVERED = 'delivered'
+    DISCORD_OFF = 'discord_off'
+    BLOCKED = 'blocked'
+    FAILED = 'failed'

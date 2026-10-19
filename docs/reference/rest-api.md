@@ -196,6 +196,9 @@ Which messages this community sends, to whom, and whether they ping — the Admi
 - `PUT /notification-settings/{notice}/{recipient}` — body `NotificationSettingUpdate {mode}`; returns the updated row. Choosing the default clears the override; an unknown notice or a recipient the message doesn't have is `400`. Audited as `notification_setting.changed`.
 - `POST /notification-settings/reset` — clears every override; returns `NotificationSettingsReset {reset}` (how many went back). Audited as `notification_settings.reset`.
 
+### Sent messages (`/api/sent-messages`) · `sent_messages.py`
+- `GET /sent-messages` — every DM sent in the community, newest first, **Staff only**. Filters: `start`/`end` (UTC), `user_id` (recipient), `search` (text or recipient name), `problems_only` (blocked or failed); paginate with `limit` (1–500, default 50) and `offset`. Response carries `total`, window `counts` (`sent`, `silent`, `off_or_blocked`, `failed`) and each message's per-channel result. `discord_id` is a number, like the rest of REST.
+
 ### Audit (`/api/audit-logs`) · `audit.py`
 - `GET /audit-logs` — paginated, **Staff only** (the log carries webhook receiver URLs, role grants and accommodation requests). Filters: `start`/`end` (UTC time bounds), `user_id`, `action_contains` (substring match on the action string); paginate with `limit` (1–500, default 100) and `offset` (default 0). Response includes the matching-entry `total`.
 
