@@ -4740,6 +4740,7 @@ ol.wiz-help-list { list-style-type: decimal; }
 }
 
 .wiz-sglive-link {
+    width: 100%;
     display: flex;
     align-items: center;
     gap: 0.5rem 1rem;

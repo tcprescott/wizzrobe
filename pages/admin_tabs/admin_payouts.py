@@ -196,7 +196,8 @@ async def admin_payouts_page() -> None:
                                     'Prize pool', value=f'{split.pool:.2f}',
                                 ).props('outlined dense prefix="$"' + (' readonly' if synced else ''))
                                 if synced:
-                                    pool_input.props('append-icon=lock')
+                                    with pool_input.add_slot('append'):
+                                        ui.icon('lock', size='xs').tooltip('Synced from sglive')
                                 bonus_input = ui.input(
                                     'Bonus', value=f'{split.bonus:.2f}',
                                 ).props('outlined dense prefix="$"')
