@@ -6,6 +6,7 @@ tournament's bracket. Built once per change for every reader; answered
 statically when staff say so or a rush of arrivals trips it.
 """
 
+import asyncio
 from datetime import time, timedelta
 
 import pytest
@@ -148,6 +149,55 @@ class TestBuildWatchView:
         assert by_name['Linked'].rules_url == 'https://example.com/rules'
         assert by_name['Streamed'].bracket_url == ''
 
+    async def test_a_tournament_shows_its_pool_plus_bonus(self, db):
+        from datetime import datetime, timezone
+        from decimal import Decimal
+
+        with tenant_scope(DEFAULT_TEST_TENANT_ID):
+            await Tournament.create(
+                name='Synced', bracket_url='https://example.challonge.com/a',
+                prize_pool=Decimal('1701'), prize_bonus=Decimal('500'), sglive_slug='wwr',
+                prize_pool_synced_at=datetime.now(timezone.utc),
+            )
+            await Tournament.create(
+                name='Typed', bracket_url='https://example.challonge.com/b', prize_pool=Decimal('50'),
+            )
+            await Tournament.create(name='None', bracket_url='https://example.challonge.com/c')
+            view = await watch_data.build_watch_view(DEFAULT_TEST_TENANT_ID)
+
+        by_name = {t.name: t for t in view.tournaments}
+        assert by_name['Synced'].prize_total == Decimal('2201')
+        assert by_name['Synced'].prize_synced
+        assert by_name['Typed'].prize_total == Decimal('50')
+        assert not by_name['Typed'].prize_synced
+        assert by_name['None'].prize_total is None
+
+    async def test_no_pool_shows_where_payouts_are_off(self, db):
+        from decimal import Decimal
+
+        from models import FeatureFlag, TenantFeatureFlag
+
+        with tenant_scope(DEFAULT_TEST_TENANT_ID):
+            await Tournament.create(
+                name='Cup', bracket_url='https://example.challonge.com/a', prize_pool=Decimal('100'),
+            )
+            await TenantFeatureFlag.filter(
+                tenant_id=DEFAULT_TEST_TENANT_ID, flag=FeatureFlag.PAYOUTS.value,
+            ).update(enabled=False)
+            view = await watch_data.build_watch_view(DEFAULT_TEST_TENANT_ID)
+
+        assert view.tournaments[0].prize_total is None
+
+    async def test_a_pool_change_refreshes_the_page(self, db):
+        before = watch_data.watch_version(DEFAULT_TEST_TENANT_ID)
+        watch_data.subscribe()
+        from application.events import Event, EventType, event_bus
+
+        with tenant_scope(DEFAULT_TEST_TENANT_ID):
+            event_bus.publish(Event.create(EventType.TOURNAMENT_PRIZE_POOL_UPDATED, {'tournament_id': 1}, None))
+        await asyncio.sleep(0)
+        assert watch_data.watch_version(DEFAULT_TEST_TENANT_ID) > before
+
     async def test_one_build_serves_every_reader_until_something_changes(self, db, monkeypatch):
         calls = []
 
@@ -183,6 +233,31 @@ class TestRender:
         assert '<script>x' not in body
         assert 'javascript:' not in body
         assert '&lt;b&gt;Com&lt;/b&gt;' in body
+
+    def test_a_prize_pool_draws_as_a_chip_with_the_sglive_footnote(self):
+        from decimal import Decimal
+
+        body = render_watch_document(WatchView(
+            community='C',
+            tournaments=[
+                WatchTournament(id=1, name='Cup', prize_total=Decimal('2201'), prize_synced=True),
+                WatchTournament(id=2, name='Plain'),
+            ],
+        ))
+        assert 'wiz-chip--ok' in body
+        assert '$2,201 prize pool' in body
+        assert body.count('prize pool</span>') == 1
+        assert 'sglive.speedgaming.org</a> every 15 minutes' in body
+
+    def test_no_footnote_without_a_synced_pool(self):
+        from decimal import Decimal
+
+        body = render_watch_document(WatchView(
+            community='C',
+            tournaments=[WatchTournament(id=1, name='Cup', prize_total=Decimal('50'))],
+        ))
+        assert '$50 prize pool' in body
+        assert 'sglive' not in body
 
     def test_it_updates_in_place_instead_of_reloading(self):
         body = render_watch_document(

@@ -8,7 +8,6 @@ the signup window is open. The same row stacks on a phone.
 
 from __future__ import annotations
 
-from decimal import Decimal
 from typing import Optional
 
 from nicegui import ui
@@ -16,6 +15,7 @@ from nicegui import ui
 from application.services.event_info_service import HandbookTournament
 from application.utils.app_links import HOME_TOURNAMENTS, home_url
 from application.utils.clients.sglive_client import SGLIVE_URL
+from application.utils.money import format_money
 from application.utils.timezone import format_local_time, to_local
 from application.utils.tournament_signup import SignupWindow
 
@@ -37,10 +37,6 @@ def _status(row: HandbookTournament, tz: Optional[str]) -> str:
     return ''
 
 
-def _money(value: Decimal) -> str:
-    return f'${value:,.0f}' if value == value.to_integral_value() else f'${value:,.2f}'
-
-
 def render_tournament_list(rows: list[HandbookTournament], *, tz: Optional[str] = None) -> None:
     """Draw ``rows`` into the current slot; ``tz`` is the clock close times read on."""
     if not rows:
@@ -57,7 +53,7 @@ def render_tournament_list(rows: list[HandbookTournament], *, tz: Optional[str] 
                         if row.prize_total is not None:
                             with ui.element('span').classes('wiz-chip wiz-chip--ok'):
                                 ui.icon('payments').classes('text-sm')
-                                ui.label(f'{_money(row.prize_total)} prize pool')
+                                ui.label(f'{format_money(row.prize_total)} prize pool')
                     meta = ' · '.join(part for part in (row.format, _status(row, tz)) if part)
                     if meta:
                         ui.label(meta).classes('wiz-event-tournament__meta')
