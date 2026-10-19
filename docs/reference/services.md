@@ -1268,11 +1268,14 @@ A community's **logo**, shown in place of the brand-mark square (28×28 in the h
 
 The stored bytes go in the `TenantLogo` table (`bytea`), never the filesystem; `Tenant.config['logo']` holds only their SHA-256 and `config['logo_format']` is `'svg'` for an SVG (absent for the WebP), which `TenantThemeService.get_theme` turns into a `logo` URL on the palette dict. `frontend.py` serves `/brand-logo/<tenant_id>/<sha256>.webp` and `.svg` publicly (each 404s unless the stored bytes are that format) with a year-long `immutable` cache, an `ETag` (304 on match), `nosniff` and a `default-src 'none'; style-src 'unsafe-inline'; sandbox` CSP, so an SVG opened directly in a tab can't run anything; a new upload is a new URL, so nothing needs invalidating. A 128-entry in-process LRU keyed by `(tenant_id, sha256)` saves the DB read on a cold browser.
 
+Safari and iOS won't use an SVG or WebP as a tab or home-screen icon, so `render_icon` turns the stored bytes into a square PNG: 32×32 on transparent for the tab, 180×180 with the logo at 80% on the app's charcoal (`#17120D`) for the apple-touch icon. SVGs render with `resvg-py`, which needs no system libraries and never follows external references (the sanitiser leaves none anyway). `frontend.py` serves them at `/brand-logo/<tenant_id>/<sha256>-<32|180>.png` with the same immutable caching, from a second LRU; any other size, or a logo that won't render, is a 404. `get_theme` adds their URLs as `logo_icon` and `logo_touch`.
+
 | Method | Returns | Description |
 |---|---|---|
 | `set_logo(actor, data)` | `str` | STAFF-gated; normalises, upserts the row and the config hash in one transaction, audits `theme.logo_updated`. Returns the URL. `ValueError` with an uploader-facing message for a rejected file |
 | `remove_logo(actor)` | `None` | STAFF-gated; drops the row and the hash, audits `theme.logo_removed` |
 | `qr_logo_data_uri()` | `str \| None` | The current community's stored logo as a `data:` URI for `qrcode_util.asset_qr_svg`, else `None` |
+| `get_icon_png(tenant_id, sha256, side)` | `bytes \| None` | The logo as a `side` (32 or 180) PNG icon, rendered off the loop and cached; `None` for another size, a missing logo or a render failure |
 | `get_logo_bytes(tenant_id, sha256)` | `bytes \| None` | For the image route (no tenant in scope); `None` unless that exact tenant and hash match |
 
 ### tenant_theme_service.py — TenantThemeService

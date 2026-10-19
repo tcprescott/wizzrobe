@@ -293,10 +293,10 @@ async def build_watch_view(tenant_id: int) -> WatchView:
         zone = timezone_label()
 
     try:
-        primary = (await TenantThemeService.get_current_theme()).get('primary')
+        theme = await TenantThemeService.get_current_theme()
     except Exception:
         logger.debug('Watch page: falling back to the default palette', exc_info=True)
-        primary = None
+        theme = {}
 
     return WatchView(
         community=await TenantService.current_community_name() or 'Wizzrobe',
@@ -304,6 +304,7 @@ async def build_watch_view(tenant_id: int) -> WatchView:
         coming=coming,
         tournaments=await _tournaments({m.tournament_id for m in matches}),  # type: ignore[attr-defined]
         timezone_label=zone,
-        primary_color=primary,
+        primary_color=theme.get('primary'),
+        icons=theme,
         generated_at=datetime.now(timezone.utc),
     )

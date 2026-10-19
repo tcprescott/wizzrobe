@@ -12,11 +12,12 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Dict, List, Optional
+from typing import Dict, List, Mapping, Optional
 
 from application.utils.timezone import format_local_display, to_local
 from models import Bracket, BracketEntry, BracketFormat, BracketMatch, BracketState
 from theme.assets import asset_url
+from theme.favicon import icon_links_html
 
 from ..labels import format_label, stage_label, state_label
 from ..render import build_context
@@ -41,6 +42,8 @@ class StaticBracketView:
     # Path prefix carrying any /t/<slug> root_path, so links work in path mode.
     root_path: str = ''
     primary_color: Optional[str] = None
+    # The community's theme (TenantThemeService), for its logo icons.
+    icons: Dict[str, str] = field(default_factory=dict)
     refresh_seconds: int = 60
 
 
@@ -54,6 +57,7 @@ class StaticIndexView:
     generated_at: Optional[datetime] = None
     root_path: str = ''
     primary_color: Optional[str] = None
+    icons: Dict[str, str] = field(default_factory=dict)
     refresh_seconds: int = 300
 
 
@@ -133,6 +137,7 @@ def _document(
     generated_at: Optional[datetime],
     footer_links: str = '',
     description: str = '',
+    icons: Optional[Mapping[str, str]] = None,
 ) -> str:
     # HTML escaping does nothing inside <style>, so the colour is re-checked
     # here rather than trusting every caller to have validated it.
@@ -161,9 +166,8 @@ def _document(
         # link staff paste into a channel, and a bare <title> is all it had.
         f'<meta property="og:title" content="{_esc(title)}">'
         + (f'<meta property="og:description" content="{_esc(description)}">' if description else '')
-        +
-        '<link rel="icon" href="/static/icons/icon-192.png">'
-        f'<link rel="stylesheet" href="{asset_url("css/styles.css")}">'
+        + icon_links_html(icons)
+        + f'<link rel="stylesheet" href="{asset_url("css/styles.css")}">'
         f'<link rel="stylesheet" href="{asset_url("css/brackets.css")}">'
         f'<style>{_SHELL_CSS}</style>{palette}'
         '</head><body>'
@@ -261,6 +265,7 @@ def render_bracket_document(view: StaticBracketView) -> str:
         body=bar + _tag('div', 'wizs-wrap', body),
         refresh_seconds=view.refresh_seconds,
         primary_color=view.primary_color,
+        icons=view.icons,
         generated_at=view.generated_at,
         footer_links=(
             f'<a href="{_esc(root)}/brackets/{_esc(bracket.id)}">interactive view</a>'
@@ -308,6 +313,7 @@ def render_index_document(view: StaticIndexView) -> str:
         body=_bar(view.tournament_name, 'Bracket stages') + body,
         refresh_seconds=view.refresh_seconds,
         primary_color=view.primary_color,
+        icons=view.icons,
         generated_at=view.generated_at,
         footer_links=(
             f'<a href="{_esc(root)}/tournament/{_esc(view.tournament_id)}/brackets">'
@@ -318,6 +324,7 @@ def render_index_document(view: StaticIndexView) -> str:
 
 def render_not_found_document(
     *, root_path: str = '', community: str = '', primary_color: Optional[str] = None,
+    icons: Optional[Mapping[str, str]] = None,
 ) -> str:
     """The static twin of the app's 404: same words, a way back, no framework.
 
@@ -341,5 +348,6 @@ def render_not_found_document(
         body=_bar(community or 'Wizzrobe', '') + body,
         refresh_seconds=0,
         primary_color=primary_color,
+        icons=icons,
         generated_at=None,
     )

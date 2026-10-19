@@ -321,9 +321,10 @@ class BaseLayout:
         ui.add_head_html('<meta name="robots" content="noindex, nofollow">')
         # PWA wiring: the manifest makes the app installable, the two media-scoped
         # theme-color metas tint the mobile browser/status-bar chrome to the gold
-        # header (light) / charcoal (dark) palette, and the apple-touch-icon is the
-        # iOS home-screen icon. The service worker is registered from the site root
-        # (/sw.js, served in frontend.py) so its scope covers start_url '/'.
+        # header (light) / charcoal (dark) palette; the tab and iOS home-screen
+        # icons come with the palette (apply_brand_palette). The service worker
+        # is registered from the site root (/sw.js, served in frontend.py) so its
+        # scope covers start_url '/'.
         ui.add_head_html('<link rel="manifest" href="/static/manifest.webmanifest">')
         # Light-mode browser/status-bar tint follows the tenant's header colour;
         # dark mode keeps the charcoal bar (the header stays charcoal in dark).
@@ -333,7 +334,6 @@ class BaseLayout:
         ui.add_head_html(
             '<meta name="theme-color" content="#17120D" media="(prefers-color-scheme: dark)">'
         )
-        ui.add_head_html('<link rel="apple-touch-icon" href="/static/icons/apple-touch-icon.png">')
         ui.add_head_html(
             '<script>'
             "if('serviceWorker' in navigator){"

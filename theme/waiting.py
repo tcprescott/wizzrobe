@@ -91,7 +91,6 @@ async def waiting_screen(message: str = 'Loading…', *, brand: str | None = Non
         )
     ui.add_head_html(f'<link rel="stylesheet" href="{asset_url("css/styles.css")}">')
     ui.add_head_html('<meta name="robots" content="noindex, nofollow">')
-    ui.add_head_html('<link rel="apple-touch-icon" href="/static/icons/apple-touch-icon.png">')
     apply_brand_palette(colors)
     install_timezone_detection()
     install_browser_monitoring()
