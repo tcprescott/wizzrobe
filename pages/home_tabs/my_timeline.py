@@ -8,7 +8,7 @@ anything on. Tapping a block opens it: a match or crew slot in the List view,
 narrowed to that match; a shift in its details dialog.
 """
 
-from datetime import date, datetime, timedelta, timezone
+from datetime import date, datetime, timezone
 from typing import Awaitable, Callable, Optional
 
 from nicegui import app, ui
@@ -31,7 +31,14 @@ from theme.empty_state import empty_panel
 from theme.section import section_panel
 from theme.steady import steady_refreshable
 from theme.timer_teardown import PageTimer
-from theme.volunteer_grid import HOUR_PX, day_label, render_day_bar
+from theme.volunteer_grid import (
+    HOUR_PX,
+    day_label,
+    render_column_markers,
+    render_day_bar,
+    render_hour_column,
+    timeline_region,
+)
 
 _KINDS = {
     MATCH: ('sports_esports', 'Your matches'),
@@ -88,15 +95,8 @@ def _render_day(
     now_shown = first <= now_hour < last
     _legend({i.kind for i in items + blocked}, now_shown)
     height = _px(last - first)
-    with ui.element('div').classes('wiz-vgrid wiz-tl').props(
-        f'role=region aria-label="Your schedule for {day_label(day)}"'
-    ):
-        with ui.element('div').classes('wiz-vgrid__times'):
-            ui.element('div').classes('wiz-vgrid__head')
-            with ui.element('div').classes('wiz-vgrid__body').style(f'height: {height};'):
-                for hour in range(first, last):
-                    ui.label(format_local_time(midnight + timedelta(hours=hour))) \
-                        .classes('wiz-vgrid__hour').style(f'top: {_px(hour - first)};')
+    with timeline_region(midnight, first, f'Your schedule for {day_label(day)}').classes('wiz-tl'):
+        render_hour_column(midnight, first, last, now_hour if now_shown else None)
         with ui.element('div').classes('wiz-vgrid__col'):
             ui.label(f'{day:%A, %B} {day.day}').classes('wiz-vgrid__head')
             with ui.element('div').classes('wiz-vgrid__body wiz-vgrid__body--lines') \
@@ -105,8 +105,7 @@ def _render_day(
                     _render_off(off, midnight, first, on_blocked)
                 for placed in place_in_lanes(items):
                     _render_block(placed.item, placed.lane, placed.lanes, midnight, first)
-                if now_shown:
-                    ui.element('div').classes('wiz-vgrid__now').style(f'top: {_px(now_hour - first)};')
+                render_column_markers(first, now_hour if now_shown else None)
 
 
 def _render_off(item: TimelineItem, midnight: datetime, first: int, on_blocked: OnBlocked) -> None:

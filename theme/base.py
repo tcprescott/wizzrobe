@@ -392,6 +392,7 @@ class BaseLayout:
         ui.add_head_html(f'<script defer src="{asset_url("js/a11y.js")}"></script>')
         ui.add_head_html(f'<script defer src="{asset_url("js/busy.js")}"></script>')
         ui.add_head_html(f'<script defer src="{asset_url("js/dialog-keyboard.js")}"></script>')
+        ui.add_head_html(f'<script defer src="{asset_url("js/timeline.js")}"></script>')
         install_usage_capture(self._tenant_id)
         install_browser_monitoring()
         # Phoenix palette (gold primary, ember secondary), overridable per tenant via TenantThemeService.
