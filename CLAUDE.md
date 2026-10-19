@@ -105,6 +105,8 @@ await self.audit_service.write_and_publish(
 
 Use bare `event_bus.publish(Event.create(EventType.X, {...}, actor))` (`from application.events import Event, EventType, event_bus`) only where there is no audit row to pair with — a worker observation, or a publish that must fire on a path the audit deliberately skips. `EventType` names mirror `AuditActions` and are an **external contract** — add a member to `EventType` + `EventType.ALL` for a new event; treat renames as breaking. `publish` is synchronous, never raises, and never blocks. Lives at `application/events/` (a peer of `services/`, so it's exempt from the architecture hook). Its narrow sibling `application/events/match_live.py` is **not** the same thing: that one carries only `(match_id, change_type)` to nudge open UI views. Publish domain events on `event_bus`; use `match_live` only for UI refresh. Detail: [docs/features/event-system.md](docs/features/event-system.md).
 
+**An outside automation consumes six webhook events in production** (`match.rescheduled`, `match.stage_assigned`, `match.stage_cleared`, `match.deleted`, `match.cancelled`, `crew.approval_changed`). `tests/services/test_webhook_consumer_contract.py` freezes their payloads, the envelope, the headers and the signature. If it goes red, don't edit the expected values to get green: say so in the PR description and tell Thomas, so the automation's author hears first.
+
 ## Writing user-facing text
 
 Scope: prose a person reads — chat replies, UI copy (labels, `ui.notify` text,
@@ -191,7 +193,7 @@ as a broken app. Detail: [docs/features/discord.md](docs/features/discord.md#cal
 - **Actions follow one layout**: a page toolbar is one main button plus an Actions menu, a row or card is one button plus a ⋮ (`more_vert`) menu, destructive items come last and confirm first, and in any pair the negative action is on the left and the positive on the right. Match lists are run sheets (`MatchTableView(layout='run_sheet')`).
 - **Mockups before building, and phone and desktop as one design**: see the guide's "Before you build".
 
-`tests/theme/test_style_guide.py` and `tests/test_a11y_names.py` check the source; the CI `browser` job runs `scripts/ui_a11y_scan.js` (axe plus a tint-aware contrast check, light and dark) over `scripts/ui_a11y_ci.json`. Add a new page to that list.
+`tests/theme/test_style_guide.py` and `tests/test_a11y_names.py` check the source; the CI `browser-a11y` job runs `scripts/ui_a11y_scan.js` (axe plus a tint-aware contrast check, light and dark) over `scripts/ui_a11y_ci.json`. Add a new page to that list.
 
 ## Timezone handling
 

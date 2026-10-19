@@ -110,10 +110,39 @@ jobs:
       - name: Run pytest (with coverage report)
         run: poetry run pytest -q --cov=application --cov=api --cov=middleware --cov-report=term-missing
 
+  changes:
+    # Decides which subsystem-only jobs a PR needs. A job skipped by its `if:`
+    # reports as passed, so a required check never waits on it. Everything that
+    # isn't a pull request (the publish.yml gate on main, a manual run) runs all.
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      swiss: ${{ steps.diff.outputs.swiss }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Changed paths
+        id: diff
+        run: |
+          if [ "${{ github.event_name }}" != "pull_request" ]; then
+            echo "swiss=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          files=$(git diff --name-only "origin/${{ github.base_ref }}...HEAD")
+          if echo "$files" | grep -qE '^(application/services/bracket_engines/|tests/services/test_bracket_swiss_crossvalidation\.py$|tests/services/_trf\.py$|poetry\.lock$|\.github/workflows/test\.yml$)'; then
+            echo "swiss=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "swiss=false" >> "$GITHUB_OUTPUT"
+          fi
+
   swiss-crossvalidation:
     # Cross-validate our Swiss engine against bbpPairings (a real FIDE-grade
-    # Dutch engine). Kept as a separate job so the main matrix stays fast and is
-    # not blocked on building the C++ binary.
+    # Dutch engine). Nothing outside the Swiss engine can change its pairings,
+    # so a PR runs this only when the engine, the test or its pins change.
+    needs: changes
+    if: needs.changes.outputs.swiss == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
@@ -200,54 +229,15 @@ jobs:
           WIZZROBE_TEST_DB_URL: postgres://wizzrobe:wizzrobe@localhost:5432/wizzrobe_test
         run: poetry run pytest tests/postgres tests/tenancy -q -n0
 
-  migrations:
-    # Prove the full aerich migration chain applies from an empty PostgreSQL
-    # database — the tests run on SQLite and never exercise the migrations.
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    services:
-      postgres:
-        image: postgres:16
-        env:
-          POSTGRES_USER: wizzrobe
-          POSTGRES_PASSWORD: wizzrobe
-          POSTGRES_DB: wizzrobe
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd "pg_isready -U wizzrobe"
-          --health-interval 5s --health-timeout 5s --health-retries 10
-    steps:
-      - uses: actions/checkout@v7
-
-      - name: Set up Python
-        uses: actions/setup-python@v7
-        with:
-          python-version: '3.12'
-
-      - name: Install Poetry
-        run: pipx install poetry==${{ env.POETRY_VERSION }}
-
-      - name: Install runtime dependencies
-        run: poetry install --only main --no-interaction
-
-      - name: Apply full migration chain to a fresh database
-        env:
-          DB_USERNAME: wizzrobe
-          DB_PASSWORD: wizzrobe
-          DB_HOST: localhost
-          DB_PORT: 5432
-          DB_NAME: wizzrobe
-          ENVIRONMENT: development
-        run: poetry run aerich upgrade
-
   browser:
     # pages/ + theme/ are ~34k lines the pytest suite does not cover, and their
     # Vue/Quasar slot templates run client-side: a bad `props.row.foo` in a table
     # slot renders a blank cell that no Python test can see. This job boots the
     # real app against a real PostgreSQL, seeds it, and walks the surfaces where
     # a blank render would cost the most — the short CI cousin of the full
-    # /ui-validation loop, which stays a local tool.
+    # /ui-validation loop, which stays a local tool. The a11y scan runs in
+    # `browser-a11y` against its own app: the app is single-worker, so the two
+    # halves only overlap when each has one.
     runs-on: ubuntu-latest
     timeout-minutes: 25
     services:
@@ -283,59 +273,12 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      - name: Set up Python
-        uses: actions/setup-python@v7
+      - uses: ./.github/actions/boot-app
         with:
-          python-version: '3.12'
-
-      - name: Install Poetry
-        run: pipx install poetry==${{ env.POETRY_VERSION }}
-
-      - name: Cache Poetry virtualenv
-        uses: actions/cache@v4
-        with:
-          path: ~/.cache/pypoetry/virtualenvs
-          key: poetry-full-3.12-${{ hashFiles('poetry.lock') }}
-
-      - name: Install dependencies
-        run: poetry install --no-interaction
-
-      - name: Install Playwright Chromium
-        # Pinned: Playwright ships browser-behaviour changes in minor releases,
-        # and an unpinned bump would land as a mystery CI failure on an unrelated
-        # PR. 1.56.1 matches the version preinstalled in the dev sandbox, so a
-        # local /ui-validation run and this job drive the same browser.
-        # axe-core is pinned for the same reason: a new release adds rules, and
-        # a rule landing should be a deliberate bump, not a red unrelated PR.
-        run: |
-          npm install --no-save playwright@1.56.1 axe-core@4.10.3
-          npx playwright install --with-deps chromium
-
-      - name: Generate a session secret
-        run: echo "STORAGE_SECRET=$(python -c 'import secrets; print(secrets.token_urlsafe(32))')" >> "$GITHUB_ENV"
-
-      - name: Boot the app
-        run: |
-          setsid poetry run uvicorn main:app --workers 1 --log-level info \
-            --port 8000 --host 127.0.0.1 > /tmp/app.log 2>&1 < /dev/null &
-          # The FastAPI lifespan applies the migration chain on first boot, so
-          # readiness is the signal to wait for, not a fixed sleep.
-          for _ in $(seq 1 60); do
-            grep -q 'Application startup complete' /tmp/app.log && exit 0
-            sleep 2
-          done
-          echo "app did not become ready in 120s"; cat /tmp/app.log; exit 1
-
-      - name: Seed fixtures
-        run: poetry run python scripts/seed_dev.py
+          poetry-version: ${{ env.POETRY_VERSION }}
 
       - name: Walk the surfaces
         run: node scripts/ui_smoke.js scripts/ui_smoke_ci.json
-
-      - name: Accessibility and contrast (light and dark)
-        # axe WCAG 2.1 AA rules plus a tint-aware contrast check on every page in
-        # scripts/ui_a11y_ci.json. docs/style-guide.md says how to fix a failure.
-        run: node scripts/ui_a11y_scan.js scripts/ui_a11y_ci.json
 
       - name: Layout holds still (desktop and phone)
         # Redraws every live section with unchanged data and fails anything that
@@ -352,4 +295,61 @@ jobs:
         with:
           name: ui-smoke-screenshots
           path: /tmp/ui-smoke-ci/
+          if-no-files-found: warn
+
+  browser-a11y:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: wizzrobe
+          POSTGRES_PASSWORD: wizzrobe
+          POSTGRES_DB: wizzrobe
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U wizzrobe"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      DB_NAME: wizzrobe
+      DB_USERNAME: wizzrobe
+      DB_PASSWORD: wizzrobe
+      DB_HOST: localhost
+      DB_PORT: 5432
+      ENVIRONMENT: development
+      # Every outbound integration is mocked: this job proves pages pass axe, and
+      # it must not depend on Discord, a randomizer, Challonge, Twitch or
+      # racetime.gg being reachable from a CI runner.
+      MOCK_DISCORD: 'true'
+      MOCK_SEEDGEN: 'true'
+      MOCK_CHALLONGE: 'true'
+      MOCK_TWITCH: 'true'
+      MOCK_RACETIME: 'true'
+      # Installs the redraw hook scripts/ui_layout_shift.js drives
+      # (theme/layout_probe.py). Never set in production.
+      WIZ_LAYOUT_PROBE: 'true'
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: ./.github/actions/boot-app
+        with:
+          poetry-version: ${{ env.POETRY_VERSION }}
+
+      - name: Accessibility and contrast (light and dark)
+        # axe WCAG 2.1 AA rules plus a tint-aware contrast check on every page in
+        # scripts/ui_a11y_ci.json. docs/style-guide.md says how to fix a failure.
+        run: node scripts/ui_a11y_scan.js scripts/ui_a11y_ci.json
+
+      - name: App log
+        if: always()
+        run: tail -200 /tmp/app.log
+
+      - name: Upload screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ui-a11y-screenshots
+          path: /tmp/ui-smoke-ci/a11y/
           if-no-files-found: warn

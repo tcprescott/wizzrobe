@@ -21,7 +21,7 @@ jobs:
   test:
     # Gate the image build on a green suite so a red main never ships :latest.
     # The whole suite, not a subset of it — calling test.yml means the gate is
-    # lint + guardrails + pytest + the PostgreSQL and migration lanes, and it
+    # lint + guardrails + pytest + Swiss + the PostgreSQL and browser lanes, and it
     # cannot drift away from what a PR was checked against.
     uses: ./.github/workflows/test.yml
 

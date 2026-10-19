@@ -1,7 +1,7 @@
 {
   "_comment": [
     "Pages the accessibility and contrast gate (scripts/ui_a11y_scan.js, the",
-    "`browser` job in .github/workflows/test.yml) checks in light and dark mode.",
+    "`browser-a11y` job in .github/workflows/test.yml) checks in light and dark mode.",
     "Broader than ui_smoke_ci.json on purpose: contrast and naming regressions",
     "land on settings panes, the check-in desk and help as often as on the",
     "match board. Each target is six page loads (two schemes, four phones);",
