@@ -35,6 +35,7 @@ from api.routers import (
     reports,
     reschedule_requests,
     seeds,
+    sent_messages,
     service_health,
     speedgaming,
     stage_actions,
@@ -84,6 +85,7 @@ router.include_router(
 )
 router.include_router(notifications.router)
 router.include_router(audit.router)
+router.include_router(sent_messages.router)
 router.include_router(system_config.router)
 router.include_router(tokens.router)
 router.include_router(

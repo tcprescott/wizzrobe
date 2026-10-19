@@ -143,6 +143,7 @@ TAG_GROUPS: List[tuple[str, List[tuple[str, str]]]] = [
         ('Reports', 'Operational reports: stage use, crew coverage, tournament health and trends.'),
         ('Telemetry', 'Which parts of the app people use.'),
         ('Audit', 'The log of who changed what.'),
+        ('Sent messages', 'Every DM sent in the community, and whether it got there.'),
     ]),
     ('Online tournaments', [
         ('Brackets', 'Brackets run inside Wizzrobe: entrants, matches, results and standings.'),

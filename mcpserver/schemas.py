@@ -271,6 +271,39 @@ class AuditPage(BaseModel):
     items: List[AuditEntry] = Field(default_factory=list)
 
 
+class SentMessageInfo(BaseModel):
+    """One DM Wizzrobe sent, and what happened to it."""
+
+    id: int
+    recipient_id: Optional[int] = None
+    recipient_name: Optional[str] = None
+    discord_id: Snowflake = Field(..., description="Discord user ID it went to, as a string.")
+    title: Optional[str] = None
+    body: str
+    link_label: Optional[str] = None
+    link_url: Optional[str] = None
+    silent: bool
+    notice_key: Optional[str] = None
+    audience: Optional[str] = None
+    status: str = Field(..., description="delivered, discord_off, blocked, failed or pending.")
+    error: Optional[str] = None
+    push_devices: Optional[int] = None
+    email_sent: Optional[bool] = None
+    telegram_sent: Optional[bool] = None
+    created_at: datetime
+
+
+class SentMessagePage(BaseModel):
+    total: int
+    limit: int
+    offset: int
+    counts: Dict[str, int] = Field(
+        default_factory=dict,
+        description="sent, silent, off_or_blocked and failed over the time window.",
+    )
+    items: List[SentMessageInfo] = Field(default_factory=list)
+
+
 class MatchSummary(BaseModel):
     """One match, at the detail level a scheduling question needs."""
 

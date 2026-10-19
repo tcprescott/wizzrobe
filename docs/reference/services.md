@@ -506,7 +506,7 @@ Thin wrapper around the shared discord.py bot: DM sending (plain and with intera
 
 | Method | Returns | Description |
 |---|---|---|
-| `send_dm(user_id, message, view_factory=None, embed=None, link=None, on_sent=None)` | `(bool, str)` | DM to a Discord user id. `on_sent(channel_id, message_id)` is awaited once Discord accepts the message (a failure inside it is logged, not reported as a failed send); [`staff_request_dms`](#staff_request_dmspy--module-functions) uses it to find the message again. `embed`, when given, is sent *instead of* `message` as the Discord content (the text then only feeds web push); `link` (a `DMLink` from [`notification_links`](#notification_linkspy--module-functions)) renders as a link button beside any `view_factory` buttons and is the web-push tap target. Also enqueues a fire-and-forget mirror of the message to the recipient's web-push devices (real service only; the mock skips it) — see [web-push.md](../features/web-push.md). |
+| `send_dm(user_id, message, view_factory=None, embed=None, link=None, on_sent=None)` | `(bool, str)` | DM to a Discord user id. `on_sent(channel_id, message_id)` is awaited once Discord accepts the message (a failure inside it is logged, not reported as a failed send); [`staff_request_dms`](#staff_request_dmspy--module-functions) uses it to find the message again. `embed`, when given, is sent *instead of* `message` as the Discord content (the text then only feeds web push); `link` (a `DMLink` from [`notification_links`](#notification_linkspy--module-functions)) renders as a link button beside any `view_factory` buttons and is the web-push tap target. Also enqueues a fire-and-forget mirror of the message to the recipient's web-push devices (real service only; the mock skips it) — see [web-push.md](../features/web-push.md). Every send in a community is also logged to [`SentMessage`](data-model.md#sentmessage) via [`SentMessageService`](#sent_message_servicepy--sentmessageservice). |
 | `edit_dm(channel_id, message_id, embed, link=None)` | `(bool, str)` | Replace a sent DM's card and buttons (`link` is the only button left). Silent: Discord doesn't notify on an edit, and the web-push copy can't change. The mock prints `[MOCK Discord DM edit]`. |
 | `send_dm_with_crew_buttons(user_id, message, match_id)` | `(bool, str)` | DM with commentator/tracker signup buttons. |
 | `send_dm_with_acknowledgment_button(user_id, message, match_id)` | `(bool, str)` | DM with a match Acknowledge button. |
@@ -1613,6 +1613,17 @@ Module-level helpers shared with the qualifier live-race path: `start_racetime_r
 **match/stage_reminder.py** — the pre-match stage reminder loop (same shape as `volunteer_reminder`). Every 60 s it scans (cross-tenant, unscoped, via `MatchRepository.due_for_stage_reminder`) unfinished, unstamped matches that have a stage and are scheduled within `MAX_LEAD_MINUTES` (24 h), then per match — inside `tenant_scope` — re-checks it against its own tournament's `stage_reminder_minutes`, stamps `stage_reminder_sent_at` **before** enqueuing `MatchScheduleService.notify_stage_reminder`, and leaves anything still outside its lead unstamped for a later tick. A lead of 0 sends nothing; a lead beyond the scan window logs a warning and is still reminded once the match enters the window. Publishes no event: a reminder observes a match nobody changed. Started and stopped from the lifespan, ungated.
 
 **async_qualifier/async_qualifier_worker.py** — the run-expiry loop (same shape). Every 60 s it takes every started, still-in-progress qualifier run (cross-tenant, unscoped — each qualifier configures its own limit, so no single age cutoff is right for all of them, and the set is small: one active run per player per qualifier), then per run — inside `tenant_scope` — warns once ahead of its deadline and forfeits it past it, via `RunExpiryMixin.warn_run_expiring` / `expire_run`. The same tick releases review claims that have aged out (`release_stale_claim`) and, per active qualifier, publishes window open/close crossings (`sync_window_state`) and nudges reviewers about a stale queue (`notify_review_backlog`). A tenant with `ASYNC_QUALIFIERS` off is skipped rather than raising. Always started; a tenant without the feature has no runs to find.
+
+### sent_message_service.py — SentMessageService
+
+The log of every DM ([`SentMessage`](data-model.md#sentmessage)). `send_dm` (real
+and mock) calls `record_attempt` before sending, so the web-push and
+email/Telegram mirrors can report back with `record_push` / `record_channels`
+against the returned `SentMessageRef`, then `record_result` with the Discord
+outcome (`sent_message_status` in `discord_service.py` maps the result tuple).
+Every write swallows its own failure: logging never costs a DM. Reads
+(`list_messages`, `count_messages`, `totals`, `get_message`) take a keyword-only
+`actor` and are Staff only.
 
 ### service_health_service.py — ServiceHealthService
 

@@ -630,3 +630,16 @@ class PresetOverride(str, Enum):
 
     HARD = 'hard'
     STANDARD = 'standard'
+
+
+class SentMessageStatus(str, Enum):
+    """What Discord did with one logged DM (:class:`SentMessage`).
+
+    ``(str, Enum)`` (not ``StrEnum``) — render ``.value`` in f-strings.
+    """
+
+    PENDING = 'pending'
+    DELIVERED = 'delivered'
+    DISCORD_OFF = 'discord_off'
+    BLOCKED = 'blocked'
+    FAILED = 'failed'

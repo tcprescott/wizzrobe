@@ -441,7 +441,7 @@ def real_svc_ready(monkeypatch):
     mirrored: list[int] = []
     monkeypatch.setattr(
         ds, '_mirror_dm_to_web_push',
-        lambda user_id, message, navigate=None, silent=False: mirrored.append(user_id),
+        lambda user_id, message, navigate=None, silent=False, ref=None: mirrored.append(user_id),
     )
     svc = object.__new__(ds._RealDiscordService)
     svc._bot = stub_bot

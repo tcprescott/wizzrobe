@@ -88,6 +88,7 @@ READ_TOOLS = {
     'list_race_room_profiles',
     'list_race_rooms',
     'list_randomizers',
+    'list_sent_messages',
     'list_service_health',
     'list_speedgaming_episodes',
     'list_speedgaming_links',
