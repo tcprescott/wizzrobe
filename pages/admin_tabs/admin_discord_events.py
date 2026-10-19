@@ -13,6 +13,7 @@ from application.services import (
     DiscordEventSyncService,
     get_user_from_session,
 )
+from theme.banner import banner
 from theme.busy import busy_click
 from theme.dialog._helpers import dialog_actions, form_dialog
 from theme.notify import notify_error
@@ -21,17 +22,22 @@ from theme.tables.admin_crud import refresh_button, wire_tab_refresh
 from theme.tables.mobile_grid import enable_mobile_grid
 from theme.tables.preferences import TableKeys
 
-_ENABLED_ICON = '''
-    <q-icon :name="props.row.enabled_bool ? 'check_circle' : 'cancel'"
-            :color="props.row.enabled_bool ? 'positive' : 'negative'" size="sm" />
+_STATE_BADGE = '''
+    <q-badge :color="props.row.state_color">{{ props.row.state_label }}</q-badge>
 '''
 
 _ROW_ACTIONS = '''
-    <q-btn flat round dense icon="edit" color="primary"
+    <q-btn flat round dense icon="edit" color="primary" :disable="props.row.locked"
            @click="$parent.$emit('edit', props.row)" aria-label="Edit">
-        <q-tooltip>Edit</q-tooltip>
+        <q-tooltip>{{ props.row.locked ? 'Fix the problem above first' : 'Edit' }}</q-tooltip>
     </q-btn>
 '''
+
+
+def _state(enabled: bool, locked: bool) -> tuple[str, str]:
+    if not enabled:
+        return 'Off', 'grey-7'
+    return ('Paused', 'negative') if locked else ('Synced', 'positive')
 
 
 async def admin_discord_events_page() -> None:
@@ -46,31 +52,36 @@ async def admin_discord_events_page() -> None:
             'created, so sharing a Discord server with another community is safe.',
         )
 
-        link_banner = ui.row().classes('w-full items-center')
+        status_area = ui.column().classes('w-full')
+        state = {'problem': None}
 
         async def _current():
             return await get_user_from_session(app.storage.user)
 
-        async def refresh_link_banner():
-            link_banner.clear()
-            tenant = await service.get_tenant()
-            with link_banner:
-                if tenant is not None and tenant.discord_guild_id is not None:
-                    ui.icon('check_circle', color='positive')
-                    ui.label('A Discord server is connected — events will sync.').classes('text-caption')
-                else:
-                    ui.icon('warning', color='warning')
-                    ui.label(
-                        'No Discord server connected. Connect one above before events '
-                        'can sync.'
-                    ).classes('text-caption')
+        def render_status() -> None:
+            status_area.clear()
+            problem = state['problem']
+            with status_area:
+                if problem is None:
+                    with ui.row().classes('items-center gap-2'):
+                        ui.icon('check_circle').classes('st-ok')
+                        ui.label('The bot can create events in your Discord server.').classes('text-caption')
+                    return
+                with banner(
+                    f'{problem} Settings are locked and syncing is paused until this is fixed.',
+                    title="Discord events can't sync", tone='danger', icon='block',
+                ):
+                    ui.button(
+                        'Check again', icon='refresh',
+                        on_click=busy_click('Checking…', refresh_tables),
+                    ).props('outline color=primary')
 
         # --- Per-tournament opt-in ------------------------------------------
         ui.label('Tournaments').classes('section-title q-mt-md')
         tournament_columns = [
             {'name': 'id', 'label': 'ID', 'field': 'id', 'hidden': True},
             {'name': 'name', 'label': 'Tournament', 'field': 'name', 'sortable': True},
-            {'name': 'enabled', 'label': 'Events synced', 'field': 'enabled'},
+            {'name': 'enabled', 'label': 'Events', 'field': 'enabled'},
             {'name': 'duration', 'label': 'Duration (min)', 'field': 'duration'},
             {'name': 'actions', 'label': '', 'field': 'actions'},
         ]
@@ -89,12 +100,19 @@ async def admin_discord_events_page() -> None:
         async def refresh_tables():
             from application.utils.timezone import format_local_display
             user = await _current()
+            state['problem'] = await service.setup_problem(user)
+            locked = state['problem'] is not None
+            render_status()
+            sync_button.set_enabled(not locked)
             tournaments = await service.list_tournaments(user)
             tournament_table.rows = [
                 {
                     'id': t.id,
                     'name': t.name,
-                    'enabled': 'yes' if t.discord_events_enabled else 'no',
+                    'enabled': _state(t.discord_events_enabled, locked)[0],
+                    'state_label': _state(t.discord_events_enabled, locked)[0],
+                    'state_color': _state(t.discord_events_enabled, locked)[1],
+                    'locked': locked,
                     'enabled_bool': t.discord_events_enabled,
                     'duration': t.discord_event_duration_minutes,
                     'title_template': t.discord_event_title_template or '',
@@ -123,7 +141,11 @@ async def admin_discord_events_page() -> None:
                 except (ValueError, PermissionError) as e:
                     notify_error(e)
                     return
-                if result.errors:
+                if result.setup_error:
+                    ui.notify(f"Couldn't sync: {result.setup_error}", color='warning', multi_line=True)
+                    await refresh_tables()
+                    return
+                elif result.errors:
                     ui.notify(
                         f"Sync finished with {result.errors} error(s); "
                         f"{result.created} created, {result.updated} updated",
@@ -137,6 +159,8 @@ async def admin_discord_events_page() -> None:
                 await refresh_tables()
 
         async def open_settings_dialog(row, client) -> None:
+            if row.get('locked'):
+                return
             with tournaments_container:
                 with form_dialog(f"Discord events — {row['name']}", card_classes='dialog-card dialog-card--sm') as dialog:
                     enabled_switch = ui.switch('Sync this tournament\'s matches', value=row['enabled_bool'])
@@ -175,7 +199,7 @@ async def admin_discord_events_page() -> None:
 
         with tournaments_container:
             with ui.row().classes('full-width'):
-                ui.button(
+                sync_button = ui.button(
                     'Sync now', icon='sync',
                     on_click=busy_click('Syncing…', lambda: sync_now(context.client)),
                 ).props('color=primary')
@@ -183,12 +207,12 @@ async def admin_discord_events_page() -> None:
                 refresh_button(refresh_tables, tooltip='Refresh')
 
             tournament_table = ui.table(columns=tournament_columns, rows=[], row_key='id').classes('w-full wiz-table')
-            tournament_table.add_slot('body-cell-enabled', f'<q-td :props="props">{_ENABLED_ICON}</q-td>')
+            tournament_table.add_slot('body-cell-enabled', f'<q-td :props="props">{_STATE_BADGE}</q-td>')
             tournament_table.add_slot('body-cell-actions', f'<q-td :props="props">{_ROW_ACTIONS}</q-td>')
             tournament_table.on('edit', lambda e: background_tasks.create(open_settings_dialog(e.args, context.client)))
             enable_mobile_grid(tournament_table, tournament_columns, actions=_ROW_ACTIONS,
                                table_key=TableKeys.ADMIN_DISCORD_EVENT_TOURNAMENTS,
-                               field_slots={'enabled': _ENABLED_ICON})
+                               field_slots={'enabled': _STATE_BADGE})
 
         with events_container:
             event_table = ui.table(columns=event_columns, rows=[], row_key='discord_event_id').classes('w-full wiz-table')
@@ -196,5 +220,4 @@ async def admin_discord_events_page() -> None:
                                table_key=TableKeys.ADMIN_DISCORD_EVENTS)
 
         wire_tab_refresh('Discord Events', refresh_tables)
-        background_tasks.create(refresh_link_banner())
         background_tasks.create(refresh_tables())

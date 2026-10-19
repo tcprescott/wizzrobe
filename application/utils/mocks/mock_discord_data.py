@@ -80,6 +80,8 @@ MOCK_GUILDS: Dict[int, dict] = {
         "name": "Second Community",
         "owner_id": 1,
         "roles": [dict(r) for r in _STANDARD_ROLES],
+        # So dev shows Admin → Settings → Discord Events locked and paused.
+        "bot_can_create_events": False,
     },
 }
 
@@ -200,10 +202,28 @@ _scheduled_events: Dict[int, dict] = {}
 _next_scheduled_event_id = _SCHEDULED_EVENT_ID_BASE
 
 
+_guilds_without_event_permission: Set[int] = set()
+
+
+def set_bot_can_create_events(guild_id: int, allowed: bool) -> None:
+    """Test/dev hook: pretend the bot lacks Create Events in ``guild_id``."""
+    if allowed:
+        _guilds_without_event_permission.discard(guild_id)
+    else:
+        _guilds_without_event_permission.add(guild_id)
+
+
+def bot_can_create_events(guild_id: int) -> bool:
+    if guild_id in _guilds_without_event_permission:
+        return False
+    return guild_id not in MOCK_GUILDS or bool(MOCK_GUILDS[guild_id].get("bot_can_create_events", True))
+
+
 def reset_scheduled_events() -> None:
     """Clear the mock scheduled-event store (test isolation)."""
     global _next_scheduled_event_id
     _scheduled_events.clear()
+    _guilds_without_event_permission.clear()
     _next_scheduled_event_id = _SCHEDULED_EVENT_ID_BASE
 
 
