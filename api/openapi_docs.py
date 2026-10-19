@@ -8,6 +8,8 @@ those by hand on 268 routes is how they drifted, so they are derived here and
 each route's own ``description=`` carries only what it does and who may call it.
 """
 
+import asyncio
+import logging
 from typing import Any, Callable, Dict, Iterable, List, Optional, Set
 
 from fastapi import FastAPI
@@ -27,6 +29,8 @@ from application.events import EventType
 from application.feature_flags import spec_for
 from application.services.webhook_service import WebhookService
 from models import FeatureFlag
+
+logger = logging.getLogger(__name__)
 
 API_PREFIX = '/api'
 
@@ -366,4 +370,21 @@ def install(app: FastAPI) -> None:
     app.openapi = lambda: build_openapi(app)  # type: ignore[method-assign]
 
 
-__all__ = ['TAG_GROUPS', 'WHO_CAN_CALL', 'api_description', 'build_openapi', 'install']
+def warm_openapi(app: FastAPI) -> None:
+    """Build the schema once at startup, off the event loop.
+
+    Sentry SGLMAN-17: the first ``/api/openapi.json`` after a deploy built it on
+    the loop and froze every page for over two seconds.
+    """
+    from nicegui import background_tasks
+
+    async def _warm() -> None:
+        try:
+            await asyncio.to_thread(build_openapi, app)
+        except Exception:
+            logger.warning('Building the OpenAPI schema at startup failed', exc_info=True)
+
+    background_tasks.create(_warm(), name='warm openapi schema')
+
+
+__all__ = ['TAG_GROUPS', 'WHO_CAN_CALL', 'api_description', 'build_openapi', 'install', 'warm_openapi']

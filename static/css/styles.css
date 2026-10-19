@@ -2455,6 +2455,35 @@ body:has(.wiz-header) .q-notifications__list--top {
     gap: var(--space-2);
 }
 
+.wiz-watch-tourn__title {
+    display: inline-flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-2);
+    min-width: 0;
+}
+
+.wiz-watch-tourn__icon {
+    width: 1em;
+    height: 1em;
+    flex: none;
+}
+
+.wiz-watch-tourn__foot {
+    margin: var(--space-3) 0 0;
+    color: var(--fg-muted);
+    font-size: 0.85rem;
+}
+
+.wiz-watch-tourn__foot > * {
+    display: inline;
+}
+
+/* The live view's pieces are separate elements with no text between them. */
+.wiz-watch-tourn__foot > * + * {
+    margin-left: 0.25em;
+}
+
 .wiz-watch-links {
     display: flex;
     flex-wrap: wrap;

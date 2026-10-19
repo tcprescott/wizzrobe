@@ -18,9 +18,12 @@ from application.services.discord.discord_event_reconciler_service import (
     DiscordEventReconcilerService,
     ReconcileResult,
 )
+from application.services.discord.discord_service import DiscordService
 from application.services.tenant_service import TenantService
 from application.tenant_context import require_tenant_id
 from models import DiscordScheduledEvent, Tenant, Tournament, User
+
+NO_GUILD = "Connect a Discord server before syncing events."
 
 
 class DiscordEventSyncService:
@@ -33,6 +36,18 @@ class DiscordEventSyncService:
     async def get_tenant(self) -> Optional[Tenant]:
         """The ambient tenant (for the UI to show its guild-link status)."""
         return await TenantService.get_by_id(require_tenant_id())
+
+    async def setup_problem(self, actor: Optional[User]) -> Optional[str]:
+        """Why events can't sync to the ambient tenant's Discord server, or ``None``.
+
+        Settings stay locked while this is set: a switched-on tournament would
+        only fail every match on each pass.
+        """
+        await AuthService.ensure_can_manage_sync(actor)
+        tenant = await TenantService.get_by_id(require_tenant_id())
+        if tenant is None or tenant.discord_guild_id is None:
+            return NO_GUILD
+        return await DiscordService().bot_event_problem(tenant.discord_guild_id)
 
     async def list_tournaments(self, actor: Optional[User]) -> List[Tournament]:
         await AuthService.ensure_can_manage_sync(actor)
@@ -57,6 +72,9 @@ class DiscordEventSyncService:
         tournament = require_found(
             await TournamentRepository.get_by_id(tournament_id), "Tournament"
         )
+        problem = await self.setup_problem(actor)
+        if problem is not None:
+            raise ValueError(problem)
         changes: Dict[str, Any] = {}
         if enabled is not None:
             changes['discord_events_enabled'] = enabled
@@ -87,5 +105,5 @@ class DiscordEventSyncService:
         if tenant is None:
             raise ValueError("No tenant in scope")
         if tenant.discord_guild_id is None:
-            raise ValueError("Connect a Discord server before syncing events.")
+            raise ValueError(NO_GUILD)
         return await DiscordEventReconcilerService().reconcile_tenant(tenant, actor=actor)
