@@ -28,6 +28,9 @@ COMMUNITY = 'community'
 HOSTING = 'hosting'
 GOING = 'going'
 REMINDER = 'reminder'
+#: An approved crew slot on a match with no stage yet: crew is only needed on
+#: stage, so it may not happen.
+NO_STAGE = 'no_stage'
 #: Time the player blocked out under "When you can't play". Not a commitment:
 #: the page draws it behind the blocks rather than in a lane of its own.
 UNAVAILABLE = 'unavailable'
@@ -50,8 +53,11 @@ class TimelineItem:
     #: The shift's assignment, for its details dialog.
     assignment: Any = None
     event_id: int = 0
-    #: ``HOSTING``, ``GOING`` or ``REMINDER`` for a community event, else empty.
-    attending: str = ''
+    #: ``HOSTING``, ``GOING`` or ``REMINDER`` for a community event,
+    #: ``NO_STAGE`` for an off-stage crew slot, else empty.
+    badge: str = ''
+    #: Drawn as optional: a reminder-only event, an off-stage crew slot.
+    optional: bool = False
 
 
 @dataclass(frozen=True)
@@ -134,13 +140,16 @@ class MyTimelineService:
         """``include_shifts`` is the caller's ``FeatureFlag.VOLUNTEERS`` check,
         ``include_community`` its ``FeatureFlag.COMMUNITY_EVENTS`` one."""
         start, end = await self.window()
-        crew_roles = {
-            row['match_id']: row['role']
+        crew = {
+            row['match_id']: row
             for row in await self.crew_service.list_my_commitments(user, upcoming_only=False)
         }
         items: List[TimelineItem] = []
         for match in await self.match_repository.commitments_for_user(user.id, start, end):
-            items.append(self._match_item(match, user, crew_roles.get(match.id)))
+            row = crew.get(match.id)
+            items.append(self._match_item(
+                match, user, row['role'] if row else None, approved=bool(row and row['approved']),
+            ))
         if include_shifts:
             for assignment in await self.assignment_repository.list_for_user(user, with_shiftmates=True):
                 shift = assignment.shift
@@ -162,7 +171,7 @@ class MyTimelineService:
                     items.append(TimelineItem(
                         kind=COMMUNITY, starts_at=a, ends_at=b,
                         title=event.title, detail=event.location or '',
-                        event_id=event.id, attending=attending,
+                        event_id=event.id, badge=attending, optional=attending == REMINDER,
                     ))
         items.sort(key=lambda i: i.starts_at)
         return items
@@ -185,7 +194,9 @@ class MyTimelineService:
         return pieces
 
     @staticmethod
-    def _match_item(match: Any, user: User, crew_role: Optional[str]) -> TimelineItem:
+    def _match_item(
+        match: Any, user: User, crew_role: Optional[str], *, approved: bool = False,
+    ) -> TimelineItem:
         tournament = match.tournament
         minutes = (
             getattr(tournament, 'average_match_duration', None)
@@ -203,9 +214,10 @@ class MyTimelineService:
                 detail=short, match_id=match.id,
             )
         names = ' vs '.join(p.user.preferred_name for p in players)
+        off_stage = approved and match.stage_id is None
         return TimelineItem(
             kind=CREW, starts_at=starts_at, ends_at=starts_at + timedelta(minutes=minutes),
             title=_ROLE_TITLES.get(crew_role, 'Crew'),
             detail=' · '.join(part for part in (names, short) if part),
-            match_id=match.id,
+            match_id=match.id, badge=NO_STAGE if off_stage else '', optional=off_stage,
         )

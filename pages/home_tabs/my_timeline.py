@@ -22,6 +22,7 @@ from application.services.my_timeline_service import (
     GOING,
     HOSTING,
     MATCH,
+    NO_STAGE,
     REMINDER,
     SHIFT,
     UNAVAILABLE,
@@ -54,7 +55,7 @@ _KINDS = {
     UNAVAILABLE: ('block', "Can't play"),
 }
 
-_ATTENDING = {HOSTING: 'Hosting', GOING: 'Going', REMINDER: 'Reminder'}
+_BADGES = {HOSTING: 'Hosting', GOING: 'Going', REMINDER: 'Reminder', NO_STAGE: 'No stage yet'}
 
 OnBlocked = Optional[Callable[[], Awaitable[None]]]
 
@@ -145,22 +146,22 @@ def _render_block(item: TimelineItem, lane: int, lanes: int, midnight: datetime,
     top = (item.starts_at - midnight).total_seconds() / 3600 - first
     span = (item.ends_at - item.starts_at).total_seconds() / 3600
     when = f'{format_local_time(item.starts_at)} – {format_local_time(item.ends_at)}'
-    # A reminder is interest, not a commitment: dashed, so a clash with it reads as a maybe.
-    tentative = ' wiz-tl-block--maybe' if item.attending == REMINDER else ''
+    # Not a sure thing (a reminder-only event, a crew slot with no stage): dashed, so a clash with it reads as a maybe.
+    tentative = ' wiz-tl-block--maybe' if item.optional else ''
     block = ui.element('div').classes(f'wiz-tl-block wiz-tl--{item.kind}{tentative}').style(
         f'top: calc({_px(top)} + 3px); height: calc({_px(span)} - 6px); '
         f'left: calc(4px + (100% - 8px) * {lane} / {lanes}); '
         f'width: calc((100% - 8px) / {lanes} - {4 if lanes > 1 else 0}px);'
     )
-    tag = f', {_ATTENDING[item.attending]}' if item.attending else ''
+    tag = f', {_BADGES[item.badge]}' if item.badge else ''
     block.props(f'tabindex=0 role=button aria-label="{item.title}, {when}{tag}"')
     block.on('click', lambda i=item: _open(i))
     block.on('keydown.enter', lambda i=item: _open(i))
     with block:
-        if item.attending:
+        if item.badge:
             with ui.row().classes('items-center no-wrap gap-1'):
                 ui.label(when).classes('wiz-tl-block__time')
-                ui.label(_ATTENDING[item.attending]).classes('wiz-tl-block__tag')
+                ui.label(_BADGES[item.badge]).classes('wiz-tl-block__tag')
         else:
             ui.label(when).classes('wiz-tl-block__time')
         with ui.row().classes('wiz-tl-block__title items-center no-wrap'):
