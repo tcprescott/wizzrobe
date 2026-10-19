@@ -97,6 +97,10 @@ Each one shows how many messages would ping, arrive silently or stay off.
 Open **Customize** to change a single message: tap its chip and pick Off,
 Silent or Ping. **Reset to preset…** undoes those changes and keeps your pick.
 
+Some messages are off unless you turn them on, like hearing that your opponent
+acknowledged, that you've been given a station, or how your bracket match left
+you. They say "Off unless you turn it on" under Customize.
+
 Your community decides what it sends, and you can only make things quieter. If
 it sends a message silently you can't make it ping, and one it switched off
 shows **Off here**.

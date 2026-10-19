@@ -50,6 +50,9 @@ class MatchAcknowledgmentMixin:
             event_extra={'user_id': user.id},
         )
         match_live.publish(match.id)
+        from application.services import opt_in_notifications
+        from application.services.discord import discord_queue
+        discord_queue.enqueue(opt_in_notifications.opponent_acknowledged(match.id, user.id))
         return ack
 
     async def _seed_acknowledgments(

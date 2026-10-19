@@ -43,6 +43,7 @@ class MyNotificationResponse(BaseModel):
     override: Optional[NotificationMode] = Field(None, description='What you chose for this one message, if anything.')
     mode: NotificationMode = Field(..., description='How it reaches you: the quieter of `community` and your choice.')
     changed: bool = Field(..., description='Whether you chose something other than your preset.')
+    opt_in: bool = Field(..., description='Off in every preset; you only get it if you turned it on.')
 
     @classmethod
     def from_row(cls, row: MyNotificationRow) -> 'MyNotificationResponse':
@@ -50,6 +51,7 @@ class MyNotificationResponse(BaseModel):
             notice=row.target.key, recipient=row.target.recipient, section=row.section,
             title=row.notice.title, when=row.notice.when, community=row.community,
             preset=row.preset, override=row.override, mode=row.effective, changed=row.changed,
+            opt_in=row.opt_in,
         )
 
 

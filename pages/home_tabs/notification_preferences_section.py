@@ -203,7 +203,10 @@ async def render_notification_preferences(
                             with ui.row().classes('wiz-notify-message items-center no-wrap w-full gap-2'):
                                 with ui.column().classes('gap-0 col min-w-0'):
                                     ui.label(_row_title(row)).classes('text-weight-medium')
-                                    ui.label(row.notice.when).classes('text-caption text-muted')
+                                    when = row.notice.when
+                                    if row.opt_in and row.effective is OFF and row.community is not OFF:
+                                        when += '. Off unless you turn it on'
+                                    ui.label(when).classes('text-caption text-muted')
                                 mode_button(row)
 
     body()

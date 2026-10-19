@@ -10,7 +10,7 @@ so nobody can make ping what their community sends quietly.
 import logging
 import time
 from dataclasses import dataclass
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Set, Tuple
 
 from application.repositories import NotificationPreferenceRepository, UserRepository
 from application.repositories._save import save_fields
@@ -23,6 +23,7 @@ from application.services.notification_catalog import (
     WATCHERS,
     Notice,
     NoticeTarget,
+    is_opt_in,
     is_urgent,
     needs_action,
     targets,
@@ -69,6 +70,8 @@ def _key(target: NoticeTarget) -> str:
 
 def preset_mode(preset: NotificationPreset, target: NoticeTarget) -> NotificationMode:
     """What ``preset`` asks for ``target``, before the community's ceiling."""
+    if is_opt_in(target):
+        return OFF
     if preset is NotificationPreset.EVERYTHING:
         return PING
     if preset is NotificationPreset.NEEDS_ME:
@@ -125,6 +128,10 @@ class MyNotificationRow:
     def changed(self) -> bool:
         return self.override is not None and self.override != self.preset
 
+    @property
+    def opt_in(self) -> bool:
+        return is_opt_in(self.target)
+
 
 @dataclass(frozen=True)
 class MyNotifications:
@@ -171,16 +178,18 @@ class NotificationPreferenceService:
         """The recipient's own choice for ``target``, before the community's ceiling.
 
         Never raises: outside a community, for an unknown account, or on a failed
-        read it answers ``PING``, which leaves the community's setting in charge.
+        read it answers ``PING``, which leaves the community's setting in charge,
+        except for an opt-in message, which stays off until someone chose it.
         """
+        fallback = OFF if is_opt_in(target) else PING
         tenant_id = get_current_tenant_id()
         if tenant_id is None or not discord_id:
-            return PING
+            return fallback
         try:
             preset, overrides = await cls._load_for_discord_id(tenant_id, str(discord_id))
         except Exception:
             logger.exception('Reading notification preferences failed; using the community setting')
-            return PING
+            return fallback
         chosen = overrides.get(_key(target))
         if chosen is not None:
             try:
@@ -188,6 +197,13 @@ class NotificationPreferenceService:
             except ValueError:
                 pass
         return preset_mode(preset, target)
+
+    @staticmethod
+    async def opted_in_user_ids(target: NoticeTarget) -> Set[int]:
+        """Who turned an opt-in message on here, so a sender can skip everyone else
+        without a lookup per person. The community's ceiling still applies in ``send_dm``."""
+        rows = await NotificationPreferenceRepository.user_ids_choosing(_key(target))
+        return {user_id for user_id, mode in rows if mode != OFF.value}
 
     @staticmethod
     async def _require(actor: Optional[User]) -> User:

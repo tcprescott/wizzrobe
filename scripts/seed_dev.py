@@ -781,10 +781,12 @@ async def seed_notification_settings(tenant: Tenant, users: dict[str, User]) -> 
         )
 
     # Profile → Notifications: one player on each preset, two of them with
-    # per-message changes so the Customize list shows changed rows.
+    # per-message changes (one an opt-in message turned on) so the Customize
+    # list shows changed rows.
     for username, preset, overrides in (
         ('player_one', NotificationPreset.NEEDS_ME,
-         {'match_finished:players': 'off', 'match_scheduled:watchers': 'off'}),
+         {'match_finished:players': 'off', 'match_scheduled:watchers': 'off',
+          'opponent_acknowledged:players': 'ping'}),
         ('player_two', NotificationPreset.QUIET, {}),
         ('player_three', NotificationPreset.EVERYTHING, {'match_confirmed:players': 'silent'}),
     ):

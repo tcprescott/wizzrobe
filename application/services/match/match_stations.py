@@ -113,6 +113,9 @@ class StationAssignmentMixin:
         )
 
         match_live.publish(match.id)
+        from application.services import opt_in_notifications
+        from application.services.discord import discord_queue
+        discord_queue.enqueue(opt_in_notifications.stations_assigned(match.id))
 
         return match
 

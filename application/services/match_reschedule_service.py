@@ -475,6 +475,11 @@ class MatchRescheduleService(RescheduleNotificationMixin):
         await self._mark_staff_dms(
             request, 'withdrawn', actor=actor, tournament_name=request.match.tournament.name,
         )
+        from application.services import opt_in_notifications
+        from application.services.discord import discord_queue
+        discord_queue.enqueue(opt_in_notifications.request_withdrawn(
+            request.match_id, actor.id, request.kind is RescheduleRequestKind.CANCEL,  # type: ignore[attr-defined]
+        ))
         return request
 
     # ---- the decision --------------------------------------------------

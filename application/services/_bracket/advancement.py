@@ -163,7 +163,20 @@ class AdvancementMixin(ComposedBracketService):
         await self.cancel_remaining_games(
             actor, match.id, 'result recorded for the match',
         )
+        await self._announce_result(bracket, match, winner_entry, loser_entry)
         return require_found(await self.repository.get_match(match_id), "Match")
+
+    async def _announce_result(
+        self, bracket: Bracket, match: BracketMatch, winner_entry: BracketEntry, loser_entry: BracketEntry,
+    ) -> None:
+        from application.services import opt_in_notifications
+        from application.services.discord import discord_queue
+
+        await bracket.fetch_related('tournament')
+        discord_queue.enqueue(opt_in_notifications.bracket_result(
+            bracket.tournament.name, await self.round_name_for_match(bracket, match),
+            winner_entry.id, loser_entry.id,
+        ))
 
     async def _advance_after_result(
         self,

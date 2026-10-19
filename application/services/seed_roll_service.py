@@ -163,6 +163,9 @@ class SeedRollService:
         match_id = task.match_id  # type: ignore[attr-defined]
         if match_id is None:
             return
+        from application.services import opt_in_notifications
+        from application.services.discord import discord_queue
+        discord_queue.enqueue(opt_in_notifications.seed_failed(match_id, error))
 
         requester = await self._relation(User, task.requested_by_id)  # type: ignore[attr-defined]
         if requester is None:

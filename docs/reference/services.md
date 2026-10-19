@@ -1334,6 +1334,7 @@ Who hears about a *match alert*: a staff-facing DM about one match that someone 
 | `on_duty_now(at=None)` | `List[User]` | Holders of a published shift at `at` on a position with `staff_alerts` on. |
 | `match_alert_recipients(match, *, can_act=AuthService.can_run_match, exclude=(), at=None)` | `List[User]` | On-duty users, falling back to all STAFF when none who `can_act` is on duty, plus the tournament's admins minus opt-outs. Every recipient passes `can_act`, so nobody is linked to a control that refuses them. Reschedule requests pass `can_crud_match`. |
 | `tagged_match_alert_recipients(...)` / `tagged_volunteer_alert_recipients(at=None)` | `List[(User, NotificationRecipient)]` | The same recipients, each tagged with the settings column that governs their copy: `ON_DUTY` for the on-shift set (even if they also admin the tournament), `ADMINS` for tournament admins or volunteer coordinators, `STAFF` only for the fallback when nobody is on duty. Senders pass the tag to `notice.to(...)`. |
+| `tournament_alert_admins(tournament)` | `List[User]` | The tournament's active admins who haven't switched its alerts off; for alerts with no match (a player withdrawing). |
 | `volunteer_alert_recipients(at=None)` | `List[User]` | Who hears a volunteer is running late or gave a shift back: on-duty users who `can_manage_volunteers` (all STAFF when none), plus every VOLUNTEER_COORDINATOR. |
 | `admin_tournaments(user)` | `List[(Tournament, bool)]` | Active tournaments the user admins, with whether alerts are on. |
 | `set_tournament_alerts(user, tournament_id, on)` | `None` | The opt-out. Raises `ValueError` unless the user admins that tournament. |
@@ -1367,7 +1368,11 @@ A person's own choices, one row per (tenant, user). Classmethods; every write ac
 | `set_mode(actor, notice_key, recipient, mode)` | `MyNotificationRow` | One message; `None` or the preset's value removes the override. `staff_comment` → `players` also writes `User.dm_match_comments`. `ValueError` for an unknown notice, recipient or mode. |
 | `reset(actor)` | `MyNotifications` | Clear overrides, keep the preset, turn `dm_match_comments` back on. |
 
-Module helpers: `quieter(a, b)`, `preset_mode(preset, target)`, `section_for(target)`. Collaborators: `NotificationPreferenceRepository`, `NotificationSettingsService`, `AuthService`.
+`opted_in_user_ids(target)` returns who turned an opt-in message on (one query). Module helpers: `quieter(a, b)`, `preset_mode(preset, target)` (`off` for any opt-in target), `section_for(target)`. Collaborators: `NotificationPreferenceRepository`, `NotificationSettingsService`, `AuthService`.
+
+### opt_in_notifications.py — module functions
+
+Senders for the opt-in DMs (`notification_catalog._OPT_IN`), each a never-raising coroutine handed to `discord_queue.enqueue`: `opponent_acknowledged`, `stations_assigned`, `match_flagged`, `seed_failed`, `stream_offer`, `request_withdrawn`, `enrolment_changed` (staff add/remove → the player; a self-withdrawal → the tournament's admins), `bracket_result`, `volunteer_arrived`, `qualifier_window`. Each first asks `NotificationPreferenceService.opted_in_user_ids`, so nothing loads when nobody opted in. See [notification-settings.md](../features/notification-settings.md#opt-in-messages).
 
 ### check_in_dm.py — module functions
 

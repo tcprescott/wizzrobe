@@ -82,6 +82,11 @@ _ON_SHIFT = "Whoever's on a shift with staff alerts on (the Admin Desk) and can 
 _ON_SHIFT_ROSTER = "Whoever's on a shift with staff alerts on and can manage volunteers"
 _TOURNAMENT_ADMINS = "The tournament's admins, unless they turned its alerts off"
 _FALLBACK = 'Every staff member, only when nobody is on shift'
+_OPTED_IN = 'Only people who turned it on in their Profile'
+
+
+def _opted_in(who: str) -> str:
+    return f'{who}, only if they turned it on in their Profile'
 
 # Matches
 MATCH_SCHEDULED = _notice(
@@ -117,6 +122,16 @@ MATCH_CONFIRMED = _notice(
 SEED_READY = _notice(
     'seed_ready', 'Matches', 'Seed ready', "The match's seed is rolled",
     {PLAYERS: PING},
+)
+SEED_FAILED = _notice(
+    'seed_failed', 'Matches', "Seed didn't roll",
+    'Rolling a seed in the background fails',
+    {ON_DUTY: PING, ADMINS: PING, STAFF: PING},
+    {ON_DUTY: _opted_in(_ON_SHIFT), ADMINS: _opted_in(_TOURNAMENT_ADMINS), STAFF: _opted_in(_FALLBACK)},
+)
+STATION_ASSIGNED = _notice(
+    'station_assigned', 'Matches', 'Station assigned',
+    "Staff set or change a match's stations", {PLAYERS: PING}, {PLAYERS: _OPTED_IN},
 )
 STAGE_CALL = _notice(
     'stage_call', 'Matches', 'On stage', "A match's stage is set or changed",
@@ -167,6 +182,23 @@ PLAYER_COMMENT = _notice(
     {ON_DUTY: PING, ADMINS: PING, STAFF: PING},
     {ON_DUTY: _ON_SHIFT, ADMINS: _TOURNAMENT_ADMINS, STAFF: _FALLBACK},
 )
+OPPONENT_ACKNOWLEDGED = _notice(
+    'opponent_acknowledged', 'Matches', 'Opponent acknowledged',
+    'Another player in your match acknowledges its time', {PLAYERS: PING}, {PLAYERS: _OPTED_IN},
+)
+MATCH_FLAGGED = _notice(
+    'match_flagged', 'Matches', 'Match flagged for review',
+    'Someone flags a match for staff review',
+    {ON_DUTY: PING, ADMINS: PING, STAFF: PING},
+    {ON_DUTY: _opted_in(_ON_SHIFT), ADMINS: _opted_in(_TOURNAMENT_ADMINS), STAFF: _opted_in(_FALLBACK)},
+)
+STREAM_OFFER = _notice(
+    'stream_offer', 'Matches', 'Match offered for stream',
+    'Crew offer to stream a match',
+    {ON_DUTY: PING, ADMINS: PING, STAFF: PING},
+    {ON_DUTY: _opted_in("Whoever's on a shift with staff alerts on and can schedule streams"),
+     ADMINS: _opted_in("The tournament's admins and Broadcast Techs"), STAFF: _opted_in(_FALLBACK)},
+)
 HARDER_SETTINGS_OFFER = _notice(
     'harder_settings_offer', 'Matches', 'Harder settings available',
     'A match is scheduled in a tournament with a harder preset', {PLAYERS: PING},
@@ -201,6 +233,24 @@ SIGNED_UP = _notice(
     'signed_up', 'Brackets', 'Signed up for a tournament',
     'A player signs themselves up', {PLAYERS: PING},
 )
+BRACKET_RESULT = _notice(
+    'bracket_result', 'Brackets', 'Bracket result',
+    "A Wizzrobe bracket match's result moves you on or knocks you out",
+    {PLAYERS: PING}, {PLAYERS: _opted_in('Both players')},
+)
+ADDED_TO_TOURNAMENT = _notice(
+    'added_to_tournament', 'Brackets', 'Added to a tournament',
+    'Staff add a player to a tournament', {PLAYERS: PING}, {PLAYERS: _OPTED_IN},
+)
+REMOVED_FROM_TOURNAMENT = _notice(
+    'removed_from_tournament', 'Brackets', 'Removed from a tournament',
+    'Staff take a player out of a tournament', {PLAYERS: PING}, {PLAYERS: _OPTED_IN},
+)
+PLAYER_WITHDREW = _notice(
+    'player_withdrew', 'Brackets', 'Player withdrew',
+    'A player takes themselves out of a tournament',
+    {ADMINS: PING}, {ADMINS: _opted_in(_TOURNAMENT_ADMINS)},
+)
 
 # Reschedule requests
 RESCHEDULE_REQUEST = _notice(
@@ -219,6 +269,11 @@ CANCEL_APPROVED = _notice(
     'cancel_approved', 'Reschedule requests', 'Cancel request approved',
     "Staff approve a cancel request (an approved move sends only the match's own message)",
     {PLAYERS: PING}, {PLAYERS: 'The player who asked'},
+)
+REQUEST_WITHDRAWN = _notice(
+    'request_withdrawn', 'Reschedule requests', 'Request withdrawn',
+    'A player withdraws a reschedule or cancel request',
+    {PLAYERS: PING}, {PLAYERS: _opted_in('The opponent who was asked')},
 )
 
 # Crew
@@ -273,6 +328,12 @@ VOLUNTEER_LATE = _notice(
     'A volunteer taps Running late',
     {ON_DUTY: PING, ADMINS: PING, STAFF: PING},
     {ON_DUTY: _ON_SHIFT_ROSTER, ADMINS: 'Volunteer coordinators', STAFF: _FALLBACK},
+)
+VOLUNTEER_ARRIVED = _notice(
+    'volunteer_arrived', 'Volunteer shifts', 'Volunteer arrived',
+    "A volunteer taps I'm here for their shift",
+    {ON_DUTY: SILENT, ADMINS: SILENT, STAFF: SILENT},
+    {ON_DUTY: _opted_in(_ON_SHIFT_ROSTER), ADMINS: _opted_in('Volunteer coordinators'), STAFF: _opted_in(_FALLBACK)},
 )
 
 # Community
@@ -368,6 +429,14 @@ RUN_EXPIRED = _notice(
     'run_expired', 'Async qualifiers', 'Run expired',
     'An open run is forfeited', {PLAYERS: PING}, {PLAYERS: 'The runner'},
 )
+QUALIFIER_OPENED = _notice(
+    'qualifier_opened', 'Async qualifiers', 'Qualifier open',
+    "An async qualifier's window opens", {MEMBERS: PING}, {MEMBERS: _OPTED_IN},
+)
+QUALIFIER_CLOSED = _notice(
+    'qualifier_closed', 'Async qualifiers', 'Qualifier closed',
+    "An async qualifier's window closes", {PLAYERS: PING}, {PLAYERS: _opted_in('Everyone who submitted a run')},
+)
 REVIEW_QUEUE = _notice(
     'review_queue', 'Async qualifiers', 'Review queue waiting',
     'The oldest unreviewed run is six hours old (at most daily)',
@@ -431,6 +500,31 @@ _ACT: Dict[str, frozenset] = {
     REATTEMPT_GRANTED.key: frozenset({PLAYERS}),
     REVIEW_QUEUE.key: frozenset({ADMINS}),
 }
+
+
+# Messages nobody gets until they turn them on under Profile → Notifications.
+# The community column still holds the ceiling (staff can switch one off for
+# everybody), but every preset leaves an opt-in target off, so adding one never
+# changes what anybody already receives.
+_OPT_IN: Dict[str, frozenset] = {
+    SEED_FAILED.key: _STAFF_ALERTS,
+    STATION_ASSIGNED.key: frozenset({PLAYERS}),
+    OPPONENT_ACKNOWLEDGED.key: frozenset({PLAYERS}),
+    MATCH_FLAGGED.key: _STAFF_ALERTS,
+    STREAM_OFFER.key: _STAFF_ALERTS,
+    BRACKET_RESULT.key: frozenset({PLAYERS}),
+    ADDED_TO_TOURNAMENT.key: frozenset({PLAYERS}),
+    REMOVED_FROM_TOURNAMENT.key: frozenset({PLAYERS}),
+    PLAYER_WITHDREW.key: frozenset({ADMINS}),
+    REQUEST_WITHDRAWN.key: frozenset({PLAYERS}),
+    VOLUNTEER_ARRIVED.key: _STAFF_ALERTS,
+    QUALIFIER_OPENED.key: frozenset({MEMBERS}),
+    QUALIFIER_CLOSED.key: frozenset({PLAYERS}),
+}
+
+
+def is_opt_in(target: NoticeTarget) -> bool:
+    return target.recipient in _OPT_IN.get(target.key, frozenset())
 
 
 def is_urgent(target: NoticeTarget) -> bool:

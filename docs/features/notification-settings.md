@@ -23,7 +23,7 @@ exactly the defaults.
 
 ## The catalogue
 
-`notification_catalog.py` declares one `Notice` per message, 60 of them, in
+`notification_catalog.py` declares one `Notice` per message, 73 of them, in
 eight `GROUPS`: Matches, Brackets, Reschedule requests, Crew, Volunteer shifts,
 Community, Event check-in, Async qualifiers. Each carries a stable `key`
 (`match_scheduled`), a `title` and `when` for the settings grid, a default mode
@@ -147,6 +147,33 @@ REST (any member, own settings only): `GET /api/notifications/messages`,
 `POST /api/notifications/messages/reset`. MCP: `my_notification_settings`,
 `set_my_notification_preset`, `set_my_notification`.
 
+### Opt-in messages
+
+Some messages nobody gets until they turn them on: `notification_catalog._OPT_IN`
+(`is_opt_in(target)`). The community column still holds the ceiling, so staff
+can switch one off or make it silent for everybody, but `preset_mode` answers
+`off` for an opt-in target in every preset and `mode_for` falls back to `off`
+for one, so adding a message never changes what anyone already gets. The
+Profile list captions them "Off unless you turn it on"; REST carries `opt_in`.
+
+Senders live in `application/services/opt_in_notifications.py`, one coroutine
+per message, handed to `discord_queue.enqueue`. Each starts from
+`NotificationPreferenceService.opted_in_user_ids(target)` (one query), so a
+message nobody chose loads nothing and sends nothing; `send_dm` still applies
+the ceiling. Text is in `application/utils/discord_messages_opt_in.py`.
+
+| Notice | To | Fired from |
+|---|---|---|
+| `opponent_acknowledged` | players | `acknowledge_match` |
+| `station_assigned` | players | `assign_stations` |
+| `bracket_result` | players | native bracket `_record_result` (not Challonge or start.gg) |
+| `added_to_tournament` / `removed_from_tournament` | players | `record_enrolment_change(notify=True)`: roster dialog, admin user dialog; never a sync or scheduling auto-enrol |
+| `player_withdrew` | admins (`StaffAlertService.tournament_alert_admins`) | self-withdraw, Challonge withdraw |
+| `request_withdrawn` | the opponent (head-to-head only) | `MatchRescheduleService.withdraw` |
+| `qualifier_opened` / `qualifier_closed` | members / players with a valid run | `sync_window_state` |
+| `match_flagged`, `seed_failed`, `stream_offer` | staff alert columns | `flag_for_review`, `SeedRollService._fail`, `MatchStreamVolunteerService.volunteer` |
+| `volunteer_arrived` | volunteer alert columns (silent) | `check_in_self` |
+
 When adding a notification, decide whether it belongs in `_URGENT` (can't wait:
 someone has to move now) or `_ACT` (asks the reader to do something); both feed
 the presets.
@@ -160,7 +187,8 @@ the presets.
    it, one target per audience (players and watchers of the same event are two
    cells). For a staff alert, use the tag `StaffAlertService` returns.
 3. Add the target to `_URGENT` or `_ACT` in the catalogue if it qualifies (see
-   [Personal choices](#personal-choices)).
+   [Personal choices](#personal-choices)). A message nobody has had before goes
+   in `_OPT_IN` with a sender in `opt_in_notifications.py`.
 4. Nothing else: the grid, Profile list, REST and MCP read the catalogue. A DM sent without
    `notice=` can't be switched off or quietened by any community, so only a
    user-requested test message should skip it.

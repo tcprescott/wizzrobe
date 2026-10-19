@@ -112,6 +112,13 @@ class StaffAlertService:
         return list(recipients.values())
 
     @staticmethod
+    async def tournament_alert_admins(tournament: Tournament) -> List[User]:
+        """The tournament's active admins who haven't switched its alerts off."""
+        await tournament.fetch_related('admins')
+        opted_out = await TournamentNotificationRepository().staff_alert_opt_out_user_ids(tournament.id)
+        return [admin for admin in tournament.admins if admin.is_active and admin.id not in opted_out]
+
+    @staticmethod
     async def volunteer_alert_recipients(at: Optional[datetime] = None) -> List[User]:
         """Who hears that a volunteer is running late or gave a shift back.
 

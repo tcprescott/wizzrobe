@@ -203,3 +203,9 @@ class ChallongeSignupMixin:
             EventType.TOURNAMENT_ENROLLED if added else EventType.TOURNAMENT_WITHDRAWN,
             event_extra={'user_id': user.id},
         )
+        if not added:
+            from application.services import opt_in_notifications
+            from application.services.discord import discord_queue
+            discord_queue.enqueue(opt_in_notifications.enrolment_changed(
+                tournament.id, user.id, user.id, added=False,
+            ))

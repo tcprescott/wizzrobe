@@ -100,6 +100,9 @@ class VolunteerArrivalService:
              'self_reported': True},
             EventType.VOLUNTEER_CHECKED_IN, event_extra={'user_id': user.id},
         )
+        from application.services import opt_in_notifications
+        from application.services.discord import discord_queue
+        discord_queue.enqueue(opt_in_notifications.volunteer_arrived(assignment.shift, user.preferred_name))
         return assignment
 
     @requires_feature(FeatureFlag.VOLUNTEERS)
