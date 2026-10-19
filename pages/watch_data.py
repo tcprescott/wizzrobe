@@ -23,6 +23,7 @@ from typing import Dict, List, Optional
 
 from application.events import EventType, event_bus
 from application.services import BracketService, MatchService, StageService, TournamentService
+from application.services.event_info_service import prize_fields
 from application.services.feature_flag_service import FeatureFlagService
 from application.services.system_config_service import (
     DEFAULT_WATCH_AUTO_THRESHOLD,
@@ -218,6 +219,7 @@ async def _tournaments(streamed_ids: set[int]) -> List[WatchTournament]:
         for bracket in await BracketService().list_all_visible_brackets(None):
             published.setdefault(bracket.tournament_id, []).append(bracket)
 
+    payouts_live = await FeatureFlagService().is_enabled(FeatureFlag.PAYOUTS)
     rows: List[WatchTournament] = []
     for t in await TournamentService().get_all_tournaments(active_only=True):
         stages = published.get(t.id, [])
@@ -230,10 +232,13 @@ async def _tournaments(streamed_ids: set[int]) -> List[WatchTournament]:
         if not bracket and t.id not in streamed_ids:
             continue
         status, tone = _status(t, stages)
+        prize = prize_fields(t) if payouts_live else {}
         rows.append(WatchTournament(
             id=t.id, name=t.name, format=t.tournament_format or '',
             status=status, tone=tone, bracket_url=bracket,
             rules_url=http_url_or_empty(t.rules_url),
+            prize_total=prize.get('prize_total'),
+            prize_synced=prize.get('prize_synced_at') is not None,
         ))
     return sorted(rows, key=lambda r: r.name.lower())
 

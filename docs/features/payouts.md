@@ -99,7 +99,12 @@ games raises `SgliveAPIError` instead of returning an empty list.
 
 The event info `:::tournaments` list shows pool + bonus as a chip when
 `PAYOUTS` is on and the total is above zero, with a footnote naming the last
-sync time when any row syncs.
+sync time when any row syncs. The Watch page's Tournaments list
+(`pages/watch_data.py`, both renderers in `theme/watch_view.py` /
+`theme/watch_live.py`) reuses `event_info_service.prize_fields` for the same
+chip, with a footnote naming sglive when any row syncs. A pool change publishes a
+`tournament.*` event, which invalidates the cached Watch view, so the static page
+picks it up on its next in-place refresh.
 
 ## Surfaces
 
@@ -107,6 +112,7 @@ sync time when any row syncs.
 |---|---|
 | Admin → Payouts (`pages/admin_tabs/admin_payouts.py`) | The tournament table, the pool and split dialogs, **Copy for Matcherino**, and Actions › **Link sglive pages** / **Update from sglive now** |
 | Event info `:::tournaments` (`theme/event_info_tournaments.py`) | Public pool chip per tournament |
+| Watch page Tournaments list (`theme/watch_view.py`, `theme/watch_live.py`) | The same public chip, live and static |
 | Profile → Matcherino handle (`pages/home_tabs/player_edit_info.py`) | Its own card, deliberately apart from the OAuth-verified Challonge/Twitch/racetime rows so it never reads as verified. Hidden where the community lacks the feature |
 | `GET/PUT /api/tournaments/{id}/payouts`, `PUT /api/tournaments/{id}/prize-pool` | Money serialises as strings |
 | MCP `get_tournament_payouts` | Read only. The MCP write surface is opt-in at consent, and prize money is not where to extend it first |

@@ -231,7 +231,14 @@ class TestStaffAndRoster:
 
 
 class TestDiscordEvents:
-    async def test_staff_turn_events_on(self, db):
+    async def test_staff_turn_events_on(self, db, monkeypatch):
+        from application.services.discord import discord_event_sync_service
+        from application.services.discord.discord_service import MockDiscordService
+
+        monkeypatch.setattr(discord_event_sync_service, 'DiscordService', MockDiscordService)
+        tenant = await Tenant.get(id=1)
+        tenant.discord_guild_id = 424242
+        await tenant.save()
         _, raw = await create_oauth_token(roles=[Role.STAFF], write=True)
         tournament = await Tournament.create(name='Cup')
         async with mcp_session() as client:
