@@ -312,7 +312,7 @@ def create() -> None:
                 page_header(current.title)
                 disclaimer()
                 approved = current.status is CommunityEventStatus.APPROVED
-                state = await _attendance_state(service, user, [current.id]) if approved else None
+                state: dict = await _attendance_state(service, user, [current.id]) if approved else {}
                 with ui.card().classes('wiz-community-event wiz-ce-card full-width'):
                     with ui.column().classes('wiz-ce-card__main full-width'):
                         if not approved or is_live(current):
