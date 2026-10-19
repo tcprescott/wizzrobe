@@ -104,6 +104,8 @@ await self.audit_service.write_and_publish(
 
 Use bare `event_bus.publish(Event.create(EventType.X, {...}, actor))` (`from application.events import Event, EventType, event_bus`) only where there is no audit row to pair with — a worker observation, or a publish that must fire on a path the audit deliberately skips. `EventType` names mirror `AuditActions` and are an **external contract** — add a member to `EventType` + `EventType.ALL` for a new event; treat renames as breaking. `publish` is synchronous, never raises, and never blocks. Lives at `application/events/` (a peer of `services/`, so it's exempt from the architecture hook). Its narrow sibling `application/events/match_live.py` is **not** the same thing: that one carries only `(match_id, change_type)` to nudge open UI views. Publish domain events on `event_bus`; use `match_live` only for UI refresh. Detail: [docs/features/event-system.md](docs/features/event-system.md).
 
+**An outside automation consumes six webhook events in production** (`match.rescheduled`, `match.stage_assigned`, `match.stage_cleared`, `match.deleted`, `match.cancelled`, `crew.approval_changed`). `tests/services/test_webhook_consumer_contract.py` freezes their payloads, the envelope, the headers and the signature. If it goes red, don't edit the expected values to get green: say so in the PR description and tell Thomas, so the automation's author hears first.
+
 ## Writing user-facing text
 
 Scope: prose a person reads — chat replies, UI copy (labels, `ui.notify` text,
