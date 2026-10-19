@@ -6,7 +6,7 @@ from nicegui import ui
 
 from application.services._community_event_notifications import format_duration
 from application.services.community_event_service import ends_at
-from application.utils.timezone import format_local_time_range, to_local
+from application.utils.timezone import format_local_time, format_local_time_range, to_local
 from models import CommunityEvent, CommunityEventStatus
 from theme.banner import banner
 
@@ -58,3 +58,19 @@ def meta_row(icon: str, text: str) -> None:
     with ui.row().classes('items-center gap-2 no-wrap'):
         ui.icon(icon).props('size=xs').classes('text-muted')
         ui.label(text).classes('wiz-community-event__meta')
+
+
+def time_tile(event: CommunityEvent) -> None:
+    """A listing card's left-hand block: the start time, and how long it runs."""
+    with ui.column().classes('wiz-ce-tile'):
+        ui.label(format_local_time(event.starts_at)).classes('wiz-ce-tile__main')
+        ui.label(format_duration(event.duration_minutes)).classes('wiz-ce-tile__small')
+
+
+def date_tile(event: CommunityEvent) -> None:
+    """The detail page's block: weekday, day of the month, month."""
+    local = to_local(event.starts_at) or event.starts_at
+    with ui.column().classes('wiz-ce-tile wiz-ce-tile--date'):
+        ui.label(f'{local:%a}').classes('wiz-ce-tile__small')
+        ui.label(str(local.day)).classes('wiz-ce-tile__main')
+        ui.label(f'{local:%b}').classes('wiz-ce-tile__small')
