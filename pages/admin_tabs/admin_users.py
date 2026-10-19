@@ -17,6 +17,7 @@ from application.tenant_context import require_tenant_id
 from application.utils.timezone import format_local_datetime, format_local_display
 from models import MembershipSource, Role, User
 from pages.admin_tabs.admin_accommodations import render_accommodation_panel
+from pages.admin_tabs.member_sheet import MemberSheet
 from theme.accommodation_copy import STATUS_LABELS
 from theme.busy import busy, busy_click
 from theme.dialog import AdminUserDialog
@@ -103,12 +104,12 @@ async def _in_client(client, coro) -> None:
 
 async def admin_users_page(
     accommodations: bool = False, ada_request: int | None = None,
-    emergency_contacts: bool = False,
+    emergency_contacts: bool = False, member: int | None = None,
 ) -> None:
     """Members table, plus an ADA requests sub-tab when the community has the feature.
 
     ``ada_request`` is the staff DM's deep link: the ADA sub-tab opens on that
-    request's dialog.
+    request's dialog. ``member`` opens that person's member sheet.
     """
     with ui.column().classes('page-container-wide w-full'):
         page_header('Members')
@@ -120,7 +121,9 @@ async def admin_users_page(
                     'ADA requests aren’t turned on for this community, so that '
                     'link has nothing to open.', color='warning',
                 )
-            await _members_panel(accommodations=False, emergency_contacts=emergency_contacts)
+            await _members_panel(
+                accommodations=False, emergency_contacts=emergency_contacts, member=member,
+            )
             return
 
         actor = await get_user_from_session(app.storage.user)
@@ -154,7 +157,7 @@ async def admin_users_page(
             with ui.tab_panel(members_tab).style('padding-left: 0; padding-right: 0'):
                 await _members_panel(
                     accommodations=True, actor=actor, on_open_ada=open_ada,
-                    emergency_contacts=emergency_contacts,
+                    emergency_contacts=emergency_contacts, member=member,
                 )
             with ui.tab_panel(ada_tab).style('padding-left: 0; padding-right: 0'):
                 opener['open'] = await render_accommodation_panel(on_change=recount)
@@ -165,13 +168,13 @@ async def admin_users_page(
 
 async def _members_panel(
     accommodations: bool, actor: User | None = None, on_open_ada=None,
-    emergency_contacts: bool = False,
+    emergency_contacts: bool = False, member: int | None = None,
 ) -> None:
     with ui.column().classes('w-full gap-4'):
         ui.label(
             'Everyone in this community and the roles they hold. Add Member '
             'brings in an existing account; Actions › Add user creates a new one. '
-            'Click a username to edit it.'
+            'Click a name to see everything about them, including how their notifications are set up.'
         ).classes('text-caption text-grey')
 
         # Pending join requests, above the member table. The queue carries its
@@ -541,6 +544,7 @@ async def _members_panel(
         table_view = UserTableView(
             columns=columns, get_query=get_query, show_toolbar=False,
             row_actions=_row_actions(emergency_contacts), table_key=TableKeys.ADMIN_USERS,
+            name_event='member_details',
             before_refresh=load_row_data,
             decorate_row=decorate,
             extra_slots={'body-cell-joined_via': _JOINED_VIA_SLOT},
@@ -568,6 +572,37 @@ async def _members_panel(
                 'emergency_contact',
                 lambda e: table_view._bg(open_contact(e.args, context.client)),
             )
+        page_client = context.client
+
+        async def edit_member(member_id: int) -> None:
+            user = await UserService().get_user_by_id(member_id)
+            if user is None:
+                ui.notify('That account no longer exists', color='negative')
+                return
+
+            async def after_submit(_):
+                await table_view.refresh()
+            await AdminUserDialog(user, on_submit=after_submit).open()
+
+        async def remove_from_sheet(member_id: int) -> None:
+            await remove_member({'id': member_id}, page_client)
+
+        async def contact_from_sheet(member_id: int) -> None:
+            await open_contact({'id': member_id}, page_client)
+
+        sheet = MemberSheet(
+            on_edit=edit_member, on_remove=remove_from_sheet,
+            on_emergency_contact=contact_from_sheet if emergency_contacts else None,
+        )
+
+        async def open_sheet(e) -> None:
+            row = e.args.get('row', e.args) if isinstance(e.args, dict) else {}
+            if row.get('id'):
+                await sheet.open(row['id'])
+        table_view.table.on('member_details', open_sheet)
+        if member is not None:
+            await sheet.open(member)
+
         if on_open_ada is not None:
             async def open_ada(e) -> None:
                 row = e.args.get('row', e.args) if isinstance(e.args, dict) else {}

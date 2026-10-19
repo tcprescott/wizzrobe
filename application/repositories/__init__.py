@@ -51,6 +51,7 @@ from .match_stream_volunteer_repository import MatchStreamVolunteerRepository
 from .match_watcher_repository import MatchWatcherRepository
 from .matcherino_login_repository import MatcherinoLoginRepository
 from .mcp_auth_repository import McpAuthRepository
+from .member_details_repository import MemberDetailsRepository
 from .notification_channel_repository import NotificationChannelRepository
 from .notification_preference_repository import NotificationPreferenceRepository
 from .notification_setting_repository import NotificationSettingRepository
@@ -133,6 +134,7 @@ __all__ = [
     'MatchWatcherRepository',
     'MatcherinoLoginRepository',
     'McpAuthRepository',
+    'MemberDetailsRepository',
     'NotificationChannelRepository',
     'NotificationPreferenceRepository',
     'NotificationSettingRepository',

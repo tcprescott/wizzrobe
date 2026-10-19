@@ -63,6 +63,7 @@ READ_TOOLS = {
     'get_check_in_roster',
     'get_equipment',
     'get_match',
+    'get_member_details',
     'get_player_availability',
     'get_preset',
     'get_race_room',

@@ -92,6 +92,7 @@ def build_admin_tabs(
     qualifier: int | None = None,
     qualifier_tab: str | None = None,
     ada_request: int | None = None,
+    member: int | None = None,
     community_event: int | None = None,
     settings_pane: str | None = None,
 ) -> list[dict]:
@@ -164,7 +165,8 @@ def build_admin_tabs(
                                  {'accommodations': FeatureFlag.ADA_ACCOMMODATIONS in live,
                                   'emergency_contacts': FeatureFlag.EMERGENCY_CONTACTS in live,
                                   # The ADA staff DMs' button: opens that request.
-                                  'ada_request': ada_request})})
+                                  'ada_request': ada_request,
+                                  'member': member})})
     if is_staff or is_ta_any:
         tabs.append({'label': 'Tournaments', 'icon': 'emoji_events', 'group': 'Operations', 'content': admin_tournaments_page})
     # Beside Tournaments because that's where a preset is attached, and every
@@ -328,6 +330,8 @@ def create() -> None:
             match_id=match_id, day=day, reschedule_request=reschedule_request,
             comments=comments,
             qualifier=qualifier, qualifier_tab=tab, ada_request=ada_request,
+            # ?user_id= on the Members tab opens that person's member sheet.
+            member=user_id if section in ('members', 'users') else None,
             community_event=community_event,
             # A retired tab slug (/admin/appearance) names the pane that took it in.
             settings_pane=pane or LEGACY_TAB_PANES.get(section or ''),

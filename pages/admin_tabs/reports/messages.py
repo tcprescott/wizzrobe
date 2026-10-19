@@ -62,7 +62,7 @@ def _readable(text: str) -> str:
 
 
 # (chip class, icon, label)
-_STATUS_CHIP = {
+STATUS_CHIP = {
     SentMessageStatus.PENDING: ('wiz-chip--pending', 'schedule', 'Sending'),
     SentMessageStatus.DELIVERED: ('wiz-chip--ok', 'check_circle', 'Delivered'),
     SentMessageStatus.DISCORD_OFF: ('wiz-chip--neutral', 'do_not_disturb_on', 'Discord off'),
@@ -105,7 +105,7 @@ def _delivery_lines(m: SentMessage) -> list[dict]:
 
 
 def _row(m: SentMessage) -> dict[str, Any]:
-    chip_cls, chip_icon, chip_label = _STATUS_CHIP[m.status]
+    chip_cls, chip_icon, chip_label = STATUS_CHIP[m.status]
     who = m.recipient.preferred_name if m.recipient else f'Discord {m.discord_id}'
     body = _readable(m.body).strip()
     preview = body

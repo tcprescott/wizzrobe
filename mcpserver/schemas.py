@@ -21,6 +21,9 @@ from typing import Annotated, Dict, List, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
 
+# The module, not the class: a REST model bound here would be scanned as one of
+# MCP's (tests/mcp/test_mcp_snowflake_ids.py) and its numeric discord_id flagged.
+from api.schemas import member_details as rest_member_details
 from mcpserver.snowflake import Snowflake
 
 # Declared once and shared, so every community-scoped tool describes its tenant
@@ -291,6 +294,15 @@ class SentMessageInfo(BaseModel):
     email_sent: Optional[bool] = None
     telegram_sent: Optional[bool] = None
     created_at: datetime
+
+
+class MemberDetailsInfo(rest_member_details.MemberDetailsResponse):
+    """Everything this community knows about one member, as staff see it on Admin → Members."""
+
+    discord_id: Optional[Snowflake] = Field(None, description="Their Discord ID, as a string.")
+    recent_messages: List[SentMessageInfo] = Field(  # type: ignore[assignment]
+        default_factory=list, description="The last DMs sent to them here, newest first.",
+    )
 
 
 class SentMessagePage(BaseModel):
