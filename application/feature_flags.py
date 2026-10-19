@@ -189,7 +189,8 @@ FEATURE_FLAG_REGISTRY: Dict[FeatureFlag, FeatureFlagSpec] = {
             "Prize pool, placement splits and Matcherino handles for a "
             "tournament's winners, with an export for the payout run.",
             'Operations',
-            service_modules=('application/services/payout_service.py',),
+            service_modules=('application/services/payout_service.py',
+                             'application/services/sglive_pool_worker.py'),
         ),
         FeatureFlagSpec(
             FeatureFlag.ADA_ACCOMMODATIONS,

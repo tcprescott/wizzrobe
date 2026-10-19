@@ -12,6 +12,7 @@ used to be typed by hand into an admin thread after every event.
 |---|---|
 | `Tournament.prize_pool` | The advertised pool. `NULL` until someone decides it |
 | `Tournament.prize_bonus` | The leaderboard bonus, added to the pool before shares apply |
+| `Tournament.sglive_slug` / `prize_pool_synced_at` | The game's sglive.speedgaming.org slug (`wwr`) while the pool syncs from there, and when it last did |
 | `TournamentPayout` | One placement's share: `place`, `percentage`, optional `entrant` and `note` |
 | `User.matcherino_username` | Where the money is sent. Global, self-entered, **not** unique |
 
@@ -80,11 +81,32 @@ A row with no entrant reads `(unassigned)`; an entrant with no handle is called
 out rather than left blank, because a silently missing handle is what stalls a
 payout run and the reader of the block is the person who can go and ask for it.
 
+## Syncing from sglive.speedgaming.org
+
+SpeedGaming Live's site sorts Matcherino contributions into per-game pools and
+serves them as JSON at `https://sglive.speedgaming.org/data/` (`tournaments[]`
+with `slug`, `short_name`, `donations_total` as `"$1,054.00"`, and the donor
+list). `application/utils/clients/sglive_client.py` reads it; a payload with no
+games raises `SgliveAPIError` instead of returning an empty list.
+
+| Piece | |
+|---|---|
+| `PayoutService.set_sglive_links(links, actor)` | `{slug: tournament_id or None}` from the link screen; one slug per tournament; audits `tournament.sglive_link_updated` per change, then fills pools at once |
+| `PayoutService.unlink_sglive` | Clears the slug; the last synced amount stays |
+| `PayoutService.apply_sglive_games(games, actor)` | Writes totals into linked pools; a moved pool audits `tournament.prize_pool_updated` with `source: sglive`, an unchanged one only stamps `prize_pool_synced_at`. Returns linked slugs sglive no longer lists |
+| `PayoutService.set_pool` | Refuses a *different* pool while linked (the bonus is still editable) |
+| `sglive_pool_worker` | Every 15 min: idle with nothing linked, else one fetch fanned out per tenant as the system user, skipping tenants with `PAYOUTS` off. First failure ERROR, repeats WARNING; pools keep their last value |
+
+The event info `:::tournaments` list shows pool + bonus as a chip when
+`PAYOUTS` is on and the total is above zero, with a footnote naming the last
+sync time when any row syncs.
+
 ## Surfaces
 
 | Surface | |
 |---|---|
-| Admin → Payouts (`pages/admin_tabs/admin_payouts.py`) | The tournament table, the pool and split dialogs, and **Copy for Matcherino** |
+| Admin → Payouts (`pages/admin_tabs/admin_payouts.py`) | The tournament table, the pool and split dialogs, **Copy for Matcherino**, and Actions › **Link sglive pages** / **Update from sglive now** |
+| Event info `:::tournaments` (`theme/event_info_tournaments.py`) | Public pool chip per tournament |
 | Profile → Matcherino handle (`pages/home_tabs/player_edit_info.py`) | Its own card, deliberately apart from the OAuth-verified Challonge/Twitch/racetime rows so it never reads as verified. Hidden where the community lacks the feature |
 | `GET/PUT /api/tournaments/{id}/payouts`, `PUT /api/tournaments/{id}/prize-pool` | Money serialises as strings |
 | MCP `get_tournament_payouts` | Read only. The MCP write surface is opt-in at consent, and prize money is not where to extend it first |

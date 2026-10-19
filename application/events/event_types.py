@@ -201,6 +201,7 @@ class EventType:
     # because either moves what every placement is owed.
     TOURNAMENT_PRIZE_POOL_UPDATED = 'tournament.prize_pool_updated'
     TOURNAMENT_PAYOUT_UPDATED = 'tournament.payout_updated'
+    TOURNAMENT_SGLIVE_LINK_UPDATED = 'tournament.sglive_link_updated'
 
     # The booking windows of a tournament's stages changed; booking clients
     # holding a cached window should re-read it. Carries ``tournament_id``.
@@ -271,6 +272,7 @@ class EventType:
         TENANT_JOIN_REQUESTED, TENANT_JOIN_APPROVED, TENANT_JOIN_DENIED,
         TOURNAMENT_ENROLLED, TOURNAMENT_WITHDRAWN,
         TOURNAMENT_PRIZE_POOL_UPDATED, TOURNAMENT_PAYOUT_UPDATED,
+        TOURNAMENT_SGLIVE_LINK_UPDATED,
         TOURNAMENT_ROUND_SCHEDULE_UPDATED,
         CHECK_IN_EVENT_SYNCED, CHECK_IN_ENTRANT_CHECKED_IN,
         CHECK_IN_ENTRANT_CHECK_IN_UNDONE, CHECK_IN_ENTRANT_LINKED,

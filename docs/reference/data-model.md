@@ -893,6 +893,8 @@ Tournament metadata and configuration; the root aggregate for matches, enrollmen
 | `signups_close_at` | `DatetimeField` | null | End of the signup window (UTC, exclusive). Null means signups stay open. Read by `TournamentService.list_signup_cards` / `self_enroll` / `self_withdraw`; **staff enrolment ignores it** — closing signups stops players adding themselves, not staff fixing a roster |
 | `prize_pool` | `DecimalField(10,2)` | null | The advertised prize pool. Null means nobody has decided yet — distinct from a zero, which is a decision. See [payouts.md](../features/payouts.md) |
 | `prize_bonus` | `DecimalField(10,2)` | null | Leaderboard bonus, **added to the pool before** placement percentages apply |
+| `sglive_slug` | `CharField(64)` | null | sglive.speedgaming.org game slug (`wwr`); while set, the sglive worker owns `prize_pool` |
+| `prize_pool_synced_at` | `DatetimeField` | null | When the sglive worker last read this tournament's pool |
 | `admins` | M2M → `User` | — | `through='TournamentAdmins'`, `related_name='admin_tournaments'` |
 | `crew_coordinators` | M2M → `User` | — | `through='TournamentCrewCoordinators'`, `related_name='crew_coordinated_tournaments'` |
 | `required_commentators` | `IntField` | default `1` | Approved commentators a **stream candidate** needs before the coverage surfaces count it as covered. `0` means the tournament does not use the role. Read by `ReportsService.crew_coverage` and `AnalyticsService.tournament_health` through the shared `reporting_shared.is_crew_covered`, and by the schedule board — a role requiring `0` renders no **Sign up**, and `CrewService.signup_crew` refuses it (hiding a control is not enforcing a rule). Withdrawing stays open at any requirement. |

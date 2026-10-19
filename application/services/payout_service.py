@@ -9,9 +9,11 @@ The whole surface is gated behind :attr:`~models.FeatureFlag.PAYOUTS`: prize
 money is SpeedGaming-shaped and most communities never pay anyone.
 """
 
+import logging
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from decimal import Decimal
-from typing import Any, Iterable, List, Mapping, Optional
+from typing import Any, Dict, Iterable, List, Mapping, Optional
 
 from application.errors import require_found
 from application.events import EventType
@@ -24,7 +26,11 @@ from application.services.audit_service import AuditActions, AuditService
 from application.services.auth_service import AuthService
 from application.services.tenant_membership_service import TenantMembershipService
 from application.tenant_context import require_tenant_id
+from application.utils.clients import sglive_client
+from application.utils.clients.sglive_client import SgliveAPIError, SgliveGame
 from models import FeatureFlag, Tournament, TournamentPayout, User
+
+logger = logging.getLogger(__name__)
 
 CENT = Decimal('0.01')
 _HUNDRED = Decimal(100)
@@ -111,6 +117,8 @@ class PayoutOverview:
     place_count: int
     allocated_percentage: Decimal
     is_complete: bool
+    sglive_slug: Optional[str] = None
+    synced_at: Optional[datetime] = None
 
 
 class PayoutService:
@@ -148,6 +156,8 @@ class PayoutService:
                 place_count=len(rows),
                 allocated_percentage=split.allocated_percentage,
                 is_complete=split.is_complete,
+                sglive_slug=tournament.sglive_slug,
+                synced_at=tournament.prize_pool_synced_at,
             ))
         return overviews
 
@@ -196,6 +206,11 @@ class PayoutService:
         tournament = await self._require_manageable(tournament_id, actor)
         pool = self._validate_money(pool, 'Prize pool')
         bonus = self._validate_money(bonus, 'Bonus')
+        if tournament.sglive_slug and pool != self._quantized(tournament.prize_pool):
+            raise ValueError(
+                'This prize pool updates from sglive.speedgaming.org. Unlink it '
+                'before typing a pool by hand.'
+            )
         tournament.prize_pool = pool  # type: ignore[assignment]
         tournament.prize_bonus = bonus  # type: ignore[assignment]
         await save_fields(tournament, 'prize_pool', 'prize_bonus')
@@ -286,7 +301,148 @@ class PayoutService:
         )
         return payout
 
+    # --- sglive.speedgaming.org ----------------------------------------------
+
+    @requires_feature(FeatureFlag.PAYOUTS)
+    async def fetch_sglive_games(self, actor: User) -> List[SgliveGame]:
+        """Every game on sglive with its total, for the link screen."""
+        await self._require_any_manageable(actor)
+        try:
+            return await sglive_client.fetch_games()
+        except SgliveAPIError as e:
+            raise ValueError(f"Couldn't read sglive.speedgaming.org: {e}") from e
+
+    @requires_feature(FeatureFlag.PAYOUTS)
+    async def set_sglive_links(
+        self, links: Mapping[str, Optional[int]], actor: User,
+    ) -> List[Tournament]:
+        """Link each sglive slug in ``links`` to a tournament, or to none.
+
+        ``links`` maps every slug on the screen to the tournament it pays out
+        for (``None`` = not linked). A slug left out keeps whatever it had. A
+        tournament is linked to at most one slug; linking it again moves it.
+        Newly linked pools are filled straight away, so staff see the number
+        on save rather than at the next tick.
+        """
+        wanted: Dict[int, str] = {}
+        for slug, tournament_id in links.items():
+            slug = self._validate_slug(slug)
+            if tournament_id is None:
+                continue
+            if tournament_id in wanted:
+                raise ValueError('One tournament can only follow one sglive game.')
+            wanted[tournament_id] = slug
+        slugs = {self._validate_slug(slug) for slug in links}
+        changed: List[Tournament] = []
+        for tournament in await self.repository.list_sglive_linked():
+            if tournament.sglive_slug in slugs and wanted.get(tournament.id) != tournament.sglive_slug:
+                await self._require_manageable(tournament.id, actor)
+                changed.append(await self._write_link(tournament, None, actor))
+        for tournament_id, slug in wanted.items():
+            tournament = await self._require_manageable(tournament_id, actor)
+            if tournament.sglive_slug != slug:
+                changed.append(await self._write_link(tournament, slug, actor))
+        if wanted:
+            try:
+                await self.sync_sglive_pools(actor)
+            except ValueError as e:
+                logger.info('sglive fill after linking failed: %s', e)
+        return changed
+
+    @requires_feature(FeatureFlag.PAYOUTS)
+    async def unlink_sglive(self, tournament_id: int, actor: User) -> Tournament:
+        """Stop syncing one tournament's pool. The last synced amount stays."""
+        tournament = await self._require_manageable(tournament_id, actor)
+        if not tournament.sglive_slug:
+            return tournament
+        return await self._write_link(tournament, None, actor)
+
+    @requires_feature(FeatureFlag.PAYOUTS)
+    async def sync_sglive_pools(self, actor: User) -> List[str]:
+        """Read sglive now and update this community's linked pools.
+
+        Returns the linked slugs sglive no longer lists; their pools keep their
+        last value.
+        """
+        try:
+            games = await sglive_client.fetch_games()
+        except SgliveAPIError as e:
+            raise ValueError(f"Couldn't read sglive.speedgaming.org: {e}") from e
+        return await self.apply_sglive_games(games, actor)
+
+    @requires_feature(FeatureFlag.PAYOUTS)
+    async def apply_sglive_games(self, games: Iterable[SgliveGame], actor: User) -> List[str]:
+        """Write ``games``' totals into this community's linked pools.
+
+        The worker reads sglive once per tick and hands every community the same
+        list. A pool that moved is audited as a prize-pool change by ``actor``;
+        one that didn't only has its synced time stamped.
+        """
+        by_slug = {game.slug: game for game in games}
+        missing: List[str] = []
+        now = datetime.now(timezone.utc)
+        for tournament in await self.repository.list_sglive_linked():
+            game = by_slug.get(tournament.sglive_slug or '')
+            if game is None:
+                missing.append(tournament.sglive_slug or '')
+                continue
+            old = tournament.prize_pool
+            tournament.prize_pool_synced_at = now
+            if old is not None and self._quantized(old) == game.total:
+                await save_fields(tournament, 'prize_pool_synced_at')
+                continue
+            tournament.prize_pool = game.total
+            await save_fields(tournament, 'prize_pool', 'prize_pool_synced_at')
+            await self.audit_service.write_and_publish(
+                actor,
+                AuditActions.TOURNAMENT_PRIZE_POOL_UPDATED,
+                {
+                    'tournament_id': tournament.id,
+                    'prize_pool': str(game.total),
+                    'previous_prize_pool': str(old) if old is not None else None,
+                    'source': 'sglive',
+                },
+                EventType.TOURNAMENT_PRIZE_POOL_UPDATED,
+            )
+        return missing
+
+    async def _write_link(
+        self, tournament: Tournament, slug: Optional[str], actor: User,
+    ) -> Tournament:
+        previous = tournament.sglive_slug
+        tournament.sglive_slug = slug  # type: ignore[assignment]
+        if slug is None:
+            tournament.prize_pool_synced_at = None  # type: ignore[assignment]
+        await save_fields(tournament, 'sglive_slug', 'prize_pool_synced_at')
+        await self.audit_service.write_and_publish(
+            actor,
+            AuditActions.TOURNAMENT_SGLIVE_LINK_UPDATED,
+            {'tournament_id': tournament.id, 'sglive_slug': slug, 'previous_sglive_slug': previous},
+            EventType.TOURNAMENT_SGLIVE_LINK_UPDATED,
+        )
+        return tournament
+
+    @staticmethod
+    def _validate_slug(slug: str) -> str:
+        slug = (slug or '').strip().strip('/').lower()
+        if not slug or len(slug) > 64 or not all(c.isalnum() or c in '-_' for c in slug):
+            raise ValueError(f'{slug!r} is not an sglive page.')
+        return slug
+
     # --- internals -----------------------------------------------------------
+
+    @staticmethod
+    def _quantized(value: Optional[Decimal]) -> Optional[Decimal]:
+        return None if value is None else Decimal(value).quantize(CENT)
+
+    async def _require_any_manageable(self, actor: User) -> None:
+        if await AuthService.is_staff(actor):
+            return
+        tournaments = await Tournament.filter(tenant_id=require_tenant_id())
+        for tournament in tournaments:
+            if await AuthService.can_manage_payouts(actor, tournament):
+                return
+        raise PermissionError("You do not have permission to manage payouts.")
 
     @staticmethod
     def amount_for(total: Decimal, percentage: Decimal) -> Decimal:

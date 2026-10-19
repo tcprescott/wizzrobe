@@ -5,7 +5,7 @@ icon: payments
 order: 246
 feature: PAYOUTS
 audience: staff
-summary: Setting a tournament's prize pool, splitting it by placement, naming the winners, and copying the payout block.
+summary: Setting a tournament's prize pool (by hand or from sglive), splitting it by placement, naming the winners, and copying the payout block.
 ---
 
 :::snippet admin-payouts
@@ -31,6 +31,24 @@ someone's decided it, because blank and zero mean different things.
 
 Change the pool whenever it moves. Shares are worked out from it every time, so
 you don't need to edit anything else.
+
+## Pools from sglive
+
+If a game has a page on [sglive.speedgaming.org](https://sglive.speedgaming.org),
+Wizzrobe can keep its pool up to date for you. Open **Actions › Link sglive
+pages**. Every game on sglive is listed with its current total, and you pick the
+tournament it pays out for. Names that match are already filled in. Save, and
+linked pools fill in straight away, then update every 15 minutes.
+
+A synced pool has a sync icon in the Pool column, and its Prize pool dialog
+locks the pool. The bonus stays yours to type. **Unlink** in that dialog stops
+the sync and keeps the last amount. **Actions › Update from sglive now** doesn't
+wait for the next update.
+
+If sglive is down or drops a game, the pool keeps its last amount.
+
+The event info tournament list shows each tournament's pool and bonus added
+together, for any tournament whose total is above zero.
 
 ## The split
 

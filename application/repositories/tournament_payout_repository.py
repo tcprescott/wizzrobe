@@ -49,3 +49,17 @@ class TournamentPayoutRepository(TenantScopedRepository[TournamentPayout]):
                     tenant_id=tenant_id, tournament=tournament, **row,
                 )
         return await cls.list_for_tournament(tournament.id)
+
+    @classmethod
+    async def list_sglive_linked(cls) -> List[Tournament]:
+        """This community's tournaments whose pool syncs from sglive."""
+        return await scoped(Tournament.filter(sglive_slug__isnull=False)).order_by('name')
+
+    @staticmethod
+    async def list_sglive_linked_all() -> List[Tournament]:
+        """Every community's sglive-linked tournaments, for the sync worker.
+
+        Deliberately unscoped: the worker reads sglive once per tick and fans out
+        per tenant itself.
+        """
+        return await Tournament.filter(sglive_slug__isnull=False).order_by('tenant_id', 'id')
