@@ -28,7 +28,7 @@ class UserTableView:
 
     def __init__(self, columns, get_query, extra_slots=None, submit_user_callback=None,
                  show_toolbar=True, row_actions=None, empty_message='No users match this filter.',
-                 table_key=None, before_refresh=None, decorate_row=None):
+                 table_key=None, before_refresh=None, decorate_row=None, name_event='edit_user'):
         self.columns = columns
         # When set, this view's desktop columns follow the viewer's saved layout.
         self.table_key = table_key
@@ -46,6 +46,9 @@ class UserTableView:
         # ``decorate_row(row)`` that writes it onto each formatted row.
         self.before_refresh = before_refresh
         self.decorate_row = decorate_row
+        # What clicking a name emits: the edit dialog by default, or a caller's
+        # own view (Admin → Members opens the member sheet).
+        self.name_event = name_event
         self.table = None
         # Capture the tenant while the request context is live; background tasks
         # (initial load, pagination refresh) run detached from the client slot, so
@@ -80,12 +83,17 @@ class UserTableView:
         if self.row_actions:
             self.table.add_slot(
                 'body-cell-actions', f'<q-td :props="props">{self.row_actions}</q-td>')
-        self.table.add_slot('body-cell-username', '''<q-td :props="props">
-            <a href="#" @click="$parent.$emit('edit_user', props)" class="table-link user-table__name">{{ props.value }}</a>
-        </q-td>''')
-        self.table.add_slot('body-cell-preferred_name', '''<q-td :props="props">
+        name_link = (
+            '<a href="#" @click.prevent="$parent.$emit(\'' + self.name_event + '\', props)" '
+            'class="table-link user-table__name">{{ props.value }}</a>'
+        )
+        self.table.add_slot('body-cell-username', f'<q-td :props="props">{name_link}</q-td>')
+        if self.name_event == 'edit_user':
+            self.table.add_slot('body-cell-preferred_name', '''<q-td :props="props">
             <span class="user-table__name">{{ props.value }}</span>
         </q-td>''')
+        else:
+            self.table.add_slot('body-cell-preferred_name', f'<q-td :props="props">{name_link}</q-td>')
         self.table.add_slot('body-cell-is_active', '''<q-td :props="props">
             <q-icon :name="props.value ? 'check_circle' : 'cancel'" :color="props.value ? 'positive' : 'negative'" size="sm" />
         </q-td>''')
@@ -152,7 +160,7 @@ class UserTableView:
                 continue
             field = { 'label': col.get('label', col.get('name', '')), 'key': col.get('name', '') }
             if field['key'] == 'username':
-                field['event'] = 'edit_user'
+                field['event'] = self.name_event
             if field['key'] == 'ada':
                 field['event'] = 'open_ada'
             if field['key'] == 'is_active':
@@ -167,7 +175,7 @@ class UserTableView:
         <div class="q-mb-sm user-grid-card" style="width: 100%; box-sizing: border-box;">
             <template v-for="field in [
                 {js_field_array}
-            ].filter(f => f.bool || f.event === 'edit_user' || props.row[f.key])" :key="field.key">
+            ].filter(f => f.bool || f.event === '{self.name_event}' || props.row[f.key])" :key="field.key">
                 <div class="text-grey-7">{{{{ field.label }}}}</div>
                 <div style="overflow-wrap: anywhere; min-width: 0">
                 <template v-if="field.event && props.row[field.key]">

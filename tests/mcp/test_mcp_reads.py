@@ -789,3 +789,4 @@ class TestPlayerFacingGaps:
                 client, raw, 'get_equipment', tenant=TENANT, equipment_id=asset.id,
             )
             assert not is_error, payload
+

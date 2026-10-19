@@ -243,6 +243,7 @@ discover the clash after creating the match.
 | Tool | Gate | Flag |
 |---|---|---|
 | `get_user` | ACTOR (self, or staff for anyone else) | — |
+| `get_member_details` | STAFF | — |
 | `get_player_availability` | ACTOR (self, or staff for anyone else) | — |
 | `list_users` | STAFF | — |
 | `list_match_crew`, `crew_coverage_report` | ADMIN | — |

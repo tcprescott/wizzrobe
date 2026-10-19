@@ -186,7 +186,8 @@ function layoutCheck(ignoreSelectors) {
   };
   for (const el of document.querySelectorAll('body *')) {
     if (!el.offsetParent && getComputedStyle(el).position !== 'fixed') continue;
-    if (el.closest('[aria-hidden="true"], .q-tooltip, .q-menu, .wiz-sr-only, .wiz-skip-link, svg')) continue;
+    // .dialog-close .block is the phone close disc's visually hidden "Close".
+    if (el.closest('[aria-hidden="true"], .q-tooltip, .q-menu, .wiz-sr-only, .wiz-skip-link, .dialog-close .block, svg')) continue;
     const r = el.getBoundingClientRect();
     if (!r.width || !r.height) continue;
     const s = getComputedStyle(el);

@@ -7372,6 +7372,61 @@ ol.wiz-help-list { list-style-type: decimal; }
     flex-wrap: wrap;
 }
 
+/* The member sheet (Admin → Members): the match sheet's shape, wider for its lists. */
+.q-dialog__inner--right > .match-sheet.member-sheet {
+    width: 32rem;
+}
+.member-sheet__avatar {
+    border-radius: 50%;
+    flex: none;
+}
+.member-sheet__channels {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.5rem;
+}
+.member-sheet__channel {
+    border: 1px solid var(--border-subtle);
+    border-radius: 8px;
+    padding: 0.5rem 0.75rem;
+    min-width: 0;
+}
+.member-sheet__row {
+    gap: 0.5rem;
+    padding: 0.4rem 0;
+    border-bottom: 1px solid var(--border-subtle);
+}
+.member-sheet__row > .wiz-notify-cell,
+.member-sheet__row > .wiz-chip {
+    flex: none;
+}
+.member-sheet__reason {
+    color: var(--fg-secondary);
+    font-style: italic;
+}
+.member-sheet__time {
+    flex: none;
+    width: 7.5rem;
+}
+.member-sheet__facts {
+    font-size: var(--text-sm);
+    display: grid;
+    grid-template-columns: 9rem minmax(0, 1fr);
+    align-items: start;
+    gap: 0.35rem 0.75rem;
+}
+@media (max-width: 599.98px) {
+    .member-sheet__facts {
+        grid-template-columns: 6.5rem minmax(0, 1fr);
+    }
+}
+.member-sheet__contact {
+    gap: 0.5rem;
+    border: 1px dashed var(--border-subtle);
+    border-radius: 8px;
+    padding: 0.4rem 0.75rem;
+}
+
 /* The match sheet: a full-height side sheet on a desktop, a bottom sheet on a phone. */
 .q-dialog__inner--right:has(> .match-sheet) {
     padding: 0;

@@ -1671,6 +1671,19 @@ Every write swallows its own failure: logging never costs a DM. Reads
 (`list_messages`, `count_messages`, `totals`, `get_message`) take a keyword-only
 `actor` and are Staff only.
 
+### member_details_service.py — MemberDetailsService
+
+One member's footprint in the current community, for Admin → Members' member
+sheet, `GET /api/users/{id}/details` and MCP `get_member_details`.
+`get(member_id, *, actor)` is Staff only and raises `NotFoundError` for anyone
+who isn't a member here. It returns `MemberDetails`: roles, tournaments,
+upcoming matches and shifts, equipment out, check-in state (each `None` when
+its feature is off), linked accounts, `Channels` (email and Telegram as states,
+never addresses), the preset, every notice as `NoticeDetail` (community setting,
+their choice, effective mode and a `reason`; built from
+`NotificationPreferenceService.get_mine(member)`), and the last 10 sent
+messages. The emergency contact stays behind `EmergencyContactService.open_for`.
+
 ### service_health_service.py — ServiceHealthService
 
 Platform external-service health monitor. **Computed-and-cached, no persistence model**: an async probe registry (`_PROBES`) whose results live in a process-global in-memory cache (`_CACHE`, owned by the single worker/on-demand refresh — safe module-level state). `ServiceStatus` = `healthy / degraded / credential_warning / down / unknown` (`credential_warning` is the distinct "up but a credential is expiring/rejected" signal). Each probe is wrapped with a hard timeout so one hung dependency can't stall the board; a raising probe becomes `down`.

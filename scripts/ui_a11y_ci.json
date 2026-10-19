@@ -61,6 +61,7 @@
     { "name": "settings-event", "path": "/admin/settings/event" },
     { "name": "settings-venue", "path": "/admin/settings/venue" },
     { "name": "settings-members", "path": "/admin/settings/members" },
+    { "name": "admin-member-sheet", "path": "/admin/members?user_id=5" },
     { "name": "settings-volunteers", "path": "/admin/settings/volunteers" },
     { "name": "settings-discord", "path": "/admin/settings/discord" },
     { "name": "settings-integrations", "path": "/admin/settings/integrations" },
