@@ -315,6 +315,7 @@ model needs in one call to find one person.
 | `telemetry_summary`, `telemetry_top`, `get_system_config` | STAFF |
 | `list_service_health`, `list_webhooks`, `list_webhook_deliveries` | STAFF |
 | `list_notification_settings` | STAFF |
+| `my_notification_settings` | ACTOR (your own) |
 | `list_feedback` | STAFF | `FEEDBACK` |
 | `runtime_stats` | PLATFORM (SUPER_ADMIN, checked again in `RuntimeStatsService`) |
 
@@ -456,7 +457,7 @@ replaces the whole asset.
 | Members and roles | `add_community_member`, `remove_community_member`, `grant_community_role`, `revoke_community_role` |
 | Equipment (`EQUIPMENT`) | `create_equipment`, `update_equipment`, `delete_equipment`, `check_out_equipment`, `check_in_equipment` |
 | Payouts (`PAYOUTS`) | `set_tournament_prize_pool`, `set_tournament_payout_split` |
-| Notification settings | `set_notification_setting`, `reset_notification_settings` (staff, checked in `NotificationSettingsService`) |
+| Notification settings | `set_notification_setting`, `reset_notification_settings` (staff, checked in `NotificationSettingsService`); `set_my_notification_preset`, `set_my_notification` (any member, own settings only) |
 
 Every one is registered at **ACTOR**, mirroring `require_write_actor`: holding a
 live token approved for writing is the bar at this layer, and the real check is

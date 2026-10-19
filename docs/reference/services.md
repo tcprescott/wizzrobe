@@ -130,6 +130,7 @@ Services are the business-logic layer of the [three-layer architecture](../refac
 | `WebhookService` | [webhook_service.py](../../application/services/webhook_service.py) | Staff-managed outbound webhooks: CRUD + signed delivery | [webhooks.md](../features/webhooks.md) |
 | `WebPushService` | [web_push_service.py](../../application/services/web_push_service.py) | Per-device browser push subscriptions + encrypted delivery | [web-push.md](../features/web-push.md) |
 | `NotificationChannelService` | [notification_channel_service.py](../../application/services/notification_channel_service.py) | Email and Telegram as extra notification channels: confirm/link, the DM copy, user-chosen test notifications | `NOTIFICATION_CHANNELS` · [notification-channels.md](../features/notification-channels.md) |
+| `NotificationPreferenceService` | [notification_preference_service.py](../../application/services/notification_preference_service.py) | A person's own preset and per-message choices (Profile → Notifications), capped by the community setting: `mode_for` for `send_dm`, own get/set/reset | [notification-settings.md](../features/notification-settings.md#personal-choices) |
 | `NotificationSettingsService` | [notification_settings_service.py](../../application/services/notification_settings_service.py) | A community's overrides of the notification catalogue (Admin → Notifications): `mode_for` for `send_dm`, staff list/set/reset | [notification-settings.md](../features/notification-settings.md) |
 | `notification_catalog` (module) | [notification_catalog.py](../../application/services/notification_catalog.py) | Every DM Wizzrobe sends, as a `Notice` per message with its default mode per recipient kind; the source of truth for the settings grid | [notification-settings.md](../features/notification-settings.md) |
 | `DiscordEmailService` | [discord_email_service.py](../../application/services/discord/discord_email_service.py) | "Use my Discord email": one extra OAuth with `identify email`, accepts only a verified address | [notification-channels.md](../features/notification-channels.md) |
@@ -1353,6 +1354,20 @@ A community's overrides of the catalogue defaults. Classmethods; staff-only apar
 | `reset_all(actor)` | `int` | Delete every override; returns the count. Audits `notification_settings.reset` when any were deleted. |
 
 Collaborators: `NotificationSettingRepository`, `AuthService` (`is_staff`), `AuditService`.
+
+### notification_preference_service.py — NotificationPreferenceService
+
+A person's own choices, one row per (tenant, user). Classmethods; every write acts on the actor's own row only (`PermissionError` when signed out). Not audited, no event.
+
+| Method | Returns | Description |
+|---|---|---|
+| `mode_for(discord_id, target)` | `NotificationMode` | The recipient's choice for a `NoticeTarget` (override, else what their preset asks), before the community ceiling; `send_dm` takes the quieter of this and `NotificationSettingsService.mode_for`. Per (tenant, Discord id) 30 s cache. **Never raises**: no tenant, account, row, or a failed read answers `PING`. |
+| `get_mine(actor)` | `MyNotifications` | `preset` plus a `MyNotificationRow(target, community, preset, override)` for every target that can reach them (staff alerts only with `can_view_admin`), sorted by `SECTIONS`. Rows expose `effective`, `changed`, `section`; `counts(preset=None)` gives ping/silent/off totals for any preset. |
+| `set_preset(actor, preset)` | `MyNotifications` | Change the preset; overrides stay. |
+| `set_mode(actor, notice_key, recipient, mode)` | `MyNotificationRow` | One message; `None` or the preset's value removes the override. `staff_comment` → `players` also writes `User.dm_match_comments`. `ValueError` for an unknown notice, recipient or mode. |
+| `reset(actor)` | `MyNotifications` | Clear overrides, keep the preset, turn `dm_match_comments` back on. |
+
+Module helpers: `quieter(a, b)`, `preset_mode(preset, target)`, `section_for(target)`. Collaborators: `NotificationPreferenceRepository`, `NotificationSettingsService`, `AuthService`.
 
 ### check_in_dm.py — module functions
 

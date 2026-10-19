@@ -378,3 +378,69 @@ REVIEW_QUEUE = _notice(
 def notices() -> List[Notice]:
     """The catalogue in display order: by group, then as declared."""
     return sorted(CATALOG.values(), key=lambda n: GROUPS.index(n.group))
+
+
+# What each message asks of the person who gets it, for the presets on Profile →
+# Notifications. "Urgent" is time-critical (go to the stage, the room is open);
+# "act" asks for something (acknowledge, answer, pick a time). Everything else is
+# news. A target in neither set is news.
+_URGENT: Dict[str, frozenset] = {
+    MATCH_CHECKED_IN.key: frozenset({PLAYERS, CREW}),
+    SEED_READY.key: frozenset({PLAYERS}),
+    STAGE_CALL.key: frozenset({PLAYERS, CREW}),
+    STAGE_CLEARED.key: frozenset({PLAYERS, CREW}),
+    STAGE_REMINDER.key: frozenset({PLAYERS, CREW}),
+    MATCH_CANCELLED.key: frozenset({PLAYERS, CREW}),
+    MATCH_CANCELLED_ON_REQUEST.key: frozenset({PLAYERS, CREW}),
+    SERIES_GAME_CANCELLED.key: frozenset({PLAYERS, CREW}),
+    REMOVED_FROM_MATCH.key: frozenset({PLAYERS}),
+    RACE_ROOM_OPEN.key: frozenset({PLAYERS}),
+    SHIFT_REMINDER.key: frozenset({VOLUNTEERS}),
+    SHIFT_STARTING.key: frozenset({VOLUNTEERS}),
+    RUN_EXPIRING.key: frozenset({PLAYERS}),
+}
+_STAFF_ALERTS = frozenset({ON_DUTY, ADMINS, STAFF})
+_ACT: Dict[str, frozenset] = {
+    MATCH_SCHEDULED.key: frozenset({PLAYERS, CREW}),
+    STAFF_COMMENT.key: frozenset({PLAYERS}),
+    PLAYER_COMMENT.key: _STAFF_ALERTS,
+    HARDER_SETTINGS_OFFER.key: frozenset({PLAYERS}),
+    SETTINGS_RELEASED.key: frozenset({PLAYERS}),
+    MATCHUP_READY.key: frozenset({PLAYERS}),
+    MATCHUP_REOPENED.key: frozenset({PLAYERS}),
+    RESCHEDULE_REQUEST.key: frozenset({PLAYERS}) | _STAFF_ALERTS,
+    RESCHEDULE_DECLINED.key: frozenset({PLAYERS}),
+    CREW_SIGNUP.key: frozenset({ADMINS}),
+    CREW_ASSIGNED.key: frozenset({CREW}),
+    CREW_UNASSIGNED.key: frozenset({CREW}),
+    CREW_WITHDREW.key: frozenset({ADMINS}),
+    SHIFT_ASSIGNED.key: frozenset({VOLUNTEERS}),
+    SHIFT_MOVED.key: frozenset({VOLUNTEERS}),
+    SHIFT_REMOVED.key: frozenset({VOLUNTEERS}),
+    SHIFT_GIVEN_BACK.key: _STAFF_ALERTS,
+    VOLUNTEER_LATE.key: _STAFF_ALERTS,
+    JOIN_REQUEST.key: frozenset({STAFF}),
+    ADA_REQUEST.key: frozenset({STAFF}),
+    ADA_CHANGED.key: frozenset({STAFF}),
+    EVENT_TO_REVIEW.key: frozenset({STAFF}),
+    EVENT_REJECTED.key: frozenset({MEMBERS}),
+    EVENT_CANCELLED.key: frozenset({FOLLOWERS}),
+    EVENT_REMINDER.key: frozenset({FOLLOWERS}),
+    MATCHERINO_REFUSED.key: frozenset({STAFF}),
+    RUN_REJECTED.key: frozenset({PLAYERS}),
+    REATTEMPT_GRANTED.key: frozenset({PLAYERS}),
+    REVIEW_QUEUE.key: frozenset({ADMINS}),
+}
+
+
+def is_urgent(target: NoticeTarget) -> bool:
+    return target.recipient in _URGENT.get(target.key, frozenset())
+
+
+def needs_action(target: NoticeTarget) -> bool:
+    return is_urgent(target) or target.recipient in _ACT.get(target.key, frozenset())
+
+
+def targets() -> List[NoticeTarget]:
+    """Every (message, recipient) pair, in display order."""
+    return [n.to(r) for n in notices() for r in n.defaults]

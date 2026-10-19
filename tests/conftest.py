@@ -175,10 +175,13 @@ def _reset_crew_signup_notices():
 @pytest.fixture(autouse=True)
 def _reset_notification_settings_cache():
     """Isolate the per-process notification-settings cache; tenant ids repeat across tests."""
+    from application.services.notification_preference_service import _cache as personal
     from application.services.notification_settings_service import _cache
     _cache.clear()
+    personal.clear()
     yield
     _cache.clear()
+    personal.clear()
 
 
 async def _seed_baseline() -> None:

@@ -23,6 +23,7 @@ from mcp.server.mcpserver import MCPServer
 from pydantic import BaseModel, Field
 
 from api.schemas.notification_settings import NotificationSettingResponse
+from api.schemas.notifications import MyNotificationResponse, MyNotificationsResponse
 from api.schemas.payouts import PayoutLineRequest
 from api.schemas.volunteers import (
     AssignResponse,
@@ -35,6 +36,7 @@ from api.schemas.volunteers import (
 from application.errors import require_found
 from application.services import (
     EquipmentService,
+    NotificationPreferenceService,
     NotificationSettingsService,
     PayoutService,
     StageService,
@@ -372,6 +374,39 @@ async def reset_notification_settings(
     return OperationResult(detail=f'{count} setting(s) back to default.')
 
 
+async def set_my_notification_preset(
+    preset: str,
+    tenant: TenantArg = None,
+) -> MyNotificationsResponse:
+    """Choose your own notification preset in this community: `everything`,
+    `needs_me` (ping only when you have something to do) or `quiet` (ping only
+    what can't wait). Messages you changed one by one keep your choice.
+
+    Mirrors `PUT /api/notifications/messages/preset`.
+    """
+    return MyNotificationsResponse.from_mine(
+        await NotificationPreferenceService.set_preset(current_actor().user, preset),
+    )
+
+
+async def set_my_notification(
+    notice: str,
+    recipient: str,
+    mode: Optional[str] = None,
+    tenant: TenantArg = None,
+) -> MyNotificationResponse:
+    """Choose how one message reaches you: `off`, `silent` or `ping`, or leave
+    `mode` out to follow your preset again.
+
+    `notice` and `recipient` come from `my_notification_settings`. Your
+    community's setting is a ceiling, so you can make a message quieter, never
+    louder. Mirrors `PUT /api/notifications/messages/{notice}/{recipient}`.
+    """
+    return MyNotificationResponse.from_row(
+        await NotificationPreferenceService.set_mode(current_actor().user, notice, recipient, mode),
+    )
+
+
 # --- Equipment ------------------------------------------------------------------------
 
 
@@ -541,6 +576,8 @@ def register_tools(mcp: MCPServer) -> None:
 
     write_tool(set_notification_setting, 'Set notification setting')
     write_tool(reset_notification_settings, 'Reset notification settings', destructive=True)
+    write_tool(set_my_notification_preset, 'Set my notification preset')
+    write_tool(set_my_notification, 'Set my notification')
 
     equipment = FeatureFlag.EQUIPMENT
     write_tool(create_equipment, 'Create equipment', equipment)

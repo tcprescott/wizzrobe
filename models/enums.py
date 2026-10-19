@@ -665,6 +665,19 @@ class NotificationRecipient(str, Enum):
         return {'on_duty': 'On shift', 'staff': 'All staff'}.get(self.value, self.value.capitalize())
 
 
+class NotificationPreset(str, Enum):
+    """A person's starting point on Profile → Notifications, before any per-message choice.
+
+    ``EVERYTHING`` takes what the community sends as it sends it; ``NEEDS_ME``
+    pings only what asks something of them; ``QUIET`` pings only what's
+    time-critical and drops matches they watch or follow.
+    """
+
+    EVERYTHING = 'everything'
+    NEEDS_ME = 'needs_me'
+    QUIET = 'quiet'
+
+
 class SentMessageStatus(str, Enum):
     """What Discord did with one logged DM (:class:`SentMessage`).
 

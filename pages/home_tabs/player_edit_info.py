@@ -23,6 +23,7 @@ from pages.home_tabs.emergency_contact_section import render_emergency_contact_s
 from pages.home_tabs.equipment import equipment_checkouts_section
 from pages.home_tabs.my_feedback_section import render_my_feedback_section
 from pages.home_tabs.notification_channels_section import ChannelRows, render_test_button
+from pages.home_tabs.notification_preferences_section import render_notification_preferences
 from pages.home_tabs.racetime_link_section import CONFIG as RACETIME_CONFIG
 from pages.home_tabs.staff_alerts_section import render_staff_alerts_section
 from pages.home_tabs.startgg_link_section import CONFIG as STARTGG_CONFIG
@@ -165,7 +166,6 @@ async def render_edit_info_tab(focus: str | None = None):
                     display_name=display_name_input.value,
                     pronouns=pronouns_input.value,
                     dm_notifications=dm_switch.value,
-                    dm_match_comments=comments_switch.value,
                     matcherino_username=(
                         matcherino_input.value if payouts_live else None
                     ),
@@ -381,26 +381,9 @@ async def render_edit_info_tab(focus: str | None = None):
 
                 with ui.column().classes('wiz-notify-group'):
                     ui.label('What you hear about').classes('wiz-notify-group__head')
-                    with ui.column().classes('wiz-notify-item gap-1'):
-                        ui.label('About you').classes('wiz-notify-item__name')
-                        for line in (
-                            'Your matches: scheduled, moved, cancelled, seeds and race rooms',
-                            'Crew slots and volunteer shifts, with reminders',
-                            'Answers to requests you sent, and matches you watch',
-                        ):
-                            with ui.row().classes('items-start gap-2 no-wrap'):
-                                ui.icon('check', size='xs').classes('st-ok q-mt-xs')
-                                ui.label(line).classes('text-caption col')
-
-                    with ui.row().classes('wiz-notify-item no-wrap'):
-                        with ui.column().classes('gap-0 col min-w-0'):
-                            ui.label('Staff comments on your matches').classes('wiz-notify-item__name')
-                            ui.label(
-                                'A message when staff leave you a comment, like a station change'
-                            ).classes('text-muted text-caption')
-                        comments_switch = ui.switch(
-                            value=user.dm_match_comments, on_change=on_dm_change,
-                        ).props('aria-label="Staff comments on your matches"')
+                    await render_notification_preferences(
+                        user, on_saving=show_saving, on_saved=show_saved, on_error=show_error,
+                    )
 
                     # A follow is not a consequence of enrollment:
                     # get_match_notification_subscribers never checks the player

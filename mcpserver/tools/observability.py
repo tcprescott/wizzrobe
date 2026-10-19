@@ -17,6 +17,7 @@ from typing import Any, Dict, List, Optional
 from mcp.server.mcpserver import MCPServer
 
 from api.schemas.notification_settings import NotificationSettingResponse
+from api.schemas.notifications import MyNotificationsResponse
 from application.services import (
     AuditService,
     FeedbackService,
@@ -203,6 +204,21 @@ async def list_notification_settings(
     return [NotificationSettingResponse.from_row(r) for r in await NotificationSettingsService.list_settings(current_actor().user)]
 
 
+async def my_notification_settings(
+    tenant: TenantArg = None,
+) -> MyNotificationsResponse:
+    """How each message reaches you in this community: your preset, your own
+    choices and the community's setting.
+
+    `mode` is what you actually get, the quieter of the community's setting and
+    yours. Change it with `set_my_notification_preset` and
+    `set_my_notification`. Mirrors `GET /api/notifications/messages`.
+    """
+    from application.services import NotificationPreferenceService
+
+    return MyNotificationsResponse.from_mine(await NotificationPreferenceService.get_mine(current_actor().user))
+
+
 async def list_service_health(
     tenant: TenantArg = None,
 ) -> List[ServiceHealthProbe]:
@@ -322,6 +338,7 @@ def register_tools(mcp: MCPServer) -> None:
     register(mcp, telemetry_top, gate=Gate.STAFF, title='Telemetry leaderboards')
     register(mcp, get_system_config, gate=Gate.STAFF, title='Get system config')
     register(mcp, list_notification_settings, gate=Gate.STAFF, title='List notification settings')
+    register(mcp, my_notification_settings, gate=Gate.ACTOR, title='My notification settings')
     register(mcp, list_service_health, gate=Gate.STAFF, title='Service health')
     register(mcp, runtime_stats, gate=Gate.PLATFORM, title='Runtime stats')
     register(mcp, list_webhooks, gate=Gate.STAFF, title='List webhooks')

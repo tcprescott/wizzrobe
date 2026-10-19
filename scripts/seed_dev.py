@@ -48,6 +48,8 @@ from models import (
     MatchCommentKind,
     McpOAuthClient,
     NotificationMode,
+    NotificationPreference,
+    NotificationPreset,
     NotificationRecipient,
     NotificationSetting,
     PlayerAvailability,
@@ -752,7 +754,7 @@ async def seed_profile_reminders(tenant: Tenant, users: dict[str, User]) -> None
 
 
 async def seed_notification_settings(tenant: Tenant, users: dict[str, User]) -> None:
-    """A handful of Admin → Notifications overrides on the default community.
+    """A handful of Admin → Notifications overrides, and one player's own choices, on the default community.
 
     Rows exist only where staff chose something other than the catalogue
     default, so each one here differs from it: together they show every
@@ -778,6 +780,17 @@ async def seed_notification_settings(tenant: Tenant, users: dict[str, User]) -> 
             defaults={'mode': mode, 'updated_by': users['staff_user']},
         )
 
+    # Profile → Notifications: one player on each preset, two of them with
+    # per-message changes so the Customize list shows changed rows.
+    for username, preset, overrides in (
+        ('player_one', NotificationPreset.NEEDS_ME,
+         {'match_finished:players': 'off', 'match_scheduled:watchers': 'off'}),
+        ('player_two', NotificationPreset.QUIET, {}),
+        ('player_three', NotificationPreset.EVERYTHING, {'match_confirmed:players': 'silent'}),
+    ):
+        await NotificationPreference.update_or_create(
+            tenant=tenant, user=users[username], defaults={'preset': preset, 'overrides': overrides},
+        )
 
 async def seed_watch_layout_votes(tenant: Tenant) -> None:
     """A few rows in the retired layout-trial table, which the seed-coverage test still counts."""

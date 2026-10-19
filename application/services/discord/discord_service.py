@@ -78,12 +78,16 @@ async def discord_dms_enabled(discord_id: int) -> bool:
     return user is None or user.dm_notifications
 
 
-async def _apply_notice(notice: NoticeTarget) -> Tuple[bool, bool]:
-    """``(muted, silent)`` for ``notice`` under the community's settings."""
+async def _apply_notice(notice: NoticeTarget, discord_id: int) -> Tuple[bool, bool]:
+    """``(muted, silent)`` for ``notice``: the quieter of the community's setting
+    and the recipient's own choice (Profile → Notifications)."""
+    from application.services.notification_preference_service import NotificationPreferenceService, quieter
     from application.services.notification_settings_service import NotificationSettingsService
     from models import NotificationMode
 
     mode = await NotificationSettingsService.mode_for(notice)
+    if mode is not NotificationMode.OFF:
+        mode = quieter(mode, await NotificationPreferenceService.mode_for(discord_id, notice))
     return mode is NotificationMode.OFF, mode is NotificationMode.SILENT
 
 
@@ -369,8 +373,9 @@ class DiscordService(GuildOpsMixin, ScheduledEventsMixin):
                 for news the recipient doesn't need to act on. Device and
                 Telegram copies go quietly too; email can't.
             notice: Which catalogued notification this is and to whom. The
-                community's setting for it decides ``silent`` (overriding the
-                argument), or stops the message on every channel when off.
+                community's setting for it, capped by the recipient's own
+                choice, decides ``silent`` (overriding the argument), or stops
+                the message on every channel when off.
 
         Returns:
             Tuple of (success: bool, message: str)
@@ -381,7 +386,7 @@ class DiscordService(GuildOpsMixin, ScheduledEventsMixin):
             # A password-only account has no Discord to message.
             return False, DM_NO_DISCORD
         if notice is not None:
-            muted, silent = await _apply_notice(notice)
+            muted, silent = await _apply_notice(notice, user_id)
             if muted:
                 return True, DM_NOTICE_OFF
         log = SentMessageService()
@@ -612,7 +617,7 @@ class MockDiscordService(MockGuildOpsMixin, MockScheduledEventsMixin):
         notice: Optional[NoticeTarget] = None,
     ) -> Tuple[bool, str]:
         if notice is not None:
-            muted, silent = await _apply_notice(notice)
+            muted, silent = await _apply_notice(notice, user_id)
             if muted:
                 print(f"[MOCK Discord DM] -> {user_id}: skipped, {notice.key}:{notice.recipient.value} is off")
                 return True, DM_NOTICE_OFF

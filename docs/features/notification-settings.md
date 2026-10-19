@@ -17,6 +17,9 @@ exactly the defaults.
 | Page | `pages/admin_tabs/admin_notifications.py` |
 | REST | `api/routers/notification_settings.py`, `api/schemas/notification_settings.py` |
 | MCP | `list_notification_settings` (`mcpserver/tools/observability.py`), `set_notification_setting`, `reset_notification_settings` (`mcpserver/tools/admin_writes.py`) |
+| A person's own choices | `application/services/notification_preference_service.py` (`NotificationPreferenceService`), `NotificationPreference` (`models/notification_preference.py`, migration 118), `NotificationPreferenceRepository` |
+| Profile page | `pages/home_tabs/notification_preferences_section.py`, rendered by `player_edit_info.py` |
+| Personal REST / MCP | `/api/notifications/messages*` in `api/routers/notifications.py`; `my_notification_settings`, `set_my_notification_preset`, `set_my_notification` |
 
 ## The catalogue
 
@@ -67,7 +70,11 @@ A sender passes `notice=MATCH_SCHEDULED.to(PLAYERS)` (a `NoticeTarget`) to
 `send_dm` or any `send_dm_with_*`. `send_dm` asks
 `NotificationSettingsService.mode_for(target)` first: `off` returns
 `(True, DM_NOTICE_OFF)` before anything is sent or mirrored, and `silent` or
-`ping` overrides the caller's own `silent=` argument. `check_in_dm` makes the same
+`ping` overrides the caller's own `silent=` argument. Unless the community said
+`off`, it then caps that with the recipient's own choice
+(`NotificationPreferenceService.mode_for(discord_id, target)`, see
+[Personal choices](#personal-choices)): the quieter of the two wins, and a
+personal `off` returns `DM_NOTICE_OFF` the same way. `check_in_dm` makes the same
 lookup up front so a turned-off check-in DM leaves no pending result on the desk.
 
 `mode_for` never raises. With no tenant in scope, or when the read fails, it uses
@@ -98,6 +105,52 @@ Choosing the default deletes the override row. A real change audits
 reset that removed anything audits `notification_settings.reset` (`count`). Neither
 publishes an event-bus event: this is tenant-internal configuration.
 
+## Personal choices
+
+Every member also picks how much they hear on **Profile → Notifications → What
+you hear about**. The community setting is a ceiling: a person can make any
+message quieter, never louder, so a message the community sends silently shows
+Ping locked and one it turned off shows "Off here".
+
+A person starts from a `NotificationPreset`, then may override single messages:
+
+| Preset | Pings | Silent | Off |
+|---|---|---|---|
+| `everything` (default) | everything | | |
+| `needs_me` | targets in `notification_catalog._ACT` (acknowledge, pick a time, take a shift, staff alerts) plus the urgent ones | the rest | |
+| `quiet` | targets in `notification_catalog._URGENT` (check-in, stage calls, race rooms, shift starts, cancellations) | the rest | watchers and followers |
+
+`NotificationPreference` holds one row per (tenant, user): `preset` and
+`overrides`, a JSON map of `"<notice>:<recipient>"` to a mode. Only real
+differences are stored: choosing the preset's value, or `null`, removes the
+key. No row means `everything`. Reset clears the overrides and keeps the preset.
+
+The Profile page shows each preset's ping/silent/off counts against this
+community's settings, then a **Customize** list grouped by what the person is
+doing when the message arrives (`SECTIONS`: Your matches, Brackets and
+requests, Async qualifiers, Matches you crew, Matches you watch, Tournaments and
+events you follow, Volunteer shifts, Your membership, Staff alerts). Staff
+alerts are listed only for someone who can see the admin side.
+
+`staff_comment` → `players` stays in step with the older `User.dm_match_comments`
+switch, which the comment sender still reads: setting it writes the flag, an
+unset override reads it, and reset turns it back on.
+
+`mode_for` never raises; with no tenant, no account, no row or a failed read it
+answers `ping`, leaving the community setting in charge. Rows are cached per
+(tenant, Discord id) for 30 seconds and dropped on the person's own write.
+Changes aren't audited: they are a person's own settings, like their timezone.
+
+REST (any member, own settings only): `GET /api/notifications/messages`,
+`PUT /api/notifications/messages/preset` (`{preset}`),
+`PUT /api/notifications/messages/{notice}/{recipient}` (`{mode}` or `null`),
+`POST /api/notifications/messages/reset`. MCP: `my_notification_settings`,
+`set_my_notification_preset`, `set_my_notification`.
+
+When adding a notification, decide whether it belongs in `_URGENT` (can't wait:
+someone has to move now) or `_ACT` (asks the reader to do something); both feed
+the presets.
+
 ## Adding a notification
 
 1. Declare it in `notification_catalog.py` with `_notice(key, group, title, when,
@@ -106,6 +159,8 @@ publishes an event-bus event: this is tenant-internal configuration.
 2. Pass `notice=YOUR_NOTICE.to(<recipient>)` on every `send_dm` call that sends
    it, one target per audience (players and watchers of the same event are two
    cells). For a staff alert, use the tag `StaffAlertService` returns.
-3. Nothing else: the grid, REST and MCP read the catalogue. A DM sent without
+3. Add the target to `_URGENT` or `_ACT` in the catalogue if it qualifies (see
+   [Personal choices](#personal-choices)).
+4. Nothing else: the grid, Profile list, REST and MCP read the catalogue. A DM sent without
    `notice=` can't be switched off or quietened by any community, so only a
    user-requested test message should skip it.

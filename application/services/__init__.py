@@ -98,6 +98,7 @@ from .matcherino_login_service import MatcherinoLoginService, MatcherinoLoginSta
 from .mcp_auth_service import McpAuthService
 from .my_timeline_service import MyTimelineService
 from .notification_channel_service import NotificationChannelService
+from .notification_preference_service import NotificationPreferenceService
 from .notification_settings_service import NotificationSettingsService
 from .password_auth_service import PasswordAuthService
 from .payout_service import PayoutService
@@ -222,6 +223,7 @@ __all__ = [
     'MyTimelineService',
     'NotFoundError',
     'NotificationChannelService',
+    'NotificationPreferenceService',
     'NotificationSettingsService',
     'PasswordAuthService',
     'PayoutService',

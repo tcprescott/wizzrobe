@@ -133,7 +133,7 @@ TAG_GROUPS: List[tuple[str, List[tuple[str, str]]]] = [
         ('Users', 'People in this community, their profiles and roles.'),
         ('Membership', 'Requests to join the community, and answering them.'),
         ('Player availability', 'When players say they can and can\'t play.'),
-        ('Notifications', 'Which Discord and push notifications you receive.'),
+        ('Notifications', 'Which messages reach you and whether they ping, and the tournaments you follow.'),
         ('API tokens', 'Your personal API tokens.'),
     ]),
     ('Setup', [

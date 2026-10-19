@@ -85,10 +85,24 @@ Each switch works on its own, so you can turn Discord DMs off and still get
 notifications on your phone. If you turn everything off, the page warns you,
 because nothing can reach you.
 
-What you hear about shows what always comes to you, under About you: your own
-matches, crew slots and volunteer shifts, answers to requests you sent, and
-matches you watch. Below that, Tournaments you follow adds other people's
-matches. Pick a level for each tournament:
+What you hear about starts with how much you want to hear. Pick one of three:
+
+| Pick | What pings you |
+|---|---|
+| Everything | Every message your community sends, the way it sends it |
+| Only what needs me | Messages where you have something to do, like acknowledging a match, picking a time or taking a shift. The rest still arrive, just silently |
+| Quiet | Only what can't wait: getting checked in, stage calls, race rooms, shift starts, cancellations. Nothing about matches you watch or follow |
+
+Each one shows how many messages would ping, arrive silently or stay off.
+Open **Customize** to change a single message: tap its chip and pick Off,
+Silent or Ping. **Reset to preset…** undoes those changes and keeps your pick.
+
+Your community decides what it sends, and you can only make things quieter. If
+it sends a message silently you can't make it ping, and one it switched off
+shows **Off here**.
+
+Below that, Tournaments you follow adds other people's matches. Pick a level
+for each tournament:
 
 | Level | You hear about |
 |---|---|
@@ -103,6 +117,7 @@ reach you either way.
 
 ## Turning it down
 
-If one tournament is too noisy, set it to Not following instead of blocking the
+If one tournament is too noisy, set it to Not following. If it's one kind of
+message, switch it to Silent or Off under Customize. Either beats blocking the
 bot. Blocking the bot also cuts off the DMs you do want, like hearing that your
 match moved or that you've been approved for a slot.
