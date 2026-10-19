@@ -116,6 +116,7 @@ from .round_schedule_service import RoundScheduleService, RoundWindowError, Sche
 from .runtime_stats_service import RuntimeStatsService
 from .seed_roll_service import SeedRollService
 from .seedgen_service import SeedGenerationService
+from .sent_message_service import SentMessageRef, SentMessageService
 from .service_health_service import ProbeResult, ServiceHealthService, ServiceStatus
 from .speedgaming_etl_service import SpeedGamingETLService
 from .speedgaming_sync_service import SpeedGamingSyncService
@@ -241,6 +242,8 @@ __all__ = [
     'ScheduleStage',
     'SeedGenerationService',
     'SeedRollService',
+    'SentMessageRef',
+    'SentMessageService',
     'ServiceHealthService',
     'ServiceStatus',
     'SetupStep',

@@ -19,6 +19,7 @@ from .crew import crew_page
 from .dashboard import dashboard_page
 from .insights import insights_page
 from .match_ops import match_ops_page
+from .messages import messages_page
 from .shared import bind_report_refresh
 from .stages import stages_page
 from .telemetry import telemetry_page
@@ -33,6 +34,7 @@ _REPORT_HANDLERS = {
     'volunteers': volunteers_page,
     'audit': audit_page,
     'telemetry': telemetry_page,
+    'messages': messages_page,
 }
 
 # Reports whose subsystem is behind a per-tenant flag. A community that has

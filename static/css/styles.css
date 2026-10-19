@@ -3322,6 +3322,68 @@ body:has(.wiz-header) .q-notifications__list--top {
     font-weight: 700;
 }
 
+/* Sent messages report: a run-sheet table whose rows expand in place. */
+.wiz-sent__row {
+    cursor: pointer;
+}
+
+.wiz-sent__msg-row {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: var(--space-2);
+}
+
+.wiz-sent__title {
+    font-weight: 700;
+}
+
+.wiz-sent__preview,
+.wiz-sent__meta {
+    color: var(--fg-muted);
+    font-size: var(--text-sm);
+    white-space: normal;
+}
+
+.wiz-sent__chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-1);
+}
+
+.wiz-sent__chips .wiz-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+}
+
+.wiz-sent__detail {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+    margin-top: var(--space-2);
+    white-space: normal;
+}
+
+.wiz-sent__body {
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    padding: var(--space-2) var(--space-3);
+    border-left: 3px solid var(--border-subtle);
+    margin-bottom: var(--space-1);
+}
+
+.wiz-sent__line {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    font-size: var(--text-sm);
+}
+
+.wiz-sent__detail .q-btn {
+    align-self: flex-start;
+}
+
 .wiz-audit__links {
     gap: var(--space-2);
     margin: 0 calc(-1 * var(--space-2));

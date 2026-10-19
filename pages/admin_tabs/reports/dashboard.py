@@ -91,6 +91,13 @@ REPORT_CARDS = [
         # invitation.
         'staff_only': True,
     },
+    {
+        'key': 'messages',
+        'title': 'Sent messages',
+        'icon': 'mail',
+        'description': 'Every DM sent in this community, and whether it got there.',
+        'staff_only': True,
+    },
 ]
 
 

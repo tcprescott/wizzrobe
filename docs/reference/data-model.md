@@ -1911,6 +1911,34 @@ Tenant-scoped (migration 103).
 
 Index on `(tenant, kind, object_id)`. A new round of DMs for the same request (a resubmitted event) deletes the old round's rows first.
 
+#### `SentMessage`
+
+One DM Wizzrobe sent in a community, as the recipient got it, and how each
+channel went. Written by `DiscordService.send_dm` through
+[`SentMessageService`](services.md#sent_message_servicepy--sentmessageservice)
+and read by staff on Admin → Reports → Sent messages, `GET /api/sent-messages`
+and the `list_sent_messages` MCP tool. Tenant-scoped (migration 116); a DM sent
+outside any community isn't logged.
+
+| Field | Type | Null / default | Notes |
+|---|---|---|---|
+| `recipient` | FK → `User` | null, set null | The account behind `discord_id`, when one exists |
+| `discord_id` | `CharField(32)` | not null | Where the DM went |
+| `title` | `CharField(256)` | null | The embed title, else the message's first line |
+| `body` | `TextField` | not null | The plain text (what devices, email and Telegram get) |
+| `embed` | `JSONField` | null | `Embed.to_dict()` of the Discord card |
+| `link_label` / `link_url` | | null | The `DMLink` button |
+| `silent` | `BooleanField` | `False` | Sent with Discord's @silent |
+| `notice_key` / `audience` | `CharField` | null | The notification type and recipient group, when the sender passes one |
+| `status` | `CharEnumField(SentMessageStatus)` | `pending` | `pending` → `delivered` / `discord_off` / `blocked` / `failed` |
+| `error` | `CharField(500)` | null | Discord's refusal or failure text |
+| `push_devices` | `IntField` | null | Devices the web-push copy reached (null = none) |
+| `email_sent` / `telegram_sent` | `BooleanField` | null | Null when that copy wasn't due |
+| `created_at` | | auto | |
+
+Indexes on `(tenant, created_at)` and `(tenant, recipient)`. Staff only: a DM can
+carry a staff-private note.
+
 ### Async Qualifiers
 
 A **peer aggregate of `Tournament`** — created/administered like a tournament
@@ -2292,6 +2320,7 @@ Consult the source for full signatures.
 | `RaceRoomProfileRepository` | [`race_room_profile_repository.py`](../../application/repositories/race_room_profile_repository.py) | `RaceRoomProfile` | `list_all`, `get_by_id`, `get_by_name`, `create`, `update`, `delete` |
 | `SpeedGamingEventLinkRepository` | [`speedgaming_event_link_repository.py`](../../application/repositories/speedgaming_event_link_repository.py) | `SpeedGamingEventLink` | Scoped CRUD `list_all`, `get_by_id`, `get_by_natural_key`, `create`, `update`, `delete`; **unscoped** `list_active_all` (cross-tenant due-for-sync worker scan) |
 | `SpeedGamingEpisodeRepository` | [`speedgaming_episode_repository.py`](../../application/repositories/speedgaming_episode_repository.py) | `SpeedGamingEpisode` | ETL staging. `get_by_sg_id`, `get_by_id`, `list_for_link`, `list_all`, `create`, `update` (upsert keyed on unique `(tenant, sg_episode_id)`) |
+| `SentMessageRepository` | [`sent_message_repository.py`](../../application/repositories/sent_message_repository.py) | `SentMessage` | `create`, `update(id, tenant_id, **fields)`, `list`/`count` (window, statuses, search, recipient), `get`, `totals` |
 | `StaffRequestDMRepository` | [`staff_request_dm_repository.py`](../../application/repositories/staff_request_dm_repository.py) | `StaffRequestDM` | `record`, `list_for(kind, object_id)`, `forget(kind, object_id)` |
 | `DiscordScheduledEventRepository` | [`discord_scheduled_event_repository.py`](../../application/repositories/discord_scheduled_event_repository.py) | `DiscordScheduledEvent` | Reconciliation links — shared-guild safety is enforced here (a query never sees a sibling tenant's mirrored event). `list_all`, `get_by_id`, `get_by_source`, `list_for_source_type`, `create`, `update`, `delete` (upsert key `(tenant, source_type, source_id)`) |
 | `RoomTokenRepository` | [`room_token_repository.py`](../../application/repositories/room_token_repository.py) | `RoomToken` | Venue-kiosk tokens for the read-only seeds view. `get_by_hash` (**scoped** — unlike the API-token lookup, a room token is only ever presented inside its own community, so a sibling tenant's token simply is not found), `list_all` (live before revoked, newest first within each group; the live-first half is sorted in Python because Postgres and SQLite disagree on NULL ordering), `touch_last_used`, `revoke` |
