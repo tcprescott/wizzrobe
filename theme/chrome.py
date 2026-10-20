@@ -57,6 +57,12 @@ def install_framework_load_guard() -> None:
     )
 
 
+def install_page_scripts() -> None:
+    """The per-page browser scripts every Wizzrobe page shell installs."""
+    install_timezone_detection()
+    install_framework_load_guard()
+
+
 def install_timezone_detection() -> None:
     """Report the device's IANA timezone to the server on a cookie.
 
@@ -223,8 +229,7 @@ def render_platform_chrome(
     ui.add_head_html(f'<script defer src="{asset_url("js/a11y.js")}"></script>')
     ui.add_head_html(f'<script defer src="{asset_url("js/busy.js")}"></script>')
     ui.add_head_html(f'<script defer src="{asset_url("js/dialog-keyboard.js")}"></script>')
-    install_timezone_detection()
-    install_framework_load_guard()
+    install_page_scripts()
     install_browser_monitoring()
     # The shipped phoenix defaults, not a tenant override: these surfaces belong
     # to the platform, and the consent screen in particular grants a credential

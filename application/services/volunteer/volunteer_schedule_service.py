@@ -448,19 +448,14 @@ class VolunteerScheduleService:
             await AuthService.can_manage_volunteers(actor),
             "Only volunteer coordinators can remove assignments.",
         )
-        # Callers hand over rows loaded through a shift's prefetch, whose own
-        # ``shift`` relation is an unawaited QuerySet; the DM needs it loaded.
-        assignment = require_found(
-            await self.assignment_repository.get_by_id(assignment.id), "Volunteer assignment"
-        )
         details = {
             'assignment_id': assignment.id,
             'shift_id': assignment.shift_id,
             'user_id': assignment.user_id,
         }
         was_draft = assignment.auto_generated
-        shift = assignment.shift
-        user = assignment.user
+        loaded = require_found(await self.assignment_repository.get_by_id(assignment.id), "Volunteer assignment")
+        shift, user = loaded.shift, loaded.user  # a shift-prefetched row's .shift is an unfetched QuerySet
         await self.assignment_repository.delete(assignment)
         await self.audit_service.write_and_publish(
             actor, AuditActions.VOLUNTEER_UNASSIGNED, details, EventType.VOLUNTEER_UNASSIGNED,
