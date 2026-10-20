@@ -101,19 +101,19 @@ class _Cell:
         return self.row.changed
 
     def draw(self, on_pick: Callable, *, with_label: bool) -> None:
-        button = ui.button(on_click=lambda: None, color=None).props('flat dense no-caps')
+        button = _lazy_menu_button(self, lambda: self._fill(on_pick))
         self.buttons.append((button, with_label))
         button.tooltip(self.row.notice.who.get(self.row.recipient, '') or self.row.recipient.label)
-        with button:
-            with ui.menu():
-                for mode in (NotificationMode.OFF, NotificationMode.SILENT, NotificationMode.PING):
-                    self.items.append(
-                        (mode, menu_action(_ICONS[mode], _LABELS[mode], lambda m=mode: on_pick(self, m))),
-                    )
-                ui.separator()
-                menu_action('undo', f'Default: {_LABELS[self.row.default]}',
-                            lambda: on_pick(self, self.row.default))
         self.paint()
+
+    def _fill(self, on_pick: Callable) -> None:
+        for mode in (NotificationMode.OFF, NotificationMode.SILENT, NotificationMode.PING):
+            self.items.append(
+                (mode, menu_action(_ICONS[mode], _LABELS[mode], lambda m=mode: on_pick(self, m))),
+            )
+        ui.separator()
+        menu_action('undo', f'Default: {_LABELS[self.row.default]}',
+                    lambda: on_pick(self, self.row.default))
 
     def paint(self) -> None:
         row = self.row
@@ -153,29 +153,29 @@ class _StaffCell:
         return any(r.changed for r in self.rows.values())
 
     def draw(self, on_pick: Callable, *, with_label: bool) -> None:
-        notice = self.notice
-        button = ui.button(on_click=lambda: None, color=None).props('flat dense no-caps')
+        button = _lazy_menu_button(self, lambda: self._fill(on_pick), 'wiz-notify-staff-menu')
         self.buttons.append((button, with_label))
-        with button:
-            with ui.menu().classes('wiz-notify-staff-menu'):
-                with ui.item() as note:
-                    with ui.item_section():
-                        ui.item_label('Custom').props('overline')
-                        mix_label = ui.item_label().props('caption')
-                self.mix_notes.append((note, mix_label))
-                for choice in staff_choices(notice):
-                    with ui.menu_item(on_click=lambda c=choice: on_pick(self, c)) as item:
-                        self.items.append((choice, item))
-                        with ui.item_section().props('avatar'):
-                            ui.icon(_ICONS[_CHOICE_MODE[choice]])
-                        with ui.item_section():
-                            ui.item_label(_choice_label(notice, choice))
-                            ui.item_label(_choice_help(notice, choice)).props('caption')
-                if self.default is not None:
-                    ui.separator()
-                    menu_action('undo', f'Default: {_choice_label(notice, self.default)}',
-                                lambda: on_pick(self, self.default))
         self.paint()
+
+    def _fill(self, on_pick: Callable) -> None:
+        notice = self.notice
+        with ui.item() as note:
+            with ui.item_section():
+                ui.item_label('Custom').props('overline')
+                mix_label = ui.item_label().props('caption')
+        self.mix_notes.append((note, mix_label))
+        for choice in staff_choices(notice):
+            with ui.menu_item(on_click=lambda c=choice: on_pick(self, c)) as item:
+                self.items.append((choice, item))
+                with ui.item_section().props('avatar'):
+                    ui.icon(_ICONS[_CHOICE_MODE[choice]])
+                with ui.item_section():
+                    ui.item_label(_choice_label(notice, choice))
+                    ui.item_label(_choice_help(notice, choice)).props('caption')
+        if self.default is not None:
+            ui.separator()
+            menu_action('undo', f'Default: {_choice_label(notice, self.default)}',
+                        lambda: on_pick(self, self.default))
 
     def paint(self) -> None:
         notice, choice = self.notice, self.choice
@@ -193,6 +193,27 @@ class _StaffCell:
             self.buttons, mode=mode, label=label, changed=self.changed, column='Staff',
             aria=f'{notice.title}, Staff: {state}' + ('' if choice else f' ({mix})'),
         )
+
+
+def _lazy_menu_button(cell: 'AnyCell', fill: Callable[[], None], menu_classes: str = '') -> ui.button:
+    """A cell button whose menu is built on first open.
+
+    Building every cell's menu up front put ~10,000 elements on the page and
+    blocked the event loop for 2-3.5s per visit (SGLMAN-1F/1G/1H/1K/1M).
+    """
+    button = ui.button(color=None).props('flat dense no-caps')
+    with button:
+        menu = ui.menu().props('no-parent-event').classes(menu_classes)
+
+    def open_menu() -> None:
+        if not menu.default_slot.children:
+            with menu:
+                fill()
+            cell.paint()
+        menu.open()
+
+    button.on_click(open_menu)
+    return button
 
 
 def _mark_current(items: Sequence[Tuple[Any, ui.menu_item]], current: Any) -> None:
