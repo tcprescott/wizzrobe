@@ -237,3 +237,25 @@ async def test_moving_a_shift_rearms_its_reminder(db, monkeypatch):
     row = await VolunteerAssignment.get(id=assignment.id)
     assert row.reminder_sent_at is None
     assert row.acknowledged_at is None
+
+
+async def test_removing_an_assignment_loaded_from_its_shift_dms_the_volunteer(db, monkeypatch):
+    """The admin board hands ``unassign`` an assignment from ``shift.assignments``,
+    whose ``shift`` relation was never fetched (SGLMAN-1N)."""
+    from application.services.volunteer import volunteer_schedule_service as module
+
+    staff = await _coordinator()
+    pos = await VolunteerPosition.create(name='Desk')
+    soon = datetime.now(UTC) + timedelta(days=1)
+    shift = await VolunteerShift.create(position=pos, starts_at=soon, ends_at=soon + timedelta(hours=4))
+    vol = await _volunteer('removed')
+    await VolunteerAssignment.create(shift=shift, user=vol, auto_generated=False)
+
+    sent = []
+    monkeypatch.setattr(module.discord_queue, 'enqueue', lambda coro: (sent.append(coro), coro.close()))
+    board_shift = await VolunteerShift.get(id=shift.id).prefetch_related('assignments__user')
+
+    await VolunteerScheduleService().unassign(staff, board_shift.assignments[0])
+
+    assert len(sent) == 1
+    assert not await VolunteerAssignment.filter(shift=shift).exists()

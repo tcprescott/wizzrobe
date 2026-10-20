@@ -20,7 +20,7 @@ from nicegui import app, ui
 
 from theme.assets import asset_url
 from theme.browser_monitoring import install_browser_monitoring
-from theme.chrome import apply_brand_palette, install_timezone_detection
+from theme.chrome import apply_brand_palette, install_page_scripts
 from theme.empty_state import cat_fact
 
 __all__ = ['MIN_WAIT_SECONDS', 'WaitingScreen', 'waiting_panel', 'waiting_screen']
@@ -92,7 +92,7 @@ async def waiting_screen(message: str = 'Loading…', *, brand: str | None = Non
     ui.add_head_html(f'<link rel="stylesheet" href="{asset_url("css/styles.css")}">')
     ui.add_head_html('<meta name="robots" content="noindex, nofollow">')
     apply_brand_palette(colors)
-    install_timezone_detection()
+    install_page_scripts()
     install_browser_monitoring()
 
     # The default content wrapper's padding would push a 100dvh child into a

@@ -454,8 +454,8 @@ class VolunteerScheduleService:
             'user_id': assignment.user_id,
         }
         was_draft = assignment.auto_generated
-        shift = assignment.shift
-        user = assignment.user
+        loaded = require_found(await self.assignment_repository.get_by_id(assignment.id), "Volunteer assignment")
+        shift, user = loaded.shift, loaded.user  # a shift-prefetched row's .shift is an unfetched QuerySet
         await self.assignment_repository.delete(assignment)
         await self.audit_service.write_and_publish(
             actor, AuditActions.VOLUNTEER_UNASSIGNED, details, EventType.VOLUNTEER_UNASSIGNED,
