@@ -59,13 +59,16 @@
    bottom-bar icons (theme.nav_badges.NAV_ICON_NAMES), with the FILL axis so the
    item you are on can fill in. To add a name, download the subset again with it
    in the sorted list:
-   https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..24,400,0..1,0&icon_names=<names> */
+   https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..24,400,0..1,0&icon_names=<names>
+   then set ?v= below to the first 12 hex digits of the new file's sha256. The
+   stamp changes the URL, so a browser holding the old subset fetches the new
+   one instead of drawing a new icon's name as text. */
 @font-face {
     font-family: 'Material Symbols Outlined';
     font-style: normal;
     font-weight: 400;
     font-display: block;
-    src: url('/static/fonts/material-symbols-outlined-nav.woff2') format('woff2');
+    src: url('/static/fonts/material-symbols-outlined-nav.woff2?v=1880cbcafc1e') format('woff2');
 }
 
 .material-symbols-outlined {

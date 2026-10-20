@@ -8,6 +8,8 @@ their old URLs, which DM buttons already sent carry.
 """
 
 import ast
+import hashlib
+import re
 from pathlib import Path
 
 from theme.base import HOME_SECTIONS, BaseLayout
@@ -42,10 +44,24 @@ def test_every_nav_icon_is_in_the_subset_font():
 
 
 def test_the_subset_font_is_shipped_and_declared():
-    assert (ROOT / 'static/fonts/material-symbols-outlined-nav.woff2').stat().st_size > 0
+    font = ROOT / 'static/fonts/material-symbols-outlined-nav.woff2'
+    assert font.stat().st_size > 0
     css = (ROOT / 'static/css/styles.css').read_text()
-    assert "url('/static/fonts/material-symbols-outlined-nav.woff2')" in css
+    match = re.search(r"url\('/static/fonts/material-symbols-outlined-nav\.woff2\?v=([0-9a-f]+)'\)", css)
+    assert match, 'the subset font URL must carry a ?v= stamp'
     assert '.q-drawer .q-item--active .material-symbols-outlined' in css
+
+
+def test_the_subset_font_stamp_matches_the_file():
+    # An unchanged URL let phones keep the subset from before "notifications"
+    # joined it, so the active Notifications item drew its name as text.
+    font = ROOT / 'static/fonts/material-symbols-outlined-nav.woff2'
+    css = (ROOT / 'static/css/styles.css').read_text()
+    stamp = re.search(r'material-symbols-outlined-nav\.woff2\?v=([0-9a-f]+)', css).group(1)
+    assert stamp == hashlib.sha256(font.read_bytes()).hexdigest()[:12], (
+        'static/fonts/material-symbols-outlined-nav.woff2 changed: set its ?v= in styles.css '
+        'to the first 12 hex digits of its sha256'
+    )
 
 
 def test_nav_icon_prefixes_plain_names_only():
