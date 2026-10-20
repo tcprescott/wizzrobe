@@ -1,0 +1,26 @@
+[
+  {
+    "name": "where-it-goes-phone",
+    "user": "player_one",
+    "path": "/home/profile",
+    "selector": ".wiz-notify-group:has-text('Where it goes')",
+    "hide": [
+      ".q-footer"
+    ],
+    "annotate": [
+      {
+        "selector": ".wiz-notify-group:has-text('Where it goes') >> button:has-text('Send a test')",
+        "n": 1
+      }
+    ]
+  },
+  {
+    "name": "presets-phone",
+    "user": "player_one",
+    "path": "/home/profile",
+    "selector": ".wiz-notify-item:has-text('How much you hear')",
+    "hide": [
+      ".q-footer"
+    ]
+  }
+]
