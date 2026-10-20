@@ -452,6 +452,7 @@ class TestUnassignNotifies:
             auto_generated=auto_generated, shift=make_shift(),
             user=SimpleNamespace(id=42, preferred_name='Alice'),
         )
+        service.assignment_repository.get_by_id = AsyncMock(return_value=assignment)
         service.assignment_repository.delete = AsyncMock()
         with patch.object(service, '_notify_removed', AsyncMock()) as notify:
             await service.unassign(MagicMock(), assignment)

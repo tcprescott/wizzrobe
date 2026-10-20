@@ -29,6 +29,34 @@ _PRELOAD_FONTS = (
 )
 
 
+def install_framework_load_guard() -> None:
+    """Reload once when the page's framework scripts never arrived.
+
+    NiceGUI loads Vue and Quasar as deferred scripts. When one fetch drops (a
+    flaky link, a phone waking up) the page stays blank with no error but the
+    language pack's ``window.Quasar is undefined`` (SGLMAN-1J). Deferred scripts
+    have all run by ``DOMContentLoaded``, so a missing ``Quasar`` there means
+    the page is dead: reload it once per tab, and if the reload fails too, say
+    so on the page and report it.
+    """
+    ui.add_body_html(
+        '<script>'
+        "document.addEventListener('DOMContentLoaded',function(){"
+        "var k='wizFrameworkReload';"
+        'if(window.Quasar){try{sessionStorage.removeItem(k);}catch(e){}return;}'
+        'try{if(!sessionStorage.getItem(k)){sessionStorage.setItem(k,String(Date.now()));location.reload();return;}}'
+        'catch(e){}'
+        "var p=document.createElement('p');"
+        "p.setAttribute('role','alert');"
+        "p.style.cssText='margin:2rem 1rem;font:16px/1.5 system-ui,sans-serif;text-align:center';"
+        "p.textContent=\"This page didn't finish loading. Check your connection, then reload.\";"
+        'document.body.prepend(p);'
+        "if(window.Sentry&&Sentry.captureMessage)Sentry.captureMessage('Framework scripts failed to load after a reload','warning');"
+        '});'
+        '</script>'
+    )
+
+
 def install_timezone_detection() -> None:
     """Report the device's IANA timezone to the server on a cookie.
 
@@ -196,6 +224,7 @@ def render_platform_chrome(
     ui.add_head_html(f'<script defer src="{asset_url("js/busy.js")}"></script>')
     ui.add_head_html(f'<script defer src="{asset_url("js/dialog-keyboard.js")}"></script>')
     install_timezone_detection()
+    install_framework_load_guard()
     install_browser_monitoring()
     # The shipped phoenix defaults, not a tenant override: these surfaces belong
     # to the platform, and the consent screen in particular grants a credential

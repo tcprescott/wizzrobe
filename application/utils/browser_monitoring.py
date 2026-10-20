@@ -49,6 +49,10 @@ BUILTIN_RULES: Tuple[IgnoreRule, ...] = (
     IgnoreRule('AbortError', MATCH_MESSAGE),
     IgnoreRule('xhr poll error', MATCH_MESSAGE),
     IgnoreRule('websocket error', MATCH_MESSAGE),
+    # Quasar's own script never arrived, so its language pack has nothing to
+    # attach to. The page reloads itself (install_framework_load_guard) and
+    # reports a second failure as a message.
+    IgnoreRule('/static/lang/', MATCH_URL),
 )
 
 

@@ -448,6 +448,11 @@ class VolunteerScheduleService:
             await AuthService.can_manage_volunteers(actor),
             "Only volunteer coordinators can remove assignments.",
         )
+        # Callers hand over rows loaded through a shift's prefetch, whose own
+        # ``shift`` relation is an unawaited QuerySet; the DM needs it loaded.
+        assignment = require_found(
+            await self.assignment_repository.get_by_id(assignment.id), "Volunteer assignment"
+        )
         details = {
             'assignment_id': assignment.id,
             'shift_id': assignment.shift_id,

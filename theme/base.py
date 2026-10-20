@@ -10,7 +10,13 @@ from application.utils.tenant_urls import login_path
 from models import FeatureFlag, User
 from theme.assets import asset_url
 from theme.browser_monitoring import install_browser_monitoring
-from theme.chrome import apply_brand_palette, cookie_dark_pref, dark_mode_button, install_timezone_detection
+from theme.chrome import (
+    apply_brand_palette,
+    cookie_dark_pref,
+    dark_mode_button,
+    install_framework_load_guard,
+    install_timezone_detection,
+)
 from theme.connection import install_connection_watch
 from theme.nav_badges import bottom_nav_tab, drawer_tab_badge, nav_icon
 from theme.nav_section import mark_nav_section, nav_section_matches
@@ -385,6 +391,7 @@ class BaseLayout:
         )
         ui.on('wiz_konami', lambda _: self._open_cat_fact())
         install_timezone_detection()
+        install_framework_load_guard()
         # A dropped socket eats a click silently; this makes the page say so.
         install_connection_watch()
         # Drag-to-resize table headers; in the head because a lazy tab build's <script> never runs.
