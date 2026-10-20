@@ -33,7 +33,7 @@ Every streamed match has commentary. Some tournaments don't use trackers, and
 for those the Trackers column is empty on purpose.
 :::
 
-![A match on the board on a phone: Player Four vs Player One with no time yet, Commentary 0/1 and Tracking 0/1 both marked needs crew, with Sign up as commentator marked 1 and Sign up as tracker marked 2](/static/help/crew/signup-phone.webp "A match that still needs crew: tap **Sign up as commentator** (1) or **Sign up as tracker** (2).")
+![A match on the board on a phone: Racer Five vs Racer Six on Stage 3, Commentary 0/1 and Tracking 0/1 both marked needs crew, with Sign up as commentator marked 1 and Sign up as tracker marked 2](/static/help/crew/signup-phone.webp "A match that still needs crew: tap **Sign up as commentator** (1) or **Sign up as tracker** (2).")
 
 If you can't sign up, the **Sign up** button is greyed out with the reason next
 to it.

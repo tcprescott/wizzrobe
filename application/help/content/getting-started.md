@@ -22,7 +22,8 @@ Staff with Manage Server in Discord can post that panel by running
 `/wizzrobe login-panel` in whichever channel they want it.
 
 You don't need an account to watch. **Watch live** on the community's front door
-shows the streams and what's on now, signed out.
+shows the streams and what's on now, signed out. The front door itself also
+lists the published brackets and today's matches.
 
 ## Joining the community
 
@@ -45,7 +46,7 @@ If you're turned down, the door tells you when you can ask again. If staff remov
 you, it says so, and asking again goes back to them.
 :::
 
-![The community front door on a phone, signed out: Watch live, Sign in, Join the Discord server and the published brackets](/static/help/getting-started/join-door-phone.webp "What you see before you're a member.")
+![The community front door on a phone, signed out: Watch live, Sign in, Join the Discord server, the published brackets and today's matches](/static/help/getting-started/join-door-phone.webp "What you see before you're a member.")
 
 ## Finish your profile
 

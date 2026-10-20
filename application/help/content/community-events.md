@@ -51,7 +51,7 @@ they only reach you while Discord DMs are on in your
 [notification settings](/help/notifications#where-your-settings-live).
 :::
 
-![The Community list on a phone: the not-official notice and Submit an event, then events grouped by day, each marked New on a first visit. Morning coffee run is Happening now with a Remind me button marked 1, Board game night shows 2 of 6 going with an RSVP button marked 2, and Speedrun trivia shows 2 of 2 going with a greyed-out Full button marked 3. Your events at the bottom lists a cancelled event](/static/help/community-events/listing-phone.webp "**Remind me** (1), **RSVP** (2) and **Full** (3), depending on the event.")
+![The Community list on a phone: the not-official notice and Submit an event, then events grouped by day, each marked New on a first visit. each card showing its start time and length. Morning coffee run is Happening now with a Remind me button marked 1, Board game night shows how many are going with an RSVP button marked 2, and Speedrun trivia is full, with a greyed-out Full button marked 3. Your events at the bottom lists a cancelled event](/static/help/community-events/listing-phone.webp "**Remind me** (1), **RSVP** (2) and **Full** (3), depending on the event.")
 
 The reminder goes out 30 minutes before the start, unless staff have picked a
 different time for the community.
