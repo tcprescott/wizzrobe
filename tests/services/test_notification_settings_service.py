@@ -10,11 +10,16 @@ from application.services.audit_service import AuditActions
 from application.services.notification_catalog import (
     CATALOG,
     GROUPS,
+    JOIN_REQUEST,
     MATCH_CONFIRMED,
     MATCH_SCHEDULED,
+    PLAYER_COMMENT,
     PLAYERS,
+    SECTIONS,
     WATCHERS,
+    StaffChoice,
     notices,
+    staff_choice_for,
 )
 from application.services.notification_settings_service import NotificationSettingsService
 from models import (
@@ -61,6 +66,112 @@ class TestCatalog:
         assert MATCH_CONFIRMED.to(WATCHERS).default is NotificationMode.SILENT
         with pytest.raises(KeyError):
             MATCH_CONFIRMED.to(NotificationRecipient.VOLUNTEERS)
+
+
+class TestSections:
+    def test_a_group_with_sections_files_every_message_under_one(self):
+        for notice in notices():
+            if notice.group in SECTIONS:
+                assert notice.section, notice.key
+            else:
+                assert notice.section == '', notice.key
+
+    def test_sections_hold_only_their_own_group(self):
+        for group, sections in SECTIONS.items():
+            for _, members in sections:
+                assert all(n.group == group for n in members)
+
+    def test_display_order_follows_the_sections(self):
+        matches = [n for n in notices() if n.group == 'Matches']
+        expected = [n for _, members in SECTIONS['Matches'] for n in members]
+        assert matches == expected
+
+
+class TestStaffChoice:
+    def test_every_default_adds_up_to_a_choice(self):
+        for notice in notices():
+            if notice.staff_recipients:
+                assert staff_choice_for(notice, notice.defaults) is not None, notice.key
+
+    def test_ping_on_duty_drops_the_admins_and_keeps_the_fallback(self):
+        modes = {
+            NotificationRecipient.ON_DUTY: NotificationMode.PING,
+            NotificationRecipient.ADMINS: NotificationMode.OFF,
+            NotificationRecipient.STAFF: NotificationMode.PING,
+        }
+        assert staff_choice_for(PLAYER_COMMENT, modes) is StaffChoice.PING_ON_DUTY
+
+    def test_a_mix_no_choice_matches_is_custom(self):
+        modes = {
+            NotificationRecipient.ON_DUTY: NotificationMode.SILENT,
+            NotificationRecipient.ADMINS: NotificationMode.PING,
+            NotificationRecipient.STAFF: NotificationMode.PING,
+        }
+        assert staff_choice_for(PLAYER_COMMENT, modes) is None
+
+    async def test_setting_a_choice_writes_every_staff_recipient(self, db):
+        staff = await _staff()
+
+        rows = await NotificationSettingsService.set_staff_choice(staff, 'player_comment', 'ping_on_duty')
+
+        assert {r.recipient: r.mode for r in rows} == {
+            NotificationRecipient.ON_DUTY: NotificationMode.PING,
+            NotificationRecipient.ADMINS: NotificationMode.OFF,
+            NotificationRecipient.STAFF: NotificationMode.PING,
+        }
+        assert {r.staff_choice for r in rows} == {StaffChoice.PING_ON_DUTY}
+        # Only the admins row differs from the default, so only it is stored.
+        [setting] = await NotificationSetting.all()
+        assert setting.recipient is NotificationRecipient.ADMINS
+        assert await NotificationSettingsService.mode_for(
+            PLAYER_COMMENT.to(NotificationRecipient.ADMINS),
+        ) is NotificationMode.OFF
+        [log] = await AuditLog.filter(action=AuditActions.NOTIFICATION_SETTING_CHANGED)
+        details = json.loads(log.details)
+        assert (details['recipient'], details['old'], details['new']) == (
+            'staff_alerts', 'ping_all', 'ping_on_duty',
+        )
+
+    async def test_back_to_the_default_choice_clears_the_overrides(self, db):
+        staff = await _staff()
+        await NotificationSettingsService.set_staff_choice(staff, 'player_comment', 'off')
+        assert await NotificationSetting.all().count() == 3
+
+        await NotificationSettingsService.set_staff_choice(staff, 'player_comment', 'ping_all')
+
+        assert await NotificationSetting.all().count() == 0
+
+    async def test_list_reports_the_choice_on_staff_rows_only(self, db):
+        staff = await _staff()
+        await NotificationSettingsService.set_staff_choice(staff, 'player_comment', 'silent')
+
+        rows = await NotificationSettingsService.list_settings(staff)
+
+        comment = {r.recipient: r.staff_choice for r in rows if r.notice.key == 'player_comment'}
+        assert set(comment.values()) == {StaffChoice.SILENT}
+        assert all(r.staff_choice is None for r in rows if r.notice.key == 'match_scheduled')
+
+    async def test_a_single_cell_change_can_leave_a_custom_mix(self, db):
+        staff = await _staff()
+        row = await NotificationSettingsService.set_mode(staff, 'player_comment', 'on_duty', 'silent')
+        assert row.staff_choice is None
+
+    @pytest.mark.parametrize('notice, choice', [
+        ('match_scheduled', 'ping_all'),       # no staff recipients
+        (JOIN_REQUEST.key, 'ping_on_duty'),    # all staff only, no on-shift desk
+        ('player_comment', 'loud'),
+        ('no_such_notice', 'off'),
+    ])
+    async def test_a_choice_that_does_not_apply_is_refused(self, db, notice, choice):
+        staff = await _staff()
+        with pytest.raises(ValueError):
+            await NotificationSettingsService.set_staff_choice(staff, notice, choice)
+        assert await NotificationSetting.all().count() == 0
+
+    async def test_a_member_who_is_not_staff_is_refused(self, db):
+        member = await make_user(discord_id=7102, username='member2')
+        with pytest.raises(PermissionError):
+            await NotificationSettingsService.set_staff_choice(member, 'player_comment', 'off')
 
 
 class TestModeFor:
