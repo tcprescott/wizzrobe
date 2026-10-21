@@ -5,7 +5,7 @@ from application.content import parse_blocks
 from application.services import ChallongeService, bracket_sources, get_user_from_session
 from application.tenant_context import get_current_tenant_id
 from application.utils.safe_url import http_url_or_empty
-from application.utils.timezone import format_local_display
+from application.utils.timezone import format_local_display, format_local_short, timezone_label
 from application.utils.tournament_signup import SignupWindow, signup_window_state
 from theme.busy import busy
 from theme.dialog import TournamentDialog
@@ -25,7 +25,6 @@ from theme.tables.mobile_grid import apply_column_visibility
 from theme.tables.preferences import (
     customize_table,
     preferences_button,
-    row_count_label,
     search_input,
     sticky_header,
 )
@@ -60,14 +59,17 @@ def _signup_label(tournament) -> str:
 
 
 def _signup_detail(tournament) -> str:
-    """The line under the signup chip: when the window next moves, or that it won't."""
+    """The line beside the signup chip: when the window next moves, or that it won't.
+
+    Short stamps: the board states its zone once, in the caption over the rows.
+    """
     state = signup_window_state(tournament.signups_open_at, tournament.signups_close_at)
     if state is SignupWindow.UPCOMING:
-        return f'Opens {format_local_display(tournament.signups_open_at)}'
+        return f'Opens {format_local_short(tournament.signups_open_at)}'
     if state is SignupWindow.CLOSED:
-        return f'Closed {format_local_display(tournament.signups_close_at)}'
+        return f'Closed {format_local_short(tournament.signups_close_at)}'
     if tournament.signups_close_at:
-        return f'Closes {format_local_display(tournament.signups_close_at)}'
+        return f'Closes {format_local_short(tournament.signups_close_at)}'
     return 'No close date'
 
 
@@ -122,7 +124,7 @@ def _bracket_fields(t, live_sites, can_sync=False, can_link=False) -> dict:
         'bracket_site': site,
         'bracket_label': label,
         'bracket_stage': stage,
-        'bracket_synced': f'Synced {format_local_display(synced_at)}' if synced_at else 'Never synced',
+        'bracket_synced': f'Synced {format_local_short(synced_at)}' if synced_at else 'Never synced',
         'bracket_manage': bool(site) and can_sync,
         'bracket_unlinkable': bool(site) and can_link,
         'bracket_linkable': not site and can_link and bool(live_sites),
@@ -168,7 +170,13 @@ _NAME_CELL = '''
 
 _SIGNUPS_CELL = '''
     <span :class="'wiz-chip wiz-chip--' + props.row.signup_tone">{{ props.row.signup_state }}</span>
-    <div class="tournament-table__sub">{{ props.row.signup_detail }}</div>
+    <div class="tournament-table__sub tournament-table__stamp">{{ props.row.signup_detail }}</div>
+'''
+
+# The phone card's signups: chip and boundary on one line, not stacked.
+_SIGNUPS_LINE = '''
+    <span :class="'wiz-chip wiz-chip--' + props.row.signup_tone">{{ props.row.signup_state }}</span>
+    <span class="tournament-table__sub q-ml-xs">{{ props.row.signup_detail }}</span>
 '''
 
 _SEED_CELL = '''
@@ -190,7 +198,7 @@ _BRACKET_CELL = '''
         <span class="wiz-chip wiz-chip--neutral">{{ props.row.bracket_label }}</span>
         <span v-if="props.row.bracket_stage" class="q-ml-xs">{{ props.row.bracket_stage }}</span>
         <span v-if="props.row.unmatched_label" class="wiz-chip wiz-chip--pending q-ml-xs">{{ props.row.unmatched_label }}</span>
-        <div class="tournament-table__sub">{{ props.row.bracket_synced }}</div>
+        <div class="tournament-table__sub tournament-table__stamp">{{ props.row.bracket_synced }}</div>
     </template>
     <span v-else class="tournament-table__unset">Not linked</span>
 '''
@@ -198,6 +206,18 @@ _BRACKET_CELL = '''
 _PLAYERS_CELL = '''
     <a href="#" class="table-link" :aria-label="props.row.player_count + ' players in ' + props.row.name"
        @click.prevent="$parent.$emit('show_players', props.row)">{{ props.row.player_count }}</a>
+'''
+
+# The phone card's last line: players · seed · match length.
+_FACTS_LINE = '''
+    <a href="#" class="table-link" :aria-label="props.row.player_count + ' players in ' + props.row.name"
+       @click.prevent="$parent.$emit('show_players', props.row)">{{ props.row.player_count }} {{ props.row.player_count === 1 ? 'player' : 'players' }}</a>
+    <span class="tournament-grid-card__dot">·</span>
+    <span v-if="props.row.seed_generator" class="tournament-table__mono">{{ props.row.seed_generator }}</span>
+    <span v-else class="tournament-table__unset">No seed</span>
+    <span class="tournament-grid-card__dot">·</span>
+    <span v-if="props.row.match_length">{{ props.row.match_length }}</span>
+    <span v-else class="tournament-table__unset">No match length</span>
 '''
 
 # Sort match length by the average minutes, not the cell's text ("100 min"
@@ -360,36 +380,22 @@ class TournamentTableView:
         self.table.add_slot('body-cell-is_active', '''<q-td :props="props">
             <span :class="props.value ? 'wiz-chip wiz-chip--ok' : 'wiz-chip wiz-chip--neutral'">{{ props.value ? 'Active' : 'Inactive' }}</span>
         </q-td>''')
-        # The phone card carries the same four facts and the same ⋮ as a desktop
-        # row, so the two widths never offer different things.
+        # The phone card carries the same facts and the same ⋮ as a desktop
+        # row, so the two widths never offer different things: one line each
+        # for signups and bracket, then players, seed and length on one line.
         self.table.add_slot('item', f'''
         <div class="tournament-grid-card" style="width: 100%; box-sizing: border-box;">
             <div class="tournament-grid-card__head">
                 <div class="tournament-grid-card__title">{_NAME_CELL}</div>
                 {self._more_menu('tournament-grid-card__more')}
             </div>
-            <div class="tournament-grid-card__fields">
-                <div>
-                    <div class="tournament-grid-card__label">Signups</div>
-                    <div class="tournament-grid-card__value">{_SIGNUPS_CELL}</div>
-                </div>
-                <div>
-                    <div class="tournament-grid-card__label">Bracket</div>
-                    <div class="tournament-grid-card__value">{_BRACKET_CELL}</div>
-                </div>
-                <div>
-                    <div class="tournament-grid-card__label">Players</div>
-                    <div class="tournament-grid-card__value">{_PLAYERS_CELL}</div>
-                </div>
-                <div>
-                    <div class="tournament-grid-card__label">Seed</div>
-                    <div class="tournament-grid-card__value">{_SEED_CELL}</div>
-                </div>
-                <div>
-                    <div class="tournament-grid-card__label">Match length</div>
-                    <div class="tournament-grid-card__value">{_LENGTH_CELL}</div>
-                </div>
+            <div class="tournament-grid-card__status">
+                <div class="tournament-grid-card__label">Signups</div>
+                <div>{_SIGNUPS_LINE}</div>
+                <div class="tournament-grid-card__label">Bracket</div>
+                <div>{_BRACKET_CELL}</div>
             </div>
+            <div class="tournament-grid-card__facts">{_FACTS_LINE}</div>
         </div>
         ''')
         if self.extra_slots:
@@ -400,8 +406,13 @@ class TournamentTableView:
             # from these columns at build time and must not follow a saved
             # layout. Pinned by tests/theme/test_table_preferences.py.
             self._plan = customize_table(self.table, self.columns, key=self.table_key)
+            zone = timezone_label()
             with self.table.parent_slot:
-                row_count_label(self.table, 'tournaments')
+                # Cells carry short stamps with no zone, so the board names it once.
+                ui.label().classes('text-caption text-grey-7').bind_text_from(
+                    self.table, 'rows',
+                    backward=lambda rows: f'{len(rows or []):,} tournaments · times in {zone}',
+                ).move(target_index=0)
             sticky_header(self.table)
             if self.searchable:
                 with search_slot:
