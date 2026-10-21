@@ -5280,6 +5280,11 @@ ol.wiz-help-list { list-style-type: decimal; }
     margin: -0.5rem 0 1rem;
 }
 
+/* Separate inline elements with no text between them, as on the Watch page. */
+.wiz-event-tournaments__foot > * + * {
+    margin-left: 0.25em;
+}
+
 .wiz-event-tournament__meta {
     color: var(--fg-muted);
     font-size: 0.9rem;
