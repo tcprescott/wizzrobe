@@ -18,6 +18,7 @@ from pages.home_tabs.tournaments import tournaments_tab
 from theme.assets import asset_url
 from theme.base import BaseLayout
 from theme.empty_state import empty_panel
+from theme.links import link_button, set_link
 from theme.page_header import page_title
 from theme.timer_teardown import PageTimer
 
@@ -57,14 +58,11 @@ async def _render_platform_landing() -> None:
                 # No avatar URL (mock-login sessions, or Discord users on the
                 # default avatar): show a placeholder glyph rather than a broken image.
                 ui.icon('account_circle').classes('user-avatar user-avatar-placeholder')
-            ui.button(on_click=lambda: ui.navigate.to('/logout'), icon='logout', color=None) \
-                .props('flat').tooltip('Log out')
+            logout_btn = ui.button(icon='logout', color=None).props('flat').tooltip('Log out')
+            set_link(logout_btn, '/logout', new_tab=False)
         else:
-            login_btn = ui.button(
-                on_click=lambda: ui.navigate.to('/login'),
-                icon='login',
-                color=None,
-            ).props('flat').classes('login-button')
+            login_btn = ui.button(icon='login', color=None).props('flat').classes('login-button')
+            set_link(login_btn, '/login', new_tab=False)
             with login_btn:
                 ui.label('Login with Discord').classes('login-button-text')
             login_btn.tooltip('Login with Discord')
@@ -95,8 +93,7 @@ async def _render_platform_landing() -> None:
                         .classes('text-caption')
         if await AuthService.is_super_admin(user):
             ui.separator().classes('separator-spacing')
-            ui.button('Platform administration', icon='admin_panel_settings',
-                      on_click=lambda: ui.navigate.to('/platform')) \
+            link_button('Platform administration', '/platform', icon='admin_panel_settings', new_tab=False) \
                 .props('outline color=primary')
 
 

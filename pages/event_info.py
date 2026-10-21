@@ -39,6 +39,7 @@ from theme.base import BaseLayout, current_local_url
 from theme.error_page import render_not_found
 from theme.event_info_tournaments import render_tournament_list
 from theme.help.article import render_article
+from theme.links import link_button
 from theme.page_header import page_header
 
 __all__ = ['create']
@@ -86,14 +87,10 @@ async def _embeds(article: ContentArticle) -> dict:
 GUIDE_PATH = '/event-info/guide.pdf'
 
 
-def _open_guide() -> None:
-    ui.navigate.to(GUIDE_PATH, new_tab=True)
-
-
 def _guide_banner(guide: EventGuide) -> None:
     with banner(f'Directions, the hotel map and every detail. PDF, {guide.size_label}.',
                 title='The full event guide', icon='picture_as_pdf'):
-        ui.button('Open guide', on_click=_open_guide).props('unelevated no-caps color=primary')
+        link_button('Open guide', GUIDE_PATH).props('unelevated no-caps color=primary')
 
 
 def _guide_link() -> None:

@@ -306,9 +306,10 @@ class TournamentTableView:
             SlotItem('group', 'Players…', 'show_players'),
             SlotItem('event_note', 'Round schedule…', 'round_schedule',
                      v_if='props.row.round_schedule'),
-            SlotItem('open_in_new', 'Open rules', 'open_rules', v_if='props.row.rules_url'),
+            SlotItem('open_in_new', 'Open rules', 'open_rules', v_if='props.row.rules_url',
+                     href='props.row.rules_url'),
             SlotItem('open_in_new', 'Open bracket', 'open_bracket',
-                     v_if='!props.row.bracket_site && props.row.bracket_url'),
+                     v_if='!props.row.bracket_site && props.row.bracket_url', href='props.row.bracket_url'),
         ]
         if self.can_link:
             items.append(SlotItem('add_link', 'Link a bracket…', 'link_bracket',
@@ -328,7 +329,8 @@ class TournamentTableView:
                          v_if='props.row.bracket_manage', badge='props.row.unmatched_label'),
             ]
         items.append(SlotItem('open_in_new', 'Open on {{ props.row.bracket_label }}', 'open_bracket',
-                              v_if='props.row.bracket_site && props.row.bracket_url'))
+                              v_if='props.row.bracket_site && props.row.bracket_url',
+                              href='props.row.bracket_url'))
         if self.can_link:
             items.append(SlotItem('link_off', 'Unlink {{ props.row.bracket_label }} bracket…',
                                   'unlink_bracket', negative=True, v_if='props.row.bracket_unlinkable'))
@@ -436,8 +438,6 @@ class TournamentTableView:
         self.table.on('link_bracket', self.handle_link_bracket)
         self.table.on('unlink_bracket', self.handle_unlink_bracket)
         self.table.on('round_schedule', self.handle_round_schedule)
-        self.table.on('open_bracket', lambda e: self._open_link(e, 'bracket_url'))
-        self.table.on('open_rules', lambda e: self._open_link(e, 'rules_url'))
         self.table.on('delete_tournament', self.handle_delete_tournament)
         # Initial load at build: correctness must not depend on the selected_tab
         # broadcast (which only fires on a *subsequent* tab switch) or on Quasar's
@@ -638,7 +638,3 @@ class TournamentTableView:
             return
         await confirm_tournament_delete(t, on_deleted=self.refresh)
 
-    def _open_link(self, event, field: str) -> None:
-        url = http_url_or_empty(self._event_row(event).get(field))
-        if url:
-            ui.navigate.to(url, new_tab=True)

@@ -14,7 +14,7 @@ from nicegui import app, background_tasks, context, ui
 
 from application.services import DataExportService, get_user_from_session
 from theme.exports import download_export, export_row, watch_until_ready
-from theme.menu import SlotItem, menu_action, slot_more_menu, slot_row_button
+from theme.menu import SlotItem, menu_action, menu_link, slot_more_menu, slot_row_button
 from theme.notify import notify_error
 from theme.section import section_panel
 from theme.steady import steady_refreshable
@@ -146,8 +146,7 @@ async def _tournament_picker(viewer, overview: list[dict], refresh_list) -> None
             with ui.button('Actions').props('flat no-caps color=primary icon-right=expand_more'):
                 with ui.menu().props('anchor="bottom right" self="top right"'):
                     json_item = menu_action('data_object', 'Download JSON only', lambda: request('json'))
-                    menu_action('help_outline', 'About the export files',
-                                lambda: ui.navigate.to('/help/staff-exports', new_tab=True))
+                    menu_link('help_outline', 'About the export files', '/help/staff-exports')
                     menu_action('select_all', 'Select all', lambda: select(rows))
                     menu_action('deselect', 'Clear selection', lambda: select([]))
 

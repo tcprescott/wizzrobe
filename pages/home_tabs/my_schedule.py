@@ -33,6 +33,7 @@ from pages.home_tabs.my_volunteer_shifts import my_volunteer_shifts_section
 from pages.home_tabs.player import count_waiting_on_you, render_player_dashboard
 from theme.empty_state import cat_fact
 from theme.layout_probe import skip_layout_probe
+from theme.links import link_button
 from theme.steady import steady_refreshable
 from theme.url_state import url_param, url_state
 
@@ -49,10 +50,9 @@ def nothing_yet() -> None:
         ui.label('Nothing on your schedule yet. Sign up for a tournament and your '
                  'matches show up here, along with any shifts or crew slots you take on.')
         with ui.row().classes('justify-center gap-2'):
-            ui.button('See the event schedule', on_click=lambda: ui.navigate.to(home_url(HOME_SCHEDULE))) \
+            link_button('See the event schedule', home_url(HOME_SCHEDULE), new_tab=False) \
                 .props('outline no-caps color=primary')
-            ui.button('Browse tournaments', icon='emoji_events',
-                      on_click=lambda: ui.navigate.to(home_url(HOME_TOURNAMENTS))) \
+            link_button('Browse tournaments', home_url(HOME_TOURNAMENTS), icon='emoji_events', new_tab=False) \
                 .props('unelevated no-caps color=primary')
         cat_fact()
 

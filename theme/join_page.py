@@ -26,6 +26,7 @@ from nicegui import background_tasks, context, ui
 from application.utils.tenant_urls import login_path
 from models import JoinRequestStatus, User
 from theme.base import BaseLayout, current_local_url
+from theme.links import link_button
 
 logger = logging.getLogger(__name__)
 
@@ -178,10 +179,8 @@ def _render_discord(preview: JoinPreview, *, signed_in: bool) -> None:
         return
     with ui.row().classes('items-center justify-center gap-2'):
         if url:
-            ui.button(
-                'Join the Discord server', icon='forum',
-                on_click=lambda: ui.navigate.to(url, new_tab=True),
-            ).props('color=primary outline no-caps')
+            link_button('Join the Discord server', url, icon='forum') \
+                .props('color=primary outline no-caps')
         if recheck:
             ui.button(
                 'I’ve joined, check again', icon='refresh',

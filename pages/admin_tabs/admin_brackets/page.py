@@ -39,6 +39,7 @@ from theme.brackets import (
 from theme.busy import busy_click
 from theme.dialog._helpers import dialog_actions, form_dialog
 from theme.dialog.confirmation_dialog import ConfirmationDialog
+from theme.links import app_href
 from theme.notify import notify_error
 from theme.page_header import page_header
 from theme.tables.admin_crud import current_actor, refresh_button, wire_tab_refresh
@@ -86,8 +87,8 @@ _ROW_ACTIONS = '''
                     <q-item-section avatar><q-icon name="fast_forward"/></q-item-section>
                     <q-item-section>Advance into next stage</q-item-section>
                 </q-item>
-                <q-item v-if="props.row.state !== 'draft'" clickable
-                        @click="$parent.$emit('view', props.row)">
+                <q-item v-if="props.row.state !== 'draft'" clickable tag="a"
+                        :href="props.row.public_href" target="_blank" rel="noopener">
                     <q-item-section avatar><q-icon name="open_in_new"/></q-item-section>
                     <q-item-section>Open public bracket</q-item-section>
                 </q-item>
@@ -196,6 +197,9 @@ async def admin_brackets_page() -> None:
 
         page_container = ui.column().classes('w-full')
 
+        # Resolved while the page builds: the refresh runs as a background task.
+        public_base = app_href('/brackets/')
+
         # --- brackets table refresh --------------------------------------
         async def refresh_table() -> None:
             tid = state['tournament_id']
@@ -242,6 +246,7 @@ async def admin_brackets_page() -> None:
                         label, icon, event = _next_step(bracket, len(entries), matches)
                         rows.append({
                             'id': bracket.id,
+                            'public_href': f'{public_base}{bracket.id}',
                             'stage': stage_label(bracket.stage_order),
                             'stage_order': bracket.stage_order,
                             'name': bracket.name,
@@ -466,9 +471,6 @@ async def admin_brackets_page() -> None:
             empty_hint = ui.label('').classes('wiz-empty-panel')
             empty_hint.set_visibility(False)
 
-            def _open_public(row) -> None:
-                ui.navigate.to(f"/brackets/{row['id']}", new_tab=True)
-
             table.on('manage', lambda e: background_tasks.create(
                 open_manage(e.args, context.client, **_dialog_kwargs())))
             table.on('results', lambda e: background_tasks.create(
@@ -485,7 +487,6 @@ async def admin_brackets_page() -> None:
             table.on('remove', lambda e: background_tasks.create(confirm_delete_stage(
                 e.args, context.client, service=service, tenant_id=tenant_id,
                 on_change=refresh_table)))
-            table.on('view', lambda e: _open_public(e.args))
 
         wire_tab_refresh('Brackets', refresh_table)
         background_tasks.create(refresh_table())

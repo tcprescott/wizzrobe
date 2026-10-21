@@ -30,6 +30,7 @@ from theme.dialog.confirmation_dialog import ConfirmationDialog
 from theme.empty_state import empty_panel
 from theme.help import help_icon
 from theme.help.render import render_blocks
+from theme.links import link_button
 from theme.notify import notify_error
 from theme.page_header import page_header, page_title
 from theme.qualifier_copy import (
@@ -159,9 +160,8 @@ def create() -> None:
                         with ui.row().classes('items-center full-width'):
                             ui.label(q.name).classes('section-title')
                             ui.space()
-                            ui.button('Open', icon='arrow_forward',
-                                      on_click=lambda qid=q.id: ui.navigate.to(f'/qualifiers/{qid}')
-                                      ).props('flat color=primary')
+                            link_button('Open', f'/qualifiers/{q.id}', icon='arrow_forward', new_tab=False) \
+                                .props('flat color=primary')
                         ui.label(f'Window: {_fmt(q.opens_at)} → {_fmt(q.closes_at)}').classes(
                             'text-caption text-grey')
                         if q.description:

@@ -22,6 +22,7 @@ from theme.assets import asset_url
 from theme.base import BaseLayout
 from theme.empty_state import empty_panel
 from theme.error_page import render_not_found
+from theme.links import link_button
 from theme.page_header import page_header
 from theme.url_state import bind_url
 
@@ -174,10 +175,9 @@ def create() -> None:
         with ui.column().classes('page-container q-mt-md'):
             with page_header(f'{tournament.name}: Bracket', subtitle):
                 ui.space()
-                ui.button(
-                    'Open on start.gg', icon='open_in_new',
-                    on_click=lambda: ui.navigate.to(view['event_url'], new_tab=True),
-                ).props('flat color=primary no-caps')
+                if view['event_url']:
+                    link_button('Open on start.gg', view['event_url'], icon='open_in_new') \
+                        .props('flat color=primary no-caps')
 
             phases = [p for p in view['phases'] if p['pools']]
             if not phases:

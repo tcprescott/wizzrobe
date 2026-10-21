@@ -35,6 +35,7 @@ from theme.dialog.hard_preset_dialog import HardPresetDialog
 from theme.dialog.match_dialog import UserMatchDialog
 from theme.dialog.match_sheet import MatchSheet
 from theme.dialog.reschedule_request_dialog import RescheduleRequestDialog
+from theme.links import link_button
 from theme.nav_badges import set_nav_count
 from theme.notify import notify_error
 from theme.section import section_panel
@@ -235,10 +236,8 @@ def _show_one_match_chip() -> None:
         with ui.element('span').classes('wiz-chip wiz-chip--pending'):
             ui.icon('filter_alt', size='14px')
             ui.label('Showing one match only')
-        ui.button(
-            'Show all my matches', icon='clear',
-            on_click=lambda: ui.navigate.to(home_url(HOME_PLAYER)),
-        ).props('flat dense color=primary')
+        link_button('Show all my matches', home_url(HOME_PLAYER), icon='clear', new_tab=False) \
+            .props('flat dense color=primary')
 
 
 def _explain_other_match(relation: str) -> None:
@@ -258,10 +257,8 @@ def _explain_other_match(relation: str) -> None:
             with ui.element('span').classes('wiz-chip wiz-chip--neutral'):
                 ui.icon('visibility', size='14px')
                 ui.label("You're watching that match, not playing in it")
-            ui.button(
-                'Find it on the schedule', icon='event',
-                on_click=lambda: ui.navigate.to(home_url(HOME_SCHEDULE)),
-            ).props('flat dense color=primary')
+            link_button('Find it on the schedule', home_url(HOME_SCHEDULE), icon='event', new_tab=False) \
+                .props('flat dense color=primary')
         return
     ui.notify(
         "That match isn't one of yours, so here's your whole schedule.",
