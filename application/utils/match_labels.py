@@ -117,3 +117,17 @@ def challonge_round_label(round_: Optional[int]) -> str:
     if not round_:
         return ''
     return f'Losers round {abs(round_)}' if round_ < 0 else f'Round {round_}'
+
+
+def entrant_name(entrant) -> str:
+    """A bracket-site entrant (Challonge participant, start.gg entrant) as players
+    know them here: the linked member's Wizzrobe name, else the site's own name.
+
+    ``entrant.user`` must be prefetched.
+    """
+    if entrant is None:
+        return 'TBD'
+    user = entrant.user
+    if user is not None:
+        return user.preferred_name
+    return entrant.name or 'TBD'
