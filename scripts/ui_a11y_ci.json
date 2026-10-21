@@ -85,6 +85,7 @@
     { "name": "about-notices", "path": "/about/notices" },
     { "name": "event-info", "path": "/event-info" },
     { "name": "event-info-article", "path": "/event-info/attending" },
+    { "name": "event-info-guide", "path": "/event-info/guide" },
     { "name": "community-events", "path": "/home/community" },
     { "name": "community-event-detail", "path": "/community-events/1" },
     { "name": "admin-community-events", "path": "/admin/community-events" },

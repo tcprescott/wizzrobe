@@ -143,6 +143,11 @@ def _lock_version(path: Optional[Path], package: str) -> str:
     return packages.get(f'node_modules/{package}', {}).get('version', '')
 
 
+def _vendored_version(name: str) -> str:
+    path = _ROOT / 'static' / 'vendor' / name / 'VERSION'
+    return path.read_text(encoding='utf-8').strip() if path.is_file() else ''
+
+
 def _web_libraries() -> list[Notice]:
     base = _nicegui_dir()
     static = base / 'static' if base else None
@@ -164,6 +169,9 @@ def _web_libraries() -> list[Notice]:
          'BSD-3-Clause', 'Copyright (c) 2013, Baidu Inc.', 'https://github.com/ecomfe/zrender'),
         ('tslib', _lock_version(echart_lock, 'tslib'),
          '0BSD', 'Copyright (c) Microsoft Corporation.', 'https://github.com/microsoft/tslib'),
+        # Vendored for the in-app event guide (static/js/guide-viewer.js).
+        ('PDF.js', _vendored_version('pdfjs'),
+         'Apache-2.0', 'Copyright 2024 Mozilla Foundation', 'https://mozilla.github.io/pdf.js/'),
     ]
     template_for = {'Apache-2.0 OR MPL-2.0': 'Apache-2.0'}
     return [

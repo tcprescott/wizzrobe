@@ -8664,6 +8664,44 @@ ol.wiz-help-list { list-style-type: decimal; }
     border-top: 1px solid var(--border-subtle);
 }
 
+/* Event guide drawn in the app (pages/event_info.py, static/js/guide-viewer.js).
+   Pages are white paper in both themes: the PDF's own colours assume it. */
+.wiz-guide-pages {
+    width: 100%;
+    max-width: 820px;
+    margin-top: var(--space-3);
+}
+
+.wiz-guide-page-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+}
+
+.wiz-guide-page {
+    position: relative;
+    max-width: 100%;
+    background: #fff;
+    border: 1px solid var(--border-subtle);
+    border-radius: 6px;
+    overflow: hidden;
+}
+
+.wiz-guide-page canvas {
+    display: block;
+}
+
+.wiz-guide-link {
+    position: absolute;
+    display: block;
+    border-radius: 2px;
+}
+
+.wiz-guide-link:focus-visible {
+    outline: 2px solid var(--wiz-link);
+    outline-offset: 1px;
+}
+
 /* One-time "Tell us when you can't play" card on My Schedule
    (pages/home_tabs/availability_reminder.py). The sample strip reuses the
    Timeline's hatch, so the blocked hours look the way they will once set. */
