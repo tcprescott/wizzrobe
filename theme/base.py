@@ -27,6 +27,14 @@ logger = logging.getLogger(__name__)
 #: How a hub tab switch enters the browser's history: ``'push'`` makes Back undo it.
 TAB_HISTORY: History = 'push'
 
+DRAWER_WIDTH_DESKTOP = 248
+DRAWER_WIDTH_PHONE_MAX = 340
+DRAWER_WIDTH_JS = (
+    'Quasar.Screen.lt.md'
+    f' ? Math.min(Math.round(Quasar.Screen.width * 0.85), {DRAWER_WIDTH_PHONE_MAX})'
+    f' : {DRAWER_WIDTH_DESKTOP}'
+)
+
 #: Home's four sections as ``(label, icon)``. Home builds its tabs from these,
 #: and a tab-less page (a bracket, an article) offers them in the drawer to a
 #: member, so the way back to their own matches is never more than one tap.
@@ -489,10 +497,14 @@ class BaseLayout:
         # NiceGUI renders the drawer body (.q-drawer__content) as a flex column,
         # so a trailing ui.space() pushes the copyright to the foot of the drawer
         # when the nav fits, and it falls to the scroll-end when the nav is long.
-        # 224px fits the longest label ("Event Information") with room to spare;
-        # Quasar's 300px default left a wide empty strip beside the nav.
+        # Pinned on desktop it is 248px; as the phone overlay it takes 85% of the
+        # screen (up to 340px) so rows are thumb-sized and a sliver of the page
+        # still shows behind it. Quasar's width prop is a pixel number and also
+        # sets the closed drawer's offset, so it's computed client-side rather
+        # than overridden in CSS, which would leave the closed drawer peeking out.
         with ui.left_drawer(value=False).props(
-            'breakpoint=1023 show-if-above bordered width=224'
+            'breakpoint=1023 show-if-above bordered '
+            f':width="{DRAWER_WIDTH_JS}"'
         ) as self._drawer:
             current_path = current_local_url().split('?', 1)[0]
             with ui.list().props('padding'):

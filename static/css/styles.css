@@ -935,6 +935,35 @@ body:has(.wiz-header) .q-notifications__list--top {
     background: var(--surface-sunken);
 }
 
+/* Pinned on desktop the rows sit a little roomier than body text; as the phone
+   overlay they grow to a 48px tap target with 16px labels. */
+.q-drawer--standard .q-item {
+    min-height: 40px;
+    font-size: 0.9375rem;
+}
+
+.q-drawer--standard .q-item .q-icon {
+    font-size: 22px;
+}
+
+.q-drawer--mobile .q-item {
+    min-height: 48px;
+    padding: 6px 14px;
+    font-size: var(--text-lg);
+}
+
+.q-drawer--mobile .q-item .q-item__section--avatar {
+    min-width: 40px;
+}
+
+.q-drawer--mobile .q-item .q-icon {
+    font-size: 24px;
+}
+
+.q-drawer--mobile .wiz-drawer-group {
+    font-size: 0.75rem;
+}
+
 .q-drawer .q-item--active {
     background: var(--surface-sunken);
     color: var(--fg);

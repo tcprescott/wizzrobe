@@ -238,7 +238,7 @@ Desktop pages use the width rather than stretching one column across it:
   (Users wraps roles in 9-20rem and names in 7-12rem) rather than leaving
   Quasar's `nowrap` to stretch one column: a 31-character Discord handle or six
   role tags otherwise push the table off the page.
-- The side menu is 224px. Don't widen it for one long label; shorten the label.
+- The side menu is 248px pinned on desktop and 85% of the screen (up to 340px) as the phone overlay, with 40px rows on desktop and 48px rows on a phone. Both come from `DRAWER_WIDTH_*` in `theme/base.py`. Don't widen it for one long label; shorten the label.
 - The side menu marks two things differently. The section you're in (Home, Volunteer, Admin, Help…) gets an accent tint via `mark_nav_section()` in `theme/nav_section.py`; the page within it (a tab row) gets the grey `q-item--active` fill. Both fill the icon.
 
 ## Match boards
@@ -414,7 +414,7 @@ Automated, on every PR:
 
 | Check | Catches |
 |---|---|
-| `tests/theme/test_style_guide.py` | Dialog cards off the three sizes; colour literals in `.style()` / slot `style=`; `text-h1`…`h5` titles; hex colours in CSS rules outside token definitions; `:root` aliases not restated for dark mode; text tokens under 4.5:1 on any surface in either mode; Cancel or Close after the primary button in a dialog footer; a dialog footer with more than two buttons or over 30 characters of labels; a Decline/Reject/Remove/Withdraw-style button right of an Approve/Confirm/Save-style one in the same group; a `.match-filters-card` with no Filters toggle; a Close in a dialog footer; a hand-built dialog without `mobile_sheet`; an inline `min-width`/`max-width` inside a dialog; a `more_horiz` overflow icon; a row's ⋮ not named "More for …"; a red menu item that isn't last in its menu; an awaited `delete_*`/`remove_*`/`cancel_*`/`clear_*`/… service call that no `ConfirmationDialog` stands in front of; the side menu off 224px |
+| `tests/theme/test_style_guide.py` | Dialog cards off the three sizes; colour literals in `.style()` / slot `style=`; `text-h1`…`h5` titles; hex colours in CSS rules outside token definitions; `:root` aliases not restated for dark mode; text tokens under 4.5:1 on any surface in either mode; Cancel or Close after the primary button in a dialog footer; a dialog footer with more than two buttons or over 30 characters of labels; a Decline/Reject/Remove/Withdraw-style button right of an Approve/Confirm/Save-style one in the same group; a `.match-filters-card` with no Filters toggle; a Close in a dialog footer; a hand-built dialog without `mobile_sheet`; an inline `min-width`/`max-width` inside a dialog; a `more_horiz` overflow icon; a row's ⋮ not named "More for …"; a red menu item that isn't last in its menu; an awaited `delete_*`/`remove_*`/`cancel_*`/`clear_*`/… service call that no `ConfirmationDialog` stands in front of; the side menu off its `DRAWER_WIDTH_*` sizes |
 | `tests/test_a11y_names.py` | Icon-only `<q-btn>` in a slot template with no name |
 | `check_table_grid`, `check_table_prefs` hooks | Tables with no phone card view or no `table_key` |
 | `scripts/ui_a11y_scan.js` (CI `browser-a11y` job) | On every page in `scripts/ui_a11y_ci.json`, in light and dark: axe's WCAG 2.1 A/AA rules, and rendered text under 4.5:1 |
