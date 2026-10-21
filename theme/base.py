@@ -18,7 +18,7 @@ from theme.links import set_link
 from theme.nav_badges import bottom_nav_tab
 from theme.notice import drain_notice
 from theme.page_header import heading_fallback
-from theme.url_state import History, url_state
+from theme.url_state import PUSH_ATTR, History, url_state
 from theme.usage_telemetry import install_usage_capture, record_tab_view
 from theme.waiting import waiting_panel
 
@@ -575,6 +575,12 @@ class BaseLayout:
         # client-side via the global emitEvent so e.args is the plain label string.
         ui.run_javascript(f"emitEvent('selected_tab', {json.dumps(label)})")
 
+    def mark_tab_push(self, element: ui.element, label: str) -> None:
+        """Let a click on ``element`` push ``label``'s address itself (``PUSH_ATTR``)."""
+        slug = self._slug_by_label.get(label)
+        if self._base_path is not None and slug:
+            element.props[PUSH_ATTR] = f'{self._base_path}/{slug}'
+
     def _sync_bottom_nav(self, label: str) -> None:
         """Highlight the active tab in the bottom nav.
 
@@ -639,7 +645,7 @@ class BaseLayout:
             # url-state: exempt — the hub tabs, which BaseLayout keeps in the address itself
             with ui.tabs(value=self._default_tab).props('dense no-caps').classes('wiz-bottom-nav') as self._bottom_tabs:
                 for tab in self.tabs:
-                    bottom_nav_tab(tab)
+                    self.mark_tab_push(bottom_nav_tab(tab), tab['label'])
             # Tapping a bottom tab drives the panel; the highlight/URL sync then
             # flows back through _handle_tab_change.
             self._bottom_tabs.on_value_change(self._on_bottom_tab)

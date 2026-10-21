@@ -104,6 +104,7 @@ def render_page_items(layout: 'BaseLayout', tabs: list[dict], section_url: str |
             if section_url is None:
                 drawer_tab_badge(tab)
         if section_url is None:
+            layout.mark_tab_push(tab_item, tab['label'])
             if tab['label'] == layout._default_tab:
                 tab_item.props(add='active')
             layout._tab_item_refs[tab['label']] = tab_item
