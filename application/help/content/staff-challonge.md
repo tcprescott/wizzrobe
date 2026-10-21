@@ -18,8 +18,7 @@ menu on Admin → Tournaments.
 
 Wizzrobe reads and writes brackets through one shared Challonge account. The
 Challonge card at the top of Settings → Integrations shows who it's signed in as
-and how many API requests it's used this month. The count turns red at 80% of the
-quota.
+and how many API requests it's used this month.
 
 If your brackets belong to a Challonge community (a page like
 `speedgaming.challonge.com`), type its subdomain in **Add a community** before you
@@ -35,6 +34,22 @@ If a stage change on Tournaments tells you to reconnect, press **Reconnect**.
 Older connections didn't get permission to change a tournament's stage.
 **Disconnect**, in the card's ⋮ menu, stops every linked tournament syncing until
 someone reconnects, so it asks first.
+
+## Syncing on a timer
+
+Challonge doesn't tell Wizzrobe when something changes, so a result someone
+enters on Challonge's own site only shows up after a sync. **Sync automatically**
+on the Challonge card re-reads every unfinished linked bracket on the interval you
+pick (every 15 minutes up to every 6 hours). It's off until you choose one.
+Each sync costs about 2 API requests per bracket, and the card shows roughly how
+many a day your setting uses. **Sync bracket** in a tournament's ⋮ still works
+any time.
+
+When a match someone booked in Wizzrobe turns out to have been reported on
+Challonge already, its row on Match Schedule says **Played on Challonge** and it
+shows up under **Needs you**. **Record result** copies Challonge's winner onto the
+match and confirms it, with no check-in or start DMs, and nothing goes back to
+Challonge. **Call off** cancels it instead. start.gg matches work the same way.
 
 ## Linking a bracket
 

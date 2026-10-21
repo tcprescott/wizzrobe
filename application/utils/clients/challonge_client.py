@@ -255,6 +255,14 @@ class ChallongeClient:
         )
         return [_normalize_match(r) for r in rows]
 
+    async def get_match(
+        self, tournament_id: str, match_id: str, community: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        data = await self._authed_request(
+            'GET', f'{_tournament_path(tournament_id, community)}/matches/{match_id}.json',
+        )
+        return _normalize_match(data.get('data') or {})
+
     async def get_tournament_full(
         self, tournament_id: str, community: Optional[str] = None,
     ) -> Dict[str, Any]:
@@ -504,6 +512,11 @@ class MockChallongeClient(ChallongeClient):
         self, tournament_id: str, community: Optional[str] = None,
     ) -> List[Dict[str, Any]]:
         return [dict(m) for m in _MOCK_MATCHES]
+
+    async def get_match(
+        self, tournament_id: str, match_id: str, community: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        return next((dict(m) for m in _MOCK_MATCHES if m['match_id'] == str(match_id)), dict(_MOCK_MATCHES[0]))
 
     async def get_tournament_full(
         self, tournament_id: str, community: Optional[str] = None,

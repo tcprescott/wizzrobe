@@ -13,7 +13,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from application.services.challonge_service import CHALLONGE_MONTHLY_QUOTA, ChallongeService
+from application.services.challonge_service import ChallongeService
 from application.utils.clients.challonge_client import ChallongeAPIError
 from models import (
     ChallongeConnection,
@@ -103,7 +103,7 @@ class TestConnectionStatus:
     async def test_disconnected_status(self, db):
         status = await make_service().get_connection_status()
         assert status['connected'] is False
-        assert status['request_quota'] == CHALLONGE_MONTHLY_QUOTA
+        assert 'request_quota' not in status
         assert status['request_usage'] == 0
         assert 'configured' in status
 
@@ -118,7 +118,7 @@ class TestConnectionStatus:
         assert status['challonge_username'] == 'sgl_bot'
         assert status['scopes'] == 'me'
         assert status['token_expires_at'] is not None
-        assert status['request_quota'] == CHALLONGE_MONTHLY_QUOTA
+        assert 'request_quota' not in status
 
 
 # ----------------------------------------------------------------------
@@ -279,6 +279,7 @@ class TestPushEdgeCases:
     async def test_push_if_linked_pushes_when_linked(self, db):
         actor, match, _ = await self._linked_setup()
         api = MagicMock()
+        api.get_match = AsyncMock(return_value={'match_id': '8001', 'state': 'open'})
         api.update_match = AsyncMock()
         api.get_tournament_full = AsyncMock(return_value={
             'tournament': {'id': 'T1', 'name': 'T', 'url': None, 'state': 'underway'},
@@ -320,6 +321,7 @@ class TestPushEdgeCases:
         """The push succeeds even if the follow-up re-sync raises."""
         actor, match, cmatch = await self._linked_setup()
         api = MagicMock()
+        api.get_match = AsyncMock(return_value={'match_id': '8001', 'state': 'open'})
         api.update_match = AsyncMock()
         api.get_tournament_full = AsyncMock(side_effect=ChallongeAPIError('resync boom'))
 

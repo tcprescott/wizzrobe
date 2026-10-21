@@ -22,14 +22,15 @@ from application.errors import require_found
 from application.feature_flags import requires_feature
 from application.repositories import ChallongeRepository, TournamentRepository, UserRepository
 from application.repositories._save import save_fields
+from application.services._challonge_auto_sync import ChallongeAutoSyncMixin
 from application.services._challonge_communities import ChallongeCommunitiesMixin, not_found_message
 from application.services._challonge_link import ChallongeLinkMixin
 from application.services._challonge_participants import ChallongeParticipantAssignmentMixin
+from application.services._challonge_results import ChallongeResultsMixin
 from application.services._challonge_signup import ChallongeSignupMixin, misc_user_id, refuse_empty_started_bracket
 from application.services._challonge_stages import ChallongeStageMixin
 from application.services.audit_service import AuditActions, AuditService
 from application.services.auth_service import AuthService
-from application.services.feature_flag_service import FeatureFlagService
 from application.services.match.match_service import MatchService
 from application.services.round_schedule_service import RoundScheduleService
 from application.utils.clients.challonge_client import (
@@ -59,9 +60,6 @@ _TOKEN_REFRESH_BUFFER = timedelta(minutes=5)
 # sync within this window of the last one is treated as a no-op.
 _SYNC_THROTTLE_WINDOW = timedelta(seconds=60)
 
-# The Challonge plan's monthly request quota, surfaced in the admin UI.
-CHALLONGE_MONTHLY_QUOTA = 500
-
 _DEFAULT_SERVICE_SCOPES = (
     'me tournaments:read tournaments:write matches:read matches:write '
     'participants:read participants:write communities:manage'
@@ -87,7 +85,8 @@ def _as_aware_utc(dt: Optional[datetime]) -> Optional[datetime]:
 
 
 class ChallongeService(ChallongeParticipantAssignmentMixin, ChallongeStageMixin, ChallongeSignupMixin,
-                       ChallongeCommunitiesMixin, ChallongeLinkMixin):
+                       ChallongeCommunitiesMixin, ChallongeLinkMixin, ChallongeResultsMixin,
+                       ChallongeAutoSyncMixin):
     """Business logic for the Challonge integration."""
 
     def __init__(self) -> None:
@@ -247,7 +246,6 @@ class ChallongeService(ChallongeParticipantAssignmentMixin, ChallongeStageMixin,
         base = {
             'configured': self.is_configured(),
             'request_usage': usage,
-            'request_quota': CHALLONGE_MONTHLY_QUOTA,
         }
         if connection is None:
             return {'connected': False, **base}
@@ -711,88 +709,3 @@ class ChallongeService(ChallongeParticipantAssignmentMixin, ChallongeStageMixin,
         )
         await self.repository.link_match(cmatch, match)
         return match
-
-    # ------------------------------------------------------------------
-    # Pushing results back to Challonge
-    # ------------------------------------------------------------------
-    # feature-gate: exempt — the soft integration point; see the docstring below.
-    async def push_result_if_linked(self, match: Match, actor: Optional[User]) -> bool:
-        """Push the result only when the match mirrors a Challonge match.
-
-        Returns True if a push was attempted. Used by the confirm flow so
-        non-Challonge matches are silently skipped. Requires an actor for the
-        audit entry; with none, the push is skipped.
-
-        Soft-gated: the match confirm/finish flow calls this for *every* match, so
-        a community without the Challonge feature must simply confirm its matches
-        — raising here would break match completion for everyone who does not use
-        Challonge. The flag is still enforced (no result leaves the tenant where
-        the feature is off) by answering "nothing pushed"; the administrative
-        entry points above raise instead.
-        """
-        if actor is None:
-            return False
-        if not await FeatureFlagService().is_enabled(FeatureFlag.CHALLONGE):
-            return False
-        cmatch = await self.repository.get_challonge_match_for_match(match)
-        if cmatch is None:
-            return False
-        await self.push_match_result(match, actor)
-        return True
-
-    @requires_feature(FeatureFlag.CHALLONGE)
-    async def push_match_result(self, match: Match, actor: User) -> None:
-        cmatch = await self.repository.get_challonge_match_for_match(match)
-        if cmatch is None:
-            raise ValueError("This match is not linked to a Challonge match.")
-
-        await match.fetch_related('players__user', 'tournament')
-        ranked = [p for p in match.players if p.finish_rank is not None]
-        winner = next((p for p in ranked if p.finish_rank == 1), None)
-        if winner is None:
-            raise ValueError("No winner has been recorded for this match yet.")
-        losers = [p for p in match.players if p.id != winner.id]
-        if not losers:
-            raise ValueError("Cannot push a result without an opponent.")
-        loser = losers[0]
-
-        winner_pid = self._participant_id_for_user(cmatch, winner.user_id)
-        loser_pid = self._participant_id_for_user(cmatch, loser.user_id)
-        if winner_pid is None or loser_pid is None:
-            raise ValueError("Could not map both players to Challonge participants; re-sync the bracket.")
-
-        if not cmatch.tournament.challonge_tournament_id:
-            raise ValueError("The tournament is no longer linked to Challonge.")
-
-        await self._api_client().update_match(
-            tournament_id=cmatch.tournament.challonge_tournament_id,
-            match_id=cmatch.challonge_match_id,
-            winner_participant_id=winner_pid,
-            loser_participant_id=loser_pid,
-            community=cmatch.tournament.challonge_community,
-        )
-        await self.audit_service.write_log(
-            actor, AuditActions.CHALLONGE_RESULT_PUSHED,
-            {'match_id': match.id, 'challonge_match_id': cmatch.challonge_match_id,
-             'winner_participant_id': winner_pid},
-        )
-
-        # The push advanced the bracket (next-round matches now open). Re-sync
-        # once so those newly-open matches surface locally without a manual
-        # Sync. Failures here must not undo the successful push.
-        try:
-            await self._sync_tournament(cmatch.tournament, actor, force=True)
-        except (ValueError, ChallongeAPIError):
-            # Logged rather than printed so a silently-stale bracket leaves a
-            # diagnostic trail in structured logs and Sentry.
-            logger.error(
-                "Challonge post-push re-sync failed for tournament %s",
-                cmatch.tournament_id, exc_info=True,
-            )
-
-    @staticmethod
-    def _participant_id_for_user(cmatch: ChallongeMatch, user_id: int) -> Optional[str]:
-        for participant in (cmatch.participant1, cmatch.participant2):
-            if participant is not None and participant.user_id == user_id:
-                return participant.challonge_participant_id
-        return None

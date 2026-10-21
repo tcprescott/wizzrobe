@@ -92,9 +92,11 @@ class MatchDisplayService:
         volunteers = await self.volunteer_repository.names_by_match([match.id])
         rolling = await self.provider_task_repository.active_for_match(match.id)
         failed = await self.provider_task_repository.latest_failure_for_match(match.id)
-        return self._format_match_for_display(
+        row = self._format_match_for_display(
             match, acks, volunteers.get(match.id, []), rolling, failed,
         )
+        await self._attach_site_results([row], [match])
+        return row
 
     async def get_matches_for_display(
         self,
@@ -147,13 +149,45 @@ class MatchDisplayService:
         rolling_map, failed_map = await self.provider_task_repository.board_state_for_matches(
             match_ids_loaded,
         )
-        return [
+        rows = [
             self._format_match_for_display(
                 m, ack_map.get(m.id, []), volunteer_map.get(m.id, []),
                 rolling_map.get(m.id), failed_map.get(m.id),
             )
             for m in matches
         ]
+        await self._attach_site_results(rows, matches)
+        return rows
+
+    @staticmethod
+    async def _attach_site_results(rows: List[Dict[str, Any]], matches: List[Match]) -> None:
+        """Mark unconfirmed rows whose bracket site already has the result (``played_on_site``).
+
+        Someone reported it on Challonge or start.gg directly, so the match on
+        the board would otherwise be run again or sit there forever.
+        """
+        from application.services import bracket_sources
+
+        # Only a tournament linked to a bracket site can have one, and the
+        # tournament is already loaded: a board with none costs no query.
+        linked = {
+            m.id for m in matches
+            if m.tournament and (m.tournament.challonge_tournament_id or m.tournament.startgg_event_slug)
+        }
+        open_ids = [
+            r['id'] for r in rows
+            if r['id'] in linked and (
+                r['state'] in ('Scheduled', 'Checked In', 'Started')
+                or (r['state'] == 'Finished' and not r.get('has_result'))
+            )
+        ]
+        results = await bracket_sources.results_on_site(open_ids) if open_ids else {}
+        for row in rows:
+            result = results.get(row['id'])
+            row['played_on_site'] = (
+                {'site': result.site, 'winner': result.winner_name, 'winner_user_id': result.winner_user_id}
+                if result else None
+            )
 
     async def get_room_seed_rows(self) -> List[Dict[str, Any]]:
         """Rolled-but-unplayed matches, for the tournament room's kiosk board.

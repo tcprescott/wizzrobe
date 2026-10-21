@@ -22,6 +22,7 @@ import logging
 import secrets
 from dataclasses import dataclass
 from typing import List, Optional
+from urllib.parse import urlencode
 
 from nicegui import Client, app, ui
 from starlette.requests import Request
@@ -103,9 +104,13 @@ def create() -> None:
 
     @ui.page('/challonge/connect')
     async def challonge_connect(request: Request) -> RedirectResponse:
-        # Custom domain: the shared callback is on the platform host, so bounce
-        # there rather than silently failing to complete the connection.
-        detour = await platform_link_redirect(_ADMIN_RETURN)
+        # Custom domain: the shared callback is on the platform host, so restart
+        # this route there. Bouncing to the settings page instead made staff
+        # press Reconnect a second time.
+        community = request.query_params.get('community')
+        detour = await platform_link_redirect(
+            f'/challonge/connect?{urlencode({"community": community})}' if community else '/challonge/connect'
+        )
         if detour:
             return RedirectResponse(detour)
         # Initiation runs with tenant context; the shared callback lands on the

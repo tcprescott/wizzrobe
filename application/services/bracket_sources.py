@@ -371,6 +371,53 @@ async def link_existing(source_key: str, key: int, match_id: int, actor: User) -
         raise ValueError(f'Unknown bracket source: {source_key}')
 
 
+@dataclass(frozen=True)
+class SiteResult:
+    """A booked match whose result was reported on its bracket site."""
+
+    site: str
+    winner_user_id: Optional[int]
+    winner_name: str
+
+
+async def results_on_site(match_ids: List[int]) -> Dict[int, SiteResult]:
+    """``match id -> SiteResult`` for booked matches their bracket site already settled."""
+    if not match_ids:
+        return {}
+    live = await FeatureFlagService().enabled_flags()
+    out: Dict[int, SiteResult] = {}
+    if FeatureFlag.CHALLONGE in live:
+        for match_id, (uid, name) in (await ChallongeService().results_on_site(match_ids)).items():
+            out[match_id] = SiteResult('Challonge', uid, name)
+    if FeatureFlag.STARTGG in live:
+        for match_id, (uid, name) in (await StartggService().results_on_site(match_ids)).items():
+            out[match_id] = SiteResult('start.gg', uid, name)
+    return out
+
+
+async def record_site_result(match_id: int, actor: User) -> SiteResult:
+    """Copy the bracket site's winner onto the Wizzrobe match and confirm it."""
+    from application.services.match.match_schedule_service import MatchScheduleService
+    from application.services.match.match_service import MatchService
+
+    result = (await results_on_site([match_id])).get(match_id)
+    if result is None:
+        raise ValueError("The bracket site doesn't have a result for this match yet. Sync it and try again.")
+    match = await MatchService().get_by_id(match_id)
+    if match is None:
+        raise ValueError('That match no longer exists.')
+    await match.fetch_related('players')
+    winner = next((p for p in match.players if result.winner_user_id and p.user_id == result.winner_user_id), None)  # type: ignore[attr-defined]
+    if winner is None:
+        raise ValueError(
+            f"{result.winner_name or 'The winner'} on {result.site} isn't one of this "
+            f"match's players. Record the result by hand."
+        )
+    await MatchService().record_match_result(match_id, winner.id, actor=actor)
+    await MatchScheduleService().close_played_elsewhere(match, actor, result.site)
+    return result
+
+
 async def sync_tournament(tournament: Tournament, actor: User) -> SyncResult:
     source = await source_for(tournament)
     if source is None:

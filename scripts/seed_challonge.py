@@ -88,8 +88,10 @@ async def seed_challonge_for_tenant(
     # Remembered communities for the Challonge card's chip row (Settings → Integrations): one in use by
     # nothing (removable) beside the tournament-derived ones.
     config = dict(tenant.config or {})
-    if not config.get("challonge_communities"):
-        config["challonge_communities"] = [f"{tenant.slug}-community"]
+    if not config.get("challonge_communities") or "challonge_auto_sync_minutes" not in config:
+        config.setdefault("challonge_communities", [f"{tenant.slug}-community"])
+        # Every hour: what SG Live runs, so Settings → Integrations shows the cost line.
+        config.setdefault("challonge_auto_sync_minutes", 60)
         tenant.config = config
         await tenant.save(update_fields=["config"])
 
@@ -148,6 +150,23 @@ async def seed_challonge_for_tenant(
         defaults={
             "round": 1, "state": ChallongeMatchState.OPEN,
             "participant1": participants["cp_1"], "participant2": participants["cp_5"],
+        },
+    )
+    # Booked in Wizzrobe, then reported on Challonge's own site before anyone
+    # ran it: the "Played on Challonge" row and its Needs you card.
+    played_elsewhere, created = await Match.get_or_create(
+        tournament=tournament, tenant=tenant, title="Played on Challonge",
+        defaults={"scheduled_at": now_utc + timedelta(hours=1)},
+    )
+    if created:
+        for uname in ("player_three", "player_four"):
+            await MatchPlayers.create(match=played_elsewhere, user=users[uname], tenant=tenant)
+    await ChallongeMatch.get_or_create(
+        tournament=tournament, challonge_match_id="cm_5", tenant=tenant,
+        defaults={
+            "round": 1, "state": ChallongeMatchState.COMPLETE, "group_stage": True,
+            "participant1": participants["cp_3"], "participant2": participants["cp_4"],
+            "winner_participant": participants["cp_4"], "match": played_elsewhere,
         },
     )
     # Round 2, waiting on round 1: PENDING is what most of a freshly mirrored
