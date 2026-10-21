@@ -122,7 +122,7 @@ class MatchPlayers(Model):
         # Postgres returns rows in heap order, and an UPDATE moves the row, so
         # without this a seat assignment or a running-late note swaps who is
         # listed first on every board, dialog and DM that reads match.players.
-        ordering = ['id']
+        ordering = ('id',)
         indexes = (('user',),)  # composite is match-first; user-only reverse lookup uncovered
 
 
