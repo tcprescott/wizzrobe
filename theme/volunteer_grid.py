@@ -330,7 +330,7 @@ def _render_shift(
         f'top: calc({_px(top)} + 3px); height: calc({_px(shift.end_hour - shift.start_hour)} - 6px); '
         f'left: calc(4px + (100% - 8px) * {shift.lane} / {shift.lanes}); '
         f'width: calc((100% - 8px) / {shift.lanes} - {4 if shift.lanes > 1 else 0}px);'
-    )
+    ).props(f'data-wiz-shift={shift.shift_id}')
     if staff and on_shift is not None:
         block.classes('wiz-vgrid__shift--button')
         block.props(

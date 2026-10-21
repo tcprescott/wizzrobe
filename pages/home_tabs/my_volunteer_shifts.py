@@ -28,6 +28,7 @@ from pages.volunteer_tabs.my_shifts import (
     shift_actions,
     shift_title,
 )
+from theme.anchors import copy_link_item, shift_anchor
 from theme.dialog._helpers import form_dialog
 from theme.menu import menu_action, more_menu
 from theme.notify import notify_error
@@ -164,7 +165,9 @@ async def my_volunteer_shifts_section(
         ended = shift.ends_at <= now
         kind, icon, text = finished_status(assignment) if ended else shift_status(assignment, now)
         _, can_release = shift_actions(assignment, now)
-        with ui.element('div').classes('wiz-shift-row' + (' wiz-shift-row--done' if ended else '')):
+        row = ui.element('div').classes('wiz-shift-row' + (' wiz-shift-row--done' if ended else ''))
+        row.props['data-wiz-shift'] = shift.id
+        with row:
             with ui.column().classes('wiz-shift-row__time gap-0'):
                 ui.label(format_local_time(shift.starts_at)).classes('text-weight-medium')
                 ui.label(f'to {format_local_time(shift.ends_at)}').classes('text-caption text-muted')
@@ -185,6 +188,7 @@ async def my_volunteer_shifts_section(
                     menu_action('info', 'Shift details', lambda a=assignment: open_shift_details(a))
                     if can_undo_check_in(assignment, user, now):
                         menu_action('undo', 'Undo check-in', lambda a=assignment: undo(a))
+                    copy_link_item(shift_anchor(shift.id))
                     if can_release:
                         ui.separator()
                         menu_action('event_busy', "Can't make it…",

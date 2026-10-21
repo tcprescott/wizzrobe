@@ -32,6 +32,7 @@ from theme.tables.admin_crud import refresh_button
 from theme.tables.export import csv_export_menu_item
 from theme.tables.preferences import TableKeys, preferences_button, search_input
 from theme.tables.user import UserTableView
+from theme.url_state import bind_url
 
 _TA_FILTER = '_tournament_admin'
 #: The Users-tab "Joined in the last N days" filter.
@@ -161,6 +162,8 @@ async def admin_users_page(
                 )
             with ui.tab_panel(ada_tab).style('padding-left: 0; padding-right: 0'):
                 opener['open'] = await render_accommodation_panel(on_change=recount)
+        bind_url('list', sub_tabs, default='members', choices=('members', 'ada'),
+                 label=lambda v: 'ADA requests' if v == 'ada' else None)
         await recount()
         if ada_request is not None:
             await open_ada(ada_request)

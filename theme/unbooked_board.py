@@ -23,6 +23,7 @@ from theme.empty_state import empty_state
 from theme.menu import menu_action, more_menu
 from theme.notify import notify_error
 from theme.tables.admin_crud import capture_render_context, current_actor, scoped_background
+from theme.url_state import url_param, url_state
 
 _STATUS = {'all': 'All', 'ready': 'Ready to book', 'blocked': 'Needs account'}
 
@@ -108,17 +109,29 @@ class UnbookedBoard:
         self.on_count(len(self._items))
         with ui.column().classes('unbooked-board full-width gap-2'):
             with ui.row().classes('unbooked-board__filters items-center no-wrap gap-2 full-width'):
-                ui.toggle(
+                asked = url_state().requested('unbooked')
+                if asked in _STATUS:
+                    self.status = asked
+                status = ui.toggle(
                     _STATUS, value=self.status, on_change=lambda e: self._set_status(e.value),
                 ).props('no-caps dense unelevated aria-label="Show"').classes('wiz-segmented')
+                self._status_param = url_param(
+                    'unbooked', status, default='all', value=self.status, history='replace',
+                    on_restore=lambda v: self._restore_status(status, v),
+                )
                 ui.input(placeholder='Search players', on_change=lambda e: self._set_search(e.value)) \
                     .props('outlined dense clearable aria-label="Search players"') \
                     .classes('unbooked-board__search col')
             self._rows()
 
+    @staticmethod
+    def _restore_status(status: ui.toggle, value: str) -> None:
+        status.set_value(value if value in _STATUS else 'all')
+
     def _set_status(self, value: str) -> None:
         self.status = value or 'all'
         self._rows.refresh()
+        self._status_param.set(self.status)
 
     def _set_search(self, value: Optional[str]) -> None:
         self.search = (value or '').strip().lower()

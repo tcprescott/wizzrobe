@@ -23,6 +23,7 @@ from theme.base import BaseLayout
 from theme.empty_state import empty_panel
 from theme.error_page import render_not_found
 from theme.page_header import page_header
+from theme.url_state import bind_url
 
 
 def _name(entrant, viewer_id: Optional[int]) -> str:
@@ -196,3 +197,5 @@ def create() -> None:
                             _render_pool_grid(p['pools'], p['bookable'], viewer_id)
                         else:
                             _render_rounds(p['pools'], p['bookable'], viewer_id)
+            names = {str(p['phase'].phase_id): p['phase'].name for p in phases}
+            bind_url('phase', tabs, default=default['phase'].phase_id, choices=names, label=names.get)

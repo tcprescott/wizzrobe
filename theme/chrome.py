@@ -229,6 +229,7 @@ def render_platform_chrome(
     ui.add_head_html(f'<script defer src="{asset_url("js/a11y.js")}"></script>')
     ui.add_head_html(f'<script defer src="{asset_url("js/busy.js")}"></script>')
     ui.add_head_html(f'<script defer src="{asset_url("js/dialog-keyboard.js")}"></script>')
+    ui.add_head_html(f'<script defer src="{asset_url("js/anchors.js")}"></script>')
     install_page_scripts()
     install_browser_monitoring()
     # The shipped phoenix defaults, not a tenant override: these surfaces belong

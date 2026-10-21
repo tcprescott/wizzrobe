@@ -23,6 +23,7 @@ from theme.tables.match_lifecycle import MatchLifecycleHandlers
 from theme.tables.match_run_sheet import RUN_SHEET_COLUMNS
 from theme.tables.preferences import TableKeys
 from theme.unbooked_board import UnbookedBoard
+from theme.url_state import url_param, url_state
 
 
 async def _render_inbox(inbox, anchor, request_id, open_decision, client, *, may_decide: bool) -> None:
@@ -192,21 +193,41 @@ async def admin_schedule_page(
                     _BRACKET_FLAGS & await FeatureFlagService().enabled_flags()
                 )
                 switch: Any = None
+                view_param: Any = None
+                opening_view = 'unbooked' if show_unbooked and url_state().requested('view') == 'unbooked' \
+                    else 'booked'
                 if show_unbooked:
-                    def _switch_views(view: str) -> None:
+                    def _show_view(view: str) -> None:
                         booked_box.set_visibility(view != 'unbooked')
                         unbooked_box.set_visibility(view == 'unbooked')
                         if view == 'unbooked':
                             unbooked.refresh()
 
+                    def _switch_views(view: str) -> None:
+                        _show_view(view)
+                        if view_param is not None:
+                            view_param.set(view)
+
+                    def _restore_view(view: str) -> None:
+                        view = 'unbooked' if view == 'unbooked' else 'booked'
+                        view_param.value = view
+                        switch.set_value(view)
+                        _show_view(view)
+
                     switch = ui.toggle(
-                        {'booked': 'Booked', 'unbooked': 'Not booked yet'}, value='booked',
+                        {'booked': 'Booked', 'unbooked': 'Not booked yet'}, value=opening_view,
                         on_change=lambda e: _switch_views(e.value),
                     ).props('no-caps dense unelevated aria-label="Show"') \
                         .classes('wiz-segmented schedule-view-switch')
+                    view_param = url_param(
+                        'view', switch, default='booked', value=opening_view,
+                        label=lambda v: 'Not booked yet' if v == 'unbooked' else None,
+                        on_restore=_restore_view,
+                    )
                 booked_box = ui.column().classes('full-width gap-0')
                 unbooked_box = ui.column().classes('full-width gap-0')
-                unbooked_box.set_visibility(False)
+                booked_box.set_visibility(opening_view != 'unbooked')
+                unbooked_box.set_visibility(opening_view == 'unbooked')
                 with booked_box:
                     table_view = MatchTableView(
                         columns=RUN_SHEET_COLUMNS,

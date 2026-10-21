@@ -117,6 +117,7 @@ title on 20 pages), and don't size a title or a section heading with `text-h1`�
 | A table | `enable_mobile_grid(table, columns, table_key=TableKeys.X, …)` | A bare `ui.table` (the `check_table_grid` and `check_table_prefs` hooks enforce this) |
 | Text input / select | `.props('outlined dense')` | `filled`, `standout` |
 | Two-to-four way toggle | `ui.toggle(...).props('no-caps dense unelevated').classes('wiz-segmented')` | A row of separate buttons, a bare `ui.toggle` |
+| A switch between views (tabs, segments, a day) | Tie it to the address: `bind_url(key, switch, …)` or `url_param(…)` ([url_state](reference/frontend.md#addresses-titles-and-back)), so Back, reload and links keep the view | A switcher the address bar doesn't follow (the `check_view_urls` hook enforces this) |
 | A Copy button | `copy_to_clipboard(value, label)` (`theme/clipboard.py`) | Inline `navigator.clipboard` JavaScript |
 | A credential shown once | `show_secret_dialog(title, secret, noun=…)` (`theme/dialog/secret_dialog.py`) | A hand-built reveal dialog |
 | Admin refresh | `refresh_button` (`theme/tables/admin_crud.py`) | |

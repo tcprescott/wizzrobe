@@ -44,6 +44,7 @@ from pages.admin_tabs.settings.watch_page import watch_page_settings_pane
 from theme.dialog._helpers import dialog_actions, form_dialog
 from theme.page_header import nested_page_headers, page_header
 from theme.save_footer import UnsavedChanges
+from theme.url_state import TAIL, url_param, url_state
 
 #: The admin drawer label, and so the ``selected_tab`` value this page hears.
 SETTINGS_TAB_LABEL = 'Settings'
@@ -208,6 +209,9 @@ async def admin_settings_page(
 ) -> None:
     if not panes:
         return
+    # The address, not ``pane``: that is the request's, stale once the viewer
+    # has switched tabs, and Back lands here with a different one.
+    pane = url_state().requested(TAIL)
     current = resolve_pane(panes, pane)
     if pane and current is None:
         # A DM button or bookmark can outlive the pane it named.
@@ -243,17 +247,22 @@ async def admin_settings_page(
                 with ui.element('section').classes('wiz-panel wiz-settings-embed'), nested_page_headers():
                     await page.render(**page.kwargs)
 
-    def sync_url() -> None:
-        tail = f'/{state["slug"]}' if state['slug'] else ''
-        ui.navigate.history.replace(f'{base_path}/settings{tail}')
-
     def reveal(slug: Optional[str]) -> None:
         state['slug'] = slug
         home.set_visibility(slug is None)
         for key, container in containers.items():
             container.set_visibility(key == slug)
-        sync_url()
+        pane_param.set(slug or '')
         ui.run_javascript('window.scrollTo(0, 0)')
+
+    async def restore_pane(slug: str) -> None:
+        # A pane left with unsaved edits keeps them: its container is only
+        # hidden, so Forward finds them where they were.
+        target = resolve_pane(panes, slug) if slug else None
+        if target is None:
+            reveal(None)
+        else:
+            await show(target)
 
     async def show(p: SettingsPane) -> None:
         reveal(p.slug)
@@ -292,7 +301,11 @@ async def admin_settings_page(
                 ui.button('Save', on_click=save_and_leave).props('unelevated no-caps color=primary')
         dialog.open()
 
-    with ui.column().classes('wiz-settings'):
+    labels = {p.slug: p.label for p in panes}
+    with ui.column().classes('wiz-settings') as root:
+        pane_param = url_param(
+            TAIL, root, default='', value=state['slug'] or '', label=labels.get, on_restore=restore_pane,
+        )
         home = ui.column().classes('wiz-settings__home wiz-section-stack')
         home.set_visibility(current is None)
         if has_home:
@@ -320,12 +333,10 @@ async def admin_settings_page(
         await build(current)
 
     def on_admin_tab(e) -> None:
-        # Coming back to Settings from another admin tab: the layout has just
-        # rewritten the URL to /admin/settings, and the open pane's embedded
-        # pages want the refresh their own tab used to get.
+        # Coming back to Settings from another admin tab: the open pane's
+        # embedded pages want the refresh their own tab used to get.
         if e.args != SETTINGS_TAB_LABEL:
             return
-        sync_url()
         if state['slug'] is None:
             return
         for label in next(p for p in panes if p.slug == state['slug']).refresh_labels:

@@ -38,6 +38,7 @@ from theme.empty_state import empty_panel
 from theme.section import section_panel
 from theme.steady import steady_refreshable
 from theme.timer_teardown import PageTimer
+from theme.url_state import iso_day, url_param, url_state
 from theme.volunteer_grid import (
     HOUR_PX,
     day_label,
@@ -180,7 +181,7 @@ async def my_timeline_view(
     if user is None:
         return
     service = MyTimelineService()
-    state: dict = {'day': None}
+    state: dict = {'day': iso_day(url_state().requested('day'))}
 
     panel = await section_panel(
         'Your timeline',
@@ -220,13 +221,23 @@ async def my_timeline_view(
         if day is None:
             return
         state['day'] = day
+        day_param.set(day.isoformat(), history='replace')
         render_day_bar(days, day, pick_day)
         _render_day(by_day.get(day, []), blocked_by_day.get(day, []), day, on_blocked)
 
-    def pick_day(d: date) -> None:
+    async def pick_day(d: date) -> None:
         state['day'] = d
-        view.refresh()
+        await view.refresh()
+        day_param.set(d.isoformat())
 
+    async def restore_day(value: str) -> None:
+        state['day'] = iso_day(value)
+        await view.refresh()
+
+    day_param = url_param(
+        'day', panel.panel, default='', value=state['day'].isoformat() if state['day'] else '',
+        label=lambda v: day_label(d) if (d := iso_day(v)) else None, on_restore=restore_day,
+    )
     with panel.body:
         await view()
     PageTimer(300, view.refresh)

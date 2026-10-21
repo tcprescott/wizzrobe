@@ -97,9 +97,11 @@ class QrLabelDialog:
                         template_select = ui.select(
                             TEMPLATE_CHOICES, value='plain', label='Template',
                         ).props('dense').classes('col')
+                        # url-state: exempt — a print setting inside a dialog
                         paper_toggle = ui.toggle({'letter': 'Letter', 'a4': 'A4'}, value='letter') \
                             .props('dense unelevated no-caps').classes('wiz-segmented')
                         paper_toggle.bind_visibility_from(template_select, 'value', lambda v: v == 'plain')
+                        # url-state: exempt — a print setting inside a dialog
                         cols_toggle = ui.toggle({2: '2', 3: '3', 4: '4'}, value=3) \
                             .props('dense unelevated').classes('wiz-segmented') \
                             .tooltip('Columns per row')

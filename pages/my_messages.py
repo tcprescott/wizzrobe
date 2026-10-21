@@ -187,6 +187,7 @@ class MessageSheet:
             options = {OFF.value: 'Off', SILENT.value: 'Silent'}
             if can_ping:
                 options[PING.value] = 'Ping'
+            # url-state: exempt — a notification setting, not a view
             toggle = ui.toggle(
                 options, value=row.effective.value,
                 on_change=lambda e: self._pick(NotificationMode(e.value)),

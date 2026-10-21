@@ -312,6 +312,17 @@ jobs:
         # moves. docs/style-guide.md#hold-still says how to fix a failure.
         run: node scripts/ui_layout_shift.js scripts/ui_layout_shift_ci.json
 
+      - name: Install WebKit
+        # Back/Forward and title handling differ most in Safari, so the history
+        # walk runs there as well as in Chromium. Pinned with boot-app's Chromium.
+        run: npx playwright install --with-deps webkit
+
+      - name: Back, Forward, reload and deep links (Chromium and WebKit)
+        # Every view switch must move the address bar and title with it
+        # (theme/url_state.py); this clicks, goes Back and Forward, reloads and
+        # cold-loads links, on desktop and phone.
+        run: node scripts/ui_history.js scripts/ui_history_ci.json
+
       - name: App log
         if: always()
         run: tail -200 /tmp/app.log
@@ -321,7 +332,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: ui-smoke-screenshots
-          path: /tmp/ui-smoke-ci/
+          path: |
+            /tmp/ui-smoke-ci/
+            /tmp/ui-history-ci/
           if-no-files-found: warn
 
   browser-a11y:

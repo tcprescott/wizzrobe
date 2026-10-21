@@ -11,6 +11,8 @@ from typing import Iterator, Optional
 
 from nicegui import ui
 
+from theme.anchors import anchor_id
+
 # Set while a page is rendered as one section of a bigger page (a Settings
 # pane holds Appearance and Timezone). The page still calls page_header() the
 # same way; it just comes out a level down, so the pane keeps a single title.
@@ -52,6 +54,8 @@ def page_header(title: str, subtitle: Optional[str] = None) -> ui.row:
             heading = ui.label(title).classes('section-title' if nested else 'page-title')
             # One h1 per page names it for screen-reader heading navigation.
             heading.tag = 'h2' if nested else 'h1'
+            if nested:
+                heading.props(f'id={anchor_id(title)}')
             if not nested:
                 _titled.set(True)
         if subtitle:

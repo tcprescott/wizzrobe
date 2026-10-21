@@ -69,6 +69,7 @@ from theme.tables.admin_crud import capture_render_context
 from theme.tables.export import csv_export_button
 from theme.tables.preferences import TableKeys, customize_table, search_input
 from theme.timer_teardown import PageTimer
+from theme.url_state import bind_url
 
 DESK_ROLES = [Role.STAFF, Role.CHECK_IN_DESK]
 
@@ -610,6 +611,7 @@ async def _render_desk(service: CheckInService, user, event: CheckInEvent) -> No
         paint()
 
     chips.on_value_change(on_filter)
+    bind_url('show', chips, default='all', choices=FILTERS, history='replace')
 
     def show_undo(entrant_id: int, name: str, lanyard: str, extra: str) -> None:
         undo_bar.clear()

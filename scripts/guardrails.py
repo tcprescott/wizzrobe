@@ -66,6 +66,7 @@ FILE_CHECKS = [
     "check_table_grid",
     "check_table_prefs",
     "check_tenant_scoping",
+    "check_view_urls",
     "check_worker_loops",
     "enforce_architecture",
     "enforce_async_safety",

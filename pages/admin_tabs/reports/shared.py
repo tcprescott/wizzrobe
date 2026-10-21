@@ -240,6 +240,7 @@ def report_jumps(
     current = next((text for text, s, e in options if (s, e) == (start_d, end_d)), None)
     with ui.row().classes('wiz-report-jumps items-center no-wrap'):
         ui.label('Jump to').classes('text-caption')
+        # url-state: exempt — reports carry their own filters in the URL (navigate_with_params)
         jumps = ui.toggle(list(by_label), value=current) \
             .props('no-caps dense unelevated aria-label="Jump to"').classes('wiz-segmented')
 

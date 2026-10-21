@@ -31,6 +31,8 @@ from theme.menu import menu_action, more_menu
 from theme.notify import notify_error
 from theme.page_header import page_header
 from theme.steady import steady_refreshable
+from theme.url_state import iso_day, url_param, url_state
+from theme.volunteer_grid import day_label
 
 # Standard four 4-hour shift blocks, in the community's own timezone (the
 # generator resolves them against it), matching the 2025 schedule.
@@ -76,7 +78,10 @@ async def admin_volunteers_page(day: str | None = None) -> None:
     # A deep link (``?day=``) is a deliberate destination, so it outranks the
     # remembered day — but only when it names a day this event actually has; an
     # out-of-window or malformed date falls through to the stored one rather
-    # than opening an empty grid for a day that isn't real.
+    # than opening an empty grid for a day that isn't real. Read from the
+    # address keeper rather than ``day``, which is the request's and so stale
+    # once the viewer has switched tabs.
+    day = url_state().requested('day')
     state = {
         'day': stored_or_default_day(
             day if day in day_options else tenant_session_get(_DAY_KEY),
@@ -140,10 +145,22 @@ async def admin_volunteers_page(day: str | None = None) -> None:
                 ).classes('col').style('max-width: 12rem; min-width: 0')
 
                 def on_day_change(e):
+                    if e.value == state['day']:
+                        return
                     state['day'] = e.value
                     tenant_session_set(_DAY_KEY, e.value)
                     refresh_all()
+                    day_param.set(e.value)
+
+                def restore_day(value: str) -> None:
+                    state['day'] = value if value in day_options else day_options[0] if day_options else state['day']
+                    day_select.set_value(state['day'])
+                    refresh_all()
                 day_select.on_value_change(on_day_change)
+                day_param = url_param(
+                    'day', day_select, default='', value=state['day'],
+                    label=lambda v: day_label(d) if (d := iso_day(v)) else None, on_restore=restore_day,
+                )
 
                 ui.space()
                 with ui.button('Actions').props('flat color=primary icon-right=expand_more'):

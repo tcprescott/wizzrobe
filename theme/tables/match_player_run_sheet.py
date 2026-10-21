@@ -290,13 +290,15 @@ _ASK = "props.row._can_reschedule && props.row.state === 'Scheduled'"
 _HAS_MENU = ("props.row._mine && ((" + _ASK + ") || props.row._reschedule_pending"
              " || props.row._hard_offered || (" + STREAM_VOLUNTEER_ACTIONABLE + "))")
 
-# The viewer's own match only. A state that can't be changed from here (a
-# request waiting on staff, settings staff fixed) is a disabled item rather than
-# a missing one, so the menu still says where things stand.
-_MENU = r'''<q-btn v-if="__HAS__" flat round dense icon="more_vert" color="grey-8"
+# Every row has one, for Copy link; the rest is the viewer's own match only. A
+# state that can't be changed from here (a request waiting on staff, settings
+# staff fixed) is a disabled item rather than a missing one, so the menu still
+# says where things stand.
+_MENU = r'''<q-btn flat round dense icon="more_vert" color="grey-8"
        :aria-label="'More for ' + (__TITLE__)" @click.stop>
     <q-menu auto-close anchor="bottom right" self="top right">
         <q-list style="min-width: 240px">
+            <template v-if="__HAS__">
             <q-item v-if="__ASK__" clickable @click.stop="$parent.$emit('request_reschedule', props.row)">
                 <q-item-section avatar><q-icon name="edit_calendar" /></q-item-section>
                 <q-item-section><q-item-label>Ask to change</q-item-label>
@@ -337,6 +339,12 @@ _MENU = r'''<q-btn v-if="__HAS__" flat round dense icon="more_vert" color="grey-
                     <q-item-label caption>{{ props.row._stream_volunteer ? 'You offered this match for stream'
                         : "Tell staff you're happy to be on stream" }}</q-item-label>
                 </q-item-section>
+            </q-item>
+            <q-separator />
+            </template>
+            <q-item clickable :data-wiz-copy-link="'match-' + props.row.id">
+                <q-item-section avatar><q-icon name="link" /></q-item-section>
+                <q-item-section><q-item-label>Copy link</q-item-label></q-item-section>
             </q-item>
         </q-list>
     </q-menu>

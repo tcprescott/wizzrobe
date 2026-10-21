@@ -3627,6 +3627,39 @@ body:has(.wiz-header) .q-notifications__list--top {
     animation: wizRowFlash 1.6s ease-out;
 }
 
+/* A #fragment link landed here (static/js/anchors.js): clear the sticky
+   header, then mark the target long enough for the eye to find it. */
+[id], [data-wiz-row], [data-wiz-shift] {
+    scroll-margin-top: 5rem;
+}
+.wiz-anchor-hit {
+    outline: 2px solid var(--q-primary);
+    outline-offset: 2px;
+    animation: wizRowFlash 2.4s ease-out;
+}
+
+/* The link icon after a section heading (theme/anchors.py copy_link_button).
+   With a mouse it waits until the heading is pointed at or the button has
+   focus, like a docs-site heading; a touch screen has no hover, so it stays,
+   in the muted colour. Tilted to match the ⋮ menus' Copy link. */
+.wiz-copy-link {
+    flex: none;
+    color: var(--fg-muted);
+}
+[data-wiz-copy-link] .q-icon {
+    transform: rotate(-45deg);
+}
+@media (hover: hover) and (pointer: fine) {
+    .wiz-copy-link {
+        opacity: 0;
+        transition: opacity 0.12s ease-out;
+    }
+    .wiz-panel__head:hover .wiz-copy-link,
+    .wiz-copy-link:focus-visible {
+        opacity: 1;
+    }
+}
+
 /* Hold still (docs/style-guide.md#hold-still): a row changed by someone else
    keeps its place until the viewer tidies the board. The tag is absolutely
    placed so adding or dropping it never changes the row's height. */
