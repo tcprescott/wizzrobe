@@ -13,6 +13,13 @@ request ends as a 500 and an unhandled error in Sentry (SGLMAN-1P).
 sent yet, so answering the 400 here leaves engine.io in the state its own
 "Invalid session" path would have.
 
+The same wrapper covers a second engine.io gap (SGLMAN-1T/1V): when the browser
+has already gone by the time engine.io reads the request, its ASGI
+``translate_request`` sees ``http.disconnect`` and returns an empty environ,
+and ``handle_request`` then fails on ``environ['REQUEST_METHOD']``. Nobody is
+left to read an answer, but one is still sent: an app that returns without a
+response makes Starlette's ``BaseHTTPMiddleware`` raise "No response returned".
+
 Pure stdlib and engine.io-agnostic (it wraps whatever server it is handed), so
 it can be tested without starting NiceGUI.
 """
@@ -23,12 +30,17 @@ import logging
 from typing import Any
 
 _DISCONNECTED = 'Session is disconnected'
+_NO_ENVIRON = 'REQUEST_METHOD'
 
 logger = logging.getLogger('wizzrobe.socketio')
 
 
 def _is_closed_session(exc: KeyError) -> bool:
     return exc.args == (_DISCONNECTED,)
+
+
+def _is_client_gone(exc: KeyError) -> bool:
+    return exc.args == (_NO_ENVIRON,)
 
 
 async def _bad_request(scope: dict, send: Any) -> None:
@@ -45,7 +57,7 @@ async def _bad_request(scope: dict, send: Any) -> None:
 
 
 def install(eio_server: Any) -> None:
-    """Wrap ``eio_server.handle_request`` so a closed session answers 400. Idempotent."""
+    """Wrap ``eio_server.handle_request`` so both gaps above answer 400. Idempotent."""
     original = eio_server.handle_request
     if getattr(original, '_wizzrobe_closed_session', False):
         return
@@ -55,9 +67,12 @@ def install(eio_server: Any) -> None:
         try:
             return await original(scope, receive, send)
         except KeyError as exc:
-            if not _is_closed_session(exc):
+            if _is_closed_session(exc):
+                logger.info('socket.io %s for a closed session; answered 400', scope.get('method') or scope.get('type'))
+            elif _is_client_gone(exc):
+                logger.info('socket.io %s from a browser that already left; answered 400', scope.get('method') or scope.get('type'))
+            else:
                 raise
-            logger.info('socket.io %s for a closed session; answered 400', scope.get('method') or scope.get('type'))
             await _bad_request(scope, send)
             return None
 

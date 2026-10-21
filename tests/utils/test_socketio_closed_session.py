@@ -92,3 +92,30 @@ def test_install_is_idempotent(server):
     first = server.handle_request
     socketio_closed_session.install(server)
     assert server.handle_request is first
+
+
+async def _receive_disconnect() -> dict:
+    return {'type': 'http.disconnect'}
+
+
+def _get_scope() -> dict:
+    return {**_post_scope('abc'), 'method': 'GET'}
+
+
+@pytest.mark.asyncio
+async def test_unpatched_engineio_fails_when_the_browser_already_left(server):
+    """Guards the premise for SGLMAN-1T/1V: a disconnect before the read leaves no environ."""
+    _, send = _collector()
+    with pytest.raises(KeyError, match='REQUEST_METHOD'):
+        await server.handle_request(_get_scope(), _receive_disconnect, send)
+
+
+@pytest.mark.asyncio
+async def test_browser_already_left_answers_400(server):
+    socketio_closed_session.install(server)
+    sent, send = _collector()
+
+    await server.handle_request(_get_scope(), _receive_disconnect, send)
+
+    assert sent[0]['type'] == 'http.response.start'
+    assert sent[0]['status'] == 400
