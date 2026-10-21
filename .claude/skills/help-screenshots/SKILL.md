@@ -13,7 +13,10 @@ description: >-
 
 A help screenshot is never taken by hand. Each one is an entry in a manifest
 that `scripts/help_screenshots.js` replays against the seeded dev app, so after
-any UI change one command makes every picture current again. Full reference:
+any UI change one command makes every picture current again. The only exception
+is a photo of the phone's own UI (a `"device"` manifest entry, see the
+reference), which has to come from a real phone with anything personal cropped
+out. Full reference:
 [docs/features/help.md#screenshots](../../../docs/features/help.md#screenshots).
 
 ## Where things go

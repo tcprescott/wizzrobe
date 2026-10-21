@@ -110,8 +110,10 @@ class TestScreenshotsAndManifestAgree:
     def test_every_manifest_entry_is_well_formed_and_unique(self):
         seen = set()
         for shot in _manifest():
-            for key in ('slug', 'name', 'path'):
+            for key in ('slug', 'name', 'device' if 'device' in shot else 'path'):
                 assert shot.get(key), f'manifest entry {shot} has no {key}'
+            if 'device' in shot:
+                assert 'path' not in shot, f'{shot}: a device shot is retaken by hand, so it has no path'
             assert IMAGE_SRC_RE.match(f"/static/help/{shot['slug']}/{shot['name']}.webp"), shot
             key = (shot['slug'], shot['name'])
             assert key not in seen, f'{key} is in the manifest twice'

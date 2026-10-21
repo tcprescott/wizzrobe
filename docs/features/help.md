@@ -253,6 +253,14 @@ only. When a shot needs a state the seed doesn't create, extend
 `scripts/seed_dev.py` (or its `seed_*.py` helpers) rather than clicking it into
 being, so the next regeneration finds it too.
 
+**Device shots** are the one exception: a picture of the phone's own UI (the
+iOS Share sheet and Add to Home Screen dialog in `notifications`) can't be
+rendered here, so it's a photo from a real phone, cropped and annotated by hand
+in the same style. Its manifest entry carries `"device": "<what it shows and how
+to retake it>"` instead of `path`, and the script skips it. Crop out anything
+personal (contacts in the Share sheet, the header avatar, the wallpaper and other
+apps on a home screen) before it's committed.
+
 `tests/test_help_images_and_staff.py` holds the tree, the manifest and the
 articles together: the manifest is one non-empty array per article, every image
 an article shows exists, every manifest entry is shown by some article, every

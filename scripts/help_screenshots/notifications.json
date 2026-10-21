@@ -22,5 +22,21 @@
     "hide": [
       ".q-footer"
     ]
+  },
+  {
+    "name": "ios-safari-menu-phone",
+    "device": "Safari ⋯ menu, Share marked. Photo from an iPhone in Safari, cropped and annotated by hand; retake on a real iPhone if iOS changes this screen"
+  },
+  {
+    "name": "ios-share-sheet-phone",
+    "device": "share sheet below the contacts row, Add to Home Screen marked. Photo from an iPhone in Safari, cropped and annotated by hand; retake on a real iPhone if iOS changes this screen"
+  },
+  {
+    "name": "ios-add-dialog-phone",
+    "device": "Add to Home Screen dialog, name/Open as Web App/Add marked. Photo from an iPhone in Safari, cropped and annotated by hand; retake on a real iPhone if iOS changes this screen"
+  },
+  {
+    "name": "ios-home-screen-icon",
+    "device": "Wizzrobe tile lifted onto a plain background. Photo from an iPhone in Safari, cropped and annotated by hand; retake on a real iPhone if iOS changes this screen"
   }
 ]
