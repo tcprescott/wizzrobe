@@ -47,6 +47,8 @@ class EventType:
     # Player comments and private staff notes never leave the app as text.
     MATCH_COMMENT_ADDED = 'match.comment_added'
     MATCH_COMMENT_DELETED = 'match.comment_deleted'
+    MATCH_PLAYER_RUNNING_LATE = 'match.player_running_late'
+    MATCH_PLAYER_LATE_CLEARED = 'match.player_late_cleared'
     # A player asking staff to move or call off their match. Worth publishing
     # separately from the match.rescheduled an approval also emits: a subscriber
     # wants to hear that someone *asked*, not only that the schedule moved.
@@ -242,6 +244,7 @@ class EventType:
         MATCH_FLAGGED_FOR_REVIEW, MATCH_REVIEW_CLEARED,
         MATCH_STREAM_VOLUNTEERED, MATCH_STREAM_VOLUNTEER_WITHDRAWN,
         MATCH_COMMENT_ADDED, MATCH_COMMENT_DELETED,
+        MATCH_PLAYER_RUNNING_LATE, MATCH_PLAYER_LATE_CLEARED,
         MATCH_HARD_PRESET_AGREED, MATCH_HARD_PRESET_AGREEMENT_REVOKED,
         MATCH_PRESET_OVERRIDE_SET, MATCH_PRESET_OVERRIDE_CLEARED,
         MATCH_RESCHEDULE_REQUESTED, MATCH_RESCHEDULE_AGREED,

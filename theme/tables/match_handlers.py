@@ -415,6 +415,66 @@ class MatchTableHandlersMixin:
 
         await RescheduleRequestDialog(match, user, on_submit=after).open()
 
+    def _set_my_late(self, match_id: int, tag: str) -> None:
+        idx = next((i for i, r in enumerate(self.table.rows) if r.get('id') == match_id), None)  # type: ignore[attr-defined]
+        if idx is None:
+            return
+        row = self.table.rows[idx]  # type: ignore[attr-defined]
+        row['_my_late'] = tag
+        row['_can_late'] = not tag
+        if tag:
+            row['_status'], row['_tone'] = f'Running {tag}', 'pending'
+        else:
+            from theme.tables.match_player_run_sheet import player_status
+            row['_status'], row['_tone'] = player_status(row)
+        self.table.update()  # type: ignore[attr-defined]
+
+    async def _handle_running_late(self, event):
+        """A player telling staff they're on their way: opens the minutes picker."""
+        row = event.args if isinstance(event.args, dict) else {}
+        match_id = row.get('id')
+        if match_id is None:
+            return
+        user = await get_user_from_session(app.storage.user)
+        if not user:
+            ui.notify('You must be logged in to tell staff you are late.', color='warning')
+            return
+        match = await self.service.get_by_id(match_id)
+        if match is None:
+            ui.notify('That match is no longer around.', color='warning')
+            return
+
+        from application.utils.discord_messages_volunteer import LATE_CHOICES
+        from theme.dialog.running_late_dialog import RunningLateDialog
+
+        async def sent(minutes: int) -> None:
+            tag = f'{minutes}+ min' if minutes >= LATE_CHOICES[-1] else f'~{minutes} min'
+            self._set_my_late(match_id, tag)
+
+        async def ask() -> None:
+            await self._handle_request_reschedule(event)
+
+        can_ask = bool(row.get('_can_reschedule'))
+        await RunningLateDialog(
+            match, user, on_sent=sent, on_ask_to_change=ask if can_ask else None,
+        ).open()
+
+    async def _handle_take_back_late(self, event):
+        row = event.args if isinstance(event.args, dict) else {}
+        match_id = row.get('id')
+        if match_id is None:
+            return
+        user = await get_user_from_session(app.storage.user)
+        if not user:
+            return
+        try:
+            await self.player_late_service.take_back_late(match_id, user)
+        except ValueError as e:
+            ui.notify(str(e), color='warning')
+            return
+        ui.notify("Done. Staff won't see you as running late.", color='positive')
+        self._set_my_late(match_id, '')
+
     async def _handle_open_hard_preset(self, event):
         """A player opening their private harder-settings choice.
 

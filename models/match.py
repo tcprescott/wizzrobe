@@ -107,6 +107,12 @@ class MatchPlayers(Model):
     # run through a race room. ``finish_rank`` remains the place (1 = winner).
     finish_time = fields.IntField(null=True)
     assigned_station = fields.CharField(max_length=50, null=True)
+    # The player's own "running late" heads-up: how far out they said they were,
+    # when they said it, and an optional note for staff. Cleared by the player's
+    # Undo; check-in makes it moot rather than clearing it, so the record stays.
+    late_minutes = fields.IntField(null=True)
+    late_at = fields.DatetimeField(null=True)
+    late_note = fields.CharField(max_length=280, null=True)
     created_at = fields.DatetimeField(auto_now_add=True)
     updated_at = fields.DatetimeField(auto_now=True)
 

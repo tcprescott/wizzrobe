@@ -164,7 +164,41 @@ def decorate_player_row(row: dict, discord_id) -> dict:
     row['_ack'] = needs_my_ack(row, discord_id)
     row['_mine'] = bool(discord_id) and any(
         str(p.get('discord_id')) == str(discord_id) for p in row.get('players') or [])
+    mark_my_late(row, discord_id)
     return row
+
+
+def keep_own_late_only(rows: list, discord_id) -> None:
+    """Drop every running-late entry but the viewer's own. Mutates ``rows``.
+
+    A heads-up is between a player and staff: the opponent's copy of the row,
+    and everyone's on Event > Schedule, must not carry it to the browser.
+    """
+    me = str(discord_id or '')
+    for row in rows:
+        ids = {p.get('user_id') for p in row.get('players') or []
+               if me and str(p.get('discord_id')) == me}
+        row['late'] = [entry for entry in row.get('late') or [] if entry.get('user_id') in ids]
+
+
+def mark_my_late(row: dict, discord_id) -> None:
+    """The viewer's own running-late state on their match. Mutates ``row``.
+
+    ``_my_late`` is the "~20 min" tag once they've said so, and the Status chip
+    says it in their words; ``_can_late`` offers the button, from half an hour
+    before the match until check-in (``late_window``, worked out server-side).
+    """
+    me = next((p for p in row.get('players') or []
+               if discord_id and str(p.get('discord_id')) == str(discord_id)), None)
+    mine = me and next(
+        (entry for entry in row.get('late') or [] if entry.get('user_id') == me.get('user_id')), None)
+    row['_my_late'] = mine['tag'] if mine else ''
+    row['_can_late'] = bool(
+        me and not mine and row.get('late_window') and row.get('state') == 'Scheduled'
+        and not row.get('is_racetime'))
+    if mine:
+        row['_status'] = f"Running {mine['tag']}"
+        row['_tone'] = 'pending'
 
 
 def arrange_player_run_sheet(rows: list, discord_id) -> list:
@@ -228,6 +262,20 @@ _ROLE_CARD = _ROLE.replace('__LABEL__', '{{ c.label }} ').replace(
 _ACK = r'''<q-btn v-if="props.row._ack" unelevated no-caps no-wrap color="primary" dense label="Acknowledge"
        @click.stop="$parent.$emit('acknowledge_match', props.row)">
     <q-tooltip>Confirm you've seen this match and will play it</q-tooltip>
+</q-btn>'''
+
+# The player's own heads-up, beside Acknowledge: the button while they can
+# still say it, then Undo once the chip says they did.
+# On the phone card the late chip sits with its Undo rather than in the top line,
+# where its length squeezed the names to a letter a line.
+_LATE_CHIP = r'''<div v-if="props.row._my_late" class="player-sheet__late"><span class="wiz-chip wiz-chip--pending">{{ props.row._status }}</span>
+<q-btn flat no-caps no-wrap color="primary" dense label="Undo"
+       aria-label="Take back running late" @click.stop="$parent.$emit('take_back_late', props.row)" /></div>'''
+_LATE_UNDO = r'''<q-btn v-if="props.row._my_late" flat no-caps no-wrap color="primary" dense label="Undo"
+       aria-label="Take back running late" @click.stop="$parent.$emit('take_back_late', props.row)" />'''
+_LATE = r'''<q-btn v-if="props.row._can_late" outline no-caps no-wrap color="primary" dense icon="schedule"
+       label="Running late" @click.stop="$parent.$emit('running_late', props.row)">
+    <q-tooltip>Tell staff on duty you're on your way</q-tooltip>
 </q-btn>'''
 
 _BELL = r'''<q-btn :icon="props.row._watching ? 'notifications' : 'notifications_none'"
@@ -321,7 +369,7 @@ _BODY_SLOT = r'''
         </template>
         <template v-else-if="col.name === 'status'">
             <div class="player-sheet__status">
-                <span class="wiz-chip" :class="'wiz-chip--' + props.row._tone">{{ props.row._status }}</span>''' + _ACK + '''
+                <span class="wiz-chip" :class="'wiz-chip--' + props.row._tone">{{ props.row._status }}</span>''' + _LATE_UNDO + _ACK + _LATE + '''
             </div>
         </template>
         <template v-else-if="col.name === 'watch'">''' + _BELL + '''</template>
@@ -344,10 +392,10 @@ _ITEM_SLOT = r'''
                     <span class="run-sheet__who">{{ ''' + _TITLE + ''' }}</span>
                     <span class="run-sheet__meta" :title="props.row.tournament">{{ props.row.tournament_short || props.row.tournament }}<template v-if="props.row._stage"> · {{ props.row._stage }}</template></span>
                 </span>
-                <span v-if="props.row._status !== 'Scheduled'" class="wiz-chip" :class="'wiz-chip--' + props.row._tone">{{ props.row._status }}</span>
+                <span v-if="props.row._status !== 'Scheduled' && !props.row._my_late" class="wiz-chip" :class="'wiz-chip--' + props.row._tone">{{ props.row._status }}</span>
             </button>''' + _BELL + '''__MENU__
         </div>
-        <div v-if="props.row._ack || props.row._roles.length" class="player-sheet__acts">''' + _ACK + '''
+        <div v-if="props.row._ack || props.row._can_late || props.row._my_late || props.row._roles.length" class="player-sheet__acts">''' + _LATE_CHIP + _ACK + _LATE + '''
             <div v-for="c in props.row._roles" :key="c.key" class="player-sheet__role">''' + _ROLE_CARD + '''</div>
         </div>
     </div>

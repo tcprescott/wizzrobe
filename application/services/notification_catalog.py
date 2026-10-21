@@ -199,6 +199,12 @@ PLAYER_COMMENT = _notice(
     {ON_DUTY: PING, ADMINS: PING, STAFF: PING},
     {ON_DUTY: _ON_SHIFT, ADMINS: _TOURNAMENT_ADMINS, STAFF: _FALLBACK},
 )
+PLAYER_LATE = _notice(
+    'player_late', 'Matches', 'Player running late',
+    'A player taps Running late on their match',
+    {ON_DUTY: PING, ADMINS: PING, STAFF: PING},
+    {ON_DUTY: _ON_SHIFT, ADMINS: _TOURNAMENT_ADMINS, STAFF: _FALLBACK},
+)
 OPPONENT_ACKNOWLEDGED = _notice(
     'opponent_acknowledged', 'Matches', 'Opponent acknowledged',
     'Another player in your match acknowledges its time', {PLAYERS: PING}, {PLAYERS: _OPTED_IN},
@@ -480,7 +486,7 @@ SECTIONS: Dict[str, Tuple[Tuple[str, Tuple[Notice, ...]], ...]] = {
         )),
         ('Results', (MATCH_CONFIRMED, MATCH_RESULT)),
         ('Comments and staff alerts', (
-            STAFF_COMMENT, PLAYER_COMMENT, MATCH_FLAGGED, STREAM_OFFER, SEED_FAILED,
+            STAFF_COMMENT, PLAYER_COMMENT, PLAYER_LATE, MATCH_FLAGGED, STREAM_OFFER, SEED_FAILED,
         )),
         ('Seed settings', (
             HARDER_SETTINGS_OFFER, HARDER_SETTINGS_AGREED, HARDER_SETTINGS_DROPPED,
@@ -600,6 +606,7 @@ _ACT: Dict[str, frozenset] = {
     MATCH_SCHEDULED.key: frozenset({PLAYERS, CREW}),
     STAFF_COMMENT.key: frozenset({PLAYERS}),
     PLAYER_COMMENT.key: _STAFF_ALERTS,
+    PLAYER_LATE.key: _STAFF_ALERTS,
     HARDER_SETTINGS_OFFER.key: frozenset({PLAYERS}),
     SETTINGS_RELEASED.key: frozenset({PLAYERS}),
     MATCHUP_READY.key: frozenset({PLAYERS}),

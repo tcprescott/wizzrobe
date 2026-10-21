@@ -93,6 +93,7 @@ from .match import (
     MatchStreamVolunteerService,
     MatchSuggestionService,
     MatchWatcherService,
+    PlayerLateService,
     assert_sg_fields_unchanged,
 )
 from .match_reschedule_service import MatchRescheduleService
@@ -234,6 +235,7 @@ __all__ = [
     'PayoutService',
     'PlatformAdminService',
     'PlayerAvailabilityService',
+    'PlayerLateService',
     'PresetService',
     'ProbeResult',
     'ProfileNudgeService',

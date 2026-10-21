@@ -35,8 +35,10 @@ Results come next, disputed ones first.
 | {chip:cancelled:No winner} | The match is {state:Finished} with no winner on it | **Record winner**, then confirm |
 | none | A winner is recorded and nobody has disputed it | Check the line ("Player One beat Player Two") and press **Confirm**, or **Change** to fix the winner |
 
-Running late lists matches past their start time that nobody has checked in.
-**Check in** does it from there.
+Running late lists matches past their start time that nobody has checked in,
+and any match whose player has told staff they're on their way, even before its
+start time. That player's line says how late they said they'd be, when they said
+it, and their note if they left one. **Check in** does it from there.
 
 **Open** on a result or a late match opens the match.
 :::

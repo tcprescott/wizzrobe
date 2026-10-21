@@ -205,6 +205,7 @@ VIEW_VOLUNTEER_ARRIVAL = 'volunteer_arrival'
 VIEW_UNWATCH = 'match_watch'
 VIEW_RESCHEDULE_AGREE = 'reschedule_agree'
 VIEW_HARD_PRESET = 'match_hard'
+VIEW_PLAYER_LATE = 'match_late'
 
 InteractionHandler = Callable[[discord.Interaction], Awaitable[None]]
 ViewFactory = Callable[..., discord.ui.View]
@@ -582,6 +583,10 @@ class DiscordService(GuildOpsMixin, ScheduledEventsMixin):
         """Send the shift-start DM: I'm here / Running late / I can't make it."""
         return await self.send_dm(user_id, message, lambda: _view_factories[VIEW_VOLUNTEER_ARRIVAL](assignment_id), embed=embed, link=link, notice=notice)
 
+    async def send_dm_with_player_late_button(self, user_id: int, message: str, match_id: int, embed: Optional[discord.Embed] = None, link: Optional[DMLink] = None, notice: Optional[NoticeTarget] = None) -> Tuple[bool, str]:
+        """Send a match player's DM with a Running late button."""
+        return await self.send_dm(user_id, message, lambda: _view_factories[VIEW_PLAYER_LATE](match_id), embed=embed, link=link, notice=notice)
+
     async def send_dm_with_unwatch_button(self, user_id: int, message: str, match_id: int, embed: Optional[discord.Embed] = None, link: Optional[DMLink] = None, notice: Optional[NoticeTarget] = None) -> Tuple[bool, str]:
         """Send a DM with an Unwatch button for match watchers."""
         return await self.send_dm(user_id, message, lambda: _view_factories[VIEW_UNWATCH](match_id), embed=embed, link=link, notice=notice)
@@ -694,6 +699,9 @@ class MockDiscordService(MockGuildOpsMixin, MockScheduledEventsMixin):
         return await self.send_dm(user_id, message, embed=embed, link=link, notice=notice)
 
     async def send_dm_with_volunteer_arrival_buttons(self, user_id: int, message: str, assignment_id: int, embed: Optional["discord.Embed"] = None, link: Optional[DMLink] = None, notice: Optional[NoticeTarget] = None) -> Tuple[bool, str]:
+        return await self.send_dm(user_id, message, embed=embed, link=link, notice=notice)
+
+    async def send_dm_with_player_late_button(self, user_id: int, message: str, match_id: int, embed: Optional["discord.Embed"] = None, link: Optional[DMLink] = None, notice: Optional[NoticeTarget] = None) -> Tuple[bool, str]:
         return await self.send_dm(user_id, message, embed=embed, link=link, notice=notice)
 
     async def send_dm_with_unwatch_button(self, user_id: int, message: str, match_id: int, embed: Optional["discord.Embed"] = None, link: Optional[DMLink] = None, notice: Optional[NoticeTarget] = None) -> Tuple[bool, str]:

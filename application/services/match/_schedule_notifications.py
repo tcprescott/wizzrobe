@@ -260,11 +260,12 @@ class MatchNotificationMixin:
                 AUDIENCE_WATCHER: '⏰ A match you watch is coming up on stage',
             },
             descriptions={
-                AUDIENCE_PLAYER: 'Head to the stage now.',
+                AUDIENCE_PLAYER: "Head to the stage now. Running late? Tap **Running late** so staff know.",
                 AUDIENCE_CREW: 'Head to the stage now.',
                 AUDIENCE_WATCHER: 'It starts soon.',
             },
             log_label='notify_stage_reminder',
+            late_button=True,
         )
 
     @staticmethod
@@ -293,6 +294,7 @@ class MatchNotificationMixin:
         titles: dict[str, str],
         descriptions: dict[str, str],
         log_label: str,
+        late_button: bool = False,
     ) -> None:
         """Shared body of the three stage DMs: one audience, per-audience copy.
 
@@ -321,6 +323,7 @@ class MatchNotificationMixin:
                     build(player_names, when, audience, recipient.crew_roles),
                     embed=embed, link=links.get(audience), log_label=log_label,
                     notice=_target(notice, recipient),
+                    late_button=late_button and audience == AUDIENCE_PLAYER,
                 )
         except Exception:
             logger.exception("%s unexpected error for match %s", log_label, match.id)
@@ -401,10 +404,18 @@ class MatchNotificationMixin:
         link: Optional[DMLink],
         log_label: str,
         notice: NoticeTarget,
+        late_button: bool = False,
     ) -> None:
-        """One DM of a per-audience fan-out; a failure is logged, not raised."""
+        """One DM of a per-audience fan-out; a failure is logged, not raised.
+
+        ``late_button`` puts Running late on a player's copy (the stage reminder).
+        """
         try:
-            if recipient.is_watcher:
+            if late_button:
+                success, err = await self.discord_service.send_dm_with_player_late_button(
+                    discord_id, message, match.id, embed=embed, link=link, notice=notice,
+                )
+            elif recipient.is_watcher:
                 success, err = await self.discord_service.send_dm_with_unwatch_button(
                     discord_id, message, match.id, embed=embed, link=link, notice=notice,
                 )

@@ -116,7 +116,8 @@ class MatchInbox:
         played = [r for r in rows if r.get('played_on_site') and self.access.can_confirm_row(r)]
         late = [
             r for r in rows
-            if self.access.can_run_row(r) and r.get('state') == 'Scheduled' and r.get('is_overdue')
+            if self.access.can_run_row(r) and r.get('state') == 'Scheduled'
+            and (r.get('is_overdue') or r.get('_late'))
             and r.get('players') and not r.get('is_racetime') and not r.get('played_on_site')
         ]
         total = len(requests) + len(played) + len(finished) + len(late)
@@ -301,8 +302,16 @@ class MatchInbox:
     def _late_item(self, row: dict) -> None:
         match_id = row['id']
         ui.label(row.get('_who') or row.get('title') or 'Match').classes('match-inbox__title')
-        ui.label(f"{row.get('tournament') or ''} · was {(row.get('scheduled_at') or '')[-5:]}") \
+        when = (row.get('scheduled_at') or '')[-5:]
+        ui.label(f"{row.get('tournament') or ''} · {'was' if row.get('is_overdue') else 'at'} {when}") \
             .classes('match-inbox__meta')
+        for late in row.get('_late') or []:
+            with ui.column().classes('match-inbox__late gap-0'):
+                with ui.row().classes('items-center no-wrap gap-1 st-pending'):
+                    ui.icon('schedule', size='16px').props('aria-hidden=true')
+                    ui.label(late['label'])
+                if late.get('note'):
+                    ui.label(f"“{late['note']}”").classes('match-inbox__meta')
         with ui.row().classes('gap-2 items-center'):
             ui.button('Open', on_click=lambda: self.open_match(match_id)).props('flat no-caps color=primary')
             ui.button('Check in', on_click=lambda: self.handlers.on_seat(match_id)).props('color=primary')

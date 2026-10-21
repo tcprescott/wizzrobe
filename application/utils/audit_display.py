@@ -94,6 +94,8 @@ ACTION_LABELS: dict[str, str] = {
     'match.stream_volunteer_withdrawn': 'Withdrew a match from stream',
     'match.comment_added': 'Commented on a match',
     'match.comment_deleted': 'Deleted a match comment',
+    'match.player_running_late': 'Said they are running late for a match',
+    'match.player_late_cleared': 'Took back running late for a match',
     'match.hard_preset_opted_in': 'Opted in to the hard preset',
     'match.hard_preset_withdrawn': 'Withdrew from the hard preset',
     'match.hard_preset_agreed': 'Agreed to the hard preset',
