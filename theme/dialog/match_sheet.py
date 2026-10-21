@@ -22,7 +22,7 @@ from application.errors import NotFoundError
 from application.services import MatchCommentService, get_user_from_session
 from theme.busy import busy
 from theme.clipboard import copy_to_clipboard
-from theme.dialog._helpers import dialog_actions, dialog_header, dialog_more_menu
+from theme.dialog._helpers import dialog_actions, dialog_header
 from theme.dialog.confirmation_dialog import ConfirmationDialog
 from theme.help.render import render_user_blocks
 from theme.markdown_editor import MarkdownEditor
@@ -685,18 +685,8 @@ class MatchSheet:
         await self._reload_comments()
 
     def _footer(self, row: dict) -> None:
-        can_edit = self.access.can_edit_row(row)
-        can_forfeit = (
-            self.access.can_confirm_row(row) and row.get('state') != 'Confirmed'
-            and len(row.get('players') or []) == 2 and hasattr(self.handlers, 'on_forfeit')
-        )
-        if not (can_edit or can_forfeit):
+        if not self.access.can_edit_row(row):
             return
-        with dialog_actions():
-            if can_forfeit:
-                with dialog_more_menu():
-                    menu_action('flag', 'Forfeit…', lambda: self._run(self.handlers.on_forfeit, row['id']))
-            ui.space()
-            if can_edit:
-                ui.button('Edit match', icon='edit', on_click=lambda: self._run(self.handlers.on_edit, row['id'])) \
-                    .props('flat color=primary')
+        with dialog_actions().classes('justify-end'):
+            ui.button('Edit match', icon='edit', on_click=lambda: self._run(self.handlers.on_edit, row['id'])) \
+                .props('flat color=primary')

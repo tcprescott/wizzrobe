@@ -131,7 +131,7 @@ MATCH_CONFIRMED = _notice(
 )
 MATCH_FORFEITED = _notice(
     'match_forfeited', 'Matches', 'Match forfeited',
-    'Staff decide a match by forfeit: a no-show, a withdrawal or a DQ',
+    'Staff drop a player and their opponent wins the match by forfeit',
     {PLAYERS: PING, CREW: PING, WATCHERS: SILENT},
 )
 MATCH_RESULT = _notice(

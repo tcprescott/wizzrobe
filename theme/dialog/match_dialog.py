@@ -66,8 +66,6 @@ def _no_requestable_message(*, enrolled: bool, enrolled_running: bool) -> str:
 class AdminMatchDialog(BaseMatchDialog):
     """Admin view for creating/editing matches with full control."""
 
-    offers_forfeit = True
-
     def __init__(self, match=None, on_submit=None):
         super().__init__(match, on_submit)
 
@@ -179,7 +177,6 @@ class AdminMatchDialog(BaseMatchDialog):
         if self.match:
             players = await self.match_service.get_match_players(self.match)
             player_ids = [p.user_id for p in players]
-            self.player_count = len(players)
             commentator_ids = [c.user_id for c in await self.match.commentators]
             tracker_ids = [t.user_id for t in await self.match.trackers]
         else:

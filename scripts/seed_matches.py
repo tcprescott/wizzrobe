@@ -124,7 +124,7 @@ async def seed_matches_for_tenant(
         comment="Result under review — desync reported by both players.",
     )
     # Decided by forfeit: confirmed with the winner ranked and the no-show left
-    # without a rank, which is how ``MatchService.forfeit_match`` stores it.
+    # without a rank, which is how dropping a player stores it.
     for title, offset, reason, note, winner, out in (
         ("Forfeited Match", -6, ForfeitReason.NO_SHOW, "Called twice, no answer.", players[3], players[0]),
         ("Withdrawn Match", -7, ForfeitReason.WITHDREW, None, players[1], players[3]),

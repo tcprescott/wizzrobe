@@ -307,29 +307,6 @@ async def record_match_result(
     return await _match_response(match_id)
 
 
-async def forfeit_match(
-    match_id: int,
-    forfeiting_player_id: int,
-    reason: Literal['no_show', 'withdrew', 'disqualified'],
-    note: str = '',
-    tenant: TenantArg = None,
-) -> MatchResponse:
-    """Decide a two-player match by forfeit and confirm it in one step. Staff or the tournament's admin.
-
-    `forfeiting_player_id` is the participation row id of the player who is
-    out — `get_match`'s `players[].id`, not a user id. The other player wins,
-    the bracket moves on, and each player gets one DM. `note` (up to 280
-    characters) is for staff.
-    """
-    from models import ForfeitReason
-
-    actor = current_actor().user
-    await MatchService().forfeit_match(
-        match_id, forfeiting_player_id, ForfeitReason(reason), actor, note=note,
-    )
-    return await _match_response(match_id)
-
-
 async def set_match_review(
     match_id: int,
     needs_review: bool,
@@ -520,7 +497,6 @@ def register_tools(mcp: MCPServer) -> None:
     write_tool(finish_match, 'Finish match')
     write_tool(confirm_match, 'Confirm match')
     write_tool(record_match_result, 'Record result')
-    write_tool(forfeit_match, 'Forfeit match')
     write_tool(set_match_review, 'Flag or clear review')
     write_tool(generate_match_seed, 'Generate seed')
     write_tool(set_crew_approval, 'Approve or reject crew')

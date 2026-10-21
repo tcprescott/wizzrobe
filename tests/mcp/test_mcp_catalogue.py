@@ -167,7 +167,6 @@ WRITE_TOOLS = {
     'link_challonge_tournament',
     'offer_match_for_stream',
     'record_match_result',
-    'forfeit_match',
     'remove_community_member',
     'remove_crew_coordinator',
     'remove_tournament_admin',

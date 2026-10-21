@@ -52,19 +52,19 @@ class DropPlayerDialog:
             dialog_header(f'Drop {name}', dialog)
             with ui.column().classes('q-pa-md gap-3 full-width'):
                 ui.label(f'From {self.tournament.name}').classes('text-caption text-muted')
-                ui.label('Why').classes('forfeit-dialog__label')
+                ui.label('Why').classes('drop-dialog__label')
                 # url-state: exempt — a form choice inside a dialog
                 reason = ui.toggle(
                     {r: r.label for r in ForfeitReason}, value=ForfeitReason.WITHDREW,
                 ).props('no-caps unelevated spread toggle-color=primary aria-label="Why"') \
-                    .classes('wiz-segmented forfeit-dialog__why')
+                    .classes('wiz-segmented')
 
                 outcome = None
                 if matches:
                     count = len(matches)
                     ui.label(
                         f"Their {count} open {'match' if count == 1 else 'matches'}"
-                    ).classes('forfeit-dialog__label')
+                    ).classes('drop-dialog__label')
                     tally: dict[str, int] = {}
                     for m in matches:
                         who = _opponent(m, self.target)

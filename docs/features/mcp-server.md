@@ -455,7 +455,7 @@ replaces the whole asset.
 |---|---|
 | Scheduling | `create_match`, `submit_match_request`, `update_match`, `delete_match` |
 | Stream and stations | `set_match_stream_candidate`, `assign_match_stage`, `assign_match_stations` |
-| Lifecycle | `seat_match`, `start_match`, `finish_match`, `confirm_match`, `record_match_result`, `forfeit_match`, `set_match_review`, `generate_match_seed` |
+| Lifecycle | `seat_match`, `start_match`, `finish_match`, `confirm_match`, `record_match_result`, `set_match_review`, `generate_match_seed` |
 | Crew approval | `set_crew_approval` (staff, tournament admins, crew coordinators) |
 | Your own participation | `signup_as_crew`, `withdraw_crew_signup`, `acknowledge_match`, `watch_match`, `unwatch_match`, `offer_match_for_stream`, `withdraw_stream_offer`, `sign_up_for_tournament`, `withdraw_from_tournament` |
 | Check-in desk (`EVENT_CHECK_IN`) | `check_in_attendee`, `undo_attendee_check_in`, `link_attendee`, `unlink_attendee`, `add_walk_up`, `sync_check_in_event` |
