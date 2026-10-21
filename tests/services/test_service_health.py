@@ -251,3 +251,23 @@ async def test_tenant_subset_refuses_a_non_staff_member(db):
     with tenant_scope(tenant.id):
         with pytest.raises(PermissionError):
             await ServiceHealthService().tenant_subset(tenant.id, actor=member)
+
+
+class TestWorkerStartupGrace:
+    async def test_tick_inside_the_startup_window_does_not_probe(self, monkeypatch):
+        from application.services import service_health_worker as worker
+
+        calls = []
+
+        async def refresh(self, **kwargs):
+            calls.append(1)
+            return []
+
+        monkeypatch.setattr(ServiceHealthService, 'refresh', refresh)
+        monkeypatch.setattr(worker, '_started_at', worker.time.monotonic())
+        await worker._tick()
+        assert calls == []
+
+        monkeypatch.setattr(worker, '_started_at', worker.time.monotonic() - worker.STARTUP_GRACE_SECONDS - 1)
+        await worker._tick()
+        assert calls == [1]
