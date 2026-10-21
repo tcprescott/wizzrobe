@@ -270,9 +270,9 @@ _ACK = r'''<q-btn v-if="props.row._ack" unelevated no-caps no-wrap color="primar
 # where its length squeezed the names to a letter a line.
 _LATE_CHIP = r'''<div v-if="props.row._my_late" class="player-sheet__late"><span class="wiz-chip wiz-chip--pending">{{ props.row._status }}</span>
 <q-btn flat no-caps no-wrap color="primary" dense label="Undo"
-       aria-label="Take back running late" @click.stop="$parent.$emit('take_back_late', props.row)" /></div>'''
+       aria-label="Undo running late" @click.stop="$parent.$emit('take_back_late', props.row)" /></div>'''
 _LATE_UNDO = r'''<q-btn v-if="props.row._my_late" flat no-caps no-wrap color="primary" dense label="Undo"
-       aria-label="Take back running late" @click.stop="$parent.$emit('take_back_late', props.row)" />'''
+       aria-label="Undo running late" @click.stop="$parent.$emit('take_back_late', props.row)" />'''
 _LATE = r'''<q-btn v-if="props.row._can_late" outline no-caps no-wrap color="primary" dense icon="schedule"
        label="Running late" @click.stop="$parent.$emit('running_late', props.row)">
     <q-tooltip>Tell staff on duty you're on your way</q-tooltip>

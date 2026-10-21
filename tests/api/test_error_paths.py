@@ -450,7 +450,7 @@ class TestGenerateSeed:
             assert resp.status_code == 200
             body = resp.json()
             assert body['seed_url'] == 'https://example.com/generated-seed'
-            assert 'Seed generated' in body['message']
+            assert 'Seed rolled' in body['message']
 
 
 class TestCrewSignup:
