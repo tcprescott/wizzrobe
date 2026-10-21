@@ -102,7 +102,9 @@ class TableKeys:
     ADMIN_VOLUNTEER_ROLE_MAPPINGS = 'admin.volunteer_role_mappings'
     ADMIN_EQUIPMENT = 'admin.equipment'
     ADMIN_ACCOMMODATIONS = 'admin.accommodations'
-    ADMIN_FEEDBACK = 'admin.feedback'
+    # _v2 since the board became Submitted, From, Message, Status: a v1 layout
+    # would have kept the old User, Category and Page columns.
+    ADMIN_FEEDBACK = 'admin.feedback_v2'
     ADMIN_COMMUNITY_EVENTS = 'admin.community_events'
     ADMIN_PAYOUTS = 'admin.payouts'
     ADMIN_QUALIFIERS = 'admin.qualifiers'

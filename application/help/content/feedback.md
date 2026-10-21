@@ -48,11 +48,16 @@ ask in the community's usual channel too, or catch staff in person.
 
 This part is for staff.
 
-Admin → Feedback lists everything members have sent, newest first, with who sent
-it, the category, the message and the page they were on. Each one starts as
-*New*. **Mark reviewed** moves it to *Reviewed*, and the sender's Profile card
+Admin → Feedback opens on the *New* queue, newest first: who sent each one,
+the category, the message and the page they were on (tap it to open that page).
+**Reviewed** and **All** show the rest, and the category picker and search box
+narrow it further.
+
+:::snippet feedback-review
+**Mark reviewed** moves one to *Reviewed*, and the sender's Profile card
 switches to *Read by staff* at the same time. That's the only signal they get,
 so mark it once you've actually dealt with it.
 
 Marked one by mistake? **Reopen** puts it back to *New*, and the sender sees *Not
 read yet* again.
+:::
