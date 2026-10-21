@@ -33,8 +33,11 @@ Run these together, in one turn:
     page) and pointing crowds at static `/live/…` bracket links, not code.
   - `db_pool.idle` at 0 with `size` at `max`: queries are queueing. Find the
     slow query in Sentry traces.
-  - A worker with `failures` climbing, or `last_started_at` far older than its
-    `interval_seconds`: that worker is broken or stuck. See
+  - A worker with `stalled: true`, `failures`/`timeouts` climbing, or
+    `restarts` above 0 (same for `queue_workers`): that worker is broken or
+    stuck. The worker watchdog will also have opened a Sentry issue
+    `Background worker X is stalled`. `enabled: false` just means switched off
+    by config. See
     `/worker-validation` for exercising its tick locally.
 - **Sentry** (connector): unresolved issues in production for the current
   `release`, newest first; any issue tagged `loop_blocked_in`; traces for the

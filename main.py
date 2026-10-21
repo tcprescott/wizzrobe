@@ -39,7 +39,7 @@ from application.services.discord import discord_queue
 from application.services.discord.discord_service import get_discord_bot
 from application.services.match import stage_reminder
 from application.services.volunteer import volunteer_reminder
-from application.utils import metrics_sampler
+from application.utils import metrics_sampler, worker_watchdog
 from application.utils.easter_eggs import random_fact
 from application.utils.environment import loop_watchdog_enabled
 from application.utils.http_headers import header_safe
@@ -315,6 +315,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         loop_watchdog.start()
     warm_openapi(app)
     metrics_sampler.start()
+    worker_watchdog.start()
     from application.services import active_users_metrics, telemetry_retention
     active_users_metrics.start()
     telemetry_retention.start()
@@ -351,6 +352,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         await close_discord_bot()
         await close_db()
     finally:
+        await worker_watchdog.stop()
         await metrics_sampler.stop()
         loop_watchdog.stop()
         await flush_sentry()

@@ -326,6 +326,19 @@ id column and adds `auto_now` stamps), `save(update_fields=[...])`, or a queryse
 insert), calls with positional args (PIL, files), and a line tagged
 `# full-save: <reason>`. AST-based, net-new counting like `check_dry_regressions.py`.
 
+### Worker loops — `scripts/check_worker_loops.py` (PreToolUse: Write|Edit)
+Blocks a net-new hand-rolled periodic worker in `application/`, `api/`, `discordbot/`,
+`mcpserver/`, `middleware/` and `racetimebot/`: a `while` loop in an `async def` whose
+body awaits `asyncio.sleep(...)`. Such a loop gets none of what `run_worker_loop` /
+`BackgroundLoop` and `CoroutineQueue` give every worker built on them: a tick time limit,
+restart if the task dies, `worker.tick_*` Sentry metrics, a `runtime_stats` row, and the
+worker watchdog ([observability.md](../docs/features/observability.md#worker-self-healing-and-the-worker-watchdog)).
+Skipped: the two helpers themselves, a loop with a `break`/`return` in it (a bounded
+retry or poll), and a `while` line tagged `# worker-loop: <reason>` for a loop that
+supervises itself (the racetime connection's heartbeat). AST-based, net-new counting.
+Replaced the narrower services-only `worker-loop-scaffold` regex in
+`check_dry_regressions.py` (audit §2A.3).
+
 ### DRY regressions — `scripts/check_dry_regressions.py` (PreToolUse: Write|Edit)
 Blocks re-introduction of the copy-paste shapes the 2026-07 code-quality audit
 removed, each message naming the shared primitive that replaced the shape:
@@ -336,7 +349,6 @@ removed, each message naming the shared primitive that replaced the shape:
 | `def _load_*_or_404` in `api/routers/` | service raises `NotFoundError` → 404 | §2B.1/2B.2 |
 | `raise ValueError('… not found')` in a service | `require_found(obj, label)` | §2A.6 |
 | literal truthy-env comparison | `env_flag(name)` (`environment.py`) | §3.2 |
-| `while True:` + `asyncio.sleep` in a service | `run_worker_loop` / `BackgroundLoop` | §2A.3 |
 | `raise NotImplementedError` in services/repos | `ValueError('… not yet implemented')` | §1.3 |
 | `write_log(...)` followed by `event_bus.publish(...)` in a service | `audit_service.write_and_publish(...)` | — |
 | a private `_audit_and_emit`/`_publish`/`_write` wrapper in a service | build the details dict, then `write_and_publish` | — |

@@ -126,6 +126,7 @@ EXPECTED_WIRING = {
     "check_table_prefs": {("PostToolUse", "Write|Edit")},
     "check_steady_refresh": {("PostToolUse", "Write|Edit")},
     "check_tenant_scoping": {("PostToolUse", "Write|Edit")},
+    "check_worker_loops": {("PreToolUse", "Write|Edit")},
     "enforce_architecture": {("PreToolUse", "Write|Edit")},
     "enforce_async_safety": {("PreToolUse", "Write|Edit")},
     "enforce_datetime_safety": {("PreToolUse", "Write|Edit")},
