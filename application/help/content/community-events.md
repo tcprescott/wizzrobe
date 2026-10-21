@@ -133,6 +133,12 @@ these.
 
 Events staff submit are listed straight away, and staff can edit or cancel any
 event from its own page, just like its host.
+
+To post an event for someone else, pick them under **Host** at the top of the
+submit form. It's listed straight away with them as the host, they get a DM
+saying so, and from then on they can edit or cancel it as if they'd posted it.
+The same **Host** field in **Edit** hands an existing event to another member.
+Only members of this community can be picked.
 :::
 
 There are two settings under Admin → Settings → Community Events.
