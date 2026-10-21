@@ -1,0 +1,384 @@
+"""Which scope an app token needs for each REST route.
+
+Every route is listed exactly once: under the one :class:`ApiScope` an app must
+hold to call it, under ``PAT_ONLY`` (no app may call it, whatever it holds), or
+under ``PUBLIC`` (no token at all). ``tests/api/test_scopes.py`` fails when a
+route is missing, so a new endpoint cannot ship without a decision here.
+
+Personal access tokens skip this table entirely; see
+:func:`api.dependencies.resolve_token`.
+
+How a route is placed:
+
+- by who it serves, not by HTTP verb: a player acknowledging their match is
+  ``play``, a proctor starting it is ``staff:write``;
+- a route that acts on *any* user by id ("yourself or Staff") is a staff route,
+  since the ``/me`` routes already serve the self case;
+- a read every member may make is ``schedule:read`` even where Staff see a
+  little more in the response;
+- anything that mints or reveals credentials, or is platform-wide, is
+  ``PAT_ONLY``.
+"""
+
+from typing import Dict, Final, Optional, Union
+
+from application.api_scopes import ApiScope
+
+
+class _Marker(str):
+    pass
+
+
+PAT_ONLY: Final = _Marker('pat-only')
+PUBLIC: Final = _Marker('public')
+
+RouteScope = Union[ApiScope, _Marker]
+
+_ROUTES: Dict[RouteScope, tuple[str, ...]] = {
+    ApiScope.PROFILE: (
+        'GET /users/me',
+        'GET /users/me/availability',
+        'GET /notifications/preferences',
+    ),
+    ApiScope.PROFILE_WRITE: (
+        'PATCH /users/me',
+        'PUT /users/me/availability',
+        'DELETE /users/me/availability',
+        'PUT /notifications/preferences',
+    ),
+    ApiScope.SCHEDULE_READ: (
+        'GET /matches',
+        'GET /matches/{match_id}',
+        'GET /tournaments',
+        'GET /tournaments/{tournament_id}',
+        'GET /stages',
+        'GET /stages/{stage_id}',
+        'GET /presets',
+        'GET /presets/selectable',
+        'GET /race-room-profiles/selectable',
+        'GET /race-rooms/by-match/{match_id}',
+        'GET /brackets',
+        'GET /brackets/entrants',
+        'GET /brackets/matches/{match_id}',
+        'GET /brackets/{bracket_id}',
+        'GET /brackets/{bracket_id}/standings',
+        'GET /brackets/{bracket_id}/matches',
+        'GET /brackets/{bracket_id}/open-matches',
+        'GET /brackets/{bracket_id}/entries',
+        'GET /seeds/randomizers',
+        'GET /seeds/tasks/{task_id}',
+        'GET /async-qualifiers/open',
+        'GET /async-qualifiers/{qualifier_id}/public',
+        'GET /async-qualifiers/{qualifier_id}/leaderboard',
+    ),
+    ApiScope.PLAY: (
+        'POST /matches/request',
+        'POST /matches/{match_id}/acknowledge',
+        'POST /matches/{match_id}/stream-offer',
+        'DELETE /matches/{match_id}/stream-offer',
+        'GET /reschedule-requests/mine',
+        'GET /matches/{match_id}/reschedule-requests',
+        'POST /matches/{match_id}/reschedule-requests',
+        'POST /reschedule-requests/{request_id}/agree',
+        'POST /reschedule-requests/{request_id}/withdraw',
+        'GET /tournaments/{tournament_id}/match-suggestion',
+        'POST /tournaments/{tournament_id}/signup',
+        'DELETE /tournaments/{tournament_id}/signup',
+        'GET /brackets/my-open-matches',
+        'POST /brackets/matches/{match_id}/games',
+        'GET /triforce-texts/mine',
+        'POST /triforce-texts',
+        'GET /feedback/mine',
+        'POST /feedback',
+        'GET /equipment/me/checkouts',
+        'POST /equipment/{equipment_id}/checkout',
+        'GET /async-qualifiers/{qualifier_id}/pools/available',
+        'GET /async-qualifiers/{qualifier_id}/me/runs',
+        'GET /async-qualifiers/{qualifier_id}/me/active-run',
+        'GET /async-qualifiers/runs/{run_id}/notes',
+        'POST /async-qualifiers/{qualifier_id}/runs',
+        'POST /async-qualifiers/runs/{run_id}/submit',
+        'POST /async-qualifiers/runs/{run_id}/forfeit',
+        'POST /async-qualifiers/runs/{run_id}/reattempt',
+    ),
+    ApiScope.CREW: (
+        'GET /matches/watching',
+        'POST /matches/{match_id}/crew',
+        'DELETE /matches/{match_id}/crew/{role}',
+        'POST /matches/{match_id}/watch',
+        'DELETE /matches/{match_id}/watch',
+        'POST /crew/{crew_type}/{crew_id}/acknowledge',
+    ),
+    ApiScope.VOLUNTEER: (
+        'GET /volunteers/positions',
+        'GET /volunteers/shifts',
+        'GET /volunteers/shifts/{shift_id}',
+        'GET /volunteers/coverage',
+        'GET /volunteers/hours/me',
+        'GET /volunteers/me/availability',
+        'PUT /volunteers/me/availability',
+        'GET /volunteers/me/assignments',
+        'DELETE /volunteers/me/assignments/{assignment_id}',
+        'POST /volunteers/assignments/{assignment_id}/acknowledge',
+    ),
+    ApiScope.STAFF_READ: (
+        'GET /matches/{match_id}/crew',
+        'GET /reschedule-requests',
+        'GET /tournaments/{tournament_id}/players',
+        'GET /users',
+        'GET /users/{user_id}',
+        'GET /users/{user_id}/availability',
+        'GET /join-requests',
+        'GET /triforce-texts',
+        'GET /tournaments/{tournament_id}/payouts',
+        'GET /audit-logs',
+        'GET /volunteers/hours',
+        'GET /reports/capacity-forecast',
+        'GET /reports/stage-utilization',
+        'GET /reports/match-operations',
+        'GET /reports/crew-coverage',
+        'GET /reports/matches-active-at',
+        'GET /reports/tournament-health',
+        'GET /reports/crew-participation-trends',
+        'GET /reports/activity-trends',
+        'GET /reports/volunteer-hour-trends',
+        'GET /telemetry/summary',
+        'GET /telemetry/top',
+        'GET /equipment',
+        'GET /equipment/{equipment_id}',
+        'GET /equipment/{equipment_id}/loans',
+        'GET /feedback',
+        'GET /presets/{preset_id}',
+        'GET /race-room-profiles',
+        'GET /race-room-profiles/{profile_id}',
+        'GET /race-rooms/open',
+        'GET /speedgaming/links',
+        'GET /speedgaming/links/{link_id}/episodes',
+        'GET /discord-events/tournaments',
+        'GET /discord-events/events',
+        'GET /brackets/advancing-preview',
+        'GET /check-in/events',
+        'GET /check-in/events/{event_id}/roster',
+        'GET /async-qualifiers/live-races',
+        'GET /async-qualifiers/live-races/{live_race_id}',
+        'GET /async-qualifiers/live-races/{live_race_id}/runs',
+        'GET /async-qualifiers',
+        'GET /async-qualifiers/{qualifier_id}',
+        'GET /async-qualifiers/{qualifier_id}/admins',
+        'GET /async-qualifiers/{qualifier_id}/pools',
+        'GET /async-qualifiers/{qualifier_id}/review-queue',
+        'GET /async-qualifiers/{qualifier_id}/runs',
+    ),
+    ApiScope.STAFF_WRITE: (
+        'POST /matches',
+        'PATCH /matches/{match_id}',
+        'DELETE /matches/{match_id}',
+        'POST /matches/{match_id}/stream-candidate',
+        'POST /matches/{match_id}/stage',
+        'POST /matches/{match_id}/stations',
+        'POST /matches/{match_id}/stations/suggest',
+        'POST /matches/{match_id}/seat',
+        'POST /matches/{match_id}/start',
+        'POST /matches/{match_id}/finish',
+        'POST /matches/{match_id}/confirm',
+        'POST /matches/{match_id}/result',
+        'POST /matches/{match_id}/review',
+        'POST /matches/{match_id}/seed',
+        'POST /crew/{crew_type}/{crew_id}/approval',
+        'POST /reschedule-requests/{request_id}/approve',
+        'POST /reschedule-requests/{request_id}/decline',
+        'POST /tournaments',
+        'PATCH /tournaments/{tournament_id}',
+        'DELETE /tournaments/{tournament_id}',
+        'POST /tournaments/{tournament_id}/admins',
+        'DELETE /tournaments/{tournament_id}/admins/{user_id}',
+        'POST /tournaments/{tournament_id}/crew-coordinators',
+        'DELETE /tournaments/{tournament_id}/crew-coordinators/{user_id}',
+        'POST /tournaments/{tournament_id}/players',
+        'DELETE /tournaments/{tournament_id}/players/{user_id}',
+        'PUT /tournaments/{tournament_id}/challonge',
+        'DELETE /tournaments/{tournament_id}/challonge',
+        'POST /tournaments/{tournament_id}/challonge/sync',
+        'POST /stages',
+        'PATCH /stages/{stage_id}',
+        'DELETE /stages/{stage_id}',
+        'POST /users',
+        'PATCH /users/{user_id}',
+        'PATCH /users/{user_id}/admin',
+        'PUT /users/{user_id}/tournaments',
+        'POST /users/{user_id}/roles',
+        'DELETE /users/{user_id}/roles/{role}',
+        'POST /users/{user_id}/membership',
+        'DELETE /users/{user_id}/membership',
+        'POST /join-requests/{request_id}/approve',
+        'POST /join-requests/{request_id}/deny',
+        'POST /triforce-texts/{text_id}/moderate',
+        'DELETE /triforce-texts/{text_id}',
+        'PUT /tournaments/{tournament_id}/payouts',
+        'PUT /tournaments/{tournament_id}/prize-pool',
+        'POST /volunteers/positions',
+        'PATCH /volunteers/positions/{position_id}',
+        'DELETE /volunteers/positions/{position_id}',
+        'POST /volunteers/shifts',
+        'PATCH /volunteers/shifts/{shift_id}',
+        'DELETE /volunteers/shifts/{shift_id}',
+        'POST /volunteers/shifts/{shift_id}/assignments',
+        'DELETE /volunteers/assignments/{assignment_id}',
+        'POST /volunteers/assignments/{assignment_id}/check-in',
+        'POST /equipment',
+        'POST /equipment/bulk',
+        'PUT /equipment/{equipment_id}',
+        'DELETE /equipment/{equipment_id}',
+        'POST /equipment/{equipment_id}/checkin',
+        'POST /feedback/{feedback_id}/reviewed',
+        'POST /presets',
+        'PATCH /presets/{preset_id}',
+        'DELETE /presets/{preset_id}',
+        'POST /presets/import-builtins',
+        'POST /race-room-profiles',
+        'PATCH /race-room-profiles/{profile_id}',
+        'DELETE /race-room-profiles/{profile_id}',
+        'POST /race-rooms',
+        'POST /race-rooms/{room_id}/cancel',
+        'PATCH /race-rooms/{room_id}/status',
+        'POST /speedgaming/links',
+        'PATCH /speedgaming/links/{link_id}',
+        'DELETE /speedgaming/links/{link_id}',
+        'POST /speedgaming/links/{link_id}/sync',
+        'PATCH /discord-events/tournaments/{tournament_id}',
+        'POST /discord-events/reconcile',
+        'POST /brackets',
+        'PATCH /brackets/{bracket_id}',
+        'DELETE /brackets/{bracket_id}',
+        'PUT /brackets/{bracket_id}/rounds',
+        'PATCH /brackets/{bracket_id}/seeds',
+        'POST /brackets/entrants',
+        'POST /brackets/entrants/import',
+        'PATCH /brackets/entrants/{entrant_id}/user',
+        'POST /brackets/entrants/{entrant_id}/drop',
+        'POST /brackets/{bracket_id}/entries',
+        'POST /brackets/{bracket_id}/start',
+        'POST /brackets/matches/{match_id}/result',
+        'PATCH /brackets/matches/{match_id}/result',
+        'POST /brackets/matches/{match_id}/games/link',
+        'DELETE /brackets/games/by-match/{scheduled_match_id}',
+        'PATCH /brackets/matches/{match_id}/best-of',
+        'POST /brackets/{bracket_id}/complete',
+        'POST /brackets/{bracket_id}/cancel',
+        'DELETE /brackets/entries/{entry_id}',
+        'POST /brackets/entries/{entry_id}/retire',
+        'POST /brackets/advance-stage',
+        'POST /check-in/events/{event_id}/sync',
+        'POST /check-in/events/{event_id}/walk-ups',
+        'POST /check-in/entrants/{entrant_id}/check-in',
+        'DELETE /check-in/entrants/{entrant_id}/check-in',
+        'PUT /check-in/entrants/{entrant_id}/user',
+        'DELETE /check-in/entrants/{entrant_id}/user',
+        'POST /seeds',
+        'POST /async-qualifiers/live-races',
+        'POST /async-qualifiers/live-races/{live_race_id}/permalink',
+        'POST /async-qualifiers/live-races/{live_race_id}/open-room',
+        'POST /async-qualifiers/live-races/{live_race_id}/record',
+        'DELETE /async-qualifiers/live-races/{live_race_id}',
+        'POST /async-qualifiers',
+        'PATCH /async-qualifiers/{qualifier_id}',
+        'DELETE /async-qualifiers/{qualifier_id}',
+        'POST /async-qualifiers/{qualifier_id}/admins',
+        'DELETE /async-qualifiers/{qualifier_id}/admins/{user_id}',
+        'POST /async-qualifiers/{qualifier_id}/pools',
+        'PATCH /async-qualifiers/pools/{pool_id}',
+        'DELETE /async-qualifiers/pools/{pool_id}',
+        'POST /async-qualifiers/pools/{pool_id}/permalinks',
+        'POST /async-qualifiers/pools/{pool_id}/permalinks/bulk',
+        'POST /async-qualifiers/pools/{pool_id}/permalinks/roll',
+        'PATCH /async-qualifiers/permalinks/{permalink_id}',
+        'DELETE /async-qualifiers/permalinks/{permalink_id}',
+        'POST /async-qualifiers/runs/{run_id}/grant-reattempt',
+        'POST /async-qualifiers/runs/{run_id}/claim',
+        'POST /async-qualifiers/runs/{run_id}/release',
+        'POST /async-qualifiers/runs/{run_id}/review',
+    ),
+    # Credentials, secrets, platform-wide controls and community wiring that an
+    # app has no business holding even for a staff member.
+    PAT_ONLY: (
+        'GET /tokens',
+        'POST /tokens',
+        'DELETE /tokens/{token_id}',
+        'GET /config',
+        'GET /config/{key}',
+        'PUT /config/{key}',
+        'GET /discord-role-mappings',
+        'POST /discord-role-mappings',
+        'DELETE /discord-role-mappings/{mapping_id}',
+        'GET /webhooks',
+        'POST /webhooks',
+        'GET /webhooks/{webhook_id}',
+        'PUT /webhooks/{webhook_id}',
+        'DELETE /webhooks/{webhook_id}',
+        'POST /webhooks/{webhook_id}/regenerate-secret',
+        'GET /webhooks/{webhook_id}/deliveries',
+        'GET /service-health',
+        'GET /service-health/board',
+        'POST /service-health/refresh',
+        'GET /racetime-bots',
+        'GET /racetime-bots/active',
+        'GET /racetime-bots/{bot_id}',
+        'POST /racetime-bots',
+        'PATCH /racetime-bots/{bot_id}',
+        'DELETE /racetime-bots/{bot_id}',
+        'POST /racetime-bots/{bot_id}/restart',
+        'GET /racetime-bots/{bot_id}/grants',
+        'POST /racetime-bots/{bot_id}/grants',
+        'DELETE /racetime-bots/{bot_id}/grants/{tenant_id}',
+        'GET /platform/communities',
+        'GET /platform/communities/{tenant_id}',
+        'POST /platform/communities',
+        'PATCH /platform/communities/{tenant_id}',
+        'POST /platform/communities/{tenant_id}/staff',
+        'GET /platform/communities/{tenant_id}/features',
+        'PUT /platform/communities/{tenant_id}/feature-group',
+        'PUT /platform/communities/{tenant_id}/features/{flag}',
+        'GET /platform/users',
+        'GET /platform/users/{user_id}',
+        'PUT /platform/users/{user_id}/active',
+        'GET /platform/feature-groups',
+        'POST /platform/feature-groups',
+        'PATCH /platform/feature-groups/{group_id}',
+        'DELETE /platform/feature-groups/{group_id}',
+        'GET /platform/log-levels',
+        'PUT /platform/log-levels',
+        'DELETE /platform/log-levels',
+    ),
+    PUBLIC: (
+        'GET /health',
+        'POST /web-push/rotate',
+    ),
+}
+
+
+def _flatten() -> Dict[str, RouteScope]:
+    table: Dict[str, RouteScope] = {}
+    for scope, keys in _ROUTES.items():
+        for key in keys:
+            if key in table:
+                raise RuntimeError(f'{key} is mapped to both {table[key]} and {scope}')
+            table[key] = scope
+    return table
+
+
+ROUTE_SCOPES: Final[Dict[str, RouteScope]] = _flatten()
+
+
+def route_key(method: str, path: str) -> str:
+    """``'GET /matches/{match_id}'``: the method and the route's path template
+    as declared, without the ``/api`` mount prefix."""
+    return f'{"GET" if method == "HEAD" else method} {path}'
+
+
+def scope_for(method: str, path: str) -> Optional[RouteScope]:
+    """The scope a route needs, or ``None`` when the route is not in the table
+    (callers must refuse it; the CI test keeps that from happening)."""
+    return ROUTE_SCOPES.get(route_key(method, path))
+
+
+__all__ = ['PAT_ONLY', 'PUBLIC', 'ROUTE_SCOPES', 'RouteScope', 'route_key', 'scope_for']

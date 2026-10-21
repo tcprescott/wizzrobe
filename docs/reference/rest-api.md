@@ -43,12 +43,22 @@ Tokens can also be managed programmatically via the `/api/tokens` endpoints (cre
 
 **MCP tokens are not REST credentials.** `ApiToken` also stores the platform-wide OAuth tokens issued to MCP clients (`origin='oauth'`, `tenant=NULL`); those are refused here with `401`, and a personal access token is refused at `/mcp` with `401` plus the OAuth challenge. A credential minted for one surface can never be replayed against the other. The MCP server is a sibling entry surface, not part of this API — see [features/mcp-server.md](../features/mcp-server.md).
 
+### App scopes
+
+Third-party apps signed in through OAuth call this same API with tokens of `origin='app'`. Such a token carries the scopes its user approved, space-separated in `ApiToken.scope`, and `resolve_token` refuses any route outside them with `403` and `WWW-Authenticate: Bearer error="insufficient_scope", scope="<needed>"`.
+
+- **Personal access tokens are unscoped** and skip the check entirely; a read-only PAT is still limited by `require_write_actor` as before.
+- **The vocabulary** (eight area scopes: `profile`, `profile:write`, `schedule:read`, `play`, `crew`, `volunteer`, `staff:read`, `staff:write`, with their consent wording) lives in [`application/api_scopes.py`](../../application/api_scopes.py), shared with the authorization server.
+- **The route table** in [`api/scopes.py`](../../api/scopes.py) lists every route exactly once: under the scope an app needs, under `PAT_ONLY` (tokens, webhooks, config, Discord role mappings, service health, racetime bots, `/platform`), or under `PUBLIC` (the two tokenless routes). A route missing from the table is refused for apps. `tests/api/test_scopes.py` fails when a route is unmapped, when a staff-gated route sits under a non-staff scope, when a super-admin route isn't `PAT_ONLY`, or when a read lands on a write-only scope (or the reverse). **Adding an endpoint means adding a line there.**
+- **Scopes only narrow.** The service's own role checks still run, so `staff:read` on a player's grant reaches nothing.
+- `/api/docs` shows each endpoint's scope (or "Apps: can't call this") and declares a `WizzrobeApps` OAuth 2 security scheme with the scope list.
+
 ### Status codes
 
 | Code | Meaning |
 |---|---|
 | `401` | Missing, malformed, unknown, revoked, or expired token |
-| `403` | Inactive account or tenant, read-only token used for a write, or the user lacks the required role/scope (`PermissionError` from a service) |
+| `403` | Inactive account or tenant, read-only token used for a write, an app token without the route's scope, or the user lacks the required role (`PermissionError` from a service) |
 | `400` | Validation/business-rule error (`ValueError` from a service) |
 | `404` | Entity not found (`NotFoundError` from a service, including `FeatureDisabledError`), or a feature-flag-gated router the tenant hasn't enabled |
 | `422` | Request body/query failed schema validation |

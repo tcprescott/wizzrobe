@@ -4,7 +4,8 @@ Authentication is via a personal bearer token (``Authorization: Bearer
 wizzrobe_pat_...``) generated on the user's profile page. A token resolves to
 its owning :class:`User` and the request then runs the *same* service-layer
 permission checks as the web UI. A token flagged ``read_only`` may only call
-read (GET) endpoints.
+read (GET) endpoints. A third-party app's token is further limited to the
+scopes its user approved (:mod:`api.scopes`).
 
 ``ServiceErrorRoute`` translates the service layer's ``PermissionError`` /
 ``ValueError`` into ``403`` / ``400`` responses. It is scoped to the API
@@ -18,6 +19,8 @@ from fastapi import Depends, HTTPException, Request, Response, status
 from fastapi.routing import APIRoute
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
+from api.scopes import scope_for
+from application.api_scopes import ApiScope, parse_scope
 from application.errors import NotFoundError
 from application.services.api_token_service import ApiTokenService
 from application.services.auth_service import AuthService
@@ -52,6 +55,34 @@ bearer_scheme = HTTPBearer(
 )
 
 
+def _require_scope(request: Request, token: ApiToken) -> None:
+    """Refuse a scoped token whose grant doesn't cover this route.
+
+    A PAT is unscoped: it acts with everything its owner may do, exactly as
+    before scopes existed. Every other origin that gets this far (an app token)
+    is limited to the scopes on its grant, and a route missing from the table
+    is refused rather than assumed open.
+    """
+    if token.origin == ApiTokenOrigin.PAT.value:
+        return
+    route = request.scope.get('route')
+    path = getattr(route, 'path', '').removeprefix('/api')
+    required = scope_for(request.method, path)
+    if isinstance(required, ApiScope):
+        if required in parse_scope(token.scope):
+            return
+        detail = f"This app wasn't given the {required.value} scope"
+        challenge = f'Bearer error="insufficient_scope", scope="{required.value}"'
+    else:
+        detail = "Apps can't use this endpoint; it needs a personal API token"
+        challenge = 'Bearer error="insufficient_scope"'
+    raise HTTPException(
+        status_code=status.HTTP_403_FORBIDDEN,
+        detail=detail,
+        headers={"WWW-Authenticate": challenge},
+    )
+
+
 def _reject_read_only(token: ApiToken) -> None:
     """Raise ``403`` if the token may not perform write actions."""
     if token.read_only:
@@ -62,6 +93,7 @@ def _reject_read_only(token: ApiToken) -> None:
 
 
 async def resolve_token(
+    request: Request,
     creds: Optional[HTTPAuthorizationCredentials] = Depends(bearer_scheme),
 ) -> Tuple[User, ApiToken]:
     """Resolve and authenticate the bearer token, returning ``(user, token)``.
@@ -104,6 +136,7 @@ async def resolve_token(
             detail="This token is for the MCP server and cannot be used with the REST API",
             headers={"WWW-Authenticate": "Bearer"},
         )
+    _require_scope(request, token)
     # A PAT acts within exactly one tenant: set the request tenant context from
     # it (the token was resolved globally, before any context existed), so the
     # same tenant-aware service checks the web UI uses apply here.
