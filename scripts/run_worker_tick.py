@@ -31,7 +31,8 @@ import sys
 from tortoise import Tortoise
 
 # Worker name -> module holding `_tick`. Keep in step with the
-# `run_worker_loop(...)` call sites (`grep -rn run_worker_loop application/`).
+# `run_worker_loop(...)` call sites; tests/test_registry_drift.py fails when a
+# worker is missing here.
 WORKERS = {
     'discord_event': 'application.services.discord.discord_event_worker',
     'seed_roll': 'application.services.seed_roll_worker',
@@ -45,6 +46,11 @@ WORKERS = {
     'sglive_pool': 'application.services.sglive_pool_worker',
     'startgg_sync': 'application.services.startgg_sync_worker',
     'community_event_reminder': 'application.services.community_event_reminder',
+    'discord_role_sync': 'application.services.discord.discord_role_sync_worker',
+    'telegram_bot': 'application.services.telegram_bot_worker',
+    'active_users_metrics': 'application.services.active_users_metrics',
+    'telemetry_retention': 'application.services.telemetry_retention',
+    'metrics_sampler': 'application.utils.metrics_sampler',
 }
 
 
