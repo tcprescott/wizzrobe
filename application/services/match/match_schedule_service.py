@@ -63,6 +63,7 @@ from application.utils.discord_messages import (
     seed_paste_block,
     state_changed_dm,
 )
+from application.utils.match_labels import match_model_label
 from application.utils.seed_provider import SeedProviderError
 from models import GeneratedSeeds, Match, User
 
@@ -524,7 +525,7 @@ class MatchScheduleService(MatchNotificationMixin):
                     seed_code=call.value.code,
                 )
 
-                message = f"Seed generated successfully for match ID {match.id}"
+                message = f"Seed rolled for {match_model_label(match, with_context=False)}."
                 return True, message, seed_url
 
             except MissingCredentialError as e:
@@ -703,5 +704,5 @@ class MatchScheduleService(MatchNotificationMixin):
         )
 
         match_live.publish(match.id)
-        return f"Seed generated successfully for match ID {match.id}"
+        return f"Seed rolled for {match_model_label(match, with_context=False)}."
 
