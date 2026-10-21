@@ -8636,6 +8636,7 @@ ol.wiz-help-list { list-style-type: decimal; }
 .wiz-guide-link:focus-visible {
     outline: 2px solid var(--wiz-link);
     outline-offset: 1px;
+}
 
 /* One-time "Tell us when you can't play" card on My Schedule
    (pages/home_tabs/availability_reminder.py). The sample strip reuses the
