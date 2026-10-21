@@ -87,7 +87,7 @@ async def _your_exports(viewer):
         if not rows:
             ui.label('Nothing exported in the last 3 days.').classes('italic-note')
             return
-        columns = [
+        columns: list[dict[str, Any]] = [
             {'name': 'id', 'label': 'ID', 'field': 'id', 'hidden': True},
             {'name': 'title', 'label': 'Export', 'field': 'title', 'align': 'left'},
             {'name': 'requested', 'label': 'Requested', 'field': 'requested', 'align': 'left'},

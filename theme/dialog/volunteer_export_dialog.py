@@ -30,6 +30,8 @@ class VolunteerExportDialog:
 
     async def open(self) -> None:
         actor = await get_user_from_session(app.storage.user)
+        if actor is None:
+            return
         event_start, event_end = await SystemConfigService.get_event_window()
 
         with ui.dialog() as dialog, ui.card().classes('dialog-card dialog-card--sm'):

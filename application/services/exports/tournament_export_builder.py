@@ -164,7 +164,7 @@ async def build_tournament(tournament: Tournament) -> Dict[str, Any]:
     enrolled = await repo.enrolled(tournament.id)
     for row in enrolled:
         roster.enrol(row.user)
-    enrolled_ids = {row.user_id for row in enrolled}
+    enrolled_ids = {row.user_id for row in enrolled}  # type: ignore[attr-defined]
 
     brackets = await repo.native_brackets(tournament.id)
     site = bracket_site(tournament, bool(brackets))
@@ -178,9 +178,9 @@ async def build_tournament(tournament: Tournament) -> Dict[str, Any]:
     elif site == SITE_STARTGG:
         await _startgg(tournament, roster, links, unbooked)
 
-    for row in roster.rows.values():
-        if row.user is not None and row.user.id in enrolled_ids:
-            row.enrolled = True
+    for participant in roster.rows.values():
+        if participant.user is not None and participant.user.id in enrolled_ids:
+            participant.enrolled = True
 
     matches = await repo.matches(tournament.id)
     if site is None:
@@ -211,22 +211,22 @@ async def _native(
     order = {b.id: (b.stage_order, b.id) for b in brackets}
     by_bracket = {b.id: b for b in brackets}
     entrants = {e.id: e for e in await repo.native_entrants(tournament.id)}
-    entries = sorted(await repo.native_entries(tournament.id), key=lambda e: order.get(e.bracket_id, (0, 0)))
+    entries = sorted(await repo.native_entries(tournament.id), key=lambda e: order.get(e.bracket_id, (0, 0)))  # type: ignore[attr-defined]
     rows = {
         e.id: roster.entrant(('native', e.id), e.user, e.display_name)
         for e in entrants.values()
     }
     entry_owner: Dict[int, int] = {}
     for entry in entries:
-        entry_owner[entry.id] = entry.entrant_id
-        row = rows.get(entry.entrant_id)
+        entry_owner[entry.id] = entry.entrant_id  # type: ignore[attr-defined]
+        row = rows.get(entry.entrant_id)  # type: ignore[attr-defined]
         if row is None:
             continue
         if row.seed is None and entry.seed is not None:
             row.seed = entry.seed
         if entry.final_rank is not None:
             row.placement = entry.final_rank
-        bracket = by_bracket[entry.bracket_id]
+        bracket = by_bracket[entry.bracket_id]  # type: ignore[attr-defined]
         if entry.status == BracketEntryStatus.DROPPED:
             row.status = 'dropped'
         elif entry.status == BracketEntryStatus.ELIMINATED:
@@ -242,9 +242,9 @@ async def _native(
             row.status = 'active'
 
     for bm in await repo.native_matches(tournament.id):
-        owners = [entry_owner.get(bm.entry1_id), entry_owner.get(bm.entry2_id)]
-        if bm.state == BracketMatchState.COMPLETE and bm.winner_id:
-            winner = entry_owner.get(bm.winner_id)
+        owners = [entry_owner.get(bm.entry1_id), entry_owner.get(bm.entry2_id)]  # type: ignore[attr-defined]
+        if bm.state == BracketMatchState.COMPLETE and bm.winner_id:  # type: ignore[attr-defined]
+            winner = entry_owner.get(bm.winner_id)  # type: ignore[attr-defined]
             for owner in owners:
                 if owner is None or owner not in rows:
                     continue
@@ -252,25 +252,25 @@ async def _native(
                     rows[owner].wins += 1
                 else:
                     rows[owner].losses += 1
-        bracket = by_bracket[bm.bracket_id]
+        bracket = by_bracket[bm.bracket_id]  # type: ignore[attr-defined]
         label = f"{bracket.name} · {'Losers round' if bm.round < 0 else 'Round'} {abs(bm.round)}"
         link = _BracketLink(SITE_WIZZROBE, str(bm.id), label)
         booked = False
-        for game in bm.games:
+        for game in bm.games:  # type: ignore[attr-defined]
             if game.match_id is not None:
                 links[game.match_id] = link
                 booked = True
         if not booked and all(owners):
-            winner = entry_owner.get(bm.winner_id)
+            winner = entry_owner.get(bm.winner_id)  # type: ignore[attr-defined]
             unbooked.append(_bracket_only_row(
                 SITE_WIZZROBE, str(bm.id), label,
                 complete=bm.state == BracketMatchState.COMPLETE,
                 finished_at=None,
                 players=[
-                    (rows.get(owners[0]), bm.entry1_score, winner == owners[0]),
-                    (rows.get(owners[1]), bm.entry2_score, winner == owners[1]),
+                    (rows.get(owners[0]), bm.entry1_score, winner == owners[0]),  # type: ignore[arg-type]
+                    (rows.get(owners[1]), bm.entry2_score, winner == owners[1]),  # type: ignore[arg-type]
                 ],
-                has_winner=bm.winner_id is not None,
+                has_winner=bm.winner_id is not None,  # type: ignore[attr-defined]
             ))
 
 
@@ -288,7 +288,7 @@ async def _challonge(
     _tally_external(
         rows,
         (
-            (cm.participant1_id, cm.participant2_id, cm.winner_participant_id,
+            (cm.participant1_id, cm.participant2_id, cm.winner_participant_id,  # type: ignore[attr-defined]
              cm.state == ChallongeMatchState.COMPLETE)
             for cm in matches
         ),
@@ -297,18 +297,18 @@ async def _challonge(
     for cm in matches:
         label = 'Group stage' if cm.group_stage else challonge_round_label(cm.round)
         link = _BracketLink(SITE_CHALLONGE, cm.challonge_match_id, label)
-        if cm.match_id is not None:
-            links[cm.match_id] = link
-        elif cm.participant1_id and cm.participant2_id:
+        if cm.match_id is not None:  # type: ignore[attr-defined]
+            links[cm.match_id] = link  # type: ignore[attr-defined]
+        elif cm.participant1_id and cm.participant2_id:  # type: ignore[attr-defined]
             unbooked.append(_bracket_only_row(
                 SITE_CHALLONGE, cm.challonge_match_id, label,
                 complete=cm.state == ChallongeMatchState.COMPLETE,
                 finished_at=None,
                 players=[
-                    (rows.get(cm.participant1_id), None, cm.winner_participant_id == cm.participant1_id),
-                    (rows.get(cm.participant2_id), None, cm.winner_participant_id == cm.participant2_id),
+                    (rows.get(cm.participant1_id), None, cm.winner_participant_id == cm.participant1_id),  # type: ignore[attr-defined]
+                    (rows.get(cm.participant2_id), None, cm.winner_participant_id == cm.participant2_id),  # type: ignore[attr-defined]
                 ],
-                has_winner=cm.winner_participant_id is not None,
+                has_winner=cm.winner_participant_id is not None,  # type: ignore[attr-defined]
             ))
 
 
@@ -332,7 +332,7 @@ async def _startgg(
     _tally_external(
         rows,
         (
-            (s.entrant1_id, s.entrant2_id, s.winner_id, s.state == StartggSetState.COMPLETE)
+            (s.entrant1_id, s.entrant2_id, s.winner_id, s.state == StartggSetState.COMPLETE)  # type: ignore[attr-defined]
             for s in sets
         ),
         bracket_over=bool(pools) and all(p.complete for p in pools),
@@ -340,18 +340,18 @@ async def _startgg(
     for s in sets:
         label = s.round_text or f'Round {s.round}'
         link = _BracketLink(SITE_STARTGG, s.set_id, label, {1: s.score1, 2: s.score2})
-        if s.match_id is not None:
-            links[s.match_id] = link
-        elif s.entrant1_id and s.entrant2_id:
+        if s.match_id is not None:  # type: ignore[attr-defined]
+            links[s.match_id] = link  # type: ignore[attr-defined]
+        elif s.entrant1_id and s.entrant2_id:  # type: ignore[attr-defined]
             unbooked.append(_bracket_only_row(
                 SITE_STARTGG, s.set_id, label,
                 complete=s.state == StartggSetState.COMPLETE,
                 finished_at=s.completed_at,
                 players=[
-                    (rows.get(s.entrant1_id), s.score1, s.winner_id == s.entrant1_id),
-                    (rows.get(s.entrant2_id), s.score2, s.winner_id == s.entrant2_id),
+                    (rows.get(s.entrant1_id), s.score1, s.winner_id == s.entrant1_id),  # type: ignore[attr-defined]
+                    (rows.get(s.entrant2_id), s.score2, s.winner_id == s.entrant2_id),  # type: ignore[attr-defined]
                 ],
-                has_winner=s.winner_id is not None,
+                has_winner=s.winner_id is not None,  # type: ignore[attr-defined]
             ))
 
 
@@ -381,9 +381,9 @@ def _tally_external(
 
 def _results_from_matches(roster: _Roster, matches: List[Match]) -> None:
     for match in matches:
-        if match.finished_at is None or len(match.players) < 2:
+        if match.finished_at is None or len(match.players) < 2:  # type: ignore[attr-defined]
             continue
-        for mp in match.players:
+        for mp in match.players:  # type: ignore[attr-defined]
             if mp.finish_rank is None:
                 continue
             row = roster.rows.get(('user', mp.user_id))
@@ -411,7 +411,7 @@ def _player(
 
 def _match_row(match: Match, link: Optional[_BracketLink], site: Optional[str]) -> Dict[str, Any]:
     players = []
-    for index, mp in enumerate(match.players, start=1):
+    for index, mp in enumerate(match.players, start=1):  # type: ignore[attr-defined]
         players.append(_player(
             mp.user, place=mp.finish_rank, finish_time=mp.finish_time,
             score=link.scores.get(index) if link else None,

@@ -4,7 +4,7 @@ KPI strip + report cards. All KPIs scoped to the configured event window.
 """
 
 import asyncio
-from typing import Optional
+from typing import Any, Optional
 
 from nicegui import app, ui
 
@@ -35,7 +35,7 @@ from .shared import (
     reports_url,
 )
 
-REPORT_CARDS = [
+REPORT_CARDS: list[dict[str, Any]] = [
     {
         'key': 'insights',
         'title': 'Insights & Trends',

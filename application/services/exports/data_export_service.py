@@ -199,7 +199,7 @@ class DataExportService:
     async def get_mine(self, actor: User, export_id: int) -> DataExport:
         """One of ``actor``'s exports, without its files. Someone else's reads as not found."""
         export = await self.repository.summary(export_id)
-        if export is not None and export.requested_by_id != actor.id:
+        if export is not None and export.requested_by_id != actor.id:  # type: ignore[attr-defined]
             export = None
         return require_found(export, 'Export')
 
@@ -251,9 +251,9 @@ class DataExportService:
     async def _requester(export: DataExport) -> User:
         from application.services.user_service import UserService
 
-        if export.requested_by_id is None:
+        if export.requested_by_id is None:  # type: ignore[attr-defined]
             raise ValueError('The person who asked for this export no longer has an account.')
-        return require_found(await UserService().get_user_by_id(export.requested_by_id), 'User')
+        return require_found(await UserService().get_user_by_id(export.requested_by_id), 'User')  # type: ignore[attr-defined]
 
     async def _build_tournaments(self, export: DataExport, actor: User):
         allowed = {t.id for t in await self.exportable_tournaments(actor)}

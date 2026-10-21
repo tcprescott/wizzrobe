@@ -47,7 +47,7 @@ async def _tick() -> None:
     await for_each_tenant_scoped(
         [export],
         DataExportService().build,
-        tenant_id_of=lambda e: e.tenant_id,
+        tenant_id_of=lambda e: e.tenant_id,  # type: ignore[attr-defined]
         logger=logger,
         describe=lambda e: f'export {e.id}',
     )

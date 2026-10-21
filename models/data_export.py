@@ -16,13 +16,13 @@ class DataExport(Model):
     """
 
     id = fields.IntField(pk=True)
-    tenant = fields.ForeignKeyField('models.Tenant', related_name='data_exports', on_delete=fields.CASCADE)
-    requested_by = fields.ForeignKeyField(
+    tenant: fields.ForeignKeyRelation = fields.ForeignKeyField('models.Tenant', related_name='data_exports', on_delete=fields.CASCADE)
+    requested_by: fields.ForeignKeyNullableRelation = fields.ForeignKeyField(
         'models.User', related_name='data_exports', null=True, on_delete=fields.SET_NULL,
     )
     kind = fields.CharEnumField(DataExportKind, max_length=32)
     title = fields.CharField(max_length=255)
-    params = fields.JSONField(default=dict)
+    params = fields.JSONField(default=dict)  # type: ignore[var-annotated]
     status = fields.CharEnumField(DataExportStatus, default=DataExportStatus.QUEUED, max_length=16)
     progress_done = fields.IntField(default=0)
     progress_total = fields.IntField(default=0)

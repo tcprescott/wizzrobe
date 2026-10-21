@@ -50,7 +50,7 @@ class TournamentExportRepository:
     @staticmethod
     async def with_native_bracket(ids: List[int]) -> Set[int]:
         rows = await scoped(Bracket.filter(tournament_id__in=ids)).distinct().values_list('tournament_id', flat=True)
-        return set(rows)
+        return {int(r) for r in rows}  # type: ignore[call-overload]
 
     @staticmethod
     async def enrolled(tournament_id: int) -> List[TournamentPlayers]:
