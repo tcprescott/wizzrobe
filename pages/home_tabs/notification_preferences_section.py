@@ -36,7 +36,7 @@ _PRESETS = (
      "Only what can't wait pings: stage calls, race rooms, shift starts. "
      'Nothing about matches you watch or follow.'),
 )
-_PRESET_NAMES = {p: name for p, name, _ in _PRESETS}
+PRESET_NAMES = {p: name for p, name, _ in _PRESETS}
 
 
 def _count_chips(counts: Dict[NotificationMode, int]) -> None:
@@ -132,7 +132,7 @@ async def render_notification_preferences(
             if row.changed:
                 ui.separator()
                 back = quieter(row.community, row.preset)
-                preset_name = _PRESET_NAMES[state['mine'].preset]
+                preset_name = PRESET_NAMES[state['mine'].preset]
                 with ui.item(on_click=lambda: pick_mode(row, None)).props('clickable v-close-popup'):
                     with ui.item_section().props('avatar'):
                         ui.icon('undo')
@@ -143,7 +143,7 @@ async def render_notification_preferences(
         ConfirmationDialog(
             message=(
                 f'Your {mine.changed} change{"" if mine.changed == 1 else "s"} go back to '
-                f'"{_PRESET_NAMES[mine.preset]}". Your preset stays.'
+                f'"{PRESET_NAMES[mine.preset]}". Your preset stays.'
             ),
             on_confirm=reset, confirm_text='Reset', title='Reset to your preset',
         ).open()
@@ -165,7 +165,7 @@ async def render_notification_preferences(
 
         changed = current.changed
         summary = (
-            f'{changed} message{"" if changed == 1 else "s"} changed from "{_PRESET_NAMES[current.preset]}"'
+            f'{changed} message{"" if changed == 1 else "s"} changed from "{PRESET_NAMES[current.preset]}"'
             if changed else 'Choose Off, Silent or Ping for any single message'
         )
         with ui.expansion(value=customize_open['v']).classes('wiz-notify-item wiz-notify-customize w-full') \

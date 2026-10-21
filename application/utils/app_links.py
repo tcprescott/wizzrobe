@@ -230,3 +230,11 @@ def admin_community_event_url(event_id: int) -> str:
 def admin_check_in_url() -> str:
     """Admin → Check-in, whose first control is the Matcherino login card."""
     return admin_url(CHECK_IN)
+
+
+MY_MESSAGES = '/messages'
+
+
+def my_message_url(message_id: Optional[int] = None) -> str:
+    """Messages sent to you, opened on one message (and its Off/Silent/Ping switch)."""
+    return f'{MY_MESSAGES}{_query({"message": message_id})}'

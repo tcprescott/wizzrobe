@@ -402,9 +402,9 @@ class DiscordService(GuildOpsMixin, ScheduledEventsMixin):
             muted, silent = await _apply_notice(notice, user_id)
             if muted:
                 return True, DM_NOTICE_OFF
-        footnote = await settings_footnote(notice)
         log = SentMessageService()
         ref = await log.record_attempt(user_id, message, embed=embed, link=link, silent=silent, notice=notice)
+        footnote = await settings_footnote(notice, ref.id if ref else None)
         # Mirror before the bot-readiness checks so device notifications still
         # go out when the bot is down or the user blocks Discord DMs. Corollary:
         # a (False, ...) return means the *Discord* send failed — subscribed
@@ -641,9 +641,9 @@ class MockDiscordService(MockGuildOpsMixin, MockScheduledEventsMixin):
             if muted:
                 print(f"[MOCK Discord DM] -> {user_id}: skipped, {notice.key}:{notice.recipient.value} is off")
                 return True, DM_NOTICE_OFF
-        footnote = await settings_footnote(notice)
         log = SentMessageService()
         ref = await log.record_attempt(user_id, message, embed=embed, link=link, silent=silent, notice=notice)
+        footnote = await settings_footnote(notice, ref.id if ref else None)
         result = await self._mock_send(user_id, message, embed, link, on_sent, mirror, silent, ref, footnote)
         await log.record_result(ref, *sent_message_status(result))
         return result

@@ -42,6 +42,7 @@ from pages import (
     home,
     live_watch,
     mcp_consent,
+    my_messages,
     password_login,
     platform,
     qualifiers,
@@ -338,6 +339,7 @@ def init(fastapi_app: FastAPI) -> None:
     help_pages.create()
     event_info.create()
     community_events.create()
+    my_messages.create()
     cat_facts.create()
     changelog.create()
     about.create()

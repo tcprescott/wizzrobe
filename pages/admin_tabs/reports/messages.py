@@ -6,16 +6,14 @@ channel's result (a card per message on a phone). Staff only, because a DM can
 carry a staff-private note.
 """
 
-import re
-from datetime import datetime, timezone
 from typing import Any, Optional
 
 from nicegui import app, ui
 
 from application.services import AuthService, SentMessageService, get_user_from_session
+from application.utils.dm_text import readable_dm_text
 from application.utils.timezone import (
     format_local_datetime,
-    format_local_display,
     format_local_time,
     timezone_label,
 )
@@ -49,16 +47,6 @@ PAGE_SIZE = 50
 # ``state`` is the Reports tab's own filter param; this report reads it as the
 # Problems only switch, and ``action`` as the search text, like the Audit Log.
 _PROBLEMS = 'problems'
-
-# Discord renders these itself; the log shows them the way the reader saw them.
-_DISCORD_TIME = re.compile(r'<t:(\d{1,12})(?::[tTdDfFR])?>')
-_EMPHASIS = re.compile(r'\*\*|__')
-
-
-def _readable(text: str) -> str:
-    def _time(match: re.Match) -> str:
-        return format_local_display(datetime.fromtimestamp(int(match.group(1)), timezone.utc))
-    return _EMPHASIS.sub('', _DISCORD_TIME.sub(_time, text or ''))
 
 
 # (chip class, icon, label)
@@ -107,7 +95,7 @@ def _delivery_lines(m: SentMessage) -> list[dict]:
 def _row(m: SentMessage) -> dict[str, Any]:
     chip_cls, chip_icon, chip_label = STATUS_CHIP[m.status]
     who = m.recipient.preferred_name if m.recipient else f'Discord {m.discord_id}'
-    body = _readable(m.body).strip()
+    body = readable_dm_text(m.body).strip()
     preview = body
     if m.title and preview.startswith(m.title):
         preview = preview[len(m.title):].lstrip(' :.\n')
@@ -116,7 +104,7 @@ def _row(m: SentMessage) -> dict[str, Any]:
         'time': f"{format_local_datetime(m.created_at, '%a')} {format_local_time(m.created_at)}",
         'when': format_local_datetime(m.created_at, '%a %d %b %Y, %H:%M:%S %Z'),
         'to': who,
-        'title': _readable(m.title) or '(no title)',
+        'title': readable_dm_text(m.title) or '(no title)',
         'preview': preview.splitlines()[0][:160] if preview else '',
         'body': body,
         'status': chip_label,

@@ -85,6 +85,43 @@ class SentMessageRepository:
         return await scoped(SentMessage.filter(id=message_id)).prefetch_related('recipient').first()
 
     @staticmethod
+    def _for_recipient(user_id: int, discord_id: Optional[str]) -> QuerySet:
+        # A DM sent before the account existed carries only the Discord id.
+        match = Q(recipient_id=user_id)
+        if discord_id:
+            match |= Q(recipient_id=None, discord_id=discord_id)
+        return scoped(SentMessage.filter(match))
+
+    @staticmethod
+    async def list_for_recipient(
+        user_id: int, discord_id: Optional[str], notice_keys: Optional[List[str]] = None,
+        limit: int = 30, offset: int = 0,
+    ) -> List[SentMessage]:
+        qs = SentMessageRepository._for_recipient(user_id, discord_id)
+        if notice_keys is not None:
+            qs = qs.filter(notice_key__in=notice_keys)
+        return await qs.order_by('-created_at', '-id').offset(offset).limit(limit)
+
+    @staticmethod
+    async def count_for_recipient(
+        user_id: int, discord_id: Optional[str], notice_keys: Optional[List[str]] = None,
+    ) -> int:
+        qs = SentMessageRepository._for_recipient(user_id, discord_id)
+        if notice_keys is not None:
+            qs = qs.filter(notice_key__in=notice_keys)
+        return await qs.count()
+
+    @staticmethod
+    async def notice_keys_for_recipient(user_id: int, discord_id: Optional[str]) -> List[str]:
+        rows = await SentMessageRepository._for_recipient(user_id, discord_id) \
+            .filter(notice_key__isnull=False).distinct().values_list('notice_key', flat=True)
+        return [str(k) for k in rows]
+
+    @staticmethod
+    async def get_for_recipient(message_id: int, user_id: int, discord_id: Optional[str]) -> Optional[SentMessage]:
+        return await SentMessageRepository._for_recipient(user_id, discord_id).filter(id=message_id).first()
+
+    @staticmethod
     async def totals(start: Optional[datetime], end: Optional[datetime]) -> Dict[str, int]:
         """Counts by status, plus ``silent``, over the window, in two grouped queries."""
         qs = SentMessageRepository._filtered(start, end)
