@@ -328,6 +328,37 @@ class MatchSummary(BaseModel):
     restream_url: Optional[str] = None
 
 
+class UnbookedMatchupInfo(BaseModel):
+    """One open bracket matchup nobody has booked, as Match Schedule's "Not booked yet" view lists it.
+
+    ``source`` is ``challonge``, ``startgg`` or ``bracket`` (native) and ``key``
+    that source's row id. ``ready`` is false while ``unlinked`` names a player
+    with no Wizzrobe account, which blocks booking. ``same_player_match_ids`` are
+    hand-made matches with the same two players that could be linked instead.
+    """
+
+    source: str
+    key: int
+    tournament_id: int
+    tournament: str
+    round: str
+    players: List[str]
+    ready: bool
+    unlinked: List[str] = Field(default_factory=list)
+    window: Optional[str] = None
+    same_player_match_ids: List[int] = Field(default_factory=list)
+
+
+class UnbookedMatchups(BaseModel):
+    """The "Not booked yet" list: totals over every matchup, rows up to ``limit``."""
+
+    total: int
+    ready: int
+    needs_account: int
+    by_tournament: Dict[str, int]
+    matchups: List[UnbookedMatchupInfo]
+
+
 class AvailabilityWindow(BaseModel):
     """One window a player spoke for. Everything else is available."""
 

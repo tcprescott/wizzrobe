@@ -215,6 +215,7 @@ hold a writing grant in one client and a reading one in another.
 | `get_tournament_payouts` | ACTOR | `PAYOUTS` |
 | `list_stages`, `get_stage` | ACTOR | — |
 | `list_matches`, `get_match`, `get_schedule` | ACTOR | — |
+| `list_unbooked_matches` | ACTOR (staff, or the tournament's admins) | — |
 | `suggest_match_time` | ACTOR | — |
 | `match_operations_report` | ADMIN | — |
 | `my_reschedule_requests` | ACTOR | — |
@@ -227,6 +228,13 @@ earn. `set_tournament_prize_pool` and `set_tournament_payout_split` are its writ
 
 `list_tournament_players` is the roster Manage players shows, for staff or that
 tournament's admins.
+
+`list_unbooked_matches` is Match Schedule's "Not booked yet" view: open
+Challonge, start.gg and native bracket matchups with no game booked. It reads
+`bracket_sources.list_unbooked`, so it follows the same scope (staff see the
+community, a tournament admin their own tournaments, anyone else nothing) and
+skips a source whose flag is off. The totals and per-tournament counts cover
+every matchup; the rows stop at `limit`.
 
 `list_tournament_signups` reports the caller's own signup state per tournament,
 including `can_sign_up` / `can_withdraw`. Those two booleans are the service's
