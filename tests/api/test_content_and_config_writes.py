@@ -26,6 +26,23 @@ class TestStages:
         async with client_for(app, raw) as c:
             assert (await c.post('/api/stages', json={'name': 'Z'})).status_code == 403
 
+    async def test_duplicate_name_is_a_400_not_a_crash(self, db, app):
+        _, raw = await create_user_token(username='sm', roles=[Role.STREAM_MANAGER])
+        async with client_for(app, raw) as c:
+            first = await c.post('/api/stages', json={'name': 'Main Stage'})
+            other = await c.post('/api/stages', json={'name': 'Side Stage'})
+            assert first.status_code == other.status_code == 201
+
+            dupe = await c.post('/api/stages', json={'name': ' Main Stage '})
+            assert dupe.status_code == 400
+            assert 'already exists' in dupe.json()['detail']
+
+            renamed = await c.patch(f"/api/stages/{other.json()['id']}", json={'name': 'Main Stage'})
+            assert renamed.status_code == 400
+
+            kept = await c.patch(f"/api/stages/{first.json()['id']}", json={'name': 'Main Stage'})
+            assert kept.status_code == 200
+
 
 class TestTriforce:
     async def test_submit_and_moderate(self, db, app):
