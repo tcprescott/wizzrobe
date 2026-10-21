@@ -256,8 +256,8 @@ def format_local_short(dt: Optional[datetime], tz: TzArg = None) -> str:
     """
     if dt is None:
         return ''
-    local = to_local(dt, tz)
-    return f"{local:%b} {local.day} {local:%H:%M}"
+    month, day, clock = format_local_datetime(dt, "%b %d %H:%M", tz).split()
+    return f"{month} {int(day)} {clock}"
 
 
 def timezone_label(tz: TzArg = None, at: Optional[datetime] = None) -> str:
