@@ -13,6 +13,11 @@
  * --wiz-vv-top / --wiz-vv-bottom / --wiz-vv-height on <html> (the
  * html.wiz-kb-open rules in styles.css read them), then scrolls the focused
  * field into view inside the dialog card.
+ *
+ * It also nudges the page when the keyboard goes away, dialog or not. iOS,
+ * the home screen app above all, can leave bottom-fixed bars (the tab bar)
+ * parked where the keyboard's top edge was until the next scroll; a one-pixel
+ * scroll and back makes WebKit lay them out against the real bottom again.
  */
 (function () {
   if (window.__wizDialogKeyboard) return;
@@ -28,6 +33,7 @@
   var probe = null;
   var pending = false;
   var open = false;
+  var keyboardUp = false;
 
   // The box a position:fixed element is laid out against. innerHeight and
   // clientHeight each disagree with it on iOS depending on toolbar state.
@@ -62,7 +68,14 @@
     pending = false;
     var full = layoutHeight();
     var kb = full - vv.height;
-    var next = dialogOpen() && vv.scale < 1.01 && kb > KEYBOARD_MIN;
+    var up = vv.scale < 1.01 && kb > KEYBOARD_MIN;
+    if (keyboardUp && !up) {
+      var y = window.scrollY;
+      window.scrollTo(window.scrollX, y + 1);
+      window.scrollTo(window.scrollX, y);
+    }
+    keyboardUp = up;
+    var next = dialogOpen() && up;
     if (next) {
       var top = Math.max(0, vv.offsetTop);
       var bottom = Math.max(0, full - vv.offsetTop - vv.height);

@@ -4560,6 +4560,22 @@ td .wiz-crew-action {
     color: var(--wiz-dark-muted) !important;
 }
 
+/* Firefox for iOS (and Safari, WebKit bug 235888) can leave a bottom-fixed bar
+   at the toolbar's old height once the toolbar collapses on scroll, with the
+   page showing through the strip underneath. No CSS or viewport API sees the
+   new edge, so the bar's surface runs on below it: off-screen everywhere else,
+   it fills that strip when the browser gets it wrong. */
+.footer-dark-override::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 100%;
+    height: 50vh;
+    background: inherit;
+    pointer-events: none;
+}
+
 .wiz-bottom-nav {
     width: 100%;
     padding-bottom: env(safe-area-inset-bottom);
