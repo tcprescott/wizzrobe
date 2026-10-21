@@ -773,7 +773,7 @@ async def seed_notification_settings(tenant: Tenant, users: dict[str, User]) -> 
         ('match_checked_in', NotificationRecipient.CREW, NotificationMode.SILENT),
         ('shift_reminder', NotificationRecipient.VOLUNTEERS, NotificationMode.SILENT),
         ('player_comment', NotificationRecipient.ON_DUTY, NotificationMode.SILENT),
-        ('crew_signup', NotificationRecipient.ADMINS, NotificationMode.SILENT),
+        ('tracker_signup', NotificationRecipient.ADMINS, NotificationMode.PING),
         ('volunteer_late', NotificationRecipient.STAFF, NotificationMode.OFF),
         ('welcome', NotificationRecipient.MEMBERS, NotificationMode.SILENT),
     ):

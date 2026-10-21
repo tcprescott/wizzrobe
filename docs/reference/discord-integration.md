@@ -224,7 +224,7 @@ Because `stop()` cancels the worker without draining, anything still queued at s
 
 ## Edited staff DMs
 
-A community event to review, an ADA request, a join request and a reschedule request each DM every staff member (reschedules: every decider). Once one decides it, [`staff_request_dms`](../../application/services/staff_request_dms.py) edits every copy to say who and when ("✅ Approved by Hurfy", "You" on the decider's own copy), recolours it, and swaps the button for one that opens the thing. Each landed copy is recorded in `StaffRequestDM` via `send_dm(on_sent=...)`; the edit runs on the same serial queue, so it always sees the records of sends queued before it. Only DMs sent after this shipped can be edited, and the web-push copy is never changed.
+A community event to review, an ADA request, a join request and a reschedule request each DM every staff member (reschedules: every decider); a crew signup DMs the tournament's admins and crew coordinators. Once one decides it, [`staff_request_dms`](../../application/services/staff_request_dms.py) edits every copy to say who and when ("✅ Approved by Hurfy", "You" on the decider's own copy), recolours it, and swaps the button for one that opens the thing. Each landed copy is recorded in `StaffRequestDM` via `send_dm(on_sent=...)`; the edit runs on the same serial queue, so it always sees the records of sends queued before it. Only DMs sent after this shipped can be edited, and the web-push copy is never changed.
 
 ## Interaction handlers (`discordbot/`)
 

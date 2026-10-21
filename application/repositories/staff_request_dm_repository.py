@@ -30,3 +30,8 @@ class StaffRequestDMRepository:
     @staticmethod
     async def forget(kind: StaffRequestKind, object_id: int) -> int:
         return await scoped(StaffRequestDM.filter(kind=kind, object_id=object_id)).delete()
+
+    @staticmethod
+    async def rebind(kind: StaffRequestKind, old_id: int, new_id: int) -> int:
+        """Point the DMs about ``old_id`` at ``new_id``, for a request that came back."""
+        return await scoped(StaffRequestDM.filter(kind=kind, object_id=old_id)).update(object_id=new_id)

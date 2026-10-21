@@ -14,6 +14,7 @@ import pytest
 from application.services import MatchRescheduleService
 from application.services.accommodation_service import AccommodationService
 from application.services.community_event_service import CommunityEventService, EventDraft
+from application.services.crew_service import CrewService
 from application.services.tenant_membership_service import TenantMembershipService
 from models import (
     AccommodationStatus,
@@ -24,6 +25,7 @@ from models import (
     StaffRequestKind,
     TenantMembership,
     Tournament,
+    Tracker,
     User,
     UserRole,
 )
@@ -257,6 +259,101 @@ class TestRescheduleRequests:
         assert [e['title'] for e in (await discord())['edited']] == ['↩️ Request withdrawn']
 
 
+class TestCrewSignups:
+    """Hurfy got the tracker signup DM, Synack withdrew, and the DM never said so."""
+
+    @staticmethod
+    async def _setup(base: int):
+        hurfy = await _member(base + 1, 'hurfy')
+        coordinator = await _member(base + 2, 'coord')
+        synack = await _member(base + 3, 'synack')
+        tournament = await Tournament.create(name='ALTTPR')
+        await tournament.admins.add(hurfy)
+        await tournament.crew_coordinators.add(coordinator)
+        match = await Match.create(
+            tournament=tournament, scheduled_at=datetime.now(timezone.utc) + timedelta(days=1),
+        )
+        return match, hurfy, coordinator, synack
+
+    async def test_withdrawing_a_pending_signup_edits_every_owner_copy(self, discord):
+        match, hurfy, coordinator, synack = await self._setup(800)
+        await CrewService().signup_crew(match.id, synack, 'tracker')
+        log = await discord()
+        assert sorted(log['sent']) == [801, 802]
+        assert await StaffRequestDM.filter(kind=StaffRequestKind.TRACKER_SIGNUP).count() == 2
+
+        await CrewService().undo_crew_signup(match.id, synack, 'tracker')
+        log = await discord()
+        assert log['sent'] == []
+        edited = _by_recipient(log['edited'])
+        assert set(edited) == {801, 802}
+        assert edited[801]['title'] == '↩️ Withdrawn by synack'
+        assert "nothing to approve" in edited[801]['text']
+        assert edited[801]['link'] == 'Open the match'
+
+    async def test_approving_says_who_and_you_on_their_own_copy(self, discord):
+        match, hurfy, coordinator, synack = await self._setup(810)
+        await CrewService().signup_crew(match.id, synack, 'commentator')
+        await discord()
+
+        signup = await match.commentators.all().first()
+        await CrewService().update_crew_approval(signup, 'commentator', True, actor=hurfy)
+        edited = _by_recipient((await discord())['edited'])
+        assert edited[812]['title'] == '✅ Approved by hurfy'
+        assert edited[811]['title'] == '✅ Approved by You'
+        assert 'synack' in edited[812]['text']
+
+    async def test_taking_approval_back_restores_the_ask(self, discord):
+        match, hurfy, coordinator, synack = await self._setup(820)
+        await CrewService().signup_crew(match.id, synack, 'tracker')
+        signup = await Tracker.get(match_id=match.id)
+        await CrewService().update_crew_approval(signup, 'tracker', True, actor=hurfy)
+        await discord()
+
+        await CrewService().update_crew_approval(signup, 'tracker', False, actor=hurfy)
+        edited = [e for e in (await discord())['edited'] if e['to'] in (821, 822)]
+        assert {e['title'] for e in edited} == {'🎙️ New tracker signup'}
+        assert {e['link'] for e in edited} == {'Review the signup'}
+
+    async def test_staff_removing_a_pending_signup_says_so(self, discord):
+        match, hurfy, coordinator, synack = await self._setup(830)
+        await CrewService().signup_crew(match.id, synack, 'tracker')
+        await discord()
+
+        signup = await Tracker.get(match_id=match.id)
+        await signup.delete()
+        await CrewService().announce_admin_removal(signup, 'tracker', hurfy)
+        edited = _by_recipient((await discord())['edited'])
+        assert edited[832]['title'] == '🚫 Removed by hurfy'
+        assert edited[831]['title'] == '🚫 Removed by You'
+
+    async def test_signing_up_again_inside_the_window_turns_the_dm_back(self, discord):
+        match, hurfy, coordinator, synack = await self._setup(840)
+        service = CrewService()
+        await service.signup_crew(match.id, synack, 'tracker')
+        await service.undo_crew_signup(match.id, synack, 'tracker')
+        await discord()
+
+        await service.signup_crew(match.id, synack, 'tracker')
+        log = await discord()
+        assert log['sent'] == []
+        assert {e['title'] for e in log['edited']} == {'🎙️ New tracker signup'}
+
+        await service.undo_crew_signup(match.id, synack, 'tracker')
+        assert {e['title'] for e in (await discord())['edited']} == {'↩️ Withdrawn by synack'}
+
+    async def test_commentator_and_tracker_ids_do_not_cross(self, discord):
+        match, hurfy, coordinator, synack = await self._setup(850)
+        await CrewService().signup_crew(match.id, synack, 'tracker')
+        await CrewService().signup_crew(match.id, synack, 'commentator')
+        await discord()
+
+        await CrewService().undo_crew_signup(match.id, synack, 'commentator')
+        titles = {e['title'] for e in (await discord())['edited']}
+        assert titles == {'↩️ Withdrawn by synack'}
+        assert await StaffRequestDM.filter(kind=StaffRequestKind.TRACKER_SIGNUP).count() == 2
+
+
 class TestDiscordService:
     @pytest.fixture
     def real_service(self, monkeypatch):
@@ -320,4 +417,5 @@ class TestDiscordService:
 def test_kinds_are_stable_strings():
     assert {k.value for k in StaffRequestKind} == {
         'community_event', 'ada_request', 'join_request', 'reschedule_request',
+        'commentator_signup', 'tracker_signup',
     }

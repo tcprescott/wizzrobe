@@ -501,6 +501,9 @@ class StaffRequestKind(str, Enum):
     ADA_REQUEST = 'ada_request'
     JOIN_REQUEST = 'join_request'
     RESCHEDULE_REQUEST = 'reschedule_request'
+    # Commentator and tracker signups live in separate tables, so their ids overlap.
+    COMMENTATOR_SIGNUP = 'commentator_signup'
+    TRACKER_SIGNUP = 'tracker_signup'
 
 
 class AsyncQualifierRunStatus(str, Enum):

@@ -544,15 +544,16 @@ The methods from `list_guilds` down live in **`discord_guild_ops.py`** (`GuildOp
 
 ### staff_request_dms.py — module functions
 
-The staff DMs about a request someone has to decide (a community event to review, an ADA request, a join request, a reschedule request), and the edit once someone has. Every staff member is DM'd, so each copy that lands is recorded in [`StaffRequestDM`](data-model.md#staffrequestdm) and rewritten when the request is decided, so the others needn't open it to check. Both halves go through `discord_queue`, whose single worker keeps an edit behind the sends it edits.
+The staff DMs about a request someone has to decide (a community event to review, an ADA request, a join request, a reschedule request, a crew signup), and the edit once someone has. Every staff member is DM'd, so each copy that lands is recorded in [`StaffRequestDM`](data-model.md#staffrequestdm) and rewritten when the request is decided, so the others needn't open it to check. Both halves go through `discord_queue`, whose single worker keeps an edit behind the sends it edits.
 
 | Function | Description |
 |---|---|
 | `send(kind, object_id, recipients, message, *, embed, link)` (async) | Forgets the previous round's records for this request, then queues one DM per recipient with a `discord_id`, each recording itself through `send_dm(on_sent=...)`. |
 | `mark_handled(kind, object_id, build, link, *, actor_id=None)` | Queues the edit of every recorded copy. `build(you: bool)` returns the card, so the decider's own copy reads "You". Called again on a later decision (approved, then taken down), it edits the same copies. |
+| `carry_over(kind, old_id, new_id, build, link)` | Queues moving the records from `old_id` to `new_id`, then editing them. For a request withdrawn and made again before a second DM is due: a crew signup redone inside its 10-minute notice window turns the "withdrawn" copies back into the ask. |
 | `card(title_and_description, *, color, community_name, fields=None)` | `notification_embed` from a `(title, description)` pair out of [`discord_messages_staff_requests.py`](../../application/utils/discord_messages_staff_requests.py). |
 
-Callers: `_community_event_notifications` (approve, reject, a pending event cancelled), `AccommodationService` (moved off New, a change reviewed, withdrawn; a request that goes back to New gets its original card back), `TenantMembershipService` (approved, declined, let in another way) and the reschedule notifications mixin (approved, declined, withdrawn, superseded).
+Callers: `_community_event_notifications` (approve, reject, a pending event cancelled), `AccommodationService` (moved off New, a change reviewed, withdrawn; a request that goes back to New gets its original card back), `TenantMembershipService` (approved, declined, let in another way) the reschedule notifications mixin (approved, declined, withdrawn, superseded) and `CrewService` (a pending signup withdrawn by the volunteer, approved, or removed by staff; one whose approval is taken back gets its original card back).
 
 ### discord_member_events.py — module functions
 

@@ -20,10 +20,12 @@ from application.services.discord import discord_queue
 from application.services.discord.discord_service import DiscordService
 from application.services.notification_catalog import (
     ADA_REQUEST,
+    COMMENTATOR_SIGNUP,
     EVENT_TO_REVIEW,
     JOIN_REQUEST,
     RESCHEDULE_REQUEST,
     STAFF,
+    TRACKER_SIGNUP,
     Notice,
 )
 from application.utils.discord_messages import DMLink
@@ -39,6 +41,8 @@ _NOTICES: dict[StaffRequestKind, Notice] = {
     StaffRequestKind.ADA_REQUEST: ADA_REQUEST,
     StaffRequestKind.COMMUNITY_EVENT: EVENT_TO_REVIEW,
     StaffRequestKind.RESCHEDULE_REQUEST: RESCHEDULE_REQUEST,
+    StaffRequestKind.COMMENTATOR_SIGNUP: COMMENTATOR_SIGNUP,
+    StaffRequestKind.TRACKER_SIGNUP: TRACKER_SIGNUP,
 }
 
 
@@ -93,6 +97,25 @@ def mark_handled(
     decisions (approved, then taken down) edit the same copies again.
     """
     discord_queue.enqueue(_edit_all(kind, object_id, build, link, actor_id))
+
+
+def carry_over(
+    kind: StaffRequestKind,
+    old_id: int,
+    new_id: int,
+    build: CardBuilder,
+    link: Optional[DMLink],
+) -> None:
+    """Queue moving the DMs about ``old_id`` onto ``new_id`` and editing them.
+
+    For a request withdrawn and made again before anyone is told twice: the
+    copies that now say "withdrawn" become the ask again instead of a fresh DM.
+    """
+    async def move_then_edit() -> None:
+        await StaffRequestDMRepository.rebind(kind, old_id, new_id)
+        await _edit_all(kind, new_id, build, link, None)
+
+    discord_queue.enqueue(move_then_edit())
 
 
 async def _edit_all(
