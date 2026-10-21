@@ -15,6 +15,7 @@ from application.events import EventType
 from application.feature_flags import requires_feature
 from application.repositories import VolunteerAssignmentRepository
 from application.services.audit_service import AuditActions, AuditService
+from application.services.auth_service import AuthService
 from application.services.notification_catalog import VOLUNTEER_LATE
 from application.utils.discord_messages_volunteer import LATE_CHOICES, late_label
 from models import FeatureFlag, User, VolunteerAssignment
@@ -124,6 +125,37 @@ class VolunteerArrivalService:
             user, AuditActions.VOLUNTEER_CHECK_IN_UNDONE,
             {'assignment_id': assignment.id, 'shift_id': assignment.shift_id},  # type: ignore[attr-defined]
             EventType.VOLUNTEER_CHECK_IN_UNDONE, event_extra={'user_id': user.id},
+        )
+        return assignment
+
+    @requires_feature(FeatureFlag.VOLUNTEERS)
+    async def undo_check_in_as_coordinator(
+        self, assignment_id: int, actor: User,
+    ) -> VolunteerAssignment:
+        """Take back anyone's check-in, whoever recorded it.
+
+        The volunteer can only undo their own and is told to ask a coordinator
+        otherwise, so this is the way out for a mis-tap at the desk or an
+        "I'm here" sent from home.
+        """
+        if not await AuthService.can_manage_volunteers(actor):
+            raise PermissionError('Only coordinators and staff can undo check-ins.')
+        assignment = require_found(
+            await self.assignment_repository.get_by_id(assignment_id), 'Volunteer assignment',
+        )
+        if assignment.checked_in_at is None:
+            return assignment
+        assignment.checked_in_at = None  # type: ignore[assignment]
+        assignment.checked_in_by_id = None
+        await self.assignment_repository.save(
+            assignment, update_fields=['checked_in_at', 'checked_in_by_id'],
+        )
+        await self.audit_service.write_and_publish(
+            actor, AuditActions.VOLUNTEER_CHECK_IN_UNDONE,
+            {'assignment_id': assignment.id, 'shift_id': assignment.shift_id,  # type: ignore[attr-defined]
+             'self_reported': False},
+            EventType.VOLUNTEER_CHECK_IN_UNDONE,
+            event_extra={'user_id': assignment.user_id},  # type: ignore[attr-defined]
         )
         return assignment
 
