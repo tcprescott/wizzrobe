@@ -409,7 +409,7 @@ class MatchScheduleService(MatchNotificationMixin):
         await match.fetch_related('players')
         if match.confirmed_at:
             raise ValueError("Match is already confirmed")
-        if not has_recorded_result(match.players):
+        if not has_recorded_result(match.players):  # type: ignore[attr-defined]
             raise ValueError("Record the winner before confirming.")
         now = datetime.now(timezone.utc)
         for field in ('seated_at', 'started_at', 'finished_at'):
@@ -422,7 +422,7 @@ class MatchScheduleService(MatchNotificationMixin):
         await self.audit_service.write_and_publish(
             actor, AuditActions.MATCH_CONFIRMED, {'match_id': match.id, 'played_on': site},
             EventType.MATCH_CONFIRMED,
-            event_extra={'tournament_id': match.tournament_id, 'tournament': match.tournament.name},
+            event_extra={'tournament_id': match.tournament_id, 'tournament': match.tournament.name},  # type: ignore[attr-defined]
         )
         from application.services import opt_in_notifications
         discord_queue.enqueue(opt_in_notifications.match_result(match.id))

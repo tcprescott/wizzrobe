@@ -33,7 +33,7 @@ class ChallongeResultsMixin:
         for cmatch in await self.repository.completed_for_matches(match_ids):
             winner = cmatch.winner_participant
             out[cmatch.match_id] = (  # type: ignore[attr-defined]
-                winner.user_id if winner else None, (winner.name if winner else None) or '',  # type: ignore[attr-defined]
+                winner.user_id if winner else None, (winner.name if winner else None) or '',
             )
         return out
 
@@ -69,11 +69,11 @@ class ChallongeResultsMixin:
             raise ValueError("This match is not linked to a Challonge match.")
 
         await match.fetch_related('players__user', 'tournament')
-        ranked = [p for p in match.players if p.finish_rank is not None]
+        ranked = [p for p in match.players if p.finish_rank is not None]  # type: ignore[attr-defined]
         winner = next((p for p in ranked if p.finish_rank == 1), None)
         if winner is None:
             raise ValueError("No winner has been recorded for this match yet.")
-        losers = [p for p in match.players if p.id != winner.id]
+        losers = [p for p in match.players if p.id != winner.id]  # type: ignore[attr-defined]
         if not losers:
             raise ValueError("Cannot push a result without an opponent.")
         loser = losers[0]
@@ -129,7 +129,7 @@ class ChallongeResultsMixin:
             # diagnostic trail in structured logs and Sentry.
             logger.error(
                 "Challonge post-push re-sync failed for tournament %s",
-                cmatch.tournament_id, exc_info=True,
+                cmatch.tournament_id, exc_info=True,  # type: ignore[attr-defined]
             )
 
     @staticmethod

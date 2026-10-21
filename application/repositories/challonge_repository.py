@@ -130,7 +130,7 @@ class ChallongeRepository:
         rows = await Tournament.filter(
             challonge_tournament_id__isnull=False, is_active=True,
         ).values_list('tenant_id', flat=True)
-        return {r for r in rows if isinstance(r, int)}
+        return {r for r in rows if isinstance(r, int)}  # type: ignore[misc]
 
     @staticmethod
     async def clear_connection() -> int:

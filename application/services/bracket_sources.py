@@ -407,7 +407,7 @@ async def record_site_result(match_id: int, actor: User) -> SiteResult:
     if match is None:
         raise ValueError('That match no longer exists.')
     await match.fetch_related('players')
-    winner = next((p for p in match.players if result.winner_user_id and p.user_id == result.winner_user_id), None)
+    winner = next((p for p in match.players if result.winner_user_id and p.user_id == result.winner_user_id), None)  # type: ignore[attr-defined]
     if winner is None:
         raise ValueError(
             f"{result.winner_name or 'The winner'} on {result.site} isn't one of this "

@@ -444,7 +444,7 @@ class StartggService:
         for row in await self.repository.completed_for_matches(match_ids):
             winner = row.winner
             out[row.match_id] = (  # type: ignore[attr-defined]
-                winner.user_id if winner else None, (winner.name if winner else None) or '',  # type: ignore[attr-defined]
+                winner.user_id if winner else None, (winner.name if winner else None) or '',
             )
         return out
 
