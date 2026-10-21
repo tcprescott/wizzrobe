@@ -14,7 +14,7 @@ stage is the shape the board wants rather than the shape the table has.
 """
 
 from datetime import date, timedelta
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, FrozenSet, List, Optional, Tuple
 
 from application.repositories import MatchRepository
 from application.utils.timezone import local_day_bounds
@@ -74,6 +74,19 @@ class MatchReadsMixin:
     async def bracket_link_candidates(self, tournament_ids: List[int]) -> List[Match]:
         """Matches staff could link to a bracket matchup: unconfirmed and unlinked."""
         return await self.repository.bracket_link_candidates(tournament_ids)
+
+    async def unambiguous_link_candidates(self, tournament_id: int) -> Dict[FrozenSet[int], Match]:
+        """Link candidates keyed by their two players, keeping only a pair with exactly one.
+
+        A sync re-attaches a booking to its matchup by this after a bracket reset
+        renumbers every match; a pair with two candidates is left for staff.
+        """
+        by_pair: Dict[FrozenSet[int], List[Match]] = {}
+        for match in await self.repository.bracket_link_candidates([tournament_id]):
+            players = frozenset(p.user_id for p in match.players)
+            if len(players) == 2 and len(match.players) == 2:
+                by_pair.setdefault(players, []).append(match)
+        return {pair: found[0] for pair, found in by_pair.items() if len(found) == 1}
 
     async def require_bracket_linkable(
         self, match_id: int, tournament_id: int, player_ids: List[Optional[int]],

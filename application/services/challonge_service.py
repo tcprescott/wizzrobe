@@ -649,10 +649,11 @@ class ChallongeService(ChallongeParticipantAssignmentMixin, ChallongeStageMixin,
             tournament, set(participant_by_cid), {rm['match_id'] for rm in remote_matches},
         )
         await self._mirror_players(tournament, actor)
+        relinked = await self._relink_bookings(tournament, actor)
         result = {'participants': len(remote_participants), 'matches': len(remote_matches)}
         await self.audit_service.write_log(actor, AuditActions.CHALLONGE_BRACKET_SYNCED, {
             'tournament_id': tournament.id, **result,
-            'participants_removed': removed_p, 'matches_removed': removed_m,
+            'participants_removed': removed_p, 'matches_removed': removed_m, 'matches_relinked': relinked,
         })
         await self._announce_newly_bookable(tournament, bookable_before)
         return result

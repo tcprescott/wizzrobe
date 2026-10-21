@@ -237,11 +237,13 @@ class StartggService:
         )
         await self.repository.record_sync(tournament, datetime.now(timezone.utc), full['event'].get('name'))
         await self._mirror_players(tournament, actor)
+        relinked = await self._relink_bookings(tournament, actor)
         result = {'entrants': len(entrants), 'sets': len(set_ids), 'pools': len(pool_ids)}
         if audit:
             await self.audit_service.write_log(actor, AuditActions.STARTGG_EVENT_SYNCED, {
                 'tournament_id': tournament.id, **result,
                 'entrants_removed': removed['entrants'], 'sets_removed': removed['sets'],
+                'sets_relinked': relinked,
             })
         await self._announce_newly_bookable(tournament, before)
         return result
@@ -365,6 +367,34 @@ class StartggService:
         if active:
             return active[0].phase_id
         return ordered[-1].phase_id if ordered else None
+
+    async def _relink_bookings(self, tournament: Tournament, actor: User) -> int:
+        """Re-attach each open, unbooked set to its players' one unlinked match.
+
+        Resetting a phase on start.gg gives its sets new ids, so the sync drops
+        the rows a booking hung off. Linking here, as Link an existing match
+        would, keeps the result flowing back and skips a second ready DM.
+        """
+        orphans = await MatchService().unambiguous_link_candidates(tournament.id)
+        if not orphans:
+            return 0
+        linked = 0
+        for row in await self.repository.list_sets(tournament):
+            e1, e2 = row.entrant1, row.entrant2
+            if (row.state != StartggSetState.OPEN or row.match_id is not None  # type: ignore[attr-defined]
+                    or not _is_real_set(row.set_id) or e1 is None or e2 is None
+                    or e1.user_id is None or e2.user_id is None):
+                continue
+            match = orphans.pop(frozenset((e1.user_id, e2.user_id)), None)
+            if match is None:
+                continue
+            await self.repository.link_match(row, match)
+            await self.audit_service.write_log(actor, AuditActions.STARTGG_SET_LINKED, {
+                'tournament_id': tournament.id, 'set_id': row.set_id, 'match_id': match.id,
+                'automatic': True,
+            })
+            linked += 1
+        return linked
 
     @staticmethod
     def _is_bookable(row: StartggSet, phase_id: Optional[str]) -> bool:
