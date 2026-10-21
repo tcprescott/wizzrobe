@@ -485,35 +485,36 @@ async def _render_desk(service: CheckInService, user, event: CheckInEvent) -> No
     can_manage = await AuthService.can_manage_check_in(user)
     render_context = capture_render_context()
     client = context.client
-    state: Dict = {'event': event, 'rows': [], 'filter': 'all', 'flash': set(), 'suggestions': (None, {})}
+    state: Dict = {'event': event, 'rows': [], 'filter': 'all', 'flash': set(), 'suggestions': (None, {}),
+                   'undo_timer': None}
 
     with ui.column().classes('page-container-narrow w-full gap-2 q-px-sm'):
+        # Only the search row and the progress line stay pinned. With the title
+        # and filters pinned too, a phone had room for one card, and none above
+        # the keyboard while typing a name.
+        with ui.row().classes('w-full items-center no-wrap gap-2 q-pt-sm'):
+            title = ui.label(event.name).classes('page-title col q-ma-none')
+            title.tag = 'h1'
+            with ui.row().classes('no-wrap items-center gap-0 wiz-help-row'):
+                await help_icon('check-in-desk', user=user)
+                sync_btn = ui.button(icon='sync').props('flat round color=primary') \
+                    .classes(REQUIRES_SOCKET_CLASS).tooltip('Sync badges and comps now')
+                if not _can_sync(event):
+                    sync_btn.set_visibility(False)
+                if can_manage:
+                    ui.button(icon='person_add', on_click=lambda: background_tasks.create(add_walk_up())) \
+                        .props('flat round color=primary').classes(REQUIRES_SOCKET_CLASS) \
+                        .tooltip('Add walk-up')
+        closed_notice = ui.label('This event is closed. You can still record late check-ins.') \
+            .classes('text-caption text-warning')
         with ui.column().classes('checkin-toolbar w-full gap-1 q-py-sm'):
-            with ui.row().classes('w-full items-center no-wrap gap-2'):
-                title = ui.label(event.name).classes('page-title col q-ma-none')
-                title.tag = 'h1'
-                with ui.row().classes('no-wrap items-center gap-0 wiz-help-row'):
-                    await help_icon('check-in-desk', user=user)
-                    sync_btn = ui.button(icon='sync').props('flat round color=primary') \
-                        .classes(REQUIRES_SOCKET_CLASS).tooltip('Sync badges and comps now')
-                    if not _can_sync(event):
-                        sync_btn.set_visibility(False)
-                    # In the sticky toolbar, not a floating button: a FAB sat on top of
-                    # the Check in button of whichever card scrolled under it.
-                    if can_manage:
-                        ui.button(icon='person_add', on_click=lambda: background_tasks.create(add_walk_up())) \
-                            .props('flat round color=primary').classes(REQUIRES_SOCKET_CLASS) \
-                            .tooltip('Add walk-up')
-            closed_notice = ui.label('This event is closed. You can still record late check-ins.') \
-                .classes('text-caption text-warning')
-            box_slot = ui.row().classes('w-full')
+            with ui.row().classes('w-full items-center no-wrap gap-2') as box_slot:
+                pass
             with ui.row().classes('w-full items-center no-wrap gap-2'):
                 progress = ui.linear_progress(value=0, show_value=False, size='8px').classes('col') \
                     .props('rounded color=positive aria-label="Checked in"')
-                counts_label = ui.label().classes('text-caption text-weight-medium')
-            # The app's segmented control (.wiz-segmented, as on the Event page).
-            chips = ui.toggle(FILTERS, value='all').props('no-caps dense unelevated') \
-                .classes('wiz-segmented checkin-filters')
+                counts_label = ui.label().classes('text-caption text-weight-medium checkin-counts')
+            # Shown only when the roster may be stale; a good sync is a time on the counts line.
             sync_label = ui.label().classes('text-caption')
 
         # The five columns need about 920px beside the nav drawer, which a 1024px
@@ -532,8 +533,12 @@ async def _render_desk(service: CheckInService, user, event: CheckInEvent) -> No
         # After the card slot, never before: the card must not follow a saved layout.
         customize_table(table, _COLUMNS, key=TableKeys.CHECK_IN_DESK, pager=False)
         with box_slot:
-            box = search_input(table, placeholder='Search by name or badge code', width='w-full')
+            box = search_input(table, placeholder='Name or badge code', width='w-full')
             box.props('autofocus outlined').classes('col')
+            chips = ui.select(FILTERS, value='all').props('dense outlined options-dense behavior=menu') \
+                .props('aria-label="Show"').classes('checkin-filter')
+            with chips.add_slot('prepend'):
+                ui.icon('filter_list')
 
         # Bottom padding so the last card scrolls clear of the undo bar.
         with ui.row().classes('w-full items-center gap-2 q-mt-sm checkin-footer'):
@@ -546,18 +551,21 @@ async def _render_desk(service: CheckInService, user, event: CheckInEvent) -> No
         current = state['event']
         rows = state['rows']
         counts = {key: sum(1 for r in rows if _matches(r, key)) for key in FILTERS}
-        chips.options = {key: f'{label} {counts[key]}' for key, label in FILTERS.items()}
-        chips.update()
+        chips.set_options({key: f'{label} {counts[key]}' for key, label in FILTERS.items()}, value=state['filter'])
         visible = [dict(r, _flash=r['id'] in state['flash']) for r in rows if _matches(r, state['filter'])]
         table.rows = visible
         table.update()
         # Withdrawn rows are listed under All but aren't expected at the door.
         total = counts['checked_in'] + counts['not_yet']
         progress.value = (counts['checked_in'] / total) if total else 0
-        counts_label.text = f"{counts['checked_in']} of {total} checked in"
         text, cls = _sync_line(current)
+        stale = cls != 'text-grey-7' or current.last_synced_at is None
+        synced = f' · synced {format_local_time(current.last_synced_at)}' \
+            if current.last_synced_at is not None and not stale else ''
+        counts_label.text = f"{counts['checked_in']} of {total} checked in{synced}"
         sync_label.text = text
         sync_label.classes(replace=f'text-caption {cls}')
+        sync_label.set_visibility(stale)
         title.text = current.name
         closed_notice.set_visibility(current.status == CheckInEventStatus.CLOSED)
         sync_btn.set_visibility(_can_sync(current))
@@ -622,7 +630,11 @@ async def _render_desk(service: CheckInService, user, event: CheckInEvent) -> No
             ui.button('Undo', on_click=undo).props('flat no-caps color=yellow-4') \
                 .classes(REQUIRES_SOCKET_CLASS)
         undo_bar.set_visibility(True)
-        PageTimer(8.0, lambda: undo_bar.set_visibility(False), once=True)
+        # A desk checks people in back to back: the last check-in's bar gets its
+        # full eight seconds, not whatever was left of the one before.
+        if state['undo_timer'] is not None:
+            state['undo_timer'].cancel()
+        state['undo_timer'] = PageTimer(8.0, lambda: undo_bar.set_visibility(False), once=True)
 
     async def run(coro, success: Optional[str] = None) -> bool:
         try:

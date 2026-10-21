@@ -1,13 +1,17 @@
 name: Boot the seeded app
 description: >-
-  Install Python, Poetry, Playwright Chromium and axe-core, boot the app against
-  the job's PostgreSQL service with every integration mocked, and seed it. The
+  Install Python, Poetry, Playwright (Chromium unless `browsers` says otherwise)
+  and axe-core, boot the app against the job's PostgreSQL service with every integration mocked, and seed it. The
   calling job supplies the service and the DB_* / MOCK_* environment.
 
 inputs:
   poetry-version:
     description: Poetry version to install
     required: true
+  browsers:
+    description: Playwright browsers to install, space-separated
+    required: false
+    default: chromium
 
 runs:
   using: composite
@@ -31,7 +35,7 @@ runs:
       shell: bash
       run: poetry install --no-interaction
 
-    - name: Install Playwright Chromium
+    - name: Install Playwright browsers
       # Pinned: Playwright ships browser-behaviour changes in minor releases,
       # and an unpinned bump would land as a mystery CI failure on an unrelated
       # PR. 1.56.1 matches the version preinstalled in the dev sandbox, so a
@@ -41,7 +45,7 @@ runs:
       shell: bash
       run: |
         npm install --no-save playwright@1.56.1 axe-core@4.10.3
-        npx playwright install --with-deps chromium
+        npx playwright install --with-deps ${{ inputs.browsers }}
 
     - name: Generate a session secret
       shell: bash

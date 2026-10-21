@@ -12,6 +12,7 @@ from datetime import datetime, timedelta
 
 import pytest
 
+from application.services.volunteer.volunteer_arrival_service import VolunteerArrivalService
 from application.services.volunteer.volunteer_availability_service import VolunteerAvailabilityService
 from application.services.volunteer.volunteer_qualification_service import VolunteerQualificationService
 from application.services.volunteer.volunteer_schedule_service import VolunteerScheduleService
@@ -236,6 +237,50 @@ class TestCheckIn:
         stamp = first.checked_in_at
         second = await svc.check_in(assignment.id, staff)
         assert second.checked_in_at == stamp
+
+
+class TestUndoCheckIn:
+    async def test_coordinator_undoes_a_self_check_in(self, db):
+        staff = await _staff()
+        coord = await _coordinator()
+        pos = await VolunteerPosition.create(name='Admin Desk')
+        shift = await VolunteerShift.create(position=pos, starts_at=utc(2026, 10, 4, 8), ends_at=utc(2026, 10, 4, 12))
+        vol = await _volunteer('fromhome')
+        svc = VolunteerScheduleService()
+        assignment, _ = await svc.assign(staff, shift, vol)
+        assignment.checked_in_at = utc(2026, 10, 4, 7, 45)
+        assignment.checked_in_by_id = vol.id
+        await assignment.save(update_fields=['checked_in_at', 'checked_in_by_id'])
+
+        result = await VolunteerArrivalService().undo_check_in_as_coordinator(assignment.id, coord)
+
+        assert result.checked_in_at is None
+        assert result.checked_in_by_id is None
+        await assignment.refresh_from_db()
+        assert assignment.checked_in_at is None
+
+    async def test_rejects_the_volunteer(self, db):
+        staff = await _staff()
+        pos = await VolunteerPosition.create(name='Admin Desk')
+        shift = await VolunteerShift.create(position=pos, starts_at=utc(2026, 10, 4, 8), ends_at=utc(2026, 10, 4, 12))
+        vol = await _volunteer('notme')
+        svc = VolunteerScheduleService()
+        assignment, _ = await svc.assign(staff, shift, vol)
+        await svc.check_in(assignment.id, staff)
+
+        with pytest.raises(PermissionError, match='check-ins'):
+            await VolunteerArrivalService().undo_check_in_as_coordinator(assignment.id, vol)
+
+    async def test_is_a_no_op_when_not_checked_in(self, db):
+        staff = await _staff()
+        pos = await VolunteerPosition.create(name='Admin Desk')
+        shift = await VolunteerShift.create(position=pos, starts_at=utc(2026, 10, 4, 8), ends_at=utc(2026, 10, 4, 12))
+        vol = await _volunteer('absent')
+        svc = VolunteerScheduleService()
+        assignment, _ = await svc.assign(staff, shift, vol)
+
+        result = await VolunteerArrivalService().undo_check_in_as_coordinator(assignment.id, staff)
+        assert result.checked_in_at is None
 
 
 # ---------------------------------------------------------------------------

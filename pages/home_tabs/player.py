@@ -23,7 +23,7 @@ from application.services.match.match_reads import (
     RELATION_WATCHER,
 )
 from application.utils.app_links import HOME_PLAYER, HOME_SCHEDULE, home_url
-from application.utils.match_labels import challonge_round_label
+from application.utils.match_labels import challonge_round_label, entrant_name
 from application.utils.timezone import format_local_display
 from models import FeatureFlag, RescheduleRequestKind, RescheduleRequestStatus
 from pages.home_tabs.player_asks import render_opponent_requests
@@ -443,7 +443,7 @@ async def render_player_dashboard(
                 for cm in challonge_rows:
                     me_is_p1 = cm.participant1 is not None and cm.participant1.user_id == user.id
                     opponent = cm.participant2 if me_is_p1 else cm.participant1
-                    opponent_name = opponent.name if opponent else 'TBD'
+                    opponent_name = entrant_name(opponent)
                     opponent_linked = opponent is not None and opponent.user_id is not None
 
                     async def do_challonge(_=None, m=cm, oname=opponent_name):

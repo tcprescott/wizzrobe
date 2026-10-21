@@ -170,9 +170,9 @@ async def update_volunteer_position(
     body = VolunteerPositionUpdate.model_validate(fields)
     service = VolunteerPositionService()
     position = require_found(await service.get(position_id), 'Position')
-    changes = body.model_dump(exclude_unset=True)
-    if changes:
-        position = await service.update(current_actor().user, position, **changes)
+    position = await service.update(
+        current_actor().user, position, **body.model_dump(exclude_unset=True),
+    )
     return VolunteerPositionResponse.model_validate(position, from_attributes=True)
 
 
@@ -243,8 +243,7 @@ async def update_volunteer_shift(
             fields[key] = value.strip() or None
     service = VolunteerScheduleService()
     shift = require_found(await service.get_shift(shift_id), 'Shift')
-    if fields:
-        await service.update_shift(current_actor().user, shift, **fields)
+    await service.update_shift(current_actor().user, shift, **fields)
     return VolunteerShiftResponse.from_row(
         require_found(await service.get_shift(shift_id), 'Shift'), include_drafts=True,
     )

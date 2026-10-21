@@ -19,6 +19,7 @@ or cached artifact, or a notification rendered for someone else. See
 ``docs/timezone-handling.md``.
 """
 
+import re
 from datetime import date, datetime, time, timedelta, timezone
 from typing import Optional, Union
 from zoneinfo import ZoneInfo
@@ -269,3 +270,24 @@ def timezone_label(tz: TzArg = None, at: Optional[datetime] = None) -> str:
     zone = _resolve(tz)
     moment = (at or datetime.now(timezone.utc)).astimezone(zone)
     return moment.strftime("%Z")
+
+
+_DISCORD_TIME = re.compile(r'<t:(\d{1,12})(?::[tTdDfFR])?>')
+# time_field's "<t:X:F> · <t:X:R>": the countdown only means something live in Discord.
+_DISCORD_TIME_PAIR = re.compile(r'<t:(\d{1,12}):[tTdDfF]> · <t:\1:R>')
+
+
+def readable_discord_times(text: str, tz: TzArg = None) -> str:
+    """Discord's ``<t:…>`` timestamp markup as plain local times.
+
+    For every copy of a DM that isn't Discord (device, email and Telegram
+    notifications, the Sent messages log), which would otherwise show the raw
+    ``<t:1792593000:F>``. A time with its countdown becomes the one time.
+    """
+    if '<t:' not in (text or ''):
+        return text or ''
+    text = _DISCORD_TIME_PAIR.sub(r'<t:\1:F>', text)
+    return _DISCORD_TIME.sub(
+        lambda m: format_local_display(datetime.fromtimestamp(int(m.group(1)), timezone.utc), tz),
+        text,
+    )

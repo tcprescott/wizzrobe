@@ -50,7 +50,7 @@ async def update_crew_approval(
     response_model=DetailResponse,
     summary="Acknowledge your own (approved) crew assignment",
     description=(
-        "Confirms you'll cover a crew slot an admin approved you for. "
+        "Confirms you'll cover a crew slot staff approved you for. "
         "`crew_type` is `commentator` or `tracker` and `crew_id` is the "
         "signup's id. Acknowledging twice is harmless. Fails with 400 when the "
         "signup isn't yours, isn't approved yet, or `crew_type` isn't one of "

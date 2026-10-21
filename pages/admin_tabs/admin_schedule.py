@@ -104,7 +104,7 @@ async def admin_schedule_page(
             with ui.row().classes('items-center gap-2 q-mb-sm'):
                 with ui.element('span').classes('wiz-chip wiz-chip--pending'):
                     ui.icon('filter_alt', size='14px')
-                    ui.label(f'Showing match #{match_id} only')
+                    ui.label('Showing one match only')
                 ui.button(
                     'Show all matches', icon='clear',
                     on_click=lambda: ui.navigate.to(admin_url(SCHEDULE)),

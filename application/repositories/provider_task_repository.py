@@ -24,7 +24,7 @@ class ProviderTaskRepository(TenantScopedRepository[ProviderTask]):
         """One task with everything a completion needs, scoped to this tenant."""
         return await scoped(
             ProviderTask.filter(id=task_id)
-        ).prefetch_related('match', 'preset', 'requested_by').first()
+        ).prefetch_related('match__generated_seed', 'preset', 'requested_by').first()
 
     @classmethod
     async def active_for_match(cls, match_id: int) -> Optional[ProviderTask]:

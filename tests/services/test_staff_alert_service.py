@@ -12,7 +12,7 @@ import pytest
 
 import application.services.discord as discord_pkg
 from application.services import MatchCommentService, StaffAlertService
-from application.services.notification_catalog import ADMINS, ON_DUTY
+from application.services.notification_catalog import ADMINS, ON_DUTY, STAFF
 from application.tenant_context import tenant_scope
 from models import (
     Match,
@@ -134,6 +134,29 @@ class TestRecipients:
         got = await StaffAlertService.match_alert_recipients(m, at=NOW)
 
         assert _names(got) == ['desk', 'ta_on']
+
+    async def test_a_staff_admin_standing_in_for_an_empty_desk_is_tagged_staff(self, db):
+        # "Ping on-duty" turns the Admins column off and keeps the all-staff
+        # fallback; tagged as an admin, a staff member who also ran the
+        # tournament heard nothing at all while the desk was empty.
+        t, m, _, _ = await _match()
+        boss = await _staff(9001, 'boss')
+        await t.admins.add(boss)
+
+        tagged = await StaffAlertService.tagged_match_alert_recipients(m, at=NOW)
+
+        assert [(u.username, why) for u, why in tagged] == [('boss', STAFF)]
+
+    async def test_a_staff_admin_stays_an_admin_while_someone_is_on_duty(self, db):
+        t, m, _, _ = await _match()
+        desk = await _staff(9001, 'desk')
+        boss = await _staff(9002, 'boss')
+        await t.admins.add(boss)
+        await _on_shift(desk)
+
+        tagged = dict((u.username, why) for u, why in await StaffAlertService.tagged_match_alert_recipients(m, at=NOW))
+
+        assert tagged == {'desk': ON_DUTY, 'boss': ADMINS}
 
     async def test_an_on_duty_volunteer_who_cannot_act_is_skipped(self, db):
         _, m, _, _ = await _match()

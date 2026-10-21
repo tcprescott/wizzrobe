@@ -14,7 +14,7 @@ from typing import Awaitable, Callable, List, Optional, Tuple
 
 from nicegui import app, ui
 
-from application.services import get_user_from_session
+from application.services import VolunteerArrivalService, get_user_from_session
 from application.services.volunteer import (
     GridPerson,
     GridShift,
@@ -153,6 +153,8 @@ class VolunteerShiftSheet:
             with more_menu(person.name):
                 if not person.draft and person.checked_in_at is None:
                     menu_action('how_to_reg', 'Check in', lambda: self._check_in(person))
+                if person.checked_in_at is not None:
+                    menu_action('undo', 'Undo check-in…', lambda: self._confirm_undo_check_in(person))
                 menu_action('swap_horiz', 'Swap with someone…',
                             lambda: self._swap(person, position, shift))
                 menu_action('arrow_forward', 'Move to another shift…',
@@ -171,6 +173,23 @@ class VolunteerShiftSheet:
             return
         ui.notify(f'Checked in {person.name}.', color='positive')
         await self._changed()
+
+    def _confirm_undo_check_in(self, person: GridPerson) -> None:
+        async def undo() -> None:
+            try:
+                await VolunteerArrivalService().undo_check_in_as_coordinator(
+                    person.assignment_id, await self._actor(),
+                )
+            except (ValueError, PermissionError) as e:
+                notify_error(e)
+                return
+            ui.notify(f'{person.name} is no longer checked in.', color='info')
+            await self._changed()
+
+        ConfirmationDialog(
+            message=f'Mark {person.name} as not here yet?',
+            on_confirm=undo, confirm_text='Undo check-in', title='Undo check-in?',
+        ).open()
 
     async def _assign(self, shift_id: int) -> None:
         model = await self.service.get_shift(shift_id)

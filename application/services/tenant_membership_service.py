@@ -160,7 +160,7 @@ async def _mark_staff_dms(
                 community_name=community,
             )
 
-        link = await notification_links.admin_users(label='Open the Users tab')
+        link = await notification_links.admin_users(label='Open the Members tab')
         staff_request_dms.mark_handled(
             StaffRequestKind.JOIN_REQUEST, request.id, build, link,
             actor_id=decided_by.id if decided_by else None,

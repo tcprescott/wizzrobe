@@ -397,6 +397,17 @@ Add member, roles, and "Ask to join it first" gates. If a sentence would still b
 true of someone who joined the community but isn't at the event, "member" is
 right; if it's about the person at the event, it's "attendee".
 
+Call the people who run the community **staff**, never "admins". Staff and
+admins are the same people and are treated the same, so a sentence that means
+"someone who runs things" says staff: "Check with staff", "Only staff can grant
+roles", "Someone else on staff saved this match". **Admin** is only the title of
+the Admin Desk, the overseer of the tournament room. Anything about the room and
+how it runs (checking a match in, a flagged result, a no-show, a dispute, who
+may come in) is the Admin Desk's call, so "tell the admin", "the on-call admin"
+and "Flag for admin review" stay. So do the names of things: the Admin side-menu
+section and its "Admin → X" pointers, the Tournament admin role (someone who runs
+one tournament), and "platform admin" for the people who run Wizzrobe itself.
+
 ## Checking your change
 
 Automated, on every PR:

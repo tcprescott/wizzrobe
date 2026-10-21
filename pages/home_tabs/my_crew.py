@@ -32,19 +32,23 @@ from theme.tables.preferences import TableKeys
 CREW_SECTION_ID = 'my-crew'
 
 
-async def my_crew_tab(focus_match: Optional[int] = None) -> None:
+async def my_crew_tab(focus_match: Optional[int] = None) -> bool:
     """``focus_match`` comes from a crew DM's button (``/home/my-crew?match=``):
     the board narrows to that match, says so, and the page scrolls to it. A
     match the viewer does not crew leaves the board whole and is left to the
     player section's notice.
+
+    Draws nothing for someone with no crew slots, and says whether it drew.
     """
     discord_id = app.storage.user.get('discord_id')
     user = await get_user_from_session(app.storage.user)
     if user is None:
         ui.label('You must be logged in to see your crew commitments.').classes('text-error')
-        return
+        return False
 
     commitments = await CrewService().list_my_commitments(user, upcoming_only=False)
+    if not commitments:
+        return False
     match_ids = None
     if focus_match is not None and any(r['match_id'] == int(focus_match) for r in commitments):
         match_ids = [int(focus_match)]
@@ -62,13 +66,6 @@ async def my_crew_tab(focus_match: Optional[int] = None) -> None:
     )
     panel.body.props(f'id={CREW_SECTION_ID}')
     with panel.body:
-        if not commitments:
-            ui.label(
-                'Nothing yet. Sign up to commentate or track a match from the '
-                'Schedule tab.'
-            ).classes('text-muted')
-            return
-
         if match_ids:
             with ui.row().classes('items-center gap-2 q-mb-sm'):
                 with ui.element('span').classes('wiz-chip wiz-chip--pending'):
@@ -100,3 +97,4 @@ async def my_crew_tab(focus_match: Optional[int] = None) -> None:
             f"setTimeout(() => document.getElementById('{CREW_SECTION_ID}')"
             "?.scrollIntoView({behavior: 'smooth', block: 'start'}), 400)"
         )
+    return True

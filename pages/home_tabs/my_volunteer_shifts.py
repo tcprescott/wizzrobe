@@ -99,19 +99,20 @@ def finished_status(assignment) -> tuple[str, str, str]:
 
 async def my_volunteer_shifts_section(
     user: User, *, release: Optional[int] = None, focus: bool = False,
-) -> None:
+) -> bool:
     """Build the panel; the caller has already checked ``FeatureFlag.VOLUNTEERS``.
 
     Nothing renders for someone who has never had a shift: most players never
     volunteer, and an empty panel would sit on every one of their schedules.
     ``release`` is an assignment id from the reminder DM's "Can't make it"
     button and opens that shift's give-back dialog; ``focus`` scrolls here.
+    Returns whether the panel was drawn.
     """
     service = VolunteerScheduleService()
     arrival_service = VolunteerArrivalService()
     every = await service.assignments_for_user(user, with_shiftmates=True)
     if not every and release is None:
-        return
+        return False
 
     summary = await VolunteerHoursService().for_user(user)
     lead_minutes = await SystemConfigService.get_volunteer_reminder_lead_minutes()
@@ -240,3 +241,4 @@ async def my_volunteer_shifts_section(
             )
         else:
             await release_shift(target)
+    return True

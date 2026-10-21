@@ -231,7 +231,7 @@ class TestGenerateSeed:
 
         assert ok is True
         assert url == "https://alttpr.com/h/xyz"
-        assert "Seed generated successfully" in message
+        assert "Seed rolled for" in message
         assert await GeneratedSeeds.all().count() == 1
         refreshed = await Match.get(id=m.id)
         assert refreshed.generated_seed_id is not None

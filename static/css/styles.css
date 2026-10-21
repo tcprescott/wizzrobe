@@ -6090,12 +6090,14 @@ ol.wiz-help-list { list-style-type: decimal; }
     overflow: visible;
 }
 
-/* Five filters don't fit a phone's width as equal segments. Scrolling them
-   sideways cut "Comped" off with nothing saying more were there, so they wrap
-   onto a second line instead and every filter stays in view. */
+/* The filter menu beside the search box: wide enough for "Checked in 120". */
+.checkin-filter {
+    flex: 0 0 auto;
+    min-width: 150px;
+}
+
 @media (max-width: 599px) {
-    .wiz-segmented.checkin-filters { flex-wrap: wrap; }
-    .wiz-segmented.checkin-filters .q-btn { flex: 1 1 auto; padding: 4px 12px; }
+    .checkin-filter { min-width: 128px; }
 }
 
 /* Quasar cells never wrap, so a long test-DM note stretched Status until the
@@ -7592,6 +7594,10 @@ ol.wiz-help-list { list-style-type: decimal; }
     max-width: 100vw;
     height: 100vh;
     max-height: 100vh;
+    /* Safari's 100vh is the viewport with its toolbars hidden, so the sheet's
+       footer would sit under them; dvh tracks what's actually visible. */
+    height: 100dvh;
+    max-height: 100dvh;
     border-radius: 0;
 }
 .match-sheet__body {

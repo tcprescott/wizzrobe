@@ -736,7 +736,7 @@ class TournamentService(TournamentSignupMixin):
         if not await TenantMembershipService().is_member(target):
             raise ValueError(
                 f'{target.display_name or target.username} is not a member of this '
-                'community — add them on the Users tab first.'
+                'community — add them on the Members tab first.'
             )
         if await self.repository.is_player_enrolled(tournament, target):
             raise ValueError(

@@ -355,6 +355,35 @@ class RoundScheduleService:
         )
         raise RoundWindowError(message, can_override=privileged)
 
+    async def check_reference(
+        self, scheduled_at: datetime, actor: Optional[User], *,
+        bracket_match_id: Optional[int] = None,
+        challonge_match_id: Optional[int] = None,
+        startgg_set_id: Optional[int] = None,
+    ) -> None:
+        """:meth:`check_time` for whichever matchup reference a booking dialog holds.
+
+        Lets a dialog refuse an out-of-window time before its "Check this time"
+        sheet offers a player "Schedule anyway" for a save that would be refused.
+        """
+        found: Optional[StageWindow] = None
+        tournament: Optional[Tournament] = None
+        if bracket_match_id is not None:
+            bm = await self.bracket_repository.get_match_with_bracket(bracket_match_id)
+            if bm is not None:
+                found = await self.window_for_bracket_match(bm)
+                tournament = await self.tournament_repository.get_by_id(bm.bracket.tournament_id)
+        elif challonge_match_id is not None:
+            cm = await self.challonge_repository.get_match(challonge_match_id)
+            if cm is not None:
+                found, tournament = await self.window_for_challonge_match(cm), cm.tournament
+        elif startgg_set_id is not None:
+            row = await self.startgg_repository.get_set(startgg_set_id)
+            if row is not None:
+                found, tournament = await self.window_for_startgg_set(row), row.tournament
+        if found is not None and tournament is not None:
+            await self.check_time(found, tournament, scheduled_at, actor)
+
     async def check_booking(
         self, found: Optional[StageWindow], tournament: Tournament,
         scheduled_date: str, scheduled_time: str, actor: Optional[User],
