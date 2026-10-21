@@ -21,6 +21,7 @@ from application.repositories import (
     TournamentRepository,
 )
 from application.services.match.match_status import has_recorded_result, legacy_label, resolve
+from application.services.match.player_late_service import late_tag, late_window_open
 from application.services.reporting_shared import crew_requirement
 from application.utils.discord_messages import seed_code_line
 from application.utils.timezone import (
@@ -386,6 +387,19 @@ class MatchDisplayService:
                 }
                 for p in match.players
             ],
+            # Players who said they're running late, while it still matters:
+            # check-in makes the heads-up moot, so it drops off the row then.
+            'late': [] if match.seated_at or match.finished_at else [
+                {
+                    'name': p.user.preferred_name,
+                    'user_id': p.user_id,
+                    'tag': late_tag(p),
+                    'said': format_local_time(p.late_at) if p.late_at else '',
+                    'note': p.late_note or '',
+                }
+                for p in match.players if getattr(p, 'late_minutes', None) is not None  # type: ignore[attr-defined]
+            ],
+            'late_window': late_window_open(match),
             'acknowledgments': acknowledgments_summary,
             'stage': match.stage.name if match.stage else '',
             # The id, not just the name: the board's Stage cell is a select whose

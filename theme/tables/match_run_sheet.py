@@ -285,7 +285,22 @@ def decorate_run_sheet_row(row: dict) -> dict:
     row['_seat_line'] = seat_line(row)
     row['_ada'] = [p.get('name') or '' for p in row.get('players') or [] if p.get('ada')]
     row['_comments'] = comment_badges(row.get('comment_counts'))
+    row['_late'] = late_tags(row)
     return row
+
+
+def late_tags(row: dict) -> list[dict]:
+    """'Player One ~20 min late · said 09:41' per player who told staff they're late.
+
+    ``note`` is what they added, for the tag's hover title; the Needs you inbox
+    prints it in full.
+    """
+    return [{
+        'key': entry.get('user_id'),
+        'label': f"{entry.get('name')} {entry.get('tag')} late"
+                 + (f" · said {entry['said']}" if entry.get('said') else ''),
+        'note': entry.get('note') or '',
+    } for entry in row.get('late') or []]
 
 
 def comment_badges(counts) -> list[dict]:
@@ -386,6 +401,10 @@ COMMENT_BADGES = r"""<span v-if="props.row._comments && props.row._comments.leng
 # holds the names, and the sheet has the accommodation button.
 _SEATED_WHO = r"""<template v-if="props.row._seats.length"><template v-for="(s, i) in props.row._seats" :key="i"><span v-if="i" class="run-sheet__vs">{{ props.row._seats.length > 2 ? ', ' : ' vs ' }}</span><span class="run-sheet__player">{{ s.name }}<span class="run-sheet__seat" :class="s.station ? '' : 'run-sheet__seat--none'">{{ s.station ? 'Station ' + s.station : 'No station' }}</span></span></template></template><template v-else>""" + _WHO + """</template>"""
 
+# A player said they're on their way. On the staff boards only: the player's own
+# board says it in its Status chip instead.
+LATE_TAGS = r"""<span v-for="l in props.row._late" :key="l.key" class="wiz-chip wiz-chip--pending run-sheet__late" :title="l.note || null"><q-icon name="schedule" size="14px" aria-hidden="true" />{{ l.label }}</span>"""
+
 _ADA = """<span v-if="props.row._ada.length" class="run-sheet__ada"><q-icon name="accessible" size="16px" aria-hidden="true" />ADA: {{ props.row._ada.join(', ') }}</span>"""
 
 # The seed, on the proctor's line: the link and code to read to the players, or
@@ -433,13 +452,14 @@ def _body_slot(proctor: bool, can_run: bool = False) -> str:
                 """ + _SEATED_WHO + """
             </button>""" + COMMENT_BADGES + """</span>
             <span class="run-sheet__meta" :title="props.row.tournament">{{ props.row.tournament_short || props.row.tournament }}<template v-if="props.row.bracket"> · {{ props.row.bracket.name }}<template v-if="props.row.bracket.game"> · Game {{ props.row.bracket.game }}</template></template></span>
-            """ + _ADA + """
+            """ + _ADA + LATE_TAGS + """
             """ + _SEED_LINE
     else:
         match = """<span class="run-sheet__name-line"><button type="button" class="run-sheet__open" @click.stop="$parent.$emit('open_match', props.row.id)">
                 """ + _WHO + """
             </button>""" + COMMENT_BADGES + """</span>
-            <span class="run-sheet__meta" :title="props.row.tournament">{{ props.row.tournament_short || props.row.tournament }}<template v-if="props.row.bracket"> · {{ props.row.bracket.name }}<template v-if="props.row.bracket.game"> · Game {{ props.row.bracket.game }}</template></template></span>"""
+            <span class="run-sheet__meta" :title="props.row.tournament">{{ props.row.tournament_short || props.row.tournament }}<template v-if="props.row.bracket"> · {{ props.row.bracket.name }}<template v-if="props.row.bracket.game"> · Game {{ props.row.bracket.game }}</template></template></span>
+            """ + LATE_TAGS
     return """
 <q-tr v-if="props.row._group_start" class="run-sheet__group-row">
     <q-td colspan="100%" class="run-sheet__group">""" + _group_header(proctor) + """</q-td>
@@ -486,7 +506,7 @@ def _item_slot(proctor: bool, can_run: bool = False) -> str:
             <span class="run-sheet__main">
                 <span class="run-sheet__who">""" + _WHO + """</span>
                 <span class="run-sheet__meta"><template v-if="props.row._stage">{{ props.row._stage }}</template><template v-if="props.row._stage && props.row._seat_line"> · </template>{{ props.row._seat_line }}</span>
-                """ + _ADA + """
+                """ + _ADA + LATE_TAGS + """
                 """ + COMMENT_BADGES + """
             </span>
         </button>
@@ -504,6 +524,7 @@ def _item_slot(proctor: bool, can_run: bool = False) -> str:
         <span class="run-sheet__main">
             <span class="run-sheet__who">""" + _WHO + """</span>
             <span class="run-sheet__meta" :title="props.row.tournament">{{ props.row.tournament_short || props.row.tournament }}<template v-if="props.row._stage"> · {{ props.row._stage }}</template></span>
+            """ + LATE_TAGS + """
             <span v-if="props.row._crew.length" class="run-sheet__crew-list">""" + _CREW_LINES + """</span>
             """ + COMMENT_BADGES + """
         </span>

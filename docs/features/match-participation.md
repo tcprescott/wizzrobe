@@ -559,6 +559,32 @@ A `player` comment DMs the match's alert recipients (below), whose button opens
 with its sheet open. The comment text is escaped (`player_comment_staff_dm`) so
 a player's masked link or mention can't render in Discord.
 
+## Running late
+
+`PlayerLateService` (`application/services/match/player_late_service.py`) lets a
+match's own player tell staff they're on their way. `report_late(match_id, user,
+minutes, note)` takes 10, 20 or 30 (`LATE_CHOICES`, shared with volunteers) and an
+optional note (280 chars), and writes `late_minutes` / `late_at` / `late_note` on
+their `MatchPlayers` row; `take_back_late` is the player's Undo. Both audit and emit
+`match.player_running_late` / `match.player_late_cleared` (no note in the event)
+and nudge `match_live`. A report DMs the match's alert recipients (below) under
+the `player_late` notice, with the name and note escaped.
+
+The window (`late_window_open`) opens 30 minutes before the match, or as early
+as the tournament's `stage_reminder_minutes` for a stage match, and closes at
+check-in; racetime matches never open it. Before the window the error points at
+Ask to change.
+
+Display rows carry `late` (only until check-in) and `late_window`. Staff boards
+(`show_comment_counts` + `access.run`) keep every entry, drawn as
+`run-sheet__late` tags and as Needs you → Running late items, which list a late
+match before its start time too. Every other board runs `keep_own_late_only`,
+so the opponent's browser never receives the heads-up; the viewer's own entry
+becomes the player run sheet's `Running ~20 min` status chip with Undo, and
+`_can_late` draws the **Running late** button that opens `RunningLateDialog`.
+The stage reminder DM gives players a **Running late** button
+(`discordbot/player_late.py`, `match_late:` / `match_late_min:` custom ids).
+
 ## Match alerts: the admin on duty
 
 A *match alert* is a staff DM about one match that someone has to pick up: a

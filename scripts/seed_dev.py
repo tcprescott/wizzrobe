@@ -46,6 +46,7 @@ from models import (
     Match,
     MatchComment,
     MatchCommentKind,
+    MatchPlayers,
     McpOAuthClient,
     NotificationMode,
     NotificationPreference,
@@ -829,6 +830,26 @@ async def seed_match_comments(tenant: Tenant, users: dict[str, User]) -> None:
         )
 
 
+async def seed_running_late(tenant: Tenant, users: dict[str, User]) -> None:
+    """player_two said they're running late for the match due next, so the staff
+    boards show the tag and Needs you entry, and player_one still has the button."""
+    soon = datetime.now(timezone.utc) + timedelta(minutes=30)
+    with_one = await MatchPlayers.filter(user=users['player_one']).values_list('match_id', flat=True)
+    match = await Match.filter(
+        tenant=tenant, seated_at__isnull=True, finished_at__isnull=True,
+        scheduled_at__lte=soon, players__user=users['player_two'], id__in=list(with_one),
+    ).order_by('-scheduled_at').first()
+    if match is None:
+        return
+    row = await MatchPlayers.get_or_none(match=match, user=users['player_two'])
+    if row is None or row.late_minutes is not None:
+        return
+    await MatchPlayers.filter(id=row.id).update(
+        late_minutes=10, late_at=datetime.now(timezone.utc) - timedelta(minutes=4),
+        late_note='Parking garage is full, circling the block',
+    )
+
+
 async def seed_push_devices(users: dict[str, User]) -> None:
     """One phone with device notifications on; ``.invalid`` so a push can't land."""
     ua = 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_4 like Mac OS X) Version/18.4 Mobile/15E148 Safari/604.1'
@@ -909,6 +930,7 @@ async def seed_all() -> None:
         await seed_notification_settings(tenant, users)
         await seed_watch_layout_votes(tenant)
         await seed_match_comments(tenant, users)
+        await seed_running_late(tenant, users)
         await seed_staff_request_dms(tenant, users)
         await seed_sent_messages(tenant, users)
     await seed_fledgling_tenant(users, groups)

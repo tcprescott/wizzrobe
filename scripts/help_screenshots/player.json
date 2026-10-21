@@ -42,5 +42,23 @@
     ],
     "selector": ".q-dialog .q-card",
     "padding": 0
+  },
+  {
+    "name": "running-late-phone",
+    "user": "player_one",
+    "path": "/home/my-schedule",
+    "setup": [
+      {
+        "click": "button:has-text('Running late')"
+      },
+      {
+        "waitFor": ".q-dialog"
+      },
+      {
+        "wait": 500
+      }
+    ],
+    "selector": ".q-dialog .q-card",
+    "padding": 0
   }
 ]

@@ -765,6 +765,24 @@ def player_comment_staff_dm(player_name: str, tournament_name: str, body: str) -
     )
 
 
+def player_late_staff_dm(
+    player_name: str, tournament_name: str, minutes: int, note: Optional[str],
+) -> str:
+    """A player said they're running late; the copy staff get. Name and note are escaped."""
+    from application.utils.discord_messages_volunteer import late_label
+
+    def safe(text: str) -> str:
+        return discord.utils.escape_mentions(discord.utils.escape_markdown(text))
+
+    lines = [
+        f"**{safe(player_name)}** is running late for their **{tournament_name}** match: "
+        f"{late_label(minutes).lower()}."
+    ]
+    if note:
+        lines.append(f"> {safe(note)}")
+    return '\n\n'.join(lines)
+
+
 def match_comment_dm(author_name: str, tournament_name: str, body: str) -> str:
     """Staff left a comment the players of a match can read."""
     return f"**{author_name}** left a comment on your **{tournament_name}** match:\n\n{body}"

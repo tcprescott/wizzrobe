@@ -205,6 +205,26 @@ If you both offer, staff see both names. Either of you can withdraw any time,
 even after the match has started.
 :::
 
+## Running late
+
+:::snippet running-late
+From half an hour before your match until a proctor checks you in, your match
+on My Schedule has a **Running late** button beside its status. Pick about how
+late you'll be (10, 20 or 30+ minutes), add a note if it helps, and press **Tell
+staff**. The admin on duty and the tournament's admins get a DM, and your match
+shows up on their board as running late, so nobody calls it off while you're on
+your way.
+
+Your opponent isn't told. Your match's status then reads {chip:pending:Running ~20 min},
+with **Undo** beside it if you made it after all or tapped it by mistake. Send it
+again to change the minutes.
+
+A stage match's reminder DM has the same **Running late** button. If you can't
+make it at all, use **Ask to change** instead.
+:::
+
+![The Running late sheet: the match and its time, a 10 min / 20 min / 30+ min choice, an optional note for staff, and the Tell staff button](/static/help/player/running-late-phone.webp "Pick about how late you'll be and press **Tell staff**.")
+
 ## Asking for a different time
 
 You can't move or cancel your own match, but you can ask, and you don't have to

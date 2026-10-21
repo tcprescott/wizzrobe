@@ -48,6 +48,7 @@ from application.services.match.match_stream_volunteer_service import (
 )
 from application.services.match.match_suggestion_service import MatchSuggestionService
 from application.services.match.match_watcher_service import MatchWatcherService
+from application.services.match.player_late_service import PlayerLateService
 
 __all__ = [
     'MATCH_STEP_LABELS',
@@ -67,6 +68,7 @@ __all__ = [
     'MatchStreamVolunteerService',
     'MatchSuggestionService',
     'MatchWatcherService',
+    'PlayerLateService',
     'StationAssignmentMixin',
     'StationDrawMixin',
     'StationSuggestion',

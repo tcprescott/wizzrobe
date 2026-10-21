@@ -60,6 +60,8 @@ class AuditActions:
     # A comment on a match, from a player or staff, and its removal.
     MATCH_COMMENT_ADDED = 'match.comment_added'
     MATCH_COMMENT_DELETED = 'match.comment_deleted'
+    MATCH_PLAYER_RUNNING_LATE = 'match.player_running_late'
+    MATCH_PLAYER_LATE_CLEARED = 'match.player_late_cleared'
     # A player asking staff to move or call off their match, and what became of
     # it. The approval also writes the underlying match.rescheduled / match.cancelled,
     # since approving *performs* the change rather than blessing it.

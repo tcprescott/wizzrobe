@@ -7279,6 +7279,21 @@ ol.wiz-help-list { list-style-type: decimal; }
     font-weight: 400;
     color: var(--fg-secondary);
 }
+.run-sheet__late {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    width: fit-content;
+    max-width: 100%;
+    margin-top: 0.25rem;
+    white-space: normal;
+    text-align: left;
+}
+.match-inbox__late {
+    margin: 0.25rem 0 0.5rem;
+    font-size: var(--text-sm);
+    font-weight: 600;
+}
 .run-sheet__ada {
     display: inline-flex;
     align-items: center;
@@ -7420,6 +7435,11 @@ ol.wiz-help-list { list-style-type: decimal; }
 .player-sheet__open > .wiz-chip {
     flex: none;
     white-space: nowrap;
+}
+.player-sheet__late {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
 }
 .player-sheet__acts {
     display: flex;

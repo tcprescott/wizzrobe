@@ -271,3 +271,27 @@ async def test_an_edit_that_keeps_the_time_leaves_the_reminder_sent(fixture, stu
     await _drain(stub_discord_queue)
 
     assert (await Match.get(id=match_id)).stage_reminder_sent_at is not None
+
+
+async def test_the_reminder_gives_players_a_running_late_button(
+    fixture, sent, stub_discord_queue, monkeypatch,
+):
+    """Players' copies carry Running late; crew's don't, since it's the player's match."""
+    from application.services.match.match_schedule_service import MatchScheduleService
+
+    with_button: list[int] = []
+
+    async def _late(discord_id, message, match_id, **kwargs):
+        with_button.append(discord_id)
+        return True, 'ok'
+
+    monkeypatch.setattr(
+        'application.services.discord.discord_service.DiscordService'
+        '.send_dm_with_player_late_button',
+        AsyncMock(side_effect=_late),
+    )
+    match = await Match.get(id=fixture['match'].id)
+    await MatchScheduleService().notify_stage_reminder(match, stage_name='Kraid')
+
+    assert sorted(with_button) == [1, 2]
+    assert fixture['approved'].discord_id in {call['discord_id'] for call in sent}

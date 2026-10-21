@@ -12,6 +12,7 @@ from application.services import (
     MatchService,
     MatchStreamVolunteerService,
     MatchWatcherService,
+    PlayerLateService,
     UserService,
     get_user_from_session,
 )
@@ -33,7 +34,11 @@ from theme.tables.match_filters import (
 from theme.tables.match_grid import render_grid_slot
 from theme.tables.match_handlers import MatchTableHandlersMixin
 from theme.tables.match_hold import MatchBoardHoldMixin
-from theme.tables.match_player_run_sheet import arrange_player_run_sheet, register_player_run_sheet_slots
+from theme.tables.match_player_run_sheet import (
+    arrange_player_run_sheet,
+    keep_own_late_only,
+    register_player_run_sheet_slots,
+)
 from theme.tables.match_run_sheet import arrange_run_sheet, register_run_sheet_slots
 from theme.tables.match_slots import (
     CANDIDATE_STAGE,
@@ -208,6 +213,7 @@ class MatchTableView(MatchFiltersMixin, MatchTableHandlersMixin, MatchBoardHoldM
         self.user_service = UserService()
         self.watcher_service = MatchWatcherService()
         self.stream_volunteer_service = MatchStreamVolunteerService()
+        self.player_late_service = PlayerLateService()
         self.hard_preset_service = MatchHardPresetService()
         self.reschedule_service = MatchRescheduleService()
         self.accommodation_service = AccommodationService()
@@ -364,6 +370,8 @@ class MatchTableView(MatchFiltersMixin, MatchTableHandlersMixin, MatchBoardHoldM
             # Same reasoning again: it opens a dialog in this client's slot
             # context, and its confirmation is a toast in this browser.
             self.table.on('open_hard_preset', self._handle_open_hard_preset)
+            self.table.on('running_late', self._handle_running_late)
+            self.table.on('take_back_late', self._handle_take_back_late)
 
         # Bracket link: navigation only, so it needs no tenant rebind — and it
         # goes through ui.navigate.to precisely to pick up the tenant root_path.
@@ -513,6 +521,7 @@ class MatchTableView(MatchFiltersMixin, MatchTableHandlersMixin, MatchBoardHoldM
         hard_preset_states = await self._fetch_hard_preset_states(rows)
         await self._apply_accommodations(rows)
         await self._apply_comment_counts(rows)
+        self._apply_late_visibility(rows)
         stage_options = self._stage_options()
         for row in rows:
             row['_watching'] = row.get('id') in watched_ids
@@ -587,6 +596,16 @@ class MatchTableView(MatchFiltersMixin, MatchTableHandlersMixin, MatchBoardHoldM
         counts = await MatchCommentService().counts_by_match([row.get('id') for row in rows])
         for row in rows:
             row['comment_counts'] = counts.get(row.get('id'))
+
+    def _apply_late_visibility(self, rows) -> None:
+        """Keep who's running late on staff boards; elsewhere only the viewer's own.
+
+        The heads-up is between a player and staff, so the opponent's row (and
+        everyone's on Event > Schedule) must not carry it to the browser.
+        """
+        if getattr(self, 'show_comment_counts', False) and self.access.run:
+            return
+        keep_own_late_only(rows, getattr(self, '_discord_id', None))
 
     async def _apply_accommodations(self, rows) -> None:
         """Mark each player with an arranged ADA accommodation, in one query.
@@ -704,6 +723,7 @@ class MatchTableView(MatchFiltersMixin, MatchTableHandlersMixin, MatchBoardHoldM
         await self._restamp_shared_state(match_data)
         await self._apply_accommodations([match_data])
         await self._apply_comment_counts([match_data])
+        self._apply_late_visibility([match_data])
         stage_options = self._stage_options()
         if stage_options is not None:
             match_data['stage_options'] = stage_options
