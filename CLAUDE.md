@@ -107,6 +107,26 @@ Use bare `event_bus.publish(Event.create(EventType.X, {...}, actor))` (`from app
 
 **An outside automation consumes six webhook events in production** (`match.rescheduled`, `match.stage_assigned`, `match.stage_cleared`, `match.deleted`, `match.cancelled`, `crew.approval_changed`). `tests/services/test_webhook_consumer_contract.py` freezes their payloads, the envelope, the headers and the signature. If it goes red, don't edit the expected values to get green: say so in the PR description and tell Thomas, so the automation's author hears first.
 
+## Hand-maintained registries
+
+**A new component should register itself where it's defined, not depend on someone remembering a second list elsewhere.** Prefer a registry the component's own module fills in (`mcpserver.registry.register`, `register_view_factory`, the notification `CATALOG`, `run_worker_loop`) or discovery from a folder (help articles, changelog files). A missed entry in a hand list fails silently: the worker never runs, the button does nothing, the page is never scanned.
+
+- **Don't add a new hand-kept list** that has to mirror components defined elsewhere. If one is genuinely unavoidable (ordering matters, or the import itself is the registration), add a test in the same PR that fails when the list and the components disagree. `tests/test_registry_drift.py` is the pattern.
+- **When you add one of these, also edit its list.** A red test or guardrail is the backstop, not the plan:
+
+| Adding… | Also update | Caught by |
+|---|---|---|
+| a background worker (`run_worker_loop`) | `main.py` start **and** stop; `WORKERS` in `scripts/run_worker_tick.py` | tick script: `test_registry_drift.py`. `main.py`: nothing yet |
+| a Discord button or DM view | `discordbot/__init__.py` (`register_interaction_handler` / `register_view_factory`) | `test_registry_drift.py` |
+| an MCP tool *module* | `register_all` in `mcpserver/tools/__init__.py` | `test_registry_drift.py` |
+| an `EventType` | `EventType.ALL` | `check_event_types.py` |
+| a service or repository | its package `__init__.py` | `check_layer_exports.py` |
+| a randomizer | every per-slug table in `SeedgenService`, plus `randomizer_credentials.py` | per-port tests only |
+| a page | `scripts/ui_a11y_ci.json` | nothing yet |
+| an outside-service client | a probe in `_PROBES` (`service_health_service.py`) | nothing yet |
+
+Converting the workers, randomizers, a11y pages and health probes to self-registration is planned for after SG Live.
+
 ## Writing user-facing text
 
 Scope: prose a person reads — chat replies, UI copy (labels, `ui.notify` text,
