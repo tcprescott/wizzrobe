@@ -10,6 +10,10 @@
 // page. On iOS the APIs only exist once the app is added to the Home Screen.
 window.wizWebPush = {
   async _manager() {
+    // iOS in a normal Safari or Chrome tab can still hand back a PushManager,
+    // and subscribing through it takes the whole tab down (no JS error, so
+    // nothing reaches Sentry). Only the Home Screen app may touch it.
+    if (this._isIOS() && !this._standalone()) return null;
     if (window.pushManager) return window.pushManager;
     if ('serviceWorker' in navigator) {
       // .ready never settles if registration failed; don't hang the caller.
@@ -31,10 +35,15 @@ window.wizWebPush = {
       || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
   },
 
+  _standalone() {
+    return !!navigator.standalone
+      || (!!window.matchMedia && window.matchMedia('(display-mode: standalone)').matches);
+  },
+
   async status() {
     const manager = await this._manager();
     if (!manager) {
-      return { supported: false, ios: this._isIOS(), standalone: !!navigator.standalone };
+      return { supported: false, ios: this._isIOS(), standalone: this._standalone() };
     }
     let endpoint = null;
     try {
@@ -51,7 +60,7 @@ window.wizWebPush = {
   async subscribe(publicKey) {
     const manager = await this._manager();
     if (!manager) {
-      return { error: this._isIOS() && !navigator.standalone ? 'ios_needs_install' : 'unsupported' };
+      return { error: this._isIOS() && !this._standalone() ? 'ios_needs_install' : 'unsupported' };
     }
     try {
       const sub = await manager.subscribe({
