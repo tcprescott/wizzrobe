@@ -519,7 +519,7 @@ class TestSettingsFootnote:
         sent = discord_user.send.call_args.kwargs['embed']
         last = sent.fields[-1].value
         assert '“Match scheduled or rescheduled”' in last
-        assert '[Notification settings](' in last and '/home/profile?focus=notifications' in last
+        assert '[Notification settings](' in last and '/messages?message=' in last
         assert card.fields == []
 
     async def test_plain_text_gets_it_as_small_text(self, db, real_svc_ready):
