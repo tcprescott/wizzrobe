@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from html import escape
-from typing import Optional, Sequence, Union
+from typing import Callable, Optional, Sequence, Union
 
 from nicegui import ui
 
@@ -37,6 +37,28 @@ def more_menu(name: str) -> ui.menu:
     with button:
         menu = ui.menu().props('anchor="bottom right" self="top right"')
     return menu
+
+
+def lazy_more_menu(name: str, fill: Callable[[], None]) -> ui.button:
+    """A ``more_menu`` whose items ``fill`` builds on first open, not with the row.
+
+    For long lists of rows: a ⋮ menu is a dozen elements, and building them for
+    every row up front is what blocked the event loop on big boards
+    (SGLMAN-1W, and SGLMAN-1F to 1M on Admin → Notifications).
+    """
+    button = ui.button(icon='more_vert', color=None).props('flat round dense').classes('text-grey-7')
+    button.props['aria-label'] = f'More for {name}'
+    with button:
+        menu = ui.menu().props('no-parent-event anchor="bottom right" self="top right"')
+
+    def open_menu() -> None:
+        if not menu.default_slot.children:
+            with menu:
+                fill()
+        menu.open()
+
+    button.on_click(open_menu)
+    return button
 
 
 @dataclass(frozen=True)

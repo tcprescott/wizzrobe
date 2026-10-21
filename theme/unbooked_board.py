@@ -8,6 +8,7 @@ or make it for them. A matchup that can't be booked yet says why on the row and
 offers the fix instead of Book….
 """
 
+import asyncio
 from typing import Any, Awaitable, Callable, Optional
 
 from nicegui import ui
@@ -20,12 +21,17 @@ from theme.dialog._helpers import dialog_actions, form_dialog, submit_on_enter
 from theme.dialog.bracket_schedule_dialog import BracketScheduleDialog
 from theme.dialog.bracket_source_schedule_dialog import BracketSourceScheduleDialog
 from theme.empty_state import empty_state
-from theme.menu import menu_action, menu_link, more_menu
+from theme.menu import lazy_more_menu, menu_action, menu_link
 from theme.notify import notify_error
+from theme.steady import steady_refreshable
 from theme.tables.admin_crud import capture_render_context, current_actor, scoped_background
 from theme.url_state import url_param, url_state
 
 _STATUS = {'all': 'All', 'ready': 'Ready to book', 'blocked': 'Needs account'}
+
+#: Rows built between yields to the event loop. A few hundred rows built in one
+#: pass blocked every user for 2s (SGLMAN-1W).
+_ROWS_PER_SLICE = 25
 
 
 def _bracket_link(item: UnbookedMatch) -> Optional[str]:
@@ -102,7 +108,7 @@ class UnbookedBoard:
             return
         self._items = items
         self.on_count(len(items))
-        self._rows.refresh()
+        await self._rows.refresh()
 
     async def render(self) -> None:
         self._items = await self._load()
@@ -122,7 +128,7 @@ class UnbookedBoard:
                 ui.input(placeholder='Search players', on_change=lambda e: self._set_search(e.value)) \
                     .props('outlined dense clearable aria-label="Search players"') \
                     .classes('unbooked-board__search col')
-            self._rows()
+            await self._rows()
 
     @staticmethod
     def _restore_status(status: ui.toggle, value: str) -> None:
@@ -147,8 +153,8 @@ class UnbookedBoard:
             out = [i for i in out if self.search in i.matchup.lower()]
         return out
 
-    @ui.refreshable_method
-    def _rows(self) -> None:
+    @steady_refreshable
+    async def _rows(self) -> None:
         if not self._items:
             empty_state(
                 'Nothing waiting to be booked. A matchup shows up here once its bracket '
@@ -162,6 +168,7 @@ class UnbookedBoard:
         groups: dict[tuple, list[UnbookedMatch]] = {}
         for item in visible:
             groups.setdefault((item.tournament.id, item.source), []).append(item)
+        built = 0
         with ui.column().classes('unbooked-board__groups full-width gap-2'):
             for rows in groups.values():
                 with ui.element('section').classes('wiz-pick-group unbooked-group'):
@@ -170,6 +177,9 @@ class UnbookedBoard:
                         ui.label(rows[0].source_label).classes('wiz-chip wiz-chip--neutral')
                     for item in rows:
                         self._row(item)
+                        built += 1
+                        if built % _ROWS_PER_SLICE == 0:
+                            await asyncio.sleep(0)
 
     def _row(self, item: UnbookedMatch) -> None:
         with ui.element('div').classes('unbooked-row'):
@@ -198,21 +208,22 @@ class UnbookedBoard:
                 elif not item.ready and self._can_fix(item):
                     ui.button('Fix entrant', on_click=lambda _=None, i=item: self._fix(i)) \
                         .props('outline color=primary no-caps')
-                link = _bracket_link(item)
-                fixable = self._can_fix(item)
-                if link or item.ready:
-                    with more_menu(item.matchup):
-                        if suggested:
-                            menu_action('event', 'Book a new match…', lambda _=None, i=item: self._book(i))
-                        if item.ready:
-                            menu_action('link', 'Link an existing match…', lambda _=None, i=item: self._link(i))
-                        if link:
-                            external = not link.startswith('/')
-                            menu_link('open_in_new' if external else 'account_tree', 'Open bracket',
-                                      link, new_tab=external)
-                        if item.ready and fixable:
-                            menu_action('manage_accounts', 'Match entrants…',
-                                        lambda _=None, i=item: self._fix(i))
+                if _bracket_link(item) or item.ready:
+                    lazy_more_menu(item.matchup, lambda i=item: self._menu_items(i))
+
+    def _menu_items(self, item: UnbookedMatch) -> None:
+        suggested = bool(item.same_player_matches)
+        link = _bracket_link(item)
+        if suggested:
+            menu_action('event', 'Book a new match…', lambda _=None, i=item: self._book(i))
+        if item.ready:
+            menu_action('link', 'Link an existing match…', lambda _=None, i=item: self._link(i))
+        if link:
+            external = not link.startswith('/')
+            menu_link('open_in_new' if external else 'account_tree', 'Open bracket',
+                      link, new_tab=external)
+        if item.ready and self._can_fix(item):
+            menu_action('manage_accounts', 'Match entrants…', lambda _=None, i=item: self._fix(i))
 
     def _can_fix(self, item: UnbookedMatch) -> bool:
         return item.source in ('challonge', 'startgg') or self.can_open_native_entrants
