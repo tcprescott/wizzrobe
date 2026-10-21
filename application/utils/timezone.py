@@ -248,6 +248,18 @@ def format_local_display(dt: Optional[datetime], tz: TzArg = None) -> str:
     return to_local(dt, tz).strftime("%Y-%m-%d %H:%M %Z")
 
 
+def format_local_short(dt: Optional[datetime], tz: TzArg = None) -> str:
+    """A compact stamp for a busy cell, ``Oct 20 23:59``: no year, no zone.
+
+    Only for surfaces that state the zone once nearby (a caption or header),
+    since a bare time is otherwise ambiguous.
+    """
+    if dt is None:
+        return ''
+    month, day, clock = format_local_datetime(dt, "%b %d %H:%M", tz).split()
+    return f"{month} {int(day)} {clock}"
+
+
 def timezone_label(tz: TzArg = None, at: Optional[datetime] = None) -> str:
     """The zone's short label at ``at`` (default now) — ``EST``, ``AEDT``, ``+05:30``.
 
