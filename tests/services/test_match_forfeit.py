@@ -10,7 +10,7 @@ from application.events import EventType, event_bus
 from application.repositories import ChallongeRepository, TournamentRepository
 from application.services.match.match_service import MatchService
 from application.services.tournament_service import TournamentService
-from application.utils.discord_messages import dropped_from_tournament_dm, forfeit_dm
+from application.utils.discord_messages_forfeit import dropped_from_tournament_dm, forfeit_dm
 from models import (
     ChallongeParticipant,
     ForfeitReason,

@@ -141,7 +141,7 @@ class ForfeitMixin:
             bracket_line_for,
         )
         from application.utils.discord_embeds import COLOR_CONFIRMED, match_embed
-        from application.utils.discord_messages import forfeit_description, forfeit_dm
+        from application.utils.discord_messages_forfeit import forfeit_description, forfeit_dm
 
         community = await _community_name()
         bracket_line = await bracket_line_for(match.id)

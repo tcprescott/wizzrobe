@@ -153,7 +153,7 @@ async def _tell_dropped_player(
     from application.services.discord.discord_service import DiscordService
     from application.services.match._dm_context import _community_name
     from application.utils.discord_embeds import COLOR_CANCELLED, notification_embed
-    from application.utils.discord_messages import dropped_from_tournament_dm
+    from application.utils.discord_messages_forfeit import dropped_from_tournament_dm
 
     if not target.discord_id:
         return
