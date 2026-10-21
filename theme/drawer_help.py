@@ -7,12 +7,14 @@ from nicegui import ui
 from theme.nav_badges import nav_icon
 from theme.nav_section import mark_nav_section, nav_section_matches
 
+GITHUB_URL = 'https://github.com/tcprescott/wizzrobe'
+
 if TYPE_CHECKING:
     from theme.base import BaseLayout
 
 
 def render_drawer_help(layout: 'BaseLayout') -> None:
-    """The drawer's info card: Event Guide, Qualifiers, Help, Feedback.
+    """The drawer's info card: Event Guide, Qualifiers, Help, Feedback, GitHub.
 
     Only inside a community — off one there is no /help or /event-info to
     reach, and an item pointing at the page it sits on is a circle.
@@ -73,3 +75,16 @@ def render_drawer_help(layout: 'BaseLayout') -> None:
                     ui.icon(nav_icon('rate_review')).props('size=sm')
                 with ui.item_section():
                     ui.item_label('Send Feedback')
+
+        render_github_item()
+
+
+def render_github_item() -> None:
+    """The source-code link: last in the info card, or alone off a community."""
+    with ui.item().props(
+        f'clickable v-ripple tag=a href={GITHUB_URL} target=_blank rel=noopener'
+    ):
+        with ui.item_section().props('avatar'):
+            ui.icon(nav_icon('code')).props('size=sm')
+        with ui.item_section():
+            ui.item_label('GitHub')

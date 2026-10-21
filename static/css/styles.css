@@ -68,7 +68,7 @@
     font-style: normal;
     font-weight: 400;
     font-display: block;
-    src: url('/static/fonts/material-symbols-outlined-nav.woff2?v=1880cbcafc1e') format('woff2');
+    src: url('/static/fonts/material-symbols-outlined-nav.woff2?v=e33b05f3c1b0') format('woff2');
 }
 
 .material-symbols-outlined {
@@ -933,6 +933,35 @@ body:has(.wiz-header) .q-notifications__list--top {
 
 .q-drawer .q-item:hover {
     background: var(--surface-sunken);
+}
+
+/* Pinned on desktop the rows sit a little roomier than body text; as the phone
+   overlay they grow to a 48px tap target with 16px labels. */
+.q-drawer--standard .q-item {
+    min-height: 40px;
+    font-size: 0.9375rem;
+}
+
+.q-drawer--standard .q-item .q-icon {
+    font-size: 22px;
+}
+
+.q-drawer--mobile .q-item {
+    min-height: 48px;
+    padding: 6px 14px;
+    font-size: var(--text-lg);
+}
+
+.q-drawer--mobile .q-item .q-item__section--avatar {
+    min-width: 40px;
+}
+
+.q-drawer--mobile .q-item .q-icon {
+    font-size: 24px;
+}
+
+.q-drawer--mobile .wiz-drawer-group {
+    font-size: 0.75rem;
 }
 
 .q-drawer .q-item--active {
@@ -4519,20 +4548,6 @@ td .wiz-crew-action {
 
 .body--dark .wiz-drawer-copyright,
 .q-dark .wiz-drawer-copyright {
-    color: var(--wiz-dark-muted);
-}
-
-.wiz-drawer-github-link {
-    color: var(--status-neutral);
-    text-decoration: none;
-}
-
-.wiz-drawer-github-link:hover {
-    text-decoration: underline;
-}
-
-.body--dark .wiz-drawer-github-link,
-.q-dark .wiz-drawer-github-link {
     color: var(--wiz-dark-muted);
 }
 

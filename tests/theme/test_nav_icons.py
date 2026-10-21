@@ -16,7 +16,8 @@ from theme.base import HOME_SECTIONS, BaseLayout
 from theme.nav_badges import NAV_ICON_NAMES, nav_icon
 
 ROOT = Path(__file__).resolve().parents[2]
-TAB_SOURCES = ('pages/admin.py', 'pages/home.py', 'pages/volunteer.py', 'theme/base.py')
+TAB_SOURCES = ('pages/admin.py', 'pages/home.py', 'pages/volunteer.py', 'theme/base.py',
+               'theme/drawer_help.py')
 
 
 def _nav_icon_literals() -> set[str]:
