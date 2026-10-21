@@ -30,6 +30,7 @@
  *     "padding": 8,                  // px of page around the cropped element
  *     "fullPage": false,             // whole scrollable page instead of the viewport (no selector)
  *     "hide": [".some-banner"],      // hidden before capture, on top of the defaults
+ *     "remove": [".some-banner"],    // taken out of the layout (display: none) so nothing gapes
  *     "annotate": [                  // numbered red call-outs drawn over controls
  *       { "selector": "text=Sign up", "n": 1 },   // optional "tab": "top" | "bottom"
  *     ],
@@ -299,6 +300,10 @@ async function toWebp(encoder, png) {
       await runSetup(page, shot.setup);
       const hide = DEFAULT_HIDE.concat(shot.hide || []);
       await page.addStyleTag({ content: `${hide.join(', ')} { visibility: hidden !important; }` });
+      if (shot.remove && shot.remove.length) {
+        await page.addStyleTag({ content: `${shot.remove.join(', ')} { display: none !important; }` });
+        await page.waitForTimeout(300);
+      }
       const png = await capturePng(page, shot);
       const webp = await toWebp(encoder, png);
       const out = path.join(OUT_ROOT, shot.slug, `${shot.name}.webp`);

@@ -28,7 +28,7 @@ On the page you'll find:
   along it is.
 :::
 
-![The Watch page on a phone: On stream now with a 2 live badge, then a tile per stage with a picture of its stream, a LIVE badge with how long the match has run, and the match under it](/static/help/on-air/watch-page-phone.webp "The Watch page, signed out.")
+![The Watch page on a phone: On stream now with a count of live stages, then a tile per stage with a picture of its stream, a LIVE badge with how long the match has run, and the match under it with what's up next on that stage](/static/help/on-air/watch-page-phone.webp "The Watch page, signed out.")
 
 The page updates itself as matches change. Matches without a stage don't appear
 here. You'll find those on the Schedule view of the Event tab.

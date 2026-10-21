@@ -28,7 +28,7 @@ Anything waiting on you sits above the list: an open race room, an opponent's
 request to move your match, or a bracket matchup that still needs a time.
 :::
 
-![My Schedule on a phone: the Your matches panel with an open race room and an opponent's reschedule request above the list](/static/help/player/my-schedule-phone.webp "Anything waiting on you comes first.")
+![My Schedule on a phone: the List and Timeline switch, then the Your matches panel with an open race room and an opponent's reschedule request above the list](/static/help/player/my-schedule-phone.webp "Anything waiting on you comes first.")
 
 The Your matches panel lists things in the order you need to deal with them:
 
@@ -108,7 +108,7 @@ place. Staff can match them by hand. The My Schedule tab shows a count while
 anything is waiting on you.
 :::
 
-![The Waiting on you to pick a time card, listing bracket matchups grouped by tournament, each with a Pick a time button, the first one marked 1](/static/help/player/bracket-schedule-phone.webp "Bracket matchups that still need a time: tap **Pick a time** (1) to book one.")
+![The Waiting on you to pick a time card, listing bracket matchups grouped by tournament, each with a Pick a time button or, for one that can't be booked yet, the reason why, with the first button marked 1](/static/help/player/bracket-schedule-phone.webp "Bracket matchups that still need a time: tap **Pick a time** (1) to book one.")
 
 ### Suggest a time
 

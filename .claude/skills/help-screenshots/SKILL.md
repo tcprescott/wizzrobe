@@ -88,7 +88,8 @@ This is `scripts/help_screenshots/volunteering.json`:
 Only `name` and `path` are required; the file name is the slug. Defaults:
 `tenant: "default"`, `viewport: "phone"`, `padding: 8`. Other keys: `user`
 (`null` = signed out), `viewport: "desktop"` or `{width, height}`, `fullPage`,
-`hide` (extra selectors to hide), `timezone`, and `setup` steps (`click`,
+`hide` (extra selectors to hide, keeping their space), `remove` (selectors
+taken out of the layout, for a banner that only shows at some hours), `timezone`, and `setup` steps (`click`,
 `fill` + `value`, `press`, `waitFor`, `wait`).
 
 ### Numbered call-outs

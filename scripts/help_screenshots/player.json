@@ -5,6 +5,9 @@
     "path": "/home/my-schedule",
     "hide": [
       ".q-footer"
+    ],
+    "remove": [
+      "[aria-label=\"Your volunteer shift\"]"
     ]
   },
   {

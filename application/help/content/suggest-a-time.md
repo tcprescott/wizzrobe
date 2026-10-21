@@ -14,6 +14,8 @@ It only fills in the form. Nothing's booked or held until you save, and you can
 change the time before you do. Saving checks the time again, see
 [Checking the time when you save](/help/suggest-a-time#checking-the-time-when-you-save).
 
+![A player's booking dialog on a phone, with the date and time filled in and the Suggest a time button marked 1](/static/help/suggest-a-time/suggest-phone.webp "Tap **Suggest a time** (1) and it fills in the date and time.")
+
 ## What it looks at
 
 - **How long a match runs.** The tournament's average match length, or 90
@@ -133,6 +135,8 @@ wrong, a *Check this time* sheet lists why:
 Press **Change time** to go back, or **Schedule anyway** to book it. It never
 stops you. A start time outside the day's hours is different: that one can't be
 saved at all.
+
+![The Check this time sheet on a phone: the time asked for, the reason it might not work (the other player isn't free then), with Change time marked 1 and Schedule anyway marked 2](/static/help/suggest-a-time/check-this-time-phone.webp "**Change time** (1) goes back to the form. **Schedule anyway** (2) books it.")
 
 You see the details of your own shifts and blocked-out times. For another
 player you only see that they aren't free, not why. Staff and the tournament's

@@ -119,6 +119,10 @@ You don't have to be playing in a tournament to follow it, and your own matches
 reach you either way.
 :::
 
+![Where it goes on a phone: switches for Discord DMs, Email and Telegram, then Send a test marked 1](/static/help/notifications/where-it-goes-phone.webp "One switch per way to reach you, and **Send a test…** (1) to check them.")
+
+![How much you hear on a phone: the Everything, Only what needs me and Quiet presets, each with counts of messages that ping, arrive silently or stay off, with Only what needs me picked](/static/help/notifications/presets-phone.webp "Pick a preset. The counts show what each one does.")
+
 ## Turning it down
 
 If one tournament is too noisy, set it to Not following. If it's one kind of

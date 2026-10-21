@@ -24,3 +24,5 @@ where you want it.
 **Remove contact** deletes it straight away. It's also deleted if you're removed
 from the community.
 :::
+
+![The Emergency contact card on a phone: Name, Relationship and Phone filled in, a note that only this community's staff can see it and every look is logged, and Remove contact marked 1](/static/help/emergency-contact/card-phone.webp "Your contact, saved. **Remove contact** (1) deletes it.")
