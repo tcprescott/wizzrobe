@@ -4,9 +4,11 @@ Volunteer and Admin list their pages through providers their own page modules
 register, so a section with no provider would show an empty list.
 """
 
-import pages.admin  # noqa: F401  (registers the Admin provider)
+import pages.admin
 import pages.volunteer  # noqa: F401  (registers the Volunteer provider)
-from theme.base import WATCH_URL, BaseLayout, _section_page_path
+from theme.base import BaseLayout
+from theme.drawer_nav import WATCH_URL
+from theme.drawer_nav import section_page_path as _section_page_path
 from theme.section_menu import registered_section_urls
 
 
