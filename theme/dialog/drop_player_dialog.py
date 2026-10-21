@@ -37,6 +37,8 @@ class DropPlayerDialog:
     async def open(self) -> None:
         service = TournamentService()
         actor = await get_user_from_session(app.storage.user)
+        if actor is None:
+            return
         try:
             plan = await service.plan_drop(self.tournament, self.target, actor)
         except (ValueError, PermissionError) as e:

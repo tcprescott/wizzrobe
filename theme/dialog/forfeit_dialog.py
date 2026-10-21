@@ -93,6 +93,8 @@ class ForfeitDialog:
                     return
                 try:
                     actor = await get_user_from_session(app.storage.user)
+                    if actor is None:
+                        return
                     await MatchService().forfeit_match(
                         self.match.id, self.forfeiter_id, self.reason, actor, note=note.value or '',
                     )

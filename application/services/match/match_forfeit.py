@@ -88,8 +88,8 @@ class ForfeitMixin:
         winner = next(p for p in players if p.id != forfeiter.id)
         winner.finish_rank = 1
         winner.finish_time = None
-        forfeiter.finish_rank = None
-        forfeiter.finish_time = None
+        forfeiter.finish_rank = None  # type: ignore[assignment]
+        forfeiter.finish_time = None  # type: ignore[assignment]
         await save_fields(winner, 'finish_rank', 'finish_time')
         await save_fields(forfeiter, 'finish_rank', 'finish_time')
 
@@ -101,11 +101,11 @@ class ForfeitMixin:
             raise ValueError("Someone else just confirmed this match. Refresh to see where it stands.")
         match.confirmed_at = now
         match.forfeit_reason = reason
-        match.forfeit_note = note or None
+        match.forfeit_note = note or None  # type: ignore[assignment]
         match.needs_review = False
         await save_fields(match, 'forfeit_reason', 'forfeit_note', 'needs_review')
 
-        await self._cancel_race_room(match, actor, f'forfeit: {reason.label}')
+        await self._cancel_race_room(match, actor, f'forfeit: {reason.label}')  # type: ignore[attr-defined]
 
         await match.fetch_related('tournament', 'players__user', 'stage')
         await self.audit_service.write_and_publish(  # type: ignore[attr-defined]
@@ -146,14 +146,14 @@ class ForfeitMixin:
         community = await _community_name()
         bracket_line = await bracket_line_for(match.id)
         names = {
-            'winner_name': winner.user.preferred_name,  # type: ignore[attr-defined]
-            'forfeiter_name': forfeiter.user.preferred_name,  # type: ignore[attr-defined]
+            'winner_name': winner.user.preferred_name,
+            'forfeiter_name': forfeiter.user.preferred_name,
             'reason_label': reason.label,
         }
 
         def copy(you: str = '') -> tuple:
             text = forfeit_dm(
-                match.tournament.name, **names, you=you,  # type: ignore[attr-defined]
+                match.tournament.name, **names, you=you,
                 **_match_descriptor(match, bracket_line),
             )
             card = match_embed(
@@ -166,12 +166,12 @@ class ForfeitMixin:
         message, embed = copy()
         copies = {}
         for player, you in ((winner, 'winner'), (forfeiter, 'forfeiter')):
-            discord_id = player.user.discord_id  # type: ignore[attr-defined]
+            discord_id = player.user.discord_id
             if discord_id:
                 copies[discord_id] = copy(you)
-        skip = frozenset()
-        if not tell_forfeiter and forfeiter.user.discord_id:  # type: ignore[attr-defined]
-            skip = frozenset({forfeiter.user.discord_id})  # type: ignore[attr-defined]
+        skip: frozenset = frozenset()
+        if not tell_forfeiter and forfeiter.user.discord_id:
+            skip = frozenset({forfeiter.user.discord_id})
         discord_queue.enqueue(self.match_schedule_service.notify_match_participants(  # type: ignore[attr-defined]
             match, message, embed, notice=MATCH_FORFEITED, player_copies=copies,
             skip_discord_ids=skip,
