@@ -8,6 +8,11 @@
  *   #your-matches  an element with that id
  *   #match-123     the first visible row or card for match 123
  *   #shift-45      the shift block for shift 45
+ *
+ * Anything carrying ``data-wiz-copy-link`` copies a link to this page at that
+ * fragment when clicked (an empty value means the nearest enclosing section's id).
+ * It's a document listener rather than a server round trip because Safari only
+ * lets a page write the clipboard inside the click itself.
  */
 (function () {
   if (window.__wizAnchors) return;
@@ -71,6 +76,51 @@
     observer.observe(document.body, { childList: true, subtree: true });
     timer = setTimeout(stop, 20000);
   }
+
+  function toast(message, color) {
+    if (window.Quasar && Quasar.Notify) {
+      Quasar.Notify.create({ message: message, color: color, icon: 'link', position: 'top', timeout: 2500 });
+    }
+  }
+
+  function fallbackCopy(text) {
+    var area = document.createElement('textarea');
+    area.value = text;
+    area.setAttribute('readonly', '');
+    area.style.position = 'fixed';
+    area.style.opacity = '0';
+    document.body.appendChild(area);
+    area.select();
+    var ok = false;
+    try { ok = document.execCommand('copy'); } catch (_) {}
+    area.remove();
+    return ok;
+  }
+
+  function copyLink(fragment) {
+    var url = location.origin + location.pathname + location.search + (fragment ? '#' + fragment : '');
+    var done = function () { toast('Link copied.', 'positive'); };
+    var failed = function () {
+      if (fallbackCopy(url)) done();
+      else toast("Couldn't copy the link. It's in the address bar now.", 'warning');
+    };
+    if (fragment) history.replaceState(history.state, '', url);
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(url).then(done, failed);
+    else failed();
+  }
+
+  window.wizCopyLink = copyLink;
+
+  document.addEventListener('click', function (e) {
+    var el = e.target.closest && e.target.closest('[data-wiz-copy-link]');
+    if (!el) return;
+    var fragment = el.getAttribute('data-wiz-copy-link');
+    // NiceGUI gives every element an id like c123, which no link should name.
+    for (var owner = el.parentElement; !fragment && owner; owner = owner.parentElement) {
+      if (owner.id && !/^c\d+$/.test(owner.id)) fragment = owner.id;
+    }
+    copyLink(fragment);
+  });
 
   window.addEventListener('hashchange', seek);
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', seek);

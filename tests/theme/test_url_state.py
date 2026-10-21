@@ -69,3 +69,14 @@ def test_the_anchor_script_knows_the_markers_rows_carry():
 def test_every_page_shell_loads_the_anchor_script():
     assert 'js/anchors.js' in (REPO / 'theme/base.py').read_text()
     assert 'js/anchors.js' in (REPO / 'theme/chrome.py').read_text()
+
+
+def test_copy_link_controls_are_wired_to_the_click_listener():
+    # The copy must run inside the click (Safari refuses a later clipboard
+    # write), so every control is a data attribute anchors.js listens for.
+    script = (REPO / 'static/js/anchors.js').read_text()
+    assert 'data-wiz-copy-link' in script and 'navigator.clipboard' in script
+    for path in ('theme/anchors.py', 'theme/tables/match_player_run_sheet.py'):
+        assert 'data-wiz-copy-link' in (REPO / path).read_text(), path
+    assert 'copy_link_button(' in (REPO / 'theme/section.py').read_text()
+    assert 'copy_link_item(' in (REPO / 'pages/home_tabs/my_volunteer_shifts.py').read_text()

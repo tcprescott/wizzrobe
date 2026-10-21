@@ -19,7 +19,7 @@ from typing import NamedTuple, Optional, Sequence
 from nicegui import ui
 
 from models import User
-from theme.anchors import anchor_id
+from theme.anchors import anchor_id, copy_link_button
 from theme.help import HelpTopic, help_button, resolve_help
 
 __all__ = ['SectionPanel', 'section_panel']
@@ -61,6 +61,7 @@ async def section_panel(
             with ui.row().classes('wiz-panel__head-row items-center no-wrap'):
                 ui.icon(icon).classes('wiz-panel__icon')
                 ui.label(title).classes('wiz-panel__title')
+                copy_link_button(title)
                 aside = ui.row().classes('wiz-panel__aside items-center')
                 help_button(topics)
             if subtitle:

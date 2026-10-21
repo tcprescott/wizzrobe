@@ -16,7 +16,11 @@ already given up on its own scroll-to-fragment.
 
 import re
 
-__all__ = ['anchor_id', 'match_anchor', 'shift_anchor']
+from nicegui import ui
+
+from theme.menu import menu_action
+
+__all__ = ['anchor_id', 'copy_link_button', 'copy_link_item', 'match_anchor', 'shift_anchor']
 
 
 def anchor_id(title: str) -> str:
@@ -30,3 +34,27 @@ def match_anchor(match_id: int) -> str:
 
 def shift_anchor(shift_id: int) -> str:
     return f'shift-{shift_id}'
+
+
+def copy_link_button(title: str) -> ui.button:
+    """The link icon after a section heading: copies this page's address at the
+    section. Shown when the heading is pointed at or focused, and faintly always
+    on a touch screen, which has no hover (styles.css ``.wiz-copy-link``).
+
+    The copy happens in ``static/js/anchors.js``, inside the click, because
+    Safari refuses a clipboard write that arrives later over the socket. It
+    links to the nearest id above it, so a caller that renames the panel's id
+    still gets a working link.
+    """
+    button = ui.button(icon='link', color=None).props('flat round dense').classes('wiz-copy-link')
+    button.props['aria-label'] = f'Copy link to {title}'
+    button.props['data-wiz-copy-link'] = ''
+    button.tooltip('Copy link')
+    return button
+
+
+def copy_link_item(fragment: str) -> ui.menu_item:
+    """A ⋮ menu's "Copy link" item, for a row that ``#fragment`` lands on."""
+    item = menu_action('link', 'Copy link', None)
+    item.props['data-wiz-copy-link'] = fragment
+    return item
