@@ -456,7 +456,7 @@ async def render_player_dashboard(
                         challonge_round_label(cm.round), do_challonge,
                         blocked=None if opponent_linked else (
                             f"Can't book yet: {opponent_name} isn't matched to a "
-                            "Wizzrobe account. Staff can match them."
+                            "Wizzrobe account."
                         ),
                         window_text=await round_schedule.describe_for_challonge_match(cm),
                     ))
