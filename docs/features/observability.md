@@ -32,6 +32,13 @@ request is still named at WARNING on `wizzrobe.shutdown` in Sentry Logs, and the
 lifespan shutdown calls `flush_sentry()` so those last log lines leave the
 process before it exits.
 
+One more restart artefact is fixed at the source rather than filtered: a
+socket.io long-poll for a session engine.io has just closed raised
+`KeyError('Session is disconnected')` out of `handle_request` and ended as a 500
+(SGLMAN-1P). `application/utils/socketio_closed_session.py` wraps NiceGUI's
+engine.io server so that request gets the 400 engine.io answers for any stale
+session, and the browser reconnects.
+
 ## Context on every event
 
 `before_send` adds two things the SDK can't know:

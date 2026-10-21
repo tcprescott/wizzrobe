@@ -9,8 +9,9 @@ import os
 from fastapi import FastAPI, Request
 from fastapi.responses import FileResponse, PlainTextResponse, Response
 from fastapi.staticfiles import StaticFiles
-from nicegui import app, ui
+from nicegui import app, core, ui
 
+from application.utils import socketio_closed_session
 from application.utils.environment import (
     get_platform_host,
     is_production,
@@ -267,6 +268,7 @@ def init(fastapi_app: FastAPI) -> None:
     validate_security_config()
     validate_session_storage()
     install_log_filter()
+    socketio_closed_session.install(core.sio.eio)
     install_tooltip_labels()
     install_toast_position()
     install_layout_probe()
