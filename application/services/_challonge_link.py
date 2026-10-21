@@ -10,9 +10,9 @@ one match it could be, which is how bookings survive a bracket reset.
 from application.errors import require_found
 from application.feature_flags import requires_feature
 from application.repositories import ChallongeRepository
+from application.services._challonge_notifications import is_bookable
 from application.services.audit_service import AuditActions, AuditService
 from application.services.auth_service import AuthService
-from application.services._challonge_notifications import is_bookable
 from models import ChallongeMatchState, FeatureFlag, Match, Tournament, User
 
 
@@ -55,9 +55,10 @@ class ChallongeLinkMixin:
             return 0
         linked = 0
         for cmatch in await self.repository.list_matches(tournament):
-            if not is_bookable(cmatch):
+            p1, p2 = cmatch.participant1, cmatch.participant2
+            if not is_bookable(cmatch) or p1 is None or p2 is None:
                 continue
-            match = orphans.pop(frozenset((cmatch.participant1.user_id, cmatch.participant2.user_id)), None)
+            match = orphans.pop(frozenset((p1.user_id, p2.user_id)), None)
             if match is None:
                 continue
             await self.repository.link_match(cmatch, match)
