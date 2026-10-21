@@ -298,9 +298,9 @@
       "name": "section-anchor",
       "steps": [
         {
-          "goto": "/home/my-schedule?view=list#crew-you-signed-up-for",
+          "goto": "/home/my-schedule?view=list#your-volunteer-shifts",
           "expect": {
-            "inView": "#crew-you-signed-up-for"
+            "inView": "#your-volunteer-shifts"
           }
         }
       ]
