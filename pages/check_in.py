@@ -484,7 +484,8 @@ async def _render_desk(service: CheckInService, user, event: CheckInEvent) -> No
     can_manage = await AuthService.can_manage_check_in(user)
     render_context = capture_render_context()
     client = context.client
-    state: Dict = {'event': event, 'rows': [], 'filter': 'all', 'flash': set(), 'suggestions': (None, {})}
+    state: Dict = {'event': event, 'rows': [], 'filter': 'all', 'flash': set(), 'suggestions': (None, {}),
+                   'undo_timer': None}
 
     with ui.column().classes('page-container-narrow w-full gap-2 q-px-sm'):
         with ui.column().classes('checkin-toolbar w-full gap-1 q-py-sm'):
@@ -620,7 +621,11 @@ async def _render_desk(service: CheckInService, user, event: CheckInEvent) -> No
             ui.button('Undo', on_click=undo).props('flat no-caps color=yellow-4') \
                 .classes(REQUIRES_SOCKET_CLASS)
         undo_bar.set_visibility(True)
-        PageTimer(8.0, lambda: undo_bar.set_visibility(False), once=True)
+        # A desk checks people in back to back: the last check-in's bar gets its
+        # full eight seconds, not whatever was left of the one before.
+        if state['undo_timer'] is not None:
+            state['undo_timer'].cancel()
+        state['undo_timer'] = PageTimer(8.0, lambda: undo_bar.set_visibility(False), once=True)
 
     async def run(coro, success: Optional[str] = None) -> bool:
         try:
