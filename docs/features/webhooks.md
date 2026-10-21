@@ -95,9 +95,13 @@ sends. Reject requests whose timestamp is too old to defend against replay.
 
 ## Managing webhooks
 
-- **Admin UI**: Admin dashboard → **Webhooks** tab (Staff only). Add/edit (name,
-  URL, event multiselect, active toggle), regenerate secret, view recent
-  deliveries, delete.
+- **Admin UI**: Admin → Settings → Integrations → **Webhooks** (Staff only). One
+  full-width row per webhook (`.wiz-webhook-row`): active dot, name (opens Edit)
+  and URL, subscribed events grouped by area and wrapped, the 24h health chip,
+  a **Deliveries** button and a ⋮ with Edit, Regenerate secret, Pause/Resume and
+  Delete. A narrow list stacks the same row (a container query, not the
+  viewport). The toolbar is **Add webhook** plus an Actions menu holding the
+  payload & event reference dialog and Refresh.
 - **REST**: `/api/webhooks` — `GET` (staff), `POST` (staff-write, returns the
   secret once), `GET/PUT/DELETE /{id}`, `POST /{id}/regenerate-secret`,
   `GET /{id}/deliveries`. See [rest-api.md](../reference/rest-api.md).
