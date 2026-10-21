@@ -279,6 +279,7 @@ class TestPushEdgeCases:
     async def test_push_if_linked_pushes_when_linked(self, db):
         actor, match, _ = await self._linked_setup()
         api = MagicMock()
+        api.get_match = AsyncMock(return_value={'match_id': '8001', 'state': 'open'})
         api.update_match = AsyncMock()
         api.get_tournament_full = AsyncMock(return_value={
             'tournament': {'id': 'T1', 'name': 'T', 'url': None, 'state': 'underway'},
@@ -320,6 +321,7 @@ class TestPushEdgeCases:
         """The push succeeds even if the follow-up re-sync raises."""
         actor, match, cmatch = await self._linked_setup()
         api = MagicMock()
+        api.get_match = AsyncMock(return_value={'match_id': '8001', 'state': 'open'})
         api.update_match = AsyncMock()
         api.get_tournament_full = AsyncMock(side_effect=ChallongeAPIError('resync boom'))
 

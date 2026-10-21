@@ -285,6 +285,7 @@ ACTION_LABELS: dict[str, str] = {
     'challonge.tournament_unlinked': 'Unlinked a Challonge bracket',
     'challonge.bracket_synced': 'Synced a Challonge bracket',
     'challonge.result_pushed': 'Sent a result to Challonge',
+    'challonge.result_skipped': "Didn't send a result: Challonge already had one",
     'challonge.participant_assigned': 'Matched a Challonge entrant to a member',
     'challonge.participant_unassigned': 'Unmatched a Challonge entrant',
     'challonge.participant_signed_up': 'Signed up on Challonge',

@@ -719,7 +719,7 @@ class ChallongeService(ChallongeParticipantAssignmentMixin, ChallongeStageMixin,
     async def push_result_if_linked(self, match: Match, actor: Optional[User]) -> bool:
         """Push the result only when the match mirrors a Challonge match.
 
-        Returns True if a push was attempted. Used by the confirm flow so
+        Returns True if a result was sent. Used by the confirm flow so
         non-Challonge matches are silently skipped. Requires an actor for the
         audit entry; with none, the push is skipped.
 
@@ -737,11 +737,11 @@ class ChallongeService(ChallongeParticipantAssignmentMixin, ChallongeStageMixin,
         cmatch = await self.repository.get_challonge_match_for_match(match)
         if cmatch is None:
             return False
-        await self.push_match_result(match, actor)
-        return True
+        return await self.push_match_result(match, actor)
 
     @requires_feature(FeatureFlag.CHALLONGE)
-    async def push_match_result(self, match: Match, actor: User) -> None:
+    async def push_match_result(self, match: Match, actor: User) -> bool:
+        """Report the confirmed winner to Challonge. Returns False when Challonge already has a result."""
         cmatch = await self.repository.get_challonge_match_for_match(match)
         if cmatch is None:
             raise ValueError("This match is not linked to a Challonge match.")
@@ -764,7 +764,23 @@ class ChallongeService(ChallongeParticipantAssignmentMixin, ChallongeStageMixin,
         if not cmatch.tournament.challonge_tournament_id:
             raise ValueError("The tournament is no longer linked to Challonge.")
 
-        await self._api_client().update_match(
+        client = self._api_client()
+        current = await client.get_match(
+            cmatch.tournament.challonge_tournament_id, cmatch.challonge_match_id,
+            community=cmatch.tournament.challonge_community,
+        )
+        if current.get('state') == 'complete':
+            # An admin reported it on Challonge already: theirs stands. Re-sync
+            # so the mirror catches up with the bracket.
+            await self.audit_service.write_log(
+                actor, AuditActions.CHALLONGE_RESULT_SKIPPED,
+                {'match_id': match.id, 'challonge_match_id': cmatch.challonge_match_id,
+                 'challonge_winner_participant_id': current.get('winner_participant_id')},
+            )
+            await self._resync_after_push(cmatch, actor)
+            return False
+
+        await client.update_match(
             tournament_id=cmatch.tournament.challonge_tournament_id,
             match_id=cmatch.challonge_match_id,
             winner_participant_id=winner_pid,
@@ -777,6 +793,10 @@ class ChallongeService(ChallongeParticipantAssignmentMixin, ChallongeStageMixin,
              'winner_participant_id': winner_pid},
         )
 
+        await self._resync_after_push(cmatch, actor)
+        return True
+
+    async def _resync_after_push(self, cmatch: ChallongeMatch, actor: User) -> None:
         # The push advanced the bracket (next-round matches now open). Re-sync
         # once so those newly-open matches surface locally without a manual
         # Sync. Failures here must not undo the successful push.
