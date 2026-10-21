@@ -32,20 +32,39 @@ _PRELOAD_FONTS = (
 def install_framework_load_guard() -> None:
     """Reload once when the page's framework scripts never arrived.
 
-    NiceGUI loads Vue and Quasar as deferred scripts. When one fetch drops (a
-    flaky link, a phone waking up) the page stays blank with no error but the
-    language pack's ``window.Quasar is undefined`` (SGLMAN-1J). Deferred scripts
-    have all run by ``DOMContentLoaded``, so a missing ``Quasar`` there means
-    the page is dead: reload it once per tab, and if the reload fails too, say
-    so on the page and report it.
+    NiceGUI loads Vue as a module and Quasar as a deferred script. When one
+    fetch drops (a flaky link, a phone waking up, a restart) the page stays
+    blank with no error but Quasar's own ``window.Vue`` crash (SGLMAN-1E,
+    SGLMAN-1R) or the language pack's ``window.Quasar is undefined``
+    (SGLMAN-1J). Deferred and module scripts have all run by
+    ``DOMContentLoaded``, so a missing ``Quasar`` there means the page is dead.
+
+    A plain reload is not enough: NiceGUI marks every ``/_nicegui/`` answer
+    immutable for a year, so a browser that kept a bad one reuses it on the
+    reload and stays blank (SGLMAN-1S). Before the one reload per tab, every
+    framework URL is fetched again with ``cache: 'reload'``, which replaces
+    whatever the browser kept. If the page is still dead after that, say so on
+    the page and report it.
     """
     ui.add_body_html(
         '<script>'
         "document.addEventListener('DOMContentLoaded',function(){"
         "var k='wizFrameworkReload';"
         'if(window.Quasar){try{sessionStorage.removeItem(k);}catch(e){}return;}'
-        'try{if(!sessionStorage.getItem(k)){sessionStorage.setItem(k,String(Date.now()));location.reload();return;}}'
-        'catch(e){}'
+        'var first=false;'
+        'try{if(!sessionStorage.getItem(k)){sessionStorage.setItem(k,String(Date.now()));first=true;}}catch(e){}'
+        'if(first){'
+        'var urls=[];'
+        'function add(u){if(u&&u.indexOf(location.origin+"/")===0&&u.indexOf("/_nicegui/")>0&&urls.indexOf(u)<0)urls.push(u);}'
+        "document.querySelectorAll('script[src],link[rel=modulepreload]').forEach(function(el){add(el.src||el.href);});"
+        "try{var im=JSON.parse(document.querySelector('script[type=importmap]').textContent).imports||{};"
+        'for(var n in im)add(new URL(im[n],location.href).href);}catch(e){}'
+        'var gone=false;'
+        'function go(){if(!gone){gone=true;location.reload();}}'
+        'if(!window.fetch||!window.Promise){go();return;}'
+        'setTimeout(go,5000);'
+        "Promise.all(urls.map(function(u){return fetch(u,{cache:'reload'}).catch(function(){});})).then(go,go);"
+        'return;}'
         "var p=document.createElement('p');"
         "p.setAttribute('role','alert');"
         "p.style.cssText='margin:2rem 1rem;font:16px/1.5 system-ui,sans-serif;text-align:center';"

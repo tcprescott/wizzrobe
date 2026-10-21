@@ -21,6 +21,7 @@ from application.utils.environment import (
 from application.utils.timer_teardown import install_log_filter, is_timer_teardown_race
 from middleware.auth import AuthMiddleware
 from middleware.error_handlers import register_error_handlers
+from middleware.framework_cache import FrameworkCacheMiddleware
 from middleware.public_cache import PublicCacheMiddleware
 from middleware.tenant import TenantMiddleware, TransportPrefixMiddleware
 from middleware.watch_mode import WatchModeMiddleware
@@ -363,4 +364,7 @@ def init(fastapi_app: FastAPI) -> None:
     # ui.run_with just added — that is the only place a Set-Cookie can be taken
     # back off the publicly-cacheable spectator responses.
     fastapi_app.add_middleware(PublicCacheMiddleware)
+    # Also outside NiceGUI's cache middleware, which marks every /_nicegui/
+    # answer immutable, failures included.
+    fastapi_app.add_middleware(FrameworkCacheMiddleware)
     register_error_handlers(fastapi_app)
