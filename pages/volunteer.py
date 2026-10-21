@@ -12,12 +12,63 @@ from application.services import (
 )
 from application.utils.app_links import HOME_MY_SCHEDULE, VOLUNTEER_CHECK_IN, VOLUNTEER_MY_SHIFTS, home_url
 from middleware.auth import protected_tab_page
-from models import Role
+from models import Role, User
 from pages.check_in import check_in_desk_tab
 from pages.volunteer_tabs.availability import availability_tab
 from pages.volunteer_tabs.full_schedule import full_schedule_tab
 from pages.volunteer_tabs.proctor_station import proctor_station_tab
 from theme.base import BaseLayout
+from theme.section_menu import register_section_menu
+
+
+async def build_volunteer_tabs(user: User | None, *, section: str | None = None,
+                               event: str | None = None) -> list[dict]:
+    """The hub's tabs this viewer may open, in order. Also the drawer's page list."""
+    roles = await AuthService.get_roles(user)
+    # Staff-equivalence throughout, so a platform super-admin sees the whole
+    # hub in a tenant they hold no roles in.
+    is_staff = await AuthService.is_staff(user)
+    is_volunteer = Role.VOLUNTEER in roles
+    volunteers_live = await AuthService.can_view_volunteer(user)
+    proctor_station = await AuthService.can_open_proctor_station(user)
+    desk = await AuthService.can_view_check_in_desk(user)
+
+    tabs = []
+    if volunteers_live:
+        # Reads the *signed-in* user's own availability, so it is safe (and
+        # empty) for someone who volunteers for nothing; the role gate above
+        # is the only guard on saving it. This tab is when you can *work*,
+        # and it is opt-in — the player one on Home is when you can't
+        # *play*, opt-out. Their shifts are on Home → My Schedule.
+        if is_volunteer or is_staff:
+            tabs.append({'label': 'My Availability', 'icon': 'edit_calendar', 'content': availability_tab})
+        # Everyone the volunteer roles admit reads the whole published
+        # schedule: knowing who is at the next station over is the point,
+        # and volunteers may see what staff see.
+        tabs.append({'label': 'Full Schedule', 'icon': 'calendar_view_week', 'content': full_schedule_tab})
+    if proctor_station:
+        # Bound to the viewer: the tab's help icons read role-gated
+        # snippets from the event handbook, and the page has already
+        # resolved who is looking.
+        tabs.append({'label': 'Proctor Station', 'icon': 'sports_esports',
+                     'content': (proctor_station_tab, (user,))})
+    # Offered while an event is open, as the menu item it replaced was. A
+    # link straight to it (``/checkin``, an old bookmark) still lands, so the
+    # tab can say nothing is open rather than drop the visitor elsewhere.
+    if desk and (
+        section == VOLUNTEER_CHECK_IN or event is not None or not tabs
+        or await CheckInService().has_open_event()
+    ):
+        tabs.append({'label': 'Check-in Desk', 'icon': 'how_to_reg', 'slug': VOLUNTEER_CHECK_IN,
+                     'content': (check_in_desk_tab, (user,), {'event': event})})
+    return tabs
+
+
+async def _volunteer_menu(user: User) -> list[dict]:
+    return await build_volunteer_tabs(user)
+
+
+register_section_menu('/volunteer', _volunteer_menu)
 
 
 def create() -> None:
@@ -41,43 +92,7 @@ def create() -> None:
         ui.page_title(f'Volunteer — {await TenantService.current_community_name() or "Wizzrobe"}')
         user = await get_user_from_session(app.storage.user)
 
-        roles = await AuthService.get_roles(user)
-        # Staff-equivalence throughout, so a platform super-admin sees the whole
-        # hub in a tenant they hold no roles in.
-        is_staff = await AuthService.is_staff(user)
-        is_volunteer = Role.VOLUNTEER in roles
-        volunteers_live = await AuthService.can_view_volunteer(user)
-        proctor_station = await AuthService.can_open_proctor_station(user)
-        desk = await AuthService.can_view_check_in_desk(user)
-
-        tabs = []
-        if volunteers_live:
-            # Reads the *signed-in* user's own availability, so it is safe (and
-            # empty) for someone who volunteers for nothing; the role gate above
-            # is the only guard on saving it. This tab is when you can *work*,
-            # and it is opt-in — the player one on Home is when you can't
-            # *play*, opt-out. Their shifts are on Home → My Schedule.
-            if is_volunteer or is_staff:
-                tabs.append({'label': 'My Availability', 'icon': 'edit_calendar', 'content': availability_tab})
-            # Everyone the volunteer roles admit reads the whole published
-            # schedule: knowing who is at the next station over is the point,
-            # and volunteers may see what staff see.
-            tabs.append({'label': 'Full Schedule', 'icon': 'calendar_view_week', 'content': full_schedule_tab})
-        if proctor_station:
-            # Bound to the viewer: the tab's help icons read role-gated
-            # snippets from the event handbook, and the page has already
-            # resolved who is looking.
-            tabs.append({'label': 'Proctor Station', 'icon': 'sports_esports',
-                         'content': (proctor_station_tab, (user,))})
-        # Offered while an event is open, as the menu item it replaced was. A
-        # link straight to it (``/checkin``, an old bookmark) still lands, so the
-        # tab can say nothing is open rather than drop the visitor elsewhere.
-        if desk and (
-            section == VOLUNTEER_CHECK_IN or event is not None or not tabs
-            or await CheckInService().has_open_event()
-        ):
-            tabs.append({'label': 'Check-in Desk', 'icon': 'how_to_reg', 'slug': VOLUNTEER_CHECK_IN,
-                         'content': (check_in_desk_tab, (user,), {'event': event})})
+        tabs = await build_volunteer_tabs(user, section=section, event=event)
         if not tabs:
             # A hub role whose feature is off here (a desk worker with check-in
             # off, a volunteer with VOLUNTEERS off): the same page a page-level
@@ -90,5 +105,5 @@ def create() -> None:
         base_path = f"{root_path}/volunteer"
         await BaseLayout(
             tabs=tabs, section=section, base_path=base_path, page_name='volunteer', user=user,
-            show_volunteer=volunteers_live,
+            show_volunteer=await AuthService.can_view_volunteer(user),
         ).render()

@@ -13,9 +13,9 @@ from theme.browser_monitoring import install_browser_monitoring
 from theme.chrome import apply_brand_palette, cookie_dark_pref, dark_mode_button, install_page_scripts
 from theme.connection import install_connection_watch
 from theme.drawer_help import render_drawer_help, render_github_item
+from theme.drawer_nav import render_drawer_nav
 from theme.links import set_link
-from theme.nav_badges import bottom_nav_tab, drawer_tab_badge, nav_icon
-from theme.nav_section import mark_nav_section, nav_section_matches
+from theme.nav_badges import bottom_nav_tab
 from theme.notice import drain_notice
 from theme.page_header import heading_fallback
 from theme.url_state import History, url_state
@@ -113,6 +113,9 @@ class BaseLayout:
         self._bottom_tab_labels: list = []
         self._syncing_nav = False
         self._tab_item_refs: dict = {}
+        self._section_buttons: dict = {}
+        self._section_lists: dict = {}
+        self._section_host: ui.element | None = None
         self._shown_tab: str | None = None
         self._section = section
         # Lazy tab rendering: every panel gets a container up front, but its
@@ -507,53 +510,7 @@ class BaseLayout:
             f':width="{DRAWER_WIDTH_JS}"'
         ) as self._drawer:
             current_path = current_local_url().split('?', 1)[0]
-            with ui.list().props('padding'):
-                for item in self.top_menu:
-                    with ui.item(on_click=lambda u=item['url']: ui.navigate.to(u)).props('clickable v-ripple') as top_item:
-                        with ui.item_section().props('avatar'):
-                            ui.icon(nav_icon(item['icon'])).props('size=sm')
-                        with ui.item_section():
-                            ui.item_label(item['label'])
-                    if nav_section_matches(item['url'], current_path):
-                        mark_nav_section(top_item)
-
-            if not self.tabs and self._is_member:
-                # A tab-less page has no section list of its own, so a member
-                # gets home's: the bracket or article they followed a link to
-                # is not where they stop being a player.
-                ui.separator()
-                with ui.list().props('padding'):
-                    for label, icon in HOME_SECTIONS:
-                        with ui.item(
-                            on_click=lambda slug=tab_slug(label): ui.navigate.to(f'/home/{slug}')
-                        ).props('clickable v-ripple'):
-                            with ui.item_section().props('avatar'):
-                                ui.icon(nav_icon(icon)).props('size=sm')
-                            with ui.item_section():
-                                ui.item_label(label)
-
-            if self.tabs:
-                ui.separator()
-                with ui.list().props('padding'):
-                    current_group = None
-                    for tab in self.tabs:
-                        # Section headers for grouped drawers (admin passes a
-                        # 'group' per tab); ungrouped pages render a flat list.
-                        group = tab.get('group')
-                        if group and group != current_group:
-                            current_group = group
-                            ui.item_label(group).props('header').classes('wiz-drawer-group')
-                        with ui.item(
-                            on_click=lambda t=tab['label']: self._switch_tab(t)
-                        ).props('clickable v-ripple') as tab_item:
-                            with ui.item_section().props('avatar'):
-                                ui.icon(nav_icon(tab.get('icon', 'circle'))).props('size=sm')
-                            with ui.item_section():
-                                ui.item_label(tab['label'])
-                            drawer_tab_badge(tab)
-                        if tab['label'] == self._default_tab:
-                            tab_item.props(add='active')
-                        self._tab_item_refs[tab['label']] = tab_item
+            render_drawer_nav(self, current_path)
 
             # The info card and the copyright sit at the foot of the drawer
             # when the nav fits, and fall to its scroll-end when it is long.
