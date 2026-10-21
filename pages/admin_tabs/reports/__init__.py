@@ -17,6 +17,7 @@ from .audit import audit_page
 from .capacity import capacity_page
 from .crew import crew_page
 from .dashboard import dashboard_page
+from .exports import exports_page
 from .insights import insights_page
 from .match_ops import match_ops_page
 from .messages import messages_page
@@ -35,6 +36,7 @@ _REPORT_HANDLERS = {
     'audit': audit_page,
     'telemetry': telemetry_page,
     'messages': messages_page,
+    'exports': exports_page,
 }
 
 # Reports whose subsystem is behind a per-tenant flag. A community that has
@@ -46,9 +48,9 @@ _REPORT_FEATURES = {
     'volunteers': FeatureFlag.VOLUNTEERS,
 }
 
-# The one report a volunteer coordinator without staff, TA or CC standing may
-# open; ``build_admin_tabs`` passes it as ``only``.
-VOLUNTEER_REPORTS: frozenset[str] = frozenset({'volunteers'})
+# The reports a volunteer coordinator without staff, TA or CC standing may open
+# (Exports for their volunteer data ZIPs); ``build_admin_tabs`` passes it as ``only``.
+VOLUNTEER_REPORTS: frozenset[str] = frozenset({'volunteers', 'exports'})
 
 
 def _track_report_view(report: str) -> None:
@@ -81,13 +83,13 @@ async def _render_report(
 
     ``only`` narrows a viewer to those reports. The dashboard is not among them
     (its KPIs read every report's data), so anything else, the landing
-    included, opens the first allowed report, which then has no "All reports"
-    link to go back to.
+    included, opens the first allowed report in ``_REPORT_HANDLERS`` order, with
+    no "All reports" link to go back to.
     """
     if only is not None:
         if report not in only:
-            report = min(only)
-        params = {**params, 'all_reports_link': len(only) > 1}
+            report = next(key for key in _REPORT_HANDLERS if key in only)
+        params = {**params, 'all_reports_link': False}
     feature = _REPORT_FEATURES.get(report)
     if feature is not None and feature not in live:
         report = None

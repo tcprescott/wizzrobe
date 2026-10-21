@@ -689,3 +689,30 @@ class SentMessageStatus(str, Enum):
     DISCORD_OFF = 'discord_off'
     BLOCKED = 'blocked'
     FAILED = 'failed'
+
+
+class DataExportKind(str, Enum):
+    """What a :class:`DataExport` row holds; each queued kind has one builder."""
+
+    TOURNAMENTS = 'tournaments'
+    VOLUNTEERS = 'volunteers'
+    # A table's "Export CSV" button: the rows were already on screen, so it
+    # downloads at once and is only recorded here (status READY on creation).
+    TABLE_CSV = 'table_csv'
+
+
+class DataExportStatus(str, Enum):
+    """Where a requested export has got to.
+
+    ``QUEUED`` until the export worker picks it up, ``RUNNING`` while it builds,
+    then ``READY`` (files stored, downloadable until pruned) or ``FAILED``.
+    """
+
+    QUEUED = 'queued'
+    RUNNING = 'running'
+    READY = 'ready'
+    FAILED = 'failed'
+
+    @classmethod
+    def pending(cls) -> frozenset['DataExportStatus']:
+        return frozenset({cls.QUEUED, cls.RUNNING})

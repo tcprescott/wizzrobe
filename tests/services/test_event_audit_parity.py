@@ -179,6 +179,9 @@ _EXCLUDED_BY_DESIGN = frozenset({
     # the tenant can see who took a copy; deliberately not webhooked, since
     # announcing a PII export to arbitrary receivers is the wrong direction.
     AuditActions.VOLUNTEER_DATA_EXPORTED,
+    # Same reasoning for tournament exports: names and Discord ids leaving the
+    # app are audited for the community, never announced to receivers.
+    AuditActions.TOURNAMENT_DATA_EXPORTED,
     # Equipment catalog CRUD (checkout/checkin are candidates above).
     AuditActions.EQUIPMENT_CREATED,
     AuditActions.EQUIPMENT_UPDATED,

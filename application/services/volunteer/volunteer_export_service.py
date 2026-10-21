@@ -32,6 +32,7 @@ from application.services.volunteer.volunteer_availability_service import (
 from application.services.volunteer.volunteer_hours import merged_hours
 from application.services.volunteer.volunteer_pool_service import VolunteerPoolService
 from application.timezone_context import current_timezone_name
+from application.utils.csv_export import files_to_zip_bytes, rows_to_csv_bytes
 from application.utils.timezone import (
     format_local_date,
     format_local_display,
@@ -125,6 +126,13 @@ class VolunteerExportBundle:
             'Admin → Vol. Schedule.',
         ]
         return '\n'.join(lines) + '\n'
+
+    def to_zip_bytes(self) -> bytes:
+        """``README.txt`` plus one CSV per sheet, zipped."""
+        files = {'README.txt': self.readme().encode('utf-8')}
+        for sheet in self.sheets:
+            files[f'{sheet.name}.csv'] = rows_to_csv_bytes(sheet.columns, sheet.rows)
+        return files_to_zip_bytes(files)
 
 
 class VolunteerExportService:

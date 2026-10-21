@@ -58,6 +58,7 @@
     { "name": "admin-notifications", "path": "/admin/notifications" },
     { "name": "admin-feedback", "path": "/admin/feedback" },
     { "name": "admin-reports-messages", "path": "/admin/reports?report=messages" },
+    { "name": "admin-reports-exports", "path": "/admin/reports?report=exports" },
     { "name": "settings-home", "path": "/admin/settings" },
     { "name": "settings-general", "path": "/admin/settings/general" },
     { "name": "settings-event", "path": "/admin/settings/event" },

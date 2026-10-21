@@ -35,6 +35,7 @@ from .challonge import (
 from .check_in import CheckInEntrant, CheckInEvent, CheckInPass, CheckInTier, MatcherinoLogin
 from .column_guards import FieldValueError, install_column_guards
 from .community_event import CommunityEvent, CommunityEventSeen, CommunityEventSubscription
+from .data_export import DataExport
 from .discord_events import DiscordScheduledEvent, SentMessage, StaffRequestDM
 from .discord_role_sync import DiscordRoleGrant, DiscordRoleRule, DiscordRoleSyncState
 from .emergency_contact import EmergencyContact
@@ -60,6 +61,8 @@ from .enums import (
     CheckInLinkMethod,
     CheckInTierLanyard,
     CommunityEventStatus,
+    DataExportKind,
+    DataExportStatus,
     DiscordEventSource,
     DiscordRoleRuleKind,
     EquipmentStatus,
@@ -225,6 +228,9 @@ __all__ = [
     'CommunityEventStatus',
     'CommunityEventSubscription',
     'ContactVerification',
+    'DataExport',
+    'DataExportKind',
+    'DataExportStatus',
     'DiscordEventSource',
     'DiscordRoleGrant',
     'DiscordRoleMapping',

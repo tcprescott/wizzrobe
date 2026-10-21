@@ -778,8 +778,9 @@ Behavior doc: [../features/admin-reports.md](../features/admin-reports.md). Data
 | `volunteers` | `volunteers.volunteers_page` | `start`, `end` | Understaffed-shift summary card + all-shifts table (position, label, start, filled/needed, status) |
 | `audit` | `audit.audit_page` | `start`, `end`, `user_id`, `action` (search text), `category` (Area), `page` | Server-side paginated log over `AuditService.count_logs` / `list_logs`. Each row reads in plain language (`application/utils/audit_display.py`: one label and Area per action, plus a describer for the summary, before/after changes and facts); the selected row's detail sits in a side panel at 1024px+ and opens as a dialog/bottom sheet below. Search matches the action key or its label; "More by …" filters to one person |
 | `telemetry` | `telemetry.telemetry_page` | `start`, `end`, `user_id`, `action`, `category`, `page` | Staff-only engagement view over `TelemetryService`: leaderboards plus the same paginated event log |
+| `exports` | `exports.exports_page` | — | Tournament picker (staff: every tournament; tournament admin: their own) with Download ZIP + Actions → Download JSON only, then "Your exports" (the viewer's last 3 days of `DataExport` rows, polled while one is building). A volunteer coordinator reaches it too (`VOLUNTEER_REPORTS`) and gets only "Your exports". See [data-exports.md](../features/data-exports.md) |
 
-Every panel above carries a CSV export unless noted. Three behaviours are not derivable from the table:
+Every panel above carries a CSV export unless noted (Exports has none: it *is* the export list). Each table CSV export is also recorded under Reports → Exports. Three behaviours are not derivable from the table:
 
 - **Capacity `focus`** is an ISO timestamp that pre-zooms the chart to a ±2-hour window and reveals the matches-active-at-that-instant table.
 - **Insights** defaults to a trailing 90-day window rather than the event window, because a single event weekend collapses to one bucket.

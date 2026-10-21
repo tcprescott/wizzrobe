@@ -1674,6 +1674,17 @@ Every write swallows its own failure: logging never costs a DM. Reads
 (`list_messages`, `count_messages`, `totals`, `get_message`) take a keyword-only
 `actor` and are Staff only.
 
+### exports/ — DataExportService, data_export_worker
+
+The export queue ([data-exports.md](../features/data-exports.md)).
+`DataExportService` takes requests (`request_tournaments`, `request_volunteers`,
+`record_table_csv`), enforces who may export what and the throttle, and serves
+the requester's own exports (`list_mine`, `get_mine`, `download`). `build(export)`
+is the worker's entry point and never raises. `tournament_export_builder` turns
+one tournament into the versioned JSON section and the CSVs. `data_export_worker`
+(`run_worker_loop`, 5 s tick) builds one queued export per tick, fails
+interrupted ones and prunes anything older than three days.
+
 ### member_details_service.py — MemberDetailsService
 
 One member's footprint in the current community, for Admin → Members' member

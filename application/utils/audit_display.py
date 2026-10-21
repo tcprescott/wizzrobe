@@ -253,6 +253,7 @@ ACTION_LABELS: dict[str, str] = {
     'volunteer.shifts_reset': 'Reset volunteer shifts',
     'volunteer.qualifications_updated': 'Updated volunteer qualifications',
     'volunteer.data_exported': 'Exported volunteer data',
+    'tournament.data_exported': 'Exported tournament data',
     'volunteer.role_mapping_added': 'Linked a volunteer position to a role',
     'volunteer.role_mapping_removed': 'Unlinked a volunteer position from a role',
     # Check-in

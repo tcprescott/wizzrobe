@@ -76,6 +76,7 @@ from .discord import (
 from .emergency_contact_service import EmergencyContactService
 from .equipment_service import EquipmentService
 from .event_info_service import EventGuide, EventInfoService
+from .exports import DataExportService, ExportFile, data_export_worker
 from .feature_flag_service import FeatureFlagService
 from .feedback_service import FeedbackService
 from .help_service import HelpService
@@ -187,6 +188,7 @@ __all__ = [
     'CommunityEventService',
     'CommunityOverview',
     'CrewService',
+    'DataExportService',
     'DiscordEmailService',
     'DiscordEventReconcilerService',
     'DiscordEventSyncService',
@@ -202,6 +204,7 @@ __all__ = [
     'EventDraft',
     'EventGuide',
     'EventInfoService',
+    'ExportFile',
     'FeatureFlagService',
     'FeedbackService',
     'HardPresetState',
@@ -308,6 +311,7 @@ __all__ = [
     'check_in_sales',
     'check_in_sync_worker',
     'community_event_reminder',
+    'data_export_worker',
     'discord_event_worker',
     'discord_queue',
     'discord_role_sync_worker',

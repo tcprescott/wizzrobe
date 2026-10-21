@@ -1992,6 +1992,29 @@ outside any community isn't logged.
 Indexes on `(tenant, created_at)` and `(tenant, recipient)`. Staff only: a DM can
 carry a staff-private note.
 
+#### `DataExport`
+
+One export a person asked for, and its file once built. See
+[data-exports.md](../features/data-exports.md). Tenant-scoped (migration 120);
+deleted three days after `created_at` by `data_export_worker`.
+
+| Field | Type | Null / default | Notes |
+|---|---|---|---|
+| `requested_by` | FK → `User` | null, set null | Only this user may read it |
+| `kind` | `CharEnumField(DataExportKind)` | not null | `tournaments` / `volunteers` / `table_csv` |
+| `title` | `CharField(255)` | not null | "All 16 tournaments", "match-ops.csv" |
+| `params` | `JSONField` | `{}` | `tournament_ids` (null = all), or `start`/`end`/`timezone` |
+| `status` | `CharEnumField(DataExportStatus)` | `queued` | `queued` → `running` → `ready` / `failed` |
+| `progress_done` / `progress_total` | `IntField` | `0` | Tournaments built so far |
+| `error` | `CharField(500)` | null | Why it failed, in words for the reader |
+| `filename` / `media_type` | | null | The download's name and type |
+| `content` | `BinaryField` | null | The ZIP or CSV |
+| `json_content` | `BinaryField` | null | `tournaments.json` alone (tournament exports) |
+| `size_bytes` | `IntField` | `0` | |
+| `created_at` / `started_at` / `finished_at` | | | |
+
+Indexes on `(status, created_at)` and `(requested_by, created_at)`.
+
 ### Async Qualifiers
 
 A **peer aggregate of `Tournament`** — created/administered like a tournament
@@ -2377,6 +2400,8 @@ Consult the source for full signatures.
 | `SpeedGamingEpisodeRepository` | [`speedgaming_episode_repository.py`](../../application/repositories/speedgaming_episode_repository.py) | `SpeedGamingEpisode` | ETL staging. `get_by_sg_id`, `get_by_id`, `list_for_link`, `list_all`, `create`, `update` (upsert keyed on unique `(tenant, sg_episode_id)`) |
 | `MemberDetailsRepository` | [`member_details_repository.py`](../../application/repositories/member_details_repository.py) | several | One member's footprint here for the member sheet: `membership`, admin/coordinated/entered tournament names, `upcoming_matches`, `upcoming_shifts`, `open_loans`, `check_in_entries`, `recent_messages`, `last_delivered_at`, `push_device_count` (unscoped: devices belong to the account) |
 | `SentMessageRepository` | [`sent_message_repository.py`](../../application/repositories/sent_message_repository.py) | `SentMessage` | `create`, `update(id, tenant_id, **fields)`, `list`/`count` (window, statuses, search, recipient), `get`, `totals` |
+| `DataExportRepository` | [`data_export_repository.py`](../../application/repositories/data_export_repository.py) | `DataExport` | Scoped `create_queued`, `create_ready`, `summary` (no blobs), `list_for_requester`, the throttle counts, `set_progress`, `finish`; **unscoped** worker methods `next_queued_all`, `claim`, `fail_interrupted_all`, `prune_all` |
+| `TournamentExportRepository` | [`tournament_export_repository.py`](../../application/repositories/tournament_export_repository.py) | several | Scoped reads for one tournament's export: enrolment, native bracket entries and matches, Challonge and start.gg mirrors, scheduled matches with players |
 | `StaffRequestDMRepository` | [`staff_request_dm_repository.py`](../../application/repositories/staff_request_dm_repository.py) | `StaffRequestDM` | `record`, `list_for(kind, object_id)`, `forget(kind, object_id)` |
 | `DiscordScheduledEventRepository` | [`discord_scheduled_event_repository.py`](../../application/repositories/discord_scheduled_event_repository.py) | `DiscordScheduledEvent` | Reconciliation links — shared-guild safety is enforced here (a query never sees a sibling tenant's mirrored event). `list_all`, `get_by_id`, `get_by_source`, `list_for_source_type`, `create`, `update`, `delete` (upsert key `(tenant, source_type, source_id)`) |
 | `RoomTokenRepository` | [`room_token_repository.py`](../../application/repositories/room_token_repository.py) | `RoomToken` | Venue-kiosk tokens for the read-only seeds view. `get_by_hash` (**scoped** — unlike the API-token lookup, a room token is only ever presented inside its own community, so a sibling tenant's token simply is not found), `list_all` (live before revoked, newest first within each group; the live-first half is sorted in Python because Postgres and SQLite disagree on NULL ordering), `touch_last_used`, `revoke` |
