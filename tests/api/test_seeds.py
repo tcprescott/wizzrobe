@@ -8,7 +8,10 @@ import pytest
 
 from application.services import SeedGenerationService
 from application.tenant_context import tenant_scope
-from models import Preset, RandomizerCredential, Role, Tenant
+from models import (
+    GeneratedSeeds, Match, Preset, ProviderTask, ProviderTaskStatus, RandomizerCredential, Role,
+    Tenant, Tournament,
+)
 from tests.api_helpers import client_for, create_user_token
 
 
@@ -98,6 +101,28 @@ async def test_generate_seed_queued_randomizer_202(db, app):
         polled = await c.get(f"/api/seeds/tasks/{body['task_id']}")
         assert polled.status_code == 200
         assert polled.json()['task_id'] == body['task_id']
+
+
+async def test_task_for_a_match_reports_its_seed(db, app):
+    # A match's task resolves its permalink through match.generated_seed, which
+    # the read used to leave unfetched: every poll of a match roll was a 500.
+    _, raw = await create_user_token(username='roller', roles=[Role.PRESET_MANAGER])
+    tournament = await Tournament.create(name='Cup', is_active=True, seed_generator='dk64r')
+    pending = await Match.create(tournament=tournament)
+    seed = await GeneratedSeeds.create(seed_url='https://dk64randomizer.com/x', randomizer='dk64r')
+    rolled = await Match.create(tournament=tournament, generated_seed=seed)
+    queued = await ProviderTask.create(provider='dk64r', operation='generate_seed', match=pending)
+    done = await ProviderTask.create(
+        provider='dk64r', operation='generate_seed', match=rolled,
+        status=ProviderTaskStatus.SUCCEEDED,
+    )
+    async with client_for(app, raw) as c:
+        waiting = await c.get(f'/api/seeds/tasks/{queued.id}')
+        assert waiting.status_code == 200, waiting.text
+        assert waiting.json()['url'] is None
+        finished = await c.get(f'/api/seeds/tasks/{done.id}')
+        assert finished.status_code == 200, finished.text
+        assert finished.json()['url'] == 'https://dk64randomizer.com/x'
 
 
 async def test_generate_seed_unknown_preset_404(db, app):

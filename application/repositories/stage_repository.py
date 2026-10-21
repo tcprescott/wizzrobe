@@ -68,6 +68,14 @@ class StageRepository(TenantScopedRepository[Stage]):
         )
     
     @staticmethod
+    async def name_taken(name: str, exclude_id: Optional[int] = None) -> bool:
+        """Whether another of this tenant's stages already has this name."""
+        query = scoped(Stage.filter(name=name))
+        if exclude_id is not None:
+            query = query.exclude(id=exclude_id)
+        return await query.exists()
+
+    @staticmethod
     async def count_matches(stage: Stage) -> int:
         """Return how many matches reference this stage."""
         return await stage.matches.all().count()

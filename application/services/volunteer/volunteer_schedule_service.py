@@ -244,6 +244,8 @@ class VolunteerScheduleService:
             await AuthService.can_manage_volunteers(actor),
             "Only volunteer coordinators can manage shifts.",
         )
+        if not fields:
+            return shift
         starts = fields.get('starts_at', shift.starts_at)
         ends = fields.get('ends_at', shift.ends_at)
         if ends <= starts:

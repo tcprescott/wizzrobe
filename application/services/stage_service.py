@@ -36,6 +36,8 @@ class StageService:
 
         if not name or not name.strip():
             raise ValueError("Stage name is required")
+        if await self.repository.name_taken(name.strip()):
+            raise ValueError(f"A stage named '{name.strip()}' already exists.")
 
         stage = await self.repository.create(
             name=name.strip(),
@@ -69,6 +71,8 @@ class StageService:
 
         update_data = {}
         if name is not None:
+            if await self.repository.name_taken(name.strip(), exclude_id=stage.id):
+                raise ValueError(f"A stage named '{name.strip()}' already exists.")
             update_data['name'] = name.strip()
         if stream_url is not None:
             update_data['stream_url'] = normalize_http_url(stream_url, 'The stream link')
