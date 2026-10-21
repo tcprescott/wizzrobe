@@ -210,6 +210,13 @@ class ChallongeRepository:
         await participant.save(update_fields=['user_id', 'user_assigned_manually', 'updated_at'])
 
     @staticmethod
+    async def participants_for_challonge_account(challonge_user_id: str) -> List[ChallongeParticipant]:
+        """Entrants on this community's brackets that carry the given Challonge account."""
+        return await scoped(ChallongeParticipant.filter(
+            challonge_user_id=challonge_user_id,
+        )).prefetch_related('user', 'tournament')
+
+    @staticmethod
     async def get_participant_for_user(
         tournament: Tournament, user: User,
     ) -> Optional[ChallongeParticipant]:
