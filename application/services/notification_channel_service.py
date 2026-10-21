@@ -42,6 +42,7 @@ from application.services.sent_message_service import SentMessageRef, SentMessag
 from application.utils.clients import sendgrid_client, telegram_client
 from application.utils.environment import get_base_url
 from application.utils.mocks.mock_discord import is_mock_discord
+from application.utils.settings_footnote import SettingsFootnote
 from models import FeatureFlag, User
 
 logger = logging.getLogger(__name__)
@@ -381,7 +382,7 @@ class NotificationChannelService:
     async def mirror_dm(
         self, discord_id: int, message: str, navigate: Optional[str] = None,
         label: Optional[str] = None, silent: bool = False,
-        ref: Optional[SentMessageRef] = None,
+        ref: Optional[SentMessageRef] = None, footnote: Optional[SettingsFootnote] = None,
     ) -> None:
         """Copy one Discord DM to the recipient's email and Telegram.
 
@@ -403,9 +404,9 @@ class NotificationChannelService:
             reset_flag_cache()
             if not await FeatureFlagService().is_enabled(FeatureFlag.NOTIFICATION_CHANNELS):
                 return
-            emailed = await self._email(user, message, navigate, label) if wants_email else None
+            emailed = await self._email(user, message, navigate, label, footnote) if wants_email else None
             telegrammed = (
-                await self._telegram(user, message, navigate, label, silent=silent)
+                await self._telegram(user, message, navigate, label, silent=silent, footnote=footnote)
                 if wants_telegram else None
             )
             if ref is not None:
@@ -413,7 +414,10 @@ class NotificationChannelService:
         except Exception:
             logger.exception('email/Telegram DM mirror failed for discord id %s', discord_id)
 
-    async def _email(self, user: User, message: str, navigate: Optional[str], label: Optional[str]) -> bool:
+    async def _email(
+        self, user: User, message: str, navigate: Optional[str], label: Optional[str],
+        footnote: Optional[SettingsFootnote] = None,
+    ) -> bool:
         if not user.email:
             return False
         text = plain_text(message)
@@ -422,7 +426,15 @@ class NotificationChannelService:
         text_body = text
         if navigate:
             text_body += f'\n\n{label or "Open Wizzrobe"}: {navigate}'
-        text_body += f'\n\n--\n{footer}\nStop these emails: {stop}'
+        settings_line = f'{footnote.plain()}\n' if footnote else ''
+        text_body += f'\n\n--\n{settings_line}{footer}\nStop these emails: {stop}'
+        settings_html = ''
+        if footnote:
+            settings_html = (
+                f'<p style="margin-top:28px;margin-bottom:0;font-size:12px;color:#6F6D67">'
+                f'{html.escape(footnote.lead)} <a href="{html.escape(footnote.link.url, quote=True)}" '
+                f'style="color:#6F6D67">{html.escape(footnote.link.label)}</a>.</p>'
+            )
         paragraphs = ''.join(
             f'<p style="margin:0 0 12px">{html.escape(line)}</p>' for line in text.splitlines() if line.strip()
         )
@@ -435,8 +447,8 @@ class NotificationChannelService:
             )
         html_body = (
             '<div style="font-family:Arial,sans-serif;font-size:15px;line-height:1.5;color:#1C1B19">'
-            f'{paragraphs}{button}'
-            f'<p style="margin-top:28px;font-size:12px;color:#6F6D67">{html.escape(footer)} '
+            f'{paragraphs}{button}{settings_html}'
+            f'<p style="margin-top:{"8px" if footnote else "28px"};font-size:12px;color:#6F6D67">{html.escape(footer)} '
             f'<a href="{html.escape(stop, quote=True)}" style="color:#6F6D67">Stop these emails</a>.</p>'
             '</div>'
         )
@@ -460,12 +472,14 @@ class NotificationChannelService:
 
     async def _telegram(
         self, user: User, message: str, navigate: Optional[str], label: Optional[str],
-        silent: bool = False,
+        silent: bool = False, footnote: Optional[SettingsFootnote] = None,
     ) -> bool:
         chat_id = user.telegram_chat_id
         if chat_id is None:
             return False
         text = plain_text(message)
+        if footnote:
+            text += f'\n\n{footnote.plain()}'
         if is_mock_discord():
             suffix = f' [button: {label} -> {navigate}]' if navigate else ''
             print(f'[MOCK Telegram] -> {chat_id}: {text}{suffix}')

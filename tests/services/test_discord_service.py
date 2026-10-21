@@ -495,3 +495,52 @@ class TestDiscordSwitch:
 
         assert ok is True
         discord_user.send.assert_awaited_once()
+
+
+class TestSettingsFootnote:
+    """Catalogued DMs end with a line naming the message and linking its settings."""
+
+    async def test_an_embed_gets_the_footnote_as_its_last_line(self, db, real_svc_ready):
+        import discord
+
+        from application.services.notification_catalog import MATCH_SCHEDULED
+        from application.tenant_context import tenant_scope
+        from models import NotificationRecipient
+        from tests.conftest import DEFAULT_TEST_TENANT_ID
+
+        svc, _, discord_user, _ = real_svc_ready
+        card = discord.Embed(title='Match scheduled')
+        with tenant_scope(DEFAULT_TEST_TENANT_ID):
+            await svc.send_dm(
+                560, 'Your match is booked', embed=card,
+                notice=MATCH_SCHEDULED.to(NotificationRecipient.PLAYERS),
+            )
+
+        sent = discord_user.send.call_args.kwargs['embed']
+        last = sent.fields[-1].value
+        assert '“Match scheduled or rescheduled”' in last
+        assert '[Notification settings](' in last and '/home/profile?focus=notifications' in last
+        assert card.fields == []
+
+    async def test_plain_text_gets_it_as_small_text(self, db, real_svc_ready):
+        from application.services.notification_catalog import MATCH_SCHEDULED
+        from application.tenant_context import tenant_scope
+        from models import NotificationRecipient
+        from tests.conftest import DEFAULT_TEST_TENANT_ID
+
+        svc, _, discord_user, _ = real_svc_ready
+        with tenant_scope(DEFAULT_TEST_TENANT_ID):
+            await svc.send_dm(561, 'Your match is booked', notice=MATCH_SCHEDULED.to(NotificationRecipient.PLAYERS))
+
+        text = discord_user.send.call_args.args[0]
+        assert text.startswith('Your match is booked\n-# Change how you get')
+
+    async def test_an_uncatalogued_dm_has_none(self, db, real_svc_ready):
+        from application.tenant_context import tenant_scope
+        from tests.conftest import DEFAULT_TEST_TENANT_ID
+
+        svc, _, discord_user, _ = real_svc_ready
+        with tenant_scope(DEFAULT_TEST_TENANT_ID):
+            await svc.send_dm(562, 'This is a test')
+
+        assert discord_user.send.call_args.args[0] == 'This is a test'

@@ -28,9 +28,11 @@ from application.services.discord.discord_scheduled_events import (
     ScheduledEventsMixin,
 )
 from application.services.notification_catalog import NoticeTarget
+from application.services.notification_links import settings_footnote
 from application.services.sent_message_service import SentMessageRef, SentMessageService
 from application.services.web_push_service import WebPushService
 from application.utils.discord_messages import DMLink
+from application.utils.settings_footnote import SettingsFootnote
 from models import SentMessageStatus
 
 logger = logging.getLogger(__name__)
@@ -117,7 +119,7 @@ def _mirror_dm_to_web_push(
 
 def _mirror_dm_to_channels(
     user_id: int, message: str, link: Optional[DMLink] = None, silent: bool = False,
-    ref: Optional[SentMessageRef] = None,
+    ref: Optional[SentMessageRef] = None, footnote: Optional[SettingsFootnote] = None,
 ) -> None:
     """Fan every outgoing DM out to the recipient's email and Telegram too.
 
@@ -146,9 +148,19 @@ def _mirror_dm_to_channels(
                 label=link.label if link else None,
                 silent=silent,
                 ref=ref,
+                footnote=footnote,
             )
 
     event_dispatch_queue.enqueue(_run())
+
+
+def _with_footnote(
+    message: str, embed: Optional[discord.Embed], footnote: SettingsFootnote,
+) -> Tuple[str, Optional[discord.Embed]]:
+    """The Discord copy with the settings footnote: inside the card, or under the text."""
+    if embed is not None:
+        return message, footnote.with_embed(embed)
+    return footnote.with_message(message), None
 
 
 def _with_link_button(
@@ -390,6 +402,7 @@ class DiscordService(GuildOpsMixin, ScheduledEventsMixin):
             muted, silent = await _apply_notice(notice, user_id)
             if muted:
                 return True, DM_NOTICE_OFF
+        footnote = await settings_footnote(notice)
         log = SentMessageService()
         ref = await log.record_attempt(user_id, message, embed=embed, link=link, silent=silent, notice=notice)
         # Mirror before the bot-readiness checks so device notifications still
@@ -401,7 +414,9 @@ class DiscordService(GuildOpsMixin, ScheduledEventsMixin):
             _mirror_dm_to_web_push(
                 user_id, message, navigate=link.url if link else None, silent=silent, ref=ref,
             )
-            _mirror_dm_to_channels(user_id, message, link, silent=silent, ref=ref)
+            _mirror_dm_to_channels(user_id, message, link, silent=silent, ref=ref, footnote=footnote)
+        if footnote is not None:
+            message, embed = _with_footnote(message, embed, footnote)
         result = await self._send_to_discord(user_id, message, view_factory, embed, link, on_sent, silent)
         await log.record_result(ref, *sent_message_status(result))
         return result
@@ -626,9 +641,10 @@ class MockDiscordService(MockGuildOpsMixin, MockScheduledEventsMixin):
             if muted:
                 print(f"[MOCK Discord DM] -> {user_id}: skipped, {notice.key}:{notice.recipient.value} is off")
                 return True, DM_NOTICE_OFF
+        footnote = await settings_footnote(notice)
         log = SentMessageService()
         ref = await log.record_attempt(user_id, message, embed=embed, link=link, silent=silent, notice=notice)
-        result = await self._mock_send(user_id, message, embed, link, on_sent, mirror, silent, ref)
+        result = await self._mock_send(user_id, message, embed, link, on_sent, mirror, silent, ref, footnote)
         await log.record_result(ref, *sent_message_status(result))
         return result
 
@@ -642,11 +658,12 @@ class MockDiscordService(MockGuildOpsMixin, MockScheduledEventsMixin):
         mirror: bool,
         silent: bool,
         ref: Optional[SentMessageRef],
+        footnote: Optional[SettingsFootnote] = None,
     ) -> Tuple[bool, str]:
         # Email and Telegram mirror in mock mode too: their transports print
         # instead of sending, so there's no external side effect to fear.
         if mirror:
-            _mirror_dm_to_channels(user_id, message, link, silent=silent, ref=ref)
+            _mirror_dm_to_channels(user_id, message, link, silent=silent, ref=ref, footnote=footnote)
         # Deliberately no web-push mirror: mock mode must have no external side
         # effects (a dev with a prod DB snapshot + prod VAPID keys would push
         # to real users' phones). Real delivery requires the real service.
@@ -661,6 +678,8 @@ class MockDiscordService(MockGuildOpsMixin, MockScheduledEventsMixin):
             suffix += f" [button: {link.label} -> {link.url}]"
         if silent:
             suffix += " [silent]"
+        if footnote is not None:
+            suffix += f" [footnote: {footnote.markdown()}]"
         print(f"[MOCK Discord DM] -> {user_id}: {message}{suffix}")
         # Made-up ids, so a later edit_dm has something to print against.
         self.__class__._mock_message_id += 1
