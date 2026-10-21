@@ -44,6 +44,10 @@
  *   }
  * DEFAULTS below supplies any field an entry leaves out.
  *
+ * An entry with "device" instead of "path" is a photo of a phone's own UI (the
+ * iOS Add to Home Screen sheet, say) that no browser here can render. The
+ * script skips it; "device" says what it shows and how to retake it by hand.
+ *
  * Shots are taken in the light theme with reduced motion. WebP is encoded by
  * Chromium itself (canvas.toDataURL), so this needs nothing beyond the global
  * Playwright the /ui-validation harness already uses.
@@ -260,10 +264,12 @@ async function toWebp(encoder, png) {
 
 (async () => {
   const args = parseArgs(process.argv.slice(2));
-  const shots = loadManifest()
+  const matched = loadManifest()
     .filter((s) => !args.only || args.only === s.slug || args.only === `${s.slug}/${s.name}`);
+  for (const s of matched.filter((s) => s.device)) console.log(`skip ${s.slug}/${s.name}  (device shot: ${s.device})`);
+  const shots = matched.filter((s) => !s.device);
   if (!shots.length) {
-    console.error(`no manifest entries match "${args.only}"`);
+    console.error(`no capturable manifest entries match "${args.only}"`);
     process.exit(1);
   }
 
