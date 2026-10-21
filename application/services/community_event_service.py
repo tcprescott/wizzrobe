@@ -18,6 +18,10 @@ if it's approved again they start from nothing rather than getting a reminder
 for an event they were told was off. A rejected event edited by its host goes
 back into the review queue.
 
+Staff can post an event for another member, or hand an existing one over: the
+member becomes its host, with the host's edit and cancel rights, and is DM'd.
+The host has to belong to the community.
+
 Members only throughout: the listing, the submissions and the subscriptions all
 belong to the community. Gated by :attr:`~models.FeatureFlag.COMMUNITY_EVENTS`.
 """
@@ -36,6 +40,7 @@ from application.repositories.community_event_repository import (
     CommunityEventSeenRepository,
     CommunityEventSubscriptionRepository,
 )
+from application.repositories.user_repository import UserRepository
 from application.services import _community_event_notifications as notify
 from application.services.audit_service import AuditActions, AuditService
 from application.services.auth_service import AuthService
@@ -179,6 +184,27 @@ class CommunityEventService:
             return event
         raise NotFoundError('Community event not found.')
 
+    @staticmethod
+    async def _pick_host(actor: User, host_id: Optional[int]) -> User:
+        """Who hosts an event ``actor`` saves: themselves, or a member staff named.
+
+        Refused like an unknown id when the person isn't in this community, so
+        the picker can't be used to find accounts elsewhere. A super-admin is
+        held to the same rule: a host outside the community couldn't open it.
+        """
+        from application.services.tenant_membership_service import TenantMembershipService
+
+        if host_id is None or host_id == actor.id:
+            return actor
+        await AuthService.ensure(
+            await AuthService.is_staff(actor),
+            'Only staff can post an event for someone else.',
+        )
+        host = await UserRepository.get_by_id(host_id)
+        if host is None or not host.is_active or not await TenantMembershipService().is_member(host):
+            raise NotFoundError('That member was not found in this community.')
+        return host
+
     async def _load_managed(self, actor: User, event_id: int) -> CommunityEvent:
         event = await self._load_visible(actor, event_id)
         await AuthService.ensure(
@@ -267,13 +293,16 @@ class CommunityEventService:
     # --- the host's side --------------------------------------------------
 
     @requires_feature(FeatureFlag.COMMUNITY_EVENTS)
-    async def submit(self, actor: User, draft: EventDraft) -> CommunityEvent:
-        """Submit an event.
+    async def submit(
+        self, actor: User, draft: EventDraft, *, host_id: Optional[int] = None,
+    ) -> CommunityEvent:
+        """Submit an event, hosted by ``actor`` or, for staff, by the member ``host_id``.
 
         Staff's own go straight onto the listing, and so does everyone's when
         the community has turned off staff approval.
         """
         await self._ensure_member(actor)
+        host = await self._pick_host(actor, host_id)
         draft = _clean_draft(draft)
         if draft.starts_at <= _now():
             raise ValueError('Pick a start time in the future.')
@@ -281,7 +310,7 @@ class CommunityEventService:
         listed = is_staff or not await SystemConfigService.community_events_require_approval()
         status = CommunityEventStatus.APPROVED if listed else CommunityEventStatus.PENDING
         event = await self.repository.create(
-            host=actor,
+            host=host,
             title=draft.title,
             description=draft.description,
             location=draft.location,
@@ -293,8 +322,12 @@ class CommunityEventService:
             reviewed_by=actor if is_staff else None,
             reviewed_at=_now() if is_staff else None,
         )
+        on_behalf = host.id != actor.id
         await self._record(actor, AuditActions.COMMUNITY_EVENT_SUBMITTED,
-                           EventType.COMMUNITY_EVENT_SUBMITTED, event)
+                           EventType.COMMUNITY_EVENT_SUBMITTED, event,
+                           **({'on_behalf_of': host.id} if on_behalf else {}))
+        if on_behalf:
+            await notify.notify_host_of_handover(event, host, actor, new_event=True)
         if listed:
             await self._record(actor, AuditActions.COMMUNITY_EVENT_APPROVED,
                                EventType.COMMUNITY_EVENT_APPROVED, event, automatic=True)
@@ -304,17 +337,22 @@ class CommunityEventService:
         return event
 
     @requires_feature(FeatureFlag.COMMUNITY_EVENTS)
-    async def update(self, actor: User, event_id: int, draft: EventDraft) -> CommunityEvent:
-        """Edit an event.
+    async def update(
+        self, actor: User, event_id: int, draft: EventDraft, *, host_id: Optional[int] = None,
+    ) -> CommunityEvent:
+        """Edit an event; staff can also hand it to another member with ``host_id``.
 
         An approved event stays approved; if its start moved, subscribers are
         told and their reminders re-armed for the new time. A rejected event
-        edited by its host goes back to staff for review.
+        edited by its host goes back to staff for review. A new host is DM'd.
         """
         await self._ensure_member(actor)
         event = await self._load_managed(actor, event_id)
         if event.status not in _EDITABLE:
             raise ValueError("A cancelled event can't be edited.")
+        new_host = None
+        if host_id is not None and host_id != event.host_id:
+            new_host = await self._pick_host(actor, host_id)
         draft = _clean_draft(draft)
         moved = draft.starts_at != event.starts_at
         if moved and draft.starts_at <= _now():
@@ -325,6 +363,9 @@ class CommunityEventService:
             starts_at=draft.starts_at, duration_minutes=draft.duration_minutes,
             rsvp_enabled=draft.rsvp_enabled, rsvp_capacity=draft.rsvp_capacity,
         )
+        previous_host_id = event.host_id
+        if new_host is not None:
+            fields.update(host=new_host)
         resubmitted = (
             event.status is CommunityEventStatus.REJECTED and not await AuthService.is_staff(actor)
         )
@@ -341,7 +382,10 @@ class CommunityEventService:
             await self.repository.update(event, **fields)
         await self._record(actor, AuditActions.COMMUNITY_EVENT_UPDATED,
                            EventType.COMMUNITY_EVENT_UPDATED, event,
-                           moved=moved, resubmitted=resubmitted)
+                           moved=moved, resubmitted=resubmitted,
+                           **({'previous_host_id': previous_host_id} if new_host else {}))
+        if new_host is not None and new_host.id != actor.id:
+            await notify.notify_host_of_handover(event, new_host, actor, new_event=False)
 
         if resubmitted:
             await notify.notify_staff_of_submission(event, event.host)
