@@ -27,6 +27,8 @@ TENANT = 'default'
 # validation first. The gate runs before the tool body, so these need not name
 # rows that exist.
 WRITE_CALLS = {
+    'export_tournaments': {},
+    'export_volunteer_data': {'start': '2026-10-22T00:00:00', 'end': '2026-10-26T00:00:00'},
     'create_match': {
         'tournament_id': 1, 'scheduled_date': '2026-05-01',
         'scheduled_time': '18:00', 'player_ids': [1, 2],

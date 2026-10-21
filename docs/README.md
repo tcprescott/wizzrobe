@@ -46,6 +46,7 @@ How each shipped subsystem behaves.
 | Doc | Feature |
 |---|---|
 | [features/brackets.md](features/brackets.md) | Native brackets: four formats, multi-stage chains, best-of-N series, the scheduling seam. Behind `FeatureFlag.BRACKETS` |
+| [features/data-exports.md](features/data-exports.md) | The export queue: tournament participants + matches ZIP/JSON (versioned schema), volunteer data, logged table CSVs, 3-day retention, throttling |
 | [features/match-participation.md](features/match-participation.md) | Crew signup and approval, player and crew acknowledgment, match watching |
 | [features/discord.md](features/discord.md) | Match DMs and fan-out, guild-role → app-role sync, notification preferences, `MOCK_DISCORD` |
 | [features/online-tournaments.md](features/online-tournaments.md) | SahasrahBot succession, user-definable tournament config, racetime/SpeedGaming/Discord-Events design rules |

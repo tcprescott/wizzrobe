@@ -52,6 +52,8 @@ PLATFORM_TOOLS = PLATFORM_READ_TOOLS | PLATFORM_WRITE_TOOLS
 # A snapshot, so adding or renaming a tool is a deliberate diff rather than an
 # invisible change to a published contract.
 READ_TOOLS = {
+    'get_export',
+    'list_my_exports',
     'activity_trends',
     'capacity_forecast',
     'crew_coverage_report',
@@ -127,6 +129,8 @@ READ_TOOLS = {
 # a write tool that drifted into the read set would be one every read-only
 # client is suddenly offered.
 WRITE_TOOLS = {
+    'export_tournaments',
+    'export_volunteer_data',
     'acknowledge_match',
     'add_community_member',
     'add_crew_coordinator',

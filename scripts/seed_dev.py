@@ -77,6 +77,7 @@ from scripts.seed_challonge import seed_challonge_for_tenant
 from scripts.seed_check_in import seed_check_in_for_tenant, seed_check_in_identities
 from scripts.seed_community_events import seed_community_events_for_tenant
 from scripts.seed_crew import seed_crew_for_tenant
+from scripts.seed_data_exports import seed_data_exports
 from scripts.seed_discord import seed_discord_for_tenant
 from scripts.seed_equipment import seed_equipment_for_tenant
 from scripts.seed_fledgling import seed_fledgling_tenant
@@ -933,6 +934,7 @@ async def seed_all() -> None:
         await seed_running_late(tenant, users)
         await seed_staff_request_dms(tenant, users)
         await seed_sent_messages(tenant, users)
+        await seed_data_exports(tenant, users)
     await seed_fledgling_tenant(users, groups)
     # Last, because the per-tenant Challonge mirror above also links identities:
     # the unlinked fixtures have to be unlinked after everything that could link

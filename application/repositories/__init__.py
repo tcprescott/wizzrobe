@@ -33,6 +33,7 @@ from .community_event_repository import (
     CommunityEventSeenRepository,
     CommunityEventSubscriptionRepository,
 )
+from .data_export_repository import DataExportRepository
 from .discord_role_mapping_repository import DiscordRoleMappingRepository
 from .discord_role_sync_repository import DiscordRoleSyncRepository
 from .discord_scheduled_event_repository import DiscordScheduledEventRepository
@@ -78,6 +79,7 @@ from .tenant_join_request_repository import TenantJoinRequestRepository
 from .tenant_logo_repository import TenantLogoRepository
 from .tenant_membership_repository import TenantMembershipRepository
 from .tenant_repository import TenantRepository
+from .tournament_export_repository import TournamentExportRepository
 from .tournament_notification_repository import TournamentNotificationRepository
 from .tournament_payout_repository import TournamentPayoutRepository
 from .tournament_repository import TournamentRepository
@@ -117,6 +119,7 @@ __all__ = [
     'CommunityEventRepository',
     'CommunityEventSeenRepository',
     'CommunityEventSubscriptionRepository',
+    'DataExportRepository',
     'DiscordRoleMappingRepository',
     'DiscordRoleSyncRepository',
     'DiscordScheduledEventRepository',
@@ -163,6 +166,7 @@ __all__ = [
     'TenantLogoRepository',
     'TenantMembershipRepository',
     'TenantRepository',
+    'TournamentExportRepository',
     'TournamentNotificationRepository',
     'TournamentPayoutRepository',
     'TournamentRepository',

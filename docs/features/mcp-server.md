@@ -281,6 +281,16 @@ even contains ORM `Match` rows): `capacity_forecast` returns peaks and headroom
 instead of the full series, `stage_utilization` per-stage totals instead of
 every booking.
 
+### Exports
+| Tool | Gate |
+|---|---|
+| `list_my_exports`, `get_export` | ACTOR |
+| `export_tournaments`, `export_volunteer_data` (write) | ACTOR, re-checked in `DataExportService` |
+
+`get_export` returns the export and, once a tournament export is ready, its parsed
+`tournaments.json` document, so a client can read results without downloading a
+ZIP. See [data-exports.md](data-exports.md).
+
 ### Equipment
 | Tool | Gate | Flag |
 |---|---|---|

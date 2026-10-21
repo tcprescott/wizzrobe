@@ -50,6 +50,7 @@ WORKERS = {
     'sglive_pool': 'application.services.sglive_pool_worker',
     'startgg_sync': 'application.services.startgg_sync_worker',
     'challonge_sync': 'application.services.challonge_sync_worker',
+    'data_export': 'application.services.exports.data_export_worker',
     'community_event_reminder': 'application.services.community_event_reminder',
     'discord_role_sync': 'application.services.discord.discord_role_sync_worker',
     'telegram_bot': 'application.services.telegram_bot_worker',

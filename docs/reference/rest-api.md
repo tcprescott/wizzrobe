@@ -206,6 +206,14 @@ Which messages this community sends, to whom, and whether they ping — the Admi
 ### Sent messages (`/api/sent-messages`) · `sent_messages.py`
 - `GET /sent-messages` — every DM sent in the community, newest first, **Staff only**. Filters: `start`/`end` (UTC), `user_id` (recipient), `search` (text or recipient name), `problems_only` (blocked or failed); paginate with `limit` (1–500, default 50) and `offset`. Response carries `total`, window `counts` (`sent`, `silent`, `off_or_blocked`, `failed`) and each message's per-channel result. `discord_id` is a number, like the rest of REST.
 
+### Exports (`/api/exports`) · `exports.py`
+Your own data exports ([data-exports.md](../features/data-exports.md)). Only the requester sees an export; anyone else gets `404`.
+- `GET /exports` — yours from the last 3 days, newest first, as `ExportInfo` (`id`, `kind`, `title`, `status`, `progress_done`/`progress_total`, `error`, `filename`, `size_bytes`, `has_json`, `created_at`, `finished_at`, `expires_at`).
+- `POST /exports/tournaments` — body `{tournament_ids: [..] | null}` (null = every tournament you may export). Staff or tournament admin; `202` with the queued export. `403` for a tournament you can't export, `400` when a limit is hit.
+- `POST /exports/volunteers` — body `{start, end}` (UTC). Needs the `VOLUNTEERS` flag and volunteer management. `202`.
+- `GET /exports/{id}` — one export's state.
+- `GET /exports/{id}/download?format=file|json` — the ZIP (or `tournaments.json`) with `Content-Disposition`; `400` until it's ready.
+
 ### Audit (`/api/audit-logs`) · `audit.py`
 - `GET /audit-logs` — paginated, **Staff only** (the log carries webhook receiver URLs, role grants and accommodation requests). Filters: `start`/`end` (UTC time bounds), `user_id`, `action_contains` (substring match on the action string); paginate with `limit` (1–500, default 100) and `offset` (default 0). Response includes the matching-entry `total`.
 
