@@ -38,7 +38,7 @@ from weakref import WeakKeyDictionary
 from nicegui import Client, context, ui
 from nicegui.elements.mixins.value_element import ValueElement
 
-__all__ = ['TAIL', 'TITLE_SEPARATOR', 'UrlParam', 'UrlState', 'bind_url', 'iso_day', 'url_param', 'url_state']
+__all__ = ['PUSH_ATTR', 'TAIL', 'TITLE_SEPARATOR', 'UrlParam', 'UrlState', 'bind_url', 'iso_day', 'url_param', 'url_state']
 
 logger = logging.getLogger(__name__)
 
@@ -54,6 +54,12 @@ TAIL = '/'
 
 _states: 'WeakKeyDictionary[Client, UrlState]' = WeakKeyDictionary()
 
+#: An element carrying this attribute (a hub tab's drawer row or bottom-bar tab)
+#: pushes its address in the click itself. Safari, and Chrome after five
+#: seconds, skip a Back entry that was pushed without a click to hand: a push
+#: that waits on a slow server round trip left Back with nowhere to go.
+PUSH_ATTR = 'data-wiz-push'
+
 # Installed once per document. ``popstate`` reports the address the browser moved
 # to; the server works out what changed. Inline rather than a static file,
 # because a lazily built tab can be the first thing on a page to need it.
@@ -61,7 +67,12 @@ _LISTENER_JS = (
     'if(!window.__wizUrlState){window.__wizUrlState=true;'
     "window.addEventListener('popstate',function(){"
     f"emitEvent('{POP_EVENT}',{{path:location.pathname,search:location.search}});"
-    '});}'
+    '});'
+    "document.addEventListener('click',function(e){"
+    f"var el=e.target.closest&&e.target.closest('[{PUSH_ATTR}]');"
+    f"var to=el&&el.getAttribute('{PUSH_ATTR}');"
+    'if(to&&location.pathname!==to)history.pushState(history.state,"",to);'
+    '},true);}'
 )
 
 
@@ -254,10 +265,13 @@ class UrlState:
         """Write the current view into the address bar, title and history."""
         url, title = self.url(keep_foreign=keep_foreign), self.title()
         self.client.title = title
-        method = 'pushState' if history == 'push' else 'replaceState'
+        # A push the click already made (``PUSH_ATTR``) only needs the title
+        # and query brought up to date, not a second Back step.
+        method = (f'(location.pathname+location.search==={json.dumps(url)}?"replaceState":"pushState")'
+                  if history == 'push' else '"replaceState"')
         with self.client:
             ui.run_javascript(
-                f'history.{method}(history.state,"",{json.dumps(url)}+location.hash);'
+                f'history[{method}](history.state,"",{json.dumps(url)}+location.hash);'
                 f'document.title={json.dumps(title)};'
             )
 

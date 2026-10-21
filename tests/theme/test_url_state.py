@@ -80,3 +80,12 @@ def test_copy_link_controls_are_wired_to_the_click_listener():
         assert 'data-wiz-copy-link' in (REPO / path).read_text(), path
     assert 'copy_link_button(' in (REPO / 'theme/section.py').read_text()
     assert 'copy_link_item(' in (REPO / 'pages/home_tabs/my_volunteer_shifts.py').read_text()
+
+
+def test_hub_tabs_push_their_address_inside_the_click():
+    # A push that waits on the server lands outside the click, and Safari then
+    # skips that Back entry; the hub tabs' rows push in the click instead.
+    from theme.url_state import _LISTENER_JS, PUSH_ATTR
+    assert PUSH_ATTR in _LISTENER_JS and 'pushState' in _LISTENER_JS
+    assert 'mark_tab_push(' in (REPO / 'theme/drawer_nav.py').read_text()
+    assert 'mark_tab_push(bottom_nav_tab(' in (REPO / 'theme/base.py').read_text()
