@@ -2,7 +2,7 @@
 
 import json
 
-from nicegui import app, background_tasks, context, ui
+from nicegui import app, context, ui
 
 from application.events import EventType
 from application.services import WebhookService, get_user_from_session
@@ -10,9 +10,12 @@ from application.utils.timezone import format_local_display
 from theme.dialog._helpers import dialog_actions, form_dialog
 from theme.dialog.confirmation_dialog import ConfirmationDialog
 from theme.dialog.secret_dialog import show_secret_dialog
+from theme.empty_state import empty_panel
+from theme.menu import menu_action, more_menu
 from theme.notify import notify_error
 from theme.page_header import page_header
-from theme.tables.admin_crud import refresh_button, wire_tab_refresh
+from theme.steady import steady_refreshable
+from theme.tables.admin_crud import capture_render_context, scoped_background, wire_tab_refresh
 from theme.tables.mobile_grid import enable_mobile_grid
 from theme.tables.preferences import TableKeys
 
@@ -26,39 +29,6 @@ _SIGNATURE_SNIPPET = '''import hmac, hashlib
 signed = f"{request.headers['X-Wizzrobe-Timestamp']}.{raw_body}".encode()
 expected = "sha256=" + hmac.new(secret.encode(), signed, hashlib.sha256).hexdigest()
 assert hmac.compare_digest(expected, request.headers["X-Wizzrobe-Signature"])'''
-
-_IS_ACTIVE_ICON = '''
-    <q-icon :name="props.row.is_active_raw ? 'check_circle' : 'cancel'"
-            :color="props.row.is_active_raw ? 'positive' : 'negative'" size="sm" />
-'''
-
-# Whether the receiver is actually accepting what we send. The row used to show
-# only the Active toggle, so a webhook whose last twenty deliveries all 5xx'd
-# looked exactly like a healthy one — the failures recorded and two clicks away.
-_HEALTH_CHIP = '''
-    <span v-if="!props.row.health" class="text-grey-7">—</span>
-    <span v-else class="wiz-chip" :class="props.row.health_chip">{{ props.row.health }}</span>
-'''
-
-_ROW_ACTIONS = '''
-    <q-btn flat round dense icon="edit" color="primary"
-           @click="$parent.$emit('edit', props.row)" aria-label="Edit">
-        <q-tooltip>Edit</q-tooltip>
-    </q-btn>
-    <q-btn flat round dense icon="vpn_key" color="primary"
-           @click="$parent.$emit('regenerate', props.row)" aria-label="Regenerate secret">
-        <q-tooltip>Regenerate secret</q-tooltip>
-    </q-btn>
-    <q-btn flat round dense icon="history" color="primary"
-           @click="$parent.$emit('deliveries', props.row)" aria-label="Recent deliveries">
-        <q-tooltip>Recent deliveries</q-tooltip>
-    </q-btn>
-    <q-btn flat round dense icon="delete" color="negative"
-           @click="$parent.$emit('delete', props.row)" aria-label="Delete">
-        <q-tooltip>Delete</q-tooltip>
-    </q-btn>
-'''
-
 
 def _health_cell(entry: dict | None) -> dict:
     """The row's delivery-health chip, from one webhook's 24h counts.
@@ -82,10 +52,10 @@ def _health_cell(entry: dict | None) -> dict:
     }
 
 
-def _render_format_reference() -> None:
-    """A collapsed, code-derived reference for what the app POSTs to a receiver."""
+def _open_format_reference() -> None:
+    """A code-derived reference for what the app POSTs to a receiver, in a dialog."""
     ref = WebhookService.format_reference()
-    with ui.expansion('Webhook payload & event reference', icon='description').classes('w-full'):
+    with form_dialog('Payload & event reference', card_classes='dialog-card dialog-card--lg') as dialog:
         ui.label(
             'When a subscribed event occurs, the app sends an HTTP POST to your URL with '
             'this JSON body (keys are sorted for a stable signature):'
@@ -103,7 +73,7 @@ def _render_format_reference() -> None:
             ],
             rows=ref['headers'],
             row_key='name',
-        ).props('flat dense').classes('w-full')
+        ).props('flat dense wrap-cells').classes('w-full')
 
         ui.label('Verify the signature (receiver side)').classes('text-subtitle2 q-mt-md')
         ui.code(_SIGNATURE_SNIPPET, language='python').classes('w-full')
@@ -130,62 +100,43 @@ def _render_format_reference() -> None:
             'Security: URLs must be https:// (SSRF-guarded in production); the signing secret '
             'is shown only once and is never returned by the API or written to logs.'
         ).classes('text-caption text-grey q-mt-md')
+    dialog.open()
 
 
-def _events_summary(event_types) -> str:
+def _event_groups(event_types) -> list[tuple[str, str]]:
+    """Subscribed events grouped by area, e.g. ``('match', 'rescheduled, stage assigned')``.
+
+    Grouped and wrapped so a webhook on six events reads in two lines instead of
+    pushing the list sideways.
+    """
     if not event_types:
-        return '—'
+        return []
     if EventType.WILDCARD in event_types:
-        return 'All events'
-    return ', '.join(event_types)
+        return [('All events', '')]
+    groups: dict[str, list[str]] = {}
+    for name in event_types:
+        area, _, action = name.partition('.')
+        groups.setdefault(area, []).append(action.replace('_', ' '))
+    return [(area, ', '.join(actions)) for area, actions in groups.items()]
 
 
 async def admin_webhooks_page() -> None:
     service = WebhookService()
 
+    async def _current():
+        return await get_user_from_session(app.storage.user)
+
     with ui.column().classes('page-container-narrow'):
         page_header(
             'Webhooks',
-            'Send a signed JSON POST to an external URL when the selected events occur. '
-            'Each request carries an X-Wizzrobe-Signature (HMAC-SHA256 of the body using the '
-            "webhook's secret). The secret is shown only once, when created or rotated.",
+            'Wizzrobe sends a signed POST to each URL when one of its events happens. '
+            'The signing secret shows once, when you create or rotate it.',
         )
-
-        _render_format_reference()
-
-        columns = [
-            {'name': 'id', 'label': 'ID', 'field': 'id', 'hidden': True},
-            {'name': 'name', 'label': 'Name', 'field': 'name', 'sortable': True},
-            {'name': 'url', 'label': 'URL', 'field': 'url'},
-            {'name': 'events', 'label': 'Events', 'field': 'events'},
-            {'name': 'is_active', 'label': 'Active', 'field': 'is_active', 'sortable': True},
-            {'name': 'health', 'label': 'Last 24h', 'field': 'health'},
-            {'name': 'actions', 'label': '', 'field': 'actions'},
-        ]
 
         table_container = ui.column().classes('w-full')
 
         async def refresh_table():
-            actor = await _current()
-            webhooks = await service.list_webhooks(actor)
-            health = await service.recent_health(actor)
-            table.rows = [
-                {
-                    'id': w.id,
-                    'name': w.name,
-                    'url': w.url,
-                    'events': _events_summary(w.event_types),
-                    'is_active': 'Yes' if w.is_active else 'No',
-                    'event_types': w.event_types,
-                    'is_active_raw': w.is_active,
-                    **_health_cell(health.get(w.id)),
-                }
-                for w in webhooks
-            ]
-            table.update()
-
-        async def _current():
-            return await get_user_from_session(app.storage.user)
+            await webhook_list.refresh()
 
         async def delete_webhook(row, client):
             async def do_delete() -> None:
@@ -220,6 +171,15 @@ async def admin_webhooks_page() -> None:
                     on_confirm=do_regenerate, confirm_text='Regenerate',
                     title='Regenerate secret?',
                 ).open()
+
+        async def set_active(row, active: bool):
+            try:
+                await service.update_webhook(await _current(), row['id'], is_active=active)
+            except (ValueError, PermissionError) as e:
+                notify_error(e)
+                return
+            ui.notify(f"{row['name']} {'resumed' if active else 'paused'}", color='positive')
+            await refresh_table()
 
         async def view_deliveries(row, client):
             with client:
@@ -263,7 +223,7 @@ async def admin_webhooks_page() -> None:
         def open_webhook_dialog(existing=None) -> None:
             is_edit = existing is not None
             with table_container:
-                with form_dialog('Edit Webhook' if is_edit else 'Add Webhook', card_classes='dialog-card dialog-card--sm') as dialog:
+                with form_dialog('Edit webhook' if is_edit else 'Add webhook', card_classes='dialog-card dialog-card--sm') as dialog:
                     name_input = ui.input(
                         'Name', value=existing['name'] if is_edit else '',
                     ).classes('w-full')
@@ -319,26 +279,86 @@ async def admin_webhooks_page() -> None:
             dialog.open()
 
         with table_container:
-            with ui.row().classes('full-width'):
-                ui.button('Add Webhook', icon='add', on_click=lambda: open_webhook_dialog()).props('color=primary')
-                ui.space()
-                refresh_button(refresh_table)
+            with ui.row().classes('full-width items-center no-wrap'):
+                ui.button('Add webhook', icon='add', on_click=lambda: open_webhook_dialog()).props('color=primary no-wrap')
+                refresh_context = capture_render_context()
+                with ui.button('Actions').props('flat color=primary no-wrap icon-right=expand_more'):
+                    with ui.menu():
+                        menu_action('description', 'Payload & event reference', _open_format_reference)
+                        # Refresh lives here rather than as a loose icon: three
+                        # toolbar controls don't fit a phone inside the Settings card.
+                        menu_action('refresh', 'Refresh list',
+                                    lambda: scoped_background(refresh_context, refresh_table()))
 
-            table = ui.table(columns=columns, rows=[], row_key='id').classes('w-full wiz-table')
+            @steady_refreshable
+            async def webhook_list() -> None:
+                actor = await _current()
+                try:
+                    webhooks = await service.list_webhooks(actor)
+                    health = await service.recent_health(actor)
+                except (ValueError, PermissionError) as e:
+                    notify_error(e)
+                    return
+                if not webhooks:
+                    empty_panel('No webhooks yet. Add one to send events to another app.', icon='webhook')
+                    return
+                client = context.client
+                with ui.element('div').classes('wiz-webhook-list'):
+                    for w in webhooks:
+                        row = {
+                            'id': w.id,
+                            'name': w.name,
+                            'url': w.url,
+                            'event_types': w.event_types,
+                            'is_active_raw': w.is_active,
+                        }
+                        _webhook_row(row, _health_cell(health.get(w.id)), client)
 
-            table.add_slot('body-cell-is_active', f'<q-td :props="props">{_IS_ACTIVE_ICON}</q-td>')
-            table.add_slot('body-cell-health', f'<q-td :props="props">{_HEALTH_CHIP}</q-td>')
-            table.add_slot('body-cell-actions', f'<q-td :props="props">{_ROW_ACTIONS}</q-td>')
+            def _webhook_row(row: dict, health: dict, client) -> None:
+                with ui.element('div').classes('wiz-webhook-row'):
+                    ui.element('span').classes(
+                        'wiz-webhook-row__dot' + (' wiz-webhook-row__dot--on' if row['is_active_raw'] else '')
+                    )
+                    with ui.element('div').classes('wiz-webhook-row__id'):
+                        with ui.row().classes('items-center no-wrap gap-2'):
+                            ui.button(
+                                row['name'], on_click=lambda r=row: open_webhook_dialog(r),
+                            ).props('flat dense no-caps align=left padding="0"').classes('wiz-webhook-row__name')
+                            if not row['is_active_raw']:
+                                ui.label('Paused').classes('wiz-chip wiz-chip--neutral')
+                        url_label = ui.label(row['url']).classes('wiz-webhook-row__url')
+                        url_label.props['title'] = row['url']
+                    with ui.element('div').classes('wiz-webhook-row__events'):
+                        groups = _event_groups(row['event_types'])
+                        if not groups:
+                            ui.label('No events').classes('text-grey-7')
+                        for area, actions in groups:
+                            with ui.element('span').classes('wiz-webhook-row__group'):
+                                ui.label(area).classes('wiz-webhook-row__area')
+                                if actions:
+                                    ui.label(actions).classes('wiz-webhook-row__actions')
+                    with ui.element('div').classes('wiz-webhook-row__health'):
+                        if health['health']:
+                            ui.label(health['health']).classes(f"wiz-chip {health['health_chip']}")
+                        else:
+                            ui.label('Nothing sent').classes('text-grey-7')
+                    ui.button(
+                        'Deliveries', icon='history',
+                        on_click=lambda r=row: view_deliveries(r, client),
+                    ).props('flat dense no-caps no-wrap color=primary').classes('wiz-webhook-row__deliveries')
+                    with ui.element('div').classes('wiz-webhook-row__more'):
+                        with more_menu(row['name']):
+                            menu_action('edit', 'Edit…', lambda r=row: open_webhook_dialog(r))
+                            menu_action('vpn_key', 'Regenerate secret…',
+                                        lambda r=row: regenerate_secret(r, client))
+                            if row['is_active_raw']:
+                                menu_action('pause_circle', 'Pause', lambda r=row: set_active(r, False))
+                            else:
+                                menu_action('play_circle', 'Resume', lambda r=row: set_active(r, True))
+                            ui.separator()
+                            menu_action('delete', 'Delete…', lambda r=row: delete_webhook(r, client),
+                                        negative=True)
 
-            table.on('edit', lambda e: open_webhook_dialog(e.args))
-            table.on('regenerate', lambda e: background_tasks.create(regenerate_secret(e.args, context.client)))
-            table.on('deliveries', lambda e: background_tasks.create(view_deliveries(e.args, context.client)))
-            table.on('delete', lambda e: background_tasks.create(delete_webhook(e.args, context.client)))
-
-            enable_mobile_grid(table, columns, actions=_ROW_ACTIONS,
-                               table_key=TableKeys.ADMIN_WEBHOOKS,
-                               field_slots={'is_active': _IS_ACTIVE_ICON,
-                                            'health': _HEALTH_CHIP})
+            await webhook_list()
 
         wire_tab_refresh('Webhooks', refresh_table)
-        background_tasks.create(refresh_table())

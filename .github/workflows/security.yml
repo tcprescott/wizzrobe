@@ -22,20 +22,48 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      # A PR that leaves the dependencies alone can't add a vulnerable one, so
+      # it skips the audit; a new advisory against what's already locked shows
+      # up on the next push to main or the weekly run instead of failing an
+      # unrelated PR. Fails open: a diff that errors runs the audit.
+      - name: Dependencies changed?
+        id: deps
+        run: |
+          if [ "${{ github.event_name }}" != "pull_request" ]; then
+            echo "audit=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if ! files=$(git diff --name-only "origin/${{ github.base_ref }}...HEAD"); then
+            echo "audit=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if echo "$files" | grep -qE '^(poetry\.lock|pyproject\.toml|\.github/workflows/security\.yml)$'; then
+            echo "audit=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "audit=false" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Set up Python
+        if: steps.deps.outputs.audit == 'true'
         uses: actions/setup-python@v7
         with:
           python-version: '3.12'
 
       - name: Install Poetry
+        if: steps.deps.outputs.audit == 'true'
         run: pipx install poetry==2.3.3
 
       - name: Install runtime dependencies
+        if: steps.deps.outputs.audit == 'true'
         run: poetry install --only main --no-interaction
 
       - name: Install pip-audit
+        if: steps.deps.outputs.audit == 'true'
         run: poetry run pip install pip-audit
 
       - name: Run pip-audit
+        if: steps.deps.outputs.audit == 'true'
         run: poetry run pip-audit

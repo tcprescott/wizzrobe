@@ -2288,8 +2288,9 @@ Shared primitives and clients used across the service layer; each is a thin, foc
 
 | Module | Purpose |
 |---|---|
-| `background_loop.py` | `run_worker_loop(tick, interval, name, logger=None)` — builds the `BackgroundLoop` (start/stop) every cadence worker is built on; a failing tick is logged, never fatal — and `for_each_tenant_scoped(items, handle, *, tenant_id_of, logger=None, describe=repr)`, which runs a per-item body inside that item's `tenant_scope` (skipping items with no tenant) so one bad row never stops the rest. |
-| `coroutine_queue.py` | `CoroutineQueue` — a serial coroutine worker queue (the primitive behind `discord_queue` and event dispatch). |
+| `background_loop.py` | `run_worker_loop(tick, interval, name, logger=None, tick_timeout=None)` — builds the `BackgroundLoop` (start/stop) every cadence worker is built on; a failing tick is logged, never fatal, a tick past its limit is cancelled, and a loop that ends unexpectedly restarts ([observability.md](../features/observability.md#worker-self-healing-and-the-worker-watchdog)) — and `for_each_tenant_scoped(items, handle, *, tenant_id_of, logger=None, describe=repr)`, which runs a per-item body inside that item's `tenant_scope` (skipping items with no tenant) so one bad row never stops the rest. |
+| `coroutine_queue.py` | `CoroutineQueue` — a serial coroutine worker queue (the primitive behind `discord_queue`, event dispatch and webhook delivery); a call past `ITEM_TIMEOUT_SECONDS` is cancelled and a worker that ends unexpectedly restarts. |
+| `worker_watchdog.py` | The `worker watchdog` loop: every 30s, one ERROR per newly stalled `BackgroundLoop`/`CoroutineQueue`, one WARNING when it recovers. |
 | `config_validation.py` | `validate_config_blob(...)` — validate/normalize a JSON config blob against a Pydantic model. |
 | `hashing.py` | `stable_content_hash(obj)` — deterministic sha256 for cheap unchanged-since-last-run checks (used by the reconcilers). |
 | `hostname.py` | Hostname normalization + effective-request-host resolution for host-based tenant routing. |

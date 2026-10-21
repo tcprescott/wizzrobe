@@ -579,14 +579,32 @@ class WorkerStats(BaseModel):
     """Timing of one background worker loop."""
 
     name: str
+    enabled: bool = Field(description='False when switched off by config, so not running is expected')
     running: bool
+    stalled: bool = Field(description='Enabled but overdue for a tick, or stuck in one past its time limit')
     interval_seconds: float
+    tick_timeout_seconds: float = Field(description='A tick running longer than this is cancelled')
     ticks: int
-    failures: int
+    failures: int = Field(description='Ticks that raised or timed out')
+    timeouts: int
+    restarts: int = Field(description='Times the loop ended unexpectedly and was restarted')
     last_started_at: Optional[float]
     last_tick_seconds: Optional[float]
+    tick_running_seconds: Optional[float] = Field(description='How long the current tick has run; null between ticks')
     max_tick_seconds: float
     last_failed_at: Optional[float]
+
+
+class QueueWorkerStats(BaseModel):
+    """One in-memory work queue (Discord DMs, event dispatch, webhook delivery)."""
+
+    name: str
+    running: bool
+    stalled: bool = Field(description='One call stuck past its time limit, or the worker gone')
+    depth: int = Field(description='Calls waiting')
+    item_running_seconds: Optional[float] = Field(description='How long the current call has run; null when idle')
+    timeouts: int
+    restarts: int
 
 
 class ClientCounts(BaseModel):
@@ -619,6 +637,7 @@ class RuntimeStats(BaseModel):
     db_pool: DbPoolStats
     event_loop: EventLoopStats
     workers: List[WorkerStats]
+    queue_workers: List[QueueWorkerStats]
     watch_pages_by_tenant_id: Dict[str, WatchPageAudience]
 
 

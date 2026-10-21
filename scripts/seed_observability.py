@@ -60,6 +60,21 @@ async def seed_observability_for_tenant(
                 payload=payload, response_status=status, attempt_count=3,
                 success=False, error=f"HTTP {status} from receiver",
             )
+    # A second one on a handful of named events across two areas, so the list
+    # shows the grouped event summary ("match rescheduled, … · crew …") and a
+    # quiet row with nothing sent, next to the wildcard one above.
+    await Webhook.get_or_create(
+        name="Schedule feed (inactive)", tenant=tenant,
+        defaults={
+            "url": "http://127.0.0.1:9/dev-schedule-feed",
+            "secret": "dev-webhook-secret-not-real",
+            "event_types": [
+                "match.rescheduled", "match.stage_assigned", "match.stage_cleared",
+                "match.deleted", "match.cancelled", "crew.approval_changed",
+            ],
+            "is_active": False,
+        },
+    )
     print(f"    [{tenant.slug}] webhooks ok (1 delivered, 2 failed in the health window)")
 
     # --- Feedback --------------------------------------------------------

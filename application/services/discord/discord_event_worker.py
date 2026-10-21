@@ -53,7 +53,8 @@ async def _tick() -> None:
     )
 
 
-_loop = run_worker_loop(_tick, TICK_SECONDS, 'Discord events reconcile', logger)
+# Creating a tournament's worth of scheduled events waits out Discord's rate limits.
+_loop = run_worker_loop(_tick, TICK_SECONDS, 'Discord events reconcile', logger, tick_timeout=900)
 
 
 def start() -> None:

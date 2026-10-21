@@ -118,6 +118,8 @@ jobs:
     timeout-minutes: 5
     outputs:
       swiss: ${{ steps.diff.outputs.swiss }}
+      postgres: ${{ steps.diff.outputs.postgres }}
+      a11y: ${{ steps.diff.outputs.a11y }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -125,17 +127,39 @@ jobs:
 
       - name: Changed paths
         id: diff
+        # Fails open: a diff that errors or comes back empty runs every job, so
+        # a broken `changes` job can never turn a skipped check into a green one.
         run: |
-          if [ "${{ github.event_name }}" != "pull_request" ]; then
-            echo "swiss=true" >> "$GITHUB_OUTPUT"
+          run_all() {
+            for job in swiss postgres a11y; do echo "$job=true" >> "$GITHUB_OUTPUT"; done
             exit 0
-          fi
-          files=$(git diff --name-only "origin/${{ github.base_ref }}...HEAD")
-          if echo "$files" | grep -qE '^(application/services/bracket_engines/|tests/services/test_bracket_swiss_crossvalidation\.py$|tests/services/_trf\.py$|poetry\.lock$|\.github/workflows/test\.yml$)'; then
-            echo "swiss=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "swiss=false" >> "$GITHUB_OUTPUT"
-          fi
+          }
+          [ "${{ github.event_name }}" = "pull_request" ] || run_all
+          files=$(git diff --name-only "origin/${{ github.base_ref }}...HEAD") || run_all
+          [ -n "$files" ] || run_all
+
+          # touches <regex>: true when any changed path matches.
+          touches() { echo "$files" | grep -qE "$1" && echo true || echo false; }
+          # only <regex>: true when every changed path matches.
+          only() { echo "$files" | grep -qvE "$1" && echo false || echo true; }
+
+          {
+            echo "swiss=$(touches '^(application/services/bracket_engines/|tests/services/test_bracket_swiss_crossvalidation\.py$|tests/services/_trf\.py$|poetry\.lock$|\.github/workflows/test\.yml$)')"
+
+            # The tenancy suite reaches services, the API, MCP and middleware, so
+            # PostgreSQL skips only when nothing but UI, help and event-info
+            # content, docs, change notes or UI tests moved. pytest still runs the same tests on SQLite either way.
+            if [ "$(only '^(pages/|theme/|static/|docs/|\.claude/|application/(changelog|help|event_info)/|tests/(theme|pages)/|scripts/(ui_[^/]*|help_screenshots/.*)$|[^/]+\.md$)')" = true ]; then
+              echo "postgres=false"
+            else
+              echo "postgres=true"
+            fi
+
+            # Markup and colour live in the UI layers and the content the pages
+            # render; a backend-only PR changes neither. Change notes are left
+            # out because nearly every PR adds one.
+            echo "a11y=$(touches '^(pages/|theme/|static/|application/(help|content|about|event_info)/|scripts/ui_|scripts/seed_dev\.py$|main\.py$|middleware/|poetry\.lock$|pyproject\.toml$|\.github/)')"
+          } >> "$GITHUB_OUTPUT"
 
   swiss-crossvalidation:
     # Cross-validate our Swiss engine against bbpPairings (a real FIDE-grade
@@ -189,7 +213,10 @@ jobs:
     # (which fail here if the lock is removed, and cannot on SQLite) and the
     # tenant-isolation suite, which is the one that leans on real constraint
     # enforcement. Serial: each test drops and recreates the schema, so parallel
-    # workers would pull the tables out from under each other.
+    # workers would pull the tables out from under each other. A PR that only
+    # touches UI or docs skips it (see `changes`).
+    needs: changes
+    if: needs.changes.outputs.postgres == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     services:
@@ -298,6 +325,10 @@ jobs:
           if-no-files-found: warn
 
   browser-a11y:
+    # A backend-only PR can't change markup or colour, so it skips the scan
+    # (see `changes`). The smoke walk in `browser` still renders every page.
+    needs: changes
+    if: needs.changes.outputs.a11y == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 25
     services:
