@@ -104,8 +104,7 @@ you do, the matchup drops off your list.
 
 In a Challonge bracket, a matchup has no **Pick a time** button until your
 opponent is matched to a Wizzrobe account, and you'll see the reason in its
-place. Staff can match them by hand. The My Schedule tab shows a count while
-anything is waiting on you.
+place. The My Schedule tab shows a count while anything is waiting on you.
 :::
 
 ![The Waiting on you to pick a time card, listing bracket matchups grouped by tournament, each with a Pick a time button or, for one that can't be booked yet, the reason why, with the first button marked 1](/static/help/player/bracket-schedule-phone.webp "Bracket matchups that still need a time: tap **Pick a time** (1) to book one.")
