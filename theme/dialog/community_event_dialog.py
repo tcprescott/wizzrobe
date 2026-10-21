@@ -20,8 +20,8 @@ from theme.dialog._helpers import (
     native_datetime_input,
 )
 from theme.markdown_editor import MarkdownEditor
-from theme.pickers import member_select
 from theme.notify import notify_error
+from theme.pickers import member_select
 
 DISCLAIMER = (
     'Community events are run by attendees, not by event staff. Listing one here '
@@ -149,7 +149,7 @@ class CommunityEventDialog:
                             raise ValueError('Pick who is hosting the event.')
                         if event is None:
                             saved = await self.service.submit(self.user, draft, host_id=host_id)
-                            if saved.host_id != self.user.id:
+                            if host_choices is not None and saved.host_id != self.user.id:
                                 message = f'Listed, with {host_choices[saved.host_id]} as the host.'
                             elif saved.status is CommunityEventStatus.APPROVED:
                                 message = 'Your event is listed.'

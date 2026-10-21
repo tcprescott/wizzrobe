@@ -358,7 +358,7 @@ class CommunityEventService:
         if moved and draft.starts_at <= _now():
             raise ValueError('Pick a start time in the future.')
 
-        fields = dict(
+        fields: Dict[str, object] = dict(
             title=draft.title, description=draft.description, location=draft.location,
             starts_at=draft.starts_at, duration_minutes=draft.duration_minutes,
             rsvp_enabled=draft.rsvp_enabled, rsvp_capacity=draft.rsvp_capacity,
