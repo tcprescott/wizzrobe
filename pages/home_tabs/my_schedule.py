@@ -27,6 +27,7 @@ from application.services import FeatureFlagService, TournamentService, get_user
 from application.utils.app_links import HOME_SCHEDULE, HOME_TOURNAMENTS, home_url
 from models import FeatureFlag
 from pages.home_tabs.availability import AVAILABILITY_SECTION_ID, availability_tab
+from pages.home_tabs.availability_reminder import render_availability_reminder
 from pages.home_tabs.my_crew import my_crew_tab
 from pages.home_tabs.my_timeline import my_timeline_view
 from pages.home_tabs.my_volunteer_shifts import my_volunteer_shifts_section
@@ -160,9 +161,20 @@ async def my_schedule_tab(
         state['scroll_to'] = AVAILABILITY_SECTION_ID
         toggle.value = 'list'
 
+    async def open_availability() -> None:
+        if state['view'] != 'list':
+            await edit_availability()
+            return
+        ui.run_javascript(
+            f"document.getElementById('{AVAILABILITY_SECTION_ID}')"
+            "?.scrollIntoView({behavior: 'smooth', block: 'start'})"
+        )
+
     skip_layout_probe(body)
 
     with ui.column().classes('page-container wiz-section-stack'):
+        if plays:
+            await render_availability_reminder(user, open_availability)
         toggle = ui.toggle(
             VIEWS,
             value=state['view'],
