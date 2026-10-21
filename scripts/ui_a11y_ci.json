@@ -33,6 +33,7 @@
     { "name": "home-schedule", "path": "/home/schedule" },
     { "name": "home-player", "path": "/home/player" },
     { "name": "home-profile", "path": "/home/profile" },
+    { "name": "my-messages", "path": "/messages" },
     { "name": "home-tournaments", "path": "/home/tournaments" },
     { "name": "home-availability", "path": "/home/my-availability" },
     { "name": "volunteer-shifts", "path": "/home/my-schedule?shifts=1" },

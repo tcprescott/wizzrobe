@@ -14,6 +14,7 @@ from application.services import (
 )
 from application.services.profile_nudge_service import ProfileSection
 from application.services.timezone_service import COMMON_TIMEZONES, MODE_PINNED
+from application.utils.app_links import MY_MESSAGES
 from models import FeatureFlag
 from pages.home_tabs._link_section import render_connected_accounts_section
 from pages.home_tabs.accommodation_section import render_accommodation_section
@@ -384,6 +385,16 @@ async def render_edit_info_tab(focus: str | None = None):
                     await render_notification_preferences(
                         user, on_saving=show_saving, on_saved=show_saved, on_error=show_error,
                     )
+
+                    with ui.row().classes('wiz-notify-item items-center no-wrap w-full gap-2'):
+                        with ui.column().classes('gap-0 col min-w-0'):
+                            ui.label('Messages sent to you').classes('wiz-notify-item__name')
+                            ui.label(
+                                'Reread what Wizzrobe sent you and change how you get each kind.'
+                            ).classes('text-muted text-caption')
+                        ui.button('Open', icon='mail', color=None,
+                                  on_click=lambda: ui.navigate.to(MY_MESSAGES)) \
+                            .props('flat dense no-caps').classes('wiz-notify-open')
 
                     # A follow is not a consequence of enrollment:
                     # get_match_notification_subscribers never checks the player

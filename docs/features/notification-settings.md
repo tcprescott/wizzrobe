@@ -103,8 +103,10 @@ personal `off` returns `DM_NOTICE_OFF` the same way. `check_in_dm` makes the sam
 lookup up front so a turned-off check-in DM leaves no pending result on the desk.
 
 **Settings footnote.** Every catalogued DM that goes out ends with a line naming
-the message and linking Profile → Notifications ("Change how you get “Seed
-ready” messages: Notification settings"), built by
+the message and linking that message in the recipient's
+[history](#your-message-history) (`/messages?message=<id>`, falling back to
+Profile → Notifications when the log write failed): "Change how you get “Seed
+ready” messages: Notification settings", built by
 `notification_links.settings_footnote` as a `SettingsFootnote`
 (`application/utils/settings_footnote.py`). Discord gets it as the card's last
 field (or a `-#` subtext line under a plain-text DM), email in its footer, and
@@ -218,6 +220,19 @@ the ceiling. Text is in `application/utils/discord_messages_opt_in.py`.
 When adding a notification, decide whether it belongs in `_URGENT` (can't wait:
 someone has to move now) or `_ACT` (asks the reader to do something); both feed
 the presets.
+
+## Your message history
+
+`/messages` (`pages/my_messages.py`, layout C) lists what Wizzrobe sent the viewer
+in this community, read from the same `SentMessage` log as the staff report but
+only ever the viewer's own rows: `SentMessageService.list_mine`, `count_mine`,
+`my_groups` and `get_mine` match `recipient_id`, or the Discord id for a DM sent
+before the account existed, and stay tenant-scoped. Someone else's id reads as
+missing. Tapping a message opens it as sent with an Off/Silent/Ping switch for its
+`(notice_key, audience)`, which is `NotificationPreferenceService.set_mode`, so the
+community ceiling and the preset's "Back to …" apply exactly as on the Customize
+list. A message with no `notice_key` says it can't be turned off. A stale
+`?message=` id shows a toast and the list.
 
 ## Adding a notification
 

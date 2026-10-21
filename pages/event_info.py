@@ -162,7 +162,7 @@ def create() -> None:
             # The boundary between the two sections, stated where a reader who
             # came looking for the wrong one will see it.
             ui.separator().classes('separator-spacing')
-            with ui.row().classes('items-center gap-1 no-wrap'):
+            with ui.row().classes('items-baseline gap-1 no-wrap'):
                 ui.label('Looking for how the app works?').classes('text-muted')
                 ui.link('Help', '/help')
 

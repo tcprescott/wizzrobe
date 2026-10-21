@@ -29,7 +29,7 @@ from application.services.challonge_service import ChallongeService
 from application.services.feature_flag_service import FeatureFlagService
 from application.services.round_schedule_service import RoundScheduleService
 from application.services.startgg_service import StartggService
-from application.utils.match_labels import challonge_round_label
+from application.utils.match_labels import challonge_round_label, entrant_name
 from models import FeatureFlag, Match, Tournament, User
 
 logger = logging.getLogger(__name__)
@@ -143,7 +143,7 @@ class StartggSource:
                 source=self.key, source_label=self.label, key=row.id,
                 tournament=row.tournament,
                 round_label=row.round_text or f'Round {row.round}',
-                opponent_name=opponent.name,
+                opponent_name=entrant_name(opponent),
                 player_ids=[row.entrant1.user_id, row.entrant2.user_id],
                 window_text=await rounds.describe_for_startgg_set(row),
             ))

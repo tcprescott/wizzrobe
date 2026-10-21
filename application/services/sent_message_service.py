@@ -14,6 +14,7 @@ from typing import Any, Dict, List, NamedTuple, Optional
 
 from application.repositories import SentMessageRepository, UserRepository
 from application.services.auth_service import AuthService
+from application.services.notification_catalog import CATALOG, GROUPS
 from application.tenant_context import get_current_tenant_id
 from models import SentMessage, SentMessageStatus, User
 
@@ -48,6 +49,10 @@ def _embed_dict(embed: Any) -> Optional[dict]:
         return embed.to_dict()
     except Exception:
         return None
+
+
+def _discord_id(user: User) -> Optional[str]:
+    return str(user.discord_id) if user.discord_id else None
 
 
 class SentMessageService:
@@ -178,3 +183,38 @@ class SentMessageService:
     async def get_message(self, message_id: int, *, actor: User) -> Optional[SentMessage]:
         await self._ensure_can_read(actor)
         return await self.repository.get(message_id)
+
+    # ------------------------------------------------- your own messages
+
+    # Everyone may read the messages sent to them, and only those: the staff
+    # check above is for reading other people's.
+
+    @staticmethod
+    def _keys_in(group: Optional[str]) -> Optional[List[str]]:
+        if group is None:
+            return None
+        return [key for key, notice in CATALOG.items() if notice.group == group]
+
+    async def list_mine(
+        self, *, actor: User, group: Optional[str] = None, limit: int = 30, offset: int = 0,
+    ) -> List[SentMessage]:
+        """The messages sent to ``actor`` in this community, newest first.
+
+        ``group`` narrows to one catalogue group ("Matches", "Volunteer shifts", …).
+        """
+        return await self.repository.list_for_recipient(
+            actor.id, _discord_id(actor), self._keys_in(group), limit=limit, offset=offset,
+        )
+
+    async def count_mine(self, *, actor: User, group: Optional[str] = None) -> int:
+        return await self.repository.count_for_recipient(actor.id, _discord_id(actor), self._keys_in(group))
+
+    async def my_groups(self, *, actor: User) -> List[str]:
+        """The catalogue groups ``actor`` has had a message from, in catalogue order."""
+        keys = set(await self.repository.notice_keys_for_recipient(actor.id, _discord_id(actor)))
+        present = {CATALOG[k].group for k in keys if k in CATALOG}
+        return [g for g in GROUPS if g in present]
+
+    async def get_mine(self, message_id: int, *, actor: User) -> Optional[SentMessage]:
+        """One message sent to ``actor``, or ``None`` (someone else's reads as missing)."""
+        return await self.repository.get_for_recipient(message_id, actor.id, _discord_id(actor))

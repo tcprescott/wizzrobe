@@ -240,10 +240,9 @@ class VolunteerScheduleService:
         return out
 
     async def update_shift(self, actor: User, shift: VolunteerShift, **fields) -> VolunteerShift:
-        await AuthService.ensure(
-            await AuthService.can_manage_volunteers(actor),
-            "Only volunteer coordinators can manage shifts.",
-        )
+        await AuthService.ensure(await AuthService.can_manage_volunteers(actor), "Only volunteer coordinators can manage shifts.")
+        if not fields:
+            return shift
         starts = fields.get('starts_at', shift.starts_at)
         ends = fields.get('ends_at', shift.ends_at)
         if ends <= starts:

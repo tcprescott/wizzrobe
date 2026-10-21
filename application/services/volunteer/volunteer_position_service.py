@@ -99,6 +99,8 @@ class VolunteerPositionService:
             await AuthService.can_manage_volunteers(actor),
             "Only volunteer coordinators can manage positions.",
         )
+        if not fields:
+            return position
         if 'name' in fields:
             new_name = (fields['name'] or '').strip()
             if not new_name:

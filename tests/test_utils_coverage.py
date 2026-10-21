@@ -616,12 +616,12 @@ class TestEphemeralReplies:
         msg = dm_crew.crew_signup_confirmation('Tracker', 'A vs B')
         assert msg == (
             "You're signed up as **Tracker** for the match (A vs B). "
-            "An admin will confirm it shortly."
+            "Staff will confirm it shortly."
         )
 
     def test_crew_signup_without_players(self):
         msg = dm_crew.crew_signup_confirmation('Tracker', '')
-        assert msg == "You're signed up as **Tracker**. An admin will confirm it shortly."
+        assert msg == "You're signed up as **Tracker**. Staff will confirm it shortly."
 
     def test_unwatch_was_watching(self):
         assert dm.unwatch_confirmation('A vs B', True) == \
@@ -750,3 +750,12 @@ class TestHardPresetOverrideCopy:
         text = hard_preset_override_dm('T', '', forced=True)
         assert '****' not in text
         assert 'Staff chose the settings' in text
+
+
+class TestReadableDmText:
+    def test_drops_markup_and_collapses_the_time_pair(self):
+        from application.utils.dm_text import readable_dm_text
+        text = readable_dm_text('**Starts** <t:1792593000:F> · <t:1792593000:R>, [open it](<https://x.test/a>)')
+        assert '<t:' not in text and '**' not in text and 'https://' not in text
+        assert ' · ' not in text
+        assert text.startswith('Starts ')

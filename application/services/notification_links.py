@@ -45,6 +45,7 @@ from application.utils.app_links import (
     community_event_url,
     crew_match_url,
     home_url,
+    my_message_url,
     player_agree_url,
     player_challonge_schedule_url,
     player_hard_preset_url,
@@ -287,15 +288,22 @@ async def profile_notifications(*, label: str = 'Notification settings') -> Opti
     return await link_for(label, '/home/profile?focus=notifications')
 
 
-async def settings_footnote(notice: Optional[NoticeTarget]) -> Optional[SettingsFootnote]:
+async def settings_footnote(
+    notice: Optional[NoticeTarget], message_id: Optional[int] = None,
+) -> Optional[SettingsFootnote]:
     """The footnote for a catalogued DM, or ``None``.
 
     Only catalogued messages get one: anything else (a channel test, the
-    platform health alert) has no row on the settings page to point at.
+    platform health alert) has no setting to point at. With the logged
+    message's id it opens that message in your history, its switch beside it;
+    without one (the log write failed) it falls back to Profile → Notifications.
     """
     if notice is None:
         return None
-    link = await profile_notifications()
+    if message_id is not None:
+        link = await link_for('Notification settings', my_message_url(message_id))
+    else:
+        link = await profile_notifications()
     return SettingsFootnote(CATALOG[notice.key].title, link) if link else None
 
 

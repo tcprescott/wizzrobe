@@ -84,7 +84,7 @@ def crew_approval_withdrawn_dm(
     return _crew_dm(
         f"You've been taken off the {crew_type} slot for this match.",
         _crew_match_lines(match_title, scheduled_at_display, stage_name, player_names),
-        "Check with an admin if this looks wrong.",
+        "Check with staff if this looks wrong.",
     )
 
 
@@ -155,6 +155,6 @@ def crew_signup_confirmation(role: str, player_names: str) -> str:
     """Ephemeral success reply after a user signs up for crew via a DM button."""
     match_ref = f' for the match ({player_names})' if player_names else ''
     return (
-        f"You're signed up as **{role}**{match_ref}. An admin will confirm it "
+        f"You're signed up as **{role}**{match_ref}. Staff will confirm it "
         f'shortly.'
     )
