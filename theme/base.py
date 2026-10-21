@@ -12,7 +12,7 @@ from theme.assets import asset_url
 from theme.browser_monitoring import install_browser_monitoring
 from theme.chrome import apply_brand_palette, cookie_dark_pref, dark_mode_button, install_page_scripts
 from theme.connection import install_connection_watch
-from theme.drawer_help import render_drawer_help
+from theme.drawer_help import render_drawer_help, render_github_item
 from theme.links import set_link
 from theme.nav_badges import bottom_nav_tab, drawer_tab_badge, nav_icon
 from theme.nav_section import mark_nav_section, nav_section_matches
@@ -548,11 +548,10 @@ class BaseLayout:
             ui.space()
             if self._tenant_id is not None:
                 render_drawer_help(self)
+            else:
+                with ui.list().props('padding'):
+                    render_github_item()
 
-            with ui.row().classes('items-center q-px-md q-pb-xs no-wrap'):
-                ui.icon('code').props('size=xs').classes('wiz-drawer-github-link')
-                ui.link('GitHub', 'https://github.com/tcprescott/wizzrobe', new_tab=True) \
-                    .classes('text-caption wiz-drawer-github-link')
             ui.label(self._copyright).classes('text-caption q-px-md q-pb-md wiz-drawer-copyright')
 
     def _switch_tab(self, label: str) -> None:

@@ -68,7 +68,7 @@
     font-style: normal;
     font-weight: 400;
     font-display: block;
-    src: url('/static/fonts/material-symbols-outlined-nav.woff2?v=1880cbcafc1e') format('woff2');
+    src: url('/static/fonts/material-symbols-outlined-nav.woff2?v=e33b05f3c1b0') format('woff2');
 }
 
 .material-symbols-outlined {
@@ -4519,20 +4519,6 @@ td .wiz-crew-action {
 
 .body--dark .wiz-drawer-copyright,
 .q-dark .wiz-drawer-copyright {
-    color: var(--wiz-dark-muted);
-}
-
-.wiz-drawer-github-link {
-    color: var(--status-neutral);
-    text-decoration: none;
-}
-
-.wiz-drawer-github-link:hover {
-    text-decoration: underline;
-}
-
-.body--dark .wiz-drawer-github-link,
-.q-dark .wiz-drawer-github-link {
     color: var(--wiz-dark-muted);
 }
 
