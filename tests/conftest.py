@@ -166,10 +166,12 @@ def _reset_rate_limiter():
 @pytest.fixture(autouse=True)
 def _reset_crew_signup_notices():
     """Isolate the per-process crew-signup DM throttle; match ids repeat across tests."""
-    from application.services.crew_service import _signup_notices
+    from application.services.crew_service import _signup_notice_rows, _signup_notices
     _signup_notices.clear()
+    _signup_notice_rows.clear()
     yield
     _signup_notices.clear()
+    _signup_notice_rows.clear()
 
 
 @pytest.fixture(autouse=True)

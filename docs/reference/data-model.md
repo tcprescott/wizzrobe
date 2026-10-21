@@ -343,8 +343,9 @@ join later without a schema change.
 ### `StaffRequestKind`
 
 Which request a [`StaffRequestDM`](#staffrequestdm) asked staff to decide:
-`COMMUNITY_EVENT`, `ADA_REQUEST`, `JOIN_REQUEST`, `RESCHEDULE_REQUEST` (values are
-the snake_case names).
+`COMMUNITY_EVENT`, `ADA_REQUEST`, `JOIN_REQUEST`, `RESCHEDULE_REQUEST`,
+`COMMENTATOR_SIGNUP`, `TRACKER_SIGNUP` (values are the snake_case names). The two
+crew kinds are separate because `Commentator` and `Tracker` ids overlap.
 
 ### `AsyncQualifierRunStatus` / `AsyncQualifierReviewStatus`
 

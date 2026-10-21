@@ -300,10 +300,16 @@ REQUEST_WITHDRAWN = _notice(
 )
 
 # Crew
-CREW_SIGNUP = _notice(
-    'crew_signup', 'Crew', 'New commentator or tracker signup',
-    'Someone signs up for a crew slot',
-    {ADMINS: PING}, {ADMINS: "The tournament's admins and crew coordinators"},
+_CREW_OWNERS = "The tournament's admins and crew coordinators"
+# Split by role so a community can hear about commentary and let tracking stay
+# quiet. Silent by default: a busy event sends a lot of these and none is urgent.
+COMMENTATOR_SIGNUP = _notice(
+    'commentator_signup', 'Crew', 'New commentator signup',
+    'Someone signs up to commentate', {ADMINS: SILENT}, {ADMINS: _CREW_OWNERS},
+)
+TRACKER_SIGNUP = _notice(
+    'tracker_signup', 'Crew', 'New tracker signup',
+    'Someone signs up to track', {ADMINS: SILENT}, {ADMINS: _CREW_OWNERS},
 )
 CREW_ASSIGNED = _notice(
     'crew_assigned', 'Crew', 'Crew assignment',
@@ -313,10 +319,14 @@ CREW_UNASSIGNED = _notice(
     'crew_unassigned', 'Crew', 'Crew assignment withdrawn',
     'Approval is removed, or staff drop approved crew', {CREW: PING},
 )
-CREW_WITHDREW = _notice(
-    'crew_withdrew', 'Crew', 'Commentator or tracker withdrew',
-    'Approved crew drop out',
-    {ADMINS: PING}, {ADMINS: "The tournament's admins, crew coordinators and whoever approved them"},
+_CREW_DROPPED = "The tournament's admins, crew coordinators and whoever approved them"
+COMMENTATOR_WITHDREW = _notice(
+    'commentator_withdrew', 'Crew', 'Commentator withdrew',
+    'An approved commentator drops out', {ADMINS: PING}, {ADMINS: _CREW_DROPPED},
+)
+TRACKER_WITHDREW = _notice(
+    'tracker_withdrew', 'Crew', 'Tracker withdrew',
+    'An approved tracker drops out', {ADMINS: PING}, {ADMINS: _CREW_DROPPED},
 )
 
 # Volunteer shifts
@@ -618,10 +628,12 @@ _ACT: Dict[str, frozenset] = {
     MATCHUP_REOPENED.key: frozenset({PLAYERS}),
     RESCHEDULE_REQUEST.key: frozenset({PLAYERS}) | _STAFF_ALERTS,
     RESCHEDULE_DECLINED.key: frozenset({PLAYERS}),
-    CREW_SIGNUP.key: frozenset({ADMINS}),
+    COMMENTATOR_SIGNUP.key: frozenset({ADMINS}),
+    TRACKER_SIGNUP.key: frozenset({ADMINS}),
     CREW_ASSIGNED.key: frozenset({CREW}),
     CREW_UNASSIGNED.key: frozenset({CREW}),
-    CREW_WITHDREW.key: frozenset({ADMINS}),
+    COMMENTATOR_WITHDREW.key: frozenset({ADMINS}),
+    TRACKER_WITHDREW.key: frozenset({ADMINS}),
     SHIFT_ASSIGNED.key: frozenset({VOLUNTEERS}),
     SHIFT_MOVED.key: frozenset({VOLUNTEERS}),
     SHIFT_REMOVED.key: frozenset({VOLUNTEERS}),

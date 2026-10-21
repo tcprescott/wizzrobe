@@ -21,7 +21,7 @@ DMs fire on match lifecycle transitions:
 | Stage assigned / cleared | players, approved crew, watchers |
 | Stage reminder | the same audience, `stage_reminder_minutes` before the match |
 | Stream candidate | tournament subscribers, with crew-signup buttons |
-| Crew signup | the tournament's admins and crew coordinators (`get_crew_owners`), so a pending signup doesn't wait for someone to open the board |
+| Crew signup | the tournament's admins and crew coordinators (`get_crew_owners`), so a pending signup doesn't wait for someone to open the board. Silent by default, with commentator and tracker as separate notices. Every copy is edited in place once the signup is approved, removed by staff, or withdrawn by the volunteer |
 | Matchup ready to schedule | both entrants of a bracket matchup (also re-sent as a *rebook* if its game is later called off), sent **silent**: the matchup also waits in the player's Pick-a-time list |
 
 That last one is the only bracket-specific message — there are deliberately no
