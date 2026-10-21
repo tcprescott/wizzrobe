@@ -2,9 +2,8 @@
 
 A background loop (modeled on ``discord_event_worker``) that periodically refreshes
 every dependency probe, keeping the ``/platform`` health board warm and driving the
-alert-on-transition path without anyone loading the page. Gated by
-``SERVICE_HEALTH_ENABLED`` (off by default); the board still refreshes on demand
-from the UI regardless.
+alert-on-transition path without anyone loading the page. Always started; a
+dependency in mock mode (``MOCK_*``) reports ``mock`` without being contacted.
 
 Runs with **no tenant scope** — every probe is platform-level (the racetime and
 Challonge probes read across all tenants via explicitly-unscoped queries). The loop

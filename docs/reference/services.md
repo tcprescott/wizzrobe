@@ -1700,7 +1700,7 @@ messages. The emergency contact stays behind `EmergencyContactService.open_for`.
 
 ### service_health_service.py — ServiceHealthService
 
-Platform external-service health monitor. **Computed-and-cached, no persistence model**: an async probe registry (`_PROBES`) whose results live in a process-global in-memory cache (`_CACHE`, owned by the single worker/on-demand refresh — safe module-level state). `ServiceStatus` = `healthy / degraded / credential_warning / down / unknown` (`credential_warning` is the distinct "up but a credential is expiring/rejected" signal). Each probe is wrapped with a hard timeout so one hung dependency can't stall the board; a raising probe becomes `down`.
+Platform external-service health monitor. **Computed-and-cached, no persistence model**: an async probe registry (`_PROBES`) whose results live in a process-global in-memory cache (`_CACHE`, owned by the single worker/on-demand refresh — safe module-level state). `ServiceStatus` = `healthy / mock / degraded / credential_warning / down / unknown` (`mock` = the local mock stands in) (`credential_warning` is the distinct "up but a credential is expiring/rejected" signal). Each probe is wrapped with a hard timeout so one hung dependency can't stall the board; a raising probe becomes `down`.
 
 | Method | Returns | Description |
 |---|---|---|
@@ -1710,7 +1710,7 @@ Platform external-service health monitor. **Computed-and-cached, no persistence 
 
 Probes, by kind: **round-trip** — PostgreSQL; **reachability** — SpeedGaming, Challonge, and the seed-gen upstreams alttpr.com / ootrandomizer.com / maprando.com; **config presence** — Discord OAuth, Twitch OAuth, web-push/VAPID, Sentry; **runtime state** — the Discord bot's gateway readiness and `RacetimeBot.status` (an `error` with an auth message maps to credential-warning). Challonge additionally checks token expiry across all tenants via `ChallongeRepository.list_all_connections()`, an explicitly-unscoped read. Alerting: `refresh` publishes `EventType.SERVICE_HEALTH_ALERT`, which is platform-level so no tenant webhook fires; the real channels are Sentry `capture_message` plus an optional super-admin DM under `SERVICE_HEALTH_ALERT_DM`.
 
-**service_health_worker.py** — the periodic probe loop (peer of `discord_event_worker`). Every 120 s it calls `ServiceHealthService().refresh()` with **no tenant scope** (all probes are platform-level). Started from the lifespan only when `SERVICE_HEALTH_ENABLED` is on; the board still refreshes on demand regardless. The loop never dies — a failing tick is logged and retried.
+**service_health_worker.py** — the periodic probe loop (peer of `discord_event_worker`). Every 120 s it calls `ServiceHealthService().refresh()` with **no tenant scope** (all probes are platform-level). Always started from the lifespan; the board can also refresh on demand. A dependency in mock mode (`MOCK_DISCORD`, `MOCK_CHALLONGE`, `MOCK_SEEDGEN`, …) reports `mock` instead of being contacted. The loop never dies — a failing tick is logged and retried.
 
 ### speedgaming_etl_service.py — SpeedGamingETLService
 
@@ -2172,7 +2172,7 @@ Environment detection and fail-fast startup validation ([environment.py](../../a
 | `get_base_url()` / `get_platform_host()` | `str` | `BASE_URL` (no trailing slash; default `http://localhost:8000`), and the shared platform host (`PLATFORM_HOST`, else `BASE_URL`'s host) that serves `/platform` and every path-mode tenant. |
 | `host_oauth_handoff_enabled()` | `bool` | `HOST_OAUTH_MODE=handoff` — custom-domain login via the [`oauth_handoff_service`](#oauth_handoff_servicepy--module-functions) signed handoff. |
 | `telemetry_enabled()` | `bool` | `TELEMETRY_ENABLED`, default **on**. |
-| `racetime_bot_enabled()` / `speedgaming_sync_enabled()` / `discord_events_sync_enabled()` / `service_health_enabled()` / `service_health_alert_dm_enabled()` | `bool` | The worker/runtime master switches (`RACETIME_BOT_ENABLED`, `SPEEDGAMING_SYNC_ENABLED`, `DISCORD_EVENTS_SYNC_ENABLED`, `SERVICE_HEALTH_ENABLED`, `SERVICE_HEALTH_ALERT_DM`), all default off. |
+| `racetime_bot_enabled()` / `speedgaming_sync_enabled()` / `discord_events_sync_enabled()` / `service_health_alert_dm_enabled()` | `bool` | The worker/runtime master switches (`RACETIME_BOT_ENABLED`, `SPEEDGAMING_SYNC_ENABLED`, `DISCORD_EVENTS_SYNC_ENABLED`, `SERVICE_HEALTH_ALERT_DM`), all default off. |
 | `session_storage_url()` / `validate_session_storage()` | `str` / `None` | The `NICEGUI_REDIS_URL` NiceGUI reads for session storage, and a one-shot startup probe that fails fast when it is set but unusable. |
 | `validate_security_config()` | `None` | Raises `RuntimeError` — aborting startup — when `STORAGE_SECRET` is missing/blank (always; it signs the session store the whole authorization model trusts), and additionally in production when `STORAGE_SECRET` is shorter than 32 characters or `DB_USERNAME` / `DB_PASSWORD` is empty. |
 
