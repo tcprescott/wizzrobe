@@ -55,6 +55,7 @@
     { "name": "admin-reports-capacity", "path": "/admin/reports?report=capacity" },
     { "name": "admin-reports-audit", "path": "/admin/reports?report=audit" },
     { "name": "admin-notifications", "path": "/admin/notifications" },
+    { "name": "admin-feedback", "path": "/admin/feedback" },
     { "name": "admin-reports-messages", "path": "/admin/reports?report=messages" },
     { "name": "settings-home", "path": "/admin/settings" },
     { "name": "settings-general", "path": "/admin/settings/general" },

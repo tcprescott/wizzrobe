@@ -738,7 +738,7 @@ A Volunteer hub tab, `check_in_desk_tab(user, event)`: `?event=<id>` opens that 
 
 ### Admin feedback (`pages/admin_tabs/admin_feedback.py`)
 
-`admin_feedback_page()` — a `@ui.refreshable` `ui.table` of recent submissions (`FeedbackService.list_recent`): submitted time, user, category, message, page URL, status badge. A **Mark reviewed** button per pending row, and **Reopen** per reviewed one, both calling `FeedbackService.set_reviewed(actor, id, reviewed=…)`.
+`admin_feedback_page()` — one `ui.table` built once and reloaded in place from `FeedbackService.list_recent`: Submitted, From (name + category icon), Message (wraps, with the sender's page under it as a link only when `safe_local_path` accepts it; it is player input), Status, and a **Mark reviewed** / **Reopen** button plus a ⋮ (Copy message, Copy page path) per row, both buttons calling `FeedbackService.set_reviewed(actor, id, reviewed=…)`. A New · n / Reviewed / All switch (opens on New), a category picker and a search box filter the loaded rows client-side. Below `lt.md` the rows become cards with the same actions.
 
 ### Admin settings (`pages/admin_tabs/settings/`)
 
