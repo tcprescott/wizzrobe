@@ -181,7 +181,7 @@ _SIGNUPS_LINE = '''
 
 _SEED_CELL = '''
     <span v-if="props.row.seed_generator" class="tournament-table__mono">{{ props.row.seed_generator }}</span>
-    <span v-else class="tournament-table__unset">None</span>
+    <span v-else class="tournament-table__unset">Not set</span>
 '''
 
 _LENGTH_CELL = '''
@@ -375,7 +375,7 @@ class TournamentTableView:
             <span v-if="props.value" class="wrap" :title="props.value">
                 {{ props.value.length > 120 ? props.value.substring(0, 117) + '...' : props.value }}
             </span>
-            <span v-else class="tournament-table__unset">None</span>
+            <span v-else class="tournament-table__unset">Not set</span>
         </q-td>''')
         self.table.add_slot('body-cell-is_active', '''<q-td :props="props">
             <span :class="props.value ? 'wiz-chip wiz-chip--ok' : 'wiz-chip wiz-chip--neutral'">{{ props.value ? 'Active' : 'Inactive' }}</span>
