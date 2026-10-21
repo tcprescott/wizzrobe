@@ -88,7 +88,7 @@ class StaffAlertService:
         The tag picks which notification setting applies: someone on duty is
         ``ON_DUTY`` even when they also admin the tournament.
         """
-        skip = set(exclude) | {p.user_id for p in await MatchRepository.get_players(match)}
+        skip = set(exclude) | {p.user_id for p in await MatchRepository.get_players(match)}  # type: ignore[attr-defined]
         recipients: Dict[int, Tagged] = {}
 
         async def add(user: User, why: NotificationRecipient) -> None:
