@@ -111,7 +111,6 @@ class TableKeys:
     ADMIN_SPEEDGAMING = 'admin.speedgaming'
     ADMIN_STAGES = 'admin.stages'
     ADMIN_VOLUNTEER_ROSTER = 'admin.volunteer_roster'
-    ADMIN_WEBHOOKS = 'admin.webhooks'
     ADMIN_WEBHOOK_DELIVERIES = 'admin.webhook_deliveries'
 
     # Check-in desk

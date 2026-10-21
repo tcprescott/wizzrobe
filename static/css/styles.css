@@ -8278,3 +8278,94 @@ ol.wiz-help-list { list-style-type: decimal; }
 }
 
 .wiz-notify-card__head + .wiz-notify-card__row { border-top: 0; }
+
+/* ---------------------------------------------------------------------------
+   Webhooks (Settings → Integrations): one full-width row per webhook. Events
+   wrap in their own column so a long subscription never scrolls sideways. A
+   narrow list (a phone, or the pane beside a wide menu) stacks the same row:
+   name and ⋮ on top, events under it, health and Deliveries last. Keyed to
+   the list's width, not the viewport.
+--------------------------------------------------------------------------- */
+.wiz-webhook-list {
+    container-type: inline-size;
+    width: 100%;
+    background: var(--surface);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-md);
+}
+
+.wiz-webhook-row {
+    display: grid;
+    grid-template-columns: 10px minmax(0, 2fr) minmax(0, 3fr) auto auto auto;
+    grid-template-areas: "dot id events health deliveries more";
+    align-items: center;
+    column-gap: var(--space-3);
+    row-gap: var(--space-2);
+    padding: 12px var(--space-3);
+    border-bottom: 1px solid var(--border-subtle);
+}
+
+.wiz-webhook-row:last-child { border-bottom: 0; }
+
+.wiz-webhook-row__dot {
+    grid-area: dot;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: var(--border-strong);
+}
+
+.wiz-webhook-row__dot--on { background: var(--status-ok); }
+
+.wiz-webhook-row__id { grid-area: id; min-width: 0; }
+
+.wiz-webhook-row__name.q-btn {
+    min-height: 0;
+    min-width: 0;
+    font-weight: 600;
+    color: var(--wiz-link);
+    text-align: left;
+}
+
+.wiz-webhook-row__name .q-btn__content { justify-content: flex-start; text-align: left; }
+
+.wiz-webhook-row__url {
+    font-family: var(--font-mono);
+    font-size: 0.8rem;
+    color: var(--fg-muted);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.wiz-webhook-row__events { grid-area: events; min-width: 0; font-size: 0.875rem; }
+
+.wiz-webhook-row__group:not(:last-child)::after { content: " · "; color: var(--fg-muted); }
+
+.wiz-webhook-row__area,
+.wiz-webhook-row__actions { display: inline; }
+
+.wiz-webhook-row__area { font-weight: 600; }
+
+.wiz-webhook-row__area + .wiz-webhook-row__actions::before { content: " "; }
+
+.wiz-webhook-row__health { grid-area: health; text-align: right; white-space: nowrap; }
+
+.wiz-webhook-row__deliveries { grid-area: deliveries; }
+
+.wiz-webhook-row__more { grid-area: more; justify-self: end; }
+
+@container (max-width: 719.98px) {
+    .wiz-webhook-row {
+        grid-template-columns: 10px minmax(0, 1fr) auto auto;
+        grid-template-areas:
+            "dot id id more"
+            "events events events events"
+            "health health deliveries deliveries";
+        column-gap: var(--space-2);
+    }
+
+    .wiz-webhook-row__health { text-align: left; }
+
+    .wiz-webhook-row__deliveries { justify-self: end; }
+}
