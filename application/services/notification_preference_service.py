@@ -268,6 +268,10 @@ class NotificationPreferenceService:
             raise ValueError('That is not a notification setting.') from None
         if notice is None or recipient not in notice.defaults:
             raise ValueError('That is not a notification setting.')
+        if recipient in STAFF_RECIPIENTS and not await AuthService.can_view_admin(actor):
+            # get_mine lists staff alerts only for the admin side, so there is
+            # no row to hand back; refuse before saving one nobody can see.
+            raise ValueError('That setting is for staff alerts.')
         target = notice.to(recipient)
         pref = await NotificationPreferenceRepository.get(actor.id)
         preset = pref.preset if pref else NotificationPreset.EVERYTHING

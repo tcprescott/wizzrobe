@@ -93,6 +93,28 @@ async def _apply_notice(notice: NoticeTarget, discord_id: int) -> Tuple[bool, bo
     return mode is NotificationMode.OFF, mode is NotificationMode.SILENT
 
 
+async def _mirror_text(discord_id: int, message: str) -> str:
+    """``message`` as the device, email and Telegram copies show it.
+
+    Those channels can't render Discord's ``<t:…>`` timestamps, so each becomes
+    a plain time on the recipient's own clock. Resolved here, in the sender's
+    community, because the copies go out from a worker with none in scope.
+    """
+    if '<t:' not in message:
+        return message
+    from application.repositories import UserRepository
+    from application.services.timezone_service import TimezoneService
+    from application.utils.timezone import readable_discord_times
+
+    try:
+        user = await UserRepository.get_by_discord_id(str(discord_id))
+        zone = await TimezoneService.resolve(user)
+    except Exception:
+        logger.exception('Resolving the mirror timezone for %s failed', discord_id)
+        zone = None
+    return readable_discord_times(message, zone)
+
+
 def _mirror_dm_to_web_push(
     user_id: int, message: str, navigate: Optional[str] = None, silent: bool = False,
     ref: Optional[SentMessageRef] = None,
@@ -411,10 +433,11 @@ class DiscordService(GuildOpsMixin, ScheduledEventsMixin):
         # devices may already have been notified, so don't blindly re-send. The
         # mirror always uses the plain text, even when an embed carries the DM.
         if mirror:
+            copy = await _mirror_text(user_id, message)
             _mirror_dm_to_web_push(
-                user_id, message, navigate=link.url if link else None, silent=silent, ref=ref,
+                user_id, copy, navigate=link.url if link else None, silent=silent, ref=ref,
             )
-            _mirror_dm_to_channels(user_id, message, link, silent=silent, ref=ref, footnote=footnote)
+            _mirror_dm_to_channels(user_id, copy, link, silent=silent, ref=ref, footnote=footnote)
         if footnote is not None:
             message, embed = _with_footnote(message, embed, footnote)
         result = await self._send_to_discord(user_id, message, view_factory, embed, link, on_sent, silent)
@@ -663,7 +686,9 @@ class MockDiscordService(MockGuildOpsMixin, MockScheduledEventsMixin):
         # Email and Telegram mirror in mock mode too: their transports print
         # instead of sending, so there's no external side effect to fear.
         if mirror:
-            _mirror_dm_to_channels(user_id, message, link, silent=silent, ref=ref, footnote=footnote)
+            _mirror_dm_to_channels(
+                user_id, await _mirror_text(user_id, message), link, silent=silent, ref=ref, footnote=footnote,
+            )
         # Deliberately no web-push mirror: mock mode must have no external side
         # effects (a dev with a prod DB snapshot + prod VAPID keys would push
         # to real users' phones). Real delivery requires the real service.
