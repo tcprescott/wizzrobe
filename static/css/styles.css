@@ -7554,6 +7554,10 @@ ol.wiz-help-list { list-style-type: decimal; }
     max-width: 100vw;
     height: 100vh;
     max-height: 100vh;
+    /* Safari's 100vh is the viewport with its toolbars hidden, so the sheet's
+       footer would sit under them; dvh tracks what's actually visible. */
+    height: 100dvh;
+    max-height: 100dvh;
     border-radius: 0;
 }
 .match-sheet__body {

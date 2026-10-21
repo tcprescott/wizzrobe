@@ -114,8 +114,10 @@ async def capacity_page(
 
             echart_option = {
                 'tooltip': {'trigger': 'axis', 'axisPointer': {'type': 'cross'}},
-                'legend': {'data': ['Active players', 'On-stream players', 'Capacity'], 'top': 0},
-                'grid': {'left': '3%', 'right': '4%', 'bottom': '14%', 'containLabel': True},
+                # The toolbox sits top-right; the legend keeps to the left half so the two
+                # never overlap when the legend wraps on a phone.
+                'legend': {'data': ['Active players', 'On-stream players', 'Capacity'], 'top': 0, 'left': 0, 'width': '50%'},
+                'grid': {'left': '3%', 'right': '4%', 'top': 96, 'bottom': '14%', 'containLabel': True},
                 'toolbox': {'feature': {'saveAsImage': {}, 'dataZoom': {}, 'restore': {}}},
                 'dataZoom': data_zoom_options,
                 'xAxis': {'type': 'category', 'boundaryGap': False, 'data': time_labels},
