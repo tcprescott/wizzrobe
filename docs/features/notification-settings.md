@@ -102,6 +102,17 @@ A sender passes `notice=MATCH_SCHEDULED.to(PLAYERS)` (a `NoticeTarget`) to
 personal `off` returns `DM_NOTICE_OFF` the same way. `check_in_dm` makes the same
 lookup up front so a turned-off check-in DM leaves no pending result on the desk.
 
+**Settings footnote.** Every catalogued DM that goes out ends with a line naming
+the message and linking Profile → Notifications ("Change how you get “Seed
+ready” messages: Notification settings"), built by
+`notification_links.settings_footnote` as a `SettingsFootnote`
+(`application/utils/settings_footnote.py`). Discord gets it as the card's last
+field (or a `-#` subtext line under a plain-text DM), email in its footer, and
+Telegram as the last line. Web push goes without it: there's no room, and its tap
+already opens the message's own action. A DM sent without `notice=` (the channel
+test, the platform health alert) has no row to point at and gets none. The Sent
+messages log stores the message without it.
+
 `mode_for` never raises. With no tenant in scope, or when the read fails, it uses
 the catalogue default rather than dropping or mis-pinging the message.
 

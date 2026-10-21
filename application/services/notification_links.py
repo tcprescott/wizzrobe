@@ -26,6 +26,7 @@ routes.
 import logging
 from typing import Any, Optional
 
+from application.services.notification_catalog import CATALOG, NoticeTarget
 from application.tenant_context import get_current_tenant_id
 from application.utils.app_links import (
     HOME_SCHEDULE,
@@ -58,6 +59,7 @@ from application.utils.app_links import (
     volunteer_release_url,
 )
 from application.utils.discord_messages import DMLink
+from application.utils.settings_footnote import SettingsFootnote
 from application.utils.tenant_urls import tenant_url
 
 logger = logging.getLogger(__name__)
@@ -283,6 +285,18 @@ async def admin_reschedule_request(
 
 async def profile_notifications(*, label: str = 'Notification settings') -> Optional[DMLink]:
     return await link_for(label, '/home/profile?focus=notifications')
+
+
+async def settings_footnote(notice: Optional[NoticeTarget]) -> Optional[SettingsFootnote]:
+    """The footnote for a catalogued DM, or ``None``.
+
+    Only catalogued messages get one: anything else (a channel test, the
+    platform health alert) has no row on the settings page to point at.
+    """
+    if notice is None:
+        return None
+    link = await profile_notifications()
+    return SettingsFootnote(CATALOG[notice.key].title, link) if link else None
 
 
 async def volunteer_my_shifts(*, label: str = 'Your shifts') -> Optional[DMLink]:
