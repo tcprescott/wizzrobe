@@ -101,7 +101,7 @@ class UserService:
             return
         latest_user = await self.repository.get_by_id(user.id)
         if latest_user and latest_user.updated_at != initial_updated_at:
-            raise ValueError("This user has been modified by another admin. Please reload and try again.")
+            raise ValueError("Someone else on staff changed this member. Reload and try again.")
 
     async def get_all_users(
         self,

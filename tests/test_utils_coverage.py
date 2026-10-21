@@ -588,12 +588,12 @@ class TestEphemeralReplies:
         msg = dm_crew.crew_signup_confirmation('Tracker', 'A vs B')
         assert msg == (
             "You're signed up as **Tracker** for the match (A vs B). "
-            "An admin will confirm it shortly."
+            "Staff will confirm it shortly."
         )
 
     def test_crew_signup_without_players(self):
         msg = dm_crew.crew_signup_confirmation('Tracker', '')
-        assert msg == "You're signed up as **Tracker**. An admin will confirm it shortly."
+        assert msg == "You're signed up as **Tracker**. Staff will confirm it shortly."
 
     def test_unwatch_was_watching(self):
         assert dm.unwatch_confirmation('A vs B', True) == \

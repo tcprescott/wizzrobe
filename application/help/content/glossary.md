@@ -17,6 +17,10 @@ Players acknowledge a match they've been scheduled into, and crew acknowledge an
 approved slot. The crew button says *Confirm*, but it does the same thing.
 Acknowledging isn't checking in.
 
+**Admin**: the Admin Desk, the staff member overseeing the tournament room.
+Checking matches in, flagged results, no-shows, disputes and who may come into
+the room are the admin's call. Everyone else who runs the event is called staff.
+
 **Ask to change**: the item in a match's ⋮ menu on My Schedule that asks staff to
 move or call off one of your matches. Nothing changes until staff answer. Your
 requests and their answers are listed under *Your change requests* on My
@@ -189,7 +193,8 @@ neither player has blocked out and the room has space for. It fills in the form
 but doesn't book anything. See [How Suggest a time works](/help/suggest-a-time).
 
 **Tournament admin**: the person who runs a particular tournament. They can do
-most of what staff can, but only in their own tournament.
+most of what staff can, but only in their own tournament. Not the same as the
+Admin Desk in the tournament room.
 
 **Tournament room**: a room of stations where matches are played off stream, run
 by a proctor. It's the counterpart to a stage. The two have different rules, and

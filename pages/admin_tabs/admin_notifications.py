@@ -50,7 +50,7 @@ _CHOICE_MODE = {
 }
 _FALLBACK = "All staff if nobody's on shift."
 _CHOICE_HELP = {
-    StaffChoice.PING_ALL: f"Whoever's on shift and the admins. {_FALLBACK}",
+    StaffChoice.PING_ALL: f"Whoever's on shift, plus the tournament's own admins or coordinators. {_FALLBACK}",
     StaffChoice.PING_ON_DUTY: f"Only whoever's on shift. {_FALLBACK}",
     StaffChoice.SILENT: 'The same people, without a sound or buzz.',
     StaffChoice.OFF: 'Sends nothing.',
