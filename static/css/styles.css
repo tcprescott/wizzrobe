@@ -3627,6 +3627,17 @@ body:has(.wiz-header) .q-notifications__list--top {
     animation: wizRowFlash 1.6s ease-out;
 }
 
+/* A #fragment link landed here (static/js/anchors.js): clear the sticky
+   header, then mark the target long enough for the eye to find it. */
+[id], [data-wiz-row], [data-wiz-shift] {
+    scroll-margin-top: 5rem;
+}
+.wiz-anchor-hit {
+    outline: 2px solid var(--q-primary);
+    outline-offset: 2px;
+    animation: wizRowFlash 2.4s ease-out;
+}
+
 /* Hold still (docs/style-guide.md#hold-still): a row changed by someone else
    keeps its place until the viewer tidies the board. The tag is absolutely
    placed so adding or dropping it never changes the row's height. */

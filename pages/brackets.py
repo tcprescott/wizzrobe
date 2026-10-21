@@ -77,6 +77,7 @@ from theme.empty_state import empty_panel
 from theme.error_page import render_not_found
 from theme.page_header import page_title
 from theme.steady import steady_refreshable
+from theme.url_state import bind_url
 
 
 def _slot_label(
@@ -150,11 +151,12 @@ def _populate_bracket_toolbar(
         views.classes(remove='view-list view-bracket', add=f'view-{value}')
 
     with row:
-        ui.toggle(
+        layout = ui.toggle(
             {'list': 'List', 'bracket': 'Bracket'},
             value=view_state['v'],
             on_change=lambda e: set_view(e.value),
         ).props('dense unelevated no-caps size=sm').classes('wiz-segmented bracket-view-toggle')
+        bind_url('layout', layout, default='list')
         # Zoom drives the 2-D canvas only, so it hides with it in list mode.
         with ui.row().classes('bracket-zoom-controls items-center gap-1'):
             ui.button(icon='zoom_out', on_click=lambda: step(-0.1)) \
@@ -306,6 +308,8 @@ def _render_swiss(
                 render_pairings(
                     [m for m in matches if m.round == r], entry_name, records,
                 )
+    bind_url('round', tabs, default=f'r{default_round}', choices=[f'r{r}' for r in rounds],
+             label=lambda v: f'Round {v[1:]}')
 
 
 def _static_view_link(path: str, *, public: bool) -> None:

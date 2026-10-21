@@ -115,8 +115,8 @@ async def my_schedule_tab(
             return
         state['view'] = value
         app.storage.user[VIEW_KEY] = value
-        await body.refresh()
-        view_param.set(value)
+        async with view_param.changing(value):
+            await body.refresh()
         if target := state.pop('scroll_to', None):
             ui.run_javascript(
                 f"document.getElementById('{target}')"

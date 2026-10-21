@@ -68,6 +68,7 @@ class RunningLateDialog:
         with form_dialog('Running late', card_classes='dialog-card dialog-card--sm') as dialog:
             with ui.column().classes('q-pa-md gap-3 full-width'):
                 ui.label(self._subtitle()).classes('text-caption text-grey-7')
+                # url-state: exempt — a form choice inside a dialog
                 ui.toggle(
                     {m: _choice_label(m) for m in LATE_CHOICES}, value=state['minutes'],
                     on_change=lambda e: state.update(minutes=e.value),

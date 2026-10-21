@@ -50,6 +50,7 @@ from theme.tables.preferences import (
     preferences_button,
     search_input,
 )
+from theme.url_state import bind_url
 
 _bot_service = RacetimeBotService()
 
@@ -139,10 +140,11 @@ def create() -> None:
             ).classes('w-full') as tabs:
                 for key, label, icon in _SECTIONS:
                     ui.tab(key, label=label, icon=icon)
-            # Keep ?tab= in step so a reload or a shared link reopens the same
-            # section; replaceState, because a tab switch is not a navigation.
-            tabs.on_value_change(lambda e: ui.run_javascript(
-                f"history.replaceState(null, '', '/platform?tab={e.value}')"))
+            # ?tab= names the section, so Back, a reload or a shared link
+            # reopens it, and the browser tab's title says which it is.
+            labels = {key: label for key, label, _icon in _SECTIONS}
+            bind_url('tab', tabs, default=_SECTIONS[0][0], choices=_SECTION_KEYS,
+                     label=labels.get)
             with ui.tab_panels(tabs, value=current).classes('w-full'):
                 with ui.tab_panel('communities').style(_PANEL_STYLE):
                     await _render_tenants_section(user)

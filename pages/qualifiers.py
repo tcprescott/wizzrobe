@@ -141,7 +141,7 @@ def create() -> None:
 
     @protected_page('/qualifiers', feature=FeatureFlag.ASYNC_QUALIFIERS)
     async def qualifiers_list() -> None:
-        ui.page_title(f'{await TenantService.current_community_name() or "Wizzrobe"} — Async Qualifiers')
+        ui.page_title(f'Async Qualifiers — {await TenantService.current_community_name() or "Wizzrobe"}')
         user = await get_user_from_session(app.storage.user)
         show_admin = await AuthService.can_open_admin(user)
         await BaseLayout(user=user, show_admin=show_admin).render()
@@ -170,7 +170,7 @@ def create() -> None:
 
     @protected_page('/qualifiers/{qualifier_id}', feature=FeatureFlag.ASYNC_QUALIFIERS)
     async def qualifier_detail(qualifier_id: int, focus: str | None = None) -> None:
-        ui.page_title(f'{await TenantService.current_community_name() or "Wizzrobe"} — Async Qualifier')
+        ui.page_title(f'Async Qualifier — {await TenantService.current_community_name() or "Wizzrobe"}')
         user = await get_user_from_session(app.storage.user)
         show_admin = await AuthService.can_open_admin(user)
         await BaseLayout(user=user, show_admin=show_admin).render()

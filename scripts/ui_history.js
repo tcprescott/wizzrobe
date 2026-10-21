@@ -17,9 +17,12 @@
  *   { "goto": "/home/my-schedule" }          load a page (tenant-prefixed)
  *   { "click": "Timeline" }                  click the button / tab / item with that text
  *   { "click": "Timeline", "within": ".css" }  ...inside the first match of a selector
+ *   { "clickSelector": ".css" }              click the first visible match of a selector
  *   { "back": true } / { "forward": true } / { "reload": true }
  *   { "expect": { "url": "regex", "noUrl": "regex", "title": "regex",
- *                 "pressed": "text", "visible": "css" } }
+ *                 "pressed": "text", "visible": "css", "hidden": "css",
+ *                 "inView": "css" } }
+ * `inView` waits for a #fragment link to have scrolled its target on screen.
  * `url` matches the path + query after the tenant prefix. `pressed` is the
  * label of a segmented-switch button that must be the selected one.
  */
@@ -101,6 +104,14 @@ async function check(page, want, prefix) {
     if (want.visible && !(await page.locator(want.visible).first().isVisible().catch(() => false))) {
       problems.push(`${want.visible} not visible`);
     }
+    if (want.hidden && await page.locator(want.hidden).first().isVisible().catch(() => false)) {
+      problems.push(`${want.hidden} still visible`);
+    }
+    if (want.inView) {
+      const box = await page.locator(want.inView).first().boundingBox().catch(() => null);
+      const vh = page.viewportSize().height;
+      if (!box || box.y < 0 || box.y > vh * 0.6) problems.push(`${want.inView} not scrolled into view (y=${box && Math.round(box.y)})`);
+    }
     if (!problems.length || Date.now() > deadline) break;
     await page.waitForTimeout(250);
   }
@@ -149,6 +160,9 @@ async function check(page, want, prefix) {
             n += 1;
             if (step.goto) {
               await page.goto(`${baseUrl}${withTenant(step.goto)}`, { waitUntil: 'networkidle' });
+              await settle(page);
+            } else if (step.clickSelector) {
+              await page.locator(`${step.clickSelector} >> visible=true`).first().click();
               await settle(page);
             } else if (step.click) {
               await clickText(page, step.click, step.within, !!vp.isMobile || (vp.viewport && vp.viewport.width < 1024));

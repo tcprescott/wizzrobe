@@ -124,6 +124,7 @@ EXPECTED_WIRING = {
     "check_syntax": {("PostToolUse", "Write|Edit")},
     "check_table_grid": {("PostToolUse", "Write|Edit")},
     "check_table_prefs": {("PostToolUse", "Write|Edit")},
+    "check_view_urls": {("PostToolUse", "Write|Edit")},
     "check_steady_refresh": {("PostToolUse", "Write|Edit")},
     "check_tenant_scoping": {("PostToolUse", "Write|Edit")},
     "check_worker_loops": {("PreToolUse", "Write|Edit")},

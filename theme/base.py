@@ -12,6 +12,7 @@ from theme.assets import asset_url
 from theme.browser_monitoring import install_browser_monitoring
 from theme.chrome import apply_brand_palette, cookie_dark_pref, dark_mode_button, install_page_scripts
 from theme.connection import install_connection_watch
+from theme.drawer_help import render_drawer_help
 from theme.nav_badges import bottom_nav_tab, drawer_tab_badge, nav_icon
 from theme.nav_section import mark_nav_section, nav_section_matches
 from theme.notice import drain_notice
@@ -399,6 +400,7 @@ class BaseLayout:
         ui.add_head_html(f'<script defer src="{asset_url("js/busy.js")}"></script>')
         ui.add_head_html(f'<script defer src="{asset_url("js/dialog-keyboard.js")}"></script>')
         ui.add_head_html(f'<script defer src="{asset_url("js/timeline.js")}"></script>')
+        ui.add_head_html(f'<script defer src="{asset_url("js/anchors.js")}"></script>')
         install_usage_capture(self._tenant_id)
         install_browser_monitoring()
         # Phoenix palette (gold primary, ember secondary), overridable per tenant via TenantThemeService.
@@ -544,75 +546,13 @@ class BaseLayout:
             # when the nav fits, and fall to its scroll-end when it is long.
             ui.space()
             if self._tenant_id is not None:
-                self._render_drawer_help()
+                render_drawer_help(self)
 
             with ui.row().classes('items-center q-px-md q-pb-xs no-wrap'):
                 ui.icon('code').props('size=xs').classes('wiz-drawer-github-link')
                 ui.link('GitHub', 'https://github.com/tcprescott/wizzrobe', new_tab=True) \
                     .classes('text-caption wiz-drawer-github-link')
             ui.label(self._copyright).classes('text-caption q-px-md q-pb-md wiz-drawer-copyright')
-
-    def _render_drawer_help(self) -> None:
-        """The drawer's info card: Event Guide, Qualifiers, Help, Feedback.
-
-        Only inside a community — off one there is no /help or /event-info to
-        reach, and an item pointing at the page it sits on is a circle.
-        """
-        from theme.dialog import FeedbackDialog
-
-        current_path = current_local_url().split('?', 1)[0]
-        with ui.list().props('padding').classes('wiz-drawer-info'):
-            ui.item_label('Info & support').props('header').classes('wiz-drawer-group')
-            # Above Help, and ungated on ``self.user`` for the same reason:
-            # the event handbook answers the questions people have before
-            # they sign in, and some of its readers never will.
-            if self._show_event_info:
-                with ui.item(
-                    on_click=lambda: ui.navigate.to('/event-info')
-                ).props('clickable v-ripple') as event_item:
-                    with ui.item_section().props('avatar'):
-                        ui.icon(nav_icon('menu_book')).props('size=sm')
-                    with ui.item_section():
-                        ui.item_label('Event Guide')
-                if nav_section_matches('/event-info', current_path):
-                    mark_nav_section(event_item)
-
-            if self._show_qualifiers:
-                with ui.item(
-                    on_click=lambda: ui.navigate.to('/qualifiers')
-                ).props('clickable v-ripple') as qualifiers_item:
-                    with ui.item_section().props('avatar'):
-                        ui.icon(nav_icon('timer')).props('size=sm')
-                    with ui.item_section():
-                        ui.item_label('Qualifiers')
-                if nav_section_matches('/qualifiers', current_path):
-                    mark_nav_section(qualifiers_item)
-
-            # Not gated on ``self.user``: /help is a public page, and a
-            # signed-out visitor on any framed public surface is exactly the
-            # reader who most needs the way in. The real /login is a bare
-            # redirect to Discord with no page to hang a link on, so the
-            # drawer is that way in.
-            with ui.item(
-                on_click=lambda: ui.navigate.to('/help')
-            ).props('clickable v-ripple') as help_item:
-                with ui.item_section().props('avatar'):
-                    ui.icon(nav_icon('help')).props('size=sm')
-                with ui.item_section():
-                    ui.item_label('Help')
-            if nav_section_matches('/help', current_path):
-                mark_nav_section(help_item)
-
-            # Members only, and flag-gated: the service refuses a submit
-            # from anyone else, so the item would open a dialog that fails.
-            if self.offers_feedback:
-                with ui.item(
-                    on_click=lambda: FeedbackDialog(self.user).open()
-                ).props('clickable v-ripple'):
-                    with ui.item_section().props('avatar'):
-                        ui.icon(nav_icon('rate_review')).props('size=sm')
-                    with ui.item_section():
-                        ui.item_label('Send Feedback')
 
     def _switch_tab(self, label: str) -> None:
         # Only move the panel; the drawer highlight and the /base/<slug> history
@@ -622,34 +562,24 @@ class BaseLayout:
 
     async def _handle_tab_change(self) -> None:
         """Single sink for panel-value changes: drawer item, bottom tab or swipe.
-
-        Registered after the panels are built so the initial deep-linked value
-        does not fire a spurious history entry. Back/Forward move the panel
-        through :meth:`_show_path` instead, which has already shown the tab by
-        the time this fires.
-        """
+        Back/Forward go through :meth:`_show_slug`, which shows the tab first."""
         label = self._tab_panels.value
         if label == self._shown_tab:
             return
         await self._show_tab(label, history=TAB_HISTORY)
 
-    async def _show_path(self, path: str) -> None:
-        """Back or Forward landed on ``path``: show the tab it names."""
-        base = (self._base_path or '').rstrip('/')
-        slug = path[len(base):].strip('/').split('/', 1)[0] if base and path.startswith(base + '/') else ''
-        # A bare hub path (or Home's bare community root) is the first tab.
+    async def _show_slug(self, slug: str) -> None:
+        """Back or Forward landed on the tab ``slug`` names (none: the first)."""
         label = self._label_by_slug.get(slug) or self._label_by_alias.get(slug) or self.tabs[0]['label']
         if label == self._shown_tab:
             return
         self._shown_tab = label
-        self._tab_panels.set_value(label)
+        self._tab_panels.set_value(label)  # type: ignore[attr-defined]
         await self._show_tab(label, history=None)
 
     async def _show_tab(self, label: str, *, history: 'History | None') -> None:
-        """Sync the drawer and bottom-nav highlights, the address and the title,
-        then build or refresh the tab. ``history=None`` when Back/Forward did it,
-        which has already moved the address.
-        """
+        """Highlights, address and title, then build or refresh the tab.
+        ``history=None`` when Back/Forward did it and the address has moved."""
         self._shown_tab = label
         for lbl, item in self._tab_item_refs.items():
             if lbl == label:
@@ -737,6 +667,7 @@ class BaseLayout:
             self._bottom_tab_labels = [tab['label'] for tab in self.tabs]
             # Every tab is in the bar, so the deep-linked default always has a
             # matching child — no empty value to bind and no Quasar warning.
+            # url-state: exempt — the hub tabs, which BaseLayout keeps in the address itself
             with ui.tabs(value=self._default_tab).props('dense no-caps').classes('wiz-bottom-nav') as self._bottom_tabs:
                 for tab in self.tabs:
                     bottom_nav_tab(tab)
@@ -819,17 +750,12 @@ class BaseLayout:
                 self._pending_tabs[tab['label']] = tab
 
         state = url_state()
-        state.bind_tabs(self._tab_containers, self._show_path)
+        state.bind_hub(self._base_path, self._section, self._default_tab,
+                       self._slug_by_label[self._default_tab], self._tab_containers, self._show_slug)
         self._shown_tab = self._default_tab
-        state.tab = self._default_tab
-        # A bare hub path keeps its address until the first switch (Home's ``/``
-        # is the community's front door); a named section normalizes its slug.
-        if self._base_path is not None and self._section:
-            state.path = f'{self._base_path}/{self._slug_by_label[self._default_tab]}'
         await self._build_tab(self._default_tab, deferred=False)
         record_tab_view(self._base_path, self._slug_by_label.get(self._default_tab))
-        # The address names the tab by its current slug (an alias or a bare hub
-        # path normalizes), with any view the tab opened on, and the title says so.
+        # The address and title name the tab and any view it opened on.
         state.sync(keep_foreign=True)
 
         # Panel changes (drawer click, bottom-tab tap, or swipe) all route through

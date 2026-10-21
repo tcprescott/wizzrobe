@@ -15,6 +15,7 @@ from theme.page_header import page_header
 from theme.pickers import ColorSelect
 from theme.tables.admin_crud import refresh_button
 from theme.tables.preferences import TableKeys, customize_table, search_input
+from theme.url_state import bind_url
 
 _CATEGORY_LABELS = {
     'bug': 'Bug',
@@ -197,6 +198,7 @@ async def admin_feedback_page() -> None:
         with filter_row:
             status_toggle = ui.toggle(_status_options([]), value='new', on_change=on_status) \
                 .props('no-caps dense unelevated no-wrap').classes('wiz-segmented wiz-feedback-status')
+            bind_url('status', status_toggle, default='new', history='replace')
             ColorSelect(
                 {_ANY_CATEGORY: 'Any category', **_CATEGORY_LABELS},
                 label='Category', value=_ANY_CATEGORY,

@@ -261,6 +261,16 @@ call; opt out with `table-prefs: exempt` / `noqa: table-prefs` on the constructi
 or the line above. Both table hooks fail open on non-Python, unreadable, unparseable, or
 `ui.table`-free files.
 
+### View switcher in the address — `scripts/check_view_urls.py` (PostToolUse: Write|Edit)
+Blocks a `ui.tabs` / `ui.toggle` in `pages/` or `theme/` that the address bar doesn't
+follow. It redraws part of the page without loading one, so unless it tells
+`theme/url_state.py` the address and title stay put: Back leaves the page instead of
+undoing the switch, a reload opens the wrong view, and a copied link goes somewhere else.
+Accepts the switcher's name as the second argument of `bind_url(...)` or `url_param(...)`
+in the same file; opt out with `url-state: exempt` / `noqa: url-state` on the
+construction line or the line above, for a toggle that is a form input rather than a view.
+`tests/theme/test_url_state.py` runs it over the whole tree.
+
 ### Steady refresh — `scripts/check_steady_refresh.py` (PostToolUse: Write|Edit)
 Blocks an async `@ui.refreshable` in `pages/` or `theme/`. NiceGUI clears the container
 and then awaits the builder, so the browser draws the empty section for the length of the

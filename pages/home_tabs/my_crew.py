@@ -79,7 +79,7 @@ async def my_crew_tab(focus_match: Optional[int] = None) -> None:
                     on_click=lambda: ui.navigate.to(home_url(HOME_MY_CREW)),
                 ).props('flat dense color=primary')
 
-        sheet = MatchSheet(None, access=MatchBoardAccess(),
+        sheet = MatchSheet(None, access=MatchBoardAccess(), url_key='crew_sheet',
                            decorate=lambda row: decorate_player_row(row, discord_id))
         view = MatchTableView(
             columns=PLAYER_RUN_SHEET_COLUMNS,

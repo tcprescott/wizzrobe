@@ -7,42 +7,302 @@
   "loginAs": "staff_user",
   "tenant": "default",
   "outDir": "/tmp/ui-history-ci",
-  "browsers": ["chromium", "webkit"],
+  "browsers": [
+    "chromium",
+    "webkit"
+  ],
   "scenarios": [
     {
       "name": "my-schedule-view",
       "steps": [
-        { "goto": "/home/my-schedule?view=list", "expect": { "url": "^/home/my-schedule$", "title": "^My Schedule — ", "pressed": "List" } },
-        { "click": "Timeline", "expect": { "url": "^/home/my-schedule\\?view=timeline$", "title": "^Timeline — My Schedule — ", "pressed": "Timeline" } },
-        { "back": true, "expect": { "url": "^/home/my-schedule$", "title": "^My Schedule — ", "pressed": "List" } },
-        { "forward": true, "expect": { "url": "view=timeline", "title": "^Timeline — ", "pressed": "Timeline" } },
-        { "reload": true, "expect": { "url": "view=timeline", "title": "^Timeline — ", "pressed": "Timeline" } },
-        { "click": "List", "expect": { "url": "^/home/my-schedule$", "pressed": "List" } }
+        {
+          "goto": "/home/my-schedule?view=list",
+          "expect": {
+            "url": "^/home/my-schedule$",
+            "title": "^My Schedule — ",
+            "pressed": "List"
+          }
+        },
+        {
+          "click": "Timeline",
+          "expect": {
+            "url": "^/home/my-schedule\\?view=timeline&day=[0-9-]+$",
+            "title": "^\\w+ \\d+ — Timeline — My Schedule — ",
+            "pressed": "Timeline"
+          }
+        },
+        {
+          "back": true,
+          "expect": {
+            "url": "^/home/my-schedule$",
+            "title": "^My Schedule — ",
+            "pressed": "List"
+          }
+        },
+        {
+          "forward": true,
+          "expect": {
+            "url": "view=timeline",
+            "title": "Timeline — My Schedule",
+            "pressed": "Timeline"
+          }
+        },
+        {
+          "reload": true,
+          "expect": {
+            "url": "view=timeline",
+            "title": "Timeline — My Schedule",
+            "pressed": "Timeline"
+          }
+        },
+        {
+          "click": "List",
+          "expect": {
+            "url": "^/home/my-schedule$",
+            "pressed": "List"
+          }
+        }
       ]
     },
     {
       "name": "home-tabs",
       "steps": [
-        { "goto": "/home/my-schedule?view=list", "expect": { "url": "^/home/my-schedule$" } },
-        { "click": "Tournaments", "expect": { "url": "^/home/tournaments$", "title": "^Tournaments — " } },
-        { "back": true, "expect": { "url": "^/home/my-schedule$", "title": "^My Schedule — ", "pressed": "List" } },
-        { "forward": true, "expect": { "url": "^/home/tournaments$", "title": "^Tournaments — " } }
+        {
+          "goto": "/home/my-schedule?view=list",
+          "expect": {
+            "url": "^/home/my-schedule$"
+          }
+        },
+        {
+          "click": "Tournaments",
+          "expect": {
+            "url": "^/home/tournaments$",
+            "title": "^Tournaments — "
+          }
+        },
+        {
+          "back": true,
+          "expect": {
+            "url": "^/home/my-schedule$",
+            "title": "^My Schedule — ",
+            "pressed": "List"
+          }
+        },
+        {
+          "forward": true,
+          "expect": {
+            "url": "^/home/tournaments$",
+            "title": "^Tournaments — "
+          }
+        }
       ]
     },
     {
       "name": "event-views",
       "steps": [
-        { "goto": "/home/event", "expect": { "url": "^/home/event$", "pressed": "Schedule" } },
-        { "click": "Brackets", "expect": { "url": "^/home/event\\?view=brackets$", "title": "^Brackets — Event — ", "pressed": "Brackets" } },
-        { "back": true, "expect": { "url": "^/home/event$", "pressed": "Schedule" } },
-        { "forward": true, "expect": { "url": "view=brackets", "pressed": "Brackets" } }
+        {
+          "goto": "/home/event",
+          "expect": {
+            "url": "^/home/event$",
+            "pressed": "Schedule"
+          }
+        },
+        {
+          "click": "Brackets",
+          "expect": {
+            "url": "^/home/event\\?view=brackets$",
+            "title": "^Brackets — Event — ",
+            "pressed": "Brackets"
+          }
+        },
+        {
+          "back": true,
+          "expect": {
+            "url": "^/home/event$",
+            "pressed": "Schedule"
+          }
+        },
+        {
+          "forward": true,
+          "expect": {
+            "url": "view=brackets",
+            "pressed": "Brackets"
+          }
+        }
       ]
     },
     {
       "name": "event-deep-link",
       "steps": [
-        { "goto": "/home/brackets", "expect": { "url": "^/home/event\\?view=brackets$", "title": "^Brackets — Event — ", "pressed": "Brackets" } },
-        { "goto": "/home/event?view=community", "expect": { "pressed": "Community", "title": "^Community — Event — " } }
+        {
+          "goto": "/home/brackets",
+          "expect": {
+            "url": "^/home/event\\?view=brackets$",
+            "title": "^Brackets — Event — ",
+            "pressed": "Brackets"
+          }
+        },
+        {
+          "goto": "/home/event?view=community",
+          "expect": {
+            "pressed": "Community",
+            "title": "^Community — Event — "
+          }
+        }
+      ]
+    },
+    {
+      "name": "settings-pane",
+      "steps": [
+        {
+          "goto": "/admin/settings",
+          "expect": {
+            "url": "^/admin/settings$",
+            "title": "^Settings — Admin — "
+          }
+        },
+        {
+          "expect": {
+            "url": "^/admin/settings/venue$",
+            "title": "^Venue — Settings — Admin — "
+          },
+          "clickSelector": "[data-pane=venue]"
+        },
+        {
+          "back": true,
+          "expect": {
+            "url": "^/admin/settings$",
+            "title": "^Settings — Admin — ",
+            "visible": ".wiz-settings-grid"
+          }
+        },
+        {
+          "forward": true,
+          "expect": {
+            "url": "^/admin/settings/venue$",
+            "hidden": ".wiz-settings-grid"
+          }
+        },
+        {
+          "reload": true,
+          "expect": {
+            "url": "^/admin/settings/venue$",
+            "title": "^Venue — Settings"
+          }
+        }
+      ]
+    },
+    {
+      "name": "admin-tabs-and-subtabs",
+      "steps": [
+        {
+          "goto": "/admin/members",
+          "expect": {
+            "url": "^/admin/members$",
+            "title": "^Members — Admin — "
+          }
+        },
+        {
+          "clickSelector": ".q-tab[name=ada], .q-tab:has-text('ADA requests')",
+          "expect": {
+            "url": "^/admin/members\\?list=ada$",
+            "title": "^ADA requests — Members — "
+          }
+        },
+        {
+          "back": true,
+          "expect": {
+            "url": "^/admin/members$",
+            "title": "^Members — Admin"
+          }
+        },
+        {
+          "forward": true,
+          "expect": {
+            "url": "list=ada"
+          }
+        }
+      ]
+    },
+    {
+      "name": "volunteer-day",
+      "steps": [
+        {
+          "goto": "/volunteer/full-schedule",
+          "expect": {
+            "url": "^/volunteer/full-schedule\\?day=[0-9-]+$",
+            "title": " — Full Schedule — Volunteer — "
+          }
+        },
+        {
+          "clickSelector": ".wiz-vgrid-day[aria-pressed=false]",
+          "expect": {
+            "url": "day=[0-9-]+$"
+          }
+        },
+        {
+          "back": true,
+          "expect": {
+            "url": "day=[0-9-]+$"
+          }
+        },
+        {
+          "forward": true,
+          "expect": {
+            "url": "day=[0-9-]+$"
+          }
+        }
+      ]
+    },
+    {
+      "name": "match-sheet",
+      "steps": [
+        {
+          "goto": "/admin/match-schedule?view=booked",
+          "expect": {
+            "url": "^/admin/match-schedule$"
+          }
+        },
+        {
+          "clickSelector": ".run-sheet__row, .run-sheet__card",
+          "expect": {
+            "url": "^/admin/match-schedule\\?sheet=\\d+$",
+            "title": "^Match details — Match Schedule — ",
+            "visible": ".match-sheet"
+          }
+        },
+        {
+          "back": true,
+          "expect": {
+            "url": "^/admin/match-schedule$",
+            "hidden": ".match-sheet"
+          }
+        },
+        {
+          "forward": true,
+          "expect": {
+            "url": "sheet=\\d+",
+            "visible": ".match-sheet"
+          }
+        },
+        {
+          "reload": true,
+          "expect": {
+            "url": "sheet=\\d+",
+            "visible": ".match-sheet"
+          }
+        }
+      ]
+    },
+    {
+      "name": "section-anchor",
+      "steps": [
+        {
+          "goto": "/home/my-schedule?view=list#crew-you-signed-up-for",
+          "expect": {
+            "inView": "#crew-you-signed-up-for"
+          }
+        }
       ]
     }
   ]

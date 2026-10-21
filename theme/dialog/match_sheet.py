@@ -30,6 +30,7 @@ from theme.menu import menu_action, more_menu
 from theme.tables.match_access import MatchBoardAccess
 from theme.tables.match_run_sheet import decorate_run_sheet_row
 from theme.tables.match_slots import CANDIDATE_STAGE
+from theme.url_state import url_param, url_state
 
 _NO_STAGE = ''
 
@@ -141,7 +142,7 @@ class MatchSheet:
     the board exists, since the board needs ``open`` as its callback."""
 
     def __init__(self, handlers, *, access: MatchBoardAccess, show_crew: bool = True,
-                 decorate=decorate_run_sheet_row):
+                 decorate=decorate_run_sheet_row, url_key: str = 'sheet'):
         self.handlers = handlers
         self.access = access
         # Off on the proctor's board: crew is not theirs to fix, so a crew gap
@@ -174,13 +175,43 @@ class MatchSheet:
             self._content = ui.refreshable(self._render)
             self._content()
         self.dialog.on('hide', self._closed)
+        # The open sheet is in the address (``?sheet=<match id>``), so Back
+        # closes it, Forward reopens it, and a copied link opens the same match.
+        # ``_pushed`` remembers the sheet was opened here, where closing it is
+        # Back; one opened by a link has no entry of its own to go back over.
+        self._pushed = False
+        asked = url_state().requested(url_key)
+        asked = asked if asked and asked.isdecimal() else ''
+        self._param = url_param(
+            url_key, self.dialog, default='', value=asked,
+            label=lambda v: 'Match details' if v else None, on_restore=self._restore,
+        )
+        if asked:
+            self.open_when_loaded(int(asked))
 
     def _closed(self) -> None:
         self.row = None
         self._compose = None
         self._draft = ''
+        if self._param.value:
+            if self._pushed:
+                self._param.value = ''
+                with self.dialog:
+                    ui.run_javascript('history.back()')
+            else:
+                self._param.set('', history='replace')
+        self._pushed = False
 
-    async def open(self, match_id) -> None:
+    async def _restore(self, value: str) -> None:
+        if value.isdecimal():
+            if self._find(int(value)) is None:
+                self.open_when_loaded(int(value))
+            else:
+                await self.open(int(value), record=False)
+        elif self.dialog.value:
+            self.dialog.close()
+
+    async def open(self, match_id, *, record: bool = True) -> None:
         row = self._find(match_id)
         if row is None:
             return
@@ -189,6 +220,9 @@ class MatchSheet:
         with self.dialog:
             self._content.refresh()
             self.dialog.open()
+        if record and str(row.get('id')) != self._param.value:
+            self._pushed = not self._param.state.restoring
+            self._param.set(row.get('id'))
 
     def open_when_loaded(self, match_id: int) -> None:
         """Open ``match_id`` once the board's first load brings its row."""
@@ -199,12 +233,15 @@ class MatchSheet:
         if self._pending_open is not None:
             pending, self._pending_open = self._pending_open, None
             if any(r.get('id') == pending for r in rows):
-                self.view._bg(self.open(pending))
+                self.view._bg(self.open(pending, record=False))
+                self._param.set(pending, history='replace')
             else:
                 # A DM outlives its match: a deleted or filtered-out one must
                 # say so rather than leave a link that silently does nothing.
                 with self.dialog:
                     ui.notify("That match isn't on this board any more.", color='warning')
+                if self._param.value == str(pending):
+                    self._param.set('', history='replace')
         if self.row is None:
             return
         fresh = next((r for r in rows if r.get('id') == self.row.get('id')), None)

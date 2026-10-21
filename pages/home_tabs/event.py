@@ -113,9 +113,11 @@ async def event_tab(view: Optional[str] = None, community_new: int = 0) -> None:
         if value == state['slug']:
             return
         state['slug'] = value
-        await body.refresh()
-        if view_param is not None:
-            view_param.set(value)
+        if view_param is None:
+            await body.refresh()
+            return
+        async with view_param.changing(value):
+            await body.refresh()
 
     async def restore(value: str) -> None:
         state['slug'] = resolve_view(views, value).slug

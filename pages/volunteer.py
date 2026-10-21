@@ -38,7 +38,7 @@ def create() -> None:
             params = {'release': release} if release else {'shifts': 1}
             return RedirectResponse(f'{root_path}{home_url(HOME_MY_SCHEDULE, **params)}')
 
-        ui.page_title(f'{await TenantService.current_community_name() or "Wizzrobe"} — Volunteer')
+        ui.page_title(f'Volunteer — {await TenantService.current_community_name() or "Wizzrobe"}')
         user = await get_user_from_session(app.storage.user)
 
         roles = await AuthService.get_roles(user)

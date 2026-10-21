@@ -59,6 +59,7 @@ from theme.qualifier_copy import BOARD_EXPLAINER
 from theme.tables.admin_crud import wire_tab_refresh
 from theme.tables.mobile_grid import enable_mobile_grid
 from theme.tables.preferences import TableKeys, row_count_label, search_input, sticky_header
+from theme.url_state import url_param, url_state
 
 # Deep-link tab keys → the tab names the drill-down is addressed by. Short slugs
 # rather than the labels themselves, so a DM's URL does not carry "Review%20Queue"
@@ -71,6 +72,7 @@ _DEEP_LINK_TABS = {
     'live': LIVE_TAB,
     'reviewers': REVIEWERS_TAB,
 }
+_TAB_SLUGS = {name: slug for slug, name in _DEEP_LINK_TABS.items()}
 
 
 async def admin_qualifiers_page(
@@ -295,7 +297,9 @@ async def admin_qualifiers_page(
 
     async def _manage(qid: int) -> None:
         state['managing'] = qid
-        await load_shell()
+        state['tab'] = POOLS_TAB
+        async with managing_param.changing(qid):
+            await load_shell()
 
     def _delete_qualifier(qualifier) -> None:
         qid = qualifier.id
@@ -417,6 +421,11 @@ async def admin_qualifiers_page(
         # instead of seven. The value comes from state so a rebuild lands back where
         # the reviewer was.
         tabs.on_value_change(lambda e: _select_tab(e.value))
+        state['tab_param'] = url_param(
+            'qualifier_tab', tabs, default='pools', value=_TAB_SLUGS.get(state['tab'], 'pools'),
+            label=lambda v: _DEEP_LINK_TABS.get(v) if v != 'pools' else None,
+            on_restore=lambda v: tabs.set_value(_DEEP_LINK_TABS.get(v, POOLS_TAB)),
+        )
         with ui.tab_panels(tabs, value=state['tab']).classes('w-full'):
             with ui.tab_panel(POOLS_TAB):
                 pools_view()
@@ -437,6 +446,8 @@ async def admin_qualifiers_page(
             return
         state['tab'] = name
         await load_tab(name)
+        if state.get('tab_param') is not None:
+            state['tab_param'].set(_TAB_SLUGS.get(name, 'pools'))
 
     def _tab_placeholder(name: str) -> bool:
         """Render a tab's error or its not-yet-loaded state; True when it handled it."""
@@ -476,6 +487,13 @@ async def admin_qualifiers_page(
 
     async def _close_manage() -> None:
         state['managing'] = None
+        async with managing_param.changing(''):
+            await load_shell()
+
+    async def _restore_managing(value: str) -> None:
+        qid = int(value) if value.isdecimal() else None
+        state['managing'] = qid if any(q.id == qid for q in state['qualifiers']) else None
+        state['tab'] = _DEEP_LINK_TABS.get(url_state().requested('qualifier_tab') or '', POOLS_TAB)
         await load_shell()
 
     @ui.refreshable
@@ -614,7 +632,13 @@ async def admin_qualifiers_page(
 
     # ------------------------------------------------------------------ shell
 
-    with ui.column().classes('page-container'):
+    with ui.column().classes('page-container') as page:
+        managing_param = url_param(
+            'qualifier', page, default='', value='',
+            label=lambda v: shell['qualifier'].name
+            if (shell := state.get('shell')) and shell.get('qualifier') else None,
+            on_restore=_restore_managing,
+        )
         with page_header(
             'Async Qualifiers',
             'Self-paced permalink-pool qualifiers — a peer of Tournaments. Create a '
@@ -628,11 +652,17 @@ async def admin_qualifiers_page(
     await load_list()
     wire_tab_refresh('Qualifiers', load_list)
 
+    # The address, not the arguments: those are the request's, and stale once the
+    # viewer has switched tabs and come back.
+    asked = url_state().requested('qualifier')
+    qualifier = int(asked) if asked and asked.isdecimal() else None
+    open_tab = url_state().requested('qualifier_tab')
     if qualifier is not None:
         if any(q.id == qualifier for q in state['qualifiers']):
             state['tab'] = _DEEP_LINK_TABS.get((open_tab or '').lower(), POOLS_TAB)
             state['managing'] = qualifier
             await load_shell()
+            managing_param.set(qualifier, history='replace')
         else:
             # Deleted, or in another community, or this viewer cannot administer it.
             # A link that quietly does nothing reads as a broken app.

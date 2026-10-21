@@ -261,7 +261,7 @@ def create() -> None:
         community_event: int | None = None,
         pane: str | None = None,
     ) -> None:
-        ui.page_title(f'{await TenantService.current_community_name() or "Wizzrobe"} — Admin')
+        ui.page_title(f'Admin — {await TenantService.current_community_name() or "Wizzrobe"}')
         signed_in = app.storage.user.get('authenticated', False)
         if not signed_in:
             with ui.row():
