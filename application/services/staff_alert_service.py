@@ -22,6 +22,7 @@ from typing import Awaitable, Callable, Dict, Iterable, List, NamedTuple, Option
 
 from application.errors import require_found
 from application.repositories import (
+    MatchRepository,
     TournamentNotificationRepository,
     TournamentRepository,
     UserRoleRepository,
@@ -63,7 +64,10 @@ class StaffAlertService:
     ) -> List[User]:
         """The on-duty admins plus the tournament's opted-in admins.
 
-        ``exclude`` drops user ids (the comment's author, the requester).
+        ``exclude`` drops user ids (the comment's author, the requester). The
+        match's own players are always dropped: a tournament admin or staff
+        member playing in it is the opponent here, and the player was told
+        their opponent doesn't see it.
         Falls back to every STAFF member when nobody who can act is on duty.
         """
         tagged = await StaffAlertService.tagged_match_alert_recipients(
@@ -84,7 +88,7 @@ class StaffAlertService:
         The tag picks which notification setting applies: someone on duty is
         ``ON_DUTY`` even when they also admin the tournament.
         """
-        skip = set(exclude)
+        skip = set(exclude) | {p.user_id for p in await MatchRepository.get_players(match)}
         recipients: Dict[int, Tagged] = {}
 
         async def add(user: User, why: NotificationRecipient) -> None:

@@ -120,6 +120,9 @@ class MatchPlayers(Model):
         unique_together = (('match', 'user'),)
         table = 'matchplayers'
         indexes = (('user',),)  # composite is match-first; user-only reverse lookup uncovered
+        # Unordered, Postgres returns rows in heap order, which an UPDATE
+        # changes: seating a match flipped "A vs B" to "B vs A" on every board.
+        ordering = ['id']
 
 
 class MatchAcknowledgment(Model):

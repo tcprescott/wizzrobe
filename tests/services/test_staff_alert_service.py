@@ -135,6 +135,25 @@ class TestRecipients:
 
         assert _names(got) == ['desk', 'ta_on']
 
+    async def test_a_tournament_admin_playing_in_the_match_is_skipped(self, db):
+        t, m, p1, p2 = await _match()
+        desk = await _staff(9001, 'desk')
+        await _on_shift(desk)
+        await t.admins.add(p2)
+
+        got = await StaffAlertService.match_alert_recipients(m, exclude=[p1.id], at=NOW)
+
+        assert _names(got) == ['desk']
+
+    async def test_a_staff_member_playing_in_the_match_is_skipped_on_fallback(self, db):
+        _, m, p1, p2 = await _match()
+        await UserRole.create(user=p2, role=Role.STAFF, tenant_id=1)
+        await _staff(9001, 'other')
+
+        got = await StaffAlertService.match_alert_recipients(m, exclude=[p1.id], at=NOW)
+
+        assert _names(got) == ['other']
+
     async def test_an_on_duty_volunteer_who_cannot_act_is_skipped(self, db):
         _, m, _, _ = await _match()
         volunteer = await make_user(discord_id=9001, username='plain')
