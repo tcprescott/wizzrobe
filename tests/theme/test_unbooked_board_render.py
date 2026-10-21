@@ -10,7 +10,7 @@ hands the loop back between slices.
 import asyncio
 from types import SimpleNamespace
 
-from nicegui import Client, core, ui
+from nicegui import Client, background_tasks, core, ui
 from nicegui.page import page
 
 from application.services.bracket_sources import UnbookedMatch
@@ -85,7 +85,8 @@ async def test_building_hands_the_loop_back(monkeypatch):
             ticks += 1
             await asyncio.sleep(0)
 
-    task = asyncio.ensure_future(other_user())
+    core.loop = asyncio.get_running_loop()
+    task = background_tasks.create(other_user())
     await _build(60)
     done = True
     await task
