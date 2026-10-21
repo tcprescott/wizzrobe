@@ -4576,6 +4576,12 @@ td .wiz-crew-action {
     pointer-events: none;
 }
 
+/* The home screen app's version of the same fault, measured and undone by
+   static/js/dialog-keyboard.js. `translate` leaves Quasar's own transform alone. */
+.footer-dark-override {
+    translate: 0 var(--wiz-standalone-gap, 0px);
+}
+
 .wiz-bottom-nav {
     width: 100%;
     padding-bottom: env(safe-area-inset-bottom);

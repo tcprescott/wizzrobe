@@ -1,3 +1,3 @@
 ### Fixed
 
-- On iPhone (Safari, Firefox and the home screen app), the page no longer shows through under the bottom tab bar after the browser's toolbar tucks away or the keyboard closes.
+- On iPhone, the bottom tab bar stays on the bottom edge in the home screen app when you scroll back up, and in Firefox the page no longer shows through under it after the toolbar tucks away.
