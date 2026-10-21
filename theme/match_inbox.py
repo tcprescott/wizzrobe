@@ -1,8 +1,9 @@
 """The "Needs you" inbox above a run-sheet match board.
 
-Three kinds of work wait on staff rather than on the clock: a player's request to
-move or cancel a match, a finished match nobody has confirmed, and a match past
-its start that nobody has checked in. They used to be three differently built
+Four kinds of work wait on staff rather than on the clock: a player's request to
+move or cancel a match, a booked match someone already reported on its bracket
+site (Challonge, start.gg), a finished match nobody has confirmed, and a match
+past its start that nobody has checked in. They used to be three differently built
 strips of counts above the board, none of which did anything but filter. Here
 each is a short list of items with the action on the item.
 
@@ -15,11 +16,12 @@ from typing import Any, Awaitable, Callable, Optional
 
 from nicegui import ui
 
-from application.services import MatchRescheduleService
+from application.services import MatchRescheduleService, MatchService, bracket_sources
 from application.tenant_context import require_tenant_id
 from application.utils.timezone import format_local_time, to_local, today_local
 from models import Match, RescheduleRequestKind
 from theme.dialog.clash_warning import confirm_time
+from theme.dialog.confirmation_dialog import ConfirmationDialog
 from theme.help import ResolvedHelp, help_button, resolve_help
 from theme.notify import notify_error
 from theme.tables.admin_crud import capture_render_context, current_actor, scoped_background
@@ -111,12 +113,13 @@ class MatchInbox:
     def _build(self, requests: list) -> None:
         rows: list = self.view._visible_rows() if self.view else []
         finished = [r for r in rows if r.get('state') == 'Finished' and self.access.can_confirm_row(r)]
+        played = [r for r in rows if r.get('played_on_site') and self.access.can_confirm_row(r)]
         late = [
             r for r in rows
             if self.access.can_run_row(r) and r.get('state') == 'Scheduled' and r.get('is_overdue')
-            and r.get('players') and not r.get('is_racetime')
+            and r.get('players') and not r.get('is_racetime') and not r.get('played_on_site')
         ]
-        total = len(requests) + len(finished) + len(late)
+        total = len(requests) + len(played) + len(finished) + len(late)
         if not (self.access.edit or self.access.confirm or self.access.run):
             return
         with ui.column().classes('match-inbox full-width'):
@@ -131,6 +134,7 @@ class MatchInbox:
                 ui.label('Nothing is waiting on you.').classes('text-muted')
                 return
             self._group('requests', 'Reschedule requests', requests, self._request_item)
+            self._group('site', 'Played on the bracket site', played, self._site_item)
             # Disputed first: it needs a decision, an unflagged result only a click.
             finished.sort(key=lambda r: (not r.get('needs_review'), r.get('has_result'), r.get('scheduled_ts') or 0))
             self._group('results', 'Results', finished, self._result_item)
@@ -230,6 +234,69 @@ class MatchInbox:
                     await h.confirm_confirming(match)
                 ui.button('Change', on_click=lambda: h.on_edit_result(match_id)).props('outline color=primary')
                 ui.button('Confirm', on_click=confirm).props('color=primary')
+
+    def _site_item(self, row: dict) -> None:
+        match_id = row['id']
+        site = row['played_on_site']
+        players = row.get('players') or []
+        winner = next((p for p in players if site.get('winner_user_id') and p.get('user_id') == site['winner_user_id']), None)
+        winner_name = winner.get('name') if winner else (site.get('winner') or 'Someone')
+        others = [p for p in players if p is not winner]
+        if winner is not None and len(others) == 1:
+            title = f"{winner_name} beat {others[0].get('name')} on {site['site']}"
+        else:
+            title = f"{winner_name} won on {site['site']}"
+        ui.label(title).classes('match-inbox__title')
+        meta = row.get('tournament') or ''
+        if row.get('scheduled_at'):
+            meta += f" · booked {row['scheduled_at'][-5:]}"
+        if row.get('stage'):
+            meta += f" on {row['stage']}"
+        ui.label(meta).classes('match-inbox__meta')
+
+        async def record():
+            actor = await current_actor()
+            if actor is None:
+                ui.notify('Log in again to record this.', color='warning')
+                return
+            try:
+                await bracket_sources.record_site_result(match_id, actor)
+            except (ValueError, PermissionError) as e:
+                notify_error(e)
+                return
+            ui.notify(f"Recorded the {site['site']} result.", color='positive')
+            self.refresh()
+            if self.view is not None:
+                await self.view.refresh()
+
+        async def call_off():
+            actor = await current_actor()
+            if actor is None:
+                ui.notify('Log in again to call this off.', color='warning')
+                return
+            try:
+                await MatchService().cancel_match(match_id, actor=actor)
+            except (ValueError, PermissionError) as e:
+                notify_error(e)
+                return
+            ui.notify('Match called off. Players and crew were told.', color='positive')
+            self.refresh()
+            if self.view is not None:
+                await self.view.refresh()
+
+        def confirm_call_off():
+            ConfirmationDialog(
+                message=(
+                    f"Call off this match? It was already played on {site['site']}, so "
+                    'Wizzrobe keeps no result for it. Its players and crew will be DMed.'
+                ),
+                on_confirm=call_off, confirm_text='Call off match', cancel_text='Back',
+                title='Call off match?',
+            ).open()
+
+        with ui.row().classes('gap-2 items-center'):
+            ui.button('Call off', on_click=confirm_call_off).props('outline color=primary')
+            ui.button('Record result', on_click=record).props('color=primary')
 
     def _late_item(self, row: dict) -> None:
         match_id = row['id']

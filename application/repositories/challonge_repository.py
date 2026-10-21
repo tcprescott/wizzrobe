@@ -117,6 +117,22 @@ class ChallongeRepository:
         return counts
 
     @staticmethod
+    async def auto_sync_tournaments() -> List[Tournament]:
+        """Active linked tournaments whose bracket isn't finished on Challonge."""
+        return await scoped(Tournament.filter(
+            Q(challonge_state__isnull=True) | Q(challonge_state__not='complete'),
+            challonge_tournament_id__isnull=False, is_active=True,
+        )).order_by('id')
+
+    @staticmethod
+    async def linked_tenant_ids() -> Set[int]:
+        """Cross-tenant: every tenant with an active linked bracket, for the auto-sync worker."""
+        rows = await Tournament.filter(
+            challonge_tournament_id__isnull=False, is_active=True,
+        ).values_list('tenant_id', flat=True)
+        return {r for r in rows if isinstance(r, int)}
+
+    @staticmethod
     async def clear_connection() -> int:
         return await scoped(ChallongeConnection.all()).delete()
 
@@ -271,6 +287,15 @@ class ChallongeRepository:
         return await ChallongeMatch.get_or_none(match=match, tenant_id=current_tenant_id()).prefetch_related(
             'tournament', 'participant1__user', 'participant2__user',
         )
+
+    @staticmethod
+    async def completed_for_matches(match_ids: List[int]) -> List[ChallongeMatch]:
+        """Booked bracket matches Challonge already has a result for."""
+        if not match_ids:
+            return []
+        return await scoped(ChallongeMatch.filter(
+            match_id__in=match_ids, state=ChallongeMatchState.COMPLETE,
+        )).prefetch_related('winner_participant', 'participant1', 'participant2')
 
     @staticmethod
     async def link_match(challonge_match: ChallongeMatch, match: Match) -> None:

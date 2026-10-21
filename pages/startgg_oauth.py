@@ -95,7 +95,9 @@ def create() -> None:
 
     @ui.page('/startgg/connect')
     async def startgg_connect(request: Request) -> RedirectResponse:
-        detour = await platform_link_redirect(_CONNECT_RETURN)
+        # Restart this route on the platform host, not the settings page, so
+        # Connect isn't pressed twice.
+        detour = await platform_link_redirect('/startgg/connect')
         if detour:
             return RedirectResponse(detour)
         root_path = request.scope.get('root_path', '') or ''

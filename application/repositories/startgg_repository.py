@@ -265,6 +265,15 @@ class StartggRepository:
         )
 
     @staticmethod
+    async def completed_for_matches(match_ids: List[int]) -> List[StartggSet]:
+        """Booked sets start.gg already has a result for."""
+        if not match_ids:
+            return []
+        return await scoped(StartggSet.filter(
+            match_id__in=match_ids, state=StartggSetState.COMPLETE,
+        )).prefetch_related('winner', 'entrant1', 'entrant2')
+
+    @staticmethod
     async def link_match(row: StartggSet, match: Match) -> None:
         await scoped(StartggSet.filter(id=row.id)).update(match_id=match.id)
         row.match_id = match.id

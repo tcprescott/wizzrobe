@@ -394,6 +394,40 @@ class MatchScheduleService(MatchNotificationMixin):
 
         discord_queue.enqueue(_advance_bracket_result())
 
+    async def close_played_elsewhere(self, match: Match, actor: User, site: str) -> None:
+        """Confirm a match whose result was reported on its bracket site, skipping the floor steps.
+
+        The players have already played, so nobody is DMed about check-in, start
+        or finish. Nothing goes back to the site either: it is where the result
+        came from.
+        """
+        await AuthService.ensure(
+            await AuthService.can_confirm_match(actor, match),
+            f"User cannot confirm match {match.id}",
+        )
+        await match.refresh_from_db(fields=_LIFECYCLE_FIELDS)
+        await match.fetch_related('players')
+        if match.confirmed_at:
+            raise ValueError("Match is already confirmed")
+        if not has_recorded_result(match.players):
+            raise ValueError("Record the winner before confirming.")
+        now = datetime.now(timezone.utc)
+        for field in ('seated_at', 'started_at', 'finished_at'):
+            if getattr(match, field) is None and await self.match_repository.stamp_if_unset(match, field, now):
+                setattr(match, field, now)
+        if not await self.match_repository.stamp_if_unset(match, 'confirmed_at', now):
+            raise ValueError("Someone else just updated this match. Refresh to see where it stands.")
+        match.confirmed_at = now
+        await match.fetch_related('tournament')
+        await self.audit_service.write_and_publish(
+            actor, AuditActions.MATCH_CONFIRMED, {'match_id': match.id, 'played_on': site},
+            EventType.MATCH_CONFIRMED,
+            event_extra={'tournament_id': match.tournament_id, 'tournament': match.tournament.name},
+        )
+        from application.services import opt_in_notifications
+        discord_queue.enqueue(opt_in_notifications.match_result(match.id))
+        match_live.publish(match.id)
+
     async def generate_seed(self, match_id: int, actor: Optional[User] = None) -> Tuple[bool, str, Optional[str]]:
         """
         Generate a seed for a match and send DMs to players.

@@ -11,12 +11,18 @@ from application.services import AuthService, ChallongeService, get_user_from_se
 from application.tenant_context import require_tenant_id
 from application.utils.timezone import format_local_display
 from models import Tournament
+from theme.banner import banner
 from theme.dialog.confirmation_dialog import ConfirmationDialog
 from theme.help import help_icon
 from theme.menu import menu_action, more_menu
 from theme.notify import notify_error
 from theme.page_header import page_header
 from theme.steady import steady_refreshable
+
+_AUTO_SYNC_LABELS = {
+    0: 'Off', 15: 'Every 15 minutes', 30: 'Every 30 minutes',
+    60: 'Every hour', 120: 'Every 2 hours', 360: 'Every 6 hours',
+}
 
 
 async def admin_challonge_connection_page(tournaments_url: str = '/admin/tournaments') -> None:
@@ -61,14 +67,11 @@ async def admin_challonge_connection_page(tournaments_url: str = '/admin/tournam
                         ui.label(
                             f"Token expires: {format_local_display(status['token_expires_at'])}"
                         ).classes('text-caption text-muted')
-                    quota = status.get('request_quota')
-                    used = status.get('request_usage', 0)
-                    if quota:
-                        warn = used >= quota * 0.8
-                        ui.label(
-                            f"API requests this month: {used} / {quota}"
-                        ).classes('text-caption ' + ('text-error' if warn else 'text-muted'))
+                    ui.label(
+                        f"API requests this month: {status.get('request_usage', 0):,}"
+                    ).classes('text-caption text-muted')
                     await linked_row()
+                    await auto_sync_row()
                     if is_staff:
                         connect_controls('Reconnect', can_disconnect=True)
                 else:
@@ -89,6 +92,37 @@ async def admin_challonge_connection_page(tournaments_url: str = '/admin/tournam
                 else:
                     ui.label('No tournaments are linked yet.').classes('text-caption text-muted')
                     ui.link('Link one from its ⋮ on Tournaments', tournaments_url).classes('text-caption')
+
+        async def auto_sync_row() -> None:
+            minutes = await service.auto_sync_minutes()
+
+            async def change(e) -> None:
+                try:
+                    await service.set_auto_sync_minutes(int(e.value), actor)
+                except (ValueError, PermissionError) as err:
+                    notify_error(err)
+                await connection_card.refresh()
+
+            with ui.column().classes('w-full gap-1 q-mt-sm'):
+                ui.select(
+                    options=_AUTO_SYNC_LABELS, value=minutes,
+                    label='Sync automatically', on_change=change,
+                ).props('outlined dense').classes('w-56').set_enabled(is_staff)
+                ui.label(
+                    'Picks up results reported on Challonge without anyone pressing '
+                    'Sync. Finished brackets are skipped.'
+                ).classes('text-caption text-muted')
+                if minutes:
+                    estimate = await service.auto_sync_estimate(minutes)
+                    noun = 'bracket' if estimate.tournaments == 1 else 'brackets'
+                    with banner(
+                        f'Each sync uses about 2 API requests per bracket. '
+                        f'{_AUTO_SYNC_LABELS[minutes]} with {estimate.tournaments} '
+                        f'unfinished {noun} is about {estimate.requests_per_day:,} '
+                        f'requests a day.',
+                        tone='warning',
+                    ):
+                        pass
 
         async def communities_row() -> None:
             communities = await service.remembered_communities()

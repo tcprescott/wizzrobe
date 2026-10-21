@@ -279,6 +279,10 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         # Idle without STARTGG_API_TOKEN; skips tenants with STARTGG off.
         from application.services import startgg_sync_worker
         startgg_sync_worker.start()
+        # Challonge auto-sync: re-reads unfinished linked brackets on the interval
+        # each community picks (off by default). Skips tenants with CHALLONGE off.
+        from application.services import challonge_sync_worker
+        challonge_sync_worker.start()
         # Discord roles Wizzrobe hands out: syncs a community soon after a rule
         # change or a match/enrollment/badge event, and every 10 minutes in full.
         # Only communities with rules; skips tenants with DISCORD_ROLE_SYNC off.
@@ -334,6 +338,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         await check_in_sync_worker.stop()
         await sglive_pool_worker.stop()
         await startgg_sync_worker.stop()
+        await challonge_sync_worker.stop()
         await discord_role_sync_worker.stop()
         await telegram_bot_worker.stop()
         await speedgaming_sync_worker.stop()

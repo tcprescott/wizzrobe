@@ -44,6 +44,7 @@ WORKERS = {
     'check_in_sync': 'application.services.check_in_sync_worker',
     'sglive_pool': 'application.services.sglive_pool_worker',
     'startgg_sync': 'application.services.startgg_sync_worker',
+    'challonge_sync': 'application.services.challonge_sync_worker',
     'community_event_reminder': 'application.services.community_event_reminder',
 }
 

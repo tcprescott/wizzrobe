@@ -56,6 +56,9 @@ def run_sheet_status(row: dict) -> tuple[str, str]:
     One word or two, never the raw state plus a timestamp: "Late" and "No
     result" are what an operator acts on, and neither is a state.
     """
+    site = row.get('played_on_site')
+    if site:
+        return f"Played on {site['site']}", 'pending'
     state = row.get('state')
     if state == 'Finished':
         if row.get('needs_review'):
@@ -78,6 +81,8 @@ def run_sheet_status(row: dict) -> tuple[str, str]:
 
 def admin_group(row: dict) -> tuple[int, str]:
     """The admin board's groups: what needs a decision, then the clock."""
+    if row.get('played_on_site'):
+        return _DECIDE
     state = row.get('state')
     if state == 'Finished':
         return _DECIDE
@@ -102,8 +107,11 @@ def proctor_group(row: dict) -> tuple[int, str]:
     """The proctor's groups, in the order the work arrives.
 
     Late first: players past their time with nobody checked in are the one
-    thing in the room that gets worse by the minute.
+    thing in the room that gets worse by the minute. A match already played on
+    its bracket site is done as far as the floor is concerned.
     """
+    if row.get('played_on_site'):
+        return _FINISHED
     state = row.get('state')
     if state in ('Finished', 'Confirmed'):
         return _FINISHED
@@ -129,7 +137,7 @@ def next_step(row: dict) -> Optional[dict]:
     ``event`` is the board event the existing handlers already listen for, so
     the line's button and the sheet's reach the same service call.
     """
-    if row.get('is_racetime') or not row.get('players'):
+    if row.get('is_racetime') or not row.get('players') or row.get('played_on_site'):
         return None
     state = row.get('state')
     if state == 'Scheduled':

@@ -438,6 +438,17 @@ class StartggService:
         ]
 
     @requires_feature(FeatureFlag.STARTGG)
+    async def results_on_site(self, match_ids: List[int]) -> Dict[int, Tuple[Optional[int], str]]:
+        """``match id -> (winner user id, winner name)`` for booked sets start.gg has a result for."""
+        out: Dict[int, Tuple[Optional[int], str]] = {}
+        for row in await self.repository.completed_for_matches(match_ids):
+            winner = row.winner
+            out[row.match_id] = (  # type: ignore[attr-defined]
+                winner.user_id if winner else None, (winner.name if winner else None) or '',  # type: ignore[attr-defined]
+            )
+        return out
+
+    @requires_feature(FeatureFlag.STARTGG)
     async def link_existing_match(self, set_pk: int, match_id: int, actor: User) -> Match:
         """Record that a match scheduled by hand is this set's, as booking it would have."""
         row = require_found(await self.repository.get_set(set_pk), 'start.gg match')
