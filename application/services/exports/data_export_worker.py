@@ -9,6 +9,7 @@ only ever sees one export's reads, spread out by the builder's pauses.
 
 import logging
 import time
+from typing import Optional
 
 from application.utils.background_loop import for_each_tenant_scoped, run_worker_loop
 
@@ -18,7 +19,9 @@ TICK_SECONDS = 5
 TICK_TIMEOUT_SECONDS = 600
 PRUNE_EVERY_SECONDS = 10 * 60
 
-_last_prune = 0.0
+# None until the first prune, so a process that started less than ten minutes
+# after the host booted still prunes on its first tick.
+_last_prune: Optional[float] = None
 
 
 async def _tick() -> None:
@@ -34,7 +37,7 @@ async def _tick() -> None:
     interrupted = await DataExportRepository.fail_interrupted_all(INTERRUPTED_AFTER, INTERRUPTED_ERROR)
     if interrupted:
         logger.warning('marked %d interrupted export(s) failed', interrupted)
-    if time.monotonic() - _last_prune >= PRUNE_EVERY_SECONDS:
+    if _last_prune is None or time.monotonic() - _last_prune >= PRUNE_EVERY_SECONDS:
         _last_prune = time.monotonic()
         pruned = await DataExportRepository.prune_all(RETENTION)
         if pruned:

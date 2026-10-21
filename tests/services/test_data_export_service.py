@@ -265,7 +265,7 @@ class TestWorker:
         )
         old = await DataExportService().record_table_csv(staff, 'x.csv', 'x.csv', b'x')
         await DataExport.filter(id=old.id).update(created_at=datetime.now(timezone.utc) - timedelta(days=4))
-        monkeypatch.setattr(data_export_worker, '_last_prune', 0.0)
+        monkeypatch.setattr(data_export_worker, '_last_prune', None)
 
         await data_export_worker._tick()
 
