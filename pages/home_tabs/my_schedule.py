@@ -173,7 +173,7 @@ async def my_schedule_tab(
     skip_layout_probe(body)
 
     with ui.column().classes('page-container wiz-section-stack'):
-        if plays:
+        if plays and user is not None:
             await render_availability_reminder(user, open_availability)
         toggle = ui.toggle(
             VIEWS,
