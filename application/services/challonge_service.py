@@ -299,6 +299,31 @@ class ChallongeService(ChallongeParticipantAssignmentMixin, ChallongeStageMixin,
         await self.audit_service.write_log(
             actor, AuditActions.CHALLONGE_PLAYER_LINKED, details,
         )
+        await self._map_linked_entrants(user, cuid, actor)
+
+    async def _map_linked_entrants(self, user: User, challonge_user_id: str, actor: User) -> None:
+        """Map the player onto entrants already mirrored here, without waiting for a sync.
+
+        The mirror keeps each entrant's Challonge account id, so a fresh link can
+        resolve them locally, exactly as the next sync would. Hand assignments
+        stay put. Best-effort: the link itself is saved, and the next sync
+        retries anything that fails here.
+        """
+        try:
+            participants = [
+                p for p in await self.repository.participants_for_challonge_account(challonge_user_id)
+                if not p.user_assigned_manually and p.user_id != user.id
+            ]
+            tournaments = {p.tournament.id: p.tournament for p in participants}
+            bookable_before = {tid: await self._bookable_match_ids(t) for tid, t in tournaments.items()}
+            for p in participants:
+                await self.repository.set_participant_user(p, user, manual=False)
+            for tid, tournament in tournaments.items():
+                await self._mirror_players(tournament, actor)
+                await self._relink_bookings(tournament, actor)
+                await self._announce_newly_bookable(tournament, bookable_before[tid])
+        except Exception:
+            logger.exception('Mapping Challonge entrants for user %s after linking failed', user.id)
 
     @requires_feature(FeatureFlag.CHALLONGE)
     async def record_player_link(

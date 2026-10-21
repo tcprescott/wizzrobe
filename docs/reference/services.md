@@ -348,7 +348,7 @@ Coordinates the Challonge integration: one shared Wizzrobe service-account OAuth
 | `remove_community(actor, community)` | `None` | Staff-only; drops a saved community. Refuses (`ValueError`) while linked tournaments use it. Audits `challonge.community_removed`. |
 | `disconnect(actor)` | `None` | Staff-only; clears the connection; audits `challonge.disconnected`. |
 | `get_connection_status()` | `dict` | `{connected, configured, request_usage, request_quota, ...}` for the admin UI. |
-| `record_player_link(user, challonge_user_id, challonge_username, actor)` | `None` | Persist a player's linked Challonge identity (OAuth path); audits `challonge.player_linked`. |
+| `record_player_link(user, challonge_user_id, challonge_username, actor)` | `None` | Persist a player's linked Challonge identity (OAuth path); audits `challonge.player_linked`. Then maps them onto any already-mirrored entrant carrying that account (hand assignments untouched), refreshes the Players list and sends ready DMs, without waiting for the next sync. Best-effort. |
 | `participant_tournament_ids(user)` | `set[int]` | Tournament ids whose mirrored bracket includes this user. |
 | `link_player_manually(user, challonge_user_id, challonge_username, actor)` | `None` | Staff override linking a user by Challonge id; rejects ids already linked elsewhere (`ValueError`); audits `challonge.player_linked` with `manual: True`. |
 | `set_player_username(user, challonge_username, actor)` | `None` | Staff override correcting the display username on an already-linked account; audits `challonge.player_username_updated`. |
