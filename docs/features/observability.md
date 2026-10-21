@@ -177,14 +177,36 @@ Each log line carries the sampled stack. `LOOP_WATCHDOG_ENABLED=false` turns it
 off. `BackgroundLoop` also times every worker tick and logs a tick over 30s at
 WARNING.
 
+## Worker self-healing and the worker watchdog
+
+Every periodic worker is a `BackgroundLoop` (`run_worker_loop(...)`) and every
+in-memory queue is a `CoroutineQueue`. Both register themselves when built, so a
+new worker gets all of this by using them; don't hand-roll a `while True` task.
+
+| Fault | What happens |
+|---|---|
+| A tick raises | Logged (`"{name} tick failed"`), counted in `worker.tick_failures`, next tick runs on time |
+| A tick runs past its limit (`TICK_TIMEOUT_SECONDS`, 300s; per worker `tick_timeout=`) | Cancelled, counted as a failure and a timeout, ERROR fingerprinted `background-worker-fault` + worker |
+| A queued call runs past `ITEM_TIMEOUT_SECONDS` (300s) | Cancelled so the calls behind it run; same ERROR |
+| A `CancelledError` leaks out of a tick or queued call | Treated as a failure; the loop carries on (only `stop()` ends it) |
+| The loop or queue task ends any other way | ERROR, then restarted after 5s, doubling to 60s while it keeps dying |
+| None of that worked (a tick that swallows its cancel, a restart that never runs) | The `worker watchdog` loop (every 30s, [`worker_watchdog.py`](../../application/utils/worker_watchdog.py)) logs one ERROR per stalled worker, `Background worker X is stalled: …`, and a WARNING when it recovers |
+
+A worker counts as stalled when it is enabled and has gone `interval +
+STALL_GRACE_SECONDS` (60s) without a tick, or a tick or queued call has run 60s
+past its limit. A worker switched off by config (`enabled: false` in
+`runtime_stats`) is never stalled.
+
 ## Live load (`runtime_stats`)
 
 The super-admin MCP tool `runtime_stats` reads the process without shell access:
 uptime and release, RSS, asyncio task count, NiceGUI clients (held and with a
 live socket), distinct signed-in people online (per community too), the DB pool, the watchdog's last minute (lag p50/p95/max, process
 CPU where 100 is one core, the last 20 stalls with their culprit), every worker's
-tick count, failures and last/max tick time, in-flight HTTP requests, the depth
-of each coroutine queue (Discord DMs, event dispatch), and each community's
+enabled/running/stalled state, tick count, failures, timeouts, restarts and
+last/max/current tick time, in-flight HTTP requests, each coroutine queue's
+worker (Discord DMs, event dispatch, webhook delivery: depth, current call
+time, timeouts, restarts, stalled), and each community's
 Watch-page audience. Healthy at rest is a p95 lag of a few milliseconds and no stalls; CPU
 pinned near 100 with a rising p95 is the admission ceiling the scaling roadmap
 describes. Code: [`application/utils/runtime_stats.py`](../../application/utils/runtime_stats.py).

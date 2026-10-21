@@ -88,7 +88,8 @@ async def _tick() -> None:
     )
 
 
-_loop = run_worker_loop(_tick, TICK_SECONDS, 'Discord role sync', logger)
+# A full pass over a big guild waits out Discord's role-edit rate limits.
+_loop = run_worker_loop(_tick, TICK_SECONDS, 'Discord role sync', logger, tick_timeout=900)
 
 
 def start() -> None:
