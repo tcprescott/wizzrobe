@@ -19,7 +19,7 @@ from application.repositories import ChallongeRepository
 from application.services import notification_links
 from application.services._bracket.notifications import BracketNotificationMixin
 from application.services.discord import discord_queue
-from application.utils.match_labels import challonge_round_label
+from application.utils.match_labels import challonge_round_label, entrant_name
 from models import ChallongeMatch, ChallongeMatchState, Tournament
 
 logger = logging.getLogger(__name__)
@@ -64,7 +64,7 @@ class ChallongeNotificationMixin:
         for me, opponent in ((p1, p2), (p2, p1)):
             discord_queue.enqueue(BracketNotificationMixin._send_matchup_ready(
                 user=me.user,
-                opponent_name=opponent.name or opponent.user.display_name or opponent.user.username,
+                opponent_name=entrant_name(opponent),
                 opponent_seed=None,
                 tournament_name=cmatch.tournament.name,
                 round_name=round_name,

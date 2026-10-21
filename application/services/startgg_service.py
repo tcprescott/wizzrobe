@@ -47,6 +47,7 @@ from application.utils.clients.startgg_client import (
     event_url,
     parse_event_slug,
 )
+from application.utils.match_labels import entrant_name
 from application.utils.mocks.mock_startgg import MockStartggClient, is_mock_startgg
 from application.utils.timezone import to_utc_aware
 from models import (
@@ -397,7 +398,7 @@ class StartggService:
         for me, opponent in ((e1, e2), (e2, e1)):
             discord_queue.enqueue(BracketNotificationMixin._send_matchup_ready(
                 user=me.user,
-                opponent_name=opponent.name,
+                opponent_name=entrant_name(opponent),
                 opponent_seed=None,
                 tournament_name=tournament.name,
                 round_name=row.round_text or 'Bracket match',
