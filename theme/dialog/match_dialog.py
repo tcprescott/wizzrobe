@@ -472,7 +472,7 @@ class AdminMatchDialog(BaseMatchDialog):
                     required_fields={'Tournament': tournament_id, 'Date': date_value, 'Time': time_value},
                     tournament_id=tournament_id,
                     player_ids=new_player_ids,
-                    stale_message='Another admin saved this match while you had it open.',
+                    stale_message='Someone else on staff saved this match while you had it open.',
                     do_update=do_update,
                     do_create=do_create,
                     create_success_message='Match created successfully',

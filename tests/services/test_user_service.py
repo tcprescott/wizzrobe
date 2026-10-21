@@ -165,7 +165,7 @@ class TestUpdateUserProfile:
         # Repository returns a user with a different updated_at.
         latest = make_user(user_id=1, updated_at=original_ts + timedelta(minutes=5))
         service.repository.get_by_id = AsyncMock(return_value=latest)
-        with pytest.raises(ValueError, match='modified by another'):
+        with pytest.raises(ValueError, match='Someone else on staff changed'):
             await service.update_user_profile(
                 user, actor=user,
                 display_name='X',
@@ -243,7 +243,7 @@ class TestUpdateUserAdminFields:
         original_ts = datetime(2025, 1, 15, 12, 0, tzinfo=timezone.utc)
         latest = make_user(updated_at=original_ts + timedelta(seconds=1))
         service.repository.get_by_id = AsyncMock(return_value=latest)
-        with pytest.raises(ValueError, match='modified by another'):
+        with pytest.raises(ValueError, match='Someone else on staff changed'):
             await service.update_user_admin_fields(
                 user, actor=make_user(),
                 is_active=False,
