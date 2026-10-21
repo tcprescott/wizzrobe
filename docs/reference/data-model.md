@@ -997,6 +997,9 @@ Players assigned to a match, with result and station assignment.
 | `finish_rank` | `IntField` | null | Final placement (1 = winner) |
 | `finish_time` | `IntField` | null | Elapsed finish time in whole seconds, captured from a racetime room result; null for non-finishers and non-racetime matches |
 | `assigned_station` | `CharField(50)` | null | Physical station **label**, not an FK to [`Station`](#station) — see that model for why |
+| `late_minutes` | `IntField` | null | The player's own "running late" heads-up: 10, 20 or 30 (30 means 30+). Null when they haven't said so or took it back |
+| `late_at` | `DatetimeField` | null | When they said it (UTC) |
+| `late_note` | `CharField(280)` | null | Optional note for staff; never sent to the opponent or a webhook |
 
 Constraint: `unique_together (('match', 'user'),)`.
 
