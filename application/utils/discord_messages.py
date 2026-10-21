@@ -446,6 +446,19 @@ def cancelled_dm(
         bracket_line=bracket_line,
     )
     block = ("\n".join(info) + "\n\n") if info else ''
+    return (
+        f"Your match in **{tournament_name}** has been cancelled.\n\n"
+        f"{block}"
+        f"{cancelled_description(reason=reason, released=released)}"
+    )
+
+
+def cancelled_description(*, reason: str = '', released: bool = False) -> str:
+    """The why and what-next of a cancelled-match DM, shared by its text and its card.
+
+    The card needs it as its own description: Discord shows only the embed when
+    there is one, so a reason left in the text alone never reached anyone there.
+    """
     why = f"{reason}\n\n" if reason else ''
     # A bracket game that was cancelled hands its series slot back (D3), so the
     # matchup is open again and the entrants are the ones who have to rebook it —
@@ -454,12 +467,7 @@ def cancelled_dm(
         "This game has been released — the matchup is open to reschedule."
         if released else "You're all set. Nothing else to do here."
     )
-    return (
-        f"Your match in **{tournament_name}** has been cancelled.\n\n"
-        f"{block}"
-        f"{why}"
-        f"{closing}"
-    )
+    return f"{why}{closing}"
 
 
 def removed_from_match_dm(

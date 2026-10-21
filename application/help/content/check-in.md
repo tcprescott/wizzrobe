@@ -41,12 +41,12 @@ Discord DMs back on under
 The desk is Volunteer → Check-in Desk. It shows up while an event is open, for
 anyone with the Check In Desk role and for staff. It's built for a phone.
 
-The top of the desk stays put as you scroll. There's the event name with its sync
-button, then the search box, which takes a name or a badge code. The progress bar
-reads "212 of 340 checked in" and leaves refunded people out. The filter switch
-(All, Not yet, Checked in, Comped, Walk-ups) shows a count on each option and
-wraps onto a second line on a narrow phone. The sync line says when the roster
-last came from Matcherino, which matters when it
+The event name and its sync button sit at the top. Below them, the search box
+and the progress bar stay put as you scroll, so the cards get the rest of the
+screen. Search takes a name or a badge code. The filter menu beside it (All, Not
+yet, Checked in, Comped, Walk-ups) shows a count on each option. The progress bar
+reads "212 of 340 checked in · synced 14:05", leaving refunded people out, and the
+time says when the roster last came from Matcherino. That matters when it
 [goes amber](/help/check-in#when-the-roster-may-be-out-of-date).
 
 Below that, each person gets a card with their name, the account they're linked
@@ -57,7 +57,7 @@ the card's ⋮ menu, well away from the button you tap all day. On a screen 1200
 wide or more, the desk is a table with the same buttons on each row.
 :::
 
-![The check-in desk on a phone: the search box, the progress bar, the filter switch and the sync line, above cards for a Base buyer, a volunteer and someone with no badge; on the first card the Not linked button is marked 1, Check in 2 and the ⋮ menu 3](/static/help/check-in/desk-phone.webp "The desk on a phone: **Not linked** (1), **Check in** (2) and the card's ⋮ menu (3).")
+![The check-in desk on a phone: the search box with the filter menu beside it and the progress bar, above cards for a Base buyer, a volunteer and someone with no badge; on the first card the Not linked button is marked 1, Check in 2 and the ⋮ menu 3](/static/help/check-in/desk-phone.webp "The desk on a phone: **Not linked** (1), **Check in** (2) and the card's ⋮ menu (3).")
 
 ## Finding someone
 
@@ -65,7 +65,7 @@ Search matches the name they bought under, the name of their linked account,
 their Discord and Twitch usernames, and every badge code they hold. It runs on
 your phone, so results show up as you type, even on slow venue wifi.
 
-No match? Try the badge code instead of the name, and make sure the filter switch
+No match? Try the badge code instead of the name, and make sure the filter menu
 is on All. If there's still nothing, they aren't on the roster. They may have
 bought after the last sync, or not bought at all. Send them to staff.
 
@@ -201,11 +201,12 @@ Staff see an outlined **Check in anyway** button instead, which asks to confirm.
 
 :::snippet check-in-sync
 The roster comes from Matcherino's badge sales and refreshes itself every few
-minutes. The sync line under the filters says how fresh it is:
+minutes. The time on the progress line says how fresh it is, and a line appears
+under it when something needs your attention:
 
-| Sync line | Means |
+| What you see | Means |
 |---|---|
-| "Synced with Matcherino at 14:05 · 340 with badges" | All good. |
+| "212 of 340 checked in · synced 14:05" | All good. |
 | "Couldn't reach Matcherino at 14:10, so the roster may be out of date." (in amber) | The last refresh failed. The desk keeps going with the last good roster. |
 | "Not synced with Matcherino yet." | The event hasn't pulled its first roster. |
 | "Comps only" / "Walk-ups only" | This event has no Matcherino venue, on purpose. |

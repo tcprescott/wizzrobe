@@ -189,7 +189,7 @@ surface them unchanged:
 | `MissingCredentialError` | `(False, str(e), None)` — names the credential to configure |
 | A `SeedProviderError` (upstream down / rate-limiting / rejected the settings) | `(False, str(e), None)` — the envelope's curated message, so the reader can tell "try again in a minute" from "this preset will never roll" |
 | Any other exception during generation | `(False, "Seed generation failed. Please check the server logs.", None)` |
-| Success | `(True, "Seed generated successfully for match ID {id}", seed_url)` |
+| Success | `(True, "Seed rolled for {match label}.", seed_url)` — the label is the matchup or title, never the id |
 
 The UI maps these to `ui.notify` colors and silently skips the "already in progress" case.
 

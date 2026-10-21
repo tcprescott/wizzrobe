@@ -396,6 +396,11 @@ EVENT_APPROVED = _notice(
     'community_event_approved', 'Community', 'Community event approved',
     'Staff approve an event', {MEMBERS: PING}, {MEMBERS: 'The host'},
 )
+EVENT_POSTED_FOR_YOU = _notice(
+    'community_event_posted_for_you', 'Community', 'Community event posted for you',
+    'Staff post an event with a member as its host, or hand one over',
+    {MEMBERS: PING}, {MEMBERS: 'The new host'},
+)
 EVENT_LISTED = _notice(
     'community_event_listed', 'Community', 'New community event',
     'Staff list a new community event', {MEMBERS: PING},
@@ -501,7 +506,7 @@ SECTIONS: Dict[str, Tuple[Tuple[str, Tuple[Notice, ...]], ...]] = {
         ('Membership', (JOIN_REQUEST, JOIN_APPROVED, JOIN_DECLINED, WELCOME, MEMBERSHIP_REMOVED)),
         ('ADA', (ADA_REQUEST, ADA_CHANGED)),
         ('Community events', (
-            EVENT_TO_REVIEW, EVENT_APPROVED, EVENT_LISTED, EVENT_REJECTED, EVENT_MOVED,
+            EVENT_TO_REVIEW, EVENT_APPROVED, EVENT_POSTED_FOR_YOU, EVENT_LISTED, EVENT_REJECTED, EVENT_MOVED,
             EVENT_CANCELLED, EVENT_REMINDER,
         )),
     ),

@@ -93,6 +93,15 @@ class TestBadges:
         assert 'example.com' not in stored and '555-0100' not in stored and 'Main St' not in stored
         assert 'transactions' not in badge.source_data
 
+    async def test_a_purchase_listed_twice_syncs_as_one_badge(self, service, client, staff, event):
+        twice = mock_purchase(100, 'Twice', tier=BASE, purchase_id=1)
+        client.set([twice, twice], tiers=[BASE])
+
+        result = await service.sync_event(staff, event.id)
+
+        assert (result.total, result.badges) == (1, 1)
+        assert await CheckInPass.filter(event=event).count() == 1
+
     async def test_a_refund_withdraws_a_buyer_with_nothing_left(self, service, client, staff, event):
         client.set([mock_purchase(100, 'Refunded', purchase_id=1),
                     mock_purchase(200, 'Keeps one', purchase_id=2),

@@ -1,5 +1,6 @@
 """CommunityEventService: submission, review, edits, cancellation, subscriptions, and who hears what."""
 
+import json
 from datetime import datetime, timedelta, timezone
 
 import pytest
@@ -116,6 +117,80 @@ async def test_a_staff_submission_is_listed_straight_away(staff, dms):
         AuditActions.COMMUNITY_EVENT_SUBMITTED, AuditActions.COMMUNITY_EVENT_APPROVED,
     ]
     assert await dms() == []
+
+
+# --- posting for someone else ---------------------------------------------------
+
+
+async def test_staff_can_post_an_event_with_a_member_as_host(member, staff, dms):
+    event = await CommunityEventService().submit(staff, _draft(), host_id=member.id)
+
+    assert event.host_id == member.id
+    assert event.status is CommunityEventStatus.APPROVED
+    assert event.reviewed_by_id == staff.id
+    submitted = await AuditLog.filter(action=AuditActions.COMMUNITY_EVENT_SUBMITTED).first()
+    assert submitted.user_id == staff.id
+    assert json.loads(submitted.details)['on_behalf_of'] == member.id
+    sent = await dms()
+    assert [d['to'] for d in sent] == [600]
+    assert 'staffer' in sent[0]['text'] and 'Board games' in sent[0]['text']
+    assert sent[0]['notice'].key == 'community_event_posted_for_you'
+    assert sent[0]['link'].url.endswith(f'/community-events/{event.id}')
+
+
+async def test_the_member_staff_posted_for_can_edit_and_cancel_it(member, staff, dms):
+    service = CommunityEventService()
+    event = await service.submit(staff, _draft(), host_id=member.id)
+
+    await service.update(member, event.id, _draft(title='Card swap'))
+    assert (await service.cancel(member, event.id)).status is CommunityEventStatus.CANCELLED
+    assert [e.id for e in await service.list_mine(member)] == [event.id]
+
+
+async def test_a_member_cannot_post_for_someone_else(member, other_member):
+    with pytest.raises(PermissionError):
+        await CommunityEventService().submit(member, _draft(), host_id=other_member.id)
+    assert await CommunityEvent.all().count() == 0
+
+
+async def test_naming_yourself_as_host_is_an_ordinary_submission(member, staff, dms):
+    event = await CommunityEventService().submit(member, _draft(), host_id=member.id)
+    assert event.host_id == member.id
+    assert event.status is CommunityEventStatus.PENDING
+
+
+async def test_the_host_must_belong_to_the_community(staff):
+    outsider = await make_user(discord_id=700, username='outsider')
+    with pytest.raises(NotFoundError):
+        await CommunityEventService().submit(staff, _draft(), host_id=outsider.id)
+    with pytest.raises(NotFoundError):
+        await CommunityEventService().submit(staff, _draft(), host_id=999_999)
+    assert await CommunityEvent.all().count() == 0
+
+
+async def test_staff_can_hand_an_event_to_another_member(member, other_member, staff, dms):
+    service = CommunityEventService()
+    event = await service.submit(member, _draft())
+    await service.approve(staff, event.id)
+    await dms()
+
+    saved = await service.update(staff, event.id, _draft(), host_id=other_member.id)
+
+    assert saved.host_id == other_member.id
+    assert (await CommunityEvent.get(id=event.id)).host_id == other_member.id
+    updated = await AuditLog.filter(action=AuditActions.COMMUNITY_EVENT_UPDATED).first()
+    assert json.loads(updated.details)['previous_host_id'] == member.id
+    sent = await dms()
+    assert [d['to'] for d in sent] == [602]
+    assert 'handed you' in sent[0]['text']
+
+
+async def test_a_host_cannot_hand_their_event_to_someone_else(member, other_member):
+    service = CommunityEventService()
+    event = await service.submit(member, _draft())
+    with pytest.raises(PermissionError):
+        await service.update(member, event.id, _draft(), host_id=other_member.id)
+    assert (await CommunityEvent.get(id=event.id)).host_id == member.id
 
 
 async def test_with_approval_turned_off_a_member_submission_is_listed_straight_away(member, staff, dms):

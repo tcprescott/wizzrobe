@@ -42,6 +42,20 @@ def approved_dm(community_name: str, title: str, rsvp_enabled: bool = False) -> 
     )
 
 
+def handed_over_dm(community_name: str, staff_name: str, title: str, *, new_event: bool,
+                   listed: bool) -> str:
+    """DM to a member staff made the host of an event, new or existing."""
+    what = 'posted' if new_event else 'handed you'
+    status = (
+        "It's listed in the community events." if listed
+        else "It isn't listed yet."
+    )
+    return (
+        f'**{literal(staff_name)}** {what} **{literal(title)}** in **{community_name}** with you as '
+        f'the host. {status} You can edit or cancel it from the event page.'
+    )
+
+
 def rejected_dm(community_name: str, title: str, reason: str, was_listed: bool) -> str:
     """DM to the host when staff reject their event or take a listed one down."""
     what = 'was taken off' if was_listed else "wasn't approved for"

@@ -93,10 +93,7 @@ async def create_position(payload: VolunteerPositionCreate, actor: User = Depend
 async def update_position(position_id: int, payload: VolunteerPositionUpdate, actor: User = Depends(require_write_actor)):
     service = VolunteerPositionService()
     position = require_found(await service.get(position_id), "Position")
-    fields = payload.model_dump(exclude_unset=True)
-    if not fields:
-        return position
-    return await service.update(actor, position, **fields)
+    return await service.update(actor, position, **payload.model_dump(exclude_unset=True))
 
 
 @router.delete(
@@ -184,8 +181,7 @@ async def update_shift(shift_id: int, payload: VolunteerShiftUpdate, actor: User
     for key in ('label', 'notes'):
         if key in fields:
             fields[key] = (fields[key] or '').strip() or None
-    if fields:
-        await service.update_shift(actor, shift, **fields)
+    await service.update_shift(actor, shift, **fields)
     return _shift_resp(require_found(await service.get_shift(shift_id), "Shift"), include_drafts=True)
 
 

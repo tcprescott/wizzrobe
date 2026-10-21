@@ -12,7 +12,7 @@ from typing import List, Optional
 
 from nicegui import ui
 
-from application.services import MatchSuggestionService
+from application.services import MatchSuggestionService, RoundScheduleService, RoundWindowError
 from application.utils.timezone import format_local_display, parse_local_datetime
 from models import User
 from theme.dialog._helpers import dialog_actions, form_dialog
@@ -62,6 +62,37 @@ async def confirm_time(
             ui.button('Change time', on_click=lambda: dialog.submit(False)).props('flat')
             ui.button(confirm_label, on_click=lambda: dialog.submit(True)).props('color=primary')
     return bool(await dialog)
+
+
+async def window_refusal(
+    *,
+    date_value: Optional[str],
+    time_value: Optional[str],
+    actor: Optional[User],
+    bracket_match_id: Optional[int] = None,
+    challonge_match_id: Optional[int] = None,
+    startgg_set_id: Optional[int] = None,
+) -> Optional[str]:
+    """The booking-window refusal the save would hit, when the actor can't book past it.
+
+    Checked before the clash sheet, which would otherwise offer a player
+    "Schedule anyway" for a time the save then refuses. Staff (who can
+    override) get ``None`` and keep the sheet, then the window's own warning.
+    """
+    try:
+        scheduled_at = parse_local_datetime(date_value or '', time_value or '')
+    except ValueError:
+        return None
+    try:
+        await RoundScheduleService().check_reference(
+            scheduled_at, actor, bracket_match_id=bracket_match_id,
+            challonge_match_id=challonge_match_id, startgg_set_id=startgg_set_id,
+        )
+    except RoundWindowError as e:
+        return None if e.can_override else str(e)
+    except Exception:
+        logger.warning('Booking window pre-check failed; the save checks it again', exc_info=True)
+    return None
 
 
 async def confirm_local_time(

@@ -102,7 +102,8 @@ class StaffAlertService:
         nobody_on_duty = not recipients
 
         # Admins before the fallback, so a staff member who also admins the
-        # tournament reads as an admin and follows that column's setting.
+        # tournament reads as an admin and follows that column's setting, unless
+        # the desk is empty and they are standing in for it.
         await match.fetch_related('tournament__admins')
         tournament = match.tournament
         if tournament is not None:
@@ -112,7 +113,13 @@ class StaffAlertService:
                     await add(admin, NotificationRecipient.ADMINS)
         if nobody_on_duty:
             for user in await UserRoleRepository.list_users_with_role(Role.STAFF):
-                await add(user, NotificationRecipient.STAFF)
+                if user.id in recipients:
+                    # A staff member who also admins the tournament is standing
+                    # in for the empty desk: tagged as an admin, "Ping on-duty"
+                    # (admins off) muted the very fallback it promises to keep.
+                    recipients[user.id] = (recipients[user.id][0], NotificationRecipient.STAFF)
+                else:
+                    await add(user, NotificationRecipient.STAFF)
         return list(recipients.values())
 
     @staticmethod
@@ -144,7 +151,8 @@ class StaffAlertService:
             recipients.setdefault(user.id, (user, NotificationRecipient.ADMINS))
         if nobody_on_duty:
             for user in await UserRoleRepository.list_users_with_role(Role.STAFF, active_only=True):
-                recipients.setdefault(user.id, (user, NotificationRecipient.STAFF))
+                # Staff who coordinate volunteers too still stand in for the desk.
+                recipients[user.id] = (user, NotificationRecipient.STAFF)
         return list(recipients.values())
 
     @staticmethod

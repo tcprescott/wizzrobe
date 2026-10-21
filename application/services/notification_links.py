@@ -26,6 +26,7 @@ routes.
 import logging
 from typing import Any, Optional
 
+from application.services.notification_catalog import CATALOG, NoticeTarget
 from application.tenant_context import get_current_tenant_id
 from application.utils.app_links import (
     HOME_SCHEDULE,
@@ -44,6 +45,7 @@ from application.utils.app_links import (
     community_event_url,
     crew_match_url,
     home_url,
+    my_message_url,
     player_agree_url,
     player_challonge_schedule_url,
     player_hard_preset_url,
@@ -58,6 +60,7 @@ from application.utils.app_links import (
     volunteer_release_url,
 )
 from application.utils.discord_messages import DMLink
+from application.utils.settings_footnote import SettingsFootnote
 from application.utils.tenant_urls import tenant_url
 
 logger = logging.getLogger(__name__)
@@ -285,6 +288,25 @@ async def profile_notifications(*, label: str = 'Notification settings') -> Opti
     return await link_for(label, '/home/profile?focus=notifications')
 
 
+async def settings_footnote(
+    notice: Optional[NoticeTarget], message_id: Optional[int] = None,
+) -> Optional[SettingsFootnote]:
+    """The footnote for a catalogued DM, or ``None``.
+
+    Only catalogued messages get one: anything else (a channel test, the
+    platform health alert) has no setting to point at. With the logged
+    message's id it opens that message in your history, its switch beside it;
+    without one (the log write failed) it falls back to Profile → Notifications.
+    """
+    if notice is None:
+        return None
+    if message_id is not None:
+        link = await link_for('Notification settings', my_message_url(message_id))
+    else:
+        link = await profile_notifications()
+    return SettingsFootnote(CATALOG[notice.key].title, link) if link else None
+
+
 async def volunteer_my_shifts(*, label: str = 'Your shifts') -> Optional[DMLink]:
     """My Schedule at your shifts, for a DM whose own buttons already carry the actions."""
     return await link_for(label, volunteer_my_shifts_url())
@@ -310,7 +332,7 @@ async def admin_tournaments(*, label: str = 'Open tournaments') -> Optional[DMLi
 
 
 async def admin_users(*, label: str = 'Review the request') -> Optional[DMLink]:
-    """The Users tab, where join requests are approved or denied."""
+    """The Members tab, where join requests are approved or denied."""
     return await link_for(label, admin_url(USERS))
 
 

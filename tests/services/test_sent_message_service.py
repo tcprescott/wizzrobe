@@ -104,3 +104,51 @@ async def test_the_notice_is_logged_and_an_off_notice_is_not():
     # Off by default for players: nothing went out, so nothing is logged.
     await MockDiscordService().send_dm(907, 'Match started', notice=MATCH_STARTED.to(PLAYERS))
     assert await SentMessage.filter(discord_id='907').count() == 1
+
+
+# ------------------------------------------------- your own messages
+
+
+async def test_anyone_reads_their_own_messages_and_only_theirs():
+    from application.services.notification_catalog import MATCHUP_READY, PLAYERS, SHIFT_REMINDER, VOLUNTEERS
+
+    me = await make_user(discord_id=910, username='me')
+    await make_user(discord_id=911, username='them')
+    await MockDiscordService().send_dm(910, 'Ready to book', notice=MATCHUP_READY.to(PLAYERS))
+    await MockDiscordService().send_dm(910, 'Your shift is soon', notice=SHIFT_REMINDER.to(VOLUNTEERS))
+    await MockDiscordService().send_dm(911, 'Not yours', notice=MATCHUP_READY.to(PLAYERS))
+
+    service = SentMessageService()
+    mine = await service.list_mine(actor=me)
+    assert [m.body for m in mine] == ['Your shift is soon', 'Ready to book']
+    assert await service.count_mine(actor=me) == 2
+    assert await service.my_groups(actor=me) == ['Brackets', 'Volunteer shifts']
+    assert [m.body for m in await service.list_mine(actor=me, group='Volunteer shifts')] == ['Your shift is soon']
+
+    theirs = await SentMessage.get(discord_id='911')
+    assert await service.get_mine(theirs.id, actor=me) is None
+    assert (await service.get_mine(mine[0].id, actor=me)).body == 'Your shift is soon'
+
+
+async def test_another_communitys_messages_stay_there():
+    from models import Tenant
+
+    me = await make_user(discord_id=912, username='me2')
+    other = await Tenant.create(name='Elsewhere', slug='elsewhere')
+    set_tenant_id(other.id)
+    await MockDiscordService().send_dm(912, 'From elsewhere')
+    row = await SentMessage.get(discord_id='912')
+    set_tenant_id(DEFAULT_TEST_TENANT_ID)
+
+    service = SentMessageService()
+    assert await service.list_mine(actor=me) == []
+    assert await service.get_mine(row.id, actor=me) is None
+
+
+async def test_the_footnote_opens_the_message_in_your_history(capsys):
+    from application.services.notification_catalog import MATCHUP_READY, PLAYERS
+
+    await make_user(discord_id=913, username='linked')
+    await MockDiscordService().send_dm(913, 'Ready to book', notice=MATCHUP_READY.to(PLAYERS))
+    row = await SentMessage.get(discord_id='913')
+    assert f'/messages?message={row.id}' in capsys.readouterr().out

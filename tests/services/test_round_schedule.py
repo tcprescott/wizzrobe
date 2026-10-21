@@ -244,6 +244,17 @@ class TestEnforcement:
         assert err.value.can_override
         await service.check_time(found, t, at(21, 12), None, allow_outside_round=True)
 
+    async def test_check_reference_reads_the_matchup(self, db, privileged):
+        privileged(False)
+        t, made = await self._setup()
+        service = RoundScheduleService()
+        with pytest.raises(RoundWindowError) as err:
+            await service.check_reference(at(21, 12), None, challonge_match_id=made[2].id)
+        assert not err.value.can_override
+        await service.check_reference(at(21, 19), None, challonge_match_id=made[2].id)
+        await service.check_reference(at(21, 12), None, challonge_match_id=made[3].id)
+        await service.check_reference(at(21, 12), None)
+
     async def test_challonge_booking_refuses_outside_window(self, db, monkeypatch, privileged):
         privileged(False)
         t, made = await self._setup()

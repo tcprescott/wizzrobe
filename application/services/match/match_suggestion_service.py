@@ -194,6 +194,7 @@ class MatchSuggestionService:
         event_start_dt = parse_local_datetime(event_start.isoformat(), '00:00', tz)
         event_end_dt = parse_local_datetime(event_end.isoformat(), '23:59', tz)
         avail_map = await self._build_availability_map(player_ids, event_start_dt, event_end_dt)
+        shifts = await self._shift_map(player_ids, event_start_dt, event_end_dt)
 
         # --- Primary search: next 4 hours ---
         primary_end = now + timedelta(hours=_PRIMARY_WINDOW_HOURS)
@@ -202,6 +203,7 @@ class MatchSuggestionService:
         ), stage_window, duration, tz)
         result = self._best_candidate(
             primary_candidates, player_ids, avail_map, existing_matches, duration, capacity,
+            shifts=shifts,
         )
         if result is not None:
             return result
@@ -214,6 +216,7 @@ class MatchSuggestionService:
         fallback_candidates = [(s, e) for s, e in fallback_candidates if s not in primary_set]
         result = self._best_candidate(
             fallback_candidates, player_ids, avail_map, existing_matches, duration, capacity,
+            shifts=shifts,
         )
         if result is not None:
             return result
@@ -238,8 +241,8 @@ class MatchSuggestionService:
 
         Advisory only: the booking dialogs show these and let the person save
         anyway, so nothing here refuses. The rules are Suggest a time's, so a
-        suggested slot comes back clean, plus the commitments it never reads:
-        approved crew slots and published volunteer shifts.
+        suggested slot comes back clean, plus the one commitment it never
+        reads: approved crew slots.
 
         Each player's own commitments are spelled out to themselves, and to
         Staff and the tournament's admins. Anyone else gets a player's other
@@ -479,12 +482,15 @@ class MatchSuggestionService:
         existing_matches: List[Match],
         duration: timedelta,
         capacity: int = _DEFAULT_CAPACITY,
+        *,
+        shifts: Optional[dict[int, List[Tuple[datetime, datetime]]]] = None,
     ) -> Optional[datetime]:
         """Score candidates and return the best UTC start time, or None.
 
-        A slot is out when a player blocked it, when a player is already in a
-        match that overlaps it, or when adding this match would take the room
-        past ``capacity`` concurrent players at any moment of the slot.
+        A slot is out when a player blocked it, is on a published volunteer
+        shift then (``shifts``), is already in a match that overlaps it, or when
+        adding this match would take the room past ``capacity`` concurrent
+        players at any moment of the slot.
 
         Of the rest, the earliest slot that keeps the room within its headroom
         wins; only when none does is the room filled up to the cap. A player's
@@ -508,6 +514,11 @@ class MatchSuggestionService:
                     preferred_count += 1
 
             if not eligible:
+                continue
+            if shifts and any(
+                start < slot_end and end > slot_start
+                for pid in player_ids for start, end in shifts.get(pid, ())
+            ):
                 continue
 
             overlapping = [b for b in bookings if b.start < slot_end and b.end > slot_start]
@@ -565,6 +576,21 @@ class MatchSuggestionService:
             return dt.replace(second=0, microsecond=0)
         add = _SLOT_INTERVAL_MIN - remainder
         return (dt + timedelta(minutes=add)).replace(second=0, microsecond=0)
+
+    async def _shift_map(
+        self, player_ids: List[int], start: datetime, end: datetime,
+    ) -> dict[int, List[Tuple[datetime, datetime]]]:
+        """Each player's published volunteer shifts in the range, the same ones
+        the "Check this time" sheet warns about. Crew slots stay advisory."""
+        if not await FeatureFlagService().is_enabled(FeatureFlag.VOLUNTEERS):
+            return {}
+        out: dict[int, List[Tuple[datetime, datetime]]] = {}
+        for uid in player_ids:
+            for a in await self.assignment_repository.overlapping_for_user(
+                uid, start, end, published_only=True,
+            ):
+                out.setdefault(uid, []).append((a.shift.starts_at, a.shift.ends_at))
+        return out
 
     async def _build_availability_map(
         self, player_ids: List[int], start: datetime, end: datetime,
