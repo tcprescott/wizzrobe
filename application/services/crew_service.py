@@ -6,7 +6,7 @@ Handles crew (commentator and tracker) related operations.
 
 import logging
 from datetime import datetime, timedelta, timezone
-from typing import Callable, Optional, Tuple, Union
+from typing import Optional, Union
 
 from tortoise.transactions import in_transaction
 
@@ -15,6 +15,12 @@ from application.events import Event, EventType, event_bus, match_live
 from application.repositories import CommentatorRepository, MatchRepository, TrackerRepository
 from application.repositories._save import save_fields
 from application.services import notification_links
+from application.services._crew_signup_dms import (
+    SIGNUP_KIND,
+    crew_dm_parts,
+    mark_signup_dms,
+    restore_signup_dms,
+)
 from application.services.audit_service import AuditActions, AuditService
 from application.services.auth_service import AuthService
 from application.services.discord import discord_queue
@@ -35,7 +41,6 @@ from application.utils.discord_embeds import (
     COLOR_CREW,
     COLOR_FINISHED,
     notification_embed,
-    time_field,
 )
 from application.utils.discord_messages_crew import (
     crew_approval_withdrawn_dm,
@@ -45,7 +50,7 @@ from application.utils.discord_messages_crew import (
 )
 from application.utils.match_labels import players_label
 from application.utils.timezone import format_local_display, to_utc_aware
-from models import Commentator, Match, StaffRequestKind, Tracker, User
+from models import Commentator, Match, Tracker, User
 
 logger = logging.getLogger(__name__)
 
@@ -59,10 +64,6 @@ _signup_notices: dict[tuple[int, int, str], datetime] = {}
 # window turns the owners' "withdrawn" DMs back into the ask.
 _signup_notice_rows: dict[tuple[int, int, str], int] = {}
 
-_SIGNUP_KIND = {
-    'commentator': StaffRequestKind.COMMENTATOR_SIGNUP,
-    'tracker': StaffRequestKind.TRACKER_SIGNUP,
-}
 _WITHDREW_NOTICE = {'commentator': COMMENTATOR_WITHDREW, 'tracker': TRACKER_WITHDREW}
 
 
@@ -237,7 +238,7 @@ class CrewService:
             await self._notify_crew_withdrawal(match, user, role, approved_by_id)
         else:
             now = datetime.now(timezone.utc)
-            await self._mark_signup_dms(
+            await mark_signup_dms(
                 match, crew_member, role, COLOR_FINISHED,
                 lambda _you: handled_copy.crew_signup_withdrawn(user.preferred_name, role, now),
             )
@@ -412,7 +413,7 @@ class CrewService:
         now = datetime.now(timezone.utc)
         if approved:
             await self._request_crew_acknowledgment(crew_member, crew_type)
-            await self._mark_signup_dms(
+            await mark_signup_dms(
                 crew_member.match, crew_member, crew_type, COLOR_CONFIRMED,
                 lambda you: handled_copy.crew_signup_approved(
                     you, actor.preferred_name if actor else 'staff', crew_member.user.preferred_name,
@@ -421,7 +422,7 @@ class CrewService:
             )
         else:
             await self._notify_crew_approval_withdrawn(crew_member, crew_type)
-            await self._mark_signup_dms(
+            await mark_signup_dms(
                 crew_member.match, crew_member, crew_type, COLOR_CREW,
                 lambda _you: handled_copy.crew_signup_pending(crew_member.user.preferred_name, crew_type),
                 link_label='Review the signup',
@@ -498,7 +499,7 @@ class CrewService:
             await self._notify_crew_approval_withdrawn(crew_member, crew_type)
         else:
             now = datetime.now(timezone.utc)
-            await self._mark_signup_dms(
+            await mark_signup_dms(
                 crew_member.match, crew_member, crew_type, COLOR_CANCELLED,
                 lambda you: handled_copy.crew_signup_removed(
                     you, actor.preferred_name, crew_member.user.preferred_name, crew_type, now),
@@ -568,29 +569,7 @@ class CrewService:
         return crew_member
 
     async def _crew_dm_parts(self, match):
-        """Shared DM ingredients for every crew notification.
-
-        Returns the message-builder kwargs and the embed field list — all three
-        notifications describe the same assignment, so they identify it from the
-        same fields.
-        """
-        players = await match.players.all().prefetch_related('user')
-        player_names = [p.user.preferred_name for p in players] if players else []
-        message_kwargs = {
-            'match_title': match.title or None,
-            'scheduled_at_display': time_field(match.scheduled_at),
-            'stage_name': match.stage.name if match.stage else None,
-            'player_names': player_names or None,
-        }
-
-        players_str = players_label(player_names)
-        fields = [('Match', match.title or players_str, False)]
-        if match.title and players_str:
-            fields.append(('Players', players_str, True))
-        fields.append(('Time', time_field(match.scheduled_at), False))
-        if match.stage:
-            fields.append(('Stage', match.stage.name, True))
-        return message_kwargs, fields
+        return await crew_dm_parts(match)
 
     async def _request_crew_acknowledgment(
         self,
@@ -657,43 +636,6 @@ class CrewService:
             self.discord_service.send_dm(int(discord_id), message, embed=embed, notice=CREW_UNASSIGNED.to(CREW))
         )
 
-    async def _mark_signup_dms(
-        self,
-        match,
-        crew_member: Union[Commentator, Tracker],
-        crew_type: str,
-        color: int,
-        card: Callable[[bool], Tuple[str, str]],
-        *,
-        actor_id: Optional[int] = None,
-        link_label: str = 'Open the match',
-    ) -> None:
-        """Edit every owner's copy of the signup DM to say where it stands now.
-
-        ``card(you)`` returns the ``(title, description)``; ``you`` is whether
-        the reader decided it. ``crew_member`` may already be deleted. Best-effort,
-        like the DM it edits.
-        """
-        from application.services import staff_request_dms
-
-        try:
-            _, fields = await self._crew_dm_parts(match)
-            community = await TenantService.current_community_name()
-            link = await notification_links.admin_match(match.id, label=link_label)
-
-            def build(you: bool):
-                title, description = card(you)
-                return notification_embed(
-                    title=title, color=color,
-                    community_name=community, description=description, fields=fields,
-                )
-
-            staff_request_dms.mark_handled(
-                _SIGNUP_KIND[crew_type], crew_member.id, build, link, actor_id=actor_id,
-            )
-        except Exception:
-            logger.exception('Crew signup DM edit failed for %s on match %s', crew_type, match.id)
-
     async def _notify_crew_owners_of_signup(
         self, match, volunteer: User, crew_type: str, crew_id: int,
     ) -> None:
@@ -720,7 +662,7 @@ class CrewService:
             previous = _signup_notice_rows.get(key)
             if previous is not None and previous != crew_id:
                 _signup_notice_rows[key] = crew_id
-                await self._restore_signup_dms(match, volunteer, crew_type, previous, crew_id)
+                await restore_signup_dms(match, volunteer, crew_type, previous, crew_id)
             return
         _signup_notice_rows[key] = crew_id
         try:
@@ -746,32 +688,11 @@ class CrewService:
             )
             link = await notification_links.admin_match(match.id, label='Review the signup')
             await staff_request_dms.send(
-                _SIGNUP_KIND[crew_type], crew_id, [(owner, ADMINS) for owner in owners],
+                SIGNUP_KIND[crew_type], crew_id, [(owner, ADMINS) for owner in owners],
                 message, embed=embed, link=link,
             )
         except Exception:
             logger.exception('Crew signup notice failed for match %s', match.id)
-
-    async def _restore_signup_dms(
-        self, match, volunteer: User, crew_type: str, old_id: int, new_id: int,
-    ) -> None:
-        """A signup made again inside the notice window: the DMs become the ask again."""
-        from application.services import staff_request_dms
-
-        try:
-            _, fields = await self._crew_dm_parts(match)
-            title, description = handled_copy.crew_signup_pending(volunteer.preferred_name, crew_type)
-            embed = notification_embed(
-                title=title, color=COLOR_CREW,
-                community_name=await TenantService.current_community_name(),
-                description=description, fields=fields,
-            )
-            link = await notification_links.admin_match(match.id, label='Review the signup')
-            staff_request_dms.carry_over(
-                _SIGNUP_KIND[crew_type], old_id, new_id, lambda _you: embed, link,
-            )
-        except Exception:
-            logger.exception('Crew signup DM restore failed for match %s', match.id)
 
     async def _notify_crew_withdrawal(
         self,
