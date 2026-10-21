@@ -9,6 +9,7 @@ offers the fix instead of Book….
 """
 
 import asyncio
+from functools import partial
 from typing import Any, Awaitable, Callable, Optional
 
 from nicegui import ui
@@ -209,7 +210,7 @@ class UnbookedBoard:
                     ui.button('Fix entrant', on_click=lambda _=None, i=item: self._fix(i)) \
                         .props('outline color=primary no-caps')
                 if _bracket_link(item) or item.ready:
-                    lazy_more_menu(item.matchup, lambda i=item: self._menu_items(i))
+                    lazy_more_menu(item.matchup, partial(self._menu_items, item))
 
     def _menu_items(self, item: UnbookedMatch) -> None:
         suggested = bool(item.same_player_matches)
