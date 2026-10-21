@@ -15,7 +15,7 @@ anyone in the community can sign up from the Schedule board, so anyone must be
 able to see what they signed up for.
 """
 
-from typing import Optional
+from typing import Callable, Optional
 
 from nicegui import app, ui
 
@@ -33,13 +33,17 @@ from theme.tables.preferences import TableKeys
 CREW_SECTION_ID = 'my-crew'
 
 
-async def my_crew_tab(focus_match: Optional[int] = None) -> bool:
+async def my_crew_tab(
+    focus_match: Optional[int] = None, on_empty: Optional[Callable[[], None]] = None,
+) -> bool:
     """``focus_match`` comes from a crew DM's button (``/home/my-crew?match=``):
     the board narrows to that match, says so, and the page scrolls to it. A
     match the viewer does not crew leaves the board whole and is left to the
     player section's notice.
 
     Draws nothing for someone with no crew slots, and says whether it drew.
+    ``on_empty`` runs when the board runs out of rows (a withdraw, or a filter),
+    so the caller can check whether the section should still be there.
     """
     discord_id = app.storage.user.get('discord_id')
     user = await get_user_from_session(app.storage.user)
@@ -77,6 +81,12 @@ async def my_crew_tab(focus_match: Optional[int] = None) -> bool:
 
         sheet = MatchSheet(None, access=MatchBoardAccess(), url_key='crew_sheet',
                            decorate=lambda row: decorate_player_row(row, discord_id))
+
+        def rows_changed(rows) -> None:
+            sheet.sync(rows)
+            if not rows and on_empty is not None:
+                on_empty()
+
         view = MatchTableView(
             columns=PLAYER_RUN_SHEET_COLUMNS,
             get_query=None,
@@ -85,7 +95,7 @@ async def my_crew_tab(focus_match: Optional[int] = None) -> bool:
             storage_key='my_crew',
             crew_discord_id=discord_id,
             match_ids=match_ids,
-            on_rows_changed=sheet.sync,
+            on_rows_changed=rows_changed,
             layout='player_run_sheet',
             on_open_match=sheet.open,
         )
