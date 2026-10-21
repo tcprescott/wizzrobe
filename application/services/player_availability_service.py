@@ -19,6 +19,7 @@ from typing import Dict, List, Optional, Sequence, Tuple
 from tortoise.transactions import in_transaction
 
 from application.repositories.player_availability_repository import PlayerAvailabilityRepository
+from application.repositories.profile_nudge_repository import ProfileNudgeRepository
 from application.services import availability_windows
 from application.services.audit_service import AuditActions, AuditService
 from models import PlayerAvailability, User, VolunteerAvailabilityStatus
@@ -26,6 +27,11 @@ from models import PlayerAvailability, User, VolunteerAvailabilityStatus
 #: Availability of a stretch nobody has said anything about. Players are
 #: available by default, so the absence of a window is a yes, not a shrug.
 DEFAULT_STATUS = VolunteerAvailabilityStatus.AVAILABLE
+
+#: The one-time "tell us when you can't play" card on My Schedule. Seen-for-good
+#: is a :class:`ProfileNudgeDismissal` row under this key, beside the profile
+#: reminders' own, so it is per member per community like theirs.
+REMINDER_KEY = 'availability'
 
 
 class PlayerAvailabilityService:
@@ -37,6 +43,20 @@ class PlayerAvailabilityService:
 
     async def availability_for(self, user: User) -> List[PlayerAvailability]:
         return await self.repository.list_for_user(user)
+
+    async def needs_reminder(self, user: User) -> bool:
+        """Whether ``user`` should see the "When you can't play" card.
+
+        Only for someone who has blocked nothing out here and hasn't put the
+        card away. The caller decides whether they play in this community.
+        """
+        if await self.repository.list_for_user(user):
+            return False
+        return REMINDER_KEY not in await ProfileNudgeRepository.dismissed_checks(user.id)
+
+    async def dismiss_reminder(self, user: User) -> None:
+        """Hide the card for ``user`` in this community for good."""
+        await ProfileNudgeRepository.dismiss(user.id, REMINDER_KEY)
 
     @staticmethod
     async def _ensure_can_read(actor: Optional[User], user_ids: Sequence[int]) -> None:
