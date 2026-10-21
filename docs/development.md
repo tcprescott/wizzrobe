@@ -330,11 +330,11 @@ rejected and that the avatar hash actually lands.)
 | `lint` | `ruff check .` (**blocking**) then `scripts/mypy_ratchet.py` (blocking, but only on a file that *gains* errors — see below) |
 | `guardrails` | `scripts/guardrails.py --changed` — the `.claude/scripts/` checks against the files this diff touches |
 | `pytest` | `pytest -q` with coverage over `application`, `api`, `middleware` |
-| `changes` | decides which subsystem-only jobs a PR needs from its changed paths. Anything that isn't a pull request (the `publish.yml` gate, a manual run) runs every job |
+| `changes` | decides which subsystem-only jobs a PR needs from its changed paths. Anything that isn't a pull request (the `publish.yml` gate, a manual run) runs every job, and so does a PR whose diff errors or comes back empty: a skipped job reports as passed, so the job fails open |
 | `swiss-crossvalidation` | builds bbpPairings (pinned to a commit) and runs `tests/services/test_bracket_swiss_crossvalidation.py` against it; the suite skips itself unless `BBPPAIRINGS_BIN` points at the executable, so it is opt-in locally. On a PR it runs only when `application/services/bracket_engines/`, the test, `tests/services/_trf.py`, `poetry.lock` or `test.yml` changes; otherwise it reports as skipped, which a required check counts as passed |
-| `postgres` | re-runs `tests/postgres` and `tests/tenancy` against a real PostgreSQL 16 service |
+| `postgres` | re-runs `tests/postgres` and `tests/tenancy` against a real PostgreSQL 16 service. On a PR it skips when every changed path is UI, help or event-info content, docs, change notes or UI tests (`pages/`, `theme/`, `static/`, `application/help/`, `tests/theme/`…); `pytest` still runs the same tests on SQLite |
 | `browser` | boots the real app against PostgreSQL with every integration mocked (that boot applies the full migration chain to an empty database, which is CI's migration check), seeds it, and walks the surfaces in [`scripts/ui_smoke_ci.json`](../scripts/ui_smoke_ci.json) in headless Chromium, then runs [`scripts/ui_layout_shift.js`](../scripts/ui_layout_shift.js) ([style-guide.md](style-guide.md#hold-still)). The only job that executes `pages/` and `theme/` at all — the coverage figure above covers neither, and their Quasar slot templates run client-side where Python cannot reach them. The shared setup lives in [`.github/actions/boot-app`](../.github/actions/boot-app/action.yml). Screenshots upload as an artifact on pass or fail |
-| `browser-a11y` | the same boot on its own app, then [`scripts/ui_a11y_scan.js`](../scripts/ui_a11y_scan.js) over [`scripts/ui_a11y_ci.json`](../scripts/ui_a11y_ci.json): axe's WCAG 2.1 AA rules and a tint-aware contrast check on each page, in light and dark ([style-guide.md](style-guide.md#checking-your-change)) |
+| `browser-a11y` | the same boot on its own app, then [`scripts/ui_a11y_scan.js`](../scripts/ui_a11y_scan.js) over [`scripts/ui_a11y_ci.json`](../scripts/ui_a11y_ci.json): axe's WCAG 2.1 AA rules and a tint-aware contrast check on each page, in light and dark ([style-guide.md](style-guide.md#checking-your-change)). On a PR it runs only when the UI layers or what they render change: `pages/`, `theme/`, `static/`, `application/{help,content,about,event_info}/`, `scripts/ui_*`, `scripts/seed_dev.py`, `main.py`, `middleware/`, the lockfile or `.github/`. A backend-only PR skips it; the `browser` smoke walk still renders every page |
 
 Pull requests trigger it directly. Pushes to `main` and `v*` tags reach it
 through `workflow_call` from [`publish.yml`](../.github/workflows/publish.yml),
@@ -343,7 +343,7 @@ the same thing that guarded the PR, and a `main` push runs it once rather than
 twice. Image publishing itself is described in [deployment.md](deployment.md).
 
 Two more workflows run on their own schedule: `security.yml` (pip-audit over the
-runtime dependencies, on every PR, every push to `main`, and weekly) and `guardrail-sweep.yml` (the
+runtime dependencies, on every push to `main`, weekly, and on a PR that changes `poetry.lock`, `pyproject.toml` or the workflow; any other PR reports the job green without auditing) and `guardrail-sweep.yml` (the
 whole-tree guardrail run, weekly).
 
 ## Conventions & adding a feature
