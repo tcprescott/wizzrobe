@@ -121,7 +121,9 @@ async def show_section(layout: 'BaseLayout', url: str) -> None:
     """Swap the drawer's page list to the section at ``url``, loading it once."""
     if url not in layout._section_lists:
         tabs = await section_tabs(layout, url)
-        with layout._section_host:
+        host = layout._section_host
+        assert host is not None, 'the strip only renders inside the drawer that sets the host'
+        with host:
             with ui.list().props('padding') as section_list:
                 if tabs:
                     render_page_items(layout, tabs, section_url=url)

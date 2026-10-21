@@ -115,7 +115,7 @@ class BaseLayout:
         self._tab_item_refs: dict = {}
         self._section_buttons: dict = {}
         self._section_lists: dict = {}
-        self._section_host = None
+        self._section_host: ui.element | None = None
         self._shown_tab: str | None = None
         self._section = section
         # Lazy tab rendering: every panel gets a container up front, but its
