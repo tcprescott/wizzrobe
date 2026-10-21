@@ -129,6 +129,11 @@ MATCH_CONFIRMED = _notice(
     'match_confirmed', 'Matches', 'Result confirmed', 'Staff confirm the result',
     {PLAYERS: SILENT, CREW: SILENT, WATCHERS: SILENT},
 )
+MATCH_FORFEITED = _notice(
+    'match_forfeited', 'Matches', 'Match forfeited',
+    'Staff decide a match by forfeit: a no-show, a withdrawal or a DQ',
+    {PLAYERS: PING, CREW: PING, WATCHERS: SILENT},
+)
 MATCH_RESULT = _notice(
     'match_result', 'Matches', 'Match result',
     'Staff confirm the result, with who placed where',
@@ -268,6 +273,10 @@ ADDED_TO_TOURNAMENT = _notice(
 REMOVED_FROM_TOURNAMENT = _notice(
     'removed_from_tournament', 'Brackets', 'Removed from a tournament',
     'Staff take a player out of a tournament', {PLAYERS: PING}, {PLAYERS: _OPTED_IN},
+)
+DROPPED_FROM_TOURNAMENT = _notice(
+    'dropped_from_tournament', 'Brackets', 'Dropped from a tournament',
+    'Staff drop a player, forfeiting or calling off their open matches', {PLAYERS: PING},
 )
 PLAYER_WITHDREW = _notice(
     'player_withdrew', 'Brackets', 'Player withdrew',
@@ -499,7 +508,7 @@ SECTIONS: Dict[str, Tuple[Tuple[str, Tuple[Notice, ...]], ...]] = {
             MATCH_CHECKED_IN, SEED_READY, STATION_ASSIGNED, RACE_ROOM_OPEN, STAGE_CALL,
             STAGE_CLEARED, STAGE_REMINDER, MATCH_STARTED, MATCH_FINISHED,
         )),
-        ('Results', (MATCH_CONFIRMED, MATCH_RESULT)),
+        ('Results', (MATCH_CONFIRMED, MATCH_FORFEITED, MATCH_RESULT)),
         ('Comments and staff alerts', (
             STAFF_COMMENT, PLAYER_COMMENT, PLAYER_LATE, MATCH_FLAGGED, STREAM_OFFER, SEED_FAILED,
         )),
@@ -608,6 +617,7 @@ _URGENT: Dict[str, frozenset] = {
     STAGE_CLEARED.key: frozenset({PLAYERS, CREW}),
     STAGE_REMINDER.key: frozenset({PLAYERS, CREW}),
     MATCH_CANCELLED.key: frozenset({PLAYERS, CREW}),
+    MATCH_FORFEITED.key: frozenset({CREW}),
     MATCH_CANCELLED_ON_REQUEST.key: frozenset({PLAYERS, CREW}),
     SERIES_GAME_CANCELLED.key: frozenset({PLAYERS, CREW}),
     REMOVED_FROM_MATCH.key: frozenset({PLAYERS}),

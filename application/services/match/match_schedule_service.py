@@ -356,6 +356,10 @@ class MatchScheduleService(MatchNotificationMixin):
                 event_extra={'tournament_id': match.tournament_id},
             )
 
+        self.push_confirmed_result(match, actor)
+
+    def push_confirmed_result(self, match: Match, actor: Optional[User]) -> None:
+        """Hand a confirmed result on to every bracket the match mirrors, off the request path."""
         # Push the confirmed result to Challonge when this match mirrors a
         # bracket match. Fire-and-forget so a Challonge outage never blocks
         # confirmation; failures are visible via audit and the manual re-push.

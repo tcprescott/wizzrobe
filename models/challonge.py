@@ -47,6 +47,9 @@ class ChallongeParticipant(Model):
     # Set when a tournament editor assigned ``user`` by hand — an entrant added
     # by name has no Challonge account to resolve. Sync never overwrites it.
     user_assigned_manually = fields.BooleanField(default=False)
+    # False once Challonge marks the entrant inactive: dropped after the bracket
+    # started, so their remaining matches are forfeits. They leave the roster.
+    active = fields.BooleanField(default=True)
     created_at = fields.DatetimeField(auto_now_add=True)
     updated_at = fields.DatetimeField(auto_now=True)
 

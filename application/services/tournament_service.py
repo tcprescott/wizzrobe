@@ -15,6 +15,7 @@ from application.repositories import (
     RacetimeBotRepository,
     TournamentRepository,
 )
+from application.services._tournament_drop import TournamentDropMixin
 from application.services._tournament_signup import (
     COLOR_SIGNUP,
     TournamentSignupCard,
@@ -46,11 +47,12 @@ _UNSET = object()
 DELETE_CONFIRMATION_PHRASE = 'permanently delete'
 
 
-class TournamentService(TournamentSignupMixin):
+class TournamentService(TournamentDropMixin, TournamentSignupMixin):
     """Service for tournament-related business operations.
 
     Player self-service signup lives in
-    :class:`~application.services._tournament_signup.TournamentSignupMixin`.
+    :class:`~application.services._tournament_signup.TournamentSignupMixin`, and
+    staff dropping a player in :class:`~application.services._tournament_drop.TournamentDropMixin`.
     """
 
     def __init__(self) -> None:

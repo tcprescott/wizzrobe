@@ -104,6 +104,7 @@ class MatchNotificationMixin:
     async def notify_match_participants(
         self, match: Match, message: str, embed: Optional[discord.Embed] = None,
         *, notice: Notice, player_copies: Optional[dict] = None,
+        skip_discord_ids: frozenset = frozenset(),
     ) -> None:
         """
         Send a DM to all opted-in players, approved crew, and watchers for a match.
@@ -123,6 +124,8 @@ class MatchNotificationMixin:
         try:
             recipients = await collect_match_audience(match)
             for discord_id, recipient in recipients.items():
+                if discord_id in skip_discord_ids:
+                    continue
                 if player_copies and recipient.audience == AUDIENCE_PLAYER and discord_id in player_copies:
                     text, card = player_copies[discord_id]
                 else:

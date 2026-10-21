@@ -455,13 +455,13 @@ replaces the whole asset.
 |---|---|
 | Scheduling | `create_match`, `submit_match_request`, `update_match`, `delete_match` |
 | Stream and stations | `set_match_stream_candidate`, `assign_match_stage`, `assign_match_stations` |
-| Lifecycle | `seat_match`, `start_match`, `finish_match`, `confirm_match`, `record_match_result`, `set_match_review`, `generate_match_seed` |
+| Lifecycle | `seat_match`, `start_match`, `finish_match`, `confirm_match`, `record_match_result`, `forfeit_match`, `set_match_review`, `generate_match_seed` |
 | Crew approval | `set_crew_approval` (staff, tournament admins, crew coordinators) |
 | Your own participation | `signup_as_crew`, `withdraw_crew_signup`, `acknowledge_match`, `watch_match`, `unwatch_match`, `offer_match_for_stream`, `withdraw_stream_offer`, `sign_up_for_tournament`, `withdraw_from_tournament` |
 | Check-in desk (`EVENT_CHECK_IN`) | `check_in_attendee`, `undo_attendee_check_in`, `link_attendee`, `unlink_attendee`, `add_walk_up`, `sync_check_in_event` |
 | Volunteers (`VOLUNTEERS`) | `check_in_volunteer` |
 | Membership | `approve_join_request`, `deny_join_request` |
-| Tournaments | `create_tournament`, `update_tournament`, `delete_tournament`, `add_tournament_admin`, `remove_tournament_admin`, `add_crew_coordinator`, `remove_crew_coordinator`, `enroll_tournament_player`, `remove_tournament_player`, `update_tournament_discord_events` |
+| Tournaments | `create_tournament`, `update_tournament`, `delete_tournament`, `add_tournament_admin`, `remove_tournament_admin`, `add_crew_coordinator`, `remove_crew_coordinator`, `enroll_tournament_player`, `remove_tournament_player`, `drop_tournament_player`, `update_tournament_discord_events` |
 | Challonge (`CHALLONGE`) | `link_challonge_tournament`, `unlink_challonge_tournament`, `sync_challonge_tournament` |
 | Stages | `create_stage`, `update_stage`, `delete_stage` |
 | Volunteer schedule (`VOLUNTEERS`) | `create_volunteer_position`, `update_volunteer_position`, `delete_volunteer_position`, `create_volunteer_shift`, `update_volunteer_shift`, `delete_volunteer_shift`, `assign_volunteer`, `unassign_volunteer` |

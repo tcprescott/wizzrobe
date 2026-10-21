@@ -8785,3 +8785,26 @@ ol.wiz-help-list { list-style-type: decimal; }
     margin-left: auto;
     gap: var(--space-2);
 }
+
+/* Forfeit match + Drop player dialogs: who's out, and why. */
+.forfeit-dialog__label {
+    margin-bottom: calc(-1 * var(--space-2));
+    font-size: var(--text-sm);
+    font-weight: 700;
+    color: var(--fg-secondary);
+}
+.forfeit-dialog__tile {
+    min-height: 48px;
+    min-width: 0;
+}
+.forfeit-dialog__tile .q-btn__content {
+    flex-wrap: nowrap;
+    overflow: hidden;
+}
+.forfeit-dialog__tile--out {
+    color: var(--status-cancelled) !important;
+    background: color-mix(in srgb, var(--status-cancelled) 10%, transparent);
+}
+.forfeit-dialog__tile--out::before {
+    border: 2px solid var(--status-cancelled);
+}

@@ -129,6 +129,8 @@ def _normalize_participant(resource: Dict[str, Any]) -> Dict[str, Any]:
         ),
         'username': _attr(resource, 'challonge_username', 'username'),
         'misc': _opt_str(_attr(resource, 'misc')),
+        # Challonge keeps an entrant dropped after the start as inactive.
+        'active': _attr(resource, 'active') is not False,
     }
 
 

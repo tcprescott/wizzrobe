@@ -135,11 +135,12 @@ class ChallongeParticipantAssignmentMixin(ChallongeNotificationMixin):
         """Make the tournament's Players list the bracket's mapped entrants.
 
         Challonge owns a linked tournament's roster, so a player dropped there
-        (or a whole reset) leaves the list too. Their scheduled matches stay.
+        (or a whole reset) leaves the list too, and so does an entrant Challonge
+        marked inactive. Their scheduled matches stay.
         """
         wanted = {
             p.user.id: p.user for p in await self.repository.list_participants(tournament)
-            if p.user is not None
+            if p.user is not None and p.active
         }
         enrolled = {tp.user.id: tp.user for tp in await self.tournament_repository.get_enrolled_players(tournament)}
         for user_id in wanted.keys() - enrolled.keys():

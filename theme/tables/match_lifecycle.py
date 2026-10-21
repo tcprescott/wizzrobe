@@ -268,6 +268,17 @@ class MatchLifecycleHandlers:
             dialog = MatchResultDialog(match=match, on_submit=after_edit, mode='edit')
             await dialog.open()
 
+    async def on_forfeit(self, match_id: int):
+        """Decide a head-to-head match against one player, from the match sheet's ⋮."""
+        from theme.dialog.forfeit_dialog import ForfeitDialog
+
+        match = await Match.get(id=match_id, tenant_id=require_tenant_id())
+
+        async def done() -> None:
+            await self.table_view.update_row_by_id(match_id)
+        with self.page_container:
+            await ForfeitDialog(match, on_done=done).open()
+
     async def on_set_stage(self, match_id: int, stage):
         """Write the row's Stage select: a stage, ``Candidate``, or neither.
 

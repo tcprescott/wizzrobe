@@ -364,6 +364,23 @@ class BaseMatchDialog:
             with dialog:
                 notify_error(e)
 
+    # Staff's edit dialog offers Forfeit…; the player-facing one does not.
+    offers_forfeit = False
+    player_count = 0
+
+    def _offers_forfeit(self) -> bool:
+        return self.offers_forfeit and not self.match.confirmed_at and self.player_count == 2
+
+    async def _open_forfeit(self, edit_dialog) -> None:
+        from theme.dialog.forfeit_dialog import ForfeitDialog
+
+        async def done() -> None:
+            edit_dialog.close()
+            if self.on_submit:
+                await self.on_submit(self.match)
+
+        await ForfeitDialog(self.match, on_done=done).open()
+
     def _open_rewind(self, edit_dialog) -> None:
         """The step picker behind ⋮ → Rewind…: go back to one step, clearing every later one."""
         targets = rewind_targets(self.match)
@@ -623,6 +640,8 @@ class BaseMatchDialog:
                 with dialog_more_menu():
                     if rewind_targets(self.match):
                         menu_action('history', 'Rewind…', lambda: self._open_rewind(dialog))
+                    if self._offers_forfeit():
+                        menu_action('flag', 'Forfeit…', lambda: self._open_forfeit(dialog))
                     # "Call off", not "Cancel": the footer's Cancel just closes
                     # this dialog, where this DMs everyone who committed to it.
                     menu_action('event_busy', 'Call off match…', lambda: self._confirm_cancel(dialog))

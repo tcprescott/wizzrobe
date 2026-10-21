@@ -108,6 +108,23 @@ It doesn't hold anything up. The match stays {state:Finished}, and once you've
 decided, confirming it (with the winner corrected if needed) clears the flag.
 :::
 
+### No-shows, withdrawals and DQs
+
+When a player doesn't turn up, quits, or is disqualified, open the match and press
+**⋮ › Forfeit…** (it's also in Edit match's ⋮). Pick who's out and why, add a note
+if it helps, and press **Forfeit**. The match is confirmed in that one step, the
+other player advances on the bracket, and each player gets one DM. The board shows
+the match as {chip:ok:Forfeit}. Forfeits only work on two-player matches.
+
+To take someone out of the whole tournament, open Admin → Tournaments, tap the
+player count (or the row's **⋮ › Players…**), and press **Remove** beside them. Choose once whether their open
+matches go to their opponents or get called off. If the tournament runs on
+Challonge, they come out of the bracket there too, which forfeits every bracket
+match they haven't played.
+
+Made a mistake? **Rewind** the match from Edit match's ⋮ to before it finished, and
+the forfeit goes with it.
+
 ## Seeds
 
 :::snippet staff-seeds
