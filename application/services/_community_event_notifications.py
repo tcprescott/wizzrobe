@@ -15,12 +15,13 @@ from application.services.notification_catalog import (
     EVENT_APPROVED,
     EVENT_CANCELLED,
     EVENT_MOVED,
+    EVENT_POSTED_FOR_YOU,
     EVENT_REJECTED,
     FOLLOWERS,
     MEMBERS,
     NoticeTarget,
 )
-from models import CommunityEvent, Role, StaffRequestKind, User
+from models import CommunityEvent, CommunityEventStatus, Role, StaffRequestKind, User
 
 logger = logging.getLogger(__name__)
 
@@ -160,6 +161,26 @@ async def notify_host_of_decision(event: CommunityEvent, host: User, *, approved
         await _send([host], message, embed, link, (EVENT_APPROVED if approved else EVENT_REJECTED).to(MEMBERS))
     except Exception:
         logger.exception('community event %s: host notification failed', event.id)
+
+
+async def notify_host_of_handover(event: CommunityEvent, host: User, actor: User, *,
+                                  new_event: bool) -> None:
+    """Tell a member staff made them the host of ``event``."""
+    try:
+        from application.services import notification_links
+        from application.services.tenant_service import TenantService
+        from application.utils.discord_embeds import COLOR_CONFIRMED
+        from application.utils.discord_messages_community_events import handed_over_dm
+
+        community = await TenantService.current_community_name()
+        message = handed_over_dm(community, actor.preferred_name, event.title, new_event=new_event,
+                                 listed=event.status is CommunityEventStatus.APPROVED)
+        embed = event_embed(event, title="📅 You're hosting a community event", color=COLOR_CONFIRMED,
+                            community_name=community, description=message)
+        link = await notification_links.community_event(event.id)
+        await _send([host], message, embed, link, EVENT_POSTED_FOR_YOU.to(MEMBERS))
+    except Exception:
+        logger.exception('community event %s: handover notification failed', event.id)
 
 
 async def notify_subscribers(event: CommunityEvent, subscribers: Iterable[User], *,
