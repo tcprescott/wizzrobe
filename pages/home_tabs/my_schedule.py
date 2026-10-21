@@ -29,9 +29,12 @@ from pages.home_tabs.my_volunteer_shifts import my_volunteer_shifts_section
 from pages.home_tabs.player import render_player_dashboard
 from theme.layout_probe import skip_layout_probe
 from theme.steady import steady_refreshable
+from theme.url_state import url_param, url_state
 
 #: Where the viewer's List / Timeline choice is remembered.
 VIEW_KEY = 'my_schedule_view'
+
+VIEWS = {'list': 'List', 'timeline': 'Timeline'}
 
 
 async def my_schedule_tab(
@@ -69,7 +72,11 @@ async def my_schedule_tab(
     )
     # A DM's link names something to open in the List view, so it wins over a
     # remembered Timeline for this visit without changing the remembered choice.
-    state: dict = {'view': 'list' if deep_link else app.storage.user.get(VIEW_KEY, 'list')}
+    # An address that names the view (a reload, Back, a shared link) wins over both.
+    asked = url_state().requested('view')
+    if asked not in VIEWS:
+        asked = 'list' if deep_link else app.storage.user.get(VIEW_KEY, 'list')
+    state: dict = {'view': asked if asked in VIEWS else 'list'}
 
     async def list_view() -> None:
         if not plays:
@@ -97,10 +104,19 @@ async def my_schedule_tab(
         else:
             await list_view()
 
+    async def restore(value: str) -> None:
+        value = value if value in VIEWS else 'list'
+        state['view'] = value
+        toggle.set_value(value)
+        await body.refresh()
+
     async def switch(value: str) -> None:
+        if value == state['view']:
+            return
         state['view'] = value
         app.storage.user[VIEW_KEY] = value
         await body.refresh()
+        view_param.set(value)
         if target := state.pop('scroll_to', None):
             ui.run_javascript(
                 f"document.getElementById('{target}')"
@@ -115,9 +131,13 @@ async def my_schedule_tab(
 
     with ui.column().classes('page-container wiz-section-stack'):
         toggle = ui.toggle(
-            {'list': 'List', 'timeline': 'Timeline'},
+            VIEWS,
             value=state['view'],
             on_change=lambda e: switch(e.value),
         ).props('dense unelevated no-caps aria-label="Show My Schedule as"') \
             .classes('wiz-segmented wiz-schedule-view')
+        view_param = url_param(
+            'view', toggle, default='list', value=state['view'],
+            label=lambda v: VIEWS[v] if v != 'list' else None, on_restore=restore,
+        )
         await body()

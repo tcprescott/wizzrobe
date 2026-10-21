@@ -16,10 +16,14 @@ from theme.nav_badges import bottom_nav_tab, drawer_tab_badge, nav_icon
 from theme.nav_section import mark_nav_section, nav_section_matches
 from theme.notice import drain_notice
 from theme.page_header import heading_fallback
+from theme.url_state import History, url_state
 from theme.usage_telemetry import install_usage_capture, record_tab_view
 from theme.waiting import waiting_panel
 
 logger = logging.getLogger(__name__)
+
+#: How a hub tab switch enters the browser's history: ``'push'`` makes Back undo it.
+TAB_HISTORY: History = 'push'
 
 #: Home's four sections as ``(label, icon)``. Home builds its tabs from these,
 #: and a tab-less page (a bracket, an article) offers them in the drawer to a
@@ -99,6 +103,8 @@ class BaseLayout:
         self._bottom_tab_labels: list = []
         self._syncing_nav = False
         self._tab_item_refs: dict = {}
+        self._shown_tab: str | None = None
+        self._section = section
         # Lazy tab rendering: every panel gets a container up front, but its
         # content is built on first show. `_pending_tabs` holds the not-yet-built
         # tabs; a label leaves it exactly once, when its content is built.
@@ -615,29 +621,53 @@ class BaseLayout:
         self._tab_panels.set_value(label)
 
     async def _handle_tab_change(self) -> None:
-        """Single sink for panel-value changes: sync the drawer highlight, the
-        bottom-nav highlight, and the /base/<slug> section URL regardless of what
-        drove the change (drawer item, bottom tab, or swipe). Registered after the
-        panels are built so the initial deep-linked value does not fire a spurious
-        history entry."""
+        """Single sink for panel-value changes: drawer item, bottom tab or swipe.
+
+        Registered after the panels are built so the initial deep-linked value
+        does not fire a spurious history entry. Back/Forward move the panel
+        through :meth:`_show_path` instead, which has already shown the tab by
+        the time this fires.
+        """
         label = self._tab_panels.value
+        if label == self._shown_tab:
+            return
+        await self._show_tab(label, history=TAB_HISTORY)
+
+    async def _show_path(self, path: str) -> None:
+        """Back or Forward landed on ``path``: show the tab it names."""
+        base = (self._base_path or '').rstrip('/')
+        slug = path[len(base):].strip('/').split('/', 1)[0] if base and path.startswith(base + '/') else ''
+        # A bare hub path (or Home's bare community root) is the first tab.
+        label = self._label_by_slug.get(slug) or self._label_by_alias.get(slug) or self.tabs[0]['label']
+        if label == self._shown_tab:
+            return
+        self._shown_tab = label
+        self._tab_panels.set_value(label)
+        await self._show_tab(label, history=None)
+
+    async def _show_tab(self, label: str, *, history: 'History | None') -> None:
+        """Sync the drawer and bottom-nav highlights, the address and the title,
+        then build or refresh the tab. ``history=None`` when Back/Forward did it,
+        which has already moved the address.
+        """
+        self._shown_tab = label
         for lbl, item in self._tab_item_refs.items():
             if lbl == label:
                 item.props(add='active')
             else:
                 item.props(remove='active')
         self._sync_bottom_nav(label)
-        # replace(), not push(): tab switches (incl. every swipe) update the URL for
-        # deep-linking/sharing without a Back-button trap per tab on mobile, and so
-        # load no page — hence the explicit tab-view telemetry. Done before the
-        # (possibly awaited) first build so the URL lands promptly.
+        # Done before the (possibly awaited) first build so the address lands
+        # promptly. A switch loads no page, hence the explicit tab-view telemetry.
         if self._base_path is not None:
-            ui.navigate.history.replace(f'{self._base_path}/{self._slug_by_label[label]}')
+            url_state().show_tab(label, f'{self._base_path}/{self._slug_by_label[label]}', history=history)
             record_tab_view(self._base_path, self._slug_by_label[label])
         # First visit builds the panel, which loads its own data — broadcasting
         # ``selected_tab`` as well would make it fetch twice. Afterwards the panel
         # already exists, so the broadcast is what refreshes it.
         if await self._build_tab(label):
+            if history is not None:
+                url_state().sync()
             return
         # Notify the newly-shown tab so it can refresh its data. Tabs listen via
         # ``ui.on('selected_tab', ...)`` (see theme/tables/admin_crud.wire_tab_refresh
@@ -788,8 +818,19 @@ class BaseLayout:
                     self._tab_containers[tab['label']] = ui.row().classes('full-width')
                 self._pending_tabs[tab['label']] = tab
 
+        state = url_state()
+        state.bind_tabs(self._tab_containers, self._show_path)
+        self._shown_tab = self._default_tab
+        state.tab = self._default_tab
+        # A bare hub path keeps its address until the first switch (Home's ``/``
+        # is the community's front door); a named section normalizes its slug.
+        if self._base_path is not None and self._section:
+            state.path = f'{self._base_path}/{self._slug_by_label[self._default_tab]}'
         await self._build_tab(self._default_tab, deferred=False)
         record_tab_view(self._base_path, self._slug_by_label.get(self._default_tab))
+        # The address names the tab by its current slug (an alias or a bare hub
+        # path normalizes), with any view the tab opened on, and the title says so.
+        state.sync(keep_foreign=True)
 
         # Panel changes (drawer click, bottom-tab tap, or swipe) all route through
         # _handle_tab_change, which syncs both highlights and the URL. Registered

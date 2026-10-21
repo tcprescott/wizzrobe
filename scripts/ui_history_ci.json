@@ -1,0 +1,49 @@
+{
+  "_comment": [
+    "Back / Forward / reload / deep-link scenarios for in-page view switchers",
+    "(scripts/ui_history.js, theme/url_state.py). One scenario per kind of",
+    "switcher, not one per page: they all share the one helper."
+  ],
+  "loginAs": "staff_user",
+  "tenant": "default",
+  "outDir": "/tmp/ui-history-ci",
+  "browsers": ["chromium", "webkit"],
+  "scenarios": [
+    {
+      "name": "my-schedule-view",
+      "steps": [
+        { "goto": "/home/my-schedule?view=list", "expect": { "url": "^/home/my-schedule$", "title": "^My Schedule — ", "pressed": "List" } },
+        { "click": "Timeline", "expect": { "url": "^/home/my-schedule\\?view=timeline$", "title": "^Timeline — My Schedule — ", "pressed": "Timeline" } },
+        { "back": true, "expect": { "url": "^/home/my-schedule$", "title": "^My Schedule — ", "pressed": "List" } },
+        { "forward": true, "expect": { "url": "view=timeline", "title": "^Timeline — ", "pressed": "Timeline" } },
+        { "reload": true, "expect": { "url": "view=timeline", "title": "^Timeline — ", "pressed": "Timeline" } },
+        { "click": "List", "expect": { "url": "^/home/my-schedule$", "pressed": "List" } }
+      ]
+    },
+    {
+      "name": "home-tabs",
+      "steps": [
+        { "goto": "/home/my-schedule?view=list", "expect": { "url": "^/home/my-schedule$" } },
+        { "click": "Tournaments", "expect": { "url": "^/home/tournaments$", "title": "^Tournaments — " } },
+        { "back": true, "expect": { "url": "^/home/my-schedule$", "title": "^My Schedule — ", "pressed": "List" } },
+        { "forward": true, "expect": { "url": "^/home/tournaments$", "title": "^Tournaments — " } }
+      ]
+    },
+    {
+      "name": "event-views",
+      "steps": [
+        { "goto": "/home/event", "expect": { "url": "^/home/event$", "pressed": "Schedule" } },
+        { "click": "Brackets", "expect": { "url": "^/home/event\\?view=brackets$", "title": "^Brackets — Event — ", "pressed": "Brackets" } },
+        { "back": true, "expect": { "url": "^/home/event$", "pressed": "Schedule" } },
+        { "forward": true, "expect": { "url": "view=brackets", "pressed": "Brackets" } }
+      ]
+    },
+    {
+      "name": "event-deep-link",
+      "steps": [
+        { "goto": "/home/brackets", "expect": { "url": "^/home/event\\?view=brackets$", "title": "^Brackets — Event — ", "pressed": "Brackets" } },
+        { "goto": "/home/event?view=community", "expect": { "pressed": "Community", "title": "^Community — Event — " } }
+      ]
+    }
+  ]
+}
