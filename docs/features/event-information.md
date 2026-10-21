@@ -121,9 +121,16 @@ gate and public like the articles. The route is registered before
 `/event-info/{slug}` so `guide.pdf` is never read as an article slug.
 
 Where one exists, the index shows a `banner()` with **Open guide** and each
-article shows a "Full details in the event guide (PDF)" link under its summary
-(`render_article(..., intro_extra=...)`). Both open in a new tab. To replace the
-guide, swap the file in a PR.
+article shows a "Full details in the event guide" link under its summary
+(`render_article(..., intro_extra=...)`). Both go to `/event-info/guide`, a page
+inside the app that draws the PDF with PDF.js (vendored in
+`static/vendor/pdfjs`, version in its `VERSION` file, listed on /about/notices)
+via [`static/js/guide-viewer.js`](../../static/js/guide-viewer.js): one canvas
+per page at the column's width, with the PDF's web links laid over it as real
+`target=_blank` links, under a "← Event information" link and a **PDF** download
+button. It exists because an iPhone Home Screen app opens a linked PDF full
+screen with no Back button. No article may be named `guide`
+(`test_event_info_content.py`). To replace the guide, swap the file in a PR.
 
 There was a `broadcast` article (role-gated to `STREAM_MANAGER`/`STAFF`); it was
 dropped because everything event-specific in it — the stage list, technical
@@ -258,6 +265,7 @@ re-exported unchanged, so nothing outside these packages moved.
   arrived looking for app mechanics.
 - `/event-info/{slug}` — sidebar (article list + this article's `##` headings)
   and the body, reusing the help section's renderer and `wiz-help-*` styling.
+- `/event-info/guide` — the guide drawn in the app, or not-found when none ships.
 - `/event-info/guide.pdf` — the community's guide PDF, inline, or 404.
 - **The drawer**, immediately above Help, ungated on `self.user` — the handbook
   answers the questions people have before they sign in.
