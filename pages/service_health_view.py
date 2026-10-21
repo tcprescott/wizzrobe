@@ -18,6 +18,7 @@ from theme.tables.preferences import TableKeys, customize_table, preferences_but
 
 _STATUS_COLOR = {
     ServiceStatus.HEALTHY: 'positive',
+    ServiceStatus.MOCK: 'info',
     ServiceStatus.DEGRADED: 'orange',
     ServiceStatus.CREDENTIAL_WARNING: 'amber-8',
     ServiceStatus.DOWN: 'negative',
@@ -26,6 +27,7 @@ _STATUS_COLOR = {
 
 _STATUS_LABEL = {
     ServiceStatus.HEALTHY: 'Healthy',
+    ServiceStatus.MOCK: 'Mock',
     ServiceStatus.DEGRADED: 'Degraded',
     ServiceStatus.CREDENTIAL_WARNING: 'Credential warning',
     ServiceStatus.DOWN: 'Down',

@@ -58,9 +58,12 @@ class ServiceStatus(str, Enum):
     ``CREDENTIAL_WARNING`` is the distinct "still up, but a credential is expiring
     or was rejected" signal (an expiring Challonge token, a racetime auth failure)
     — actionable before it becomes an outage, so it is kept separate from ``DOWN``.
+    ``MOCK`` means the dependency is swapped for its local mock (``MOCK_*``), so
+    the real service was deliberately not contacted.
     """
 
     HEALTHY = 'healthy'
+    MOCK = 'mock'
     DEGRADED = 'degraded'
     CREDENTIAL_WARNING = 'credential_warning'
     DOWN = 'down'
@@ -70,10 +73,11 @@ class ServiceStatus(str, Enum):
 # Higher = worse; drives aggregation ("worst wins") and sort order on the board.
 _SEVERITY: Dict[ServiceStatus, int] = {
     ServiceStatus.HEALTHY: 0,
-    ServiceStatus.UNKNOWN: 1,
-    ServiceStatus.CREDENTIAL_WARNING: 2,
-    ServiceStatus.DEGRADED: 3,
-    ServiceStatus.DOWN: 4,
+    ServiceStatus.MOCK: 1,
+    ServiceStatus.UNKNOWN: 2,
+    ServiceStatus.CREDENTIAL_WARNING: 3,
+    ServiceStatus.DEGRADED: 4,
+    ServiceStatus.DOWN: 5,
 }
 
 # Transitioning *into* one of these fires an alert.
@@ -159,7 +163,7 @@ async def _probe_postgres() -> Tuple[ServiceStatus, str]:
 async def _probe_discord_bot() -> Tuple[ServiceStatus, str]:
     from application.utils.mocks.mock_discord import is_mock_discord
     if is_mock_discord():
-        return ServiceStatus.HEALTHY, 'Mock transport (MOCK_DISCORD)'
+        return ServiceStatus.MOCK, 'Mock transport (MOCK_DISCORD)'
     if not _all_set('DISCORD_TOKEN'):
         return ServiceStatus.UNKNOWN, 'DISCORD_TOKEN not set'
     from application.services.discord.discord_service import DiscordService
@@ -175,7 +179,7 @@ async def _probe_discord_bot() -> Tuple[ServiceStatus, str]:
 async def _probe_discord_oauth() -> Tuple[ServiceStatus, str]:
     from application.utils.mocks.mock_discord import is_mock_discord
     if is_mock_discord():
-        return ServiceStatus.HEALTHY, 'Mock OAuth (MOCK_DISCORD)'
+        return ServiceStatus.MOCK, 'Mock OAuth (MOCK_DISCORD)'
     if _all_set('DISCORD_CLIENT_ID', 'DISCORD_CLIENT_SECRET'):
         return ServiceStatus.HEALTHY, 'Client credentials configured'
     return ServiceStatus.DOWN, 'DISCORD_CLIENT_ID / DISCORD_CLIENT_SECRET not set'
@@ -184,7 +188,7 @@ async def _probe_discord_oauth() -> Tuple[ServiceStatus, str]:
 async def _probe_twitch_oauth() -> Tuple[ServiceStatus, str]:
     from application.utils.mocks.mock_twitch import is_mock_twitch
     if is_mock_twitch():
-        return ServiceStatus.HEALTHY, 'Mock OAuth (MOCK_TWITCH)'
+        return ServiceStatus.MOCK, 'Mock OAuth (MOCK_TWITCH)'
     if _all_set('TWITCH_CLIENT_ID', 'TWITCH_CLIENT_SECRET'):
         return ServiceStatus.HEALTHY, 'Client credentials configured'
     return ServiceStatus.UNKNOWN, 'Twitch OAuth not configured (optional)'
@@ -192,7 +196,10 @@ async def _probe_twitch_oauth() -> Tuple[ServiceStatus, str]:
 
 async def _probe_racetime() -> Tuple[ServiceStatus, str]:
     from application.services.racetime_bot_service import RacetimeBotService
+    from application.utils.mocks.mock_racetime import is_mock_racetime
     bots = await RacetimeBotService().list_active_bots()
+    if is_mock_racetime():
+        return ServiceStatus.MOCK, f'Mock racetime (MOCK_RACETIME), {len(bots)} bot(s) configured'
     if not bots:
         return ServiceStatus.UNKNOWN, 'No active racetime bots configured'
     statuses: List[ServiceStatus] = []
@@ -236,7 +243,7 @@ def _map_racetime_status(status: str, message: Optional[str]) -> ServiceStatus:
 async def _probe_speedgaming() -> Tuple[ServiceStatus, str]:
     from application.utils.clients.speedgaming_client import SPEEDGAMING_BASE, is_mock_speedgaming
     if is_mock_speedgaming():
-        return ServiceStatus.HEALTHY, 'Mock feed (MOCK_SPEEDGAMING)'
+        return ServiceStatus.MOCK, 'Mock feed (MOCK_SPEEDGAMING)'
     ok, detail = await _http_reachable(SPEEDGAMING_BASE)
     if ok:
         return ServiceStatus.HEALTHY, f'Reachable ({detail})'
@@ -246,14 +253,15 @@ async def _probe_speedgaming() -> Tuple[ServiceStatus, str]:
 async def _probe_challonge() -> Tuple[ServiceStatus, str]:
     """Reachability of the Challonge API **and** token validity across tenants."""
     from application.utils.mocks.mock_challonge import is_mock_challonge
-    reach_status = ServiceStatus.HEALTHY
-    reach_msg = 'Mock API (MOCK_CHALLONGE)'
-    if not is_mock_challonge():
-        ok, detail = await _http_reachable('https://api.challonge.com/v1')
-        reach_status = ServiceStatus.HEALTHY if ok else ServiceStatus.DOWN
-        reach_msg = f'API {"reachable" if ok else "unreachable"} ({detail})'
-
     cred_status, cred_msg = await _challonge_token_health()
+    if is_mock_challonge():
+        reach_msg = 'Mock API (MOCK_CHALLONGE)'
+        status = cred_status if cred_status in _ALERTABLE else ServiceStatus.MOCK
+        return status, '; '.join(m for m in (reach_msg, cred_msg) if m)
+
+    ok, detail = await _http_reachable('https://api.challonge.com/v1')
+    reach_status = ServiceStatus.HEALTHY if ok else ServiceStatus.DOWN
+    reach_msg = f'API {"reachable" if ok else "unreachable"} ({detail})'
     status = _worst([reach_status, cred_status])
     return status, '; '.join(m for m in (reach_msg, cred_msg) if m)
 
@@ -283,8 +291,12 @@ async def _challonge_token_health() -> Tuple[ServiceStatus, str]:
     return ServiceStatus.HEALTHY, f'{total} token(s) valid'
 
 
-def _seedgen_probe(host: str) -> ProbeCheck:
+def _seedgen_probe(host: str, randomizer: str) -> ProbeCheck:
     async def check() -> Tuple[ServiceStatus, str]:
+        from application.services.seedgen_service import SeedGenerationService
+        from application.utils.mocks.mock_seedgen import is_mock_seedgen
+        if is_mock_seedgen() and randomizer not in SeedGenerationService.MOCK_EXEMPT_RANDOMIZERS:
+            return ServiceStatus.MOCK, 'Mock rolls (MOCK_SEEDGEN)'
         ok, detail = await _http_reachable(f'https://{host}')
         if ok:
             return ServiceStatus.HEALTHY, f'Reachable ({detail})'
@@ -316,9 +328,9 @@ _PROBES: List[_Probe] = [
     _Probe('speedgaming', 'SpeedGaming feed', 'integrations', _probe_speedgaming),
     _Probe('challonge', 'Challonge', 'integrations', _probe_challonge),
     _Probe('twitch_oauth', 'Twitch OAuth', 'integrations', _probe_twitch_oauth),
-    _Probe('seedgen_alttpr', 'ALTTPR (alttpr.com)', 'seedgen', _seedgen_probe('alttpr.com')),
-    _Probe('seedgen_ootr', 'OoT Randomizer (ootrandomizer.com)', 'seedgen', _seedgen_probe('ootrandomizer.com')),
-    _Probe('seedgen_maprando', 'Map Rando (maprando.com)', 'seedgen', _seedgen_probe('maprando.com')),
+    _Probe('seedgen_alttpr', 'ALTTPR (alttpr.com)', 'seedgen', _seedgen_probe('alttpr.com', 'alttpr')),
+    _Probe('seedgen_ootr', 'OoT Randomizer (ootrandomizer.com)', 'seedgen', _seedgen_probe('ootrandomizer.com', 'ootr')),
+    _Probe('seedgen_maprando', 'Map Rando (maprando.com)', 'seedgen', _seedgen_probe('maprando.com', 'smmap')),
     _Probe('web_push', 'Web push (VAPID)', 'monitoring', _probe_web_push),
     _Probe('sentry', 'Sentry', 'monitoring', _probe_sentry),
 ]

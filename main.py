@@ -249,11 +249,9 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
             discord_event_worker.start()
         # Platform external-service health monitor: periodically probes every external
         # dependency so the /platform board is warm and alerts fire on transitions.
-        # Gated by SERVICE_HEALTH_ENABLED (off by default).
+        # Always on; a dependency in mock mode reports "mock" and is not contacted.
         from application.services import service_health_worker
-        from application.utils.environment import service_health_enabled
-        if service_health_enabled():
-            service_health_worker.start()
+        service_health_worker.start()
         # Async-qualifier run expiry: forfeits runs a player drew and abandoned, after
         # one warning. Ungated by an env switch — it only ever touches tenants that
         # have the qualifier feature on, and a tenant without it has no runs to find.

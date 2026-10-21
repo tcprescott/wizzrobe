@@ -82,6 +82,49 @@ class TestStatusLogic:
         assert _is_alert_transition(None, healthy) is False      # first probe, healthy
 
 
+
+class TestMockMode:
+    async def test_mocked_discord_reports_mock(self, monkeypatch):
+        monkeypatch.setenv('MOCK_DISCORD', 'true')
+        assert (await shs._probe_discord_bot())[0] == ServiceStatus.MOCK
+        assert (await shs._probe_discord_oauth())[0] == ServiceStatus.MOCK
+
+    async def test_mocked_seedgen_reports_mock_without_contacting_the_site(self, monkeypatch):
+        async def unreachable(url):
+            raise AssertionError(f'probe contacted {url}')
+
+        monkeypatch.setenv('MOCK_SEEDGEN', 'true')
+        monkeypatch.setattr(shs, '_http_reachable', unreachable)
+        assert (await shs._seedgen_probe('alttpr.com', 'alttpr')())[0] == ServiceStatus.MOCK
+
+    async def test_randomizer_the_mock_skips_is_still_probed(self, monkeypatch):
+        async def reachable(url):
+            return True, 'HTTP 200'
+
+        monkeypatch.setenv('MOCK_SEEDGEN', 'true')
+        monkeypatch.setattr(shs, '_http_reachable', reachable)
+        assert (await shs._seedgen_probe('example.com', 'z1r')())[0] == ServiceStatus.HEALTHY
+
+    async def test_mocked_challonge_still_flags_an_expired_token(self, db, monkeypatch):
+        async def expired():
+            return ServiceStatus.DOWN, '1/1 token(s) expired'
+
+        monkeypatch.setenv('MOCK_CHALLONGE', 'true')
+        monkeypatch.setattr(shs, '_challonge_token_health', expired)
+        assert (await shs._probe_challonge())[0] == ServiceStatus.DOWN
+
+        async def none():
+            return ServiceStatus.UNKNOWN, 'no tenant connections'
+
+        monkeypatch.setattr(shs, '_challonge_token_health', none)
+        assert (await shs._probe_challonge())[0] == ServiceStatus.MOCK
+
+    def test_mock_ranks_between_healthy_and_unknown(self):
+        assert _worst([ServiceStatus.HEALTHY, ServiceStatus.MOCK]) == ServiceStatus.MOCK
+        assert _worst([ServiceStatus.MOCK, ServiceStatus.UNKNOWN]) == ServiceStatus.UNKNOWN
+        assert _is_alert_transition(None, _result('k', ServiceStatus.MOCK)) is False
+
+
 class TestRefreshAndAlert:
     @pytest.fixture(autouse=True)
     def _reset(self):
