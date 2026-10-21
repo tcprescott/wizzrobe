@@ -13,6 +13,7 @@ from theme.browser_monitoring import install_browser_monitoring
 from theme.chrome import apply_brand_palette, cookie_dark_pref, dark_mode_button, install_page_scripts
 from theme.connection import install_connection_watch
 from theme.drawer_help import render_drawer_help
+from theme.links import set_link
 from theme.nav_badges import bottom_nav_tab, drawer_tab_badge, nav_icon
 from theme.nav_section import mark_nav_section, nav_section_matches
 from theme.notice import drain_notice
@@ -458,7 +459,10 @@ class BaseLayout:
                     # default avatar): show a placeholder glyph instead of an empty
                     # ui.image(None), which also renders a broken image + console error.
                     ui.icon('account_circle').classes('user-avatar user-avatar-placeholder')
-                ui.button(on_click=lambda: ui.navigate.to('/logout'), icon='logout', color=None).props('flat').tooltip('Log out')
+                # A real link: a Home Screen web app on an iPhone ignored the tap
+                # when it went through the server (see theme.links).
+                logout_btn = ui.button(icon='logout', color=None).props('flat').tooltip('Log out')
+                set_link(logout_btn, '/logout', new_tab=False)
             else:
                 # The full-text "Login with Discord" button also lives in the page
                 # body; here the label is a child element (not the q-btn text prop)
@@ -469,11 +473,8 @@ class BaseLayout:
                 # bracket or an article comes back to it rather than to home.
                 # Off any community there is nowhere local to come back to.
                 target = login_path(current_local_url()) if self._tenant_id is not None else '/login'
-                login_btn = ui.button(
-                    on_click=lambda: ui.navigate.to(target),
-                    icon='login',
-                    color=None,
-                ).props('flat').classes('login-button')
+                login_btn = ui.button(icon='login', color=None).props('flat').classes('login-button')
+                set_link(login_btn, target, new_tab=False)
                 with login_btn:
                     ui.label('Login with Discord').classes('login-button-text')
                 login_btn.tooltip('Login with Discord')

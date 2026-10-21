@@ -23,6 +23,7 @@ from theme.brackets import (
     state_label,
 )
 from theme.empty_state import empty_panel
+from theme.links import link_button
 
 
 def group_by_tournament(
@@ -54,10 +55,7 @@ def _render_stage(bracket: Bracket) -> None:
             ).classes('text-caption')
         with ui.row().classes('items-center gap-2 no-wrap'):
             ui.badge(state_label(bracket.state), color=state_color(bracket.state))
-            ui.button(
-                'View', icon='visibility',
-                on_click=lambda bid=bracket.id: ui.navigate.to(f'/brackets/{bid}'),
-            ).props('flat dense')
+            link_button('View', f'/brackets/{bracket.id}', icon='visibility', new_tab=False).props('flat dense')
 
 
 async def brackets_tab() -> None:
@@ -91,12 +89,8 @@ def _render_tournament(tournament_id: int, name: str, stages: List[Bracket]) -> 
             # Multi-stage tournaments get the stage index too; a
             # single-stage one is fully described by the row below it.
             if len(stages) > 1:
-                ui.button(
-                    'All stages', icon='list',
-                    on_click=lambda tid=tournament_id: ui.navigate.to(
-                        f'/tournament/{tid}/brackets'
-                    ),
-                ).props('flat dense')
+                link_button('All stages', f'/tournament/{tournament_id}/brackets', icon='list', new_tab=False) \
+                    .props('flat dense')
         ui.separator()
         for bracket in stages:
             _render_stage(bracket)

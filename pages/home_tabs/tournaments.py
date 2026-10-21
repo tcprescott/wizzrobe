@@ -376,10 +376,8 @@ async def tournaments_tab() -> None:
                         if card.signs_up_on_startgg:
                             link_button('Sign up on start.gg', card.startgg_url, icon='open_in_new') \
                                 .props('color=primary no-caps')
-                        ui.button(
-                            'Bracket', icon='account_tree',
-                            on_click=lambda _e, tid=t.id: ui.navigate.to(f'/tournament/{tid}/startgg'),
-                        ).props('flat color=primary no-caps')
+                        link_button('Bracket', f'/tournament/{t.id}/startgg', icon='account_tree', new_tab=False) \
+                            .props('flat color=primary no-caps')
                     elif card.can_sign_up and card.challonge_managed:
                         ui.button(
                             'Sign up', icon='how_to_reg',

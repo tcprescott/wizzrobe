@@ -32,6 +32,7 @@ from pages.home_tabs.twitch_link_section import CONFIG as TWITCH_CONFIG
 from pages.home_tabs.web_push_section import render_device_rows
 from theme.banner import banner
 from theme.help import help_icon
+from theme.links import link_button, set_link
 from theme.page_header import page_title
 from theme.profile_nudge_banner import focus_profile_section, section_anchor
 
@@ -103,7 +104,7 @@ async def render_edit_info_tab(focus: str | None = None):
             with ui.card().classes('card-centered'):
                 ui.icon('lock', size='3em').classes('icon-large')
                 ui.label('You must be logged in to view this page.').classes('text-muted')
-                ui.button('Login with Discord', icon='login', on_click=lambda: ui.navigate.to('/login')).props('color=primary size=lg')
+                link_button('Login with Discord', '/login', icon='login', new_tab=False).props('color=primary size=lg')
             return
 
         user = await get_user_from_session(app.storage.user)
@@ -392,9 +393,9 @@ async def render_edit_info_tab(focus: str | None = None):
                             ui.label(
                                 'Reread what Wizzrobe sent you and change how you get each kind.'
                             ).classes('text-muted text-caption')
-                        ui.button('Open', icon='mail', color=None,
-                                  on_click=lambda: ui.navigate.to(MY_MESSAGES)) \
+                        open_btn = ui.button('Open', icon='mail', color=None) \
                             .props('flat dense no-caps').classes('wiz-notify-open')
+                        set_link(open_btn, MY_MESSAGES, new_tab=False)
 
                     # A follow is not a consequence of enrollment:
                     # get_match_notification_subscribers never checks the player

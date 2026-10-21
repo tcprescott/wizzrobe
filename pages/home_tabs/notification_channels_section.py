@@ -25,6 +25,7 @@ from pages.discord_email_oauth import LINK_ROUTE as DISCORD_EMAIL_ROUTE
 from theme.busy import busy, busy_click, is_busy
 from theme.dialog._helpers import dialog_actions, dialog_more_menu, form_dialog, submit_on_enter
 from theme.dialog.confirmation_dialog import ConfirmationDialog
+from theme.links import link_button
 from theme.menu import menu_action
 
 _TELEGRAM_POLL_SECONDS = 3
@@ -99,10 +100,8 @@ class ChannelRows:
         with form_dialog('Email notifications') as dialog:
             with ui.column().classes('w-full gap-3'):
                 if user.discord_id:
-                    ui.button(
-                        'Use my Discord email', icon='alternate_email',
-                        on_click=lambda: ui.navigate.to(DISCORD_EMAIL_ROUTE),
-                    ).props('outline no-caps').classes('w-full')
+                    link_button('Use my Discord email', DISCORD_EMAIL_ROUTE, icon='alternate_email', new_tab=False) \
+                        .props('outline no-caps').classes('w-full')
                     ui.label('or use a different address').classes('text-muted text-caption self-center')
                 address = ui.input(
                     'Email address', value='' if user.email is None else user.email,
