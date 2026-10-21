@@ -4731,9 +4731,11 @@ body.wiz-offline .wiz-requires-socket {
    pair right at a fixed width; a narrow one (a phone, or a desktop card in a
    multi-column list) splits the row into equal halves so the pair never wraps
    onto two lines. Keyed to the row's own width, not the viewport, for that
-   second case.
+   second case. `.wiz-pair-actions` is the same pair under a card's form field
+   (Clear and Save on a stored-secret card).
 --------------------------------------------------------------------------- */
-.wiz-shift-actions {
+.wiz-shift-actions,
+.wiz-pair-actions {
     container-type: inline-size;
     display: flex;
     justify-content: flex-end;
@@ -4743,7 +4745,8 @@ body.wiz-offline .wiz-requires-socket {
     margin-top: 12px;
 }
 
-.wiz-shift-actions > * {
+.wiz-shift-actions > *,
+.wiz-pair-actions > * {
     flex: 0 0 auto;
     min-width: 168px;
 }
@@ -4970,12 +4973,14 @@ body.wiz-offline .wiz-requires-socket {
 }
 
 @container (max-width: 479.98px) {
-    .wiz-shift-actions > * {
+    .wiz-shift-actions > *,
+    .wiz-pair-actions > * {
         flex: 1 1 0;
         min-width: 0;
     }
 
-    .wiz-shift-actions .q-btn__content {
+    .wiz-shift-actions .q-btn__content,
+    .wiz-pair-actions .q-btn__content {
         flex-wrap: nowrap;
         white-space: nowrap;
     }
