@@ -293,6 +293,34 @@ class TestCancelledDmRelease:
         assert "You're all set. Nothing else to do here." in msg
 
 
+class TestCancelledEmbedDescription:
+    def test_the_reason_and_the_release_reach_the_embed(self):
+        text = dm.cancelled_description(reason='The series was decided 2-0', released=True)
+        assert text.startswith('The series was decided 2-0')
+        assert 'released' in text
+
+    def test_no_reason_keeps_the_all_set_line(self):
+        assert dm.cancelled_description() == "You're all set. Nothing else to do here."
+
+
+class TestReadableDiscordTimes:
+    def test_a_full_and_relative_pair_becomes_one_local_time(self):
+        from application.utils.timezone import readable_discord_times
+        text = readable_discord_times('Starts <t:1792593000:F> · <t:1792593000:R>', tz='America/New_York')
+        assert '<t:' not in text
+        assert text.count('EDT') == 1
+
+    def test_text_without_markup_is_untouched(self):
+        from application.utils.timezone import readable_discord_times
+        assert readable_discord_times('No times here') == 'No times here'
+
+
+class TestSeedFailedPunctuation:
+    def test_an_error_without_a_full_stop_gets_one(self):
+        from application.utils.discord_messages_opt_in import seed_failed_dm
+        assert 'returned 503. Roll' in seed_failed_dm('Cool Cup', 'alttpr.com returned 503')
+
+
 class TestSchedulingDms:
     def test_scheduled_dm_contains_tournament_and_body(self):
         msg = dm.scheduled_dm(

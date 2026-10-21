@@ -324,7 +324,7 @@ async def admin_tournaments(*, label: str = 'Open tournaments') -> Optional[DMLi
 
 
 async def admin_users(*, label: str = 'Review the request') -> Optional[DMLink]:
-    """The Users tab, where join requests are approved or denied."""
+    """The Members tab, where join requests are approved or denied."""
     return await link_for(label, admin_url(USERS))
 
 

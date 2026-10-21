@@ -129,7 +129,7 @@ class CancellationMixin:
             collect_match_audience,
         )
         from application.utils.discord_embeds import COLOR_CANCELLED, match_embed
-        from application.utils.discord_messages import cancelled_dm
+        from application.utils.discord_messages import cancelled_description, cancelled_dm
 
         await match.fetch_related('tournament', 'players__user', 'stage')
         recipients = await collect_match_audience(match)
@@ -146,6 +146,7 @@ class CancellationMixin:
         embed = match_embed(
             title='Match cancelled',
             color=COLOR_CANCELLED,
+            description=cancelled_description(reason=reason, released=frees_slot),
             **_match_embed_kwargs(match, community),
         )
 

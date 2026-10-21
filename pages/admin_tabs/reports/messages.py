@@ -7,7 +7,6 @@ carry a staff-private note.
 """
 
 import re
-from datetime import datetime, timezone
 from typing import Any, Optional
 
 from nicegui import app, ui
@@ -15,8 +14,8 @@ from nicegui import app, ui
 from application.services import AuthService, SentMessageService, get_user_from_session
 from application.utils.timezone import (
     format_local_datetime,
-    format_local_display,
     format_local_time,
+    readable_discord_times,
     timezone_label,
 )
 from models import SentMessage, SentMessageStatus
@@ -50,15 +49,12 @@ PAGE_SIZE = 50
 # Problems only switch, and ``action`` as the search text, like the Audit Log.
 _PROBLEMS = 'problems'
 
-# Discord renders these itself; the log shows them the way the reader saw them.
-_DISCORD_TIME = re.compile(r'<t:(\d{1,12})(?::[tTdDfFR])?>')
 _EMPHASIS = re.compile(r'\*\*|__')
 
 
 def _readable(text: str) -> str:
-    def _time(match: re.Match) -> str:
-        return format_local_display(datetime.fromtimestamp(int(match.group(1)), timezone.utc))
-    return _EMPHASIS.sub('', _DISCORD_TIME.sub(_time, text or ''))
+    # Discord renders these itself; the log shows them the way the reader saw them.
+    return _EMPHASIS.sub('', readable_discord_times(text or ''))
 
 
 # (chip class, icon, label)

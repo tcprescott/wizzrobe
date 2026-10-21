@@ -35,6 +35,9 @@ def match_flagged_dm(by: str, tournament: str) -> str:
 
 
 def seed_failed_dm(tournament: str, error: Optional[str]) -> str:
+    error = (error or '').strip()
+    if error and error[-1] not in '.!?':
+        error += '.'
     reason = f' The randomizer said: {error}' if error else ''
     return f"A seed for a {tournament} match didn't roll.{reason} Roll it again from the match."
 

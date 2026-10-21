@@ -8,6 +8,8 @@ from application.services.notification_catalog import (
     MATCH_FINISHED,
     MATCH_SCHEDULED,
     MATCHUP_READY,
+    ON_DUTY,
+    PLAYER_COMMENT,
     PLAYERS,
     STAFF_COMMENT,
     STAGE_CALL,
@@ -103,6 +105,15 @@ async def test_bad_input_is_refused():
         await NotificationPreferenceService.set_preset(player, 'loud')
     with pytest.raises(PermissionError):
         await NotificationPreferenceService.get_mine(None)
+
+
+async def test_a_player_cannot_set_a_staff_alert():
+    # It used to save the override and then crash looking for a row get_mine
+    # never lists for them, so REST and MCP answered 500.
+    player = await make_user(discord_id=8110, username='p8')
+    with pytest.raises(ValueError, match='staff alerts'):
+        await NotificationPreferenceService.set_mode(player, PLAYER_COMMENT.key, ON_DUTY, OFF)
+    assert await NotificationPreference.filter(user=player).count() == 0
 
 
 async def test_choices_are_per_community():
