@@ -8278,3 +8278,57 @@ ol.wiz-help-list { list-style-type: decimal; }
 }
 
 .wiz-notify-card__head + .wiz-notify-card__row { border-top: 0; }
+
+/* Admin → Feedback. The message wraps in its own column and the page it came
+   from sits under it, so neither pushes the row actions off the side. */
+.wiz-feedback-category {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    color: var(--fg-muted);
+    font-size: var(--text-sm);
+    white-space: nowrap;
+}
+
+.wiz-feedback-message {
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    max-width: 72ch;
+}
+
+.wiz-feedback-page {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    max-width: 100%;
+    margin-top: 4px;
+    font-family: var(--font-mono);
+    font-size: var(--text-sm);
+    color: var(--wiz-link);
+    text-decoration: none;
+}
+
+.wiz-feedback-page span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.wiz-feedback-page:hover span { text-decoration: underline; }
+
+.wiz-feedback-page--plain { color: var(--fg-muted); }
+
+.wiz-feedback-category-select { min-width: 11rem; }
+
+.wiz-feedback-filters.nicegui-row { flex-wrap: wrap; }
+
+/* A phone gets the status switch on its own line, and category and search
+   share the next: three in a row squeezed the switch's labels into each other. */
+@media (max-width: 599.98px) {
+    .wiz-feedback-status { width: 100%; }
+    .wiz-feedback-status .q-btn { flex: 1; }
+    .wiz-feedback-filters .wiz-feedback-category-select,
+    .wiz-feedback-filters .wiz-table-search { flex: 1; min-width: 0; }
+}
+
+.wiz-feedback-table td { vertical-align: top; }
