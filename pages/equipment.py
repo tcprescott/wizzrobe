@@ -28,6 +28,7 @@ from theme.connection import REQUIRES_SOCKET_CLASS
 from theme.dialog import EquipmentDialog, open_checkout, quick_checkin
 from theme.equipment_copy import equipment_guidance
 from theme.help import help_icon
+from theme.links import link_button
 from theme.page_header import page_title
 from theme.realtime import refresh_on_reconnect
 from theme.steady import steady_refreshable
@@ -163,10 +164,8 @@ def create() -> None:
                         with ui.row().classes('gap-1'):
                             ui.button('Download QR', icon='download', on_click=download_qr).props('flat dense')
                             if can_manage:
-                                ui.button(
-                                    'Print label', icon='print',
-                                    on_click=lambda aid=asset.id: ui.navigate.to(
-                                        f'/equipment/qr-labels?ids={aid}', new_tab=True),
+                                link_button(
+                                    'Print label', f'/equipment/qr-labels?ids={asset.id}', icon='print',
                                 ).props('flat dense').tooltip('Open a printable label for this asset')
 
                 # --- Actions ---

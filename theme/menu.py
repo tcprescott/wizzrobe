@@ -4,6 +4,8 @@ from typing import Optional, Sequence, Union
 
 from nicegui import ui
 
+from theme.links import set_link
+
 
 def menu_action(icon: str, label: str, on_click, negative: bool = False) -> ui.menu_item:
     """One icon-and-label row inside a ``ui.menu()``; ``negative`` for a destructive one."""
@@ -11,6 +13,20 @@ def menu_action(icon: str, label: str, on_click, negative: bool = False) -> ui.m
         with ui.item_section().props('avatar'):
             ui.icon(icon)
         ui.item_section(label)
+    return item
+
+
+def menu_link(icon: str, label: str, href: str, *, new_tab: bool = True) -> ui.menu_item:
+    """A ``menu_action`` row that is a link, so ``href`` opens straight from the tap.
+
+    Use it instead of ``menu_action(..., lambda: ui.navigate.to(url, new_tab=True))``,
+    which iPhone Safari blocks as a pop-up (see ``theme.links``).
+    """
+    with ui.menu_item() as item:
+        with ui.item_section().props('avatar'):
+            ui.icon(icon)
+        ui.item_section(label)
+    set_link(item, href, new_tab=new_tab)
     return item
 
 
@@ -33,6 +49,10 @@ class SlotItem:
     v_if: Optional[str] = None
     # A row expression; when it's truthy its text shows as a chip at the item's end.
     badge: Optional[str] = None
+    # A row expression holding a URL: the item is then a link that opens it in a
+    # new tab, and ``event`` is not emitted. Opening from a server round trip is
+    # blocked as a pop-up on iPhone (see ``theme.links``).
+    href: Optional[str] = None
 
 
 @dataclass(frozen=True)
@@ -64,8 +84,12 @@ def slot_more_menu(name_expr: str, items: Sequence[Union[SlotItem, SlotHeader]],
             f'<span class="wiz-chip wiz-chip--pending">{{{{ {escape(it.badge)} }}}}</span></q-item-section>'
             if it.badge else ''
         )
+        action = (
+            f' tag="a" :href="{escape(it.href)}" target="_blank" rel="noopener noreferrer"' if it.href
+            else f' @click="$parent.$emit(\'{it.event}\', props.row)"'
+        )
         return (
-            f'<q-item{cond} clickable{cls} @click="$parent.$emit(\'{it.event}\', props.row)">'
+            f'<q-item{cond} clickable{cls}{action}>'
             f'<q-item-section avatar><q-icon name="{it.icon}"/></q-item-section>'
             f'<q-item-section>{escape(it.label)}</q-item-section>{badge}</q-item>'
         )

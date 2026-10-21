@@ -20,7 +20,7 @@ from theme.dialog._helpers import dialog_actions, form_dialog, submit_on_enter
 from theme.dialog.bracket_schedule_dialog import BracketScheduleDialog
 from theme.dialog.bracket_source_schedule_dialog import BracketSourceScheduleDialog
 from theme.empty_state import empty_state
-from theme.menu import menu_action, more_menu
+from theme.menu import menu_action, menu_link, more_menu
 from theme.notify import notify_error
 from theme.tables.admin_crud import capture_render_context, current_actor, scoped_background
 from theme.url_state import url_param, url_state
@@ -208,10 +208,8 @@ class UnbookedBoard:
                             menu_action('link', 'Link an existing match…', lambda _=None, i=item: self._link(i))
                         if link:
                             external = not link.startswith('/')
-                            menu_action(
-                                'open_in_new' if external else 'account_tree', 'Open bracket',
-                                lambda _=None, url=link, ext=external: ui.navigate.to(url, new_tab=ext),
-                            )
+                            menu_link('open_in_new' if external else 'account_tree', 'Open bracket',
+                                      link, new_tab=external)
                         if item.ready and fixable:
                             menu_action('manage_accounts', 'Match entrants…',
                                         lambda _=None, i=item: self._fix(i))

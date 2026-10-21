@@ -43,6 +43,7 @@ from theme.dialog.confirmation_dialog import ConfirmationDialog
 from theme.empty_state import empty_panel
 from theme.help import help_icon
 from theme.help.render import render_blocks
+from theme.links import link_button
 from theme.notify import notify_error
 from theme.page_header import page_header
 from theme.steady import steady_refreshable
@@ -373,10 +374,8 @@ async def tournaments_tab() -> None:
                 with ui.row().classes('items-center gap-2'):
                     if card.startgg_url:
                         if card.signs_up_on_startgg:
-                            ui.button(
-                                'Sign up on start.gg', icon='open_in_new',
-                                on_click=lambda _e, url=card.startgg_url: ui.navigate.to(url, new_tab=True),
-                            ).props('color=primary no-caps')
+                            link_button('Sign up on start.gg', card.startgg_url, icon='open_in_new') \
+                                .props('color=primary no-caps')
                         ui.button(
                             'Bracket', icon='account_tree',
                             on_click=lambda _e, tid=t.id: ui.navigate.to(f'/tournament/{tid}/startgg'),
