@@ -239,6 +239,7 @@ Desktop pages use the width rather than stretching one column across it:
   Quasar's `nowrap` to stretch one column: a 31-character Discord handle or six
   role tags otherwise push the table off the page.
 - The side menu is 248px pinned on desktop and 85% of the screen (up to 340px) as the phone overlay, with 40px rows on desktop and 48px rows on a phone. Both come from `DRAWER_WIDTH_*` in `theme/base.py`. Don't widen it for one long label; shorten the label.
+- The side menu is one system: Watch live is a link of its own at the top, then a Home / Volunteer / Admin strip whose choice swaps the page list under it in place (the menu stays open), and only picking a page navigates. Volunteer and Admin list their pages through `register_section_menu` (`theme/section_menu.py`); a new hub section registers one.
 - The side menu marks two things differently. The section you're in (Home, Volunteer, Admin, Help…) gets an accent tint via `mark_nav_section()` in `theme/nav_section.py`; the page within it (a tab row) gets the grey `q-item--active` fill. Both fill the icon.
 
 ## Match boards

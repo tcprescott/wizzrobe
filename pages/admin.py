@@ -15,7 +15,7 @@ from application.services import (
 )
 from application.tenant_context import get_current_tenant_id
 from middleware.auth import protected_page, protected_tab_page
-from models import FeatureFlag, Role
+from models import FeatureFlag, Role, User
 from pages.admin_tabs.admin_brackets import admin_brackets_page
 from pages.admin_tabs.admin_check_in import admin_check_in_page
 from pages.admin_tabs.admin_community_events import admin_community_events_page
@@ -44,6 +44,7 @@ from pages.admin_tabs.settings import (
 )
 from pages.admin_tabs.triforce_texts import admin_triforce_texts_page
 from theme.base import BaseLayout
+from theme.section_menu import register_section_menu
 from theme.tables.match_access import MatchBoardAccess
 
 _ADMIN_GROUP_ORDER = ['Operations', 'Online play', 'Community', 'System']
@@ -233,6 +234,46 @@ def build_admin_tabs(
     return tabs
 
 
+async def resolve_admin_access(user: User) -> AdminAccess:
+    """What ``user`` may reach in the admin area of the community in scope."""
+    roles = await AuthService.get_roles(user)
+    # Tenant-filtered inside the service: these reverse relations hang off
+    # the *global* User, so unfiltered they let a tournament admin in one
+    # community through this gate in every other one. The ids (not just
+    # "any?") because the Schedule board scopes to them.
+    admin_tournament_ids, cc_tournament_ids = await AuthService.tournament_scope(user)
+    return AdminAccess(
+        # Staff-equivalence (not the literal grant) so a platform super-admin
+        # has full authority in this tenant.
+        is_staff=await AuthService.is_staff(user),
+        is_stream_manager=Role.STREAM_MANAGER in roles,
+        is_volunteer_coordinator=Role.VOLUNTEER_COORDINATOR in roles,
+        is_equipment_manager=Role.EQUIPMENT_MANAGER in roles,
+        is_preset_manager=Role.PRESET_MANAGER in roles,
+        is_sync_admin=Role.SYNC_ADMIN in roles,
+        is_qualifier_admin=Role.QUALIFIER_ADMIN in roles,
+        is_tournament_admin=bool(admin_tournament_ids),
+        is_crew_coordinator=bool(cc_tournament_ids),
+        is_qualifier_owner=await user.admin_async_qualifiers.filter(
+            tenant_id=get_current_tenant_id()).exists(),
+        operated_tournament_ids=frozenset(admin_tournament_ids | cc_tournament_ids),
+        admin_tournament_ids=frozenset(admin_tournament_ids),
+        crew_tournament_ids=frozenset(cc_tournament_ids),
+    )
+
+
+async def _admin_menu(user: User) -> list[dict]:
+    access = await resolve_admin_access(user)
+    if not access.any():
+        return []
+    live = await FeatureFlagService().enabled_flags()
+    setup_steps = await TenantSetupService().status()
+    return build_admin_tabs(access, live, {}, setup_steps)
+
+
+register_section_menu('/admin', _admin_menu)
+
+
 def create() -> None:
     @protected_tab_page('/admin')
     async def admin_dashboard_page(
@@ -277,30 +318,7 @@ def create() -> None:
                 ui.label('User not found in the database.').classes('text-error')
             return
 
-        roles = await AuthService.get_roles(user)
-        # Tenant-filtered inside the service: these reverse relations hang off
-        # the *global* User, so unfiltered they let a tournament admin in one
-        # community through this gate in every other one. The ids (not just
-        # "any?") because the Schedule board scopes to them.
-        admin_tournament_ids, cc_tournament_ids = await AuthService.tournament_scope(user)
-        access = AdminAccess(
-            # Staff-equivalence (not the literal grant) so a platform super-admin
-            # has full authority in this tenant.
-            is_staff=await AuthService.is_staff(user),
-            is_stream_manager=Role.STREAM_MANAGER in roles,
-            is_volunteer_coordinator=Role.VOLUNTEER_COORDINATOR in roles,
-            is_equipment_manager=Role.EQUIPMENT_MANAGER in roles,
-            is_preset_manager=Role.PRESET_MANAGER in roles,
-            is_sync_admin=Role.SYNC_ADMIN in roles,
-            is_qualifier_admin=Role.QUALIFIER_ADMIN in roles,
-            is_tournament_admin=bool(admin_tournament_ids),
-            is_crew_coordinator=bool(cc_tournament_ids),
-            is_qualifier_owner=await user.admin_async_qualifiers.filter(
-                tenant_id=get_current_tenant_id()).exists(),
-            operated_tournament_ids=frozenset(admin_tournament_ids | cc_tournament_ids),
-            admin_tournament_ids=frozenset(admin_tournament_ids),
-            crew_tournament_ids=frozenset(cc_tournament_ids),
-        )
+        access = await resolve_admin_access(user)
 
         # Per-tenant feature flags: a subsystem's tab only appears when the
         # tenant has that feature live (available AND enabled), in addition to

@@ -18,6 +18,7 @@ from theme.nav_badges import bottom_nav_tab, drawer_tab_badge, nav_icon
 from theme.nav_section import mark_nav_section, nav_section_matches
 from theme.notice import drain_notice
 from theme.page_header import heading_fallback
+from theme.section_menu import section_menu_provider
 from theme.url_state import History, url_state
 from theme.usage_telemetry import install_usage_capture, record_tab_view
 from theme.waiting import waiting_panel
@@ -44,6 +45,18 @@ HOME_SECTIONS: tuple[tuple[str, str], ...] = (
     ('Tournaments', 'emoji_events'),
     ('Profile', 'account_circle'),
 )
+
+WATCH_URL = '/live'
+
+
+def _home_menu() -> list[dict]:
+    return [{'label': label, 'icon': icon} for label, icon in HOME_SECTIONS]
+
+
+def _section_page_path(section_url: str, tab: dict) -> str:
+    """Where a section's tab lives: Home's at ``/home/<slug>``, a hub's under its own path."""
+    slug = tab.get('slug') or tab_slug(tab['label'])
+    return f"{'/home' if section_url == '/' else section_url}/{slug}"
 
 
 def current_local_url() -> str:
@@ -113,6 +126,9 @@ class BaseLayout:
         self._bottom_tab_labels: list = []
         self._syncing_nav = False
         self._tab_item_refs: dict = {}
+        self._section_buttons: dict = {}
+        self._section_lists: dict = {}
+        self._section_host = None
         self._shown_tab: str | None = None
         self._section = section
         # Lazy tab rendering: every panel gets a container up front, but its
@@ -507,53 +523,50 @@ class BaseLayout:
             f':width="{DRAWER_WIDTH_JS}"'
         ) as self._drawer:
             current_path = current_local_url().split('?', 1)[0]
-            with ui.list().props('padding'):
-                for item in self.top_menu:
-                    with ui.item(on_click=lambda u=item['url']: ui.navigate.to(u)).props('clickable v-ripple') as top_item:
+            # Watch has no pages of its own, so it is a plain link above the
+            # section switcher rather than one of its tabs.
+            for item in self.top_menu:
+                if item['url'] != WATCH_URL:
+                    continue
+                with ui.list().props('padding'):
+                    with ui.item(on_click=lambda u=item['url']: ui.navigate.to(u)) \
+                            .props('clickable v-ripple').classes('wiz-drawer-watch') as watch_item:
                         with ui.item_section().props('avatar'):
                             ui.icon(nav_icon(item['icon'])).props('size=sm')
                         with ui.item_section():
-                            ui.item_label(item['label'])
-                    if nav_section_matches(item['url'], current_path):
-                        mark_nav_section(top_item)
+                            ui.item_label('Watch live')
+                if nav_section_matches(item['url'], current_path):
+                    mark_nav_section(watch_item)
 
-            if not self.tabs and self._is_member:
-                # A tab-less page has no section list of its own, so a member
-                # gets home's: the bracket or article they followed a link to
-                # is not where they stop being a player.
-                ui.separator()
-                with ui.list().props('padding'):
-                    for label, icon in HOME_SECTIONS:
-                        with ui.item(
-                            on_click=lambda slug=tab_slug(label): ui.navigate.to(f'/home/{slug}')
-                        ).props('clickable v-ripple'):
-                            with ui.item_section().props('avatar'):
-                                ui.icon(nav_icon(icon)).props('size=sm')
-                            with ui.item_section():
-                                ui.item_label(label)
-
-            if self.tabs:
-                ui.separator()
-                with ui.list().props('padding'):
-                    current_group = None
-                    for tab in self.tabs:
-                        # Section headers for grouped drawers (admin passes a
-                        # 'group' per tab); ungrouped pages render a flat list.
-                        group = tab.get('group')
-                        if group and group != current_group:
-                            current_group = group
-                            ui.item_label(group).props('header').classes('wiz-drawer-group')
-                        with ui.item(
-                            on_click=lambda t=tab['label']: self._switch_tab(t)
-                        ).props('clickable v-ripple') as tab_item:
-                            with ui.item_section().props('avatar'):
-                                ui.icon(nav_icon(tab.get('icon', 'circle'))).props('size=sm')
-                            with ui.item_section():
-                                ui.item_label(tab['label'])
-                            drawer_tab_badge(tab)
-                        if tab['label'] == self._default_tab:
-                            tab_item.props(add='active')
-                        self._tab_item_refs[tab['label']] = tab_item
+            # Home, Volunteer and Admin switch the page list below in place, so
+            # the menu stays open while the viewer looks through another
+            # section; only picking a page navigates.
+            sections = [item for item in self.top_menu if item['url'] != WATCH_URL]
+            current = next(
+                (item['url'] for item in sections if nav_section_matches(item['url'], current_path)), '/',
+            )
+            self._section_buttons = {}
+            self._section_lists = {}
+            if len(sections) > 1:
+                with ui.element('div').classes('wiz-drawer-sections') \
+                        .props('role=tablist aria-label="Menu sections"'):
+                    for item in sections:
+                        btn = ui.button(
+                            item['label'], icon=nav_icon(item['icon']), color=None,
+                            on_click=lambda u=item['url']: self._show_section(u),
+                        ).props('flat no-caps stack role=tab').classes('wiz-drawer-section')
+                        self._section_buttons[item['url']] = btn
+            with ui.element('div').classes('wiz-drawer-pages') as self._section_host:
+                with ui.list().props('padding') as current_list:
+                    if self.tabs:
+                        self._render_page_items(self.tabs)
+                    elif self._is_member:
+                        # A tab-less page has no section list of its own, so a
+                        # member gets home's: the bracket or article they followed
+                        # a link to is not where they stop being a player.
+                        self._render_page_items(_home_menu(), section_url='/')
+            self._section_lists[current] = current_list
+            self._mark_section_button(current)
 
             # The info card and the copyright sit at the foot of the drawer
             # when the nav fits, and fall to its scroll-end when it is long.
@@ -565,6 +578,69 @@ class BaseLayout:
                     render_github_item()
 
             ui.label(self._copyright).classes('text-caption q-px-md q-pb-md wiz-drawer-copyright')
+
+    def _render_page_items(self, tabs: list[dict], section_url: str | None = None) -> None:
+        """A section's pages as drawer rows: this page's tabs switch in place
+        (``section_url`` None), another section's rows navigate to it."""
+        current_group = None
+        for tab in tabs:
+            # Section headers for grouped drawers (admin passes a 'group' per
+            # tab); ungrouped sections render a flat list.
+            group = tab.get('group')
+            if group and group != current_group:
+                current_group = group
+                ui.item_label(group).props('header').classes('wiz-drawer-group')
+            if section_url is None:
+                on_click = lambda t=tab['label']: self._switch_tab(t)
+            else:
+                path = _section_page_path(section_url, tab)
+                on_click = lambda p=path: ui.navigate.to(p)
+            with ui.item(on_click=on_click).props('clickable v-ripple') as tab_item:
+                with ui.item_section().props('avatar'):
+                    ui.icon(nav_icon(tab.get('icon', 'circle'))).props('size=sm')
+                with ui.item_section():
+                    ui.item_label(tab['label'])
+                if section_url is None:
+                    drawer_tab_badge(tab)
+            if section_url is None:
+                if tab['label'] == self._default_tab:
+                    tab_item.props(add='active')
+                self._tab_item_refs[tab['label']] = tab_item
+
+    def _mark_section_button(self, url: str) -> None:
+        for btn_url, btn in self._section_buttons.items():
+            if btn_url == url:
+                btn.classes(add='wiz-drawer-section--on').props('aria-selected=true')
+            else:
+                btn.classes(remove='wiz-drawer-section--on').props('aria-selected=false')
+
+    async def _show_section(self, url: str) -> None:
+        """Swap the drawer's page list to the section at ``url``, loading it once."""
+        if url not in self._section_lists:
+            tabs = await self._section_tabs(url)
+            with self._section_host:
+                with ui.list().props('padding') as section_list:
+                    if tabs:
+                        self._render_page_items(tabs, section_url=url)
+                    else:
+                        ui.item_label('Nothing to open here.').props('caption').classes('q-px-md')
+            self._section_lists[url] = section_list
+        for list_url, section_list in self._section_lists.items():
+            section_list.set_visibility(list_url == url)
+        self._mark_section_button(url)
+
+    async def _section_tabs(self, url: str) -> list[dict]:
+        if url == '/':
+            return _home_menu() if self._is_member else []
+        provider = section_menu_provider(url)
+        if provider is None or self.user is None:
+            return []
+        try:
+            with tenant_scope(self._tenant_id):
+                return await provider(self.user)
+        except Exception:
+            logger.exception('Failed to list the %s section for the drawer', url)
+            return []
 
     def _switch_tab(self, label: str) -> None:
         # Only move the panel; the drawer highlight and the /base/<slug> history
