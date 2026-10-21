@@ -13,6 +13,14 @@
  * --wiz-vv-top / --wiz-vv-bottom / --wiz-vv-height on <html> (the
  * html.wiz-kb-open rules in styles.css read them), then scrolls the focused
  * field into view inside the dialog card.
+ *
+ * In the home screen app it also pins the tab bar to the screen's bottom.
+ * There is no browser toolbar there, yet scrolling back up can shrink the box
+ * fixed elements sit in as if Safari's toolbar had come back, lifting the bar
+ * with the page showing underneath until something (a keyboard opening and
+ * closing) makes WebKit measure again. The tallest that box has been at this width is
+ * the real screen, so --wiz-standalone-gap (read by styles.css) moves the bar
+ * down by the shortfall.
  */
 (function () {
   if (window.__wizDialogKeyboard) return;
@@ -28,6 +36,12 @@
   var probe = null;
   var pending = false;
   var open = false;
+  var standalone = window.matchMedia && window.matchMedia('(display-mode: standalone)').matches;
+  // A toolbar-sized shortfall; anything bigger is a real resize, not the bug.
+  var STANDALONE_GAP_MAX = 160;
+  var tallest = 0;
+  var tallestWidth = 0;
+  var gap = 0;
 
   // The box a position:fixed element is laid out against. innerHeight and
   // clientHeight each disagree with it on iOS depending on toolbar state.
@@ -62,7 +76,9 @@
     pending = false;
     var full = layoutHeight();
     var kb = full - vv.height;
-    var next = dialogOpen() && vv.scale < 1.01 && kb > KEYBOARD_MIN;
+    var up = vv.scale < 1.01 && kb > KEYBOARD_MIN;
+    if (standalone) pinStandalone(full, up);
+    var next = dialogOpen() && up;
     if (next) {
       var top = Math.max(0, vv.offsetTop);
       var bottom = Math.max(0, full - vv.offsetTop - vv.height);
@@ -82,6 +98,20 @@
     if (open) requestAnimationFrame(revealFocused);
   }
 
+  function pinStandalone(full, up) {
+    if (window.innerWidth !== tallestWidth) {
+      tallestWidth = window.innerWidth;
+      tallest = 0;
+    }
+    tallest = Math.max(tallest, full);
+    var short = tallest - full;
+    var next = !up && short > 0 && short <= STANDALONE_GAP_MAX ? short : 0;
+    if (next === gap) return;
+    gap = next;
+    if (gap) root.style.setProperty('--wiz-standalone-gap', gap + 'px');
+    else root.style.removeProperty('--wiz-standalone-gap');
+  }
+
   function schedule() {
     if (pending) return;
     pending = true;
@@ -90,6 +120,7 @@
 
   vv.addEventListener('resize', schedule);
   vv.addEventListener('scroll', schedule);
+  if (standalone) window.addEventListener('scroll', schedule, { passive: true });
   // The keyboard can already be up when focus moves between fields, and a
   // dialog can close with it still up; neither resizes the viewport.
   document.addEventListener('focusin', schedule);
