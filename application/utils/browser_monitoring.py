@@ -49,9 +49,12 @@ BUILTIN_RULES: Tuple[IgnoreRule, ...] = (
     IgnoreRule('AbortError', MATCH_MESSAGE),
     IgnoreRule('xhr poll error', MATCH_MESSAGE),
     IgnoreRule('websocket error', MATCH_MESSAGE),
-    # Quasar's own script never arrived, so its language pack has nothing to
-    # attach to. The page reloads itself (install_framework_load_guard) and
-    # reports a second failure as a message.
+    # Vue's or Quasar's own script never arrived, so Quasar has no Vue to read
+    # (SGLMAN-1E) or its language pack has no Quasar to attach to (SGLMAN-1J).
+    # The page reloads itself (install_framework_load_guard) and reports a
+    # second failure as a message. Firefox says "window.Vue is undefined",
+    # Chrome "Cannot destructure property '…' of 'window.Vue'".
+    IgnoreRule('window.Vue', MATCH_MESSAGE),
     IgnoreRule('/static/lang/', MATCH_URL),
 )
 
