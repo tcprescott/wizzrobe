@@ -45,12 +45,24 @@ def install_framework_load_guard() -> None:
     framework URL is fetched again with ``cache: 'reload'``, which replaces
     whatever the browser kept. If the page is still dead after that, say so on
     the page and report it.
+
+    A browser without import maps (Safari before 16.4, SGLMAN-21/23) can never
+    load NiceGUI's Vue module, and its Tailwind build fails to parse there too.
+    No reload helps, so it gets told to update instead, with nothing reported.
     """
     ui.add_body_html(
         '<script>'
         "document.addEventListener('DOMContentLoaded',function(){"
         "var k='wizFrameworkReload';"
         'if(window.Quasar){try{sessionStorage.removeItem(k);}catch(e){}return;}'
+        "function say(t){var p=document.createElement('p');"
+        "p.setAttribute('role','alert');"
+        "p.style.cssText='margin:2rem 1rem;font:16px/1.5 system-ui,sans-serif;text-align:center';"
+        'p.textContent=t;document.body.prepend(p);}'
+        "if(!(window.HTMLScriptElement&&HTMLScriptElement.supports&&HTMLScriptElement.supports('importmap'))){"
+        "var f=document.getElementById('esm-fallback');if(f)f.remove();"
+        'say("This browser is too old for this site. Update to Safari 16.4 or newer, or open this page in Firefox or Chrome.");'
+        'return;}'
         'var first=false;'
         'try{if(!sessionStorage.getItem(k)){sessionStorage.setItem(k,String(Date.now()));first=true;}}catch(e){}'
         'if(first){'
@@ -65,11 +77,7 @@ def install_framework_load_guard() -> None:
         'setTimeout(go,5000);'
         "Promise.all(urls.map(function(u){return fetch(u,{cache:'reload'}).catch(function(){});})).then(go,go);"
         'return;}'
-        "var p=document.createElement('p');"
-        "p.setAttribute('role','alert');"
-        "p.style.cssText='margin:2rem 1rem;font:16px/1.5 system-ui,sans-serif;text-align:center';"
-        "p.textContent=\"This page didn't finish loading. Check your connection, then reload.\";"
-        'document.body.prepend(p);'
+        "say(\"This page didn't finish loading. Check your connection, then reload.\");"
         "if(window.Sentry&&Sentry.captureMessage)Sentry.captureMessage('Framework scripts failed to load after a reload','warning');"
         '});'
         '</script>'

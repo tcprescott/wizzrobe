@@ -59,6 +59,12 @@
     return !messagesOf(event).some(function (text) { return text.indexOf(GUARD_REPORT) !== -1; });
   }
 
+  // Without import maps (Safari before 16.4) NiceGUI's Vue module never loads
+  // and its Tailwind build won't parse (SGLMAN-21). The load guard tells the
+  // person to update; nothing from such a browser is ours to fix.
+  var unsupportedBrowser = !(window.HTMLScriptElement && HTMLScriptElement.supports &&
+    HTMLScriptElement.supports('importmap'));
+
   function ignored(event) {
     var messages = messagesOf(event);
     var urls = urlsOf(event);
@@ -83,7 +89,7 @@
     replaysSessionSampleRate: 0,
     replaysOnErrorSampleRate: cfg.replay ? 1.0 : 0,
     beforeSend: function (event) {
-      if (!live.enabled) return null;
+      if (!live.enabled || unsupportedBrowser) return null;
       if (live.sampleRate < 1 && Math.random() >= live.sampleRate) return null;
       if (ignored(event)) return null;
       if (missingVue(event)) return null;
