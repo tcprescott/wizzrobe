@@ -210,3 +210,11 @@ class TestMyScheduleMenu:
         src = pathlib.Path('pages/home_tabs/my_crew.py').read_text()
         assert "layout='player_run_sheet'" in src
         assert 'crew_discord_id=discord_id' in src
+
+
+def test_no_column_points_at_a_list():
+    # NiceGUI patches in its own body-cell slot (and logs a warning) for any
+    # column whose field holds a list, unaware the body slot draws the cell.
+    row = arrange_player_run_sheet([_row(commentators=[{'discord_id': '5', 'approved': True}])], ME)[0]
+    for col in PLAYER_RUN_SHEET_COLUMNS:
+        assert not isinstance(row.get(col['field']), (list, set, tuple)), col['name']
