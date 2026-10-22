@@ -28,7 +28,7 @@ from models import (
 
 # How long an unchecked-in late match keeps sliding forward on the capacity
 # forecast before it's treated as a no-show and stops growing.
-LATE_PUSH_LIMIT = timedelta(hours=1)
+LATE_PUSH_LIMIT = timedelta(hours=2)
 
 
 def _now() -> datetime:
