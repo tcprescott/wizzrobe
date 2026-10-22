@@ -89,3 +89,21 @@ def test_hub_tabs_push_their_address_inside_the_click():
     assert PUSH_ATTR in _LISTENER_JS and 'pushState' in _LISTENER_JS
     assert 'mark_tab_push(' in (REPO / 'theme/drawer_nav.py').read_text()
     assert 'mark_tab_push(bottom_nav_tab(' in (REPO / 'theme/base.py').read_text()
+
+
+def test_a_late_replace_cannot_rewrite_the_entry_back_landed_on():
+    # A tab's post-build replace can reach the browser after a Back the server
+    # hasn't heard of yet; it must only apply while the browser is still there.
+    from unittest.mock import MagicMock, patch
+
+    from theme.url_state import UrlState
+
+    state = UrlState.__new__(UrlState)
+    state.client = MagicMock()
+    state.path, state.tail, state.query, state._params = '/t/x/home/tournaments', '', {}, []
+    state._at, state.tab, state.base_title = '/t/x/home/tournaments', None, 'X'
+    with patch('theme.url_state.ui.run_javascript') as run:
+        state.sync()
+    script = run.call_args[0][0]
+    assert script.startswith('if(location.pathname==="/t/x/home/tournaments")')
+    assert 'replaceState' in script and 'pushState' not in script
