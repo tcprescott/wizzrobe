@@ -2,7 +2,7 @@
 
 Owns validation and persistence of the blob behind each table's Preferences
 gear: which columns are visible, in what order, at what width, plus page size,
-density and line wrapping.
+density and line wrapping, and which groups of a run-sheet board are folded.
 
 **No audit row and no event, deliberately.** ``AuditActions`` are ``verb.object``
 records of changes to a *community's data*; hiding a column on your own screen is
@@ -31,12 +31,13 @@ logger = logging.getLogger(__name__)
 class TablePreferenceService:
     """Read, validate and store one person's table layouts."""
 
-    ALLOWED_KEYS = ('columns', 'page_size', 'density', 'wrap')
+    ALLOWED_KEYS = ('columns', 'page_size', 'density', 'wrap', 'folded')
     ALLOWED_PAGE_SIZES = (0, 10, 25, 50, 100)     # 0 == "All"
     ALLOWED_DENSITIES = ('comfortable', 'compact')
     MAX_COLUMNS = 64
     MIN_WIDTH, MAX_WIDTH = 40, 1200
     MAX_NAME_LEN = 64
+    MAX_FOLDED = 16
 
     def __init__(self) -> None:
         self.repository = TablePreferenceRepository()
@@ -64,8 +65,16 @@ class TablePreferenceService:
     # ----------------------------------------------------------------- writes
 
     async def save(self, user: User, table_key: str, config: Mapping) -> dict:
-        """Validate and store one table's whole layout."""
+        """Validate and store one table's whole layout.
+
+        Folded groups are not the gear's to set, so a save that leaves them out
+        keeps the ones already stored.
+        """
         clean = self.validate(config)
+        if 'folded' not in clean:
+            current = await self.get(user, table_key) or {}
+            if isinstance(current.get('folded'), Mapping):
+                clean['folded'] = self._validate_folded(current['folded'])
         await self.repository.upsert(user.id, table_key, clean)
         await self._track(user, 'table.preferences_saved', table_key)
         return clean
@@ -107,6 +116,22 @@ class TablePreferenceService:
         """
         merged = dict(await self.get(user, table_key) or {})
         merged['page_size'] = page_size
+        clean = self.validate(merged)
+        await self.repository.upsert(user.id, table_key, clean)
+        return clean
+
+    async def set_folded(self, user: User, table_key: str, group: str, folded: bool) -> dict:
+        """Persist one run-sheet group folded or open.
+
+        Stored per group rather than as a set of folded ones, so a group the
+        board folds by default stays open once its viewer has opened it.
+        Read-modify-write like :meth:`set_width`, and lock-free for the same reason.
+        """
+        merged = dict(await self.get(user, table_key) or {})
+        current = merged.get('folded')
+        groups = dict(current) if isinstance(current, Mapping) else {}
+        groups[group] = folded
+        merged['folded'] = groups
         clean = self.validate(merged)
         await self.repository.upsert(user.id, table_key, clean)
         return clean
@@ -164,7 +189,28 @@ class TablePreferenceService:
         if 'columns' in config:
             clean['columns'] = cls._validate_columns(config['columns'])
 
+        if 'folded' in config:
+            clean['folded'] = cls._validate_folded(config['folded'])
+
         return clean
+
+    @classmethod
+    def _validate_folded(cls, folded: Any) -> dict[str, bool]:
+        if not isinstance(folded, Mapping):
+            raise ValueError('Folded groups must be an object.')
+        if len(folded) > cls.MAX_FOLDED:
+            raise ValueError(f'A table may not fold more than {cls.MAX_FOLDED} groups.')
+        cleaned: dict[str, bool] = {}
+        for name, value in folded.items():
+            if not isinstance(name, str) or not name.strip():
+                raise ValueError('Each folded group needs a name.')
+            if len(name) > cls.MAX_NAME_LEN:
+                raise ValueError(
+                    f'Group names may not exceed {cls.MAX_NAME_LEN} characters.')
+            if not isinstance(value, bool):
+                raise ValueError(f'Folded for {name} must be true or false.')
+            cleaned[name.strip()] = value
+        return cleaned
 
     @classmethod
     def _validate_columns(cls, columns: Any) -> list[dict]:

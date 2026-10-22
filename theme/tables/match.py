@@ -31,6 +31,7 @@ from theme.tables.match_filters import (
     MatchFiltersMixin,
     day_scope_window,
 )
+from theme.tables.match_fold import MatchBoardFoldMixin
 from theme.tables.match_grid import render_grid_slot
 from theme.tables.match_handlers import MatchTableHandlersMixin
 from theme.tables.match_hold import MatchBoardHoldMixin
@@ -64,7 +65,7 @@ from theme.timer_teardown import PageTimer
 _MATCHES_NOTHING = [0]
 
 
-class MatchTableView(MatchFiltersMixin, MatchTableHandlersMixin, MatchBoardHoldMixin):
+class MatchTableView(MatchFiltersMixin, MatchTableHandlersMixin, MatchBoardHoldMixin, MatchBoardFoldMixin):
     """
     Encapsulates the match table UI and logic for admin/player dashboards.
 
@@ -228,8 +229,10 @@ class MatchTableView(MatchFiltersMixin, MatchTableHandlersMixin, MatchBoardHoldM
         if self.layout != 'run_sheet':
             return rows
         if self.run_sheet_group is None:
-            return arrange_run_sheet(rows)
-        return arrange_run_sheet(rows, self.run_sheet_group)
+            arranged = arrange_run_sheet(rows)
+        else:
+            arranged = arrange_run_sheet(rows, self.run_sheet_group)
+        return self._stamp_folded(arranged)
 
     def _bg(self, coro) -> None:
         """Schedule ``coro`` with this view's tenant *and* display zone rebound."""
@@ -313,6 +316,8 @@ class MatchTableView(MatchFiltersMixin, MatchTableHandlersMixin, MatchBoardHoldM
                 )
             if self.on_open_match is not None:
                 self.table.on('open_match', lambda event: self._bg(self.on_open_match(event.args)))
+            if self.layout == 'run_sheet':
+                self._wire_folding()
         else:
             self._register_table_slots(discord_id)
 
@@ -331,7 +336,8 @@ class MatchTableView(MatchFiltersMixin, MatchTableHandlersMixin, MatchBoardHoldM
                 preferences_button(self.table)
             if self.searchable:
                 with search_slot:
-                    search_input(self.table, placeholder='Search matches…')
+                    search_input(self.table, placeholder='Search matches…',
+                                 search_terms=self.layout == 'run_sheet')
             with self.table_container:
                 row_count_label(self.table, 'matches')
             sticky_header(self.table)

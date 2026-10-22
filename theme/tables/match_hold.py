@@ -25,7 +25,7 @@ from nicegui import ui
 IDLE_TIDY_MS = 60_000
 
 #: The fields ``_arrange`` writes to place a row; a held row keeps its old ones.
-_PLACE_FIELDS = ('_group', '_group_start', '_group_count')
+_PLACE_FIELDS = ('_group', '_group_start', '_group_count', '_folded')
 
 # Installs the scroll and idle listeners for one board and removes them on
 # tidy. Listeners live on window, so the board's own redraws never reset them.
