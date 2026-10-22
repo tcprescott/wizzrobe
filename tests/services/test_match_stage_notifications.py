@@ -119,6 +119,9 @@ async def test_clearing_the_stage_retracts_and_rearms(
     await _drain(stub_discord_queue)
 
     assert sent, 'clearing a stage must send its own DM'
+    assert fixture['approved'].discord_id in {call['discord_id'] for call in sent}, (
+        'crew were told they are on stage, so they must hear it was called off'
+    )
     assert all('tournament room' in call['message'] for call in sent)
     assert all('Kraid' not in call['message'] for call in sent)
     match = await Match.get(id=fixture['match'].id)
@@ -290,6 +293,7 @@ async def test_the_reminder_gives_players_a_running_late_button(
         '.send_dm_with_player_late_button',
         AsyncMock(side_effect=_late),
     )
+    await Match.filter(id=fixture['match'].id).update(stage_id=fixture['stage'].id)
     match = await Match.get(id=fixture['match'].id)
     await MatchScheduleService().notify_stage_reminder(match, stage_name='Kraid')
 

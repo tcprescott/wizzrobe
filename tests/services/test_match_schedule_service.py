@@ -756,7 +756,7 @@ class TestNotifyMatchParticipants:
         real_notify_service.discord_service.send_dm.assert_awaited_once()
 
     async def test_each_recipient_gets_exactly_one_dm(self, real_notify_service):
-        match = MockMatch()
+        match = MockMatch(stage_id=1)
         player_user = SimpleNamespace(discord_id=111, dm_notifications=True)
         crew_user = SimpleNamespace(discord_id=222, dm_notifications=True)
         watcher_user = SimpleNamespace(discord_id=333, dm_notifications=True)

@@ -240,6 +240,7 @@ class MatchNotificationMixin:
                 _AUDIENCES, 'This match is back in the tournament room.',
             ),
             log_label='notify_stage_changed',
+            include_unstaged_crew=True,
         )
 
     async def notify_stage_reminder(self, match: Match, *, stage_name: str) -> None:
@@ -298,6 +299,7 @@ class MatchNotificationMixin:
         descriptions: dict[str, str],
         log_label: str,
         late_button: bool = False,
+        include_unstaged_crew: bool = False,
     ) -> None:
         """Shared body of the three stage DMs: one audience, per-audience copy.
 
@@ -311,7 +313,9 @@ class MatchNotificationMixin:
             when = time_field(match.scheduled_at)
             community = await _community_name()
             links = await self._audience_links(match.id)
-            recipients = await collect_match_audience(match)
+            recipients = await collect_match_audience(
+                match, include_unstaged_crew=include_unstaged_crew,
+            )
             for discord_id, recipient in recipients.items():
                 audience = recipient.audience
                 embed = stage_embed(
@@ -667,6 +671,6 @@ class MatchNotificationMixin:
         Used to deduplicate tournament-subscriber notifications.
         """
         recipients = await collect_match_recipients(
-            match, include_watchers=False,
+            match, include_watchers=False, include_unstaged_crew=True,
         )
         return list(recipients)

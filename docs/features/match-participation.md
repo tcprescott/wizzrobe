@@ -41,6 +41,14 @@ Acknowledge DM as approving a signup. Dropping an approved crew member from that
 dialog goes through `announce_admin_removal`, which publishes
 `crew.signup_removed` and sends the withdrawal notice.
 
+**Crew hear about a match only while it is on a stage.** A match with no stage
+isn't being broadcast, so neither DM goes out for it (the approval and its event
+still happen), and `collect_match_audience` leaves crew out of every match DM
+until a stage is assigned. The "You're on stage" DM is then their first message.
+The one exception is the stage-cleared DM, which still reaches them because they
+were told they were on stage. A crew member who also watches the match keeps the
+watcher copy.
+
 ```python
 from application.services import CrewService
 
