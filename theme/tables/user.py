@@ -264,5 +264,8 @@ class UserTableView:
         ).first()
         if not u:
             return  # User not found
+        idx = next((i for i, row in enumerate(self.table.rows) if row.get('id') == user_id), None)
+        if idx is None:
+            return  # A reload replaced the rows while the query ran
         self.table.rows[idx] = self._format_user_row(u, self._tenant_id)
         self.table.update()
