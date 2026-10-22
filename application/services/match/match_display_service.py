@@ -20,6 +20,7 @@ from application.repositories import (
     StageRepository,
     TournamentRepository,
 )
+from application.services.bracket_set_service import BracketSetService
 from application.services.match.match_status import has_recorded_result, legacy_label, resolve
 from application.services.match.player_late_service import late_tag, late_window_open
 from application.services.reporting_shared import crew_requirement
@@ -354,6 +355,7 @@ class MatchDisplayService:
             # None unless a bracket scheduled this match; drives the schedule's
             # link into the (publicly readable) bracket view.
             'bracket': self._bracket_ref(match),
+            'set_label': BracketSetService.label(match),
             'scheduled_at': format_local_datetime(match.scheduled_at) if match.scheduled_at else '',
             # Sort key and urgency flag for the proctor board. The formatted
             # ``scheduled_at`` string is display-only and does not sort.

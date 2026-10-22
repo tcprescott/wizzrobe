@@ -71,6 +71,11 @@ def _display(value: str) -> str:
     return f"{parsed.strftime('%a')} {parsed.day} {parsed.strftime('%b, %H:%M')}"
 
 
+def _stage_detail(stage: ScheduleStage, draft: Dict[str, Any]) -> str:
+    best_of = draft.get('best_of', 1)
+    return f'{stage.detail} · Best of {best_of}' if best_of > 1 else stage.detail
+
+
 class RoundScheduleDialog:
     def __init__(
         self, tournament: Tournament,
@@ -81,8 +86,9 @@ class RoundScheduleDialog:
         self.service = RoundScheduleService()
         self.stages: List[ScheduleStage] = []
         # key -> {'opens', 'closes'} as datetime-local strings on the community
-        # clock, plus 'daily_from'/'daily_until' as HH:MM; '' means unset.
-        self.drafts: Dict[str, Dict[str, str]] = {}
+        # clock, plus 'daily_from'/'daily_until' as HH:MM ('' means unset) and
+        # 'best_of', the games each matchup in the stage plays.
+        self.drafts: Dict[str, Dict[str, Any]] = {}
         self.tz: Any = None
         self.tenant_id = get_current_tenant_id()
 
@@ -101,6 +107,7 @@ class RoundScheduleDialog:
                 'closes': _local_input(w.closes if w else None, self.tz),
                 'daily_from': w.daily_from.strftime('%H:%M') if w and w.daily_from else '',
                 'daily_until': w.daily_until.strftime('%H:%M') if w and w.daily_until else '',
+                'best_of': stage.best_of,
             }
 
         with ui.dialog() as self.dialog, ui.card().classes('dialog-card dialog-card--lg round-schedule'):
@@ -153,7 +160,7 @@ class RoundScheduleDialog:
         with row:
             with ui.column().classes('gap-0 round-schedule__stage'):
                 ui.label(stage.label).classes('text-weight-bold')
-                ui.label(stage.detail).classes('text-caption text-muted')
+                ui.label(_stage_detail(stage, draft)).classes('text-caption text-muted')
             self._cell('Opens', _display(draft['opens']) or 'Any time', not draft['opens'], mono=True)
             self._cell('Closes', _display(draft['closes']) or 'No limit', not draft['closes'], mono=True)
             self._cell('Hours', hours or 'Tournament hours', not hours, mono=bool(hours))
@@ -172,7 +179,10 @@ class RoundScheduleDialog:
             ui.label(value).classes(classes)
 
     def _clear(self, stage: ScheduleStage) -> None:
-        self.drafts[stage.key] = {'opens': '', 'closes': '', 'daily_from': '', 'daily_until': ''}
+        self.drafts[stage.key] = {
+            'opens': '', 'closes': '', 'daily_from': '', 'daily_until': '',
+            'best_of': self.drafts[stage.key].get('best_of', 1),
+        }
         self.rows.refresh()
 
     # --- Editor sheet ------------------------------------------------------
@@ -211,6 +221,14 @@ class RoundScheduleDialog:
                 'Players can only book a match that fits wholly inside this. '
                 'Staff can still save outside it after a warning.'
             ).classes('text-caption text-muted')
+            with ui.row().classes('items-center gap-2'):
+                ui.label('Best of').classes('text-caption')
+                # url-state: exempt — a setting inside a dialog
+                best_of = ui.toggle({1: '1', 3: '3', 5: '5'}, value=draft.get('best_of', 1)) \
+                    .props('dense unelevated').classes('wiz-segmented')
+            ui.label(
+                'A best of 3 or 5 books one match per game, each with its own time, seed and crew.'
+            ).classes('text-caption text-muted')
             error = ui.label('').classes('text-negative text-caption')
             error.set_visibility(False)
 
@@ -228,6 +246,7 @@ class RoundScheduleDialog:
                 'opens': o, 'closes': c,
                 'daily_from': start.value if daily.value else '',
                 'daily_until': until.value if daily.value else '',
+                'best_of': int(best_of.value or 1),
             }
             self.sheet.close()
             self.rows.refresh()
@@ -250,6 +269,7 @@ class RoundScheduleDialog:
             key: {
                 'opens': instant(d['opens']), 'closes': instant(d['closes']),
                 'daily_from': d['daily_from'] or None, 'daily_until': d['daily_until'] or None,
+                'best_of': d.get('best_of', 1),
             }
             for key, d in self.drafts.items()
         }

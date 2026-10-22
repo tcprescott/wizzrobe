@@ -386,7 +386,10 @@ def render_grid_slot(table, columns, *, admin_controls: bool, access: MatchBoard
     # Caption (tournament + #id edit link)
     caption_inner = ''
     if 'tournament' in present:
-        caption_inner += '<span v-if="props.row.tournament">{{ props.row.tournament }}</span>'
+        caption_inner += (
+            '<span v-if="props.row.tournament">{{ props.row.tournament }}'
+            '<template v-if="props.row.set_label"> · {{ props.row.set_label }}</template></span>'
+        )
         # Same bracket link as the desktop Tournament cell (see match_slots).
         caption_inner += (
             '<a v-if="props.row.bracket" href="#" class="mgc-bracket-link q-ml-sm"'

@@ -36,6 +36,7 @@ from application.services._startgg_placeholders import StartggPlaceholderMixin
 from application.services._tournament_signup import record_enrolment_change
 from application.services.audit_service import AuditActions, AuditService
 from application.services.auth_service import AuthService
+from application.services.bracket_set_service import BracketSetService
 from application.services.discord import discord_queue
 from application.services.feature_flag_service import FeatureFlagService
 from application.services.match.match_service import MatchService
@@ -706,22 +707,33 @@ class StartggService(StartggPlaceholderMixin):
             return False
         if not await FeatureFlagService().is_enabled(FeatureFlag.STARTGG):
             return False
+        winner_id: Optional[int] = None
+        standing = await BracketSetService().standing(match)
+        if standing is not None:
+            # A set's game: start.gg hears only the set's result, once it's won.
+            if not standing.decided:
+                return False
+            match, winner_id = standing.first, standing.winner_id
         row = next(iter(await self.repository.sets_for_match(match)), None)
         if row is None or not row.tournament.startgg_report_results:
             return False
         try:
-            return await self._report(row, match, actor)
+            return await self._report(row, match, actor, winner_id=winner_id)
         except (ValueError, StartggAPIError):
             logger.error('start.gg result report failed for match %s', match.id, exc_info=True)
             return False
 
-    async def _report(self, row: StartggSet, match: Match, actor: User) -> bool:
-        await match.fetch_related('players')
-        winner = next((p for p in match.players if p.finish_rank == 1), None)  # type: ignore[attr-defined]
-        if winner is None:
-            return False
+    async def _report(
+        self, row: StartggSet, match: Match, actor: User, *, winner_id: Optional[int] = None,
+    ) -> bool:
+        if winner_id is None:
+            await match.fetch_related('players')
+            winner = next((p for p in match.players if p.finish_rank == 1), None)  # type: ignore[attr-defined]
+            if winner is None:
+                return False
+            winner_id = winner.user_id
         entrant = next(
-            (e for e in (row.entrant1, row.entrant2) if e is not None and e.user_id == winner.user_id),
+            (e for e in (row.entrant1, row.entrant2) if e is not None and e.user_id == winner_id),
             None,
         )
         if entrant is None:

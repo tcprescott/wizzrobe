@@ -977,6 +977,8 @@ Core scheduling unit. Lifecycle is derived from nullable timestamps rather than 
 | `comment` | `TextField` | null | |
 | `needs_review` | `BooleanField` | default `False` | The proctor's dispute flag: "an admin should look at this before confirming". Just a flag — there is no note field; what happened is a conversation, not a textarea filled in between matches. Not a state either: the match stays `Finished`. **Confirming clears it** (`confirm_match`), as does `MatchService.clear_review` |
 | `bracket_placeholders` | `JSONField` | null | Staff booked a Challonge/start.gg matchup before its players were known: one label per side still empty ("Andy or Benny", "Winner of C", "TBD"). Each bracket sync fills in decided players (`MatchService.fill_bracket_players`) and empties it once both are in; Check in waits until then (migration 123) |
+| `set_game` / `set_best_of` | `IntField` | null | One game of a best-of set booked from a Challonge/start.gg matchup: its number and the set's length. Null on every other match (migration 124) |
+| `set_first` | FK → `Match` | null, CASCADE | Games 2+ of a set point at game 1, which holds the bracket link (`BracketSetService`) |
 | `bracket_link_lost` | `BooleanField` | default `False` | A placeholder booking whose matchup a bracket reset dropped, or whose decided players disagree with it; staff re-link it from Not booked yet › Players TBD |
 | `forfeit_reason` | `CharEnumField(ForfeitReason)` | null | Set when staff decide the match by forfeit (`no_show`, `withdrew`, `disqualified`). The winner has `finish_rank=1` and the forfeiter none. Cleared by a rewind past finished or a recorded result |
 | `forfeit_note` | `CharField(280)` | null | Staff's note on the forfeit |

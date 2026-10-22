@@ -223,10 +223,16 @@ async def seed_challonge_for_tenant(
                 "closes_at": (day + timedelta(days=4)).isoformat(),
                 "daily_from": "18:00", "daily_until": "23:00",
             },
-            "e0": {"closes_at": (day + timedelta(days=5)).isoformat()},
+            "e0": {"closes_at": (day + timedelta(days=5)).isoformat(), "best_of": 3},
         }
         tournament.config = config
         await tournament.save(update_fields=["config"])
+    elif "best_of" not in (config["round_schedule"].get("e0") or {}):
+        config["round_schedule"]["e0"] = {**(config["round_schedule"].get("e0") or {}), "best_of": 3}
+        tournament.config = config
+        await tournament.save(update_fields=["config"])
+
+    await _seed_best_of_set(tenant, users, tournament, participants, now_utc)
 
     await _seed_open_challonge_bracket(tenant, users, now_utc)
 
@@ -235,6 +241,38 @@ async def seed_challonge_for_tenant(
         period=usage_period, tenant=tenant, defaults={"request_count": 42},
     )
     print(f"    [{tenant.slug}] challonge ok")
+
+
+async def _seed_best_of_set(
+    tenant: Tenant, users: dict[str, User], tournament: Tournament,
+    participants: dict, now_utc: datetime,
+) -> None:
+    """A best-of-3 set booked as three matches: game 1 played, game 2 booked,
+    game 3 "if needed" (run sheet "Game 2 of 3", BracketSetService)."""
+    first, created = await Match.get_or_create(
+        tournament=tournament, tenant=tenant, title="Best of 3, game 1",
+        defaults={"scheduled_at": now_utc - timedelta(hours=2), "set_game": 1, "set_best_of": 3,
+                  "started_at": now_utc - timedelta(hours=2), "finished_at": now_utc - timedelta(hours=1),
+                  "confirmed_at": now_utc - timedelta(minutes=50)},
+    )
+    if created:
+        for uname, rank in (("player_one", 1), ("player_two", 2)):
+            await MatchPlayers.create(match=first, user=users[uname], finish_rank=rank, tenant=tenant)
+    await ChallongeMatch.get_or_create(
+        tournament=tournament, challonge_match_id="cm_8", tenant=tenant,
+        defaults={"round": 3, "state": ChallongeMatchState.OPEN, "identifier": "H",
+                  "participant1": participants["cp_1"], "participant2": participants["cp_2"],
+                  "match": first},
+    )
+    for number in (2, 3):
+        game, created = await Match.get_or_create(
+            tournament=tournament, tenant=tenant, title=f"Best of 3, game {number}",
+            defaults={"scheduled_at": now_utc + timedelta(minutes=20 + 80 * (number - 2)),
+                      "set_game": number, "set_best_of": 3, "set_first": first},
+        )
+        if created:
+            for uname in ("player_one", "player_two"):
+                await MatchPlayers.create(match=game, user=users[uname], tenant=tenant)
 
 
 async def _seed_open_challonge_bracket(

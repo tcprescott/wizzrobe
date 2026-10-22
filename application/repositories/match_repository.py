@@ -367,8 +367,20 @@ class MatchRepository:
             )).values_list('match_id', flat=True),
         }
         return await scoped(Match.filter(
-            tournament_id__in=tournament_ids, confirmed_at__isnull=True,
+            tournament_id__in=tournament_ids, confirmed_at__isnull=True, set_first_id__isnull=True,
         )).exclude(id__in=list(linked)).prefetch_related('players__user', 'stage').order_by('scheduled_at', 'id')
+
+    @staticmethod
+    async def set_games(first_id: int) -> List[Match]:
+        """Every game of the best-of set that match ``first_id`` leads, in game order."""
+        return await scoped(
+            Match.filter(Q(id=first_id) | Q(set_first_id=first_id))
+        ).prefetch_related('players').order_by('set_game', 'id')
+
+    @staticmethod
+    async def set_followers(first_id: int) -> List[Match]:
+        """The games after game 1 of the set match ``first_id`` leads."""
+        return await scoped(Match.filter(set_first_id=first_id)).order_by('set_game', 'id')
 
     @staticmethod
     async def get_players(match: "Match | int") -> List[MatchPlayers]:

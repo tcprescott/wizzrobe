@@ -34,6 +34,15 @@ class RoundScheduleEntry(BaseModel):
     closes_at: Optional[str] = None
     daily_from: Optional[str] = None
     daily_until: Optional[str] = None
+    # How many games each matchup in this stage plays (odd); absent means 1.
+    best_of: Optional[int] = None
+
+    @field_validator('best_of')
+    @classmethod
+    def _best_of(cls, v: Optional[int]) -> Optional[int]:
+        if v is not None and (v < 1 or v % 2 == 0 or v > 7):
+            raise ValueError('best_of must be an odd number from 1 to 7')
+        return v
 
     @field_validator('opens_at', 'closes_at')
     @classmethod

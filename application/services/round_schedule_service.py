@@ -77,6 +77,7 @@ class ScheduleStage:
     window: Optional[RoundWindow] = None
     # Offered ahead of the bracket: no matches carry this key yet.
     placeholder: bool = False
+    best_of: int = 1
 
 
 @dataclass
@@ -142,6 +143,7 @@ class RoundScheduleService:
             raise ValueError('Only Challonge and start.gg tournaments have a round schedule here.')
         for stage in stages:
             stage.window = RoundWindow.from_config(saved.get(stage.key))
+            stage.best_of = (saved.get(stage.key) or {}).get('best_of') or 1
         return stages
 
     async def _challonge_stages(self, tournament: Tournament) -> List[ScheduleStage]:
@@ -205,9 +207,10 @@ class RoundScheduleService:
     ) -> Tournament:
         """Replace the tournament's whole round schedule.
 
-        ``entries`` maps a stage key to ``{opens, closes, daily_from, daily_until}``
-        where opens/closes are aware datetimes (or None) and the daily pair is
-        ``HH:MM`` strings (or None). A stage left wholly blank is dropped.
+        ``entries`` maps a stage key to ``{opens, closes, daily_from, daily_until,
+        best_of}`` where opens/closes are aware datetimes (or None), the daily
+        pair is ``HH:MM`` strings (or None) and ``best_of`` an odd game count. A
+        stage left wholly blank is dropped.
         """
         tournament = await self._editable(tournament_id, actor)
         schedule: Dict[str, dict] = {}
@@ -220,6 +223,9 @@ class RoundScheduleService:
                 raise ValueError('Daily hours need both a start and an end.')
             if (entry.get('daily_until') or None) is not None and not entry.get('daily_from'):
                 raise ValueError('Daily hours need both a start and an end.')
+            best_of = int(entry.get('best_of') or 1)
+            if best_of > 1:
+                stored = {**(stored or {}), 'best_of': best_of}
             if stored:
                 schedule[key] = stored
         config = dict(tournament.config or {})
@@ -240,20 +246,45 @@ class RoundScheduleService:
     # ------------------------------------------------------------------
     # Lookups: which window a matchup is booked inside
     # ------------------------------------------------------------------
+    async def _challonge_key(self, cm: ChallongeMatch) -> Optional[str]:
+        if cm.group_stage:
+            return GROUP_KEY
+        matches = await self.challonge_repository.list_matches(cm.tournament)
+        rounds = [m.round for m in matches if not m.group_stage and m.round]
+        return elimination_keys(
+            rounds, double=_is_double_challonge(cm.tournament, rounds),
+        ).get(cm.round or 0)
+
+    async def _startgg_key(self, row: StartggSet) -> Optional[str]:
+        phase = row.pool.phase
+        if not _is_elimination(phase):
+            return phase.phase_id
+        sets = [s for s in await self.startgg_repository.list_sets(row.tournament) if s.pool.phase_id == phase.id]
+        return _startgg_keys(phase, sets).get(row.round)
+
+    async def best_of_for(
+        self, *, challonge_match_id: Optional[int] = None, startgg_set_id: Optional[int] = None,
+    ) -> int:
+        """How many games a Challonge or start.gg matchup's stage plays; 1 when unset."""
+        tournament: Optional[Tournament] = None
+        key: Optional[str] = None
+        if challonge_match_id is not None:
+            cm = await self.challonge_repository.get_match(challonge_match_id)
+            if cm is not None and _schedule_config(cm.tournament):
+                tournament, key = cm.tournament, await self._challonge_key(cm)
+        elif startgg_set_id is not None:
+            row = await self.startgg_repository.get_set(startgg_set_id)
+            if row is not None and _schedule_config(row.tournament):
+                tournament, key = row.tournament, await self._startgg_key(row)
+        if tournament is None or key is None:
+            return 1
+        return (_schedule_config(tournament).get(key) or {}).get('best_of') or 1
+
     async def window_for_challonge_match(self, cm: ChallongeMatch) -> Optional[StageWindow]:
         saved = _schedule_config(cm.tournament)
         if not saved:
             return None
-        key: Optional[str] = None
-        if cm.group_stage:
-            key = GROUP_KEY
-        else:
-            matches = await self.challonge_repository.list_matches(cm.tournament)
-            rounds = [m.round for m in matches if not m.group_stage and m.round]
-            key = elimination_keys(
-                rounds, double=_is_double_challonge(cm.tournament, rounds),
-            ).get(cm.round or 0)
-        return _stage_window(saved, key, cm.round)
+        return _stage_window(saved, await self._challonge_key(cm), cm.round)
 
     async def window_for_startgg_set(self, row: StartggSet) -> Optional[StageWindow]:
         saved = _schedule_config(row.tournament)
@@ -263,8 +294,7 @@ class RoundScheduleService:
         if not _is_elimination(phase):
             window = RoundWindow.from_config(saved.get(phase.phase_id))
             return StageWindow(phase.name, window) if window else None
-        sets = [s for s in await self.startgg_repository.list_sets(row.tournament) if s.pool.phase_id == phase.id]
-        key = _startgg_keys(phase, sets).get(row.round)
+        key = await self._startgg_key(row)
         found = _stage_window(saved, key, row.round)
         if found is not None and row.round_text:
             found.label = row.round_text
@@ -277,6 +307,11 @@ class RoundScheduleService:
 
     async def window_for_match(self, match: Match) -> Optional[StageWindow]:
         """The window of whatever bracket matchup ``match`` was booked for."""
+        first_id = getattr(match, 'set_first_id', None)
+        if first_id is not None:
+            first = await self.match_repository.get_by_id(first_id, prefetch_relations=False)
+            if first is not None:
+                match = first
         cm = await self.challonge_repository.get_challonge_match_for_match(match)
         if cm is not None:
             return await self.window_for_challonge_match(cm)

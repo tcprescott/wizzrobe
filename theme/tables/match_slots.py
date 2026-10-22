@@ -81,7 +81,7 @@ ID_SLOT_READONLY = '''<q-td :props="props" :class="[props.row._flash ? 'wiz-row-
 # than carrying an href: `ui.navigate.to` prepends the tenant's root_path, which
 # a hand-built href in a slot template would miss under path-mode multitenancy.
 TOURNAMENT_SLOT = '''<q-td :props="props" :class="[props.row._flash ? 'wiz-row-flash' : '', props.row._removed ? 'wiz-row-removed' : '']" :inert="props.row._removed ? '' : null" :data-wiz-row="props.row.id">
-    <div class="cell-tournament">{{ props.value }}</div>
+    <div class="cell-tournament">{{ props.value }}<template v-if="props.row.set_label"> · {{ props.row.set_label }}</template></div>
     <a v-if="props.row.bracket" href="#" class="table-link cell-bracket-link"
        @click.prevent="$parent.$emit('open_bracket', props.row)">
         <q-icon name="account_tree" size="14px" class="q-mr-xs" />
