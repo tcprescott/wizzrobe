@@ -353,7 +353,7 @@ ENGINE=firefox node scripts/ui_engine_smoke.js scripts/ui_a11y_ci.json          
 HISTORY_BROWSERS=webkit,firefox node scripts/ui_history.js scripts/ui_history_ci.json  # Back/Forward/reload/deep links
 ```
 
-Three more workflows run on their own schedule: `codeql.yml` (CodeQL code scanning for Python, JavaScript and the workflows themselves, on every push to `main` and weekly; not on PRs, so it doesn't take runner slots from PR checks, and a newer push to `main` cancels an older analysis), `security.yml` (pip-audit over the
+Three more workflows run on their own schedule: `codeql.yml` (CodeQL code scanning for Python, JavaScript and the workflows themselves, weekly and by hand only, so it never takes runner slots from PR checks), `security.yml` (pip-audit over the
 runtime dependencies, on every push to `main`, weekly, and on a PR that changes `poetry.lock`, `pyproject.toml` or the workflow; any other PR reports the job green without auditing) and `guardrail-sweep.yml` (the
 whole-tree guardrail run, weekly).
 
