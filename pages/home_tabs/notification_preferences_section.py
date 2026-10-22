@@ -7,6 +7,7 @@ community's own setting is a ceiling, so a message it sends quietly can't be mad
 to ping and one it turned off shows as locked.
 """
 
+from functools import partial
 from typing import Awaitable, Callable, Dict, List, Union
 
 from nicegui import ui
@@ -235,9 +236,7 @@ async def render_notification_preferences(
                             _count_chips(counts)
                             if mine_changed:
                                 ui.label(f'{mine_changed} changed').classes('text-caption text-muted')
-                _build_on_first_open(
-                    section, open_sections.get(title, False), lambda rows=rows: section_rows(rows),
-                )
+                _build_on_first_open(section, open_sections.get(title, False), partial(section_rows, rows))
 
     def section_rows(rows: List[MyNotificationRow]) -> None:
         with ui.column().classes('gap-0 w-full'):
