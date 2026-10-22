@@ -181,6 +181,26 @@ class TestTheRoleGateUnderneath:
         assert 'forbidden:' in payload, payload
         assert await Match.filter(id=match.id).exists()
 
+    async def test_broadcast_tech_runs_only_a_match_on_a_stage(self, db):
+        """Their Proctor Station lists stage matches only; this is the gate
+        that keeps an off-stage match out of reach over MCP too."""
+        _, raw = await create_oauth_token(roles=[Role.STREAM_MANAGER], write=True)
+        player = await create_community_member(discord_id=772101, username='p-stage')
+        off_stage = await _match(players=[player])
+        on_stage = await _match(players=[player])
+        stage = await Stage.create(name='Main Stage', is_active=True)
+        await Match.filter(id=on_stage.id).update(stage_id=stage.id)
+        async with mcp_session() as client:
+            is_error, payload = await call_tool(
+                client, raw, 'seat_match', tenant=TENANT, match_id=off_stage.id,
+            )
+            assert is_error, payload
+            assert 'forbidden:' in payload, payload
+            is_error, payload = await call_tool(
+                client, raw, 'seat_match', tenant=TENANT, match_id=on_stage.id,
+            )
+            assert not is_error, payload
+
 
 class TestTheWritesLand:
     async def test_create_match_returns_the_new_match(self, db):

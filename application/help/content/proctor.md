@@ -20,6 +20,9 @@ The board is Volunteer → Proctor Station. If you can't see it, you haven't bee
 given the Proctor role yet, so ask a coordinator. Being scheduled on a proctor
 shift usually gives it to you.
 
+Broadcast Techs get Proctor Station too, listing only the matches on a stage,
+since those are the ones they run.
+
 ## The board
 
 :::snippet proctor-station

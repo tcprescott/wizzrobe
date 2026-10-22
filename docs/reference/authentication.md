@@ -209,7 +209,7 @@ Signed-out readability is **not** publication: the app serves a blanket `robots.
 | Decorator | Route(s) | Gating |
 |---|---|---|
 | `protected_tab_page` | `/admin` ([`pages/admin.py`](../../pages/admin.py)) | Login-only; the page body does its own tab-by-tab authorization |
-| `protected_tab_page` | `/volunteer` ([`pages/volunteer.py`](../../pages/volunteer.py)) | `roles=[VOLUNTEER, PROCTOR, STAFF, CHECK_IN_DESK, VOLUNTEER_COORDINATOR]`, no page-level flag; the volunteer tabs follow `can_view_volunteer`, Proctor Station `can_open_proctor_station`, the desk tab `can_view_check_in_desk`, and a visitor with no tab gets the not-found page a flag would give |
+| `protected_tab_page` | `/volunteer` ([`pages/volunteer.py`](../../pages/volunteer.py)) | `roles=[VOLUNTEER, PROCTOR, STAFF, CHECK_IN_DESK, VOLUNTEER_COORDINATOR, STREAM_MANAGER]`, no page-level flag; the volunteer tabs follow `can_view_volunteer`, Proctor Station `can_open_proctor_station` (a Broadcast Tech's board lists only matches on a stage, `proctor_station_on_stage_only`), the desk tab `can_view_check_in_desk`, and a visitor with no tab gets the not-found page a flag would give |
 | `protected_page` | `/equipment/{asset_id}` ([`pages/equipment.py`](../../pages/equipment.py)) | `feature=EQUIPMENT` |
 | `protected_page` | `/equipment/qr-labels` ([`pages/equipment_labels.py`](../../pages/equipment_labels.py)) | `roles=[STAFF, EQUIPMENT_MANAGER]`, `feature=EQUIPMENT` |
 | `protected_page` | `/checkin`, `/checkin/{event_id}` ([`pages/check_in.py`](../../pages/check_in.py)) | `roles=[STAFF, CHECK_IN_DESK]`, `feature=EVENT_CHECK_IN`; both redirect to the Volunteer hub's desk tab |

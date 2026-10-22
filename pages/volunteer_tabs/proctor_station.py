@@ -13,6 +13,7 @@ from typing import Optional
 
 from nicegui import ui
 
+from application.services import AuthService
 from application.tenant_context import require_tenant_id
 from models import Match, User
 from theme.dialog.match_sheet import MatchSheet
@@ -26,10 +27,12 @@ from theme.tables.preferences import TableKeys
 
 
 async def proctor_station_tab(user: Optional[User] = None) -> None:
+    on_stage_only = await AuthService.proctor_station_on_stage_only(user)
     with ui.column().classes('page-container-wide') as page_container:
         with page_header(
             'Proctor Station',
-            'Every match in this room, grouped by what it needs from you next.',
+            'Every match on a stage, grouped by what it needs from you next.' if on_stage_only
+            else 'Every match in this room, grouped by what it needs from you next.',
         ):
             # The last two read from the event handbook and are role-gated, so
             # the viewer is passed in rather than looked up per topic.
@@ -43,12 +46,17 @@ async def proctor_station_tab(user: Optional[User] = None) -> None:
             ui.space()
 
         def get_query():
-            return Match.filter(tenant_id=require_tenant_id())
+            query = Match.filter(tenant_id=require_tenant_id())
+            return query.filter(stage_id__isnull=False) if on_stage_only else query
 
         # The proctor runs matches and nothing else: no edit dialog, no confirm,
         # no stage, no crew approval — exactly what ``can_run_match`` admits them
-        # to and every other gate refuses.
-        access = MatchBoardAccess(run=True)
+        # to and every other gate refuses. A Broadcast Tech's rows also follow
+        # the stage, so one taken off stage mid-refresh loses its buttons.
+        access = (
+            MatchBoardAccess(run=True, run_scope=frozenset(), run_on_stage=True)
+            if on_stage_only else MatchBoardAccess(run=True)
+        )
         handlers = MatchLifecycleHandlers(page_container, access=access)
         sheet = MatchSheet(handlers, access=access, show_crew=False)
         table_view = MatchTableView(

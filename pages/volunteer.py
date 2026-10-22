@@ -74,10 +74,10 @@ register_section_menu('/volunteer', _volunteer_menu)
 def create() -> None:
     # The hub carries no feature gate of its own: the volunteer tabs follow
     # VOLUNTEERS, the desk follows EVENT_CHECK_IN, and Proctor Station stays with
-    # a proctor under neither, so each tab below keeps its own gate and a
+    # a proctor or Broadcast Tech under neither, so each tab below keeps its own gate and a
     # visitor with none of them gets the unknown-route page the flags would give.
     @protected_tab_page('/volunteer', roles=[Role.VOLUNTEER, Role.PROCTOR, Role.STAFF, Role.CHECK_IN_DESK,
-                                             Role.VOLUNTEER_COORDINATOR])
+                                             Role.VOLUNTEER_COORDINATOR, Role.STREAM_MANAGER])
     async def volunteer_page(
         section: str | None = None, request: Request = None, release: str | None = None,
         event: str | None = None,
