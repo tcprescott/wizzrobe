@@ -591,7 +591,11 @@ class LoopStall(BaseModel):
 
     started_at: float = Field(description='Unix time, UTC')
     seconds: float
-    culprit: str = Field(description='Innermost app frame on the loop thread while it was blocked')
+    culprit: str = Field(
+        description="Innermost app frame on the loop thread while it was blocked, or 'garbage collection "
+        "(gen N, Xs)' when at least half the stall was a collection pass",
+    )
+    gc_seconds: float = Field(0.0, description='How much of the stall was garbage collection')
 
 
 class EventLoopStats(BaseModel):
@@ -604,6 +608,31 @@ class EventLoopStats(BaseModel):
     cpu_percent: Optional[float] = Field(description='Process CPU over the last minute; 100 is one core')
     stalls_since_start: int
     recent_stalls: List[LoopStall]
+
+
+class GcGenerationStats(BaseModel):
+    passes: int
+    total_seconds: float
+    max_seconds: float
+
+
+class GcPass(BaseModel):
+    generation: int
+    seconds: float
+    collected: int = Field(description='Unreachable objects it freed')
+    ago_seconds: int
+
+
+class GcStats(BaseModel):
+    """CPython garbage collection since start-up. A full (gen 2) pass stops the
+    event loop for as long as it runs."""
+
+    installed: bool = Field(description='Whether collections are being timed')
+    thresholds: List[int]
+    pending: List[int] = Field(description='Allocations / younger passes counted toward each generation')
+    frozen_objects: Optional[int] = Field(description='Start-up objects frozen out of collection; null if not frozen')
+    by_generation: Dict[str, GcGenerationStats]
+    slowest_recent: List[GcPass] = Field(description='Slowest of the recent passes of 10ms or more')
 
 
 class WorkerStats(BaseModel):
@@ -667,6 +696,7 @@ class RuntimeStats(BaseModel):
     clients: ClientCounts
     db_pool: DbPoolStats
     event_loop: EventLoopStats
+    gc: GcStats
     workers: List[WorkerStats]
     queue_workers: List[QueueWorkerStats]
     watch_pages_by_tenant_id: Dict[str, WatchPageAudience]

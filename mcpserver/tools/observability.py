@@ -323,7 +323,8 @@ async def runtime_stats() -> RuntimeStats:
 
     Requires super admin. Start here when the app feels slow: a high
     `lag_ms_p95` or any `recent_stalls` means something is blocking the one
-    event loop every user shares, and each stall names the code that did it.
+    event loop every user shares, and each stall names the code that did it
+    (or 'garbage collection'; the `gc` block times every collection pass).
     Times are Unix seconds, UTC.
     """
     return RuntimeStats.model_validate(

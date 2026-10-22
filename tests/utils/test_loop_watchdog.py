@@ -185,3 +185,11 @@ class TestGarbageCollectionStalls:
             assert gc_monitor.snapshot()['frozen_objects'] == frozen
         finally:
             gc.unfreeze()
+
+    async def test_the_mcp_tool_schema_keeps_the_gc_block(self, gc_watch):
+        from mcpserver.schemas import RuntimeStats
+
+        gc.collect()
+        stats = RuntimeStats.model_validate(runtime_stats.collect())
+        assert stats.gc.installed
+        assert stats.gc.by_generation['2'].passes >= 1
