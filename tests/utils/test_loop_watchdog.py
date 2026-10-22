@@ -230,6 +230,27 @@ class TestMemoryCensus:
         assert chains[0]['chain'].startswith(f'{__name__}.TestMemoryCensus.test_retained_by_names_the_holder.<locals>._Leaked <- builtins.list')
         assert '_Holder' in chains[0]['chain']
 
+    async def test_dump_on_signal_writes_a_census(self, tmp_path):
+        import asyncio
+        import json
+        import os
+        import signal
+
+        from application.utils import memory_census
+
+        dump = tmp_path / 'census.json'
+        memory_census.dump_on_signal(str(dump))
+        try:
+            assert (tmp_path / 'census.json.pid').read_text() == str(os.getpid())
+            os.kill(os.getpid(), signal.SIGUSR1)
+            for _ in range(100):
+                await asyncio.sleep(0.05)
+                if dump.exists():
+                    break
+            assert json.loads(dump.read_text())['clients_registered'] >= 0
+        finally:
+            asyncio.get_running_loop().remove_signal_handler(signal.SIGUSR1)
+
     def test_retained_by_nothing_to_trace(self):
         from application.utils import memory_census
 

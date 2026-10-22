@@ -297,6 +297,9 @@ jobs:
       # Installs the redraw hook scripts/ui_layout_shift.js drives
       # (theme/layout_probe.py). Never set in production.
       WIZ_LAYOUT_PROBE: 'true'
+      # SIGUSR1 writes a memory census here, for scripts/ui_leak_check.js.
+      # Never set in production.
+      MEMORY_CENSUS_DUMP: /tmp/census.json
     steps:
       - uses: actions/checkout@v7
 
@@ -306,6 +309,11 @@ jobs:
 
       - name: Walk the surfaces
         run: node scripts/ui_smoke.js scripts/ui_smoke_ci.json
+
+      - name: Closed tabs are let go
+        # Opens and closes every page three times and fails if dead pages pile
+        # up in server memory, naming what holds them (SGLMAN-29).
+        run: node scripts/ui_leak_check.js scripts/ui_a11y_ci.json
 
       - name: Layout holds still (desktop and phone)
         # Redraws every live section with unchanged data and fails anything that

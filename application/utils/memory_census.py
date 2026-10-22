@@ -147,3 +147,27 @@ def take(top: int = 40, collect: bool = True, explain: int = 50) -> Dict[str, An
         'check_in_live_subscribers': len(check_in_live._subscribers),
         'top_types': [{'type': name, 'count': n} for name, n in counts.most_common(top)],
     }
+
+
+def dump_on_signal(path: str) -> None:
+    """Write a census to ``path`` (JSON) on every SIGUSR1, for the CI leak check.
+
+    The process id goes to ``path + '.pid'`` so the check can signal the app
+    worker rather than its launcher. Off unless ``MEMORY_CENSUS_DUMP`` is set:
+    never in production, where the MCP tool is the way in.
+    """
+    import asyncio
+    import json
+    import os
+    import signal
+
+    def _dump() -> None:
+        census = take(top=20, explain=30)
+        tmp = f'{path}.tmp'
+        with open(tmp, 'w') as f:
+            json.dump(census, f)
+        os.replace(tmp, path)
+
+    asyncio.get_running_loop().add_signal_handler(signal.SIGUSR1, _dump)
+    with open(f'{path}.pid', 'w') as f:
+        f.write(str(os.getpid()))
