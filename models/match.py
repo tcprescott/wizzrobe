@@ -61,6 +61,15 @@ class Match(Model):
     # A bracket reset removed the matchup a placeholder booking hung off; staff
     # re-link it from Not booked yet.
     bracket_link_lost = fields.BooleanField(default=False)
+    # One game of a best-of set booked from a Challonge or start.gg matchup.
+    # Game 1 holds the bracket link; later games point at it through
+    # ``set_first``, and the set's result reaches the bracket once someone has
+    # won enough games. Null on every other match.
+    set_game = fields.IntField(null=True)
+    set_best_of = fields.IntField(null=True)
+    set_first = fields.ForeignKeyField(  # type: ignore[var-annotated]
+        'models.Match', related_name='set_games', null=True, on_delete=fields.CASCADE
+    )
     # Set when the stage reminder for this match has been sent, so the worker
     # fires once. Cleared whenever the stage changes, which re-arms it.
     stage_reminder_sent_at = fields.DatetimeField(null=True)

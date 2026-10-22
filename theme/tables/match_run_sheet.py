@@ -498,14 +498,14 @@ def _body_slot(proctor: bool, can_run: bool = False) -> str:
         match = """<span class="run-sheet__name-line"><button type="button" class="run-sheet__open" @click.stop="$parent.$emit('open_match', props.row.id)">
                 """ + _SEATED_WHO + """
             </button>""" + COMMENT_BADGES + """</span>
-            <span class="run-sheet__meta" :title="props.row.tournament">{{ props.row.tournament_short || props.row.tournament }}<template v-if="props.row.bracket"> · {{ props.row.bracket.name }}<template v-if="props.row.bracket.game"> · Game {{ props.row.bracket.game }}</template></template></span>
+            <span class="run-sheet__meta" :title="props.row.tournament">{{ props.row.tournament_short || props.row.tournament }}<template v-if="props.row.bracket"> · {{ props.row.bracket.name }}<template v-if="props.row.bracket.game"> · Game {{ props.row.bracket.game }}</template></template><template v-if="props.row.set_label"> · {{ props.row.set_label }}</template></span>
             """ + _ADA + LATE_TAGS + """
             """ + _SEED_LINE
     else:
         match = """<span class="run-sheet__name-line"><button type="button" class="run-sheet__open" @click.stop="$parent.$emit('open_match', props.row.id)">
                 """ + _WHO + """
             </button>""" + COMMENT_BADGES + """</span>
-            <span class="run-sheet__meta" :title="props.row.tournament">{{ props.row.tournament_short || props.row.tournament }}<template v-if="props.row.bracket"> · {{ props.row.bracket.name }}<template v-if="props.row.bracket.game"> · Game {{ props.row.bracket.game }}</template></template></span>
+            <span class="run-sheet__meta" :title="props.row.tournament">{{ props.row.tournament_short || props.row.tournament }}<template v-if="props.row.bracket"> · {{ props.row.bracket.name }}<template v-if="props.row.bracket.game"> · Game {{ props.row.bracket.game }}</template></template><template v-if="props.row.set_label"> · {{ props.row.set_label }}</template></span>
             """ + LATE_TAGS
     return """
 <q-tr v-if="props.row._group_start" class="run-sheet__group-row">

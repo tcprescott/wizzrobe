@@ -76,6 +76,21 @@ link straight to the picker (`/home/player?startgg=<set id>`); booking goes
 through `MatchService.submit_match_request(from_bracket=True)` and links the
 match to the set.
 
+## Best-of sets
+
+A stage the round schedule marks best of 3 or 5 (`Tournament.config
+['round_schedule'][key]['best_of']`, Admin → Tournaments ⋮ → Round schedule) is
+booked as one `Match` per game, for Challonge and start.gg alike
+(`bracket_sources.schedule_set`, `BracketSetService`). Game 1 is the booking the
+bracket row links to; games 2 and up carry `Match.set_first` pointing at it, with
+`set_game` / `set_best_of` on every game. The booking dialog prefills the games
+back to back (match length + 10 minutes) and staff can change the best-of per
+matchup. The bracket site hears only the set's result, once a player has won a
+majority, with the game score (Challonge `score_set` 2–1); the unplayed games are
+then called off as the system user (`BracketSetService.call_off_unneeded`, run
+from `bracket_sources.on_match_confirmed`). Calling off or deleting game 1 takes
+the later games with it, and placeholder fills reach every game.
+
 ## Writeback
 
 Off by default, per tournament ("Report confirmed results to start.gg").

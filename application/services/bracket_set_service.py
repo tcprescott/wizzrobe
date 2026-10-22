@@ -1,0 +1,193 @@
+"""Best-of sets on a Challonge or start.gg matchup - Business Logic Layer.
+
+The bracket site keeps a best-of-3 as one match, but every game is played (and
+crewed, seeded and staged) on its own, so Wizzrobe books a set as one ``Match``
+per game. Game 1 is the booking the bracket site's matchup links to, exactly as
+a best-of-1 is; games 2 and up point back at it through ``Match.set_first``.
+
+Two things follow from a set:
+
+* the bracket site only hears the **set's** result, once someone has won
+  enough games (:meth:`BracketSetService.standing`), with the game score;
+* once the set is decided, the games nobody needs are called off
+  (:meth:`BracketSetService.call_off_unneeded`), crew and all.
+
+How long a stage's sets run is set per stage in the round schedule
+(``RoundScheduleService.best_of_for``); the booking dialog can change it for one
+matchup.
+"""
+
+import logging
+from dataclasses import dataclass, field
+from typing import Dict, List, Optional, Sequence, Tuple
+
+from application.repositories.match_repository import MatchRepository
+from application.services.notification_catalog import SERIES_GAME_CANCELLED
+from application.utils.timezone import parse_local_datetime
+from models import Match, User
+
+logger = logging.getLogger(__name__)
+
+MAX_BEST_OF = 7
+
+
+@dataclass
+class SetStanding:
+    """Where a best-of set stands, read off its games' recorded winners."""
+
+    first: Match
+    games: List[Match]
+    best_of: int
+    wins: Dict[int, int] = field(default_factory=dict)
+
+    @property
+    def needed(self) -> int:
+        return self.best_of // 2 + 1
+
+    @property
+    def winner_id(self) -> Optional[int]:
+        return next((uid for uid, n in self.wins.items() if n >= self.needed), None)
+
+    @property
+    def decided(self) -> bool:
+        return self.winner_id is not None
+
+    def score(self, user_id: int) -> int:
+        return self.wins.get(user_id, 0)
+
+    def loser_id(self) -> Optional[int]:
+        winner = self.winner_id
+        players = {p.user_id for g in self.games for p in g.players}  # type: ignore[attr-defined]
+        return next((uid for uid in sorted(players) if uid != winner), None)
+
+    def summary(self) -> str:
+        """``2–1``: the leader's games first."""
+        counts = [*sorted(self.wins.values(), reverse=True), 0, 0]
+        return f'{counts[0]}–{counts[1]}'
+
+
+def validate_best_of(best_of: int) -> int:
+    if best_of < 1 or best_of % 2 == 0 or best_of > MAX_BEST_OF:
+        raise ValueError(f'A set is best of an odd number of games, up to {MAX_BEST_OF}.')
+    return best_of
+
+
+def game_winner(game: Match) -> Optional[int]:
+    return next(
+        (p.user_id for p in game.players if p.finish_rank == 1),  # type: ignore[attr-defined]
+        None,
+    )
+
+
+def is_unplayed(game: Match) -> bool:
+    return game.started_at is None and game.finished_at is None and game_winner(game) is None
+
+
+class BracketSetService:
+    def __init__(self) -> None:
+        self.repository = MatchRepository()
+
+    async def standing(self, match: Match) -> Optional[SetStanding]:
+        """The set ``match`` is a game of, or None when it isn't one."""
+        best_of = getattr(match, 'set_best_of', None)
+        if not best_of or best_of <= 1:
+            return None
+        first_id = getattr(match, 'set_first_id', None) or match.id
+        games = await self.repository.set_games(first_id)
+        first = next((g for g in games if g.id == first_id), None)
+        if first is None:
+            return None
+        wins: Dict[int, int] = {}
+        for game in games:
+            winner = game_winner(game)
+            if winner is not None:
+                wins[winner] = wins.get(winner, 0) + 1
+        return SetStanding(first=first, games=games, best_of=best_of, wins=wins)
+
+    async def call_off_unneeded(self, match: Match) -> List[int]:
+        """Call off the games a decided set no longer needs. Returns their match ids.
+
+        Called after every confirmed result, for every match; a no-op unless
+        ``match`` is a game of a set that has just been won. Runs as the system
+        user, as the native bracket's clinch does, so it doesn't depend on who
+        confirmed the deciding game.
+        """
+        standing = await self.standing(match)
+        if standing is None or not standing.decided:
+            return []
+        unneeded = [g for g in standing.games if is_unplayed(g)]
+        if not unneeded:
+            return []
+        from application.services.match.match_service import MatchService
+        from application.services.user_service import UserService
+
+        system = await UserService().get_system_user()
+        service = MatchService()
+        reason = f'set won {standing.summary()}'
+        cancelled: List[int] = []
+        for game in unneeded:
+            try:
+                await service._cancel_match(game, system, reason=reason, notice=SERIES_GAME_CANCELLED)
+                cancelled.append(game.id)
+            except Exception:
+                logger.exception('calling off unneeded set game %s failed', game.id)
+        return cancelled
+
+    @staticmethod
+    def check_times(times: Sequence[Tuple[str, str]]) -> None:
+        """Refuse a set whose game times are missing, unreadable or out of order."""
+        validate_best_of(len(times))
+        previous = None
+        for number, (day, clock) in enumerate(times, start=1):
+            if not (day and clock):
+                raise ValueError(f'Choose a date and a time for game {number}.')
+            try:
+                at = parse_local_datetime(day, clock)
+            except ValueError as e:
+                raise ValueError(f"Game {number}'s date or time doesn't look right.") from e
+            if previous is not None and at <= previous:
+                raise ValueError(f'Game {number} has to start after game {number - 1}.')
+            previous = at
+
+    async def book_followers(
+        self, first: Match, times: Sequence[Tuple[str, str]], actor: User,
+    ) -> List[Match]:
+        """Book games 2 and up of a set whose game 1 is ``first``, with game 1's players.
+
+        ``times`` holds every game's ``(date, time)``, game 1's included, so its
+        length is the set's best-of.
+        """
+        from application.services.match.match_service import MatchService
+
+        best_of = len(times)
+        await self.repository.update(first, set_game=1, set_best_of=best_of)
+        service = MatchService()
+        players = [p.user_id for p in await self.repository.get_players(first)]  # type: ignore[attr-defined]
+        placeholders = first.bracket_placeholders
+        tournament_id: int = first.tournament_id  # type: ignore[attr-defined]
+        games: List[Match] = []
+        for number, (day, clock) in enumerate(times[1:], start=2):
+            if placeholders is not None:
+                game = await service.create_match(
+                    tournament_id=tournament_id, scheduled_date=day, scheduled_time=clock,
+                    player_ids=players, actor=actor, from_bracket=True, placeholders=list(placeholders),
+                )
+            else:
+                game = await service.book_from_bracket(tournament_id, day, clock, players, actor)
+            await self.repository.update(game, set_game=number, set_best_of=best_of, set_first=first)
+            games.append(game)
+        return games
+
+    async def followers(self, match: Match) -> List[Match]:
+        """Games 2 and up when ``match`` is game 1 of a set, else nothing."""
+        if not getattr(match, 'set_best_of', None) or getattr(match, 'set_first_id', None):
+            return []
+        return await self.repository.set_followers(match.id)
+
+    @staticmethod
+    def label(match: Match) -> Optional[str]:
+        """``Game 2 of 3`` for a set's game, else None."""
+        game, best_of = getattr(match, 'set_game', None), getattr(match, 'set_best_of', None)
+        if not game or not best_of or best_of <= 1:
+            return None
+        return f'Game {game} of {best_of}'

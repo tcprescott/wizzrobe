@@ -68,7 +68,7 @@ def form_dialog(title: str, *, card_classes: str = 'dialog-card', help: Sequence
         yield dialog
 
 
-def dialog_header(title: str, dialog, *, help: Sequence[ResolvedHelp] = ()) -> None:
+def dialog_header(title: str, dialog, *, help: Sequence[ResolvedHelp] = ()) -> ui.label:
     """Standard dialog header row: title, help, close button, always on one row.
 
     ``help`` (from ``resolve_help``) is the dialog's one help button, beside the
@@ -84,6 +84,7 @@ def dialog_header(title: str, dialog, *, help: Sequence[ResolvedHelp] = ()) -> N
         heading.tag = 'h2'
         help_button(help, pill=True)
         dialog_close_button(dialog)
+    return heading
 
 
 def dialog_close_button(dialog):

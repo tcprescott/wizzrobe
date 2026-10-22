@@ -14,7 +14,7 @@ room, DMs the players and crew, and emits ``match.cancelled`` alongside the
 """
 
 import logging
-from typing import Optional
+from typing import Any, Optional
 
 from application.events import EventType, match_live
 from application.services.audit_service import AuditActions
@@ -28,6 +28,8 @@ logger = logging.getLogger(__name__)
 
 class CancellationMixin:
     """Remove a match: the plain delete, and the notifying cancellation."""
+
+    repository: Any
 
     async def delete_match(self, match_id: int, actor: Optional[User] = None) -> None:
         match = await self._require_match(match_id)
@@ -55,6 +57,10 @@ class CancellationMixin:
         """
         match_id = match.id
         tournament_id = match.tournament_id
+        # Game 1 of a best-of set holds the bracket link; the later games go
+        # with it, so the matchup is open to book again as a whole set.
+        for game in await self.repository.set_followers(match.id) if self._leads_set(match) else []:
+            await self._remove_match(game, actor, reason=reason)
         await self._release_bracket_slot(match, actor, reason)
         await self.repository.delete(match)
         await self.audit_service.write_and_publish(
@@ -62,6 +68,10 @@ class CancellationMixin:
             EventType.MATCH_DELETED, event_extra={'tournament_id': tournament_id},
         )
         match_live.publish(match_id, match_live.DELETED)
+
+    @staticmethod
+    def _leads_set(match: Match) -> bool:
+        return bool(getattr(match, 'set_best_of', None)) and getattr(match, 'set_first_id', None) is None
 
     @staticmethod
     async def _release_bracket_slot(
@@ -131,6 +141,9 @@ class CancellationMixin:
         from application.utils.discord_embeds import COLOR_CANCELLED, match_embed
         from application.utils.discord_messages import cancelled_description, cancelled_dm
 
+        if self._leads_set(match):
+            for game in await self.repository.set_followers(match.id):
+                await self._cancel_match(game, actor, reason=reason, notice=notice)
         await match.fetch_related('tournament', 'players__user', 'stage')
         recipients = await collect_match_audience(match)
         community = await _community_name()

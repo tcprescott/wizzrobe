@@ -12,6 +12,7 @@ from typing import Awaitable, Callable, Dict, List, Optional, Tuple
 from application.feature_flags import requires_feature
 from application.repositories import ChallongeRepository
 from application.services.audit_service import AuditActions, AuditService
+from application.services.bracket_set_service import BracketSetService
 from application.services.feature_flag_service import FeatureFlagService
 from application.utils.clients.challonge_client import ChallongeAPIError, ChallongeClient
 from models import ChallongeMatch, FeatureFlag, Match, User
@@ -59,6 +60,12 @@ class ChallongeResultsMixin:
             return False
         if not await FeatureFlagService().is_enabled(FeatureFlag.CHALLONGE):
             return False
+        standing = await BracketSetService().standing(match)
+        if standing is not None:
+            # A set's game: Challonge hears only the set's result, once it's won.
+            if not standing.decided:
+                return False
+            match = standing.first
         cmatch = await self.repository.get_challonge_match_for_match(match)
         if cmatch is None:
             return False
@@ -72,17 +79,27 @@ class ChallongeResultsMixin:
             raise ValueError("This match is not linked to a Challonge match.")
 
         await match.fetch_related('players__user', 'tournament')
-        ranked = [p for p in match.players if p.finish_rank is not None]  # type: ignore[attr-defined]
-        winner = next((p for p in ranked if p.finish_rank == 1), None)
-        if winner is None:
-            raise ValueError("No winner has been recorded for this match yet.")
-        losers = [p for p in match.players if p.id != winner.id]  # type: ignore[attr-defined]
-        if not losers:
-            raise ValueError("Cannot push a result without an opponent.")
-        loser = losers[0]
+        scores = ('1', '0')
+        standing = await BracketSetService().standing(match)
+        if standing is not None:
+            winner_id, loser_id = standing.winner_id, standing.loser_id()
+            if winner_id is None:
+                raise ValueError(f"This set isn't decided yet ({standing.summary()}).")
+            if loser_id is None:
+                raise ValueError("Cannot push a result without an opponent.")
+            scores = (str(standing.score(winner_id)), str(standing.score(loser_id)))
+        else:
+            ranked = [p for p in match.players if p.finish_rank is not None]  # type: ignore[attr-defined]
+            winner = next((p for p in ranked if p.finish_rank == 1), None)
+            if winner is None:
+                raise ValueError("No winner has been recorded for this match yet.")
+            losers = [p for p in match.players if p.id != winner.id]  # type: ignore[attr-defined]
+            if not losers:
+                raise ValueError("Cannot push a result without an opponent.")
+            winner_id, loser_id = winner.user_id, losers[0].user_id
 
-        winner_pid = self._participant_id_for_user(cmatch, winner.user_id)
-        loser_pid = self._participant_id_for_user(cmatch, loser.user_id)
+        winner_pid = self._participant_id_for_user(cmatch, winner_id)
+        loser_pid = self._participant_id_for_user(cmatch, loser_id)
         if winner_pid is None or loser_pid is None:
             raise ValueError("Could not map both players to Challonge participants; re-sync the bracket.")
 
@@ -110,6 +127,8 @@ class ChallongeResultsMixin:
             match_id=cmatch.challonge_match_id,
             winner_participant_id=winner_pid,
             loser_participant_id=loser_pid,
+            winner_score=scores[0],
+            loser_score=scores[1],
             community=cmatch.tournament.challonge_community,
         )
         await self.audit_service.write_log(

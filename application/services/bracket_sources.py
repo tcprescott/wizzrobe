@@ -20,16 +20,18 @@ onto the rest of the contract. Native brackets live in Wizzrobe, so they have no
 
 import logging
 from dataclasses import dataclass, field
-from typing import Callable, Dict, List, Optional, Protocol, Tuple
+from typing import Callable, Dict, List, Optional, Protocol, Sequence, Tuple
 from urllib.parse import urlparse
 
 from application.services.auth_service import AuthService
 from application.services.bracket_service import BracketService
+from application.services.bracket_set_service import BracketSetService
 from application.services.challonge_service import ChallongeService
 from application.services.feature_flag_service import FeatureFlagService
 from application.services.round_schedule_service import RoundScheduleService
 from application.services.startgg_service import StartggService
 from application.utils.match_labels import challonge_round_label, entrant_name
+from application.utils.timezone import parse_local_datetime
 from models import FeatureFlag, Match, Tournament, User
 
 logger = logging.getLogger(__name__)
@@ -244,6 +246,10 @@ async def source_for(tournament: Tournament) -> Optional[BracketSource]:
 
 async def on_match_confirmed(match: Match, actor: Optional[User]) -> None:
     """Tell every site about a confirmed result. One site failing never stops the others."""
+    try:
+        await BracketSetService().call_off_unneeded(match)
+    except Exception:
+        logger.exception('calling off unneeded set games failed for match %s', match.id)
     for source in await live_sources():
         try:
             await source.on_match_confirmed(match, actor)
@@ -264,6 +270,37 @@ async def schedule(
 ) -> Match:
     return await by_key(source_key).schedule(
         key, scheduled_date, scheduled_time, actor, allow_outside_round=allow_outside_round,
+    )
+
+
+async def schedule_set(
+    source_key: str, key: int, times: Sequence[Tuple[str, str]], actor: User,
+    *, allow_outside_round: bool = False, ahead: bool = False,
+) -> List[Match]:
+    """Book a best-of set on a Challonge or start.gg matchup: one match per game.
+
+    ``times`` is each game's ``(date, time)``; a single entry books a plain
+    best-of-1. Every time is checked against the stage's window before
+    anything is booked, so a refused game 3 doesn't leave games 1 and 2 behind.
+    """
+    BracketSetService.check_times(times)
+    if len(times) > 1 and not allow_outside_round:
+        rounds = RoundScheduleService()
+        ref = {'challonge_match_id': key} if source_key == 'challonge' else {'startgg_set_id': key}
+        for day, clock in times[1:]:
+            await rounds.check_reference(parse_local_datetime(day, clock), actor, **ref)
+    book = book_ahead if ahead else schedule
+    first = await book(source_key, key, times[0][0], times[0][1], actor, allow_outside_round=allow_outside_round)
+    if len(times) == 1:
+        return [first]
+    return [first, *await BracketSetService().book_followers(first, times, actor)]
+
+
+async def best_of_for(source_key: str, key: int) -> int:
+    """How many games this matchup's stage plays, from the round schedule."""
+    return await RoundScheduleService().best_of_for(
+        challonge_match_id=key if source_key == 'challonge' else None,
+        startgg_set_id=key if source_key == 'startgg' else None,
     )
 
 

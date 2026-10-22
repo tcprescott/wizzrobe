@@ -36,8 +36,18 @@ class PlaceholderBookingMixin:
 
         ``player_ids`` are the matchup's sides that resolve to an account (None
         for the rest) and ``placeholders`` the labels for every side still
-        without one. A match that already started is left as it is.
+        without one. A match that already started is left as it is. Game 1 of a
+        best-of set brings the set's later games along.
         """
+        changed = await self._fill_one(match, player_ids, placeholders, actor)
+        if match.set_best_of and match.set_first_id is None:  # type: ignore[attr-defined]
+            for game in await self.repository.set_followers(match.id):
+                changed = await self._fill_one(game, player_ids, placeholders, actor) or changed
+        return changed
+
+    async def _fill_one(
+        self, match: Match, player_ids: List[Optional[int]], placeholders: List[str], actor: User,
+    ) -> bool:
         if match.bracket_placeholders is None or match.started_at is not None:
             return False
         current = {p.user_id for p in await self.repository.get_players(match)}
@@ -85,7 +95,10 @@ class PlaceholderBookingMixin:
 
     async def mark_bracket_link_lost(self, match_ids: List[int]) -> None:
         """Flag placeholder bookings whose matchup the bracket site no longer has."""
-        for match in await self.repository.get_by_ids_with_players(match_ids):
+        ids = list(match_ids)
+        for first_id in ids[:]:
+            ids.extend(m.id for m in await self.repository.set_followers(first_id))
+        for match in await self.repository.get_by_ids_with_players(ids):
             if match.bracket_placeholders is not None and not match.bracket_link_lost:
                 await self.repository.update(match, bracket_link_lost=True)
                 match_live.publish(match.id)
