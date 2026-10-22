@@ -522,6 +522,29 @@ class TestSettingsFootnote:
         assert '[Notification settings](' in last and '/messages?message=' in last
         assert card.fields == []
 
+    async def test_one_card_sent_to_several_people_gets_one_footnote_each(self, db, real_svc_ready):
+        import discord
+
+        from application.services.notification_catalog import MATCH_SCHEDULED
+        from application.tenant_context import tenant_scope
+        from models import NotificationRecipient
+        from tests.conftest import DEFAULT_TEST_TENANT_ID
+
+        svc, _, discord_user, _ = real_svc_ready
+        card = discord.Embed(title='Match scheduled')
+        card.add_field(name='Players', value='A vs B', inline=False)
+        with tenant_scope(DEFAULT_TEST_TENANT_ID):
+            for user_id in (563, 564, 565):
+                await svc.send_dm(
+                    user_id, 'Your match is booked', embed=card,
+                    notice=MATCH_SCHEDULED.to(NotificationRecipient.PLAYERS),
+                )
+
+        for call in discord_user.send.call_args_list:
+            values = [f.value for f in call.kwargs['embed'].fields]
+            assert sum('Change how you get' in v for v in values) == 1
+        assert [f.value for f in card.fields] == ['A vs B']
+
     async def test_plain_text_gets_it_as_small_text(self, db, real_svc_ready):
         from application.services.notification_catalog import MATCH_SCHEDULED
         from application.tenant_context import tenant_scope

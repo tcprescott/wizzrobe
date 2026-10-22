@@ -1,5 +1,6 @@
 """The settings footnote every catalogued notification ends with."""
 
+import copy
 from typing import NamedTuple
 
 import discord
@@ -35,6 +36,8 @@ class SettingsFootnote(NamedTuple):
 
     def with_embed(self, embed: discord.Embed) -> discord.Embed:
         """A copy of ``embed`` with the footnote as its last line, above the footer."""
-        card = embed.copy()
+        # Embed.copy() is shallow and shares the fields list, so adding to it
+        # stacked one footnote per recipient onto a card reused across a fan-out.
+        card = discord.Embed.from_dict(copy.deepcopy(embed.to_dict()))
         card.add_field(name='\u200b', value=self.markdown(), inline=False)
         return card

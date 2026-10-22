@@ -581,6 +581,7 @@ class TestDiscordEmbeds:
         assert de.state_changed_embed('T', 'Finished').colour.value == de.COLOR_FINISHED
         assert de.state_changed_embed('T', 'Confirmed').colour.value == de.COLOR_CONFIRMED
         assert 'started' in de.state_changed_embed('T', 'Started').title.lower()
+        assert de.state_changed_embed('T', 'Confirmed').title == '☑️ Match result confirmed'
 
     def test_volunteer_embed(self):
         from datetime import datetime, timezone

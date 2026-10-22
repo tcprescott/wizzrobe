@@ -125,8 +125,9 @@ def state_changed_embed(
 ) -> discord.Embed:
     """Started / Finished / Confirmed transition card."""
     emoji = {'Started': '🔴', 'Finished': '🏁', 'Confirmed': '☑️'}.get(new_state, '•')
+    label = 'Match result confirmed' if new_state == 'Confirmed' else f'Match {new_state.lower()}'
     return match_embed(
-        title=f"{emoji} Match {new_state.lower()}",
+        title=f"{emoji} {label}",
         color=_STATE_COLORS.get(new_state, COLOR_SCHEDULED),
         tournament=tournament, community_name=community_name,
         player_names=player_names, when=when, stage_name=stage_name,
