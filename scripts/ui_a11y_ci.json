@@ -27,11 +27,16 @@
       { "name": "iPhone 16 Pro Max", "viewport": { "width": 440, "height": 956 }, "deviceScaleFactor": 3, "isMobile": true, "hasTouch": true }
     ],
     "schemes": ["light"],
-    "ignore": []
+    "ignore": [
+      { "selector": ".wiz-watch-row__main", "target": "watch-live", "why": "Known at 360px when the squeeze check landed (2026-10-22, SG Live): the stage tag and menu leave the names ~70px. Fix in its own PR after the event; drop this entry with it." },
+      { "selector": ".wiz-tile__next", "target": "watch-live", "why": "Known at 360px when the squeeze check landed (2026-10-22, SG Live): the stage tag and menu leave the names ~70px. Fix in its own PR after the event; drop this entry with it." },
+      { "selector": ".cell-timestamp", "target": "admin-reports-capacity", "why": "Known at 360px when the squeeze check landed (2026-10-22, SG Live): Busiest times wraps its timestamp a few characters a line. Fix in its own PR after the event; drop this entry with it." }
+    ]
   },
   "targets": [
     { "name": "home-schedule", "path": "/home/schedule" },
     { "name": "home-player", "path": "/home/player" },
+    { "name": "home-player-own-matches", "path": "/home/player", "loginAs": "player_one" },
     { "name": "home-profile", "path": "/home/profile" },
     { "name": "my-messages", "path": "/messages" },
     { "name": "home-tournaments", "path": "/home/tournaments" },

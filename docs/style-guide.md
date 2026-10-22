@@ -342,8 +342,11 @@ in the "Phone layout" block of `styles.css`.
 The phone pass in `scripts/ui_a11y_scan.js` (the `"phone"` block in
 `scripts/ui_a11y_ci.json`) loads every page on each of those phones and
 fails when the page scrolls sideways, an element runs off the screen or out of
-its card, text is cut off without an ellipsis, or a flex or grid item is
-stretched more than 96px past its content. It can't judge ordinary spacing or
+its card, text is cut off without an ellipsis, text is squeezed to fewer than
+eight characters a line over three or more lines (a chip or button beside a
+flex item took its width), or a flex or grid item is stretched more than 96px
+past its content. A target can set its own `"loginAs"` when only that user
+sees the content (a player's own match cards). It can't judge ordinary spacing or
 verbosity: look at the page at phone width yourself before calling it done.
 
 ## Hold still
@@ -421,7 +424,7 @@ Automated, on every PR:
 | `scripts/ui_a11y_scan.js` (CI `browser-a11y` job) | On every page in `scripts/ui_a11y_ci.json`, in light and dark: axe's WCAG 2.1 A/AA rules, and rendered text under 4.5:1 |
 | `check_steady_refresh` hook | An async `@ui.refreshable` in `pages/` or `theme/`, which blanks while it loads |
 | `scripts/ui_layout_shift.js` (CI `browser` job) | On every page in `scripts/ui_layout_shift_ci.json`, at desktop and phone width: anything that moves more than 2px when the page redraws its live sections with unchanged data. See [Hold still](#hold-still) |
-| `scripts/ui_a11y_scan.js` phone pass | On the same pages at 360, 393, 412 and 440px: sideways scrolling, elements running off the screen or out of their card, text cut off without an ellipsis, empty bands over 96px |
+| `scripts/ui_a11y_scan.js` phone pass | On the same pages at 360, 393, 412 and 440px: sideways scrolling, elements running off the screen or out of their card, text cut off without an ellipsis, text squeezed to a few letters a line, empty bands over 96px |
 
 The browser scan runs locally against the seeded app (boot and seed as in the
 [ui-validation skill](../.claude/skills/ui-validation/SKILL.md)):
