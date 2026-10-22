@@ -22,6 +22,7 @@ from nicegui import app, background_tasks, context, ui
 
 from application.content import parse_blocks
 from application.services import (
+    BracketService,
     FeatureFlagService,
     TournamentService,
     get_user_from_session,
@@ -209,6 +210,21 @@ def event_dates(card: TournamentSignupCard) -> Optional[str]:
     return None
 
 
+def bracket_link(card: TournamentSignupCard, native_ids: set[int]) -> Optional[tuple[str, bool]]:
+    """Where the card's Bracket button goes, and whether that is another site.
+
+    A start.gg card has its own Bracket button, so it gets none here.
+    """
+    t = card.tournament
+    if card.startgg_url:
+        return None
+    if t.id in native_ids:
+        return f'/tournament/{t.id}/brackets', False
+    url = (http_url_or_empty(t.challonge_tournament_url) if card.challonge_managed else '') \
+        or http_url_or_empty(t.bracket_url)
+    return (url, True) if url else None
+
+
 def _card_dom_id(tournament_id: int) -> str:
     return f'wiz-tournament-card-{tournament_id}'
 
@@ -304,7 +320,7 @@ async def tournaments_tab() -> None:
                 busy_text='Withdrawing…',
             ).open()
 
-        def render_card(card: TournamentSignupCard) -> None:
+        def render_card(card: TournamentSignupCard, native_ids: set[int]) -> None:
             t = card.tournament
             chip_class, status = signup_status(card)
             with ui.card().classes('wiz-tournament-card full-width') \
@@ -410,6 +426,12 @@ async def tournaments_tab() -> None:
                             'Signups have closed — ask staff if you need to drop out.'
                         ).classes('text-caption text-grey-7')
 
+                    bracket = bracket_link(card, native_ids)
+                    if bracket:
+                        href, external = bracket
+                        link_button('Bracket', href, icon='open_in_new' if external else 'account_tree',
+                                    new_tab=external).props('flat color=primary no-caps')
+
                     if t.id in triforce_ids:
                         ui.button(
                             'Triforce Texts', icon='auto_awesome',
@@ -420,6 +442,9 @@ async def tournaments_tab() -> None:
         @steady_refreshable
         async def cards() -> None:
             all_cards = await service.list_signup_cards(user)
+            native_ids: set[int] = set()
+            if FeatureFlag.BRACKETS in await FeatureFlagService().enabled_flags():
+                native_ids = {b.tournament_id for b in await BracketService().list_all_visible_brackets(user)}
             if not all_cards:
                 empty_panel(
                     'No tournaments are running right now. Check back when staff '
@@ -434,6 +459,6 @@ async def tournaments_tab() -> None:
                     ui.label(title).classes('subsection-title')
                 with ui.element('div').classes('wiz-tile-grid wiz-tile-grid--md'):
                     for card in section:
-                        render_card(card)
+                        render_card(card, native_ids)
 
         await cards()
