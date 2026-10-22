@@ -18,7 +18,8 @@ class RuntimeStatsService:
         return runtime_stats.collect()
 
     @staticmethod
-    async def memory_census(actor: Optional[User], top: int = 40) -> Dict[str, Any]:
+    async def memory_census(actor: Optional[User], top: int = 40, collect: bool = True,
+                            explain: int = 50) -> Dict[str, Any]:
         """What the heap holds, by type. Stops the loop for about as long as a full collection."""
         await AuthService.ensure_super_admin(actor)
-        return memory_census.take(top)
+        return memory_census.take(top, collect=collect, explain=explain)

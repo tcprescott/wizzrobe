@@ -346,6 +346,9 @@ def url_state(client: Optional[Client] = None) -> UrlState:
     state = _states.get(client)
     if state is None:
         state = _states[client] = UrlState(client)
+        # The state holds its client, so the weak key alone never lets go and
+        # every closed tab's whole page stayed in memory (SGLMAN-29).
+        client.on_delete(lambda: _states.pop(client, None))
     return state
 
 
