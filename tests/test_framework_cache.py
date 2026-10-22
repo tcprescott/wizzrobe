@@ -73,3 +73,25 @@ def test_the_guard_refreshes_the_cached_framework_scripts_before_its_reload(monk
     assert "script[type=importmap]" in script
     assert script.index('location.reload()') < refetch < script.index('.then(go,go)')
     assert script.index('.then(go,go)') < script.index("Sentry.captureMessage(")
+
+
+def test_a_browser_without_import_maps_is_told_to_update_not_reloaded(monkeypatch):
+    """Safari before 16.4 can't resolve NiceGUI's ``import ... from "vue"`` and
+    can't parse its Tailwind build (SGLMAN-21/23). A reload never fixes that, so
+    the guard says so and stops before reloading or reporting."""
+    script = _guard_script(monkeypatch)
+    check = script.index("HTMLScriptElement.supports('importmap')")
+    stop = script.index('return;}', check)
+    assert 'too old for this site' in script[check:stop]
+    assert "getElementById('esm-fallback')" in script[check:stop]
+    assert stop < script.index("sessionStorage.setItem(k")
+    assert stop < script.index('location.reload()')
+    assert stop < script.index('Sentry.captureMessage(')
+
+
+def test_sentry_sends_nothing_from_a_browser_without_import_maps():
+    from pathlib import Path
+
+    js = (Path(__file__).resolve().parents[1] / 'static/js/sentry-browser.js').read_text()
+    assert "HTMLScriptElement.supports('importmap')" in js
+    assert 'if (!live.enabled || unsupportedBrowser) return null;' in js
