@@ -314,7 +314,7 @@ Ephemeral confirmation strings sit beside their domain's builders: `match_ack_co
 | Crew approved — ack request | `CrewService.update_crew_approval(approved=True)` → `_request_crew_acknowledgment` | `send_dm_with_crew_acknowledgment_button` | Acknowledge |
 | Match seated (checked in) | `MatchScheduleService.seat_match` → `notify_match_participants` | `send_dm` / `send_dm_with_unwatch_button` | Unwatch (watchers only) |
 | Match started / finished | `MatchScheduleService.start_match` / `finish_match` → `notify_match_participants(silent=True, players=False)`: crew and watchers only, no ping | `send_dm` / `send_dm_with_unwatch_button` | Unwatch (watchers only) |
-| Match confirmed | `MatchScheduleService.confirm_match` → `notify_match_participants(silent=True)`: everyone, no ping | `send_dm` / `send_dm_with_unwatch_button` | Unwatch (watchers only) |
+| Match result confirmed | `MatchScheduleService.confirm_match` → `notify_match_participants(silent=True)`: everyone, no ping | `send_dm` / `send_dm_with_unwatch_button` | Unwatch (watchers only) |
 | Match cancelled | `MatchService._cancel_match` (the `CancellationMixin` in `match_cancellation.py`) → `notify_match_cancelled(recipients, message, embed)` (recipients collected before the delete) | `send_dm` | none |
 | Stage assigned / cleared | `MatchService.assign_stage` → `notify_stage_changed` (watcher copy silent) | `send_dm` | View your match (link) |
 | Stage reminder | `stage_reminder` loop → `notify_stage_reminder` (watcher copy silent) | `send_dm` | View your match (link) |
