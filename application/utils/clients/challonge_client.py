@@ -28,6 +28,7 @@ from __future__ import annotations
 
 import asyncio
 import os
+import re
 from contextlib import asynccontextmanager
 from typing import Any, AsyncIterator, Awaitable, Callable, Dict, List, Optional
 from urllib.parse import quote
@@ -38,6 +39,8 @@ AUTHORIZE_URL = 'https://api.challonge.com/oauth/authorize'
 TOKEN_URL = 'https://api.challonge.com/oauth/token'
 BASE_URL = 'https://api.challonge.com/v2.1'
 _PAGE_SIZE = 100
+# Challonge tacks this onto an invited entrant's name until they accept.
+_INVITE_PENDING = re.compile(r'\s*\(invitation pending\)\s*$', re.IGNORECASE)
 # aiohttp's default is five minutes, long enough to freeze a staff click or the
 # DM queue a result push rides on while Challonge is down.
 _TIMEOUT = aiohttp.ClientTimeout(total=20)
@@ -122,10 +125,15 @@ def _normalize_tournament(resource: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 
+def _entrant_name(resource: Dict[str, Any]) -> Optional[str]:
+    name = _attr(resource, 'name', 'display_name')
+    return _INVITE_PENDING.sub('', name) if isinstance(name, str) else name
+
+
 def _normalize_participant(resource: Dict[str, Any]) -> Dict[str, Any]:
     return {
         'participant_id': str(resource.get('id')),
-        'name': _attr(resource, 'name', 'display_name'),
+        'name': _entrant_name(resource),
         'challonge_user_id': _opt_str(
             _attr(resource, 'challonge_user_id', 'user_id') or _rel_id(resource, 'user')
         ),
