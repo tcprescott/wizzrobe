@@ -14,7 +14,7 @@ count strip did.
 
 from typing import Any, Awaitable, Callable, Optional
 
-from nicegui import ui
+from nicegui import context, ui
 
 from application.services import MatchRescheduleService, MatchService, bracket_sources
 from application.tenant_context import require_tenant_id
@@ -79,6 +79,7 @@ class MatchInbox:
         self._generation = 0
         self._help: list[ResolvedHelp] = []
         self._render_context = capture_render_context()
+        self._client: Any = None
 
     def refresh(self) -> None:
         scoped_background(self._render_context, self._reload())
@@ -106,6 +107,10 @@ class MatchInbox:
         )
 
     async def render(self) -> None:
+        # Item handlers run in their button's slot, and a refresh (theirs or a
+        # live update) can delete it mid-await; their UI calls go through the
+        # page's client instead (SGLMAN-2B).
+        self._client = context.client
         self._help = await resolve_help(('staff-queues',))
         self._build(await self._requests())
 
@@ -177,26 +182,27 @@ class MatchInbox:
         with ui.row().classes('gap-2 items-center'):
             if not cancel and request.proposed_at:
                 async def approve(r=request):
-                    actor = await current_actor()
-                    if actor is None:
-                        ui.notify('Log in again to decide this.', color='warning')
-                        return
-                    if not await confirm_time(
-                        tournament_id=r.match.tournament_id,
-                        player_ids=[p.user_id for p in r.match.players],
-                        scheduled_at=r.proposed_at, actor=actor,
-                        exclude_match_id=r.match_id, confirm_label='Move it anyway',
-                    ):
-                        return
-                    try:
-                        await MatchRescheduleService().approve(r.id, actor)
-                    except (ValueError, PermissionError) as e:
-                        notify_error(e)
-                        return
-                    ui.notify('Match moved and everyone told.', color='positive')
-                    self.refresh()
-                    if self.view is not None:
-                        await self.view.refresh()
+                    with self._client:
+                        actor = await current_actor()
+                        if actor is None:
+                            ui.notify('Log in again to decide this.', color='warning')
+                            return
+                        if not await confirm_time(
+                            tournament_id=r.match.tournament_id,
+                            player_ids=[p.user_id for p in r.match.players],
+                            scheduled_at=r.proposed_at, actor=actor,
+                            exclude_match_id=r.match_id, confirm_label='Move it anyway',
+                        ):
+                            return
+                        try:
+                            await MatchRescheduleService().approve(r.id, actor)
+                        except (ValueError, PermissionError) as e:
+                            notify_error(e)
+                            return
+                        ui.notify('Match moved and everyone told.', color='positive')
+                        self.refresh()
+                        if self.view is not None:
+                            await self.view.refresh()
                 ui.button('Decline', on_click=lambda r=request: self.open_request(r.id)) \
                     .props('outline color=primary')
                 ui.button('Approve', on_click=approve).props('color=primary')
@@ -256,34 +262,36 @@ class MatchInbox:
         ui.label(meta).classes('match-inbox__meta')
 
         async def record():
-            actor = await current_actor()
-            if actor is None:
-                ui.notify('Log in again to record this.', color='warning')
-                return
-            try:
-                await bracket_sources.record_site_result(match_id, actor)
-            except (ValueError, PermissionError) as e:
-                notify_error(e)
-                return
-            ui.notify(f"Recorded the {site['site']} result.", color='positive')
-            self.refresh()
-            if self.view is not None:
-                await self.view.refresh()
+            with self._client:
+                actor = await current_actor()
+                if actor is None:
+                    ui.notify('Log in again to record this.', color='warning')
+                    return
+                try:
+                    await bracket_sources.record_site_result(match_id, actor)
+                except (ValueError, PermissionError) as e:
+                    notify_error(e)
+                    return
+                ui.notify(f"Recorded the {site['site']} result.", color='positive')
+                self.refresh()
+                if self.view is not None:
+                    await self.view.refresh()
 
         async def call_off():
-            actor = await current_actor()
-            if actor is None:
-                ui.notify('Log in again to call this off.', color='warning')
-                return
-            try:
-                await MatchService().cancel_match(match_id, actor=actor)
-            except (ValueError, PermissionError) as e:
-                notify_error(e)
-                return
-            ui.notify('Match called off. Players and crew were told.', color='positive')
-            self.refresh()
-            if self.view is not None:
-                await self.view.refresh()
+            with self._client:
+                actor = await current_actor()
+                if actor is None:
+                    ui.notify('Log in again to call this off.', color='warning')
+                    return
+                try:
+                    await MatchService().cancel_match(match_id, actor=actor)
+                except (ValueError, PermissionError) as e:
+                    notify_error(e)
+                    return
+                ui.notify('Match called off. Players and crew were told.', color='positive')
+                self.refresh()
+                if self.view is not None:
+                    await self.view.refresh()
 
         def confirm_call_off():
             ConfirmationDialog(
