@@ -11,16 +11,18 @@ from __future__ import annotations
 import logging
 from typing import Any, Dict, Optional
 
-from application.utils import runtime_stats, sentry_metrics
+from application.utils import gc_monitor, runtime_stats, sentry_metrics
 from application.utils.background_loop import run_worker_loop
 
 logger = logging.getLogger(__name__)
 
 _last_stalls: Optional[int] = None
+_last_gc_pass: float = 0.0
+_last_gc_seconds: Dict[str, float] = {}
 
 
 def emit(snapshot: Dict[str, Any]) -> None:
-    global _last_stalls
+    global _last_stalls, _last_gc_pass
     g = sentry_metrics.gauge
 
     g('process.memory_rss', snapshot.get('rss_mb'), unit='megabyte')
@@ -36,6 +38,20 @@ def emit(snapshot: Dict[str, Any]) -> None:
         if _last_stalls is not None and stalls > _last_stalls:
             sentry_metrics.count('loop.stalls', stalls - _last_stalls)
         _last_stalls = stalls
+
+    for p in gc_monitor.passes_after(_last_gc_pass):
+        sentry_metrics.distribution('gc.pause', p.seconds, unit='second',
+                                    attributes={'generation': str(p.generation)})
+        _last_gc_pass = p.started
+    for generation, totals in ((snapshot.get('gc') or {}).get('by_generation') or {}).items():
+        seconds = totals.get('total_seconds')
+        if not isinstance(seconds, (int, float)):
+            continue
+        previous = _last_gc_seconds.get(generation)
+        if previous is not None and seconds > previous:
+            sentry_metrics.count('gc.seconds', round(seconds - previous, 3), unit='second',
+                                 attributes={'generation': generation})
+        _last_gc_seconds[generation] = seconds
 
     clients = snapshot.get('clients') or {}
     g('clients.open', clients.get('total'))
