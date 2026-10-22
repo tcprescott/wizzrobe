@@ -177,6 +177,33 @@ async def seed_challonge_for_tenant(
         defaults={"round": 2, "state": ChallongeMatchState.PENDING},
     )
 
+    # Elimination rounds waiting on players. cm_6 is on Not booked yet ›
+    # Players TBD ("Player Two or Player Four vs Winner of B"); cm_7 staff
+    # booked ahead, and Player One is already in it; the third booking lost
+    # its matchup to a reset ("Bracket link lost" on the run sheet).
+    await ChallongeMatch.get_or_create(
+        tournament=tournament, challonge_match_id="cm_6", tenant=tenant,
+        defaults={"round": 3, "state": ChallongeMatchState.PENDING, "identifier": "F",
+                  "slot1_prereq": "cm_2", "slot1_label": "Winner of A", "slot2_label": "Winner of B"},
+    )
+    ahead, created = await Match.get_or_create(
+        tournament=tournament, tenant=tenant, title="Booked ahead",
+        defaults={"scheduled_at": now_utc + timedelta(days=2),
+                  "bracket_placeholders": ["Player Two or Player Four"]},
+    )
+    if created:
+        await MatchPlayers.create(match=ahead, user=users["player_one"], tenant=tenant)
+    await ChallongeMatch.get_or_create(
+        tournament=tournament, challonge_match_id="cm_7", tenant=tenant,
+        defaults={"round": 3, "state": ChallongeMatchState.PENDING, "identifier": "G",
+                  "participant1": participants["cp_1"], "slot2_prereq": "cm_2", "match": ahead},
+    )
+    await Match.get_or_create(
+        tournament=tournament, tenant=tenant, title="Booked ahead, bracket reset",
+        defaults={"scheduled_at": now_utc + timedelta(days=2, hours=2),
+                  "bracket_placeholders": ["Winner of C", "Winner of D"], "bracket_link_lost": True},
+    )
+
     # Mid-groups, so all of them are group matches; the round schedule bounds the
     # group stage and plans the elimination rounds Challonge hasn't created yet
     # (Admin -> Tournaments -> Round schedule…, and the window line on My Schedule).

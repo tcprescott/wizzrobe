@@ -265,6 +265,7 @@ class ChallongeRepository:
         participant2: Optional[ChallongeParticipant],
         winner_participant: Optional[ChallongeParticipant],
         group_stage: bool = False,
+        slots: Optional[Dict[str, Optional[str]]] = None,
     ) -> ChallongeMatch:
         match, _ = await ChallongeMatch.get_or_create(
             tenant_id=current_tenant_id(),
@@ -279,10 +280,35 @@ class ChallongeRepository:
         match.winner_participant = winner_participant
         if group_stage:
             match.group_stage = True
+        # identifier and slot{1,2}_prereq / slot{1,2}_label, when the caller knows them.
+        for key, value in (slots or {}).items():
+            setattr(match, key, value)
         await save_fields(
             match, 'round', 'state', 'participant1', 'participant2', 'winner_participant', 'group_stage',
+            *(slots or {}),
         )
         return match
+
+    @staticmethod
+    async def list_placeholder_bookings(tournament: Tournament) -> List[ChallongeMatch]:
+        """Matchups booked before their players were known, with the booking attached."""
+        rows = await scoped(ChallongeMatch.filter(
+            tournament=tournament, match_id__isnull=False,
+        )).prefetch_related('tournament', 'match', 'participant1__user', 'participant2__user')
+        return [r for r in rows if r.match.bracket_placeholders is not None]
+
+    @staticmethod
+    async def unscheduled_pending_matches(tournament_ids: Optional[List[int]] = None) -> List[ChallongeMatch]:
+        """Unbooked elimination matchups whose players aren't both decided yet."""
+        qs = scoped(ChallongeMatch.filter(
+            state=ChallongeMatchState.PENDING, match_id__isnull=True, tournament__is_active=True,
+            group_stage=False,
+        ))
+        if tournament_ids is not None:
+            qs = qs.filter(tournament_id__in=tournament_ids)
+        return await qs.prefetch_related(
+            'tournament', 'participant1__user', 'participant2__user',
+        ).order_by('tournament_id', 'round', 'id')
 
     @staticmethod
     async def list_matches(tournament: Tournament) -> List[ChallongeMatch]:

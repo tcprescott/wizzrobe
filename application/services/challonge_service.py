@@ -26,6 +26,7 @@ from application.services._challonge_auto_sync import ChallongeAutoSyncMixin
 from application.services._challonge_communities import ChallongeCommunitiesMixin, not_found_message
 from application.services._challonge_link import ChallongeLinkMixin
 from application.services._challonge_participants import ChallongeParticipantAssignmentMixin
+from application.services._challonge_placeholders import ChallongePlaceholderMixin, slot_fields
 from application.services._challonge_results import ChallongeResultsMixin
 from application.services._challonge_signup import ChallongeSignupMixin, misc_user_id, refuse_empty_started_bracket
 from application.services._challonge_stages import ChallongeStageMixin
@@ -86,7 +87,7 @@ def _as_aware_utc(dt: Optional[datetime]) -> Optional[datetime]:
 
 class ChallongeService(ChallongeParticipantAssignmentMixin, ChallongeStageMixin, ChallongeSignupMixin,
                        ChallongeCommunitiesMixin, ChallongeLinkMixin, ChallongeResultsMixin,
-                       ChallongeAutoSyncMixin):
+                       ChallongeAutoSyncMixin, ChallongePlaceholderMixin):
     """Business logic for the Challonge integration."""
 
     def __init__(self) -> None:
@@ -321,6 +322,7 @@ class ChallongeService(ChallongeParticipantAssignmentMixin, ChallongeStageMixin,
             for tid, tournament in tournaments.items():
                 await self._mirror_players(tournament, actor)
                 await self._relink_bookings(tournament, actor)
+                await self._refresh_placeholder_bookings(tournament, actor)
                 await self._announce_newly_bookable(tournament, bookable_before[tid])
         except Exception:
             logger.exception('Mapping Challonge entrants for user %s after linking failed', user.id)
@@ -655,6 +657,7 @@ class ChallongeService(ChallongeParticipantAssignmentMixin, ChallongeStageMixin,
             participant_by_cid[rp['participant_id']] = participant
 
         # Matches -> mirror with resolved participant FKs.
+        letters = {rm['match_id']: rm.get('identifier') for rm in remote_matches}
         for rm in remote_matches:
             p1 = participant_by_cid.get(rm.get('player1_participant_id'))
             p2 = participant_by_cid.get(rm.get('player2_participant_id'))
@@ -668,8 +671,10 @@ class ChallongeService(ChallongeParticipantAssignmentMixin, ChallongeStageMixin,
                 participant2=p2,
                 winner_participant=winner,
                 group_stage=RoundScheduleService.group_stage_running(remote_tournament),
+                slots=slot_fields(rm, letters),
             )
 
+        await self._flag_lost_placeholders(tournament, {rm['match_id'] for rm in remote_matches})
         # A reset or cleared roster on Challonge; a hand assignment goes with its entrant.
         removed_p, removed_m = await self.repository.prune_mirror(
             tournament, set(participant_by_cid), {rm['match_id'] for rm in remote_matches},
@@ -681,6 +686,7 @@ class ChallongeService(ChallongeParticipantAssignmentMixin, ChallongeStageMixin,
             'tournament_id': tournament.id, **result,
             'participants_removed': removed_p, 'matches_removed': removed_m, 'matches_relinked': relinked,
         })
+        await self._refresh_placeholder_bookings(tournament, actor)
         await self._announce_newly_bookable(tournament, bookable_before)
         return result
 

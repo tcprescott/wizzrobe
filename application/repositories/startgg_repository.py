@@ -253,6 +253,26 @@ class StartggRepository:
         ).order_by('round', 'identifier', 'id')
 
     @staticmethod
+    async def list_placeholder_bookings(tournament: Tournament) -> List[StartggSet]:
+        """Sets booked before their players were known, with the booking attached."""
+        rows = await scoped(StartggSet.filter(tournament=tournament, match_id__isnull=False)).prefetch_related(
+            'tournament', 'entrant1__user', 'entrant2__user', 'match',
+        )
+        return [r for r in rows if r.match.bracket_placeholders is not None]
+
+    @staticmethod
+    async def pending_unbooked_sets(tournament_ids: Optional[List[int]] = None) -> List[StartggSet]:
+        """Unbooked, unplayed sets in active tournaments whose players aren't both decided."""
+        qs = scoped(StartggSet.filter(
+            state=StartggSetState.PENDING, match_id__isnull=True, tournament__is_active=True,
+        ))
+        if tournament_ids is not None:
+            qs = qs.filter(tournament_id__in=tournament_ids)
+        return await qs.prefetch_related(
+            'tournament', 'pool__phase', 'entrant1__user', 'entrant2__user',
+        ).order_by('tournament_id', 'round', 'identifier', 'id')
+
+    @staticmethod
     async def get_set(set_pk: int) -> Optional[StartggSet]:
         return await scoped(StartggSet.filter(id=set_pk)).prefetch_related(
             'tournament', 'pool__phase', 'entrant1__user', 'entrant2__user', 'match',

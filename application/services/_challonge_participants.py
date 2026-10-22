@@ -106,6 +106,7 @@ class ChallongeParticipantAssignmentMixin(ChallongeNotificationMixin):
              'user_id': user.id},
         )
         await self._mirror_players(participant.tournament, actor)
+        await self._refresh_placeholder_bookings(participant.tournament, actor)  # type: ignore[attr-defined]
         await self._announce_newly_bookable(participant.tournament, bookable_before)
         return participant
 

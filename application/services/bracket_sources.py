@@ -48,6 +48,8 @@ class BookableMatch:
     player_ids: List[int] = field(default_factory=list)
     # "Book between Sat 6 pm and Sun 11 pm", from the tournament's round schedule.
     window_text: Optional[str] = None
+    # Staff booking a matchup before the bracket has decided its players.
+    ahead: bool = False
 
 
 @dataclass
@@ -76,10 +78,15 @@ class UnbookedMatch:
     # Matches already on the schedule with exactly these two players and no
     # bracket link: what staff most likely booked by hand for this matchup.
     same_player_matches: List[Match] = field(default_factory=list)
+    # The bracket hasn't decided both players: ``player_names`` carries a
+    # placeholder ("Andy or Benny") per open side, and staff can book it ahead.
+    players_tbd: bool = False
+    # Placeholder bookings in this tournament a bracket reset cut loose.
+    lost_bookings: List[Match] = field(default_factory=list)
 
     @property
     def ready(self) -> bool:
-        return not self.unlinked
+        return not self.unlinked and not self.players_tbd
 
     @property
     def matchup(self) -> str:
@@ -274,12 +281,13 @@ def _side(user_id: Optional[int], name: str, unlinked: List[str]) -> str:
     return name
 
 
-async def list_unbooked(actor: Optional[User]) -> List[UnbookedMatch]:
+async def list_unbooked(actor: Optional[User], *, include_players_tbd: bool = False) -> List[UnbookedMatch]:
     """Every open bracket matchup with no game booked that ``actor`` may book.
 
     Staff see the whole community and a tournament admin their own tournaments;
     anyone else sees nothing. Grouped by tournament (by name), each source's
-    rows in bracket order.
+    rows in bracket order. ``include_players_tbd`` adds the Challonge and
+    start.gg matchups still waiting on a player, which staff can book ahead.
     """
     scope = await _bookable_scope(actor)
     if scope == []:
@@ -314,6 +322,9 @@ async def list_unbooked(actor: Optional[User]) -> List[UnbookedMatch]:
                 window_text=await rounds.describe_for_startgg_set(row),
             ))
 
+    if include_players_tbd:
+        out.extend(await _list_players_tbd(scope, live, rounds))
+
     if FeatureFlag.BRACKETS in live:
         brackets = BracketService()
         for bm in await brackets.list_unbooked_matchups(scope):
@@ -339,6 +350,82 @@ async def list_unbooked(actor: Optional[User]) -> List[UnbookedMatch]:
     await _attach_same_player_matches(out)
     out.sort(key=lambda u: (u.tournament.name.lower(), u.tournament.id))
     return out
+
+
+async def _list_players_tbd(
+    scope: Optional[List[int]], live: set, rounds: RoundScheduleService,
+) -> List[UnbookedMatch]:
+    """Unbooked Challonge and start.gg matchups still waiting on a player, for booking ahead."""
+    out: List[UnbookedMatch] = []
+    if FeatureFlag.CHALLONGE in live:
+        challonge = ChallongeService()
+        rows = await challonge.list_unbooked_pending(scope)
+        sides = await challonge.placeholder_sides_for(rows)
+        for cm in rows:
+            ids, _ = sides[cm.id]
+            out.append(UnbookedMatch(
+                source='challonge', source_label='Challonge', key=cm.id, tournament=cm.tournament,
+                round_label=challonge_round_label(cm.round),
+                player_names=_tbd_names(cm.participant1, cm.participant2, sides[cm.id][1]),
+                player_ids=ids, players_tbd=True,
+                window_text=await rounds.describe_for_challonge_match(cm),
+            ))
+    if FeatureFlag.STARTGG in live:
+        startgg = StartggService()
+        rows = await startgg.list_unbooked_pending(scope)
+        sides = await startgg.placeholder_sides_for(rows)
+        for row in rows:
+            ids, _ = sides[row.id]
+            out.append(UnbookedMatch(
+                source='startgg', source_label='start.gg', key=row.id, tournament=row.tournament,
+                round_label=row.round_text or f'Round {row.round}',
+                player_names=_tbd_names(row.entrant1, row.entrant2, sides[row.id][1]),
+                player_ids=ids, players_tbd=True,
+                window_text=await rounds.describe_for_startgg_set(row),
+            ))
+    if out:
+        from application.services.match.match_service import MatchService
+
+        lost: Dict[int, List[Match]] = {}
+        for match in await MatchService().lost_placeholder_bookings(sorted({i.tournament.id for i in out})):
+            lost.setdefault(match.tournament_id, []).append(match)  # type: ignore[attr-defined]
+        for item in out:
+            item.lost_bookings = lost.get(item.tournament.id, [])
+    return out
+
+
+def _tbd_names(first, second, labels: List[str]) -> List[str]:
+    """Each side's name: the decided, linked entrant's, else the next placeholder in turn."""
+    pending = iter(labels)
+    return [
+        entrant_name(e) if e is not None and e.user_id is not None else next(pending, 'TBD')
+        for e in (first, second)
+    ]
+
+
+async def relink_ahead(source_key: str, key: int, match_id: int, actor: User) -> Match:
+    """Attach a placeholder booking a bracket reset cut loose to this matchup."""
+    if source_key == 'challonge':
+        return await ChallongeService().relink_ahead(key, match_id, actor)
+    if source_key == 'startgg':
+        return await StartggService().relink_ahead(key, match_id, actor)
+    raise ValueError("Only Challonge and start.gg bookings are linked this way.")
+
+
+async def book_ahead(
+    source_key: str, key: int, scheduled_date: str, scheduled_time: str, actor: User,
+    *, allow_outside_round: bool = False,
+) -> Match:
+    """Book a Challonge or start.gg matchup before its players are known (staff, tournament admins)."""
+    if source_key == 'challonge':
+        return await ChallongeService().book_ahead(
+            key, scheduled_date, scheduled_time, actor, allow_outside_round=allow_outside_round,
+        )
+    if source_key == 'startgg':
+        return await StartggService().book_ahead(
+            key, scheduled_date, scheduled_time, actor, allow_outside_round=allow_outside_round,
+        )
+    raise ValueError("Only Challonge and start.gg matchups can be booked before their players are known.")
 
 
 async def _attach_same_player_matches(items: List[UnbookedMatch]) -> None:

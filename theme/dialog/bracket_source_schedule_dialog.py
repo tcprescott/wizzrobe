@@ -63,23 +63,28 @@ class BracketSourceScheduleDialog:
                 matchup_line(item.tournament.name, item.round_label)
                 booking_window_line(item.window_text)
                 ui.label(
-                    'Pick a time both players can make.' if self.matchup_label
+                    'Pick a time for this slot. The players fill in as the bracket decides them, '
+                    'and each gets the usual "match scheduled" message then.' if item.ahead
+                    else 'Pick a time both players can make.' if self.matchup_label
                     else 'Pick a time you both can play.'
                 ).classes('text-caption text-grey-7')
                 with ui.row().classes('form-pair items-center gap-2'):
                     date = native_date_input('Date', slot.strftime('%Y-%m-%d'), required=True)
                     time = native_time_input('Time', slot.strftime('%H:%M'), required=True)
                 error = FieldError(date, time)
-                render_suggest_time_button(
-                    dialog,
-                    get_tournament_id=lambda: item.tournament.id,
-                    get_player_ids=lambda: item.player_ids,
-                    date=date,
-                    time=time,
-                    missing_message='Unable to suggest a time for this match.',
-                    startgg_set_id=item.key if item.source == 'startgg' else None,
-                    challonge_match_id=item.key if item.source == 'challonge' else None,
-                )
+                # Suggest a time reads both players' calendars; a slot booked
+                # ahead doesn't have both yet.
+                if not item.ahead:
+                    render_suggest_time_button(
+                        dialog,
+                        get_tournament_id=lambda: item.tournament.id,
+                        get_player_ids=lambda: item.player_ids,
+                        date=date,
+                        time=time,
+                        missing_message='Unable to suggest a time for this match.',
+                        startgg_set_id=item.key if item.source == 'startgg' else None,
+                        challonge_match_id=item.key if item.source == 'challonge' else None,
+                    )
 
             async def submit(allow_outside_round: bool = False):
                 if not (date.value and time.value):
@@ -104,7 +109,8 @@ class BracketSourceScheduleDialog:
                     return
                 try:
                     with tenant_scope(tenant_id):
-                        await bracket_sources.schedule(
+                        book = bracket_sources.book_ahead if item.ahead else bracket_sources.schedule
+                        await book(
                             item.source, item.key, date.value, time.value, self.actor,
                             allow_outside_round=allow_outside_round,
                         )
