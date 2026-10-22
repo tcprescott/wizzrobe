@@ -13,8 +13,10 @@
  * `client.on_delete`; docs/features/observability.md#finding-a-leak-memory_census.
  *
  * A few dead pages held by a shared refreshable's target list are normal (NiceGUI
- * prunes them on its next call), so the check compares rounds rather than
- * expecting zero.
+ * prunes them on its next call), and which ones depends on which page rendered
+ * last, so that count wobbles by one or two between rounds. A leak grows on every
+ * round instead, so the check fails only when the count rises after each of
+ * rounds 2 and 3.
  *
  * The app must run with MEMORY_CENSUS_DUMP=<path>: SIGUSR1 then writes a census
  * to <path>, and the app's pid is in <path>.pid.
@@ -101,19 +103,19 @@ const stale = (c) => c.clients_alive - c.clients_registered;
     }));
   }
 
-  console.log(`round 1: ${targets.length} pages`);
-  await visitAll();
-  const first = await settled(dump);
-  console.log(`  dead pages still in memory: ${stale(first)}, live-board subscribers: ${first.match_live_subscribers}`);
-
-  console.log('rounds 2 and 3');
-  await visitAll();
-  await visitAll();
-  const last = await settled(dump);
-  console.log(`  dead pages still in memory: ${stale(last)}, live-board subscribers: ${last.match_live_subscribers}`);
+  const counts = [];
+  for (let round = 1; round <= 3; round++) {
+    console.log(`round ${round}: ${targets.length} pages`);
+    await visitAll();
+    const c = await settled(dump);
+    counts.push(c);
+    console.log(`  dead pages still in memory: ${stale(c)}, live-board subscribers: ${c.match_live_subscribers}`);
+  }
   await browser.close();
 
-  const grew = stale(last) > stale(first) || last.match_live_subscribers > first.match_live_subscribers;
+  const rising = (f) => f(counts[0]) < f(counts[1]) && f(counts[1]) < f(counts[2]);
+  const last = counts[2];
+  const grew = rising(stale) || rising((c) => c.match_live_subscribers);
   if (grew) {
     console.log('\nClosed tabs are leaking: the count grew with every round of the same pages.');
     console.log('What holds them (each chain reads: object <- what refers to it <- ...):');
