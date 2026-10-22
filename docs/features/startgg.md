@@ -98,6 +98,7 @@ linked bracket" without naming a site. Each site is a `BracketSource`
 - Admin → Tournaments' row **Sync now** (under the row ⋮'s *start.gg bracket*
   group) and Actions → **Sync all linked
   brackets** use `sync_tournament` / `sync_all`,
+- **Booking ahead** (Challonge too): staff and tournament admins book a later elimination matchup from Not booked yet › Players TBD before its players are known (`book_ahead`, `_startgg_placeholders.py` / `_challonge_placeholders.py`). The match carries `bracket_placeholders`; each sync fills players in and DMs them the usual acknowledgment request. Preview sets of an unstarted phase can't be booked. A reset flags the booking `bracket_link_lost`; the TBD row's ⋮ re-links it (`relink_ahead`).
 - Match Schedule's **Not booked yet** view lists `list_unbooked(actor)` (every
   site's open, unbooked matchups plus native brackets', scoped to staff or the
   actor's administered tournaments) and books through `schedule`. Staff and
