@@ -199,12 +199,31 @@ carries `gc_seconds`. `runtime_stats` also has a `gc` block: passes, total and
 worst seconds per generation, the slowest recent passes, thresholds, pending
 counts.
 
-Most of what a full pass walks is page element trees: about 25,000 objects per
-open tab, and a closed tab's tree is a reference cycle that only a full pass
-frees. The other big share is what start-up loaded (about 370,000 objects), so
+Most of what a full pass walks is page element trees: anywhere from 5,000 to
+120,000 objects per open tab (about 32 per element), so passes grow with the
+number of tabs open. The other big share is what start-up loaded (about 370,000 objects), so
 `main.py` calls `gc_monitor.freeze()` once boot is done: those objects move to
 the permanent generation and no pass walks them again. In a local event-size run
 that cut the worst pause from 0.78s to 0.51s. `GC_FREEZE=false` turns it off.
+
+Two more things keep passes short as tabs pile up:
+
+- **Deleted elements go at once.** NiceGUI's `Classes`, `Style` and `Props` each
+  register their own bound `_update` as change handler, a self-cycle, so every
+  deleted element used to leave three behind for the next full pass (about
+  150,000 objects a pass in production). `element_cycles.install()` clears those
+  handlers when a client removes elements, so reference counting frees them with
+  the element. `tests/utils/test_element_cycles.py` fails if NiceGUI stops
+  building the cycle, at which point the patch can go.
+- **Survivors are re-frozen.** `gc_monitor.refreeze_after_full_passes` freezes
+  whatever is alive right after each full pass, so the next one walks only what
+  was allocated since. Frozen objects are still freed by reference counting; a
+  cycle among them waits for the hourly thaw (`THAW_SECONDS`), when the frozen
+  set is handed back for one ordinary pass. With 42 tabs open locally, passes
+  went from 0.66-0.84s to 0.06-0.11s. `GC_REFREEZE=false` turns it off (it is
+  also off when `GC_FREEZE` is). `runtime_stats` shows `refreeze` counts and the
+  current `frozen_objects`.
+
 Raising the collection thresholds was measured too and rejected: fewer passes,
 but each one longer. `BackgroundLoop` also times every worker tick and logs a tick over 30s at
 WARNING.
