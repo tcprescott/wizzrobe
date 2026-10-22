@@ -144,13 +144,23 @@ FOLDED_BY_DEFAULT = frozenset({_DONE[1], _FINISHED[1], 'Finished'})
 
 #: Quasar's filter over a run sheet: the search text as its default filter
 #: does it, and a folded group down to the row carrying its header. ``terms``
-#: is ``{text}`` rather than the bare string, since Quasar only filters while
-#: the filter is truthy and a folded group has to stay folded with no search.
+#: is the search text behind :data:`RUN_SHEET_FILTER_PREFIX`, since Quasar only
+#: filters while the filter is truthy and a folded group has to stay folded with
+#: no search. It must stay a string: QTable deep-watches ``filter`` and jumps to
+#: page 1 on every change, and every table update hands Vue a fresh object, so an
+#: object filter threw the viewer back to page 1 each time a row changed.
+RUN_SHEET_FILTER_PREFIX = '~'
+
 RUN_SHEET_FILTER = """(rows, terms, cols, cellValue) => {
-  const text = ((terms && terms.text) || '').toLowerCase();
+  const text = String(terms || '').slice(1).toLowerCase();
   return rows.filter((row) => (!row._folded || row._group_start)
     && (!text || cols.some((col) => String(cellValue(col, row)).toLowerCase().includes(text))));
 }"""
+
+
+def run_sheet_terms(text: Optional[str]) -> str:
+    """The ``filter`` value :data:`RUN_SHEET_FILTER` reads for search ``text``."""
+    return RUN_SHEET_FILTER_PREFIX + (text or '')
 
 #: Groups read newest first: the most recent result is the one anyone is still
 #: looking for.
@@ -577,7 +587,7 @@ def register_run_sheet_slots(table, *, proctor: bool = False, can_run: bool = Fa
     ``proctor`` draws the proctor's line: stations beside the names and a count
     on each group, plus the next lifecycle step as a button when ``can_run``.
     Search on the board passes ``search_terms=True`` to :func:`search_input`,
-    to keep the ``{text}`` shape :data:`RUN_SHEET_FILTER` reads.
+    to keep the prefixed string :data:`RUN_SHEET_FILTER` reads.
     """
     table.add_slot('body', _body_slot(proctor, can_run))
     table.add_slot('item', _item_slot(proctor, can_run))
@@ -586,5 +596,5 @@ def register_run_sheet_slots(table, *, proctor: bool = False, can_run: bool = Fa
 
 def use_fold_filter(table) -> None:
     """Filter ``table`` with :data:`RUN_SHEET_FILTER`, so folded groups leave the pager."""
-    table._props['filter'] = {'text': ''}
+    table._props['filter'] = run_sheet_terms('')
     table._props[':filter-method'] = RUN_SHEET_FILTER

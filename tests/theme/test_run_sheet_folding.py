@@ -5,7 +5,13 @@ over that default and survives a held row and a tidy.
 """
 
 from theme.tables.match import MatchTableView
-from theme.tables.match_run_sheet import RUN_SHEET_FILTER, _body_slot, _item_slot, proctor_group
+from theme.tables.match_run_sheet import (
+    RUN_SHEET_FILTER,
+    RUN_SHEET_FILTER_PREFIX,
+    _body_slot,
+    _item_slot,
+    proctor_group,
+)
 
 
 class _Table:
@@ -96,6 +102,15 @@ class TestTemplates:
     def test_the_filter_keeps_a_folded_groups_header_row(self):
         assert '!row._folded || row._group_start' in RUN_SHEET_FILTER
 
+    def test_the_filter_value_is_a_truthy_string(self):
+        # QTable deep-watches ``filter`` and resets to page 1 on any change; an
+        # object arrives as a new reference on every table update, so page 2
+        # snapped back to page 1 whenever a row changed.
+        from theme.tables.match_run_sheet import run_sheet_terms
+        for text in (None, '', 'Bob'):
+            assert isinstance(run_sheet_terms(text), str) and run_sheet_terms(text)
+        assert run_sheet_terms('Bob') == RUN_SHEET_FILTER_PREFIX + 'Bob'
+
 
 class TestPlayerRunSheet:
     """Event › Schedule and My Schedule fold the same way, Finished first."""
@@ -133,4 +148,4 @@ class TestPlayerRunSheet:
             assert 'class="run-sheet__fold"' in slot
             assert 'v-if="!props.row._folded"' in slot
         assert table._props[':filter-method'] == RUN_SHEET_FILTER
-        assert table._props['filter'] == {'text': ''}
+        assert table._props['filter'] == RUN_SHEET_FILTER_PREFIX
