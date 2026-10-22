@@ -37,7 +37,9 @@ socket.io long-poll for a session engine.io has just closed raised
 `KeyError('Session is disconnected')` out of `handle_request` and ended as a 500
 (SGLMAN-1P). `application/utils/socketio_closed_session.py` wraps NiceGUI's
 engine.io server so that request gets the 400 engine.io answers for any stale
-session, and the browser reconnects.
+session, and the browser reconnects. The same wrapper answers 400 when the browser left
+before engine.io read the request, which otherwise failed on
+`environ['REQUEST_METHOD']` (SGLMAN-1T/1V).
 
 ## Context on every event
 
