@@ -75,6 +75,7 @@ WRITE_CALLS = {
     'remove_crew_coordinator': {'tournament_id': 1, 'user_id': 1},
     'enroll_tournament_player': {'tournament_id': 1, 'user_id': 1},
     'remove_tournament_player': {'tournament_id': 1, 'user_id': 1},
+    'drop_tournament_player': {'tournament_id': 1, 'user_id': 1, 'reason': 'withdrew'},
     'link_challonge_tournament': {'tournament_id': 1, 'challonge': 'abc'},
     'unlink_challonge_tournament': {'tournament_id': 1},
     'sync_challonge_tournament': {'tournament_id': 1},

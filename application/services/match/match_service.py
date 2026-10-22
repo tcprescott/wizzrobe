@@ -30,6 +30,7 @@ from application.services.match.bracket_result_guard import (
 )
 from application.services.match.match_acknowledgment import MatchAcknowledgmentMixin
 from application.services.match.match_cancellation import CancellationMixin
+from application.services.match.match_forfeit import ForfeitMixin
 from application.services.match.match_hard_preset_service import MatchHardPresetService
 from application.services.match.match_participants import MatchParticipants
 from application.services.match.match_reads import MatchReadsMixin
@@ -57,7 +58,7 @@ from models import (
 
 
 class MatchService(
-    CancellationMixin, MatchAcknowledgmentMixin, MatchReadsMixin, MatchRequestMixin,
+    CancellationMixin, ForfeitMixin, MatchAcknowledgmentMixin, MatchReadsMixin, MatchRequestMixin,
     MatchReviewMixin, StationAssignmentMixin, StationDrawMixin,
 ):
     """Service for match-related business operations."""
@@ -416,6 +417,9 @@ class MatchService(
                 if 'scheduled_at' in update_fields and update_fields['scheduled_at'] != old_scheduled_at
                 else {}
             )
+            # Rewinding past the finish undoes a forfeit along with the result it set.
+            if clear_finished and match.forfeit_reason is not None:
+                rearm = {**rearm, 'forfeit_reason': None, 'forfeit_note': None}
             await self.repository.update(match, **update_fields, **rearm)
 
         removed_players: List[User] = []
@@ -721,6 +725,11 @@ class MatchService(
             player.finish_rank = 1 if player.id == winner_id else 2
             await save_fields(player, 'finish_rank')
             ranks[player.id] = player.finish_rank
+        # A hand-recorded winner replaces a forfeit: both players have a rank again.
+        if getattr(match, 'forfeit_reason', None) is not None:
+            match.forfeit_reason = None
+            match.forfeit_note = None
+            await save_fields(match, 'forfeit_reason', 'forfeit_note')
 
         await self.audit_service.write_and_publish(
             actor,

@@ -146,18 +146,25 @@ class ChallongeRepository:
         name: Optional[str],
         challonge_user_id: Optional[str],
         user: Optional[User],
+        active: bool = True,
     ) -> ChallongeParticipant:
         participant, _ = await ChallongeParticipant.get_or_create(
             tenant_id=current_tenant_id(),
             tournament=tournament,
             challonge_participant_id=challonge_participant_id,
-            defaults={'name': name, 'challonge_user_id': challonge_user_id, 'user': user},
+            defaults={'name': name, 'challonge_user_id': challonge_user_id, 'user': user, 'active': active},
         )
         participant.name = name
         participant.challonge_user_id = challonge_user_id
         participant.user = user
-        await save_fields(participant, 'name', 'challonge_user_id', 'user')
+        participant.active = active
+        await save_fields(participant, 'name', 'challonge_user_id', 'user', 'active')
         return participant
+
+    @staticmethod
+    async def set_participant_active(participant: ChallongeParticipant, active: bool) -> None:
+        participant.active = active
+        await save_fields(participant, 'active')
 
     @staticmethod
     async def resolve_users_by_challonge_ids(challonge_user_ids: List[str]) -> dict:

@@ -22,6 +22,7 @@ class EventType:
     MATCH_STARTED = 'match.started'
     MATCH_FINISHED = 'match.finished'
     MATCH_CONFIRMED = 'match.confirmed'
+    MATCH_FORFEITED = 'match.forfeited'
     MATCH_ACKNOWLEDGED = 'match.acknowledged'
     MATCH_RESULT_RECORDED = 'match.result_recorded'
     MATCH_SEED_ROLLED = 'match.seed_rolled'
@@ -197,6 +198,7 @@ class EventType:
     # ``user_id`` as routing keys.
     TOURNAMENT_ENROLLED = 'tournament.enrolled'
     TOURNAMENT_WITHDRAWN = 'tournament.withdrawn'
+    TOURNAMENT_PLAYER_DROPPED = 'tournament.player_dropped'
 
     # Prize money. A subscriber mirroring results to a site or a payout run
     # needs to hear both halves — the pool changing and the split changing —
@@ -236,7 +238,7 @@ class EventType:
     # Every published event name; drives the webhook UI multiselect + validation.
     ALL: FrozenSet[str] = frozenset({
         MATCH_CREATED, MATCH_UPDATED, MATCH_DELETED, MATCH_CANCELLED, MATCH_RESCHEDULED,
-        MATCH_SEATED, MATCH_STARTED, MATCH_FINISHED, MATCH_CONFIRMED,
+        MATCH_SEATED, MATCH_STARTED, MATCH_FINISHED, MATCH_CONFIRMED, MATCH_FORFEITED,
         MATCH_ACKNOWLEDGED, MATCH_RESULT_RECORDED, MATCH_SEED_ROLLED,
         MATCH_SEED_ROLL_QUEUED, MATCH_SEED_ROLL_FAILED,
         MATCH_STAGE_ASSIGNED, MATCH_STAGE_CLEARED, MATCH_STATIONS_ASSIGNED,
@@ -273,7 +275,7 @@ class EventType:
         BRACKET_GAME_LINKED, BRACKET_GAME_UNLINKED, BRACKET_GAME_RELEASED,
         TENANT_MEMBER_ADDED, TENANT_MEMBER_REMOVED, TENANT_MEMBERS_IMPORTED,
         TENANT_JOIN_REQUESTED, TENANT_JOIN_APPROVED, TENANT_JOIN_DENIED,
-        TOURNAMENT_ENROLLED, TOURNAMENT_WITHDRAWN,
+        TOURNAMENT_ENROLLED, TOURNAMENT_WITHDRAWN, TOURNAMENT_PLAYER_DROPPED,
         TOURNAMENT_PRIZE_POOL_UPDATED, TOURNAMENT_PAYOUT_UPDATED,
         TOURNAMENT_SGLIVE_LINK_UPDATED,
         TOURNAMENT_ROUND_SCHEDULE_UPDATED,

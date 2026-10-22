@@ -518,6 +518,15 @@ class MatchRepository:
         return await scoped(Match.filter(players__user__discord_id=discord_id))
 
     @staticmethod
+    async def unconfirmed_for_player(tournament_id: int, user_id: int) -> List[Match]:
+        """This player's matches in one tournament that are not confirmed yet."""
+        return await scoped(Match.filter(
+            tournament_id=tournament_id, players__user_id=user_id, confirmed_at__isnull=True,
+        )).distinct().order_by('scheduled_at', 'id').prefetch_related(
+            'tournament', 'players', 'players__user', 'stage',
+        )
+
+    @staticmethod
     async def get_upcoming_for_user(user_id: int) -> List[Match]:
         """This player's matches that have a time and have not begun.
 

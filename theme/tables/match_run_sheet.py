@@ -67,7 +67,7 @@ def run_sheet_status(row: dict) -> tuple[str, str]:
             return 'No result', 'cancelled'
         return 'To confirm', 'pending'
     if state == 'Confirmed':
-        return 'Confirmed', 'ok'
+        return ('Forfeit', 'ok') if row.get('forfeit') else ('Confirmed', 'ok')
     if state == 'Started':
         return 'Live', 'live'
     if not row.get('players'):

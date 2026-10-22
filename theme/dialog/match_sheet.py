@@ -310,6 +310,8 @@ class MatchSheet:
         with ui.row().classes('items-center gap-2 full-width match-sheet__status'):
             with ui.element('span').classes(f"wiz-chip wiz-chip--{row['_tone']}"):
                 ui.label(row['_status'])
+            if row.get('forfeit'):
+                ui.label(row['forfeit']).classes('match-sheet__note')
             since = _STATE_SINCE.get(row.get('state') or '')
             if since and row.get('state_time'):
                 ui.label(f"{since} {row['state_time']}").classes('match-sheet__note')

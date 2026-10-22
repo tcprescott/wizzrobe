@@ -2,6 +2,7 @@ from tortoise import fields
 from tortoise.models import Model
 
 from .enums import (
+    ForfeitReason,
     MatchCommentKind,
     PresetOverride,
     RescheduleRequestKind,
@@ -56,6 +57,10 @@ class Match(Model):
     # Set when the stage reminder for this match has been sent, so the worker
     # fires once. Cleared whenever the stage changes, which re-arms it.
     stage_reminder_sent_at = fields.DatetimeField(null=True)
+    # Set when staff decided the match by forfeit. The player who forfeited is
+    # the one left without a finish rank, as a race room records a DQ.
+    forfeit_reason = fields.CharEnumField(ForfeitReason, max_length=16, null=True)
+    forfeit_note = fields.CharField(max_length=280, null=True)
     created_at = fields.DatetimeField(auto_now_add=True)
     updated_at = fields.DatetimeField(auto_now=True)
 

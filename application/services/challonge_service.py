@@ -650,6 +650,7 @@ class ChallongeService(ChallongeParticipantAssignmentMixin, ChallongeStageMixin,
                 name=rp.get('name'),
                 challonge_user_id=cuid,
                 user=user,
+                active=rp.get('active', True),
             )
             participant_by_cid[rp['participant_id']] = participant
 

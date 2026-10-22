@@ -616,6 +616,18 @@ class ProviderTaskStatus(str, Enum):
         return frozenset({cls.SUCCEEDED, cls.FAILED, cls.ABANDONED})
 
 
+class ForfeitReason(str, Enum):
+    """Why a match was decided without being played out (``Match.forfeit_reason``)."""
+
+    NO_SHOW = 'no_show'
+    WITHDREW = 'withdrew'
+    DISQUALIFIED = 'disqualified'
+
+    @property
+    def label(self) -> str:
+        return {'no_show': 'No-show', 'withdrew': 'Withdrew', 'disqualified': 'Disqualified'}[self.value]
+
+
 class PresetOverride(str, Enum):
     """Staff's per-match answer to "which preset does this match roll with".
 

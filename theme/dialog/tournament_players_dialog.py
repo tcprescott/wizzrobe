@@ -11,7 +11,7 @@ from nicegui import app, ui
 
 from application.services import TournamentService, UserService, get_user_from_session
 from theme.dialog._helpers import dialog_header, mobile_sheet
-from theme.dialog.confirmation_dialog import ConfirmationDialog
+from theme.dialog.drop_player_dialog import DropPlayerDialog
 from theme.steady import steady_refreshable
 
 
@@ -56,31 +56,13 @@ class TournamentPlayersDialog:
                                 on_click=lambda _=None, u=user: confirm_remove(u),
                             ).props('flat dense color=negative')
 
-                def confirm_remove(user) -> None:
-                    ConfirmationDialog(
-                        message=f'Remove {user.display_name or user.username} from '
-                                f'{self.tournament.name}?',
-                        on_confirm=lambda: remove(user), confirm_text='Remove',
-                        title='Remove player?',
-                    ).open()
-
-                async def remove(user) -> None:
-                    try:
-                        await service.unenroll_player(self.tournament, user, actor)
-                    except (ValueError, PermissionError) as e:
-                        ui.notify(str(e), color='warning')
-                        return
-                    ui.notify(f'{user.display_name or user.username} removed',
-                              color='positive')
-                    # Refresh the caller's table *before* rebuilding the roster.
-                    # Measured: with `roster.refresh()` first, the player-count
-                    # column kept the pre-removal number — an async
-                    # @ui.refreshable's rebuild does not reliably let what
-                    # follows it in the same handler run.
-                    if self.on_change:
-                        await self.on_change()
-                    await refresh_candidates()
-                    roster.refresh()
+                async def confirm_remove(user) -> None:
+                    async def done() -> None:
+                        if self.on_change:
+                            await self.on_change()
+                        await refresh_candidates()
+                        roster.refresh()
+                    await DropPlayerDialog(self.tournament, user, on_done=done).open()
 
                 async def add() -> None:
                     if not add_select.value:

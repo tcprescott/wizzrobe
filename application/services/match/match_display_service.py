@@ -375,6 +375,9 @@ class MatchDisplayService:
             # The *same* predicate the service enforces, not a second spelling of
             # it: see ``has_recorded_result``.
             'has_result': has_recorded_result(match.players),
+            # "No-show" etc. when staff decided it by forfeit; the player left
+            # without a finish rank is the one who forfeited.
+            'forfeit': reason.label if (reason := getattr(match, 'forfeit_reason', None)) else '',
             'state_timestamp': state_timestamp,
             'state_time': format_local_time(state_changed_at),
             'players': [

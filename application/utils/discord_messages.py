@@ -14,7 +14,8 @@ own, all of them moved out as this module kept crossing the 800-line budget:
 :mod:`~application.utils.discord_messages_crew` (crew assignment),
 :mod:`~application.utils.discord_messages_volunteer` (volunteer shifts),
 :mod:`~application.utils.discord_messages_qualifier` (async qualifiers),
-:mod:`~application.utils.discord_messages_reschedule` (reschedule requests) and
+:mod:`~application.utils.discord_messages_reschedule` (reschedule requests),
+:mod:`~application.utils.discord_messages_forfeit` (forfeits and drops) and
 :mod:`~application.utils.discord_messages_tenant` (community join requests).
 """
 

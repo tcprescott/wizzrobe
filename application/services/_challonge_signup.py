@@ -199,6 +199,44 @@ class ChallongeSignupMixin:
         await self.repository.delete_participant(participant)
         await self._record_roster_change(user, tournament, participant, added=False)
 
+    @requires_feature(FeatureFlag.CHALLONGE)
+    async def drop_participant(self, tournament: Tournament, user: User, actor: User) -> bool:
+        """Staff taking ``user`` out of the bracket, at any stage.
+
+        Before the start Challonge deletes the entry; after it, Challonge keeps
+        the entrant as inactive and forfeits every match they haven't played.
+        Either way the mirror stops counting them. False when they have no entry.
+        """
+        from application.services.auth_service import AuthService
+
+        await AuthService.ensure(
+            await AuthService.can_edit_tournament(actor, tournament),
+            "Only staff or this tournament's admins can drop a player",
+        )
+        participant = await self.repository.get_participant_for_user(tournament, user)
+        if participant is None or not tournament.challonge_tournament_id:
+            return False
+        try:
+            await self._api_client().delete_participant(
+                tournament.challonge_tournament_id,
+                participant.challonge_participant_id,
+                community=tournament.challonge_community,
+            )
+        except ChallongeAPIError as e:
+            if e.status != 404:
+                logger.warning(
+                    'Challonge refused drop: tournament=%s user=%s',
+                    tournament.id, user.id, exc_info=True,
+                )
+                if _challonge_down(e):
+                    raise ValueError(_CHALLONGE_DOWN) from None
+                raise ValueError(
+                    f"Challonge wouldn't take {user.preferred_name} out of {tournament.name}, "
+                    'so nothing was changed. Try again, or drop them on Challonge first.'
+                ) from None
+        await self.repository.set_participant_active(participant, False)
+        return True
+
     async def _record_roster_change(
         self, user: User, tournament: Tournament, participant: ChallongeParticipant, *, added: bool,
     ) -> None:

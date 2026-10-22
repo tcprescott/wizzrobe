@@ -20,6 +20,7 @@ from application.services.match.match_acknowledgment import MatchAcknowledgmentM
 from application.services.match.match_cancellation import CancellationMixin
 from application.services.match.match_comment_service import MatchCommentService
 from application.services.match.match_display_service import MatchDisplayService
+from application.services.match.match_forfeit import ForfeitMixin
 from application.services.match.match_hard_preset_service import (
     HardPresetState,
     MatchHardPresetService,
@@ -53,6 +54,7 @@ from application.services.match.player_late_service import PlayerLateService
 __all__ = [
     'MATCH_STEP_LABELS',
     'CancellationMixin',
+    'ForfeitMixin',
     'HardPresetState',
     'MatchAcknowledgmentMixin',
     'MatchCommentService',

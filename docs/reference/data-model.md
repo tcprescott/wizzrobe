@@ -976,6 +976,8 @@ Core scheduling unit. Lifecycle is derived from nullable timestamps rather than 
 | `confirmed_at` | `DatetimeField` | null | Post-finish results confirmation |
 | `comment` | `TextField` | null | |
 | `needs_review` | `BooleanField` | default `False` | The proctor's dispute flag: "an admin should look at this before confirming". Just a flag — there is no note field; what happened is a conversation, not a textarea filled in between matches. Not a state either: the match stays `Finished`. **Confirming clears it** (`confirm_match`), as does `MatchService.clear_review` |
+| `forfeit_reason` | `CharEnumField(ForfeitReason)` | null | Set when staff decide the match by forfeit (`no_show`, `withdrew`, `disqualified`). The winner has `finish_rank=1` and the forfeiter none. Cleared by a rewind past finished or a recorded result |
+| `forfeit_note` | `CharField(280)` | null | Staff's note on the forfeit |
 | `stage_reminder_sent_at` | `DatetimeField` | null | Stamped by the stage reminder worker *before* it sends, so a delivery failure or restart cannot re-fire. `MatchService.assign_stage` nulls it on every stage change, which re-arms the reminder for the stage the match ended up on |
 | `is_stream_candidate` | `BooleanField` | default `False` | |
 | `title` | `CharField(255)` | null | |
@@ -1745,6 +1747,7 @@ A Challonge participant in a linked tournament, mirrored into wizzrobe. `user` i
 | `challonge_user_id` | `CharField(64)` | null | Challonge account id, used to map to a `User` |
 | `user` | FK → `User` | null, `SET_NULL` | `related_name='challonge_participations'` |
 | `user_assigned_manually` | `BooleanField` | default `False` | `user` was set by a tournament editor; sync keeps it |
+| `active` | `BooleanField` | default `True` | False once the entrant is dropped (Challonge's own `active`). An inactive entrant is kept for history but never mirrored into the tournament's players |
 
 Constraint: `unique_together (('tournament', 'challonge_participant_id'),)`.
 

@@ -274,6 +274,33 @@ async def remove_tournament_player(
     return OperationResult(detail=f'Removed user {user_id} from {tournament.name}.')
 
 
+async def drop_tournament_player(
+    tournament_id: int,
+    user_id: int,
+    reason: Literal['no_show', 'withdrew', 'disqualified'],
+    forfeit_matches: bool = True,
+    tenant: TenantArg = None,
+) -> OperationResult:
+    """Drop someone from a tournament and settle every match they still owe. Staff or that tournament's admins.
+
+    With `forfeit_matches` their head-to-head matches go to the opponent by
+    forfeit; without it they are called off. They come off larger matches'
+    line-ups, leave the roster, and are taken out of a linked Challonge bracket.
+    """
+    from models import ForfeitReason
+
+    tournament = await _tournament(tournament_id)
+    result = await TournamentService().drop_player(
+        tournament, await _user(user_id), current_actor().user,
+        reason=ForfeitReason(reason), forfeit_matches=forfeit_matches,
+    )
+    return OperationResult(detail=(
+        f'Dropped user {user_id} from {tournament.name}: {result.forfeited} forfeited, '
+        f'{result.called_off} called off, {result.removed_from} line-ups changed'
+        + (', removed on Challonge.' if result.on_bracket_site else '.')
+    ))
+
+
 # --- Integrations ---------------------------------------------------------------
 
 
@@ -358,6 +385,7 @@ def register_tools(mcp: MCPServer) -> None:
     write_tool(remove_crew_coordinator, 'Remove crew coordinator', destructive=True)
     write_tool(enroll_tournament_player, 'Enroll tournament player')
     write_tool(remove_tournament_player, 'Remove tournament player', destructive=True)
+    write_tool(drop_tournament_player, 'Drop tournament player', destructive=True)
     challonge = FeatureFlag.CHALLONGE
     write_tool(link_challonge_tournament, 'Link Challonge bracket', challonge)
     write_tool(unlink_challonge_tournament, 'Unlink Challonge bracket', challonge, destructive=True)

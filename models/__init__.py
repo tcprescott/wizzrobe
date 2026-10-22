@@ -69,6 +69,7 @@ from .enums import (
     FeatureFlag,
     FeedbackCategory,
     FeedbackStatus,
+    ForfeitReason,
     JoinRequestStatus,
     MatchCommentKind,
     MatchNotificationLevel,
@@ -253,6 +254,7 @@ __all__ = [
     'FeedbackStatus',
     # column guards
     'FieldValueError',
+    'ForfeitReason',
     # tournament
     'GeneratedSeeds',
     'JoinRequestStatus',
