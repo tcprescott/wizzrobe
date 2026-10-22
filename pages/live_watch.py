@@ -3,10 +3,11 @@
 Every stage's stream in one player, what's on each stage now and next, what's
 coming up on stream over the next few days, and every tournament's bracket. It
 replaced the Event tab's On Air view, so whoever runs the Schedule board gets a
-⋮ "Open in Schedule" on each match their board can show. No sign-in
-and no feature flag. A live NiceGUI page by default; when staff set it static,
-or a rush of arrivals trips it, ``middleware/watch_mode.py`` answers before this
-page is built (see ``pages/static_watch.py``).
+⋮ "Open in Schedule" on each match their board can show. No feature
+flag. Only signed-in readers get this live NiceGUI page: a signed-out visitor
+always gets the static rendering, and so does everyone when staff set it static
+or a rush of arrivals trips it, answered by ``middleware/watch_mode.py`` before
+this page is built (see ``pages/static_watch.py``).
 
 The content comes from :func:`pages.watch_data.get_watch_view`, built once per
 change for every reader. Each open page polls the shared version every couple of
@@ -64,4 +65,6 @@ def create() -> None:
         live_audience.viewer_joined(tenant_id, client.id)
         client.on_connect(lambda: live_audience.viewer_joined(tenant_id, client.id))
         client.on_disconnect(lambda: live_audience.viewer_left(tenant_id, client.id))
+        # A tab that never connects (a link preview, a crawler) is deleted without a disconnect.
+        client.on_delete(lambda: live_audience.viewer_left(tenant_id, client.id))
 

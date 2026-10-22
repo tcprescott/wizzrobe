@@ -279,11 +279,44 @@ class TestRender:
 
 
 class TestStaticSwitch:
+    @pytest.fixture(autouse=True)
+    def _signed_in(self, monkeypatch):
+        monkeypatch.setattr(static_watch, '_signed_in', lambda: True)
+
     def _request(self) -> Request:
         return Request({
             'type': 'http', 'method': 'GET', 'path': '/live', 'root_path': '/t/default',
             'headers': [], 'query_string': b'',
         })
+
+    async def test_signed_out_gets_static_and_signed_in_gets_live(self, db, monkeypatch):
+        async def fake_view(tenant_id):
+            return WatchView(community='C')
+
+        monkeypatch.setattr(static_watch, 'get_watch_view', fake_view)
+        with tenant_scope(DEFAULT_TEST_TENANT_ID):
+            assert await static_watch.serve_static_arrival(self._request()) is None
+            monkeypatch.setattr(static_watch, '_signed_in', lambda: False)
+            response = await static_watch.serve_static_arrival(self._request())
+        assert response is not None
+        assert b'data-refresh-url="/t/default/live/static"' in response.body
+        assert response.headers['Cache-Control'] == 'private, no-cache'
+        assert live_audience.snapshot(DEFAULT_TEST_TENANT_ID).arrivals_last_minute == 1
+
+    async def test_signed_out_static_stays_shared_when_static_for_everyone(self, db, monkeypatch):
+        async def fake_view(tenant_id):
+            return WatchView(community='C')
+
+        monkeypatch.setattr(static_watch, 'get_watch_view', fake_view)
+        monkeypatch.setattr(static_watch, '_signed_in', lambda: False)
+        with tenant_scope(DEFAULT_TEST_TENANT_ID):
+            await SystemConfigService.set_validated(KEY_WATCH_MODE, 'static', await _staff())
+            response = await static_watch.serve_static_arrival(self._request())
+        assert response.headers['Cache-Control'].startswith('public')
+
+    def test_outside_a_request_nobody_is_signed_in(self, monkeypatch):
+        monkeypatch.undo()
+        assert static_watch._signed_in() is False
 
     async def test_live_by_default_and_every_arrival_counts(self, db):
         with tenant_scope(DEFAULT_TEST_TENANT_ID):
@@ -330,6 +363,17 @@ class TestAudience:
         assert snap.live_viewers == 1
         assert snap.peak == 2
         assert snap.peak_at is not None
+
+    def test_leaving_twice_counts_once_and_the_page_also_leaves_on_delete(self):
+        import inspect
+
+        import pages.live_watch as live_watch
+
+        live_audience.viewer_joined(5, 'a')
+        live_audience.viewer_left(5, 'a')
+        live_audience.viewer_left(5, 'a')
+        assert live_audience.snapshot(5).live_viewers == 0
+        assert 'client.on_delete(lambda: live_audience.viewer_left' in inspect.getsource(live_watch)
 
 
 class TestRoutes:

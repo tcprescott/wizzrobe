@@ -1,8 +1,10 @@
 """The Watch page's static rendering, and the switch that serves it at ``/live``.
 
-``/live`` is normally a live NiceGUI page (``pages/live_watch.py``). Each live
-reader is a websocket, and the app admits about ten new ones a second, so when
-staff set the page to static, or a rush of arrivals trips it there
+``/live`` is a live NiceGUI page (``pages/live_watch.py``) for signed-in
+readers only. Each live reader is a websocket and a page build, and the app
+admits about ten new ones a second, so a signed-out visitor always gets the
+static page, and everyone does when staff set the page to static or a rush of
+signed-in arrivals trips it there
 (:mod:`application.utils.live_audience`), :class:`middleware.watch_mode.WatchModeMiddleware`
 answers ``/live`` from here before NiceGUI ever sees the request: one render per
 change, shared by every reader, through the static bracket views' cache and
@@ -30,27 +32,48 @@ from theme.watch_view import render_watch_document
 STATIC_PATH = '/live/static'
 
 
-async def static_watch_response(request: Request, tenant_id: int) -> Response:
-    """The cached static Watch page, or a 304 when the reader already has it."""
+async def static_watch_response(request: Request, tenant_id: int, *, shared: bool = True) -> Response:
+    """The cached static Watch page, or a 304 when the reader already has it.
+
+    ``shared=False`` is the signed-out answer at ``/live`` while the page is
+    otherwise live: the same URL is the live page once that reader signs in, so
+    neither a CDN nor their own browser may keep it without asking again.
+    """
     root = request.scope.get('root_path', '') or ''
     key = f'watch:{watch_version(tenant_id)}:{root}'
     cached = _cache.get(tenant_id, key)
     if cached is not None:
-        return _conditional(request, cached.etag, cached.body)
-    view = await get_watch_view(tenant_id)
-    body = render_watch_document(view, root_path=root, refresh_url=f'{root}{STATIC_PATH}')
-    return _respond(request, tenant_id, key, body)
+        response = _conditional(request, cached.etag, cached.body)
+    else:
+        view = await get_watch_view(tenant_id)
+        body = render_watch_document(view, root_path=root, refresh_url=f'{root}{STATIC_PATH}')
+        response = _respond(request, tenant_id, key, body)
+    if not shared:
+        response.headers['Cache-Control'] = 'private, no-cache'
+    return response
+
+
+def _signed_in() -> bool:
+    try:
+        return bool(app.storage.user.get('authenticated', False))
+    except (RuntimeError, AssertionError, KeyError):
+        return False
 
 
 async def serve_static_arrival(request: Request) -> Optional[Response]:
-    """Count an arrival at ``/live``; answer it statically when the page is static.
+    """Answer ``/live`` statically for a signed-out visitor or when the page is static.
 
-    ``None`` means "live": let the request through to the NiceGUI page.
+    ``None`` means "live": let the request through to the NiceGUI page. Only
+    signed-in arrivals count towards the rush trip, since they are the only ones
+    the live page admits.
     """
     tenant_id = get_current_tenant_id()
     if tenant_id is None:
         return None
     settings = await watch_settings(tenant_id)
+    if not _signed_in():
+        static_everywhere = settings.mode == 'static' or live_audience.is_tripped(tenant_id)
+        return await static_watch_response(request, tenant_id, shared=static_everywhere)
     live_audience.record_arrival(tenant_id, settings.threshold if settings.auto_static else None)
     if settings.mode == 'static' or live_audience.is_tripped(tenant_id):
         return await static_watch_response(request, tenant_id)
