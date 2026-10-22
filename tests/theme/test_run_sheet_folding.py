@@ -5,7 +5,13 @@ over that default and survives a held row and a tidy.
 """
 
 from theme.tables.match import MatchTableView
-from theme.tables.match_run_sheet import RUN_SHEET_FILTER, RUN_SHEET_FILTER_PREFIX, _body_slot, _item_slot, proctor_group
+from theme.tables.match_run_sheet import (
+    RUN_SHEET_FILTER,
+    RUN_SHEET_FILTER_PREFIX,
+    _body_slot,
+    _item_slot,
+    proctor_group,
+)
 
 
 class _Table:
