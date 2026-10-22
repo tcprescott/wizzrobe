@@ -75,7 +75,7 @@ Wizzrobe ships as a single application container plus PostgreSQL and a Redis ses
 
 [`.github/workflows/publish.yml`](../.github/workflows/publish.yml) builds and pushes the image to GitHub Container Registry:
 
-- **Triggers:** every push to `main`, and tags matching `v*`.
+- **Triggers:** paused. It runs only by hand (`workflow_dispatch` from the Actions tab), because production deploys are a `git pull` + restart and never use the image. To resume, restore the `push` trigger (`main` and `v*` tags) and remove `push` from `test.yml`.
 - **Gate:** the `build-and-push` job `needs` a `test` job that calls [`test.yml`](../.github/workflows/test.yml) via `workflow_call`, so an image is only built once the full CI suite passes ([development.md](development.md#continuous-integration)).
 - **Image:** `ghcr.io/<owner>/<repo>` — registry `ghcr.io`, name taken from `github.repository` (currently `ghcr.io/tcprescott/wizzrobe`; images published before the repository was renamed from `sglman` live under `ghcr.io/tcprescott/sglman`).
 - **Tag scheme** (`docker/metadata-action`):
