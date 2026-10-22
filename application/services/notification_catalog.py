@@ -167,7 +167,7 @@ STAGE_CLEARED = _notice(
 STAGE_REMINDER = _notice(
     'stage_reminder', 'Matches', 'Stage match coming up',
     "Before a stage match, at the tournament's reminder lead",
-    {PLAYERS: PING, CREW: PING, WATCHERS: SILENT},
+    {PLAYERS: PING, CREW: PING, WATCHERS: PING},
 )
 MATCH_CANCELLED = _notice(
     'match_cancelled', 'Matches', 'Match cancelled',

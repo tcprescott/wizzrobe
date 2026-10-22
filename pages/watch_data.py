@@ -188,6 +188,7 @@ def _row(match, stage_name: str = '') -> WatchMatch:
         time=format_local_time(match.scheduled_at) if match.scheduled_at else 'TBD',
         players=roster_label(match),
         tournament=match.tournament.name if match.tournament else '',
+        tournament_short=match.tournament.short_label if match.tournament else '',
         stage=stage_name,
         commentators=_crew(match.commentators),
         trackers=_crew(match.trackers),
