@@ -53,10 +53,11 @@ class ReportsService:
         checked in late runs from its check-in. ``now=None`` takes the schedule
         at face value.
         """
-        if not match.scheduled_at:
-            return None
         scheduled = ReportsService._local(match.scheduled_at)
+        if scheduled is None:
+            return None
         seated = ReportsService._local(match.seated_at)
+        now_local = ReportsService._local(now)
         if seated:
             start = seated
         else:
@@ -71,8 +72,8 @@ class ReportsService:
                 anchor = ReportsService._local(match.started_at)
             elif seated:
                 anchor = max(scheduled, seated)
-            elif now is not None and now > scheduled:
-                anchor = min(ReportsService._local(now), scheduled + LATE_PUSH_LIMIT)
+            elif now_local is not None and now_local > scheduled:
+                anchor = min(now_local, scheduled + LATE_PUSH_LIMIT)
             else:
                 anchor = scheduled
             end = anchor + timedelta(minutes=duration)
