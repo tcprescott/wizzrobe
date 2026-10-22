@@ -97,16 +97,22 @@ def player_crew(row: dict, discord_id) -> list[dict]:
     set when the viewer is approved but hasn't confirmed they'll cover it.
     ``unavailable`` is why there's no button to press. ``people`` are the names, the viewer's followed by "(you)", and ``empty`` is
     the "No signups yet" line while the role can still be filled.
+
+    Once the match is live or over there's nobody left to recruit, so the
+    sign-up controls go (``tray`` is False) and a role nobody covered drops
+    out. The viewer's own signup keeps its Withdraw: the crew help promises a
+    stale signup can be cleared at any time.
     """
     wanted = row.get('crew_wanted') or {}
     required = row.get('crew_required') or {}
-    open_ = bool(row.get('crew_signup_open'))
+    recruiting = row.get('state') not in ('Started', 'Finished', 'Confirmed')
+    open_ = recruiting and bool(row.get('crew_signup_open'))
     plays = bool(discord_id) and any(
         str(p.get('discord_id')) == str(discord_id) for p in row.get('players') or [])
     roles = []
     for key, singular, label in _ROLES:
         people = row.get(key) or []
-        if wanted.get(key) is False or not (wanted.get(key) or people):
+        if wanted.get(key) is False or not (people or (recruiting and wanted.get(key))):
             continue
         need = required.get(key, 1) or 0
         approved = sum(1 for p in people if p.get('approved'))
@@ -125,10 +131,11 @@ def player_crew(row: dict, discord_id) -> list[dict]:
             'count': f'{approved}/{need}' if need else str(approved),
             'short': open_ and approved < need,
             'mine': mine,
+            'tray': recruiting or mine is not None,
             'can_sign_up': bool(discord_id) and open_ and mine is None and not plays,
-            'unavailable': _unavailable(mine, open_, plays),
+            'unavailable': _unavailable(mine, open_, plays) if recruiting else '',
             'can_withdraw': mine is not None,
-            'ack_idx': ack_idx,
+            'ack_idx': ack_idx if recruiting else None,
             'people': crew_people(people, discord_id, waiting_note='waiting for approval'),
             'empty': open_ and not people,
         })
@@ -248,7 +255,7 @@ _TITLE = "props.row._who || (props.row.bracket ? props.row.bracket.name : props.
 # Commentators or Trackers header and doesn't need to. Every button stops the
 # click so pressing it doesn't also open the details sheet.
 _ROLE = r'''<span class="run-sheet__crew" :class="c.short ? 'st-pending' : ''">__LABEL__<b>{{ c.count }}</b><template v-if="c.short"> · needs crew</template></span>
-<div class="wiz-crew-action">
+<div v-if="c.tray" class="wiz-crew-action">
 <q-btn v-if="c.can_withdraw" outline no-caps no-wrap color="negative" dense icon="undo" :label="__WITHDRAW__"
        :aria-label="'Withdraw as ' + c.singular"
        @click.stop="$parent.$emit('undo_' + c.singular, props.row)" />
