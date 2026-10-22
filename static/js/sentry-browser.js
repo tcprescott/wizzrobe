@@ -51,11 +51,14 @@
   // language pack, NiceGUI's page script. The framework load guard reloads the
   // page and reports a failure that outlives the reload, so everything else is
   // follow-on noise. The SDK attaches a stack to that report too, so it is told
-  // apart by its text.
+  // apart by its text. Quasar missing with Vue present is the same dead page:
+  // the page script's "Can't find variable: Quasar" and, when Quasar's
+  // stylesheet failed with it, NiceGUI's QCard hack reading the failed @import
+  // ("Not allowed to access cross-origin stylesheet", SGLMAN-27/28).
   var GUARD_REPORT = 'framework scripts failed to load';
 
-  function missingVue(event) {
-    if (window.Vue) return false;
+  function missingFramework(event) {
+    if (window.Vue && window.Quasar) return false;
     return !messagesOf(event).some(function (text) { return text.indexOf(GUARD_REPORT) !== -1; });
   }
 
@@ -92,7 +95,7 @@
       if (!live.enabled || unsupportedBrowser) return null;
       if (live.sampleRate < 1 && Math.random() >= live.sampleRate) return null;
       if (ignored(event)) return null;
-      if (missingVue(event)) return null;
+      if (missingFramework(event)) return null;
       return event;
     },
   });
