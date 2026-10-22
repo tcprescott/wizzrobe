@@ -237,13 +237,15 @@
         {
           "clickSelector": ".wiz-vgrid-day[aria-pressed=false]",
           "expect": {
-            "url": "day=[0-9-]+$"
+            "url": "day=[0-9-]+$",
+            "moved": true
           }
         },
         {
           "back": true,
           "expect": {
-            "url": "day=[0-9-]+$"
+            "url": "day=[0-9-]+$",
+            "moved": true
           }
         },
         {
