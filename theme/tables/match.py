@@ -705,8 +705,7 @@ class MatchTableView(MatchFiltersMixin, MatchTableHandlersMixin, MatchBoardHoldM
             await self._update_row(match_id, flash)
 
     def _row_index(self, match_id):
-        return next((i for i, row in enumerate(self.table.rows)
-                     if row.get('id') == match_id), None)
+        return next((i for i, row in enumerate(self.table.rows) if row.get('id') == match_id), None)
 
     async def _update_row(self, match_id, flash):
         if self._row_index(match_id) is None:
@@ -714,8 +713,7 @@ class MatchTableView(MatchFiltersMixin, MatchTableHandlersMixin, MatchBoardHoldM
 
         match_data = await self.display_service.get_match_for_display(match_id)
 
-        # A full reload can replace ``table.rows`` while any await here is
-        # suspended, so the index is re-found by id before every use.
+        # A reload can replace ``table.rows`` during any await: re-find by id.
         idx = self._row_index(match_id)
         if idx is None:
             return
