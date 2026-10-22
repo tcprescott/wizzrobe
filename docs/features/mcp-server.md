@@ -337,12 +337,16 @@ model needs in one call to find one person.
 | `my_notification_settings` | ACTOR (your own) |
 | `list_feedback` | STAFF | `FEEDBACK` |
 | `runtime_stats` | PLATFORM (SUPER_ADMIN, checked again in `RuntimeStatsService`) |
+| `memory_census` | PLATFORM (SUPER_ADMIN, checked again in `RuntimeStatsService`) |
 
 `runtime_stats` is the live load on the process (event-loop lag and stalls,
 CPU, memory, connected tabs, DB pool, worker timing; see
 [observability.md](observability.md#live-load-runtime_stats)). It names no
 community because the figures cover all of them, which is also why a community
-role cannot read it.
+role cannot read it. `memory_census` counts what the heap holds by type, plus
+NiceGUI pages and elements still in memory and live-channel subscribers, for
+when `runtime_stats` shows memory climbing. It walks every tracked object, so
+each call freezes the app about as long as a full collection.
 
 `list_webhooks` never returns the signing secret, and `list_service_health` is
 the **tenant subset** only — the platform-wide board is `platform_service_health`.

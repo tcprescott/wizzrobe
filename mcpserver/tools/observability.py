@@ -15,6 +15,7 @@ instead of letting a model discover the refusal a round-trip later.
 from typing import Any, Dict, List, Optional
 
 from mcp.server.mcpserver import MCPServer
+from pydantic import BaseModel, Field
 
 from api.schemas.notification_settings import NotificationSettingResponse
 from api.schemas.notifications import MyNotificationsResponse
@@ -323,11 +324,45 @@ async def runtime_stats() -> RuntimeStats:
 
     Requires super admin. Start here when the app feels slow: a high
     `lag_ms_p95` or any `recent_stalls` means something is blocking the one
-    event loop every user shares, and each stall names the code that did it.
+    event loop every user shares, and each stall names the code that did it
+    (or 'garbage collection'; the `gc` block times every collection pass).
     Times are Unix seconds, UTC.
     """
     return RuntimeStats.model_validate(
         await RuntimeStatsService.snapshot(current_actor().user)
+    )
+
+
+class TypeCount(BaseModel):
+    type: str
+    count: int
+
+
+class MemoryCensus(BaseModel):
+    """Objects the garbage collector tracks, right now, without collecting first."""
+
+    tracked_objects: int
+    frozen_objects: int = Field(description='Start-up objects frozen out of collection, not counted above')
+    clients_registered: int = Field(description='NiceGUI pages the app still serves')
+    clients_alive: int = Field(description='NiceGUI page objects in memory; more than registered means leaked pages')
+    elements_alive: int
+    elements_deleted: int = Field(description='Elements of deleted pages still in memory; should stay near 0')
+    match_live_subscribers: int
+    check_in_live_subscribers: int
+    top_types: List[TypeCount]
+
+
+async def memory_census(top: int = 40) -> MemoryCensus:
+    """Count what is alive in the Wizzrobe process, by type, to find a leak.
+
+    Requires super admin. Use when `runtime_stats` shows memory or gen-2
+    collection times climbing. Walks every tracked object, so the call itself
+    freezes the app for about as long as a full collection (a second or two);
+    don't poll it. Compare two calls some minutes apart: the types whose counts
+    keep rising are the leak.
+    """
+    return MemoryCensus.model_validate(
+        await RuntimeStatsService.memory_census(current_actor().user, clamp(top, low=5, high=200))
     )
 
 
@@ -341,6 +376,7 @@ def register_tools(mcp: MCPServer) -> None:
     register(mcp, my_notification_settings, gate=Gate.ACTOR, title='My notification settings')
     register(mcp, list_service_health, gate=Gate.STAFF, title='Service health')
     register(mcp, runtime_stats, gate=Gate.PLATFORM, title='Runtime stats')
+    register(mcp, memory_census, gate=Gate.PLATFORM, title='Memory census')
     register(mcp, list_webhooks, gate=Gate.STAFF, title='List webhooks')
     register(
         mcp, list_webhook_deliveries, gate=Gate.STAFF,
