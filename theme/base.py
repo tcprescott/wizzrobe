@@ -528,11 +528,11 @@ class BaseLayout:
     def _switch_tab(self, label: str) -> None:
         # Only move the panel; the drawer highlight and the /base/<slug> history
         # replace are handled centrally by _handle_tab_change so every entry point
-        # (drawer, bottom nav, swipe) produces identical side effects and no loops.
+        # (drawer, bottom nav) produces identical side effects and no loops.
         self._tab_panels.set_value(label)
 
     async def _handle_tab_change(self) -> None:
-        """Single sink for panel-value changes: drawer item, bottom tab or swipe.
+        """Single sink for panel-value changes: drawer item or bottom tab.
         Back/Forward go through :meth:`_show_slug`, which shows the tab first."""
         label = self._tab_panels.value
         if label == self._shown_tab:
@@ -712,13 +712,13 @@ class BaseLayout:
         """Build the panel shells, then fill in only the visible one.
 
         Every ``ui.tab_panel`` container is created up front so panel switching,
-        deep-linked sections, and swipe all keep working, but a tab's *content* is
+        and deep-linked sections keep working, but a tab's *content* is
         built the first time that tab is shown. The home page carries up to nine
         tabs and a viewer sees one, so eager rendering spent ~47% of the page's
         render CPU on panels nobody looked at
         (docs/scaling-roadmap.md).
         """
-        with ui.tab_panels(value=self._default_tab).props('swipeable animated').classes(
+        with ui.tab_panels(value=self._default_tab).props('animated').classes(
             'w-full'
         ) as self._tab_panels:
             for tab in self.tabs:
@@ -735,7 +735,7 @@ class BaseLayout:
         # The address and title name the tab and any view it opened on.
         state.sync(keep_foreign=True)
 
-        # Panel changes (drawer click, bottom-tab tap, or swipe) all route through
+        # Panel changes (drawer click or bottom-tab tap) all route through
         # _handle_tab_change, which syncs both highlights and the URL. Registered
         # after construction so the initial deep-linked value does not fire it (no
         # spurious history entry). The bottom nav is kept in sync manually rather
