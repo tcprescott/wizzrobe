@@ -29,7 +29,8 @@ from theme.section import section_panel
 ADMISSIONS_PER_MINUTE = 600
 
 _MODE_LABELS = {
-    'live': 'Live: updates the moment a match changes. Each viewer holds a connection.',
+    'live': 'Live: signed-in viewers see updates the moment a match changes, and each holds a connection. '
+            'Signed-out visitors always get the static copy.',
     'static': 'Static: one shared copy that updates itself every minute. The player keeps playing.',
 }
 
@@ -64,7 +65,7 @@ async def watch_page_settings_pane(can_edit: bool) -> None:
         with ui.element('div').classes('wiz-watch-stats'):
             _stat(str(snap.live_viewers), 'Watching live')
             _stat(str(snap.static_readers), 'Reading the static page')
-            _stat(f'{snap.arrivals_last_minute}', f'Arrived in the last minute (the app takes about {ADMISSIONS_PER_MINUTE})')
+            _stat(f'{snap.arrivals_last_minute}', f'Signed in and arrived in the last minute (the app takes about {ADMISSIONS_PER_MINUTE})')
             peak = f' at {format_local_time(snap.peak_at)}' if snap.peak_at else ''
             _stat(str(snap.peak), f'Most at once{peak}')
 
@@ -91,7 +92,7 @@ async def watch_page_settings_pane(can_edit: bool) -> None:
                 'Arrivals a minute that count as a rush', value=settings.threshold, min=1, format='%d',
             ).classes('w-72')
             field_hint(
-                'Past this many new viewers in a minute, new arrivals get the static page '
+                'Past this many signed-in arrivals in a minute, new arrivals get the static page '
                 'until ten minutes pass without one. People already watching stay live.'
             )
 
