@@ -50,6 +50,7 @@ async def collect_match_recipients(
     include_players: bool = True,
     include_watchers: bool = True,
     exclude_players: bool = False,
+    include_unstaged_crew: bool = False,
 ) -> dict[int, bool]:
     """``{discord_id: is_watcher}`` — :func:`collect_match_audience` without the audience."""
     audience = await collect_match_audience(
@@ -57,6 +58,7 @@ async def collect_match_recipients(
         include_players=include_players,
         include_watchers=include_watchers,
         exclude_players=exclude_players,
+        include_unstaged_crew=include_unstaged_crew,
     )
     return {discord_id: r.is_watcher for discord_id, r in audience.items()}
 
@@ -67,6 +69,7 @@ async def collect_match_audience(
     include_players: bool = True,
     include_watchers: bool = True,
     exclude_players: bool = False,
+    include_unstaged_crew: bool = False,
 ) -> dict[int, MatchRecipient]:
     """Return ``{discord_id: MatchRecipient}`` for a match's DM recipients.
 
@@ -80,6 +83,11 @@ async def collect_match_audience(
     - ``include_watchers``: add match watchers (with the watcher flag).
     - ``exclude_players``: drop any crew/watcher who is also a player (used by the
       crew notification, where players get a separate acknowledgment DM).
+    - ``include_unstaged_crew``: keep crew on a match with no stage. Crew hear
+      about a match only while it is on a stage: off stage nobody is
+      broadcasting it, so its updates are noise to them. A crew member who also watches still gets the watcher copy.
+      Set it for the stage-cleared DM (they were told they're on stage) and for
+      de-duplicating follower copies.
     """
     tenant_id = require_tenant_id()
     recipients: dict[int, MatchRecipient] = {}
@@ -110,13 +118,15 @@ async def collect_match_audience(
         elif held.audience == AUDIENCE_CREW:
             recipients[user.discord_id] = held._replace(crew_roles=(*held.crew_roles, role))
 
-    commentators = await Commentator.filter(
+    crew_hears = include_unstaged_crew or match.stage_id is not None
+
+    commentators = [] if not crew_hears else await Commentator.filter(
         match=match, approved=True, tenant_id=tenant_id
     ).prefetch_related('user')
     for c in commentators:
         _add_crew(c.user, CREW_COMMENTATOR)
 
-    trackers = await Tracker.filter(
+    trackers = [] if not crew_hears else await Tracker.filter(
         match=match, approved=True, tenant_id=tenant_id
     ).prefetch_related('user')
     for t in trackers:

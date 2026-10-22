@@ -7,7 +7,7 @@ and the mock mode that makes all of it developable offline. Implementation mecha
 
 ## Match notifications
 
-DMs fire on match lifecycle transitions:
+DMs fire on match lifecycle transitions. Approved crew are left out of every match DM below while the match has no stage; the stage-cleared DM is the exception (see [match participation](match-participation.md)).
 
 | Event | Recipients |
 |---|---|

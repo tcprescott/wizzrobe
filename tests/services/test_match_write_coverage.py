@@ -464,6 +464,7 @@ class TestAdminAssignedCrew:
         match = await _seed_match(
             service, actor, t, [player.id],
             commentator_ids=[commentator.id], tracker_ids=[tracker.id],
+            stage_id=(await Stage.create(name="Kraid")).id,
         )
 
         events = _approval_events(captured_events)
@@ -483,7 +484,10 @@ class TestAdminAssignedCrew:
         player = await make_player()
         kept = await make_player("kept", "Kept")
         added = await make_player("added", "Added")
-        match = await _seed_match(service, actor, t, [player.id], commentator_ids=[kept.id])
+        match = await _seed_match(
+            service, actor, t, [player.id], commentator_ids=[kept.id],
+            stage_id=(await Stage.create(name="Kraid")).id,
+        )
         captured_events.clear()
         for coro in stub_discord_queue:
             coro.close()
@@ -516,7 +520,10 @@ class TestAdminAssignedCrew:
         t = await make_tournament()
         player = await make_player()
         dropped = await make_player("dropped", "Dropped")
-        match = await _seed_match(service, actor, t, [player.id], tracker_ids=[dropped.id])
+        match = await _seed_match(
+            service, actor, t, [player.id], tracker_ids=[dropped.id],
+            stage_id=(await Stage.create(name="Kraid")).id,
+        )
         captured_events.clear()
         for coro in stub_discord_queue:
             coro.close()
@@ -528,6 +535,24 @@ class TestAdminAssignedCrew:
         assert [(e.payload["user_id"], e.payload["role"]) for e in removed] == [(dropped.id, "tracker")]
         assert removed[0].actor_id == actor.id
         assert [c.cr_code.co_name for c in stub_discord_queue] == ["send_dm"]
+
+    async def test_unstaged_match_records_crew_but_sends_no_dm(
+        self, service, db, captured_events, stub_discord_queue,
+    ):
+        """Crew hear about a match only once it's on a stage."""
+        actor = await make_staff()
+        t = await make_tournament()
+        player = await make_player()
+        commentator = await make_player("comm", "Comm")
+
+        match = await _seed_match(
+            service, actor, t, [player.id], commentator_ids=[commentator.id],
+        )
+        await service.update_match(match_id=match.id, commentator_ids=[], actor=actor)
+
+        assert len(_approval_events(captured_events)) == 1
+        assert _crew_ack_dms(stub_discord_queue) == []
+        assert "send_dm" not in [c.cr_code.co_name for c in stub_discord_queue]
 
 
 # ---------------------------------------------------------------------------

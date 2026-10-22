@@ -19,6 +19,7 @@ from models import (
     RaceRoomStatus,
     RacetimeBot,
     RacetimeRoom,
+    Stage,
     Tournament,
     User,
 )
@@ -36,6 +37,7 @@ async def _match_with_people() -> tuple[Match, User, User]:
     tournament = await Tournament.create(name='Cup')
     match = await Match.create(
         tournament=tournament, scheduled_at=utc(2026, 8, 1, 18, 0),
+        stage=await Stage.create(name='Kraid'),
     )
     player = await make_user(discord_id=101, username='player')
     commentator = await make_user(discord_id=202, username='commentator')

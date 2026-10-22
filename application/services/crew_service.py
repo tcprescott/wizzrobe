@@ -583,7 +583,7 @@ class CrewService:
         acknowledgment button remains available regardless of DM delivery.
         """
         discord_id = getattr(crew_member.user, 'discord_id', None)
-        if not discord_id:
+        if not discord_id or crew_member.match.stage_id is None:
             return
 
         message_kwargs, fields = await self._crew_dm_parts(crew_member.match)
@@ -619,7 +619,7 @@ class CrewService:
         terms — a failed DM never blocks the withdrawal.
         """
         discord_id = getattr(crew_member.user, 'discord_id', None)
-        if not discord_id:
+        if not discord_id or crew_member.match.stage_id is None:
             return
 
         message_kwargs, fields = await self._crew_dm_parts(crew_member.match)
