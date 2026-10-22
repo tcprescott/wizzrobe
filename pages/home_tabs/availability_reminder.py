@@ -23,9 +23,11 @@ async def render_availability_reminder(user: User, on_block_out: Callable[[], Aw
 
     async def put_away(then_open: bool) -> None:
         await service.dismiss_reminder(user)
-        card.delete()
+        # The handler runs in this card's slot, so the callback has to finish
+        # before the card goes or its UI calls hit a deleted slot (SGLMAN-1Z).
         if then_open:
             await on_block_out()
+        card.delete()
 
     with ui.element('div').classes('wiz-avail-reminder w-full') \
             .props('role=region aria-label="When you can\'t play"') as card:
