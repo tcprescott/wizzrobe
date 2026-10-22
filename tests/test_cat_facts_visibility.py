@@ -117,3 +117,12 @@ class TestAuthWaitScreens:
                 # own wait screen carries the hold.
                 if 'ui.navigate.to(' in line and '_claim_url' not in line:
                     raise AssertionError(f'unheld navigation: {line.strip()}')
+
+
+class TestKonamiListener:
+    def test_skips_keydown_events_without_a_key(self):
+        """Autofill and iOS keyboards send keydown with no ``key``; reading
+        ``e.key.length`` on those threw on every keystroke (SGLMAN-2C)."""
+        source = inspect.getsource(base)
+        guard = source.index("if(typeof e.key!=='string'||e.isComposing)return;")
+        assert guard < source.index('e.key.length')

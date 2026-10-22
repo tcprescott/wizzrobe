@@ -394,6 +394,8 @@ class BaseLayout:
             "'ArrowLeft','ArrowRight','ArrowLeft','ArrowRight','b','a'];"
             'let pos=0;'
             "window.addEventListener('keydown',function(e){"
+            # Autofill and some iOS keyboards fire keydown with no key (SGLMAN-2C).
+            "if(typeof e.key!=='string'||e.isComposing)return;"
             'const key=e.key.length===1?e.key.toLowerCase():e.key;'
             'if(key===seq[pos]){pos++;'
             "if(pos===seq.length){pos=0;emitEvent('wiz_konami',{});}}"
