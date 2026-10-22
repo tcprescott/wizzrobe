@@ -37,7 +37,7 @@ class TablePreferenceService:
     MAX_COLUMNS = 64
     MIN_WIDTH, MAX_WIDTH = 40, 1200
     MAX_NAME_LEN = 64
-    MAX_FOLDED = 16
+    MAX_FOLDED = 64
 
     def __init__(self) -> None:
         self.repository = TablePreferenceRepository()

@@ -41,6 +41,7 @@ def _board(items: list[UnbookedMatch]) -> UnbookedBoard:
     board.search = ''
     board.can_open_native_entrants = False
     board._items = items
+    board._folded = {}
     return board
 
 
@@ -91,3 +92,48 @@ async def test_building_hands_the_loop_back(monkeypatch):
     done = True
     await task
     assert ticks >= 5, 'another task should run between slices of rows'
+
+
+def _fold_buttons(column) -> list:
+    return [e for e in column.descendants() if 'unbooked-group__fold' in e.classes]
+
+
+async def test_a_saved_fold_hides_that_tournaments_rows():
+    core.loop = asyncio.get_running_loop()
+    client = Client(page('/'), request=None)
+    board = _board(_items(8))
+    board._folded = {'1:challonge': True}
+    with client:
+        with ui.column() as column:
+            await board._rows()
+    heads = _fold_buttons(column)
+    assert len(heads) == 4
+    folded = [h for h in heads if h.props.get('aria-expanded') == 'false']
+    assert len(folded) == 1
+    assert not folded[0].parent_slot.parent.default_slot.children[1].visible
+
+
+async def test_the_heading_folds_its_group_in_place(monkeypatch):
+    saved = []
+
+    async def save(fold_key, folded, client):
+        saved.append((fold_key, folded))
+
+    monkeypatch.setattr(UnbookedBoard, '_save_fold', staticmethod(save))
+    core.loop = asyncio.get_running_loop()
+    client = Client(page('/'), request=None)
+    board = _board(_items(8))
+    with client:
+        with ui.column() as column:
+            await board._rows()
+        head = _fold_buttons(column)[0]
+        rows = head.parent_slot.parent.default_slot.children[1]
+        assert rows.visible
+        for listener in head._event_listeners.values():
+            if listener.type == 'click':
+                listener.handler(None)
+        await asyncio.sleep(0)
+    assert not rows.visible
+    assert head.props.get('aria-expanded') == 'false'
+    assert board._folded == {'0:challonge': True}
+    assert saved == [('0:challonge', True)]

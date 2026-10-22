@@ -139,8 +139,8 @@ def proctor_group(row: dict) -> tuple[int, str]:
 
 #: The groups a viewer who has never touched them finds folded: finished
 #: matches are the longest group by mid-event and rarely the proctor's business
-#: (Thomas, 2026-10-22).
-FOLDED_BY_DEFAULT = frozenset({_DONE[1], _FINISHED[1]})
+#: (Thomas, 2026-10-22). 'Finished' is the player run sheet's results group.
+FOLDED_BY_DEFAULT = frozenset({_DONE[1], _FINISHED[1], 'Finished'})
 
 #: Quasar's filter over a run sheet: the search text as its default filter
 #: does it, and a folded group down to the row carrying its header. ``terms``
@@ -469,7 +469,7 @@ def _next(can_run: bool) -> str:
             + (_NEXT_BUTTON if can_run else '') + '</span>')
 
 
-def _group_header(proctor: bool) -> str:
+def fold_header(proctor: bool) -> str:
     """The header's fold button. The admin board counts a group only while
     it's folded, when the count is all that is left of it."""
     count = ' · {{ props.row._group_count }}' if proctor \
@@ -499,7 +499,7 @@ def _body_slot(proctor: bool, can_run: bool = False) -> str:
             """ + LATE_TAGS
     return """
 <q-tr v-if="props.row._group_start" class="run-sheet__group-row">
-    <q-td colspan="100%" class="run-sheet__group">""" + _group_header(proctor) + """</q-td>
+    <q-td colspan="100%" class="run-sheet__group">""" + fold_header(proctor) + """</q-td>
 </q-tr>
 <q-tr v-if="!props.row._folded" :props="props" class="run-sheet__row" :class="[props.row._flash ? 'wiz-row-flash' : '', props.row._removed ? 'wiz-row-removed' : '']" :inert="props.row._removed ? '' : null" :data-wiz-row="props.row.id"
       @click="$parent.$emit('open_match', props.row.id)">
@@ -536,7 +536,7 @@ def _item_slot(proctor: bool, can_run: bool = False) -> str:
     if proctor:
         return """
 <div class="run-sheet__item">
-    <div v-if="props.row._group_start" class="run-sheet__group">""" + _group_header(proctor) + """</div>
+    <div v-if="props.row._group_start" class="run-sheet__group">""" + fold_header(proctor) + """</div>
     <div v-if="!props.row._folded" class="run-sheet__card run-sheet__card--split" :class="[props.row._flash ? 'wiz-row-flash' : '', props.row._removed ? 'wiz-row-removed' : '']" :inert="props.row._removed ? '' : null" :data-wiz-row="props.row.id">
         <button type="button" class="run-sheet__card-open" @click="$parent.$emit('open_match', props.row.id)">
             """ + when + """
@@ -554,7 +554,7 @@ def _item_slot(proctor: bool, can_run: bool = False) -> str:
 """
     return """
 <div class="run-sheet__item">
-    <div v-if="props.row._group_start" class="run-sheet__group">""" + _group_header(proctor) + """</div>
+    <div v-if="props.row._group_start" class="run-sheet__group">""" + fold_header(proctor) + """</div>
     <button v-if="!props.row._folded" type="button" class="run-sheet__card" :class="[props.row._flash ? 'wiz-row-flash' : '', props.row._removed ? 'wiz-row-removed' : '']" :inert="props.row._removed ? '' : null" :data-wiz-row="props.row.id"
             @click="$parent.$emit('open_match', props.row.id)">
         """ + when + """
@@ -581,5 +581,10 @@ def register_run_sheet_slots(table, *, proctor: bool = False, can_run: bool = Fa
     """
     table.add_slot('body', _body_slot(proctor, can_run))
     table.add_slot('item', _item_slot(proctor, can_run))
+    use_fold_filter(table)
+
+
+def use_fold_filter(table) -> None:
+    """Filter ``table`` with :data:`RUN_SHEET_FILTER`, so folded groups leave the pager."""
     table._props['filter'] = {'text': ''}
     table._props[':filter-method'] = RUN_SHEET_FILTER
