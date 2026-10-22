@@ -13,6 +13,7 @@ instead of the collector (SGLMAN-20, SGLMAN-22).
 
 from __future__ import annotations
 
+import asyncio
 import gc
 import threading
 import time
@@ -41,6 +42,14 @@ _passes: Deque[Pass] = deque(maxlen=_RECENT)
 _totals: Dict[int, List[float]] = {0: [0, 0.0, 0.0], 1: [0, 0.0, 0.0], 2: [0, 0.0, 0.0]}
 _started: Optional[float] = None
 _frozen: Optional[int] = None
+
+#: How often the re-frozen objects are handed back for one ordinary full pass,
+#: so a cycle that formed among them is still freed within the hour.
+THAW_SECONDS = 3600.0
+_refreeze_loop: Optional[asyncio.AbstractEventLoop] = None
+_last_thaw = 0.0
+_refreezes = 0
+_thaws = 0
 
 
 def _callback(phase: str, info: Dict[str, int]) -> None:
@@ -88,6 +97,58 @@ def freeze() -> int:
     return _frozen
 
 
+def _after_full_pass() -> None:
+    global _last_thaw, _refreezes, _thaws
+    now = time.monotonic()
+    if now - _last_thaw >= THAW_SECONDS:
+        gc.unfreeze()
+        _last_thaw = now
+        _thaws += 1
+    else:
+        gc.freeze()
+        _refreezes += 1
+
+
+def _refreeze_callback(phase: str, info: Dict[str, int]) -> None:
+    loop = _refreeze_loop
+    if phase != 'stop' or info.get('generation') != 2 or loop is None:
+        return
+    # Not from inside the collection: the collector is still mid-pass here, and a
+    # pass can run on any thread.
+    try:
+        loop.call_soon_threadsafe(_after_full_pass)
+    except RuntimeError:
+        pass
+
+
+def refreeze_after_full_passes(loop: asyncio.AbstractEventLoop) -> None:
+    """Freeze whatever survives each full collection, so the next one skips it.
+
+    A full pass walks every live object, and with pages open that is mostly their
+    element trees: about 1,070,000 objects for 49 pages in production on
+    2026-10-22, 1.4-1.9s a pass, growing with every tab. Freezing the survivors
+    right after a pass means the next one walks only what was allocated since. In
+    a local 42-tab run that took passes from 0.66-0.84s to 0.06-0.11s.
+
+    Frozen objects are still freed by reference counting; only a cycle that forms
+    among them waits. :mod:`element_cycles` removes the one every deleted element
+    used to leave, and once every :data:`THAW_SECONDS` the next pass after a full
+    one walks everything as before and frees whatever did collect.
+    """
+    global _refreeze_loop, _last_thaw
+    _refreeze_loop = loop
+    _last_thaw = time.monotonic()
+    if _refreeze_callback not in gc.callbacks:
+        gc.callbacks.append(_refreeze_callback)
+
+
+def stop_refreeze() -> None:
+    global _refreeze_loop
+    _refreeze_loop = None
+    if _refreeze_callback in gc.callbacks:
+        gc.callbacks.remove(_refreeze_callback)
+
+
 def running_since() -> Optional[float]:
     """When the collection in progress started (monotonic), or ``None``."""
     return _started
@@ -121,7 +182,9 @@ def snapshot() -> Dict[str, object]:
         'installed': _callback in gc.callbacks,
         'thresholds': list(gc.get_threshold()),
         'pending': list(gc.get_count()),
-        'frozen_objects': _frozen,
+        'frozen_objects': gc.get_freeze_count() if _frozen is not None else None,
+        'refreezes': _refreezes,
+        'thaws': _thaws,
         'by_generation': {
             str(g): {
                 'passes': int(t[0]),
