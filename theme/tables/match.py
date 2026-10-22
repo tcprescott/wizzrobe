@@ -704,14 +704,21 @@ class MatchTableView(MatchFiltersMixin, MatchTableHandlersMixin, MatchBoardHoldM
         async with self._row_update_lock:
             await self._update_row(match_id, flash)
 
+    def _row_index(self, match_id):
+        return next((i for i, row in enumerate(self.table.rows)
+                     if row.get('id') == match_id), None)
+
     async def _update_row(self, match_id, flash):
-        idx = next((i for i, row in enumerate(self.table.rows)
-                   if row.get('id') == match_id), None)
-        if idx is None:
+        if self._row_index(match_id) is None:
             return  # Row not visible, do nothing
 
         match_data = await self.display_service.get_match_for_display(match_id)
 
+        # A full reload can replace ``table.rows`` while any await here is
+        # suspended, so the index is re-found by id before every use.
+        idx = self._row_index(match_id)
+        if idx is None:
+            return
         if not match_data or (self.row_filter is not None and not self.row_filter(match_data)) \
                 or not self._still_crews(match_data):
             # Gone, or no longer this board's business (a room-view seed whose
@@ -726,6 +733,9 @@ class MatchTableView(MatchFiltersMixin, MatchTableHandlersMixin, MatchBoardHoldM
         await self._apply_accommodations([match_data])
         await self._apply_comment_counts([match_data])
         self._apply_late_visibility([match_data])
+        idx = self._row_index(match_id)
+        if idx is None:
+            return
         stage_options = self._stage_options()
         if stage_options is not None:
             match_data['stage_options'] = stage_options
@@ -774,7 +784,7 @@ class MatchTableView(MatchFiltersMixin, MatchTableHandlersMixin, MatchBoardHoldM
     def _schedule_flash_clear(self, match_id):
         """Clear the transient highlight on a row a moment after it was set."""
         def clear():
-            i = next((j for j, r in enumerate(self.table.rows) if r.get('id') == match_id), None)
+            i = self._row_index(match_id)
             if i is not None and self.table.rows[i].get('_flash'):
                 self.table.rows[i]['_flash'] = False
                 self.table.update()
@@ -785,8 +795,7 @@ class MatchTableView(MatchFiltersMixin, MatchTableHandlersMixin, MatchBoardHoldM
         Delete a single row in the table by its match ID, only if the row is currently visible.
         Does not delete from the database, only removes from the table UI.
         """
-        idx = next((i for i, row in enumerate(self.table.rows)
-                   if row.get('id') == match_id), None)
+        idx = self._row_index(match_id)
         if idx is not None:
             self._hold_removed(idx)
             self.table.update()

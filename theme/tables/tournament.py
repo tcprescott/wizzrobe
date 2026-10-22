@@ -466,6 +466,9 @@ class TournamentTableView:
         if not t:
             return  # Tournament not found
         self._unmatched.update({t.id: 0, **await bracket_sources.unmatched_entrant_counts([t])})
+        idx = next((i for i, row in enumerate(self.table.rows) if row.get('id') == tournament_id), None)
+        if idx is None:
+            return  # A reload replaced the rows while the query ran
         self.table.rows[idx] = self._row(t)
         self.table.update()
 
