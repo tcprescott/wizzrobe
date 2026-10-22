@@ -26,6 +26,7 @@ from application.services.match.match_hard_preset_service import (
     MatchHardPresetService,
 )
 from application.services.match.match_participants import MatchParticipants
+from application.services.match.match_placeholders import PlaceholderBookingMixin
 from application.services.match.match_reads import MatchReadsMixin
 from application.services.match.match_request import MatchRequestMixin
 from application.services.match.match_request_guard import assert_player_requests_allowed
@@ -70,6 +71,7 @@ __all__ = [
     'MatchStreamVolunteerService',
     'MatchSuggestionService',
     'MatchWatcherService',
+    'PlaceholderBookingMixin',
     'PlayerLateService',
     'StationAssignmentMixin',
     'StationDrawMixin',
