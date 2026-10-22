@@ -214,9 +214,10 @@ Links inside an article to pages this reader cannot open are pruned
 
 ### The role gate is not the Volunteer flag
 
-`roles: VOLUNTEER, PROCTOR, STAFF` mirrors the Volunteer hub's own gate
-(`pages/volunteer.py`), so anyone who can reach the Proctor Station can read the
-procedure it describes. It is deliberately **not** also gated on
+`roles: VOLUNTEER, PROCTOR, STREAM_MANAGER, STAFF` mirrors the Volunteer hub's
+own gate (`pages/volunteer.py`), so anyone who can reach the Proctor Station
+(a Broadcast Tech included, for stage matches) can read the procedure it
+describes. It is deliberately **not** also gated on
 `FeatureFlag.VOLUNTEERS`: `AuthService.can_run_match` admits staff and tournament
 admins as well as proctors, so a community running matches without the volunteer
 subsystem still has people who need the floor standard. This is a narrower

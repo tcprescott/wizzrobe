@@ -319,16 +319,31 @@ class AuthService:
     async def can_open_proctor_station(user: Optional[User]) -> bool:
         """Whether the Volunteer hub's Proctor Station tab is offered to ``user``.
 
-        A proctor gets it whether or not VOLUNTEERS is on: ``can_run_match``
-        admits them with no flag, because running matches isn't volunteer
-        scheduling, and Proctor Station is their only screen for it. Staff run
-        matches from the Admin board, so for them it follows the hub as before.
+        A proctor or a Broadcast Tech gets it whether or not VOLUNTEERS is on:
+        ``can_run_match`` admits them with no flag, because running matches isn't
+        volunteer scheduling. A Broadcast Tech's board is narrowed to matches on
+        a stage (:meth:`proctor_station_on_stage_only`). Staff run matches from
+        the Admin board, so for them it follows the hub as before.
         """
         if user is None:
             return False
-        if Role.PROCTOR in await AuthService.get_roles(user):
+        if await AuthService.get_roles(user) & {Role.PROCTOR, Role.STREAM_MANAGER}:
             return True
         return await AuthService.is_staff(user) and await AuthService.can_view_volunteer(user)
+
+    @staticmethod
+    async def proctor_station_on_stage_only(user: Optional[User]) -> bool:
+        """Whether ``user``'s Proctor Station lists only matches on a stage.
+
+        True for a Broadcast Tech who is neither staff nor a proctor:
+        ``can_run_match`` lets them run a match only while it is on a stage, so
+        the rest of the room is left off their board rather than shown as rows
+        they can't act on.
+        """
+        if user is None or await AuthService.is_staff(user):
+            return False
+        roles = await AuthService.get_roles(user)
+        return Role.STREAM_MANAGER in roles and Role.PROCTOR not in roles
 
     @staticmethod
     async def can_view_volunteer_schedule(user: Optional[User]) -> bool:

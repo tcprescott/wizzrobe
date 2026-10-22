@@ -191,3 +191,40 @@ async def test_proctor_station_refuses_everyone_else(db, fresh_tenant, role):
     with tenant_scope(fresh_tenant.id):
         assert await AuthService.can_open_proctor_station(user) is False
     assert await AuthService.can_open_proctor_station(None) is False
+
+
+@pytest.mark.parametrize('volunteers_on', [False, True])
+async def test_broadcast_tech_gets_a_stage_only_proctor_station(db, fresh_tenant, volunteers_on):
+    """``can_run_match`` admits a Broadcast Tech for a match on a stage, flag or
+    no flag, so they get the board, narrowed to those matches."""
+    if volunteers_on:
+        await _enable(fresh_tenant.id, FeatureFlag.VOLUNTEERS)
+    tech = await User.create(discord_id=92002, username='tech')
+    await UserRole.create(user=tech, role=Role.STREAM_MANAGER, tenant_id=fresh_tenant.id)
+    with tenant_scope(fresh_tenant.id):
+        assert await AuthService.can_open_proctor_station(tech) is True
+        assert await AuthService.proctor_station_on_stage_only(tech) is True
+
+
+async def test_broadcast_tech_who_proctors_keeps_the_whole_room(db, fresh_tenant):
+    user = await User.create(discord_id=92003, username='both')
+    await UserRole.create(user=user, role=Role.STREAM_MANAGER, tenant_id=fresh_tenant.id)
+    await UserRole.create(user=user, role=Role.PROCTOR, tenant_id=fresh_tenant.id)
+    with tenant_scope(fresh_tenant.id):
+        assert await AuthService.proctor_station_on_stage_only(user) is False
+
+
+async def test_proctor_and_staff_boards_are_not_narrowed(db, fresh_tenant, super_admin):
+    proctor = await User.create(discord_id=92004, username='proctor-only')
+    await UserRole.create(user=proctor, role=Role.PROCTOR, tenant_id=fresh_tenant.id)
+    with tenant_scope(fresh_tenant.id):
+        assert await AuthService.proctor_station_on_stage_only(proctor) is False
+        assert await AuthService.proctor_station_on_stage_only(super_admin) is False
+
+
+async def test_broadcast_tech_elsewhere_gets_no_proctor_station_here(db, fresh_tenant):
+    other = await Tenant.create(name='Elsewhere', slug='elsewhere')
+    tech = await User.create(discord_id=92005, username='tech-elsewhere')
+    await UserRole.create(user=tech, role=Role.STREAM_MANAGER, tenant_id=other.id)
+    with tenant_scope(fresh_tenant.id):
+        assert await AuthService.can_open_proctor_station(tech) is False
