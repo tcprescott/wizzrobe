@@ -159,6 +159,11 @@ class UrlState:
         self._tab_containers: dict[str, ui.element] = {}
         self._on_slug: Optional[Callable[[str], Awaitable[None]]] = None
         self._hub_base = ''
+        #: The pathname the browser was last told to show (or arrived at by
+        #: Back/Forward). A replace is only applied while the browser is still
+        #: there: one computed before a Back that the server hadn't heard of
+        #: yet would otherwise rewrite the entry Back just landed on.
+        self._at = self.path
         self.restoring = False
         #: Switches mid-redraw (:meth:`UrlParam.changing`): late controls wait.
         self.busy = 0
@@ -265,15 +270,18 @@ class UrlState:
         """Write the current view into the address bar, title and history."""
         url, title = self.url(keep_foreign=keep_foreign), self.title()
         self.client.title = title
-        # A push the click already made (``PUSH_ATTR``) only needs the title
-        # and query brought up to date, not a second Back step.
-        method = (f'(location.pathname+location.search==={json.dumps(url)}?"replaceState":"pushState")'
-                  if history == 'push' else '"replaceState"')
+        target, label = json.dumps(url), json.dumps(title)
+        if history == 'push':
+            # A push the click already made (``PUSH_ATTR``) only needs the
+            # title and query brought up to date, not a second Back step.
+            script = (f'history[location.pathname+location.search==={target}?"replaceState":"pushState"]'
+                      f'(history.state,"",{target}+location.hash);document.title={label};')
+        else:
+            script = (f'if(location.pathname==={json.dumps(self._at)}){{'
+                      f'history.replaceState(history.state,"",{target}+location.hash);document.title={label};}}')
+        self._at = url.split('?', 1)[0]
         with self.client:
-            ui.run_javascript(
-                f'history[{method}](history.state,"",{json.dumps(url)}+location.hash);'
-                f'document.title={json.dumps(title)};'
-            )
+            ui.run_javascript(script)
 
     def settle(self) -> None:
         """A late-built control registered: bring the address up to date in place."""
@@ -287,6 +295,7 @@ class UrlState:
         path = str(args.get('path') or self.path)
         query = dict(parse_qsl(str(args.get('search') or '').lstrip('?')))
         self.restoring = True
+        self._at = path
         try:
             self.path, self.tail, self.query = path, '', query
             if self._on_slug is not None:

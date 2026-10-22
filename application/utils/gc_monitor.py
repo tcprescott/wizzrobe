@@ -107,6 +107,12 @@ def seconds_between(start: float, end: float) -> tuple[float, int]:
     return total, generation
 
 
+def passes_after(started: float) -> List[Pass]:
+    """Recorded passes (10ms and longer) that started after ``started`` (monotonic), oldest first."""
+    with _lock:
+        return [p for p in _passes if p.started > started]
+
+
 def snapshot() -> Dict[str, object]:
     with _lock:
         totals = {g: list(t) for g, t in _totals.items()}

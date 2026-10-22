@@ -229,6 +229,18 @@ STALL_GRACE_SECONDS` (60s) without a tick, or a tick or queued call has run 60s
 past its limit. A worker switched off by config (`enabled: false` in
 `runtime_stats`) is never stalled.
 
+### Finding a leak (`memory_census`)
+
+Gen-2 passes that keep getting longer mean the live heap is growing. The
+super-admin MCP tool `memory_census`
+([`memory_census.py`](../../application/utils/memory_census.py)) counts every
+tracked object by type, without collecting first, and reports NiceGUI pages
+still in memory against pages still served (`clients_alive` vs
+`clients_registered`), elements of deleted pages still in memory, and
+`match_live` / `check_in_live` subscribers. Take two some minutes apart; the
+types that keep rising are what leaks. Each call walks the whole heap, so the
+watchdog will log it as a stall.
+
 ## Live load (`runtime_stats`)
 
 The super-admin MCP tool `runtime_stats` reads the process without shell access:
@@ -254,6 +266,8 @@ after a slow afternoon. Production only in practice (they need `SENTRY_DSN`);
 | `process.cpu` (percent, 100 = one core), `process.memory_rss` (MB), `process.asyncio_tasks` | gauge | | `metrics_sampler`, every 30s |
 | `loop.lag_p50` / `lag_p95` / `lag_max` (ms) | gauge | | watchdog's last minute |
 | `loop.stalls` | counter | | new stalls since the last sample |
+| `gc.pause` (s) | distribution | `generation` | every garbage-collection pass of 10ms or longer since the last sample (from `gc_monitor`); gen-2 p95/max rising with `process.memory_rss` is a leak |
+| `gc.seconds` | counter | `generation` | collection time since the last sample, all passes |
 | `clients.open`, `clients.connected` | gauge | | NiceGUI tabs held / with a live socket |
 | `http.in_flight` | gauge | | requests open at sample time |
 | `users.online` / `users.online_by_community` | gauge | `community` (slug) on the second | distinct signed-in people with a live tab; a tab belongs to the `/t/<slug>` it's on |

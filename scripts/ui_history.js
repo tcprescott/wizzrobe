@@ -23,6 +23,9 @@
  *                 "pressed": "text", "visible": "css", "hidden": "css",
  *                 "inView": "css" } }
  * `inView` waits for a #fragment link to have scrolled its target on screen.
+ * `moved: true` waits for the address to differ from the one before the step:
+ * a day picker's address matches the same pattern before and after, and Back
+ * pressed before the switch's Back step lands leaves the page instead.
  * `url` matches the path + query after the tenant prefix. `pressed` is the
  * label of a segmented-switch button that must be the selected one.
  */
@@ -84,7 +87,7 @@ async function clickText(page, text, within, mobile) {
   throw new Error(`nothing to click with text "${text}"`);
 }
 
-async function check(page, want, prefix) {
+async function check(page, want, prefix, before) {
   const problems = [];
   const deadline = Date.now() + 6000;
   for (;;) {
@@ -93,6 +96,7 @@ async function check(page, want, prefix) {
     const local = (url.pathname.startsWith(prefix) ? url.pathname.slice(prefix.length) : url.pathname) + url.search;
     if (want.url && !new RegExp(want.url).test(local)) problems.push(`url ${local} !~ ${want.url}`);
     if (want.noUrl && new RegExp(want.noUrl).test(local)) problems.push(`url ${local} should not match ${want.noUrl}`);
+    if (want.moved && page.url() === before) problems.push(`url ${local} did not change`);
     const title = await page.title();
     if (want.title && !new RegExp(want.title).test(title)) problems.push(`title "${title}" !~ ${want.title}`);
     if (want.pressed) {
@@ -158,6 +162,7 @@ async function check(page, want, prefix) {
         try {
           for (const step of sc.steps) {
             n += 1;
+            const before = page.url();
             if (step.goto) {
               await page.goto(`${baseUrl}${withTenant(step.goto)}`, { waitUntil: 'networkidle' });
               await settle(page);
@@ -191,7 +196,7 @@ async function check(page, want, prefix) {
               await settle(page);
             }
             if (step.expect) {
-              const problems = await check(page, step.expect, prefix);
+              const problems = await check(page, step.expect, prefix, before);
               if (problems.length) throw new Error(`step ${n}: ${problems.join('; ')}`);
             }
           }
