@@ -13,6 +13,7 @@ proctor station too.
 """
 
 from datetime import timedelta
+from typing import Any, Callable, Optional
 
 from nicegui import ui
 
@@ -62,6 +63,11 @@ class MatchFiltersMixin:
     """The filter strip, its stored state, and the options it offers."""
 
     default_day_scope: str = ALL_DAYS
+    # Supplied by MatchTableView, which this is composed into.
+    storage_key: str
+    default_state_filter: Optional[list]
+    _bg: Callable[[Any], None]
+    refresh: Callable[[], Any]
 
     def _skey(self, name: str) -> str:
         """Session key for one of this view's filters.
