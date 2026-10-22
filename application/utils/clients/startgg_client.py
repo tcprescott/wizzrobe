@@ -247,8 +247,8 @@ def tournament_slug(event_slug: str) -> str:
 
 
 def _internal_error(payload: Any) -> bool:
-    errors = (payload or {}).get('errors') if isinstance(payload, dict) else None
-    return bool(errors) and all(
+    errors = payload.get('errors') if isinstance(payload, dict) else None
+    return isinstance(errors, list) and bool(errors) and all(
         ((e or {}).get('extensions') or {}).get('category') == 'internal' for e in errors
     )
 
