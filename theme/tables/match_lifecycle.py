@@ -136,6 +136,32 @@ class MatchLifecycleHandlers:
         # Always refresh the row to clear spinner
         await self.table_view.update_row_by_id(match_id)
 
+    async def on_clear_seed(self, match_id: int):
+        """Clear a rolled seed from the match sheet, after a confirm.
+
+        Not in :meth:`callbacks`: the board has no clear-seed control, only the
+        sheet does, and it offers this only where the viewer may edit the match.
+        """
+        async def confirm():
+            try:
+                actor = await self._actor()
+                await self.match_service.clear_match_seed(match_id, actor=actor)
+                await self.table_view.update_row_by_id(match_id)
+                with self.page_container:
+                    ui.notify('Seed cleared', color='positive')
+            except (ValueError, PermissionError) as e:
+                with self.page_container:
+                    notify_error(e)
+
+        with self.page_container:
+            ConfirmationDialog(
+                title='Clear seed?',
+                message="Clear this match's seed? Players will need a new one rolled.",
+                on_confirm=confirm,
+                confirm_text='Clear seed',
+                cancel_text='Back',
+            ).open()
+
     async def on_seat(self, match_id: int):
         match = await Match.get(id=match_id, tenant_id=require_tenant_id()).prefetch_related('tournament', 'players', 'players__user')
 
