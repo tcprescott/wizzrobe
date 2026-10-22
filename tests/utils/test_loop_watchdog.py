@@ -176,3 +176,12 @@ class TestGarbageCollectionStalls:
 
     async def test_runtime_stats_has_a_gc_section(self):
         assert 'by_generation' in runtime_stats.collect()['gc']
+
+    def test_freeze_moves_live_objects_out_of_collection(self):
+        try:
+            frozen = gc_monitor.freeze()
+            assert frozen > 0
+            assert gc.get_freeze_count() == frozen
+            assert gc_monitor.snapshot()['frozen_objects'] == frozen
+        finally:
+            gc.unfreeze()
