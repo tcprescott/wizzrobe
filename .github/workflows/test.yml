@@ -312,7 +312,10 @@ jobs:
 
       - name: Closed tabs are let go
         # Opens and closes every page three times and fails if dead pages pile
-        # up in server memory, naming what holds them (SGLMAN-29).
+        # up in server memory, naming what holds them (SGLMAN-29). Main only:
+        # it was a third of this job, the job every PR waits on, and leaks are
+        # rare enough that a red main run right after the merge is soon enough.
+        if: github.event_name != 'pull_request'
         run: node scripts/ui_leak_check.js scripts/ui_a11y_ci.json
 
       - name: Layout holds still (desktop and phone)
@@ -387,6 +390,10 @@ jobs:
       - name: Accessibility and contrast (light and dark)
         # axe WCAG 2.1 AA rules plus a tint-aware contrast check on every page in
         # scripts/ui_a11y_ci.json. docs/style-guide.md says how to fix a failure.
+        # A pull request checks the 360px phone only, the narrowest and the one
+        # that fails first; main checks all four.
+        env:
+          A11Y_PHONE_WIDTHS: ${{ github.event_name == 'pull_request' && '360' || '' }}
         run: node scripts/ui_a11y_scan.js scripts/ui_a11y_ci.json
 
       - name: App log
