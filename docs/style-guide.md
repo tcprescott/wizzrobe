@@ -324,7 +324,8 @@ read as one set:
 
 Most people open this app on a phone at the venue, so about 390px is the width
 that matters. CI checks four phones: 360px (Galaxy S24), 393px (iPhone 15 Pro),
-412px (Pixel 7) and 440px (iPhone 16 Pro Max). The 2026-10 phone sweep
+412px (Pixel 7) and 440px (iPhone 16 Pro Max); a pull request checks 360px
+only and main checks all four. The 2026-10 phone sweep
 found the same handful of mistakes on page after page; each has a shared fix
 in the "Phone layout" block of `styles.css`.
 
@@ -424,7 +425,7 @@ Automated, on every PR:
 | `scripts/ui_a11y_scan.js` (CI `browser-a11y` job) | On every page in `scripts/ui_a11y_ci.json`, in light and dark: axe's WCAG 2.1 A/AA rules, and rendered text under 4.5:1 |
 | `check_steady_refresh` hook | An async `@ui.refreshable` in `pages/` or `theme/`, which blanks while it loads |
 | `scripts/ui_layout_shift.js` (CI `browser` job) | On every page in `scripts/ui_layout_shift_ci.json`, at desktop and phone width: anything that moves more than 2px when the page redraws its live sections with unchanged data. See [Hold still](#hold-still) |
-| `scripts/ui_a11y_scan.js` phone pass | On the same pages at 360, 393, 412 and 440px: sideways scrolling, elements running off the screen or out of their card, text cut off without an ellipsis, text squeezed to a few letters a line, empty bands over 96px |
+| `scripts/ui_a11y_scan.js` phone pass | On the same pages at 360px on a pull request, and at 360, 393, 412 and 440px on main: sideways scrolling, elements running off the screen or out of their card, text cut off without an ellipsis, text squeezed to a few letters a line, empty bands over 96px |
 
 The browser scan runs locally against the seeded app (boot and seed as in the
 [ui-validation skill](../.claude/skills/ui-validation/SKILL.md)):
@@ -435,7 +436,8 @@ node scripts/ui_a11y_scan.js scripts/ui_a11y_ci.json
 ```
 
 It loads six pages at a time (`A11Y_CONCURRENCY=1` for one at a time, which
-makes a flaky hit easier to read) and writes `report.json` under
+makes a flaky hit easier to read; `A11Y_PHONE_WIDTHS=360` checks one phone, as
+a pull request does) and writes `report.json` under
 `<outDir>/a11y/`. When it fails:
 
 - **A contrast hit** names the element, its class and the ratio. Fix the colour

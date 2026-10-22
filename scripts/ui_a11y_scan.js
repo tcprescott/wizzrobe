@@ -48,6 +48,9 @@
  * A phone ignore entry matches an offending element by CSS selector (the
  * element or any ancestor); `target` narrows it to one page.
  *
+ * A11Y_PHONE_WIDTHS=360,412 keeps only the phones at those widths. CI's pull
+ * request runs check 360px alone; main checks every phone in the config.
+ *
  * A target may name its own "loginAs" for a page that only shows something to
  * that user (a player's own match cards on My Schedule).
  */
@@ -261,7 +264,7 @@ async function runAxe(page, source) {
 // phone Playwright has no profile for. A device's defaultBrowserType is
 // dropped: CI only has Chromium, so this is Chromium's layout at that size.
 function phoneProfiles(phone) {
-  return (phone.devices || [{ name: 'phone', viewport: phone.viewport || { width: 390, height: 844 } }]).map((d) => {
+  const all = (phone.devices || [{ name: 'phone', viewport: phone.viewport || { width: 390, height: 844 } }]).map((d) => {
     if (typeof d === 'string') {
       if (!devices[d]) throw new Error(`unknown phone device ${d}`);
       const { defaultBrowserType, ...profile } = devices[d];
@@ -270,6 +273,11 @@ function phoneProfiles(phone) {
     const { name, ...profile } = d;
     return { name, profile };
   });
+  const widths = (process.env.A11Y_PHONE_WIDTHS || '').split(',').filter(Boolean).map(Number);
+  if (!widths.length) return all;
+  const kept = all.filter((p) => widths.includes(p.profile.viewport.width));
+  if (!kept.length) throw new Error(`A11Y_PHONE_WIDTHS=${process.env.A11Y_PHONE_WIDTHS} matches no phone in the config`);
+  return kept;
 }
 
 (async () => {
