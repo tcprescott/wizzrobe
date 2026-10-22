@@ -637,8 +637,8 @@ def search_input(table: ui.table, *,
     with box.add_slot('prepend'):
         ui.icon('search')
     if search_terms:
-        # A run sheet's filter method reads ``{text}`` (match_run_sheet.RUN_SHEET_FILTER).
-        table.bind_filter_from(box, 'value', backward=lambda v: {'text': v or ''})
+        from theme.tables.match_run_sheet import run_sheet_terms
+        table.bind_filter_from(box, 'value', backward=run_sheet_terms)
     else:
         table.bind_filter_from(box, 'value', backward=lambda v: v or '')
     return box
