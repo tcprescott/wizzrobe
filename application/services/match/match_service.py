@@ -33,6 +33,7 @@ from application.services.match.match_cancellation import CancellationMixin
 from application.services.match.match_forfeit import ForfeitMixin
 from application.services.match.match_hard_preset_service import MatchHardPresetService
 from application.services.match.match_participants import MatchParticipants
+from application.services.match.match_placeholders import PlaceholderBookingMixin
 from application.services.match.match_reads import MatchReadsMixin
 from application.services.match.match_request import MatchRequestMixin
 from application.services.match.match_review import MatchReviewMixin
@@ -59,7 +60,7 @@ from models import (
 
 class MatchService(
     CancellationMixin, ForfeitMixin, MatchAcknowledgmentMixin, MatchReadsMixin, MatchRequestMixin,
-    MatchReviewMixin, StationAssignmentMixin, StationDrawMixin,
+    MatchReviewMixin, PlaceholderBookingMixin, StationAssignmentMixin, StationDrawMixin,
 ):
     """Service for match-related business operations."""
 
@@ -114,13 +115,15 @@ class MatchService(
         title: Optional[str] = None,
         actor: Optional[User] = None,
         from_bracket: bool = False,
+        placeholders: Optional[List[str]] = None,
     ) -> Match:
         """
         Create a new match with validation and business rules.
 
         ``from_bracket`` is set only by ``BracketService.schedule_bracket_match``,
         whose players are the matchup's linked entrants rather than ids the
-        caller typed. Never accept it from a request body.
+        caller typed. Never accept it from a request body. ``placeholders``
+        stand in for a bracket matchup's undecided sides (``PlaceholderBookingMixin``).
 
         Args:
             tournament_id: Tournament ID
@@ -162,7 +165,7 @@ class MatchService(
                 f"User cannot create matches in tournament {tournament_id}",
             )
 
-        if not player_ids:
+        if not player_ids and not (from_bracket and placeholders):
             raise ValueError("Add at least one player before creating the match.")
         # A bracket game's players come from the matchup's entrants, which staff
         # linked (and that link is checked); only caller-supplied ids need it.
@@ -200,6 +203,7 @@ class MatchService(
             stage_id=stage_id,
             is_stream_candidate=is_stream_candidate,
             title=title,
+            bracket_placeholders=list(placeholders) if from_bracket and placeholders else None,
         )
 
         await self._record_auto_enrolments(

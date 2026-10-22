@@ -28,7 +28,7 @@ from theme.steady import steady_refreshable
 from theme.tables.admin_crud import capture_render_context, current_actor, scoped_background
 from theme.url_state import url_param, url_state
 
-_STATUS = {'all': 'All', 'ready': 'Ready to book', 'blocked': 'Needs account'}
+_STATUS = {'all': 'All', 'ready': 'Ready to book', 'blocked': 'Needs account', 'tbd': 'Players TBD'}
 
 #: Rows built between yields to the event loop. A few hundred rows built in one
 #: pass blocked every user for 2s (SGLMAN-1W).
@@ -49,6 +49,11 @@ def _when(match: Match) -> str:
     return format_local_display(match.scheduled_at) if match.scheduled_at else 'No time set'
 
 
+def _booked_names(match: Match) -> str:
+    names = [p.user.preferred_name for p in match.players] + list(match.bracket_placeholders or [])  # type: ignore[attr-defined]
+    return ' vs '.join(names)
+
+
 def _suggestion(item: UnbookedMatch) -> str:
     found = item.same_player_matches
     if len(found) == 1:
@@ -57,6 +62,8 @@ def _suggestion(item: UnbookedMatch) -> str:
 
 
 def _note(item: UnbookedMatch) -> str:
+    if item.players_tbd:
+        return 'Book it now; the players fill in as the bracket decides them.'
     if item.unlinked:
         names = ' and '.join(item.unlinked)
         verb = "aren't" if len(item.unlinked) > 1 else "isn't"
@@ -93,7 +100,7 @@ class UnbookedBoard:
         if actor is None:
             return []
         try:
-            return await bracket_sources.list_unbooked(actor)
+            return await bracket_sources.list_unbooked(actor, include_players_tbd=True)
         except (ValueError, PermissionError) as e:
             notify_error(e)
             return []
@@ -108,12 +115,12 @@ class UnbookedBoard:
         if generation != self._generation:
             return
         self._items = items
-        self.on_count(len(items))
+        self.on_count(self._count())
         await self._rows.refresh()
 
     async def render(self) -> None:
         self._items = await self._load()
-        self.on_count(len(self._items))
+        self.on_count(self._count())
         with ui.column().classes('unbooked-board full-width gap-2'):
             with ui.row().classes('unbooked-board__filters items-center no-wrap gap-2 full-width'):
                 asked = url_state().requested('unbooked')
@@ -144,8 +151,16 @@ class UnbookedBoard:
         self.search = (value or '').strip().lower()
         self._rows.refresh()
 
+    def _count(self) -> int:
+        return sum(1 for i in self._items if not i.players_tbd)
+
     def _visible(self) -> list[UnbookedMatch]:
-        out = self._items
+        # Every later round of every elimination bracket waits on players, so
+        # those rows stay behind their own filter rather than swamping All.
+        if self.status == 'tbd':
+            out = [i for i in self._items if i.players_tbd]
+        else:
+            out = [i for i in self._items if not i.players_tbd]
         if self.status == 'ready':
             out = [i for i in out if i.ready]
         elif self.status == 'blocked':
@@ -156,6 +171,12 @@ class UnbookedBoard:
 
     @steady_refreshable
     async def _rows(self) -> None:
+        if self.status == 'tbd' and not self._visible():
+            empty_state(
+                'No matchups waiting on players. Later rounds of a Challonge or start.gg '
+                'elimination bracket show up here once the bracket has started and synced.'
+            )
+            return
         if not self._items:
             empty_state(
                 'Nothing waiting to be booked. A matchup shows up here once its bracket '
@@ -187,12 +208,14 @@ class UnbookedBoard:
             with ui.column().classes('unbooked-row__who gap-0 min-w-0'):
                 with ui.row().classes('items-center no-wrap gap-2'):
                     ui.label(item.matchup).classes('unbooked-row__matchup')
-                    if item.ready:
+                    if item.players_tbd:
+                        ui.label('Players TBD').classes('wiz-chip wiz-chip--neutral unbooked-row__chip')
+                    elif item.ready:
                         ui.label('Ready to book').classes('wiz-chip wiz-chip--ok unbooked-row__chip')
                     else:
                         ui.label('Needs account').classes('wiz-chip wiz-chip--pending unbooked-row__chip')
                 ui.label(_note(item)).classes(
-                    'unbooked-row__note' + (' unbooked-row__note--blocked' if not item.ready else '')
+                    'unbooked-row__note' + (' unbooked-row__note--blocked' if item.unlinked else '')
                 )
                 if item.same_player_matches:
                     with ui.row().classes('unbooked-row__suggestion items-center no-wrap gap-2'):
@@ -203,13 +226,13 @@ class UnbookedBoard:
             ui.label(item.round_label).classes('unbooked-row__round')
             suggested = bool(item.same_player_matches)
             with ui.row().classes('unbooked-row__actions items-center no-wrap gap-1'):
-                if item.ready and not suggested:
+                if (item.ready or item.players_tbd) and not suggested:
                     ui.button('Book…', on_click=lambda _=None, i=item: self._book(i)) \
                         .props('color=primary no-caps')
                 elif not item.ready and self._can_fix(item):
                     ui.button('Fix entrant', on_click=lambda _=None, i=item: self._fix(i)) \
                         .props('outline color=primary no-caps')
-                if _bracket_link(item) or item.ready:
+                if _bracket_link(item) or item.ready or item.lost_bookings:
                     lazy_more_menu(item.matchup, partial(self._menu_items, item))
 
     def _menu_items(self, item: UnbookedMatch) -> None:
@@ -219,6 +242,8 @@ class UnbookedBoard:
             menu_action('event', 'Book a new match…', lambda _=None, i=item: self._book(i))
         if item.ready:
             menu_action('link', 'Link an existing match…', lambda _=None, i=item: self._link(i))
+        if item.lost_bookings:
+            menu_action('link', 'Link a booking that lost its bracket…', lambda _=None, i=item: self._link(i))
         if link:
             external = not link.startswith('/')
             menu_link('open_in_new' if external else 'account_tree', 'Open bracket',
@@ -256,6 +281,7 @@ class UnbookedBoard:
             source=item.source, source_label=item.source_label, key=item.key,
             tournament=item.tournament, round_label=item.round_label,
             opponent_name=item.matchup, player_ids=player_ids, window_text=item.window_text,
+            ahead=item.players_tbd,
         )
         await BracketSourceScheduleDialog(
             bookable, actor, on_submit=self._after_booking, matchup_label=item.matchup,
@@ -263,14 +289,18 @@ class UnbookedBoard:
 
     async def _link(self, item: UnbookedMatch) -> None:
         """Pick the hand-made match that is really this matchup's, and record it."""
-        found = item.same_player_matches
+        found = item.lost_bookings if item.players_tbd else item.same_player_matches
         with form_dialog('Link an existing match', card_classes='dialog-card dialog-card--sm') as dialog:
             with ui.column().classes('q-pa-md gap-2 full-width'):
                 ui.label(
                     f'{item.matchup} · {item.round_label}. Pick the match that was already '
                     'scheduled for it. Its result will count for this matchup.'
                 ).classes('text-caption text-grey-7')
-                if not found:
+                if not found and item.players_tbd:
+                    ui.label('No booking in this tournament has lost its bracket matchup.') \
+                        .classes('unbooked-link__empty')
+                    picker = None
+                elif not found:
                     ui.label(
                         'No unconfirmed match with these two players is on the schedule. '
                         "Fix a match's players with Edit match first, or book a new one."
@@ -279,6 +309,7 @@ class UnbookedBoard:
                 else:
                     options = {
                         m.id: f"{_when(m)} · {m.stage.name if m.stage else 'No stage'}"
+                        + (f' · {_booked_names(m)}' if item.players_tbd else '')
                         for m in found
                     }
                     picker = ui.radio(options, value=found[0].id).props('dense').classes('unbooked-link__options')
@@ -292,7 +323,10 @@ class UnbookedBoard:
                     ui.notify('Log in again to link this.', color='warning')
                     return
                 try:
-                    await bracket_sources.link_existing(item.source, item.key, int(picker.value), actor)
+                    if item.players_tbd:
+                        await bracket_sources.relink_ahead(item.source, item.key, int(picker.value), actor)
+                    else:
+                        await bracket_sources.link_existing(item.source, item.key, int(picker.value), actor)
                 except (ValueError, PermissionError) as e:
                     with dialog:
                         notify_error(e)

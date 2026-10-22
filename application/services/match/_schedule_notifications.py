@@ -456,7 +456,7 @@ class MatchNotificationMixin:
             await match.fetch_related('tournament', 'stage')
             scheduled_display = time_field(match.scheduled_at)
             players = await MatchPlayers.filter(match=match, tenant_id=require_tenant_id()).prefetch_related('user')
-            player_names = [p.user.preferred_name for p in players]
+            player_names = [p.user.preferred_name for p in players] + list(getattr(match, 'bracket_placeholders', None) or [])
             message = acknowledgment_request_dm(
                 match.tournament.name, scheduled_display,
                 rescheduled=rescheduled,
@@ -606,7 +606,8 @@ class MatchNotificationMixin:
         stream-candidate subscriber DMs. Shared by create/update/request flows.
         """
         await match.fetch_related('tournament', 'players__user', 'stage')
-        player_names = [p.user.preferred_name for p in match.players]
+        # A booking made before the bracket decided its players names the empty sides.
+        player_names = [p.user.preferred_name for p in match.players] + list(getattr(match, 'bracket_placeholders', None) or [])
         build_message = rescheduled_dm if rescheduled else scheduled_dm
         bracket_line = await bracket_line_for(match.id)
 

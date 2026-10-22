@@ -32,6 +32,7 @@ from application.repositories import (
 )
 from application.services import notification_links
 from application.services._bracket.notifications import BracketNotificationMixin
+from application.services._startgg_placeholders import StartggPlaceholderMixin
 from application.services._tournament_signup import record_enrolment_change
 from application.services.audit_service import AuditActions, AuditService
 from application.services.auth_service import AuthService
@@ -81,7 +82,11 @@ def _is_real_set(set_id: str) -> bool:
     return not set_id.startswith('preview')
 
 
-class StartggService:
+def _set_prereq(slot: Dict[str, Any]) -> Optional[str]:
+    return slot.get('prereq_id') if slot.get('prereq_type') == 'set' else None
+
+
+class StartggService(StartggPlaceholderMixin):
     """Business logic for the read-only start.gg integration."""
 
     def __init__(self) -> None:
@@ -232,12 +237,14 @@ class StartggService:
         before = await self._bookable_set_ids(tournament)
         entrants = await self._mirror_entrants(tournament, full['entrants'])
         phase_ids, pool_ids, set_ids = await self._mirror_structure(tournament, full, entrants)
+        await self._flag_lost_placeholders(tournament, set_ids)
         removed = await self.repository.prune(
             tournament, entrant_ids=set(entrants), phase_ids=phase_ids, pool_ids=pool_ids, set_ids=set_ids,
         )
         await self.repository.record_sync(tournament, datetime.now(timezone.utc), full['event'].get('name'))
         await self._mirror_players(tournament, actor)
         relinked = await self._relink_bookings(tournament, actor)
+        await self._refresh_placeholder_bookings(tournament, actor)
         result = {'entrants': len(entrants), 'sets': len(set_ids), 'pools': len(pool_ids)}
         if audit:
             await self.audit_service.write_log(actor, AuditActions.STARTGG_EVENT_SYNCED, {
@@ -337,6 +344,7 @@ class StartggService:
             'identifier': s.get('identifier'), 'state': state,
             'entrant1_id': ents[0].id if ents[0] else None, 'entrant2_id': ents[1].id if ents[1] else None,
             'slot1_label': labels[0], 'slot2_label': labels[1],
+            'slot1_prereq': _set_prereq(slots[0]), 'slot2_prereq': _set_prereq(slots[1]),
             'winner_id': winner.id if winner else None,
             'score1': slots[0].get('score'), 'score2': slots[1].get('score'),
             'completed_at': s.get('completed_at'),
@@ -575,6 +583,7 @@ class StartggService:
             'tournament_id': entrant.tournament.id, 'entrant_id': entrant.entrant_id, 'user_id': user.id,
         })
         await self._mirror_players(entrant.tournament, actor)
+        await self._refresh_placeholder_bookings(entrant.tournament, actor)
         await self._announce_newly_bookable(entrant.tournament, before)
         return entrant
 

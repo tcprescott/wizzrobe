@@ -77,6 +77,10 @@ def run_sheet_status(row: dict) -> tuple[str, str]:
         return ('Forfeit', 'ok') if row.get('forfeit') else ('Confirmed', 'ok')
     if state == 'Started':
         return 'Live', 'live'
+    if row.get('bracket_link_lost'):
+        return 'Bracket link lost', 'pending'
+    if row.get('placeholders'):
+        return 'Players TBD', 'neutral'
     if not row.get('players'):
         return 'Waiting for players', 'neutral'
     if state == 'Checked In':
@@ -162,6 +166,8 @@ def next_step(row: dict) -> Optional[dict]:
     if row.get('is_racetime') or not row.get('players') or row.get('played_on_site'):
         return None
     state = row.get('state')
+    if state == 'Scheduled' and row.get('placeholders'):
+        return None
     if state == 'Scheduled':
         return {'event': 'seat', 'label': 'Check in', 'primary': bool(row.get('is_overdue'))}
     if state == 'Checked In':
@@ -181,12 +187,15 @@ def seed_pending(row: dict) -> bool:
     """The tournament rolls seeds and this match, still unplayed, has none yet."""
     return bool(
         row.get('tournament_seed_generator') and not row.get('is_racetime')
-        and row.get('players') and not row.get('generated_seed')
+        and row.get('players') and not row.get('placeholders') and not row.get('generated_seed')
         and row.get('state') in ('Scheduled', 'Checked In')
     )
 
 
 def _seats(row: dict) -> list[dict]:
+    if row.get('placeholders'):
+        # Nobody sits at a station for a side the bracket hasn't decided.
+        return []
     return [
         {'name': p.get('name') or '', 'station': p.get('station') or '',
          'ada': bool(p.get('ada')), 'ada_note': p.get('ada_note')}
@@ -284,7 +293,7 @@ def decorate_run_sheet_row(row: dict) -> dict:
     scheduled = row.get('scheduled_at') or ''
     row['_time'] = scheduled[-5:] if scheduled else ''
     row['_day'] = _day_label(row.get('scheduled_ts'))
-    names = [p.get('name') or '' for p in row.get('players') or []]
+    names = [p.get('name') or '' for p in row.get('players') or []] + list(row.get('placeholders') or [])
     row['_who'] = ' vs '.join(names) if len(names) == 2 else ', '.join(names)
     if row.get('stage'):
         row['_stage'] = row['stage']

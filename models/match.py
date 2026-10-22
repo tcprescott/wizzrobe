@@ -54,6 +54,13 @@ class Match(Model):
     # proctor raising it is standing in the room, and typing up what happened is
     # the admin's conversation to have, not a textarea to fill in mid-event.
     needs_review = fields.BooleanField(default=False)
+    # Staff booked a bracket matchup before its players were known: what stands
+    # in for each side nobody fills yet ("Andy or Benny"), kept current by the
+    # bracket sync and emptied once both players are in. Null on every other match.
+    bracket_placeholders = fields.JSONField(null=True)  # type: ignore[var-annotated]
+    # A bracket reset removed the matchup a placeholder booking hung off; staff
+    # re-link it from Not booked yet.
+    bracket_link_lost = fields.BooleanField(default=False)
     # Set when the stage reminder for this match has been sent, so the worker
     # fires once. Cleared whenever the stage changes, which re-arms it.
     stage_reminder_sent_at = fields.DatetimeField(null=True)

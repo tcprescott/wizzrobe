@@ -262,6 +262,12 @@ class MatchScheduleService(MatchNotificationMixin):
                 raise ValueError(
                     "This match has no players yet — nothing to check in."
                 )
+            waiting = getattr(match, 'bracket_placeholders', None)
+            if waiting:
+                raise ValueError(
+                    f"The bracket hasn't decided {' and '.join(waiting)} yet, so this match "
+                    "can't be checked in. Sync the bracket once the earlier match is reported."
+                )
         await self._transition(
             match, actor,
             action_verb="seat",

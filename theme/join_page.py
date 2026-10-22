@@ -80,6 +80,7 @@ def roster_label(match) -> str:
     ran off the card, so past two the rest are counted.
     """
     names = [p.user.preferred_name for p in match.players]
+    names += list(getattr(match, 'bracket_placeholders', None) or [])
     if not names:
         return match.title or 'TBD'
     if len(names) <= 2:

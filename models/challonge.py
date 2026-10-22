@@ -79,6 +79,14 @@ class ChallongeMatch(Model):
     participant1 = fields.ForeignKeyField('models.ChallongeParticipant', related_name='matches_as_p1', null=True, on_delete=fields.SET_NULL)
     participant2 = fields.ForeignKeyField('models.ChallongeParticipant', related_name='matches_as_p2', null=True, on_delete=fields.SET_NULL)
     winner_participant = fields.ForeignKeyField('models.ChallongeParticipant', related_name='matches_as_winner', null=True, on_delete=fields.SET_NULL)
+    # Challonge's letter for the match ("C"), and the remote match whose winner
+    # (or loser) fills each empty slot: what a staff booking made before the
+    # players are known names its sides by.
+    identifier = fields.CharField(max_length=16, null=True)
+    slot1_prereq = fields.CharField(max_length=64, null=True)
+    slot2_prereq = fields.CharField(max_length=64, null=True)
+    slot1_label = fields.CharField(max_length=64, null=True)
+    slot2_label = fields.CharField(max_length=64, null=True)
     match = fields.ForeignKeyField('models.Match', related_name='challonge_match', null=True, on_delete=fields.SET_NULL)
     created_at = fields.DatetimeField(auto_now_add=True)
     updated_at = fields.DatetimeField(auto_now=True)

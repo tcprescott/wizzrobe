@@ -390,6 +390,11 @@ class MatchDisplayService:
                 }
                 for p in match.players
             ],
+            # A booking made before the bracket decided its players: what stands
+            # in for each empty side ("Andy or Benny"), and whether a reset cut
+            # it loose from its matchup.
+            'placeholders': list(getattr(match, 'bracket_placeholders', None) or []),
+            'bracket_link_lost': bool(getattr(match, 'bracket_link_lost', False)),
             # Players who said they're running late, while it still matters:
             # check-in makes the heads-up moot, so it drops off the row then.
             'late': [] if match.seated_at or match.finished_at else [

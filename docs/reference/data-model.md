@@ -976,6 +976,8 @@ Core scheduling unit. Lifecycle is derived from nullable timestamps rather than 
 | `confirmed_at` | `DatetimeField` | null | Post-finish results confirmation |
 | `comment` | `TextField` | null | |
 | `needs_review` | `BooleanField` | default `False` | The proctor's dispute flag: "an admin should look at this before confirming". Just a flag — there is no note field; what happened is a conversation, not a textarea filled in between matches. Not a state either: the match stays `Finished`. **Confirming clears it** (`confirm_match`), as does `MatchService.clear_review` |
+| `bracket_placeholders` | `JSONField` | null | Staff booked a Challonge/start.gg matchup before its players were known: one label per side still empty ("Andy or Benny", "Winner of C", "TBD"). Each bracket sync fills in decided players (`MatchService.fill_bracket_players`) and empties it once both are in; Check in waits until then (migration 123) |
+| `bracket_link_lost` | `BooleanField` | default `False` | A placeholder booking whose matchup a bracket reset dropped, or whose decided players disagree with it; staff re-link it from Not booked yet › Players TBD |
 | `forfeit_reason` | `CharEnumField(ForfeitReason)` | null | Set when staff decide the match by forfeit (`no_show`, `withdrew`, `disqualified`). The winner has `finish_rank=1` and the forfeiter none. Cleared by a rewind past finished or a recorded result |
 | `forfeit_note` | `CharField(280)` | null | Staff's note on the forfeit |
 | `stage_reminder_sent_at` | `DatetimeField` | null | Stamped by the stage reminder worker *before* it sends, so a delivery failure or restart cannot re-fire. `MatchService.assign_stage` nulls it on every stage change, which re-arms the reminder for the stage the match ended up on |
@@ -1761,6 +1763,9 @@ A Challonge bracket match mirrored into wizzrobe. `match` links to the scheduled
 | `challonge_match_id` | `CharField(64)` | not null | Challonge's match id |
 | `round` | `IntField` | null | Bracket round |
 | `group_stage` | `BooleanField` | default `False` | First seen while the bracket's group stage was running; sticky, since Challonge doesn't label group matches (migration 111) |
+| `identifier` | `CharField(16)` | null | Challonge's letter for the match ("C") |
+| `slot1_prereq` / `slot2_prereq` | `CharField(64)` | null | The remote match feeding each empty slot, when Challonge says |
+| `slot1_label` / `slot2_label` | `CharField(64)` | null | "Winner of C" / "Loser of C" for an undecided slot |
 | `state` | `CharEnumField(ChallongeMatchState)` | default `PENDING` | `max_length=20` |
 | `participant1` | FK → `ChallongeParticipant` | null, `SET_NULL` | `related_name='matches_as_p1'` |
 | `participant2` | FK → `ChallongeParticipant` | null, `SET_NULL` | `related_name='matches_as_p2'` |
@@ -2245,6 +2250,7 @@ Constraint: `unique_together (('tournament', 'entrant_id'),)`.
 | `state` | `CharEnumField(StartggSetState)` | default `PENDING` | |
 | `entrant1` / `entrant2` / `winner` | FK → `StartggEntrant` | null, `SET_NULL` | |
 | `slot1_label` / `slot2_label` | `CharField(64)` | null | "Winner of B" for an undecided slot |
+| `slot1_prereq` / `slot2_prereq` | `CharField(64)` | null | The set feeding each empty slot, so a placeholder booking can name its two possible players |
 | `score1` / `score2` / `completed_at` | | null | Result as start.gg reports it |
 | `match` | FK → `Match` | null, `SET_NULL` | The booked Wizzrobe match. `related_name='startgg_sets'` |
 

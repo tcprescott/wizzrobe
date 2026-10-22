@@ -100,6 +100,9 @@ class StartggSet(Model):
     # What fills an empty slot, e.g. "Winner of B", shown until it's decided.
     slot1_label = fields.CharField(max_length=64, null=True)
     slot2_label = fields.CharField(max_length=64, null=True)
+    # The set whose result fills each empty slot.
+    slot1_prereq = fields.CharField(max_length=64, null=True)
+    slot2_prereq = fields.CharField(max_length=64, null=True)
     winner = fields.ForeignKeyField('models.StartggEntrant', related_name='sets_won', null=True, on_delete=fields.SET_NULL)
     score1 = fields.IntField(null=True)
     score2 = fields.IntField(null=True)

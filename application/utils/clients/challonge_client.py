@@ -10,9 +10,11 @@ to know the JSON:API wire shape:
     me               -> {'user_id', 'username'}
     tournament       -> {'id', 'name', 'url', 'state', 'group_stage', 'tournament_type'}
     participant      -> {'participant_id', 'name', 'challonge_user_id', 'username', 'misc'}
-    match            -> {'match_id', 'state', 'round',
+    match            -> {'match_id', 'state', 'round', 'identifier',
                          'player1_participant_id', 'player2_participant_id',
-                         'winner_participant_id'}
+                         'winner_participant_id',
+                         'player1_prereq_match_id', 'player1_is_prereq_loser',
+                         'player2_prereq_match_id', 'player2_is_prereq_loser'}
 
 Authenticated service calls obtain a bearer token via a ``token_provider``
 callback (``async (force_refresh: bool = False) -> str``) so the client can
@@ -154,6 +156,19 @@ def _normalize_match(resource: Dict[str, Any]) -> Dict[str, Any]:
         'winner_participant_id': _opt_str(
             _attr(resource, 'winner_id') or _rel_id(resource, 'winner')
         ),
+        'identifier': _opt_str(_attr(resource, 'identifier')),
+        # Which match feeds each empty slot. Undocumented in v2.1, so the v1
+        # names and a relationship are all tried; absent, the slot reads "TBD".
+        **{
+            f'player{n}_prereq_match_id': _opt_str(
+                _attr(resource, f'player{n}_prereq_match_id') or _rel_id(resource, f'player{n}_prereq_match')
+            )
+            for n in (1, 2)
+        },
+        **{
+            f'player{n}_is_prereq_loser': bool(_attr(resource, f'player{n}_is_prereq_match_loser'))
+            for n in (1, 2)
+        },
     }
 
 
@@ -474,7 +489,8 @@ _MOCK_MATCHES = [
     {'match_id': '8002', 'state': 'open', 'round': 1, 'player1_participant_id': '9003',
      'player2_participant_id': '9004', 'winner_participant_id': None},
     {'match_id': '8003', 'state': 'pending', 'round': 2, 'player1_participant_id': None,
-     'player2_participant_id': None, 'winner_participant_id': None},
+     'player2_participant_id': None, 'winner_participant_id': None, 'identifier': 'C',
+     'player1_prereq_match_id': '8001', 'player2_prereq_match_id': '8002'},
 ]
 
 
