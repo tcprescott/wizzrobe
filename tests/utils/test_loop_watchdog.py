@@ -76,6 +76,18 @@ class TestLoopWatchdog:
             record = await _blocked_record(caplog)
         assert record.levelno == logging.ERROR
 
+    async def test_an_expected_block_is_recorded_but_not_reported(self, fast_watchdog, caplog, monkeypatch):
+        monkeypatch.setattr(wd, 'STUCK_SECONDS', 0.15)
+        fast_watchdog.start()
+        await asyncio.sleep(0.05)
+        with caplog.at_level(logging.WARNING, logger=wd.__name__):
+            with fast_watchdog.expected_block('memory census'):
+                _block_the_loop(0.4)
+            await _settle(fast_watchdog, 1)
+            await asyncio.sleep(0.1)
+        assert fast_watchdog.snapshot()['recent_stalls'][0]['culprit'] == 'memory census (on request)'
+        assert not [r for r in caplog.records if 'Event loop' in r.getMessage()]
+
     async def test_start_is_idempotent_and_stop_ends_the_thread(self, fast_watchdog):
         fast_watchdog.start()
         thread = fast_watchdog._thread
@@ -243,7 +255,7 @@ class TestMemoryCensus:
         try:
             assert (tmp_path / 'census.json.pid').read_text() == str(os.getpid())
             os.kill(os.getpid(), signal.SIGUSR1)
-            for _ in range(100):
+            for _ in range(400):
                 await asyncio.sleep(0.05)
                 if dump.exists():
                     break

@@ -3,8 +3,8 @@
 ``runtime_stats`` says the heap is growing (RSS, longer gen-2 passes); this
 says what it is growing with. It walks every object the collector tracks, so a
 call costs about as long as a full collection (a second or two on a large
-heap) and the loop watchdog will report it as a stall. Run it on demand, never
-on a timer.
+heap); the loop watchdog records that stall under its own name but doesn't
+alert on it. Run it on demand, never on a timer.
 
 The NiceGUI figures are the usual suspects: a closed tab's page should leave
 no ``Client`` and no deleted element behind once a collection has run, so
@@ -103,6 +103,15 @@ def take(top: int = 40, collect: bool = True, explain: int = 50) -> Dict[str, An
     is what is truly reachable rather than garbage the collector hasn't reached
     yet; ``explain`` is how many leaked pages and deleted elements to trace back
     to whatever holds them."""
+    from application.utils.loop_watchdog import watchdog
+
+    # The census is the stall: asked for, and not a fault to alert on
+    # (SGLMAN-2D, SGLMAN-2F). It still shows in recent_stalls under its name.
+    with watchdog.expected_block('memory census'):
+        return _take(top, collect, explain)
+
+
+def _take(top: int, collect: bool, explain: int) -> Dict[str, Any]:
     from nicegui import Client
     from nicegui.element import Element
 
