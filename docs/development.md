@@ -335,7 +335,6 @@ rejected and that the avatar hash actually lands.)
 | `postgres` | re-runs `tests/postgres` and `tests/tenancy` against a real PostgreSQL 16 service. On a PR it skips when every changed path is UI, help or event-info content, docs, change notes or UI tests (`pages/`, `theme/`, `static/`, `application/help/`, `tests/theme/`…); `pytest` still runs the same tests on SQLite |
 | `browser` | boots the real app against PostgreSQL with every integration mocked (that boot applies the full migration chain to an empty database, which is CI's migration check), seeds it, and walks the surfaces in [`scripts/ui_smoke_ci.json`](../scripts/ui_smoke_ci.json) in headless Chromium, then runs [`scripts/ui_layout_shift.js`](../scripts/ui_layout_shift.js) ([style-guide.md](style-guide.md#hold-still)). The only job that executes `pages/` and `theme/` at all — the coverage figure above covers neither, and their Quasar slot templates run client-side where Python cannot reach them. The shared setup lives in [`.github/actions/boot-app`](../.github/actions/boot-app/action.yml). Screenshots upload as an artifact on pass or fail |
 | `browser-a11y` | the same boot on its own app, then [`scripts/ui_a11y_scan.js`](../scripts/ui_a11y_scan.js) over [`scripts/ui_a11y_ci.json`](../scripts/ui_a11y_ci.json): axe's WCAG 2.1 AA rules and a tint-aware contrast check on each page, in light and dark ([style-guide.md](style-guide.md#checking-your-change)). On a PR it runs only when the UI layers or what they render change: `pages/`, `theme/`, `static/`, `application/{help,content,about,event_info}/`, `scripts/ui_*`, `scripts/seed_dev.py`, `main.py`, `middleware/`, the lockfile or `.github/`. A backend-only PR skips it; the `browser` smoke walk still renders every page |
-| `browser-firefox` | the same boot with Gecko, Firefox's engine, instead of Chromium, then [`scripts/ui_engine_smoke.js`](../scripts/ui_engine_smoke.js) (`ENGINE=firefox`) over the same page list as `browser-a11y`, as a Firefox-for-Android-sized phone (Playwright has no Android Firefox profile and Gecko refuses `isMobile`, so it's a Pixel 7's screen with Firefox's Android user agent) and as desktop Firefox: fails on an uncaught page error, a 5xx, a failed-render marker or a page that scrolls sideways. Same path filter as `browser-a11y` |
 
 Pull requests trigger it directly. Pushes to `main` and `v*` tags reach it
 through `workflow_call` from [`publish.yml`](../.github/workflows/publish.yml),
@@ -343,14 +342,15 @@ which gates the container build on the whole suite — so what guards a release 
 the same thing that guarded the PR, and a `main` push runs it once rather than
 twice. Image publishing itself is described in [deployment.md](deployment.md).
 
-WebKit (Safari's engine) isn't in CI because it slowed every PR down. Run
-it by hand before a change that could plausibly behave differently on an iPhone
-or in desktop Safari, against a booted and seeded app:
+CI runs Chromium only. WebKit (Safari's engine) and Gecko (Firefox's) were
+dropped because they slowed every PR down; run them by hand when chasing a
+Safari- or Firefox-specific problem, against a booted and seeded app:
 
 ```bash
-npx playwright install --with-deps webkit
-ENGINE=webkit node scripts/ui_engine_smoke.js scripts/ui_a11y_ci.json          # every a11y page, iPhone 13 + desktop Safari
-HISTORY_BROWSERS=webkit node scripts/ui_history.js scripts/ui_history_ci.json  # Back/Forward/reload/deep links
+npx playwright install --with-deps webkit firefox
+ENGINE=webkit  node scripts/ui_engine_smoke.js scripts/ui_a11y_ci.json          # every a11y page, iPhone 13 + desktop Safari
+ENGINE=firefox node scripts/ui_engine_smoke.js scripts/ui_a11y_ci.json          # every a11y page, Android-sized phone + desktop Firefox
+HISTORY_BROWSERS=webkit,firefox node scripts/ui_history.js scripts/ui_history_ci.json  # Back/Forward/reload/deep links
 ```
 
 Two more workflows run on their own schedule: `security.yml` (pip-audit over the
