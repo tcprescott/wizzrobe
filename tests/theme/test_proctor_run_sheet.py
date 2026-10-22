@@ -137,7 +137,9 @@ class TestSlots:
 
     def test_the_admin_line_is_untouched(self):
         assert "_next" not in _body_slot(False) and "_seats" not in _body_slot(False)
-        assert "_group_count" not in _item_slot(False)
+        # The admin header counts a group only once it's folded away.
+        folded_count = '<template v-if="props.row._folded"> · {{ props.row._group_count }}</template>'
+        assert "_group_count" not in _item_slot(False).replace(folded_count, '')
 
     def test_the_phone_step_is_not_nested_in_the_line_button(self):
         slot = _item_slot(True, can_run=True)

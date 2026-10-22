@@ -78,6 +78,24 @@ class TestValidate:
             TablePreferenceService.validate(
                 {'columns': [{'name': 'a', 'width': '200'}]})
 
+    def test_rejects_folded_that_is_not_an_object(self):
+        with pytest.raises(ValueError, match='Folded groups must be an object'):
+            TablePreferenceService.validate({'folded': ['Done']})
+
+    def test_rejects_a_non_boolean_fold(self):
+        with pytest.raises(ValueError, match='true or false'):
+            TablePreferenceService.validate({'folded': {'Done': 'yes'}})
+
+    def test_rejects_too_many_folded_groups(self):
+        folded = {f'g{i}': True for i in range(TablePreferenceService.MAX_FOLDED + 1)}
+        with pytest.raises(ValueError, match='more than'):
+            TablePreferenceService.validate({'folded': folded})
+
+    def test_rejects_an_overlong_group_name(self):
+        long_name = 'x' * (TablePreferenceService.MAX_NAME_LEN + 1)
+        with pytest.raises(ValueError, match='may not exceed'):
+            TablePreferenceService.validate({'folded': {long_name: True}})
+
     def test_normalises_a_partial_config(self):
         clean = TablePreferenceService.validate(
             {'columns': [{'name': '  username  '}]})
@@ -169,6 +187,25 @@ class TestPersistence:
         user = await make_user()
         with pytest.raises(ValueError, match='Rows per page'):
             await TablePreferenceService().set_page_size(user, 'admin.users', 15)
+
+    async def test_set_folded_keeps_the_rest_of_the_layout(self, db):
+        user = await make_user()
+        service = TablePreferenceService()
+        await service.save(user, 'proctor.station', {'page_size': 50})
+        await service.set_folded(user, 'proctor.station', 'Done', False)
+        await service.set_folded(user, 'proctor.station', 'In play', True)
+
+        assert await service.get(user, 'proctor.station') == {
+            'page_size': 50, 'folded': {'Done': False, 'In play': True}}
+
+    async def test_the_gear_save_keeps_folded_groups(self, db):
+        user = await make_user()
+        service = TablePreferenceService()
+        await service.set_folded(user, 'proctor.station', 'In play', True)
+        await service.save(user, 'proctor.station', {'density': 'compact'})
+
+        assert await service.get(user, 'proctor.station') == {
+            'density': 'compact', 'folded': {'In play': True}}
 
     async def test_preferences_are_not_tenant_scoped(self, two_tenants):
         # The decision, pinned: one person carries one answer between communities.

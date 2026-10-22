@@ -618,7 +618,8 @@ def preferences_button(table: ui.table, *, tooltip: str = 'Table preferences') -
 
 def search_input(table: ui.table, *,
                  placeholder: str = 'Search…',
-                 width: str = 'w-64') -> ui.input:
+                 width: str = 'w-64',
+                 search_terms: bool = False) -> ui.input:
     """A text box that filters ``table`` across its visible columns.
 
     Quasar's ``filter`` prop is the real mechanism, and until now nothing in the
@@ -632,7 +633,11 @@ def search_input(table: ui.table, *,
         .props('debounce=200').classes(f'wiz-table-search {width}')
     with box.add_slot('prepend'):
         ui.icon('search')
-    table.bind_filter_from(box, 'value', backward=lambda v: v or '')
+    if search_terms:
+        # A run sheet's filter method reads ``{text}`` (match_run_sheet.RUN_SHEET_FILTER).
+        table.bind_filter_from(box, 'value', backward=lambda v: {'text': v or ''})
+    else:
+        table.bind_filter_from(box, 'value', backward=lambda v: v or '')
     return box
 
 

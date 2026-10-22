@@ -7271,6 +7271,32 @@ ol.wiz-help-list { list-style-type: decimal; }
 .run-sheet__group-row > td.run-sheet__group {
     background: var(--surface-alt);
 }
+/* The header is the group's fold button: the whole bar is the target. */
+.run-sheet__fold {
+    display: flex;
+    align-items: center;
+    gap: 0.375rem;
+    width: 100%;
+    min-height: 2.25rem;
+    margin: 0;
+    padding: 0;
+    background: none;
+    border: 0;
+    font: inherit;
+    letter-spacing: inherit;
+    text-transform: inherit;
+    color: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+.run-sheet__fold .q-icon {
+    color: var(--fg);
+    margin-left: -0.25rem;
+}
+.run-sheet__group-row > td.run-sheet__group {
+    padding-top: 0.25rem;
+    padding-bottom: 0.25rem;
+}
 .run-sheet__row {
     cursor: pointer;
 }
@@ -7391,7 +7417,10 @@ ol.wiz-help-list { list-style-type: decimal; }
     width: 100%;
 }
 .run-sheet__item > .run-sheet__group {
-    padding: 0.75rem 0.25rem 0.375rem;
+    margin: 0.75rem 0 0.375rem;
+    padding: 0.25rem 0.75rem;
+    background: var(--surface-alt);
+    border-radius: var(--radius-md);
 }
 .run-sheet__card {
     display: flex;
