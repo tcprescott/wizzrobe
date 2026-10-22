@@ -102,6 +102,7 @@ READ_TOOLS = {
     'list_tournament_signups',
     'list_tournaments',
     'list_triforce_texts',
+    'list_unbooked_matches',
     'list_users',
     'list_volunteer_positions',
     'list_volunteer_shifts',
