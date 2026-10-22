@@ -10,7 +10,7 @@ from datetime import datetime, timezone
 from typing import Dict, List, Optional, Set
 
 from tortoise.expressions import Q
-from tortoise.functions import Count
+from tortoise.functions import Count, Lower
 
 from application.repositories._save import save_fields
 from application.repositories._tenant import current_tenant_id, scoped
@@ -178,6 +178,23 @@ class ChallongeRepository:
             return {}
         rows = await User.filter(challonge_user_id__in=list(set(ids)))
         return {u.challonge_user_id: u for u in rows}
+
+    @staticmethod
+    async def resolve_users_by_challonge_usernames(usernames: List[str]) -> dict:
+        """Map lowercased Challonge username -> User, for accounts linked by OAuth.
+
+        A name two members share maps to neither.
+        """
+        wanted = {u.lower() for u in usernames if u}
+        if not wanted:
+            return {}
+        rows = await User.annotate(cname=Lower('challonge_username')).filter(
+            cname__in=list(wanted), challonge_user_id__isnull=False,
+        )
+        by_name: Dict[str, List[User]] = {}
+        for u in rows:
+            by_name.setdefault(u.challonge_username.lower(), []).append(u)
+        return {name: users[0] for name, users in by_name.items() if len(users) == 1}
 
     @staticmethod
     async def get_participant(

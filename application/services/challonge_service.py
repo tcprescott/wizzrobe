@@ -634,6 +634,12 @@ class ChallongeService(ChallongeParticipantAssignmentMixin, ChallongeStageMixin,
         users_by_misc = await UserRepository.get_by_ids([
             uid for uid in (misc_user_id(rp.get('misc')) for rp in remote_participants) if uid
         ])
+        # An entrant staff invited by username has no account id until the
+        # player accepts; the username is enough when a member linked that
+        # account. Never the display name, which anyone can type.
+        users_by_username = await self.repository.resolve_users_by_challonge_usernames([
+            rp.get('username') for rp in remote_participants if not rp.get('challonge_user_id')
+        ])
         participant_by_cid: Dict[str, Any] = {}
         for rp in remote_participants:
             cuid = rp.get('challonge_user_id')
@@ -644,6 +650,8 @@ class ChallongeService(ChallongeParticipantAssignmentMixin, ChallongeStageMixin,
                 misc_uid = misc_user_id(rp.get('misc'))
                 if user is None and misc_uid is not None:
                     user = users_by_misc.get(misc_uid)
+                if user is None and not cuid and rp.get('username'):
+                    user = users_by_username.get(rp['username'].lower())
             participant = await self.repository.upsert_participant(
                 tournament=tournament,
                 challonge_participant_id=rp['participant_id'],

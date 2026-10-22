@@ -1737,7 +1737,7 @@ The shared service-account OAuth connection to Challonge. Only one is meaningful
 
 #### `ChallongeParticipant`
 
-A Challonge participant in a linked tournament, mirrored into wizzrobe. `user` is resolved by matching `challonge_user_id` to a player who has linked their Challonge identity; it stays null for participants we can't map. An entrant added to the bracket by name has no Challonge account, so a tournament editor can assign `user` by hand (`user_assigned_manually`); sync never overwrites a hand assignment, even when the entrant's account resolves to someone else.
+A Challonge participant in a linked tournament, mirrored into wizzrobe. `user` is resolved by matching `challonge_user_id` to a player who has linked their Challonge identity; an entrant invited by Challonge username whose invite is still pending carries no account id yet, so sync falls back to the member whose linked (OAuth-verified) `challonge_username` matches it case-insensitively, skipping a name two members share. It stays null for participants we can't map. An entrant added to the bracket by name has no Challonge account, so a tournament editor can assign `user` by hand (`user_assigned_manually`); sync never overwrites a hand assignment, even when the entrant's account resolves to someone else.
 
 | Field | Type | Null / default | Notes |
 |---|---|---|---|

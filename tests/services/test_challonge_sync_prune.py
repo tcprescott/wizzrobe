@@ -4,7 +4,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from models import ChallongeMatch, ChallongeParticipant, Match, Tournament
+from models import ChallongeMatch, ChallongeParticipant, Match, Tournament, User
 from tests.services.test_challonge_service import make_service, make_user
 
 pytestmark = pytest.mark.usefixtures("bypass_auth")
@@ -91,3 +91,29 @@ async def test_players_list_follows_the_bracket(db):
     full['participants'] = []
     await service.sync_bracket(tournament.id, actor, force=True)
     assert await enrolled() == set()
+
+
+async def test_an_invited_entrant_maps_by_linked_username(db):
+    actor = await make_user(1, 'admin')
+    eykir = await User.create(discord_id=2, username='eykir', challonge_user_id='1741084', challonge_username='Eykir')
+    await User.create(discord_id=3, username='twin_a', challonge_user_id='7001', challonge_username='Twin')
+    await User.create(discord_id=4, username='twin_b', challonge_user_id='7002', challonge_username='twin')
+    await User.create(discord_id=5, username='unverified', challonge_username='Walkin')
+    tournament = await Tournament.create(name='T', challonge_tournament_id='T1')
+    full = {
+        'tournament': {'id': 'T1', 'name': 'T', 'url': None, 'state': 'pending'},
+        'participants': [
+            {'participant_id': '9001', 'name': 'Eykir', 'challonge_user_id': None, 'username': 'eykir'},
+            {'participant_id': '9002', 'name': 'Twin', 'challonge_user_id': None, 'username': 'Twin'},
+            {'participant_id': '9003', 'name': 'Walkin', 'challonge_user_id': None, 'username': 'Walkin'},
+            {'participant_id': '9004', 'name': 'Eykir', 'challonge_user_id': None, 'username': None},
+        ],
+        'matches': [],
+    }
+    api = MagicMock()
+    api.get_tournament_full = AsyncMock(return_value=full)
+    await make_service(api=api).sync_bracket(tournament.id, actor)
+
+    mapped = dict(await ChallongeParticipant.filter(tournament=tournament)
+                  .values_list('challonge_participant_id', 'user_id'))
+    assert mapped == {'9001': eykir.id, '9002': None, '9003': None, '9004': None}
