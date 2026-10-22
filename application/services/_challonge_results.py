@@ -5,6 +5,7 @@ copy, so every push reads the match first and leaves a result already there
 alone.
 """
 
+import asyncio
 import logging
 from typing import Awaitable, Callable, Dict, List, Optional, Tuple
 
@@ -16,6 +17,8 @@ from application.utils.clients.challonge_client import ChallongeAPIError, Challo
 from models import ChallongeMatch, FeatureFlag, Match, User
 
 logger = logging.getLogger(__name__)
+
+_RESYNC_RETRY_DELAY = 2.0
 
 
 class ChallongeResultsMixin:
@@ -122,15 +125,26 @@ class ChallongeResultsMixin:
         # The push advanced the bracket (next-round matches now open). Re-sync
         # once so those newly-open matches surface locally without a manual
         # Sync. Failures here must not undo the successful push.
-        try:
-            await self._sync_tournament(cmatch.tournament, actor, force=True)
-        except (ValueError, ChallongeAPIError):
-            # Logged rather than printed so a silently-stale bracket leaves a
-            # diagnostic trail in structured logs and Sentry.
-            logger.error(
-                "Challonge post-push re-sync failed for tournament %s",
-                cmatch.tournament_id, exc_info=True,  # type: ignore[attr-defined]
+        for attempt in range(2):
+            try:
+                await self._sync_tournament(cmatch.tournament, actor, force=True)
+                return
+            except ChallongeAPIError as e:
+                # Sentry SGLMAN-2J: a timeout or dropped connection (no status)
+                # usually clears on the next request, so retry it once.
+                if attempt == 0 and e.status is None:
+                    await asyncio.sleep(_RESYNC_RETRY_DELAY)
+                    continue
+                error: Exception = e
+            except ValueError as e:
+                error = e
+            # The result is already on Challonge; auto-sync or a manual Sync
+            # picks up the newly-open matches.
+            logger.warning(
+                "Challonge post-push re-sync failed for tournament %s: %s",
+                cmatch.tournament_id, error,  # type: ignore[attr-defined]
             )
+            return
 
     @staticmethod
     def _participant_id_for_user(cmatch: ChallongeMatch, user_id: int) -> Optional[str]:
