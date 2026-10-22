@@ -5,13 +5,14 @@ to gauges, the request middleware's route labels, and worker tick timings.
 """
 
 import asyncio
+from collections import deque
 from typing import Any, ClassVar, Dict, List, Tuple
 
 import pytest
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 
-from application.utils import metrics_sampler, runtime_stats, sentry_metrics
+from application.utils import gc_monitor, metrics_sampler, runtime_stats, sentry_metrics
 from application.utils.background_loop import BackgroundLoop
 from application.utils.coroutine_queue import CoroutineQueue, queue_depths
 from middleware.request_metrics import RequestMetricsMiddleware
@@ -104,6 +105,24 @@ class TestSampler:
         monkeypatch.setattr(metrics_sampler, '_last_stalls', 1)
         metrics_sampler.emit(self.SNAPSHOT)
         assert [c[2] for c in recorder.named('loop.stalls')] == [2]
+
+    def test_gc_pauses_and_seconds(self, recorder, monkeypatch):
+        monkeypatch.setattr(metrics_sampler, '_last_gc_pass', 10.0)
+        monkeypatch.setattr(metrics_sampler, '_last_gc_seconds', {'2': 1.0})
+        monkeypatch.setattr(gc_monitor, '_passes', deque([
+            gc_monitor.Pass(5.0, 0.4, 2, 0),
+            gc_monitor.Pass(12.0, 2.5, 2, 900),
+        ]))
+        snapshot = {'gc': {'by_generation': {'0': {'total_seconds': 0.2}, '2': {'total_seconds': 3.6}}}}
+        metrics_sampler.emit(snapshot)
+        assert recorder.named('gc.pause') == [('distribution', 'gc.pause', 2.5, 'second', {'generation': '2'})]
+        assert recorder.named('gc.seconds') == [('count', 'gc.seconds', 2.6, 'second', {'generation': '2'})]
+        assert metrics_sampler._last_gc_pass == 12.0
+
+        recorder.calls.clear()
+        metrics_sampler.emit(snapshot)
+        assert recorder.named('gc.pause') == []
+        assert recorder.named('gc.seconds') == []
 
     async def test_real_snapshot_emits(self, recorder):
         metrics_sampler.emit(runtime_stats.collect())

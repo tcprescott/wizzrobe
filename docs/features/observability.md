@@ -266,6 +266,8 @@ after a slow afternoon. Production only in practice (they need `SENTRY_DSN`);
 | `process.cpu` (percent, 100 = one core), `process.memory_rss` (MB), `process.asyncio_tasks` | gauge | | `metrics_sampler`, every 30s |
 | `loop.lag_p50` / `lag_p95` / `lag_max` (ms) | gauge | | watchdog's last minute |
 | `loop.stalls` | counter | | new stalls since the last sample |
+| `gc.pause` (s) | distribution | `generation` | every garbage-collection pass of 10ms or longer since the last sample (from `gc_monitor`); gen-2 p95/max rising with `process.memory_rss` is a leak |
+| `gc.seconds` | counter | `generation` | collection time since the last sample, all passes |
 | `clients.open`, `clients.connected` | gauge | | NiceGUI tabs held / with a live socket |
 | `http.in_flight` | gauge | | requests open at sample time |
 | `users.online` / `users.online_by_community` | gauge | `community` (slug) on the second | distinct signed-in people with a live tab; a tab belongs to the `/t/<slug>` it's on |
