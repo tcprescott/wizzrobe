@@ -197,6 +197,8 @@ class MatchTableView(MatchFiltersMixin, MatchTableHandlersMixin, MatchBoardHoldM
         # Mobile collapsible-filter state (CSS gates the toggle/card to <1024px)
         self.filters_card = None
         self.filter_badge = None
+        self.filter_reset_desk = None
+        self._reset_undo = None
         self._filters_open = False
         # Capture the tenant at build time (context is live here). Background
         # tasks — filter/page refreshes, filter-option loads — run outside the

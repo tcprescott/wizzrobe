@@ -18,6 +18,7 @@ from nicegui import ui
 
 from application.utils.tenant_session import tenant_session_get, tenant_session_set
 from application.utils.timezone import local_day_bounds, today_local
+from theme.timer_teardown import PageTimer
 
 # Match lifecycle states, and the subset shown by default. Kept as module constants
 # so the storage default, the select options, and the "is this filter changed?"
@@ -32,6 +33,9 @@ DEFAULT_STATE_FILTER = ['Scheduled', 'Checked In', 'Started']
 # except on the admin board, which opens on Today: at 1,300 matches All dates
 # sent every row (2MB) on each open.
 ALL_DAYS = 'All dates'
+
+#: Seconds the reset chip offers Undo before it goes away.
+RESET_UNDO_SECONDS = 8
 DAY_SCOPES = [ALL_DAYS, 'Today', 'Tomorrow', 'Next 7 days']
 
 #: ``scope -> (days from today for the first day, for the last day)``, inclusive.
@@ -159,12 +163,71 @@ class MatchFiltersMixin:
         return count
 
     def _update_filter_badge(self):
-        """Sync the mobile filter-count badge with the current selections."""
-        if self.filter_badge is None:
-            return
+        """Sync both reset chips (phone toggle row, desktop strip) with the selections."""
         count = self._active_filter_count()
-        self.filter_badge.text = str(count)
-        self.filter_badge.set_visibility(count > 0)
+        if count:
+            self._reset_undo = None
+        for chip, wide in self._reset_chips():
+            if count:
+                chip.props(f'label="{count} filter{"s" if count != 1 else ""}" icon-right=close'
+                           if wide else f'label="{count}" icon-right=close')
+                chip.props(f'aria-label="Reset {count} filter{"s" if count != 1 else ""}"')
+            elif self._reset_undo is not None:
+                chip.props('label=Undo icon-right=undo aria-label="Undo filter reset"')
+            chip.set_visibility(bool(count) or self._reset_undo is not None)
+
+    def _reset_chips(self):
+        return [(chip, wide) for chip, wide in (
+            (getattr(self, 'filter_badge', None), False),
+            (getattr(self, 'filter_reset_desk', None), True),
+        ) if chip is not None]
+
+    def _filter_snapshot(self) -> dict:
+        return {
+            'day': self.day_filter.value,
+            'tournament': self.tournament_filter.value,
+            'stage': self.stage_filter.value,
+            'state': list(self.state_filter.value or []),
+        }
+
+    def _apply_filters(self, values: dict) -> None:
+        """Set every filter at once and reload the table a single time."""
+        self._initializing = True
+        try:
+            self.day_filter.value = values['day']
+            self.tournament_filter.value = values['tournament']
+            self.stage_filter.value = values['stage']
+            self.state_filter.value = values['state']
+        finally:
+            self._initializing = False
+        self._bg(self.refresh())
+
+    def _on_reset_chip(self, *_args) -> None:
+        """One tap: back to this board's defaults, or put them back if Undo is showing."""
+        if self._active_filter_count() == 0:
+            undo, self._reset_undo = self._reset_undo, None
+            if undo is not None:
+                self._apply_filters(undo)
+            self._update_filter_badge()
+            return
+        snapshot = self._filter_snapshot()
+        self._apply_filters({
+            'day': self.default_day_scope,
+            'tournament': None,
+            'stage': None,
+            'state': list(self.default_state_filter or DEFAULT_STATE_FILTER),
+        })
+        self._reset_undo = snapshot
+        self._update_filter_badge()
+        undo_token = snapshot
+
+        def expire() -> None:
+            if self._reset_undo is undo_token:
+                self._reset_undo = None
+                self._update_filter_badge()
+
+        with self.filters_card:
+            PageTimer(RESET_UNDO_SECONDS, expire, once=True)
 
     async def _load_tournaments(self):
         """Load all tournament names for the filter using service layer."""
@@ -195,6 +258,13 @@ class MatchFiltersMixin:
         self._update_filter_badge()
 
 
+    def _reset_chip(self):
+        chip = ui.button(on_click=self._on_reset_chip) \
+            .props('outline rounded dense no-caps no-wrap color=primary') \
+            .classes('wiz-filter-reset')
+        chip.set_visibility(False)
+        return chip
+
     def _build_filter_bar(self):
         """Render the toggle row and the filter card; returns the two header slots.
 
@@ -212,8 +282,9 @@ class MatchFiltersMixin:
             phone_lead = ui.row().classes('wiz-toolbar-slot items-center no-wrap')
             ui.button('Filters', icon='filter_list', on_click=self._toggle_filters) \
                 .props('flat color=primary').classes('wiz-filter-toggle__btn')
-            self.filter_badge = ui.badge('0').props('color=primary')
-            self.filter_badge.set_visibility(False)
+            # The count is the reset: one tap clears every filter without
+            # opening the card (Thomas's pick B).
+            self.filter_badge = self._reset_chip()
             ui.space()
             ui.button(icon='refresh', on_click=self.refresh).props('flat color=primary round dense').tooltip('Refresh table')
             phone_end = ui.row().classes('wiz-toolbar-slot items-center no-wrap')
@@ -225,6 +296,7 @@ class MatchFiltersMixin:
         with self.filters_card:
             with ui.row().classes('match-filter-row'):
                 desk_lead = ui.row().classes('wiz-toolbar-slot wiz-toolbar-slot--desk items-center no-wrap')
+                self.filter_reset_desk = self._reset_chip().classes('wiz-filter-reset--desk')
                 # Day filter, first because it is the coarsest narrowing and
                 # the one an operator working a venue reaches for.
                 self.day_filter = ui.select(
