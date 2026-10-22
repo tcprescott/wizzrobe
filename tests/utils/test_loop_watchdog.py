@@ -1,13 +1,14 @@
 """Tests for the event-loop watchdog and the runtime snapshot built on it."""
 
 import asyncio
+import gc
 import logging
 import time
 
 import pytest
 
+from application.utils import gc_monitor, runtime_stats
 from application.utils import loop_watchdog as wd
-from application.utils import runtime_stats
 from application.utils.background_loop import BackgroundLoop, worker_stats
 
 
@@ -113,3 +114,65 @@ class TestRuntimeSnapshot:
         for key in ('uptime_seconds', 'rss_mb', 'clients', 'db_pool', 'event_loop', 'workers'):
             assert key in snap
         assert snap['asyncio_tasks'] >= 1
+
+
+@pytest.fixture
+def gc_watch():
+    gc_monitor.install()
+    yield
+    gc_monitor.uninstall()
+
+
+def _fake_collection(seconds: float, generation: int = 2) -> None:
+    """A collection as the watchdog sees one: the loop thread stuck between the
+    collector's start and stop callbacks."""
+    gc_monitor._callback('start', {'generation': generation})
+    _block_the_loop(seconds)
+    gc_monitor._callback('stop', {'generation': generation, 'collected': 7, 'uncollectable': 0})
+
+
+class TestGarbageCollectionStalls:
+    async def test_a_collection_pause_is_named_as_one_not_as_the_line_it_interrupted(
+        self, fast_watchdog, gc_watch, caplog,
+    ):
+        fast_watchdog.start()
+        await asyncio.sleep(0.05)
+        with caplog.at_level(logging.WARNING, logger=wd.__name__):
+            _fake_collection(0.4)
+            await _settle(fast_watchdog, 1)
+            record = await _blocked_record(caplog)
+        stall = fast_watchdog.snapshot()['recent_stalls'][0]
+        assert stall['culprit'].startswith('garbage collection (gen 2, ')
+        assert stall['gc_seconds'] >= 0.3
+        assert 'garbage collection' in record.getMessage()
+        assert record.levelno == logging.ERROR
+
+    async def test_ordinary_slow_code_keeps_its_own_culprit(self, fast_watchdog, gc_watch):
+        fast_watchdog.start()
+        await asyncio.sleep(0.05)
+        _block_the_loop(0.2)
+        await _settle(fast_watchdog, 1)
+        stall = fast_watchdog.snapshot()['recent_stalls'][0]
+        assert '_block_the_loop' in stall['culprit']
+        assert stall['gc_seconds'] < 0.1
+
+    def test_real_collections_are_timed_by_generation(self, gc_watch):
+        before = gc_monitor.snapshot()['by_generation']['2']['passes']
+        gc.collect()
+        snap = gc_monitor.snapshot()
+        assert snap['installed']
+        assert snap['by_generation']['2']['passes'] == before + 1
+        assert len(snap['thresholds']) == 3
+
+    def test_overlap_counts_only_collection_time_inside_the_window(self):
+        with gc_monitor._lock:
+            gc_monitor._passes.append(gc_monitor.Pass(started=100.0, seconds=2.0, generation=2, collected=0))
+        try:
+            assert gc_monitor.seconds_between(101.0, 105.0) == (1.0, 2)
+            assert gc_monitor.seconds_between(103.0, 105.0) == (0.0, -1)
+        finally:
+            with gc_monitor._lock:
+                gc_monitor._passes.pop()
+
+    async def test_runtime_stats_has_a_gc_section(self):
+        assert 'by_generation' in runtime_stats.collect()['gc']

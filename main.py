@@ -39,7 +39,7 @@ from application.services.discord import discord_queue
 from application.services.discord.discord_service import get_discord_bot
 from application.services.match import stage_reminder
 from application.services.volunteer import volunteer_reminder
-from application.utils import metrics_sampler, worker_watchdog
+from application.utils import gc_monitor, metrics_sampler, worker_watchdog
 from application.utils.easter_eggs import random_fact
 from application.utils.environment import loop_watchdog_enabled
 from application.utils.http_headers import header_safe
@@ -318,6 +318,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         event_bus.subscribe_async(TelemetryService().record_event)
     # Started after boot so migrations and the first imports don't read as stalls.
     if loop_watchdog_enabled():
+        gc_monitor.install()
         loop_watchdog.start()
     warm_openapi(app)
     metrics_sampler.start()
