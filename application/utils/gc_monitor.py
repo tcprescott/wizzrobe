@@ -183,8 +183,7 @@ def snapshot() -> Dict[str, object]:
         'thresholds': list(gc.get_threshold()),
         'pending': list(gc.get_count()),
         'frozen_objects': gc.get_freeze_count() if _frozen is not None else None,
-        'refreezes': _refreezes,
-        'thaws': _thaws,
+        'refreeze': {'refreezes': _refreezes, 'thaws': _thaws},
         'by_generation': {
             str(g): {
                 'passes': int(t[0]),

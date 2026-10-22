@@ -608,17 +608,13 @@ class EventLoopStats(BaseModel):
 
 
 class GcStats(BaseModel):
-    """CPython garbage collection since start-up. A full (gen 2) pass stops the
-    event loop for as long as it runs."""
+    """CPython garbage collection since start-up. A full (gen 2) pass stops the event loop while it runs."""
 
     installed: bool = Field(description='Whether collections are being timed')
     thresholds: List[int]
     pending: List[int] = Field(description='Allocations / younger passes counted toward each generation')
-    frozen_objects: Optional[int] = Field(
-        description='Objects frozen out of collection now (start-up, plus survivors of the last full pass); null if not frozen',
-    )
-    refreezes: int = Field(0, description='Times the survivors of a full pass were frozen')
-    thaws: int = Field(0, description='Hourly hand-backs of the frozen objects for one ordinary full pass')
+    frozen_objects: Optional[int] = Field(description='Objects frozen out of collection now; null if not frozen')
+    refreeze: Dict[str, int] = Field(default_factory=dict, description='refreezes (full-pass survivors frozen), thaws (hourly)')
     by_generation: Dict[str, Dict[str, float]] = Field(description='passes, total_seconds, max_seconds per generation')
     slowest_recent: List[Dict[str, float]] = Field(
         description='Slowest recent passes of 10ms or more: generation, seconds, collected, ago_seconds',
