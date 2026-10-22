@@ -1,5 +1,6 @@
 """Schemas for the engagement telemetry endpoints."""
 
+from datetime import datetime
 from typing import Optional, Union
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -10,6 +11,8 @@ class TelemetrySummaryResponse(BaseModel):
     unique_users: int = Field(..., description="Distinct signed-in people seen in the window.")
     unique_sessions: int = Field(..., description="Distinct browser sessions seen in the window.")
     page_views: int = Field(..., description="Page loads recorded in the window.")
+    mcp_users: int = Field(..., description="Distinct people who called an MCP tool in the window.")
+    rest_users: int = Field(..., description="Distinct people who made an authenticated REST API request in the window.")
 
 
 class _Row(BaseModel):
@@ -55,4 +58,23 @@ class TopControlRow(_Row):
     phone: int = Field(..., description="Uses that came from a phone.")
 
 
-TelemetryTopRow = Union[TopPathRow, TopEventTypeRow, TopUserRow, TopControlRow]
+class TopApiCallRow(_Row):
+    surface: str = Field(..., description="`mcp` for an MCP tool call, `rest` for a REST API request.")
+    target: str = Field(..., description="The MCP tool name, or the REST method and route template.")
+    calls: int = Field(..., description="How many times it was called.")
+    users: int = Field(..., description="Distinct people who called it.")
+    errors: int = Field(..., description="Calls that failed (an MCP error or an HTTP status of 400 or above).")
+
+
+class TopApiUserRow(_Row):
+    user_id: int = Field(..., description="ID of the person.")
+    user: str = Field(..., description="Display name of the person.")
+    surface: str = Field(..., description="`mcp` or `rest`.")
+    calls: int = Field(..., description="Calls they made on that surface.")
+    targets: int = Field(..., description="Distinct tools or routes they called.")
+    last_call: datetime = Field(..., description="When they last called it (UTC).")
+
+
+TelemetryTopRow = Union[
+    TopPathRow, TopEventTypeRow, TopUserRow, TopControlRow, TopApiCallRow, TopApiUserRow,
+]

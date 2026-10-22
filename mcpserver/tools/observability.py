@@ -142,7 +142,8 @@ async def telemetry_summary(
     start: Optional[str] = None,
     end: Optional[str] = None,
 ) -> Dict[str, Any]:
-    """Engagement totals for a window: events, unique users, sessions, page views.
+    """Engagement totals for a window: events, unique users, sessions, page views,
+    and distinct MCP and REST API users.
 
     Requires staff access.
     """
@@ -160,8 +161,11 @@ async def telemetry_top(
     limit: int = 15,
 ) -> List[Dict[str, Any]]:
     """Top engagement rows for one dimension: `paths`, `event_types`, `users`,
-    or `controls` (the tabs, buttons, menu items, dialogs and fields people used,
-    per page, with distinct users and how many uses came from a phone).
+    `controls` (the tabs, buttons, menu items, dialogs and fields people used,
+    per page, with distinct users and how many uses came from a phone), `api`
+    (the most-called MCP tools and REST routes, with distinct callers and
+    failures) or `api_users` (who calls the MCP server and REST API, how often,
+    how many different tools or routes, and when they last did).
 
     Requires staff access.
     """
@@ -174,6 +178,8 @@ async def telemetry_top(
         'event_types': service.top_event_types,
         'users': service.top_users,
         'controls': service.top_controls,
+        'api': service.top_api_calls,
+        'api_users': service.top_api_users,
     })
     return await fn(actor.user, start=start_dt, end=end_dt, limit=limit)
 

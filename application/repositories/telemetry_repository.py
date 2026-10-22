@@ -12,7 +12,7 @@ from datetime import datetime
 from typing import Dict, List, Optional, Tuple
 
 from tortoise.expressions import Q
-from tortoise.functions import Count
+from tortoise.functions import Count, Max
 
 from application.tenant_context import get_current_tenant_id
 from models import TelemetryEvent
@@ -137,6 +137,23 @@ class TelemetryRepository:
         return rows[0] if rows else 0
 
     @classmethod
+    async def count_distinct_users_by_event_type(
+        cls,
+        *,
+        start: Optional[datetime] = None,
+        end: Optional[datetime] = None,
+        category: Optional[str] = None,
+    ) -> Dict[str, int]:
+        rows = await (
+            cls._filtered(start=start, end=end, category=category)
+            .filter(user_id__isnull=False)
+            .annotate(c=Count('user_id', distinct=True))
+            .group_by('event_type')
+            .values('event_type', 'c')
+        )
+        return {row['event_type']: row['c'] for row in rows}
+
+    @classmethod
     async def distinct_users_since(cls, start: datetime) -> Tuple[int, Dict[int, int]]:
         """Distinct signed-in users with any row since ``start``: overall, and per tenant id.
 
@@ -247,6 +264,56 @@ class TelemetryRepository:
             .order_by('-uses')
             .limit(limit)
             .values('path', 'event_type', 'target', 'uses', 'users', 'phone')
+        )
+        return list(rows)
+
+    @classmethod
+    async def top_api_targets(
+        cls,
+        *,
+        start: Optional[datetime] = None,
+        end: Optional[datetime] = None,
+        category: Optional[str] = None,
+        limit: int = 50,
+    ) -> List[dict]:
+        """One row per (surface, tool or route): calls, distinct users, failures."""
+        rows = await (
+            cls._filtered(start=start, end=end, category=category)
+            .filter(target__isnull=False)
+            .annotate(
+                calls=Count('id'),
+                users=Count('user_id', distinct=True),
+                errors=Count('id', _filter=~Q(details__contains='"outcome": "ok"')),
+            )
+            .group_by('event_type', 'target')
+            .order_by('-calls')
+            .limit(limit)
+            .values('event_type', 'target', 'calls', 'users', 'errors')
+        )
+        return list(rows)
+
+    @classmethod
+    async def top_api_users(
+        cls,
+        *,
+        start: Optional[datetime] = None,
+        end: Optional[datetime] = None,
+        category: Optional[str] = None,
+        limit: int = 50,
+    ) -> List[dict]:
+        """One row per (person, surface): calls, distinct tools/routes, last call."""
+        rows = await (
+            cls._filtered(start=start, end=end, category=category)
+            .filter(user_id__isnull=False)
+            .annotate(
+                calls=Count('id'),
+                targets=Count('target', distinct=True),
+                last_call=Max('created_at'),
+            )
+            .group_by('user_id', 'event_type')
+            .order_by('-calls')
+            .limit(limit)
+            .values('user_id', 'event_type', 'calls', 'targets', 'last_call')
         )
         return list(rows)
 

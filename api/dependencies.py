@@ -15,6 +15,7 @@ on the same app.
 from typing import Optional, Tuple
 
 from fastapi import Depends, HTTPException, Request, Response, status
+from fastapi.exceptions import RequestValidationError
 from fastapi.routing import APIRoute
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
@@ -22,9 +23,10 @@ from application.errors import NotFoundError
 from application.services.api_token_service import ApiTokenService
 from application.services.auth_service import AuthService
 from application.services.feature_flag_service import FeatureFlagService
+from application.services.telemetry_service import TelemetryEventType, TelemetryService
 from application.services.tenant_service import TenantService
 from application.services.timezone_service import TimezoneService
-from application.tenant_context import reset_tenant_id, set_tenant_id
+from application.tenant_context import reset_tenant_id, set_tenant_id, tenant_scope
 from application.timezone_context import set_timezone_name
 from models import ApiToken, ApiTokenOrigin, FeatureFlag, User
 
@@ -62,6 +64,7 @@ def _reject_read_only(token: ApiToken) -> None:
 
 
 async def resolve_token(
+    request: Request,
     creds: Optional[HTTPAuthorizationCredentials] = Depends(bearer_scheme),
 ) -> Tuple[User, ApiToken]:
     """Resolve and authenticate the bearer token, returning ``(user, token)``.
@@ -122,6 +125,8 @@ async def resolve_token(
             detail="You are not a member of this community",
         )
     set_tenant_id(tenant.id)
+    # Read back by ServiceErrorRoute to attribute the request in usage telemetry.
+    request.state.api_actor = (user, token)
     # REST responses stay UTC — timezone is a presentation concern and a
     # programmatic client should get one canonical instant. But a few endpoints
     # accept or derive a calendar *date*, and a date has no meaning without a
@@ -245,7 +250,7 @@ class ServiceErrorRoute(APIRoute):
     def get_route_handler(self):
         original_handler = super().get_route_handler()
 
-        async def custom_handler(request: Request) -> Response:
+        async def translated(request: Request) -> Response:
             try:
                 return await original_handler(request)
             except PermissionError as exc:
@@ -264,4 +269,39 @@ class ServiceErrorRoute(APIRoute):
                     detail=str(exc),
                 ) from exc
 
+        async def custom_handler(request: Request) -> Response:
+            status_code = status.HTTP_500_INTERNAL_SERVER_ERROR
+            try:
+                response = await translated(request)
+                status_code = response.status_code
+                return response
+            except HTTPException as exc:
+                status_code = exc.status_code
+                raise
+            except RequestValidationError:
+                status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
+                raise
+            finally:
+                await _record_api_call(request, self, status_code)
+
         return custom_handler
+
+
+async def _record_api_call(request: Request, route: APIRoute, status_code: int) -> None:
+    """One usage-telemetry row per authenticated request; unauthenticated ones are skipped."""
+    resolved = getattr(request.state, 'api_actor', None)
+    if resolved is None:
+        return
+    user, token = resolved
+    # main.py mounts the API at /api; FastAPI includes routers lazily, so no
+    # route object here carries that prefix.
+    template = f"/api{route.path_format}"
+    with tenant_scope(token.tenant_id):
+        await TelemetryService().track_api_call(
+            event_type=TelemetryEventType.REST_REQUEST,
+            target=f"{request.method} {template}",
+            path=template,
+            user_id=user.id,
+            username=user.username,
+            outcome='ok' if status_code < 400 else str(status_code),
+        )
