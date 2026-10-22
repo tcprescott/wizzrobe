@@ -8793,3 +8793,17 @@ ol.wiz-help-list { list-style-type: decimal; }
     font-weight: 700;
     color: var(--fg-secondary);
 }
+
+/* The match board's reset chip (theme/tables/match_filters.py): the filter
+   count, tappable to clear. The phone copy rides the toggle row, which is
+   already hidden on desktop; the desktop copy leads the inline strip. */
+.wiz-filter-reset {
+    flex: none;
+    font-weight: 700;
+}
+
+@media (max-width: 1023.98px) {
+    .wiz-filter-reset--desk {
+        display: none !important;
+    }
+}

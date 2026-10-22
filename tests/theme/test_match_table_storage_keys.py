@@ -302,3 +302,62 @@ def test_the_resolution_matches_the_one_refresh_uses():
     src = inspect.getsource(MatchTableView.refresh)
     assert 'self.scope_tournament_ids is not None' in src
     assert '_MATCHES_NOTHING' in src
+
+
+# --- The one-tap reset chip -------------------------------------------------
+#
+# Thomas's pick B: the filter count is a chip that clears every filter in one
+# tap, then offers Undo for a few seconds.
+
+def _filtered_view(monkeypatch):
+    from types import SimpleNamespace
+
+    monkeypatch.setattr('theme.tables.match_filters.PageTimer', lambda *a, **k: None)
+    view = _view('admin_schedule', DEFAULT_STATE_FILTER, default_day_scope='Today')
+    view.day_filter = SimpleNamespace(value='Tomorrow')
+    view.tournament_filter = SimpleNamespace(value=[3, 4])
+    view.stage_filter = SimpleNamespace(value=None)
+    view.state_filter = SimpleNamespace(value=['Finished'])
+    view.filter_badge = None
+    view.filter_reset_desk = None
+    view._reset_undo = None
+    view.filters_card = _NullContext()
+    view.refreshes = 0
+
+    async def refresh():
+        view.refreshes += 1
+    view.refresh = refresh
+    view._bg = lambda coro: coro.close()
+    return view
+
+
+class _NullContext:
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        return False
+
+
+def test_reset_puts_every_filter_back_to_the_boards_own_defaults(monkeypatch):
+    view = _filtered_view(monkeypatch)
+    assert view._active_filter_count() == 3
+
+    view._on_reset_chip()
+
+    assert view._active_filter_count() == 0
+    assert view.day_filter.value == 'Today'
+    assert view.tournament_filter.value is None
+    assert view.state_filter.value == list(DEFAULT_STATE_FILTER)
+    assert view._initializing is False
+
+
+def test_a_second_tap_undoes_the_reset(monkeypatch):
+    view = _filtered_view(monkeypatch)
+    view._on_reset_chip()
+    view._on_reset_chip()
+
+    assert view.day_filter.value == 'Tomorrow'
+    assert view.tournament_filter.value == [3, 4]
+    assert view.state_filter.value == ['Finished']
+    assert view._reset_undo is None
