@@ -8,8 +8,7 @@
   "tenant": "default",
   "outDir": "/tmp/ui-history-ci",
   "browsers": [
-    "chromium",
-    "webkit"
+    "chromium"
   ],
   "scenarios": [
     {
