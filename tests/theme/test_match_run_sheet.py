@@ -4,6 +4,7 @@ import time
 
 from theme.dialog.match_sheet import seed_rollable
 from theme.tables.match_run_sheet import (
+    PROCTOR_RUN_SHEET_COLUMNS,
     RUN_SHEET_COLUMNS,
     arrange_run_sheet,
     run_sheet_status,
@@ -144,3 +145,11 @@ class TestReadiness:
         assert items['seed']['detail'] == 'Rolling… 15:57'
         items = self._items(tournament_seed_generator='alttpr', seed_rolling_since='2026-10-13T15:00:00Z')
         assert items['seed']['detail'] == 'Rolling…'
+
+
+def test_no_column_points_at_a_list():
+    # NiceGUI patches in its own body-cell slot (and logs a warning) for any
+    # column whose field holds a list, unaware the body slot draws the cell.
+    row = arrange_run_sheet([_row(1, 'Scheduled', commentators=[], trackers=[{'name': 'T'}])])[0]
+    for col in RUN_SHEET_COLUMNS + PROCTOR_RUN_SHEET_COLUMNS:
+        assert not isinstance(row.get(col['field']), (list, set, tuple)), col['name']

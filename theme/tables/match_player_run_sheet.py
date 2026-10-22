@@ -20,8 +20,8 @@ PLAYER_RUN_SHEET_COLUMNS = [
     {'name': 'scheduled_at', 'label': 'Time', 'field': 'scheduled_at', 'align': 'left'},
     {'name': 'match', 'label': 'Match', 'field': 'title', 'align': 'left'},
     {'name': 'stage', 'label': 'Stage', 'field': 'stage', 'align': 'left'},
-    {'name': 'commentators', 'label': 'Commentators', 'field': 'commentators', 'align': 'left'},
-    {'name': 'trackers', 'label': 'Trackers', 'field': 'trackers', 'align': 'left'},
+    {'name': 'commentators', 'label': 'Commentators', 'field': '_role_by', 'align': 'left'},
+    {'name': 'trackers', 'label': 'Trackers', 'field': '_role_by', 'align': 'left'},
     {'name': 'status', 'label': 'Status', 'field': 'state', 'align': 'left'},
     {'name': 'watch', 'label': 'Watch', 'field': 'watch', 'align': 'center'},
 ]

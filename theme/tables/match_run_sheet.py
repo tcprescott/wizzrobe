@@ -21,12 +21,14 @@ from theme.tables.match_slots import seed_value_template
 
 #: The board's columns. Kept short on purpose: anything wider than "which match,
 #: when, where, how is it doing" belongs in the sheet.
+#: The crew columns point at ``_crew_by`` rather than the raw crew lists: the
+#: body slot draws them, and NiceGUI patches over any column whose field is a list.
 RUN_SHEET_COLUMNS = [
     {'name': 'scheduled_at', 'label': 'Time', 'field': 'scheduled_at', 'align': 'left'},
     {'name': 'match', 'label': 'Match', 'field': 'title', 'align': 'left'},
     {'name': 'stage', 'label': 'Stage', 'field': 'stage', 'align': 'left'},
-    {'name': 'commentators', 'label': 'Commentators', 'field': 'commentators', 'align': 'left'},
-    {'name': 'trackers', 'label': 'Trackers', 'field': 'trackers', 'align': 'left'},
+    {'name': 'commentators', 'label': 'Commentators', 'field': '_crew_by', 'align': 'left'},
+    {'name': 'trackers', 'label': 'Trackers', 'field': '_crew_by', 'align': 'left'},
     {'name': 'status', 'label': 'Status', 'field': 'state', 'align': 'left'},
 ]
 
