@@ -170,10 +170,13 @@ class LiveWatch:
                         ui.label(now.players).classes('wiz-tile__players')
                         _open_in_schedule(now, self.board_scope)
                     ui.label(tile_meta(now)).classes('wiz-tile__meta')
-                    for label, names in (('Commentary', now.commentators), ('Tracking', now.trackers)):
+                    for label, names, icon in (
+                        ('Commentary', now.commentators, 'mic'),
+                        ('Tracking', now.trackers, 'track_changes'),
+                    ):
                         if names:
                             with ui.element('div').classes('wiz-tile__crew'):
-                                ui.icon('mic').props(f'aria-label="{label}"')
+                                ui.icon(icon).props(f'aria-label="{label}"')
                                 ui.label(f'{label}: {names}')
                 else:
                     ui.label('Nothing on this stage right now.').classes('wiz-tile__meta')

@@ -396,6 +396,20 @@ def test_twitch_stages_are_tiles_led_by_the_stream_still():
     assert '1 live' in body
 
 
+def test_tracking_and_commentary_lines_use_different_icons():
+    import re
+
+    body = render_watch_document(WatchView(
+        community='C',
+        stages=[WatchStage(id=1, name='Main', on_now=WatchMatch(
+            time='20:00', players='A vs B', commentators='Tony', trackers='vidya'))],
+    ))
+    crew = re.findall(r'class="wiz-tile__crew">(<svg.*?</svg>)<span>(\w+):', body)
+    icons = {label: svg for svg, label in crew}
+    assert set(icons) == {'Commentary', 'Tracking'}
+    assert icons['Commentary'] != icons['Tracking']
+
+
 def test_live_for_counts_minutes_then_hours():
     from datetime import datetime, timedelta, timezone
 
