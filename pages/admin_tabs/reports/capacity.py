@@ -258,6 +258,14 @@ async def capacity_page(
                     .classes('full-width')
                 enable_mobile_grid(forecast_table, columns,
                                    table_key=TableKeys.REPORTS_CAPACITY_FORECAST)
+                # Five columns overflow the half-width panel, and QTable gives its
+                # scroll region no attributes of its own: make it a keyboard stop
+                # (WCAG 2.1.1, axe scrollable-region-focusable).
+                ui.run_javascript(
+                    f"const m = document.querySelector('#{forecast_table.html_id} .q-table__middle');"
+                    "if (m) { m.tabIndex = 0; m.setAttribute('role', 'region');"
+                    " m.setAttribute('aria-label', 'Forecast data'); }"
+                )
 
 
 def _parse_focus(value: Optional[str]) -> Optional[datetime]:
