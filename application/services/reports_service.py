@@ -5,7 +5,7 @@ One method per report. Day boundaries resolve on the viewer's display clock;
 inputs and outputs are timezone-aware datetimes (UTC on the wire).
 """
 
-from datetime import date, datetime, time, timedelta
+from datetime import date, datetime, time, timedelta, timezone
 from typing import Dict, List, Optional, Tuple
 
 from application.services.reporting_shared import (
@@ -26,6 +26,14 @@ from models import (
     User,
 )
 
+# How long an unchecked-in late match keeps sliding forward on the capacity
+# forecast before it's treated as a no-show and stops growing.
+LATE_PUSH_LIMIT = timedelta(hours=2)
+
+
+def _now() -> datetime:
+    return datetime.now(timezone.utc)
+
 
 class ReportsService:
     """Generates aggregated views over matches, crew, stages, and audit logs."""
@@ -37,12 +45,20 @@ class ReportsService:
         return to_display(dt)
 
     @staticmethod
-    def _match_window(match: Match) -> Optional[Tuple[datetime, datetime]]:
+    def _match_window(match: Match, now: Optional[datetime] = None) -> Optional[Tuple[datetime, datetime]]:
+        """The span a match holds its players at a setup.
+
+        A late match nobody has checked in keeps sliding forward with ``now``
+        (up to ``LATE_PUSH_LIMIT``, after which it reads as a no-show); a match
+        checked in late runs from its check-in. ``now=None`` takes the schedule
+        at face value.
+        """
         if not match.scheduled_at:
             return None
         scheduled = ReportsService._local(match.scheduled_at)
-        if match.seated_at:
-            start = ReportsService._local(match.seated_at)
+        seated = ReportsService._local(match.seated_at)
+        if seated:
+            start = seated
         else:
             start = scheduled - timedelta(hours=1)
         if match.finished_at:
@@ -51,7 +67,14 @@ class ReportsService:
             duration = DEFAULT_MATCH_DURATION_MIN
             if match.tournament_id and match.tournament and match.tournament.average_match_duration:
                 duration = match.tournament.average_match_duration
-            anchor = ReportsService._local(match.started_at) if match.started_at else scheduled
+            if match.started_at:
+                anchor = ReportsService._local(match.started_at)
+            elif seated:
+                anchor = max(scheduled, seated)
+            elif now is not None and now > scheduled:
+                anchor = min(ReportsService._local(now), scheduled + LATE_PUSH_LIMIT)
+            else:
+                anchor = scheduled
             end = anchor + timedelta(minutes=duration)
         if end < start:
             end = start
@@ -89,10 +112,11 @@ class ReportsService:
         if tournament_id:
             query = query.filter(tournament_id=tournament_id)
         matches = await query.prefetch_related('tournament', 'players', 'stage')
+        now = _now()
 
         windows: List[Tuple[datetime, datetime, int, Match]] = []
         for match in matches:
-            window = self._match_window(match)
+            window = self._match_window(match, now=now)
             if not window:
                 continue
             ws, we = window
@@ -163,9 +187,10 @@ class ReportsService:
         if tournament_id:
             query = query.filter(tournament_id=tournament_id)
         matches = await query.prefetch_related('tournament', 'players', 'players__user', 'stage')
+        now = _now()
         out: List[Match] = []
         for match in matches:
-            window = self._match_window(match)
+            window = self._match_window(match, now=now)
             if not window:
                 continue
             ws, we = window

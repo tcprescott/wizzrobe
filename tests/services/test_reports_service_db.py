@@ -11,6 +11,7 @@ from datetime import datetime, timezone
 
 import pytest
 
+import application.services.reports_service as reports_service_module
 from application.services.reports_service import ReportsService
 from application.utils.timezone import EASTERN_TZ
 from models import (
@@ -119,12 +120,26 @@ class TestGenerateCapacityForecast:
         """A match whose active window ends before the forecast start contributes
         nothing even though it is inside the +/-24h prefetch band."""
         t = await Tournament.create(name='Cup', players_per_match=2, average_match_duration=90)
-        # 10:00 ET scheduled -> window [09:00, 11:30], entirely before 13:00.
-        await Match.create(tournament=t, scheduled_at=utc(2025, 10, 23, 14, 0))
+        # 10:00 ET scheduled, ran 09:30-11:30 -> entirely before 13:00. Seated and
+        # finished, so the late slide for un-checked-in matches doesn't apply.
+        await Match.create(
+            tournament=t, scheduled_at=utc(2025, 10, 23, 14, 0),
+            seated_at=utc(2025, 10, 23, 13, 30), finished_at=utc(2025, 10, 23, 15, 30),
+        )
 
         out = await ReportsService().generate_capacity_forecast(FORECAST_START, FORECAST_END, actor=(await _actor()))
         assert all(c == 0 for c in out['player_counts'])
         assert all(ids == [] for ids in out['match_ids_per_interval'])
+
+    async def test_late_unchecked_match_slides_forward(self, db, monkeypatch):
+        """A match 1h late with no check-in still holds its players at 16:00."""
+        t = await Tournament.create(name='Cup', players_per_match=2, average_match_duration=90)
+        # 13:30 ET scheduled; schedule alone ends it at 15:00.
+        await Match.create(tournament=t, scheduled_at=utc(2025, 10, 23, 17, 30))
+        monkeypatch.setattr(reports_service_module, '_now', lambda: utc(2025, 10, 23, 18, 30))
+
+        out = await ReportsService().generate_capacity_forecast(FORECAST_START, FORECAST_END, actor=(await _actor()))
+        assert out['player_counts'][-1] == 2  # 16:00, inside 14:30 + 90 min
 
     async def test_max_capacity_reads_system_config(self, db):
         await SystemConfiguration.create(name='max_concurrent_players', value='100')
