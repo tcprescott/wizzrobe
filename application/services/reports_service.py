@@ -131,6 +131,7 @@ class ReportsService:
             'intervals': intervals,
             'player_counts': player_counts,
             'on_stream_player_counts': on_stream_counts,
+            'off_stream_player_counts': [a - o for a, o in zip(player_counts, on_stream_counts, strict=True)],
             'match_ids_per_interval': match_ids_per_interval,
             'interval_minutes': interval_min,
             'start': start,

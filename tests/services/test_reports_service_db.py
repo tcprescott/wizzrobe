@@ -98,6 +98,14 @@ class TestGenerateCapacityForecast:
         # Peak concurrency is A + B overlapping = 4; only A's 2 are ever on stream.
         assert max(out['player_counts']) == 4
         assert max(out['on_stream_player_counts']) == 2
+        # Off-stream is the floor load: the total minus whoever is on a stage.
+        assert out['off_stream_player_counts'][0] == 0
+        assert max(out['off_stream_player_counts']) == 2
+        assert all(
+            a == on + off for a, on, off in zip(
+                out['player_counts'], out['on_stream_player_counts'], out['off_stream_player_counts'], strict=True,
+            )
+        )
         # Both match ids appear at the overlap.
         assert any(set(ids) == {m_a.id, m_b.id} for ids in out['match_ids_per_interval'])
 
