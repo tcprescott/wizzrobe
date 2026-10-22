@@ -21,7 +21,9 @@ never live at module level).
 **Alerting:** when a dependency transitions *into* an unhealthy state (``down`` or
 a credential warning), the monitor publishes a platform-level
 ``SERVICE_HEALTH_ALERT`` event, captures a message to Sentry, and — when
-``SERVICE_HEALTH_ALERT_DM`` is set — DMs every super-admin.
+``SERVICE_HEALTH_ALERT_DM`` is set — DMs every super-admin. ``down`` must hold
+for two consecutive checks before it alerts, so a one-off timeout from an outside
+site shows on the board but raises nothing.
 
 Scope: the full board is SUPER_ADMIN-only; a tenant's STAFF get a **read-only
 subset** (:meth:`ServiceHealthService.tenant_subset`) covering just the services
@@ -122,6 +124,8 @@ class _Probe:
 # Process-global cache: latest ProbeResult per probe key. Owned by the worker /
 # on-demand refresh; readers get a snapshot.
 _CACHE: Dict[str, ProbeResult] = {}
+# The status each probe last alerted on, cleared when it leaves the alertable set.
+_ALERTED: Dict[str, ServiceStatus] = {}
 
 
 def _now() -> datetime:
@@ -357,7 +361,11 @@ class ServiceHealthService:
         for result in results:
             previous = _CACHE.get(result.key)
             _CACHE[result.key] = result
-            if alert and _is_alert_transition(previous, result):
+            alerted = _ALERTED.get(result.key)
+            if result.status not in _ALERTABLE:
+                _ALERTED.pop(result.key, None)
+            if alert and _is_alert_transition(previous, result, alerted):
+                _ALERTED[result.key] = result.status
                 await self._alert(previous, result)
         return sorted(results, key=_board_sort_key)
 
@@ -461,11 +469,24 @@ class ServiceHealthService:
             logger.exception('Failed to DM super-admins for health alert')
 
 
-def _is_alert_transition(previous: Optional[ProbeResult], result: ProbeResult) -> bool:
-    """Alert when a probe newly enters (or moves between) alertable states."""
-    if result.status not in _ALERTABLE:
+def _is_alert_transition(
+    previous: Optional[ProbeResult],
+    result: ProbeResult,
+    alerted: Optional[ServiceStatus] = None,
+) -> bool:
+    """Alert when a probe newly enters (or moves between) alertable states.
+
+    ``alerted`` is the status last alerted for this probe since it was last
+    healthy. ``down`` only alerts once two checks in a row say so: a single
+    timeout from an outside site is a blip, and the next tick (two minutes on)
+    either confirms the outage or clears it. A credential warning is a fact
+    about stored config, not the network, so it alerts on the first sighting.
+    """
+    if result.status not in _ALERTABLE or result.status == alerted:
         return False
-    return previous is None or previous.status != result.status
+    if result.status == ServiceStatus.DOWN:
+        return previous is not None and previous.status == ServiceStatus.DOWN
+    return True
 
 
 def _board_sort_key(result: ProbeResult) -> Tuple[int, str]:
@@ -488,3 +509,4 @@ def _tenant_challonge_status(token_expires_at: Optional[datetime]) -> Tuple[Serv
 def reset_cache() -> None:
     """Clear the in-memory cache (tests / a forced cold restart)."""
     _CACHE.clear()
+    _ALERTED.clear()
