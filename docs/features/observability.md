@@ -19,7 +19,7 @@ SDK once, before the FastAPI app is built, and only when `SENTRY_DSN` is set.
 | **Profiles** | `SENTRY_PROFILES_SAMPLE_RATE`, default `1.0` (of traced requests) in production | Which functions a slow traced request spent its CPU in. |
 | **Loop stalls** | the [watchdog](#blocked-event-loop-watchdog) | WARNING from 0.5s, an ERROR issue from 2s, grouped by the blocking line. |
 | **Metrics** | [`sentry_metrics.py`](../../application/utils/sentry_metrics.py); on with Sentry unless `SENTRY_METRICS=off` | See [Metrics](#metrics). Explore > Metrics in Sentry. |
-| **Health alerts** | `ServiceHealthService._alert` → `capture_message` | Fingerprinted on probe + status, tagged `health_probe` / `health_status`, so one outage is one issue. |
+| **Health alerts** | `ServiceHealthService._alert` → `capture_message` | Fingerprinted on probe + status, tagged `health_probe` / `health_status`, so one outage is one issue. `down` alerts only after two consecutive failed checks (~2 min apart), so a one-off timeout stays on the board without opening an issue; credential warnings alert at once. |
 | **Browser errors + replays** | the JavaScript SDK on every page, same DSN | See [Browser errors](#browser-errors-platform--monitoring). Tagged `surface: browser`; server events carry `surface: server`. |
 
 Every event carries `environment`, `release` (`SENTRY_RELEASE`, else
