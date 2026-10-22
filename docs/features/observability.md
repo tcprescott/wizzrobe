@@ -183,7 +183,30 @@ not the library line underneath it.
 | still blocked at 10s | reported immediately, since it may never return |
 
 Each log line carries the sampled stack. `LOOP_WATCHDOG_ENABLED=false` turns it
-off. `BackgroundLoop` also times every worker tick and logs a tick over 30s at
+off.
+
+### Garbage-collection pauses
+
+A full CPython garbage collection also stops the loop, and it starts on whatever
+allocation tips a generation over its threshold, so a sampled stack lands on an
+innocent line (a label's constructor, a dataclass `__init__`, a weakref
+callback). [`gc_monitor.py`](../../application/utils/gc_monitor.py) hooks
+`gc.callbacks` and times every pass; when at least half of a stall was
+collection, the watchdog reports it as `garbage collection (gen N, X.XXs)`
+instead, all such stalls group into one Sentry issue
+(`event-loop-blocked` + `garbage collection`), and each stall in `runtime_stats`
+carries `gc_seconds`. `runtime_stats` also has a `gc` block: passes, total and
+worst seconds per generation, the slowest recent passes, thresholds, pending
+counts.
+
+Most of what a full pass walks is page element trees: about 25,000 objects per
+open tab, and a closed tab's tree is a reference cycle that only a full pass
+frees. The other big share is what start-up loaded (about 370,000 objects), so
+`main.py` calls `gc_monitor.freeze()` once boot is done: those objects move to
+the permanent generation and no pass walks them again. In a local event-size run
+that cut the worst pause from 0.78s to 0.51s. `GC_FREEZE=false` turns it off.
+Raising the collection thresholds was measured too and rejected: fewer passes,
+but each one longer. `BackgroundLoop` also times every worker tick and logs a tick over 30s at
 WARNING.
 
 ## Worker self-healing and the worker watchdog

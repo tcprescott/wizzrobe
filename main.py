@@ -39,9 +39,9 @@ from application.services.discord import discord_queue
 from application.services.discord.discord_service import get_discord_bot
 from application.services.match import stage_reminder
 from application.services.volunteer import volunteer_reminder
-from application.utils import metrics_sampler, worker_watchdog
+from application.utils import gc_monitor, metrics_sampler, worker_watchdog
 from application.utils.easter_eggs import random_fact
-from application.utils.environment import loop_watchdog_enabled
+from application.utils.environment import env_flag, loop_watchdog_enabled
 from application.utils.http_headers import header_safe
 from application.utils.log_levels import default_root_level, register_trace_level
 from application.utils.loop_watchdog import watchdog as loop_watchdog
@@ -318,6 +318,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         event_bus.subscribe_async(TelemetryService().record_event)
     # Started after boot so migrations and the first imports don't read as stalls.
     if loop_watchdog_enabled():
+        gc_monitor.install()
         loop_watchdog.start()
     warm_openapi(app)
     metrics_sampler.start()
@@ -325,6 +326,10 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     from application.services import active_users_metrics, telemetry_retention
     active_users_metrics.start()
     telemetry_retention.start()
+    # Everything alive now lives as long as the process; freezing it keeps every
+    # full collection from re-walking it (a third off each pause, SGLMAN-20/22).
+    if env_flag('GC_FREEZE', default=True):
+        logger.info('startup: froze %d objects out of garbage collection', gc_monitor.freeze())
     # The MCP transport's session manager owns a task group that each per-request
     # server task is started on; entering it here (and exiting it around the
     # yield) means /mcp stops accepting calls before the workers below tear down,
