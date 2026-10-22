@@ -7,9 +7,11 @@ community's own setting is a ceiling, so a message it sends quietly can't be mad
 to ping and one it turned off shows as locked.
 """
 
-from typing import Awaitable, Callable, Dict, Union
+from functools import partial
+from typing import Awaitable, Callable, Dict, List, Union
 
 from nicegui import ui
+from nicegui.events import ValueChangeEventArguments
 
 from application.services import NotificationPreferenceService
 from application.services.notification_preference_service import (
@@ -52,6 +54,28 @@ def _row_title(row: MyNotificationRow) -> str:
     if row.target.recipient in STAFF_RECIPIENTS:
         return f'{row.notice.title} ({row.target.recipient.label.lower()})'
     return row.notice.title
+
+
+def _build_on_first_open(expansion: ui.expansion, is_open: bool, build: Callable[[], None]) -> None:
+    """Fill ``expansion`` now if it's open, else the first time it opens.
+
+    Building every collapsed section's rows and menus up front put ~2,500
+    elements on Profile → Notifications and blocked the event loop for about
+    2s per visit (SGLMAN-1X, SGLMAN-1Y).
+    """
+    def fill() -> None:
+        with expansion:
+            build()
+
+    if is_open:
+        fill()
+        return
+
+    def on_change(e: ValueChangeEventArguments) -> None:
+        if e.value and not expansion.default_slot.children:
+            fill()
+
+    expansion.on_value_change(on_change)
 
 
 async def render_notification_preferences(
@@ -117,7 +141,10 @@ async def render_notification_preferences(
             f'wiz-notify-cell wiz-notify-cell--{mode.value}'
             + (' wiz-notify-cell--changed' if row.changed else '')
         )
-        with button, ui.menu():
+        with button:
+            menu = ui.menu().props('no-parent-event')
+
+        def fill() -> None:
             for option in (OFF, SILENT, PING):
                 if option is PING and row.community is not PING:
                     with ui.item().props('disable'):
@@ -137,6 +164,14 @@ async def render_notification_preferences(
                     with ui.item_section().props('avatar'):
                         ui.icon('undo')
                     ui.item_section(f'Back to {preset_name}: {_LABELS[back]}')
+
+        def open_menu() -> None:
+            if not menu.default_slot.children:
+                with menu:
+                    fill()
+            menu.open()
+
+        button.on_click(open_menu)
 
     def confirm_reset() -> None:
         mine = state['mine']
@@ -175,38 +210,44 @@ async def render_notification_preferences(
                     with ui.column().classes('gap-0 col min-w-0'):
                         ui.label('Customize').classes('wiz-notify-item__name')
                         ui.label(summary).classes('text-caption text-muted')
-            if changed:
-                with ui.row().classes('w-full justify-end'):
-                    ui.button('Reset to preset…', icon='restart_alt', on_click=confirm_reset, color=None) \
-                        .props('flat dense no-caps')
-            for title, blurb in SECTIONS:
-                rows = [r for r in current.rows if r.section == title]
-                if not rows:
-                    continue
-                counts = dict.fromkeys((PING, SILENT, OFF), 0)
-                for r in rows:
-                    counts[r.effective] += 1
-                mine_changed = sum(1 for r in rows if r.changed)
-                with ui.expansion(value=open_sections.get(title, False)) \
-                        .classes('wiz-notify-section w-full') \
-                        .on_value_change(lambda e, t=title: open_sections.update({t: e.value})) as section:
-                    with section.add_slot('header'):
-                        with ui.column().classes('gap-1 col min-w-0'):
-                            ui.label(title).classes('wiz-notify-item__name')
-                            ui.label(blurb).classes('text-caption text-muted')
-                            with ui.row().classes('items-center gap-1'):
-                                _count_chips(counts)
-                                if mine_changed:
-                                    ui.label(f'{mine_changed} changed').classes('text-caption text-muted')
-                    with ui.column().classes('gap-0 w-full'):
-                        for row in rows:
-                            with ui.row().classes('wiz-notify-message items-center no-wrap w-full gap-2'):
-                                with ui.column().classes('gap-0 col min-w-0'):
-                                    ui.label(_row_title(row)).classes('text-weight-medium')
-                                    when = row.notice.when
-                                    if row.opt_in and row.effective is OFF and row.community is not OFF:
-                                        when += '. Off unless you turn it on'
-                                    ui.label(when).classes('text-caption text-muted')
-                                mode_button(row)
+            _build_on_first_open(customize, customize_open['v'], lambda: customize_body(current))
+
+    def customize_body(current: MyNotifications) -> None:
+        if current.changed:
+            with ui.row().classes('w-full justify-end'):
+                ui.button('Reset to preset…', icon='restart_alt', on_click=confirm_reset, color=None) \
+                    .props('flat dense no-caps')
+        for title, blurb in SECTIONS:
+            rows = [r for r in current.rows if r.section == title]
+            if not rows:
+                continue
+            counts = dict.fromkeys((PING, SILENT, OFF), 0)
+            for r in rows:
+                counts[r.effective] += 1
+            mine_changed = sum(1 for r in rows if r.changed)
+            with ui.expansion(value=open_sections.get(title, False)) \
+                    .classes('wiz-notify-section w-full') \
+                    .on_value_change(lambda e, t=title: open_sections.update({t: e.value})) as section:
+                with section.add_slot('header'):
+                    with ui.column().classes('gap-1 col min-w-0'):
+                        ui.label(title).classes('wiz-notify-item__name')
+                        ui.label(blurb).classes('text-caption text-muted')
+                        with ui.row().classes('items-center gap-1'):
+                            _count_chips(counts)
+                            if mine_changed:
+                                ui.label(f'{mine_changed} changed').classes('text-caption text-muted')
+                _build_on_first_open(section, open_sections.get(title, False), partial(section_rows, rows))
+
+    def section_rows(rows: List[MyNotificationRow]) -> None:
+        with ui.column().classes('gap-0 w-full'):
+            for row in rows:
+                with ui.row().classes('wiz-notify-message items-center no-wrap w-full gap-2'):
+                    with ui.column().classes('gap-0 col min-w-0'):
+                        ui.label(_row_title(row)).classes('text-weight-medium')
+                        when = row.notice.when
+                        if row.opt_in and row.effective is OFF and row.community is not OFF:
+                            when += '. Off unless you turn it on'
+                        ui.label(when).classes('text-caption text-muted')
+                    mode_button(row)
 
     body()
