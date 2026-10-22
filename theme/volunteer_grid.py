@@ -278,10 +278,6 @@ def render_day_grid(
     region = timeline_region(
         grid.midnight, grid.first_hour, f'Volunteer schedule for {day_label(day)}', focusable=True,
     )
-    # The Volunteer tabs are swipeable, so a sideways swipe meant to scroll
-    # the grid would flip to the next tab. Keep the gesture inside the grid.
-    for gesture in ('touchstart', 'mousedown'):
-        region.on(gesture, js_handler='(e) => e.stopPropagation()')
     with region:
         render_hour_column(grid.midnight, grid.first_hour, grid.last_hour, now_hour)
         for column in grid.columns:
