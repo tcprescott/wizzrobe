@@ -425,8 +425,13 @@ class MatchSheet:
                 ui.label(item['detail']).classes(
                     'col ' + ('st-cancelled' if row.get('seed_roll_error') else 'match-sheet__note'))
             if seed:
-                ui.button('Copy', on_click=lambda: copy_to_clipboard(seed, 'Seed')) \
-                    .props('outline dense no-caps color=primary').classes('match-sheet__check-act')
+                with ui.column().classes('gap-2 items-stretch no-wrap'):
+                    ui.button('Copy', on_click=lambda: copy_to_clipboard(seed, 'Seed')) \
+                        .props('outline dense no-caps color=primary').classes('match-sheet__check-act')
+                    if self.access.can_edit_row(row) and hasattr(self.handlers, 'on_clear_seed'):
+                        ui.button('Clear…', on_click=lambda: self._run(self.handlers.on_clear_seed, row['id'])) \
+                            .props('outline dense no-caps color=negative aria-label="Clear seed"') \
+                            .classes('match-sheet__check-act')
             elif not row.get('seed_rolling_since') and self.access.can_run_row(row) and seed_rollable(row):
                 ui.button('Generate', on_click=lambda e: self._run_busy(
                     e, 'Rolling…', self.handlers.on_generate_seed, row['id'])) \
