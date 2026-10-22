@@ -3,8 +3,8 @@
 ``runtime_stats`` says the heap is growing (RSS, longer gen-2 passes); this
 says what it is growing with. It walks every object the collector tracks, so a
 call costs about as long as a full collection (a second or two on a large
-heap) and the loop watchdog will report it as a stall. Run it on demand, never
-on a timer.
+heap); the loop watchdog records that stall under its own name but doesn't
+alert on it. Run it on demand, never on a timer.
 
 The NiceGUI figures are the usual suspects: a closed tab's page should leave
 no ``Client`` and no deleted element behind once a collection has run, so
@@ -103,6 +103,15 @@ def take(top: int = 40, collect: bool = True, explain: int = 50) -> Dict[str, An
     is what is truly reachable rather than garbage the collector hasn't reached
     yet; ``explain`` is how many leaked pages and deleted elements to trace back
     to whatever holds them."""
+    from application.utils.loop_watchdog import watchdog
+
+    # The census is the stall: asked for, and not a fault to alert on
+    # (SGLMAN-2D, SGLMAN-2F). It still shows in recent_stalls under its name.
+    with watchdog.expected_block('memory census'):
+        return _take(top, collect, explain)
+
+
+def _take(top: int, collect: bool, explain: int) -> Dict[str, Any]:
     from nicegui import Client
     from nicegui.element import Element
 
@@ -147,3 +156,27 @@ def take(top: int = 40, collect: bool = True, explain: int = 50) -> Dict[str, An
         'check_in_live_subscribers': len(check_in_live._subscribers),
         'top_types': [{'type': name, 'count': n} for name, n in counts.most_common(top)],
     }
+
+
+def dump_on_signal(path: str) -> None:
+    """Write a census to ``path`` (JSON) on every SIGUSR1, for the CI leak check.
+
+    The process id goes to ``path + '.pid'`` so the check can signal the app
+    worker rather than its launcher. Off unless ``MEMORY_CENSUS_DUMP`` is set:
+    never in production, where the MCP tool is the way in.
+    """
+    import asyncio
+    import json
+    import os
+    import signal
+
+    def _dump() -> None:
+        census = take(top=20, explain=30)
+        tmp = f'{path}.tmp'
+        with open(tmp, 'w') as f:
+            json.dump(census, f)
+        os.replace(tmp, path)
+
+    asyncio.get_running_loop().add_signal_handler(signal.SIGUSR1, _dump)
+    with open(f'{path}.pid', 'w') as f:
+        f.write(str(os.getpid()))

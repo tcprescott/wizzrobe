@@ -33,9 +33,10 @@ import threading
 import time
 import traceback
 from collections import deque
+from contextlib import contextmanager
 from dataclasses import dataclass
 from types import FrameType
-from typing import Deque, List, Optional, Tuple
+from typing import Deque, Iterator, List, Optional, Tuple
 
 import sentry_sdk
 
@@ -107,6 +108,7 @@ class LoopWatchdog:
         self._cpu: Deque[Tuple[float, float]] = deque()
         self._stalls: Deque[Stall] = deque(maxlen=20)
         self._stall_count = 0
+        self._expected: Deque[List] = deque(maxlen=20)
         self.started_at: Optional[float] = None
 
     @property
@@ -128,6 +130,25 @@ class LoopWatchdog:
         if self._thread is not None:
             self._thread.join(timeout=2)
         self._thread = None
+
+    @contextmanager
+    def expected_block(self, label: str) -> Iterator[None]:
+        """Mark a block the caller asked for (a heap census) so a stall inside it
+        is recorded under ``label`` but not reported to Sentry as a fault."""
+        window: List = [time.monotonic(), None, label]
+        with self._lock:
+            self._expected.append(window)
+        try:
+            yield
+        finally:
+            window[1] = time.monotonic()
+
+    def _expected_label(self, start: float, end: float) -> Optional[str]:
+        with self._lock:
+            for began, ended, label in self._expected:
+                if began <= end and (ended is None or ended >= start):
+                    return label
+        return None
 
     def _run(self) -> None:
         assert self._loop is not None
@@ -154,7 +175,9 @@ class LoopWatchdog:
             if late >= STUCK_SECONDS and not reported_stuck:
                 reported_stuck = True
                 gc_started = gc_monitor.running_since()
-                if gc_started is not None and gc_started <= beat.sent + late * (1 - GC_SHARE):
+                if self._expected_label(beat.sent, time.monotonic()):
+                    pass
+                elif gc_started is not None and gc_started <= beat.sent + late * (1 - GC_SHARE):
                     self._report(late, f'{GC_CULPRIT} (in progress)', stack, still_blocked=True)
                 else:
                     self._report(late, culprit, stack, still_blocked=True)
@@ -167,7 +190,10 @@ class LoopWatchdog:
             if not stack:
                 culprit = 'unknown (stack not sampled)'
             gc_seconds, generation = gc_monitor.seconds_between(beat.sent, beat.seen)
-            if gc_seconds >= lag * GC_SHARE:
+            expected = self._expected_label(beat.sent, beat.seen)
+            if expected:
+                culprit = f'{expected} (on request)'
+            elif gc_seconds >= lag * GC_SHARE:
                 stack = f'Sampled mid-collection, at the allocation that set it off:\n{stack}'
                 culprit = f'{GC_CULPRIT} (gen {generation}, {gc_seconds:.2f}s)'
             stall = Stall(
@@ -177,7 +203,7 @@ class LoopWatchdog:
             with self._lock:
                 self._stalls.append(stall)
                 self._stall_count += 1
-            if not reported_stuck:
+            if not reported_stuck and not expected:
                 self._report(lag, culprit, stack, still_blocked=False)
 
     def _sample_loop_stack(self) -> Tuple[str, str]:

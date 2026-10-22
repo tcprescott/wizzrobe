@@ -242,8 +242,10 @@ subscribers. For up to `explain` leaked pages and deleted elements it walks
 back through their referrers and returns the chains, counted by shape
 (`stale_clients_held_by`, `deleted_elements_held_by`): the first entry is
 usually the leak. Take two some minutes apart; the types that keep rising are
-what leaks. Each call walks the heap several times, so the watchdog will log it
-as a stall; don't poll it.
+what leaks. Each call walks the heap several times and freezes the loop for
+seconds, so don't poll it. The census runs inside `watchdog.expected_block()`,
+so that freeze shows in `recent_stalls` as `memory census (on request)` but
+opens no Sentry issue.
 
 The first leak it found (SGLMAN-29) was per-tab state in a
 `WeakKeyDictionary[Client, …]` whose value pointed back at its client, so the

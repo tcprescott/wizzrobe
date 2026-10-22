@@ -39,7 +39,7 @@ from application.services.discord import discord_queue
 from application.services.discord.discord_service import get_discord_bot
 from application.services.match import stage_reminder
 from application.services.volunteer import volunteer_reminder
-from application.utils import gc_monitor, metrics_sampler, worker_watchdog
+from application.utils import gc_monitor, memory_census, metrics_sampler, worker_watchdog
 from application.utils.easter_eggs import random_fact
 from application.utils.environment import env_flag, loop_watchdog_enabled
 from application.utils.http_headers import header_safe
@@ -330,6 +330,8 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     # full collection from re-walking it (a third off each pause, SGLMAN-20/22).
     if env_flag('GC_FREEZE', default=True):
         logger.info('startup: froze %d objects out of garbage collection', gc_monitor.freeze())
+    if census_dump := os.environ.get('MEMORY_CENSUS_DUMP'):
+        memory_census.dump_on_signal(census_dump)
     # The MCP transport's session manager owns a task group that each per-request
     # server task is started on; entering it here (and exiting it around the
     # yield) means /mcp stops accepting calls before the workers below tear down,
