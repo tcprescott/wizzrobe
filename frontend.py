@@ -11,7 +11,7 @@ from fastapi.responses import FileResponse, PlainTextResponse, Response
 from fastapi.staticfiles import StaticFiles
 from nicegui import app, core, ui
 
-from application.utils import socketio_closed_session
+from application.utils import page_build_timeout, socketio_closed_session
 from application.utils.environment import (
     get_platform_host,
     is_production,
@@ -270,6 +270,8 @@ def init(fastapi_app: FastAPI) -> None:
     validate_session_storage()
     install_log_filter()
     socketio_closed_session.install(core.sio.eio)
+    # Before any page is registered: the default is read when ui.page is built.
+    page_build_timeout.install()
     install_tooltip_labels()
     install_toast_position()
     install_layout_probe()
