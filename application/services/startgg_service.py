@@ -739,6 +739,7 @@ class StartggService(StartggPlaceholderMixin):
         try:
             full = await client.get_event_full(row.tournament.startgg_event_slug)
             await self._apply(row.tournament, full, actor, audit=False)
-        except StartggAPIError:
-            logger.error('start.gg re-sync after report failed for tournament %s', row.tournament.id, exc_info=True)
+        except StartggAPIError as e:
+            # The result is already on start.gg; the 2-minute sync picks it up.
+            logger.warning('start.gg re-sync after report failed for tournament %s: %s', row.tournament.id, e)
         return True
