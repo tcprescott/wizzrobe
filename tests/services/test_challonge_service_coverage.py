@@ -323,11 +323,55 @@ class TestPushEdgeCases:
         api = MagicMock()
         api.get_match = AsyncMock(return_value={'match_id': '8001', 'state': 'open'})
         api.update_match = AsyncMock()
-        api.get_tournament_full = AsyncMock(side_effect=ChallongeAPIError('resync boom'))
+        api.get_tournament_full = AsyncMock(side_effect=ChallongeAPIError('resync boom', status=502))
 
         # Must not raise despite the re-sync failure.
         await make_service(api=api).push_match_result(match, actor)
         api.update_match.assert_awaited_once()
+        api.get_tournament_full.assert_awaited_once()
+
+    async def test_post_push_resync_timeout_retries_then_warns(self, db, monkeypatch, caplog):
+        """Sentry SGLMAN-2J: a re-sync timeout after a landed push is retried once, then a warning."""
+        from application.services import _challonge_results
+        monkeypatch.setattr(_challonge_results, '_RESYNC_RETRY_DELAY', 0)
+        actor, match, cmatch = await self._linked_setup()
+        api = MagicMock()
+        api.get_match = AsyncMock(return_value={'match_id': '8001', 'state': 'open'})
+        api.update_match = AsyncMock()
+        api.get_tournament_full = AsyncMock(
+            side_effect=ChallongeAPIError("Challonge didn't answer (TimeoutError)"),
+        )
+
+        with caplog.at_level('WARNING', logger=_challonge_results.__name__):
+            assert await make_service(api=api).push_match_result(match, actor) is True
+        assert api.get_tournament_full.await_count == 2
+        records = [r for r in caplog.records if 're-sync failed' in r.getMessage()]
+        assert [r.levelname for r in records] == ['WARNING']
+
+    async def test_post_push_resync_timeout_recovers_on_retry(self, db, monkeypatch, caplog):
+        from application.services import _challonge_results
+        monkeypatch.setattr(_challonge_results, '_RESYNC_RETRY_DELAY', 0)
+        actor, match, cmatch = await self._linked_setup()
+        api = MagicMock()
+        api.get_match = AsyncMock(return_value={'match_id': '8001', 'state': 'open'})
+        api.update_match = AsyncMock()
+        sync = AsyncMock(side_effect=[ChallongeAPIError("Challonge didn't answer (TimeoutError)"), None])
+        service = make_service(api=api)
+        service._sync_tournament = sync
+
+        with caplog.at_level('WARNING', logger=_challonge_results.__name__):
+            await service.push_match_result(match, actor)
+        assert sync.await_count == 2
+        assert not [r for r in caplog.records if 're-sync failed' in r.getMessage()]
+
+    async def test_post_push_resync_http_error_is_not_retried(self, db):
+        actor, match, cmatch = await self._linked_setup()
+        api = MagicMock()
+        api.get_match = AsyncMock(return_value={'match_id': '8001', 'state': 'open'})
+        api.update_match = AsyncMock()
+        api.get_tournament_full = AsyncMock(side_effect=ChallongeAPIError('bad', status=404))
+
+        await make_service(api=api).push_match_result(match, actor)
         api.get_tournament_full.assert_awaited_once()
 
 
