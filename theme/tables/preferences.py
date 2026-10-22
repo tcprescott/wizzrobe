@@ -86,6 +86,9 @@ class TableKeys:
     VOLUNTEER_FULL_SCHEDULE = 'volunteer.full_schedule'
     # Not a ui.table either: Admin → Shift Board's role columns, as above.
     ADMIN_SHIFT_BOARD = 'admin.shift_board'
+    # Not a ui.table: Match Schedule › Not booked yet, for the folded tournament
+    # groups only, keyed "<tournament id>:<source>".
+    ADMIN_UNBOOKED = 'admin.unbooked'
 
     # Admin
     ADMIN_USERS = 'admin.users'

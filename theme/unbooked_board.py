@@ -12,9 +12,9 @@ import asyncio
 from functools import partial
 from typing import Any, Awaitable, Callable, Optional
 
-from nicegui import ui
+from nicegui import background_tasks, context, ui
 
-from application.services import BracketService, UserService, bracket_sources
+from application.services import BracketService, TablePreferenceService, UserService, bracket_sources
 from application.services.bracket_sources import BookableMatch, UnbookedMatch
 from application.utils.timezone import format_local_display
 from models import Match
@@ -26,6 +26,7 @@ from theme.menu import lazy_more_menu, menu_action, menu_link
 from theme.notify import notify_error
 from theme.steady import steady_refreshable
 from theme.tables.admin_crud import capture_render_context, current_actor, scoped_background
+from theme.tables.preferences import TableKeys
 from theme.url_state import url_param, url_state
 
 _STATUS = {'all': 'All', 'ready': 'Ready to book', 'blocked': 'Needs account', 'tbd': 'Players TBD'}
@@ -92,6 +93,7 @@ class UnbookedBoard:
         self.status = 'all'
         self.search = ''
         self._items: list[UnbookedMatch] = []
+        self._folded: dict[str, bool] = {}
         self._generation = 0
         self._render_context = capture_render_context()
 
@@ -118,7 +120,14 @@ class UnbookedBoard:
         self.on_count(self._count())
         await self._rows.refresh()
 
+    async def _load_folds(self) -> None:
+        actor = await current_actor()
+        saved = await TablePreferenceService().get(actor, TableKeys.ADMIN_UNBOOKED) if actor else None
+        folded = (saved or {}).get('folded')
+        self._folded = dict(folded) if isinstance(folded, dict) else {}
+
     async def render(self) -> None:
+        await self._load_folds()
         self._items = await self._load()
         self.on_count(self._count())
         with ui.column().classes('unbooked-board full-width gap-2'):
@@ -192,16 +201,52 @@ class UnbookedBoard:
             groups.setdefault((item.tournament.id, item.source), []).append(item)
         built = 0
         with ui.column().classes('unbooked-board__groups full-width gap-2'):
-            for rows in groups.values():
+            for (tournament_id, source), rows in groups.items():
+                fold_key = f'{tournament_id}:{source}'
+                folded = self._folded.get(fold_key, False)
                 with ui.element('section').classes('wiz-pick-group unbooked-group'):
-                    with ui.row().classes('wiz-pick-group__head items-center no-wrap gap-2'):
+                    head = ui.element('button').props(
+                        f'type=button aria-expanded={"false" if folded else "true"}',
+                    ).classes('wiz-pick-group__head unbooked-group__fold row items-center no-wrap gap-2')
+                    with head:
+                        icon = ui.icon('chevron_right' if folded else 'expand_more', size='20px') \
+                            .props('aria-hidden=true')
                         ui.label(f'{rows[0].tournament.name} · {len(rows)}').classes('col min-w-0')
                         ui.label(rows[0].source_label).classes('wiz-chip wiz-chip--neutral')
-                    for item in rows:
-                        self._row(item)
-                        built += 1
-                        if built % _ROWS_PER_SLICE == 0:
-                            await asyncio.sleep(0)
+                    body = ui.element('div').classes('unbooked-group__rows')
+                    body.set_visibility(not folded)
+                    head.on('click', partial(self._on_fold, fold_key, head, icon, body))
+                    with body:
+                        for item in rows:
+                            self._row(item)
+                            built += 1
+                            if built % _ROWS_PER_SLICE == 0:
+                                await asyncio.sleep(0)
+
+    def _on_fold(self, fold_key: str, head: ui.element, icon: ui.icon, body: ui.element, _event=None) -> None:
+        """Fold or open one tournament's group in place and remember it for this viewer.
+
+        Flips the elements already drawn rather than refreshing the board, so a
+        fold costs no reload and the rows around it stay put.
+        """
+        folded = not self._folded.get(fold_key, False)
+        self._folded = {**self._folded, fold_key: folded}
+        body.set_visibility(not folded)
+        icon.name = 'chevron_right' if folded else 'expand_more'
+        icon.update()
+        head.props(f'aria-expanded={"false" if folded else "true"}')
+        background_tasks.create(self._save_fold(fold_key, folded, context.client))
+
+    @staticmethod
+    async def _save_fold(fold_key: str, folded: bool, client) -> None:
+        with client:
+            actor = await current_actor()
+            if actor is None:
+                return
+            try:
+                await TablePreferenceService().set_folded(actor, TableKeys.ADMIN_UNBOOKED, fold_key, folded)
+            except ValueError as e:
+                ui.notify(str(e), color='warning')
 
     def _row(self, item: UnbookedMatch) -> None:
         with ui.element('div').classes('unbooked-row'):

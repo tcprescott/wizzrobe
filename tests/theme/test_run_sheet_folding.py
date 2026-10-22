@@ -95,3 +95,42 @@ class TestTemplates:
 
     def test_the_filter_keeps_a_folded_groups_header_row(self):
         assert '!row._folded || row._group_start' in RUN_SHEET_FILTER
+
+
+class TestPlayerRunSheet:
+    """Event › Schedule and My Schedule fold the same way, Finished first."""
+
+    def _view(self, folded=None):
+        view = _view(folded)
+        view.layout = 'player_run_sheet'
+        view._discord_id = None
+        return view
+
+    def test_finished_starts_folded_and_the_rest_open(self):
+        rows = self._view()._arrange([_row(1, 'Started', 1), _row(2, 'Confirmed', 2), _row(3, 'Scheduled', 3)])
+        assert _folded_groups(rows) == {'Finished'}
+        assert {r['_group']: r['_group_count'] for r in rows} == {'Live now': 1, 'Finished': 1, 'Up next': 1}
+
+    def test_a_saved_choice_beats_the_default(self):
+        rows = self._view({'Finished': False, 'Up next': True})._arrange(
+            [_row(1, 'Scheduled', 1), _row(2, 'Confirmed', 2)])
+        assert _folded_groups(rows) == {'Up next'}
+
+    def test_the_slots_fold_and_the_filter_keeps_headers(self):
+        from theme.tables.match_player_run_sheet import register_player_run_sheet_slots
+
+        class Table:
+            def __init__(self):
+                self.slots = {}
+                self._props = {}
+
+            def add_slot(self, name, template):
+                self.slots[name] = template
+
+        table = Table()
+        register_player_run_sheet_slots(table)
+        for slot in table.slots.values():
+            assert 'class="run-sheet__fold"' in slot
+            assert 'v-if="!props.row._folded"' in slot
+        assert table._props[':filter-method'] == RUN_SHEET_FILTER
+        assert table._props['filter'] == {'text': ''}

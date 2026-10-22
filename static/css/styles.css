@@ -7163,6 +7163,21 @@ ol.wiz-help-list { list-style-type: decimal; }
 .unbooked-group {
     width: 100%;
 }
+/* The tournament heading is the group's fold button, as on the run sheets. */
+.unbooked-group__fold {
+    width: 100%;
+    margin: 0;
+    border: 0;
+    font-family: inherit;
+    color: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+.unbooked-group__fold > .q-icon {
+    flex: none;
+    color: var(--fg);
+    margin-left: -0.25rem;
+}
 .unbooked-board__search {
     min-width: 0;
     max-width: 22rem;

@@ -13,7 +13,14 @@ a line's buttons are only ever as current as its row, which the board already
 re-fetches after every change.
 """
 
-from theme.tables.match_run_sheet import CREW_NAMES, HELD_TAG, crew_people, decorate_run_sheet_row
+from theme.tables.match_run_sheet import (
+    CREW_NAMES,
+    HELD_TAG,
+    crew_people,
+    decorate_run_sheet_row,
+    fold_header,
+    use_fold_filter,
+)
 from theme.tables.match_slots import MY_ACTIONS_COLUMN, STREAM_VOLUNTEER_ACTIONABLE
 
 PLAYER_RUN_SHEET_COLUMNS = [
@@ -212,10 +219,15 @@ def arrange_player_run_sheet(rows: list, discord_id) -> list:
         return (order, -ts if order == _DONE[0] else ts)
 
     arranged = sorted(rows, key=key)
+    counts: dict[str, int] = {}
+    for row in arranged:
+        header = _group(row)[1]
+        counts[header] = counts.get(header, 0) + 1
     previous = None
     for row in arranged:
         _, header = _group(row)
         row['_group'] = header
+        row['_group_count'] = counts[header]
         row['_group_start'] = header != previous
         previous = header
     return arranged
@@ -358,9 +370,9 @@ _STAGE = r'''<a v-if="props.row._stage && props.row.stage_url" :href="props.row.
 
 _BODY_SLOT = r'''
 <q-tr v-if="props.row._group_start" class="run-sheet__group-row">
-    <q-td colspan="100%" class="run-sheet__group">{{ props.row._group }}</q-td>
+    <q-td colspan="100%" class="run-sheet__group">''' + fold_header(False) + r'''</q-td>
 </q-tr>
-<q-tr :props="props" class="run-sheet__row player-sheet__row" :class="[props.row._flash ? 'wiz-row-flash' : '', props.row._removed ? 'wiz-row-removed' : '']" :inert="props.row._removed ? '' : null" :data-wiz-row="props.row.id"
+<q-tr v-if="!props.row._folded" :props="props" class="run-sheet__row player-sheet__row" :class="[props.row._flash ? 'wiz-row-flash' : '', props.row._removed ? 'wiz-row-removed' : '']" :inert="props.row._removed ? '' : null" :data-wiz-row="props.row.id"
       @click="$parent.$emit('open_match', props.row.id)">
     <q-td v-for="col in props.cols" :key="col.name" :props="props"
           :class="col.name === 'commentators' || col.name === 'trackers' ? 'player-sheet__crew-cell' : col.name === 'match' ? 'player-sheet__match-cell' : ''">
@@ -396,8 +408,8 @@ _CARD_CHIP = ('<span v-if="' + _CARD_CHIP_IF + '" class="wiz-chip" '
               ':class="\'wiz-chip--\' + props.row._tone">{{ props.row._status }}</span>')
 _ITEM_SLOT = r'''
 <div class="run-sheet__item">
-    <div v-if="props.row._group_start" class="run-sheet__group">{{ props.row._group }}</div>
-    <div class="player-sheet__card" :class="[props.row._flash ? 'wiz-row-flash' : '', props.row._removed ? 'wiz-row-removed' : '']" :inert="props.row._removed ? '' : null" :data-wiz-row="props.row.id">
+    <div v-if="props.row._group_start" class="run-sheet__group">''' + fold_header(False) + r'''</div>
+    <div v-if="!props.row._folded" class="player-sheet__card" :class="[props.row._flash ? 'wiz-row-flash' : '', props.row._removed ? 'wiz-row-removed' : '']" :inert="props.row._removed ? '' : null" :data-wiz-row="props.row.id">
         <div class="player-sheet__top">
             <button type="button" class="player-sheet__open" @click="$parent.$emit('open_match', props.row.id)">
                 <span class="run-sheet__when">''' + _WHEN + '''</span>
@@ -423,3 +435,4 @@ def register_player_run_sheet_slots(table, *, menu: bool = False) -> None:
     """
     table.add_slot('body', _BODY_SLOT)
     table.add_slot('item', _ITEM_SLOT.replace('__MENU__', _MENU if menu else ''))
+    use_fold_filter(table)

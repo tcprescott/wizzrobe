@@ -167,6 +167,7 @@ class TestMyScheduleMenu:
         class Table:
             def __init__(self):
                 self.slots = {}
+                self._props = {}
 
             def add_slot(self, name, template):
                 self.slots[name] = template

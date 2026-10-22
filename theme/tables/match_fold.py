@@ -1,6 +1,6 @@
 """Fold a run sheet's groups, and remember the folds per viewer.
 
-A group header is a button (``match_run_sheet._group_header``). Folding stamps
+A group header is a button (``match_run_sheet.fold_header``). Folding stamps
 ``_folded`` on the group's rows, which the slots draw as the header alone and
 ``RUN_SHEET_FILTER`` keeps out of the pager. The choice is saved per group in
 the board's table preferences, so a group that starts folded

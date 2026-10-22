@@ -225,7 +225,7 @@ class MatchTableView(MatchFiltersMixin, MatchTableHandlersMixin, MatchBoardHoldM
     def _arrange(self, rows: list) -> list:
         """Group and order ``rows`` for a run-sheet layout; a table keeps its order."""
         if self.layout == 'player_run_sheet':
-            return arrange_player_run_sheet(rows, getattr(self, '_discord_id', None))
+            return self._stamp_folded(arrange_player_run_sheet(rows, getattr(self, '_discord_id', None)))
         if self.layout != 'run_sheet':
             return rows
         if self.run_sheet_group is None:
@@ -316,8 +316,7 @@ class MatchTableView(MatchFiltersMixin, MatchTableHandlersMixin, MatchBoardHoldM
                 )
             if self.on_open_match is not None:
                 self.table.on('open_match', lambda event: self._bg(self.on_open_match(event.args)))
-            if self.layout == 'run_sheet':
-                self._wire_folding()
+            self._wire_folding()
         else:
             self._register_table_slots(discord_id)
 
@@ -337,7 +336,7 @@ class MatchTableView(MatchFiltersMixin, MatchTableHandlersMixin, MatchBoardHoldM
             if self.searchable:
                 with search_slot:
                     search_input(self.table, placeholder='Search matches…',
-                                 search_terms=self.layout == 'run_sheet')
+                                 search_terms=self.layout in ('run_sheet', 'player_run_sheet'))
             with self.table_container:
                 row_count_label(self.table, 'matches')
             sticky_header(self.table)
