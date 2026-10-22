@@ -3406,7 +3406,7 @@ body:has(.wiz-header) .q-notifications__list--top {
     font-weight: 700;
     letter-spacing: 0.04em;
     text-transform: uppercase;
-    color: var(--fg-muted);
+    color: var(--fg-secondary);
 }
 
 .wiz-audit__before {
@@ -6892,6 +6892,10 @@ ol.wiz-help-list { list-style-type: decimal; }
         color: var(--fg-secondary) !important;
     }
     .body--dark .text-negative  { color: var(--status-cancelled) !important; }
+    /* The crew tray's sunken fill drops it to 4.3:1 (a player's own Withdraw). */
+    .body--dark .wiz-crew-action .text-negative {
+        color: color-mix(in srgb, var(--status-cancelled) 88%, white) !important;
+    }
     .body--dark .text-positive  { color: var(--status-ok) !important; }
     .body--dark .text-warning   { color: var(--status-pending) !important; }
     .body--dark .text-info      { color: var(--status-info) !important; }
@@ -7582,6 +7586,10 @@ ol.wiz-help-list { list-style-type: decimal; }
 .player-sheet__row > td.player-sheet__crew-cell {
     vertical-align: top;
 }
+/* The names wrap at their spaces, never down to a letter a line. */
+.player-sheet__row > td.player-sheet__match-cell {
+    min-width: 10rem;
+}
 .player-sheet__role {
     display: flex;
     flex-direction: column;
@@ -7630,10 +7638,6 @@ ol.wiz-help-list { list-style-type: decimal; }
     text-align: left;
     cursor: pointer;
 }
-.player-sheet__open > .wiz-chip {
-    flex: none;
-    white-space: nowrap;
-}
 .player-sheet__late {
     display: flex;
     align-items: center;
@@ -7646,7 +7650,8 @@ ol.wiz-help-list { list-style-type: decimal; }
     gap: 0.625rem;
     padding: 0 0.75rem 0.75rem;
 }
-.player-sheet__acts > .q-btn {
+.player-sheet__acts > .q-btn,
+.player-sheet__acts > .wiz-chip {
     align-self: flex-start;
 }
 .player-sheet__acts .q-btn {

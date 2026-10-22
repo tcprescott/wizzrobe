@@ -363,7 +363,7 @@ _BODY_SLOT = r'''
 <q-tr :props="props" class="run-sheet__row player-sheet__row" :class="[props.row._flash ? 'wiz-row-flash' : '', props.row._removed ? 'wiz-row-removed' : '']" :inert="props.row._removed ? '' : null" :data-wiz-row="props.row.id"
       @click="$parent.$emit('open_match', props.row.id)">
     <q-td v-for="col in props.cols" :key="col.name" :props="props"
-          :class="col.name === 'commentators' || col.name === 'trackers' ? 'player-sheet__crew-cell' : ''">
+          :class="col.name === 'commentators' || col.name === 'trackers' ? 'player-sheet__crew-cell' : col.name === 'match' ? 'player-sheet__match-cell' : ''">
         <template v-if="col.name === 'scheduled_at'">''' + _WHEN + '''</template>
         <template v-else-if="col.name === 'match'">
             <button type="button" class="run-sheet__open" @click.stop="$parent.$emit('open_match', props.row.id)">
@@ -389,6 +389,11 @@ _BODY_SLOT = r'''
 
 # Phone: the names are the button that opens the sheet; the bell and the crew
 # buttons sit beside it rather than inside it (a button can't hold buttons).
+# The status chip leads the tray below, the way it heads desktop's Status
+# column: beside the names it squeezed them to a letter a line.
+_CARD_CHIP_IF = "props.row._status !== 'Scheduled' && !props.row._my_late"
+_CARD_CHIP = ('<span v-if="' + _CARD_CHIP_IF + '" class="wiz-chip" '
+              ':class="\'wiz-chip--\' + props.row._tone">{{ props.row._status }}</span>')
 _ITEM_SLOT = r'''
 <div class="run-sheet__item">
     <div v-if="props.row._group_start" class="run-sheet__group">{{ props.row._group }}</div>
@@ -400,10 +405,9 @@ _ITEM_SLOT = r'''
                     <span class="run-sheet__who">{{ ''' + _TITLE + ''' }}</span>
                     <span class="run-sheet__meta" :title="props.row.tournament">{{ props.row.tournament_short || props.row.tournament }}<template v-if="props.row._stage"> · {{ props.row._stage }}</template></span>
                 </span>
-                <span v-if="props.row._status !== 'Scheduled' && !props.row._my_late" class="wiz-chip" :class="'wiz-chip--' + props.row._tone">{{ props.row._status }}</span>
             </button>''' + _BELL + '''__MENU__
         </div>
-        <div v-if="props.row._ack || props.row._can_late || props.row._my_late || props.row._roles.length" class="player-sheet__acts">''' + _LATE_CHIP + _ACK + _LATE + '''
+        <div v-if="props.row._status !== 'Scheduled' || props.row._ack || props.row._can_late || props.row._my_late || props.row._roles.length" class="player-sheet__acts">''' + _CARD_CHIP + _LATE_CHIP + _ACK + _LATE + '''
             <div v-for="c in props.row._roles" :key="c.key" class="player-sheet__role">''' + _ROLE_CARD + '''</div>
         </div>
     </div>

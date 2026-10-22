@@ -301,7 +301,7 @@ async def render_availability_editor(
                 ui.label(mode.empty_text).classes('italic-note')
             for day, day_rows in _days():
                 with ui.element('div').classes('avail-day'):
-                    with ui.row().classes('avail-day__head items-center no-wrap'):
+                    with ui.row().classes('avail-day__head items-center'):
                         # Regroup on blur, not on every change: a typed date
                         # passes through intermediate valid values, and
                         # rebuilding the card mid-edit would steal the field.
