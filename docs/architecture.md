@@ -146,7 +146,7 @@ Every top-level entry in the repository, with the doc that covers it:
 | `docs/` | This documentation | [README.md](README.md) |
 | `start.sh` | Uvicorn launcher (`dev`/`mock`/`validate`/`prod`, plus `stop`); sources `.env` | [deployment.md](deployment.md) |
 | `Dockerfile`, `docker-compose.yml` | Container build and postgres+app stack | [deployment.md](deployment.md) |
-| `.github/workflows/` | CI (`test.yml`), GHCR image publishing (`publish.yml`), `security.yml` (pip-audit) and `guardrail-sweep.yml` (weekly whole-tree guardrails) | [development.md](development.md), [deployment.md](deployment.md) |
+| `.github/workflows/` | CI (`test.yml`), GHCR image publishing (`publish.yml`), `security.yml` (pip-audit), `codeql.yml` (code scanning, main + weekly) and `guardrail-sweep.yml` (weekly whole-tree guardrails) | [development.md](development.md), [deployment.md](deployment.md) |
 | `pyproject.toml`, `poetry.lock` | Poetry dependencies, pytest and Aerich config | [development.md](development.md) |
 | `.env.example` | Annotated template for all environment variables | [deployment.md](deployment.md) |
 | `CLAUDE.md`, `AGENTS.md`, `.claude/` | Conventions and AI-assistant development guides; `.claude/` holds the hooks, guardrail scripts and skills | [`.claude/README.md`](../.claude/README.md) |
