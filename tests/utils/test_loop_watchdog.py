@@ -193,3 +193,25 @@ class TestGarbageCollectionStalls:
         stats = RuntimeStats.model_validate(runtime_stats.collect())
         assert stats.gc.installed
         assert stats.gc.by_generation['2']['passes'] >= 1
+
+
+class TestMemoryCensus:
+    def test_counts_types_and_live_channels(self):
+        from application.events import match_live
+        from application.utils import memory_census
+
+        token = match_live.subscribe(lambda *_: None)
+        try:
+            census = memory_census.take(top=10)
+        finally:
+            match_live.unsubscribe(token)
+        assert census['tracked_objects'] > 0
+        assert len(census['top_types']) == 10
+        assert census['match_live_subscribers'] >= 1
+        assert census['elements_deleted'] <= census['elements_alive']
+
+    async def test_only_a_super_admin_may_run_it(self):
+        from application.services import RuntimeStatsService
+
+        with pytest.raises(PermissionError):
+            await RuntimeStatsService.memory_census(None)

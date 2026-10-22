@@ -229,6 +229,18 @@ STALL_GRACE_SECONDS` (60s) without a tick, or a tick or queued call has run 60s
 past its limit. A worker switched off by config (`enabled: false` in
 `runtime_stats`) is never stalled.
 
+### Finding a leak (`memory_census`)
+
+Gen-2 passes that keep getting longer mean the live heap is growing. The
+super-admin MCP tool `memory_census`
+([`memory_census.py`](../../application/utils/memory_census.py)) counts every
+tracked object by type, without collecting first, and reports NiceGUI pages
+still in memory against pages still served (`clients_alive` vs
+`clients_registered`), elements of deleted pages still in memory, and
+`match_live` / `check_in_live` subscribers. Take two some minutes apart; the
+types that keep rising are what leaks. Each call walks the whole heap, so the
+watchdog will log it as a stall.
+
 ## Live load (`runtime_stats`)
 
 The super-admin MCP tool `runtime_stats` reads the process without shell access:

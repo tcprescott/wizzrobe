@@ -31,6 +31,7 @@ _LOGGER = 'wizzrobe.test.platform_mcp'
 # gate is what answers. They need not name rows that exist.
 PLATFORM_CALLS = {
     'runtime_stats': {},
+    'memory_census': {},
     'platform_list_communities': {},
     'platform_get_community': {'community': 'default'},
     'platform_list_users': {},

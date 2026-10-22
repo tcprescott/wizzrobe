@@ -27,6 +27,7 @@ PLATFORM_READ_TOOLS = {
     'platform_list_users',
     'platform_service_health',
     'runtime_stats',
+    'memory_census',
 }
 PLATFORM_WRITE_TOOLS = {
     'platform_create_community',
