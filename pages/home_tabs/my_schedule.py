@@ -208,7 +208,7 @@ async def my_schedule_tab(
         if state['view'] != 'list':
             await edit_availability()
             return
-        ui.run_javascript(
+        client.run_javascript(
             f"document.getElementById('{AVAILABILITY_SECTION_ID}')"
             "?.scrollIntoView({behavior: 'smooth', block: 'start'})"
         )
