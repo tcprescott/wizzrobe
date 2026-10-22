@@ -246,6 +246,13 @@ def tournament_slug(event_slug: str) -> str:
     return event_slug.split('/event/', 1)[0]
 
 
+def _internal_error(payload: Any) -> bool:
+    errors = (payload or {}).get('errors') if isinstance(payload, dict) else None
+    return bool(errors) and all(
+        ((e or {}).get('extensions') or {}).get('category') == 'internal' for e in errors
+    )
+
+
 class StartggClient:
     """Read-only start.gg API client using a personal access token."""
 
@@ -280,6 +287,11 @@ class StartggClient:
                 raise StartggAPIError(f"Couldn't reach start.gg ({type(e).__name__}).") from e
             if status == 429 and attempt == 0:
                 await asyncio.sleep(5)
+                continue
+            # Sentry SGLMAN-2H: start.gg answers a 200 with an "internal" error now
+            # and then (its own fault, gone on the next request), so retry it once.
+            if attempt == 0 and _internal_error(payload):
+                await asyncio.sleep(1)
                 continue
             break
         if status in (401, 403):
