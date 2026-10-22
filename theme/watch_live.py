@@ -13,7 +13,6 @@ from typing import Dict, FrozenSet, Optional, Set
 from nicegui import ui
 
 from application.services import MatchWatcherService
-
 from application.utils.clients.sglive_client import SGLIVE_URL
 from application.utils.money import format_money
 from application.utils.safe_url import http_url_or_empty
