@@ -1,11 +1,12 @@
 name: Tests
 
-# Pull requests run this directly. Pushes to main and tags reach it through
-# `workflow_call` from publish.yml, which gates the container build on it — so
-# the suite that guards a release is the same one that guards a PR, and a main
-# push runs it once rather than twice.
+# Pull requests and pushes to main run this directly. publish.yml also calls it
+# through `workflow_call` to gate a container build on the same suite; that
+# workflow is paused (manual runs only), so main gets its run from `push` here.
 on:
   pull_request:
+    branches: [main]
+  push:
     branches: [main]
   workflow_call:
   workflow_dispatch:
@@ -113,7 +114,7 @@ jobs:
   changes:
     # Decides which subsystem-only jobs a PR needs. A job skipped by its `if:`
     # reports as passed, so a required check never waits on it. Everything that
-    # isn't a pull request (the publish.yml gate on main, a manual run) runs all.
+    # isn't a pull request (a push to main, a manual run) runs all.
     runs-on: ubuntu-latest
     timeout-minutes: 5
     outputs:

@@ -1,9 +1,11 @@
 name: Publish Container
 
+# Paused: production deploys are a git pull + restart and never use the image.
+# Run it by hand from the Actions tab if an image is needed; to resume automatic
+# builds, restore the `push` trigger (main + `v*` tags) and drop `push` from
+# test.yml so a main push doesn't run the suite twice.
 on:
-  push:
-    branches: [main]
-    tags: ["v*"]
+  workflow_dispatch:
 
 permissions:
   contents: read
