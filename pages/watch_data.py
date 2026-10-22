@@ -30,6 +30,7 @@ from application.services.system_config_service import (
     KEY_WATCH_AUTO_STATIC,
     KEY_WATCH_AUTO_THRESHOLD,
     KEY_WATCH_MODE,
+    KEY_WATCH_STATIC_SIGNED_OUT,
     SystemConfigService,
 )
 from application.services.tenant_service import TenantService
@@ -149,6 +150,7 @@ class WatchSettings:
     mode: str = 'live'
     auto_static: bool = True
     threshold: int = DEFAULT_WATCH_AUTO_THRESHOLD
+    static_signed_out: bool = False
 
 
 _settings: Dict[int, tuple[float, WatchSettings]] = {}
@@ -166,6 +168,7 @@ async def watch_settings(tenant_id: int) -> WatchSettings:
             threshold=await SystemConfigService.get_int(
                 KEY_WATCH_AUTO_THRESHOLD, DEFAULT_WATCH_AUTO_THRESHOLD,
             ) or DEFAULT_WATCH_AUTO_THRESHOLD,
+            static_signed_out=await SystemConfigService.get_bool(KEY_WATCH_STATIC_SIGNED_OUT, default=False),
         )
     _settings[tenant_id] = (time.monotonic(), settings)
     return settings

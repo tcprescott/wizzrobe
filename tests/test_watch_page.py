@@ -17,6 +17,7 @@ import pages.watch_data as watch_data
 from application.services.system_config_service import (
     KEY_WATCH_AUTO_THRESHOLD,
     KEY_WATCH_MODE,
+    KEY_WATCH_STATIC_SIGNED_OUT,
     SystemConfigService,
 )
 from application.tenant_context import tenant_scope
@@ -289,12 +290,19 @@ class TestStaticSwitch:
             'headers': [], 'query_string': b'',
         })
 
+    async def test_signed_out_stays_live_until_staff_switch_it(self, db, monkeypatch):
+        monkeypatch.setattr(static_watch, '_signed_in', lambda: False)
+        with tenant_scope(DEFAULT_TEST_TENANT_ID):
+            assert await static_watch.serve_static_arrival(self._request()) is None
+        assert live_audience.snapshot(DEFAULT_TEST_TENANT_ID).arrivals_last_minute == 1
+
     async def test_signed_out_gets_static_and_signed_in_gets_live(self, db, monkeypatch):
         async def fake_view(tenant_id):
             return WatchView(community='C')
 
         monkeypatch.setattr(static_watch, 'get_watch_view', fake_view)
         with tenant_scope(DEFAULT_TEST_TENANT_ID):
+            await SystemConfigService.set_validated(KEY_WATCH_STATIC_SIGNED_OUT, 'true', await _staff())
             assert await static_watch.serve_static_arrival(self._request()) is None
             monkeypatch.setattr(static_watch, '_signed_in', lambda: False)
             response = await static_watch.serve_static_arrival(self._request())
@@ -310,7 +318,9 @@ class TestStaticSwitch:
         monkeypatch.setattr(static_watch, 'get_watch_view', fake_view)
         monkeypatch.setattr(static_watch, '_signed_in', lambda: False)
         with tenant_scope(DEFAULT_TEST_TENANT_ID):
-            await SystemConfigService.set_validated(KEY_WATCH_MODE, 'static', await _staff())
+            staff = await _staff()
+            await SystemConfigService.set_validated(KEY_WATCH_STATIC_SIGNED_OUT, 'true', staff)
+            await SystemConfigService.set_validated(KEY_WATCH_MODE, 'static', staff)
             response = await static_watch.serve_static_arrival(self._request())
         assert response.headers['Cache-Control'].startswith('public')
 
