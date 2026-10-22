@@ -14,6 +14,7 @@ from application.services.system_config_service import (
     KEY_WATCH_AUTO_STATIC,
     KEY_WATCH_AUTO_THRESHOLD,
     KEY_WATCH_MODE,
+    KEY_WATCH_STATIC_SIGNED_OUT,
 )
 from application.tenant_context import require_tenant_id
 from application.utils import live_audience
@@ -29,8 +30,7 @@ from theme.section import section_panel
 ADMISSIONS_PER_MINUTE = 600
 
 _MODE_LABELS = {
-    'live': 'Live: signed-in viewers see updates the moment a match changes, and each holds a connection. '
-            'Signed-out visitors always get the static copy.',
+    'live': 'Live: updates the moment a match changes. Each viewer holds a connection.',
     'static': 'Static: one shared copy that updates itself every minute. The player keeps playing.',
 }
 
@@ -65,7 +65,7 @@ async def watch_page_settings_pane(can_edit: bool) -> None:
         with ui.element('div').classes('wiz-watch-stats'):
             _stat(str(snap.live_viewers), 'Watching live')
             _stat(str(snap.static_readers), 'Reading the static page')
-            _stat(f'{snap.arrivals_last_minute}', f'Signed in and arrived in the last minute (the app takes about {ADMISSIONS_PER_MINUTE})')
+            _stat(f'{snap.arrivals_last_minute}', f'Arrived at the live page in the last minute (the app takes about {ADMISSIONS_PER_MINUTE})')
             peak = f' at {format_local_time(snap.peak_at)}' if snap.peak_at else ''
             _stat(str(snap.peak), f'Most at once{peak}')
 
@@ -83,6 +83,14 @@ async def watch_page_settings_pane(can_edit: bool) -> None:
     )
     with card.body:
         mode_input = ui.radio(_MODE_LABELS, value=settings.mode).props('dense')
+        with ui.column().classes('gap-1'):
+            signed_out_input = ui.switch(
+                'Signed-out visitors always get the static page', value=settings.static_signed_out,
+            ).props('dense')
+            field_hint(
+                'Saves the app a connection per anonymous viewer, but they only see changes once a '
+                'minute. Signed-in people stay live.'
+            )
         ui.separator()
         with ui.column().classes('gap-1'):
             auto_input = ui.switch(
@@ -92,7 +100,7 @@ async def watch_page_settings_pane(can_edit: bool) -> None:
                 'Arrivals a minute that count as a rush', value=settings.threshold, min=1, format='%d',
             ).classes('w-72')
             field_hint(
-                'Past this many signed-in arrivals in a minute, new arrivals get the static page '
+                'Past this many arrivals in a minute, new arrivals get the static page '
                 'until ten minutes pass without one. People already watching stay live.'
             )
 
@@ -106,6 +114,9 @@ async def watch_page_settings_pane(can_edit: bool) -> None:
             await SystemConfigService.set_validated(
                 KEY_WATCH_AUTO_THRESHOLD, str(int(threshold_input.value or 0)), actor,
             )
+            await SystemConfigService.set_validated(
+                KEY_WATCH_STATIC_SIGNED_OUT, 'true' if signed_out_input.value else 'false', actor,
+            )
         except (ValueError, PermissionError) as e:
             notify_error(e)
             return False
@@ -114,8 +125,9 @@ async def watch_page_settings_pane(can_edit: bool) -> None:
         return True
 
     with card.panel:
-        SaveFooter(save, enabled=can_edit).watch(mode_input, auto_input, threshold_input)
+        SaveFooter(save, enabled=can_edit).watch(mode_input, signed_out_input, auto_input, threshold_input)
     if not can_edit:
         mode_input.disable()
+        signed_out_input.disable()
         auto_input.disable()
         threshold_input.disable()

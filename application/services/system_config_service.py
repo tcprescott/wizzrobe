@@ -52,6 +52,9 @@ WATCH_MODES = ('live', 'static')
 KEY_WATCH_AUTO_STATIC = 'watch_page_auto_static'
 KEY_WATCH_AUTO_THRESHOLD = 'watch_page_auto_threshold'
 DEFAULT_WATCH_AUTO_THRESHOLD = 300
+# Whether signed-out visitors always get the static page while it is otherwise
+# live (default off): cheaper, but they lose the live updates.
+KEY_WATCH_STATIC_SIGNED_OUT = 'watch_page_static_signed_out'
 
 _DISCORD_INVITE_RE = re.compile(
     r'^(?:https?://)?(?:www\.)?(?:discord\.gg|(?:discord|discordapp)\.com/invite)/([A-Za-z0-9-]{2,64})/?$'
@@ -492,4 +495,5 @@ _NORMALIZERS = {
     KEY_WATCH_MODE: _watch_mode_value,
     KEY_WATCH_AUTO_STATIC: _bool_value,
     KEY_WATCH_AUTO_THRESHOLD: _positive_int_value,
+    KEY_WATCH_STATIC_SIGNED_OUT: _bool_value,
 }

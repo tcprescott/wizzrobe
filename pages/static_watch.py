@@ -1,10 +1,10 @@
 """The Watch page's static rendering, and the switch that serves it at ``/live``.
 
-``/live`` is a live NiceGUI page (``pages/live_watch.py``) for signed-in
-readers only. Each live reader is a websocket and a page build, and the app
-admits about ten new ones a second, so a signed-out visitor always gets the
-static page, and everyone does when staff set the page to static or a rush of
-signed-in arrivals trips it there
+``/live`` is normally a live NiceGUI page (``pages/live_watch.py``). Each live
+reader is a websocket and a page build, and the app admits about ten new ones a
+second, so when staff set the page to static, or a rush of arrivals trips it
+there, everyone gets the static page; staff can also send every signed-out
+visitor there all the time
 (:mod:`application.utils.live_audience`), :class:`middleware.watch_mode.WatchModeMiddleware`
 answers ``/live`` from here before NiceGUI ever sees the request: one render per
 change, shared by every reader, through the static bracket views' cache and
@@ -61,17 +61,17 @@ def _signed_in() -> bool:
 
 
 async def serve_static_arrival(request: Request) -> Optional[Response]:
-    """Answer ``/live`` statically for a signed-out visitor or when the page is static.
+    """Answer ``/live`` statically when the page is static, or to a signed-out
+    visitor when staff send those there.
 
-    ``None`` means "live": let the request through to the NiceGUI page. Only
-    signed-in arrivals count towards the rush trip, since they are the only ones
-    the live page admits.
+    ``None`` means "live": let the request through to the NiceGUI page. An
+    arrival only counts towards the rush trip when the live page would admit it.
     """
     tenant_id = get_current_tenant_id()
     if tenant_id is None:
         return None
     settings = await watch_settings(tenant_id)
-    if not _signed_in():
+    if settings.static_signed_out and not _signed_in():
         static_everywhere = settings.mode == 'static' or live_audience.is_tripped(tenant_id)
         return await static_watch_response(request, tenant_id, shared=static_everywhere)
     live_audience.record_arrival(tenant_id, settings.threshold if settings.auto_static else None)
