@@ -591,10 +591,7 @@ class LoopStall(BaseModel):
 
     started_at: float = Field(description='Unix time, UTC')
     seconds: float
-    culprit: str = Field(
-        description="Innermost app frame on the loop thread while it was blocked, or 'garbage collection "
-        "(gen N, Xs)' when at least half the stall was a collection pass",
-    )
+    culprit: str = Field(description="Innermost app frame while blocked, or 'garbage collection (gen N, Xs)'")
     gc_seconds: float = Field(0.0, description='How much of the stall was garbage collection')
 
 
@@ -610,19 +607,6 @@ class EventLoopStats(BaseModel):
     recent_stalls: List[LoopStall]
 
 
-class GcGenerationStats(BaseModel):
-    passes: int
-    total_seconds: float
-    max_seconds: float
-
-
-class GcPass(BaseModel):
-    generation: int
-    seconds: float
-    collected: int = Field(description='Unreachable objects it freed')
-    ago_seconds: int
-
-
 class GcStats(BaseModel):
     """CPython garbage collection since start-up. A full (gen 2) pass stops the
     event loop for as long as it runs."""
@@ -631,8 +615,10 @@ class GcStats(BaseModel):
     thresholds: List[int]
     pending: List[int] = Field(description='Allocations / younger passes counted toward each generation')
     frozen_objects: Optional[int] = Field(description='Start-up objects frozen out of collection; null if not frozen')
-    by_generation: Dict[str, GcGenerationStats]
-    slowest_recent: List[GcPass] = Field(description='Slowest of the recent passes of 10ms or more')
+    by_generation: Dict[str, Dict[str, float]] = Field(description='passes, total_seconds, max_seconds per generation')
+    slowest_recent: List[Dict[str, float]] = Field(
+        description='Slowest recent passes of 10ms or more: generation, seconds, collected, ago_seconds',
+    )
 
 
 class WorkerStats(BaseModel):

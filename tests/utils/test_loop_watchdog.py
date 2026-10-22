@@ -192,4 +192,4 @@ class TestGarbageCollectionStalls:
         gc.collect()
         stats = RuntimeStats.model_validate(runtime_stats.collect())
         assert stats.gc.installed
-        assert stats.gc.by_generation['2'].passes >= 1
+        assert stats.gc.by_generation['2']['passes'] >= 1
