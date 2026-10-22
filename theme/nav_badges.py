@@ -21,7 +21,11 @@ def nav_count_badge(label: str, count: int) -> ui.badge:
     """Draw one count badge for the nav item ``label`` and register it."""
     badge = ui.badge(str(count), color=None).classes('wiz-nav-count')
     badge.set_visibility(count > 0)
-    _badges.setdefault(context.client, {}).setdefault(label, []).append(badge)
+    client = context.client
+    if client not in _badges:
+        _badges[client] = {}
+        client.on_delete(lambda: _badges.pop(client, None))
+    _badges[client].setdefault(label, []).append(badge)
     return badge
 
 

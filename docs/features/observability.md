@@ -233,13 +233,24 @@ past its limit. A worker switched off by config (`enabled: false` in
 
 Gen-2 passes that keep getting longer mean the live heap is growing. The
 super-admin MCP tool `memory_census`
-([`memory_census.py`](../../application/utils/memory_census.py)) counts every
-tracked object by type, without collecting first, and reports NiceGUI pages
-still in memory against pages still served (`clients_alive` vs
-`clients_registered`), elements of deleted pages still in memory, and
-`match_live` / `check_in_live` subscribers. Take two some minutes apart; the
-types that keep rising are what leaks. Each call walks the whole heap, so the
-watchdog will log it as a stall.
+([`memory_census.py`](../../application/utils/memory_census.py)) runs a full
+collection first (`collect`, on by default, so only reachable objects count),
+then counts every tracked object by type and reports NiceGUI pages still in
+memory against pages still served (`clients_alive` vs `clients_registered`),
+elements of deleted pages still in memory, and `match_live` / `check_in_live`
+subscribers. For up to `explain` leaked pages and deleted elements it walks
+back through their referrers and returns the chains, counted by shape
+(`stale_clients_held_by`, `deleted_elements_held_by`): the first entry is
+usually the leak. Take two some minutes apart; the types that keep rising are
+what leaks. Each call walks the heap several times, so the watchdog will log it
+as a stall; don't poll it.
+
+The first leak it found (SGLMAN-29) was per-tab state in a
+`WeakKeyDictionary[Client, …]` whose value pointed back at its client, so the
+weak key never died and every closed tab's page stayed in memory. Per-tab state
+must let go in `client.on_delete` (a disconnect alone isn't enough: a page can
+be deleted without one). A handful of deleted pages held only by a shared
+`refreshable`'s target list is normal; NiceGUI prunes those on its next call.
 
 ## Live load (`runtime_stats`)
 

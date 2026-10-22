@@ -338,9 +338,17 @@ class TypeCount(BaseModel):
     count: int
 
 
-class MemoryCensus(BaseModel):
-    """Objects the garbage collector tracks, right now, without collecting first."""
+class HeldBy(BaseModel):
+    chain: str = Field(description='The object, then what refers to it, then what refers to that, joined by " <- "')
+    count: int
 
+
+class MemoryCensus(BaseModel):
+    """Objects the garbage collector tracks, by type, and what holds leaked pages alive."""
+
+    collected_first: Optional[int] = Field(description='Unreachable objects a full collection freed first; null when collect was off')
+    stale_clients_held_by: List[HeldBy] = Field(description='Referrer chains keeping unregistered NiceGUI pages alive: the leak')
+    deleted_elements_held_by: List[HeldBy] = Field(description='Referrer chains keeping elements of deleted pages alive')
     tracked_objects: int
     frozen_objects: int = Field(description='Start-up objects frozen out of collection, not counted above')
     clients_registered: int = Field(description='NiceGUI pages the app still serves')
@@ -352,7 +360,7 @@ class MemoryCensus(BaseModel):
     top_types: List[TypeCount]
 
 
-async def memory_census(top: int = 40) -> MemoryCensus:
+async def memory_census(top: int = 40, collect: bool = True, explain: int = 50) -> MemoryCensus:
     """Count what is alive in the Wizzrobe process, by type, to find a leak.
 
     Requires super admin. Use when `runtime_stats` shows memory or gen-2
@@ -360,9 +368,17 @@ async def memory_census(top: int = 40) -> MemoryCensus:
     freezes the app for about as long as a full collection (a second or two);
     don't poll it. Compare two calls some minutes apart: the types whose counts
     keep rising are the leak.
+
+    `collect` (default on) runs a full collection first so only reachable
+    objects are counted; that doubles the freeze. `explain` is how many leaked
+    pages and deleted elements to trace back through their referrers (0 skips
+    it); `stale_clients_held_by` then names what keeps them alive.
     """
     return MemoryCensus.model_validate(
-        await RuntimeStatsService.memory_census(current_actor().user, clamp(top, low=5, high=200))
+        await RuntimeStatsService.memory_census(
+            current_actor().user, clamp(top, low=5, high=200),
+            collect=collect, explain=clamp(explain, low=0, high=200),
+        )
     )
 
 

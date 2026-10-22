@@ -209,6 +209,31 @@ class TestMemoryCensus:
         assert len(census['top_types']) == 10
         assert census['match_live_subscribers'] >= 1
         assert census['elements_deleted'] <= census['elements_alive']
+        assert census['collected_first'] is not None
+        assert isinstance(census['stale_clients_held_by'], list)
+
+    def test_retained_by_names_the_holder(self):
+        from application.utils import memory_census
+
+        class _Leaked:
+            pass
+
+        class _Holder:
+            def __init__(self):
+                self.pages = []
+
+        holder = _Holder()
+        holder.pages.extend(_Leaked() for _ in range(3))
+        chains = memory_census.retained_by(list(holder.pages), depth=3)
+        assert len(chains) == 1
+        assert chains[0]['count'] == 3
+        assert chains[0]['chain'].startswith(f'{__name__}.TestMemoryCensus.test_retained_by_names_the_holder.<locals>._Leaked <- builtins.list')
+        assert '_Holder' in chains[0]['chain']
+
+    def test_retained_by_nothing_to_trace(self):
+        from application.utils import memory_census
+
+        assert memory_census.retained_by([]) == []
 
     async def test_only_a_super_admin_may_run_it(self):
         from application.services import RuntimeStatsService
