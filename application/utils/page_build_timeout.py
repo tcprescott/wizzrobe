@@ -21,4 +21,7 @@ PAGE_BUILD_TIMEOUT_SECONDS = 30.0
 
 def install() -> None:
     """Set the default ``response_timeout`` for every ``ui.page`` built after this. Idempotent."""
-    ui.page.__init__.__kwdefaults__['response_timeout'] = PAGE_BUILD_TIMEOUT_SECONDS
+    defaults = ui.page.__init__.__kwdefaults__
+    # tests/test_page_build_timeout.py fails if a NiceGUI upgrade moves this.
+    if defaults is not None and 'response_timeout' in defaults:
+        defaults['response_timeout'] = PAGE_BUILD_TIMEOUT_SECONDS
