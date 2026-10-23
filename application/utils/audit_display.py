@@ -291,6 +291,7 @@ ACTION_LABELS: dict[str, str] = {
     'challonge.bracket_synced': 'Synced a Challonge bracket',
     'challonge.result_pushed': 'Sent a result to Challonge',
     'challonge.result_skipped': "Didn't send a result: Challonge already had one",
+    'challonge.result_push_failed': "Couldn't send a result to Challonge",
     'challonge.auto_sync_updated': 'Changed how often Challonge brackets sync',
     'challonge.participant_assigned': 'Matched a Challonge entrant to a member',
     'challonge.participant_unassigned': 'Unmatched a Challonge entrant',

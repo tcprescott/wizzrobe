@@ -375,6 +375,8 @@ class MatchScheduleService(MatchNotificationMixin):
                 await asyncio.wait_for(
                     ChallongeService().push_result_if_linked(match, actor), _BRACKET_PUSH_SECONDS,
                 )
+            except asyncio.TimeoutError:
+                logger.warning("challonge auto-push timed out for match %s", match.id)
             except Exception:
                 logger.exception("challonge auto-push failed for match %s", match.id)
 

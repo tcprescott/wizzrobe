@@ -20,6 +20,7 @@ from models import ChallongeMatch, FeatureFlag, Match, User
 logger = logging.getLogger(__name__)
 
 _RESYNC_RETRY_DELAY = 2.0
+_PUSH_RETRY_DELAY = 2.0
 
 
 class ChallongeResultsMixin:
@@ -69,7 +70,27 @@ class ChallongeResultsMixin:
         cmatch = await self.repository.get_challonge_match_for_match(match)
         if cmatch is None:
             return False
-        return await self.push_match_result(match, actor)
+        for attempt in range(2):
+            try:
+                return await self.push_match_result(match, actor)
+            except ChallongeAPIError as e:
+                # Sentry SGLMAN-2M: a timeout or dropped connection (no status)
+                # usually clears on the next request. Retrying is safe because
+                # the push re-reads the Challonge match and leaves a complete
+                # one alone, which covers a timed-out PUT that did land.
+                if attempt == 0 and e.status is None:
+                    await asyncio.sleep(_PUSH_RETRY_DELAY)
+                    continue
+                await self.audit_service.write_log(
+                    actor, AuditActions.CHALLONGE_RESULT_PUSH_FAILED,
+                    {'match_id': match.id, 'challonge_match_id': cmatch.challonge_match_id,
+                     'error': str(e), 'status': e.status},
+                )
+                if e.status is not None:
+                    raise
+                logger.warning("Challonge result push failed for match %s: %s", match.id, e)
+                return False
+        return False
 
     @requires_feature(FeatureFlag.CHALLONGE)
     async def push_match_result(self, match: Match, actor: User) -> bool:

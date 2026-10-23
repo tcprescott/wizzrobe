@@ -251,6 +251,7 @@ class AuditActions:
     CHALLONGE_BRACKET_SYNCED = 'challonge.bracket_synced'
     CHALLONGE_RESULT_PUSHED = 'challonge.result_pushed'
     CHALLONGE_RESULT_SKIPPED = 'challonge.result_skipped'
+    CHALLONGE_RESULT_PUSH_FAILED = 'challonge.result_push_failed'
     CHALLONGE_AUTO_SYNC_UPDATED = 'challonge.auto_sync_updated'
     CHALLONGE_PARTICIPANT_ASSIGNED = 'challonge.participant_assigned'
     CHALLONGE_PARTICIPANT_UNASSIGNED = 'challonge.participant_unassigned'
