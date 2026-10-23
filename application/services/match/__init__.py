@@ -49,6 +49,12 @@ from application.services.match.match_stream_volunteer_service import (
     MatchStreamVolunteerService,
 )
 from application.services.match.match_suggestion_service import MatchSuggestionService
+from application.services.match.match_text import (
+    clean_description,
+    clean_title,
+    new_match_text,
+    text_updates,
+)
 from application.services.match.match_watcher_service import MatchWatcherService
 from application.services.match.player_late_service import PlayerLateService
 
@@ -79,8 +85,12 @@ __all__ = [
     'assert_bracket_result_editable',
     'assert_player_requests_allowed',
     'assert_sg_fields_unchanged',
+    'clean_description',
+    'clean_title',
+    'new_match_text',
     'reached_step',
     'resolve_matchup',
     'rewind_targets',
     'stage_reminder',
+    'text_updates',
 ]

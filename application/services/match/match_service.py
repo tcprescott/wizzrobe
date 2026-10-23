@@ -41,6 +41,7 @@ from application.services.match.match_schedule_service import MatchScheduleServi
 from application.services.match.match_source_guard import assert_sg_fields_unchanged
 from application.services.match.match_station_draw import StationDrawMixin
 from application.services.match.match_stations import StationAssignmentMixin
+from application.services.match.match_text import new_match_text, text_updates
 from application.services.stage_service import StageService
 from application.services.system_config_service import SystemConfigService
 from application.services.tenant_membership_service import TenantMembershipService
@@ -113,6 +114,7 @@ class MatchService(
         tracker_ids: Optional[List[int]] = None,
         is_stream_candidate: bool = False,
         title: Optional[str] = None,
+        description: Optional[str] = None,
         actor: Optional[User] = None,
         from_bracket: bool = False,
         placeholders: Optional[List[str]] = None,
@@ -165,8 +167,9 @@ class MatchService(
                 f"User cannot create matches in tournament {tournament_id}",
             )
 
-        if not player_ids and not (from_bracket and placeholders):
-            raise ValueError("Add at least one player before creating the match.")
+        title, description = new_match_text(
+            player_ids, title, description, from_bracket=from_bracket, placeholders=placeholders,
+        )
         # A bracket game's players come from the matchup's entrants, which staff
         # linked (and that link is checked); only caller-supplied ids need it.
         await TenantMembershipService.require_community_users(
@@ -203,6 +206,7 @@ class MatchService(
             stage_id=stage_id,
             is_stream_candidate=is_stream_candidate,
             title=title,
+            description=description,
             bracket_placeholders=list(placeholders) if from_bracket and placeholders else None,
         )
 
@@ -270,6 +274,8 @@ class MatchService(
         commentator_ids: Optional[List[int]] = None,
         tracker_ids: Optional[List[int]] = None,
         comment: Optional[str] = None,
+        title: Optional[str] = None,
+        description: Optional[str] = None,
         clear_seated: bool = False,
         clear_started: bool = False,
         clear_finished: bool = False,
@@ -297,6 +303,7 @@ class MatchService(
             commentator_ids: New commentator list
             tracker_ids: New tracker list
             comment: New comment
+            title, description: New text; ``''`` clears it, None leaves it alone
             stage_id: New stage ID
             clear_seated: Clear seated_at timestamp
             clear_started: Clear started_at timestamp
@@ -392,6 +399,7 @@ class MatchService(
 
         if comment is not None:
             update_fields['comment'] = comment
+        update_fields.update(text_updates(title, description))
 
         if clear_seated:
             update_fields['seated_at'] = None

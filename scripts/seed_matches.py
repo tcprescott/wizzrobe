@@ -142,6 +142,18 @@ async def seed_matches_for_tenant(
     await make_match(
         "TBD Match", None, p1=players[3], p2=players[0], stream_candidate=False,
     )
+    # A placeholder: staff held the slot before knowing who plays, so it has a
+    # title and description and no players.
+    await Match.get_or_create(
+        title="ALTTPR Showcase Race",
+        tournament=tournament,
+        tenant=tenant,
+        defaults={
+            "scheduled_at": now + timedelta(hours=5),
+            "stage": stage1,
+            "description": "Top 4 from Friday's open bracket. Players are added once **Saturday's semis** finish.",
+        },
+    )
     # Exactly one match with **no title**. Most matches carry a round label, but a
     # blank one happens, and when it does every surface falls back to the roster
     # (``match.title or players_str`` in the crew service, the reconciler's own

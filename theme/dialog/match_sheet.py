@@ -297,6 +297,9 @@ class MatchSheet:
         title = row.get('_who') or (row.get('bracket') or {}).get('name') or row.get('title') or 'Match'
         heading = ui.label(title).classes('match-sheet__title')
         heading.tag = 'h3'
+        if row.get('description'):
+            with ui.column().classes('match-sheet__description gap-0 full-width'):
+                render_user_blocks(parse_user_blocks(row['description']))
         bracket = row.get('bracket')
         if bracket and bracket.get('id'):
             label = bracket.get('name') or 'Bracket'

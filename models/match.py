@@ -28,6 +28,9 @@ class Match(Model):
     comment = fields.TextField(null=True)
     is_stream_candidate = fields.BooleanField(default=False)
     title = fields.CharField(max_length=255, null=True)
+    # Staff-written markdown about the match, shown with it on the schedules. It
+    # is what a placeholder (a booked slot with no players yet) says it's for.
+    description = fields.TextField(null=True)
     generated_seed = fields.ForeignKeyField(
         'models.GeneratedSeeds', related_name='matches', null=True, on_delete=fields.SET_NULL
     )
