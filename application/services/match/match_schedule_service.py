@@ -34,7 +34,7 @@ from application.services.match._match_recipients import (  # noqa: F401  (re-ex
 )
 from application.services.match._schedule_notifications import MatchNotificationMixin
 from application.services.match.match_hard_preset_service import MatchHardPresetService
-from application.services.match.match_status import has_recorded_result
+from application.services.match.match_status import closes_without_winner, has_recorded_result
 from application.services.notification_catalog import (
     MATCH_CHECKED_IN,
     MATCH_CONFIRMED,
@@ -190,6 +190,7 @@ class MatchScheduleService(MatchNotificationMixin):
         notice: Notice,
         authorize: Optional[Callable] = None,
         build_player_copies: Optional[Callable[[Match, str, str], dict]] = None,
+        notify: bool = True,
     ) -> None:
         """Shared match lifecycle transition: authorize, validate, stamp, audit, notify.
 
@@ -232,6 +233,9 @@ class MatchScheduleService(MatchNotificationMixin):
                 'tournament': match.tournament.name,
             },
         )
+        if not notify:
+            match_live.publish(match.id)
+            return
         # Resolve the community name here (request context) rather than in the
         # queue worker, and pass the pre-built embed down with the text.
         community = await _community_name()
@@ -298,6 +302,15 @@ class MatchScheduleService(MatchNotificationMixin):
         )
 
     async def finish_match(self, match: Match, actor: Optional[User] = None) -> None:
+        """Finish a live match. An open race (more than four players) is confirmed too.
+
+        Nobody records a winner for an open race, so there is nothing for the
+        admin's confirm step to check: whoever may finish it closes it out, and
+        only the confirmed DM goes out rather than two in a row.
+        """
+        await match.fetch_related('players')
+        open_race = closes_without_winner(match.players)
+
         def check() -> None:
             if not match.started_at:
                 raise ValueError("Match must be started before finishing")
@@ -312,9 +325,15 @@ class MatchScheduleService(MatchNotificationMixin):
             event_type=EventType.MATCH_FINISHED,
             build_message=lambda m, c, b: _state_notification(m, c, "Finished", b),
             notice=MATCH_FINISHED,
+            notify=not open_race,
         )
+        if open_race:
+            await self._confirm(match, actor, authorize=AuthService.can_run_match)
 
     async def confirm_match(self, match: Match, actor: Optional[User] = None) -> None:
+        await self._confirm(match, actor, authorize=AuthService.can_confirm_match)
+
+    async def _confirm(self, match: Match, actor: Optional[User], *, authorize: Callable) -> None:
         # ``check`` below is synchronous and runs before ``_transition`` fetches
         # relations, so the players have to be loaded here for it to see them.
         await match.fetch_related('players')
@@ -324,7 +343,7 @@ class MatchScheduleService(MatchNotificationMixin):
                 raise ValueError("Match must be finished before confirming")
             if match.confirmed_at:
                 raise ValueError("Match is already confirmed")
-            if not has_recorded_result(match.players):
+            if not has_recorded_result(match.players) and not closes_without_winner(match.players):
                 raise ValueError(
                     "No result has been recorded for this match — record the "
                     "winner before confirming."
@@ -337,7 +356,7 @@ class MatchScheduleService(MatchNotificationMixin):
             audit_action=AuditActions.MATCH_CONFIRMED,
             event_type=EventType.MATCH_CONFIRMED,
             build_message=lambda m, c, b: _state_notification(m, c, "Confirmed", b),
-            authorize=AuthService.can_confirm_match,
+            authorize=authorize,
             notice=MATCH_CONFIRMED,
         )
         from application.services import opt_in_notifications

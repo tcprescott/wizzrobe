@@ -232,3 +232,18 @@ def has_recorded_result(players: Iterable[Any]) -> bool:
     it is legitimate.
     """
     return any(getattr(p, 'finish_rank', None) for p in players)
+
+
+#: The most players a match can have and still be played for a winner. A bigger
+#: field is an open race (a play-in, a qualifier heat): nobody records a winner,
+#: and Finish closes it out on the spot.
+WINNER_MAX_PLAYERS = 4
+
+
+def closes_without_winner(players: Iterable[Any]) -> bool:
+    """Whether a match is an open race, from an already-loaded ``players`` list.
+
+    ``MatchScheduleService.finish_match`` confirms such a match as it finishes
+    it, and ``confirm_match`` accepts it with no result recorded.
+    """
+    return len(list(players)) > WINNER_MAX_PLAYERS
