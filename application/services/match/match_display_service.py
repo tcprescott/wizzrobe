@@ -187,7 +187,8 @@ class MatchDisplayService:
         for row in rows:
             result = results.get(row['id'])
             row['played_on_site'] = (
-                {'site': result.site, 'winner': result.winner_name, 'winner_user_id': result.winner_user_id}
+                {'site': result.site, 'winner': result.winner_name, 'winner_user_id': result.winner_user_id,
+                 'no_winner': result.no_winner}
                 if result else None
             )
 

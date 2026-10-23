@@ -478,13 +478,17 @@ class StartggService(StartggPlaceholderMixin):
         ]
 
     @requires_feature(FeatureFlag.STARTGG)
-    async def results_on_site(self, match_ids: List[int]) -> Dict[int, Tuple[Optional[int], str]]:
-        """``match id -> (winner user id, winner name)`` for booked sets start.gg has a result for."""
-        out: Dict[int, Tuple[Optional[int], str]] = {}
+    async def results_on_site(self, match_ids: List[int]) -> Dict[int, Tuple[Optional[int], Optional[str]]]:
+        """``match id -> (winner user id, winner name)`` for booked sets start.gg has finished.
+
+        A set closed without a winner (a double DQ, or a dead pool set the TO
+        cleared) reports ``(None, None)``.
+        """
+        out: Dict[int, Tuple[Optional[int], Optional[str]]] = {}
         for row in await self.repository.completed_for_matches(match_ids):
             winner = row.winner
             out[row.match_id] = (  # type: ignore[attr-defined]
-                winner.user_id if winner else None, (winner.name if winner else None) or '',
+                (winner.user_id, winner.name or '') if winner else (None, None)
             )
         return out
 

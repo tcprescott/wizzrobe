@@ -249,7 +249,9 @@ class MatchInbox:
         winner = next((p for p in players if site.get('winner_user_id') and p.get('user_id') == site['winner_user_id']), None)
         winner_name = winner.get('name') if winner else (site.get('winner') or 'Someone')
         others = [p for p in players if p is not winner]
-        if winner is not None and len(others) == 1:
+        if site.get('no_winner'):
+            title = f"Closed on {site['site']} with no winner"
+        elif winner is not None and len(others) == 1:
             title = f"{winner_name} beat {others[0].get('name')} on {site['site']}"
         else:
             title = f"{winner_name} won on {site['site']}"
@@ -296,7 +298,8 @@ class MatchInbox:
         def confirm_call_off():
             ConfirmationDialog(
                 message=(
-                    f"Call off this match? It was already played on {site['site']}, so "
+                    f"Call off this match? {site['site']} already "
+                    f"{'closed it with no winner' if site.get('no_winner') else 'has its result'}, so "
                     'Wizzrobe keeps no result for it. Its players and crew will be DMed.'
                 ),
                 on_confirm=call_off, confirm_text='Call off match', cancel_text='Back',
@@ -304,8 +307,11 @@ class MatchInbox:
             ).open()
 
         with ui.row().classes('gap-2 items-center'):
-            ui.button('Call off', on_click=confirm_call_off).props('outline color=primary')
-            ui.button('Record result', on_click=record).props('color=primary')
+            if site.get('no_winner'):
+                ui.button('Call off', on_click=confirm_call_off).props('color=primary')
+            else:
+                ui.button('Call off', on_click=confirm_call_off).props('outline color=primary')
+                ui.button('Record result', on_click=record).props('color=primary')
 
     def _late_item(self, row: dict) -> None:
         match_id = row['id']

@@ -502,6 +502,9 @@ class SiteResult:
     site: str
     winner_user_id: Optional[int]
     winner_name: str
+    #: The site closed it with nobody winning (a double DQ, or a dead set the
+    #: organiser cleared), so there is no result to copy, only a match to call off.
+    no_winner: bool = False
 
 
 async def results_on_site(match_ids: List[int]) -> Dict[int, SiteResult]:
@@ -512,10 +515,10 @@ async def results_on_site(match_ids: List[int]) -> Dict[int, SiteResult]:
     out: Dict[int, SiteResult] = {}
     if FeatureFlag.CHALLONGE in live:
         for match_id, (uid, name) in (await ChallongeService().results_on_site(match_ids)).items():
-            out[match_id] = SiteResult('Challonge', uid, name)
+            out[match_id] = SiteResult('Challonge', uid, name or '', no_winner=name is None)
     if FeatureFlag.STARTGG in live:
         for match_id, (uid, name) in (await StartggService().results_on_site(match_ids)).items():
-            out[match_id] = SiteResult('start.gg', uid, name)
+            out[match_id] = SiteResult('start.gg', uid, name or '', no_winner=name is None)
     return out
 
 
@@ -527,6 +530,11 @@ async def record_site_result(match_id: int, actor: User) -> SiteResult:
     result = (await results_on_site([match_id])).get(match_id)
     if result is None:
         raise ValueError("The bracket site doesn't have a result for this match yet. Sync it and try again.")
+    if result.no_winner:
+        raise ValueError(
+            f"{result.site} closed this match with no winner, so there's no result to record. "
+            f"Call it off instead."
+        )
     match = await MatchService().get_by_id(match_id)
     if match is None:
         raise ValueError('That match no longer exists.')
