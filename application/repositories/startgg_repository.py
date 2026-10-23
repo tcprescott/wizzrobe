@@ -253,6 +253,13 @@ class StartggRepository:
         ).order_by('round', 'identifier', 'id')
 
     @staticmethod
+    async def booked_sets_for_entrant(entrant: StartggEntrant) -> List[StartggSet]:
+        """Sets this entrant plays that have a Wizzrobe match attached."""
+        return await scoped(StartggSet.filter(
+            Q(entrant1=entrant) | Q(entrant2=entrant), match_id__isnull=False,
+        )).prefetch_related('entrant1', 'entrant2', 'match')
+
+    @staticmethod
     async def list_placeholder_bookings(tournament: Tournament) -> List[StartggSet]:
         """Sets booked before their players were known, with the booking attached."""
         rows = await scoped(StartggSet.filter(tournament=tournament, match_id__isnull=False)).prefetch_related(

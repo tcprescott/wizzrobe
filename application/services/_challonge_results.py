@@ -44,13 +44,16 @@ class ChallongeResultsMixin:
     _sync_tournament: Callable[..., Awaitable[Dict[str, int]]]
 
     @requires_feature(FeatureFlag.CHALLONGE)
-    async def results_on_site(self, match_ids: List[int]) -> Dict[int, Tuple[Optional[int], str]]:
-        """``match id -> (winner user id, winner name)`` for booked matches Challonge has a result for."""
-        out: Dict[int, Tuple[Optional[int], str]] = {}
+    async def results_on_site(self, match_ids: List[int]) -> Dict[int, Tuple[Optional[int], Optional[str]]]:
+        """``match id -> (winner user id, winner name)`` for booked matches Challonge has finished.
+
+        A match closed without a winner reports ``(None, None)``.
+        """
+        out: Dict[int, Tuple[Optional[int], Optional[str]]] = {}
         for cmatch in await self.repository.completed_for_matches(match_ids):
             winner = cmatch.winner_participant
             out[cmatch.match_id] = (  # type: ignore[attr-defined]
-                winner.user_id if winner else None, (winner.name if winner else None) or '',
+                (winner.user_id, winner.name or '') if winner else (None, None)
             )
         return out
 

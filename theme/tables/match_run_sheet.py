@@ -65,6 +65,8 @@ def run_sheet_status(row: dict) -> tuple[str, str]:
     """
     site = row.get('played_on_site')
     if site:
+        if site.get('no_winner'):
+            return f"No winner on {site['site']}", 'pending'
         return f"Played on {site['site']}", 'pending'
     state = row.get('state')
     if state == 'Finished':

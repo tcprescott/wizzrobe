@@ -478,13 +478,17 @@ class StartggService(StartggPlaceholderMixin):
         ]
 
     @requires_feature(FeatureFlag.STARTGG)
-    async def results_on_site(self, match_ids: List[int]) -> Dict[int, Tuple[Optional[int], str]]:
-        """``match id -> (winner user id, winner name)`` for booked sets start.gg has a result for."""
-        out: Dict[int, Tuple[Optional[int], str]] = {}
+    async def results_on_site(self, match_ids: List[int]) -> Dict[int, Tuple[Optional[int], Optional[str]]]:
+        """``match id -> (winner user id, winner name)`` for booked sets start.gg has finished.
+
+        A set closed without a winner (a double DQ, or a dead pool set the TO
+        cleared) reports ``(None, None)``.
+        """
+        out: Dict[int, Tuple[Optional[int], Optional[str]]] = {}
         for row in await self.repository.completed_for_matches(match_ids):
             winner = row.winner
             out[row.match_id] = (  # type: ignore[attr-defined]
-                winner.user_id if winner else None, (winner.name if winner else None) or '',
+                (winner.user_id, winner.name or '') if winner else (None, None)
             )
         return out
 
@@ -584,9 +588,20 @@ class StartggService(StartggPlaceholderMixin):
             'tournament_id': entrant.tournament.id, 'entrant_id': entrant.entrant_id, 'user_id': user.id,
         })
         await self._mirror_players(entrant.tournament, actor)
+        await self._move_booked_matches(entrant, actor)
         await self._refresh_placeholder_bookings(entrant.tournament, actor)
         await self._announce_newly_bookable(entrant.tournament, before)
         return entrant
+
+    async def _move_booked_matches(self, entrant: StartggEntrant, actor: User) -> None:
+        """Put the entrant's new member on its booked, unstarted matches. Never raises."""
+        try:
+            service = MatchService()
+            for row in await self.repository.booked_sets_for_entrant(entrant):
+                sides = [e.user_id if e else None for e in (row.entrant1, row.entrant2)]
+                await service.move_bracket_player(row.match, sides, actor)  # type: ignore[arg-type]
+        except Exception:
+            logger.exception('Moving booked matches failed for start.gg entrant %s', entrant.id)
 
     @requires_feature(FeatureFlag.STARTGG)
     async def confirm_all_suggestions(self, tournament_id: int, actor: User) -> int:
