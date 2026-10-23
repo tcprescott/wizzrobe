@@ -473,7 +473,7 @@ replaces the whole asset.
 | Check-in desk (`EVENT_CHECK_IN`) | `check_in_attendee`, `undo_attendee_check_in`, `link_attendee`, `unlink_attendee`, `add_walk_up`, `sync_check_in_event` |
 | Volunteers (`VOLUNTEERS`) | `check_in_volunteer` |
 | Membership | `approve_join_request`, `deny_join_request` |
-| Tournaments | `create_tournament`, `update_tournament`, `delete_tournament`, `add_tournament_admin`, `remove_tournament_admin`, `add_crew_coordinator`, `remove_crew_coordinator`, `enroll_tournament_player`, `remove_tournament_player`, `drop_tournament_player`, `update_tournament_discord_events` |
+| Tournaments | `create_tournament`, `update_tournament`, `delete_tournament`, `add_tournament_admin`, `remove_tournament_admin`, `add_crew_coordinator`, `remove_crew_coordinator`, `enroll_tournament_player`, `remove_tournament_player`, `drop_tournament_player`, `update_tournament_discord_events`, `set_stage_best_of` (paired read: `get_round_schedule`) |
 | Challonge (`CHALLONGE`) | `link_challonge_tournament`, `unlink_challonge_tournament`, `sync_challonge_tournament` |
 | Stages | `create_stage`, `update_stage`, `delete_stage` |
 | Volunteer schedule (`VOLUNTEERS`) | `create_volunteer_position`, `update_volunteer_position`, `delete_volunteer_position`, `create_volunteer_shift`, `update_volunteer_shift`, `delete_volunteer_shift`, `assign_volunteer`, `unassign_volunteer` |

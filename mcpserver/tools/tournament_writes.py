@@ -7,7 +7,8 @@ The third write module, held to the same rule as ``match_writes`` and
 router too, and vice versa.
 
 Every tool is registered at ``Gate.ACTOR`` with ``write=True``, mirroring
-``require_write_actor``. The owning service makes the real permission check
+``require_write_actor``, except ``get_round_schedule``, the read that pairs with
+``set_stage_best_of``. The owning service makes the real permission check
 (``can_edit_tournament`` lets a tournament's own admins edit it; adding staff,
 players and deleting is staff-only), so the two surfaces cannot disagree.
 Tournaments are loaded through the tenant-scoped repository, so an id from
@@ -19,12 +20,18 @@ from typing import Callable, Dict, List, Literal, Optional
 from mcp.server.mcpserver import MCPServer
 
 from api.schemas.discord_events import DiscordEventTournamentResponse
-from api.schemas.tournament_actions import TournamentCreateRequest, TournamentUpdateRequest
+from api.schemas.tournament_actions import (
+    RoundScheduleStageResponse,
+    StageBestOfRequest,
+    TournamentCreateRequest,
+    TournamentUpdateRequest,
+)
 from api.schemas.tournaments import TournamentResponse
 from application.errors import require_found
 from application.services import (
     ChallongeService,
     DiscordEventSyncService,
+    RoundScheduleService,
     TournamentService,
     UserService,
 )
@@ -371,6 +378,46 @@ async def update_tournament_discord_events(
     return DiscordEventTournamentResponse.model_validate(tournament, from_attributes=True)
 
 
+# --- Round schedule ---------------------------------------------------------------
+
+
+async def get_round_schedule(
+    tournament_id: int,
+    tenant: TenantArg = None,
+) -> List[RoundScheduleStageResponse]:
+    """List a Challonge or start.gg tournament's stages with their booking windows and best-of. Staff or that tournament's admins.
+
+    Stage keys are `group` (a group stage), `e0` final, `e1` semifinals, `e2`
+    quarterfinals and so on for single elimination; `gf` grand final, `w0`/`l0`
+    winners/losers final and back from there for double elimination. A
+    start.gg phase prefixes its keys with `<phase_id>:`. `booked` counts
+    matchups that already have a match.
+    """
+    await _tournament(tournament_id)
+    stages = await RoundScheduleService().list_stages(tournament_id, current_actor().user)
+    return [RoundScheduleStageResponse.from_stage(s) for s in stages]
+
+
+async def set_stage_best_of(
+    tournament_id: int,
+    stage_key: str,
+    best_of: Literal[1, 3, 5],
+    tenant: TenantArg = None,
+) -> RoundScheduleStageResponse:
+    """Set how many games each matchup in one stage plays (1, 3 or 5). Staff or that tournament's admins.
+
+    `stage_key` comes from `get_round_schedule`. Only the best-of changes; the
+    stage's booking window stays. Each game is then booked as its own match.
+    Matches already booked for the stage keep the length they were booked with.
+    """
+    body = StageBestOfRequest(best_of=best_of)
+    await _tournament(tournament_id)
+    stage = await RoundScheduleService().set_best_of(
+        tournament_id, stage_key, body.best_of, current_actor().user,
+    )
+    return RoundScheduleStageResponse.from_stage(stage)
+
+
 def register_tools(mcp: MCPServer) -> None:
     def write_tool(
         fn: Callable, title: str, feature: Optional[FeatureFlag] = None, *, destructive: bool = False,
@@ -395,3 +442,5 @@ def register_tools(mcp: MCPServer) -> None:
     write_tool(unlink_challonge_tournament, 'Unlink Challonge bracket', challonge, destructive=True)
     write_tool(sync_challonge_tournament, 'Sync Challonge bracket', challonge)
     write_tool(update_tournament_discord_events, 'Update tournament Discord events')
+    register(mcp, get_round_schedule, gate=Gate.ACTOR, title='Get round schedule')
+    write_tool(set_stage_best_of, 'Set stage best-of')

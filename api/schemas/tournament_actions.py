@@ -1,7 +1,7 @@
 """Request schemas for tournament write actions."""
 
 from datetime import date, datetime
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Dict, Literal, Optional, Tuple
 
 from pydantic import BaseModel, Field
 
@@ -167,4 +167,36 @@ class ChallongeLinkRequest(BaseModel):
 class ChallongeSyncResponse(BaseModel):
     counts: Dict[str, Any] = Field(
         ..., description="What the sync found or changed, such as participant and match counts.",
+    )
+
+
+class RoundScheduleStageResponse(BaseModel):
+    key: str = Field(..., description="The stage key, such as `group`, `e1` (semifinals), `e0` (final) or `gf`.")
+    label: str = Field(..., description="The stage's name as staff see it.")
+    detail: str = Field(..., description="How many matchups the stage has and how many are booked.")
+    total: int = Field(..., description="Matchups in the stage.")
+    booked: int = Field(..., description="Matchups in the stage that already have a match booked.")
+    placeholder: bool = Field(..., description="True when the bracket hasn't created this stage's matchups yet.")
+    best_of: int = Field(..., description="Games each matchup in the stage plays.")
+    opens_at: Optional[datetime] = Field(None, description="When the stage opens for booking (UTC).")
+    closes_at: Optional[datetime] = Field(None, description="When the stage closes for booking (UTC).")
+    daily_from: Optional[str] = Field(None, description="Daily booking hours start, HH:MM on the community's clock.")
+    daily_until: Optional[str] = Field(None, description="Daily booking hours end, HH:MM on the community's clock.")
+
+    @classmethod
+    def from_stage(cls, stage: Any) -> 'RoundScheduleStageResponse':
+        window = stage.window
+        return cls(
+            key=stage.key, label=stage.label, detail=stage.detail, total=stage.total,
+            booked=stage.booked, placeholder=stage.placeholder, best_of=stage.best_of,
+            opens_at=window.opens if window else None,
+            closes_at=window.closes if window else None,
+            daily_from=window.daily_from.strftime('%H:%M') if window and window.daily_from else None,
+            daily_until=window.daily_until.strftime('%H:%M') if window and window.daily_until else None,
+        )
+
+
+class StageBestOfRequest(BaseModel):
+    best_of: Literal[1, 3, 5] = Field(
+        ..., description="Games each matchup in the stage plays. Matches already booked keep their length.",
     )
