@@ -41,12 +41,7 @@ from application.services.match.match_schedule_service import MatchScheduleServi
 from application.services.match.match_source_guard import assert_sg_fields_unchanged
 from application.services.match.match_station_draw import StationDrawMixin
 from application.services.match.match_stations import StationAssignmentMixin
-from application.services.match.match_text import (
-    clean_description,
-    clean_title,
-    require_roster_or_title,
-    text_updates,
-)
+from application.services.match.match_text import new_match_text, text_updates
 from application.services.stage_service import StageService
 from application.services.system_config_service import SystemConfigService
 from application.services.tenant_membership_service import TenantMembershipService
@@ -172,8 +167,9 @@ class MatchService(
                 f"User cannot create matches in tournament {tournament_id}",
             )
 
-        title, description = clean_title(title), clean_description(description)
-        require_roster_or_title(player_ids, title, from_bracket=from_bracket, placeholders=placeholders)
+        title, description = new_match_text(
+            player_ids, title, description, from_bracket=from_bracket, placeholders=placeholders,
+        )
         # A bracket game's players come from the matchup's entrants, which staff
         # linked (and that link is checked); only caller-supplied ids need it.
         await TenantMembershipService.require_community_users(

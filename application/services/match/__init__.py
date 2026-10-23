@@ -52,7 +52,7 @@ from application.services.match.match_suggestion_service import MatchSuggestionS
 from application.services.match.match_text import (
     clean_description,
     clean_title,
-    require_roster_or_title,
+    new_match_text,
     text_updates,
 )
 from application.services.match.match_watcher_service import MatchWatcherService
@@ -87,8 +87,8 @@ __all__ = [
     'assert_sg_fields_unchanged',
     'clean_description',
     'clean_title',
+    'new_match_text',
     'reached_step',
-    'require_roster_or_title',
     'resolve_matchup',
     'rewind_targets',
     'stage_reminder',

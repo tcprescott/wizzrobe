@@ -22,23 +22,23 @@ def clean_description(value: Optional[str]) -> Optional[str]:
     return text or None
 
 
-def require_roster_or_title(
-    player_ids: Sequence[int], title: Optional[str], *,
+def new_match_text(
+    player_ids: Sequence[int], title: Optional[str], description: Optional[str], *,
     from_bracket: bool = False, placeholders: Optional[Sequence[str]] = None,
-) -> None:
-    """Refuse a new match the schedule would have no way to name.
+) -> tuple[Optional[str], Optional[str]]:
+    """A new match's cleaned ``(title, description)``, refusing one the
+    schedule would have no way to name.
 
     A placeholder is staff holding a slot before anyone knows who plays: no
     players, and the title stands in for their names on every schedule. A
     bracket booking names its sides with ``placeholders`` instead.
     """
-    if player_ids:
-        return
-    if from_bracket:
-        if not placeholders:
-            raise ValueError("Add at least one player before creating the match.")
-    elif not title:
+    title, description = clean_title(title), clean_description(description)
+    if not player_ids and from_bracket and not placeholders:
+        raise ValueError("Add at least one player before creating the match.")
+    if not player_ids and not from_bracket and not title:
         raise ValueError("Give the match a title, or add a player, so the schedule can say what it is.")
+    return title, description
 
 
 def text_updates(title: Optional[str], description: Optional[str]) -> Dict[str, Any]:
