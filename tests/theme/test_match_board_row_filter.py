@@ -1,21 +1,21 @@
 """A filtered match board keeps its own row set as changes arrive.
 
 ``row_filter`` is not the operator's State chip — it defines what the board *is*.
-The tournament-room view shows rolled seeds for unplayed matches, so two live
-transitions have to work in opposite directions: a match that starts leaves the
+The tournament-room view shows rolled seeds for unfinished matches, so two live
+transitions have to work in opposite directions: a match that finishes leaves the
 screen, and a match that gets a seed appears on it. The second is the subtle
 one, because rolling a seed publishes ``changed`` (not ``CREATED``) for a match
 the board has never had a row for, which a plain in-place update would no-op.
 
 Neither moves the board under the viewer (docs/style-guide.md#hold-still): the
-started match fades in place and the newly seeded one waits for the next tidy.
+finished match fades in place and the newly seeded one waits for the next tidy.
 """
 
 import asyncio
 from types import SimpleNamespace
 
 from application.events import match_live
-from application.services.match.match_display_service import is_seeded_and_unplayed
+from application.services.match.match_display_service import is_room_seed_row
 from theme.tables.match import MatchTableView
 
 
@@ -36,7 +36,7 @@ def _view(rows, *, fetched=None):
     view._held_ids = set()
     view._tidy_event = 'wiz_board_tidy_test'
     view._tidy_pill = _Pill()
-    view.row_filter = is_seeded_and_unplayed
+    view.row_filter = is_room_seed_row
     view.on_rows_changed = None
     view.on_set_stage = None
     view.show_accommodations = False
@@ -78,12 +78,13 @@ def _returning(value):
 
 SEEDED = {'id': 1, 'generated_seed': 'https://alttpr.com/h/abc', 'state': 'Scheduled'}
 STARTED = {'id': 1, 'generated_seed': 'https://alttpr.com/h/abc', 'state': 'Started'}
+FINISHED = {'id': 1, 'generated_seed': 'https://alttpr.com/h/abc', 'state': 'Finished'}
 UNSEEDED = {'id': 2, 'generated_seed': '', 'state': 'Scheduled'}
 
 
 class TestUpdateRow:
-    async def test_a_match_that_starts_fades_where_it_sits(self):
-        view = _view([SEEDED, UNSEEDED], fetched=STARTED)
+    async def test_a_match_that_finishes_fades_where_it_sits(self):
+        view = _view([SEEDED, UNSEEDED], fetched=FINISHED)
 
         await view.update_row_by_id(1)
 
@@ -136,5 +137,6 @@ class TestRemoteChange:
 
 
 class TestPredicateOnBoardRows:
-    def test_the_room_board_shows_only_rolled_unplayed_matches(self):
-        assert [r for r in (SEEDED, STARTED, UNSEEDED) if is_seeded_and_unplayed(r)] == [SEEDED]
+    def test_the_room_board_shows_rolled_unfinished_matches(self):
+        rows = (SEEDED, STARTED, FINISHED, UNSEEDED)
+        assert [r for r in rows if is_room_seed_row(r)] == [SEEDED, STARTED]
