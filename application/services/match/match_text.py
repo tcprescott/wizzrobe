@@ -1,6 +1,6 @@
 """Normalising the staff-written title and description a match carries."""
 
-from typing import Optional, Sequence
+from typing import Any, Dict, Optional, Sequence
 
 TITLE_MAX = 255
 DESCRIPTION_MAX = 4000
@@ -39,3 +39,13 @@ def require_roster_or_title(
             raise ValueError("Add at least one player before creating the match.")
     elif not title:
         raise ValueError("Give the match a title, or add a player, so the schedule can say what it is.")
+
+
+def text_updates(title: Optional[str], description: Optional[str]) -> Dict[str, Any]:
+    """The edit's title/description columns: None leaves one alone, ``''`` clears it."""
+    fields: Dict[str, Any] = {}
+    if title is not None:
+        fields['title'] = clean_title(title)
+    if description is not None:
+        fields['description'] = clean_description(description)
+    return fields

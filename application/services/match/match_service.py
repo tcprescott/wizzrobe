@@ -41,7 +41,12 @@ from application.services.match.match_schedule_service import MatchScheduleServi
 from application.services.match.match_source_guard import assert_sg_fields_unchanged
 from application.services.match.match_station_draw import StationDrawMixin
 from application.services.match.match_stations import StationAssignmentMixin
-from application.services.match.match_text import clean_description, clean_title, require_roster_or_title
+from application.services.match.match_text import (
+    clean_description,
+    clean_title,
+    require_roster_or_title,
+    text_updates,
+)
 from application.services.stage_service import StageService
 from application.services.system_config_service import SystemConfigService
 from application.services.tenant_membership_service import TenantMembershipService
@@ -398,11 +403,7 @@ class MatchService(
 
         if comment is not None:
             update_fields['comment'] = comment
-
-        if title is not None:
-            update_fields['title'] = clean_title(title)
-        if description is not None:
-            update_fields['description'] = clean_description(description)
+        update_fields.update(text_updates(title, description))
 
         if clear_seated:
             update_fields['seated_at'] = None

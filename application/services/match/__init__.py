@@ -53,6 +53,7 @@ from application.services.match.match_text import (
     clean_description,
     clean_title,
     require_roster_or_title,
+    text_updates,
 )
 from application.services.match.match_watcher_service import MatchWatcherService
 from application.services.match.player_late_service import PlayerLateService
@@ -91,4 +92,5 @@ __all__ = [
     'resolve_matchup',
     'rewind_targets',
     'stage_reminder',
+    'text_updates',
 ]
