@@ -25,7 +25,10 @@ change the time before you do. Saving checks the time again, see
   clock.
 - **Everyone's other matches.** Every match with a time that isn't finished and
   confirmed yet, in any tournament in the community.
-- **How many players the room holds.** Staff set this as *Players at once*.
+- **How many players the room holds.** Staff set this as *Players at once*. A
+  tournament played outside the tournament room (its *Plays in the tournament
+  room* switch is off) skips this check, and its matches that aren't on a stage
+  don't fill the room for anyone else.
 - **Each player's availability.** The times you've blocked out, and the times
   you've marked *Prefer*, under When you can't play on My Schedule.
 - **The bracket round.** In a bracket with round times set, the match has to fit

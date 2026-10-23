@@ -370,6 +370,13 @@ async def seed_for_tenant(
             name="Challonge Integration Test", tenant=tenant,
             defaults={"is_active": True, "is_test": True, "players_per_match": 2},
         )
+        # Played outside the tournament room: its off-stage matches stay out of
+        # the capacity forecast, the room-full check and suggested times.
+        await Tournament.get_or_create(
+            name="Best of NES", tenant=tenant,
+            defaults={"is_active": True, "uses_tournament_room": False, "players_per_match": 2,
+                      "average_match_duration": 45, "max_match_duration": 60},
+        )
         await tournament.admins.add(staff)
         await tournament.crew_coordinators.add(staff)
         await tournament.crew_coordinators.add(users["cc_user"])

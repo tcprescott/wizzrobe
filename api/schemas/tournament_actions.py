@@ -31,6 +31,11 @@ _TEST_DESC = (
     'Marks a test tournament: it stays usable but is left off the public '
     'event-info tournament list.'
 )
+_ROOM_DESC = (
+    'Whether its matches are played in the tournament room. False leaves its '
+    'off-stream matches out of room capacity: the capacity forecast, the '
+    'room-full check and suggested times.'
+)
 _REQUESTS_DESC = 'Whether players may request their own matches.'
 _PRESET_DESC = (
     'ID of the seed preset matches roll from. Attaching one also sets '
@@ -83,6 +88,7 @@ class TournamentCreateRequest(BaseModel):
     signups_open_at: Optional[datetime] = Field(default=None, description=_SIGNUP_DESC)
     signups_close_at: Optional[datetime] = Field(default=None, description=_SIGNUP_DESC)
     is_test: bool = Field(False, description=_TEST_DESC)
+    uses_tournament_room: bool = Field(True, description=_ROOM_DESC)
     allow_player_match_requests: bool = Field(True, description=_REQUESTS_DESC)
     preset_id: Optional[int] = Field(None, description=_PRESET_DESC)
     hard_preset_id: Optional[int] = Field(None, description=_HARD_PRESET_DESC)
@@ -135,6 +141,7 @@ class TournamentUpdateRequest(BaseModel):
     signups_open_at: Optional[datetime] = Field(default=None, description=_SIGNUP_DESC)
     signups_close_at: Optional[datetime] = Field(default=None, description=_SIGNUP_DESC)
     is_test: Optional[bool] = Field(None, description=_TEST_DESC + _UPDATE_NOTE)
+    uses_tournament_room: Optional[bool] = Field(None, description=_ROOM_DESC + _UPDATE_NOTE)
     allow_player_match_requests: Optional[bool] = Field(None, description=_REQUESTS_DESC + _UPDATE_NOTE)
     preset_id: Optional[int] = Field(None, description=_PRESET_DESC + _CLEAR_NOTE)
     hard_preset_id: Optional[int] = Field(None, description=_HARD_PRESET_DESC + _CLEAR_NOTE)

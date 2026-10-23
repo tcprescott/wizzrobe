@@ -123,6 +123,8 @@ class ReportsService:
             ws, we = window
             if we < start or ws > end:
                 continue
+            if not match.stage_id and match.tournament and not match.tournament.uses_tournament_room:
+                continue
             player_count = len(match.players)
             if player_count == 0 and match.tournament_id and match.tournament:
                 player_count = match.tournament.players_per_match or 0

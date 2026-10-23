@@ -17,6 +17,10 @@ class Tournament(Model):
     # A staff-only rehearsal (e.g. a Challonge integration check): left out of
     # the event handbook's tournament list, which is written for attendees.
     is_test = fields.BooleanField(default=False)
+    # Off means its matches are played somewhere other than the tournament
+    # room, so the ones not on a stage take no room capacity (forecast, room
+    # cap, suggested times). A stage match counts as on-stream either way.
+    uses_tournament_room = fields.BooleanField(default=True)
     players_per_match = fields.IntField(default=2)
     bracket_url = fields.CharField(max_length=255, null=True)
     rules_url = fields.CharField(max_length=255, null=True)

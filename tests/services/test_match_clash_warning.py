@@ -117,6 +117,21 @@ async def test_room_full_counts_everyone_on_the_floor(event):
     assert '6 players at once' in clashes[0].message
 
 
+async def test_a_tournament_outside_the_room_neither_fills_it_nor_is_refused(event):
+    tournament, alice, bob = event
+    elsewhere = await Tournament.create(
+        name='BoNES', average_match_duration=45, uses_tournament_room=False, tenant_id=T,
+    )
+    others = [await make_member(9100 + i, f'p{i}') for i in range(4)]
+    await _match(elsewhere, _at(THU, 10), others[0], others[1])
+    await _match(tournament, _at(THU, 10), others[2], others[3])
+
+    assert await _clashes(tournament, alice, [alice, bob], _at(THU, 10)) == []
+
+    await _match(tournament, _at(THU, 10), others[0], others[1])
+    assert await _clashes(elsewhere, alice, [alice, bob], _at(THU, 10, 15)) == []
+
+
 async def test_running_past_closing_is_flagged(event):
     tournament, alice, bob = event
     clashes = await _clashes(tournament, alice, [alice, bob], _at(THU, 23))

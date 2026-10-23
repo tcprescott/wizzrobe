@@ -866,6 +866,7 @@ Tournament metadata and configuration; the root aggregate for matches, enrollmen
 | `seed_generator` | `CharField(255)` | null | Legacy randomizer name for seed generation; the `preset` FK wins when set, and `TournamentService` rewrites this column from the preset's randomizer on every save (migration 61 backfilled older rows) so the readers that still use it agree ([seed-generation.md](seed-generation.md)) |
 | `is_active` | `BooleanField` | default `True` | |
 | `is_test` | `BooleanField` | default `False` | Staff-only rehearsal (e.g. a Challonge integration check): left out of the event handbook's `:::tournaments` list; everything else treats it as a normal tournament |
+| `uses_tournament_room` | `BooleanField` | default `True` | `False` for a tournament played outside the tournament room: its off-stage matches (`stage_id` null) are left out of room load — the capacity forecast, the `find_clashes` room-full check and suggested times. Stage matches still count as on-stream |
 | `players_per_match` | `IntField` | default `2` | |
 | `bracket_url` | `CharField(255)` | null | |
 | `rules_url` | `CharField(255)` | null | |

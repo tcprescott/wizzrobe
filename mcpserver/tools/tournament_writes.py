@@ -84,6 +84,7 @@ async def create_tournament(
     required_trackers: int = 1,
     is_active: bool = True,
     is_test: bool = False,
+    uses_tournament_room: bool = True,
     allow_player_match_requests: bool = True,
     stage_reminder_minutes: int = 30,
     event_start_date: Optional[str] = None,
@@ -105,6 +106,8 @@ async def create_tournament(
     community's clock. Leave event dates and hours out to inherit the
     community's. `preset_id` comes from `list_presets`; attaching one also sets
     the randomizer. `is_test` keeps it off the public event-info list.
+    `uses_tournament_room` false is for a tournament played outside the
+    tournament room: its off-stream matches take no room capacity.
     """
     args = dict(locals())
     fields = {k: v for k, v in args.items() if k != 'tenant'}
@@ -136,6 +139,7 @@ async def update_tournament(
     required_trackers: Optional[int] = None,
     is_active: Optional[bool] = None,
     is_test: Optional[bool] = None,
+    uses_tournament_room: Optional[bool] = None,
     allow_player_match_requests: Optional[bool] = None,
     stage_reminder_minutes: Optional[int] = None,
     event_start_date: Optional[str] = None,
