@@ -2498,14 +2498,9 @@ body:has(.wiz-header) .q-notifications__list--top {
 }
 
 .wiz-watch-two > *,
-.wiz-watch-two > .wiz-contents > * {
+.wiz-watch-two > * > .wiz-panel {
     min-width: 0;
     margin: 0;
-}
-
-/* A box the live Watch page repaints on its own; it adds nothing to the layout. */
-.wiz-contents {
-    display: contents;
 }
 
 .wiz-watch-day {

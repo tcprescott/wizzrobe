@@ -172,10 +172,10 @@ class LiveWatch:
         with ui.column().classes('wiz-watch-main'):
             self.theater = TwitchTheater(on_change=self._paint_buttons)
             with ui.column().classes('wiz-watch w-full'):
-                self._stages_box = ui.element('div').classes('wiz-contents')
+                self._stages_box = ui.column().classes('wiz-watch w-full')
                 with ui.element('div').classes('wiz-watch-two'):
-                    self._coming_box = ui.element('div').classes('wiz-contents')
-                    self._tournaments_box = ui.element('div').classes('wiz-contents')
+                    self._coming_box = ui.element('div')
+                    self._tournaments_box = ui.element('div')
 
     def render(self, view: WatchView) -> None:
         # Every open tab repaints on each schedule change and every 30s; rebuilding
