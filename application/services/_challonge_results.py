@@ -21,6 +21,18 @@ logger = logging.getLogger(__name__)
 
 _RESYNC_RETRY_DELAY = 2.0
 _PUSH_RETRY_DELAY = 2.0
+# Two attempts plus this wait must fit inside the confirm flow's 90s budget
+# (_BRACKET_PUSH_SECONDS), so a longer Retry-After is cut down to it.
+_PUSH_RETRY_MAX_DELAY = 10.0
+_TRANSIENT_STATUSES = frozenset({429, 502, 503, 504})
+# A Cloudflare error page is several KB of HTML.
+_AUDIT_ERROR_CHARS = 300
+
+
+def _push_retry_delay(error: ChallongeAPIError) -> float:
+    if error.retry_after is None:
+        return _PUSH_RETRY_DELAY
+    return min(error.retry_after, _PUSH_RETRY_MAX_DELAY)
 
 
 class ChallongeResultsMixin:
@@ -74,21 +86,23 @@ class ChallongeResultsMixin:
             try:
                 return await self.push_match_result(match, actor)
             except ChallongeAPIError as e:
-                # Sentry SGLMAN-2M: a timeout or dropped connection (no status)
-                # usually clears on the next request. Retrying is safe because
-                # the push re-reads the Challonge match and leaves a complete
-                # one alone, which covers a timed-out PUT that did land.
-                if attempt == 0 and e.status is None:
-                    await asyncio.sleep(_PUSH_RETRY_DELAY)
+                # Sentry SGLMAN-2M/2N: a timeout, dropped connection (no status),
+                # gateway error or rate limit usually clears on the next request.
+                # Retrying is safe because the push re-reads the Challonge match
+                # and leaves a complete one alone, which covers a PUT that did land.
+                transient = e.status is None or e.status in _TRANSIENT_STATUSES
+                if attempt == 0 and transient:
+                    await asyncio.sleep(_push_retry_delay(e))
                     continue
+                error = str(e)[:_AUDIT_ERROR_CHARS]
                 await self.audit_service.write_log(
                     actor, AuditActions.CHALLONGE_RESULT_PUSH_FAILED,
                     {'match_id': match.id, 'challonge_match_id': cmatch.challonge_match_id,
-                     'error': str(e), 'status': e.status},
+                     'error': error, 'status': e.status},
                 )
-                if e.status is not None:
+                if not transient:
                     raise
-                logger.warning("Challonge result push failed for match %s: %s", match.id, e)
+                logger.warning("Challonge result push failed for match %s: %s", match.id, error)
                 return False
         return False
 
