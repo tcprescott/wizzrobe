@@ -5,6 +5,8 @@ audit logs, and queues Discord notifications. Service ``PermissionError`` /
 ``ValueError`` are mapped to 403 / 400 by ``ServiceErrorRoute``.
 """
 
+from typing import List
+
 from fastapi import APIRouter, Depends, HTTPException, status
 
 from api._match_view import load_match_response
@@ -14,6 +16,7 @@ from api.schemas.match_actions import (
     AssignStageRequest,
     AssignStationsRequest,
     CrewSignupRequest,
+    ExtendToSetRequest,
     MatchCreateRequest,
     MatchRequestCreate,
     MatchUpdateRequest,
@@ -26,6 +29,7 @@ from api.schemas.match_actions import (
 from api.schemas.matches import MatchResponse
 from application.errors import require_found
 from application.services import (
+    BracketSetService,
     CrewService,
     MatchScheduleService,
     MatchService,
@@ -161,6 +165,32 @@ async def update_match(match_id: int, body: MatchUpdateRequest, actor: User = De
 )
 async def delete_match(match_id: int, actor: User = Depends(require_write_actor)):
     await MatchService().delete_match(match_id, actor=actor)
+
+
+@router.post(
+    "/{match_id}/extend-to-set",
+    response_model=List[MatchResponse],
+    summary="Turn a booked bracket match into a best-of set",
+    description=(
+        "For a Challonge or start.gg matchup booked as one game before its stage "
+        "became a best-of. The match stays as game 1, keeping its crew, seed, "
+        "stage and comments, and games 2 and up are booked at the times given, "
+        "with the same players, who are DMed as for any booking. Returns every "
+        "game, game 1 first. Fails with 400 when the match is already in a set, "
+        "has started, isn't linked to a bracket, or a time is out of order or "
+        "outside the stage's window (unless `allow_outside_round`)."
+        "\n\n"
+        "**Who can call this:** Staff or Admins of this tournament."
+    ),
+)
+async def extend_to_set(match_id: int, body: ExtendToSetRequest, actor: User = Depends(require_write_actor)):
+    games = await BracketSetService().extend_booking(
+        match_id,
+        [(g.scheduled_date, g.scheduled_time) for g in body.later_games],
+        actor,
+        allow_outside_round=body.allow_outside_round,
+    )
+    return [await load_match_response(g.id) for g in games]
 
 
 @router.post(

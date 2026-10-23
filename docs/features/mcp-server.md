@@ -465,7 +465,7 @@ replaces the whole asset.
 
 | Group | Tools |
 |---|---|
-| Scheduling | `create_match`, `submit_match_request`, `update_match`, `delete_match` |
+| Scheduling | `create_match`, `submit_match_request`, `update_match`, `delete_match`, `extend_match_to_set` |
 | Stream and stations | `set_match_stream_candidate`, `assign_match_stage`, `assign_match_stations` |
 | Lifecycle | `seat_match`, `start_match`, `finish_match`, `confirm_match`, `record_match_result`, `set_match_review`, `generate_match_seed` |
 | Crew approval | `set_crew_approval` (staff, tournament admins, crew coordinators) |

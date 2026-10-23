@@ -30,6 +30,9 @@ def _audit_action_values() -> set[str]:
 # Audited today, plausibly worth emitting later, but no consumer needs it yet.
 _EVENT_CANDIDATES = frozenset({
     AuditActions.MATCH_REQUESTED,
+    # Games 2 and up each emit MATCH_CREATED; the link back to game 1 has no
+    # subscriber yet.
+    AuditActions.MATCH_SET_EXTENDED,
     AuditActions.TOURNAMENT_CREATED,
     AuditActions.TOURNAMENT_UPDATED,
     AuditActions.TOURNAMENT_DELETED,

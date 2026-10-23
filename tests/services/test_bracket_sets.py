@@ -160,3 +160,45 @@ def test_best_of_must_be_odd():
     assert validate_tournament_config({'round_schedule': {'e0': {'best_of': 5}}}) == {
         'round_schedule': {'e0': {'best_of': 5}},
     }
+
+
+async def test_a_booked_game_becomes_game_one_of_a_set(db, monkeypatch, stub_discord_queue):
+    actor, players, _tournament, _full, _service = await _setup(monkeypatch)
+    semi = await ChallongeMatch.get(challonge_match_id='8001')
+    [single] = await bracket_sources.schedule_set('challonge', semi.id, THREE[:1], actor)
+    await Match.filter(id=single.id).update(comment='keep me')
+
+    games = await BracketSetService().extend_booking(single.id, THREE[1:], actor)
+
+    assert [g.id for g in games][0] == single.id and len(games) == 3
+    first = await Match.get(id=single.id)
+    assert (first.set_game, first.set_best_of, first.comment) == (1, 3, 'keep me')
+    await semi.refresh_from_db()
+    assert semi.match_id == single.id
+    for number, game in enumerate(games[1:], start=2):
+        game = await Match.get(id=game.id)
+        assert (game.set_game, game.set_best_of, game.set_first_id) == (number, 3, single.id)  # type: ignore[attr-defined]
+        assert set(await MatchPlayers.filter(match=game).values_list('user_id', flat=True)) == {
+            players['Andy'].id, players['Benny'].id,
+        }
+
+    with pytest.raises(ValueError, match='already part of a set'):
+        await BracketSetService().extend_booking(single.id, THREE[1:], actor)
+
+
+async def test_only_an_unplayed_bracket_booking_becomes_a_set(db, monkeypatch, stub_discord_queue):
+    actor, _players, _tournament, _full, _service = await _setup(monkeypatch)
+    semi = await ChallongeMatch.get(challonge_match_id='8001')
+    [single] = await bracket_sources.schedule_set('challonge', semi.id, THREE[:1], actor)
+    await ChallongeMatch.filter(id=semi.id).update(match_id=None)
+    with pytest.raises(ValueError, match='Challonge or start.gg'):
+        await BracketSetService().extend_booking(single.id, THREE[1:], actor)
+    await ChallongeMatch.filter(id=semi.id).update(match_id=single.id)
+
+    with pytest.raises(ValueError, match='Game 2 has to start after game 1'):
+        await BracketSetService().extend_booking(single.id, [('2026-10-25', '18:00'), ('2026-10-25', '21:00')], actor)
+    from datetime import datetime, timezone
+    await Match.filter(id=single.id).update(started_at=datetime.now(timezone.utc))
+    with pytest.raises(ValueError, match='already started'):
+        await BracketSetService().extend_booking(single.id, THREE[1:], actor)
+    assert await Match.filter(set_first_id=single.id).count() == 0

@@ -71,6 +71,7 @@ ACTION_LABELS: dict[str, str] = {
     'match.rescheduled': 'Rescheduled a match',
     'match.deleted': 'Deleted a match',
     'match.cancelled': 'Called off a match',
+    'match.set_extended': 'Turned a match into a best-of set',
     'match.requested': 'Requested a match',
     'match.seated': 'Seated a match',
     'match.started': 'Started a match',

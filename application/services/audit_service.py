@@ -86,6 +86,7 @@ class AuditActions:
     MATCH_RESCHEDULE_APPROVED = 'match.reschedule_approved'
     MATCH_RESCHEDULE_DECLINED = 'match.reschedule_declined'
     MATCH_RESCHEDULE_WITHDRAWN = 'match.reschedule_withdrawn'
+    MATCH_SET_EXTENDED = 'match.set_extended'
 
     # Crew
     CREW_SIGNUP_CREATED = 'crew.signup_created'
