@@ -33,7 +33,7 @@ import asyncio
 import logging
 import os
 from contextlib import contextmanager
-from typing import Any, Dict, Iterator, Optional
+from typing import Any, Callable, Dict, Iterator, Optional
 
 import sentry_sdk
 from sentry_sdk.integrations.logging import LoggingIntegration, ignore_logger_for_sentry_logs
@@ -225,6 +225,25 @@ def _traces_sample_rate() -> float:
         return 0.0
 
 
+def _traces_sampler(rate: float) -> Callable[[Dict[str, Any]], float]:
+    """Sample requests at ``rate`` but never trace a websocket.
+
+    A NiceGUI tab's websocket is one ASGI connection for as long as the tab is
+    open, so its transaction runs for hours and Sentry's N+1 detector reads the
+    scattered ``BEGIN;`` spans of every click as one request's N+1 (SGLMAN-2K).
+    Profiles follow sampled transactions, so they stay on HTTP requests only.
+    """
+    def sampler(sampling_context: Dict[str, Any]) -> float:
+        asgi_scope = sampling_context.get('asgi_scope') or {}
+        if asgi_scope.get('type') == 'websocket':
+            return 0.0
+        parent = sampling_context.get('parent_sampled')
+        if parent is not None:
+            return float(parent)
+        return rate
+    return sampler
+
+
 def _profiles_sample_rate() -> float:
     """Share of *traced* requests that are also profiled.
 
@@ -308,7 +327,7 @@ def init_sentry() -> None:
         release=_release(),
         send_default_pii=False,
         before_send=_before_send,  # type: ignore[arg-type]
-        traces_sample_rate=_traces_sample_rate(),
+        traces_sampler=_traces_sampler(_traces_sample_rate()),
         profiles_sample_rate=_profiles_sample_rate(),
         enable_logs=logs_level is not None,
         before_send_log=_before_send_log,  # type: ignore[arg-type]

@@ -282,3 +282,62 @@ class TestStaleSocketSession:
         wiring.install_stale_session_filter()
         filters = logging.getLogger('engineio.server').filters
         assert sum(isinstance(f, wiring.StaleSocketSessionFilter) for f in filters) == 1
+
+
+class TestTracesSampler:
+    def test_websocket_is_never_traced(self):
+        sampler = wiring._traces_sampler(1.0)
+        assert sampler({'asgi_scope': {'type': 'websocket'}, 'parent_sampled': True}) == 0.0
+
+    def test_http_uses_the_rate(self):
+        sampler = wiring._traces_sampler(0.1)
+        assert sampler({'asgi_scope': {'type': 'http'}, 'parent_sampled': None}) == 0.1
+        assert sampler({}) == 0.1
+
+    def test_http_follows_the_parent_decision(self):
+        sampler = wiring._traces_sampler(0.1)
+        assert sampler({'asgi_scope': {'type': 'http'}, 'parent_sampled': True}) == 1.0
+        assert sampler({'asgi_scope': {'type': 'http'}, 'parent_sampled': False}) == 0.0
+
+    def test_asgi_middleware_drops_websocket_but_keeps_http(self):
+        from sentry_sdk.integrations.asgi import SentryAsgiMiddleware
+        from sentry_sdk.transport import Transport
+
+        sent = []
+
+        class Capture(Transport):
+            def capture_envelope(self, envelope):
+                sent.extend(item.payload.json for item in envelope.items if item.type == 'transaction')
+
+        async def asgi_app(scope, receive, send):
+            if scope['type'] == 'websocket':
+                await send({'type': 'websocket.accept'})
+                await send({'type': 'websocket.close'})
+            else:
+                await send({'type': 'http.response.start', 'status': 200, 'headers': []})
+                await send({'type': 'http.response.body', 'body': b''})
+
+        async def receive():
+            return {'type': 'websocket.connect'}
+
+        async def send(_message):
+            pass
+
+        async def call(scope_type):
+            scope = {'type': scope_type, 'path': '/x', 'headers': [], 'query_string': b'',
+                     'asgi': {'version': '3.0'}, 'scheme': 'http', 'server': ('t', 80), 'client': ('c', 1)}
+            if scope_type == 'http':
+                scope['method'] = 'GET'
+            await SentryAsgiMiddleware(asgi_app)(scope, receive, send)
+
+        previous = sentry_sdk.get_client()
+        sentry_sdk.init(dsn='https://k@example.invalid/1', transport=Capture(),
+                        traces_sampler=wiring._traces_sampler(1.0))
+        try:
+            asyncio.run(call('websocket'))
+            asyncio.run(call('http'))
+            sentry_sdk.flush()
+        finally:
+            sentry_sdk.get_global_scope().set_client(previous)
+
+        assert [t['contexts']['trace']['op'] for t in sent] == ['http.server']
