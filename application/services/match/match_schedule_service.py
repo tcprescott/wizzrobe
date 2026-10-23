@@ -309,7 +309,7 @@ class MatchScheduleService(MatchNotificationMixin):
         only the confirmed DM goes out rather than two in a row.
         """
         await match.fetch_related('players')
-        open_race = closes_without_winner(match.players)
+        open_race = closes_without_winner(match.players)  # type: ignore[attr-defined]
 
         def check() -> None:
             if not match.started_at:

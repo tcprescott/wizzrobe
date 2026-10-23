@@ -35,7 +35,7 @@ from theme.tables.match_slots import CANDIDATE_STAGE
 
 def open_race_finish_message(match: Match) -> str:
     """The body of the Finish prompt for an open race (more than four players)."""
-    return (f'Finish this {len(match.players)}-player race? No winner is recorded, '
+    return (f'Finish this {len(match.players)}-player race? No winner is recorded, '  # type: ignore[attr-defined]
             'and finishing also confirms the result.')
 
 
@@ -237,7 +237,7 @@ class MatchLifecycleHandlers:
     async def on_finish(self, match_id: int):
         match = await Match.get(id=match_id, tenant_id=require_tenant_id()).prefetch_related('tournament', 'players', 'players__user')
 
-        if closes_without_winner(match.players):
+        if closes_without_winner(match.players):  # type: ignore[attr-defined]
             with self.page_container:
                 ConfirmationDialog(
                     title='Finish race',
