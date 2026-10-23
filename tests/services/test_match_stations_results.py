@@ -294,3 +294,21 @@ class TestStationAssignmentValidation:
         )
         await players[1].refresh_from_db()
         assert players[1].assigned_station == '5'
+
+    async def test_names_every_clash_at_once(self, db, actor):
+        """A 23-player race fixes every clash in one pass, not one per submit."""
+        other, _ = await _make_onsite_match(seated=True, stations=('4', '5'))
+        match, players = await _make_onsite_match()
+        with pytest.raises(ValueError) as exc:
+            await MatchService().assign_stations(
+                match.id, {players[0].id: '5', players[1].id: '4'}, actor=actor,
+            )
+        assert 'Stations 4 and 5 are in use by' in str(exc.value)
+
+    async def test_one_shared_station_reads_as_before(self, db, actor):
+        match, players = await _make_onsite_match()
+        with pytest.raises(ValueError) as exc:
+            await MatchService().assign_stations(
+                match.id, {players[0].id: '3', players[1].id: '3'}, actor=actor,
+            )
+        assert str(exc.value) == 'Station 3 is assigned to more than one player in this match.'
