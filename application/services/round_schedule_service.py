@@ -51,6 +51,7 @@ from models import (
 
 _ELIMINATION_TYPES = {'SINGLE_ELIMINATION', 'DOUBLE_ELIMINATION'}
 _DEFAULT_MATCH_MINUTES = 90
+_BEST_OF_CHOICES = (1, 3, 5)
 
 
 class RoundWindowError(ValueError):
@@ -133,7 +134,9 @@ class RoundScheduleService:
 
     async def list_stages(self, tournament_id: int, actor: Optional[User]) -> List[ScheduleStage]:
         """The tournament's stages in play order, each with its saved window."""
-        tournament = await self._editable(tournament_id, actor)
+        return await self._stages(await self._editable(tournament_id, actor))
+
+    async def _stages(self, tournament: Tournament) -> List[ScheduleStage]:
         saved = _schedule_config(tournament)
         if tournament.startgg_event_slug:
             stages = await self._startgg_stages(tournament)
@@ -242,6 +245,43 @@ class RoundScheduleService:
             EventType.TOURNAMENT_ROUND_SCHEDULE_UPDATED,
         )
         return tournament
+
+    async def set_best_of(
+        self, tournament_id: int, stage_key: str, best_of: int, actor: User,
+    ) -> ScheduleStage:
+        """Set how many games every matchup in one stage plays, leaving its window alone.
+
+        Matches already booked for the stage keep the length they were booked with.
+        """
+        if best_of not in _BEST_OF_CHOICES:
+            raise ValueError('Best of has to be 1, 3 or 5.')
+        tournament = await self._editable(tournament_id, actor)
+        stage = next((s for s in await self._stages(tournament) if s.key == stage_key), None)
+        if stage is None:
+            raise ValueError(f"This tournament has no stage '{stage_key}'.")
+        schedule = {k: dict(v) for k, v in _schedule_config(tournament).items()}
+        entry = schedule.pop(stage_key, {})
+        entry.pop('best_of', None)
+        if best_of > 1:
+            entry['best_of'] = best_of
+        if entry:
+            schedule[stage_key] = entry
+        config = dict(tournament.config or {})
+        if schedule:
+            config['round_schedule'] = schedule
+        else:
+            config.pop('round_schedule', None)
+        await self.tournament_repository.update(
+            tournament, config=validate_tournament_config(config) or None,
+        )
+        await self.audit_service.write_and_publish(
+            actor, AuditActions.TOURNAMENT_ROUND_SCHEDULE_UPDATED,
+            {'tournament_id': tournament.id, 'stages': sorted(schedule),
+             'stage': stage_key, 'best_of': best_of},
+            EventType.TOURNAMENT_ROUND_SCHEDULE_UPDATED,
+        )
+        stage.best_of = best_of
+        return stage
 
     # ------------------------------------------------------------------
     # Lookups: which window a matchup is booked inside

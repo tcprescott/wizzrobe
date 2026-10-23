@@ -1,4 +1,4 @@
-"""Tournament write endpoints: create/update/delete, admins, crew coordinators, roster and Challonge link."""
+"""Tournament write endpoints: create/update/delete, admins, crew coordinators, roster, Challonge link and round schedule."""
 
 from typing import List, Optional
 
@@ -12,13 +12,20 @@ from api.schemas.tournament_actions import (
     ChallongeLinkRequest,
     ChallongeSyncResponse,
     MembershipRequest,
+    RoundScheduleStageResponse,
+    StageBestOfRequest,
     TournamentCreateRequest,
     TournamentUpdateRequest,
 )
 from api.schemas.tournaments import TournamentResponse
 from api.schemas.users import UserListItem
 from application.errors import require_found
-from application.services import ChallongeService, MatchSuggestionService, TournamentService
+from application.services import (
+    ChallongeService,
+    MatchSuggestionService,
+    RoundScheduleService,
+    TournamentService,
+)
 from application.tenant_context import require_tenant_id
 from models import Tournament, User
 
@@ -331,3 +338,41 @@ async def unlink_challonge(tournament_id: int, actor: User = Depends(require_wri
 async def sync_challonge(tournament_id: int, actor: User = Depends(require_write_actor)):
     await _load_tournament_or_404(tournament_id)
     return {"counts": await ChallongeService().sync_bracket(tournament_id, actor, force=True)}
+
+
+@router.get(
+    "/{tournament_id}/round-schedule",
+    response_model=List[RoundScheduleStageResponse],
+    summary="List a bracket tournament's round schedule",
+    description=(
+        "The stages of a Challonge or start.gg tournament in play order, each with its booking "
+        "window, how many games its matchups play and how many are already booked: what "
+        "Round schedule in the tournament's ⋮ on Admin → Tournaments shows. Fails with 400 for a "
+        "tournament with no Challonge or start.gg bracket.\n\n"
+        "**Who can call this:** Staff, or an admin of this tournament."
+    ),
+)
+async def list_round_schedule(tournament_id: int, actor: User = Depends(require_api_actor)):
+    await _load_tournament_or_404(tournament_id)
+    stages = await RoundScheduleService().list_stages(tournament_id, actor)
+    return [RoundScheduleStageResponse.from_stage(s) for s in stages]
+
+
+@router.put(
+    "/{tournament_id}/round-schedule/{stage_key}/best-of",
+    response_model=RoundScheduleStageResponse,
+    summary="Set how many games a stage's matchups play",
+    description=(
+        "Sets Best of 1, 3 or 5 for one stage, leaving its booking window alone. Each game is then "
+        "booked as its own match. Matches already booked for the stage keep the length they were "
+        "booked with. Fails with 400 when the tournament has no such stage.\n\n"
+        "**Who can call this:** Staff, or an admin of this tournament."
+    ),
+)
+async def set_stage_best_of(
+    tournament_id: int, stage_key: str, body: StageBestOfRequest,
+    actor: User = Depends(require_write_actor),
+):
+    await _load_tournament_or_404(tournament_id)
+    stage = await RoundScheduleService().set_best_of(tournament_id, stage_key, body.best_of, actor)
+    return RoundScheduleStageResponse.from_stage(stage)

@@ -190,6 +190,35 @@ class TestListAndSave:
         assert t.config['round_schedule']['e0']['daily_until'] == '23:00'
         assert await AuditLog.filter(action='tournament.round_schedule_updated').count() == 1
 
+    async def test_set_best_of_keeps_the_window(self, db, privileged):
+        privileged(True)
+        actor = await User.create(discord_id=1, username='staff')
+        t, _ = await _challonge_bracket()
+        t.config = {'round_schedule': {'e0': {'daily_from': '18:00', 'daily_until': '23:00'}}}
+        await t.save()
+        stage = await RoundScheduleService().set_best_of(t.id, 'e0', 3, actor)
+        assert stage.label == 'Final' and stage.best_of == 3
+        await RoundScheduleService().set_best_of(t.id, 'e1', 3, actor)
+        await t.refresh_from_db()
+        assert t.config['round_schedule'] == {
+            'e0': {'daily_from': '18:00', 'daily_until': '23:00', 'best_of': 3},
+            'e1': {'best_of': 3},
+        }
+        await RoundScheduleService().set_best_of(t.id, 'e1', 1, actor)
+        await RoundScheduleService().set_best_of(t.id, 'e0', 1, actor)
+        await t.refresh_from_db()
+        assert t.config['round_schedule'] == {'e0': {'daily_from': '18:00', 'daily_until': '23:00'}}
+        assert await AuditLog.filter(action='tournament.round_schedule_updated').count() == 4
+
+    async def test_set_best_of_refuses_unknown_stage_and_even_counts(self, db, privileged):
+        privileged(True)
+        actor = await User.create(discord_id=1, username='staff')
+        t, _ = await _challonge_bracket()
+        with pytest.raises(ValueError, match='no stage'):
+            await RoundScheduleService().set_best_of(t.id, 'gf', 3, actor)
+        with pytest.raises(ValueError, match='1, 3 or 5'):
+            await RoundScheduleService().set_best_of(t.id, 'e0', 2, actor)
+
     async def test_players_cannot_edit(self, db, privileged):
         privileged(False)
         player = await User.create(discord_id=2, username='player')
@@ -198,6 +227,8 @@ class TestListAndSave:
             await RoundScheduleService().list_stages(t.id, player)
         with pytest.raises(PermissionError):
             await RoundScheduleService().save_schedule(t.id, {}, player)
+        with pytest.raises(PermissionError):
+            await RoundScheduleService().set_best_of(t.id, 'e0', 3, player)
 
 
 class TestEnforcement:
