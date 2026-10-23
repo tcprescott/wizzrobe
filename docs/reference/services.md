@@ -778,7 +778,7 @@ Read-only view-model assembly for the match tables: fetches matches (and their a
 | `get_stages_for_filter()` | `dict[int, str]` | Stage id → name for filter dropdowns. |
 | `_bracket_ref(match)` | `dict \| None` | The `{id, name, game, best_of, standing}` of the bracket stage a match is a game of (series context read off the prefetched games, no per-row query), for the schedule's link into the bracket view — `None` for an ordinary match, and `None` (not an exception) when the caller skipped `prefetch_relations`, since `bracket_match_game` is a reverse OneToOne. |
 
-Module helpers: `rolling_elapsed_label(started_at)` ("Rolling… 1:24" for an in-flight task-queue seed roll) and `is_seeded_and_unplayed(row)` (the kiosk board's predicate, applied to full refreshes and single live rows alike).
+Module helpers: `rolling_elapsed_label(started_at)` ("Rolling… 1:24" for an in-flight task-queue seed roll) and `is_room_seed_row(row)` (the kiosk board's predicate, applied to full refreshes and single live rows alike).
 
 **`crew_wanted`** sits on every row: whether the tournament uses the role at all (`required_* > 0`), which is what lets the board stop offering **Sign up** for a role nobody is needed in.
 

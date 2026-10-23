@@ -113,7 +113,7 @@ async def render_room_tokens_section(can_edit: bool) -> None:
     card = await section_panel(
         'Room screens', icon='desktop_windows',
         subtitle=(
-            'A read-only board of matches whose seed is rolled but not started, '
+            'A read-only board of matches whose seed is rolled and not finished, '
             'for a machine in the room that nobody signs in on. Each token is an '
             'unlisted URL that opens that one page and nothing else, so bookmark '
             'it on the machine it belongs to.'

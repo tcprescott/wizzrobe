@@ -46,20 +46,20 @@ def rolling_elapsed_label(started_at: datetime) -> str:
     return f'Rolling… {seconds // 60}:{seconds % 60:02d}'
 
 
-#: The two states in which a seed is rolled but nobody has played it yet. Named
-#: here rather than spelled inline because the room view's whole selection rule
-#: is "the seed exists and the match has not started".
-UNPLAYED_STATES = ('Scheduled', 'Checked In')
+#: The states in which a rolled seed can still be needed at a room PC. Started
+#: is in on purpose: a seed rerolled mid-race has to be downloadable there, so a
+#: match leaves the room view when it finishes, not when it starts.
+ROOM_SEED_STATES = ('Scheduled', 'Checked In', 'Started')
 
 
-def is_seeded_and_unplayed(row: Dict[str, Any]) -> bool:
-    """Whether a display row is a rolled seed for a match still to be played.
+def is_room_seed_row(row: Dict[str, Any]) -> bool:
+    """Whether a display row is a rolled seed for a match not yet finished.
 
     Pure, over an already-formatted row, so the tournament-room board can apply
     it both to a full refresh and to a single row arriving from a live update —
-    a match that starts has to leave the room screen, not merely stop updating.
+    a match that finishes has to leave the room screen, not merely stop updating.
     """
-    return bool(row.get('generated_seed')) and row.get('state') in UNPLAYED_STATES
+    return bool(row.get('generated_seed')) and row.get('state') in ROOM_SEED_STATES
 
 
 class MatchDisplayService:
@@ -192,15 +192,15 @@ class MatchDisplayService:
             )
 
     async def get_room_seed_rows(self) -> List[Dict[str, Any]]:
-        """Rolled-but-unplayed matches, for the tournament room's kiosk board.
+        """Rolled-but-unfinished matches, for the tournament room's kiosk board.
 
         ``only_upcoming`` drops the finished history at the DB layer; the
-        predicate then drops the started matches and the ones with no seed, which
-        is the whole selection rule — a room PC shows the seeds someone is about
-        to need and nothing else.
+        predicate then drops the ones with no seed, which is the whole selection
+        rule — a room PC shows the seeds someone is about to need, or is racing
+        on, and nothing else.
         """
         rows = await self.get_matches_for_display(only_upcoming=True)
-        return [row for row in rows if is_seeded_and_unplayed(row)]
+        return [row for row in rows if is_room_seed_row(row)]
 
     async def get_tournaments_for_filter(self) -> Dict[int, str]:
         """
