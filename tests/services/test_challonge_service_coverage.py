@@ -8,14 +8,17 @@ unlinked tournament, post-push re-sync failure). The HTTP client is faked by
 overriding ``_api_client`` / ``_oauth_client`` exactly as the primary suite does.
 """
 
+import json
 from datetime import datetime, timezone
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
+from application.services.audit_service import AuditActions
 from application.services.challonge_service import ChallongeService
 from application.utils.clients.challonge_client import ChallongeAPIError
 from models import (
+    AuditLog,
     ChallongeConnection,
     ChallongeMatch,
     ChallongeMatchState,
@@ -374,6 +377,113 @@ class TestPushEdgeCases:
         await make_service(api=api).push_match_result(match, actor)
         api.get_tournament_full.assert_awaited_once()
 
+    async def test_push_timeout_retries_then_succeeds(self, db, monkeypatch):
+        """Sentry SGLMAN-2M: a push that times out is retried once."""
+        from application.services import _challonge_results
+        monkeypatch.setattr(_challonge_results, '_PUSH_RETRY_DELAY', 0)
+        actor, match, _ = await self._linked_setup()
+        api = MagicMock()
+        api.get_match = AsyncMock(return_value={'match_id': '8001', 'state': 'open'})
+        api.update_match = AsyncMock(
+            side_effect=[ChallongeAPIError("Challonge didn't answer (TimeoutError)"), None],
+        )
+        api.get_tournament_full = AsyncMock(return_value={
+            'tournament': {'id': 'T1', 'name': 'T', 'url': None, 'state': 'underway'},
+            'participants': [], 'matches': [],
+        })
+        assert await make_service(api=api).push_result_if_linked(match, actor) is True
+        assert api.update_match.await_count == 2
+        assert await AuditLog.filter(action=AuditActions.CHALLONGE_RESULT_PUSHED).count() == 1
+        assert await AuditLog.filter(action=AuditActions.CHALLONGE_RESULT_PUSH_FAILED).count() == 0
+
+    async def test_push_timeout_that_landed_is_not_sent_twice(self, db, monkeypatch):
+        from application.services import _challonge_results
+        monkeypatch.setattr(_challonge_results, '_PUSH_RETRY_DELAY', 0)
+        actor, match, _ = await self._linked_setup()
+        api = MagicMock()
+        api.get_match = AsyncMock(side_effect=[
+            {'match_id': '8001', 'state': 'open'},
+            {'match_id': '8001', 'state': 'complete', 'winner_participant_id': '100'},
+        ])
+        api.update_match = AsyncMock(side_effect=ChallongeAPIError("Challonge didn't answer (TimeoutError)"))
+        api.get_tournament_full = AsyncMock(return_value={
+            'tournament': {'id': 'T1', 'name': 'T', 'url': None, 'state': 'underway'},
+            'participants': [], 'matches': [],
+        })
+        assert await make_service(api=api).push_result_if_linked(match, actor) is False
+        api.update_match.assert_awaited_once()
+        assert await AuditLog.filter(action=AuditActions.CHALLONGE_RESULT_PUSH_FAILED).count() == 0
+
+    async def test_push_timeout_twice_warns_and_audits(self, db, monkeypatch, caplog):
+        from application.services import _challonge_results
+        monkeypatch.setattr(_challonge_results, '_PUSH_RETRY_DELAY', 0)
+        actor, match, _ = await self._linked_setup()
+        api = MagicMock()
+        api.get_match = AsyncMock(return_value={'match_id': '8001', 'state': 'open'})
+        api.update_match = AsyncMock(side_effect=ChallongeAPIError("Challonge didn't answer (TimeoutError)"))
+
+        with caplog.at_level('WARNING', logger=_challonge_results.__name__):
+            assert await make_service(api=api).push_result_if_linked(match, actor) is False
+        assert api.update_match.await_count == 2
+        records = [r for r in caplog.records if 'result push failed' in r.getMessage()]
+        assert [r.levelname for r in records] == ['WARNING']
+        row = await AuditLog.get(action=AuditActions.CHALLONGE_RESULT_PUSH_FAILED)
+        details = json.loads(row.details)
+        assert details['match_id'] == match.id
+        assert details['challonge_match_id'] == '8001'
+
+    @pytest.mark.parametrize('status', [429, 502, 503, 504])
+    async def test_push_gateway_error_retries_then_warns(self, db, monkeypatch, caplog, status):
+        """Sentry SGLMAN-2N: a Cloudflare 502 (and friends) is retried like a timeout."""
+        from application.services import _challonge_results
+        sleeps = []
+
+        async def fake_sleep(seconds):
+            sleeps.append(seconds)
+        monkeypatch.setattr(_challonge_results.asyncio, 'sleep', fake_sleep)
+        actor, match, _ = await self._linked_setup()
+        api = MagicMock()
+        api.get_match = AsyncMock(return_value={'match_id': '8001', 'state': 'open'})
+        api.update_match = AsyncMock(side_effect=ChallongeAPIError(
+            f'Challonge API error ({status}): ' + 'x' * 5000, status=status, retry_after=60,
+        ))
+
+        with caplog.at_level('WARNING', logger=_challonge_results.__name__):
+            assert await make_service(api=api).push_result_if_linked(match, actor) is False
+        assert api.update_match.await_count == 2
+        assert sleeps == [_challonge_results._PUSH_RETRY_MAX_DELAY]
+        records = [r for r in caplog.records if 'result push failed' in r.getMessage()]
+        assert [r.levelname for r in records] == ['WARNING']
+        row = await AuditLog.get(action=AuditActions.CHALLONGE_RESULT_PUSH_FAILED)
+        details = json.loads(row.details)
+        assert details['status'] == status
+        assert len(details['error']) == _challonge_results._AUDIT_ERROR_CHARS
+
+    async def test_push_gateway_error_recovers_on_retry(self, db, monkeypatch):
+        from application.services import _challonge_results
+        monkeypatch.setattr(_challonge_results, '_PUSH_RETRY_DELAY', 0)
+        actor, match, _ = await self._linked_setup()
+        api = MagicMock()
+        api.get_match = AsyncMock(return_value={'match_id': '8001', 'state': 'open'})
+        api.update_match = AsyncMock(side_effect=[ChallongeAPIError('bad gateway', status=502), None])
+        api.get_tournament_full = AsyncMock(return_value={
+            'tournament': {'id': 'T1', 'name': 'T', 'url': None, 'state': 'underway'},
+            'participants': [], 'matches': [],
+        })
+        assert await make_service(api=api).push_result_if_linked(match, actor) is True
+        assert api.update_match.await_count == 2
+
+    async def test_push_http_error_is_not_retried(self, db):
+        actor, match, _ = await self._linked_setup()
+        api = MagicMock()
+        api.get_match = AsyncMock(return_value={'match_id': '8001', 'state': 'open'})
+        api.update_match = AsyncMock(side_effect=ChallongeAPIError('bad', status=422))
+
+        with pytest.raises(ChallongeAPIError):
+            await make_service(api=api).push_result_if_linked(match, actor)
+        api.update_match.assert_awaited_once()
+        assert await AuditLog.filter(action=AuditActions.CHALLONGE_RESULT_PUSH_FAILED).count() == 1
+
 
 # ----------------------------------------------------------------------
 # Player OAuth code exchange
@@ -427,3 +537,12 @@ class TestListUnscheduledMatches:
         )
         matches = await make_service().list_unscheduled_matches_for_user(user)
         assert [m.id for m in matches] == [open_match.id]
+
+
+@pytest.mark.parametrize('header, expected', [
+    ('60', 60.0), ('1.5', 1.5), ('-3', 0.0), (None, None), ('', None),
+    ('Wed, 21 Oct 2026 07:28:00 GMT', None),
+])
+def test_retry_after_header_parsing(header, expected):
+    from application.utils.clients.challonge_client import _retry_after_seconds
+    assert _retry_after_seconds(header) == expected

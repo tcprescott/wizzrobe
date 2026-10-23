@@ -52,9 +52,20 @@ RequestHook = Callable[[], Awaitable[None]]
 class ChallongeAPIError(Exception):
     """Raised when the Challonge API returns an error or unexpected payload."""
 
-    def __init__(self, message: str, status: Optional[int] = None):
+    def __init__(
+        self, message: str, status: Optional[int] = None, retry_after: Optional[float] = None,
+    ):
         super().__init__(message)
         self.status = status
+        self.retry_after = retry_after
+
+
+def _retry_after_seconds(value: Optional[str]) -> Optional[float]:
+    # Only the delta-seconds form; Cloudflare and Challonge don't send HTTP dates.
+    try:
+        return max(0.0, float(value)) if value else None
+    except ValueError:
+        return None
 
 
 @asynccontextmanager
@@ -471,7 +482,10 @@ class ChallongeClient:
     async def _parse(resp: aiohttp.ClientResponse) -> Dict[str, Any]:
         text = await resp.text()
         if resp.status >= 400:
-            raise ChallongeAPIError(f"Challonge API error ({resp.status}): {text}", status=resp.status)
+            raise ChallongeAPIError(
+                f"Challonge API error ({resp.status}): {text}", status=resp.status,
+                retry_after=_retry_after_seconds(resp.headers.get('Retry-After')),
+            )
         if not text:
             return {}
         import json as _json
