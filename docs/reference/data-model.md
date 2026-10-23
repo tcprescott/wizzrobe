@@ -985,7 +985,8 @@ Core scheduling unit. Lifecycle is derived from nullable timestamps rather than 
 | `forfeit_note` | `CharField(280)` | null | Staff's note on the forfeit |
 | `stage_reminder_sent_at` | `DatetimeField` | null | Stamped by the stage reminder worker *before* it sends, so a delivery failure or restart cannot re-fire. `MatchService.assign_stage` nulls it on every stage change, which re-arms the reminder for the stage the match ended up on |
 | `is_stream_candidate` | `BooleanField` | default `False` | |
-| `title` | `CharField(255)` | null | |
+| `title` | `CharField(255)` | null | Shown in place of the players' names while a match has none: a staff placeholder holding a slot needs one (`new_match_text`) |
+| `description` | `TextField` | null | Staff markdown, rendered with `parse_user_blocks` on the run sheet (one line) and the match sheet (migration 126) |
 | `generated_seed` | FK → `GeneratedSeeds` | null, `SET_NULL` | `related_name='matches'` |
 | `preset_override` | `CharEnumField(PresetOverride)` | null | `max_length=16`. Staff overruling the players' hard-preset choice for this one match, in either direction. Null = the players decide. Refused once the seed is rolled, after which `generated_seed.preset` is the record |
 | `speedgaming_episode` | O2O → `SpeedGamingEpisode` | null, `SET_NULL` | The canonical **source marker**: non-null = materialized by the SpeedGaming ETL, which makes its ETL-owned fields (`scheduled_at`, players, `tournament`) read-only in Wizzrobe (guard in `MatchService.update_match`). `SET_NULL` soft-detaches the match if its episode is purged. `related_name='match'` |
