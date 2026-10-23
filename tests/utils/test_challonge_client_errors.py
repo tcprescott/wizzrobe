@@ -56,3 +56,13 @@ async def test_api_errors_pass_through_unchanged(monkeypatch):
     with pytest.raises(ChallongeAPIError, match='boom') as info:
         await ChallongeClient('id', 'secret').get_me('token')
     assert info.value.status == 422
+
+
+@pytest.mark.parametrize('raw, expected', [
+    ('vortexofdoom (invitation pending)', 'vortexofdoom'),
+    ('Dani3883 (Invitation Pending) ', 'Dani3883'),
+    ('Eykir', 'Eykir'),
+])
+def test_participant_name_drops_invitation_pending(raw, expected):
+    from application.utils.clients.challonge_client import _normalize_participant
+    assert _normalize_participant({'id': 1, 'attributes': {'name': raw}})['name'] == expected
