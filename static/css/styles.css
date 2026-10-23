@@ -7409,6 +7409,11 @@ ol.wiz-help-list { list-style-type: decimal; }
     color: var(--status-pending);
     font-weight: 600;
 }
+/* A phone card shares its width with the status tag; a count that can't wrap
+   ran underneath it. */
+.run-sheet__card .run-sheet__crew {
+    white-space: normal;
+}
 /* One crew role: its count, then (on the player board) the viewer's own
    button, then the names. */
 .run-sheet__role {
