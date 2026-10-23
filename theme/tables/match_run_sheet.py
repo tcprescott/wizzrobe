@@ -446,6 +446,7 @@ _SEATED_WHO = r"""<template v-if="props.row._seats.length"><template v-for="(s, 
 
 # A player said they're on their way. On the staff boards only: the player's own
 # board says it in its Status chip instead.
+DESC_LINE = """<span v-if="props.row.description_text" class="run-sheet__desc" :title="props.row.description_text">{{ props.row.description_text }}</span>"""
 LATE_TAGS = r"""<span v-for="l in props.row._late" :key="l.key" class="wiz-chip wiz-chip--pending run-sheet__late" :title="l.note || null"><q-icon name="schedule" size="14px" aria-hidden="true" />{{ l.label }}</span>"""
 
 _ADA = """<span v-if="props.row._ada.length" class="run-sheet__ada"><q-icon name="accessible" size="16px" aria-hidden="true" />ADA: {{ props.row._ada.join(', ') }}</span>"""
@@ -501,14 +502,14 @@ def _body_slot(proctor: bool, can_run: bool = False) -> str:
                 """ + _SEATED_WHO + """
             </button>""" + COMMENT_BADGES + """</span>
             <span class="run-sheet__meta" :title="props.row.tournament">{{ props.row.tournament_short || props.row.tournament }}<template v-if="props.row.bracket"> · {{ props.row.bracket.name }}<template v-if="props.row.bracket.game"> · Game {{ props.row.bracket.game }}</template></template><template v-if="props.row.set_label"> · {{ props.row.set_label }}</template></span>
-            """ + _ADA + LATE_TAGS + """
+            """ + DESC_LINE + _ADA + LATE_TAGS + """
             """ + _SEED_LINE
     else:
         match = """<span class="run-sheet__name-line"><button type="button" class="run-sheet__open" @click.stop="$parent.$emit('open_match', props.row.id)">
                 """ + _WHO + """
             </button>""" + COMMENT_BADGES + """</span>
             <span class="run-sheet__meta" :title="props.row.tournament">{{ props.row.tournament_short || props.row.tournament }}<template v-if="props.row.bracket"> · {{ props.row.bracket.name }}<template v-if="props.row.bracket.game"> · Game {{ props.row.bracket.game }}</template></template><template v-if="props.row.set_label"> · {{ props.row.set_label }}</template></span>
-            """ + LATE_TAGS
+            """ + DESC_LINE + LATE_TAGS
     return """
 <q-tr v-if="props.row._group_start" class="run-sheet__group-row">
     <q-td colspan="100%" class="run-sheet__group">""" + fold_header(proctor) + """</q-td>
@@ -555,7 +556,7 @@ def _item_slot(proctor: bool, can_run: bool = False) -> str:
             <span class="run-sheet__main">
                 <span class="run-sheet__who">""" + _WHO + """</span>
                 <span class="run-sheet__meta"><template v-if="props.row._stage">{{ props.row._stage }}</template><template v-if="props.row._stage && props.row._seat_line"> · </template>{{ props.row._seat_line }}</span>
-                """ + _ADA + LATE_TAGS + """
+                """ + DESC_LINE + _ADA + LATE_TAGS + """
                 """ + COMMENT_BADGES + """
             </span>
         </button>
@@ -573,7 +574,7 @@ def _item_slot(proctor: bool, can_run: bool = False) -> str:
         <span class="run-sheet__main">
             <span class="run-sheet__who">""" + _WHO + """</span>
             <span class="run-sheet__meta" :title="props.row.tournament">{{ props.row.tournament_short || props.row.tournament }}<template v-if="props.row._stage"> · {{ props.row._stage }}</template></span>
-            """ + LATE_TAGS + """
+            """ + DESC_LINE + LATE_TAGS + """
             <span v-if="props.row._crew.length" class="run-sheet__crew-list">""" + _CREW_LINES + """</span>
             """ + COMMENT_BADGES + """
         </span>

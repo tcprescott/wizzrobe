@@ -103,13 +103,36 @@ def captured_events():
 
 
 class TestCreateMatchValidation:
-    async def test_raises_when_player_ids_empty(self, service):
+    async def test_raises_when_no_players_and_no_title(self, service):
+        with pytest.raises(ValueError, match="title, or add a player"):
+            await service.create_match(
+                tournament_id=1,
+                scheduled_date="2025-01-15",
+                scheduled_time="14:30",
+                player_ids=[],
+                title="   ",
+            )
+
+    async def test_bracket_booking_still_needs_a_player_or_placeholder(self, service):
         with pytest.raises(ValueError, match="at least one player"):
             await service.create_match(
                 tournament_id=1,
                 scheduled_date="2025-01-15",
                 scheduled_time="14:30",
                 player_ids=[],
+                title="Final",
+                from_bracket=True,
+            )
+
+    async def test_raises_on_a_description_too_long_to_keep(self, service):
+        with pytest.raises(ValueError, match="description"):
+            await service.create_match(
+                tournament_id=1,
+                scheduled_date="2025-01-15",
+                scheduled_time="14:30",
+                player_ids=[],
+                title="Showcase",
+                description="x" * 4001,
             )
 
     async def test_raises_on_invalid_date_format(self, service):
@@ -159,6 +182,36 @@ def _setup_create_match_mocks(service):
     service.match_schedule_service.notify_match_scheduled = AsyncMock()
 
     return match, user
+
+
+class TestCreateMatchPlaceholder:
+    async def test_a_titled_match_with_no_players_is_created(self, service):
+        _setup_create_match_mocks(service)
+        await service.create_match(
+            tournament_id=1,
+            scheduled_date="2025-01-15",
+            scheduled_time="14:30",
+            player_ids=[],
+            title="  ALTTPR Showcase Race ",
+            description="Top 4 from **Friday**.",
+        )
+        _, kwargs = service.repository.create.call_args
+        assert kwargs["title"] == "ALTTPR Showcase Race"
+        assert kwargs["description"] == "Top 4 from **Friday**."
+        service.repository.add_player.assert_not_awaited()
+        service.match_schedule_service.notify_match_scheduled.assert_awaited_once()
+
+    async def test_a_blank_description_is_stored_as_none(self, service):
+        _setup_create_match_mocks(service)
+        await service.create_match(
+            tournament_id=1,
+            scheduled_date="2025-01-15",
+            scheduled_time="14:30",
+            player_ids=[1],
+            description="  \n ",
+        )
+        _, kwargs = service.repository.create.call_args
+        assert kwargs["description"] is None
 
 
 class TestCreateMatchSubscriberNotifications:

@@ -22,6 +22,7 @@ from theme.dialog.match_dialog_base import (
     enrolment_preview,
 )
 from theme.help import resolve_help
+from theme.markdown_editor import MarkdownEditor
 from theme.tables.admin_crud import capture_render_context, scoped_background
 
 # The empty-Tournament hints differ by audience: an admin can go and make one, a
@@ -269,6 +270,19 @@ class AdminMatchDialog(BaseMatchDialog):
                 # dialog: enrolment is reversible from the tournament's own
                 # entrants dialog.
                 enrolment_note = ui.label('').classes('text-caption text-grey')
+                ui.label(
+                    'Leave Players empty to hold the slot, and add them later. '
+                    'The title shows in their place until then.'
+                ).classes('text-caption text-grey')
+
+                title_input = ui.input(
+                    'Title', value=(self.match.title or '') if self.match else '',
+                ).props('maxlength=255').classes('input-full-width')
+                description_input = MarkdownEditor(
+                    'Description', value=(self.match.description or '') if self.match else '',
+                    placeholder='What the slot is for, shown with the match on the schedules.',
+                    compact=True,
+                ).classes('full-width')
 
                 async def update_enrolment_note():
                     tournament_id = selected_tournament.value
@@ -414,6 +428,8 @@ class AdminMatchDialog(BaseMatchDialog):
                 date_value = date.value
                 time_value = time.value
                 comment_value = comment_input.value
+                title_value = title_input.value or ''
+                description_value = description_input.value or ''
                 new_player_ids = selected_players.value if isinstance(selected_players.value, list) else [selected_players.value]
                 new_commentator_ids = selected_commentators.value if isinstance(selected_commentators.value, list) else [selected_commentators.value]
                 new_tracker_ids = selected_trackers.value if isinstance(selected_trackers.value, list) else [selected_trackers.value]
@@ -429,6 +445,8 @@ class AdminMatchDialog(BaseMatchDialog):
                         commentator_ids=new_commentator_ids,
                         tracker_ids=new_tracker_ids,
                         comment=comment_value,
+                        title=title_value,
+                        description=description_value,
                         actor=actor,
                         allow_outside_round=getattr(self, 'allow_outside_round', False),
                     )
@@ -455,6 +473,8 @@ class AdminMatchDialog(BaseMatchDialog):
                         scheduled_date=date_value,
                         scheduled_time=time_value,
                         comment=comment_value,
+                        title=title_value,
+                        description=description_value,
                         player_ids=new_player_ids,
                         commentator_ids=new_commentator_ids,
                         tracker_ids=new_tracker_ids,

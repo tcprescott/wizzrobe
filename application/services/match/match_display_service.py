@@ -12,6 +12,7 @@ Read-only: no writes, no audit, no Discord notifications.
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Tuple
 
+from application.content import parse_user_blocks, plain_text
 from application.repositories import (
     MatchAcknowledgmentRepository,
     MatchRepository,
@@ -348,6 +349,10 @@ class MatchDisplayService:
             # in their copy, so a confirmation dialog can say what it is about
             # instead of quoting a primary key (``match_labels.match_row_label``).
             'title': match.title or '',
+            # Staff markdown, rendered on the match sheet; the flattened text is
+            # the run sheet's one-line summary of it.
+            'description': getattr(match, 'description', None) or '',
+            'description_text': plain_text(parse_user_blocks(desc)) if (desc := getattr(match, 'description', None)) else '',
             # Per-row board capabilities are scoped by tournament (MatchBoardAccess).
             'tournament_id': match.tournament_id,  # type: ignore[attr-defined]
             'tournament': match.tournament.name if match.tournament else '',

@@ -243,6 +243,7 @@ class MatchRepository:
         stage_id: Optional[int] = None,
         is_stream_candidate: bool = False,
         title: Optional[str] = None,
+        description: Optional[str] = None,
         bracket_placeholders: Optional[list] = None,
     ) -> Match:
         """
@@ -267,6 +268,7 @@ class MatchRepository:
             stage_id=stage_id,
             is_stream_candidate=is_stream_candidate,
             title=title,
+            description=description,
             bracket_placeholders=bracket_placeholders,
         )
         return match
