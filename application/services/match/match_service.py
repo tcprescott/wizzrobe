@@ -34,7 +34,6 @@ from application.services.match.match_forfeit import ForfeitMixin
 from application.services.match.match_hard_preset_service import MatchHardPresetService
 from application.services.match.match_participants import MatchParticipants
 from application.services.match.match_placeholders import PlaceholderBookingMixin
-from application.services.match.match_text import clean_description, clean_title
 from application.services.match.match_reads import MatchReadsMixin
 from application.services.match.match_request import MatchRequestMixin
 from application.services.match.match_review import MatchReviewMixin
@@ -42,6 +41,7 @@ from application.services.match.match_schedule_service import MatchScheduleServi
 from application.services.match.match_source_guard import assert_sg_fields_unchanged
 from application.services.match.match_station_draw import StationDrawMixin
 from application.services.match.match_stations import StationAssignmentMixin
+from application.services.match.match_text import clean_description, clean_title, require_roster_or_title
 from application.services.stage_service import StageService
 from application.services.system_config_service import SystemConfigService
 from application.services.tenant_membership_service import TenantMembershipService
@@ -141,7 +141,6 @@ class MatchService(
                 pass something self-describing (see
                 ``SchedulingMixin._game_title``); leave it None for the default
                 "<tournament>: <players>" rendering.
-            description: Optional staff-written markdown shown with the match.
             admin_user: User creating the match (for audit log)
 
         Returns:
@@ -168,14 +167,8 @@ class MatchService(
                 f"User cannot create matches in tournament {tournament_id}",
             )
 
-        title = clean_title(title)
-        description = clean_description(description)
-        if from_bracket and not player_ids and not placeholders:
-            raise ValueError("Add at least one player before creating the match.")
-        # A placeholder: staff hold the slot now and add players later. The
-        # title is what every schedule shows in place of the players' names.
-        if not player_ids and not from_bracket and not title:
-            raise ValueError("Give the match a title, or add a player, so the schedule can say what it is.")
+        title, description = clean_title(title), clean_description(description)
+        require_roster_or_title(player_ids, title, from_bracket=from_bracket, placeholders=placeholders)
         # A bracket game's players come from the matchup's entrants, which staff
         # linked (and that link is checked); only caller-supplied ids need it.
         await TenantMembershipService.require_community_users(
@@ -309,8 +302,7 @@ class MatchService(
             commentator_ids: New commentator list
             tracker_ids: New tracker list
             comment: New comment
-            title: New title; ``''`` clears it, None leaves it alone
-            description: New description; ``''`` clears it, None leaves it alone
+            title, description: New text; ``''`` clears it, None leaves it alone
             stage_id: New stage ID
             clear_seated: Clear seated_at timestamp
             clear_started: Clear started_at timestamp
