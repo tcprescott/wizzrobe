@@ -160,6 +160,7 @@ WRITE_TOOLS = {
     'delete_tournament',
     'delete_volunteer_position',
     'delete_volunteer_shift',
+    'extend_match_to_set',
     'deny_join_request',
     'drop_tournament_player',
     'enroll_tournament_player',

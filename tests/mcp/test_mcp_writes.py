@@ -39,6 +39,11 @@ WRITE_CALLS = {
     },
     'update_match': {'match_id': 1, 'comment': 'x'},
     'delete_match': {'match_id': 1},
+    'extend_match_to_set': {
+        'match_id': 1,
+        'later_games': [{'scheduled_date': '2026-05-01', 'scheduled_time': '20:00'},
+                        {'scheduled_date': '2026-05-01', 'scheduled_time': '22:00'}],
+    },
     'set_match_stream_candidate': {'match_id': 1, 'flag': True},
     'assign_match_stage': {'match_id': 1, 'stage_id': 1},
     'assign_match_stations': {'match_id': 1, 'assignments': {}},

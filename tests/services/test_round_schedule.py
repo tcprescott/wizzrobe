@@ -68,6 +68,10 @@ class TestStageKeys:
         assert stage_label('e2') == 'Quarterfinals'
         assert stage_label('e3', round_number=1) == 'Round 1'
 
+    def test_third_place_match_shares_the_final(self):
+        # Challonge files a single-elim 3rd place match under round 0.
+        assert elimination_keys([0, 1, 2], double=False) == {1: 'e1', 2: 'e0', 0: 'e0'}
+
     def test_double_elimination_splits_grand_final(self):
         # 8 players: winners 1-3, losers -1..-4, grand final 4 and its reset 5.
         rounds = [1, 2, 3, 4, 5, -1, -2, -3, -4]
@@ -209,6 +213,17 @@ class TestListAndSave:
         await t.refresh_from_db()
         assert t.config['round_schedule'] == {'e0': {'daily_from': '18:00', 'daily_until': '23:00'}}
         assert await AuditLog.filter(action='tournament.round_schedule_updated').count() == 4
+
+    async def test_third_place_match_counts_in_and_plays_like_the_final(self, db, privileged):
+        privileged(True)
+        actor = await User.create(discord_id=1, username='staff')
+        t, made = await _challonge_bracket(group=0, rounds=(1, 2, 0))
+        service = RoundScheduleService()
+        stages = await service.list_stages(t.id, actor)
+        assert [(s.key, s.total) for s in stages] == [('e1', 1), ('e0', 2)]
+        await service.set_best_of(t.id, 'e0', 3, actor)
+        assert await service.best_of_for(challonge_match_id=made[0].id) == 3
+        assert await service.best_of_for(challonge_match_id=made[1].id) == 1
 
     async def test_set_best_of_refuses_unknown_stage_and_even_counts(self, db, privileged):
         privileged(True)

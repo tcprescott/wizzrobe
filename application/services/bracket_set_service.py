@@ -21,9 +21,15 @@ import logging
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Sequence, Tuple
 
+from application.errors import require_found
+from application.repositories.challonge_repository import ChallongeRepository
 from application.repositories.match_repository import MatchRepository
+from application.repositories.startgg_repository import StartggRepository
+from application.services.audit_service import AuditActions, AuditService
+from application.services.auth_service import AuthService
 from application.services.notification_catalog import SERIES_GAME_CANCELLED
-from application.utils.timezone import parse_local_datetime
+from application.services.round_schedule_service import RoundScheduleService
+from application.utils.timezone import format_local_date, format_local_time, parse_local_datetime
 from models import Match, User
 
 logger = logging.getLogger(__name__)
@@ -177,6 +183,49 @@ class BracketSetService:
             await self.repository.update(game, set_game=number, set_best_of=best_of, set_first=first)
             games.append(game)
         return games
+
+    async def extend_booking(
+        self, match_id: int, later: Sequence[Tuple[str, str]], actor: User,
+        *, allow_outside_round: bool = False,
+    ) -> List[Match]:
+        """Make a booked best-of-1 bracket match game 1 of a set, and book the rest.
+
+        For a matchup booked before its stage became a best-of: the booking
+        keeps its crew, seed, stage and comments, and ``later`` holds the
+        ``(date, time)`` of games 2 and up. Returns every game, game 1 first.
+        """
+        match = require_found(await self.repository.get_by_id(match_id, prefetch_relations=False), 'Match')
+        await AuthService.ensure(
+            await AuthService.can_crud_match(actor, match),
+            "You can't change this match.",
+        )
+        if getattr(match, 'set_best_of', None) or getattr(match, 'set_first_id', None):
+            raise ValueError('This match is already part of a set.')
+        if match.started_at is not None or match.finished_at is not None:
+            raise ValueError("This match has already started, so it can't become a set.")
+        if match.scheduled_at is None:
+            raise ValueError("This match has no time, so it can't become a set.")
+        ref: dict = {}
+        cm = await ChallongeRepository.get_challonge_match_for_match(match)
+        if cm is not None:
+            ref = {'challonge_match_id': cm.id}
+        else:
+            sets = await StartggRepository.sets_for_match(match)
+            if sets:
+                ref = {'startgg_set_id': sets[0].id}
+        if not ref:
+            raise ValueError("Only a match booked from a Challonge or start.gg bracket can become a set.")
+        times = [(format_local_date(match.scheduled_at), format_local_time(match.scheduled_at)), *later]
+        self.check_times(times)
+        if not allow_outside_round:
+            rounds = RoundScheduleService()
+            for day, clock in later:
+                await rounds.check_reference(parse_local_datetime(day, clock), actor, **ref)
+        games = await self.book_followers(match, times, actor)
+        await AuditService().write_log(actor, AuditActions.MATCH_SET_EXTENDED, {
+            'match_id': match.id, 'best_of': len(times), 'games': [g.id for g in games],
+        })
+        return [match, *games]
 
     async def followers(self, match: Match) -> List[Match]:
         """Games 2 and up when ``match`` is game 1 of a set, else nothing."""

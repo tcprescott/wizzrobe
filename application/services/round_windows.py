@@ -175,14 +175,22 @@ def winners_final_round(rounds: Iterable[int]) -> Optional[int]:
 def elimination_keys(
     rounds: Iterable[int], *, double: bool, grand_final_rounds: Optional[Set[int]] = None,
 ) -> Dict[int, str]:
-    """``{round number: stage key}`` for one elimination bracket."""
-    rounds = sorted(set(r for r in rounds if r))
+    """``{round number: stage key}`` for one elimination bracket.
+
+    Challonge files a single-elimination 3rd place match under round 0; it is
+    played alongside the final, so it shares the final's key (and best-of).
+    """
+    given = set(rounds)
+    rounds = sorted(r for r in given if r)
     if not rounds:
         return {}
     keys: Dict[int, str] = {}
     if not double:
         top = max(rounds)
-        return {r: f'e{top - r}' for r in rounds if r > 0}
+        keys = {r: f'e{top - r}' for r in rounds if r > 0}
+        if 0 in given and top > 0:
+            keys[0] = 'e0'
+        return keys
     gf_rounds = set(grand_final_rounds or ())
     wf = winners_final_round(rounds)
     if wf is None:

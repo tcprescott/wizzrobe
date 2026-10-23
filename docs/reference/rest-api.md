@@ -87,6 +87,7 @@ One module per group under [`api/routers/`](../../api/routers/), named after the
 - `GET /matches/{id}` — single match. Alongside the lifecycle timestamps the response carries `needs_review`, the proctor's dispute flag. It is a bare flag: there is no note field, and confirming clears it.
 - `POST /matches` — create (Staff/TA). `POST /matches/request` — player-initiated request.
 - `PATCH /matches/{id}` · `DELETE /matches/{id}`.
+- `POST /matches/{id}/extend-to-set` (`{later_games: [{scheduled_date, scheduled_time}], allow_outside_round?}`) turns a Challonge or start.gg booking made as one game into game 1 of a best-of set and books games 2 and up with the same players. The match keeps its crew, seed, stage and comments. `400` once it's in a set, started, unlinked from a bracket, or a time is out of order or outside the stage's window. Staff or the tournament's admins.
 - `POST /matches/{id}/stream-candidate` · `/stage` · `/stations`.
 - `POST /matches/{id}/stations/suggest` — draw a random seating (opposite sides, spread out) without applying it. Returns `{assignments, relaxations}`. Takes the **write** actor even though it writes nothing: it is a preview of `POST /stations`, and a read-only token has no business drawing seats it cannot then take.
 - Lifecycle: `POST /matches/{id}/seat` · `/start` · `/finish` · `/confirm` · `/result` · `/seed`. `/confirm` returns `400` unless the match is finished **and** a winner has been recorded.

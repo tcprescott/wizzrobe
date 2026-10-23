@@ -155,7 +155,7 @@ class RoundScheduleService:
         group = [m for m in matches if m.group_stage]
         if group or tournament.challonge_group_stage:
             rows[GROUP_KEY] = ScheduleStage(GROUP_KEY, stage_label(GROUP_KEY), '')
-        elim = [m for m in matches if not m.group_stage and m.round]
+        elim = [m for m in matches if not m.group_stage and m.round is not None]
         rounds = [m.round for m in elim]
         double = _is_double_challonge(tournament, rounds)
         keys = elimination_keys(rounds, double=double)
@@ -289,11 +289,13 @@ class RoundScheduleService:
     async def _challonge_key(self, cm: ChallongeMatch) -> Optional[str]:
         if cm.group_stage:
             return GROUP_KEY
+        if cm.round is None:
+            return None
         matches = await self.challonge_repository.list_matches(cm.tournament)
-        rounds = [m.round for m in matches if not m.group_stage and m.round]
+        rounds = [m.round for m in matches if not m.group_stage and m.round is not None]
         return elimination_keys(
             rounds, double=_is_double_challonge(cm.tournament, rounds),
-        ).get(cm.round or 0)
+        ).get(cm.round)
 
     async def _startgg_key(self, row: StartggSet) -> Optional[str]:
         phase = row.pool.phase
