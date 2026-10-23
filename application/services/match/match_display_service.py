@@ -22,7 +22,12 @@ from application.repositories import (
     TournamentRepository,
 )
 from application.services.bracket_set_service import BracketSetService
-from application.services.match.match_status import has_recorded_result, legacy_label, resolve
+from application.services.match.match_status import (
+    closes_without_winner,
+    has_recorded_result,
+    legacy_label,
+    resolve,
+)
 from application.services.match.player_late_service import late_tag, late_window_open
 from application.services.reporting_shared import crew_requirement
 from application.utils.discord_messages import seed_code_line
@@ -381,8 +386,9 @@ class MatchDisplayService:
             # surfaces gate the Confirm control on this rather than on the state
             # alone, instead of offering a button whose only outcome is a refusal.
             # The *same* predicate the service enforces, not a second spelling of
-            # it: see ``has_recorded_result``.
-            'has_result': has_recorded_result(match.players),
+            # it: see ``has_recorded_result``. An open race confirms with none
+            # (``closes_without_winner``).
+            'has_result': has_recorded_result(match.players) or closes_without_winner(match.players),
             # "No-show" etc. when staff decided it by forfeit; the player left
             # without a finish rank is the one who forfeited.
             'forfeit': reason.label if (reason := getattr(match, 'forfeit_reason', None)) else '',

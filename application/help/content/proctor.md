@@ -91,9 +91,10 @@ it's also at the top of the match's details.
    on everyone watching the board sees it as {state:Started}.
 4. Press **Finish** when it ends and say who won. Tap the winner, then the
    **Yes** button with their name on it. Picking a name doesn't record anything
-   by itself, so a mis-tap only costs you a **Back**. With more than two
+   by itself, so a mis-tap only costs you a **Back**. With three or four
    players, choose the winner from the list and press **Submit Results**. The
-   match moves to {state:Finished}.
+   match moves to {state:Finished}. A race with more than four players has no
+   winner to record: Finish asks once, then closes the race out as confirmed.
 
 What you do between those presses, like helping players set up, running a
 countdown and keeping the room in order, is up to the event. The app records

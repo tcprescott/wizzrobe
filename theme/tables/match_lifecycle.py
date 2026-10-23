@@ -22,6 +22,7 @@ from typing import Any
 from nicegui import app, ui
 
 from application.services import MatchScheduleService, MatchService, get_user_from_session
+from application.services.match.match_status import closes_without_winner
 from application.tenant_context import require_tenant_id
 from application.utils.match_labels import match_model_label
 from models import Match
@@ -30,6 +31,12 @@ from theme.dialog.match_dialog import AdminMatchDialog
 from theme.notify import notify_error
 from theme.tables.match_access import MatchBoardAccess
 from theme.tables.match_slots import CANDIDATE_STAGE
+
+
+def open_race_finish_message(match: Match) -> str:
+    """The body of the Finish prompt for an open race (more than four players)."""
+    return (f'Finish this {len(match.players)}-player race? No winner is recorded, '  # type: ignore[attr-defined]
+            'and finishing also confirms the result.')
 
 
 def confirm_result_message(match: Match) -> str:
@@ -229,6 +236,17 @@ class MatchLifecycleHandlers:
 
     async def on_finish(self, match_id: int):
         match = await Match.get(id=match_id, tenant_id=require_tenant_id()).prefetch_related('tournament', 'players', 'players__user')
+
+        if closes_without_winner(match.players):  # type: ignore[attr-defined]
+            with self.page_container:
+                ConfirmationDialog(
+                    title='Finish race',
+                    message=open_race_finish_message(match),
+                    confirm_text='Finish race',
+                    tone='primary',
+                    on_confirm=lambda _: self.confirm_finishing(match),
+                ).open()
+            return
 
         async def handle_confirm(_):
             dialog.dialog.close()
