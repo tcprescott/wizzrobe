@@ -1,4 +1,4 @@
-"""Survivors of a full collection are frozen, and handed back once an hour."""
+"""Survivors of a full collection are frozen, and handed back every few minutes."""
 
 import asyncio
 import gc
@@ -16,14 +16,14 @@ def calls(monkeypatch):
     return seen
 
 
-def test_freezes_after_a_full_pass_within_the_hour(calls, monkeypatch):
+def test_freezes_after_a_full_pass_before_the_thaw(calls, monkeypatch):
     monkeypatch.setattr(gc_monitor, '_last_thaw', gc_monitor.time.monotonic())
     gc_monitor._after_full_pass()
     assert calls == ['freeze']
 
 
-def test_thaws_once_the_hour_is_up(calls, monkeypatch):
-    monkeypatch.setattr(gc_monitor, '_last_thaw', gc_monitor.time.monotonic() - gc_monitor.THAW_SECONDS - 1)
+def test_thaws_once_the_interval_is_up(calls, monkeypatch):
+    monkeypatch.setattr(gc_monitor, '_last_thaw', gc_monitor.time.monotonic() - gc_monitor._thaw_seconds - 1)
     gc_monitor._after_full_pass()
     gc_monitor._after_full_pass()
     assert calls == ['unfreeze', 'freeze']
@@ -74,3 +74,13 @@ async def test_a_full_pass_freezes_its_survivors():
         gc_monitor.stop_refreeze()
         gc.unfreeze()
     assert gc_monitor._refreeze_callback not in gc.callbacks
+
+
+def test_thaw_interval_comes_from_the_caller(calls, monkeypatch):
+    monkeypatch.setattr(gc_monitor, '_thaw_seconds', gc_monitor._thaw_seconds)
+    monkeypatch.setattr(gc_monitor, '_refreeze_loop', gc_monitor._refreeze_loop)
+    monkeypatch.setattr(gc_monitor.gc, 'callbacks', [])
+    gc_monitor.refreeze_after_full_passes(_Loop(), thaw_seconds=60)
+    monkeypatch.setattr(gc_monitor, '_last_thaw', gc_monitor.time.monotonic() - 61)
+    gc_monitor._after_full_pass()
+    assert calls == ['unfreeze']

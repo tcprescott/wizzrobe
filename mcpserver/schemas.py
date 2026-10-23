@@ -614,7 +614,7 @@ class GcStats(BaseModel):
     thresholds: List[int]
     pending: List[int] = Field(description='Allocations / younger passes counted toward each generation')
     frozen_objects: Optional[int] = Field(description='Objects frozen out of collection now; null if not frozen')
-    refreeze: Dict[str, int] = Field(default_factory=dict, description='refreezes (full-pass survivors frozen), thaws (hourly)')
+    refreeze: Dict[str, int] = Field(default_factory=dict, description='refreezes (full-pass survivors frozen), thaws (every GC_THAW_MINUTES)')
     by_generation: Dict[str, Dict[str, float]] = Field(description='passes, total_seconds, max_seconds per generation')
     slowest_recent: List[Dict[str, float]] = Field(
         description='Slowest recent passes of 10ms or more: generation, seconds, collected, ago_seconds',

@@ -44,8 +44,11 @@ _started: Optional[float] = None
 _frozen: Optional[int] = None
 
 #: How often the re-frozen objects are handed back for one ordinary full pass,
-#: so a cycle that formed among them is still freed within the hour.
-THAW_SECONDS = 3600.0
+#: so a cycle that formed among them is still freed. Cyclic garbage piles up
+#: frozen until then: hourly let production RSS climb 560 -> 907 MB and made the
+#: thaw pass 3.9s (2026-10-22), so the default is ten minutes.
+THAW_SECONDS = 600.0
+_thaw_seconds = THAW_SECONDS
 _refreeze_loop: Optional[asyncio.AbstractEventLoop] = None
 _last_thaw = 0.0
 _refreezes = 0
@@ -100,7 +103,7 @@ def freeze() -> int:
 def _after_full_pass() -> None:
     global _last_thaw, _refreezes, _thaws
     now = time.monotonic()
-    if now - _last_thaw >= THAW_SECONDS:
+    if now - _last_thaw >= _thaw_seconds:
         gc.unfreeze()
         _last_thaw = now
         _thaws += 1
@@ -121,7 +124,7 @@ def _refreeze_callback(phase: str, info: Dict[str, int]) -> None:
         pass
 
 
-def refreeze_after_full_passes(loop: asyncio.AbstractEventLoop) -> None:
+def refreeze_after_full_passes(loop: asyncio.AbstractEventLoop, thaw_seconds: float = THAW_SECONDS) -> None:
     """Freeze whatever survives each full collection, so the next one skips it.
 
     A full pass walks every live object, and with pages open that is mostly their
@@ -132,11 +135,12 @@ def refreeze_after_full_passes(loop: asyncio.AbstractEventLoop) -> None:
 
     Frozen objects are still freed by reference counting; only a cycle that forms
     among them waits. :mod:`element_cycles` removes the one every deleted element
-    used to leave, and once every :data:`THAW_SECONDS` the next pass after a full
+    used to leave, and once every ``thaw_seconds`` the next pass after a full
     one walks everything as before and frees whatever did collect.
     """
-    global _refreeze_loop, _last_thaw
+    global _refreeze_loop, _last_thaw, _thaw_seconds
     _refreeze_loop = loop
+    _thaw_seconds = thaw_seconds
     _last_thaw = time.monotonic()
     if _refreeze_callback not in gc.callbacks:
         gc.callbacks.append(_refreeze_callback)

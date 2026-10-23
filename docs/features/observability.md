@@ -218,8 +218,10 @@ Two more things keep passes short as tabs pile up:
 - **Survivors are re-frozen.** `gc_monitor.refreeze_after_full_passes` freezes
   whatever is alive right after each full pass, so the next one walks only what
   was allocated since. Frozen objects are still freed by reference counting; a
-  cycle among them waits for the hourly thaw (`THAW_SECONDS`), when the frozen
-  set is handed back for one ordinary pass. With 42 tabs open locally, passes
+  cycle among them waits for the next thaw, every `GC_THAW_MINUTES` (default 10),
+  when the frozen set is handed back for one ordinary pass. An hourly thaw was
+  tried first in production: RSS climbed 560 to 907 MB in that hour and the thaw
+  pass took 3.9s. With 42 tabs open locally, passes
   went from 0.66-0.84s to 0.06-0.11s. `GC_REFREEZE=false` turns it off (it is
   also off when `GC_FREEZE` is). `runtime_stats` shows `refreeze` counts and the
   current `frozen_objects`.

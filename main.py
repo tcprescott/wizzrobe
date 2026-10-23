@@ -334,7 +334,8 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         # Live page trees grow every pass with each open tab; freeze what each
         # full pass leaves so the next one skips it.
         if env_flag('GC_REFREEZE', default=True):
-            gc_monitor.refreeze_after_full_passes(asyncio.get_running_loop())
+            thaw_minutes = float(os.environ.get('GC_THAW_MINUTES') or gc_monitor.THAW_SECONDS / 60)
+            gc_monitor.refreeze_after_full_passes(asyncio.get_running_loop(), thaw_minutes * 60)
     if census_dump := os.environ.get('MEMORY_CENSUS_DUMP'):
         memory_census.dump_on_signal(census_dump)
     # The MCP transport's session manager owns a task group that each per-request
