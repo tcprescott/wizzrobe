@@ -190,11 +190,12 @@ class TelemetryRepository:
         start: Optional[datetime] = None,
         end: Optional[datetime] = None,
         category: Optional[str] = None,
+        user_id: Optional[int] = None,
         limit: int = 15,
     ) -> List[dict]:
         """Most-viewed paths with view + distinct-user counts, busiest first."""
         rows = await (
-            cls._filtered(start=start, end=end, category=category)
+            cls._filtered(start=start, end=end, category=category, user_id=user_id)
             .filter(path__isnull=False)
             .annotate(views=Count('id'), users=Count('user_id', distinct=True))
             .group_by('path')
@@ -210,10 +211,11 @@ class TelemetryRepository:
         *,
         start: Optional[datetime] = None,
         end: Optional[datetime] = None,
+        user_id: Optional[int] = None,
         limit: int = 20,
     ) -> List[dict]:
         rows = await (
-            cls._filtered(start=start, end=end)
+            cls._filtered(start=start, end=end, user_id=user_id)
             .annotate(count=Count('id'))
             .group_by('category', 'event_type')
             .order_by('-count')
@@ -228,11 +230,12 @@ class TelemetryRepository:
         *,
         start: Optional[datetime] = None,
         end: Optional[datetime] = None,
+        user_id: Optional[int] = None,
         limit: int = 15,
     ) -> List[dict]:
         """Busiest identified users: event + distinct-session counts."""
         rows = await (
-            cls._filtered(start=start, end=end)
+            cls._filtered(start=start, end=end, user_id=user_id)
             .filter(user_id__isnull=False)
             .annotate(events=Count('id'), sessions=Count('session_id', distinct=True))
             .group_by('user_id')
@@ -249,11 +252,12 @@ class TelemetryRepository:
         start: Optional[datetime] = None,
         end: Optional[datetime] = None,
         category: Optional[str] = None,
+        user_id: Optional[int] = None,
         limit: int = 50,
     ) -> List[dict]:
         """Most-used controls: one row per (page, kind of use, control)."""
         rows = await (
-            cls._filtered(start=start, end=end, category=category)
+            cls._filtered(start=start, end=end, category=category, user_id=user_id)
             .filter(target__isnull=False)
             .annotate(
                 uses=Count('id'),
@@ -274,11 +278,12 @@ class TelemetryRepository:
         start: Optional[datetime] = None,
         end: Optional[datetime] = None,
         category: Optional[str] = None,
+        user_id: Optional[int] = None,
         limit: int = 50,
     ) -> List[dict]:
         """One row per (surface, tool or route): calls, distinct users, failures."""
         rows = await (
-            cls._filtered(start=start, end=end, category=category)
+            cls._filtered(start=start, end=end, category=category, user_id=user_id)
             .filter(target__isnull=False)
             .annotate(
                 calls=Count('id'),
@@ -299,11 +304,12 @@ class TelemetryRepository:
         start: Optional[datetime] = None,
         end: Optional[datetime] = None,
         category: Optional[str] = None,
+        user_id: Optional[int] = None,
         limit: int = 50,
     ) -> List[dict]:
         """One row per (person, surface): calls, distinct tools/routes, last call."""
         rows = await (
-            cls._filtered(start=start, end=end, category=category)
+            cls._filtered(start=start, end=end, category=category, user_id=user_id)
             .filter(user_id__isnull=False)
             .annotate(
                 calls=Count('id'),
