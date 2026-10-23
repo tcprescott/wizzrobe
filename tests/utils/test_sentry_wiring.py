@@ -309,7 +309,7 @@ class TestTracesSampler:
             def capture_envelope(self, envelope):
                 sent.extend(item.payload.json for item in envelope.items if item.type == 'transaction')
 
-        async def app(scope, receive, send):
+        async def asgi_app(scope, receive, send):
             if scope['type'] == 'websocket':
                 await send({'type': 'websocket.accept'})
                 await send({'type': 'websocket.close'})
@@ -328,7 +328,7 @@ class TestTracesSampler:
                      'asgi': {'version': '3.0'}, 'scheme': 'http', 'server': ('t', 80), 'client': ('c', 1)}
             if scope_type == 'http':
                 scope['method'] = 'GET'
-            await SentryAsgiMiddleware(app)(scope, receive, send)
+            await SentryAsgiMiddleware(asgi_app)(scope, receive, send)
 
         previous = sentry_sdk.get_client()
         sentry_sdk.init(dsn='https://k@example.invalid/1', transport=Capture(),
