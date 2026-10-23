@@ -290,6 +290,13 @@ class ChallongeRepository:
         return match
 
     @staticmethod
+    async def booked_matches_for_participant(participant: ChallongeParticipant) -> List[ChallongeMatch]:
+        """Bracket matches this entrant plays that have a Wizzrobe match attached."""
+        return await scoped(ChallongeMatch.filter(
+            Q(participant1=participant) | Q(participant2=participant), match_id__isnull=False,
+        )).prefetch_related('participant1', 'participant2', 'match')
+
+    @staticmethod
     async def list_placeholder_bookings(tournament: Tournament) -> List[ChallongeMatch]:
         """Matchups booked before their players were known, with the booking attached."""
         rows = await scoped(ChallongeMatch.filter(

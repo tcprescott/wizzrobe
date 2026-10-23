@@ -11,6 +11,10 @@ placeholders for the sides still empty are refreshed.
 A fill only adds. A matchup that now names someone else than a player already
 on the match (a corrected result on the bracket site) is flagged with
 ``bracket_link_lost`` for staff instead of rewriting the roster.
+
+The one rewrite is :meth:`move_bracket_player`: when staff hand an entrant to
+another member, that member takes the old account's seat on the entrant's
+booked, unstarted matches.
 """
 
 from typing import Any, List, Optional
@@ -90,6 +94,57 @@ class PlaceholderBookingMixin:
                 match, rescheduled=False, community=community,
                 bracket_line=await bracket_line_for(match.id),
             ))
+        match_live.publish(match.id)
+        return True
+
+    async def move_bracket_player(self, match: Match, player_ids: List[Optional[int]], actor: User) -> bool:
+        """Swap in the account staff moved a bracket entrant to; True if the roster changed.
+
+        ``player_ids`` are the matchup's two sides as the bracket now maps them.
+        Only a match nobody has started is touched, and only when exactly one
+        player on it is no longer a side and exactly one side is missing: the
+        entrant changed hands. Anything else is left for staff. Game 1 of a
+        best-of set brings the set's later games along.
+        """
+        changed = await self._move_one(match, player_ids, actor)
+        if match.set_best_of and match.set_first_id is None:  # type: ignore[attr-defined]
+            for game in await self.repository.set_followers(match.id):
+                changed = await self._move_one(game, player_ids, actor) or changed
+        return changed
+
+    async def _move_one(self, match: Match, player_ids: List[Optional[int]], actor: User) -> bool:
+        if (match.started_at is not None or match.confirmed_at is not None
+                or match.bracket_placeholders is not None or None in player_ids):
+            return False
+        current = {p.user_id for p in await self.repository.get_players(match)}
+        wanted = set(player_ids)
+        leaving, joining = current - wanted, wanted - current
+        if len(leaving) != 1 or len(joining) != 1:
+            return False
+        old, new = await self.participants.resolve_users([*leaving, *joining])
+        await self._record_auto_enrolments(
+            await self.participants.ensure_enrolled(match.tournament_id, [new]),
+            match.tournament_id, actor,
+        )
+        await self.repository.remove_player(match, old)
+        await self.ack_repository.delete_for_user(match, old)
+        await self.repository.add_player(match, new)
+        await self.ack_repository.upsert(match, new, acknowledged=False, auto=False)
+        await self.audit_service.write_and_publish(
+            actor, AuditActions.MATCH_UPDATED,
+            {'match_id': match.id, 'changed_fields': ['players'],
+             'player_ids': sorted((current - leaving) | joining),
+             'replaced_player': {'from': old.id, 'to': new.id}, 'bracket_entrant_moved': True},
+            EventType.MATCH_UPDATED,
+            event_details={'match_id': match.id, 'tournament_id': match.tournament_id,
+                           'changed_fields': ['players']},
+        )
+        from application.services.tenant_service import TenantService
+        community = await TenantService.current_community_name()
+        discord_queue.enqueue(self.match_schedule_service.notify_acknowledgment_request(
+            match, rescheduled=False, community=community,
+            bracket_line=await bracket_line_for(match.id),
+        ))
         match_live.publish(match.id)
         return True
 

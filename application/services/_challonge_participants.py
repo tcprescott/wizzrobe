@@ -5,6 +5,7 @@ never resolve them to anyone. A tournament editor assigns them by hand here, and
 ``ChallongeService._mirror_bracket`` keeps that assignment on every re-sync.
 """
 
+import logging
 from typing import Any, Dict, List
 
 from application.errors import require_found
@@ -21,6 +22,8 @@ from application.services.audit_service import AuditActions, AuditService
 from application.services.auth_service import AuthService
 from application.tenant_context import require_tenant_id
 from models import ChallongeParticipant, FeatureFlag, Tournament, User
+
+logger = logging.getLogger(__name__)
 
 
 class ChallongeParticipantAssignmentMixin(ChallongeNotificationMixin):
@@ -106,9 +109,22 @@ class ChallongeParticipantAssignmentMixin(ChallongeNotificationMixin):
              'user_id': user.id},
         )
         await self._mirror_players(participant.tournament, actor)
+        await self._move_booked_matches(participant, actor)
         await self._refresh_placeholder_bookings(participant.tournament, actor)  # type: ignore[attr-defined]
         await self._announce_newly_bookable(participant.tournament, bookable_before)
         return participant
+
+    async def _move_booked_matches(self, participant: ChallongeParticipant, actor: User) -> None:
+        """Put the entrant's new member on its booked, unstarted matches. Never raises."""
+        try:
+            from application.services.match.match_service import MatchService
+
+            service = MatchService()
+            for cmatch in await self.repository.booked_matches_for_participant(participant):
+                sides = [p.user_id if p else None for p in (cmatch.participant1, cmatch.participant2)]
+                await service.move_bracket_player(cmatch.match, sides, actor)  # type: ignore[arg-type]
+        except Exception:
+            logger.exception('Moving booked matches failed for Challonge entrant %s', participant.id)
 
     @requires_feature(FeatureFlag.CHALLONGE)
     async def clear_participant_user(
