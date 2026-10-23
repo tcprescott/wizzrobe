@@ -170,7 +170,7 @@ async def test_a_booked_game_becomes_game_one_of_a_set(db, monkeypatch, stub_dis
 
     games = await BracketSetService().extend_booking(single.id, THREE[1:], actor)
 
-    assert [g.id for g in games][0] == single.id and len(games) == 3
+    assert games[0].id == single.id and len(games) == 3
     first = await Match.get(id=single.id)
     assert (first.set_game, first.set_best_of, first.comment) == (1, 3, 'keep me')
     await semi.refresh_from_db()
@@ -191,7 +191,7 @@ async def test_only_an_unplayed_bracket_booking_becomes_a_set(db, monkeypatch, s
     semi = await ChallongeMatch.get(challonge_match_id='8001')
     [single] = await bracket_sources.schedule_set('challonge', semi.id, THREE[:1], actor)
     await ChallongeMatch.filter(id=semi.id).update(match_id=None)
-    with pytest.raises(ValueError, match='Challonge or start.gg'):
+    with pytest.raises(ValueError, match=r'Challonge or start\.gg'):
         await BracketSetService().extend_booking(single.id, THREE[1:], actor)
     await ChallongeMatch.filter(id=semi.id).update(match_id=single.id)
 
