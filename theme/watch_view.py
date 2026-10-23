@@ -51,6 +51,8 @@ class WatchMatch:
     time: str
     players: str
     tournament: str = ''
+    #: The tournament's short name (its full name when it has none), for the tight rows.
+    tournament_short: str = ''
     stage: str = ''
     commentators: str = ''
     trackers: str = ''
@@ -308,7 +310,7 @@ def _next_row(match: WatchMatch) -> str:
         'div', 'wiz-tile__next',
         _tag('span', 'wiz-tile__next-time', _esc(match.time))
         + _tag('span', 'wiz-tile__next-players', _esc(match.players))
-        + _tag('span', 'wiz-tile__next-tourn', _esc(match.tournament)),
+        + _tag('span', 'wiz-tile__next-tourn', _esc(match.tournament_short or match.tournament)),
     )
 
 
@@ -378,7 +380,7 @@ def _coming(view: WatchView) -> str:
                 _tag('span', 'match-time', _esc(m.time))
                 + _tag('div', 'wiz-watch-row__main',
                        _tag('div', 'wiz-watch-row__players', _esc(m.players))
-                       + _tag('div', 'wizs-muted', _esc(m.tournament)))
+                       + _tag('div', 'wizs-muted', _esc(m.tournament_short or m.tournament)))
                 + _tag('span', 'wiz-watch-tag', _esc(m.stage)),
             )
     return _tag('div', 'wizs-card', body)

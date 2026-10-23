@@ -8856,3 +8856,15 @@ ol.wiz-help-list { list-style-type: decimal; }
         display: none !important;
     }
 }
+
+/* Watch page reminder bell: quiet until it's on, then tinted with the accent. */
+.q-btn.wiz-watch-bell {
+    flex: none;
+    color: var(--fg-muted);
+    align-self: center;
+}
+
+.q-btn.wiz-watch-bell--on {
+    color: var(--wiz-link);
+    background: color-mix(in srgb, var(--accent) 14%, transparent);
+}

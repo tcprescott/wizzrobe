@@ -131,6 +131,21 @@ class TestBuildWatchView:
         assert len(view.coming) == 2
         assert [m.stage for d in view.coming for m in d.matches] == ['Main', 'Main']
 
+    async def test_upcoming_rows_use_the_tournament_short_name(self, db):
+        with tenant_scope(DEFAULT_TEST_TENANT_ID):
+            stage = await Stage.create(name='Main', tenant_id=DEFAULT_TEST_TENANT_ID)
+            short = await Tournament.create(name='A Link to the Past Randomizer', short_name='ALTTPR')
+            plain = await Tournament.create(name='Cup')
+            await _match_on(stage, short, 12, days_ahead=1)
+            await _match_on(stage, plain, 12, days_ahead=2)
+            view = await watch_data.build_watch_view(DEFAULT_TEST_TENANT_ID)
+
+        rows = [m for d in view.coming for m in d.matches]
+        assert [m.tournament_short for m in rows] == ['ALTTPR', 'Cup']
+        assert rows[0].tournament == 'A Link to the Past Randomizer'
+        # The Tournaments panel keeps the full name; the tight rows use the short one.
+        assert 'wizs-muted">ALTTPR<' in render_watch_document(view)
+
     async def test_tournaments_with_a_bracket_or_a_streamed_match_are_listed(self, db):
         with tenant_scope(DEFAULT_TEST_TENANT_ID):
             stage = await Stage.create(name='Main', tenant_id=DEFAULT_TEST_TENANT_ID)
@@ -474,3 +489,32 @@ def test_live_for_counts_minutes_then_hours():
     assert live_for(now - timedelta(minutes=5), now) == '5 min in'
     assert live_for(now - timedelta(minutes=72), now) == '1 h 12 min in'
     assert live_for(now + timedelta(minutes=1), now) == '0 min in'
+
+
+class TestReminderBells:
+    async def test_signed_out_viewers_get_no_bells(self, db):
+        from theme.watch_live import WatchReminders
+
+        assert await WatchReminders.load(None) is None
+
+    async def test_a_viewer_s_bells_start_from_what_they_already_watch(self, db):
+        from application.services import MatchWatcherService
+        from theme.watch_live import WatchReminders
+
+        with tenant_scope(DEFAULT_TEST_TENANT_ID):
+            stage = await Stage.create(name='Main', tenant_id=DEFAULT_TEST_TENANT_ID)
+            cup = await Tournament.create(name='Cup')
+            watched = await _match_on(stage, cup, 12, days_ahead=1)
+            await _match_on(stage, cup, 14, days_ahead=1)
+            viewer = await make_user(discord_id=8501, username='viewer')
+            await MatchWatcherService().watch(watched.id, viewer)
+            reminders = await WatchReminders.load(viewer)
+
+        assert reminders.watched == {watched.id}
+
+
+def test_the_stage_reminder_pings_watchers_by_default():
+    from application.services.notification_catalog import STAGE_REMINDER
+    from models import NotificationMode, NotificationRecipient
+
+    assert STAGE_REMINDER.defaults[NotificationRecipient.WATCHERS] == NotificationMode.PING

@@ -8,10 +8,11 @@ rendering draws: the player, a tile per stage led by its Twitch still, then
 schedule never restarts the video.
 """
 
-from typing import Dict, FrozenSet, Optional
+from typing import Dict, FrozenSet, Optional, Set
 
 from nicegui import ui
 
+from application.services import MatchWatcherService
 from application.utils.clients.sglive_client import SGLIVE_URL
 from application.utils.money import format_money
 from application.utils.safe_url import http_url_or_empty
@@ -96,14 +97,75 @@ def _thumb(stage: WatchStage) -> None:
     _span('Watching', 'wiz-tile__watching')
 
 
+class WatchReminders:
+    """A signed-in viewer's bells on the upcoming matches.
+
+    Read once when the page opens and kept in step by the viewer's own taps, so
+    a repaint for everyone costs no per-viewer query.
+    """
+
+    def __init__(self, user, watched: Set[int]) -> None:
+        self.user = user
+        self.watched = set(watched)
+
+    @classmethod
+    async def load(cls, user) -> Optional['WatchReminders']:
+        if user is None:
+            return None
+        return cls(user, set(await MatchWatcherService().list_watched_match_ids(user)))
+
+    def bell(self, match: WatchMatch) -> None:
+        if not match.match_id:
+            return
+        button = ui.button(color=None).props('flat round dense').classes('wiz-watch-bell')
+        with button:
+            tooltip = ui.tooltip()
+
+        def paint() -> None:
+            on = match.match_id in self.watched
+            tip = f'Stop reminders for {match.players}' if on else f'Remind me about {match.players}'
+            tooltip.set_text(tip)
+            button._props['aria-label'] = tip
+            if on:
+                button.classes(add='wiz-watch-bell--on')
+            else:
+                button.classes(remove='wiz-watch-bell--on')
+            button.props(f'icon={"notifications_active" if on else "notifications_none"} '
+                         f'aria-pressed={"true" if on else "false"}')
+
+        async def toggle() -> None:
+            service = MatchWatcherService()
+            try:
+                if match.match_id in self.watched:
+                    await service.unwatch(match.match_id, self.user)
+                    self.watched.discard(match.match_id)
+                    ui.notify(f'Reminder off for {match.players}.', color='positive')
+                else:
+                    await service.watch(match.match_id, self.user)
+                    self.watched.add(match.match_id)
+                    message = f"Reminder on for {match.players}. We'll DM you shortly before it starts."
+                    if not self.user.dm_notifications:
+                        message += ' Turn DMs back on in your profile to get it.'
+                    ui.notify(message, color='positive')
+            except ValueError as e:
+                ui.notify(str(e), color='warning')
+                return
+            paint()
+
+        paint()
+        button.on_click(toggle)
+
+
 class LiveWatch:
     def __init__(
         self,
         root_path: str = '',
         board_scope: Optional[FrozenSet[int]] = frozenset(),
+        reminders: Optional[WatchReminders] = None,
     ) -> None:
         self.root_path = root_path
         self.board_scope = board_scope
+        self.reminders = reminders
         self._buttons: Dict[int, ui.element] = {}
         ui.add_body_html(TILES_JS)
         with ui.column().classes('wiz-watch-main'):
@@ -186,7 +248,9 @@ class LiveWatch:
                     with ui.element('div').classes('wiz-tile__next'):
                         _span(match.time, 'wiz-tile__next-time')
                         _span(match.players, 'wiz-tile__next-players')
-                        _span(match.tournament, 'wiz-tile__next-tourn')
+                        _span(match.tournament_short or match.tournament, 'wiz-tile__next-tourn')
+                        if self.reminders:
+                            self.reminders.bell(match)
                         _open_in_schedule(match, self.board_scope)
 
     def _coming(self, view: WatchView) -> None:
@@ -203,8 +267,10 @@ class LiveWatch:
                             with ui.element('div').classes('wiz-watch-row__main'):
                                 ui.label(match.players).classes('wiz-watch-row__players')
                                 if match.tournament:
-                                    ui.label(match.tournament).classes('text-muted')
+                                    ui.label(match.tournament_short or match.tournament).classes('text-muted')
                             ui.label(match.stage).classes('wiz-watch-tag')
+                            if self.reminders:
+                                self.reminders.bell(match)
                             _open_in_schedule(match, self.board_scope)
 
     def _tournaments(self, view: WatchView) -> None:
