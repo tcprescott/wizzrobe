@@ -201,9 +201,10 @@ class MatchSuggestionService:
         primary_candidates = self._in_stage_hours(self._generate_candidates(
             now, primary_end, hours_map, duration, event_start, event_end, tz, round_end,
         ), stage_window, duration, tz)
+        takes_room = tournament is None or tournament.uses_tournament_room
         result = self._best_candidate(
             primary_candidates, player_ids, avail_map, existing_matches, duration, capacity,
-            shifts=shifts,
+            shifts=shifts, takes_room=takes_room,
         )
         if result is not None:
             return result
@@ -216,7 +217,7 @@ class MatchSuggestionService:
         fallback_candidates = [(s, e) for s, e in fallback_candidates if s not in primary_set]
         result = self._best_candidate(
             fallback_candidates, player_ids, avail_map, existing_matches, duration, capacity,
-            shifts=shifts,
+            shifts=shifts, takes_room=takes_room,
         )
         if result is not None:
             return result
@@ -302,7 +303,7 @@ class MatchSuggestionService:
 
         load = self._peak_load([b for _, b in overlapping], start) + len(player_ids)
         capacity = await SystemConfigService.get_max_concurrent_players(_DEFAULT_CAPACITY)
-        if load > capacity:
+        if load > capacity and (tournament is None or tournament.uses_tournament_room):
             clashes.append(Clash(
                 ClashKind.ROOM_FULL,
                 f'The room is full then: this would make {load} players at once, '
@@ -484,13 +485,15 @@ class MatchSuggestionService:
         capacity: int = _DEFAULT_CAPACITY,
         *,
         shifts: Optional[dict[int, List[Tuple[datetime, datetime]]]] = None,
+        takes_room: bool = True,
     ) -> Optional[datetime]:
         """Score candidates and return the best UTC start time, or None.
 
         A slot is out when a player blocked it, is on a published volunteer
         shift then (``shifts``), is already in a match that overlaps it, or when
         adding this match would take the room past ``capacity`` concurrent
-        players at any moment of the slot.
+        players at any moment of the slot. A match whose tournament plays
+        outside the room (``takes_room`` false) skips the room entirely.
 
         Of the rest, the earliest slot that keeps the room within its headroom
         wins; only when none does is the room filled up to the cap. A player's
@@ -524,10 +527,12 @@ class MatchSuggestionService:
             overlapping = [b for b in bookings if b.start < slot_end and b.end > slot_start]
             if any(b.user_ids & wanted for b in overlapping):
                 continue
-            load = self._peak_load(overlapping, slot_start) + len(player_ids)
-            if load > capacity:
-                continue
-            band = 0 if load <= capacity * _HEADROOM else 1
+            band = 0
+            if takes_room:
+                load = self._peak_load(overlapping, slot_start) + len(player_ids)
+                if load > capacity:
+                    continue
+                band = 0 if load <= capacity * _HEADROOM else 1
             scored.append((band, slot_start.date(), -preferred_count, slot_start))
 
         if not scored:
@@ -538,7 +543,11 @@ class MatchSuggestionService:
 
     @staticmethod
     def _bookings(matches: List[Match], duration: timedelta) -> List[_Booking]:
-        """Each scheduled match as its occupied window and who is in it."""
+        """Each scheduled match as its occupied window and who is in it.
+
+        An off-stage match of a tournament played outside the room keeps its
+        players (they still can't double-book) but adds nothing to room load.
+        """
         out: List[_Booking] = []
         for m in matches:
             if not m.scheduled_at:
@@ -548,8 +557,9 @@ class MatchSuggestionService:
             if m.tournament and m.tournament.average_match_duration:
                 dur = timedelta(minutes=m.tournament.average_match_duration)
             players = list(m.players)
+            in_room = m.stage_id is not None or m.tournament is None or m.tournament.uses_tournament_room  # type: ignore[attr-defined]
             out.append(_Booking(
-                start, start + dur, len(players),
+                start, start + dur, len(players) if in_room else 0,
                 frozenset(uid for uid in (getattr(p, 'user_id', None) for p in players) if uid is not None),
             ))
         return out

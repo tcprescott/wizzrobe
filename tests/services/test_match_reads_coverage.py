@@ -248,7 +248,8 @@ class TestBookings:
         match = SimpleNamespace(
             scheduled_at=to_display(2026, 1, 15, 10).astimezone(UTC),
             players=[SimpleNamespace(user_id=1), SimpleNamespace(user_id=2)],
-            tournament=SimpleNamespace(average_match_duration=45),
+            tournament=SimpleNamespace(average_match_duration=45, uses_tournament_room=True),
+            stage_id=None,
         )
         [booking] = MatchSuggestionService._bookings([match], timedelta(minutes=90))
         assert booking.end - booking.start == timedelta(minutes=45)

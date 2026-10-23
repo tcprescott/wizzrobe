@@ -233,6 +233,7 @@ class TournamentService(TournamentDropMixin, TournamentSignupMixin):
         max_match_duration: Optional[int] = None,
         is_active: bool = True,
         is_test: bool = False,
+        uses_tournament_room: bool = True,
         players_per_match: int = 2,
         required_commentators: int = 1,
         required_trackers: int = 1,
@@ -302,6 +303,7 @@ class TournamentService(TournamentDropMixin, TournamentSignupMixin):
             max_match_duration=max_match_duration,
             is_active=is_active,
             is_test=is_test,
+            uses_tournament_room=uses_tournament_room,
             players_per_match=players_per_match,
             required_commentators=self._crew_requirement(required_commentators, 'commentators'),
             required_trackers=self._crew_requirement(required_trackers, 'trackers'),
@@ -347,6 +349,7 @@ class TournamentService(TournamentDropMixin, TournamentSignupMixin):
         max_match_duration: Optional[int] = None,
         is_active: Optional[bool] = None,
         is_test: Optional[bool] = None,
+        uses_tournament_room: Optional[bool] = None,
         players_per_match: Optional[int] = None,
         required_commentators: Optional[int] = None,
         required_trackers: Optional[int] = None,
@@ -408,6 +411,8 @@ class TournamentService(TournamentDropMixin, TournamentSignupMixin):
             update_data['is_active'] = is_active
         if is_test is not None:
             update_data['is_test'] = is_test
+        if uses_tournament_room is not None:
+            update_data['uses_tournament_room'] = uses_tournament_room
         if players_per_match is not None:
             update_data['players_per_match'] = players_per_match
         if required_commentators is not None:

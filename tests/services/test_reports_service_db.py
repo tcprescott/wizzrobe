@@ -110,6 +110,21 @@ class TestGenerateCapacityForecast:
         # Both match ids appear at the overlap.
         assert any(set(ids) == {m_a.id, m_b.id} for ids in out['match_ids_per_interval'])
 
+    async def test_a_tournament_outside_the_room_counts_only_on_stage(self, db):
+        """Its off-stage matches take no room; a stage match still shows on-stream."""
+        t = await Tournament.create(name='BoNES', players_per_match=2, average_match_duration=90,
+                                    uses_tournament_room=False)
+        stage = await Stage.create(name='Alpha')
+        on_stage = await Match.create(tournament=t, stage=stage, scheduled_at=utc(2025, 10, 23, 18, 0))
+        await Match.create(tournament=t, scheduled_at=utc(2025, 10, 23, 18, 0))
+
+        out = await ReportsService().generate_capacity_forecast(FORECAST_START, FORECAST_END, actor=(await _actor()))
+
+        assert max(out['player_counts']) == 2
+        assert max(out['off_stream_player_counts']) == 0
+        assert max(out['on_stream_player_counts']) == 2
+        assert all(ids in ([], [on_stage.id]) for ids in out['match_ids_per_interval'])
+
     async def test_end_before_start_collapses_to_single_interval(self, db):
         out = await ReportsService().generate_capacity_forecast(FORECAST_END, FORECAST_START, actor=(await _actor()))
         assert out['end'] == out['start'] == FORECAST_END

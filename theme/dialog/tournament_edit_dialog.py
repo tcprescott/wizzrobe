@@ -119,6 +119,15 @@ class TournamentDialog:
                         "Left out of the event info tournament list. Use it for a "
                         "rehearsal, like a Challonge integration check."
                     ).classes('text-caption text-grey q-ml-xl')
+                with ui.column().classes('gap-0'):
+                    uses_room_checkbox = ui.checkbox(
+                        'Plays in the tournament room',
+                        value=self.tournament.uses_tournament_room if self.tournament else True,
+                    )
+                    ui.label(
+                        "Untick for a tournament played elsewhere. Its matches that "
+                        "aren't on a stage then don't count toward the room's capacity."
+                    ).classes('text-caption text-grey q-ml-xl')
 
                 # Everything below is optional and defaulted. Collapsed on create
                 # so the cheapest correct action — type a name, save — stops
@@ -552,6 +561,7 @@ class TournamentDialog:
                                 max_match_duration=max_match_duration_input.value,
                                 is_active=is_active_checkbox.value,
                                 is_test=is_test_checkbox.value,
+                                uses_tournament_room=uses_room_checkbox.value,
                                 players_per_match=players_per_match_input.value,
                                 required_commentators=required_commentators_input.value,
                                 required_trackers=required_trackers_input.value,
@@ -582,6 +592,7 @@ class TournamentDialog:
                             max_match_duration=max_match_duration_input.value,
                             is_active=is_active_checkbox.value,
                             is_test=is_test_checkbox.value,
+                            uses_tournament_room=uses_room_checkbox.value,
                             players_per_match=players_per_match_input.value,
                             required_commentators=required_commentators_input.value,
                             required_trackers=required_trackers_input.value,

@@ -81,6 +81,9 @@ class TournamentResponse(BaseModel):
     is_test: bool = Field(
         False, description="A test tournament: usable, but left off the public event-info tournament list.",
     )
+    uses_tournament_room: bool = Field(
+        True, description="Whether its off-stream matches are played in, and count toward, the tournament room.",
+    )
     preset_id: Optional[int] = Field(None, description="ID of the seed preset matches roll from, if any.")
     hard_preset_id: Optional[int] = Field(
         None, description="ID of the harder preset players can opt into instead, if any.",
