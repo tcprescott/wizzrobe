@@ -136,7 +136,9 @@ a phone. The in-app report has no controls view yet. `dimension=api` gives
 one row per MCP tool or REST route (`surface`, `target`, calls, distinct users,
 errors) and `dimension=api_users` one row per person per surface (calls,
 distinct tools/routes, last call); the summary's `mcp_users` / `rest_users`
-count distinct callers. No in-app view for these either.
+count distinct callers. No in-app view for these either. Every `top` dimension also takes an
+optional `user_id` that narrows the counts to one person, so `controls` with a
+`user_id` answers "what did this person use most".
 
 Aggregations run in the database (`GROUP BY` / `COUNT DISTINCT` via
 `TelemetryRepository`), never by loading the table into memory.

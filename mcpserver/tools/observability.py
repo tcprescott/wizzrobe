@@ -159,6 +159,7 @@ async def telemetry_top(
     start: Optional[str] = None,
     end: Optional[str] = None,
     limit: int = 15,
+    user_id: Optional[int] = None,
 ) -> List[Dict[str, Any]]:
     """Top engagement rows for one dimension: `paths`, `event_types`, `users`,
     `controls` (the tabs, buttons, menu items, dialogs and fields people used,
@@ -166,6 +167,9 @@ async def telemetry_top(
     (the most-called MCP tools and REST routes, with distinct callers and
     failures) or `api_users` (who calls the MCP server and REST API, how often,
     how many different tools or routes, and when they last did).
+
+    Pass `user_id` to count only that person's rows: `controls` with a
+    `user_id` from the `users` dimension gives what that person used most.
 
     Requires staff access.
     """
@@ -181,7 +185,7 @@ async def telemetry_top(
         'api': service.top_api_calls,
         'api_users': service.top_api_users,
     })
-    return await fn(actor.user, start=start_dt, end=end_dt, limit=limit)
+    return await fn(actor.user, start=start_dt, end=end_dt, user_id=user_id, limit=limit)
 
 
 async def get_system_config(

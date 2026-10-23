@@ -50,7 +50,7 @@ async def summary(
         "`dimension`: `paths` gives the most-loaded pages, `event_types` the most frequent event names, "
         "`users` the most active people, `controls` the most-used tabs, buttons, dialogs and fields, "
         "`api` the most-called MCP tools and REST routes and `api_users` who calls the MCP server "
-        "and REST API.\n\n"
+        "and REST API. Pass `user_id` to count only that person's rows.\n\n"
         "**Who can call this:** Staff."
     ),
 )
@@ -59,6 +59,7 @@ async def top(
     start: Optional[datetime] = StartQuery,
     end: Optional[datetime] = EndQuery,
     limit: int = Query(15, ge=1, le=100, description="Maximum rows to return."),
+    user_id: Optional[int] = Query(None, description="Count only this person's rows."),
     actor: User = Depends(require_staff),
 ):
     service = TelemetryService()
@@ -70,4 +71,4 @@ async def top(
         'api': service.top_api_calls,
         'api_users': service.top_api_users,
     }[dimension]
-    return await fn(actor, start=start, end=end, limit=limit)
+    return await fn(actor, start=start, end=end, user_id=user_id, limit=limit)

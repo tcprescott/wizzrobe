@@ -412,11 +412,12 @@ class TelemetryService:
         *,
         start: Optional[datetime] = None,
         end: Optional[datetime] = None,
+        user_id: Optional[int] = None,
         limit: int = 15,
     ) -> List[dict]:
         await self._ensure_staff(actor)
         return await self.repository.top_paths(
-            start=start, end=end, category=TelemetryCategory.PAGE, limit=limit,
+            start=start, end=end, category=TelemetryCategory.PAGE, user_id=user_id, limit=limit,
         )
 
     async def top_event_types(
@@ -425,10 +426,11 @@ class TelemetryService:
         *,
         start: Optional[datetime] = None,
         end: Optional[datetime] = None,
+        user_id: Optional[int] = None,
         limit: int = 20,
     ) -> List[dict]:
         await self._ensure_staff(actor)
-        return await self.repository.top_event_types(start=start, end=end, limit=limit)
+        return await self.repository.top_event_types(start=start, end=end, user_id=user_id, limit=limit)
 
     async def top_controls(
         self,
@@ -436,13 +438,14 @@ class TelemetryService:
         *,
         start: Optional[datetime] = None,
         end: Optional[datetime] = None,
+        user_id: Optional[int] = None,
         limit: int = 50,
     ) -> List[dict]:
         """Most-used tabs, buttons, menu items, dialogs and fields, with how
         many distinct people used each and how many uses came from a phone."""
         await self._ensure_staff(actor)
         return await self.repository.top_controls(
-            start=start, end=end, category=TelemetryCategory.INTERACTION, limit=limit,
+            start=start, end=end, category=TelemetryCategory.INTERACTION, user_id=user_id, limit=limit,
         )
 
     async def top_api_calls(
@@ -451,12 +454,13 @@ class TelemetryService:
         *,
         start: Optional[datetime] = None,
         end: Optional[datetime] = None,
+        user_id: Optional[int] = None,
         limit: int = 50,
     ) -> List[dict]:
         """Most-called MCP tools and REST routes, with distinct callers and failures."""
         await self._ensure_staff(actor)
         rows = await self.repository.top_api_targets(
-            start=start, end=end, category=TelemetryCategory.API, limit=limit,
+            start=start, end=end, category=TelemetryCategory.API, user_id=user_id, limit=limit,
         )
         return [
             {
@@ -475,12 +479,13 @@ class TelemetryService:
         *,
         start: Optional[datetime] = None,
         end: Optional[datetime] = None,
+        user_id: Optional[int] = None,
         limit: int = 50,
     ) -> List[dict]:
         """Who calls the MCP server and REST API: one row per person per surface."""
         await self._ensure_staff(actor)
         rows = await self.repository.top_api_users(
-            start=start, end=end, category=TelemetryCategory.API, limit=limit,
+            start=start, end=end, category=TelemetryCategory.API, user_id=user_id, limit=limit,
         )
         names = await self._user_names([r['user_id'] for r in rows])
         return [
@@ -501,11 +506,12 @@ class TelemetryService:
         *,
         start: Optional[datetime] = None,
         end: Optional[datetime] = None,
+        user_id: Optional[int] = None,
         limit: int = 15,
     ) -> List[dict]:
         """Busiest users with their display names resolved for the report."""
         await self._ensure_staff(actor)
-        rows = await self.repository.top_users(start=start, end=end, limit=limit)
+        rows = await self.repository.top_users(start=start, end=end, user_id=user_id, limit=limit)
         names = await self._user_names([r['user_id'] for r in rows])
         return [
             {
