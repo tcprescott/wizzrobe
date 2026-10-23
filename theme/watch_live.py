@@ -4,8 +4,8 @@ Renders a :class:`theme.watch_view.WatchView`, the same content the static
 rendering draws: the player, a tile per stage led by its Twitch still, then
 "Coming up" beside the tournaments.
 
-:meth:`LiveWatch.render` repaints everything but the player, so a change to the
-schedule never restarts the video.
+:meth:`LiveWatch.render` repaints the sections whose content changed and never the
+player, so a change to the schedule never restarts the video.
 """
 
 from typing import Dict, FrozenSet, Optional, Set
@@ -167,18 +167,36 @@ class LiveWatch:
         self.board_scope = board_scope
         self.reminders = reminders
         self._buttons: Dict[int, ui.element] = {}
+        self._shown: Dict[str, object] = {}
         ui.add_body_html(TILES_JS)
         with ui.column().classes('wiz-watch-main'):
             self.theater = TwitchTheater(on_change=self._paint_buttons)
-            self.content = ui.column().classes('wiz-watch w-full')
+            with ui.column().classes('wiz-watch w-full'):
+                self._stages_box = ui.column().classes('wiz-watch w-full')
+                with ui.element('div').classes('wiz-watch-two'):
+                    self._coming_box = ui.element('div')
+                    self._tournaments_box = ui.element('div')
 
     def render(self, view: WatchView) -> None:
-        self._buttons.clear()
-        self.content.clear()
-        with self.content:
-            self._stages(view)
-            with ui.element('div').classes('wiz-watch-two'):
+        # Every open tab repaints on each schedule change and every 30s; rebuilding
+        # only the sections whose content moved keeps a busy event day from
+        # stalling the loop once per viewer (0.5-1.2s each, 2026-10-23).
+        stages = (view.stages, live_chip_text(view))
+        if self._shown.get('stages') != stages:
+            self._shown['stages'] = stages
+            self._buttons.clear()
+            self._stages_box.clear()
+            with self._stages_box:
+                self._stages(view)
+        if self._shown.get('coming') != view.coming:
+            self._shown['coming'] = view.coming
+            self._coming_box.clear()
+            with self._coming_box:
                 self._coming(view)
+        if self._shown.get('tournaments') != view.tournaments:
+            self._shown['tournaments'] = view.tournaments
+            self._tournaments_box.clear()
+            with self._tournaments_box:
                 self._tournaments(view)
         watched = next(
             (s for s in view.stages if self.theater.is_watching(s.id) and s.channel), None,

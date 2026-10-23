@@ -2497,7 +2497,8 @@ body:has(.wiz-header) .q-notifications__list--top {
     width: 100%;
 }
 
-.wiz-watch-two > * {
+.wiz-watch-two > *,
+.wiz-watch-two > * > .wiz-panel {
     min-width: 0;
     margin: 0;
 }
