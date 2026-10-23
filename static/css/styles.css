@@ -7597,6 +7597,23 @@ ol.wiz-help-list { list-style-type: decimal; }
     padding: 0.375rem 0 0.125rem 0.75rem;
     border-top: 1px solid var(--border-subtle);
 }
+/* The names keep 10rem, or the status tag or next step beside them drops to a
+   line of its own: a placeholder's title ("ALTTPR Showcase Race") was squeezed
+   to a word a line at 360px. */
+.run-sheet__card {
+    flex-wrap: wrap;
+}
+.run-sheet__card .run-sheet__main {
+    flex: 1 1 10rem;
+}
+/* A step button stays on the line (zero basis above); a status tag alone may drop. */
+.run-sheet__card--split:not(:has(.run-sheet__step)) > .run-sheet__card-open {
+    flex-basis: 15rem;
+}
+.run-sheet__card > .wiz-chip,
+.run-sheet__card--split > .run-sheet__next {
+    margin-left: auto;
+}
 .run-sheet__card--split > .run-sheet__next {
     flex: none;
     flex-direction: column;
