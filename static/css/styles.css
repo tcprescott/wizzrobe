@@ -7508,6 +7508,21 @@ ol.wiz-help-list { list-style-type: decimal; }
 .run-sheet__seat--none {
     border-style: dashed;
 }
+/* Proctor Station's phone search sits above Filters, not behind it. */
+.run-sheet__phone-search .wiz-table-search {
+    flex: none;
+    width: 100%;
+}
+.run-sheet__station-caption {
+    color: var(--fg-secondary);
+}
+/* The station a proctor looked up. */
+.run-sheet__seat--hit {
+    border: 2px solid var(--accent);
+    background: var(--accent-soft);
+    color: var(--wiz-link);
+    font-weight: 700;
+}
 .run-sheet__vs {
     font-weight: 400;
     color: var(--fg-secondary);

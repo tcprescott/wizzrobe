@@ -17,8 +17,11 @@ drops them before Quasar pages, so a folded group costs the pager one line, its
 header, rather than leaving pages of nothing behind it.
 """
 
+import re
 from datetime import datetime, timedelta, timezone
 from typing import Callable, Optional
+
+from nicegui import ui
 
 from application.utils.timezone import to_local, today_local
 from theme.busy import slot_busy_template
@@ -160,6 +163,31 @@ RUN_SHEET_FILTER = """(rows, terms, cols, cellValue) => {
 }"""
 
 
+#: The proctor's filter: :data:`RUN_SHEET_FILTER`, except that a station lookup
+#: (see :func:`station_key`) keeps the unfinished matches with someone at that
+#: station, folds or not. The kept rows are copies, so each group that still has
+#: a row keeps its heading and count, and ``_hit_station`` lights the seat.
+PROCTOR_RUN_SHEET_FILTER = """(rows, terms, cols, cellValue) => {
+  const text = String(terms || '').slice(1).trim();
+  const station = text.match(/^(?:station|st\\.?|#)?\\s*0*(\\d+)$/i);
+  if (station) {
+    const key = station[1];
+    const hits = rows.filter((row) => !row._removed && (row._stations || []).includes(key));
+    const counts = {};
+    hits.forEach((row) => { counts[row._group] = (counts[row._group] || 0) + 1; });
+    const seen = new Set();
+    return hits.map((row) => {
+      const first = !seen.has(row._group);
+      seen.add(row._group);
+      return Object.assign({}, row, {_group_start: first, _group_count: counts[row._group], _folded: false, _hit_station: key});
+    });
+  }
+  const lower = text.toLowerCase();
+  return rows.filter((row) => (!row._folded || row._group_start)
+    && (!lower || cols.some((col) => String(cellValue(col, row)).toLowerCase().includes(lower))));
+}"""
+
+
 def run_sheet_terms(text: Optional[str]) -> str:
     """The ``filter`` value :data:`RUN_SHEET_FILTER` reads for search ``text``."""
     return RUN_SHEET_FILTER_PREFIX + (text or '')
@@ -204,15 +232,36 @@ def seed_pending(row: dict) -> bool:
     )
 
 
+#: A station lookup typed into the proctor's search: a bare number, or one
+#: after "station", "st" or "#". Stations are free text, so "07" and "Station 7"
+#: written on a seat both answer "7". Mirrored in :data:`PROCTOR_RUN_SHEET_FILTER`.
+_STATION_QUERY = re.compile(r'(?:station|st\.?|#)?\s*0*(\d+)', re.IGNORECASE)
+
+
+def station_key(text: Optional[str]) -> Optional[str]:
+    """The number a station lookup or a seat's station reads as, or None."""
+    match = _STATION_QUERY.fullmatch(str(text or '').strip())
+    return match.group(1) if match else None
+
+
 def _seats(row: dict) -> list[dict]:
     if row.get('placeholders'):
         # Nobody sits at a station for a side the bracket hasn't decided.
         return []
     return [
         {'name': p.get('name') or '', 'station': p.get('station') or '',
+         'key': station_key(p.get('station')),
          'ada': bool(p.get('ada')), 'ada_note': p.get('ada_note')}
         for p in row.get('players') or []
     ]
+
+
+def _open_stations(row: dict, seats: list[dict]) -> list[str]:
+    """The stations a lookup finds ``row`` at: none once it's finished, since
+    the question on the floor is who is at a station now (Thomas, 2026-10-24)."""
+    if row.get('played_on_site') or row.get('state') in ('Finished', 'Confirmed'):
+        return []
+    return [s['key'] for s in seats if s['key']]
 
 
 def seat_line(row: dict) -> str:
@@ -325,6 +374,7 @@ def decorate_run_sheet_row(row: dict) -> dict:
                                       or row.get('seed_rolling_since') or row.get('seed_roll_error')))
     )
     row['_seats'] = _seats(row)
+    row['_stations'] = _open_stations(row, row['_seats'])
     row['_seat_line'] = seat_line(row)
     row['_ada'] = [p.get('name') or '' for p in row.get('players') or [] if p.get('ada')]
     row['_comments'] = comment_badges(row.get('comment_counts'))
@@ -442,7 +492,7 @@ COMMENT_BADGES = r"""<span v-if="props.row._comments && props.row._comments.leng
 # The proctor's names carry their station, since "where do I send them" is half
 # of every step. ADA is text, not a control: the line's own button already
 # holds the names, and the sheet has the accommodation button.
-_SEATED_WHO = r"""<template v-if="props.row._seats.length"><template v-for="(s, i) in props.row._seats" :key="i"><span v-if="i" class="run-sheet__vs">{{ props.row._seats.length > 2 ? ', ' : ' vs ' }}</span><span class="run-sheet__player">{{ s.name }}<span class="run-sheet__seat" :class="s.station ? '' : 'run-sheet__seat--none'">{{ s.station ? 'Station ' + s.station : 'No station' }}</span></span></template></template><template v-else>""" + _WHO + """</template>"""
+_SEATED_WHO = r"""<template v-if="props.row._seats.length"><template v-for="(s, i) in props.row._seats" :key="i"><span v-if="i" class="run-sheet__vs">{{ props.row._seats.length > 2 ? ', ' : ' vs ' }}</span><span class="run-sheet__player">{{ s.name }}<span class="run-sheet__seat" :class="s.station ? (s.key && s.key === props.row._hit_station ? 'run-sheet__seat--hit' : '') : 'run-sheet__seat--none'">{{ s.station ? 'Station ' + s.station : 'No station' }}</span></span></template></template><template v-else>""" + _WHO + """</template>"""
 
 # A player said they're on their way. On the staff boards only: the player's own
 # board says it in its Status chip instead.
@@ -555,7 +605,7 @@ def _item_slot(proctor: bool, can_run: bool = False) -> str:
             """ + when + """
             <span class="run-sheet__main">
                 <span class="run-sheet__who">""" + _WHO + """</span>
-                <span class="run-sheet__meta"><template v-if="props.row._stage">{{ props.row._stage }}</template><template v-if="props.row._stage && props.row._seat_line"> · </template>{{ props.row._seat_line }}</span>
+                <span class="run-sheet__meta"><template v-if="props.row._stage">{{ props.row._stage }}</template><template v-if="props.row._hit_station"><template v-for="(s, i) in props.row._seats.filter((s) => s.key === props.row._hit_station)" :key="i"><template v-if="i || props.row._stage"> · </template><span class="run-sheet__player">{{ s.name }}<span class="run-sheet__seat run-sheet__seat--hit">Station {{ s.station }}</span></span></template></template><template v-else><template v-if="props.row._stage && props.row._seat_line"> · </template>{{ props.row._seat_line }}</template></span>
                 """ + DESC_LINE + _ADA + LATE_TAGS + """
                 """ + COMMENT_BADGES + """
             </span>
@@ -594,10 +644,31 @@ def register_run_sheet_slots(table, *, proctor: bool = False, can_run: bool = Fa
     """
     table.add_slot('body', _body_slot(proctor, can_run))
     table.add_slot('item', _item_slot(proctor, can_run))
-    use_fold_filter(table)
+    use_fold_filter(table, proctor=proctor)
 
 
-def use_fold_filter(table) -> None:
-    """Filter ``table`` with :data:`RUN_SHEET_FILTER`, so folded groups leave the pager."""
+def station_lookup_caption(table, box) -> None:
+    """Under the proctor's search: say a number is being read as a station, and
+    what an empty board means then, since "no matching records" reads as broken."""
+    caption = ui.label().classes('text-caption run-sheet__station-caption')
+
+    def show(value: Optional[str]) -> None:
+        key = station_key(value)
+        caption.set_text(f'Station {key}, matches not finished yet' if key else '')
+        caption.set_visibility(bool(key))
+        table._props['no-results-label'] = (
+            f'Nobody is at station {key} in a match that is still to finish.' if key
+            else 'No matches to show yet.')
+        table._props['no-data-label'] = 'No matches to show yet.'
+        table.update()
+
+    show(box.value)
+    box.on_value_change(lambda e: show(e.value))
+
+
+def use_fold_filter(table, *, proctor: bool = False) -> None:
+    """Filter ``table`` with :data:`RUN_SHEET_FILTER`, so folded groups leave the
+    pager; the proctor's with :data:`PROCTOR_RUN_SHEET_FILTER`, which also finds
+    a station."""
     table._props['filter'] = run_sheet_terms('')
-    table._props[':filter-method'] = RUN_SHEET_FILTER
+    table._props[':filter-method'] = PROCTOR_RUN_SHEET_FILTER if proctor else RUN_SHEET_FILTER
