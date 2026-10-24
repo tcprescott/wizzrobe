@@ -1796,7 +1796,7 @@ body:has(.wiz-header) .q-notifications__list--top {
     user-select: all;
 }
 
-.error-cat-fact {
+.error-fact {
     margin-top: 0.75rem;
     gap: 0.5rem;
     font-style: italic;
@@ -3000,7 +3000,7 @@ body:has(.wiz-header) .q-notifications__list--top {
     padding: 2em;
 }
 
-/* theme/empty_state.cat_fact: an aside, not part of the message above it.
+/* theme/empty_state.fun_fact: an aside, not part of the message above it.
    Space, a dashed rule and a paw part it from the empty-state text, so nobody
    mistakes the fact for something the app is reporting. */
 .empty-state-fact {
@@ -3023,7 +3023,7 @@ body:has(.wiz-header) .q-notifications__list--top {
     opacity: 0.5;
 }
 
-/* theme/waiting.waiting_panel — spinner + message + cat fact, for a wait the
+/* theme/waiting.waiting_panel — spinner + message + fun fact, for a wait the
    app cannot make shorter (OAuth round trip, deferred tab build). Centered in
    whatever container owns the wait; the fact reuses .empty-state-fact. */
 .wiz-waiting {
@@ -3067,28 +3067,28 @@ body:has(.wiz-header) .q-notifications__list--top {
     color: var(--wiz-gold);
 }
 
-/* The /cat-facts page (pages/cat_facts.py). */
-.wiz-cat-featured {
+/* The /facts page (pages/facts.py). */
+.wiz-fact-featured {
     gap: 0.75em;
     padding: 1.5em;
     text-align: center;
 }
 
-.wiz-cat-featured-fact {
+.wiz-fact-featured-fact {
     font-size: 1.15em;
     font-style: italic;
     line-height: 1.5;
 }
 
-.wiz-cat-list {
+.wiz-fact-list {
     gap: 0.6em;
 }
 
-.wiz-cat-list-row {
+.wiz-fact-list-row {
     gap: 0.6em;
 }
 
-.wiz-cat-list-icon {
+.wiz-fact-list-icon {
     margin-top: 0.35em;
     color: var(--status-neutral);
     opacity: 0.6;

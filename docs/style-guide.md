@@ -93,7 +93,7 @@ full-width cards: in a 1200-1400px container a full-width card puts its name
 and its button 1100px apart. The grid drops to one column on a phone by itself.
 An empty list inside one spans the grid; a list with nothing to show yet that
 stands alone is `empty_panel(message, icon=…)`: a dashed `wiz-empty-panel` with
-an icon, the message and a cat fact.
+an icon, the message and a fun fact.
 
 Don't put a lede in a caption label after the header (it floated 40px below the
 title on 20 pages), and don't size a title or a section heading with `text-h1`…`text-h6` (a section heading inside a card is `section-title`).

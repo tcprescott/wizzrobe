@@ -15,7 +15,7 @@ from application.services import SystemConfigService, TenantThemeService, Tourna
 from application.utils.timezone import local_day_bounds
 from pages.admin_tabs.links import REPORTS, SCHEDULE, admin_url
 from theme.dialog._helpers import native_date_input
-from theme.empty_state import cat_fact
+from theme.empty_state import fun_fact
 from theme.page_header import page_header
 from theme.section import section_panel
 from theme.tables.export import csv_export_button
@@ -354,7 +354,7 @@ def show_navigating() -> None:
                 with ui.row().classes('items-center no-wrap gap-3'):
                     ui.spinner(size='sm')
                     ui.label('Updating report…')
-                cat_fact()
+                fun_fact()
 
 
 # Set per client (never module state — one module serves every operator in every

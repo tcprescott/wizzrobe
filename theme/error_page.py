@@ -98,10 +98,10 @@ def render_error_page(
             ui.label(message).classes('error-message')
 
             if status_code == 404:
-                from application.utils.easter_eggs import random_cat_fact
-                with ui.row().classes('error-cat-fact items-center'):
-                    ui.icon('pets').props('size=sm')
-                    ui.label(random_cat_fact())
+                from application.utils.easter_eggs import current_theme, random_fact
+                with ui.row().classes('error-fact items-center'):
+                    ui.icon(current_theme().icon).props('size=sm')
+                    ui.label(random_fact())
 
             if error_id:
                 _remember_error_id(error_id)

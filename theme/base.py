@@ -384,7 +384,7 @@ class BaseLayout:
             "if(m){event.preventDefault();m.focus();}"
             '">Skip to content</a>'
         )
-        # Konami code (↑↑↓↓←→←→BA) opens a hidden cat-fact dialog. The guard keeps
+        # Konami code (↑↑↓↓←→←→BA) opens a hidden fact dialog. The guard keeps
         # the window listener from being installed more than once across renders.
         ui.add_body_html(
             '<script>'
@@ -404,7 +404,7 @@ class BaseLayout:
             '}'
             '</script>'
         )
-        ui.on('wiz_konami', lambda _: self._open_cat_fact())
+        ui.on('wiz_konami', lambda _: self._open_fact())
         install_page_scripts()
         # A dropped socket eats a click silently; this makes the page say so.
         install_connection_watch()
@@ -430,9 +430,9 @@ class BaseLayout:
         self._render_drawer()
         self._render_footer()
 
-    def _open_cat_fact(self) -> None:
-        from theme.dialog import CatFactDialog
-        CatFactDialog().open()
+    def _open_fact(self) -> None:
+        from theme.dialog import FactDialog
+        FactDialog().open()
 
     def _render_header(self) -> None:
         """Render the header with burger menu button and user controls."""
@@ -446,11 +446,11 @@ class BaseLayout:
             wordmark_taps = {'n': 0}
 
             def on_wordmark_tap():
-                from theme.dialog import CatFactDialog
+                from theme.dialog import FactDialog
                 wordmark_taps['n'] += 1
                 if wordmark_taps['n'] >= 5:
                     wordmark_taps['n'] = 0
-                    CatFactDialog().open()
+                    FactDialog().open()
 
             ui.label(self._wordmark or 'Wizzrobe').classes('wiz-wordmark').on('click', on_wordmark_tap)
 

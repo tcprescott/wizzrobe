@@ -49,7 +49,7 @@ honor the `TELEMETRY_ENABLED` kill-switch.
    handing the write to `background_tasks.create` (rebound to the page's tenant
    so the row is tenant-stamped). `protected_page` rows always carry a user
    (`AuthMiddleware` redirects anyone else first); `public_page` rows — the
-   bracket views, `/help`, `/event-info`, `/cat-facts`, the room-seeds board —
+   bracket views, `/help`, `/event-info`, `/facts`, the room-seeds board —
    may have a null `user`/`username` and are attributed to `session_id` alone.
    Page params are bounded (15 keys, 120 chars each), and any param whose name
    contains `token`, `secret`, `password` or `code` is stored as `[redacted]`

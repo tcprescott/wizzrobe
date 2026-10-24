@@ -248,7 +248,7 @@ async def enforce_membership(
 async def _render_community_chooser() -> None:
     """A community page reached on the bare platform host: offer each community's copy.
 
-    ``/help`` or ``/cat-facts`` without ``/t/<slug>`` is a real page someone
+    ``/help`` or ``/facts`` without ``/t/<slug>`` is a real page someone
     lost the prefix of, not a mistyped one, so the useful answer is the same
     page in each community rather than a dead end — and certainly not a drawer
     whose Help item points back at the URL it is on.
