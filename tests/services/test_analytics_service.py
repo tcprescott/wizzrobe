@@ -568,6 +568,7 @@ class TestOutlierDuration:
 
     def test_rule(self):
         from types import SimpleNamespace
+
         from application.services.reporting_shared import is_outlier_duration
         t = SimpleNamespace(average_match_duration=100)
         assert is_outlier_duration(0, t)
