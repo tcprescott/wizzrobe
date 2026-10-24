@@ -16,6 +16,7 @@ re-fetches after every change.
 from theme.tables.match_run_sheet import (
     CREW_NAMES,
     HELD_TAG,
+    UNTIL_LINE,
     WHO,
     crew_people,
     decorate_run_sheet_row,
@@ -223,7 +224,7 @@ def arrange_player_run_sheet(rows: list, discord_id) -> list:
 
     def key(row):
         order, _ = _group(row)
-        ts = row.get('scheduled_ts') or 0
+        ts = row.get('started_ts') or row.get('scheduled_ts') or 0
         return (order, -ts if order == _DONE[0] else ts)
 
     arranged = sorted(rows, key=key)
@@ -243,6 +244,7 @@ def arrange_player_run_sheet(rows: list, discord_id) -> list:
 
 _WHEN = r'''<span v-if="props.row._time" class="run-sheet__time" :class="props.row._status === 'Late' ? 'st-pending' : ''">{{ props.row._time }}</span>
 <span v-else class="run-sheet__day">No time</span>
+''' + UNTIL_LINE + r'''
 <span v-if="props.row._day && props.row._day !== 'Today'" class="run-sheet__day">{{ props.row._day }}</span>''' + HELD_TAG
 
 _TITLE = "props.row._who || (props.row.bracket ? props.row.bracket.name : props.row.title)"

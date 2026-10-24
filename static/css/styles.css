@@ -7375,6 +7375,17 @@ ol.wiz-help-list { list-style-type: decimal; }
     font-weight: 700;
     font-variant-numeric: tabular-nums;
 }
+.run-sheet__until {
+    display: block;
+    font-size: var(--text-sm);
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+    color: var(--fg-secondary);
+}
+.run-sheet__until.st-pending {
+    color: var(--status-pending);
+}
 .run-sheet__day {
     display: block;
     font-size: var(--text-sm);
@@ -7542,7 +7553,7 @@ ol.wiz-help-list { list-style-type: decimal; }
 }
 .run-sheet__when {
     flex: none;
-    width: 3.25rem;
+    width: 4rem;
 }
 .run-sheet__main {
     flex: 1 1 auto;
