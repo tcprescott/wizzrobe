@@ -299,6 +299,20 @@ def run_sheet_crew(row: dict) -> list[dict]:
     return crew
 
 
+# A race this big lists its first few racers and counts the rest, or ten names
+# wrap the row onto four lines.
+RACER_FOLD_AT = 5
+RACER_HEAD = 3
+
+
+def _fold_racers(row: dict, names: list) -> None:
+    row['_who_fold'] = len(names) >= RACER_FOLD_AT
+    row['_who_head'] = ', '.join(names[:RACER_HEAD])
+    row['_who_more'] = max(len(names) - RACER_HEAD, 0)
+    row['_who_title'] = (row.get('title') or '') if row['_who_fold'] else ''
+    row.setdefault('_who_open', False)
+
+
 def decorate_run_sheet_row(row: dict) -> dict:
     """Stamp the display fields the run-sheet templates read. Mutates ``row``."""
     label, tone = run_sheet_status(row)
@@ -309,6 +323,7 @@ def decorate_run_sheet_row(row: dict) -> dict:
     row['_day'] = _day_label(row.get('scheduled_ts'))
     names = [p.get('name') or '' for p in row.get('players') or []] + list(row.get('placeholders') or [])
     row['_who'] = ' vs '.join(names) if len(names) == 2 else ', '.join(names)
+    _fold_racers(row, names)
     if row.get('stage'):
         row['_stage'] = row['stage']
     elif row.get('is_stream_candidate'):
@@ -454,7 +469,19 @@ _TIME = """<span v-if="props.row._time" class="run-sheet__time" :class="props.ro
             <span v-if="props.row._day && props.row._day !== 'Today'" class="run-sheet__day">{{ props.row._day }}</span>
             """ + HELD_TAG
 
-_WHO = "{{ props.row._who || (props.row.bracket ? props.row.bracket.name : props.row.title) }}"
+_WHO_TEXT = "{{ props.row._who || (props.row.bracket ? props.row.bracket.name : props.row.title) }}"
+
+# The more/fewer toggle sits inside the button that opens the match, so it's a
+# mouse and touch shortcut only: a screen reader hears every name from the
+# button, and the match sheet lists them all.
+RACER_TOGGLE = r"""<span class="run-sheet__more" aria-hidden="true" @click.stop="$parent.$emit('toggle_racers', props.row.id)">{{ props.row._who_open ? 'Show fewer' : '+' + props.row._who_more + ' more' }}</span>"""
+_RACERS = r"""<span aria-hidden="true">{{ props.row._who_open ? props.row._who : props.row._who_head }} </span>""" + RACER_TOGGLE + r"""<span class="wiz-sr-only">{{ props.row._who }}</span>"""
+
+# A big race's names fold behind "+N more"; a titled race leads with its title
+# and puts the racers on the line under it.
+WHO = (r"""<template v-if="props.row._who_fold"><template v-if="props.row._who_title">{{ props.row._who_title }}<span class="run-sheet__racers">"""
+       + _RACERS + r"""</span></template><template v-else>""" + _RACERS + r"""</template></template><template v-else>"""
+       + _WHO_TEXT + "</template>")
 
 # How many comments players and staff left. An icon and a number, with the
 # words for a screen reader and a hover title for everyone else.
@@ -465,7 +492,7 @@ COMMENT_BADGES = r"""<span v-if="props.row._comments && props.row._comments.leng
 # The proctor's names carry their station, since "where do I send them" is half
 # of every step. ADA is text, not a control: the line's own button already
 # holds the names, and the sheet has the accommodation button.
-_SEATED_WHO = r"""<template v-if="props.row._seats.length"><template v-for="(s, i) in props.row._seats" :key="i"><span v-if="i" class="run-sheet__vs">{{ props.row._seats.length > 2 ? ', ' : ' vs ' }}</span><span class="run-sheet__player">{{ s.name }}<span class="run-sheet__seat" :class="s.station ? '' : 'run-sheet__seat--none'">{{ s.station ? 'Station ' + s.station : 'No station' }}</span></span></template></template><template v-else>""" + _WHO + """</template>"""
+_SEATED_WHO = r"""<template v-if="props.row._seats.length && (!props.row._who_fold || props.row._who_open)"><template v-for="(s, i) in props.row._seats" :key="i"><span v-if="i" class="run-sheet__vs">{{ props.row._seats.length > 2 ? ', ' : ' vs ' }}</span><span class="run-sheet__player">{{ s.name }}<span class="run-sheet__seat" :class="s.station ? '' : 'run-sheet__seat--none'">{{ s.station ? 'Station ' + s.station : 'No station' }}</span></span></template><template v-if="props.row._who_fold"> """ + RACER_TOGGLE + """</template></template><template v-else>""" + WHO + """</template>"""
 
 # A player said they're on their way. On the staff boards only: the player's own
 # board says it in its Status chip instead.
@@ -529,7 +556,7 @@ def _body_slot(proctor: bool, can_run: bool = False, approve: str = 'false') -> 
             """ + _SEED_LINE
     else:
         match = """<span class="run-sheet__name-line"><button type="button" class="run-sheet__open" @click.stop="$parent.$emit('open_match', props.row.id)">
-                """ + _WHO + """
+                """ + WHO + """
             </button>""" + COMMENT_BADGES + """</span>
             <span class="run-sheet__meta" :title="props.row.tournament">{{ props.row.tournament_short || props.row.tournament }}<template v-if="props.row.bracket"> · {{ props.row.bracket.name }}<template v-if="props.row.bracket.game"> · Game {{ props.row.bracket.game }}</template></template><template v-if="props.row.set_label"> · {{ props.row.set_label }}</template></span>
             """ + DESC_LINE + LATE_TAGS
@@ -577,7 +604,7 @@ def _item_slot(proctor: bool, can_run: bool = False, approve: str = 'false') -> 
         <button type="button" class="run-sheet__card-open" @click="$parent.$emit('open_match', props.row.id)">
             """ + when + """
             <span class="run-sheet__main">
-                <span class="run-sheet__who">""" + _WHO + """</span>
+                <span class="run-sheet__who">""" + WHO + """</span>
                 <span class="run-sheet__meta"><template v-if="props.row._stage">{{ props.row._stage }}</template><template v-if="props.row._stage && props.row._seat_line"> · </template>{{ props.row._seat_line }}</span>
                 """ + DESC_LINE + _ADA + LATE_TAGS + """
                 """ + COMMENT_BADGES + """
@@ -591,7 +618,7 @@ def _item_slot(proctor: bool, can_run: bool = False, approve: str = 'false') -> 
     main = """
         """ + when + """
         <span class="run-sheet__main">
-            <span class="run-sheet__who">""" + _WHO + """</span>
+            <span class="run-sheet__who">""" + WHO + """</span>
             <span class="run-sheet__meta" :title="props.row.tournament">{{ props.row.tournament_short || props.row.tournament }}<template v-if="props.row._stage"> · {{ props.row._stage }}</template></span>
             """ + DESC_LINE + LATE_TAGS + """
             <span v-if="props.row._crew.length" class="run-sheet__crew-list">""" + _crew_lines(approve) + """</span>
