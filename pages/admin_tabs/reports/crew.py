@@ -73,7 +73,8 @@ async def crew_page(
     ):
         with report_filter_bar(active):
             date_range_filter(start_d, end_d, on_change=lambda s, e: nav(start=s, end=e))
-            await tournament_filter(tournament_id, on_change=lambda t_id: nav(tournament_id=t_id))
+            await tournament_filter(tournament_id, on_change=lambda t_id: nav(tournament_id=t_id),
+                                    only=await AuthService.report_tournament_scope(viewer))
             approval_select = filter_field(ui.select(
                 APPROVAL_OPTIONS,
                 value=selected_approval,
