@@ -23,8 +23,10 @@ from typing import Callable, Optional
 
 from nicegui import ui
 
+from application.utils.match_labels import has_undecided, matchup_parts
 from application.utils.timezone import format_local_time, to_local, today_local
 from theme.busy import slot_busy_template
+from theme.matchup import WHO_PARTS_VUE
 from theme.tables.match_slots import seed_value_template
 
 #: The board's columns. Kept short on purpose: anything wider than "which match,
@@ -396,6 +398,8 @@ def decorate_run_sheet_row(row: dict) -> dict:
         _actual_times(row)
     names = [p.get('name') or '' for p in row.get('players') or []] + list(row.get('placeholders') or [])
     row['_who'] = ' vs '.join(names) if len(names) == 2 else ', '.join(names)
+    parts = matchup_parts([p.get('name') or '' for p in row.get('players') or []], row.get('placeholders') or [])
+    row['_who_parts'] = parts if has_undecided(parts) else None
     _fold_racers(row, names)
     if row.get('stage'):
         row['_stage'] = row['stage']
@@ -548,7 +552,8 @@ _TIME = """<span v-if="props.row._time" class="run-sheet__time" :class="props.ro
             <span v-if="props.row._day && props.row._day !== 'Today'" class="run-sheet__day">{{ props.row._day }}</span>
             """ + HELD_TAG
 
-_WHO_TEXT = "{{ props.row._who || (props.row.bracket ? props.row.bracket.name : props.row.title) }}"
+_WHO_TEXT = ('<template v-if="props.row._who_parts">' + WHO_PARTS_VUE + '</template><template v-else>'
+             "{{ props.row._who || (props.row.bracket ? props.row.bracket.name : props.row.title) }}</template>")
 
 # The more/fewer toggle sits inside the button that opens the match, so it's a
 # mouse and touch shortcut only: a screen reader hears every name from the

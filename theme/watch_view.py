@@ -34,6 +34,7 @@ from application.utils.safe_url import http_url_or_empty
 from application.utils.twitch_embed import preview_url
 from theme.brackets.static_view.document import _document
 from theme.brackets.static_view.markup import _esc, _tag
+from theme.matchup import matchup_html
 
 #: Upcoming matches listed under each stage; the rest are in "Coming up".
 UP_NEXT_LIMIT = 3
@@ -60,6 +61,8 @@ class WatchMatch:
     tournament_id: Optional[int] = None
     #: When the match actually started (UTC), for the "42 min in" on its stage.
     started_at: Optional[datetime] = None
+    #: ``players`` in pieces when a side is still a bracket placeholder, else empty.
+    players_parts: List[dict] = field(default_factory=list)
 
 
 @dataclass
@@ -299,6 +302,10 @@ def _thumb_inner(stage: WatchStage) -> str:
     )
 
 
+def players_html(match: WatchMatch) -> str:
+    return matchup_html(match.players_parts) if match.players_parts else _esc(match.players)
+
+
 def _crew_line(label: str, names: str, icon: str) -> str:
     if not names:
         return ''
@@ -309,7 +316,7 @@ def _next_row(match: WatchMatch) -> str:
     return _tag(
         'div', 'wiz-tile__next',
         _tag('span', 'wiz-tile__next-time', _esc(match.time))
-        + _tag('span', 'wiz-tile__next-players', _esc(match.players))
+        + _tag('span', 'wiz-tile__next-players', players_html(match))
         + _tag('span', 'wiz-tile__next-tourn', _esc(match.tournament_short or match.tournament)),
     )
 
@@ -338,7 +345,7 @@ def _stage_card(stage: WatchStage) -> str:
     if stage.on_now:
         m = stage.on_now
         now_block = (
-            _tag('div', 'wiz-tile__players', _esc(m.players))
+            _tag('div', 'wiz-tile__players', players_html(m))
             + _tag('div', 'wiz-tile__meta', _esc(tile_meta(m)))
             + _crew_line('Commentary', m.commentators, _MIC_ICON)
             + _crew_line('Tracking', m.trackers, _TRACKER_ICON)
@@ -379,7 +386,7 @@ def _coming(view: WatchView) -> str:
                 'div', 'wiz-watch-row',
                 _tag('span', 'match-time', _esc(m.time))
                 + _tag('div', 'wiz-watch-row__main',
-                       _tag('div', 'wiz-watch-row__players', _esc(m.players))
+                       _tag('div', 'wiz-watch-row__players', players_html(m))
                        + _tag('div', 'wizs-muted', _esc(m.tournament_short or m.tournament)))
                 + _tag('span', 'wiz-watch-tag', _esc(m.stage)),
             )

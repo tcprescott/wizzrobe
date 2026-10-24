@@ -24,6 +24,7 @@ from models import Match, RescheduleRequestKind
 from theme.dialog.clash_warning import confirm_time
 from theme.dialog.confirmation_dialog import ConfirmationDialog
 from theme.help import ResolvedHelp, help_button, resolve_help
+from theme.matchup import matchup_label
 from theme.notify import notify_error
 from theme.tables.admin_crud import capture_render_context, current_actor, scoped_background
 from theme.tables.match_access import MatchBoardAccess
@@ -319,7 +320,10 @@ class MatchInbox:
 
     def _late_item(self, row: dict) -> None:
         match_id = row['id']
-        ui.label(row.get('_who') or row.get('title') or 'Match').classes('match-inbox__title')
+        if row.get('_who_parts'):
+            matchup_label(row['_who_parts'], 'match-inbox__title', tag='div')
+        else:
+            ui.label(row.get('_who') or row.get('title') or 'Match').classes('match-inbox__title')
         when = _clock(row['scheduled_ts']) if row.get('scheduled_ts') else ''
         ui.label(f"{row.get('tournament') or ''} · {'was' if row.get('is_overdue') else 'at'} {when}") \
             .classes('match-inbox__meta')

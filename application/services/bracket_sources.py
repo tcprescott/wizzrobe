@@ -30,7 +30,13 @@ from application.services.challonge_service import ChallongeService
 from application.services.feature_flag_service import FeatureFlagService
 from application.services.round_schedule_service import RoundScheduleService
 from application.services.startgg_service import StartggService
-from application.utils.match_labels import challonge_round_label, entrant_name
+from application.utils.match_labels import (
+    MatchupPart,
+    challonge_round_label,
+    entrant_name,
+    is_undecided_side,
+    sides_parts,
+)
 from application.utils.timezone import parse_local_datetime
 from models import FeatureFlag, Match, Tournament, User
 
@@ -93,6 +99,18 @@ class UnbookedMatch:
     @property
     def matchup(self) -> str:
         return ' vs '.join(self.player_names)
+
+    @property
+    def matchup_parts(self) -> List[MatchupPart]:
+        """:attr:`matchup` in pieces, flagging the sides the bracket hasn't decided.
+
+        Only an accountless side of a players-TBD matchup can be one: anywhere
+        else a name is a player's, whatever it looks like.
+        """
+        return sides_parts([
+            (name, self.players_tbd and uid is None and is_undecided_side(name))
+            for name, uid in zip(self.player_names, self.player_ids, strict=False)
+        ])
 
 
 @dataclass

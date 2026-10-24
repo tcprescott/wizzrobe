@@ -22,6 +22,7 @@ from theme.dialog._helpers import dialog_actions, form_dialog, submit_on_enter
 from theme.dialog.bracket_schedule_dialog import BracketScheduleDialog
 from theme.dialog.bracket_source_schedule_dialog import BracketSourceScheduleDialog
 from theme.empty_state import empty_state
+from theme.matchup import matchup_label
 from theme.menu import lazy_more_menu, menu_action, menu_link
 from theme.notify import notify_error
 from theme.steady import steady_refreshable
@@ -252,7 +253,7 @@ class UnbookedBoard:
         with ui.element('div').classes('unbooked-row'):
             with ui.column().classes('unbooked-row__who gap-0 min-w-0'):
                 with ui.row().classes('items-center no-wrap gap-2'):
-                    ui.label(item.matchup).classes('unbooked-row__matchup')
+                    matchup_label(item.matchup_parts, 'unbooked-row__matchup')
                     if item.players_tbd:
                         ui.label('Players TBD').classes('wiz-chip wiz-chip--neutral unbooked-row__chip')
                     elif item.ready:

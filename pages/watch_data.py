@@ -38,6 +38,7 @@ from application.services.tenant_theme_service import TenantThemeService
 from application.services.timezone_service import TimezoneService
 from application.tenant_context import tenant_scope
 from application.timezone_context import hour_cycle_scope, tz_scope
+from application.utils.match_labels import has_undecided
 from application.utils.safe_url import http_url_or_empty
 from application.utils.timezone import (
     format_local_time,
@@ -47,7 +48,7 @@ from application.utils.timezone import (
 )
 from application.utils.twitch_embed import twitch_channel, twitch_channel_name
 from models import BracketState, FeatureFlag
-from theme.join_page import roster_label
+from theme.join_page import roster_label, roster_parts
 from theme.watch_view import (
     COMING_UP_LIMIT,
     UP_NEXT_LIMIT,
@@ -184,6 +185,7 @@ def _crew(signups) -> str:
 
 
 def _row(match, stage_name: str = '') -> WatchMatch:
+    parts = roster_parts(match)
     return WatchMatch(
         time=format_local_time(match.scheduled_at) if match.scheduled_at else 'TBD',
         players=roster_label(match),
@@ -195,6 +197,7 @@ def _row(match, stage_name: str = '') -> WatchMatch:
         match_id=match.id,
         tournament_id=match.tournament_id,
         started_at=match.started_at,
+        players_parts=parts if has_undecided(parts) else [],
     )
 
 

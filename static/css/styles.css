@@ -9018,3 +9018,10 @@ ol.wiz-help-list { list-style-type: decimal; }
     color: var(--wiz-link);
     background: color-mix(in srgb, var(--accent) 14%, transparent);
 }
+
+/* A side the bracket hasn't decided yet ("TBD", "Winner of C", "Andy or Benny"):
+   drawn like an empty bracket slot so it never reads as a player. */
+.wiz-tbd {
+    color: var(--fg-muted);
+    font-style: italic;
+}
