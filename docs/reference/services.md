@@ -1022,7 +1022,7 @@ Collaborators: `PlayerAvailabilityRepository`, `AuditService`, `availability_win
 
 ### reports_service.py — ReportsService
 
-Aggregation queries behind the admin Reports tabs. Day boundaries resolve on the viewer's display clock via [`application/utils/timezone.py`](../../application/utils/timezone.py); each match contributes an estimated active window (`seated_at` or scheduled−1h → `finished_at` or start+expected duration, default 90 min). On the capacity forecast and its "active at" drill-down, a late match with no check-in keeps sliding: its end is anchored at now, up to `LATE_PUSH_LIMIT` (2h) past schedule, and a late check-in anchors at `seated_at`. The duration and on-time thresholds are imported from `reporting_shared`. Feature doc: [admin-reports.md](../features/admin-reports.md).
+Aggregation queries behind the admin Reports tabs. Day boundaries resolve on the viewer's display clock via [`application/utils/timezone.py`](../../application/utils/timezone.py); each match contributes an estimated active window (`seated_at` or scheduled−1h → `finished_at` or start+expected duration, default 90 min). On the capacity forecast and its "active at" drill-down, a late match with no check-in keeps sliding: its end is anchored at now, up to `LATE_PUSH_LIMIT` (2h) past schedule, and a late check-in anchors at `seated_at`. Those two also expect an unstarted match to start `CHECK_IN_TO_START` (15 min) after its check-in, actual or expected, so its estimated end moves out by that much; crew coverage and stage utilization don't add it. The duration and on-time thresholds are imported from `reporting_shared`. Feature doc: [admin-reports.md](../features/admin-reports.md).
 
 | Method | Returns | Description |
 |---|---|---|

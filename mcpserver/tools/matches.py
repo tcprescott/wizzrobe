@@ -177,9 +177,31 @@ async def match_operations_report(
     tenant: TenantArg = None,
     tournament_id: Optional[int] = None,
 ) -> Dict[str, Any]:
-    """Operational statistics for matches in a window: start delays, durations.
+    """Operational statistics for matches scheduled in a window: lateness, setup time, durations.
 
-    Requires admin access.
+    Requires admin access. All delays are whole minutes, negative when early.
+
+    Each row:
+    - `start_delay_min`: actual race start minus `scheduled_at`.
+    - `seat_delay_min`: check-in (`seated_at`) minus `scheduled_at`; null if
+      never checked in. Use this to judge lateness where players are asked to
+      check in at the scheduled time, as at SG Live.
+    - `setup_min`: actual race start minus check-in; null unless both happened.
+    - `duration_min`: finish minus start. `confirmation_lag_min`: confirm
+      minus finish.
+    - `staged`: true when the match has a stage assigned.
+
+    Each tournament aggregate has `avg_start_delay_min`, `on_time_pct`
+    (start within ±5 minutes), `avg_duration_min`, `avg_seat_delay_min`,
+    `seated_on_time_pct` (check-in within the same ±5 minutes) and
+    `avg_setup_min`, and the last three again split as `staged_*` and
+    `unstaged_*`. Percentages count only matches that have the timestamp.
+
+    `flagged_match_ids` lists matches whose times describe a click rather
+    than a race: started or checked in more than 6 hours before
+    `scheduled_at`, or check-in, start and finish stamped the same instant
+    (a match closed as played on its bracket site). They stay in `rows` and
+    the match counts but are left out of every average and percentage.
     """
     return await ReportsService().match_operations(
         start=start, end=end, tournament_id=tournament_id, actor=current_actor().user,

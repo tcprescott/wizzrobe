@@ -10,6 +10,7 @@ from types import SimpleNamespace
 from typing import Optional
 
 from application.services.reports_service import (
+    CHECK_IN_TO_START,
     DEFAULT_MATCH_DURATION_MIN,
     LATE_PUSH_LIMIT,
     ReportsService,
@@ -180,6 +181,47 @@ class TestMatchWindow:
         started = to_display(2025, 10, 23, 14, 10)
         m = make_match(scheduled_at=sched, seated_at=sched, started_at=started, avg_duration=60)
         _, we = ReportsService._match_window(m, now=to_display(2025, 10, 23, 16, 0))
+        assert we == to_display(2025, 10, 23, 15, 10)
+
+    def test_setup_pushes_unchecked_match_end(self):
+        sched = to_display(2025, 10, 23, 14, 0)
+        m = make_match(scheduled_at=sched, avg_duration=60)
+        ws, we = ReportsService._match_window(
+            m, now=to_display(2025, 10, 23, 13, 30), setup=CHECK_IN_TO_START,
+        )
+        assert ws == to_display(2025, 10, 23, 13, 0)
+        assert we == to_display(2025, 10, 23, 15, 15)
+
+    def test_setup_runs_from_check_in(self):
+        sched = to_display(2025, 10, 23, 14, 0)
+        seated = to_display(2025, 10, 23, 14, 25)
+        m = make_match(scheduled_at=sched, seated_at=seated, avg_duration=60)
+        _, we = ReportsService._match_window(
+            m, now=to_display(2025, 10, 23, 14, 30), setup=CHECK_IN_TO_START,
+        )
+        assert we == to_display(2025, 10, 23, 15, 40)
+
+    def test_setup_counts_early_check_in_from_slot(self):
+        sched = to_display(2025, 10, 23, 14, 0)
+        seated = to_display(2025, 10, 23, 13, 50)
+        m = make_match(scheduled_at=sched, seated_at=seated, avg_duration=60)
+        ws, we = ReportsService._match_window(m, setup=CHECK_IN_TO_START)
+        assert ws == seated
+        assert we == to_display(2025, 10, 23, 15, 15)
+
+    def test_setup_slides_with_late_unchecked_match(self):
+        sched = to_display(2025, 10, 23, 14, 0)
+        m = make_match(scheduled_at=sched, avg_duration=60)
+        _, we = ReportsService._match_window(
+            m, now=to_display(2025, 10, 23, 14, 40), setup=CHECK_IN_TO_START,
+        )
+        assert we == to_display(2025, 10, 23, 15, 55)
+
+    def test_setup_ignored_once_started(self):
+        sched = to_display(2025, 10, 23, 14, 0)
+        started = to_display(2025, 10, 23, 14, 10)
+        m = make_match(scheduled_at=sched, seated_at=sched, started_at=started, avg_duration=60)
+        _, we = ReportsService._match_window(m, setup=CHECK_IN_TO_START)
         assert we == to_display(2025, 10, 23, 15, 10)
 
     def test_end_not_before_start(self):
