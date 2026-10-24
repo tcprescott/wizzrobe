@@ -21,6 +21,7 @@ from theme.brackets import FORMAT_OPTIONS, stage_label
 from theme.dialog._helpers import dialog_actions, form_dialog, submit_on_enter
 from theme.dialog.confirmation_dialog import ConfirmationDialog
 from theme.notify import notify_error
+from theme.pickers import CHIP_PROPS
 from theme.tables.admin_crud import current_actor
 
 # Config keys this form owns. Anything else in the blob — notably the per-round
@@ -180,7 +181,7 @@ async def open_stage_form(
                                 _TIEBREAKER_LABELS,
                                 value=list(config.get('tiebreakers') or KNOWN_TIEBREAKERS),
                                 label='Tiebreakers, in order', multiple=True,
-                            ).props('use-chips').classes('w-full')
+                            ).props(CHIP_PROPS).classes('w-full')
                             with ui.row().classes('items-end gap-2 w-full'):
                                 for key, label, fallback in _POINTS_FIELDS:
                                     fields[key] = ui.number(

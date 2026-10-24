@@ -10,6 +10,13 @@ from typing import Any, Mapping, Optional
 
 from nicegui import ui
 
+# Props for every chip multi-select. On a phone Quasar opens a select as a
+# pop-up that repeats the whole field, chips and all, above the options: with
+# twenty players picked the chips filled the screen, the options and the way
+# out sat below the keyboard, and the dialog's Save could not be reached. As a
+# menu it drops down from the field as it does on desktop.
+CHIP_PROPS = 'use-chips behavior=menu'
+
 _OPTION_SLOT = '''
 <q-item v-bind="props.itemProps">
     <q-item-section side v-if="props.opt.color !== undefined" class="q-pr-sm">
@@ -56,7 +63,7 @@ class FilterMultiSelect(ui.select):
         super().__init__(
             options=dict(options), label=label, multiple=True, with_input=True, value=[],
         )
-        self.props('use-chips stack-label options-dense')
+        self.props(CHIP_PROPS).props('stack-label options-dense')
         self.add_slot('option', _OPTION_SLOT)
         self.add_slot('selected-item', _CHIP_SLOT)
 

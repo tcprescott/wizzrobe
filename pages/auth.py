@@ -54,6 +54,7 @@ from models import Role, Tenant, User
 from pages._browser_url import browser_url
 from pages._session import start_session
 from theme.notice import drain_notice, stash_notice
+from theme.pickers import CHIP_PROPS
 from theme.tables.mobile_grid import enable_mobile_grid
 from theme.waiting import waiting_screen
 
@@ -733,7 +734,7 @@ def _create_mock() -> None:
                     value=[],
                     label='Roles',
                     multiple=True,
-                ).props('use-chips').classes('w-full')
+                ).props(CHIP_PROPS).classes('w-full')
 
                 async def create_user():
                     username = (username_input.value or '').strip()
