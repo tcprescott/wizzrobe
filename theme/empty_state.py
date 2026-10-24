@@ -33,12 +33,15 @@ def empty_panel(message: str, icon: str = 'inbox') -> None:
         cat_fact()
 
 
-def no_data_slot(message: str = 'Nothing here yet.', icon: str = 'inbox') -> str:
+def no_data_slot(message: str = 'Nothing here yet.', icon: str = 'inbox', *,
+                 from_table: bool = False) -> str:
     """Vue template for a Quasar table ``no-data`` slot: the branded empty state
     (icon + message + a cat fact) instead of Quasar's bare "No data available".
 
     The cat fact is interpolated once at build time. ``message`` is HTML-escaped
-    so a caller-supplied string can't inject markup.
+    so a caller-supplied string can't inject markup. ``from_table`` shows the
+    table's own label instead (Quasar's ``message``, from ``no-results-label``
+    while a filter is set), for a board whose empty reason changes with it.
     """
     safe_message = html.escape(message)
     safe_fact = html.escape(random_cat_fact())
@@ -47,7 +50,7 @@ def no_data_slot(message: str = 'Nothing here yet.', icon: str = 'inbox') -> str
         '<div class="full-width row flex-center empty-state q-py-lg">'
         '<div class="column items-center text-center">'
         f'<q-icon name="{safe_icon}" size="md" class="q-mb-sm wiz-empty-icon"></q-icon>'
-        f'<div>{safe_message}</div>'
+        + ('<div>{{ props.message }}</div>' if from_table else f'<div>{safe_message}</div>') +
         '<div class="empty-state-fact column items-center" role="note">'
         '<q-icon name="pets" size="xs" aria-hidden="true" class="empty-state-fact__icon"></q-icon>'
         f'<div class="empty-state-fact__text">{safe_fact}</div>'

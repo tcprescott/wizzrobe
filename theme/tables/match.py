@@ -36,7 +36,7 @@ from theme.tables.match_player_run_sheet import (
     arrange_player_run_sheet,
     register_player_run_sheet_slots,
 )
-from theme.tables.match_run_sheet import arrange_run_sheet, register_run_sheet_slots
+from theme.tables.match_run_sheet import arrange_run_sheet, register_run_sheet_slots, station_lookup_caption
 from theme.tables.match_slots import (
     CANDIDATE_STAGE,
     MY_ACTIONS_COLUMN,
@@ -283,6 +283,10 @@ class MatchTableView(MatchFiltersMixin, MatchTableHandlersMixin, MatchBoardHoldM
                     on_click=self.submit_match_callback
                 ).props('color=primary')
 
+        # A proctor's phone keeps the search out from behind Filters: typing a
+        # station number is how they find a match (Thomas, 2026-10-24).
+        phone_search_slot = ui.column().classes('lt-md full-width gap-1 run-sheet__phone-search') \
+            if self.proctor_run_sheet and self.searchable else None
         search_slot, gear_slot = self._build_filter_bar()
 
         # Restore the filters, then load the table — one task, one load.
@@ -300,7 +304,8 @@ class MatchTableView(MatchFiltersMixin, MatchTableHandlersMixin, MatchBoardHoldM
             # already held. Refresh stays an explicit button.
                 pagination={'rowsPerPage': 25, 'page': 1},
             ).classes('match-table match-table-container').props(f':grid="Quasar.Screen.{self.grid_breakpoint}"')
-            self.table.add_slot('no-data', no_data_slot('No matches to show yet.'))
+            self.table.add_slot('no-data', no_data_slot('No matches to show yet.',
+                                                        from_table=self.proctor_run_sheet))
         self._build_tidy_pill()
 
         # Resolve current user's discord_id once for slot templates and event wiring.
@@ -344,8 +349,18 @@ class MatchTableView(MatchFiltersMixin, MatchTableHandlersMixin, MatchBoardHoldM
                 preferences_button(self.table)
             if self.searchable:
                 with search_slot:
-                    search_input(self.table, placeholder='Search matches…',
-                                 search_terms=self.layout in ('run_sheet', 'player_run_sheet'))
+                    box = search_input(
+                        self.table,
+                        placeholder='Search names or a station…' if self.proctor_run_sheet else 'Search matches…',
+                        search_terms=self.layout in ('run_sheet', 'player_run_sheet'))
+                    if self.proctor_run_sheet:
+                        station_lookup_caption(self.table, box)
+                if phone_search_slot is not None:
+                    with phone_search_slot:
+                        phone_box = search_input(self.table, placeholder='Search names or a station…',
+                                                 width='full-width', search_terms=True)
+                        phone_box.bind_value(box)
+                        station_lookup_caption(self.table, phone_box)
             with self.table_container:
                 row_count_label(self.table, 'matches')
             sticky_header(self.table)

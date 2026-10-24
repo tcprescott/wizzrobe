@@ -52,7 +52,10 @@ on the admin Match Schedule tab.
 By default you see matches still to be played or in play. Use **Filters** to
 narrow it to the day and the tournaments your room is running, or add Finished
 to the State filter to see what you've already recorded, under Done. The search
-box filters lines by any text in them, like a player's name.
+box filters lines by any text in them, like a player's name. Type just a number
+to find a station instead: **7** (or **Station 7**) shows the matches with
+someone at station 7 that aren't finished yet, and lights up that player's
+station. On a phone the search box sits above **Filters**, so it's always there.
 :::
 
 ### Reading a line
