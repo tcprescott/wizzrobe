@@ -159,3 +159,51 @@ class TestMatchOperationsCheckIn:
         assert out['flagged_match_ids'] == []
         assert out['aggregates'][0]['avg_seat_delay_min'] == -360.0
         assert m.id in {r['match_id'] for r in out['rows']}
+
+    async def test_late_finish_and_zero_length_left_out_of_length_only(self, db):
+        t, *_ = await self._seed()
+        # Finish clicked the next morning, as with sgl26 #276: start is real.
+        late_click = await Match.create(
+            tournament=t,
+            scheduled_at=utc(2025, 10, 23, 21, 0),
+            started_at=utc(2025, 10, 23, 21, 10),
+            finished_at=utc(2025, 10, 24, 3, 41),
+        )
+        # Started and finished in one go after the fact, as with sgl26 #207.
+        zero = await Match.create(
+            tournament=t,
+            scheduled_at=utc(2025, 10, 23, 22, 0),
+            started_at=utc(2025, 10, 23, 22, 4),
+            finished_at=utc(2025, 10, 23, 22, 4),
+        )
+        # Long but believable: exactly three times the 90-minute length.
+        long_race = await Match.create(
+            tournament=t,
+            scheduled_at=utc(2025, 10, 23, 23, 0),
+            started_at=utc(2025, 10, 23, 23, 0),
+            finished_at=utc(2025, 10, 24, 3, 30),
+        )
+        out = await ReportsService().match_operations(DAY_START, DAY_END, actor=(await _actor()))
+
+        assert sorted(out['duration_outlier_ids']) == sorted([late_click.id, zero.id])
+        assert out['flagged_match_ids'] == []
+        rows = {r['match_id']: r for r in out['rows']}
+        assert rows[late_click.id]['duration_min'] == 391
+        assert long_race.id not in out['duration_outlier_ids']
+
+        a = {x['tournament_id']: x for x in out['aggregates']}[t.id]
+        assert a['avg_duration_min'] == round((81 + 90 + 270) / 3, 1)
+        assert a['avg_start_delay_min'] == round((9 + 10 + 26 + 10 + 4 + 0) / 6, 1)
+
+    async def test_no_configured_length_only_drops_zero(self, db):
+        t = await Tournament.create(name='Open')
+        m = await Match.create(
+            tournament=t,
+            scheduled_at=utc(2025, 10, 23, 14, 0),
+            started_at=utc(2025, 10, 23, 14, 0),
+            finished_at=utc(2025, 10, 23, 23, 0),
+        )
+        out = await ReportsService().match_operations(DAY_START, DAY_END, actor=(await _actor()))
+        assert out['duration_outlier_ids'] == []
+        assert out['aggregates'][0]['avg_duration_min'] == 540.0
+        assert m.id in {r['match_id'] for r in out['rows']}

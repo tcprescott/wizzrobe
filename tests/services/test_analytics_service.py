@@ -561,3 +561,18 @@ class TestActivityExtent:
         await Match.create(tournament=t, scheduled_at=None)
 
         assert await AnalyticsService().activity_extent(tournament_id=t.id, actor=(await _actor())) == (None, None)
+
+
+class TestOutlierDuration:
+    """The one rule both length averages use to skip late Finish clicks."""
+
+    def test_rule(self):
+        from types import SimpleNamespace
+        from application.services.reporting_shared import is_outlier_duration
+        t = SimpleNamespace(average_match_duration=100)
+        assert is_outlier_duration(0, t)
+        assert is_outlier_duration(301, t)
+        assert not is_outlier_duration(300, t)
+        assert not is_outlier_duration(None, t)
+        assert not is_outlier_duration(900, SimpleNamespace(average_match_duration=None))
+        assert not is_outlier_duration(900, None)
