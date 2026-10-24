@@ -84,6 +84,10 @@ honor the `TELEMETRY_ENABLED` kill-switch.
      "… for <row>" suffix is dropped so every row's ⋮ counts as one control.
    - `ui.dialog_opened` / `ui.dialog_closed` — by dialog title; a close carries
      `via`, the last button pressed inside it, or `dismissed` (Escape / outside).
+     A dropdown's option popup on a touch screen (Quasar's `.q-select__dialog`)
+     is not counted as a dialog, so phone and desktop count alike; a choice
+     made in it is a `ui.click` of kind `option` whose `menu` is the dropdown's
+     label. Rows before 2026-10-24 logged these popups as `(untitled dialog)`.
    - `ui.field_used` — a field whose value changed, by its label. **Never the
      value.**
    Each row carries `device` (`phone` < 600px ≤ `tablet` < 1024px ≤ `desktop`)

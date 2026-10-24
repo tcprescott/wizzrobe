@@ -7,7 +7,10 @@
  *   checkbox, chip, clickable list item, select), with the dialog, ⋮ menu or
  *   table it sat in;
  * - each dialog opening, and how it closed (the button pressed in it, or
- *   "dismissed" for Escape / a click outside);
+ *   "dismissed" for Escape / a click outside). A dropdown's option popup on a
+ *   touch screen is a Quasar dialog too; it isn't counted as one, so phones
+ *   and desktops count the same way (the tap on the dropdown is the click),
+ *   and a choice made in it is tagged with the dropdown's label;
  * - each form field whose value was changed, by its label.
  * Each row also notes phone / tablet / desktop from the viewport width.
  */
@@ -62,6 +65,7 @@
     if (el.matches('.q-tab, [role=tab]')) return 'tab';
     if (el.closest('.q-menu')) return el.matches('[role=option]') ? 'option' : 'menu-item';
     if (el.matches('.q-chip--clickable')) return 'chip';
+    if (el.matches('[role=option]')) return 'option';
     if (el.matches('.q-item--clickable')) return 'item';
     if (el.matches('a[href]')) return 'link';
     return 'button';
@@ -91,7 +95,21 @@
 
   function dialogTitle(dialog) {
     var title = dialog.querySelector('h1, h2, h3, .dialog-header .text-h6, .text-h6, .section-title');
-    return clean((title && title.textContent) || dialog.getAttribute('aria-label') || '');
+    var labelledBy = dialog.getAttribute('aria-labelledby');
+    var labelEl = labelledBy && document.getElementById(labelledBy);
+    return clean(
+      (title && title.textContent) || dialog.getAttribute('aria-label') ||
+      (labelEl && labelEl.textContent) || ''
+    );
+  }
+
+  function isPicker(dialog) {
+    return !!dialog.querySelector('.q-select__dialog');
+  }
+
+  function pickerName(dialog, opener) {
+    var label = dialog.querySelector('.q-select__dialog .q-field__label');
+    return clean((label && label.textContent.replace(/\s*\*\s*$/, '')) || '') || opener || 'Dropdown';
   }
 
   function push(event) {
@@ -121,14 +139,17 @@
     if (!name) return;
     var event = { type: 'ui.click', kind: kind, target: name };
     var dialog = el.closest('[role=dialog]');
-    if (dialog) {
-      var info = openDialogs.get(dialog);
+    var info = dialog && openDialogs.get(dialog);
+    var inPicker = !!dialog && (info ? info.picker : isPicker(dialog));
+    if (inPicker) {
+      event.menu = info ? info.title : pickerName(dialog, lastMenuOpener);
+    } else if (dialog) {
       event.dialog = info ? info.title : dialogTitle(dialog);
       if (info) info.lastClick = name;
     }
     if (el.closest('.q-menu')) {
       if (lastMenuOpener) event.menu = lastMenuOpener;
-    } else {
+    } else if (!inPicker) {
       lastMenuOpener = name;
     }
     if (table) event.table = table.getAttribute('data-wiz-table-key');
@@ -143,16 +164,22 @@
     if (!name) return;
     var event = { type: 'ui.field_used', kind: el.getAttribute('type') || el.tagName.toLowerCase(), target: name };
     var dialog = el.closest('[role=dialog]');
-    if (dialog) event.dialog = (openDialogs.get(dialog) || {}).title || dialogTitle(dialog);
+    if (dialog && !isPicker(dialog)) event.dialog = (openDialogs.get(dialog) || {}).title || dialogTitle(dialog);
     push(event);
   }, true);
 
   function opened(dialog) {
     if (openDialogs.has(dialog)) return;
-    var info = { title: '', lastClick: null };
+    var info = { title: '', lastClick: null, picker: false };
+    var opener = lastMenuOpener;
     openDialogs.set(dialog, info);
     // Content is rendered a tick after the dialog shell.
     setTimeout(function () {
+      if (isPicker(dialog)) {
+        info.picker = true;
+        info.title = pickerName(dialog, opener);
+        return;
+      }
       info.title = dialogTitle(dialog) || '(untitled dialog)';
       push({ type: 'ui.dialog_opened', target: info.title });
     }, 50);
@@ -162,6 +189,7 @@
     var info = openDialogs.get(dialog);
     if (!info) return;
     openDialogs.delete(dialog);
+    if (info.picker || isPicker(dialog)) return;
     push({ type: 'ui.dialog_closed', target: info.title || '(untitled dialog)', via: info.lastClick || 'dismissed' });
   }
 
