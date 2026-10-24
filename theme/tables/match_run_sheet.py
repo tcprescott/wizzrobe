@@ -693,7 +693,8 @@ def _item_slot(proctor: bool, can_run: bool = False, approve: str = 'false') -> 
             """ + when + """
             <span class="run-sheet__main">
                 <span class="run-sheet__who">""" + WHO + """</span>
-                <span class="run-sheet__meta"><template v-if="props.row._stage">{{ props.row._stage }}</template><template v-if="props.row._hit_station"><template v-if="props.row._stage"> · </template>""" + _HIT_SEATS + """</template><template v-else><template v-if="props.row._stage && props.row._seat_line"> · </template>{{ props.row._seat_line }}</template></span>
+                <span class="run-sheet__meta" :title="props.row.tournament">{{ props.row.tournament_short || props.row.tournament }}<template v-if="props.row.bracket"> · {{ props.row.bracket.name }}<template v-if="props.row.bracket.game"> · Game {{ props.row.bracket.game }}</template></template><template v-if="props.row.set_label"> · {{ props.row.set_label }}</template></span>
+                <span v-if="props.row._stage || props.row._hit_station || props.row._seat_line" class="run-sheet__meta"><template v-if="props.row._stage">{{ props.row._stage }}</template><template v-if="props.row._hit_station"><template v-if="props.row._stage"> · </template>""" + _HIT_SEATS + """</template><template v-else><template v-if="props.row._stage && props.row._seat_line"> · </template>{{ props.row._seat_line }}</template></span>
                 """ + DESC_LINE + _ADA + LATE_TAGS + """
                 """ + COMMENT_BADGES + """
             </span>
