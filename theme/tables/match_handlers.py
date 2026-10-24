@@ -117,7 +117,7 @@ class MatchTableHandlersMixin:
             return
         await self._confirm_crew_approval(role, row, m, crew_member, quick=True)
 
-    async def _confirm_crew_approval(self, role, row, m, crew_member, *, quick: bool = False):
+    async def _confirm_crew_approval(self, role, row, m, crew_member, *, quick=False):
         from application.services import CrewService
 
         match_id = row['id']
