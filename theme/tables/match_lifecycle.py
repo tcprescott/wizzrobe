@@ -338,11 +338,14 @@ class MatchLifecycleHandlers:
                 notify_error(e)
         await self.table_view.update_row_by_id(match_id)
 
-    async def on_assign_stations(self, match_id: int):
+    async def on_assign_stations(self, match_id: int, player_id: int | None = None):
+        """Every player's station, or only ``player_id``'s when the proctor
+        tapped that player's tag on the run sheet."""
         match = await Match.get(id=match_id, tenant_id=require_tenant_id()).prefetch_related('tournament', 'players', 'players__user')
 
         async def after_assign(_):
             await self.table_view.update_row_by_id(match_id)
         with self.page_container:
-            dialog = StationAssignmentDialog(match=match, on_submit=after_assign, purpose='stations')
+            dialog = StationAssignmentDialog(match=match, on_submit=after_assign, purpose='stations',
+                                             player_id=player_id)
             await dialog.open()

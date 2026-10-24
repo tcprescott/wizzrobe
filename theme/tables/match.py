@@ -353,6 +353,7 @@ class MatchTableView(MatchFiltersMixin, MatchTableHandlersMixin, MatchBoardHoldM
 
         if self.on_assign_stations is not None:
             self.table.on('assign_stations', lambda event: self._bg(self._handle_assign_stations(event)))
+            self.table.on('seat_player', lambda event: self._bg(self._handle_seat_player(event)))
 
         self.table.on('signup_commentator', lambda event: self._handle_signup_or_undo_role('signup', 'commentator', event.args))
         self.table.on('signup_tracker', lambda event: self._handle_signup_or_undo_role('signup', 'tracker', event.args))

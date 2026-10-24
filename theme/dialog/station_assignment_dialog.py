@@ -32,6 +32,13 @@ _PURPOSE_COPY = {
         'lead': 'Update the station each player is sitting at.',
         'submit': 'Save stations',
     },
+    # One player's tag tapped on the proctor's line: players arrive one at a
+    # time, so this is the usual job, and the field is the whole dialog.
+    'player': {
+        'title': 'Station for {player}',
+        'lead': '',
+        'submit': 'Save',
+    },
 }
 
 
@@ -44,6 +51,7 @@ class StationAssignmentDialog:
         on_submit: Optional[Callable] = None,
         *,
         purpose: str = 'stations',
+        player_id: Optional[int] = None,
     ):
         """
         Initialize the station assignment dialog.
@@ -55,10 +63,14 @@ class StationAssignmentDialog:
                 ``'start'`` when the caller seats or starts the match
                 afterwards (and therefore owns the success toast), ``'stations'`` when this dialog is the whole
                 job.
+            player_id: Seat only this player (a MatchPlayers id), leaving
+                the rest where they are.
         """
         self.match = match
         self.on_submit = on_submit
-        self.purpose = purpose if purpose in _PURPOSE_COPY else 'stations'
+        self.purpose = 'player' if player_id is not None else (
+            purpose if purpose in _PURPOSE_COPY else 'stations')
+        self.player_id = player_id
         self.match_service = MatchService()
         self.dialog = None
         self.station_inputs = {}
@@ -74,7 +86,16 @@ class StationAssignmentDialog:
         stations = await StationService().list_stations(active_only=True)
         occupied = await self.match_service.occupied_stations_for_dialog(self.match.id)
 
-        title = copy['title'].format(match=match_model_label(self.match, with_context=False))
+        players = list(self.match.players)
+        if self.player_id is not None:
+            players = [p for p in players if p.id == self.player_id]
+            if not players:
+                notify_error(ValueError('That player is no longer in this match.'))
+                return
+        title = copy['title'].format(
+            match=match_model_label(self.match, with_context=False),
+            player=players[0].user.preferred_name if self.player_id is not None else '',
+        )
         help = await resolve_help(['proctor-stations'])
         with form_dialog(title, card_classes='dialog-card dialog-card--sm', help=help) as self.dialog:
             with ui.column().classes('full-width gap-3'):
@@ -84,13 +105,15 @@ class StationAssignmentDialog:
                 if self.match.scheduled_at:
                     from application.utils.timezone import format_local_datetime
                     context.append(format_local_datetime(self.match.scheduled_at))
+                if self.player_id is not None:
+                    context.insert(0, match_model_label(self.match, with_context=False))
                 if context:
                     ui.label(' · '.join(context)).classes('text-body2 text-grey-7')
 
-                if not self.match.players:
+                if not players:
                     ui.label('No players assigned to this match').classes('text-grey-7')
                 else:
-                    with ui.row().classes('items-center no-wrap full-width gap-1'):
+                    with ui.row().classes('items-center no-wrap full-width gap-1') as lead:
                         ui.label(copy['lead']).classes('text-body2 col')
                         # Only offered for a head-to-head: the draw's whole job
                         # is putting two players on opposite sides, and it
@@ -104,8 +127,9 @@ class StationAssignmentDialog:
                                 'Draw a free station for each player, on opposite '
                                 'sides of the room'
                             )
+                    lead.set_visibility(self.player_id is None)
 
-                    for player in self.match.players:
+                    for player in players:
                         # The player's name is the field's label: a name line
                         # over a "Station" field doubled each row's height.
                         name = player.user.preferred_name or player.user.username
@@ -150,11 +174,19 @@ class StationAssignmentDialog:
                             if fmt == StationFormat.NUMERIC:
                                 # Phones open the number pad, not the full keyboard.
                                 station_input.props('inputmode=numeric')
+                            if self.player_id is not None:
+                                station_input.props('autofocus')
+                                # Typing replaces the station rather than adding to it.
+                                station_input.on('focus', js_handler='(e) => e.target.select()')
+                                station_input.on('keydown.enter', self._handle_submit)
 
                         if player.assigned_station:
                             station_input.value = player.assigned_station
 
                         self.station_inputs[player.id] = station_input
+                        # A refusal is shown on the field it's about; a change
+                        # clears it.
+                        station_input.on_value_change(lambda _e, i=station_input: setattr(i, 'error', None))
 
             with dialog_actions().classes('justify-end'):
                 ui.button('Cancel', on_click=self.dialog.close).props('flat')
@@ -206,7 +238,12 @@ class StationAssignmentDialog:
 
             # In 'checkin' mode the caller still has to seat the match, so it
             # owns the success toast — saying "done" here would be premature.
-            if self.purpose == 'stations':
+            if self.purpose == 'player':
+                name = self.match_player_name()
+                station = assignments[self.player_id]
+                ui.notify(f'{name} is at station {station}.' if station
+                          else f"{name}'s station cleared.", color='positive')
+            elif self.purpose == 'stations':
                 ui.notify(
                     f'Stations updated for '
                     f'{match_model_label(self.match, with_context=False)}.',
@@ -219,4 +256,11 @@ class StationAssignmentDialog:
             self.dialog.close()
 
         except (ValueError, PermissionError) as e:
-            notify_error(e)
+            if self.player_id is not None and isinstance(e, ValueError):
+                self.station_inputs[self.player_id].error = str(e)
+            else:
+                notify_error(e)
+
+    def match_player_name(self) -> str:
+        player = next(p for p in self.match.players if p.id == self.player_id)
+        return player.user.preferred_name

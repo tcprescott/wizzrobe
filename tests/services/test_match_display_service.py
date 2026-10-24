@@ -45,7 +45,7 @@ def make_match(**overrides):
 
 
 def make_player(name, *, discord_id="111", dm_notifications=True,
-                finish_rank=None, station=None, user_id=7):
+                finish_rank=None, station=None, user_id=7, player_id=70):
     """A ``MatchPlayers``-shaped fake, including the two DM-reachability fields.
 
     ``discord_id=None`` / ``dm_notifications=False`` are the two ways a player
@@ -57,6 +57,7 @@ def make_player(name, *, discord_id="111", dm_notifications=True,
             discord_id=discord_id,
             dm_notifications=dm_notifications,
         ),
+        id=player_id,
         user_id=user_id,
         finish_rank=finish_rank,
         assigned_station=station,
@@ -209,7 +210,7 @@ class TestFormatMatchForDisplay:
         player = make_player("Alice", discord_id="111", finish_rank=1, station="A")
         result = display_service._format_match_for_display(make_match(players=[player]))
         assert result["players"] == [
-            {"name": "Alice", "user_id": 7, "finish_rank": 1, "station": "A", "discord_id": "111"}
+            {"name": "Alice", "player_id": 70, "user_id": 7, "finish_rank": 1, "station": "A", "discord_id": "111"}
         ]
 
     def test_multiple_players_all_included(self, display_service):

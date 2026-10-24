@@ -132,8 +132,14 @@ saved until you press the button to confirm, so you can change either seat or
 pick again. If the room's too full to manage all that, it tells you which part
 it couldn't do and seats them anyway.
 
-Seated someone in the wrong place? Open the match and press **Change** on its
-Stations line to move the seats of a match that's already checked in.
+Players turn up one at a time, so you can seat them one at a time too. Tap the
+station tag beside a player's name on the board (**+ No station**, or the
+station they're at), type the number and press Enter. A clash shows under the
+box, and nothing's saved until it clears.
+
+Seated someone in the wrong place? Tap their station tag and type the new one.
+Open the match and press **Change** on its Stations line to move everyone at
+once.
 
 You don't need to free a station afterwards. It frees itself as soon as its
 match is recorded as finished.

@@ -23,9 +23,10 @@ class TestPurposeCopy:
         assert 'check in' not in _PURPOSE_COPY['stations']['title'].lower()
 
     def test_every_mode_supplies_the_three_strings(self):
-        for copy in _PURPOSE_COPY.values():
+        for purpose, copy in _PURPOSE_COPY.items():
             assert set(copy) == {'title', 'lead', 'submit'}
-            assert all(copy.values())
+            # One player's field is the whole dialog, with nothing to lead into.
+            assert all(v for k, v in copy.items() if not (purpose == 'player' and k == 'lead'))
 
     def test_titles_name_the_match_rather_than_its_id(self):
         """The rule ``application.utils.match_labels`` was written down for.
@@ -35,9 +36,9 @@ class TestPurposeCopy:
         use. They take a rendered label now, so the placeholder is ``{match}``
         and no ``#`` survives the format.
         """
-        for copy in _PURPOSE_COPY.values():
-            rendered = copy['title'].format(match='Alice vs Bob')
-            assert rendered.endswith('Alice vs Bob')
+        for purpose, copy in _PURPOSE_COPY.items():
+            rendered = copy['title'].format(match='Alice vs Bob', player='Alice')
+            assert rendered.endswith('Alice' if purpose == 'player' else 'Alice vs Bob')
             assert '#' not in rendered
 
 
@@ -47,6 +48,10 @@ class TestPurposeSelection:
 
     def test_honours_a_known_purpose(self):
         assert StationAssignmentDialog(match=None, purpose='checkin').purpose == 'checkin'
+
+    def test_one_player_is_its_own_mode(self):
+        dialog = StationAssignmentDialog(match=None, player_id=7)
+        assert (dialog.purpose, dialog.player_id) == ('player', 7)
 
     def test_falls_back_for_an_unknown_purpose(self):
         assert StationAssignmentDialog(match=None, purpose='nonsense').purpose == 'stations'

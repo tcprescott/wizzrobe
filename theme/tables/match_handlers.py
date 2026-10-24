@@ -293,6 +293,14 @@ class MatchTableHandlersMixin:
         if match_id is not None and self.on_assign_stations:
             await self.on_assign_stations(match_id)
 
+    async def _handle_seat_player(self, event):
+        """A station tag on the proctor's line: seat that one player."""
+        match_id = self._event_match_id(event)
+        args = getattr(event, 'args', None)
+        player_id = args.get('player') if isinstance(args, dict) else None
+        if match_id is not None and player_id is not None and self.on_assign_stations:
+            await self.on_assign_stations(match_id, player_id=player_id)
+
     async def _handle_set_stage(self, event):
         """The Stage select wrote a value: a stage id, ``'candidate'``, or null."""
         match_id = self._event_match_id(event)

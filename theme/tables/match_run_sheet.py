@@ -205,11 +205,13 @@ def seed_pending(row: dict) -> bool:
 
 
 def _seats(row: dict) -> list[dict]:
-    if row.get('placeholders'):
-        # Nobody sits at a station for a side the bracket hasn't decided.
+    if row.get('placeholders') or row.get('is_racetime'):
+        # Nobody sits at a station for a side the bracket hasn't decided, or
+        # in a race run remotely.
         return []
     return [
         {'name': p.get('name') or '', 'station': p.get('station') or '',
+         'player_id': p.get('player_id'),
          'ada': bool(p.get('ada')), 'ada_note': p.get('ada_note')}
         for p in row.get('players') or []
     ]
@@ -326,6 +328,9 @@ def decorate_run_sheet_row(row: dict) -> dict:
     )
     row['_seats'] = _seats(row)
     row['_seat_line'] = seat_line(row)
+    # The same states the match sheet offers Assign in; the service has the
+    # final say on who may.
+    row['_seat_edit'] = bool(row['_seats']) and row.get('state') in ('Scheduled', 'Checked In', 'Started')
     row['_ada'] = [p.get('name') or '' for p in row.get('players') or [] if p.get('ada')]
     row['_comments'] = comment_badges(row.get('comment_counts'))
     row['_late'] = late_tags(row)
@@ -444,6 +449,17 @@ COMMENT_BADGES = r"""<span v-if="props.row._comments && props.row._comments.leng
 # holds the names, and the sheet has the accommodation button.
 _SEATED_WHO = r"""<template v-if="props.row._seats.length"><template v-for="(s, i) in props.row._seats" :key="i"><span v-if="i" class="run-sheet__vs">{{ props.row._seats.length > 2 ? ', ' : ' vs ' }}</span><span class="run-sheet__player">{{ s.name }}<span class="run-sheet__seat" :class="s.station ? '' : 'run-sheet__seat--none'">{{ s.station ? 'Station ' + s.station : 'No station' }}</span></span></template></template><template v-else>""" + _WHO + """</template>"""
 
+# The proctor's own line: each station tag is a button that seats that one
+# player, so the names beside them open the match on their own.
+_SEAT_TAG = r"""<button v-if="props.row._seat_edit" type="button" class="run-sheet__seat run-sheet__seat--edit" :class="s.station ? '' : 'run-sheet__seat--none'" :aria-label="(s.station ? 'Change station ' + s.station : 'Set station') + ' for ' + s.name" @click.stop="$parent.$emit('seat_player', { key: props.row.id, player: s.player_id })"><q-icon v-if="!s.station" name="add" size="14px" aria-hidden="true" />{{ s.station ? %(set)s : %(unset)s }}</button><span v-else class="run-sheet__seat" :class="s.station ? '' : 'run-sheet__seat--none'">{{ s.station ? %(set)s : 'No station' }}</span>"""
+
+_SEATED_WHO_EDIT = r"""<template v-if="props.row._seats.length"><template v-for="(s, i) in props.row._seats" :key="i"><span v-if="i" class="run-sheet__vs">{{ props.row._seats.length > 2 ? ', ' : ' vs ' }}</span><span class="run-sheet__player"><button type="button" class="run-sheet__open" @click.stop="$parent.$emit('open_match', props.row.id)">{{ s.name }}</button>""" + (_SEAT_TAG % {'set': "'Station ' + s.station", 'unset': "'No station'"}) + r"""</span></template></template><button v-else type="button" class="run-sheet__open" @click.stop="$parent.$emit('open_match', props.row.id)">""" + _WHO + """</button>"""
+
+# The phone card pairs each name with its station, one player a line. The card's
+# open button lies under the text, so the station tags can sit on top of it.
+_SEAT_LINES = r"""<span class="run-sheet__seats"><span v-for="(s, i) in props.row._seats" :key="i" class="run-sheet__seat-line"><span class="run-sheet__seat-name">{{ s.name }}</span>%s</span></span>"""
+
+
 # A player said they're on their way. On the staff boards only: the player's own
 # board says it in its Status chip instead.
 DESC_LINE = """<span v-if="props.row.description_text" class="run-sheet__desc" :title="props.row.description_text">{{ props.row.description_text }}</span>"""
@@ -498,9 +514,11 @@ def _body_slot(proctor: bool, can_run: bool = False) -> str:
     group. The Match cell's names are the row's button, so the row is reachable
     and operable from the keyboard; the rest of the row is a mouse convenience."""
     if proctor:
-        match = """<span class="run-sheet__name-line"><button type="button" class="run-sheet__open" @click.stop="$parent.$emit('open_match', props.row.id)">
+        who = (_SEATED_WHO_EDIT if can_run else
+               """<button type="button" class="run-sheet__open" @click.stop="$parent.$emit('open_match', props.row.id)">
                 """ + _SEATED_WHO + """
-            </button>""" + COMMENT_BADGES + """</span>
+            </button>""")
+        match = """<span class="run-sheet__name-line">""" + who + COMMENT_BADGES + """</span>
             <span class="run-sheet__meta" :title="props.row.tournament">{{ props.row.tournament_short || props.row.tournament }}<template v-if="props.row.bracket"> · {{ props.row.bracket.name }}<template v-if="props.row.bracket.game"> · Game {{ props.row.bracket.game }}</template></template><template v-if="props.row.set_label"> · {{ props.row.set_label }}</template></span>
             """ + DESC_LINE + _ADA + LATE_TAGS + """
             """ + _SEED_LINE
@@ -547,19 +565,23 @@ def _item_slot(proctor: bool, can_run: bool = False) -> str:
             """ + _TIME + """
         </span>"""
     if proctor:
+        tag = _SEAT_TAG % {'set': 's.station', 'unset': "'Station'"} if can_run else \
+            """<span class="run-sheet__seat" :class="s.station ? '' : 'run-sheet__seat--none'">{{ s.station || 'No station' }}</span>"""
         return """
 <div class="run-sheet__item">
     <div v-if="props.row._group_start" class="run-sheet__group">""" + fold_header(proctor) + """</div>
     <div v-if="!props.row._folded" class="run-sheet__card run-sheet__card--split" :class="[props.row._flash ? 'wiz-row-flash' : '', props.row._removed ? 'wiz-row-removed' : '']" :inert="props.row._removed ? '' : null" :data-wiz-row="props.row.id">
-        <button type="button" class="run-sheet__card-open" @click="$parent.$emit('open_match', props.row.id)">
+        <div class="run-sheet__card-open run-sheet__card-open--layered">
+            <button type="button" class="run-sheet__card-hit" :aria-label="'Open ' + (props.row._who || props.row.title)" @click="$parent.$emit('open_match', props.row.id)"></button>
             """ + when + """
             <span class="run-sheet__main">
-                <span class="run-sheet__who">""" + _WHO + """</span>
-                <span class="run-sheet__meta"><template v-if="props.row._stage">{{ props.row._stage }}</template><template v-if="props.row._stage && props.row._seat_line"> · </template>{{ props.row._seat_line }}</span>
+                <template v-if="props.row._seats.length">""" + (_SEAT_LINES % tag) + """</template>
+                <span v-else class="run-sheet__who">""" + _WHO + """</span>
+                <span v-if="props.row._stage" class="run-sheet__meta">{{ props.row._stage }}</span>
                 """ + DESC_LINE + _ADA + LATE_TAGS + """
                 """ + COMMENT_BADGES + """
             </span>
-        </button>
+        </div>
         """ + _next(can_run) + """
         <div v-if="props.row._seed_line" class="run-sheet__seed-strip">""" + _SEED_LINE + """</div>
     </div>
