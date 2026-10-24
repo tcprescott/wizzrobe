@@ -371,6 +371,12 @@ class MatchDisplayService:
             # Sort key and urgency flag for the proctor board. The formatted
             # ``scheduled_at`` string is display-only and does not sort.
             'scheduled_ts': to_utc_aware(match.scheduled_at).timestamp() if match.scheduled_at else None,
+            # Once a match starts, the run sheets show these instead of the
+            # booked time: the actual start, then the finish, or while it runs
+            # an estimate of start + the tournament's match length.
+            'started_ts': to_utc_aware(match.started_at).timestamp() if match.started_at else None,
+            'finished_ts': to_utc_aware(match.finished_at).timestamp() if match.finished_at else None,
+            'match_length': getattr(match.tournament, 'average_match_duration', None),
             'is_overdue': bool(
                 match.scheduled_at
                 and match.seated_at is None

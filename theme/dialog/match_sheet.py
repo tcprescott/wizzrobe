@@ -291,7 +291,8 @@ class MatchSheet:
         self._footer(row)
 
     def _headline(self, row: dict) -> None:
-        when = ' '.join(part for part in (row.get('_day'), row.get('_time')) if part)
+        when = ' '.join(part for part in (row.get('_booked_day', row.get('_day')),
+                                         row.get('_booked_time', row.get('_time'))) if part)
         context = ' · '.join(part for part in (when, row.get('tournament')) if part)
         ui.label(context).classes('match-sheet__note')
         title = row.get('_who') or (row.get('bracket') or {}).get('name') or row.get('title') or 'Match'

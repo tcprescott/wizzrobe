@@ -362,6 +362,27 @@ def _fold_racers(row: dict, names: list) -> None:
     row.setdefault('_who_open', False)
 
 
+def _hhmm(ts: float) -> str:
+    local = to_local(datetime.fromtimestamp(ts, tz=timezone.utc))
+    return f'{local:%H:%M}' if local else ''
+
+
+def _actual_times(row: dict) -> None:
+    """Swap the booked time for the actual start, with the finish under it, or
+    while the match runs, start + the tournament's match length as "to ~HH:MM".
+    ``_overrun`` marks a live match already past that estimate."""
+    started = row['started_ts']
+    row['_time'] = _hhmm(started)
+    row['_day'] = _day_label(started)
+    finished = row.get('finished_ts')
+    if finished:
+        row['_until'] = f'to {_hhmm(finished)}'
+    elif row.get('match_length'):
+        estimate = started + row['match_length'] * 60
+        row['_until'] = f'to ~{_hhmm(estimate)}'
+        row['_overrun'] = datetime.now(timezone.utc).timestamp() > estimate
+
+
 def decorate_run_sheet_row(row: dict) -> dict:
     """Stamp the display fields the run-sheet templates read. Mutates ``row``."""
     label, tone = run_sheet_status(row)
@@ -370,6 +391,11 @@ def decorate_run_sheet_row(row: dict) -> dict:
     scheduled = row.get('scheduled_at') or ''
     row['_time'] = scheduled[-5:] if scheduled else ''
     row['_day'] = _day_label(row.get('scheduled_ts'))
+    # The match sheet keeps the booked time after the line swaps it out.
+    row['_booked_time'], row['_booked_day'] = row['_time'], row['_day']
+    row['_until'], row['_overrun'] = '', False
+    if row.get('started_ts'):
+        _actual_times(row)
     names = [p.get('name') or '' for p in row.get('players') or []] + list(row.get('placeholders') or [])
     row['_who'] = ' vs '.join(names) if len(names) == 2 else ', '.join(names)
     _fold_racers(row, names)
@@ -445,7 +471,7 @@ def arrange_run_sheet(rows: list, group: Callable[[dict], tuple[int, str]] = adm
 
     def key(row):
         order, header = group(row)
-        ts = row.get('scheduled_ts') or 0
+        ts = row.get('started_ts') or row.get('scheduled_ts') or 0
         return (order, -ts if header in _NEWEST_FIRST else ts)
 
     arranged = sorted(rows, key=key)
@@ -514,8 +540,13 @@ def _crew_lines(approve: str) -> str:
 # it never makes the row taller.
 HELD_TAG = """<span v-if="props.row._held_note" class="wiz-held-tag" :class="props.row._removed ? 'wiz-held-tag--removed' : ''">{{ props.row._held_note }}</span>"""
 
+# A started match's line under its actual start: the finish, or "to ~HH:MM"
+# while it runs, amber once it has run past that estimate.
+UNTIL_LINE = """<span v-if="props.row._until" class="run-sheet__until" :class="props.row._overrun ? 'st-pending' : ''">{{ props.row._until }}</span>"""
+
 _TIME = """<span v-if="props.row._time" class="run-sheet__time" :class="props.row._status === 'Late' ? 'st-pending' : ''">{{ props.row._time }}</span>
             <span v-else class="run-sheet__day">No time</span>
+            """ + UNTIL_LINE + """
             <span v-if="props.row._day && props.row._day !== 'Today'" class="run-sheet__day">{{ props.row._day }}</span>
             """ + HELD_TAG
 

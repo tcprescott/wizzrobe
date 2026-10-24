@@ -104,6 +104,14 @@ Watching a match is different from the community's Watch page. The page is a lin
 anyone can open to find the streams. See
 [Watching the event](/help/on-air#the-watch-page).
 
+## Start and end times
+
+Before a match starts, its line shows the booked time. Once it starts, that changes
+to when it actually started, with "to ~21:44" underneath: the start plus the
+tournament's usual match length. The end turns amber if the match runs past it.
+A finished match shows when it really started and finished. The booked time is
+still in the match's details.
+
 ## On a phone
 
 On a phone, a tablet or a narrow laptop window, each line becomes a short card:
