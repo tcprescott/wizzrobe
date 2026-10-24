@@ -239,3 +239,20 @@ class TestCallOrder:
         assert not offenders, (
             'customize_table must be called after the mobile card slot is '
             f'generated: {offenders}')
+
+
+class TestClockSort:
+    def test_render_context_carries_the_clock(self):
+        from application.timezone_context import hour_cycle_scope
+        from theme.tables.admin_crud import capture_render_context
+
+        with hour_cycle_scope(True):
+            assert capture_render_context()[3] is True
+        assert capture_render_context()[3] is False
+
+    def test_twelve_hour_sortable_columns_get_the_clock_sort(self):
+        from theme.tables.preferences import CLOCK_SORT, _with_clock_sort
+
+        assert _with_clock_sort({'name': 'when', 'sortable': True})[':sort'] == CLOCK_SORT
+        assert ':sort' not in _with_clock_sort({'name': 'when'})
+        assert _with_clock_sort({'name': 'n', 'sortable': True, ':sort': 'x'})[':sort'] == 'x'

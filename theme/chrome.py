@@ -110,12 +110,20 @@ def install_timezone_detection() -> None:
 
     Ignored entirely when the community pins a timezone: the cookie is still
     written, but resolution never reads it.
+
+    The browser's preferred clock rides the same snippet on ``wiz_hc`` (``12`` or
+    ``24``). It never reloads on its own: on a first visit the zone's reload
+    carries it, and a browser that already had a zone cookie picks it up on its
+    next navigation. A saved Profile choice outranks it.
     """
     ui.add_body_html(
         '<script>'
         'if(!window.__wizTzInstalled){'
         'window.__wizTzInstalled=true;'
         'try{'
+        "var o=new Intl.DateTimeFormat([],{hour:'numeric'}).resolvedOptions();"
+        "var h12=o.hour12!==undefined?o.hour12:/h1[12]/.test(o.hourCycle||'');"
+        "document.cookie='wiz_hc='+(h12?'12':'24')+';path=/;max-age=31536000;samesite=Lax';"
         'var tz=Intl.DateTimeFormat().resolvedOptions().timeZone;'
         'if(tz){'
         "var m=document.cookie.match(/(?:^|;\\s*)wiz_tz=([^;]*)/);"

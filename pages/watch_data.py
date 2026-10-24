@@ -37,7 +37,7 @@ from application.services.tenant_service import TenantService
 from application.services.tenant_theme_service import TenantThemeService
 from application.services.timezone_service import TimezoneService
 from application.tenant_context import tenant_scope
-from application.timezone_context import tz_scope
+from application.timezone_context import hour_cycle_scope, tz_scope
 from application.utils.safe_url import http_url_or_empty
 from application.utils.timezone import (
     format_local_time,
@@ -252,7 +252,8 @@ async def build_watch_view(tenant_id: int) -> WatchView:
     tz = await TimezoneService.tenant_timezone_name(tenant_id)
     stages = sorted(await StageService().get_all_stages(active_only=True), key=lambda s: s.name)
 
-    with tz_scope(tz):
+    # Cached and shared by every viewer, so no one viewer's 12/24-hour clock either.
+    with tz_scope(tz), hour_cycle_scope(False):
         today = today_local()
         matches = await MatchService().get_streamed_matches(today, COMING_UP_DAYS)
         by_stage: Dict[int, list] = {}

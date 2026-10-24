@@ -14,6 +14,7 @@ from application.services import (
 )
 from application.services.profile_nudge_service import ProfileSection
 from application.services.timezone_service import COMMON_TIMEZONES, MODE_PINNED
+from application.timezone_context import get_browser_hour_cycle
 from application.utils.app_links import MY_MESSAGES
 from models import FeatureFlag
 from pages.home_tabs._link_section import render_connected_accounts_section
@@ -208,6 +209,22 @@ async def render_edit_info_tab(focus: str | None = None):
                 show_saved()
                 ui.navigate.reload()
 
+        async def save_hour_cycle(client):
+            # Reloads for the same reason as the zone: every time on the page changes.
+            with client:
+                chosen = hc_select.value or None
+                if chosen == (user.hour_cycle or None):
+                    return
+                show_saving()
+                try:
+                    await TimezoneService.set_user_hour_cycle(user, chosen)
+                except ValueError as e:
+                    show_error(str(e))
+                    ui.notify(str(e), color='warning')
+                    return
+                show_saved()
+                ui.navigate.reload()
+
         async def flush_personal():
             # Bump the token so an in-flight debounce coroutine bails instead of
             # firing a duplicate save after this immediate one.
@@ -331,6 +348,24 @@ async def render_edit_info_tab(focus: str | None = None):
                             'hint="Times are shown in this timezone. '
                             'Leave on Detect automatically to follow your device."'
                         )
+
+                    detected = get_browser_hour_cycle()
+                    hc_select = ui.select(
+                        {
+                            '': f'Automatic ({detected}-hour)' if detected else 'Automatic',
+                            '12': '12-hour',
+                            '24': '24-hour',
+                        },
+                        value=user.hour_cycle or '',
+                        label='Time format',
+                        on_change=lambda _: background_tasks.create(
+                            save_hour_cycle(context.client)
+                        ),
+                    ).props('outlined dense stack-label').classes('input-full-width')
+                    hc_select.props(
+                        'hint="12-hour shows 9:30 PM, 24-hour shows 21:30. '
+                        'Automatic follows your browser."'
+                    )
 
             # Notifications, split by the two questions people actually have: where
             # a message goes (each channel is its own switch) and what they'll hear

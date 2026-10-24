@@ -51,6 +51,7 @@ from application.services.auth_service import AuthService
 from application.tenant_context import get_current_tenant_id, require_tenant_id
 from application.timezone_context import (
     FALLBACK_TIMEZONE,
+    HOUR_CYCLES,
     is_valid_timezone,
 )
 from models import User
@@ -223,6 +224,22 @@ class TimezoneService:
             actor, AuditActions.USER_TIMEZONE_UPDATED, {'timezone': name},
         )
         return name
+
+    @staticmethod
+    async def set_user_hour_cycle(actor: User, hour_cycle: Optional[str]) -> Optional[str]:
+        """Save (or clear) ``actor``'s own 12/24-hour preference.
+
+        ``'12'`` or ``'24'``; empty or ``None`` returns them to browser
+        detection. Self-service only, like :meth:`set_user_timezone`.
+        """
+        hour_cycle = (hour_cycle or '').strip() or None
+        if hour_cycle is not None and hour_cycle not in HOUR_CYCLES:
+            raise ValueError('Pick 12-hour, 24-hour or Detect automatically.')
+        await UserRepository.set_hour_cycle(actor, hour_cycle)
+        await AuditService().write_log(
+            actor, AuditActions.USER_HOUR_CYCLE_UPDATED, {'hour_cycle': hour_cycle},
+        )
+        return hour_cycle
 
     # --- resolution --------------------------------------------------------
 

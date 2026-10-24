@@ -46,9 +46,13 @@ from application.tenant_context import (
     set_tenant_id,
 )
 from application.timezone_context import (
+    HOUR_CYCLE_COOKIE,
     TZ_COOKIE,
+    read_hour_cycle_cookie,
     read_timezone_cookie,
+    reset_browser_hour_cycle,
     reset_browser_timezone,
+    set_browser_hour_cycle,
     set_browser_timezone,
 )
 from application.utils.environment import get_platform_host
@@ -148,9 +152,11 @@ class TenantMiddleware(BaseHTTPMiddleware):
         # included, and before the tenant is known — because it is a property of
         # the browser, not of the community. Resolution consumes it later.
         tz_token = set_browser_timezone(read_timezone_cookie(request.cookies.get(TZ_COOKIE)))
+        hc_token = set_browser_hour_cycle(read_hour_cycle_cookie(request.cookies.get(HOUR_CYCLE_COOKIE)))
         try:
             return await self._dispatch(request, call_next)
         finally:
+            reset_browser_hour_cycle(hc_token)
             reset_browser_timezone(tz_token)
 
     async def _dispatch(self, request, call_next):

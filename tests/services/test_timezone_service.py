@@ -253,3 +253,23 @@ async def test_set_user_timezone_rejects_unknown_zone(two_tenants):
     with tenant_scope(a.id):
         with pytest.raises(ValueError, match='not a recognised timezone'):
             await TimezoneService.set_user_timezone(user, 'Mars/Olympus_Mons')
+
+
+async def test_set_user_hour_cycle_persists_and_clears(two_tenants):
+    a, _ = two_tenants
+    user = await make_user(discord_id=826, username='hc_user')
+    with tenant_scope(a.id):
+        assert await TimezoneService.set_user_hour_cycle(user, '12') == '12'
+        await user.refresh_from_db()
+        assert user.hour_cycle == '12'
+        assert await TimezoneService.set_user_hour_cycle(user, '') is None
+    await user.refresh_from_db()
+    assert user.hour_cycle is None
+
+
+async def test_set_user_hour_cycle_rejects_anything_else(two_tenants):
+    a, _ = two_tenants
+    user = await make_user(discord_id=827, username='hc_user2')
+    with tenant_scope(a.id):
+        with pytest.raises(ValueError, match='12-hour'):
+            await TimezoneService.set_user_hour_cycle(user, 'h23')

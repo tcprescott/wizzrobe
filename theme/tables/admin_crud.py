@@ -13,22 +13,24 @@ from nicegui import app, background_tasks, ui
 from application.services import get_user_from_session
 from application.table_preferences_context import current_table_prefs, table_prefs_scope
 from application.tenant_context import get_current_tenant_id, tenant_scope
-from application.timezone_context import current_timezone_name, tz_scope
+from application.timezone_context import current_timezone_name, hour_cycle_scope, tz_scope, uses_12_hour
 from models import User
 
+RenderContext = tuple[Optional[int], str, Optional[dict], bool]
 
-def capture_render_context() -> tuple[Optional[int], str, Optional[dict]]:
-    """Snapshot the ambient tenant, display zone and table layouts during a page build.
+
+def capture_render_context() -> RenderContext:
+    """Snapshot the ambient tenant, display zone, table layouts and 12/24-hour clock.
 
     Call at build time, use with :func:`scoped_background`. A detached task has
     neither the contextvars nor the client stash — NiceGUI keys its slot stack by
-    asyncio task id, so ``app.storage.client`` raises inside one — and all three
+    asyncio task id, so ``app.storage.client`` raises inside one — and all four
     values must therefore be carried in by hand.
     """
-    return get_current_tenant_id(), current_timezone_name(), current_table_prefs()
+    return get_current_tenant_id(), current_timezone_name(), current_table_prefs(), uses_12_hour()
 
 
-def scoped_background(context: tuple[Optional[int], str, Optional[dict]], coro) -> None:
+def scoped_background(context: RenderContext, coro) -> None:
     """Run ``coro`` as a background task with a captured context rebound.
 
     The tenant alone is not enough: without the zone the task repaints the same
@@ -37,10 +39,10 @@ def scoped_background(context: tuple[Optional[int], str, Optional[dict]], coro) 
     them in the *shipped* columns, so a customized board reverts to defaults on
     the first refresh.
     """
-    tenant_id, tz, prefs = context
+    tenant_id, tz, prefs, hour12 = context
 
     async def _run():
-        with tenant_scope(tenant_id), tz_scope(tz), table_prefs_scope(prefs):
+        with tenant_scope(tenant_id), tz_scope(tz), hour_cycle_scope(hour12), table_prefs_scope(prefs):
             await coro
 
     background_tasks.create(_run())

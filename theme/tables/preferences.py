@@ -25,6 +25,7 @@ from nicegui import background_tasks, context, ui
 
 from application.services import TablePreferenceService
 from application.table_preferences_context import table_prefs_for
+from application.timezone_context import uses_12_hour
 from theme.connection import REQUIRES_SOCKET_CLASS
 from theme.tables.admin_crud import current_actor
 
@@ -549,7 +550,9 @@ def _apply_plan(table: ui.table, plan: ColumnPlan, *, pager: bool = True) -> Non
     mechanism QTable actually reads; row dicts are untouched, so ``row_key`` and
     every row handler keep working.
     """
-    table.columns = [_with_header_class(c) for c in plan.columns]
+    hour12 = uses_12_hour()
+    table.columns = [_with_clock_sort(_with_header_class(c)) if hour12 else _with_header_class(c)
+                     for c in plan.columns]
     table._props['visible-columns'] = list(plan.visible)
 
     pagination = dict(table._props.get('pagination') or {})
@@ -568,6 +571,27 @@ def _apply_plan(table: ui.table, plan: ColumnPlan, *, pager: bool = True) -> Non
     _toggle_class(table, 'wiz-table--wrap', plan.wrap)
     _toggle_class(table, 'wiz-table--sized', plan.has_widths)
     table.update()
+
+
+# Quasar's default column sort, except that a ``9:30 PM`` inside the value is
+# compared as ``21:30``. A 12-hour viewer's formatted times otherwise sort
+# 10:00 PM before 9:30 AM; 24-hour text already sorts in time order.
+CLOCK_SORT = (
+    "(a, b) => {"
+    " if (typeof a === 'number' && typeof b === 'number') return a - b;"
+    " if (typeof a === 'boolean' && typeof b === 'boolean') return a - b;"
+    " const k = v => (v === null || v === undefined ? '' : String(v)).toLowerCase().replace("
+    "/\\b(\\d{1,2}):(\\d{2})(:\\d{2})?\\s?([ap])m\\b/g,"
+    " (_, h, m, s, p) => String(h % 12 + (p === 'p' ? 12 : 0)).padStart(2, '0') + ':' + m + (s || ''));"
+    " const x = k(a), y = k(b); return x < y ? -1 : (x > y ? 1 : 0); }"
+)
+
+
+def _with_clock_sort(column: dict) -> dict:
+    """Give a sortable column :data:`CLOCK_SORT` unless it brings its own sort."""
+    if column.get('sortable') and 'sort' not in column and ':sort' not in column:
+        column[':sort'] = CLOCK_SORT
+    return column
 
 
 def _with_header_class(column: Mapping) -> dict:
