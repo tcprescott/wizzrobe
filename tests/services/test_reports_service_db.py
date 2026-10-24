@@ -660,3 +660,29 @@ async def test_reports_refuse_a_plain_member(db):
         await ReportsService().crew_coverage(DAY_START, DAY_END, actor=member)
     with pytest.raises(PermissionError):
         await ReportsService().stage_utilization(DAY_START, DAY_END, actor=member)
+
+
+async def test_crew_report_shows_a_tournament_admin_only_their_tournaments(db):
+    mine = await Tournament.create(name='Mine')
+    theirs = await Tournament.create(name='Theirs')
+    stage = await Stage.create(name='Alpha')
+    ta = await create_community_member(discord_id=88002, username='ta')
+    await mine.admins.add(ta)
+    crew = await _user(88003, 'Crew')
+    for t, hour in ((mine, 18), (theirs, 20)):
+        m = await Match.create(tournament=t, stage=stage, scheduled_at=utc(2025, 10, 23, hour, 0),
+                               finished_at=utc(2025, 10, 23, hour + 1, 0))
+        await Commentator.create(user=crew, match=m, approved=True)
+
+    out = await ReportsService().crew_coverage(DAY_START, DAY_END, actor=ta)
+    assert {r['tournament_id'] for r in out['coverage_rows']} == {mine.id}
+    assert [t['tournament_id'] for t in out['tournament_rows']] == [mine.id]
+    assert out['contribution_rows'][0]['commentator_approved'] == 1
+
+    asked_for_theirs = await ReportsService().crew_coverage(
+        DAY_START, DAY_END, tournament_id=theirs.id, actor=ta,
+    )
+    assert asked_for_theirs['coverage_rows'] == []
+
+    everything = await ReportsService().crew_coverage(DAY_START, DAY_END, actor=(await _actor()))
+    assert {t['tournament_id'] for t in everything['tournament_rows']} == {mine.id, theirs.id}

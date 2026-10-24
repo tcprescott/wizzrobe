@@ -324,6 +324,11 @@ class ReportsService:
         )
         if tournament_id:
             match_query = match_query.filter(tournament_id=tournament_id)
+        from application.services.auth_service import AuthService
+
+        scope = await AuthService.report_tournament_scope(actor)
+        if scope is not None:
+            match_query = match_query.filter(tournament_id__in=list(scope))
         matches = await match_query.prefetch_related(
             'tournament', 'stage',
             'commentators', 'commentators__user',

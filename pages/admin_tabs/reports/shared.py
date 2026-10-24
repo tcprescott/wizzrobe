@@ -7,7 +7,7 @@ button, URL-state helpers, and a small page-shell wrapper.
 import json
 from contextlib import contextmanager
 from datetime import date, datetime, timedelta
-from typing import Any, Callable, Iterator, Mapping, NamedTuple, Optional, Sequence, TypeVar
+from typing import AbstractSet, Any, Callable, Iterator, Mapping, NamedTuple, Optional, Sequence, TypeVar
 
 from nicegui import context, ui
 
@@ -305,10 +305,15 @@ def date_range_filter(
 async def tournament_filter(
     current_id: Optional[int],
     on_change: Callable[[Optional[int]], None],
+    *,
+    only: Optional[AbstractSet[int]] = None,
 ) -> ui.select:
+    """``only`` narrows the choices to a viewer's own tournaments."""
     tournaments = await TournamentService().get_all_tournaments()
-    options: dict = {0: 'All tournaments'}
+    options: dict = {0: 'All tournaments' if only is None else 'All my tournaments'}
     for t in tournaments:
+        if only is not None and t.id not in only:
+            continue
         options[t.id] = t.name
     value = current_id if current_id and current_id in options else 0
     select = filter_field(ui.select(options=options, value=value, label='Tournament'))

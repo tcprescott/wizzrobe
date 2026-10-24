@@ -283,6 +283,18 @@ class AuthService:
         admin_ids, cc_ids = await AuthService.tournament_scope(user)
         return frozenset(admin_ids | cc_ids)
 
+    @staticmethod
+    async def report_tournament_scope(user: Optional[User]) -> Optional[frozenset[int]]:
+        """The tournaments whose data ``user`` reads in a tournament-scoped report.
+
+        ``None`` means the whole community (staff, the system actor). A
+        tournament admin or crew coordinator gets only the tournaments they run.
+        """
+        if AuthService.is_system(user) or await AuthService.is_staff(user):
+            return None
+        admin_ids, cc_ids = await AuthService.tournament_scope(user)
+        return frozenset(admin_ids | cc_ids)
+
     # Roles that have something to do on the Volunteer hub's volunteer tabs. The
     # hub's ``roles=`` also admits CHECK_IN_DESK, for its Check-in Desk tab,
     # which :meth:`can_view_check_in_desk` decides. A volunteer coordinator
