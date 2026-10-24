@@ -262,5 +262,5 @@ class StationAssignmentDialog:
                 notify_error(e)
 
     def match_player_name(self) -> str:
-        player = next(p for p in self.match.players if p.id == self.player_id)
+        player = next(p for p in self.match.players if p.id == self.player_id)  # type: ignore[attr-defined]
         return player.user.preferred_name
