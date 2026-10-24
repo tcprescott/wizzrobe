@@ -37,7 +37,9 @@ def is_outlier_duration(duration_min: Optional[int], tournament: Optional[Tourna
     if duration_min <= 0:
         return True
     expected = tournament.average_match_duration if tournament else None
-    return bool(expected) and duration_min > expected * OVERRUN_OUTLIER_FACTOR
+    if not expected:
+        return False
+    return duration_min > expected * OVERRUN_OUTLIER_FACTOR
 
 
 def to_display(dt: Optional[datetime]) -> Optional[datetime]:
