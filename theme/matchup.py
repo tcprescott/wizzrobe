@@ -27,9 +27,9 @@ WHO_PARTS_VUE = (
 def matchup_label(parts: Sequence[MatchupPart], classes: str = '', *, tag: str = 'span') -> ui.element:
     # A fully decided line stays one element: a long board builds a row at a time.
     if not has_undecided(parts):
-        line = ui.label(''.join(str(p['text']) for p in parts)).classes(classes)
-        line.tag = tag
-        return line
+        label = ui.label(''.join(str(p['text']) for p in parts)).classes(classes)
+        label.tag = tag
+        return label
     with ui.element(tag).classes(classes) as line:
         for part in parts:
             piece = ui.label(str(part['text']))
