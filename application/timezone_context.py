@@ -73,9 +73,9 @@ _tz_var: ContextVar[Optional[str]] = ContextVar('wizzrobe_display_tz', default=N
 _browser_tz_var: ContextVar[Optional[str]] = ContextVar('wizzrobe_browser_tz', default=None)
 
 # The clock this viewer reads times on, True for 12-hour. Same two tiers as the
-# zone (contextvar, then client stash). Unresolved reads as 24-hour, which is
-# also what every worker, bot and notification render gets: only a page build
-# binds it, so output that isn't for the viewer's own page never picks it up.
+# zone (contextvar, then client stash). Unresolved reads as 12-hour, which is
+# what every worker, bot and notification render gets: only a page build binds
+# a viewer's own choice.
 _hour12_var: ContextVar[Optional[bool]] = ContextVar('wizzrobe_hour12', default=None)
 _browser_hour_cycle_var: ContextVar[Optional[str]] = ContextVar('wizzrobe_browser_hour_cycle', default=None)
 
@@ -258,11 +258,15 @@ def get_browser_hour_cycle() -> Optional[str]:
 
 
 def pick_hour12(user_hour_cycle: Optional[str], browser_hour_cycle: Optional[str]) -> bool:
-    """Whether a viewer reads 12-hour times: their saved choice, else the browser's, else 24-hour."""
+    """Whether a viewer reads 12-hour times: their saved choice, else the browser's, else 12-hour.
+
+    The last fallback covers a first visit before the browser has reported and a
+    browser whose cookie is blocked, and matches what output with no viewer gets.
+    """
     for value in (user_hour_cycle, browser_hour_cycle):
         if value in HOUR_CYCLES:
             return value == '12'
-    return False
+    return True
 
 
 def bind_hour12(hour12: bool) -> None:
@@ -295,12 +299,13 @@ def _get_hour12() -> Optional[bool]:
 
 def uses_12_hour() -> bool:
     """Whether times render as ``9:30 PM`` rather than ``21:30``. Never raises."""
-    return bool(_get_hour12())
+    value = _get_hour12()
+    return True if value is None else value
 
 
 @contextmanager
 def hour_cycle_scope(hour12: Optional[bool]) -> Iterator[None]:
-    """Bind the clock for a block; ``False`` forces 24-hour (exports, notification copies)."""
+    """Bind the clock for a block; ``True`` forces 12-hour for output with no single viewer."""
     token = _hour12_var.set(hour12)
     try:
         yield

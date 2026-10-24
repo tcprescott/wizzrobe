@@ -352,7 +352,7 @@ async def render_edit_info_tab(focus: str | None = None):
                     detected = get_browser_hour_cycle()
                     hc_select = ui.select(
                         {
-                            '': f'Automatic ({detected}-hour)' if detected else 'Automatic',
+                            '': f'Automatic ({detected or "12"}-hour)',
                             '12': '12-hour',
                             '24': '24-hour',
                         },

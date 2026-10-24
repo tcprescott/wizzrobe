@@ -107,6 +107,20 @@ def stub_discord_queue(monkeypatch):
 
 
 @pytest.fixture(autouse=True)
+def _24_hour_clock():
+    """Run the suite on the 24-hour clock.
+
+    The default with no viewer is 12-hour, but most format assertions were
+    written as ``21:30``. tests/test_hour_cycle.py covers the default by
+    unbinding it with ``hour_cycle_scope(None)``.
+    """
+    from application.timezone_context import hour_cycle_scope
+
+    with hour_cycle_scope(False):
+        yield
+
+
+@pytest.fixture(autouse=True)
 def _no_external_network(monkeypatch):
     """Fail loudly when a test touches the real network.
 

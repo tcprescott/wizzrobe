@@ -27,7 +27,7 @@ from application.services.match import (
 )
 from application.utils.timezone import (
     format_local_date,
-    format_local_time,
+    input_time,
     next_whole_hour_local,
     now_local,
     parse_local_datetime,
@@ -110,7 +110,7 @@ class BaseMatchDialog:
             return {
                 'tournament': self.match.tournament_id if self.match.tournament_id else None,
                 'date': format_local_date(self.match.scheduled_at) if self.match.scheduled_at else now.strftime('%Y-%m-%d'),
-                'time': format_local_time(self.match.scheduled_at) if self.match.scheduled_at else now.strftime('%H:%M'),
+                'time': input_time(self.match.scheduled_at) if self.match.scheduled_at else now.strftime('%H:%M'),
                 'comment': self.match.comment or '',
                 'stage': self.match.stage_id if self.match.stage_id else None,
             }

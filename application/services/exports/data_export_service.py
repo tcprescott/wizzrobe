@@ -287,8 +287,8 @@ class DataExportService:
 
         start = datetime.fromisoformat(export.params['start'])
         end = datetime.fromisoformat(export.params['end'])
-        # A CSV is data, so it stays on the 24-hour clock whoever started it.
-        with tz_scope(export.params.get('timezone')), hour_cycle_scope(False):
+        # A CSV can be forwarded, so it's on the default 12-hour clock whoever started it.
+        with tz_scope(export.params.get('timezone')), hour_cycle_scope(True):
             bundle = await VolunteerExportService().build(actor, start, end)
             content = bundle.to_zip_bytes()
         stamp = datetime.now(timezone.utc).strftime('%Y%m%d-%H%M')

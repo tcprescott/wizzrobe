@@ -1,3 +1,4 @@
+import re
 from contextlib import contextmanager
 from datetime import datetime, timezone
 from typing import Callable, Optional, Sequence
@@ -6,7 +7,7 @@ from nicegui import ui
 
 from application.utils.timezone import (
     format_local_date,
-    format_local_time,
+    input_time,
     parse_local_datetime,
     timezone_label,
     to_local,
@@ -186,9 +187,25 @@ def native_time_input(
     """
     if show_timezone:
         label = f'{label} ({timezone_label(tz)})'
-    return ui.input(label, value=value).props(_native_props(
+    return ui.input(label, value=input_clock(value)).props(_native_props(
         'time', required=required, clearable=False, dense=dense, stack_label=stack_label,
     ))
+
+
+_TWELVE_HOUR = re.compile(r'^\s*(\d{1,2}):(\d{2})\s*([AaPp])[Mm]\s*$')
+
+
+def input_clock(value: str) -> str:
+    """``value`` as the ``HH:MM`` a ``type=time`` input accepts.
+
+    A 12-hour ``9:30 PM`` (what ``format_local_time`` gives a 12-hour viewer)
+    renders as an empty field, so it is converted; anything else passes through.
+    """
+    m = _TWELVE_HOUR.match(value or '')
+    if not m:
+        return value
+    hour = int(m.group(1)) % 12 + (12 if m.group(3) in 'Pp' else 0)
+    return f'{hour:02d}:{m.group(2)}'
 
 
 def native_datetime_input(
@@ -261,7 +278,7 @@ def render_suggest_time_button(
                 startgg_set_id=startgg_set_id,
             )
             date.value = format_local_date(suggested)
-            time.value = format_local_time(suggested)
+            time.value = input_time(suggested)
             with dialog:
                 ui.notify('Suggested time filled in — review and save.', color='info')
         except ValueError as e:

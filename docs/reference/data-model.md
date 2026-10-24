@@ -628,7 +628,7 @@ Discord-authenticated account. Created/updated during OAuth login; access contro
 | `telegram_linked_at` | `DatetimeField` | null | When the chat was bound |
 | `telegram_notifications` | `BooleanField` | default `False` | Copy DMs to Telegram; `/stop` turns it off |
 | `timezone` | `CharField(64)` | null | The person's own display zone (IANA name), used when their community follows each viewer; NULL falls back to the browser's zone. Global, like the rest of identity — see [timezone-handling.md](../timezone-handling.md) |
-| `hour_cycle` | `CharField(2)` | null | `'12'` or `'24'`, the person's own clock (Profile → Time format); NULL follows the browser's `wiz_hc` cookie, else 24-hour. Web pages only — see [timezone-handling.md](../timezone-handling.md#12-or-24-hour) |
+| `hour_cycle` | `CharField(2)` | null | `'12'` or `'24'`, the person's own clock (Profile → Time format); NULL follows the browser's `wiz_hc` cookie, else 12-hour. Only on the person's own pages; output with no single viewer is 12-hour — see [timezone-handling.md](../timezone-handling.md#12-or-24-hour) |
 | `challonge_user_id` | `CharField(64)` | null, `unique=True` | Verified Challonge identity, captured via one-time OAuth (scope `me`). Unique so bracket sync resolves to exactly one user (Postgres allows multiple NULLs) |
 | `challonge_username` | `CharField(255)` | null | Cached Challonge username |
 | `challonge_linked_at` | `DatetimeField` | null | When the Challonge identity was linked |

@@ -30,9 +30,9 @@ from application.timezone_context import get_zone
 from application.utils.timezone import (
     format_local_date,
     format_local_time,
+    input_time,
     parse_local_datetime,
     timezone_label,
-    to_local,
 )
 from models import VolunteerAvailabilityStatus
 from theme.dialog._helpers import native_date_input, native_time_input
@@ -256,8 +256,8 @@ async def render_availability_editor(
         row for row in (
             {
                 'date': format_local_date(w.starts_at),
-                'start': format_local_time(w.starts_at),
-                'end': format_local_time(to_local(w.ends_at)),
+                'start': input_time(w.starts_at),
+                'end': input_time(w.ends_at),
                 'status': w.status.value if hasattr(w.status, 'value') else str(w.status),
             }
             for w in existing

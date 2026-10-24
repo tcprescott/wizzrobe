@@ -255,8 +255,8 @@ async def build_watch_view(tenant_id: int) -> WatchView:
     tz = await TimezoneService.tenant_timezone_name(tenant_id)
     stages = sorted(await StageService().get_all_stages(active_only=True), key=lambda s: s.name)
 
-    # Cached and shared by every viewer, so no one viewer's 12/24-hour clock either.
-    with tz_scope(tz), hour_cycle_scope(False):
+    # Cached and shared by every viewer, so the default 12-hour clock, not one viewer's.
+    with tz_scope(tz), hour_cycle_scope(True):
         today = today_local()
         matches = await MatchService().get_streamed_matches(today, COMING_UP_DAYS)
         by_stage: Dict[int, list] = {}

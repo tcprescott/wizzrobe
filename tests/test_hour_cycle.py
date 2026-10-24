@@ -30,8 +30,9 @@ def twelve():
 
 
 class TestResolution:
-    def test_unbound_is_24_hour(self):
-        assert uses_12_hour() is False
+    def test_unbound_is_12_hour(self):
+        with hour_cycle_scope(None):
+            assert uses_12_hour() is True
 
     def test_saved_choice_beats_the_browser(self):
         assert pick_hour12('24', '12') is False
@@ -41,9 +42,9 @@ class TestResolution:
         assert pick_hour12(None, '12') is True
         assert pick_hour12(None, '24') is False
 
-    def test_nothing_known_is_24_hour(self):
-        assert pick_hour12(None, None) is False
-        assert pick_hour12('bogus', 'h12') is False
+    def test_a_viewer_with_nothing_known_gets_12_hour(self):
+        assert pick_hour12(None, None) is True
+        assert pick_hour12('bogus', 'h23') is True
 
     def test_cookie_accepts_only_12_or_24(self):
         assert read_hour_cycle_cookie('12') == '12'
@@ -54,7 +55,7 @@ class TestResolution:
 
 class TestFormatting:
     def test_24_hour_is_unchanged(self):
-        with tz_scope('UTC'):
+        with tz_scope('UTC'), hour_cycle_scope(False):
             assert format_local_time(EVENING) == '21:05'
             assert format_local_display(EVENING) == '2026-10-24 21:05 UTC'
 
@@ -83,14 +84,36 @@ class TestFormatting:
 
     def test_hour_axis_labels(self):
         nine_pm = EVENING.replace(minute=0, second=0)
-        with tz_scope('UTC'):
+        with tz_scope('UTC'), hour_cycle_scope(False):
             assert format_local_hour(nine_pm) == '21:00'
             with twelve():
                 assert format_local_hour(nine_pm) == '9\u00a0PM'
                 assert format_local_hour(MIDNIGHT) == '12\u00a0AM'
 
-    def test_notification_copies_stay_24_hour(self):
+    def test_notification_copies_are_12_hour_whoever_renders_them(self):
         text = f'Starts <t:{int(EVENING.timestamp())}:F>'
+        with tz_scope('UTC'), hour_cycle_scope(False):
+            assert readable_discord_times(text, 'UTC') == 'Starts 2026-10-24 9:05\u00a0PM UTC'
+            assert uses_12_hour() is False
+
+    def test_output_with_no_viewer_is_12_hour(self):
+        with tz_scope('UTC'), hour_cycle_scope(None):
+            assert format_local_time(EVENING) == '9:05\u00a0PM'
+
+
+class TestInputValues:
+    def test_input_time_is_always_24_hour(self):
+        from application.utils.timezone import input_time
+
         with tz_scope('UTC'), twelve():
-            assert readable_discord_times(text, 'UTC') == 'Starts 2026-10-24 21:05 UTC'
-            assert uses_12_hour() is True
+            assert input_time(EVENING) == '21:05'
+            assert input_time(MIDNIGHT) == '00:30'
+
+    def test_native_time_input_accepts_a_12_hour_value(self):
+        from theme.dialog._helpers import input_clock
+
+        assert input_clock('9:30 PM') == '21:30'
+        assert input_clock('12:05 AM') == '00:05'
+        assert input_clock('12:00 PM') == '12:00'
+        assert input_clock('21:30') == '21:30'
+        assert input_clock('') == ''
