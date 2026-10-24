@@ -14,6 +14,7 @@ from theme.empty_state import empty_panel
 from theme.menu import menu_action, more_menu
 from theme.notify import notify_error
 from theme.page_header import page_header
+from theme.pickers import CHIP_PROPS
 from theme.steady import steady_refreshable
 from theme.tables.admin_crud import capture_render_context, scoped_background, wire_tab_refresh
 from theme.tables.mobile_grid import enable_mobile_grid
@@ -236,7 +237,7 @@ async def admin_webhooks_page() -> None:
                         label='Events',
                         multiple=True,
                         value=existing['event_types'] if is_edit else [],
-                    ).props('use-chips').classes('w-full')
+                    ).props(CHIP_PROPS).classes('w-full')
                     active_switch = ui.switch(
                         'Active', value=existing['is_active_raw'] if is_edit else True,
                     )

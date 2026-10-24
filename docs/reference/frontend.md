@@ -969,6 +969,7 @@ The largest UI component, used by the home Schedule and Player boards, the admin
 | `assign_stations` | Players-column button (admin + crud) | `on_assign_stations(match_id)` |
 | `view_commentator` / `view_tracker` | Crew name link (admin + crud) | opens `UserDialog` for that crew member |
 | `toggle_commentator` / `toggle_tracker` | Crew approval toggle icon (admin + crud) | `ConfirmationDialog` (both directions) → `CrewService.update_crew_approval`, row refresh |
+| `approve_crew` | Admin run sheet's **Approve** beside a waiting name (`crew_names(approve=access.crew_js())`); two taps, the first turns it into Confirm | `_handle_quick_approve` → `CrewService.update_crew_approval`; opens the clash `ConfirmationDialog` only when the person is booked elsewhere at the same time |
 | `signup_commentator` / `signup_tracker` | Sign Up button (non-admin) | `ConfirmationDialog` → `CrewService.signup_crew` |
 | `undo_commentator` / `undo_tracker` | Undo button (non-admin) | `ConfirmationDialog` → `CrewService.undo_crew_signup` |
 | `acknowledge_match` | Player's own Acknowledge button | `MatchService.acknowledge_match` (client captured via `context.client`, restored with `with client:`) |

@@ -35,7 +35,7 @@ needs, so "1/2" is one signup for two places. Until the match starts, a role
 that's short says "needs crew" in orange, and one with enough signups you haven't
 approved yet says "to approve". A match with no stage needs no crew, so it shows
 just the signup count. The names are listed under the count, with a tick for
-approved and a clock and "to approve" for the rest.
+approved and a clock and an **Approve** button for the rest.
 
 Tap a line to open the match. Its next step (**Check in**, **Start match**,
 **Finish** or **Confirm result**) sits under the title. Below that, the Ready to
@@ -192,8 +192,13 @@ Admin → Stages. Staff and broadcast techs can add and edit them there. Untick
 ## Approving crew
 
 :::snippet staff-crew-approval
-Commentators and trackers who sign themselves up start out unapproved. Open the
-match. Under Crew, each role lists the people Waiting for you, each with an
+Commentators and trackers who sign themselves up start out unapproved. The
+quickest way in is the board itself: a waiting name has an **Approve** button
+beside it. Tap it once and it turns into **Confirm**; tap again to approve. Tap
+anywhere else and it goes back to **Approve**. If that person's booked somewhere
+else at the same time, you get the warning below before anything's saved.
+
+You can also open the match. Under Crew, each role lists the people Waiting for you, each with an
 **Approve** button, and says how many more it needs. Approved people are listed
 above, after "Approved:", as a name with "confirmed" or "hasn't confirmed". Their
 ⋮ menu has **Un-approve**.

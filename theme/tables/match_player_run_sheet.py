@@ -16,6 +16,7 @@ re-fetches after every change.
 from theme.tables.match_run_sheet import (
     CREW_NAMES,
     HELD_TAG,
+    WHO,
     crew_people,
     decorate_run_sheet_row,
     fold_header,
@@ -386,7 +387,7 @@ _BODY_SLOT = r'''
         <template v-if="col.name === 'scheduled_at'">''' + _WHEN + '''</template>
         <template v-else-if="col.name === 'match'">
             <button type="button" class="run-sheet__open" @click.stop="$parent.$emit('open_match', props.row.id)">
-                {{ ''' + _TITLE + ''' }}</button>
+                ''' + WHO + '''</button>
             <span class="run-sheet__meta" :title="props.row.tournament">{{ props.row.tournament_short || props.row.tournament }}<template v-if="props.row.bracket"> · {{ props.row.bracket.name }}<template v-if="props.row.bracket.game"> · Game {{ props.row.bracket.game }}</template></template><template v-if="props.row.set_label"> · {{ props.row.set_label }}</template></span>
         </template>
         <template v-else-if="col.name === 'stage'">''' + _STAGE + '''</template>
@@ -421,7 +422,7 @@ _ITEM_SLOT = r'''
             <button type="button" class="player-sheet__open" @click="$parent.$emit('open_match', props.row.id)">
                 <span class="run-sheet__when">''' + _WHEN + '''</span>
                 <span class="run-sheet__main">
-                    <span class="run-sheet__who">{{ ''' + _TITLE + ''' }}</span>
+                    <span class="run-sheet__who">''' + WHO + '''</span>
                     <span class="run-sheet__meta" :title="props.row.tournament">{{ props.row.tournament_short || props.row.tournament }}<template v-if="props.row._stage"> · {{ props.row._stage }}</template></span>
                 </span>
             </button>''' + _BELL + '''__MENU__

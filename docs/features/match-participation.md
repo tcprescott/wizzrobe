@@ -12,14 +12,14 @@ member approves them. Signup works from the web or from Discord DM buttons — b
 land in the same service, so the rules and audit trail are identical.
 
 1. Signup inserts a `Commentator` or `Tracker` row with `approved=False`, either from the web UI (one tap on the board's **Sign up**, no confirmation step) or from the buttons on a stream-candidate DM (`discordbot/crew_signup.py`). The tournament's admins and crew coordinators get a DM linking the match on the admin board, so approval doesn't wait on someone happening to look. Home's schedule has a **Needs crew** switch that narrows the board to matches still short of approved crew for a role the tournament uses.
-2. Whoever `can_approve_crew` admits — staff, the tournament's admin, **or its crew coordinator** — approves from the toggle beside the crew member's name in the match table (both directions confirm first).
+2. Whoever `can_approve_crew` admits — staff, the tournament's admin, **or its crew coordinator** — approves from the **Approve** button beside a waiting name on the Admin → Match Schedule run sheet (two taps; the clash warning dialog appears only when they're booked elsewhere), or from Match details (both directions confirm first).
 3. The approved crew member acknowledges — from **My Schedule**, the schedule board, or the DM button.
 
 Each side has a surface of its own for the work it owns:
 
 | Who | Where | What it carries |
 |---|---|---|
-| Staff / TA / crew coordinator | Admin → Match Schedule; Reports → Crew Activity | The approval toggle beside each name on the board, and a Pending-only filter in the report |
+| Staff / TA / crew coordinator | Admin → Match Schedule; Reports → Crew Activity | The Approve button beside each waiting name on the board, and a Pending-only filter in the report |
 | The volunteer | Home → **My Schedule** → crew section (`home_tabs/my_crew.py`) | The player run sheet (`layout='player_run_sheet'`) narrowed to the matches they crew (`MatchTableView(crew_discord_id=...)`, approved or waiting), so their Withdraw and Confirm sit in their own role's tray as on Event › Schedule. A line they withdraw from leaves the board (`_still_crews`), and `?match=` narrows it to that match with a *Showing one match only* chip. It leads the tab for anyone entered in no tournament |
 
 The crew list is on Home rather than the Volunteer hub deliberately: crew signup
@@ -576,7 +576,11 @@ optional note (280 chars), and writes `late_minutes` / `late_at` / `late_note` o
 their `MatchPlayers` row; `take_back_late` is the player's Undo. Both audit and emit
 `match.player_running_late` / `match.player_late_cleared` (no note in the event)
 and nudge `match_live`. A report DMs the match's alert recipients (below) under
-the `player_late` notice, with the name and note escaped.
+the `player_late` notice, with the name and note escaped. On a stage match it
+also DMs the Broadcast Techs (`StaffAlertService.tagged_broadcast_tech_recipients`)
+under `player_late_on_stage`: techs holding any published volunteer shift right
+now (`ON_DUTY`), or every tech when none is (`STAFF`). A tech already told as
+staff gets only the `player_late` copy, and Undo DMs nobody.
 
 The window (`late_window_open`) opens 30 minutes before the match, or as early
 as the tournament's `stage_reminder_minutes` for a stage match, and closes at

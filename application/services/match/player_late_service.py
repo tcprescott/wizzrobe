@@ -4,7 +4,8 @@ The player picks how far out they are (10, 20 or 30 minutes, the same choices a
 volunteer gets) and can add a short note. It lands on their ``MatchPlayers``
 row, so the run sheet, Proctor Station and the "Needs you" inbox can show it on
 the match itself, and DMs the match's alert recipients: the admin on duty and
-the tournament's admins (``StaffAlertService``). The opponent is not told.
+the tournament's admins (``StaffAlertService``), plus the Broadcast Techs on
+shift when the match has a stage. The opponent is not told.
 
 The window opens :data:`LATE_WINDOW` before the match (or when a stage match's
 reminder goes out, if that's earlier) and stays open until a proctor checks it in. Before that it's a reschedule, not a late arrival.
@@ -127,15 +128,27 @@ class PlayerLateService:
         from application.services.auth_service import AuthService
         from application.services.discord import discord_queue
         from application.services.match._comment_notifications import notify_staff_of_player_late
+        from application.services.notification_catalog import PLAYER_LATE, PLAYER_LATE_ON_STAGE
         from application.services.staff_alert_service import StaffAlertService
 
+        recipients = []
         try:
-            recipients = await StaffAlertService.tagged_match_alert_recipients(
+            for user, why in await StaffAlertService.tagged_match_alert_recipients(
                 match, can_act=AuthService.can_run_match, exclude=(author.id,),
-            )
+            ):
+                recipients.append((user, PLAYER_LATE.to(why)))
         except Exception:
             logger.exception('running late on match %s: resolving staff alerts failed', match.id)
-            return
+        try:
+            # A tech who is also on the desk or admins the tournament already has it.
+            told = {user.id for user, _ in recipients}
+            for user, why in await StaffAlertService.tagged_broadcast_tech_recipients(
+                match, exclude=(author.id,),
+            ):
+                if user.id not in told:
+                    recipients.append((user, PLAYER_LATE_ON_STAGE.to(why)))
+        except Exception:
+            logger.exception('running late on match %s: resolving Broadcast Techs failed', match.id)
         if not recipients:
             return
         players = [p.user for p in match.players]  # type: ignore[attr-defined]

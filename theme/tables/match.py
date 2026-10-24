@@ -222,6 +222,12 @@ class MatchTableView(MatchFiltersMixin, MatchTableHandlersMixin, MatchBoardHoldM
         self.accommodation_service = AccommodationService()
         self._setup_ui()
 
+    @property
+    def _quick_approve(self) -> bool:
+        """Whether waiting crew get an Approve button on the admin run sheet."""
+        return (self.layout == 'run_sheet' and not self.proctor_run_sheet
+                and self.admin_controls and self.access.approve_crew)
+
     def _arrange(self, rows: list) -> list:
         """Group and order ``rows`` for a run-sheet layout; a table keeps its order."""
         if self.layout == 'player_run_sheet':
@@ -313,7 +319,10 @@ class MatchTableView(MatchFiltersMixin, MatchTableHandlersMixin, MatchBoardHoldM
                 register_run_sheet_slots(
                     self.table, proctor=self.proctor_run_sheet,
                     can_run=self.proctor_run_sheet and self.admin_controls and self.access.run,
+                    approve=self.access.crew_js() if self._quick_approve else 'false',
                 )
+                if self._quick_approve:
+                    self.table.on('approve_crew', lambda event: self._handle_quick_approve(event.args))
             else:
                 register_player_run_sheet_slots(
                     self.table,

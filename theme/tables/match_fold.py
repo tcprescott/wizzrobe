@@ -30,14 +30,32 @@ class MatchBoardFoldMixin:
         self._folded = dict(folded) if isinstance(folded, dict) else {}
         self.table.on('toggle_group', lambda event: background_tasks.create(
             self._toggle_group(event.args, context.client)))
+        self._racers_open: set = set()
+        self.table.on('toggle_racers', lambda event: self._toggle_racers(event.args))
 
     def _is_folded(self, group: str) -> bool:
         return getattr(self, '_folded', {}).get(group, group in FOLDED_BY_DEFAULT)
 
     def _stamp_folded(self, rows: list) -> list:
+        opened: set = getattr(self, '_racers_open', set())
         for row in rows:
             row['_folded'] = self._is_folded(row['_group'])
+            row['_who_open'] = row.get('id') in opened
         return rows
+
+    def _toggle_racers(self, match_id) -> None:
+        """Show every racer on one big race's line, or fold them back.
+
+        Kept for the tab, not saved: it's a peek. Held on the view rather than
+        the row, so a live update to the row doesn't fold it again.
+        """
+        opened: set = getattr(self, '_racers_open', set())
+        opened ^= {match_id}
+        self._racers_open = opened
+        for row in self.table.rows:
+            if row.get('id') == match_id:
+                row['_who_open'] = match_id in opened
+        self.table.update()
 
     async def _toggle_group(self, group, client) -> None:
         """Fold or open one group, and remember it for this viewer.

@@ -315,6 +315,7 @@ def crew_people(people: list, discord_id=None, *, waiting_note: str = 'to approv
         'approved': bool(p.get('approved')),
         'me': bool(discord_id) and str(p.get('discord_id')) == str(discord_id),
         'note': '' if p.get('approved') else waiting_note,
+        'id': p.get('id'),
     } for p in ordered]
 
 
@@ -342,8 +343,23 @@ def run_sheet_crew(row: dict) -> list[dict]:
             'unapproved': open_ and (len(people) >= need > approved if need else len(people) > approved),
             'people': crew_people(people),
             'empty': open_ and not people,
+            'approvable': row.get('state') in ('Scheduled', 'Checked In', 'Started'),
         })
     return crew
+
+
+# A race this big lists its first few racers and counts the rest, or ten names
+# wrap the row onto four lines.
+RACER_FOLD_AT = 5
+RACER_HEAD = 3
+
+
+def _fold_racers(row: dict, names: list) -> None:
+    row['_who_fold'] = len(names) >= RACER_FOLD_AT
+    row['_who_head'] = ', '.join(names[:RACER_HEAD])
+    row['_who_more'] = max(len(names) - RACER_HEAD, 0)
+    row['_who_title'] = (row.get('title') or '') if row['_who_fold'] else ''
+    row.setdefault('_who_open', False)
 
 
 def decorate_run_sheet_row(row: dict) -> dict:
@@ -356,6 +372,7 @@ def decorate_run_sheet_row(row: dict) -> dict:
     row['_day'] = _day_label(row.get('scheduled_ts'))
     names = [p.get('name') or '' for p in row.get('players') or []] + list(row.get('placeholders') or [])
     row['_who'] = ' vs '.join(names) if len(names) == 2 else ', '.join(names)
+    _fold_racers(row, names)
     if row.get('stage'):
         row['_stage'] = row['stage']
     elif row.get('is_stream_candidate'):
@@ -453,22 +470,43 @@ _STATUS_CHIP = """<span class="wiz-chip" :class="'wiz-chip--' + props.row._tone"
 # a Commentators or Trackers header, so it leaves the role's name off.
 _CREW_COUNT = r"""<span class="run-sheet__crew" :class="c.short ? 'st-pending' : ''">__LABEL__<b>{{ c.count }}</b><template v-if="c.short"> · needs crew</template><template v-else-if="c.unapproved"> · to approve</template></span>"""
 
-# Who signed up: a tick for approved, a clock and a note for the rest.
-CREW_NAMES = r"""<span class="run-sheet__people">
-    <span v-for="(p, i) in c.people" :key="i" class="run-sheet__person" :class="p.approved ? '' : 'st-pending'">
-        <q-icon :name="p.approved ? 'check_circle' : 'schedule'" size="14px" :class="p.approved ? 'st-ok' : 'st-pending'" aria-hidden="true" /><span class="run-sheet__person-name">{{ p.name }}<span v-if="p.me" class="wiz-you"> (you)</span></span><span v-if="p.note" class="run-sheet__person-note"> · {{ p.note }}</span>
-    </span>
-</span>
-<span v-if="c.empty" class="wiz-crew-empty st-neutral italic-note">No signups yet</span>"""
+# Who signed up: a tick for approved, a clock and a note for the rest. Where
+# the viewer approves this row's crew, a waiting name carries Approve instead of
+# the note. It takes two taps: the first turns it into Confirm (same width, so
+# nothing moves), and moving focus away turns it back.
+def crew_names(approve: str = 'false') -> str:
+    can = f"!p.approved && c.approvable && p.id && {approve}"
+    button = ('' if approve == 'false' else
+              f"""<q-btn v-if="{can}" dense no-caps unelevated color="primary" icon="check"
+               class="run-sheet__approve" :outline="!p._arm"
+               :label="p._arm ? 'Confirm' : 'Approve'"
+               :aria-label="(p._arm ? 'Confirm approving ' : 'Approve ') + p.name + ' for ' + c.label.toLowerCase()"
+               @focusout="$event.currentTarget.contains($event.relatedTarget) || (p._arm = false)"
+               @click.stop="p._arm ? (p._arm = false, $parent.$emit('approve_crew', {{ row: props.row, role: c.key, crew_id: p.id }})) : (p._arm = true)" />""")
+    note = 'p.note' if approve == 'false' else f'p.note && !({can})'
+    return ('<span class="run-sheet__people">\n'
+            '    <span v-for="(p, i) in c.people" :key="i" class="run-sheet__person" :class="p.approved ? \'\' : \'st-pending\'">\n'
+            '        <q-icon :name="p.approved ? \'check_circle\' : \'schedule\'" size="14px" :class="p.approved ? \'st-ok\' : \'st-pending\'" aria-hidden="true" />'
+            '<span class="run-sheet__person-name">{{ p.name }}<span v-if="p.me" class="wiz-you"> (you)</span></span>'
+            f'<span v-if="{note}" class="run-sheet__person-note"> · {{{{ p.note }}}}</span>{button}\n'
+            '    </span>\n'
+            '</span>\n'
+            '<span v-if="c.empty" class="wiz-crew-empty st-neutral italic-note">No signups yet</span>')
 
-_CREW_CELL = r"""<div v-for="c in (props.row._crew_by[col.name] ? [props.row._crew_by[col.name]] : [])" :key="c.key" class="run-sheet__role">
+
+CREW_NAMES = crew_names()
+
+def _crew_cell(approve: str) -> str:
+    return r"""<div v-for="c in (props.row._crew_by[col.name] ? [props.row._crew_by[col.name]] : [])" :key="c.key" class="run-sheet__role">
                 """ + _CREW_COUNT.replace('__LABEL__', '') + """
-                """ + CREW_NAMES + """
+                """ + crew_names(approve) + """
             </div>"""
 
-_CREW_LINES = r"""<span v-for="c in props.row._crew" :key="c.key" class="run-sheet__role">
+
+def _crew_lines(approve: str) -> str:
+    return r"""<span v-for="c in props.row._crew" :key="c.key" class="run-sheet__role">
                 """ + _CREW_COUNT.replace('__LABEL__', '{{ c.label }} ') + """
-                """ + CREW_NAMES + """
+                """ + crew_names(approve) + """
             </span>"""
 
 # What changed on a row the board is holding in place (MatchTableView._hold):
@@ -481,7 +519,19 @@ _TIME = """<span v-if="props.row._time" class="run-sheet__time" :class="props.ro
             <span v-if="props.row._day && props.row._day !== 'Today'" class="run-sheet__day">{{ props.row._day }}</span>
             """ + HELD_TAG
 
-_WHO = "{{ props.row._who || (props.row.bracket ? props.row.bracket.name : props.row.title) }}"
+_WHO_TEXT = "{{ props.row._who || (props.row.bracket ? props.row.bracket.name : props.row.title) }}"
+
+# The more/fewer toggle sits inside the button that opens the match, so it's a
+# mouse and touch shortcut only: a screen reader hears every name from the
+# button, and the match sheet lists them all.
+RACER_TOGGLE = r"""<span class="run-sheet__more" aria-hidden="true" @click.stop="$parent.$emit('toggle_racers', props.row.id)">{{ props.row._who_open ? 'Show fewer' : '+' + props.row._who_more + ' more' }}</span>"""
+_RACERS = r"""<span aria-hidden="true">{{ props.row._who_open ? props.row._who : props.row._who_head }} </span>""" + RACER_TOGGLE + r"""<span class="wiz-sr-only">{{ props.row._who }}</span>"""
+
+# A big race's names fold behind "+N more"; a titled race leads with its title
+# and puts the racers on the line under it.
+WHO = (r"""<template v-if="props.row._who_fold"><template v-if="props.row._who_title">{{ props.row._who_title }}<span class="run-sheet__racers">"""
+       + _RACERS + r"""</span></template><template v-else>""" + _RACERS + r"""</template></template><template v-else>"""
+       + _WHO_TEXT + "</template>")
 
 # How many comments players and staff left. An icon and a number, with the
 # words for a screen reader and a hover title for everyone else.
@@ -492,7 +542,11 @@ COMMENT_BADGES = r"""<span v-if="props.row._comments && props.row._comments.leng
 # The proctor's names carry their station, since "where do I send them" is half
 # of every step. ADA is text, not a control: the line's own button already
 # holds the names, and the sheet has the accommodation button.
-_SEATED_WHO = r"""<template v-if="props.row._seats.length"><template v-for="(s, i) in props.row._seats" :key="i"><span v-if="i" class="run-sheet__vs">{{ props.row._seats.length > 2 ? ', ' : ' vs ' }}</span><span class="run-sheet__player">{{ s.name }}<span class="run-sheet__seat" :class="s.station ? (s.key && s.key === props.row._hit_station ? 'run-sheet__seat--hit' : '') : 'run-sheet__seat--none'">{{ s.station ? 'Station ' + s.station : 'No station' }}</span></span></template></template><template v-else>""" + _WHO + """</template>"""
+# The players at a station the proctor looked up, for a line that doesn't
+# show every seat: a folded race on desktop, and the phone's meta line.
+_HIT_SEATS = r"""<template v-for="(s, i) in props.row._seats.filter((s) => s.key === props.row._hit_station)" :key="'hit' + i"><span class="run-sheet__player">{{ s.name }}<span class="run-sheet__seat run-sheet__seat--hit">Station {{ s.station }}</span></span></template>"""
+
+_SEATED_WHO = r"""<template v-if="props.row._seats.length && (!props.row._who_fold || props.row._who_open)"><template v-for="(s, i) in props.row._seats" :key="i"><span v-if="i" class="run-sheet__vs">{{ props.row._seats.length > 2 ? ', ' : ' vs ' }}</span><span class="run-sheet__player">{{ s.name }}<span class="run-sheet__seat" :class="s.station ? (s.key && s.key === props.row._hit_station ? 'run-sheet__seat--hit' : '') : 'run-sheet__seat--none'">{{ s.station ? 'Station ' + s.station : 'No station' }}</span></span></template><template v-if="props.row._who_fold"> """ + RACER_TOGGLE + """</template></template><template v-else>""" + WHO + """<template v-if="props.row._hit_station"> · """ + _HIT_SEATS + """</template></template>"""
 
 # A player said they're on their way. On the staff boards only: the player's own
 # board says it in its Status chip instead.
@@ -543,7 +597,7 @@ def fold_header(proctor: bool) -> str:
             """<span>{{ props.row._group }}""" + count + """</span></button>""")
 
 
-def _body_slot(proctor: bool, can_run: bool = False) -> str:
+def _body_slot(proctor: bool, can_run: bool = False, approve: str = 'false') -> str:
     """Desktop: one row per match, a group header row above the first of each
     group. The Match cell's names are the row's button, so the row is reachable
     and operable from the keyboard; the rest of the row is a mouse convenience."""
@@ -556,7 +610,7 @@ def _body_slot(proctor: bool, can_run: bool = False) -> str:
             """ + _SEED_LINE
     else:
         match = """<span class="run-sheet__name-line"><button type="button" class="run-sheet__open" @click.stop="$parent.$emit('open_match', props.row.id)">
-                """ + _WHO + """
+                """ + WHO + """
             </button>""" + COMMENT_BADGES + """</span>
             <span class="run-sheet__meta" :title="props.row.tournament">{{ props.row.tournament_short || props.row.tournament }}<template v-if="props.row.bracket"> · {{ props.row.bracket.name }}<template v-if="props.row.bracket.game"> · Game {{ props.row.bracket.game }}</template></template><template v-if="props.row.set_label"> · {{ props.row.set_label }}</template></span>
             """ + DESC_LINE + LATE_TAGS
@@ -578,7 +632,7 @@ def _body_slot(proctor: bool, can_run: bool = False) -> str:
             <span v-else class="run-sheet__none">None</span>
         </template>
         <template v-else-if="col.name === 'commentators' || col.name === 'trackers'">
-            """ + _CREW_CELL + """
+            """ + _crew_cell(approve) + """
         </template>
         <template v-else-if="col.name === 'status'">""" + _STATUS_CHIP + """</template>
 """ + ("""        <template v-else-if="col.name === 'next'">""" + _next(can_run) + """</template>
@@ -588,7 +642,7 @@ def _body_slot(proctor: bool, can_run: bool = False) -> str:
 """
 
 
-def _item_slot(proctor: bool, can_run: bool = False) -> str:
+def _item_slot(proctor: bool, can_run: bool = False, approve: str = 'false') -> str:
     """Phone: the whole line is one button. A plain "Scheduled" is the default,
     so the chip is left off it and the names get the width. The proctor's line
     is a card holding two buttons instead, since the step can't sit inside
@@ -604,8 +658,8 @@ def _item_slot(proctor: bool, can_run: bool = False) -> str:
         <button type="button" class="run-sheet__card-open" @click="$parent.$emit('open_match', props.row.id)">
             """ + when + """
             <span class="run-sheet__main">
-                <span class="run-sheet__who">""" + _WHO + """</span>
-                <span class="run-sheet__meta"><template v-if="props.row._stage">{{ props.row._stage }}</template><template v-if="props.row._hit_station"><template v-for="(s, i) in props.row._seats.filter((s) => s.key === props.row._hit_station)" :key="i"><template v-if="i || props.row._stage"> · </template><span class="run-sheet__player">{{ s.name }}<span class="run-sheet__seat run-sheet__seat--hit">Station {{ s.station }}</span></span></template></template><template v-else><template v-if="props.row._stage && props.row._seat_line"> · </template>{{ props.row._seat_line }}</template></span>
+                <span class="run-sheet__who">""" + WHO + """</span>
+                <span class="run-sheet__meta"><template v-if="props.row._stage">{{ props.row._stage }}</template><template v-if="props.row._hit_station"><template v-if="props.row._stage"> · </template>""" + _HIT_SEATS + """</template><template v-else><template v-if="props.row._stage && props.row._seat_line"> · </template>{{ props.row._seat_line }}</template></span>
                 """ + DESC_LINE + _ADA + LATE_TAGS + """
                 """ + COMMENT_BADGES + """
             </span>
@@ -615,35 +669,52 @@ def _item_slot(proctor: bool, can_run: bool = False) -> str:
     </div>
 </div>
 """
+    main = """
+        """ + when + """
+        <span class="run-sheet__main">
+            <span class="run-sheet__who">""" + WHO + """</span>
+            <span class="run-sheet__meta" :title="props.row.tournament">{{ props.row.tournament_short || props.row.tournament }}<template v-if="props.row._stage"> · {{ props.row._stage }}</template></span>
+            """ + DESC_LINE + LATE_TAGS + """
+            <span v-if="props.row._crew.length" class="run-sheet__crew-list">""" + _crew_lines(approve) + """</span>
+            """ + COMMENT_BADGES + """
+        </span>
+        <span v-if="props.row._status !== 'Scheduled'" class="wiz-chip" :class="'wiz-chip--' + props.row._tone">{{ props.row._status }}</span>"""
+    if approve == 'false':
+        card = """<button v-if="!props.row._folded" type="button" class="run-sheet__card" :class="[props.row._flash ? 'wiz-row-flash' : '', props.row._removed ? 'wiz-row-removed' : '']" :inert="props.row._removed ? '' : null" :data-wiz-row="props.row.id"
+            @click="$parent.$emit('open_match', props.row.id)">""" + main + """
+    </button>"""
+    else:
+        # The crew's Approve buttons can't sit inside a button, so this card is
+        # the desktop row's shape: the names are the keyboard's way in, and a
+        # tap anywhere else on the card is a pointer convenience.
+        main = main.replace(
+            '<span class="run-sheet__who">' + WHO + '</span>',
+            '<button type="button" class="run-sheet__who run-sheet__open" @click.stop="$parent.$emit(\'open_match\', props.row.id)">' + WHO + '</button>',
+        )
+        card = """<div v-if="!props.row._folded" class="run-sheet__card" :class="[props.row._flash ? 'wiz-row-flash' : '', props.row._removed ? 'wiz-row-removed' : '']" :inert="props.row._removed ? '' : null" :data-wiz-row="props.row.id"
+            @click="$parent.$emit('open_match', props.row.id)">""" + main + """
+    </div>"""
     return """
 <div class="run-sheet__item">
     <div v-if="props.row._group_start" class="run-sheet__group">""" + fold_header(proctor) + """</div>
-    <button v-if="!props.row._folded" type="button" class="run-sheet__card" :class="[props.row._flash ? 'wiz-row-flash' : '', props.row._removed ? 'wiz-row-removed' : '']" :inert="props.row._removed ? '' : null" :data-wiz-row="props.row.id"
-            @click="$parent.$emit('open_match', props.row.id)">
-        """ + when + """
-        <span class="run-sheet__main">
-            <span class="run-sheet__who">""" + _WHO + """</span>
-            <span class="run-sheet__meta" :title="props.row.tournament">{{ props.row.tournament_short || props.row.tournament }}<template v-if="props.row._stage"> · {{ props.row._stage }}</template></span>
-            """ + DESC_LINE + LATE_TAGS + """
-            <span v-if="props.row._crew.length" class="run-sheet__crew-list">""" + _CREW_LINES + """</span>
-            """ + COMMENT_BADGES + """
-        </span>
-        <span v-if="props.row._status !== 'Scheduled'" class="wiz-chip" :class="'wiz-chip--' + props.row._tone">{{ props.row._status }}</span>
-    </button>
+    """ + card + """
 </div>
 """
 
 
-def register_run_sheet_slots(table, *, proctor: bool = False, can_run: bool = False) -> None:
+def register_run_sheet_slots(table, *, proctor: bool = False, can_run: bool = False,
+                             approve: str = 'false') -> None:
     """The run sheet's desktop ``body`` and phone ``item`` slots on ``table``.
 
     ``proctor`` draws the proctor's line: stations beside the names and a count
     on each group, plus the next lifecycle step as a button when ``can_run``.
     Search on the board passes ``search_terms=True`` to :func:`search_input`,
-    to keep the prefixed string :data:`RUN_SHEET_FILTER` reads.
+    to keep the prefixed string :data:`RUN_SHEET_FILTER` reads. ``approve`` is
+    a Vue expression over ``props.row`` (``MatchBoardAccess.crew_js``) for the
+    rows whose waiting crew get an Approve button.
     """
-    table.add_slot('body', _body_slot(proctor, can_run))
-    table.add_slot('item', _item_slot(proctor, can_run))
+    table.add_slot('body', _body_slot(proctor, can_run, approve))
+    table.add_slot('item', _item_slot(proctor, can_run, approve))
     use_fold_filter(table, proctor=proctor)
 
 

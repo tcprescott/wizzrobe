@@ -7446,6 +7446,25 @@ ol.wiz-help-list { list-style-type: decimal; }
     color: var(--fg-secondary);
     font-weight: 400;
 }
+/* Approve beside a waiting name (admin run sheet). Two taps: the outlined
+   button fills and reads Confirm on the first, at the same width. The name
+   and button wrap as a pair, so a narrow cell puts the button underneath. */
+.run-sheet__person:has(> .run-sheet__approve) {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.25rem 0.5rem;
+}
+.run-sheet__person:has(> .run-sheet__approve) > .q-icon {
+    margin-right: -0.25rem;
+}
+.run-sheet__approve.q-btn {
+    min-width: 6.5rem;
+    min-height: 2rem;
+    padding: 0 0.625rem;
+    font-size: var(--text-sm);
+    font-weight: 700;
+}
 
 /* Phone: each line is a button. */
 .run-sheet__item {
@@ -7526,6 +7545,20 @@ ol.wiz-help-list { list-style-type: decimal; }
 .run-sheet__vs {
     font-weight: 400;
     color: var(--fg-secondary);
+}
+/* A big race: its first racers, then "+N more" to show the rest in place. */
+.run-sheet__racers {
+    display: block;
+    font-weight: 500;
+}
+.run-sheet__more {
+    margin-left: 0.375em;
+    color: var(--wiz-link);
+    font-weight: 700;
+    white-space: nowrap;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+    cursor: pointer;
 }
 .run-sheet__late {
     display: flex;
