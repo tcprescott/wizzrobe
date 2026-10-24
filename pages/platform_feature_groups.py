@@ -21,6 +21,7 @@ from theme.dialog._helpers import dialog_actions, form_dialog
 from theme.dialog.confirmation_dialog import ConfirmationDialog
 from theme.menu import SlotItem, slot_more_menu, slot_name_link
 from theme.notify import notify_error
+from theme.pickers import CHIP_PROPS
 from theme.tables.mobile_grid import enable_mobile_grid
 from theme.tables.preferences import TableKeys, preferences_button
 
@@ -174,7 +175,7 @@ def _group_form(existing=None):
     flags = ui.select(
         options=flag_options, multiple=True, label='Features in this group',
         value=list(existing['flags']) if is_edit else [],
-    ).props('use-chips').classes('w-full')
+    ).props(CHIP_PROPS).classes('w-full')
     is_default = ui.switch('Default group (fallback for ungrouped tenants)',
                            value=existing['is_default'] if is_edit else False)
     return name, description, flags, is_default

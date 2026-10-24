@@ -23,6 +23,7 @@ from theme.dialog.match_dialog_base import (
 )
 from theme.help import resolve_help
 from theme.markdown_editor import MarkdownEditor
+from theme.pickers import CHIP_PROPS
 from theme.tables.admin_crud import capture_render_context, scoped_background
 
 # The empty-Tournament hints differ by audience: an admin can go and make one, a
@@ -251,7 +252,7 @@ class AdminMatchDialog(BaseMatchDialog):
                         value=player_ids,
                         multiple=True,
                         with_input=True,
-                    ).props('use-chips')
+                    ).props(CHIP_PROPS)
                     selected_players.disable()
                     # "Choose any players" meant "any account on the platform"
                     # and now means "any member of this community", which is not
@@ -309,7 +310,7 @@ class AdminMatchDialog(BaseMatchDialog):
                         value=commentator_ids,
                         multiple=True,
                         with_input=True,
-                    ).props('use-chips')
+                    ).props(CHIP_PROPS)
 
                     selected_trackers = ui.select(
                         label='Trackers',
@@ -317,7 +318,7 @@ class AdminMatchDialog(BaseMatchDialog):
                         value=tracker_ids,
                         multiple=True,
                         with_input=True,
-                    ).props('use-chips')
+                    ).props(CHIP_PROPS)
 
                 async def update_selection_options():
                     tournament_id = selected_tournament.value

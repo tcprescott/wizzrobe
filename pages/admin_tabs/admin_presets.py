@@ -21,6 +21,7 @@ from theme.help import help_icon
 from theme.menu import menu_action
 from theme.notify import notify_error
 from theme.page_header import page_header
+from theme.pickers import CHIP_PROPS
 from theme.tables.admin_crud import current_actor, refresh_button, wire_tab_refresh
 from theme.waiting import waiting_panel
 
@@ -351,7 +352,7 @@ async def admin_presets_page() -> None:
                             label='Presets to import',
                             multiple=True, with_input=True, clearable=True,
                             value=sorted(selected),
-                        ).classes('w-full').props('use-chips')
+                        ).classes('w-full').props(CHIP_PROPS)
 
                         def on_pick(event) -> None:
                             selected.clear()

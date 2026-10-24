@@ -19,6 +19,7 @@ from theme.dialog._helpers import (
 from theme.dialog.send_message_dialog import SendMessageDialog
 from theme.menu import menu_action
 from theme.notify import notify_error
+from theme.pickers import CHIP_PROPS
 
 
 class BaseUserDialog:
@@ -218,7 +219,7 @@ class AdminUserDialog(BaseUserDialog):
                     options=role_options,
                     value=list(current_roles),
                     multiple=True,
-                ).props('use-chips').classes('input-full-width')
+                ).props(CHIP_PROPS).classes('input-full-width')
 
                 tournaments, user_tournaments, selected_tournament_ids, tournament_options = await self._get_tournament_data()
                 tournament_multiselect = ui.select(
@@ -226,7 +227,7 @@ class AdminUserDialog(BaseUserDialog):
                     options=tournament_options,
                     value=[str(tid) for tid in selected_tournament_ids],
                     multiple=True,
-                ).props('use-chips').classes('input-full-width')
+                ).props(CHIP_PROPS).classes('input-full-width')
 
                 admin_tournament_ids = []
                 if self.user:
@@ -236,7 +237,7 @@ class AdminUserDialog(BaseUserDialog):
                     options=tournament_options,
                     value=admin_tournament_ids,
                     multiple=True,
-                ).props('use-chips').classes('input-full-width')
+                ).props(CHIP_PROPS).classes('input-full-width')
 
                 cc_tournament_ids = []
                 if self.user:
@@ -246,7 +247,7 @@ class AdminUserDialog(BaseUserDialog):
                     options=tournament_options,
                     value=cc_tournament_ids,
                     multiple=True,
-                ).props('use-chips').classes('input-full-width')
+                ).props(CHIP_PROPS).classes('input-full-width')
 
             async def sync_role_assignments(target_user):
                 desired = set(role_select.value or [])
