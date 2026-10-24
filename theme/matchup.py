@@ -12,7 +12,7 @@ from typing import Sequence
 
 from nicegui import ui
 
-from application.utils.match_labels import MatchupPart
+from application.utils.match_labels import MatchupPart, has_undecided
 
 TBD_CLASS = 'wiz-tbd'
 
@@ -24,9 +24,19 @@ WHO_PARTS_VUE = (
 )
 
 
-def matchup_label(parts: Sequence[MatchupPart], classes: str = '', *, tag: str = 'span') -> ui.html:
-    # One element, not one per name: a long board builds a row at a time.
-    return ui.html(matchup_html(parts), tag=tag).classes(classes)
+def matchup_label(parts: Sequence[MatchupPart], classes: str = '', *, tag: str = 'span') -> ui.element:
+    # A fully decided line stays one element: a long board builds a row at a time.
+    if not has_undecided(parts):
+        line = ui.label(''.join(str(p['text']) for p in parts)).classes(classes)
+        line.tag = tag
+        return line
+    with ui.element(tag).classes(classes) as line:
+        for part in parts:
+            piece = ui.label(str(part['text']))
+            piece.tag = 'span'
+            if part['tbd']:
+                piece.classes(TBD_CLASS)
+    return line
 
 
 def matchup_html(parts: Sequence[MatchupPart]) -> str:
