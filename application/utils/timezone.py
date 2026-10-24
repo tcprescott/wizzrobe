@@ -233,7 +233,7 @@ def format_local_datetime(
     """
     if dt is None:
         return ''
-    return strftime_local(to_local(dt, tz), fmt)
+    return strftime_local(to_utc_aware(dt).astimezone(_resolve(tz)), fmt)
 
 
 def format_local_date(dt: Optional[Union[datetime, date]], tz: TzArg = None) -> str:
@@ -259,7 +259,7 @@ def format_local_hour(dt: Optional[datetime], tz: TzArg = None) -> str:
     """An hour-scale axis label: ``21:00``, or ``9 PM`` on a 12-hour clock."""
     if dt is None:
         return ''
-    local = to_local(dt, tz)
+    local = to_utc_aware(dt).astimezone(_resolve(tz))
     if uses_12_hour():
         return f"{local.hour % 12 or 12}\u00a0{'AM' if local.hour < 12 else 'PM'}"
     return local.strftime("%H:%M")
@@ -287,7 +287,7 @@ def format_local_display(dt: Optional[datetime], tz: TzArg = None) -> str:
     """
     if dt is None:
         return ''
-    return strftime_local(to_local(dt, tz), "%Y-%m-%d %H:%M %Z")
+    return strftime_local(to_utc_aware(dt).astimezone(_resolve(tz)), "%Y-%m-%d %H:%M %Z")
 
 
 def format_local_short(dt: Optional[datetime], tz: TzArg = None) -> str:

@@ -369,7 +369,7 @@ class UserRepository(TenantScopedRepository[User]):
     @staticmethod
     async def set_hour_cycle(user: User, hour_cycle: Optional[str]) -> None:
         """Persist a user's 12/24-hour preference (``None`` clears it)."""
-        user.hour_cycle = hour_cycle
+        user.hour_cycle = hour_cycle  # type: ignore[assignment]
         await save_fields(user, 'hour_cycle')
 
     @staticmethod
