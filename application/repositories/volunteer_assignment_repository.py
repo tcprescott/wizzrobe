@@ -126,6 +126,19 @@ class VolunteerAssignmentRepository:
         )
 
     @staticmethod
+    async def on_shift_user_ids(at: datetime, user_ids: Sequence[int]) -> Set[int]:
+        """Which of ``user_ids`` hold a published shift, on any position, at ``at``."""
+        if not user_ids:
+            return set()
+        query = scoped(VolunteerAssignment.filter(
+            auto_generated=False,
+            user_id__in=list(user_ids),
+            shift__starts_at__lte=at,
+            shift__ends_at__gt=at,
+        ))
+        return set(cast(List[int], await query.values_list('user_id', flat=True)))
+
+    @staticmethod
     async def on_duty_users(at: datetime) -> List[User]:
         """Who holds a published shift at ``at`` on a position that takes staff alerts."""
         assignments = await scoped(VolunteerAssignment.filter(
