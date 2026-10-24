@@ -31,7 +31,6 @@ from pages import (
     admin,
     auth,
     brackets,
-    cat_facts,
     challonge_oauth,
     changelog,
     check_in,
@@ -41,6 +40,7 @@ from pages import (
     equipment,
     equipment_labels,
     event_info,
+    facts,
     home,
     live_watch,
     mcp_consent,
@@ -345,7 +345,7 @@ def init(fastapi_app: FastAPI) -> None:
     event_info.create()
     community_events.create()
     my_messages.create()
-    cat_facts.create()
+    facts.create()
     changelog.create()
     about.create()
     ui.run_with(

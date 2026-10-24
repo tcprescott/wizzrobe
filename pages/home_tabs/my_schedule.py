@@ -38,7 +38,7 @@ from pages.home_tabs.my_crew import my_crew_tab
 from pages.home_tabs.my_timeline import my_timeline_view
 from pages.home_tabs.my_volunteer_shifts import my_volunteer_shifts_section
 from pages.home_tabs.player import count_waiting_on_you, render_player_dashboard
-from theme.empty_state import cat_fact
+from theme.empty_state import fun_fact
 from theme.layout_probe import skip_layout_probe
 from theme.links import link_button
 from theme.steady import steady_refreshable
@@ -62,7 +62,7 @@ def nothing_yet() -> None:
                 .props('outline no-caps color=primary')
             link_button('Browse tournaments', home_url(HOME_TOURNAMENTS), icon='emoji_events', new_tab=False) \
                 .props('unelevated no-caps color=primary')
-        cat_fact()
+        fun_fact()
 
 
 #: DM link parameters that open something once. Left in the address, a reload

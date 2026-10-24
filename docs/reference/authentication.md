@@ -218,7 +218,7 @@ Signed-out readability is **not** publication: the app serves a blanket `robots.
 | `public_page` | `/event-info`, `/event-info/{slug}` ([`pages/event_info.py`](../../pages/event_info.py)) | `feature=EVENT_INFO` |
 | `public_page` | `/help`, `/help/{slug}` ([`pages/help.py`](../../pages/help.py)) | None — in-app help articles |
 | `public_page` | `/room/{token}/seeds` ([`pages/room_seeds.py`](../../pages/room_seeds.py)) | None; the URL token is the credential (`telemetry_path='/room/seeds'`, and the token value is redacted from telemetry) |
-| `public_page` | `/cat-facts` ([`pages/cat_facts.py`](../../pages/cat_facts.py)) | None |
+| `public_page` | `/facts`, plus the `/cat-facts`, `/hadestown-facts` and `/rollercoaster-facts` redirects ([`pages/facts.py`](../../pages/facts.py)) | None |
 
 `pages/mcp_consent.py` is a bespoke `@ui.page` that registers itself in `protected_routes` directly, because an MCP grant is platform-wide and must not 404 on the tenant check ([features/mcp-server.md](../features/mcp-server.md)). Page registration order is described in [frontend.md](frontend.md).
 

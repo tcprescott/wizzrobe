@@ -642,29 +642,64 @@ class TestEphemeralReplies:
 
 class TestEasterEggs:
     def _all_facts(self):
-        return easter_eggs.CAT_FACTS
+        return [fact for theme in easter_eggs.FACT_THEMES for fact in theme.facts]
 
-    def test_the_pool_is_all_cats(self):
-        """The other topic lists were retired; random_fact is a cat fact now."""
-        assert not [name for name in vars(easter_eggs) if name.endswith('_FACTS')
-                    and name not in {'CAT_FACTS'}]
+    def test_every_fact_list_belongs_to_a_theme(self):
+        """A *_FACTS list no theme carries is trivia nobody can ever see."""
+        pools = {name for name in vars(easter_eggs) if name.endswith('_FACTS')}
+        carried = {tuple(getattr(easter_eggs, name)) for name in pools}
+        assert carried == {theme.facts for theme in easter_eggs.FACT_THEMES}
 
     def test_sections_flatten_into_the_pool(self):
-        flattened = [f for facts in easter_eggs.CAT_FACT_SECTIONS.values() for f in facts]
-        assert easter_eggs.CAT_FACTS == flattened
-        assert all(facts for facts in easter_eggs.CAT_FACT_SECTIONS.values())
+        for theme in easter_eggs.FACT_THEMES:
+            flattened = tuple(f for facts in theme.sections.values() for f in facts)
+            assert theme.facts == flattened
+            assert all(facts for facts in theme.sections.values())
+
+    def test_the_cats_are_kept(self):
+        assert easter_eggs.CAT_THEME.facts == tuple(easter_eggs.CAT_FACTS)
+
+    def test_themes_have_enough_facts(self):
+        for theme in easter_eggs.FACT_THEMES:
+            assert len(theme.facts) >= 80, theme.key
+
+    def test_schedule_flips_at_six_on_the_local_clock(self):
+        from datetime import datetime
+        assert easter_eggs.current_theme(datetime(2026, 10, 24, 20, 0)) is easter_eggs.HADESTOWN_THEME
+        assert easter_eggs.current_theme(datetime(2026, 10, 25, 5, 59)) is easter_eggs.HADESTOWN_THEME
+        assert easter_eggs.current_theme(datetime(2026, 10, 25, 6, 0)) is easter_eggs.ROLLERCOASTER_THEME
+        assert easter_eggs.current_theme(datetime(2026, 10, 26, 5, 59)) is easter_eggs.ROLLERCOASTER_THEME
+        assert easter_eggs.current_theme(datetime(2026, 10, 26, 6, 0)) is easter_eggs.CAT_THEME
+        assert easter_eggs.current_theme(datetime(2027, 1, 1)) is easter_eggs.CAT_THEME
+
+    def test_schedule_reads_wall_clock_not_utc(self):
+        """05:30 in New York is 09:30 UTC; the flip waits for 06:00 local."""
+        from datetime import datetime
+        from zoneinfo import ZoneInfo
+        before = datetime(2026, 10, 25, 5, 30, tzinfo=ZoneInfo('America/New_York'))
+        assert easter_eggs.current_theme(before) is easter_eggs.HADESTOWN_THEME
+
+    def test_random_fact_comes_from_the_current_theme(self, monkeypatch):
+        for theme in easter_eggs.FACT_THEMES:
+            monkeypatch.setattr(easter_eggs, 'current_theme', lambda now=None, t=theme: t)
+            assert easter_eggs.random_fact() in theme.facts
 
     def test_random_fact_returns_known_string(self):
         fact = easter_eggs.random_fact()
         assert isinstance(fact, str) and fact
         assert fact in self._all_facts()
 
+    def test_random_fact_honours_exclude(self):
+        """A re-roll that returns the same fact reads as a broken button."""
+        for fact in easter_eggs.current_theme().facts:
+            for _ in range(5):
+                assert easter_eggs.random_fact(exclude=fact) != fact
+
     def test_random_cat_fact_from_cat_pool(self):
         fact = easter_eggs.random_cat_fact()
         assert fact in easter_eggs.CAT_FACTS
 
     def test_random_cat_fact_honours_exclude(self):
-        """A re-roll that returns the same fact reads as a broken button."""
         for fact in easter_eggs.CAT_FACTS:
             for _ in range(20):
                 assert easter_eggs.random_cat_fact(exclude=fact) != fact
@@ -672,9 +707,10 @@ class TestEasterEggs:
     def test_random_cat_fact_exclude_unknown_still_returns_a_fact(self):
         assert easter_eggs.random_cat_fact(exclude='not a cat fact') in easter_eggs.CAT_FACTS
 
-    def test_cat_facts_are_unique(self):
-        """The /cat-facts page lists the pool verbatim, so a dupe is visible."""
-        assert len(set(easter_eggs.CAT_FACTS)) == len(easter_eggs.CAT_FACTS)
+    def test_facts_are_unique(self):
+        """The /facts page lists a theme verbatim, so a dupe is visible."""
+        for theme in easter_eggs.FACT_THEMES:
+            assert len(set(theme.facts)) == len(theme.facts), theme.key
 
     def test_random_fact_deterministic_with_seed(self):
         import random
