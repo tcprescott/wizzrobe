@@ -24,7 +24,9 @@ _PUSH_RETRY_DELAY = 2.0
 # Two attempts plus this wait must fit inside the confirm flow's 90s budget
 # (_BRACKET_PUSH_SECONDS), so a longer Retry-After is cut down to it.
 _PUSH_RETRY_MAX_DELAY = 10.0
-_TRANSIENT_STATUSES = frozenset({429, 502, 503, 504})
+# 520-524 are Cloudflare's own origin errors (Sentry SGLMAN-2P), which it
+# marks retryable.
+_TRANSIENT_STATUSES = frozenset({429, 502, 503, 504, 520, 521, 522, 523, 524})
 # A Cloudflare error page is several KB of HTML.
 _AUDIT_ERROR_CHARS = 300
 
@@ -89,8 +91,8 @@ class ChallongeResultsMixin:
             try:
                 return await self.push_match_result(match, actor)
             except ChallongeAPIError as e:
-                # Sentry SGLMAN-2M/2N: a timeout, dropped connection (no status),
-                # gateway error or rate limit usually clears on the next request.
+                # Sentry SGLMAN-2M/2N/2P: a timeout, dropped connection (no status),
+                # gateway or Cloudflare origin error, or rate limit usually clears on the next request.
                 # Retrying is safe because the push re-reads the Challonge match
                 # and leaves a complete one alone, which covers a PUT that did land.
                 transient = e.status is None or e.status in _TRANSIENT_STATUSES

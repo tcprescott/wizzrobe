@@ -432,7 +432,7 @@ class TestPushEdgeCases:
         assert details['match_id'] == match.id
         assert details['challonge_match_id'] == '8001'
 
-    @pytest.mark.parametrize('status', [429, 502, 503, 504])
+    @pytest.mark.parametrize('status', [429, 502, 503, 504, 520, 521, 522, 523, 524])
     async def test_push_gateway_error_retries_then_warns(self, db, monkeypatch, caplog, status):
         """Sentry SGLMAN-2N: a Cloudflare 502 (and friends) is retried like a timeout."""
         from application.services import _challonge_results
@@ -472,6 +472,45 @@ class TestPushEdgeCases:
         })
         assert await make_service(api=api).push_result_if_linked(match, actor) is True
         assert api.update_match.await_count == 2
+
+    async def test_push_read_cloudflare_error_retries_then_warns(self, db, monkeypatch, caplog):
+        """Sentry SGLMAN-2P: a 520 on the read before the update is retried, then warned and audited."""
+        from application.services import _challonge_results
+        monkeypatch.setattr(_challonge_results, '_PUSH_RETRY_MAX_DELAY', 0)
+        actor, match, _ = await self._linked_setup()
+        api = MagicMock()
+        api.get_match = AsyncMock(side_effect=ChallongeAPIError(
+            'Challonge API error (520): unknown origin error', status=520, retry_after=60,
+        ))
+        api.update_match = AsyncMock()
+
+        with caplog.at_level('WARNING'):
+            assert await make_service(api=api).push_result_if_linked(match, actor) is False
+        assert api.get_match.await_count == 2
+        api.update_match.assert_not_awaited()
+        assert not [r for r in caplog.records if r.levelname in ('ERROR', 'CRITICAL')]
+        records = [r for r in caplog.records if 'result push failed' in r.getMessage()]
+        assert [r.levelname for r in records] == ['WARNING']
+        row = await AuditLog.get(action=AuditActions.CHALLONGE_RESULT_PUSH_FAILED)
+        assert json.loads(row.details)['status'] == 520
+
+    async def test_push_read_cloudflare_error_recovers_on_retry(self, db, monkeypatch):
+        from application.services import _challonge_results
+        monkeypatch.setattr(_challonge_results, '_PUSH_RETRY_MAX_DELAY', 0)
+        actor, match, _ = await self._linked_setup()
+        api = MagicMock()
+        api.get_match = AsyncMock(side_effect=[
+            ChallongeAPIError('Challonge API error (520)', status=520, retry_after=60),
+            {'match_id': '8001', 'state': 'open'},
+        ])
+        api.update_match = AsyncMock()
+        api.get_tournament_full = AsyncMock(return_value={
+            'tournament': {'id': 'T1', 'name': 'T', 'url': None, 'state': 'underway'},
+            'participants': [], 'matches': [],
+        })
+        assert await make_service(api=api).push_result_if_linked(match, actor) is True
+        api.update_match.assert_awaited_once()
+        assert await AuditLog.filter(action=AuditActions.CHALLONGE_RESULT_PUSH_FAILED).count() == 0
 
     async def test_push_http_error_is_not_retried(self, db):
         actor, match, _ = await self._linked_setup()
