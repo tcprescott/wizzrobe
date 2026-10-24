@@ -37,7 +37,7 @@ class MatchBoardFoldMixin:
         return getattr(self, '_folded', {}).get(group, group in FOLDED_BY_DEFAULT)
 
     def _stamp_folded(self, rows: list) -> list:
-        opened = getattr(self, '_racers_open', set())
+        opened: set = getattr(self, '_racers_open', set())
         for row in rows:
             row['_folded'] = self._is_folded(row['_group'])
             row['_who_open'] = row.get('id') in opened
@@ -49,7 +49,7 @@ class MatchBoardFoldMixin:
         Kept for the tab, not saved: it's a peek. Held on the view rather than
         the row, so a live update to the row doesn't fold it again.
         """
-        opened = getattr(self, '_racers_open', set())
+        opened: set = getattr(self, '_racers_open', set())
         opened ^= {match_id}
         self._racers_open = opened
         for row in self.table.rows:
