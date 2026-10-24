@@ -148,7 +148,10 @@ async def crew_coverage_report(
 ) -> Dict[str, Any]:
     """Crew coverage across a window: which matches have commentary and tracking.
 
-    Requires admin access. `start` and `end` are ISO 8601 timestamps.
+    `tournament_rows` answers "who crewed how many matches of each tournament":
+    approved crew on finished matches that went to a stage, split into
+    commentary and tracker. The other counts include unstaged and upcoming
+    matches. Requires admin access. `start` and `end` are ISO 8601 timestamps.
     """
     start_dt, end_dt = _window(start, end)
     return await ReportsService().crew_coverage(

@@ -52,6 +52,12 @@ async def seed_crew_for_tenant(
         match=finished, user=proctor, tenant=tenant,
         defaults={**approved, "acknowledged_at": now - timedelta(hours=3)},
     )
+    # The finished match went out on Stage 1, so it is what Reports → Crew
+    # Activity's "Crew by tournament" counts; a tracker gives it both columns.
+    await Tracker.get_or_create(
+        match=finished, user=players[3], tenant=tenant,
+        defaults={**approved, "acknowledged_at": now - timedelta(hours=3)},
+    )
     await Commentator.get_or_create(
         match=future, user=sm, tenant=tenant, defaults=approved,
     )

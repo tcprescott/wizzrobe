@@ -410,6 +410,49 @@ class TestCrewCoverage:
         # contribution_rows are limited to Alice.
         assert [c['user_id'] for c in out['contribution_rows']] == [alice.id]
 
+    async def test_tournament_rows_count_only_finished_staged_approved_crew(self, db):
+        cup = await Tournament.create(name='Cup')
+        bowl = await Tournament.create(name='Bowl')
+        stage = await Stage.create(name='Alpha')
+        alice = await _user(1, 'Alice')
+        bob = await _user(2, 'Bob')
+        cara = await _user(3, 'Cara')
+        done = utc(2025, 10, 23, 19, 0)
+
+        aired = await Match.create(tournament=cup, stage=stage, scheduled_at=utc(2025, 10, 23, 18, 0),
+                                   finished_at=done)
+        await Commentator.create(user=alice, match=aired, approved=True)
+        await Commentator.create(user=cara, match=aired, approved=False)
+        await Tracker.create(user=bob, match=aired, approved=True)
+
+        aired_again = await Match.create(tournament=cup, stage=stage,
+                                         scheduled_at=utc(2025, 10, 23, 20, 0), finished_at=done)
+        await Commentator.create(user=alice, match=aired_again, approved=True)
+        await Commentator.create(user=bob, match=aired_again, approved=True)
+
+        # Never got a stage: approved crew on it never went on air.
+        unstaged = await Match.create(tournament=cup, scheduled_at=utc(2025, 10, 23, 16, 0),
+                                      finished_at=done)
+        await Commentator.create(user=cara, match=unstaged, approved=True)
+
+        # On a stage but not played yet.
+        upcoming = await Match.create(tournament=bowl, stage=stage, scheduled_at=utc(2025, 10, 23, 22, 0))
+        await Commentator.create(user=cara, match=upcoming, approved=True)
+
+        out = await ReportsService().crew_coverage(DAY_START, DAY_END, actor=(await _actor()))
+
+        assert [t['tournament_id'] for t in out['tournament_rows']] == [cup.id]
+        group = out['tournament_rows'][0]
+        assert (group['commentary'], group['tracker']) == (3, 1)
+        assert [(p['name'], p['commentary'], p['tracker'], p['total']) for p in group['people']] == [
+            ('Alice', 2, 0, 2),
+            ('Bob', 1, 1, 2),
+        ]
+
+        mine = await ReportsService().crew_coverage(DAY_START, DAY_END, user_id=bob.id,
+                                                    actor=(await _actor()))
+        assert [p['user_id'] for p in mine['tournament_rows'][0]['people']] == [bob.id]
+
     async def test_approved_only_excludes_uncovered_hours_from_total(self, db):
         t, alice, bob, cara, *_ = await self._seed()
         out = await ReportsService().crew_coverage(DAY_START, DAY_END, approved_only=True, actor=(await _actor()))

@@ -191,8 +191,10 @@ async def match_operations(
     summary="Per-match crew coverage and per-person contribution",
     description=(
         "Shows commentator and tracker signups against each match's requirement, flags stream "
-        "candidates short on approved crew, and totals the hours each crew member covered. With `user_id` "
-        "set, only that person's matches and contribution are returned.\n\n"
+        "candidates short on approved crew, and totals the hours each crew member covered. `tournament_rows` "
+        "counts the matches each person actually crewed per tournament: approved crew on finished "
+        "matches that went to a stage. With `user_id` set, only that person's matches and "
+        "contribution are returned.\n\n"
         "Fails with 400 when `end` is before `start`.\n\n"
         "**Who can call this:** Staff, tournament admins or crew coordinators."
     ),
