@@ -397,6 +397,7 @@ class MatchDisplayService:
             'players': [
                 {
                     'name': p.user.preferred_name,
+                    'player_id': p.id,
                     'user_id': p.user_id,
                     'finish_rank': p.finish_rank,
                     'station': p.assigned_station,
