@@ -7700,9 +7700,12 @@ ol.wiz-help-list { list-style-type: decimal; }
 .run-sheet__card--split {
     flex-wrap: wrap;
 }
-/* Zero basis so only the full-width seed strip wraps, never the step. */
+/* Zero basis so only the full-width seed strip wraps; the min-width drops the
+   step under the names on the narrowest phones, where a Roll seed or Start
+   button beside them squeezed the ADA line to a word a line at 360px. */
 .run-sheet__card--split > .run-sheet__card-open {
     flex-basis: 0;
+    min-width: 13rem;
 }
 .run-sheet__seed-strip {
     flex: 1 0 100%;
