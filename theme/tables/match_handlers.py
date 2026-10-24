@@ -71,8 +71,6 @@ class MatchTableHandlersMixin:
             await dialog.open()
 
     async def _handle_toggle_approval(self, role, event):
-        from application.services import CrewService, get_user_from_session
-
         row = event.args['row']
         idx = event.args['idx']
         match_id = row['id']
@@ -94,7 +92,35 @@ class MatchTableHandlersMixin:
             ui.notify(f'That {role} could not be found. The page may be out of date.', color='warning')
             return
 
-        crew_member = items[idx]
+        await self._confirm_crew_approval(role, row, m, items[idx])
+
+    async def _handle_quick_approve(self, args):
+        """Approve from the run sheet's Approve button, already tapped twice.
+
+        The button has been its own confirmation, so the dialog only comes
+        back when the person is committed elsewhere at the same time.
+        """
+        row = args['row']
+        role = {'commentators': 'commentator', 'trackers': 'tracker'}.get(args.get('role'))
+        if role is None:
+            ui.notify(f"Unknown role: {args.get('role')}", color='warning')
+            return
+        attr = f'{role}s'
+        m = await self.get_query().filter(id=row['id']).prefetch_related(attr, f'{attr}__user').first()
+        crew_member = next((c for c in getattr(m, attr, []) if c.id == args.get('crew_id')), None) if m else None
+        if crew_member is None:
+            ui.notify(f'That {role} could not be found. The page may be out of date.', color='warning')
+            return
+        if crew_member.approved:
+            ui.notify(f'{crew_member.user.preferred_name} is already approved.', color='info')
+            await self.update_row_by_id(row['id'])
+            return
+        await self._confirm_crew_approval(role, row, m, crew_member, quick=True)
+
+    async def _confirm_crew_approval(self, role, row, m, crew_member, *, quick: bool = False):
+        from application.services import CrewService
+
+        match_id = row['id']
         name = crew_member.user.preferred_name
         approving = not crew_member.approved
 
@@ -123,6 +149,9 @@ class MatchTableHandlersMixin:
             clashes = await CrewService().find_scheduling_conflicts(
                 crew_member.user, m, role,
             )
+            if quick and not clashes:
+                await apply()
+                return
             message = (f'Approve {name} as {role} for {match_row_label(row)}?\n\n'
                        "They'll get a Discord message asking them to acknowledge the assignment.")
             if clashes:

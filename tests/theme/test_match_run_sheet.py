@@ -4,9 +4,14 @@ import time
 
 from theme.dialog.match_sheet import seed_rollable
 from theme.tables.match_run_sheet import (
+    CREW_NAMES,
     PROCTOR_RUN_SHEET_COLUMNS,
     RUN_SHEET_COLUMNS,
+    _body_slot,
+    _item_slot,
     arrange_run_sheet,
+    crew_names,
+    run_sheet_crew,
     run_sheet_status,
 )
 
@@ -153,3 +158,43 @@ def test_no_column_points_at_a_list():
     row = arrange_run_sheet([_row(1, 'Scheduled', commentators=[], trackers=[{'name': 'T'}])])[0]
     for col in RUN_SHEET_COLUMNS + PROCTOR_RUN_SHEET_COLUMNS:
         assert not isinstance(row.get(col['field']), (list, set, tuple)), col['name']
+
+
+class TestQuickApprove:
+    """Approve beside a waiting crew name on the admin run sheet."""
+
+    def _crew(self, state):
+        row = _row(1, state, crew_wanted={'commentators': True},
+                   commentators=[{'name': 'Fry', 'approved': True, 'id': 7},
+                                 {'name': 'tsigma6', 'approved': False, 'id': 8}])
+        return run_sheet_crew(row)[0]
+
+    def test_people_carry_their_crew_id(self):
+        assert [p['id'] for p in self._crew('Scheduled')['people']] == [7, 8]
+
+    def test_only_unfinished_matches_take_approvals(self):
+        assert self._crew('Started')['approvable']
+        assert not self._crew('Finished')['approvable']
+
+    def test_no_button_unless_the_board_asks(self):
+        assert 'approve_crew' not in CREW_NAMES
+        assert CREW_NAMES == crew_names()
+        assert 'approve_crew' not in _body_slot(False) + _item_slot(False)
+
+    def test_two_taps_and_the_viewers_gate(self):
+        names = crew_names('[3].includes(props.row.tournament_id)')
+        assert "$parent.$emit('approve_crew'" in names
+        assert 'p._arm ?' in names
+        assert '[3].includes(props.row.tournament_id)' in names
+        # The note gives way to the button rather than sitting beside it.
+        assert 'p.note && !(' in names
+
+    def test_phone_card_stops_being_a_button_when_it_holds_one(self):
+        # A button inside the card's button is invalid HTML and the inner click
+        # would never land, so the approving board's card is a div whose names
+        # are the keyboard's way in.
+        assert '<button v-if="!props.row._folded" type="button" class="run-sheet__card"' in _item_slot(False)
+        slot = _item_slot(False, approve='true')
+        assert '<div v-if="!props.row._folded" class="run-sheet__card"' in slot
+        assert 'class="run-sheet__who run-sheet__open"' in slot
+        assert "approve_crew" in _body_slot(False, approve='true')
