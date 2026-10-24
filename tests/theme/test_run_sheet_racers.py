@@ -55,3 +55,9 @@ def test_opening_a_race_survives_a_rearrange():
 def test_every_run_sheet_slot_draws_the_toggle():
     for slot in (_body_slot(False), _body_slot(True), _item_slot(False), _item_slot(True), _BODY_SLOT, _ITEM_SLOT):
         assert "toggle_racers" in slot
+
+
+def test_approve_card_builds_and_folds_racers():
+    slot = _item_slot(False, approve='true')
+    assert "toggle_racers" in slot
+    assert '<button type="button" class="run-sheet__who run-sheet__open"' in slot
