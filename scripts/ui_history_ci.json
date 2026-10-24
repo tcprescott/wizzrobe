@@ -305,6 +305,35 @@
           }
         }
       ]
+    },
+    {
+      "name": "dm-links-consumed",
+      "steps": [
+        {
+          "goto": "/admin/match-schedule?reschedule_request=999999",
+          "expect": {
+            "url": "^/admin/match-schedule$"
+          }
+        },
+        {
+          "reload": true,
+          "expect": {
+            "url": "^/admin/match-schedule$"
+          }
+        },
+        {
+          "goto": "/admin/match-schedule?comments=999999",
+          "expect": {
+            "url": "^/admin/match-schedule\\?match_id=999999$"
+          }
+        },
+        {
+          "goto": "/home/my-schedule?agree=999999",
+          "expect": {
+            "url": "^/home/my-schedule$"
+          }
+        }
+      ]
     }
   ]
 }

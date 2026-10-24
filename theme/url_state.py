@@ -38,7 +38,10 @@ from weakref import WeakKeyDictionary
 from nicegui import Client, context, ui
 from nicegui.elements.mixins.value_element import ValueElement
 
-__all__ = ['PUSH_ATTR', 'TAIL', 'TITLE_SEPARATOR', 'UrlParam', 'UrlState', 'bind_url', 'iso_day', 'url_param', 'url_state']
+__all__ = [
+    'PUSH_ATTR', 'TAIL', 'TITLE_SEPARATOR', 'UrlParam', 'UrlState', 'bind_url', 'consume_deep_link',
+    'iso_day', 'url_param', 'url_state',
+]
 
 logger = logging.getLogger(__name__)
 
@@ -249,8 +252,9 @@ class UrlState:
 
         ``keep_foreign`` keeps parameters no control owns: the ones a DM link
         arrived with (``?schedule=``, ``?match=``) open something once, on
-        arrival, so the address keeps them until the viewer moves on and then
-        lets them go, rather than reopening the dialog on every reload after.
+        arrival, so the address keeps them until the page has acted on one
+        (:meth:`consume`) or the viewer moves on, rather than reopening the
+        dialog on every reload after.
         """
         current = [p for p in self._params if self._current(p)]
         owned = {p.key for p in self._params}
@@ -287,6 +291,25 @@ class UrlState:
         """A late-built control registered: bring the address up to date in place."""
         if not self.restoring and not self.busy:
             self.sync(history='replace', keep_foreign=True)
+
+    def consume(self, *keys: str, **replace: Any) -> None:
+        """A one-shot DM link has done its job: take ``keys`` out of the address.
+
+        Kept, a reload replays it, reopening a dialog the viewer already dealt
+        with or repeating "that request has already been dealt with" over a
+        request they answered a moment ago. ``replace`` writes what the link
+        settled into instead (``?comments=<id>`` leaves a board narrowed to the
+        match, so the reload keeps that filter as ``?match_id=<id>``).
+        """
+        changed = False
+        for key in keys:
+            changed = self.query.pop(key, None) is not None or changed
+        for key, value in replace.items():
+            if value is not None and self.query.get(key) != str(value):
+                self.query[key] = str(value)
+                changed = True
+        if changed:
+            self.settle()
 
     # --- Back and Forward -----------------------------------------------------
 
@@ -350,6 +373,11 @@ def url_state(client: Optional[Client] = None) -> UrlState:
         # every closed tab's whole page stayed in memory (SGLMAN-29).
         client.on_delete(lambda: _states.pop(client, None))
     return state
+
+
+def consume_deep_link(*keys: str, client: Optional[Client] = None, **replace: Any) -> None:
+    """Strip one-shot deep-link parameters once acted on; see :meth:`UrlState.consume`."""
+    url_state(client).consume(*keys, **replace)
 
 
 def url_param(

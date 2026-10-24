@@ -43,7 +43,7 @@ from theme.layout_probe import skip_layout_probe
 from theme.links import link_button
 from theme.steady import steady_refreshable
 from theme.tables.admin_crud import capture_render_context, scoped_background
-from theme.url_state import url_param, url_state
+from theme.url_state import consume_deep_link, url_param, url_state
 
 #: Where the viewer's List / Timeline choice is remembered.
 VIEW_KEY = 'my_schedule_view'
@@ -63,6 +63,11 @@ def nothing_yet() -> None:
             link_button('Browse tournaments', home_url(HOME_TOURNAMENTS), icon='emoji_events', new_tab=False) \
                 .props('unelevated no-caps color=primary')
         cat_fact()
+
+
+#: DM link parameters that open something once. Left in the address, a reload
+#: reopens the dialog or repeats its "already done" notice.
+_ONE_SHOT_LINKS = ('schedule', 'reschedule', 'hard', 'agree', 'book', 'startgg', 'comments', 'release', 'shifts')
 
 
 async def my_schedule_tab(
@@ -169,6 +174,8 @@ async def my_schedule_tab(
             nothing_yet()
         state_links.update(dict.fromkeys(state_links))
         shift_links.update(release=None, shifts=False)
+        # ``match`` is a filter the board still shows, so it stays.
+        consume_deep_link(*_ONE_SHOT_LINKS)
 
     @steady_refreshable
     async def body() -> None:

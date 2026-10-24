@@ -32,7 +32,7 @@ from theme.tables.admin_crud import refresh_button
 from theme.tables.export import csv_export_menu_item
 from theme.tables.preferences import TableKeys, preferences_button, search_input
 from theme.tables.user import UserTableView
-from theme.url_state import bind_url
+from theme.url_state import bind_url, consume_deep_link
 
 _TA_FILTER = '_tournament_admin'
 #: The Users-tab "Joined in the last N days" filter.
@@ -122,6 +122,7 @@ async def admin_users_page(
                     'ADA requests aren’t turned on for this community, so that '
                     'link has nothing to open.', color='warning',
                 )
+                consume_deep_link('ada_request')
             await _members_panel(
                 accommodations=False, emergency_contacts=emergency_contacts, member=member,
             )
@@ -167,6 +168,7 @@ async def admin_users_page(
         await recount()
         if ada_request is not None:
             await open_ada(ada_request)
+            consume_deep_link('ada_request')
 
 
 async def _members_panel(

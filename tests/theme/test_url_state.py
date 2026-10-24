@@ -11,7 +11,7 @@ from datetime import date
 from pathlib import Path
 
 from theme.anchors import anchor_id, match_anchor, shift_anchor
-from theme.url_state import iso_day
+from theme.url_state import UrlState, iso_day
 
 REPO = Path(__file__).resolve().parents[2]
 
@@ -107,3 +107,78 @@ def test_a_late_replace_cannot_rewrite_the_entry_back_landed_on():
     script = run.call_args[0][0]
     assert script.startswith('if(location.pathname==="/t/x/home/tournaments")')
     assert 'replaceState' in script and 'pushState' not in script
+
+
+def _state(query: dict) -> UrlState:
+    from unittest.mock import MagicMock
+
+    state = UrlState.__new__(UrlState)
+    state.client = MagicMock()
+    state.path, state.tail, state.query, state._params = '/t/x/admin/match-schedule', '', dict(query), []
+    state._at, state.tab, state.base_title = '/t/x/admin/match-schedule', None, 'X'
+    state.restoring, state.busy = False, 0
+    return state
+
+
+def test_a_handled_deep_link_leaves_the_address_so_a_reload_cannot_replay_it():
+    # Staff answered the request from its DM link; a reload used to reread
+    # ?reschedule_request= and say "That request has already been dealt with."
+    from unittest.mock import patch
+
+    state = _state({'reschedule_request': '33', 'match_id': '7'})
+    with patch('theme.url_state.ui.run_javascript') as run:
+        state.consume('reschedule_request')
+    script = run.call_args[0][0]
+    assert 'reschedule_request' not in script
+    assert '"/t/x/admin/match-schedule?match_id=7"' in script
+    assert 'replaceState' in script and 'pushState' not in script
+    assert state.query == {'match_id': '7'}
+
+
+def test_a_consumed_link_can_leave_the_filter_it_settled_into():
+    from unittest.mock import patch
+
+    state = _state({'comments': '12'})
+    with patch('theme.url_state.ui.run_javascript') as run:
+        state.consume('comments', match_id=12)
+    assert '"/t/x/admin/match-schedule?match_id=12"' in run.call_args[0][0]
+
+
+def test_consuming_a_link_that_is_not_there_writes_nothing():
+    from unittest.mock import patch
+
+    state = _state({'view': 'unbooked'})
+    with patch('theme.url_state.ui.run_javascript') as run:
+        state.consume('reschedule_request', 'agree')
+    run.assert_not_called()
+
+
+#: DM link parameters that stay in the address: they name a filter or a view
+#: (the board narrowed to one match, a qualifier and its sub-tab), not something
+#: that opens once.
+_PERSISTENT_LINK_PARAMS = {'match', 'qualifier', 'tab'}
+
+
+def test_every_one_shot_dm_link_parameter_is_consumed():
+    # A new DM deep link that opens a dialog must also strip itself once used,
+    # or a reload replays it. Keys come from the link builders DMs use.
+    import re
+
+    links = (REPO / 'application/utils/app_links.py').read_text()
+    built = {
+        key for call in re.findall(r'(?:admin|home)_url\(([^)]*)\)', links)
+        for key in re.findall(r'\b([a-z_]+)=', call) if key != 'params'
+    }
+    assert {'reschedule_request', 'comments', 'agree'} <= built
+
+    consumed: set[str] = set()
+    for root in (REPO / 'pages', REPO / 'theme'):
+        for path in root.rglob('*.py'):
+            source = path.read_text(encoding='utf-8')
+            for call in re.findall(r'consume_deep_link\(([^)]*)\)', source):
+                consumed |= set(re.findall(r"'([a-z_]+)'", call))
+                consumed |= set(re.findall(r'\b([a-z_]+)=', call)) - {'client'}
+            for group in re.findall(r'_ONE_SHOT_LINKS = \(([^)]*)\)', source):
+                consumed |= set(re.findall(r"'([a-z_]+)'", group))
+    missing = built - consumed - _PERSISTENT_LINK_PARAMS
+    assert not missing, f'DM link parameters a reload would replay: {sorted(missing)}'
