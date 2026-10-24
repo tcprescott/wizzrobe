@@ -30,6 +30,11 @@ from models import (
 # forecast before it's treated as a no-show and stops growing.
 LATE_PUSH_LIMIT = timedelta(hours=2)
 
+# Players are asked to check in at the scheduled time; the race itself starts
+# about this long after check-in (seat_delay/setup in the match operations
+# report measure it). The capacity forecast plans unstarted matches with it.
+CHECK_IN_TO_START = timedelta(minutes=15)
+
 
 def _now() -> datetime:
     return datetime.now(timezone.utc)
@@ -104,13 +109,18 @@ class ReportsService:
         return to_display(dt)
 
     @staticmethod
-    def _match_window(match: Match, now: Optional[datetime] = None) -> Optional[Tuple[datetime, datetime]]:
+    def _match_window(
+        match: Match,
+        now: Optional[datetime] = None,
+        setup: timedelta = timedelta(0),
+    ) -> Optional[Tuple[datetime, datetime]]:
         """The span a match holds its players at a setup.
 
         A late match nobody has checked in keeps sliding forward with ``now``
         (up to ``LATE_PUSH_LIMIT``, after which it reads as a no-show); a match
         checked in late runs from its check-in. ``now=None`` takes the schedule
-        at face value.
+        at face value. An unstarted match is expected to start ``setup`` after
+        its check-in (actual or expected), so its estimated end moves with it.
         """
         scheduled = ReportsService._local(match.scheduled_at)
         if scheduled is None:
@@ -129,12 +139,14 @@ class ReportsService:
                 duration = match.tournament.average_match_duration
             if match.started_at:
                 anchor = ReportsService._local(match.started_at)
-            elif seated:
-                anchor = max(scheduled, seated)
-            elif now_local is not None and now_local > scheduled:
-                anchor = min(now_local, scheduled + LATE_PUSH_LIMIT)
             else:
-                anchor = scheduled
+                if seated:
+                    check_in = max(scheduled, seated)
+                elif now_local is not None and now_local > scheduled:
+                    check_in = min(now_local, scheduled + LATE_PUSH_LIMIT)
+                else:
+                    check_in = scheduled
+                anchor = check_in + setup
             end = anchor + timedelta(minutes=duration)
         if end < start:
             end = start
@@ -176,7 +188,7 @@ class ReportsService:
 
         windows: List[Tuple[datetime, datetime, int, Match]] = []
         for match in matches:
-            window = self._match_window(match, now=now)
+            window = self._match_window(match, now=now, setup=CHECK_IN_TO_START)
             if not window:
                 continue
             ws, we = window
@@ -252,7 +264,7 @@ class ReportsService:
         now = _now()
         out: List[Match] = []
         for match in matches:
-            window = self._match_window(match, now=now)
+            window = self._match_window(match, now=now, setup=CHECK_IN_TO_START)
             if not window:
                 continue
             ws, we = window
