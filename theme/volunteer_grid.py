@@ -23,9 +23,9 @@ from application.services.volunteer import (
     roles_config,
 )
 from application.services.volunteer.volunteer_schedule_grid import ARRIVED, LATE, NOT_HERE
-from application.timezone_context import current_timezone_name
+from application.timezone_context import current_timezone_name, uses_12_hour
 from application.utils.discord_messages_volunteer import late_label
-from application.utils.timezone import format_local_time
+from application.utils.timezone import format_local_hour, format_local_time
 from theme.dialog._helpers import dialog_actions, dialog_more_menu, form_dialog
 from theme.menu import menu_action
 
@@ -355,13 +355,14 @@ def _render_shift(
 
 def timeline_region(midnight: datetime, first_hour: int, label: str, *, focusable: bool = False) -> ui.element:
     """The outer element of an hour-scale grid. ``data-t0`` (the instant at the
-    top of the scale) and ``data-tz`` let static/js/timeline.js turn a pointer
+    top of the scale), ``data-tz`` and ``data-h12`` let static/js/timeline.js turn a pointer
     position back into a time, and keep the now line moving."""
     t0 = int((midnight + timedelta(hours=first_hour)).timestamp() * 1000)
-    props = f'role=region aria-label="{label}" data-t0={t0} data-tz="{current_timezone_name()}"'
+    h12 = 1 if uses_12_hour() else 0
+    props = f'role=region aria-label="{label}" data-t0={t0} data-tz="{current_timezone_name()}" data-h12={h12}'
     if focusable:
         props = f'tabindex=0 {props}'
-    return ui.element('div').classes('wiz-vgrid').props(props)
+    return ui.element('div').classes('wiz-vgrid wiz-vgrid--h12' if h12 else 'wiz-vgrid').props(props)
 
 
 def render_hour_column(midnight: datetime, first_hour: int, last_hour: int, now_hour: Optional[float]) -> None:
@@ -370,7 +371,7 @@ def render_hour_column(midnight: datetime, first_hour: int, last_hour: int, now_
         ui.element('div').classes('wiz-vgrid__head')
         with ui.element('div').classes('wiz-vgrid__body').style(f'height: {_px(last_hour - first_hour)};'):
             for hour in range(first_hour, last_hour):
-                ui.label(format_local_time(midnight + timedelta(hours=hour))) \
+                ui.label(format_local_hour(midnight + timedelta(hours=hour))) \
                     .classes('wiz-vgrid__hour').style(f'top: {_px(hour - first_hour)};')
             now_tag = ui.label(format_local_time(datetime.now(timezone.utc))).classes('wiz-vgrid__tag wiz-vgrid__tag--now')
             _place(now_tag, first_hour, now_hour)

@@ -170,6 +170,7 @@ class AuditActions:
     THEME_LOGO_REMOVED = 'theme.logo_removed'
     TIMEZONE_UPDATED = 'timezone.updated'
     USER_TIMEZONE_UPDATED = 'user.timezone_updated'
+    USER_HOUR_CYCLE_UPDATED = 'user.hour_cycle_updated'
     PROFILE_NUDGES_UPDATED = 'profile_nudges.updated'
     PROFILE_NUDGE_DISMISSED = 'profile_nudge.dismissed'
 

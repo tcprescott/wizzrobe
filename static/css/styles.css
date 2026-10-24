@@ -6709,6 +6709,11 @@ ol.wiz-help-list { list-style-type: decimal; }
     display: none;
 }
 
+/* "12:45 PM" in the now and pointer tags needs more room than "12:45". */
+.wiz-vgrid--h12 .wiz-vgrid__times {
+    flex-basis: 4.5rem;
+}
+
 /* A phone has no hover: pressing and dragging down the hour column moves the
    pointer line instead, so the column must not scroll the page. */
 .wiz-vgrid__times {
@@ -7374,6 +7379,7 @@ ol.wiz-help-list { list-style-type: decimal; }
 .run-sheet__time {
     font-weight: 700;
     font-variant-numeric: tabular-nums;
+    white-space: nowrap;
 }
 .run-sheet__until {
     display: block;

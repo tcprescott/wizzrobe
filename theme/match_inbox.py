@@ -12,6 +12,7 @@ off the board's own rows, so they follow the board's filters the way the old
 count strip did.
 """
 
+from datetime import datetime, timezone
 from typing import Any, Awaitable, Callable, Optional
 
 from nicegui import context, ui
@@ -39,6 +40,10 @@ def _when(dt) -> str:
     if local.date() == today_local():
         return format_local_time(dt)
     return f'{local:%a} {local.day} {local:%b} {format_local_time(dt)}'
+
+
+def _clock(ts: float) -> str:
+    return format_local_time(datetime.fromtimestamp(ts, tz=timezone.utc))
 
 
 def _names(match) -> str:
@@ -222,10 +227,9 @@ class MatchInbox:
             elif not row.get('has_result'):
                 with ui.element('span').classes('wiz-chip wiz-chip--cancelled'):
                     ui.label('No winner')
-        finished = row.get('finished') or ''
         meta = row.get('tournament') or ''
-        if finished:
-            meta += f' · finished {finished[-5:]}'
+        if row.get('finished_ts'):
+            meta += f" · finished {_clock(row['finished_ts'])}"
         ui.label(meta).classes('match-inbox__meta')
         h = self.handlers
         with ui.row().classes('gap-2 items-center'):
@@ -257,8 +261,8 @@ class MatchInbox:
             title = f"{winner_name} won on {site['site']}"
         ui.label(title).classes('match-inbox__title')
         meta = row.get('tournament') or ''
-        if row.get('scheduled_at'):
-            meta += f" · booked {row['scheduled_at'][-5:]}"
+        if row.get('scheduled_ts'):
+            meta += f" · booked {_clock(row['scheduled_ts'])}"
         if row.get('stage'):
             meta += f" on {row['stage']}"
         ui.label(meta).classes('match-inbox__meta')
@@ -316,7 +320,7 @@ class MatchInbox:
     def _late_item(self, row: dict) -> None:
         match_id = row['id']
         ui.label(row.get('_who') or row.get('title') or 'Match').classes('match-inbox__title')
-        when = (row.get('scheduled_at') or '')[-5:]
+        when = _clock(row['scheduled_ts']) if row.get('scheduled_ts') else ''
         ui.label(f"{row.get('tournament') or ''} · {'was' if row.get('is_overdue') else 'at'} {when}") \
             .classes('match-inbox__meta')
         for late in row.get('_late') or []:

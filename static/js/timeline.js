@@ -16,17 +16,22 @@
   var SNAP_MIN = 5;
   var formats = {};
 
-  function format(ms, tz) {
-    if (!formats[tz]) {
+  // The grid's data-h12 carries the viewer's clock, so these tags match the
+  // server-rendered times beside them ("21:30", or "9:30 PM").
+  function format(ms, tz, h12) {
+    var key = tz + (h12 ? '|12' : '|24');
+    if (!formats[key]) {
+      var opts = h12
+        ? { hour: 'numeric', minute: '2-digit', hour12: true }
+        : { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' };
+      var locale = h12 ? 'en-US' : 'en-GB';
       try {
-        formats[tz] = new Intl.DateTimeFormat('en-GB', {
-          hour: '2-digit', minute: '2-digit', hourCycle: 'h23', timeZone: tz || undefined,
-        });
+        formats[key] = new Intl.DateTimeFormat(locale, Object.assign({ timeZone: tz || undefined }, opts));
       } catch (e) {
-        formats[tz] = new Intl.DateTimeFormat('en-GB', { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
+        formats[key] = new Intl.DateTimeFormat(locale, opts);
       }
     }
-    return formats[tz].format(new Date(ms));
+    return formats[key].format(new Date(ms));
   }
 
   function scale(grid) {
@@ -56,7 +61,7 @@
     var y = clientY - rect.top;
     if (y < 0 || y >= rect.height) { place(grid, 'cursor', null); return; }
     var minutes = Math.round((y / HOUR_PX) * 60 / SNAP_MIN) * SNAP_MIN;
-    place(grid, 'cursor', (minutes / 60) * HOUR_PX, format(t0 + minutes * 60000, grid.dataset.tz));
+    place(grid, 'cursor', (minutes / 60) * HOUR_PX, format(t0 + minutes * 60000, grid.dataset.tz, grid.dataset.h12 === '1'));
   }
 
   var hovered = null;
@@ -105,7 +110,7 @@
       if (!body) return;
       var offset = ((now - Number(grid.dataset.t0)) / 3600000) * HOUR_PX;
       var inside = offset >= 0 && offset < body.offsetHeight;
-      place(grid, 'now', inside ? offset : null, format(now, grid.dataset.tz));
+      place(grid, 'now', inside ? offset : null, format(now, grid.dataset.tz, grid.dataset.h12 === '1'));
     });
   }
   setInterval(tickNow, 30000);
