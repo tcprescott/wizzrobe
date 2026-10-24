@@ -25,6 +25,7 @@ from application.services.reporting_shared import (
     ensure_report_reader,
     ensure_volunteer_report_reader,
     is_crew_covered,
+    is_outlier_duration,
     to_display,
     window_hours,
 )
@@ -424,8 +425,10 @@ class AnalyticsService:
                 if abs(delay) <= ON_TIME_THRESHOLD_MIN:
                     stats['on_time_count'] += 1
             if started and finished:
-                stats['_duration_sum'] += int((finished - started).total_seconds() / 60)
-                stats['_duration_seen'] += 1
+                duration = int((finished - started).total_seconds() / 60)
+                if not is_outlier_duration(duration, t):
+                    stats['_duration_sum'] += duration
+                    stats['_duration_seen'] += 1
 
             if match.is_stream_candidate:
                 stats['stream_candidates'] += 1

@@ -32,7 +32,7 @@ from application.services.exports import tournament_export_builder as builder
 from application.services.feature_flag_service import FeatureFlagService
 from application.services.tournament_service import TournamentService
 from application.tenant_context import require_tenant_id
-from application.timezone_context import current_timezone_name, tz_scope
+from application.timezone_context import current_timezone_name, hour_cycle_scope, tz_scope
 from application.utils.timezone import format_local_date
 from models import DataExport, DataExportKind, DataExportStatus, FeatureFlag, Tournament, User
 
@@ -287,7 +287,8 @@ class DataExportService:
 
         start = datetime.fromisoformat(export.params['start'])
         end = datetime.fromisoformat(export.params['end'])
-        with tz_scope(export.params.get('timezone')):
+        # A CSV is data, so it stays on the 24-hour clock whoever started it.
+        with tz_scope(export.params.get('timezone')), hour_cycle_scope(False):
             bundle = await VolunteerExportService().build(actor, start, end)
             content = bundle.to_zip_bytes()
         stamp = datetime.now(timezone.utc).strftime('%Y%m%d-%H%M')

@@ -22,7 +22,7 @@ def _row(state='Started', **extra):
 
 def test_unstarted_match_keeps_its_booked_time():
     row = decorate_run_sheet_row(_row(state='Scheduled'))
-    assert row['_time'] == '20:00'
+    assert row['_time'] == _hhmm(BOOKED)
     assert row['_until'] == ''
 
 
@@ -65,5 +65,13 @@ def test_every_run_sheet_template_draws_the_end_line():
 
 def test_booked_time_is_kept_for_the_match_sheet():
     row = decorate_run_sheet_row(_row(started_ts=STARTED))
-    assert row['_booked_time'] == '20:00'
-    assert row['_time'] != '20:00' or _hhmm(STARTED) == '20:00'
+    assert row['_booked_time'] == _hhmm(BOOKED)
+    assert row['_time'] == _hhmm(STARTED)
+
+
+def test_twelve_hour_viewer_gets_the_booked_time_in_full():
+    from application.timezone_context import hour_cycle_scope, tz_scope
+
+    with tz_scope('UTC'), hour_cycle_scope(True):
+        row = decorate_run_sheet_row(_row(state='Scheduled'))
+    assert row['_time'] == '8:00\u00a0PM'

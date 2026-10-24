@@ -24,7 +24,10 @@ from application.tenant_context import (
     tenant_scope,
 )
 from application.timezone_context import (
+    bind_hour12,
+    get_browser_hour_cycle,
     get_browser_timezone,
+    pick_hour12,
     set_timezone_name,
     stash_client_browser_timezone,
     stash_client_timezone,
@@ -36,16 +39,19 @@ from models import FeatureFlag, Role
 FeatureGate = FeatureFlag | tuple[FeatureFlag, ...] | None
 
 
-def _bind_display_timezone(name: str) -> None:
+def _bind_display_timezone(name: str, user=None) -> None:
     """Make ``name`` the display clock for this page build and this connection.
 
     Both halves are needed and neither is redundant: the contextvar serves the
     rest of *this* HTTP request (the page builder and everything it awaits), and
     the client stash serves every later websocket event handler on the same
     connection, which runs after the request — and its contextvar — is gone.
+
+    The 12/24-hour choice rides along: ``user``'s saved one, else the browser's.
     """
     set_timezone_name(name)
     stash_client_timezone(name)
+    bind_hour12(pick_hour12(getattr(user, 'hour_cycle', None), get_browser_hour_cycle()))
 
 
 async def bind_display_timezone(tenant_id: int, user=None) -> str:
@@ -61,7 +67,7 @@ async def bind_display_timezone(tenant_id: int, user=None) -> str:
     stash_client_browser_timezone(browser_tz)
     settings = await TimezoneService.get_settings(tenant_id)
     name = TimezoneService.pick(settings, user=user, browser_timezone=browser_tz)
-    _bind_display_timezone(name)
+    _bind_display_timezone(name, user)
     return name
 
 
@@ -360,7 +366,7 @@ def _tenant_page(
                 # Now that the viewer is known, their saved preference can
                 # outrank the browser hint the first pass used.
                 _bind_display_timezone(
-                    TimezoneService.pick(tz_settings, user=user, browser_timezone=browser_tz)
+                    TimezoneService.pick(tz_settings, user=user, browser_timezone=browser_tz), user,
                 )
                 if await enforce_membership(tid, user, is_super_admin=is_super_admin):
                     return

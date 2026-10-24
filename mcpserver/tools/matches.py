@@ -202,6 +202,10 @@ async def match_operations_report(
     `scheduled_at`, or check-in, start and finish stamped the same instant
     (a match closed as played on its bracket site). They stay in `rows` and
     the match counts but are left out of every average and percentage.
+
+    `duration_outlier_ids` lists matches whose length alone is left out of
+    `avg_duration_min`: zero minutes, or more than three times the
+    tournament's configured match length (Finish clicked hours late).
     """
     return await ReportsService().match_operations(
         start=start, end=end, tournament_id=tournament_id, actor=current_actor().user,

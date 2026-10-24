@@ -24,7 +24,7 @@ from typing import Callable, Optional
 from nicegui import ui
 
 from application.utils.match_labels import has_undecided, matchup_parts
-from application.utils.timezone import to_local, today_local
+from application.utils.timezone import format_local_time, to_local, today_local
 from theme.busy import slot_busy_template
 from theme.matchup import WHO_PARTS_VUE
 from theme.tables.match_slots import seed_value_template
@@ -365,8 +365,7 @@ def _fold_racers(row: dict, names: list) -> None:
 
 
 def _hhmm(ts: float) -> str:
-    local = to_local(datetime.fromtimestamp(ts, tz=timezone.utc))
-    return f'{local:%H:%M}' if local else ''
+    return format_local_time(datetime.fromtimestamp(ts, tz=timezone.utc))
 
 
 def _actual_times(row: dict) -> None:
@@ -390,8 +389,7 @@ def decorate_run_sheet_row(row: dict) -> dict:
     label, tone = run_sheet_status(row)
     row['_status'] = label
     row['_tone'] = tone
-    scheduled = row.get('scheduled_at') or ''
-    row['_time'] = scheduled[-5:] if scheduled else ''
+    row['_time'] = _hhmm(row['scheduled_ts']) if row.get('scheduled_ts') else ''
     row['_day'] = _day_label(row.get('scheduled_ts'))
     # The match sheet keeps the booked time after the line swaps it out.
     row['_booked_time'], row['_booked_day'] = row['_time'], row['_day']

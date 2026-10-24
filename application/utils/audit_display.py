@@ -203,6 +203,7 @@ ACTION_LABELS: dict[str, str] = {
     'user.password_removed': 'Removed a password',
     'user.password_signed_in': 'Signed in with a password',
     'user.timezone_updated': 'Changed their time zone',
+    'user.hour_cycle_updated': 'Changed their 12/24-hour clock',
     'role.discord_sync_granted': 'Gave a role from Discord',
     'role.discord_sync_revoked': 'Took away a role from Discord',
     'role.discord_sync_bulk': 'Synced roles from Discord',

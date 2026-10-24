@@ -22,6 +22,25 @@ DEFAULT_MATCH_DURATION_MIN = 90
 # (absolute) of the scheduled time. Shared so every on-time percentage agrees.
 ON_TIME_THRESHOLD_MIN = 5
 
+# A recorded length this many times the tournament's configured match length is
+# a Finish clicked hours late (sgl26 #113, #276), not a long race.
+OVERRUN_OUTLIER_FACTOR = 3
+
+
+def is_outlier_duration(duration_min: Optional[int], tournament: Optional[Tournament]) -> bool:
+    """Whether a start-to-finish length is a click artefact to leave out of averages.
+
+    Zero minutes means start and finish were stamped together after the fact.
+    """
+    if duration_min is None:
+        return False
+    if duration_min <= 0:
+        return True
+    expected = tournament.average_match_duration if tournament else None
+    if not expected:
+        return False
+    return duration_min > expected * OVERRUN_OUTLIER_FACTOR
+
 
 def to_display(dt: Optional[datetime]) -> Optional[datetime]:
     """Convert a UTC-aware datetime to the display zone, passing ``None`` through."""

@@ -172,6 +172,11 @@ class MatchOperationsResponse(BaseModel):
         description="Matches whose times can't be a real race (started or checked in more than 6 hours "
         "early, or check-in, start and finish all the same instant), left out of every average.",
     )
+    duration_outlier_ids: List[int] = Field(
+        default_factory=list,
+        description="Matches whose length is left out of the average length only: zero minutes, or more than "
+        "three times the tournament's configured match length (a Finish clicked hours late).",
+    )
 
 
 class CrewCoverageRow(BaseModel):

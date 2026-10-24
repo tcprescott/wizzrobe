@@ -367,6 +367,12 @@ class UserRepository(TenantScopedRepository[User]):
         await save_fields(user, 'timezone')
 
     @staticmethod
+    async def set_hour_cycle(user: User, hour_cycle: Optional[str]) -> None:
+        """Persist a user's 12/24-hour preference (``None`` clears it)."""
+        user.hour_cycle = hour_cycle  # type: ignore[assignment]
+        await save_fields(user, 'hour_cycle')
+
+    @staticmethod
     async def update_discord_info(
         user: User, username: str, avatar: Optional[str] = None,
     ) -> None:

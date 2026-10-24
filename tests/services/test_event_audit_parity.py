@@ -126,6 +126,7 @@ _EXCLUDED_BY_DESIGN = frozenset({
     # excludes the account internals above.
     AuditActions.TIMEZONE_UPDATED,
     AuditActions.USER_TIMEZONE_UPDATED,
+    AuditActions.USER_HOUR_CYCLE_UPDATED,
     # Profile reminders — the rules are tenant-internal settings, and a member
     # dismissing one only hides a banner on their own screen.
     AuditActions.PROFILE_NUDGES_UPDATED,
