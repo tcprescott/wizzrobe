@@ -14,6 +14,7 @@ from application.services.reporting_shared import (
     crew_requirement,
     ensure_report_reader,
     is_crew_covered,
+    is_outlier_duration,
     to_display,
     window_hours,
 )
@@ -296,6 +297,7 @@ class ReportsService:
         rows: List[Dict] = []
         per_tournament: Dict[int, Dict] = {}
         flagged_ids: List[int] = []
+        duration_outlier_ids: List[int] = []
         for match in matches:
             scheduled = self._local(match.scheduled_at)
             seated = self._local(match.seated_at)
@@ -313,6 +315,9 @@ class ReportsService:
             flagged = _implausible_times(match, start_delay, seat_delay)
             if flagged:
                 flagged_ids.append(match.id)
+            duration_outlier = not flagged and is_outlier_duration(duration, match.tournament)
+            if duration_outlier:
+                duration_outlier_ids.append(match.id)
 
             rows.append({
                 'match_id': match.id,
@@ -353,7 +358,7 @@ class ReportsService:
                 continue
             if start_delay is not None:
                 stats['start_delays'].append(start_delay)
-            if duration is not None:
+            if duration is not None and not duration_outlier:
                 stats['durations'].append(duration)
             for prefix in ('', 'staged_' if staged else 'unstaged_'):
                 stats['seat'][prefix].add(seat_delay, setup)
@@ -375,7 +380,12 @@ class ReportsService:
                 aggregate.update(tally.summary(prefix))
             aggregates.append(aggregate)
 
-        return {'rows': rows, 'aggregates': aggregates, 'flagged_match_ids': flagged_ids}
+        return {
+            'rows': rows,
+            'aggregates': aggregates,
+            'flagged_match_ids': flagged_ids,
+            'duration_outlier_ids': duration_outlier_ids,
+        }
 
     # --- Staff / Crew Activity ---------------------------------------------
 

@@ -1029,7 +1029,7 @@ Aggregation queries behind the admin Reports tabs. Day boundaries resolve on the
 | `generate_capacity_forecast(start, end, tournament_id=None)` | `dict` | Concurrent-player counts (total and on-stream) sampled at auto-sized intervals (15/30/60 min by span), plus active match ids per interval and the configured `max_capacity`. |
 | `peak_times(intervals, counts, top_n=5)` (static) | `list[(datetime, int)]` | Top-N busiest sampled instants from a forecast. |
 | `matches_active_at(instant, tournament_id=None)` | `list[Match]` | Matches whose estimated window covers the instant (drill-down for forecast points). |
-| `match_operations(start, end, tournament_id=None)` | `dict` | Per-match rows (start delay, duration, confirmation lag) and per-tournament aggregates (averages, on-time % within ±5 min). |
+| `match_operations(start, end, tournament_id=None)` | `dict` | Per-match rows (start delay, duration, confirmation lag) and per-tournament aggregates (averages, on-time % within ±5 min). `flagged_match_ids` are left out of every average; `duration_outlier_ids` (0 min, or over 3× the tournament's match length, via `reporting_shared.is_outlier_duration`) only out of the length average. |
 | `crew_coverage(start, end, tournament_id=None, user_id=None, approved_only=False)` | `dict` | Per-match crew slot coverage (flagging stream candidates whose approved crew falls short of the tournament's `required_commentators`/`required_trackers`, via `reporting_shared.is_crew_covered`) and per-user contribution rows with covered hours. |
 | `stage_utilization(start, end, tournament_id=None, stage_id=None)` | `dict` | Per-stage scheduled hours, back-to-back counts (<15 min gaps), idle gap hours, plus unplaced stream-candidate matches. |
 
