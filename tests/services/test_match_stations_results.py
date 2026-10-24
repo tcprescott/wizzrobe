@@ -236,6 +236,21 @@ class TestStationAssignmentValidation:
                 match.id, {players[0].id: '3', players[1].id: '3'}, actor=actor,
             )
 
+    async def test_one_player_save_cannot_take_a_teammates_station(self, db, actor):
+        # The run sheet saves one player at a time; the other keeps their seat.
+        match, players = await _make_onsite_match()
+        await MatchService().assign_stations(match.id, {players[0].id: '3'}, actor=actor)
+        with pytest.raises(ValueError, match='more than one player'):
+            await MatchService().assign_stations(match.id, {players[1].id: '3'}, actor=actor)
+
+    async def test_one_player_save_keeps_the_others_seat(self, db, actor):
+        match, players = await _make_onsite_match()
+        await MatchService().assign_stations(match.id, {players[0].id: '3'}, actor=actor)
+        await MatchService().assign_stations(match.id, {players[1].id: '4'}, actor=actor)
+        for p in players:
+            await p.refresh_from_db()
+        assert [p.assigned_station for p in players] == ['3', '4']
+
     async def test_rejects_station_outside_the_pool(self, db, actor):
         from models import Station
 

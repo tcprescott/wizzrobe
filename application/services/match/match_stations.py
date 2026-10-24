@@ -57,12 +57,18 @@ class StationAssignmentMixin:
         occupied = await self.repository.occupied_stations(exclude_match_id=match.id)
 
         requested = [s for s in assignments.values() if s]
+        # A partial save (one player, from the run sheet) leaves the others in
+        # the seats they already hold, so those count toward a shared station.
+        seating = requested + [
+            p.assigned_station for p in match.players
+            if p.id not in assignments and p.assigned_station
+        ]
 
         # Every problem at once: a proctor seating a 23-player race fixes them all
         # in one pass instead of resubmitting once per clash.
         problems = []
         # 1. Two players of the same match cannot share a station.
-        duplicates = sorted({s for s in requested if requested.count(s) > 1}, key=_station_sort)
+        duplicates = sorted({s for s in requested if seating.count(s) > 1}, key=_station_sort)
         if duplicates:
             problems.append(
                 f"{_stations(duplicates)} {'is' if len(duplicates) == 1 else 'are each'} "
