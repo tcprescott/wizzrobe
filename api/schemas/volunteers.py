@@ -62,6 +62,8 @@ class VolunteerAssignmentResponse(BaseModel):
     reminder_sent_at: Optional[datetime] = Field(None, description="When the pre-shift reminder DM went out (UTC); empty if it hasn't.")
     checked_in_at: Optional[datetime] = Field(None, description="When the volunteer arrived for the shift (UTC); empty until they check in or are checked in.")
     checked_in_by_id: Optional[int] = Field(None, description="Who recorded the arrival: the volunteer themselves or a coordinator.")
+    called_off_at: Optional[datetime] = Field(None, description="When staff called this shift off for the volunteer (UTC); empty unless they did. A called-off shift skips check-in and still counts as fully worked.")
+    called_off_by_id: Optional[int] = Field(None, description="Who called it off.")
     created_at: datetime = Field(..., description="When the assignment was made (UTC).")
 
     @classmethod
@@ -78,12 +80,20 @@ class VolunteerAssignmentResponse(BaseModel):
             reminder_sent_at=a.reminder_sent_at,
             checked_in_at=a.checked_in_at,
             checked_in_by_id=a.checked_in_by_id,
+            called_off_at=a.called_off_at,
+            called_off_by_id=a.called_off_by_id,
             created_at=a.created_at,
         )
 
 
 class AssignRequest(BaseModel):
     user_id: int = Field(..., description="The member to put on the shift. Must belong to this community.")
+
+
+class CallOffRequest(BaseModel):
+    """An optional note from staff, sent to the volunteer in the call-off DM."""
+
+    note: Optional[str] = Field(None, description="Shown to the volunteer in the DM. Up to 300 characters are kept.")
 
 
 class AssignResponse(BaseModel):

@@ -249,6 +249,8 @@ ACTION_LABELS: dict[str, str] = {
     'volunteer.checked_in': 'Checked in for a shift',
     'volunteer.check_in_undone': 'Undid a shift check-in',
     'volunteer.running_late': 'Said they are running late',
+    'volunteer.called_off': "Called off a volunteer's shift (still counts as worked)",
+    'volunteer.call_off_undone': 'Put a volunteer back on a called-off shift',
     'volunteer.availability_updated': 'Updated volunteer availability',
     'volunteer.draft_generated': 'Drafted the volunteer schedule',
     'volunteer.draft_cleared': 'Cleared the schedule draft',

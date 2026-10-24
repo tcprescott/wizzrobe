@@ -280,24 +280,40 @@ async def _seed_arrivals(
     Like the race rooms, this one is re-pointed at "now" on every run rather
     than created once: a fixed time would have passed by the next day's seed.
     player_two hasn't arrived (sign in as them to see the "I'm here" banner),
-    proctor_user said they're running late, and player_one checked themselves
-    in. Admin Desk, because it maps to no app role: a Race Proctor shift would
+    proctor_user said they're running late, player_one checked themselves
+    in, and staff called volunteer_only off (credited, no banner). A second
+    shift later on has everyone called off, so the Shift Board hatches it. Admin Desk, because it maps to no app role: a Race Proctor shift would
     hand these users PROCTOR through the role mapping below.
     """
     starts_at = (now_utc + timedelta(minutes=15)).replace(second=0, microsecond=0)
     shift, _ = await VolunteerShift.update_or_create(
         position=position, label="Arrival demo", tenant=tenant,
         defaults={"starts_at": starts_at, "ends_at": starts_at + timedelta(hours=2),
-                  "slots_needed": 3},
+                  "slots_needed": 4},
     )
     states = [
         (users["player_two"], {"checked_in_at": None, "checked_in_by": None, "late_minutes": None}),
         (users["proctor_user"], {"checked_in_at": None, "checked_in_by": None, "late_minutes": 20}),
         (users["player_one"], {"checked_in_at": now_utc, "checked_in_by": users["player_one"],
                                "late_minutes": None}),
+        (users["volunteer_only"], {"checked_in_at": None, "checked_in_by": None, "late_minutes": None,
+                                   "called_off_at": now_utc, "called_off_by": staff,
+                                   "called_off_note": "We're overstaffed this afternoon, enjoy the show!"}),
     ]
     for user, state in states:
         await VolunteerAssignment.update_or_create(
             shift=shift, user=user, tenant=tenant,
             defaults={"assigned_by": staff, "acknowledged_at": now_utc, **state},
         )
+
+    dark_starts = starts_at + timedelta(hours=3)
+    dark, _ = await VolunteerShift.update_or_create(
+        position=position, label="Call-off demo", tenant=tenant,
+        defaults={"starts_at": dark_starts, "ends_at": dark_starts + timedelta(hours=2),
+                  "slots_needed": 1},
+    )
+    await VolunteerAssignment.update_or_create(
+        shift=dark, user=users["player_two"], tenant=tenant,
+        defaults={"assigned_by": staff, "acknowledged_at": now_utc,
+                  "called_off_at": now_utc, "called_off_by": staff},
+    )

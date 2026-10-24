@@ -85,6 +85,9 @@ class EventType:
     VOLUNTEER_CHECKED_IN = 'volunteer.checked_in'
     VOLUNTEER_CHECK_IN_UNDONE = 'volunteer.check_in_undone'
     VOLUNTEER_RUNNING_LATE = 'volunteer.running_late'
+    # Staff said a volunteer isn't needed; the shift still counts as worked.
+    VOLUNTEER_CALLED_OFF = 'volunteer.called_off'
+    VOLUNTEER_CALL_OFF_UNDONE = 'volunteer.call_off_undone'
 
     # Racetime race-room lifecycle (mirrors AuditActions.RACE_ROOM_*). Tenant-
     # scoped domain events a webhook subscriber can act on; published by the
@@ -256,7 +259,7 @@ class EventType:
         CREW_ACKNOWLEDGED,
         VOLUNTEER_ASSIGNED, VOLUNTEER_UNASSIGNED, VOLUNTEER_ACKNOWLEDGED,
         VOLUNTEER_RELEASED, VOLUNTEER_CHECKED_IN, VOLUNTEER_CHECK_IN_UNDONE,
-        VOLUNTEER_RUNNING_LATE,
+        VOLUNTEER_RUNNING_LATE, VOLUNTEER_CALLED_OFF, VOLUNTEER_CALL_OFF_UNDONE,
         RACE_ROOM_CREATED, RACE_ROOM_OPENED, RACE_ROOM_STARTED,
         RACE_ROOM_FINISHED, RACE_ROOM_CANCELLED, RACE_ROOM_RESULT_RECORDED,
         SG_EPISODE_IMPORTED, SG_EPISODE_CANCELLED, SG_MATCH_AUTO_FINISHED,

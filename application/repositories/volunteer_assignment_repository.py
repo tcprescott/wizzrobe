@@ -265,6 +265,7 @@ class VolunteerAssignmentRepository:
                 user_id=user_id,
                 auto_generated=False,
                 checked_in_at__isnull=True,
+                called_off_at__isnull=True,
                 shift__starts_at__lte=opens_before,
                 shift__ends_at__gt=now,
             ))
@@ -285,6 +286,7 @@ class VolunteerAssignmentRepository:
                 auto_generated=False,
                 start_dm_sent_at__isnull=True,
                 checked_in_at__isnull=True,
+                called_off_at__isnull=True,
                 shift__starts_at__gt=started_after,
                 shift__starts_at__lte=now,
             )
@@ -297,7 +299,8 @@ class VolunteerAssignmentRepository:
     ) -> List[VolunteerAssignment]:
         """Un-reminded assignments whose shift starts within [window_start, window_end].
 
-        Drafts are skipped — the reminder must not be the message that first tells
+        Called-off assignments are skipped (they were told not to come), and so
+        are drafts — the reminder must not be the message that first tells
         someone they have a shift.
         """
         # Deliberately cross-tenant: the reminder loop scans every tenant and wraps
@@ -306,6 +309,7 @@ class VolunteerAssignmentRepository:
             VolunteerAssignment.filter(
                 auto_generated=False,
                 reminder_sent_at__isnull=True,
+                called_off_at__isnull=True,
                 shift__starts_at__gte=window_start,
                 shift__starts_at__lte=window_end,
             )

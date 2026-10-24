@@ -471,7 +471,7 @@ replaces the whole asset.
 | Crew approval | `set_crew_approval` (staff, tournament admins, crew coordinators) |
 | Your own participation | `signup_as_crew`, `withdraw_crew_signup`, `acknowledge_match`, `watch_match`, `unwatch_match`, `offer_match_for_stream`, `withdraw_stream_offer`, `sign_up_for_tournament`, `withdraw_from_tournament` |
 | Check-in desk (`EVENT_CHECK_IN`) | `check_in_attendee`, `undo_attendee_check_in`, `link_attendee`, `unlink_attendee`, `add_walk_up`, `sync_check_in_event` |
-| Volunteers (`VOLUNTEERS`) | `check_in_volunteer` |
+| Volunteers (`VOLUNTEERS`) | `check_in_volunteer`, `call_off_volunteer`, `call_off_volunteer_shift`, `undo_volunteer_call_off` |
 | Membership | `approve_join_request`, `deny_join_request` |
 | Tournaments | `create_tournament`, `update_tournament`, `delete_tournament`, `add_tournament_admin`, `remove_tournament_admin`, `add_crew_coordinator`, `remove_crew_coordinator`, `enroll_tournament_player`, `remove_tournament_player`, `drop_tournament_player`, `update_tournament_discord_events`, `set_stage_best_of` (paired read: `get_round_schedule`) |
 | Challonge (`CHALLONGE`) | `link_challonge_tournament`, `unlink_challonge_tournament`, `sync_challonge_tournament` |

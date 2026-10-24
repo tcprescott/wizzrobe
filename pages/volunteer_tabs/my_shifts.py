@@ -56,10 +56,10 @@ def shift_actions(assignment, now: datetime) -> tuple[bool, bool]:
     """(show Acknowledge, show "Can't make this") for one assignment card.
 
     Module-level and pure so the rule is testable. Both mirror what the service
-    will accept: nothing on a finished shift, and no giving back a shift you
-    are already checked in for.
+    will accept: nothing on a finished or called-off shift, and no giving back
+    a shift you are already checked in for.
     """
-    finished = assignment.shift.ends_at <= now
+    finished = assignment.shift.ends_at <= now or assignment.called_off_at is not None
     can_ack = assignment.acknowledged_at is None and not finished
     can_release = assignment.checked_in_at is None and not finished
     return can_ack, can_release

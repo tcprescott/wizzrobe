@@ -35,7 +35,7 @@ def make_shift(**overrides):
 def make_assignment(**overrides):
     defaults = dict(
         id=1, shift_id=1, user_id=42, acknowledged_at=None,
-        auto_generated=False, checked_in_at=None,
+        auto_generated=False, checked_in_at=None, called_off_at=None,
     )
     defaults.update(overrides)
     return SimpleNamespace(**defaults)

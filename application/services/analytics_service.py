@@ -276,7 +276,7 @@ class AnalyticsService:
 
         A shift contributes ``duration_hours × assignees`` scheduled hours to the
         bucket of its ``starts_at``; checked-in hours only count assignments that
-        were actually checked in. Needed hours use ``slots_needed`` for fill rate.
+        were actually checked in, or called off by staff (credited as worked). Needed hours use ``slots_needed`` for fill rate.
         """
         await ensure_volunteer_report_reader(actor)
         bucket = self._normalize_bucket(bucket)
@@ -300,7 +300,8 @@ class AnalyticsService:
             duration_h = self._duration_hours(shift.starts_at, shift.ends_at)
             assignments = list(shift.assignments)
             filled = len(assignments)
-            checked_in = sum(1 for a in assignments if a.checked_in_at is not None)
+            # A called-off shift is credited as worked, so it counts as attended.
+            checked_in = sum(1 for a in assignments if a.counts_as_worked)
 
             scheduled_hours[idx] += duration_h * filled
             checked_in_hours[idx] += duration_h * checked_in
@@ -319,7 +320,7 @@ class AnalyticsService:
                 u_entry = per_user.setdefault(a.user_id, _new_volunteer(a.user))
                 u_entry['scheduled_hours'] += duration_h
                 u_entry['shifts'] += 1
-                if a.checked_in_at is not None:
+                if a.counts_as_worked:
                     u_entry['checked_in_hours'] += duration_h
 
         top_volunteers = sorted(

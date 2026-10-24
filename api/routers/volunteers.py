@@ -10,6 +10,7 @@ from api.dependencies import ServiceErrorRoute, require_api_actor, require_write
 from api.schemas.volunteers import (
     AssignRequest,
     AssignResponse,
+    CallOffRequest,
     CoverageRow,
     ReleaseAssignmentRequest,
     SetAvailabilityRequest,
@@ -26,6 +27,7 @@ from api.schemas.volunteers import (
 from application.errors import require_found
 from application.services.auth_service import AuthService
 from application.services.volunteer.volunteer_availability_service import VolunteerAvailabilityService
+from application.services.volunteer.volunteer_call_off_service import VolunteerCallOffService
 from application.services.volunteer.volunteer_hours import VolunteerHoursService
 from application.services.volunteer.volunteer_position_service import VolunteerPositionService
 from application.services.volunteer.volunteer_schedule_service import VolunteerScheduleService
@@ -263,6 +265,61 @@ async def acknowledge(assignment_id: int, actor: User = Depends(require_write_ac
 async def check_in(assignment_id: int, actor: User = Depends(require_write_actor)):
     assignment = await VolunteerScheduleService().check_in(assignment_id, actor)
     return _assignment_resp(assignment)
+
+
+@router.post(
+    "/assignments/{assignment_id}/call-off",
+    response_model=VolunteerAssignmentResponse,
+    summary="Call off one volunteer's shift (coordinators and staff)",
+    description=(
+        "Tells the volunteer by DM they don't need to come (or can head out, if the shift has started). "
+        "The shift skips check-in and still counts as fully worked for their hours, comps and attendance. "
+        "Calling off twice changes nothing.\n\n"
+        "Fails with 400 for an unpublished draft or a finished shift.\n\n"
+        "**Who can call this:** Staff or Volunteer coordinator."
+    ),
+)
+async def call_off(
+    assignment_id: int, body: CallOffRequest = CallOffRequest(),
+    actor: User = Depends(require_write_actor),
+):
+    assignment = await VolunteerCallOffService().call_off(assignment_id, actor, body.note)
+    return _assignment_resp(assignment)
+
+
+@router.delete(
+    "/assignments/{assignment_id}/call-off",
+    response_model=VolunteerAssignmentResponse,
+    summary="Undo a call-off (coordinators and staff)",
+    description=(
+        "Puts the volunteer back on the shift and DMs them that they're needed after all. "
+        "Doing it when the shift isn't called off changes nothing.\n\n"
+        "Fails with 400 once the shift has finished.\n\n"
+        "**Who can call this:** Staff or Volunteer coordinator."
+    ),
+)
+async def undo_call_off(assignment_id: int, actor: User = Depends(require_write_actor)):
+    assignment = await VolunteerCallOffService().undo_call_off(assignment_id, actor)
+    return _assignment_resp(assignment)
+
+
+@router.post(
+    "/shifts/{shift_id}/call-off",
+    response_model=List[VolunteerAssignmentResponse],
+    summary="Call off everyone on a shift (coordinators and staff)",
+    description=(
+        "Calls off every published assignment on the shift that isn't already called off, with a DM to each. "
+        "Drafts are left alone. Returns the assignments newly called off.\n\n"
+        "Fails with 400 when the shift has finished or nobody is left to call off.\n\n"
+        "**Who can call this:** Staff or Volunteer coordinator."
+    ),
+)
+async def call_off_shift(
+    shift_id: int, body: CallOffRequest = CallOffRequest(),
+    actor: User = Depends(require_write_actor),
+):
+    done = await VolunteerCallOffService().call_off_shift(shift_id, actor, body.note)
+    return [_assignment_resp(a) for a in done]
 
 
 # --- Coverage -------------------------------------------------------------

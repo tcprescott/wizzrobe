@@ -257,6 +257,7 @@ class MyShift(BaseModel):
     ends_at: Optional[datetime] = None
     acknowledged_at: Optional[datetime] = None
     checked_in_at: Optional[datetime] = None
+    called_off_at: Optional[datetime] = None  # not needed after all; still counts as worked
 
 
 class AuditEntry(BaseModel):

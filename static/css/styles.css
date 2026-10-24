@@ -381,6 +381,7 @@ main.q-page:focus {
 .st-live      { color: var(--status-live); }
 .st-neutral   { color: var(--status-neutral); }
 .st-cancelled { color: var(--status-cancelled); }
+.st-info      { color: var(--status-info); }
 
 /* Status chips — the one badge style: tinted, sentence case, radius-sm */
 .wiz-chip {
@@ -417,6 +418,7 @@ main.q-page:focus {
 .wiz-chip--live      { --chip-c: var(--status-live); }
 .wiz-chip--neutral   { --chip-c: var(--status-neutral); }
 .wiz-chip--cancelled { --chip-c: var(--status-cancelled); }
+.wiz-chip--info      { --chip-c: var(--status-info); }
 .wiz-chip--candidate { --chip-c: var(--wiz-gold-deep); }
 /* The community events listed since the last visit: the nav count's colour. */
 .wiz-chip--new       { --chip-c: var(--wiz-count-bg); }
@@ -6613,6 +6615,21 @@ ol.wiz-help-list { list-style-type: decimal; }
     background: var(--surface-alt);
     border: 1px solid var(--border-strong);
     border-radius: 8px;
+}
+
+/* Everyone on it was called off: still on the board (it counts as worked),
+   but nobody is coming, so it reads as stood down rather than staffed. */
+.wiz-vgrid__shift--off {
+    background: repeating-linear-gradient(
+        135deg,
+        var(--surface-alt) 0 6px,
+        color-mix(in srgb, var(--border-strong) 35%, var(--surface-alt)) 6px 12px
+    );
+    border-style: dashed;
+}
+
+.wiz-vgrid__shift--off .wiz-vgrid__name {
+    color: var(--fg-muted);
 }
 
 .wiz-vgrid__shift--mine {

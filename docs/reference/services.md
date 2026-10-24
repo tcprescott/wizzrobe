@@ -1898,6 +1898,14 @@ Core shift/assignment operations: creating shifts (including bulk day generation
 | `undo_check_in(assignment_id, user)` | `VolunteerAssignment` | Only a check-in the volunteer made themselves, before the shift ends; `volunteer.check_in_undone`. |
 | `report_late(assignment_id, user, minutes)` | `VolunteerAssignment` | `minutes` in `LATE_CHOICES` (10/20/30); keeps the shift, publishes `volunteer.running_late` and DMs coordinators + staff via `volunteer_coordinator_dm.notify_coordinators` (shared with `release`). Repeating the same answer is a no-op. |
 
+`VolunteerCallOffService` ([volunteer_call_off_service.py](../../application/services/volunteer/volunteer_call_off_service.py)) is staff saying a volunteer isn't needed. The assignment stays, stamped `called_off_at` / `called_off_by` / `called_off_note`, and counts as worked everywhere through `VolunteerAssignment.counts_as_worked` (hours already count every assignment; the attendance figures in `AnalyticsService.volunteer_hour_trends` and the export's *Counts As Worked* column read it). A called-off row is left out of `awaiting_arrival`, `due_for_start_dm` and `due_for_reminder`, and `check_in_self`, `report_late`, `release` and the coordinator `check_in` refuse it. Coordinator-only, `VOLUNTEERS`-gated; `can_call_off` and `call_off_names` (who called it off, for the Shift Board) ride along.
+
+| Method | Returns | Notes |
+|---|---|---|
+| `call_off(assignment_id, actor, note=None)` | `VolunteerAssignment` | Refuses a draft or a finished shift; works on a started one (the DM says "head out", a check-in is kept). Clears `late_minutes`. Idempotent. Audits + publishes `volunteer.called_off` (the event leaves out the note); DMs `shift_called_off`. |
+| `call_off_shift(shift_id, actor, note=None)` | `list[VolunteerAssignment]` | Every published, not-yet-called-off assignment on the shift; `ValueError` when none are left. |
+| `undo_call_off(assignment_id, actor)` | `VolunteerAssignment` | Until the shift ends; audits + publishes `volunteer.call_off_undone`, DMs `shift_call_off_undone`. |
+
 | `request_acknowledgment(assignment, shift, user)` | `None` | The best-effort acknowledgment DM (`send_dm_with_volunteer_acknowledgment_button`) that `assign` and `confirm_assignment` send. Never raises. |
 | `coverage(start, end)` | `list[dict]` | Per-shift `filled`/`needed` counts (flagging understaffed shifts), with `drafts` and `acknowledged` breaking the filled total down. `filled` **counts drafts** — this is the coordinator's working schedule. |
 | `day_summary(start, end)` | `dict` | The day's totals over `coverage`: `shifts`, `needed`, `filled`, `open`, `drafts`, `unacknowledged` (published but not acknowledged), `understaffed_shifts`. Feeds the coordinator's coverage strip. |
@@ -1914,6 +1922,9 @@ Core shift/assignment operations: creating shifts (including bulk day generation
 | Coordinator un-assigns | DM (no button) | — |
 | Volunteer releases | — | DM |
 | Reminder lead reached | DM + Acknowledge | — |
+
+| Staff call off | DM (`shift_called_off`, link to My Schedule) | — |
+| Call-off undone | DM (`shift_call_off_undone`) | — |
 
 Every DM is best-effort, gated on `discord_id` (`send_dm` applies the Discord switch), and never raises. `_notify_coordinators_of_release` is the only role-addressed DM in the codebase (it dedupes a coordinator who is also staff); it stays private to this service rather than becoming a general broadcast utility for one caller.
 

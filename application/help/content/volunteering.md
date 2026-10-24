@@ -103,6 +103,10 @@ The row's ⋮ menu has the rest.
   until the shift ends, unless a coordinator checked you in.
 - **Can't make it…** gives the shift back.
 
+If your coordinator doesn't need you after all, they can call your shift off.
+You get a DM, the row says *Called off*, and there's nothing to check in to.
+The shift still counts as fully worked toward your hours.
+
 Shifts that have ended fold into **Finished shifts** at the bottom of the
 section. Tap it to see them, newest first.
 :::

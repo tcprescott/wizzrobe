@@ -27,6 +27,7 @@ from application.services.discord import discord_queue
 from application.services.discord.discord_service import DiscordService
 from application.services.tenant_membership_service import TenantMembershipService
 from application.services.timezone_service import TimezoneService
+from application.services.volunteer.volunteer_call_off_service import call_off_names
 from application.services.volunteer.volunteer_role_mapping_service import (
     VolunteerRoleMappingService,
 )
@@ -109,7 +110,7 @@ class VolunteerScheduleService:
         positions = [(p.id, p.name) for p in await self.position_repository.list_active()]
         return build_day_grid(
             shifts, midnight, actor.id if actor else 0, for_staff=True, positions=positions,
-            now=datetime.now(timezone.utc),
+            now=datetime.now(timezone.utc), caller_names=await call_off_names(shifts),
         )
 
     async def get_shift(self, shift_id: int) -> Optional[VolunteerShift]:
@@ -504,6 +505,8 @@ class VolunteerScheduleService:
             raise ValueError(
                 "You are already checked in for this shift — talk to your coordinator."
             )
+        if assignment.called_off_at is not None:
+            raise ValueError("You've been called off this shift, so there's nothing to give back.")
         now = datetime.now(timezone.utc)
         if shift.ends_at <= now:
             raise ValueError("That shift has already finished.")
@@ -527,6 +530,8 @@ class VolunteerScheduleService:
         assignment = require_found(
             await self.assignment_repository.get_by_id(assignment_id), "Assignment"
         )
+        if assignment.checked_in_at is None and assignment.called_off_at is not None:
+            raise ValueError('They were called off this shift. Undo the call-off first.')
         if assignment.checked_in_at is None:
             assignment.checked_in_at = datetime.now(timezone.utc)
             assignment.checked_in_by_id = actor.id

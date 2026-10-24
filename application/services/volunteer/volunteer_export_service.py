@@ -192,7 +192,9 @@ class VolunteerExportService:
             actor_id
             for shift in shifts
             for assignment in shift.assignments
-            for actor_id in (assignment.assigned_by_id, assignment.checked_in_by_id)
+            for actor_id in (
+                assignment.assigned_by_id, assignment.checked_in_by_id, assignment.called_off_by_id,
+            )
             if actor_id and actor_id not in users
         }
         names = {uid: user.preferred_name for uid, user in users.items()}
@@ -452,6 +454,9 @@ class VolunteerExportService:
                     'acknowledged_at_local': format_local_display(assignment.acknowledged_at),
                     'checked_in_at_local': format_local_display(assignment.checked_in_at),
                     'checked_in_by': names.get(assignment.checked_in_by_id, ''),
+                    'called_off_at_local': format_local_display(assignment.called_off_at),
+                    'called_off_by': names.get(assignment.called_off_by_id, ''),
+                    'counts_as_worked': 'Yes' if assignment.counts_as_worked else 'No',
                 })
         return ExportSheet(
             name='assignments',
@@ -475,6 +480,9 @@ class VolunteerExportService:
                 ('acknowledged_at_local', f'Acknowledged At ({_tz_label()})'),
                 ('checked_in_at_local', f'Checked In At ({_tz_label()})'),
                 ('checked_in_by', 'Checked In By'),
+                ('called_off_at_local', f'Called Off At ({_tz_label()})'),
+                ('called_off_by', 'Called Off By'),
+                ('counts_as_worked', 'Counts As Worked'),
             ),
             rows=rows,
         )

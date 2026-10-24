@@ -141,6 +141,7 @@ async def my_volunteer_shifts(
             ends_at=a.shift.ends_at,
             acknowledged_at=a.acknowledged_at,
             checked_in_at=a.checked_in_at,
+            called_off_at=a.called_off_at,
         )
         for a in assignments
     ]

@@ -22,7 +22,12 @@ from application.services.volunteer import (
     arrange_roles,
     roles_config,
 )
-from application.services.volunteer.volunteer_schedule_grid import ARRIVED, LATE, NOT_HERE
+from application.services.volunteer.volunteer_schedule_grid import (
+    ARRIVED,
+    CALLED_OFF,
+    LATE,
+    NOT_HERE,
+)
 from application.timezone_context import current_timezone_name, uses_12_hour
 from application.utils.discord_messages_volunteer import late_label
 from application.utils.timezone import format_local_hour, format_local_time
@@ -40,6 +45,7 @@ ARRIVAL_MARKS = {
     ARRIVED: ('check_circle', 'st-ok', 'Checked in'),
     LATE: ('schedule', 'st-pending', 'Running late'),
     NOT_HERE: ('radio_button_unchecked', 'st-neutral', 'Not here yet'),
+    CALLED_OFF: ('event_available', 'st-info', 'Called off'),
 }
 
 
@@ -318,6 +324,8 @@ def _render_shift(
     classes = 'wiz-vgrid__shift'
     if shift.has_viewer and not staff:
         classes += ' wiz-vgrid__shift--mine'
+    if staff and shift.called_off:
+        classes += ' wiz-vgrid__shift--off'
     if selected:
         classes += ' wiz-vgrid__shift--selected'
     top = shift.start_hour - grid.first_hour
@@ -331,7 +339,8 @@ def _render_shift(
         block.classes('wiz-vgrid__shift--button')
         block.props(
             f'tabindex=0 role=button '
-            f'aria-label="{position}, {shift_range(shift)}, {filled_label(shift)}"'
+            f'aria-label="{position}, {shift_range(shift)}, {filled_label(shift)}'
+            f'{", called off" if shift.called_off else ""}"'
         )
         block.on('click', lambda s=shift: on_shift(s, position))
         block.on('keydown.enter', lambda s=shift: on_shift(s, position))
@@ -397,6 +406,10 @@ def person_status(person: GridPerson) -> Tuple[str, str]:
     """What the Shift Board's sheet says under a name, and its tone class."""
     if person.draft:
         return 'Draft, not told yet', 'st-neutral'
+    if person.arrival == CALLED_OFF and person.called_off_at is not None:
+        by = f' by {person.called_off_by}' if person.called_off_by else ''
+        return (f'Called off{by} {format_local_time(person.called_off_at)} · counts as worked',
+                'st-info')
     if person.arrival == ARRIVED and person.checked_in_at is not None:
         return f'Checked in {format_local_time(person.checked_in_at)}', 'st-ok'
     if person.arrival == LATE and person.late_minutes is not None:
