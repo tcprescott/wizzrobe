@@ -156,10 +156,33 @@ class CrewContributionRow(BaseModel):
     )
 
 
+class CrewedPerson(BaseModel):
+    user_id: int = Field(..., description="ID of the crew member.")
+    name: str = Field(..., description="Display name of the crew member.")
+    commentary: int = Field(..., description="Matches they commentated.")
+    tracker: int = Field(..., description="Matches they tracked.")
+    total: int = Field(..., description="Commentary plus tracker.")
+
+
+class CrewedTournamentRow(BaseModel):
+    tournament_id: int = Field(..., description="ID of the tournament.")
+    tournament_name: str = Field(..., description="Name of the tournament.")
+    commentary: int = Field(..., description="Commentary slots crewed across the tournament.")
+    tracker: int = Field(..., description="Tracker slots crewed across the tournament.")
+    people: List[CrewedPerson] = Field(..., description="Who crewed it, most matches first.")
+
+
 class CrewCoverageResponse(BaseModel):
     coverage_rows: List[CrewCoverageRow] = Field(..., description="One row per match in the window.")
     contribution_rows: List[CrewContributionRow] = Field(
         ..., description="One row per crew member, most covered hours first."
+    )
+    tournament_rows: List[CrewedTournamentRow] = Field(
+        ...,
+        description=(
+            "Matches crewed per person per tournament, counting approved crew on finished matches "
+            "that went to a stage. Tournaments nobody crewed are left out."
+        ),
     )
 
 

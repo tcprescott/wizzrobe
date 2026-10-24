@@ -332,7 +332,11 @@ class ReportsService:
 
         coverage_rows: List[Dict] = []
         per_user: Dict[int, Dict] = {}
+        per_tournament: Dict[int, Dict] = {}
         for match in matches:
+            if match.stage_id is not None and match.finished_at is not None:  # type: ignore[attr-defined]
+                _tally_crewed(per_tournament, match, user_id)
+
             comm_total = len(match.commentators)
             comm_approved = sum(1 for c in match.commentators if c.approved)
             trk_total = len(match.trackers)
@@ -408,6 +412,7 @@ class ReportsService:
         return {
             'coverage_rows': coverage_rows,
             'contribution_rows': contribution_rows,
+            'tournament_rows': _tournament_rows(per_tournament),
         }
 
     # --- Stage Utilization ------------------------------------------
@@ -508,6 +513,51 @@ def _new_crew_entry(user: Optional[User]) -> Dict:
         'hours_covered': 0.0,
         'hours_total': 0.0,
     }
+
+
+def _tally_crewed(per_tournament: Dict[int, Dict], match: Match, user_id: Optional[int]) -> None:
+    """Count a match's approved crew toward its tournament.
+
+    Only a finished match that went to a stage counts: without a stage there was
+    no broadcast, so approved crew on it never actually commentated or tracked.
+    """
+    group = per_tournament.setdefault(match.tournament_id, {  # type: ignore[attr-defined]
+        'tournament_id': match.tournament_id,  # type: ignore[attr-defined]
+        'tournament_name': match.tournament.name if match.tournament else '',
+        'people': {},
+    })
+    for slot, rows in (('commentary', match.commentators), ('tracker', match.trackers)):
+        for row in rows:
+            if not row.approved or (user_id is not None and row.user_id != user_id):
+                continue
+            person = group['people'].setdefault(row.user_id, {
+                'user_id': row.user_id,
+                'name': row.user.preferred_name if row.user else 'Unknown',
+                'commentary': 0,
+                'tracker': 0,
+            })
+            person[slot] += 1
+
+
+def _tournament_rows(per_tournament: Dict[int, Dict]) -> List[Dict]:
+    rows = []
+    for group in per_tournament.values():
+        people = [
+            {**p, 'total': p['commentary'] + p['tracker']}
+            for p in group['people'].values()
+        ]
+        if not people:
+            continue
+        people.sort(key=lambda p: (-p['total'], -p['commentary'], p['name'].lower()))
+        rows.append({
+            'tournament_id': group['tournament_id'],
+            'tournament_name': group['tournament_name'],
+            'commentary': sum(p['commentary'] for p in people),
+            'tracker': sum(p['tracker'] for p in people),
+            'people': people,
+        })
+    rows.sort(key=lambda r: r['tournament_name'].lower())
+    return rows
 
 
 def event_day_bounds(d: date) -> Tuple[datetime, datetime]:
