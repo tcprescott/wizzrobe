@@ -15,6 +15,8 @@ in the roster) the alert falls back to every STAFF member, so it is never lost.
 Community-wide requests (join, ADA, community events) are not match alerts and
 still go to all staff. A volunteer running late or giving a shift back goes to
 the volunteer coordinators plus the same on-duty set, with the same fallback.
+A player running late on a stage match also reaches the Broadcast Techs on
+shift (every tech when none is).
 """
 
 from datetime import datetime, timezone
@@ -121,6 +123,34 @@ class StaffAlertService:
                 else:
                     await add(user, NotificationRecipient.STAFF)
         return list(recipients.values())
+
+    @staticmethod
+    async def tagged_broadcast_tech_recipients(
+        match: Match,
+        *,
+        exclude: Iterable[int] = (),
+        at: Optional[datetime] = None,
+    ) -> List[Tagged]:
+        """The Broadcast Techs who hear about a stage match, tagged with why.
+
+        Techs holding a published shift right now are ``ON_DUTY``; when none
+        is, every tech stands in as ``STAFF``. A match off stage has nothing for
+        a tech to do, so it gets nobody. The match's own players are dropped,
+        as for a match alert.
+        """
+        if getattr(match, 'stage_id', None) is None:
+            return []
+        skip = set(exclude) | {p.user_id for p in await MatchRepository.get_players(match)}  # type: ignore[attr-defined]
+        techs = [
+            user for user in await UserRoleRepository.list_users_with_role(Role.STREAM_MANAGER, active_only=True)
+            if user.id not in skip
+        ]
+        on_shift = await VolunteerAssignmentRepository.on_shift_user_ids(
+            at or datetime.now(timezone.utc), [user.id for user in techs],
+        )
+        if on_shift:
+            return [(user, NotificationRecipient.ON_DUTY) for user in techs if user.id in on_shift]
+        return [(user, NotificationRecipient.STAFF) for user in techs]
 
     @staticmethod
     async def tournament_alert_admins(tournament: Tournament) -> List[User]:

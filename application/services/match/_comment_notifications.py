@@ -10,7 +10,12 @@ from datetime import datetime
 from typing import Optional, Sequence, Tuple
 
 from application.services.discord.discord_service import DiscordService
-from application.services.notification_catalog import PLAYER_COMMENT, PLAYER_LATE, PLAYERS, STAFF_COMMENT
+from application.services.notification_catalog import (
+    PLAYER_COMMENT,
+    PLAYERS,
+    STAFF_COMMENT,
+    NoticeTarget,
+)
 from application.utils.discord_embeds import COLOR_RESCHEDULED, match_embed
 from application.utils.discord_messages import (
     match_comment_dm,
@@ -113,9 +118,9 @@ async def notify_staff_of_player_late(
     note: Optional[str],
     when: Optional[datetime],
     player_names: Sequence[str],
-    recipients: Sequence[Tuple[User, NotificationRecipient]],
+    recipients: Sequence[Tuple[User, NoticeTarget]],
 ) -> None:
-    """DM the match's alert recipients that a player is running late. Never raises."""
+    """DM each recipient, under its notice, that a player is running late. Never raises."""
     from application.services import notification_links
 
     try:
@@ -130,11 +135,11 @@ async def notify_staff_of_player_late(
         )
         link = await notification_links.admin_match(match_id)
         discord_service = DiscordService()
-        for user, why in recipients:
+        for user, notice in recipients:
             if not user.discord_id:
                 continue
             success, err = await discord_service.send_dm(
-                user.discord_id, message, embed=embed, link=link, notice=PLAYER_LATE.to(why),
+                user.discord_id, message, embed=embed, link=link, notice=notice,
             )
             if not success:
                 logger.warning("notify_staff_of_player_late DM failed for %s: %s", user.discord_id, err)

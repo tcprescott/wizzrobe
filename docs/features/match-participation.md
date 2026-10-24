@@ -576,7 +576,11 @@ optional note (280 chars), and writes `late_minutes` / `late_at` / `late_note` o
 their `MatchPlayers` row; `take_back_late` is the player's Undo. Both audit and emit
 `match.player_running_late` / `match.player_late_cleared` (no note in the event)
 and nudge `match_live`. A report DMs the match's alert recipients (below) under
-the `player_late` notice, with the name and note escaped.
+the `player_late` notice, with the name and note escaped. On a stage match it
+also DMs the Broadcast Techs (`StaffAlertService.tagged_broadcast_tech_recipients`)
+under `player_late_on_stage`: techs holding any published volunteer shift right
+now (`ON_DUTY`), or every tech when none is (`STAFF`). A tech already told as
+staff gets only the `player_late` copy, and Undo DMs nobody.
 
 The window (`late_window_open`) opens 30 minutes before the match, or as early
 as the tournament's `stage_reminder_minutes` for a stage match, and closes at

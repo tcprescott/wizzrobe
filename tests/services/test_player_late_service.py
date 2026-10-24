@@ -14,7 +14,17 @@ from application.events import EventType, event_bus
 from application.services import PlayerLateService
 from application.services.match.match_display_service import MatchDisplayService
 from application.services.match.player_late_service import late_window_open
-from models import Match, MatchPlayers, Role, Stage, Tournament, UserRole
+from models import (
+    Match,
+    MatchPlayers,
+    Role,
+    Stage,
+    Tournament,
+    UserRole,
+    VolunteerAssignment,
+    VolunteerPosition,
+    VolunteerShift,
+)
 from tests.factories import make_user
 from theme.tables.match_player_run_sheet import decorate_player_row, keep_own_late_only
 from theme.tables.match_run_sheet import late_tags
@@ -126,6 +136,92 @@ class TestReportLate:
         row = await MatchPlayers.get(match=m, user=p1)
         assert (row.late_minutes, row.late_at, row.late_note) == (None, None, None)
         assert EventType.MATCH_PLAYER_LATE_CLEARED in [e.event_type for e in captured_events]
+
+
+async def _tech(discord_id: int, username: str, on_shift: bool = False):
+    tech = await make_user(discord_id=discord_id, username=username)
+    await UserRole.create(user=tech, role=Role.STREAM_MANAGER, tenant_id=1)
+    if on_shift:
+        now = datetime.now(timezone.utc)
+        position = await VolunteerPosition.create(name=f'Stage crew {username}')
+        shift = await VolunteerShift.create(
+            position=position, starts_at=now - timedelta(hours=1), ends_at=now + timedelta(hours=1),
+        )
+        await VolunteerAssignment.create(shift=shift, user=tech)
+    return tech
+
+
+class TestBroadcastTechs:
+    """A late player on a stage match reaches the Broadcast Techs on shift."""
+
+    @pytest.fixture
+    def sent(self, monkeypatch):
+        sent = []
+
+        async def _send(self, discord_id, message, *args, **kwargs):
+            sent.append((discord_id, kwargs.get('notice')))
+            return True, 'ok'
+
+        monkeypatch.setattr(
+            'application.services.discord.discord_service.DiscordService.send_dm', _send,
+        )
+        return sent
+
+    @staticmethod
+    async def _report(dms, m, player):
+        await PlayerLateService().report_late(m.id, player, 10)
+        for coro in list(dms):
+            dms.remove(coro)
+            await coro
+
+    async def test_only_the_techs_on_shift_hear_it(self, db, dms, sent):
+        stage = await Stage.create(name='Kraid')
+        m, p1, _ = await _match(stage=stage)
+        on = await _tech(9201, 'on', on_shift=True)
+        await _tech(9202, 'off')
+
+        await self._report(dms, m, p1)
+
+        techs = [(d, n.key, n.recipient.value) for d, n in sent if n.key == 'player_late_on_stage']
+        assert techs == [(on.discord_id, 'player_late_on_stage', 'on_duty')]
+
+    async def test_every_tech_hears_it_when_none_is_on_shift(self, db, dms, sent):
+        stage = await Stage.create(name='Kraid')
+        m, p1, _ = await _match(stage=stage)
+        a = await _tech(9203, 'a')
+        b = await _tech(9204, 'b')
+
+        await self._report(dms, m, p1)
+
+        techs = sorted((d, n.recipient.value) for d, n in sent if n.key == 'player_late_on_stage')
+        assert techs == sorted([(a.discord_id, 'staff'), (b.discord_id, 'staff')])
+
+    async def test_no_stage_no_techs(self, db, dms, sent):
+        m, p1, _ = await _match()
+        await _tech(9205, 'on', on_shift=True)
+
+        await self._report(dms, m, p1)
+
+        assert not [n for _, n in sent if n.key == 'player_late_on_stage']
+
+    async def test_a_tech_playing_in_the_match_is_not_told(self, db, dms, sent):
+        stage = await Stage.create(name='Kraid')
+        m, p1, p2 = await _match(stage=stage)
+        await UserRole.create(user=p2, role=Role.STREAM_MANAGER, tenant_id=1)
+
+        await self._report(dms, m, p1)
+
+        assert p2.discord_id not in [d for d, _ in sent]
+
+    async def test_a_tech_who_is_also_staff_gets_one_dm(self, db, dms, sent):
+        stage = await Stage.create(name='Kraid')
+        m, p1, _ = await _match(stage=stage)
+        tech = await _tech(9206, 'both')
+        await UserRole.create(user=tech, role=Role.STAFF, tenant_id=1)
+
+        await self._report(dms, m, p1)
+
+        assert [n.key for d, n in sent if d == tech.discord_id] == ['player_late']
 
 
 class TestWindow:
