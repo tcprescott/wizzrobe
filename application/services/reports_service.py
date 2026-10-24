@@ -35,6 +35,65 @@ def _now() -> datetime:
     return datetime.now(timezone.utc)
 
 
+# A start or check-in this long before its scheduled time is a data-entry
+# artefact (a result recorded ahead of the slot), not a team arriving early.
+IMPLAUSIBLE_EARLY_MIN = 6 * 60
+
+_SEAT_PREFIXES = ('', 'staged_', 'unstaged_')
+
+
+def _minutes_between(earlier: Optional[datetime], later: Optional[datetime]) -> Optional[int]:
+    if earlier is None or later is None:
+        return None
+    return int((later - earlier).total_seconds() / 60)
+
+
+def _implausible_times(match: Match, start_delay: Optional[int], seat_delay: Optional[int]) -> bool:
+    """Whether this match's timestamps describe a click rather than a race.
+
+    Closing a match as played on its bracket site stamps check-in, start and
+    finish with the same instant, whenever staff get to it.
+    """
+    if any(d is not None and d < -IMPLAUSIBLE_EARLY_MIN for d in (start_delay, seat_delay)):
+        return True
+    return (
+        match.seated_at is not None
+        and match.seated_at == match.started_at == match.finished_at
+    )
+
+
+def _avg(values: List[int]) -> Optional[float]:
+    return round(sum(values) / len(values), 1) if values else None
+
+
+def _on_time_pct(delays: List[int]) -> Optional[float]:
+    if not delays:
+        return None
+    on_time = sum(1 for d in delays if abs(d) <= ON_TIME_THRESHOLD_MIN)
+    return round(on_time / len(delays) * 100, 1)
+
+
+class _SeatTally:
+    """Check-in delays and check-in-to-start times for one slice of a tournament."""
+
+    def __init__(self) -> None:
+        self.seat_delays: List[int] = []
+        self.setups: List[int] = []
+
+    def add(self, seat_delay: Optional[int], setup: Optional[int]) -> None:
+        if seat_delay is not None:
+            self.seat_delays.append(seat_delay)
+        if setup is not None:
+            self.setups.append(setup)
+
+    def summary(self, prefix: str) -> Dict[str, Optional[float]]:
+        return {
+            f'{prefix}avg_seat_delay_min': _avg(self.seat_delays),
+            f'{prefix}seated_on_time_pct': _on_time_pct(self.seat_delays),
+            f'{prefix}avg_setup_min': _avg(self.setups),
+        }
+
+
 class ReportsService:
     """Generates aggregated views over matches, crew, stages, and audit logs."""
 
@@ -224,21 +283,24 @@ class ReportsService:
 
         rows: List[Dict] = []
         per_tournament: Dict[int, Dict] = {}
+        flagged_ids: List[int] = []
         for match in matches:
             scheduled = self._local(match.scheduled_at)
+            seated = self._local(match.seated_at)
             started = self._local(match.started_at)
             finished = self._local(match.finished_at)
             confirmed = self._local(match.confirmed_at)
 
-            start_delay = None
-            if scheduled and started:
-                start_delay = int((started - scheduled).total_seconds() / 60)
-            duration = None
-            if started and finished:
-                duration = int((finished - started).total_seconds() / 60)
-            confirmation_lag = None
-            if finished and confirmed:
-                confirmation_lag = int((confirmed - finished).total_seconds() / 60)
+            start_delay = _minutes_between(scheduled, started)
+            seat_delay = _minutes_between(scheduled, seated)
+            setup = _minutes_between(seated, started)
+            duration = _minutes_between(started, finished)
+            confirmation_lag = _minutes_between(finished, confirmed)
+            staged = match.stage_id is not None
+
+            flagged = _implausible_times(match, start_delay, seat_delay)
+            if flagged:
+                flagged_ids.append(match.id)
 
             rows.append({
                 'match_id': match.id,
@@ -247,7 +309,10 @@ class ReportsService:
                 'scheduled_at': scheduled,
                 'state': match.current_state,
                 'stage': match.stage.name if match.stage else '',
+                'staged': staged,
                 'start_delay_min': start_delay,
+                'seat_delay_min': seat_delay,
+                'setup_min': setup,
                 'duration_min': duration,
                 'confirmation_lag_min': confirmation_lag,
                 'player_count': len(match.players),
@@ -261,11 +326,9 @@ class ReportsService:
                 'matches_total': 0,
                 'matches_started': 0,
                 'matches_finished': 0,
-                'start_delay_total': 0,
-                'duration_total': 0,
-                'on_time_count': 0,
-                '_duration_seen': 0,
-                '_start_delay_seen': 0,
+                'start_delays': [],
+                'durations': [],
+                'seat': {prefix: _SeatTally() for prefix in _SEAT_PREFIXES},
             })
             stats['matches_total'] += 1
             # Counted on the timestamp alone, as Insights counts them; the
@@ -274,33 +337,33 @@ class ReportsService:
                 stats['matches_started'] += 1
             if finished:
                 stats['matches_finished'] += 1
+            if flagged:
+                continue
             if start_delay is not None:
-                stats['start_delay_total'] += start_delay
-                stats['_start_delay_seen'] += 1
-                if abs(start_delay) <= ON_TIME_THRESHOLD_MIN:
-                    stats['on_time_count'] += 1
+                stats['start_delays'].append(start_delay)
             if duration is not None:
-                stats['duration_total'] += duration
-                stats['_duration_seen'] += 1
+                stats['durations'].append(duration)
+            for prefix in ('', 'staged_' if staged else 'unstaged_'):
+                stats['seat'][prefix].add(seat_delay, setup)
 
         aggregates: List[Dict] = []
         for stats in per_tournament.values():
-            avg_delay = (stats['start_delay_total'] / stats['_start_delay_seen']) if stats['_start_delay_seen'] else None
-            avg_duration = (stats['duration_total'] / stats['_duration_seen']) if stats['_duration_seen'] else None
-            on_time_pct = (stats['on_time_count'] / stats['_start_delay_seen'] * 100) if stats['_start_delay_seen'] else None
-            aggregates.append({
+            aggregate = {
                 'tournament_id': stats['tournament_id'],
                 'tournament_name': stats['tournament_name'],
                 'matches_total': stats['matches_total'],
                 'matches_started': stats['matches_started'],
                 'matches_finished': stats['matches_finished'],
-                'avg_start_delay_min': round(avg_delay, 1) if avg_delay is not None else None,
-                'avg_duration_min': round(avg_duration, 1) if avg_duration is not None else None,
+                'avg_start_delay_min': _avg(stats['start_delays']),
+                'avg_duration_min': _avg(stats['durations']),
                 'expected_avg_min': stats['expected_avg_min'],
-                'on_time_pct': round(on_time_pct, 1) if on_time_pct is not None else None,
-            })
+                'on_time_pct': _on_time_pct(stats['start_delays']),
+            }
+            for prefix, tally in stats['seat'].items():
+                aggregate.update(tally.summary(prefix))
+            aggregates.append(aggregate)
 
-        return {'rows': rows, 'aggregates': aggregates}
+        return {'rows': rows, 'aggregates': aggregates, 'flagged_match_ids': flagged_ids}
 
     # --- Staff / Crew Activity ---------------------------------------------
 

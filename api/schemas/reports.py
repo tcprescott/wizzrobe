@@ -90,8 +90,17 @@ class MatchOperationsRow(BaseModel):
         ..., description="Lifecycle state: `Scheduled`, `Checked In`, `In Progress` or `Finished`."
     )
     stage: str = Field(..., description="Name of the stage, or an empty string when unassigned.")
+    staged: bool = Field(False, description="Whether the match has a stage assigned.")
     start_delay_min: Optional[int] = Field(
         None, description="Minutes between the scheduled time and the actual start; negative when early."
+    )
+    seat_delay_min: Optional[int] = Field(
+        None,
+        description="Minutes between the scheduled time and check-in (seated); negative when early, "
+        "null when never checked in.",
+    )
+    setup_min: Optional[int] = Field(
+        None, description="Minutes from check-in to the actual start; null unless both happened."
     )
     duration_min: Optional[int] = Field(None, description="Minutes from start to finish.")
     confirmation_lag_min: Optional[int] = Field(
@@ -118,11 +127,51 @@ class MatchOperationsAggregate(BaseModel):
     on_time_pct: Optional[float] = Field(
         None, description="Share of started matches that began within 5 minutes of schedule, as a percentage."
     )
+    avg_seat_delay_min: Optional[float] = Field(
+        None, description="Average check-in delay in minutes, to one decimal."
+    )
+    seated_on_time_pct: Optional[float] = Field(
+        None,
+        description="Share of checked-in matches that checked in within 5 minutes of schedule, "
+        "as a percentage.",
+    )
+    avg_setup_min: Optional[float] = Field(
+        None, description="Average minutes from check-in to start, to one decimal."
+    )
+    staged_avg_seat_delay_min: Optional[float] = Field(
+        None, description="Average check-in delay in minutes, to one decimal. Matches on a stage only."
+    )
+    staged_seated_on_time_pct: Optional[float] = Field(
+        None,
+        description="Share of checked-in matches that checked in within 5 minutes of schedule, "
+        "as a percentage. Matches on a stage only.",
+    )
+    staged_avg_setup_min: Optional[float] = Field(
+        None, description="Average minutes from check-in to start, to one decimal. Matches on a stage only."
+    )
+    unstaged_avg_seat_delay_min: Optional[float] = Field(
+        None, description="Average check-in delay in minutes, to one decimal. Matches with no stage only."
+    )
+    unstaged_seated_on_time_pct: Optional[float] = Field(
+        None,
+        description="Share of checked-in matches that checked in within 5 minutes of schedule, "
+        "as a percentage. Matches with no stage only.",
+    )
+    unstaged_avg_setup_min: Optional[float] = Field(
+        None, description="Average minutes from check-in to start, to one decimal. Matches with no stage only."
+    )
 
 
 class MatchOperationsResponse(BaseModel):
     rows: List[MatchOperationsRow] = Field(..., description="One row per match scheduled in the window.")
-    aggregates: List[MatchOperationsAggregate] = Field(..., description="One row per tournament.")
+    aggregates: List[MatchOperationsAggregate] = Field(
+        ..., description="One row per tournament. Averages and percentages leave out flagged matches."
+    )
+    flagged_match_ids: List[int] = Field(
+        default_factory=list,
+        description="Matches whose times can't be a real race (started or checked in more than 6 hours "
+        "early, or check-in, start and finish all the same instant), left out of every average.",
+    )
 
 
 class CrewCoverageRow(BaseModel):
