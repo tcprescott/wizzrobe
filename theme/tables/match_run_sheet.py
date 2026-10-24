@@ -634,8 +634,8 @@ def _item_slot(proctor: bool, can_run: bool = False, approve: str = 'false') -> 
         # the desktop row's shape: the names are the keyboard's way in, and a
         # tap anywhere else on the card is a pointer convenience.
         main = main.replace(
-            '<span class="run-sheet__who">' + _WHO + '</span>',
-            '<button type="button" class="run-sheet__who run-sheet__open" @click.stop="$parent.$emit(\'open_match\', props.row.id)">' + _WHO + '</button>',
+            '<span class="run-sheet__who">' + WHO + '</span>',
+            '<button type="button" class="run-sheet__who run-sheet__open" @click.stop="$parent.$emit(\'open_match\', props.row.id)">' + WHO + '</button>',
         )
         card = """<div v-if="!props.row._folded" class="run-sheet__card" :class="[props.row._flash ? 'wiz-row-flash' : '', props.row._removed ? 'wiz-row-removed' : '']" :inert="props.row._removed ? '' : null" :data-wiz-row="props.row.id"
             @click="$parent.$emit('open_match', props.row.id)">""" + main + """
