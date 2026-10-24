@@ -17,6 +17,7 @@ from application.utils.clients.sglive_client import SGLIVE_URL
 from application.utils.money import format_money
 from application.utils.safe_url import http_url_or_empty
 from pages.admin_tabs.links import SCHEDULE, admin_url
+from theme.matchup import matchup_label
 from theme.menu import menu_action, more_menu
 from theme.twitch_theater import NowPlaying, TwitchTheater
 from theme.watch_view import (
@@ -68,6 +69,15 @@ def _span(text: str, classes: str) -> ui.label:
     label = ui.label(text).classes(classes)
     label.tag = 'span'
     return label
+
+
+def _players(match: WatchMatch, classes: str, *, tag: str = 'span') -> None:
+    if match.players_parts:
+        matchup_label(match.players_parts, classes, tag=tag)
+    elif tag == 'span':
+        _span(match.players, classes)
+    else:
+        ui.label(match.players).classes(classes)
 
 
 def _thumb(stage: WatchStage) -> None:
@@ -247,7 +257,7 @@ class LiveWatch:
                 now = stage.on_now
                 if now:
                     with ui.element('div').classes('wiz-tile__now-top'):
-                        ui.label(now.players).classes('wiz-tile__players')
+                        _players(now, 'wiz-tile__players', tag='div')
                         _open_in_schedule(now, self.board_scope)
                     ui.label(tile_meta(now)).classes('wiz-tile__meta')
                     for label, names, icon in (
@@ -265,7 +275,7 @@ class LiveWatch:
                 for match in stage.up_next:
                     with ui.element('div').classes('wiz-tile__next'):
                         _span(match.time, 'wiz-tile__next-time')
-                        _span(match.players, 'wiz-tile__next-players')
+                        _players(match, 'wiz-tile__next-players')
                         _span(match.tournament_short or match.tournament, 'wiz-tile__next-tourn')
                         if self.reminders:
                             self.reminders.bell(match)
@@ -283,7 +293,7 @@ class LiveWatch:
                         with ui.element('div').classes('wiz-watch-row'):
                             ui.label(match.time).classes('match-time')
                             with ui.element('div').classes('wiz-watch-row__main'):
-                                ui.label(match.players).classes('wiz-watch-row__players')
+                                _players(match, 'wiz-watch-row__players', tag='div')
                                 if match.tournament:
                                     ui.label(match.tournament_short or match.tournament).classes('text-muted')
                             ui.label(match.stage).classes('wiz-watch-tag')

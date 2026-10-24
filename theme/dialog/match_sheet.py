@@ -26,6 +26,7 @@ from theme.dialog._helpers import dialog_actions, dialog_header
 from theme.dialog.confirmation_dialog import ConfirmationDialog
 from theme.help.render import render_user_blocks
 from theme.markdown_editor import MarkdownEditor
+from theme.matchup import matchup_label
 from theme.menu import menu_action, more_menu
 from theme.tables.match_access import MatchBoardAccess
 from theme.tables.match_run_sheet import decorate_run_sheet_row
@@ -295,9 +296,12 @@ class MatchSheet:
                                          row.get('_booked_time', row.get('_time'))) if part)
         context = ' · '.join(part for part in (when, row.get('tournament')) if part)
         ui.label(context).classes('match-sheet__note')
-        title = row.get('_who') or (row.get('bracket') or {}).get('name') or row.get('title') or 'Match'
-        heading = ui.label(title).classes('match-sheet__title')
-        heading.tag = 'h3'
+        if row.get('_who_parts'):
+            matchup_label(row['_who_parts'], 'match-sheet__title', tag='h3')
+        else:
+            title = row.get('_who') or (row.get('bracket') or {}).get('name') or row.get('title') or 'Match'
+            heading = ui.label(title).classes('match-sheet__title')
+            heading.tag = 'h3'
         if row.get('description'):
             with ui.column().classes('match-sheet__description gap-0 full-width'):
                 render_user_blocks(parse_user_blocks(row['description']))
