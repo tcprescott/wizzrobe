@@ -23,7 +23,7 @@ from theme.tables.match_lifecycle import MatchLifecycleHandlers
 from theme.tables.match_run_sheet import RUN_SHEET_COLUMNS
 from theme.tables.preferences import TableKeys
 from theme.unbooked_board import UnbookedBoard
-from theme.url_state import url_param, url_state
+from theme.url_state import consume_deep_link, url_param, url_state
 
 
 async def _render_inbox(inbox, anchor, request_id, open_decision, client, *, may_decide: bool) -> None:
@@ -41,8 +41,10 @@ async def _render_inbox(inbox, anchor, request_id, open_decision, client, *, may
     """
     with client, anchor:
         await inbox.render()
-    if request_id is not None and may_decide:
-        await open_decision(int(request_id), client)
+    if request_id is not None:
+        if may_decide:
+            await open_decision(int(request_id), client)
+        consume_deep_link('reschedule_request', client=client)
 
 
 #: The bracket features whose matchups the "Not booked yet" view lists.
@@ -136,6 +138,7 @@ async def admin_schedule_page(
         sheet = MatchSheet(handlers, access=access)
         if comments:
             sheet.open_when_loaded(int(comments))
+            consume_deep_link('comments', match_id=match_id or comments)
 
         async def _open_decision(request_id: int, client) -> None:
             """Open one request's decision dialog, from the inbox or a DM link.

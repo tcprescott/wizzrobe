@@ -124,6 +124,14 @@ button (`theme/dialog/reschedule_agree_dialog.py`), gated by the same
 already agreed, closed (decided or withdrawn), or not a request waiting on this
 viewer (`MatchRescheduleService.agreement_link_state`).
 
+A link that opens something once leaves the address once the page has acted on
+it: `consume_deep_link(...)` (`theme/url_state.py`) strips the parameter with
+`history.replaceState`, so a reload doesn't reopen the dialog or repeat "That
+request has already been dealt with." Filters (`?match=`, `?match_id=`) stay;
+`?comments=` on the admin board settles into `?match_id=`. A new one-shot
+parameter in `application/utils/app_links.py` must be consumed where it's
+honoured, or `tests/theme/test_url_state.py` fails.
+
 ### Who a match DM is for
 
 One lifecycle change reaches up to four kinds of reader, and copy written for

@@ -26,6 +26,7 @@ from theme.steady import steady_refreshable
 from theme.tables.admin_crud import current_actor, refresh_button
 from theme.tables.mobile_grid import enable_mobile_grid
 from theme.tables.preferences import TableKeys
+from theme.url_state import consume_deep_link
 
 _COLUMNS: list[dict[str, Any]] = [
     {'name': 'starts', 'label': 'Starts', 'field': 'starts', 'align': 'left', 'sortable': True},
@@ -113,6 +114,7 @@ async def admin_community_events_page(open_event: Optional[int] = None) -> None:
         await _render_table()
         if open_event is not None:
             await open_review(open_event)
+            consume_deep_link('community_event')
 
 
 def _review_dialog(service: CommunityEventService, actor, event: CommunityEvent, on_change) -> None:
