@@ -255,6 +255,17 @@ def format_local_time(dt: Optional[datetime], tz: TzArg = None) -> str:
     return format_local_datetime(dt, "%H:%M", tz)
 
 
+def input_time(dt: Optional[datetime], tz: TzArg = None) -> str:
+    """``HH:MM`` on the display clock for a native ``<input type=time>`` value.
+
+    Always 24-hour, whatever the viewer reads: the input wants ``21:30`` and
+    shows it in the browser's own format.
+    """
+    if dt is None:
+        return ''
+    return to_utc_aware(dt).astimezone(_resolve(tz)).strftime("%H:%M")
+
+
 def format_local_hour(dt: Optional[datetime], tz: TzArg = None) -> str:
     """An hour-scale axis label: ``21:00``, or ``9 PM`` on a 12-hour clock."""
     if dt is None:
@@ -328,9 +339,9 @@ def readable_discord_times(text: str, tz: TzArg = None) -> str:
     if '<t:' not in (text or ''):
         return text or ''
     text = _DISCORD_TIME_PAIR.sub(r'<t:\1:F>', text)
-    # Notification copies stay 24-hour on purpose: one may be rendered
-    # inside a staff member's UI handler, which would otherwise lend it their clock.
-    with hour_cycle_scope(False):
+    # Notification copies are always 12-hour: one may be rendered inside a staff
+    # member's UI handler, which would otherwise lend it their own clock.
+    with hour_cycle_scope(True):
         return _DISCORD_TIME.sub(
             lambda m: format_local_display(datetime.fromtimestamp(int(m.group(1)), timezone.utc), tz),
             text,

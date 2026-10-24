@@ -51,8 +51,8 @@ The same snippet writes the browser's preferred clock to `wiz_hc` (`12` or
 `24`, from `Intl.DateTimeFormat([], {hour: 'numeric'}).resolvedOptions()`).
 It never reloads by itself: a first visit's zone reload carries it, and a
 browser that already had `wiz_tz` picks it up on its next navigation.
-`User.hour_cycle` (Profile → Time format) outranks it; nothing known means
-24-hour. `_bind_display_timezone` binds the answer beside the zone (contextvar
+`User.hour_cycle` (Profile → Time format) outranks it; a page viewer with
+neither (a first visit before the cookie lands, cookies blocked) gets 12-hour. `_bind_display_timezone` binds the answer beside the zone (contextvar
 plus `app.storage.client['hour12']`), and `capture_render_context` carries it
 into detached tasks.
 
@@ -65,10 +65,14 @@ Sortable table columns get a clock-aware `:sort` for 12-hour viewers
 (`theme/tables/preferences.CLOCK_SORT`), since `10:00 PM` sorts before
 `9:30 AM` as text.
 
-**Unbound means 24-hour**, which is what workers, the bot, REST, MCP and the
-static spectator pages get. Output that isn't for the viewer's own page forces
-it with `hour_cycle_scope(False)`: notification copies
-(`readable_discord_times`), CSV exports, and the shared Watch view cache.
+**Unbound means 12-hour**, which is what workers, the
+bot and the static spectator pages get. Output that isn't for the viewer's own
+page but may be rendered inside one forces it with `hour_cycle_scope(True)`, so
+a 24-hour staff member's handler can't lend it their clock: notification copies
+(`readable_discord_times`), CSV exports, and the shared Watch view cache. REST,
+MCP and webhooks are unaffected: they send UTC ISO timestamps, not formatted
+text. The test suite runs on the 24-hour clock (an autouse fixture in
+`tests/conftest.py`); `tests/test_hour_cycle.py` unbinds it to test the default.
 
 ## Resolution, and where it is bound
 

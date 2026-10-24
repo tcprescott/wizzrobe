@@ -9,7 +9,7 @@ from application.services.volunteer.volunteer_position_service import VolunteerP
 from application.services.volunteer.volunteer_schedule_service import VolunteerScheduleService
 from application.utils.timezone import (
     format_local_date,
-    format_local_time,
+    input_time,
     parse_local_datetime,
 )
 from models import VolunteerPosition, VolunteerShift
@@ -53,9 +53,9 @@ class VolunteerShiftDialog:
         if editing:
             default_position = self.shift.position_id
             default_start_date = format_local_date(self.shift.starts_at)
-            default_start_time = format_local_time(self.shift.starts_at)
+            default_start_time = input_time(self.shift.starts_at)
             default_end_date = format_local_date(self.shift.ends_at)
-            default_end_time = format_local_time(self.shift.ends_at)
+            default_end_time = input_time(self.shift.ends_at)
             default_label = self.shift.label or ''
             default_slots = self.shift.slots_needed
             default_notes = self.shift.notes or ''
@@ -63,9 +63,9 @@ class VolunteerShiftDialog:
             default_position = self.position.id if self.position else None
             ends = self.default_start + timedelta(hours=self.default_hours)
             default_start_date = format_local_date(self.default_start)
-            default_start_time = format_local_time(self.default_start)
+            default_start_time = input_time(self.default_start)
             default_end_date = format_local_date(ends)
-            default_end_time = format_local_time(ends)
+            default_end_time = input_time(ends)
             default_label = ''
             default_slots = 1
             default_notes = ''
