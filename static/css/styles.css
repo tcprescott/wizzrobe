@@ -7512,6 +7512,20 @@ ol.wiz-help-list { list-style-type: decimal; }
     font-weight: 400;
     color: var(--fg-secondary);
 }
+/* A big race: its first racers, then "+N more" to show the rest in place. */
+.run-sheet__racers {
+    display: block;
+    font-weight: 500;
+}
+.run-sheet__more {
+    margin-left: 0.375em;
+    color: var(--wiz-link);
+    font-weight: 700;
+    white-space: nowrap;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+    cursor: pointer;
+}
 .run-sheet__late {
     display: flex;
     align-items: center;
