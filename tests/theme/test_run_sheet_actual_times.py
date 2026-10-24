@@ -20,10 +20,21 @@ def _row(state='Started', **extra):
             'match_length': 90, **extra}
 
 
-def test_unstarted_match_keeps_its_booked_time():
-    row = decorate_run_sheet_row(_row(state='Scheduled'))
-    assert row['_time'] == _hhmm(BOOKED)
-    assert row['_until'] == ''
+def test_unstarted_match_keeps_its_booked_time_and_estimates_an_end_with_setup():
+    for state in ('Scheduled', 'Checked In'):
+        row = decorate_run_sheet_row(_row(state=state))
+        assert row['_time'] == _hhmm(BOOKED)
+        assert row['_until'] == f'to ~{_hhmm(BOOKED + (15 + 90) * 60)}'
+        assert row['_overrun'] is False
+
+
+def test_unstarted_match_without_a_length_or_time_has_no_estimate():
+    assert decorate_run_sheet_row(_row(state='Scheduled', match_length=None))['_until'] == ''
+    assert decorate_run_sheet_row(_row(state='Scheduled', scheduled_ts=None))['_until'] == ''
+
+
+def test_called_off_match_has_no_estimate():
+    assert decorate_run_sheet_row(_row(state='Cancelled'))['_until'] == ''
 
 
 def test_live_match_shows_actual_start_and_estimated_end():

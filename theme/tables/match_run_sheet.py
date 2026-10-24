@@ -23,6 +23,7 @@ from typing import Callable, Optional
 
 from nicegui import ui
 
+from application.services.reports_service import CHECK_IN_TO_START
 from application.utils.match_labels import has_undecided, matchup_parts
 from application.utils.timezone import format_local_time, to_local, today_local
 from theme.busy import slot_busy_template
@@ -384,6 +385,13 @@ def _actual_times(row: dict) -> None:
         row['_overrun'] = datetime.now(timezone.utc).timestamp() > estimate
 
 
+def _planned_end(row: dict) -> None:
+    """A match not yet started ends around booked time + setup + match length."""
+    if row.get('state') in ('Scheduled', 'Checked In') and row.get('scheduled_ts') and row.get('match_length'):
+        estimate = row['scheduled_ts'] + CHECK_IN_TO_START.total_seconds() + row['match_length'] * 60
+        row['_until'] = f'to ~{_hhmm(estimate)}'
+
+
 def decorate_run_sheet_row(row: dict) -> dict:
     """Stamp the display fields the run-sheet templates read. Mutates ``row``."""
     label, tone = run_sheet_status(row)
@@ -396,6 +404,8 @@ def decorate_run_sheet_row(row: dict) -> dict:
     row['_until'], row['_overrun'] = '', False
     if row.get('started_ts'):
         _actual_times(row)
+    else:
+        _planned_end(row)
     names = [p.get('name') or '' for p in row.get('players') or []] + list(row.get('placeholders') or [])
     row['_who'] = ' vs '.join(names) if len(names) == 2 else ', '.join(names)
     parts = matchup_parts([p.get('name') or '' for p in row.get('players') or []], row.get('placeholders') or [])
