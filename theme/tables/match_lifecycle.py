@@ -173,8 +173,8 @@ class MatchLifecycleHandlers:
         match = await Match.get(id=match_id, tenant_id=require_tenant_id()).prefetch_related('tournament', 'players', 'players__user')
 
         # A stage match is played on the stage, so there is nobody to seat.
-        if match.stage_id is not None:
-            player_names = ', '.join(p.user.preferred_name for p in match.players)
+        if match.stage_id is not None:  # type: ignore[attr-defined]
+            player_names = ', '.join(p.user.preferred_name for p in match.players)  # type: ignore[attr-defined]
             with self.page_container:
                 ConfirmationDialog(
                     title='Check in match',
