@@ -49,8 +49,8 @@ logger = logging.getLogger(__name__)
 # A probe gets a hard ceiling so one hung dependency can't stall the whole board.
 PROBE_TIMEOUT_SECONDS = 8.0
 HTTP_TIMEOUT_SECONDS = 5.0
-# Warn this far ahead of a Challonge token's expiry (a refresh should have long
-# since happened; if it hasn't, staff need to reconnect before it hard-fails).
+# Renew a Challonge token this far ahead of its expiry, and warn only when that
+# renewal fails, so staff have days to reconnect before syncs hard-fail.
 CHALLONGE_EXPIRY_WARNING = timedelta(days=3)
 
 
@@ -271,28 +271,47 @@ async def _probe_challonge() -> Tuple[ServiceStatus, str]:
 
 
 async def _challonge_token_health() -> Tuple[ServiceStatus, str]:
-    """Scan every tenant's Challonge connection for an expired/expiring token."""
+    """Scan every tenant's Challonge connection, renewing tokens that lapse soon.
+
+    A token with a refresh token renews here, inside the warning window, so a
+    warning means Challonge refused the renewal (or there is nothing to renew
+    with), not merely that the week is nearly up.
+    """
     from application.repositories import ChallongeRepository
     connections = await ChallongeRepository.list_all_connections()
     if not connections:
         return ServiceStatus.UNKNOWN, 'no tenant connections'
-    now = _now()
-    expired, warning = 0, 0
+    expired, warning, renewed = 0, 0, 0
     for conn in connections:
-        expires = conn.token_expires_at
-        if expires is None:
+        if conn.token_expires_at is None:
             continue
-        expires = to_utc_aware(expires)
-        if expires <= now:
+        if to_utc_aware(conn.token_expires_at) > _now() + CHALLONGE_EXPIRY_WARNING:
+            continue
+        if await _renew_challonge_token(conn):
+            renewed += 1
+        elif to_utc_aware(conn.token_expires_at) <= _now():
             expired += 1
-        elif expires <= now + CHALLONGE_EXPIRY_WARNING:
+        else:
             warning += 1
     total = len(connections)
     if expired:
-        return ServiceStatus.DOWN, f'{expired}/{total} token(s) expired'
+        return ServiceStatus.DOWN, f"{expired}/{total} token(s) expired and couldn't be renewed"
     if warning:
-        return ServiceStatus.CREDENTIAL_WARNING, f'{warning}/{total} token(s) expiring soon'
+        return ServiceStatus.CREDENTIAL_WARNING, f"{warning}/{total} token(s) expiring soon and couldn't be renewed"
+    if renewed:
+        return ServiceStatus.HEALTHY, f'{total} token(s) valid ({renewed} renewed)'
     return ServiceStatus.HEALTHY, f'{total} token(s) valid'
+
+
+async def _renew_challonge_token(conn) -> bool:
+    from application.services.challonge_service import ChallongeService
+    from application.tenant_context import tenant_scope
+    try:
+        with tenant_scope(conn.tenant_id):
+            return await ChallongeService().renew_ahead(conn, CHALLONGE_EXPIRY_WARNING)
+    except Exception:
+        logger.warning('Challonge token renewal failed for tenant %s', conn.tenant_id, exc_info=True)
+        return False
 
 
 def _seedgen_probe(host: str, randomizer: str) -> ProbeCheck:
@@ -416,7 +435,9 @@ class ServiceHealthService:
             return results
         connection = await ChallongeService().get_connection_status()
         if connection.get('connected'):
-            status, message = _tenant_challonge_status(connection.get('token_expires_at'))
+            status, message = _tenant_challonge_status(
+                connection.get('token_expires_at'), renews=connection.get('renews_automatically', False),
+            )
             results.append(ProbeResult(
                 'challonge', 'Challonge', 'integrations', status, message, _now(),
             ))
@@ -494,15 +515,27 @@ def _board_sort_key(result: ProbeResult) -> Tuple[int, str]:
     return (-_SEVERITY[result.status], result.label)
 
 
-def _tenant_challonge_status(token_expires_at: Optional[datetime]) -> Tuple[ServiceStatus, str]:
+def _tenant_challonge_status(
+    token_expires_at: Optional[datetime], *, renews: bool = False,
+) -> Tuple[ServiceStatus, str]:
+    """A tenant's Challonge token, read without touching it.
+
+    A renewable token is renewed by the platform health worker inside the
+    warning window, so it only needs attention once it has actually lapsed:
+    that means the renewal failed.
+    """
     if token_expires_at is None:
         return ServiceStatus.HEALTHY, 'Connected (no token expiry)'
     expires = to_utc_aware(token_expires_at)
     now = _now()
     if expires <= now:
+        if renews:
+            return ServiceStatus.DOWN, "Token expired and couldn't be renewed — reconnect required"
         return ServiceStatus.DOWN, 'Token expired — reconnect required'
+    if renews:
+        return ServiceStatus.HEALTHY, 'Connected, token renews automatically'
     if expires <= now + CHALLONGE_EXPIRY_WARNING:
-        return ServiceStatus.CREDENTIAL_WARNING, 'Token expiring soon'
+        return ServiceStatus.CREDENTIAL_WARNING, 'Token expiring soon — reconnect before it lapses'
     return ServiceStatus.HEALTHY, 'Connected, token valid'
 
 

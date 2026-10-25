@@ -152,6 +152,12 @@ class StartggConnectionService:
         }
         if connection is None:
             return {'connected': False, **base}
+        # A token nobody has used all week lapses without a renewal ever being
+        # tried, so try one before calling the sign-in lapsed.
+        try:
+            await self._fresh_access_token(connection)
+        except StartggAPIError:
+            logger.warning('start.gg sign-in refresh failed for tenant %s', connection.tenant_id, exc_info=True)
         expired = (
             connection.token_expires_at is not None
             and _aware(connection.token_expires_at) <= datetime.now(timezone.utc)
