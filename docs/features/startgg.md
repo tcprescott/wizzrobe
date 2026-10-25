@@ -114,6 +114,15 @@ bracket link to its earliest other game first (`BracketSetService.hand_off`), so
 the rest stay booked; calling off a set's only game frees the matchup.
 Placeholder fills reach every game.
 
+A game booked by hand through New match joins the set too. When the two players
+already have a Challonge or start.gg booking in the tournament whose result the
+site hasn't heard (a best-of-1 not yet confirmed, or an undecided set), the
+dialog names it and offers "Count this as game N of that set", ticked
+(`BracketSetService.open_set_for` / `join_set`, `theme/dialog/_set_join_notice.py`).
+This works after game 1 is played, and a game past the set's length grows it to
+the next odd best-of. Without it, confirming game 1 used to send that single
+game to the site as the whole matchup (SG Live 2026, the SM Map Rando semi).
+
 ## Writeback
 
 Off by default, per tournament ("Report confirmed results to start.gg").

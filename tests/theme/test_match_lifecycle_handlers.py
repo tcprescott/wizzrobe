@@ -334,3 +334,20 @@ def test_the_sheet_offers_clear_seed_only_to_editors():
     from theme.dialog.match_sheet import MatchSheet
     src = inspect.getsource(MatchSheet._check_seed)
     assert 'can_edit_row(row)' in src and 'on_clear_seed' in src
+
+
+async def test_checking_in_off_stage_seats_the_players(monkeypatch):
+    handlers, opened = _start_handlers(monkeypatch)
+    await handlers.on_seat(7)
+    assert opened == [('stations', 'checkin')]
+
+
+async def test_checking_in_a_stage_match_takes_one_tap(monkeypatch):
+    handlers, opened = _start_handlers(monkeypatch, stage_id=2)
+    seated = []
+
+    async def _seat(match):
+        seated.append(match.id)
+    handlers.confirm_seating = _seat
+    await handlers.on_seat(7)
+    assert opened == [] and seated == [7]

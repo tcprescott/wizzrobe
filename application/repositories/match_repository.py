@@ -155,6 +155,7 @@ class MatchRepository:
         *,
         tournament_ids: Optional[List[int]] = None,
         stage_ids: Optional[List[int]] = None,
+        include_unstaged: bool = False,
         only_upcoming: bool = False,
         user_discord_id: Optional[str] = None,
         crew_discord_id: Optional[str] = None,
@@ -169,6 +170,8 @@ class MatchRepository:
         Args:
             tournament_ids: Filter by tournament IDs
             stage_ids: Filter by stage IDs
+            include_unstaged: Also keep matches with no stage; on its own
+                (no ``stage_ids``) it keeps only those
             only_upcoming: Only return matches that haven't finished
             user_discord_id: Filter matches where user is a player
             crew_discord_id: Filter matches where user signed up to commentate
@@ -205,9 +208,13 @@ class MatchRepository:
         if tournament_ids:
             query = query.filter(tournament_id__in=tournament_ids)
         
-        if stage_ids:
+        if stage_ids and include_unstaged:
+            query = query.filter(Q(stage_id__in=stage_ids) | Q(stage_id__isnull=True))
+        elif stage_ids:
             query = query.filter(stage_id__in=stage_ids)
-        
+        elif include_unstaged:
+            query = query.filter(stage_id__isnull=True)
+
         if user_discord_id:
             query = query.filter(players__user__discord_id=user_discord_id)
 

@@ -88,13 +88,20 @@ def readiness(row: dict, *, crew: bool = True) -> list[dict]:
 
         stations = [(p.get('name') or '', p.get('station')) for p in players]
         missing = [name for name, station in stations if not station]
-        if len(missing) == len(stations):
-            detail = 'Not assigned'
+        # A stage match is played on the stage: stations are only information
+        # there, listed when someone recorded them.
+        if row.get('stage'):
+            if len(missing) < len(stations):
+                detail = ' · '.join(f'{name} {station}' for name, station in stations if station)
+                items.append({'key': 'stations', 'label': 'Stations', 'ready': None, 'detail': detail})
         else:
-            detail = ' · '.join(f'{name} {station}' for name, station in stations if station)
-            if missing:
-                detail += f" · {_names(missing)} {'has' if len(missing) == 1 else 'have'} none"
-        items.append({'key': 'stations', 'label': 'Stations', 'ready': not missing, 'detail': detail})
+            if len(missing) == len(stations):
+                detail = 'Not assigned'
+            else:
+                detail = ' · '.join(f'{name} {station}' for name, station in stations if station)
+                if missing:
+                    detail += f" · {_names(missing)} {'has' if len(missing) == 1 else 'have'} none"
+            items.append({'key': 'stations', 'label': 'Stations', 'ready': not missing, 'detail': detail})
 
     stage = row.get('_stage') or ''
     items.append({

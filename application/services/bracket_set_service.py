@@ -40,7 +40,7 @@ from application.services.notification_catalog import SERIES_GAME_CANCELLED
 from application.services.round_schedule_service import RoundScheduleService
 from application.utils.game_order import GameTimes, game_numbers, remaining_slots
 from application.utils.timezone import format_local_date, format_local_time, parse_local_datetime
-from models import Match, User
+from models import ChallongeMatchState, Match, StartggSetState, User
 
 logger = logging.getLogger(__name__)
 
@@ -92,6 +92,32 @@ class OpenGames:
     slots: List[bool]
     # The game that leads the set, once one is booked.
     first: Optional[Match] = None
+
+
+@dataclass
+class OpenBracketSet:
+    """A bracket booking two players haven't finished, which a new game of theirs can join.
+
+    Staff booking another game for the same pair by hand used to make a plain
+    match beside it, so confirming game 1 sent that one game to the bracket site
+    as the whole matchup. Joining the set keeps the site waiting for the set.
+    """
+
+    first: Match
+    games: List[Match]
+    best_of: int
+    site: str
+    round_label: Optional[str]
+
+    @property
+    def next_game(self) -> int:
+        return len(self.games) + 1
+
+    @property
+    def best_of_after(self) -> int:
+        """The set's length once the next game joins: grown to the next odd number if it must."""
+        n = self.next_game
+        return max(self.best_of, n if n % 2 else n + 1)
 
 
 def validate_best_of(best_of: int) -> int:
@@ -353,6 +379,89 @@ class BracketSetService:
             'match_id': match.id, 'best_of': len(times), 'games': [g.id for g in games],
         })
         return [match, *games]
+
+    async def open_set_for(
+        self, tournament_id: int, player_ids: Sequence[int], *, actor: User,
+    ) -> Optional[OpenBracketSet]:
+        """The pair's latest bracket booking in this tournament that a new game could join.
+
+        Only a match that backs a Challonge or start.gg matchup counts, and only
+        while the bracket site hasn't heard its result: a best-of-1 that isn't
+        confirmed yet, or a set nobody has won. None when there isn't one.
+        """
+        pair = {uid for uid in player_ids if uid is not None}
+        if len(pair) != 2:
+            return None
+        seen: set = set()
+        candidates = await self.repository.unconfirmed_for_player(tournament_id, min(pair))
+        for match in sorted(candidates, key=lambda m: (m.scheduled_at is None, m.scheduled_at), reverse=True):
+            first_id = getattr(match, 'set_first_id', None) or match.id
+            if first_id in seen:
+                continue
+            seen.add(first_id)
+            found = await self._open_set(first_id, pair, actor)
+            if found is not None:
+                return found
+        return None
+
+    async def _open_set(self, first_id: int, pair: set, actor: User) -> Optional[OpenBracketSet]:
+        first = await self.repository.get_by_id(first_id, prefetch_relations=False)
+        if first is None or not await AuthService.can_crud_match(actor, first):
+            return None
+        if {p.user_id for p in await self.repository.get_players(first)} != pair:  # type: ignore[attr-defined]
+            return None
+        best_of = getattr(first, 'set_best_of', None) or 1
+        if best_of > 1:
+            standing = await self.standing(first)
+            if standing is None or standing.decided:
+                return None
+            games = standing.games
+        else:
+            if first.confirmed_at is not None:
+                return None
+            games = await self.repository.set_games(first.id)
+        rounds = RoundScheduleService()
+        cm = await ChallongeRepository.get_challonge_match_for_match(first)
+        if cm is not None:
+            if cm.state == ChallongeMatchState.COMPLETE:
+                return None
+            return OpenBracketSet(first, games, best_of, 'Challonge', await rounds.round_label_for_challonge_match(cm))
+        sets = await StartggRepository.sets_for_match(first)
+        if sets:
+            if sets[0].state == StartggSetState.COMPLETE:
+                return None
+            return OpenBracketSet(first, games, best_of, 'start.gg', await rounds.round_label_for_startgg_set(sets[0]))
+        return None
+
+    async def join_set(self, match_id: int, first_id: int, actor: User) -> Match:
+        """Make ``match_id`` the next game of the set ``first_id`` leads, growing the set if it must.
+
+        For a game booked by hand after the matchup's first booking (a stage
+        that turned out to be a best-of, or a replay): the bracket site then
+        hears the set's result, not game 1's. Works after game 1 is played, as
+        long as the bracket site hasn't been told yet.
+        """
+        match = require_found(await self.repository.get_by_id(match_id, prefetch_relations=False), 'Match')
+        await AuthService.ensure(await AuthService.can_crud_match(actor, match), "You can't change this match.")
+        if getattr(match, 'set_best_of', None) or getattr(match, 'set_first_id', None):
+            raise ValueError('This match is already part of a set.')
+        players = {p.user_id for p in await self.repository.get_players(match)}  # type: ignore[attr-defined]
+        found = await self._open_set(first_id, players, actor)
+        if found is None or found.first.tournament_id != match.tournament_id:  # type: ignore[attr-defined]
+            raise ValueError(
+                "That bracket match can't take another game: it has other players, "
+                "or its result has already gone to the bracket site."
+            )
+        best_of = validate_best_of(found.best_of_after)
+        if best_of != found.best_of:
+            for game in found.games:
+                await self.repository.update(game, set_best_of=best_of)
+        await self.repository.update(found.first, set_game=1, set_best_of=best_of)
+        await self.repository.update(match, set_game=found.next_game, set_best_of=best_of, set_first=found.first)
+        await AuditService().write_log(actor, AuditActions.MATCH_SET_EXTENDED, {
+            'match_id': found.first.id, 'best_of': best_of, 'games': [match.id], 'joined': True,
+        })
+        return match
 
     async def followers(self, match: Match) -> List[Match]:
         """Games 2 and up when ``match`` is game 1 of a set, else nothing."""

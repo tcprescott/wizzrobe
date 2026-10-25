@@ -9,11 +9,13 @@ its button opens that matchup's picker (``/home/player?book=<id>``).
 Challonge, not yet booked here, and both entrants resolved to a Wizzrobe user.
 The DM is keyed on a match *becoming* bookable, so re-syncing an unchanged
 bracket never repeats it. That happens on a sync that opens the match, and on a
-staff hand-assignment that resolves its last unlinked entrant.
+staff hand-assignment that resolves its last unlinked entrant. A bookable match
+whose players change (staff corrected a result on Challonge, so a different
+winner moved up) counts as new: both players of the new pairing hear about it.
 """
 
 import logging
-from typing import Set
+from typing import Dict, FrozenSet
 
 from application.repositories import ChallongeRepository
 from application.services import notification_links
@@ -35,21 +37,31 @@ def is_bookable(cmatch: ChallongeMatch) -> bool:
     )
 
 
+def _pairing(cmatch: ChallongeMatch) -> FrozenSet[int]:
+    return frozenset(
+        p.user_id for p in (cmatch.participant1, cmatch.participant2) if p is not None and p.user_id is not None
+    )
+
+
 class ChallongeNotificationMixin:
     repository: ChallongeRepository
 
-    async def _bookable_match_ids(self, tournament: Tournament) -> Set[int]:
-        return {m.id for m in await self.repository.list_matches(tournament) if is_bookable(m)}
+    async def _bookable_pairings(self, tournament: Tournament) -> Dict[int, FrozenSet[int]]:
+        """Each bookable match's id, with the pair of users who play it."""
+        return {
+            m.id: _pairing(m)
+            for m in await self.repository.list_matches(tournament) if is_bookable(m)
+        }
 
-    async def _announce_newly_bookable(self, tournament: Tournament, before: Set[int]) -> None:
-        """DM both players of every match that is bookable now but wasn't in ``before``.
+    async def _announce_newly_bookable(self, tournament: Tournament, before: Dict[int, FrozenSet[int]]) -> None:
+        """DM both players of every match that is bookable now with a pairing ``before`` didn't have.
 
         Best-effort: a failed notification never fails the sync or the
         assignment that triggered it.
         """
         try:
             for cmatch in await self.repository.list_matches(tournament):
-                if cmatch.id not in before and is_bookable(cmatch):
+                if is_bookable(cmatch) and before.get(cmatch.id) != _pairing(cmatch):
                     await self._notify_matchup_ready(cmatch)
         except Exception:
             logger.exception('Challonge matchup-ready notifications failed for tournament %s', tournament.id)

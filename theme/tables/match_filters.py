@@ -17,6 +17,7 @@ from typing import Any, Callable, Optional
 
 from nicegui import ui
 
+from application.services.match.match_display_service import NO_STAGE
 from application.utils.tenant_session import tenant_session_get, tenant_session_set
 from application.utils.timezone import local_day_bounds, today_local
 from theme.timer_teardown import PageTimer
@@ -258,7 +259,9 @@ class MatchFiltersMixin:
         self.stages_list = await self.display_service.get_stages_for_filter()
         default_stage_id = tenant_session_get(self._skey('stage_filter'), None)
         if self.stage_filter:
-            self.stage_filter.options = self.stages_list
+            # "No stage" leads: off-stage matches are the ones a floor runner
+            # hunts for, and it mixes with real stages ("No stage" + Stage 2).
+            self.stage_filter.options = {NO_STAGE: 'No stage', **self.stages_list}
             self.stage_filter.value = default_stage_id
             self.stage_filter.update()
         self._update_filter_badge()

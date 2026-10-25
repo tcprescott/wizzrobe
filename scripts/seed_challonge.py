@@ -233,6 +233,7 @@ async def seed_challonge_for_tenant(
         await tournament.save(update_fields=["config"])
 
     await _seed_best_of_set(tenant, users, tournament, participants, now_utc)
+    await _seed_played_game_one(tenant, users, tournament, participants, now_utc)
 
     await _seed_open_challonge_bracket(tenant, users, now_utc)
 
@@ -289,6 +290,31 @@ async def _seed_best_of_set(
         defaults={"round": 3, "state": ChallongeMatchState.OPEN, "identifier": "I",
                   "participant1": participants["cp_1"], "participant2": participants["cp_3"],
                   "match": booked},
+    )
+
+
+async def _seed_played_game_one(
+    tenant: Tenant, users: dict[str, User], tournament: Tournament,
+    participants: dict, now_utc: datetime,
+) -> None:
+    """A best-of-1 bracket booking whose game 1 is played but not confirmed.
+
+    New match for Player Two and Player Three offers "Count this as game 2 of
+    that set" (theme/dialog/_set_join_notice.py).
+    """
+    first, created = await Match.get_or_create(
+        tournament=tournament, tenant=tenant, title="Semifinal, game 1 played",
+        defaults={"scheduled_at": now_utc - timedelta(hours=3),
+                  "started_at": now_utc - timedelta(hours=3), "finished_at": now_utc - timedelta(hours=2)},
+    )
+    if created:
+        for uname, rank in (("player_two", 1), ("player_three", 2)):
+            await MatchPlayers.create(match=first, user=users[uname], finish_rank=rank, tenant=tenant)
+    await ChallongeMatch.get_or_create(
+        tournament=tournament, challonge_match_id="cm_9", tenant=tenant,
+        defaults={"round": 2, "state": ChallongeMatchState.OPEN, "identifier": "E",
+                  "participant1": participants["cp_2"], "participant2": participants["cp_3"],
+                  "match": first},
     )
 
 

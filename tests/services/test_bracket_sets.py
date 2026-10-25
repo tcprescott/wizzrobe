@@ -5,7 +5,7 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 
 from application.services import bracket_sources
-from application.services.bracket_set_service import BracketSetService
+from application.services.bracket_set_service import BracketSetService, game_winner
 from application.services.match.match_service import MatchService
 from application.services.round_schedule_service import RoundScheduleService
 from application.services.tournament_config import validate_tournament_config
@@ -323,3 +323,98 @@ async def test_only_an_unplayed_bracket_booking_becomes_a_set(db, monkeypatch, s
     with pytest.raises(ValueError, match='already started'):
         await BracketSetService().extend_booking(single.id, THREE[1:], actor)
     assert await Match.filter(set_first_id=single.id).count() == 0
+
+
+async def _hand_booked(actor, players, tournament_id, clock):
+    from tests.factories import join_community
+
+    await join_community(players['Andy'], players['Benny'])
+    return await MatchService().create_match(
+        tournament_id=tournament_id, scheduled_date='2026-10-25', scheduled_time=clock,
+        player_ids=[players['Andy'].id, players['Benny'].id], actor=actor,
+    )
+
+
+async def test_a_hand_booked_game_joins_a_played_game_one(db, monkeypatch, stub_discord_queue):
+    """SG Live 2026: game 1 played, games 2 and 3 booked by hand, game 1's winner sent as the set's."""
+    actor, players, _tournament, _full, _service = await _setup(monkeypatch)
+    semi = await ChallongeMatch.get(challonge_match_id='8001')
+    [single] = await bracket_sources.schedule_set('challonge', semi.id, THREE[:1], actor)
+    await _win(single, players['Andy'].id)
+    pair = [players['Andy'].id, players['Benny'].id]
+    sets = BracketSetService()
+
+    found = await sets.open_set_for(single.tournament_id, pair, actor=actor)  # type: ignore[attr-defined]
+    assert found is not None and found.first.id == single.id
+    assert (found.next_game, found.best_of_after, found.site) == (2, 3, 'Challonge')
+    assert [game_winner(g) for g in found.games] == [players['Andy'].id]
+
+    game2 = await _hand_booked(actor, players, single.tournament_id, '20:20')  # type: ignore[attr-defined]
+    await sets.join_set(game2.id, single.id, actor)
+    game3 = await _hand_booked(actor, players, single.tournament_id, '21:40')  # type: ignore[attr-defined]
+    found = await sets.open_set_for(single.tournament_id, pair, actor=actor)  # type: ignore[attr-defined]
+    assert (found.first.id, found.next_game, found.best_of_after) == (single.id, 3, 3)
+    await sets.join_set(game3.id, single.id, actor)
+
+    for number, game in enumerate([single, game2, game3], start=1):
+        game = await Match.get(id=game.id)
+        assert (game.set_game, game.set_best_of) == (number, 3)
+
+    api = _api()
+    challonge = make_service(api=api)
+    assert await challonge.push_result_if_linked(await Match.get(id=single.id), actor) is False
+    await _win(game2, players['Benny'].id)
+    await _win(game3, players['Benny'].id)
+    assert await challonge.push_result_if_linked(await Match.get(id=game3.id), actor) is True
+    _, kwargs = api.update_match.call_args
+    assert kwargs['winner_participant_id'] == '902'
+    assert (kwargs['winner_score'], kwargs['loser_score']) == ('2', '1')
+    assert await sets.open_set_for(single.tournament_id, pair, actor=actor) is None  # type: ignore[attr-defined]
+
+
+async def test_a_fourth_game_grows_the_set_to_best_of_five(db, monkeypatch, stub_discord_queue):
+    actor, players, semi, games = await _book_semi(monkeypatch, stub_discord_queue)
+    extra = await _hand_booked(actor, players, semi.tournament_id, '23:00')  # type: ignore[attr-defined]
+    await BracketSetService().join_set(extra.id, games[0].id, actor)
+    rows = await Match.filter(id__in=[g.id for g in games] + [extra.id]).order_by('set_game')
+    assert [(m.set_game, m.set_best_of) for m in rows] == [(1, 5), (2, 5), (3, 5), (4, 5)]
+
+
+async def test_nothing_to_join_once_the_bracket_has_the_result(db, monkeypatch, stub_discord_queue):
+    from datetime import datetime, timezone
+
+    actor, players, _tournament, _full, _service = await _setup(monkeypatch)
+    semi = await ChallongeMatch.get(challonge_match_id='8001')
+    [single] = await bracket_sources.schedule_set('challonge', semi.id, THREE[:1], actor)
+    tid = single.tournament_id  # type: ignore[attr-defined]
+    sets = BracketSetService()
+    assert await sets.open_set_for(tid, [players['Andy'].id], actor=actor) is None
+
+    await Match.filter(id=single.id).update(confirmed_at=datetime.now(timezone.utc))
+    assert await sets.open_set_for(tid, [players['Andy'].id, players['Benny'].id], actor=actor) is None
+    extra = await _hand_booked(actor, players, tid, '20:20')
+    with pytest.raises(ValueError, match='already gone to the bracket site'):
+        await sets.join_set(extra.id, single.id, actor)
+
+
+async def test_a_plain_match_is_not_a_set_to_join(db, monkeypatch, stub_discord_queue):
+    actor, players, _tournament, _full, _service = await _setup(monkeypatch)
+    semi = await ChallongeMatch.get(challonge_match_id='8001')
+    await _hand_booked(actor, players, semi.tournament_id, '19:00')  # type: ignore[attr-defined]
+    found = await BracketSetService().open_set_for(
+        semi.tournament_id, [players['Andy'].id, players['Benny'].id], actor=actor,  # type: ignore[attr-defined]
+    )
+    assert found is None
+
+
+async def test_a_result_already_on_challonge_is_not_a_set_to_join(db, monkeypatch, stub_discord_queue):
+    from models import ChallongeMatchState
+
+    actor, players, _tournament, _full, _service = await _setup(monkeypatch)
+    semi = await ChallongeMatch.get(challonge_match_id='8001')
+    [single] = await bracket_sources.schedule_set('challonge', semi.id, THREE[:1], actor)
+    await ChallongeMatch.filter(id=semi.id).update(state=ChallongeMatchState.COMPLETE)
+    found = await BracketSetService().open_set_for(
+        single.tournament_id, [players['Andy'].id, players['Benny'].id], actor=actor,  # type: ignore[attr-defined]
+    )
+    assert found is None

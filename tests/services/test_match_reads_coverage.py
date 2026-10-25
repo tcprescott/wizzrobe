@@ -10,7 +10,7 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 
-from application.services.match.match_display_service import MatchDisplayService
+from application.services.match.match_display_service import NO_STAGE, MatchDisplayService
 from application.services.match.match_suggestion_service import MatchSuggestionService, _covers
 from application.utils.timezone import EASTERN_TZ, format_local_datetime, now_local
 from models import (
@@ -161,6 +161,24 @@ class TestGetMatchesForDisplay:
         svc = MatchDisplayService()
         rows = await svc.get_matches_for_display(stage_ids=[stage.id])
         assert len(rows) == 1 and rows[0]["stage"] == "Stage A"
+
+    async def test_no_stage_keeps_only_unstaged(self, db):
+        t = await Tournament.create(name="T")
+        stage = await Stage.create(name="Stage A")
+        await Match.create(tournament=t, stage=stage, scheduled_at=utc(2025, 1, 15, 20, 0))
+        unstaged = await Match.create(tournament=t, scheduled_at=utc(2025, 1, 15, 20, 0))
+        rows = await MatchDisplayService().get_matches_for_display(stage_ids=[NO_STAGE])
+        assert [r["id"] for r in rows] == [unstaged.id]
+
+    async def test_no_stage_mixes_with_a_stage(self, db):
+        t = await Tournament.create(name="T")
+        a = await Stage.create(name="Stage A")
+        b = await Stage.create(name="Stage B")
+        on_a = await Match.create(tournament=t, stage=a, scheduled_at=utc(2025, 1, 15, 20, 0))
+        await Match.create(tournament=t, stage=b, scheduled_at=utc(2025, 1, 15, 20, 0))
+        unstaged = await Match.create(tournament=t, scheduled_at=utc(2025, 1, 15, 20, 0))
+        rows = await MatchDisplayService().get_matches_for_display(stage_ids=[NO_STAGE, a.id])
+        assert {r["id"] for r in rows} == {on_a.id, unstaged.id}
 
     async def test_only_upcoming_excludes_finished(self, db):
         t = await Tournament.create(name="T")

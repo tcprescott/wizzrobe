@@ -322,6 +322,17 @@ class RoundScheduleService:
             return 1
         return (_schedule_config(tournament).get(key) or {}).get('best_of') or 1
 
+    async def round_label_for_challonge_match(self, cm: ChallongeMatch) -> Optional[str]:
+        """``Semifinals``, ``Group stage``: the stage a Challonge matchup is in, by name."""
+        key = await self._challonge_key(cm)
+        return stage_label(key, round_number=cm.round) if key else None
+
+    async def round_label_for_startgg_set(self, row: StartggSet) -> Optional[str]:
+        if row.round_text:
+            return row.round_text
+        key = await self._startgg_key(row)
+        return stage_label(key.split(':', 1)[-1], round_number=row.round) if key else None
+
     async def window_for_challonge_match(self, cm: ChallongeMatch) -> Optional[StageWindow]:
         saved = _schedule_config(cm.tournament)
         if not saved:
