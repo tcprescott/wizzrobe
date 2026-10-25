@@ -104,6 +104,7 @@ class MatchDisplayService:
             match, acks, volunteers.get(match.id, []), rolling, failed,
         )
         await self._attach_site_results([row], [match])
+        await self._attach_set_labels([row], [match])
         return row
 
     async def get_matches_for_display(
@@ -165,7 +166,15 @@ class MatchDisplayService:
             for m in matches
         ]
         await self._attach_site_results(rows, matches)
+        await self._attach_set_labels(rows, matches)
         return rows
+
+    @staticmethod
+    async def _attach_set_labels(rows: List[Dict[str, Any]], matches: List[Match]) -> None:
+        """Fill each set game's "Game 2 of 3", which depends on when the set's other games are."""
+        labels = await BracketSetService().labels_for(matches)
+        for row in rows:
+            row['set_label'] = labels.get(row['id'])
 
     @staticmethod
     async def _attach_site_results(rows: List[Dict[str, Any]], matches: List[Match]) -> None:
@@ -272,14 +281,25 @@ class MatchDisplayService:
         if bracket is None:
             return None
         best_of, standing = MatchDisplayService._series_context(bracket, bracket_match)
+        number = MatchDisplayService._game_number(game, bracket_match)
         return {
             'id': bracket.id,
             'name': bracket.name,
             # Only meaningful in a best-of-N series; game 1 of 1 is just "the match".
-            'game': game.game_number if game.game_number and (game.game_number > 1 or best_of > 1) else None,
+            'game': number if number and (number > 1 or best_of > 1) else None,
             'best_of': best_of,
             'standing': standing,
         }
+
+    @staticmethod
+    def _game_number(game, bracket_match) -> Optional[int]:
+        """The game's number by the clock among its series' games, off the prefetched rows."""
+        from application.services.bracket_service import BracketService
+
+        try:
+            return BracketService.numbers_by_time(list(bracket_match.games)).get(game.id, game.game_number)
+        except Exception:
+            return game.game_number
 
     @staticmethod
     def _series_context(bracket, bracket_match) -> tuple:
@@ -366,7 +386,8 @@ class MatchDisplayService:
             # None unless a bracket scheduled this match; drives the schedule's
             # link into the (publicly readable) bracket view.
             'bracket': self._bracket_ref(match),
-            'set_label': BracketSetService.label(match),
+            # "Game 2 of 3" comes from the set's other games: _attach_set_labels.
+            'set_label': None,
             'scheduled_at': format_local_datetime(match.scheduled_at) if match.scheduled_at else '',
             # Sort key and urgency flag for the proctor board. The formatted
             # ``scheduled_at`` string is display-only and does not sort.

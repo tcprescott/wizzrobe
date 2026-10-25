@@ -81,15 +81,38 @@ match to the set.
 A stage the round schedule marks best of 3 or 5 (`Tournament.config
 ['round_schedule'][key]['best_of']`, Admin → Tournaments ⋮ → Round schedule) is
 booked as one `Match` per game, for Challonge and start.gg alike
-(`bracket_sources.schedule_set`, `BracketSetService`). Game 1 is the booking the
-bracket row links to; games 2 and up carry `Match.set_first` pointing at it, with
-`set_game` / `set_best_of` on every game. The booking dialog prefills the games
-back to back (match length + 10 minutes) and staff can change the best-of per
-matchup. The bracket site hears only the set's result, once a player has won a
-majority, with the game score (Challonge `score_set` 2–1); the unplayed games are
-then called off as the system user (`BracketSetService.call_off_unneeded`, run
-from `bracket_sources.on_match_confirmed`). Calling off or deleting game 1 takes
-the later games with it, and placeholder fills reach every game.
+(`BracketSetService`). One game leads the set: it is the booking the bracket row
+links to, and the others carry `Match.set_first` pointing at it, with
+`set_best_of` on every game.
+
+Players book a set a game at a time and in any order. My Schedule's "Waiting on
+you to pick a time" lists one row per game left to book, unnumbered ("best of 3
+· another game", the games past a sweep tagged "If needed";
+`BracketSetService.open_games`, `bracket_sources.set_game_label`), and each row
+books one game (`bracket_sources.book_set_game` → `BracketSetService.book_game`).
+The first game booked takes the bracket link and leads the set. Staff booking a
+matchup nobody has booked yet still get the dialog that books every game at once
+(`bracket_sources.schedule_set`, prefilled back to back at match length + 10
+minutes, best-of changeable per matchup); once a game is in, Match Schedule's
+Not booked yet shows the set as "2 games left" and books the rest one at a time.
+
+"Game 2 of 3" isn't stored: it is the game's place on the clock among the set's
+games (`application/utils/game_order.py`): started games first in the order they
+started, then the rest by booked time. Moving a game moves its number, and a
+started game's number never changes. `set_game` only records booking order.
+`BracketSetService.labels_for` fills the run sheets in one query; DMs use
+`label_for`. Native bracket games number the same way
+(`BracketService.numbers_by_time`), though their `game_number` slot stays the
+booking's identity.
+
+The bracket site hears only the set's result, once a player has won a majority,
+with the game score (Challonge `score_set` 2–1); the unplayed games are then
+called off as the system user (`BracketSetService.call_off_unneeded`, run from
+`bracket_sources.on_match_confirmed`), and a decided set stops offering games.
+Calling off or deleting the game that leads the set hands the lead and the
+bracket link to its earliest other game first (`BracketSetService.hand_off`), so
+the rest stay booked; calling off a set's only game frees the matchup.
+Placeholder fills reach every game.
 
 ## Writeback
 

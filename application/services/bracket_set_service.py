@@ -2,15 +2,24 @@
 
 The bracket site keeps a best-of-3 as one match, but every game is played (and
 crewed, seeded and staged) on its own, so Wizzrobe books a set as one ``Match``
-per game. Game 1 is the booking the bracket site's matchup links to, exactly as
-a best-of-1 is; games 2 and up point back at it through ``Match.set_first``.
+per game. One game leads the set: it is the booking the bracket site's matchup
+links to, exactly as a best-of-1 is, and the others point back at it through
+``Match.set_first``. Players book the games one at a time and in any order, so
+the lead is just whichever was booked first. Calling it off hands the lead (and
+the bracket link) to another game (:meth:`BracketSetService.hand_off`).
 
-Two things follow from a set:
+A game's number ("Game 2 of 3") isn't stored: it is its place on the clock
+among the set's games (:mod:`application.utils.game_order`), so moving a game
+moves its number. ``Match.set_game`` only records the order they were booked in.
+
+Three things follow from a set:
 
 * the bracket site only hears the **set's** result, once someone has won
   enough games (:meth:`BracketSetService.standing`), with the game score;
 * once the set is decided, the games nobody needs are called off
-  (:meth:`BracketSetService.call_off_unneeded`), crew and all.
+  (:meth:`BracketSetService.call_off_unneeded`), crew and all;
+* until then, the matchup keeps offering its unbooked games
+  (:meth:`BracketSetService.open_games`), the ones past a sweep marked "if needed".
 
 How long a stage's sets run is set per stage in the round schedule
 (``RoundScheduleService.best_of_for``); the booking dialog can change it for one
@@ -29,6 +38,7 @@ from application.services.audit_service import AuditActions, AuditService
 from application.services.auth_service import AuthService
 from application.services.notification_catalog import SERIES_GAME_CANCELLED
 from application.services.round_schedule_service import RoundScheduleService
+from application.utils.game_order import GameTimes, game_numbers, remaining_slots
 from application.utils.timezone import format_local_date, format_local_time, parse_local_datetime
 from models import Match, User
 
@@ -72,6 +82,18 @@ class SetStanding:
         return f'{counts[0]}–{counts[1]}'
 
 
+@dataclass
+class OpenGames:
+    """What's left to book of one matchup's set."""
+
+    best_of: int
+    booked: int
+    # One entry per game still to book: True where it's only played if needed.
+    slots: List[bool]
+    # The game that leads the set, once one is booked.
+    first: Optional[Match] = None
+
+
 def validate_best_of(best_of: int) -> int:
     if best_of < 1 or best_of % 2 == 0 or best_of > MAX_BEST_OF:
         raise ValueError(f'A set is best of an odd number of games, up to {MAX_BEST_OF}.')
@@ -98,7 +120,8 @@ class BracketSetService:
         best_of = getattr(match, 'set_best_of', None)
         if not best_of or best_of <= 1:
             return None
-        first_id = getattr(match, 'set_first_id', None) or match.id
+        # Read afresh: calling off the lead game hands the set to another one.
+        first_id = await self.repository.set_first_id_of(match.id) or match.id
         games = await self.repository.set_games(first_id)
         first = next((g for g in games if g.id == first_id), None)
         if first is None:
@@ -163,26 +186,130 @@ class BracketSetService:
         ``times`` holds every game's ``(date, time)``, game 1's included, so its
         length is the set's best-of.
         """
-        from application.services.match.match_service import MatchService
-
         best_of = len(times)
         await self.repository.update(first, set_game=1, set_best_of=best_of)
+        return [
+            await self._book_one(first, day, clock, actor, number, best_of)
+            for number, (day, clock) in enumerate(times[1:], start=2)
+        ]
+
+    async def _book_one(
+        self, first: Match, day: str, clock: str, actor: User, number: int, best_of: int,
+    ) -> Match:
+        """One more game of ``first``'s set, with its players (or placeholders)."""
+        from application.services.match.match_service import MatchService
+
         service = MatchService()
         players = [p.user_id for p in await self.repository.get_players(first)]  # type: ignore[attr-defined]
-        placeholders = first.bracket_placeholders
         tournament_id: int = first.tournament_id  # type: ignore[attr-defined]
-        games: List[Match] = []
-        for number, (day, clock) in enumerate(times[1:], start=2):
-            if placeholders is not None:
-                game = await service.create_match(
-                    tournament_id=tournament_id, scheduled_date=day, scheduled_time=clock,
-                    player_ids=players, actor=actor, from_bracket=True, placeholders=list(placeholders),
-                )
-            else:
-                game = await service.book_from_bracket(tournament_id, day, clock, players, actor)
-            await self.repository.update(game, set_game=number, set_best_of=best_of, set_first=first)
-            games.append(game)
-        return games
+        if first.bracket_placeholders is not None:
+            game = await service.create_match(
+                tournament_id=tournament_id, scheduled_date=day, scheduled_time=clock,
+                player_ids=players, actor=actor, from_bracket=True,
+                placeholders=list(first.bracket_placeholders),
+            )
+        else:
+            game = await service.book_from_bracket(tournament_id, day, clock, players, actor)
+        await self.repository.update(game, set_game=number, set_best_of=best_of, set_first=first)
+        return game
+
+    @staticmethod
+    async def _booked_match_id(source_key: str, key: int) -> Optional[int]:
+        """The match a Challonge or start.gg matchup links to, if one is booked."""
+        if source_key == 'challonge':
+            cm = await ChallongeRepository.get_match(key)
+            return cm.match_id if cm is not None else None  # type: ignore[attr-defined]
+        row = await StartggRepository.get_set(key)
+        return row.match_id if row is not None else None  # type: ignore[attr-defined]
+
+    async def open_games(self, first: Optional[Match], best_of: int) -> OpenGames:
+        """What's left to book of a matchup whose set ``first`` leads (None: nothing booked).
+
+        ``best_of`` is the stage's, from the round schedule; once a game is
+        booked the set keeps the length it was booked with.
+        """
+        if first is None:
+            return OpenGames(best_of=best_of, booked=0, slots=remaining_slots(best_of, 0, False) or [False])
+        best_of = first.set_best_of or 1
+        if best_of <= 1:
+            return OpenGames(best_of=1, booked=1, slots=[], first=first)
+        standing = await self.standing(first)
+        booked = len(standing.games) if standing else 1
+        decided = bool(standing and standing.decided)
+        return OpenGames(
+            best_of=best_of, booked=booked,
+            slots=remaining_slots(best_of, booked, decided), first=first,
+        )
+
+    async def open_games_for(self, source_key: str, key: int, first_id: Optional[int]) -> OpenGames:
+        """:meth:`open_games` for a Challonge or start.gg matchup, looked up by its row."""
+        from application.services import bracket_sources
+
+        first = (
+            await self.repository.get_by_id(first_id, prefetch_relations=False)
+            if first_id is not None else None
+        )
+        best_of = 1 if first is not None else await bracket_sources.best_of_for(source_key, key)
+        return await self.open_games(first, best_of)
+
+    async def book_game(
+        self, source_key: str, key: int, day: str, clock: str, actor: User,
+        *, allow_outside_round: bool = False,
+    ) -> Match:
+        """Book one game of a Challonge or start.gg matchup's best-of set.
+
+        The first game booked leads the set and takes the bracket link; every
+        later one joins it. Refused once every game is booked or the set is won.
+        """
+        from application.services import bracket_sources
+
+        first_id = await self._booked_match_id(source_key, key)
+        if first_id is None:
+            best_of = await bracket_sources.best_of_for(source_key, key)
+            game = await bracket_sources.schedule(
+                source_key, key, day, clock, actor, allow_outside_round=allow_outside_round,
+            )
+            if best_of > 1:
+                await self.repository.update(game, set_game=1, set_best_of=best_of)
+            return game
+        first = require_found(await self.repository.get_by_id(first_id, prefetch_relations=False), 'Match')
+        if not first.set_best_of or first.set_best_of <= 1:
+            raise ValueError('This match has already been scheduled.')
+        left = await self.open_games(first, first.set_best_of)
+        if not left.slots:
+            standing = await self.standing(first)
+            if standing is not None and standing.decided:
+                raise ValueError(f'This set is already decided ({standing.summary()}).')
+            raise ValueError('Every game of this set is booked already.')
+        try:
+            parse_local_datetime(day, clock)
+        except ValueError as e:
+            raise ValueError("That date or time doesn't look right.") from e
+        if not allow_outside_round:
+            ref = {'challonge_match_id': key} if source_key == 'challonge' else {'startgg_set_id': key}
+            await RoundScheduleService().check_reference(parse_local_datetime(day, clock), actor, **ref)
+        return await self._book_one(first, day, clock, actor, left.booked + 1, left.best_of)
+
+    async def hand_off(self, first: Match) -> Optional[Match]:
+        """Pass the lead of ``first``'s set to its earliest other game, before ``first`` goes.
+
+        The bracket link moves with it, so calling off one game leaves the rest
+        of the set booked. Returns the new lead, or None when ``first`` leads
+        no set or is its only game (the matchup is then unbooked again).
+        """
+        if not getattr(first, 'set_best_of', None) or getattr(first, 'set_first_id', None):
+            return None
+        others = await self.repository.set_followers(first.id)
+        if not others:
+            return None
+        numbers = game_numbers(
+            GameTimes(g.id, g.started_at, g.scheduled_at, g.id) for g in others
+        )
+        lead = min(others, key=lambda g: numbers[g.id])
+        await self.repository.repoint_set(first.id, lead)
+        await ChallongeRepository.move_match_link(first.id, lead.id)
+        await StartggRepository.move_match_link(first.id, lead.id)
+        return lead
 
     async def extend_booking(
         self, match_id: int, later: Sequence[Tuple[str, str]], actor: User,
@@ -233,10 +360,25 @@ class BracketSetService:
             return []
         return await self.repository.set_followers(match.id)
 
-    @staticmethod
-    def label(match: Match) -> Optional[str]:
+    async def labels_for(self, matches: Sequence[Match]) -> Dict[int, str]:
+        """``match id -> "Game 2 of 3"`` for the set games among ``matches``, in one query."""
+        in_sets = [m for m in matches if (getattr(m, 'set_best_of', None) or 0) > 1]
+        if not in_sets:
+            return {}
+        firsts = {getattr(m, 'set_first_id', None) or m.id for m in in_sets}
+        by_set: Dict[int, List[Match]] = {}
+        for game in await self.repository.games_of_sets(sorted(firsts)):
+            by_set.setdefault(getattr(game, 'set_first_id', None) or game.id, []).append(game)
+        numbers: Dict[int, int] = {}
+        for games in by_set.values():
+            numbers.update(game_numbers(  # type: ignore[arg-type]
+                GameTimes(g.id, g.started_at, g.scheduled_at, g.id) for g in games
+            ))
+        return {
+            m.id: f'Game {numbers[m.id]} of {m.set_best_of}'
+            for m in in_sets if m.id in numbers
+        }
+
+    async def label_for(self, match: Match) -> Optional[str]:
         """``Game 2 of 3`` for a set's game, else None."""
-        game, best_of = getattr(match, 'set_game', None), getattr(match, 'set_best_of', None)
-        if not game or not best_of or best_of <= 1:
-            return None
-        return f'Game {game} of {best_of}'
+        return (await self.labels_for([match])).get(match.id)

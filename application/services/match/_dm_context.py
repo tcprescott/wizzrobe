@@ -26,7 +26,7 @@ async def bracket_dm_context(match_id: int) -> tuple[str, bool]:
         from application.services.bracket_set_service import BracketSetService
 
         match = await MatchRepository.get_by_id(match_id, prefetch_relations=False)
-        label = BracketSetService.label(match) if match is not None else None
+        label = await BracketSetService().label_for(match) if match is not None else None
     except Exception:
         label = None
     return (label or '', frees_slot)

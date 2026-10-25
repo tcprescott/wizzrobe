@@ -121,8 +121,9 @@ class BracketNotificationMixin(ComposedBracketService):
             best_of = self.resolve_best_of(bracket, bracket_match)
             parts = [await self.round_name_for_match(bracket, bracket_match)]
             if best_of > 1:
-                parts.append(f'Game {game.game_number} of {best_of}')
-                games = await self.repository.list_games(bracket_match.id)
+                games = await self.repository.list_games(bracket_match.id, with_matches=True)
+                number = self.numbers_by_time(games).get(game.id, game.game_number)
+                parts.append(f'Game {number} of {best_of}')
                 e1, e2 = self._standing_from(games, bracket_match)
                 if e1 or e2:
                     parts.append(f'Series {max(e1, e2)}-{min(e1, e2)}')
@@ -153,13 +154,13 @@ class BracketNotificationMixin(ComposedBracketService):
             return None
         bracket = resolved.bracket
         best_of = self.resolve_best_of(bracket, resolved)
-        games = await self.repository.list_games(resolved.id)
+        games = await self.repository.list_games(resolved.id, with_matches=True)
         e1, e2 = self._standing_from(games, resolved)
         return {
             'bracket_id': bracket.id,
             'bracket_name': bracket.name,
             'round_name': await self.round_name_for_match(bracket, resolved),
-            'game_number': game.game_number,
+            'game_number': self.numbers_by_time(games).get(game.id, game.game_number),
             'best_of': best_of,
             'standing': f'{max(e1, e2)}-{min(e1, e2)}' if (e1 or e2) else '',
             'entrants': [

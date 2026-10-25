@@ -10,10 +10,14 @@ Two modes, as in ``bracket_schedule_dialog``: a player books their own matchup
 ("Book Alice vs Bob") from Match Schedule's "Not booked yet" view, and may book
 outside the stage's window after a warning.
 
-A stage the round schedule plays as a best-of set books one match per game:
-each game gets its own date and time, prefilled back to back from the
-tournament's match length, and the games past the ones a sweep needs are marked
-"If needed". Staff can change how many games this matchup plays.
+A stage the round schedule plays as a best-of set books one match per game.
+A player books one game at a time: their list has a row per game left, and each
+row opens this dialog for a single date and time (``single``). Staff booking a
+matchup nobody has booked yet get every game's date and time at once,
+prefilled back to back from the tournament's match length, with the games past
+the ones a sweep needs marked "If needed", and can change how many games this
+matchup plays. Once any game of a set is booked, staff add the rest one at a
+time too.
 """
 
 from datetime import datetime, timedelta
@@ -65,12 +69,19 @@ class BracketSourceScheduleDialog:
         slot = next_whole_hour_local()
         staff_booking = bool(self.matchup_label)
         best_of = await bracket_sources.best_of_for(item.source, item.key) if item.source != 'bracket' else 1
+        set_length = item.best_of if item.best_of > 1 else best_of
+        # One game of a set: the player's every booking, and staff's once a game is in.
+        single = set_length > 1 and (not staff_booking or item.games_booked > 0)
+        if single:
+            best_of = 1
         length = int(getattr(item.tournament, 'average_match_duration', None) or _DEFAULT_LENGTH)
         # One (date, time) input pair per game; rebuilt when staff change the best-of.
         games: List[Tuple] = []
         state = {'best_of': best_of}
 
         def heading() -> str:
+            if single:
+                return 'Book a game' if staff_booking else f'Schedule a game vs {item.opponent_name}'
             if state['best_of'] > 1:
                 return f"Book best of {state['best_of']}"
             return f'Book {self.matchup_label}' if self.matchup_label else f'Schedule vs {item.opponent_name}'
@@ -99,7 +110,7 @@ class BracketSourceScheduleDialog:
                 elif best_of > 1:
                     ui.label(f'vs {item.opponent_name}').classes('text-muted')
                 booking_window_line(item.window_text)
-                if staff_booking or best_of > 1:
+                if (staff_booking or best_of > 1) and not single:
                     with ui.row().classes('items-center gap-2'):
                         ui.label('Best of').classes('text-caption')
                         # url-state: exempt — a booking choice inside a dialog
@@ -123,6 +134,8 @@ class BracketSourceScheduleDialog:
                     del games[1:]
                     count = state['best_of']
                     intro.text = (
+                        f'Best of {set_length}. Each game is its own match, booked one at a time, '
+                        'and the schedule numbers them in the order they\'re played.' if single else
                         'Each game is its own match on the schedule.' if count > 1 else
                         'Pick a time for this slot. The players fill in as the bracket decides them, '
                         'and each gets the usual "match scheduled" message then.' if item.ahead
@@ -147,6 +160,12 @@ class BracketSourceScheduleDialog:
                         ).classes('text-caption text-muted')
 
                 later_games()
+                if single and item.if_needed:
+                    with ui.row().classes('items-center gap-2'):
+                        ui.label('If needed').classes('wiz-chip wiz-chip--pending')
+                        ui.label(
+                            "Only played if the set isn't won by then. It's called off by itself otherwise."
+                        ).classes('text-caption text-muted')
                 # Suggest a time reads both players' calendars; a slot booked
                 # ahead doesn't have both yet. It fills game 1, and the later
                 # games follow it.
@@ -187,7 +206,12 @@ class BracketSourceScheduleDialog:
                     return
                 try:
                     with tenant_scope(tenant_id):
-                        if len(times) > 1:
+                        if single:
+                            await bracket_sources.book_set_game(
+                                item.source, item.key, first_date, first_time, self.actor,
+                                allow_outside_round=allow_outside_round,
+                            )
+                        elif len(times) > 1:
                             await bracket_sources.schedule_set(
                                 item.source, item.key, times, self.actor,
                                 allow_outside_round=allow_outside_round, ahead=item.ahead,
@@ -208,6 +232,8 @@ class BracketSourceScheduleDialog:
                     if len(times) > 1:
                         who = self.matchup_label or f'vs {item.opponent_name}'
                         message = f'Booked {len(times)} games: {who}.'
+                    elif single and self.matchup_label:
+                        message = f'Booked a game: {self.matchup_label}.'
                     elif self.matchup_label:
                         message = f'Booked {self.matchup_label}.'
                     else:
@@ -227,7 +253,7 @@ class BracketSourceScheduleDialog:
                     f'Book {best_of} games' if best_of > 1 else 'Schedule', icon='event', on_click=submit,
                 ).props('color=primary')
 
-            if staff_booking or best_of > 1:
+            if (staff_booking or best_of > 1) and not single:
                 def change_best_of(e) -> None:
                     state['best_of'] = int(e.value)
                     later_games.refresh()

@@ -6,7 +6,7 @@ Returns domain objects (Match, MatchPlayers, etc.) without business logic.
 """
 
 from datetime import datetime
-from typing import List, Optional, Tuple
+from typing import List, Optional, Tuple, cast
 
 from tortoise.expressions import Q
 from tortoise.query_utils import Prefetch
@@ -71,6 +71,8 @@ class MatchRepository:
                 # N+1 (U4).
                 'bracket_match_game__bracket_match__bracket',
                 'bracket_match_game__bracket_match__games',
+                # Each game's match, so "Game 2 of 3" follows the games' times.
+                'bracket_match_game__bracket_match__games__match',
             )
         
         return await query.first()
@@ -231,6 +233,8 @@ class MatchRepository:
                 # N+1 (U4).
                 'bracket_match_game__bracket_match__bracket',
                 'bracket_match_game__bracket_match__games',
+                # Each game's match, so "Game 2 of 3" follows the games' times.
+                'bracket_match_game__bracket_match__games__match',
             )
         
         return await query.order_by('scheduled_at')
@@ -378,6 +382,28 @@ class MatchRepository:
         return await scoped(
             Match.filter(Q(id=first_id) | Q(set_first_id=first_id))
         ).prefetch_related('players').order_by('set_game', 'id')
+
+    @staticmethod
+    async def games_of_sets(first_ids: List[int]) -> List[Match]:
+        """Every game of the sets these matches lead, for working out game numbers."""
+        if not first_ids:
+            return []
+        return await scoped(Match.filter(Q(id__in=first_ids) | Q(set_first_id__in=first_ids)))
+
+    @staticmethod
+    async def set_first_id_of(match_id: int) -> Optional[int]:
+        """What the database says ``match_id``'s set is led by now, which a hand-off can change."""
+        rows = await scoped(Match.filter(id=match_id)).values_list('set_first_id', flat=True)
+        return cast(Optional[int], rows[0]) if rows else None
+
+    @staticmethod
+    async def repoint_set(old_first_id: int, new_first: Match) -> None:
+        """Make ``new_first`` lead the set ``old_first_id`` led."""
+        await scoped(Match.filter(id=new_first.id)).update(set_first_id=None)
+        await scoped(Match.filter(set_first_id=old_first_id)).exclude(id=new_first.id).update(
+            set_first_id=new_first.id,
+        )
+        new_first.set_first_id = None
 
     @staticmethod
     async def set_followers(first_id: int) -> List[Match]:

@@ -274,6 +274,23 @@ async def _seed_best_of_set(
             for uname in ("player_one", "player_two"):
                 await MatchPlayers.create(match=game, user=users[uname], tenant=tenant)
 
+    # A set the players are booking a game at a time: one booked, so
+    # player_one's list offers "another game" and "last game · If needed", and
+    # Not booked yet shows "2 games left".
+    booked, created = await Match.get_or_create(
+        tournament=tournament, tenant=tenant, title="Best of 3, first game booked",
+        defaults={"scheduled_at": now_utc + timedelta(days=1), "set_game": 1, "set_best_of": 3},
+    )
+    if created:
+        for uname in ("player_one", "player_three"):
+            await MatchPlayers.create(match=booked, user=users[uname], tenant=tenant)
+    await ChallongeMatch.get_or_create(
+        tournament=tournament, challonge_match_id="cm_9", tenant=tenant,
+        defaults={"round": 3, "state": ChallongeMatchState.OPEN, "identifier": "I",
+                  "participant1": participants["cp_1"], "participant2": participants["cp_3"],
+                  "match": booked},
+    )
+
 
 async def _seed_open_challonge_bracket(
     tenant: Tenant, users: dict[str, User], now_utc: datetime,

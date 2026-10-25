@@ -437,6 +437,32 @@ class ChallongeRepository:
         )
 
     @staticmethod
+    async def open_set_matches_for_user(user: User) -> List[ChallongeMatch]:
+        """Open bracket matches the user is in whose best-of set has some games booked."""
+        return await scoped(ChallongeMatch.filter(
+            Q(participant1__user=user) | Q(participant2__user=user),
+            state=ChallongeMatchState.OPEN, match__set_best_of__gt=1,
+        )).prefetch_related(
+            'tournament', 'participant1__user', 'participant2__user',
+        )
+
+    @staticmethod
+    async def open_set_matches(tournament_ids: Optional[List[int]] = None) -> List[ChallongeMatch]:
+        """Every open bracket match whose best-of set has some games booked; ``None`` means all."""
+        qs = scoped(ChallongeMatch.filter(
+            state=ChallongeMatchState.OPEN, match__set_best_of__gt=1, tournament__is_active=True,
+        ))
+        if tournament_ids is not None:
+            qs = qs.filter(tournament_id__in=tournament_ids)
+        return await qs.prefetch_related(
+            'tournament', 'participant1__user', 'participant2__user',
+        ).order_by('tournament_id', 'round', 'id')
+
+    @staticmethod
+    async def move_match_link(old_match_id: int, new_match_id: int) -> None:
+        await scoped(ChallongeMatch.filter(match_id=old_match_id)).update(match_id=new_match_id)
+
+    @staticmethod
     async def unscheduled_open_matches(tournament_ids: Optional[List[int]] = None) -> List[ChallongeMatch]:
         """Every open, unbooked bracket match in active tournaments; ``None`` means all of them."""
         qs = scoped(ChallongeMatch.filter(

@@ -54,7 +54,7 @@ async def test_a_set_books_one_match_per_game(db, monkeypatch, stub_discord_queu
         assert set(await MatchPlayers.filter(match=game).values_list('user_id', flat=True)) == {
             players['Andy'].id, players['Benny'].id,
         }
-        assert BracketSetService.label(game) == f'Game {number} of 3'
+        assert await BracketSetService().label_for(game) == f'Game {number} of 3'
     # Later games don't show up as hand-booked matches waiting for a bracket link.
     candidates = await MatchService().bracket_link_candidates([semi.tournament_id])  # type: ignore[attr-defined]
     assert not {m.id for m in candidates} & {g.id for g in games}
@@ -112,12 +112,133 @@ async def test_out_of_order_times_book_nothing(db, monkeypatch, stub_discord_que
     assert not await Match.all().exists()
 
 
-async def test_calling_off_game_one_takes_the_set_with_it(db, monkeypatch, stub_discord_queue):
+async def test_calling_off_game_one_hands_the_set_to_the_next_game(db, monkeypatch, stub_discord_queue):
     actor, _players, semi, games = await _book_semi(monkeypatch, stub_discord_queue)
     await MatchService().cancel_match(games[0].id, actor=actor)
-    assert not await Match.filter(id__in=[g.id for g in games]).exists()
+
+    assert not await Match.filter(id=games[0].id).exists()
+    await semi.refresh_from_db()
+    assert semi.match_id == games[1].id
+    lead, last = await Match.get(id=games[1].id), await Match.get(id=games[2].id)
+    assert lead.set_first_id is None  # type: ignore[attr-defined]
+    assert last.set_first_id == lead.id  # type: ignore[attr-defined]
+    assert await BracketSetService().labels_for([lead, last]) == {
+        lead.id: 'Game 1 of 3', last.id: 'Game 2 of 3',
+    }
+    # One game is open to book again.
+    left = await BracketSetService().open_games(lead, 3)
+    assert (left.booked, left.slots) == (2, [True])
+
+
+async def test_calling_off_the_only_game_frees_the_matchup(db, monkeypatch, stub_discord_queue):
+    actor, _players, _tournament, _full, _service = await _setup(monkeypatch)
+    monkeypatch.setattr(bracket_sources, 'best_of_for', AsyncMock(return_value=3))
+    semi = await ChallongeMatch.get(challonge_match_id='8001')
+    game = await bracket_sources.book_set_game('challonge', semi.id, *THREE[0], actor)
+    await MatchService().cancel_match(game.id, actor=actor)
     await semi.refresh_from_db()
     assert semi.match_id is None
+
+
+async def test_games_are_booked_one_at_a_time_and_numbered_by_time(db, monkeypatch, stub_discord_queue):
+    actor, _players, _tournament, _full, _service = await _setup(monkeypatch)
+    monkeypatch.setattr(bracket_sources, 'best_of_for', AsyncMock(return_value=3))
+    semi = await ChallongeMatch.get(challonge_match_id='8001')
+    sets = BracketSetService()
+
+    late = await bracket_sources.book_set_game('challonge', semi.id, *THREE[2], actor)
+    await semi.refresh_from_db()
+    assert semi.match_id == late.id
+    late = await Match.get(id=late.id)
+    assert (late.set_best_of, late.set_first_id) == (3, None)  # type: ignore[attr-defined]
+    assert await sets.label_for(late) == 'Game 1 of 3'
+
+    early = await bracket_sources.book_set_game('challonge', semi.id, *THREE[0], actor)
+    early = await Match.get(id=early.id)
+    assert early.set_first_id == late.id  # type: ignore[attr-defined]
+    assert await sets.labels_for([early, late]) == {early.id: 'Game 1 of 3', late.id: 'Game 2 of 3'}
+
+    middle = await bracket_sources.book_set_game('challonge', semi.id, *THREE[1], actor)
+    middle = await Match.get(id=middle.id)
+    assert await sets.labels_for([early, middle, late]) == {
+        early.id: 'Game 1 of 3', middle.id: 'Game 2 of 3', late.id: 'Game 3 of 3',
+    }
+    with pytest.raises(ValueError, match='booked already'):
+        await bracket_sources.book_set_game('challonge', semi.id, '2026-10-25', '23:00', actor)
+
+
+async def test_a_started_game_keeps_its_number(db, monkeypatch, stub_discord_queue):
+    from datetime import datetime, timedelta, timezone
+
+    actor, _players, semi, games = await _book_semi(monkeypatch, stub_discord_queue)
+    first = await Match.get(id=games[0].id)
+    await Match.filter(id=first.id).update(started_at=datetime.now(timezone.utc))
+    # Game 2 moves to before game 1's booked time, after game 1 started.
+    await Match.filter(id=games[1].id).update(scheduled_at=first.scheduled_at - timedelta(hours=1))
+    reloaded = [await Match.get(id=g.id) for g in games]
+    assert list((await BracketSetService().labels_for(reloaded)).values()) == [
+        'Game 1 of 3', 'Game 2 of 3', 'Game 3 of 3',
+    ]
+
+
+async def test_a_two_nil_set_stops_offering_games(db, monkeypatch, stub_discord_queue):
+    actor, players, _tournament, _full, _service = await _setup(monkeypatch)
+    monkeypatch.setattr(bracket_sources, 'best_of_for', AsyncMock(return_value=3))
+    semi = await ChallongeMatch.get(challonge_match_id='8001')
+    one = await bracket_sources.book_set_game('challonge', semi.id, *THREE[0], actor)
+    two = await bracket_sources.book_set_game('challonge', semi.id, *THREE[1], actor)
+    await _win(one, players['Andy'].id)
+    await _win(two, players['Andy'].id)
+
+    left = await BracketSetService().open_games(await Match.get(id=one.id), 3)
+    assert (left.booked, left.slots) == (2, [])
+    with pytest.raises(ValueError, match=r'already decided \(2–0\)'):
+        await bracket_sources.book_set_game('challonge', semi.id, *THREE[2], actor)
+
+
+async def test_the_result_still_reaches_challonge_when_the_lead_game_is_called_off(
+    db, monkeypatch, stub_discord_queue,
+):
+    """Game 3 booked first leads the set; a 2-0 calls it off and the link moves on."""
+    actor, players, _tournament, _full, _service = await _setup(monkeypatch)
+    monkeypatch.setattr(bracket_sources, 'best_of_for', AsyncMock(return_value=3))
+    semi = await ChallongeMatch.get(challonge_match_id='8001')
+    three = await bracket_sources.book_set_game('challonge', semi.id, *THREE[2], actor)
+    one = await bracket_sources.book_set_game('challonge', semi.id, *THREE[0], actor)
+    two = await bracket_sources.book_set_game('challonge', semi.id, *THREE[1], actor)
+    await _win(one, players['Andy'].id)
+    await _win(two, players['Andy'].id)
+
+    assert await BracketSetService().call_off_unneeded(two) == [three.id]
+    await semi.refresh_from_db()
+    assert semi.match_id == one.id
+
+    api = _api()
+    assert await make_service(api=api).push_result_if_linked(two, actor) is True
+    _, kwargs = api.update_match.call_args
+    assert (kwargs['winner_participant_id'], kwargs['winner_score'], kwargs['loser_score']) == ('901', '2', '0')
+
+
+async def test_a_players_list_has_a_row_per_game_left(db, monkeypatch, stub_discord_queue):
+    actor, players, _tournament, _full, _service = await _setup(monkeypatch)
+    monkeypatch.setattr(bracket_sources, 'best_of_for', AsyncMock(return_value=3))
+    monkeypatch.setattr(
+        'application.services.challonge_service.ChallongeService.is_configured', lambda: True,
+    )
+    semi = await ChallongeMatch.get(challonge_match_id='8001')
+    source = bracket_sources.by_key('challonge')
+
+    rows = [r for r in await source.list_bookable_for_user(players['Andy']) if r.key == semi.id]
+    assert [(r.round_label.split(' · ', 1)[1], r.if_needed) for r in rows] == [
+        ('best of 3', False), ('best of 3 · another game', False), ('best of 3 · last game', True),
+    ]
+
+    await bracket_sources.book_set_game('challonge', semi.id, *THREE[0], actor)
+    rows = [r for r in await source.list_bookable_for_user(players['Andy']) if r.key == semi.id]
+    assert [(r.games_booked, r.if_needed) for r in rows] == [(1, False), (1, True)]
+
+    staff_rows = [u for u in await bracket_sources.list_unbooked(actor) if u.key == semi.id]
+    assert [(u.games_booked, u.round_label.rsplit(' · ', 1)[1]) for u in staff_rows] == [(1, '2 games left')]
 
 
 async def test_a_set_booked_ahead_fills_every_game(db, monkeypatch, stub_discord_queue):

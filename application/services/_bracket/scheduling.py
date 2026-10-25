@@ -133,8 +133,9 @@ class SchedulingMixin(ComposedBracketService):
         series never needs are cancelled on the clinch). Raises once every slot is
         taken or the series is already decided.
 
-        ``game_number`` is the game the caller *thinks* it is booking (the dialog
-        reads "Schedule game 2 of 3"). It never chooses the slot; it only makes a
+        ``game_number`` is the game the caller *thinks* it is booking (a
+        best-of-1's dialog passes 1; a set's games are booked in any order, so
+        its dialog passes none). It never chooses the slot; it only makes a
         stale caller fail loudly with :class:`AlreadyBookedError` when that game
         was taken in the meantime, instead of quietly booking the next one.
 
@@ -243,9 +244,9 @@ class SchedulingMixin(ComposedBracketService):
     ) -> None:
         """Refuse a booking for a game someone else filled since the caller looked.
 
-        The dialog says which game it is booking ("Schedule game 2 of 3"), so
-        that is the slot it lost if two players had it open: without this the
-        second Schedule silently took game 3 instead. A slot that is gone for
+        A best-of-1's dialog says it is booking the match, so that is the slot
+        it lost if two players had it open, and the second one hears who booked
+        it and for when. A slot that is gone for
         any other reason (cancelled on the clinch, already played) is a plain
         refusal, not a lost race.
 

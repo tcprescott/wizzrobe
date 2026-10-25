@@ -23,6 +23,7 @@ from application.services.match.match_reads import (
     RELATION_WATCHER,
 )
 from application.utils.app_links import HOME_PLAYER, HOME_SCHEDULE, home_url
+from application.utils.game_order import remaining_slots
 from application.utils.match_labels import challonge_round_label, entrant_name
 from application.utils.timezone import format_local_display
 from models import FeatureFlag, RescheduleRequestKind, RescheduleRequestStatus
@@ -51,10 +52,10 @@ from theme.tables.preferences import TableKeys
 
 
 def _next_game_number(bracket_match, best_of: int) -> int:
-    """The slot the service would allocate next — for labelling only.
+    """The slot the service would allocate next, which guards a stale dialog.
 
     ``list_open_matches_for_user`` only returns matchups with a slot free, so the
-    fallback is unreachable; it keeps the label sane rather than raising in a
+    fallback is unreachable; it keeps the dialog sane rather than raising in a
     render pass if that ever changes.
     """
     taken = {g.game_number for g in bracket_match.games}
@@ -110,7 +111,17 @@ async def _waiting_on_you(user) -> tuple[list, list, list]:
     if FeatureFlag.BRACKETS in live:
         matchups = await BracketService().list_open_matches_for_user(user.id)
     external = await bracket_sources.list_bookable_for_user(user)
+    # A Challonge best-of set comes back from the bracket sources a row per game.
+    sets = {x.key for x in external if x.source == 'challonge'}
+    challonge_rows = [cm for cm in challonge_rows if cm.id not in sets]
     return challonge_rows, matchups, external
+
+
+def _open_games(bracket_match) -> list[bool]:
+    """One entry per native game still to book, True where it's only played if needed."""
+    best_of = BracketService.resolve_best_of(bracket_match.bracket, bracket_match)
+    taken = {g.game_number for g in bracket_match.games}
+    return remaining_slots(best_of, len(taken), False) or [False]
 
 
 def _bookable_count(challonge_rows, matchups, external=()) -> int:
@@ -125,7 +136,7 @@ def _bookable_count(challonge_rows, matchups, external=()) -> int:
         if cm.participant1 is not None and cm.participant2 is not None
         and cm.participant1.user_id is not None and cm.participant2.user_id is not None
     )
-    return linked + len(matchups) + len(external)
+    return linked + sum(len(_open_games(bm)) for bm in matchups) + len(external)
 
 
 async def count_waiting_on_you(user) -> int:
@@ -146,6 +157,7 @@ class _Pick:
     on_click: Callable
     blocked: str | None = None
     window_text: str | None = None
+    if_needed: bool = False
 
 
 def _render_picks(picks: list[_Pick]) -> None:
@@ -174,6 +186,10 @@ def _render_picks(picks: list[_Pick]) -> None:
                                 ui.label(f'vs {pick.opponent_name}').classes('wiz-pick-row__opponent')
                                 if pick.round_label:
                                     ui.label(pick.round_label).classes('text-caption text-grey-7')
+                                # In the text column, not beside the button: a
+                                # phone row has no width to spare there.
+                                if pick.if_needed:
+                                    ui.label('If needed').classes('wiz-chip wiz-chip--pending self-start q-mt-xs')
                                 if pick.window_text and not pick.blocked:
                                     with ui.row().classes('wiz-pick-row__window no-wrap items-start gap-1'):
                                         ui.icon('schedule', size='16px')
@@ -314,11 +330,11 @@ def _render_request_card(row, *, on_withdraw) -> None:
     ui.separator()
 
 
-def _round_label(bracket_match, best_of: int, number: int) -> str:
-    """'Round 2' / 'Losers round 1', plus the series position for a best-of-N."""
+def _round_label(bracket_match, best_of: int, position: int) -> str:
+    """'Round 2' / 'Losers round 1', plus where a best-of-N row sits among the games to book."""
     rnd = bracket_match.round
     base = f'Losers round {abs(rnd)}' if rnd < 0 else f'Round {rnd}'
-    return f'{base} — game {number} of {best_of}' if best_of > 1 else base
+    return bracket_sources.set_game_label(base, best_of, position)
 
 
 async def render_player_dashboard(
@@ -470,7 +486,7 @@ async def render_player_dashboard(
                     picks.append(_Pick(
                         x.tournament.id, x.tournament.name, x.source_label,
                         x.opponent_name, x.round_label, do_external,
-                        window_text=x.window_text,
+                        window_text=x.window_text, if_needed=x.if_needed,
                     ))
 
                 for bm in matchups:
@@ -502,11 +518,14 @@ async def render_player_dashboard(
                         ).open()
 
                     openers[bm.id] = do_schedule
-                    picks.append(_Pick(
-                        bm.bracket.tournament_id, bm.bracket.tournament.name, None,
-                        opponent_name, _round_label(bm, best_of, number), do_schedule,
-                        window_text=await round_schedule.describe_for_bracket_match(bm),
-                    ))
+                    window_text = await round_schedule.describe_for_bracket_match(bm)
+                    booked = len({g.game_number for g in bm.games})
+                    for position, if_needed in enumerate(_open_games(bm), start=booked + 1):
+                        picks.append(_Pick(
+                            bm.bracket.tournament_id, bm.bracket.tournament.name, None,
+                            opponent_name, _round_label(bm, best_of, position), do_schedule,
+                            window_text=window_text, if_needed=if_needed,
+                        ))
 
                 _render_picks(picks)
 
@@ -515,6 +534,7 @@ async def render_player_dashboard(
             # link cannot open someone else's dialog; it falls through to the
             # stale notice.
             startgg_openers = {k: v for (src, k), v in external_openers.items() if src == 'startgg'}
+            challonge_openers.update({k: v for (src, k), v in external_openers.items() if src == 'challonge'})
             for key, table in (
                 ('matchup_id', openers), ('challonge_id', challonge_openers), ('startgg', startgg_openers),
             ):
