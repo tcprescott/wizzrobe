@@ -133,6 +133,13 @@ class TestReadiness:
         assert item['ready'] is False
         assert item['detail'] == 'Player One 4 · Player Two has none'
 
+    def test_a_stage_match_needs_no_stations(self):
+        assert 'stations' not in self._items(stage='Main Stage')
+        players = [{'name': 'Player One', 'station': 4}, {'name': 'Player Two'}]
+        item = self._items(stage='Main Stage', players=players)['stations']
+        assert item['ready'] is None
+        assert item['detail'] == 'Player One 4'
+
     def test_no_stage_is_information_not_a_gap(self):
         assert self._items()['stage']['ready'] is None
 

@@ -172,6 +172,12 @@ class MatchLifecycleHandlers:
     async def on_seat(self, match_id: int):
         match = await Match.get(id=match_id, tenant_id=require_tenant_id()).prefetch_related('tournament', 'players', 'players__user')
 
+        # A stage match is played on the stage, so there is nobody to seat:
+        # one tap checks it in (Thomas, 2026-10-25).
+        if match.stage_id is not None:  # type: ignore[attr-defined]
+            await self.confirm_seating(match)
+            return
+
         async def handle_confirm(_):
             dialog.dialog.close()
             await self.confirm_seating(match)
