@@ -254,6 +254,12 @@ board), never a new card list.
 - **One line per match, grouped by what it needs**: Needs a decision, Live now,
   Up next, Waiting for players, Confirmed. A line says only which match, when,
   where, crew counts and status. Anything wider belongs in the sheet.
+- **The status rail**: a line's state is an uppercase word in its colour
+  (`STATUS_WORD`, `theme/tables/run_sheet_meta.py`) with the same colour down
+  the row's or card's left edge (`RAIL`): green live, amber late or waiting on a
+  call, red flagged, blue checked in, grey otherwise. The word is always there,
+  so colour is never the only cue. A phone card leads with the time, its end and
+  the state on one line (`card_head`), and the names take the full width below.
 - **Everything you can do to a match lives in its match sheet**
   (`theme/dialog/match_sheet.py`), which opens when you tap the line: a side
   sheet on desktop, a bottom sheet on a phone.

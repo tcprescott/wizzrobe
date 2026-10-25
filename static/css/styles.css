@@ -7552,6 +7552,29 @@ ol.wiz-help-list { list-style-type: decimal; }
     font-weight: 700;
 }
 
+/* Status rail: the row's state as a word in its colour, and the same colour
+   down the card's or row's left edge. Neutral states keep a quiet grey edge. */
+.run-sheet--live      { --rail-c: var(--status-live); }
+.run-sheet--ok        { --rail-c: var(--status-ok); }
+.run-sheet--pending   { --rail-c: var(--status-pending); }
+.run-sheet--cancelled { --rail-c: var(--status-cancelled); }
+.run-sheet--info      { --rail-c: var(--status-info); }
+.run-sheet--neutral   { --rail-c: var(--border-strong); }
+.run-sheet__item > .run-sheet__card,
+.run-sheet__item > .player-sheet__card {
+    border-left: 4px solid var(--rail-c, var(--border-strong));
+}
+.run-sheet__row > td:first-child {
+    box-shadow: inset 4px 0 0 var(--rail-c, transparent);
+}
+.run-sheet__status {
+    font-size: var(--text-xs);
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+
 /* Phone: each line is a button. */
 .run-sheet__item {
     width: 100%;
@@ -7578,15 +7601,26 @@ ol.wiz-help-list { list-style-type: decimal; }
     text-align: left;
     cursor: pointer;
 }
-.run-sheet__when {
-    flex: none;
-    width: 4rem;
+/* A phone card's first line: the time and its end, the state on the right.
+   The names get the card's whole width under it. */
+.run-sheet__head {
+    display: flex;
+    align-items: baseline;
+    gap: 0.5rem;
 }
-/* On a phone "to ~12:00 PM" is wider than the time column; let its AM/PM drop
-   to a second line rather than run into the names beside it. Widening the
-   column instead squeezes the names to a word a line on My Schedule. */
-.run-sheet__when .run-sheet__until {
-    white-space: normal;
+.run-sheet__head-time {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    column-gap: 0.5rem;
+    min-width: 0;
+}
+.run-sheet__head .run-sheet__until,
+.run-sheet__head .run-sheet__day {
+    display: inline;
+}
+.run-sheet__head > .run-sheet__status {
+    margin-left: auto;
 }
 .run-sheet__main {
     flex: 1 1 auto;
