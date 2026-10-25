@@ -83,8 +83,8 @@ it's also at the top of the match's details.
    station for each player (or press **Randomize**), and press **Check in &
    seat**. The match goes to {state:Checked In} and the app records where each
    player is sitting. Stations are optional here. You can fill them in at Start.
-   A match on a stage is played on the stage, so it skips the stations and just
-   asks you to confirm.
+   A match on a stage is played on the stage, so it skips the stations: one tap
+   on **Check in** checks it in.
 2. Roll the seed if the match doesn't have one yet. The line's button says
    **Roll seed** until it does. You can only roll a seed once per match, and the
    players get it by DM. The code shows on the line so you can read it out.

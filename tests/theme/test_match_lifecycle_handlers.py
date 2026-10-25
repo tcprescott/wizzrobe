@@ -342,7 +342,12 @@ async def test_checking_in_off_stage_seats_the_players(monkeypatch):
     assert opened == [('stations', 'checkin')]
 
 
-async def test_checking_in_a_stage_match_just_confirms(monkeypatch):
+async def test_checking_in_a_stage_match_takes_one_tap(monkeypatch):
     handlers, opened = _start_handlers(monkeypatch, stage_id=2)
+    seated = []
+
+    async def _seat(match):
+        seated.append(match.id)
+    handlers.confirm_seating = _seat
     await handlers.on_seat(7)
-    assert opened == [('confirm', None)]
+    assert opened == [] and seated == [7]
