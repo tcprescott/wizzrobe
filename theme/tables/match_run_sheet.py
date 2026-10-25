@@ -29,7 +29,7 @@ from application.utils.timezone import format_local_time, to_local, today_local
 from theme.busy import slot_busy_template
 from theme.matchup import WHO_PARTS_VUE
 from theme.tables.match_slots import seed_value_template
-from theme.tables.run_sheet_meta import META, META_WITH_STAGE
+from theme.tables.run_sheet_meta import META, META_WITH_STAGE, RAIL, STATUS_WORD, card_head
 
 #: The board's columns. Kept short on purpose: anything wider than "which match,
 #: when, where, how is it doing" belongs in the sheet.
@@ -93,7 +93,7 @@ def run_sheet_status(row: dict) -> tuple[str, str]:
     if not row.get('players'):
         return 'Waiting for players', 'neutral'
     if state == 'Checked In':
-        return 'Checked in', 'neutral'
+        return 'Checked in', 'info'
     if row.get('is_overdue'):
         return 'Late', 'pending'
     return 'Scheduled', 'neutral'
@@ -508,8 +508,6 @@ def arrange_run_sheet(rows: list, group: Callable[[dict], tuple[int, str]] = adm
     return arranged
 
 
-_STATUS_CHIP = """<span class="wiz-chip" :class="'wiz-chip--' + props.row._tone">{{ props.row._status }}</span>"""
-
 # Signups over need. "needs crew" is spelled out rather than left to the amber,
 # which no screen reader and not every eye can read. The desktop cell sits under
 # a Commentators or Trackers header, so it leaves the role's name off.
@@ -615,7 +613,7 @@ _SEED_LINE = r"""<template v-if="props.row._seed_line"><span v-if="props.row.gen
 # The next lifecycle step, on the line. Late and Ready are the primary buttons:
 # the room is waiting on them. The group already says Late or Checked in, so
 # the chip is left to the states a button does not explain.
-_NEXT_CHIP = """<span v-if="!['Scheduled', 'Checked in', 'Late'].includes(props.row._status)" class="wiz-chip" :class="'wiz-chip--' + props.row._tone">{{ props.row._status }}</span>"""
+_NEXT_CHIP = STATUS_WORD.replace('<span ', """<span v-if="!['Scheduled', 'Checked in', 'Late'].includes(props.row._status)" """, 1)
 
 # Roll seed spins until the row comes back, since a synchronous roll can take
 # several seconds and a second press would only be refused. A queued roll then
@@ -632,8 +630,8 @@ _NEXT_BUTTON = """<q-btn v-if="props.row._next && props.row._next.event" no-caps
 </q-btn>"""
 
 
-def _next(can_run: bool) -> str:
-    return ('<span class="run-sheet__next">' + _NEXT_CHIP
+def _next(can_run: bool, chip: bool = True) -> str:
+    return ('<span class="run-sheet__next">' + (_NEXT_CHIP if chip else '')
             + (_NEXT_BUTTON if can_run else '') + '</span>')
 
 
@@ -669,7 +667,7 @@ def _body_slot(proctor: bool, can_run: bool = False, approve: str = 'false') -> 
 <q-tr v-if="props.row._group_start" class="run-sheet__group-row">
     <q-td colspan="100%" class="run-sheet__group">""" + fold_header(proctor) + """</q-td>
 </q-tr>
-<q-tr v-if="!props.row._folded" :props="props" class="run-sheet__row" :class="[props.row._flash ? 'wiz-row-flash' : '', props.row._removed ? 'wiz-row-removed' : '']" :inert="props.row._removed ? '' : null" :data-wiz-row="props.row.id"
+<q-tr v-if="!props.row._folded" :props="props" class="run-sheet__row" :class="[""" + RAIL + """, props.row._flash ? 'wiz-row-flash' : '', props.row._removed ? 'wiz-row-removed' : '']" :inert="props.row._removed ? '' : null" :data-wiz-row="props.row.id"
       @click="$parent.$emit('open_match', props.row.id)">
     <q-td v-for="col in props.cols" :key="col.name" :props="props">
         <template v-if="col.name === 'scheduled_at'">
@@ -685,7 +683,7 @@ def _body_slot(proctor: bool, can_run: bool = False, approve: str = 'false') -> 
         <template v-else-if="col.name === 'commentators' || col.name === 'trackers'">
             """ + _crew_cell(approve) + """
         </template>
-        <template v-else-if="col.name === 'status'">""" + _STATUS_CHIP + """</template>
+        <template v-else-if="col.name === 'status'">""" + STATUS_WORD + """</template>
 """ + ("""        <template v-else-if="col.name === 'next'">""" + _next(can_run) + """</template>
 """ if proctor else '') + """        <template v-else>{{ col.value }}</template>
     </q-td>
@@ -694,21 +692,19 @@ def _body_slot(proctor: bool, can_run: bool = False, approve: str = 'false') -> 
 
 
 def _item_slot(proctor: bool, can_run: bool = False, approve: str = 'false') -> str:
-    """Phone: the whole line is one button. A plain "Scheduled" is the default,
-    so the chip is left off it and the names get the width. The proctor's line
-    is a card holding two buttons instead, since the step can't sit inside
-    the button that opens the match."""
-    when = """<span class="run-sheet__when">
-            """ + _TIME + """
-        </span>"""
+    """Phone: the whole line is one button, the time and state across its top
+    and the names under them at full width. The proctor's line is a card
+    holding two buttons instead, since the step can't sit inside the button
+    that opens the match."""
+    head = card_head(_TIME)
     if proctor:
         return """
 <div class="run-sheet__item">
     <div v-if="props.row._group_start" class="run-sheet__group">""" + fold_header(proctor) + """</div>
-    <div v-if="!props.row._folded" class="run-sheet__card run-sheet__card--split" :class="[props.row._flash ? 'wiz-row-flash' : '', props.row._removed ? 'wiz-row-removed' : '']" :inert="props.row._removed ? '' : null" :data-wiz-row="props.row.id">
+    <div v-if="!props.row._folded" class="run-sheet__card run-sheet__card--split" :class="[""" + RAIL + """, props.row._flash ? 'wiz-row-flash' : '', props.row._removed ? 'wiz-row-removed' : '']" :inert="props.row._removed ? '' : null" :data-wiz-row="props.row.id">
         <button type="button" class="run-sheet__card-open" @click="$parent.$emit('open_match', props.row.id)">
-            """ + when + """
             <span class="run-sheet__main">
+                """ + head + """
                 <span class="run-sheet__who">""" + WHO + """</span>
                 """ + META + """
                 <span v-if="props.row._stage || props.row._hit_station || props.row._seat_line" class="run-sheet__meta"><template v-if="props.row._stage">{{ props.row._stage }}</template><template v-if="props.row._hit_station"><template v-if="props.row._stage"> · </template>""" + _HIT_SEATS + """</template><template v-else><template v-if="props.row._stage && props.row._seat_line"> · </template>{{ props.row._seat_line }}</template></span>
@@ -716,23 +712,22 @@ def _item_slot(proctor: bool, can_run: bool = False, approve: str = 'false') -> 
                 """ + COMMENT_BADGES + """
             </span>
         </button>
-        """ + _next(can_run) + """
+        """ + _next(can_run, chip=False) + """
         <div v-if="props.row._seed_line" class="run-sheet__seed-strip">""" + _SEED_LINE + """</div>
     </div>
 </div>
 """
     main = """
-        """ + when + """
         <span class="run-sheet__main">
+            """ + head + """
             <span class="run-sheet__who">""" + WHO + """</span>
             """ + META_WITH_STAGE + """
             """ + DESC_LINE + LATE_TAGS + """
             <span v-if="props.row._crew.length" class="run-sheet__crew-list">""" + _crew_lines(approve) + """</span>
             """ + COMMENT_BADGES + """
-        </span>
-        <span v-if="props.row._status !== 'Scheduled'" class="wiz-chip" :class="'wiz-chip--' + props.row._tone">{{ props.row._status }}</span>"""
+        </span>"""
     if approve == 'false':
-        card = """<button v-if="!props.row._folded" type="button" class="run-sheet__card" :class="[props.row._flash ? 'wiz-row-flash' : '', props.row._removed ? 'wiz-row-removed' : '']" :inert="props.row._removed ? '' : null" :data-wiz-row="props.row.id"
+        card = """<button v-if="!props.row._folded" type="button" class="run-sheet__card" :class="[""" + RAIL + """, props.row._flash ? 'wiz-row-flash' : '', props.row._removed ? 'wiz-row-removed' : '']" :inert="props.row._removed ? '' : null" :data-wiz-row="props.row.id"
             @click="$parent.$emit('open_match', props.row.id)">""" + main + """
     </button>"""
     else:
@@ -743,7 +738,7 @@ def _item_slot(proctor: bool, can_run: bool = False, approve: str = 'false') -> 
             '<span class="run-sheet__who">' + WHO + '</span>',
             '<button type="button" class="run-sheet__who run-sheet__open" @click.stop="$parent.$emit(\'open_match\', props.row.id)">' + WHO + '</button>',
         )
-        card = """<div v-if="!props.row._folded" class="run-sheet__card" :class="[props.row._flash ? 'wiz-row-flash' : '', props.row._removed ? 'wiz-row-removed' : '']" :inert="props.row._removed ? '' : null" :data-wiz-row="props.row.id"
+        card = """<div v-if="!props.row._folded" class="run-sheet__card" :class="[""" + RAIL + """, props.row._flash ? 'wiz-row-flash' : '', props.row._removed ? 'wiz-row-removed' : '']" :inert="props.row._removed ? '' : null" :data-wiz-row="props.row.id"
             @click="$parent.$emit('open_match', props.row.id)">""" + main + """
     </div>"""
     return """

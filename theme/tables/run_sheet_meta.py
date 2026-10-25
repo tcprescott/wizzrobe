@@ -9,3 +9,13 @@ _META_INNER = ("""{{ props.row.tournament_short || props.row.tournament }}<templ
 META = """<span class="run-sheet__meta" :title="props.row.tournament">""" + _META_INNER + """</span>"""
 META_WITH_STAGE = ("""<span class="run-sheet__meta" :title="props.row.tournament">""" + _META_INNER
                    + """<template v-if="props.row._stage"> · {{ props.row._stage }}</template></span>""")
+
+# The state as a word in its own colour, with the same colour down the card's
+# or row's left edge. The word carries it for anyone who can't tell the colours.
+STATUS_WORD = """<span class="run-sheet__status" :class="'st-' + props.row._tone">{{ props.row._status }}</span>"""
+RAIL = "'run-sheet--' + props.row._tone"
+
+
+def card_head(time: str, status: str = STATUS_WORD) -> str:
+    """A phone card's first line: the time and its end, then the state on the right."""
+    return '<span class="run-sheet__head"><span class="run-sheet__head-time">' + time + '</span>' + status + '</span>'

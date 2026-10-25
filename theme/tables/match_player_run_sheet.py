@@ -18,6 +18,9 @@ from theme.tables.match_run_sheet import (
     HELD_TAG,
     META,
     META_WITH_STAGE,
+    RAIL,
+    STATUS_WORD,
+    card_head,
     UNTIL_LINE,
     WHO,
     crew_people,
@@ -74,7 +77,7 @@ def player_status(row: dict) -> tuple[str, str]:
     if not row.get('players'):
         return 'Waiting for players', 'neutral'
     if state == 'Checked In':
-        return 'Checked in', 'neutral'
+        return 'Checked in', 'info'
     if row.get('is_overdue'):
         return 'Late', 'pending'
     return 'Scheduled', 'neutral'
@@ -384,7 +387,7 @@ _BODY_SLOT = r'''
 <q-tr v-if="props.row._group_start" class="run-sheet__group-row">
     <q-td colspan="100%" class="run-sheet__group">''' + fold_header(False) + r'''</q-td>
 </q-tr>
-<q-tr v-if="!props.row._folded" :props="props" class="run-sheet__row player-sheet__row" :class="[props.row._flash ? 'wiz-row-flash' : '', props.row._removed ? 'wiz-row-removed' : '']" :inert="props.row._removed ? '' : null" :data-wiz-row="props.row.id"
+<q-tr v-if="!props.row._folded" :props="props" class="run-sheet__row player-sheet__row" :class="[''' + RAIL + ''', props.row._flash ? 'wiz-row-flash' : '', props.row._removed ? 'wiz-row-removed' : '']" :inert="props.row._removed ? '' : null" :data-wiz-row="props.row.id"
       @click="$parent.$emit('open_match', props.row.id)">
     <q-td v-for="col in props.cols" :key="col.name" :props="props"
           :class="col.name === 'commentators' || col.name === 'trackers' ? 'player-sheet__crew-cell' : col.name === 'match' ? 'player-sheet__match-cell' : ''">
@@ -401,7 +404,7 @@ _BODY_SLOT = r'''
         </template>
         <template v-else-if="col.name === 'status'">
             <div class="player-sheet__status">
-                <span class="wiz-chip" :class="'wiz-chip--' + props.row._tone">{{ props.row._status }}</span>''' + _LATE_UNDO + _ACK + _LATE + '''
+                ''' + STATUS_WORD + _LATE_UNDO + _ACK + _LATE + '''
             </div>
         </template>
         <template v-else-if="col.name === 'watch'">''' + _BELL + '''</template>
@@ -415,23 +418,22 @@ _BODY_SLOT = r'''
 # buttons sit beside it rather than inside it (a button can't hold buttons).
 # The status chip leads the tray below, the way it heads desktop's Status
 # column: beside the names it squeezed them to a letter a line.
-_CARD_CHIP_IF = "props.row._status !== 'Scheduled' && !props.row._my_late"
-_CARD_CHIP = ('<span v-if="' + _CARD_CHIP_IF + '" class="wiz-chip" '
-              ':class="\'wiz-chip--\' + props.row._tone">{{ props.row._status }}</span>')
+# Running late says so in the tray, beside its Undo.
+_HEAD_STATUS = STATUS_WORD.replace('<span ', '<span v-if="!props.row._my_late" ', 1)
 _ITEM_SLOT = r'''
 <div class="run-sheet__item">
     <div v-if="props.row._group_start" class="run-sheet__group">''' + fold_header(False) + r'''</div>
-    <div v-if="!props.row._folded" class="player-sheet__card" :class="[props.row._flash ? 'wiz-row-flash' : '', props.row._removed ? 'wiz-row-removed' : '']" :inert="props.row._removed ? '' : null" :data-wiz-row="props.row.id">
+    <div v-if="!props.row._folded" class="player-sheet__card" :class="[''' + RAIL + ''', props.row._flash ? 'wiz-row-flash' : '', props.row._removed ? 'wiz-row-removed' : '']" :inert="props.row._removed ? '' : null" :data-wiz-row="props.row.id">
         <div class="player-sheet__top">
             <button type="button" class="player-sheet__open" @click="$parent.$emit('open_match', props.row.id)">
-                <span class="run-sheet__when">''' + _WHEN + '''</span>
                 <span class="run-sheet__main">
+                    ''' + card_head(_WHEN, _HEAD_STATUS) + '''
                     <span class="run-sheet__who">''' + WHO + '''</span>
                     ''' + META_WITH_STAGE + '''
                 </span>
             </button>''' + _BELL + '''__MENU__
         </div>
-        <div v-if="props.row._status !== 'Scheduled' || props.row._ack || props.row._can_late || props.row._my_late || props.row._roles.length" class="player-sheet__acts">''' + _CARD_CHIP + _LATE_CHIP + _ACK + _LATE + '''
+        <div v-if="props.row._ack || props.row._can_late || props.row._my_late || props.row._roles.length" class="player-sheet__acts">''' + _LATE_CHIP + _ACK + _LATE + '''
             <div v-for="c in props.row._roles" :key="c.key" class="player-sheet__role">''' + _ROLE_CARD + '''</div>
         </div>
     </div>

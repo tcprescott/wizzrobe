@@ -31,7 +31,7 @@ class TestStatus:
 
     def test_late_only_before_check_in(self):
         assert run_sheet_status(_row(1, 'Scheduled', is_overdue=True)) == ('Late', 'pending')
-        assert run_sheet_status(_row(1, 'Checked In', is_overdue=True)) == ('Checked in', 'neutral')
+        assert run_sheet_status(_row(1, 'Checked In', is_overdue=True)) == ('Checked in', 'info')
 
     def test_a_match_without_players_says_so(self):
         assert run_sheet_status(dict(_row(1, 'Scheduled'), players=[]))[0] == 'Waiting for players'
