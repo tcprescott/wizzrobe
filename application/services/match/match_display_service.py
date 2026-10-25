@@ -142,8 +142,9 @@ class MatchDisplayService:
         Returns:
             List of formatted match dictionaries
         """
-        include_unstaged = bool(stage_ids) and NO_STAGE in stage_ids
-        if include_unstaged:
+        include_unstaged = False
+        if stage_ids and NO_STAGE in stage_ids:
+            include_unstaged = True
             stage_ids = [sid for sid in stage_ids if sid != NO_STAGE]
         matches = await self.repository.get_all(
             tournament_ids=tournament_ids,
