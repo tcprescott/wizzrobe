@@ -65,7 +65,7 @@ station. On a phone the search box sits above **Filters**, so it's always there.
 | You see | Means |
 |---|---|
 | Station 4 beside a name | The station they're seated at. On a phone the line sums it up instead, like Stations 3 and 7. |
-| No station beside a name | They aren't seated yet. Check-in seats them. On a phone it reads No stations yet. |
+| No station beside a name | They aren't seated yet. Check-in seats them. On a phone it reads No stations yet. Matches on a stage never show this. |
 | ADA: and a name | Staff have arranged an accommodation for them. Open the match and tap the accommodation to see it. |
 | Live | The match is in play. |
 
@@ -83,6 +83,8 @@ it's also at the top of the match's details.
    station for each player (or press **Randomize**), and press **Check in &
    seat**. The match goes to {state:Checked In} and the app records where each
    player is sitting. Stations are optional here. You can fill them in at Start.
+   A match on a stage is played on the stage, so it skips the stations and just
+   asks you to confirm.
 2. Roll the seed if the match doesn't have one yet. The line's button says
    **Roll seed** until it does. You can only roll a seed once per match, and the
    players get it by DM. The code shows on the line so you can read it out.

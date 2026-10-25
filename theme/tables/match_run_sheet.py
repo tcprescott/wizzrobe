@@ -277,8 +277,12 @@ def seat_line(row: dict) -> str:
     stations = [(p.get('name') or '', p.get('station')) for p in players]
     seated = [str(s) for _n, s in stations if s]
     missing = [n for n, s in stations if not s]
+    # A stage match is played on the stage, so a missing station isn't news.
+    on_stage = bool(row.get('stage'))
     if not seated:
-        return 'No stations yet'
+        return '' if on_stage else 'No stations yet'
+    if on_stage and missing:
+        return ' · '.join(f'{n} at {s}' for n, s in stations if s)
     if not missing:
         return f"Stations {', '.join(seated[:-1])} and {seated[-1]}" if len(seated) > 1 \
             else f'Station {seated[0]}'
@@ -595,7 +599,7 @@ COMMENT_BADGES = r"""<span v-if="props.row._comments && props.row._comments.leng
 # show every seat: a folded race on desktop, and the phone's meta line.
 _HIT_SEATS = r"""<template v-for="(s, i) in props.row._seats.filter((s) => s.key === props.row._hit_station)" :key="'hit' + i"><span class="run-sheet__player">{{ s.name }}<span class="run-sheet__seat run-sheet__seat--hit">Station {{ s.station }}</span></span></template>"""
 
-_SEATED_WHO = r"""<template v-if="props.row._seats.length && (!props.row._who_fold || props.row._who_open)"><template v-for="(s, i) in props.row._seats" :key="i"><span v-if="i" class="run-sheet__vs">{{ props.row._seats.length > 2 ? ', ' : ' vs ' }}</span><span class="run-sheet__player">{{ s.name }}<span class="run-sheet__seat" :class="s.station ? (s.key && s.key === props.row._hit_station ? 'run-sheet__seat--hit' : '') : 'run-sheet__seat--none'">{{ s.station ? 'Station ' + s.station : 'No station' }}</span></span></template><template v-if="props.row._who_fold"> """ + RACER_TOGGLE + """</template></template><template v-else>""" + WHO + """<template v-if="props.row._hit_station"> · """ + _HIT_SEATS + """</template></template>"""
+_SEATED_WHO = r"""<template v-if="props.row._seats.length && (!props.row._who_fold || props.row._who_open)"><template v-for="(s, i) in props.row._seats" :key="i"><span v-if="i" class="run-sheet__vs">{{ props.row._seats.length > 2 ? ', ' : ' vs ' }}</span><span class="run-sheet__player">{{ s.name }}<span v-if="s.station || !props.row.stage" class="run-sheet__seat" :class="s.station ? (s.key && s.key === props.row._hit_station ? 'run-sheet__seat--hit' : '') : 'run-sheet__seat--none'">{{ s.station ? 'Station ' + s.station : 'No station' }}</span></span></template><template v-if="props.row._who_fold"> """ + RACER_TOGGLE + """</template></template><template v-else>""" + WHO + """<template v-if="props.row._hit_station"> · """ + _HIT_SEATS + """</template></template>"""
 
 # A player said they're on their way. On the staff boards only: the player's own
 # board says it in its Status chip instead.

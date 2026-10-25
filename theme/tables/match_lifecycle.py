@@ -172,6 +172,19 @@ class MatchLifecycleHandlers:
     async def on_seat(self, match_id: int):
         match = await Match.get(id=match_id, tenant_id=require_tenant_id()).prefetch_related('tournament', 'players', 'players__user')
 
+        # A stage match is played on the stage, so there is nobody to seat.
+        if match.stage_id is not None:
+            player_names = ', '.join(p.user.preferred_name for p in match.players)
+            with self.page_container:
+                ConfirmationDialog(
+                    title='Check in match',
+                    message=f'Check in {match_model_label(match)}?\n\n{player_names}',
+                    confirm_text='Check in',
+                    tone='primary',
+                    on_confirm=lambda _: self.confirm_seating(match),
+                ).open()
+            return
+
         async def handle_confirm(_):
             dialog.dialog.close()
             await self.confirm_seating(match)
