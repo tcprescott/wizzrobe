@@ -26,6 +26,10 @@ from theme.tables.match_run_sheet import PROCTOR_RUN_SHEET_COLUMNS, proctor_grou
 from theme.tables.preferences import TableKeys
 
 
+def _on_stage(row: dict) -> bool:
+    return row.get('stage_id') is not None
+
+
 async def proctor_station_tab(user: Optional[User] = None) -> None:
     on_stage_only = await AuthService.proctor_station_on_stage_only(user)
     with ui.column().classes('page-container-wide') as page_container:
@@ -62,6 +66,9 @@ async def proctor_station_tab(user: Optional[User] = None) -> None:
         table_view = MatchTableView(
             columns=PROCTOR_RUN_SHEET_COLUMNS,
             get_query=get_query,
+            # The board's rows come from the display service, not get_query, so
+            # the tech's stage-only scope has to ride on the row filter too.
+            row_filter=_on_stage if on_stage_only else None,
             admin_controls=True,
             access=access,
             storage_key='proctor',
