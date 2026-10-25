@@ -369,6 +369,12 @@ def _hhmm(ts: float) -> str:
     return format_local_time(datetime.fromtimestamp(ts, tz=timezone.utc))
 
 
+def _until(ts: float, approx: bool) -> str:
+    """"to ~12:00 PM" for the line under the time. A narrow phone column breaks
+    it before the AM/PM, so "to" holds onto the time and the AM/PM doesn't."""
+    return 'to\u00a0' + ('~' if approx else '') + _hhmm(ts).replace('\u00a0', ' ')
+
+
 def _actual_times(row: dict) -> None:
     """Swap the booked time for the actual start, with the finish under it, or
     while the match runs, start + the tournament's match length as "to ~HH:MM".
@@ -378,10 +384,10 @@ def _actual_times(row: dict) -> None:
     row['_day'] = _day_label(started)
     finished = row.get('finished_ts')
     if finished:
-        row['_until'] = f'to {_hhmm(finished)}'
+        row['_until'] = _until(finished, approx=False)
     elif row.get('match_length'):
         estimate = started + row['match_length'] * 60
-        row['_until'] = f'to ~{_hhmm(estimate)}'
+        row['_until'] = _until(estimate, approx=True)
         row['_overrun'] = datetime.now(timezone.utc).timestamp() > estimate
 
 
@@ -389,7 +395,7 @@ def _planned_end(row: dict) -> None:
     """A match not yet started ends around booked time + setup + match length."""
     if row.get('state') in ('Scheduled', 'Checked In') and row.get('scheduled_ts') and row.get('match_length'):
         estimate = row['scheduled_ts'] + CHECK_IN_TO_START.total_seconds() + row['match_length'] * 60
-        row['_until'] = f'to ~{_hhmm(estimate)}'
+        row['_until'] = _until(estimate, approx=True)
 
 
 def decorate_run_sheet_row(row: dict) -> dict:

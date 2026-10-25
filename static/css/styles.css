@@ -7578,11 +7578,15 @@ ol.wiz-help-list { list-style-type: decimal; }
     text-align: left;
     cursor: pointer;
 }
-/* Wide enough for the longest 12-hour pair, "12:00 PM" over "to ~12:00 PM";
-   anything narrower and the estimate runs into the names beside it. */
 .run-sheet__when {
     flex: none;
-    width: 5.25rem;
+    width: 4rem;
+}
+/* On a phone "to ~12:00 PM" is wider than the time column; let its AM/PM drop
+   to a second line rather than run into the names beside it. Widening the
+   column instead squeezes the names to a word a line on My Schedule. */
+.run-sheet__when .run-sheet__until {
+    white-space: normal;
 }
 .run-sheet__main {
     flex: 1 1 auto;
