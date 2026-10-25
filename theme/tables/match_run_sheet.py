@@ -29,6 +29,7 @@ from application.utils.timezone import format_local_time, to_local, today_local
 from theme.busy import slot_busy_template
 from theme.matchup import WHO_PARTS_VUE
 from theme.tables.match_slots import seed_value_template
+from theme.tables.run_sheet_meta import META, META_WITH_STAGE
 
 #: The board's columns. Kept short on purpose: anything wider than "which match,
 #: when, where, how is it doing" belongs in the sheet.
@@ -600,15 +601,6 @@ _SEATED_WHO = r"""<template v-if="props.row._seats.length && (!props.row._who_fo
 
 # A player said they're on their way. On the staff boards only: the player's own
 # board says it in its Status chip instead.
-# The tournament line under the names: short name, bracket, and which game of
-# a best-of-N set this is. The phone card, which has no Stage column, adds the
-# stage on the end.
-_META_INNER = ("""{{ props.row.tournament_short || props.row.tournament }}<template v-if="props.row.bracket"> · {{ props.row.bracket.name }}"""
-               """<template v-if="props.row.bracket.game"> · <span class="run-sheet__game">Game {{ props.row.bracket.game }}<template v-if="props.row.bracket.best_of > 1"> of {{ props.row.bracket.best_of }}</template></span></template></template>"""
-               """<template v-if="props.row.set_label"> · <span class="run-sheet__game">{{ props.row.set_label }}</span></template>""")
-META = """<span class="run-sheet__meta" :title="props.row.tournament">""" + _META_INNER + """</span>"""
-META_WITH_STAGE = ("""<span class="run-sheet__meta" :title="props.row.tournament">""" + _META_INNER
-                   + """<template v-if="props.row._stage"> · {{ props.row._stage }}</template></span>""")
 DESC_LINE = """<span v-if="props.row.description_text" class="run-sheet__desc" :title="props.row.description_text">{{ props.row.description_text }}</span>"""
 LATE_TAGS = r"""<span v-for="l in props.row._late" :key="l.key" class="wiz-chip wiz-chip--pending run-sheet__late" :title="l.note || null"><q-icon name="schedule" size="14px" aria-hidden="true" />{{ l.label }}</span>"""
 
