@@ -79,8 +79,18 @@ class VolunteerAssignment(Model):
     start_dm_sent_at = fields.DatetimeField(null=True)
     # Self-reported from that DM; cleared on check-in.
     late_minutes = fields.IntField(null=True)
+    # Staff said this volunteer isn't needed after all. The shift still counts
+    # as worked (hours, comps, attendance), so check-in is skipped for it.
+    called_off_at = fields.DatetimeField(null=True)
+    called_off_by = fields.ForeignKeyField('models.User', related_name='volunteer_call_offs', null=True, on_delete=fields.SET_NULL)
+    called_off_note = fields.TextField(null=True)
     created_at = fields.DatetimeField(auto_now_add=True)
     updated_at = fields.DatetimeField(auto_now=True)
+
+    @property
+    def counts_as_worked(self) -> bool:
+        """Checked in, or called off by staff: either way the shift is credited."""
+        return self.checked_in_at is not None or self.called_off_at is not None
 
     class Meta:
         table = 'volunteerassignment'

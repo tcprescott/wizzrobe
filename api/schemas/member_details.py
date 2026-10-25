@@ -61,6 +61,7 @@ class UpcomingShiftInfo(BaseModel):
     starts_at: datetime = Field(..., description="UTC.")
     ends_at: datetime = Field(..., description="UTC.")
     checked_in: bool
+    called_off: bool = Field(False, description="Staff called this shift off; it still counts as worked.")
 
 
 class MemberDetailsResponse(BaseModel):

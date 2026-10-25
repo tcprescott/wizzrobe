@@ -456,7 +456,10 @@ async def admin_volunteers_page(day: str | None = None) -> None:
                     ).open()
                 chip.on_value_change(ask_remove)
 
-                if assignment.checked_in_at:
+                if assignment.called_off_at:
+                    ui.icon('event_available', size='sm').classes('st-info') \
+                        .tooltip(f'Called off {format_local_time(assignment.called_off_at)}; counts as worked')
+                elif assignment.checked_in_at:
                     who = ('they said they were here'
                            if assignment.checked_in_by_id == assignment.user_id else 'by a coordinator')  # type: ignore[attr-defined]
                     ui.icon('how_to_reg', color='teal', size='sm') \

@@ -358,6 +358,15 @@ SHIFT_REMOVED = _notice(
     'shift_removed', 'Volunteer shifts', 'Shift removed',
     'A volunteer is unassigned or the shift is deleted', {VOLUNTEERS: PING},
 )
+SHIFT_CALLED_OFF = _notice(
+    'shift_called_off', 'Volunteer shifts', 'Shift called off',
+    "Staff say a volunteer isn't needed for a shift; it still counts as worked",
+    {VOLUNTEERS: PING},
+)
+SHIFT_CALL_OFF_UNDONE = _notice(
+    'shift_call_off_undone', 'Volunteer shifts', 'Shift back on',
+    'Staff take back a call-off', {VOLUNTEERS: PING},
+)
 SHIFT_REMINDER = _notice(
     'shift_reminder', 'Volunteer shifts', 'Shift reminder',
     "Before a shift, at the community's reminder lead", {VOLUNTEERS: PING},
@@ -525,7 +534,10 @@ SECTIONS: Dict[str, Tuple[Tuple[str, Tuple[Notice, ...]], ...]] = {
         )),
     ),
     'Volunteer shifts': (
-        ('Your shifts', (SHIFT_ASSIGNED, SHIFT_MOVED, SHIFT_REMOVED, SHIFT_REMINDER, SHIFT_STARTING)),
+        ('Your shifts', (
+            SHIFT_ASSIGNED, SHIFT_MOVED, SHIFT_REMOVED, SHIFT_CALLED_OFF, SHIFT_CALL_OFF_UNDONE,
+            SHIFT_REMINDER, SHIFT_STARTING,
+        )),
         ('Staff alerts', (SHIFT_GIVEN_BACK, VOLUNTEER_LATE, VOLUNTEER_ARRIVED)),
     ),
     'Community': (
@@ -631,6 +643,8 @@ _URGENT: Dict[str, frozenset] = {
     RACE_ROOM_OPEN.key: frozenset({PLAYERS}),
     SHIFT_REMINDER.key: frozenset({VOLUNTEERS}),
     SHIFT_STARTING.key: frozenset({VOLUNTEERS}),
+    SHIFT_CALLED_OFF.key: frozenset({VOLUNTEERS}),
+    SHIFT_CALL_OFF_UNDONE.key: frozenset({VOLUNTEERS}),
     RUN_EXPIRING.key: frozenset({PLAYERS}),
 }
 _STAFF_ALERTS = frozenset({ON_DUTY, ADMINS, STAFF})

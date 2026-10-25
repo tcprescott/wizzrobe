@@ -334,6 +334,8 @@ class AuditActions:
     VOLUNTEER_CHECKED_IN = 'volunteer.checked_in'
     VOLUNTEER_CHECK_IN_UNDONE = 'volunteer.check_in_undone'
     VOLUNTEER_RUNNING_LATE = 'volunteer.running_late'
+    VOLUNTEER_CALLED_OFF = 'volunteer.called_off'
+    VOLUNTEER_CALL_OFF_UNDONE = 'volunteer.call_off_undone'
     VOLUNTEER_AVAILABILITY_UPDATED = 'volunteer.availability_updated'
     VOLUNTEER_DRAFT_GENERATED = 'volunteer.draft_generated'
     VOLUNTEER_DRAFT_CLEARED = 'volunteer.draft_cleared'

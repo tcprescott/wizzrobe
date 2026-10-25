@@ -103,6 +103,7 @@ class UpcomingShift:
     starts_at: datetime
     ends_at: datetime
     checked_in: bool
+    called_off: bool = False
 
 
 @dataclass(frozen=True)
@@ -211,6 +212,7 @@ class MemberDetailsService:
             shifts = [
                 UpcomingShift(
                     a.shift.position.name, a.shift.starts_at, a.shift.ends_at, a.checked_in_at is not None,
+                    called_off=a.called_off_at is not None,
                 )
                 for a in await self.repository.upcoming_shifts(member.id, now, UPCOMING_LIMIT)
             ]

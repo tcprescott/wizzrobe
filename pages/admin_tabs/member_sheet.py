@@ -274,7 +274,7 @@ class MemberSheet:
             if d.upcoming_shifts is not None:
                 shifts = '; '.join(
                     f'{format_local_display(s.starts_at)} {s.position}'
-                    + (' (checked in)' if s.checked_in else '')
+                    + (' (called off)' if s.called_off else ' (checked in)' if s.checked_in else '')
                     for s in d.upcoming_shifts
                 )
                 _fact('Next shifts', shifts or 'None')

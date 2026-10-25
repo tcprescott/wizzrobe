@@ -1668,6 +1668,9 @@ A volunteer placed into a shift, mirroring the crew signup/acknowledge flow.
 | `checked_in_by` | FK → `User` | null, `SET_NULL` | `related_name='volunteer_check_ins'` |
 | `start_dm_sent_at` | `DatetimeField` | null | Stamped by `volunteer_reminder` when it queues the shift-start DM (I'm here / Running late / I can't make it), so each assignment gets it once |
 | `late_minutes` | `IntField` | null | Self-reported from the shift-start DM (10, 20 or 30 = "30 or more"); cleared on check-in |
+| `called_off_at` | `DatetimeField` | null | Staff said this volunteer isn't needed (`VolunteerCallOffService`). The shift skips check-in, reminder and start DM, and counts as worked (`counts_as_worked`) |
+| `called_off_by` | FK → User | null, SET_NULL | Who called it off |
+| `called_off_note` | `TextField` | null | Staff's optional note, sent in the call-off DM |
 
 Constraints: `unique_together (('shift', 'user'),)`; index on `user` (the composite is shift-first, leaving the "my shifts" lookup uncovered).
 

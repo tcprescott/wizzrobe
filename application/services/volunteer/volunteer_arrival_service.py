@@ -20,6 +20,12 @@ from application.services.notification_catalog import VOLUNTEER_LATE
 from application.utils.discord_messages_volunteer import LATE_CHOICES, late_label
 from models import FeatureFlag, User, VolunteerAssignment
 
+# What a called-off volunteer hears if they try to check in or say they're late.
+CALLED_OFF_MESSAGE = (
+    "You've been called off this shift, so there's no need to check in. "
+    "It still counts as worked."
+)
+
 # How long before a shift starts its "I'm here" opens.
 CHECK_IN_LEAD = timedelta(minutes=30)
 
@@ -34,6 +40,7 @@ def can_self_check_in(assignment: VolunteerAssignment, now: datetime) -> bool:
     """The "I'm here" button's own rule, mirroring what the service accepts."""
     return (
         assignment.checked_in_at is None
+        and assignment.called_off_at is None
         and not assignment.auto_generated
         and check_in_open(assignment, now)
     )
@@ -81,6 +88,8 @@ class VolunteerArrivalService:
         assignment = await self._own(assignment_id, user)
         if assignment.checked_in_at is not None:
             return assignment
+        if assignment.called_off_at is not None:
+            raise ValueError(CALLED_OFF_MESSAGE)
         now = datetime.now(timezone.utc)
         if now >= assignment.shift.ends_at:
             raise ValueError('That shift has already finished.')
@@ -169,6 +178,8 @@ class VolunteerArrivalService:
         assignment = await self._own(assignment_id, user)
         if assignment.checked_in_at is not None:
             raise ValueError("You're already checked in for this shift.")
+        if assignment.called_off_at is not None:
+            raise ValueError(CALLED_OFF_MESSAGE)
         if assignment.shift.ends_at <= datetime.now(timezone.utc):
             raise ValueError('That shift has already finished.')
         if assignment.late_minutes == minutes:

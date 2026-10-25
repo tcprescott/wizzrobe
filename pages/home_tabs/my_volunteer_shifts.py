@@ -43,11 +43,14 @@ SHIFTS_SECTION_ID = 'my-shifts'
 def shift_status(assignment, now: datetime) -> tuple[str, str, str]:
     """(chip kind, icon, text) for one row.
 
-    Module-level and pure so the precedence is testable: arriving says more
-    than running late, which says more than the shift being under way, which
+    Module-level and pure so the precedence is testable: being called off says
+    the most (staff told them not to come), then arriving says more than
+    running late, which says more than the shift being under way, which
     says more than having acknowledged it.
     """
     shift = assignment.shift
+    if assignment.called_off_at is not None:
+        return 'info', 'event_available', 'Called off'
     if assignment.checked_in_at is not None:
         return 'ok', 'how_to_reg', f'Arrived {format_local_time(assignment.checked_in_at)}'
     late = describe_late(assignment)
@@ -58,6 +61,18 @@ def shift_status(assignment, now: datetime) -> tuple[str, str, str]:
     if assignment.acknowledged_at is not None:
         return 'ok', 'check', 'Acknowledged'
     return 'pending', 'error_outline', 'Needs your OK'
+
+
+def called_off_note(assignment, now: datetime) -> Optional[str]:
+    """The line under a called-off row's chip: what it means for them now."""
+    if assignment.called_off_at is None:
+        return None
+    shift = assignment.shift
+    if shift.ends_at <= now:
+        return 'Counted as worked'
+    if shift.starts_at <= now:
+        return 'You can head out. It still counts as worked.'
+    return 'No need to come. It still counts as worked.'
 
 
 def primary_action(assignment, now: datetime) -> Optional[str]:
@@ -92,6 +107,8 @@ def day_heading(starts_at: datetime) -> str:
 
 def finished_status(assignment) -> tuple[str, str, str]:
     """(chip kind, icon, text) for a shift that has ended."""
+    if assignment.called_off_at is not None:
+        return 'info', 'event_available', 'Called off'
     if assignment.checked_in_at is not None:
         return 'ok', 'how_to_reg', f'Arrived {format_local_time(assignment.checked_in_at)}'
     return 'neutral', 'history', 'Finished'
@@ -165,7 +182,10 @@ async def my_volunteer_shifts_section(
         ended = shift.ends_at <= now
         kind, icon, text = finished_status(assignment) if ended else shift_status(assignment, now)
         _, can_release = shift_actions(assignment, now)
-        row = ui.element('div').classes('wiz-shift-row' + (' wiz-shift-row--done' if ended else ''))
+        called_off = assignment.called_off_at is not None
+        row = ui.element('div').classes(
+            'wiz-shift-row' + (' wiz-shift-row--done' if ended or called_off else '')
+        )
         row.props['data-wiz-shift'] = shift.id
         with row:
             with ui.column().classes('wiz-shift-row__time gap-0'):
@@ -176,6 +196,9 @@ async def my_volunteer_shifts_section(
                 with ui.element('span').classes(f'wiz-chip wiz-chip--{kind}'):
                     ui.icon(icon, size='14px')
                     ui.label(text)
+                note = called_off_note(assignment, now)
+                if note:
+                    ui.label(note).classes('text-caption text-muted')
             with ui.row().classes('wiz-shift-row__actions items-center no-wrap gap-1'):
                 action = None if ended else primary_action(assignment, now)
                 if action == 'arrive':

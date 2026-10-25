@@ -23,6 +23,10 @@ from application.services.volunteer.volunteer_autoschedule_service import (
 from application.services.volunteer.volunteer_availability_service import (
     VolunteerAvailabilityService,
 )
+from application.services.volunteer.volunteer_call_off_service import (
+    VolunteerCallOffService,
+    can_call_off,
+)
 from application.services.volunteer.volunteer_export_service import VolunteerExportService
 from application.services.volunteer.volunteer_hours import (
     HoursSummary,
@@ -64,6 +68,7 @@ __all__ = [
     'VolunteerArrivalService',
     'VolunteerAutoscheduleService',
     'VolunteerAvailabilityService',
+    'VolunteerCallOffService',
     'VolunteerExportService',
     'VolunteerHoursService',
     'VolunteerPoolService',
@@ -75,6 +80,7 @@ __all__ = [
     'apply_roles',
     'arrange_roles',
     'build_day_grid',
+    'can_call_off',
     'can_self_check_in',
     'can_undo_check_in',
     'describe_late',

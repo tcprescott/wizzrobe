@@ -50,6 +50,7 @@ def _card(*, ends_in_hours: float, acknowledged: bool = False, checked_in: bool 
         shift=SimpleNamespace(ends_at=now + timedelta(hours=ends_in_hours)),
         acknowledged_at=now if acknowledged else None,
         checked_in_at=now if checked_in else None,
+        called_off_at=None,
     )
 
 
