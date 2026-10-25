@@ -1,7 +1,10 @@
+from typing import Optional
+
 from nicegui import app, background_tasks, context, ui
 
 from application.services import (
     AuthService,
+    BracketSetService,
     FeatureFlagService,
     MatchStreamVolunteerService,
     RaceRoomService,
@@ -16,6 +19,7 @@ from theme.dialog._helpers import (
     dialog_header,
     mobile_sheet,
 )
+from theme.dialog._set_join_notice import SetJoinNotice
 from theme.dialog.confirmation_dialog import ConfirmationDialog
 from theme.dialog.match_dialog_base import (
     BaseMatchDialog,
@@ -383,6 +387,18 @@ class AdminMatchDialog(BaseMatchDialog):
                     exclude_match_id=self.match.id if self.match else None,
                 )
 
+                set_notice: Optional[SetJoinNotice] = None
+                if is_create:
+                    set_notice = SetJoinNotice(
+                        tenant_id, await get_user_from_session(app.storage.user),
+                        {u.id: u.preferred_name for u in users},
+                    )
+                    set_notice.watch(
+                        selected_tournament, selected_players,
+                        get_state=lambda: (selected_tournament.value, get_player_ids()),
+                    )
+                    await set_notice.refresh(selected_tournament.value, get_player_ids())
+
                 comment_input = ui.textarea(
                     label='Comment (optional)',
                     value=defaults['comment'],
@@ -484,6 +500,10 @@ class AdminMatchDialog(BaseMatchDialog):
                     )
                     if stage_id:
                         await self.match_service.assign_stage(new_match.id, stage_id, actor=actor)
+                    first_id = set_notice.joining() if set_notice else None
+                    if first_id is not None:
+                        await BracketSetService().join_set(new_match.id, first_id, actor)
+                        return
                     await bracket_link.apply_link(
                         self.bracket_service, selected_bracket_match, new_match.id, None,
                     )

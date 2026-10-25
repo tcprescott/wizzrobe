@@ -322,7 +322,7 @@ A read-only mirror of a linked start.gg event (`StartggEntrant`/`Phase`/`Pool`/`
 
 ### bracket_set_service.py — BracketSetService
 
-Best-of sets on a Challonge or start.gg matchup, one `Match` per game (`Match.set_game`, `set_best_of`, `set_first`). `standing(match)` reads the set's wins off its games' finish ranks; `call_off_unneeded(match)` cancels the unplayed games of a decided set as the system user; `book_followers` books games 2+ after `bracket_sources.schedule_set` booked game 1; `check_times` validates the game times; `label` renders "Game 2 of 3". The Challonge push and start.gg writeback send only the set's result. A stage's best-of comes from `RoundScheduleService.best_of_for`.
+Best-of sets on a Challonge or start.gg matchup, one `Match` per game (`Match.set_game`, `set_best_of`, `set_first`). `standing(match)` reads the set's wins off its games' finish ranks; `call_off_unneeded(match)` cancels the unplayed games of a decided set as the system user; `book_followers` books games 2+ after `bracket_sources.schedule_set` booked game 1; `check_times` validates the game times; `label` renders "Game 2 of 3"; `open_set_for(tournament_id, player_ids, actor=)` finds the pair's bracket booking a hand-booked game could still join, and `join_set(match_id, first_id, actor)` makes a match its next game (growing the best-of if needed, audited `match.set_extended` with `joined: true`). The Challonge push and start.gg writeback send only the set's result. A stage's best-of comes from `RoundScheduleService.best_of_for`.
 
 ### round_schedule_service.py — RoundScheduleService
 

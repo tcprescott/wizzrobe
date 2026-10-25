@@ -19,7 +19,7 @@ set yet, re-read right before writing.
 import logging
 import os
 from datetime import datetime, timedelta, timezone
-from typing import Any, Dict, List, Optional, Set, Tuple
+from typing import Any, Dict, FrozenSet, List, Optional, Set, Tuple
 
 from application.errors import require_found
 from application.feature_flags import requires_feature
@@ -187,7 +187,7 @@ class StartggService(StartggPlaceholderMixin):
         tournament = await self._editable_tournament(tournament_id, actor)
         if phase_id is not None and phase_id not in {p.phase_id for p in await self.repository.list_phases(tournament)}:
             raise ValueError("That phase isn't part of the linked event.")
-        before = await self._bookable_set_ids(tournament)
+        before = await self._bookable_pairings(tournament)
         await self.repository.set_bookable_phase(tournament, phase_id)
         await self.audit_service.write_log(actor, AuditActions.STARTGG_BOOKABLE_PHASE_SET, {
             'tournament_id': tournament.id, 'phase_id': phase_id,
@@ -235,7 +235,7 @@ class StartggService(StartggPlaceholderMixin):
     async def _apply(
         self, tournament: Tournament, full: Dict[str, Any], actor: User, *, audit: bool,
     ) -> Dict[str, int]:
-        before = await self._bookable_set_ids(tournament)
+        before = await self._bookable_pairings(tournament)
         entrants = await self._mirror_entrants(tournament, full['entrants'])
         phase_ids, pool_ids, set_ids = await self._mirror_structure(tournament, full, entrants)
         await self._flag_lost_placeholders(tournament, set_ids)
@@ -414,16 +414,28 @@ class StartggService(StartggPlaceholderMixin):
             and row.entrant1.user_id is not None and row.entrant2.user_id is not None
         )
 
-    async def _bookable_set_ids(self, tournament: Tournament) -> Set[int]:
-        phase_id = self.bookable_phase_id(tournament, await self.repository.list_phases(tournament))
-        return {r.id for r in await self.repository.list_sets(tournament) if self._is_bookable(r, phase_id)}
+    @staticmethod
+    def _pairing(row: StartggSet) -> FrozenSet[int]:
+        return frozenset(e.user_id for e in (row.entrant1, row.entrant2) if e is not None and e.user_id is not None)
 
-    async def _announce_newly_bookable(self, tournament: Tournament, before: Set[int]) -> None:
-        """DM both players of each set that just became bookable. Never fails the sync."""
+    async def _bookable_pairings(self, tournament: Tournament) -> Dict[int, FrozenSet[int]]:
+        """Each bookable set's id, with the pair of users who play it."""
+        phase_id = self.bookable_phase_id(tournament, await self.repository.list_phases(tournament))
+        return {
+            r.id: self._pairing(r)
+            for r in await self.repository.list_sets(tournament) if self._is_bookable(r, phase_id)
+        }
+
+    async def _announce_newly_bookable(self, tournament: Tournament, before: Dict[int, FrozenSet[int]]) -> None:
+        """DM both players of each set that just became bookable, or whose players changed.
+
+        A changed pairing is a corrected result upstream moving a different
+        winner up; the new pair hasn't heard about it. Never fails the sync.
+        """
         try:
             phase_id = self.bookable_phase_id(tournament, await self.repository.list_phases(tournament))
             for row in await self.repository.list_sets(tournament):
-                if row.id not in before and self._is_bookable(row, phase_id):
+                if self._is_bookable(row, phase_id) and before.get(row.id) != self._pairing(row):
                     await self._notify_matchup_ready(tournament, row)
         except Exception:
             logger.exception('start.gg matchup-ready notifications failed for tournament %s', tournament.id)
@@ -582,7 +594,7 @@ class StartggService(StartggPlaceholderMixin):
         )
         if taken is not None:
             raise ValueError(f'{_display(user)} is already matched to {taken.name}.')
-        before = await self._bookable_set_ids(entrant.tournament)
+        before = await self._bookable_pairings(entrant.tournament)
         await self.repository.set_entrant_user(entrant, user, manual=True)
         await self.audit_service.write_log(actor, AuditActions.STARTGG_ENTRANT_ASSIGNED, {
             'tournament_id': entrant.tournament.id, 'entrant_id': entrant.entrant_id, 'user_id': user.id,

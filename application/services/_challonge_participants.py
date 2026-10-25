@@ -100,7 +100,7 @@ class ChallongeParticipantAssignmentMixin(ChallongeNotificationMixin):
                 f"{user.display_name or user.username} is already mapped to "
                 f"{taken.name or 'another entrant'} in this bracket."
             )
-        bookable_before = await self._bookable_match_ids(participant.tournament)
+        bookable_before = await self._bookable_pairings(participant.tournament)
         await self.repository.set_participant_user(participant, user, manual=True)
         await self.audit_service.write_log(
             actor, AuditActions.CHALLONGE_PARTICIPANT_ASSIGNED,
