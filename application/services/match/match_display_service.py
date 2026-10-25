@@ -57,6 +57,10 @@ def rolling_elapsed_label(started_at: datetime) -> str:
 #: match leaves the room view when it finishes, not when it starts.
 ROOM_SEED_STATES = ('Scheduled', 'Checked In', 'Started')
 
+# The Stage filter's "No stage" choice. Stage ids start at 1, so 0 never names
+# a real stage and can ride in the same multi-select list as the real ones.
+NO_STAGE = 0
+
 
 def is_room_seed_row(row: Dict[str, Any]) -> bool:
     """Whether a display row is a rolled seed for a match not yet finished.
@@ -123,7 +127,8 @@ class MatchDisplayService:
 
         Args:
             tournament_ids: Filter by tournament IDs
-            stage_ids: Filter by stage IDs
+            stage_ids: Filter by stage IDs; ``NO_STAGE`` in the list also keeps
+                matches with no stage
             only_upcoming: Only return unfinished matches
             user_discord_id: Filter by player discord ID
             crew_discord_id: Filter to matches this discord ID crews
@@ -137,9 +142,13 @@ class MatchDisplayService:
         Returns:
             List of formatted match dictionaries
         """
+        include_unstaged = bool(stage_ids) and NO_STAGE in stage_ids
+        if include_unstaged:
+            stage_ids = [sid for sid in stage_ids if sid != NO_STAGE]
         matches = await self.repository.get_all(
             tournament_ids=tournament_ids,
             stage_ids=stage_ids,
+            include_unstaged=include_unstaged,
             only_upcoming=only_upcoming,
             user_discord_id=user_discord_id,
             crew_discord_id=crew_discord_id,
