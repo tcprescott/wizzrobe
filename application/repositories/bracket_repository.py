@@ -272,11 +272,12 @@ class BracketRepository(TenantScopedRepository[Bracket]):
         Excludes matchups in a **cancelled** stage. Cancelling a stage flips only
         the bracket's own state; its matchups stay OPEN, so without this the
         abandoned stage kept inviting both players to schedule a game in it.
+        An archived tournament is left out for the same reason: booking refuses it.
         """
         from models import BracketMatchState, BracketState
         qs = scoped(BracketMatch.filter(
             Q(entry1__entrant__user_id=user_id) | Q(entry2__entrant__user_id=user_id),
-            state=BracketMatchState.OPEN,
+            state=BracketMatchState.OPEN, bracket__tournament__is_active=True,
         )).exclude(bracket__state=BracketState.CANCELLED)
         if tournament_id is not None:
             qs = qs.filter(bracket__tournament_id=tournament_id)

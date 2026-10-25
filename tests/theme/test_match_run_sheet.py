@@ -72,6 +72,12 @@ class TestSeedRollable:
         assert not seed_rollable(dict(base, players=[]))
         assert not seed_rollable(dict(base, state='Finished'))
         assert not seed_rollable(dict(base, tournament_seed_generator=None))
+        assert not seed_rollable(dict(base, placeholders=['Winner of C']))
+
+    def test_board_template_hides_roll_while_a_player_is_tbd(self):
+        from theme.tables.match_slots import SEED_ROLLABLE
+
+        assert 'props.row.placeholders' in SEED_ROLLABLE
 
 
 class TestCrew:

@@ -321,6 +321,7 @@ def seed_value_template(expr: str) -> str:
 # there is nothing left to seed.
 SEED_ROLLABLE = ("props.row.tournament_seed_generator && !props.row.is_racetime"
                  " && props.row.players && props.row.players.length"
+                 " && !(props.row.placeholders && props.row.placeholders.length)"
                  " && !['Finished', 'Confirmed'].includes(props.row.state)")
 
 SEED_SLOT = ('''<q-td :props="props" :class="[props.row._flash ? 'wiz-row-flash' : '', props.row._removed ? 'wiz-row-removed' : '']" :inert="props.row._removed ? '' : null" :data-wiz-row="props.row.id">

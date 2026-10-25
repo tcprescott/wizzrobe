@@ -283,6 +283,34 @@ class TestGenerateSeed:
         assert ok is False
         assert url is None
         assert "no players yet" in message
+
+    async def test_refuses_a_booked_ahead_match_still_waiting_on_a_player(self, service, db):
+        """A seed rolled with one side TBD would never reach the opponent filled in later."""
+        staff = await make_staff()
+        t = await Tournament.create(name="T", seed_generator="alttpr")
+        m = await Match.create(tournament=t, bracket_placeholders=["Winner of C"])
+        await MatchPlayers.create(match=m, user=await make_dm_user(3, name="alice"))
+        service.seedgen_service.generate_seed_call = AsyncMock(return_value=_rolled("url"))
+
+        ok, message, url = await service.generate_seed(m.id, staff)
+
+        assert ok is False
+        assert url is None
+        assert "waiting on a player" in message
+        service.seedgen_service.generate_seed_call.assert_not_awaited()
+
+    async def test_refuses_a_finished_match(self, service, db):
+        """The board never offers it; REST and MCP reach this too."""
+        staff = await make_staff()
+        t = await Tournament.create(name="T", seed_generator="alttpr")
+        m = await Match.create(tournament=t, finished_at=utc(2025, 1, 15, 21, 0))
+        await MatchPlayers.create(match=m, user=await make_dm_user(3, name="alice"))
+        service.seedgen_service.generate_seed_call = AsyncMock(return_value=_rolled("url"))
+
+        ok, message, _ = await service.generate_seed(m.id, staff)
+
+        assert ok is False
+        assert "already over" in message
         service.seedgen_service.generate_seed_call.assert_not_awaited()
         assert await GeneratedSeeds.all().count() == 0
 

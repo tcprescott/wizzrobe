@@ -427,11 +427,16 @@ class ChallongeRepository:
 
     @staticmethod
     async def unscheduled_open_matches_for_user(user: User) -> List[ChallongeMatch]:
-        """Open bracket matches the user is in that aren't yet scheduled in wizzrobe."""
+        """Open bracket matches the user is in that aren't yet scheduled in wizzrobe.
+
+        Active tournaments only, like :meth:`unscheduled_open_matches`: booking
+        refuses an archived one, so listing it would offer a dead button.
+        """
         return await scoped(ChallongeMatch.filter(
             Q(participant1__user=user) | Q(participant2__user=user),
             state=ChallongeMatchState.OPEN,
             match_id__isnull=True,
+            tournament__is_active=True,
         )).prefetch_related(
             'tournament', 'participant1__user', 'participant2__user',
         )

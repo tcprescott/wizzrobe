@@ -526,6 +526,16 @@ class MatchScheduleService(MatchNotificationMixin):
                         "This match has no players yet — a seed can only be rolled "
                         "once, and its DM would reach nobody"
                     ), None
+                # Same reason, one side short: a booked-ahead slot whose
+                # opponent the bracket hasn't decided would spend the roll on
+                # half the players. The board's Roll seed buttons hide too.
+                if match.bracket_placeholders:
+                    return False, (
+                        "This match is still waiting on a player from the bracket. "
+                        "Roll the seed once both players are known."
+                    ), None
+                if match.finished_at is not None or match.confirmed_at is not None:
+                    return False, "This match is already over, so it can't get a seed now.", None
 
                 # A task-queue backend cannot answer "here is your seed" from one
                 # call, so this surface hands it to ``ProviderTask`` and returns.

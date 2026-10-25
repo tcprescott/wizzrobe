@@ -25,6 +25,20 @@ from models import ChallongeMatch, ChallongeMatchState, Tournament
 logger = logging.getLogger(__name__)
 
 
+async def matchup_best_of(**ref: int) -> int:
+    """The matchup's stage best-of from the round schedule, as the native DM reads its stage.
+
+    Best-effort: a failed lookup sends the DM without the format line.
+    """
+    from application.services.round_schedule_service import RoundScheduleService
+
+    try:
+        return await RoundScheduleService().best_of_for(**ref)
+    except Exception:
+        logger.exception('Reading the best-of for a matchup-ready DM failed (%s)', ref)
+        return 1
+
+
 def is_bookable(cmatch: ChallongeMatch) -> bool:
     p1, p2 = cmatch.participant1, cmatch.participant2
     return (
@@ -61,6 +75,7 @@ class ChallongeNotificationMixin:
             return
         link = await notification_links.player_challonge_schedule(cmatch.id)
         round_name = challonge_round_label(cmatch.round) or 'Bracket match'
+        best_of = await matchup_best_of(challonge_match_id=cmatch.id)
         for me, opponent in ((p1, p2), (p2, p1)):
             discord_queue.enqueue(BracketNotificationMixin._send_matchup_ready(
                 user=me.user,
@@ -68,7 +83,7 @@ class ChallongeNotificationMixin:
                 opponent_seed=None,
                 tournament_name=cmatch.tournament.name,
                 round_name=round_name,
-                best_of=1,
+                best_of=best_of,
                 schedule_link=link,
                 rebook=False,
             ))

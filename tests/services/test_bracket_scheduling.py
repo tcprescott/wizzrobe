@@ -347,6 +347,16 @@ class TestListOpenMatchesForUser:
         # The admin's "link a match to a matchup" picker reads the sibling query.
         assert await service.list_linkable_matches(bracket.tournament_id) == []
 
+    async def test_an_archived_tournaments_matchups_drop_off(self, service):
+        """Booking refuses an inactive tournament, so My Schedule must not offer it."""
+        actor = await _staff()
+        t, _, users, bmatch = await _linked_bracket(service, actor)
+        assert await service.list_open_matches_for_user(users[0].id) == [bmatch]
+
+        await t.__class__.filter(id=t.id).update(is_active=False)
+
+        assert await service.list_open_matches_for_user(users[0].id) == []
+
 
 # ---------------------------------------------------------------------------
 # advance_if_linked

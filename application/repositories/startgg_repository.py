@@ -307,9 +307,10 @@ class StartggRepository:
 
     @staticmethod
     async def open_unbooked_sets_for_user(user: User) -> List[StartggSet]:
+        """The user's open, unbooked sets in active tournaments, as :meth:`open_unbooked_sets`."""
         return await scoped(StartggSet.filter(
             Q(entrant1__user=user) | Q(entrant2__user=user),
-            state=StartggSetState.OPEN, match_id__isnull=True,
+            state=StartggSetState.OPEN, match_id__isnull=True, tournament__is_active=True,
         )).prefetch_related('tournament', 'pool__phase', 'entrant1__user', 'entrant2__user')
 
     @staticmethod

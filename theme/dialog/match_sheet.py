@@ -53,7 +53,7 @@ def seed_rollable(row: dict) -> bool:
     """Python twin of ``match_slots.SEED_ROLLABLE``: may a seed be rolled now."""
     return bool(
         row.get('tournament_seed_generator') and not row.get('is_racetime')
-        and row.get('players')
+        and row.get('players') and not row.get('placeholders')
         and row.get('state') not in ('Finished', 'Confirmed')
     )
 

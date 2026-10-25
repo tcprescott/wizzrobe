@@ -32,6 +32,7 @@ from application.repositories import (
 )
 from application.services import notification_links
 from application.services._bracket.notifications import BracketNotificationMixin
+from application.services._challonge_notifications import matchup_best_of
 from application.services._startgg_placeholders import StartggPlaceholderMixin
 from application.services._tournament_signup import record_enrolment_change
 from application.services.audit_service import AuditActions, AuditService
@@ -434,6 +435,7 @@ class StartggService(StartggPlaceholderMixin):
         if e1 is None or e2 is None:
             return
         link = await notification_links.player_startgg_schedule(row.id)
+        best_of = await matchup_best_of(startgg_set_id=row.id)
         for me, opponent in ((e1, e2), (e2, e1)):
             discord_queue.enqueue(BracketNotificationMixin._send_matchup_ready(
                 user=me.user,
@@ -441,7 +443,7 @@ class StartggService(StartggPlaceholderMixin):
                 opponent_seed=None,
                 tournament_name=tournament.name,
                 round_name=row.round_text or 'Bracket match',
-                best_of=1,
+                best_of=best_of,
                 schedule_link=link,
                 rebook=False,
             ))
