@@ -7406,6 +7406,10 @@ ol.wiz-help-list { list-style-type: decimal; }
     white-space: nowrap;
     color: var(--fg-secondary);
 }
+/* "Game 2 of 3" wraps as one piece, never "Game 2" / "of 3". */
+.run-sheet__game {
+    white-space: nowrap;
+}
 .run-sheet__until.st-pending {
     color: var(--status-pending);
 }
@@ -7574,9 +7578,11 @@ ol.wiz-help-list { list-style-type: decimal; }
     text-align: left;
     cursor: pointer;
 }
+/* Wide enough for the longest 12-hour pair, "12:00 PM" over "to ~12:00 PM";
+   anything narrower and the estimate runs into the names beside it. */
 .run-sheet__when {
     flex: none;
-    width: 4rem;
+    width: 5.25rem;
 }
 .run-sheet__main {
     flex: 1 1 auto;

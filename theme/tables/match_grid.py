@@ -396,7 +396,8 @@ def render_grid_slot(table, columns, *, admin_controls: bool, access: MatchBoard
             ' @click.prevent="$parent.$emit(\'open_bracket\', props.row)">'
             '<q-icon name="account_tree" size="14px" class="q-mr-xs" />'
             '{{ props.row.bracket.name }}'
-            '<template v-if="props.row.bracket.game"> · Game {{ props.row.bracket.game }}</template>'
+            '<template v-if="props.row.bracket.game"> · Game {{ props.row.bracket.game }}'
+            '<template v-if="props.row.bracket.best_of > 1"> of {{ props.row.bracket.best_of }}</template></template>'
             '<template v-if="props.row.bracket.standing"> · {{ props.row.bracket.standing }}</template>'
             '</a>'
         )
