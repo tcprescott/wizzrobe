@@ -210,6 +210,16 @@ class TestMatchupReady:
             (await StartggEntrant.get(tournament=tournament, entrant_id='9006')).id, darunia.id, actor)
         assert sent == ['8101', '8102']
 
+    async def test_a_new_player_on_an_open_set_announces_again(self, db, client, sent):
+        await _players()
+        tournament, actor = await _linked(client)
+        saria = await make_member(21, 'saria')
+        await StartggService().assign_entrant(
+            (await StartggEntrant.get(tournament=tournament, entrant_id='9002')).id, saria.id, actor)
+        assert sent == ['8101', '8101']
+        await StartggService().sync_event(tournament.id, actor, force=True)
+        assert sent == ['8101', '8101']
+
     async def test_manual_assignment_survives_a_sync(self, db, client, sent):
         await _players()
         tournament, actor = await _linked(client)

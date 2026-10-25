@@ -316,7 +316,7 @@ class ChallongeService(ChallongeParticipantAssignmentMixin, ChallongeStageMixin,
                 if not p.user_assigned_manually and p.user_id != user.id
             ]
             tournaments = {p.tournament.id: p.tournament for p in participants}
-            bookable_before = {tid: await self._bookable_match_ids(t) for tid, t in tournaments.items()}
+            bookable_before = {tid: await self._bookable_pairings(t) for tid, t in tournaments.items()}
             for p in participants:
                 await self.repository.set_participant_user(p, user, manual=False)
             for tid, tournament in tournaments.items():
@@ -618,7 +618,7 @@ class ChallongeService(ChallongeParticipantAssignmentMixin, ChallongeStageMixin,
         remote_matches: List[Dict[str, Any]],
         actor: User, remote_tournament: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, int]:
-        bookable_before = await self._bookable_match_ids(tournament)
+        bookable_before = await self._bookable_pairings(tournament)
         # Participants -> resolve to linked wizzrobe users by Challonge account id.
         # Resolve every linked user in one query rather than per participant.
         users_by_cuid = await self.repository.resolve_users_by_challonge_ids(
