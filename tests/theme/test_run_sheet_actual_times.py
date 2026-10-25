@@ -24,7 +24,7 @@ def test_unstarted_match_keeps_its_booked_time_and_estimates_an_end_with_setup()
     for state in ('Scheduled', 'Checked In'):
         row = decorate_run_sheet_row(_row(state=state))
         assert row['_time'] == _hhmm(BOOKED)
-        assert row['_until'] == f'to ~{_hhmm(BOOKED + (15 + 90) * 60)}'
+        assert row['_until'] == 'to\u00a0~' + _hhmm(BOOKED + (15 + 90) * 60).replace('\u00a0', ' ')
         assert row['_overrun'] is False
 
 
@@ -40,7 +40,7 @@ def test_called_off_match_has_no_estimate():
 def test_live_match_shows_actual_start_and_estimated_end():
     row = decorate_run_sheet_row(_row(started_ts=STARTED))
     assert row['_time'] == _hhmm(STARTED)
-    assert row['_until'] == f'to ~{_hhmm(STARTED + 90 * 60)}'
+    assert row['_until'] == 'to\u00a0~' + _hhmm(STARTED + 90 * 60).replace('\u00a0', ' ')
 
 
 def test_live_match_past_its_estimate_is_flagged():
@@ -52,7 +52,7 @@ def test_live_match_past_its_estimate_is_flagged():
 def test_finished_match_shows_actual_start_and_finish():
     finished = STARTED + 87 * 60
     row = decorate_run_sheet_row(_row(state='Finished', started_ts=STARTED, finished_ts=finished))
-    assert row['_until'] == f'to {_hhmm(finished)}'
+    assert row['_until'] == 'to\u00a0' + _hhmm(finished).replace('\u00a0', ' ')
     assert row['_overrun'] is False
 
 

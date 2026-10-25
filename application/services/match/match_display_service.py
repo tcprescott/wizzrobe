@@ -276,7 +276,7 @@ class MatchDisplayService:
             'id': bracket.id,
             'name': bracket.name,
             # Only meaningful in a best-of-N series; game 1 of 1 is just "the match".
-            'game': game.game_number if game.game_number and game.game_number > 1 else None,
+            'game': game.game_number if game.game_number and (game.game_number > 1 or best_of > 1) else None,
             'best_of': best_of,
             'standing': standing,
         }

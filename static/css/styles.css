@@ -7406,6 +7406,10 @@ ol.wiz-help-list { list-style-type: decimal; }
     white-space: nowrap;
     color: var(--fg-secondary);
 }
+/* "Game 2 of 3" wraps as one piece, never "Game 2" / "of 3". */
+.run-sheet__game {
+    white-space: nowrap;
+}
 .run-sheet__until.st-pending {
     color: var(--status-pending);
 }
@@ -7577,6 +7581,12 @@ ol.wiz-help-list { list-style-type: decimal; }
 .run-sheet__when {
     flex: none;
     width: 4rem;
+}
+/* On a phone "to ~12:00 PM" is wider than the time column; let its AM/PM drop
+   to a second line rather than run into the names beside it. Widening the
+   column instead squeezes the names to a word a line on My Schedule. */
+.run-sheet__when .run-sheet__until {
+    white-space: normal;
 }
 .run-sheet__main {
     flex: 1 1 auto;

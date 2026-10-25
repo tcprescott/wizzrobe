@@ -29,6 +29,7 @@ from application.utils.timezone import format_local_time, to_local, today_local
 from theme.busy import slot_busy_template
 from theme.matchup import WHO_PARTS_VUE
 from theme.tables.match_slots import seed_value_template
+from theme.tables.run_sheet_meta import META, META_WITH_STAGE
 
 #: The board's columns. Kept short on purpose: anything wider than "which match,
 #: when, where, how is it doing" belongs in the sheet.
@@ -369,6 +370,12 @@ def _hhmm(ts: float) -> str:
     return format_local_time(datetime.fromtimestamp(ts, tz=timezone.utc))
 
 
+def _until(ts: float, approx: bool) -> str:
+    """"to ~12:00 PM" for the line under the time. A narrow phone column breaks
+    it before the AM/PM, so "to" holds onto the time and the AM/PM doesn't."""
+    return 'to\u00a0' + ('~' if approx else '') + _hhmm(ts).replace('\u00a0', ' ')
+
+
 def _actual_times(row: dict) -> None:
     """Swap the booked time for the actual start, with the finish under it, or
     while the match runs, start + the tournament's match length as "to ~HH:MM".
@@ -378,10 +385,10 @@ def _actual_times(row: dict) -> None:
     row['_day'] = _day_label(started)
     finished = row.get('finished_ts')
     if finished:
-        row['_until'] = f'to {_hhmm(finished)}'
+        row['_until'] = _until(finished, approx=False)
     elif row.get('match_length'):
         estimate = started + row['match_length'] * 60
-        row['_until'] = f'to ~{_hhmm(estimate)}'
+        row['_until'] = _until(estimate, approx=True)
         row['_overrun'] = datetime.now(timezone.utc).timestamp() > estimate
 
 
@@ -389,7 +396,7 @@ def _planned_end(row: dict) -> None:
     """A match not yet started ends around booked time + setup + match length."""
     if row.get('state') in ('Scheduled', 'Checked In') and row.get('scheduled_ts') and row.get('match_length'):
         estimate = row['scheduled_ts'] + CHECK_IN_TO_START.total_seconds() + row['match_length'] * 60
-        row['_until'] = f'to ~{_hhmm(estimate)}'
+        row['_until'] = _until(estimate, approx=True)
 
 
 def decorate_run_sheet_row(row: dict) -> dict:
@@ -649,14 +656,14 @@ def _body_slot(proctor: bool, can_run: bool = False, approve: str = 'false') -> 
         match = """<span class="run-sheet__name-line"><button type="button" class="run-sheet__open" @click.stop="$parent.$emit('open_match', props.row.id)">
                 """ + _SEATED_WHO + """
             </button>""" + COMMENT_BADGES + """</span>
-            <span class="run-sheet__meta" :title="props.row.tournament">{{ props.row.tournament_short || props.row.tournament }}<template v-if="props.row.bracket"> · {{ props.row.bracket.name }}<template v-if="props.row.bracket.game"> · Game {{ props.row.bracket.game }}</template></template><template v-if="props.row.set_label"> · {{ props.row.set_label }}</template></span>
+            """ + META + """
             """ + DESC_LINE + _ADA + LATE_TAGS + """
             """ + _SEED_LINE
     else:
         match = """<span class="run-sheet__name-line"><button type="button" class="run-sheet__open" @click.stop="$parent.$emit('open_match', props.row.id)">
                 """ + WHO + """
             </button>""" + COMMENT_BADGES + """</span>
-            <span class="run-sheet__meta" :title="props.row.tournament">{{ props.row.tournament_short || props.row.tournament }}<template v-if="props.row.bracket"> · {{ props.row.bracket.name }}<template v-if="props.row.bracket.game"> · Game {{ props.row.bracket.game }}</template></template><template v-if="props.row.set_label"> · {{ props.row.set_label }}</template></span>
+            """ + META + """
             """ + DESC_LINE + LATE_TAGS
     return """
 <q-tr v-if="props.row._group_start" class="run-sheet__group-row">
@@ -703,7 +710,7 @@ def _item_slot(proctor: bool, can_run: bool = False, approve: str = 'false') -> 
             """ + when + """
             <span class="run-sheet__main">
                 <span class="run-sheet__who">""" + WHO + """</span>
-                <span class="run-sheet__meta" :title="props.row.tournament">{{ props.row.tournament_short || props.row.tournament }}<template v-if="props.row.bracket"> · {{ props.row.bracket.name }}<template v-if="props.row.bracket.game"> · Game {{ props.row.bracket.game }}</template></template><template v-if="props.row.set_label"> · {{ props.row.set_label }}</template></span>
+                """ + META + """
                 <span v-if="props.row._stage || props.row._hit_station || props.row._seat_line" class="run-sheet__meta"><template v-if="props.row._stage">{{ props.row._stage }}</template><template v-if="props.row._hit_station"><template v-if="props.row._stage"> · </template>""" + _HIT_SEATS + """</template><template v-else><template v-if="props.row._stage && props.row._seat_line"> · </template>{{ props.row._seat_line }}</template></span>
                 """ + DESC_LINE + _ADA + LATE_TAGS + """
                 """ + COMMENT_BADGES + """
@@ -718,7 +725,7 @@ def _item_slot(proctor: bool, can_run: bool = False, approve: str = 'false') -> 
         """ + when + """
         <span class="run-sheet__main">
             <span class="run-sheet__who">""" + WHO + """</span>
-            <span class="run-sheet__meta" :title="props.row.tournament">{{ props.row.tournament_short || props.row.tournament }}<template v-if="props.row._stage"> · {{ props.row._stage }}</template></span>
+            """ + META_WITH_STAGE + """
             """ + DESC_LINE + LATE_TAGS + """
             <span v-if="props.row._crew.length" class="run-sheet__crew-list">""" + _crew_lines(approve) + """</span>
             """ + COMMENT_BADGES + """
