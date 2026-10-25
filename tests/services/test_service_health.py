@@ -70,6 +70,13 @@ class TestStatusLogic:
         assert _tenant_challonge_status(now + timedelta(days=1))[0] == ServiceStatus.CREDENTIAL_WARNING
         assert _tenant_challonge_status(now + timedelta(days=30))[0] == ServiceStatus.HEALTHY
 
+    def test_tenant_challonge_status_trusts_a_renewable_token_until_it_lapses(self):
+        """SGLMAN-2Q: a token with a refresh token is renewed by the health
+        worker, so days-left alone is not a reason to warn staff."""
+        now = datetime.now(timezone.utc)
+        assert _tenant_challonge_status(now + timedelta(days=1), renews=True)[0] == ServiceStatus.HEALTHY
+        assert _tenant_challonge_status(now - timedelta(hours=1), renews=True)[0] == ServiceStatus.DOWN
+
     def test_alert_transition_only_into_alertable_states(self):
         down = _result('k', ServiceStatus.DOWN)
         healthy = _result('k', ServiceStatus.HEALTHY)
@@ -125,6 +132,70 @@ class TestMockMode:
         assert _worst([ServiceStatus.HEALTHY, ServiceStatus.MOCK]) == ServiceStatus.MOCK
         assert _worst([ServiceStatus.MOCK, ServiceStatus.UNKNOWN]) == ServiceStatus.UNKNOWN
         assert _is_alert_transition(None, _result('k', ServiceStatus.MOCK)) is False
+
+
+class TestChallongeTokenRenewal:
+    """SGLMAN-2Q: the probe used to warn three days out while the token only
+    refreshed five minutes before expiry. It now renews inside the window and
+    warns only when the renewal fails."""
+
+    @pytest.fixture
+    def oauth(self, monkeypatch):
+        from unittest.mock import AsyncMock, MagicMock
+
+        from application.services.challonge_service import ChallongeService
+
+        fake = MagicMock()
+        fake.refresh = AsyncMock(return_value={
+            'access_token': 'new', 'refresh_token': 'r2', 'expires_in': 604800,
+        })
+        monkeypatch.setattr(ChallongeService, '_oauth_client', lambda self: fake)
+        return fake
+
+    async def _connection(self, *, refresh_token='r1', expires_in=timedelta(days=2)):
+        tenant = await Tenant.get(id=1)
+        with tenant_scope(tenant.id):
+            return await ChallongeConnection.create(
+                tenant=tenant, access_token='old', refresh_token=refresh_token,
+                challonge_username='svc',
+                token_expires_at=datetime.now(timezone.utc) + expires_in,
+            )
+
+    async def test_expiring_token_is_renewed_and_stays_healthy(self, db, oauth):
+        conn = await self._connection()
+        status, message = await shs._challonge_token_health()
+        assert status == ServiceStatus.HEALTHY, message
+        oauth.refresh.assert_awaited_once_with('r1')
+        await conn.refresh_from_db()
+        assert conn.access_token == 'new' and conn.refresh_token == 'r2'
+
+    async def test_lapsed_token_is_renewed_too(self, db, oauth):
+        await self._connection(expires_in=timedelta(hours=-1))
+        assert (await shs._challonge_token_health())[0] == ServiceStatus.HEALTHY
+
+    async def test_token_outside_the_window_is_left_alone(self, db, oauth):
+        await self._connection(expires_in=timedelta(days=6))
+        assert (await shs._challonge_token_health())[0] == ServiceStatus.HEALTHY
+        oauth.refresh.assert_not_awaited()
+
+    async def test_refused_renewal_warns(self, db, oauth):
+        from application.utils.clients.challonge_client import ChallongeAPIError
+
+        oauth.refresh.side_effect = ChallongeAPIError('invalid_grant')
+        await self._connection()
+        status, message = await shs._challonge_token_health()
+        assert status == ServiceStatus.CREDENTIAL_WARNING
+        assert "couldn't be renewed" in message
+
+    async def test_refused_renewal_of_a_lapsed_token_is_down(self, db, oauth):
+        oauth.refresh.side_effect = RuntimeError('network')
+        await self._connection(expires_in=timedelta(hours=-1))
+        assert (await shs._challonge_token_health())[0] == ServiceStatus.DOWN
+
+    async def test_no_refresh_token_still_warns(self, db, oauth):
+        await self._connection(refresh_token=None)
+        assert (await shs._challonge_token_health())[0] == ServiceStatus.CREDENTIAL_WARNING
+        oauth.refresh.assert_not_awaited()
 
 
 class TestRefreshAndAlert:
@@ -249,7 +320,18 @@ class TestTenantSubset:
 
         by_key = {r.key: r for r in subset}
         assert by_key['racetime_bots'].status == ServiceStatus.DOWN
-        assert by_key['challonge'].status == ServiceStatus.CREDENTIAL_WARNING
+        assert by_key['challonge'].status == ServiceStatus.HEALTHY
+
+    async def test_subset_warns_on_an_expiring_token_with_no_refresh_token(self, db):
+        tenant = await Tenant.get(id=1)
+        with tenant_scope(tenant.id):
+            await ChallongeConnection.create(
+                tenant=tenant, access_token='a', refresh_token=None,
+                challonge_username='svc',
+                token_expires_at=datetime.now(timezone.utc) + timedelta(days=1),
+            )
+            subset = await ServiceHealthService().tenant_subset(tenant.id, actor=await _platform_admin())
+        assert {r.key: r for r in subset}['challonge'].status == ServiceStatus.CREDENTIAL_WARNING
 
     async def test_subset_empty_without_dependencies(self, db):
         tenant = await Tenant.get(id=1)

@@ -122,6 +122,17 @@ async def test_failed_refresh_falls_back_to_the_platform_token(db, oauth, monkey
     assert (await StartggConnectionService().get_status())['expired']
 
 
+async def test_status_renews_a_lapsed_token_instead_of_calling_it_lapsed(db, oauth):
+    """A sign-in nobody used all week lapses without a renewal being tried;
+    the status renews it rather than telling staff it couldn't be renewed."""
+    await _connect(await make_user(1, 'staff'))
+    connection = await StartggRepository.get_connection()
+    connection.token_expires_at = datetime.now(timezone.utc) - timedelta(hours=1)
+    await connection.save()
+    assert not (await StartggConnectionService().get_status())['expired']
+    assert oauth.refreshed == ['refresh-1']
+
+
 async def test_no_sign_in_uses_the_platform_token(db, oauth, monkeypatch):
     service = StartggConnectionService()
     assert await service.api_token() is None

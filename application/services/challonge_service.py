@@ -11,6 +11,7 @@ their own Challonge identity (scope ``me``) only so we can map them to bracket
 participants; their tokens are not retained.
 """
 
+import asyncio
 import logging
 import os
 import re
@@ -56,6 +57,11 @@ logger = logging.getLogger(__name__)
 
 # Refresh the service token slightly before it actually expires.
 _TOKEN_REFRESH_BUFFER = timedelta(minutes=5)
+
+# Per-community, so a sync and the health worker racing on an expiring token
+# refresh it once: Challonge rotates the refresh token, and the loser would
+# send a spent one.
+_refresh_locks: Dict[int, asyncio.Lock] = {}
 
 # Collapse rapid repeat syncs (double-clicks, webhook bursts) — a non-forced
 # sync within this window of the last one is treated as a no-op.
@@ -173,17 +179,41 @@ class ChallongeService(ChallongeParticipantAssignmentMixin, ChallongeStageMixin,
                 raise ValueError("Challonge token expired and no refresh token is available; reconnect required.")
             return connection.access_token
 
-        payload = await self._oauth_client().refresh(connection.refresh_token)
-        access, refresh, expires_at = self._unpack_token(payload)
-        await self.repository.update_connection_tokens(connection, access, refresh, expires_at)
-        return access
+        return await self._refresh_token(connection, _TOKEN_REFRESH_BUFFER, force=force_refresh)
+
+    async def renew_ahead(self, connection: ChallongeConnection, window: timedelta) -> bool:  # feature-gate: exempt — the health worker's renewal, no community data
+        """Renew a token that lapses within ``window``, ahead of the lazy refresh.
+
+        Returns True when the token is now good for longer than ``window``.
+        Raises when Challonge refuses the refresh. The caller sets the
+        connection's tenant scope (the token request is tallied per tenant).
+        """
+        if not self._token_expiring(connection, window):
+            return True
+        if not connection.refresh_token:
+            return False
+        await self._refresh_token(connection, window)
+        return not self._token_expiring(connection, window)
+
+    async def _refresh_token(self, connection: ChallongeConnection, buffer: timedelta, *, force: bool = False) -> str:
+        lock = _refresh_locks.setdefault(connection.tenant_id, asyncio.Lock())
+        async with lock:
+            await connection.refresh_from_db()
+            if not force and not self._token_expiring(connection, buffer):
+                return connection.access_token
+            if not connection.refresh_token:
+                return connection.access_token
+            payload = await self._oauth_client().refresh(connection.refresh_token)
+            access, refresh, expires_at = self._unpack_token(payload)
+            await self.repository.update_connection_tokens(connection, access, refresh, expires_at)
+            return access
 
     @staticmethod
-    def _token_expiring(connection: ChallongeConnection) -> bool:
+    def _token_expiring(connection: ChallongeConnection, buffer: timedelta = _TOKEN_REFRESH_BUFFER) -> bool:
         if connection.token_expires_at is None:
             return False
         expires = _as_aware_utc(connection.token_expires_at)
-        return datetime.now(timezone.utc) >= (expires - _TOKEN_REFRESH_BUFFER)
+        return datetime.now(timezone.utc) >= (expires - buffer)
 
     @staticmethod
     def _unpack_token(payload: Dict[str, Any]) -> Tuple[str, Optional[str], Optional[datetime]]:
@@ -255,6 +285,7 @@ class ChallongeService(ChallongeParticipantAssignmentMixin, ChallongeStageMixin,
             'challonge_username': connection.challonge_username,
             'scopes': connection.scopes,
             'token_expires_at': connection.token_expires_at,
+            'renews_automatically': bool(connection.refresh_token),
             **base,
         }
 
