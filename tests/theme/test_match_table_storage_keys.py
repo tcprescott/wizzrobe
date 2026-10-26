@@ -191,12 +191,17 @@ def test_tomorrow_starts_where_today_ends():
 
 
 def test_the_week_scope_starts_today_and_runs_seven_days():
+    from datetime import timedelta
+
+    from application.utils.timezone import local_day_bounds, today_local
     from theme.tables.match_filters import day_scope_window
 
     today_start, _today_end = day_scope_window('Today')
     week_start, week_end = day_scope_window('Next 7 days')
     assert week_start == today_start
-    assert (week_end - week_start) == 7 * 24 * 3600
+    # Seven local days, not 7 * 24h: a week across a DST change is 167h or 169h.
+    _start, seventh_end = local_day_bounds(today_local() + timedelta(days=6), today_local() + timedelta(days=6))
+    assert week_end == seventh_end.timestamp()
 
 
 def test_the_day_filter_counts_toward_the_mobile_badge():
