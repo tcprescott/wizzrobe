@@ -1,0 +1,3 @@
+### New
+
+- Online tournaments can let the racetime bot run their rooms: tick **Bot runs the room** under Racetime on the tournament. The bot invites the players, posts the seed and its code 10 minutes before the start (you pick the minutes), and answers `!seed`, `!forceroll` (monitors and staff) and `!fpa` (runners, which tells on-duty staff). Clean results record and go to the bracket on their own; a close finish, a forfeit, an FPA call or a runner it can't match waits for staff under **Racetime results held** in Needs you, with a Check result button. Players without racetime linked get a Link racetime button when their room opens, and staff see "not linked" on the match.

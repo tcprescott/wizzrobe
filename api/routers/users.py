@@ -22,7 +22,13 @@ from api.schemas.user_actions import (
     UserSelfUpdate,
 )
 from api.schemas.users import UserDetailResponse, UserListItem
-from application.services import MemberDetailsService, TenantMembershipService, TournamentService, UserService
+from application.services import (
+    EventService,
+    MemberDetailsService,
+    TenantMembershipService,
+    TournamentService,
+    UserService,
+)
 from application.services.auth_service import AuthService
 from models import Role, User
 
@@ -241,14 +247,15 @@ async def update_user_tournaments(
     description=(
         "Gives the person a role in this community and makes them a member if they weren't "
         "one. A join request they have waiting is closed as approved, and they get a DM saying "
-        "they're in. super_admin is refused with 403: it's a platform role, granted only on "
-        "the platform.\n\n"
+        "they're in. A per-event role (proctor, volunteer and the other on-site roles) is "
+        "granted in `event`, by default the community's default event. super_admin is refused "
+        "with 403: it's a platform role, granted only on the platform.\n\n"
         "**Who can call this:** Staff."
     ),
 )
 async def grant_role(user_id: int, body: RoleRequest, actor: User = Depends(require_write_actor)):
     target = await load_user_or_404(user_id)
-    await UserService().grant_role(target, body.role, actor=actor)
+    await UserService().grant_role(target, body.role, actor=actor, event_id=await EventService.id_for_slug(body.event))
     return {"detail": f"Granted {body.role.value}"}
 
 
@@ -257,14 +264,19 @@ async def grant_role(user_id: int, body: RoleRequest, actor: User = Depends(requ
     status_code=status.HTTP_204_NO_CONTENT,
     summary="Revoke a community role (Staff only)",
     description=(
-        "Takes a role away in this community. The person stays a member. super_admin is "
+        "Takes a role away in this community. The person stays a member. A per-event role "
+        "is taken away in `event`, by default the community's default event. super_admin is "
         "refused with 403: it's a platform role, revoked only on the platform.\n\n"
         "**Who can call this:** Staff."
     ),
 )
-async def revoke_role(user_id: int, role: Role, actor: User = Depends(require_write_actor)):
+async def revoke_role(
+    user_id: int, role: Role,
+    event: Optional[str] = Query(None, description="Event slug, for a per-event role. Default: the default event."),
+    actor: User = Depends(require_write_actor),
+):
     target = await load_user_or_404(user_id)
-    await UserService().revoke_role(target, role, actor=actor)
+    await UserService().revoke_role(target, role, actor=actor, event_id=await EventService.id_for_slug(event))
 
 
 @router.post(

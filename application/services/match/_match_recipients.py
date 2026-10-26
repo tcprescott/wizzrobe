@@ -12,10 +12,11 @@ from application.utils.discord_messages import (
     AUDIENCE_CREW,
     AUDIENCE_PLAYER,
     AUDIENCE_WATCHER,
+    CREW_BROADCASTER,
     CREW_COMMENTATOR,
     CREW_TRACKER,
 )
-from models import Commentator, Match, MatchPlayers, MatchWatcher, Tracker, User
+from models import Broadcaster, Commentator, Match, MatchPlayers, MatchWatcher, Tracker, User
 
 
 class MatchRecipient(NamedTuple):
@@ -131,6 +132,12 @@ async def collect_match_audience(
     ).prefetch_related('user')
     for t in trackers:
         _add_crew(t.user, CREW_TRACKER)
+
+    broadcasters = [] if not crew_hears else await Broadcaster.filter(
+        match=match, approved=True, tenant_id=tenant_id
+    ).prefetch_related('user')
+    for b in broadcasters:
+        _add_crew(b.user, CREW_BROADCASTER)
 
     if include_watchers:
         watchers = await MatchWatcher.filter(

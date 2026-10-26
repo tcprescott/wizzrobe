@@ -7,6 +7,7 @@ Volunteer self-declared availability windows.
 from datetime import datetime
 from typing import List, Optional
 
+from application.event_writes import guarded_delete
 from application.repositories._event import current_event_id, event_scoped, live_event_scoped
 from application.repositories._tenant import current_tenant_id
 from models import User, VolunteerAvailability, VolunteerAvailabilityStatus
@@ -54,4 +55,4 @@ class VolunteerAvailabilityRepository:
 
     @staticmethod
     async def delete_for_user(user: User) -> int:
-        return await event_scoped(VolunteerAvailability.filter(user=user)).delete()
+        return await guarded_delete(event_scoped(VolunteerAvailability.filter(user=user)))

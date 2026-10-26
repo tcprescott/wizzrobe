@@ -43,10 +43,10 @@ def patch_gates(monkeypatch):
         # ``has_role`` is the one leaf every role predicate bottoms out in, so
         # patching it (rather than each ``is_*``) keeps the real ``is_staff`` /
         # ``is_proctor`` / ``is_stream_manager`` bodies under test.
-        async def has_role(_user, role):
+        async def has_role(_user, role, _event=None):
             return role in roles
 
-        async def get_roles(_user):
+        async def get_roles(_user, _event=None):
             return roles
 
         async def is_super_admin(_user):
@@ -193,19 +193,19 @@ async def test_per_row_scope_matches_the_service_gates(monkeypatch, ta_ids, cc_i
     async def is_staff(_user):
         return False
 
-    async def is_proctor(_user):
+    async def is_proctor(_user, _event=None):
         return False
 
     async def is_ta(_user, tournament_id):
         return tournament_id in ta_ids
 
-    async def is_sm(_user):
+    async def is_sm(_user, _event=None):
         return sm
 
-    async def has_role(_user, role):
+    async def has_role(_user, role, _event=None):
         return sm and role == Role.STREAM_MANAGER
 
-    async def can_manage_stages(_user):
+    async def can_manage_stages(_user, _event=None):
         return sm
 
     monkeypatch.setattr(AuthService, 'is_staff', is_staff)

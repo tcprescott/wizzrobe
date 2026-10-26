@@ -9,6 +9,7 @@ from typing import List, Optional
 
 from tortoise.expressions import F
 
+from application.event_writes import guarded_delete, guarded_update
 from application.repositories._base import TenantScopedRepository
 from application.repositories._tenant import current_tenant_id, scoped
 from models import ItemTrackerBoard, ItemTrackerChange
@@ -39,17 +40,13 @@ class ItemTrackerRepository(TenantScopedRepository[ItemTrackerBoard]):
     @staticmethod
     async def save_state(board: ItemTrackerBoard, state: dict) -> None:
         board.state = state
-        await ItemTrackerBoard.filter(id=board.id, tenant_id=current_tenant_id()).update(
-            state=state, version=F('version') + 1,
-        )
+        await guarded_update(ItemTrackerBoard.filter(id=board.id, tenant_id=current_tenant_id()), state=state, version=F('version') + 1)
         board.version += 1
 
     @staticmethod
     async def set_fields(board: ItemTrackerBoard, **fields) -> None:
         board.update_from_dict(fields)
-        await ItemTrackerBoard.filter(id=board.id, tenant_id=current_tenant_id()).update(
-            version=F('version') + 1, **fields,
-        )
+        await guarded_update(ItemTrackerBoard.filter(id=board.id, tenant_id=current_tenant_id()), version=F('version') + 1, **fields)
         board.version += 1
 
     @staticmethod
@@ -76,7 +73,7 @@ class ItemTrackerRepository(TenantScopedRepository[ItemTrackerBoard]):
     @staticmethod
     async def mark_undone(change: ItemTrackerChange) -> None:
         change.undone = True
-        await ItemTrackerChange.filter(id=change.id, tenant_id=current_tenant_id()).update(undone=True)
+        await guarded_update(ItemTrackerChange.filter(id=change.id, tenant_id=current_tenant_id()), undone=True)
 
     @staticmethod
     async def recent_changes(board_id: int, limit: int) -> List[ItemTrackerChange]:
@@ -90,4 +87,4 @@ class ItemTrackerRepository(TenantScopedRepository[ItemTrackerBoard]):
 
     @staticmethod
     async def clear_changes(board_id: int) -> None:
-        await scoped(ItemTrackerChange.filter(board_id=board_id)).delete()
+        await guarded_delete(scoped(ItemTrackerChange.filter(board_id=board_id)))

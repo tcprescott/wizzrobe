@@ -2,7 +2,7 @@
 
 from nicegui import app, ui
 
-from application.services import CrewHoldService, MatchService
+from application.services import CrewHoldService, EventService, MatchService
 from application.utils.tenant_session import tenant_session_get, tenant_session_set
 from theme.dialog.match_sheet import MatchSheet
 from theme.help import help_icon
@@ -10,11 +10,12 @@ from theme.tables.match import MatchTableView
 from theme.tables.match_access import MatchBoardAccess
 from theme.tables.match_player_run_sheet import PLAYER_RUN_SHEET_COLUMNS, decorate_player_row
 from theme.tables.preferences import TableKeys
+from theme.tables.run_sheet_meta import crew_columns
 
 #: Session key for the Needs crew switch, namespaced like the board's filters.
 NEEDS_CREW_KEY = 'home_schedule:needs_crew'
 
-_CREW_ROLES = ('commentators', 'trackers')
+_CREW_ROLES = ('commentators', 'trackers', 'broadcasters')
 
 
 def needs_crew(row: dict) -> bool:
@@ -30,7 +31,9 @@ def needs_crew(row: dict) -> bool:
     wanted = row.get('crew_wanted') or {}
     required = row.get('crew_required') or {}
     for role in _CREW_ROLES:
-        if wanted.get(role) is False:
+        # A row from before broadcasters says nothing about them, and most
+        # events don't have them, so only the first two default to wanted.
+        if not wanted.get(role, role != 'broadcasters'):
             continue
         approved = sum(1 for c in row.get(role) or [] if isinstance(c, dict) and c.get('approved'))
         if approved < required.get(role, 1):
@@ -59,7 +62,7 @@ async def schedule():
 
         view = MatchTableView(
             row_filter=needs_crew if needs_crew_on else None,
-            columns=PLAYER_RUN_SHEET_COLUMNS,
+            columns=crew_columns(PLAYER_RUN_SHEET_COLUMNS, await EventService.current_event_broadcasters()),
             get_query=get_query,
             admin_controls=False,
             table_key=TableKeys.HOME_SCHEDULE,

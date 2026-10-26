@@ -14,7 +14,18 @@ from tortoise.functions import Count
 
 from application.repositories._base import TenantScopedRepository
 from application.repositories._tenant import current_tenant_id, scoped
-from models import Event, EventStatus, Match, RaceRoomStatus, RacetimeRoom, Tournament, VolunteerShift
+from models import (
+    AccommodationRequest,
+    EmergencyContact,
+    Event,
+    EventStatus,
+    Match,
+    ProviderTask,
+    RaceRoomStatus,
+    RacetimeRoom,
+    Tournament,
+    VolunteerShift,
+)
 
 
 class EventRepository(TenantScopedRepository[Event]):
@@ -141,3 +152,50 @@ class EventRepository(TenantScopedRepository[Event]):
         return await scoped(RacetimeRoom.filter(
             match__event_id=event_id, status__in=(RaceRoomStatus.OPEN, RaceRoomStatus.IN_PROGRESS),
         )).count()
+
+    @staticmethod
+    async def list_open_race_rooms(event_id: int) -> List[RacetimeRoom]:
+        return await scoped(RacetimeRoom.filter(
+            match__event_id=event_id, status__in=(RaceRoomStatus.OPEN, RaceRoomStatus.IN_PROGRESS),
+        ))
+
+    @staticmethod
+    async def abandon_provider_tasks(event_id: int, now: datetime) -> int:
+        """Stop waiting on an event's unfinished seed rolls (archiving, inside archive_maintenance)."""
+        from application.event_writes import guarded_update
+        from models import ProviderTaskStatus
+
+        # An UPDATE can't join, so find the rows first.
+        ids = await scoped(ProviderTask.filter(
+            match__event_id=event_id, status__in=(ProviderTaskStatus.QUEUED, ProviderTaskStatus.RUNNING),
+        )).values_list('id', flat=True)
+        if not ids:
+            return 0
+        return await guarded_update(
+            scoped(ProviderTask.filter(id__in=list(ids))), status=ProviderTaskStatus.ABANDONED, completed_at=now,
+        )
+
+    @staticmethod
+    async def due_for_private_data_purge(archived_before: datetime) -> List[Event]:
+        """Archived events of every community whose private data is due to go.
+
+        Cross-tenant (tenant-scope and event-scope: exempt — the retention job sweeps every
+        community, then purges each inside its own tenant_scope).
+        """
+        return await Event.filter(
+            status=EventStatus.ARCHIVED, archived_at__lte=archived_before, pii_purged_at__isnull=True,
+        ).order_by('id')
+
+    @staticmethod
+    async def purge_private_data(event: Event, now: datetime) -> tuple[int, int]:
+        """Delete an archived event's emergency contacts and accommodation requests, and say so on it.
+
+        Runs inside ``archive_maintenance`` (the rows belong to an archived event).
+        """
+        from application.event_writes import guarded_delete
+
+        contacts = await guarded_delete(EmergencyContact.filter(tenant_id=event.tenant_id, event_id=event.id))
+        requests = await guarded_delete(AccommodationRequest.filter(tenant_id=event.tenant_id, event_id=event.id))
+        event.pii_purged_at = now
+        await event.save(update_fields=['pii_purged_at'])
+        return contacts, requests

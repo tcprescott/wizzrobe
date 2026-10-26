@@ -82,6 +82,7 @@ from .enums import (
     OAuthClientType,
     PresetOverride,
     ProviderTaskStatus,
+    RaceRoomHoldReason,
     RaceRoomStatus,
     RescheduleRequestKind,
     RescheduleRequestStatus,
@@ -102,6 +103,7 @@ from .feature_flag import FeatureFlagGroup, TenantFeatureFlag
 from .feedback import Feedback
 from .item_tracker import ItemTrackerBoard, ItemTrackerChange
 from .match import (
+    Broadcaster,
     CommentaryInvite,
     Commentator,
     Match,
@@ -212,6 +214,7 @@ __all__ = [
     'BracketMatchGameState',
     'BracketMatchState',
     'BracketState',
+    'Broadcaster',
     'BrowserErrorIgnoreRule',
     'BrowserMonitoringSettings',
     # challonge
@@ -307,6 +310,7 @@ __all__ = [
     'ProviderTask',
     'ProviderTaskStatus',
     # racetime
+    'RaceRoomHoldReason',
     'RaceRoomProfile',
     'RaceRoomStatus',
     'RacetimeBot',

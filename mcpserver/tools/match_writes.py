@@ -55,7 +55,7 @@ from mcpserver.schemas import OperationResult, TenantArg
 
 # In the schema rather than only the prose, so the model reads the two legal
 # values off the tool definition instead of a docstring it may skim.
-CrewRole = Literal['commentator', 'tracker']
+CrewRole = Literal['commentator', 'tracker', 'broadcaster']
 
 
 async def _load_match(match_id: int):
@@ -98,6 +98,7 @@ async def create_match(
     commentator_ids: Optional[List[int]] = None,
     tracker_ids: Optional[List[int]] = None,
     is_stream_candidate: bool = False,
+    broadcaster_ids: Optional[List[int]] = None,
 ) -> MatchResponse:
     """Schedule a new match and notify its players.
 
@@ -115,6 +116,7 @@ async def create_match(
         stage_id=stage_id,
         commentator_ids=commentator_ids,
         tracker_ids=tracker_ids,
+        broadcaster_ids=broadcaster_ids,
         is_stream_candidate=is_stream_candidate,
         actor=actor,
     )
@@ -156,6 +158,7 @@ async def update_match(
     player_ids: Optional[List[int]] = None,
     commentator_ids: Optional[List[int]] = None,
     tracker_ids: Optional[List[int]] = None,
+    broadcaster_ids: Optional[List[int]] = None,
     comment: Optional[str] = None,
     clear_seated: bool = False,
     clear_started: bool = False,
@@ -178,6 +181,7 @@ async def update_match(
         player_ids=player_ids,
         commentator_ids=commentator_ids,
         tracker_ids=tracker_ids,
+        broadcaster_ids=broadcaster_ids,
         comment=comment,
         clear_seated=clear_seated,
         clear_started=clear_started,
@@ -385,7 +389,7 @@ async def set_crew_approval(
     approved: bool,
     tenant: TenantArg = None,
 ) -> OperationResult:
-    """Approve or reject someone's `commentator` or `tracker` signup.
+    """Approve or reject someone's `commentator`, `tracker` or `broadcaster` signup.
 
     `crew_id` is the signup's `id` from `list_match_crew`. Approving DMs them
     asking them to confirm; rejecting an approved signup clears their
@@ -409,7 +413,7 @@ async def signup_as_crew(
     role: CrewRole,
     tenant: TenantArg = None,
 ) -> OperationResult:
-    """Sign yourself up to crew a match as `commentator` or `tracker`.
+    """Sign yourself up to crew a match as `commentator`, `tracker` or `broadcaster`.
 
     Signs up the person this connection belongs to, never anyone else. The
     signup may need staff approval before it counts.
@@ -424,7 +428,7 @@ async def withdraw_crew_signup(
     role: CrewRole,
     tenant: TenantArg = None,
 ) -> OperationResult:
-    """Withdraw your own `commentator` or `tracker` signup from a match."""
+    """Withdraw your own `commentator`, `tracker` or `broadcaster` signup from a match."""
     actor = current_actor().user
     await CrewService().undo_crew_signup(match_id, actor, role)
     return OperationResult(detail=f'Withdrew your {role} signup for match {match_id}.')

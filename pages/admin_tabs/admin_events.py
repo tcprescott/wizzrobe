@@ -18,6 +18,7 @@ from application.services.event_setup_copy import COPY_GROUPS
 from application.tenant_context import require_tenant_id
 from middleware.event_routing import event_href, page_request
 from models import EventStatus, User
+from theme.archived_banner import confirm_unarchive
 from theme.dialog._helpers import dialog_actions, form_dialog, native_date_input, submit_on_enter
 from theme.dialog.confirmation_dialog import ConfirmationDialog
 from theme.empty_state import no_data_slot
@@ -141,7 +142,7 @@ async def admin_events_page() -> None:
             table.on('go_live', handler(lambda ref: _go_live(actor, ref, render.refresh)))
             table.on('make_default', handler(lambda ref: _make_default(actor, ref, render.refresh)))
             table.on('archive', handler(lambda ref: _archive_dialog(actor, ref, refs, render.refresh)))
-            table.on('unarchive', handler(lambda ref: _unarchive(actor, ref, render.refresh)))
+            table.on('unarchive', handler(lambda ref: confirm_unarchive(actor, ref, render.refresh)))
             table.on('delete', handler(lambda ref: _delete(actor, ref, render.refresh)))
 
         await render()
@@ -310,14 +311,6 @@ async def _archive_dialog(actor: User, ref: EventRef, refs: tuple[EventRef, ...]
 
 def _count(n: int, one: str, many: str, state: str) -> str:
     return f'{n} {one if n == 1 else many} {state}' if n else ''
-
-
-def _unarchive(actor: User, ref: EventRef, on_change) -> None:
-    ConfirmationDialog(
-        f'{ref.name} goes back to live, and its workers start again.',
-        title=f'Unarchive {ref.name}?', confirm_text='Unarchive', tone='primary',
-        on_confirm=lambda: _run(lambda: EventService.unarchive(actor, ref.id), f'{ref.name} is live again', on_change),
-    ).open()
 
 
 def _delete(actor: User, ref: EventRef, on_change) -> None:

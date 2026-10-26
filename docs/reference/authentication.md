@@ -16,6 +16,8 @@ Two non-session credentials exist alongside this, both stored in `ApiToken` and 
 
 Defined in [`models/enums.py`](../../models/enums.py) as `Role(str, Enum)` — twelve members. The first eight are per-tenant community roles; the next three are per-tenant online-tournament admin roles; `super_admin` is the one global platform role.
 
+Inside a community, the seven on-site roles (`proctor`, `stream_manager`, `triforce_submitter`, `volunteer_coordinator`, `equipment_manager`, `volunteer`, `check_in_desk`; `Role.per_event()`, `role.is_per_event`) are held **in one event**, and `staff`, `preset_manager`, `sync_admin` and `qualifier_admin` (`Role.community_wide()`) cover every event. See [Per-event roles](../features/events.md#per-event-roles-phase-4).
+
 | Role | Who has it | Grants |
 |---|---|---|
 | `staff` | Tournament organizers | Full admin dashboard; all CRUD; grant/revoke roles |
@@ -31,7 +33,7 @@ Defined in [`models/enums.py`](../../models/enums.py) as `Role(str, Enum)` — t
 | `qualifier_admin` | Qualifier admins | Administer async qualifiers — author pools/permalinks, work the reviewer queue (`can_admin_qualifier`) |
 | `super_admin` | Platform operators | `/platform` tenant management; bypasses the per-tenant role gate (`is_super_admin`) and is staff-equivalent inside **every** tenant |
 
-Roles live in the `UserRole` junction table (`user`, `tenant`, `role`, `granted_by`, `source`, `created_at`; unique on `(user, role, tenant)`) — there is **no** `permission` field on `User`. `source` is `manual` or `discord`: guild-role sync only ever revokes the `discord`-sourced rows it created, so manual grants survive ([features/discord.md § Guild-role → app-role sync](../features/discord.md#guild-role--app-role-sync)). `super_admin` is the only role whose row may carry `tenant=NULL`; it is never granted per-tenant and is checked via `is_super_admin`, not the tenant-scoped path.
+Roles live in the `UserRole` junction table (`user`, `tenant`, `event`, `role`, `granted_by`, `source`, `created_at`; unique on `(user, role, tenant, event)`, plus the partial index `uid_userrole_community` on `(user, role, tenant)` where `event` is NULL). `event` is set for a per-event role and NULL for a community-wide one — there is **no** `permission` field on `User`. `source` is `manual` or `discord`: guild-role sync only ever revokes the `discord`-sourced rows it created, so manual grants survive ([features/discord.md § Guild-role → app-role sync](../features/discord.md#guild-role--app-role-sync)). `super_admin` is the only role whose row may carry `tenant=NULL`; it is never granted per-tenant and is checked via `is_super_admin`, not the tenant-scoped path.
 
 **"Never granted per-tenant" is enforced, not just documented.** `Role.tenant_grantable()` is the list every per-tenant role surface reads — the Users dialog's picker, the Discord role-mapping picker, and the gates in `UserService.grant_role`/`revoke_role` and `DiscordRoleMappingService.add_mapping` — and it excludes `SUPER_ADMIN`. It has to be a gate rather than a convention because `can_grant_roles` is `is_staff`, which is evaluated inside the *actor's own* community: a check that stops there is asking a tenant-local question about a platform-wide answer, and STAFF anywhere could otherwise mint an account with authority over every community. `sync_user_roles` filters the same list over **stored** mapping rows, so a row that predates the guard cannot pay out on someone's next login. The only grant path is `TenantService.grant_super_admin` on `/platform`, which is why it is also the only audit action for the role. Tests: `tests/tenancy/test_platform_role_escalation.py`.
 
@@ -260,11 +262,12 @@ The `MOCK_DISCORD` production refusal is **not** part of `validate_security_conf
 | Method | True when / behavior |
 |---|---|
 | `is_system(user)` | The reserved automation actor (`User.is_system`) — a field check, not a role query. Gated helpers short-circuit on it so workers and bot handlers never hit a `PermissionError` |
-| `is_super_admin(user)` | A `UserRole` row with `role=SUPER_ADMIN, tenant=NULL` exists |
-| `get_roles(user)` | `set[Role]` held **in the current tenant** (empty for `None`, and empty on a tenant-less surface such as `/platform`); excludes `SUPER_ADMIN` |
-| `has_role(user, role)` | Holds that role **in the current tenant**; `False` outright when no tenant is in context |
+| `is_super_admin(user)` | A `UserRole` row with `role=SUPER_ADMIN, tenant=NULL, event=NULL` exists |
+| `get_roles(user, event=None)` | `set[Role]` held **in the current tenant** (empty for `None`, and empty on a tenant-less surface such as `/platform`); excludes `SUPER_ADMIN`. Community-wide grants always count; per-event grants count when held in `event`: an event id, a `RoleScope` (`LIVE`, `OPEN` = live + draft, `EVERY`), or None for the bound event (`LIVE` when none is bound) |
+| `has_role(user, role, event=None)` | Holds that role **in the current tenant**, with `event` read as for `get_roles`; `False` outright when no tenant is in context. Row checks pass the row's `event_id` |
+| `holds_any_role(user)` / `event_ids_with_grants(user)` | Any grant in a live or draft event (the membership rule) / the events the user holds per-event grants in |
 | `is_staff(user)` | Holds `STAFF` in the current tenant **or** is the global `SUPER_ADMIN`. The single place the platform role becomes in-tenant authority — see [Roles](#roles). Use `has_role`/`get_roles` where the literal grant matters (role-management UI) |
-| `is_proctor` / `is_stream_manager` / `is_triforce_submitter` / `is_volunteer_coordinator` / `is_equipment_manager` / `is_volunteer` | `has_role` shorthands for the matching `Role` member |
+| `is_proctor` / `is_stream_manager` / `is_triforce_submitter` / `is_volunteer_coordinator` / `is_equipment_manager` / `is_volunteer` | `has_role` shorthands for the matching `Role` member; all but `is_equipment_manager` take `event`. Equipment is a community page, so `is_equipment_manager` counts a grant in any live event (`RoleScope.LIVE`) |
 | `is_tournament_admin(user, tournament_id)` | In that tournament's `admins` M2M, filtered to the current tenant (PKs are global) |
 | `is_crew_coordinator_of(user, tournament_id)` | In that tournament's `crew_coordinators` M2M, tenant-filtered the same way |
 

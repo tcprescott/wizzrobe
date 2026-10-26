@@ -97,6 +97,14 @@ class TrackerInfo(BaseModel):
     approved: bool = Field(..., description="Whether the signup is approved. Match reads list approved crew only.")
 
 
+class BroadcasterInfo(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int = Field(..., description="Id of the broadcaster signup.")
+    user: UserBase = Field(..., description="The broadcaster.")
+    approved: bool = Field(..., description="Whether the signup is approved. Match reads list approved crew only.")
+
+
 class MatchResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -120,5 +128,9 @@ class MatchResponse(BaseModel):
     players: List[PlayerInfo] = Field(default_factory=list, description="The match's players.")
     commentators: List[CommentatorInfo] = Field(default_factory=list, description="Approved commentators.")
     trackers: List[TrackerInfo] = Field(default_factory=list, description="Approved trackers.")
+    broadcasters: List[BroadcasterInfo] = Field(
+        default_factory=list,
+        description="Approved broadcasters. Empty in an event without broadcasters.",
+    )
     created_at: datetime = Field(..., description="When the match was created, in UTC.")
     updated_at: datetime = Field(..., description="When the match was last changed, in UTC.")

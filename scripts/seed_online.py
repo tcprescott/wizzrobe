@@ -60,6 +60,7 @@ from models import (
     User,
 )
 from scripts.seed_qualifiers import seed_qualifiers_for_tenant
+from scripts.seed_room_bot import seed_room_bot_rooms
 from scripts.seed_support import backfill
 
 ONLINE_TOURNAMENT_NAME = "Wizzrobe Online Series"
@@ -244,6 +245,7 @@ async def seed_online_for_tenant(
         tenant, tournament, players,
     )
     await _seed_rooms(tenant, bots["alttpr"], scheduled, in_progress, finished)
+    await seed_room_bot_rooms(tenant, tournament, bots["alttpr"], players)
     await _seed_speedgaming(tenant, tournament, scheduled)
     await _seed_discord_events(tenant, tournament, scheduled)
     await seed_qualifiers_for_tenant(tenant, preset)
@@ -373,6 +375,10 @@ async def _seed_online_tournament(
     # the *configured* state — and player_three/player_four are enrolled here
     # while deliberately unlinked, which is the roster the check will meet.
     tournament.require_racetime_link = True
+    # The room bot runs these rooms: invites, seed post, chat commands, and
+    # results that wait for staff when they need a look. With player_three and
+    # player_four unlinked, the board shows the "not linked" chip too.
+    tournament.racetime_bot_runs_room = True
     await tournament.save()
     return tournament
 

@@ -113,7 +113,7 @@ async def list_match_crew(
     match_id: int,
     tenant: TenantArg = None,
 ) -> MatchCrew:
-    """List a match's commentators and trackers, including pending signups.
+    """List a match's crew (commentators, trackers, broadcasters), including pending signups.
 
     Staff, or an admin or crew coordinator of the match's tournament. `get_match`
     deliberately hides unapproved crew from everyone; this is the approver's
@@ -137,6 +137,7 @@ async def list_match_crew(
         match_id=match.id,
         commentators=[to_info(c) for c in match.commentators],
         trackers=[to_info(t) for t in match.trackers],
+        broadcasters=[to_info(b) for b in match.broadcasters],  # type: ignore[attr-defined]
     )
 
 
@@ -151,7 +152,7 @@ async def crew_coverage_report(
 
     `tournament_rows` answers "who crewed how many matches of each tournament":
     approved crew on finished matches that went to a stage, split into
-    commentary and tracker. The other counts include unstaged and upcoming
+    commentary, tracker and broadcast. The other counts include unstaged and upcoming
     matches. Requires admin access. `start` and `end` are ISO 8601 timestamps.
     """
     start_dt, end_dt = _window(start, end)

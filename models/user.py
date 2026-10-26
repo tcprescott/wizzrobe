@@ -127,6 +127,8 @@ class User(Model):
     approved_commentaries = fields.ReverseRelation["Commentator"]
     trackers = fields.ReverseRelation["Tracker"]
     approved_trackers = fields.ReverseRelation["Tracker"]
+    broadcasts = fields.ReverseRelation["Broadcaster"]  # type: ignore[name-defined]
+    approved_broadcasts = fields.ReverseRelation["Broadcaster"]  # type: ignore[name-defined]
     watched_matches = fields.ReverseRelation["MatchWatcher"]
     roles = fields.ReverseRelation["UserRole"]
     granted_roles = fields.ReverseRelation["UserRole"]
@@ -227,6 +229,12 @@ class UserRole(Model):
         'models.Tenant', related_name='user_roles', null=True, on_delete=fields.CASCADE
     )
     role = fields.CharEnumField(Role, max_length=32)
+    # The event a per-event role (``Role.is_per_event``) is held in; NULL for a
+    # community-wide role. CASCADE, so a grant goes with its event, and that
+    # makes the row archive-guarded: an archived event's grants can't change.
+    event = fields.ForeignKeyField(  # type: ignore[var-annotated]
+        'models.Event', related_name='user_roles', null=True, on_delete=fields.CASCADE,
+    )
     # SET_NULL: deleting the granter must not revoke roles they granted to others.
     granted_by = fields.ForeignKeyField(
         'models.User', related_name='granted_roles', null=True, on_delete=fields.SET_NULL
@@ -235,7 +243,10 @@ class UserRole(Model):
     created_at = fields.DatetimeField(auto_now_add=True)
 
     class Meta:
-        unique_together = ('user', 'role', 'tenant')
+        # Postgres treats NULLs as distinct, so this only holds per-event rows;
+        # migration 141's partial index ``uid_userrole_community`` holds the
+        # community-wide ones (event_id IS NULL) to one per user and role.
+        unique_together = ('user', 'role', 'tenant', 'event')
         table = 'userrole'
         indexes = (('role',),)  # composite is user-first; role-only enumeration uncovered
 
@@ -259,6 +270,13 @@ class DiscordRoleMapping(Model):
     discord_role_id = fields.BigIntField()
     discord_role_name = fields.CharField(max_length=100)
     app_role = fields.CharEnumField(Role, max_length=32, null=True)
+    # The event a per-event ``app_role`` is granted in, named when the mapping
+    # is made (the default event, unless staff pick another). Fixed after that:
+    # moving the default never re-points a mapping. NULL for a community-wide
+    # role and for tournament grants, whose tournament names the event.
+    event = fields.ForeignKeyField(  # type: ignore[var-annotated]
+        'models.Event', related_name='discord_role_mappings', null=True, on_delete=fields.CASCADE,
+    )
     tournament_grant = fields.CharEnumField(TournamentGrant, max_length=32, null=True)
     # CASCADE: a mapping onto a deleted tournament grants nothing, so it goes with it.
     tournament = fields.ForeignKeyField(  # type: ignore[var-annotated]
@@ -273,7 +291,7 @@ class DiscordRoleMapping(Model):
         # constraint only bites on the rows whose columns are all populated —
         # the role key ignores tournament rows and vice versa.
         unique_together = (
-            ('tenant', 'discord_role_id', 'app_role'),
+            ('tenant', 'discord_role_id', 'app_role', 'event'),
             ('tenant', 'discord_role_id', 'tournament_grant', 'tournament'),
         )
         table = 'discordrolemapping'

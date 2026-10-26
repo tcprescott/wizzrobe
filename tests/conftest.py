@@ -430,7 +430,7 @@ async def db(monkeypatch):
                 # the right tenant without a per-call edit.
                 if 'tenant' not in kwargs and 'tenant_id' not in kwargs:
                     kwargs['tenant_id'] = require_tenant_id()
-                if owned and 'event' not in kwargs and 'event_id' not in kwargs:
+                if owned and 'event' not in kwargs and 'event_id' not in kwargs and _held_in_event(model, kwargs):
                     kwargs['event_id'] = await _test_event_id_for(model, kwargs)
                 return await original(**kwargs)
             return _stamped_create
@@ -467,6 +467,16 @@ def _event_owned_models() -> frozenset[type[Model]]:
         and getattr(model._meta.fields_map['event'], 'related_model', None) is _models.Event
         and getattr(model._meta.fields_map['event'], 'on_delete', None) == CASCADE
     )
+
+
+def _held_in_event(model: type[Model], kwargs: dict) -> bool:
+    """A role grant or Discord mapping names an event only for a per-event role;
+    Staff and the online admin roles stay community-wide (NULL), as the
+    repositories write them."""
+    if model in (_models.UserRole, _models.DiscordRoleMapping):
+        role = kwargs.get('role') or kwargs.get('app_role')
+        return role is not None and _models.Role(role).is_per_event
+    return True
 
 
 async def _load_default_events() -> None:

@@ -512,7 +512,7 @@ class PersonalWebhookService:
         if match is None:
             return None
         players = list(match.players)  # type: ignore[attr-defined]
-        crew = [*match.commentators, *match.trackers]  # type: ignore[attr-defined]
+        crew = [*match.commentators, *match.trackers, *match.broadcasters]  # type: ignore[attr-defined]
         crew_ids = {c.user_id for c in crew if c.approved}
         about_me = owner.id in {p.user_id for p in players} or owner.id in crew_ids
         tournament = match.tournament
@@ -680,7 +680,7 @@ class PersonalWebhookService:
     async def _is_member(self, user: User) -> bool:
         if await TenantMembershipRepository.is_member(user.id, require_tenant_id()):
             return True
-        return bool(await AuthService.get_roles(user))
+        return await AuthService.holds_any_role(user)
 
     async def _ensure_member(self, user: User) -> None:
         await AuthService.ensure(

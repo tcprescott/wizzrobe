@@ -12,6 +12,7 @@ from typing import Dict, Iterable, List, Optional, Set, cast
 from tortoise.expressions import Q
 from tortoise.functions import Count
 
+from application.event_writes import guarded_delete, guarded_update
 from application.repositories._event import event_scoped, live_event_scoped
 from application.repositories._save import save_fields
 from application.repositories._tenant import current_tenant_id, scoped
@@ -397,10 +398,10 @@ class ChallongeRepository:
         The scheduled ``Match`` rows a ``ChallongeMatch`` pointed at are NOT
         touched — they are the community's own schedule and outlive the mirror.
         """
-        matches = await scoped(ChallongeMatch.filter(tournament=tournament)).delete()
-        participants = await scoped(
+        matches = await guarded_delete(scoped(ChallongeMatch.filter(tournament=tournament)))
+        participants = await guarded_delete(scoped(
             ChallongeParticipant.filter(tournament=tournament)
-        ).delete()
+        ))
         return participants, matches
 
     @staticmethod
@@ -412,14 +413,14 @@ class ChallongeRepository:
         As with ``delete_mirror``, a scheduled ``Match`` a dropped
         ``ChallongeMatch`` pointed at stays on the schedule.
         """
-        matches = await scoped(
+        matches = await guarded_delete(scoped(
             ChallongeMatch.filter(tournament=tournament)
             .exclude(challonge_match_id__in=list(keep_match_ids))
-        ).delete()
-        participants = await scoped(
+        ))
+        participants = await guarded_delete(scoped(
             ChallongeParticipant.filter(tournament=tournament)
             .exclude(challonge_participant_id__in=list(keep_participant_ids))
-        ).delete()
+        ))
         return participants, matches
 
     @staticmethod
@@ -501,7 +502,7 @@ class ChallongeRepository:
 
     @staticmethod
     async def move_match_link(old_match_id: int, new_match_id: int) -> None:
-        await scoped(ChallongeMatch.filter(match_id=old_match_id)).update(match_id=new_match_id)
+        await guarded_update(scoped(ChallongeMatch.filter(match_id=old_match_id)), match_id=new_match_id)
 
     @staticmethod
     async def unscheduled_open_matches(tournament_ids: Optional[List[int]] = None) -> List[ChallongeMatch]:

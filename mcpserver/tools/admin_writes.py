@@ -37,6 +37,7 @@ from application.api_scopes import ApiScope
 from application.errors import require_found
 from application.services import (
     EquipmentService,
+    EventService,
     NotificationPreferenceService,
     NotificationSettingsService,
     PayoutService,
@@ -323,25 +324,40 @@ async def remove_community_member(
 async def grant_community_role(
     user_id: int,
     role: str,
+    event: Optional[str] = None,
     tenant: TenantArg = None,
 ) -> OperationResult:
     """Give someone a role in this community, making them a member if needed. Staff only.
 
-    `role` is a name such as `proctor`, `volunteer` or `check_in_desk`.
+    `role` is a name such as `proctor`, `volunteer` or `check_in_desk`. Those
+    on-site roles are held in one event: `event` is its slug, by default the
+    community's default event. `staff` and the online admin roles cover every
+    event and ignore it.
     """
     parsed = _role(role)
-    await UserService().grant_role(await _user(user_id), parsed, actor=current_actor().user)
+    await UserService().grant_role(
+        await _user(user_id), parsed, actor=current_actor().user,
+        event_id=await EventService.id_for_slug(event),
+    )
     return OperationResult(detail=f'Granted {parsed.value} to user {user_id}.')
 
 
 async def revoke_community_role(
     user_id: int,
     role: str,
+    event: Optional[str] = None,
     tenant: TenantArg = None,
 ) -> OperationResult:
-    """Take a role away in this community. They stay a member. Staff only."""
+    """Take a role away in this community. They stay a member. Staff only.
+
+    For an on-site role, `event` is the slug of the event it's taken away in,
+    by default the community's default event.
+    """
     parsed = _role(role)
-    await UserService().revoke_role(await _user(user_id), parsed, actor=current_actor().user)
+    await UserService().revoke_role(
+        await _user(user_id), parsed, actor=current_actor().user,
+        event_id=await EventService.id_for_slug(event),
+    )
     return OperationResult(detail=f'Revoked {parsed.value} from user {user_id}.')
 
 

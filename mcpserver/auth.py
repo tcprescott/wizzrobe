@@ -112,7 +112,7 @@ async def belongs_to_tenant(user: User) -> bool:
     """
     if await TenantService.is_member(user.id, require_tenant_id()):
         return True
-    return bool(await AuthService.get_roles(user))
+    return await AuthService.holds_any_role(user)
 
 
 async def resolve_tenant(slug: Optional[str]) -> Optional[Tenant]:

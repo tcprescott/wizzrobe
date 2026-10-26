@@ -93,7 +93,7 @@ async def admin_check_in_page() -> None:
                 await open_event_dialog(service, actor, on_done=_render_table.refresh)
 
             ui.button('New event', icon='add', on_click=add_event).props('color=primary') \
-                .classes(REQUIRES_SOCKET_CLASS)
+                .classes(f'{REQUIRES_SOCKET_CLASS} wiz-write')
             ui.space()
             refresh_button(lambda: _render_table.refresh(), tooltip='Refresh').classes(REQUIRES_SOCKET_CLASS)
 

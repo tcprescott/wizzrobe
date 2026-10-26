@@ -51,6 +51,7 @@ from theme.tables.match_player_run_sheet import (
     decorate_player_row,
 )
 from theme.tables.preferences import TableKeys
+from theme.tables.run_sheet_meta import crew_columns
 
 
 def _next_game_number(bracket_match, best_of: int) -> int:
@@ -545,7 +546,8 @@ async def render_player_dashboard(
         # The player run sheet Event > Schedule uses, plus a ⋮ per line for
         # what only a player of that match can do. The details sheet a tapped
         # line opens holds the rest (seed, stations, who's confirmed).
-        columns = [*PLAYER_RUN_SHEET_COLUMNS, PLAYER_MENU_COLUMN]
+        columns = [*crew_columns(PLAYER_RUN_SHEET_COLUMNS, await EventService.current_event_broadcasters()),
+                   PLAYER_MENU_COLUMN]
         sheet = MatchSheet(None, access=MatchBoardAccess(),
                            decorate=lambda row: decorate_player_row(row, discord_id))
 

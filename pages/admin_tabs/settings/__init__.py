@@ -38,6 +38,7 @@ from pages.admin_tabs.admin_webhooks import admin_webhooks_page
 from pages.admin_tabs.settings.community_events import community_events_settings_pane
 from pages.admin_tabs.settings.connected_apps import connected_apps_settings_pane
 from pages.admin_tabs.settings.event import capacity_pane, dates_and_hours_pane
+from pages.admin_tabs.settings.event_crew import event_crew_pane
 from pages.admin_tabs.settings.event_timezone import event_timezone_pane
 from pages.admin_tabs.settings.members import members_settings_pane
 from pages.admin_tabs.settings.venue import venue_settings_pane
@@ -207,6 +208,11 @@ def build_event_settings_panes(access, live: set) -> list[SettingsPane]:
             'timezone', 'Timezone', 'schedule',
             'The community’s clock, or one of this event’s own.',
             native=event_timezone_pane,
+        ),
+        SettingsPane(
+            'crew', 'Crew', 'podcasts',
+            'Whether matches take broadcasters as well as commentators and trackers.',
+            native=event_crew_pane,
         ),
     ]
     if FeatureFlag.VOLUNTEERS in live:

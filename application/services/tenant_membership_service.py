@@ -232,8 +232,7 @@ class TenantMembershipService:
             await AuthService.can_grant_roles(actor),
             'Only Staff can manage community membership',
         )
-        held = await AuthService.get_roles(user)
-        if held:
+        if await AuthService.holds_any_role(user):
             raise ValueError(
                 f"{user.display_name or user.username} holds roles in this "
                 'community — revoke them before removing the membership.'

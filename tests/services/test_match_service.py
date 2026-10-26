@@ -80,6 +80,7 @@ def make_match(**overrides):
         players=[],
         commentators=[],
         trackers=[],
+        broadcasters=[],
         fetch_related=AsyncMock(),
     )
     defaults.update(overrides)

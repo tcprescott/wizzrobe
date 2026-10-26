@@ -15,13 +15,14 @@ from application.services.tenant_service import TenantService
 from application.utils import discord_messages_staff_requests as handled_copy
 from application.utils.discord_embeds import COLOR_CREW, notification_embed, time_field
 from application.utils.match_labels import players_label
-from models import Commentator, StaffRequestKind, Tracker, User
+from models import Broadcaster, Commentator, StaffRequestKind, Tracker, User
 
 logger = logging.getLogger(__name__)
 
 SIGNUP_KIND = {
     'commentator': StaffRequestKind.COMMENTATOR_SIGNUP,
     'tracker': StaffRequestKind.TRACKER_SIGNUP,
+    'broadcaster': StaffRequestKind.BROADCASTER_SIGNUP,
 }
 
 
@@ -57,7 +58,7 @@ async def crew_dm_parts(match):
 
 async def mark_signup_dms(
     match,
-    crew_member: Union[Commentator, Tracker],
+    crew_member: Union[Commentator, Tracker, Broadcaster],
     crew_type: str,
     color: int,
     card: Callable[[bool], Tuple[str, str]],

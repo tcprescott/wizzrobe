@@ -9,7 +9,7 @@ The card is deliberately bespoke (not a generic ``label: value`` loop): a
 headline row (scheduled time + compact state chip), a players line (ack icons,
 ``(auto)`` markers, winner emphasis, stations, self-ack), the dispute flag as
 text, a muted caption (tournament + ``#id`` edit link), ``v-if``-gated detail
-rows that render nothing when empty (commentators, trackers, stage, seed,
+rows that render nothing when empty (commentators, trackers, broadcasters, stage, seed,
 comment), and a single top-bordered actions row (lifecycle button, Assign
 Stations, stream-volunteer and watch toggles).
 
@@ -32,8 +32,8 @@ Frozen event contract (payload shapes the handlers in ``match_handlers.py``
 depend on — do not change):
     edit_match                     -> { row: props.row }
     acknowledge_match              -> props.row
-    signup_/undo_commentator|tracker -> props.row
-    acknowledge_/view_/toggle_commentator|tracker -> { row: props.row, idx }
+    signup_/undo_commentator|tracker|broadcaster -> props.row
+    acknowledge_/view_/toggle_commentator|tracker|broadcaster -> { row: props.row, idx }
     seat/start/finish/confirm      -> { key: props.row.id }
     edit_result                    -> { key: props.row.id }
     roll                           -> { key: props.row.id }   (+ _generating_seed)
@@ -132,7 +132,7 @@ _REVIEW_DETAIL = '''
 
 # --- Detail rows (each v-if-gated: empty -> renders nothing) ----------------
 
-# Commentators / trackers. Row shows when the list is non-empty, or while a
+# Commentators / trackers / broadcasters. Row shows when the list is non-empty, or while a
 # signup can still fill it (CREW_EMPTY_JS: "No signups yet", every viewer), or
 # when this viewer could sign up. The viewer's own Sign up / Withdraw sits in its
 # own tray above the names (crew_signup_section, shared with the desktop cell),
@@ -423,9 +423,9 @@ def render_grid_slot(table, columns, *, admin_controls: bool, access: MatchBoard
             caption_inner += '<span class="q-ml-sm">#{{ props.row.id }}</span>'
     caption = f'\n        <div class="mgc-caption">{caption_inner}</div>' if caption_inner else ''
 
-    # Detail rows (order: commentators, trackers, stage, seed, comment)
+    # Detail rows (order: commentators, trackers, broadcasters, stage, seed, comment)
     details = ''
-    for role in ('commentators', 'trackers'):
+    for role in ('commentators', 'trackers', 'broadcasters'):
         if role in present:
             details += (
                 _CREW_DETAIL

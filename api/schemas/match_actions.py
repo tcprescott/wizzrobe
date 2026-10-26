@@ -19,6 +19,13 @@ class MatchCreateRequest(BaseModel):
     tracker_ids: Optional[List[int]] = Field(
         None, description="User IDs to assign as trackers, already approved. Each is DMed to confirm."
     )
+    broadcaster_ids: Optional[List[int]] = Field(
+        None,
+        description=(
+            "User IDs to assign as broadcasters, already approved. Each is DMed to confirm. "
+            "Refused in an event without broadcasters."
+        ),
+    )
     is_stream_candidate: bool = Field(
         False, description="Mark the match as a candidate for stream, which alerts people who follow stream candidates."
     )
@@ -57,6 +64,9 @@ class MatchUpdateRequest(BaseModel):
     )
     tracker_ids: Optional[List[int]] = Field(
         None, description="The full new list of tracker user IDs, replacing the current one. Omit to keep it."
+    )
+    broadcaster_ids: Optional[List[int]] = Field(
+        None, description="The full new list of broadcaster user IDs, replacing the current one. Omit to keep it."
     )
     comment: Optional[str] = Field(None, description="New free-text note. Omit to keep the current one.")
     clear_seated: bool = Field(False, description="Clear the check-in time.")
@@ -127,7 +137,9 @@ class SetReviewRequest(BaseModel):
 
 
 class CrewSignupRequest(BaseModel):
-    role: str = Field(..., description="The crew role to sign up for: 'commentator' or 'tracker'.")
+    role: str = Field(
+        ..., description="The crew role to sign up for: 'commentator', 'tracker' or 'broadcaster'.",
+    )
 
 
 class SeedResultResponse(BaseModel):

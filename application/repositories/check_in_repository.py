@@ -9,6 +9,7 @@ from typing import Dict, Iterable, List, Optional
 
 from tortoise.expressions import Q
 
+from application.event_writes import ensure_writable, guarded_update
 from application.repositories._base import EventScopedRepository, TenantScopedRepository
 from application.repositories._event import event_scoped
 from application.repositories._tenant import current_tenant_id, scoped
@@ -49,7 +50,7 @@ class CheckInEventRepository(EventScopedRepository[CheckInEvent]):
         A sync holds its ``event`` across a slow network fetch; a full save
         would revert anything staff changed on the event meanwhile.
         """
-        await scoped(CheckInEvent.filter(id=event.id)).update(**fields)
+        await guarded_update(scoped(CheckInEvent.filter(id=event.id)), **fields)
         event.update_from_dict(fields)
 
     @staticmethod
@@ -132,23 +133,21 @@ class CheckInEntrantRepository(TenantScopedRepository[CheckInEntrant]):
 
     @staticmethod
     async def release_check_in(entrant: CheckInEntrant, at) -> bool:
-        updated = await scoped(CheckInEntrant.filter(id=entrant.id, checked_in_at__isnull=False)).update(
-            checked_in_at=None, checked_in_by_id=None, updated_at=at,
-        )
+        updated = await guarded_update(scoped(CheckInEntrant.filter(id=entrant.id, checked_in_at__isnull=False)), checked_in_at=None, checked_in_by_id=None, updated_at=at)
         return bool(updated)
 
     @staticmethod
     async def record_dm_status(entrant_id: int, status: CheckInDmStatus, at) -> None:
         """Write only the test-DM columns, so a send finishing late can't revert a desk action."""
-        await scoped(CheckInEntrant.filter(id=entrant_id)).update(dm_status=status, dm_checked_at=at)
+        await guarded_update(scoped(CheckInEntrant.filter(id=entrant_id)), dm_status=status, dm_checked_at=at)
 
     @staticmethod
     async def claim_auto_link(entrant: CheckInEntrant, user: User, method, at) -> bool:
         """Link a row only if it is still unlinked and staff haven't unlinked it on purpose."""
-        updated = await scoped(
+        updated = await guarded_update(scoped(
             CheckInEntrant.filter(id=entrant.id, user_id__isnull=True)
             .filter(Q(link_method__isnull=True) | Q(link_method__not=CheckInLinkMethod.MANUAL.value))
-        ).update(user_id=user.id, link_method=method, updated_at=at)
+        ), user_id=user.id, link_method=method, updated_at=at)
         return bool(updated)
 
     @staticmethod
@@ -156,6 +155,7 @@ class CheckInEntrantRepository(TenantScopedRepository[CheckInEntrant]):
         tenant_id = current_tenant_id()
         for entrant in entrants:
             entrant.tenant_id = tenant_id
+        await ensure_writable(CheckInEvent.filter(id__in={e.event_id for e in entrants}))
         await CheckInEntrant.bulk_create(entrants)
 
     @staticmethod
@@ -191,6 +191,7 @@ class CheckInPassRepository(TenantScopedRepository[CheckInPass]):
         tenant_id = current_tenant_id()
         for badge in passes:
             badge.tenant_id = tenant_id
+        await ensure_writable(CheckInEvent.filter(id__in={p.event_id for p in passes}))
         await CheckInPass.bulk_create(passes)
 
     @staticmethod

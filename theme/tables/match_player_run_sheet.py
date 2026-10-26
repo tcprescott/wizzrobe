@@ -2,7 +2,8 @@
 
 The same one-line-per-match board staff got (``match_run_sheet``), with the
 buttons a player or volunteer actually uses left on the line: who's on crew in a
-Commentators and a Trackers column, with the viewer's own Sign up / Withdraw in
+Commentators and a Trackers column (and Broadcasters, on an event that uses
+them), with the viewer's own Sign up / Withdraw in
 a tray above each role's names, Acknowledge on a match they play, and the watch
 bell. Anything else about a match (seed, stations) is in the details sheet a
 tapped line opens.
@@ -36,6 +37,7 @@ PLAYER_RUN_SHEET_COLUMNS = [
     {'name': 'stage', 'label': 'Stage', 'field': 'stage', 'align': 'left'},
     {'name': 'commentators', 'label': 'Commentators', 'field': '_role_by', 'align': 'left'},
     {'name': 'trackers', 'label': 'Trackers', 'field': '_role_by', 'align': 'left'},
+    {'name': 'broadcasters', 'label': 'Broadcasters', 'field': '_role_by', 'align': 'left'},
     {'name': 'status', 'label': 'Status', 'field': 'state', 'align': 'left'},
     {'name': 'watch', 'label': 'Watch', 'field': 'watch', 'align': 'center'},
 ]
@@ -61,6 +63,7 @@ _ROLES = (
     # (row key, singular the board's handlers take, label)
     ('commentators', 'commentator', 'Commentary'),
     ('trackers', 'tracker', 'Tracking'),
+    ('broadcasters', 'broadcaster', 'Broadcast'),
 )
 
 
@@ -325,7 +328,7 @@ _TITLE = "props.row._who || (props.row.bracket ? props.row.bracket.name : props.
 # in the same spot on every line. In the tray the negative action sits left of
 # the positive one. The phone card has no
 # column header above it, so it names the role; the desktop cell sits under a
-# Commentators or Trackers header and doesn't need to. Every button stops the
+# crew role's header and doesn't need to. Every button stops the
 # click so pressing it doesn't also open the details sheet.
 _ROLE = r'''<span class="run-sheet__crew" :class="c.short ? 'st-pending' : ''">__LABEL__<b>{{ c.count }}</b><template v-if="c.short"> · needs crew</template></span>
 <div v-if="c.tray" class="wiz-crew-action">
@@ -485,7 +488,7 @@ _BODY_SLOT = r'''
 <q-tr v-if="!props.row._folded" :props="props" class="run-sheet__row player-sheet__row" :class="[''' + RAIL + ''', props.row._flash ? 'wiz-row-flash' : '', props.row._removed ? 'wiz-row-removed' : '']" :inert="props.row._removed ? '' : null" :data-wiz-row="props.row.id"
       @click="$parent.$emit('open_match', props.row.id)">
     <q-td v-for="col in props.cols" :key="col.name" :props="props"
-          :class="col.name === 'commentators' || col.name === 'trackers' ? 'player-sheet__crew-cell' : col.name === 'match' ? 'player-sheet__match-cell' : ''">
+          :class="col.name === 'commentators' || col.name === 'trackers' || col.name === 'broadcasters' ? 'player-sheet__crew-cell' : col.name === 'match' ? 'player-sheet__match-cell' : ''">
         <template v-if="col.name === 'scheduled_at'">''' + _WHEN + '''</template>
         <template v-else-if="col.name === 'match'">
             <button type="button" class="run-sheet__open" @click.stop="$parent.$emit('open_match', props.row.id)">
@@ -493,7 +496,7 @@ _BODY_SLOT = r'''
             ''' + META + '''
         </template>
         <template v-else-if="col.name === 'stage'">''' + _STAGE + '''</template>
-        <template v-else-if="col.name === 'commentators' || col.name === 'trackers'">
+        <template v-else-if="col.name === 'commentators' || col.name === 'trackers' || col.name === 'broadcasters'">
             <div v-for="c in (props.row._role_by[col.name] ? [props.row._role_by[col.name]] : [])" :key="c.key"
                  class="player-sheet__role">''' + _ROLE_CELL + '''</div>
         </template>

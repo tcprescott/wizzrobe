@@ -59,7 +59,7 @@ def build_pools_tab(
         preset_options = {p.id: f'{p.randomizer}/{p.name}' for p in state['presets']}
         with ui.row().classes('items-center'):
             ui.button('Add Pool', icon='add',
-                      on_click=lambda: _open_pool_dialog(qid, preset_options)).props('color=primary')
+                      on_click=lambda: _open_pool_dialog(qid, preset_options)).props('color=primary').classes('wiz-write')
         if not state['pools']:
             empty_panel('No pools yet. Add one, then paste or roll permalinks.', icon='inventory_2')
         with ui.element('div').classes('wiz-tile-grid wiz-tile-grid--md'):
@@ -77,7 +77,7 @@ def build_pools_tab(
                         if rollable:
                             ui.button('Roll', icon='casino',
                                       on_click=lambda pid=pool.id: _open_roll_dialog(pid)
-                                      ).props('flat color=primary')
+                                      ).props('flat color=primary').classes('wiz-write')
                         else:
                             ui.button('Add permalinks', icon='playlist_add',
                                       on_click=lambda pid=pool.id: _open_permalinks_dialog(pid)

@@ -23,6 +23,14 @@ _UNDECIDED = re.compile(r'TBD|(?:Winner|Loser) of .+|.+ or .+')
 MatchupPart = Dict[str, Union[str, bool]]
 
 
+def and_join(words: Sequence[str]) -> str:
+    """Words as prose: "a", "a and b", "a, b and c"."""
+    words = list(words)
+    if len(words) <= 1:
+        return ''.join(words)
+    return ', '.join(words[:-1]) + ' and ' + words[-1]
+
+
 def players_label(player_names: Optional[Sequence[str]]) -> str:
     """Human-readable list of players: "A vs B" for two, comma-joined otherwise."""
     if not player_names:

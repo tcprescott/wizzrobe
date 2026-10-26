@@ -5,6 +5,7 @@ from nicegui import app, ui
 from application.services import (
     AuthService,
     ChallongeService,
+    EventService,
     FeatureFlagService,
     PresetService,
     RaceRoomProfileService,
@@ -55,6 +56,10 @@ class TournamentDialog:
         can_sync = await AuthService.can_manage_sync(actor)
         is_staff = await AuthService.is_staff(actor)
         can_delete = not is_create and is_staff
+        broadcasters_on = await (
+            EventService.current_event_broadcasters() if is_create
+            else EventService.broadcasters_on(self.tournament.event_id)
+        )
         # This dialog opens from the (ungated) Tournaments tab, so its Challonge
         # section has to check the flag itself — link_tournament refuses without it,
         # and refuses anyone but staff.
@@ -298,6 +303,14 @@ class TournamentDialog:
                             value=self.tournament.required_trackers if self.tournament else 1,
                             min=0, max=20,
                         ).props('inputmode=numeric')
+                    required_broadcasters_input = None
+                    if broadcasters_on:
+                        with ui.row().classes('form-pair gap-2'):
+                            required_broadcasters_input = ui.number(
+                                'Broadcasters needed',
+                                value=self.tournament.required_broadcasters if self.tournament else 1,
+                                min=0, max=20,
+                            ).props('inputmode=numeric')
 
                     # Sits with the stream crew rather than under Racetime, where
                     # the other "minutes before" number lives: that whole block is
@@ -482,6 +495,26 @@ class TournamentDialog:
                                 'Require racetime link',
                                 value=(t.require_racetime_link if t else False),
                             )
+                            rt['bot_runs_input'] = ui.checkbox(
+                                'Bot runs the room',
+                                value=(t.racetime_bot_runs_room if t else False),
+                            ).tooltip(
+                                'The bot sits in each room: invites the players, posts the seed, '
+                                'answers !seed, !forceroll and !fpa, and records clean results. '
+                                'Close finishes, forfeits and FPA calls wait for staff.'
+                            )
+                        with ui.row().classes('form-pair gap-2') as bot_settings:
+                            rt['seed_post_input'] = ui.number(
+                                'Post the seed (min before start)',
+                                value=(t.racetime_seed_post_minutes if t else 10),
+                                min=0,
+                            ).props('inputmode=numeric')
+                            rt['close_finish_input'] = ui.number(
+                                'Close finish (seconds)',
+                                value=((t.racetime_close_finish_ms if t else 1000) / 1000),
+                                min=0, step=0.1, format='%.1f',
+                            ).props('inputmode=decimal hint="Finishes this close wait for staff"')
+                        bot_settings.bind_visibility_from(rt['bot_runs_input'], 'value')
 
                 if can_delete:
                     with ui.expansion(
@@ -551,6 +584,9 @@ class TournamentDialog:
                         racetime_auto_create_rooms=rt['auto_create_input'].value,
                         room_open_minutes_before=int(rt['open_before_input'].value or 0),
                         require_racetime_link=rt['require_link_input'].value,
+                        racetime_bot_runs_room=rt['bot_runs_input'].value,
+                        racetime_seed_post_minutes=int(rt['seed_post_input'].value or 0),
+                        racetime_close_finish_ms=round(float(rt['close_finish_input'].value or 0) * 1000),
                         racetime_default_goal=rt['goal_input'].value,
                     )
                 try:
@@ -575,6 +611,8 @@ class TournamentDialog:
                                 players_per_match=players_per_match_input.value,
                                 required_commentators=required_commentators_input.value,
                                 required_trackers=required_trackers_input.value,
+                                required_broadcasters=(required_broadcasters_input.value
+                                                       if required_broadcasters_input else None),
                                 stage_reminder_minutes=int(stage_reminder_input.value or 0),
                                 allow_player_match_requests=allow_requests_checkbox.value,
                                 players_release_seed=players_release_seed_checkbox.value,
@@ -607,6 +645,8 @@ class TournamentDialog:
                             players_per_match=players_per_match_input.value,
                             required_commentators=required_commentators_input.value,
                             required_trackers=required_trackers_input.value,
+                            required_broadcasters=(required_broadcasters_input.value
+                                                   if required_broadcasters_input else 1),
                             stage_reminder_minutes=int(stage_reminder_input.value or 0),
                             allow_player_match_requests=allow_requests_checkbox.value,
                             players_release_seed=players_release_seed_checkbox.value,

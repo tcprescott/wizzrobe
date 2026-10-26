@@ -9,6 +9,7 @@ lives in :class:`PlayerAvailabilityService`, not here.
 from datetime import datetime
 from typing import List, Optional
 
+from application.event_writes import guarded_delete
 from application.repositories._event import current_event_id, event_scoped, live_event_scoped
 from application.repositories._tenant import current_tenant_id
 from models import PlayerAvailability, User, VolunteerAvailabilityStatus
@@ -56,4 +57,4 @@ class PlayerAvailabilityRepository:
 
     @staticmethod
     async def delete_for_user(user: User) -> int:
-        return await event_scoped(PlayerAvailability.filter(user=user)).delete()
+        return await guarded_delete(event_scoped(PlayerAvailability.filter(user=user)))

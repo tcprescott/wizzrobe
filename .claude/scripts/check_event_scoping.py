@@ -126,7 +126,15 @@ def _key_root(arg: str) -> str:
     return arg.split("__", 1)[0]
 
 
+#: Filter builders that name an event themselves: ``role_event_q`` keeps a role
+#: grant's community-wide rows plus those in one event (or a scope of events).
+EVENT_FILTERS = {"role_event_q"}
+
+
 def _names_event(call: ast.Call) -> bool:
+    for arg in call.args:
+        if isinstance(arg, ast.Call) and isinstance(arg.func, ast.Name) and arg.func.id in EVENT_FILTERS:
+            return True
     for kw in call.keywords:
         if kw.arg and _key_root(kw.arg) in EVENT_KEYS:
             return True

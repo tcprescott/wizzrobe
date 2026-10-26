@@ -66,20 +66,23 @@ class TableKeys:
     # _v2 since the board became a run sheet (Time, Match, Stage, Status): v1
     # layouts name the old per-control columns, which no longer exist.
     # _v3 since the one Crew column became Commentators and Trackers: rule 3
-    # would have appended both past Status on every saved v2 layout.
-    ADMIN_SCHEDULE = 'admin.schedule_v3'
+    # would have appended both past Status on every saved v2 layout. _v4 for
+    # the Broadcasters column, the same way.
+    ADMIN_SCHEDULE = 'admin.schedule_v4'
     # _v2 for the same reason, when the Event > Schedule board followed it; _v3
-    # for the same crew split.
-    HOME_SCHEDULE = 'home.schedule_v3'
+    # for the same crew split, _v4 for Broadcasters.
+    HOME_SCHEDULE = 'home.schedule_v4'
     # _v2 since the player's four action columns became one "Your actions"
     # beside Players: rule 3 appends a new default at the far right, so every
     # saved v1 layout would have put the player's own controls back past the
     # table's edge. A fresh key starts everyone on the shipped order; v1 rows
     # name columns that no longer exist, so there is little in them to keep.
-    # _v3 since it became the player run sheet with a ⋮ per line.
-    HOME_PLAYER_MATCHES = 'home.player_matches_v3'
+    # _v3 since it became the player run sheet with a ⋮ per line, _v4 for
+    # Broadcasters.
+    HOME_PLAYER_MATCHES = 'home.player_matches_v4'
     # My Schedule's crew section, the same run sheet filtered to your slots.
-    HOME_MY_CREW = 'home.my_crew'
+    # _v2 for Broadcasters.
+    HOME_MY_CREW = 'home.my_crew_v2'
     # _v2 since the proctor board became a run sheet too (Time, Match, Stage,
     # Next step); v1 layouts name the old Seed, Tournament and # columns.
     PROCTOR_STATION = 'volunteer.proctor_station_v2'

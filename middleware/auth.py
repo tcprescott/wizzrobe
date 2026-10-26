@@ -11,7 +11,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import RedirectResponse
 
 from application.event_context import event_scope, get_current_event_id, stash_client_event_id
-from application.services.auth_service import AuthService, get_user_from_session
+from application.services.auth_service import AuthService, RoleScope, get_user_from_session
 from application.services.event_service import EventService
 from application.services.feature_flag_service import FeatureFlagService
 from application.services.telemetry_service import TelemetryService
@@ -77,7 +77,7 @@ async def bind_display_timezone(tenant_id: int, user=None) -> str:
 async def can_view_bound_event(user=None) -> bool:
     """Whether the viewer may open the event this page is bound to.
 
-    A draft is staff's until it goes live (phase 4 adds its own role holders).
+    A draft is for staff and the people holding a role in it until it goes live.
     ``user`` is loaded from the session when not passed; only a draft needs it.
     """
     tenant_id = get_current_tenant_id()
@@ -424,7 +424,9 @@ def _tenant_page(
                     is_super_admin = await AuthService.is_super_admin(user)
                 allowed = is_super_admin
                 if not allowed and user is not None and role_list:
-                    held = await AuthService.get_roles(user)
+                    # A community page admits a role held in any live event;
+                    # an event page, the role in the event it shows.
+                    held = await AuthService.get_roles(user, RoleScope.LIVE if scope == 'community' else None)
                     allowed = bool(held.intersection(role_list))
                 if not allowed and allow_tournament_membership:
                     allowed = await AuthService.can_view_admin(user)

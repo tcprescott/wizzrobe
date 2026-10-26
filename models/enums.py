@@ -47,6 +47,24 @@ class Role(str, Enum):
         """
         return [role for role in cls if role is not cls.SUPER_ADMIN]
 
+    @property
+    def is_per_event(self) -> bool:
+        """Granted inside one event: a proctor at SGL 2026 isn't one at SGL 2027.
+
+        Staff and the online admin roles run things that outlive an event
+        (presets, sync, qualifiers), so they stay community-wide."""
+        return self in _PER_EVENT_ROLES
+
+    @classmethod
+    def community_wide(cls) -> 'list[Role]':
+        """The grantable roles that cover every event, in declaration order."""
+        return [role for role in cls.tenant_grantable() if not role.is_per_event]
+
+    @classmethod
+    def per_event(cls) -> 'list[Role]':
+        """The roles granted in one event, in declaration order."""
+        return [role for role in cls if role.is_per_event]
+
     @classmethod
     def volunteer_mappable(cls) -> 'list[Role]':
         """The roles a volunteer position may confer, in declaration order.
@@ -61,6 +79,8 @@ class Role(str, Enum):
             cls.EQUIPMENT_MANAGER, cls.VOLUNTEER, cls.CHECK_IN_DESK,
         ]
 
+
+_PER_EVENT_ROLES = frozenset({Role.VOLUNTEER_COORDINATOR, *Role.volunteer_mappable()})
 
 _ROLE_LABELS: dict[Role, str] = {
     Role.STREAM_MANAGER: 'Broadcast Tech',
@@ -509,6 +529,19 @@ class RaceRoomStatus(str, Enum):
     CANCELLED = 'cancelled'
 
 
+class RaceRoomHoldReason(str, Enum):
+    """Why a finished race the bot ran waits for staff instead of recording itself.
+
+    Declared in the order the checks run: the first that applies is the one
+    shown, since one reason is enough to send it to staff.
+    """
+
+    FPA = 'fpa'
+    UNMATCHED = 'unmatched'
+    FORFEIT = 'forfeit'
+    CLOSE_FINISH = 'close_finish'
+
+
 class SyncStatus(str, Enum):
     """Reconciliation state of a synced SpeedGaming episode (PR 7).
 
@@ -547,9 +580,10 @@ class StaffRequestKind(str, Enum):
     ADA_REQUEST = 'ada_request'
     JOIN_REQUEST = 'join_request'
     RESCHEDULE_REQUEST = 'reschedule_request'
-    # Commentator and tracker signups live in separate tables, so their ids overlap.
+    # Each crew role's signups live in their own table, so their ids overlap.
     COMMENTATOR_SIGNUP = 'commentator_signup'
     TRACKER_SIGNUP = 'tracker_signup'
+    BROADCASTER_SIGNUP = 'broadcaster_signup'
 
 
 class AsyncQualifierRunStatus(str, Enum):

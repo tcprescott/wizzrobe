@@ -230,6 +230,18 @@ PLAYER_LATE_ON_STAGE = _notice(
     {ON_DUTY: 'Broadcast Techs holding a volunteer shift right now',
      STAFF: 'Every Broadcast Tech, only when none is on shift'},
 )
+RACETIME_FPA = _notice(
+    'racetime_fpa', 'Matches', 'Fair play pause called',
+    'A runner types !fpa in a racetime room the bot runs',
+    {ON_DUTY: PING, ADMINS: PING, STAFF: PING},
+    {ON_DUTY: _ON_SHIFT, ADMINS: _TOURNAMENT_ADMINS, STAFF: _FALLBACK},
+)
+RACETIME_BROADCASTER_WAITING = _notice(
+    'racetime_broadcaster_waiting', 'Matches', 'Seed waiting for the broadcaster',
+    "A restreamed match reaches its start time and the broadcaster hasn't typed !ready",
+    {CREW: PING, ON_DUTY: PING, ADMINS: PING, STAFF: PING},
+    {CREW: "The match's approved broadcasters", ON_DUTY: _ON_SHIFT, ADMINS: _TOURNAMENT_ADMINS, STAFF: _FALLBACK},
+)
 OPPONENT_ACKNOWLEDGED = _notice(
     'opponent_acknowledged', 'Matches', 'Opponent acknowledged',
     'Another player in your match acknowledges its time', {PLAYERS: PING}, {PLAYERS: _OPTED_IN},
@@ -340,6 +352,10 @@ TRACKER_SIGNUP = _notice(
     'tracker_signup', 'Crew', 'New tracker signup',
     'Someone signs up to track', {ADMINS: SILENT}, {ADMINS: _CREW_OWNERS},
 )
+BROADCASTER_SIGNUP = _notice(
+    'broadcaster_signup', 'Crew', 'New broadcaster signup',
+    'Someone signs up to broadcast', {ADMINS: SILENT}, {ADMINS: _CREW_OWNERS},
+)
 CREW_ASSIGNED = _notice(
     'crew_assigned', 'Crew', 'Crew assignment',
     'A signup is approved, or staff add crew directly', {CREW: PING},
@@ -356,6 +372,10 @@ COMMENTATOR_WITHDREW = _notice(
 TRACKER_WITHDREW = _notice(
     'tracker_withdrew', 'Crew', 'Tracker withdrew',
     'An approved tracker drops out', {ADMINS: PING}, {ADMINS: _CREW_DROPPED},
+)
+BROADCASTER_WITHDREW = _notice(
+    'broadcaster_withdrew', 'Crew', 'Broadcaster withdrew',
+    'An approved broadcaster drops out', {ADMINS: PING}, {ADMINS: _CREW_DROPPED},
 )
 CREW_BOOKED_BUSY = _notice(
     'crew_booked_busy', 'Crew', 'Crew busy at the booked time',
@@ -554,7 +574,8 @@ SECTIONS: Dict[str, Tuple[Tuple[str, Tuple[Notice, ...]], ...]] = {
         )),
         ('Results', (MATCH_CONFIRMED, MATCH_FORFEITED, MATCH_RESULT, RESULT_IN)),
         ('Comments and staff alerts', (
-            STAFF_COMMENT, PLAYER_COMMENT, PLAYER_LATE, PLAYER_LATE_ON_STAGE, MATCH_FLAGGED, STREAM_OFFER, SEED_FAILED,
+            STAFF_COMMENT, PLAYER_COMMENT, PLAYER_LATE, PLAYER_LATE_ON_STAGE, RACETIME_FPA, RACETIME_BROADCASTER_WAITING, MATCH_FLAGGED,
+            STREAM_OFFER, SEED_FAILED,
         )),
         ('Seed settings', (
             HARDER_SETTINGS_OFFER, HARDER_SETTINGS_AGREED, HARDER_SETTINGS_DROPPED,
@@ -681,6 +702,7 @@ _ACT: Dict[str, frozenset] = {
     STAFF_COMMENT.key: frozenset({PLAYERS}),
     PLAYER_COMMENT.key: _STAFF_ALERTS,
     PLAYER_LATE.key: _STAFF_ALERTS,
+    RACETIME_FPA.key: _STAFF_ALERTS,
     PLAYER_LATE_ON_STAGE.key: frozenset({ON_DUTY, STAFF}),
     HARDER_SETTINGS_OFFER.key: frozenset({PLAYERS}),
     OPPONENT_SEED_READY.key: frozenset({PLAYERS}),
@@ -691,10 +713,12 @@ _ACT: Dict[str, frozenset] = {
     RESCHEDULE_DECLINED.key: frozenset({PLAYERS}),
     COMMENTATOR_SIGNUP.key: frozenset({ADMINS}),
     TRACKER_SIGNUP.key: frozenset({ADMINS}),
+    BROADCASTER_SIGNUP.key: frozenset({ADMINS}),
     CREW_ASSIGNED.key: frozenset({CREW}),
     CREW_UNASSIGNED.key: frozenset({CREW}),
     COMMENTATOR_WITHDREW.key: frozenset({ADMINS}),
     TRACKER_WITHDREW.key: frozenset({ADMINS}),
+    BROADCASTER_WITHDREW.key: frozenset({ADMINS}),
     CREW_BOOKED_BUSY.key: frozenset({ADMINS}),
     CREW_PARTNER_INVITE.key: frozenset({CREW}),
     SHIFT_ASSIGNED.key: frozenset({VOLUNTEERS}),

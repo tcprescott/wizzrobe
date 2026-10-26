@@ -5,6 +5,7 @@ from nicegui import app, background_tasks, context, ui
 from application.services import (
     AuthService,
     BracketSetService,
+    EventService,
     FeatureFlagService,
     MatchStreamVolunteerService,
     RaceRoomService,
@@ -185,11 +186,15 @@ class AdminMatchDialog(BaseMatchDialog):
             player_ids = [p.user_id for p in players]
             commentator_ids = [c.user_id for c in await self.match.commentators]
             tracker_ids = [t.user_id for t in await self.match.trackers]
+            broadcaster_ids = [b.user_id for b in await self.match.broadcasters]
+            broadcasters_on = await EventService.broadcasters_on(self.match.event_id)
         else:
             players = []
             player_ids = []
             commentator_ids = []
             tracker_ids = []
+            broadcaster_ids = []
+            broadcasters_on = await EventService.current_event_broadcasters()
 
         brackets_live = await FeatureFlagService().is_enabled(FeatureFlag.BRACKETS)
         linked_bracket_match_id = await bracket_link.linked_matchup_id(
@@ -324,6 +329,19 @@ class AdminMatchDialog(BaseMatchDialog):
                         with_input=True,
                     ).props(CHIP_PROPS)
 
+                # Only on an event with broadcasters, or a match that still has
+                # some from before they were turned off, so staff can clear them.
+                selected_broadcasters = None
+                if broadcasters_on or broadcaster_ids:
+                    with ui.row().classes('form-pair form-pair--wide items-start gap-2'):
+                        selected_broadcasters = ui.select(
+                            label='Broadcasters',
+                            options={u.id: u.preferred_name for u in users},
+                            value=broadcaster_ids,
+                            multiple=True,
+                            with_input=True,
+                        ).props(CHIP_PROPS)
+
                 async def update_selection_options():
                     tournament_id = selected_tournament.value
                     empty_reason = ''
@@ -450,6 +468,10 @@ class AdminMatchDialog(BaseMatchDialog):
                 new_player_ids = selected_players.value if isinstance(selected_players.value, list) else [selected_players.value]
                 new_commentator_ids = selected_commentators.value if isinstance(selected_commentators.value, list) else [selected_commentators.value]
                 new_tracker_ids = selected_trackers.value if isinstance(selected_trackers.value, list) else [selected_trackers.value]
+                new_broadcaster_ids = None
+                if selected_broadcasters is not None:
+                    new_broadcaster_ids = (selected_broadcasters.value if isinstance(selected_broadcasters.value, list)
+                                           else [selected_broadcasters.value])
 
                 async def do_update():
                     actor = await get_user_from_session(app.storage.user)
@@ -461,6 +483,7 @@ class AdminMatchDialog(BaseMatchDialog):
                         player_ids=new_player_ids,
                         commentator_ids=new_commentator_ids,
                         tracker_ids=new_tracker_ids,
+                        broadcaster_ids=new_broadcaster_ids,
                         comment=comment_value,
                         title=title_value,
                         description=description_value,
@@ -495,6 +518,7 @@ class AdminMatchDialog(BaseMatchDialog):
                         player_ids=new_player_ids,
                         commentator_ids=new_commentator_ids,
                         tracker_ids=new_tracker_ids,
+                        broadcaster_ids=new_broadcaster_ids or [],
                         is_stream_candidate=stream_candidate_checkbox.value,
                         actor=actor,
                     )
@@ -668,6 +692,7 @@ class UserMatchDialog(BaseMatchDialog):
                         player_ids=new_player_ids,
                         commentator_ids=[],
                         tracker_ids=[],
+                        broadcaster_ids=[],
                         comment=comment_value,
                         actor=user,
                     )

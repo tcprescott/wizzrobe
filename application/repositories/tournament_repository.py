@@ -7,6 +7,7 @@ Handles database operations for tournaments.
 from datetime import date, datetime
 from typing import Any, Dict, List, Optional
 
+from application.event_writes import guarded_delete
 from application.repositories._base import EventScopedRepository
 from application.repositories._event import current_event_id, event_scoped, live_event_scoped
 from application.repositories._tenant import current_tenant_id, scoped
@@ -240,6 +241,7 @@ class TournamentRepository(EventScopedRepository[Tournament]):
         max_match_duration: Optional[int] = None,
         required_commentators: int = 1,
         required_trackers: int = 1,
+        required_broadcasters: int = 1,
         allow_player_match_requests: bool = True,
         config: Optional[Dict[str, Any]] = None,
         preset_id: Optional[int] = None,
@@ -250,6 +252,9 @@ class TournamentRepository(EventScopedRepository[Tournament]):
         room_open_minutes_before: int = 30,
         stage_reminder_minutes: int = 30,
         require_racetime_link: bool = False,
+        racetime_bot_runs_room: bool = False,
+        racetime_seed_post_minutes: int = 10,
+        racetime_close_finish_ms: int = 1000,
         racetime_default_goal: Optional[str] = None,
         event_start_date: Optional[date] = None,
         event_end_date: Optional[date] = None,
@@ -277,6 +282,7 @@ class TournamentRepository(EventScopedRepository[Tournament]):
             required_commentators: Approved commentators a streamed match needs
                 to count as covered (0 = the role is not used here)
             required_trackers: Approved trackers a streamed match needs
+            required_broadcasters: Approved broadcasters, where the event has them
             
         Returns:
             Created Tournament object
@@ -302,6 +308,7 @@ class TournamentRepository(EventScopedRepository[Tournament]):
             max_match_duration=max_match_duration,
             required_commentators=required_commentators,
             required_trackers=required_trackers,
+            required_broadcasters=required_broadcasters,
             allow_player_match_requests=allow_player_match_requests,
             config=config,
             preset_id=preset_id,
@@ -312,6 +319,9 @@ class TournamentRepository(EventScopedRepository[Tournament]):
             room_open_minutes_before=room_open_minutes_before,
             stage_reminder_minutes=stage_reminder_minutes,
             require_racetime_link=require_racetime_link,
+            racetime_bot_runs_room=racetime_bot_runs_room,
+            racetime_seed_post_minutes=racetime_seed_post_minutes,
+            racetime_close_finish_ms=racetime_close_finish_ms,
             racetime_default_goal=racetime_default_goal,
             event_start_date=event_start_date,
             event_end_date=event_end_date,
@@ -343,7 +353,7 @@ class TournamentRepository(EventScopedRepository[Tournament]):
             tournament: Tournament to unenroll from
             user: User to unenroll
         """
-        await scoped(TournamentPlayers.filter(tournament=tournament, user=user)).delete()
+        await guarded_delete(scoped(TournamentPlayers.filter(tournament=tournament, user=user)))
     
     @staticmethod
     async def get_enrolled_players(tournament: Tournament) -> List:
