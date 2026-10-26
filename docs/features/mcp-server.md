@@ -121,22 +121,47 @@ goes, and a person who can see `claude.ai.evil.test` on the card can decline. Th
 host is rendered by `_redirect_target()` (host and port for `http(s)`, the whole
 URI for a native client's custom scheme, which has no netloc).
 
-**The write box.** One unticked checkbox, "Let it make changes". It is the only
-place write access can be granted: a client cannot request its way past it and a
-refresh cannot widen a grant without it, so raising a read-only connection to a
-writing one means reconnecting. Ticking it redraws the grant list — the two
-write lines appear and the closing note flips from "it cannot change anything" to
-"it acts as you" — because a card that lists writes while still promising
-read-only is worse than either half alone. The connection's kind is visible
-afterwards on the profile's credential list, where a writing grant carries a
-`can make changes` badge and a read-only one carries none.
+**The scope checklist.** The same card outside apps get
+(`theme/consent_scopes.py`): the eight areas from `application/api_scopes.py`
+in two groups, *Let it see* (ticked) and *Let it act as you* (unticked). The
+staff areas appear only for someone with an admin-side role in at least one
+community they belong to (`McpAuthService.offered_scopes`); there's no community
+picker, so the card says the grant works in every community, as whatever the
+person is in each. The grant carries exactly the ticked areas
+(`McpAuthService.approve(..., scopes=...)`), never what the client asked for,
+and a refresh cannot widen it. A grant with no change ticked is stamped
+`read_only`.
 
-**The typed confirmation.** Ticking the box also reveals a warning banner and a
+**The typed confirmation.** Ticking any change reveals a warning banner and a
 field asking for the phrase `this is dangerous` (`WRITE_CONFIRMATION_PHRASE`);
 Approve stays disabled until it matches, with case and spacing forgiven.
-`McpAuthService.approve(..., allow_write=True)` re-checks it and raises
-`ValueError` on a mismatch *before* consuming the pending request, so a typo
-leaves the screen usable and no other caller can grant write without it.
+`approve` re-checks it and raises `ValueError` on a mismatch *before* consuming
+the pending request, so a typo leaves the screen usable and no other caller can
+grant write without it.
+
+## Scopes on tools
+
+Every tool names one area at registration (`register(..., scope=ApiScope.X)`,
+no default), and only the orientation tools (`Gate.GLOBAL`) take none.
+Registration refuses a write tool in a read area and a read tool in a write
+area, so a read-only connection always reaches every read. `authorize` refuses a
+call outside the grant's areas with a `PermissionError` naming the area, and
+`tools/list` hides those tools. `tests/mcp/test_mcp_scopes.py` is the CI check:
+every tool scoped, staff-gated tools in staff areas, every read area used.
+
+Mapping rules, following `api/scopes.py` where a REST twin exists: your own
+data (notification settings, your shifts, checkouts, reschedule requests) is
+`profile`; anything a member can see is `schedule:read`; staff-gated reads and
+the platform reads are `staff:read`; player actions are `play`, crew signups
+and watching are `crew`, your own notification changes are `profile:write`, and
+every other write, platform writes included, is `staff:write`.
+
+**Connections made before scopes.** Their stored scope is `wizzrobe:read`
+and/or `wizzrobe:write`. `grant_scopes` reads either as every area, and
+`read_only` still refuses writes on a read-only one, so nobody has to reconnect
+and nothing they could call goes away. The wire-level scopes the server
+advertises stay `wizzrobe:read wizzrobe:write`; the consent card decides the
+grant.
 
 ## Choosing a community
 

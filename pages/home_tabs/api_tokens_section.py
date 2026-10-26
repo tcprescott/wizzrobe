@@ -91,9 +91,12 @@ async def render_api_tokens_section(user: User) -> None:
                         ui.label(prefix + used + expires) \
                             .classes('text-caption text-grey-7') \
                             .style('overflow-wrap: anywhere')
-                        if is_app:
+                        # An AI client approved before scopes carries only the
+                        # old read/write names, which parse to nothing: no chips.
+                        areas = parse_scope(t.scope) if (is_app or is_oauth) else frozenset()
+                        if areas:
                             with ui.row().classes('items-center gap-1'):
-                                for scope in sorted(parse_scope(t.scope), key=list(SCOPE_LABELS).index):
+                                for scope in sorted(areas, key=list(SCOPE_LABELS).index):
                                     ui.badge(SCOPE_LABELS[scope]).props('outline color=grey-8')
                     connected = is_oauth or is_app
                     label = f'Disconnect {t.name}' if connected else f'Revoke {t.name}'
