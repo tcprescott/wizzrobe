@@ -795,6 +795,17 @@ A third-party app a user registered for the `/oauth` authorization server. **Glo
 | `disabled_at` / `disabled_reason` | `DatetimeField` / `CharField(300)` | null | Platform-admin kill switch; grants stop while set |
 | `created_at` / `updated_at` | `DatetimeField` | auto | |
 
+#### `OAuthAppBlock`
+
+A community's block on one `OAuthApp` (Admin → Settings → Connected apps). Tenant-scoped; `unique_together (tenant, app)`. While it exists the app can't be granted, refreshed or used in that community.
+
+| Field | Type | Null / default | Notes |
+|---|---|---|---|
+| `tenant` | FK → `Tenant` | `CASCADE` | `related_name='oauth_app_blocks'` |
+| `app` | FK → `OAuthApp` | `CASCADE` | `related_name='blocks'` |
+| `blocked_by` | FK → `User` | null, `SET_NULL` | |
+| `created_at` | `DatetimeField` | auto | |
+
 #### `OAuthAppCode`
 
 A single-use authorization code for an `OAuthApp`, 5-minute expiry, hash only. Carries the community picked on consent and the approved scope, which the grant inherits. `grant` (FK → `ApiToken`, `SET_NULL`) records what it was exchanged for, so a replayed code revokes that grant.

@@ -21,7 +21,7 @@ import logging
 import re
 import secrets
 from datetime import datetime, timedelta, timezone
-from typing import FrozenSet, Iterable, List, Optional, Tuple, Union
+from typing import Dict, FrozenSet, Iterable, List, Optional, Tuple, Union
 from urllib.parse import urlsplit
 
 from application.api_scopes import ApiScope, format_scope
@@ -291,6 +291,11 @@ class OAuthAppService:
     async def list_all_apps(self, actor: User) -> List[OAuthApp]:
         await AuthService.ensure_super_admin(actor)
         return await self.repository.list_all()
+
+    async def platform_reach(self, actor: User) -> Dict[int, Tuple[int, int]]:
+        """Per app id: how many people connected it, in how many communities."""
+        await AuthService.ensure_super_admin(actor)
+        return await self.token_repository.app_grant_reach()
 
     async def disable_app(self, actor: User, app_id: int, reason: str) -> OAuthApp:
         """Stop an app everywhere. Its grants stop working at once but are kept,

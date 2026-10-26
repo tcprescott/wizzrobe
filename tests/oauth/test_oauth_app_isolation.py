@@ -11,7 +11,7 @@ import pytest
 
 from application.services import OAuthGrantService
 from application.tenant_context import tenant_scope
-from models import ApiToken, OAuthAppCode, Role, Tournament, UserRole
+from models import ApiToken, OAuthAppBlock, OAuthAppCode, Role, Tournament, UserRole
 from tests.api_helpers import create_community_member
 from tests.oauth.conftest import authorize_code, client, exchange, grant_tokens, make_app, pkce, start
 
@@ -113,3 +113,48 @@ async def test_a_code_cannot_be_redeemed_once_the_member_left_its_community(two_
         await TenantMembership.filter(user_id=member.id, tenant_id=tenant_a.id).delete()
         resp = await exchange(http, app, secret, code, verifier)
     assert resp.json()['error'] == 'invalid_grant'
+
+
+async def test_a_block_in_one_community_leaves_the_other_alone(two_tenants):
+    """OAuthAppBlock is per community: staff of A blocking an app ends A's grants,
+    hides A on consent and refuses A's tokens, while B's grant keeps working and
+    B's staff never see A's block."""
+    tenant_a, tenant_b = two_tenants
+    with tenant_scope(tenant_a.id):
+        owner = await create_community_member(username='dev')
+        staff_a = await create_community_member(username='staff-a')
+        await UserRole.create(user=staff_a, role=Role.STAFF, tenant_id=tenant_a.id)
+        member = await create_community_member(username='both')
+    with tenant_scope(tenant_b.id):
+        from application.repositories.tenant_membership_repository import TenantMembershipRepository
+        await TenantMembershipRepository.add(member, tenant_b.id)
+        staff_b = await create_community_member(username='staff-b')
+        await UserRole.create(user=staff_b, role=Role.STAFF, tenant_id=tenant_b.id)
+    app, secret = await make_app(owner)
+
+    async with client() as http:
+        tokens_a = await grant_tokens(http, app, secret, member, tenant_a.id, ['schedule:read'])
+        tokens_b = await grant_tokens(http, app, secret, member, tenant_b.id, ['schedule:read'])
+
+    service = OAuthGrantService()
+    with tenant_scope(tenant_a.id):
+        assert await service.block_app_here(staff_a, app.id) == 1
+        rows_a = await service.list_community_apps(staff_a)
+    assert [(r.app_id, r.blocked, r.members) for r in rows_a] == [(app.id, True, 0)]
+    with tenant_scope(tenant_b.id):
+        rows_b = await service.list_community_apps(staff_b)
+    assert [(r.app_id, r.blocked, r.members) for r in rows_b] == [(app.id, False, 1)]
+    assert await OAuthAppBlock.filter(tenant_id=tenant_b.id).count() == 0
+
+    async with client(tokens_a['access_token']) as api:
+        assert (await api.get('/api/tournaments')).status_code == 401
+    async with client(tokens_b['access_token']) as api:
+        assert (await api.get('/api/tournaments')).status_code == 200
+
+    _, challenge = pkce()
+    async with client() as http:
+        txn = await start(http, app, challenge)
+    view = await service.consent_view(txn, member)
+    assert [c.tenant_id for c in view.communities] == [tenant_b.id]
+    with pytest.raises(ValueError):
+        await service.approve(txn, member, tenant_a.id, ['profile'])

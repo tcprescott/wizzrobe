@@ -10,10 +10,12 @@ from typing import Optional
 
 from nicegui import ui
 
+from application.api_scopes import parse_scope
 from application.services import ApiTokenService
 from application.utils.environment import get_base_url
 from application.utils.timezone import format_local_date, format_local_display
 from models import ApiTokenOrigin, User
+from pages.home_tabs.developer_apps_section import SCOPE_LABELS
 from theme.clipboard import copy_to_clipboard
 from theme.dialog._helpers import dialog_actions, form_dialog
 from theme.dialog.confirmation_dialog import ConfirmationDialog
@@ -51,6 +53,9 @@ async def render_api_tokens_section(user: User) -> None:
         with ui.column().classes('input-full-width gap-0'):
             for i, t in enumerate(tokens):
                 is_oauth = t.origin == ApiTokenOrigin.OAUTH.value
+                # A third-party app's grant: its access half lasts an hour and
+                # rotates, so its expiry and prefix say nothing a person can use.
+                is_app = t.origin == ApiTokenOrigin.APP.value
                 if i:
                     ui.separator().classes('q-my-sm')
                 with ui.row().classes('items-center no-wrap w-full gap-2'):
@@ -68,6 +73,8 @@ async def render_api_tokens_section(user: User) -> None:
                                 # a page people skim.
                                 if not t.read_only:
                                     ui.badge('can make changes').props('color=warning')
+                            elif is_app:
+                                ui.badge('App').props('color=primary')
                             elif t.read_only:
                                 ui.badge('read-only').props('color=grey')
                         used = (
@@ -75,17 +82,22 @@ async def render_api_tokens_section(user: User) -> None:
                             if t.last_used_at else 'Never used'
                         )
                         expires = ''
-                        if t.expires_at:
+                        if t.expires_at and not is_app:
                             # A short-lived token needs the hour; a date alone reads as "all day".
                             soon = t.expires_at - datetime.now(timezone.utc) < timedelta(days=2)
                             fmt = format_local_display if soon else format_local_date
                             expires = f' · Expires {fmt(t.expires_at)}'
-                        prefix = '' if is_oauth else f'{t.token_prefix}… · '
+                        prefix = '' if (is_oauth or is_app) else f'{t.token_prefix}… · '
                         ui.label(prefix + used + expires) \
                             .classes('text-caption text-grey-7') \
                             .style('overflow-wrap: anywhere')
-                    label = f'Disconnect {t.name}' if is_oauth else f'Revoke {t.name}'
-                    ui.button(icon='delete', on_click=lambda _, tid=t.id, o=is_oauth: revoke(tid, o)) \
+                        if is_app:
+                            with ui.row().classes('items-center gap-1'):
+                                for scope in sorted(parse_scope(t.scope), key=list(SCOPE_LABELS).index):
+                                    ui.badge(SCOPE_LABELS[scope]).props('outline color=grey-8')
+                    connected = is_oauth or is_app
+                    label = f'Disconnect {t.name}' if connected else f'Revoke {t.name}'
+                    ui.button(icon='delete', on_click=lambda _, tid=t.id, o=connected: revoke(tid, o)) \
                         .classes('col-auto') \
                         .props('flat dense round color=negative') \
                         .tooltip(label)
@@ -100,7 +112,7 @@ async def render_api_tokens_section(user: User) -> None:
             token_list.refresh()
 
         message = (
-            'Disconnect this AI client? It will lose access immediately and must '
+            'Disconnect this? It will lose access immediately and must '
             'be reconnected to use Wizzrobe again.'
             if is_oauth else
             'Revoke this token? Any integration using it will stop working immediately.'

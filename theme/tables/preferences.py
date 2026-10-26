@@ -152,6 +152,7 @@ class TableKeys:
 
     # Platform (super-admin)
     PLATFORM_FEATURE_GROUPS = 'platform.feature_groups'
+    PLATFORM_APPS = 'platform.apps'
     PLATFORM_BROWSER_IGNORE_RULES = 'platform.browser_ignore_rules'
     PLATFORM_LOG_LEVELS = 'platform.log_levels'
     PLATFORM_RACETIME_BOTS = 'platform.racetime_bots'

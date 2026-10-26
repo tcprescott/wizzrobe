@@ -36,6 +36,7 @@ from pages.admin_tabs.admin_theme import admin_theme_page
 from pages.admin_tabs.admin_timezone import admin_timezone_page
 from pages.admin_tabs.admin_webhooks import admin_webhooks_page
 from pages.admin_tabs.settings.community_events import community_events_settings_pane
+from pages.admin_tabs.settings.connected_apps import connected_apps_settings_pane
 from pages.admin_tabs.settings.event import capacity_pane, dates_and_hours_pane
 from pages.admin_tabs.settings.event_timezone import event_timezone_pane
 from pages.admin_tabs.settings.members import members_settings_pane
@@ -156,6 +157,12 @@ def build_settings_panes(access, live: set) -> list[SettingsPane]:
             'integrations', 'Integrations', 'extension',
             'Other services this community sends to or signs in to.',
             embedded=tuple(integrations),
+        ))
+    if is_staff and FeatureFlag.THIRD_PARTY_APPS in live:
+        panes.append(SettingsPane(
+            'apps', 'Connected apps', 'apps',
+            'Outside apps members have connected here, and blocking one.',
+            native=connected_apps_settings_pane,
         ))
     if is_staff:
         panes.append(SettingsPane(

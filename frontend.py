@@ -46,6 +46,7 @@ from pages import (
     live_watch,
     mcp_consent,
     my_messages,
+    oauth_consent,
     password_login,
     platform,
     qualifiers,
@@ -319,6 +320,7 @@ def init(fastapi_app: FastAPI) -> None:
     # Tenant-less like the provider callbacks above: an MCP grant authenticates
     # a person across the platform, not within one community.
     mcp_consent.create()
+    oauth_consent.create()
     # Shared cross-host link handoff routes (/oauth/link/start on the platform
     # host, /oauth/link/claim on custom domains). Registered after the providers
     # so their handoff configs are in the registry; the routes are provider-

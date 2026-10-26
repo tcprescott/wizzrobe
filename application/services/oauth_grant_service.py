@@ -157,6 +157,19 @@ class ConsentView:
 
 
 @dataclass
+class CommunityApp:
+    """One app as this community's staff see it. Plain values; rendered as text."""
+
+    app_id: int
+    name: str
+    owner_name: str
+    homepage_host: Optional[str]
+    members: int
+    blocked: bool
+    disabled: bool
+
+
+@dataclass
 class TokenResponse:
     access_token: str
     refresh_token: str
@@ -283,7 +296,7 @@ class OAuthGrantService:
         app = await self._usable_app(pending.app_id)
         communities: List[ConsentCommunity] = []
         for membership in await TenantMembershipRepository.list_for_user(user):
-            offer = await self._offer(user, membership.tenant_id, pending.requested_scopes)
+            offer = await self._offer(user, membership.tenant_id, pending.app_id, pending.requested_scopes)
             if offer is not None:
                 communities.append(offer)
         homepage_host = urlsplit(app.homepage_url).hostname if app.homepage_url else None
@@ -308,7 +321,7 @@ class OAuthGrantService:
         consumed, so a mistake leaves the consent screen usable.
         """
         pending = self.get_pending(txn_id)
-        offer = await self._offer(user, tenant_id, pending.requested_scopes)
+        offer = await self._offer(user, tenant_id, pending.app_id, pending.requested_scopes)
         if offer is None:
             raise ValueError("You can't connect this app to that community.")
         chosen = strict_scopes(scopes)
@@ -345,13 +358,15 @@ class OAuthGrantService:
         ).redirect_url() or pending.redirect_uri
 
     async def _offer(
-        self, user: User, tenant_id: int, requested: FrozenSet[ApiScope],
+        self, user: User, tenant_id: int, app_id: int, requested: FrozenSet[ApiScope],
     ) -> Optional[ConsentCommunity]:
         """What ``user`` may grant in ``tenant_id``, or None if nothing at all."""
         tenant = await TenantService.get_by_id(tenant_id)
         if tenant is None or not tenant.is_active:
             return None
         if not await TenantService.is_member(user.id, tenant_id):
+            return None
+        if await self.repository.is_blocked(app_id, tenant_id):
             return None
         with tenant_scope(tenant_id):
             if not await FeatureFlagService().is_enabled(FeatureFlag.THIRD_PARTY_APPS):
@@ -431,7 +446,7 @@ class OAuthGrantService:
 
         user = record.user
         with tenant_scope(record.tenant_id):
-            await self._ensure_still_allowed(user, record.tenant_id)
+            await self._ensure_still_allowed(user, record.tenant_id, app.id)
             scopes = parse_scope(record.scope)
             # One live grant per person, app and community: approving again
             # replaces the old one rather than stacking credentials.
@@ -494,7 +509,7 @@ class OAuthGrantService:
 
         assert grant.tenant_id is not None
         with tenant_scope(grant.tenant_id):
-            await self._ensure_still_allowed(grant.user, grant.tenant_id)
+            await self._ensure_still_allowed(grant.user, grant.tenant_id, app.id)
         access_raw, refresh_raw = self._new_pair()
         final = narrowed if narrowed is not None else current
         rotated = await self.token_repository.rotate_refresh(
@@ -537,6 +552,67 @@ class OAuthGrantService:
         if not _app_usable(token.oauth_app):
             raise PermissionError('This app has been disabled.')
         await FeatureFlagService().ensure_enabled(FeatureFlag.THIRD_PARTY_APPS)
+        if (
+            token.tenant_id is not None and token.oauth_app_id is not None
+            and await self.repository.is_blocked(token.oauth_app_id, token.tenant_id)
+        ):
+            raise PermissionError('This community has blocked this app.')
+
+    # --- Community staff ---------------------------------------------------
+
+    async def list_community_apps(self, actor: User) -> List[CommunityApp]:
+        """Apps members of this community have connected, plus any it blocks.
+
+        Staff only. Counts people, never names them, and never shows another
+        community's grants.
+        """
+        await self._ensure_staff_here(actor)
+        users = await self.token_repository.app_grant_users_here()
+        blocked = set(await self.repository.blocked_app_ids())
+        apps = await self.repository.list_by_ids(sorted(set(users) | blocked))
+        return [
+            CommunityApp(
+                app_id=app.id,
+                name=app.name,
+                owner_name=app.owner.preferred_name,
+                homepage_host=urlsplit(app.homepage_url).hostname if app.homepage_url else None,
+                members=users.get(app.id, 0),
+                blocked=app.id in blocked,
+                disabled=app.disabled_at is not None,
+            )
+            for app in apps
+        ]
+
+    async def block_app_here(self, actor: User, app_id: int) -> int:
+        """Block an app in this community and end its grants here. Returns how many ended."""
+        await self._ensure_staff_here(actor)
+        app = await self.repository.get_by_id(app_id)
+        if app is None:
+            raise NotFoundError('App not found.')
+        if not await self.repository.block(app, actor):
+            return 0
+        revoked = await self.token_repository.revoke_app_grants_here(app.id, datetime.now(timezone.utc))
+        await self.audit_service.write_log(
+            actor, AuditActions.OAUTH_APP_BLOCKED,
+            {'app_id': app.id, 'name': app.name, 'grants_revoked': revoked},
+        )
+        return revoked
+
+    async def unblock_app_here(self, actor: User, app_id: int) -> None:
+        """Let members connect an app again. Grants ended by the block stay ended."""
+        await self._ensure_staff_here(actor)
+        app = await self.repository.get_by_id(app_id)
+        if app is None or not await self.repository.unblock(app.id):
+            raise NotFoundError('That app is not blocked here.')
+        await self.audit_service.write_log(
+            actor, AuditActions.OAUTH_APP_UNBLOCKED, {'app_id': app.id, 'name': app.name},
+        )
+
+    @staticmethod
+    async def _ensure_staff_here(actor: User) -> None:
+        """Staff of this community, with apps turned on here."""
+        await FeatureFlagService().ensure_enabled(FeatureFlag.THIRD_PARTY_APPS)
+        await AuthService.ensure(await AuthService.is_staff(actor), 'Only staff can manage connected apps.')
 
     # --- Internals ---------------------------------------------------------
 
@@ -544,10 +620,10 @@ class OAuthGrantService:
     def _new_pair() -> tuple[str, str]:
         return APP_TOKEN_PREFIX + secrets.token_urlsafe(32), APP_REFRESH_PREFIX + secrets.token_urlsafe(32)
 
-    @staticmethod
-    async def _ensure_still_allowed(user: User, tenant_id: int) -> None:
+    async def _ensure_still_allowed(self, user: User, tenant_id: int, app_id: int) -> None:
         """Everything that may have changed since consent: the flag, the
-        community, the account, the membership. Runs inside ``tenant_scope``."""
+        community, a block on the app there, the account, the membership.
+        Runs inside ``tenant_scope``."""
         try:
             await FeatureFlagService().ensure_enabled(FeatureFlag.THIRD_PARTY_APPS)
         except FeatureDisabledError:
@@ -557,6 +633,8 @@ class OAuthGrantService:
             raise OAuthError('invalid_grant', 'This community is inactive.')
         if not user.is_active:
             raise OAuthError('invalid_grant', 'This account is inactive.')
+        if await self.repository.is_blocked(app_id, tenant_id):
+            raise OAuthError('invalid_grant', 'This community has blocked this app.')
         if not await TenantService.is_member(user.id, tenant_id):
             raise OAuthError('invalid_grant', 'You are no longer a member of this community.')
 

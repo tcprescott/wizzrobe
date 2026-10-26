@@ -10,11 +10,12 @@ are stored. Non-secret fixtures.
 import hashlib
 from datetime import datetime, timedelta
 
-from models import ApiToken, ApiTokenOrigin, OAuthApp, OAuthAppCode, OAuthClientType, Tenant, User
+from models import ApiToken, ApiTokenOrigin, OAuthApp, OAuthAppBlock, OAuthAppCode, OAuthClientType, Tenant, User
 
 DEV_CONFIDENTIAL_CLIENT_ID = 'wza_devseed_schedule_bot'
 DEV_CONFIDENTIAL_CLIENT_CRED = 'wzs_devseed_local_only_do_not_use'
 DEV_PUBLIC_CLIENT_ID = 'wza_devseed_desktop_client'
+DEV_BLOCKED_CLIENT_ID = 'wza_devseed_blocked_app'
 
 
 def _sha(value: str) -> str:
@@ -50,6 +51,22 @@ async def _seed_apps(owner: User) -> OAuthApp:
     return confidential
 
 
+async def _seed_blocked_app(owner: User) -> OAuthApp:
+    """An app every seeded community blocks, so Connected apps shows the state."""
+    blocked, _ = await OAuthApp.get_or_create(
+        client_id=DEV_BLOCKED_CLIENT_ID,
+        defaults={
+            'owner': owner,
+            'name': 'Dev Blocked App',
+            'description': 'An app staff blocked here. Seeded fixture.',
+            'client_type': OAuthClientType.PUBLIC,
+            'redirect_uris': ['http://127.0.0.1:8767/callback'],
+            'allowed_scopes': ['profile', 'staff:read'],
+        },
+    )
+    return blocked
+
+
 async def seed_oauth_apps_for_tenant(tenant: Tenant, staff: User, now: datetime) -> None:
     """Seed the global apps (once) and this tenant's dev grant and spent code."""
     app = await _seed_apps(staff)
@@ -77,4 +94,6 @@ async def seed_oauth_apps_for_tenant(tenant: Tenant, staff: User, now: datetime)
             'grant': grant,
         },
     )
+    blocked = await _seed_blocked_app(staff)
+    await OAuthAppBlock.get_or_create(tenant=tenant, app=blocked, defaults={'blocked_by': staff})
     print(f'    [{tenant.slug}] oauth apps ok (dev app bearer: {bearer})')

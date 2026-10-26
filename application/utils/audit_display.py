@@ -380,6 +380,8 @@ ACTION_LABELS: dict[str, str] = {
     'oauth_app.deleted': 'Deleted an app',
     'oauth_app.disabled': 'Disabled an app',
     'oauth_app.enabled': 'Re-enabled an app',
+    'oauth_app.blocked': 'Blocked an app in this community',
+    'oauth_app.unblocked': 'Unblocked an app in this community',
     'oauth_grant.created': 'Connected an app',
     'oauth_grant.revoked': 'Disconnected an app',
     'oauth_grant.refresh_reused': 'Cut off an app after a reused sign-in token',
