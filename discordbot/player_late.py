@@ -1,4 +1,4 @@
-"""The stage reminder DM's Running late button, for the match's players.
+"""The stage reminder DM's Tell staff I'm late button, for the match's players.
 
 custom_id formats:
   'match_late:<match_id>'                ask how late (ephemeral choice)
@@ -17,15 +17,15 @@ LATE_PREFIX = 'match_late'
 LATE_MINUTES_PREFIX = 'match_late_min'
 
 MSG_UNEXPECTED_ERROR = (
-    "Something went wrong telling staff. Please try again, or use Running late "
-    "on My Schedule."
+    "Something went wrong telling staff. Please try again, or use Tell staff "
+    "I'm late on My Schedule."
 )
 
 
 def make_player_late_view(match_id: int) -> discord.ui.View:
     view = discord.ui.View(timeout=None)
     view.add_item(discord.ui.Button(
-        label='Running late', style=discord.ButtonStyle.secondary,
+        label="Tell staff I'm late", style=discord.ButtonStyle.secondary,
         custom_id=f'{LATE_PREFIX}:{match_id}',
     ))
     return view

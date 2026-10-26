@@ -618,11 +618,11 @@ class DiscordService(GuildOpsMixin, ScheduledEventsMixin):
         link: Optional[DMLink] = None,
         notice: Optional[NoticeTarget] = None,
     ) -> Tuple[bool, str]:
-        """Send the shift-start DM: I'm here / Running late / I can't make it."""
+        """Send the shift-start DM: I'm here / Tell staff I'm late / I can't make it."""
         return await self.send_dm(user_id, message, lambda: _view_factories[VIEW_VOLUNTEER_ARRIVAL](assignment_id), embed=embed, link=link, notice=notice)
 
     async def send_dm_with_player_late_button(self, user_id: int, message: str, match_id: int, embed: Optional[discord.Embed] = None, link: Optional[DMLink] = None, notice: Optional[NoticeTarget] = None) -> Tuple[bool, str]:
-        """Send a match player's DM with a Running late button."""
+        """Send a match player's DM with a Tell staff I'm late button."""
         return await self.send_dm(user_id, message, lambda: _view_factories[VIEW_PLAYER_LATE](match_id), embed=embed, link=link, notice=notice)
 
     async def send_dm_with_unwatch_button(self, user_id: int, message: str, match_id: int, embed: Optional[discord.Embed] = None, link: Optional[DMLink] = None, notice: Optional[NoticeTarget] = None) -> Tuple[bool, str]:

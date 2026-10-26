@@ -264,7 +264,7 @@ class MatchNotificationMixin:
                 AUDIENCE_WATCHER: '⏰ A match you watch is coming up on stage',
             },
             descriptions={
-                AUDIENCE_PLAYER: "Head to the stage now. Running late? Tap **Running late** so staff know.",
+                AUDIENCE_PLAYER: "Head to the stage now. Running late? Tap **Tell staff I'm late**.",
                 AUDIENCE_CREW: 'Head to the stage now.',
                 AUDIENCE_WATCHER: 'It starts soon.',
             },
@@ -415,7 +415,7 @@ class MatchNotificationMixin:
     ) -> None:
         """One DM of a per-audience fan-out; a failure is logged, not raised.
 
-        ``late_button`` puts Running late on a player's copy (the stage reminder).
+        ``late_button`` puts Tell staff I'm late on a player's copy (the stage reminder).
         """
         try:
             if late_button:

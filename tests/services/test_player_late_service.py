@@ -287,4 +287,4 @@ class TestRows:
 
         assert row['_my_late'] == '~20 min'
         assert row['_can_late'] is False
-        assert row['_status'] == 'Running ~20 min'
+        assert row['_status'] == 'Staff know: ~20 min'

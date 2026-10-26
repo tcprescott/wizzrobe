@@ -129,7 +129,7 @@ turns up without checking in, press the check-in button beside their name. Once
 someone's checked in, they can't give the shift back from their phone, so they'll
 need to come and talk to you.
 
-If someone taps **Running late** in the shift-start DM, they keep the shift, and
+If someone taps **Tell staff I'm late** in the shift-start DM, they keep the shift, and
 every coordinator and staff member gets a DM saying how late they expect to be.
 
 ## The auto-scheduler
