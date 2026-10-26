@@ -449,7 +449,9 @@ class PersonalWebhookService:
         error: Optional[str] = None
         async with httpx.AsyncClient(timeout=self.DELIVERY_TIMEOUT, follow_redirects=False) as client:
             for attempt in range(MAX_ATTEMPTS):
-                target, extra_headers, extensions = webhook.url, {}, {}
+                target = webhook.url
+                extra_headers: Dict[str, str] = {}
+                extensions: Dict[str, str] = {}
                 if is_production():
                     try:
                         target, extra_headers, extensions = await pin_public_url(
@@ -508,8 +510,9 @@ class PersonalWebhookService:
         match = await MatchRepository.get_by_id(int(match_id))
         if match is None:
             return None
-        players = list(match.players)
-        crew_ids = {c.user_id for c in [*match.commentators, *match.trackers] if c.approved}
+        players = list(match.players)  # type: ignore[attr-defined]
+        crew = [*match.commentators, *match.trackers]  # type: ignore[attr-defined]
+        crew_ids = {c.user_id for c in crew if c.approved}
         about_me = owner.id in {p.user_id for p in players} or owner.id in crew_ids
         tournament = match.tournament
         stage = match.stage
@@ -582,7 +585,7 @@ class PersonalWebhookService:
             return None
         run_id = event.payload.get('run_id')
         run = await AsyncQualifierRunRepository().get_by_id(int(run_id)) if run_id else None
-        if run is None or run.user_id != owner.id:
+        if run is None or run.user_id != owner.id:  # type: ignore[attr-defined]
             return None
         qualifier = run.qualifier
         data = {'run': {
@@ -606,7 +609,7 @@ class PersonalWebhookService:
             entrants = [s.entrant for s in sides if s is not None]
             about_me = any(e.user_id == owner.id for e in entrants)
             winner = next(
-                (s.entrant.display_name for s in sides if s is not None and s.id == bracket_match.winner_id),
+                (s.entrant.display_name for s in sides if s is not None and s.id == bracket_match.winner_id),  # type: ignore[attr-defined]
                 None,
             )
             scores = [bracket_match.entry1_score, bracket_match.entry2_score]
@@ -639,7 +642,7 @@ class PersonalWebhookService:
         room = await RacetimeRoomRepository.get_by_id(int(room_id)) if room_id else None
         if room is None:
             return None
-        view = await self._match_view(room.match_id, owner)
+        view = await self._match_view(room.match_id, owner)  # type: ignore[attr-defined]
         if view is None:
             return None
         view.data['race_room'] = {'url': room.url, 'status': room.status.value}

@@ -49,12 +49,12 @@ class PersonalWebhook(Model):
     """
 
     id = fields.IntField(pk=True)
-    tenant = fields.ForeignKeyField('models.Tenant', related_name='personal_webhooks', on_delete=fields.CASCADE)
-    user = fields.ForeignKeyField('models.User', related_name='personal_webhooks', on_delete=fields.CASCADE)
+    tenant: fields.ForeignKeyRelation = fields.ForeignKeyField('models.Tenant', related_name='personal_webhooks', on_delete=fields.CASCADE)
+    user: fields.ForeignKeyRelation = fields.ForeignKeyField('models.User', related_name='personal_webhooks', on_delete=fields.CASCADE)
     name = fields.CharField(max_length=80)
     url = fields.CharField(max_length=1024)
     secret = fields.CharField(max_length=128)
-    event_types = fields.JSONField(default=list)
+    event_types: list = fields.JSONField(default=list)
     only_mine = fields.BooleanField(default=True)
     is_active = fields.BooleanField(default=True)
     paused_reason = fields.CharField(max_length=255, null=True)
