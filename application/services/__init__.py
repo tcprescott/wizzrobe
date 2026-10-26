@@ -61,6 +61,7 @@ from .challonge_service import ChallongeService
 from .check_in_desk_service import CheckInDeskService
 from .check_in_service import CheckInService
 from .community_event_service import CommunityEventService, EventDraft
+from .crew_hold_service import CrewHoldService
 from .crew_service import CrewService
 from .discord import (
     DiscordEmailService,
@@ -193,6 +194,7 @@ __all__ = [
     'CheckInService',
     'CommunityEventService',
     'CommunityOverview',
+    'CrewHoldService',
     'CrewService',
     'DataExportService',
     'DiscordEmailService',

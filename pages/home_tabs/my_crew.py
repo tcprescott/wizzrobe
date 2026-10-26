@@ -25,7 +25,7 @@ from theme.dialog.match_sheet import MatchSheet
 from theme.section import section_panel
 from theme.tables.match import MatchTableView
 from theme.tables.match_access import MatchBoardAccess
-from theme.tables.match_player_run_sheet import PLAYER_RUN_SHEET_COLUMNS, decorate_player_row
+from theme.tables.match_player_run_sheet import NOT_BOOKED_GROUP, PLAYER_RUN_SHEET_COLUMNS, decorate_player_row
 from theme.tables.preferences import TableKeys
 
 #: The section's DOM id, so a crew DM's link can scroll to it.
@@ -90,6 +90,8 @@ async def my_crew_tab(
             layout='player_run_sheet',
             on_open_match=sheet.open,
         )
+        # Their own signups on matches not booked yet stay in sight here.
+        view.open_by_default = (NOT_BOOKED_GROUP,)
         sheet.view = view
         if match_ids:
             view.show_one_match_chip(home_url(HOME_MY_CREW), 'Show all your crew slots')

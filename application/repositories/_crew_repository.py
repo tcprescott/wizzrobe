@@ -66,6 +66,7 @@ class CrewRepository(Generic[T]):
                 Q(match__scheduled_at__gte=since)
                 | Q(match__finished_at__isnull=True,
                     match__scheduled_at__gte=since - STALE_UNFINISHED)
+                | Q(match__crew_hold_source__isnull=False)
             )
         return await query.prefetch_related(
             'match', 'match__tournament', 'match__stage',
@@ -88,6 +89,11 @@ class CrewRepository(Generic[T]):
         await crew_member.update_from_dict(fields)
         await save_fields(crew_member, *fields)
         return crew_member
+
+    @classmethod
+    async def move_to_match(cls, crew_member: T, match: Match) -> T:
+        """Re-point a signup at another match, keeping its id, approval and acknowledgment."""
+        return await cls.update(crew_member, match_id=match.id)
 
     @classmethod
     async def delete(cls, crew_member: T) -> None:

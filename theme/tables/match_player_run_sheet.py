@@ -52,7 +52,10 @@ PLAYER_MENU_COLUMN = {'name': MY_ACTIONS_COLUMN, 'label': 'More', 'field': MY_AC
 _LIVE = (0, 'Live now')
 _NEXT = (1, 'Up next')
 _NO_PLAYERS = (2, 'Waiting for players')
-_DONE = (3, 'Finished')
+# Bracket matchups nobody has booked, which crew can sign up for ahead.
+NOT_BOOKED_GROUP = 'Not scheduled yet'
+_NOT_BOOKED = (3, NOT_BOOKED_GROUP)
+_DONE = (4, 'Finished')
 
 _ROLES = (
     # (row key, singular the board's handlers take, label)
@@ -68,6 +71,8 @@ def player_status(row: dict) -> tuple[str, str]:
     can act on, so a recorded result reads as Finished until it's official.
     """
     state = row.get('state')
+    if row.get('crew_hold'):
+        return ('Players TBD' if row.get('_players_tbd') else 'Waiting on players'), 'neutral'
     if state == 'Confirmed':
         return 'Confirmed', 'ok'
     if state == 'Finished':
@@ -84,6 +89,8 @@ def player_status(row: dict) -> tuple[str, str]:
 
 
 def _group(row: dict) -> tuple[int, str]:
+    if row.get('crew_hold'):
+        return _NOT_BOOKED
     state = row.get('state')
     if state in ('Finished', 'Confirmed'):
         return _DONE
@@ -114,8 +121,9 @@ def player_crew(row: dict, discord_id) -> list[dict]:
     required = row.get('crew_required') or {}
     recruiting = row.get('state') not in ('Started', 'Finished', 'Confirmed')
     open_ = recruiting and bool(row.get('crew_signup_open'))
-    plays = bool(discord_id) and any(
+    plays = bool(discord_id) and (any(
         str(p.get('discord_id')) == str(discord_id) for p in row.get('players') or [])
+        or str(discord_id) in (row.get('_crew_blocked') or []))
     roles = []
     for key, singular, label in _ROLES:
         people = row.get(key) or []
@@ -230,6 +238,8 @@ def arrange_player_run_sheet(rows: list, discord_id) -> list:
     def key(row):
         order, _ = _group(row)
         ts = row.get('started_ts') or row.get('scheduled_ts') or 0
+        if order == _NOT_BOOKED[0]:
+            return (order, row.get('_future_order') or 0)
         return (order, -ts if order == _DONE[0] else ts)
 
     arranged = sorted(rows, key=key)
@@ -248,7 +258,7 @@ def arrange_player_run_sheet(rows: list, discord_id) -> list:
 
 
 _WHEN = r'''<span v-if="props.row._time" class="run-sheet__time" :class="props.row._status === 'Late' ? 'st-pending' : ''">{{ props.row._time }}</span>
-<span v-else class="run-sheet__day">No time</span>
+<span v-else class="run-sheet__day">{{ props.row.crew_hold ? 'Not booked' : 'No time' }}</span>
 ''' + UNTIL_LINE + r'''
 <span v-if="props.row._day && props.row._day !== 'Today'" class="run-sheet__day">{{ props.row._day }}</span>''' + HELD_TAG
 
@@ -305,7 +315,7 @@ _LATE = r'''<q-btn v-if="props.row._can_late" outline no-caps no-wrap color="pri
     <q-tooltip>Tell staff on duty you're on your way</q-tooltip>
 </q-btn>'''
 
-_BELL = r'''<q-btn :icon="props.row._watching ? 'notifications' : 'notifications_none'"
+_BELL = r'''<q-btn v-if="!props.row.crew_hold" :icon="props.row._watching ? 'notifications' : 'notifications_none'"
        :color="props.row._watching ? 'primary' : 'grey-8'" flat round dense
        @click.stop="$parent.$emit('toggle_watch', props.row)"
        :aria-label="props.row._watching ? 'Stop watching this match' : 'Watch this match for Discord updates'">

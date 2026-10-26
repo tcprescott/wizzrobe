@@ -34,9 +34,13 @@ async def crew_dm_parts(match):
     """
     players = await match.players.all().prefetch_related('user')
     player_names = [p.user.preferred_name for p in players] if players else []
+    # A booking ahead, or a crew hold, names the sides the bracket hasn't filled.
+    player_names += list(getattr(match, 'bracket_placeholders', None) or [])
+    when = time_field(match.scheduled_at) or (
+        'Not booked yet' if getattr(match, 'crew_hold_source', None) else '')
     message_kwargs = {
         'match_title': match.title or None,
-        'scheduled_at_display': time_field(match.scheduled_at),
+        'scheduled_at_display': when,
         'stage_name': match.stage.name if match.stage else None,
         'player_names': player_names or None,
     }
@@ -45,7 +49,7 @@ async def crew_dm_parts(match):
     fields = [('Match', match.title or players_str, False)]
     if match.title and players_str:
         fields.append(('Players', players_str, True))
-    fields.append(('Time', time_field(match.scheduled_at), False))
+    fields.append(('Time', when, False))
     if match.stage:
         fields.append(('Stage', match.stage.name, True))
     return message_kwargs, fields

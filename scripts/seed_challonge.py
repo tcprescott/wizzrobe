@@ -12,6 +12,7 @@ from models import (
     ChallongeMatch,
     ChallongeMatchState,
     ChallongeParticipant,
+    Commentator,
     Match,
     MatchPlayers,
     Tenant,
@@ -198,6 +199,17 @@ async def seed_challonge_for_tenant(
         defaults={"round": 3, "state": ChallongeMatchState.PENDING, "identifier": "G",
                   "participant1": participants["cp_1"], "slot2_prereq": "cm_2", "match": ahead},
     )
+    # SM User signed up to commentate cm_6 before anyone booked it: the crew
+    # hold behind Event › Schedule's "Not scheduled yet" line, waiting for
+    # approval (CrewHoldService). The other open matchups there have no hold.
+    cm6 = await ChallongeMatch.get(tournament=tournament, challonge_match_id="cm_6", tenant=tenant)
+    hold, _ = await Match.get_or_create(
+        tournament=tournament, tenant=tenant, crew_hold_source="challonge", crew_hold_key=cm6.id,
+        defaults={"scheduled_at": None, "title": "Round 3",
+                  "bracket_placeholders": ["Player Two or Player Four", "Winner of B"]},
+    )
+    await Commentator.get_or_create(match=hold, user=users["sm_user"], tenant=tenant,
+                                    defaults={"approved": False})
     await Match.get_or_create(
         tournament=tournament, tenant=tenant, title="Booked ahead, bracket reset",
         defaults={"scheduled_at": now_utc + timedelta(days=2, hours=2),

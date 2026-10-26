@@ -351,6 +351,11 @@ TRACKER_WITHDREW = _notice(
     'tracker_withdrew', 'Crew', 'Tracker withdrew',
     'An approved tracker drops out', {ADMINS: PING}, {ADMINS: _CREW_DROPPED},
 )
+CREW_BOOKED_BUSY = _notice(
+    'crew_booked_busy', 'Crew', 'Crew busy at the booked time',
+    'A bracket match crew signed up for ahead gets a time an approved member is already busy at',
+    {ADMINS: PING}, {ADMINS: _CREW_DROPPED},
+)
 
 # Volunteer shifts
 SHIFT_ASSIGNED = _notice(
@@ -673,6 +678,7 @@ _ACT: Dict[str, frozenset] = {
     CREW_UNASSIGNED.key: frozenset({CREW}),
     COMMENTATOR_WITHDREW.key: frozenset({ADMINS}),
     TRACKER_WITHDREW.key: frozenset({ADMINS}),
+    CREW_BOOKED_BUSY.key: frozenset({ADMINS}),
     SHIFT_ASSIGNED.key: frozenset({VOLUNTEERS}),
     SHIFT_MOVED.key: frozenset({VOLUNTEERS}),
     SHIFT_REMOVED.key: frozenset({VOLUNTEERS}),

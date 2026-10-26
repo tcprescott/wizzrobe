@@ -64,6 +64,12 @@ class Match(Model):
     # A bracket reset removed the matchup a placeholder booking hung off; staff
     # re-link it from Not booked yet.
     bracket_link_lost = fields.BooleanField(default=False)
+    # Crew signed up for a bracket matchup nobody has booked yet: this match
+    # holds their signups (source "challonge", "startgg" or "bracket", and that
+    # source's row id). It has no players and no time. Booking the matchup moves
+    # the crew onto the booking and deletes this one. Null on every other match.
+    crew_hold_source = fields.CharField(max_length=16, null=True)
+    crew_hold_key = fields.IntField(null=True)
     # One game of a best-of set booked from a Challonge or start.gg matchup.
     # Game 1 holds the bracket link; later games point at it through
     # ``set_first``, and the set's result reaches the bracket once someone has
@@ -118,6 +124,7 @@ class Match(Model):
         # scheduled_at / finished_at are indexed at the field level; these FK
         # columns drive the tournament- and stage-scoped schedule/report filters.
         indexes = (('tournament',), ('stage',))
+        unique_together = (('tenant', 'crew_hold_source', 'crew_hold_key'),)
 
 
 class MatchPlayers(Model):
