@@ -13,6 +13,7 @@ from typing import Iterable, List, Optional
 
 from tortoise.transactions import in_transaction
 
+from application.event_writes import ensure_writable
 from application.repositories import (
     AsyncQualifierPermalinkRepository,
     AsyncQualifierPoolRepository,
@@ -144,6 +145,7 @@ class AsyncQualifierDraw:
                 # One statement rather than one per run: a permalink at real scale
                 # holds hundreds of approved runs and every review re-scores all of
                 # them, inside the request the reviewer is waiting on.
+                await ensure_writable(AsyncQualifierRun.filter(id__in=[run.id for run in rescored]))
                 await AsyncQualifierRun.bulk_update(rescored, fields=['score'])
 
     async def _qualifier_for_permalink(

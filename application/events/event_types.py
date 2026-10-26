@@ -110,6 +110,8 @@ class EventType:
     RACE_ROOM_FINISHED = 'race_room.finished'
     RACE_ROOM_CANCELLED = 'race_room.cancelled'
     RACE_ROOM_RESULT_RECORDED = 'race_room.result_recorded'
+    RACE_ROOM_RESULT_HELD = 'race_room.result_held'
+    RACE_ROOM_FPA_CALLED = 'race_room.fpa_called'
 
     # SpeedGaming ETL (mirrors AuditActions.SG_*). Tenant-scoped domain events a
     # webhook subscriber can act on; published by the sync worker as the system
@@ -133,6 +135,12 @@ class EventType:
     # platform-level subscriber can act on it. Not mirrored by an AuditAction:
     # health transitions are observations by the monitor, not user actions.
     SERVICE_HEALTH_ALERT = 'service_health.alert'
+
+    # A member connecting a third-party app to this community, and that
+    # connection ending (the member, the app, staff, or reuse detection). The
+    # payload names the app and the scopes, never a token.
+    OAUTH_GRANT_CREATED = 'oauth_grant.created'
+    OAUTH_GRANT_REVOKED = 'oauth_grant.revoked'
 
     # Async Qualifiers (PR 9; mirrors AuditActions.ASYNC_QUALIFIER_RUN_*). A run
     # entering review (submitted) and a run being reviewed (approved/rejected) are
@@ -277,9 +285,11 @@ class EventType:
         VOLUNTEER_RUNNING_LATE, VOLUNTEER_CALLED_OFF, VOLUNTEER_CALL_OFF_UNDONE,
         RACE_ROOM_CREATED, RACE_ROOM_OPENED, RACE_ROOM_STARTED,
         RACE_ROOM_FINISHED, RACE_ROOM_CANCELLED, RACE_ROOM_RESULT_RECORDED,
+        RACE_ROOM_RESULT_HELD, RACE_ROOM_FPA_CALLED,
         SG_EPISODE_IMPORTED, SG_EPISODE_CANCELLED, SG_MATCH_AUTO_FINISHED,
         DISCORD_EVENT_CREATED, DISCORD_EVENT_UPDATED, DISCORD_EVENT_CANCELLED,
         SERVICE_HEALTH_ALERT,
+        OAUTH_GRANT_CREATED, OAUTH_GRANT_REVOKED,
         ASYNC_QUALIFIER_RUN_SUBMITTED, ASYNC_QUALIFIER_RUN_REVIEWED,
         ASYNC_QUALIFIER_RUN_EXPIRED, ASYNC_QUALIFIER_RUN_FORFEITED,
         ASYNC_QUALIFIER_RUN_REATTEMPTED,

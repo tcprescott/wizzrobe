@@ -3,6 +3,7 @@
 from datetime import datetime, timedelta, timezone
 from typing import List, Optional
 
+from application.event_writes import guarded_update
 from application.repositories._base import TenantScopedRepository
 from application.repositories._tenant import current_tenant_id, scoped
 from models import ProviderTask, ProviderTaskStatus
@@ -116,9 +117,9 @@ class ProviderTaskRepository(TenantScopedRepository[ProviderTask]):
         completed: Optional[datetime] = (
             datetime.now(timezone.utc) if status in ProviderTaskStatus.terminal() else None
         )
-        updated = await ProviderTask.filter(
+        updated = await guarded_update(ProviderTask.filter(
             id=task.id, status=task.status
-        ).update(status=status, completed_at=completed)
+        ), status=status, completed_at=completed)
         if updated:
             task.status = status
             task.completed_at = completed  # type: ignore[assignment]

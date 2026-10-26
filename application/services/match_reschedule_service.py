@@ -101,8 +101,9 @@ class MatchRescheduleService(RescheduleNotificationMixin):
         actor: Optional[User] = None,
         *,
         tournament_ids: Optional[List[int]] = None,
+        event_id: Optional[int] = None,
     ) -> List[MatchRescheduleRequest]:
-        """The staff queue for this community.
+        """The staff queue for this community, or for one of its events.
 
         Gated, unlike :meth:`list_mine`: a request carries the player's own words
         about why they need the change, which is not schedule data and is nobody
@@ -123,7 +124,7 @@ class MatchRescheduleService(RescheduleNotificationMixin):
             tournament_ids = sorted(
                 admin_ids if tournament_ids is None else admin_ids & set(tournament_ids)
             )
-        return await self.repository.list_pending(tournament_ids=tournament_ids)
+        return await self.repository.list_pending(tournament_ids=tournament_ids, event_id=event_id)
 
     async def list_mine(self, actor: User, limit: int = 25) -> List[MatchRescheduleRequest]:
         """What ``actor`` has asked for, and what became of it.

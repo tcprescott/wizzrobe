@@ -60,6 +60,10 @@ def page_header(title: str, subtitle: Optional[str] = None) -> ui.row:
                 _titled.set(True)
         if subtitle:
             ui.label(subtitle).classes('wiz-page-header__sub')
+    if not nested:
+        # Under the title of a page that shows an archived event (layout A).
+        from theme.archived_banner import render_archived_banner
+        render_archived_banner()
     return row
 
 

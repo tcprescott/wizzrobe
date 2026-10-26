@@ -431,7 +431,7 @@ class TestNotifyTournamentSubscribersScheduled:
         # back into the app.
         service.discord_service.send_dm_with_crew_buttons.assert_awaited_once_with(
             999, "msg", match.id, embed=None, link=None,
-            notice=MATCH_SCHEDULED.to(FOLLOWERS),
+            notice=MATCH_SCHEDULED.to(FOLLOWERS), broadcaster=False,
         )
         assert MATCH_SCHEDULED.to(FOLLOWERS).default is NotificationMode.SILENT
 
@@ -608,7 +608,8 @@ class TestCollectNotifiedDiscordIds:
 
         with self._patch_query('application.services.match._match_recipients.MatchPlayers.filter', [player]), \
              self._patch_query('application.services.match._match_recipients.Commentator.filter', [commentator]), \
-             self._patch_query('application.services.match._match_recipients.Tracker.filter', [tracker]):
+             self._patch_query('application.services.match._match_recipients.Tracker.filter', [tracker]), \
+             self._patch_query('application.services.match._match_recipients.Broadcaster.filter', []):
             ids = await service._collect_notified_discord_ids(match)
 
         assert ids == [111, 222]
@@ -670,6 +671,7 @@ class TestNotifyMatchParticipants:
         with self._patch_query('application.services.match._match_recipients.MatchPlayers.filter', [player]), \
              self._patch_query('application.services.match._match_recipients.Commentator.filter', []), \
              self._patch_query('application.services.match._match_recipients.Tracker.filter', []), \
+             self._patch_query('application.services.match._match_recipients.Broadcaster.filter', []), \
              self._patch_query('application.services.match._match_recipients.MatchWatcher.filter', []):
             await real_notify_service.notify_match_participants(match, "hello", notice=MATCH_CHECKED_IN)
 
@@ -683,6 +685,7 @@ class TestNotifyMatchParticipants:
         with self._patch_query('application.services.match._match_recipients.MatchPlayers.filter', []), \
              self._patch_query('application.services.match._match_recipients.Commentator.filter', []), \
              self._patch_query('application.services.match._match_recipients.Tracker.filter', []), \
+             self._patch_query('application.services.match._match_recipients.Broadcaster.filter', []), \
              self._patch_query('application.services.match._match_recipients.MatchWatcher.filter', [watcher]):
             await real_notify_service.notify_match_participants(match, "hello", notice=MATCH_CHECKED_IN)
 
@@ -698,6 +701,7 @@ class TestNotifyMatchParticipants:
         with self._patch_query('application.services.match._match_recipients.MatchPlayers.filter', [player]), \
              self._patch_query('application.services.match._match_recipients.Commentator.filter', []), \
              self._patch_query('application.services.match._match_recipients.Tracker.filter', []), \
+             self._patch_query('application.services.match._match_recipients.Broadcaster.filter', []), \
              self._patch_query('application.services.match._match_recipients.MatchWatcher.filter', [watcher]):
             await real_notify_service.notify_match_participants(match, "hello", notice=MATCH_CHECKED_IN)
 
@@ -712,6 +716,7 @@ class TestNotifyMatchParticipants:
         with self._patch_query('application.services.match._match_recipients.MatchPlayers.filter', [player]), \
              self._patch_query('application.services.match._match_recipients.Commentator.filter', []), \
              self._patch_query('application.services.match._match_recipients.Tracker.filter', []), \
+             self._patch_query('application.services.match._match_recipients.Broadcaster.filter', []), \
              self._patch_query('application.services.match._match_recipients.MatchWatcher.filter', [watcher]):
             await real_notify_service.notify_match_participants(match, "hello", notice=MATCH_STARTED)
 
@@ -734,6 +739,7 @@ class TestNotifyMatchParticipants:
         with self._patch_query('application.services.match._match_recipients.MatchPlayers.filter', [player]), \
              self._patch_query('application.services.match._match_recipients.Commentator.filter', []), \
              self._patch_query('application.services.match._match_recipients.Tracker.filter', []), \
+             self._patch_query('application.services.match._match_recipients.Broadcaster.filter', []), \
              self._patch_query('application.services.match._match_recipients.MatchWatcher.filter', [watcher]):
             await real_notify_service.notify_match_participants(
                 match, "hello", notice=MATCH_CHECKED_IN, player_copies={111: ("your seat A1", None)},
@@ -749,6 +755,7 @@ class TestNotifyMatchParticipants:
         with self._patch_query('application.services.match._match_recipients.MatchPlayers.filter', [opted_out]), \
              self._patch_query('application.services.match._match_recipients.Commentator.filter', []), \
              self._patch_query('application.services.match._match_recipients.Tracker.filter', []), \
+             self._patch_query('application.services.match._match_recipients.Broadcaster.filter', []), \
              self._patch_query('application.services.match._match_recipients.MatchWatcher.filter', []):
             await real_notify_service.notify_match_participants(match, "hello", notice=MATCH_CHECKED_IN)
 
@@ -766,6 +773,7 @@ class TestNotifyMatchParticipants:
              self._patch_query('application.services.match._match_recipients.Commentator.filter',
                                [SimpleNamespace(user=crew_user)]), \
              self._patch_query('application.services.match._match_recipients.Tracker.filter', []), \
+             self._patch_query('application.services.match._match_recipients.Broadcaster.filter', []), \
              self._patch_query('application.services.match._match_recipients.MatchWatcher.filter',
                                [SimpleNamespace(user=watcher_user)]):
             await real_notify_service.notify_match_participants(match, "msg", notice=MATCH_CHECKED_IN)

@@ -30,6 +30,7 @@ from theme.busy import slot_busy_template
 from theme.matchup import WHO_PARTS_VUE
 from theme.tables.match_slots import seed_value_template
 from theme.tables.run_sheet_meta import META, META_WITH_STAGE, RAIL, STATUS_WORD, card_head
+from theme.tables.run_sheet_tags import comment_badges, late_tags
 
 #: The board's columns. Kept short on purpose: anything wider than "which match,
 #: when, where, how is it doing" belongs in the sheet.
@@ -41,6 +42,7 @@ RUN_SHEET_COLUMNS = [
     {'name': 'stage', 'label': 'Stage', 'field': 'stage', 'align': 'left'},
     {'name': 'commentators', 'label': 'Commentators', 'field': '_crew_by', 'align': 'left'},
     {'name': 'trackers', 'label': 'Trackers', 'field': '_crew_by', 'align': 'left'},
+    {'name': 'broadcasters', 'label': 'Broadcasters', 'field': '_crew_by', 'align': 'left'},
     {'name': 'status', 'label': 'Status', 'field': 'state', 'align': 'left'},
 ]
 
@@ -70,6 +72,8 @@ def run_sheet_status(row: dict) -> tuple[str, str]:
     One word or two, never the raw state plus a timestamp: "Late" and "No
     result" are what an operator acts on, and neither is a state.
     """
+    if held := row.get('racetime_held'):
+        return f"Held · {held['label']}", 'pending'
     site = row.get('played_on_site')
     if site:
         if site.get('no_winner'):
@@ -310,7 +314,7 @@ def _day_label(ts) -> str:
     return f'{local:%a} {local.day} {local:%b}'
 
 
-_CREW_ROLES = (('commentators', 'Commentary'), ('trackers', 'Tracking'))
+_CREW_ROLES = (('commentators', 'Commentary'), ('trackers', 'Tracking'), ('broadcasters', 'Broadcast'))
 
 
 def crew_people(people: list, discord_id=None, *, waiting_note: str = 'to approve') -> list[dict]:
@@ -451,39 +455,6 @@ def decorate_run_sheet_row(row: dict) -> dict:
     return row
 
 
-def late_tags(row: dict) -> list[dict]:
-    """'Player One ~20 min late · said 09:41' per player who told staff they're late.
-
-    ``note`` is what they added, for the tag's hover title; the Needs you inbox
-    prints it in full.
-    """
-    return [{
-        'key': entry.get('user_id'),
-        'label': f"{entry.get('name')} {entry.get('tag')} late"
-                 + (f" · said {entry['said']}" if entry.get('said') else ''),
-        'note': entry.get('note') or '',
-    } for entry in row.get('late') or []]
-
-
-def comment_badges(counts) -> list[dict]:
-    """The line's comment counts, players first, leaving out a zero.
-
-    ``counts`` is only set on a staff board (``MatchTableView.show_comment_counts``),
-    since the staff number includes private notes.
-    """
-    if not counts:
-        return []
-    badges = []
-    for key, icon, one, many in (
-        ('player', 'person', 'player comment', 'player comments'),
-        ('staff', 'shield', 'staff comment', 'staff comments'),
-    ):
-        n = counts.get(key) or 0
-        if n:
-            badges.append({'key': key, 'icon': icon, 'n': n, 'label': f"{n} {one if n == 1 else many}"})
-    return badges
-
-
 def arrange_run_sheet(rows: list, group: Callable[[dict], tuple[int, str]] = admin_group) -> list:
     """Decorate, group and order ``rows``; mark the first row of each group.
 
@@ -515,9 +486,8 @@ def arrange_run_sheet(rows: list, group: Callable[[dict], tuple[int, str]] = adm
     return arranged
 
 
-# Signups over need. "needs crew" is spelled out rather than left to the amber,
-# which no screen reader and not every eye can read. The desktop cell sits under
-# a Commentators or Trackers header, so it leaves the role's name off.
+# Signups over need, "needs crew" spelled out for whoever can't read the amber.
+# The desktop cell sits under the role's header, so it leaves the name off.
 _CREW_COUNT = r"""<span class="run-sheet__crew" :class="c.short ? 'st-pending' : ''">__LABEL__<b>{{ c.count }}</b><template v-if="c.short"> · needs crew</template><template v-else-if="c.unapproved"> · to approve</template></span>"""
 
 # Who signed up: a tick for approved, a clock and a note for the rest. Where
@@ -605,10 +575,11 @@ _HIT_SEATS = r"""<template v-for="(s, i) in props.row._seats.filter((s) => s.key
 
 _SEATED_WHO = r"""<template v-if="props.row._seats.length && (!props.row._who_fold || props.row._who_open)"><template v-for="(s, i) in props.row._seats" :key="i"><span v-if="i" class="run-sheet__vs">{{ props.row._seats.length > 2 ? ', ' : ' vs ' }}</span><span class="run-sheet__player">{{ s.name }}<span v-if="s.station || !props.row.stage" class="run-sheet__seat" :class="s.station ? (s.key && s.key === props.row._hit_station ? 'run-sheet__seat--hit' : '') : 'run-sheet__seat--none'">{{ s.station ? 'Station ' + s.station : 'No station' }}</span></span></template><template v-if="props.row._who_fold"> """ + RACER_TOGGLE + """</template></template><template v-else>""" + WHO + """<template v-if="props.row._hit_station"> · """ + _HIT_SEATS + """</template></template>"""
 
-# A player said they're on their way. On the staff boards only: the player's own
-# board says it in its Status chip instead.
+# A player said they're on their way, or the racetime room bot can't invite them
+# until they link racetime. Staff boards only.
 DESC_LINE = """<span v-if="props.row.description_text" class="run-sheet__desc" :title="props.row.description_text">{{ props.row.description_text }}</span>"""
 LATE_TAGS = r"""<span v-for="l in props.row._late" :key="l.key" class="wiz-chip wiz-chip--pending run-sheet__late" :title="l.note || null"><q-icon name="schedule" size="14px" aria-hidden="true" />{{ l.label }}</span>"""
+LATE_TAGS += r"""<span v-for="n in (props.row.racetime_unlinked || [])" :key="'rt' + n" class="wiz-chip wiz-chip--pending run-sheet__late" title="The room bot can't invite this player or record their time until they link racetime.gg on their profile"><q-icon name="link_off" size="14px" aria-hidden="true" />{{ n }} not linked</span>"""
 
 _ADA = """<span v-if="props.row._ada.length" class="run-sheet__ada"><q-icon name="accessible" size="16px" aria-hidden="true" />ADA: {{ props.row._ada.join(', ') }}</span>"""
 
@@ -688,7 +659,7 @@ def _body_slot(proctor: bool, can_run: bool = False, approve: str = 'false') -> 
             <span v-if="props.row._stage">{{ props.row._stage }}</span>
             <span v-else class="run-sheet__none">None</span>
         </template>
-        <template v-else-if="col.name === 'commentators' || col.name === 'trackers'">
+        <template v-else-if="col.name === 'commentators' || col.name === 'trackers' || col.name === 'broadcasters'">
             """ + _crew_cell(approve) + """
         </template>
         <template v-else-if="col.name === 'status'">""" + STATUS_WORD + """</template>

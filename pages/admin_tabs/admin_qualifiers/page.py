@@ -265,7 +265,7 @@ async def admin_qualifiers_page(
         with ui.row().classes('full-width items-center'):
             if state['can_create']:
                 ui.button('New Qualifier', icon='add',
-                          on_click=lambda: open_qualifier_dialog()).props('color=primary')
+                          on_click=lambda: open_qualifier_dialog()).props('color=primary').classes('wiz-write')
             ui.space()
             ui.button(icon='refresh',
                       on_click=load_list).props('flat color=primary').tooltip('Refresh')

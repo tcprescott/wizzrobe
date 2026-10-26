@@ -19,6 +19,7 @@ from mcp.server.mcpserver import MCPServer
 from api.schemas.check_in import CheckInEntrantResponse, CheckInResultResponse, CheckInSyncResponse
 from api.schemas.memberships import JoinRequestResponse
 from api.schemas.volunteers import VolunteerAssignmentResponse
+from application.api_scopes import ApiScope
 from application.errors import require_found
 from application.services import CheckInService, TenantMembershipService
 from application.services.volunteer.volunteer_call_off_service import VolunteerCallOffService
@@ -205,23 +206,24 @@ async def deny_join_request(
 
 def register_tools(mcp: MCPServer) -> None:
     def write_tool(
-        fn: Callable, title: str, feature: Optional[FeatureFlag], *, destructive: bool = False,
+        fn: Callable, title: str, feature: Optional[FeatureFlag], *,
+        scope: ApiScope, destructive: bool = False,
     ) -> None:
         register(
-            mcp, fn, gate=Gate.ACTOR, feature=feature, write=True, title=title,
+            mcp, fn, gate=Gate.ACTOR, scope=scope, feature=feature, write=True, title=title,
             destructive=destructive,
         )
 
     check_in = FeatureFlag.EVENT_CHECK_IN
-    write_tool(check_in_attendee, 'Check in attendee', check_in)
-    write_tool(undo_attendee_check_in, 'Undo attendee check-in', check_in, destructive=True)
-    write_tool(link_attendee, 'Link attendee to account', check_in)
-    write_tool(unlink_attendee, 'Unlink attendee', check_in, destructive=True)
-    write_tool(add_walk_up, 'Add walk-up', check_in)
-    write_tool(sync_check_in_event, 'Sync check-in roster', check_in)
-    write_tool(check_in_volunteer, 'Check in volunteer', FeatureFlag.VOLUNTEERS)
-    write_tool(call_off_volunteer, 'Call off volunteer', FeatureFlag.VOLUNTEERS)
-    write_tool(call_off_volunteer_shift, 'Call off volunteer shift', FeatureFlag.VOLUNTEERS)
-    write_tool(undo_volunteer_call_off, 'Undo volunteer call-off', FeatureFlag.VOLUNTEERS)
-    write_tool(approve_join_request, 'Approve join request', None)
-    write_tool(deny_join_request, 'Deny join request', None)
+    write_tool(check_in_attendee, 'Check in attendee', check_in, scope=ApiScope.STAFF_WRITE)
+    write_tool(undo_attendee_check_in, 'Undo attendee check-in', check_in, destructive=True, scope=ApiScope.STAFF_WRITE)
+    write_tool(link_attendee, 'Link attendee to account', check_in, scope=ApiScope.STAFF_WRITE)
+    write_tool(unlink_attendee, 'Unlink attendee', check_in, destructive=True, scope=ApiScope.STAFF_WRITE)
+    write_tool(add_walk_up, 'Add walk-up', check_in, scope=ApiScope.STAFF_WRITE)
+    write_tool(sync_check_in_event, 'Sync check-in roster', check_in, scope=ApiScope.STAFF_WRITE)
+    write_tool(check_in_volunteer, 'Check in volunteer', FeatureFlag.VOLUNTEERS, scope=ApiScope.STAFF_WRITE)
+    write_tool(call_off_volunteer, 'Call off volunteer', FeatureFlag.VOLUNTEERS, scope=ApiScope.STAFF_WRITE)
+    write_tool(call_off_volunteer_shift, 'Call off volunteer shift', FeatureFlag.VOLUNTEERS, scope=ApiScope.STAFF_WRITE)
+    write_tool(undo_volunteer_call_off, 'Undo volunteer call-off', FeatureFlag.VOLUNTEERS, scope=ApiScope.STAFF_WRITE)
+    write_tool(approve_join_request, 'Approve join request', None, scope=ApiScope.STAFF_WRITE)
+    write_tool(deny_join_request, 'Deny join request', None, scope=ApiScope.STAFF_WRITE)

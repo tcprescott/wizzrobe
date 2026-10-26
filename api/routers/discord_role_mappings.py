@@ -14,7 +14,7 @@ from api.schemas.discord_role_mappings import (
     DiscordRoleMappingCreate,
     DiscordRoleMappingResponse,
 )
-from application.services import DiscordRoleMappingService
+from application.services import DiscordRoleMappingService, EventService
 from models import User
 
 router = APIRouter(
@@ -69,6 +69,7 @@ async def add_mapping(
         app_role=body.app_role,
         tournament_grant=body.tournament_grant,
         tournament_id=body.tournament_id,
+        event_id=await EventService.id_for_slug(body.event),
         actor=actor,
     )
 

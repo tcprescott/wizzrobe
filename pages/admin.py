@@ -299,7 +299,8 @@ async def resolve_admin_access(user: User) -> AdminAccess:
         is_staff=await AuthService.is_staff(user),
         is_stream_manager=Role.STREAM_MANAGER in roles,
         is_volunteer_coordinator=Role.VOLUNTEER_COORDINATOR in roles,
-        is_equipment_manager=Role.EQUIPMENT_MANAGER in roles,
+        # Equipment is the community's: the role held in any live event counts.
+        is_equipment_manager=await AuthService.is_equipment_manager(user),
         is_preset_manager=Role.PRESET_MANAGER in roles,
         is_sync_admin=Role.SYNC_ADMIN in roles,
         is_qualifier_admin=Role.QUALIFIER_ADMIN in roles,

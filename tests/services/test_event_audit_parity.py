@@ -152,6 +152,20 @@ _EXCLUDED_BY_DESIGN = frozenset({
     # Secrets — leaking these to arbitrary receivers is a risk.
     AuditActions.APITOKEN_CREATED,
     AuditActions.APITOKEN_REVOKED,
+    # Third-party app registration is global (no community), so no tenant's
+    # webhook could receive it. Refresh reuse already publishes
+    # OAUTH_GRANT_REVOKED; its own audit row only records why.
+    AuditActions.OAUTH_APP_CREATED,
+    AuditActions.OAUTH_APP_UPDATED,
+    AuditActions.OAUTH_APP_SECRET_ROTATED,
+    AuditActions.OAUTH_APP_DELETED,
+    AuditActions.OAUTH_APP_DISABLED,
+    AuditActions.OAUTH_APP_ENABLED,
+    # A community's block is staff housekeeping; the grants it ends are
+    # revoked in bulk and already invisible to the app.
+    AuditActions.OAUTH_APP_BLOCKED,
+    AuditActions.OAUTH_APP_UNBLOCKED,
+    AuditActions.OAUTH_GRANT_REFRESH_REUSED,
     # Room tokens, for the same reason: the credential a venue machine holds is
     # a security fact, not a domain one.
     AuditActions.ROOM_TOKEN_CREATED,

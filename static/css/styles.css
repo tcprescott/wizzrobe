@@ -940,6 +940,24 @@ body:has(.wiz-header) .q-notifications__list--top {
     color: var(--wiz-link);
 }
 
+/* On the narrowest phones (360px) the header's icon buttons drop to a 44px
+   target and the archived pill to its colour, or a long event name pushed the
+   last button off the screen. */
+@media (max-width: 399.98px) {
+    .wiz-header .q-btn:not(.wiz-event-switch) {
+        padding-left: 10px;
+        padding-right: 10px;
+    }
+
+    .wiz-event-switch--archived .q-btn__content > .q-icon:first-child {
+        display: none;
+    }
+
+    .wiz-header .wiz-event-switch__name {
+        max-width: 5rem;
+    }
+}
+
 /* On a phone the button stands in for the community's name (its colour mark
    stays), and the menu rises as a bottom sheet like the help menus. */
 @media (max-width: 599.98px) {
@@ -1541,6 +1559,11 @@ body:has(.wiz-header) .q-notifications__list--top {
    phone, a full-width line of it) under the message. */
 .wiz-banner__actions:empty { display: none; }
 
+/* An archived event's page or tab (theme/archived_banner.py): every row's ⋮
+   and anything marked wiz-write goes. The server refuses the write anyway. */
+.wiz-read-only [aria-label^="More for "],
+.wiz-read-only .wiz-write { display: none !important; }
+
 @media (max-width: 599px) {
     .wiz-banner { flex-wrap: wrap; }
     /* A zero basis keeps the message beside its icon: with `auto` the long
@@ -2100,6 +2123,19 @@ body:has(.wiz-header) .q-notifications__list--top {
 
 .consent-write-input {
     width: 100%;
+}
+
+/* App consent (/oauth/consent): a checkbox beside each scope, its detail
+   line underneath. flex-start keeps the box on the first line when the
+   wording wraps on a phone. */
+.consent-scope {
+    align-items: flex-start;
+    gap: 0.5rem;
+}
+
+.consent-title--app {
+    font-size: 1.25rem;
+    line-height: 1.3;
 }
 
 .consent-actions {
@@ -6602,6 +6638,35 @@ ol.wiz-help-list { list-style-type: decimal; }
     max-width: 65ch;
 }
 
+/* Edit member: the role pickers' small caps labels, and the event picker that
+   sits inline with "Roles in" (layout A). */
+.wiz-role-group__label {
+    margin-top: var(--space-2);
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--fg-muted);
+}
+
+.wiz-role-group__label--event {
+    color: var(--fg);
+}
+
+.wiz-role-group__head {
+    gap: var(--space-2);
+    margin-top: var(--space-2);
+}
+
+.wiz-role-group__head .wiz-role-group__label {
+    margin-top: 0;
+}
+
+.wiz-role-group__event {
+    min-width: 9rem;
+    max-width: 100%;
+}
+
 .wiz-settings-day {
     width: 6.5rem;
     font-variant-numeric: tabular-nums;
@@ -9375,6 +9440,32 @@ ol.wiz-help-list { list-style-type: decimal; }
 
 @media (max-width: 599.98px) {
     .wiz-pwebhook-areas { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* Profile → Developer apps: "What are you building?" as two tappable cards. */
+.wiz-kind-card {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    width: 100%;
+    padding: var(--space-2) var(--space-3);
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius-md);
+    cursor: pointer;
+}
+
+.wiz-kind-card--on {
+    border-color: var(--wiz-link);
+    box-shadow: inset 0 0 0 1px var(--wiz-link);
+}
+
+.wiz-kind-card--fixed {
+    cursor: default;
+}
+
+.wiz-kind-card:focus-visible {
+    outline: 2px solid var(--wiz-link);
+    outline-offset: 2px;
 }
 
 .wiz-pwebhook-lock {

@@ -46,7 +46,7 @@ def build_reviewers_tab(
         ).classes('text-caption text-grey')
         with ui.row().classes('items-center'):
             ui.button('Add reviewer', icon='person_add', on_click=_open_add_dialog
-                      ).props('color=primary')
+                      ).props('color=primary').classes('wiz-write')
         reviewers = state['reviewers']
         if not reviewers:
             # Not a broken state: community STAFF can administer every qualifier,

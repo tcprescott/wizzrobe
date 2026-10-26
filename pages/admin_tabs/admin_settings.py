@@ -121,7 +121,7 @@ async def admin_stages_page() -> None:
         with table_container:
             with ui.row().classes('full-width'):
                 if can_manage:
-                    ui.button('Add Stage', icon='add', on_click=add_stage).props('color=primary')
+                    ui.button('Add Stage', icon='add', on_click=add_stage).props('color=primary').classes('wiz-write')
                 ui.space()
                 # Filled after the table exists; the toolbar is drawn first.
                 gear_slot = ui.row().classes('items-center')

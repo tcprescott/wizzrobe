@@ -10,6 +10,7 @@ from mcp.server.mcpserver import MCPServer
 
 from api._helpers import load_community_user_or_404
 from api.schemas.memberships import JoinRequestResponse
+from application.api_scopes import ApiScope
 from application.services import (
     AuthService,
     CrewService,
@@ -112,7 +113,7 @@ async def list_match_crew(
     match_id: int,
     tenant: TenantArg = None,
 ) -> MatchCrew:
-    """List a match's commentators and trackers, including pending signups.
+    """List a match's crew (commentators, trackers, broadcasters), including pending signups.
 
     Staff, or an admin or crew coordinator of the match's tournament. `get_match`
     deliberately hides unapproved crew from everyone; this is the approver's
@@ -136,6 +137,7 @@ async def list_match_crew(
         match_id=match.id,
         commentators=[to_info(c) for c in match.commentators],
         trackers=[to_info(t) for t in match.trackers],
+        broadcasters=[to_info(b) for b in match.broadcasters],  # type: ignore[attr-defined]
     )
 
 
@@ -150,7 +152,7 @@ async def crew_coverage_report(
 
     `tournament_rows` answers "who crewed how many matches of each tournament":
     approved crew on finished matches that went to a stage, split into
-    commentary and tracker. The other counts include unstaged and upcoming
+    commentary, tracker and broadcast. The other counts include unstaged and upcoming
     matches. Requires admin access. `start` and `end` are ISO 8601 timestamps.
     """
     start_dt, end_dt = _window(start, end)
@@ -225,13 +227,13 @@ async def list_join_requests(tenant: TenantArg = None) -> List[JoinRequestRespon
 
 
 def register_tools(mcp: MCPServer) -> None:
-    register(mcp, list_join_requests, gate=Gate.STAFF, title='List join requests')
-    register(mcp, list_users, gate=Gate.STAFF, title='List users')
-    register(mcp, get_user, gate=Gate.ACTOR, title='Get user')
-    register(mcp, get_member_details, gate=Gate.STAFF, title='Get member details')
+    register(mcp, list_join_requests, gate=Gate.STAFF, scope=ApiScope.STAFF_READ, title='List join requests')
+    register(mcp, list_users, gate=Gate.STAFF, scope=ApiScope.STAFF_READ, title='List users')
+    register(mcp, get_user, gate=Gate.ACTOR, scope=ApiScope.STAFF_READ, title='Get user')
+    register(mcp, get_member_details, gate=Gate.STAFF, scope=ApiScope.STAFF_READ, title='Get member details')
     register(
-        mcp, get_player_availability, gate=Gate.ACTOR,
+        mcp, get_player_availability, gate=Gate.ACTOR, scope=ApiScope.STAFF_READ,
         title='Get player availability',
     )
-    register(mcp, list_match_crew, gate=Gate.ADMIN, title='List match crew')
-    register(mcp, crew_coverage_report, gate=Gate.ADMIN, title='Crew coverage report')
+    register(mcp, list_match_crew, gate=Gate.ADMIN, scope=ApiScope.STAFF_READ, title='List match crew')
+    register(mcp, crew_coverage_report, gate=Gate.ADMIN, scope=ApiScope.STAFF_READ, title='Crew coverage report')

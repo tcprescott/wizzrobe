@@ -1,8 +1,10 @@
 from nicegui import ui
 
+from application.event_context import get_current_event_id
 from application.services import UserService
 from application.tenant_context import get_current_tenant_id
 from application.utils.timezone import format_local_display
+from models import EventStatus
 from theme.empty_state import no_data_slot
 from theme.tables.admin_crud import capture_render_context, scoped_background
 from theme.tables.plain_rows import set_plain_rows
@@ -15,7 +17,12 @@ _ROW_FIELDS = (
 
 
 def _role_labels(roles, ta_count: int, cc_count: int) -> list:
-    labels = list(dict.fromkeys(role.label for role in roles))
+    """``roles`` is ``(Role, event name or None)`` pairs: a role held in another
+    event than the one on screen carries that event's name."""
+    labels = list(dict.fromkeys(
+        f'{role.label} ({event})' if event else role.label
+        for role, event in roles
+    ))
     if ta_count:
         labels.append(f'TA({ta_count})')
     if cc_count:
@@ -54,6 +61,9 @@ class UserTableView:
         # (initial load, pagination refresh) run detached from the client slot, so
         # scoped reads would otherwise raise require_tenant_id(). _bg rebinds it.
         self._tenant_id = get_current_tenant_id()
+        # Captured at build like the tenant: roles held in this event read bare,
+        # others name their event.
+        self._event_id = get_current_event_id()
         self._render_context = capture_render_context()
         self._setup_ui()
 
@@ -209,7 +219,7 @@ class UserTableView:
             # refresh() is also driven by the filter/toolbar/tab-switch handlers as
             # bare background tasks that have lost the tenant, where a live resolve
             # returns None and would re-leak cross-tenant role grants.
-            roles, admins, coordinators = await UserService().member_role_summary(self._tenant_id)
+            roles, admins, coordinators = await UserService().member_role_summary(self._tenant_id, self._event_id)
             rows = [
                 self._row(u, _role_labels(roles.get(u['id'], []), admins[u['id']], coordinators[u['id']]))
                 for u in users
@@ -220,18 +230,23 @@ class UserTableView:
         set_plain_rows(self.table, rows)
 
     @staticmethod
-    def _format_user_row(u, tid=None):
+    def _format_user_row(u, tid=None, event_id=None):
         # Show only this tenant's role grants. UserRole rows are per-tenant (the
         # same identity may hold STAFF in several communities and SUPER_ADMIN with
         # tenant=NULL), so an unscoped render both duplicates chips and leaks other
         # communities' grants into this admin — the display counterpart of the
         # scoping AuthService.get_roles already applies.
-        roles = [r.role for r in u.roles if tid is None or r.tenant_id == tid]
+        roles = [
+            (r.role, r.event.name if r.event_id not in (None, event_id) else None) for r in u.roles
+            if (tid is None or r.tenant_id == tid)
+            and (r.event_id is None or r.event.status != EventStatus.ARCHIVED)
+        ]
         # Tournaments are tenant-scoped too; count only those in this tenant.
         ta_count = sum(1 for t in u.admin_tournaments if tid is None or t.tenant_id == tid)
         cc_count = sum(1 for t in u.crew_coordinated_tournaments if tid is None or t.tenant_id == tid)
         return UserTableView._row(
-            {name: getattr(u, name) for name in _ROW_FIELDS}, _role_labels(roles, ta_count, cc_count),
+            {name: getattr(u, name) for name in _ROW_FIELDS},
+            _role_labels(roles, ta_count, cc_count),
         )
 
     @staticmethod
@@ -260,12 +275,12 @@ class UserTableView:
             return  # Row not visible, do nothing
         user_query = self.get_query()
         u = await user_query.filter(id=user_id).prefetch_related(
-            'roles', 'admin_tournaments', 'crew_coordinated_tournaments'
+            'roles__event', 'admin_tournaments', 'crew_coordinated_tournaments'
         ).first()
         if not u:
             return  # User not found
         idx = next((i for i, row in enumerate(self.table.rows) if row.get('id') == user_id), None)
         if idx is None:
             return  # A reload replaced the rows while the query ran
-        self.table.rows[idx] = self._format_user_row(u, self._tenant_id)
+        self.table.rows[idx] = self._format_user_row(u, self._tenant_id, self._event_id)
         self.table.update()

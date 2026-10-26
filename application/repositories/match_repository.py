@@ -11,10 +11,12 @@ from typing import List, Optional, Tuple, cast
 from tortoise.expressions import Q
 from tortoise.query_utils import Prefetch
 
+from application.event_writes import guarded_update
 from application.repositories._event import event_scoped, live_event_scoped, parent_event_id
 from application.repositories._tenant import current_tenant_id, scoped
 from models import (
     BracketMatchGame,
+    Broadcaster,
     ChallongeMatch,
     Commentator,
     Match,
@@ -30,7 +32,7 @@ from models import (
 #: them, so building the whole row for each was a fifth of the board's load.
 #: Anything that reads a person off :meth:`MatchRepository.get_all` must stay
 #: inside this list or add to it.
-BOARD_USER_FIELDS = ('id', 'discord_id', 'display_name', 'username', 'dm_notifications')
+BOARD_USER_FIELDS = ('id', 'discord_id', 'display_name', 'username', 'dm_notifications', 'racetime_user_id')
 
 
 def _board_user() -> Prefetch:
@@ -65,6 +67,8 @@ class MatchRepository:
                 'commentators__user',
                 'trackers',
                 'trackers__user',
+                'broadcasters',
+                'broadcasters__user',
                 # The bracket seam, for the schedule's "part of <bracket>" link.
                 # A batched prefetch, so it costs a fixed few queries rather
                 # than one per row; most matches have no game row at all. The
@@ -148,7 +152,7 @@ class MatchRepository:
             )
             .prefetch_related(
                 'tournament', 'stage', 'players__user',
-                'commentators__user', 'trackers__user', 'watchers__user',
+                'commentators__user', 'trackers__user', 'broadcasters__user', 'watchers__user',
             )
             .order_by('scheduled_at')
         )
@@ -232,6 +236,7 @@ class MatchRepository:
             query = query.filter(
                 Q(commentators__user__discord_id=crew_discord_id)
                 | Q(trackers__user__discord_id=crew_discord_id)
+                | Q(broadcasters__user__discord_id=crew_discord_id)
             ).distinct()
 
         if prefetch_relations:
@@ -242,6 +247,7 @@ class MatchRepository:
                 'generated_seed',
                 Prefetch('commentators', queryset=scoped(Commentator.all()).prefetch_related(_board_user())),
                 Prefetch('trackers', queryset=scoped(Tracker.all()).prefetch_related(_board_user())),
+                Prefetch('broadcasters', queryset=scoped(Broadcaster.all()).prefetch_related(_board_user())),
                 # The bracket seam, for the schedule's "part of <bracket>" link.
                 # A batched prefetch, so it costs a fixed few queries rather
                 # than one per row; most matches have no game row at all. The
@@ -315,7 +321,7 @@ class MatchRepository:
     @staticmethod
     async def list_crew_holds() -> List[Match]:
         return await event_scoped(Match.filter(crew_hold_source__isnull=False)).prefetch_related(
-            'tournament', 'commentators', 'trackers',
+            'tournament', 'commentators', 'trackers', 'broadcasters',
         )
 
     @staticmethod
@@ -354,10 +360,10 @@ class MatchRepository:
         caller holding a stale row cannot overwrite what changed since it loaded.
         Scoped by the row's own tenant: the match was already loaded in scope.
         """
-        updated = await scoped(
+        updated = await guarded_update(scoped(
             Match.filter(id=match.id, **{f'{field}__isnull': True}),
             tenant_id=match.tenant_id,  # type: ignore[attr-defined]
-        ).update(**{field: when})
+        ), **{field: when})
         return updated == 1
 
     @staticmethod
@@ -400,8 +406,8 @@ class MatchRepository:
     @staticmethod
     async def clear_seed_ready(match_id: int) -> None:
         """Forget every player's Ready for seed on a match."""
-        await scoped(MatchPlayers.filter(match_id=match_id)).update(
-            seed_ready_at=None, seed_nudged_at=None,
+        await guarded_update(
+            scoped(MatchPlayers.filter(match_id=match_id)), seed_ready_at=None, seed_nudged_at=None,
         )
 
     @staticmethod
@@ -456,10 +462,8 @@ class MatchRepository:
     @staticmethod
     async def repoint_set(old_first_id: int, new_first: Match) -> None:
         """Make ``new_first`` lead the set ``old_first_id`` led."""
-        await scoped(Match.filter(id=new_first.id)).update(set_first_id=None)
-        await scoped(Match.filter(set_first_id=old_first_id)).exclude(id=new_first.id).update(
-            set_first_id=new_first.id,
-        )
+        await guarded_update(scoped(Match.filter(id=new_first.id)), set_first_id=None)
+        await guarded_update(scoped(Match.filter(set_first_id=old_first_id)).exclude(id=new_first.id), set_first_id=new_first.id)
         new_first.set_first_id = None
 
     @staticmethod
@@ -574,7 +578,8 @@ class MatchRepository:
 
         return await query.prefetch_related(
             'tournament', 'stage', 'players', 'players__user',
-            'commentators', 'commentators__user', 'trackers', 'trackers__user'
+            'commentators', 'commentators__user', 'trackers', 'trackers__user',
+            'broadcasters', 'broadcasters__user',
         ).order_by('scheduled_at')
 
     @staticmethod
@@ -583,9 +588,9 @@ class MatchRepository:
     ) -> List[Match]:
         """Every match in ``[start, end)`` this user is already committed to.
 
-        Committed means any of the three roles — a commentator cannot cover two
+        Committed means playing or any crew role — a commentator cannot cover two
         streams at once *and* cannot commentate a match they are racing in. One
-        query per role would be three; a single OR'd filter is one, deduped by id
+        query per role would be four; a single OR'd filter is one, deduped by id
         because a person could hold two roles on the same match.
 
         Spans every live event (cross-event): a person can't be in two places
@@ -594,7 +599,8 @@ class MatchRepository:
         query = live_event_scoped(Match.filter(
             Q(players__user_id=user_id)
             | Q(commentators__user_id=user_id)
-            | Q(trackers__user_id=user_id),
+            | Q(trackers__user_id=user_id)
+            | Q(broadcasters__user_id=user_id),
             scheduled_at__gte=start,
             scheduled_at__lt=end,
         ))

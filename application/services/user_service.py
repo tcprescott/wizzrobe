@@ -6,8 +6,9 @@ Coordinates user-related operations and enforces business rules.
 
 import re
 from datetime import datetime
-from typing import Dict, Iterable, List, Optional, Set
+from typing import Dict, Iterable, List, Optional, Set, Tuple
 
+from application.errors import require_found
 from application.repositories._save import save_fields
 from application.repositories.tenant_membership_repository import TenantMembershipRepository
 from application.repositories.tournament_repository import TournamentRepository
@@ -71,6 +72,12 @@ class UserService:
     async def get_user_by_discord_id(self, discord_id: str) -> Optional[User]:
         return await self.repository.get_by_discord_id(discord_id)
 
+    async def get_user_by_racetime_id(self, racetime_user_id: str) -> Optional[User]:
+        """The account that linked this racetime.gg user id, if any."""
+        if not racetime_user_id:
+            return None
+        return await self.repository.get_by_racetime_user_id(racetime_user_id)
+
     async def get_system_user(self) -> User:
         """Resolve the reserved system :class:`User` that automation acts as.
 
@@ -120,10 +127,10 @@ class UserService:
         """
         return await self.repository.get_all(role=role, has_discord=has_discord)
 
-    async def member_role_summary(self, tenant_id: int):
+    async def member_role_summary(self, tenant_id: int, event_id: Optional[int] = None):
         """Roles, tournament-admin and crew-coordinator counts per user in ``tenant_id``,
         for the members table: see :meth:`UserRepository.role_summary`."""
-        return await self.repository.role_summary(tenant_id)
+        return await self.repository.role_summary(tenant_id, event_id)
 
     async def get_community_people(
         self,
@@ -544,13 +551,30 @@ class UserService:
                 f'community instead.'
             )
 
-    async def grant_role(self, target: User, role: Role, actor: User) -> None:
+    @staticmethod
+    async def _grant_event_id(role: Role, event_id: Optional[int]) -> Optional[int]:
+        """The event a per-event ``role`` is granted in: ``event_id`` (one of
+        this community's) or the event in scope; None for a community-wide role."""
+        if not role.is_per_event:
+            return None
+        from application.event_context import require_event_id
+        from application.services.event_service import EventService
+
+        resolved = event_id if event_id is not None else require_event_id()
+        require_found(await EventService.ref(require_tenant_id(), resolved), 'Event')
+        return resolved
+
+    async def grant_role(self, target: User, role: Role, actor: User, *, event_id: Optional[int] = None) -> None:
+        """Grant ``role``; a per-event role lands in ``event_id``, by default the event in scope."""
         await AuthService.ensure(
             await AuthService.can_grant_roles(actor),
             "Only Staff can grant roles",
         )
         _reject_platform_role(role, 'granted')
-        await self.role_repository.add(target, role, granted_by=actor, source=RoleSource.MANUAL)
+        event_id = await self._grant_event_id(role, event_id)
+        await self.role_repository.add(
+            target, role, granted_by=actor, source=RoleSource.MANUAL, event_id=event_id,
+        )
         # A role in a tenant implies membership in it. Guarded on the role rather
         # than on the ambient tenant: grant_role runs *inside* a tenant context,
         # so without this a super-admin grant would make them a member of
@@ -561,22 +585,29 @@ class UserService:
                 target, actor=actor, source=MembershipSource.ROLE_GRANT,
             )
         details: dict = {'role': role.value, 'target_user_id': target.id}
+        if event_id is not None:
+            details['event_id'] = event_id
         if closed is not None:
             details['closed_request_id'] = closed.id
         await self.audit_service.write_log(actor, AuditActions.USER_ROLE_GRANTED, details)
 
-    async def revoke_role(self, target: User, role: Role, actor: User) -> None:
+    async def revoke_role(self, target: User, role: Role, actor: User, *, event_id: Optional[int] = None) -> None:
+        """Revoke ``role``; a per-event role from ``event_id``, by default the event in scope."""
         await AuthService.ensure(
             await AuthService.can_grant_roles(actor),
             "Only Staff can revoke roles",
         )
         _reject_platform_role(role, 'revoked')
-        await self.role_repository.remove(target, role)
-        await self.audit_service.write_log(
-            actor,
-            AuditActions.USER_ROLE_REVOKED,
-            {'role': role.value, 'target_user_id': target.id},
-        )
+        event_id = await self._grant_event_id(role, event_id)
+        await self.role_repository.remove(target, role, event_id=event_id)
+        details: dict = {'role': role.value, 'target_user_id': target.id}
+        if event_id is not None:
+            details['event_id'] = event_id
+        await self.audit_service.write_log(actor, AuditActions.USER_ROLE_REVOKED, details)
+
+    async def role_grants(self, user: User) -> List[Tuple[Role, Optional[int]]]:
+        """Every grant ``user`` holds here as ``(role, event id or None)``, archived events included."""
+        return [(row.role, row.event_id) for row in await self.role_repository.list_for_user(user)]  # type: ignore[attr-defined]
 
     async def manage_tournament_enrollments(
         self,

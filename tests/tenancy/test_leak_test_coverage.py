@@ -23,14 +23,12 @@ BACKLOG: dict[str, str] = {
     # Leak coverage exists but lives outside the tests/*isolation* glob:
     'TenantFeatureFlag': 'covered by test_feature_flags.py::test_flags_do_not_leak_across_tenants',
     # Models that predate the leak-test rule:
-    'ApiToken': _DEBT,
     'AsyncQualifierReviewNote': _DEBT,
     'ChallongeApiUsage': _DEBT,
     'ChallongeConnection': _DEBT,
     'ChallongeMatch': _DEBT,
     'ChallongeParticipant': _DEBT,
     'Commentator': _DEBT,
-    'DiscordRoleMapping': _DEBT,
     'EquipmentLoan': _DEBT,
     'GeneratedSeeds': _DEBT,
     'MatchAcknowledgment': _DEBT,

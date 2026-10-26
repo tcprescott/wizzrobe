@@ -19,9 +19,11 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Optional
 
+from application.api_scopes import CONSENT_WORDING, ApiScope
 from application.errors import NotFoundError
 from application.services.auth_service import AuthService
 from application.services.feature_flag_service import FeatureFlagService
+from application.services.mcp_auth_service import grant_scopes
 from application.services.tenant_service import TenantService
 from application.tenant_context import require_tenant_id
 from models import ApiToken, FeatureFlag, Tenant, User
@@ -110,7 +112,7 @@ async def belongs_to_tenant(user: User) -> bool:
     """
     if await TenantService.is_member(user.id, require_tenant_id()):
         return True
-    return bool(await AuthService.get_roles(user))
+    return await AuthService.holds_any_role(user)
 
 
 async def resolve_tenant(slug: Optional[str]) -> Optional[Tenant]:
@@ -137,6 +139,7 @@ async def authorize(
     slug: str = '',
     *,
     write: bool = False,
+    scope: Optional[ApiScope] = None,
 ) -> None:
     """Run the membership floor, the feature gate, the connection gate, then the role gate.
 
@@ -181,7 +184,12 @@ async def authorize(
     if write and actor.token.read_only:
         raise PermissionError(
             'This connection was approved for reading only. Reconnect from your '
-            'MCP client and tick "Let it make changes" to use this tool.'
+            'MCP client and tick the change this tool makes.'
+        )
+    if scope is not None and scope not in grant_scopes(actor.token.scope):
+        raise PermissionError(
+            f'This connection was not allowed to "{CONSENT_WORDING[scope].lower()}". '
+            'Reconnect from your MCP client and tick it to use this tool.'
         )
 
     if gate is Gate.ADMIN:

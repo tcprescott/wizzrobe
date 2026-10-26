@@ -6,6 +6,7 @@ Handles all database operations for MatchWatcher model.
 
 from typing import List, Optional, Tuple
 
+from application.event_writes import guarded_delete
 from application.repositories._tenant import current_tenant_id, scoped
 from models import Match, MatchWatcher, User
 
@@ -48,5 +49,5 @@ class MatchWatcherRepository:
 
     @staticmethod
     async def delete_by_match_and_user(match: Match, user: User) -> bool:
-        deleted = await scoped(MatchWatcher.filter(match=match, user=user)).delete()
+        deleted = await guarded_delete(scoped(MatchWatcher.filter(match=match, user=user)))
         return bool(deleted)

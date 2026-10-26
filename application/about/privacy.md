@@ -52,7 +52,7 @@ Your information is stored on servers in the United States, and the services abo
 
 ## How long we keep it
 
-We keep your account and activity for as long as Wizzrobe runs your community's events, so past results and schedules stay accurate. You can remove your email, Telegram, push devices, linked accounts, emergency contact, accessibility request and availability yourself at any time from your profile.
+We keep your account and activity for as long as Wizzrobe runs your community's events, so past results and schedules stay accurate. You can remove your email, Telegram, push devices, linked accounts, emergency contact, accessibility request and availability yourself at any time from your profile. Emergency contacts and accessibility requests belong to one event: 30 days after staff archive that event, they're deleted.
 
 The change log and usage records keep a copy of your username even after your account is gone, so the history of an event stays readable.
 

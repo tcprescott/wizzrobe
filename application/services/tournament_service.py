@@ -178,6 +178,13 @@ class TournamentService(TournamentDropMixin, TournamentSignupMixin):
         return cleaned or None
 
     @staticmethod
+    def _non_negative(value: Any, what: str) -> int:
+        number = int(value or 0)
+        if number < 0:
+            raise ValueError(f"{what} cannot be negative")
+        return number
+
+    @staticmethod
     def _crew_requirement(value: Any, role: str) -> int:
         """Coerce a crew-requirement count, rejecting negatives.
 
@@ -185,10 +192,7 @@ class TournamentService(TournamentDropMixin, TournamentSignupMixin):
         would make a stream candidate permanently covered — the mirror image of
         the false gap this setting exists to fix.
         """
-        count = int(value or 0)
-        if count < 0:
-            raise ValueError(f"Required {role} cannot be negative")
-        return count
+        return TournamentService._non_negative(value, f'Required {role}')
 
     @staticmethod
     def _check_automation_prerequisites(
@@ -238,6 +242,7 @@ class TournamentService(TournamentDropMixin, TournamentSignupMixin):
         players_per_match: int = 2,
         required_commentators: int = 1,
         required_trackers: int = 1,
+        required_broadcasters: int = 1,
         allow_player_match_requests: bool = True,
         config: Optional[Dict[str, Any]] = None,
         preset_id: Optional[int] = None,
@@ -248,6 +253,9 @@ class TournamentService(TournamentDropMixin, TournamentSignupMixin):
         room_open_minutes_before: int = 30,
         stage_reminder_minutes: int = 30,
         require_racetime_link: bool = False,
+        racetime_bot_runs_room: bool = False,
+        racetime_seed_post_minutes: int = 10,
+        racetime_close_finish_ms: int = 1000,
         racetime_default_goal: Optional[str] = None,
         event_start_date: Any = None,
         event_end_date: Any = None,
@@ -309,6 +317,7 @@ class TournamentService(TournamentDropMixin, TournamentSignupMixin):
             players_per_match=players_per_match,
             required_commentators=self._crew_requirement(required_commentators, 'commentators'),
             required_trackers=self._crew_requirement(required_trackers, 'trackers'),
+            required_broadcasters=self._crew_requirement(required_broadcasters, 'broadcasters'),
             allow_player_match_requests=allow_player_match_requests,
             config=config,
             preset_id=preset_id,
@@ -319,6 +328,9 @@ class TournamentService(TournamentDropMixin, TournamentSignupMixin):
             room_open_minutes_before=room_open_minutes_before,
             stage_reminder_minutes=stage_reminder_minutes,
             require_racetime_link=require_racetime_link,
+            racetime_bot_runs_room=racetime_bot_runs_room,
+            racetime_seed_post_minutes=self._non_negative(racetime_seed_post_minutes, 'Seed post minutes'),
+            racetime_close_finish_ms=self._non_negative(racetime_close_finish_ms, 'The close-finish gap'),
             racetime_default_goal=(racetime_default_goal.strip() if racetime_default_goal else None),
             event_start_date=event_start_date,
             event_end_date=event_end_date,
@@ -356,6 +368,7 @@ class TournamentService(TournamentDropMixin, TournamentSignupMixin):
         players_per_match: Optional[int] = None,
         required_commentators: Optional[int] = None,
         required_trackers: Optional[int] = None,
+        required_broadcasters: Optional[int] = None,
         allow_player_match_requests: Optional[bool] = None,
         config: Optional[Dict[str, Any]] = None,
         preset_id: Any = _UNSET,
@@ -366,6 +379,9 @@ class TournamentService(TournamentDropMixin, TournamentSignupMixin):
         room_open_minutes_before: Optional[int] = None,
         stage_reminder_minutes: Optional[int] = None,
         require_racetime_link: Optional[bool] = None,
+        racetime_bot_runs_room: Optional[bool] = None,
+        racetime_seed_post_minutes: Optional[int] = None,
+        racetime_close_finish_ms: Optional[int] = None,
         racetime_default_goal: Any = _UNSET,
         event_start_date: Any = _UNSET,
         event_end_date: Any = _UNSET,
@@ -428,6 +444,10 @@ class TournamentService(TournamentDropMixin, TournamentSignupMixin):
             update_data['required_trackers'] = self._crew_requirement(
                 required_trackers, 'trackers'
             )
+        if required_broadcasters is not None:
+            update_data['required_broadcasters'] = self._crew_requirement(
+                required_broadcasters, 'broadcasters'
+            )
         if allow_player_match_requests is not None:
             update_data['allow_player_match_requests'] = allow_player_match_requests
         if config is not None:
@@ -476,6 +496,12 @@ class TournamentService(TournamentDropMixin, TournamentSignupMixin):
             update_data['stage_reminder_minutes'] = stage_reminder_minutes
         if require_racetime_link is not None:
             update_data['require_racetime_link'] = require_racetime_link
+        if racetime_bot_runs_room is not None:
+            update_data['racetime_bot_runs_room'] = racetime_bot_runs_room
+        if racetime_seed_post_minutes is not None:
+            update_data['racetime_seed_post_minutes'] = self._non_negative(racetime_seed_post_minutes, 'Seed post minutes')
+        if racetime_close_finish_ms is not None:
+            update_data['racetime_close_finish_ms'] = self._non_negative(racetime_close_finish_ms, 'The close-finish gap')
         if racetime_default_goal is not _UNSET:
             update_data['racetime_default_goal'] = (
                 racetime_default_goal.strip() if racetime_default_goal else None

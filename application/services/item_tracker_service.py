@@ -156,7 +156,7 @@ class ItemTrackerService:
     async def _can_track(match: Match, user: Optional[User]) -> bool:
         if user is None:
             return False
-        if await AuthService.is_staff(user) or await AuthService.has_role(user, Role.STREAM_MANAGER):
+        if await AuthService.is_staff(user) or await AuthService.has_role(user, Role.STREAM_MANAGER, match.event_id):
             return True
         return any(t.user_id == user.id and t.approved for t in match.trackers)  # type: ignore[attr-defined]
 

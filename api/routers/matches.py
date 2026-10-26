@@ -110,7 +110,7 @@ async def get_match(match_id: int):
     response_model=MatchCrewResponse,
     summary="List a match's crew, including pending signups",
     description=(
-        "Every commentator and tracker signup on a match, approved or not, with "
+        "Every commentator, tracker and broadcaster signup on a match, approved or not, with "
         "when each approved crew member confirmed. `GET /matches/{match_id}` "
         "shows approved crew only.\n\n"
         "**Who can call this:** Staff, or Admins or Crew coordinators of this match's tournament."
@@ -127,5 +127,9 @@ async def get_match_crew(match_id: int, actor: User = Depends(require_admin)):
         trackers=[
             CrewSignupInfo.model_validate(t, from_attributes=True)
             for t in match.trackers  # type: ignore[attr-defined]
+        ],
+        broadcasters=[
+            CrewSignupInfo.model_validate(b, from_attributes=True)
+            for b in match.broadcasters  # type: ignore[attr-defined]
         ],
     )

@@ -1,3 +1,5 @@
+from typing import Optional
+
 from tortoise import fields
 from tortoise.models import Model
 
@@ -125,6 +127,8 @@ class User(Model):
     approved_commentaries = fields.ReverseRelation["Commentator"]
     trackers = fields.ReverseRelation["Tracker"]
     approved_trackers = fields.ReverseRelation["Tracker"]
+    broadcasts = fields.ReverseRelation["Broadcaster"]  # type: ignore[name-defined]
+    approved_broadcasts = fields.ReverseRelation["Broadcaster"]  # type: ignore[name-defined]
     watched_matches = fields.ReverseRelation["MatchWatcher"]
     roles = fields.ReverseRelation["UserRole"]
     granted_roles = fields.ReverseRelation["UserRole"]
@@ -168,6 +172,9 @@ class ApiToken(Model):
     - ``oauth`` — issued by the MCP authorization server. ``tenant`` is NULL:
       the token is platform-wide and each MCP tool call names its own community.
       Rejected at ``/api``; a PAT is likewise rejected at ``/mcp``.
+    - ``app`` — a grant a person approved for a third-party app
+      (``oauth_app``). ``tenant`` is the community picked on the consent screen
+      and ``scope`` is what they approved. REST only; rejected at ``/mcp``.
 
     One table so revocation, expiry, and the profile listing have a single
     implementation for both.
@@ -181,6 +188,8 @@ class ApiToken(Model):
         'models.Tenant', related_name='api_tokens', on_delete=fields.CASCADE, null=True
     )
     user = fields.ForeignKeyField('models.User', related_name='api_tokens')
+    user_id: int
+    tenant_id: Optional[int]
     name = fields.CharField(max_length=100)
     token_hash = fields.CharField(max_length=64, unique=True, index=True)
     token_prefix = fields.CharField(max_length=24)
@@ -189,8 +198,15 @@ class ApiToken(Model):
     oauth_client = fields.ForeignKeyField(
         'models.McpOAuthClient', related_name='tokens', on_delete=fields.CASCADE, null=True
     )
+    oauth_app: fields.ForeignKeyNullableRelation = fields.ForeignKeyField(
+        'models.OAuthApp', related_name='grants', on_delete=fields.CASCADE, null=True
+    )
+    oauth_app_id: Optional[int]
     # Refresh tokens are hashed like access tokens and rotate on every use.
     refresh_token_hash = fields.CharField(max_length=64, null=True, unique=True, index=True)
+    # The refresh hash this row rotated away from. Presenting it again means a
+    # spent refresh token is in someone else's hands, so the grant is revoked.
+    previous_refresh_hash = fields.CharField(max_length=64, null=True, index=True)
     refresh_expires_at = fields.DatetimeField(null=True)
     scope = fields.CharField(max_length=255, null=True)
     last_used_at = fields.DatetimeField(null=True)
@@ -213,6 +229,12 @@ class UserRole(Model):
         'models.Tenant', related_name='user_roles', null=True, on_delete=fields.CASCADE
     )
     role = fields.CharEnumField(Role, max_length=32)
+    # The event a per-event role (``Role.is_per_event``) is held in; NULL for a
+    # community-wide role. CASCADE, so a grant goes with its event, and that
+    # makes the row archive-guarded: an archived event's grants can't change.
+    event = fields.ForeignKeyField(  # type: ignore[var-annotated]
+        'models.Event', related_name='user_roles', null=True, on_delete=fields.CASCADE,
+    )
     # SET_NULL: deleting the granter must not revoke roles they granted to others.
     granted_by = fields.ForeignKeyField(
         'models.User', related_name='granted_roles', null=True, on_delete=fields.SET_NULL
@@ -221,7 +243,10 @@ class UserRole(Model):
     created_at = fields.DatetimeField(auto_now_add=True)
 
     class Meta:
-        unique_together = ('user', 'role', 'tenant')
+        # Postgres treats NULLs as distinct, so this only holds per-event rows;
+        # migration 141's partial index ``uid_userrole_community`` holds the
+        # community-wide ones (event_id IS NULL) to one per user and role.
+        unique_together = ('user', 'role', 'tenant', 'event')
         table = 'userrole'
         indexes = (('role',),)  # composite is user-first; role-only enumeration uncovered
 
@@ -245,6 +270,13 @@ class DiscordRoleMapping(Model):
     discord_role_id = fields.BigIntField()
     discord_role_name = fields.CharField(max_length=100)
     app_role = fields.CharEnumField(Role, max_length=32, null=True)
+    # The event a per-event ``app_role`` is granted in, named when the mapping
+    # is made (the default event, unless staff pick another). Fixed after that:
+    # moving the default never re-points a mapping. NULL for a community-wide
+    # role and for tournament grants, whose tournament names the event.
+    event = fields.ForeignKeyField(  # type: ignore[var-annotated]
+        'models.Event', related_name='discord_role_mappings', null=True, on_delete=fields.CASCADE,
+    )
     tournament_grant = fields.CharEnumField(TournamentGrant, max_length=32, null=True)
     # CASCADE: a mapping onto a deleted tournament grants nothing, so it goes with it.
     tournament = fields.ForeignKeyField(  # type: ignore[var-annotated]
@@ -259,7 +291,7 @@ class DiscordRoleMapping(Model):
         # constraint only bites on the rows whose columns are all populated —
         # the role key ignores tournament rows and vice versa.
         unique_together = (
-            ('tenant', 'discord_role_id', 'app_role'),
+            ('tenant', 'discord_role_id', 'app_role', 'event'),
             ('tenant', 'discord_role_id', 'tournament_grant', 'tournament'),
         )
         table = 'discordrolemapping'

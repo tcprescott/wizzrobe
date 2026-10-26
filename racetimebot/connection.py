@@ -25,7 +25,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from typing import Callable, Tuple
+from typing import Callable, Optional, Tuple
 
 from models import User
 from racetimebot.handler import RaceHandler
@@ -33,6 +33,7 @@ from racetimebot.transport import (
     RacetimeAuthError,
     RacetimeTransientError,
     RacetimeTransport,
+    RoomSource,
     build_transport,
 )
 
@@ -56,6 +57,7 @@ class CategoryConnection:
         bot_service,
         system_user: User,
         transport_factory: Callable[..., RacetimeTransport] = build_transport,
+        room_source: Optional[RoomSource] = None,
     ) -> None:
         self.bot_id = bot_id
         self.category = category
@@ -65,6 +67,7 @@ class CategoryConnection:
         self.bot_service = bot_service
         self.system_user = system_user
         self._transport_factory = transport_factory
+        self.room_source = room_source
         self._stop = asyncio.Event()
         self._transport: RacetimeTransport | None = None
 
@@ -73,7 +76,15 @@ class CategoryConnection:
             client_id=self.client_id,
             client_secret=self.client_secret,
             category=self.category,
+            room_source=self.room_source,
         )
+
+    async def send(self, slug: str, action: dict) -> bool:
+        """Speak in room ``slug`` over the live transport; ``False`` while disconnected."""
+        transport = self._transport
+        if transport is None:
+            return False
+        return await transport.send(slug, action)
 
     async def _heartbeat(self) -> None:
         await self.bot_service.record_heartbeat(self.bot_id)

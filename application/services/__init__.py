@@ -19,12 +19,14 @@ from . import (
     check_in_sales,
     check_in_sync_worker,
     community_event_reminder,
+    event_retention,
     event_setup_copy,
     item_tracker_catalog,
     notification_catalog,
     notification_links,
     oauth_handoff_service,
     opt_in_notifications,
+    race_room_holds,
     race_room_worker,
     reporting_shared,
     result_alerts,
@@ -56,7 +58,7 @@ from .async_qualifier import (
     validate_window,
 )
 from .audit_service import AuditService
-from .auth_service import AuthService, get_user_from_discord_id, get_user_from_session
+from .auth_service import AuthService, RoleScope, get_user_from_discord_id, get_user_from_session
 from .bracket_config import BracketConfig, validate_bracket_config
 from .bracket_overview_service import BracketOverviewService
 from .bracket_service import BracketService
@@ -119,6 +121,8 @@ from .my_timeline_service import MyTimelineService
 from .notification_channel_service import NotificationChannelService
 from .notification_preference_service import NotificationPreferenceService
 from .notification_settings_service import NotificationSettingsService
+from .oauth_app_service import OAuthAppService
+from .oauth_grant_service import OAuthGrantService
 from .password_auth_service import PasswordAuthService
 from .payout_service import PayoutService
 from .personal_webhook_service import PersonalWebhookService
@@ -127,6 +131,7 @@ from .player_availability_service import PlayerAvailabilityService
 from .preset_service import PresetService
 from .profile_nudge_service import ProfileNudgeService
 from .provider_task_service import ProviderTaskService
+from .race_room_bot_service import RaceRoomBotService
 from .race_room_profile_service import RaceRoomProfileService
 from .race_room_service import RaceRoomService
 from .racetime_bot_service import RacetimeBotService
@@ -259,6 +264,8 @@ __all__ = [
     'NotificationChannelService',
     'NotificationPreferenceService',
     'NotificationSettingsService',
+    'OAuthAppService',
+    'OAuthGrantService',
     'PasswordAuthService',
     'PayoutService',
     'PersonalWebhookService',
@@ -269,6 +276,7 @@ __all__ = [
     'ProbeResult',
     'ProfileNudgeService',
     'ProviderTaskService',
+    'RaceRoomBotService',
     'RaceRoomProfileService',
     'RaceRoomService',
     'RacetimeBotService',
@@ -276,6 +284,7 @@ __all__ = [
     'RacetimeService',
     'RandomizerCredentialService',
     'ReportsService',
+    'RoleScope',
     'RoomTokenService',
     'RoundScheduleService',
     'RoundWindowError',
@@ -345,6 +354,7 @@ __all__ = [
     'discord_event_worker',
     'discord_queue',
     'discord_role_sync_worker',
+    'event_retention',
     'event_setup_copy',
     'get_user_from_discord_id',
     'get_user_from_session',
@@ -353,6 +363,7 @@ __all__ = [
     'notification_links',
     'oauth_handoff_service',
     'opt_in_notifications',
+    'race_room_holds',
     'race_room_worker',
     'reporting_shared',
     'require_found',

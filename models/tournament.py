@@ -107,6 +107,13 @@ class Tournament(Model):
     racetime_auto_create_rooms = fields.BooleanField(default=False)
     room_open_minutes_before = fields.IntField(default=30)
     require_racetime_link = fields.BooleanField(default=False)
+    # The bot joins the rooms it opened: invites the players, posts the seed
+    # ``racetime_seed_post_minutes`` before the start, answers !seed, !forceroll
+    # and !fpa, and records the result unless it needs staff. Two finishers
+    # within ``racetime_close_finish_ms`` of each other count as a close finish.
+    racetime_bot_runs_room = fields.BooleanField(default=False)
+    racetime_seed_post_minutes = fields.IntField(default=10)
+    racetime_close_finish_ms = fields.IntField(default=1000)
     # How long before a scheduled match to remind its players and approved crew
     # which stage they are on. Deliberately separate from
     # ``room_open_minutes_before`` above, which governs racetime room creation:
@@ -179,6 +186,9 @@ class Tournament(Model):
     # can still be removed.
     required_commentators = fields.IntField(default=1)
     required_trackers = fields.IntField(default=1)
+    # Only counts where the tournament's event has broadcasters switched on
+    # (Event settings → Crew); with it off every reader takes it as 0.
+    required_broadcasters = fields.IntField(default=1)
     # Whether players may schedule matches themselves outside a bracket
     # (``MatchService.submit_match_request``). Turned off automatically when a
     # native bracket is created or a Challonge bracket is linked: a bracket-run

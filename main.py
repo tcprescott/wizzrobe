@@ -30,6 +30,7 @@ import frontend
 # would otherwise win the race against the basicConfig below and strip the log
 # format for the whole process.
 import mcpserver
+from api import oauth_server
 from api.openapi_docs import api_description, warm_openapi
 from api.openapi_docs import install as install_openapi_docs
 from application.events import dispatch_queue as event_dispatch_queue
@@ -322,6 +323,11 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         # TelemetryEvent log (page views / interactions are captured separately from
         # the presentation layer). No event_types filter — record them all.
         event_bus.subscribe_async(TelemetryService().record_event)
+        # The racetime room bot posts a seed that lands after its set time (an
+        # async roll, or one !forceroll asked for) the moment it's rolled.
+        from application.events import EventType
+        from application.services.race_room_bot_service import on_seed_rolled_event
+        event_bus.subscribe_async(on_seed_rolled_event, event_types=[EventType.MATCH_SEED_ROLLED])
     # Started after boot so migrations and the first imports don't read as stalls.
     if loop_watchdog_enabled():
         gc_monitor.install()
@@ -329,9 +335,10 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     warm_openapi(app)
     metrics_sampler.start()
     worker_watchdog.start()
-    from application.services import active_users_metrics, telemetry_retention
+    from application.services import active_users_metrics, event_retention, telemetry_retention
     active_users_metrics.start()
     telemetry_retention.start()
+    event_retention.start()
     # Everything alive now lives as long as the process; freezing it keeps every
     # full collection from re-walking it (a third off each pause, SGLMAN-20/22).
     element_cycles.install()
@@ -355,6 +362,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     try:
         await active_users_metrics.stop()
         await telemetry_retention.stop()
+        await event_retention.stop()
         await race_room_worker.stop()
         await seed_roll_worker.stop()
         await check_in_sync_worker.stop()
@@ -417,8 +425,9 @@ app.include_router(
 install_openapi_docs(app)
 
 # ORDER IS LOAD-BEARING: frontend.init() hands the app to NiceGUI, which mounts
-# itself at '/' and would swallow /mcp. Register the MCP routes first.
+# itself at '/' and would swallow /mcp and /oauth. Register those routes first.
 mcpserver.mount(app)
+oauth_server.mount(app)
 
 frontend.init(app)
 

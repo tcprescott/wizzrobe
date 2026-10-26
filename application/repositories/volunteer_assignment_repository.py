@@ -7,6 +7,7 @@ Volunteers placed into shifts.
 from datetime import datetime, timedelta
 from typing import List, Optional, Sequence, Set, cast
 
+from application.event_writes import guarded_delete
 from application.repositories._event import event_scoped
 from application.repositories._save import save_fields
 from application.repositories._tenant import current_tenant_id, scoped
@@ -211,9 +212,9 @@ class VolunteerAssignmentRepository:
         shift_ids = await shifts.values_list('id', flat=True)
         if not shift_ids:
             return 0
-        return await scoped(VolunteerAssignment.filter(
+        return await guarded_delete(scoped(VolunteerAssignment.filter(
             auto_generated=True, shift_id__in=list(shift_ids),
-        )).delete()
+        )))
 
     @staticmethod
     async def count_auto_for_window(start: datetime, end: datetime) -> int:

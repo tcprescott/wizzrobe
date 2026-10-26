@@ -1,6 +1,6 @@
 """Crew signups on bracket matchups nobody has booked yet - Business Logic Layer.
 
-Commentators and trackers want to claim a final while its semifinals are still
+Commentators, trackers and broadcasters want to claim a final while its semifinals are still
 unplayed, and a matchup only had a match to sign up on once someone booked it
 with a time. So the first crew signup on an open matchup makes a **crew hold**:
 a ``Match`` with no players and no time (``Match.crew_hold_source`` /
@@ -17,10 +17,12 @@ are told once the match is on a stage, as on every match.
 
 import logging
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Set, Tuple
 
+from application.event_context import get_current_event_id
 from application.events import Event, EventType, event_bus, match_live
 from application.repositories import (
+    BroadcasterRepository,
     CommentaryInviteRepository,
     CommentatorRepository,
     MatchRepository,
@@ -34,6 +36,7 @@ from application.services.audit_service import AuditActions, AuditService
 from application.services.bracket_sources import UnbookedMatch
 from application.services.discord import discord_queue
 from application.services.discord.discord_service import DiscordService
+from application.services.event_service import EventService
 from application.services.notification_catalog import ADMINS, CREW_BOOKED_BUSY
 from application.services.tenant_service import TenantService
 from application.utils.discord_embeds import COLOR_CANCELLED, notification_embed
@@ -53,9 +56,10 @@ class FutureMatch:
         return self.matchup.source, self.matchup.key
 
 
-def _wants_crew(matchup: UnbookedMatch) -> bool:
+def _wants_crew(matchup: UnbookedMatch, broadcaster_events: Set[int]) -> bool:
     t = matchup.tournament
-    return bool(t.required_commentators or t.required_trackers)
+    return bool(t.required_commentators or t.required_trackers
+                or (t.required_broadcasters and t.event_id in broadcaster_events))
 
 
 class CrewHoldService:
@@ -70,13 +74,16 @@ class CrewHoldService:
         been booked by a path that didn't hand its crew over gets it here, and a
         hold whose label has gone stale (a sync filled in a side) is relabelled.
         """
-        open_rows = [m for m in await bracket_sources.list_open_for_crew() if _wants_crew(m)]
+        candidates = await bracket_sources.list_open_for_crew()
+        broadcaster_events = await EventService.broadcaster_events(m.tournament.event_id for m in candidates)
+        open_rows = [m for m in candidates if _wants_crew(m, broadcaster_events)]
         holds = {(h.crew_hold_source, h.crew_hold_key): h for h in await self.repository.list_crew_holds()}
         out: List[FutureMatch] = []
         for matchup in open_rows:
             item = FutureMatch(matchup, holds.pop((matchup.source, matchup.key), None))
             hold = item.hold
-            if hold is not None and not (list(hold.commentators) or list(hold.trackers)):  # type: ignore[attr-defined]
+            if hold is not None and not (list(hold.commentators) or list(hold.trackers)  # type: ignore[attr-defined]
+                                         or list(hold.broadcasters)):  # type: ignore[attr-defined]
                 # Everyone withdrew: the matchup goes back to a plain line.
                 await self.repository.delete(hold)
                 item.hold = None
@@ -104,6 +111,8 @@ class CrewHoldService:
         added lines the way the board's Tournament filter narrows its matches.
         """
         futures = await self.list_future()
+        broadcaster_events = await EventService.broadcaster_events(
+            f.matchup.tournament.event_id for f in futures)
         order = {f.ref: n for n, f in enumerate(futures, start=1)}
         by_hold = {f.hold.id: f for f in futures if f.hold is not None}
         blocked = await _player_discord_ids(futures)
@@ -121,12 +130,16 @@ class CrewHoldService:
             row['_future_order'] = order[future.ref]
             row['set_label'] = future.matchup.round_label or None
             out.append(row)
+        # The board shows one event; open matchups come from every live one.
+        event_id = get_current_event_id()
         for future in futures:
             if future.hold is not None:
                 continue
             if tournament_ids is not None and future.matchup.tournament.id not in tournament_ids:
                 continue
-            row = _future_row(future.matchup, blocked.get(future.ref, []))
+            if event_id is not None and future.matchup.tournament.event_id != event_id:
+                continue
+            row = _future_row(future.matchup, blocked.get(future.ref, []), broadcaster_events)
             row['_future_order'] = order[future.ref]
             out.append(row)
         return out
@@ -137,10 +150,10 @@ class CrewHoldService:
         Every rule of :meth:`CrewService.signup_crew` applies, plus one it can't
         see on a hold: a player already through to the matchup can't crew it.
         """
-        from application.services.crew_service import CrewService
+        from application.services.crew_service import CREW_ROLES, CrewService
 
-        if role not in ('commentator', 'tracker'):
-            raise ValueError(f"Invalid role: {role}. Must be 'commentator' or 'tracker'")
+        if role not in CREW_ROLES:
+            raise ValueError(f"Invalid role: {role}. Must be 'commentator', 'tracker' or 'broadcaster'")
         matchup = next(
             (m.matchup for m in await self.list_future() if m.ref == (source, key)), None,
         )
@@ -186,6 +199,7 @@ class CrewHoldService:
         dropped = 0
         repositories: Tuple[Tuple[str, Any], ...] = (
             ('commentator', CommentatorRepository), ('tracker', TrackerRepository),
+            ('broadcaster', BroadcasterRepository),
         )
         for role, repository in repositories:
             on_match = {c.user_id for c in await repository.get_by_match(match)}
@@ -330,7 +344,7 @@ async def _player_discord_ids(futures: List[FutureMatch]) -> Dict[Tuple[str, int
     }
 
 
-def _future_row(matchup: UnbookedMatch, blocked: List[str]) -> Dict:
+def _future_row(matchup: UnbookedMatch, blocked: List[str], broadcaster_events: Set[int]) -> Dict:
     """A schedule line for a matchup nobody has signed up for yet, shaped like a match's.
 
     ``id`` is ``future:<source>:<key>``, never a match id: the board's Sign up
@@ -358,7 +372,10 @@ def _future_row(matchup: UnbookedMatch, blocked: List[str]) -> Dict:
         'seed': '', 'generated_seed': '', 'seed_code': '', 'tournament_seed_generator': t.seed_generator,
         'seed_rolling_since': None, 'seed_rolling_label': '', 'seed_roll_error': '', 'seed_dm_blocked': [],
         'crew_signup_open': True,
-        'crew_wanted': {'commentators': t.required_commentators > 0, 'trackers': t.required_trackers > 0},
-        'crew_required': {'commentators': 0, 'trackers': 0},
-        'commentators': [], 'trackers': [],
+        'crew_wanted': {
+            'commentators': t.required_commentators > 0, 'trackers': t.required_trackers > 0,
+            'broadcasters': t.event_id in broadcaster_events and t.required_broadcasters > 0,
+        },
+        'crew_required': {'commentators': 0, 'trackers': 0, 'broadcasters': 0},
+        'commentators': [], 'trackers': [], 'broadcasters': [],
     }

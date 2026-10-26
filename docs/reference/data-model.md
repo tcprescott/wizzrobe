@@ -31,8 +31,8 @@ community owns or produces is tenant-scoped.**
 
 | Class | Models | Notes |
 |---|---|---|
-| **Global** — no `tenant` FK | `User`, `WebPushSubscription`, `ContactVerification`, `UserTablePreference`, `Tenant`, `FeatureFlagGroup`, `RacetimeBot`, `McpOAuthClient`, `McpAuthorizationCode` | `User.discord_id` / `challonge_user_id` / `twitch_user_id` / `racetime_user_id` / `startgg_user_id` / `matcherino_user_id` uniques stay global — identity links are to the person. `RacetimeBot.category` is globally unique. An OAuth grant authenticates a user platform-wide |
-| **Nullable `tenant`** — stamped from context, NULL = platform-level row | `AuditLog`, `TelemetryEvent` (`SET NULL` on tenant delete), `UserRole` (`CASCADE`; NULL only for the global `SUPER_ADMIN`), `ApiToken` (`CASCADE`; NULL only for platform-wide OAuth tokens) | |
+| **Global** — no `tenant` FK | `User`, `WebPushSubscription`, `ContactVerification`, `UserTablePreference`, `Tenant`, `FeatureFlagGroup`, `RacetimeBot`, `McpOAuthClient`, `McpAuthorizationCode`, `OAuthApp` | `User.discord_id` / `challonge_user_id` / `twitch_user_id` / `racetime_user_id` / `startgg_user_id` / `matcherino_user_id` uniques stay global — identity links are to the person. `RacetimeBot.category` is globally unique. An OAuth grant authenticates a user platform-wide |
+| **Nullable `tenant`** — stamped from context, NULL = platform-level row | `AuditLog`, `TelemetryEvent` (`SET NULL` on tenant delete), `UserRole` (`CASCADE`; NULL only for the global `SUPER_ADMIN`), `ApiToken` (`CASCADE`; NULL only for platform-wide MCP OAuth tokens — app grants carry the community picked on consent) | |
 | **Has a `tenant` FK but is never auto-scoped** | `TenantMembership`, `TenantJoinRequest`, `TenantMemberBlock`, `RacetimeBotTenant` | All answer "which tenants?" and so are queried across tenants with explicit ids |
 | **Tenant-scoped** — `tenant` FK, NOT NULL, `CASCADE` | every other model | The default (see conventions above) |
 
@@ -44,11 +44,13 @@ community owns or produces is tenant-scoped.**
 `(tenant, asset_number)`; `CheckInEvent.matcherino_venue_id` →
 `(tenant, event, matcherino_venue_id)`; `TenantFeatureFlag.flag` → `(tenant, flag)`;
 `ChallongeApiUsage.period` → `(tenant, period)`; `DiscordRoleMapping` →
-`(tenant, discord_role_id, app_role)` and
+`(tenant, discord_role_id, app_role, event)` (plus a partial unique without
+`event` for community-wide rows) and
 `(tenant, discord_role_id, tournament_grant, tournament)`;
 `DiscordTournamentGrant` → `(tournament, user, grant)`; `DiscordRoleRule` →
 `(tenant, event, key)`; `DiscordRoleGrant` → `(tenant, user, discord_role_id)`;
-`UserRole` → `(user, role, tenant)`. The
+`UserRole` → `(user, role, tenant, event)`, plus the partial
+`uid_userrole_community` on `(user, role, tenant)` where `event` is NULL. The
 `RacetimeBotTenant` grant is unique on `(bot, tenant)`; `RacetimeRoom.slug` stays
 **globally** unique — it is the tenant-routing key for inbound racetime events.
 
@@ -129,6 +131,9 @@ erDiagram
     Match ||--o{ Tracker : "match"
     User ||--o{ Tracker : "user"
     User |o--o{ Tracker : "approved_by"
+    Match ||--o{ Broadcaster : "match"
+    User ||--o{ Broadcaster : "user"
+    User |o--o{ Broadcaster : "approved_by"
 
     User ||--o{ ApiToken : "user"
     User ||--o{ Feedback : "user"
@@ -205,7 +210,7 @@ value.
 
 ### `Role`
 
-Used by `UserRole.role`, `DiscordRoleMapping.app_role` and `VolunteerRoleMapping.app_role` (`max_length=32`). `Role.tenant_grantable()` is every role but `SUPER_ADMIN`; `Role.volunteer_mappable()` is the narrower set a volunteer position may confer (`PROCTOR`, `STREAM_MANAGER`, `TRIFORCE_SUBMITTER`, `EQUIPMENT_MANAGER`, `VOLUNTEER`), since a coordinator rather than staff decides who is assigned. Authorization checks are made through `AuthService` — see [role-based-auth.md](authentication.md#roles).
+Used by `UserRole.role`, `DiscordRoleMapping.app_role` and `VolunteerRoleMapping.app_role` (`max_length=32`). `Role.tenant_grantable()` is every role but `SUPER_ADMIN`; `Role.volunteer_mappable()` is the narrower set a volunteer position may confer (`PROCTOR`, `STREAM_MANAGER`, `TRIFORCE_SUBMITTER`, `EQUIPMENT_MANAGER`, `VOLUNTEER`, `CHECK_IN_DESK`), since a coordinator rather than staff decides who is assigned. `Role.per_event()` is those plus `VOLUNTEER_COORDINATOR`, the roles held in one event; `Role.community_wide()` is the grantable rest. Authorization checks are made through `AuthService` — see [role-based-auth.md](authentication.md#roles).
 
 | Value | Meaning |
 |---|---|
@@ -246,8 +251,23 @@ live in `application/feature_flags`; see [feature-flags.md](../features/feature-
 Used by `ApiToken.origin` (`max_length=16`, default `PAT`): `PAT` = `'pat'` —
 created on the profile page, carries a `tenant`, accepted only by the REST API;
 `OAUTH` = `'oauth'` — minted by the MCP authorization server, tenant-less
-(platform-wide), accepted only at `/mcp`. Each surface rejects the other kind, so
-a credential minted for one can never be replayed against the other.
+(platform-wide), accepted only at `/mcp`; `APP` = `'app'` — a grant a person
+approved for a third-party app (`OAuthApp`), bound to the community picked on
+consent and to the approved scopes, accepted only by the REST API. Each surface
+rejects the other kinds, so a credential minted for one can never be replayed
+against another.
+
+### `OAuthClientType`
+
+Used by `OAuthApp.client_type` (`max_length=16`): `CONFIDENTIAL` = `'confidential'`
+(a server-side app holding a client secret), `PUBLIC` = `'public'` (desktop,
+mobile, browser-only; PKCE alone). Both must use PKCE.
+
+App scopes are not a `models` enum: `ApiScope` lives in
+[`application/api_scopes.py`](../../application/api_scopes.py), shared by the
+authorization server and the REST scope check. Grants keep a space-separated
+scope string (`ApiToken.scope`, `OAuthAppCode.scope`) and apps a JSON list
+(`OAuthApp.allowed_scopes`); see [oauth-apps.md](../features/oauth-apps.md).
 
 ### `RoleSource`
 
@@ -333,6 +353,10 @@ Health of a racetime bot's websocket connection (`RacetimeBot.status`, `max_leng
 
 Cached racetime room lifecycle state (`RacetimeRoom.status`, `max_length=20`, default `OPEN`): `OPEN` = `'open'` (room open, race not started) → `IN_PROGRESS` = `'in_progress'` → `FINISHED` = `'finished'`, plus `CANCELLED` = `'cancelled'` for a cancelled room.
 
+### `RaceRoomHoldReason`
+
+Why a finished race on a bot-run tournament waits for staff (`RacetimeRoom.held_reason`, `max_length=20`), in the order `race_room_holds.hold_for` checks them: `FPA` = `'fpa'`, `UNMATCHED` = `'unmatched'` (a player unlinked or absent, or a runner who isn't a player), `FORFEIT` = `'forfeit'`, `CLOSE_FINISH` = `'close_finish'`.
+
 ### `SyncStatus`
 
 Used by `SpeedGamingEpisode.sync_status` (`max_length=20`, default `PENDING`).
@@ -357,8 +381,9 @@ join later without a schema change.
 
 Which request a [`StaffRequestDM`](#staffrequestdm) asked staff to decide:
 `COMMUNITY_EVENT`, `ADA_REQUEST`, `JOIN_REQUEST`, `RESCHEDULE_REQUEST`,
-`COMMENTATOR_SIGNUP`, `TRACKER_SIGNUP` (values are the snake_case names). The two
-crew kinds are separate because `Commentator` and `Tracker` ids overlap.
+`COMMENTATOR_SIGNUP`, `TRACKER_SIGNUP`, `BROADCASTER_SIGNUP` (values are the
+snake_case names). The crew kinds are separate because `Commentator`, `Tracker`
+and `Broadcaster` ids overlap.
 
 ### `AsyncQualifierRunStatus` / `AsyncQualifierReviewStatus`
 
@@ -680,7 +705,7 @@ Discord-authenticated account. Created/updated during OAuth login; access contro
 
 The Challonge identity is **identity only** — the player's Challonge access token is never retained (writes use the shared service-account `ChallongeConnection`). The Twitch and racetime.gg identities are likewise **identity only** — the user's access token is used once during linking and discarded. There is no `access_token` field; the Discord OAuth token is not persisted on `User`.
 
-Relationships: declared reverse/M2M accessors for `admin_tournaments` and `crew_coordinated_tournaments` (M2M from `Tournament`), `match_players`, `match_acknowledgments`, `tournament_players`, `tournament_notifications`, `commentaries`, `approved_commentaries`, `trackers`, `approved_trackers`, `watched_matches`, `roles`, `granted_roles`, `audit_logs`, `triforce_texts`, `triforce_texts_moderated`, `api_tokens`, `feedback_submissions`, `owned_equipment`, `equipment_loans`, `equipment_checkouts_performed`, `equipment_checkins_performed`, `volunteer_profiles` (one per tenant), `volunteer_assignments`, `volunteer_assignments_made`, `volunteer_qualifications`, `volunteer_availability`, `challonge_participations`, `web_push_subscriptions`, `tenant_memberships`. Accessors that exist only implicitly via the children's `related_name` (no class-level annotation): `player_availability`, `challonge_connections`, `telemetry_events`, `volunteer_check_ins`, `bracket_entrants`, `mcp_authorization_codes`, `admin_async_qualifiers` (M2M), `async_qualifier_runs`, `reviewed_async_qualifier_runs`, `claimed_async_qualifier_runs`, `granted_async_qualifier_reattempts`, `authored_async_qualifier_review_notes`, `join_requests`, `join_requests_decided`, `discord_tournament_grants`, `table_preferences`, `stream_volunteered_matches`, `match_comments`, `hard_preset_opt_ins`, `reschedule_requests`, `decided_reschedule_requests`, `payouts`, `rolled_seeds`, `provider_tasks`, `room_tokens_created`, `check_in_entries`, `check_in_links_made`, `check_ins_performed`.
+Relationships: declared reverse/M2M accessors for `admin_tournaments` and `crew_coordinated_tournaments` (M2M from `Tournament`), `match_players`, `match_acknowledgments`, `tournament_players`, `tournament_notifications`, `commentaries`, `approved_commentaries`, `trackers`, `approved_trackers`, `broadcasts`, `approved_broadcasts`, `watched_matches`, `roles`, `granted_roles`, `audit_logs`, `triforce_texts`, `triforce_texts_moderated`, `api_tokens`, `feedback_submissions`, `owned_equipment`, `equipment_loans`, `equipment_checkouts_performed`, `equipment_checkins_performed`, `volunteer_profiles` (one per tenant), `volunteer_assignments`, `volunteer_assignments_made`, `volunteer_qualifications`, `volunteer_availability`, `challonge_participations`, `web_push_subscriptions`, `tenant_memberships`. Accessors that exist only implicitly via the children's `related_name` (no class-level annotation): `player_availability`, `challonge_connections`, `telemetry_events`, `volunteer_check_ins`, `bracket_entrants`, `mcp_authorization_codes`, `admin_async_qualifiers` (M2M), `async_qualifier_runs`, `reviewed_async_qualifier_runs`, `claimed_async_qualifier_runs`, `granted_async_qualifier_reattempts`, `authored_async_qualifier_review_notes`, `join_requests`, `join_requests_decided`, `discord_tournament_grants`, `table_preferences`, `stream_volunteered_matches`, `match_comments`, `hard_preset_opt_ins`, `reschedule_requests`, `decided_reschedule_requests`, `payouts`, `rolled_seeds`, `provider_tasks`, `room_tokens_created`, `check_in_entries`, `check_in_links_made`, `check_ins_performed`.
 
 Properties: `preferred_name` returns `display_name` if it is truthy, otherwise `username`.
 
@@ -692,11 +717,12 @@ Junction table mapping users to per-tenant `Role` values; records who granted th
 |---|---|---|---|
 | `user` | FK → `User` | not null, `CASCADE` | `related_name='roles'` |
 | `tenant` | FK → `Tenant` | **null**, `CASCADE` | `related_name='user_roles'`. NULL only for the global `SUPER_ADMIN` grant, which stays visible inside any tenant request |
+| `event` | FK → `Event` | **null**, `CASCADE` | `related_name='user_roles'`. Set for a per-event role (`Role.is_per_event`), NULL for a community-wide one and for `SUPER_ADMIN`. Archive-guarded, so grants in an archived event don't change |
 | `role` | `CharEnumField(Role)` | not null | `max_length=32` |
 | `granted_by` | FK → `User` | null, `SET_NULL` | `related_name='granted_roles'`; null for Discord-synced rows; survives granter deletion |
 | `source` | `CharEnumField(RoleSource)` | not null, default `MANUAL` | `max_length=16`; manual grants are never auto-revoked by the Discord or volunteer sync |
 
-Constraints: `unique_together ('user', 'role', 'tenant')`; index on `role` (the composite is user-first, leaving role-only enumeration uncovered).
+Constraints: `unique_together ('user', 'role', 'tenant', 'event')`, plus the partial unique `uid_userrole_community` on `(user, role, tenant)` WHERE `event_id IS NULL` (Postgres treats NULLs as distinct); index on `event`; index on `role` (the composite is user-first, leaving role-only enumeration uncovered).
 
 #### `DiscordRoleMapping`
 
@@ -712,8 +738,10 @@ managed by Staff on the admin **Role Mappings** tab — see [discord.md](../feat
 | `app_role` | `CharEnumField(Role)` | **null** | `max_length=32`. Set for a community-wide grant |
 | `tournament_grant` | `CharEnumField(TournamentGrant)` | **null** | `max_length=32`. Set for a per-tournament grant |
 | `tournament` | FK → `Tournament` | **null**, `CASCADE` | Required with `tournament_grant`, forbidden with `app_role`. `related_name='discord_role_mappings'` |
+| `event` | FK → `Event` | **null**, `CASCADE` | The event a per-event `app_role` is granted in (the Default event at creation unless staff pick another); NULL for community-wide roles and tournament grants. `related_name='discord_role_mappings'` |
 
-Constraints: `unique_together ('tenant', 'discord_role_id', 'app_role')` and
+Constraints: `unique_together ('tenant', 'discord_role_id', 'app_role', 'event')`
+(with the partial unique `uid_discordrolemapping_community` for `event` NULL) and
 `('tenant', 'discord_role_id', 'tournament_grant', 'tournament')`. Postgres treats
 NULLs as distinct, so each key only bites on rows of its own shape. A Discord role
 may map to several grants and vice-versa.
@@ -749,7 +777,9 @@ A bearer credential acting as its owning user. Only the SHA-256 hash is stored; 
 | `user` | FK → `User` | not null | `related_name='api_tokens'` |
 | `origin` | `CharField(16)` | default `'pat'`, `index=True` | An `ApiTokenOrigin` value. Each surface refuses the other's kind, so a credential minted for one can never be replayed against the other |
 | `oauth_client` | FK → `McpOAuthClient` | null, `CASCADE` | The MCP client this token was issued to. `related_name='tokens'` |
+| `oauth_app` | FK → `OAuthApp` | null, `CASCADE` | The third-party app an `origin='app'` grant belongs to. `related_name='grants'` |
 | `refresh_token_hash` | `CharField(64)` | null, `unique=True`, `index=True` | SHA-256 of the refresh token; rotated on every refresh |
+| `previous_refresh_hash` | `CharField(64)` | null, `index=True` | App grants only: the refresh hash this row rotated away from. Presenting it again is reuse, and revokes the grant |
 | `refresh_expires_at` | `DatetimeField` | null | Refresh-token expiry (30 days) |
 | `scope` | `CharField(255)` | null | OAuth scope granted |
 | `name` | `CharField(100)` | not null | User-supplied label |
@@ -759,6 +789,47 @@ A bearer credential acting as its owning user. Only the SHA-256 hash is stored; 
 | `last_used_at` | `DatetimeField` | null | Stamped on each authenticated request |
 | `expires_at` | `DatetimeField` | null | Optional expiry; null = never |
 | `revoked_at` | `DatetimeField` | null | Set when revoked; non-null tokens are rejected |
+
+#### `OAuthApp`
+
+A third-party app a user registered for the `/oauth` authorization server. **Global — no tenant FK**; each grant names its own community. Name, description and homepage are player-written plain text. See [features/oauth-apps.md](../features/oauth-apps.md).
+
+| Field | Type | Null / default | Notes |
+|---|---|---|---|
+| `owner` | FK → `User` | not null, `CASCADE` | `related_name='oauth_apps'` |
+| `name` / `description` | `CharField(60)` / `CharField(300)` | description default `''` | Plain text, one line |
+| `homepage_url` | `CharField(512)` | null | https only |
+| `client_type` | `CharEnumField(OAuthClientType)` | not null | |
+| `client_id` | `CharField(64)` | `unique=True`, `index=True` | `wza_…`, public |
+| `client_secret_hash` / `secret_prefix` | `CharField(64)` / `CharField(24)` | null | Confidential apps only; plaintext shown once |
+| `previous_secret_hash` / `secret_rotated_at` | `CharField(64)` / `DatetimeField` | null | The old secret stays valid 24 h after a rotation |
+| `redirect_uris` | `JSONField` | default `[]` | Exact-match allowlist (max 10) |
+| `allowed_scopes` | `JSONField` | default `[]` | `ApiScope` values the app may request |
+| `disabled_at` / `disabled_reason` | `DatetimeField` / `CharField(300)` | null | Platform-admin kill switch; grants stop while set |
+| `created_at` / `updated_at` | `DatetimeField` | auto | |
+
+#### `OAuthAppBlock`
+
+A community's block on one `OAuthApp` (Admin → Settings → Connected apps). Tenant-scoped; `unique_together (tenant, app)`. While it exists the app can't be granted, refreshed or used in that community.
+
+| Field | Type | Null / default | Notes |
+|---|---|---|---|
+| `tenant` | FK → `Tenant` | `CASCADE` | `related_name='oauth_app_blocks'` |
+| `app` | FK → `OAuthApp` | `CASCADE` | `related_name='blocks'` |
+| `blocked_by` | FK → `User` | null, `SET_NULL` | |
+| `created_at` | `DatetimeField` | auto | |
+
+#### `OAuthAppCode`
+
+A single-use authorization code for an `OAuthApp`, 5-minute expiry, hash only. Carries the community picked on consent and the approved scope, which the grant inherits. `grant` (FK → `ApiToken`, `SET_NULL`) records what it was exchanged for, so a replayed code revokes that grant.
+
+| Field | Type | Null / default | Notes |
+|---|---|---|---|
+| `code_hash` | `CharField(64)` | `unique=True`, `index=True` | |
+| `app` / `user` / `tenant` | FK | not null, `CASCADE` | |
+| `redirect_uri` / `code_challenge` / `scope` | `CharField` | not null | S256 challenge only |
+| `expires_at` / `consumed_at` | `DatetimeField` | consumed null | |
+| `grant` | FK → `ApiToken` | null, `SET_NULL` | |
 
 #### `McpOAuthClient`
 
@@ -926,6 +997,9 @@ Tournament metadata and configuration; the root aggregate for matches, enrollmen
 | `racetime_auto_create_rooms` | `BooleanField` | default `False` | Opt-in: auto-open a race room per scheduled match |
 | `room_open_minutes_before` | `IntField` | default `30` | Lead time before `scheduled_at` to open the room |
 | `require_racetime_link` | `BooleanField` | default `False` | Require players to have a linked racetime identity |
+| `racetime_bot_runs_room` | `BooleanField` | default `False` | The racetime bot sits in each room: invites, seed post, chat commands, held results ([online tournaments](../features/online-tournaments.md#the-room-bot-racetime_bot_runs_room)) |
+| `racetime_seed_post_minutes` | `IntField` | default `10` | How long before the start the room bot posts the seed |
+| `racetime_close_finish_ms` | `IntField` | default `1000` | Two finishers this close hold the result for staff; `0` turns the check off |
 | `stage_reminder_minutes` | `IntField` | default `30` | How long before a match to DM its players and approved crew which stage they are on. Deliberately **not** `room_open_minutes_before`, which governs racetime room creation; `0` sends no reminder. Read by `application/services/match/stage_reminder.py` |
 | `racetime_default_goal` | `CharField(255)` | null | Default racetime goal for opened rooms |
 | `discord_events_enabled` | `BooleanField` | default `False` | Opt-in: mirror this tournament's scheduled matches into the tenant guild's Discord Scheduled Events |
@@ -945,6 +1019,7 @@ Tournament metadata and configuration; the root aggregate for matches, enrollmen
 | `crew_coordinators` | M2M → `User` | — | `through='TournamentCrewCoordinators'`, `related_name='crew_coordinated_tournaments'` |
 | `required_commentators` | `IntField` | default `1` | Approved commentators a **stream candidate** needs before the coverage surfaces count it as covered. `0` means the tournament does not use the role. Read by `ReportsService.crew_coverage` and `AnalyticsService.tournament_health` through the shared `reporting_shared.is_crew_covered`, and by the schedule board — a role requiring `0` renders no **Sign up**, and `CrewService.signup_crew` refuses it (hiding a control is not enforcing a rule). Withdrawing stays open at any requirement. |
 | `required_trackers` | `IntField` | default `1` | Same, for trackers. The defaults reproduce the pre-migration assumption that every streamed match needs one of each. |
+| `required_broadcasters` | `IntField` | default `1` | Same, for broadcasters; only counts on an event with broadcasters on. |
 | `allow_player_match_requests` | `BooleanField` | default `True` | Whether players may request matches outside a bracket. Turned off automatically by `BracketService.create_bracket` (stage 0) and `ChallongeService.link_tournament` — a bracket-run tournament schedules only its own matchups. Enforced in `MatchService.submit_match_request`; staff can re-enable it per tournament. |
 | `players_release_seed` | `BooleanField` | default `False` | Players release their own seed: after check-in each taps Ready for seed, and the seed rolls when all have. Proctors and staff still roll any time. Ignored on racetime tournaments |
 | `allow_reschedule_requests` | `BooleanField` | default `True` | Whether players may ask staff to move or call off one of their matches ([`MatchRescheduleRequest`](#matchreschedulerequest)). Independent of the toggle above — a bracket-run tournament still needs a way to say "we can't make Saturday". Off hides the control **and** makes `MatchRescheduleService` refuse, since the REST route reaches past the hidden control |
@@ -1023,7 +1098,7 @@ Core scheduling unit. Lifecycle is derived from nullable timestamps rather than 
 | `preset_override` | `CharEnumField(PresetOverride)` | null | `max_length=16`. Staff overruling the players' hard-preset choice for this one match, in either direction. Null = the players decide. Refused once the seed is rolled, after which `generated_seed.preset` is the record |
 | `speedgaming_episode` | O2O → `SpeedGamingEpisode` | null, `SET_NULL` | The canonical **source marker**: non-null = materialized by the SpeedGaming ETL, which makes its ETL-owned fields (`scheduled_at`, players, `tournament`) read-only in Wizzrobe (guard in `MatchService.update_match`). `SET_NULL` soft-detaches the match if its episode is purged. `related_name='match'` |
 
-Relationships: declared reverse accessors `acknowledgments` and `challonge_match` (the linked Challonge bracket match, if scheduled from one); `players`, `commentators`, `trackers`, `watchers`, `stream_volunteers`, `comments`, `reschedule_requests`, `hard_preset_opt_ins`, `provider_tasks`, `racetime_room`, and `bracket_match_game` exist via the children's `related_name`s without class-level declarations.
+Relationships: declared reverse accessors `acknowledgments` and `challonge_match` (the linked Challonge bracket match, if scheduled from one); `players`, `commentators`, `trackers`, `broadcasters`, `watchers`, `stream_volunteers`, `comments`, `reschedule_requests`, `hard_preset_opt_ins`, `provider_tasks`, `racetime_room`, and `bracket_match_game` exist via the children's `related_name`s without class-level declarations.
 
 Properties: `is_seated`, `is_started`, `is_finished`, `is_confirmed` are each `<field> is not None`; `current_state` returns the first of `'Finished'` / `'In Progress'` / `'Checked In'` whose timestamp is set, else `'Scheduled'` (see [Match lifecycle](#match-lifecycle)).
 
@@ -1238,6 +1313,23 @@ Item/map tracker operator signup for a match. Structurally identical to `Comment
 | `match` | FK → `Match` | not null, `CASCADE` | `related_name='trackers'` |
 | `approved` | `BooleanField` | default `False` | |
 | `approved_by` | FK → `User` | null, `SET_NULL` | `related_name='approved_trackers'`; survives approver deletion |
+| `acknowledged_at` | `DatetimeField` | null | |
+
+Constraint: `unique_together (('match', 'user'),)`.
+
+#### `Broadcaster`
+
+Someone running the stream for a match. The third crew role, structurally
+identical to `Tracker`, and only in use on an event with broadcasters switched on
+(`Event.config['broadcasters']`, Event settings → Crew).
+
+| Field | Type | Null / default | Notes |
+|---|---|---|---|
+| `tenant` | FK → `Tenant` | not null, `CASCADE` | `related_name='broadcasters'` |
+| `user` | FK → `User` | not null, `CASCADE` | `related_name='broadcasts'` |
+| `match` | FK → `Match` | not null, `CASCADE` | `related_name='broadcasters'` |
+| `approved` | `BooleanField` | default `False` | |
+| `approved_by` | FK → `User` | null, `SET_NULL` | `related_name='approved_broadcasts'` |
 | `acknowledged_at` | `DatetimeField` | null | |
 
 Constraint: `unique_together (('match', 'user'),)`.
@@ -1940,6 +2032,14 @@ tenant routing, mirroring the `ApiToken`→tenant pattern.
 | `status` | `CharEnumField(RaceRoomStatus)` | default `OPEN` | Cached room state, written by the bot runtime |
 | `match` | O2O → `Match` | null, `SET_NULL` | `related_name='racetime_room'` |
 | `opened_at` | `DatetimeField` | null | |
+| `greeted_at` | `DatetimeField` | null | When the room bot posted its greeting; claimed conditionally so it posts once |
+| `seed_posted_at` | `DatetimeField` | null | When the room bot posted the seed; claimed conditionally so it posts once |
+| `broadcaster_ready_at` | `DatetimeField` | null | When a broadcaster typed `!ready`, releasing a restream's held seed |
+| `broadcaster_nudged_at` | `DatetimeField` | null | When the start-time "still waiting on the broadcaster" nudge went out; claimed so it goes once |
+| `fpa_calls` | `JSONField` | default `[]` | `!fpa` calls: `{racetime_user_id, name, at, race_seconds, note}` each |
+| `held_reason` | `CharEnumField(RaceRoomHoldReason)` | null | Set while a finished race waits for staff's Check result; cleared on confirm |
+| `held_detail` | `TextField` | null | The sentence staff see beside the hold |
+| `held_entrants` | `JSONField` | null | What racetime reported per entrant (`user_id, name, status, place, finish_ms`) when the result was held |
 
 Index on `match`.
 
@@ -2472,6 +2572,7 @@ Consult the source for full signatures.
 | `TenantJoinRequestRepository` | [`tenant_join_request_repository.py`](../../application/repositories/tenant_join_request_repository.py) | `TenantJoinRequest` | **Never scoped** — the requester is not in the target tenant. `get`, `get_by_id`, `upsert_pending` (re-opens a decided row in place), `list_pending`, `decide` |
 | `ApiTokenRepository` | [`api_token_repository.py`](../../application/repositories/api_token_repository.py) | `ApiToken` | `create`, `create_oauth_token`, `get_by_id`, `get_by_hash`, `get_by_refresh_hash`, `rotate_refresh`, `list_for_user`, `touch_last_used`, `revoke`. Reads match this tenant's PATs **or** the user's tenant-less OAuth tokens, so MCP connections stay revocable from any community. `create_oauth_token` defaults `read_only=True`, matching the consent screen's own default. |
 | `McpAuthRepository` | [`mcp_auth_repository.py`](../../application/repositories/mcp_auth_repository.py) | `McpOAuthClient`, `McpAuthorizationCode` | `create_client`, `get_client`, `create_code`, `get_code`, `consume_code`, `purge_expired_codes`. Global by design — neither model carries a tenant. |
+| `OAuthAppRepository` | [`oauth_app_repository.py`](../../application/repositories/oauth_app_repository.py) | `OAuthApp`, `OAuthAppCode` | App CRUD (global, unscoped lookups), `create_code` stamped with the picked community, `get_code`/`consume_code`/`link_code_to_grant` by hash (cross-tenant: the token endpoint runs before any tenant exists). App grants themselves live on `ApiTokenRepository` (`create_app_grant`, `get_app_grant_by_*`, `live_app_grants`, `revoke_app_grants_for_app`, `count_app_grant_users`). |
 | `AccommodationRepository` | [`accommodation_repository.py`](../../application/repositories/accommodation_repository.py) | `AccommodationRequest` | `TenantScopedRepository` CRUD plus `get_by_id` (prefetches `user`), `get_for_user`, `list_by_status` (oldest first), `user_ids_with_status` |
 | `EmergencyContactRepository` | [`emergency_contact_repository.py`](../../application/repositories/emergency_contact_repository.py) | `EmergencyContact` | `TenantScopedRepository` CRUD plus `get_for_user` (prefetches `last_viewed_by`) and `create_for` |
 | `CommunityEventRepository` | [`community_event_repository.py`](../../application/repositories/community_event_repository.py) | `CommunityEvent` | `create`, `get_by_id` (prefetches `host`, `reviewed_by`), `update`, `list_by_status(statuses, starts_after=None)`, `list_for_host`, `count_by_status` |

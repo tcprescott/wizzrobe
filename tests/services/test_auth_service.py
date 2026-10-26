@@ -78,7 +78,10 @@ def patch_roles(monkeypatch):
             async def exists(self):
                 return bool(roles) if self._has_match else False
 
-        def fake_filter(*, user=None, role=None, **_kwargs):
+            def filter(self, *_args, **_kwargs):
+                return self
+
+        def fake_filter(*_q, user=None, role=None, **_kwargs):
             if user is None:
                 return FakeRoleQS(False)
             has_match = role is None or role in roles

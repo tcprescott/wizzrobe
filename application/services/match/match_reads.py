@@ -62,7 +62,7 @@ class MatchReadsMixin:
             return RELATION_NONE
         if any(p.user_id == user.id for p in match.players):
             return RELATION_PLAYER
-        crew = [*match.commentators, *match.trackers]
+        crew = [*match.commentators, *match.trackers, *match.broadcasters]
         if any(c.user_id == user.id for c in crew):
             return RELATION_CREW
         from application.repositories import MatchWatcherRepository

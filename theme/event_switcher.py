@@ -117,7 +117,7 @@ def switcher_groups(events: Iterable[EventRef]) -> list[tuple[str, list[EventRef
     events = list(events)
     groups = [
         ('Live', [e for e in events if e.is_live]),
-        ('Coming up · staff only', [e for e in events if e.is_draft]),
+        ('Coming up · not public yet', [e for e in events if e.is_draft]),
         ('Past events', [e for e in events if e.is_archived]),
     ]
     return [(label, rows) for label, rows in groups if rows]

@@ -25,6 +25,10 @@ _CREW_DESC = (
     'as covered. 0 means this tournament does not use the role. Does not '
     'restrict signups.'
 )
+_BROADCASTER_NOTE = (
+    " Broadcasters only count in an event that has them switched on (Event settings,"
+    " Crew); elsewhere the role is off whatever this says."
+)
 _UPDATE_NOTE = ' Omit to leave it unchanged.'
 _CLEAR_NOTE = ' Omit to leave it unchanged; null clears it.'
 _RELEASE_DESC = (
@@ -85,6 +89,7 @@ class TournamentCreateRequest(BaseModel):
     players_per_match: int = Field(2, description="How many players a match in this tournament has.")
     required_commentators: int = Field(default=1, ge=0, description=_CREW_DESC)
     required_trackers: int = Field(default=1, ge=0, description=_CREW_DESC)
+    required_broadcasters: int = Field(default=1, ge=0, description=_CREW_DESC + _BROADCASTER_NOTE)
     event_start_date: Optional[date] = Field(default=None, description=_DATE_DESC)
     event_end_date: Optional[date] = Field(default=None, description=_DATE_DESC)
     tournament_hours: Optional[Dict[date, Tuple[str, str]]] = Field(
@@ -139,6 +144,9 @@ class TournamentUpdateRequest(BaseModel):
     players_per_match: Optional[int] = Field(None, description="How many players a match has." + _UPDATE_NOTE)
     required_commentators: Optional[int] = Field(default=None, ge=0, description=_CREW_DESC + _UPDATE_NOTE)
     required_trackers: Optional[int] = Field(default=None, ge=0, description=_CREW_DESC + _UPDATE_NOTE)
+    required_broadcasters: Optional[int] = Field(
+        default=None, ge=0, description=_CREW_DESC + _BROADCASTER_NOTE + _UPDATE_NOTE,
+    )
     event_start_date: Optional[date] = Field(default=None, description=_DATE_DESC)
     event_end_date: Optional[date] = Field(default=None, description=_DATE_DESC)
     tournament_hours: Optional[Dict[date, Tuple[str, str]]] = Field(

@@ -7,7 +7,8 @@ draft-visibility rules all have something to show:
 
 - **Winter Online**, a second live event with one tournament and a match for
   player_one and player_two, so their personal pages span two events;
-- **SGL 2025**, archived a week after it ended;
+- **SGL 2025**, archived a week after it ended, with a finished tournament and
+  its private data already deleted;
 - **SGL 2027**, a draft being set up.
 
 Idempotent: rows are keyed by ``(tenant, slug)``.
@@ -25,8 +26,21 @@ from tortoise.fields.relational import CASCADE
 from tortoise.models import Model
 from tortoise.signals import post_save, pre_save
 
+from application.event_writes import archive_maintenance
 from application.repositories._event import EVENT_PARENTS
-from models import Event, EventStatus, Match, MatchPlayers, Tenant, Tournament, TournamentPlayers, User
+from models import (
+    DiscordRoleMapping,
+    Event,
+    EventStatus,
+    Match,
+    MatchPlayers,
+    Role,
+    Tenant,
+    Tournament,
+    TournamentPlayers,
+    User,
+    UserRole,
+)
 
 _defaults: Dict[int, int] = {}
 
@@ -48,6 +62,11 @@ async def _remember_default(sender: Any, instance: Event, created: bool, using_d
 async def _stamp_event(sender: type[Model], instance: Model, using_db: Any, update_fields: Any) -> None:
     if getattr(instance, 'event_id', None) is not None:
         return
+    # A grant or Discord mapping names an event only for a per-event role.
+    if isinstance(instance, (UserRole, DiscordRoleMapping)):
+        role = getattr(instance, 'role', None) or getattr(instance, 'app_role', None)
+        if role is None or not Role(role).is_per_event:
+            return
     parent = EVENT_PARENTS.get(sender.__name__)
     parent_id = getattr(instance, f'{parent}_id', None) if parent else None
     if parent and parent_id is not None:
@@ -101,18 +120,49 @@ async def seed_events_for_tenant(tenant: Tenant, users: Dict[str, User]) -> None
     if created:
         for player in players:
             await MatchPlayers.get_or_create(tenant=tenant, match=match, user=player)
-    await Event.get_or_create(
+    sgl25, _ = await Event.get_or_create(
         tenant=tenant, slug='sgl25',
         defaults={
             'name': 'SGL 2025', 'status': EventStatus.ARCHIVED, 'is_default': False,
             'starts_on': date(2025, 10, 23), 'ends_on': date(2025, 10, 26),
             'archived_at': datetime(2025, 11, 2, 17, 0, tzinfo=timezone.utc),
+            'pii_purged_at': datetime(2025, 12, 2, 17, 0, tzinfo=timezone.utc),
         },
     )
-    await Event.get_or_create(
+    # What it ran, for the read-only look. Written as the archive job would.
+    with archive_maintenance():
+        main, _ = await Tournament.get_or_create(
+            tenant=tenant, event=sgl25, name='ALttPR Main 2025',
+            defaults={'is_active': False, 'average_match_duration': 90},
+        )
+        for hour, title in ((19, 'ALttPR Main 2025 Final'), (16, 'ALttPR Main 2025 Semi-final')):
+            at = datetime(2025, 10, 26, hour, 0, tzinfo=timezone.utc)
+            done, created = await Match.get_or_create(
+                tenant=tenant, tournament=main, title=title,
+                defaults={'scheduled_at': at, 'seated_at': at, 'started_at': at,
+                          'finished_at': at + timedelta(hours=1, minutes=40)},
+            )
+            if created:
+                for player in players:
+                    await MatchPlayers.get_or_create(tenant=tenant, match=done, user=player)
+    sgl27, _ = await Event.get_or_create(
         tenant=tenant, slug='sgl27',
         defaults={
             'name': 'SGL 2027', 'status': EventStatus.DRAFT, 'is_default': False,
             'starts_on': date(2027, 10, 21), 'ends_on': date(2027, 10, 24),
         },
     )
+    await _seed_event_roles(tenant, users, sgl25, sgl27)
+
+
+async def _seed_event_roles(tenant: Tenant, users: Dict[str, User], sgl25: Event, sgl27: Event) -> None:
+    """Grants outside the default event: last year's proctor (archived, so it
+    authorises nothing and the Edit member dialog lists it under "Also holds")
+    and next year's volunteer coordinator, who can open the SGL 2027 draft."""
+    proctor = users.get('proctor_user')
+    if proctor is not None:
+        with archive_maintenance():
+            await UserRole.get_or_create(user=proctor, role=Role.PROCTOR, tenant=tenant, event=sgl25)
+    player_three = users.get('player_three')
+    if player_three is not None:
+        await UserRole.get_or_create(user=player_three, role=Role.VOLUNTEER_COORDINATOR, tenant=tenant, event=sgl27)

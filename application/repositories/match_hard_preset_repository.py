@@ -11,6 +11,7 @@ user ids to a surface. Adding a caller elsewhere would defeat the feature.
 
 from typing import Dict, List, Set, Tuple
 
+from application.event_writes import guarded_delete
 from application.repositories._tenant import current_tenant_id, scoped
 from models import Match, MatchHardPresetOptIn, User
 
@@ -77,13 +78,13 @@ class MatchHardPresetRepository:
 
     @staticmethod
     async def delete_by_match_and_user(match: Match, user: User) -> bool:
-        deleted = await scoped(MatchHardPresetOptIn.filter(match=match, user=user)).delete()
+        deleted = await guarded_delete(scoped(MatchHardPresetOptIn.filter(match=match, user=user)))
         return bool(deleted)
 
     @staticmethod
     async def delete_for_user_in_match(match_id: int, user_id: int) -> bool:
         """Drop one player's row when they leave the match's roster."""
-        deleted = await scoped(
+        deleted = await guarded_delete(scoped(
             MatchHardPresetOptIn.filter(match_id=match_id, user_id=user_id)
-        ).delete()
+        ))
         return bool(deleted)

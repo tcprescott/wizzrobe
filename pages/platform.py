@@ -5,7 +5,7 @@ global ``SUPER_ADMIN`` role. Manages tenant CRUD (name, slug, domain, guild id,
 active). Runs tenant-agnostically — its queries pass explicit ids, so the
 per-tenant scoping never applies.
 
-The page is seven tabs (``?tab=`` opens one); this module owns the communities
+The page is eight tabs (``?tab=`` opens one); this module owns the communities
 tab and builds the rest from their own modules, which is what keeps it inside the file-length
 guideline: :mod:`pages.platform_bots` (racetime bots),
 :mod:`pages.platform_feature_groups` (tiers, and one tenant's overrides),
@@ -29,6 +29,7 @@ from application.services import (
 from application.services.auth_service import AuthService
 from application.table_preferences_context import table_prefs_scope
 from application.tenant_context import get_current_tenant_id
+from pages.platform_apps import render_apps_section
 from pages.platform_bots import render_bots_section
 from pages.platform_feature_groups import (
     open_tenant_features_dialog,
@@ -59,6 +60,7 @@ _SECTIONS: tuple[tuple[str, str, str], ...] = (
     ('communities', 'Communities', 'groups'),
     ('users', 'Users', 'person'),
     ('bots', 'Racetime bots', 'smart_toy'),
+    ('apps', 'Apps', 'apps'),
     ('features', 'Feature groups', 'toggle_on'),
     ('logging', 'Logging', 'tune'),
     ('monitoring', 'Monitoring', 'bug_report'),
@@ -152,6 +154,8 @@ def create() -> None:
                     await render_users_section(user)
                 with ui.tab_panel('bots').style(_PANEL_STYLE):
                     await render_bots_section(user)
+                with ui.tab_panel('apps').style(_PANEL_STYLE):
+                    await render_apps_section(user)
                 with ui.tab_panel('features').style(_PANEL_STYLE):
                     await render_feature_groups_section(user)
                 with ui.tab_panel('logging').style(_PANEL_STYLE):

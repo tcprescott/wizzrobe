@@ -98,6 +98,7 @@ async def create_oauth_token(
     expired: bool = False,
     tenant_id: Optional[int] = None,
     write: bool = False,
+    scope: Optional[str] = None,
 ) -> Tuple[User, str]:
     """Create a user and a platform-wide OAuth token for them.
 
@@ -110,6 +111,9 @@ async def create_oauth_token(
 
     ``write`` mirrors the consent screen's box and defaults off, so a test that
     does not mention writing gets the connection most real users have.
+
+    ``scope`` stores that scope string instead of the one ``write`` implies, for
+    the tests about which areas a connection reaches.
     """
     if discord_id is None:
         discord_id = random.randint(1, 10 ** 12)
@@ -136,7 +140,7 @@ async def create_oauth_token(
     await ApiToken.create(
         user=user, name='test-mcp', tenant_id=None, oauth_client=client,
         origin=ApiTokenOrigin.OAUTH.value, read_only=not write,
-        scope=granted_scope(allow_write=write),
+        scope=scope if scope is not None else granted_scope(allow_write=write),
         token_hash=hashlib.sha256(raw.encode()).hexdigest(),
         token_prefix=raw[:17],
         expires_at=now - timedelta(minutes=1) if expired else now + timedelta(hours=1),

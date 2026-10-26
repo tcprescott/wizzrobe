@@ -27,6 +27,7 @@ from api.schemas.tournament_actions import (
     TournamentUpdateRequest,
 )
 from api.schemas.tournaments import TournamentResponse
+from application.api_scopes import ApiScope
 from application.errors import require_found
 from application.services import (
     ChallongeService,
@@ -89,6 +90,7 @@ async def create_tournament(
     players_per_match: int = 2,
     required_commentators: int = 1,
     required_trackers: int = 1,
+    required_broadcasters: int = 1,
     is_active: bool = True,
     is_test: bool = False,
     players_release_seed: bool = False,
@@ -147,6 +149,7 @@ async def update_tournament(
     players_per_match: Optional[int] = None,
     required_commentators: Optional[int] = None,
     required_trackers: Optional[int] = None,
+    required_broadcasters: Optional[int] = None,
     is_active: Optional[bool] = None,
     is_test: Optional[bool] = None,
     players_release_seed: Optional[bool] = None,
@@ -424,27 +427,28 @@ async def set_stage_best_of(
 
 def register_tools(mcp: MCPServer) -> None:
     def write_tool(
-        fn: Callable, title: str, feature: Optional[FeatureFlag] = None, *, destructive: bool = False,
+        fn: Callable, title: str, feature: Optional[FeatureFlag] = None, *,
+        scope: ApiScope, destructive: bool = False,
     ) -> None:
         register(
-            mcp, fn, gate=Gate.ACTOR, feature=feature, write=True, title=title,
+            mcp, fn, gate=Gate.ACTOR, scope=scope, feature=feature, write=True, title=title,
             destructive=destructive,
         )
 
-    write_tool(create_tournament, 'Create tournament')
-    write_tool(update_tournament, 'Update tournament')
-    write_tool(delete_tournament, 'Delete tournament', destructive=True)
-    write_tool(add_tournament_admin, 'Add tournament admin')
-    write_tool(remove_tournament_admin, 'Remove tournament admin', destructive=True)
-    write_tool(add_crew_coordinator, 'Add crew coordinator')
-    write_tool(remove_crew_coordinator, 'Remove crew coordinator', destructive=True)
-    write_tool(enroll_tournament_player, 'Enroll tournament player')
-    write_tool(remove_tournament_player, 'Remove tournament player', destructive=True)
-    write_tool(drop_tournament_player, 'Drop tournament player', destructive=True)
+    write_tool(create_tournament, 'Create tournament', scope=ApiScope.STAFF_WRITE)
+    write_tool(update_tournament, 'Update tournament', scope=ApiScope.STAFF_WRITE)
+    write_tool(delete_tournament, 'Delete tournament', destructive=True, scope=ApiScope.STAFF_WRITE)
+    write_tool(add_tournament_admin, 'Add tournament admin', scope=ApiScope.STAFF_WRITE)
+    write_tool(remove_tournament_admin, 'Remove tournament admin', destructive=True, scope=ApiScope.STAFF_WRITE)
+    write_tool(add_crew_coordinator, 'Add crew coordinator', scope=ApiScope.STAFF_WRITE)
+    write_tool(remove_crew_coordinator, 'Remove crew coordinator', destructive=True, scope=ApiScope.STAFF_WRITE)
+    write_tool(enroll_tournament_player, 'Enroll tournament player', scope=ApiScope.STAFF_WRITE)
+    write_tool(remove_tournament_player, 'Remove tournament player', destructive=True, scope=ApiScope.STAFF_WRITE)
+    write_tool(drop_tournament_player, 'Drop tournament player', destructive=True, scope=ApiScope.STAFF_WRITE)
     challonge = FeatureFlag.CHALLONGE
-    write_tool(link_challonge_tournament, 'Link Challonge bracket', challonge)
-    write_tool(unlink_challonge_tournament, 'Unlink Challonge bracket', challonge, destructive=True)
-    write_tool(sync_challonge_tournament, 'Sync Challonge bracket', challonge)
-    write_tool(update_tournament_discord_events, 'Update tournament Discord events')
-    register(mcp, get_round_schedule, gate=Gate.ACTOR, title='Get round schedule')
-    write_tool(set_stage_best_of, 'Set stage best-of')
+    write_tool(link_challonge_tournament, 'Link Challonge bracket', challonge, scope=ApiScope.STAFF_WRITE)
+    write_tool(unlink_challonge_tournament, 'Unlink Challonge bracket', challonge, destructive=True, scope=ApiScope.STAFF_WRITE)
+    write_tool(sync_challonge_tournament, 'Sync Challonge bracket', challonge, scope=ApiScope.STAFF_WRITE)
+    write_tool(update_tournament_discord_events, 'Update tournament Discord events', scope=ApiScope.STAFF_WRITE)
+    register(mcp, get_round_schedule, gate=Gate.ACTOR, scope=ApiScope.SCHEDULE_READ, title='Get round schedule')
+    write_tool(set_stage_best_of, 'Set stage best-of', scope=ApiScope.STAFF_WRITE)

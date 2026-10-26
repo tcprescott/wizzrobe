@@ -15,6 +15,7 @@ quietly stop them proving anything.
 
 from datetime import datetime, timedelta, timezone
 
+from application.event_context import get_current_event_id
 from models import (
     MembershipSource,
     Role,
@@ -142,6 +143,8 @@ async def seed_access_for_tenant(tenant: Tenant, users: dict[str, User]) -> None
     for uname, role in role_grants:
         await UserRole.get_or_create(
             user=users[uname], role=role, tenant=tenant,
+            # The default event's grant; seed_events adds grants in other events.
+            event_id=get_current_event_id() if role.is_per_event else None,
             defaults={
                 "granted_by": None,
                 "source": (

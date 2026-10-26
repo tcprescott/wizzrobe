@@ -541,9 +541,9 @@ class DiscordService(GuildOpsMixin, ScheduledEventsMixin):
     # The five view-bearing senders below are thin wrappers over send_dm: each
     # resolves its registered view factory by kind (populated by the bot package
     # at startup — see the registries above) and defers to send_dm.
-    async def send_dm_with_crew_buttons(self, user_id: int, message: str, match_id: int, embed: Optional[discord.Embed] = None, link: Optional[DMLink] = None, notice: Optional[NoticeTarget] = None) -> Tuple[bool, str]:
-        """Send a DM with the commentator/tracker crew signup buttons for a match."""
-        return await self.send_dm(user_id, message, lambda: _view_factories[VIEW_CREW_SIGNUP](match_id), embed=embed, link=link, notice=notice)
+    async def send_dm_with_crew_buttons(self, user_id: int, message: str, match_id: int, embed: Optional[discord.Embed] = None, link: Optional[DMLink] = None, notice: Optional[NoticeTarget] = None, broadcaster: bool = False) -> Tuple[bool, str]:
+        """Send a DM with the crew signup buttons for a match; ``broadcaster`` adds that role's."""
+        return await self.send_dm(user_id, message, lambda: _view_factories[VIEW_CREW_SIGNUP](match_id, broadcaster), embed=embed, link=link, notice=notice)
 
     async def send_dm_with_acknowledgment_button(self, user_id: int, message: str, match_id: int, embed: Optional[discord.Embed] = None, link: Optional[DMLink] = None, notice: Optional[NoticeTarget] = None) -> Tuple[bool, str]:
         """Send a DM with a match Acknowledge button."""
@@ -597,7 +597,7 @@ class DiscordService(GuildOpsMixin, ScheduledEventsMixin):
     ) -> Tuple[bool, str]:
         """Send a DM with a crew-assignment Acknowledge button.
 
-        ``crew_type`` is 'commentator' or 'tracker'; ``crew_id`` is the crew row id.
+        ``crew_type`` is 'commentator', 'tracker' or 'broadcaster'; ``crew_id`` is the crew row id.
         """
         return await self.send_dm(user_id, message, lambda: _view_factories[VIEW_CREW_ACK](crew_type, crew_id), embed=embed, link=link, notice=notice)
 
@@ -740,7 +740,7 @@ class MockDiscordService(MockGuildOpsMixin, MockScheduledEventsMixin):
 
     # Thin wrappers matching DiscordService's public surface; all defer to the
     # single send_dm stub above (the buttons are irrelevant in mock mode).
-    async def send_dm_with_crew_buttons(self, user_id: int, message: str, match_id: int, embed: Optional["discord.Embed"] = None, link: Optional[DMLink] = None, notice: Optional[NoticeTarget] = None) -> Tuple[bool, str]:
+    async def send_dm_with_crew_buttons(self, user_id: int, message: str, match_id: int, embed: Optional["discord.Embed"] = None, link: Optional[DMLink] = None, notice: Optional[NoticeTarget] = None, broadcaster: bool = False) -> Tuple[bool, str]:
         return await self.send_dm(user_id, message, embed=embed, link=link, notice=notice)
 
     async def send_dm_with_acknowledgment_button(self, user_id: int, message: str, match_id: int, embed: Optional["discord.Embed"] = None, link: Optional[DMLink] = None, notice: Optional[NoticeTarget] = None) -> Tuple[bool, str]:

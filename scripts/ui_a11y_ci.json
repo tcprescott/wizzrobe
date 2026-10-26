@@ -76,7 +76,9 @@
     { "name": "event-settings-timezone", "path": "/admin/event-settings/timezone" },
     { "name": "event-settings-reward-tiers", "path": "/admin/event-settings/reward-tiers" },
     { "name": "admin-events", "path": "/admin/events" },
+    { "name": "archived-event-tournaments", "path": "/e/sgl25/admin/tournaments" },
     { "name": "settings-members", "path": "/admin/settings/members" },
+    { "name": "settings-apps", "path": "/admin/settings/apps" },
     { "name": "admin-member-sheet", "path": "/admin/members?user_id=5" },
     { "name": "settings-volunteers", "path": "/admin/settings/volunteers" },
     { "name": "settings-discord", "path": "/admin/settings/discord" },
@@ -104,6 +106,7 @@
     { "name": "community-events", "path": "/home/community" },
     { "name": "community-event-detail", "path": "/community-events/1" },
     { "name": "admin-community-events", "path": "/admin/community-events" },
-    { "name": "platform", "path": "/platform", "platform": true }
+    { "name": "platform", "path": "/platform", "platform": true },
+    { "name": "platform-apps", "path": "/platform?tab=apps", "platform": true }
   ]
 }

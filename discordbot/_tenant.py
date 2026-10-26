@@ -13,7 +13,15 @@ community's default event.
 
 from typing import NamedTuple, Optional
 
-from models import CommentaryInvite, Commentator, Match, MatchRescheduleRequest, Tracker, VolunteerAssignment
+from models import (
+    Broadcaster,
+    CommentaryInvite,
+    Commentator,
+    Match,
+    MatchRescheduleRequest,
+    Tracker,
+    VolunteerAssignment,
+)
 
 
 class RowScope(NamedTuple):
@@ -32,7 +40,7 @@ async def match_scope(match_id: int) -> Optional[RowScope]:
 
 
 async def crew_scope(crew_id: int, crew_type: str) -> Optional[RowScope]:
-    model = Commentator if crew_type == 'commentator' else Tracker
+    model = {'commentator': Commentator, 'tracker': Tracker, 'broadcaster': Broadcaster}.get(crew_type, Tracker)
     return _scope(await model.filter(id=crew_id).values('tenant_id', 'match__event_id'), 'match__event_id')
 
 

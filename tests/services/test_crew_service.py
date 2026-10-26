@@ -40,6 +40,9 @@ def service(monkeypatch):
     svc.tracker_repository = MagicMock()
     svc.tracker_repository.acknowledge = AsyncMock(side_effect=lambda c: c)
     svc.tracker_repository.get_by_id = AsyncMock()
+    svc.broadcaster_repository = MagicMock()
+    svc.broadcaster_repository.acknowledge = AsyncMock(side_effect=lambda c: c)
+    svc.broadcaster_repository.get_by_id = AsyncMock()
     svc.match_repository = MagicMock()
     svc.match_repository.get_by_id = AsyncMock()
     svc.match_repository.get_players = AsyncMock(return_value=[])
@@ -65,6 +68,7 @@ def make_signup_match(**overrides):
         tournament_id=None,
         commentators=[],
         trackers=[],
+        broadcasters=[],
         # A tournament that staffs both roles, so a test opts *out* by passing
         # its own with a requirement of 0.
         tournament=SimpleNamespace(required_commentators=1, required_trackers=1),

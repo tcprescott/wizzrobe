@@ -225,6 +225,7 @@ class MatchCrew(BaseModel):
     match_id: int
     commentators: List[CrewMemberInfo] = Field(default_factory=list)
     trackers: List[CrewMemberInfo] = Field(default_factory=list)
+    broadcasters: List[CrewMemberInfo] = Field(default_factory=list)
 
 
 class StageBlock(BaseModel):
