@@ -456,7 +456,7 @@ def actions_matching(text: str) -> list[str]:
 
 HIDDEN_KEYS = frozenset({'actor_discord_id', 'actor_username', 'tenant_id'})
 _USER_KEYS = frozenset({'user_id', 'target_user_id', 'winner_id', 'borrower_id', 'volunteer_id'})
-_USER_LIST_KEYS = frozenset({'player_ids', 'commentator_ids', 'tracker_ids', 'user_ids'})
+_USER_LIST_KEYS = frozenset({'player_ids', 'commentator_ids', 'tracker_ids', 'broadcaster_ids', 'user_ids'})
 _SUBJECT_NAME_KEYS = ('display_name', 'name', 'challonge_username', 'title')
 _BOOL_TEXT = {'true': 'Yes', 'false': 'No'}
 
@@ -475,6 +475,7 @@ FIELD_LABELS: dict[str, str] = {
     'player_ids': 'players',
     'commentator_ids': 'commentators',
     'tracker_ids': 'trackers',
+    'broadcaster_ids': 'broadcasters',
     'matcherino_user_id': 'Matcherino ID',
     'matcherino_username': 'Matcherino username',
     'challonge_user_id': 'Challonge ID',

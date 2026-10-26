@@ -179,6 +179,9 @@ class Tournament(Model):
     # can still be removed.
     required_commentators = fields.IntField(default=1)
     required_trackers = fields.IntField(default=1)
+    # Only counts where the tournament's event has broadcasters switched on
+    # (Event settings → Crew); with it off every reader takes it as 0.
+    required_broadcasters = fields.IntField(default=1)
     # Whether players may schedule matches themselves outside a bracket
     # (``MatchService.submit_match_request``). Turned off automatically when a
     # native bracket is created or a Challonge bracket is linked: a bracket-run

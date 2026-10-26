@@ -1,4 +1,4 @@
-"""My Crew — a volunteer's own commentator and tracker commitments.
+"""My Crew — a volunteer's own commentator, tracker and broadcaster commitments.
 
 The crew loop had a surface for the admin (the Schedule board's cells) and none
 for the person doing the work. After signing up, their only handle on the
@@ -19,13 +19,14 @@ from typing import Callable, Optional
 
 from nicegui import app, ui
 
-from application.services import CrewService, get_user_from_session
+from application.services import CrewService, EventService, get_user_from_session
 from application.utils.app_links import HOME_MY_CREW, home_url
 from theme.dialog.match_sheet import MatchSheet
 from theme.section import section_panel
 from theme.tables.match import MatchTableView
 from theme.tables.match_access import MatchBoardAccess
 from theme.tables.match_player_run_sheet import NOT_BOOKED_GROUP, PLAYER_RUN_SHEET_COLUMNS, decorate_player_row
+from theme.tables.match_run_sheet import crew_columns
 from theme.tables.preferences import TableKeys
 
 #: The section's DOM id, so a crew DM's link can scroll to it.
@@ -79,7 +80,7 @@ async def my_crew_tab(
                 on_empty()
 
         view = MatchTableView(
-            columns=PLAYER_RUN_SHEET_COLUMNS,
+            columns=crew_columns(PLAYER_RUN_SHEET_COLUMNS, await EventService.current_event_broadcasters()),
             get_query=None,
             admin_controls=False,
             table_key=TableKeys.HOME_MY_CREW,

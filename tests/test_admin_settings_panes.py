@@ -27,7 +27,7 @@ def test_staff_sees_every_pane_in_menu_order():
 
 def test_staff_set_the_events_own_settings_on_event_settings():
     panes = build_event_settings_panes(STAFF, {FeatureFlag.VOLUNTEERS, FeatureFlag.DISCORD_ROLE_SYNC})
-    assert _slugs(panes) == ['dates', 'capacity', 'venue', 'timezone', 'reward-tiers', 'discord-roles']
+    assert _slugs(panes) == ['dates', 'capacity', 'venue', 'timezone', 'crew', 'reward-tiers', 'discord-roles']
     assert build_event_settings_panes(AdminAccess(is_sync_admin=True), set()) == []
 
 

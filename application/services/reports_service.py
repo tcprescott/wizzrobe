@@ -9,9 +9,11 @@ from datetime import date, datetime, time, timedelta, timezone
 from typing import Dict, List, Optional, Tuple
 
 from application.event_context import event_scoped
+from application.services.event_service import EventService
 from application.services.reporting_shared import (
     DEFAULT_MATCH_DURATION_MIN,
     ON_TIME_THRESHOLD_MIN,
+    broadcaster_requirement,
     crew_requirement,
     ensure_report_reader,
     is_crew_covered,
@@ -414,7 +416,9 @@ class ReportsService:
             'tournament', 'stage',
             'commentators', 'commentators__user',
             'trackers', 'trackers__user',
+            'broadcasters', 'broadcasters__user',
         )
+        broadcaster_events = await EventService.broadcaster_events(m.event_id for m in matches)
 
         coverage_rows: List[Dict] = []
         per_user: Dict[int, Dict] = {}
@@ -428,11 +432,16 @@ class ReportsService:
             trk_total = len(match.trackers)
             trk_approved = sum(1 for t in match.trackers if t.approved)
             need_commentators, need_trackers = crew_requirement(match.tournament)
+            bc_total = len(match.broadcasters)
+            bc_approved = sum(1 for b in match.broadcasters if b.approved)
+            need_broadcasters = broadcaster_requirement(
+                match.tournament, match.event_id in broadcaster_events)
 
             include_match = True
             if user_id is not None:
-                touched_by_user = any(c.user_id == user_id for c in match.commentators) or \
-                                  any(t.user_id == user_id for t in match.trackers)
+                touched_by_user = any(
+                    c.user_id == user_id
+                    for c in (*match.commentators, *match.trackers, *match.broadcasters))
                 include_match = touched_by_user
 
             if include_match:
@@ -449,8 +458,12 @@ class ReportsService:
                     'trackers_total': trk_total,
                     'commentators_required': need_commentators,
                     'trackers_required': need_trackers,
-                    'coverage_gap': match.is_stream_candidate and not is_crew_covered(
-                        match.tournament, comm_approved, trk_approved
+                    'broadcasters_approved': bc_approved,
+                    'broadcasters_total': bc_total,
+                    'broadcasters_required': need_broadcasters,
+                    'coverage_gap': match.is_stream_candidate and not (
+                        is_crew_covered(match.tournament, comm_approved, trk_approved)
+                        and bc_approved >= need_broadcasters
                     ),
                 })
 
@@ -481,6 +494,12 @@ class ReportsService:
                 entry = per_user.setdefault(t.user_id, _new_crew_entry(t.user))
                 bump(entry, 'tracker', t.approved, duration_hours)
 
+            for b in match.broadcasters:
+                if user_id is not None and b.user_id != user_id:
+                    continue
+                entry = per_user.setdefault(b.user_id, _new_crew_entry(b.user))
+                bump(entry, 'broadcaster', b.approved, duration_hours)
+
         contribution_rows = []
         for entry in per_user.values():
             contribution_rows.append({
@@ -490,6 +509,8 @@ class ReportsService:
                 'commentator_total': entry['commentator_total'],
                 'tracker_approved': entry['tracker_approved'],
                 'tracker_total': entry['tracker_total'],
+                'broadcaster_approved': entry['broadcaster_approved'],
+                'broadcaster_total': entry['broadcaster_total'],
                 'hours_covered': round(entry['hours_covered'], 1),
                 'hours_total': round(entry['hours_total'], 1),
             })
@@ -595,6 +616,8 @@ def _new_crew_entry(user: Optional[User]) -> Dict:
         'commentator_total': 0,
         'tracker_approved': 0,
         'tracker_total': 0,
+        'broadcaster_approved': 0,
+        'broadcaster_total': 0,
         'hours_covered': 0.0,
         'hours_total': 0.0,
     }
@@ -611,7 +634,8 @@ def _tally_crewed(per_tournament: Dict[int, Dict], match: Match, user_id: Option
         'tournament_name': match.tournament.name if match.tournament else '',
         'people': {},
     })
-    for slot, rows in (('commentary', match.commentators), ('tracker', match.trackers)):
+    for slot, rows in (('commentary', match.commentators), ('tracker', match.trackers),
+                       ('broadcast', match.broadcasters)):
         for row in rows:
             if not row.approved or (user_id is not None and row.user_id != user_id):
                 continue
@@ -620,6 +644,7 @@ def _tally_crewed(per_tournament: Dict[int, Dict], match: Match, user_id: Option
                 'name': row.user.preferred_name if row.user else 'Unknown',
                 'commentary': 0,
                 'tracker': 0,
+                'broadcast': 0,
             })
             person[slot] += 1
 
@@ -628,7 +653,7 @@ def _tournament_rows(per_tournament: Dict[int, Dict]) -> List[Dict]:
     rows = []
     for group in per_tournament.values():
         people = [
-            {**p, 'total': p['commentary'] + p['tracker']}
+            {**p, 'total': p['commentary'] + p['tracker'] + p['broadcast']}
             for p in group['people'].values()
         ]
         if not people:
@@ -639,6 +664,7 @@ def _tournament_rows(per_tournament: Dict[int, Dict]) -> List[Dict]:
             'tournament_name': group['tournament_name'],
             'commentary': sum(p['commentary'] for p in people),
             'tracker': sum(p['tracker'] for p in people),
+            'broadcast': sum(p['broadcast'] for p in people),
             'people': people,
         })
     rows.sort(key=lambda r: r['tournament_name'].lower())

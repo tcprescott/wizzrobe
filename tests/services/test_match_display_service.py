@@ -30,7 +30,9 @@ def make_match(**overrides):
         tournament=SimpleNamespace(
             name="Test Tournament", short_label="Test", seed_generator=None,
             is_racetime_enabled=False, required_commentators=1, required_trackers=1,
+            required_broadcasters=1,
         ),
+        event_id=1,
         stage=None,
         stage_id=None,
         generated_seed=None,
@@ -39,6 +41,7 @@ def make_match(**overrides):
         players=[],
         commentators=[],
         trackers=[],
+        broadcasters=[],
     )
     defaults.update(overrides)
     return SimpleNamespace(**defaults)
@@ -171,12 +174,12 @@ class TestFormatMatchForDisplay:
 
     def test_no_crew_needed_without_a_stage(self, display_service):
         result = display_service._format_match_for_display(make_match(stage=None, stage_id=None))
-        assert result["crew_required"] == {"commentators": 0, "trackers": 0}
+        assert result["crew_required"] == {"commentators": 0, "trackers": 0, "broadcasters": 0}
 
     def test_crew_needed_once_on_a_stage(self, display_service):
         match = make_match(stage=SimpleNamespace(name="Stage 1", stream_url=None), stage_id=3)
         result = display_service._format_match_for_display(match)
-        assert result["crew_required"] == {"commentators": 1, "trackers": 1}
+        assert result["crew_required"] == {"commentators": 1, "trackers": 1, "broadcasters": 0}
 
     def test_seed_empty_when_none(self, display_service):
         result = display_service._format_match_for_display(make_match(generated_seed=None))

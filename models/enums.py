@@ -529,9 +529,10 @@ class StaffRequestKind(str, Enum):
     ADA_REQUEST = 'ada_request'
     JOIN_REQUEST = 'join_request'
     RESCHEDULE_REQUEST = 'reschedule_request'
-    # Commentator and tracker signups live in separate tables, so their ids overlap.
+    # Each crew role's signups live in their own table, so their ids overlap.
     COMMENTATOR_SIGNUP = 'commentator_signup'
     TRACKER_SIGNUP = 'tracker_signup'
+    BROADCASTER_SIGNUP = 'broadcaster_signup'
 
 
 class AsyncQualifierRunStatus(str, Enum):

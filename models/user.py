@@ -125,6 +125,8 @@ class User(Model):
     approved_commentaries = fields.ReverseRelation["Commentator"]
     trackers = fields.ReverseRelation["Tracker"]
     approved_trackers = fields.ReverseRelation["Tracker"]
+    broadcasts = fields.ReverseRelation["Broadcaster"]  # type: ignore[name-defined]
+    approved_broadcasts = fields.ReverseRelation["Broadcaster"]  # type: ignore[name-defined]
     watched_matches = fields.ReverseRelation["MatchWatcher"]
     roles = fields.ReverseRelation["UserRole"]
     granted_roles = fields.ReverseRelation["UserRole"]

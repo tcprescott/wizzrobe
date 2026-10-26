@@ -6,7 +6,8 @@ a single template per cell, driven by server-injected boolean flags
 (``__IA__`` → admin_controls, plus one flag per capability in
 ``MatchBoardAccess``) and the current user's discord id (``__DID__``) — the same
 server-side boolean-injection the grid slot (``match_grid.py``) already relies
-on. ``__SING__`` is the singular crew role (``commentator`` / ``tracker``).
+on. ``__SING__`` is the singular crew role (``commentator`` / ``tracker`` /
+``broadcaster``).
 
 The capability flags are ``__RUN__`` (Check In / Start / Finish / Stations),
 ``__CONFIRM__`` (Confirm, Record/Change Winner) and ``__CREW__`` (the crew
@@ -674,7 +675,7 @@ def crew_signup_section(list_expr: str, *, name_the_role: bool = False) -> str:
         <span v-if="{empty}" class="wiz-crew-empty st-neutral italic-note">No signups yet</span>'''
 
 
-# Crew (commentators/trackers): admins who can crud get an approval toggle plus a
+# Crew (commentators/trackers/broadcasters): admins who can crud get an approval toggle plus a
 # name that opens the user (the same split players already have — a name reads as
 # a name, not as a control that mutates approval); everyone else a plain name.
 # Non-admins get crew_signup_section's Sign up / Withdraw above the names + self-ack.
@@ -760,7 +761,7 @@ def register_body_slots(table, *, admin_controls: bool, access: MatchBoardAccess
     table.add_slot('body-cell-players', _fill(
         PLAYERS_SLOT, admin_controls=admin_controls, access=access, discord_id_js=discord_id_js,
     ))
-    for role in ('commentators', 'trackers'):
+    for role in ('commentators', 'trackers', 'broadcasters'):
         table.add_slot(f'body-cell-{role}', _fill(
             CREW_SLOT, admin_controls=admin_controls, access=access,
             discord_id_js=discord_id_js, singular=role[:-1], role=role,

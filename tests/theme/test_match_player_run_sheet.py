@@ -10,6 +10,7 @@ from theme.tables.match_player_run_sheet import (
     player_crew,
     player_status,
 )
+from theme.tables.match_run_sheet import crew_columns
 
 ME = '111'
 PLAYERS = [{'name': 'Player One', 'discord_id': '900'}, {'name': 'Player Two', 'discord_id': '901'}]
@@ -165,8 +166,13 @@ class TestTemplates:
 
     def test_the_columns_fit_without_sorting(self):
         assert [c['name'] for c in PLAYER_RUN_SHEET_COLUMNS] == [
-            'scheduled_at', 'match', 'stage', 'commentators', 'trackers', 'status', 'watch']
+            'scheduled_at', 'match', 'stage', 'commentators', 'trackers', 'broadcasters', 'status', 'watch']
         assert not any(c.get('sortable') for c in PLAYER_RUN_SHEET_COLUMNS)
+
+    def test_broadcasters_only_show_on_an_event_that_has_them(self):
+        names = lambda on: [c['name'] for c in crew_columns(PLAYER_RUN_SHEET_COLUMNS, on)]
+        assert 'broadcasters' in names(True)
+        assert 'broadcasters' not in names(False)
 
     def test_the_schedule_page_uses_it(self):
         src = pathlib.Path('pages/home_tabs/schedule.py').read_text()
@@ -221,7 +227,8 @@ class TestMyScheduleMenu:
         assert PLAYER_MENU_COLUMN['name'] == MY_ACTIONS_COLUMN
         src = pathlib.Path('pages/home_tabs/player.py').read_text()
         assert "layout='player_run_sheet'" in src
-        assert '[*PLAYER_RUN_SHEET_COLUMNS, PLAYER_MENU_COLUMN]' in src
+        assert 'columns = [*crew_columns(PLAYER_RUN_SHEET_COLUMNS' in src
+        assert 'PLAYER_MENU_COLUMN]' in src
 
     def test_the_crew_section_is_the_run_sheet_narrowed_to_your_slots(self):
         src = pathlib.Path('pages/home_tabs/my_crew.py').read_text()

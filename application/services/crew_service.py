@@ -1,7 +1,7 @@
 """
 Crew Service - Business Logic Layer
 
-Handles crew (commentator and tracker) related operations.
+Handles crew (commentator, tracker and broadcaster) related operations.
 """
 
 import logging
@@ -12,7 +12,12 @@ from tortoise.transactions import in_transaction
 
 from application.errors import require_found
 from application.events import Event, EventType, event_bus, match_live
-from application.repositories import CommentatorRepository, MatchRepository, TrackerRepository
+from application.repositories import (
+    BroadcasterRepository,
+    CommentatorRepository,
+    MatchRepository,
+    TrackerRepository,
+)
 from application.repositories._save import save_fields
 from application.services import notification_links
 from application.services._crew_signup_dms import (
@@ -25,8 +30,10 @@ from application.services.audit_service import AuditActions, AuditService
 from application.services.auth_service import AuthService
 from application.services.discord import discord_queue
 from application.services.discord.discord_service import DiscordService
+from application.services.event_service import NO_BROADCASTERS, EventService
 from application.services.notification_catalog import (
     ADMINS,
+    BROADCASTER_WITHDREW,
     COMMENTATOR_WITHDREW,
     CREW,
     CREW_ASSIGNED,
@@ -50,7 +57,7 @@ from application.utils.discord_messages_crew import (
 )
 from application.utils.match_labels import players_label
 from application.utils.timezone import format_local_display, to_utc_aware
-from models import Commentator, Match, Tracker, User
+from models import Broadcaster, Commentator, Match, Tracker, User
 
 logger = logging.getLogger(__name__)
 
@@ -64,7 +71,45 @@ _signup_notices: dict[tuple[int, int, str], datetime] = {}
 # window turns the owners' "withdrawn" DMs back into the ask.
 _signup_notice_rows: dict[tuple[int, int, str], int] = {}
 
-_WITHDREW_NOTICE = {'commentator': COMMENTATOR_WITHDREW, 'tracker': TRACKER_WITHDREW}
+_WITHDREW_NOTICE = {
+    'commentator': COMMENTATOR_WITHDREW,
+    'tracker': TRACKER_WITHDREW,
+    'broadcaster': BROADCASTER_WITHDREW,
+}
+
+#: Every crew role, by the singular the services, handlers and audit rows use.
+CREW_ROLES = ('commentator', 'tracker', 'broadcaster')
+_INVALID_ROLE = "Invalid role: {}. Must be 'commentator', 'tracker' or 'broadcaster'"
+
+
+def _check_role(role: str) -> None:
+    if role not in CREW_ROLES:
+        raise ValueError(_INVALID_ROLE.format(role))
+
+
+def crew_list(match: Match, role: str) -> list:
+    """``match``'s prefetched signups for ``role``."""
+    return {
+        'commentator': match.commentators,
+        'tracker': match.trackers,
+        'broadcaster': match.broadcasters,
+    }[role]  # type: ignore[return-value]
+
+
+async def required_crew(match: Match, role: str) -> int:
+    """How many approved ``role`` the tournament asks for; 0 means it doesn't use the role.
+
+    Broadcasters are an event opt-in: in an event without them the count reads
+    as 0 whatever the tournament says.
+    """
+    tournament = match.tournament
+    if role == 'broadcaster':
+        if not await EventService.broadcasters_on(match.event_id):
+            return 0
+        return tournament.required_broadcasters if tournament else 1
+    if tournament is None:
+        return 1
+    return tournament.required_commentators if role == 'commentator' else tournament.required_trackers
 
 
 def _signup_notice_due(match_id: int, user_id: int, crew_type: str) -> bool:
@@ -86,9 +131,17 @@ def _signup_notice_due(match_id: int, user_id: int, crew_type: str) -> bool:
 class CrewService:
     """Service for crew-related business operations."""
 
+    def _repository(self, role: str):
+        return {
+            'commentator': self.commentator_repository,
+            'tracker': self.tracker_repository,
+            'broadcaster': self.broadcaster_repository,
+        }[role]
+
     def __init__(self) -> None:
         self.commentator_repository = CommentatorRepository()
         self.tracker_repository = TrackerRepository()
+        self.broadcaster_repository = BroadcasterRepository()
         self.match_repository = MatchRepository()
         self.audit_service = AuditService()
         self.discord_service = DiscordService()
@@ -100,18 +153,17 @@ class CrewService:
         role: str
     ) -> None:
         """
-        Sign up a user as crew (commentator or tracker) for a match.
+        Sign up a user as crew (commentator, tracker or broadcaster) for a match.
 
         Args:
             match_id: Match ID
             user: User signing up
-            role: 'commentator' or 'tracker'
+            role: 'commentator', 'tracker' or 'broadcaster'
 
         Raises:
             ValueError: If role is invalid or user already signed up
         """
-        if role not in ['commentator', 'tracker']:
-            raise ValueError(f"Invalid role: {role}. Must be 'commentator' or 'tracker'")
+        _check_role(role)
 
         # The audit's measured symptom was not that a stranger *saw* a new
         # community's schedule — it was that they were offered Sign Up on it. The
@@ -149,23 +201,19 @@ class CrewService:
         # so refuse here too, for the REST route and the Discord button.
         # Withdrawing stays open: a signup from before the setting changed must
         # still be removable.
-        required = (
-            match.tournament.required_commentators if role == 'commentator'
-            else match.tournament.required_trackers
-        ) if match.tournament else 1
-        if required == 0:
+        if await required_crew(match, role) == 0:
+            if role == 'broadcaster' and not await EventService.broadcasters_on(match.event_id):
+                raise ValueError(NO_BROADCASTERS)
             raise ValueError(f"This tournament does not use {role}s.")
 
-        crew_list = match.commentators if role == 'commentator' else match.trackers
-        if any(c.user_id == user.id for c in crew_list):
+        if any(c.user_id == user.id for c in crew_list(match, role)):
             raise ValueError(f"You're already signed up as {role} for this match.")
 
         players = await self.match_repository.get_players(match)
         if any(p.user_id == user.id for p in players):
             raise ValueError("You can't crew a match you're playing in.")
 
-        repository = self.commentator_repository if role == 'commentator' else self.tracker_repository
-        crew_member = await repository.create(match=match, user=user, approved=False)
+        crew_member = await self._repository(role).create(match=match, user=user, approved=False)
 
         await self.audit_service.write_and_publish(
             user,
@@ -184,18 +232,17 @@ class CrewService:
         role: str
     ) -> None:
         """
-        Remove a user's crew signup (commentator or tracker) from a match.
+        Remove a user's crew signup (commentator, tracker or broadcaster) from a match.
 
         Args:
             match_id: Match ID
             user: User to remove
-            role: 'commentator' or 'tracker'
+            role: 'commentator', 'tracker' or 'broadcaster'
 
         Raises:
             ValueError: If role is invalid or user not signed up
         """
-        if role not in ['commentator', 'tracker']:
-            raise ValueError(f"Invalid role: {role}. Must be 'commentator' or 'tracker'")
+        _check_role(role)
 
         # The audit's measured symptom was not that a stranger *saw* a new
         # community's schedule — it was that they were offered Sign Up on it. The
@@ -212,8 +259,7 @@ class CrewService:
             f"Match {match_id}",
         )
 
-        crew_list = match.commentators if role == 'commentator' else match.trackers
-        crew_member = next((c for c in crew_list if c.user_id == user.id), None)
+        crew_member = next((c for c in crew_list(match, role) if c.user_id == user.id), None)
 
         if not crew_member:
             raise ValueError(f"You're not signed up as {role} for this match.")
@@ -263,18 +309,14 @@ class CrewService:
         self,
         crew_id: int,
         crew_type: str,
-    ) -> Optional[Union[Commentator, Tracker]]:
-        if crew_type == 'commentator':
-            return await self.commentator_repository.get_by_id(crew_id)
-        elif crew_type == 'tracker':
-            return await self.tracker_repository.get_by_id(crew_id)
-        else:
-            raise ValueError(f"Invalid crew_type: {crew_type}. Must be 'commentator' or 'tracker'")
+    ) -> Optional[Union[Commentator, Tracker, Broadcaster]]:
+        _check_role(crew_type)
+        return await self._repository(crew_type).get_by_id(crew_id)
 
     async def list_my_commitments(
         self, user: User, upcoming_only: bool = True,
     ) -> list[dict]:
-        """Everything ``user`` has signed up to crew, both roles, soonest first.
+        """Everything ``user`` has signed up to crew, every role, soonest first.
 
         The volunteer's side of the loop had no surface at all: the Player tab
         is players-only, there was no My Commitments anywhere, and after signing
@@ -284,15 +326,13 @@ class CrewService:
         people doing the same kind of work through a different door.
 
         Returns plain dicts — the presentation layer needs a merged, sorted view
-        across two models, and merging ORM rows of different types in the page
+        across the role models, and merging ORM rows of different types in the page
         would put the join in the wrong layer.
         """
         since = datetime.now(timezone.utc) if upcoming_only else None
         rows = []
-        for role, repository in (
-            ('commentator', self.commentator_repository),
-            ('tracker', self.tracker_repository),
-        ):
+        for role in CREW_ROLES:
+            repository = self._repository(role)
             for entry in await repository.get_for_user(user, since=since):
                 match = entry.match
                 rows.append({
@@ -368,13 +408,12 @@ class CrewService:
 
     async def update_crew_approval(
         self,
-        crew_member: Union[Commentator, Tracker],
+        crew_member: Union[Commentator, Tracker, Broadcaster],
         crew_type: str,
         approved: bool,
         actor: Optional[User] = None,
-    ) -> Union[Commentator, Tracker]:
-        if crew_type not in ('commentator', 'tracker'):
-            raise ValueError(f"Invalid crew_type: {crew_type}. Must be 'commentator' or 'tracker'")
+    ) -> Union[Commentator, Tracker, Broadcaster]:
+        _check_role(crew_type)
 
         await crew_member.fetch_related('match', 'user', 'match__stage')
         await AuthService.ensure(
@@ -440,7 +479,7 @@ class CrewService:
 
     async def announce_admin_assignment(
         self,
-        crew_member: Union[Commentator, Tracker],
+        crew_member: Union[Commentator, Tracker, Broadcaster],
         crew_type: str,
         actor: User,
     ) -> None:
@@ -473,7 +512,7 @@ class CrewService:
 
     async def announce_admin_removal(
         self,
-        crew_member: Union[Commentator, Tracker],
+        crew_member: Union[Commentator, Tracker, Broadcaster],
         crew_type: str,
         actor: User,
     ) -> None:
@@ -512,10 +551,10 @@ class CrewService:
 
     async def approve_crew_member(
         self,
-        crew_member: Union[Commentator, Tracker],
+        crew_member: Union[Commentator, Tracker, Broadcaster],
         crew_type: str,
         actor: Optional[User] = None,
-    ) -> Union[Commentator, Tracker]:
+    ) -> Union[Commentator, Tracker, Broadcaster]:
         return await self.update_crew_approval(crew_member, crew_type, approved=True, actor=actor)
 
     async def acknowledge_crew_assignment(
@@ -523,7 +562,7 @@ class CrewService:
         crew_id: int,
         crew_type: str,
         user: User,
-    ) -> Union[Commentator, Tracker]:
+    ) -> Union[Commentator, Tracker, Broadcaster]:
         """Mark a crew assignment as acknowledged by the crew member themselves.
 
         Only the assigned crew member may acknowledge their own assignment, and
@@ -549,10 +588,7 @@ class CrewService:
             return crew_member
 
         async with in_transaction():
-            if crew_type == 'commentator':
-                crew_member = await self.commentator_repository.acknowledge(crew_member)
-            else:
-                crew_member = await self.tracker_repository.acknowledge(crew_member)
+            crew_member = await self._repository(crew_type).acknowledge(crew_member)
 
             await self.audit_service.write_log(
                 user,
@@ -590,7 +626,7 @@ class CrewService:
 
     async def _request_crew_acknowledgment(
         self,
-        crew_member: Union[Commentator, Tracker],
+        crew_member: Union[Commentator, Tracker, Broadcaster],
         crew_type: str,
     ) -> None:
         """Send a Discord DM asking the crew member to confirm their assignment.
@@ -625,7 +661,7 @@ class CrewService:
 
     async def _notify_crew_approval_withdrawn(
         self,
-        crew_member: Union[Commentator, Tracker],
+        crew_member: Union[Commentator, Tracker, Broadcaster],
         crew_type: str,
     ) -> None:
         """Tell a crew member their approval was withdrawn.
