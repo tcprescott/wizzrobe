@@ -4,6 +4,7 @@ from typing import Any, Iterable, List, Mapping, Optional
 
 from tortoise.transactions import in_transaction
 
+from application.event_writes import guarded_delete
 from application.repositories._base import TenantScopedRepository
 from application.repositories._event import event_scoped
 from application.repositories._tenant import current_tenant_id, scoped
@@ -44,7 +45,7 @@ class TournamentPayoutRepository(TenantScopedRepository[TournamentPayout]):
         """
         tenant_id = current_tenant_id()
         async with in_transaction():
-            await scoped(TournamentPayout.filter(tournament_id=tournament.id)).delete()
+            await guarded_delete(scoped(TournamentPayout.filter(tournament_id=tournament.id)))
             for row in rows:
                 await TournamentPayout.create(
                     tenant_id=tenant_id, tournament=tournament, **row,

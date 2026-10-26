@@ -15,8 +15,14 @@ from models import Event, EventStatus, Match, MatchPlayers, Tournament, Tourname
 async def events(db):
     main = await Event.get(tenant_id=1, is_default=True)
     winter = await Event.create(tenant_id=1, name='Winter', slug='winter', status=EventStatus.LIVE)
-    past = await Event.create(tenant_id=1, name='Last Year', slug='past', status=EventStatus.ARCHIVED)
+    # Live while the tests fill it; _archive() closes it, as staff would after the event.
+    past = await Event.create(tenant_id=1, name='Last Year', slug='past', status=EventStatus.LIVE)
     return main, winter, past
+
+
+async def _archive(event: Event) -> None:
+    event.status = EventStatus.ARCHIVED
+    await event.save()
 
 
 @pytest.fixture
@@ -58,6 +64,7 @@ async def test_my_schedule_spans_live_events_and_names_them(events, player):
     await _tournament_with_match(main, 'ALttPR', player)
     await _tournament_with_match(winter, 'Winter Cup', player)
     await _tournament_with_match(past, 'Old Cup', player)
+    await _archive(past)
     with event_scope(main.id):
         rows = await MatchDisplayService().get_matches_for_display(user_discord_id=str(player.discord_id))
     assert sorted(r['tournament'] for r in rows) == [f'{main.name} · ALttPR', 'Winter · Winter Cup']
@@ -75,6 +82,7 @@ async def test_enrolments_leave_out_archived_events(events, player):
     main, winter, past = events
     for event, name in ((main, 'A'), (winter, 'B'), (past, 'C')):
         await _tournament_with_match(event, name, player)
+    await _archive(past)
     with event_scope(main.id):
         names = {e.tournament.name for e in await TournamentService().get_enrolled_players_by_user(player)}
     assert names == {'A', 'B'}
@@ -84,6 +92,7 @@ async def test_home_tournaments_lists_every_live_event(events, player):
     main, winter, past = events
     for event, name in ((main, 'A'), (winter, 'B'), (past, 'C')):
         await Tournament.create(tenant_id=1, event=event, name=name, is_active=True)
+    await _archive(past)
     with event_scope(main.id):
         spanning = {c.tournament.name for c in await TournamentService().list_signup_cards(player, live_events=True)}
         own = {c.tournament.name for c in await TournamentService().list_signup_cards(player)}
@@ -134,6 +143,7 @@ async def test_bracket_site_rows_leave_out_events_not_live(events, player):
             entry1=await BracketEntry.create(bracket=bracket, entrant=b1),
             entry2=await BracketEntry.create(bracket=bracket, entrant=b2),
         )
+    await _archive(past)
     with event_scope(main.id):
         challonge = await ChallongeRepository.unscheduled_open_matches_for_user(player)
         startgg = await StartggRepository.open_unbooked_sets_for_user(player)

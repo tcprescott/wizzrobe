@@ -7,6 +7,7 @@ Handles all database operations for the CommentaryInvite model.
 from datetime import datetime, timezone
 from typing import Dict, List, Optional
 
+from application.event_writes import guarded_update
 from application.repositories._save import save_fields
 from application.repositories._tenant import current_tenant_id, scoped
 from models import CommentaryInvite, CommentaryInviteStatus, Match, User
@@ -81,11 +82,9 @@ class CommentaryInviteRepository:
 
     @staticmethod
     async def record_dm(invite_id: int, channel_id: int, message_id: int) -> None:
-        await scoped(CommentaryInvite.filter(id=invite_id)).update(
-            dm_channel_id=channel_id, dm_message_id=message_id,
-        )
+        await guarded_update(scoped(CommentaryInvite.filter(id=invite_id)), dm_channel_id=channel_id, dm_message_id=message_id)
 
     @staticmethod
     async def move_to_match(from_match_id: int, to_match_id: int) -> int:
         """Carry every invite on a crew hold over to the booking that replaces it."""
-        return await scoped(CommentaryInvite.filter(match_id=from_match_id)).update(match_id=to_match_id)
+        return await guarded_update(scoped(CommentaryInvite.filter(match_id=from_match_id)), match_id=to_match_id)

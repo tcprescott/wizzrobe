@@ -7,6 +7,7 @@ Handles database operations for tournaments.
 from datetime import date, datetime
 from typing import Any, Dict, List, Optional
 
+from application.event_writes import guarded_delete
 from application.repositories._base import EventScopedRepository
 from application.repositories._event import current_event_id, event_scoped, live_event_scoped
 from application.repositories._tenant import current_tenant_id, scoped
@@ -343,7 +344,7 @@ class TournamentRepository(EventScopedRepository[Tournament]):
             tournament: Tournament to unenroll from
             user: User to unenroll
         """
-        await scoped(TournamentPlayers.filter(tournament=tournament, user=user)).delete()
+        await guarded_delete(scoped(TournamentPlayers.filter(tournament=tournament, user=user)))
     
     @staticmethod
     async def get_enrolled_players(tournament: Tournament) -> List:

@@ -7,6 +7,7 @@ Position-scoped, time-windowed shifts.
 from datetime import datetime
 from typing import List, Optional
 
+from application.event_writes import guarded_delete
 from application.repositories._base import EventScopedRepository
 from application.repositories._event import event_scoped, parent_event_id
 from application.repositories._tenant import current_tenant_id
@@ -68,4 +69,4 @@ class VolunteerShiftRepository(EventScopedRepository[VolunteerShift]):
     @staticmethod
     async def delete_all() -> int:
         """Delete every shift of the current event."""
-        return await event_scoped(VolunteerShift.all()).delete()
+        return await guarded_delete(event_scoped(VolunteerShift.all()))

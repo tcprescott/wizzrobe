@@ -19,6 +19,7 @@ from typing import Any, Dict, Iterable, List, Optional
 from tortoise.signals import post_delete, post_save
 from tortoise.transactions import in_transaction
 
+import application.event_writes  # noqa: F401  (registers the archived-event write guard)
 from application.events import EventType
 from application.repositories.event_repository import EventRepository
 from application.services.audit_service import AuditActions, AuditService

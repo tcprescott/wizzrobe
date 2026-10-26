@@ -15,6 +15,7 @@ from typing import Any, Collection, Dict, List, Optional, Set, Tuple
 from tortoise.expressions import Q
 from tortoise.functions import Count
 
+from application.event_writes import guarded_update
 from application.repositories._base import EventScopedRepository, TenantScopedRepository
 from application.repositories._event import event_scoped, live_event_scoped
 from application.repositories._tenant import current_tenant_id, scoped
@@ -310,9 +311,9 @@ class AsyncQualifierRunRepository(TenantScopedRepository[AsyncQualifierRun]):
 
         Zero is a normal answer, not an error; the caller decides what it means.
         """
-        return await scoped(
+        return await guarded_update(scoped(
             AsyncQualifierRun.filter(id=run_id, review_status=expect)
-        ).update(**changes)
+        ), **changes)
 
     async def pending_review_backlog(self, qualifier_id: int) -> Tuple[int, Optional[datetime]]:
         """How many runs await review here, and when the oldest was submitted.

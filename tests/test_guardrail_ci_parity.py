@@ -112,6 +112,7 @@ EXPECTED_WIRING = {
     "check_dry_regressions": {("PreToolUse", "Write|Edit")},
     "check_event_scoping": {("PostToolUse", "Write|Edit")},
     "check_event_types": {("PostToolUse", "Write|Edit")},
+    "check_event_write_gating": {("PostToolUse", "Write|Edit")},
     "check_feature_flag_gating": {("PostToolUse", "Write|Edit")},
     "check_file_length": {("PostToolUse", "Write|Edit")},
     "check_fixture_cost": {("PreToolUse", "Write|Edit")},
