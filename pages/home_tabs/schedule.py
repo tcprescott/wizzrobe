@@ -9,8 +9,8 @@ from theme.help import help_icon
 from theme.tables.match import MatchTableView
 from theme.tables.match_access import MatchBoardAccess
 from theme.tables.match_player_run_sheet import PLAYER_RUN_SHEET_COLUMNS, decorate_player_row
-from theme.tables.match_run_sheet import crew_columns
 from theme.tables.preferences import TableKeys
+from theme.tables.run_sheet_meta import crew_columns
 
 #: Session key for the Needs crew switch, namespaced like the board's filters.
 NEEDS_CREW_KEY = 'home_schedule:needs_crew'

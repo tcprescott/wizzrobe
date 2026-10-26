@@ -10,7 +10,7 @@ from theme.tables.match_player_run_sheet import (
     player_crew,
     player_status,
 )
-from theme.tables.match_run_sheet import crew_columns
+from theme.tables.run_sheet_meta import crew_columns
 
 ME = '111'
 PLAYERS = [{'name': 'Player One', 'discord_id': '900'}, {'name': 'Player Two', 'discord_id': '901'}]

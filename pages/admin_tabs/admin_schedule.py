@@ -20,8 +20,9 @@ from theme.tables.admin_crud import current_actor
 from theme.tables.match import MatchTableView
 from theme.tables.match_access import MatchBoardAccess
 from theme.tables.match_lifecycle import MatchLifecycleHandlers
-from theme.tables.match_run_sheet import RUN_SHEET_COLUMNS, crew_columns
+from theme.tables.match_run_sheet import RUN_SHEET_COLUMNS
 from theme.tables.preferences import TableKeys
+from theme.tables.run_sheet_meta import crew_columns
 from theme.unbooked_board import UnbookedBoard
 from theme.url_state import consume_deep_link, url_param, url_state
 

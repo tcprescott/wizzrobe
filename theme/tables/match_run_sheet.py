@@ -45,11 +45,6 @@ RUN_SHEET_COLUMNS = [
     {'name': 'status', 'label': 'Status', 'field': 'state', 'align': 'left'},
 ]
 
-
-def crew_columns(columns: list[dict], broadcasters: bool) -> list[dict]:
-    """``columns`` without the Broadcasters column on an event that doesn't use them."""
-    return columns if broadcasters else [c for c in columns if c['name'] != 'broadcasters']
-
 #: The proctor's run sheet. No crew (not the proctor's job) and the next
 #: lifecycle step on the line itself: a proctor works down the list pressing
 #: one button per match, so making them open each one first is a tap per step.
@@ -521,9 +516,8 @@ def arrange_run_sheet(rows: list, group: Callable[[dict], tuple[int, str]] = adm
     return arranged
 
 
-# Signups over need. "needs crew" is spelled out rather than left to the amber,
-# which no screen reader and not every eye can read. The desktop cell sits under
-# a crew role's header, so it leaves the role's name off.
+# Signups over need, "needs crew" spelled out for whoever can't read the amber.
+# The desktop cell sits under the role's header, so it leaves the name off.
 _CREW_COUNT = r"""<span class="run-sheet__crew" :class="c.short ? 'st-pending' : ''">__LABEL__<b>{{ c.count }}</b><template v-if="c.short"> · needs crew</template><template v-else-if="c.unapproved"> · to approve</template></span>"""
 
 # Who signed up: a tick for approved, a clock and a note for the rest. Where

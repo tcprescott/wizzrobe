@@ -50,8 +50,8 @@ from theme.tables.match_player_run_sheet import (
     PLAYER_RUN_SHEET_COLUMNS,
     decorate_player_row,
 )
-from theme.tables.match_run_sheet import crew_columns
 from theme.tables.preferences import TableKeys
+from theme.tables.run_sheet_meta import crew_columns
 
 
 def _next_game_number(bracket_match, best_of: int) -> int:

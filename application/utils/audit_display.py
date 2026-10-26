@@ -16,6 +16,8 @@ from dataclasses import dataclass, field
 from datetime import date
 from typing import Any, Mapping, Optional, Sequence
 
+from application.utils.match_labels import and_join
+
 
 @dataclass(frozen=True)
 class AuditArea:
@@ -628,12 +630,6 @@ def _diff(label: str, old: Any, new: Any) -> list[AuditChange]:
     return [AuditChange(label, _plain(old), _plain(new))]
 
 
-def _join_words(words: list[str]) -> str:
-    if len(words) <= 1:
-        return ''.join(words)
-    return ', '.join(words[:-1]) + ' and ' + words[-1]
-
-
 def describe(
     action: str,
     details: Any,
@@ -706,13 +702,13 @@ def describe(
             c = changes[0]
             parts.append(f'{c.field}: {c.before} → {c.after}' if c.before is not None else f'{c.field}: {c.after}')
         else:
-            parts.append(f'{len(changes)} changes: ' + _join_words([c.field for c in changes[:3]])
+            parts.append(f'{len(changes)} changes: ' + and_join([c.field for c in changes[:3]])
                          + ('…' if len(changes) > 3 else ''))
     elif no_op:
         what = field_label(str(shown['key'])) if 'key' in shown else 'Value'
         parts.append(f'{what}: saved unchanged')
     elif changed_fields:
-        parts.append('Changed ' + _join_words(changed_fields))
+        parts.append('Changed ' + and_join(changed_fields))
     else:
         extras = [f'{k}: {v}' for k, v in facts if v != subject and not k.endswith(' ID')
                   and not v.startswith('#') and v not in ('(empty)', '(none)', '0')]

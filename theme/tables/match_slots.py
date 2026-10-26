@@ -6,8 +6,7 @@ a single template per cell, driven by server-injected boolean flags
 (``__IA__`` → admin_controls, plus one flag per capability in
 ``MatchBoardAccess``) and the current user's discord id (``__DID__``) — the same
 server-side boolean-injection the grid slot (``match_grid.py``) already relies
-on. ``__SING__`` is the singular crew role (``commentator`` / ``tracker`` /
-``broadcaster``).
+on. ``__SING__`` is the singular crew role (``commentator``, ``broadcaster``…).
 
 The capability flags are ``__RUN__`` (Check In / Start / Finish / Stations),
 ``__CONFIRM__`` (Confirm, Record/Change Winner) and ``__CREW__`` (the crew

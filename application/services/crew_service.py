@@ -20,6 +20,7 @@ from application.repositories import (
 )
 from application.repositories._save import save_fields
 from application.services import notification_links
+from application.services._crew_roles import CREW_ROLES, check_role, crew_list, required_crew
 from application.services._crew_signup_dms import (
     SIGNUP_KIND,
     crew_dm_parts,
@@ -77,41 +78,6 @@ _WITHDREW_NOTICE = {
     'broadcaster': BROADCASTER_WITHDREW,
 }
 
-#: Every crew role, by the singular the services, handlers and audit rows use.
-CREW_ROLES = ('commentator', 'tracker', 'broadcaster')
-_INVALID_ROLE = "Invalid role: {}. Must be 'commentator', 'tracker' or 'broadcaster'"
-
-
-def _check_role(role: str) -> None:
-    if role not in CREW_ROLES:
-        raise ValueError(_INVALID_ROLE.format(role))
-
-
-def crew_list(match: Match, role: str) -> list:
-    """``match``'s prefetched signups for ``role``."""
-    return {
-        'commentator': match.commentators,
-        'tracker': match.trackers,
-        'broadcaster': match.broadcasters,
-    }[role]  # type: ignore[return-value]
-
-
-async def required_crew(match: Match, role: str) -> int:
-    """How many approved ``role`` the tournament asks for; 0 means it doesn't use the role.
-
-    Broadcasters are an event opt-in: in an event without them the count reads
-    as 0 whatever the tournament says.
-    """
-    tournament = match.tournament
-    if role == 'broadcaster':
-        if not await EventService.broadcasters_on(match.event_id):
-            return 0
-        return tournament.required_broadcasters if tournament else 1
-    if tournament is None:
-        return 1
-    return tournament.required_commentators if role == 'commentator' else tournament.required_trackers
-
-
 def _signup_notice_due(match_id: int, user_id: int, crew_type: str) -> bool:
     """Whether this signup should DM the owners, recording it if so."""
     now = datetime.now(timezone.utc)
@@ -163,7 +129,7 @@ class CrewService:
         Raises:
             ValueError: If role is invalid or user already signed up
         """
-        _check_role(role)
+        check_role(role)
 
         # The audit's measured symptom was not that a stranger *saw* a new
         # community's schedule — it was that they were offered Sign Up on it. The
@@ -242,7 +208,7 @@ class CrewService:
         Raises:
             ValueError: If role is invalid or user not signed up
         """
-        _check_role(role)
+        check_role(role)
 
         # The audit's measured symptom was not that a stranger *saw* a new
         # community's schedule — it was that they were offered Sign Up on it. The
@@ -310,7 +276,7 @@ class CrewService:
         crew_id: int,
         crew_type: str,
     ) -> Optional[Union[Commentator, Tracker, Broadcaster]]:
-        _check_role(crew_type)
+        check_role(crew_type)
         return await self._repository(crew_type).get_by_id(crew_id)
 
     async def list_my_commitments(
@@ -413,7 +379,7 @@ class CrewService:
         approved: bool,
         actor: Optional[User] = None,
     ) -> Union[Commentator, Tracker, Broadcaster]:
-        _check_role(crew_type)
+        check_role(crew_type)
 
         await crew_member.fetch_related('match', 'user', 'match__stage')
         await AuthService.ensure(

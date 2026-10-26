@@ -26,8 +26,8 @@ from theme.section import section_panel
 from theme.tables.match import MatchTableView
 from theme.tables.match_access import MatchBoardAccess
 from theme.tables.match_player_run_sheet import NOT_BOOKED_GROUP, PLAYER_RUN_SHEET_COLUMNS, decorate_player_row
-from theme.tables.match_run_sheet import crew_columns
 from theme.tables.preferences import TableKeys
+from theme.tables.run_sheet_meta import crew_columns
 
 #: The section's DOM id, so a crew DM's link can scroll to it.
 CREW_SECTION_ID = 'my-crew'
