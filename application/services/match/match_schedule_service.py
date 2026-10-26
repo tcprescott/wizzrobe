@@ -20,7 +20,7 @@ from application.repositories import MatchAcknowledgmentRepository, MatchReposit
 from application.services import notification_links
 from application.services.audit_service import AuditActions, AuditService
 from application.services.auth_service import AuthService
-from application.services.discord import discord_queue
+from application.services.discord import discord_queue, seed_emojis
 from application.services.discord.discord_service import DiscordService
 from application.services.match._dm_context import (  # noqa: F401  (re-exported)
     _community_name,
@@ -682,7 +682,9 @@ class MatchScheduleService(MatchNotificationMixin):
             embed_url = None
             seed_link = await notification_links.player_match(match.id, label='Copy it from Wizzrobe')
         code_line = seed_code_line(seed_code)
-        if code_line:
+        emoji_row = await seed_emojis.code_row(randomizer, seed_code, self.discord_service.get_bot())
+        code_field = f"{emoji_row}\n-# {' · '.join(seed_code or [])}" if emoji_row else None
+        if code_line and not code_field:
             seed_description = f'{seed_description}\n{code_line}'
         seed_embed = match_embed(
             title='🎲 Seed ready', color=COLOR_SEED,
@@ -690,7 +692,7 @@ class MatchScheduleService(MatchNotificationMixin):
             tournament=match.tournament.name, community_name=community,
             player_names=descriptor['player_names'], when=match.scheduled_at,
             stage_name=match.stage.name if match.stage else None,
-            url=embed_url,
+            url=embed_url, code=code_field,
         )
 
         async def _send_seed_dms() -> None:

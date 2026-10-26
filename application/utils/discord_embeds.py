@@ -98,14 +98,17 @@ def match_embed(
     stage_name: Optional[str] = None,
     description: Optional[str] = None,
     url: Optional[str] = None,
+    code: Optional[str] = None,
 ) -> discord.Embed:
-    """Embed for a match notification: Tournament / Players / Time / Stage."""
+    """Embed for a match notification: Tournament / Players / Time / Code / Stage."""
     fields: list[Field] = [('Tournament', tournament, True)]
     players = _players_value(player_names)
     if players:
         fields.append(('Players', players, True))
     if when is not None:
         fields.append(('Time', time_field(when), False))
+    if code:
+        fields.append(('Code', code, False))
     if stage_name:
         fields.append(('Stage', stage_name, True))
     return notification_embed(
