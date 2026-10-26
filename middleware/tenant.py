@@ -18,6 +18,10 @@ authoritative on the platform host, where every tenant is reachable at
 ``/t/<slug>`` regardless of any domain. An unknown host falls through leniently
 to the platform surface (a rate-limited warning flags a likely proxy misconfig).
 
+Alongside the tenant it binds the community's default event
+(``application/event_context.py``), the event every page shows until
+``/e/<slug>`` routing names one.
+
 Requests with neither a matching custom host nor a ``/t/`` prefix run with **no**
 tenant context: that is the platform surface (landing page, ``/platform``, the
 shared OAuth callbacks). Tenant pages guard themselves — ``@protected_page``
@@ -38,6 +42,8 @@ import re
 
 from starlette.middleware.base import BaseHTTPMiddleware
 
+from application.event_context import reset_event_id, set_event_id
+from application.services.event_service import EventService
 from application.services.tenant_service import TenantService
 from application.tenant_context import (
     reset_host_mode,
@@ -178,11 +184,13 @@ class TenantMiddleware(BaseHTTPMiddleware):
             tenant = await TenantService.get_by_domain(host)
             if tenant is not None and tenant.is_active:
                 tenant_token = set_tenant_id(tenant.id)
+                event_token = set_event_id(await EventService.default_event_id(tenant.id))
                 host_token = set_host_mode(True)
                 try:
                     return await call_next(request)
                 finally:
                     reset_host_mode(host_token)
+                    reset_event_id(event_token)
                     reset_tenant_id(tenant_token)
             # Not an active custom domain — unknown host, or a *deactivated*
             # tenant's domain. Fall through leniently to path/platform rather than
@@ -231,7 +239,9 @@ class TenantMiddleware(BaseHTTPMiddleware):
             scope['raw_path'] = new_path_part + (sep + raw_query if sep else b'')
 
         token = set_tenant_id(tenant.id)
+        event_token = set_event_id(await EventService.default_event_id(tenant.id))
         try:
             return await call_next(request)
         finally:
+            reset_event_id(event_token)
             reset_tenant_id(token)

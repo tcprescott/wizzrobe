@@ -51,8 +51,16 @@ community owns or produces is tenant-scoped.**
 `RacetimeBotTenant` grant is unique on `(bot, tenant)`; `RacetimeRoom.slug` stays
 **globally** unique — it is the tenant-routing key for inbound racetime events.
 
+**Events** nest inside a community: an `Event` belongs to one tenant, and 19
+event-owned models carry a nullable `event_id` (`CASCADE`) beside their
+`tenant_id`, while 8 community-owned ones (`AuditLog`, `TelemetryEvent`,
+`SentMessage`, `StaffRequestDM`, `Feedback`, `EquipmentLoan`, `DataExport`,
+`DiscordRoleGrant`) carry one as a `SET NULL` tag. The column is not read or
+stamped yet; [features/events.md](../features/events.md) has the list and the
+plan.
+
 Columns for `Tenant`, `TenantMembership`, `FeatureFlagGroup`, and
-`TenantFeatureFlag` are in [Tenancy & flags](#tenancy--flags).
+`TenantFeatureFlag` are in [Tenancy & flags](#tenancy--flags). `Event` is there too.
 
 ## Entity-relationship diagram
 
@@ -285,6 +293,10 @@ Used by both `VolunteerAvailability.status` and `PlayerAvailability.status` (`ma
 
 Used by `Equipment.status` (`max_length=20`, default `AVAILABLE`), kept in sync with open `EquipmentLoan` rows by `EquipmentService` (the single writer): `AVAILABLE` = `'available'` (on hand), `CHECKED_OUT` = `'checked_out'` (an open `EquipmentLoan` exists), `RETIRED` = `'retired'`.
 
+### `EventStatus`
+
+Used by `Event.status` (`max_length=16`, default `DRAFT`): `DRAFT` = `'draft'` (being set up; seen by staff and that event's role holders), `LIVE` = `'live'` (any number at once; workers and DMs run), `ARCHIVED` = `'archived'` (read-only, same viewers). See [events.md](../features/events.md).
+
 ### `CheckInEventStatus` / `CheckInEntrantSource` / `CheckInLinkMethod`
 
 `CheckInEvent.status` (`max_length=16`, default `DRAFT`): `DRAFT` = `'draft'` (being set up; can still be synced by hand), `OPEN` = `'open'` (the only status the sync worker polls and the desk lists), `CLOSED` = `'closed'`. `CheckInEntrant.source` (`max_length=16`): `MATCHERINO` = `'matcherino'` (a buyer on the event's Matcherino venue), `WALK_UP` = `'walk_up'` (added by staff at the desk), `COMP` = `'comp'` (comped by the event's comp rules without buying a badge). `CheckInEntrant.link_method` (`max_length=24`, null = unlinked) records how the row got its `user`: the four automatic rules `MATCHERINO_ID` = `'matcherino_id'`, `DISCORD_ID` = `'discord_id'`, `TWITCH_ID` = `'twitch_id'`, `MATCHERINO_HANDLE` = `'matcherino_handle'` (tried in that order; the former `TWITCH_LOGIN` was folded into `TWITCH_ID` by migration 83), then `MANUAL` = `'manual'` (a staff link; with `user` NULL it marks a deliberate unlink the sync never overrides), `WALK_UP` = `'walk_up'` and `COMP` = `'comp'` (a `COMP` row's account). See [event-check-in.md](../features/event-check-in.md#matching-buyers-to-accounts).
@@ -468,6 +480,22 @@ One hosted community — the discriminator row every scoped model points at.
 | `is_active` | `BooleanField` | default `True` | |
 | `feature_group` | FK → `FeatureFlagGroup` | null, `SET_NULL` | Assigned live tier; NULL falls back to the default group. `related_name='tenants'` |
 | `config` | `JSONField` | default `{}` | Per-tenant knobs without dedicated columns; a `theme` key holds the STAFF-set brand palette (see [`TenantThemeService`](services.md)) and a `timezone` key the community's pinned-or-follow-viewer clock (`TimezoneService`, see [timezone-handling.md](../timezone-handling.md)), and a `profile_nudges` key the community's recommended profile items (`ProfileNudgeService`, see [profile-reminders.md](../features/profile-reminders.md)) |
+
+#### `Event`
+
+One run of a community's event (an SGL weekend). Tenant-scoped; see [features/events.md](../features/events.md).
+
+| Field | Type | Null / default | Notes |
+|---|---|---|---|
+| `tenant` | FK → `Tenant` | not null, `CASCADE` | `related_name='events'` |
+| `name` | `CharField(120)` | not null | "SGL 2026" |
+| `slug` | `CharField(64)` | not null | Unique with `tenant`. Editable while draft, locked once live |
+| `status` | `CharEnumField(EventStatus, 16)` | default `DRAFT` | Any number can be `LIVE` |
+| `is_default` | `BooleanField` | default `False` | Target of bare links. One per tenant, enforced by the partial unique index `uid_event_one_default_per_tenant` (migration only) |
+| `starts_on` / `ends_on` | `DateField` | null | |
+| `config` | `JSONField` | default `{}` | Per-event settings |
+| `archived_at` / `archived_by` | `DatetimeField` / FK → `User` | null, `SET_NULL` | |
+| `pii_purged_at` | `DatetimeField` | null | When the event's emergency contacts and accommodation requests were deleted, 30 days after archive |
 
 #### `TenantMembership`
 

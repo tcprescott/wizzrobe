@@ -26,6 +26,12 @@ class DiscordRoleRule(Model):
     id = fields.IntField(pk=True)
     tenant: fields.ForeignKeyRelation = fields.ForeignKeyField('models.Tenant', related_name='discord_role_rules', on_delete=fields.CASCADE)
     tenant_id: int
+    # Nullable until every write stamps it; the events migration backfilled the
+    # rows that existed before (see docs/features/events.md).
+    event: fields.ForeignKeyNullableRelation = fields.ForeignKeyField(
+        'models.Event', related_name='discord_role_rules', on_delete=fields.CASCADE, null=True,
+    )
+    event_id: Optional[int]
     key = fields.CharField(max_length=64)
     kind = fields.CharEnumField(DiscordRoleRuleKind, max_length=32)
     tournament: fields.ForeignKeyNullableRelation = fields.ForeignKeyField(
@@ -58,6 +64,12 @@ class DiscordRoleGrant(Model):
     id = fields.IntField(pk=True)
     tenant: fields.ForeignKeyRelation = fields.ForeignKeyField('models.Tenant', related_name='discord_role_grants', on_delete=fields.CASCADE)
     tenant_id: int
+    # Which event this happened during, for filtering. The row belongs to the
+    # community, so it outlives the event (SET NULL) and may carry none.
+    event: fields.ForeignKeyNullableRelation = fields.ForeignKeyField(
+        'models.Event', related_name='discord_role_grants', on_delete=fields.SET_NULL, null=True,
+    )
+    event_id: Optional[int]
     user: fields.ForeignKeyRelation = fields.ForeignKeyField('models.User', related_name='discord_role_grants', on_delete=fields.CASCADE)
     user_id: int
     discord_role_id = fields.BigIntField()

@@ -67,6 +67,7 @@ from .enums import (
     DiscordEventSource,
     DiscordRoleRuleKind,
     EquipmentStatus,
+    EventStatus,
     FeatureFlag,
     FeedbackCategory,
     FeedbackStatus,
@@ -95,6 +96,7 @@ from .enums import (
     VolunteerAvailabilityStatus,
 )
 from .equipment import Equipment, EquipmentLoan
+from .event import Event
 from .feature_flag import FeatureFlagGroup, TenantFeatureFlag
 from .feedback import Feedback
 from .match import (
@@ -250,6 +252,8 @@ __all__ = [
     'Equipment',
     'EquipmentLoan',
     'EquipmentStatus',
+    'Event',
+    'EventStatus',
     'FeatureFlag',
     'FeatureFlagGroup',
     # feedback

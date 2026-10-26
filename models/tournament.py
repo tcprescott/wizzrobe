@@ -1,4 +1,4 @@
-from typing import Iterable
+from typing import Iterable, Optional
 
 from tortoise import fields
 from tortoise.models import Model
@@ -9,6 +9,12 @@ from .enums import MatchNotificationLevel, ProviderTaskStatus
 class Tournament(Model):
     id = fields.IntField(pk=True)
     tenant = fields.ForeignKeyField('models.Tenant', related_name='tournaments', on_delete=fields.CASCADE)
+    # Nullable until every write stamps it; the events migration backfilled the
+    # rows that existed before (see docs/features/events.md).
+    event: fields.ForeignKeyNullableRelation = fields.ForeignKeyField(
+        'models.Event', related_name='tournaments', on_delete=fields.CASCADE, null=True,
+    )
+    event_id: Optional[int]
     name = fields.CharField(max_length=255)
     # Where a full name will not fit (the timeline, run sheets). Blank means
     # use ``name``; read it through ``short_label``.

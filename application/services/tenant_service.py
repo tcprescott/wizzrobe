@@ -13,11 +13,14 @@ platform-level (``tenant=NULL``).
 import re
 from typing import List, Optional
 
+from tortoise.transactions import in_transaction
+
 from application.repositories.tenant_membership_repository import TenantMembershipRepository
 from application.repositories.tenant_repository import TenantRepository
 from application.repositories.user_role_repository import UserRoleRepository
 from application.services.audit_service import AuditActions, AuditService
 from application.services.auth_service import AuthService
+from application.services.event_service import EventService
 from application.utils.environment import get_platform_host
 from application.utils.hostname import normalize_hostname
 from models import MembershipSource, Role, RoleSource, Tenant, User
@@ -220,15 +223,17 @@ class TenantService:
         slug = await TenantService._validate_slug(slug)
         domain = await TenantService._validate_domain(domain)
 
-        tenant = await TenantRepository.create(
-            name=name, slug=slug, domain=domain,
-            discord_guild_id=discord_guild_id, is_active=is_active,
-            config=config or {},
-        )
+        async with in_transaction():
+            tenant = await TenantRepository.create(
+                name=name, slug=slug, domain=domain,
+                discord_guild_id=discord_guild_id, is_active=is_active,
+                config=config or {},
+            )
+            event = await EventService.create_first_event(tenant)
         _clear_cache()
         await AuditService().write_log(
             actor, AuditActions.TENANT_CREATED,
-            {'tenant_id': tenant.id, 'slug': slug, 'name': name},
+            {'tenant_id': tenant.id, 'slug': slug, 'name': name, 'event_id': event.id},
         )
         return tenant
 

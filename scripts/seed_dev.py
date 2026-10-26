@@ -27,6 +27,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from tortoise import Tortoise
 
 from application.services.audit_service import AuditActions
+from application.services.event_service import EventService
 from application.services.feature_flag_service import FeatureFlagService
 from application.services.mcp_auth_service import READ_SCOPE, WRITE_SCOPE
 from application.tenant_context import tenant_scope
@@ -80,6 +81,7 @@ from scripts.seed_crew import seed_crew_for_tenant
 from scripts.seed_data_exports import seed_data_exports
 from scripts.seed_discord import seed_discord_for_tenant
 from scripts.seed_equipment import seed_equipment_for_tenant
+from scripts.seed_events import seed_events_for_tenant
 from scripts.seed_fledgling import seed_fledgling_tenant
 from scripts.seed_match_day import seed_match_day_for_tenant
 from scripts.seed_matches import seed_matches_for_tenant
@@ -949,10 +951,12 @@ async def seed_all() -> None:
             tenant.config = config
             await tenant.save()
         print(f"  tenant '{slug}' ({'created' if created else 'exists'}, id={tenant.id})")
+        await EventService.ensure_first_event(tenant)
         # The default community shows an uploaded SVG logo; the second keeps the
         # colour square, so both header shapes are reachable.
         if slug == 'default':
             await seed_logo_for_tenant(tenant)
+            await seed_events_for_tenant(tenant)
         # Tier first: the per-tenant fixtures below consult the live flags (a
         # service that enforces a flag refuses to seed data for a tenant that
         # lacks the feature), so availability has to be settled before seeding.

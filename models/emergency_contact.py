@@ -1,3 +1,5 @@
+from typing import Optional
+
 from tortoise import fields
 from tortoise.models import Model
 
@@ -20,6 +22,12 @@ class EmergencyContact(Model):
     tenant: fields.ForeignKeyRelation = fields.ForeignKeyField(
         'models.Tenant', related_name='emergency_contacts', on_delete=fields.CASCADE,
     )
+    # Nullable until every write stamps it; the events migration backfilled the
+    # rows that existed before (see docs/features/events.md).
+    event: fields.ForeignKeyNullableRelation = fields.ForeignKeyField(
+        'models.Event', related_name='emergency_contacts', on_delete=fields.CASCADE, null=True,
+    )
+    event_id: Optional[int]
     user: fields.ForeignKeyRelation = fields.ForeignKeyField(
         'models.User', related_name='emergency_contacts', on_delete=fields.CASCADE,
     )

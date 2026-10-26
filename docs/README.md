@@ -51,6 +51,7 @@ How each shipped subsystem behaves.
 | [features/discord.md](features/discord.md) | Match DMs and fan-out, guild-role → app-role sync, notification preferences, `MOCK_DISCORD` |
 | [features/online-tournaments.md](features/online-tournaments.md) | SahasrahBot succession, user-definable tournament config, racetime/SpeedGaming/Discord-Events design rules |
 | [features/multitenancy.md](features/multitenancy.md) | `/t/<slug>` and custom-domain addressing, tenant context, query scoping, per-tenant roles, `/platform` |
+| [features/events.md](features/events.md) | Events inside a community: the `Event` model, event context, default event, which rows carry `event_id`, the events migration |
 | [features/feature-flags.md](features/feature-flags.md) | Two-tier per-tenant flags: super-admin availability + tenant enable, and how to gate a subsystem |
 | [features/mcp-server.md](features/mcp-server.md) | Remote MCP server at `/mcp`: typed tools, reads by default and writes on request, OAuth 2.1 only |
 | [features/webhooks.md](features/webhooks.md) | Staff-managed outbound webhooks: signing, retries, delivery log |

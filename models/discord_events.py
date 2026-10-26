@@ -22,6 +22,12 @@ class DiscordScheduledEvent(Model):
 
     id = fields.IntField(pk=True)
     tenant = fields.ForeignKeyField('models.Tenant', related_name='discord_scheduled_events', on_delete=fields.CASCADE)
+    # Nullable until every write stamps it; the events migration backfilled the
+    # rows that existed before (see docs/features/events.md).
+    event: fields.ForeignKeyNullableRelation = fields.ForeignKeyField(
+        'models.Event', related_name='discord_scheduled_events', on_delete=fields.CASCADE, null=True,
+    )
+    event_id: Optional[int]
     # The guild the event lives in, snapshotted from ``Tenant.discord_guild_id``
     # at creation so a later re-link doesn't silently orphan the row.
     guild_id = fields.BigIntField()
@@ -54,6 +60,12 @@ class StaffRequestDM(Model):
     tenant: fields.ForeignKeyRelation = fields.ForeignKeyField(
         'models.Tenant', related_name='staff_request_dms', on_delete=fields.CASCADE)
     tenant_id: int
+    # Which event this happened during, for filtering. The row belongs to the
+    # community, so it outlives the event (SET NULL) and may carry none.
+    event: fields.ForeignKeyNullableRelation = fields.ForeignKeyField(
+        'models.Event', related_name='staff_request_dms', on_delete=fields.SET_NULL, null=True,
+    )
+    event_id: Optional[int]
     kind = fields.CharEnumField(StaffRequestKind, max_length=32)
     object_id = fields.IntField()
     user: fields.ForeignKeyRelation = fields.ForeignKeyField(
@@ -83,6 +95,12 @@ class SentMessage(Model):
     tenant: fields.ForeignKeyRelation = fields.ForeignKeyField(
         'models.Tenant', related_name='sent_messages', on_delete=fields.CASCADE)
     tenant_id: int
+    # Which event this happened during, for filtering. The row belongs to the
+    # community, so it outlives the event (SET NULL) and may carry none.
+    event: fields.ForeignKeyNullableRelation = fields.ForeignKeyField(
+        'models.Event', related_name='sent_messages', on_delete=fields.SET_NULL, null=True,
+    )
+    event_id: Optional[int]
     recipient: fields.ForeignKeyNullableRelation = fields.ForeignKeyField(
         'models.User', related_name='sent_messages', null=True, on_delete=fields.SET_NULL)
     recipient_id: Optional[int]
