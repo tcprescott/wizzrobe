@@ -30,7 +30,7 @@ class Event(Model):
     is_default = fields.BooleanField(default=False)
     starts_on = fields.DateField(null=True)
     ends_on = fields.DateField(null=True)
-    config = fields.JSONField(default=dict)
+    config = fields.JSONField(default=dict)  # type: ignore[var-annotated]
     archived_at = fields.DatetimeField(null=True)
     archived_by: fields.ForeignKeyNullableRelation = fields.ForeignKeyField(
         'models.User', related_name='archived_events', on_delete=fields.SET_NULL, null=True,
