@@ -25,6 +25,8 @@ from api.dependencies import (
     resolve_token,
 )
 from api.rate_limit import limit_per_minute
+from api.scopes import PAT_ONLY, scope_for
+from application.api_scopes import CONSENT_WORDING, ApiScope
 from application.events import EventType
 from application.feature_flags import spec_for
 from application.services.webhook_service import WebhookService
@@ -60,6 +62,10 @@ Click **Authorize** above and paste it to try endpoints from this page.
   data answers `403`.
 - Tokens can expire, and you can revoke one at any time from the same card.
 
+A personal token is for your own scripts. An app someone else wrote signs you
+in with OAuth instead, and gets only the **scopes** you approve. Each endpoint
+lists the scope an app needs to call it; a few say apps can't call them at all.
+
 ## Conventions
 
 - **Times are UTC**, in ISO 8601 (`2026-10-16T18:00:00Z`). Convert to local
@@ -68,7 +74,7 @@ Click **Authorize** above and paste it to try endpoints from this page.
 - **Errors** come back as JSON with a `detail` message:
   `{"detail": "Staff access required"}`. `400` means a rule refused the
   request (the message says which), `401` a missing or expired token, `403` no
-  permission or a read-only token, `404` nothing with that id in your
+  permission, a read-only token or a scope the app wasn't given, `404` nothing with that id in your
   community or a feature your community hasn't turned on, `422` a malformed
   request.
 - **Rate limit:** {rate_limit} requests a minute per token, and the same
@@ -222,7 +228,8 @@ _WRITE_GATES: Set[Callable] = {require_write_actor, require_staff_write, require
 _ERRORS = {
     '400': 'A rule refused the request. `detail` says which.',
     '401': 'No token, or the token is unknown, expired or revoked.',
-    '403': 'You don\'t have permission, the token is read-only, or your account or community is inactive.',
+    '403': 'You don\'t have permission, the token is read-only, an app\'s token lacks the scope, '
+           'or your account or community is inactive.',
     '404': 'Nothing with that id in your community, or the feature is turned off for your community.',
     '429': 'Over the rate limit. Wait the number of seconds in the `Retry-After` header.',
 }
@@ -243,7 +250,14 @@ def _feature_flag(calls: Iterable[Callable]) -> Optional[FeatureFlag]:
     return None
 
 
-def _access_notes(route: RouteContext) -> tuple[List[str], bool]:
+OAUTH_SCHEME = 'WizzrobeApps'
+
+
+def _scope(route: RouteContext, method: str):
+    return scope_for(method.upper(), (route.path_format or '').removeprefix(API_PREFIX))
+
+
+def _access_notes(route: RouteContext, method: str) -> tuple[List[str], bool]:
     """Notes derived from the route's dependencies, and whether it authenticates."""
     calls = list(_calls(route.dependant))
     authenticated = resolve_token in calls
@@ -252,6 +266,11 @@ def _access_notes(route: RouteContext) -> tuple[List[str], bool]:
         notes.append('**Token:** not needed.')
     elif any(call in _WRITE_GATES for call in calls):
         notes.append('**Token:** needs a token that isn\'t read-only.')
+    scope = _scope(route, method)
+    if scope is PAT_ONLY:
+        notes.append('**Apps:** can\'t call this; it needs a personal API token.')
+    elif isinstance(scope, ApiScope):
+        notes.append(f'**App scope:** `{scope.value}`')
     flag = _feature_flag(calls)
     if flag is not None:
         notes.append(
@@ -266,7 +285,7 @@ def _error_ref() -> Dict[str, Any]:
 
 
 def _document_operation(operation: Dict[str, Any], route: RouteContext, method: str) -> None:
-    notes, authenticated = _access_notes(route)
+    notes, authenticated = _access_notes(route, method)
     if notes:
         description = (operation.get('description') or '').rstrip()
         operation['description'] = '\n\n'.join(filter(None, [description, '  \n'.join(notes)]))
@@ -281,6 +300,28 @@ def _document_operation(operation: Dict[str, Any], route: RouteContext, method: 
         codes.append('400')
     for code in sorted(codes):
         responses.setdefault(code, {'description': _ERRORS[code], 'content': _error_ref()})
+    scope = _scope(route, method)
+    if operation.get('security') and isinstance(scope, ApiScope):
+        operation['security'] = [*operation['security'], {OAUTH_SCHEME: [scope.value]}]
+
+
+def _oauth_scheme() -> Dict[str, Any]:
+    """Apps sign in at the ``/oauth`` issuer and are held to these scopes."""
+    return {
+        'type': 'oauth2',
+        'description': (
+            'For apps acting on someone\'s behalf. Authorization code flow with PKCE (S256); '
+            'the person picks one community and approves the scopes.'
+        ),
+        'flows': {
+            'authorizationCode': {
+                'authorizationUrl': '/oauth/authorize',
+                'tokenUrl': '/oauth/token',
+                'refreshUrl': '/oauth/token',
+                'scopes': {scope.value: wording for scope, wording in CONSENT_WORDING.items()},
+            },
+        },
+    }
 
 
 def _webhook_paths() -> Dict[str, Any]:
@@ -360,6 +401,7 @@ def build_openapi(app: FastAPI) -> Dict[str, Any]:
             operation = operations.get(route.path_format, {}).get(method.lower())
             if operation is not None:
                 _document_operation(operation, route, method.lower())
+    schema.setdefault('components', {}).setdefault('securitySchemes', {})[OAUTH_SCHEME] = _oauth_scheme()
     components = schema.setdefault('components', {}).setdefault('schemas', {})
     components['ErrorResponse'] = ErrorResponse.model_json_schema()
     components['WebhookDelivery'] = WebhookDelivery.model_json_schema()

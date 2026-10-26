@@ -44,7 +44,7 @@ All four share the `/api` rate limiter.
 
 ## Rules worth knowing
 
-- **Scopes only narrow.** A grant does what its scopes cover *and* what the person's roles in that community allow. A grant with no write scope is stamped `read_only`, so every write route already refuses it before W2's per-route scope check lands.
+- **Scopes only narrow.** A grant does what its scopes cover *and* what the person's roles in that community allow. A grant with no write scope is also stamped `read_only`, so write routes refuse it twice over. Each REST route's scope is listed in `api/scopes.py`; a call outside the grant gets `403` with an `insufficient_scope` challenge (see [REST API › App scopes](../reference/rest-api.md)).
 - **Consent** (`consent_view` / `approve` / `deny`): only communities the person belongs to, active, with the flag on. `staff:*` are offered only to someone holding an admin-side role there (`can_view_admin`, or any role besides Volunteer). The grant carries exactly the ticked scopes, which must sit inside the offer.
 - **One live grant per person × app × community.** Approving again replaces the old grant.
 - **Rotation and reuse.** Access tokens last 1 h, refresh tokens 30 days sliding and rotate on every use. Presenting a rotated-away refresh token revokes the grant (`oauth_grant.refresh_reused`). A replayed authorization code revokes the grant it produced.
