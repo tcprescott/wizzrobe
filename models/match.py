@@ -1,4 +1,3 @@
-from typing import Optional
 
 from tortoise import fields
 from tortoise.models import Model
@@ -19,10 +18,10 @@ class Match(Model):
     tenant = fields.ForeignKeyField('models.Tenant', related_name='matches', on_delete=fields.CASCADE)
     # Nullable until every write stamps it; the events migration backfilled the
     # rows that existed before (see docs/features/events.md).
-    event: fields.ForeignKeyNullableRelation = fields.ForeignKeyField(
-        'models.Event', related_name='matches', on_delete=fields.CASCADE, null=True,
+    event: fields.ForeignKeyRelation = fields.ForeignKeyField(
+        'models.Event', related_name='matches', on_delete=fields.CASCADE,
     )
-    event_id: Optional[int]
+    event_id: int
     tournament = fields.ForeignKeyField('models.Tournament', related_name='matches')
     # SET_NULL: deleting a stage (or seed) detaches its matches instead of
     # cascade-deleting the entire match and its players/crew/acknowledgments.
@@ -192,10 +191,10 @@ class Stage(Model):
     tenant = fields.ForeignKeyField('models.Tenant', related_name='stages', on_delete=fields.CASCADE)
     # Nullable until every write stamps it; the events migration backfilled the
     # rows that existed before (see docs/features/events.md).
-    event: fields.ForeignKeyNullableRelation = fields.ForeignKeyField(
-        'models.Event', related_name='stages', on_delete=fields.CASCADE, null=True,
+    event: fields.ForeignKeyRelation = fields.ForeignKeyField(
+        'models.Event', related_name='stages', on_delete=fields.CASCADE,
     )
-    event_id: Optional[int]
+    event_id: int
     name = fields.CharField(max_length=255)
     stream_url = fields.CharField(max_length=255, null=True)
     is_active = fields.BooleanField(default=True)
@@ -204,7 +203,7 @@ class Stage(Model):
 
     class Meta:
         table = 'stage'
-        unique_together = (('tenant', 'name'),)
+        unique_together = (('tenant', 'event', 'name'),)
 
 
 class Station(Model):
@@ -224,10 +223,10 @@ class Station(Model):
     tenant = fields.ForeignKeyField('models.Tenant', related_name='stations', on_delete=fields.CASCADE)
     # Nullable until every write stamps it; the events migration backfilled the
     # rows that existed before (see docs/features/events.md).
-    event: fields.ForeignKeyNullableRelation = fields.ForeignKeyField(
-        'models.Event', related_name='stations', on_delete=fields.CASCADE, null=True,
+    event: fields.ForeignKeyRelation = fields.ForeignKeyField(
+        'models.Event', related_name='stations', on_delete=fields.CASCADE,
     )
-    event_id: Optional[int]
+    event_id: int
     name = fields.CharField(max_length=50)
     # Free-text grouping ("North wall", "Row A") shown beside the name in the
     # picker. Purely a label — it carries no pairing semantics.
@@ -246,7 +245,7 @@ class Station(Model):
 
     class Meta:
         table = 'station'
-        unique_together = (('tenant', 'name'),)
+        unique_together = (('tenant', 'event', 'name'),)
 
 
 class Commentator(Model):

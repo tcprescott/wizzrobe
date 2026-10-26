@@ -1,4 +1,3 @@
-from typing import Optional
 
 from tortoise import fields
 from tortoise.models import Model
@@ -191,10 +190,10 @@ class WatchLayoutVote(Model):
     tenant_id: int
     # Nullable until every write stamps it; the events migration backfilled the
     # rows that existed before (see docs/features/events.md).
-    event: fields.ForeignKeyNullableRelation = fields.ForeignKeyField(
-        'models.Event', related_name='watch_layout_votes', on_delete=fields.CASCADE, null=True,
+    event: fields.ForeignKeyRelation = fields.ForeignKeyField(
+        'models.Event', related_name='watch_layout_votes', on_delete=fields.CASCADE,
     )
-    event_id: Optional[int]
+    event_id: int
     session_id = fields.CharField(max_length=64)
     # 'one_page', 'tabs' or 'rail'.
     layout = fields.CharField(max_length=16)
@@ -204,4 +203,4 @@ class WatchLayoutVote(Model):
 
     class Meta:
         table = 'watchlayoutvote'
-        unique_together = (('tenant', 'session_id', 'layout'),)
+        unique_together = (('tenant', 'event', 'session_id', 'layout'),)
