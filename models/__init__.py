@@ -99,6 +99,7 @@ from .equipment import Equipment, EquipmentLoan
 from .event import Event
 from .feature_flag import FeatureFlagGroup, TenantFeatureFlag
 from .feedback import Feedback
+from .item_tracker import ItemTrackerBoard, ItemTrackerChange
 from .match import (
     CommentaryInvite,
     Commentator,
@@ -265,6 +266,8 @@ __all__ = [
     'ForfeitReason',
     # tournament
     'GeneratedSeeds',
+    'ItemTrackerBoard',
+    'ItemTrackerChange',
     'JoinRequestStatus',
     'LogLevelOverride',
     'Match',

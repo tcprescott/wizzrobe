@@ -19,7 +19,7 @@ from nicegui import app, ui
 
 from application.content import parse_user_blocks
 from application.errors import NotFoundError
-from application.services import MatchCommentService, get_user_from_session
+from application.services import ItemTrackerService, MatchCommentService, get_user_from_session
 from theme.busy import busy
 from theme.clipboard import copy_to_clipboard
 from theme.dialog._helpers import dialog_actions, dialog_header
@@ -175,6 +175,8 @@ class MatchSheet:
         self._draft = ''
         # A deep link asks for a match before the board has loaded it.
         self._pending_open: Optional[int] = None
+        # The ALTTP item tracker for the open match, when this viewer may track it.
+        self._tracker_link: Optional[str] = None
         # mobile_sheet's own breakpoint, but a side sheet rather than a centred
         # card above it: the board stays readable beside the open match.
         with ui.dialog().props(''':position="Quasar.Screen.lt.sm ? 'bottom' : 'right'"''') as self.dialog, \
@@ -228,6 +230,9 @@ class MatchSheet:
             return
         self.row = row
         await self._load_comments()
+        self._tracker_link = await ItemTrackerService().sheet_link(
+            row['id'], self._viewer,
+        )
         with self.dialog:
             self._content.refresh()
             self.dialog.open()
@@ -322,6 +327,10 @@ class MatchSheet:
                 label += f" · Game {bracket['game']}"
             ui.button(label, icon='account_tree',
                       on_click=lambda: self.view._handle_open_bracket(SimpleNamespace(args=row))) \
+                .props('flat dense no-caps color=primary').classes('self-start')
+        if self._tracker_link:
+            link = self._tracker_link
+            ui.button('Item tracker', icon='grid_view', on_click=lambda: ui.navigate.to(link)) \
                 .props('flat dense no-caps color=primary').classes('self-start')
 
     def _status(self, row: dict) -> None:

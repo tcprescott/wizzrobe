@@ -42,6 +42,7 @@ from pages import (
     event_info,
     facts,
     home,
+    item_tracker,
     live_watch,
     mcp_consent,
     my_messages,
@@ -345,6 +346,7 @@ def init(fastapi_app: FastAPI) -> None:
     event_info.create()
     community_events.create()
     my_messages.create()
+    item_tracker.create()
     facts.create()
     changelog.create()
     about.create()

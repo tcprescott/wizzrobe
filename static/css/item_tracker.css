@@ -1,0 +1,310 @@
+/* ALTTP item tracker (pages/item_tracker.py): the crew board, its stream
+   preview, and the transparent OBS overlay. Tokens only; the tiles sit on the
+   dark still-frame ground in both modes because the sprites are drawn for it. */
+
+.itk-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 640px) minmax(280px, 340px);
+  gap: var(--space-3);
+  align-items: start;
+  width: 100%;
+}
+
+.itk-side {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+@media (max-width: 1023px) {
+  .itk-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.itk-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.itk-items,
+.itk-dungeons {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 6px;
+  width: 100%;
+}
+
+.itk-dungeons {
+  margin-top: 12px;
+}
+
+.itk-tile {
+  position: relative;
+  aspect-ratio: 1;
+  min-width: 0;
+  padding: 0;
+  border: 2px solid transparent;
+  border-radius: var(--radius-md);
+  background: var(--wiz-still-bg);
+  color: #fff;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  cursor: pointer;
+  font: inherit;
+}
+
+.itk-tile:hover {
+  border-color: var(--border-strong);
+}
+
+.itk-tile:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.itk-tile--open {
+  border-color: var(--accent);
+}
+
+.itk-tile > img {
+  width: 72%;
+  height: auto;
+  image-rendering: pixelated;
+}
+
+.itk-badge {
+  position: absolute;
+  right: 3px;
+  bottom: 3px;
+  min-width: 18px;
+  padding: 1px 4px;
+  border-radius: 4px;
+  background: var(--wiz-still-glass);
+  color: var(--n-0);
+  font-size: var(--text-xs);
+  font-weight: 700;
+  line-height: 1.2;
+  text-align: center;
+}
+
+.itk-dtile {
+  aspect-ratio: auto;
+  padding: 4px 2px 5px;
+  justify-content: flex-start;
+}
+
+.itk-dtile__abbr {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  line-height: 1.1;
+}
+
+.itk-dtile__boss {
+  width: 64%;
+  image-rendering: pixelated;
+}
+
+.itk-dtile__boss--alive {
+  opacity: 0.35;
+  filter: grayscale(1);
+}
+
+.itk-dtile__meta {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  min-height: 18px;
+}
+
+.itk-dtile__row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  white-space: nowrap;
+}
+
+.itk-dtile__meta img {
+  width: 16px;
+  height: 16px;
+  image-rendering: pixelated;
+}
+
+.itk-count {
+  padding: 1px 4px;
+  border-radius: 4px;
+  background: var(--wiz-still-glass);
+  font-size: 0.6875rem;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.itk-count--done {
+  opacity: 0.6;
+}
+
+.itk-hint {
+  margin-top: 10px;
+  color: var(--fg-muted);
+  font-size: var(--text-sm);
+}
+
+.itk-preview {
+  border-radius: var(--radius-md);
+  padding: 10px;
+  /* Dark in both modes: it stands in for the game feed the overlay sits on. */
+  background-color: var(--wiz-still-bg);
+  background-image:
+    linear-gradient(45deg, rgba(255, 255, 255, 0.06) 25%, transparent 25%, transparent 75%, rgba(255, 255, 255, 0.06) 75%),
+    linear-gradient(45deg, rgba(255, 255, 255, 0.06) 25%, transparent 25%, transparent 75%, rgba(255, 255, 255, 0.06) 75%);
+  background-size: 16px 16px;
+  background-position: 0 0, 8px 8px;
+}
+
+/* The broadcast board: no tile ground, so it sits straight on the stream. */
+.itk-board--bare .itk-items,
+.itk-board--bare .itk-dungeons {
+  gap: 2px;
+}
+
+.itk-board--bare .itk-tile {
+  background: transparent;
+  border: 0;
+  cursor: default;
+}
+
+.itk-board--bare .itk-tile > img {
+  width: 88%;
+}
+
+/* Over a game feed the label needs its own backing, like the counts. */
+.itk-board--bare .itk-dtile__abbr {
+  padding: 0 4px;
+  border-radius: 4px;
+  background: var(--wiz-still-glass);
+}
+
+.itk-log {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+}
+
+.itk-log__row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--border-subtle);
+  font-size: var(--text-sm);
+}
+
+.itk-log__row:last-child {
+  border-bottom: 0;
+}
+
+.itk-log__time {
+  color: var(--fg-muted);
+  font-family: var(--font-mono);
+  flex: none;
+}
+
+.itk-log__text {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.itk-choices {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(76px, 1fr));
+  gap: 8px;
+  width: 100%;
+}
+
+.itk-choice {
+  aspect-ratio: auto;
+  min-height: 76px;
+  padding: 6px 4px;
+}
+
+.itk-choice > img {
+  width: 40px;
+}
+
+.itk-choice__label {
+  font-size: var(--text-xs);
+  font-weight: 700;
+  text-align: center;
+  line-height: 1.2;
+}
+
+.itk-stepper {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.itk-stepper__value {
+  min-width: 4.5rem;
+  text-align: center;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+/* The OBS overlay page: nothing behind the board but the stream. */
+body.itk-overlay,
+body.itk-overlay .q-layout,
+body.itk-overlay .q-page-container,
+body.itk-overlay .q-page,
+body.itk-overlay .nicegui-content {
+  background: transparent !important;
+}
+
+body.itk-overlay .nicegui-content {
+  padding: 0;
+}
+
+.itk-overlay__board {
+  width: 100vw;
+}
+
+/* Too narrow for the key picture: "0/3" beside the big key says it alone. */
+.itk-preview .itk-dtile__key {
+  display: none;
+}
+
+@media (max-width: 599px) {
+  .itk-dtile__key {
+    display: none;
+  }
+
+  .itk-dtile__meta img {
+    width: 12px;
+    height: 12px;
+  }
+
+  .itk-dtile .itk-count {
+    padding: 0 2px;
+    font-size: 0.625rem;
+  }
+}
+
+/* The preview is a thumbnail of the stream: the dungeon facts shrink to fit. */
+.itk-preview .itk-dtile__meta img {
+  width: 10px;
+  height: 10px;
+}
+
+.itk-preview .itk-count {
+  padding: 0 2px;
+  font-size: 0.5625rem;
+}
