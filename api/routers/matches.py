@@ -10,6 +10,7 @@ from api.dependencies import ServiceErrorRoute, require_admin, require_api_actor
 from api.schemas.crew import CrewSignupInfo, MatchCrewResponse
 from api.schemas.matches import MatchResponse
 from application.errors import require_found
+from application.event_context import event_scoped
 from application.services import CrewService, MatchWatcherService
 from application.tenant_context import require_tenant_id
 from models import Match, User
@@ -42,7 +43,7 @@ async def get_matches(
     tournament_id: Optional[List[int]] = Query(None, description="Filter by specific tournament IDs."),
     limit: int = Query(default=100, ge=1, le=500, description="Maximum matches to return."),
 ):
-    query = Match.filter(tenant_id=require_tenant_id())
+    query = event_scoped(Match.all())
 
     if match_id:
         query = query.filter(id__in=match_id)

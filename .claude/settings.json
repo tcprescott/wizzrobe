@@ -194,6 +194,11 @@
           },
           {
             "type": "command",
+            "command": "python3 \"${CLAUDE_PROJECT_DIR:-.}/.claude/scripts/check_event_scoping.py\"",
+            "timeout": 10
+          },
+          {
+            "type": "command",
             "command": "python3 \"${CLAUDE_PROJECT_DIR:-.}/.claude/scripts/check_api_route_auth.py\"",
             "timeout": 10
           },

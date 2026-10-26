@@ -3,8 +3,8 @@
 
 from nicegui import app, background_tasks, context, ui
 
+from application.event_context import event_scoped
 from application.services import AuthService, StageService, get_user_from_session
-from application.tenant_context import require_tenant_id
 from application.utils.safe_url import http_url_or_empty
 from models import Tournament
 from theme.dialog import TournamentDialog
@@ -40,7 +40,7 @@ async def admin_tournaments_page() -> None:
             await dialog.open()
 
         def get_query():
-            query = Tournament.filter(tenant_id=require_tenant_id())
+            query = event_scoped(Tournament.all())
             return query if own_ids is None else query.filter(id__in=own_ids)
         
         table_view = TournamentTableView(

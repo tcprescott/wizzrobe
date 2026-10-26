@@ -10,7 +10,7 @@ from nicegui import app, background_tasks, ui
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import RedirectResponse
 
-from application.event_context import get_current_event_id, stash_client_event_id
+from application.event_context import event_scope, get_current_event_id, stash_client_event_id
 from application.services.auth_service import AuthService, get_user_from_session
 from application.services.feature_flag_service import FeatureFlagService
 from application.services.telemetry_service import TelemetryService
@@ -72,13 +72,13 @@ async def bind_display_timezone(tenant_id: int, user=None) -> str:
     return name
 
 
-async def _run_in_tenant(tenant_id, coro) -> None:
+async def _run_in_tenant(tenant_id, coro, event_id=None) -> None:
     """Await a deferred (background-task) coroutine with a tenant bound.
 
     Page-view telemetry is captured in a background task, which runs outside the
-    request and so loses the contextvar — capture the tenant at page-build time
-    and rebind it here so the row is tenant-stamped."""
-    with tenant_scope(tenant_id):
+    request and so loses the contextvar — capture the tenant (and the page's
+    event) at page-build time and rebind them here so the row is stamped."""
+    with tenant_scope(tenant_id), event_scope(event_id, tenant_id):
         await coro
 
 # Keep page-view detail bounded: query/path params carry useful engagement
@@ -140,6 +140,7 @@ def record_page_view(path: str, kwargs: dict) -> None:
                     session_id=session_id,
                     params=params or None,
                 ),
+                get_current_event_id(),
             )
         )
     except Exception:

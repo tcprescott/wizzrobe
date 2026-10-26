@@ -23,6 +23,7 @@ from typing import Any, Generic, Optional, Type, TypeVar
 
 from tortoise.models import Model
 
+from application.repositories._event import stamp_event_id
 from application.repositories._save import save_fields
 from application.repositories._tenant import current_tenant_id
 
@@ -56,3 +57,19 @@ class TenantScopedRepository(Generic[T]):
     @classmethod
     async def delete(cls, obj: T) -> None:
         await obj.delete()
+
+
+class EventScopedRepository(TenantScopedRepository[T]):
+    """:class:`TenantScopedRepository` for a model an event owns.
+
+    ``create`` stamps the event as well as the tenant: the parent's event for a
+    model listed in ``EVENT_PARENTS`` (a match takes its tournament's), else the
+    ambient one. ``get_by_id`` stays tenant-scoped only, because a row decides
+    its own event.
+    """
+
+    @classmethod
+    async def create(cls, **fields: Any) -> T:
+        if 'event' not in fields and 'event_id' not in fields:
+            fields['event_id'] = await stamp_event_id(cls.model, fields)
+        return await cls.model.create(tenant_id=current_tenant_id(), **fields)

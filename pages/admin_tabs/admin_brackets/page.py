@@ -25,6 +25,7 @@ from typing import Dict, List, Optional
 
 from nicegui import app, background_tasks, context, ui
 
+from application.event_context import event_scoped
 from application.services import BracketService
 from application.tenant_context import require_tenant_id, tenant_scope
 from models import BracketMatchState, BracketState, Tournament
@@ -178,9 +179,9 @@ async def admin_brackets_page() -> None:
         # every one of them could only ever answer "Create bracket" with an error.
         # Inactive ones stay — their existing stages must remain reachable — but
         # sort last and say so.
-        tournaments = await Tournament.filter(
-            tenant_id=tenant_id, challonge_tournament_id__isnull=True,
-        ).order_by('-is_active', 'name')
+        tournaments = await event_scoped(Tournament.filter(
+            challonge_tournament_id__isnull=True,
+        )).order_by('-is_active', 'name')
         options = {
             t.id: t.name if t.is_active else f'{t.name} (inactive)'
             for t in tournaments

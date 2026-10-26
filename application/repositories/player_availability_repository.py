@@ -9,12 +9,13 @@ lives in :class:`PlayerAvailabilityService`, not here.
 from datetime import datetime
 from typing import List, Optional
 
-from application.repositories._tenant import current_tenant_id, scoped
+from application.repositories._event import current_event_id, event_scoped
+from application.repositories._tenant import current_tenant_id
 from models import PlayerAvailability, User, VolunteerAvailabilityStatus
 
 
 class PlayerAvailabilityRepository:
-    """Repository for player availability windows."""
+    """Repository for player availability windows, which belong to one event."""
 
     @staticmethod
     async def get_by_id(availability_id: int) -> Optional[PlayerAvailability]:
@@ -22,7 +23,7 @@ class PlayerAvailabilityRepository:
 
     @staticmethod
     async def list_for_user(user: User) -> List[PlayerAvailability]:
-        return await scoped(PlayerAvailability.filter(user=user)).order_by('starts_at')
+        return await event_scoped(PlayerAvailability.filter(user=user)).order_by('starts_at')
 
     @staticmethod
     async def for_users_overlapping(
@@ -30,7 +31,7 @@ class PlayerAvailabilityRepository:
     ) -> List[PlayerAvailability]:
         if not user_ids:
             return []
-        return await scoped(PlayerAvailability.filter(
+        return await event_scoped(PlayerAvailability.filter(
             user_id__in=user_ids, starts_at__lt=end, ends_at__gt=start,
         ))
 
@@ -44,6 +45,7 @@ class PlayerAvailabilityRepository:
     ) -> PlayerAvailability:
         return await PlayerAvailability.create(
             tenant_id=current_tenant_id(),
+            event_id=current_event_id(),
             user=user, starts_at=starts_at, ends_at=ends_at, status=status, note=note,
         )
 
@@ -53,4 +55,4 @@ class PlayerAvailabilityRepository:
 
     @staticmethod
     async def delete_for_user(user: User) -> int:
-        return await scoped(PlayerAvailability.filter(user=user)).delete()
+        return await event_scoped(PlayerAvailability.filter(user=user)).delete()

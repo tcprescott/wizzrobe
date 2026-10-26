@@ -90,6 +90,7 @@ async def _tick() -> None:
         due,
         _remind,
         tenant_id_of=lambda subscription: subscription.tenant_id,
+        event_id_of=lambda subscription: subscription.event.event_id,
         logger=logger,
         describe=lambda subscription: f'community event subscription {getattr(subscription, "id", None)}',
     )

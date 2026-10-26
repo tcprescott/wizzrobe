@@ -1,4 +1,3 @@
-from typing import Optional
 
 from tortoise import fields
 from tortoise.models import Model
@@ -26,10 +25,10 @@ class CommunityEvent(Model):
     tenant_id: int
     # Nullable until every write stamps it; the events migration backfilled the
     # rows that existed before (see docs/features/events.md).
-    event: fields.ForeignKeyNullableRelation = fields.ForeignKeyField(
-        'models.Event', related_name='meetups', on_delete=fields.CASCADE, null=True,
+    event: fields.ForeignKeyRelation = fields.ForeignKeyField(
+        'models.Event', related_name='meetups', on_delete=fields.CASCADE,
     )
-    event_id: Optional[int]
+    event_id: int
     host: fields.ForeignKeyRelation = fields.ForeignKeyField(
         'models.User', related_name='hosted_community_events', on_delete=fields.CASCADE,
     )
@@ -98,7 +97,7 @@ class CommunityEventSubscription(Model):
 class CommunityEventSeen(Model):
     """When a member last opened the community events listing.
 
-    One row per member per community. An approved event listed after
+    One row per member per event. An approved event listed after
     ``seen_at`` is new to them, which is what the count on Home's Event tab
     shows; opening the listing moves ``seen_at`` to now. No row means they
     have never looked, so everything listed is new.
@@ -111,10 +110,10 @@ class CommunityEventSeen(Model):
     tenant_id: int
     # Nullable until every write stamps it; the events migration backfilled the
     # rows that existed before (see docs/features/events.md).
-    event: fields.ForeignKeyNullableRelation = fields.ForeignKeyField(
-        'models.Event', related_name='meetup_seen', on_delete=fields.CASCADE, null=True,
+    event: fields.ForeignKeyRelation = fields.ForeignKeyField(
+        'models.Event', related_name='meetup_seen', on_delete=fields.CASCADE,
     )
-    event_id: Optional[int]
+    event_id: int
     user: fields.ForeignKeyRelation = fields.ForeignKeyField(
         'models.User', related_name='community_events_seen', on_delete=fields.CASCADE,
     )
@@ -123,4 +122,4 @@ class CommunityEventSeen(Model):
 
     class Meta:
         table = 'community_event_seen'
-        unique_together = (('tenant', 'user'),)
+        unique_together = (('tenant', 'event', 'user'),)

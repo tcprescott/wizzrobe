@@ -44,6 +44,7 @@ async def _tick() -> None:
         tenant_ids,
         _sync,
         tenant_id_of=lambda tenant_id: tenant_id,
+        each_live_event=True,
         logger=logger,
         describe=lambda tenant_id: f'start.gg events of tenant {tenant_id}',
     )

@@ -50,6 +50,7 @@ async def proctor_station_tab(user: Optional[User] = None) -> None:
             ui.space()
 
         def get_query():
+            # The handlers' per-row lookup: a row decides its own event (event-scope: exempt).
             query = Match.filter(tenant_id=require_tenant_id())
             return query.filter(stage_id__isnull=False) if on_stage_only else query
 

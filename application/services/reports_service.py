@@ -8,6 +8,7 @@ inputs and outputs are timezone-aware datetimes (UTC on the wire).
 from datetime import date, datetime, time, timedelta, timezone
 from typing import Dict, List, Optional, Tuple
 
+from application.event_context import event_scoped
 from application.services.reporting_shared import (
     DEFAULT_MATCH_DURATION_MIN,
     ON_TIME_THRESHOLD_MIN,
@@ -19,7 +20,6 @@ from application.services.reporting_shared import (
     window_hours,
 )
 from application.services.system_config_service import SystemConfigService
-from application.tenant_context import require_tenant_id
 from application.utils.timezone import combine_local
 from models import (
     Match,
@@ -177,11 +177,10 @@ class ReportsService:
             end = start
         interval_min = self._auto_interval_minutes(start, end)
 
-        query = Match.all().filter(
+        query = event_scoped(Match.filter(
             scheduled_at__gte=start - timedelta(hours=24),
             scheduled_at__lte=end + timedelta(hours=24),
-            tenant_id=require_tenant_id(),
-        )
+        ))
         if tournament_id:
             query = query.filter(tournament_id=tournament_id)
         matches = await query.prefetch_related('tournament', 'players', 'stage')
@@ -254,11 +253,10 @@ class ReportsService:
     ) -> List[Match]:
         await ensure_report_reader(actor)
         instant = self._local(instant)
-        query = Match.all().filter(
+        query = event_scoped(Match.filter(
             scheduled_at__gte=instant - timedelta(hours=24),
             scheduled_at__lte=instant + timedelta(hours=24),
-            tenant_id=require_tenant_id(),
-        )
+        ))
         if tournament_id:
             query = query.filter(tournament_id=tournament_id)
         matches = await query.prefetch_related('tournament', 'players', 'players__user', 'stage')
@@ -285,11 +283,10 @@ class ReportsService:
         await ensure_report_reader(actor)
         start = self._local(start)
         end = self._local(end)
-        query = Match.all().filter(
+        query = event_scoped(Match.filter(
             scheduled_at__gte=start,
             scheduled_at__lte=end,
-            tenant_id=require_tenant_id(),
-        )
+        ))
         if tournament_id:
             query = query.filter(tournament_id=tournament_id)
         matches = await query.prefetch_related('tournament', 'stage', 'players')
@@ -402,11 +399,10 @@ class ReportsService:
         start = self._local(start)
         end = self._local(end)
 
-        match_query = Match.all().filter(
+        match_query = event_scoped(Match.filter(
             scheduled_at__gte=start,
             scheduled_at__lte=end,
-            tenant_id=require_tenant_id(),
-        )
+        ))
         if tournament_id:
             match_query = match_query.filter(tournament_id=tournament_id)
         from application.services.auth_service import AuthService
@@ -519,15 +515,14 @@ class ReportsService:
         start = self._local(start)
         end = self._local(end)
 
-        stages = await Stage.filter(is_active=True, tenant_id=require_tenant_id()).order_by('name')
+        stages = await event_scoped(Stage.filter(is_active=True)).order_by('name')
         if stage_id:
             stages = [r for r in stages if r.id == stage_id]
 
-        match_query = Match.all().filter(
+        match_query = event_scoped(Match.filter(
             scheduled_at__gte=start,
             scheduled_at__lte=end,
-            tenant_id=require_tenant_id(),
-        )
+        ))
         if tournament_id:
             match_query = match_query.filter(tournament_id=tournament_id)
         matches = await match_query.prefetch_related('tournament', 'stage')

@@ -81,7 +81,7 @@ from scripts.seed_crew import seed_crew_for_tenant
 from scripts.seed_data_exports import seed_data_exports
 from scripts.seed_discord import seed_discord_for_tenant
 from scripts.seed_equipment import seed_equipment_for_tenant
-from scripts.seed_events import seed_events_for_tenant
+from scripts.seed_events import install_event_stamping, seed_events_for_tenant
 from scripts.seed_fledgling import seed_fledgling_tenant
 from scripts.seed_item_tracker import seed_item_tracker_for_tenant
 from scripts.seed_match_day import seed_match_day_for_tenant
@@ -1001,6 +1001,7 @@ async def seed() -> None:
     from migrations.tortoise_config import TORTOISE_ORM
 
     await Tortoise.init(config=TORTOISE_ORM)
+    await install_event_stamping()
     try:
         await seed_all()
     finally:

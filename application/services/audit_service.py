@@ -12,6 +12,7 @@ import json
 from datetime import datetime
 from typing import Any, Mapping, Optional, Sequence
 
+from application.event_context import get_current_event_id
 from application.events import Event, event_bus
 from application.repositories.audit_repository import AuditRepository
 from application.repositories.stage_repository import StageRepository
@@ -659,9 +660,10 @@ class AuditService:
 
         # Stamp the ambient tenant so the trail is per-tenant; NULL when the
         # action is platform-level (super-admin tenant CRUD on /platform, which
-        # runs with no tenant context).
+        # runs with no tenant context). The event is tagged the same way.
         return await AuditLog.create(
             tenant_id=get_current_tenant_id(),
+            event_id=get_current_event_id(),
             user=actor,
             action=action,
             details=_encode_details(enriched),

@@ -8,6 +8,7 @@ from typing import List
 
 from models import StaffRequestDM, StaffRequestKind
 
+from ._event import tagged_event_id
 from ._tenant import current_tenant_id, scoped
 
 
@@ -19,7 +20,7 @@ class StaffRequestDMRepository:
         kind: StaffRequestKind, object_id: int, user_id: int, channel_id: int, message_id: int,
     ) -> StaffRequestDM:
         return await StaffRequestDM.create(
-            tenant_id=current_tenant_id(), kind=kind, object_id=object_id,
+            tenant_id=current_tenant_id(), event_id=tagged_event_id(), kind=kind, object_id=object_id,
             user_id=user_id, channel_id=channel_id, message_id=message_id,
         )
 

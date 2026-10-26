@@ -229,7 +229,7 @@ class TenantService:
                 discord_guild_id=discord_guild_id, is_active=is_active,
                 config=config or {},
             )
-            event = await EventService.create_first_event(tenant)
+            event = await EventService.ensure_first_event(tenant)
         _clear_cache()
         await AuditService().write_log(
             actor, AuditActions.TENANT_CREATED,

@@ -20,6 +20,7 @@ import itertools
 import logging
 from typing import Awaitable, Callable, Coroutine, FrozenSet, Iterable, Optional, Tuple
 
+from application.event_context import event_scope, get_current_event_id
 from application.events import dispatch_queue
 from application.events.event import Event
 from application.tenant_context import tenant_scope
@@ -87,16 +88,16 @@ def publish(event: Event) -> None:
         try:
             # The dispatch worker runs each coroutine later, outside any request,
             # so wrap it so the event's tenant is active when it actually runs.
-            dispatch_queue.enqueue(_scoped(handler(event), event.tenant_id))
+            dispatch_queue.enqueue(_scoped(handler(event), event.tenant_id, get_current_event_id()))
         except Exception:
             logger.exception("failed to enqueue async event subscriber for %s", event.event_type)
 
 
-async def _scoped(coro: Coroutine, tenant_id: Optional[int]) -> None:
-    """Await ``coro`` with ``tenant_id`` bound as the ambient tenant.
+async def _scoped(coro: Coroutine, tenant_id: Optional[int], event_id: Optional[int] = None) -> None:
+    """Await ``coro`` with the publisher's tenant and event bound.
 
     Entered at await-time on the dispatch worker (not at enqueue-time in the
     publisher's context), so the scope is live while the subscriber runs.
     """
-    with tenant_scope(tenant_id):
+    with tenant_scope(tenant_id), event_scope(event_id, tenant_id):
         await coro

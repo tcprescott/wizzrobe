@@ -48,6 +48,7 @@ async def _tick() -> None:
         tenants,
         _reconcile,
         tenant_id_of=lambda tenant: tenant.id,
+        each_live_event=True,
         logger=logger,
         describe=lambda tenant: f'tenant {getattr(tenant, "id", None)}',
     )

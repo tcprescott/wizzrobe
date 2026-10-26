@@ -113,7 +113,9 @@ async def admin_schedule_page(
             # The handlers' per-row lookup. The *board's* rows come from
             # MatchDisplayService, so the scope has to be passed to the view as
             # well (``scope_tournament_ids``) — narrowing only here would leave
-            # the chip above claiming a scope the board never applied.
+            # the chip above claiming a scope the board never applied. Per row,
+            # so not narrowed to the event either: a row decides its own event
+            # (event-scope: exempt).
             qs = Match.filter(tenant_id=require_tenant_id())
             if tournament_ids is not None:
                 qs = qs.filter(tournament_id__in=tournament_ids)

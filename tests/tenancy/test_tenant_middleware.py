@@ -336,9 +336,13 @@ async def test_path_mode_binds_the_default_event(two_tenants):
     assert r.json()['event'] == default.id
 
 
-async def test_event_is_never_borrowed_from_another_community(two_tenants):
-    # Beta has no events: it binds none rather than falling back to acme's.
-    _a, _b, _ = two_tenants
+async def test_event_is_never_borrowed_from_another_community(two_tenants, monkeypatch):
+    # With no event of its own beta binds none, rather than falling back to acme's.
+    from application import event_context
+
+    monkeypatch.setattr(event_context, '_fallback_event_id', lambda _tenant_id: None)
+    _a, b, _ = two_tenants
+    await Event.filter(tenant_id=b.id).delete()
     r = await _get(_build_app(), '/t/beta/admin')
     assert r.json()['event'] is None
 

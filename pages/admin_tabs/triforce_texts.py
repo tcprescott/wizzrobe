@@ -2,6 +2,7 @@
 
 from nicegui import app, background_tasks, ui
 
+from application.event_context import event_scoped
 from application.services import AuthService, TriforceTextService, get_user_from_session
 from application.tenant_context import require_tenant_id, tenant_scope
 from models import Tournament
@@ -30,12 +31,10 @@ async def admin_triforce_texts_page() -> None:
 
     is_staff = await AuthService.is_staff(actor)
     if is_staff:
-        tournaments = await Tournament.filter(
-            is_active=True, tenant_id=require_tenant_id()
-        ).order_by('name')
+        tournaments = await event_scoped(Tournament.filter(is_active=True)).order_by('name')
     else:
-        tournaments = await Tournament.filter(
-            is_active=True, admins__id=actor.id, tenant_id=require_tenant_id()
+        tournaments = await event_scoped(
+            Tournament.filter(is_active=True, admins__id=actor.id)
         ).distinct().order_by('name')
 
     if not tournaments:

@@ -7,17 +7,19 @@ Handles database operations for tournaments.
 from datetime import date, datetime
 from typing import Any, Dict, List, Optional
 
-from application.repositories._base import TenantScopedRepository
+from application.repositories._base import EventScopedRepository
+from application.repositories._event import current_event_id, event_scoped, live_event_scoped
 from application.repositories._tenant import current_tenant_id, scoped
 from models import Bracket, Match, Tournament, TournamentGrant, TournamentPlayers, TriforceText, User
 
 
-class TournamentRepository(TenantScopedRepository[Tournament]):
+class TournamentRepository(EventScopedRepository[Tournament]):
     """Repository for tournament data access.
 
     Every read is constrained to the current tenant via ``scoped(...)`` and every
     write stamps ``tenant_id=current_tenant_id()``; both raise if no tenant is in
-    context. ``TournamentPlayers`` reads that start from a global ``user`` are the
+    context. Lists are of the current event; a lookup by id is not, because a
+    row decides its own event. ``TournamentPlayers`` reads that start from a global ``user`` are the
     sharp edge — they must be tenant-filtered explicitly, since the reverse
     relation spans tenants.
     """
@@ -43,8 +45,10 @@ class TournamentRepository(TenantScopedRepository[Tournament]):
     
     @staticmethod
     async def active_admin_tournaments(user: User) -> List[Tournament]:
-        """Active tournaments in this tenant that ``user`` admins, by name."""
-        return await scoped(Tournament.filter(admins__id=user.id, is_active=True)).distinct().order_by('name')
+        """Active tournaments ``user`` admins in any live event, by name (cross-event)."""
+        return await live_event_scoped(
+            Tournament.filter(admins__id=user.id, is_active=True)
+        ).distinct().order_by('name')
 
     @staticmethod
     async def get_by_ids(tournament_ids: List[int]) -> List[Tournament]:
@@ -74,7 +78,7 @@ class TournamentRepository(TenantScopedRepository[Tournament]):
         Returns:
             List of Tournament objects
         """
-        query = scoped(Tournament.all()).order_by('name')
+        query = event_scoped(Tournament.all()).order_by('name')
 
         if active_only:
             query = query.filter(is_active=True)
@@ -164,8 +168,8 @@ class TournamentRepository(TenantScopedRepository[Tournament]):
 
     @staticmethod
     async def any_exists() -> bool:
-        """Whether this tenant has any tournament at all."""
-        return await scoped(Tournament.all()).exists()
+        """Whether the current event has any tournament at all."""
+        return await event_scoped(Tournament.all()).exists()
 
     @staticmethod
     async def any_enrolment() -> bool:
@@ -181,9 +185,10 @@ class TournamentRepository(TenantScopedRepository[Tournament]):
         Excludes the bracket-run ones (``allow_player_match_requests`` off) and
         archived ones (``is_active`` off), which ``submit_match_request`` refuses.
         Narrowed to the tournaments ``user_id`` is enrolled in when given, which
-        is what the request dialog's default (non-"show all") list needs.
+        is what the request dialog's default (non-"show all") list needs. The
+        dialog lives on My Schedule, so it spans every live event (cross-event).
         """
-        query = scoped(
+        query = live_event_scoped(
             Tournament.filter(allow_player_match_requests=True, is_active=True)
         ).order_by('name')
         if user_id is not None:
@@ -211,7 +216,7 @@ class TournamentRepository(TenantScopedRepository[Tournament]):
         return {t.id: t.name for t in tournaments}
     
     @staticmethod
-    async def create(
+    async def create(  # type: ignore[override]
         name: str,
         description: Optional[str] = None,
         short_name: Optional[str] = None,
@@ -273,6 +278,7 @@ class TournamentRepository(TenantScopedRepository[Tournament]):
         """
         return await Tournament.create(
             tenant_id=current_tenant_id(),
+            event_id=current_event_id(),
             name=name,
             short_name=short_name,
             description=description,

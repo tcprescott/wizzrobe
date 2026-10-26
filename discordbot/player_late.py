@@ -11,7 +11,7 @@ import discord
 
 from application.utils.discord_messages_volunteer import LATE_CHOICES, late_label
 from discordbot._ack_common import DMInteractionError, SendFn, run_dm_interaction
-from discordbot._tenant import match_tenant_id
+from discordbot._tenant import match_scope
 
 LATE_PREFIX = 'match_late'
 LATE_MINUTES_PREFIX = 'match_late_min'
@@ -59,7 +59,7 @@ async def _run(interaction: discord.Interaction, *, log_label: str, parse, handl
         interaction,
         log_label=log_label,
         parse=parse,
-        resolve_tenant=lambda parsed: match_tenant_id(parsed[0] if isinstance(parsed, tuple) else parsed),
+        resolve_tenant=lambda parsed: match_scope(parsed[0] if isinstance(parsed, tuple) else parsed),
         not_found_message='That match no longer exists.',
         handle=handle,
         unexpected_error_message=MSG_UNEXPECTED_ERROR,

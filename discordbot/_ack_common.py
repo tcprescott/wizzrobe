@@ -14,6 +14,7 @@ import discord
 
 from application.utils.discord_messages import MSG_NO_ACCOUNT
 from application.utils.sentry import sentry_tags, tag_current_scope
+from discordbot._tenant import RowScope
 
 logger = logging.getLogger(__name__)
 
@@ -53,7 +54,7 @@ async def run_dm_interaction(
     *,
     log_label: str,
     parse: Callable[[str], Any],
-    resolve_tenant: Callable[[Any], Awaitable[Optional[int]]],
+    resolve_tenant: Callable[[Any], Awaitable[Optional[RowScope]]],
     not_found_message: str,
     handle: Callable[[discord.Interaction, Any, Any, SendFn], Awaitable[None]],
     unexpected_error_message: str,
@@ -64,7 +65,7 @@ async def run_dm_interaction(
       1. Defer ephemerally to extend Discord's 3-second interaction deadline.
       2. ``parse`` the custom_id (raise :class:`DMInteractionError` to reply and stop).
       3. ``resolve_tenant`` the referenced entity (``None`` -> ``not_found_message``).
-      4. Inside ``tenant_scope``, look up the account (missing -> ``MSG_NO_ACCOUNT``).
+      4. Inside the entity's ``tenant_scope`` and ``event_scope``, look up the account (missing -> ``MSG_NO_ACCOUNT``).
       5. Run ``handle`` with a ``send`` helper; ``ValueError`` replies with its text,
          any other exception is logged and replies with ``unexpected_error_message``.
     """
@@ -95,11 +96,12 @@ async def _run_parsed(
     send: SendFn,
     log_label: str,
     parse: Callable[[str], Any],
-    resolve_tenant: Callable[[Any], Awaitable[Optional[int]]],
+    resolve_tenant: Callable[[Any], Awaitable[Optional[RowScope]]],
     not_found_message: str,
     handle: Callable[[discord.Interaction, Any, Any, SendFn], Awaitable[None]],
     unexpected_error_message: str,
 ) -> None:
+    from application.event_context import event_scope
     from application.services import UserService
     from application.tenant_context import tenant_scope
 
@@ -112,13 +114,14 @@ async def _run_parsed(
     try:
         # DM buttons carry no tenant; discover it from the referenced entity,
         # then scope all tenant-aware service work to it.
-        tenant_id = await resolve_tenant(parsed)
-        if tenant_id is None:
+        scope = await resolve_tenant(parsed)
+        if scope is None:
             await send(not_found_message)
             return
+        tenant_id = scope.tenant_id
         tag_current_scope(tenant_id=tenant_id)
 
-        with tenant_scope(tenant_id):
+        with tenant_scope(tenant_id), event_scope(scope.event_id, tenant_id):
             user = await UserService().get_user_by_discord_id(str(interaction.user.id))
             # A deactivated account is refused at web and REST login; a DM's
             # buttons never time out, so without this they kept working.

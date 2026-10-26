@@ -1,4 +1,3 @@
-from typing import Optional
 
 from tortoise import fields
 from tortoise.models import Model
@@ -13,10 +12,10 @@ class VolunteerPosition(Model):
     tenant = fields.ForeignKeyField('models.Tenant', related_name='volunteer_positions', on_delete=fields.CASCADE)
     # Nullable until every write stamps it; the events migration backfilled the
     # rows that existed before (see docs/features/events.md).
-    event: fields.ForeignKeyNullableRelation = fields.ForeignKeyField(
-        'models.Event', related_name='volunteer_positions', on_delete=fields.CASCADE, null=True,
+    event: fields.ForeignKeyRelation = fields.ForeignKeyField(
+        'models.Event', related_name='volunteer_positions', on_delete=fields.CASCADE,
     )
-    event_id: Optional[int]
+    event_id: int
     name = fields.CharField(max_length=255)
     description = fields.TextField(null=True)
     color = fields.CharField(max_length=32, null=True)
@@ -44,7 +43,7 @@ class VolunteerPosition(Model):
 
     class Meta:
         table = 'volunteerposition'
-        unique_together = (('tenant', 'name'),)
+        unique_together = (('tenant', 'event', 'name'),)
 
 
 class VolunteerShift(Model):
@@ -54,10 +53,10 @@ class VolunteerShift(Model):
     tenant = fields.ForeignKeyField('models.Tenant', related_name='volunteer_shifts', on_delete=fields.CASCADE)
     # Nullable until every write stamps it; the events migration backfilled the
     # rows that existed before (see docs/features/events.md).
-    event: fields.ForeignKeyNullableRelation = fields.ForeignKeyField(
-        'models.Event', related_name='volunteer_shifts', on_delete=fields.CASCADE, null=True,
+    event: fields.ForeignKeyRelation = fields.ForeignKeyField(
+        'models.Event', related_name='volunteer_shifts', on_delete=fields.CASCADE,
     )
-    event_id: Optional[int]
+    event_id: int
     position = fields.ForeignKeyField('models.VolunteerPosition', related_name='shifts', on_delete=fields.CASCADE)
     starts_at = fields.DatetimeField(index=True)
     ends_at = fields.DatetimeField()
@@ -144,10 +143,10 @@ class VolunteerRoleMapping(Model):
     )
     # Nullable until every write stamps it; the events migration backfilled the
     # rows that existed before (see docs/features/events.md).
-    event: fields.ForeignKeyNullableRelation = fields.ForeignKeyField(
-        'models.Event', related_name='volunteer_role_mappings', on_delete=fields.CASCADE, null=True,
+    event: fields.ForeignKeyRelation = fields.ForeignKeyField(
+        'models.Event', related_name='volunteer_role_mappings', on_delete=fields.CASCADE,
     )
-    event_id: Optional[int]
+    event_id: int
     # CASCADE: a deleted position confers nothing, so its mappings go with it.
     position = fields.ForeignKeyField(  # type: ignore[var-annotated]
         'models.VolunteerPosition', related_name='role_mappings', on_delete=fields.CASCADE,
@@ -168,10 +167,10 @@ class VolunteerAvailability(Model):
     tenant = fields.ForeignKeyField('models.Tenant', related_name='volunteer_availability', on_delete=fields.CASCADE)
     # Nullable until every write stamps it; the events migration backfilled the
     # rows that existed before (see docs/features/events.md).
-    event: fields.ForeignKeyNullableRelation = fields.ForeignKeyField(
-        'models.Event', related_name='volunteer_availability', on_delete=fields.CASCADE, null=True,
+    event: fields.ForeignKeyRelation = fields.ForeignKeyField(
+        'models.Event', related_name='volunteer_availability', on_delete=fields.CASCADE,
     )
-    event_id: Optional[int]
+    event_id: int
     user = fields.ForeignKeyField('models.User', related_name='volunteer_availability', on_delete=fields.CASCADE)
     starts_at = fields.DatetimeField(index=True)
     ends_at = fields.DatetimeField()
@@ -197,10 +196,10 @@ class PlayerAvailability(Model):
     tenant = fields.ForeignKeyField('models.Tenant', related_name='player_availability', on_delete=fields.CASCADE)
     # Nullable until every write stamps it; the events migration backfilled the
     # rows that existed before (see docs/features/events.md).
-    event: fields.ForeignKeyNullableRelation = fields.ForeignKeyField(
-        'models.Event', related_name='player_availability', on_delete=fields.CASCADE, null=True,
+    event: fields.ForeignKeyRelation = fields.ForeignKeyField(
+        'models.Event', related_name='player_availability', on_delete=fields.CASCADE,
     )
-    event_id: Optional[int]
+    event_id: int
     user = fields.ForeignKeyField('models.User', related_name='player_availability', on_delete=fields.CASCADE)
     starts_at = fields.DatetimeField(index=True)
     ends_at = fields.DatetimeField()

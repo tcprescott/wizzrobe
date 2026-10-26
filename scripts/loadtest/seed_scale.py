@@ -166,6 +166,13 @@ async def make_tournaments(tenant: Any, year_offset: int, now: datetime) -> list
     return out
 
 
+async def _event_id(tenant: Any) -> int:
+    """The community's default event, which every scale row lands in."""
+    from application.services.event_service import EventService
+
+    return (await EventService.ensure_first_event(tenant)).id
+
+
 async def make_event(
     cp: Copier, tenant: Any, users: list[int], *, start: datetime, hours: int,
     match_target: int, now: datetime, staff_ids: list[int], live: bool,
@@ -174,6 +181,7 @@ async def make_event(
     from models import Stage
 
     tid = tenant.id
+    eid = await _event_id(tenant)
     tournaments = await make_tournaments(tenant, 0 if live else max(1, now.year - start.year), now)
     stages = [await Stage.create(tenant=tenant, name=f'Scale Stage {n}', stream_url=f'https://example.invalid/stage{n}')
               for n in range(1, 5)]
@@ -214,7 +222,7 @@ async def make_event(
         title = f'{RNG.choice(ROUNDS)} — Match {n % 40 + 1}'
         created = at - timedelta(days=RNG.randint(1, 14))
         m_rows.append((mid, at, seated, started, finished, confirmed, None, on_stage, title, created, created,
-                       seed_id, stage_id, t.id, tid, False))
+                       seed_id, stage_id, t.id, tid, False, eid))
         size = 4 if RNG.random() < 0.08 else 2
         players = RNG.sample(entrants[t.id], size)
         for rank, uid in enumerate(players, 1):
@@ -228,7 +236,7 @@ async def make_event(
                                      'randomizer', 'seed_code'), seed_rows)
     await cp.copy('match', ('id', 'scheduled_at', 'seated_at', 'started_at', 'finished_at', 'confirmed_at',
                             'comment', 'is_stream_candidate', 'title', 'created_at', 'updated_at',
-                            'generated_seed_id', 'stage_id', 'tournament_id', 'tenant_id', 'needs_review'), m_rows)
+                            'generated_seed_id', 'stage_id', 'tournament_id', 'tenant_id', 'needs_review', 'event_id'), m_rows)
     await cp.copy('matchplayers', ('match_id', 'user_id', 'tenant_id', 'finish_rank', 'assigned_station',
                                    'created_at', 'updated_at'), mp_rows)
     await cp.copy('matchacknowledgment', ('match_id', 'user_id', 'tenant_id', 'acknowledged_at',
@@ -289,6 +297,7 @@ async def make_volunteering(cp: Copier, tenant: Any, users: list[int], staff_ids
     from models import VolunteerPosition
 
     tid = tenant.id
+    eid = await _event_id(tenant)
     names = ('Proctor', 'Check-in Desk', 'Admin Desk', 'Stage Manager', 'Runner', 'Tech Support',
              'Merch', 'Setup', 'Teardown', 'Restream Tech', 'Commentary Wrangler', 'Info Booth')
     positions = [await VolunteerPosition.create(tenant=tenant, name=f'{n} (scale)', display_order=i,
@@ -302,11 +311,11 @@ async def make_volunteering(cp: Copier, tenant: Any, users: list[int], staff_ids
             s = (start + timedelta(days=d)).replace(hour=0, minute=0, second=0, microsecond=0) + timedelta(hours=9 + slot * 2)
             for p in positions:
                 need = RNG.randint(1, 5)
-                shift_rows.append((shift_ids[k], s, s + timedelta(hours=2), need, p.id, tid, now, now))
+                shift_rows.append((shift_ids[k], s, s + timedelta(hours=2), need, p.id, tid, now, now, eid))
                 shift_meta.append((shift_ids[k], s, need))
                 k += 1
     await cp.copy('volunteershift', ('id', 'starts_at', 'ends_at', 'slots_needed', 'position_id', 'tenant_id',
-                                     'created_at', 'updated_at'), shift_rows)
+                                     'created_at', 'updated_at', 'event_id'), shift_rows)
     asg = []
     for sid, s, need in shift_meta:
         for uid in RNG.sample(vols, RNG.randint(0, need)):
@@ -319,12 +328,12 @@ async def make_volunteering(cp: Copier, tenant: Any, users: list[int], staff_ids
         for _ in range(RNG.randint(1, 6)):
             s = start + timedelta(hours=RNG.randint(0, days * 24))
             va.append((s, s + timedelta(hours=RNG.randint(1, 6)), RNG.choice(('preferred', 'available', 'unavailable')),
-                       uid, tid, now, now))
+                       uid, tid, now, now, eid))
     for uid in RNG.sample(users, min(len(users), 900)):
         for _ in range(RNG.randint(1, 3)):
             s = start + timedelta(hours=RNG.randint(0, days * 24))
-            pa.append((s, s + timedelta(hours=RNG.randint(1, 8)), 'unavailable', uid, tid, now, now))
-    cols = ('starts_at', 'ends_at', 'status', 'user_id', 'tenant_id', 'created_at', 'updated_at')
+            pa.append((s, s + timedelta(hours=RNG.randint(1, 8)), 'unavailable', uid, tid, now, now, eid))
+    cols = ('starts_at', 'ends_at', 'status', 'user_id', 'tenant_id', 'created_at', 'updated_at', 'event_id')
     await cp.copy('volunteeravailability', cols, va)
     await cp.copy('playeravailability', cols, pa)
 
@@ -356,6 +365,7 @@ async def make_check_in(cp: Copier, tenant: Any, users: list[int], staff_ids: li
 async def make_equipment_and_misc(cp: Copier, tenant: Any, users: list[int], staff_ids: list[int],
                                   now: datetime) -> None:
     tid = tenant.id
+    eid = await _event_id(tenant)
     base = await cp.fetchval('SELECT coalesce(max(asset_number), 0) FROM equipment WHERE tenant_id = $1', tid)
     eq_ids = await cp.next_ids('equipment', 300)
     eq = [(e, base + n + 1, f'Scale Console {n + 1}', RNG.choice(('available', 'checked_out', 'available')),
@@ -372,10 +382,10 @@ async def make_equipment_and_misc(cp: Copier, tenant: Any, users: list[int], sta
 
     ce_ids = await cp.next_ids('community_event', 80)
     ce = [(c, f'Meetup {n + 1}', 'Come hang out.', 'Hall B', now + timedelta(hours=RNG.randint(-48, 72)), 60,
-           RNG.choice(('approved', 'pending', 'approved')), RNG.choice(users), tid, now, now, True)
+           RNG.choice(('approved', 'pending', 'approved')), RNG.choice(users), tid, now, now, True, eid)
           for n, c in enumerate(ce_ids)]
     await cp.copy('community_event', ('id', 'title', 'description', 'location', 'starts_at', 'duration_minutes',
-                                      'status', 'host_id', 'tenant_id', 'created_at', 'updated_at', 'rsvp_enabled'), ce)
+                                      'status', 'host_id', 'tenant_id', 'created_at', 'updated_at', 'rsvp_enabled', 'event_id'), ce)
     subs = {(c, u) for c in ce_ids for u in RNG.sample(users, RNG.randint(0, 40))}
     await cp.copy('community_event_subscription', ('event_id', 'user_id', 'tenant_id', 'created_at', 'going'),
                   [(c, u, tid, now, True) for c, u in subs])
@@ -452,6 +462,8 @@ async def run(scale: float, tenant_slug: str, past_years: int) -> None:
     from models import Tenant
 
     await Tortoise.init(config=TORTOISE_ORM)
+    from scripts.seed_events import install_event_stamping
+    await install_event_stamping()
     try:
         cp = Copier()
         now = datetime.now(timezone.utc).replace(microsecond=0)

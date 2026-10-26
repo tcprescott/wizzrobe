@@ -19,7 +19,7 @@ Behind `FeatureFlag.ADA_ACCOMMODATIONS` (ships dark).
 
 ## Scope and visibility
 
-- **Per community.** One `AccommodationRequest` per `(tenant, user)`. A person
+- **Per community and event.** One `AccommodationRequest` per `(tenant, event, user)`. A person
   who belongs to two communities has two independent requests; neither
   community's staff can see the other's.
 - **STAFF only** on the admin side (`AuthService.is_staff`, so super-admins

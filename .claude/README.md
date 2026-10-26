@@ -495,7 +495,7 @@ forgets `tenant_id=require_tenant_id()` reads across tenants, which is how
 Discovers
 tenant-scoped models at runtime (any `Model` subclass in `models/` with a
 `tenant` field), then flags a read root (`Model.filter/get/get_or_none/all/
-first/exists`) that is neither inside a `scoped(...)` call nor passing a
+first/exists`) that is neither inside a `scoped(...)` (or `event_scoped`/`live_event_scoped`, which filter the tenant too) call nor passing a
 `tenant*` kwarg, and a write root (`create`/`get_or_create`/`update_or_create`)
 with no `tenant*` kwarg (checks `defaults={...}` keys too). Escape hatches match
 the convention `_tenant.py` documents: a function whose source says
@@ -517,6 +517,23 @@ auto-stamp means no test can see it. That is how the enrolment write in
 elsewhere), instance `obj.save()`, queries built outside these two layers.
 Measured **0 false positives** across all 40 repository files and all 108
 service files.
+
+### Event scoping — `scripts/check_event_scoping.py` (PostToolUse: Write|Edit)
+The tenant check's sibling one level down (docs/features/events.md): a
+community holds events, and an event-owned row (its `event` FK to `Event`
+cascades) must be read and written in its event, or SGL 2026's board lists SGL
+2027's matches. Same files as the tenant check, services included for reads,
+because a service list read is as event-blind as a repository one. Flags a list
+read (`filter/all/exclude/first/exists`) that is not inside `event_scoped(...)`,
+names no `event*` kwarg and no **row key** (`id`/`pk`, or a foreign key to
+another event-owned row such as `tournament_id=`, which already belongs to one
+event: the row decides its own event); and a write with no `event*` kwarg, for
+owned models and for the SET NULL "tagged" ones (audit, telemetry, sent
+messages…), which take `tagged_event_id()`. `get`/`get_or_none` are by-row and
+never flagged. Escape hatch: **"cross-event"** (personal pages across live
+events, worker scans that bind each row's event) or **"event-scope: exempt —
+&lt;reason&gt;"** in the enclosing function. Misses `cls.model` reads in the
+generic repository base, which `EventScopedRepository` covers instead.
 
 ### REST endpoint authorization — `scripts/check_api_route_auth.py` (PostToolUse: Write|Edit)
 Auth in this API is **per-endpoint, not global**: the aggregating router in

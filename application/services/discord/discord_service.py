@@ -149,6 +149,7 @@ def _mirror_dm_to_channels(
     is sent from decides whether its ``notification_channels`` flag is on, so
     its id is captured here: the dispatch worker runs outside any request.
     """
+    from application.event_context import event_scope, get_current_event_id
     from application.services.notification_channel_service import (
         NotificationChannelService,
         email_available,
@@ -161,9 +162,10 @@ def _mirror_dm_to_channels(
     tenant_id = get_current_tenant_id()
     if tenant_id is None:
         return
+    event_id = get_current_event_id()
 
     async def _run() -> None:
-        with tenant_scope(tenant_id):
+        with tenant_scope(tenant_id), event_scope(event_id, tenant_id):
             await NotificationChannelService().mirror_dm(
                 user_id, message,
                 navigate=link.url if link else None,

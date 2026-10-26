@@ -77,7 +77,7 @@ class ChallongeAutoSyncMixin:
     @requires_feature(FeatureFlag.CHALLONGE)
     async def auto_sync_estimate(self, minutes: int) -> AutoSyncEstimate:
         """Roughly how many API requests a day ``minutes`` would cost right now."""
-        count = len(await self.repository.auto_sync_tournaments())
+        count = await self.repository.live_auto_sync_count()
         per_day = count * REQUESTS_PER_SYNC * (24 * 60 // minutes) if minutes else 0
         return AutoSyncEstimate(count, per_day)
 
