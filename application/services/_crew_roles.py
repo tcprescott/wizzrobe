@@ -19,11 +19,7 @@ def check_role(role: str) -> None:
 
 def crew_list(match: Match, role: str) -> list:
     """``match``'s prefetched signups for ``role``."""
-    return {
-        'commentator': match.commentators,
-        'tracker': match.trackers,
-        'broadcaster': match.broadcasters,
-    }[role]  # type: ignore[return-value]
+    return getattr(match, f'{role}s')
 
 
 async def required_crew(match: Match, role: str) -> int:
