@@ -128,8 +128,8 @@ from .player_availability_service import PlayerAvailabilityService
 from .preset_service import PresetService
 from .profile_nudge_service import ProfileNudgeService
 from .provider_task_service import ProviderTaskService
-from .race_room_profile_service import RaceRoomProfileService
 from .race_room_bot_service import RaceRoomBotService
+from .race_room_profile_service import RaceRoomProfileService
 from .race_room_service import RaceRoomService
 from .racetime_bot_service import RacetimeBotService
 from .racetime_room_service import RacetimeRoomService
@@ -271,8 +271,8 @@ __all__ = [
     'ProbeResult',
     'ProfileNudgeService',
     'ProviderTaskService',
-    'RaceRoomProfileService',
     'RaceRoomBotService',
+    'RaceRoomProfileService',
     'RaceRoomService',
     'RacetimeBotService',
     'RacetimeRoomService',

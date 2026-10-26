@@ -30,6 +30,7 @@ from theme.busy import slot_busy_template
 from theme.matchup import WHO_PARTS_VUE
 from theme.tables.match_slots import seed_value_template
 from theme.tables.run_sheet_meta import META, META_WITH_STAGE, RAIL, STATUS_WORD, card_head
+from theme.tables.run_sheet_tags import comment_badges, late_tags
 
 #: The board's columns. Kept short on purpose: anything wider than "which match,
 #: when, where, how is it doing" belongs in the sheet.
@@ -451,39 +452,6 @@ def decorate_run_sheet_row(row: dict) -> dict:
     row['_comments'] = comment_badges(row.get('comment_counts'))
     row['_late'] = late_tags(row)
     return row
-
-
-def late_tags(row: dict) -> list[dict]:
-    """'Player One ~20 min late · said 09:41' per player who told staff they're late.
-
-    ``note`` is what they added, for the tag's hover title; the Needs you inbox
-    prints it in full.
-    """
-    return [{
-        'key': entry.get('user_id'),
-        'label': f"{entry.get('name')} {entry.get('tag')} late"
-                 + (f" · said {entry['said']}" if entry.get('said') else ''),
-        'note': entry.get('note') or '',
-    } for entry in row.get('late') or []]
-
-
-def comment_badges(counts) -> list[dict]:
-    """The line's comment counts, players first, leaving out a zero.
-
-    ``counts`` is only set on a staff board (``MatchTableView.show_comment_counts``),
-    since the staff number includes private notes.
-    """
-    if not counts:
-        return []
-    badges = []
-    for key, icon, one, many in (
-        ('player', 'person', 'player comment', 'player comments'),
-        ('staff', 'shield', 'staff comment', 'staff comments'),
-    ):
-        n = counts.get(key) or 0
-        if n:
-            badges.append({'key': key, 'icon': icon, 'n': n, 'label': f"{n} {one if n == 1 else many}"})
-    return badges
 
 
 def arrange_run_sheet(rows: list, group: Callable[[dict], tuple[int, str]] = admin_group) -> list:

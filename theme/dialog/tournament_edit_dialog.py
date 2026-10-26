@@ -573,7 +573,7 @@ class TournamentDialog:
                         require_racetime_link=rt['require_link_input'].value,
                         racetime_bot_runs_room=rt['bot_runs_input'].value,
                         racetime_seed_post_minutes=int(rt['seed_post_input'].value or 0),
-                        racetime_close_finish_ms=int(round(float(rt['close_finish_input'].value or 0) * 1000)),
+                        racetime_close_finish_ms=round(float(rt['close_finish_input'].value or 0) * 1000),
                         racetime_default_goal=rt['goal_input'].value,
                     )
                 try:

@@ -43,12 +43,12 @@ from application.services.audit_service import AuditActions, AuditService
 from application.services.auth_service import AuthService
 from application.services.match.match_status import has_recorded_result
 from application.services.notification_catalog import PLAYERS, RACE_ROOM_OPEN
+from application.services.race_room_holds import Hold, RacePlayer, entrant_snapshot, hold_for
 from application.services.user_service import UserService
 from application.tenant_context import require_tenant_id
 from application.utils.clients import racetime_rooms_client
 from application.utils.clients.racetime_client import RacetimeAPIError
 from application.utils.clients.racetime_rooms_client import RaceRoomSettings
-from application.services.race_room_holds import Hold, RacePlayer, entrant_snapshot, hold_for
 from application.utils.racetime_entrants import is_scored_finish, unmatched_handle
 from models import (
     FeatureFlag,

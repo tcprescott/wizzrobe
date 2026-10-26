@@ -15,6 +15,7 @@ dialog.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from itertools import pairwise
 from typing import Any, Dict, List, Optional, Sequence
 
 from application.utils.duration import format_hms
@@ -115,7 +116,7 @@ def hold_for(
         timed = sorted(
             (e for e in entrants if _ms(e) is not None), key=lambda e: _ms(e) or 0,
         )
-        for ahead, behind in zip(timed, timed[1:]):
+        for ahead, behind in pairwise(timed):
             gap = (_ms(behind) or 0) - (_ms(ahead) or 0)
             if gap <= close_finish_ms:
                 return Hold(

@@ -36,7 +36,7 @@ from application.services.user_service import UserService
 from application.utils.clients import racetime_room_actions
 from application.utils.discord_messages import is_seed_link, seed_code_line
 from application.utils.duration import format_hms
-from models import Match, RaceRoomStatus, RacetimeRoom, User
+from models import Match, RaceRoomStatus, RacetimeRoom
 from racetimebot.protocol import entrant_ids
 from racetimebot.transport import RaceRoomEvent
 
@@ -150,7 +150,7 @@ class RaceRoomBotService:
             from application.services.match.match_schedule_service import MatchScheduleService
 
             system_user = await UserService().get_system_user()
-            ok, message, url = await MatchScheduleService().generate_seed(match.id, system_user)
+            ok, message, _url = await MatchScheduleService().generate_seed(match.id, system_user)
             match = await self._match(room) or match
             if match.generated_seed_id is None:
                 if ok or 'in progress' in message:

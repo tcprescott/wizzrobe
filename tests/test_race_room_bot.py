@@ -29,6 +29,7 @@ from models import (
     UserRole,
 )
 from racetimebot.transport import EntrantStatus, RaceEntrant, RaceRoomEvent, RoomChat
+from tests.factories import make_user
 
 _ids = [700000]
 
@@ -56,9 +57,9 @@ def _invites(sent):
     return [a['data']['user'] for _s, a in sent if a['action'] == 'invite_to_race']
 
 
-async def _user(name, rtid=None) -> User:
+async def _racer(name, rtid=None) -> User:
     _ids[0] += 1
-    return await User.create(username=name, discord_id=_ids[0], racetime_user_id=rtid)
+    return await make_user(_ids[0], name, racetime_user_id=rtid)
 
 
 async def _setup(*, bot_runs=True, users=(('alice', 'u1'), ('bob', 'u2')), scheduled_at=None, seed=None):
@@ -70,7 +71,7 @@ async def _setup(*, bot_runs=True, users=(('alice', 'u1'), ('bob', 'u2')), sched
         racetime_bot_runs_room=bot_runs,
     )
     match = await Match.create(tournament_id=tournament.id, scheduled_at=scheduled_at)
-    players = [await _user(name, rtid) for name, rtid in users]
+    players = [await _racer(name, rtid) for name, rtid in users]
     for user in players:
         await MatchPlayers.create(match_id=match.id, user_id=user.id)
     if seed:
@@ -98,7 +99,7 @@ def _done(uid, ms, place):
 
 
 async def _staff() -> User:
-    staff = await _user('staffer')
+    staff = await _racer('staffer')
     await UserRole.create(user_id=staff.id, role=Role.STAFF)
     return staff
 
@@ -179,7 +180,7 @@ async def test_board_rows_show_the_hold_and_unlinked_players(db, sent):
 
     tournament = await Tournament.get(id=held_match.tournament_id)
     upcoming = await Match.create(tournament_id=tournament.id, scheduled_at=datetime.now(timezone.utc) + timedelta(hours=1))
-    cleo = await _user('cleo')
+    cleo = await _racer('cleo')
     await MatchPlayers.create(match_id=upcoming.id, user_id=cleo.id)
     row = await MatchDisplayService().get_match_for_display(upcoming.id)
     assert row['racetime_unlinked'] == [cleo.preferred_name]
@@ -286,7 +287,7 @@ async def test_a_room_the_bot_runs_opens_for_unlinked_players(db, sent):
             racetime_auto_create_rooms=True, racetime_bot_runs_room=runs,
         )
         match = await Match.create(tournament_id=tournament.id, scheduled_at=start)
-        await MatchPlayers.create(match_id=match.id, user_id=(await _user(f'p{runs}', None)).id)
+        await MatchPlayers.create(match_id=match.id, user_id=(await _racer(f'p{runs}', None)).id)
         match = await Match.get(id=match.id).prefetch_related('tournament', 'players', 'players__user')
         room = await RaceRoomService().auto_open_if_eligible(match, now=datetime.now(timezone.utc))
         assert (room is not None) is runs

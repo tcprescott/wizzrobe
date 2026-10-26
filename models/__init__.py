@@ -302,8 +302,8 @@ __all__ = [
     'ProviderTask',
     'ProviderTaskStatus',
     # racetime
-    'RaceRoomProfile',
     'RaceRoomHoldReason',
+    'RaceRoomProfile',
     'RaceRoomStatus',
     'RacetimeBot',
     'RacetimeBotTenant',

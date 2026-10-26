@@ -307,7 +307,6 @@ class RealRacetimeTransport(RacetimeTransport):
             self._retry_after[slug] = time.monotonic() + self.ROOM_POLL_SECONDS
 
     async def _sit_in_room(self, slug: str, recorded: RaceRoomStatus, on_event: EventCallback) -> None:
-        from racetimebot import protocol
 
         race = await self._race_data(slug)
         path = race.get('websocket_bot_url')

@@ -54,7 +54,7 @@ def duration_ms(value: Optional[str]) -> Optional[int]:
         int(parts['d'] or 0) * 86400 + int(parts['h'] or 0) * 3600
         + int(parts['m'] or 0) * 60 + float(parts['s'] or 0)
     )
-    return int(round(seconds * 1000))
+    return round(seconds * 1000)
 
 
 def _status_value(raw: Any) -> str:
