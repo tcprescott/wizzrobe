@@ -185,7 +185,9 @@ class MatchDisplayService:
     @staticmethod
     async def _attach_partner_invites(rows: List[Dict[str, Any]]) -> None:
         """Each row's commentary partner invites still waiting on an answer, one query."""
-        invites = await CommentaryInviteRepository.pending_by_match([r['id'] for r in rows])
+        # Only a tournament wanting two or more commentators has partners to invite.
+        invites = await CommentaryInviteRepository.pending_by_match(
+            [r['id'] for r in rows if (r.get('commentary_seats') or 0) >= 2])
         for row in rows:
             row['partner_invites'] = [{
                 'id': invite.id,
@@ -575,9 +577,9 @@ class MatchDisplayService:
                     'ack_ts': format_local_display(c.acknowledged_at) if c.acknowledged_at else '',
                     'id': c.id,
                     # The commentator who invited them, while that one's still on.
-                    'invited_by_id': c.invited_by_id,
+                    'invited_by_id': getattr(c, 'invited_by_id', None),
                     'with': next((o.user.preferred_name for o in match.commentators
-                                  if c.invited_by_id and o.user_id == c.invited_by_id), ''),
+                                  if getattr(c, 'invited_by_id', None) and o.user_id == c.invited_by_id), ''),
                 }
                 for c in match.commentators
             ],

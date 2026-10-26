@@ -178,6 +178,13 @@ async def seed_onsite_for_tenant(
         match=paired, inviter=players[3], invitee=players[2], tenant=tenant,
         defaults={"status": CommentaryInviteStatus.ACCEPTED, "responded_at": now},
     )
+    # The settled states the board never draws: an invite declined and one
+    # taken back. Seed-only history, so the audit log has no row for them.
+    for status in (CommentaryInviteStatus.DECLINED, CommentaryInviteStatus.CANCELLED):
+        await CommentaryInvite.get_or_create(
+            match=stage_call, inviter=players[3], invitee=players[2], tenant=tenant, status=status,
+            defaults={"responded_at": now - timedelta(hours=1)},
+        )
     await make_match("On-Site In Progress", -1, seated=True, started=True, stations=('4', '8'), stage=stage3)
     # Recorded but not yet confirmed — the admin's review queue.
     await make_match(

@@ -12,6 +12,7 @@ calls are stamped with the active scope by the test harness (see conftest).
 
 import pytest
 
+from application.repositories.commentary_invite_repository import CommentaryInviteRepository
 from application.repositories.equipment_repository import EquipmentRepository
 from application.repositories.feedback_repository import FeedbackRepository
 from application.repositories.match_hard_preset_repository import (
@@ -31,6 +32,7 @@ from application.repositories.tournament_repository import TournamentRepository
 from application.repositories.volunteer_position_repository import VolunteerPositionRepository
 from application.tenant_context import tenant_scope
 from models import (
+    CommentaryInvite,
     Equipment,
     Feedback,
     Match,
@@ -263,6 +265,26 @@ async def test_match_stream_volunteer_does_not_leak(tenants):
         assert await MatchStreamVolunteerRepository.names_by_match([ma.id, mb.id]) == {
             mb.id: ['offerer'],
         }
+
+
+async def test_commentary_invite_does_not_leak(tenants):
+    a, b = tenants
+    inviter = await User.create(discord_id=905, username='inviter')
+    invitee = await User.create(discord_id=906, username='invitee')
+    with tenant_scope(a.id):
+        ma = await Match.create(tournament=await Tournament.create(name='A Cup'))
+        ia = await CommentaryInvite.create(match=ma, inviter=inviter, invitee=invitee)
+    with tenant_scope(b.id):
+        mb = await Match.create(tournament=await Tournament.create(name='B Cup'))
+        ib = await CommentaryInvite.create(match=mb, inviter=inviter, invitee=invitee)
+
+    with tenant_scope(a.id):
+        assert [i.id for i in await CommentaryInviteRepository.pending_for_invitee(invitee.id)] == [ia.id]
+        assert set(await CommentaryInviteRepository.pending_by_match([ma.id, mb.id])) == {ma.id}
+        assert await CommentaryInviteRepository.get_by_id(ib.id) is None
+    with tenant_scope(b.id):
+        assert [i.id for i in await CommentaryInviteRepository.pending_for_invitee(invitee.id)] == [ib.id]
+        assert await CommentaryInviteRepository.get_by_id(ia.id) is None
 
 
 async def test_reschedule_request_does_not_leak(tenants):
