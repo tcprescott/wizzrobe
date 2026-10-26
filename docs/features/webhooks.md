@@ -117,9 +117,48 @@ Everything in [`EventType.ALL`](../../application/events/event_types.py) — the
 member no webhook can receive is `service_health.alert`: it is platform-level
 (no tenant), and delivery is tenant-scoped.
 
+## Personal webhooks (members)
+
+Behind `FeatureFlag.PERSONAL_WEBHOOKS` (off by default), any member can add up
+to three webhooks of their own on **Profile → Webhooks**
+([`personal_webhooks_section.py`](../../pages/home_tabs/personal_webhooks_section.py)).
+They are a separate model (`PersonalWebhook`) and service
+([`personal_webhook_service.py`](../../application/services/personal_webhook_service.py)),
+and share nothing with staff webhooks except the header/signature scheme, so the
+staff contract above is untouched.
+
+- **Catalogue only.** `EVENTS` in the service lists what a member can subscribe
+  to, grouped into `AREAS` (matches, crew, volunteer shifts, brackets,
+  qualifiers, race rooms; an area whose feature is off is hidden). Comments,
+  review flags, staff-side presets and everything else stay staff-only.
+  `match.cancelled`/`match.deleted` are deliberately absent: both remove the
+  match before delivery could tell whose it was.
+- **Checked per delivery.** `deliver_event` is subscribed with the catalogue as
+  its `event_types` filter. For each active subscriber, `view_for` re-checks the
+  owner is an active member (membership or a community role), loads the row the
+  event is about inside the event's tenant, and decides `about_me` (player or
+  approved crew on the match, the crew/shift/run owner, an entrant in the
+  bracket). Not about the owner → dropped if the webhook has **Only things about
+  me** on, or the event is `mine_only` (crew, shifts, qualifier runs,
+  reschedule requests).
+- **Rebuilt payloads.** The view copies an allowlist of fields; the published
+  event's own payload is never forwarded. JSON body: `event_type`,
+  `occurred_at`, `community` (slug), `about_me`, `link`, `data`. Discord
+  destinations (`discord.com/api/webhooks/…`) get an embed with
+  `allowed_mentions: {parse: []}` and escaped markdown, times as `<t:…:F>`.
+- **Limits.** https only and SSRF-checked at save and at send (production),
+  no credentials in the URL, 20 saves/hour, 3 tests per 10 minutes, 60
+  deliveries/minute per webhook, 2 attempts (4xx other than 429 not retried).
+  20 failures in a row, or a Discord 401/404, pauses the webhook with a reason
+  the card shows. The stored URL never goes back to the page (`masked_url`).
+- **Audit:** `personal_webhook.created/updated/deleted/secret_regenerated`.
+  No REST or MCP surface yet.
+
 ## Tests
 
 [`tests/services/test_webhook_service.py`](../../tests/services/test_webhook_service.py)
 (CRUD/auth/validation, HMAC signing, delivery logging, retry-then-give-up) and
 [`tests/api/test_webhooks.py`](../../tests/api/test_webhooks.py) (endpoint auth,
-CRUD, secret-once).
+CRUD, secret-once), and
+[`tests/services/test_personal_webhook_service.py`](../../tests/services/test_personal_webhook_service.py)
+(who can create, per-owner visibility, allowlisted payloads, Discord body, pausing).

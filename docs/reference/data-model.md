@@ -1357,6 +1357,23 @@ Per-attempt delivery log for observability. See [webhooks.md](../features/webhoo
 | `created_at` | `DatetimeField` | `auto_now_add`, indexed | |
 | `delivered_at` | `DatetimeField` | null | Set on success |
 
+#### `PersonalWebhook`
+
+A member's own outbound webhook (Profile → Webhooks, `FeatureFlag.PERSONAL_WEBHOOKS`). Managed via `PersonalWebhookService`; what each delivery carries is decided per send from what `user` can see. See [webhooks.md](../features/webhooks.md#personal-webhooks-members).
+
+| Field | Type | Null / default | Notes |
+|---|---|---|---|
+| `tenant` | FK → `Tenant` | not null, `CASCADE` | indexed with `user` |
+| `user` | FK → `User` | not null, `CASCADE` | The owner; max three per tenant |
+| `name` | `CharField(80)` | not null | |
+| `url` | `CharField(1024)` | not null | Discord webhook URL or any HTTPS endpoint; never sent back to the page |
+| `secret` | `CharField(128)` | not null | HMAC key for JSON destinations; shown once |
+| `event_types` | `JSONField` | default `[]` | Catalogue `EventType` values only |
+| `only_mine` | `BooleanField` | default `True` | "Only things about me" |
+| `is_active` / `paused_reason` | `BooleanField` / `CharField(255)` | `True` / null | Auto-paused after 20 failures in a row or a Discord 401/404 |
+| `consecutive_failures`, `delivered_count`, `failed_count` | `IntField` | `0` | |
+| `last_delivery_at`, `last_status`, `last_error` | | null | Last attempt, for the card |
+
 #### `WebPushSubscription`
 
 One browser/device push subscription for a user; every Discord DM is mirrored
@@ -2404,6 +2421,7 @@ Consult the source for full signatures.
 | `NotificationPreferenceRepository` | [`notification_preference_repository.py`](../../application/repositories/notification_preference_repository.py) | `NotificationPreference` | `get(user_id)`, `save(user_id, preset, overrides)` (update or create, scoped) |
 | `NotificationSettingRepository` | [`notification_setting_repository.py`](../../application/repositories/notification_setting_repository.py) | `NotificationSetting` | `overrides` (the community's rows as `{(notice, recipient): mode}`), `upsert`, `delete`, `delete_all` |
 | `TablePreferenceRepository` | [`table_preference_repository.py`](../../application/repositories/table_preference_repository.py) | `UserTablePreference` | **Global — never tenant-scoped** (the model has no tenant column). `all_for_user` (one query; the only read a page build makes), `get`, `upsert`, `delete`, `delete_all_for_user` |
+| `PersonalWebhookRepository` | [`personal_webhook_repository.py`](../../application/repositories/personal_webhook_repository.py) | `PersonalWebhook` | `list_for_user`, `count_for_user`, `get_for_user`, `list_active`, `record_success`, `record_failure`, `pause` |
 | `WebhookRepository` | [`webhook_repository.py`](../../application/repositories/webhook_repository.py) | `Webhook` | `get_by_id`, `list_all`, `list_active`, `create`, `update`, `delete` |
 | `WebhookDeliveryRepository` | [`webhook_delivery_repository.py`](../../application/repositories/webhook_delivery_repository.py) | `WebhookDelivery` | `create`, `list_for_webhook`, `outcome_counts_since`, `prune_older_than` |
 | `PresetRepository` | [`preset_repository.py`](../../application/repositories/preset_repository.py) | `Preset` | `get_by_id`, `get_by_natural_key`, `list_all`, `list_by_randomizer`, `create`, `update`, `delete` |

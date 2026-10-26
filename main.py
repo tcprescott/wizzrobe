@@ -34,10 +34,11 @@ from api.openapi_docs import api_description, warm_openapi
 from api.openapi_docs import install as install_openapi_docs
 from application.events import dispatch_queue as event_dispatch_queue
 from application.events import event_bus, webhook_queue
-from application.services import TelemetryService, WebhookService, web_push_service
+from application.services import PersonalWebhookService, TelemetryService, WebhookService, web_push_service
 from application.services.discord import discord_queue
 from application.services.discord.discord_service import get_discord_bot
 from application.services.match import stage_reminder
+from application.services.personal_webhook_service import SUBSCRIBABLE_EVENT_TYPES
 from application.services.volunteer import volunteer_reminder
 from application.utils import element_cycles, gc_monitor, memory_census, metrics_sampler, worker_watchdog
 from application.utils.easter_eggs import random_fact
@@ -312,6 +313,11 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         event_dispatch_queue.start()
         webhook_queue.start()
         event_bus.subscribe_async(WebhookService().deliver_event)
+        # Members' own webhooks: only the catalogue events, each checked against
+        # what the owner can see when it is sent.
+        event_bus.subscribe_async(
+            PersonalWebhookService().deliver_event, event_types=SUBSCRIBABLE_EVENT_TYPES,
+        )
         # Engagement telemetry: mirror every published domain event into the
         # TelemetryEvent log (page views / interactions are captured separately from
         # the presentation layer). No event_types filter — record them all.

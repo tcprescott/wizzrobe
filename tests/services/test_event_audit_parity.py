@@ -160,6 +160,11 @@ _EXCLUDED_BY_DESIGN = frozenset({
     AuditActions.WEBHOOK_UPDATED,
     AuditActions.WEBHOOK_DELETED,
     AuditActions.WEBHOOK_SECRET_REGENERATED,
+    # A member's own webhook config is theirs, not a community event.
+    AuditActions.PERSONAL_WEBHOOK_CREATED,
+    AuditActions.PERSONAL_WEBHOOK_UPDATED,
+    AuditActions.PERSONAL_WEBHOOK_DELETED,
+    AuditActions.PERSONAL_WEBHOOK_SECRET_REGENERATED,
     # In-app feedback triage. Reopening is the reverse of reviewing and stays
     # in the same bucket — the submitter learns the state from their own list on
     # the profile, not from a broadcast.
