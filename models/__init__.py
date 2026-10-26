@@ -81,6 +81,7 @@ from .enums import (
     NotificationRecipient,
     PresetOverride,
     ProviderTaskStatus,
+    RaceRoomHoldReason,
     RaceRoomStatus,
     RescheduleRequestKind,
     RescheduleRequestStatus,
@@ -301,6 +302,7 @@ __all__ = [
     'ProviderTaskStatus',
     # racetime
     'RaceRoomProfile',
+    'RaceRoomHoldReason',
     'RaceRoomStatus',
     'RacetimeBot',
     'RacetimeBotTenant',

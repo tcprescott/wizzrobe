@@ -31,6 +31,7 @@ from typing import Dict, List, Optional, Tuple
 
 from application.services import RacetimeBotService, RacetimeRoomService, UserService
 from application.services.audit_service import AuditActions, AuditService
+from application.utils.clients import racetime_room_actions
 from application.utils.environment import racetime_bot_enabled
 from models import User
 from racetimebot.connection import CategoryConnection
@@ -60,6 +61,7 @@ class RacetimeBotManager:
         if not bots:
             logger.info('No active racetime bots configured — nothing to connect.')
             return
+        racetime_room_actions.register_sender(self.send)
         for bot in bots:
             self._spawn(bot.id, bot.category, bot.client_id, bot.client_secret)
         logger.info('Started %d racetime bot connection(s).', len(self._connections))
@@ -100,10 +102,19 @@ class RacetimeBotManager:
             handler=handler,
             bot_service=self.bot_service,
             system_user=self._system_user,
+            room_source=lambda c=category: self.room_service.list_bot_run_rooms(c),
         )
         task = asyncio.get_event_loop().create_task(connection.run_forever())
         task.add_done_callback(lambda t, bid=bot_id: self._on_connection_done(bid, t))
         self._connections[bot_id] = (connection, task)
+
+    async def send(self, slug: str, action: dict) -> bool:
+        """Route a room action to the connection for the room's category (its slug's prefix)."""
+        category = slug.split('/', 1)[0]
+        for connection, _task in self._connections.values():
+            if connection.category == category:
+                return await connection.send(slug, action)
+        return False
 
     def _on_connection_done(self, bot_id: int, task: asyncio.Task) -> None:
         if task.cancelled():
@@ -144,6 +155,7 @@ class RacetimeBotManager:
             logger.exception('racetime connection for bot %s errored during cancel', bot_id)
 
     async def stop(self) -> None:
+        racetime_room_actions.register_sender(None)
         for bot_id in list(self._connections.keys()):
             await self._cancel(bot_id)
         self._connections.clear()

@@ -71,6 +71,12 @@ class UserService:
     async def get_user_by_discord_id(self, discord_id: str) -> Optional[User]:
         return await self.repository.get_by_discord_id(discord_id)
 
+    async def get_user_by_racetime_id(self, racetime_user_id: str) -> Optional[User]:
+        """The account that linked this racetime.gg user id, if any."""
+        if not racetime_user_id:
+            return None
+        return await self.repository.get_by_racetime_user_id(racetime_user_id)
+
     async def get_system_user(self) -> User:
         """Resolve the reserved system :class:`User` that automation acts as.
 

@@ -322,6 +322,11 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         # TelemetryEvent log (page views / interactions are captured separately from
         # the presentation layer). No event_types filter — record them all.
         event_bus.subscribe_async(TelemetryService().record_event)
+        # The racetime room bot posts a seed that lands after its set time (an
+        # async roll, or one !forceroll asked for) the moment it's rolled.
+        from application.events import EventType
+        from application.services.race_room_bot_service import on_seed_rolled_event
+        event_bus.subscribe_async(on_seed_rolled_event, event_types=[EventType.MATCH_SEED_ROLLED])
     # Started after boot so migrations and the first imports don't read as stalls.
     if loop_watchdog_enabled():
         gc_monitor.install()

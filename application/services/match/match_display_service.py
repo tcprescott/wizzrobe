@@ -110,6 +110,7 @@ class MatchDisplayService:
             match, acks, volunteers.get(match.id, []), rolling, failed,
         )
         await self._attach_site_results([row], [match])
+        await self._attach_racetime_bot([row], [match])
         await self._attach_set_labels([row], [match])
         await self._attach_partner_invites([row])
         return row
@@ -179,6 +180,7 @@ class MatchDisplayService:
             for m in matches
         ]
         await self._attach_site_results(rows, matches)
+        await self._attach_racetime_bot(rows, matches)
         await self._attach_set_labels(rows, matches)
         await self._attach_partner_invites(rows)
         if user_discord_id or crew_discord_id:
@@ -249,6 +251,41 @@ class MatchDisplayService:
                  'no_winner': result.no_winner}
                 if result else None
             )
+
+    @staticmethod
+    async def _attach_racetime_bot(rows: List[Dict[str, Any]], matches: List[Match]) -> None:
+        """What the racetime room bot needs staff to see on a row.
+
+        ``racetime_held``: the race finished but its result waits for a check
+        (``RaceRoomService.record_finish``). ``racetime_unlinked``: players the bot
+        can't invite or score until they link racetime. Only tournaments the bot
+        runs rooms for, so a board with none costs no query.
+        """
+        from application.repositories import RacetimeRoomRepository
+        from application.services.race_room_holds import hold_label
+
+        bot_run = {m.id: m for m in matches if m.tournament and m.tournament.racetime_bot_runs_room}
+        held_ids = [
+            r['id'] for r in rows if r['id'] in bot_run and r['state'] == 'Finished' and not r.get('has_result')
+        ]
+        rooms = await RacetimeRoomRepository().for_matches(held_ids) if held_ids else {}
+        for row in rows:
+            row['racetime_held'] = None
+            row['racetime_unlinked'] = []
+            match = bot_run.get(row['id'])
+            if match is None:
+                continue
+            room = rooms.get(match.id)
+            if room is not None and room.held_reason:
+                reason = getattr(room.held_reason, 'value', room.held_reason)
+                row['racetime_held'] = {
+                    'reason': reason, 'label': hold_label(reason),
+                    'detail': room.held_detail or '', 'url': room.url,
+                }
+            if row['state'] in ('Scheduled', 'Checked In', 'Started'):
+                row['racetime_unlinked'] = [
+                    p.user.preferred_name for p in match.players if not p.user.racetime_user_id
+                ]
 
     async def get_room_seed_rows(self) -> List[Dict[str, Any]]:
         """Rolled-but-unfinished matches, for the tournament room's kiosk board.

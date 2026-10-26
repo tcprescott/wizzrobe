@@ -336,6 +336,8 @@ class AuditActions:
     RACE_ROOM_FINISHED = 'race_room.finished'
     RACE_ROOM_CANCELLED = 'race_room.cancelled'
     RACE_ROOM_RESULT_RECORDED = 'race_room.result_recorded'
+    RACE_ROOM_RESULT_HELD = 'race_room.result_held'
+    RACE_ROOM_FPA_CALLED = 'race_room.fpa_called'
 
     # Volunteer scheduling
     VOLUNTEER_POSITION_CREATED = 'volunteer.position_created'

@@ -41,6 +41,14 @@ async def _tick() -> None:
     window_start = now - timedelta(minutes=GRACE_MINUTES)
     window_end = now + timedelta(minutes=MAX_LEAD_MINUTES)
 
+    # The room bot's seeds go up on this tick too: a minute's precision is
+    # plenty for "N minutes before the start".
+    from application.services.race_room_bot_service import RaceRoomBotService
+    try:
+        await RaceRoomBotService().post_due_seeds(now)
+    except Exception:
+        logger.exception('posting due racetime room seeds failed')
+
     repo = RacetimeRoomRepository()
     bracket_service = BracketService()
     candidates = await repo.matches_due_for_auto_open(window_start, window_end)

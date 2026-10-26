@@ -110,6 +110,8 @@ class EventType:
     RACE_ROOM_FINISHED = 'race_room.finished'
     RACE_ROOM_CANCELLED = 'race_room.cancelled'
     RACE_ROOM_RESULT_RECORDED = 'race_room.result_recorded'
+    RACE_ROOM_RESULT_HELD = 'race_room.result_held'
+    RACE_ROOM_FPA_CALLED = 'race_room.fpa_called'
 
     # SpeedGaming ETL (mirrors AuditActions.SG_*). Tenant-scoped domain events a
     # webhook subscriber can act on; published by the sync worker as the system
@@ -277,6 +279,7 @@ class EventType:
         VOLUNTEER_RUNNING_LATE, VOLUNTEER_CALLED_OFF, VOLUNTEER_CALL_OFF_UNDONE,
         RACE_ROOM_CREATED, RACE_ROOM_OPENED, RACE_ROOM_STARTED,
         RACE_ROOM_FINISHED, RACE_ROOM_CANCELLED, RACE_ROOM_RESULT_RECORDED,
+        RACE_ROOM_RESULT_HELD, RACE_ROOM_FPA_CALLED,
         SG_EPISODE_IMPORTED, SG_EPISODE_CANCELLED, SG_MATCH_AUTO_FINISHED,
         DISCORD_EVENT_CREATED, DISCORD_EVENT_UPDATED, DISCORD_EVENT_CANCELLED,
         SERVICE_HEALTH_ALERT,

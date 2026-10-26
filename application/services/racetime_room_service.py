@@ -9,12 +9,13 @@ tenant.
 """
 
 from datetime import datetime, timezone
-from typing import List, Optional
+from typing import List, Optional, Tuple
 
 from application.repositories import RacetimeRoomRepository
 from application.repositories._tenant import scoped
 from application.services.auth_service import AuthService
-from models import Match, RaceRoomStatus, RacetimeRoom, User
+from application.tenant_context import tenant_scope
+from models import FeatureFlag, Match, RaceRoomStatus, RacetimeRoom, User
 
 
 class RacetimeRoomService:
@@ -33,6 +34,21 @@ class RacetimeRoomService:
     async def list_open_rooms(self) -> List[RacetimeRoom]:
         """Not-yet-terminal rooms across all tenants (unscoped, for re-adoption)."""
         return await self.repository.list_open_all()
+
+    async def list_bot_run_rooms(self, category: str) -> List[Tuple[str, RaceRoomStatus]]:
+        """``(slug, status)`` of every room the bot should sit in for ``category``.
+
+        Unscoped across communities; a community that has since switched racetime
+        rooms off drops out, so the bot leaves its rooms.
+        """
+        from application.services.feature_flag_service import FeatureFlagService
+
+        rooms = await self.repository.list_bot_run_open(category)
+        live: dict = {}
+        for tenant_id in {room.tenant_id for room in rooms}:
+            with tenant_scope(tenant_id):
+                live[tenant_id] = await FeatureFlagService().is_enabled(FeatureFlag.RACETIME_ROOMS)
+        return [(room.slug, room.status) for room in rooms if live.get(room.tenant_id)]
 
     async def list_open_rooms_for_current_tenant(self, actor: Optional[User]) -> List[RacetimeRoom]:
         """Not-yet-terminal rooms for the current tenant: staff or a sync admin,

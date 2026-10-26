@@ -482,6 +482,26 @@ class TournamentDialog:
                                 'Require racetime link',
                                 value=(t.require_racetime_link if t else False),
                             )
+                            rt['bot_runs_input'] = ui.checkbox(
+                                'Bot runs the room',
+                                value=(t.racetime_bot_runs_room if t else False),
+                            ).tooltip(
+                                'The bot sits in each room: invites the players, posts the seed, '
+                                'answers !seed, !forceroll and !fpa, and records clean results. '
+                                'Close finishes, forfeits and FPA calls wait for staff.'
+                            )
+                        with ui.row().classes('form-pair gap-2') as bot_settings:
+                            rt['seed_post_input'] = ui.number(
+                                'Post the seed (min before start)',
+                                value=(t.racetime_seed_post_minutes if t else 10),
+                                min=0,
+                            ).props('inputmode=numeric')
+                            rt['close_finish_input'] = ui.number(
+                                'Close finish (seconds)',
+                                value=((t.racetime_close_finish_ms if t else 1000) / 1000),
+                                min=0, step=0.1, format='%.1f',
+                            ).props('inputmode=decimal hint="Finishes this close wait for staff"')
+                        bot_settings.bind_visibility_from(rt['bot_runs_input'], 'value')
 
                 if can_delete:
                     with ui.expansion(
@@ -551,6 +571,9 @@ class TournamentDialog:
                         racetime_auto_create_rooms=rt['auto_create_input'].value,
                         room_open_minutes_before=int(rt['open_before_input'].value or 0),
                         require_racetime_link=rt['require_link_input'].value,
+                        racetime_bot_runs_room=rt['bot_runs_input'].value,
+                        racetime_seed_post_minutes=int(rt['seed_post_input'].value or 0),
+                        racetime_close_finish_ms=int(round(float(rt['close_finish_input'].value or 0) * 1000)),
                         racetime_default_goal=rt['goal_input'].value,
                     )
                 try:

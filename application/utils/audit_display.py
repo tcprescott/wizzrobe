@@ -126,6 +126,8 @@ ACTION_LABELS: dict[str, str] = {
     'race_room.finished': 'Race room finished',
     'race_room.cancelled': 'Cancelled a race room',
     'race_room.result_recorded': 'Recorded a race room result',
+    'race_room.result_held': 'Held a race room result for a check',
+    'race_room.fpa_called': 'Called a fair play pause in a race room',
     # Tournaments
     'tournament.created': 'Created a tournament',
     'tournament.updated': 'Edited a tournament',

@@ -230,6 +230,12 @@ PLAYER_LATE_ON_STAGE = _notice(
     {ON_DUTY: 'Broadcast Techs holding a volunteer shift right now',
      STAFF: 'Every Broadcast Tech, only when none is on shift'},
 )
+RACETIME_FPA = _notice(
+    'racetime_fpa', 'Matches', 'Fair play pause called',
+    'A runner types !fpa in a racetime room the bot runs',
+    {ON_DUTY: PING, ADMINS: PING, STAFF: PING},
+    {ON_DUTY: _ON_SHIFT, ADMINS: _TOURNAMENT_ADMINS, STAFF: _FALLBACK},
+)
 OPPONENT_ACKNOWLEDGED = _notice(
     'opponent_acknowledged', 'Matches', 'Opponent acknowledged',
     'Another player in your match acknowledges its time', {PLAYERS: PING}, {PLAYERS: _OPTED_IN},
@@ -554,7 +560,8 @@ SECTIONS: Dict[str, Tuple[Tuple[str, Tuple[Notice, ...]], ...]] = {
         )),
         ('Results', (MATCH_CONFIRMED, MATCH_FORFEITED, MATCH_RESULT, RESULT_IN)),
         ('Comments and staff alerts', (
-            STAFF_COMMENT, PLAYER_COMMENT, PLAYER_LATE, PLAYER_LATE_ON_STAGE, MATCH_FLAGGED, STREAM_OFFER, SEED_FAILED,
+            STAFF_COMMENT, PLAYER_COMMENT, PLAYER_LATE, PLAYER_LATE_ON_STAGE, RACETIME_FPA, MATCH_FLAGGED, STREAM_OFFER,
+            SEED_FAILED,
         )),
         ('Seed settings', (
             HARDER_SETTINGS_OFFER, HARDER_SETTINGS_AGREED, HARDER_SETTINGS_DROPPED,
@@ -681,6 +688,7 @@ _ACT: Dict[str, frozenset] = {
     STAFF_COMMENT.key: frozenset({PLAYERS}),
     PLAYER_COMMENT.key: _STAFF_ALERTS,
     PLAYER_LATE.key: _STAFF_ALERTS,
+    RACETIME_FPA.key: _STAFF_ALERTS,
     PLAYER_LATE_ON_STAGE.key: frozenset({ON_DUTY, STAFF}),
     HARDER_SETTINGS_OFFER.key: frozenset({PLAYERS}),
     OPPONENT_SEED_READY.key: frozenset({PLAYERS}),

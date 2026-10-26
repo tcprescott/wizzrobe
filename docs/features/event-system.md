@@ -47,7 +47,7 @@ between "called off" and "shouldn't have existed".
 | `crew.*` | `crew_service.py` |
 | `volunteer.*` | `volunteer/volunteer_schedule_service.py` |
 | `bracket.*` | `bracket_service.py` (create, cancel, roster add/update/drop, entry retire) and the `_bracket/` mixins (generation, advancement, completion, multistage, scheduling, series) |
-| `race_room.*` | `race_room_service.py` |
+| `race_room.*` | `race_room_service.py` (`race_room.result_held` with `reason` + `detail`), `race_room_bot_service.py` (`race_room.fpa_called` with `runner` + `race_seconds`) |
 | `sg_sync.*` | `speedgaming_etl_service.py` |
 | `discord_event.*` | `discord/discord_event_reconciler_service.py` |
 | `async_qualifier.*` | `async_qualifier/`. Two groups. **Standings:** run submitted/reviewed/expired/forfeited/reattempted and live race recorded — every outcome that moves an entrant's total. (`run_started` is not one: a draw promises nothing. A reviewer's void publishes `run_reattempted` with `granted: True`, since to a subscriber it is the same fact as the runner spending their own allowance.) **The window:** `async_qualifier.opened` / `.closed`, published by `sync_window_state` — the worker observing the clock cross `opens_at`/`closes_at`, or the service when an admin's edit crosses it immediately. Those two have **no `AuditActions` mirror**, the `service_health.alert` shape: nobody performs an opening, so there is no actor to record, and `AsyncQualifier.window_state_notified` is what makes each crossing announce once. Qualifier/pool/permalink authoring stays audit-only — a permalink *is* the seed, revealed to a runner only when their slot is spent, so publishing one would hand out the pool |

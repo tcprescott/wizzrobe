@@ -1,7 +1,7 @@
 from tortoise import fields
 from tortoise.models import Model
 
-from .enums import BotStatus, RaceRoomStatus
+from .enums import BotStatus, RaceRoomHoldReason, RaceRoomStatus
 
 
 class RacetimeBot(Model):
@@ -119,6 +119,17 @@ class RacetimeRoom(Model):
         'models.Match', related_name='racetime_room', null=True, on_delete=fields.SET_NULL
     )
     opened_at = fields.DatetimeField(null=True)
+    # What the bot has done in a room it runs (``Tournament.racetime_bot_runs_room``).
+    # Stamped so a reconnect, a restart or a second trigger never says it twice.
+    greeted_at = fields.DatetimeField(null=True)
+    seed_posted_at = fields.DatetimeField(null=True)
+    # Each runner's !fpa: ``{racetime_user_id, name, at, race_seconds, note}``.
+    fpa_calls = fields.JSONField(default=list)
+    # A finished race waiting on staff: why, the line staff read, and racetime's
+    # entrants as they finished, so Check result starts from what racetime said.
+    held_reason = fields.CharEnumField(RaceRoomHoldReason, max_length=20, null=True)
+    held_detail = fields.TextField(null=True)
+    held_entrants = fields.JSONField(null=True)
     created_at = fields.DatetimeField(auto_now_add=True)
     updated_at = fields.DatetimeField(auto_now=True)
 

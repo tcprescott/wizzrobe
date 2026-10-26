@@ -70,6 +70,9 @@ def run_sheet_status(row: dict) -> tuple[str, str]:
     One word or two, never the raw state plus a timestamp: "Late" and "No
     result" are what an operator acts on, and neither is a state.
     """
+    held = row.get('racetime_held')
+    if held:
+        return f"Held · {held['label']}", 'pending'
     site = row.get('played_on_site')
     if site:
         if site.get('no_winner'):
@@ -609,6 +612,8 @@ _SEATED_WHO = r"""<template v-if="props.row._seats.length && (!props.row._who_fo
 # board says it in its Status chip instead.
 DESC_LINE = """<span v-if="props.row.description_text" class="run-sheet__desc" :title="props.row.description_text">{{ props.row.description_text }}</span>"""
 LATE_TAGS = r"""<span v-for="l in props.row._late" :key="l.key" class="wiz-chip wiz-chip--pending run-sheet__late" :title="l.note || null"><q-icon name="schedule" size="14px" aria-hidden="true" />{{ l.label }}</span>"""
+# A player the racetime room bot can't invite or score until they link racetime.
+LATE_TAGS += r"""<span v-for="n in (props.row.racetime_unlinked || [])" :key="'rt' + n" class="wiz-chip wiz-chip--pending run-sheet__late" title="The room bot can't invite this player or record their time until they link racetime.gg on their profile"><q-icon name="link_off" size="14px" aria-hidden="true" />{{ n }} not linked</span>"""
 
 _ADA = """<span v-if="props.row._ada.length" class="run-sheet__ada"><q-icon name="accessible" size="16px" aria-hidden="true" />ADA: {{ props.row._ada.join(', ') }}</span>"""
 
