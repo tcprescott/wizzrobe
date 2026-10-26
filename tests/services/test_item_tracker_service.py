@@ -12,7 +12,7 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 
-from application.errors import FeatureDisabledError
+from application.errors import FeatureDisabledError, NotFoundError
 from application.services import ItemTrackerService
 from application.services import item_tracker_service as its
 from application.services.feature_flag_service import reset_flag_cache
@@ -22,6 +22,7 @@ from application.services.item_tracker_catalog import (
     dungeon_items,
     mode_from_settings,
 )
+from application.tenant_context import tenant_scope
 from models import (
     FeatureFlag,
     GeneratedSeeds,
@@ -29,6 +30,7 @@ from models import (
     Match,
     MatchPlayers,
     Role,
+    Tenant,
     TenantFeatureFlag,
     Tournament,
     Tracker,
@@ -292,3 +294,26 @@ class TestCatalog:
         stems = {s for i in ITEMS for s in i.sprites} | set(PRIZE_SPRITES) | set(MEDALLION_SPRITES)
         stems |= {s for d in DUNGEONS if d.boss for s in d.boss} | {'smallkey1', 'bigkey0', 'bigkey1'}
         assert not [s for s in sorted(stems) if not (root / f'{s}.png').exists()]
+
+
+class TestCommunityWalls:
+    async def test_another_community_cannot_reach_a_board(self, db):
+        m, _, tracker = await _match()
+        board = (await _open(m, tracker)).runners[0].board
+        other = await Tenant.create(name='Other', slug='other')
+        await TenantFeatureFlag.create(
+            tenant=other, flag=FeatureFlag.ITEM_TRACKER.value, available=True, enabled=True,
+        )
+        their_staff = await make_user(discord_id=9900, username='their_staff')
+        await UserRole.create(user=their_staff, role=Role.STAFF, tenant=other)
+        service = ItemTrackerService()
+        with tenant_scope(other.id):
+            reset_flag_cache()
+            assert await service.overlay(board.overlay_token) is None
+            with pytest.raises(NotFoundError):
+                await service.board(board.id, their_staff)
+            with pytest.raises(NotFoundError):
+                await service.set_level(board.id, 'bow', 1, their_staff)
+            with pytest.raises(ValueError):
+                await service.open_match(m.id, their_staff)
+        reset_flag_cache()
