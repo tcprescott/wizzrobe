@@ -11,13 +11,14 @@ bottom edge by CSS (``.wiz-event-menu``).
 """
 
 import json
+from dataclasses import dataclass, field
 from datetime import date
 from typing import TYPE_CHECKING, Iterable, Optional
 
 from nicegui import ui
 
 from application.services.event_service import EventRef
-from models import EventStatus
+from models import EventStatus, User
 
 if TYPE_CHECKING:
     from theme.base import BaseLayout
@@ -43,6 +44,44 @@ window.wizSwitchEvent = function (prefix, community, slug, row) {
     location.assign(community + '/e/' + slug + rest);
 };
 '''
+
+
+@dataclass
+class EventSwitcherState:
+    """What the header's event button needs, resolved once per page build."""
+
+    #: The event the page shows, or None off any community.
+    current: Optional[EventRef] = None
+    #: The events the menu lists. Empty draws no button.
+    events: list[EventRef] = field(default_factory=list)
+    manages: bool = False
+    #: Everything in the browser's path before the community-local path.
+    switch_prefix: str = ''
+    #: The browser's path to the community, before any ``/e/<slug>``.
+    community_root: str = ''
+    is_row_page: bool = False
+
+
+async def load_event_switcher(user: Optional[User], tenant_id: int) -> EventSwitcherState:
+    from application.event_context import get_current_event_id
+    from application.services import AuthService, EventService
+    from middleware.event_routing import PAGE_SCOPE_KEY, community_root, page_request
+
+    manages = await AuthService.is_staff(user)
+    events = await EventService.visible_events(user)
+    state = EventSwitcherState(
+        current=await EventService.ref(tenant_id, get_current_event_id()),
+        # One event and nothing to manage: the button would only repeat the page.
+        events=events if len(events) > 1 or manages else [],
+        manages=manages,
+    )
+    request = page_request()
+    if request is not None:
+        forwarded = request.headers.get('X-Forwarded-Prefix', '')
+        state.switch_prefix = f"{forwarded}{request.scope.get('root_path', '')}"
+        state.community_root = f'{forwarded}{community_root(request)}'
+        state.is_row_page = request.scope.get(PAGE_SCOPE_KEY) == 'row'
+    return state
 
 
 def event_dates_label(starts_on: Optional[date], ends_on: Optional[date]) -> str:
@@ -86,8 +125,9 @@ def switcher_groups(events: Iterable[EventRef]) -> list[tuple[str, list[EventRef
 
 def render_event_switcher(layout: 'BaseLayout') -> None:
     """The header's event button. Draws nothing without an event in scope."""
-    current = layout.current_event
-    if current is None or not layout.switcher_events:
+    state = layout.events
+    current = state.current
+    if current is None or not state.events:
         return
     ui.add_head_html(f'<script>{_SWITCH_JS}</script>')
     button = ui.button(color=None).props('flat no-caps').classes('wiz-event-switch')
@@ -102,11 +142,11 @@ def render_event_switcher(layout: 'BaseLayout') -> None:
         with ui.menu().props('fit=false').classes('wiz-event-menu'):
             ui.label('Switch event').classes('wiz-event-menu__title')
             with ui.list().props('dense'):
-                for label, rows in switcher_groups(layout.switcher_events):
+                for label, rows in switcher_groups(state.events):
                     ui.item_label(label).props('header').classes('wiz-event-menu__group')
                     for event in rows:
-                        _event_item(layout, event, current)
-                if layout.manages_events:
+                        _event_item(state, event, current)
+                if state.manages:
                     ui.separator()
                     with ui.item(on_click=lambda: ui.navigate.to(EVENTS_ADMIN_PATH)) \
                             .classes('wiz-event-menu__manage'):
@@ -116,8 +156,8 @@ def render_event_switcher(layout: 'BaseLayout') -> None:
                             ui.item_label('Manage events')
 
 
-def _event_item(layout: 'BaseLayout', event: EventRef, current: EventRef) -> None:
-    args = json.dumps([layout.switch_prefix, layout.community_root, event.slug, layout.is_row_page])[1:-1]
+def _event_item(state: EventSwitcherState, event: EventRef, current: EventRef) -> None:
+    args = json.dumps([state.switch_prefix, state.community_root, event.slug, state.is_row_page])[1:-1]
     item = ui.item(on_click=lambda: ui.run_javascript(f'wizSwitchEvent({args})'))
     item.classes('wiz-event-menu__item')
     if event.id == current.id:

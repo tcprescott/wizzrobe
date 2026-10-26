@@ -7,7 +7,7 @@ Volunteer self-declared availability windows.
 from datetime import datetime
 from typing import List, Optional
 
-from application.repositories._event import current_event_id, event_scoped
+from application.repositories._event import current_event_id, event_scoped, live_event_scoped
 from application.repositories._tenant import current_tenant_id
 from models import User, VolunteerAvailability, VolunteerAvailabilityStatus
 
@@ -21,7 +21,8 @@ class VolunteerAvailabilityRepository:
 
     @staticmethod
     async def list_for_user(user: User) -> List[VolunteerAvailability]:
-        return await event_scoped(VolunteerAvailability.filter(user=user)).order_by('starts_at')
+        """Every live event's rows for this person (cross-event: their own free time)."""
+        return await live_event_scoped(VolunteerAvailability.filter(user=user)).order_by('starts_at')
 
     @staticmethod
     async def for_users_overlapping(

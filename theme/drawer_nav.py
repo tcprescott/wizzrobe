@@ -120,7 +120,7 @@ def render_page_items(layout: 'BaseLayout', tabs: list[dict], section_url: str |
 
 def render_half_heading(layout: 'BaseLayout', half: str) -> None:
     """The row that opens a half of the admin list: the event, or Community-wide."""
-    event = layout.current_event
+    event = layout.events.current
     if half == 'event' and event is None:
         return
     with ui.element('div').classes(f'wiz-drawer-half wiz-drawer-half--{half}'):
