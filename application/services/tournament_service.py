@@ -181,7 +181,7 @@ class TournamentService(TournamentDropMixin, TournamentSignupMixin):
     def _non_negative(value: Any, what: str) -> int:
         number = int(value or 0)
         if number < 0:
-            raise ValueError(f"{what} can't be negative")
+            raise ValueError(f"{what} cannot be negative")
         return number
 
     @staticmethod
@@ -192,10 +192,7 @@ class TournamentService(TournamentDropMixin, TournamentSignupMixin):
         would make a stream candidate permanently covered — the mirror image of
         the false gap this setting exists to fix.
         """
-        count = int(value or 0)
-        if count < 0:
-            raise ValueError(f"Required {role} cannot be negative")
-        return count
+        return TournamentService._non_negative(value, f'Required {role}')
 
     @staticmethod
     def _check_automation_prerequisites(
@@ -502,13 +499,9 @@ class TournamentService(TournamentDropMixin, TournamentSignupMixin):
         if racetime_bot_runs_room is not None:
             update_data['racetime_bot_runs_room'] = racetime_bot_runs_room
         if racetime_seed_post_minutes is not None:
-            update_data['racetime_seed_post_minutes'] = self._non_negative(
-                racetime_seed_post_minutes, 'Seed post minutes',
-            )
+            update_data['racetime_seed_post_minutes'] = self._non_negative(racetime_seed_post_minutes, 'Seed post minutes')
         if racetime_close_finish_ms is not None:
-            update_data['racetime_close_finish_ms'] = self._non_negative(
-                racetime_close_finish_ms, 'The close-finish gap',
-            )
+            update_data['racetime_close_finish_ms'] = self._non_negative(racetime_close_finish_ms, 'The close-finish gap')
         if racetime_default_goal is not _UNSET:
             update_data['racetime_default_goal'] = (
                 racetime_default_goal.strip() if racetime_default_goal else None
