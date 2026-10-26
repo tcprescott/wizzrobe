@@ -26,6 +26,7 @@ from . import (
     notification_links,
     oauth_handoff_service,
     opt_in_notifications,
+    race_room_holds,
     race_room_worker,
     reporting_shared,
     result_alerts,
@@ -128,6 +129,7 @@ from .player_availability_service import PlayerAvailabilityService
 from .preset_service import PresetService
 from .profile_nudge_service import ProfileNudgeService
 from .provider_task_service import ProviderTaskService
+from .race_room_bot_service import RaceRoomBotService
 from .race_room_profile_service import RaceRoomProfileService
 from .race_room_service import RaceRoomService
 from .racetime_bot_service import RacetimeBotService
@@ -270,6 +272,7 @@ __all__ = [
     'ProbeResult',
     'ProfileNudgeService',
     'ProviderTaskService',
+    'RaceRoomBotService',
     'RaceRoomProfileService',
     'RaceRoomService',
     'RacetimeBotService',
@@ -355,6 +358,7 @@ __all__ = [
     'notification_links',
     'oauth_handoff_service',
     'opt_in_notifications',
+    'race_room_holds',
     'race_room_worker',
     'reporting_shared',
     'require_found',

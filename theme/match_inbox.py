@@ -1,9 +1,10 @@
 """The "Needs you" inbox above a run-sheet match board.
 
-Four kinds of work wait on staff rather than on the clock: a player's request to
+Five kinds of work wait on staff rather than on the clock: a player's request to
 move or cancel a match, a booked match someone already reported on its bracket
-site (Challonge, start.gg), a finished match nobody has confirmed, and a match
-past its start that nobody has checked in. They used to be three differently built
+site (Challonge, start.gg), a race the racetime room bot held for a check, a
+finished match nobody has confirmed, and a match past its start that nobody has
+checked in. They used to be three differently built
 strips of counts above the board, none of which did anything but filter. Here
 each is a short list of items with the action on the item.
 
@@ -25,6 +26,7 @@ from models import Match, RescheduleRequestKind
 from theme.dialog.clash_warning import confirm_time
 from theme.dialog.confirmation_dialog import ConfirmationDialog
 from theme.help import ResolvedHelp, help_button, resolve_help
+from theme.links import link_button
 from theme.matchup import matchup_label
 from theme.notify import notify_error
 from theme.tables.admin_crud import capture_render_context, current_actor, scoped_background
@@ -124,7 +126,11 @@ class MatchInbox:
     @ui.refreshable_method
     def _build(self, requests: list) -> None:
         rows: list = self.view._visible_rows() if self.view else []
-        finished = [r for r in rows if r.get('state') == 'Finished' and self.access.can_confirm_row(r)]
+        held = [r for r in rows if r.get('racetime_held') and self.access.can_confirm_row(r)]
+        finished = [
+            r for r in rows
+            if r.get('state') == 'Finished' and not r.get('racetime_held') and self.access.can_confirm_row(r)
+        ]
         played = [r for r in rows if r.get('played_on_site') and self.access.can_confirm_row(r)]
         late = [
             r for r in rows
@@ -132,7 +138,7 @@ class MatchInbox:
             and (r.get('is_overdue') or r.get('_late'))
             and r.get('players') and not r.get('is_racetime') and not r.get('played_on_site')
         ]
-        total = len(requests) + len(played) + len(finished) + len(late)
+        total = len(requests) + len(played) + len(held) + len(finished) + len(late)
         if not (self.access.edit or self.access.confirm or self.access.run):
             return
         with ui.column().classes('match-inbox full-width'):
@@ -148,6 +154,7 @@ class MatchInbox:
                 return
             self._group('requests', 'Reschedule requests', requests, self._request_item)
             self._group('site', 'Played on the bracket site', played, self._site_item)
+            self._group('held', 'Racetime results held', held, self._held_item)
             # Disputed first: it needs a decision, an unflagged result only a click.
             finished.sort(key=lambda r: (not r.get('needs_review'), r.get('has_result'), r.get('scheduled_ts') or 0))
             self._group('results', 'Results', finished, self._result_item)
@@ -247,6 +254,37 @@ class MatchInbox:
                     await h.confirm_confirming(match)
                 ui.button('Change', on_click=lambda: h.on_edit_result(match_id)).props('outline color=primary')
                 ui.button('Confirm', on_click=confirm).props('color=primary')
+
+    def _held_item(self, row: dict) -> None:
+        match_id = row['id']
+        held = row['racetime_held']
+        with ui.row().classes('items-center gap-2 no-wrap full-width'):
+            ui.label(' vs '.join(p.get('name') or '' for p in row.get('players') or [])) \
+                .classes('match-inbox__title col')
+            with ui.element('span').classes('wiz-chip wiz-chip--pending'):
+                ui.label(held['label'])
+        meta = row.get('tournament') or ''
+        if row.get('finished_ts'):
+            meta += f" · finished {_clock(row['finished_ts'])}"
+        ui.label(meta).classes('match-inbox__meta')
+        if held.get('detail'):
+            ui.label(held['detail']).classes('match-inbox__meta')
+
+        async def check():
+            from theme.dialog.racetime_check_result import open_check_result
+
+            async def done():
+                self.refresh()
+                if self.view is not None:
+                    await self.view.refresh()
+
+            with self._client:
+                await open_check_result(match_id, on_done=done)
+
+        with ui.row().classes('gap-2 items-center'):
+            if held.get('url'):
+                link_button('Open room', held['url']).props('flat no-caps color=primary')
+            ui.button('Check result', on_click=check).props('color=primary')
 
     def _site_item(self, row: dict) -> None:
         match_id = row['id']

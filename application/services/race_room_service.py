@@ -30,6 +30,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import weakref
+from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from typing import Dict, List, Optional, Tuple
 
@@ -42,6 +43,7 @@ from application.services.audit_service import AuditActions, AuditService
 from application.services.auth_service import AuthService
 from application.services.match.match_status import has_recorded_result
 from application.services.notification_catalog import PLAYERS, RACE_ROOM_OPEN
+from application.services.race_room_holds import Hold, RacePlayer, entrant_snapshot, hold_for
 from application.services.user_service import UserService
 from application.tenant_context import require_tenant_id
 from application.utils.clients import racetime_rooms_client
@@ -60,6 +62,27 @@ from models import (
 from racetimebot.transport import EntrantStatus, RaceEntrant, RaceRoomEvent
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass(frozen=True)
+class HeldPlayer:
+    match_player_id: int
+    name: str
+    racetime_name: str
+    place: Optional[int]
+    finish_seconds: Optional[int]
+    status: str
+
+
+@dataclass(frozen=True)
+class HeldResult:
+    match_id: int
+    room_url: str
+    reason: str
+    detail: str
+    players: List[HeldPlayer]
+    other_runners: List[str] = field(default_factory=list)
+    fpa_calls: List[dict] = field(default_factory=list)
 
 # One opener at a time per room key. The 60s poll and the series push can both
 # reach the same match, and with a ``startrace`` round trip between "no room yet"
@@ -157,7 +180,9 @@ class RaceRoomService:
             actor, room, match, AuditActions.RACE_ROOM_OPENED, EventType.RACE_ROOM_OPENED,
         )
         await self._notify_players_room_open(match, room)
-        if attach_seed:
+        # A room the bot runs posts its own seed, at the tournament's set time
+        # before the start (RaceRoomBotService), not the moment the room opens.
+        if attach_seed and not tournament.racetime_bot_runs_room:
             await self._attach_seed(match, actor)
         return room
 
@@ -191,6 +216,7 @@ class RaceRoomService:
             from application.services.tenant_service import TenantService
             from application.utils.discord_embeds import COLOR_STARTED, match_embed, time_field
             from application.utils.discord_messages import race_room_open_dm
+            from application.utils.discord_messages_racetime import race_room_open_unlinked_dm
 
             link = notification_links.race_room(room.url)
             if link is None:
@@ -201,6 +227,14 @@ class RaceRoomService:
             body = race_room_open_dm(
                 tournament.name, time_field(match.scheduled_at), player_names=names,
             )
+            # The bot invites and scores players by their racetime account, so a
+            # player without one is sent to link it first.
+            unlinked_body = unlinked_link = None
+            if tournament.racetime_bot_runs_room:
+                unlinked_body = race_room_open_unlinked_dm(
+                    tournament.name, time_field(match.scheduled_at), player_names=names,
+                )
+                unlinked_link = await notification_links.profile_connected_accounts()
             embed = match_embed(
                 title='🏁 Your race room is open', color=COLOR_STARTED,
                 tournament=tournament.name,
@@ -210,10 +244,17 @@ class RaceRoomService:
             service = DiscordService()
             for player in players:
                 user = player.user
-                if user.discord_id:
+                if not user.discord_id:
+                    continue
+                if unlinked_body and unlinked_link and not user.racetime_user_id:
                     discord_queue.enqueue(service.send_dm(
-                        int(user.discord_id), body, embed=embed, link=link, notice=RACE_ROOM_OPEN.to(PLAYERS),
+                        int(user.discord_id), unlinked_body, embed=embed, link=unlinked_link,
+                        notice=RACE_ROOM_OPEN.to(PLAYERS),
                     ))
+                    continue
+                discord_queue.enqueue(service.send_dm(
+                    int(user.discord_id), body, embed=embed, link=link, notice=RACE_ROOM_OPEN.to(PLAYERS),
+                ))
         except Exception:
             logger.exception('race room open DM failed for match %s', match.id)
 
@@ -264,7 +305,12 @@ class RaceRoomService:
             logger.info('auto-open skipped for match %s: no racetime goal set', match.id)
             return None
         players = list(match.players)
-        if not players or not all(
+        if not players:
+            return None
+        # A room the bot runs opens for unlinked players too: they're DMed to
+        # link racetime, staff see the gap on the row, and the result waits for
+        # staff if they never do.
+        if not match.tournament.racetime_bot_runs_room and not all(
             getattr(p.user, 'racetime_user_id', None) for p in players
         ):
             # Eligibility gate: every entrant must have linked racetime.
@@ -343,49 +389,183 @@ class RaceRoomService:
         finishers are placed by racetime's reported place (or elapsed time),
         non-finishers get a null place/time. Entrants whose racetime handle isn't
         linked to a ``User`` are surfaced in the audit detail for staff reconcile.
+
+        A room the bot runs records only a clean result; anything a person should
+        look at first (:mod:`race_room_holds`) is held for the Check result dialog.
         """
         actor = actor or await self._system_actor()
-        now = datetime.now(timezone.utc)
         match = await self._match_of(room, with_players=True)
+
+        if match is not None and match.tournament.racetime_bot_runs_room:
+            hold = hold_for(
+                [RacePlayer(mp.user.preferred_name, mp.user.racetime_user_id) for mp in match.players],  # type: ignore[attr-defined]
+                entrants,
+                fpa_calls=room.fpa_calls or [],
+                close_finish_ms=match.tournament.racetime_close_finish_ms,
+            )
+            if hold is not None:
+                await self._hold(room, match, entrants, hold, actor)
+                return
 
         results, unmatched = self._map_results(match, entrants)
         first_result = match is not None and not has_recorded_result(match.players)  # type: ignore[attr-defined]
+        await self._write_results(match, results)
+        await self.room_repository.update(room, status=RaceRoomStatus.FINISHED)
+        await self._audit_and_emit(
+            actor, room, match, AuditActions.RACE_ROOM_FINISHED, EventType.RACE_ROOM_FINISHED,
+        )
+        await self._report_results(
+            room, match, results, actor, first_result=first_result,
+            extra={'unmatched_handles': unmatched},
+        )
+
+    async def _write_results(
+        self, match: Optional[Match], results: Dict[MatchPlayers, Tuple[Optional[int], Optional[int]]],
+    ) -> None:
+        now = datetime.now(timezone.utc)
         for mp, (rank, ftime) in results.items():
             mp.finish_rank = rank
             mp.finish_time = ftime
             await save_fields(mp, 'finish_rank', 'finish_time')
-
         if match is not None:
             if match.started_at is None:
                 match.started_at = now
             match.finished_at = now
             await save_fields(match, 'started_at', 'finished_at')
 
-        await self.room_repository.update(room, status=RaceRoomStatus.FINISHED)
-
-        detail = {
-            'ranks': {str(mp.id): rank for mp, (rank, _t) in results.items()},
-            'unmatched_handles': unmatched,
-        }
-        await self._audit_and_emit(
-            actor, room, match, AuditActions.RACE_ROOM_FINISHED, EventType.RACE_ROOM_FINISHED,
-        )
+    async def _report_results(
+        self, room: RacetimeRoom, match: Optional[Match],
+        results: Dict[MatchPlayers, Tuple[Optional[int], Optional[int]]],
+        actor: User, *, first_result: bool, extra: Optional[dict] = None,
+    ) -> None:
+        """Audit the recorded result and feed the existing reporting path, so
+        subscribers and downstream systems react exactly as they do for a
+        manually-recorded result."""
+        detail = {'ranks': {str(mp.id): rank for mp, (rank, _t) in results.items()}}
+        detail.update(extra or {})
         await self._audit_and_emit(
             actor, room, match,
             AuditActions.RACE_ROOM_RESULT_RECORDED, EventType.RACE_ROOM_RESULT_RECORDED,
             extra=detail,
         )
-        # Feed the existing reporting path so subscribers and downstream systems
-        # react exactly as they do for a manually-recorded result.
-        if match is not None:
-            self._publish_match_result(match, results, actor)
-            if first_result:
-                from application.services import result_alerts
-                from application.services.discord import discord_queue
-                discord_queue.enqueue(result_alerts.match_result_in(match.id, None, result_alerts.RACE_ROOM))
-            await self._push_challonge(match, actor)
-            await self._notify_bracket_sources(match, actor)
-            await self._settle_bracket(match, actor)
+        if match is None:
+            return
+        self._publish_match_result(match, results, actor)
+        if first_result:
+            from application.services import result_alerts
+            from application.services.discord import discord_queue
+            discord_queue.enqueue(result_alerts.match_result_in(match.id, None, result_alerts.RACE_ROOM))
+        await self._push_challonge(match, actor)
+        await self._notify_bracket_sources(match, actor)
+        await self._settle_bracket(match, actor)
+
+    async def _hold(
+        self, room: RacetimeRoom, match: Match, entrants: List[RaceEntrant], hold: Hold, actor: User,
+    ) -> None:
+        """Close the room but keep the result off the match until staff check it."""
+        from application.events import match_live
+
+        now = datetime.now(timezone.utc)
+        if match.started_at is None:
+            match.started_at = now
+        match.finished_at = now
+        await save_fields(match, 'started_at', 'finished_at')
+        await self.room_repository.update(
+            room, status=RaceRoomStatus.FINISHED,
+            held_reason=hold.reason, held_detail=hold.detail,
+            held_entrants=entrant_snapshot(entrants),
+        )
+        await self._audit_and_emit(
+            actor, room, match, AuditActions.RACE_ROOM_FINISHED, EventType.RACE_ROOM_FINISHED,
+        )
+        await self._audit_and_emit(
+            actor, room, match, AuditActions.RACE_ROOM_RESULT_HELD, EventType.RACE_ROOM_RESULT_HELD,
+            extra={'reason': hold.reason.value, 'detail': hold.detail},
+        )
+        match_live.publish(match.id)
+
+    # ---- held results ----------------------------------------------------
+
+    @requires_feature(FeatureFlag.RACETIME_ROOMS)
+    async def held_result(self, actor: Optional[User], match_id: int) -> HeldResult:
+        """What the Check result dialog shows for a held race: the reason, and
+        each player beside what racetime reported for them."""
+        match = require_found(await self._load_match(match_id), 'Match')
+        await AuthService.ensure(
+            await AuthService.can_confirm_match(actor, match),
+            'You do not have permission to check this result.',
+        )
+        room = await self.room_repository.get_by_match(match)
+        if room is None or room.held_reason is None:
+            raise ValueError('This race result is no longer waiting for a check.')
+        reported = {e.get('user_id'): e for e in room.held_entrants or [] if e.get('user_id')}
+        rows = []
+        for mp in match.players:  # type: ignore[attr-defined]
+            raced = reported.get(mp.user.racetime_user_id or '')
+            ms = raced.get('finish_ms') if raced else None
+            finished = bool(raced) and raced.get('status') == EntrantStatus.DONE.value and ms is not None  # type: ignore[union-attr]
+            rows.append(HeldPlayer(
+                match_player_id=mp.id,
+                name=mp.user.preferred_name,
+                racetime_name=(raced or {}).get('name') or '',
+                place=(raced or {}).get('place') if finished else None,
+                finish_seconds=ms // 1000 if finished else None,  # type: ignore[operator]
+                status=(raced or {}).get('status') or '',
+            ))
+        rows.sort(key=lambda r: (r.place is None, r.place or 0, r.finish_seconds or 0))
+        strangers = [
+            e.get('name') or e.get('user_id') for uid, e in reported.items()
+            if uid not in {mp.user.racetime_user_id for mp in match.players}  # type: ignore[attr-defined]
+        ]
+        return HeldResult(
+            match_id=match.id, room_url=room.url, reason=room.held_reason,
+            detail=room.held_detail or '', players=rows, other_runners=strangers,
+            fpa_calls=list(room.fpa_calls or []),
+        )
+
+    @requires_feature(FeatureFlag.RACETIME_ROOMS)
+    async def confirm_held_result(
+        self, actor: Optional[User], match_id: int,
+        placements: Dict[int, Tuple[Optional[int], Optional[int]]],
+    ) -> None:
+        """Record a held race as staff checked it, then report it like any other.
+
+        ``placements`` is ``{match_player_id: (place, finish_seconds)}``; a
+        ``None`` place is a forfeit. Places must be distinct and start at 1.
+        """
+        match = require_found(await self._load_match(match_id), 'Match')
+        await AuthService.ensure(
+            await AuthService.can_confirm_match(actor, match),
+            'You do not have permission to confirm this result.',
+        )
+        room = await self.room_repository.get_by_match(match)
+        if room is None or room.held_reason is None:
+            raise ValueError('This race result is no longer waiting for a check.')
+        by_id = {mp.id: mp for mp in match.players}  # type: ignore[attr-defined]
+        if set(placements) != set(by_id):
+            raise ValueError('Give every player a place, or mark them as forfeited.')
+        places = sorted(p for p, _t in placements.values() if p is not None)
+        if not places:
+            raise ValueError('At least one player has to finish.')
+        if places != list(range(1, len(places) + 1)):
+            raise ValueError('Places must run 1, 2, 3… with no gaps or repeats.')
+        for place, seconds in placements.values():
+            if place is not None and (seconds is None or seconds <= 0):
+                raise ValueError('Every finisher needs a finish time.')
+
+        results = {
+            by_id[mp_id]: (place, seconds if place is not None else None)
+            for mp_id, (place, seconds) in placements.items()
+        }
+        first_result = not has_recorded_result(match.players)  # type: ignore[attr-defined]
+        reason = room.held_reason
+        if not await self.room_repository.claim_hold(room):
+            raise ValueError('Someone else has already confirmed this result.')
+        await self._write_results(match, results)
+        await self._report_results(
+            room, match, results, actor, first_result=first_result,  # type: ignore[arg-type]
+            extra={'checked_hold': reason.value if hasattr(reason, 'value') else str(reason)},
+        )
 
     # ---- result mapping --------------------------------------------------
 
@@ -545,6 +725,18 @@ class RaceRoomLifecycle:
         self.service = service or RaceRoomService()
 
     async def handle_event(self, room: RacetimeRoom, event: RaceRoomEvent) -> None:
+        # The bot arriving in a room, and what's said there, are the room bot's;
+        # only status changes drive the lifecycle below.
+        if event.kind != 'race':
+            if room.match_id is not None:  # type: ignore[attr-defined]
+                from application.services.race_room_bot_service import RaceRoomBotService
+
+                bot = RaceRoomBotService()
+                if event.kind == 'joined':
+                    await bot.on_joined(room, event)
+                elif event.kind == 'chat':
+                    await bot.on_chat(room, event)
+            return
         # A room with no match is a qualifier live race (PR 10); route it to the
         # qualifier capture path instead of the match path.
         if room.match_id is None and await self._route_qualifier(room, event):

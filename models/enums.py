@@ -492,6 +492,19 @@ class RaceRoomStatus(str, Enum):
     CANCELLED = 'cancelled'
 
 
+class RaceRoomHoldReason(str, Enum):
+    """Why a finished race the bot ran waits for staff instead of recording itself.
+
+    Declared in the order the checks run: the first that applies is the one
+    shown, since one reason is enough to send it to staff.
+    """
+
+    FPA = 'fpa'
+    UNMATCHED = 'unmatched'
+    FORFEIT = 'forfeit'
+    CLOSE_FINISH = 'close_finish'
+
+
 class SyncStatus(str, Enum):
     """Reconciliation state of a synced SpeedGaming episode (PR 7).
 

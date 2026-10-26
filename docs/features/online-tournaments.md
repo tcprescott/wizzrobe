@@ -106,9 +106,58 @@ link button straight to it, and My Schedule leads with **Your race room is open*
 while a room on one of the viewer's matches is open or running
 (`RaceRoomService.open_rooms_for_player`; the section checks `RACETIME_ROOMS`).
 
-What isn't there yet: the live transport doesn't join the room's websocket, so
-in production nothing yet reports a room starting or finishing back to Wizzrobe,
-and an invitational profile's room has nobody to invite its entrants.
+## The room bot (`racetime_bot_runs_room`)
+
+A tournament with **Bot runs the room** ticked (tournament dialog → Racetime) has
+the category bot sit in each of its match rooms. `RealRacetimeTransport` asks
+`RacetimeRoomService.list_bot_run_rooms(category)` every 15s which rooms those
+are (open or running, tournament opted in, community's `RACETIME_ROOMS` on), joins
+each one's bot websocket (`/ws/o/bot/<room>` with the bot's bearer token), and
+leaves when racetime reports it finished or cancelled. Wire parsing lives in
+`racetimebot/protocol.py`; services speak in a room through
+`application/utils/clients/racetime_room_actions.py` (`say`, `invite`), which
+the manager wires to the right connection by the slug's category. Only match
+rooms are joined: qualifier live races keep the old status-only path.
+
+The transport reports three kinds of `RaceRoomEvent`: `joined` (the bot just
+arrived, with the room as it stands), `race` (once per status change, seeded
+with the status already stored so a rejoin after a restart reports only what
+changed), and `chat`. `RaceRoomLifecycle` sends the first and last to
+`RaceRoomBotService`:
+
+| When | What the bot does |
+|---|---|
+| Joins | Invites every linked player not yet in the room, greets once (`greeted_at`), posts the seed if due |
+| `racetime_seed_post_minutes` before the start (default 10) | Rolls the seed if there isn't one (system user, `generate_seed`) and posts its link and code once (`seed_posted_at`). The race-room worker's tick drives it; a `MATCH_SEED_ROLLED` subscriber posts an async roll the moment it lands |
+| `!seed` | Shows the seed again, or how long until it posts. Once per 20s per room |
+| `!forceroll` | Room monitors, or a linked account that `can_run_match`: posts the seed now |
+| `!fpa [note]` | Runners only, mid-race, once a minute each, ten per race: logged in `fpa_calls`, acknowledged with the race time, audited (`race_room.fpa_called`), and on-duty staff DMed (`racetime_fpa` notice, button into the room) |
+
+A bot-run room opens for players who haven't linked racetime (auto-open's
+all-linked gate is skipped); they get the room-open DM with a **Link racetime**
+button instead, and the board shows "<name> not linked" on the row. The
+room-open seed attach is skipped too, since the bot posts it at its set time.
+
+### Held results
+
+`record_finish` on a bot-run room records only a clean result. The checks in
+`application/services/race_room_holds.py` run in `RaceRoomHoldReason` order:
+an FPA call, a player or runner the bot can't match (unlinked, absent, or a
+stranger in the room), a forfeit or DQ, then two finishers within
+`racetime_close_finish_ms` (default 1000; 0 turns it off). The first that applies
+closes the room as `FINISHED` with `held_reason` / `held_detail` /
+`held_entrants` set, stamps the match finished with no ranks, and audits
+`race_room.result_held`. Staff see a **Held · <reason>** status on the row and a
+**Racetime results held** group in the Needs you inbox; **Check result**
+(`theme/dialog/racetime_check_result.py`) shows the reason and what racetime
+reported per player, and `RaceRoomService.confirm_held_result` (staff or the
+tournament's admins) writes the corrected places and times, clears the hold
+(conditionally, so two confirms record once), and reports it downstream exactly
+as a clean finish would (result event, result alert, Challonge, start.gg, the
+bracket).
+
+Not there yet: the restream `!ready` gate (planned with the Broadcaster crew
+role), and setting the three bot fields over REST or MCP.
 
 ## Migrating a community off SahasrahBot
 
