@@ -26,6 +26,7 @@ routes.
 import logging
 from typing import Any, Optional
 
+from application.event_context import get_current_event_id
 from application.services.notification_catalog import CATALOG, NoticeTarget
 from application.tenant_context import get_current_tenant_id
 from application.utils.app_links import (
@@ -62,7 +63,7 @@ from application.utils.app_links import (
 )
 from application.utils.discord_messages import DMLink
 from application.utils.settings_footnote import SettingsFootnote
-from application.utils.tenant_urls import tenant_url
+from application.utils.tenant_urls import event_path, tenant_url
 
 logger = logging.getLogger(__name__)
 
@@ -83,11 +84,13 @@ async def _current_tenant() -> Optional[Any]:
 
 
 async def link_for(label: str, path: str) -> Optional[DMLink]:
-    """``label`` → the tenant-absolute form of ``path``, or ``None``.
+    """``label`` → the tenant-absolute form of ``path`` in the event in scope, or ``None``.
 
     Absolute and tenant-qualified because a DM is read outside any request
     context: a bare ``/home/player`` resolves against nothing, and a path-mode
     community's prefix (or its own domain) is exactly what ``tenant_url`` adds.
+    The event's ``/e/<slug>`` goes in too, so a DM sent this year still opens
+    this year's page after next year's event becomes the default.
 
     Never raises. Every caller is a best-effort notifier that swallows its own
     Discord failures, so a builder that threw here would take the whole DM down
@@ -98,16 +101,36 @@ async def link_for(label: str, path: str) -> Optional[DMLink]:
     except Exception:
         logger.exception('notification link lookup failed for %s', path)
         return None
-    return link_for_tenant(tenant, label, path)
+    # A bare link still opens: a row page finds its own event, any other the default.
+    try:
+        slug = await event_slug(get_current_tenant_id(), get_current_event_id())
+    except Exception:
+        logger.warning('event lookup for a notification link failed; sending it bare', exc_info=True)
+        slug = None
+    return link_for_tenant(tenant, label, path, event_slug=slug)
 
 
-def link_for_tenant(tenant: Any, label: str, path: str) -> Optional[DMLink]:
+async def event_slug(tenant_id: Optional[int], event_id: Optional[int]) -> Optional[str]:
+    """The slug of ``event_id`` in ``tenant_id``, or ``None`` when either is unknown."""
+    from application.services.event_service import EventService
+
+    if tenant_id is None or event_id is None:
+        return None
+    ref = await EventService.ref(tenant_id, event_id)
+    return ref.slug if ref else None
+
+
+def link_for_tenant(
+    tenant: Any, label: str, path: str, *, event_slug: Optional[str] = None,
+) -> Optional[DMLink]:
     """:func:`link_for` for a caller that already holds the tenant row.
 
     The qualifier notifications run off a loaded ``run.tenant`` rather than the
     ambient scope, and re-resolving it would be a query for a row in hand.
+    Without ``event_slug`` the link is bare: fine for a row page, which opens in
+    its row's own event wherever the link pointed.
     """
-    return DMLink(label, tenant_url(tenant, path)) if tenant else None
+    return DMLink(label, tenant_url(tenant, event_path(event_slug, path))) if tenant else None
 
 
 # ---------------------------------------------------------------------------

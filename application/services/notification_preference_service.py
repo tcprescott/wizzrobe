@@ -51,7 +51,7 @@ SECTIONS: Tuple[Tuple[str, str], ...] = (
     ('Matches you crew', 'When you\'re commentating or tracking'),
     ('Matches you watch', 'Matches you tapped the bell on'),
     ('Tournaments and events you follow',
-     "Other people's matches, new events and qualifiers, and community events you subscribed to"),
+     "Other people's matches, new events and qualifiers, and meetups you subscribed to"),
     ('Volunteer shifts', "Shifts you're on"),
     ('Your membership', 'Joining, events you host, event check-in'),
     ('Staff alerts', 'Requests and problems someone on staff has to handle'),

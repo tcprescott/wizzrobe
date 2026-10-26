@@ -52,7 +52,7 @@ _KINDS = {
     MATCH: ('sports_esports', 'Your matches'),
     CREW: ('headset_mic', 'Crew'),
     SHIFT: ('volunteer_activism', 'Volunteer shifts'),
-    COMMUNITY: ('groups', 'Community events'),
+    COMMUNITY: ('groups', 'Meetups'),
     UNAVAILABLE: ('block', "Can't play"),
 }
 
@@ -187,7 +187,7 @@ async def my_timeline_view(
         'Your timeline',
         icon='view_timeline',
         subtitle=(
-            'Your matches, crew slots, volunteer shifts and community events, hour by hour.'
+            'Your matches, crew slots, volunteer shifts and meetups, hour by hour.'
             if include_community else
             'Your matches, crew slots and volunteer shifts, hour by hour.'
         ),

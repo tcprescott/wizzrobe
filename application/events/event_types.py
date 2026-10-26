@@ -12,6 +12,16 @@ from typing import FrozenSet
 
 
 class EventType:
+    # A community's events (one SGL weekend each). ``event`` here is the
+    # weekend; the bus's own "event" is a published message.
+    EVENT_CREATED = 'event.created'
+    EVENT_UPDATED = 'event.updated'
+    EVENT_WENT_LIVE = 'event.went_live'
+    EVENT_ARCHIVED = 'event.archived'
+    EVENT_UNARCHIVED = 'event.unarchived'
+    EVENT_DEFAULT_CHANGED = 'event.default_changed'
+    EVENT_DELETED = 'event.deleted'
+    EVENT_SETUP_COPIED = 'event.setup_copied'
     # Match lifecycle
     MATCH_CREATED = 'match.created'
     MATCH_UPDATED = 'match.updated'
@@ -242,6 +252,8 @@ class EventType:
 
     # Every published event name; drives the webhook UI multiselect + validation.
     ALL: FrozenSet[str] = frozenset({
+        EVENT_CREATED, EVENT_UPDATED, EVENT_WENT_LIVE, EVENT_ARCHIVED, EVENT_UNARCHIVED,
+        EVENT_DEFAULT_CHANGED, EVENT_DELETED, EVENT_SETUP_COPIED,
         MATCH_CREATED, MATCH_UPDATED, MATCH_DELETED, MATCH_CANCELLED, MATCH_RESCHEDULED,
         MATCH_SEATED, MATCH_STARTED, MATCH_FINISHED, MATCH_CONFIRMED, MATCH_FORFEITED,
         MATCH_ACKNOWLEDGED, MATCH_RESULT_RECORDED, MATCH_SEED_ROLLED,

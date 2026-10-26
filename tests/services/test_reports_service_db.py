@@ -19,7 +19,6 @@ from models import (
     Match,
     MatchPlayers,
     Stage,
-    SystemConfiguration,
     Tournament,
     Tracker,
     User,
@@ -29,7 +28,7 @@ UTC = timezone.utc
 
 
 from tests.api_helpers import create_community_member
-from tests.factories import utc
+from tests.factories import set_setting, utc
 
 
 async def _actor():
@@ -157,7 +156,7 @@ class TestGenerateCapacityForecast:
         assert out['player_counts'][-1] == 2  # 16:00, inside 14:30 + 90 min
 
     async def test_max_capacity_reads_system_config(self, db):
-        await SystemConfiguration.create(name='max_concurrent_players', value='100')
+        await set_setting(name='max_concurrent_players', value='100')
         out = await ReportsService().generate_capacity_forecast(FORECAST_START, FORECAST_END, actor=(await _actor()))
         assert out['max_capacity'] == 100
 

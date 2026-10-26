@@ -27,6 +27,15 @@ from models import AuditLog, User
 # Canonical action verbs used across the codebase. Keeping them here gives
 # one place to grep when reviewing audit coverage.
 class AuditActions:
+    # A community's events (one SGL weekend each) and their lifecycle
+    EVENT_CREATED = 'event.created'
+    EVENT_UPDATED = 'event.updated'
+    EVENT_WENT_LIVE = 'event.went_live'
+    EVENT_ARCHIVED = 'event.archived'
+    EVENT_UNARCHIVED = 'event.unarchived'
+    EVENT_DEFAULT_CHANGED = 'event.default_changed'
+    EVENT_DELETED = 'event.deleted'
+    EVENT_SETUP_COPIED = 'event.setup_copied'
     # Match lifecycle and CRUD
     MATCH_CREATED = 'match.created'
     MATCH_UPDATED = 'match.updated'

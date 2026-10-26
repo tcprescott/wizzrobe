@@ -110,6 +110,7 @@ class TableKeys:
     # would have kept the old User, Category and Page columns.
     ADMIN_FEEDBACK = 'admin.feedback_v2'
     ADMIN_COMMUNITY_EVENTS = 'admin.community_events'
+    ADMIN_EVENTS = 'admin.events'
     ADMIN_PAYOUTS = 'admin.payouts'
     ADMIN_QUALIFIERS = 'admin.qualifiers'
     ADMIN_QUALIFIER_LEADERBOARD = 'admin.qualifier_leaderboard'

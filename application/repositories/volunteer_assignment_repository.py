@@ -10,7 +10,7 @@ from typing import List, Optional, Sequence, Set, cast
 from application.repositories._event import event_scoped
 from application.repositories._save import save_fields
 from application.repositories._tenant import current_tenant_id, scoped
-from models import User, VolunteerAssignment, VolunteerShift
+from models import EventStatus, User, VolunteerAssignment, VolunteerShift
 
 _PREFETCH = ('user', 'shift', 'shift__position', 'assigned_by')
 
@@ -89,13 +89,13 @@ class VolunteerAssignmentRepository:
         include_drafts: bool = False,
         with_shiftmates: bool = False,
     ) -> List[VolunteerAssignment]:
-        """This user's assignments.
+        """This user's assignments in every live event (cross-event: My Shifts is theirs).
 
         Drafts are excluded by default: an ``auto_generated`` row is the
         coordinator's sketch and the volunteer has not been told about it (see
         ``VolunteerAutoscheduleService.publish_draft``).
         """
-        query = scoped(VolunteerAssignment.filter(user=user))
+        query = scoped(VolunteerAssignment.filter(user=user, shift__event__status=EventStatus.LIVE))
         if not include_drafts:
             query = query.filter(auto_generated=False)
         if upcoming_after is not None:

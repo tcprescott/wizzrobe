@@ -125,11 +125,11 @@
     },
     {
       "name": "settings-event",
-      "path": "/admin/settings/event"
+      "path": "/admin/event-settings/dates"
     },
     {
       "name": "settings-venue",
-      "path": "/admin/settings/venue"
+      "path": "/admin/event-settings/venue"
     },
     {
       "name": "settings-members",

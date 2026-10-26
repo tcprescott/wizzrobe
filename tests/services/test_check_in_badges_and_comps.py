@@ -206,10 +206,10 @@ class TestComps:
 
     @pytest.fixture
     async def window(self, db):
-        from models import SystemConfiguration
+        from tests.factories import set_setting
         for key, value in (('event_start_date', '2026-10-09'), ('event_end_date', '2026-10-11'),
                            ('volunteer_comp_tiers', '8, 12, 16')):
-            await SystemConfiguration.create(name=key, value=value, tenant_id=DEFAULT_TEST_TENANT_ID)
+            await set_setting(name=key, value=value, tenant_id=DEFAULT_TEST_TENANT_ID)
 
     async def _hours(self, user, hours, *, auto_generated=False):
         from datetime import datetime, timezone

@@ -42,6 +42,7 @@ from .discord_tournament_grant_repository import DiscordTournamentGrantRepositor
 from .emergency_contact_repository import EmergencyContactRepository
 from .equipment_repository import EquipmentRepository
 from .event_repository import EventRepository
+from .event_setup_repository import EventSetupRepository
 from .feature_flag_group_repository import FeatureFlagGroupRepository
 from .feature_flag_repository import TenantFeatureFlagRepository
 from .feedback_repository import FeedbackRepository
@@ -133,6 +134,7 @@ __all__ = [
     'EmergencyContactRepository',
     'EquipmentRepository',
     'EventRepository',
+    'EventSetupRepository',
     'FeatureFlagGroupRepository',
     'FeedbackRepository',
     'ItemTrackerRepository',

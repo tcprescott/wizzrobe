@@ -98,6 +98,7 @@ def create() -> None:
         '/equipment/qr-labels',
         roles=[Role.STAFF, Role.EQUIPMENT_MANAGER],
         feature=FeatureFlag.EQUIPMENT,
+        scope='community',
     )
     async def equipment_qr_labels(
         ids: str = '', cols: int = _DEFAULT_COLS,

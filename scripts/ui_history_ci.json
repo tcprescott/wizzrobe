@@ -144,8 +144,8 @@
         {
           "goto": "/home/event?view=community",
           "expect": {
-            "pressed": "Community",
-            "title": "^Community — Event — "
+            "pressed": "Meetups",
+            "title": "^Meetups — Event — "
           }
         }
       ]
@@ -154,39 +154,39 @@
       "name": "settings-pane",
       "steps": [
         {
-          "goto": "/admin/settings",
+          "goto": "/admin/event-settings",
           "expect": {
-            "url": "^/admin/settings$",
-            "title": "^Settings — Admin — "
+            "url": "^/admin/event-settings$",
+            "title": "^Event settings — Admin — "
           }
         },
         {
           "expect": {
-            "url": "^/admin/settings/venue$",
-            "title": "^Venue — Settings — Admin — "
+            "url": "^/admin/event-settings/venue$",
+            "title": "^Venue — Event settings — Admin — "
           },
           "clickSelector": "[data-pane=venue]"
         },
         {
           "back": true,
           "expect": {
-            "url": "^/admin/settings$",
-            "title": "^Settings — Admin — ",
+            "url": "^/admin/event-settings$",
+            "title": "^Event settings — Admin — ",
             "visible": ".wiz-settings-grid"
           }
         },
         {
           "forward": true,
           "expect": {
-            "url": "^/admin/settings/venue$",
+            "url": "^/admin/event-settings/venue$",
             "hidden": ".wiz-settings-grid"
           }
         },
         {
           "reload": true,
           "expect": {
-            "url": "^/admin/settings/venue$",
-            "title": "^Venue — Settings"
+            "url": "^/admin/event-settings/venue$",
+            "title": "^Venue — Event settings"
           }
         }
       ]

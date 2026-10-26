@@ -42,21 +42,30 @@ class TestPaths:
 
 
 class TestLinkBuilding:
+    @pytest.fixture(autouse=True)
+    def _event(self):
+        with patch.object(links, 'event_slug', AsyncMock(return_value='sgl26')):
+            yield
+
     async def test_a_link_is_absolute_and_tenant_qualified(self):
-        """A relative path is meaningless in a DM, which has no request context."""
+        """A relative path is meaningless in a DM, which has no request context.
+
+        The link names the event it was sent from, so the page opens in that
+        event's scope even after the community's default moves on.
+        """
         tenant = type('T', (), {'slug': 'acme', 'domain': None})()
         with patch.object(links, '_current_tenant', AsyncMock(return_value=tenant)):
             link = await links.player_schedule(9)
         assert link is not None
         assert link.label == 'Pick a time'
-        assert link.url.endswith('/t/acme/home/player?schedule=9')
+        assert link.url.endswith('/t/acme/e/sgl26/home/player?schedule=9')
         assert link.url.startswith('http')
 
     async def test_a_custom_domain_wins_over_the_platform_prefix(self):
         tenant = type('T', (), {'slug': 'acme', 'domain': 'play.acme.gg'})()
         with patch.object(links, '_current_tenant', AsyncMock(return_value=tenant)):
             link = await links.admin_users()
-        assert link == DMLink('Review the request', 'https://play.acme.gg/admin/members')
+        assert link == DMLink('Review the request', 'https://play.acme.gg/e/sgl26/admin/members')
 
     async def test_no_tenant_yields_no_link_rather_than_a_broken_one(self):
         with patch.object(links, '_current_tenant', AsyncMock(return_value=None)):
@@ -67,8 +76,8 @@ class TestLinkBuilding:
         with patch.object(links, '_current_tenant', AsyncMock(return_value=tenant)):
             crew = await links.crew_match(4)
             agree = await links.player_agree(11)
-        assert crew.url.endswith('/t/acme/home/my-crew?match=4')
-        assert agree.url.endswith('/t/acme/home/player?agree=11')
+        assert crew.url.endswith('/t/acme/e/sgl26/home/my-crew?match=4')
+        assert agree.url.endswith('/t/acme/e/sgl26/home/player?agree=11')
 
     async def test_a_failed_lookup_costs_the_button_not_the_dm(self):
         """Every caller is a best-effort notifier that swallows Discord failures.

@@ -68,7 +68,7 @@
     font-style: normal;
     font-weight: 400;
     font-display: block;
-    src: url('/static/fonts/material-symbols-outlined-nav.woff2?v=e33b05f3c1b0') format('woff2');
+    src: url('/static/fonts/material-symbols-outlined-nav.woff2?v=7c927a2dd9d4') format('woff2');
 }
 
 .material-symbols-outlined {
@@ -864,6 +864,160 @@ body:has(.wiz-header) .q-notifications__list--top {
     font-weight: 600;
     opacity: 0.75;
     margin-left: var(--space-1);
+}
+
+/* The event button after the wordmark (theme/event_switcher.py): an outlined
+   pill naming the event the page shows. Archived turns it amber. */
+.wiz-header .q-btn.wiz-event-switch {
+    margin-left: var(--space-2);
+    padding: 0 var(--space-2) 0 var(--space-3);
+    min-height: 32px;
+    border: 1px solid var(--border-strong);
+    border-radius: 999px;
+    color: var(--fg);
+    font-weight: 600;
+}
+
+.wiz-event-switch .q-btn__content {
+    flex-wrap: nowrap;
+    gap: var(--space-1);
+}
+
+.wiz-event-switch__name {
+    max-width: 14rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.wiz-header .q-btn.wiz-event-switch--archived {
+    color: var(--status-pending);
+    border-color: currentColor;
+}
+
+.q-menu.wiz-event-menu {
+    min-width: 18rem;
+    max-width: min(24rem, calc(100vw - 2rem)) !important;
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-3);
+    background: var(--surface);
+    color: var(--fg);
+}
+
+.wiz-event-menu__title {
+    display: none;
+}
+
+.q-item__label--header.wiz-event-menu__group {
+    padding: var(--space-3) var(--space-3) var(--space-1);
+    font-size: 0.6875rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--fg-muted);
+}
+
+.wiz-event-menu__item {
+    min-height: 52px;
+}
+
+.wiz-event-menu__item.q-item--active {
+    background: var(--accent-soft);
+    color: var(--fg);
+}
+
+.wiz-event-menu__name {
+    font-weight: 600;
+}
+
+.wiz-event-menu__manage {
+    color: var(--wiz-link);
+    font-weight: 600;
+}
+
+.wiz-event-menu__manage .q-icon {
+    color: var(--wiz-link);
+}
+
+/* On a phone the button stands in for the community's name (its colour mark
+   stays), and the menu rises as a bottom sheet like the help menus. */
+@media (max-width: 599.98px) {
+    .wiz-header:has(.wiz-event-switch) .wiz-wordmark {
+        font-size: 0;
+        gap: 0;
+    }
+
+    .wiz-event-switch__name {
+        max-width: 9rem;
+    }
+
+    .q-menu.wiz-event-menu {
+        position: fixed !important;
+        top: auto !important;
+        left: 0 !important;
+        right: 0 !important;
+        bottom: 0 !important;
+        width: 100% !important;
+        max-width: none !important;
+        max-height: 85vh !important;
+        border-width: 1px 0 0;
+        border-radius: 16px 16px 0 0;
+        box-shadow: 0 0 0 100vmax var(--scrim);
+        padding-bottom: env(safe-area-inset-bottom, 0px);
+    }
+
+    .wiz-event-menu__title {
+        display: block;
+        padding: var(--space-4) var(--space-4) 0;
+        font-size: var(--text-lg);
+        font-weight: 700;
+    }
+}
+
+/* Home › Tournaments with several live events: one heading per event. */
+.wiz-event-heading {
+    margin-top: var(--space-4);
+}
+
+.wiz-event-heading__name {
+    font-size: 1.125rem;
+    font-weight: 700;
+}
+
+/* The links back to archived events at the end of a personal page. */
+.wiz-past-events {
+    margin-top: var(--space-3);
+    color: var(--fg-muted);
+}
+
+/* Admin's list in two halves (theme/drawer_nav.render_half_heading): the event
+   the pages belong to, then Community-wide. A label row, not a destination. */
+.q-drawer .wiz-drawer-half {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    margin: var(--space-2) 6px 0;
+    padding: var(--space-2) var(--space-2);
+    border-radius: var(--radius-md);
+    background: var(--surface-sunken);
+    color: var(--fg);
+    font-weight: 700;
+}
+
+.q-drawer .wiz-drawer-half--event {
+    background: var(--accent-soft);
+}
+
+.q-drawer .wiz-drawer-half--community {
+    margin-top: var(--space-4);
+}
+
+.wiz-drawer-half__name {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 /* Plain nav link inside the header bar. */

@@ -42,6 +42,7 @@ from pages.home_tabs.player import count_waiting_on_you, render_player_dashboard
 from theme.empty_state import fun_fact
 from theme.layout_probe import skip_layout_probe
 from theme.links import link_button
+from theme.past_events import render_past_events
 from theme.steady import steady_refreshable
 from theme.tables.admin_crud import capture_render_context, scoped_background
 from theme.url_state import consume_deep_link, url_param, url_state
@@ -174,6 +175,7 @@ async def my_schedule_tab(
             drew = await my_crew_tab(focus_match=links['match'], on_empty=recheck_soon) or drew
         if not drew:
             nothing_yet()
+        await render_past_events(user, home_url(HOME_SCHEDULE))
         state_links.update(dict.fromkeys(state_links))
         shift_links.update(release=None, shifts=False)
         # ``match`` is a filter the board still shows, so it stays.

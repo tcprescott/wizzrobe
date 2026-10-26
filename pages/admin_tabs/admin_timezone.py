@@ -27,7 +27,7 @@ async def admin_timezone_page() -> None:
     actor = await get_user_from_session(app.storage.user)
     can_edit = await AuthService.is_staff(actor)
 
-    settings = await TimezoneService.get_settings()
+    settings = await TimezoneService.community_settings()
 
     with ui.column().classes('page-container-narrow'):
         page_header(

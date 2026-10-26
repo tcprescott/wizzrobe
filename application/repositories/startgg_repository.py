@@ -16,6 +16,7 @@ from application.repositories._event import event_scoped, live_event_scoped
 from application.repositories._save import save_fields
 from application.repositories._tenant import current_tenant_id, scoped
 from models import (
+    EventStatus,
     Match,
     StartggConnection,
     StartggEntrant,
@@ -321,9 +322,14 @@ class StartggRepository:
 
     @staticmethod
     async def open_unbooked_sets_for_user(user: User) -> List[StartggSet]:
+        """Open, unbooked sets the user is in.
+
+        Across every live event (cross-event: it feeds the player's own schedule).
+        """
         return await scoped(StartggSet.filter(
             Q(entrant1__user=user) | Q(entrant2__user=user),
             state=StartggSetState.OPEN, match_id__isnull=True,
+            tournament__event__status=EventStatus.LIVE,
         )).prefetch_related('tournament', 'pool__phase', 'entrant1__user', 'entrant2__user')
 
     @staticmethod
@@ -340,10 +346,14 @@ class StartggRepository:
 
     @staticmethod
     async def open_set_sets_for_user(user: User) -> List[StartggSet]:
-        """Open sets the user is in whose best-of games are partly booked."""
+        """Open sets the user is in whose best-of games are partly booked.
+
+        Across every live event (cross-event: it feeds the player's own schedule).
+        """
         return await scoped(StartggSet.filter(
             Q(entrant1__user=user) | Q(entrant2__user=user),
             state=StartggSetState.OPEN, match__set_best_of__gt=1,
+            tournament__event__status=EventStatus.LIVE,
         )).prefetch_related('tournament', 'pool__phase', 'entrant1__user', 'entrant2__user')
 
     @staticmethod

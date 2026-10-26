@@ -163,7 +163,7 @@ async def test_community_events_join_the_timeline_one_piece_per_day(monkeypatch)
         return []
 
     def event(id_, start, minutes, location=None):
-        return SimpleNamespace(id=id_, title=f'Event {id_}', location=location,
+        return SimpleNamespace(id=id_, event_id=1, title=f'Event {id_}', location=location,
                                starts_at=start, duration_minutes=minutes)
 
     overnight = event(1, datetime(2026, 10, 23, 22, 0, tzinfo=UTC), 600, 'Lobby')

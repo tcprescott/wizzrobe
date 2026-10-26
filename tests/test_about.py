@@ -31,7 +31,7 @@ class TestAboutPages:
     def test_registers_every_route_as_public(self):
         source = inspect.getsource(about_page.create)
         for route in ROUTES:
-            assert f"@public_page('{route}')" in source
+            assert f"@public_page('{route}', scope='community')" in source
 
     def test_routes_never_join_protected_routes(self):
         about_page.create()

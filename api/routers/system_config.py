@@ -8,8 +8,7 @@ from api.dependencies import ServiceErrorRoute, require_staff, require_staff_wri
 from api.schemas.config import ConfigEntryResponse, ConfigValueUpdate
 from application.errors import require_found
 from application.services import SystemConfigService
-from application.tenant_context import require_tenant_id
-from models import SystemConfiguration, User
+from models import User
 
 router = APIRouter(prefix="/config", tags=["System Config"], route_class=ServiceErrorRoute)
 
@@ -25,8 +24,9 @@ router = APIRouter(prefix="/config", tags=["System Config"], route_class=Service
     ),
 )
 async def list_config(actor: User = Depends(require_staff)):
-    # Scope to the token's tenant; SystemConfiguration.name is unique per tenant.
-    return await SystemConfiguration.filter(tenant_id=require_tenant_id()).order_by('name')
+    # The community's rows plus the default event's own settings (capacity,
+    # hours, dates…), which live on the event now.
+    return [ConfigEntryResponse(name=name, value=value) for name, value in await SystemConfigService.list_entries(actor)]
 
 
 @router.get(
@@ -40,8 +40,9 @@ async def list_config(actor: User = Depends(require_staff)):
     ),
 )
 async def get_config(key: str, actor: User = Depends(require_staff)):
+    entries = dict(await SystemConfigService.list_entries(actor))
     return require_found(
-        await SystemConfiguration.get_or_none(name=key, tenant_id=require_tenant_id()),
+        ConfigEntryResponse(name=key, value=entries[key]) if key in entries else None,
         "Config key",
     )
 

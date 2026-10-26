@@ -4,6 +4,7 @@ from models import FeatureFlag
 from pages.admin import AdminAccess, build_admin_tabs
 from pages.admin_tabs.settings import (
     LEGACY_TAB_PANES,
+    build_event_settings_panes,
     build_settings_panes,
     resolve_pane,
 )
@@ -19,9 +20,15 @@ def _slugs(panes):
 def test_staff_sees_every_pane_in_menu_order():
     panes = build_settings_panes(STAFF, {FeatureFlag.VOLUNTEERS})
     assert _slugs(panes) == [
-        'general', 'event', 'venue', 'members', 'watch', 'volunteers',
+        'general', 'members', 'watch', 'volunteers',
         'discord', 'integrations', 'features',
     ]
+
+
+def test_staff_set_the_events_own_settings_on_event_settings():
+    panes = build_event_settings_panes(STAFF, {FeatureFlag.VOLUNTEERS, FeatureFlag.DISCORD_ROLE_SYNC})
+    assert _slugs(panes) == ['dates', 'capacity', 'venue', 'timezone', 'reward-tiers', 'discord-roles']
+    assert build_event_settings_panes(AdminAccess(is_sync_admin=True), set()) == []
 
 
 def test_volunteers_pane_follows_the_flag():
@@ -68,8 +75,8 @@ def test_no_pane_or_an_unknown_one_opens_the_settings_home():
     panes = build_settings_panes(STAFF, set())
     assert resolve_pane(panes, 'nonsense') is None
     assert resolve_pane(panes, None) is None
-    assert resolve_pane(panes, 'event').slug == 'event'
-    assert resolve_pane([], 'event') is None
+    assert resolve_pane(panes, 'members').slug == 'members'
+    assert resolve_pane([], 'members') is None
 
 
 def test_a_single_pane_skips_the_home():

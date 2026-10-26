@@ -106,7 +106,7 @@ class TestOnlinePlayRolesStayNarrow:
         assert _labels(Role.PRESET_MANAGER, ALL_FLAGS) == ['Seed Presets', 'Settings']
 
     def test_a_sync_admin_sees_the_sync_surfaces_only(self):
-        assert _labels(Role.SYNC_ADMIN, ALL_FLAGS) == ['Racetime', 'SpeedGaming', 'Settings']
+        assert _labels(Role.SYNC_ADMIN, ALL_FLAGS) == ['SpeedGaming', 'Racetime', 'Settings']
 
     def test_a_qualifier_admin_sees_qualifiers_only(self):
         assert _labels(Role.QUALIFIER_ADMIN, ALL_FLAGS) == ['Qualifiers']

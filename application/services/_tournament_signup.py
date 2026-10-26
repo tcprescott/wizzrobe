@@ -187,29 +187,23 @@ class TournamentSignupMixin:
 
         return FeatureFlag.CHALLONGE in await FeatureFlagService().enabled_flags()
 
-    async def _challonge_managed_ids(self) -> set[int]:
-        """Tournaments whose roster is driven by a synced Challonge bracket.
-
-        Empty when the community has the feature off. One query for the whole
-        card list; ``_signup_target`` asks the same question of a single row it
-        already holds.
-        """
-        if not await self._challonge_live():
-            return set()
-        rows = await self.repository.get_all(active_only=False)
-        return {t.id for t in rows if t.challonge_tournament_id}
-
     async def list_signup_cards(
-        self, user: Optional[User] = None, now: Optional[datetime] = None,
+        self, user: Optional[User] = None, now: Optional[datetime] = None, *, live_events: bool = False,
     ) -> List[TournamentSignupCard]:
         """Every active tournament, with this viewer's signup state on each.
+
+        The event in scope's, or with ``live_events`` every live event's
+        (Home › Tournaments, which groups them by event).
 
         One place resolves the window, the enrolment and the entrant list, so the
         tab, the REST payload and the MCP tool cannot describe the same
         tournament differently. A Challonge-linked tournament's roster is its
         mirrored bracket, not the Wizzrobe player pool.
         """
-        tournaments = await self.repository.get_all(active_only=True)
+        tournaments = (
+            await self.repository.active_in_live_events() if live_events
+            else await self.repository.get_all(active_only=True)
+        )
         if not tournaments:
             return []
         ids = [t.id for t in tournaments]
@@ -219,7 +213,10 @@ class TournamentSignupMixin:
         enrolled_ids = (
             await self.repository.enrolled_tournament_ids(user.id) if user else set()
         )
-        challonge_ids = await self._challonge_managed_ids()
+        challonge_ids = (
+            {t.id for t in tournaments if t.challonge_tournament_id}
+            if await self._challonge_live() else set()
+        )
         startgg_live = await self._startgg_live()
         rosters = {}
         if challonge_ids:
@@ -272,9 +269,6 @@ class TournamentSignupMixin:
         return FeatureFlag.STARTGG in await FeatureFlagService().enabled_flags()
 
     async def _is_challonge_managed(self, tournament: Tournament) -> bool:
-        # Asked of the row in hand rather than through ``_challonge_managed_ids``,
-        # which loads the tenant's whole tournament table — worth it once per
-        # page build, wasteful on every single signup.
         return bool(tournament.challonge_tournament_id) and await self._challonge_live()
 
     async def _signup_target(self, tournament_id: int, *, joining: bool) -> Tournament:

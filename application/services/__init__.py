@@ -19,6 +19,7 @@ from . import (
     check_in_sales,
     check_in_sync_worker,
     community_event_reminder,
+    event_setup_copy,
     item_tracker_catalog,
     notification_catalog,
     notification_links,
@@ -85,7 +86,7 @@ from .discord import (
 from .emergency_contact_service import EmergencyContactService
 from .equipment_service import EquipmentService
 from .event_info_service import EventGuide, EventInfoService
-from .event_service import EventService
+from .event_service import ArchiveCheck, EventRef, EventService
 from .exports import DataExportService, ExportFile, data_export_worker
 from .feature_flag_service import FeatureFlagService
 from .feedback_service import FeedbackService
@@ -188,6 +189,7 @@ __all__ = [
     'AccountOverview',
     'AnalyticsService',
     'ApiTokenService',
+    'ArchiveCheck',
     'AsyncQualifierConfig',
     'AsyncQualifierDraw',
     'AsyncQualifierLiveRaceService',
@@ -224,6 +226,7 @@ __all__ = [
     'EventDraft',
     'EventGuide',
     'EventInfoService',
+    'EventRef',
     'EventService',
     'ExportFile',
     'FeatureFlagService',
@@ -342,6 +345,7 @@ __all__ = [
     'discord_event_worker',
     'discord_queue',
     'discord_role_sync_worker',
+    'event_setup_copy',
     'get_user_from_discord_id',
     'get_user_from_session',
     'item_tracker_catalog',

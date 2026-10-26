@@ -12,12 +12,13 @@ from application.services import (
 )
 from application.utils.app_links import HOME_MY_SCHEDULE, VOLUNTEER_CHECK_IN, VOLUNTEER_MY_SHIFTS, home_url
 from middleware.auth import protected_tab_page
+from middleware.event_routing import default_event_redirect
 from models import Role, User
 from pages.check_in import check_in_desk_tab
 from pages.volunteer_tabs.availability import availability_tab
 from pages.volunteer_tabs.full_schedule import full_schedule_tab
 from pages.volunteer_tabs.proctor_station import proctor_station_tab
-from theme.base import BaseLayout
+from theme.base import BaseLayout, tab_slug
 from theme.section_menu import register_section_menu
 
 
@@ -77,7 +78,8 @@ def create() -> None:
     # a proctor or Broadcast Tech under neither, so each tab below keeps its own gate and a
     # visitor with none of them gets the unknown-route page the flags would give.
     @protected_tab_page('/volunteer', roles=[Role.VOLUNTEER, Role.PROCTOR, Role.STAFF, Role.CHECK_IN_DESK,
-                                             Role.VOLUNTEER_COORDINATOR, Role.STREAM_MANAGER])
+                                             Role.VOLUNTEER_COORDINATOR, Role.STREAM_MANAGER],
+                        scope='community')
     async def volunteer_page(
         section: str | None = None, request: Request = None, release: str | None = None,
         event: str | None = None,
@@ -88,6 +90,12 @@ def create() -> None:
         if section == VOLUNTEER_MY_SHIFTS:
             params = {'release': release} if release else {'shifts': 1}
             return RedirectResponse(f'{root_path}{home_url(HOME_MY_SCHEDULE, **params)}')
+
+        # My Availability is the viewer's own; the rest of the hub is one event's.
+        if section != tab_slug('My Availability'):
+            redirect = await default_event_redirect(request)
+            if redirect is not None:
+                return redirect
 
         ui.page_title(f'Volunteer — {await TenantService.current_community_name() or "Wizzrobe"}')
         user = await get_user_from_session(app.storage.user)

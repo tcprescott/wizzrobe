@@ -79,7 +79,7 @@ async def _tick() -> None:
             return
         message = reminder_dm(event.title, time_field(event.starts_at), event.location)
         embed = event_embed(
-            event, title='⏰ Community event starting soon', color=COLOR_CHECKED_IN,
+            event, title='⏰ Meetup starting soon', color=COLOR_CHECKED_IN,
             community_name=await TenantService.current_community_name(), description=message,
         )
         link = await notification_links.community_event(event.id)

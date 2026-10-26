@@ -21,14 +21,16 @@ from typing import Optional
 from nicegui import app, background_tasks, context, ui
 
 from application.content import parse_blocks
+from application.event_context import get_current_event_id
 from application.services import (
     BracketService,
+    EventService,
     FeatureFlagService,
     TournamentService,
     get_user_from_session,
 )
 from application.services.tournament_service import TournamentSignupCard
-from application.tenant_context import is_host_mode
+from application.tenant_context import is_host_mode, require_tenant_id
 from application.utils.app_links import HOME_TOURNAMENTS, home_url
 from application.utils.environment import host_oauth_handoff_enabled
 from application.utils.safe_url import http_url_or_empty
@@ -42,11 +44,13 @@ from theme.busy import busy_click
 from theme.dialog.challonge_signup_dialog import open_challonge_signup_dialog
 from theme.dialog.confirmation_dialog import ConfirmationDialog
 from theme.empty_state import empty_panel
+from theme.event_switcher import event_dates_label, event_status_chip
 from theme.help import help_icon
 from theme.help.render import render_blocks
 from theme.links import link_button
 from theme.notify import notify_error
 from theme.page_header import page_header
+from theme.past_events import render_past_events
 from theme.steady import steady_refreshable
 
 # The Profile's Challonge link, returning to this tab instead of the Profile so
@@ -439,19 +443,9 @@ async def tournaments_tab() -> None:
                                 open_triforce_dialog(tourney, user, context.client)),
                         ).props('flat color=primary dense no-caps')
 
-        @steady_refreshable
-        async def cards() -> None:
-            all_cards = await service.list_signup_cards(user)
-            native_ids: set[int] = set()
-            if FeatureFlag.BRACKETS in await FeatureFlagService().enabled_flags():
-                native_ids = {b.tournament_id for b in await BracketService().list_all_visible_brackets(user)}
-            if not all_cards:
-                empty_panel(
-                    'No tournaments are running right now. Check back when staff '
-                    'have set one up.', icon='emoji_events')
-                return
+        def render_sections(event_cards: list[TournamentSignupCard], native_ids: set[int]) -> None:
             for title, icon, predicate in _SECTIONS:
-                section = [c for c in all_cards if predicate(c)]
+                section = [c for c in event_cards if predicate(c)]
                 if not section:
                     continue
                 with ui.row().classes('items-center gap-2 q-mt-sm'):
@@ -460,5 +454,37 @@ async def tournaments_tab() -> None:
                 with ui.element('div').classes('wiz-tile-grid wiz-tile-grid--md'):
                     for card in section:
                         render_card(card, native_ids)
+
+        @steady_refreshable
+        async def cards() -> None:
+            # A live event's page lists every live event's tournaments; a past
+            # event's (or a draft's, for staff) lists that event's alone.
+            current = await EventService.ref(require_tenant_id(), get_current_event_id())
+            spanning = current is None or current.is_live
+            all_cards = await service.list_signup_cards(user, live_events=spanning)
+            native_ids: set[int] = set()
+            if FeatureFlag.BRACKETS in await FeatureFlagService().enabled_flags():
+                native_ids = {b.tournament_id for b in await BracketService().list_all_visible_brackets(user)}
+            if not all_cards:
+                empty_panel(
+                    'No tournaments are running right now. Check back when staff '
+                    'have set one up.', icon='emoji_events')
+            events = [
+                e for e in await EventService.visible_events(user)
+                if any(c.tournament.event_id == e.id for c in all_cards)
+            ]
+            if len(events) < 2:
+                render_sections(all_cards, native_ids)
+            for event in events if len(events) > 1 else ():
+                with ui.row().classes('wiz-event-heading items-center gap-2'):
+                    ui.icon('event', size='sm')
+                    ui.label(event.name).classes('wiz-event-heading__name')
+                    event_status_chip(event.status)
+                    dates = event_dates_label(event.starts_on, event.ends_on)
+                    if dates:
+                        ui.label(dates).classes('text-caption text-muted')
+                render_sections([c for c in all_cards if c.tournament.event_id == event.id], native_ids)
+            if spanning:
+                await render_past_events(user, home_url(HOME_TOURNAMENTS))
 
         await cards()

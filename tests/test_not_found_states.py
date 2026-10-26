@@ -18,14 +18,17 @@ from starlette.requests import Request
 import middleware.auth as auth_mw
 from application.services.feature_flag_service import reset_flag_cache
 from application.tenant_context import tenant_scope
+from middleware.tenant import EVENT_SLUG_SCOPE_KEY
 from models import FeatureFlag, Tenant, TenantFeatureFlag
 from theme.error_page import NOT_FOUND_HEADLINE, NOT_FOUND_MESSAGE
 
 
 def _request(path='/x', **scope):
+    # Named as the middleware leaves an /e/<slug> URL, so the gates below are
+    # what answers rather than the bare link's redirect to the default event.
     return Request({
         'type': 'http', 'method': 'GET', 'path': path, 'headers': [],
-        'query_string': b'', 'root_path': '', **scope,
+        'query_string': b'', 'root_path': '', EVENT_SLUG_SCOPE_KEY: 'bare', **scope,
     })
 
 

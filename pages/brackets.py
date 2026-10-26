@@ -27,6 +27,7 @@ import html
 from typing import Callable, Dict, List, Optional
 
 from nicegui import app, background_tasks, context, ui
+from starlette.responses import RedirectResponse
 
 from application.services import (
     AuthService,
@@ -41,6 +42,7 @@ from application.services.bracket_engines.standings import (
 from application.tenant_context import require_tenant_id, tenant_scope
 from application.utils.route_params import parse_route_id
 from middleware.auth import public_page
+from middleware.event_routing import page_request, row_event_redirect
 from models import (
     Bracket,
     BracketEntry,
@@ -351,8 +353,8 @@ async def _viewer():
 
 
 def create() -> None:
-    @public_page('/tournament/{tournament_id}/brackets', feature=FeatureFlag.BRACKETS)
-    async def bracket_index(tournament_id: str) -> None:
+    @public_page('/tournament/{tournament_id}/brackets', feature=FeatureFlag.BRACKETS, scope='row')
+    async def bracket_index(tournament_id: str) -> Optional[RedirectResponse]:
         user, is_staff = await _viewer()
         tid = parse_route_id(tournament_id)
 
@@ -365,7 +367,10 @@ def create() -> None:
         )
         if tid is None or tournament is None:
             await render_not_found(user=user)
-            return
+            return None
+        redirect = await row_event_redirect(page_request(), tournament.event_id)
+        if redirect is not None:
+            return redirect
         brackets = await service.list_visible_brackets(user, tid)
         public_stages = [b for b in brackets if BracketService.is_published(b)]
 
@@ -385,7 +390,7 @@ def create() -> None:
             ui.separator().classes('separator-spacing')
             if not brackets:
                 empty_panel('No brackets have been published for this tournament.', icon='account_tree')
-                return
+                return None
             with ui.element('div').classes('wiz-tile-grid'):
                 for bracket in brackets:
                     with ui.card().classes('q-pa-md'):
@@ -410,9 +415,10 @@ def create() -> None:
                                         f'/brackets/{bid}'
                                     ),
                                 ).props('flat dense')
+        return None
 
-    @public_page('/brackets/{bracket_id}', feature=FeatureFlag.BRACKETS)
-    async def bracket_detail(bracket_id: str) -> None:
+    @public_page('/brackets/{bracket_id}', feature=FeatureFlag.BRACKETS, scope='row')
+    async def bracket_detail(bracket_id: str) -> Optional[RedirectResponse]:
         user, is_staff = await _viewer()
         parsed_id = parse_route_id(bracket_id)
         service = BracketService()
@@ -423,11 +429,14 @@ def create() -> None:
         )
         if parsed_id is None or first is None:
             await render_not_found(user=user)
-            return
+            return None
         stage_id = parsed_id
         tournament = await Tournament.get_or_none(
             id=first.tournament_id, tenant_id=require_tenant_id(),
         )
+        redirect = await row_event_redirect(page_request(), tournament.event_id if tournament else None)
+        if redirect is not None:
+            return redirect
         tournament_name = tournament.name if tournament else 'Tournament'
         community = await TenantService.current_community_name() or 'Wizzrobe'
         ui.page_title(f'{first.name} — {tournament_name} — {community}')
@@ -626,3 +635,4 @@ def create() -> None:
             stage_id, request_refresh,
             tournament_id=live_bracket.tournament_id if live_bracket else None,
         )
+        return None
