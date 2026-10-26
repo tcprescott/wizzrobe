@@ -184,6 +184,11 @@ async def test_board_rows_show_the_hold_and_unlinked_players(db, sent):
     await MatchPlayers.create(match_id=upcoming.id, user_id=cleo.id)
     row = await MatchDisplayService().get_match_for_display(upcoming.id)
     assert row['racetime_unlinked'] == [cleo.preferred_name]
+    # The board loads players through a trimmed user prefetch; the bot fields must survive it.
+    rows = await MatchDisplayService().get_matches_for_display(match_ids=[held_match.id, upcoming.id])
+    by_id = {r['id']: r for r in rows}
+    assert by_id[upcoming.id]['racetime_unlinked'] == [cleo.preferred_name]
+    assert by_id[held_match.id]['racetime_held']['reason'] == 'close_finish'
 
 
 # ---- in the room ----------------------------------------------------------

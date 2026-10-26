@@ -30,7 +30,7 @@ from models import (
 #: them, so building the whole row for each was a fifth of the board's load.
 #: Anything that reads a person off :meth:`MatchRepository.get_all` must stay
 #: inside this list or add to it.
-BOARD_USER_FIELDS = ('id', 'discord_id', 'display_name', 'username', 'dm_notifications')
+BOARD_USER_FIELDS = ('id', 'discord_id', 'display_name', 'username', 'dm_notifications', 'racetime_user_id')
 
 
 def _board_user() -> Prefetch:
