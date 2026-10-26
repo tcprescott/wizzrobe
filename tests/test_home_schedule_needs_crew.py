@@ -51,3 +51,20 @@ def test_a_row_without_requirements_falls_back_to_one_of_each():
     row = _row(commentators=[{'approved': True}], trackers=[])
     del row['crew_required']
     assert needs_crew(row)
+
+
+def test_a_broadcaster_short_needs_crew_where_the_event_has_them():
+    assert needs_crew(_row(
+        crew_wanted={'commentators': True, 'trackers': True, 'broadcasters': True},
+        crew_required={'commentators': 2, 'trackers': 1, 'broadcasters': 1},
+        commentators=[{'approved': True}, {'approved': True}],
+        trackers=[{'approved': True}],
+        broadcasters=[],
+    ))
+
+
+def test_broadcasters_are_ignored_where_the_row_does_not_ask_for_them():
+    assert not needs_crew(_row(
+        commentators=[{'approved': True}, {'approved': True}],
+        trackers=[{'approved': True}],
+    ))

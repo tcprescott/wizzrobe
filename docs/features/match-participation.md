@@ -8,7 +8,12 @@ be there, and subscribing to updates. The DMs these flows send are documented in
 ## Crew signup and approval
 
 Commentators and Trackers (collectively "crew") sign up per match, and a staff
-member approves them. Signup works from the web or from Discord DM buttons — both
+member approves them. An event can add a third role, **Broadcasters** (Event
+settings → Crew, stored as `Event.config['broadcasters']`); everything below
+applies to them the same way. With the switch off, `CrewService.required_crew`
+reads a tournament's `required_broadcasters` as `0`, so the boards hide the
+column, the DM drops the Broadcaster button, and `signup_crew` /
+`MatchService.create_match` / `update_match` refuse new broadcasters. Signup works from the web or from Discord DM buttons — both
 land in the same service, so the rules and audit trail are identical.
 
 1. Signup inserts a `Commentator` or `Tracker` row with `approved=False`, either from the web UI (one tap on the board's **Sign up**, no confirmation step) or from the buttons on a stream-candidate DM (`discordbot/crew_signup.py`). The tournament's admins and crew coordinators get a DM linking the match on the admin board, so approval doesn't wait on someone happening to look. Home's schedule has a **Needs crew** switch that narrows the board to matches still short of approved crew for a role the tournament uses.

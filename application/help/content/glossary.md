@@ -44,6 +44,10 @@ come from the bracket instead of from match requests.
 stream. A stage belongs to them, not a proctor, and it has its own rules,
 separate from the tournament room's.
 
+**Broadcaster**: crew who run the stream for one match, on an event that has
+them turned on. Anyone in the community can sign up, the same way as
+commentators. Not the same as broadcast tech, a staff role for a whole stage.
+
 **Check out / check in (equipment)**: borrowing a piece of loaner gear and
 recording that it's back. Anyone signed in can check gear out to themselves, but
 only equipment managers and staff can check it back in. This has nothing to do
@@ -64,7 +68,8 @@ volunteers](/help/check-in#comped-staff-and-volunteers).
 from {state:Finished} to {state:Confirmed}. This is different from a crew member
 confirming they can cover a slot.
 
-**Crew**: commentators and trackers. Crew is per match, and separate from
+**Crew**: commentators and trackers, plus broadcasters on an event that has
+them. Crew is per match, and separate from
 volunteering, which is per shift.
 
 **Crew coordinator**: the person for a tournament who approves its crew signups,

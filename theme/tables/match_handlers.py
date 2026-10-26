@@ -51,10 +51,12 @@ class MatchTableHandlersMixin:
         prefetch_map = {
             'commentator': ('commentators', 'commentators__user'),
             'tracker': ('trackers', 'trackers__user'),
+            'broadcaster': ('broadcasters', 'broadcasters__user'),
         }
         attr_map = {
             'commentator': 'commentators',
             'tracker': 'trackers',
+            'broadcaster': 'broadcasters',
         }
         if role not in prefetch_map:
             ui.notify(f'Unknown role: {role}', color='warning')
@@ -78,10 +80,12 @@ class MatchTableHandlersMixin:
         prefetch_map = {
             'commentator': ('commentators', 'commentators__user'),
             'tracker': ('trackers', 'trackers__user'),
+            'broadcaster': ('broadcasters', 'broadcasters__user'),
         }
         attr_map = {
             'commentator': 'commentators',
             'tracker': 'trackers',
+            'broadcaster': 'broadcasters',
         }
         if role not in prefetch_map:
             ui.notify(f'Unknown role: {role}', color='warning')
@@ -101,7 +105,7 @@ class MatchTableHandlersMixin:
         back when the person is committed elsewhere at the same time.
         """
         row = args['row']
-        role = {'commentators': 'commentator', 'trackers': 'tracker'}.get(args.get('role'))
+        role = {'commentators': 'commentator', 'trackers': 'tracker', 'broadcasters': 'broadcaster'}.get(args.get('role'))
         if role is None:
             ui.notify(f"Unknown role: {args.get('role')}", color='warning')
             return

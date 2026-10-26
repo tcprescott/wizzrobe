@@ -3,6 +3,7 @@
 from models import (
     AccommodationRequest,
     AccommodationStatus,
+    Broadcaster,
     Commentator,
     CommunityEvent,
     CommunityEventStatus,
@@ -30,6 +31,7 @@ async def seed_staff_request_dms(tenant: Tenant, users: dict[str, User]) -> None
         (StaffRequestKind.RESCHEDULE_REQUEST, MatchRescheduleRequest.filter(tenant=tenant)),
         (StaffRequestKind.COMMENTATOR_SIGNUP, Commentator.filter(tenant=tenant, approved=False)),
         (StaffRequestKind.TRACKER_SIGNUP, Tracker.filter(tenant=tenant, approved=False)),
+        (StaffRequestKind.BROADCASTER_SIGNUP, Broadcaster.filter(tenant=tenant, approved=False)),
     )
     for n, (kind, query) in enumerate(targets, start=1):
         target = await query.order_by('id').first()

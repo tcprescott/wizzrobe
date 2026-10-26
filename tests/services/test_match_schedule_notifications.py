@@ -314,7 +314,7 @@ class TestNotifySubscriberFailurePaths:
         # ANY for the link: this test is about the failure being swallowed,
         # not about where the button points.
         service.discord_service.send_dm_with_crew_buttons.assert_awaited_once_with(
-            555, "msg", m.id, embed=None, link=ANY, notice=MATCH_SCHEDULED.to(FOLLOWERS),
+            555, "msg", m.id, embed=None, link=ANY, notice=MATCH_SCHEDULED.to(FOLLOWERS), broadcaster=False,
         )
 
     async def test_stream_candidate_subscriber_dm_failure_is_swallowed(self, service, db):

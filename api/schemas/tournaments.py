@@ -52,6 +52,13 @@ class TournamentResponse(BaseModel):
             "as covered. 0 means the tournament doesn't use the role."
         ),
     )
+    required_broadcasters: int = Field(
+        1,
+        description=(
+            "Approved broadcasters a streamed match needs, in an event with broadcasters "
+            "switched on. 0 means the tournament doesn't use the role."
+        ),
+    )
     allow_player_match_requests: bool = Field(
         ...,
         description=(

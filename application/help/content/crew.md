@@ -11,7 +11,10 @@ match on stream. Trackers run the item and progress tracking viewers see next to
 the game, the overlay showing what each player has found and how far along they
 are.
 
-Both work the same way: sign up, get approved, confirm, turn up. Anyone in the
+Some events add a third job, **Broadcaster**: running the stream for that
+match. It only shows up where staff have turned it on.
+
+They all work the same way: sign up, get approved, confirm, turn up. Anyone in the
 community can do it, and you don't need a volunteer role.
 
 ## Signing up

@@ -380,7 +380,7 @@ class MatchTableView(MatchFiltersMixin, MatchTableHandlersMixin, MatchBoardHoldM
         if self.show_accommodations:
             self.table.on('show_accommodation', lambda event: self._show_accommodation(event.args))
 
-        for role in ['commentator', 'tracker']:
+        for role in ['commentator', 'tracker', 'broadcaster']:
             self.table.on(f"view_{role}", lambda event, r=role: self._handle_edit_role(r, event))
             self.table.on(f"toggle_{role}", lambda event, r=role: self._handle_toggle_approval(r, event))
 
@@ -391,6 +391,8 @@ class MatchTableView(MatchFiltersMixin, MatchTableHandlersMixin, MatchBoardHoldM
         self.table.on('signup_tracker', lambda event: self._handle_signup_or_undo_role('signup', 'tracker', event.args))
         self.table.on('undo_commentator', lambda event: self._handle_signup_or_undo_role('undo', 'commentator', event.args))
         self.table.on('undo_tracker', lambda event: self._handle_signup_or_undo_role('undo', 'tracker', event.args))
+        self.table.on('signup_broadcaster', lambda event: self._handle_signup_or_undo_role('signup', 'broadcaster', event.args))
+        self.table.on('undo_broadcaster', lambda event: self._handle_signup_or_undo_role('undo', 'broadcaster', event.args))
         self.table.on('invite_partner', lambda event: self._handle_invite_partner(event.args))
         self.table.on('cancel_partner_invite', lambda event: self._handle_cancel_partner_invite(event.args))
 
@@ -398,6 +400,8 @@ class MatchTableView(MatchFiltersMixin, MatchTableHandlersMixin, MatchBoardHoldM
             self._handle_acknowledge_crew('commentator', event, context.client)))
         self.table.on('acknowledge_tracker', lambda event: background_tasks.create(
             self._handle_acknowledge_crew('tracker', event, context.client)))
+        self.table.on('acknowledge_broadcaster', lambda event: background_tasks.create(
+            self._handle_acknowledge_crew('broadcaster', event, context.client)))
 
         if discord_id:
             self.table.on('toggle_watch', self._handle_toggle_watch)
@@ -685,7 +689,7 @@ class MatchTableView(MatchFiltersMixin, MatchTableHandlersMixin, MatchBoardHoldM
             return True
         return any(
             str(person.get('discord_id')) == str(self.crew_discord_id)
-            for key in ('commentators', 'trackers')
+            for key in ('commentators', 'trackers', 'broadcasters')
             for person in row.get(key) or []
             if isinstance(person, dict)
         )

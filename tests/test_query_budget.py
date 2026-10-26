@@ -33,7 +33,9 @@ from datetime import datetime, timedelta, timezone
 import pytest
 from tortoise import connections
 
+from application.services.event_service import EventService
 from application.services.match.match_display_service import MatchDisplayService
+from application.tenant_context import require_tenant_id
 from models import Match, MatchPlayers, Stage, Tournament, User
 
 pytestmark = pytest.mark.usefixtures("db")
@@ -65,6 +67,11 @@ def count_queries():
             client.__dict__.pop(name, None)
 
 
+async def warm_event_cache() -> None:
+    """Load the community's events once, as any earlier request in a running process has."""
+    await EventService.events_for_tenant(require_tenant_id())
+
+
 async def seed_matches(count: int, *, offset: int = 0) -> None:
     """``count`` matches, each with its own tournament, stage and two players.
 
@@ -93,11 +100,13 @@ class TestMatchTableQueryBudget:
     SMALL, LARGE = 3, 12
     # Measured 9. The regression this bounds is the same data loaded twice, which
     # would be 18 — the headroom is for a legitimate extra lookup, not a re-load.
-    CEILING = 11
+    # Raised to 12 for the broadcaster prefetch, the third crew role.
+    CEILING = 12
 
     async def _count_for(self, rows: int, *, offset: int = 0) -> int:
         await seed_matches(rows, offset=offset)
         service = MatchDisplayService()
+        await warm_event_cache()
         with count_queries() as tally:
             result = await service.get_matches_for_display()
         assert len(result) == rows, "fixture did not produce the expected rows"
@@ -131,8 +140,8 @@ class TestPlayerBoardQueryBudget:
 
     SMALL, LARGE = 3, 12
     # Measured 9, same as the unfiltered board: the filter narrows rows, it does
-    # not change how many statements the load takes.
-    CEILING = 11
+    # not change how many statements the load takes. 12 with broadcasters.
+    CEILING = 12
 
     async def _count_for(self, rows: int, *, offset: int = 0) -> int:
         await seed_matches(rows, offset=offset)
@@ -140,6 +149,7 @@ class TestPlayerBoardQueryBudget:
         # exactly one row comes back however many were seeded.
         last = offset + rows - 1
         service = MatchDisplayService()
+        await warm_event_cache()
         with count_queries() as tally:
             result = await service.get_matches_for_display(
                 user_discord_id=str(100_000 + last * 10),

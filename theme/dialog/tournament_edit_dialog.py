@@ -5,6 +5,7 @@ from nicegui import app, ui
 from application.services import (
     AuthService,
     ChallongeService,
+    EventService,
     FeatureFlagService,
     PresetService,
     RaceRoomProfileService,
@@ -55,6 +56,10 @@ class TournamentDialog:
         can_sync = await AuthService.can_manage_sync(actor)
         is_staff = await AuthService.is_staff(actor)
         can_delete = not is_create and is_staff
+        broadcasters_on = await (
+            EventService.current_event_broadcasters() if is_create
+            else EventService.broadcasters_on(self.tournament.event_id)
+        )
         # This dialog opens from the (ungated) Tournaments tab, so its Challonge
         # section has to check the flag itself — link_tournament refuses without it,
         # and refuses anyone but staff.
@@ -298,6 +303,14 @@ class TournamentDialog:
                             value=self.tournament.required_trackers if self.tournament else 1,
                             min=0, max=20,
                         ).props('inputmode=numeric')
+                    required_broadcasters_input = None
+                    if broadcasters_on:
+                        with ui.row().classes('form-pair gap-2'):
+                            required_broadcasters_input = ui.number(
+                                'Broadcasters needed',
+                                value=self.tournament.required_broadcasters if self.tournament else 1,
+                                min=0, max=20,
+                            ).props('inputmode=numeric')
 
                     # Sits with the stream crew rather than under Racetime, where
                     # the other "minutes before" number lives: that whole block is
@@ -575,6 +588,8 @@ class TournamentDialog:
                                 players_per_match=players_per_match_input.value,
                                 required_commentators=required_commentators_input.value,
                                 required_trackers=required_trackers_input.value,
+                                required_broadcasters=(required_broadcasters_input.value
+                                                       if required_broadcasters_input else None),
                                 stage_reminder_minutes=int(stage_reminder_input.value or 0),
                                 allow_player_match_requests=allow_requests_checkbox.value,
                                 players_release_seed=players_release_seed_checkbox.value,
@@ -607,6 +622,8 @@ class TournamentDialog:
                             players_per_match=players_per_match_input.value,
                             required_commentators=required_commentators_input.value,
                             required_trackers=required_trackers_input.value,
+                            required_broadcasters=(required_broadcasters_input.value
+                                                   if required_broadcasters_input else 1),
                             stage_reminder_minutes=int(stage_reminder_input.value or 0),
                             allow_player_match_requests=allow_requests_checkbox.value,
                             players_release_seed=players_release_seed_checkbox.value,
