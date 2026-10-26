@@ -28,7 +28,8 @@ from application.api_scopes import (
     format_scope,
     parse_scope,
 )
-from models import ApiToken, Role
+from application.services import OAuthAppService
+from models import ApiToken, OAuthClientType, Role
 from tests.api_helpers import build_api_app, client_for, create_user_token
 
 
@@ -52,7 +53,11 @@ async def _app_token(*, scope: Optional[str], roles=None, username='app-user') -
     """A token shaped like an app grant: same table as a PAT, origin ``app``,
     limited to ``scope``."""
     user, raw = await create_user_token(username=username, roles=roles)
-    await ApiToken.filter(user=user).update(origin='app', scope=scope)
+    app, _ = await OAuthAppService().create_app(
+        user, name=f'{username} app', client_type=OAuthClientType.CONFIDENTIAL,
+        redirect_uris=['https://app.example.com/callback'], allowed_scopes=[s.value for s in ALL_SCOPES],
+    )
+    await ApiToken.filter(user=user).update(origin='app', scope=scope, oauth_app_id=app.id)
     return raw
 
 
