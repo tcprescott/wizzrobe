@@ -10,7 +10,7 @@ from tortoise.models import Model
 from tortoise.utils import get_schema_sql
 
 import models as _models
-from application.services import tenant_service
+from application.services import event_service, tenant_service
 from application.tenant_context import require_tenant_id, reset_tenant_id, set_tenant_id
 
 # Every DB-backed test runs inside a single default tenant. Because the default
@@ -220,6 +220,10 @@ async def _seed_baseline() -> None:
             "SELECT setval(pg_get_serial_sequence('tenant', 'id'), "
             "(SELECT MAX(id) FROM tenant));"
         )
+    await _models.Event.create(
+        tenant_id=DEFAULT_TEST_TENANT_ID, name='Default', slug='default',
+        status=_models.EventStatus.LIVE, is_default=True,
+    )
     await _models.TenantFeatureFlag.bulk_create([
         _models.TenantFeatureFlag(
             tenant_id=DEFAULT_TEST_TENANT_ID, flag=flag.value,
@@ -388,6 +392,7 @@ async def db(monkeypatch):
     # a write, so with the database now outliving a single test they have to be
     # dropped here or a stale row survives into the next one.
     tenant_service._clear_cache()
+    event_service._clear_cache()
 
     await _bootstrap_engine()
     if ON_POSTGRES:
@@ -448,6 +453,7 @@ async def seeded_db(db):
     if not ON_POSTGRES and SEEDED_TEMPLATE in _templates:
         await restore_template(SEEDED_TEMPLATE)
         tenant_service._clear_cache()
+        event_service._clear_cache()
         return
     from scripts.seed_dev import seed_all
 
@@ -511,6 +517,10 @@ async def two_tenants(db):
     """
     tenant_a = await _models.Tenant.get(id=DEFAULT_TEST_TENANT_ID)
     tenant_b = await _models.Tenant.create(name='Tenant B', slug=SECOND_TENANT_SLUG)
+    await _models.Event.create(
+        tenant_id=tenant_b.id, name='Tenant B', slug=SECOND_TENANT_SLUG,
+        status=_models.EventStatus.LIVE, is_default=True,
+    )
     await enable_all_flags(tenant_b.id)
     return tenant_a, tenant_b
 

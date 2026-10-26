@@ -284,6 +284,19 @@ class CheckInEventStatus(str, Enum):
     CLOSED = 'closed'
 
 
+class EventStatus(str, Enum):
+    """Lifecycle of an :class:`~models.Event`.
+
+    Any number of events can be ``LIVE`` at once. Workers and DMs run only for
+    live events; an ``ARCHIVED`` event is read-only and staff can bring it back.
+    A ``DRAFT`` is seen only by staff and that event's own role holders.
+    """
+
+    DRAFT = 'draft'
+    LIVE = 'live'
+    ARCHIVED = 'archived'
+
+
 class CheckInEntrantSource(str, Enum):
     MATCHERINO = 'matcherino'
     WALK_UP = 'walk_up'

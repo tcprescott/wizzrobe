@@ -10,6 +10,7 @@ from nicegui import app, background_tasks, ui
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import RedirectResponse
 
+from application.event_context import get_current_event_id, stash_client_event_id
 from application.services.auth_service import AuthService, get_user_from_session
 from application.services.feature_flag_service import FeatureFlagService
 from application.services.telemetry_service import TelemetryService
@@ -327,6 +328,7 @@ def _tenant_page(
             # Stash the tenant onto the connection so websocket UI event handlers
             # (which run outside any request) can resolve it via the fallback.
             stash_client_tenant_id(tid)
+            stash_client_event_id(get_current_event_id())
             # Carry host mode too, so custom-domain-only affordances (e.g. the
             # Discord-connect button) can hide in websocket event handlers.
             stash_client_host_mode(is_host_mode())

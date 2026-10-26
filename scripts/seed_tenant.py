@@ -23,6 +23,7 @@ load_dotenv()
 
 from tortoise import Tortoise
 
+from application.services.event_service import EventService
 from migrations.tortoise_config import TORTOISE_ORM
 from models import Role, Tenant, TenantMembership, User, UserRole
 
@@ -38,6 +39,8 @@ async def seed_tenant(name, slug, domain, guild_id, operator_discord_id) -> None
             print(f"Created tenant '{slug}' (id={tenant.id}).")
         else:
             print(f"Tenant '{slug}' already exists (id={tenant.id}).")
+        event = await EventService.ensure_first_event(tenant)
+        print(f"Default event: '{event.name}' (id={event.id}).")
 
         if operator_discord_id:
             user = await User.get_or_none(discord_id=operator_discord_id)

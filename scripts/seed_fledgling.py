@@ -5,6 +5,7 @@ A sibling of the other ``seed_*`` fixture modules, called from
 800-line budget.
 """
 
+from application.services.event_service import EventService
 from application.tenant_context import tenant_scope
 from models import (
     JoinRequestStatus,
@@ -34,6 +35,7 @@ async def seed_fledgling_tenant(users: dict[str, User], groups: dict) -> None:
     )
     tenant.feature_group = groups['default']
     await tenant.save()
+    await EventService.ensure_first_event(tenant)
     with tenant_scope(tenant.id):
         await TenantMembership.get_or_create(user=users['staff_user'], tenant=tenant)
         await UserRole.get_or_create(

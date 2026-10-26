@@ -28,6 +28,7 @@ This file is the lean, always-loaded guide: the behavioral rules to follow on ev
 | Outbound webhooks (event subscriber) | [docs/features/webhooks.md](docs/features/webhooks.md) |
 | Datetime/timezone implementation | [docs/timezone-handling.md](docs/timezone-handling.md) |
 | Multitenancy (tenant context, `/t/<slug>`, query scoping, `/platform`) | [docs/features/multitenancy.md](docs/features/multitenancy.md) |
+| Events inside a community (`Event`, event context, default event, `event_id`) | [docs/features/events.md](docs/features/events.md) |
 | Per-tenant feature flags (two-tier availability + enable, gating) | [docs/features/feature-flags.md](docs/features/feature-flags.md) |
 | Engagement telemetry (page views, interactions, event mirror) | [docs/features/telemetry.md](docs/features/telemetry.md) |
 | Sentry wiring, error-level policy, runtime log levels | [docs/features/observability.md](docs/features/observability.md) |

@@ -1,3 +1,5 @@
+from typing import Optional
+
 from tortoise import fields
 from tortoise.models import Model
 
@@ -10,6 +12,12 @@ class AuditLog(Model):
     tenant = fields.ForeignKeyField(
         'models.Tenant', related_name='audit_logs', null=True, on_delete=fields.SET_NULL
     )
+    # Which event this happened during, for filtering. The row belongs to the
+    # community, so it outlives the event (SET NULL) and may carry none.
+    event: fields.ForeignKeyNullableRelation = fields.ForeignKeyField(
+        'models.Event', related_name='audit_logs', on_delete=fields.SET_NULL, null=True,
+    )
+    event_id: Optional[int]
     # SET_NULL keeps the append-only trail intact when a user is deleted; the
     # actor's identity is also snapshotted into ``details`` by AuditService.
     user = fields.ForeignKeyField(
@@ -39,6 +47,12 @@ class TelemetryEvent(Model):
     tenant = fields.ForeignKeyField(
         'models.Tenant', related_name='telemetry_events', null=True, on_delete=fields.SET_NULL
     )
+    # Which event this happened during, for filtering. The row belongs to the
+    # community, so it outlives the event (SET NULL) and may carry none.
+    event: fields.ForeignKeyNullableRelation = fields.ForeignKeyField(
+        'models.Event', related_name='telemetry_events', on_delete=fields.SET_NULL, null=True,
+    )
+    event_id: Optional[int]
     user = fields.ForeignKeyField(
         'models.User', related_name='telemetry_events', null=True, on_delete=fields.SET_NULL
     )

@@ -2,6 +2,7 @@ from fastapi import Request
 from fastapi.responses import RedirectResponse
 from nicegui import app, ui
 
+from application.event_context import get_current_event_id, stash_client_event_id
 from application.services import AuthService, TenantService, get_user_from_session
 from application.tenant_context import (
     get_current_tenant_id,
@@ -151,6 +152,7 @@ def create() -> None:
         record_page_view('/home', {'section': section, **ids})
         # Stash the tenant onto the connection so websocket UI handlers resolve it.
         stash_client_tenant_id(tid)
+        stash_client_event_id(get_current_event_id())
         # Carry host mode too, so link-section buttons can hide on a custom domain.
         stash_client_host_mode(is_host_mode())
 

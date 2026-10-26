@@ -12,10 +12,11 @@ from starlette.applications import Starlette
 from starlette.responses import JSONResponse
 from starlette.routing import Route
 
+from application.event_context import get_current_event_id
 from application.services import tenant_service
 from application.tenant_context import get_current_tenant_id, reset_tenant_id, set_tenant_id
 from middleware.tenant import _TENANT_TRANSPORT_RE, TenantMiddleware, TransportPrefixMiddleware
-from models import Tenant
+from models import Event, EventStatus, Tenant
 
 
 @pytest.fixture(autouse=True)
@@ -49,6 +50,7 @@ async def _probe(request):
     raw = request.scope.get('raw_path')
     return JSONResponse({
         'tenant': get_current_tenant_id(),
+        'event': get_current_event_id(),
         'path': request.scope['path'],
         'root_path': request.scope.get('root_path', ''),
         'raw_path': raw.decode('latin-1') if raw is not None else None,
@@ -324,3 +326,30 @@ async def test_unknown_slug_falls_through_marked_for_the_themed_404(two_tenants)
     for path in ('/t/nope/help', '/t/gone/help'):
         body = (await _get(app, path)).json()
         assert body == {'tenant': None, 'marked': True, 'path': path}
+
+
+async def test_path_mode_binds_the_default_event(two_tenants):
+    a, _b, _ = two_tenants
+    default = await Event.get(tenant_id=a.id, is_default=True)
+    await Event.create(tenant_id=a.id, name='Next year', slug='next', status=EventStatus.DRAFT)
+    r = await _get(_build_app(), '/t/acme/admin')
+    assert r.json()['event'] == default.id
+
+
+async def test_event_is_never_borrowed_from_another_community(two_tenants):
+    # Beta has no events: it binds none rather than falling back to acme's.
+    _a, _b, _ = two_tenants
+    r = await _get(_build_app(), '/t/beta/admin')
+    assert r.json()['event'] is None
+
+
+async def test_host_mode_binds_the_default_event(host_tenants):
+    a = await Tenant.get(domain='foo.gg')
+    default = await Event.get(tenant_id=a.id, is_default=True)
+    r = await _get(_build_app(), '/admin', host='foo.gg')
+    assert r.json()['event'] == default.id
+
+
+async def test_platform_surface_binds_no_event(two_tenants):
+    r = await _get(_build_app(), '/admin')
+    assert r.json()['event'] is None

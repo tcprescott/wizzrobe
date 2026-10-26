@@ -1,3 +1,5 @@
+from typing import Optional
+
 from tortoise import fields
 from tortoise.models import Model
 
@@ -26,6 +28,12 @@ class AsyncQualifier(Model):
 
     id = fields.IntField(pk=True)
     tenant = fields.ForeignKeyField('models.Tenant', related_name='async_qualifiers', on_delete=fields.CASCADE)
+    # Nullable until every write stamps it; the events migration backfilled the
+    # rows that existed before (see docs/features/events.md).
+    event: fields.ForeignKeyNullableRelation = fields.ForeignKeyField(
+        'models.Event', related_name='async_qualifiers', on_delete=fields.CASCADE, null=True,
+    )
+    event_id: Optional[int]
     name = fields.CharField(max_length=255)
     description = fields.TextField(null=True)
     # Informational only: the event this qualifier feeds. No structural FK — the
