@@ -11,7 +11,7 @@ from typing import List
 
 from fastapi import APIRouter, Depends, Query, status
 
-from api.dependencies import ServiceErrorRoute, require_api_actor, require_write_actor
+from api.dependencies import ServiceErrorRoute, event_binding, require_api_actor, require_write_actor
 from api.schemas.async_qualifier_live_races import (
     LiveRaceCreateRequest,
     LiveRaceResponse,
@@ -29,6 +29,7 @@ router = APIRouter(
     prefix="/async-qualifiers/live-races",
     tags=["Async qualifier live races"],
     route_class=ServiceErrorRoute,
+    dependencies=[Depends(event_binding(live_race_id=AsyncQualifierLiveRace))],
 )
 
 

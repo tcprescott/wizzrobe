@@ -232,7 +232,7 @@ def register_tools(mcp: MCPServer) -> None:
     register(mcp, get_member_details, gate=Gate.STAFF, title='Get member details')
     register(
         mcp, get_player_availability, gate=Gate.ACTOR,
-        title='Get player availability',
+        title='Get player availability', event=True,
     )
-    register(mcp, list_match_crew, gate=Gate.ADMIN, title='List match crew')
-    register(mcp, crew_coverage_report, gate=Gate.ADMIN, title='Crew coverage report')
+    register(mcp, list_match_crew, gate=Gate.ADMIN, title='List match crew', event=True)
+    register(mcp, crew_coverage_report, gate=Gate.ADMIN, title='Crew coverage report', event=True)

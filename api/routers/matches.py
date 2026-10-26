@@ -6,7 +6,7 @@ from typing import List, Optional
 from fastapi import APIRouter, Depends, Query
 
 from api._match_view import MATCH_PREFETCH, serialize_match
-from api.dependencies import ServiceErrorRoute, require_admin, require_api_actor
+from api.dependencies import ServiceErrorRoute, event_binding, require_admin, require_api_actor
 from api.schemas.crew import CrewSignupInfo, MatchCrewResponse
 from api.schemas.matches import MatchResponse
 from application.errors import require_found
@@ -19,7 +19,7 @@ router = APIRouter(
     prefix="/matches",
     tags=["Matches"],
     route_class=ServiceErrorRoute,
-    dependencies=[Depends(require_api_actor)],
+    dependencies=[Depends(event_binding(match_id=Match)), Depends(require_api_actor)],
 )
 
 

@@ -11,7 +11,7 @@ from typing import List, Optional
 from fastapi import APIRouter, Depends, Query, status
 
 from api._helpers import load_user_or_404
-from api.dependencies import ServiceErrorRoute, require_api_actor, require_write_actor
+from api.dependencies import ServiceErrorRoute, event_binding, require_api_actor, require_write_actor
 from api.schemas.async_qualifiers import (
     AdminRequest,
     AsyncQualifierPermalinkResponse,
@@ -43,9 +43,9 @@ from api.schemas.detail import DetailResponse
 from application.errors import require_found
 from application.services import AsyncQualifierService
 from application.tenant_context import require_tenant_id
-from models import AsyncQualifier, User
+from models import AsyncQualifier, AsyncQualifierPermalink, AsyncQualifierPool, AsyncQualifierRun, User
 
-router = APIRouter(prefix="/async-qualifiers", tags=["Async qualifiers"], route_class=ServiceErrorRoute)
+router = APIRouter(prefix="/async-qualifiers", tags=["Async qualifiers"], route_class=ServiceErrorRoute, dependencies=[Depends(event_binding(qualifier_id=AsyncQualifier, run_id=AsyncQualifierRun, pool_id=AsyncQualifierPool, permalink_id=AsyncQualifierPermalink))])
 
 # One page of runs, and the most a caller may ask for at once. A 500-player
 # qualifier holds a few thousand runs, so the unbounded read this replaces was a

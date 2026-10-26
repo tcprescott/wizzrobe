@@ -319,6 +319,15 @@ class EventType:
     # Wildcard a subscriber can register to receive every event.
     WILDCARD = '*'
 
+    #: Families about the community rather than one of its events: their
+    #: messages carry no event, so a webhook's event filter never holds them back.
+    COMMUNITY_FAMILIES: FrozenSet[str] = frozenset({'tenant', 'oauth_grant', 'service_health'})
+
+    @classmethod
+    def is_event_owned(cls, name: str) -> bool:
+        """Whether a message of this type happened in one of the community's events."""
+        return name.split('.', 1)[0] not in cls.COMMUNITY_FAMILIES
+
     @classmethod
     def is_valid(cls, name: str) -> bool:
         """True for the wildcard or any registered event name."""

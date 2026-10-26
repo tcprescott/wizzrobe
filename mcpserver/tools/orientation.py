@@ -10,13 +10,14 @@ from typing import List
 
 from mcp.server.mcpserver import MCPServer
 
-from application.services import AuthService, FeatureFlagService
+from application.services import AuthService, EventService, FeatureFlagService
 from application.services.tenant_service import TenantService
 from application.tenant_context import tenant_scope
 from application.utils.build_info import build_info
 from mcpserver.auth import Gate, belongs_to_tenant, current_actor
 from mcpserver.registry import register
 from mcpserver.schemas import ServerVersion, TenantInfo, WhoAmI
+from mcpserver.tools.events import event_info
 
 
 async def _tenants_for_actor() -> List[TenantInfo]:
@@ -46,11 +47,13 @@ async def _tenants_for_actor() -> List[TenantInfo]:
             # is not a permission: it is reported to everyone who can see the
             # community, exactly as the feature's absence would be.
             features = await FeatureFlagService().enabled_flags()
+            events = [event_info(e) for e in await EventService.visible_events(actor.user)]
         out.append(TenantInfo(
             slug=tenant.slug,
             name=tenant.name,
             roles=sorted(role.value for role in roles),
             features=sorted(flag.value for flag in features),
+            events=events,
         ))
     return out
 

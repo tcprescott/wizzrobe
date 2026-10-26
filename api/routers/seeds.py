@@ -11,7 +11,7 @@ from typing import List
 from fastapi import APIRouter, Depends, status
 from fastapi.responses import JSONResponse
 
-from api.dependencies import ServiceErrorRoute, require_api_actor, require_write_actor
+from api.dependencies import ServiceErrorRoute, event_binding, require_api_actor, require_write_actor
 from api.schemas.seeds import (
     RandomizerResponse,
     SeedGenerateRequest,
@@ -29,7 +29,7 @@ from application.services import (
 from application.tenant_context import require_tenant_id
 from models import Preset, ProviderTask, User
 
-router = APIRouter(prefix="/seeds", tags=["Seeds"], route_class=ServiceErrorRoute)
+router = APIRouter(prefix="/seeds", tags=["Seeds"], route_class=ServiceErrorRoute, dependencies=[Depends(event_binding())])
 
 
 @router.get(

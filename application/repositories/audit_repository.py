@@ -35,8 +35,11 @@ class AuditRepository:
         action_contains: Optional[str],
         action_prefixes: Optional[Sequence[str]],
         actions_in: Optional[Sequence[str]],
+        event_id: Optional[int] = None,
     ) -> QuerySet:
         query = scoped(AuditLog.all())
+        if event_id is not None:
+            query = query.filter(event_id=event_id)
         if start is not None:
             query = query.filter(created_at__gte=start)
         if end is not None:
@@ -63,12 +66,13 @@ class AuditRepository:
         action_contains: Optional[str] = None,
         action_prefixes: Optional[Sequence[str]] = None,
         actions_in: Optional[Sequence[str]] = None,
+        event_id: Optional[int] = None,
         limit: int = 100,
         offset: int = 0,
     ) -> List[AuditLog]:
         query = AuditRepository._filtered(
             start=start, end=end, user_id=user_id, action_contains=action_contains,
-            action_prefixes=action_prefixes, actions_in=actions_in,
+            action_prefixes=action_prefixes, actions_in=actions_in, event_id=event_id,
         )
         query = query.order_by('-created_at', '-id').offset(offset).limit(limit)
         return await query.prefetch_related('user')
@@ -82,10 +86,11 @@ class AuditRepository:
         action_contains: Optional[str] = None,
         action_prefixes: Optional[Sequence[str]] = None,
         actions_in: Optional[Sequence[str]] = None,
+        event_id: Optional[int] = None,
     ) -> int:
         return await AuditRepository._filtered(
             start=start, end=end, user_id=user_id, action_contains=action_contains,
-            action_prefixes=action_prefixes, actions_in=actions_in,
+            action_prefixes=action_prefixes, actions_in=actions_in, event_id=event_id,
         ).count()
 
     @staticmethod

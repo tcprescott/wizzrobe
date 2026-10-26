@@ -16,7 +16,7 @@ from typing import Any, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 
-from api.dependencies import ServiceErrorRoute, require_api_actor, require_write_actor
+from api.dependencies import ServiceErrorRoute, event_binding, require_api_actor, require_write_actor
 from api.schemas.brackets import (
     AdvanceStageRequest,
     BracketCreateRequest,
@@ -40,9 +40,9 @@ from api.schemas.brackets import (
 )
 from application.errors import require_found
 from application.services import BracketService
-from models import User
+from models import Bracket, BracketEntrant, BracketEntry, BracketMatch, Match, User
 
-router = APIRouter(prefix="/brackets", tags=["Brackets"], route_class=ServiceErrorRoute)
+router = APIRouter(prefix="/brackets", tags=["Brackets"], route_class=ServiceErrorRoute, dependencies=[Depends(event_binding(bracket_id=Bracket, match_id=BracketMatch, entrant_id=BracketEntrant, entry_id=BracketEntry, scheduled_match_id=Match))])
 
 
 # --- reads (any token; tenant-scoped in-service) --------------------------

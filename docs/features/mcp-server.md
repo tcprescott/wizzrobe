@@ -153,6 +153,29 @@ An unknown slug and an entitled-elsewhere slug produce **byte-identical**
 `not_found` errors, so error text cannot be diffed into a directory of the
 communities hosted here.
 
+### Choosing an event
+
+Event-owned tools (matches, tournaments, brackets, stages, volunteers, check-in,
+qualifiers, reports, exports) take an optional `event` slug. The registry adds
+it: `register(..., event=True)` (or a mapping of extra row arguments) appends a
+keyword-only `event` to the tool's signature and binds it before the tool runs.
+
+- Left out, the tool works in the community's default event.
+- A tool about rows works in the rows' own event. `ARG_ROWS` in
+  `mcpserver/registry.py` maps the shared argument names (`match_id`,
+  `tournament_id`, `shift_id`, …) to their models, list filters included; a
+  tool with its own (`entrant_id`) passes a mapping. Naming another event, or
+  rows from two events, is `not_found`. `test_mcp_events.py` fails when a tool
+  takes an `ARG_ROWS` argument without being event-owned.
+- A draft is `not_found` to anyone `EventService.can_view` refuses.
+- Community tools (members, roles, settings, webhooks) take no `event`, except
+  `grant_community_role` / `revoke_community_role` (per-event roles) and the
+  report filters on `list_audit_log`, `list_sent_messages`, `telemetry_summary`
+  and `telemetry_top`, where `event` only narrows the rows.
+
+`whoami` and `list_tenants` list each community's events (`EventInfo`: slug,
+name, status, default, dates).
+
 ## Authorization
 
 Each tool mirrors the gate its REST counterpart uses. `mcpserver/registry.register`
@@ -199,6 +222,9 @@ a role — and the connection one is both cheaper and the common case.
 | `whoami` | GLOBAL | Identity, roles, enabled flags per community, **and `can_write`**. The cheapest way to orient. |
 | `list_tenants` | GLOBAL | The slugs every other tool needs, with the same roles/flags. |
 | `server_version` | GLOBAL | Which build is running: version, commit, commit date, source link. The server's MCP handshake (`serverInfo.version`) carries the same version. |
+| `list_events`, `get_event`, `get_event_settings` | ACTOR | The events you can see; one event; its per-event settings (`EventService` / `SystemConfigService` refuse non-staff). |
+| `create_event`, `update_event`, `go_live_event`, `make_default_event`, `archive_event`, `unarchive_event`, `update_event_settings` | ACTOR, write (`EventService` checks Staff) | The Admin → Events lifecycle, by slug. `create_event` copies setup groups from `copy_from`. |
+| `delete_draft_event` | ACTOR, destructive (Staff) | A draft with no matches. |
 
 Both report each community's live feature flags. A flag is not a permission, so
 it goes to everyone who can see the community — and reporting it lets a client

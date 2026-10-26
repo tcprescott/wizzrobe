@@ -11,7 +11,7 @@ from models import DataExport, DataExportKind, DataExportStatus
 # Every column but the two file blobs: lists and status polls never need them,
 # and a ready export's files are most of the row.
 _SUMMARY_FIELDS = (
-    'id', 'tenant_id', 'requested_by_id', 'kind', 'title', 'params', 'status',
+    'id', 'tenant_id', 'event_id', 'requested_by_id', 'kind', 'title', 'params', 'status',
     'progress_done', 'progress_total', 'error', 'filename', 'media_type',
     'size_bytes', 'created_at', 'started_at', 'finished_at',
 )

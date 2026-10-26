@@ -17,7 +17,7 @@ not found.
 """
 
 from decimal import Decimal
-from typing import Callable, List, Optional
+from typing import Any, Callable, List, Optional
 
 from mcp.server.mcpserver import MCPServer
 from pydantic import BaseModel, Field
@@ -579,26 +579,26 @@ async def set_tournament_payout_split(
 
 def register_tools(mcp: MCPServer) -> None:
     def write_tool(
-        fn: Callable, title: str, feature: Optional[FeatureFlag] = None, *, destructive: bool = False,
+        fn: Callable, title: str, feature: Optional[FeatureFlag] = None, *, destructive: bool = False, event: Any = False,
     ) -> None:
         register(
             mcp, fn, gate=Gate.ACTOR, feature=feature, write=True, title=title,
-            destructive=destructive,
+            destructive=destructive, event=event,
         )
 
-    write_tool(create_stage, 'Create stage')
-    write_tool(update_stage, 'Update stage')
-    write_tool(delete_stage, 'Delete stage', destructive=True)
+    write_tool(create_stage, 'Create stage', event=True)
+    write_tool(update_stage, 'Update stage', event=True)
+    write_tool(delete_stage, 'Delete stage', destructive=True, event=True)
 
     volunteers = FeatureFlag.VOLUNTEERS
-    write_tool(create_volunteer_position, 'Create volunteer position', volunteers)
-    write_tool(update_volunteer_position, 'Update volunteer position', volunteers)
-    write_tool(delete_volunteer_position, 'Delete volunteer position', volunteers, destructive=True)
-    write_tool(create_volunteer_shift, 'Create volunteer shift', volunteers)
-    write_tool(update_volunteer_shift, 'Update volunteer shift', volunteers)
-    write_tool(delete_volunteer_shift, 'Delete volunteer shift', volunteers, destructive=True)
-    write_tool(assign_volunteer, 'Assign volunteer', volunteers)
-    write_tool(unassign_volunteer, 'Unassign volunteer', volunteers, destructive=True)
+    write_tool(create_volunteer_position, 'Create volunteer position', volunteers, event=True)
+    write_tool(update_volunteer_position, 'Update volunteer position', volunteers, event=True)
+    write_tool(delete_volunteer_position, 'Delete volunteer position', volunteers, destructive=True, event=True)
+    write_tool(create_volunteer_shift, 'Create volunteer shift', volunteers, event=True)
+    write_tool(update_volunteer_shift, 'Update volunteer shift', volunteers, event=True)
+    write_tool(delete_volunteer_shift, 'Delete volunteer shift', volunteers, destructive=True, event=True)
+    write_tool(assign_volunteer, 'Assign volunteer', volunteers, event=True)
+    write_tool(unassign_volunteer, 'Unassign volunteer', volunteers, destructive=True, event=True)
 
     write_tool(add_community_member, 'Add community member')
     write_tool(remove_community_member, 'Remove community member', destructive=True)
@@ -619,5 +619,5 @@ def register_tools(mcp: MCPServer) -> None:
     write_tool(check_in_equipment, 'Check in equipment', equipment)
 
     payouts = FeatureFlag.PAYOUTS
-    write_tool(set_tournament_prize_pool, 'Set prize pool', payouts)
-    write_tool(set_tournament_payout_split, 'Set payout split', payouts)
+    write_tool(set_tournament_prize_pool, 'Set prize pool', payouts, event=True)
+    write_tool(set_tournament_payout_split, 'Set payout split', payouts, event=True)

@@ -12,6 +12,9 @@ class Webhook(Model):
     secret = fields.CharField(max_length=128)
     # List of EventType values this webhook fires on; ['*'] means every event.
     event_types = fields.JSONField(default=list)
+    # Ids of the community events whose messages it sends; NULL sends every
+    # event's, including ones added later. Community-wide messages ignore it.
+    event_ids = fields.JSONField(null=True)  # type: ignore[var-annotated]
     is_active = fields.BooleanField(default=True)
     created_at = fields.DatetimeField(auto_now_add=True)
     updated_at = fields.DatetimeField(auto_now=True)

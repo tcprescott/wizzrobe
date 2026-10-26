@@ -5,7 +5,7 @@ from typing import List, Optional
 from fastapi import APIRouter, Depends, Query, status
 
 from api._helpers import load_user_or_404
-from api.dependencies import ServiceErrorRoute, require_api_actor, require_write_actor
+from api.dependencies import ServiceErrorRoute, event_binding, require_api_actor, require_write_actor
 from api.schemas.detail import DetailResponse
 from api.schemas.match_actions import MatchSuggestionResponse
 from api.schemas.tournament_actions import (
@@ -29,7 +29,7 @@ from application.services import (
 from application.tenant_context import require_tenant_id
 from models import Tournament, User
 
-router = APIRouter(prefix="/tournaments", tags=["Tournaments"], route_class=ServiceErrorRoute)
+router = APIRouter(prefix="/tournaments", tags=["Tournaments"], route_class=ServiceErrorRoute, dependencies=[Depends(event_binding(tournament_id=Tournament))])
 
 
 async def _load_tournament_or_404(tournament_id: int) -> Tournament:

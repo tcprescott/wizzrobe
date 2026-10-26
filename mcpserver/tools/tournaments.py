@@ -204,22 +204,22 @@ async def suggest_match_time(
 
 
 def register_tools(mcp: MCPServer) -> None:
-    register(mcp, list_tournaments, gate=Gate.ACTOR, title='List tournaments')
-    register(mcp, get_tournament, gate=Gate.ACTOR, title='Get tournament')
-    register(mcp, list_tournament_signups, gate=Gate.ACTOR, title='List tournament signups')
-    register(mcp, list_tournament_players, gate=Gate.ACTOR, title='List tournament players')
+    register(mcp, list_tournaments, gate=Gate.ACTOR, title='List tournaments', event=True)
+    register(mcp, get_tournament, gate=Gate.ACTOR, title='Get tournament', event=True)
+    register(mcp, list_tournament_signups, gate=Gate.ACTOR, title='List tournament signups', event=True)
+    register(mcp, list_tournament_players, gate=Gate.ACTOR, title='List tournament players', event=True)
     register(
         mcp, sign_up_for_tournament, gate=Gate.ACTOR, write=True,
-        title='Sign up for tournament',
+        title='Sign up for tournament', event=True,
     )
     register(
         mcp, withdraw_from_tournament, gate=Gate.ACTOR, write=True,
-        title='Withdraw from tournament', destructive=True,
+        title='Withdraw from tournament', destructive=True, event=True,
     )
     register(
         mcp, get_tournament_payouts, gate=Gate.ACTOR,
-        feature=FeatureFlag.PAYOUTS, title='Get tournament payouts',
+        feature=FeatureFlag.PAYOUTS, title='Get tournament payouts', event=True,
     )
-    register(mcp, list_stages, gate=Gate.ACTOR, title='List stages')
-    register(mcp, get_stage, gate=Gate.ACTOR, title='Get stage')
-    register(mcp, suggest_match_time, gate=Gate.ACTOR, title='Suggest a match time')
+    register(mcp, list_stages, gate=Gate.ACTOR, title='List stages', event=True)
+    register(mcp, get_stage, gate=Gate.ACTOR, title='Get stage', event=True)
+    register(mcp, suggest_match_time, gate=Gate.ACTOR, title='Suggest a match time', event=True)

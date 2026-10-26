@@ -4,16 +4,16 @@ from typing import List, Optional
 
 from fastapi import APIRouter, Depends, Query, status
 
-from api.dependencies import ServiceErrorRoute, require_api_actor, require_write_actor
+from api.dependencies import ServiceErrorRoute, event_binding, require_api_actor, require_write_actor
 from api.schemas.triforce import (
     TriforceModerateRequest,
     TriforceSubmitRequest,
     TriforceTextResponse,
 )
 from application.services import TriforceTextService
-from models import User
+from models import TriforceText, User
 
-router = APIRouter(prefix="/triforce-texts", tags=["Triforce Texts"], route_class=ServiceErrorRoute)
+router = APIRouter(prefix="/triforce-texts", tags=["Triforce Texts"], route_class=ServiceErrorRoute, dependencies=[Depends(event_binding(text_id=TriforceText))])
 
 
 @router.get(

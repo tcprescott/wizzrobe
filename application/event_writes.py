@@ -103,6 +103,13 @@ _PATHS = _event_paths()
 GUARDED_MODELS: frozenset[type[Model]] = frozenset(_PATHS)
 
 
+def event_id_path(model: type[Model]) -> Optional[str]:
+    """The lookup from ``model`` to its event id (``tournament__event_id``), or
+    None for a model no event owns."""
+    path = _PATHS.get(model)
+    return path[2] if path else None
+
+
 async def _event_id_of(instance: Model, using_db: Any) -> Optional[int]:
     fk, parent, _ = _PATHS[type(instance)]
     if fk is None:

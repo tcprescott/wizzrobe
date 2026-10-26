@@ -23,6 +23,7 @@ from theme.dialog._helpers import dialog_actions, form_dialog, native_date_input
 from theme.dialog.confirmation_dialog import ConfirmationDialog
 from theme.empty_state import no_data_slot
 from theme.event_switcher import STATUS_CHIPS, event_dates_label
+from theme.help import help_icon
 from theme.notify import notify_error
 from theme.page_header import page_header
 from theme.steady import steady_refreshable
@@ -104,6 +105,7 @@ async def admin_events_page() -> None:
             'Several events can be live. Bare links open the Default one. Archived events stay '
             'visible to everyone.',
         ):
+            await help_icon('staff-events-lifecycle', 'staff-events-archive', user=actor)
             ui.space()
             ui.button('New event', icon='add', on_click=lambda: _new_event_dialog(actor, None, render.refresh)) \
                 .props('color=primary')

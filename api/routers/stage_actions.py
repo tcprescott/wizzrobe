@@ -2,7 +2,7 @@
 
 from fastapi import APIRouter, Depends, status
 
-from api.dependencies import ServiceErrorRoute, require_write_actor
+from api.dependencies import ServiceErrorRoute, event_binding, require_write_actor
 from api.schemas.stage_actions import StageCreateRequest, StageUpdateRequest
 from api.schemas.stages import StageResponse
 from application.errors import require_found
@@ -10,7 +10,7 @@ from application.services import StageService
 from application.tenant_context import require_tenant_id
 from models import Stage, User
 
-router = APIRouter(prefix="/stages", tags=["Stages"], route_class=ServiceErrorRoute)
+router = APIRouter(prefix="/stages", tags=["Stages"], route_class=ServiceErrorRoute, dependencies=[Depends(event_binding(stage_id=Stage))])
 
 
 async def _load_or_404(stage_id: int) -> Stage:

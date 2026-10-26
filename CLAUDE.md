@@ -241,6 +241,17 @@ The app is **logically multitenant**: one DB, a `tenant` FK on nearly every mode
 
 Detail: [docs/features/multitenancy.md](docs/features/multitenancy.md).
 
+### Events inside a community
+
+A community holds **events** (one SGL weekend, one season). Event-owned rows (tournaments, matches, brackets, stages, positions and shifts, check-in, qualifiers, meetups) carry `event_id` beside `tenant_id`; community-owned ones (members, roles outside the per-event set, settings, presets, webhooks) don't, and audit/telemetry/sent messages/exports are *tagged* with an event only for filtering.
+
+- **Repositories** read event-owned rows through `event_scoped(qs)` and stamp writes with `event_id=current_event_id()` (`application/repositories/_event.py`); tagged rows use `tagged_event_id()`. `check_event_scoping.py` fails an unscoped read.
+- **Every entry point binds an event.** Pages bind it from `/e/<slug>` (else the default event); workers go through `for_each_tenant_scoped(..., event_id_of=…)` or `each_live_event=True` (live events only); bot and background paths wrap `event_scope(event_id)`. **A new REST router** over event-owned rows attaches `Depends(event_binding(match_id=Match, …))` naming every row path parameter, and **a new MCP tool** over them registers with `event=True` (`ARG_ROWS` covers the shared argument names). `tests/api/test_event_binding.py` and `tests/mcp/test_mcp_events.py` fail when either is missed.
+- **A row decides its own event**: a call about a match works in the match's event, whatever the caller named, and a contradicting `event` is a not-found.
+- **Archived events are read-only at the ORM** (`application/event_writes.py`); a queryset `update()`/`delete()` or `bulk_*` on a guarded model goes through `guarded_update`/`guarded_delete`/`ensure_writable` (`check_event_write_gating.py`).
+
+Detail: [docs/features/events.md](docs/features/events.md).
+
 ## Feature flags
 
 Some subsystems are gated behind **per-tenant feature flags** — disabled by

@@ -18,7 +18,7 @@ what is built.
 | 2 | `/e/<slug>` URLs, switcher, admin menu split, Admin → Events, copy setup, event settings | built |
 | 3 | Archive = read-only (ORM guard), close-out, 30-day private-data purge, banner | built |
 | 4 | Per-event roles, Edit member layout A, drafts open to their role holders | built |
-| 5 | REST + MCP `event` argument, webhook event filter, docs | planned |
+| 5 | REST + MCP `event` argument, `/api/events` + event tools, webhook event filter, report filters, docs | built (webhook dialog and payload field to come) |
 
 ## The model
 
@@ -263,6 +263,30 @@ Equipment Manager, Volunteer and Check-in Desk. Staff and the online admin roles
   beside a role held outside the one on screen ("Proctor (SGL 2027)") and leaves
   archived grants out. Settings → Discord shows a per-event mapping's event under
   Applies To.
+
+## API, MCP and webhooks (phase 5)
+
+- **REST** binds the event per router: `event_binding(**rows)` on every
+  event-owned router reads `?event=<slug>` (default event when left out) and
+  maps each row path parameter to its model, so a call about a row works in the
+  row's event and a contradicting slug is `404`. Community-wide reports take
+  `event_filter`, which narrows and binds nothing. `/api/events` lists and runs
+  events by slug. Detail: [rest-api.md](../reference/rest-api.md#events).
+- **MCP** does it in the registry: `register(..., event=True)` adds a
+  keyword-only `event` argument and binds it, using `ARG_ROWS` to find the row
+  arguments. `list_events` and friends run the lifecycle, and `whoami` lists
+  each community's events. Detail: [mcp-server.md](mcp-server.md#choosing-an-event).
+- Both decide through `EventService.call_event_id(user, slug, rows)`: rows
+  first (via `EventRepository.row_event_id`, which reads `event_writes._PATHS`
+  through `event_id_path`), then the slug, then `can_view`.
+- **Webhooks** carry `event_ids` (NULL = every event); bus messages carry
+  `Event.event_id` for the filter. The Admin dialog control and an `event`
+  field in the payload are still to come; the payload waits on the consumer
+  of `test_webhook_consumer_contract.py`. Detail: [webhooks.md](webhooks.md#event-filter).
+- **Exports** build in the event they were asked for in, archived included
+  (`DataExportService.build` binds `export.event_id`).
+- Not done: an event filter on personal webhooks and API tokens, and event
+  pickers on the Reports pages (Telemetry, Audit, Sent messages).
 
 ## The migration
 

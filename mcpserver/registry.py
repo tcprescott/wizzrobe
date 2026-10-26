@@ -11,6 +11,11 @@ The wrapper is also where the tenant is bound and where service exceptions are
 translated — both need to happen inside the tool call, and doing them here means
 no individual tool can forget either.
 
+An event-owned tool declares ``event=True``: the wrapper adds an optional
+``event`` slug to its schema and binds the event the call works in, the row's
+own when the tool is about one (``ARG_ROWS`` names which arguments are rows).
+Community tools leave it off and work across events as before.
+
 A tool that changes data declares ``write=True``. That one flag drives three
 things at once — the ``readOnlyHint`` clients read, the read-only-token refusal
 in :func:`~mcpserver.auth.authorize`, and whether the tool is listed to a
@@ -20,10 +25,11 @@ read-only connection at all — so a write tool cannot be half-declared.
 import functools
 import inspect
 from dataclasses import dataclass
-from typing import Callable, Dict, FrozenSet, Optional
+from typing import Callable, Dict, FrozenSet, List, Mapping, Optional, Union
 
 from mcp.server.mcpserver import MCPServer
 from mcp.types import ToolAnnotations
+from tortoise.models import Model
 
 from application.event_context import event_scope
 from application.services.event_service import EventService
@@ -34,7 +40,35 @@ from application.timezone_context import tz_scope
 from application.utils.sentry import sentry_tags
 from mcpserver.auth import Gate, authorize, current_actor, optional_actor, resolve_tenant
 from mcpserver.errors import map_service_error
-from models import FeatureFlag
+from mcpserver.schemas import EventArg
+from models import (
+    AsyncQualifier,
+    Bracket,
+    BracketMatch,
+    FeatureFlag,
+    Match,
+    SpeedGamingEventLink,
+    Stage,
+    Tournament,
+    VolunteerAssignment,
+    VolunteerPosition,
+    VolunteerShift,
+)
+
+#: Tool arguments that name an event-owned row, so the call works in its event.
+#: A tool whose argument means something else here passes ``event={...}``.
+ARG_ROWS: Dict[str, type[Model]] = {
+    'match_id': Match,
+    'tournament_id': Tournament,
+    'stage_id': Stage,
+    'shift_id': VolunteerShift,
+    'position_id': VolunteerPosition,
+    'assignment_id': VolunteerAssignment,
+    'qualifier_id': AsyncQualifier,
+    'bracket_id': Bracket,
+    'bracket_match_id': BracketMatch,
+    'link_id': SpeedGamingEventLink,
+}
 
 
 @dataclass(frozen=True)
@@ -45,6 +79,8 @@ class ToolSpec:
     feature: Optional[FeatureFlag] = None
     write: bool = False
     destructive: bool = False
+    #: The row arguments of an event-owned tool; None for a community tool.
+    event_rows: Optional[Mapping[str, type[Model]]] = None
 
 
 # name -> spec. Read by the catalogue test and by the tool listing.
@@ -78,6 +114,13 @@ async def _record_call(name: str, tenant_id: Optional[int], outcome: str) -> Non
         )
 
 
+def _ids(value: object) -> List[int]:
+    """A row argument's ids: one, a list of them (a filter), or none."""
+    if isinstance(value, (list, tuple)):
+        return [v for v in value if isinstance(v, int)]
+    return [value] if isinstance(value, int) else []
+
+
 def register(
     mcp: MCPServer,
     fn: Callable,
@@ -87,6 +130,7 @@ def register(
     title: Optional[str] = None,
     write: bool = False,
     destructive: bool = False,
+    event: Union[bool, Mapping[str, type[Model]]] = False,
 ) -> None:
     """Register ``fn`` as a gated MCP tool.
 
@@ -104,6 +148,13 @@ def register(
     decide how hard to ask the user before proceeding.
     """
     name = fn.__name__
+    signature = inspect.signature(fn)
+    rows: Optional[Dict[str, type[Model]]] = None
+    if event:
+        assert 'event' not in signature.parameters, f'{name}: the registry adds the event argument'
+        rows = {arg: model for arg, model in ARG_ROWS.items() if arg in signature.parameters}
+        if isinstance(event, Mapping):
+            rows.update(event)
 
     @functools.wraps(fn)
     async def wrapped(**kwargs):
@@ -114,12 +165,17 @@ def register(
             if gate.names_no_community:
                 await authorize(actor, gate, feature, write=write)
                 return await fn(**kwargs)
+            slug = kwargs.pop('event', None) if rows is not None else None
             tenant = await resolve_tenant(kwargs.get('tenant'))
             tenant_id = tenant.id
-            # The community's default event, until tools take an ``event``
-            # argument. A tool about one row still uses that row's event.
-            with tenant_scope(tenant.id), event_scope(await EventService.default_event_id(tenant.id)):
-                await authorize(actor, gate, feature, slug=tenant.slug, write=write)
+            with tenant_scope(tenant.id):
+                event_id = await EventService.default_event_id(tenant.id)
+                with event_scope(event_id):
+                    await authorize(actor, gate, feature, slug=tenant.slug, write=write)
+                if rows is not None:
+                    pairs = [(model, row_id) for arg, model in rows.items() for row_id in _ids(kwargs.get(arg))]
+                    event_id = await EventService.call_event_id(actor.user, slug, pairs) or event_id
+            with tenant_scope(tenant.id), event_scope(event_id):
                 # An MCP caller has no browser and is not "a viewer", so there is
                 # no personal clock to resolve — but tools still take and derive
                 # calendar dates (``get_schedule(date=…)``), and those must land
@@ -140,10 +196,16 @@ def register(
     # from the real signature even though the callable takes **kwargs. Assert it
     # rather than trusting it: a functools change here would silently publish an
     # empty schema and every tool would start accepting anything.
-    assert inspect.signature(wrapped).parameters == inspect.signature(fn).parameters
+    if rows is not None:
+        wrapped.__signature__ = signature.replace(parameters=[  # type: ignore[attr-defined]
+            *signature.parameters.values(),
+            inspect.Parameter('event', inspect.Parameter.KEYWORD_ONLY, default=None, annotation=EventArg),
+        ])
+    else:
+        assert inspect.signature(wrapped).parameters == signature.parameters
 
     TOOL_SPECS[name] = ToolSpec(
-        gate=gate, feature=feature, write=write, destructive=destructive
+        gate=gate, feature=feature, write=write, destructive=destructive, event_rows=rows,
     )
     mcp.add_tool(
         wrapped,

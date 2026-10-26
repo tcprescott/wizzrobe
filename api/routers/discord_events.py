@@ -10,7 +10,7 @@ from typing import List
 
 from fastapi import APIRouter, Depends
 
-from api.dependencies import ServiceErrorRoute, require_api_actor, require_write_actor
+from api.dependencies import ServiceErrorRoute, event_binding, require_api_actor, require_write_actor
 from api.schemas.discord_events import (
     DiscordEventTournamentResponse,
     DiscordEventTournamentUpdateRequest,
@@ -18,9 +18,9 @@ from api.schemas.discord_events import (
     ReconcileResultResponse,
 )
 from application.services import DiscordEventSyncService
-from models import User
+from models import Tournament, User
 
-router = APIRouter(prefix="/discord-events", tags=["Discord events"], route_class=ServiceErrorRoute)
+router = APIRouter(prefix="/discord-events", tags=["Discord events"], route_class=ServiceErrorRoute, dependencies=[Depends(event_binding(tournament_id=Tournament))])
 
 
 @router.get(

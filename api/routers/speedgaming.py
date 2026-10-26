@@ -10,7 +10,7 @@ from typing import List
 
 from fastapi import APIRouter, Depends, status
 
-from api.dependencies import ServiceErrorRoute, require_api_actor, require_write_actor
+from api.dependencies import ServiceErrorRoute, event_binding, require_api_actor, require_write_actor
 from api.schemas.speedgaming import (
     SpeedGamingEpisodeResponse,
     SpeedGamingLinkCreateRequest,
@@ -23,7 +23,7 @@ from application.services import SpeedGamingSyncService
 from application.tenant_context import require_tenant_id
 from models import SpeedGamingEventLink, User
 
-router = APIRouter(prefix="/speedgaming", tags=["SpeedGaming"], route_class=ServiceErrorRoute)
+router = APIRouter(prefix="/speedgaming", tags=["SpeedGaming"], route_class=ServiceErrorRoute, dependencies=[Depends(event_binding(link_id=SpeedGamingEventLink))])
 
 
 async def _load_link_or_404(link_id: int) -> SpeedGamingEventLink:

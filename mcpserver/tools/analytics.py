@@ -183,15 +183,15 @@ async def matches_active_at(
 
 
 def register_tools(mcp: MCPServer) -> None:
-    register(mcp, capacity_forecast, gate=Gate.ADMIN, title='Capacity forecast')
+    register(mcp, capacity_forecast, gate=Gate.ADMIN, title='Capacity forecast', event=True)
     register(
         mcp, stage_utilization, gate=Gate.ADMIN,
-        title='Stage utilization',
+        title='Stage utilization', event=True,
     )
-    register(mcp, tournament_health, gate=Gate.ADMIN, title='Tournament health')
+    register(mcp, tournament_health, gate=Gate.ADMIN, title='Tournament health', event=True)
     register(
         mcp, crew_participation_trends, gate=Gate.ADMIN,
-        title='Crew participation trends',
+        title='Crew participation trends', event=True,
     )
-    register(mcp, activity_trends, gate=Gate.ADMIN, title='Activity trends')
-    register(mcp, matches_active_at, gate=Gate.ADMIN, title='Matches active at')
+    register(mcp, activity_trends, gate=Gate.ADMIN, title='Activity trends', event=True)
+    register(mcp, matches_active_at, gate=Gate.ADMIN, title='Matches active at', event=True)

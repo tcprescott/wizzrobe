@@ -117,6 +117,15 @@ its own page. The page remembers which
 view you used last, but a link from a DM always opens the List.
 :::
 
+## More than one event
+
+A community can run more than one event, like this year's weekend and an online
+season. When it does, the event you're looking at is named in the header; tap
+it to switch. Event and Tournaments show the event you picked, and Tournaments
+lists every live event's tournaments. My Schedule shows what you're in across
+all the live events. Past events stay in that list, read-only, so last year's
+brackets and results are still there.
+
 ## Turn on notifications
 
 Wizzrobe DMs you on Discord when something happens to a match you're in. That's

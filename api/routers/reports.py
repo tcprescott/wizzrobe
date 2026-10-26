@@ -29,6 +29,7 @@ from fastapi import APIRouter, Depends, Query
 
 from api.dependencies import (
     ServiceErrorRoute,
+    event_binding,
     require_admin,
     require_api_actor,
     require_feature,
@@ -54,7 +55,7 @@ router = APIRouter(
     prefix="/reports",
     tags=["Reports"],
     route_class=ServiceErrorRoute,
-    dependencies=[Depends(require_api_actor)],
+    dependencies=[Depends(event_binding()), Depends(require_api_actor)],
 )
 
 

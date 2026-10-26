@@ -10,7 +10,7 @@ from typing import List
 from fastapi import APIRouter, Depends, HTTPException, status
 
 from api._match_view import load_match_response
-from api.dependencies import ServiceErrorRoute, require_write_actor
+from api.dependencies import ServiceErrorRoute, event_binding, require_write_actor
 from api.schemas.detail import DetailResponse
 from api.schemas.match_actions import (
     AssignStageRequest,
@@ -39,7 +39,7 @@ from application.services import (
 from application.tenant_context import require_tenant_id
 from models import Match, User
 
-router = APIRouter(prefix="/matches", tags=["Matches"], route_class=ServiceErrorRoute)
+router = APIRouter(prefix="/matches", tags=["Matches"], route_class=ServiceErrorRoute, dependencies=[Depends(event_binding(match_id=Match))])
 
 
 async def _load_match_or_404(match_id: int) -> Match:

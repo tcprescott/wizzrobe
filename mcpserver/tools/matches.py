@@ -230,11 +230,11 @@ async def my_reschedule_requests(
 
 def register_tools(mcp: MCPServer) -> None:
     register(mcp, my_reschedule_requests, gate=Gate.ACTOR, title='My reschedule requests')
-    register(mcp, list_matches, gate=Gate.ACTOR, title='List matches')
-    register(mcp, get_match, gate=Gate.ACTOR, title='Get match')
-    register(mcp, list_unbooked_matches, gate=Gate.ACTOR, title='List unbooked matchups')
-    register(mcp, get_schedule, gate=Gate.ACTOR, title='Get daily schedule')
+    register(mcp, list_matches, gate=Gate.ACTOR, title='List matches', event=True)
+    register(mcp, get_match, gate=Gate.ACTOR, title='Get match', event=True)
+    register(mcp, list_unbooked_matches, gate=Gate.ACTOR, title='List unbooked matchups', event=True)
+    register(mcp, get_schedule, gate=Gate.ACTOR, title='Get daily schedule', event=True)
     register(
         mcp, match_operations_report, gate=Gate.ADMIN,
-        title='Match operations report',
+        title='Match operations report', event=True,
     )

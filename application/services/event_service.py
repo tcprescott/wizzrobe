@@ -16,9 +16,11 @@ from dataclasses import dataclass
 from datetime import date, datetime, timezone
 from typing import Any, Dict, Iterable, List, Optional, Set
 
+from tortoise.models import Model
 from tortoise.signals import post_delete, post_save
 from tortoise.transactions import in_transaction
 
+from application.errors import NotFoundError, require_found
 from application.event_context import get_current_event_id
 from application.event_writes import archive_maintenance
 from application.events import EventType, event_status_live
@@ -172,8 +174,6 @@ class EventService:
         unknown slug is a not-found, as REST and MCP report it."""
         if slug is None:
             return None
-        from application.errors import require_found
-
         return require_found(await EventService.ref_by_slug(require_tenant_id(), slug), f"Event '{slug}'").id
 
     @staticmethod
@@ -264,6 +264,39 @@ class EventService:
     async def match_event_id(match_id: int) -> Optional[int]:
         """The event a match of this community belongs to: a row decides its own event."""
         return await EventRepository.match_event_id(match_id)
+
+    @staticmethod
+    async def call_event_id(
+        user: Optional[User], slug: Optional[str], rows: Iterable[tuple[type[Model], Any]] = (),
+    ) -> Optional[int]:
+        """The event a REST or MCP call works in, or None to keep the default.
+
+        A call about rows (a match id, a shift id) works in the rows' event; an
+        ``event`` slug that names another one is a not-found, the same wall as
+        another community's row. Without rows the slug decides. A draft the
+        caller can't see is a not-found too. Rows that don't exist are left for
+        the call itself to report.
+        """
+        tenant_id = require_tenant_id()
+        named = None
+        if slug is not None:
+            named = require_found(await EventService.ref_by_slug(tenant_id, slug), f"Event '{slug}'")
+        found = set()
+        for model, row_id in rows:
+            if row_id is None:
+                continue
+            event_id = await EventRepository.row_event_id(model, row_id)
+            ref = await EventService.ref(tenant_id, event_id)
+            if ref is not None:
+                found.add(ref)
+        if len(found) > 1 or (named is not None and found and named not in found):
+            raise NotFoundError(f"That isn't part of event '{slug}'." if named else 'Those belong to different events.')
+        chosen = next(iter(found), named)
+        if chosen is None:
+            return None
+        if not await EventService.can_view(user, chosen):
+            raise NotFoundError(f"Event '{chosen.slug}' not found")
+        return chosen.id
 
     @staticmethod
     async def list_events() -> List[Event]:

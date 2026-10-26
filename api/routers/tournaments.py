@@ -4,18 +4,18 @@ from typing import List, Optional
 
 from fastapi import APIRouter, Depends, Query
 
-from api.dependencies import ServiceErrorRoute, require_api_actor
+from api.dependencies import ServiceErrorRoute, event_binding, require_api_actor
 from api.schemas.bracket_overview import TournamentBracketResponse
 from api.schemas.tournaments import TournamentResponse
 from application.errors import require_found
 from application.services import BracketOverviewService, TournamentService
-from models import User
+from models import Tournament, User
 
 router = APIRouter(
     prefix="/tournaments",
     tags=["Tournaments"],
     route_class=ServiceErrorRoute,
-    dependencies=[Depends(require_api_actor)],
+    dependencies=[Depends(event_binding(tournament_id=Tournament)), Depends(require_api_actor)],
 )
 
 

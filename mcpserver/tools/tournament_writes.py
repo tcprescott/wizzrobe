@@ -15,7 +15,7 @@ Tournaments are loaded through the tenant-scoped repository, so an id from
 another community is simply not found.
 """
 
-from typing import Callable, Dict, List, Literal, Optional
+from typing import Any, Callable, Dict, List, Literal, Optional
 
 from mcp.server.mcpserver import MCPServer
 
@@ -426,27 +426,27 @@ async def set_stage_best_of(
 
 def register_tools(mcp: MCPServer) -> None:
     def write_tool(
-        fn: Callable, title: str, feature: Optional[FeatureFlag] = None, *, destructive: bool = False,
+        fn: Callable, title: str, feature: Optional[FeatureFlag] = None, *, destructive: bool = False, event: Any = False,
     ) -> None:
         register(
             mcp, fn, gate=Gate.ACTOR, feature=feature, write=True, title=title,
-            destructive=destructive,
+            destructive=destructive, event=event,
         )
 
-    write_tool(create_tournament, 'Create tournament')
-    write_tool(update_tournament, 'Update tournament')
-    write_tool(delete_tournament, 'Delete tournament', destructive=True)
-    write_tool(add_tournament_admin, 'Add tournament admin')
-    write_tool(remove_tournament_admin, 'Remove tournament admin', destructive=True)
-    write_tool(add_crew_coordinator, 'Add crew coordinator')
-    write_tool(remove_crew_coordinator, 'Remove crew coordinator', destructive=True)
-    write_tool(enroll_tournament_player, 'Enroll tournament player')
-    write_tool(remove_tournament_player, 'Remove tournament player', destructive=True)
-    write_tool(drop_tournament_player, 'Drop tournament player', destructive=True)
+    write_tool(create_tournament, 'Create tournament', event=True)
+    write_tool(update_tournament, 'Update tournament', event=True)
+    write_tool(delete_tournament, 'Delete tournament', destructive=True, event=True)
+    write_tool(add_tournament_admin, 'Add tournament admin', event=True)
+    write_tool(remove_tournament_admin, 'Remove tournament admin', destructive=True, event=True)
+    write_tool(add_crew_coordinator, 'Add crew coordinator', event=True)
+    write_tool(remove_crew_coordinator, 'Remove crew coordinator', destructive=True, event=True)
+    write_tool(enroll_tournament_player, 'Enroll tournament player', event=True)
+    write_tool(remove_tournament_player, 'Remove tournament player', destructive=True, event=True)
+    write_tool(drop_tournament_player, 'Drop tournament player', destructive=True, event=True)
     challonge = FeatureFlag.CHALLONGE
-    write_tool(link_challonge_tournament, 'Link Challonge bracket', challonge)
-    write_tool(unlink_challonge_tournament, 'Unlink Challonge bracket', challonge, destructive=True)
-    write_tool(sync_challonge_tournament, 'Sync Challonge bracket', challonge)
-    write_tool(update_tournament_discord_events, 'Update tournament Discord events')
-    register(mcp, get_round_schedule, gate=Gate.ACTOR, title='Get round schedule')
-    write_tool(set_stage_best_of, 'Set stage best-of')
+    write_tool(link_challonge_tournament, 'Link Challonge bracket', challonge, event=True)
+    write_tool(unlink_challonge_tournament, 'Unlink Challonge bracket', challonge, destructive=True, event=True)
+    write_tool(sync_challonge_tournament, 'Sync Challonge bracket', challonge, event=True)
+    write_tool(update_tournament_discord_events, 'Update tournament Discord events', event=True)
+    register(mcp, get_round_schedule, gate=Gate.ACTOR, title='Get round schedule', event=True)
+    write_tool(set_stage_best_of, 'Set stage best-of', event=True)

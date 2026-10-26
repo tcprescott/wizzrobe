@@ -142,12 +142,13 @@ class SentMessageService:
         problems_only: bool = False,
         search: Optional[str] = None,
         recipient_id: Optional[int] = None,
+        event_id: Optional[int] = None,
         limit: int = 50,
         offset: int = 0,
     ) -> List[SentMessage]:
         await self._ensure_can_read(actor)
         return await self.repository.list(
-            start, end, PROBLEM_STATUSES if problems_only else None, search, recipient_id,
+            start, end, PROBLEM_STATUSES if problems_only else None, search, recipient_id, event_id,
             limit=limit, offset=offset,
         )
 
@@ -160,18 +161,20 @@ class SentMessageService:
         problems_only: bool = False,
         search: Optional[str] = None,
         recipient_id: Optional[int] = None,
+        event_id: Optional[int] = None,
     ) -> int:
         await self._ensure_can_read(actor)
         return await self.repository.count(
-            start, end, PROBLEM_STATUSES if problems_only else None, search, recipient_id,
+            start, end, PROBLEM_STATUSES if problems_only else None, search, recipient_id, event_id,
         )
 
     async def totals(
         self, *, actor: User, start: Optional[datetime] = None, end: Optional[datetime] = None,
+        event_id: Optional[int] = None,
     ) -> Dict[str, int]:
         """``sent``, ``silent``, ``off_or_blocked`` and ``failed`` counts over the window."""
         await self._ensure_can_read(actor)
-        raw = await self.repository.totals(start, end)
+        raw = await self.repository.totals(start, end, event_id)
         return {
             'sent': sum(n for k, n in raw.items() if k != 'silent'),
             'silent': raw.get('silent', 0),

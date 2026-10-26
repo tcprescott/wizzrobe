@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, status
 
 from api.dependencies import (
     ServiceErrorRoute,
+    event_binding,
     require_api_actor,
     require_write_actor,
 )
@@ -22,9 +23,9 @@ from application.services import (
     RacetimeRoomService,
 )
 from application.tenant_context import require_tenant_id
-from models import RacetimeRoom, User
+from models import Match, RacetimeRoom, User
 
-router = APIRouter(prefix="/race-rooms", tags=["Race rooms"], route_class=ServiceErrorRoute)
+router = APIRouter(prefix="/race-rooms", tags=["Race rooms"], route_class=ServiceErrorRoute, dependencies=[Depends(event_binding(match_id=Match, room_id=RacetimeRoom))])
 
 
 async def _load_room_or_404(room_id: int) -> RacetimeRoom:

@@ -91,7 +91,7 @@ class TestListLogs:
             start=start, end=end, user_id=7, action_contains='match.', limit=50, offset=10,
         )
         service.repository.list.assert_awaited_once_with(
-            start=start, end=end, user_id=7, action_contains='match.', limit=50, offset=10,
+            start=start, end=end, user_id=7, event_id=None, action_contains='match.', limit=50, offset=10,
         )
 
     async def test_defaults_when_no_filters(self, service):
@@ -116,7 +116,7 @@ class TestCountLogs:
         start = datetime(2025, 1, 1, tzinfo=timezone.utc)
         await service.count_logs(start=start, user_id=3, action_contains='user.')
         service.repository.count.assert_awaited_once_with(
-            start=start, end=None, user_id=3, action_contains='user.',
+            start=start, end=None, user_id=3, event_id=None, action_contains='user.',
         )
 
     async def test_returns_repository_count(self, service):

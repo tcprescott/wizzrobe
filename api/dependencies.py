@@ -12,12 +12,13 @@ routers (via ``route_class``) so it never affects the NiceGUI frontend mounted
 on the same app.
 """
 
-from typing import Optional, Tuple
+from typing import Awaitable, Callable, Optional, Tuple
 
-from fastapi import Depends, HTTPException, Request, Response, status
+from fastapi import Depends, HTTPException, Query, Request, Response, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.routing import APIRoute
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from tortoise.models import Model
 
 from application.errors import EventArchivedError, NotFoundError
 from application.event_context import set_event_id
@@ -29,7 +30,7 @@ from application.services.oauth_grant_service import OAuthGrantService
 from application.services.telemetry_service import TelemetryEventType, TelemetryService
 from application.services.tenant_service import TenantService
 from application.services.timezone_service import TimezoneService
-from application.tenant_context import reset_tenant_id, set_tenant_id, tenant_scope
+from application.tenant_context import require_tenant_id, reset_tenant_id, set_tenant_id, tenant_scope
 from application.timezone_context import set_timezone_name
 from models import ApiToken, ApiTokenOrigin, FeatureFlag, User
 
@@ -155,8 +156,8 @@ async def resolve_token(
     set_tenant_id(tenant.id)
     if token.origin == ApiTokenOrigin.APP.value:
         await _ensure_app_grant_usable(token)
-    # The community's default event, until routes take an ``event`` parameter.
-    # A route about one row still uses that row's event.
+    # The community's default event. Event-owned routers override it from
+    # ``?event=`` or the row the call is about (``event_binding``).
     set_event_id(await EventService.default_event_id(tenant.id), tenant.id)
     # Read back by ServiceErrorRoute to attribute the request in usage telemetry.
     request.state.api_actor = (user, token)
@@ -167,6 +168,61 @@ async def resolve_token(
     # see, rather than silently on UTC's.
     set_timezone_name(await TimezoneService.tenant_timezone_name(tenant.id))
     return user, token
+
+
+EVENT_QUERY_HELP = (
+    "The event to work in, by its slug (see `GET /api/events`). Leave it out for "
+    "the community's default event. A call about one row (a match, a shift) "
+    "works in that row's event, and naming a different event is a 404."
+)
+
+
+def event_binding(**rows: type[Model]) -> Callable[..., Awaitable[None]]:
+    """A router dependency that binds the event an event-owned call works in.
+
+    ``rows`` maps a path parameter to the model it names (``match_id=Match``):
+    a call about such a row works in the row's event, so ``?event=`` can only
+    agree with it. Every event-owned router attaches one, naming its row
+    parameters; ``tests/api/test_event_binding.py`` fails when a router's path
+    parameter is neither mapped nor listed as naming no row.
+    """
+
+    async def bind_event(
+        request: Request,
+        event: Optional[str] = Query(None, description=EVENT_QUERY_HELP),
+        resolved: Tuple[User, ApiToken] = Depends(resolve_token),
+    ) -> None:
+        pairs = []
+        for name, model in rows.items():
+            raw = request.path_params.get(name)
+            if raw is not None and str(raw).isdigit():
+                pairs.append((model, int(raw)))
+        event_id = await EventService.call_event_id(resolved[0], event, pairs)
+        if event_id is not None:
+            set_event_id(event_id, require_tenant_id())
+
+    bind_event.event_rows = rows  # type: ignore[attr-defined]
+    return bind_event
+
+
+EVENT_FILTER_HELP = (
+    "Only records from this event, by its slug (see `GET /api/events`). Leave it "
+    "out for the whole community, every event and the records that belong to none."
+)
+
+
+async def event_filter(
+    event: Optional[str] = Query(None, description=EVENT_FILTER_HELP),
+    resolved: Tuple[User, ApiToken] = Depends(resolve_token),
+) -> Optional[int]:
+    """The event id a community-wide report narrows to, or None for all of it.
+
+    Unlike ``event_binding`` nothing is bound: audit, sent messages and
+    telemetry belong to the community and only carry an event for filtering.
+    """
+    if event is None:
+        return None
+    return await EventService.call_event_id(resolved[0], event)
 
 
 async def require_api_actor(

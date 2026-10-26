@@ -229,7 +229,7 @@ def register_tools(mcp: MCPServer) -> None:
     register(mcp, list_randomizers, gate=Gate.ACTOR, title='List randomizers')
     register(
         mcp, list_triforce_texts, gate=Gate.ACTOR,
-        feature=FeatureFlag.TRIFORCE_TEXTS, title='List triforce texts',
+        feature=FeatureFlag.TRIFORCE_TEXTS, title='List triforce texts', event=True,
     )
     register(
         mcp, list_race_room_profiles, gate=Gate.ACTOR,
@@ -237,17 +237,17 @@ def register_tools(mcp: MCPServer) -> None:
     )
     register(
         mcp, list_race_rooms, gate=Gate.ACTOR,
-        feature=FeatureFlag.RACETIME_ROOMS, title='List open race rooms',
+        feature=FeatureFlag.RACETIME_ROOMS, title='List open race rooms', event=True,
     )
     register(
         mcp, get_race_room, gate=Gate.ACTOR,
-        feature=FeatureFlag.RACETIME_ROOMS, title='Get a match race room',
+        feature=FeatureFlag.RACETIME_ROOMS, title='Get a match race room', event=True,
     )
     register(
         mcp, list_speedgaming_links, gate=Gate.ACTOR,
-        feature=FeatureFlag.SPEEDGAMING_ETL, title='List SpeedGaming links',
+        feature=FeatureFlag.SPEEDGAMING_ETL, title='List SpeedGaming links', event=True,
     )
     register(
         mcp, list_speedgaming_episodes, gate=Gate.ACTOR,
-        feature=FeatureFlag.SPEEDGAMING_ETL, title='List SpeedGaming episodes',
+        feature=FeatureFlag.SPEEDGAMING_ETL, title='List SpeedGaming episodes', event=True,
     )

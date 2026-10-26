@@ -14,7 +14,7 @@ from typing import List
 
 from fastapi import APIRouter, Depends, status
 
-from api.dependencies import ServiceErrorRoute, require_api_actor, require_write_actor
+from api.dependencies import ServiceErrorRoute, event_binding, require_api_actor, require_write_actor
 from api.schemas.check_in import (
     CheckInEntrantResponse,
     CheckInEventResponse,
@@ -26,9 +26,9 @@ from api.schemas.check_in import (
 )
 from application.errors import require_found
 from application.services import CheckInDeskService, CheckInService
-from models import User
+from models import CheckInEntrant, CheckInEvent, User
 
-router = APIRouter(prefix="/check-in", tags=["Check-in"], route_class=ServiceErrorRoute)
+router = APIRouter(prefix="/check-in", tags=["Check-in"], route_class=ServiceErrorRoute, dependencies=[Depends(event_binding(event_id=CheckInEvent, entrant_id=CheckInEntrant))])
 
 
 async def _entrant_response(service: CheckInService, entrant_id: int) -> CheckInEntrantResponse:

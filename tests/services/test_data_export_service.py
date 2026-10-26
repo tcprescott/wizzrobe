@@ -8,6 +8,7 @@ from pathlib import Path
 
 import pytest
 
+from application.event_context import event_scope
 from application.services import DataExportService
 from application.services.exports import data_export_service as export_module
 from application.services.exports import data_export_worker
@@ -25,6 +26,8 @@ from models import (
     DataExport,
     DataExportKind,
     DataExportStatus,
+    Event,
+    EventStatus,
     Match,
     MatchPlayers,
     Role,
@@ -233,6 +236,20 @@ class TestBuild:
         f = await DataExportService().download(staff, export.id, 'json')
         assert f.media_type == 'application/json'
         assert f.filename.endswith('.json')
+
+    async def test_an_export_reads_the_event_it_was_asked_for_in_even_once_archived(self, db):
+        staff = await _staff()
+        await Tournament.create(name='This year')
+        last = await Event.create(tenant_id=1, name='SGL 2025', slug='sgl25', status=EventStatus.LIVE, is_default=False)
+        with event_scope(last.id):
+            await Tournament.create(name='Last year')
+            export = await DataExportService().request_tournaments(staff)
+        await Event.filter(id=last.id).update(status=EventStatus.ARCHIVED)
+
+        export = await _built(export)
+        names = [t['name'] for t in json.loads(bytes(export.json_content))['tournaments']]
+        assert export.event_id == last.id
+        assert names == ['Last year']
 
     async def test_a_revoked_admin_gets_a_failed_export(self, db):
         ta = await make_user(9130, username='ta')

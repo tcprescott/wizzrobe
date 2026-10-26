@@ -600,6 +600,7 @@ class AuditService:
         action_contains: Optional[str] = None,
         area: Optional[str] = None,
         search: Optional[str] = None,
+        event_id: Optional[int] = None,
         limit: int = 100,
         offset: int = 0,
     ) -> list[AuditLog]:
@@ -608,6 +609,7 @@ class AuditService:
             start=start,
             end=end,
             user_id=user_id,
+            event_id=event_id,
             limit=limit,
             offset=offset,
             **self._query_filters(action_contains, area, search),
@@ -623,12 +625,14 @@ class AuditService:
         action_contains: Optional[str] = None,
         area: Optional[str] = None,
         search: Optional[str] = None,
+        event_id: Optional[int] = None,
     ) -> int:
         await self._ensure_can_read(actor)
         return await self.repository.count(
             start=start,
             end=end,
             user_id=user_id,
+            event_id=event_id,
             **self._query_filters(action_contains, area, search),
         )
 

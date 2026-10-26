@@ -5,7 +5,7 @@ from typing import Any, Optional
 
 from fastapi import APIRouter, Depends, Query
 
-from api.dependencies import ServiceErrorRoute, require_staff
+from api.dependencies import ServiceErrorRoute, event_filter, require_staff
 from api.schemas.sent_messages import SentMessageCounts, SentMessageEntry, SentMessagePage
 from application.services import SentMessageService
 from models import SentMessage, User
@@ -55,15 +55,16 @@ async def list_sent_messages(
     limit: int = Query(50, ge=1, le=500, description="Maximum messages to return."),
     offset: int = Query(0, ge=0, description="Messages skipped before this page."),
     actor: User = Depends(require_staff),
+    event_id: Optional[int] = Depends(event_filter),
 ):
     service = SentMessageService()
     query: dict[str, Any] = dict(
         actor=actor, start=start, end=end, problems_only=problems_only,
-        search=search or None, recipient_id=user_id,
+        search=search or None, recipient_id=user_id, event_id=event_id,
     )
     total = await service.count_messages(**query)
     messages = await service.list_messages(**query, limit=limit, offset=offset)
-    counts = await service.totals(actor=actor, start=start, end=end)
+    counts = await service.totals(actor=actor, start=start, end=end, event_id=event_id)
     return SentMessagePage(
         total=total, limit=limit, offset=offset,
         counts=SentMessageCounts(**counts), items=[_entry(m) for m in messages],

@@ -11,7 +11,17 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any, Optional
 
+from application.event_context import get_current_event_id
+from application.events.event_types import EventType
 from application.tenant_context import get_current_tenant_id
+
+
+def _event_of(event_type: str, payload: dict[str, Any]) -> Optional[int]:
+    if not EventType.is_event_owned(event_type):
+        return None
+    if event_type.startswith('event.'):
+        return payload.get('event_id')
+    return get_current_event_id()
 
 
 @dataclass(frozen=True)
@@ -23,6 +33,11 @@ class Event:
     # The tenant this event belongs to, snapshotted at publish time. None for a
     # platform-level event (published with no tenant context).
     tenant_id: Optional[int] = None
+    # The community event (weekend) it happened in: the one the request or
+    # worker was working in, or the event an ``event.*`` message is about.
+    # None for community-wide messages. Not on the wire yet: the webhook
+    # consumer's author hears about the new field before it ships.
+    event_id: Optional[int] = None
     occurred_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
 
     @classmethod
@@ -36,6 +51,7 @@ class Event:
             actor_id=getattr(actor, 'id', None),
             actor_username=getattr(actor, 'username', None),
             tenant_id=get_current_tenant_id(),
+            event_id=_event_of(event_type, payload),
         )
 
     def to_wire(self) -> dict[str, Any]:

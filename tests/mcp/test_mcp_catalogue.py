@@ -53,6 +53,9 @@ PLATFORM_TOOLS = PLATFORM_READ_TOOLS | PLATFORM_WRITE_TOOLS
 # A snapshot, so adding or renaming a tool is a deliberate diff rather than an
 # invisible change to a published contract.
 READ_TOOLS = {
+    'list_events',
+    'get_event',
+    'get_event_settings',
     'get_export',
     'list_my_exports',
     'activity_trends',
@@ -133,6 +136,14 @@ READ_TOOLS = {
 # a write tool that drifted into the read set would be one every read-only
 # client is suddenly offered.
 WRITE_TOOLS = {
+    'create_event',
+    'update_event',
+    'update_event_settings',
+    'go_live_event',
+    'make_default_event',
+    'archive_event',
+    'unarchive_event',
+    'delete_draft_event',
     'export_tournaments',
     'export_volunteer_data',
     'acknowledge_match',
@@ -222,6 +233,7 @@ EVERY_TOOL = EXPECTED_TOOLS | PLATFORM_TOOLS
 # Writes that remove something rather than adding or amending it. Clients use
 # the distinction to decide how hard to ask before proceeding.
 DESTRUCTIVE_TOOLS = {
+    'delete_draft_event',
     'delete_equipment',
     'delete_match',
     'delete_stage',
