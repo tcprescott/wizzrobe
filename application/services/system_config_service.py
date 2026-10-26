@@ -9,6 +9,7 @@ import re
 from datetime import date, time
 from typing import Dict, List, Optional, Tuple
 
+from application.event_context import event_scoped
 from application.repositories._save import save_fields
 from application.services.audit_service import AuditActions, AuditService
 from application.services.auth_service import AuthService
@@ -165,8 +166,9 @@ class SystemConfigService:
             end = await SystemConfigService.get_date(KEY_EVENT_END_DATE)
 
         if start is None or end is None:
-            first = await Match.filter(tenant_id=require_tenant_id()).order_by('scheduled_at').first()
-            last = await Match.filter(tenant_id=require_tenant_id()).order_by('-scheduled_at').first()
+            matches = event_scoped(Match.all(), tournament.event_id if tournament else None)
+            first = await matches.order_by('scheduled_at').first()
+            last = await matches.order_by('-scheduled_at').first()
             derived_start = (
                 to_local(first.scheduled_at).date()
                 if first and first.scheduled_at else None
@@ -196,7 +198,7 @@ class SystemConfigService:
             return value
         if default is not None:
             return default
-        return await Stage.filter(is_active=True, tenant_id=require_tenant_id()).count()
+        return await event_scoped(Stage.filter(is_active=True)).count()
 
     @staticmethod
     async def get_volunteer_reminder_lead_minutes(default: int = 60) -> int:

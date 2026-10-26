@@ -7,6 +7,7 @@ Volunteers placed into shifts.
 from datetime import datetime, timedelta
 from typing import List, Optional, Sequence, Set, cast
 
+from application.repositories._event import event_scoped
 from application.repositories._save import save_fields
 from application.repositories._tenant import current_tenant_id, scoped
 from models import User, VolunteerAssignment, VolunteerShift
@@ -204,7 +205,7 @@ class VolunteerAssignmentRepository:
         Done in two steps (resolve shift ids, then delete by id) so it works on
         databases that don't support join-based DELETE (e.g. SQLite in tests).
         """
-        shifts = scoped(VolunteerShift.filter(starts_at__lt=end, ends_at__gt=start))
+        shifts = event_scoped(VolunteerShift.filter(starts_at__lt=end, ends_at__gt=start))
         if position_ids is not None:
             shifts = shifts.filter(position_id__in=list(position_ids))
         shift_ids = await shifts.values_list('id', flat=True)
@@ -217,7 +218,7 @@ class VolunteerAssignmentRepository:
     @staticmethod
     async def count_auto_for_window(start: datetime, end: datetime) -> int:
         """How many draft assignments sit in the window."""
-        shift_ids = await scoped(VolunteerShift.filter(
+        shift_ids = await event_scoped(VolunteerShift.filter(
             starts_at__lt=end, ends_at__gt=start,
         )).values_list('id', flat=True)
         if not shift_ids:
@@ -229,7 +230,7 @@ class VolunteerAssignmentRepository:
     @staticmethod
     async def list_auto_for_window(start: datetime, end: datetime) -> List[VolunteerAssignment]:
         """Draft assignments whose shift overlaps the window, prefetched for notification."""
-        shift_ids = await scoped(VolunteerShift.filter(
+        shift_ids = await event_scoped(VolunteerShift.filter(
             starts_at__lt=end, ends_at__gt=start,
         )).values_list('id', flat=True)
         if not shift_ids:

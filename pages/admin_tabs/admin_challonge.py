@@ -81,6 +81,7 @@ async def admin_challonge_connection_page(tournaments_url: str = '/admin/tournam
                         connect_controls('Connect Challonge')
 
         async def linked_row() -> None:
+            # Every event's (cross-event): the Challonge sign-in is the community's.
             count = await Tournament.filter(
                 challonge_tournament_id__isnull=False, tenant_id=require_tenant_id(),
             ).count()

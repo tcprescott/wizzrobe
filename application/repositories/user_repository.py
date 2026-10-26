@@ -183,7 +183,10 @@ class UserRepository(TenantScopedRepository[User]):
     @staticmethod
     async def role_summary(tenant_id: int) -> Tuple[Dict[int, List[Role]], Counter, Counter]:
         """Each user's roles in ``tenant_id``, and how many of its tournaments
-        each one admins and crew-coordinates: three flat reads, no ``User`` rows."""
+        each one admins and crew-coordinates: three flat reads, no ``User`` rows.
+
+        Counts span every event (cross-event): the Members list is the community's.
+        """
         roles: Dict[int, List[Role]] = {}
         for user_id, role in await UserRole.filter(tenant_id=tenant_id).order_by('id').values_list('user_id', 'role'):
             roles.setdefault(user_id, []).append(role)

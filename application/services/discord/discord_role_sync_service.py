@@ -24,9 +24,10 @@ import asyncio
 import logging
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
-from typing import Dict, List, Mapping, Optional, Set, Tuple, Union
+from typing import Dict, List, Mapping, Optional, Set, Tuple, Union, cast
 
 from application.errors import require_found
+from application.event_context import require_event_id
 from application.feature_flags import requires_feature
 from application.repositories.discord_role_mapping_repository import DiscordRoleMappingRepository
 from application.repositories.discord_role_sync_repository import DiscordRoleSyncRepository
@@ -211,7 +212,9 @@ class DiscordRoleSyncService:
         if kind == DiscordRoleRuleKind.TOURNAMENT:
             if tournament_id is None:
                 raise ValueError("Pick the tournament this role is for")
-            require_found(await self.tournament_repository.get_by_id(tournament_id), "Tournament")
+            tournament = require_found(await self.tournament_repository.get_by_id(tournament_id), "Tournament")
+            if tournament.event_id != require_event_id():
+                raise ValueError("That tournament belongs to another event")
             lanyard = None
         elif kind == DiscordRoleRuleKind.BADGE:
             if lanyard is None:
@@ -294,33 +297,32 @@ class DiscordRoleSyncService:
         return {m.discord_role_id for m in await self.mapping_repository.get_all()}
 
     async def _qualifying(self, rules: List[DiscordRoleRule], badges_on: bool) -> Dict[int, Set[int]]:
-        """``rule.id -> user ids`` it covers right now."""
-        kinds = {rule.kind for rule in rules}
-        any_tournament: Set[int] = set()
-        live: Set[int] = set()
-        by_tournament: Dict[int, Set[int]] = {}
-        badges: Dict[CheckInTierLanyard, Set[int]] = {}
-        if DiscordRoleRuleKind.ANY_TOURNAMENT in kinds:
-            any_tournament = await self.repository.players_in_active_tournaments()
-        if DiscordRoleRuleKind.LIVE_MATCH in kinds:
-            live = await self.repository.players_in_live_matches(
-                datetime.now(timezone.utc) - LIVE_MATCH_WINDOW,
-            )
-        if DiscordRoleRuleKind.TOURNAMENT in kinds:
-            by_tournament = await self.repository.players_by_tournament()
-        if DiscordRoleRuleKind.BADGE in kinds and badges_on:
-            badges = await self.repository.badge_holders()
+        """``rule.id -> user ids`` it covers right now, each within its own event."""
+        any_tournament: Dict[int, Set[int]] = {}
+        live: Dict[int, Set[int]] = {}
+        badges: Dict[int, Dict[CheckInTierLanyard, Set[int]]] = {}
+        by_tournament: Optional[Dict[int, Set[int]]] = None
+        live_after = datetime.now(timezone.utc) - LIVE_MATCH_WINDOW
 
         found: Dict[int, Set[int]] = {}
         for rule in rules:
+            event_id = cast(int, rule.event_id)
             if rule.kind == DiscordRoleRuleKind.ANY_TOURNAMENT:
-                found[rule.id] = any_tournament
+                if event_id not in any_tournament:
+                    any_tournament[event_id] = await self.repository.players_in_active_tournaments(event_id)
+                found[rule.id] = any_tournament[event_id]
             elif rule.kind == DiscordRoleRuleKind.LIVE_MATCH:
-                found[rule.id] = live
+                if event_id not in live:
+                    live[event_id] = await self.repository.players_in_live_matches(event_id, live_after)
+                found[rule.id] = live[event_id]
             elif rule.kind == DiscordRoleRuleKind.TOURNAMENT:
+                if by_tournament is None:
+                    by_tournament = await self.repository.players_by_tournament()
                 found[rule.id] = by_tournament.get(rule.tournament_id or 0, set())
-            elif rule.lanyard is not None:
-                found[rule.id] = badges.get(rule.lanyard, set())
+            elif rule.lanyard is not None and badges_on:
+                if event_id not in badges:
+                    badges[event_id] = await self.repository.badge_holders(event_id)
+                found[rule.id] = badges[event_id].get(rule.lanyard, set())
         return found
 
     async def _fail(self, message: str) -> RoleSyncResult:
@@ -328,7 +330,7 @@ class DiscordRoleSyncService:
         return RoleSyncResult(error=message)
 
     async def _run(self) -> RoleSyncResult:
-        rules = await self.repository.list_rules()
+        rules = await self.repository.list_live_rules()
         grants = await self.repository.list_grants()
         if not rules and not grants:
             await self.repository.save_state(
@@ -353,10 +355,13 @@ class DiscordRoleSyncService:
 
         qualifying = await self._qualifying(rules, badges_on)
         desired: Dict[int, Set[int]] = {}
+        # Which event's rule asked for a role first, to tag the grant with.
+        giver: Dict[Tuple[int, int], Optional[int]] = {}
         for rule in rules:
             if problems.get(rule.discord_role_id) is None:
                 for user_id in qualifying.get(rule.id, set()):
                     desired.setdefault(user_id, set()).add(rule.discord_role_id)
+                    giver.setdefault((user_id, rule.discord_role_id), rule.event_id)
 
         people = await self.repository.people(set(desired) | {uid for uid, _ in grants})
         discord = DiscordService()
@@ -385,7 +390,7 @@ class DiscordRoleSyncService:
                         return await self._fail(message)
                     failures.append(message)
                     continue
-                await self.repository.add_grant(user_id, role_id)
+                await self.repository.add_grant(user_id, role_id, giver.get((user_id, role_id)))
                 held[discord_id].add(role_id)
                 result.added += 1
 

@@ -7,10 +7,10 @@ Handles stage-related operations including creation, updates, and validation.
 from typing import Optional
 
 from application.errors import require_found
+from application.event_context import event_scoped
 from application.repositories import StageRepository
 from application.services.audit_service import AuditActions, AuditService
 from application.services.auth_service import AuthService
-from application.tenant_context import require_tenant_id
 from application.utils.safe_url import normalize_http_url
 from models import Stage, User
 
@@ -110,8 +110,8 @@ class StageService:
 
     async def get_all_stages(self, active_only: bool = False) -> list[Stage]:
         if active_only:
-            return await Stage.filter(is_active=True, tenant_id=require_tenant_id())
-        return await Stage.filter(tenant_id=require_tenant_id())
+            return await event_scoped(Stage.filter(is_active=True))
+        return await event_scoped(Stage.all())
 
     async def get_stage_by_id(self, stage_id: int) -> Optional[Stage]:
         return await self.repository.get_by_id(stage_id)

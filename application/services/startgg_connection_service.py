@@ -222,7 +222,7 @@ class StartggConnectionService:
         """
         await AuthService.ensure(await AuthService.is_staff(actor), 'Only staff can see start.gg access')
         connection = await self.repository.get_connection()
-        tournaments = sorted(await self.repository.linked_tournaments(), key=lambda t: t.name.lower())
+        tournaments = sorted(await self.repository.live_linked_tournaments(), key=lambda t: t.name.lower())
         if connection is None or not tournaments:
             return []
         client = MockStartggClient() if is_mock_startgg() else StartggClient(await self._fresh_access_token(connection))

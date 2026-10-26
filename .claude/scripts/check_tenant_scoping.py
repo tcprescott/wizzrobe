@@ -23,7 +23,8 @@ stamps them.
 Flags:
 
 - a read root — ``Model.filter/get/get_or_none/all/first/exists(...)`` — that
-  is neither wrapped in a ``scoped(...)`` call nor passing a ``tenant``/
+  is neither wrapped in a ``scoped(...)`` (or ``event_scoped``/
+  ``live_event_scoped``) call nor passing a ``tenant``/
   ``tenant_id``/``tenant__…`` kwarg;
 - a write root — ``Model.create/get_or_create/update_or_create(...)`` — with
   no tenant kwarg (``get_or_create`` may carry it in ``defaults={...}``).
@@ -55,6 +56,9 @@ from _hook_paths import anchor
 anchor()  # hooks inherit the session's shell cwd; pin paths to the repo
 
 READ_ROOTS = {"filter", "get", "get_or_none", "all", "first", "exists", "exclude"}
+# ``event_scoped``/``live_event_scoped`` (application/event_context.py) filter on
+# the tenant as well as the event, so they scope a read just as ``scoped`` does.
+SCOPERS = {"scoped", "event_scoped", "live_event_scoped"}
 WRITE_ROOTS = {"create", "get_or_create", "update_or_create"}
 # Terms of art, plus an explicit opt-out in the shape the other hooks use.
 # `global` used to be here and was the loosest possible hatch: an ordinary
@@ -164,7 +168,7 @@ def find_violations(
             if (
                 isinstance(cur, ast.Call)
                 and isinstance(cur.func, ast.Name)
-                and cur.func.id == "scoped"
+                and cur.func.id in SCOPERS
             ):
                 return True
             cur = parents.get(cur)

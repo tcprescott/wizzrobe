@@ -44,3 +44,31 @@ async def test_scope_survives_awaits():
 
     with event_scope(11):
         assert await inner() == 11
+
+
+def test_binding_belongs_to_its_tenant():
+    from application.tenant_context import tenant_scope
+
+    with tenant_scope(1), event_scope(5):
+        assert get_current_event_id() == 5
+        with tenant_scope(2):
+            assert get_current_event_id() is None
+            with event_scope(8):
+                assert get_current_event_id() == 8
+        assert get_current_event_id() == 5
+
+
+def test_explicit_tenant_binding():
+    from application.tenant_context import tenant_scope
+
+    with tenant_scope(1), event_scope(5, tenant_id=2):
+        assert get_current_event_id() is None
+        with tenant_scope(2):
+            assert get_current_event_id() == 5
+
+
+def test_no_tenant_means_no_event():
+    from application.tenant_context import tenant_scope
+
+    with tenant_scope(None), event_scope(5):
+        assert get_current_event_id() is None

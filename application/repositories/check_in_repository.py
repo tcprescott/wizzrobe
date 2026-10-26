@@ -9,7 +9,8 @@ from typing import Dict, Iterable, List, Optional
 
 from tortoise.expressions import Q
 
-from application.repositories._base import TenantScopedRepository
+from application.repositories._base import EventScopedRepository, TenantScopedRepository
+from application.repositories._event import event_scoped
 from application.repositories._tenant import current_tenant_id, scoped
 from models import (
     CheckInDmStatus,
@@ -24,20 +25,22 @@ from models import (
 )
 
 
-class CheckInEventRepository(TenantScopedRepository[CheckInEvent]):
+class CheckInEventRepository(EventScopedRepository[CheckInEvent]):
+    """The current event's check-in events (``CheckInEvent`` is a check-in desk, not an ``Event``)."""
+
     model = CheckInEvent
 
     @staticmethod
     async def list_all() -> List[CheckInEvent]:
-        return await scoped(CheckInEvent.all()).order_by('-created_at')
+        return await event_scoped(CheckInEvent.all()).order_by('-created_at')
 
     @staticmethod
     async def list_by_status(status: CheckInEventStatus) -> List[CheckInEvent]:
-        return await scoped(CheckInEvent.filter(status=status)).order_by('-created_at')
+        return await event_scoped(CheckInEvent.filter(status=status)).order_by('-created_at')
 
     @staticmethod
     async def exists_with_status(status: CheckInEventStatus) -> bool:
-        return await scoped(CheckInEvent.filter(status=status)).exists()
+        return await event_scoped(CheckInEvent.filter(status=status)).exists()
 
     @staticmethod
     async def record_sync(event: CheckInEvent, **fields: object) -> None:
@@ -51,14 +54,14 @@ class CheckInEventRepository(TenantScopedRepository[CheckInEvent]):
 
     @staticmethod
     async def get_by_venue(venue_id: int) -> Optional[CheckInEvent]:
-        return await scoped(CheckInEvent.filter(matcherino_venue_id=venue_id)).first()
+        return await event_scoped(CheckInEvent.filter(matcherino_venue_id=venue_id)).first()
 
     @staticmethod
     async def list_syncable_all() -> List[CheckInEvent]:
         """Open events with a Matcherino venue or comp rules, across every tenant.
 
-        Deliberately cross-tenant: this is the sync worker's scan, which then
-        runs each event inside its own ``tenant_scope``.
+        Deliberately cross-tenant and cross-event: this is the sync worker's
+        scan, which then runs each one inside its own tenant and event scope.
         """
         return [
             event for event in await CheckInEvent.filter(status=CheckInEventStatus.OPEN)

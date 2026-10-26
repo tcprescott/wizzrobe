@@ -7,15 +7,16 @@ Position-scoped, time-windowed shifts.
 from datetime import datetime
 from typing import List, Optional
 
-from application.repositories._base import TenantScopedRepository
-from application.repositories._tenant import current_tenant_id, scoped
-from models import VolunteerShift
+from application.repositories._base import EventScopedRepository
+from application.repositories._event import event_scoped, parent_event_id
+from application.repositories._tenant import current_tenant_id
+from models import VolunteerPosition, VolunteerShift
 
 _PREFETCH = ('position', 'assignments', 'assignments__user')
 
 
-class VolunteerShiftRepository(TenantScopedRepository[VolunteerShift]):
-    """Repository for volunteer shifts."""
+class VolunteerShiftRepository(EventScopedRepository[VolunteerShift]):
+    """Repository for volunteer shifts. A shift belongs to its position's event."""
 
     model = VolunteerShift
 
@@ -25,9 +26,9 @@ class VolunteerShiftRepository(TenantScopedRepository[VolunteerShift]):
 
     @staticmethod
     async def list_for_window(start: datetime, end: datetime) -> List[VolunteerShift]:
-        """Shifts overlapping [start, end], ordered by position then start time."""
+        """The current event's shifts overlapping [start, end], by position then start."""
         return await (
-            scoped(VolunteerShift.filter(starts_at__lt=end, ends_at__gt=start))
+            event_scoped(VolunteerShift.filter(starts_at__lt=end, ends_at__gt=start))
             .order_by('position__display_order', 'position__name', 'starts_at')
             .prefetch_related(*_PREFETCH)
         )
@@ -37,7 +38,7 @@ class VolunteerShiftRepository(TenantScopedRepository[VolunteerShift]):
         position_id: int, start: datetime, end: datetime,
     ) -> List[VolunteerShift]:
         return await (
-            scoped(VolunteerShift.filter(
+            event_scoped(VolunteerShift.filter(
                 position_id=position_id, starts_at__lt=end, ends_at__gt=start,
             ))
             .order_by('starts_at')
@@ -55,6 +56,7 @@ class VolunteerShiftRepository(TenantScopedRepository[VolunteerShift]):
     ) -> VolunteerShift:
         return await VolunteerShift.create(
             tenant_id=current_tenant_id(),
+            event_id=await parent_event_id(VolunteerPosition, parent_id=position_id),
             position_id=position_id,
             starts_at=starts_at,
             ends_at=ends_at,
@@ -65,4 +67,5 @@ class VolunteerShiftRepository(TenantScopedRepository[VolunteerShift]):
 
     @staticmethod
     async def delete_all() -> int:
-        return await scoped(VolunteerShift.all()).delete()
+        """Delete every shift of the current event."""
+        return await event_scoped(VolunteerShift.all()).delete()

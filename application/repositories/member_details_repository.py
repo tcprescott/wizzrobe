@@ -9,6 +9,7 @@ person's push devices, which belong to the account rather than a community.
 from datetime import datetime
 from typing import List, Optional
 
+from application.repositories._event import live_event_scoped
 from application.repositories._tenant import current_tenant_id, scoped
 from models import (
     CheckInEntrant,
@@ -31,10 +32,12 @@ class MemberDetailsRepository:
 
     @staticmethod
     async def admin_tournament_names(user_id: int) -> List[str]:
+        """Every event's tournaments this member admins (cross-event: the Members sheet)."""
         return await scoped(Tournament.filter(admins__id=user_id)).order_by('name').values_list('name', flat=True)  # type: ignore[return-value]
 
     @staticmethod
     async def coordinated_tournament_names(user_id: int) -> List[str]:
+        """Every event's tournaments this member coordinates crew for (cross-event)."""
         return await scoped(
             Tournament.filter(crew_coordinators__id=user_id),
         ).order_by('name').values_list('name', flat=True)  # type: ignore[return-value]
@@ -47,7 +50,8 @@ class MemberDetailsRepository:
 
     @staticmethod
     async def upcoming_matches(user_id: int, now: datetime, limit: int) -> List[Match]:
-        return await scoped(Match.filter(
+        """This member's next matches in any live event (cross-event)."""
+        return await live_event_scoped(Match.filter(
             players__user_id=user_id, scheduled_at__gte=now, finished_at__isnull=True,
         )).order_by('scheduled_at').limit(limit).prefetch_related('tournament', 'players__user')
 

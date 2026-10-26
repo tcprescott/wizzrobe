@@ -13,6 +13,7 @@ from tortoise.queryset import QuerySet
 
 from models import SentMessage, SentMessageStatus
 
+from ._event import tagged_event_id
 from ._tenant import current_tenant_id, scoped
 
 
@@ -21,7 +22,8 @@ class SentMessageRepository:
 
     @staticmethod
     async def create(**fields: Any) -> SentMessage:
-        return await SentMessage.create(tenant_id=current_tenant_id(), **fields)
+        event_id = fields.pop('event_id') if 'event_id' in fields else tagged_event_id()
+        return await SentMessage.create(tenant_id=current_tenant_id(), event_id=event_id, **fields)
 
     @staticmethod
     async def update(message_id: int, tenant_id: int, **fields: Any) -> int:

@@ -10,11 +10,16 @@ same community, never another community's rows:
 Both helpers raise when no event is in scope, like their tenant twins.
 """
 
-from typing import Optional
+from typing import Any, Optional
 
-from tortoise.queryset import QuerySet
+from tortoise.models import Model
 
-from application.event_context import require_event_id
+from application.event_context import (  # noqa: F401  (re-exported for repositories)
+    event_scoped,
+    get_current_event_id,
+    live_event_scoped,
+    require_event_id,
+)
 from application.tenant_context import require_tenant_id
 
 
@@ -23,11 +28,55 @@ def current_event_id() -> int:
     return require_event_id()
 
 
-def event_scoped(qs: QuerySet, event_id: Optional[int] = None) -> QuerySet:
-    """Constrain a queryset to the current community and one of its events.
+#: Event-owned models whose rows take their parent's event rather than the
+#: ambient one, with the foreign key that names the parent. A match belongs to
+#: its tournament's event even when staff create it from another event's page.
+EVENT_PARENTS: dict[str, str] = {
+    'Match': 'tournament',
+    'VolunteerShift': 'position',
+    'VolunteerRoleMapping': 'position',
+    'DiscordRoleRule': 'tournament',
+}
 
-    ``event_id`` defaults to the ambient event; pass it explicitly when the
-    caller already holds the row's event (the row decides its own event).
+
+def tagged_event_id() -> Optional[int]:
+    """The event to tag a community-owned row with (audit, telemetry, DMs…).
+
+    Unlike :func:`current_event_id` this never raises: a row written outside
+    any event (a platform action, a community-wide setting) is tagged with none.
     """
-    eid = event_id if event_id is not None else require_event_id()
-    return qs.filter(tenant_id=require_tenant_id(), event_id=eid)
+    return get_current_event_id()
+
+
+async def parent_event_id(parent_model: type[Model], parent: Any = None, parent_id: Optional[int] = None) -> int:
+    """The event of a parent row, from the instance when loaded, else one query.
+
+    The lookup is tenant-scoped, so a parent id from another community resolves
+    to nothing and raises rather than borrowing that community's event.
+    """
+    if parent is not None:
+        event_id = getattr(parent, 'event_id', None)
+        if event_id is not None:
+            return event_id
+        parent_id = parent.pk
+    ids = await parent_model.filter(
+        id=parent_id, tenant_id=require_tenant_id(),
+    ).limit(1).values_list('event_id', flat=True)
+    if not ids or ids[0] is None:
+        raise ValueError(f'{parent_model.__name__} {parent_id} was not found.')
+    return ids[0]
+
+
+async def stamp_event_id(model: type[Model], fields: dict[str, Any]) -> int:
+    """The event a new ``model`` row belongs to, given the fields it is created with.
+
+    Its parent's event when the model follows one (``EVENT_PARENTS``) and the
+    parent is named, else the ambient event (raising when there is none).
+    """
+    parent = EVENT_PARENTS.get(model.__name__)
+    if parent is not None:
+        instance, parent_id = fields.get(parent), fields.get(f'{parent}_id')
+        if instance is not None or parent_id is not None:
+            parent_model = model._meta.fields_map[parent].related_model
+            return await parent_event_id(parent_model, instance, parent_id)
+    return current_event_id()
