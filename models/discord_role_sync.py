@@ -12,7 +12,7 @@ class DiscordRoleRule(Model):
     The reverse of :class:`DiscordRoleMapping`: there a Discord role grants an
     app role, here something Wizzrobe knows (enrolled in a tournament, in a
     match right now, holding a badge) earns a Discord role. ``key`` is the
-    rule's identity within the tenant (``any_tournament``, ``live_match``,
+    rule's identity within its event (``any_tournament``, ``live_match``,
     ``tournament:<id>``, ``badge:<lanyard>``), so the unique constraint holds
     where a nullable ``(kind, tournament, lanyard)`` triple would not.
 
@@ -28,10 +28,10 @@ class DiscordRoleRule(Model):
     tenant_id: int
     # Nullable until every write stamps it; the events migration backfilled the
     # rows that existed before (see docs/features/events.md).
-    event: fields.ForeignKeyNullableRelation = fields.ForeignKeyField(
-        'models.Event', related_name='discord_role_rules', on_delete=fields.CASCADE, null=True,
+    event: fields.ForeignKeyRelation = fields.ForeignKeyField(
+        'models.Event', related_name='discord_role_rules', on_delete=fields.CASCADE,
     )
-    event_id: Optional[int]
+    event_id: int
     key = fields.CharField(max_length=64)
     kind = fields.CharEnumField(DiscordRoleRuleKind, max_length=32)
     tournament: fields.ForeignKeyNullableRelation = fields.ForeignKeyField(
@@ -48,7 +48,7 @@ class DiscordRoleRule(Model):
 
     class Meta:
         table = 'discordrolerule'
-        unique_together = (('tenant', 'key'),)
+        unique_together = (('tenant', 'event', 'key'),)
 
 
 class DiscordRoleGrant(Model):

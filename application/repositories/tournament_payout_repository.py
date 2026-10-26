@@ -5,6 +5,7 @@ from typing import Any, Iterable, List, Mapping, Optional
 from tortoise.transactions import in_transaction
 
 from application.repositories._base import TenantScopedRepository
+from application.repositories._event import event_scoped
 from application.repositories._tenant import current_tenant_id, scoped
 from models import Tournament, TournamentPayout
 
@@ -52,14 +53,14 @@ class TournamentPayoutRepository(TenantScopedRepository[TournamentPayout]):
 
     @classmethod
     async def list_sglive_linked(cls) -> List[Tournament]:
-        """This community's tournaments whose pool syncs from sglive."""
-        return await scoped(Tournament.filter(sglive_slug__isnull=False)).order_by('name')
+        """The current event's tournaments whose pool syncs from sglive."""
+        return await event_scoped(Tournament.filter(sglive_slug__isnull=False)).order_by('name')
 
     @staticmethod
     async def list_sglive_linked_all() -> List[Tournament]:
         """Every community's sglive-linked tournaments, for the sync worker.
 
-        Deliberately unscoped: the worker reads sglive once per tick and fans out
-        per tenant itself.
+        Deliberately unscoped and cross-event: the worker reads sglive once per
+        tick and fans out per tenant and event itself.
         """
         return await Tournament.filter(sglive_slug__isnull=False).order_by('tenant_id', 'id')

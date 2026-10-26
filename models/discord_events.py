@@ -24,10 +24,10 @@ class DiscordScheduledEvent(Model):
     tenant = fields.ForeignKeyField('models.Tenant', related_name='discord_scheduled_events', on_delete=fields.CASCADE)
     # Nullable until every write stamps it; the events migration backfilled the
     # rows that existed before (see docs/features/events.md).
-    event: fields.ForeignKeyNullableRelation = fields.ForeignKeyField(
-        'models.Event', related_name='discord_scheduled_events', on_delete=fields.CASCADE, null=True,
+    event: fields.ForeignKeyRelation = fields.ForeignKeyField(
+        'models.Event', related_name='discord_scheduled_events', on_delete=fields.CASCADE,
     )
-    event_id: Optional[int]
+    event_id: int
     # The guild the event lives in, snapshotted from ``Tenant.discord_guild_id``
     # at creation so a later re-link doesn't silently orphan the row.
     guild_id = fields.BigIntField()

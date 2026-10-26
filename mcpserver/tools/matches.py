@@ -64,10 +64,11 @@ async def list_matches(
     Returns a compact summary per match, ordered by scheduled time. Use
     `get_match` for full detail on one. Times are UTC.
     """
+    from application.event_context import event_scoped
     from models import Match
 
     limit = max(1, min(limit, MAX_MATCHES))
-    query = Match.filter(tenant_id=require_tenant_id())
+    query = event_scoped(Match.all())
     if tournament_id:
         query = query.filter(tournament_id__in=tournament_id)
     if stage_id:

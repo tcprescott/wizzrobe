@@ -4,6 +4,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Any, List, Optional
 
 from application.repositories._base import TenantScopedRepository
+from application.repositories._event import tagged_event_id
 from application.repositories._tenant import current_tenant_id, scoped
 from models import DataExport, DataExportKind, DataExportStatus
 
@@ -23,14 +24,15 @@ class DataExportRepository(TenantScopedRepository[DataExport]):
     @classmethod
     async def create_queued(cls, **fields: Any) -> DataExport:
         return await DataExport.create(
-            tenant_id=current_tenant_id(), status=DataExportStatus.QUEUED, **fields,
+            tenant_id=current_tenant_id(), event_id=tagged_event_id(),
+            status=DataExportStatus.QUEUED, **fields,
         )
 
     @classmethod
     async def create_ready(cls, **fields: Any) -> DataExport:
         now = datetime.now(timezone.utc)
         return await DataExport.create(
-            tenant_id=current_tenant_id(), status=DataExportStatus.READY,
+            tenant_id=current_tenant_id(), event_id=tagged_event_id(), status=DataExportStatus.READY,
             started_at=now, finished_at=now, **fields,
         )
 

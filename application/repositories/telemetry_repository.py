@@ -14,6 +14,7 @@ from typing import Dict, List, Optional, Tuple
 from tortoise.expressions import Q
 from tortoise.functions import Count, Max
 
+from application.event_context import get_current_event_id
 from application.tenant_context import get_current_tenant_id
 from models import TelemetryEvent
 
@@ -35,9 +36,10 @@ class TelemetryRepository:
     ) -> TelemetryEvent:
         # Nullable tenant: stamped from the ambient context (the event's tenant
         # for the domain mirror, the request/page tenant for page views); None
-        # marks a platform-level row.
+        # marks a platform-level row. The event is tagged the same way.
         return await TelemetryEvent.create(
             tenant_id=get_current_tenant_id(),
+            event_id=get_current_event_id(),
             category=category,
             event_type=event_type,
             user_id=user_id,
@@ -50,9 +52,9 @@ class TelemetryRepository:
 
     @staticmethod
     async def bulk_create(rows: List[dict]) -> None:
-        tenant_id = get_current_tenant_id()
+        tenant_id, event_id = get_current_tenant_id(), get_current_event_id()
         await TelemetryEvent.bulk_create(
-            [TelemetryEvent(tenant_id=tenant_id, **row) for row in rows]
+            [TelemetryEvent(tenant_id=tenant_id, event_id=event_id, **row) for row in rows]
         )
 
     @staticmethod

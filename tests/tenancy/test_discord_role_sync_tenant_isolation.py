@@ -13,7 +13,7 @@ async def test_rules_grants_and_state_do_not_leak_between_tenants(two_tenants):
 
     with tenant_scope(a.id):
         await repo.upsert_rule('any_tournament', DiscordRoleRuleKind.ANY_TOURNAMENT, 9001, 'Competitor')
-        await repo.add_grant(member.id, 9001)
+        await repo.add_grant(member.id, 9001, None)
         await repo.save_state(in_place=1)
 
     with tenant_scope(b.id):

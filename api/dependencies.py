@@ -20,8 +20,10 @@ from fastapi.routing import APIRoute
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from application.errors import NotFoundError
+from application.event_context import set_event_id
 from application.services.api_token_service import ApiTokenService
 from application.services.auth_service import AuthService
+from application.services.event_service import EventService
 from application.services.feature_flag_service import FeatureFlagService
 from application.services.telemetry_service import TelemetryEventType, TelemetryService
 from application.services.tenant_service import TenantService
@@ -125,6 +127,9 @@ async def resolve_token(
             detail="You are not a member of this community",
         )
     set_tenant_id(tenant.id)
+    # The community's default event, until routes take an ``event`` parameter.
+    # A route about one row still uses that row's event.
+    set_event_id(await EventService.default_event_id(tenant.id), tenant.id)
     # Read back by ServiceErrorRoute to attribute the request in usage telemetry.
     request.state.api_actor = (user, token)
     # REST responses stay UTC — timezone is a presentation concern and a

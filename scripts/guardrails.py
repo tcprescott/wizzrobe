@@ -52,6 +52,7 @@ FILE_CHECKS = [
     "check_audit_actor",
     "check_bare_save",
     "check_dry_regressions",
+    "check_event_scoping",
     "check_event_types",
     "check_feature_flag_gating",
     "check_file_length",

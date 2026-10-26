@@ -11,6 +11,7 @@ from typing import List, Optional, Tuple, cast
 from tortoise.expressions import Q
 from tortoise.query_utils import Prefetch
 
+from application.repositories._event import event_scoped, live_event_scoped, parent_event_id
 from application.repositories._tenant import current_tenant_id, scoped
 from models import (
     BracketMatchGame,
@@ -19,6 +20,7 @@ from models import (
     Match,
     MatchPlayers,
     StartggSet,
+    Tournament,
     Tracker,
     User,
 )
@@ -82,7 +84,8 @@ class MatchRepository:
         """The Match materialized from an SG episode, or None (tenant-scoped).
 
         Used by the ETL to find an already-materialized match on re-sync. The
-        source FK is a OneToOne, so at most one match matches.
+        source FK is a OneToOne, so at most one match matches, and that row
+        decides its own event (event-scope: exempt — one row per episode).
         """
         return await scoped(
             Match.filter(speedgaming_episode_id=episode_id)
@@ -186,8 +189,15 @@ class MatchRepository:
 
         Returns:
             List of Match objects
+
+        The current event's matches, except that a board filtered to one
+        person (``user_discord_id`` / ``crew_discord_id``) is a personal page
+        and spans every live event (cross-event).
         """
-        query = scoped(Match.all())
+        query = (
+            live_event_scoped(Match.all()) if user_discord_id or crew_discord_id
+            else event_scoped(Match.all())
+        )
 
         if match_ids:
             query = query.filter(id__in=match_ids)
@@ -273,6 +283,7 @@ class MatchRepository:
         """
         match = await Match.create(
             tenant_id=current_tenant_id(),
+            event_id=await parent_event_id(Tournament, parent_id=tournament_id),
             tournament_id=tournament_id,
             scheduled_at=scheduled_at,
             comment=comment,
@@ -291,17 +302,19 @@ class MatchRepository:
         """A match with no players and no time, holding crew signups for one bracket matchup."""
         return await Match.create(
             tenant_id=current_tenant_id(), tournament_id=tournament_id, scheduled_at=None,
+            event_id=await parent_event_id(Tournament, parent_id=tournament_id),
             title=title, bracket_placeholders=placeholders,
             crew_hold_source=source, crew_hold_key=key,
         )
 
     @staticmethod
     async def get_crew_hold(source: str, key: int) -> Optional[Match]:
+        """The hold for one bracket matchup (event-scope: exempt — one row per matchup)."""
         return await scoped(Match.filter(crew_hold_source=source, crew_hold_key=key)).first()
 
     @staticmethod
     async def list_crew_holds() -> List[Match]:
-        return await scoped(Match.filter(crew_hold_source__isnull=False)).prefetch_related(
+        return await event_scoped(Match.filter(crew_hold_source__isnull=False)).prefetch_related(
             'tournament', 'commentators', 'trackers',
         )
 
@@ -522,7 +535,7 @@ class MatchRepository:
         Returns:
             List of matches with tournament/players/stage/seed prefetched
         """
-        return await scoped(Match.all()).prefetch_related(
+        return await event_scoped(Match.all()).prefetch_related(
             'tournament', 'players', 'stage', 'generated_seed'
         ).order_by('scheduled_at')
 
@@ -548,7 +561,7 @@ class MatchRepository:
         Returns:
             List of matches with all related data prefetched
         """
-        query = scoped(Match.filter(
+        query = event_scoped(Match.filter(
             scheduled_at__gte=start,
             scheduled_at__lt=end
         ))
@@ -574,8 +587,11 @@ class MatchRepository:
         streams at once *and* cannot commentate a match they are racing in. One
         query per role would be three; a single OR'd filter is one, deduped by id
         because a person could hold two roles on the same match.
+
+        Spans every live event (cross-event): a person can't be in two places
+        at once whichever event each match belongs to.
         """
-        query = scoped(Match.filter(
+        query = live_event_scoped(Match.filter(
             Q(players__user_id=user_id)
             | Q(commentators__user_id=user_id)
             | Q(trackers__user_id=user_id),
@@ -599,9 +615,10 @@ class MatchRepository:
             discord_id: Discord ID of the player
 
         Returns:
-            List of matches where the player is participating
+            List of matches where the player is participating, in any live
+            event (cross-event: it feeds the player's own schedule)
         """
-        return await scoped(Match.filter(players__user__discord_id=discord_id))
+        return await live_event_scoped(Match.filter(players__user__discord_id=discord_id))
 
     @staticmethod
     async def unconfirmed_for_player(tournament_id: int, user_id: int) -> List[Match]:
@@ -625,8 +642,11 @@ class MatchRepository:
         ``MatchRescheduleService._blocking_state``, which lists all four, rather
         than agreeing with it only for as long as ``confirm_match`` keeps
         requiring a finish first.
+
+        Across every live event (cross-event): it backs the player's own
+        schedule.
         """
-        return await scoped(Match.filter(
+        return await live_event_scoped(Match.filter(
             players__user_id=user_id,
             scheduled_at__isnull=False,
             seated_at__isnull=True,

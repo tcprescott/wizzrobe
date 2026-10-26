@@ -16,6 +16,7 @@ from decimal import Decimal
 from typing import Any, Dict, Iterable, List, Mapping, Optional
 
 from application.errors import require_found
+from application.event_context import event_scoped
 from application.events import EventType
 from application.feature_flags import requires_feature
 from application.repositories._save import save_fields
@@ -138,9 +139,7 @@ class PayoutService:
         own controls would refuse: staff see the community, a tournament admin
         sees their own events.
         """
-        tournaments = await Tournament.filter(
-            tenant_id=require_tenant_id()
-        ).order_by('-is_active', 'name')
+        tournaments = await event_scoped(Tournament.all()).order_by('-is_active', 'name')
         overviews: List[PayoutOverview] = []
         for tournament in tournaments:
             if not await AuthService.can_manage_payouts(actor, tournament):
@@ -438,7 +437,7 @@ class PayoutService:
     async def _require_any_manageable(self, actor: User) -> None:
         if await AuthService.is_staff(actor):
             return
-        tournaments = await Tournament.filter(tenant_id=require_tenant_id())
+        tournaments = await event_scoped(Tournament.all())
         for tournament in tournaments:
             if await AuthService.can_manage_payouts(actor, tournament):
                 return

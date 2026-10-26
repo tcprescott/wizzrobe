@@ -12,6 +12,7 @@ from typing import Any, Dict, Iterable, List, Optional, Set, cast
 from tortoise.expressions import Q
 from tortoise.functions import Count, Lower
 
+from application.repositories._event import event_scoped, live_event_scoped
 from application.repositories._save import save_fields
 from application.repositories._tenant import current_tenant_id, scoped
 from models import (
@@ -63,11 +64,17 @@ class StartggRepository:
 
     @staticmethod
     async def linked_tournaments() -> List[Tournament]:
-        return await scoped(Tournament.filter(startgg_event_slug__isnull=False))
+        """The current event's tournaments linked to start.gg."""
+        return await event_scoped(Tournament.filter(startgg_event_slug__isnull=False))
+
+    @staticmethod
+    async def live_linked_tournaments() -> List[Tournament]:
+        """Every live event's start.gg-linked tournaments (cross-event: the sign-in is the community's)."""
+        return await live_event_scoped(Tournament.filter(startgg_event_slug__isnull=False))
 
     @staticmethod
     async def linked_tenant_ids() -> Set[int]:
-        """Cross-tenant: every tenant with at least one linked event, for the sync worker."""
+        """Cross-tenant and cross-event: every tenant with at least one linked event, for the sync worker."""
         rows = await Tournament.filter(startgg_event_slug__isnull=False).values_list('tenant_id', flat=True)
         return set(cast(List[int], rows))
 

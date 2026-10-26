@@ -12,6 +12,7 @@ from typing import Dict, Iterable, List, Optional, Set, cast
 from tortoise.expressions import Q
 from tortoise.functions import Count
 
+from application.repositories._event import event_scoped, live_event_scoped
 from application.repositories._save import save_fields
 from application.repositories._tenant import current_tenant_id, scoped
 from models import (
@@ -106,7 +107,10 @@ class ChallongeRepository:
 
     @staticmethod
     async def linked_tournament_communities() -> Dict[str, int]:
-        """How many of this tenant's linked tournaments live on each Challonge community."""
+        """How many of this tenant's linked tournaments, in any event, live on each Challonge community.
+
+        Cross-event: the Challonge sign-in is the community's.
+        """
         rows = await scoped(Tournament.filter(
             challonge_tournament_id__isnull=False, challonge_community__isnull=False,
         )).values_list('challonge_community', flat=True)
@@ -118,15 +122,26 @@ class ChallongeRepository:
 
     @staticmethod
     async def auto_sync_tournaments() -> List[Tournament]:
-        """Active linked tournaments whose bracket isn't finished on Challonge."""
-        return await scoped(Tournament.filter(
+        """The current event's active linked tournaments whose bracket isn't finished on Challonge."""
+        return await event_scoped(Tournament.filter(
             Q(challonge_state__isnull=True) | Q(challonge_state__not='complete'),
             challonge_tournament_id__isnull=False, is_active=True,
         )).order_by('id')
 
     @staticmethod
+    async def live_auto_sync_count() -> int:
+        """How many tournaments in any live event :meth:`auto_sync_tournaments` would sync.
+
+        Cross-event: the sync interval is the community's setting.
+        """
+        return await live_event_scoped(Tournament.filter(
+            Q(challonge_state__isnull=True) | Q(challonge_state__not='complete'),
+            challonge_tournament_id__isnull=False, is_active=True,
+        )).count()
+
+    @staticmethod
     async def linked_tenant_ids() -> Set[int]:
-        """Cross-tenant: every tenant with an active linked bracket, for the auto-sync worker."""
+        """Cross-tenant and cross-event: every tenant with an active linked bracket, for the auto-sync worker."""
         rows = await Tournament.filter(
             challonge_tournament_id__isnull=False, is_active=True,
         ).values_list('tenant_id', flat=True)

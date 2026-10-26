@@ -73,10 +73,14 @@ async def _tick() -> None:
     def tenant_id_of(run):
         return run.tenant_id
 
+    def run_event_id(run):
+        return run.qualifier.event_id
+
     await for_each_tenant_scoped(
         candidates,
         _handle,
         tenant_id_of=tenant_id_of,
+        event_id_of=run_event_id,
         logger=logger,
         describe=lambda run: f'qualifier run {getattr(run, "id", None)}',
     )
@@ -84,6 +88,7 @@ async def _tick() -> None:
         stale_claims,
         _unclaim,
         tenant_id_of=tenant_id_of,
+        event_id_of=run_event_id,
         logger=logger,
         describe=lambda run: f'stale review claim on qualifier run {getattr(run, "id", None)}',
     )
@@ -110,6 +115,7 @@ async def _tick() -> None:
         backlogs,
         _watch,
         tenant_id_of=tenant_id_of,
+        event_id_of=lambda q: q.event_id,
         logger=logger,
         describe=lambda q: f'window and review backlog on qualifier {getattr(q, "id", None)}',
     )

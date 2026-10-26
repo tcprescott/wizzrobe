@@ -110,6 +110,7 @@ EXPECTED_WIRING = {
     "check_audit_actor": {("PostToolUse", "Write|Edit")},
     "check_bare_save": {("PreToolUse", "Write|Edit")},
     "check_dry_regressions": {("PreToolUse", "Write|Edit")},
+    "check_event_scoping": {("PostToolUse", "Write|Edit")},
     "check_event_types": {("PostToolUse", "Write|Edit")},
     "check_feature_flag_gating": {("PostToolUse", "Write|Edit")},
     "check_file_length": {("PostToolUse", "Write|Edit")},

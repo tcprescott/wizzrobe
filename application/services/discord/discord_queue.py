@@ -9,7 +9,9 @@ any failure so it reaches logs + Sentry.
 import asyncio
 import logging
 from collections.abc import Coroutine
+from typing import Optional
 
+from application.event_context import event_scope, get_current_event_id
 from application.tenant_context import get_current_tenant_id, tenant_scope
 from application.utils.coroutine_queue import CoroutineQueue, bind_module_state
 
@@ -55,8 +57,8 @@ def discard_pending() -> int:
     return _q.discard_pending()
 
 
-async def _run_in_tenant_scope(tenant_id: int, coro: Coroutine) -> None:
-    with tenant_scope(tenant_id):
+async def _run_in_tenant_scope(tenant_id: int, coro: Coroutine, event_id: Optional[int] = None) -> None:
+    with tenant_scope(tenant_id), event_scope(event_id, tenant_id):
         await coro
 
 
@@ -72,11 +74,14 @@ def enqueue(coro: Coroutine) -> None:
     the worker awaits it. This is the ``volunteer_reminder._scoped_dm`` pattern
     applied once, at the queue chokepoint every notification flows through.
 
+    The event is captured the same way, so a DM about a match is logged under
+    that match's event.
+
     Enqueued outside any tenant (rare — a genuinely tenant-agnostic send) the
     coroutine is queued unwrapped, exactly as before.
     """
     tenant_id = get_current_tenant_id()
     if tenant_id is not None:
-        _q.enqueue(_run_in_tenant_scope(tenant_id, coro))
+        _q.enqueue(_run_in_tenant_scope(tenant_id, coro, get_current_event_id()))
     else:
         _q.enqueue(coro)

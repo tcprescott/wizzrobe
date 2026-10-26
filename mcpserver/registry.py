@@ -25,6 +25,8 @@ from typing import Callable, Dict, FrozenSet, Optional
 from mcp.server.mcpserver import MCPServer
 from mcp.types import ToolAnnotations
 
+from application.event_context import event_scope
+from application.services.event_service import EventService
 from application.services.telemetry_service import TelemetryEventType, TelemetryService
 from application.services.timezone_service import TimezoneService
 from application.tenant_context import tenant_scope
@@ -114,7 +116,9 @@ def register(
                 return await fn(**kwargs)
             tenant = await resolve_tenant(kwargs.get('tenant'))
             tenant_id = tenant.id
-            with tenant_scope(tenant.id):
+            # The community's default event, until tools take an ``event``
+            # argument. A tool about one row still uses that row's event.
+            with tenant_scope(tenant.id), event_scope(await EventService.default_event_id(tenant.id)):
                 await authorize(actor, gate, feature, slug=tenant.slug, write=write)
                 # An MCP caller has no browser and is not "a viewer", so there is
                 # no personal clock to resolve — but tools still take and derive

@@ -1,8 +1,8 @@
 from typing import List, Optional
 
 from application.errors import require_found
+from application.event_context import event_scoped
 from application.repositories import TournamentNotificationRepository, TournamentRepository
-from application.tenant_context import require_tenant_id
 from models import MatchNotificationLevel, Tournament, TournamentNotificationPreference, User
 
 
@@ -45,4 +45,4 @@ class TournamentNotificationService:
         )
 
     async def get_active_tournaments(self) -> List[Tournament]:
-        return await Tournament.filter(is_active=True, tenant_id=require_tenant_id()).order_by('name').all()
+        return await event_scoped(Tournament.filter(is_active=True)).order_by('name').all()

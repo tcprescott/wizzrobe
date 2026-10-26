@@ -31,6 +31,7 @@ from datetime import datetime, timedelta
 from datetime import timezone as dt_timezone
 from typing import FrozenSet, List, NamedTuple, Optional, Sequence, Tuple
 
+from application.event_context import event_scoped
 from application.repositories.bracket_repository import BracketRepository
 from application.repositories.player_availability_repository import PlayerAvailabilityRepository
 from application.repositories.user_repository import UserRepository
@@ -184,10 +185,10 @@ class MatchSuggestionService:
                 "This round's scheduled window has no room left for a match."
             )
 
-        existing_matches = await Match.filter(
+        # The tournament's event: its room and its other matches, whatever page asked.
+        existing_matches = await event_scoped(Match.filter(
             scheduled_at__isnull=False, confirmed_at__isnull=True,
-            tenant_id=require_tenant_id(),
-        ).prefetch_related('tournament', 'players')
+        ), tournament.event_id if tournament else None).prefetch_related('tournament', 'players')
         existing_matches = [m for m in existing_matches if m.id != exclude_match_id]
         capacity = await SystemConfigService.get_max_concurrent_players(_DEFAULT_CAPACITY)
 
@@ -274,9 +275,11 @@ class MatchSuggestionService:
         clashes: List[Clash] = []
         clashes += await self._hours_clashes(tournament, start, end, tz)
 
-        existing = await Match.filter(
-            scheduled_at__isnull=False, confirmed_at__isnull=True, tenant_id=tenant_id,
-        ).prefetch_related('tournament', 'players__user', 'commentators', 'trackers')
+        existing = await event_scoped(Match.filter(
+            scheduled_at__isnull=False, confirmed_at__isnull=True,
+        ), tournament.event_id if tournament else None).prefetch_related(
+            'tournament', 'players__user', 'commentators', 'trackers',
+        )
         existing = [m for m in existing if m.id != exclude_match_id]
         wanted = set(player_ids)
         overlapping: List[Tuple[Match, _Booking]] = [

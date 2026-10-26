@@ -14,7 +14,7 @@ what is built.
 | Phase | What | Status |
 |---|---|---|
 | 0 | `Event` model, event context, default-event binding, migration + backfill | built |
-| 1 | Repositories read and stamp the event; workers loop live events; leak tests | planned |
+| 1 | Repositories read and stamp the event; workers loop live events; NOT NULL; leak tests | built |
 | 2 | `/e/<slug>` URLs, switcher, admin menu split, Admin → Events, copy setup | planned |
 | 3 | Archive = read-only, enforced in services | planned |
 | 4 | Per-event roles | planned |
@@ -44,9 +44,18 @@ ends_on, config, archived_at, archived_by, pii_purged_at)`.
 Children of these (match players, crew, brackets, shift assignments, check-in
 entrants…) reach their event through their parent and get no column.
 
-**The column is nullable for now, and nothing reads it yet.** Writes don't stamp
-it until phase 1; the migration that makes it NOT NULL re-runs the backfill
-first, so rows written in between are caught.
+On event-owned models the column is **NOT NULL** (migration 134); on tagged
+models it stays nullable, because a row can happen outside any event (a
+platform action, a community-wide DM).
+
+### Per-event uniques
+
+Names and one-per-person rows are unique within an event, so next year's event
+can reuse this year's: `Stage`, `Station` and `VolunteerPosition` →
+`(tenant, event, name)`; `CheckInEvent` → `(tenant, event, matcherino_venue_id)`;
+`DiscordRoleRule` → `(tenant, event, key)`; `AccommodationRequest`,
+`EmergencyContact`, `CommunityEventSeen` → `(tenant, event, user)`;
+`WatchLayoutVote` → `(tenant, event, session_id, layout)`.
 
 ## Event context
 
@@ -58,12 +67,46 @@ see the event their page was built with.
 `TenantMiddleware` binds the community's default event next to the tenant
 (path mode and host mode), resolved by `EventService.default_event_id`, which
 is cached per process and dropped on every event write. `@protected_page`,
-`@public_page` and `/home` stash it on the client. Workers, the bot and
-background tasks bind nothing yet.
+`@public_page` and `/home` stash it on the client. A binding remembers the
+community it was made in and reads as unbound under any other, so an event
+never crosses a community wall.
 
-Repositories get `event_scoped(qs)` in `application/repositories/_event.py`
-beside `scoped(qs)`. It filters on tenant **and** event, so a wrong event can
-at worst show another event of the same community.
+The other binding sites:
+
+| Surface | Event |
+|---|---|
+| REST (`api/dependencies.py`), MCP (`mcpserver/registry.py`) | the community's default, until phase 5 adds an `event` argument |
+| Workers (`for_each_tenant_scoped`) | `event_id_of=`: the row's own event (a match, a shift, a qualifier, a check-in event), skipped unless live; `each_live_event=True`: a community sync runs once per live event |
+| Discord DM buttons (`discordbot/_tenant.py`) | the event of the match, crew slot, shift, reschedule request or invite the button is about |
+| DM queue, event bus, page-view telemetry, DM mirrors | the publisher's event, carried to the worker |
+| Seed scripts (`scripts.seed_events.install_event_stamping`) | the community's default; direct creates take their parent's event |
+
+### Reading and writing
+
+`event_scoped(qs)` and `live_event_scoped(qs)` live in
+`application/event_context.py` (so services and entry surfaces can use them,
+as they hand-scope a tenant) and are re-exported from
+`application/repositories/_event.py`. `event_scoped` filters on tenant **and**
+one event, the ambient one unless the caller passes the row's;
+`live_event_scoped` filters on every live event of the community, for personal
+pages that follow a person across events (My Schedule, staff alert settings).
+
+A lookup by id stays tenant-scoped only: **the row decides its own event.**
+
+Writes go through `EventScopedRepository.create` or `stamp_event_id`: a model
+in `EVENT_PARENTS` takes its parent's event (`Match` from its tournament,
+`VolunteerShift` and `VolunteerRoleMapping` from their position,
+`DiscordRoleRule` from its tournament), everything else the ambient one. Tagged
+rows take `tagged_event_id()`, which may be None.
+
+`.claude/scripts/check_event_scoping.py` (hook and CI) flags a list read on an
+event-owned model that names no event and no row key (`id`, or an FK to another
+event-owned row), and a write that stamps none. A deliberate exception says
+`cross-event` or `event-scope: exempt — <reason>` in its function.
+
+Discord role sync (outbound) is per event, but the roles live on one server:
+a sync combines the rules of every live event, and each grant is tagged with
+the event of the rule that gave it.
 
 ## The migration
 
@@ -83,3 +126,13 @@ at worst show another event of the same community.
 
 Take a database snapshot before running it on production: the backfill touches
 the audit and telemetry tables in full.
+
+`migrations/models/135_*_events_required.py` (phase 1):
+
+1. Runs the backfill again for rows written between 133 and this deploy.
+2. Clears the stage (and the players' stations) of a match whose stage belongs
+   to another event: the Testing matches 133 moved off the default event.
+3. Makes every event-owned `event_id` NOT NULL.
+4. Swaps the community-wide uniques for the per-event ones above. The old ones
+   are found by their columns, because two were created by hand under names
+   Tortoise doesn't generate.

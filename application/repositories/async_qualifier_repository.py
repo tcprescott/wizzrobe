@@ -15,7 +15,8 @@ from typing import Any, Collection, Dict, List, Optional, Set, Tuple
 from tortoise.expressions import Q
 from tortoise.functions import Count
 
-from application.repositories._base import TenantScopedRepository
+from application.repositories._base import EventScopedRepository, TenantScopedRepository
+from application.repositories._event import event_scoped, live_event_scoped
 from application.repositories._tenant import current_tenant_id, scoped
 from models import (
     AsyncQualifier,
@@ -64,28 +65,31 @@ def _enum_value(value: Any) -> str:
     return value.value if hasattr(value, 'value') else str(value)
 
 
-class AsyncQualifierRepository(TenantScopedRepository[AsyncQualifier]):
-    """Data access for :class:`AsyncQualifier`."""
+class AsyncQualifierRepository(EventScopedRepository[AsyncQualifier]):
+    """Data access for :class:`AsyncQualifier`; lists are the current event's."""
 
     model = AsyncQualifier
 
     async def list_all(self) -> List[AsyncQualifier]:
-        return await scoped(AsyncQualifier.all()).order_by('-created_at')
+        return await event_scoped(AsyncQualifier.all()).order_by('-created_at')
 
     async def list_administered_by(self, user_id: int) -> List[AsyncQualifier]:
-        """The qualifiers that name this user on their ``admins`` (reviewers) list."""
-        return await scoped(AsyncQualifier.filter(admins__id=user_id)).order_by('-created_at')
+        """The qualifiers that name this user on their ``admins`` (reviewers) list.
+
+        Any live event's (cross-event): it decides what the reviewer can reach.
+        """
+        return await live_event_scoped(AsyncQualifier.filter(admins__id=user_id)).order_by('-created_at')
 
     async def list_active(self) -> List[AsyncQualifier]:
-        return await scoped(AsyncQualifier.filter(is_active=True)).order_by('-created_at')
+        return await event_scoped(AsyncQualifier.filter(is_active=True)).order_by('-created_at')
 
     @staticmethod
     async def list_active_all() -> List[AsyncQualifier]:
-        """Every active qualifier, **across all tenants** — for the worker.
+        """Every active qualifier, **across all tenants and events** — for the worker.
 
         Deliberately unscoped, like ``list_in_progress_all``: the worker has no
         tenant of its own, so it scans once and re-enters each qualifier's own
-        ``tenant_scope`` before touching it. A community runs a handful of these,
+        tenant and event scope before touching it (cross-event). A community runs a handful of these,
         so no age filter is needed to keep the set small.
         """
         return await AsyncQualifier.filter(is_active=True).prefetch_related(
@@ -343,7 +347,7 @@ class AsyncQualifierRunRepository(TenantScopedRepository[AsyncQualifierRun]):
         return await AsyncQualifierRun.filter(
             review_claimed_at__lt=cutoff,
             review_claimed_by_id__not_isnull=True,
-        ).prefetch_related('tenant').order_by('review_claimed_at')
+        ).prefetch_related('tenant', 'qualifier').order_by('review_claimed_at')
 
     async def list_approved_finished_for_permalink(self, permalink_id: int) -> List[AsyncQualifierRun]:
         """Approved, finished, non-voided runs on a permalink — the par inputs."""

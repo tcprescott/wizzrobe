@@ -4,11 +4,17 @@ DiscordRoleSync Repository - Data Access Layer
 The rules, the ledger of roles Wizzrobe gave, the last-sync state, and the
 reads that say who qualifies for each rule. Every read is tenant-scoped except
 :meth:`DiscordRoleSyncRepository.tenant_ids_with_work`, the worker's scan.
+
+Rules belong to an event (SGL 2026's "Racing now" role is set on SGL 2026);
+a sync works through the rules of every live event at once, because the roles
+live on one Discord server. Grants are the community's, tagged with the event
+whose rule gave them.
 """
 
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Set, Tuple, cast
 
+from application.repositories._event import current_event_id, event_scoped, live_event_scoped
 from application.repositories._tenant import current_tenant_id, scoped
 from models import (
     CheckInEventStatus,
@@ -29,11 +35,17 @@ class DiscordRoleSyncRepository:
 
     @staticmethod
     async def list_rules() -> List[DiscordRoleRule]:
-        return await scoped(DiscordRoleRule.all()).prefetch_related('tournament').order_by('id')
+        """The current event's rules."""
+        return await event_scoped(DiscordRoleRule.all()).prefetch_related('tournament').order_by('id')
+
+    @staticmethod
+    async def list_live_rules() -> List[DiscordRoleRule]:
+        """Every live event's rules (cross-event), for a sync."""
+        return await live_event_scoped(DiscordRoleRule.all()).prefetch_related('tournament').order_by('id')
 
     @staticmethod
     async def get_rule(key: str) -> Optional[DiscordRoleRule]:
-        return await DiscordRoleRule.get_or_none(tenant_id=current_tenant_id(), key=key)
+        return await DiscordRoleRule.get_or_none(tenant_id=current_tenant_id(), event_id=current_event_id(), key=key)
 
     @staticmethod
     async def upsert_rule(
@@ -44,10 +56,10 @@ class DiscordRoleSyncRepository:
         tournament_id: Optional[int] = None,
         lanyard: Optional[CheckInTierLanyard] = None,
     ) -> DiscordRoleRule:
-        rule = await DiscordRoleRule.get_or_none(tenant_id=current_tenant_id(), key=key)
+        rule = await DiscordRoleRule.get_or_none(tenant_id=current_tenant_id(), event_id=current_event_id(), key=key)
         if rule is None:
             return await DiscordRoleRule.create(
-                tenant_id=current_tenant_id(), key=key, kind=kind,
+                tenant_id=current_tenant_id(), event_id=current_event_id(), key=key, kind=kind,
                 tournament_id=tournament_id, lanyard=lanyard,
                 discord_role_id=discord_role_id, discord_role_name=discord_role_name,
             )
@@ -64,7 +76,8 @@ class DiscordRoleSyncRepository:
 
     @staticmethod
     async def delete_all_rules() -> int:
-        return await scoped(DiscordRoleRule.all()).delete()
+        """Delete the current event's rules."""
+        return await event_scoped(DiscordRoleRule.all()).delete()
 
     @staticmethod
     async def set_rule_health(rule_id: int, problem: Optional[str], holding: Optional[int]) -> None:
@@ -72,6 +85,7 @@ class DiscordRoleSyncRepository:
 
     @staticmethod
     async def rule_role_ids() -> Set[int]:
+        """Every role any event's rule gives (cross-event): roles are the server's, not an event's."""
         return set(cast(List[int], await scoped(DiscordRoleRule.all()).values_list('discord_role_id', flat=True)))
 
     @staticmethod
@@ -83,9 +97,11 @@ class DiscordRoleSyncRepository:
         ]
 
     @staticmethod
-    async def add_grant(user_id: int, discord_role_id: int) -> None:
+    async def add_grant(user_id: int, discord_role_id: int, event_id: Optional[int]) -> None:
+        """Record a role Wizzrobe gave, tagged with the event whose rule gave it."""
         await DiscordRoleGrant.get_or_create(
             tenant_id=current_tenant_id(), user_id=user_id, discord_role_id=discord_role_id,
+            defaults={'event_id': event_id},
         )
 
     @staticmethod
@@ -105,17 +121,17 @@ class DiscordRoleSyncRepository:
     async def tenant_ids_with_work() -> Set[int]:
         """Tenants with a rule or a grant still to take back, across every tenant.
 
-        Deliberately cross-tenant: the worker's scan, which then syncs each one
-        inside its own ``tenant_scope``.
+        Deliberately cross-tenant and cross-event: the worker's scan, which then
+        syncs each one inside its own ``tenant_scope``.
         """
         ids = set(cast(List[int], await DiscordRoleRule.all().distinct().values_list('tenant_id', flat=True)))
         ids.update(cast(List[int], await DiscordRoleGrant.all().distinct().values_list('tenant_id', flat=True)))
         return ids
 
     @staticmethod
-    async def players_in_active_tournaments() -> Set[int]:
+    async def players_in_active_tournaments(event_id: int) -> Set[int]:
         return set(cast(List[int], await scoped(
-            TournamentPlayers.filter(tournament__is_active=True)
+            TournamentPlayers.filter(tournament__is_active=True, tournament__event_id=event_id)
         ).values_list('user_id', flat=True)))
 
     @staticmethod
@@ -128,19 +144,21 @@ class DiscordRoleSyncRepository:
         return found
 
     @staticmethod
-    async def players_in_live_matches(started_after: datetime) -> Set[int]:
-        """Players of a match that has started, hasn't finished, and started after the cutoff."""
+    async def players_in_live_matches(event_id: int, started_after: datetime) -> Set[int]:
+        """Players of an event's match that has started, hasn't finished, and started after the cutoff."""
         return set(cast(List[int], await scoped(MatchPlayers.filter(
+            match__event_id=event_id,
             match__started_at__isnull=False,
             match__started_at__gte=started_after,
             match__finished_at__isnull=True,
         )).values_list('user_id', flat=True)))
 
     @staticmethod
-    async def badge_holders() -> Dict[CheckInTierLanyard, Set[int]]:
-        """Linked accounts holding an unrefunded badge in an open check-in event, by lanyard."""
+    async def badge_holders(event_id: int) -> Dict[CheckInTierLanyard, Set[int]]:
+        """Linked accounts holding an unrefunded badge at an event's open check-in desk, by lanyard."""
         found: Dict[CheckInTierLanyard, Set[int]] = {}
         rows = await scoped(CheckInPass.filter(
+            event__event_id=event_id,
             event__status=CheckInEventStatus.OPEN,
             refunded_at__isnull=True,
             removed_at__isnull=True,

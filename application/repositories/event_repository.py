@@ -7,8 +7,9 @@ does right after resolving the tenant, and creating a community's first event
 from ``/platform``.
 """
 
+from collections import defaultdict
 from datetime import date
-from typing import List, Optional
+from typing import Dict, Iterable, List, Optional, Set
 
 from application.repositories._base import TenantScopedRepository
 from application.repositories._tenant import scoped
@@ -36,6 +37,29 @@ class EventRepository(TenantScopedRepository[Event]):
     @staticmethod
     async def default_for_tenant(tenant_id: int) -> Optional[Event]:
         return await Event.get_or_none(tenant_id=tenant_id, is_default=True)
+
+    @staticmethod
+    async def live_ids(event_ids: Iterable[int]) -> Set[int]:
+        """Which of ``event_ids`` are live. Cross-tenant: a worker filters a batch."""
+        wanted = set(event_ids)
+        if not wanted:
+            return set()
+        rows = await Event.filter(id__in=wanted, status=EventStatus.LIVE).values_list('id', flat=True)
+        return set(rows)  # type: ignore[arg-type]
+
+    @staticmethod
+    async def live_ids_by_tenant(tenant_ids: Iterable[int]) -> Dict[int, List[int]]:
+        """Each community's live event ids, oldest first. Cross-tenant: worker fan-out."""
+        wanted = set(tenant_ids)
+        out: Dict[int, List[int]] = defaultdict(list)
+        if not wanted:
+            return out
+        rows = await Event.filter(tenant_id__in=wanted, status=EventStatus.LIVE).order_by('id').values_list(
+            'tenant_id', 'id',
+        )
+        for tenant_id, event_id in rows:
+            out[tenant_id].append(event_id)
+        return out
 
     @staticmethod
     async def count_for_tenant(tenant_id: int) -> int:

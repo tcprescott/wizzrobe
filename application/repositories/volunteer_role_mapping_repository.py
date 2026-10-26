@@ -6,13 +6,14 @@ Volunteer-position-to-app-role mappings.
 
 from typing import List, Optional
 
-from application.repositories._base import TenantScopedRepository
+from application.repositories._base import EventScopedRepository
+from application.repositories._event import event_scoped
 from application.repositories._tenant import current_tenant_id, scoped
 from models import Role, VolunteerRoleMapping
 
 
-class VolunteerRoleMappingRepository(TenantScopedRepository[VolunteerRoleMapping]):
-    """Repository for VolunteerRoleMapping data access."""
+class VolunteerRoleMappingRepository(EventScopedRepository[VolunteerRoleMapping]):
+    """Repository for VolunteerRoleMapping data access. A mapping follows its position's event."""
 
     model = VolunteerRoleMapping
 
@@ -24,7 +25,7 @@ class VolunteerRoleMappingRepository(TenantScopedRepository[VolunteerRoleMapping
 
     @staticmethod
     async def list_all() -> List[VolunteerRoleMapping]:
-        return await scoped(VolunteerRoleMapping.all()).prefetch_related('position').order_by(
+        return await event_scoped(VolunteerRoleMapping.all()).prefetch_related('position').order_by(
             'position__display_order', 'position__name', 'app_role',
         )
 
