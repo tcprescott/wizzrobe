@@ -163,7 +163,7 @@ async def admin_volunteers_page(day: str | None = None) -> None:
                 )
 
                 ui.space()
-                with ui.button('Actions').props('flat color=primary icon-right=expand_more'):
+                with ui.button('Actions').props('flat color=primary icon-right=expand_more').classes('wiz-write'):
                     with ui.menu():
                         menu_action('smart_toy', 'Auto-fill from availability', lambda: auto_fill())
                         menu_action('badge', 'Manage positions', lambda: open_positions_dialog())
@@ -340,7 +340,7 @@ async def admin_volunteers_page(day: str | None = None) -> None:
                         with ui.row().classes('gap-1'):
                             ui.button('Add shift', icon='add',
                                       on_click=lambda p=position: open_shift_dialog(position=p)) \
-                                .props('flat dense color=primary')
+                                .props('flat dense color=primary').classes('wiz-write')
                             with more_menu(position.name):
                                 menu_action('auto_awesome_motion', 'Generate standard shifts',
                                             lambda p=position: generate_shifts(p))

@@ -329,9 +329,10 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     warm_openapi(app)
     metrics_sampler.start()
     worker_watchdog.start()
-    from application.services import active_users_metrics, telemetry_retention
+    from application.services import active_users_metrics, event_retention, telemetry_retention
     active_users_metrics.start()
     telemetry_retention.start()
+    event_retention.start()
     # Everything alive now lives as long as the process; freezing it keeps every
     # full collection from re-walking it (a third off each pause, SGLMAN-20/22).
     element_cycles.install()
@@ -355,6 +356,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     try:
         await active_users_metrics.stop()
         await telemetry_retention.stop()
+        await event_retention.stop()
         await race_room_worker.stop()
         await seed_roll_worker.stop()
         await check_in_sync_worker.stop()

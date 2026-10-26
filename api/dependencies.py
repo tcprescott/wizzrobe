@@ -19,7 +19,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.routing import APIRoute
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
-from application.errors import NotFoundError
+from application.errors import EventArchivedError, NotFoundError
 from application.event_context import set_event_id
 from application.services.api_token_service import ApiTokenService
 from application.services.auth_service import AuthService
@@ -249,6 +249,7 @@ class ServiceErrorRoute(APIRoute):
 
     - ``PermissionError`` -> 403
     - ``NotFoundError``   -> 404 (checked before ``ValueError``, which it subclasses)
+    - ``EventArchivedError`` -> 409 (likewise a ``ValueError``)
     - ``ValueError``      -> 400
     """
 
@@ -267,6 +268,11 @@ class ServiceErrorRoute(APIRoute):
                 raise HTTPException(
                     status_code=status.HTTP_404_NOT_FOUND,
                     detail=str(exc) or "Not found",
+                ) from exc
+            except EventArchivedError as exc:
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail=str(exc),
                 ) from exc
             except ValueError as exc:
                 raise HTTPException(

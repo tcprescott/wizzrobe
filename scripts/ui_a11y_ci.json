@@ -76,6 +76,7 @@
     { "name": "event-settings-timezone", "path": "/admin/event-settings/timezone" },
     { "name": "event-settings-reward-tiers", "path": "/admin/event-settings/reward-tiers" },
     { "name": "admin-events", "path": "/admin/events" },
+    { "name": "archived-event-tournaments", "path": "/e/sgl25/admin/tournaments" },
     { "name": "settings-members", "path": "/admin/settings/members" },
     { "name": "admin-member-sheet", "path": "/admin/members?user_id=5" },
     { "name": "settings-volunteers", "path": "/admin/settings/volunteers" },

@@ -940,6 +940,24 @@ body:has(.wiz-header) .q-notifications__list--top {
     color: var(--wiz-link);
 }
 
+/* On the narrowest phones (360px) the header's icon buttons drop to a 44px
+   target and the archived pill to its colour, or a long event name pushed the
+   last button off the screen. */
+@media (max-width: 399.98px) {
+    .wiz-header .q-btn:not(.wiz-event-switch) {
+        padding-left: 10px;
+        padding-right: 10px;
+    }
+
+    .wiz-event-switch--archived .q-btn__content > .q-icon:first-child {
+        display: none;
+    }
+
+    .wiz-header .wiz-event-switch__name {
+        max-width: 5rem;
+    }
+}
+
 /* On a phone the button stands in for the community's name (its colour mark
    stays), and the menu rises as a bottom sheet like the help menus. */
 @media (max-width: 599.98px) {
@@ -1540,6 +1558,11 @@ body:has(.wiz-header) .q-notifications__list--top {
 /* A banner with no actions would otherwise keep an empty row (and, on a
    phone, a full-width line of it) under the message. */
 .wiz-banner__actions:empty { display: none; }
+
+/* An archived event's page or tab (theme/archived_banner.py): every row's ⋮
+   and anything marked wiz-write goes. The server refuses the write anyway. */
+.wiz-read-only [aria-label^="More for "],
+.wiz-read-only .wiz-write { display: none !important; }
 
 @media (max-width: 599px) {
     .wiz-banner { flex-wrap: wrap; }

@@ -12,6 +12,7 @@ from typing import List, Optional
 
 from tortoise.expressions import Q
 
+from application.event_writes import guarded_delete, guarded_update
 from application.repositories._base import TenantScopedRepository
 from application.repositories._tenant import current_tenant_id, scoped
 from models import (
@@ -114,7 +115,7 @@ class BracketRepository(TenantScopedRepository[Bracket]):
         for entry_id, seed in seeds.items():
             by_seed.setdefault(seed, []).append(entry_id)
         for seed, entry_ids in by_seed.items():
-            await scoped(BracketEntry.filter(id__in=entry_ids)).update(seed=seed)
+            await guarded_update(scoped(BracketEntry.filter(id__in=entry_ids)), seed=seed)
 
     async def list_entries(self, bracket_id: int) -> List[BracketEntry]:
         return await scoped(
@@ -344,7 +345,7 @@ class BracketRepository(TenantScopedRepository[Bracket]):
 
     async def delete_game(self, game_id: int) -> int:
         """Delete one game row, freeing its slot. Returns the rows removed."""
-        return await scoped(BracketMatchGame.filter(id=game_id)).delete()
+        return await guarded_delete(scoped(BracketMatchGame.filter(id=game_id)))
 
     async def list_games(self, bracket_match_id: int, *, with_matches: bool = False) -> List[BracketMatchGame]:
         query = scoped(
@@ -414,7 +415,7 @@ class BracketRepository(TenantScopedRepository[Bracket]):
         conditional UPDATE makes the loser a no-op without needing a transaction.
         """
         from models import BracketMatchGameState
-        updated = await scoped(BracketMatchGame.filter(
+        updated = await guarded_update(scoped(BracketMatchGame.filter(
             id=game_id, state=BracketMatchGameState.SCHEDULED,
-        )).update(**fields)
+        )), **fields)
         return bool(updated)

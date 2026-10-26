@@ -14,6 +14,7 @@ whose rule gave them.
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Set, Tuple, cast
 
+from application.event_writes import guarded_delete, guarded_update
 from application.repositories._event import current_event_id, event_scoped, live_event_scoped
 from application.repositories._tenant import current_tenant_id, scoped
 from models import (
@@ -63,25 +64,22 @@ class DiscordRoleSyncRepository:
                 tournament_id=tournament_id, lanyard=lanyard,
                 discord_role_id=discord_role_id, discord_role_name=discord_role_name,
             )
-        await scoped(DiscordRoleRule.filter(id=rule.id)).update(
-            discord_role_id=discord_role_id, discord_role_name=discord_role_name,
-            problem=None, holding=None,
-        )
+        await guarded_update(scoped(DiscordRoleRule.filter(id=rule.id)), discord_role_id=discord_role_id, discord_role_name=discord_role_name, problem=None, holding=None)
         await rule.refresh_from_db()
         return rule
 
     @staticmethod
     async def delete_rule(rule: DiscordRoleRule) -> None:
-        await scoped(DiscordRoleRule.filter(id=rule.id)).delete()
+        await guarded_delete(scoped(DiscordRoleRule.filter(id=rule.id)))
 
     @staticmethod
     async def delete_all_rules() -> int:
         """Delete the current event's rules."""
-        return await event_scoped(DiscordRoleRule.all()).delete()
+        return await guarded_delete(event_scoped(DiscordRoleRule.all()))
 
     @staticmethod
     async def set_rule_health(rule_id: int, problem: Optional[str], holding: Optional[int]) -> None:
-        await scoped(DiscordRoleRule.filter(id=rule_id)).update(problem=problem, holding=holding)
+        await guarded_update(scoped(DiscordRoleRule.filter(id=rule_id)), problem=problem, holding=holding)
 
     @staticmethod
     async def rule_role_ids() -> Set[int]:

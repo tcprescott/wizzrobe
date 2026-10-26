@@ -11,6 +11,7 @@ from typing import List, Optional, Tuple, cast
 from tortoise.expressions import Q
 from tortoise.query_utils import Prefetch
 
+from application.event_writes import guarded_update
 from application.repositories._event import event_scoped, live_event_scoped, parent_event_id
 from application.repositories._tenant import current_tenant_id, scoped
 from models import (
@@ -359,10 +360,10 @@ class MatchRepository:
         caller holding a stale row cannot overwrite what changed since it loaded.
         Scoped by the row's own tenant: the match was already loaded in scope.
         """
-        updated = await scoped(
+        updated = await guarded_update(scoped(
             Match.filter(id=match.id, **{f'{field}__isnull': True}),
             tenant_id=match.tenant_id,  # type: ignore[attr-defined]
-        ).update(**{field: when})
+        ), **{field: when})
         return updated == 1
 
     @staticmethod
@@ -405,8 +406,8 @@ class MatchRepository:
     @staticmethod
     async def clear_seed_ready(match_id: int) -> None:
         """Forget every player's Ready for seed on a match."""
-        await scoped(MatchPlayers.filter(match_id=match_id)).update(
-            seed_ready_at=None, seed_nudged_at=None,
+        await guarded_update(
+            scoped(MatchPlayers.filter(match_id=match_id)), seed_ready_at=None, seed_nudged_at=None,
         )
 
     @staticmethod
@@ -461,10 +462,8 @@ class MatchRepository:
     @staticmethod
     async def repoint_set(old_first_id: int, new_first: Match) -> None:
         """Make ``new_first`` lead the set ``old_first_id`` led."""
-        await scoped(Match.filter(id=new_first.id)).update(set_first_id=None)
-        await scoped(Match.filter(set_first_id=old_first_id)).exclude(id=new_first.id).update(
-            set_first_id=new_first.id,
-        )
+        await guarded_update(scoped(Match.filter(id=new_first.id)), set_first_id=None)
+        await guarded_update(scoped(Match.filter(set_first_id=old_first_id)).exclude(id=new_first.id), set_first_id=new_first.id)
         new_first.set_first_id = None
 
     @staticmethod

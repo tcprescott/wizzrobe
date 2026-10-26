@@ -56,6 +56,7 @@ WORKERS = {
     'telegram_bot': 'application.services.telegram_bot_worker',
     'active_users_metrics': 'application.services.active_users_metrics',
     'telemetry_retention': 'application.services.telemetry_retention',
+    'event_retention': 'application.services.event_retention',
     'metrics_sampler': 'application.utils.metrics_sampler',
     'worker_watchdog': 'application.utils.worker_watchdog',
 }

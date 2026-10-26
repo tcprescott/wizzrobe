@@ -16,7 +16,7 @@ what is built.
 | 0 | `Event` model, event context, default-event binding, migration + backfill | built |
 | 1 | Repositories read and stamp the event; workers loop live events; NOT NULL; leak tests | built |
 | 2 | `/e/<slug>` URLs, switcher, admin menu split, Admin → Events, copy setup, event settings | built |
-| 3 | Archive = read-only, enforced in services | planned |
+| 3 | Archive = read-only (ORM guard), close-out, 30-day private-data purge, banner | built |
 | 4 | Per-event roles | planned |
 | 5 | REST + MCP `event` argument, webhook event filter, docs | planned |
 
@@ -163,6 +163,56 @@ community's because an event slug is unique only within its community.
 
 "Community Events" are called **Meetups** in every string a person reads; the
 model, table, routes and code names are unchanged.
+
+## Archived events (phase 3)
+
+An archived event is read-only for everyone, staff included, until someone
+unarchives it.
+
+**Enforcement is at the ORM, not per service.** The spec asked for a
+`@requires_writable_event` decorator on every service write; there are
+hundreds of write paths across services, workers, Discord handlers and REST, so
+`application/event_writes.py` guards the rows themselves instead:
+
+- `pre_save` / `pre_delete` signals on `GUARDED_MODELS`: every event-owned
+  model plus every model that reaches one through a CASCADE foreign key
+  (`MatchPlayers`, `VolunteerAssignment`, `BracketMatchGame`, …). Each knows its
+  path to the event (`_PATHS`), so a grandchild costs one query.
+- A write in an archived event raises `EventArchivedError` (a `ValueError`):
+  the UI's `except ValueError` shows it, REST answers **409**, MCP answers
+  `read_only:`, and a Discord button answers with the message.
+- Queryset `.update()` / `.delete()` and `bulk_create` / `bulk_update` skip
+  signals, so they go through `guarded_update` / `guarded_delete` /
+  `ensure_writable`. `.claude/scripts/check_event_write_gating.py` flags an
+  unguarded bulk write on a guarded model (`event-write: exempt — <reason>`
+  opts out). A queryset `update()` can't filter through a join: fetch the ids
+  first, then update `id__in`.
+- `archive_maintenance()` lets the archive itself and the retention job write.
+
+**Archiving closes the event out** (`EventService._close_out`): open race rooms
+are cancelled, queued or running seed rolls are abandoned, and the
+`event.archived` event wakes the Discord role sync, whose live-events-only
+rules take back the roles the event's rules gave. Workers already loop live
+events only. Unarchiving puts it back to live; the role sync gives roles again.
+
+**Private data goes 30 days later.** `event_retention` (daily worker) deletes an
+archived event's emergency contacts and accommodation requests 30 days after
+`archived_at` and stamps `pii_purged_at`. Unarchiving doesn't bring them back.
+
+**The look** (Thomas's layout A): `theme/archived_banner.py`. `BaseLayout` binds
+the archived view for a page that shows one event (page scope `event`/`row`) or
+a tab whose `half` is `event` (admin tabs carry `half`; Home's My Schedule,
+Tournaments and Profile say `personal`). `page_header` draws the banner under
+the title (staff get Unarchive…), and the container gets `wiz-read-only`, under
+which `styles.css` hides every row's ⋮ (`aria-label="More for …"`) and anything
+marked `wiz-write` (a toolbar's add button or Actions menu). Mark a new
+event-owned toolbar's write controls `wiz-write`; anything missed still refuses
+with the archived message. Open pages of the event reload when it is archived
+or unarchived (`application/events/event_status_live.py`).
+
+DMs are not refused at `send_dm`: nothing an archived event owns can change, its
+workers don't run, and refusing by the bound event would drop community-wide DMs
+sent from an archived event's page.
 
 ## The migration
 

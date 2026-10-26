@@ -344,7 +344,7 @@ class TournamentTableView:
         with ui.row().classes('full-width items-center wiz-toolbar tournament-toolbar'):
             if self.submit_tournament_callback:
                 ui.button('Add tournament', icon='add',
-                          on_click=self.submit_tournament_callback).props('color=primary')
+                          on_click=self.submit_tournament_callback).props('color=primary').classes('wiz-write')
             ui.space()
             # Filled after the table exists; the toolbar is drawn first. The
             # search box is its own toolbar item so a phone can move it, with
@@ -420,7 +420,7 @@ class TournamentTableView:
                 with search_slot:
                     search_input(self.table, placeholder='Search tournaments…', width='w-full')
             with tools_slot:
-                with ui.button('Actions').props('flat dense color=primary icon-right=expand_more no-caps').classes('q-px-sm'):
+                with ui.button('Actions').props('flat dense color=primary icon-right=expand_more no-caps').classes('q-px-sm wiz-write'):
                     with ui.menu().props('anchor="bottom right" self="top right"'):
                         if self.can_sync:
                             menu_action('sync', 'Sync all linked brackets', self.sync_all)

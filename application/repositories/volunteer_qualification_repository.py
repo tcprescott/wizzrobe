@@ -8,6 +8,7 @@ from typing import Dict, List, Set
 
 from tortoise.transactions import in_transaction
 
+from application.event_writes import guarded_delete
 from application.repositories._tenant import current_tenant_id, scoped
 from models import User, VolunteerQualification
 
@@ -24,7 +25,7 @@ class VolunteerQualificationRepository:
     async def set_for_user(user: User, position_ids: List[int]) -> None:
         """Replace all qualifications for ``user`` with the given position IDs."""
         async with in_transaction():
-            await scoped(VolunteerQualification.filter(user=user)).delete()
+            await guarded_delete(scoped(VolunteerQualification.filter(user=user)))
             for pid in position_ids:
                 await VolunteerQualification.create(tenant_id=current_tenant_id(), user_id=user.id, position_id=pid)
 

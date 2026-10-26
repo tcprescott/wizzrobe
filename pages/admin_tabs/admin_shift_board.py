@@ -187,8 +187,8 @@ async def admin_shift_board_page(day: Optional[str] = None) -> None:
 
     def toolbar() -> None:
         ui.button('Add shift', icon='add', on_click=lambda: add_shift()) \
-            .props('no-caps rounded color=primary')
-        with ui.button('Actions').props('flat no-caps color=primary icon-right=expand_more'):
+            .props('no-caps rounded color=primary').classes('wiz-write')
+        with ui.button('Actions').props('flat no-caps color=primary icon-right=expand_more').classes('wiz-write'):
             with ui.menu():
                 menu_action('view_list', 'Open the list view',
                             lambda: ui.navigate.to(admin_url(VOL_SCHEDULE, day=state.day)))

@@ -20,7 +20,8 @@ from tortoise.signals import post_delete, post_save
 from tortoise.transactions import in_transaction
 
 from application.event_context import get_current_event_id
-from application.events import EventType
+from application.event_writes import archive_maintenance
+from application.events import EventType, event_status_live
 from application.repositories.event_repository import EventRepository
 from application.services.audit_service import AuditActions, AuditService
 from application.services.auth_service import AuthService
@@ -66,6 +67,8 @@ class EventRef:
     #: Whether matches in this event have a Broadcaster crew role
     #: (Event settings → Crew). Off by default.
     broadcasters: bool = False
+    #: Set once the retention job deleted an archived event's private data.
+    pii_purged: bool = False
 
     @property
     def is_live(self) -> bool:
@@ -86,6 +89,7 @@ class EventRef:
             status=EventStatus(event.status), is_default=event.is_default,
             starts_on=event.starts_on, ends_on=event.ends_on, timezone=_timezone_of(event.config),
             broadcasters=_flag_of(event.config, BROADCASTERS_KEY),
+            pii_purged=event.pii_purged_at is not None,
         )
 
 
@@ -504,9 +508,11 @@ class EventService:
                 await EventRepository.update(event, is_default=False)
                 await EventRepository.update(new_default, is_default=True)
         _clear_cache()
+        event_status_live.publish(event.id)
+        closed = await EventService._close_out(actor, event)
         audit = AuditService()
         await audit.write_and_publish(
-            actor, AuditActions.EVENT_ARCHIVED, {'event_id': event.id, 'name': event.name},
+            actor, AuditActions.EVENT_ARCHIVED, {'event_id': event.id, 'name': event.name, **closed},
             EventType.EVENT_ARCHIVED,
         )
         if new_default is not None:
@@ -518,6 +524,23 @@ class EventService:
         return event
 
     @staticmethod
+    async def _close_out(actor: User, event: Event) -> Dict[str, int]:
+        """What archiving stops: open race rooms close and unfinished seed rolls are dropped.
+
+        Discord roles the event's outbound rules gave are taken back by the role
+        sync, which the ``event.archived`` event wakes. Everything else freezes as it is.
+        """
+        from application.services.race_room_service import RaceRoomService
+
+        with archive_maintenance():
+            rooms = await EventRepository.list_open_race_rooms(event.id)
+            service = RaceRoomService()
+            for room in rooms:
+                await service.cancel_room(room, actor=actor, reason=f'{event.name} was archived')
+            tasks = await EventRepository.abandon_provider_tasks(event.id, datetime.now(timezone.utc))
+        return {'race_rooms_closed': len(rooms), 'seed_rolls_dropped': tasks}
+
+    @staticmethod
     async def unarchive(actor: User, event_id: int) -> Event:
         await EventService._ensure_staff(actor)
         event = await EventService.get(event_id)
@@ -525,6 +548,7 @@ class EventService:
             raise ValueError(f'{event.name} is not archived.')
         await EventRepository.update(event, status=EventStatus.LIVE, archived_at=None, archived_by=None)
         _clear_cache()
+        event_status_live.publish(event.id)
         await AuditService().write_and_publish(
             actor, AuditActions.EVENT_UNARCHIVED, {'event_id': event.id, 'name': event.name},
             EventType.EVENT_UNARCHIVED,

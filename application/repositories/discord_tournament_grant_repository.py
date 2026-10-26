@@ -8,6 +8,7 @@ which of those the sync is allowed to take back.
 
 from typing import List, Optional
 
+from application.event_writes import guarded_delete
 from application.repositories._tenant import current_tenant_id, scoped
 from models import DiscordTournamentGrant, Tournament, TournamentGrant, User
 
@@ -40,6 +41,6 @@ class DiscordTournamentGrantRepository:
 
     @staticmethod
     async def remove(user: User, tournament_id: int, grant: TournamentGrant) -> None:
-        await scoped(
+        await guarded_delete(scoped(
             DiscordTournamentGrant.filter(user=user, tournament_id=tournament_id, grant=grant)
-        ).delete()
+        ))

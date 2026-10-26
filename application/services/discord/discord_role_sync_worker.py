@@ -35,6 +35,10 @@ TRIGGERS = (
     EventType.CHECK_IN_EVENT_SYNCED,
     EventType.CHECK_IN_ENTRANT_LINKED,
     EventType.CHECK_IN_ENTRANT_UNLINKED,
+    # Only live events' rules count: archiving takes the event's roles back,
+    # unarchiving gives them again.
+    EventType.EVENT_ARCHIVED,
+    EventType.EVENT_UNARCHIVED,
 )
 
 _last_full: Dict[int, float] = {}

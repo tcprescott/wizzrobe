@@ -535,6 +535,18 @@ events, worker scans that bind each row's event) or **"event-scope: exempt —
 &lt;reason&gt;"** in the enclosing function. Misses `cls.model` reads in the
 generic repository base, which `EventScopedRepository` covers instead.
 
+### Archived-event writes — `scripts/check_event_write_gating.py` (PostToolUse: Write|Edit)
+An archived event is read-only (docs/features/events.md). `application/event_writes.py`
+refuses writes with `pre_save`/`pre_delete` signals on every guarded model: the
+event-owned ones and their children by cascading FK (a match's players, a
+bracket's games). Signals skip queryset `.update()`/`.delete()` and
+`bulk_create`/`bulk_update`, so in repositories and services this flags one of
+those on a guarded model (rooted directly, through `scoped(...)`-style wrappers or
+a local bound to one) when the function calls neither `ensure_writable` nor
+`ensure_event_writable`. Use `guarded_update(qs, **fields)` /
+`guarded_delete(qs)`, which check first. Escape hatch: **"event-write: exempt —
+&lt;reason&gt;"** for a write archiving itself makes.
+
 ### REST endpoint authorization — `scripts/check_api_route_auth.py` (PostToolUse: Write|Edit)
 Auth in this API is **per-endpoint, not global**: the aggregating router in
 `api/__init__.py` carries only `rate_limit` and `tenant_context_scope`, so a route

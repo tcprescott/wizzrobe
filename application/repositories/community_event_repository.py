@@ -10,6 +10,7 @@ from typing import Dict, Iterable, List, Optional, Set
 
 from tortoise.functions import Count
 
+from application.event_writes import guarded_delete, guarded_update
 from application.repositories._base import EventScopedRepository, TenantScopedRepository
 from application.repositories._event import current_event_id, event_scoped, live_event_scoped
 from application.repositories._tenant import current_tenant_id, scoped
@@ -152,13 +153,13 @@ class CommunityEventSubscriptionRepository(TenantScopedRepository[CommunityEvent
 
     @staticmethod
     async def delete_for_event(event_id: int) -> None:
-        await scoped(CommunityEventSubscription.filter(event_id=event_id)).delete()
+        await guarded_delete(scoped(CommunityEventSubscription.filter(event_id=event_id)))
 
     @staticmethod
     async def clear_reminders(event_id: int) -> None:
-        await scoped(
+        await guarded_update(scoped(
             CommunityEventSubscription.filter(event_id=event_id)
-        ).update(reminder_sent_at=None)
+        ), reminder_sent_at=None)
 
     @staticmethod
     async def mark_reminded(subscription: CommunityEventSubscription, when: datetime) -> None:

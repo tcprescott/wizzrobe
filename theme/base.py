@@ -8,6 +8,17 @@ from application.table_preferences_context import table_prefs_scope
 from application.tenant_context import get_current_tenant_id, tenant_scope
 from application.utils.tenant_urls import login_path
 from models import FeatureFlag, User
+from theme.archived_banner import (
+    READ_ONLY_CLASS,
+    archived_view,
+    banner_shown,
+    bind_read_only,
+    page_shows_event,
+    read_only_scope,
+    render_archived_banner,
+    tab_shows_event,
+    watch_event_status,
+)
 from theme.assets import asset_url
 from theme.browser_monitoring import install_browser_monitoring
 from theme.chrome import apply_brand_palette, cookie_dark_pref, dark_mode_button, install_page_scripts
@@ -286,8 +297,14 @@ class BaseLayout:
                 if self._show_volunteer:
                     from theme.shift_arrival_banner import render_shift_arrival_banner
                     await render_shift_arrival_banner(self.user)
+            watch_event_status(self.events.current)
             if self.tabs:
                 await self._render_tab_panels()
+            elif page_shows_event():
+                view = archived_view(self.events, self.user)
+                bind_read_only(view)
+                if view is not None:
+                    ui.query('body').classes(add=READ_ONLY_CLASS)
 
     async def _load_theme_colors(self) -> None:
         """Resolve the in-scope tenant's brand palette before drawing chrome.
@@ -700,11 +717,19 @@ class BaseLayout:
         if deferred:
             with container:
                 panel = waiting_panel('Loading…')
+        view = archived_view(self.events, self.user) if tab_shows_event(tab) else None
+        if view is not None:
+            container.classes(add=READ_ONLY_CLASS)
         try:
             with container:
                 with tenant_scope(self._tenant_id), table_prefs_scope(self._table_prefs), \
-                        heading_fallback(label):
+                        read_only_scope(view), heading_fallback(label):
                     await self._render_tab_content(tab)
+                    # A tab that opens on its controls, not a page_header, still says so.
+                    if view is not None and not banner_shown():
+                        shown = render_archived_banner()
+                        if shown is not None:
+                            shown.move(target_index=0)
         except Exception:
             logger.exception('Failed to build tab %r', label)
             with container:

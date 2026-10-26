@@ -463,7 +463,7 @@ async def admin_discord_roles_page(volunteer_mappings: bool = False) -> None:
             with table_container:
                 with ui.row().classes('full-width items-center'):
                     if can_manage:
-                        ui.button('Add Mappings', icon='add', on_click=busy_click('Loading roles…', open_add_dialog)).props('color=primary')
+                        ui.button('Add Mappings', icon='add', on_click=busy_click('Loading roles…', open_add_dialog)).props('color=primary').classes('wiz-write')
                         ui.button(
                             'Sync All Users', icon='sync',
                             on_click=lambda e: background_tasks.create(sync_all_users(context.client, e.sender)),

@@ -12,6 +12,7 @@ from typing import Any, Dict, Iterable, List, Optional, Set, cast
 from tortoise.expressions import Q
 from tortoise.functions import Count, Lower
 
+from application.event_writes import guarded_delete, guarded_update
 from application.repositories._event import event_scoped, live_event_scoped
 from application.repositories._save import save_fields
 from application.repositories._tenant import current_tenant_id, scoped
@@ -40,27 +41,22 @@ class StartggRepository:
     async def set_event_link(
         tournament: Tournament, event_id: Optional[str], slug: Optional[str], name: Optional[str],
     ) -> None:
-        await scoped(Tournament.filter(id=tournament.id)).update(
-            startgg_event_id=event_id, startgg_event_slug=slug, startgg_event_name=name,
-            startgg_last_synced_at=None, startgg_bookable_phase_id=None,
-        )
+        await guarded_update(scoped(Tournament.filter(id=tournament.id)), startgg_event_id=event_id, startgg_event_slug=slug, startgg_event_name=name, startgg_last_synced_at=None, startgg_bookable_phase_id=None)
         await tournament.refresh_from_db()
 
     @staticmethod
     async def record_sync(tournament: Tournament, when: datetime, name: Optional[str]) -> None:
-        await scoped(Tournament.filter(id=tournament.id)).update(
-            startgg_last_synced_at=when, startgg_event_name=name or tournament.startgg_event_name,
-        )
+        await guarded_update(scoped(Tournament.filter(id=tournament.id)), startgg_last_synced_at=when, startgg_event_name=name or tournament.startgg_event_name)
         await tournament.refresh_from_db()
 
     @staticmethod
     async def set_bookable_phase(tournament: Tournament, phase_id: Optional[str]) -> None:
-        await scoped(Tournament.filter(id=tournament.id)).update(startgg_bookable_phase_id=phase_id)
+        await guarded_update(scoped(Tournament.filter(id=tournament.id)), startgg_bookable_phase_id=phase_id)
         await tournament.refresh_from_db()
 
     @staticmethod
     async def set_report_results(tournament: Tournament, enabled: bool) -> None:
-        await scoped(Tournament.filter(id=tournament.id)).update(startgg_report_results=enabled)
+        await guarded_update(scoped(Tournament.filter(id=tournament.id)), startgg_report_results=enabled)
         await tournament.refresh_from_db()
 
     @staticmethod
@@ -189,22 +185,18 @@ class StartggRepository:
             defaults=values,
         )
         if not created:
-            await scoped(StartggEntrant.filter(id=entrant.id)).update(**values)
+            await guarded_update(scoped(StartggEntrant.filter(id=entrant.id)), **values)
             await entrant.refresh_from_db()
         return entrant
 
     @staticmethod
     async def set_entrant_user(entrant: StartggEntrant, user: Optional[User], manual: bool) -> None:
-        await scoped(StartggEntrant.filter(id=entrant.id)).update(
-            user_id=user.id if user else None, user_assigned_manually=manual,
-        )
+        await guarded_update(scoped(StartggEntrant.filter(id=entrant.id)), user_id=user.id if user else None, user_assigned_manually=manual)
         await entrant.refresh_from_db()
 
     @staticmethod
     async def dismiss_suggestion(entrant: StartggEntrant) -> None:
-        await scoped(StartggEntrant.filter(id=entrant.id)).update(
-            suggested_user_id=None, suggestion_dismissed=True,
-        )
+        await guarded_update(scoped(StartggEntrant.filter(id=entrant.id)), suggested_user_id=None, suggestion_dismissed=True)
         await entrant.refresh_from_db()
 
     @staticmethod
@@ -221,7 +213,7 @@ class StartggRepository:
             tenant_id=current_tenant_id(), tournament=tournament, phase_id=phase_id, defaults=values,
         )
         if not created:
-            await scoped(StartggPhase.filter(id=phase.id)).update(**values)
+            await guarded_update(scoped(StartggPhase.filter(id=phase.id)), **values)
         return phase
 
     @staticmethod
@@ -233,7 +225,7 @@ class StartggRepository:
             defaults={'phase': phase, **values},
         )
         if not created:
-            await scoped(StartggPool.filter(id=pool.id)).update(phase_id=phase.id, **values)
+            await guarded_update(scoped(StartggPool.filter(id=pool.id)), phase_id=phase.id, **values)
         return pool
 
     @staticmethod
@@ -243,7 +235,7 @@ class StartggRepository:
             defaults={'pool': pool, **values},
         )
         if not created:
-            await scoped(StartggSet.filter(id=row.id)).update(pool_id=pool.id, **values)
+            await guarded_update(scoped(StartggSet.filter(id=row.id)), pool_id=pool.id, **values)
         return row
 
     @staticmethod
@@ -317,7 +309,7 @@ class StartggRepository:
 
     @staticmethod
     async def link_match(row: StartggSet, match: Match) -> None:
-        await scoped(StartggSet.filter(id=row.id)).update(match_id=match.id)
+        await guarded_update(scoped(StartggSet.filter(id=row.id)), match_id=match.id)
         row.match_id = match.id
 
     @staticmethod
@@ -370,7 +362,7 @@ class StartggRepository:
 
     @staticmethod
     async def move_match_link(old_match_id: int, new_match_id: int) -> None:
-        await scoped(StartggSet.filter(match_id=old_match_id)).update(match_id=new_match_id)
+        await guarded_update(scoped(StartggSet.filter(match_id=old_match_id)), match_id=new_match_id)
 
     @staticmethod
     async def prune(
@@ -379,23 +371,23 @@ class StartggRepository:
     ) -> Dict[str, int]:
         """Drop mirror rows start.gg no longer has. A booked ``Match`` stays on the schedule."""
         return {
-            'sets': await scoped(
+            'sets': await guarded_delete(scoped(
                 StartggSet.filter(tournament=tournament).exclude(set_id__in=list(set_ids))
-            ).delete(),
-            'pools': await scoped(
+            )),
+            'pools': await guarded_delete(scoped(
                 StartggPool.filter(tournament=tournament).exclude(phase_group_id__in=list(pool_ids))
-            ).delete(),
-            'phases': await scoped(
+            )),
+            'phases': await guarded_delete(scoped(
                 StartggPhase.filter(tournament=tournament).exclude(phase_id__in=list(phase_ids))
-            ).delete(),
-            'entrants': await scoped(
+            )),
+            'entrants': await guarded_delete(scoped(
                 StartggEntrant.filter(tournament=tournament).exclude(entrant_id__in=list(entrant_ids))
-            ).delete(),
+            )),
         }
 
     @staticmethod
     async def delete_mirror(tournament: Tournament) -> None:
-        await scoped(StartggSet.filter(tournament=tournament)).delete()
-        await scoped(StartggPool.filter(tournament=tournament)).delete()
-        await scoped(StartggPhase.filter(tournament=tournament)).delete()
-        await scoped(StartggEntrant.filter(tournament=tournament)).delete()
+        await guarded_delete(scoped(StartggSet.filter(tournament=tournament)))
+        await guarded_delete(scoped(StartggPool.filter(tournament=tournament)))
+        await guarded_delete(scoped(StartggPhase.filter(tournament=tournament)))
+        await guarded_delete(scoped(StartggEntrant.filter(tournament=tournament)))

@@ -77,7 +77,7 @@ def build_live_tab(
         with ui.row().classes('items-center'):
             ui.button('New Live Race', icon='add',
                       on_click=lambda: _open_live_race_dialog(pools)
-                      ).props('color=primary')
+                      ).props('color=primary').classes('wiz-write')
         ui.label(
             'A live race runs a pool permalink synchronously on racetime; each '
             'entrant\'s result is captured as an approved, par-scored run.'
