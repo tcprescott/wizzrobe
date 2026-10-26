@@ -144,8 +144,8 @@
         {
           "goto": "/home/event?view=community",
           "expect": {
-            "pressed": "Community",
-            "title": "^Community — Event — "
+            "pressed": "Meetups",
+            "title": "^Meetups — Event — "
           }
         }
       ]
