@@ -10,11 +10,14 @@ from application.utils.tenant_urls import login_path
 from models import FeatureFlag, User
 from theme.archived_banner import (
     READ_ONLY_CLASS,
-    ArchivedView,
+    archived_view,
     banner_shown,
     bind_read_only,
+    page_shows_event,
     read_only_scope,
     render_archived_banner,
+    tab_shows_event,
+    watch_event_status,
 )
 from theme.assets import asset_url
 from theme.browser_monitoring import install_browser_monitoring
@@ -294,44 +297,14 @@ class BaseLayout:
                 if self._show_volunteer:
                     from theme.shift_arrival_banner import render_shift_arrival_banner
                     await render_shift_arrival_banner(self.user)
-            self._watch_event_status()
+            watch_event_status(self.events.current)
             if self.tabs:
                 await self._render_tab_panels()
-            elif self._page_shows_event():
-                view = self._archived_view()
+            elif page_shows_event():
+                view = archived_view(self.events, self.user)
                 bind_read_only(view)
                 if view is not None:
                     ui.query('body').classes(add=READ_ONLY_CLASS)
-
-    def _archived_view(self) -> 'ArchivedView | None':
-        current = self.events.current
-        if current is None or not current.is_archived:
-            return None
-        return ArchivedView(current, actor=self.user if self.events.manages else None)
-
-    def _page_shows_event(self) -> bool:
-        from middleware.event_routing import PAGE_SCOPE_KEY, page_request
-        request = page_request()
-        return request is None or request.scope.get(PAGE_SCOPE_KEY, 'event') != 'community'
-
-    @staticmethod
-    def _tab_shows_event(tab: dict) -> bool:
-        """A tab shows the page's event unless it says it's the community's or the viewer's own."""
-        return tab.get('half', 'event') == 'event'
-
-    def _watch_event_status(self) -> None:
-        """Reload when the page's event is archived or unarchived, into or out of read-only."""
-        current = self.events.current
-        if current is None:
-            return
-        from application.events import event_status_live
-        from theme.realtime import register_view
-
-        async def on_change(event_id: int) -> None:
-            if event_id == current.id:
-                ui.navigate.reload()
-
-        register_view(on_change, channel=event_status_live)
 
     async def _load_theme_colors(self) -> None:
         """Resolve the in-scope tenant's brand palette before drawing chrome.
@@ -744,7 +717,7 @@ class BaseLayout:
         if deferred:
             with container:
                 panel = waiting_panel('Loading…')
-        view = self._archived_view() if self._tab_shows_event(tab) else None
+        view = archived_view(self.events, self.user) if tab_shows_event(tab) else None
         if view is not None:
             container.classes(add=READ_ONLY_CLASS)
         try:

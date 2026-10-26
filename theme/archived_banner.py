@@ -16,13 +16,16 @@ and anything marked ``wiz-write`` (a toolbar's main button or Actions menu).
 from contextlib import contextmanager
 from contextvars import ContextVar
 from dataclasses import dataclass
-from typing import Awaitable, Callable, Iterator, Optional
+from typing import TYPE_CHECKING, Awaitable, Callable, Iterator, Optional
 
 from nicegui import ui
 
 from application.services.event_service import EventRef
 from models import User
 from theme.banner import banner
+
+if TYPE_CHECKING:
+    from theme.event_switcher import EventSwitcherState
 
 #: Marks a control that changes the event: hidden while the event is archived.
 WRITE_CLASS = 'wiz-write'
@@ -40,6 +43,40 @@ class ArchivedView:
 _view: ContextVar[Optional[ArchivedView]] = ContextVar('archived_view', default=None)
 #: Set once the banner is drawn in the current page or tab, so it shows once.
 _shown: ContextVar[bool] = ContextVar('archived_banner_shown', default=False)
+
+
+def archived_view(events: 'EventSwitcherState', user: Optional[User]) -> Optional[ArchivedView]:
+    """The page's event when it is archived, with the viewer as actor when they may unarchive it."""
+    current = events.current
+    if current is None or not current.is_archived:
+        return None
+    return ArchivedView(current, actor=user if events.manages else None)
+
+
+def page_shows_event() -> bool:
+    """A page without tabs shows one event unless its scope is the community's."""
+    from middleware.event_routing import PAGE_SCOPE_KEY, page_request
+    request = page_request()
+    return request is None or request.scope.get(PAGE_SCOPE_KEY, 'event') != 'community'
+
+
+def tab_shows_event(tab: dict) -> bool:
+    """A tab shows the page's event unless its ``half`` says it's the community's or the viewer's own."""
+    return tab.get('half', 'event') == 'event'
+
+
+def watch_event_status(current: Optional[EventRef]) -> None:
+    """Reload the page when its event is archived or unarchived, into or out of read-only."""
+    if current is None:
+        return
+    from application.events import event_status_live
+    from theme.realtime import register_view
+
+    async def on_change(event_id: int) -> None:
+        if event_id == current.id:
+            ui.navigate.reload()
+
+    register_view(on_change, channel=event_status_live)
 
 
 def current_archived_view() -> Optional[ArchivedView]:

@@ -125,9 +125,9 @@ async def test_the_banner_says_when_private_data_is_gone(db):
 
 
 def test_personal_and_community_tabs_stay_writable():
-    from theme.base import BaseLayout
+    from theme.archived_banner import tab_shows_event
 
-    assert BaseLayout._tab_shows_event({'label': 'Event'})
-    assert BaseLayout._tab_shows_event({'label': 'Shift Board', 'half': 'event'})
-    assert not BaseLayout._tab_shows_event({'label': 'Members', 'half': 'community'})
-    assert not BaseLayout._tab_shows_event({'label': 'My Schedule', 'half': 'personal'})
+    assert tab_shows_event({'label': 'Event'})
+    assert tab_shows_event({'label': 'Shift Board', 'half': 'event'})
+    assert not tab_shows_event({'label': 'Members', 'half': 'community'})
+    assert not tab_shows_event({'label': 'My Schedule', 'half': 'personal'})

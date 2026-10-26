@@ -172,7 +172,7 @@ class EventRepository(TenantScopedRepository[Event]):
         if not ids:
             return 0
         return await guarded_update(
-            ProviderTask.filter(id__in=list(ids)), status=ProviderTaskStatus.ABANDONED, completed_at=now,
+            scoped(ProviderTask.filter(id__in=list(ids))), status=ProviderTaskStatus.ABANDONED, completed_at=now,
         )
 
     @staticmethod
