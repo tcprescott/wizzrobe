@@ -13,6 +13,7 @@ from nicegui import context, ui
 
 from application.services import SystemConfigService, TenantThemeService, TournamentService
 from application.utils.timezone import local_day_bounds
+from models import Tournament
 from pages.admin_tabs.links import REPORTS, SCHEDULE, admin_url
 from theme.dialog._helpers import native_date_input
 from theme.empty_state import fun_fact
@@ -311,10 +312,9 @@ async def tournament_filter(
     """``only`` narrows the choices to a viewer's own tournaments."""
     tournaments = await TournamentService().get_all_tournaments()
     options: dict = {0: 'All tournaments' if only is None else 'All my tournaments'}
-    for t in tournaments:
-        if only is not None and t.id not in only:
-            continue
-        options[t.id] = t.name
+    options.update(Tournament.short_label_options(
+        t for t in tournaments if only is None or t.id in only
+    ))
     value = current_id if current_id and current_id in options else 0
     select = filter_field(ui.select(options=options, value=value, label='Tournament'))
 

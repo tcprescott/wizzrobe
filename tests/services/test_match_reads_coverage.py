@@ -218,6 +218,13 @@ class TestFilterDropdowns:
         result = await svc.get_tournaments_for_filter()
         assert result.get(t.id) == "T1"
 
+    async def test_tournaments_for_filter_use_short_names(self, db):
+        full = await Tournament.create(name="Ocarina of Time Randomizer", short_name="OoTR")
+        blank = await Tournament.create(name="Best of NES", short_name="  ")
+        result = await MatchDisplayService().get_tournaments_for_filter()
+        assert result == {blank.id: "Best of NES", full.id: "OoTR"}
+        assert list(result) == [blank.id, full.id]
+
     async def test_stages_for_filter(self, db):
         stage = await Stage.create(name="Stage A")
         svc = MatchDisplayService()

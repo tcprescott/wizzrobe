@@ -37,7 +37,7 @@ from application.utils.timezone import (
     format_local_time,
     to_utc_aware,
 )
-from models import Match, MatchAcknowledgment, ProviderTask
+from models import Match, MatchAcknowledgment, ProviderTask, Tournament
 
 
 def rolling_elapsed_label(started_at: datetime) -> str:
@@ -233,9 +233,9 @@ class MatchDisplayService:
         Get all tournaments formatted for filter dropdown.
 
         Returns:
-            Dict mapping tournament ID to name
+            Dict mapping tournament ID to its short label, ordered by that label
         """
-        return await self.tournament_repository.get_all_as_dict()
+        return Tournament.short_label_options(await self.tournament_repository.get_all())
 
     async def get_stages_for_filter(self) -> Dict[int, str]:
         """
