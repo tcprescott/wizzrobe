@@ -103,6 +103,7 @@ from scripts.seed_preferences import seed_notification_channels, seed_table_pref
 from scripts.seed_sent_messages import seed_sent_messages
 from scripts.seed_staff_requests import seed_staff_request_dms
 from scripts.seed_startgg import seed_startgg_for_tenant
+from scripts.seed_stream_layouts import seed_stream_layouts_for_tenant
 from scripts.seed_support import (
     RACER_SPECS,
     USER_SPECS,
@@ -969,6 +970,7 @@ async def seed_all() -> None:
         await seed_match_comments(tenant, users)
         await seed_running_late(tenant, users)
         await seed_ready_for_seed(tenant, users)
+        await seed_stream_layouts_for_tenant(tenant, users['staff_user'])
         await seed_item_tracker_for_tenant(tenant, users)
         await seed_staff_request_dms(tenant, users)
         await seed_sent_messages(tenant, users)

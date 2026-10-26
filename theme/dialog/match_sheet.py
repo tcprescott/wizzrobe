@@ -19,7 +19,7 @@ from nicegui import app, ui
 
 from application.content import parse_user_blocks
 from application.errors import NotFoundError
-from application.services import ItemTrackerService, MatchCommentService, get_user_from_session
+from application.services import ItemTrackerService, MatchCommentService, StreamLayoutService, get_user_from_session
 from theme.busy import busy
 from theme.clipboard import copy_to_clipboard
 from theme.dialog._helpers import dialog_actions, dialog_header
@@ -28,6 +28,7 @@ from theme.help.render import render_user_blocks
 from theme.markdown_editor import MarkdownEditor
 from theme.matchup import matchup_label
 from theme.menu import menu_action, more_menu
+from theme.notify import notify_error
 from theme.tables.match_access import MatchBoardAccess
 from theme.tables.match_run_sheet import decorate_run_sheet_row
 from theme.tables.match_slots import CANDIDATE_STAGE
@@ -717,9 +718,30 @@ class MatchSheet:
             return
         await self._reload_comments()
 
+    async def _pin_overlay(self, match_id: int) -> None:
+        viewer = await get_user_from_session(self._session)
+        try:
+            if viewer is None:
+                raise PermissionError('Your session has ended. Sign in again.')
+            await StreamLayoutService().pin_match(viewer, match_id)
+        except (ValueError, PermissionError) as e:
+            with self.dialog:
+                notify_error(e)
+            return
+        with self.dialog:
+            ui.notify("Pinned. The stage's overlay shows this match until it's set back to "
+                      'automatic under Admin → Stream Layouts.', color='positive')
+
     def _footer(self, row: dict) -> None:
-        if not self.access.can_edit_row(row):
+        can_edit = self.access.can_edit_row(row)
+        can_pin = self.access.pin_overlay and bool(row.get('stage_id'))
+        if not (can_edit or can_pin):
             return
         with dialog_actions().classes('justify-end'):
-            ui.button('Edit match', icon='edit', on_click=lambda: self._run(self.handlers.on_edit, row['id'])) \
-                .props('flat color=primary')
+            if can_pin:
+                ui.button('Pin to overlay', icon='push_pin',
+                          on_click=lambda: self._run(self._pin_overlay, row['id'])) \
+                    .props('flat color=primary')
+            if can_edit:
+                ui.button('Edit match', icon='edit', on_click=lambda: self._run(self.handlers.on_edit, row['id'])) \
+                    .props('flat color=primary')
