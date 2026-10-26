@@ -74,8 +74,12 @@ def test_explicit_tenant_binding():
             assert get_current_event_id() == 5
 
 
-def test_no_tenant_means_no_event():
+def test_no_tenant_means_no_event(monkeypatch):
+    from application import tenant_context
     from application.tenant_context import tenant_scope
 
+    # A NiceGUI client left current by an earlier test on this worker would
+    # otherwise supply its tenant through the client stash.
+    monkeypatch.setattr(tenant_context, '_client_stash_tenant_id', lambda: None)
     with tenant_scope(None), event_scope(5):
         assert get_current_event_id() is None
