@@ -120,7 +120,7 @@ def api_description() -> str:
 TAG_GROUPS: List[tuple[str, List[tuple[str, str]]]] = [
     ('Event day', [
         ('Matches', 'The schedule, and running a match from seating to a confirmed result.'),
-        ('Crew', 'Commentator and tracker signups, approval and acknowledgement.'),
+        ('Crew', 'Commentator, tracker and broadcaster signups, approval and acknowledgement.'),
         ('Reschedule requests', 'Players asking to move or call off a match, and staff answering.'),
         ('Volunteers', 'Volunteer positions, shifts, assignments, availability and hours.'),
         ('Check-in', 'The event check-in desk: roster, check-in, walk-ups and account matching.'),

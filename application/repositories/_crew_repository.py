@@ -1,7 +1,7 @@
 """
 Crew Repository - shared Data Access Layer for crew-signup models.
 
-Commentator and Tracker have identical persistence shapes, so the actual CRUD
+Commentator, Tracker and Broadcaster have identical persistence shapes, so the actual CRUD
 lives here and the concrete repositories only bind the model class.
 """
 
@@ -24,7 +24,7 @@ STALE_UNFINISHED = timedelta(hours=12)
 
 
 class CrewRepository(Generic[T]):
-    """Generic data access for a crew-signup model (Commentator/Tracker).
+    """Generic data access for a crew-signup model (Commentator/Tracker/Broadcaster).
 
     Subclasses set ``model`` to the concrete Tortoise model.
     """

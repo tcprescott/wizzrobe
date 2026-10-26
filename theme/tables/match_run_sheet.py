@@ -42,6 +42,7 @@ RUN_SHEET_COLUMNS = [
     {'name': 'stage', 'label': 'Stage', 'field': 'stage', 'align': 'left'},
     {'name': 'commentators', 'label': 'Commentators', 'field': '_crew_by', 'align': 'left'},
     {'name': 'trackers', 'label': 'Trackers', 'field': '_crew_by', 'align': 'left'},
+    {'name': 'broadcasters', 'label': 'Broadcasters', 'field': '_crew_by', 'align': 'left'},
     {'name': 'status', 'label': 'Status', 'field': 'state', 'align': 'left'},
 ]
 
@@ -313,7 +314,7 @@ def _day_label(ts) -> str:
     return f'{local:%a} {local.day} {local:%b}'
 
 
-_CREW_ROLES = (('commentators', 'Commentary'), ('trackers', 'Tracking'))
+_CREW_ROLES = (('commentators', 'Commentary'), ('trackers', 'Tracking'), ('broadcasters', 'Broadcast'))
 
 
 def crew_people(people: list, discord_id=None, *, waiting_note: str = 'to approve') -> list[dict]:
@@ -485,9 +486,8 @@ def arrange_run_sheet(rows: list, group: Callable[[dict], tuple[int, str]] = adm
     return arranged
 
 
-# Signups over need. "needs crew" is spelled out rather than left to the amber,
-# which no screen reader and not every eye can read. The desktop cell sits under
-# a Commentators or Trackers header, so it leaves the role's name off.
+# Signups over need, "needs crew" spelled out for whoever can't read the amber.
+# The desktop cell sits under the role's header, so it leaves the name off.
 _CREW_COUNT = r"""<span class="run-sheet__crew" :class="c.short ? 'st-pending' : ''">__LABEL__<b>{{ c.count }}</b><template v-if="c.short"> · needs crew</template><template v-else-if="c.unapproved"> · to approve</template></span>"""
 
 # Who signed up: a tick for approved, a clock and a note for the rest. Where
@@ -659,7 +659,7 @@ def _body_slot(proctor: bool, can_run: bool = False, approve: str = 'false') -> 
             <span v-if="props.row._stage">{{ props.row._stage }}</span>
             <span v-else class="run-sheet__none">None</span>
         </template>
-        <template v-else-if="col.name === 'commentators' || col.name === 'trackers'">
+        <template v-else-if="col.name === 'commentators' || col.name === 'trackers' || col.name === 'broadcasters'">
             """ + _crew_cell(approve) + """
         </template>
         <template v-else-if="col.name === 'status'">""" + STATUS_WORD + """</template>

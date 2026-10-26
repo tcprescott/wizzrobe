@@ -142,8 +142,9 @@ live, Make default, Archive (lists what's still open and asks for a new
 default), Unarchive and Delete (drafts with no matches).
 
 **Event settings** (Run the event → Event settings, `/admin/event-settings/<pane>`):
-Dates & hours, Capacity, Venue, Timezone, Volunteer reward tiers, Discord
-roles. The keys in `SystemConfigService.EVENT_CONFIG_KEYS` live in
+Dates & hours, Capacity, Venue, Timezone, Crew (the Broadcasters switch,
+`Event.config['broadcasters']`, read through `EventService.broadcaster_events`),
+Volunteer reward tiers, Discord roles. The keys in `SystemConfigService.EVENT_CONFIG_KEYS` live in
 `Event.config` and the event dates in `Event.starts_on` / `ends_on`;
 `get_raw` / `set_raw` route them there, so callers didn't change. The old
 `/admin/settings/event` and `/venue` links redirect. An event's own timezone

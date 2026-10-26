@@ -102,6 +102,7 @@ from .feature_flag import FeatureFlagGroup, TenantFeatureFlag
 from .feedback import Feedback
 from .item_tracker import ItemTrackerBoard, ItemTrackerChange
 from .match import (
+    Broadcaster,
     CommentaryInvite,
     Commentator,
     Match,
@@ -211,6 +212,7 @@ __all__ = [
     'BracketMatchGameState',
     'BracketMatchState',
     'BracketState',
+    'Broadcaster',
     'BrowserErrorIgnoreRule',
     'BrowserMonitoringSettings',
     # challonge

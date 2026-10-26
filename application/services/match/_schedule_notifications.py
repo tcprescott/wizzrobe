@@ -19,6 +19,7 @@ import discord
 from application.repositories import MatchAcknowledgmentRepository
 from application.services import notification_links
 from application.services.discord import DiscordService, discord_queue
+from application.services.event_service import EventService
 from application.services.match._dm_context import _community_name, bracket_line_for
 from application.services.match._match_recipients import (
     MatchRecipient,
@@ -69,6 +70,15 @@ from application.utils.discord_messages import (
 from models import Match, MatchPlayers
 
 logger = logging.getLogger(__name__)
+
+
+async def _wants_broadcaster(match: Match) -> bool:
+    """Whether the crew buttons offer Broadcaster; a failed lookup drops the button, never the DM."""
+    try:
+        return await EventService.match_wants_broadcaster(match)
+    except Exception:
+        logger.exception("broadcaster lookup failed for match %s", match.id)
+        return False
 
 _AUDIENCES = (AUDIENCE_PLAYER, AUDIENCE_CREW, AUDIENCE_WATCHER)
 _RECIPIENTS = {AUDIENCE_PLAYER: PLAYERS, AUDIENCE_CREW: CREW, AUDIENCE_WATCHER: WATCHERS}
@@ -153,7 +163,7 @@ class MatchNotificationMixin:
         crew_message: Optional[Callable[[Sequence[str]], str]] = None,
     ) -> None:
         """
-        Send a DM to approved commentators, trackers, and watchers for a match.
+        Send a DM to approved crew and watchers for a match.
 
         Players are excluded — they receive a separate acknowledgment DM via
         notify_acknowledgment_request. ``message`` is the crew copy and carries a
@@ -532,11 +542,12 @@ class MatchNotificationMixin:
                 match.tournament_id, has_stage=has_stage
             )
             link = await notification_links.community_schedule()
+            broadcaster = await _wants_broadcaster(match)
             for user in subscribers:
                 if user.discord_id not in exclude_discord_ids:
                     success, err = await self.discord_service.send_dm_with_crew_buttons(
                         user.discord_id, message, match.id, embed=embed, link=link,
-                        notice=MATCH_SCHEDULED.to(FOLLOWERS),
+                        notice=MATCH_SCHEDULED.to(FOLLOWERS), broadcaster=broadcaster,
                     )
                     if not success:
                         logger.warning(
@@ -586,15 +597,16 @@ class MatchNotificationMixin:
                 tournament=match.tournament.name, community_name=community,
                 player_names=player_names, when=match.scheduled_at,
             )
-            # The signup buttons cover commentator and tracker; the link covers
+            # The signup buttons cover the crew roles; the link covers
             # everything else the reader might want to decide first — who is
             # playing, what else is on that day.
             link = await notification_links.community_schedule()
+            broadcaster = await _wants_broadcaster(match)
             for user in subscribers:
                 if user.discord_id not in exclude_discord_ids:
                     success, err = await self.discord_service.send_dm_with_crew_buttons(
                         user.discord_id, msg, match.id, embed=embed, link=link,
-                        notice=STREAM_CANDIDATE.to(FOLLOWERS),
+                        notice=STREAM_CANDIDATE.to(FOLLOWERS), broadcaster=broadcaster,
                     )
                     if not success:
                         logger.warning(

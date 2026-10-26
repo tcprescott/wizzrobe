@@ -346,6 +346,10 @@ TRACKER_SIGNUP = _notice(
     'tracker_signup', 'Crew', 'New tracker signup',
     'Someone signs up to track', {ADMINS: SILENT}, {ADMINS: _CREW_OWNERS},
 )
+BROADCASTER_SIGNUP = _notice(
+    'broadcaster_signup', 'Crew', 'New broadcaster signup',
+    'Someone signs up to broadcast', {ADMINS: SILENT}, {ADMINS: _CREW_OWNERS},
+)
 CREW_ASSIGNED = _notice(
     'crew_assigned', 'Crew', 'Crew assignment',
     'A signup is approved, or staff add crew directly', {CREW: PING},
@@ -362,6 +366,10 @@ COMMENTATOR_WITHDREW = _notice(
 TRACKER_WITHDREW = _notice(
     'tracker_withdrew', 'Crew', 'Tracker withdrew',
     'An approved tracker drops out', {ADMINS: PING}, {ADMINS: _CREW_DROPPED},
+)
+BROADCASTER_WITHDREW = _notice(
+    'broadcaster_withdrew', 'Crew', 'Broadcaster withdrew',
+    'An approved broadcaster drops out', {ADMINS: PING}, {ADMINS: _CREW_DROPPED},
 )
 CREW_BOOKED_BUSY = _notice(
     'crew_booked_busy', 'Crew', 'Crew busy at the booked time',
@@ -699,10 +707,12 @@ _ACT: Dict[str, frozenset] = {
     RESCHEDULE_DECLINED.key: frozenset({PLAYERS}),
     COMMENTATOR_SIGNUP.key: frozenset({ADMINS}),
     TRACKER_SIGNUP.key: frozenset({ADMINS}),
+    BROADCASTER_SIGNUP.key: frozenset({ADMINS}),
     CREW_ASSIGNED.key: frozenset({CREW}),
     CREW_UNASSIGNED.key: frozenset({CREW}),
     COMMENTATOR_WITHDREW.key: frozenset({ADMINS}),
     TRACKER_WITHDREW.key: frozenset({ADMINS}),
+    BROADCASTER_WITHDREW.key: frozenset({ADMINS}),
     CREW_BOOKED_BUSY.key: frozenset({ADMINS}),
     CREW_PARTNER_INVITE.key: frozenset({CREW}),
     SHIFT_ASSIGNED.key: frozenset({VOLUNTEERS}),

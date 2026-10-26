@@ -76,6 +76,7 @@ async def create_match(body: MatchCreateRequest, actor: User = Depends(require_w
         stage_id=body.stage_id,
         commentator_ids=body.commentator_ids,
         tracker_ids=body.tracker_ids,
+        broadcaster_ids=body.broadcaster_ids,
         is_stream_candidate=body.is_stream_candidate,
         actor=actor,
     )
@@ -139,6 +140,7 @@ async def update_match(match_id: int, body: MatchUpdateRequest, actor: User = De
         player_ids=body.player_ids,
         commentator_ids=body.commentator_ids,
         tracker_ids=body.tracker_ids,
+        broadcaster_ids=body.broadcaster_ids,
         comment=body.comment,
         clear_seated=body.clear_seated,
         clear_started=body.clear_started,
@@ -427,10 +429,10 @@ async def generate_seed(match_id: int, actor: User = Depends(require_write_actor
     status_code=status.HTTP_201_CREATED,
     summary="Sign yourself up as crew",
     description=(
-        "Signs you up as commentator or tracker. The signup waits for "
+        "Signs you up as commentator, tracker or broadcaster. The signup waits for "
         "approval, and the tournament's admins and crew coordinators are DMed "
         "about it. Fails with 400 when the role is unknown or the tournament "
-        "doesn't use it, the match has started or finished, you're already "
+        "doesn't use it (broadcaster also needs an event with broadcasters on), the match has started or finished, you're already "
         "signed up for that role, or you play in the match."
         "\n\n"
         "**Who can call this:** Any member."
@@ -446,8 +448,8 @@ async def signup_crew(match_id: int, body: CrewSignupRequest, actor: User = Depe
     status_code=status.HTTP_204_NO_CONTENT,
     summary="Undo your crew signup",
     description=(
-        "Removes your own commentator or tracker signup; `role` is "
-        "`commentator` or `tracker`. When it was already approved, the "
+        "Removes your own crew signup; `role` is "
+        "`commentator`, `tracker` or `broadcaster`. When it was already approved, the "
         "tournament's admins and crew coordinators, and whoever approved you, "
         "are DMed that you dropped out. Fails with 400 when you aren't signed "
         "up for that role."

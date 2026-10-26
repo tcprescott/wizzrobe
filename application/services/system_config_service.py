@@ -14,6 +14,7 @@ from application.repositories._save import save_fields
 from application.repositories.event_repository import EventRepository
 from application.services.audit_service import AuditActions, AuditService
 from application.services.auth_service import AuthService
+from application.services.event_service import BROADCASTERS_KEY
 from application.tenant_context import require_tenant_id
 from application.utils.timezone import to_local, today_local
 from models import Match, Stage, StationFormat, SystemConfiguration, Tournament, User
@@ -29,6 +30,9 @@ KEY_COMMUNITY_EVENT_REMINDER_LEAD_MINUTES = 'community_event_reminder_lead_minut
 KEY_COMMUNITY_EVENT_REQUIRE_APPROVAL = 'community_event_require_approval'
 KEY_TOURNAMENT_HOURS = 'tournament_hours_by_date'
 KEY_STATION_FORMAT = 'station_format'
+# Whether this event's matches have a Broadcaster crew role. An event setting,
+# off by default; ``EventService.broadcasters_on`` is the read side.
+KEY_BROADCASTERS = BROADCASTERS_KEY
 # Whether anyone in the community's linked Discord server gets in at the join
 # door without asking. Default off: a server is often wider than the community
 # (a shared server, a public one), so opening the door to all of it is a staff
@@ -63,7 +67,7 @@ KEY_WATCH_STATIC_SIGNED_OUT = 'watch_page_static_signed_out'
 #: year's event shows last year's capacity, and a worker reads the event it bound.
 EVENT_CONFIG_KEYS = frozenset({
     KEY_MAX_CONCURRENT_PLAYERS, KEY_MAX_CONCURRENT_STAGES, KEY_TOURNAMENT_HOURS,
-    KEY_STATION_FORMAT, KEY_VOLUNTEER_COMP_TIERS,
+    KEY_STATION_FORMAT, KEY_VOLUNTEER_COMP_TIERS, KEY_BROADCASTERS,
 })
 #: The event dates, which are the event's own columns rather than config.
 EVENT_DATE_FIELDS = {KEY_EVENT_START_DATE: 'starts_on', KEY_EVENT_END_DATE: 'ends_on'}
@@ -560,6 +564,7 @@ _NORMALIZERS = {
     KEY_COMMUNITY_EVENT_REQUIRE_APPROVAL: _bool_value,
     KEY_TOURNAMENT_HOURS: _tournament_hours_value,
     KEY_STATION_FORMAT: _station_format_value,
+    KEY_BROADCASTERS: _bool_value,
     KEY_DISCORD_AUTO_JOIN: _bool_value,
     KEY_JOIN_REQUESTS: _bool_value,
     KEY_OPEN_MEMBERSHIP: _bool_value,

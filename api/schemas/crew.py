@@ -37,3 +37,6 @@ class MatchCrewResponse(BaseModel):
     trackers: List[CrewSignupInfo] = Field(
         default_factory=list, description="Every tracker signup, approved or not."
     )
+    broadcasters: List[CrewSignupInfo] = Field(
+        default_factory=list, description="Every broadcaster signup, approved or not."
+    )

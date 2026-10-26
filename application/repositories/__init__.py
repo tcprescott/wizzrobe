@@ -18,6 +18,7 @@ from .async_qualifier_repository import (
 )
 from .audit_repository import AuditRepository
 from .bracket_repository import BracketRepository
+from .broadcaster_repository import BroadcasterRepository
 from .browser_monitoring_repository import BrowserMonitoringRepository
 from .challonge_repository import ChallongeRepository
 from .check_in_repository import (
@@ -114,6 +115,7 @@ __all__ = [
     'AsyncQualifierRunRepository',
     'AuditRepository',
     'BracketRepository',
+    'BroadcasterRepository',
     'BrowserMonitoringRepository',
     'ChallongeRepository',
     'CheckInEntrantRepository',

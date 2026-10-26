@@ -245,6 +245,7 @@ class TournamentService(TournamentDropMixin, TournamentSignupMixin):
         players_per_match: int = 2,
         required_commentators: int = 1,
         required_trackers: int = 1,
+        required_broadcasters: int = 1,
         allow_player_match_requests: bool = True,
         config: Optional[Dict[str, Any]] = None,
         preset_id: Optional[int] = None,
@@ -319,6 +320,7 @@ class TournamentService(TournamentDropMixin, TournamentSignupMixin):
             players_per_match=players_per_match,
             required_commentators=self._crew_requirement(required_commentators, 'commentators'),
             required_trackers=self._crew_requirement(required_trackers, 'trackers'),
+            required_broadcasters=self._crew_requirement(required_broadcasters, 'broadcasters'),
             allow_player_match_requests=allow_player_match_requests,
             config=config,
             preset_id=preset_id,
@@ -369,6 +371,7 @@ class TournamentService(TournamentDropMixin, TournamentSignupMixin):
         players_per_match: Optional[int] = None,
         required_commentators: Optional[int] = None,
         required_trackers: Optional[int] = None,
+        required_broadcasters: Optional[int] = None,
         allow_player_match_requests: Optional[bool] = None,
         config: Optional[Dict[str, Any]] = None,
         preset_id: Any = _UNSET,
@@ -443,6 +446,10 @@ class TournamentService(TournamentDropMixin, TournamentSignupMixin):
         if required_trackers is not None:
             update_data['required_trackers'] = self._crew_requirement(
                 required_trackers, 'trackers'
+            )
+        if required_broadcasters is not None:
+            update_data['required_broadcasters'] = self._crew_requirement(
+                required_broadcasters, 'broadcasters'
             )
         if allow_player_match_requests is not None:
             update_data['allow_player_match_requests'] = allow_player_match_requests

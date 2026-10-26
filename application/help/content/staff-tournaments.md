@@ -40,7 +40,8 @@ Tournaments tab.
 **Commentators needed** and **Trackers needed** decide when the coverage reports
 count a streamed match as covered. Set one to 0 if this tournament doesn't use
 that role. If you don't, every streamed match shows a gap and the schedule keeps
-offering a signup nobody will take.
+offering a signup nobody will take. **Broadcasters needed** works the same way
+and only shows on an event with broadcasters turned on (Event settings → Crew).
 
 **Remind about the stage** is how many minutes before the match a second DM tells
 the players and approved crew which stage to go to. Assigning a stage already DMs

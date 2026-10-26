@@ -10,7 +10,7 @@ Read-only: no writes, no audit, no Discord notifications.
 """
 
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Set, Tuple
 
 from application.content import parse_user_blocks, plain_text
 from application.repositories import (
@@ -23,6 +23,7 @@ from application.repositories import (
     TournamentRepository,
 )
 from application.services.bracket_set_service import BracketSetService
+from application.services.event_service import EventService
 from application.services.match.match_status import (
     closes_without_winner,
     has_recorded_result,
@@ -108,6 +109,7 @@ class MatchDisplayService:
         failed = await self.provider_task_repository.latest_failure_for_match(match.id)
         row = self._format_match_for_display(
             match, acks, volunteers.get(match.id, []), rolling, failed,
+            await EventService.broadcaster_events([match.event_id]),
         )
         await self._attach_site_results([row], [match])
         await self._attach_racetime_bot([row], [match])
@@ -172,10 +174,11 @@ class MatchDisplayService:
         rolling_map, failed_map = await self.provider_task_repository.board_state_for_matches(
             match_ids_loaded,
         )
+        broadcaster_events = await EventService.broadcaster_events(m.event_id for m in matches)
         rows = [
             self._format_match_for_display(
                 m, ack_map.get(m.id, []), volunteer_map.get(m.id, []),
-                rolling_map.get(m.id), failed_map.get(m.id),
+                rolling_map.get(m.id), failed_map.get(m.id), broadcaster_events,
             )
             for m in matches
         ]
@@ -190,7 +193,7 @@ class MatchDisplayService:
     @staticmethod
     async def _attach_event_names(rows: List[Dict[str, Any]], matches: List[Match]) -> None:
         """A person's own list spans live events: lead the tournament with its event once two share it."""
-        from application.services.event_service import EventService, with_event_name
+        from application.services.event_service import with_event_name
 
         names = await EventService.names_if_mixed(m.event_id for m in matches)
         if not names:
@@ -411,9 +414,19 @@ class MatchDisplayService:
         stream_volunteers: Optional[List[str]] = None,
         rolling_task: Optional['ProviderTask'] = None,
         failed_task: Optional['ProviderTask'] = None,
+        broadcaster_events: Optional[Set[int]] = None,
     ) -> Dict[str, Any]:
-        """Format a match object for UI display."""
+        """Format a match object for UI display.
+
+        ``broadcaster_events`` are the events with broadcasters switched on
+        (``EventService.broadcaster_events``); a match in any other event has no
+        Broadcaster role.
+        """
         state = self._get_match_state(match)
+        broadcasters_on = match.event_id in (broadcaster_events or set())
+        need_broadcasters = (
+            (match.tournament.required_broadcasters if match.tournament else 1) if broadcasters_on else 0
+        )
 
         if match.confirmed_at:
             state_changed_at = match.confirmed_at
@@ -616,18 +629,25 @@ class MatchDisplayService:
                 'trackers': (
                     match.tournament.required_trackers > 0 if match.tournament else True
                 ),
+                'broadcasters': need_broadcasters > 0,
             },
+            # Whether this match's event has the Broadcaster role at all, so a
+            # board shows the column only where some row can use it.
+            'broadcasters_on': broadcasters_on,
             # How much approved crew the match needs, per role, so the home
             # board's Needs crew switch can tell a covered match from an open
             # one. Same numbers (and same no-tournament default) as the
             # coverage report's ``crew_requirement``. Crew only works a match
             # on a stage, so a match without one needs none: every board,
             # filter and checklist reads "needed" from this.
-            'crew_required': dict(zip(
-                ('commentators', 'trackers'),
-                crew_requirement(match.tournament) if match.stage_id else (0, 0),  # type: ignore[attr-defined]
-                strict=True,
-            )),
+            'crew_required': {
+                **dict(zip(
+                    ('commentators', 'trackers'),
+                    crew_requirement(match.tournament) if match.stage_id else (0, 0),  # type: ignore[attr-defined]
+                    strict=True,
+                )),
+                'broadcasters': need_broadcasters if match.stage_id else 0,  # type: ignore[attr-defined]
+            },
             'commentators': [
                 {
                     'name': c.user.preferred_name,
@@ -659,6 +679,18 @@ class MatchDisplayService:
                     'id': t.id,
                 }
                 for t in match.trackers
+            ],
+            'broadcasters': [
+                {
+                    'name': b.user.preferred_name,
+                    'approved': b.approved,
+                    'discord_id': str(b.user.discord_id) if b.user.discord_id else None,
+                    'user_id': b.user_id,
+                    'acknowledged': b.acknowledged_at is not None,
+                    'ack_ts': format_local_display(b.acknowledged_at) if b.acknowledged_at else '',
+                    'id': b.id,
+                }
+                for b in match.broadcasters  # type: ignore[attr-defined]
             ],
             # Keep these for backward compatibility with existing code that may reference them
             'seated': format_local_datetime(match.seated_at) if match.seated_at else '',

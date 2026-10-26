@@ -23,7 +23,7 @@ from typing import NamedTuple, Optional, Sequence
 
 import discord
 
-from application.utils.match_labels import players_label
+from application.utils.match_labels import and_join, players_label
 
 
 class DMLink(NamedTuple):
@@ -120,14 +120,15 @@ AUDIENCE_SUBSCRIBER = 'subscriber'
 
 CREW_COMMENTATOR = 'commentator'
 CREW_TRACKER = 'tracker'
+CREW_BROADCASTER = 'broadcaster'
 
 
-_CREW_VERB = {CREW_COMMENTATOR: 'commentating', CREW_TRACKER: 'tracking'}
+_CREW_VERB = {CREW_COMMENTATOR: 'commentating', CREW_TRACKER: 'tracking', CREW_BROADCASTER: 'broadcasting'}
 
 
 def crew_slot_label(crew_roles: Sequence[str]) -> str:
     """The slot(s) a crew member holds, as prose: "tracker", "commentator and tracker"."""
-    return ' and '.join(crew_roles)
+    return and_join(crew_roles)
 
 
 def crew_slot_title(title: str, crew_roles: Sequence[str]) -> str:
@@ -161,7 +162,7 @@ _MATCH_SUBJECT = {
 
 def _subject(audience: str, crew_roles: Sequence[str] = ()) -> str:
     if audience == AUDIENCE_CREW and crew_roles:
-        verbs = ' and '.join(_CREW_VERB.get(r, r) for r in crew_roles)
+        verbs = and_join([_CREW_VERB.get(r, r) for r in crew_roles])
         return f"A match you're {verbs}"
     return _MATCH_SUBJECT.get(audience, _MATCH_SUBJECT[AUDIENCE_SUBSCRIBER])
 

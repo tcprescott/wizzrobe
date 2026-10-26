@@ -47,6 +47,7 @@ _ROLES = (
     # (row key, singular used by the view's handlers, heading)
     ('commentators', 'commentator', 'Commentary'),
     ('trackers', 'tracker', 'Tracking'),
+    ('broadcasters', 'broadcaster', 'Broadcast'),
 )
 
 
