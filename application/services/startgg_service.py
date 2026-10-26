@@ -459,9 +459,17 @@ class StartggService(StartggPlaceholderMixin):
             ))
 
     @requires_feature(FeatureFlag.STARTGG)
-    async def list_unbooked_sets_for_user(self, user: User) -> List[StartggSet]:
-        """The player's sets that are ready to book, in each tournament's bookable phase."""
+    async def list_unbooked_sets_for_user(
+        self, user: User, *, include_partial_sets: bool = False,
+    ) -> List[StartggSet]:
+        """The player's sets that are ready to book, in each tournament's bookable phase.
+
+        ``include_partial_sets`` adds the best-of sets with some games booked,
+        which may have more to book.
+        """
         rows = await self.repository.open_unbooked_sets_for_user(user)
+        if include_partial_sets:
+            rows += await self.repository.open_set_sets_for_user(user)
         phases: Dict[int, Optional[str]] = {}
         for row in rows:
             if row.tournament_id not in phases:  # type: ignore[attr-defined]
@@ -474,9 +482,16 @@ class StartggService(StartggPlaceholderMixin):
         ]
 
     @requires_feature(FeatureFlag.STARTGG)
-    async def list_unbooked_sets(self, tournament_ids: Optional[List[int]] = None) -> List[StartggSet]:
-        """Sets in each tournament's bookable phase that nobody has booked yet. Callers authorize."""
+    async def list_unbooked_sets(
+        self, tournament_ids: Optional[List[int]] = None, *, include_partial_sets: bool = False,
+    ) -> List[StartggSet]:
+        """Sets in each tournament's bookable phase that nobody has booked yet. Callers authorize.
+
+        ``include_partial_sets`` adds the best-of sets with some games booked.
+        """
         rows = await self.repository.open_unbooked_sets(tournament_ids)
+        if include_partial_sets:
+            rows += await self.repository.open_set_sets(tournament_ids)
         phases: Dict[int, Optional[str]] = {}
         for row in rows:
             if row.tournament_id not in phases:  # type: ignore[attr-defined]

@@ -733,13 +733,28 @@ class ChallongeService(ChallongeParticipantAssignmentMixin, ChallongeStageMixin,
     # Scheduling a bracket matchup (reuses the existing match-request flow)
     # ------------------------------------------------------------------
     @requires_feature(FeatureFlag.CHALLONGE)
-    async def list_unscheduled_matches_for_user(self, user: User) -> List[ChallongeMatch]:
-        return await self.repository.unscheduled_open_matches_for_user(user)
+    async def list_unscheduled_matches_for_user(
+        self, user: User, *, include_partial_sets: bool = False,
+    ) -> List[ChallongeMatch]:
+        """The player's open matches with nothing booked; ``include_partial_sets``
+        adds the best-of sets with some games booked."""
+        rows = await self.repository.unscheduled_open_matches_for_user(user)
+        if include_partial_sets:
+            rows += await self.repository.open_set_matches_for_user(user)
+        return rows
 
     @requires_feature(FeatureFlag.CHALLONGE)
-    async def list_unbooked_matches(self, tournament_ids: Optional[List[int]] = None) -> List[ChallongeMatch]:
-        """Open matches nobody has booked yet, for the staff board. Callers authorize."""
-        return await self.repository.unscheduled_open_matches(tournament_ids)
+    async def list_unbooked_matches(
+        self, tournament_ids: Optional[List[int]] = None, *, include_partial_sets: bool = False,
+    ) -> List[ChallongeMatch]:
+        """Open matches nobody has booked yet, for the staff board. Callers authorize.
+
+        ``include_partial_sets`` adds the best-of sets with some games booked.
+        """
+        rows = await self.repository.unscheduled_open_matches(tournament_ids)
+        if include_partial_sets:
+            rows += await self.repository.open_set_matches(tournament_ids)
+        return rows
 
     @requires_feature(FeatureFlag.CHALLONGE)
     async def schedule_challonge_match(

@@ -330,10 +330,13 @@ class BracketRepository(TenantScopedRepository[Bracket]):
         """Delete one game row, freeing its slot. Returns the rows removed."""
         return await scoped(BracketMatchGame.filter(id=game_id)).delete()
 
-    async def list_games(self, bracket_match_id: int) -> List[BracketMatchGame]:
-        return await scoped(
+    async def list_games(self, bracket_match_id: int, *, with_matches: bool = False) -> List[BracketMatchGame]:
+        query = scoped(
             BracketMatchGame.filter(bracket_match_id=bracket_match_id)
         ).order_by('game_number')
+        if with_matches:
+            query = query.prefetch_related('match')
+        return await query
 
     async def games_for_matches(self, match_ids: List[int]) -> List[BracketMatchGame]:
         """The game rows backed by any of ``match_ids`` — **unscoped**, one query.

@@ -13,19 +13,20 @@ rather than adding another hand-written call at every spot:
   links and unlinks through :func:`link` / :func:`unlink`, and counts entrants
   still waiting for a member through :func:`unmatched_entrant_counts`.
 
-Challonge is registered for syncing and booking; its result push and My
-Schedule rows still run through ``ChallongeService`` directly until it moves
-onto the rest of the contract. Native brackets live in Wizzrobe, so they have nothing to sync.
+Challonge is registered for syncing and booking; its result push and its
+best-of-1 My Schedule rows still run through ``ChallongeService`` directly
+until it moves onto the rest of the contract (its best-of sets already list
+here, a row per game). Native brackets live in Wizzrobe, so they have nothing to sync.
 """
 
 import logging
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Callable, Dict, List, Optional, Protocol, Sequence, Tuple
 from urllib.parse import urlparse
 
 from application.services.auth_service import AuthService
 from application.services.bracket_service import BracketService
-from application.services.bracket_set_service import BracketSetService
+from application.services.bracket_set_service import BracketSetService, OpenGames
 from application.services.challonge_service import ChallongeService
 from application.services.feature_flag_service import FeatureFlagService
 from application.services.round_schedule_service import RoundScheduleService
@@ -58,6 +59,10 @@ class BookableMatch:
     window_text: Optional[str] = None
     # Staff booking a matchup before the bracket has decided its players.
     ahead: bool = False
+    # A best-of set lists one row per game left to book, each booking one game.
+    best_of: int = 1
+    games_booked: int = 0
+    if_needed: bool = False
 
 
 @dataclass
@@ -83,6 +88,8 @@ class UnbookedMatch:
     unlinked_entrants: List[Tuple[int, str]] = field(default_factory=list)
     best_of: int = 1
     game_number: int = 1
+    # Games of a best-of set already booked; staff book the rest one at a time.
+    games_booked: int = 0
     # Matches already on the schedule with exactly these two players and no
     # bracket link: what staff most likely booked by hand for this matchup.
     same_player_matches: List[Match] = field(default_factory=list)
@@ -147,6 +154,35 @@ class BracketSource(Protocol):
     async def count_unmatched(self, tournament_ids: List[int]) -> Dict[int, int]: ...
 
 
+def set_game_label(base: str, best_of: int, position: int) -> str:
+    """A row for one unbooked game of a set, without a number.
+
+    The number comes from when the game ends up being played, so a row that
+    isn't booked yet can't promise one: ``Final · best of 3 · another game``.
+    """
+    if best_of <= 1:
+        return base
+    tail = '' if position == 1 else ' · last game' if position == best_of else ' · another game'
+    return f'{base} · best of {best_of}{tail}'
+
+
+def games_left_label(base: str, left: OpenGames) -> str:
+    """Staff's one row for a partly booked set: ``Final · best of 3 · 2 games left``."""
+    count = len(left.slots)
+    return f"{base} · best of {left.best_of} · {count} game{'s' if count != 1 else ''} left"
+
+
+def _set_rows(row: BookableMatch, left: OpenGames) -> List[BookableMatch]:
+    """``row`` once per game still to book."""
+    return [
+        replace(
+            row, best_of=left.best_of, games_booked=left.booked, if_needed=if_needed,
+            round_label=set_game_label(row.round_label, left.best_of, left.booked + i),
+        )
+        for i, if_needed in enumerate(left.slots, start=1)
+    ]
+
+
 class StartggSource:
     key = 'startgg'
     label = 'start.gg'
@@ -160,20 +196,22 @@ class StartggSource:
         return f"{counts.get('entrants', 0)} entrants, {counts.get('sets', 0)} matches"
 
     async def list_bookable_for_user(self, user: User) -> List[BookableMatch]:
-        rows = await StartggService().list_unbooked_sets_for_user(user)
+        rows = await StartggService().list_unbooked_sets_for_user(user, include_partial_sets=True)
         rounds = RoundScheduleService()
-        out = []
+        sets = BracketSetService()
+        out: List[BookableMatch] = []
         for row in rows:
             me_first = row.entrant1.user_id == user.id
             opponent = row.entrant2 if me_first else row.entrant1
-            out.append(BookableMatch(
+            left = await sets.open_games_for(self.key, row.id, row.match_id)
+            out.extend(_set_rows(BookableMatch(
                 source=self.key, source_label=self.label, key=row.id,
                 tournament=row.tournament,
                 round_label=row.round_text or f'Round {row.round}',
                 opponent_name=entrant_name(opponent),
                 player_ids=[row.entrant1.user_id, row.entrant2.user_id],
                 window_text=await rounds.describe_for_startgg_set(row),
-            ))
+            ), left))
         return out
 
     async def schedule(
@@ -213,7 +251,29 @@ class ChallongeSource:
         return f"{counts.get('participants', 0)} players, {counts.get('matches', 0)} matches"
 
     async def list_bookable_for_user(self, user: User) -> List[BookableMatch]:
-        return []
+        """The player's best-of sets only: a best-of-1 Challonge matchup is still
+        listed by ``ChallongeService`` (with a reason when it can't be booked yet)."""
+        if not ChallongeService.is_configured():
+            return []
+        rows = await ChallongeService().list_unscheduled_matches_for_user(user, include_partial_sets=True)
+        rounds = RoundScheduleService()
+        sets = BracketSetService()
+        out: List[BookableMatch] = []
+        for cm in rows:
+            p1, p2 = cm.participant1, cm.participant2
+            if p1 is None or p2 is None or p1.user_id is None or p2.user_id is None:
+                continue
+            left = await sets.open_games_for(self.key, cm.id, cm.match_id)
+            if left.best_of <= 1:
+                continue
+            out.extend(_set_rows(BookableMatch(
+                source=self.key, source_label=self.label, key=cm.id,
+                tournament=cm.tournament, round_label=challonge_round_label(cm.round),
+                opponent_name=entrant_name(p2 if p1.user_id == user.id else p1),
+                player_ids=[p1.user_id, p2.user_id],
+                window_text=await rounds.describe_for_challonge_match(cm),
+            ), left))
+        return out
 
     async def schedule(
         self, key: int, scheduled_date: str, scheduled_time: str, actor: User,
@@ -314,6 +374,16 @@ async def schedule_set(
     return [first, *await BracketSetService().book_followers(first, times, actor)]
 
 
+async def book_set_game(
+    source_key: str, key: int, scheduled_date: str, scheduled_time: str, actor: User,
+    *, allow_outside_round: bool = False,
+) -> Match:
+    """Book one game of a matchup's best-of set; the first game booked leads it."""
+    return await BracketSetService().book_game(
+        source_key, key, scheduled_date, scheduled_time, actor, allow_outside_round=allow_outside_round,
+    )
+
+
 async def best_of_for(source_key: str, key: int) -> int:
     """How many games this matchup's stage plays, from the round schedule."""
     return await RoundScheduleService().best_of_for(
@@ -351,28 +421,47 @@ async def list_unbooked(actor: Optional[User], *, include_players_tbd: bool = Fa
     rounds = RoundScheduleService()
     out: List[UnbookedMatch] = []
 
+    sets = BracketSetService()
+
+    async def partly_booked(source_key: str, key: int, first_id: Optional[int], base: str):
+        """``(round label, games booked)``, or None for a set with nothing left to book."""
+        if first_id is None:
+            return base, 0
+        left = await sets.open_games_for(source_key, key, first_id)
+        if not left.slots:
+            return None
+        return games_left_label(base, left), left.booked
+
     if FeatureFlag.CHALLONGE in live:
-        for cm in await ChallongeService().list_unbooked_matches(scope):
+        for cm in await ChallongeService().list_unbooked_matches(scope, include_partial_sets=True):
+            if cm.participant1 is None or cm.participant2 is None:
+                continue
+            base = 'Group stage' if cm.group_stage else challonge_round_label(cm.round)
+            found = await partly_booked('challonge', cm.id, cm.match_id, base)
+            if found is None:
+                continue
             unlinked: List[str] = []
             p1, p2 = cm.participant1, cm.participant2
             names = [_side(p.user_id, p.name or 'TBD', unlinked) for p in (p1, p2)]
             out.append(UnbookedMatch(
                 source='challonge', source_label='Challonge', key=cm.id,
-                tournament=cm.tournament,
-                round_label='Group stage' if cm.group_stage else challonge_round_label(cm.round),
+                tournament=cm.tournament, round_label=found[0], games_booked=found[1],
                 player_names=names, player_ids=[p1.user_id, p2.user_id], unlinked=unlinked,
                 window_text=await rounds.describe_for_challonge_match(cm),
             ))
 
     if FeatureFlag.STARTGG in live:
-        for row in await StartggService().list_unbooked_sets(scope):
+        for row in await StartggService().list_unbooked_sets(scope, include_partial_sets=True):
+            base = row.round_text or f'Round {row.round}'
+            found = await partly_booked('startgg', row.id, row.match_id, base)
+            if found is None:
+                continue
             unlinked = []
             e1, e2 = row.entrant1, row.entrant2
             names = [_side(e.user_id, e.name, unlinked) for e in (e1, e2)]
             out.append(UnbookedMatch(
                 source='startgg', source_label='start.gg', key=row.id,
-                tournament=row.tournament,
-                round_label=row.round_text or f'Round {row.round}',
+                tournament=row.tournament, round_label=found[0], games_booked=found[1],
                 player_names=names, player_ids=[e1.user_id, e2.user_id], unlinked=unlinked,
                 window_text=await rounds.describe_for_startgg_set(row),
             ))
@@ -390,9 +479,7 @@ async def list_unbooked(actor: Optional[User], *, include_players_tbd: bool = Fa
             taken = {g.game_number for g in bm.games}
             number = next(n for n in range(1, best_of + 1) if n not in taken)
             base = f'Losers round {abs(bm.round)}' if bm.round < 0 else f'Round {bm.round}'
-            label = f'{bm.bracket.name} · {base}'
-            if best_of > 1:
-                label += f' · game {number} of {best_of}'
+            label = set_game_label(f'{bm.bracket.name} · {base}', best_of, len(taken) + 1)
             out.append(UnbookedMatch(
                 source='bracket', source_label='Bracket', key=bm.id,
                 tournament=bm.bracket.tournament, round_label=label,
@@ -484,7 +571,8 @@ async def book_ahead(
 
 
 async def _attach_same_player_matches(items: List[UnbookedMatch]) -> None:
-    ready = [i for i in items if i.ready]
+    # A partly booked set already has its bracket link.
+    ready = [i for i in items if i.ready and not i.games_booked]
     if not ready:
         return
     from application.services.match.match_service import MatchService

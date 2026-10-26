@@ -327,7 +327,7 @@ class UnbookedBoard:
             source=item.source, source_label=item.source_label, key=item.key,
             tournament=item.tournament, round_label=item.round_label,
             opponent_name=item.matchup, player_ids=player_ids, window_text=item.window_text,
-            ahead=item.players_tbd,
+            ahead=item.players_tbd, games_booked=item.games_booked,
         )
         await BracketSourceScheduleDialog(
             bookable, actor, on_submit=self._after_booking, matchup_label=item.matchup,

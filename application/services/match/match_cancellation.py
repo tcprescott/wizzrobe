@@ -57,10 +57,12 @@ class CancellationMixin:
         """
         match_id = match.id
         tournament_id = match.tournament_id
-        # Game 1 of a best-of set holds the bracket link; the later games go
-        # with it, so the matchup is open to book again as a whole set.
-        for game in await self.repository.set_followers(match.id) if self._leads_set(match) else []:
-            await self._remove_match(game, actor, reason=reason)
+        # The game leading a best-of set holds the bracket link: it passes to
+        # another game first, so the rest of the set stays booked.
+        if self._leads_set(match):
+            from application.services.bracket_set_service import BracketSetService
+
+            await BracketSetService().hand_off(match)
         await self._release_bracket_slot(match, actor, reason)
         await self.repository.delete(match)
         await self.audit_service.write_and_publish(
@@ -141,9 +143,6 @@ class CancellationMixin:
         from application.utils.discord_embeds import COLOR_CANCELLED, match_embed
         from application.utils.discord_messages import cancelled_description, cancelled_dm
 
-        if self._leads_set(match):
-            for game in await self.repository.set_followers(match.id):
-                await self._cancel_match(game, actor, reason=reason, notice=notice)
         await match.fetch_related('tournament', 'players__user', 'stage')
         recipients = await collect_match_audience(match)
         community = await _community_name()

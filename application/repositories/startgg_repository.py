@@ -325,6 +325,30 @@ class StartggRepository:
         ).order_by('tournament_id', 'round', 'identifier', 'id')
 
     @staticmethod
+    async def open_set_sets_for_user(user: User) -> List[StartggSet]:
+        """Open sets the user is in whose best-of games are partly booked."""
+        return await scoped(StartggSet.filter(
+            Q(entrant1__user=user) | Q(entrant2__user=user),
+            state=StartggSetState.OPEN, match__set_best_of__gt=1,
+        )).prefetch_related('tournament', 'pool__phase', 'entrant1__user', 'entrant2__user')
+
+    @staticmethod
+    async def open_set_sets(tournament_ids: Optional[List[int]] = None) -> List[StartggSet]:
+        """Every open set whose best-of games are partly booked; ``None`` means all of them."""
+        qs = scoped(StartggSet.filter(
+            state=StartggSetState.OPEN, match__set_best_of__gt=1, tournament__is_active=True,
+        ))
+        if tournament_ids is not None:
+            qs = qs.filter(tournament_id__in=tournament_ids)
+        return await qs.prefetch_related(
+            'tournament', 'pool__phase', 'entrant1__user', 'entrant2__user',
+        ).order_by('tournament_id', 'round', 'identifier', 'id')
+
+    @staticmethod
+    async def move_match_link(old_match_id: int, new_match_id: int) -> None:
+        await scoped(StartggSet.filter(match_id=old_match_id)).update(match_id=new_match_id)
+
+    @staticmethod
     async def prune(
         tournament: Tournament, *, entrant_ids: Set[str], phase_ids: Set[str],
         pool_ids: Set[str], set_ids: Set[str],
