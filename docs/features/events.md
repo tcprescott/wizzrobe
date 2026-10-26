@@ -73,8 +73,9 @@ at worst show another event of the same community.
 2. Gives every community one live, default event named after it, with its
    slug and the dates from its `event_start_date` / `event_end_date` settings
    (`sgl26`'s is named "SGL 2026").
-3. A community with test tournaments (`Tournament.is_test`) also gets a draft
-   "Testing" event, and those tournaments and their matches move there.
+3. A community with test tournaments (`Tournament.is_test`) also gets a
+   "Testing" event, live (so workers keep running for test tournaments) but
+   not the default, and those tournaments and their matches move there.
 4. Backfills: matches from their tournament, shifts from their position, Discord
    role rules from their tournament, mirrored Discord events from their match,
    everything else from the community's default.

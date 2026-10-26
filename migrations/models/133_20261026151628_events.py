@@ -11,8 +11,9 @@ of them. This migration is additive and changes nothing anyone sees:
 2. **Events**: every community gets one live, default event named after it,
    with the slug of the community and the dates from its ``event_start_date``
    / ``event_end_date`` settings. ``sgl26``'s is named "SGL 2026". A community
-   with test tournaments (``tournament.is_test``) also gets a draft "Testing"
-   event, and those tournaments and their matches move there.
+   with test tournaments (``tournament.is_test``) also gets a "Testing"
+   event (live, so workers keep running for them, but not the default), and
+   those tournaments and their matches move there.
 3. **Backfill**: matches take their tournament's event, shifts their
    position's, outbound Discord role rules and mirrored Discord events their
    tournament's or match's; every other row takes its community's default.
@@ -95,7 +96,7 @@ async def upgrade(db: BaseDBAsyncClient) -> str:
         )
         SELECT t."id", 'Testing',
                CASE WHEN t."slug" = 'testing' THEN 'test-tournaments' ELSE 'testing' END,
-               'draft', FALSE, '{}'::jsonb, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
+               'live', FALSE, '{}'::jsonb, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
         FROM "tenant" t
         WHERE EXISTS (
             SELECT 1 FROM "tournament" tr
@@ -103,7 +104,7 @@ async def upgrade(db: BaseDBAsyncClient) -> str:
         )
         AND NOT EXISTS (
             SELECT 1 FROM "event" e
-            WHERE e."tenant_id" = t."id" AND e."name" = 'Testing' AND e."status" = 'draft'
+            WHERE e."tenant_id" = t."id" AND e."name" = 'Testing' AND NOT e."is_default"
         );""")
 
     # --- Step 3: backfill --------------------------------------------------
@@ -111,7 +112,7 @@ async def upgrade(db: BaseDBAsyncClient) -> str:
         UPDATE "tournament" tr SET "event_id" = e."id"
         FROM "event" e
         WHERE e."tenant_id" = tr."tenant_id" AND e."name" = 'Testing'
-          AND e."status" = 'draft' AND tr."is_test" AND tr."event_id" IS NULL;""")
+          AND NOT e."is_default" AND tr."is_test" AND tr."event_id" IS NULL;""")
     stmts.append(_fill_from_default('tournament'))
 
     stmts.append("""
