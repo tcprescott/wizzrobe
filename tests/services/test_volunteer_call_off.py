@@ -196,12 +196,21 @@ async def test_board_shows_who_called_it_off(db, sent):
     coordinator = await _user('Thomas', roles=[])
     from models import Role, UserRole
     await UserRole.create(user=coordinator, role=Role.STAFF)
-    shift = await _shift(60)
+    from datetime import time
+
+    from application.utils.timezone import combine_local, today_local
+    from models import VolunteerPosition, VolunteerShift
+
+    # Noon tomorrow, not "an hour from now": the board day runs 06:00 to 06:00,
+    # so a shift an hour out at 01:00 sits on yesterday's board.
+    day = today_local() + timedelta(days=1)
+    starts = combine_local(day, time(12, 0))
+    pos, _ = await VolunteerPosition.get_or_create(name='Admin Desk')
+    shift = await VolunteerShift.create(position=pos, starts_at=starts, ends_at=starts + timedelta(hours=2))
     assignment = await VolunteerAssignment.create(shift=shift, user=await _volunteer('shown'))
     await VolunteerCallOffService().call_off(assignment.id, coordinator)
 
-    from application.utils.timezone import today_local
-    grid = await VolunteerScheduleService().board_day_grid(coordinator, today_local())
+    grid = await VolunteerScheduleService().board_day_grid(coordinator, day)
     people = [p for c in grid.columns for s in c.shifts for p in s.people]
 
     assert [(p.arrival, p.called_off_by) for p in people] == [(CALLED_OFF, 'Thomas')]
