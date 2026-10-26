@@ -15,7 +15,7 @@ Times arrive as **display strings** already rendered by
 ``discord_embeds.time_field``, so each recipient's client localises them.
 """
 
-from typing import Optional
+from typing import Optional, Sequence
 
 import discord
 
@@ -62,12 +62,27 @@ def volunteer_assignment_dm(
     return "\n\n".join(blocks)
 
 
+def handover_text(relieving: Sequence[str], relieved_by: Sequence[str], hand_off_at: str) -> str:
+    """The "Taking over from … / Handing off to … at …" line; '' when neither applies.
+
+    Names arrive ready to show: Discord mentions in an embed, escaped plain
+    names in the text that becomes the web-push copy.
+    """
+    lines = []
+    if relieving:
+        lines.append(f"Taking over from {', '.join(relieving)}")
+    if relieved_by:
+        lines.append(f"Handing off to {', '.join(relieved_by)} at {hand_off_at}")
+    return "\n".join(lines)
+
+
 def volunteer_reminder_dm(
     position_name: str,
     label: Optional[str],
     starts_display: str,
     ends_display: str,
     acknowledged: bool = False,
+    handover: str = '',
 ) -> str:
     """Reminder DM sent ahead of a volunteer shift.
 
@@ -83,6 +98,8 @@ def volunteer_reminder_dm(
                       "tap **Can't make it** so your coordinator can find cover.")
     else:
         blocks.append("Tap **Acknowledge** to confirm, or **Can't make it** if you can't.")
+    if handover:
+        blocks.append(handover)
     return "\n\n".join(blocks)
 
 
@@ -216,6 +233,7 @@ def volunteer_shift_start_dm(
     label: Optional[str],
     starts_display: str,
     ends_display: str,
+    handover: str = '',
 ) -> str:
     """DM at the start of a shift, asking the volunteer to say they've arrived."""
     details = _volunteer_shift_lines(position_name, label, starts_display, ends_display)
@@ -224,6 +242,8 @@ def volunteer_shift_start_dm(
         blocks.append("\n".join(details))
     blocks.append("Tap **I'm here** so your coordinator knows, **Tell staff I'm late** if "
                   "you're on your way, or **I can't make it**.")
+    if handover:
+        blocks.append(handover)
     return "\n\n".join(blocks)
 
 
