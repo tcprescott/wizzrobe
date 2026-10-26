@@ -29,7 +29,6 @@ BACKLOG: dict[str, str] = {
     'ChallongeMatch': _DEBT,
     'ChallongeParticipant': _DEBT,
     'Commentator': _DEBT,
-    'DiscordRoleMapping': _DEBT,
     'EquipmentLoan': _DEBT,
     'GeneratedSeeds': _DEBT,
     'MatchAcknowledgment': _DEBT,

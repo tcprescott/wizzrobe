@@ -167,6 +167,16 @@ class EventService:
         return next((e for e in await EventService.events_for_tenant(tenant_id) if e.slug == slug), None)
 
     @staticmethod
+    async def id_for_slug(slug: Optional[str]) -> Optional[int]:
+        """The current community's event named ``slug``, None for no slug; an
+        unknown slug is a not-found, as REST and MCP report it."""
+        if slug is None:
+            return None
+        from application.errors import require_found
+
+        return require_found(await EventService.ref_by_slug(require_tenant_id(), slug), f"Event '{slug}'").id
+
+    @staticmethod
     async def default_event(tenant_id: int) -> Optional[EventRef]:
         return next((e for e in await EventService.events_for_tenant(tenant_id) if e.is_default), None)
 
@@ -182,11 +192,13 @@ class EventService:
 
     @staticmethod
     async def visible_events(user: Optional[User]) -> List[EventRef]:
-        """The current community's events this viewer may open: drafts only for staff."""
+        """The current community's events this viewer may open: a draft only for
+        staff and the people holding a role in it, who are getting it ready."""
         events = await EventService.events_for_tenant(require_tenant_id())
         if await AuthService.is_staff(user):
             return list(events)
-        return [e for e in events if not e.is_draft]
+        crewing = await AuthService.event_ids_with_grants(user)
+        return [e for e in events if not e.is_draft or e.id in crewing]
 
     @staticmethod
     async def names_if_mixed(event_ids: Iterable[Optional[int]]) -> Dict[int, str]:
@@ -203,10 +215,13 @@ class EventService:
 
     @staticmethod
     async def can_view(user: Optional[User], event: Optional[EventRef]) -> bool:
-        """A draft is staff's until it goes live; everything else is visible as before."""
+        """A draft is for staff and its own role holders until it goes live;
+        everything else is visible as before."""
         if event is None or not event.is_draft:
             return True
-        return await AuthService.is_staff(user)
+        if await AuthService.is_staff(user):
+            return True
+        return event.id in await AuthService.event_ids_with_grants(user)
 
     @staticmethod
     async def broadcaster_events(

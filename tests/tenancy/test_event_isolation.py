@@ -222,6 +222,25 @@ async def test_stage_overlays_take_their_stages_event_and_list_per_event(two_eve
         assert _ids(await StreamLayoutRepository.stages()) == [stage.id]
 
 
+async def test_role_grants_and_discord_mappings_count_in_their_own_event(two_events):
+    """UserRole and DiscordRoleMapping: a per-event grant counts only in its event
+    (tests/services/test_per_event_roles.py covers the rest)."""
+    from application.services import AuthService
+    from models import DiscordRoleMapping, Role, UserRole
+
+    a, b = two_events
+    person = await make_member(discord_id=7095)
+    await UserRole.create(user=person, role=Role.PROCTOR, tenant_id=1, event_id=b)
+    await DiscordRoleMapping.create(
+        tenant_id=1, guild_id=42, discord_role_id=111, discord_role_name='Crew', app_role=Role.VOLUNTEER, event_id=b,
+    )
+    with event_scope(a):
+        assert not await AuthService.has_role(person, Role.PROCTOR)
+    with event_scope(b):
+        assert await AuthService.has_role(person, Role.PROCTOR)
+    assert (await DiscordRoleMapping.get(discord_role_id=111)).event_id == b
+
+
 # Event-owned models with no event isolation test yet, and why. Shrink this,
 # never grow it: a new event-owned model gets a test above.
 _BACKLOG = {

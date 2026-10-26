@@ -17,7 +17,7 @@ what is built.
 | 1 | Repositories read and stamp the event; workers loop live events; NOT NULL; leak tests | built |
 | 2 | `/e/<slug>` URLs, switcher, admin menu split, Admin → Events, copy setup, event settings | built |
 | 3 | Archive = read-only (ORM guard), close-out, 30-day private-data purge, banner | built |
-| 4 | Per-event roles | planned |
+| 4 | Per-event roles, Edit member layout A, drafts open to their role holders | built |
 | 5 | REST + MCP `event` argument, webhook event filter, docs | planned |
 
 ## The model
@@ -214,6 +214,56 @@ DMs are not refused at `send_dm`: nothing an archived event owns can change, its
 workers don't run, and refusing by the bound event would drop community-wide DMs
 sent from an archived event's page.
 
+## Per-event roles (phase 4)
+
+The on-site roles are held in one event: `Role.per_event()` is Proctor,
+Broadcast Tech (`stream_manager`), Triforce Submitter, Volunteer Coordinator,
+Equipment Manager, Volunteer and Check-in Desk. Staff and the online admin roles
+(`Role.community_wide()`) cover every event, and Super Admin stays global.
+
+- **Storage.** `UserRole.event` and `DiscordRoleMapping.event` (nullable,
+  CASCADE): the event for a per-event role, NULL otherwise. Because the FK
+  cascades, a grant in an archived event is archive-guarded like any other row
+  there: it can't be granted, revoked or synced. Postgres treats NULLs as
+  distinct, so migration 142 adds partial unique indexes for the NULL rows.
+- **Checks.** `AuthService.get_roles` / `has_role` take an `event`
+  (`EventChoice`): an event id, `RoleScope.LIVE` (community + every live event),
+  `RoleScope.OPEN` (live and draft), `RoleScope.EVERY`, or None for the bound
+  event (`LIVE` when none is bound). Every read goes through
+  `user_role_repository.role_event_q`, which `check_event_scoping` accepts as
+  naming an event.
+- **Rows decide.** `can_run_match`, `can_assign_match_stream`, item tracking,
+  the Broadcast Tech alert list and triforce texts pass the row's own event,
+  so an SGL 2027 proctor can't act on an SGL 2026 match from any page.
+- **Community surfaces** use `RoleScope.LIVE`: Equipment
+  (`is_equipment_manager`), and any `@protected_page(..., scope='community')`
+  role gate. `holds_any_role` (the "a role implies membership" check, MCP and
+  personal webhooks) uses `OPEN`, so an archived event's grants don't stop
+  someone leaving the community.
+- **Grants.** `UserService.grant_role` / `revoke_role` take `event_id` (one of
+  this community's, else the bound event). REST `POST /users/{id}/roles` takes
+  `event` (a slug) in the body and `DELETE` a `?event=` query; MCP
+  `grant_community_role` / `revoke_community_role` take `event`. Omitted, it is
+  the default event, which REST and MCP bind.
+- **Discord mappings** name their event when made (`add_mapping(event_id=…)`,
+  REST `event`), the default event unless staff pick another in the Add dialog.
+  Moving the default never re-points one. The inbound sync grants each mapping
+  in its event, skips archived ones (and leaves their grants alone), and hands a
+  revoked event's volunteer roles back through that event's reconcile.
+- **Volunteer positions** grant in their own event: the reconcile works in the
+  bound event, and `VolunteerPoolService` counts Staff plus that event's
+  Volunteers.
+- **Drafts** open to staff and to anyone holding a per-event role in them
+  (`EventService.can_view`, `visible_events`); the switcher's section reads
+  "Coming up · not public yet".
+- **UI.** Edit member (Thomas's layout A, `theme/dialog/role_grants.py`):
+  Community-wide roles, then "Roles in [event]" defaulting to the event on
+  screen, and an "Also holds" line for other events. Edits in several events
+  are kept while switching and saved together. Admin → Members names the event
+  beside a role held outside the one on screen ("Proctor (SGL 2027)") and leaves
+  archived grants out. Settings → Discord shows a per-event mapping's event under
+  Applies To.
+
 ## The migration
 
 `migrations/models/133_*_events.py`, additive and invisible:
@@ -242,6 +292,12 @@ the audit and telemetry tables in full.
 4. Swaps the community-wide uniques for the per-event ones above. The old ones
    are found by their columns, because two were created by hand under names
    Tortoise doesn't generate.
+
+`migrations/models/142_*_per_event_roles.py` (phase 4) adds the two
+`event_id` columns, moves every grant and Discord mapping of a per-event role
+into its community's default event, drops the old (user, role, tenant) and
+(tenant, discord role, app role) uniques by their columns, and adds per-event
+uniques plus partial ones `WHERE event_id IS NULL`.
 
 `migrations/models/136_*_event_settings.py` (phase 2) copies the event keys
 from `systemconfiguration` into every event's `config` (where the key isn't

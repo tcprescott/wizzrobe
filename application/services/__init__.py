@@ -58,7 +58,7 @@ from .async_qualifier import (
     validate_window,
 )
 from .audit_service import AuditService
-from .auth_service import AuthService, get_user_from_discord_id, get_user_from_session
+from .auth_service import AuthService, RoleScope, get_user_from_discord_id, get_user_from_session
 from .bracket_config import BracketConfig, validate_bracket_config
 from .bracket_overview_service import BracketOverviewService
 from .bracket_service import BracketService
@@ -284,6 +284,7 @@ __all__ = [
     'RacetimeService',
     'RandomizerCredentialService',
     'ReportsService',
+    'RoleScope',
     'RoomTokenService',
     'RoundScheduleService',
     'RoundWindowError',

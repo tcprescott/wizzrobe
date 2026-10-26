@@ -27,27 +27,29 @@ class DiscordRoleMappingRepository:
     async def get_by_id_with_tournament(mapping_id: int) -> Optional[DiscordRoleMapping]:
         return await DiscordRoleMapping.get_or_none(
             id=mapping_id, tenant_id=current_tenant_id()
-        ).prefetch_related('tournament')
+        ).prefetch_related('tournament', 'event')
 
     @staticmethod
     async def get_all() -> List[DiscordRoleMapping]:
-        return await scoped(DiscordRoleMapping.all()).prefetch_related('tournament').order_by(
+        """The community's mappings, whichever event each grants in (cross-event)."""
+        return await scoped(DiscordRoleMapping.all()).prefetch_related('tournament', 'event').order_by(
             'discord_role_name', 'app_role'
         )
 
     @staticmethod
     async def list_for_guild(guild_id: int) -> List[DiscordRoleMapping]:
+        """The guild's mappings in this community, whichever event each grants in (cross-event)."""
         return await scoped(
             DiscordRoleMapping.filter(guild_id=guild_id)
-        ).prefetch_related('tournament').order_by('discord_role_name', 'app_role')
+        ).prefetch_related('tournament', 'event').order_by('discord_role_name', 'app_role')
 
     @staticmethod
     async def get_match(
-        guild_id: int, discord_role_id: int, app_role: Role
+        guild_id: int, discord_role_id: int, app_role: Role, event_id: Optional[int] = None,
     ) -> Optional[DiscordRoleMapping]:
         return await DiscordRoleMapping.get_or_none(
             guild_id=guild_id, discord_role_id=discord_role_id, app_role=app_role,
-            tenant_id=current_tenant_id(),
+            event_id=event_id, tenant_id=current_tenant_id(),
         )
 
     @staticmethod
@@ -67,6 +69,7 @@ class DiscordRoleMappingRepository:
         app_role: Optional[Role] = None,
         tournament_grant: Optional[TournamentGrant] = None,
         tournament_id: Optional[int] = None,
+        event_id: Optional[int] = None,
     ) -> DiscordRoleMapping:
         return await DiscordRoleMapping.create(
             tenant_id=current_tenant_id(),
@@ -76,6 +79,7 @@ class DiscordRoleMappingRepository:
             app_role=app_role,
             tournament_grant=tournament_grant,
             tournament_id=tournament_id,
+            event_id=event_id,
         )
 
     @staticmethod

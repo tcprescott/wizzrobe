@@ -680,7 +680,7 @@ class PersonalWebhookService:
     async def _is_member(self, user: User) -> bool:
         if await TenantMembershipRepository.is_member(user.id, require_tenant_id()):
             return True
-        return bool(await AuthService.get_roles(user))
+        return await AuthService.holds_any_role(user)
 
     async def _ensure_member(self, user: User) -> None:
         await AuthService.ensure(

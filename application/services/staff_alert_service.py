@@ -142,7 +142,9 @@ class StaffAlertService:
             return []
         skip = set(exclude) | {p.user_id for p in await MatchRepository.get_players(match)}  # type: ignore[attr-defined]
         techs = [
-            user for user in await UserRoleRepository.list_users_with_role(Role.STREAM_MANAGER, active_only=True)
+            user for user in await UserRoleRepository.list_users_with_role(
+                Role.STREAM_MANAGER, active_only=True, event=match.event_id,
+            )
             if user.id not in skip
         ]
         on_shift = await VolunteerAssignmentRepository.on_shift_user_ids(

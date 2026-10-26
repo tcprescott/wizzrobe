@@ -15,7 +15,7 @@ from application.services import TenantMembershipService, UserService
 from application.services.check_in_service import SUGGESTION_LIMIT
 from application.utils.clients.matcherino_client import mock_purchase
 from models import Role, TenantMembership, Tournament, User, UserRole
-from tests.conftest import DEFAULT_TEST_TENANT_ID
+from tests.conftest import DEFAULT_TEST_EVENT_ID, DEFAULT_TEST_TENANT_ID
 from tests.factories import make_user
 from tests.services.check_in_support import (  # noqa: F401 — fixtures
     client,
@@ -125,15 +125,16 @@ class TestMembersTable:
         view.before_refresh = view.decorate_row = None
         view.table = Table()
         view._tenant_id = DEFAULT_TEST_TENANT_ID
+        view._event_id = DEFAULT_TEST_EVENT_ID
         view.get_query = lambda: User.filter(
             tenant_memberships__tenant_id=DEFAULT_TEST_TENANT_ID).exclude(is_system=True).distinct()
 
         await view.refresh()
 
         expected = [
-            UserTableView._format_user_row(u, DEFAULT_TEST_TENANT_ID)
+            UserTableView._format_user_row(u, DEFAULT_TEST_TENANT_ID, DEFAULT_TEST_EVENT_ID)
             for u in await view.get_query().order_by('username').prefetch_related(
-                'roles', 'admin_tournaments', 'crew_coordinated_tournaments')
+                'roles__event', 'admin_tournaments', 'crew_coordinated_tournaments')
         ]
         assert view.table.rows == expected
         by_id = {row['id']: row for row in view.table.rows}

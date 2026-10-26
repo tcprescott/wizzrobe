@@ -315,17 +315,17 @@ class TestRoleManagement:
     async def test_grant_role_calls_repository_and_audits(self, service):
         target = make_user(user_id=7)
         actor = make_user(user_id=1)
-        await service.grant_role(target, Role.PROCTOR, actor)
+        await service.grant_role(target, Role.STAFF, actor)
         service.role_repository.add.assert_awaited_once_with(
-            target, Role.PROCTOR, granted_by=actor, source=RoleSource.MANUAL
+            target, Role.STAFF, granted_by=actor, source=RoleSource.MANUAL, event_id=None,
         )
         action = service.audit_service.write_log.await_args.args[1]
         assert action == 'user.role_granted'
-        assert service.audit_service.write_log.await_args.args[2]['role'] == Role.PROCTOR.value
+        assert service.audit_service.write_log.await_args.args[2]['role'] == Role.STAFF.value
 
     async def test_granting_a_role_makes_the_user_a_member(self, service):
         target = make_user(user_id=7)
-        await service.grant_role(target, Role.PROCTOR, make_user(user_id=1))
+        await service.grant_role(target, Role.STAFF, make_user(user_id=1))
         service.membership_hook.assert_awaited_once_with(
             target, actor=ANY, source=MembershipSource.ROLE_GRANT,
         )
@@ -362,14 +362,14 @@ class TestRoleManagement:
     async def test_revoking_a_role_leaves_membership_alone(self, service):
         # Membership is the wider set: losing a role does not eject you from the
         # community. TenantMembershipService.remove_member is the only way out.
-        await service.revoke_role(make_user(user_id=7), Role.PROCTOR, make_user(user_id=1))
+        await service.revoke_role(make_user(user_id=7), Role.STAFF, make_user(user_id=1))
         service.membership_hook.assert_not_awaited()
 
     async def test_revoke_role_calls_repository_and_audits(self, service):
         target = make_user(user_id=7)
         actor = make_user(user_id=1)
-        await service.revoke_role(target, Role.PROCTOR, actor)
-        service.role_repository.remove.assert_awaited_once_with(target, Role.PROCTOR)
+        await service.revoke_role(target, Role.STAFF, actor)
+        service.role_repository.remove.assert_awaited_once_with(target, Role.STAFF, event_id=None)
         action = service.audit_service.write_log.await_args.args[1]
         assert action == 'user.role_revoked'
 

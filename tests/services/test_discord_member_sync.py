@@ -17,6 +17,7 @@ from application.services.discord import discord_role_mapping_service as drms
 from application.services.discord.discord_guild_ops import GuildMember
 from application.services.user_service import UserService
 from models import User
+from tests.conftest import DEFAULT_TEST_EVENT_ID
 
 
 @pytest.fixture
@@ -80,7 +81,7 @@ async def test_live_update_provisions_and_grants_against_real_db(db, monkeypatch
     from models import Role, Tenant, UserRole
 
     await tsvc.TenantService.set_discord_guild_id(await Tenant.get(id=1), 42)
-    await DiscordRoleMappingRepository.create(42, 111, 'Mods', Role.PROCTOR)
+    await DiscordRoleMappingRepository.create(42, 111, 'Mods', Role.PROCTOR, event_id=DEFAULT_TEST_EVENT_ID)
     monkeypatch.setattr(drms, 'DiscordService', lambda: SimpleNamespace(
         get_member_role_ids=AsyncMock(return_value=(True, {111})),
     ))

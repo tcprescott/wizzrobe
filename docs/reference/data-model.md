@@ -44,11 +44,13 @@ community owns or produces is tenant-scoped.**
 `(tenant, asset_number)`; `CheckInEvent.matcherino_venue_id` →
 `(tenant, event, matcherino_venue_id)`; `TenantFeatureFlag.flag` → `(tenant, flag)`;
 `ChallongeApiUsage.period` → `(tenant, period)`; `DiscordRoleMapping` →
-`(tenant, discord_role_id, app_role)` and
+`(tenant, discord_role_id, app_role, event)` (plus a partial unique without
+`event` for community-wide rows) and
 `(tenant, discord_role_id, tournament_grant, tournament)`;
 `DiscordTournamentGrant` → `(tournament, user, grant)`; `DiscordRoleRule` →
 `(tenant, event, key)`; `DiscordRoleGrant` → `(tenant, user, discord_role_id)`;
-`UserRole` → `(user, role, tenant)`. The
+`UserRole` → `(user, role, tenant, event)`, plus the partial
+`uid_userrole_community` on `(user, role, tenant)` where `event` is NULL. The
 `RacetimeBotTenant` grant is unique on `(bot, tenant)`; `RacetimeRoom.slug` stays
 **globally** unique — it is the tenant-routing key for inbound racetime events.
 
@@ -208,7 +210,7 @@ value.
 
 ### `Role`
 
-Used by `UserRole.role`, `DiscordRoleMapping.app_role` and `VolunteerRoleMapping.app_role` (`max_length=32`). `Role.tenant_grantable()` is every role but `SUPER_ADMIN`; `Role.volunteer_mappable()` is the narrower set a volunteer position may confer (`PROCTOR`, `STREAM_MANAGER`, `TRIFORCE_SUBMITTER`, `EQUIPMENT_MANAGER`, `VOLUNTEER`), since a coordinator rather than staff decides who is assigned. Authorization checks are made through `AuthService` — see [role-based-auth.md](authentication.md#roles).
+Used by `UserRole.role`, `DiscordRoleMapping.app_role` and `VolunteerRoleMapping.app_role` (`max_length=32`). `Role.tenant_grantable()` is every role but `SUPER_ADMIN`; `Role.volunteer_mappable()` is the narrower set a volunteer position may confer (`PROCTOR`, `STREAM_MANAGER`, `TRIFORCE_SUBMITTER`, `EQUIPMENT_MANAGER`, `VOLUNTEER`, `CHECK_IN_DESK`), since a coordinator rather than staff decides who is assigned. `Role.per_event()` is those plus `VOLUNTEER_COORDINATOR`, the roles held in one event; `Role.community_wide()` is the grantable rest. Authorization checks are made through `AuthService` — see [role-based-auth.md](authentication.md#roles).
 
 | Value | Meaning |
 |---|---|
@@ -715,11 +717,12 @@ Junction table mapping users to per-tenant `Role` values; records who granted th
 |---|---|---|---|
 | `user` | FK → `User` | not null, `CASCADE` | `related_name='roles'` |
 | `tenant` | FK → `Tenant` | **null**, `CASCADE` | `related_name='user_roles'`. NULL only for the global `SUPER_ADMIN` grant, which stays visible inside any tenant request |
+| `event` | FK → `Event` | **null**, `CASCADE` | `related_name='user_roles'`. Set for a per-event role (`Role.is_per_event`), NULL for a community-wide one and for `SUPER_ADMIN`. Archive-guarded, so grants in an archived event don't change |
 | `role` | `CharEnumField(Role)` | not null | `max_length=32` |
 | `granted_by` | FK → `User` | null, `SET_NULL` | `related_name='granted_roles'`; null for Discord-synced rows; survives granter deletion |
 | `source` | `CharEnumField(RoleSource)` | not null, default `MANUAL` | `max_length=16`; manual grants are never auto-revoked by the Discord or volunteer sync |
 
-Constraints: `unique_together ('user', 'role', 'tenant')`; index on `role` (the composite is user-first, leaving role-only enumeration uncovered).
+Constraints: `unique_together ('user', 'role', 'tenant', 'event')`, plus the partial unique `uid_userrole_community` on `(user, role, tenant)` WHERE `event_id IS NULL` (Postgres treats NULLs as distinct); index on `event`; index on `role` (the composite is user-first, leaving role-only enumeration uncovered).
 
 #### `DiscordRoleMapping`
 
@@ -735,8 +738,10 @@ managed by Staff on the admin **Role Mappings** tab — see [discord.md](../feat
 | `app_role` | `CharEnumField(Role)` | **null** | `max_length=32`. Set for a community-wide grant |
 | `tournament_grant` | `CharEnumField(TournamentGrant)` | **null** | `max_length=32`. Set for a per-tournament grant |
 | `tournament` | FK → `Tournament` | **null**, `CASCADE` | Required with `tournament_grant`, forbidden with `app_role`. `related_name='discord_role_mappings'` |
+| `event` | FK → `Event` | **null**, `CASCADE` | The event a per-event `app_role` is granted in (the Default event at creation unless staff pick another); NULL for community-wide roles and tournament grants. `related_name='discord_role_mappings'` |
 
-Constraints: `unique_together ('tenant', 'discord_role_id', 'app_role')` and
+Constraints: `unique_together ('tenant', 'discord_role_id', 'app_role', 'event')`
+(with the partial unique `uid_discordrolemapping_community` for `event` NULL) and
 `('tenant', 'discord_role_id', 'tournament_grant', 'tournament')`. Postgres treats
 NULLs as distinct, so each key only bites on rows of its own shape. A Discord role
 may map to several grants and vice-versa.
