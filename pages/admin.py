@@ -23,6 +23,7 @@ from pages.admin_tabs.admin_brackets import admin_brackets_page
 from pages.admin_tabs.admin_check_in import admin_check_in_page
 from pages.admin_tabs.admin_community_events import admin_community_events_page
 from pages.admin_tabs.admin_equipment import admin_equipment_page
+from pages.admin_tabs.admin_events import admin_events_page
 from pages.admin_tabs.admin_feedback import admin_feedback_page
 from pages.admin_tabs.admin_notifications import admin_notifications_page
 from pages.admin_tabs.admin_payouts import admin_payouts_page
@@ -230,6 +231,8 @@ def build_admin_tabs(
         tabs.append({'label': 'Racetime', 'icon': 'flag', 'group': COMMUNITY, 'content': admin_racetime_page})
     if is_staff and FeatureFlag.FEEDBACK in live:
         tabs.append({'label': 'Feedback', 'icon': 'feedback', 'group': COMMUNITY, 'content': admin_feedback_page})
+    if is_staff:
+        tabs.append({'label': 'Events', 'icon': 'calendar_month', 'group': CONFIGURATION, 'content': admin_events_page})
     # Configuration because presets outlive an event: every year's tournaments
     # attach the same ones, and on-site rolls read them as much as race rooms.
     if is_staff or access.is_preset_manager:

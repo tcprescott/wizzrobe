@@ -32,6 +32,10 @@ from middleware.tenant import COMMUNITY_ROOT_SCOPE_KEY, EVENT_SLUG_SCOPE_KEY
 #: decides its own (``row``), or belongs to the whole community (``community``).
 PageScope = Literal['event', 'row', 'community']
 
+#: Where the page decorator records the page's scope on the request, for the
+#: header's event switcher (a row page switches to the other event's home).
+PAGE_SCOPE_KEY = 'wizzrobe.page_scope'
+
 
 def page_request() -> Optional[Request]:
     """The request the page being built answers, or None outside one (a test, a handler)."""

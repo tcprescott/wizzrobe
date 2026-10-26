@@ -44,7 +44,7 @@ COMMUNITY = 'community'
 VIEWS: tuple[EventView, ...] = (
     EventView('schedule', 'Schedule', 'schedule', schedule_view),
     EventView('brackets', 'Brackets', 'account_tree', brackets_tab, FeatureFlag.BRACKETS),
-    EventView(COMMUNITY, 'Community', 'groups', community_events_view, FeatureFlag.COMMUNITY_EVENTS),
+    EventView(COMMUNITY, 'Meetups', 'groups', community_events_view, FeatureFlag.COMMUNITY_EVENTS),
 )
 
 

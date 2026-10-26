@@ -390,7 +390,7 @@ def create() -> None:
             ui.separator().classes('separator-spacing')
             if not brackets:
                 empty_panel('No brackets have been published for this tournament.', icon='account_tree')
-                return
+                return None
             with ui.element('div').classes('wiz-tile-grid'):
                 for bracket in brackets:
                     with ui.card().classes('q-pa-md'):
@@ -415,6 +415,7 @@ def create() -> None:
                                         f'/brackets/{bid}'
                                     ),
                                 ).props('flat dense')
+        return None
 
     @public_page('/brackets/{bracket_id}', feature=FeatureFlag.BRACKETS, scope='row')
     async def bracket_detail(bracket_id: str) -> Optional[RedirectResponse]:
@@ -428,7 +429,7 @@ def create() -> None:
         )
         if parsed_id is None or first is None:
             await render_not_found(user=user)
-            return
+            return None
         stage_id = parsed_id
         tournament = await Tournament.get_or_none(
             id=first.tournament_id, tenant_id=require_tenant_id(),
@@ -634,3 +635,4 @@ def create() -> None:
             stage_id, request_refresh,
             tournament_id=live_bracket.tournament_id if live_bracket else None,
         )
+        return None

@@ -158,7 +158,7 @@ async def notify_review_queue_waiting(
     await qualifier.fetch_related('tenant')
     # The queue is an event page: without its event a bare link would open the
     # default event's queue, which doesn't hold this qualifier once another is live.
-    slug = await notification_links.event_slug(qualifier.tenant_id, qualifier.event_id)
+    slug = await notification_links.event_slug(qualifier.tenant_id, qualifier.event_id)  # type: ignore[attr-defined]
     path = event_path(slug, admin_qualifier_queue_url(qualifier.id))
     link = notification_links.link_for_tenant(qualifier.tenant, 'Open the review queue', path)
     url = tenant_url(qualifier.tenant, path) if qualifier.tenant else ''

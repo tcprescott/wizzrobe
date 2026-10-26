@@ -528,6 +528,7 @@ def create() -> None:
                 f"setTimeout(() => document.getElementById('{_MY_RUNS_ID}')"
                 "?.scrollIntoView({behavior: 'smooth', block: 'start'}), 400)"
             )
+        return None
 
 
 def _window_open(qualifier) -> bool:

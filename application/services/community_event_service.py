@@ -156,14 +156,14 @@ class CommunityEventService:
 
         await AuthService.ensure(
             actor is not None and await TenantMembershipService().is_member(actor),
-            'Community events are for members of this community. Ask to join it first.',
+            'Meetups are for members of this community. Ask to join it first.',
         )
 
     @staticmethod
     async def _ensure_staff(actor: Optional[User]) -> None:
         await AuthService.ensure(
             await AuthService.is_staff(actor),
-            'Only staff can review community events.',
+            'Only staff can review meetups.',
         )
 
     @staticmethod

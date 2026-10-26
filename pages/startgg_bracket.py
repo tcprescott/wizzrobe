@@ -187,7 +187,7 @@ def create() -> None:
             phases = [p for p in view['phases'] if p['pools']]
             if not phases:
                 empty_panel('start.gg has no pools or bracket for this event yet.', icon='account_tree')
-                return
+                return None
 
             default = next((p for p in phases if p['bookable']), phases[-1])
             selected = next((p for p in phases if p['phase'].phase_id == phase), default)
@@ -204,3 +204,4 @@ def create() -> None:
                             _render_rounds(p['pools'], p['bookable'], viewer_id)
             names = {str(p['phase'].phase_id): p['phase'].name for p in phases}
             bind_url('phase', tabs, default=default['phase'].phase_id, choices=names, label=names.get)
+        return None

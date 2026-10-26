@@ -100,3 +100,4 @@ def create() -> None:
                 # second persistence backend for one page.
                 table_key=None,
             )
+        return None

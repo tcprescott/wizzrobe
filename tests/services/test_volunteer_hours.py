@@ -17,7 +17,6 @@ from application.tenant_context import tenant_scope
 from models import (
     FeatureFlag,
     Role,
-    SystemConfiguration,
     Tenant,
     TenantFeatureFlag,
     User,
@@ -26,6 +25,7 @@ from models import (
     VolunteerPosition,
     VolunteerShift,
 )
+from tests.factories import set_setting
 
 UTC = timezone.utc
 
@@ -95,7 +95,7 @@ async def volunteer_tenant(db):
         ('event_end_date', '2026-10-06'),
         ('volunteer_comp_tiers', '8, 12, 16'),
     ):
-        await SystemConfiguration.create(name=key, value=value, tenant_id=tenant.id)
+        await set_setting(name=key, value=value, tenant_id=tenant.id)
     return tenant
 
 
@@ -265,23 +265,21 @@ class TestCompTiers:
 
     async def test_reads_a_configured_list(self, db):
         from application.services import SystemConfigService
-        await SystemConfiguration.create(name='volunteer_comp_tiers', value='10,20,5')
+        await set_setting(name='volunteer_comp_tiers', value='10,20,5')
         assert await SystemConfigService.get_volunteer_comp_tiers() == [5.0, 10.0, 20.0]
 
     async def test_malformed_value_falls_back_to_the_default(self, db):
         from application.services import SystemConfigService
-        await SystemConfiguration.create(name='volunteer_comp_tiers', value='eight, twelve')
+        await set_setting(name='volunteer_comp_tiers', value='eight, twelve')
         assert await SystemConfigService.get_volunteer_comp_tiers() == [8.0, 12.0, 16.0]
 
     async def test_zero_turns_tiers_off(self, db):
         from application.services import SystemConfigService
-        await SystemConfiguration.create(name='volunteer_comp_tiers', value='0')
+        await set_setting(name='volunteer_comp_tiers', value='0')
         assert await SystemConfigService.get_volunteer_comp_tiers() == []
 
     async def test_no_tiers_leaves_a_summary_without_one(self, fixtures):
-        await SystemConfiguration.filter(
-            name='volunteer_comp_tiers', tenant_id=fixtures['tenant'].id,
-        ).update(value='0')
+        await set_setting('volunteer_comp_tiers', '0', tenant_id=fixtures['tenant'].id)
         await _assign(fixtures, _dt(8), _dt(16))
         with tenant_scope(fixtures['tenant'].id):
             summary = await VolunteerHoursService().for_user(fixtures['user'])

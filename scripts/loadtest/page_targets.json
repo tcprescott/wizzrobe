@@ -97,7 +97,7 @@
   },
   {
    "name": "settings-event",
-   "path": "/admin/settings/event"
+   "path": "/admin/event-settings/dates"
   },
   {
    "name": "settings-members",

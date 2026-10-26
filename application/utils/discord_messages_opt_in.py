@@ -92,4 +92,4 @@ def bracket_started_dm(tournament: str) -> str:
 
 
 def event_listed_dm(title: str, host: str) -> str:
-    return f'New community event from {host}: **{title}**.'
+    return f'New meetup from {host}: **{title}**.'

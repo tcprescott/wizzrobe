@@ -452,40 +452,40 @@ ADA_CHANGED = _notice(
     'A member edits or reopens their request', {STAFF: PING}, {STAFF: 'All staff'},
 )
 EVENT_TO_REVIEW = _notice(
-    'community_event_review', 'Community', 'Community event to review',
+    'community_event_review', 'Community', 'Meetup to review',
     'A member submits or resubmits an event', {STAFF: PING}, {STAFF: 'All staff'},
 )
 EVENT_APPROVED = _notice(
-    'community_event_approved', 'Community', 'Community event approved',
+    'community_event_approved', 'Community', 'Meetup approved',
     'Staff approve an event', {MEMBERS: PING}, {MEMBERS: 'The host'},
 )
 EVENT_POSTED_FOR_YOU = _notice(
-    'community_event_posted_for_you', 'Community', 'Community event posted for you',
+    'community_event_posted_for_you', 'Community', 'Meetup posted for you',
     'Staff post an event with a member as its host, or hand one over',
     {MEMBERS: PING}, {MEMBERS: 'The new host'},
 )
 EVENT_LISTED = _notice(
-    'community_event_listed', 'Community', 'New community event',
-    'Staff list a new community event', {MEMBERS: PING},
+    'community_event_listed', 'Community', 'New meetup',
+    'Staff list a new meetup', {MEMBERS: PING},
     {MEMBERS: _opted_in('Every member but the host')},
 )
 EVENT_REJECTED = _notice(
-    'community_event_rejected', 'Community', 'Community event not listed',
+    'community_event_rejected', 'Community', 'Meetup not listed',
     'Staff turn an event down, or take a listed one down',
     {MEMBERS: PING}, {MEMBERS: 'The host'},
 )
 EVENT_MOVED = _notice(
-    'community_event_moved', 'Community', 'Community event moved',
+    'community_event_moved', 'Community', 'Meetup moved',
     "An approved event's time changes",
     {FOLLOWERS: PING}, {FOLLOWERS: "The event's subscribers"},
 )
 EVENT_CANCELLED = _notice(
-    'community_event_cancelled', 'Community', 'Community event cancelled',
+    'community_event_cancelled', 'Community', 'Meetup cancelled',
     'An approved event is called off',
     {FOLLOWERS: PING}, {FOLLOWERS: "The event's subscribers"},
 )
 EVENT_REMINDER = _notice(
-    'community_event_reminder', 'Community', 'Community event reminder',
+    'community_event_reminder', 'Community', 'Meetup reminder',
     "Before an event, at the community's reminder lead",
     {FOLLOWERS: PING}, {FOLLOWERS: "The event's subscribers"},
 )
@@ -571,7 +571,7 @@ SECTIONS: Dict[str, Tuple[Tuple[str, Tuple[Notice, ...]], ...]] = {
     'Community': (
         ('Membership', (JOIN_REQUEST, JOIN_APPROVED, JOIN_DECLINED, WELCOME, MEMBERSHIP_REMOVED)),
         ('ADA', (ADA_REQUEST, ADA_CHANGED)),
-        ('Community events', (
+        ('Meetups', (
             EVENT_TO_REVIEW, EVENT_APPROVED, EVENT_POSTED_FOR_YOU, EVENT_LISTED, EVENT_REJECTED, EVENT_MOVED,
             EVENT_CANCELLED, EVENT_REMINDER,
         )),

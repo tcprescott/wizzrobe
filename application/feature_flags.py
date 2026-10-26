@@ -259,7 +259,7 @@ FEATURE_FLAG_REGISTRY: Dict[FeatureFlag, FeatureFlagSpec] = {
         ),
         FeatureFlagSpec(
             FeatureFlag.COMMUNITY_EVENTS,
-            'Community Events',
+            'Meetups',
             'Members submit the meetups, panels and side events they are running '
             'during the event; staff approve them, and anyone can subscribe for a '
             'Discord reminder before one starts.',

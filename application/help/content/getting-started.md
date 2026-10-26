@@ -104,7 +104,7 @@ only what you're in, Tournaments is where you sign up, and Profile is you.
 :::snippet my-schedule-timeline
 My Schedule has two views, switched at the top. **List** shows it as sections:
 your matches, crew slots, volunteer shifts and when you can't play. **Timeline** puts one day's matches, crew slots and shifts on a clock in
-one column, so anything that clashes sits side by side. Community events you're
+one column, so anything that clashes sits side by side. Meetups you're
 hosting or going to show there too, and so do ones you asked a reminder for, drawn
 with a dashed outline because they're optional. A crew slot you're approved for
 is dashed too, with a "No stage yet" tag, until its match is given a stage. Times you said you can't
@@ -112,7 +112,7 @@ play show as a hatched band behind them, which makes a match booked into one eas
 to spot. Tap the band to change those times.
 
 Pick a day from the chips above it. Tap a block to open it. A match or crew slot
-opens in the List view, a shift shows its details, and a community event opens
+opens in the List view, a shift shows its details, and a meetup opens
 its own page. The page remembers which
 view you used last, but a link from a DM always opens the List.
 :::

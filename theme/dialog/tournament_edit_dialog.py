@@ -185,7 +185,7 @@ class TournamentDialog:
                     ui.separator()
                     ui.label('Tournament Days').classes('text-bold')
                     ui.label(
-                        'Override the community event window and per-day match hours for '
+                        'Override the event window and per-day match hours for '
                         'this tournament. Leave blank to use the community default.'
                     ).classes('text-caption text-grey')
 

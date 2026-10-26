@@ -350,7 +350,7 @@ async def event_listed(event_id: int) -> None:
             return
         community = await _community()
         message = text.event_listed_dm(literal(event.title), literal(event.host.preferred_name))
-        embed = event_embed(event, title='📅 New community event', color=COLOR_SCHEDULED,
+        embed = event_embed(event, title='📅 New meetup', color=COLOR_SCHEDULED,
                             community_name=community, description=message)
         await _send(EVENT_LISTED, recipients, message, embed, await notification_links.community_event(event_id))
     except Exception:

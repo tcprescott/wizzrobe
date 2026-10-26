@@ -93,7 +93,9 @@ async function check(page, want, prefix, before) {
   for (;;) {
     problems.length = 0;
     const url = new URL(page.url());
-    const local = (url.pathname.startsWith(prefix) ? url.pathname.slice(prefix.length) : url.pathname) + url.search;
+    const path = url.pathname.startsWith(prefix) ? url.pathname.slice(prefix.length) : url.pathname;
+    // An event page answers at /e/<event>/…; the scenarios name the event-free path.
+    const local = path.replace(/^\/e\/[^/]+(?=\/|$)/, '') + url.search;
     if (want.url && !new RegExp(want.url).test(local)) problems.push(`url ${local} !~ ${want.url}`);
     if (want.noUrl && new RegExp(want.noUrl).test(local)) problems.push(`url ${local} should not match ${want.noUrl}`);
     if (want.moved && page.url() === before) problems.push(`url ${local} did not change`);

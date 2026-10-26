@@ -35,7 +35,7 @@ from application.timezone_context import (
     stash_client_timezone,
 )
 from application.utils.hostname import effective_request_host
-from middleware.event_routing import PageScope, default_event_redirect, page_request
+from middleware.event_routing import PAGE_SCOPE_KEY, PageScope, default_event_redirect, page_request
 from models import FeatureFlag, Role
 
 #: A page's feature gate: one flag, or several of which any one opens it.
@@ -336,8 +336,11 @@ def _tenant_page(
         async def wrapper(*args, **kwargs):
             # A bare link to an event page lands on the default event's /e/
             # form first, so the address names the event the page shows.
+            request = page_request()
+            if request is not None:
+                request.scope[PAGE_SCOPE_KEY] = scope
             if scope == 'event':
-                redirect = await default_event_redirect(page_request())
+                redirect = await default_event_redirect(request)
                 if redirect is not None:
                     return redirect
 

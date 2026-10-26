@@ -1,9 +1,11 @@
 import json
 import logging
 import re
+from typing import Optional
 
 from nicegui import app, context, ui
 
+from application.services.event_service import EventRef
 from application.table_preferences_context import table_prefs_scope
 from application.tenant_context import get_current_tenant_id, tenant_scope
 from application.utils.tenant_urls import login_path
@@ -14,6 +16,7 @@ from theme.chrome import apply_brand_palette, cookie_dark_pref, dark_mode_button
 from theme.connection import install_connection_watch
 from theme.drawer_help import render_drawer_help, render_github_item
 from theme.drawer_nav import render_drawer_nav
+from theme.event_switcher import render_event_switcher
 from theme.links import set_link
 from theme.nav_badges import bottom_nav_tab
 from theme.notice import drain_notice
@@ -166,6 +169,14 @@ class BaseLayout:
         # Gates what only a member can use: Feedback, whose submit the service
         # refuses to anyone else, and the home sections on a tab-less page.
         self._is_member = False
+        # The event the page shows, and the events the header's switcher lists
+        # (resolved in prepare()). An empty list draws no switcher.
+        self._current_event: Optional[EventRef] = None
+        self._switcher_events: list[EventRef] = []
+        self._manages_events = False
+        self._switch_prefix = ''
+        self._community_root = ''
+        self._is_row_page = False
         self._prepared = False
         self.top_menu: list[dict] = []
 
@@ -258,8 +269,54 @@ class BaseLayout:
         if self._is_member:
             self._show_check_in = await AuthService.can_view_check_in_desk(self.user)
             self._show_proctor = await AuthService.can_open_proctor_station(self.user)
+        if self._tenant_id is not None and not self._chromeless:
+            await self._prepare_events(self._tenant_id)
         await self._load_theme_colors()
         return self
+
+    async def _prepare_events(self, tenant_id: int) -> None:
+        from application.event_context import get_current_event_id
+        from application.services import AuthService, EventService
+        from middleware.event_routing import PAGE_SCOPE_KEY, community_root, page_request
+
+        self._current_event = await EventService.ref(tenant_id, get_current_event_id())
+        self._manages_events = await AuthService.is_staff(self.user)
+        events = await EventService.visible_events(self.user)
+        # One event and nothing to manage: the button would only repeat the page.
+        self._switcher_events = events if len(events) > 1 or self._manages_events else []
+        request = page_request()
+        if request is not None:
+            forwarded = request.headers.get('X-Forwarded-Prefix', '')
+            self._switch_prefix = f"{forwarded}{request.scope.get('root_path', '')}"
+            self._community_root = f'{forwarded}{community_root(request)}'
+            self._is_row_page = request.scope.get(PAGE_SCOPE_KEY) == 'row'
+
+    @property
+    def current_event(self):
+        """The event the page shows (an ``EventRef``), or None off any community."""
+        return self._current_event
+
+    @property
+    def switcher_events(self) -> list:
+        return self._switcher_events
+
+    @property
+    def manages_events(self) -> bool:
+        return self._manages_events
+
+    @property
+    def switch_prefix(self) -> str:
+        """Everything in the browser's path before the community-local path."""
+        return self._switch_prefix
+
+    @property
+    def community_root(self) -> str:
+        """The browser's path to the community, before any ``/e/<slug>``."""
+        return self._community_root
+
+    @property
+    def is_row_page(self) -> bool:
+        return self._is_row_page
 
     async def render(self) -> None:
         """Render the complete layout with header, drawer, footer, and optional tabbed content."""
@@ -453,6 +510,7 @@ class BaseLayout:
                     FactDialog().open()
 
             ui.label(self._wordmark or 'Wizzrobe').classes('wiz-wordmark').on('click', on_wordmark_tap)
+            render_event_switcher(self)
 
             # Flexible spacer that pushes the user/login controls to the right
             # edge. It must be a real element rather than margin-left:auto on the

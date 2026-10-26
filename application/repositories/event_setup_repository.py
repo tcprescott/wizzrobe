@@ -7,7 +7,7 @@ clear and what to skip is the service's call (``event_setup_copy``); this layer
 only carries the fields across.
 """
 
-from typing import Any, Dict, Iterable, List, Optional, Type
+from typing import Any, Dict, Iterable, List, Optional, Sequence, Type
 
 from tortoise.models import Model
 
@@ -39,7 +39,7 @@ def _fields_of(row: Model, skip: Iterable[str]) -> Dict[str, Any]:
 
 
 async def _copy_rows(
-    model: Type[Model], rows: List[Model], to_event_id: int, *, skip: Iterable[str] = (),
+    model: Type[Model], rows: Sequence[Model], to_event_id: int, *, skip: Iterable[str] = (),
     overrides: Optional[Dict[int, Dict[str, Any]]] = None,
 ) -> Dict[int, int]:
     tenant_id = current_tenant_id()
@@ -76,7 +76,7 @@ class EventSetupRepository:
                 tenant_id=current_tenant_id(), guild_id=row.guild_id,
                 discord_role_id=row.discord_role_id, discord_role_name=row.discord_role_name,
                 app_role=row.app_role, tournament_grant=row.tournament_grant,
-                tournament_id=tournament_ids[row.tournament_id],  # type: ignore[attr-defined]
+                tournament_id=tournament_ids[row.tournament_id],
             )
         return len(rows)
 
@@ -91,7 +91,7 @@ class EventSetupRepository:
         for row in rows:
             await VolunteerRoleMapping.create(
                 tenant_id=current_tenant_id(), event_id=to_event_id,
-                position_id=position_ids[row.position_id], app_role=row.app_role,  # type: ignore[attr-defined]
+                position_id=position_ids[row.position_id], app_role=row.app_role,
             )
         return len(rows)
 
@@ -101,8 +101,8 @@ class EventSetupRepository:
         rows = await scoped(VolunteerQualification.filter(position_id__in=list(position_ids)))
         for row in rows:
             await VolunteerQualification.create(
-                tenant_id=current_tenant_id(), user_id=row.user_id,  # type: ignore[attr-defined]
-                position_id=position_ids[row.position_id],  # type: ignore[attr-defined]
+                tenant_id=current_tenant_id(), user_id=row.user_id,
+                position_id=position_ids[row.position_id],
             )
         return len(rows)
 
