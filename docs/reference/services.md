@@ -129,6 +129,7 @@ Services are the business-logic layer of the [three-layer architecture](../refac
 | `SpeedGamingETLService` | [speedgaming_etl_service.py](../../application/services/speedgaming_etl_service.py) | One-way SpeedGaming→Wizzrobe schedule ETL (extract/transform/load into `Match`) | — |
 | `SpeedGamingSyncService` | [speedgaming_sync_service.py](../../application/services/speedgaming_sync_service.py) | Tenant-facing SpeedGaming event-link CRUD + on-demand "sync now" | — |
 | `UserService` | [user_service.py](../../application/services/user_service.py) | User CRUD, profiles, roles, enrollments | [role-based-auth.md](authentication.md#roles) |
+| `PersonalWebhookService` | [personal_webhook_service.py](../../application/services/personal_webhook_service.py) | Members' own webhooks: CRUD, per-delivery visibility check, allowlisted payloads, Discord/JSON delivery | [webhooks.md](../features/webhooks.md#personal-webhooks-members) |
 | `WebhookService` | [webhook_service.py](../../application/services/webhook_service.py) | Staff-managed outbound webhooks: CRUD + signed delivery | [webhooks.md](../features/webhooks.md) |
 | `WebPushService` | [web_push_service.py](../../application/services/web_push_service.py) | Per-device browser push subscriptions + encrypted delivery | [web-push.md](../features/web-push.md) |
 | `NotificationChannelService` | [notification_channel_service.py](../../application/services/notification_channel_service.py) | Email and Telegram as extra notification channels: confirm/link, the DM copy, user-chosen test notifications | `NOTIFICATION_CHANNELS` · [notification-channels.md](../features/notification-channels.md) |
@@ -2018,6 +2019,10 @@ A `BackgroundLoop` that long-polls Telegram's `getUpdates` (no webhook, so nothi
 ### discord_email_service.py — DiscordEmailService
 
 The provider half of "Use my Discord email". Sign-in keeps the `identify` scope; this runs a second authorization with `identify email` through the shared identity-link scaffolding (`pages/discord_email_oauth.py`, callback `/discord/email/callback`), rejects an account with no address or an unverified one, and hands the address to `NotificationChannelService.use_discord_email`. Discord's consent screen has no per-scope opt-out, so declining means pressing Cancel and typing an address instead.
+
+### personal_webhook_service.py — PersonalWebhookService
+
+Members' own webhooks (`@requires_feature(FeatureFlag.PERSONAL_WEBHOOKS)` on every public method): `list_mine`, `create` (returns the signing secret once, `None` for Discord), `update` (`url=None` keeps the stored URL), `set_active`, `delete`, `regenerate_secret`, `send_test`, plus `available_areas()`. `deliver_event` is subscribed in `main.py` for `SUBSCRIBABLE_EVENT_TYPES` only; `view_for(webhook, event)` is the per-owner visibility check and payload builder. Audited `AuditActions.PERSONAL_WEBHOOK_*`. Detail: [webhooks.md](../features/webhooks.md#personal-webhooks-members). Collaborators: `PersonalWebhookRepository`, `MatchRepository`, `VolunteerShiftRepository`, `AsyncQualifierRunRepository`, `BracketRepository`, `RacetimeRoomRepository`, `TenantMembershipRepository`, `FeatureFlagService`, `WebhookService.build_delivery_headers`.
 
 ### webhook_service.py — WebhookService
 

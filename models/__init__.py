@@ -164,7 +164,7 @@ from .volunteer import (
     VolunteerRoleMapping,
     VolunteerShift,
 )
-from .webhook import Webhook, WebhookDelivery
+from .webhook import PersonalWebhook, Webhook, WebhookDelivery
 
 # Every model is imported by now, so the column-fit guards can be attached to
 # their fields. Must stay last: it walks this module's namespace for models.
@@ -283,6 +283,8 @@ __all__ = [
     'NotificationPreset',
     'NotificationRecipient',
     'NotificationSetting',
+    # webhooks
+    'PersonalWebhook',
     # volunteer
     'PlayerAvailability',
     'Preset',
@@ -350,7 +352,6 @@ __all__ = [
     'VolunteerShift',
     'WatchLayoutVote',
     'WebPushSubscription',
-    # webhooks
     'Webhook',
     'WebhookDelivery',
 ]

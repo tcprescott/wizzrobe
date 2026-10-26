@@ -241,6 +241,15 @@ FEATURE_FLAG_REGISTRY: Dict[FeatureFlag, FeatureFlagSpec] = {
             service_modules=('application/services/discord/discord_role_sync_service.py',),
         ),
         FeatureFlagSpec(
+            FeatureFlag.PERSONAL_WEBHOOKS,
+            'Personal Webhooks',
+            'Members can send what happens to them, or anything else they can see, '
+            'to a Discord channel or their own app from their profile. Three per '
+            'member; staff-only details are never sent.',
+            'Community',
+            service_modules=('application/services/personal_webhook_service.py',),
+        ),
+        FeatureFlagSpec(
             FeatureFlag.COMMUNITY_EVENTS,
             'Community Events',
             'Members submit the meetups, panels and side events they are running '

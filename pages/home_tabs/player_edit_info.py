@@ -26,6 +26,7 @@ from pages.home_tabs.equipment import equipment_checkouts_section
 from pages.home_tabs.my_feedback_section import render_my_feedback_section
 from pages.home_tabs.notification_channels_section import ChannelRows, render_test_button
 from pages.home_tabs.notification_preferences_section import render_notification_preferences
+from pages.home_tabs.personal_webhooks_section import render_personal_webhooks_section
 from pages.home_tabs.racetime_link_section import CONFIG as RACETIME_CONFIG
 from pages.home_tabs.staff_alerts_section import render_staff_alerts_section
 from pages.home_tabs.startgg_link_section import CONFIG as STARTGG_CONFIG
@@ -503,6 +504,9 @@ async def render_edit_info_tab(focus: str | None = None):
             # Draws nothing when you have sent none, or when the community has the
             # feature off.
             await render_my_feedback_section(user)
+
+            if FeatureFlag.PERSONAL_WEBHOOKS in live:
+                await render_personal_webhooks_section(user)
 
             # API token management (self-contained; collapsed developer surface).
             await render_api_tokens_section(user)

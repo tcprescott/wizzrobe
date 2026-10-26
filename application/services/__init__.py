@@ -112,6 +112,7 @@ from .notification_preference_service import NotificationPreferenceService
 from .notification_settings_service import NotificationSettingsService
 from .password_auth_service import PasswordAuthService
 from .payout_service import PayoutService
+from .personal_webhook_service import PersonalWebhookService
 from .platform_admin_service import AccountOverview, CommunityOverview, PlatformAdminService
 from .player_availability_service import PlayerAvailabilityService
 from .preset_service import PresetService
@@ -246,6 +247,7 @@ __all__ = [
     'NotificationSettingsService',
     'PasswordAuthService',
     'PayoutService',
+    'PersonalWebhookService',
     'PlatformAdminService',
     'PlayerAvailabilityService',
     'PlayerLateService',

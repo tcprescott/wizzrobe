@@ -57,6 +57,11 @@ class BracketRepository(TenantScopedRepository[Bracket]):
     async def create_entrant(self, **fields) -> BracketEntrant:
         return await BracketEntrant.create(tenant_id=current_tenant_id(), **fields)
 
+    async def user_has_entry(self, bracket_id: int, user_id: int) -> bool:
+        return await scoped(
+            BracketEntry.filter(bracket_id=bracket_id, entrant__user_id=user_id)
+        ).exists()
+
     async def get_entrant(self, entrant_id: int) -> Optional[BracketEntrant]:
         return await scoped(BracketEntrant.filter(id=entrant_id)).first()
 
