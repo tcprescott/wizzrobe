@@ -127,7 +127,7 @@ the event of the rule that gave it.
 Take a database snapshot before running it on production: the backfill touches
 the audit and telemetry tables in full.
 
-`migrations/models/134_*_events_required.py` (phase 1):
+`migrations/models/135_*_events_required.py` (phase 1):
 
 1. Runs the backfill again for rows written between 133 and this deploy.
 2. Clears the stage (and the players' stations) of a match whose stage belongs
