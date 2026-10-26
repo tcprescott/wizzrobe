@@ -12,7 +12,7 @@ and the random seating draw, watchers, and time suggestion.
 approved crew shortly before it starts; ``main.py`` starts and stops it.
 """
 
-from application.services.match import stage_reminder
+from application.services.match import seed_ready, stage_reminder
 from application.services.match.bracket_result_guard import (
     assert_bracket_result_editable,
 )
@@ -58,6 +58,7 @@ from application.services.match.match_text import (
 )
 from application.services.match.match_watcher_service import MatchWatcherService
 from application.services.match.player_late_service import PlayerLateService
+from application.services.match.seed_ready_service import SeedReadyResult, SeedReadyService
 
 __all__ = [
     'MATCH_STEP_LABELS',
@@ -81,6 +82,8 @@ __all__ = [
     'PlaceholderBookingMixin',
     'PlayerLateService',
     'RecordResultMixin',
+    'SeedReadyResult',
+    'SeedReadyService',
     'StationAssignmentMixin',
     'StationDrawMixin',
     'StationSuggestion',
@@ -93,6 +96,7 @@ __all__ = [
     'reached_step',
     'resolve_matchup',
     'rewind_targets',
+    'seed_ready',
     'stage_reminder',
     'text_updates',
 ]

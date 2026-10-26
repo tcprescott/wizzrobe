@@ -27,6 +27,11 @@ _CREW_DESC = (
 )
 _UPDATE_NOTE = ' Omit to leave it unchanged.'
 _CLEAR_NOTE = ' Omit to leave it unchanged; null clears it.'
+_RELEASE_DESC = (
+    'Players release their own seed: once a match is checked in, each player '
+    'marks Ready for seed and the seed rolls and is sent when every player has. '
+    'Proctors and staff can still roll it any time. Ignored for racetime.gg tournaments.'
+)
 _TEST_DESC = (
     'Marks a test tournament: it stays usable but is left off the public '
     'event-info tournament list.'
@@ -88,6 +93,7 @@ class TournamentCreateRequest(BaseModel):
     signups_open_at: Optional[datetime] = Field(default=None, description=_SIGNUP_DESC)
     signups_close_at: Optional[datetime] = Field(default=None, description=_SIGNUP_DESC)
     is_test: bool = Field(False, description=_TEST_DESC)
+    players_release_seed: bool = Field(False, description=_RELEASE_DESC)
     uses_tournament_room: bool = Field(True, description=_ROOM_DESC)
     allow_player_match_requests: bool = Field(True, description=_REQUESTS_DESC)
     preset_id: Optional[int] = Field(None, description=_PRESET_DESC)
@@ -141,6 +147,7 @@ class TournamentUpdateRequest(BaseModel):
     signups_open_at: Optional[datetime] = Field(default=None, description=_SIGNUP_DESC)
     signups_close_at: Optional[datetime] = Field(default=None, description=_SIGNUP_DESC)
     is_test: Optional[bool] = Field(None, description=_TEST_DESC + _UPDATE_NOTE)
+    players_release_seed: Optional[bool] = Field(None, description=_RELEASE_DESC + _UPDATE_NOTE)
     uses_tournament_room: Optional[bool] = Field(None, description=_ROOM_DESC + _UPDATE_NOTE)
     allow_player_match_requests: Optional[bool] = Field(None, description=_REQUESTS_DESC + _UPDATE_NOTE)
     preset_id: Optional[int] = Field(None, description=_PRESET_DESC + _CLEAR_NOTE)

@@ -218,6 +218,7 @@ class TournamentRepository(TenantScopedRepository[Tournament]):
         seed_generator: Optional[str] = None,
         is_active: bool = True,
         is_test: bool = False,
+        players_release_seed: bool = False,
         uses_tournament_room: bool = True,
         players_per_match: int = 2,
         bracket_url: Optional[str] = None,
@@ -255,6 +256,7 @@ class TournamentRepository(TenantScopedRepository[Tournament]):
             seed_generator: Name of seed generator to use
             is_active: Whether tournament is active
             is_test: Whether it is a staff-only test tournament
+            players_release_seed: Whether players release their own seed by all marking ready
             uses_tournament_room: Whether its off-stream matches take room capacity
             players_per_match: Number of players per match
             bracket_url: URL to tournament bracket
@@ -277,6 +279,7 @@ class TournamentRepository(TenantScopedRepository[Tournament]):
             seed_generator=seed_generator,
             is_active=is_active,
             is_test=is_test,
+            players_release_seed=players_release_seed,
             uses_tournament_room=uses_tournament_room,
             players_per_match=players_per_match,
             bracket_url=bracket_url,

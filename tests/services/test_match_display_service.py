@@ -209,7 +209,7 @@ class TestFormatMatchForDisplay:
         player = make_player("Alice", discord_id="111", finish_rank=1, station="A")
         result = display_service._format_match_for_display(make_match(players=[player]))
         assert result["players"] == [
-            {"name": "Alice", "user_id": 7, "finish_rank": 1, "station": "A", "discord_id": "111"}
+            {"name": "Alice", "user_id": 7, "finish_rank": 1, "station": "A", "discord_id": "111", "seed_ready": False}
         ]
 
     def test_multiple_players_all_included(self, display_service):

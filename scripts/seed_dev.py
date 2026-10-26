@@ -858,6 +858,30 @@ async def seed_running_late(tenant: Tenant, users: dict[str, User]) -> None:
     )
 
 
+async def seed_ready_for_seed(tenant: Tenant, users: dict[str, User]) -> None:
+    """A tournament where players release their own seed, with a checked-in match
+    that player_two is ready for, so player_one's My Schedule shows the Ready
+    panel waiting on them and the staff boards show "1 of 2 ready"."""
+    tournament, _ = await Tournament.get_or_create(
+        name="Ready Up Races", tenant=tenant,
+        defaults={"is_active": True, "players_per_match": 2, "seed_generator": "alttpr",
+                  "players_release_seed": True},
+    )
+    now = datetime.now(timezone.utc)
+    match, created = await Match.get_or_create(
+        title="Ready Up Round 1", tournament=tournament, tenant=tenant,
+        defaults={"scheduled_at": now + timedelta(minutes=5), "seated_at": now - timedelta(minutes=2)},
+    )
+    if not created:
+        return
+    for key in ('player_one', 'player_two'):
+        await MatchPlayers.get_or_create(
+            match=match, user=users[key], tenant=tenant,
+            defaults={"seed_ready_at": now - timedelta(minutes=1) if key == 'player_two' else None,
+                      "seed_nudged_at": now - timedelta(minutes=1) if key == 'player_two' else None},
+        )
+
+
 async def seed_push_devices(users: dict[str, User]) -> None:
     """One phone with device notifications on; ``.invalid`` so a push can't land."""
     ua = 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_4 like Mac OS X) Version/18.4 Mobile/15E148 Safari/604.1'
@@ -939,6 +963,7 @@ async def seed_all() -> None:
         await seed_watch_layout_votes(tenant)
         await seed_match_comments(tenant, users)
         await seed_running_late(tenant, users)
+        await seed_ready_for_seed(tenant, users)
         await seed_staff_request_dms(tenant, users)
         await seed_sent_messages(tenant, users)
         await seed_data_exports(tenant, users)

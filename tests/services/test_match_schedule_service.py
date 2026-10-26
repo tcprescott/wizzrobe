@@ -252,7 +252,7 @@ class TestStartMatch:
     async def test_dm_is_the_match_started_notice(self, service):
         await service.start_match(MockMatch(seated_at=datetime.now()))
         kwargs = service.notify_match_participants.call_args.kwargs
-        assert kwargs == {'notice': MATCH_STARTED, 'player_copies': None}
+        assert kwargs == {'notice': MATCH_STARTED, 'player_copies': None, 'seed_ready_buttons': False}
 
 
 class TestFinishMatch:
@@ -272,7 +272,7 @@ class TestFinishMatch:
         now = datetime.now()
         await service.finish_match(MockMatch(seated_at=now, started_at=now))
         kwargs = service.notify_match_participants.call_args.kwargs
-        assert kwargs == {'notice': MATCH_FINISHED, 'player_copies': None}
+        assert kwargs == {'notice': MATCH_FINISHED, 'player_copies': None, 'seed_ready_buttons': False}
 
     async def test_raises_if_not_started(self, service):
         match = MockMatch()
@@ -316,7 +316,7 @@ class TestConfirmMatch:
     async def test_dm_is_the_result_confirmed_notice(self, service):
         await service.confirm_match(self._played_out())
         kwargs = service.notify_match_participants.call_args.kwargs
-        assert kwargs == {'notice': MATCH_CONFIRMED, 'player_copies': None}
+        assert kwargs == {'notice': MATCH_CONFIRMED, 'player_copies': None, 'seed_ready_buttons': False}
 
     async def test_raises_if_not_finished(self, service):
         match = MockMatch()

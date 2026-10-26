@@ -63,6 +63,8 @@ class AuditActions:
     MATCH_COMMENT_DELETED = 'match.comment_deleted'
     MATCH_PLAYER_RUNNING_LATE = 'match.player_running_late'
     MATCH_PLAYER_LATE_CLEARED = 'match.player_late_cleared'
+    MATCH_PLAYER_SEED_READY = 'match.player_seed_ready'
+    MATCH_PLAYER_SEED_NOT_READY = 'match.player_seed_not_ready'
     # A player asking staff to move or call off their match, and what became of
     # it. The approval also writes the underlying match.rescheduled / match.cancelled,
     # since approving *performs* the change rather than blessing it.

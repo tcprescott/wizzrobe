@@ -186,6 +186,10 @@ class Tournament(Model):
     # finding a staff member. Off means the control is hidden *and* the service
     # refuses, since the REST route reaches past the hidden control.
     allow_reschedule_requests = fields.BooleanField(default=True)
+    # Players release their own seed: once a match is checked in, each player
+    # taps Ready for seed and the seed rolls, and goes to them, when the last one
+    # does (``SeedReadyService``). Proctors and staff can still roll it any time.
+    players_release_seed = fields.BooleanField(default=False)
     created_at = fields.DatetimeField(auto_now_add=True)
     updated_at = fields.DatetimeField(auto_now=True)
 

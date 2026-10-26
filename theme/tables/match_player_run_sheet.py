@@ -216,7 +216,40 @@ def decorate_player_row(row: dict, discord_id) -> dict:
     row['_mine'] = bool(discord_id) and any(
         str(p.get('discord_id')) == str(discord_id) for p in row.get('players') or [])
     mark_my_late(row, discord_id)
+    mark_my_seed_ready(row, discord_id)
     return row
+
+
+def mark_my_seed_ready(row: dict, discord_id) -> None:
+    """The Ready for seed panel on the viewer's own checked-in match. Mutates ``row``.
+
+    ``_seed_panel`` shows it (the viewer plays the match and ``seed_ready_open``
+    says their Ready counts now), ``_seed_who`` is every player with a tick or
+    "not yet", the viewer named "(you)", and ``_my_seed_ready`` swaps the big
+    button for Not ready and who they're waiting on.
+    """
+    players = row.get('players') or []
+    me = next((p for p in players if discord_id and str(p.get('discord_id')) == str(discord_id)), None)
+    row['_seed_panel'] = bool(me and row.get('seed_ready_open'))
+    if not row['_seed_panel']:
+        row['_seed_who'], row['_my_seed_ready'], row['_seed_waiting'] = [], False, ''
+        row['_seed_retry'] = False
+        return
+    row['_seed_who'] = [{
+        'key': p.get('user_id'),
+        'name': (p.get('name') or '') + (' (you)' if p is me else ''),
+        'ready': bool(p.get('seed_ready')),
+    } for p in players]
+    row['_my_seed_ready'] = bool(me.get('seed_ready'))  # type: ignore[union-attr]
+    waiting = [p.get('name') or '' for p in players if p is not me and not p.get('seed_ready')]
+    row['_seed_waiting'] = f"Waiting on {_and(waiting)}" if waiting else ''
+    # Everyone's ready and the panel is still up: a roll in flight closes it,
+    # so this one didn't roll. Ready again retries.
+    row['_seed_retry'] = row['_my_seed_ready'] and not waiting
+
+
+def _and(names: list[str]) -> str:
+    return names[0] if len(names) == 1 else ', '.join(names[:-1]) + ' and ' + names[-1]
 
 
 def keep_own_late_only(rows: list, discord_id) -> None:
@@ -347,6 +380,26 @@ _LATE = r'''<q-btn v-if="props.row._can_late" outline no-caps no-wrap color="pri
     <q-tooltip>Tell staff on duty you're on your way</q-tooltip>
 </q-btn>'''
 
+# The viewer's own Ready for seed, once their match is checked in on a
+# tournament where players release the seed: who's ready, then the big button,
+# or Not ready on the left and who they're waiting on on the right.
+_SEED_READY = r'''<div v-if="props.row._seed_panel" class="player-sheet__seed" @click.stop>
+<div class="player-sheet__seed-head"><b>Seed</b><span>Sent when you're all ready</span></div>
+<ul class="player-sheet__seed-who">
+<li v-for="p in props.row._seed_who" :key="p.key"><q-icon :name="p.ready ? 'check_circle' : 'schedule'" size="18px" :class="p.ready ? 'st-ok' : 'st-neutral'" aria-hidden="true" />{{ p.name }}
+<span v-if="p.ready" class="wiz-chip wiz-chip--ok">Ready</span><span v-else class="st-neutral">not yet</span></li>
+</ul>
+<q-btn v-if="!props.row._my_seed_ready" unelevated no-caps color="primary" icon="casino" label="I'm ready for my seed"
+       class="player-sheet__seed-go" @click.stop="$parent.$emit('seed_ready', props.row)" />
+<div v-else class="player-sheet__seed-wait">
+<q-btn flat no-caps no-wrap dense color="primary" label="Not ready" aria-label="I'm not ready for my seed after all"
+       @click.stop="$parent.$emit('seed_not_ready', props.row)" />
+<span v-if="props.row._seed_waiting" class="st-neutral">{{ props.row._seed_waiting }}</span>
+<q-btn v-if="props.row._seed_retry" unelevated no-caps no-wrap dense color="primary" icon="refresh" label="Try the seed again"
+       @click.stop="$parent.$emit('seed_ready', props.row)" />
+</div>
+</div>'''
+
 _BELL = r'''<q-btn v-if="!props.row.crew_hold" :icon="props.row._watching ? 'notifications' : 'notifications_none'"
        :color="props.row._watching ? 'primary' : 'grey-8'" flat round dense
        @click.stop="$parent.$emit('toggle_watch', props.row)"
@@ -447,7 +500,7 @@ _BODY_SLOT = r'''
         <template v-else-if="col.name === 'status'">
             <div class="player-sheet__status">
                 ''' + STATUS_WORD + _LATE_UNDO + _ACK + _LATE + '''
-            </div>
+            </div>''' + _SEED_READY + '''
         </template>
         <template v-else-if="col.name === 'watch'">''' + _BELL + '''</template>
         <template v-else-if="col.name === 'my_actions'">''' + _MENU + '''</template>
@@ -475,7 +528,7 @@ _ITEM_SLOT = r'''
                 </span>
             </button>''' + _BELL + '''__MENU__
         </div>
-        <div v-if="props.row._ack || props.row._can_late || props.row._my_late || props.row._roles.length" class="player-sheet__acts">''' + _LATE_CHIP + _ACK + _LATE + '''
+        <div v-if="props.row._ack || props.row._can_late || props.row._my_late || props.row._seed_panel || props.row._roles.length" class="player-sheet__acts">''' + _LATE_CHIP + _ACK + _LATE + _SEED_READY + '''
             <div v-for="c in props.row._roles" :key="c.key" class="player-sheet__role">''' + _ROLE_CARD + '''</div>
         </div>
     </div>

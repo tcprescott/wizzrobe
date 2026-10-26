@@ -152,6 +152,12 @@ SEED_READY = _notice(
     'seed_ready', 'Matches', 'Seed ready', "The match's seed is rolled",
     {PLAYERS: PING},
 )
+OPPONENT_SEED_READY = _notice(
+    'opponent_seed_ready', 'Matches', 'Opponent ready for the seed',
+    'Another player in your checked-in match taps Ready for seed, on a tournament '
+    'where players release their own seed',
+    {PLAYERS: SILENT}, {PLAYERS: "Players who haven't tapped Ready yet (with Ready for seed)"},
+)
 SEED_FAILED = _notice(
     'seed_failed', 'Matches', "Seed didn't roll",
     'Rolling a seed in the background fails',
@@ -543,7 +549,7 @@ SECTIONS: Dict[str, Tuple[Tuple[str, Tuple[Notice, ...]], ...]] = {
             MATCH_CANCELLED_ON_REQUEST, SERIES_GAME_CANCELLED, REMOVED_FROM_MATCH,
         )),
         ('Match day', (
-            MATCH_CHECKED_IN, SEED_READY, STATION_ASSIGNED, RACE_ROOM_OPEN, STAGE_CALL,
+            MATCH_CHECKED_IN, OPPONENT_SEED_READY, SEED_READY, STATION_ASSIGNED, RACE_ROOM_OPEN, STAGE_CALL,
             STAGE_CLEARED, STAGE_REMINDER, MATCH_STARTED, MATCH_FINISHED,
         )),
         ('Results', (MATCH_CONFIRMED, MATCH_FORFEITED, MATCH_RESULT, RESULT_IN)),
@@ -677,6 +683,7 @@ _ACT: Dict[str, frozenset] = {
     PLAYER_LATE.key: _STAFF_ALERTS,
     PLAYER_LATE_ON_STAGE.key: frozenset({ON_DUTY, STAFF}),
     HARDER_SETTINGS_OFFER.key: frozenset({PLAYERS}),
+    OPPONENT_SEED_READY.key: frozenset({PLAYERS}),
     SETTINGS_RELEASED.key: frozenset({PLAYERS}),
     MATCHUP_READY.key: frozenset({PLAYERS}),
     MATCHUP_REOPENED.key: frozenset({PLAYERS}),

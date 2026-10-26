@@ -100,6 +100,8 @@ from .match import (
     MatchSuggestionService,
     MatchWatcherService,
     PlayerLateService,
+    SeedReadyResult,
+    SeedReadyService,
     assert_sg_fields_unchanged,
 )
 from .match_reschedule_service import MatchRescheduleService
@@ -268,6 +270,8 @@ __all__ = [
     'RuntimeStatsService',
     'ScheduleStage',
     'SeedGenerationService',
+    'SeedReadyResult',
+    'SeedReadyService',
     'SeedRollService',
     'SentMessageRef',
     'SentMessageService',

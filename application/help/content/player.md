@@ -224,6 +224,18 @@ make it at all, use **Ask to change** instead.
 
 ![The Tell staff you're running late sheet: the match and its time, a 10 min / 20 min / 30+ min choice, an optional note for staff, and the Tell staff button](/static/help/player/running-late-phone.webp "Pick about how late you'll be and press **Tell staff**.")
 
+## Ready for your seed
+
+Some tournaments let you and your opponent decide when the seed goes out. Once a
+proctor checks your match in, your match on My Schedule shows who's ready for the
+seed and an **I'm ready for my seed** button, and your check-in DM has a **Ready
+for seed** button too. When every player in the match has tapped it, the seed
+rolls and lands in your DMs and on your match straight away.
+
+Tapped it too early? **Not ready** takes it back until the seed is out. Your
+opponent gets one quiet DM the first time you're ready. A proctor can still roll
+the seed whenever they need to.
+
 ## Asking for a different time
 
 You can't move or cancel your own match, but you can ask, and you don't have to

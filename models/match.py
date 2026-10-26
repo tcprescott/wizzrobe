@@ -145,6 +145,12 @@ class MatchPlayers(Model):
     late_minutes = fields.IntField(null=True)
     late_at = fields.DatetimeField(null=True)
     late_note = fields.CharField(max_length=280, null=True)
+    # When the player tapped Ready for seed, on a tournament where players
+    # release their own seed. Cleared by Not ready; kept once the seed is out.
+    seed_ready_at = fields.DatetimeField(null=True)
+    # When this player's first Ready told the others. Set once, so tapping Ready
+    # and Not ready over and over can't DM the opponent over and over.
+    seed_nudged_at = fields.DatetimeField(null=True)
     created_at = fields.DatetimeField(auto_now_add=True)
     updated_at = fields.DatetimeField(auto_now=True)
 

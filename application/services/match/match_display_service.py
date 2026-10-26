@@ -30,6 +30,7 @@ from application.services.match.match_status import (
     resolve,
 )
 from application.services.match.player_late_service import late_tag, late_window_open
+from application.services.match.seed_ready import ready_count, seed_ready_open
 from application.services.reporting_shared import crew_requirement
 from application.utils.discord_messages import seed_code_line
 from application.utils.timezone import (
@@ -456,6 +457,7 @@ class MatchDisplayService:
                     'finish_rank': p.finish_rank,
                     'station': p.assigned_station,
                     'discord_id': str(p.user.discord_id) if p.user.discord_id else None,
+                    'seed_ready': getattr(p, 'seed_ready_at', None) is not None,
                 }
                 for p in match.players
             ],
@@ -480,6 +482,14 @@ class MatchDisplayService:
                 for p in match.players if getattr(p, 'late_minutes', None) is not None  # type: ignore[attr-defined]
             ],
             'late_window': late_window_open(match),
+            # Players release their own seed on this tournament, and right now
+            # (checked in, no seed yet, nothing rolling) their Ready counts.
+            'seed_ready_open': seed_ready_open(match) and rolling_task is None,
+            # "1 of 2 ready", for the staff boards' seed line while that's true.
+            'seed_ready_label': (
+                '{} of {} ready'.format(*ready_count(match))
+                if seed_ready_open(match) and rolling_task is None else ''
+            ),
             'acknowledgments': acknowledgments_summary,
             'stage': match.stage.name if match.stage else '',
             # The id, not just the name: the board's Stage cell is a select whose

@@ -643,6 +643,41 @@ becomes the player run sheet's `Staff know: ~20 min` status chip with Undo, and
 The stage reminder DM gives players a **Tell staff I'm late** button
 (`discordbot/player_late.py`, `match_late:` / `match_late_min:` custom ids).
 
+## Ready for seed
+
+A tournament with `players_release_seed` on (Admin → Tournaments → Edit →
+Seeds & randomizer, off by default; also on REST and the MCP tournament tools)
+lets the players of a checked-in match release their own seed.
+`SeedReadyService` (`application/services/match/seed_ready_service.py`) owns it:
+`set_ready(match_id, user)` stamps `MatchPlayers.seed_ready_at`, and the tap that
+makes every player ready calls `MatchScheduleService.release_seed_to_ready_players`,
+which rolls through the same locked path as `generate_seed` but swaps
+`can_run_match` for `players_may_release` (the actor plays the match and every
+player is ready). Rolling is what sends the seed, so the usual `seed_ready` DM
+goes out. `set_not_ready` clears the stamp until the seed exists or a task-queue
+roll is in flight. Both audit and emit `match.player_seed_ready` /
+`match.player_seed_not_ready`. Tapping Ready again while everyone is ready retries
+a roll that failed. Proctors and staff roll whenever they like, as before.
+
+The window (`seed_ready_open` in `seed_ready.py`) is check-in until a seed exists,
+never on a racetime tournament. Clearing the seed or the check-in
+(`MatchService.update_match`) wipes every player's Ready
+(`MatchRepository.clear_seed_ready`).
+
+The check-in DM's player copies (`_checked_in_player_copies`) end by asking for
+Ready and carry a **Ready for seed** button (`discordbot/seed_ready.py`,
+`seed_ready:in:` / `seed_ready:out:` custom ids, the button flipping to **Not
+ready** after a press). A player's first Ready DMs each player who isn't ready
+under `opponent_seed_ready` (silent by default), once per player per match
+(`seed_nudged_at`), so toggling can't spam the opponent.
+
+Display rows carry `players[].seed_ready`, `seed_ready_open` and
+`seed_ready_label` ("1 of 2 ready"). The staff run sheets put the label on the
+seed line ("Seed not rolled · 1 of 2 ready"); the player run sheet
+(`mark_my_seed_ready`) draws the viewer's own Ready panel: every player ticked or
+"not yet", the big **I'm ready for my seed** button, then **Not ready** and who
+they're waiting on.
+
 ## Match alerts: the admin on duty
 
 A *match alert* is a staff DM about one match that someone has to pick up: a

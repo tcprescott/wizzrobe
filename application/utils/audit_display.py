@@ -98,6 +98,8 @@ ACTION_LABELS: dict[str, str] = {
     'match.comment_deleted': 'Deleted a match comment',
     'match.player_running_late': 'Said they are running late for a match',
     'match.player_late_cleared': 'Took back running late for a match',
+    'match.player_seed_ready': 'Said they are ready for the seed',
+    'match.player_seed_not_ready': 'Took back ready for the seed',
     'match.hard_preset_opted_in': 'Opted in to the hard preset',
     'match.hard_preset_withdrawn': 'Withdrew from the hard preset',
     'match.hard_preset_agreed': 'Agreed to the hard preset',

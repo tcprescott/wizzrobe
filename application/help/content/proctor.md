@@ -38,7 +38,10 @@ step: **Check in**, **Roll seed**, **Start** or **Finish**. Press it and that
 step's dialog opens, just like anywhere else in the app. Once a match is checked
 in, its line also shows the seed, as the link and its code or as Seed not
 rolled. A player who tapped **Tell staff I'm late** gets a tag on the line, like
-{chip:pending:Player One ~20 min late · said 09:41}, until the match is checked in. The time and the stage are what you call out across the room.
+{chip:pending:Player One ~20 min late · said 09:41}, until the match is checked in.
+On a tournament where players release their own seed, the seed line counts who's
+ready, like Seed not rolled · 1 of 2 ready. The seed rolls itself when the last
+player taps Ready, and **Roll seed** still works if you need it sooner. The time and the stage are what you call out across the room.
 
 Tap anywhere else on a line to open the match's details. They start with a
 Ready to play? checklist covering players confirmed, stations, stage and seed.
