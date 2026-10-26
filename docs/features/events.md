@@ -225,7 +225,7 @@ Equipment Manager, Volunteer and Check-in Desk. Staff and the online admin roles
   CASCADE): the event for a per-event role, NULL otherwise. Because the FK
   cascades, a grant in an archived event is archive-guarded like any other row
   there: it can't be granted, revoked or synced. Postgres treats NULLs as
-  distinct, so migration 141 adds partial unique indexes for the NULL rows.
+  distinct, so migration 142 adds partial unique indexes for the NULL rows.
 - **Checks.** `AuthService.get_roles` / `has_role` take an `event`
   (`EventChoice`): an event id, `RoleScope.LIVE` (community + every live event),
   `RoleScope.OPEN` (live and draft), `RoleScope.EVERY`, or None for the bound
@@ -293,7 +293,7 @@ the audit and telemetry tables in full.
    are found by their columns, because two were created by hand under names
    Tortoise doesn't generate.
 
-`migrations/models/141_*_per_event_roles.py` (phase 4) adds the two
+`migrations/models/142_*_per_event_roles.py` (phase 4) adds the two
 `event_id` columns, moves every grant and Discord mapping of a per-event role
 into its community's default event, drops the old (user, role, tenant) and
 (tenant, discord role, app role) uniques by their columns, and adds per-event
