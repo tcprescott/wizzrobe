@@ -206,9 +206,9 @@ def _stage_row(service: StreamLayoutService, row, options: dict, refresh) -> Non
         await refresh()
 
     with ui.element('div').classes('sl-stage w-full'):
-        with ui.column().classes('gap-0 min-w-0'):
+        with ui.column().classes('gap-0 min-w-0 w-full'):
             ui.label(stage.name).classes('text-weight-bold')
-            ui.label(showing).classes('text-caption text-muted ellipsis')
+            ui.label(showing).classes('text-caption text-muted ellipsis w-full')
         ui.select(options, value=overlay.layout_id or 0, label='Layout', on_change=set_layout) \
             .props('outlined dense options-dense').classes('sl-stage__layout')
         with ui.row().classes('items-center no-wrap gap-1'):

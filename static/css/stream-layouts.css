@@ -131,8 +131,7 @@
 .sl-stage:last-child { border-bottom: 0; }
 
 @media (max-width: 599px) {
-  .sl-stage { grid-template-columns: minmax(0, 1fr) auto; }
-  .sl-stage__layout { grid-column: 1 / -1; grid-row: 2; }
+  .sl-stage { grid-template-columns: minmax(0, 1fr); }
   .sl-list__pos { display: none; }
 }
 
