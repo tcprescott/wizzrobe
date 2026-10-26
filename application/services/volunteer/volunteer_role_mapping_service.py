@@ -8,12 +8,15 @@ assignment (past shifts count). Drafts confer nothing until published.
 
 The sync is local (no Discord round-trip), so every path that adds or removes
 an assignment reconciles the people it touched straight after its own commit.
+Positions belong to one event, so the roles they confer are held in it: a
+reconcile covers the event in scope and leaves the others' grants alone.
 """
 
 import logging
 from typing import Dict, Iterable, List, Sequence, Set, Tuple
 
 from application.errors import require_found
+from application.event_context import require_event_id
 from application.feature_flags import requires_feature
 from application.repositories import (
     UserRepository,
@@ -169,7 +172,7 @@ class VolunteerRoleMappingService:
         try:
             user_ids = set(await self.assignment_repository.published_user_ids())
             user_ids.update(
-                await self.role_repository.list_user_ids_by_source(RoleSource.VOLUNTEER)
+                await self.role_repository.list_user_ids_by_source(RoleSource.VOLUNTEER, require_event_id())
             )
         except Exception:
             logger.exception('Volunteer role sync could not list who to reconcile')
@@ -223,9 +226,13 @@ class VolunteerRoleMappingService:
         for position_id in positions:
             desired |= roles_by_position.get(position_id, set())
 
-        held = await self.role_repository.list_for_user(user)
+        event_id = require_event_id()
+        held = await self.role_repository.list_for_user(user, event_id)
         current_all = {r.role for r in held}
-        current_volunteer = {r.role for r in held if r.source == RoleSource.VOLUNTEER}
+        current_volunteer = {
+            r.role for r in held
+            if r.source == RoleSource.VOLUNTEER and r.event_id == event_id  # type: ignore[attr-defined]
+        }
         tenant_id = require_tenant_id()
 
         granting = sorted(desired - current_all, key=lambda r: r.value)
@@ -236,21 +243,21 @@ class VolunteerRoleMappingService:
             granting = []
         for role in granting:
             await self.role_repository.add(
-                user, role, granted_by=actor, source=RoleSource.VOLUNTEER,
+                user, role, granted_by=actor, source=RoleSource.VOLUNTEER, event_id=event_id,
             )
             await self.audit_service.write_log(
                 actor, AuditActions.ROLE_VOLUNTEER_SYNC_GRANTED,
                 {'role': role.value, 'source': RoleSource.VOLUNTEER.value,
-                 'target_user_id': user.id, 'tenant_id': tenant_id},
+                 'target_user_id': user.id, 'tenant_id': tenant_id, 'event_id': event_id},
             )
             result['granted'].append(role.value)
 
         for role in sorted(current_volunteer - desired, key=lambda r: r.value):
-            await self.role_repository.remove(user, role)
+            await self.role_repository.remove(user, role, event_id=event_id)
             await self.audit_service.write_log(
                 actor, AuditActions.ROLE_VOLUNTEER_SYNC_REVOKED,
                 {'role': role.value, 'source': RoleSource.VOLUNTEER.value,
-                 'target_user_id': user.id, 'tenant_id': tenant_id},
+                 'target_user_id': user.id, 'tenant_id': tenant_id, 'event_id': event_id},
             )
             result['revoked'].append(role.value)
         return result

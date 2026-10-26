@@ -8,6 +8,7 @@ resolve the signed-in User, then passes it into the helpers.
 
 from typing import Any, ClassVar, Optional
 
+from application.repositories.user_role_repository import EventChoice, RoleScope, role_event_q
 from application.tenant_context import get_current_tenant_id
 from models import SYSTEM_USER_DISCORD_ID, Match, Role, Tournament, User, UserRole
 
@@ -20,6 +21,15 @@ class AuthService:
     not carry into another. The one exception is ``SUPER_ADMIN`` — a global
     platform role whose ``UserRole`` row carries ``tenant=NULL``; it is checked
     with :meth:`is_super_admin` (never through the tenant-scoped path).
+
+    Inside a community, the on-site roles are held **per event**
+    (``Role.is_per_event``). A check counts the community-wide grants plus the
+    grants in one event: ``event`` names it, a check about a row passes the
+    row's event (a match's, a tournament's), and the default is the event in
+    scope, so a page checks the event it shows. With no event in scope, or
+    ``RoleScope.LIVE``, a grant in any live event counts: that is how a
+    community-wide page (Equipment) admits its event-held role. A grant in an
+    archived event can still read that event, but its rows refuse every write.
 
     A super-admin has **full authority inside every tenant**, implemented once in
     :meth:`is_staff`: STAFF is the override term in essentially every
@@ -51,28 +61,44 @@ class AuthService:
         """The global platform role (``UserRole`` with ``tenant=NULL``)."""
         if user is None:
             return False
-        return await UserRole.filter(user=user, role=Role.SUPER_ADMIN, tenant=None).exists()
+        return await UserRole.filter(user=user, role=Role.SUPER_ADMIN, tenant=None, event_id=None).exists()
 
     @staticmethod
-    async def get_roles(user: Optional[User]) -> set[Role]:
-        """The user's roles **in the current tenant** (excludes SUPER_ADMIN)."""
+    async def get_roles(user: Optional[User], event: EventChoice = None) -> set[Role]:
+        """The user's roles **in the current tenant** (excludes SUPER_ADMIN):
+        the community-wide ones plus those held in ``event``."""
         if user is None:
             return set()
         tid = get_current_tenant_id()
         if tid is None:
             # No tenant in context (platform surface) — no tenant roles apply.
             return set()
-        rows = await UserRole.filter(user=user, tenant_id=tid).values_list('role', flat=True)
+        rows = await UserRole.filter(role_event_q(event), user=user, tenant_id=tid).values_list('role', flat=True)
         return {Role(r) for r in rows}
 
     @staticmethod
-    async def has_role(user: Optional[User], role: Role) -> bool:
+    async def has_role(user: Optional[User], role: Role, event: EventChoice = None) -> bool:
         if user is None:
             return False
         tid = get_current_tenant_id()
         if tid is None:
             return False
-        return await UserRole.filter(user=user, role=role, tenant_id=tid).exists()
+        return await UserRole.filter(role_event_q(event), user=user, role=role, tenant_id=tid).exists()
+
+    @staticmethod
+    async def event_ids_with_grants(user: Optional[User]) -> set[int]:
+        """The current community's events ``user`` holds a per-event role in."""
+        if user is None or get_current_tenant_id() is None:
+            return set()
+        from application.repositories.user_role_repository import UserRoleRepository
+
+        return await UserRoleRepository.event_ids_for_user(user)
+
+    @staticmethod
+    async def holds_any_role(user: Optional[User]) -> bool:
+        """Whether ``user`` holds any role here that still counts: community-wide,
+        or in a live or draft event. The "a role implies membership" side."""
+        return bool(await AuthService.get_roles(user, RoleScope.OPEN))
 
     @staticmethod
     async def is_staff(user: Optional[User]) -> bool:
@@ -87,16 +113,16 @@ class AuthService:
         return await AuthService.has_role(user, Role.STAFF)
 
     @staticmethod
-    async def is_proctor(user: Optional[User]) -> bool:
-        return await AuthService.has_role(user, Role.PROCTOR)
+    async def is_proctor(user: Optional[User], event: EventChoice = None) -> bool:
+        return await AuthService.has_role(user, Role.PROCTOR, event)
 
     @staticmethod
-    async def is_stream_manager(user: Optional[User]) -> bool:
-        return await AuthService.has_role(user, Role.STREAM_MANAGER)
+    async def is_stream_manager(user: Optional[User], event: EventChoice = None) -> bool:
+        return await AuthService.has_role(user, Role.STREAM_MANAGER, event)
 
     @staticmethod
-    async def is_triforce_submitter(user: Optional[User]) -> bool:
-        return await AuthService.has_role(user, Role.TRIFORCE_SUBMITTER)
+    async def is_triforce_submitter(user: Optional[User], event: EventChoice = None) -> bool:
+        return await AuthService.has_role(user, Role.TRIFORCE_SUBMITTER, event)
 
     @staticmethod
     async def can_submit_triforce_text(user: Optional[User], tournament: Tournament) -> bool:
@@ -108,7 +134,9 @@ class AuthService:
             return False
         if not SeedGenerationService.supports_triforce_texts(tournament.seed_generator):
             return False
-        return await AuthService.is_staff(user) or await AuthService.is_triforce_submitter(user)
+        return await AuthService.is_staff(user) or await AuthService.is_triforce_submitter(
+            user, getattr(tournament, 'event_id', None),
+        )
 
     @staticmethod
     async def is_tournament_admin(user: Optional[User], tournament_id: int) -> bool:
@@ -198,7 +226,7 @@ class AuthService:
         live = await FeatureFlagService().enabled_flags()
         if Role.VOLUNTEER_COORDINATOR in roles and FeatureFlag.VOLUNTEERS in live:
             return True
-        if Role.EQUIPMENT_MANAGER in roles and FeatureFlag.EQUIPMENT in live:
+        if FeatureFlag.EQUIPMENT in live and await AuthService.is_equipment_manager(user):
             return True
         if FeatureFlag.ASYNC_QUALIFIERS not in live:
             return False
@@ -403,9 +431,10 @@ class AuthService:
         """
         if AuthService.is_system(user):
             return True
-        if await AuthService.is_staff(user) or await AuthService.is_proctor(user):
+        event_id = getattr(match, 'event_id', None)
+        if await AuthService.is_staff(user) or await AuthService.is_proctor(user, event_id):
             return True
-        if match.stage_id is not None and await AuthService.is_stream_manager(user):  # type: ignore[attr-defined]
+        if match.stage_id is not None and await AuthService.is_stream_manager(user, event_id):  # type: ignore[attr-defined]
             return True
         return await AuthService.is_tournament_admin(user, match.tournament_id)
 
@@ -430,26 +459,28 @@ class AuthService:
         return await AuthService.is_crew_coordinator_of(user, match.tournament_id)
 
     @staticmethod
-    async def can_manage_stages(user: Optional[User]) -> bool:
-        """CRUD on Stage records (the stages themselves)."""
-        return await AuthService.is_staff(user) or await AuthService.is_stream_manager(user)
+    async def can_manage_stages(user: Optional[User], event: EventChoice = None) -> bool:
+        """CRUD on Stage records (the stages themselves), in ``event``."""
+        return await AuthService.is_staff(user) or await AuthService.is_stream_manager(user, event)
 
     @staticmethod
-    async def is_volunteer_coordinator(user: Optional[User]) -> bool:
-        return await AuthService.has_role(user, Role.VOLUNTEER_COORDINATOR)
+    async def is_volunteer_coordinator(user: Optional[User], event: EventChoice = None) -> bool:
+        return await AuthService.has_role(user, Role.VOLUNTEER_COORDINATOR, event)
 
     @staticmethod
-    async def can_manage_volunteers(user: Optional[User]) -> bool:
+    async def can_manage_volunteers(user: Optional[User], event: EventChoice = None) -> bool:
         """Manage volunteer positions, shifts, and assignments (admin side)."""
-        return await AuthService.is_staff(user) or await AuthService.is_volunteer_coordinator(user)
+        return await AuthService.is_staff(user) or await AuthService.is_volunteer_coordinator(user, event)
 
     @staticmethod
     async def is_equipment_manager(user: Optional[User]) -> bool:
-        return await AuthService.has_role(user, Role.EQUIPMENT_MANAGER)
+        """Equipment is the community's, not one event's, so the role held in
+        any live event counts."""
+        return await AuthService.has_role(user, Role.EQUIPMENT_MANAGER, RoleScope.LIVE)
 
     @staticmethod
-    async def is_volunteer(user: Optional[User]) -> bool:
-        return await AuthService.has_role(user, Role.VOLUNTEER)
+    async def is_volunteer(user: Optional[User], event: EventChoice = None) -> bool:
+        return await AuthService.has_role(user, Role.VOLUNTEER, event)
 
     @staticmethod
     async def can_manage_equipment(user: Optional[User]) -> bool:
@@ -477,8 +508,8 @@ class AuthService:
         return await AuthService.can_manage_equipment(user)
 
     @staticmethod
-    async def is_check_in_desk(user: Optional[User]) -> bool:
-        return await AuthService.has_role(user, Role.CHECK_IN_DESK)
+    async def is_check_in_desk(user: Optional[User], event: EventChoice = None) -> bool:
+        return await AuthService.has_role(user, Role.CHECK_IN_DESK, event)
 
     @staticmethod
     async def can_manage_check_in(user: Optional[User]) -> bool:
@@ -514,7 +545,7 @@ class AuthService:
         """Set a match's stage or is_stream_candidate flag.
         Broadcast Techs (STREAM_MANAGER) can do this globally; TAs can do it for their own tournaments.
         """
-        if await AuthService.can_manage_stages(user):
+        if await AuthService.can_manage_stages(user, getattr(match, 'event_id', None)):
             return True
         return await AuthService.is_tournament_admin(user, match.tournament_id)
 

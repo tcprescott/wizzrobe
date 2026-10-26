@@ -47,6 +47,27 @@ class Role(str, Enum):
         """
         return [role for role in cls if role is not cls.SUPER_ADMIN]
 
+    @property
+    def is_per_event(self) -> bool:
+        """Granted inside one event rather than across the community.
+
+        The on-site roles are: a proctor at SGL 2026 isn't one at SGL 2027
+        until someone says so. Staff and the three online-tournament admin
+        roles run things that outlive an event (presets, sync, qualifiers), so
+        they stay community-wide, and SUPER_ADMIN is global.
+        """
+        return self in _PER_EVENT_ROLES
+
+    @classmethod
+    def community_wide(cls) -> 'list[Role]':
+        """The grantable roles that cover every event, in declaration order."""
+        return [role for role in cls.tenant_grantable() if not role.is_per_event]
+
+    @classmethod
+    def per_event(cls) -> 'list[Role]':
+        """The roles granted in one event, in declaration order."""
+        return [role for role in cls if role.is_per_event]
+
     @classmethod
     def volunteer_mappable(cls) -> 'list[Role]':
         """The roles a volunteer position may confer, in declaration order.
@@ -61,6 +82,12 @@ class Role(str, Enum):
             cls.EQUIPMENT_MANAGER, cls.VOLUNTEER, cls.CHECK_IN_DESK,
         ]
 
+
+_PER_EVENT_ROLES = frozenset({
+    Role.PROCTOR, Role.STREAM_MANAGER, Role.TRIFORCE_SUBMITTER,
+    Role.VOLUNTEER_COORDINATOR, Role.EQUIPMENT_MANAGER, Role.VOLUNTEER,
+    Role.CHECK_IN_DESK,
+})
 
 _ROLE_LABELS: dict[Role, str] = {
     Role.STREAM_MANAGER: 'Broadcast Tech',

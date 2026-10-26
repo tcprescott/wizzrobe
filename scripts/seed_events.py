@@ -28,7 +28,19 @@ from tortoise.signals import post_save, pre_save
 
 from application.event_writes import archive_maintenance
 from application.repositories._event import EVENT_PARENTS
-from models import Event, EventStatus, Match, MatchPlayers, Tenant, Tournament, TournamentPlayers, User
+from models import (
+    DiscordRoleMapping,
+    Event,
+    EventStatus,
+    Match,
+    MatchPlayers,
+    Role,
+    Tenant,
+    Tournament,
+    TournamentPlayers,
+    User,
+    UserRole,
+)
 
 _defaults: Dict[int, int] = {}
 
@@ -50,6 +62,11 @@ async def _remember_default(sender: Any, instance: Event, created: bool, using_d
 async def _stamp_event(sender: type[Model], instance: Model, using_db: Any, update_fields: Any) -> None:
     if getattr(instance, 'event_id', None) is not None:
         return
+    # A grant or Discord mapping names an event only for a per-event role.
+    if isinstance(instance, (UserRole, DiscordRoleMapping)):
+        role = getattr(instance, 'role', None) or getattr(instance, 'app_role', None)
+        if role is None or not Role(role).is_per_event:
+            return
     parent = EVENT_PARENTS.get(sender.__name__)
     parent_id = getattr(instance, f'{parent}_id', None) if parent else None
     if parent and parent_id is not None:
@@ -128,10 +145,24 @@ async def seed_events_for_tenant(tenant: Tenant, users: Dict[str, User]) -> None
             if created:
                 for player in players:
                     await MatchPlayers.get_or_create(tenant=tenant, match=done, user=player)
-    await Event.get_or_create(
+    sgl27, _ = await Event.get_or_create(
         tenant=tenant, slug='sgl27',
         defaults={
             'name': 'SGL 2027', 'status': EventStatus.DRAFT, 'is_default': False,
             'starts_on': date(2027, 10, 21), 'ends_on': date(2027, 10, 24),
         },
     )
+    await _seed_event_roles(tenant, users, sgl25, sgl27)
+
+
+async def _seed_event_roles(tenant: Tenant, users: Dict[str, User], sgl25: Event, sgl27: Event) -> None:
+    """Grants outside the default event: last year's proctor (archived, so it
+    authorises nothing and the Edit member dialog lists it under "Also holds")
+    and next year's volunteer coordinator, who can open the SGL 2027 draft."""
+    proctor = users.get('proctor_user')
+    if proctor is not None:
+        with archive_maintenance():
+            await UserRole.get_or_create(user=proctor, role=Role.PROCTOR, tenant=tenant, event=sgl25)
+    player_three = users.get('player_three')
+    if player_three is not None:
+        await UserRole.get_or_create(user=player_three, role=Role.VOLUNTEER_COORDINATOR, tenant=tenant, event=sgl27)

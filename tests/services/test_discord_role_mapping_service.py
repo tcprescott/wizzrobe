@@ -15,6 +15,7 @@ from application.services.discord import discord_role_mapping_service as drms
 from application.services.discord.discord_guild_ops import GuildMember
 from application.services.discord.discord_role_mapping_service import DiscordRoleMappingService
 from models import MembershipSource, Role, RoleSource, TournamentGrant
+from tests.conftest import DEFAULT_TEST_EVENT_ID
 from tests.factories import make_audit_double
 
 pytestmark = pytest.mark.usefixtures("bypass_auth")
@@ -32,6 +33,7 @@ def make_service():
     svc.role_repository.add = AsyncMock()
     svc.role_repository.remove = AsyncMock()
     svc.role_repository.list_for_user_by_source = AsyncMock(return_value=[])
+    svc.role_repository.list_for_user = AsyncMock(return_value=[])
     svc.grant_repository = MagicMock()
     svc.grant_repository.list_for_user = AsyncMock(return_value=[])
     svc.grant_repository.add = AsyncMock()
@@ -46,6 +48,14 @@ def make_service():
     return svc
 
 
+#: The event per-event mappings and grants in this suite name.
+EVENT = 10
+
+
+def grant(role, source=RoleSource.DISCORD):
+    return SimpleNamespace(role=role, source=source, event_id=EVENT if role.is_per_event else None)
+
+
 def make_user(user_id=1, discord_id=123):
     return SimpleNamespace(id=user_id, discord_id=discord_id)
 
@@ -54,6 +64,7 @@ def mapping(discord_role_id, app_role):
     return SimpleNamespace(
         discord_role_id=discord_role_id, app_role=app_role,
         tournament_grant=None, tournament_id=None, tournament=None,
+        event_id=EVENT if app_role.is_per_event else None,
     )
 
 
@@ -66,7 +77,19 @@ def tournament_mapping(discord_role_id, grant, tournament_id=7, is_active=True):
 
 
 @pytest.fixture
-def patch_deps(monkeypatch):
+def fake_events(monkeypatch):
+    """Unit tests without a database: one writable event, ``EVENT``."""
+    monkeypatch.setattr(
+        DiscordRoleMappingService, '_writable_event_ids', AsyncMock(return_value={EVENT}),
+    )
+    monkeypatch.setattr(
+        DiscordRoleMappingService, '_mapping_event_id',
+        AsyncMock(side_effect=lambda role, event_id: (event_id or EVENT) if role is not None and role.is_per_event else None),
+    )
+
+
+@pytest.fixture
+def patch_deps(monkeypatch, fake_events):
     """Helper to configure the module-level dependencies of sync_user_roles."""
 
     def _apply(*, guild_id=42, member_result=(True, set()), current_roles=None):
@@ -112,7 +135,7 @@ class TestSyncUserRoles:
         summary = await svc.sync_user_roles(user)
 
         svc.role_repository.add.assert_awaited_once_with(
-            user, Role.PROCTOR, granted_by=None, source=RoleSource.DISCORD
+            user, Role.PROCTOR, granted_by=None, source=RoleSource.DISCORD, event_id=EVENT,
         )
         # A role in a tenant implies membership in it — the sync is a role-grant
         # path like any other.
@@ -130,14 +153,12 @@ class TestSyncUserRoles:
         svc.mapping_repository.list_for_guild = AsyncMock(
             return_value=[mapping(111, Role.PROCTOR)]
         )
-        svc.role_repository.list_for_user_by_source = AsyncMock(
-            return_value=[SimpleNamespace(role=Role.PROCTOR)]
-        )
+        svc.role_repository.list_for_user = AsyncMock(return_value=[grant(Role.PROCTOR)])
         user = make_user()
 
         summary = await svc.sync_user_roles(user)
 
-        svc.role_repository.remove.assert_awaited_once_with(user, Role.PROCTOR)
+        svc.role_repository.remove.assert_awaited_once_with(user, Role.PROCTOR, event_id=EVENT)
         svc.role_repository.add.assert_not_awaited()
         assert summary['revoked'] == ['proctor']
         action = svc.audit_service.write_log.await_args.args[1]
@@ -151,7 +172,7 @@ class TestSyncUserRoles:
         svc.mapping_repository.list_for_guild = AsyncMock(
             return_value=[mapping(999, Role.STAFF)]
         )
-        svc.role_repository.list_for_user_by_source = AsyncMock(return_value=[])
+        svc.role_repository.list_for_user = AsyncMock(return_value=[grant(Role.STAFF, RoleSource.MANUAL)])
         user = make_user()
 
         summary = await svc.sync_user_roles(user)
@@ -178,9 +199,7 @@ class TestSyncUserRoles:
         svc.mapping_repository.list_for_guild = AsyncMock(
             return_value=[mapping(111, Role.PROCTOR)]
         )
-        svc.role_repository.list_for_user_by_source = AsyncMock(
-            return_value=[SimpleNamespace(role=Role.PROCTOR)]
-        )
+        svc.role_repository.list_for_user = AsyncMock(return_value=[grant(Role.PROCTOR)])
         user = make_user()
 
         summary = await svc.sync_user_roles(user)
@@ -195,9 +214,7 @@ class TestSyncUserRoles:
         svc.mapping_repository.list_for_guild = AsyncMock(
             return_value=[mapping(111, Role.PROCTOR)]
         )
-        svc.role_repository.list_for_user_by_source = AsyncMock(
-            return_value=[SimpleNamespace(role=Role.PROCTOR)]
-        )
+        svc.role_repository.list_for_user = AsyncMock(return_value=[grant(Role.PROCTOR)])
         user = make_user()
 
         summary = await svc.sync_user_roles(user)
@@ -322,6 +339,7 @@ class TestSyncTournamentGrants:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.usefixtures('fake_events')
 class TestMappingCrud:
     async def test_add_mapping_creates_and_audits(self):
         svc = make_service()
@@ -334,6 +352,7 @@ class TestMappingCrud:
 
         svc.mapping_repository.create.assert_awaited_once_with(
             42, 111, 'Mods', app_role=Role.PROCTOR, tournament_grant=None, tournament_id=None,
+            event_id=EVENT,
         )
         action = svc.audit_service.write_log.await_args.args[1]
         assert action == 'discord_role.mapping_added'
@@ -353,7 +372,7 @@ class TestMappingCrud:
 
         svc.mapping_repository.create.assert_awaited_once_with(
             42, 222, 'Event Admins', app_role=None,
-            tournament_grant=TournamentGrant.TOURNAMENT_ADMIN, tournament_id=7,
+            tournament_grant=TournamentGrant.TOURNAMENT_ADMIN, tournament_id=7, event_id=None,
         )
         details = svc.audit_service.write_log.await_args.args[2]
         assert details['tournament_id'] == 7
@@ -447,7 +466,7 @@ class TestMappingCrud:
         svc.tournament_repository.get_by_id = AsyncMock(return_value=SimpleNamespace(id=7))
         svc.mapping_repository.get_tournament_match = AsyncMock(return_value=None)
 
-        async def get_match(_guild, role_id, app_role):
+        async def get_match(_guild, role_id, app_role, _event_id=None):
             return SimpleNamespace(id=1) if (role_id, app_role) == (111, Role.PROCTOR) else None
         svc.mapping_repository.get_match = AsyncMock(side_effect=get_match)
 
@@ -680,7 +699,7 @@ class TestSyncIntegration:
         default.discord_guild_id = guild_id
         await default.save()
         user = await User.create(discord_id=555, username='bob')
-        await DiscordRoleMappingRepository.create(guild_id, 111, 'Mods', Role.PROCTOR)
+        await DiscordRoleMappingRepository.create(guild_id, 111, 'Mods', Role.PROCTOR, event_id=DEFAULT_TEST_EVENT_ID)
         # A manually-granted role that must survive the sync.
         await UserRoleRepository.add(user, Role.STAFF, source=RoleSource.MANUAL)
 
@@ -715,7 +734,7 @@ class TestSyncIntegration:
         default = await Tenant.get(id=1)
         default.discord_guild_id = guild_id
         await default.save()
-        await DiscordRoleMappingRepository.create(guild_id, 111, 'Mods', Role.PROCTOR)
+        await DiscordRoleMappingRepository.create(guild_id, 111, 'Mods', Role.PROCTOR, event_id=DEFAULT_TEST_EVENT_ID)
         staff = await User.create(discord_id=1, username='staff')
         existing = await User.create(discord_id=556, username='chosen_name')
 

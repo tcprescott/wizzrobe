@@ -79,6 +79,15 @@ class RoleRequest(BaseModel):
             "super_admin is refused here."
         ),
     )
+    event: Optional[str] = Field(
+        None,
+        description=(
+            "The event slug a per-event role is granted in (proctor, stream_manager, "
+            "triforce_submitter, volunteer_coordinator, equipment_manager, volunteer, "
+            "check_in_desk). Omitted, it's the community's default event. Ignored for "
+            "staff and the online admin roles, which cover every event."
+        ),
+    )
 
 
 class TournamentEnrollmentUpdate(BaseModel):

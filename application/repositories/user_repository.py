@@ -12,7 +12,7 @@ from tortoise.expressions import Q
 from application.repositories._base import TenantScopedRepository
 from application.repositories._save import save_fields
 from application.repositories._tenant import current_tenant_id
-from models import SYSTEM_USER_DISCORD_ID, Role, Tournament, User, UserRole
+from models import SYSTEM_USER_DISCORD_ID, EventStatus, Role, Tournament, User, UserRole
 
 
 class PersonSummary(NamedTuple):
@@ -181,15 +181,26 @@ class UserRepository(TenantScopedRepository[User]):
         return [PersonSummary(*row) for row in rows]
 
     @staticmethod
-    async def role_summary(tenant_id: int) -> Tuple[Dict[int, List[Role]], Counter, Counter]:
+    async def role_summary(
+        tenant_id: int, event_id: Optional[int] = None,
+    ) -> Tuple[Dict[int, List[Tuple[Role, Optional[str]]]], Counter, Counter]:
         """Each user's roles in ``tenant_id``, and how many of its tournaments
         each one admins and crew-coordinates: three flat reads, no ``User`` rows.
 
         Counts span every event (cross-event): the Members list is the community's.
+        A role held in an event other than ``event_id`` comes with that event's
+        name (None otherwise); grants in archived events are left out, since
+        they authorise nothing.
         """
-        roles: Dict[int, List[Role]] = {}
-        for user_id, role in await UserRole.filter(tenant_id=tenant_id).order_by('id').values_list('user_id', 'role'):
-            roles.setdefault(user_id, []).append(role)
+        roles: Dict[int, List[Tuple[Role, Optional[str]]]] = {}
+        grants = await UserRole.filter(
+            Q(event_id=None) | Q(event__status__in=[EventStatus.LIVE, EventStatus.DRAFT]),
+            tenant_id=tenant_id,
+        ).order_by('id').values_list('user_id', 'role', 'event_id', 'event__name')
+        for user_id, role, held_in, event_name in grants:
+            roles.setdefault(user_id, []).append(
+                (Role(role), event_name if held_in is not None and held_in != event_id else None)
+            )
         admins = Counter(await Tournament.filter(tenant_id=tenant_id, admins__id__isnull=False)
                          .values_list('admins__id', flat=True))
         coordinators = Counter(await Tournament.filter(tenant_id=tenant_id, crew_coordinators__id__isnull=False)

@@ -10,14 +10,15 @@ from application.services import (
     DiscordLinkService,
     DiscordRoleMappingService,
     DiscordService,
+    EventService,
     TenantService,
     TournamentService,
     get_user_from_session,
 )
 from application.services.discord.discord_link_service import connect_redirect_uri
-from application.tenant_context import get_current_tenant_id, is_host_mode
+from application.tenant_context import get_current_tenant_id, is_host_mode, require_tenant_id
 from application.utils.mocks.mock_discord import is_mock_discord
-from models import Role, TournamentGrant
+from models import EventStatus, Role, TournamentGrant
 from pages.admin_tabs.volunteer_role_mappings import TAB_LABEL, volunteer_role_mappings_section
 from theme.busy import busy, busy_click, is_busy
 from theme.dialog._helpers import dialog_actions, form_dialog
@@ -47,9 +48,9 @@ _DISCORD_DEFAULT_COLOR = '#99aab5'
 
 
 def _mapping_key(mapping) -> tuple[int, str, int | None]:
-    """The (discord role, picker value, tournament) triple the add dialog compares against."""
+    """The (discord role, picker value, tournament or event) triple the add dialog compares against."""
     if mapping.app_role is not None:
-        return mapping.discord_role_id, f'{_ROLE_PREFIX}{mapping.app_role.value}', None
+        return mapping.discord_role_id, f'{_ROLE_PREFIX}{mapping.app_role.value}', mapping.event_id
     return (
         mapping.discord_role_id,
         f'{_GRANT_PREFIX}{mapping.tournament_grant.value}',
@@ -66,9 +67,11 @@ def _discord_role_extras(discord_roles: list[dict], mappings) -> dict[int, dict[
     grants: dict[int, list[str]] = {}
     for m in mappings:
         grant, target = _mapping_labels(m)
-        grants.setdefault(m.discord_role_id, []).append(
-            grant if m.app_role is not None else f'{grant} on {target}'
-        )
+        if m.app_role is None:
+            grant = f'{grant} on {target}'
+        elif m.app_role.is_per_event:
+            grant = f'{grant} in {target}'
+        grants.setdefault(m.discord_role_id, []).append(grant)
     name_counts: dict[str, int] = {}
     for r in discord_roles:
         name_counts[str(r['name'])] = name_counts.get(str(r['name']), 0) + 1
@@ -96,7 +99,14 @@ def _plural(count: int, noun: str) -> str:
 def _mapping_labels(mapping) -> tuple[str, str]:
     """(what it grants, where it applies) for one mapping row."""
     if mapping.app_role is not None:
-        return _ROLE_OPTIONS.get(mapping.app_role.value, mapping.app_role.value), 'Community-wide'
+        label = _ROLE_OPTIONS.get(mapping.app_role.value, mapping.app_role.value)
+        if not mapping.app_role.is_per_event:
+            return label, 'Community-wide'
+        event = mapping.event
+        if event is None:
+            return label, 'No event: grants nothing'
+        suffix = {EventStatus.DRAFT: ' (Draft)', EventStatus.ARCHIVED: ' (Archived)'}.get(event.status, '')
+        return label, f'{event.name}{suffix}'
     grant = _GRANT_OPTIONS.get(mapping.tournament_grant.value, mapping.tournament_grant.value)
     tournament = mapping.tournament.name if mapping.tournament else f'#{mapping.tournament_id}'
     return grant, tournament
@@ -220,9 +230,10 @@ async def admin_discord_roles_page(volunteer_mappings: bool = False) -> None:
                 'Discord roles against these mappings. Manually-granted roles are preserved.'
             ).classes('text-caption text-grey')
             ui.label(
-                'A mapping can grant a community-wide role, or Tournament Admin / Crew '
-                'Coordinator on one tournament. A tournament grant stops applying once '
-                'that tournament is no longer active.'
+                'A mapping grants Staff or an online admin role across the community, an '
+                'on-site role such as Proctor or Volunteer in one event, or Tournament Admin / '
+                'Crew Coordinator on one tournament. A tournament grant stops applying once '
+                'that tournament is no longer active, and an event grant once the event is archived.'
             ).classes('text-caption text-grey')
 
             # 'app_role' keeps its name so stored column preferences survive; it now
@@ -316,25 +327,42 @@ async def admin_discord_roles_page(volunteer_mappings: bool = False) -> None:
                     **{f'{_GRANT_PREFIX}{value}': label for value, label in _GRANT_OPTIONS.items()},
                 }
                 grant_extras = {
-                    f'{_GRANT_PREFIX}{value}': {'caption': 'On one tournament'}
-                    for value in _GRANT_OPTIONS
+                    **{f'{_GRANT_PREFIX}{value}': {'caption': 'On one tournament'} for value in _GRANT_OPTIONS},
+                    **{f'{_ROLE_PREFIX}{r.value}': {'caption': 'In one event'} for r in Role.per_event()},
                 }
+                tenant_events = await EventService.events_for_tenant(require_tenant_id())
+                event_options = {
+                    e.id: e.name + (' (Draft)' if e.is_draft else '')
+                    for e in tenant_events if not e.is_archived
+                }
+                default_event = next((e.id for e in tenant_events if e.is_default), None)
 
                 def wants_tournament(selection) -> bool:
                     return any(str(v).startswith(_GRANT_PREFIX) for v in selection or [])
+
+                def wants_event(selection) -> bool:
+                    return any(
+                        str(v).startswith(_ROLE_PREFIX) and Role(str(v)[len(_ROLE_PREFIX):]).is_per_event
+                        for v in selection or []
+                    )
+
+                def target_of(selection: str):
+                    if selection.startswith(_GRANT_PREFIX):
+                        return tournament_select.value
+                    if Role(selection[len(_ROLE_PREFIX):]).is_per_event:
+                        return event_select.value
+                    return None
 
                 def planned() -> tuple[list[tuple[int, str, object]], int]:
                     """(pairs that would be created, pairs already mapped)."""
                     new, skipped = [], 0
                     for role_id in discord_select.value or []:
                         for selection in app_select.value or []:
-                            tournament_id = (
-                                tournament_select.value if selection.startswith(_GRANT_PREFIX) else None
-                            )
-                            if (int(role_id), selection, tournament_id) in existing:
+                            target = target_of(selection)
+                            if (int(role_id), selection, target) in existing:
                                 skipped += 1
                             else:
-                                new.append((int(role_id), selection, tournament_id))
+                                new.append((int(role_id), selection, target))
                     return new, skipped
 
                 def update_summary(_=None):
@@ -369,6 +397,12 @@ async def admin_discord_roles_page(volunteer_mappings: bool = False) -> None:
                         tournament_select.bind_visibility_from(
                             app_select, 'value', backward=wants_tournament,
                         )
+                        # The on-site roles are held in one event; a mapping
+                        # keeps the event it names even after the default moves.
+                        event_select = ui.select(
+                            options=event_options, label='Event', value=default_event,
+                        ).classes('w-full')
+                        event_select.bind_visibility_from(app_select, 'value', backward=wants_event)
                         if not tournament_options:
                             ui.label(
                                 'No active tournaments to grant on — create one first.'
@@ -404,6 +438,7 @@ async def admin_discord_roles_page(volunteer_mappings: bool = False) -> None:
                                 tournament_id=(
                                     int(tournament_select.value) if wants_tournament(selections) else None
                                 ),
+                                event_id=event_select.value if wants_event(selections) else None,
                                 actor=current,
                             )
                         except (ValueError, PermissionError) as e:
@@ -420,7 +455,7 @@ async def admin_discord_roles_page(volunteer_mappings: bool = False) -> None:
                         ui.button('Cancel', on_click=dialog.close).props('flat')
                         add_button = ui.button('Add', icon='add', on_click=submit).props('color=primary')
 
-                for select in (discord_select, app_select, tournament_select):
+                for select in (discord_select, app_select, tournament_select, event_select):
                     select.on_value_change(update_summary)
                 update_summary()
                 dialog.open()

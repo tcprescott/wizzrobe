@@ -6625,6 +6625,35 @@ ol.wiz-help-list { list-style-type: decimal; }
     max-width: 65ch;
 }
 
+/* Edit member: the role pickers' small caps labels, and the event picker that
+   sits inline with "Roles in" (layout A). */
+.wiz-role-group__label {
+    margin-top: var(--space-2);
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--fg-muted);
+}
+
+.wiz-role-group__label--event {
+    color: var(--fg);
+}
+
+.wiz-role-group__head {
+    gap: var(--space-2);
+    margin-top: var(--space-2);
+}
+
+.wiz-role-group__head .wiz-role-group__label {
+    margin-top: 0;
+}
+
+.wiz-role-group__event {
+    min-width: 9rem;
+    max-width: 100%;
+}
+
 .wiz-settings-day {
     width: 6.5rem;
     font-variant-numeric: tabular-nums;

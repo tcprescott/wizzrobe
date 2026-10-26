@@ -232,6 +232,12 @@ latency stays at roughly one Discord round-trip instead of scaling with tenant
 count. Per-tenant mappings are `DiscordRoleMapping` rows managed on the admin
 **Role Mappings** tab.
 
+A mapping to a per-event role (`Role.is_per_event`) also names an `event`, the
+Default event unless staff pick another when adding it; the sync grants and
+revokes that role in that event only, and never touches grants in an archived
+event. Moving the Default later doesn't move existing mappings or re-grant
+anything. Community-wide roles map with `event` NULL.
+
 ### Accounts for members who have never signed in
 
 Holding a mapped role is enough to get a Wizzrobe account: staff shouldn't have
