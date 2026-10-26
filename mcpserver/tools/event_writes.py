@@ -21,6 +21,7 @@ from api.schemas.memberships import JoinRequestResponse
 from api.schemas.volunteers import VolunteerAssignmentResponse
 from application.errors import require_found
 from application.services import CheckInService, TenantMembershipService
+from application.services.volunteer.volunteer_call_off_service import VolunteerCallOffService
 from application.services.volunteer.volunteer_schedule_service import VolunteerScheduleService
 from mcpserver.auth import Gate, current_actor
 from mcpserver.registry import register
@@ -135,6 +136,49 @@ async def check_in_volunteer(
     return VolunteerAssignmentResponse.from_row(assignment)
 
 
+async def call_off_volunteer(
+    assignment_id: int,
+    note: Optional[str] = None,
+    tenant: TenantArg = None,
+) -> VolunteerAssignmentResponse:
+    """Tell one volunteer they aren't needed for their shift. Coordinators and staff only.
+
+    They get a DM (with `note`, if given), the shift skips check-in, and it
+    still counts as fully worked for hours, comps and attendance. Works on a
+    shift that has started ("you can head out"). `assignment_id` is the
+    assignment row, not the shift. Undo with `undo_volunteer_call_off`.
+    """
+    assignment = await VolunteerCallOffService().call_off(assignment_id, current_actor().user, note)
+    return VolunteerAssignmentResponse.from_row(assignment)
+
+
+async def call_off_volunteer_shift(
+    shift_id: int,
+    note: Optional[str] = None,
+    tenant: TenantArg = None,
+) -> list[VolunteerAssignmentResponse]:
+    """Call off everyone on a shift, each with a DM. Coordinators and staff only.
+
+    Drafts and anyone already called off are left alone; returns the
+    assignments newly called off. Each still counts as fully worked.
+    """
+    done = await VolunteerCallOffService().call_off_shift(shift_id, current_actor().user, note)
+    return [VolunteerAssignmentResponse.from_row(a) for a in done]
+
+
+async def undo_volunteer_call_off(
+    assignment_id: int,
+    tenant: TenantArg = None,
+) -> VolunteerAssignmentResponse:
+    """Put a called-off volunteer back on their shift. Coordinators and staff only.
+
+    They get a DM saying they're needed after all. Refused once the shift
+    has finished.
+    """
+    assignment = await VolunteerCallOffService().undo_call_off(assignment_id, current_actor().user)
+    return VolunteerAssignmentResponse.from_row(assignment)
+
+
 # --- Join requests ----------------------------------------------------------
 
 
@@ -176,5 +220,8 @@ def register_tools(mcp: MCPServer) -> None:
     write_tool(add_walk_up, 'Add walk-up', check_in)
     write_tool(sync_check_in_event, 'Sync check-in roster', check_in)
     write_tool(check_in_volunteer, 'Check in volunteer', FeatureFlag.VOLUNTEERS)
+    write_tool(call_off_volunteer, 'Call off volunteer', FeatureFlag.VOLUNTEERS)
+    write_tool(call_off_volunteer_shift, 'Call off volunteer shift', FeatureFlag.VOLUNTEERS)
+    write_tool(undo_volunteer_call_off, 'Undo volunteer call-off', FeatureFlag.VOLUNTEERS)
     write_tool(approve_join_request, 'Approve join request', None)
     write_tool(deny_join_request, 'Deny join request', None)

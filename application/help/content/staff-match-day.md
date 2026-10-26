@@ -35,8 +35,10 @@ Results come next, disputed ones first.
 | {chip:cancelled:No winner} | The match is {state:Finished} with no winner on it | **Record winner**, then confirm |
 | none | A winner is recorded and nobody has disputed it | Check the line ("Player One beat Player Two") and press **Confirm**, or **Change** to fix the winner |
 
-Running late lists matches past their start time that nobody has checked in.
-**Check in** does it from there.
+Running late lists matches past their start time that nobody has checked in,
+and any match whose player has told staff they're on their way, even before its
+start time. That player's line says how late they said they'd be, when they said
+it, and their note if they left one. **Check in** does it from there.
 
 **Open** on a result or a late match opens the match.
 :::
@@ -105,6 +107,24 @@ only tells you to look, so find the proctor and hear what happened.
 It doesn't hold anything up. The match stays {state:Finished}, and once you've
 decided, confirming it (with the winner corrected if needed) clears the flag.
 :::
+
+### Dropping a player
+
+When a player withdraws, is disqualified, or never turns up, take them out of
+the tournament: open Admin → Tournaments, tap the player count (or the row's
+**⋮ › Players…**), and press **Remove** beside them. Pick why, then choose once
+what happens to their open matches.
+
+- **Opponents win by forfeit** confirms each match for the other player in one
+  step and moves the bracket on. The board shows it as {chip:ok:Forfeit}.
+- **Call them off** deletes the matches and nobody advances.
+
+A match with more than two players just loses them. The player and each opponent
+get a DM. If the tournament runs on Challonge, they come out of the bracket there
+too, which forfeits every bracket match they haven't played.
+
+Made a mistake on one match? **Rewind** it from Edit match's ⋮ to before it
+finished, and the forfeit goes with it.
 
 ## Seeds
 

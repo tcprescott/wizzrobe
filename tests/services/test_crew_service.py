@@ -6,6 +6,7 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 
 from application.services.crew_service import CrewService
+from models import NotificationRecipient, StaffRequestKind
 from tests.factories import make_audit_double
 
 pytestmark = pytest.mark.usefixtures("bypass_auth")
@@ -415,6 +416,9 @@ class TestSignupNotifiesCrewOwners:
             'application.services.notification_links.admin_match', admin_match,
         )
         service.commentator_repository.create = AsyncMock()
+        send = AsyncMock()
+        monkeypatch.setattr('application.services.staff_request_dms.send', send)
+        service.staff_dms = send
         return service, owner, admin_match
 
     @staticmethod
@@ -431,10 +435,12 @@ class TestSignupNotifiesCrewOwners:
 
         await service.signup_crew(match_id=1, user=volunteer, role='commentator')
 
-        service.discord_service.send_dm.assert_called_once()
-        call = service.discord_service.send_dm.call_args
-        assert call.args[0] == int(owner.discord_id)
-        assert 'Alice' in call.args[1] and 'waiting for approval' in call.args[1]
+        service.staff_dms.assert_awaited_once()
+        call = service.staff_dms.await_args
+        kind, _crew_id, recipients, message = call.args
+        assert kind is StaffRequestKind.COMMENTATOR_SIGNUP
+        assert recipients == [(owner, NotificationRecipient.ADMINS)]
+        assert 'Alice' in message and 'waiting for approval' in message
         assert call.kwargs['link'] == 'board-link'
         assert admin_match.await_args.args == (1,)
 
@@ -444,7 +450,7 @@ class TestSignupNotifiesCrewOwners:
 
         await service.signup_crew(match_id=1, user=owner, role='commentator')
 
-        service.discord_service.send_dm.assert_not_called()
+        service.staff_dms.assert_not_awaited()
 
     async def test_owner_with_discord_off_still_reaches_send_dm(self, notifying):
         service, owner, _ = notifying
@@ -454,7 +460,7 @@ class TestSignupNotifiesCrewOwners:
         await service.signup_crew(match_id=1, user=make_user(user_id=42), role='commentator')
 
         # Discord off only drops the Discord copy, inside send_dm; devices still need the call.
-        service.discord_service.send_dm.assert_called_once()
+        service.staff_dms.assert_awaited_once()
 
     async def test_a_failing_notice_never_blocks_the_signup(self, notifying, monkeypatch):
         service, _, _ = notifying

@@ -82,7 +82,7 @@ the key is set, and rolling without one raises. See
 | `racetime_rooms` | Online tournaments | no | admin Racetime tab, race-room + profile API, auto-open worker | `race_room_service.py` (the worker delegates to it) |
 | `speedgaming_etl` | Online tournaments | no | admin SpeedGaming tab, `/speedgaming` API, sync worker | `speedgaming_sync_service.py`, `speedgaming_sync_worker.py` |
 | `brackets` | Online tournaments | no (ships dark) | admin Brackets tab, the home Event switcher's Brackets view, public bracket pages (`/tournament/{id}/brackets`, `/brackets/{id}`), `/brackets` API | `bracket_service.py` |
-| `challonge` | Community | **yes** | admin Challonge tab, the profile's Challonge link row (no REST router exists) | `challonge_service.py`; `push_result_if_linked` soft-skips |
+| `challonge` | Community | **yes** | the Challonge card on Settings → Integrations, the bracket items in the Tournaments row ⋮, the profile's Challonge link row (no REST router exists) | `challonge_service.py`; `push_result_if_linked` soft-skips |
 | `equipment` | Community | **yes** | `/equipment`, the Profile "Equipment you have out" card, admin Equipment tab, `api/routers/equipment.py` | `equipment_service.py` |
 | `volunteers` | Community | **yes** | `/volunteer` + its nav link, admin Volunteers/Schedule, `/volunteers` API | `volunteer/` (reminder worker skips) |
 | `triforce_texts` | Community | **yes** | the Tournaments-card Triforce button, admin Triforce tab, `/triforce-texts` API | `triforce_text_service.py`; the seed-roll text embed soft-returns `None` |
@@ -92,8 +92,12 @@ the key is set, and rolling without one raises. See
 | `emergency_contacts` | Community | no (ships dark) | the profile's Emergency contact card, the Users tab's ⋮ → Emergency contact… item (no REST router or MCP tool exists) | `emergency_contact_service.py` |
 | `notification_channels` | Community | no (ships dark) | the profile's Email and Telegram rows and Send a test; the DM mirror and the Telegram bot skip quietly (no REST router or MCP tool exists) | `notification_channel_service.py`; `mirror_dm` soft-skips |
 | `community_events` | Community | no (ships dark) | `/community-events*`, the Community view and count on Home's Event tab (`pages/home_tabs/event.py`), admin Community Events tab and Settings pane, reminder worker skips (no REST router or MCP tool exists) | `community_event_service.py` |
+| `discord_role_sync` | Community | no (ships dark) | the **Discord Roles from Wizzrobe** card on Settings → Discord; the role sync worker skips (no REST router or MCP tool exists) | `discord/discord_role_sync_service.py` |
+| `personal_webhooks` | Community | no (ships dark) | the **Webhooks** card on Profile; the delivery subscriber skips the tenant (no REST router or MCP tool exists) | `personal_webhook_service.py` |
+| `stream_layouts` | Operations | no (ships dark) | admin Stream Layouts tab, the match sheet's **Pin to overlay**; the public overlay routes 404 (no REST router or MCP tool exists) | `stream_layout_service.py` |
 | `payouts` | Operations | no (ships dark) | admin Payouts tab, the profile's Matcherino-handle card, `/tournaments/{id}/payouts` + `/prize-pool` API, the MCP `get_tournament_payouts` tool | `payout_service.py` |
 | `event_check_in` | Operations | no (ships dark) | `/checkin` + `/checkin/{event_id}` (redirects), the Volunteer hub's **Check-in Desk** tab and the hub itself, which opens on `VOLUNTEERS` or `EVENT_CHECK_IN` (`AuthService.can_view_check_in_desk`), admin Check-in tab, sync worker skips (no REST router or MCP tool exists) | `check_in_service.py`, `check_in_sync_worker.py` |
+| `item_tracker` | Operations | no (ships dark) | `/tracker/{match_id}`, `/tracker/overlay/{token}`, the match sheet's Item tracker button (no REST router or MCP tool exists) | `item_tracker_service.py`; `sheet_link` soft-returns `None` |
 
 `established=True` marks a feature that was **already in live use** when its flag
 was added. [Migration 30](../../migrations/models/30_20260715000000_feature_flags.py)

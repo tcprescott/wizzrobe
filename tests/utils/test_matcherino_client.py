@@ -255,6 +255,17 @@ async def test_a_short_read_is_an_error_not_fewer_buyers(monkeypatch):
         await client.fetch_sales(1)
 
 
+async def test_a_purchase_listed_twice_is_one_badge(monkeypatch):
+    tier = mock_tier(1988, 'Base', 8000, qty_sold=2)
+    purchases = [
+        mock_purchase(1, 'a', tier=tier, purchase_id=10),
+        mock_purchase(1, 'a', tier=tier, purchase_id=10, refunded_at='2026-10-21T00:00:00Z'),
+        mock_purchase(2, 'b', tier=tier, purchase_id=20),
+    ]
+    sales = await _client(monkeypatch, _venue_api([tier], purchases)).fetch_sales(1)
+    assert [(p.id, p.active) for p in sales.purchases] == [(10, False), (20, True)]
+
+
 async def test_an_error_envelope_raises_with_matcherinos_message(monkeypatch):
     body = {'status': 500, 'error': {'message': 'Failed to parse int string'}, 'body': None}
     client = _client(monkeypatch, lambda r: httpx.Response(500, json=body))

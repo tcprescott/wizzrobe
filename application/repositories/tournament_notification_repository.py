@@ -1,5 +1,6 @@
 from typing import List, Optional, Set, cast
 
+from application.repositories._save import save_fields
 from application.repositories._tenant import current_tenant_id, scoped
 from models import MatchNotificationLevel, Tournament, TournamentNotificationPreference, User
 
@@ -25,7 +26,7 @@ class TournamentNotificationRepository:
             tournament=tournament,
         )
         pref.match_notifications = match_notifications
-        await pref.save()
+        await save_fields(pref, 'match_notifications')
         return pref
 
     async def set_staff_alerts(self, user: User, tournament: Tournament, on: bool) -> TournamentNotificationPreference:
@@ -82,3 +83,10 @@ class TournamentNotificationRepository:
             p.user for p in prefs
             if p.user.discord_id
         ]
+
+    async def get_followers(self, tournament_id: int) -> List[User]:
+        """Users following the tournament at any level."""
+        prefs = await scoped(TournamentNotificationPreference.filter(
+            tournament_id=tournament_id,
+        ).exclude(match_notifications=MatchNotificationLevel.NONE)).prefetch_related('user').all()
+        return [p.user for p in prefs if p.user.discord_id]

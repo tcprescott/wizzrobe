@@ -7,7 +7,9 @@ Each module exposes ``register_tools(mcp)`` and registers only through
 ``platform_writes`` are the modules that change data, kept
 apart from the read modules rather than filed by domain: whether a tool writes is the property that
 decides its annotation, its gate and whether a read-only connection is even
-shown it, so it is the property the layout should make obvious.
+shown it, so it is the property the layout should make obvious. ``exports`` is
+the one mixed module: queuing an export only writes the request row, never
+community data, so its two write tools sit beside the reads that poll them.
 """
 
 from mcp.server.mcpserver import MCPServer
@@ -19,6 +21,7 @@ from mcpserver.tools import (
     competition,
     equipment,
     event_writes,
+    exports,
     match_writes,
     matches,
     observability,
@@ -52,3 +55,4 @@ def register_all(mcp: MCPServer) -> None:
     admin_writes.register_tools(mcp)
     platform.register_tools(mcp)
     platform_writes.register_tools(mcp)
+    exports.register_tools(mcp)

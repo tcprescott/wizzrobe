@@ -6,6 +6,7 @@ from nicegui import ui
 
 from application.services import EquipmentService, TenantService, UserService
 from models import Equipment, EquipmentStatus, User
+from theme.busy import busy_click
 from theme.dialog._helpers import dialog_actions, dialog_header, mobile_sheet
 
 _WIZ_OWNER = ''  # empty owner value ⇒ owned by the community (its tenant)
@@ -40,7 +41,7 @@ class EquipmentDialog:
         # useful record. The stored owner is force-included so editing an asset
         # whose owner has since fallen out of the set cannot silently drop them.
         stored_owner = self.equipment.owner_user_id if is_edit else None
-        users = await UserService().get_community_people(
+        users = await UserService().get_community_people_summaries(
             include_user_ids=[i for i in (self.actor.id, stored_owner) if i is not None],
         )
         community = await TenantService.current_community_name()
@@ -156,6 +157,7 @@ class EquipmentDialog:
 
             with dialog_actions().classes('justify-end'):
                 ui.button('Cancel', on_click=dialog.close).props('flat')
-                ui.button('Save' if is_edit else 'Create', on_click=submit).props('color=primary')
+                ui.button('Save' if is_edit else 'Create',
+                          on_click=busy_click('Saving…' if is_edit else 'Creating…', submit)).props('color=primary')
 
             dialog.open()

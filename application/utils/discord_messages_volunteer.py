@@ -15,7 +15,7 @@ Times arrive as **display strings** already rendered by
 ``discord_embeds.time_field``, so each recipient's client localises them.
 """
 
-from typing import Optional
+from typing import Optional, Sequence
 
 import discord
 
@@ -62,12 +62,27 @@ def volunteer_assignment_dm(
     return "\n\n".join(blocks)
 
 
+def handover_text(relieving: Sequence[str], relieved_by: Sequence[str], hand_off_at: str) -> str:
+    """The "Taking over from … / Handing off to … at …" line; '' when neither applies.
+
+    Names arrive ready to show: Discord mentions in an embed, escaped plain
+    names in the text that becomes the web-push copy.
+    """
+    lines = []
+    if relieving:
+        lines.append(f"Taking over from {', '.join(relieving)}")
+    if relieved_by:
+        lines.append(f"Handing off to {', '.join(relieved_by)} at {hand_off_at}")
+    return "\n".join(lines)
+
+
 def volunteer_reminder_dm(
     position_name: str,
     label: Optional[str],
     starts_display: str,
     ends_display: str,
     acknowledged: bool = False,
+    handover: str = '',
 ) -> str:
     """Reminder DM sent ahead of a volunteer shift.
 
@@ -83,6 +98,8 @@ def volunteer_reminder_dm(
                       "tap **Can't make it** so your coordinator can find cover.")
     else:
         blocks.append("Tap **Acknowledge** to confirm, or **Can't make it** if you can't.")
+    if handover:
+        blocks.append(handover)
     return "\n\n".join(blocks)
 
 
@@ -216,14 +233,17 @@ def volunteer_shift_start_dm(
     label: Optional[str],
     starts_display: str,
     ends_display: str,
+    handover: str = '',
 ) -> str:
     """DM at the start of a shift, asking the volunteer to say they've arrived."""
     details = _volunteer_shift_lines(position_name, label, starts_display, ends_display)
     blocks = ["Your volunteer shift is starting."]
     if details:
         blocks.append("\n".join(details))
-    blocks.append("Tap **I'm here** so your coordinator knows, **Running late** if "
+    blocks.append("Tap **I'm here** so your coordinator knows, **Tell staff I'm late** if "
                   "you're on your way, or **I can't make it**.")
+    if handover:
+        blocks.append(handover)
     return "\n\n".join(blocks)
 
 
@@ -270,3 +290,82 @@ def volunteer_released_confirmation() -> str:
 
 def volunteer_ack_confirmation(position_name: str) -> str:
     return f"Thanks! Your **{position_name}** shift is acknowledged."
+
+
+def _call_off_note(note: Optional[str], by_name: Optional[str]) -> Optional[str]:
+    """Staff's optional note, flattened, capped and escaped like a volunteer's reason."""
+    text = ' '.join((note or '').split())
+    if not text:
+        return None
+    if len(text) > REASON_MAX_CHARS:
+        text = text[:REASON_MAX_CHARS - 1].rstrip() + '…'
+    text = discord.utils.escape_mentions(discord.utils.escape_markdown(text))
+    who = discord.utils.escape_markdown(by_name) if by_name else 'your coordinator'
+    return f'**Note from {who}:** {text}'
+
+
+def call_off_title(position_name: str, started: bool) -> str:
+    """The call-off DM's headline: before the shift, or partway through it."""
+    where = position_name or 'your shift'
+    return f'You can head out from {where}' if started else f"You're not needed for {where}"
+
+
+def call_off_description(
+    hours: float, started: bool, note: Optional[str] = None, by_name: Optional[str] = None,
+) -> str:
+    """The call-off embed's body: don't come (or go home), and it still counts."""
+    worked = f'{hours:g} hour{"" if hours == 1 else "s"}'
+    if started:
+        lines = ['Thanks for your help today. You can leave now, and the full shift '
+                 f'still counts as worked: all {worked} go toward your volunteer total.']
+    else:
+        lines = ['No need to come in. It still counts as worked: '
+                 f'all {worked} go toward your volunteer total.']
+    said = _call_off_note(note, by_name)
+    if said:
+        lines.append(said)
+    return '\n\n'.join(lines)
+
+
+def volunteer_called_off_dm(
+    position_name: str,
+    label: Optional[str],
+    starts_display: str,
+    ends_display: str,
+    hours: float,
+    started: bool,
+    note: Optional[str] = None,
+    by_name: Optional[str] = None,
+) -> str:
+    """Plain-text twin of the call-off embed, for web push and the fallback."""
+    details = _volunteer_shift_lines(position_name, label, starts_display, ends_display)
+    blocks = [call_off_title(position_name, started) + '.']
+    if details:
+        blocks.append('\n'.join(details))
+    blocks.append(call_off_description(hours, started, note, by_name))
+    return '\n\n'.join(blocks)
+
+
+def call_off_undone_title(position_name: str) -> str:
+    return f"You're needed for {position_name or 'your shift'} after all"
+
+
+def volunteer_call_off_undone_dm(
+    position_name: str,
+    label: Optional[str],
+    starts_display: str,
+    ends_display: str,
+    by_name: Optional[str] = None,
+) -> str:
+    """DM when staff take back a call-off: the shift is on again."""
+    details = _volunteer_shift_lines(position_name, label, starts_display, ends_display)
+    blocks = [call_off_undone_title(position_name) + '.']
+    if details:
+        blocks.append('\n'.join(details))
+    blocks.append(call_off_undone_description(by_name))
+    return '\n\n'.join(blocks)
+
+
+def call_off_undone_description(by_name: Optional[str] = None) -> str:
+    who = discord.utils.escape_markdown(by_name) if by_name else 'Your coordinator'
+    return f'{who} put you back on this shift. Please check in when you arrive.'

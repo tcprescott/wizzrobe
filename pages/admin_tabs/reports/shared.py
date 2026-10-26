@@ -7,15 +7,16 @@ button, URL-state helpers, and a small page-shell wrapper.
 import json
 from contextlib import contextmanager
 from datetime import date, datetime, timedelta
-from typing import Any, Callable, Iterator, Mapping, NamedTuple, Optional, Sequence, TypeVar
+from typing import AbstractSet, Any, Callable, Iterator, Mapping, NamedTuple, Optional, Sequence, TypeVar
 
 from nicegui import context, ui
 
 from application.services import SystemConfigService, TenantThemeService, TournamentService
 from application.utils.timezone import local_day_bounds
+from models import Tournament
 from pages.admin_tabs.links import REPORTS, SCHEDULE, admin_url
 from theme.dialog._helpers import native_date_input
-from theme.empty_state import cat_fact
+from theme.empty_state import fun_fact
 from theme.page_header import page_header
 from theme.section import section_panel
 from theme.tables.export import csv_export_button
@@ -240,6 +241,7 @@ def report_jumps(
     current = next((text for text, s, e in options if (s, e) == (start_d, end_d)), None)
     with ui.row().classes('wiz-report-jumps items-center no-wrap'):
         ui.label('Jump to').classes('text-caption')
+        # url-state: exempt — reports carry their own filters in the URL (navigate_with_params)
         jumps = ui.toggle(list(by_label), value=current) \
             .props('no-caps dense unelevated aria-label="Jump to"').classes('wiz-segmented')
 
@@ -304,11 +306,15 @@ def date_range_filter(
 async def tournament_filter(
     current_id: Optional[int],
     on_change: Callable[[Optional[int]], None],
+    *,
+    only: Optional[AbstractSet[int]] = None,
 ) -> ui.select:
+    """``only`` narrows the choices to a viewer's own tournaments."""
     tournaments = await TournamentService().get_all_tournaments()
-    options: dict = {0: 'All tournaments'}
-    for t in tournaments:
-        options[t.id] = t.name
+    options: dict = {0: 'All tournaments' if only is None else 'All my tournaments'}
+    options.update(Tournament.short_label_options(
+        t for t in tournaments if only is None or t.id in only
+    ))
     value = current_id if current_id and current_id in options else 0
     select = filter_field(ui.select(options=options, value=value, label='Tournament'))
 
@@ -348,7 +354,7 @@ def show_navigating() -> None:
                 with ui.row().classes('items-center no-wrap gap-3'):
                     ui.spinner(size='sm')
                     ui.label('Updating report…')
-                cat_fact()
+                fun_fact()
 
 
 # Set per client (never module state — one module serves every operator in every
@@ -654,8 +660,10 @@ async def paginated_event_log(
         table.add_slot('body', _EVENT_LOG_BODY_ROWCLICK if on_row_click else _EVENT_LOG_BODY_PLAIN)
         if on_row_click is not None:
             table.on('row-click', lambda e: on_row_click(clicked_row(e)))
+        # pager=False: this table pages on the server with the buttons below.
         enable_mobile_grid(table, columns, table_key=table_key,
-                           row_click_event='row-click' if on_row_click else None)
+                           row_click_event='row-click' if on_row_click else None,
+                           pager=False)
         ui.label(note).classes('italic-note')
 
         total_pages = max(1, (total + page_size - 1) // page_size)

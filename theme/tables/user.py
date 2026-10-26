@@ -1,10 +1,26 @@
 from nicegui import ui
 
+from application.services import UserService
 from application.tenant_context import get_current_tenant_id
 from application.utils.timezone import format_local_display
 from theme.empty_state import no_data_slot
 from theme.tables.admin_crud import capture_render_context, scoped_background
+from theme.tables.plain_rows import set_plain_rows
 from theme.tables.preferences import customize_table, row_count_label, sticky_header
+
+_ROW_FIELDS = (
+    'id', 'username', 'display_name', 'pronouns', 'discord_id', 'challonge_username',
+    'challonge_user_id', 'is_active', 'created_at', 'updated_at',
+)
+
+
+def _role_labels(roles, ta_count: int, cc_count: int) -> list:
+    labels = list(dict.fromkeys(role.label for role in roles))
+    if ta_count:
+        labels.append(f'TA({ta_count})')
+    if cc_count:
+        labels.append(f'CC({cc_count})')
+    return labels
 
 
 class UserTableView:
@@ -12,7 +28,7 @@ class UserTableView:
 
     def __init__(self, columns, get_query, extra_slots=None, submit_user_callback=None,
                  show_toolbar=True, row_actions=None, empty_message='No users match this filter.',
-                 table_key=None, before_refresh=None, decorate_row=None):
+                 table_key=None, before_refresh=None, decorate_row=None, name_event='edit_user'):
         self.columns = columns
         # When set, this view's desktop columns follow the viewer's saved layout.
         self.table_key = table_key
@@ -30,6 +46,9 @@ class UserTableView:
         # ``decorate_row(row)`` that writes it onto each formatted row.
         self.before_refresh = before_refresh
         self.decorate_row = decorate_row
+        # What clicking a name emits: the edit dialog by default, or a caller's
+        # own view (Admin → Members opens the member sheet).
+        self.name_event = name_event
         self.table = None
         # Capture the tenant while the request context is live; background tasks
         # (initial load, pagination refresh) run detached from the client slot, so
@@ -64,12 +83,17 @@ class UserTableView:
         if self.row_actions:
             self.table.add_slot(
                 'body-cell-actions', f'<q-td :props="props">{self.row_actions}</q-td>')
-        self.table.add_slot('body-cell-username', '''<q-td :props="props">
-            <a href="#" @click="$parent.$emit('edit_user', props)" class="table-link user-table__name">{{ props.value }}</a>
-        </q-td>''')
-        self.table.add_slot('body-cell-preferred_name', '''<q-td :props="props">
+        name_link = (
+            '<a href="#" @click.prevent="$parent.$emit(\'' + self.name_event + '\', props)" '
+            'class="table-link user-table__name">{{ props.value }}</a>'
+        )
+        self.table.add_slot('body-cell-username', f'<q-td :props="props">{name_link}</q-td>')
+        if self.name_event == 'edit_user':
+            self.table.add_slot('body-cell-preferred_name', '''<q-td :props="props">
             <span class="user-table__name">{{ props.value }}</span>
         </q-td>''')
+        else:
+            self.table.add_slot('body-cell-preferred_name', f'<q-td :props="props">{name_link}</q-td>')
         self.table.add_slot('body-cell-is_active', '''<q-td :props="props">
             <q-icon :name="props.value ? 'check_circle' : 'cancel'" :color="props.value ? 'positive' : 'negative'" size="sm" />
         </q-td>''')
@@ -136,7 +160,7 @@ class UserTableView:
                 continue
             field = { 'label': col.get('label', col.get('name', '')), 'key': col.get('name', '') }
             if field['key'] == 'username':
-                field['event'] = 'edit_user'
+                field['event'] = self.name_event
             if field['key'] == 'ada':
                 field['event'] = 'open_ada'
             if field['key'] == 'is_active':
@@ -151,7 +175,7 @@ class UserTableView:
         <div class="q-mb-sm user-grid-card" style="width: 100%; box-sizing: border-box;">
             <template v-for="field in [
                 {js_field_array}
-            ].filter(f => f.bool || f.event === 'edit_user' || props.row[f.key])" :key="field.key">
+            ].filter(f => f.bool || f.event === '{self.name_event}' || props.row[f.key])" :key="field.key">
                 <div class="text-grey-7">{{{{ field.label }}}}</div>
                 <div style="overflow-wrap: anywhere; min-width: 0">
                 <template v-if="field.event && props.row[field.key]">
@@ -176,20 +200,24 @@ class UserTableView:
     async def refresh(self, *_, **__):
         if self.before_refresh:
             await self.before_refresh()
-        user_query = self.get_query()
-        all_users = await user_query.order_by('username').prefetch_related(
-            'roles', 'admin_tournaments', 'crew_coordinated_tournaments'
-        )
-        # Use the tenant captured at build, NOT a live get_current_tenant_id():
-        # refresh() is also driven by the filter/toolbar/tab-switch handlers as
-        # bare background tasks that have lost the tenant, where a live resolve
-        # returns None and would re-leak cross-tenant role grants.
-        rows = [self._format_user_row(u, self._tenant_id) for u in all_users]
+        # Plain columns, not hydrated Users: a ~40-field model per member held the
+        # one event loop for over a second on a community of 2,000.
+        users = await self.get_query().order_by('username').values(*_ROW_FIELDS)
+        rows = []
+        if users:
+            # Use the tenant captured at build, NOT a live get_current_tenant_id():
+            # refresh() is also driven by the filter/toolbar/tab-switch handlers as
+            # bare background tasks that have lost the tenant, where a live resolve
+            # returns None and would re-leak cross-tenant role grants.
+            roles, admins, coordinators = await UserService().member_role_summary(self._tenant_id)
+            rows = [
+                self._row(u, _role_labels(roles.get(u['id'], []), admins[u['id']], coordinators[u['id']]))
+                for u in users
+            ]
         if self.decorate_row:
             for row in rows:
                 self.decorate_row(row)
-        self.table.rows = rows
-        self.table.update()
+        set_plain_rows(self.table, rows)
 
     @staticmethod
     def _format_user_row(u, tid=None):
@@ -197,35 +225,29 @@ class UserTableView:
         # same identity may hold STAFF in several communities and SUPER_ADMIN with
         # tenant=NULL), so an unscoped render both duplicates chips and leaks other
         # communities' grants into this admin — the display counterpart of the
-        # scoping AuthService.get_roles already applies. Dedupe within the tenant.
-        seen = set()
-        role_labels = []
-        for r in u.roles:
-            if tid is not None and r.tenant_id != tid:
-                continue
-            label = r.role.label
-            if label not in seen:
-                seen.add(label)
-                role_labels.append(label)
+        # scoping AuthService.get_roles already applies.
+        roles = [r.role for r in u.roles if tid is None or r.tenant_id == tid]
         # Tournaments are tenant-scoped too; count only those in this tenant.
         ta_count = sum(1 for t in u.admin_tournaments if tid is None or t.tenant_id == tid)
         cc_count = sum(1 for t in u.crew_coordinated_tournaments if tid is None or t.tenant_id == tid)
-        if ta_count:
-            role_labels.append(f'TA({ta_count})')
-        if cc_count:
-            role_labels.append(f'CC({cc_count})')
+        return UserTableView._row(
+            {name: getattr(u, name) for name in _ROW_FIELDS}, _role_labels(roles, ta_count, cc_count),
+        )
+
+    @staticmethod
+    def _row(u: dict, role_labels: list) -> dict:
         return {
-            'id': u.id,
-            'username': u.username,
-            'display_name': u.display_name or '',
-            'preferred_name': u.preferred_name or '',
-            'pronouns': u.pronouns or '',
-            'discord_id': u.discord_id,
-            'challonge': u.challonge_username or u.challonge_user_id or '',
-            'is_active': u.is_active,
+            'id': u['id'],
+            'username': u['username'],
+            'display_name': u['display_name'] or '',
+            'preferred_name': u['display_name'] or u['username'] or '',
+            'pronouns': u['pronouns'] or '',
+            'discord_id': u['discord_id'],
+            'challonge': u['challonge_username'] or u['challonge_user_id'] or '',
+            'is_active': u['is_active'],
             'roles': ', '.join(role_labels),
-            'created_at': format_local_display(u.created_at),
-            'updated_at': format_local_display(u.updated_at),
+            'created_at': format_local_display(u['created_at']),
+            'updated_at': format_local_display(u['updated_at']),
         }
 
     async def update_row_by_id(self, user_id):
@@ -242,5 +264,8 @@ class UserTableView:
         ).first()
         if not u:
             return  # User not found
+        idx = next((i for i, row in enumerate(self.table.rows) if row.get('id') == user_id), None)
+        if idx is None:
+            return  # A reload replaced the rows while the query ran
         self.table.rows[idx] = self._format_user_row(u, self._tenant_id)
         self.table.update()

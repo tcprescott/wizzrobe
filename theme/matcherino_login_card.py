@@ -22,6 +22,7 @@ from nicegui import background_tasks, context, ui
 
 from application.services import MatcherinoLoginService
 from application.utils.timezone import format_local_display
+from theme.busy import busy_click
 from theme.connection import REQUIRES_SOCKET_CLASS
 from theme.dialog import ConfirmationDialog
 from theme.notify import notify_error
@@ -148,21 +149,21 @@ async def matcherino_login_card() -> None:
                 ui.label(
                     "Not set. Ticket sync can't read your venue's badge sales until you add one."
                 ).classes('text-caption text-warning')
-            with ui.row().classes('items-center w-full no-wrap'):
-                token_input = ui.input('Refresh token').props(
-                    'type=password autocomplete=off dense outlined'
-                ).classes('flex-grow')
-                if status.configured:
-                    token_input.props('hint="Saving a new token replaces the one stored"')
+            token_input = ui.input('Refresh token').props(
+                'type=password autocomplete=off dense outlined'
+            ).classes('w-full')
+            if status.configured:
+                token_input.props('hint="Saving a new token replaces the one stored"')
+            with ui.element('div').classes('wiz-pair-actions'):
                 if status.configured:
                     ui.button(
                         'Remove', icon='delete',
                         on_click=lambda: background_tasks.create(remove(context.client)),
-                    ).props('flat color=negative dense').classes(REQUIRES_SOCKET_CLASS)
+                    ).props('flat color=negative').classes(REQUIRES_SOCKET_CLASS)
                 ui.button(
                     'Save', icon='save',
-                    on_click=lambda: background_tasks.create(save(token_input, context.client)),
-                ).props('color=primary dense').classes(REQUIRES_SOCKET_CLASS)
+                    on_click=busy_click('Checking…', lambda: save(token_input, context.client)),
+                ).props('color=primary').classes(REQUIRES_SOCKET_CLASS)
             if status.configured:
                 options = {0: 'Nobody', **{u.id: u.preferred_name for u in candidates}}
                 ui.select(

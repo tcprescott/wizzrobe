@@ -125,11 +125,13 @@ async def _not_found(request: Request) -> Response:
         community = await TenantService.current_community_name() or ''
     except Exception:
         community = ''
+    theme = await _theme()
     return HTMLResponse(
         render_not_found_document(
             root_path=request.scope.get('root_path', '') or '',
             community=community,
-            primary_color=await _theme_primary(),
+            primary_color=theme.get('primary'),
+            icons=theme,
         ),
         status_code=404,
         headers={'Cache-Control': 'no-store', 'X-Robots-Tag': 'noindex, nofollow'},
@@ -156,13 +158,13 @@ def _conditional(request: Request, etag: str, body: str) -> Response:
     return HTMLResponse(body, headers=headers)
 
 
-async def _theme_primary() -> Optional[str]:
-    """The tenant's brand primary, so the static view is not visibly off-brand."""
+async def _theme() -> dict[str, str]:
+    """The tenant's palette and logo icons, so the static view is not visibly off-brand."""
     try:
-        return (await TenantThemeService.get_current_theme()).get('primary')
+        return await TenantThemeService.get_current_theme()
     except Exception:
         logger.debug('Static bracket view: falling back to the default palette', exc_info=True)
-        return None
+        return {}
 
 
 async def _next_stage_advancement(
@@ -218,6 +220,7 @@ def create() -> None:
         tz = await TimezoneService.tenant_timezone_name(tenant_id)
 
         brackets = await service.list_visible_brackets(None, tid)
+        theme = await _theme()
         with tz_scope(tz):
             body = render_index_document(StaticIndexView(
                 tournament_id=tid,
@@ -225,7 +228,8 @@ def create() -> None:
                 brackets=brackets,
                 generated_at=datetime.now(timezone.utc),
                 root_path=root,
-                primary_color=await _theme_primary(),
+                primary_color=theme.get('primary'),
+                icons=theme,
                 refresh_seconds=_INDEX_REFRESH_SECONDS,
             ))
         return _respond(request, tenant_id, key, body)
@@ -270,6 +274,7 @@ def create() -> None:
         )
 
         entrant_name = {en.id: en.display_name for en in entrants}
+        theme = await _theme()
         with tz_scope(tz):
             body = render_bracket_document(StaticBracketView(
                 bracket=bracket,
@@ -284,7 +289,8 @@ def create() -> None:
                 advancement=advancement,
                 generated_at=datetime.now(timezone.utc),
                 root_path=root,
-                primary_color=await _theme_primary(),
+                primary_color=theme.get('primary'),
+                icons=theme,
                 refresh_seconds=_PAGE_REFRESH_SECONDS,
             ))
         return _respond(request, tenant_id, key, body)

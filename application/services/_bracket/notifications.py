@@ -29,6 +29,7 @@ from application.services import notification_links
 from application.services._bracket._composed import ComposedBracketService
 from application.services.bracket_engines.round_names import RoundNode, round_names
 from application.services.discord import discord_queue
+from application.services.notification_catalog import MATCHUP_READY, MATCHUP_REOPENED, PLAYERS
 from application.utils.discord_embeds import matchup_ready_embed
 from application.utils.discord_messages import DMLink, matchup_ready_dm
 from models import (
@@ -120,8 +121,9 @@ class BracketNotificationMixin(ComposedBracketService):
             best_of = self.resolve_best_of(bracket, bracket_match)
             parts = [await self.round_name_for_match(bracket, bracket_match)]
             if best_of > 1:
-                parts.append(f'Game {game.game_number} of {best_of}')
-                games = await self.repository.list_games(bracket_match.id)
+                games = await self.repository.list_games(bracket_match.id, with_matches=True)
+                number = self.numbers_by_time(games).get(game.id, game.game_number)
+                parts.append(f'Game {number} of {best_of}')
                 e1, e2 = self._standing_from(games, bracket_match)
                 if e1 or e2:
                     parts.append(f'Series {max(e1, e2)}-{min(e1, e2)}')
@@ -152,13 +154,13 @@ class BracketNotificationMixin(ComposedBracketService):
             return None
         bracket = resolved.bracket
         best_of = self.resolve_best_of(bracket, resolved)
-        games = await self.repository.list_games(resolved.id)
+        games = await self.repository.list_games(resolved.id, with_matches=True)
         e1, e2 = self._standing_from(games, resolved)
         return {
             'bracket_id': bracket.id,
             'bracket_name': bracket.name,
             'round_name': await self.round_name_for_match(bracket, resolved),
-            'game_number': game.game_number,
+            'game_number': self.numbers_by_time(games).get(game.id, game.game_number),
             'best_of': best_of,
             'standing': f'{max(e1, e2)}-{min(e1, e2)}' if (e1 or e2) else '',
             'entrants': [
@@ -287,7 +289,11 @@ class BracketNotificationMixin(ComposedBracketService):
         schedule_link: Optional[DMLink],
         rebook: bool,
     ) -> None:
-        """One entrant's DM. ``send_dm`` honours the Discord on/off switch."""
+        """One entrant's DM. ``send_dm`` honours the Discord on/off switch.
+
+        Silent by default (see the catalogue): the matchup waits in the
+        player's Pick-a-time list, so the DM is a heads-up rather than a summons.
+        """
         from application.services.discord.discord_service import DiscordService
         from application.services.match.match_schedule_service import (
             _community_name,
@@ -315,6 +321,7 @@ class BracketNotificationMixin(ComposedBracketService):
         )
         success, err = await DiscordService().send_dm(
             user.discord_id, message, embed=embed, link=schedule_link,
+            notice=(MATCHUP_REOPENED if rebook else MATCHUP_READY).to(PLAYERS),
         )
         if not success:
             logger.warning(

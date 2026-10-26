@@ -5,25 +5,99 @@ One method per report. Day boundaries resolve on the viewer's display clock;
 inputs and outputs are timezone-aware datetimes (UTC on the wire).
 """
 
-from datetime import date, datetime, time, timedelta
+from datetime import date, datetime, time, timedelta, timezone
 from typing import Dict, List, Optional, Tuple
 
+from application.event_context import event_scoped
 from application.services.reporting_shared import (
     DEFAULT_MATCH_DURATION_MIN,
     ON_TIME_THRESHOLD_MIN,
     crew_requirement,
+    ensure_report_reader,
     is_crew_covered,
+    is_outlier_duration,
     to_display,
     window_hours,
 )
 from application.services.system_config_service import SystemConfigService
-from application.tenant_context import require_tenant_id
 from application.utils.timezone import combine_local
 from models import (
     Match,
     Stage,
     User,
 )
+
+# How long an unchecked-in late match keeps sliding forward on the capacity
+# forecast before it's treated as a no-show and stops growing.
+LATE_PUSH_LIMIT = timedelta(hours=2)
+
+# Players are asked to check in at the scheduled time; the race itself starts
+# about this long after check-in (seat_delay/setup in the match operations
+# report measure it). The capacity forecast plans unstarted matches with it.
+CHECK_IN_TO_START = timedelta(minutes=15)
+
+
+def _now() -> datetime:
+    return datetime.now(timezone.utc)
+
+
+# A start or check-in this long before its scheduled time is a data-entry
+# artefact (a result recorded ahead of the slot), not a team arriving early.
+IMPLAUSIBLE_EARLY_MIN = 6 * 60
+
+_SEAT_PREFIXES = ('', 'staged_', 'unstaged_')
+
+
+def _minutes_between(earlier: Optional[datetime], later: Optional[datetime]) -> Optional[int]:
+    if earlier is None or later is None:
+        return None
+    return int((later - earlier).total_seconds() / 60)
+
+
+def _implausible_times(match: Match, start_delay: Optional[int], seat_delay: Optional[int]) -> bool:
+    """Whether this match's timestamps describe a click rather than a race.
+
+    Closing a match as played on its bracket site stamps check-in, start and
+    finish with the same instant, whenever staff get to it.
+    """
+    if any(d is not None and d < -IMPLAUSIBLE_EARLY_MIN for d in (start_delay, seat_delay)):
+        return True
+    return (
+        match.seated_at is not None
+        and match.seated_at == match.started_at == match.finished_at
+    )
+
+
+def _avg(values: List[int]) -> Optional[float]:
+    return round(sum(values) / len(values), 1) if values else None
+
+
+def _on_time_pct(delays: List[int]) -> Optional[float]:
+    if not delays:
+        return None
+    on_time = sum(1 for d in delays if abs(d) <= ON_TIME_THRESHOLD_MIN)
+    return round(on_time / len(delays) * 100, 1)
+
+
+class _SeatTally:
+    """Check-in delays and check-in-to-start times for one slice of a tournament."""
+
+    def __init__(self) -> None:
+        self.seat_delays: List[int] = []
+        self.setups: List[int] = []
+
+    def add(self, seat_delay: Optional[int], setup: Optional[int]) -> None:
+        if seat_delay is not None:
+            self.seat_delays.append(seat_delay)
+        if setup is not None:
+            self.setups.append(setup)
+
+    def summary(self, prefix: str) -> Dict[str, Optional[float]]:
+        return {
+            f'{prefix}avg_seat_delay_min': _avg(self.seat_delays),
+            f'{prefix}seated_on_time_pct': _on_time_pct(self.seat_delays),
+            f'{prefix}avg_setup_min': _avg(self.setups),
+        }
 
 
 class ReportsService:
@@ -36,12 +110,26 @@ class ReportsService:
         return to_display(dt)
 
     @staticmethod
-    def _match_window(match: Match) -> Optional[Tuple[datetime, datetime]]:
-        if not match.scheduled_at:
-            return None
+    def _match_window(
+        match: Match,
+        now: Optional[datetime] = None,
+        setup: timedelta = timedelta(0),
+    ) -> Optional[Tuple[datetime, datetime]]:
+        """The span a match holds its players at a setup.
+
+        A late match nobody has checked in keeps sliding forward with ``now``
+        (up to ``LATE_PUSH_LIMIT``, after which it reads as a no-show); a match
+        checked in late runs from its check-in. ``now=None`` takes the schedule
+        at face value. An unstarted match is expected to start ``setup`` after
+        its check-in (actual or expected), so its estimated end moves with it.
+        """
         scheduled = ReportsService._local(match.scheduled_at)
-        if match.seated_at:
-            start = ReportsService._local(match.seated_at)
+        if scheduled is None:
+            return None
+        seated = ReportsService._local(match.seated_at)
+        now_local = ReportsService._local(now)
+        if seated:
+            start = seated
         else:
             start = scheduled - timedelta(hours=1)
         if match.finished_at:
@@ -50,7 +138,16 @@ class ReportsService:
             duration = DEFAULT_MATCH_DURATION_MIN
             if match.tournament_id and match.tournament and match.tournament.average_match_duration:
                 duration = match.tournament.average_match_duration
-            anchor = ReportsService._local(match.started_at) if match.started_at else scheduled
+            if match.started_at:
+                anchor = ReportsService._local(match.started_at)
+            else:
+                if seated:
+                    check_in = max(scheduled, seated)
+                elif now_local is not None and now_local > scheduled:
+                    check_in = min(now_local, scheduled + LATE_PUSH_LIMIT)
+                else:
+                    check_in = scheduled
+                anchor = check_in + setup
             end = anchor + timedelta(minutes=duration)
         if end < start:
             end = start
@@ -70,30 +167,34 @@ class ReportsService:
         start: datetime,
         end: datetime,
         tournament_id: Optional[int] = None,
+        *, actor: Optional[User],
     ) -> Dict:
         """Compute concurrent-player counts at intervals across [start, end]."""
+        await ensure_report_reader(actor)
         start = self._local(start)
         end = self._local(end)
         if end < start:
             end = start
         interval_min = self._auto_interval_minutes(start, end)
 
-        query = Match.all().filter(
+        query = event_scoped(Match.filter(
             scheduled_at__gte=start - timedelta(hours=24),
             scheduled_at__lte=end + timedelta(hours=24),
-            tenant_id=require_tenant_id(),
-        )
+        ))
         if tournament_id:
             query = query.filter(tournament_id=tournament_id)
         matches = await query.prefetch_related('tournament', 'players', 'stage')
+        now = _now()
 
         windows: List[Tuple[datetime, datetime, int, Match]] = []
         for match in matches:
-            window = self._match_window(match)
+            window = self._match_window(match, now=now, setup=CHECK_IN_TO_START)
             if not window:
                 continue
             ws, we = window
             if we < start or ws > end:
+                continue
+            if not match.stage_id and match.tournament and not match.tournament.uses_tournament_room:
                 continue
             player_count = len(match.players)
             if player_count == 0 and match.tournament_id and match.tournament:
@@ -128,6 +229,7 @@ class ReportsService:
             'intervals': intervals,
             'player_counts': player_counts,
             'on_stream_player_counts': on_stream_counts,
+            'off_stream_player_counts': [a - o for a, o in zip(player_counts, on_stream_counts, strict=True)],
             'match_ids_per_interval': match_ids_per_interval,
             'interval_minutes': interval_min,
             'start': start,
@@ -147,19 +249,21 @@ class ReportsService:
         self,
         instant: datetime,
         tournament_id: Optional[int] = None,
+        *, actor: Optional[User],
     ) -> List[Match]:
+        await ensure_report_reader(actor)
         instant = self._local(instant)
-        query = Match.all().filter(
+        query = event_scoped(Match.filter(
             scheduled_at__gte=instant - timedelta(hours=24),
             scheduled_at__lte=instant + timedelta(hours=24),
-            tenant_id=require_tenant_id(),
-        )
+        ))
         if tournament_id:
             query = query.filter(tournament_id=tournament_id)
         matches = await query.prefetch_related('tournament', 'players', 'players__user', 'stage')
+        now = _now()
         out: List[Match] = []
         for match in matches:
-            window = self._match_window(match)
+            window = self._match_window(match, now=now, setup=CHECK_IN_TO_START)
             if not window:
                 continue
             ws, we = window
@@ -174,35 +278,43 @@ class ReportsService:
         start: datetime,
         end: datetime,
         tournament_id: Optional[int] = None,
+        *, actor: Optional[User],
     ) -> Dict:
+        await ensure_report_reader(actor)
         start = self._local(start)
         end = self._local(end)
-        query = Match.all().filter(
+        query = event_scoped(Match.filter(
             scheduled_at__gte=start,
             scheduled_at__lte=end,
-            tenant_id=require_tenant_id(),
-        )
+        ))
         if tournament_id:
             query = query.filter(tournament_id=tournament_id)
         matches = await query.prefetch_related('tournament', 'stage', 'players')
 
         rows: List[Dict] = []
         per_tournament: Dict[int, Dict] = {}
+        flagged_ids: List[int] = []
+        duration_outlier_ids: List[int] = []
         for match in matches:
             scheduled = self._local(match.scheduled_at)
+            seated = self._local(match.seated_at)
             started = self._local(match.started_at)
             finished = self._local(match.finished_at)
             confirmed = self._local(match.confirmed_at)
 
-            start_delay = None
-            if scheduled and started:
-                start_delay = int((started - scheduled).total_seconds() / 60)
-            duration = None
-            if started and finished:
-                duration = int((finished - started).total_seconds() / 60)
-            confirmation_lag = None
-            if finished and confirmed:
-                confirmation_lag = int((confirmed - finished).total_seconds() / 60)
+            start_delay = _minutes_between(scheduled, started)
+            seat_delay = _minutes_between(scheduled, seated)
+            setup = _minutes_between(seated, started)
+            duration = _minutes_between(started, finished)
+            confirmation_lag = _minutes_between(finished, confirmed)
+            staged = match.stage_id is not None
+
+            flagged = _implausible_times(match, start_delay, seat_delay)
+            if flagged:
+                flagged_ids.append(match.id)
+            duration_outlier = not flagged and is_outlier_duration(duration, match.tournament)
+            if duration_outlier:
+                duration_outlier_ids.append(match.id)
 
             rows.append({
                 'match_id': match.id,
@@ -211,7 +323,10 @@ class ReportsService:
                 'scheduled_at': scheduled,
                 'state': match.current_state,
                 'stage': match.stage.name if match.stage else '',
+                'staged': staged,
                 'start_delay_min': start_delay,
+                'seat_delay_min': seat_delay,
+                'setup_min': setup,
                 'duration_min': duration,
                 'confirmation_lag_min': confirmation_lag,
                 'player_count': len(match.players),
@@ -225,42 +340,49 @@ class ReportsService:
                 'matches_total': 0,
                 'matches_started': 0,
                 'matches_finished': 0,
-                'start_delay_total': 0,
-                'duration_total': 0,
-                'on_time_count': 0,
-                '_duration_seen': 0,
-                '_start_delay_seen': 0,
+                'start_delays': [],
+                'durations': [],
+                'seat': {prefix: _SeatTally() for prefix in _SEAT_PREFIXES},
             })
             stats['matches_total'] += 1
-            if start_delay is not None:
+            # Counted on the timestamp alone, as Insights counts them; the
+            # averages below still need both ends of their interval.
+            if started:
                 stats['matches_started'] += 1
-                stats['start_delay_total'] += start_delay
-                stats['_start_delay_seen'] += 1
-                if abs(start_delay) <= ON_TIME_THRESHOLD_MIN:
-                    stats['on_time_count'] += 1
-            if duration is not None:
+            if finished:
                 stats['matches_finished'] += 1
-                stats['duration_total'] += duration
-                stats['_duration_seen'] += 1
+            if flagged:
+                continue
+            if start_delay is not None:
+                stats['start_delays'].append(start_delay)
+            if duration is not None and not duration_outlier:
+                stats['durations'].append(duration)
+            for prefix in ('', 'staged_' if staged else 'unstaged_'):
+                stats['seat'][prefix].add(seat_delay, setup)
 
         aggregates: List[Dict] = []
         for stats in per_tournament.values():
-            avg_delay = (stats['start_delay_total'] / stats['_start_delay_seen']) if stats['_start_delay_seen'] else None
-            avg_duration = (stats['duration_total'] / stats['_duration_seen']) if stats['_duration_seen'] else None
-            on_time_pct = (stats['on_time_count'] / stats['_start_delay_seen'] * 100) if stats['_start_delay_seen'] else None
-            aggregates.append({
+            aggregate = {
                 'tournament_id': stats['tournament_id'],
                 'tournament_name': stats['tournament_name'],
                 'matches_total': stats['matches_total'],
                 'matches_started': stats['matches_started'],
                 'matches_finished': stats['matches_finished'],
-                'avg_start_delay_min': round(avg_delay, 1) if avg_delay is not None else None,
-                'avg_duration_min': round(avg_duration, 1) if avg_duration is not None else None,
+                'avg_start_delay_min': _avg(stats['start_delays']),
+                'avg_duration_min': _avg(stats['durations']),
                 'expected_avg_min': stats['expected_avg_min'],
-                'on_time_pct': round(on_time_pct, 1) if on_time_pct is not None else None,
-            })
+                'on_time_pct': _on_time_pct(stats['start_delays']),
+            }
+            for prefix, tally in stats['seat'].items():
+                aggregate.update(tally.summary(prefix))
+            aggregates.append(aggregate)
 
-        return {'rows': rows, 'aggregates': aggregates}
+        return {
+            'rows': rows,
+            'aggregates': aggregates,
+            'flagged_match_ids': flagged_ids,
+            'duration_outlier_ids': duration_outlier_ids,
+        }
 
     # --- Staff / Crew Activity ---------------------------------------------
 
@@ -271,17 +393,23 @@ class ReportsService:
         tournament_id: Optional[int] = None,
         user_id: Optional[int] = None,
         approved_only: bool = False,
+        *, actor: Optional[User],
     ) -> Dict:
+        await ensure_report_reader(actor)
         start = self._local(start)
         end = self._local(end)
 
-        match_query = Match.all().filter(
+        match_query = event_scoped(Match.filter(
             scheduled_at__gte=start,
             scheduled_at__lte=end,
-            tenant_id=require_tenant_id(),
-        )
+        ))
         if tournament_id:
             match_query = match_query.filter(tournament_id=tournament_id)
+        from application.services.auth_service import AuthService
+
+        scope = await AuthService.report_tournament_scope(actor)
+        if scope is not None:
+            match_query = match_query.filter(tournament_id__in=list(scope))
         matches = await match_query.prefetch_related(
             'tournament', 'stage',
             'commentators', 'commentators__user',
@@ -290,7 +418,11 @@ class ReportsService:
 
         coverage_rows: List[Dict] = []
         per_user: Dict[int, Dict] = {}
+        per_tournament: Dict[int, Dict] = {}
         for match in matches:
+            if match.stage_id is not None and match.finished_at is not None:  # type: ignore[attr-defined]
+                _tally_crewed(per_tournament, match, user_id)
+
             comm_total = len(match.commentators)
             comm_approved = sum(1 for c in match.commentators if c.approved)
             trk_total = len(match.trackers)
@@ -366,6 +498,7 @@ class ReportsService:
         return {
             'coverage_rows': coverage_rows,
             'contribution_rows': contribution_rows,
+            'tournament_rows': _tournament_rows(per_tournament),
         }
 
     # --- Stage Utilization ------------------------------------------
@@ -376,19 +509,20 @@ class ReportsService:
         end: datetime,
         tournament_id: Optional[int] = None,
         stage_id: Optional[int] = None,
+        *, actor: Optional[User],
     ) -> Dict:
+        await ensure_report_reader(actor)
         start = self._local(start)
         end = self._local(end)
 
-        stages = await Stage.filter(is_active=True, tenant_id=require_tenant_id()).order_by('name')
+        stages = await event_scoped(Stage.filter(is_active=True)).order_by('name')
         if stage_id:
             stages = [r for r in stages if r.id == stage_id]
 
-        match_query = Match.all().filter(
+        match_query = event_scoped(Match.filter(
             scheduled_at__gte=start,
             scheduled_at__lte=end,
-            tenant_id=require_tenant_id(),
-        )
+        ))
         if tournament_id:
             match_query = match_query.filter(tournament_id=tournament_id)
         matches = await match_query.prefetch_related('tournament', 'stage')
@@ -464,6 +598,51 @@ def _new_crew_entry(user: Optional[User]) -> Dict:
         'hours_covered': 0.0,
         'hours_total': 0.0,
     }
+
+
+def _tally_crewed(per_tournament: Dict[int, Dict], match: Match, user_id: Optional[int]) -> None:
+    """Count a match's approved crew toward its tournament.
+
+    Only a finished match that went to a stage counts: without a stage there was
+    no broadcast, so approved crew on it never actually commentated or tracked.
+    """
+    group = per_tournament.setdefault(match.tournament_id, {  # type: ignore[attr-defined]
+        'tournament_id': match.tournament_id,  # type: ignore[attr-defined]
+        'tournament_name': match.tournament.name if match.tournament else '',
+        'people': {},
+    })
+    for slot, rows in (('commentary', match.commentators), ('tracker', match.trackers)):
+        for row in rows:
+            if not row.approved or (user_id is not None and row.user_id != user_id):
+                continue
+            person = group['people'].setdefault(row.user_id, {
+                'user_id': row.user_id,
+                'name': row.user.preferred_name if row.user else 'Unknown',
+                'commentary': 0,
+                'tracker': 0,
+            })
+            person[slot] += 1
+
+
+def _tournament_rows(per_tournament: Dict[int, Dict]) -> List[Dict]:
+    rows = []
+    for group in per_tournament.values():
+        people = [
+            {**p, 'total': p['commentary'] + p['tracker']}
+            for p in group['people'].values()
+        ]
+        if not people:
+            continue
+        people.sort(key=lambda p: (-p['total'], -p['commentary'], p['name'].lower()))
+        rows.append({
+            'tournament_id': group['tournament_id'],
+            'tournament_name': group['tournament_name'],
+            'commentary': sum(p['commentary'] for p in people),
+            'tracker': sum(p['tracker'] for p in people),
+            'people': people,
+        })
+    rows.sort(key=lambda r: r['tournament_name'].lower())
+    return rows
 
 
 def event_day_bounds(d: date) -> Tuple[datetime, datetime]:

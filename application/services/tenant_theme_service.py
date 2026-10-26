@@ -23,7 +23,13 @@ from application.errors import require_found
 from application.repositories.tenant_repository import TenantRepository
 from application.services.audit_service import AuditActions, AuditService
 from application.services.auth_service import AuthService
-from application.services.tenant_logo_service import TenantLogoService, logo_url
+from application.services.tenant_logo_service import (
+    TAB_ICON_SIDE,
+    TOUCH_ICON_SIDE,
+    TenantLogoService,
+    icon_url,
+    logo_url,
+)
 from application.tenant_context import get_current_tenant_id, require_tenant_id
 from application.utils.color_contrast import contrast_ratio, mix
 from models import User
@@ -132,8 +138,9 @@ class TenantThemeService:
     async def get_theme(tenant_id: int) -> dict[str, str]:
         """The full brand palette for a tenant (overrides merged onto defaults).
 
-        Carries a ``logo`` key (the image URL) too when the community has
-        uploaded one; it rides here because this is the tenant read every page
+        Carries ``logo`` (the image URL), ``logo_icon`` and ``logo_touch`` (its
+        tab and home-screen PNGs) too when the community has uploaded one; they
+        ride here because this is the tenant read every page
         build already makes.
         """
         tenant = await TenantRepository.get_by_id(tenant_id)
@@ -142,6 +149,8 @@ class TenantThemeService:
         sha256 = TenantLogoService.logo_sha(config)
         if sha256:
             colors['logo'] = logo_url(tenant_id, sha256, TenantLogoService.logo_format(config))
+            colors['logo_icon'] = icon_url(tenant_id, sha256, TAB_ICON_SIDE)
+            colors['logo_touch'] = icon_url(tenant_id, sha256, TOUCH_ICON_SIDE)
         return colors
 
     @staticmethod

@@ -5,13 +5,14 @@ global ``SUPER_ADMIN`` role. Manages tenant CRUD (name, slug, domain, guild id,
 active). Runs tenant-agnostically — its queries pass explicit ids, so the
 per-tenant scoping never applies.
 
-The page is six tabs (``?tab=`` opens one); this module owns the communities
+The page is seven tabs (``?tab=`` opens one); this module owns the communities
 tab and builds the rest from their own modules, which is what keeps it inside the file-length
 guideline: :mod:`pages.platform_bots` (racetime bots),
 :mod:`pages.platform_feature_groups` (tiers, and one tenant's overrides),
 :mod:`pages.platform_tenant_admins` (a community's first staff member),
 :mod:`pages.platform_users` (every account, and password sign-in),
-:mod:`pages.platform_logging` (runtime log levels) and
+:mod:`pages.platform_logging` (runtime log levels),
+:mod:`pages.platform_monitoring` (browser-side Sentry) and
 :mod:`pages.service_health_view` (the health board, shared with the admin tab).
 """
 
@@ -34,6 +35,7 @@ from pages.platform_feature_groups import (
     render_feature_groups_section,
 )
 from pages.platform_logging import render_logging_section
+from pages.platform_monitoring import render_monitoring_section
 from pages.platform_shared import ACTIVE_ICON_SLOT, section_intro
 from pages.platform_tenant_admins import open_tenant_admins_dialog
 from pages.platform_users import render_users_section
@@ -48,6 +50,7 @@ from theme.tables.preferences import (
     preferences_button,
     search_input,
 )
+from theme.url_state import bind_url
 
 _bot_service = RacetimeBotService()
 
@@ -58,6 +61,7 @@ _SECTIONS: tuple[tuple[str, str, str], ...] = (
     ('bots', 'Racetime bots', 'smart_toy'),
     ('features', 'Feature groups', 'toggle_on'),
     ('logging', 'Logging', 'tune'),
+    ('monitoring', 'Monitoring', 'bug_report'),
     ('health', 'Service health', 'monitor_heart'),
 )
 _SECTION_KEYS = {key for key, _, _ in _SECTIONS}
@@ -136,10 +140,11 @@ def create() -> None:
             ).classes('w-full') as tabs:
                 for key, label, icon in _SECTIONS:
                     ui.tab(key, label=label, icon=icon)
-            # Keep ?tab= in step so a reload or a shared link reopens the same
-            # section; replaceState, because a tab switch is not a navigation.
-            tabs.on_value_change(lambda e: ui.run_javascript(
-                f"history.replaceState(null, '', '/platform?tab={e.value}')"))
+            # ?tab= names the section, so Back, a reload or a shared link
+            # reopens it, and the browser tab's title says which it is.
+            labels = {key: label for key, label, _icon in _SECTIONS}
+            bind_url('tab', tabs, default=_SECTIONS[0][0], choices=_SECTION_KEYS,
+                     label=labels.get)
             with ui.tab_panels(tabs, value=current).classes('w-full'):
                 with ui.tab_panel('communities').style(_PANEL_STYLE):
                     await _render_tenants_section(user)
@@ -151,6 +156,8 @@ def create() -> None:
                     await render_feature_groups_section(user)
                 with ui.tab_panel('logging').style(_PANEL_STYLE):
                     await render_logging_section(user)
+                with ui.tab_panel('monitoring').style(_PANEL_STYLE):
+                    await render_monitoring_section(user)
                 with ui.tab_panel('health').style(_PANEL_STYLE):
                     _render_health_section()
 

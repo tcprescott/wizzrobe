@@ -22,7 +22,8 @@ Staff with Manage Server in Discord can post that panel by running
 `/wizzrobe login-panel` in whichever channel they want it.
 
 You don't need an account to watch. **Watch live** on the community's front door
-shows the streams and what's on now, signed out.
+shows the streams and what's on now, signed out. The front door itself also
+lists the published brackets and today's matches.
 
 ## Joining the community
 
@@ -45,7 +46,7 @@ If you're turned down, the door tells you when you can ask again. If staff remov
 you, it says so, and asking again goes back to them.
 :::
 
-![The community front door on a phone, signed out: Watch live, Sign in, Join the Discord server and the published brackets](/static/help/getting-started/join-door-phone.webp "What you see before you're a member.")
+![The community front door on a phone, signed out: Watch live, Sign in, Join the Discord server, the published brackets and today's matches](/static/help/getting-started/join-door-phone.webp "What you see before you're a member.")
 
 ## Finish your profile
 
@@ -103,12 +104,16 @@ only what you're in, Tournaments is where you sign up, and Profile is you.
 :::snippet my-schedule-timeline
 My Schedule has two views, switched at the top. **List** shows it as sections:
 your matches, crew slots, volunteer shifts and when you can't play. **Timeline** puts one day's matches, crew slots and shifts on a clock in
-one column, so anything that clashes sits side by side. Times you said you can't
+one column, so anything that clashes sits side by side. Meetups you're
+hosting or going to show there too, and so do ones you asked a reminder for, drawn
+with a dashed outline because they're optional. A crew slot you're approved for
+is dashed too, with a "No stage yet" tag, until its match is given a stage. Times you said you can't
 play show as a hatched band behind them, which makes a match booked into one easy
 to spot. Tap the band to change those times.
 
 Pick a day from the chips above it. Tap a block to open it. A match or crew slot
-opens in the List view, and a shift shows its details. The page remembers which
+opens in the List view, a shift shows its details, and a meetup opens
+its own page. The page remembers which
 view you used last, but a link from a DM always opens the List.
 :::
 

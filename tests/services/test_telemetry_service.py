@@ -299,6 +299,19 @@ class TestTrackUiBatch:
         }
         assert len(rows) == 2
 
+    async def test_top_controls_filters_to_one_person(self, db):
+        staff = await _staff()
+        other = await _plain(discord_id=779, username='other')
+        svc = TelemetryService()
+        click = {'type': 'ui.click', 'target': 'Add match', 'path': '/admin/schedule'}
+        await svc.track_ui_batch([click, click], discord_id='1001')
+        await svc.track_ui_batch([click, {**click, 'target': 'Roll seed'}], discord_id='779')
+        rows = await svc.top_controls(staff, user_id=other.id)
+        assert {(r['target'], r['uses'], r['users']) for r in rows} == {
+            ('Add match', 1, 1), ('Roll seed', 1, 1),
+        }
+        assert [r['user_id'] for r in await svc.top_users(staff, user_id=staff.id)] == [staff.id]
+
     async def test_top_controls_is_staff_only(self, db):
         with pytest.raises(PermissionError):
             await TelemetryService().top_controls(await _plain())

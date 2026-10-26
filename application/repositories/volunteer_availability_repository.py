@@ -7,12 +7,13 @@ Volunteer self-declared availability windows.
 from datetime import datetime
 from typing import List, Optional
 
-from application.repositories._tenant import current_tenant_id, scoped
+from application.repositories._event import current_event_id, event_scoped, live_event_scoped
+from application.repositories._tenant import current_tenant_id
 from models import User, VolunteerAvailability, VolunteerAvailabilityStatus
 
 
 class VolunteerAvailabilityRepository:
-    """Repository for volunteer availability windows."""
+    """Repository for volunteer availability windows, which belong to one event."""
 
     @staticmethod
     async def get_by_id(availability_id: int) -> Optional[VolunteerAvailability]:
@@ -20,7 +21,8 @@ class VolunteerAvailabilityRepository:
 
     @staticmethod
     async def list_for_user(user: User) -> List[VolunteerAvailability]:
-        return await scoped(VolunteerAvailability.filter(user=user)).order_by('starts_at')
+        """Every live event's rows for this person (cross-event: their own free time)."""
+        return await live_event_scoped(VolunteerAvailability.filter(user=user)).order_by('starts_at')
 
     @staticmethod
     async def for_users_overlapping(
@@ -28,7 +30,7 @@ class VolunteerAvailabilityRepository:
     ) -> List[VolunteerAvailability]:
         if not user_ids:
             return []
-        return await scoped(VolunteerAvailability.filter(
+        return await event_scoped(VolunteerAvailability.filter(
             user_id__in=user_ids, starts_at__lt=end, ends_at__gt=start,
         ))
 
@@ -42,6 +44,7 @@ class VolunteerAvailabilityRepository:
     ) -> VolunteerAvailability:
         return await VolunteerAvailability.create(
             tenant_id=current_tenant_id(),
+            event_id=current_event_id(),
             user=user, starts_at=starts_at, ends_at=ends_at, status=status, note=note,
         )
 
@@ -51,4 +54,4 @@ class VolunteerAvailabilityRepository:
 
     @staticmethod
     async def delete_for_user(user: User) -> int:
-        return await scoped(VolunteerAvailability.filter(user=user)).delete()
+        return await event_scoped(VolunteerAvailability.filter(user=user)).delete()

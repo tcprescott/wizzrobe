@@ -12,6 +12,7 @@ from application.services import (
     get_user_from_session,
 )
 from application.utils.discord_messages import is_seed_link
+from theme.busy import busy_click
 from theme.clipboard import copy_to_clipboard
 from theme.dialog._helpers import dialog_actions, form_dialog
 from theme.dialog.confirmation_dialog import ConfirmationDialog
@@ -20,6 +21,7 @@ from theme.help import help_icon
 from theme.menu import menu_action
 from theme.notify import notify_error
 from theme.page_header import page_header
+from theme.pickers import CHIP_PROPS
 from theme.tables.admin_crud import current_actor, refresh_button, wire_tab_refresh
 from theme.waiting import waiting_panel
 
@@ -350,7 +352,7 @@ async def admin_presets_page() -> None:
                             label='Presets to import',
                             multiple=True, with_input=True, clearable=True,
                             value=sorted(selected),
-                        ).classes('w-full').props('use-chips')
+                        ).classes('w-full').props(CHIP_PROPS)
 
                         def on_pick(event) -> None:
                             selected.clear()
@@ -363,13 +365,13 @@ async def admin_presets_page() -> None:
                             note += f', {already} already imported'
                         ui.label(note).classes('text-caption text-grey')
 
-                    fetch_button = ui.button(
-                        'Fetch presets', icon='cloud_download', on_click=lambda: fetch(),
+                    ui.button(
+                        'Fetch presets', icon='cloud_download',
+                        on_click=busy_click('Fetching…', lambda: fetch()),
                     ).props('flat color=primary')
                     results()
 
                     async def fetch() -> None:
-                        fetch_button.disable()
                         try:
                             catalogue = await service.list_remote_presets(
                                 await _current(), randomizer_input.value,
@@ -378,8 +380,6 @@ async def admin_presets_page() -> None:
                         except (ValueError, PermissionError) as e:
                             notify_error(e)
                             return
-                        finally:
-                            fetch_button.enable()
                         selected.clear()
                         catalogue_state['entries'] = catalogue
                         results.refresh()
@@ -403,7 +403,7 @@ async def admin_presets_page() -> None:
                     with dialog_actions().classes('justify-end'):
                         ui.button('Cancel', on_click=dialog.close).props('flat')
                         ui.button(
-                            'Import', icon='download', on_click=do_import,
+                            'Import', icon='download', on_click=busy_click('Importing…', do_import),
                         ).props('color=primary')
 
                     on_randomizer_change()

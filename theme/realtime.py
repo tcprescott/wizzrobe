@@ -72,6 +72,10 @@ def _install_disconnect_cleanup() -> None:
         return
     _disconnect_installed = True
     app.on_disconnect(_on_disconnect)
+    # A view registered after its socket dropped (or on a page that never
+    # connected) sees no disconnect, and its subscription would hold the whole
+    # page alive (SGLMAN-29).
+    app.on_delete(_on_disconnect)
 
 
 def _on_disconnect(client) -> None:

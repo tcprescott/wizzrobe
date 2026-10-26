@@ -44,6 +44,7 @@ depend on — do not change):
     open_hard_preset               -> props.row
 """
 
+from theme.busy import slot_busy_template
 from theme.tables.match_access import MatchBoardAccess
 from theme.tables.match_slots import (
     CREW_CAN_SIGN_UP_JS,
@@ -102,7 +103,7 @@ _PLAYERS = '''
                         <q-icon name="emoji_events" size="12px" />Winner</span>
                     <span v-if="props.row.acknowledgments && props.row.acknowledgments[idx] && props.row.acknowledgments[idx].acknowledged && props.row.acknowledgments[idx].auto"
                           class="st-neutral italic-note"> (auto)</span>
-                    <q-btn v-if="props.row.acknowledgments && props.row.acknowledgments[idx] && !props.row.acknowledgments[idx].acknowledged && props.row.acknowledgments[idx].discord_id && props.row.acknowledgments[idx].discord_id == __DID__"
+                    <q-btn v-if="!__IA__ && props.row.acknowledgments && props.row.acknowledgments[idx] && !props.row.acknowledgments[idx].acknowledged && props.row.acknowledgments[idx].discord_id && props.row.acknowledgments[idx].discord_id == __DID__"
                            icon="check" color="primary" dense flat no-caps no-wrap label="Acknowledge"
                            @click="$parent.$emit('acknowledge_match', props.row)">
                         <q-tooltip>Confirm you've seen this match and will play it</q-tooltip>
@@ -224,10 +225,11 @@ _SEED_DETAIL = '''
                     <q-spinner size="14px" class="q-mr-xs" />{{ props.row.seed_rolling_label }}
                 </span>
                 <q-btn v-if="__RUN__ && __ROLLABLE__ && !props.row.generated_seed && !props.row.seed_rolling_since"
-                       :loading="props.row._generating_seed" :disabled="props.row._generating_seed"
-                       icon="casino" color="primary" size="sm" dense outline
+                       :disable="!!props.row._generating_seed"
+                       :class="{'wiz-busy-btn': !!props.row._generating_seed}"
+                       :icon="props.row._generating_seed ? undefined : 'casino'" color="primary" size="sm" dense outline
                        @click="(props.row._generating_seed = true, $parent.$emit('roll', { key: props.row.id }))">
-                    Generate
+                    ''' + slot_busy_template('props.row._generating_seed') + '''{{ props.row._generating_seed ? 'Rolling…' : 'Generate' }}
                 </q-btn>
                 <span v-if="props.row.seed_roll_error && !props.row.generated_seed && !props.row.seed_rolling_since"
                       class="st-pending" style="flex-basis: 100%;">
@@ -384,14 +386,18 @@ def render_grid_slot(table, columns, *, admin_controls: bool, access: MatchBoard
     # Caption (tournament + #id edit link)
     caption_inner = ''
     if 'tournament' in present:
-        caption_inner += '<span v-if="props.row.tournament">{{ props.row.tournament }}</span>'
+        caption_inner += (
+            '<span v-if="props.row.tournament">{{ props.row.tournament }}'
+            '<template v-if="props.row.set_label"> · {{ props.row.set_label }}</template></span>'
+        )
         # Same bracket link as the desktop Tournament cell (see match_slots).
         caption_inner += (
             '<a v-if="props.row.bracket" href="#" class="mgc-bracket-link q-ml-sm"'
             ' @click.prevent="$parent.$emit(\'open_bracket\', props.row)">'
             '<q-icon name="account_tree" size="14px" class="q-mr-xs" />'
             '{{ props.row.bracket.name }}'
-            '<template v-if="props.row.bracket.game"> · Game {{ props.row.bracket.game }}</template>'
+            '<template v-if="props.row.bracket.game"> · Game {{ props.row.bracket.game }}'
+            '<template v-if="props.row.bracket.best_of > 1"> of {{ props.row.bracket.best_of }}</template></template>'
             '<template v-if="props.row.bracket.standing"> · {{ props.row.bracket.standing }}</template>'
             '</a>'
         )

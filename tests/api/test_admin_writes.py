@@ -79,6 +79,32 @@ class TestTournamentWrites:
             assert deleted.status_code == 204
             assert (await c.get(f'/api/tournaments/{tid}')).status_code == 404
 
+    async def test_staff_set_a_stage_best_of(self, db, app):
+        from models import ChallongeMatch, ChallongeMatchState, ChallongeParticipant
+        _, raw = await create_user_token(username='boss', roles=[Role.STAFF])
+        t = await Tournament.create(name='Cup', challonge_tournament_id='C1')
+        a = await ChallongeParticipant.create(tournament=t, challonge_participant_id='1', name='A')
+        b = await ChallongeParticipant.create(tournament=t, challonge_participant_id='2', name='B')
+        for n, r in enumerate((1, 1, 2)):
+            await ChallongeMatch.create(
+                tournament=t, challonge_match_id=f'm{n}', round=r,
+                state=ChallongeMatchState.OPEN, participant1=a, participant2=b,
+            )
+        async with client_for(app, raw) as c:
+            listed = await c.get(f'/api/tournaments/{t.id}/round-schedule')
+            assert listed.status_code == 200
+            assert [s['key'] for s in listed.json()] == ['e1', 'e0']
+            put = await c.put(f'/api/tournaments/{t.id}/round-schedule/e0/best-of', json={'best_of': 3})
+            assert put.status_code == 200 and put.json()['best_of'] == 3
+            assert (await c.put(
+                f'/api/tournaments/{t.id}/round-schedule/e0/best-of', json={'best_of': 2},
+            )).status_code == 422
+            assert (await c.put(
+                f'/api/tournaments/{t.id}/round-schedule/gf/best-of', json={'best_of': 3},
+            )).status_code == 400
+        await t.refresh_from_db()
+        assert t.config['round_schedule'] == {'e0': {'best_of': 3}}
+
     async def test_non_staff_cannot_create_tournament(self, db, app):
         _, raw = await create_user_token(username='plain')
         async with client_for(app, raw) as c:

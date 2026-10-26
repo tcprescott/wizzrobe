@@ -18,7 +18,7 @@ async def community_events_settings_pane(can_edit: bool) -> None:
     lead = await SystemConfigService.get_int(KEY_COMMUNITY_EVENT_REMINDER_LEAD_MINUTES)
 
     card = await section_panel(
-        'Community Events', icon='groups',
+        'Meetups', icon='groups',
         subtitle='Who decides what gets listed, and how early subscribers get a reminder.',
     )
     with card.body:
@@ -44,7 +44,7 @@ async def community_events_settings_pane(can_edit: bool) -> None:
         except (ValueError, PermissionError) as e:
             notify_error(e)
             return False
-        ui.notify('Community event settings saved', color='positive')
+        ui.notify('Meetup settings saved', color='positive')
         return True
 
     with card.panel:

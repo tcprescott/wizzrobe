@@ -10,9 +10,11 @@ Read-only: no writes, no audit, no Discord notifications.
 """
 
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
+from application.content import parse_user_blocks, plain_text
 from application.repositories import (
+    CommentaryInviteRepository,
     MatchAcknowledgmentRepository,
     MatchRepository,
     MatchStreamVolunteerRepository,
@@ -20,7 +22,15 @@ from application.repositories import (
     StageRepository,
     TournamentRepository,
 )
-from application.services.match.match_status import has_recorded_result, legacy_label, resolve
+from application.services.bracket_set_service import BracketSetService
+from application.services.match.match_status import (
+    closes_without_winner,
+    has_recorded_result,
+    legacy_label,
+    resolve,
+)
+from application.services.match.player_late_service import late_tag, late_window_open
+from application.services.match.seed_ready import ready_count, seed_ready_open
 from application.services.reporting_shared import crew_requirement
 from application.utils.discord_messages import seed_code_line
 from application.utils.timezone import (
@@ -29,7 +39,7 @@ from application.utils.timezone import (
     format_local_time,
     to_utc_aware,
 )
-from models import Match, MatchAcknowledgment, ProviderTask
+from models import Match, MatchAcknowledgment, ProviderTask, Tournament
 
 
 def rolling_elapsed_label(started_at: datetime) -> str:
@@ -44,20 +54,24 @@ def rolling_elapsed_label(started_at: datetime) -> str:
     return f'Rolling… {seconds // 60}:{seconds % 60:02d}'
 
 
-#: The two states in which a seed is rolled but nobody has played it yet. Named
-#: here rather than spelled inline because the room view's whole selection rule
-#: is "the seed exists and the match has not started".
-UNPLAYED_STATES = ('Scheduled', 'Checked In')
+#: The states in which a rolled seed can still be needed at a room PC. Started
+#: is in on purpose: a seed rerolled mid-race has to be downloadable there, so a
+#: match leaves the room view when it finishes, not when it starts.
+ROOM_SEED_STATES = ('Scheduled', 'Checked In', 'Started')
+
+# The Stage filter's "No stage" choice. Stage ids start at 1, so 0 never names
+# a real stage and can ride in the same multi-select list as the real ones.
+NO_STAGE = 0
 
 
-def is_seeded_and_unplayed(row: Dict[str, Any]) -> bool:
-    """Whether a display row is a rolled seed for a match still to be played.
+def is_room_seed_row(row: Dict[str, Any]) -> bool:
+    """Whether a display row is a rolled seed for a match not yet finished.
 
     Pure, over an already-formatted row, so the tournament-room board can apply
     it both to a full refresh and to a single row arriving from a live update —
-    a match that starts has to leave the room screen, not merely stop updating.
+    a match that finishes has to leave the room screen, not merely stop updating.
     """
-    return bool(row.get('generated_seed')) and row.get('state') in UNPLAYED_STATES
+    return bool(row.get('generated_seed')) and row.get('state') in ROOM_SEED_STATES
 
 
 class MatchDisplayService:
@@ -92,9 +106,13 @@ class MatchDisplayService:
         volunteers = await self.volunteer_repository.names_by_match([match.id])
         rolling = await self.provider_task_repository.active_for_match(match.id)
         failed = await self.provider_task_repository.latest_failure_for_match(match.id)
-        return self._format_match_for_display(
+        row = self._format_match_for_display(
             match, acks, volunteers.get(match.id, []), rolling, failed,
         )
+        await self._attach_site_results([row], [match])
+        await self._attach_set_labels([row], [match])
+        await self._attach_partner_invites([row])
+        return row
 
     async def get_matches_for_display(
         self,
@@ -105,32 +123,43 @@ class MatchDisplayService:
         user_discord_id: Optional[str] = None,
         crew_discord_id: Optional[str] = None,
         exclude_racetime: bool = False,
-        match_ids: Optional[List[int]] = None
+        match_ids: Optional[List[int]] = None,
+        scheduled_window: Optional[Tuple[datetime, datetime]] = None,
     ) -> List[Dict[str, Any]]:
         """
         Get matches formatted for table display.
 
         Args:
             tournament_ids: Filter by tournament IDs
-            stage_ids: Filter by stage IDs
+            stage_ids: Filter by stage IDs; ``NO_STAGE`` in the list also keeps
+                matches with no stage
             only_upcoming: Only return unfinished matches
             user_discord_id: Filter by player discord ID
             crew_discord_id: Filter to matches this discord ID crews
             exclude_racetime: Drop matches run by a racetime.gg tournament — the
                 proctor board's rows are the ones a proctor can actually act on
             match_ids: Restrict to these match IDs (a deep-linked board)
+            scheduled_window: Half-open ``(start, end)`` on the scheduled time,
+                applied in the database so a one-day board does not load the
+                whole event
 
         Returns:
             List of formatted match dictionaries
         """
+        include_unstaged = False
+        if stage_ids and NO_STAGE in stage_ids:
+            include_unstaged = True
+            stage_ids = [sid for sid in stage_ids if sid != NO_STAGE]
         matches = await self.repository.get_all(
             tournament_ids=tournament_ids,
             stage_ids=stage_ids,
+            include_unstaged=include_unstaged,
             only_upcoming=only_upcoming,
             user_discord_id=user_discord_id,
             crew_discord_id=crew_discord_id,
             exclude_racetime=exclude_racetime,
             match_ids=match_ids,
+            scheduled_window=scheduled_window,
             prefetch_relations=True
         )
 
@@ -142,33 +171,104 @@ class MatchDisplayService:
         rolling_map, failed_map = await self.provider_task_repository.board_state_for_matches(
             match_ids_loaded,
         )
-        return [
+        rows = [
             self._format_match_for_display(
                 m, ack_map.get(m.id, []), volunteer_map.get(m.id, []),
                 rolling_map.get(m.id), failed_map.get(m.id),
             )
             for m in matches
         ]
+        await self._attach_site_results(rows, matches)
+        await self._attach_set_labels(rows, matches)
+        await self._attach_partner_invites(rows)
+        if user_discord_id or crew_discord_id:
+            await self._attach_event_names(rows, matches)
+        return rows
+
+    @staticmethod
+    async def _attach_event_names(rows: List[Dict[str, Any]], matches: List[Match]) -> None:
+        """A person's own list spans live events: lead the tournament with its event once two share it."""
+        from application.services.event_service import EventService, with_event_name
+
+        names = await EventService.names_if_mixed(m.event_id for m in matches)
+        if not names:
+            return
+        for row, match in zip(rows, matches, strict=True):
+            event_id = match.event_id
+            row['tournament'] = with_event_name(row['tournament'], event_id, names)
+            row['tournament_short'] = with_event_name(row['tournament_short'], event_id, names)
+
+    @staticmethod
+    async def _attach_partner_invites(rows: List[Dict[str, Any]]) -> None:
+        """Each row's commentary partner invites still waiting on an answer, one query."""
+        # Only a tournament wanting two or more commentators has partners to invite.
+        invites = await CommentaryInviteRepository.pending_by_match(
+            [r['id'] for r in rows if (r.get('commentary_seats') or 0) >= 2])
+        for row in rows:
+            row['partner_invites'] = [{
+                'id': invite.id,
+                'inviter_id': invite.inviter_id,
+                'inviter_discord_id': str(invite.inviter.discord_id) if invite.inviter.discord_id else None,
+                'invitee': invite.invitee.preferred_name,
+            } for invite in invites.get(row['id'], [])]
+
+    @staticmethod
+    async def _attach_set_labels(rows: List[Dict[str, Any]], matches: List[Match]) -> None:
+        """Fill each set game's "Game 2 of 3", which depends on when the set's other games are."""
+        labels = await BracketSetService().labels_for(matches)
+        for row in rows:
+            row['set_label'] = labels.get(row['id'], row.get('set_label'))
+
+    @staticmethod
+    async def _attach_site_results(rows: List[Dict[str, Any]], matches: List[Match]) -> None:
+        """Mark unconfirmed rows whose bracket site already has the result (``played_on_site``).
+
+        Someone reported it on Challonge or start.gg directly, so the match on
+        the board would otherwise be run again or sit there forever.
+        """
+        from application.services import bracket_sources
+
+        # Only a tournament linked to a bracket site can have one, and the
+        # tournament is already loaded: a board with none costs no query.
+        linked = {
+            m.id for m in matches
+            if m.tournament and (m.tournament.challonge_tournament_id or m.tournament.startgg_event_slug)
+        }
+        open_ids = [
+            r['id'] for r in rows
+            if r['id'] in linked and (
+                r['state'] in ('Scheduled', 'Checked In', 'Started')
+                or (r['state'] == 'Finished' and not r.get('has_result'))
+            )
+        ]
+        results = await bracket_sources.results_on_site(open_ids) if open_ids else {}
+        for row in rows:
+            result = results.get(row['id'])
+            row['played_on_site'] = (
+                {'site': result.site, 'winner': result.winner_name, 'winner_user_id': result.winner_user_id,
+                 'no_winner': result.no_winner}
+                if result else None
+            )
 
     async def get_room_seed_rows(self) -> List[Dict[str, Any]]:
-        """Rolled-but-unplayed matches, for the tournament room's kiosk board.
+        """Rolled-but-unfinished matches, for the tournament room's kiosk board.
 
         ``only_upcoming`` drops the finished history at the DB layer; the
-        predicate then drops the started matches and the ones with no seed, which
-        is the whole selection rule — a room PC shows the seeds someone is about
-        to need and nothing else.
+        predicate then drops the ones with no seed, which is the whole selection
+        rule — a room PC shows the seeds someone is about to need, or is racing
+        on, and nothing else.
         """
         rows = await self.get_matches_for_display(only_upcoming=True)
-        return [row for row in rows if is_seeded_and_unplayed(row)]
+        return [row for row in rows if is_room_seed_row(row)]
 
     async def get_tournaments_for_filter(self) -> Dict[int, str]:
         """
         Get all tournaments formatted for filter dropdown.
 
         Returns:
-            Dict mapping tournament ID to name
+            Dict mapping tournament ID to its short label, ordered by that label
         """
-        return await self.tournament_repository.get_all_as_dict()
+        return Tournament.short_label_options(await self.tournament_repository.get_all())
 
     async def get_stages_for_filter(self) -> Dict[int, str]:
         """
@@ -224,14 +324,25 @@ class MatchDisplayService:
         if bracket is None:
             return None
         best_of, standing = MatchDisplayService._series_context(bracket, bracket_match)
+        number = MatchDisplayService._game_number(game, bracket_match)
         return {
             'id': bracket.id,
             'name': bracket.name,
             # Only meaningful in a best-of-N series; game 1 of 1 is just "the match".
-            'game': game.game_number if game.game_number and game.game_number > 1 else None,
+            'game': number if number and (number > 1 or best_of > 1) else None,
             'best_of': best_of,
             'standing': standing,
         }
+
+    @staticmethod
+    def _game_number(game, bracket_match) -> Optional[int]:
+        """The game's number by the clock among its series' games, off the prefetched rows."""
+        from application.services.bracket_service import BracketService
+
+        try:
+            return BracketService.numbers_by_time(list(bracket_match.games)).get(game.id, game.game_number)
+        except Exception:
+            return game.game_number
 
     @staticmethod
     def _series_context(bracket, bracket_match) -> tuple:
@@ -306,6 +417,10 @@ class MatchDisplayService:
             # in their copy, so a confirmation dialog can say what it is about
             # instead of quoting a primary key (``match_labels.match_row_label``).
             'title': match.title or '',
+            # Staff markdown, rendered on the match sheet; the flattened text is
+            # the run sheet's one-line summary of it.
+            'description': getattr(match, 'description', None) or '',
+            'description_text': plain_text(parse_user_blocks(desc)) if (desc := getattr(match, 'description', None)) else '',
             # Per-row board capabilities are scoped by tournament (MatchBoardAccess).
             'tournament_id': match.tournament_id,  # type: ignore[attr-defined]
             'tournament': match.tournament.name if match.tournament else '',
@@ -314,10 +429,19 @@ class MatchDisplayService:
             # None unless a bracket scheduled this match; drives the schedule's
             # link into the (publicly readable) bracket view.
             'bracket': self._bracket_ref(match),
+            # "Game 2 of 3" comes from the set's other games: _attach_set_labels.
+            # A crew hold's round ("Grand final") rides here, beside the tournament.
+            'set_label': match.title if getattr(match, 'crew_hold_source', None) else None,
             'scheduled_at': format_local_datetime(match.scheduled_at) if match.scheduled_at else '',
             # Sort key and urgency flag for the proctor board. The formatted
             # ``scheduled_at`` string is display-only and does not sort.
             'scheduled_ts': to_utc_aware(match.scheduled_at).timestamp() if match.scheduled_at else None,
+            # Once a match starts, the run sheets show these instead of the
+            # booked time: the actual start, then the finish, or while it runs
+            # an estimate of start + the tournament's match length.
+            'started_ts': to_utc_aware(match.started_at).timestamp() if match.started_at else None,
+            'finished_ts': to_utc_aware(match.finished_at).timestamp() if match.finished_at else None,
+            'match_length': getattr(match.tournament, 'average_match_duration', None),
             'is_overdue': bool(
                 match.scheduled_at
                 and match.seated_at is None
@@ -333,8 +457,12 @@ class MatchDisplayService:
             # surfaces gate the Confirm control on this rather than on the state
             # alone, instead of offering a button whose only outcome is a refusal.
             # The *same* predicate the service enforces, not a second spelling of
-            # it: see ``has_recorded_result``.
-            'has_result': has_recorded_result(match.players),
+            # it: see ``has_recorded_result``. An open race confirms with none
+            # (``closes_without_winner``).
+            'has_result': has_recorded_result(match.players) or closes_without_winner(match.players),
+            # "No-show" etc. when staff decided it by forfeit; the player left
+            # without a finish rank is the one who forfeited.
+            'forfeit': reason.label if (reason := getattr(match, 'forfeit_reason', None)) else '',
             'state_timestamp': state_timestamp,
             'state_time': format_local_time(state_changed_at),
             'players': [
@@ -344,9 +472,39 @@ class MatchDisplayService:
                     'finish_rank': p.finish_rank,
                     'station': p.assigned_station,
                     'discord_id': str(p.user.discord_id) if p.user.discord_id else None,
+                    'seed_ready': getattr(p, 'seed_ready_at', None) is not None,
                 }
                 for p in match.players
             ],
+            # A booking made before the bracket decided its players: what stands
+            # in for each empty side ("Andy or Benny"), and whether a reset cut
+            # it loose from its matchup.
+            'placeholders': list(getattr(match, 'bracket_placeholders', None) or []),
+            'bracket_link_lost': bool(getattr(match, 'bracket_link_lost', False)),
+            # Crew signed up for a bracket matchup nobody has booked yet: this
+            # match only holds their signups (``CrewHoldService``).
+            'crew_hold': getattr(match, 'crew_hold_source', None) is not None,
+            # Players who said they're running late, while it still matters:
+            # check-in makes the heads-up moot, so it drops off the row then.
+            'late': [] if match.seated_at or match.finished_at else [
+                {
+                    'name': p.user.preferred_name,
+                    'user_id': p.user_id,
+                    'tag': late_tag(p),
+                    'said': format_local_time(p.late_at) if p.late_at else '',
+                    'note': p.late_note or '',
+                }
+                for p in match.players if getattr(p, 'late_minutes', None) is not None  # type: ignore[attr-defined]
+            ],
+            'late_window': late_window_open(match),
+            # Players release their own seed on this tournament, and right now
+            # (checked in, no seed yet, nothing rolling) their Ready counts.
+            'seed_ready_open': seed_ready_open(match) and rolling_task is None,
+            # "1 of 2 ready", for the staff boards' seed line while that's true.
+            'seed_ready_label': (
+                '{} of {} ready'.format(*ready_count(match))
+                if seed_ready_open(match) and rolling_task is None else ''
+            ),
             'acknowledgments': acknowledgments_summary,
             'stage': match.stage.name if match.stage else '',
             # The id, not just the name: the board's Stage cell is a select whose
@@ -425,9 +583,13 @@ class MatchDisplayService:
             # How much approved crew the match needs, per role, so the home
             # board's Needs crew switch can tell a covered match from an open
             # one. Same numbers (and same no-tournament default) as the
-            # coverage report's ``crew_requirement``.
+            # coverage report's ``crew_requirement``. Crew only works a match
+            # on a stage, so a match without one needs none: every board,
+            # filter and checklist reads "needed" from this.
             'crew_required': dict(zip(
-                ('commentators', 'trackers'), crew_requirement(match.tournament), strict=True,
+                ('commentators', 'trackers'),
+                crew_requirement(match.tournament) if match.stage_id else (0, 0),  # type: ignore[attr-defined]
+                strict=True,
             )),
             'commentators': [
                 {
@@ -439,9 +601,16 @@ class MatchDisplayService:
                     'acknowledged': c.acknowledged_at is not None,
                     'ack_ts': format_local_display(c.acknowledged_at) if c.acknowledged_at else '',
                     'id': c.id,
+                    # The commentator who invited them, while that one's still on.
+                    'invited_by_id': getattr(c, 'invited_by_id', None),
+                    'with': next((o.user.preferred_name for o in match.commentators  # type: ignore[attr-defined]
+                                  if getattr(c, 'invited_by_id', None) and o.user_id == c.invited_by_id), ''),
                 }
                 for c in match.commentators
             ],
+            # Commentators the tournament wants, stage or not: two or more and a
+            # commentator can bring a partner while there's a seat left.
+            'commentary_seats': (match.tournament.required_commentators or 0) if match.tournament else 0,
             'trackers': [
                 {
                     'name': t.user.preferred_name,

@@ -49,11 +49,11 @@ async def handle_crew_signup_interaction(interaction: discord.Interaction) -> No
     Responds ephemerally so only the clicking user sees the result.
     """
     from application.services import CrewService, MatchService
-    from discordbot._tenant import match_tenant_id
+    from discordbot._tenant import match_scope
 
     async def resolve_tenant(parsed: tuple[str, int]):
         _, match_id = parsed
-        return await match_tenant_id(match_id)
+        return await match_scope(match_id)
 
     async def handle(_interaction, parsed, user, send: SendFn) -> None:
         role, match_id = parsed

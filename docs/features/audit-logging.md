@@ -53,7 +53,7 @@ not a reason to skip the audit.
 | Volunteers & equipment | `volunteer.*` (positions, shifts, assignments, draft scheduling), `equipment.*` (lending, check-out/in) |
 | Online play | `bracket.*`, `challonge.*`, `race_room.*`, `race_room_profile.*`, `racetime.*`, `racetime_bot.*`, `sg_sync.*`, `async_qualifier.*`, `preset.*`, `randomizer_credential.*` |
 | Community content | `triforce_text.*`, `feedback.*`, `accommodation.*` (ids and status only, never the text) |
-| Integrations & platform | `discord.*` (server link), `discord_event.*`, `webhook.*`, `apitoken.*`, `roomtoken.*`, `web_push.*`, `twitch.*`, `system_config.*`, `theme.updated`, `theme.logo_updated`, `theme.logo_removed`, `timezone.updated`, `feature_flag.*`, `feature_group.*`, `tenant.*`, `platform.super_admin_*` |
+| Integrations & platform | `discord.*` (server link), `discord_event.*`, `webhook.*`, `apitoken.*`, `roomtoken.*`, `web_push.*`, `twitch.*`, `system_config.*`, `theme.updated`, `theme.logo_updated`, `theme.logo_removed`, `timezone.updated`, `notification_setting.changed`, `notification_settings.reset`, `feature_flag.*`, `feature_group.*`, `tenant.*`, `platform.super_admin_*` |
 
 Platform-level rows (`tenant.created` / `.updated` / `.deleted`, `platform.*`,
 feature-group and availability grants) carry `tenant=NULL`; everything else is

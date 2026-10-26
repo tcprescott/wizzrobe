@@ -14,9 +14,11 @@ from pathlib import Path
 import pytest
 from nicegui import ui
 
+from application.services.table_preference_service import TablePreferenceService
 from application.table_preferences_context import table_prefs_scope
 from theme.tables.mobile_grid import enable_mobile_grid
 from theme.tables.preferences import (
+    ROWS_PER_PAGE_OPTIONS,
     apply_saved_config,
     customization_of,
     customize_table,
@@ -123,6 +125,50 @@ class TestThePlanReachesTheTable:
         assert plan.page_size == 15
 
 
+class TestRowsPerPageLivesInTheFooter:
+    """One control for rows per page: the table footer, and it saves."""
+
+    def test_the_footer_offers_exactly_what_the_service_accepts(self):
+        assert set(ROWS_PER_PAGE_OPTIONS) == set(TablePreferenceService.ALLOWED_PAGE_SIZES)
+
+    def test_every_customized_table_gets_the_footer_options(self, table):
+        customize_table(table, COLUMNS, key='admin.users')
+        assert table._props['rows-per-page-options'] == ROWS_PER_PAGE_OPTIONS
+        assert table._props['rows-per-page-label'] == 'Rows per page:'
+
+    def test_the_footer_stays_on_all(self, table):
+        # Hiding it on "All" would leave no way to pick a size again.
+        with table_prefs_scope({'admin.users': {'page_size': 0}}):
+            customize_table(table, COLUMNS, key='admin.users')
+        assert table._props['pagination']['rowsPerPage'] == 0
+        assert table._props['hide-pagination'] is False
+
+    def test_a_server_paged_table_has_no_footer_and_ignores_a_saved_size(self, table):
+        with table_prefs_scope({'admin.users': {'page_size': 25}}):
+            plan = customize_table(table, COLUMNS, key='admin.users', pager=False)
+        assert plan.page_size == 0
+        assert table._props['hide-pagination'] is True
+        assert 'rows-per-page-options' not in table._props
+
+    def test_the_preferences_dialog_has_no_rows_per_page_control(self):
+        source = (REPO / 'theme/dialog/table_preferences_dialog.py').read_text()
+        assert "ui.label('Rows per page')" not in source
+        assert 'set_page_size' not in source
+
+    def test_every_shipped_page_size_is_one_the_footer_offers(self):
+        # A table built with pagination=15 would show 15 in the footer, and the
+        # footer could never save it back.
+        import re
+        allowed = set(ROWS_PER_PAGE_OPTIONS)
+        bad = []
+        for path in [*(REPO / 'pages').rglob('*.py'), *(REPO / 'theme').rglob('*.py')]:
+            text = path.read_text()
+            for m in re.finditer(r"(?:pagination=|'rowsPerPage':\s*)(\d+)", text):
+                if int(m.group(1)) not in allowed:
+                    bad.append(f'{path.relative_to(REPO)}: {m.group(0)}')
+        assert not bad, bad
+
+
 class TestReapplying:
     def test_apply_saved_config_replaces_the_plan(self, table):
         customize_table(table, COLUMNS, key='admin.users')
@@ -193,3 +239,20 @@ class TestCallOrder:
         assert not offenders, (
             'customize_table must be called after the mobile card slot is '
             f'generated: {offenders}')
+
+
+class TestClockSort:
+    def test_render_context_carries_the_clock(self):
+        from application.timezone_context import hour_cycle_scope
+        from theme.tables.admin_crud import capture_render_context
+
+        with hour_cycle_scope(True):
+            assert capture_render_context()[3] is True
+        assert capture_render_context()[3] is False
+
+    def test_twelve_hour_sortable_columns_get_the_clock_sort(self):
+        from theme.tables.preferences import CLOCK_SORT, _with_clock_sort
+
+        assert _with_clock_sort({'name': 'when', 'sortable': True})[':sort'] == CLOCK_SORT
+        assert ':sort' not in _with_clock_sort({'name': 'when'})
+        assert _with_clock_sort({'name': 'n', 'sortable': True, ':sort': 'x'})[':sort'] == 'x'

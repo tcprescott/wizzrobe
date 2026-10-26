@@ -19,6 +19,7 @@ from models import (
     FeedbackCategory,
     FeedbackStatus,
     Match,
+    PersonalWebhook,
     TelemetryEvent,
     Tenant,
     User,
@@ -60,7 +61,59 @@ async def seed_observability_for_tenant(
                 payload=payload, response_status=status, attempt_count=3,
                 success=False, error=f"HTTP {status} from receiver",
             )
+    # A second one on a handful of named events across two areas, so the list
+    # shows the grouped event summary ("match rescheduled, … · crew …") and a
+    # quiet row with nothing sent, next to the wildcard one above.
+    await Webhook.get_or_create(
+        name="Schedule feed (inactive)", tenant=tenant,
+        defaults={
+            "url": "http://127.0.0.1:9/dev-schedule-feed",
+            "secret": "dev-webhook-secret-not-real",
+            "event_types": [
+                "match.rescheduled", "match.stage_assigned", "match.stage_cleared",
+                "match.deleted", "match.cancelled", "crew.approval_changed",
+            ],
+            "is_active": False,
+        },
+    )
     print(f"    [{tenant.slug}] webhooks ok (1 delivered, 2 failed in the health window)")
+
+    # --- Personal webhooks (Profile → Webhooks) ---------------------------
+    # player_one gets one of each state the card paints: a working JSON hook
+    # (pointed at a closed localhost port, so a dev event fails fast and never
+    # leaves the machine) and a Discord one paused the way a deleted Discord
+    # webhook pauses.
+    owner = (users or {}).get("player_one")
+    if owner is not None:
+        await PersonalWebhook.get_or_create(
+            name="Stream overlay", tenant=tenant, user=owner,
+            defaults={
+                "url": "http://127.0.0.1:9/dev-personal-hook",
+                "secret": "dev-personal-secret-not-real",
+                "event_types": ["match.started", "match.finished", "match.result_recorded"],
+                "only_mine": False,
+                "delivered_count": 12,
+                "last_delivery_at": now_utc,
+                "last_status": 204,
+            },
+        )
+        await PersonalWebhook.get_or_create(
+            name="My match pings", tenant=tenant, user=owner,
+            defaults={
+                "url": "https://discord.com/api/webhooks/000000000000/dev-not-real",
+                "secret": "dev-personal-secret-not-real",
+                "event_types": ["match.created", "match.rescheduled", "crew.approval_changed"],
+                "only_mine": True,
+                "is_active": False,
+                "paused_reason": "Paused: Discord says this webhook no longer exists.",
+                "consecutive_failures": 1,
+                "failed_count": 1,
+                "last_delivery_at": now_utc,
+                "last_status": 404,
+                "last_error": "HTTP 404",
+            },
+        )
+        print(f"    [{tenant.slug}] personal webhooks ok (player_one: one live, one paused)")
 
     # --- Feedback --------------------------------------------------------
     # Two states across two people, and both states on one person (player_one),

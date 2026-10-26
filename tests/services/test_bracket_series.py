@@ -480,9 +480,9 @@ class TestScheduleBracketLink:
             'id': bracket.id, 'name': 'Main', 'game': 2,
             'best_of': 3, 'standing': '',
         }
-        # Game 1 of a series is just "the match" — no game number in the label.
+        # Game 1 of a best-of-3 still says so, so the run sheet reads "Game 1 of 3".
         first = next(r for r in rows.values() if r['bracket'] and r['id'] != game2.id)
-        assert first['bracket']['game'] is None
+        assert first['bracket']['game'] == 1
 
     async def test_ordinary_match_has_no_bracket(self, service):
         from application.services.match.match_display_service import MatchDisplayService

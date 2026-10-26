@@ -23,25 +23,29 @@ database this interface is the seam it lands on — the surfaces above call
 from __future__ import annotations
 
 from dataclasses import dataclass, replace
-from datetime import datetime
+from datetime import date, datetime
+from decimal import Decimal
 from pathlib import Path
 from typing import Optional
 
 from application.content import ContentArticle, ContentSnippet
+from application.event_context import get_current_event_id
 from application.event_info import (
     article_for_tenant,
     articles_for_tenant,
     guide_pdf_for_tenant,
+    handbook_key,
     snippet_for_tenant,
 )
 from application.feature_flags import requires_feature
 from application.repositories import TenantRepository
 from application.services.auth_service import AuthService
+from application.services.event_service import EventService
 from application.services.feature_flag_service import FeatureFlagService
 from application.tenant_context import require_tenant_id
 from application.utils.safe_url import http_url_or_empty
 from application.utils.tournament_signup import SignupWindow, signup_window_state
-from models import FeatureFlag, Role, User
+from models import FeatureFlag, Role, Tournament, User
 
 __all__ = ['EventGuide', 'EventInfoService', 'HandbookTournament']
 
@@ -57,6 +61,21 @@ class HandbookTournament:
     bracket_url: str
     signups: SignupWindow
     signups_close_at: Optional[datetime]
+    # Pool plus bonus, when Prize Payouts is on and the total is above zero.
+    prize_total: Optional[Decimal] = None
+    # When the pool last came from sglive.speedgaming.org, if it syncs.
+    prize_synced_at: Optional[datetime] = None
+
+
+def prize_fields(t: Tournament) -> dict:
+    """``prize_total`` and ``prize_synced_at`` for a public list, or ``{}`` with no pool."""
+    total = (t.prize_pool or Decimal(0)) + (t.prize_bonus or Decimal(0))
+    if total <= 0:
+        return {}
+    return {
+        'prize_total': total,
+        'prize_synced_at': t.prize_pool_synced_at if t.sglive_slug else None,
+    }
 
 
 @dataclass(frozen=True)
@@ -78,8 +97,17 @@ class EventInfoService:
 
     @staticmethod
     async def _tenant_slug() -> str:
-        tenant = await TenantRepository.get_by_id(require_tenant_id())
-        return tenant.slug if tenant else ''
+        """The handbook folder: the event's own, else the latest event's, else the community's."""
+        tenant_id = require_tenant_id()
+        tenant = await TenantRepository.get_by_id(tenant_id)
+        events = await EventService.events_for_tenant(tenant_id)
+        current = get_current_event_id()
+        latest = sorted(
+            (e for e in events if not e.is_draft and e.id != current),
+            key=lambda e: (e.starts_on or date.min, e.id), reverse=True,
+        )
+        own = [e.slug for e in events if e.id == current]
+        return handbook_key(tenant.slug if tenant else '', [*own, *(e.slug for e in latest)])
 
     @staticmethod
     async def _reader_roles(user: Optional[User]) -> set[Role]:
@@ -160,6 +188,7 @@ class EventInfoService:
         if await FeatureFlagService().is_enabled(FeatureFlag.BRACKETS):
             published = {b.tournament_id for b in await BracketService().list_all_visible_brackets(None)}
         startgg_live = await FeatureFlagService().is_enabled(FeatureFlag.STARTGG)
+        payouts_live = await FeatureFlagService().is_enabled(FeatureFlag.PAYOUTS)
         rows = []
         for t in await TournamentService().get_all_tournaments(active_only=True):
             if t.is_test:
@@ -178,6 +207,7 @@ class EventInfoService:
                 bracket_url=bracket,
                 signups=signup_window_state(t.signups_open_at, t.signups_close_at),
                 signups_close_at=t.signups_close_at,
+                **(prize_fields(t) if payouts_live else {}),
             ))
         return sorted(rows, key=lambda r: r.name.lower())
 

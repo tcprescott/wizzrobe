@@ -10,7 +10,9 @@ from nicegui import app, background_tasks, ui
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import RedirectResponse
 
+from application.event_context import event_scope, get_current_event_id, stash_client_event_id
 from application.services.auth_service import AuthService, get_user_from_session
+from application.services.event_service import EventService
 from application.services.feature_flag_service import FeatureFlagService
 from application.services.telemetry_service import TelemetryService
 from application.services.tenant_membership_service import TenantMembershipService
@@ -24,28 +26,35 @@ from application.tenant_context import (
     tenant_scope,
 )
 from application.timezone_context import (
+    bind_hour12,
+    get_browser_hour_cycle,
     get_browser_timezone,
+    pick_hour12,
     set_timezone_name,
     stash_client_browser_timezone,
     stash_client_timezone,
 )
 from application.utils.hostname import effective_request_host
+from middleware.event_routing import PAGE_SCOPE_KEY, PageScope, default_event_redirect, page_request
 from models import FeatureFlag, Role
 
 #: A page's feature gate: one flag, or several of which any one opens it.
 FeatureGate = FeatureFlag | tuple[FeatureFlag, ...] | None
 
 
-def _bind_display_timezone(name: str) -> None:
+def _bind_display_timezone(name: str, user=None) -> None:
     """Make ``name`` the display clock for this page build and this connection.
 
     Both halves are needed and neither is redundant: the contextvar serves the
     rest of *this* HTTP request (the page builder and everything it awaits), and
     the client stash serves every later websocket event handler on the same
     connection, which runs after the request — and its contextvar — is gone.
+
+    The 12/24-hour choice rides along: ``user``'s saved one, else the browser's.
     """
     set_timezone_name(name)
     stash_client_timezone(name)
+    bind_hour12(pick_hour12(getattr(user, 'hour_cycle', None), get_browser_hour_cycle()))
 
 
 async def bind_display_timezone(tenant_id: int, user=None) -> str:
@@ -61,17 +70,34 @@ async def bind_display_timezone(tenant_id: int, user=None) -> str:
     stash_client_browser_timezone(browser_tz)
     settings = await TimezoneService.get_settings(tenant_id)
     name = TimezoneService.pick(settings, user=user, browser_timezone=browser_tz)
-    _bind_display_timezone(name)
+    _bind_display_timezone(name, user)
     return name
 
 
-async def _run_in_tenant(tenant_id, coro) -> None:
+async def can_view_bound_event(user=None) -> bool:
+    """Whether the viewer may open the event this page is bound to.
+
+    A draft is staff's until it goes live (phase 4 adds its own role holders).
+    ``user`` is loaded from the session when not passed; only a draft needs it.
+    """
+    tenant_id = get_current_tenant_id()
+    if tenant_id is None:
+        return True
+    event = await EventService.ref(tenant_id, get_current_event_id())
+    if event is None or not event.is_draft:
+        return True
+    if user is None:
+        user = await get_user_from_session(app.storage.user)
+    return await EventService.can_view(user, event)
+
+
+async def _run_in_tenant(tenant_id, coro, event_id=None) -> None:
     """Await a deferred (background-task) coroutine with a tenant bound.
 
     Page-view telemetry is captured in a background task, which runs outside the
-    request and so loses the contextvar — capture the tenant at page-build time
-    and rebind it here so the row is tenant-stamped."""
-    with tenant_scope(tenant_id):
+    request and so loses the contextvar — capture the tenant (and the page's
+    event) at page-build time and rebind them here so the row is stamped."""
+    with tenant_scope(tenant_id), event_scope(event_id, tenant_id):
         await coro
 
 # Keep page-view detail bounded: query/path params carry useful engagement
@@ -133,6 +159,7 @@ def record_page_view(path: str, kwargs: dict) -> None:
                     session_id=session_id,
                     params=params or None,
                 ),
+                get_current_event_id(),
             )
         )
     except Exception:
@@ -248,7 +275,7 @@ async def enforce_membership(
 async def _render_community_chooser() -> None:
     """A community page reached on the bare platform host: offer each community's copy.
 
-    ``/help`` or ``/cat-facts`` without ``/t/<slug>`` is a real page someone
+    ``/help`` or ``/facts`` without ``/t/<slug>`` is a real page someone
     lost the prefix of, not a mistyped one, so the useful answer is the same
     page in each community rather than a dead end — and certainly not a drawer
     whose Help item points back at the URL it is on.
@@ -280,6 +307,7 @@ def _tenant_page(
     feature: FeatureGate = None,
     telemetry_path: Optional[str] = None,
     require_auth: bool = True,
+    scope: PageScope = 'event',
     **page_kwargs,
 ):
     """Shared implementation of :func:`protected_page` and :func:`public_page`.
@@ -306,6 +334,16 @@ def _tenant_page(
 
         @functools.wraps(func)
         async def wrapper(*args, **kwargs):
+            # A bare link to an event page lands on the default event's /e/
+            # form first, so the address names the event the page shows.
+            request = page_request()
+            if request is not None:
+                request.scope[PAGE_SCOPE_KEY] = scope
+            if scope == 'event':
+                redirect = await default_event_redirect(request)
+                if redirect is not None:
+                    return redirect
+
             # Capture engagement telemetry for every page load, gated or not,
             # before any auth short-circuit. On a public page the visitor may be
             # anonymous, and the row is then attributed to the browser session
@@ -321,6 +359,7 @@ def _tenant_page(
             # Stash the tenant onto the connection so websocket UI event handlers
             # (which run outside any request) can resolve it via the fallback.
             stash_client_tenant_id(tid)
+            stash_client_event_id(get_current_event_id())
             # Carry host mode too, so custom-domain-only affordances (e.g. the
             # Discord-connect button) can hide in websocket event handlers.
             stash_client_host_mode(is_host_mode())
@@ -360,10 +399,17 @@ def _tenant_page(
                 # Now that the viewer is known, their saved preference can
                 # outrank the browser hint the first pass used.
                 _bind_display_timezone(
-                    TimezoneService.pick(tz_settings, user=user, browser_timezone=browser_tz)
+                    TimezoneService.pick(tz_settings, user=user, browser_timezone=browser_tz), user,
                 )
                 if await enforce_membership(tid, user, is_super_admin=is_super_admin):
                     return
+
+            # A draft event is invisible, like an unknown one, to anyone who
+            # can't open it yet.
+            if not await can_view_bound_event(user if require_auth else None):
+                from theme.error_page import render_not_found
+                await render_not_found(user=user)
+                return
 
             # Authorization for a *gated* page comes from the user's tenant-scoped
             # roles / tournament-admin membership / super-admin — all evaluated in
@@ -409,6 +455,7 @@ def protected_page(
     allow_tournament_membership: bool = False,
     feature: FeatureGate = None,
     telemetry_path: Optional[str] = None,
+    scope: PageScope = 'event',
     **page_kwargs,
 ):
     """Register a NiceGUI page that requires authentication and optional roles.
@@ -428,6 +475,12 @@ def protected_page(
         telemetry_path: Page-view path recorded for engagement telemetry. Lets
             sibling routes that render the same page (e.g. ``/admin`` and
             ``/admin/{section}``) report under one stable path.
+        scope: ``'event'`` (the default) for a page that shows one event: a
+            bare link redirects to the default event's ``/e/`` path.
+            ``'row'`` for a page about one row, which redirects to its row's
+            event itself (``middleware.event_routing.row_event_redirect``).
+            ``'community'`` for a page that belongs to the whole community and
+            never redirects.
     """
     return _tenant_page(
         path,
@@ -436,6 +489,7 @@ def protected_page(
         feature=feature,
         telemetry_path=telemetry_path,
         require_auth=True,
+        scope=scope,
         **page_kwargs,
     )
 
@@ -445,6 +499,7 @@ def public_page(
     *,
     feature: Optional[FeatureFlag] = None,
     telemetry_path: Optional[str] = None,
+    scope: PageScope = 'event',
     **page_kwargs,
 ):
     """Register a tenant page that renders for signed-out visitors.
@@ -466,6 +521,7 @@ def public_page(
         feature=feature,
         telemetry_path=telemetry_path,
         require_auth=False,
+        scope=scope,
         **page_kwargs,
     )
 

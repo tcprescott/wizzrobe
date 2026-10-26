@@ -13,6 +13,7 @@ from application.services import (
     TournamentService,
     get_user_from_session,
 )
+from theme.busy import busy
 from theme.dialog._helpers import dialog_actions, form_dialog
 from theme.dialog.confirmation_dialog import ConfirmationDialog
 from theme.menu import SlotItem, slot_more_menu, slot_name_link, slot_row_button
@@ -112,13 +113,23 @@ async def admin_speedgaming_page() -> None:
                     on_confirm=do_delete, confirm_text='Delete', title='Delete event link?',
                 ).open()
 
+        syncing: set[int] = set()
+
         async def sync_now(row, client):
+            # A slot button can't hold its own busy state, so the toast says
+            # it's working and a second tap on the same link is dropped.
+            if row['id'] in syncing:
+                return
+            syncing.add(row['id'])
             with client:
                 try:
-                    result = await service.sync_now(await _current(), row['id'])
+                    async with busy(None, f"Syncing {row['event_slug']}…"):
+                        result = await service.sync_now(await _current(), row['id'])
                 except (ValueError, PermissionError) as e:
                     notify_error(e)
                     return
+                finally:
+                    syncing.discard(row['id'])
                 if result.errors:
                     ui.notify(
                         f"Sync finished with {result.errors} error(s); "

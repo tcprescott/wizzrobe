@@ -10,6 +10,7 @@ One of the four winners deliberately has no Matcherino handle, which is what
 makes the export's missing-handle line visible in a running app.
 """
 
+from datetime import datetime, timezone
 from decimal import Decimal
 
 from models import Tenant, Tournament, TournamentPayout, TournamentPlayers, User
@@ -72,5 +73,11 @@ async def seed_payouts_for_tenant(
     if active is not None and active.prize_pool is None:
         active.prize_pool = Decimal('500.00')
         await active.save()
+    # Linked to sglive's Wind Waker page so the synced-pool lock, the Pool
+    # column's sync icon and the handbook footnote all have a row to show.
+    if active is not None and active.sglive_slug is None:
+        active.sglive_slug = 'wwr'
+        active.prize_pool_synced_at = datetime.now(timezone.utc)
+        await active.save()
 
-    print(f'    [{tenant.slug}] payouts ok (one paid out, one still drafting)')
+    print(f'    [{tenant.slug}] payouts ok (one paid out, one still drafting, one synced from sglive)')

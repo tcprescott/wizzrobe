@@ -5,7 +5,12 @@ from datetime import date, datetime, timedelta, timezone
 from types import SimpleNamespace
 
 from application.services.my_timeline_service import (
+    COMMUNITY,
+    CREW,
+    GOING,
     MATCH,
+    NO_STAGE,
+    REMINDER,
     SHIFT,
     UNAVAILABLE,
     MyTimelineService,
@@ -61,7 +66,7 @@ def test_opening_day_prefers_today_then_the_next_day_on():
 
 def _match(players, tournament):
     return SimpleNamespace(
-        id=7, title='', scheduled_at=T0, tournament=tournament,
+        id=7, title='', scheduled_at=T0, tournament=tournament, stage_id=None,
         players=[SimpleNamespace(user_id=u.id, user=u) for u in players],
     )
 
@@ -83,6 +88,23 @@ def test_a_crewed_match_says_the_role_and_who_plays():
     item = MyTimelineService._match_item(_match([a, b], tournament), me, 'commentator')
     assert (item.title, item.detail) == ('Commentary', 'A vs B · Super Metroid')
     assert item.ends_at - item.starts_at == timedelta(minutes=90)
+    assert (item.badge, item.optional) == ('', False)
+
+
+def test_an_approved_crew_slot_with_no_stage_is_optional():
+    me = SimpleNamespace(id=1, preferred_name='Me')
+    a = SimpleNamespace(id=2, preferred_name='A')
+    tournament = Tournament(name='Super Metroid', short_name=None)
+    off_stage = _match([a], tournament)
+    on_stage = _match([a], tournament)
+    on_stage.stage_id = 4
+
+    item = MyTimelineService._match_item(off_stage, me, 'tracker', approved=True)
+    assert (item.kind, item.badge, item.optional) == (CREW, NO_STAGE, True)
+    item = MyTimelineService._match_item(on_stage, me, 'tracker', approved=True)
+    assert (item.badge, item.optional) == ('', False)
+    item = MyTimelineService._match_item(off_stage, me, 'tracker', approved=False)
+    assert (item.badge, item.optional) == ('', False)
 
 
 def test_short_label_falls_back_to_the_name():
@@ -127,3 +149,43 @@ async def test_unavailable_keeps_only_cant_play_windows_inside_the_event(monkeyp
     assert [(i.kind, i.starts_at, i.ends_at, i.detail) for i in items] == [
         (UNAVAILABLE, lo, lo + timedelta(hours=2), 'Flight'),
     ]
+
+
+async def test_community_events_join_the_timeline_one_piece_per_day(monkeypatch):
+    lo = datetime(2026, 10, 22, 6, 0, tzinfo=UTC)
+    hi = datetime(2026, 10, 26, 6, 0, tzinfo=UTC)
+    service = MyTimelineService()
+
+    async def window():
+        return lo, hi
+
+    async def none(*_args, **_kwargs):
+        return []
+
+    def event(id_, start, minutes, location=None):
+        return SimpleNamespace(id=id_, event_id=1, title=f'Event {id_}', location=location,
+                               starts_at=start, duration_minutes=minutes)
+
+    overnight = event(1, datetime(2026, 10, 23, 22, 0, tzinfo=UTC), 600, 'Lobby')
+    early = event(2, lo - timedelta(hours=1), 120)
+
+    async def list_attending(_user, start, end):
+        assert (start, end) == (lo, hi)
+        return [(overnight, GOING), (early, REMINDER)]
+
+    monkeypatch.setattr(service, 'window', window)
+    monkeypatch.setattr(service.crew_service, 'list_my_commitments', none)
+    monkeypatch.setattr(service.match_repository, 'commitments_for_user', none)
+    monkeypatch.setattr(service.community_service, 'list_attending', list_attending)
+    monkeypatch.setattr('application.services.my_timeline_service.split_by_event_day',
+                        lambda a, b: split_by_event_day(a, b, 'UTC'))
+
+    items = await service.items(SimpleNamespace(id=1), include_shifts=False, include_community=True)
+
+    assert [(i.kind, i.event_id, i.badge, i.optional, i.starts_at, i.ends_at, i.detail) for i in items] == [
+        (COMMUNITY, 2, REMINDER, True, lo, lo + timedelta(hours=1), ''),
+        (COMMUNITY, 1, GOING, False, overnight.starts_at, datetime(2026, 10, 24, 6, 0, tzinfo=UTC), 'Lobby'),
+        (COMMUNITY, 1, GOING, False, datetime(2026, 10, 24, 6, 0, tzinfo=UTC),
+         datetime(2026, 10, 24, 8, 0, tzinfo=UTC), 'Lobby'),
+    ]
+    assert await service.items(SimpleNamespace(id=1), include_shifts=False) == []

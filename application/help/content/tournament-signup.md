@@ -45,6 +45,8 @@ the card says *Signups have closed — ask staff if you need to drop out*. By th
 it's staff's call, because a bracket may already have been seeded from the
 roster.
 
+![A tournament card on a phone for a Challonge bracket you've signed up for: Signed up and Challonge tags, when signups close, who's in, and the Withdraw button marked 1](/static/help/tournament-signup/signed-up-phone.webp "A tournament you're in, while signups are open: **Withdraw** (1) takes you out.")
+
 ## Brackets on Challonge
 
 Some tournaments run their bracket on Challonge. Those cards have a Challonge

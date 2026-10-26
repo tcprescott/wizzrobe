@@ -20,7 +20,7 @@ from application.repositories import MatchAcknowledgmentRepository, MatchReposit
 from application.services import notification_links
 from application.services.audit_service import AuditActions, AuditService
 from application.services.auth_service import AuthService
-from application.services.discord import discord_queue
+from application.services.discord import discord_queue, seed_emojis
 from application.services.discord.discord_service import DiscordService
 from application.services.match._dm_context import (  # noqa: F401  (re-exported)
     _community_name,
@@ -33,8 +33,19 @@ from application.services.match._match_recipients import (  # noqa: F401  (re-ex
     collect_match_recipients,
 )
 from application.services.match._schedule_notifications import MatchNotificationMixin
+from application.services.match._seed_ready_notifications import SEED_READY_PROMPT
 from application.services.match.match_hard_preset_service import MatchHardPresetService
-from application.services.match.match_status import has_recorded_result
+from application.services.match.match_status import closes_without_winner, has_recorded_result
+from application.services.match.seed_ready import players_may_release, seed_ready_open
+from application.services.notification_catalog import (
+    MATCH_CHECKED_IN,
+    MATCH_CONFIRMED,
+    MATCH_FINISHED,
+    MATCH_STARTED,
+    PLAYERS,
+    SEED_READY,
+    Notice,
+)
 from application.services.seedgen_service import SeedGenerationService
 from application.services.triforce_text_service import TriforceTextService
 from application.tenant_context import require_tenant_id
@@ -54,10 +65,15 @@ from application.utils.discord_messages import (
     seed_paste_block,
     state_changed_dm,
 )
+from application.utils.match_labels import match_model_label
 from application.utils.seed_provider import SeedProviderError
 from models import GeneratedSeeds, Match, User
 
 logger = logging.getLogger(__name__)
+
+# Bracket pushes ride the serial DM queue; a provider that hangs must not hold
+# every match call behind it.
+_BRACKET_PUSH_SECONDS = 90
 
 _LIFECYCLE_FIELDS = ('seated_at', 'started_at', 'finished_at', 'confirmed_at', 'needs_review')
 
@@ -100,12 +116,15 @@ def _seats_line(match: Match) -> str:
 
 def _checked_in_notification(
     match: Match, community: str, bracket_line: str = '', your_seat: str = '',
+    ready_prompt: bool = False,
 ) -> tuple:
-    """(text, embed) for the check-in DM; ``your_seat`` makes it one player's copy."""
+    """(text, embed) for the check-in DM; ``your_seat`` makes it one player's copy,
+    and ``ready_prompt`` one that asks them for Ready for seed."""
     seats = _seats_line(match)
     embed = match_embed(
-        title='✅ Match checked in', color=COLOR_CHECKED_IN,
-        description='The match is about to begin — good luck!',
+        title='✅ Checked in · ready for your seed?' if ready_prompt else '✅ Match checked in',
+        color=COLOR_CHECKED_IN,
+        description=SEED_READY_PROMPT if ready_prompt else 'The match is about to begin — good luck!',
         **_match_embed_kwargs(match, community),
     )
     if seats:
@@ -116,18 +135,22 @@ def _checked_in_notification(
         checked_in_dm(
             match.tournament.name, **_match_descriptor(match, bracket_line),
             seats=seats, your_seat=your_seat,
+            closing=SEED_READY_PROMPT if ready_prompt else '',
         ),
         embed,
     )
 
 
 def _checked_in_player_copies(match: Match, community: str, bracket_line: str = '') -> dict:
-    """Each seated player's own check-in DM, keyed by Discord id."""
+    """Each player's own check-in DM, keyed by Discord id: a seated player's names
+    their seat, and every player's asks for Ready when they release the seed."""
+    ready = seed_ready_open(match)
     return {
         p.user.discord_id: _checked_in_notification(
-            match, community, bracket_line, your_seat=p.assigned_station,
+            match, community, bracket_line, your_seat=p.assigned_station, ready_prompt=ready,
         )
-        for p in match.players if p.assigned_station and p.user.discord_id  # type: ignore[attr-defined]
+        for p in match.players  # type: ignore[attr-defined]
+        if p.user.discord_id and (p.assigned_station or ready)
     }
 
 
@@ -173,10 +196,11 @@ class MatchScheduleService(MatchNotificationMixin):
         audit_action: str,
         event_type: str,
         build_message: Callable[[Match, str, str], tuple],
+        notice: Notice,
         authorize: Optional[Callable] = None,
-        silent: bool = False,
-        notify_players: bool = True,
         build_player_copies: Optional[Callable[[Match, str, str], dict]] = None,
+        notify: bool = True,
+        seed_ready_buttons: bool = False,
     ) -> None:
         """Shared match lifecycle transition: authorize, validate, stamp, audit, notify.
 
@@ -190,11 +214,12 @@ class MatchScheduleService(MatchNotificationMixin):
         the floor transitions a proctor owns. ``confirm_match`` overrides it with
         ``AuthService.can_confirm_match``, which excludes PROCTOR.
 
-        ``silent`` sends the DM without a ping, for a transition nobody has to
-        act on; ``notify_players=False`` leaves the players out of it.
-        ``build_player_copies`` takes the same arguments as ``build_message``
+        ``notice`` is the catalogued message; the community's setting for it
+        decides who hears and whether it pings. ``build_player_copies`` takes the same arguments as ``build_message``
         and returns ``{discord_id: (text, embed)}`` for players who get their
-        own version.
+        own version. ``seed_ready_buttons`` puts Ready for seed on the players'
+        copies when the match is open for it (check-in, on a tournament where
+        players release their own seed).
         """
         gate = authorize or AuthService.can_run_match
         await AuthService.ensure(
@@ -220,6 +245,9 @@ class MatchScheduleService(MatchNotificationMixin):
                 'tournament': match.tournament.name,
             },
         )
+        if not notify:
+            match_live.publish(match.id)
+            return
         # Resolve the community name here (request context) rather than in the
         # queue worker, and pass the pre-built embed down with the text.
         community = await _community_name()
@@ -229,8 +257,8 @@ class MatchScheduleService(MatchNotificationMixin):
             build_player_copies(match, community, bracket_line) if build_player_copies else None
         )
         discord_queue.enqueue(self.notify_match_participants(
-            match, message, embed, silent=silent, players=notify_players,
-            player_copies=player_copies,
+            match, message, embed, notice=notice, player_copies=player_copies,
+            seed_ready_buttons=seed_ready_buttons and seed_ready_open(match),
         ))
         match_live.publish(match.id)
 
@@ -251,6 +279,12 @@ class MatchScheduleService(MatchNotificationMixin):
                 raise ValueError(
                     "This match has no players yet — nothing to check in."
                 )
+            waiting = getattr(match, 'bracket_placeholders', None)
+            if waiting:
+                raise ValueError(
+                    f"The bracket hasn't decided {' and '.join(waiting)} yet, so this match "
+                    "can't be checked in. Sync the bracket once the earlier match is reported."
+                )
         await self._transition(
             match, actor,
             action_verb="seat",
@@ -258,8 +292,10 @@ class MatchScheduleService(MatchNotificationMixin):
             timestamp_field="seated_at",
             audit_action=AuditActions.MATCH_SEATED,
             event_type=EventType.MATCH_SEATED,
+            notice=MATCH_CHECKED_IN,
             build_message=lambda m, c, b: _checked_in_notification(m, c, b),
             build_player_copies=_checked_in_player_copies,
+            seed_ready_buttons=True,
         )
 
     async def start_match(self, match: Match, actor: Optional[User] = None) -> None:
@@ -276,13 +312,19 @@ class MatchScheduleService(MatchNotificationMixin):
             audit_action=AuditActions.MATCH_STARTED,
             event_type=EventType.MATCH_STARTED,
             build_message=lambda m, c, b: _state_notification(m, c, "Started", b),
-            # The players are sitting at the station and know; crew and
-            # watchers get a quiet note rather than a ping.
-            silent=True,
-            notify_players=False,
+            notice=MATCH_STARTED,
         )
 
     async def finish_match(self, match: Match, actor: Optional[User] = None) -> None:
+        """Finish a live match. An open race (more than four players) is confirmed too.
+
+        Nobody records a winner for an open race, so there is nothing for the
+        admin's confirm step to check: whoever may finish it closes it out, and
+        only the confirmed DM goes out rather than two in a row.
+        """
+        await match.fetch_related('players')
+        open_race = closes_without_winner(match.players)  # type: ignore[attr-defined]
+
         def check() -> None:
             if not match.started_at:
                 raise ValueError("Match must be started before finishing")
@@ -296,11 +338,16 @@ class MatchScheduleService(MatchNotificationMixin):
             audit_action=AuditActions.MATCH_FINISHED,
             event_type=EventType.MATCH_FINISHED,
             build_message=lambda m, c, b: _state_notification(m, c, "Finished", b),
-            silent=True,
-            notify_players=False,
+            notice=MATCH_FINISHED,
+            notify=not open_race,
         )
+        if open_race:
+            await self._confirm(match, actor, authorize=AuthService.can_run_match)
 
     async def confirm_match(self, match: Match, actor: Optional[User] = None) -> None:
+        await self._confirm(match, actor, authorize=AuthService.can_confirm_match)
+
+    async def _confirm(self, match: Match, actor: Optional[User], *, authorize: Callable) -> None:
         # ``check`` below is synchronous and runs before ``_transition`` fetches
         # relations, so the players have to be loaded here for it to see them.
         await match.fetch_related('players')
@@ -310,7 +357,7 @@ class MatchScheduleService(MatchNotificationMixin):
                 raise ValueError("Match must be finished before confirming")
             if match.confirmed_at:
                 raise ValueError("Match is already confirmed")
-            if not has_recorded_result(match.players):
+            if not has_recorded_result(match.players) and not closes_without_winner(match.players):
                 raise ValueError(
                     "No result has been recorded for this match — record the "
                     "winner before confirming."
@@ -323,10 +370,11 @@ class MatchScheduleService(MatchNotificationMixin):
             audit_action=AuditActions.MATCH_CONFIRMED,
             event_type=EventType.MATCH_CONFIRMED,
             build_message=lambda m, c, b: _state_notification(m, c, "Confirmed", b),
-            authorize=AuthService.can_confirm_match,
-            # A record of the result; nobody has anything left to do.
-            silent=True,
+            authorize=authorize,
+            notice=MATCH_CONFIRMED,
         )
+        from application.services import opt_in_notifications
+        discord_queue.enqueue(opt_in_notifications.match_result(match.id))
 
         # Confirming a flagged result *is* the resolution — the admin has now
         # looked at it, which is all the flag ever asked for. A separate
@@ -347,13 +395,21 @@ class MatchScheduleService(MatchNotificationMixin):
                 event_extra={'tournament_id': match.tournament_id},
             )
 
+        self.push_confirmed_result(match, actor)
+
+    def push_confirmed_result(self, match: Match, actor: Optional[User]) -> None:
+        """Hand a confirmed result on to every bracket the match mirrors, off the request path."""
         # Push the confirmed result to Challonge when this match mirrors a
         # bracket match. Fire-and-forget so a Challonge outage never blocks
         # confirmation; failures are visible via audit and the manual re-push.
         async def _push_challonge_result() -> None:
             from application.services.challonge_service import ChallongeService
             try:
-                await ChallongeService().push_result_if_linked(match, actor)
+                await asyncio.wait_for(
+                    ChallongeService().push_result_if_linked(match, actor), _BRACKET_PUSH_SECONDS,
+                )
+            except asyncio.TimeoutError:
+                logger.warning("challonge auto-push timed out for match %s", match.id)
             except Exception:
                 logger.exception("challonge auto-push failed for match %s", match.id)
 
@@ -363,7 +419,12 @@ class MatchScheduleService(MatchNotificationMixin):
         # shared bracket-source hook; it isolates each site's failure itself.
         async def _notify_bracket_sources() -> None:
             from application.services import bracket_sources
-            await bracket_sources.on_match_confirmed(match, actor)
+            try:
+                await asyncio.wait_for(
+                    bracket_sources.on_match_confirmed(match, actor), _BRACKET_PUSH_SECONDS,
+                )
+            except asyncio.TimeoutError:
+                logger.error("bracket site report timed out for match %s", match.id)
 
         discord_queue.enqueue(_notify_bracket_sources())
 
@@ -378,6 +439,40 @@ class MatchScheduleService(MatchNotificationMixin):
                 logger.exception("bracket auto-advance failed for match %s", match.id)
 
         discord_queue.enqueue(_advance_bracket_result())
+
+    async def close_played_elsewhere(self, match: Match, actor: User, site: str) -> None:
+        """Confirm a match whose result was reported on its bracket site, skipping the floor steps.
+
+        The players have already played, so nobody is DMed about check-in, start
+        or finish. Nothing goes back to the site either: it is where the result
+        came from.
+        """
+        await AuthService.ensure(
+            await AuthService.can_confirm_match(actor, match),
+            f"User cannot confirm match {match.id}",
+        )
+        await match.refresh_from_db(fields=_LIFECYCLE_FIELDS)
+        await match.fetch_related('players')
+        if match.confirmed_at:
+            raise ValueError("Match is already confirmed")
+        if not has_recorded_result(match.players):  # type: ignore[attr-defined]
+            raise ValueError("Record the winner before confirming.")
+        now = datetime.now(timezone.utc)
+        for field in ('seated_at', 'started_at', 'finished_at'):
+            if getattr(match, field) is None and await self.match_repository.stamp_if_unset(match, field, now):
+                setattr(match, field, now)
+        if not await self.match_repository.stamp_if_unset(match, 'confirmed_at', now):
+            raise ValueError("Someone else just updated this match. Refresh to see where it stands.")
+        match.confirmed_at = now
+        await match.fetch_related('tournament')
+        await self.audit_service.write_and_publish(
+            actor, AuditActions.MATCH_CONFIRMED, {'match_id': match.id, 'played_on': site},
+            EventType.MATCH_CONFIRMED,
+            event_extra={'tournament_id': match.tournament_id, 'tournament': match.tournament.name},  # type: ignore[attr-defined]
+        )
+        from application.services import opt_in_notifications
+        discord_queue.enqueue(opt_in_notifications.match_result(match.id))
+        match_live.publish(match.id)
 
     async def generate_seed(self, match_id: int, actor: Optional[User] = None) -> Tuple[bool, str, Optional[str]]:
         """
@@ -394,6 +489,24 @@ class MatchScheduleService(MatchNotificationMixin):
             - If already in progress: (False, "Generation already in progress", None)
             - If failed: (False, error_message, None)
         """
+        return await self._roll_seed(match_id, actor, players_release=False)
+
+    async def release_seed_to_ready_players(
+        self, match_id: int, actor: User,
+    ) -> Tuple[bool, str, Optional[str]]:
+        """Roll and send the seed because every player tapped Ready for seed.
+
+        ``actor`` is the player whose tap completed the set. It is not a proctor,
+        so instead of ``can_run_match`` the roll checks, under the same lock, that
+        the tournament lets players release their seed, the match is checked in,
+        ``actor`` plays it and every player is ready. Same return as
+        :meth:`generate_seed`.
+        """
+        return await self._roll_seed(match_id, actor, players_release=True)
+
+    async def _roll_seed(
+        self, match_id: int, actor: Optional[User], *, players_release: bool,
+    ) -> Tuple[bool, str, Optional[str]]:
         lock = self._seed_locks.get(match_id)
         if lock is None:
             lock = asyncio.Lock()
@@ -409,7 +522,10 @@ class MatchScheduleService(MatchNotificationMixin):
                     'players', 'players__user', 'stage',
                 )
 
-                if not await AuthService.can_run_match(actor, match):
+                if players_release:
+                    if not players_may_release(match, actor):
+                        return False, "The seed can't be released by the players right now", None
+                elif not await AuthService.can_run_match(actor, match):
                     return False, "You do not have permission to roll a seed for this match", None
 
                 if match.generated_seed:
@@ -475,7 +591,7 @@ class MatchScheduleService(MatchNotificationMixin):
                     seed_code=call.value.code,
                 )
 
-                message = f"Seed generated successfully for match ID {match.id}"
+                message = f"Seed rolled for {match_model_label(match, with_context=False)}."
                 return True, message, seed_url
 
             except MissingCredentialError as e:
@@ -601,7 +717,9 @@ class MatchScheduleService(MatchNotificationMixin):
             embed_url = None
             seed_link = await notification_links.player_match(match.id, label='Copy it from Wizzrobe')
         code_line = seed_code_line(seed_code)
-        if code_line:
+        emoji_row = await seed_emojis.code_row(randomizer, seed_code, self.discord_service.get_bot())
+        code_field = f"{emoji_row}\n-# {' · '.join(seed_code or [])}" if emoji_row else None
+        if code_line and not code_field:
             seed_description = f'{seed_description}\n{code_line}'
         seed_embed = match_embed(
             title='🎲 Seed ready', color=COLOR_SEED,
@@ -609,7 +727,7 @@ class MatchScheduleService(MatchNotificationMixin):
             tournament=match.tournament.name, community_name=community,
             player_names=descriptor['player_names'], when=match.scheduled_at,
             stage_name=match.stage.name if match.stage else None,
-            url=embed_url,
+            url=embed_url, code=code_field,
         )
 
         async def _send_seed_dms() -> None:
@@ -625,7 +743,7 @@ class MatchScheduleService(MatchNotificationMixin):
                     )
                     success, err = await self.discord_service.send_dm(
                         player.user.discord_id, dm_message,
-                        embed=seed_embed, link=seed_link,
+                        embed=seed_embed, link=seed_link, notice=SEED_READY.to(PLAYERS),
                     )
                     if not success:
                         logger.warning(
@@ -654,5 +772,5 @@ class MatchScheduleService(MatchNotificationMixin):
         )
 
         match_live.publish(match.id)
-        return f"Seed generated successfully for match ID {match.id}"
+        return f"Seed rolled for {match_model_label(match, with_context=False)}."
 

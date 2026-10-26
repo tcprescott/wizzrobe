@@ -579,11 +579,21 @@ def test_destructive_calls_go_through_a_confirmation():
     )
 
 
-def test_side_menu_is_224px():
-    """The drawer's longest label needs about 175px; Quasar's 300px default left a
-    wide empty strip beside the nav on desktop."""
+def test_side_menu_width():
+    """248px pinned on desktop; on a phone 85% of the screen, capped at 340px, so
+    rows are thumb-sized and the page still peeks out. The width goes through the
+    prop, not CSS: Quasar offsets the closed drawer by it."""
+    from theme.base import DRAWER_WIDTH_DESKTOP, DRAWER_WIDTH_JS, DRAWER_WIDTH_PHONE_MAX
+
+    assert DRAWER_WIDTH_DESKTOP == 248
+    assert DRAWER_WIDTH_PHONE_MAX == 340
+    assert 'Quasar.Screen.width * 0.85' in DRAWER_WIDTH_JS
     base = (ROOT / 'theme' / 'base.py').read_text()
-    assert re.search(r"bordered width=224\b", base), 'The side menu drawer should be width=224'
+    assert ':width="{DRAWER_WIDTH_JS}"' in base, 'The side menu drawer should take its width from DRAWER_WIDTH_JS'
+    css = (ROOT / 'static' / 'css' / 'styles.css').read_text()
+    assert not re.search(r'\.q-drawer(--\w+)?\s*\{[^}]*(?<![-\w])width\s*:', css), (
+        'Set the drawer width through DRAWER_WIDTH_JS, not CSS'
+    )
 
 
 # --- styles.css ---------------------------------------------------------------

@@ -67,3 +67,46 @@ Sample the server alongside a run — RSS, CPU (ticks/s ≈ % of one core), fds,
   the constraint (check `pg_active` to confirm).
 - Driver and server on one host understate server CPU headroom. Run them apart
   for a clean number.
+
+## Event-size data: how pages, APIs and workers scale
+
+`ws_load.py` asks how many viewers one process holds. The scripts below ask the
+other question: how the app behaves once the *data* is event-sized (1,300
+matches, 2,000 members) and has a few years of history behind it.
+
+```bash
+poetry run python scripts/seed_dev.py
+poetry run python scripts/loadtest/seed_scale.py        # ~150s; refuses ENVIRONMENT=production
+```
+
+`seed_scale.py` bulk-loads with `COPY` into the `default` community: 2,000
+`scale_NNNNN` members (20 staff, 50 proctors, 300 volunteers), 14 tournaments on
+4 stages, 1,300 matches from 36 hours ago to 60 hours ahead in the state their
+time implies, crew, acks, seeds, comments, reschedule requests, shifts and
+assignments, a 2,000-entrant check-in event, equipment loans, community events,
+and history: 300k audit rows, 1.5M telemetry events and 100k webhook deliveries.
+`--past-years 4` (the default) adds `scale-2025`..`scale-2022` communities, each
+with its own finished event and history, so per-community scoping is tested
+against rows that are not yours. `--scale 2` doubles everything.
+
+For timings, `pg_stat_statements` must be loaded (`shared_preload_libraries`)
+and created in the database.
+
+| Script | Measures |
+|---|---|
+| `page_timings.js` | Every page in `page_targets.json` in a real browser, until it has settled (lazy tabs and websocket refreshes included): wall time, server CPU, statements and database time, top three statements. `ONLY=<regex>` narrows it. `as` in a target logs in as that user. |
+| `measure_backend.py` | In-process, no workers running: every REST `GET`, every read-only MCP tool over the real `/mcp`, and two ticks of each background worker. Time, statements, response size. `--only rest\|mcp\|workers`, `--json out.json`. |
+| `trace_queries.py` | Ranks the app call sites behind each statement of one page render (`COOKIE_FILE=`) or one worker tick (`worker:<name>`). An N+1 is one site with a count near the row count. |
+| `profile_server.py` | Runs the server under cProfile, dumping on each SIGUSR1. With `PROFILE_PID=<pid>`, `page_timings.js` brackets each page's last load so its profile lands in its own file. |
+
+```bash
+./start.sh validate &
+NODE_PATH=$(npm root -g) node scripts/loadtest/page_timings.js scripts/loadtest/page_targets.json out.json
+PYTHONPATH=. poetry run python scripts/loadtest/measure_backend.py --json backend.json
+```
+
+Server CPU is the number to watch. NiceGUI runs every viewer on one event loop,
+so a page that spends 1.5s of CPU building itself stalls every other open tab
+for that long. asyncpg issues four reset statements per connection checkout,
+and running workers add their own, so raw statement counts read high; compare
+runs, not absolutes.

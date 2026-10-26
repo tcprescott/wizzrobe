@@ -13,6 +13,7 @@ from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Tuple
 
 from application.events import EventType
+from application.repositories._save import save_fields
 from application.services._bracket._composed import ComposedBracketService
 from application.services.audit_service import AuditActions
 from application.services.auth_service import AuthService
@@ -256,7 +257,7 @@ class CompletionMixin(ComposedBracketService):
             await self._rank_swiss(bracket, matches, entries, tie_breaks)
 
         bracket.state = BracketState.COMPLETE
-        await bracket.save()
+        await save_fields(bracket, 'state')
 
         details = {
             'bracket_id': bracket.id,
@@ -355,7 +356,7 @@ class CompletionMixin(ComposedBracketService):
         ranks = {eid: i + 1 for i, eid in enumerate(ordered)}
         for entry in entries:
             entry.final_rank = ranks.get(entry.id)
-            await entry.save()
+            await save_fields(entry, 'final_rank')
 
     async def _rank_round_robin(
         self,
@@ -399,7 +400,7 @@ class CompletionMixin(ComposedBracketService):
             for entry in group_entries:
                 entry.final_rank = rank_by_ref.get(entry.id)
                 entry.group_number = group
-                await entry.save()
+                await save_fields(entry, 'final_rank', 'group_number')
 
     async def _rank_swiss(
         self,
@@ -417,7 +418,7 @@ class CompletionMixin(ComposedBracketService):
             rank_by_ref.update(tie_breaks)
         for entry in entries:
             entry.final_rank = rank_by_ref.get(entry.id)
-            await entry.save()
+            await save_fields(entry, 'final_rank')
 
     @staticmethod
     def _standings_config(bracket: Bracket) -> StandingsConfig:

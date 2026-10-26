@@ -1,11 +1,12 @@
 name: Tests
 
-# Pull requests run this directly. Pushes to main and tags reach it through
-# `workflow_call` from publish.yml, which gates the container build on it — so
-# the suite that guards a release is the same one that guards a PR, and a main
-# push runs it once rather than twice.
+# Pull requests and pushes to main run this directly. publish.yml also calls it
+# through `workflow_call` to gate a container build on the same suite; that
+# workflow is paused (manual runs only), so main gets its run from `push` here.
 on:
   pull_request:
+    branches: [main]
+  push:
     branches: [main]
   workflow_call:
   workflow_dispatch:
@@ -110,10 +111,63 @@ jobs:
       - name: Run pytest (with coverage report)
         run: poetry run pytest -q --cov=application --cov=api --cov=middleware --cov-report=term-missing
 
+  changes:
+    # Decides which subsystem-only jobs a PR needs. A job skipped by its `if:`
+    # reports as passed, so a required check never waits on it. Everything that
+    # isn't a pull request (a push to main, a manual run) runs all.
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      swiss: ${{ steps.diff.outputs.swiss }}
+      postgres: ${{ steps.diff.outputs.postgres }}
+      a11y: ${{ steps.diff.outputs.a11y }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Changed paths
+        id: diff
+        # Fails open: a diff that errors or comes back empty runs every job, so
+        # a broken `changes` job can never turn a skipped check into a green one.
+        run: |
+          run_all() {
+            for job in swiss postgres a11y; do echo "$job=true" >> "$GITHUB_OUTPUT"; done
+            exit 0
+          }
+          [ "${{ github.event_name }}" = "pull_request" ] || run_all
+          files=$(git diff --name-only "origin/${{ github.base_ref }}...HEAD") || run_all
+          [ -n "$files" ] || run_all
+
+          # touches <regex>: true when any changed path matches.
+          touches() { echo "$files" | grep -qE "$1" && echo true || echo false; }
+          # only <regex>: true when every changed path matches.
+          only() { echo "$files" | grep -qvE "$1" && echo false || echo true; }
+
+          {
+            echo "swiss=$(touches '^(application/services/bracket_engines/|tests/services/test_bracket_swiss_crossvalidation\.py$|tests/services/_trf\.py$|poetry\.lock$|\.github/workflows/test\.yml$)')"
+
+            # The tenancy suite reaches services, the API, MCP and middleware, so
+            # PostgreSQL skips only when nothing but UI, help and event-info
+            # content, docs, change notes or UI tests moved. pytest still runs the same tests on SQLite either way.
+            if [ "$(only '^(pages/|theme/|static/|docs/|\.claude/|application/(changelog|help|event_info)/|tests/(theme|pages)/|scripts/(ui_[^/]*|help_screenshots/.*)$|[^/]+\.md$)')" = true ]; then
+              echo "postgres=false"
+            else
+              echo "postgres=true"
+            fi
+
+            # Markup and colour live in the UI layers and the content the pages
+            # render; a backend-only PR changes neither. Change notes are left
+            # out because nearly every PR adds one.
+            echo "a11y=$(touches '^(pages/|theme/|static/|application/(help|content|about|event_info)/|scripts/ui_|scripts/seed_dev\.py$|main\.py$|middleware/|poetry\.lock$|pyproject\.toml$|\.github/)')"
+          } >> "$GITHUB_OUTPUT"
+
   swiss-crossvalidation:
     # Cross-validate our Swiss engine against bbpPairings (a real FIDE-grade
-    # Dutch engine). Kept as a separate job so the main matrix stays fast and is
-    # not blocked on building the C++ binary.
+    # Dutch engine). Nothing outside the Swiss engine can change its pairings,
+    # so a PR runs this only when the engine, the test or its pins change.
+    needs: changes
+    if: needs.changes.outputs.swiss == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
@@ -160,7 +214,10 @@ jobs:
     # (which fail here if the lock is removed, and cannot on SQLite) and the
     # tenant-isolation suite, which is the one that leans on real constraint
     # enforcement. Serial: each test drops and recreates the schema, so parallel
-    # workers would pull the tables out from under each other.
+    # workers would pull the tables out from under each other. A PR that only
+    # touches UI or docs skips it (see `changes`).
+    needs: changes
+    if: needs.changes.outputs.postgres == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     services:
@@ -200,54 +257,15 @@ jobs:
           WIZZROBE_TEST_DB_URL: postgres://wizzrobe:wizzrobe@localhost:5432/wizzrobe_test
         run: poetry run pytest tests/postgres tests/tenancy -q -n0
 
-  migrations:
-    # Prove the full aerich migration chain applies from an empty PostgreSQL
-    # database — the tests run on SQLite and never exercise the migrations.
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    services:
-      postgres:
-        image: postgres:16
-        env:
-          POSTGRES_USER: wizzrobe
-          POSTGRES_PASSWORD: wizzrobe
-          POSTGRES_DB: wizzrobe
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd "pg_isready -U wizzrobe"
-          --health-interval 5s --health-timeout 5s --health-retries 10
-    steps:
-      - uses: actions/checkout@v7
-
-      - name: Set up Python
-        uses: actions/setup-python@v7
-        with:
-          python-version: '3.12'
-
-      - name: Install Poetry
-        run: pipx install poetry==${{ env.POETRY_VERSION }}
-
-      - name: Install runtime dependencies
-        run: poetry install --only main --no-interaction
-
-      - name: Apply full migration chain to a fresh database
-        env:
-          DB_USERNAME: wizzrobe
-          DB_PASSWORD: wizzrobe
-          DB_HOST: localhost
-          DB_PORT: 5432
-          DB_NAME: wizzrobe
-          ENVIRONMENT: development
-        run: poetry run aerich upgrade
-
   browser:
     # pages/ + theme/ are ~34k lines the pytest suite does not cover, and their
     # Vue/Quasar slot templates run client-side: a bad `props.row.foo` in a table
     # slot renders a blank cell that no Python test can see. This job boots the
     # real app against a real PostgreSQL, seeds it, and walks the surfaces where
     # a blank render would cost the most — the short CI cousin of the full
-    # /ui-validation loop, which stays a local tool.
+    # /ui-validation loop, which stays a local tool. The a11y scan runs in
+    # `browser-a11y` against its own app: the app is single-worker, so the two
+    # halves only overlap when each has one.
     runs-on: ubuntu-latest
     timeout-minutes: 25
     services:
@@ -280,67 +298,37 @@ jobs:
       # Installs the redraw hook scripts/ui_layout_shift.js drives
       # (theme/layout_probe.py). Never set in production.
       WIZ_LAYOUT_PROBE: 'true'
+      # SIGUSR1 writes a memory census here, for scripts/ui_leak_check.js.
+      # Never set in production.
+      MEMORY_CENSUS_DUMP: /tmp/census.json
     steps:
       - uses: actions/checkout@v7
 
-      - name: Set up Python
-        uses: actions/setup-python@v7
+      - uses: ./.github/actions/boot-app
         with:
-          python-version: '3.12'
-
-      - name: Install Poetry
-        run: pipx install poetry==${{ env.POETRY_VERSION }}
-
-      - name: Cache Poetry virtualenv
-        uses: actions/cache@v4
-        with:
-          path: ~/.cache/pypoetry/virtualenvs
-          key: poetry-full-3.12-${{ hashFiles('poetry.lock') }}
-
-      - name: Install dependencies
-        run: poetry install --no-interaction
-
-      - name: Install Playwright Chromium
-        # Pinned: Playwright ships browser-behaviour changes in minor releases,
-        # and an unpinned bump would land as a mystery CI failure on an unrelated
-        # PR. 1.56.1 matches the version preinstalled in the dev sandbox, so a
-        # local /ui-validation run and this job drive the same browser.
-        # axe-core is pinned for the same reason: a new release adds rules, and
-        # a rule landing should be a deliberate bump, not a red unrelated PR.
-        run: |
-          npm install --no-save playwright@1.56.1 axe-core@4.10.3
-          npx playwright install --with-deps chromium
-
-      - name: Generate a session secret
-        run: echo "STORAGE_SECRET=$(python -c 'import secrets; print(secrets.token_urlsafe(32))')" >> "$GITHUB_ENV"
-
-      - name: Boot the app
-        run: |
-          setsid poetry run uvicorn main:app --workers 1 --log-level info \
-            --port 8000 --host 127.0.0.1 > /tmp/app.log 2>&1 < /dev/null &
-          # The FastAPI lifespan applies the migration chain on first boot, so
-          # readiness is the signal to wait for, not a fixed sleep.
-          for _ in $(seq 1 60); do
-            grep -q 'Application startup complete' /tmp/app.log && exit 0
-            sleep 2
-          done
-          echo "app did not become ready in 120s"; cat /tmp/app.log; exit 1
-
-      - name: Seed fixtures
-        run: poetry run python scripts/seed_dev.py
+          poetry-version: ${{ env.POETRY_VERSION }}
 
       - name: Walk the surfaces
         run: node scripts/ui_smoke.js scripts/ui_smoke_ci.json
 
-      - name: Accessibility and contrast (light and dark)
-        # axe WCAG 2.1 AA rules plus a tint-aware contrast check on every page in
-        # scripts/ui_a11y_ci.json. docs/style-guide.md says how to fix a failure.
-        run: node scripts/ui_a11y_scan.js scripts/ui_a11y_ci.json
+      - name: Closed tabs are let go
+        # Opens and closes every page three times and fails if dead pages pile
+        # up in server memory, naming what holds them (SGLMAN-29). Main only:
+        # it was a third of this job, the job every PR waits on, and leaks are
+        # rare enough that a red main run right after the merge is soon enough.
+        if: github.event_name != 'pull_request'
+        run: node scripts/ui_leak_check.js scripts/ui_a11y_ci.json
 
       - name: Layout holds still (desktop and phone)
         # Redraws every live section with unchanged data and fails anything that
         # moves. docs/style-guide.md#hold-still says how to fix a failure.
         run: node scripts/ui_layout_shift.js scripts/ui_layout_shift_ci.json
+
+      - name: Back, Forward, reload and deep links
+        # Every view switch must move the address bar and title with it
+        # (theme/url_state.py); this clicks, goes Back and Forward, reloads and
+        # cold-loads links, on desktop and phone.
+        run: node scripts/ui_history.js scripts/ui_history_ci.json
 
       - name: App log
         if: always()
@@ -351,5 +339,72 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: ui-smoke-screenshots
-          path: /tmp/ui-smoke-ci/
+          path: |
+            /tmp/ui-smoke-ci/
+            /tmp/ui-history-ci/
+          if-no-files-found: warn
+
+  browser-a11y:
+    # A backend-only PR can't change markup or colour, so it skips the scan
+    # (see `changes`). The smoke walk in `browser` still renders every page.
+    needs: changes
+    if: needs.changes.outputs.a11y == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: wizzrobe
+          POSTGRES_PASSWORD: wizzrobe
+          POSTGRES_DB: wizzrobe
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U wizzrobe"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      DB_NAME: wizzrobe
+      DB_USERNAME: wizzrobe
+      DB_PASSWORD: wizzrobe
+      DB_HOST: localhost
+      DB_PORT: 5432
+      ENVIRONMENT: development
+      # Every outbound integration is mocked: this job proves pages pass axe, and
+      # it must not depend on Discord, a randomizer, Challonge, Twitch or
+      # racetime.gg being reachable from a CI runner.
+      MOCK_DISCORD: 'true'
+      MOCK_SEEDGEN: 'true'
+      MOCK_CHALLONGE: 'true'
+      MOCK_TWITCH: 'true'
+      MOCK_RACETIME: 'true'
+      # Installs the redraw hook scripts/ui_layout_shift.js drives
+      # (theme/layout_probe.py). Never set in production.
+      WIZ_LAYOUT_PROBE: 'true'
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: ./.github/actions/boot-app
+        with:
+          poetry-version: ${{ env.POETRY_VERSION }}
+
+      - name: Accessibility and contrast (light and dark)
+        # axe WCAG 2.1 AA rules plus a tint-aware contrast check on every page in
+        # scripts/ui_a11y_ci.json. docs/style-guide.md says how to fix a failure.
+        # A pull request checks the 360px phone only, the narrowest and the one
+        # that fails first; main checks all four.
+        env:
+          A11Y_PHONE_WIDTHS: ${{ github.event_name == 'pull_request' && '360' || '' }}
+        run: node scripts/ui_a11y_scan.js scripts/ui_a11y_ci.json
+
+      - name: App log
+        if: always()
+        run: tail -200 /tmp/app.log
+
+      - name: Upload screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ui-a11y-screenshots
+          path: /tmp/ui-smoke-ci/a11y/
           if-no-files-found: warn

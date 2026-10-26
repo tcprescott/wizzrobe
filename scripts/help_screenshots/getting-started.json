@@ -9,7 +9,8 @@
     "annotate": [
       {
         "selector": "button:has-text(\"Sign up\")",
-        "n": 1
+        "n": 1,
+        "tab": "bottom"
       }
     ]
   },

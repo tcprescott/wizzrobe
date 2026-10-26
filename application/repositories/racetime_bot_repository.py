@@ -11,6 +11,7 @@ ambient scope, so it never leaks another tenant's grants.
 from typing import Any, List, Optional
 
 from application.repositories._base import TenantScopedRepository
+from application.repositories._save import save_fields
 from models import RacetimeBot, RacetimeBotTenant
 
 
@@ -55,7 +56,7 @@ class RacetimeBotRepository(TenantScopedRepository[RacetimeBot]):
 
     async def set_grant_active(self, grant: RacetimeBotTenant, is_active: bool) -> RacetimeBotTenant:
         grant.is_active = is_active
-        await grant.save()
+        await save_fields(grant, 'is_active')
         return grant
 
     async def delete_grant(self, grant: RacetimeBotTenant) -> None:

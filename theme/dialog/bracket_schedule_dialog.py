@@ -10,9 +10,9 @@ date/time inputs.
 
 Two modes, because the two surfaces address different people: pass
 ``opponent_name`` for a player scheduling their own matchup ("Schedule vs Bob"),
-or ``matchup_label`` for staff scheduling someone else's ("Alice vs Bob"). Only
-the player mode gets a Suggest a time button — it needs the two user ids, which
-the staff bracket view does not carry. Shares the button with the non-bracket
+or ``matchup_label`` for staff scheduling someone else's ("Alice vs Bob"). The
+Suggest a time button needs the two user ids, which the staff bracket view does
+not carry; Match Schedule's "Not booked yet" view does. Shares the button with the non-bracket
 UserMatchDialog match-request dialog (``theme/dialog/match_dialog.py``).
 
 ``tenant_id`` is optional: pass it from a detached client event (the bracket
@@ -49,6 +49,8 @@ from theme.dialog._helpers import (
     render_suggest_time_button,
     submit_on_enter,
 )
+from theme.dialog.clash_warning import confirm_local_time, window_refusal
+from theme.dialog.round_schedule_dialog import confirm_outside_window
 from theme.help import resolve_help
 
 
@@ -91,10 +93,9 @@ class BracketScheduleDialog:
         return nullcontext() if self.tenant_id is None else tenant_scope(self.tenant_id)
 
     def _heading(self) -> str:
-        game = (
-            f'Schedule game {self.game_number} of {self.best_of}'
-            if self.best_of > 1 else 'Schedule match'
-        )
+        # A game's number follows when it's played, so booking one can't promise it.
+        game = 'Schedule a game' if self.best_of > 1 else 'Schedule match'
+
         return f'{game} vs {self.opponent_name}' if self.opponent_name else game
 
     def _defaults(self) -> tuple:
@@ -117,7 +118,10 @@ class BracketScheduleDialog:
         if self.tenant_id is None:
             self.tenant_id = get_current_tenant_id()
         default_date, default_time = self._defaults()
-        can_suggest = bool(self.opponent_name and self.tournament_id and len(self.player_ids) == 2)
+        can_suggest = bool(
+            (self.opponent_name or self.matchup_label) and self.tournament_id
+            and len(self.player_ids) == 2
+        )
 
         with ui.dialog() as dialog, ui.card().classes('dialog-card dialog-card--sm'):
             self.dialog = dialog
@@ -140,9 +144,10 @@ class BracketScheduleDialog:
                 error = FieldError(date, time)
 
                 if can_suggest:
-                    # Player mode only (opponent_name is set from the player
-                    # dashboard). The suggestion runs in this click's own
-                    # request-scoped tenant context.
+                    # Needs both players' ids: the player dashboard and Match
+                    # Schedule's "Not booked yet" view pass them, the staff
+                    # bracket view doesn't. The suggestion runs in this click's
+                    # own request-scoped tenant context.
                     render_suggest_time_button(
                         dialog,
                         get_tournament_id=lambda: self.tournament_id,
@@ -153,28 +158,51 @@ class BracketScheduleDialog:
                         missing_message='Unable to suggest a time for this match.',
                     )
 
-            async def submit():
+            async def submit(allow_outside_round: bool = False):
                 if not (date.value and time.value):
                     error.show('Choose a date and a time.')
                     return
+                # A "Book anyway" resubmit has already been past the clash sheet.
+                if not allow_outside_round:
+                    with self._scope():
+                        refusal = await window_refusal(
+                            date_value=date.value, time_value=time.value, actor=self.actor,
+                            bracket_match_id=self.bracket_match_id,
+                        )
+                    if refusal:
+                        error.show(refusal)
+                        return
+                    with self._scope():
+                        go_ahead = await confirm_local_time(
+                            tournament_id=self.tournament_id, player_ids=self.player_ids,
+                            date_value=date.value, time_value=time.value, actor=self.actor,
+                        )
+                    if not go_ahead:
+                        return
                 try:
                     with self._scope():
                         await self.bracket_service.schedule_bracket_match(
                             self.actor, self.bracket_match_id,
                             scheduled_date=date.value,
                             scheduled_time=time.value,
-                            game_number=self.game_number,
+                            # A set's games are booked in any order: any free
+                            # game will do, so only a best-of-1 can lose a race.
+                            game_number=self.game_number if self.best_of <= 1 else None,
+                            allow_outside_round=allow_outside_round,
                         )
                 except AlreadyBookedError as e:
-                    with self.dialog:
+                    with dialog:
                         ui.notify(e.describe(format_local_display(e.scheduled_at)),
                                   color='warning', multi_line=True)
                         dialog.close()
                 except (PermissionError, ValueError) as e:
+                    with dialog:
+                        if confirm_outside_window(e, lambda: submit(True)):
+                            return
                     error.show(str(e))
                     return
                 else:
-                    with self.dialog:
+                    with dialog:
                         ui.notify(self._booked_message(), color='positive', multi_line=True)
                         dialog.close()
                 await self._after_submit()

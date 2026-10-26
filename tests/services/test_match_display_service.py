@@ -169,6 +169,15 @@ class TestFormatMatchForDisplay:
         result = display_service._format_match_for_display(match)
         assert result["stage_url"] == ""
 
+    def test_no_crew_needed_without_a_stage(self, display_service):
+        result = display_service._format_match_for_display(make_match(stage=None, stage_id=None))
+        assert result["crew_required"] == {"commentators": 0, "trackers": 0}
+
+    def test_crew_needed_once_on_a_stage(self, display_service):
+        match = make_match(stage=SimpleNamespace(name="Stage 1", stream_url=None), stage_id=3)
+        result = display_service._format_match_for_display(match)
+        assert result["crew_required"] == {"commentators": 1, "trackers": 1}
+
     def test_seed_empty_when_none(self, display_service):
         result = display_service._format_match_for_display(make_match(generated_seed=None))
         assert result["seed"] == ""
@@ -200,7 +209,7 @@ class TestFormatMatchForDisplay:
         player = make_player("Alice", discord_id="111", finish_rank=1, station="A")
         result = display_service._format_match_for_display(make_match(players=[player]))
         assert result["players"] == [
-            {"name": "Alice", "user_id": 7, "finish_rank": 1, "station": "A", "discord_id": "111"}
+            {"name": "Alice", "user_id": 7, "finish_rank": 1, "station": "A", "discord_id": "111", "seed_ready": False}
         ]
 
     def test_multiple_players_all_included(self, display_service):
@@ -230,6 +239,8 @@ class TestFormatMatchForDisplay:
                 "acknowledged": False,
                 "ack_ts": "",
                 "id": 11,
+                "invited_by_id": None,
+                "with": "",
             }
         ]
 

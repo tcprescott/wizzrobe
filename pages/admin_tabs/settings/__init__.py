@@ -23,23 +23,29 @@ from application.table_preferences_context import current_table_prefs, table_pre
 from application.tenant_context import get_current_tenant_id, tenant_scope
 from application.timezone_context import current_timezone_name, tz_scope
 from models import FeatureFlag
+from pages.admin_tabs.admin_challonge import admin_challonge_connection_page
 from pages.admin_tabs.admin_discord_events import admin_discord_events_page
+from pages.admin_tabs.admin_discord_role_sync import TAB_LABEL as ROLE_SYNC_TAB_LABEL
+from pages.admin_tabs.admin_discord_role_sync import admin_discord_role_sync_page
 from pages.admin_tabs.admin_discord_roles import admin_discord_roles_page
 from pages.admin_tabs.admin_features import admin_features_page
 from pages.admin_tabs.admin_profile_reminders import admin_profile_reminders_page
 from pages.admin_tabs.admin_randomizer_keys import admin_randomizer_keys_page
+from pages.admin_tabs.admin_startgg import admin_startgg_connection_page
 from pages.admin_tabs.admin_theme import admin_theme_page
 from pages.admin_tabs.admin_timezone import admin_timezone_page
 from pages.admin_tabs.admin_webhooks import admin_webhooks_page
 from pages.admin_tabs.settings.community_events import community_events_settings_pane
-from pages.admin_tabs.settings.event import event_settings_pane
+from pages.admin_tabs.settings.event import capacity_pane, dates_and_hours_pane
+from pages.admin_tabs.settings.event_timezone import event_timezone_pane
 from pages.admin_tabs.settings.members import members_settings_pane
 from pages.admin_tabs.settings.venue import venue_settings_pane
-from pages.admin_tabs.settings.volunteers import volunteers_settings_pane
+from pages.admin_tabs.settings.volunteers import reward_tiers_pane, volunteers_settings_pane
 from pages.admin_tabs.settings.watch_page import watch_page_settings_pane
 from theme.dialog._helpers import dialog_actions, form_dialog
 from theme.page_header import nested_page_headers, page_header
 from theme.save_footer import UnsavedChanges
+from theme.url_state import TAIL, url_param, url_state
 
 #: The admin drawer label, and so the ``selected_tab`` value this page hears.
 SETTINGS_TAB_LABEL = 'Settings'
@@ -53,6 +59,7 @@ LEGACY_TAB_PANES: dict[str, str] = {
     'discord-events': 'discord',
     'webhooks': 'integrations',
     'randomizer-keys': 'integrations',
+    'challonge': 'integrations',
     'profile-reminders': 'members',
 }
 
@@ -99,16 +106,6 @@ def build_settings_panes(access, live: set) -> list[SettingsPane]:
             embedded=(EmbeddedPage(admin_theme_page), EmbeddedPage(admin_timezone_page)),
         ))
         panes.append(SettingsPane(
-            'event', 'Event', 'event',
-            'When the event runs and how much of it runs at once.',
-            native=event_settings_pane,
-        ))
-        panes.append(SettingsPane(
-            'venue', 'Venue', 'chair',
-            'The stations in the room and the screens on its walls.',
-            native=venue_settings_pane,
-        ))
-        panes.append(SettingsPane(
             'members', 'Members', 'group_add',
             'Who can join, what everyone else sees, and what members are asked to finish.',
             native=members_settings_pane,
@@ -122,13 +119,13 @@ def build_settings_panes(access, live: set) -> list[SettingsPane]:
         if FeatureFlag.VOLUNTEERS in live:
             panes.append(SettingsPane(
                 'volunteers', 'Volunteers', 'volunteer_activism',
-                'Shift reminders and the hours that earn rewards.',
+                'When volunteers hear about their next shift.',
                 native=volunteers_settings_pane,
             ))
         if FeatureFlag.COMMUNITY_EVENTS in live:
             panes.append(SettingsPane(
-                'community-events', 'Community Events', 'groups',
-                'Whether staff approve events first, and how early subscribers get a reminder.',
+                'community-events', 'Meetups', 'groups',
+                'Whether staff approve meetups first, and how early subscribers get a reminder.',
                 native=community_events_settings_pane,
             ))
     discord: list[EmbeddedPage] = []
@@ -146,6 +143,10 @@ def build_settings_panes(access, live: set) -> list[SettingsPane]:
             embedded=tuple(discord),
         ))
     integrations: list[EmbeddedPage] = []
+    if is_staff and FeatureFlag.CHALLONGE in live:
+        integrations.append(EmbeddedPage(admin_challonge_connection_page))
+    if is_staff and FeatureFlag.STARTGG in live:
+        integrations.append(EmbeddedPage(admin_startgg_connection_page))
     if is_staff:
         integrations.append(EmbeddedPage(admin_webhooks_page, refresh_label='Webhooks'))
     if is_staff or access.is_preset_manager:
@@ -161,6 +162,57 @@ def build_settings_panes(access, live: set) -> list[SettingsPane]:
             'features', 'Features', 'toggle_on',
             'Turn parts of the app on or off for this community.',
             embedded=(EmbeddedPage(admin_features_page),),
+        ))
+    return panes
+
+
+#: The admin drawer label of the event's own settings.
+EVENT_SETTINGS_TAB_LABEL = 'Event settings'
+
+#: Community Settings panes that moved to Event settings → the pane that took them.
+MOVED_TO_EVENT_PANES: dict[str, str] = {'event': 'dates', 'venue': 'venue'}
+
+
+def build_event_settings_panes(access, live: set) -> list[SettingsPane]:
+    """The event's own settings: what is set again for each event, in menu order.
+
+    Staff only, like the community panes these came from.
+    """
+    if not access.is_staff:
+        return []
+    panes = [
+        SettingsPane(
+            'dates', 'Dates & hours', 'date_range',
+            'When the event runs, and the hours matches can start each day.',
+            native=dates_and_hours_pane,
+        ),
+        SettingsPane(
+            'capacity', 'Capacity', 'groups_2',
+            'How much the scheduler lets run at the same time.',
+            native=capacity_pane,
+        ),
+        SettingsPane(
+            'venue', 'Venue', 'chair',
+            'The stations in the room and the screens on its walls.',
+            native=venue_settings_pane,
+        ),
+        SettingsPane(
+            'timezone', 'Timezone', 'schedule',
+            'The community’s clock, or one of this event’s own.',
+            native=event_timezone_pane,
+        ),
+    ]
+    if FeatureFlag.VOLUNTEERS in live:
+        panes.append(SettingsPane(
+            'reward-tiers', 'Volunteer reward tiers', 'military_tech',
+            'The hour totals that earn a volunteer something.',
+            native=reward_tiers_pane,
+        ))
+    if FeatureFlag.DISCORD_ROLE_SYNC in live:
+        panes.append(SettingsPane(
+            'discord-roles', ROLE_SYNC_TAB_LABEL, 'forum',
+            'Discord roles this event gives its tournament players, crew and volunteers.',
+            embedded=(EmbeddedPage(admin_discord_role_sync_page, refresh_label=ROLE_SYNC_TAB_LABEL),),
         ))
     return panes
 
@@ -194,9 +246,15 @@ async def admin_settings_page(
     panes: list[SettingsPane],
     pane: Optional[str] = None,
     base_path: str = '/admin',
+    tab_label: str = SETTINGS_TAB_LABEL,
+    title: str = 'Settings',
+    subtitle: str = 'Everything about how this community runs. Pick an area to change it.',
 ) -> None:
     if not panes:
         return
+    # The address, not ``pane``: that is the request's, stale once the viewer
+    # has switched tabs, and Back lands here with a different one.
+    pane = url_state().requested(TAIL)
     current = resolve_pane(panes, pane)
     if pane and current is None:
         # A DM button or bookmark can outlive the pane it named.
@@ -223,7 +281,7 @@ async def admin_settings_page(
         built.add(p.slug)
         with containers[p.slug], tenant_scope(tenant_id), tz_scope(tz), table_prefs_scope(prefs), unsaved.collect():
             if has_home:
-                ui.button('All settings', icon='chevron_left', on_click=leave_pane) \
+                ui.button(f'All {title.lower()}', icon='chevron_left', on_click=leave_pane) \
                     .props('flat dense no-caps color=primary').classes('wiz-settings-back')
             page_header(p.label, p.subtitle)
             if p.native is not None:
@@ -232,17 +290,22 @@ async def admin_settings_page(
                 with ui.element('section').classes('wiz-panel wiz-settings-embed'), nested_page_headers():
                     await page.render(**page.kwargs)
 
-    def sync_url() -> None:
-        tail = f'/{state["slug"]}' if state['slug'] else ''
-        ui.navigate.history.replace(f'{base_path}/settings{tail}')
-
     def reveal(slug: Optional[str]) -> None:
         state['slug'] = slug
         home.set_visibility(slug is None)
         for key, container in containers.items():
             container.set_visibility(key == slug)
-        sync_url()
+        pane_param.set(slug or '')
         ui.run_javascript('window.scrollTo(0, 0)')
+
+    async def restore_pane(slug: str) -> None:
+        # A pane left with unsaved edits keeps them: its container is only
+        # hidden, so Forward finds them where they were.
+        target = resolve_pane(panes, slug) if slug else None
+        if target is None:
+            reveal(None)
+        else:
+            await show(target)
 
     async def show(p: SettingsPane) -> None:
         reveal(p.slug)
@@ -281,12 +344,16 @@ async def admin_settings_page(
                 ui.button('Save', on_click=save_and_leave).props('unelevated no-caps color=primary')
         dialog.open()
 
-    with ui.column().classes('wiz-settings'):
+    labels = {p.slug: p.label for p in panes}
+    with ui.column().classes('wiz-settings') as root:
+        pane_param = url_param(
+            TAIL, root, default='', value=state['slug'] or '', label=labels.get, on_restore=restore_pane,
+        )
         home = ui.column().classes('wiz-settings__home wiz-section-stack')
         home.set_visibility(current is None)
         if has_home:
             with home:
-                page_header('Settings', 'Everything about how this community runs. Pick an area to change it.')
+                page_header(title, subtitle)
                 with ui.element('div').classes('wiz-settings-grid'):
                     for p in panes:
                         tile = ui.element('button').classes('wiz-settings-tile').props(
@@ -309,12 +376,10 @@ async def admin_settings_page(
         await build(current)
 
     def on_admin_tab(e) -> None:
-        # Coming back to Settings from another admin tab: the layout has just
-        # rewritten the URL to /admin/settings, and the open pane's embedded
-        # pages want the refresh their own tab used to get.
-        if e.args != SETTINGS_TAB_LABEL:
+        # Coming back to Settings from another admin tab: the open pane's
+        # embedded pages want the refresh their own tab used to get.
+        if e.args != tab_label:
             return
-        sync_url()
         if state['slug'] is None:
             return
         for label in next(p for p in panes if p.slug == state['slug']).refresh_labels:

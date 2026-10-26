@@ -28,6 +28,12 @@ class CheckInEvent(Model):
         'models.Tenant', related_name='check_in_events', on_delete=fields.CASCADE,
     )
     tenant_id: int
+    # Nullable until every write stamps it; the events migration backfilled the
+    # rows that existed before (see docs/features/events.md).
+    event: fields.ForeignKeyRelation = fields.ForeignKeyField(
+        'models.Event', related_name='check_in_events', on_delete=fields.CASCADE,
+    )
+    event_id: int
     name = fields.CharField(max_length=255)
     matcherino_venue_id = fields.IntField(null=True)
     # mypy cannot infer a JSONField's type parameter, as with every sibling.
@@ -47,7 +53,7 @@ class CheckInEvent(Model):
 
     class Meta:
         table = 'checkinevent'
-        unique_together = (('tenant', 'matcherino_venue_id'),)
+        unique_together = (('tenant', 'event', 'matcherino_venue_id'),)
 
 
 class CheckInEntrant(Model):

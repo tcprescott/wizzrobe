@@ -20,12 +20,14 @@ from application.repositories import (
     VolunteerPositionRepository,
     VolunteerShiftRepository,
 )
+from application.services import notification_catalog as notices
 from application.services.audit_service import AuditActions, AuditService
 from application.services.auth_service import AuthService
 from application.services.discord import discord_queue
 from application.services.discord.discord_service import DiscordService
 from application.services.tenant_membership_service import TenantMembershipService
 from application.services.timezone_service import TimezoneService
+from application.services.volunteer.volunteer_call_off_service import call_off_names
 from application.services.volunteer.volunteer_role_mapping_service import (
     VolunteerRoleMappingService,
 )
@@ -108,7 +110,7 @@ class VolunteerScheduleService:
         positions = [(p.id, p.name) for p in await self.position_repository.list_active()]
         return build_day_grid(
             shifts, midnight, actor.id if actor else 0, for_staff=True, positions=positions,
-            now=datetime.now(timezone.utc),
+            now=datetime.now(timezone.utc), caller_names=await call_off_names(shifts),
         )
 
     async def get_shift(self, shift_id: int) -> Optional[VolunteerShift]:
@@ -239,10 +241,9 @@ class VolunteerScheduleService:
         return out
 
     async def update_shift(self, actor: User, shift: VolunteerShift, **fields) -> VolunteerShift:
-        await AuthService.ensure(
-            await AuthService.can_manage_volunteers(actor),
-            "Only volunteer coordinators can manage shifts.",
-        )
+        await AuthService.ensure(await AuthService.can_manage_volunteers(actor), "Only volunteer coordinators can manage shifts.")
+        if not fields:
+            return shift
         starts = fields.get('starts_at', shift.starts_at)
         ends = fields.get('ends_at', shift.ends_at)
         if ends <= starts:
@@ -453,8 +454,8 @@ class VolunteerScheduleService:
             'user_id': assignment.user_id,
         }
         was_draft = assignment.auto_generated
-        shift = assignment.shift
-        user = assignment.user
+        loaded = require_found(await self.assignment_repository.get_by_id(assignment.id), "Volunteer assignment")
+        shift, user = loaded.shift, loaded.user  # a shift-prefetched row's .shift is an unfetched QuerySet
         await self.assignment_repository.delete(assignment)
         await self.audit_service.write_and_publish(
             actor, AuditActions.VOLUNTEER_UNASSIGNED, details, EventType.VOLUNTEER_UNASSIGNED,
@@ -464,22 +465,24 @@ class VolunteerScheduleService:
             await self.role_mapping_service.reconcile_users(actor, [details['user_id']])
             await self._notify_removed(user, shift)
 
-    @requires_feature(FeatureFlag.VOLUNTEERS)
-    async def acknowledge(self, assignment_id: int, user: User) -> VolunteerAssignment:
-        """Self-acknowledge an assignment. Idempotent."""
+    async def _own_published(self, assignment_id: int, user: User, verb: str) -> VolunteerAssignment:
         assignment = require_found(
             await self.assignment_repository.get_by_id(assignment_id), "Volunteer assignment"
         )
         if assignment.user_id != user.id:
-            raise ValueError("You can only acknowledge your own assignments.")
+            raise ValueError(f"You can only {verb} your own assignments.")
         if assignment.auto_generated:
-            raise ValueError(
-                "That shift is still a draft — your coordinator has not confirmed it yet."
-            )
+            raise ValueError("That shift is still a draft — your coordinator has not confirmed it yet.")
+        return assignment
+
+    @requires_feature(FeatureFlag.VOLUNTEERS)
+    async def acknowledge(self, assignment_id: int, user: User) -> VolunteerAssignment:
+        """Self-acknowledge an assignment. Idempotent."""
+        assignment = await self._own_published(assignment_id, user, "acknowledge")
         if assignment.acknowledged_at is not None:
             return assignment
         assignment.acknowledged_at = datetime.now(timezone.utc)
-        await self.assignment_repository.save(assignment)
+        await self.assignment_repository.save(assignment, update_fields=['acknowledged_at'])
         await self.audit_service.write_and_publish(
             user, AuditActions.VOLUNTEER_ACKNOWLEDGED,
             {'assignment_id': assignment.id, 'shift_id': assignment.shift_id},
@@ -487,6 +490,7 @@ class VolunteerScheduleService:
         )
         return assignment
 
+    @requires_feature(FeatureFlag.VOLUNTEERS)
     async def release(
         self, assignment_id: int, user: User, reason: Optional[str] = None,
     ) -> None:
@@ -495,16 +499,14 @@ class VolunteerScheduleService:
         Frees the slot immediately and DMs the coordinators — a schedule showing
         someone who has already said no is worse than an open one.
         """
-        assignment = require_found(
-            await self.assignment_repository.get_by_id(assignment_id), "Volunteer assignment"
-        )
-        if assignment.user_id != user.id:
-            raise ValueError("You can only release your own assignments.")
+        assignment = await self._own_published(assignment_id, user, "release")
         shift = assignment.shift
         if assignment.checked_in_at is not None:
             raise ValueError(
                 "You are already checked in for this shift — talk to your coordinator."
             )
+        if assignment.called_off_at is not None:
+            raise ValueError("You've been called off this shift, so there's nothing to give back.")
         now = datetime.now(timezone.utc)
         if shift.ends_at <= now:
             raise ValueError("That shift has already finished.")
@@ -528,6 +530,8 @@ class VolunteerScheduleService:
         assignment = require_found(
             await self.assignment_repository.get_by_id(assignment_id), "Assignment"
         )
+        if assignment.checked_in_at is None and assignment.called_off_at is not None:
+            raise ValueError('They were called off this shift. Undo the call-off first.')
         if assignment.checked_in_at is None:
             assignment.checked_in_at = datetime.now(timezone.utc)
             assignment.checked_in_by_id = actor.id
@@ -696,7 +700,7 @@ class VolunteerScheduleService:
         )
         discord_queue.enqueue(
             self.discord_service.send_dm_with_volunteer_acknowledgment_button(
-                int(discord_id), message, assignment.id, embed=embed,
+                int(discord_id), message, assignment.id, embed=embed, notice=notices.SHIFT_ASSIGNED.to(notices.VOLUNTEERS),
             )
         )
 
@@ -725,7 +729,7 @@ class VolunteerScheduleService:
             description='No action needed.',
         )
         discord_queue.enqueue(
-            self.discord_service.send_dm(int(discord_id), message, embed=embed)
+            self.discord_service.send_dm(int(discord_id), message, embed=embed, notice=notices.SHIFT_REMOVED.to(notices.VOLUNTEERS))
         )
 
     async def _notify_shift_moved(
@@ -759,7 +763,7 @@ class VolunteerScheduleService:
         )
         discord_queue.enqueue(
             self.discord_service.send_dm_with_volunteer_acknowledgment_button(
-                int(discord_id), message, assignment.id, embed=embed,
+                int(discord_id), message, assignment.id, embed=embed, notice=notices.SHIFT_MOVED.to(notices.VOLUNTEERS),
             )
         )
 
@@ -797,4 +801,4 @@ class VolunteerScheduleService:
         )
         # The ask is "find cover", so the button opens the roster on the day of
         # the shift rather than on whatever day the schedule defaults to.
-        await notify_coordinators(shift, message, embed, link_label='Find cover')
+        await notify_coordinators(shift, message, embed, link_label='Find cover', notice=notices.SHIFT_GIVEN_BACK)

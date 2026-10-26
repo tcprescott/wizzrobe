@@ -81,6 +81,22 @@ class TestBuild:
         assert row['availability_windows'] == 1
         assert row['available_hours'] == 8.0
 
+    async def test_overlapping_shifts_count_once_in_assigned_hours(self, db):
+        actor = await _coordinator()
+        position, shift, volunteer = await _fixture_data()
+        overlapping = await VolunteerShift.create(
+            position=position, starts_at=utc(2026, 10, 4, 14), ends_at=utc(2026, 10, 4, 18),
+            slots_needed=1,
+        )
+        await VolunteerAssignment.create(shift=shift, user=volunteer)
+        await VolunteerAssignment.create(shift=overlapping, user=volunteer)
+
+        bundle = await VolunteerExportService().build(actor, WINDOW_START, WINDOW_END)
+        row = next(r for r in bundle.sheet('volunteers').rows if r['name'] == 'Alex')
+
+        assert row['assigned_shifts'] == 2
+        assert row['assigned_hours'] == 6.0
+
     async def test_unavailable_windows_export_but_do_not_count_as_available(self, db):
         actor = await _coordinator()
         _, _, volunteer = await _fixture_data()

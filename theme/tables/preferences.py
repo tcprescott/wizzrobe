@@ -25,6 +25,7 @@ from nicegui import background_tasks, context, ui
 
 from application.services import TablePreferenceService
 from application.table_preferences_context import table_prefs_for
+from application.timezone_context import uses_12_hour
 from theme.connection import REQUIRES_SOCKET_CLASS
 from theme.tables.admin_crud import current_actor
 
@@ -86,12 +87,17 @@ class TableKeys:
     VOLUNTEER_FULL_SCHEDULE = 'volunteer.full_schedule'
     # Not a ui.table either: Admin → Shift Board's role columns, as above.
     ADMIN_SHIFT_BOARD = 'admin.shift_board'
+    # Not a ui.table: Match Schedule › Not booked yet, for the folded tournament
+    # groups only, keyed "<tournament id>:<source>".
+    ADMIN_UNBOOKED = 'admin.unbooked'
 
     # Admin
     ADMIN_USERS = 'admin.users'
     # _v2 since the board became six short columns with the description hidden:
     # rule 3 would have kept every v1 layout's Description and duration columns.
-    ADMIN_TOURNAMENTS = 'admin.tournaments_v2'
+    # _v3 since the Bracket column joined beside Signups: rule 3 would have
+    # appended it past the ⋮ on every saved v2 layout.
+    ADMIN_TOURNAMENTS = 'admin.tournaments_v3'
     ADMIN_BRACKETS = 'admin.brackets'
     ADMIN_CHECK_IN_EVENTS = 'admin.check_in_events'
     ADMIN_DISCORD_EVENTS = 'admin.discord_events'
@@ -100,8 +106,11 @@ class TableKeys:
     ADMIN_VOLUNTEER_ROLE_MAPPINGS = 'admin.volunteer_role_mappings'
     ADMIN_EQUIPMENT = 'admin.equipment'
     ADMIN_ACCOMMODATIONS = 'admin.accommodations'
-    ADMIN_FEEDBACK = 'admin.feedback'
+    # _v2 since the board became Submitted, From, Message, Status: a v1 layout
+    # would have kept the old User, Category and Page columns.
+    ADMIN_FEEDBACK = 'admin.feedback_v2'
     ADMIN_COMMUNITY_EVENTS = 'admin.community_events'
+    ADMIN_EVENTS = 'admin.events'
     ADMIN_PAYOUTS = 'admin.payouts'
     ADMIN_QUALIFIERS = 'admin.qualifiers'
     ADMIN_QUALIFIER_LEADERBOARD = 'admin.qualifier_leaderboard'
@@ -109,7 +118,6 @@ class TableKeys:
     ADMIN_SPEEDGAMING = 'admin.speedgaming'
     ADMIN_STAGES = 'admin.stages'
     ADMIN_VOLUNTEER_ROSTER = 'admin.volunteer_roster'
-    ADMIN_WEBHOOKS = 'admin.webhooks'
     ADMIN_WEBHOOK_DELIVERIES = 'admin.webhook_deliveries'
 
     # Check-in desk
@@ -132,6 +140,9 @@ class TableKeys:
     REPORTS_INSIGHTS_PLAYERS = 'reports.insights_players'
     REPORTS_MATCH_OPS_DETAIL = 'reports.match_ops_detail'
     REPORTS_MATCH_OPS_SUMMARY = 'reports.match_ops_summary'
+    REPORTS_SENT_MESSAGES = 'reports.sent_messages'
+    REPORTS_EXPORT_TOURNAMENTS = 'reports.export_tournaments'
+    REPORTS_EXPORTS = 'reports.exports'
     REPORTS_STAGE_MATCHES = 'reports.stage_matches'
     REPORTS_STAGE_SUMMARY = 'reports.stage_summary'
     REPORTS_TELEMETRY_LOG = 'reports.telemetry_log'
@@ -141,6 +152,7 @@ class TableKeys:
 
     # Platform (super-admin)
     PLATFORM_FEATURE_GROUPS = 'platform.feature_groups'
+    PLATFORM_BROWSER_IGNORE_RULES = 'platform.browser_ignore_rules'
     PLATFORM_LOG_LEVELS = 'platform.log_levels'
     PLATFORM_RACETIME_BOTS = 'platform.racetime_bots'
     PLATFORM_SERVICE_HEALTH = 'platform.service_health'
@@ -315,7 +327,6 @@ def effective_columns(
     is_customized = (
         _signature(columns, visible, widths)
         != _signature(shipped, default_visible, {})
-        or resolved_page_size != page_size
         or resolved_density != density
         or resolved_wrap != wrap
     )
@@ -344,10 +355,15 @@ class TableCustomization:
     density: str
     wrap: bool
     plan: ColumnPlan
+    pager: bool = True
     badge: Any = None          # the gear's "modified" dot, when a gear was rendered
 
 
 _STASH = '_wiz_table_customization'
+
+# Quasar's footer order: ascending, with 0 ("All") last. The service's
+# ALLOWED_PAGE_SIZES is the same set; test_table_preferences pins the two together.
+ROWS_PER_PAGE_OPTIONS: Final[list[int]] = [10, 25, 50, 100, 0]
 
 
 def customization_of(table: ui.table) -> Optional[TableCustomization]:
@@ -364,6 +380,7 @@ def customize_table(
     page_size: Optional[int] = None,
     density: str = 'comfortable',
     wrap: bool = False,
+    pager: bool = True,
 ) -> ColumnPlan:
     """Apply this viewer's saved preferences to ``table``'s **desktop** view.
 
@@ -381,13 +398,23 @@ def customize_table(
 
     ``page_size`` defaults to whatever the table was constructed with, so a
     report that ships ``pagination=25`` keeps it until someone chooses otherwise.
+
+    Rows per page lives in the table's footer and nowhere else: picking a size
+    there saves it for this viewer (:func:`_wire_page_size_saves`). ``pager=False``
+    is for a table that pages on the server and draws its own pager — it gets no
+    footer, and every row it is handed is shown.
     """
-    if page_size is None:
+    if not pager:
+        page_size = 0
+    elif page_size is None:
         pagination = table._props.get('pagination') or {}
         page_size = pagination.get('rowsPerPage', 0) or 0
 
+    saved = table_prefs_for(key)
+    if not pager and saved:
+        saved = {k: v for k, v in saved.items() if k != 'page_size'}
     plan = effective_columns(
-        defaults, table_prefs_for(key), required,
+        defaults, saved, required,
         page_size=page_size, density=density, wrap=wrap,
     )
     custom = TableCustomization(
@@ -398,14 +425,54 @@ def customize_table(
         density=density,
         wrap=wrap,
         plan=plan,
+        pager=pager,
     )
     setattr(table, _STASH, custom)
     # Read off the DOM by static/js/table-columns.js to know which table a
     # dragged header belongs to; nothing else identifies one.
     table._props['data-wiz-table-key'] = key
-    _apply_plan(table, plan)
+    _apply_plan(table, plan, pager=pager)
     _wire_width_drags(table, key)
+    if pager:
+        _wire_page_size_saves(table, key)
     return plan
+
+
+def _wire_page_size_saves(table: ui.table, key: str) -> None:
+    """Save the footer's rows-per-page pick as this viewer's preference.
+
+    ``update:pagination`` also fires on every page turn and sort, so only a
+    changed ``rowsPerPage`` is written. A signed-out viewer keeps the choice for
+    the life of the page. ``context.client`` is captured at build time for the
+    same reason as :func:`_wire_width_drags`.
+    """
+    client = context.client
+
+    async def _persist(args) -> None:
+        if not isinstance(args, Mapping):
+            return
+        size = args.get('rowsPerPage')
+        custom = customization_of(table)
+        if custom is None or not isinstance(size, int) or isinstance(size, bool) \
+                or size == custom.plan.page_size:
+            return
+        with client:
+            actor = await current_actor()
+            if actor is None:
+                return
+            try:
+                saved = await TablePreferenceService().set_page_size(actor, key, size)
+            except ValueError as e:
+                ui.notify(str(e), color='warning')
+                return
+            # Quasar already shows the new size; the stashed plan follows so the
+            # gear's Confirm and the next comparison here see it too.
+            custom.plan = effective_columns(
+                custom.defaults, saved, custom.required,
+                page_size=custom.page_size, density=custom.density, wrap=custom.wrap,
+            )
+
+    table.on('update:pagination', lambda e: background_tasks.create(_persist(e.args)))
 
 
 def _wire_width_drags(table: ui.table, key: str) -> None:
@@ -469,13 +536,13 @@ def apply_saved_config(table: ui.table, saved: Optional[Mapping]) -> ColumnPlan:
         page_size=custom.page_size, density=custom.density, wrap=custom.wrap,
     )
     custom.plan = plan
-    _apply_plan(table, plan)
+    _apply_plan(table, plan, pager=custom.pager)
     if custom.badge is not None:
         custom.badge.set_visibility(plan.is_customized)
     return plan
 
 
-def _apply_plan(table: ui.table, plan: ColumnPlan) -> None:
+def _apply_plan(table: ui.table, plan: ColumnPlan, *, pager: bool = True) -> None:
     """Push a plan onto the live table.
 
     Quasar renders columns in array order and resolves ``body-cell-<name>`` slots
@@ -484,13 +551,19 @@ def _apply_plan(table: ui.table, plan: ColumnPlan) -> None:
     mechanism QTable actually reads; row dicts are untouched, so ``row_key`` and
     every row handler keep working.
     """
-    table.columns = [_with_header_class(c) for c in plan.columns]
+    hour12 = uses_12_hour()
+    table.columns = [_with_clock_sort(_with_header_class(c)) if hour12 else _with_header_class(c)
+                     for c in plan.columns]
     table._props['visible-columns'] = list(plan.visible)
 
     pagination = dict(table._props.get('pagination') or {})
-    pagination['rowsPerPage'] = plan.page_size
+    pagination['rowsPerPage'] = plan.page_size if pager else 0
     table._props['pagination'] = pagination
-    table._props['hide-pagination'] = plan.page_size == 0
+    # The footer stays even on "All": it is the only place to pick a size again.
+    table._props['hide-pagination'] = not pager
+    if pager:
+        table._props['rows-per-page-options'] = list(ROWS_PER_PAGE_OPTIONS)
+        table._props['rows-per-page-label'] = 'Rows per page:'
 
     # Set as a real bool, not via .props('dense=true'): the prop string parser
     # stores 'true', and Quasar reads a non-empty string as truthy either way —
@@ -499,6 +572,27 @@ def _apply_plan(table: ui.table, plan: ColumnPlan) -> None:
     _toggle_class(table, 'wiz-table--wrap', plan.wrap)
     _toggle_class(table, 'wiz-table--sized', plan.has_widths)
     table.update()
+
+
+# Quasar's default column sort, except that a ``9:30 PM`` inside the value is
+# compared as ``21:30``. A 12-hour viewer's formatted times otherwise sort
+# 10:00 PM before 9:30 AM; 24-hour text already sorts in time order.
+CLOCK_SORT = (
+    "(a, b) => {"
+    " if (typeof a === 'number' && typeof b === 'number') return a - b;"
+    " if (typeof a === 'boolean' && typeof b === 'boolean') return a - b;"
+    " const k = v => (v === null || v === undefined ? '' : String(v)).toLowerCase().replace("
+    "/\\b(\\d{1,2}):(\\d{2})(:\\d{2})?\\s?([ap])m\\b/g,"
+    " (_, h, m, s, p) => String(h % 12 + (p === 'p' ? 12 : 0)).padStart(2, '0') + ':' + m + (s || ''));"
+    " const x = k(a), y = k(b); return x < y ? -1 : (x > y ? 1 : 0); }"
+)
+
+
+def _with_clock_sort(column: dict) -> dict:
+    """Give a sortable column :data:`CLOCK_SORT` unless it brings its own sort."""
+    if column.get('sortable') and 'sort' not in column and ':sort' not in column:
+        column[':sort'] = CLOCK_SORT
+    return column
 
 
 def _with_header_class(column: Mapping) -> dict:
@@ -552,7 +646,8 @@ def preferences_button(table: ui.table, *, tooltip: str = 'Table preferences') -
 
 def search_input(table: ui.table, *,
                  placeholder: str = 'Search…',
-                 width: str = 'w-64') -> ui.input:
+                 width: str = 'w-64',
+                 search_terms: bool = False) -> ui.input:
     """A text box that filters ``table`` across its visible columns.
 
     Quasar's ``filter`` prop is the real mechanism, and until now nothing in the
@@ -566,8 +661,15 @@ def search_input(table: ui.table, *,
         .props('debounce=200').classes(f'wiz-table-search {width}')
     with box.add_slot('prepend'):
         ui.icon('search')
-    table.bind_filter_from(box, 'value', backward=lambda v: v or '')
+    if search_terms:
+        from theme.tables.match_run_sheet import run_sheet_terms
+        table.bind_filter_from(box, 'value', backward=run_sheet_terms)
+    else:
+        table.bind_filter_from(box, 'value', backward=lambda v: v or '')
     return box
+
+
+_SINGULAR = {'matches': 'match', 'people': 'person', 'rows': 'row', 'runs': 'run', 'players': 'player'}
 
 
 def row_count_label(table: ui.table, noun: str = 'rows') -> ui.label:
@@ -580,7 +682,8 @@ def row_count_label(table: ui.table, noun: str = 'rows') -> ui.label:
     """
     return ui.label().classes('text-caption text-grey-7') \
         .bind_text_from(table, 'rows',
-                        backward=lambda rows: f'{len(rows or []):,} {noun}')
+                        backward=lambda rows: f'{len(rows or []):,} '
+                                              f'{_SINGULAR.get(noun, noun) if len(rows or []) == 1 else noun}')
 
 
 def sticky_header(table: ui.table, max_height: str = '70vh') -> ui.table:

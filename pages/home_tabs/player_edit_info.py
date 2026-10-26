@@ -14,6 +14,8 @@ from application.services import (
 )
 from application.services.profile_nudge_service import ProfileSection
 from application.services.timezone_service import COMMON_TIMEZONES, MODE_PINNED
+from application.timezone_context import get_browser_hour_cycle
+from application.utils.app_links import MY_MESSAGES
 from models import FeatureFlag
 from pages.home_tabs._link_section import render_connected_accounts_section
 from pages.home_tabs.accommodation_section import render_accommodation_section
@@ -23,6 +25,8 @@ from pages.home_tabs.emergency_contact_section import render_emergency_contact_s
 from pages.home_tabs.equipment import equipment_checkouts_section
 from pages.home_tabs.my_feedback_section import render_my_feedback_section
 from pages.home_tabs.notification_channels_section import ChannelRows, render_test_button
+from pages.home_tabs.notification_preferences_section import render_notification_preferences
+from pages.home_tabs.personal_webhooks_section import render_personal_webhooks_section
 from pages.home_tabs.racetime_link_section import CONFIG as RACETIME_CONFIG
 from pages.home_tabs.staff_alerts_section import render_staff_alerts_section
 from pages.home_tabs.startgg_link_section import CONFIG as STARTGG_CONFIG
@@ -30,6 +34,7 @@ from pages.home_tabs.twitch_link_section import CONFIG as TWITCH_CONFIG
 from pages.home_tabs.web_push_section import render_device_rows
 from theme.banner import banner
 from theme.help import help_icon
+from theme.links import link_button, set_link
 from theme.page_header import page_title
 from theme.profile_nudge_banner import focus_profile_section, section_anchor
 
@@ -101,7 +106,7 @@ async def render_edit_info_tab(focus: str | None = None):
             with ui.card().classes('card-centered'):
                 ui.icon('lock', size='3em').classes('icon-large')
                 ui.label('You must be logged in to view this page.').classes('text-muted')
-                ui.button('Login with Discord', icon='login', on_click=lambda: ui.navigate.to('/login')).props('color=primary size=lg')
+                link_button('Login with Discord', '/login', icon='login', new_tab=False).props('color=primary size=lg')
             return
 
         user = await get_user_from_session(app.storage.user)
@@ -165,7 +170,6 @@ async def render_edit_info_tab(focus: str | None = None):
                     display_name=display_name_input.value,
                     pronouns=pronouns_input.value,
                     dm_notifications=dm_switch.value,
-                    dm_match_comments=comments_switch.value,
                     matcherino_username=(
                         matcherino_input.value if payouts_live else None
                     ),
@@ -199,6 +203,22 @@ async def render_edit_info_tab(focus: str | None = None):
                 show_saving()
                 try:
                     await TimezoneService.set_user_timezone(user, chosen)
+                except ValueError as e:
+                    show_error(str(e))
+                    ui.notify(str(e), color='warning')
+                    return
+                show_saved()
+                ui.navigate.reload()
+
+        async def save_hour_cycle(client):
+            # Reloads for the same reason as the zone: every time on the page changes.
+            with client:
+                chosen = hc_select.value or None
+                if chosen == (user.hour_cycle or None):
+                    return
+                show_saving()
+                try:
+                    await TimezoneService.set_user_hour_cycle(user, chosen)
                 except ValueError as e:
                     show_error(str(e))
                     ui.notify(str(e), color='warning')
@@ -330,6 +350,24 @@ async def render_edit_info_tab(focus: str | None = None):
                             'Leave on Detect automatically to follow your device."'
                         )
 
+                    detected = get_browser_hour_cycle()
+                    hc_select = ui.select(
+                        {
+                            '': f'Automatic ({detected or "12"}-hour)',
+                            '12': '12-hour',
+                            '24': '24-hour',
+                        },
+                        value=user.hour_cycle or '',
+                        label='Time format',
+                        on_change=lambda _: background_tasks.create(
+                            save_hour_cycle(context.client)
+                        ),
+                    ).props('outlined dense stack-label').classes('input-full-width')
+                    hc_select.props(
+                        'hint="12-hour shows 9:30 PM, 24-hour shows 21:30. '
+                        'Automatic follows your browser."'
+                    )
+
             # Notifications, split by the two questions people actually have: where
             # a message goes (each channel is its own switch) and what they'll hear
             # about. The Discord switch is enforced inside send_dm, so turning it
@@ -381,26 +419,19 @@ async def render_edit_info_tab(focus: str | None = None):
 
                 with ui.column().classes('wiz-notify-group'):
                     ui.label('What you hear about').classes('wiz-notify-group__head')
-                    with ui.column().classes('wiz-notify-item gap-1'):
-                        ui.label('About you').classes('wiz-notify-item__name')
-                        for line in (
-                            'Your matches: scheduled, moved, cancelled, seeds and race rooms',
-                            'Crew slots and volunteer shifts, with reminders',
-                            'Answers to requests you sent, and matches you watch',
-                        ):
-                            with ui.row().classes('items-start gap-2 no-wrap'):
-                                ui.icon('check', size='xs').classes('st-ok q-mt-xs')
-                                ui.label(line).classes('text-caption col')
+                    await render_notification_preferences(
+                        user, on_saving=show_saving, on_saved=show_saved, on_error=show_error,
+                    )
 
-                    with ui.row().classes('wiz-notify-item no-wrap'):
+                    with ui.row().classes('wiz-notify-item items-center no-wrap w-full gap-2'):
                         with ui.column().classes('gap-0 col min-w-0'):
-                            ui.label('Staff comments on your matches').classes('wiz-notify-item__name')
+                            ui.label('Messages sent to you').classes('wiz-notify-item__name')
                             ui.label(
-                                'A message when staff leave you a comment, like a station change'
+                                'Reread what Wizzrobe sent you and change how you get each kind.'
                             ).classes('text-muted text-caption')
-                        comments_switch = ui.switch(
-                            value=user.dm_match_comments, on_change=on_dm_change,
-                        ).props('aria-label="Staff comments on your matches"')
+                        open_btn = ui.button('Open', icon='mail', color=None) \
+                            .props('flat dense no-caps').classes('wiz-notify-open')
+                        set_link(open_btn, MY_MESSAGES, new_tab=False)
 
                     # A follow is not a consequence of enrollment:
                     # get_match_notification_subscribers never checks the player
@@ -473,6 +504,9 @@ async def render_edit_info_tab(focus: str | None = None):
             # Draws nothing when you have sent none, or when the community has the
             # feature off.
             await render_my_feedback_section(user)
+
+            if FeatureFlag.PERSONAL_WEBHOOKS in live:
+                await render_personal_webhooks_section(user)
 
             # API token management (self-contained; collapsed developer surface).
             await render_api_tokens_section(user)

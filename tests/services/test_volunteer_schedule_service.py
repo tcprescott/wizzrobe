@@ -35,7 +35,7 @@ def make_shift(**overrides):
 def make_assignment(**overrides):
     defaults = dict(
         id=1, shift_id=1, user_id=42, acknowledged_at=None,
-        auto_generated=False, checked_in_at=None,
+        auto_generated=False, checked_in_at=None, called_off_at=None,
     )
     defaults.update(overrides)
     return SimpleNamespace(**defaults)
@@ -302,6 +302,12 @@ class TestRelease:
         with pytest.raises(ValueError, match='already checked in'):
             await service.release(1, SimpleNamespace(id=42))
 
+    async def test_refuses_a_draft(self, service):
+        _releasable(service, auto_generated=True)
+        with pytest.raises(ValueError, match='still a draft'):
+            await service.release(1, SimpleNamespace(id=42))
+        service.assignment_repository.delete.assert_not_awaited()
+
     async def test_refuses_a_finished_shift(self, service):
         _releasable(service, shift=_future_shift(hours_out=-72))
         with pytest.raises(ValueError, match='already finished'):
@@ -379,7 +385,7 @@ def _coordinator(uid, *, discord_id='900', dm_notifications=True):
 
 class TestReleaseFanOut:
     async def _run(self, service, recipients_by_role, on_duty=(), can_manage=True):
-        async def list_users_with_role(role):
+        async def list_users_with_role(role, active_only=False):
             return recipients_by_role.get(role, [])
 
         with patch('application.services.staff_alert_service.UserRoleRepository') as repo, \
@@ -446,6 +452,7 @@ class TestUnassignNotifies:
             auto_generated=auto_generated, shift=make_shift(),
             user=SimpleNamespace(id=42, preferred_name='Alice'),
         )
+        service.assignment_repository.get_by_id = AsyncMock(return_value=assignment)
         service.assignment_repository.delete = AsyncMock()
         with patch.object(service, '_notify_removed', AsyncMock()) as notify:
             await service.unassign(MagicMock(), assignment)

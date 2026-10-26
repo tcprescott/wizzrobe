@@ -11,8 +11,10 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
+from application.services.audit_service import AuditActions
 from application.services.challonge_service import ChallongeService
 from models import (
+    AuditLog,
     ChallongeConnection,
     ChallongeMatch,
     ChallongeMatchState,
@@ -267,16 +269,16 @@ class TestScheduleChallongeMatch:
 
         created_match = await Match.create(tournament=tournament)
         fake_ms = MagicMock()
-        fake_ms.submit_match_request = AsyncMock(return_value=created_match)
+        fake_ms.book_from_bracket = AsyncMock(return_value=created_match)
         monkeypatch.setattr('application.services.challonge_service.MatchService', lambda: fake_ms)
 
         returned = await make_service().schedule_challonge_match(
             challonge_match_pk=cmatch.id, scheduled_date='2026-06-12', scheduled_time='14:30', actor=actor,
         )
         assert returned.id == created_match.id
-        fake_ms.submit_match_request.assert_awaited_once()
-        _, kwargs = fake_ms.submit_match_request.call_args
-        assert sorted(kwargs['player_ids']) == sorted([actor.id, opponent.id])
+        fake_ms.book_from_bracket.assert_awaited_once()
+        args, _ = fake_ms.book_from_bracket.call_args
+        assert sorted(args[3]) == sorted([actor.id, opponent.id])
 
         await cmatch.refresh_from_db()
         assert cmatch.match_id == created_match.id
@@ -344,6 +346,7 @@ class TestPushMatchResult:
     async def test_pushes_winner_and_loser(self, db):
         actor, match, _ = await self._setup()
         api = MagicMock()
+        api.get_match = AsyncMock(return_value={'match_id': '8001', 'state': 'open'})
         api.update_match = AsyncMock()
         # The push triggers a single post-push re-sync to mirror bracket advancement.
         api.get_tournament_full = AsyncMock(return_value={
@@ -366,6 +369,7 @@ class TestPushMatchResult:
         tournament.challonge_community = 'speedgaming'
         await tournament.save()
         api = MagicMock()
+        api.get_match = AsyncMock(return_value={'match_id': '8001', 'state': 'open'})
         api.update_match = AsyncMock()
         api.get_tournament_full = AsyncMock(return_value={
             'tournament': {'id': 'T1', 'name': 'T', 'url': None, 'state': 'underway'},
@@ -374,6 +378,23 @@ class TestPushMatchResult:
         await make_service(api=api).push_match_result(match, actor)
         _, kwargs = api.update_match.call_args
         assert kwargs['community'] == 'speedgaming'
+
+    async def test_leaves_a_result_already_on_challonge(self, db):
+        actor, match, _ = await self._setup()
+        api = MagicMock()
+        api.get_match = AsyncMock(return_value={
+            'match_id': '8001', 'state': 'complete', 'winner_participant_id': '200',
+        })
+        api.update_match = AsyncMock()
+        api.get_tournament_full = AsyncMock(return_value={
+            'tournament': {'id': 'T1', 'name': 'T', 'url': None, 'state': 'underway'},
+            'participants': [], 'matches': [],
+        })
+        sent = await make_service(api=api).push_match_result(match, actor)
+        assert sent is False
+        api.update_match.assert_not_awaited()
+        api.get_tournament_full.assert_awaited_once()
+        assert await AuditLog.filter(action=AuditActions.CHALLONGE_RESULT_SKIPPED).count() == 1
 
     async def test_no_winner_recorded_raises(self, db):
         actor, match, _ = await self._setup(winner_rank_set=False)
@@ -548,7 +569,7 @@ class TestClientPaths:
     def _client(self):
         from application.utils.clients.challonge_client import ChallongeClient
         client = ChallongeClient('id', 'secret', token_provider=AsyncMock(return_value='tok'))
-        client._authed_request = AsyncMock(return_value={'data': {}})
+        client._authed_request = AsyncMock(return_value={'data': {'id': '1'}})
         return client
 
     async def test_root_tournament_path(self):

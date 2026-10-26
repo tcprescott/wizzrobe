@@ -9,7 +9,7 @@ summary: Adding and importing seed presets, checking them with a test roll, and 
 
 A preset is a named set of randomizer settings. Pick one on a tournament and every
 seed rolled for its matches uses it. You'll find presets on Admin → Seed Presets,
-under Online play. Staff and anyone with the Preset Manager role can change them.
+under Operations next to Tournaments. Staff and anyone with the Preset Manager role can change them.
 
 ## Getting presets in
 

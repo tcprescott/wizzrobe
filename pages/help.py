@@ -52,6 +52,18 @@ def _whats_new_card() -> None:
                     .classes('text-caption text-grey-7')
 
 
+def _about_card() -> None:
+    """The way into ``/about`` (privacy policy, third-party notices), which has no menu item."""
+    with make_activatable(ui.card().classes('wiz-help-card cursor-pointer q-mt-sm')
+                          .on('click', lambda: ui.navigate.to('/about')), role='link'):
+        with ui.row().classes('items-center no-wrap gap-3'):
+            ui.icon('info').props('size=sm').classes('text-primary')
+            with ui.column().classes('gap-0 col min-w-0'):
+                ui.label('About Wizzrobe').classes('text-weight-bold')
+                ui.label('What the app is, its privacy policy and third-party notices.') \
+                    .classes('text-caption text-grey-7')
+
+
 async def _viewer():
     return await get_user_from_session(app.storage.user)
 
@@ -67,7 +79,7 @@ async def _title(*parts: str) -> str:
 
 
 def create() -> None:
-    @public_page('/help')
+    @public_page('/help', scope='community')
     async def help_index() -> None:
         ui.page_title(await _title('Help'))
         user = await _viewer()
@@ -84,6 +96,7 @@ def create() -> None:
             ).classes('text-muted')
 
             _whats_new_card()
+            _about_card()
 
             search = ui.input(placeholder='Search help') \
                 .props('outlined dense clearable autofocus') \
@@ -123,7 +136,7 @@ def create() -> None:
             if not articles:
                 ui.label('No help articles are available.').classes('text-muted')
 
-    @public_page('/help/{slug}')
+    @public_page('/help/{slug}', scope='community')
     async def help_article(slug: str) -> None:
         user = await _viewer()
         article = await HelpService.get_article(slug, user)

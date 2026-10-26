@@ -18,6 +18,15 @@ authoritative on the platform host, where every tenant is reachable at
 ``/t/<slug>`` regardless of any domain. An unknown host falls through leniently
 to the platform surface (a rate-limited warning flags a likely proxy misconfig).
 
+Below the community, ``/e/<event>`` names one of its events
+(``/t/<community>/e/<event>/…``, or ``/e/<event>/…`` on a custom domain). It is
+stripped into ``root_path`` the same way, so every link a page builds stays
+inside that event, and the event is bound beside the tenant
+(``application/event_context.py``). A path with no ``/e/`` binds the
+community's default event; the page decides whether to redirect to the default's
+``/e/`` form (``middleware/event_routing.py``). An ``/e/<slug>`` the community
+has no event for is left unrouted, so it 404s like any unknown page.
+
 Requests with neither a matching custom host nor a ``/t/`` prefix run with **no**
 tenant context: that is the platform surface (landing page, ``/platform``, the
 shared OAuth callbacks). Tenant pages guard themselves — ``@protected_page``
@@ -35,9 +44,12 @@ happen before authentication reads the (already-rewritten) path.
 
 import logging
 import re
+from typing import Optional
 
 from starlette.middleware.base import BaseHTTPMiddleware
 
+from application.event_context import reset_event_id, set_event_id
+from application.services.event_service import EventService
 from application.services.tenant_service import TenantService
 from application.tenant_context import (
     reset_host_mode,
@@ -46,9 +58,13 @@ from application.tenant_context import (
     set_tenant_id,
 )
 from application.timezone_context import (
+    HOUR_CYCLE_COOKIE,
     TZ_COOKIE,
+    read_hour_cycle_cookie,
     read_timezone_cookie,
+    reset_browser_hour_cycle,
     reset_browser_timezone,
+    set_browser_hour_cycle,
     set_browser_timezone,
 )
 from application.utils.environment import get_platform_host
@@ -59,6 +75,15 @@ logger = logging.getLogger(__name__)
 #: Set on the ASGI scope when ``/t/<slug>`` names no active community, so the
 #: 404 handler can say "no such community" rather than "no such page".
 UNKNOWN_COMMUNITY_SCOPE_KEY = 'wizzrobe.unknown_community'
+#: The event slug the URL named (``/e/<slug>``), or None for a bare path.
+EVENT_SLUG_SCOPE_KEY = 'wizzrobe.event_slug'
+#: ``root_path`` up to the community, before any ``/e/<slug>``: where a link to
+#: another event of the same community starts.
+COMMUNITY_ROOT_SCOPE_KEY = 'wizzrobe.community_root'
+
+# /e/<event slug> optionally followed by the rest of the path, after the
+# community prefix is gone.
+_EVENT_PATH_RE = re.compile(r'^/e/(?P<slug>[a-z0-9][a-z0-9-]*)(?P<rest>/.*)?$')
 
 # /t/<slug> optionally followed by the rest of the path.
 _TENANT_PATH_RE = re.compile(r'^/t/(?P<slug>[a-z0-9][a-z0-9-]*)(?P<rest>/.*)?$')
@@ -70,7 +95,7 @@ _TENANT_PATH_RE = re.compile(r'^/t/(?P<slug>[a-z0-9][a-z0-9-]*)(?P<rest>/.*)?$')
 # real routes. ``_nicegui_ws`` is listed before ``_nicegui`` so the alternation
 # matches the longer segment.
 _TENANT_TRANSPORT_RE = re.compile(
-    r'^(?P<prefix>/t/[a-z0-9][a-z0-9-]*)'
+    r'^(?P<prefix>(?:/t/[a-z0-9][a-z0-9-]*)?(?:/e/[a-z0-9][a-z0-9-]*)?)'
     r'(?P<rest>/(?:_nicegui_ws|_nicegui|static)(?:/.*)?|/sw\.js)$'
 )
 
@@ -104,8 +129,49 @@ def _warn_unresolved_host(host: str) -> None:
     )
 
 
+def _strip_prefix(scope, prefix: str, rest: str) -> None:
+    """Move ``prefix`` off the front of the path into ``root_path``.
+
+    ``raw_path`` is the *undecoded* bytes by contract, so the prefix comes off
+    the original raw bytes rather than re-encoding the already-decoded ``rest``
+    (which would drop percent-encoding in the remainder of the path). Slugs are
+    ``[a-z0-9-]``, never encoded, so the prefix matches the raw bytes verbatim.
+    """
+    scope['path'] = rest
+    scope['root_path'] = scope.get('root_path', '') + prefix
+    raw = scope.get('raw_path')
+    if raw is not None:
+        raw_path_part, sep, raw_query = raw.partition(b'?')
+        raw_prefix = prefix.encode()
+        if raw_path_part.startswith(raw_prefix):
+            new_path_part = raw_path_part[len(raw_prefix):] or b'/'
+        else:
+            new_path_part = rest.encode()
+        scope['raw_path'] = new_path_part + (sep + raw_query if sep else b'')
+
+
+async def _bind_event_path(scope, tenant_id: int) -> Optional[int]:
+    """Resolve the event the (community-local) path names and return its id.
+
+    ``/e/<slug>/…`` is stripped into ``root_path``. A bare path gets the
+    community's default event. An unknown slug leaves the path as it is, so no
+    route matches and it 404s, with the default bound for the error page.
+    """
+    scope[COMMUNITY_ROOT_SCOPE_KEY] = scope.get('root_path', '')
+    scope[EVENT_SLUG_SCOPE_KEY] = None
+    match = _EVENT_PATH_RE.match(scope.get('path', '/'))
+    if match is None:
+        return await EventService.default_event_id(tenant_id)
+    event = await EventService.ref_by_slug(tenant_id, match.group('slug'))
+    if event is None:
+        return await EventService.default_event_id(tenant_id)
+    _strip_prefix(scope, f'/e/{event.slug}', match.group('rest') or '/')
+    scope[EVENT_SLUG_SCOPE_KEY] = event.slug
+    return event.id
+
+
 class TransportPrefixMiddleware:
-    """Strip the ``/t/<slug>`` prefix off tenant-agnostic transport paths.
+    """Strip the ``/t/<slug>`` (and ``/e/<slug>``) prefix off tenant-agnostic transport paths.
 
     NiceGUI derives its client asset + websocket URL prefix from the page's
     ``root_path`` (``/t/<slug>`` in path mode), so a tenant page tells the browser
@@ -128,7 +194,7 @@ class TransportPrefixMiddleware:
     async def __call__(self, scope, receive, send):
         if scope['type'] in ('http', 'websocket'):
             match = _TENANT_TRANSPORT_RE.match(scope.get('path', ''))
-            if match is not None:
+            if match is not None and match.group('prefix'):
                 scope = dict(scope)
                 scope['path'] = match.group('rest')
                 raw = scope.get('raw_path')
@@ -148,9 +214,11 @@ class TenantMiddleware(BaseHTTPMiddleware):
         # included, and before the tenant is known — because it is a property of
         # the browser, not of the community. Resolution consumes it later.
         tz_token = set_browser_timezone(read_timezone_cookie(request.cookies.get(TZ_COOKIE)))
+        hc_token = set_browser_hour_cycle(read_hour_cycle_cookie(request.cookies.get(HOUR_CYCLE_COOKIE)))
         try:
             return await self._dispatch(request, call_next)
         finally:
+            reset_browser_hour_cycle(hc_token)
             reset_browser_timezone(tz_token)
 
     async def _dispatch(self, request, call_next):
@@ -172,11 +240,13 @@ class TenantMiddleware(BaseHTTPMiddleware):
             tenant = await TenantService.get_by_domain(host)
             if tenant is not None and tenant.is_active:
                 tenant_token = set_tenant_id(tenant.id)
+                event_token = set_event_id(await _bind_event_path(scope, tenant.id))
                 host_token = set_host_mode(True)
                 try:
                     return await call_next(request)
                 finally:
                     reset_host_mode(host_token)
+                    reset_event_id(event_token)
                     reset_tenant_id(tenant_token)
             # Not an active custom domain — unknown host, or a *deactivated*
             # tenant's domain. Fall through leniently to path/platform rather than
@@ -205,27 +275,12 @@ class TenantMiddleware(BaseHTTPMiddleware):
 
         # Rewrite the scope: strip /t/<slug> into root_path so the unprefixed
         # routes match and url_for/redirects keep the prefix.
-        prefix = f'/t/{slug}'
-        rest = match.group('rest') or '/'
-        scope['path'] = rest
-        scope['root_path'] = scope.get('root_path', '') + prefix
-        # raw_path drives some routers and is the *undecoded* bytes by contract,
-        # so strip the /t/<slug> prefix off the original raw bytes rather than
-        # re-encoding the already-decoded `rest` (which would drop percent-encoding
-        # in the remainder of the path). The slug is [a-z0-9-], never encoded, so
-        # the prefix matches the raw bytes verbatim.
-        raw = scope.get('raw_path')
-        if raw is not None:
-            raw_path_part, sep, raw_query = raw.partition(b'?')
-            raw_prefix = prefix.encode()
-            if raw_path_part.startswith(raw_prefix):
-                new_path_part = raw_path_part[len(raw_prefix):] or b'/'
-            else:
-                new_path_part = rest.encode()
-            scope['raw_path'] = new_path_part + (sep + raw_query if sep else b'')
+        _strip_prefix(scope, f'/t/{slug}', match.group('rest') or '/')
 
         token = set_tenant_id(tenant.id)
+        event_token = set_event_id(await _bind_event_path(scope, tenant.id))
         try:
             return await call_next(request)
         finally:
+            reset_event_id(event_token)
             reset_tenant_id(token)

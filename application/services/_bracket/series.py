@@ -25,9 +25,12 @@ from datetime import datetime, timezone
 from typing import Dict, List, Optional, Sequence, Set, Tuple
 
 from application.events import EventType
+from application.repositories._save import save_fields
 from application.services._bracket._composed import ComposedBracketService
 from application.services.audit_service import AuditActions
 from application.services.bracket_config import validate_best_of
+from application.services.notification_catalog import SERIES_GAME_CANCELLED
+from application.utils.game_order import GameTimes, game_numbers
 from models import (
     Bracket,
     BracketMatch,
@@ -62,6 +65,30 @@ class SeriesMixin(ComposedBracketService):
         rounds = config.get('rounds') or {}
         entry = rounds.get(str(bracket_match.round)) or {}
         return entry.get('best_of') or config.get('default_best_of') or 1
+
+    @staticmethod
+    def numbers_by_time(games: Sequence[BracketMatchGame]) -> Dict[int, int]:
+        """``game id -> "Game n"`` by the clock, as players see it.
+
+        ``game_number`` is the slot a game was booked into, which says nothing
+        about when it's played once games can be booked in any order. This is
+        :func:`~application.utils.game_order.game_numbers` over the games'
+        matches; a game whose match is gone (called off) sorts last. Needs
+        ``match`` prefetched on each game, and falls back to ``game_number``
+        when it isn't.
+        """
+        times = []
+        for game in games:
+            match = getattr(game, 'match', None) if game.match_id else None  # type: ignore[attr-defined]
+            if game.match_id is not None and not isinstance(match, Match):  # type: ignore[attr-defined]
+                return {g.id: g.game_number for g in games}
+            times.append(GameTimes(
+                game.id,
+                getattr(match, 'started_at', None),
+                getattr(match, 'scheduled_at', None),
+                game.game_number,
+            ))
+        return game_numbers(times)  # type: ignore[return-value]
 
     @staticmethod
     def wins_needed(best_of: int) -> int:
@@ -268,7 +295,7 @@ class SeriesMixin(ComposedBracketService):
         for game in games:
             game.state = BracketMatchGameState.CANCELLED
             game.cancelled_reason = reason
-            await game.save()
+            await save_fields(game, 'state', 'cancelled_reason')
             await self.audit_service.write_and_publish(
                 actor, AuditActions.BRACKET_GAME_CANCELLED,
                 {
@@ -295,7 +322,9 @@ class SeriesMixin(ComposedBracketService):
             try:
                 match = await service.get_by_id(game.match_id)
                 if match is not None:
-                    await service._cancel_match(match, actor, reason=reason)
+                    await service._cancel_match(
+                        match, actor, reason=reason, notice=SERIES_GAME_CANCELLED,
+                    )
             except Exception:
                 logger.exception(
                     'clinch cancel failed for match %s (game %s)',

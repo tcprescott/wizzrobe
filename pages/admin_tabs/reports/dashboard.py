@@ -4,12 +4,13 @@ KPI strip + report cards. All KPIs scoped to the configured event window.
 """
 
 import asyncio
-from typing import Optional
+from typing import Any, Optional
 
 from nicegui import app, ui
 
 from application.services import (
     AuthService,
+    DataExportService,
     ReportsService,
     SystemConfigService,
     get_user_from_session,
@@ -34,7 +35,7 @@ from .shared import (
     reports_url,
 )
 
-REPORT_CARDS = [
+REPORT_CARDS: list[dict[str, Any]] = [
     {
         'key': 'insights',
         'title': 'Insights & Trends',
@@ -91,6 +92,21 @@ REPORT_CARDS = [
         # invitation.
         'staff_only': True,
     },
+    {
+        'key': 'exports',
+        'title': 'Exports',
+        'icon': 'download',
+        'description': 'Download tournament participants and matches as CSVs or JSON, '
+                       'and anything you exported in the last 3 days.',
+        'exporters_only': True,
+    },
+    {
+        'key': 'messages',
+        'title': 'Sent messages',
+        'icon': 'mail',
+        'description': 'Every DM sent in this community, and whether it got there.',
+        'staff_only': True,
+    },
 ]
 
 
@@ -102,6 +118,7 @@ async def dashboard_page(
     reports_service = ReportsService()
     viewer = await get_user_from_session(app.storage.user)
     is_staff = await AuthService.is_staff(viewer)
+    can_export = await DataExportService.can_export(viewer)
     live = live if live is not None else set()
 
     # An absent pair still means the event window, so the overview's subtitle
@@ -126,10 +143,10 @@ async def dashboard_page(
 
         with pin_client_context():
             forecast, ops, coverage, utilization, max_stages = await asyncio.gather(
-                reports_service.generate_capacity_forecast(bounds_start, bounds_end),
-                reports_service.match_operations(bounds_start, bounds_end),
-                reports_service.crew_coverage(bounds_start, bounds_end),
-                reports_service.stage_utilization(bounds_start, bounds_end),
+                reports_service.generate_capacity_forecast(bounds_start, bounds_end, actor=viewer),
+                reports_service.match_operations(bounds_start, bounds_end, actor=viewer),
+                reports_service.crew_coverage(bounds_start, bounds_end, actor=viewer),
+                reports_service.stage_utilization(bounds_start, bounds_end, actor=viewer),
                 SystemConfigService.get_max_concurrent_stages(),
             )
 
@@ -215,6 +232,8 @@ async def dashboard_page(
         with reports.body, ui.element('div').classes('wiz-tile-grid'):
             for card in REPORT_CARDS:
                 if card.get('staff_only') and not is_staff:
+                    continue
+                if card.get('exporters_only') and not can_export:
                     continue
                 feature = card.get('feature')
                 if feature is not None and feature not in live:

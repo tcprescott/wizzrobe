@@ -1,7 +1,7 @@
 """Discord Message Templates: a staff request someone has already handled
 
 Every staff member is DM'd about a community event to review, an ADA request,
-a join request or a reschedule request. Once one of them decides it, each copy
+a join request, a reschedule request or a crew signup. Once one of them decides it, each copy
 of that DM is edited to one of these, so the rest can see it's done without
 opening the request. The reader may be the person who decided it, so each
 builder takes ``you`` and says "You" instead of their name.
@@ -159,4 +159,40 @@ def reschedule_superseded(you: bool, staff_name: str, requester_name: str,
         f'{_subject(you, staff_name)} approved a different request for this match {_at(when)}, '
         f"which closed {_ask(requester_name, tournament_name, kind_cancel)}. "
         "There's nothing to decide.",
+    )
+
+
+# --- crew signups -------------------------------------------------------
+
+def crew_signup_pending(volunteer_name: str, crew_type: str) -> Card:
+    """The original ask, restored when a signup is waiting again."""
+    return (
+        f'🎙️ New {crew_type} signup',
+        f'**{literal(volunteer_name)}** wants to cover this as {crew_type}. It needs your approval.',
+    )
+
+
+def crew_signup_withdrawn(volunteer_name: str, crew_type: str, when: datetime) -> Card:
+    return (
+        f'↩️ Withdrawn by {literal(volunteer_name)}',
+        f'**{literal(volunteer_name)}** withdrew their {crew_type} signup {_at(when)}, '
+        "so there's nothing to approve.",
+    )
+
+
+def crew_signup_approved(you: bool, staff_name: str, volunteer_name: str, crew_type: str,
+                         when: datetime) -> Card:
+    return (
+        f'✅ Approved by {_who(you, staff_name)}',
+        f'{_subject(you, staff_name)} approved **{literal(volunteer_name)}** as {crew_type} '
+        f'{_at(when)}. Nothing left for you to do.',
+    )
+
+
+def crew_signup_removed(you: bool, staff_name: str, volunteer_name: str, crew_type: str,
+                        when: datetime) -> Card:
+    return (
+        f'🚫 Removed by {_who(you, staff_name)}',
+        f"{_subject(you, staff_name)} removed **{literal(volunteer_name)}**'s {crew_type} signup "
+        f"{_at(when)}, so there's nothing to approve.",
     )

@@ -15,6 +15,7 @@ from mcp.server.transport_security import TransportSecuritySettings
 from mcp.types import Tool as MCPTool
 
 from application.services.auth_service import AuthService
+from application.utils.build_info import build_info
 from mcpserver.auth import optional_actor
 from mcpserver.registry import platform_tool_names, write_tool_names
 from mcpserver.tools import register_all
@@ -117,7 +118,7 @@ class WizzrobeMCP(MCPServer):
 
 def build_server() -> MCPServer:
     """Construct the MCP server with every tool registered."""
-    mcp = WizzrobeMCP(name='Wizzrobe', instructions=INSTRUCTIONS)
+    mcp = WizzrobeMCP(name='Wizzrobe', instructions=INSTRUCTIONS, version=build_info().version)
     register_all(mcp)
     start_transport(mcp)
     return mcp

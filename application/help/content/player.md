@@ -28,7 +28,7 @@ Anything waiting on you sits above the list: an open race room, an opponent's
 request to move your match, or a bracket matchup that still needs a time.
 :::
 
-![My Schedule on a phone: the Your matches panel with an open race room and an opponent's reschedule request above the list](/static/help/player/my-schedule-phone.webp "Anything waiting on you comes first.")
+![My Schedule on a phone: the List and Timeline switch, then the Your matches panel with an open race room and an opponent's reschedule request above the list](/static/help/player/my-schedule-phone.webp "Anything waiting on you comes first.")
 
 The Your matches panel lists things in the order you need to deal with them:
 
@@ -104,11 +104,10 @@ you do, the matchup drops off your list.
 
 In a Challonge bracket, a matchup has no **Pick a time** button until your
 opponent is matched to a Wizzrobe account, and you'll see the reason in its
-place. Staff can match them by hand. The My Schedule tab shows a count while
-anything is waiting on you.
+place. The My Schedule tab shows a count while anything is waiting on you.
 :::
 
-![The Waiting on you to pick a time card, listing bracket matchups grouped by tournament, each with a Pick a time button, the first one marked 1](/static/help/player/bracket-schedule-phone.webp "Bracket matchups that still need a time: tap **Pick a time** (1) to book one.")
+![The Waiting on you to pick a time card, listing bracket matchups grouped by tournament, each with a Pick a time button or, for one that can't be booked yet, the reason why, with the first button marked 1](/static/help/player/bracket-schedule-phone.webp "Bracket matchups that still need a time: tap **Pick a time** (1) to book one.")
 
 ### Suggest a time
 
@@ -125,6 +124,9 @@ picked and change it if it doesn't suit you.
 If neither of you has blocked anything out, every hour of the event is fair game.
 Block out what doesn't work for you under When you can't play.
 :::
+
+The whole set of rules, with an example, is in
+[How Suggest a time works](/help/suggest-a-time).
 
 ## When you can't play
 
@@ -201,6 +203,38 @@ gets streamed, and doesn't change how it's run.
 If you both offer, staff see both names. Either of you can withdraw any time,
 even after the match has started.
 :::
+
+## Running late
+
+:::snippet running-late
+From half an hour before your match until a proctor checks you in, your match
+on My Schedule has a **Tell staff I'm late** button beside its status. Pick about how
+late you'll be (10, 20 or 30+ minutes), add a note if it helps, and press **Tell
+staff**. The admin on duty and the tournament's admins get a DM, and your match
+shows up on their board as running late, so nobody calls it off while you're on
+your way.
+
+Your opponent isn't told. Your match's status then reads {chip:pending:Staff know: ~20 min},
+with **Undo** beside it if you made it after all or tapped it by mistake. Send it
+again to change the minutes.
+
+A stage match's reminder DM has the same **Tell staff I'm late** button. If you can't
+make it at all, use **Ask to change** instead.
+:::
+
+![The Tell staff you're running late sheet: the match and its time, a 10 min / 20 min / 30+ min choice, an optional note for staff, and the Tell staff button](/static/help/player/running-late-phone.webp "Pick about how late you'll be and press **Tell staff**.")
+
+## Ready for your seed
+
+Some tournaments let you and your opponent decide when the seed goes out. Once a
+proctor checks your match in, your match on My Schedule shows who's ready for the
+seed and an **I'm ready for my seed** button, and your check-in DM has a **Ready
+for seed** button too. When every player in the match has tapped it, the seed
+rolls and lands in your DMs and on your match straight away.
+
+Tapped it too early? **Not ready** takes it back until the seed is out. Your
+opponent gets one quiet DM the first time you're ready. A proctor can still roll
+the seed whenever they need to.
 
 ## Asking for a different time
 

@@ -47,6 +47,9 @@ class ChallongeParticipant(Model):
     # Set when a tournament editor assigned ``user`` by hand — an entrant added
     # by name has no Challonge account to resolve. Sync never overwrites it.
     user_assigned_manually = fields.BooleanField(default=False)
+    # False once Challonge marks the entrant inactive: dropped after the bracket
+    # started, so their remaining matches are forfeits. They leave the roster.
+    active = fields.BooleanField(default=True)
     created_at = fields.DatetimeField(auto_now_add=True)
     updated_at = fields.DatetimeField(auto_now=True)
 
@@ -69,9 +72,21 @@ class ChallongeMatch(Model):
     challonge_match_id = fields.CharField(max_length=64)
     round = fields.IntField(null=True)
     state = fields.CharEnumField(ChallongeMatchState, default=ChallongeMatchState.PENDING, max_length=20)
+    # Challonge numbers group and elimination rounds from 1 alike and doesn't
+    # label which is which, so a match seen while the group stage runs is marked
+    # here once and stays marked (see ChallongeService._mirror_bracket).
+    group_stage = fields.BooleanField(default=False)
     participant1 = fields.ForeignKeyField('models.ChallongeParticipant', related_name='matches_as_p1', null=True, on_delete=fields.SET_NULL)
     participant2 = fields.ForeignKeyField('models.ChallongeParticipant', related_name='matches_as_p2', null=True, on_delete=fields.SET_NULL)
     winner_participant = fields.ForeignKeyField('models.ChallongeParticipant', related_name='matches_as_winner', null=True, on_delete=fields.SET_NULL)
+    # Challonge's letter for the match ("C"), and the remote match whose winner
+    # (or loser) fills each empty slot: what a staff booking made before the
+    # players are known names its sides by.
+    identifier = fields.CharField(max_length=16, null=True)
+    slot1_prereq = fields.CharField(max_length=64, null=True)
+    slot2_prereq = fields.CharField(max_length=64, null=True)
+    slot1_label = fields.CharField(max_length=64, null=True)
+    slot2_label = fields.CharField(max_length=64, null=True)
     match = fields.ForeignKeyField('models.Match', related_name='challonge_match', null=True, on_delete=fields.SET_NULL)
     created_at = fields.DatetimeField(auto_now_add=True)
     updated_at = fields.DatetimeField(auto_now=True)

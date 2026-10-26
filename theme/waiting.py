@@ -1,4 +1,4 @@
-"""The shared waiting panel — a spinner with a cat fact under it.
+"""The shared waiting panel — a spinner with a fun fact under it.
 
 Used wherever someone is sitting in front of a blank screen waiting on work the
 app cannot make faster: the OAuth round trip, a deferred tab build, a report
@@ -19,13 +19,14 @@ import time
 from nicegui import app, ui
 
 from theme.assets import asset_url
-from theme.chrome import apply_brand_palette, install_timezone_detection
-from theme.empty_state import cat_fact
+from theme.browser_monitoring import install_browser_monitoring
+from theme.chrome import apply_brand_palette, install_page_scripts
+from theme.empty_state import fun_fact
 
 __all__ = ['MIN_WAIT_SECONDS', 'WaitingScreen', 'waiting_panel', 'waiting_screen']
 
 # How long the full-page wait stays up before it is allowed to navigate away.
-# Long enough to read a cat fact; short enough that nobody taps the back button.
+# Long enough to read a fun fact; short enough that nobody taps the back button.
 MIN_WAIT_SECONDS = 3.0
 
 _PRELOAD_FONTS = (
@@ -35,7 +36,7 @@ _PRELOAD_FONTS = (
 
 
 def waiting_panel(message: str = 'Loading…', *, size: str = 'lg') -> ui.element:
-    """Render a centered spinner, a message, and a cat fact.
+    """Render a centered spinner, a message, and a fun fact.
 
     Returns the panel element so a caller that owns the wait can remove it when
     the work lands (``container.remove(panel)``).
@@ -43,7 +44,7 @@ def waiting_panel(message: str = 'Loading…', *, size: str = 'lg') -> ui.elemen
     with ui.column().classes('wiz-waiting items-center') as panel:
         ui.spinner(size=size)
         ui.label(message).classes('wiz-waiting-message')
-        cat_fact()
+        fun_fact()
     return panel
 
 
@@ -90,9 +91,9 @@ async def waiting_screen(message: str = 'Loading…', *, brand: str | None = Non
         )
     ui.add_head_html(f'<link rel="stylesheet" href="{asset_url("css/styles.css")}">')
     ui.add_head_html('<meta name="robots" content="noindex, nofollow">')
-    ui.add_head_html('<link rel="apple-touch-icon" href="/static/icons/apple-touch-icon.png">')
     apply_brand_palette(colors)
-    install_timezone_detection()
+    install_page_scripts()
+    install_browser_monitoring()
 
     # The default content wrapper's padding would push a 100dvh child into a
     # scrollbar; this page has nothing else in it, so drop it.

@@ -21,7 +21,9 @@ never live at module level).
 **Alerting:** when a dependency transitions *into* an unhealthy state (``down`` or
 a credential warning), the monitor publishes a platform-level
 ``SERVICE_HEALTH_ALERT`` event, captures a message to Sentry, and — when
-``SERVICE_HEALTH_ALERT_DM`` is set — DMs every super-admin.
+``SERVICE_HEALTH_ALERT_DM`` is set — DMs every super-admin. ``down`` must hold
+for two consecutive checks before it alerts, so a one-off timeout from an outside
+site shows on the board but raises nothing.
 
 Scope: the full board is SUPER_ADMIN-only; a tenant's STAFF get a **read-only
 subset** (:meth:`ServiceHealthService.tenant_subset`) covering just the services
@@ -40,15 +42,15 @@ from enum import Enum
 from typing import Awaitable, Callable, Dict, List, Optional, Tuple
 
 from application.utils.timezone import to_utc_aware
-from models import FeatureFlag
+from models import FeatureFlag, User
 
 logger = logging.getLogger(__name__)
 
 # A probe gets a hard ceiling so one hung dependency can't stall the whole board.
 PROBE_TIMEOUT_SECONDS = 8.0
 HTTP_TIMEOUT_SECONDS = 5.0
-# Warn this far ahead of a Challonge token's expiry (a refresh should have long
-# since happened; if it hasn't, staff need to reconnect before it hard-fails).
+# Renew a Challonge token this far ahead of its expiry, and warn only when that
+# renewal fails, so staff have days to reconnect before syncs hard-fail.
 CHALLONGE_EXPIRY_WARNING = timedelta(days=3)
 
 
@@ -58,9 +60,12 @@ class ServiceStatus(str, Enum):
     ``CREDENTIAL_WARNING`` is the distinct "still up, but a credential is expiring
     or was rejected" signal (an expiring Challonge token, a racetime auth failure)
     — actionable before it becomes an outage, so it is kept separate from ``DOWN``.
+    ``MOCK`` means the dependency is swapped for its local mock (``MOCK_*``), so
+    the real service was deliberately not contacted.
     """
 
     HEALTHY = 'healthy'
+    MOCK = 'mock'
     DEGRADED = 'degraded'
     CREDENTIAL_WARNING = 'credential_warning'
     DOWN = 'down'
@@ -70,10 +75,11 @@ class ServiceStatus(str, Enum):
 # Higher = worse; drives aggregation ("worst wins") and sort order on the board.
 _SEVERITY: Dict[ServiceStatus, int] = {
     ServiceStatus.HEALTHY: 0,
-    ServiceStatus.UNKNOWN: 1,
-    ServiceStatus.CREDENTIAL_WARNING: 2,
-    ServiceStatus.DEGRADED: 3,
-    ServiceStatus.DOWN: 4,
+    ServiceStatus.MOCK: 1,
+    ServiceStatus.UNKNOWN: 2,
+    ServiceStatus.CREDENTIAL_WARNING: 3,
+    ServiceStatus.DEGRADED: 4,
+    ServiceStatus.DOWN: 5,
 }
 
 # Transitioning *into* one of these fires an alert.
@@ -118,6 +124,8 @@ class _Probe:
 # Process-global cache: latest ProbeResult per probe key. Owned by the worker /
 # on-demand refresh; readers get a snapshot.
 _CACHE: Dict[str, ProbeResult] = {}
+# The status each probe last alerted on, cleared when it leaves the alertable set.
+_ALERTED: Dict[str, ServiceStatus] = {}
 
 
 def _now() -> datetime:
@@ -159,7 +167,7 @@ async def _probe_postgres() -> Tuple[ServiceStatus, str]:
 async def _probe_discord_bot() -> Tuple[ServiceStatus, str]:
     from application.utils.mocks.mock_discord import is_mock_discord
     if is_mock_discord():
-        return ServiceStatus.HEALTHY, 'Mock transport (MOCK_DISCORD)'
+        return ServiceStatus.MOCK, 'Mock transport (MOCK_DISCORD)'
     if not _all_set('DISCORD_TOKEN'):
         return ServiceStatus.UNKNOWN, 'DISCORD_TOKEN not set'
     from application.services.discord.discord_service import DiscordService
@@ -175,7 +183,7 @@ async def _probe_discord_bot() -> Tuple[ServiceStatus, str]:
 async def _probe_discord_oauth() -> Tuple[ServiceStatus, str]:
     from application.utils.mocks.mock_discord import is_mock_discord
     if is_mock_discord():
-        return ServiceStatus.HEALTHY, 'Mock OAuth (MOCK_DISCORD)'
+        return ServiceStatus.MOCK, 'Mock OAuth (MOCK_DISCORD)'
     if _all_set('DISCORD_CLIENT_ID', 'DISCORD_CLIENT_SECRET'):
         return ServiceStatus.HEALTHY, 'Client credentials configured'
     return ServiceStatus.DOWN, 'DISCORD_CLIENT_ID / DISCORD_CLIENT_SECRET not set'
@@ -184,7 +192,7 @@ async def _probe_discord_oauth() -> Tuple[ServiceStatus, str]:
 async def _probe_twitch_oauth() -> Tuple[ServiceStatus, str]:
     from application.utils.mocks.mock_twitch import is_mock_twitch
     if is_mock_twitch():
-        return ServiceStatus.HEALTHY, 'Mock OAuth (MOCK_TWITCH)'
+        return ServiceStatus.MOCK, 'Mock OAuth (MOCK_TWITCH)'
     if _all_set('TWITCH_CLIENT_ID', 'TWITCH_CLIENT_SECRET'):
         return ServiceStatus.HEALTHY, 'Client credentials configured'
     return ServiceStatus.UNKNOWN, 'Twitch OAuth not configured (optional)'
@@ -192,7 +200,10 @@ async def _probe_twitch_oauth() -> Tuple[ServiceStatus, str]:
 
 async def _probe_racetime() -> Tuple[ServiceStatus, str]:
     from application.services.racetime_bot_service import RacetimeBotService
+    from application.utils.mocks.mock_racetime import is_mock_racetime
     bots = await RacetimeBotService().list_active_bots()
+    if is_mock_racetime():
+        return ServiceStatus.MOCK, f'Mock racetime (MOCK_RACETIME), {len(bots)} bot(s) configured'
     if not bots:
         return ServiceStatus.UNKNOWN, 'No active racetime bots configured'
     statuses: List[ServiceStatus] = []
@@ -236,7 +247,7 @@ def _map_racetime_status(status: str, message: Optional[str]) -> ServiceStatus:
 async def _probe_speedgaming() -> Tuple[ServiceStatus, str]:
     from application.utils.clients.speedgaming_client import SPEEDGAMING_BASE, is_mock_speedgaming
     if is_mock_speedgaming():
-        return ServiceStatus.HEALTHY, 'Mock feed (MOCK_SPEEDGAMING)'
+        return ServiceStatus.MOCK, 'Mock feed (MOCK_SPEEDGAMING)'
     ok, detail = await _http_reachable(SPEEDGAMING_BASE)
     if ok:
         return ServiceStatus.HEALTHY, f'Reachable ({detail})'
@@ -246,45 +257,69 @@ async def _probe_speedgaming() -> Tuple[ServiceStatus, str]:
 async def _probe_challonge() -> Tuple[ServiceStatus, str]:
     """Reachability of the Challonge API **and** token validity across tenants."""
     from application.utils.mocks.mock_challonge import is_mock_challonge
-    reach_status = ServiceStatus.HEALTHY
-    reach_msg = 'Mock API (MOCK_CHALLONGE)'
-    if not is_mock_challonge():
-        ok, detail = await _http_reachable('https://api.challonge.com/v1')
-        reach_status = ServiceStatus.HEALTHY if ok else ServiceStatus.DOWN
-        reach_msg = f'API {"reachable" if ok else "unreachable"} ({detail})'
-
     cred_status, cred_msg = await _challonge_token_health()
+    if is_mock_challonge():
+        reach_msg = 'Mock API (MOCK_CHALLONGE)'
+        status = cred_status if cred_status in _ALERTABLE else ServiceStatus.MOCK
+        return status, '; '.join(m for m in (reach_msg, cred_msg) if m)
+
+    ok, detail = await _http_reachable('https://api.challonge.com/v1')
+    reach_status = ServiceStatus.HEALTHY if ok else ServiceStatus.DOWN
+    reach_msg = f'API {"reachable" if ok else "unreachable"} ({detail})'
     status = _worst([reach_status, cred_status])
     return status, '; '.join(m for m in (reach_msg, cred_msg) if m)
 
 
 async def _challonge_token_health() -> Tuple[ServiceStatus, str]:
-    """Scan every tenant's Challonge connection for an expired/expiring token."""
+    """Scan every tenant's Challonge connection, renewing tokens that lapse soon.
+
+    A token with a refresh token renews here, inside the warning window, so a
+    warning means Challonge refused the renewal (or there is nothing to renew
+    with), not merely that the week is nearly up.
+    """
     from application.repositories import ChallongeRepository
     connections = await ChallongeRepository.list_all_connections()
     if not connections:
         return ServiceStatus.UNKNOWN, 'no tenant connections'
-    now = _now()
-    expired, warning = 0, 0
+    expired, warning, renewed = 0, 0, 0
     for conn in connections:
-        expires = conn.token_expires_at
-        if expires is None:
+        if conn.token_expires_at is None:
             continue
-        expires = to_utc_aware(expires)
-        if expires <= now:
+        if to_utc_aware(conn.token_expires_at) > _now() + CHALLONGE_EXPIRY_WARNING:
+            continue
+        if await _renew_challonge_token(conn):
+            renewed += 1
+        elif to_utc_aware(conn.token_expires_at) <= _now():
             expired += 1
-        elif expires <= now + CHALLONGE_EXPIRY_WARNING:
+        else:
             warning += 1
     total = len(connections)
     if expired:
-        return ServiceStatus.DOWN, f'{expired}/{total} token(s) expired'
+        return ServiceStatus.DOWN, f"{expired}/{total} token(s) expired and couldn't be renewed"
     if warning:
-        return ServiceStatus.CREDENTIAL_WARNING, f'{warning}/{total} token(s) expiring soon'
+        return ServiceStatus.CREDENTIAL_WARNING, f"{warning}/{total} token(s) expiring soon and couldn't be renewed"
+    if renewed:
+        return ServiceStatus.HEALTHY, f'{total} token(s) valid ({renewed} renewed)'
     return ServiceStatus.HEALTHY, f'{total} token(s) valid'
 
 
-def _seedgen_probe(host: str) -> ProbeCheck:
+async def _renew_challonge_token(conn) -> bool:
+    from application.services.challonge_service import ChallongeService
+    from application.tenant_context import tenant_scope
+    try:
+        with tenant_scope(conn.tenant_id):
+            return await ChallongeService().renew_ahead(conn, CHALLONGE_EXPIRY_WARNING)
+    except Exception:
+        logger.warning('Challonge token renewal failed for tenant %s', conn.tenant_id, exc_info=True)
+        return False
+
+
+def _seedgen_probe(host: str, randomizer: str) -> ProbeCheck:
     async def check() -> Tuple[ServiceStatus, str]:
+        from application.services.seedgen_service import SeedGenerationService
+        from application.utils.mocks.mock_seedgen import is_mock_seedgen
+        if is_mock_seedgen() and randomizer not in SeedGenerationService.MOCK_EXEMPT_RANDOMIZERS:
+            return ServiceStatus.MOCK, 'Mock rolls (MOCK_SEEDGEN)'
         ok, detail = await _http_reachable(f'https://{host}')
         if ok:
             return ServiceStatus.HEALTHY, f'Reachable ({detail})'
@@ -316,9 +351,9 @@ _PROBES: List[_Probe] = [
     _Probe('speedgaming', 'SpeedGaming feed', 'integrations', _probe_speedgaming),
     _Probe('challonge', 'Challonge', 'integrations', _probe_challonge),
     _Probe('twitch_oauth', 'Twitch OAuth', 'integrations', _probe_twitch_oauth),
-    _Probe('seedgen_alttpr', 'ALTTPR (alttpr.com)', 'seedgen', _seedgen_probe('alttpr.com')),
-    _Probe('seedgen_ootr', 'OoT Randomizer (ootrandomizer.com)', 'seedgen', _seedgen_probe('ootrandomizer.com')),
-    _Probe('seedgen_maprando', 'Map Rando (maprando.com)', 'seedgen', _seedgen_probe('maprando.com')),
+    _Probe('seedgen_alttpr', 'ALTTPR (alttpr.com)', 'seedgen', _seedgen_probe('alttpr.com', 'alttpr')),
+    _Probe('seedgen_ootr', 'OoT Randomizer (ootrandomizer.com)', 'seedgen', _seedgen_probe('ootrandomizer.com', 'ootr')),
+    _Probe('seedgen_maprando', 'Map Rando (maprando.com)', 'seedgen', _seedgen_probe('maprando.com', 'smmap')),
     _Probe('web_push', 'Web push (VAPID)', 'monitoring', _probe_web_push),
     _Probe('sentry', 'Sentry', 'monitoring', _probe_sentry),
 ]
@@ -345,7 +380,11 @@ class ServiceHealthService:
         for result in results:
             previous = _CACHE.get(result.key)
             _CACHE[result.key] = result
-            if alert and _is_alert_transition(previous, result):
+            alerted = _ALERTED.get(result.key)
+            if result.status not in _ALERTABLE:
+                _ALERTED.pop(result.key, None)
+            if alert and _is_alert_transition(previous, result, alerted):
+                _ALERTED[result.key] = result.status
                 await self._alert(previous, result)
         return sorted(results, key=_board_sort_key)
 
@@ -360,7 +399,7 @@ class ServiceHealthService:
             ))
         return sorted(results, key=_board_sort_key)
 
-    async def tenant_subset(self, tenant_id: int) -> List[ProbeResult]:
+    async def tenant_subset(self, tenant_id: int, *, actor: Optional[User]) -> List[ProbeResult]:
         """The read-only subset a tenant's STAFF may see: its authorized racetime
         bots and its own Challonge connection. Probed live (not from the platform
         cache) so it reflects only this tenant's dependencies.
@@ -368,6 +407,12 @@ class ServiceHealthService:
         Assumes the caller has established this tenant's scope, so the Challonge
         read resolves to the tenant's own connection.
         """
+        from application.services.auth_service import AuthService
+
+        await AuthService.ensure(
+            await AuthService.is_staff(actor),
+            'Only Staff can read service health.',
+        )
         results: List[ProbeResult] = []
 
         from application.services.racetime_bot_service import RacetimeBotService
@@ -390,7 +435,9 @@ class ServiceHealthService:
             return results
         connection = await ChallongeService().get_connection_status()
         if connection.get('connected'):
-            status, message = _tenant_challonge_status(connection.get('token_expires_at'))
+            status, message = _tenant_challonge_status(
+                connection.get('token_expires_at'), renews=connection.get('renews_automatically', False),
+            )
             results.append(ProbeResult(
                 'challonge', 'Challonge', 'integrations', status, message, _now(),
             ))
@@ -443,11 +490,24 @@ class ServiceHealthService:
             logger.exception('Failed to DM super-admins for health alert')
 
 
-def _is_alert_transition(previous: Optional[ProbeResult], result: ProbeResult) -> bool:
-    """Alert when a probe newly enters (or moves between) alertable states."""
-    if result.status not in _ALERTABLE:
+def _is_alert_transition(
+    previous: Optional[ProbeResult],
+    result: ProbeResult,
+    alerted: Optional[ServiceStatus] = None,
+) -> bool:
+    """Alert when a probe newly enters (or moves between) alertable states.
+
+    ``alerted`` is the status last alerted for this probe since it was last
+    healthy. ``down`` only alerts once two checks in a row say so: a single
+    timeout from an outside site is a blip, and the next tick (two minutes on)
+    either confirms the outage or clears it. A credential warning is a fact
+    about stored config, not the network, so it alerts on the first sighting.
+    """
+    if result.status not in _ALERTABLE or result.status == alerted:
         return False
-    return previous is None or previous.status != result.status
+    if result.status == ServiceStatus.DOWN:
+        return previous is not None and previous.status == ServiceStatus.DOWN
+    return True
 
 
 def _board_sort_key(result: ProbeResult) -> Tuple[int, str]:
@@ -455,18 +515,31 @@ def _board_sort_key(result: ProbeResult) -> Tuple[int, str]:
     return (-_SEVERITY[result.status], result.label)
 
 
-def _tenant_challonge_status(token_expires_at: Optional[datetime]) -> Tuple[ServiceStatus, str]:
+def _tenant_challonge_status(
+    token_expires_at: Optional[datetime], *, renews: bool = False,
+) -> Tuple[ServiceStatus, str]:
+    """A tenant's Challonge token, read without touching it.
+
+    A renewable token is renewed by the platform health worker inside the
+    warning window, so it only needs attention once it has actually lapsed:
+    that means the renewal failed.
+    """
     if token_expires_at is None:
         return ServiceStatus.HEALTHY, 'Connected (no token expiry)'
     expires = to_utc_aware(token_expires_at)
     now = _now()
     if expires <= now:
+        if renews:
+            return ServiceStatus.DOWN, "Token expired and couldn't be renewed — reconnect required"
         return ServiceStatus.DOWN, 'Token expired — reconnect required'
+    if renews:
+        return ServiceStatus.HEALTHY, 'Connected, token renews automatically'
     if expires <= now + CHALLONGE_EXPIRY_WARNING:
-        return ServiceStatus.CREDENTIAL_WARNING, 'Token expiring soon'
+        return ServiceStatus.CREDENTIAL_WARNING, 'Token expiring soon — reconnect before it lapses'
     return ServiceStatus.HEALTHY, 'Connected, token valid'
 
 
 def reset_cache() -> None:
     """Clear the in-memory cache (tests / a forced cold restart)."""
     _CACHE.clear()
+    _ALERTED.clear()

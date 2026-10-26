@@ -21,6 +21,14 @@ from datetime import datetime
 from typing import Optional, Sequence
 
 from application.services.discord.discord_service import DiscordService
+from application.services.notification_catalog import (
+    HARDER_SETTINGS_AGREED,
+    HARDER_SETTINGS_DROPPED,
+    HARDER_SETTINGS_OFFER,
+    PLAYERS,
+    SETTINGS_RELEASED,
+    SETTINGS_SET_BY_STAFF,
+)
 from application.utils.discord_embeds import COLOR_RESCHEDULED, COLOR_SEED, match_embed
 from application.utils.discord_messages import (
     hard_preset_agreed_dm,
@@ -71,7 +79,7 @@ async def notify_hard_preset_invite(
                 continue
             success, err = await discord_service.send_dm_with_hard_preset_buttons(
                 user.discord_id, message, match_id, user.id in already_in,
-                embed=embed, link=link,
+                embed=embed, link=link, notice=HARDER_SETTINGS_OFFER.to(PLAYERS),
             )
             if not success:
                 logger.warning(
@@ -126,7 +134,7 @@ async def notify_hard_preset_agreement(
             if not user.discord_id:
                 continue
             success, err = await discord_service.send_dm(
-                user.discord_id, message, embed=embed, link=link,
+                user.discord_id, message, embed=embed, link=link, notice=(HARDER_SETTINGS_AGREED if agreed else HARDER_SETTINGS_DROPPED).to(PLAYERS),
             )
             if not success:
                 logger.warning(
@@ -175,7 +183,7 @@ async def notify_hard_preset_override(
             if not user.discord_id:
                 continue
             success, err = await discord_service.send_dm(
-                user.discord_id, message, embed=embed, link=link,
+                user.discord_id, message, embed=embed, link=link, notice=(SETTINGS_SET_BY_STAFF if forced else SETTINGS_RELEASED).to(PLAYERS),
             )
             if not success:
                 logger.warning(

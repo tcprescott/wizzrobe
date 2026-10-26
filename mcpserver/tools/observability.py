@@ -15,11 +15,15 @@ instead of letting a model discover the refusal a round-trip later.
 from typing import Any, Dict, List, Optional
 
 from mcp.server.mcpserver import MCPServer
+from pydantic import BaseModel, Field
 
+from api.schemas.notification_settings import NotificationSettingResponse
+from api.schemas.notifications import MyNotificationsResponse
 from application.services import (
     AuditService,
     FeedbackService,
     RuntimeStatsService,
+    SentMessageService,
     ServiceHealthService,
     TelemetryService,
     WebhookService,
@@ -33,6 +37,8 @@ from mcpserver.schemas import (
     AuditPage,
     FeedbackEntry,
     RuntimeStats,
+    SentMessageInfo,
+    SentMessagePage,
     ServiceHealthProbe,
     TenantArg,
     WebhookDeliveryInfo,
@@ -83,12 +89,61 @@ async def list_audit_log(
     )
 
 
+async def list_sent_messages(
+    tenant: TenantArg = None,
+    start: Optional[str] = None,
+    end: Optional[str] = None,
+    user_id: Optional[int] = None,
+    search: Optional[str] = None,
+    problems_only: bool = False,
+    limit: int = 50,
+    offset: int = 0,
+) -> SentMessagePage:
+    """Every DM Wizzrobe sent in the community, newest first, and whether it got there.
+
+    Requires Staff. Use it to check whether someone was told about something:
+    filter by `user_id`, or `search` the text and recipient names.
+    `problems_only` keeps the ones Discord refused or failed to deliver. Each
+    row says what Discord did (`status`, `error`) and whether the device, email
+    and Telegram copies went out. `counts` totals the whole time window. Times
+    are UTC.
+    """
+    limit = clamp(limit, low=1, high=MAX_ROWS)
+    offset = max(0, offset)
+    start_dt, end_dt = parse_ts('start', start), parse_ts('end', end)
+    service = SentMessageService()
+    actor = current_actor().user
+    query: Dict[str, Any] = dict(
+        actor=actor, start=start_dt, end=end_dt, problems_only=problems_only,
+        search=search or None, recipient_id=user_id,
+    )
+    total = await service.count_messages(**query)
+    messages = await service.list_messages(**query, limit=limit, offset=offset)
+    counts = await service.totals(actor=actor, start=start_dt, end=end_dt)
+    return SentMessagePage(
+        total=total, limit=limit, offset=offset, counts=counts,
+        items=[
+            SentMessageInfo(
+                id=m.id, recipient_id=m.recipient_id,
+                recipient_name=m.recipient.preferred_name if m.recipient else None,
+                discord_id=int(m.discord_id), title=m.title, body=m.body,
+                link_label=m.link_label, link_url=m.link_url, silent=m.silent,
+                notice_key=m.notice_key, audience=m.audience, status=m.status.value,
+                error=m.error, push_devices=m.push_devices, email_sent=m.email_sent,
+                telegram_sent=m.telegram_sent, created_at=m.created_at,
+            )
+            for m in messages
+        ],
+    )
+
+
 async def telemetry_summary(
     tenant: TenantArg = None,
     start: Optional[str] = None,
     end: Optional[str] = None,
 ) -> Dict[str, Any]:
-    """Engagement totals for a window: events, unique users, sessions, page views.
+    """Engagement totals for a window: events, unique users, sessions, page views,
+    and distinct MCP and REST API users.
 
     Requires staff access.
     """
@@ -104,10 +159,17 @@ async def telemetry_top(
     start: Optional[str] = None,
     end: Optional[str] = None,
     limit: int = 15,
+    user_id: Optional[int] = None,
 ) -> List[Dict[str, Any]]:
     """Top engagement rows for one dimension: `paths`, `event_types`, `users`,
-    or `controls` (the tabs, buttons, menu items, dialogs and fields people used,
-    per page, with distinct users and how many uses came from a phone).
+    `controls` (the tabs, buttons, menu items, dialogs and fields people used,
+    per page, with distinct users and how many uses came from a phone), `api`
+    (the most-called MCP tools and REST routes, with distinct callers and
+    failures) or `api_users` (who calls the MCP server and REST API, how often,
+    how many different tools or routes, and when they last did).
+
+    Pass `user_id` to count only that person's rows: `controls` with a
+    `user_id` from the `users` dimension gives what that person used most.
 
     Requires staff access.
     """
@@ -120,8 +182,10 @@ async def telemetry_top(
         'event_types': service.top_event_types,
         'users': service.top_users,
         'controls': service.top_controls,
+        'api': service.top_api_calls,
+        'api_users': service.top_api_users,
     })
-    return await fn(actor.user, start=start_dt, end=end_dt, limit=limit)
+    return await fn(actor.user, start=start_dt, end=end_dt, user_id=user_id, limit=limit)
 
 
 async def get_system_config(
@@ -131,12 +195,39 @@ async def get_system_config(
 
     Requires staff access.
     """
-    from models import SystemConfiguration
+    from application.services import SystemConfigService
 
-    entries = await SystemConfiguration.filter(
-        tenant_id=require_tenant_id()
-    ).order_by('name')
-    return [{'name': e.name, 'value': e.value} for e in entries]
+    entries = await SystemConfigService.list_entries(current_actor().user)
+    return [{'name': name, 'value': value} for name, value in entries]
+
+
+async def list_notification_settings(
+    tenant: TenantArg = None,
+) -> List[NotificationSettingResponse]:
+    """How this community sends every message, once per kind of recipient.
+
+    Each row is `off`, `silent` (arrives without a ping) or `ping`, with the
+    default beside it. Mirrors `GET /api/notification-settings`. Requires staff
+    access.
+    """
+    from application.services import NotificationSettingsService
+
+    return [NotificationSettingResponse.from_row(r) for r in await NotificationSettingsService.list_settings(current_actor().user)]
+
+
+async def my_notification_settings(
+    tenant: TenantArg = None,
+) -> MyNotificationsResponse:
+    """How each message reaches you in this community: your preset, your own
+    choices and the community's setting.
+
+    `mode` is what you actually get, the quieter of the community's setting and
+    yours. Change it with `set_my_notification_preset` and
+    `set_my_notification`. Mirrors `GET /api/notifications/messages`.
+    """
+    from application.services import NotificationPreferenceService
+
+    return MyNotificationsResponse.from_mine(await NotificationPreferenceService.get_mine(current_actor().user))
 
 
 async def list_service_health(
@@ -148,7 +239,7 @@ async def list_service_health(
     This is the tenant subset — the platform-wide board is a super-admin surface
     and is not exposed here.
     """
-    probes = await ServiceHealthService().tenant_subset(require_tenant_id())
+    probes = await ServiceHealthService().tenant_subset(require_tenant_id(), actor=current_actor().user)
     return [
         ServiceHealthProbe(
             key=probe.key,
@@ -243,7 +334,8 @@ async def runtime_stats() -> RuntimeStats:
 
     Requires super admin. Start here when the app feels slow: a high
     `lag_ms_p95` or any `recent_stalls` means something is blocking the one
-    event loop every user shares, and each stall names the code that did it.
+    event loop every user shares, and each stall names the code that did it
+    (or 'garbage collection'; the `gc` block times every collection pass).
     Times are Unix seconds, UTC.
     """
     return RuntimeStats.model_validate(
@@ -251,13 +343,66 @@ async def runtime_stats() -> RuntimeStats:
     )
 
 
+class TypeCount(BaseModel):
+    type: str
+    count: int
+
+
+class HeldBy(BaseModel):
+    chain: str = Field(description='The object, then what refers to it, then what refers to that, joined by " <- "')
+    count: int
+
+
+class MemoryCensus(BaseModel):
+    """Objects the garbage collector tracks, by type, and what holds leaked pages alive."""
+
+    collected_first: Optional[int] = Field(description='Unreachable objects a full collection freed first; null when collect was off')
+    stale_clients_held_by: List[HeldBy] = Field(description='Referrer chains keeping unregistered NiceGUI pages alive: the leak')
+    deleted_elements_held_by: List[HeldBy] = Field(description='Referrer chains keeping elements of deleted pages alive')
+    tracked_objects: int
+    frozen_objects: int = Field(description='Start-up objects frozen out of collection, not counted above')
+    clients_registered: int = Field(description='NiceGUI pages the app still serves')
+    clients_alive: int = Field(description='NiceGUI page objects in memory; more than registered means leaked pages')
+    elements_alive: int
+    elements_deleted: int = Field(description='Elements of deleted pages still in memory; should stay near 0')
+    match_live_subscribers: int
+    check_in_live_subscribers: int
+    top_types: List[TypeCount]
+
+
+async def memory_census(top: int = 40, collect: bool = True, explain: int = 50) -> MemoryCensus:
+    """Count what is alive in the Wizzrobe process, by type, to find a leak.
+
+    Requires super admin. Use when `runtime_stats` shows memory or gen-2
+    collection times climbing. Walks every tracked object, so the call itself
+    freezes the app for about as long as a full collection (a second or two);
+    don't poll it. Compare two calls some minutes apart: the types whose counts
+    keep rising are the leak.
+
+    `collect` (default on) runs a full collection first so only reachable
+    objects are counted; that doubles the freeze. `explain` is how many leaked
+    pages and deleted elements to trace back through their referrers (0 skips
+    it); `stale_clients_held_by` then names what keeps them alive.
+    """
+    return MemoryCensus.model_validate(
+        await RuntimeStatsService.memory_census(
+            current_actor().user, clamp(top, low=5, high=200),
+            collect=collect, explain=clamp(explain, low=0, high=200),
+        )
+    )
+
+
 def register_tools(mcp: MCPServer) -> None:
     register(mcp, list_audit_log, gate=Gate.STAFF, title='Search audit log')
+    register(mcp, list_sent_messages, gate=Gate.STAFF, title='List sent messages')
     register(mcp, telemetry_summary, gate=Gate.STAFF, title='Telemetry summary')
     register(mcp, telemetry_top, gate=Gate.STAFF, title='Telemetry leaderboards')
     register(mcp, get_system_config, gate=Gate.STAFF, title='Get system config')
+    register(mcp, list_notification_settings, gate=Gate.STAFF, title='List notification settings')
+    register(mcp, my_notification_settings, gate=Gate.ACTOR, title='My notification settings')
     register(mcp, list_service_health, gate=Gate.STAFF, title='Service health')
     register(mcp, runtime_stats, gate=Gate.PLATFORM, title='Runtime stats')
+    register(mcp, memory_census, gate=Gate.PLATFORM, title='Memory census')
     register(mcp, list_webhooks, gate=Gate.STAFF, title='List webhooks')
     register(
         mcp, list_webhook_deliveries, gate=Gate.STAFF,

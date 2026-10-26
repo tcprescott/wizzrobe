@@ -7,7 +7,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 _RANDOMIZER = (
     "Randomizer slug the preset rolls for, as listed by `GET /seeds/randomizers` "
-    "(for example `alttpr`, `avianart`, `ff1r`, `z1r`, `sm`, `smz3`, `smdash`, `dk64r`, `wwr`)."
+    "(for example `alttpr`, `avianart`, `ff1r`, `z1r`, `sm`, `smz3`, `smdash`, `smvaria`, `dk64r`, `wwr`)."
 )
 _SETTINGS = (
     "The randomizer's settings as a JSON object. Most randomizers take their own "

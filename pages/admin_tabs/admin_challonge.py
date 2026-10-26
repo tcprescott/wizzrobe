@@ -1,7 +1,8 @@
-"""Admin Challonge integration page (STAFF).
+"""The Challonge card of Admin → Settings → Integrations (STAFF).
 
-Manages the shared Wizzrobe Challonge service-account connection and lists the
-tournaments linked to a Challonge bracket with a per-tournament Sync action.
+Manages the shared Wizzrobe Challonge service-account connection. Linking,
+syncing, stage changes, entrants and unlinking happen per tournament from the
+row ⋮ on Admin → Tournaments.
 """
 
 from nicegui import app, ui
@@ -10,29 +11,37 @@ from application.services import AuthService, ChallongeService, get_user_from_se
 from application.tenant_context import require_tenant_id
 from application.utils.timezone import format_local_display
 from models import Tournament
-from theme.dialog.challonge_participants_dialog import ChallongeParticipantsDialog
+from theme.banner import banner
 from theme.dialog.confirmation_dialog import ConfirmationDialog
-from theme.empty_state import empty_panel
 from theme.help import help_icon
 from theme.menu import menu_action, more_menu
 from theme.notify import notify_error
 from theme.page_header import page_header
 from theme.steady import steady_refreshable
 
+_AUTO_SYNC_LABELS = {
+    0: 'Off', 15: 'Every 15 minutes', 30: 'Every 30 minutes',
+    60: 'Every hour', 120: 'Every 2 hours', 360: 'Every 6 hours',
+}
 
-async def admin_challonge_page() -> None:
+
+async def admin_challonge_connection_page(tournaments_url: str = '/admin/tournaments') -> None:
     actor = await get_user_from_session(app.storage.user)
     is_staff = await AuthService.is_staff(actor)
     service = ChallongeService()
 
     with ui.column().classes('page-container-narrow') as page_root:
-        with page_header('Challonge Integration'):
+        with page_header(
+            'Challonge',
+            'Wizzrobe signs in to Challonge as this account to read brackets, add '
+            'players who sign up, and start or finalize stages.',
+        ):
             await help_icon('admin-challonge-sync', user=actor)
 
         @steady_refreshable
         async def connection_card() -> None:
             status = await service.get_connection_status()
-            with ui.card().classes('w-full'):
+            with ui.column().classes('w-full gap-2'):
                 if not status.get('configured'):
                     ui.label('Challonge is not configured.').classes('text-error')
                     ui.label(
@@ -58,21 +67,63 @@ async def admin_challonge_page() -> None:
                         ui.label(
                             f"Token expires: {format_local_display(status['token_expires_at'])}"
                         ).classes('text-caption text-muted')
-                    quota = status.get('request_quota')
-                    used = status.get('request_usage', 0)
-                    if quota:
-                        warn = used >= quota * 0.8
-                        ui.label(
-                            f"API requests this month: {used} / {quota}"
-                        ).classes('text-caption ' + ('text-error' if warn else 'text-muted'))
+                    ui.label(
+                        f"API requests this month: {status.get('request_usage', 0):,}"
+                    ).classes('text-caption text-muted')
+                    await linked_row()
+                    await auto_sync_row()
                     if is_staff:
-                        connect_controls('Reconnect')
-                        ui.button('Disconnect', icon='link_off', on_click=disconnect).props('flat color=negative')
+                        connect_controls('Reconnect', can_disconnect=True)
                 else:
                     ui.label('The Wizzrobe Challonge account is not connected.').classes('text-muted')
                     await communities_row()
                     if is_staff:
                         connect_controls('Connect Challonge')
+
+        async def linked_row() -> None:
+            # Every event's (cross-event): the Challonge sign-in is the community's.
+            count = await Tournament.filter(
+                challonge_tournament_id__isnull=False, tenant_id=require_tenant_id(),
+            ).count()
+            with ui.row().classes('items-baseline gap-1'):
+                if count:
+                    noun = 'tournament is' if count == 1 else 'tournaments are'
+                    ui.label(f'{count} {noun} linked to Challonge.').classes('text-caption text-muted')
+                    ui.link('Manage them on Tournaments', tournaments_url).classes('text-caption')
+                else:
+                    ui.label('No tournaments are linked yet.').classes('text-caption text-muted')
+                    ui.link('Link one from its ⋮ on Tournaments', tournaments_url).classes('text-caption')
+
+        async def auto_sync_row() -> None:
+            minutes = await service.auto_sync_minutes()
+
+            async def change(e) -> None:
+                try:
+                    await service.set_auto_sync_minutes(int(e.value), actor)
+                except (ValueError, PermissionError) as err:
+                    notify_error(err)
+                await connection_card.refresh()
+
+            with ui.column().classes('w-full gap-1 q-mt-sm'):
+                ui.select(
+                    options=_AUTO_SYNC_LABELS, value=minutes,
+                    label='Sync automatically', on_change=change,
+                ).props('outlined dense').classes('w-56').set_enabled(is_staff)
+                ui.label(
+                    'Picks up results reported on Challonge without anyone pressing '
+                    'Sync. Finished brackets are skipped.'
+                ).classes('text-caption text-muted')
+                if minutes:
+                    estimate = await service.auto_sync_estimate(minutes)
+                    noun = 'bracket' if estimate.tournaments == 1 else 'brackets'
+                    with banner(
+                        f'Each sync uses about 2 API requests per bracket. '
+                        f'{_AUTO_SYNC_LABELS[minutes]} with {estimate.tournaments} '
+                        f'unfinished {noun} is about {estimate.requests_per_day:,} '
+                        f'requests a day.',
+                        tone='warning',
+                    ):
+                        pass
 
         async def communities_row() -> None:
             communities = await service.remembered_communities()
@@ -110,7 +161,7 @@ async def admin_challonge_page() -> None:
                 ).open()
             connection_card.refresh()
 
-        def connect_controls(label: str) -> None:
+        def connect_controls(label: str, can_disconnect: bool = False) -> None:
             with ui.row().classes('items-center w-full'):
                 community = ui.input(
                     'Add a community (optional)',
@@ -136,6 +187,9 @@ async def admin_challonge_page() -> None:
                     )
 
                 ui.button(label, icon='link', on_click=go).props('color=primary')
+                if can_disconnect:
+                    with more_menu('Challonge'):
+                        menu_action('link_off', 'Disconnect…', disconnect, negative=True)
 
         def disconnect() -> None:
             async def do_disconnect() -> None:
@@ -153,116 +207,3 @@ async def admin_challonge_page() -> None:
             ).open()
 
         await connection_card()
-
-        ui.label('Linked tournaments').classes('section-title q-mt-md')
-
-        @steady_refreshable
-        async def linked_tournaments() -> None:
-            tournaments = await Tournament.filter(challonge_tournament_id__isnull=False, tenant_id=require_tenant_id()).order_by('name')
-            if not tournaments:
-                empty_panel('No tournaments are linked to Challonge yet. Link one from its edit dialog '
-                            'on the Tournaments tab.', icon='link_off')
-                return
-            can_change_stages = await service.can_change_stages()
-            with ui.element('div').classes('wiz-tile-grid wiz-tile-grid--md'):
-                for t in tournaments:
-                    with ui.card(), ui.row().classes('items-center w-full no-wrap'):
-                        with ui.column().classes('gap-0 col'):
-                            with ui.row().classes('items-center gap-2'):
-                                ui.label(t.name).classes('text-bold')
-                                if t.challonge_tournament_url:
-                                    ui.link('bracket', t.challonge_tournament_url,
-                                            new_tab=True).classes('text-caption')
-                                stage = service.stage_label_for(t)
-                                if stage:
-                                    ui.badge(stage).props('outline color=primary')
-                            synced = (
-                                format_local_display(t.challonge_last_synced_at)
-                                if t.challonge_last_synced_at else 'never'
-                            )
-                            ui.label(f'Last synced: {synced}').classes('text-caption text-muted')
-                        ui.button(
-                            'Sync', icon='sync',
-                            # Return the coroutine so NiceGUI awaits it in the button's
-                            # slot; a bare background task has no slot, so the notify /
-                            # refresh calls in sync_one would raise and be lost.
-                            on_click=lambda _=None, tid=t.id: sync_one(tid),
-                        ).props('flat color=primary')
-                        with more_menu(t.name):
-                            for action in service.stage_actions_for(t):
-                                item = menu_action(
-                                    'skip_next', action.label,
-                                    lambda _=None, row=t, a=action: confirm_stage(row, a),
-                                )
-                                if not can_change_stages:
-                                    item.disable()
-                                    item.tooltip(
-                                        'Reconnect Challonge above to let Wizzrobe change '
-                                        'tournament stages'
-                                    )
-                            menu_action('group', 'Entrants',
-                                        lambda _=None, row=t: ChallongeParticipantsDialog(row).open())
-                            if is_staff:
-                                ui.separator()
-                                menu_action('link_off', 'Unlink from Challonge',
-                                            lambda _=None, row=t: confirm_unlink(row), negative=True)
-
-        def confirm_stage(tournament, action) -> None:
-            async def do_advance() -> None:
-                try:
-                    await service.advance_stage(tournament.id, action.key, actor)
-                    ui.notify(f'{tournament.name}: {action.label.lower()} done.', color='positive')
-                except (ValueError, PermissionError) as e:
-                    notify_error(e)
-                await linked_tournaments.refresh()
-                await connection_card.refresh()
-
-            ConfirmationDialog(
-                action.confirm, on_confirm=do_advance, confirm_text=action.label,
-                tone='primary', title=action.label,
-            ).open()
-
-        def confirm_unlink(tournament) -> None:
-            """The migration path off Challonge, which had no control at all.
-
-            A tournament uses a native bracket or a Challonge link and never both,
-            and nothing else in the product clears the link — so a community
-            moving onto native brackets had to abandon the tournament and build a
-            duplicate.
-            """
-            async def do_unlink() -> None:
-                try:
-                    await service.unlink_tournament(tournament.id, actor)
-                    ui.notify(
-                        f'{tournament.name} unlinked from Challonge.', color='positive',
-                    )
-                except (ValueError, PermissionError) as e:
-                    notify_error(e)
-                await linked_tournaments.refresh()
-
-            confirm = ConfirmationDialog(
-                f'Unlink “{tournament.name}” from Challonge? Its mirrored '
-                'participants and bracket matches are removed here — the bracket on '
-                'Challonge itself is untouched, and re-linking re-imports it. '
-                'Scheduled matches stay exactly as they are, and the tournament '
-                'becomes eligible for a native bracket.',
-                on_confirm=do_unlink,
-                confirm_text='Unlink',
-            )
-            confirm.open()
-
-        async def sync_one(tournament_id: int) -> None:
-            try:
-                result = await service.sync_bracket(tournament_id, actor, force=True)
-                ui.notify(
-                    f"Synced {result['participants']} participants, {result['matches']} matches.",
-                    color='positive',
-                )
-            except ValueError as e:
-                ui.notify(str(e), color='warning')
-            except Exception as e:
-                ui.notify(f"Couldn't sync with Challonge: {e}", color='negative')
-            await linked_tournaments.refresh()
-            await connection_card.refresh()
-
-        await linked_tournaments()

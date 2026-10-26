@@ -11,7 +11,16 @@ Pure formatting: takes strings and dicts, touches no ORM, so both the
 presentation layer and the services can use it.
 """
 
-from typing import Optional, Sequence
+import re
+from typing import Dict, List, Optional, Sequence, Tuple, Union
+
+# What a bracket sync writes for a side it hasn't decided (see
+# ``_challonge_placeholders`` / ``_startgg_placeholders``). A decided entrant
+# with no account also rides in ``bracket_placeholders`` under their own name,
+# which is why a placeholder is tested against these shapes and not assumed.
+_UNDECIDED = re.compile(r'TBD|(?:Winner|Loser) of .+|.+ or .+')
+
+MatchupPart = Dict[str, Union[str, bool]]
 
 
 def players_label(player_names: Optional[Sequence[str]]) -> str:
@@ -22,6 +31,46 @@ def players_label(player_names: Optional[Sequence[str]]) -> str:
     if len(names) == 2:
         return ' vs '.join(names)
     return ', '.join(names)
+
+
+def is_undecided_side(label: str) -> bool:
+    """A bracket placeholder ("TBD", "Winner of C", "Andy or Benny"), not a decided player."""
+    return bool(_UNDECIDED.fullmatch((label or '').strip()))
+
+
+def matchup_parts(
+    player_names: Sequence[str],
+    placeholders: Sequence[str] = (),
+    *,
+    max_names: Optional[int] = None,
+) -> List[MatchupPart]:
+    """:func:`players_label`'s text as ``{'text', 'tbd'}`` pieces, so a renderer
+    can set the sides a bracket hasn't decided apart from real players.
+
+    ``placeholders`` follow the players, the way ``Match.bracket_placeholders``
+    does. With ``max_names``, names past it are counted ("+3 more") instead,
+    and the first two are joined with "vs" whatever the count.
+    """
+    sides = [(n, False) for n in player_names] + [(p, is_undecided_side(p)) for p in placeholders]
+    return sides_parts(sides, max_names=max_names)
+
+
+def sides_parts(sides: Sequence[Tuple[str, bool]], *, max_names: Optional[int] = None) -> List[MatchupPart]:
+    """:func:`matchup_parts` for ``(name, undecided)`` pairs already in roster order."""
+    shown = sides if max_names is None else sides[:max_names]
+    sep = ' vs ' if len(sides) == 2 or max_names is not None else ', '
+    parts: List[MatchupPart] = []
+    for i, (text, tbd) in enumerate(shown):
+        if i:
+            parts.append({'text': sep, 'tbd': False})
+        parts.append({'text': text, 'tbd': tbd})
+    if len(shown) < len(sides):
+        parts.append({'text': f' +{len(sides) - len(shown)} more', 'tbd': False})
+    return parts
+
+
+def has_undecided(parts: Sequence[MatchupPart]) -> bool:
+    return any(p['tbd'] for p in parts)
 
 
 def match_label(
@@ -117,3 +166,17 @@ def challonge_round_label(round_: Optional[int]) -> str:
     if not round_:
         return ''
     return f'Losers round {abs(round_)}' if round_ < 0 else f'Round {round_}'
+
+
+def entrant_name(entrant) -> str:
+    """A bracket-site entrant (Challonge participant, start.gg entrant) as players
+    know them here: the linked member's Wizzrobe name, else the site's own name.
+
+    ``entrant.user`` must be prefetched.
+    """
+    if entrant is None:
+        return 'TBD'
+    user = entrant.user
+    if user is not None:
+        return user.preferred_name
+    return entrant.name or 'TBD'

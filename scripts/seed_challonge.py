@@ -12,7 +12,9 @@ from models import (
     ChallongeMatch,
     ChallongeMatchState,
     ChallongeParticipant,
+    Commentator,
     Match,
+    MatchPlayers,
     Tenant,
     Tournament,
     User,
@@ -84,11 +86,13 @@ async def seed_challonge_for_tenant(
     if "participants:write" not in (conn.scopes or "").split():
         conn.scopes = f"{conn.scopes or ''} participants:write".strip()
         await conn.save()
-    # Remembered communities for the Admin → Challonge chip row: one in use by
+    # Remembered communities for the Challonge card's chip row (Settings → Integrations): one in use by
     # nothing (removable) beside the tournament-derived ones.
     config = dict(tenant.config or {})
-    if not config.get("challonge_communities"):
-        config["challonge_communities"] = [f"{tenant.slug}-community"]
+    if not config.get("challonge_communities") or "challonge_auto_sync_minutes" not in config:
+        config.setdefault("challonge_communities", [f"{tenant.slug}-community"])
+        # Every hour: what SG Live runs, so Settings → Integrations shows the cost line.
+        config.setdefault("challonge_auto_sync_minutes", 60)
         tenant.config = config
         await tenant.save(update_fields=["config"])
 
@@ -131,6 +135,41 @@ async def seed_challonge_for_tenant(
             "participant1": participants["cp_2"], "participant2": participants["cp_4"],
         },
     )
+    # Staff booked cm_2's two players by hand (New match) instead of from the
+    # bracket: the row on Not booked yet that suggests linking it.
+    hand_booked, created = await Match.get_or_create(
+        tournament=tournament, tenant=tenant, title="Booked by hand",
+        defaults={"scheduled_at": now_utc + timedelta(days=1, hours=2)},
+    )
+    if created:
+        for uname in ("player_two", "player_four"):
+            await MatchPlayers.create(match=hand_booked, user=users[uname], tenant=tenant)
+    # Open, but one side is the name-only entrant: the "Needs account" row on
+    # Match Schedule's Not booked yet view, whose Fix entrant opens Entrants.
+    await ChallongeMatch.get_or_create(
+        tournament=tournament, challonge_match_id="cm_4", tenant=tenant,
+        defaults={
+            "round": 1, "state": ChallongeMatchState.OPEN,
+            "participant1": participants["cp_1"], "participant2": participants["cp_5"],
+        },
+    )
+    # Booked in Wizzrobe, then reported on Challonge's own site before anyone
+    # ran it: the "Played on Challonge" row and its Needs you card.
+    played_elsewhere, created = await Match.get_or_create(
+        tournament=tournament, tenant=tenant, title="Played on Challonge",
+        defaults={"scheduled_at": now_utc + timedelta(hours=1)},
+    )
+    if created:
+        for uname in ("player_three", "player_four"):
+            await MatchPlayers.create(match=played_elsewhere, user=users[uname], tenant=tenant)
+    await ChallongeMatch.get_or_create(
+        tournament=tournament, challonge_match_id="cm_5", tenant=tenant,
+        defaults={
+            "round": 1, "state": ChallongeMatchState.COMPLETE, "group_stage": True,
+            "participant1": participants["cp_3"], "participant2": participants["cp_4"],
+            "winner_participant": participants["cp_4"], "match": played_elsewhere,
+        },
+    )
     # Round 2, waiting on round 1: PENDING is what most of a freshly mirrored
     # bracket looks like, and both its slots are unknown — which is also the only
     # mirrored row with no participants to render.
@@ -139,6 +178,75 @@ async def seed_challonge_for_tenant(
         defaults={"round": 2, "state": ChallongeMatchState.PENDING},
     )
 
+    # Elimination rounds waiting on players. cm_6 is on Not booked yet ›
+    # Players TBD ("Player Two or Player Four vs Winner of B"); cm_7 staff
+    # booked ahead, and Player One is already in it; the third booking lost
+    # its matchup to a reset ("Bracket link lost" on the run sheet).
+    await ChallongeMatch.get_or_create(
+        tournament=tournament, challonge_match_id="cm_6", tenant=tenant,
+        defaults={"round": 3, "state": ChallongeMatchState.PENDING, "identifier": "F",
+                  "slot1_prereq": "cm_2", "slot1_label": "Winner of A", "slot2_label": "Winner of B"},
+    )
+    ahead, created = await Match.get_or_create(
+        tournament=tournament, tenant=tenant, title="Booked ahead",
+        defaults={"scheduled_at": now_utc + timedelta(days=2),
+                  "bracket_placeholders": ["Player Two or Player Four"]},
+    )
+    if created:
+        await MatchPlayers.create(match=ahead, user=users["player_one"], tenant=tenant)
+    await ChallongeMatch.get_or_create(
+        tournament=tournament, challonge_match_id="cm_7", tenant=tenant,
+        defaults={"round": 3, "state": ChallongeMatchState.PENDING, "identifier": "G",
+                  "participant1": participants["cp_1"], "slot2_prereq": "cm_2", "match": ahead},
+    )
+    # SM User signed up to commentate cm_6 before anyone booked it: the crew
+    # hold behind Event › Schedule's "Not scheduled yet" line, waiting for
+    # approval (CrewHoldService). The other open matchups there have no hold.
+    cm6 = await ChallongeMatch.get(tournament=tournament, challonge_match_id="cm_6", tenant=tenant)
+    hold, _ = await Match.get_or_create(
+        tournament=tournament, tenant=tenant, crew_hold_source="challonge", crew_hold_key=cm6.id,
+        defaults={"scheduled_at": None, "title": "Round 3",
+                  "bracket_placeholders": ["Player Two or Player Four", "Winner of B"]},
+    )
+    await Commentator.get_or_create(match=hold, user=users["sm_user"], tenant=tenant,
+                                    defaults={"approved": False})
+    await Match.get_or_create(
+        tournament=tournament, tenant=tenant, title="Booked ahead, bracket reset",
+        defaults={"scheduled_at": now_utc + timedelta(days=2, hours=2),
+                  "bracket_placeholders": ["Winner of C", "Winner of D"], "bracket_link_lost": True},
+    )
+
+    # Mid-groups, so all of them are group matches; the round schedule bounds the
+    # group stage and plans the elimination rounds Challonge hasn't created yet
+    # (Admin -> Tournaments -> Round schedule…, and the window line on My Schedule).
+    await ChallongeMatch.filter(
+        tournament=tournament, challonge_match_id__in=["cm_1", "cm_2", "cm_3", "cm_4"], group_stage=False,
+    ).update(group_stage=True)
+    config = dict(tournament.config or {})
+    if "round_schedule" not in config:
+        day = now_utc.replace(minute=0, second=0, microsecond=0)
+        config["round_schedule"] = {
+            "group": {
+                "opens_at": (day - timedelta(days=1)).isoformat(),
+                "closes_at": (day + timedelta(days=3)).isoformat(),
+            },
+            "e1": {
+                "opens_at": (day + timedelta(days=3)).isoformat(),
+                "closes_at": (day + timedelta(days=4)).isoformat(),
+                "daily_from": "18:00", "daily_until": "23:00",
+            },
+            "e0": {"closes_at": (day + timedelta(days=5)).isoformat(), "best_of": 3},
+        }
+        tournament.config = config
+        await tournament.save(update_fields=["config"])
+    elif "best_of" not in (config["round_schedule"].get("e0") or {}):
+        config["round_schedule"]["e0"] = {**(config["round_schedule"].get("e0") or {}), "best_of": 3}
+        tournament.config = config
+        await tournament.save(update_fields=["config"])
+
+    await _seed_best_of_set(tenant, users, tournament, participants, now_utc)
+    await _seed_played_game_one(tenant, users, tournament, participants, now_utc)
+
     await _seed_open_challonge_bracket(tenant, users, now_utc)
 
     usage_period = today.strftime("%Y-%m")
@@ -146,6 +254,80 @@ async def seed_challonge_for_tenant(
         period=usage_period, tenant=tenant, defaults={"request_count": 42},
     )
     print(f"    [{tenant.slug}] challonge ok")
+
+
+async def _seed_best_of_set(
+    tenant: Tenant, users: dict[str, User], tournament: Tournament,
+    participants: dict, now_utc: datetime,
+) -> None:
+    """A best-of-3 set booked as three matches: game 1 played, game 2 booked,
+    game 3 "if needed" (run sheet "Game 2 of 3", BracketSetService)."""
+    first, created = await Match.get_or_create(
+        tournament=tournament, tenant=tenant, title="Best of 3, game 1",
+        defaults={"scheduled_at": now_utc - timedelta(hours=2), "set_game": 1, "set_best_of": 3,
+                  "started_at": now_utc - timedelta(hours=2), "finished_at": now_utc - timedelta(hours=1),
+                  "confirmed_at": now_utc - timedelta(minutes=50)},
+    )
+    if created:
+        for uname, rank in (("player_one", 1), ("player_two", 2)):
+            await MatchPlayers.create(match=first, user=users[uname], finish_rank=rank, tenant=tenant)
+    await ChallongeMatch.get_or_create(
+        tournament=tournament, challonge_match_id="cm_8", tenant=tenant,
+        defaults={"round": 3, "state": ChallongeMatchState.OPEN, "identifier": "H",
+                  "participant1": participants["cp_1"], "participant2": participants["cp_2"],
+                  "match": first},
+    )
+    for number in (2, 3):
+        game, created = await Match.get_or_create(
+            tournament=tournament, tenant=tenant, title=f"Best of 3, game {number}",
+            defaults={"scheduled_at": now_utc + timedelta(minutes=20 + 80 * (number - 2)),
+                      "set_game": number, "set_best_of": 3, "set_first": first},
+        )
+        if created:
+            for uname in ("player_one", "player_two"):
+                await MatchPlayers.create(match=game, user=users[uname], tenant=tenant)
+
+    # A set the players are booking a game at a time: one booked, so
+    # player_one's list offers "another game" and "last game · If needed", and
+    # Not booked yet shows "2 games left".
+    booked, created = await Match.get_or_create(
+        tournament=tournament, tenant=tenant, title="Best of 3, first game booked",
+        defaults={"scheduled_at": now_utc + timedelta(days=1), "set_game": 1, "set_best_of": 3},
+    )
+    if created:
+        for uname in ("player_one", "player_three"):
+            await MatchPlayers.create(match=booked, user=users[uname], tenant=tenant)
+    await ChallongeMatch.get_or_create(
+        tournament=tournament, challonge_match_id="cm_9", tenant=tenant,
+        defaults={"round": 3, "state": ChallongeMatchState.OPEN, "identifier": "I",
+                  "participant1": participants["cp_1"], "participant2": participants["cp_3"],
+                  "match": booked},
+    )
+
+
+async def _seed_played_game_one(
+    tenant: Tenant, users: dict[str, User], tournament: Tournament,
+    participants: dict, now_utc: datetime,
+) -> None:
+    """A best-of-1 bracket booking whose game 1 is played but not confirmed.
+
+    New match for Player Two and Player Three offers "Count this as game 2 of
+    that set" (theme/dialog/_set_join_notice.py).
+    """
+    first, created = await Match.get_or_create(
+        tournament=tournament, tenant=tenant, title="Semifinal, game 1 played",
+        defaults={"scheduled_at": now_utc - timedelta(hours=3),
+                  "started_at": now_utc - timedelta(hours=3), "finished_at": now_utc - timedelta(hours=2)},
+    )
+    if created:
+        for uname, rank in (("player_two", 1), ("player_three", 2)):
+            await MatchPlayers.create(match=first, user=users[uname], finish_rank=rank, tenant=tenant)
+    await ChallongeMatch.get_or_create(
+        tournament=tournament, challonge_match_id="cm_9", tenant=tenant,
+        defaults={"round": 2, "state": ChallongeMatchState.OPEN, "identifier": "E",
+                  "participant1": participants["cp_2"], "participant2": participants["cp_3"],
+                  "match": first},
+    )
 
 
 async def _seed_open_challonge_bracket(

@@ -38,3 +38,35 @@ class WebhookDelivery(Model):
     class Meta:
         table = 'webhookdelivery'
         indexes = (('webhook',),)
+
+
+class PersonalWebhook(Model):
+    """A webhook one member points at their own Discord channel or app.
+
+    Unlike :class:`Webhook` (staff, raw events), what this one sends is decided
+    per delivery from what ``user`` can see at that moment, and its payload is
+    rebuilt from a field allowlist rather than forwarding the event as-is.
+    """
+
+    id = fields.IntField(pk=True)
+    tenant: fields.ForeignKeyRelation = fields.ForeignKeyField('models.Tenant', related_name='personal_webhooks', on_delete=fields.CASCADE)
+    user: fields.ForeignKeyRelation = fields.ForeignKeyField('models.User', related_name='personal_webhooks', on_delete=fields.CASCADE)
+    name = fields.CharField(max_length=80)
+    url = fields.CharField(max_length=1024)
+    secret = fields.CharField(max_length=128)
+    event_types: list = fields.JSONField(default=list)
+    only_mine = fields.BooleanField(default=True)
+    is_active = fields.BooleanField(default=True)
+    paused_reason = fields.CharField(max_length=255, null=True)
+    consecutive_failures = fields.IntField(default=0)
+    last_delivery_at = fields.DatetimeField(null=True)
+    last_status = fields.IntField(null=True)
+    last_error = fields.CharField(max_length=255, null=True)
+    delivered_count = fields.IntField(default=0)
+    failed_count = fields.IntField(default=0)
+    created_at = fields.DatetimeField(auto_now_add=True)
+    updated_at = fields.DatetimeField(auto_now=True)
+
+    class Meta:
+        table = 'personalwebhook'
+        indexes = (('tenant', 'user'),)

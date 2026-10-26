@@ -18,7 +18,18 @@ async def bracket_dm_context(match_id: int) -> tuple[str, bool]:
     """
     from application.services.bracket_service import BracketService
 
-    return await BracketService().match_dm_context(match_id)
+    line, frees_slot = await BracketService().match_dm_context(match_id)
+    if line:
+        return line, frees_slot
+    try:
+        from application.repositories.match_repository import MatchRepository
+        from application.services.bracket_set_service import BracketSetService
+
+        match = await MatchRepository.get_by_id(match_id, prefetch_relations=False)
+        label = await BracketSetService().label_for(match) if match is not None else None
+    except Exception:
+        label = None
+    return (label or '', frees_slot)
 
 
 async def bracket_line_for(match_id: int) -> str:

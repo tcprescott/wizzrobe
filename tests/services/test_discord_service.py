@@ -435,12 +435,13 @@ def real_svc_ready(monkeypatch):
     discord_user.send = AsyncMock()
     stub_bot = MagicMock()
     stub_bot.is_ready.return_value = True
+    stub_bot.get_user.return_value = None
     stub_bot.fetch_user = AsyncMock(return_value=discord_user)
 
     mirrored: list[int] = []
     monkeypatch.setattr(
         ds, '_mirror_dm_to_web_push',
-        lambda user_id, message, navigate=None, silent=False: mirrored.append(user_id),
+        lambda user_id, message, navigate=None, silent=False, ref=None: mirrored.append(user_id),
     )
     svc = object.__new__(ds._RealDiscordService)
     svc._bot = stub_bot
@@ -494,3 +495,75 @@ class TestDiscordSwitch:
 
         assert ok is True
         discord_user.send.assert_awaited_once()
+
+
+class TestSettingsFootnote:
+    """Catalogued DMs end with a line naming the message and linking its settings."""
+
+    async def test_an_embed_gets_the_footnote_as_its_last_line(self, db, real_svc_ready):
+        import discord
+
+        from application.services.notification_catalog import MATCH_SCHEDULED
+        from application.tenant_context import tenant_scope
+        from models import NotificationRecipient
+        from tests.conftest import DEFAULT_TEST_TENANT_ID
+
+        svc, _, discord_user, _ = real_svc_ready
+        card = discord.Embed(title='Match scheduled')
+        with tenant_scope(DEFAULT_TEST_TENANT_ID):
+            await svc.send_dm(
+                560, 'Your match is booked', embed=card,
+                notice=MATCH_SCHEDULED.to(NotificationRecipient.PLAYERS),
+            )
+
+        sent = discord_user.send.call_args.kwargs['embed']
+        last = sent.fields[-1].value
+        assert '“Match scheduled or rescheduled”' in last
+        assert '[Notification settings](' in last and '/messages?message=' in last
+        assert card.fields == []
+
+    async def test_one_card_sent_to_several_people_gets_one_footnote_each(self, db, real_svc_ready):
+        import discord
+
+        from application.services.notification_catalog import MATCH_SCHEDULED
+        from application.tenant_context import tenant_scope
+        from models import NotificationRecipient
+        from tests.conftest import DEFAULT_TEST_TENANT_ID
+
+        svc, _, discord_user, _ = real_svc_ready
+        card = discord.Embed(title='Match scheduled')
+        card.add_field(name='Players', value='A vs B', inline=False)
+        with tenant_scope(DEFAULT_TEST_TENANT_ID):
+            for user_id in (563, 564, 565):
+                await svc.send_dm(
+                    user_id, 'Your match is booked', embed=card,
+                    notice=MATCH_SCHEDULED.to(NotificationRecipient.PLAYERS),
+                )
+
+        for call in discord_user.send.call_args_list:
+            values = [f.value for f in call.kwargs['embed'].fields]
+            assert sum('Change how you get' in v for v in values) == 1
+        assert [f.value for f in card.fields] == ['A vs B']
+
+    async def test_plain_text_gets_it_as_small_text(self, db, real_svc_ready):
+        from application.services.notification_catalog import MATCH_SCHEDULED
+        from application.tenant_context import tenant_scope
+        from models import NotificationRecipient
+        from tests.conftest import DEFAULT_TEST_TENANT_ID
+
+        svc, _, discord_user, _ = real_svc_ready
+        with tenant_scope(DEFAULT_TEST_TENANT_ID):
+            await svc.send_dm(561, 'Your match is booked', notice=MATCH_SCHEDULED.to(NotificationRecipient.PLAYERS))
+
+        text = discord_user.send.call_args.args[0]
+        assert text.startswith('Your match is booked\n-# Change how you get')
+
+    async def test_an_uncatalogued_dm_has_none(self, db, real_svc_ready):
+        from application.tenant_context import tenant_scope
+        from tests.conftest import DEFAULT_TEST_TENANT_ID
+
+        svc, _, discord_user, _ = real_svc_ready
+        with tenant_scope(DEFAULT_TEST_TENANT_ID):
+            await svc.send_dm(562, 'This is a test')
+
+        assert discord_user.send.call_args.args[0] == 'This is a test'

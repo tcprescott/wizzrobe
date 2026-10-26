@@ -4,11 +4,13 @@ VolunteerAssignment Repository - Data Access Layer
 Volunteers placed into shifts.
 """
 
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import List, Optional, Sequence, Set, cast
 
+from application.repositories._event import event_scoped
+from application.repositories._save import save_fields
 from application.repositories._tenant import current_tenant_id, scoped
-from models import User, VolunteerAssignment, VolunteerShift
+from models import EventStatus, User, VolunteerAssignment, VolunteerShift
 
 _PREFETCH = ('user', 'shift', 'shift__position', 'assigned_by')
 
@@ -59,12 +61,9 @@ class VolunteerAssignmentRepository:
 
     @staticmethod
     async def save(
-        assignment: VolunteerAssignment, update_fields: Optional[Sequence[str]] = None,
+        assignment: VolunteerAssignment, update_fields: Sequence[str],
     ) -> VolunteerAssignment:
-        if update_fields is None:
-            await assignment.save()
-        else:
-            await assignment.save(update_fields=[*update_fields, 'updated_at'])
+        await save_fields(assignment, *update_fields)
         return assignment
 
     @staticmethod
@@ -90,13 +89,13 @@ class VolunteerAssignmentRepository:
         include_drafts: bool = False,
         with_shiftmates: bool = False,
     ) -> List[VolunteerAssignment]:
-        """This user's assignments.
+        """This user's assignments in every live event (cross-event: My Shifts is theirs).
 
         Drafts are excluded by default: an ``auto_generated`` row is the
         coordinator's sketch and the volunteer has not been told about it (see
         ``VolunteerAutoscheduleService.publish_draft``).
         """
-        query = scoped(VolunteerAssignment.filter(user=user))
+        query = scoped(VolunteerAssignment.filter(user=user, shift__event__status=EventStatus.LIVE))
         if not include_drafts:
             query = query.filter(auto_generated=False)
         if upcoming_after is not None:
@@ -121,11 +120,38 @@ class VolunteerAssignmentRepository:
         return set(cast(List[int], await query.values_list('user_id', flat=True)))
 
     @staticmethod
+    async def ending_or_starting_near(
+        position_id: int, at: datetime, slack: timedelta, *, ending: bool,
+    ) -> List[VolunteerAssignment]:
+        """Published, not called-off assignments on this position whose shift ends
+        (``ending=True``) or starts within ``slack`` of ``at``."""
+        edge = 'ends_at' if ending else 'starts_at'
+        return await scoped(VolunteerAssignment.filter(
+            auto_generated=False,
+            called_off_at__isnull=True,
+            shift__position_id=position_id,
+            **{f'shift__{edge}__gte': at - slack, f'shift__{edge}__lte': at + slack},
+        )).order_by('shift__starts_at', 'id').prefetch_related('user', 'shift')
+
+    @staticmethod
     async def list_for_window(start: datetime, end: datetime) -> List[VolunteerAssignment]:
         return await (
             scoped(VolunteerAssignment.filter(shift__starts_at__lt=end, shift__ends_at__gt=start))
             .prefetch_related(*_PREFETCH)
         )
+
+    @staticmethod
+    async def on_shift_user_ids(at: datetime, user_ids: Sequence[int]) -> Set[int]:
+        """Which of ``user_ids`` hold a published shift, on any position, at ``at``."""
+        if not user_ids:
+            return set()
+        query = scoped(VolunteerAssignment.filter(
+            auto_generated=False,
+            user_id__in=list(user_ids),
+            shift__starts_at__lte=at,
+            shift__ends_at__gt=at,
+        ))
+        return set(cast(List[int], await query.values_list('user_id', flat=True)))
 
     @staticmethod
     async def on_duty_users(at: datetime) -> List[User]:
@@ -179,7 +205,7 @@ class VolunteerAssignmentRepository:
         Done in two steps (resolve shift ids, then delete by id) so it works on
         databases that don't support join-based DELETE (e.g. SQLite in tests).
         """
-        shifts = scoped(VolunteerShift.filter(starts_at__lt=end, ends_at__gt=start))
+        shifts = event_scoped(VolunteerShift.filter(starts_at__lt=end, ends_at__gt=start))
         if position_ids is not None:
             shifts = shifts.filter(position_id__in=list(position_ids))
         shift_ids = await shifts.values_list('id', flat=True)
@@ -192,7 +218,7 @@ class VolunteerAssignmentRepository:
     @staticmethod
     async def count_auto_for_window(start: datetime, end: datetime) -> int:
         """How many draft assignments sit in the window."""
-        shift_ids = await scoped(VolunteerShift.filter(
+        shift_ids = await event_scoped(VolunteerShift.filter(
             starts_at__lt=end, ends_at__gt=start,
         )).values_list('id', flat=True)
         if not shift_ids:
@@ -204,7 +230,7 @@ class VolunteerAssignmentRepository:
     @staticmethod
     async def list_auto_for_window(start: datetime, end: datetime) -> List[VolunteerAssignment]:
         """Draft assignments whose shift overlaps the window, prefetched for notification."""
-        shift_ids = await scoped(VolunteerShift.filter(
+        shift_ids = await event_scoped(VolunteerShift.filter(
             starts_at__lt=end, ends_at__gt=start,
         )).values_list('id', flat=True)
         if not shift_ids:
@@ -254,6 +280,7 @@ class VolunteerAssignmentRepository:
                 user_id=user_id,
                 auto_generated=False,
                 checked_in_at__isnull=True,
+                called_off_at__isnull=True,
                 shift__starts_at__lte=opens_before,
                 shift__ends_at__gt=now,
             ))
@@ -274,6 +301,7 @@ class VolunteerAssignmentRepository:
                 auto_generated=False,
                 start_dm_sent_at__isnull=True,
                 checked_in_at__isnull=True,
+                called_off_at__isnull=True,
                 shift__starts_at__gt=started_after,
                 shift__starts_at__lte=now,
             )
@@ -286,7 +314,8 @@ class VolunteerAssignmentRepository:
     ) -> List[VolunteerAssignment]:
         """Un-reminded assignments whose shift starts within [window_start, window_end].
 
-        Drafts are skipped — the reminder must not be the message that first tells
+        Called-off assignments are skipped (they were told not to come), and so
+        are drafts — the reminder must not be the message that first tells
         someone they have a shift.
         """
         # Deliberately cross-tenant: the reminder loop scans every tenant and wraps
@@ -295,6 +324,7 @@ class VolunteerAssignmentRepository:
             VolunteerAssignment.filter(
                 auto_generated=False,
                 reminder_sent_at__isnull=True,
+                called_off_at__isnull=True,
                 shift__starts_at__gte=window_start,
                 shift__starts_at__lte=window_end,
             )

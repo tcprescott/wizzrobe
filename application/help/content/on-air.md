@@ -17,15 +17,18 @@ that goes there.
 
 On the page you'll find:
 
-- On stream today, with a card for each stage. The match on now is marked
-  {chip:live:On now}, followed by the next three, plus the approved commentators
-  and trackers.
-- Coming up on stream, which lists every streamed match for the next week, by
+- On stream now, with a tile for each stage. A Twitch stage's tile shows a
+  picture of its stream, which Twitch refreshes every few minutes, with a red
+  LIVE badge and how long the match has been running once it starts. Under it
+  are the match on now, its approved commentators and trackers, and the next
+  three matches on that stage.
+- Coming up on stream, a timeline of every streamed match for the next week, by
   day.
-- Tournaments, with each one's bracket and rules links and how far along it is.
+- Tournaments, a card for each with its bracket and rules links and how far
+  along it is.
 :::
 
-![The Watch page on a phone: three stage cards, each with a Watch stream button and a LIVE match under On now, two of them with the next match under Up next, then a list of brackets](/static/help/on-air/watch-page-phone.webp "The Watch page, signed out.")
+![The Watch page on a phone: On stream now with a count of live stages, then a tile per stage with a picture of its stream, a LIVE badge with how long the match has run, and the match under it with what's up next on that stage](/static/help/on-air/watch-page-phone.webp "The Watch page, signed out.")
 
 The page updates itself as matches change. Matches without a stage don't appear
 here. You'll find those on the Schedule view of the Event tab.
@@ -35,16 +38,16 @@ Schedule**, which opens the board on just that match.
 
 ## Finding the stream
 
-If a stage streams on Twitch, tap **Watch** on its card and the stream plays
-right on the page, above the stage cards, with the current match beside it. That
-stage's button changes to **Watching** while it plays. It starts muted because
-browsers won't autoplay with sound, so unmute it in the player. Tap **Watch** on
-another stage to switch over, or **Close player** to stop. On a phone the player
+If a stage streams on Twitch, tap the picture on its tile and the stream plays
+right on the page, above the tiles, with the current match beside it. That
+tile is marked **Watching** while it plays. It starts muted because browsers
+won't autoplay with sound, so unmute it in the player. Tap another stage's
+picture to switch over, or **Close player** to stop. On a phone the player
 stays pinned to the top while you scroll. **Open on Twitch** takes you to the
 channel, or to the Twitch app on a phone.
 
-Nothing loads from Twitch until you tap **Watch**. Once it's playing, Twitch's
-own player and cookies apply.
+The pictures are plain images from Twitch, and the player itself doesn't load
+until you tap one. Once it's playing, Twitch's own player and cookies apply.
 
 A stage that streams somewhere other than Twitch gets an **Open stream** link,
 which opens in a new tab. If a stage has no link, it isn't being streamed.

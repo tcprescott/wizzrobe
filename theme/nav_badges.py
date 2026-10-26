@@ -21,7 +21,11 @@ def nav_count_badge(label: str, count: int) -> ui.badge:
     """Draw one count badge for the nav item ``label`` and register it."""
     badge = ui.badge(str(count), color=None).classes('wiz-nav-count')
     badge.set_visibility(count > 0)
-    _badges.setdefault(context.client, {}).setdefault(label, []).append(badge)
+    client = context.client
+    if client not in _badges:
+        _badges[client] = {}
+        client.on_delete(lambda: _badges.pop(client, None))
+    _badges[client].setdefault(label, []).append(badge)
     return badge
 
 
@@ -48,12 +52,13 @@ def nav_icon(name: str) -> str:
 
 #: Every icon in ``static/fonts/material-symbols-outlined-nav.woff2``. Adding a
 #: nav icon means re-downloading that subset with the new name in the list (the
-#: font file's header comment in styles.css has the URL).
+#: font file's header comment in styles.css has the URL, and the ?v= stamp to bump).
 NAV_ICON_NAMES: frozenset[str] = frozenset({
-    'account_circle', 'account_tree', 'admin_panel_settings', 'analytics', 'assignment_ind',
-    'calendar_view_week', 'celebration', 'checklist', 'circle', 'edit_calendar', 'emoji_events',
-    'event_available', 'fact_check', 'feedback', 'flag', 'groups', 'help', 'home', 'how_to_reg',
-    'inventory_2', 'live_tv', 'manage_accounts', 'menu_book', 'monitor_heart', 'payments',
+    'account_circle', 'account_tree', 'admin_panel_settings', 'analytics', 'apartment', 'assignment_ind',
+    'calendar_month',
+    'calendar_view_week', 'celebration', 'checklist', 'circle', 'code', 'edit_calendar', 'emoji_events',
+    'event', 'event_available', 'fact_check', 'feedback', 'flag', 'groups', 'help', 'home', 'how_to_reg',
+    'inventory_2', 'live_tv', 'manage_accounts', 'menu_book', 'monitor_heart', 'notifications', 'payments',
     'rate_review', 'schema', 'settings', 'sports_esports', 'stadium', 'sync_alt', 'timer', 'tune',
     'tv', 'view_timeline', 'volunteer_activism',
 })

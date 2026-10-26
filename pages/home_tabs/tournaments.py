@@ -21,13 +21,16 @@ from typing import Optional
 from nicegui import app, background_tasks, context, ui
 
 from application.content import parse_blocks
+from application.event_context import get_current_event_id
 from application.services import (
+    BracketService,
+    EventService,
     FeatureFlagService,
     TournamentService,
     get_user_from_session,
 )
 from application.services.tournament_service import TournamentSignupCard
-from application.tenant_context import is_host_mode
+from application.tenant_context import is_host_mode, require_tenant_id
 from application.utils.app_links import HOME_TOURNAMENTS, home_url
 from application.utils.environment import host_oauth_handoff_enabled
 from application.utils.safe_url import http_url_or_empty
@@ -37,13 +40,17 @@ from models import FeatureFlag
 from pages.home_tabs._link_section import open_sign_in_first_dialog
 from pages.home_tabs.challonge_link_section import CONFIG as _CHALLONGE_LINK_SECTION
 from pages.home_tabs.triforce_texts import open_triforce_dialog, supporting_tournament_ids
+from theme.busy import busy_click
 from theme.dialog.challonge_signup_dialog import open_challonge_signup_dialog
 from theme.dialog.confirmation_dialog import ConfirmationDialog
 from theme.empty_state import empty_panel
+from theme.event_switcher import event_dates_label, event_status_chip
 from theme.help import help_icon
 from theme.help.render import render_blocks
+from theme.links import link_button
 from theme.notify import notify_error
 from theme.page_header import page_header
+from theme.past_events import render_past_events
 from theme.steady import steady_refreshable
 
 # The Profile's Challonge link, returning to this tab instead of the Profile so
@@ -99,28 +106,41 @@ def _name_chips(
     people: list[tuple[str, bool]], *, label: str, admin: bool = False,
     total: Optional[int] = None,
 ) -> None:
-    """Names as wrapping pills: the viewer first with "(you)", the rest A to Z."""
+    """Names as wrapping pills: the viewer first with "(you)", the rest A to Z.
+
+    Only the preview is built up front; the rest are built the first time the
+    list is opened. A 300-player bracket's full list was ~600 elements per card,
+    and fourteen cards of them made this tab the slowest page at event size.
+    """
     ordered = sorted(people, key=lambda p: (not p[1], p[0].lower()))
     box = ui.element('div').classes('wiz-name-chips').props(f'role=list aria-label="{label}"')
-    with box:
-        for i, (name, mine) in enumerate(ordered):
-            classes = 'wiz-name-chip'
-            if admin:
-                classes += ' wiz-name-chip--admin'
-            if mine:
-                classes += ' wiz-name-chip--me'
-            if i >= _NAME_PREVIEW:
-                classes += ' wiz-name-chip--more'
-            with ui.element('span').classes(classes).props('role=listitem'):
-                ui.label(name).classes('wiz-name-chip__name')
+
+    def chips(start: int, stop: Optional[int] = None) -> None:
+        with box:
+            for i, (name, mine) in enumerate(ordered[start:stop], start):
+                classes = 'wiz-name-chip'
+                if admin:
+                    classes += ' wiz-name-chip--admin'
                 if mine:
-                    ui.label('(you)').classes('wiz-you')
+                    classes += ' wiz-name-chip--me'
+                if i >= _NAME_PREVIEW:
+                    classes += ' wiz-name-chip--more'
+                with ui.element('span').classes(classes).props('role=listitem'):
+                    ui.label(name).classes('wiz-name-chip__name')
+                    if mine:
+                        ui.label('(you)').classes('wiz-you')
+
+    chips(0, _NAME_PREVIEW)
     if len(ordered) <= _NAME_PREVIEW:
         return
     show_all = f'Show all {total or len(ordered)}'
+    built = {'rest': False}
 
     def toggle() -> None:
         opening = 'is-open' not in box.classes
+        if opening and not built['rest']:
+            built['rest'] = True
+            chips(_NAME_PREVIEW)
         if opening:
             box.classes(add='is-open')
         else:
@@ -192,6 +212,21 @@ def event_dates(card: TournamentSignupCard) -> Optional[str]:
     if t.event_start_date:
         return f'From {format_local_date(t.event_start_date)}'
     return None
+
+
+def bracket_link(card: TournamentSignupCard, native_ids: set[int]) -> Optional[tuple[str, bool]]:
+    """Where the card's Bracket button goes, and whether that is another site.
+
+    A start.gg card has its own Bracket button, so it gets none here.
+    """
+    t = card.tournament
+    if card.startgg_url:
+        return None
+    if t.id in native_ids:
+        return f'/tournament/{t.id}/brackets', False
+    url = (http_url_or_empty(t.challonge_tournament_url) if card.challonge_managed else '') \
+        or http_url_or_empty(t.bracket_url)
+    return (url, True) if url else None
 
 
 def _card_dom_id(tournament_id: int) -> str:
@@ -284,11 +319,12 @@ async def tournaments_tab() -> None:
             ConfirmationDialog(
                 message=f'Withdraw from {tournament.name}? Once sign-ups close you’ll '
                         'need staff to put you back in.',
-                on_confirm=lambda: background_tasks.create(withdraw(tournament.id, client)),
+                on_confirm=lambda: withdraw(tournament.id, client),
                 confirm_text='Withdraw', cancel_text='Stay in', title='Withdraw?',
+                busy_text='Withdrawing…',
             ).open()
 
-        def render_card(card: TournamentSignupCard) -> None:
+        def render_card(card: TournamentSignupCard, native_ids: set[int]) -> None:
             t = card.tournament
             chip_class, status = signup_status(card)
             with ui.card().classes('wiz-tournament-card full-width') \
@@ -358,14 +394,10 @@ async def tournaments_tab() -> None:
                 with ui.row().classes('items-center gap-2'):
                     if card.startgg_url:
                         if card.signs_up_on_startgg:
-                            ui.button(
-                                'Sign up on start.gg', icon='open_in_new',
-                                on_click=lambda _e, url=card.startgg_url: ui.navigate.to(url, new_tab=True),
-                            ).props('color=primary no-caps')
-                        ui.button(
-                            'Bracket', icon='account_tree',
-                            on_click=lambda _e, tid=t.id: ui.navigate.to(f'/tournament/{tid}/startgg'),
-                        ).props('flat color=primary no-caps')
+                            link_button('Sign up on start.gg', card.startgg_url, icon='open_in_new') \
+                                .props('color=primary no-caps')
+                        link_button('Bracket', f'/tournament/{t.id}/startgg', icon='account_tree', new_tab=False) \
+                            .props('flat color=primary no-caps')
                     elif card.can_sign_up and card.challonge_managed:
                         ui.button(
                             'Sign up', icon='how_to_reg',
@@ -374,8 +406,7 @@ async def tournaments_tab() -> None:
                     elif card.can_sign_up:
                         ui.button(
                             'Sign up', icon='how_to_reg',
-                            on_click=lambda _e, tid=t.id: background_tasks.create(
-                                sign_up(tid, context.client)),
+                            on_click=busy_click('Signing up…', lambda _e, tid=t.id: sign_up(tid, context.client)),
                         ).props('color=primary no-caps')
                     elif card.needs_challonge_link:
                         ui.button(
@@ -399,6 +430,12 @@ async def tournaments_tab() -> None:
                             'Signups have closed — ask staff if you need to drop out.'
                         ).classes('text-caption text-grey-7')
 
+                    bracket = bracket_link(card, native_ids)
+                    if bracket:
+                        href, external = bracket
+                        link_button('Bracket', href, icon='open_in_new' if external else 'account_tree',
+                                    new_tab=external).props('flat color=primary no-caps')
+
                     if t.id in triforce_ids:
                         ui.button(
                             'Triforce Texts', icon='auto_awesome',
@@ -406,16 +443,9 @@ async def tournaments_tab() -> None:
                                 open_triforce_dialog(tourney, user, context.client)),
                         ).props('flat color=primary dense no-caps')
 
-        @steady_refreshable
-        async def cards() -> None:
-            all_cards = await service.list_signup_cards(user)
-            if not all_cards:
-                empty_panel(
-                    'No tournaments are running right now. Check back when staff '
-                    'have set one up.', icon='emoji_events')
-                return
+        def render_sections(event_cards: list[TournamentSignupCard], native_ids: set[int]) -> None:
             for title, icon, predicate in _SECTIONS:
-                section = [c for c in all_cards if predicate(c)]
+                section = [c for c in event_cards if predicate(c)]
                 if not section:
                     continue
                 with ui.row().classes('items-center gap-2 q-mt-sm'):
@@ -423,6 +453,38 @@ async def tournaments_tab() -> None:
                     ui.label(title).classes('subsection-title')
                 with ui.element('div').classes('wiz-tile-grid wiz-tile-grid--md'):
                     for card in section:
-                        render_card(card)
+                        render_card(card, native_ids)
+
+        @steady_refreshable
+        async def cards() -> None:
+            # A live event's page lists every live event's tournaments; a past
+            # event's (or a draft's, for staff) lists that event's alone.
+            current = await EventService.ref(require_tenant_id(), get_current_event_id())
+            spanning = current is None or current.is_live
+            all_cards = await service.list_signup_cards(user, live_events=spanning)
+            native_ids: set[int] = set()
+            if FeatureFlag.BRACKETS in await FeatureFlagService().enabled_flags():
+                native_ids = {b.tournament_id for b in await BracketService().list_all_visible_brackets(user)}
+            if not all_cards:
+                empty_panel(
+                    'No tournaments are running right now. Check back when staff '
+                    'have set one up.', icon='emoji_events')
+            events = [
+                e for e in await EventService.visible_events(user)
+                if any(c.tournament.event_id == e.id for c in all_cards)
+            ]
+            if len(events) < 2:
+                render_sections(all_cards, native_ids)
+            for event in events if len(events) > 1 else ():
+                with ui.row().classes('wiz-event-heading items-center gap-2'):
+                    ui.icon('event', size='sm')
+                    ui.label(event.name).classes('wiz-event-heading__name')
+                    event_status_chip(event.status)
+                    dates = event_dates_label(event.starts_on, event.ends_on)
+                    if dates:
+                        ui.label(dates).classes('text-caption text-muted')
+                render_sections([c for c in all_cards if c.tournament.event_id == event.id], native_ids)
+            if spanning:
+                await render_past_events(user, home_url(HOME_TOURNAMENTS))
 
         await cards()

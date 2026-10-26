@@ -261,6 +261,16 @@ call; opt out with `table-prefs: exempt` / `noqa: table-prefs` on the constructi
 or the line above. Both table hooks fail open on non-Python, unreadable, unparseable, or
 `ui.table`-free files.
 
+### View switcher in the address — `scripts/check_view_urls.py` (PostToolUse: Write|Edit)
+Blocks a `ui.tabs` / `ui.toggle` in `pages/` or `theme/` that the address bar doesn't
+follow. It redraws part of the page without loading one, so unless it tells
+`theme/url_state.py` the address and title stay put: Back leaves the page instead of
+undoing the switch, a reload opens the wrong view, and a copied link goes somewhere else.
+Accepts the switcher's name as the second argument of `bind_url(...)` or `url_param(...)`
+in the same file; opt out with `url-state: exempt` / `noqa: url-state` on the
+construction line or the line above, for a toggle that is a form input rather than a view.
+`tests/theme/test_url_state.py` runs it over the whole tree.
+
 ### Steady refresh — `scripts/check_steady_refresh.py` (PostToolUse: Write|Edit)
 Blocks an async `@ui.refreshable` in `pages/` or `theme/`. NiceGUI clears the container
 and then awaits the builder, so the browser draws the empty section for the length of the
@@ -314,6 +324,31 @@ won't match a longer name (`MyClient.current`), and the class genuinely has no s
 attribute, so false positives are **0** (measured: 1 hit across 264 `.py` files — the live
 bug itself; `check_slot_context.py`'s doc literal is skipped by the `/.claude/` guard).
 
+### Stale saves — `scripts/check_bare_save.py` (PreToolUse: Write|Edit)
+Blocks a net-new bare `.save()` in `application/`, `api/`, `discordbot/`, `mcpserver/`,
+`middleware/`, `models/` and `racetimebot/`. A bare save writes every column from the
+instance it holds, so a row loaded earlier puts back whatever changed since: the
+tournament editor wiped start.gg settings that way (PR #535), and two semifinals
+reported together could blank each other's slot in the final. Use
+`save_fields(obj, 'field', ...)` (`application/repositories/_save.py`, maps FKs to their
+id column and adds `auto_now` stamps), `save(update_fields=[...])`, or a queryset
+`.update(...)`. Skipped: a name the same function built with a model constructor (an
+insert), calls with positional args (PIL, files), and a line tagged
+`# full-save: <reason>`. AST-based, net-new counting like `check_dry_regressions.py`.
+
+### Worker loops — `scripts/check_worker_loops.py` (PreToolUse: Write|Edit)
+Blocks a net-new hand-rolled periodic worker in `application/`, `api/`, `discordbot/`,
+`mcpserver/`, `middleware/` and `racetimebot/`: a `while` loop in an `async def` whose
+body awaits `asyncio.sleep(...)`. Such a loop gets none of what `run_worker_loop` /
+`BackgroundLoop` and `CoroutineQueue` give every worker built on them: a tick time limit,
+restart if the task dies, `worker.tick_*` Sentry metrics, a `runtime_stats` row, and the
+worker watchdog ([observability.md](../docs/features/observability.md#worker-self-healing-and-the-worker-watchdog)).
+Skipped: the two helpers themselves, a loop with a `break`/`return` in it (a bounded
+retry or poll), and a `while` line tagged `# worker-loop: <reason>` for a loop that
+supervises itself (the racetime connection's heartbeat). AST-based, net-new counting.
+Replaced the narrower services-only `worker-loop-scaffold` regex in
+`check_dry_regressions.py` (audit §2A.3).
+
 ### DRY regressions — `scripts/check_dry_regressions.py` (PreToolUse: Write|Edit)
 Blocks re-introduction of the copy-paste shapes the 2026-07 code-quality audit
 removed, each message naming the shared primitive that replaced the shape:
@@ -324,7 +359,6 @@ removed, each message naming the shared primitive that replaced the shape:
 | `def _load_*_or_404` in `api/routers/` | service raises `NotFoundError` → 404 | §2B.1/2B.2 |
 | `raise ValueError('… not found')` in a service | `require_found(obj, label)` | §2A.6 |
 | literal truthy-env comparison | `env_flag(name)` (`environment.py`) | §3.2 |
-| `while True:` + `asyncio.sleep` in a service | `run_worker_loop` / `BackgroundLoop` | §2A.3 |
 | `raise NotImplementedError` in services/repos | `ValueError('… not yet implemented')` | §1.3 |
 | `write_log(...)` followed by `event_bus.publish(...)` in a service | `audit_service.write_and_publish(...)` | — |
 | a private `_audit_and_emit`/`_publish`/`_write` wrapper in a service | build the details dict, then `write_and_publish` | — |
@@ -461,7 +495,7 @@ forgets `tenant_id=require_tenant_id()` reads across tenants, which is how
 Discovers
 tenant-scoped models at runtime (any `Model` subclass in `models/` with a
 `tenant` field), then flags a read root (`Model.filter/get/get_or_none/all/
-first/exists`) that is neither inside a `scoped(...)` call nor passing a
+first/exists`) that is neither inside a `scoped(...)` (or `event_scoped`/`live_event_scoped`, which filter the tenant too) call nor passing a
 `tenant*` kwarg, and a write root (`create`/`get_or_create`/`update_or_create`)
 with no `tenant*` kwarg (checks `defaults={...}` keys too). Escape hatches match
 the convention `_tenant.py` documents: a function whose source says
@@ -483,6 +517,23 @@ auto-stamp means no test can see it. That is how the enrolment write in
 elsewhere), instance `obj.save()`, queries built outside these two layers.
 Measured **0 false positives** across all 40 repository files and all 108
 service files.
+
+### Event scoping — `scripts/check_event_scoping.py` (PostToolUse: Write|Edit)
+The tenant check's sibling one level down (docs/features/events.md): a
+community holds events, and an event-owned row (its `event` FK to `Event`
+cascades) must be read and written in its event, or SGL 2026's board lists SGL
+2027's matches. Same files as the tenant check, services included for reads,
+because a service list read is as event-blind as a repository one. Flags a list
+read (`filter/all/exclude/first/exists`) that is not inside `event_scoped(...)`,
+names no `event*` kwarg and no **row key** (`id`/`pk`, or a foreign key to
+another event-owned row such as `tournament_id=`, which already belongs to one
+event: the row decides its own event); and a write with no `event*` kwarg, for
+owned models and for the SET NULL "tagged" ones (audit, telemetry, sent
+messages…), which take `tagged_event_id()`. `get`/`get_or_none` are by-row and
+never flagged. Escape hatch: **"cross-event"** (personal pages across live
+events, worker scans that bind each row's event) or **"event-scope: exempt —
+&lt;reason&gt;"** in the enclosing function. Misses `cls.model` reads in the
+generic repository base, which `EventScopedRepository` covers instead.
 
 ### REST endpoint authorization — `scripts/check_api_route_auth.py` (PostToolUse: Write|Edit)
 Auth in this API is **per-endpoint, not global**: the aggregating router in

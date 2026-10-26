@@ -17,9 +17,9 @@ import sys
 import time
 from typing import Any, Dict, Optional
 
-from application.utils import live_audience
+from application.utils import gc_monitor, live_audience
 from application.utils.background_loop import worker_stats
-from application.utils.coroutine_queue import queue_depths
+from application.utils.coroutine_queue import queue_depths, queue_worker_stats
 from application.utils.loop_watchdog import watchdog
 
 _PROCESS_STARTED = time.time()
@@ -143,6 +143,8 @@ def collect() -> Dict[str, Any]:
         'queues': queue_depths(),
         'db_pool': _db_pool(),
         'event_loop': watchdog.snapshot(),
+        'gc': gc_monitor.snapshot(),
         'workers': worker_stats(),
+        'queue_workers': queue_worker_stats(),
         'watch_pages_by_tenant_id': _watch_pages(),
     }

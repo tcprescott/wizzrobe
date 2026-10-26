@@ -66,6 +66,21 @@ class MatchUpdateRequest(BaseModel):
     clear_seed: bool = Field(False, description="Remove the rolled seed so a new one can be rolled.")
 
 
+class SetGameTime(BaseModel):
+    scheduled_date: str = Field(..., description="Date in the community's timezone, YYYY-MM-DD")
+    scheduled_time: str = Field(..., description="Time in the community's timezone, HH:MM")
+
+
+class ExtendToSetRequest(BaseModel):
+    later_games: List[SetGameTime] = Field(
+        ..., min_length=2, max_length=6,
+        description="Games 2 and up, in order. Two entries make a best-of-3, four a best-of-5.",
+    )
+    allow_outside_round: bool = Field(
+        False, description="Book a game outside its stage's booking window anyway.",
+    )
+
+
 class StreamCandidateRequest(BaseModel):
     flag: bool = Field(..., description="Set or clear the stream-candidate flag")
 

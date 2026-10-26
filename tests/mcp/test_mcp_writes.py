@@ -17,7 +17,7 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 
-from models import Match, MatchPlayers, Role, Stage, Tournament, User
+from models import Commentator, Match, MatchPlayers, Role, Stage, Tournament, User
 from tests.api_helpers import create_community_member
 from tests.mcp.conftest import call_tool, create_oauth_token, mcp_session
 
@@ -27,6 +27,8 @@ TENANT = 'default'
 # validation first. The gate runs before the tool body, so these need not name
 # rows that exist.
 WRITE_CALLS = {
+    'export_tournaments': {},
+    'export_volunteer_data': {'start': '2026-10-22T00:00:00', 'end': '2026-10-26T00:00:00'},
     'create_match': {
         'tournament_id': 1, 'scheduled_date': '2026-05-01',
         'scheduled_time': '18:00', 'player_ids': [1, 2],
@@ -37,6 +39,11 @@ WRITE_CALLS = {
     },
     'update_match': {'match_id': 1, 'comment': 'x'},
     'delete_match': {'match_id': 1},
+    'extend_match_to_set': {
+        'match_id': 1,
+        'later_games': [{'scheduled_date': '2026-05-01', 'scheduled_time': '20:00'},
+                        {'scheduled_date': '2026-05-01', 'scheduled_time': '22:00'}],
+    },
     'set_match_stream_candidate': {'match_id': 1, 'flag': True},
     'assign_match_stage': {'match_id': 1, 'stage_id': 1},
     'assign_match_stations': {'match_id': 1, 'assignments': {}},
@@ -47,6 +54,7 @@ WRITE_CALLS = {
     'record_match_result': {'match_id': 1, 'winner_id': 1},
     'set_match_review': {'match_id': 1, 'needs_review': True},
     'generate_match_seed': {'match_id': 1},
+    'set_crew_approval': {'crew_id': 1, 'role': 'commentator', 'approved': True},
     'signup_as_crew': {'match_id': 1, 'role': 'commentator'},
     'withdraw_crew_signup': {'match_id': 1, 'role': 'commentator'},
     'acknowledge_match': {'match_id': 1},
@@ -61,6 +69,9 @@ WRITE_CALLS = {
     'add_walk_up': {'event_id': 1, 'user_id': 1},
     'sync_check_in_event': {'event_id': 1},
     'check_in_volunteer': {'assignment_id': 1},
+    'call_off_volunteer': {'assignment_id': 1},
+    'call_off_volunteer_shift': {'shift_id': 1},
+    'undo_volunteer_call_off': {'assignment_id': 1},
     'approve_join_request': {'request_id': 1},
     'deny_join_request': {'request_id': 1},
     'create_tournament': {'name': 'Gate Cup'},
@@ -72,6 +83,7 @@ WRITE_CALLS = {
     'remove_crew_coordinator': {'tournament_id': 1, 'user_id': 1},
     'enroll_tournament_player': {'tournament_id': 1, 'user_id': 1},
     'remove_tournament_player': {'tournament_id': 1, 'user_id': 1},
+    'drop_tournament_player': {'tournament_id': 1, 'user_id': 1, 'reason': 'withdrew'},
     'link_challonge_tournament': {'tournament_id': 1, 'challonge': 'abc'},
     'unlink_challonge_tournament': {'tournament_id': 1},
     'sync_challonge_tournament': {'tournament_id': 1},
@@ -177,6 +189,26 @@ class TestTheRoleGateUnderneath:
         assert 'forbidden:' in payload, payload
         assert await Match.filter(id=match.id).exists()
 
+    async def test_broadcast_tech_runs_only_a_match_on_a_stage(self, db):
+        """Their Proctor Station lists stage matches only; this is the gate
+        that keeps an off-stage match out of reach over MCP too."""
+        _, raw = await create_oauth_token(roles=[Role.STREAM_MANAGER], write=True)
+        player = await create_community_member(discord_id=772101, username='p-stage')
+        off_stage = await _match(players=[player])
+        on_stage = await _match(players=[player])
+        stage = await Stage.create(name='Main Stage', is_active=True)
+        await Match.filter(id=on_stage.id).update(stage_id=stage.id)
+        async with mcp_session() as client:
+            is_error, payload = await call_tool(
+                client, raw, 'seat_match', tenant=TENANT, match_id=off_stage.id,
+            )
+            assert is_error, payload
+            assert 'forbidden:' in payload, payload
+            is_error, payload = await call_tool(
+                client, raw, 'seat_match', tenant=TENANT, match_id=on_stage.id,
+            )
+            assert not is_error, payload
+
 
 class TestTheWritesLand:
     async def test_create_match_returns_the_new_match(self, db):
@@ -240,6 +272,35 @@ class TestTheWritesLand:
         assert not is_error, payload
         assert payload['ok'] is True
         assert not await Match.filter(id=match.id).exists()
+
+    async def test_a_crew_coordinator_approves_a_signup(self, db):
+        coordinator, raw = await create_oauth_token(roles=[Role.VOLUNTEER], write=True)
+        match = await _match()
+        await match.tournament.crew_coordinators.add(coordinator)
+        crew = await create_community_member(discord_id=771010, username='caster')
+        signup = await Commentator.create(match=match, user=crew)
+        async with mcp_session() as client:
+            is_error, payload = await call_tool(
+                client, raw, 'set_crew_approval', tenant=TENANT,
+                crew_id=signup.id, role='commentator', approved=True,
+            )
+        assert not is_error, payload
+        await signup.refresh_from_db()
+        assert signup.approved is True
+
+    async def test_crew_approval_refuses_a_plain_volunteer(self, db):
+        _, raw = await create_oauth_token(roles=[Role.VOLUNTEER], write=True)
+        match = await _match()
+        crew = await create_community_member(discord_id=771011, username='caster')
+        signup = await Commentator.create(match=match, user=crew)
+        async with mcp_session() as client:
+            is_error, payload = await call_tool(
+                client, raw, 'set_crew_approval', tenant=TENANT,
+                crew_id=signup.id, role='commentator', approved=True,
+            )
+        assert is_error and 'forbidden:' in payload, payload
+        await signup.refresh_from_db()
+        assert signup.approved is False
 
     async def test_a_tournament_in_another_community_cannot_be_scheduled_into(self, db):
         """A bare id must not be able to plant a match across the boundary.

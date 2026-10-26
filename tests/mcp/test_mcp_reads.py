@@ -101,6 +101,29 @@ class TestEquipment:
         assert not is_error, detail
         assert len(detail['loans']) == 1
         assert detail['loans'][0]['checked_in_at'] is None
+        assert detail['loan_count'] == 1
+
+    async def test_long_loan_history_is_capped_but_counted(self, db):
+        """Every equipment write hands this detail back, so an asset loaned out
+        all weekend must not return its whole history each time."""
+        from mcpserver.tools.equipment import MAX_LOANS
+
+        user, raw = await _staff()
+        asset = await Equipment.create(asset_number=8, name='Controller')
+        base = datetime(2026, 3, 1, tzinfo=timezone.utc)
+        for i in range(MAX_LOANS + 5):
+            await EquipmentLoan.create(
+                equipment=asset, borrower=user, checked_out_by=user,
+                checked_out_at=base + timedelta(hours=i),
+                checked_in_at=base + timedelta(hours=i, minutes=30),
+            )
+        async with mcp_session() as client:
+            is_error, detail = await call_tool(
+                client, raw, 'get_equipment', tenant=TENANT, equipment_id=asset.id,
+            )
+        assert not is_error, detail
+        assert len(detail['loans']) == MAX_LOANS
+        assert detail['loan_count'] == MAX_LOANS + 5
 
     async def test_status_filter_narrows_the_inventory(self, db):
         _, raw = await _staff()
@@ -306,6 +329,32 @@ class TestBrackets:
         assert pairing['winner'] == 'Alice'
         assert (pairing['entry1_score'], pairing['entry2_score']) == (2, 1)
 
+    async def test_standings_name_their_entrants(self, db):
+        """The tool once read ``group.name`` and ``row.label``, neither of which
+        exists, so every row came back with a null entrant."""
+        _, raw = await _staff()
+        tournament = await _tournament('Groups Cup')
+        bracket = await Bracket.create(
+            tournament=tournament, name='Groups', format=BracketFormat.ROUND_ROBIN,
+        )
+        entries = []
+        for seed, name in enumerate(('Alice', 'Bob'), start=1):
+            entrant = await BracketEntrant.create(tournament=tournament, display_name=name)
+            entries.append(await BracketEntry.create(bracket=bracket, entrant=entrant, seed=seed))
+        await BracketMatch.create(
+            bracket=bracket, round=1, position=1,
+            entry1=entries[0], entry2=entries[1], winner=entries[0],
+            entry1_score=1, entry2_score=0, state=BracketMatchState.COMPLETE,
+        )
+        async with mcp_session() as client:
+            is_error, payload = await call_tool(
+                client, raw, 'get_bracket_standings', tenant=TENANT, bracket_id=bracket.id,
+            )
+        assert not is_error, payload
+        rows = payload['result'][0]['rows']
+        assert [row['display_name'] for row in rows] == ['Alice', 'Bob']
+        assert (rows[0]['rank'], rows[0]['wins'], rows[1]['losses']) == (1, 1, 1)
+
     async def test_entrants_are_listed_per_tournament(self, db):
         _, raw = await _staff()
         tournament, _ = await self._bracket()
@@ -353,6 +402,27 @@ class TestAsyncQualifiers:
         assert payload['runs_per_pool'] == 2
         assert [p['name'] for p in payload['pools']] == ['Pool A']
         assert payload['pools'][0]['permalink_count'] == 0
+
+    async def test_a_member_reads_open_qualifiers_without_their_pools(self, db):
+        """The Qualifiers page lists open qualifiers to every member; the
+        connector must too, keeping pools and closed ones behind the admin gate."""
+        _, raw = await create_oauth_token(username='mcp-player', roles=[Role.VOLUNTEER])
+        open_q = await AsyncQualifier.create(
+            name='Season 5 Quals', is_active=True,
+            opens_at=datetime(2026, 10, 1, tzinfo=timezone.utc),
+        )
+        await AsyncQualifier.create(name='Draft Quals', is_active=False)
+        await AsyncQualifierPool.create(qualifier=open_q, name='Pool A')
+        async with mcp_session() as client:
+            is_error, listed = await call_tool(client, raw, 'list_async_qualifiers', tenant=TENANT)
+            assert not is_error, listed
+            assert [q['name'] for q in listed['result']] == ['Season 5 Quals']
+            is_error, payload = await call_tool(
+                client, raw, 'get_async_qualifier', tenant=TENANT, qualifier_id=open_q.id,
+            )
+        assert not is_error, payload
+        assert payload['name'] == 'Season 5 Quals'
+        assert payload['pools'] == []
 
     async def test_leaderboard_is_readable_by_a_qualifier_admin(self, db):
         """An empty board is still the right answer; a refusal would not be."""
@@ -498,6 +568,22 @@ class TestAnalytics:
                 series = payload['result']
                 assert series['bucket'] == 'week'
                 assert series['bucket_labels']
+
+    async def test_a_reversed_window_or_unknown_bucket_is_refused(self, db):
+        """REST answers both with a 400. The services quietly clamp a reversed
+        window to an empty one and read any bucket but 'month' as a week, so
+        without the check MCP returned an empty or weekly report instead."""
+        _, raw = await _staff()
+        reversed_window = {'start': WINDOW['end'], 'end': WINDOW['start']}
+        async with mcp_session() as client:
+            is_error, payload = await call_tool(
+                client, raw, 'capacity_forecast', tenant=TENANT, **reversed_window,
+            )
+            assert is_error and 'end must not be before start' in payload, payload
+            is_error, payload = await call_tool(
+                client, raw, 'activity_trends', tenant=TENANT, bucket='year', **WINDOW,
+            )
+            assert is_error, payload
 
     async def test_volunteer_hour_trends_is_bucketed_too(self, db):
         _, raw = await _staff()
@@ -703,3 +789,4 @@ class TestPlayerFacingGaps:
                 client, raw, 'get_equipment', tenant=TENANT, equipment_id=asset.id,
             )
             assert not is_error, payload
+

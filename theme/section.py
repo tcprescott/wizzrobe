@@ -19,6 +19,7 @@ from typing import NamedTuple, Optional, Sequence
 from nicegui import ui
 
 from models import User
+from theme.anchors import anchor_id, copy_link_button
 from theme.help import HelpTopic, help_button, resolve_help
 
 __all__ = ['SectionPanel', 'section_panel']
@@ -52,12 +53,15 @@ async def section_panel(
     and without it each one looks the viewer up again.
     """
     topics = await resolve_help(help_topics, user=user)
-    panel = ui.element('section').classes('wiz-panel')
+    # Every panel is linkable as ``#<its title>`` (theme/anchors.py); a caller
+    # that needs a fixed id sets its own on ``panel`` afterwards.
+    panel = ui.element('section').classes('wiz-panel').props(f'id={anchor_id(title)}')
     with panel:
         with ui.element('div').classes('wiz-panel__head'):
             with ui.row().classes('wiz-panel__head-row items-center no-wrap'):
                 ui.icon(icon).classes('wiz-panel__icon')
                 ui.label(title).classes('wiz-panel__title')
+                copy_link_button(title)
                 aside = ui.row().classes('wiz-panel__aside items-center')
                 help_button(topics)
             if subtitle:

@@ -51,7 +51,7 @@ import json
 import time
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, Iterable, List, Optional, Tuple
 from urllib.parse import unquote
 
 import httpx
@@ -251,6 +251,15 @@ def parse_purchase(raw: Any, tiers: Dict[int, MatcherinoTier]) -> MatcherinoPurc
         refunded_at=_parse_time(raw.get('refundedAt')),
         raw={key: raw.get(key) for key in _PURCHASE_KEEP if key in raw},
     )
+
+
+def distinct_purchases(purchases: Iterable[MatcherinoPurchase]) -> List[MatcherinoPurchase]:
+    """One entry per purchase id, the last listed winning.
+
+    A purchase listed twice would otherwise make the sync insert its badge twice
+    and fail on the unique purchase id every tick until Matcherino stopped.
+    """
+    return list({purchase.id: purchase for purchase in purchases}.values())
 
 
 def _unwrap(payload: Any, what: str) -> Any:
@@ -474,12 +483,11 @@ class MatcherinoClient:
         if not isinstance(body, list):
             raise MatcherinoAPIError('Matcherino ticket sales were not a list.')
         by_id = {tier.id: tier for tier in tiers}
-        purchases = [parse_purchase(raw, by_id) for raw in body]
+        purchases = distinct_purchases(parse_purchase(raw, by_id) for raw in body)
         expected = sum(tier.qty_sold for tier in tiers)
-        distinct = len({p.id for p in purchases})
-        if distinct < expected:
+        if len(purchases) < expected:
             raise MatcherinoAPIError(
-                f'Matcherino counts {expected} badges sold but listed {distinct}; '
+                f'Matcherino counts {expected} badges sold but listed {len(purchases)}; '
                 'treating the read as incomplete.'
             )
         return VenueSales(tiers=tiers, purchases=purchases)
@@ -518,7 +526,7 @@ class MockMatcherinoClient(MatcherinoClient):
         by_id = {tier.id: tier for tier in tiers}
         return VenueSales(
             tiers=tiers,
-            purchases=[parse_purchase(copy.deepcopy(raw), by_id) for raw in self._purchases],
+            purchases=distinct_purchases(parse_purchase(copy.deepcopy(raw), by_id) for raw in self._purchases),
         )
 
 

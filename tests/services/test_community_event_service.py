@@ -1,5 +1,6 @@
 """CommunityEventService: submission, review, edits, cancellation, subscriptions, and who hears what."""
 
+import json
 from datetime import datetime, timedelta, timezone
 
 import pytest
@@ -67,8 +68,8 @@ def dms(monkeypatch):
     from application.services.discord import DiscordService
 
     async def fake_send(self, user_id, message, view_factory=None, embed=None, link=None,
-                        on_sent=None):
-        sent.append({'to': user_id, 'text': message, 'link': link})
+                        on_sent=None, notice=None):
+        sent.append({'to': user_id, 'text': message, 'link': link, 'notice': notice})
         if on_sent is not None:
             await on_sent(user_id, 1000 + len(sent))
         return True, ''
@@ -118,6 +119,80 @@ async def test_a_staff_submission_is_listed_straight_away(staff, dms):
     assert await dms() == []
 
 
+# --- posting for someone else ---------------------------------------------------
+
+
+async def test_staff_can_post_an_event_with_a_member_as_host(member, staff, dms):
+    event = await CommunityEventService().submit(staff, _draft(), host_id=member.id)
+
+    assert event.host_id == member.id
+    assert event.status is CommunityEventStatus.APPROVED
+    assert event.reviewed_by_id == staff.id
+    submitted = await AuditLog.filter(action=AuditActions.COMMUNITY_EVENT_SUBMITTED).first()
+    assert submitted.user_id == staff.id
+    assert json.loads(submitted.details)['on_behalf_of'] == member.id
+    sent = await dms()
+    assert [d['to'] for d in sent] == [600]
+    assert 'staffer' in sent[0]['text'] and 'Board games' in sent[0]['text']
+    assert sent[0]['notice'].key == 'community_event_posted_for_you'
+    assert sent[0]['link'].url.endswith(f'/community-events/{event.id}')
+
+
+async def test_the_member_staff_posted_for_can_edit_and_cancel_it(member, staff, dms):
+    service = CommunityEventService()
+    event = await service.submit(staff, _draft(), host_id=member.id)
+
+    await service.update(member, event.id, _draft(title='Card swap'))
+    assert (await service.cancel(member, event.id)).status is CommunityEventStatus.CANCELLED
+    assert [e.id for e in await service.list_mine(member)] == [event.id]
+
+
+async def test_a_member_cannot_post_for_someone_else(member, other_member):
+    with pytest.raises(PermissionError):
+        await CommunityEventService().submit(member, _draft(), host_id=other_member.id)
+    assert await CommunityEvent.all().count() == 0
+
+
+async def test_naming_yourself_as_host_is_an_ordinary_submission(member, staff, dms):
+    event = await CommunityEventService().submit(member, _draft(), host_id=member.id)
+    assert event.host_id == member.id
+    assert event.status is CommunityEventStatus.PENDING
+
+
+async def test_the_host_must_belong_to_the_community(staff):
+    outsider = await make_user(discord_id=700, username='outsider')
+    with pytest.raises(NotFoundError):
+        await CommunityEventService().submit(staff, _draft(), host_id=outsider.id)
+    with pytest.raises(NotFoundError):
+        await CommunityEventService().submit(staff, _draft(), host_id=999_999)
+    assert await CommunityEvent.all().count() == 0
+
+
+async def test_staff_can_hand_an_event_to_another_member(member, other_member, staff, dms):
+    service = CommunityEventService()
+    event = await service.submit(member, _draft())
+    await service.approve(staff, event.id)
+    await dms()
+
+    saved = await service.update(staff, event.id, _draft(), host_id=other_member.id)
+
+    assert saved.host_id == other_member.id
+    assert (await CommunityEvent.get(id=event.id)).host_id == other_member.id
+    updated = await AuditLog.filter(action=AuditActions.COMMUNITY_EVENT_UPDATED).first()
+    assert json.loads(updated.details)['previous_host_id'] == member.id
+    sent = await dms()
+    assert [d['to'] for d in sent] == [602]
+    assert 'handed you' in sent[0]['text']
+
+
+async def test_a_host_cannot_hand_their_event_to_someone_else(member, other_member):
+    service = CommunityEventService()
+    event = await service.submit(member, _draft())
+    with pytest.raises(PermissionError):
+        await service.update(member, event.id, _draft(), host_id=other_member.id)
+    assert (await CommunityEvent.get(id=event.id)).host_id == member.id
+
+
 async def test_with_approval_turned_off_a_member_submission_is_listed_straight_away(member, staff, dms):
     await SystemConfigService.set_raw(KEY_COMMUNITY_EVENT_REQUIRE_APPROVAL, 'false', staff)
     await AuditLog.all().delete()
@@ -148,6 +223,13 @@ async def test_a_non_member_cannot_submit():
     outsider = await make_user(discord_id=603, username='outsider')
     with pytest.raises(PermissionError):
         await CommunityEventService().submit(outsider, _draft())
+
+
+async def test_a_super_admin_joins_first_like_everyone():
+    admin = await make_user(discord_id=604, username='platform')
+    await UserRole.create(user=admin, role=Role.SUPER_ADMIN, tenant=None)
+    with pytest.raises(PermissionError, match='members'):
+        await CommunityEventService().submit(admin, _draft())
 
 
 @pytest.mark.parametrize('overrides, message', [
@@ -565,3 +647,49 @@ async def test_whats_new_is_for_members_only(staff, dms):
     for call in (service.unseen_ids(outsider), service.mark_seen(outsider)):
         with pytest.raises(PermissionError):
             await call
+
+
+async def test_list_attending_says_how_each_event_is_attended(member, other_member, staff):
+    service = CommunityEventService()
+    start, end = _soon(0), _soon(48)
+    await service.submit(staff, _draft(title='Hosted'))
+    going = await service.submit(member, _draft(title='Going', rsvp_enabled=True, starts_at=_soon(6)))
+    reminded = await service.submit(member, _draft(title='Reminded', starts_at=_soon(7)))
+    later = await service.submit(member, _draft(title='Too late', starts_at=_soon(72)))
+    await service.approve(staff, going.id)
+    await service.approve(staff, reminded.id)
+    await service.approve(staff, later.id)
+    pending = await service.submit(other_member, _draft(title='Pending'))
+    await service.rsvp(staff, going.id)
+    for event in (reminded, later, pending):
+        await CommunityEventSubscription.create(
+            event_id=event.id, user=staff, tenant_id=DEFAULT_TEST_TENANT_ID,
+        )
+
+    attending = await service.list_attending(staff, start, end)
+
+    assert [(e.title, how) for e, how in attending] == [
+        ('Hosted', 'hosting'), ('Going', 'going'), ('Reminded', 'reminder'),
+    ]
+    assert (await service.list_attending(other_member, start, end)) == []
+
+
+async def test_an_rsvp_counts_as_a_reminder_once_rsvps_close(member, staff):
+    service = CommunityEventService()
+    event = await service.submit(member, _draft(rsvp_enabled=True))
+    await service.approve(staff, event.id)
+    await service.rsvp(staff, event.id)
+    await CommunityEvent.filter(id=event.id).update(rsvp_enabled=False)
+
+    attending = await service.list_attending(staff, _soon(0), _soon(24))
+
+    assert [how for _, how in attending] == ['reminder']
+
+
+async def test_list_attending_keeps_an_event_still_running(member, staff):
+    service = CommunityEventService()
+    event = await service.submit(staff, _draft(duration_minutes=180))
+    await CommunityEvent.filter(id=event.id).update(starts_at=_soon(-1))
+
+    assert [e.id for e, _ in await service.list_attending(staff, _soon(0), _soon(24))] == [event.id]
+    assert await service.list_attending(staff, _soon(3), _soon(24)) == []

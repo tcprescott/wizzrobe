@@ -79,8 +79,10 @@ them:
 ## Exporting the data
 
 **Export data** is on Volunteers, and in the **Actions** menu on Volunteer
-Shifts. Pick a date range (it starts as the event dates) and you'll get a ZIP
-with a README and six CSV files:
+Shifts. Pick a date range (it starts as the event dates) and press **Export**.
+The ZIP builds in the background and downloads when it's ready; it's also kept
+for 3 days under Admin → Reports → Exports, in case you close the dialog
+first. It holds a README and six CSV files:
 
 | File | One row per |
 |---|---|

@@ -19,11 +19,13 @@ from api.routers import (
     discord_events,
     discord_role_mappings,
     equipment,
+    exports,
     feedback,
     health,
     match_actions,
     matches,
     memberships,
+    notification_settings,
     notifications,
     payouts,
     platform,
@@ -35,6 +37,7 @@ from api.routers import (
     reports,
     reschedule_requests,
     seeds,
+    sent_messages,
     service_health,
     speedgaming,
     stage_actions,
@@ -46,6 +49,7 @@ from api.routers import (
     tournaments,
     triforce,
     users,
+    version,
     volunteers,
     web_push,
     webhooks,
@@ -53,8 +57,9 @@ from api.routers import (
 from models import FeatureFlag
 
 router = APIRouter(dependencies=[Depends(rate_limit), Depends(tenant_context_scope)])
-# Unauthenticated liveness probe (no auth dependency on this router).
+# Unauthenticated liveness probe and build version (no auth dependency on these routers).
 router.include_router(health.router)
+router.include_router(version.router)
 router.include_router(matches.router)
 router.include_router(match_actions.router)
 router.include_router(crew.router)
@@ -82,7 +87,10 @@ router.include_router(
 )
 router.include_router(notifications.router)
 router.include_router(audit.router)
+router.include_router(sent_messages.router)
+router.include_router(exports.router)
 router.include_router(system_config.router)
+router.include_router(notification_settings.router)
 router.include_router(tokens.router)
 router.include_router(
     volunteers.router,

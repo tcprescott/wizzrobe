@@ -238,7 +238,9 @@ tenant-relative (`tenant` defaults to `default`); `viewport` is `phone`
 (390×844 at 2×, the default) or `desktop` (1280×800) or `{width, height}`;
 `selector` crops to the first match with `padding` px around it (default 8;
 omit it for the viewport, or set `fullPage`); `hide` lists extra selectors to
-hide; `setup` steps are `click`, `fill` + `value`, `press`, `waitFor` and `wait`;
+hide (they keep their space); `remove` lists selectors taken out of the layout
+entirely, for something time-dependent, such as a shift banner, that would
+otherwise leave a gap; `setup` steps are `click`, `fill` + `value`, `press`, `waitFor` and `wait`;
 `annotate` lists numbered call-outs, `{ "selector", "n", "tab"? }`, drawn as a
 red outline with a number tab over each control (see the `help-screenshots`
 skill for when to use them and how the article refers to the numbers).
@@ -250,6 +252,14 @@ the paragraph is about rather than a whole page; the article's own directory
 only. When a shot needs a state the seed doesn't create, extend
 `scripts/seed_dev.py` (or its `seed_*.py` helpers) rather than clicking it into
 being, so the next regeneration finds it too.
+
+**Device shots** are the one exception: a picture of the phone's own UI (the
+iOS Share sheet and Add to Home Screen dialog in `notifications`) can't be
+rendered here, so it's a photo from a real phone, cropped and annotated by hand
+in the same style. Its manifest entry carries `"device": "<what it shows and how
+to retake it>"` instead of `path`, and the script skips it. Crop out anything
+personal (contacts in the Share sheet, the header avatar, the wallpaper and other
+apps on a home screen) before it's committed.
 
 `tests/test_help_images_and_staff.py` holds the tree, the manifest and the
 articles together: the manifest is one non-empty array per article, every image

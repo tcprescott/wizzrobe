@@ -10,7 +10,7 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 
-from application.services.match.match_display_service import MatchDisplayService
+from application.services.match.match_display_service import NO_STAGE, MatchDisplayService
 from application.services.match.match_suggestion_service import MatchSuggestionService, _covers
 from application.utils.timezone import EASTERN_TZ, format_local_datetime, now_local
 from models import (
@@ -21,7 +21,6 @@ from models import (
     MatchPlayers,
     PlayerAvailability,
     Stage,
-    SystemConfiguration,
     Tournament,
     Tracker,
     User,
@@ -32,7 +31,7 @@ UTC = timezone.utc
 Status = VolunteerAvailabilityStatus
 
 
-from tests.factories import utc
+from tests.factories import set_setting, utc
 
 
 def to_display(y, mo, d, h=0, mi=0):
@@ -162,6 +161,24 @@ class TestGetMatchesForDisplay:
         rows = await svc.get_matches_for_display(stage_ids=[stage.id])
         assert len(rows) == 1 and rows[0]["stage"] == "Stage A"
 
+    async def test_no_stage_keeps_only_unstaged(self, db):
+        t = await Tournament.create(name="T")
+        stage = await Stage.create(name="Stage A")
+        await Match.create(tournament=t, stage=stage, scheduled_at=utc(2025, 1, 15, 20, 0))
+        unstaged = await Match.create(tournament=t, scheduled_at=utc(2025, 1, 15, 20, 0))
+        rows = await MatchDisplayService().get_matches_for_display(stage_ids=[NO_STAGE])
+        assert [r["id"] for r in rows] == [unstaged.id]
+
+    async def test_no_stage_mixes_with_a_stage(self, db):
+        t = await Tournament.create(name="T")
+        a = await Stage.create(name="Stage A")
+        b = await Stage.create(name="Stage B")
+        on_a = await Match.create(tournament=t, stage=a, scheduled_at=utc(2025, 1, 15, 20, 0))
+        await Match.create(tournament=t, stage=b, scheduled_at=utc(2025, 1, 15, 20, 0))
+        unstaged = await Match.create(tournament=t, scheduled_at=utc(2025, 1, 15, 20, 0))
+        rows = await MatchDisplayService().get_matches_for_display(stage_ids=[NO_STAGE, a.id])
+        assert {r["id"] for r in rows} == {on_a.id, unstaged.id}
+
     async def test_only_upcoming_excludes_finished(self, db):
         t = await Tournament.create(name="T")
         await Match.create(tournament=t, scheduled_at=utc(2025, 1, 15, 20, 0))
@@ -199,6 +216,13 @@ class TestFilterDropdowns:
         svc = MatchDisplayService()
         result = await svc.get_tournaments_for_filter()
         assert result.get(t.id) == "T1"
+
+    async def test_tournaments_for_filter_use_short_names(self, db):
+        full = await Tournament.create(name="Ocarina of Time Randomizer", short_name="OoTR")
+        blank = await Tournament.create(name="Best of NES", short_name="  ")
+        result = await MatchDisplayService().get_tournaments_for_filter()
+        assert result == {blank.id: "Best of NES", full.id: "OoTR"}
+        assert list(result) == [blank.id, full.id]
 
     async def test_stages_for_filter(self, db):
         stage = await Stage.create(name="Stage A")
@@ -248,7 +272,8 @@ class TestBookings:
         match = SimpleNamespace(
             scheduled_at=to_display(2026, 1, 15, 10).astimezone(UTC),
             players=[SimpleNamespace(user_id=1), SimpleNamespace(user_id=2)],
-            tournament=SimpleNamespace(average_match_duration=45),
+            tournament=SimpleNamespace(average_match_duration=45, uses_tournament_room=True),
+            stage_id=None,
         )
         [booking] = MatchSuggestionService._bookings([match], timedelta(minutes=90))
         assert booking.end - booking.start == timedelta(minutes=45)
@@ -356,7 +381,7 @@ class TestSuggestMatchTime:
         # Configure hours only for a date outside the event window: every event
         # day is then unconfigured and skipped, leaving no eligible slot.
         unrelated = (today + timedelta(days=1)).isoformat()
-        await SystemConfiguration.create(
+        await set_setting(
             name="tournament_hours_by_date",
             value=json.dumps({unrelated: {"open": "10:00", "close": "14:00"}}),
         )
@@ -377,8 +402,8 @@ def _win(starts_at, ends_at, status):
 
 
 async def _event_window(start, end):
-    await SystemConfiguration.create(name="event_start_date", value=start.isoformat())
-    await SystemConfiguration.create(name="event_end_date", value=end.isoformat())
+    await set_setting(name="event_start_date", value=start.isoformat())
+    await set_setting(name="event_end_date", value=end.isoformat())
 
 
 @pytest.fixture

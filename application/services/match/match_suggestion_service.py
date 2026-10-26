@@ -31,16 +31,37 @@ from datetime import datetime, timedelta
 from datetime import timezone as dt_timezone
 from typing import FrozenSet, List, NamedTuple, Optional, Sequence, Tuple
 
+from application.event_context import event_scoped
 from application.repositories.bracket_repository import BracketRepository
 from application.repositories.player_availability_repository import PlayerAvailabilityRepository
+from application.repositories.user_repository import UserRepository
+from application.repositories.volunteer_assignment_repository import VolunteerAssignmentRepository
 from application.services.auth_service import AuthService
+from application.services.feature_flag_service import FeatureFlagService
 from application.services.player_availability_service import PlayerAvailabilityService
+from application.services.round_schedule_service import RoundScheduleService
+from application.services.round_windows import RoundWindow
 from application.services.system_config_service import SystemConfigService
 from application.services.timezone_service import TimezoneService
 from application.tenant_context import require_tenant_id
 from application.timezone_context import get_zone
-from application.utils.timezone import now_local, parse_local_datetime, to_local
-from models import Match, PlayerAvailability, Tournament, User, VolunteerAvailabilityStatus
+from application.utils.match_labels import players_label
+from application.utils.timezone import (
+    format_local_time,
+    format_local_time_range,
+    now_local,
+    parse_local_datetime,
+    to_local,
+    to_utc_aware,
+)
+from models import (
+    FeatureFlag,
+    Match,
+    PlayerAvailability,
+    Tournament,
+    User,
+    VolunteerAvailabilityStatus,
+)
 
 _SLOT_INTERVAL_MIN = 30
 _PRIMARY_WINDOW_HOURS = 4
@@ -57,12 +78,32 @@ class _Booking(NamedTuple):
     user_ids: FrozenSet[int]
 
 
+class Clash(NamedTuple):
+    """One reason a chosen time might not work, ready to print."""
+
+    kind: str
+    message: str
+
+
+class ClashKind:
+    PLAYING = 'playing'
+    CREW = 'crew'
+    SHIFT = 'shift'
+    BLOCKED = 'blocked'
+    NOT_FREE = 'not_free'
+    ROOM_FULL = 'room_full'
+    PAST_CLOSE = 'past_close'
+    NO_HOURS = 'no_hours'
+    OUTSIDE_EVENT = 'outside_event'
+
+
 class MatchSuggestionService:
     """Suggests match start times that fit the players and the room."""
 
     def __init__(self) -> None:
         self.availability_repository = PlayerAvailabilityRepository()
         self.bracket_repository = BracketRepository()
+        self.assignment_repository = VolunteerAssignmentRepository()
 
     @staticmethod
     async def _ensure_may_suggest(actor: User, tournament_id: int, player_ids: List[int]) -> None:
@@ -83,6 +124,8 @@ class MatchSuggestionService:
         *,
         exclude_match_id: Optional[int] = None,
         actor: Optional[User] = None,
+        challonge_match_id: Optional[int] = None,
+        startgg_set_id: Optional[int] = None,
     ) -> datetime:
         """Return a UTC datetime representing the best slot for the match.
 
@@ -91,6 +134,10 @@ class MatchSuggestionService:
 
         ``bracket_match_id`` clamps both searches to the matchup's round window,
         as a hard bound: the match must fit inside it end to end.
+        ``challonge_match_id`` and ``startgg_set_id`` do the same from the
+        tournament's round schedule (``RoundScheduleService``), daily hours
+        included; with none of the three, a rescheduled bracket match
+        (``exclude_match_id``) is held to its own stage's window.
 
         ``exclude_match_id`` is the match being rescheduled, whose current slot
         must not count against its own players or the room.
@@ -119,7 +166,16 @@ class MatchSuggestionService:
         now = now_local(tz)
 
         round_start, round_end = await self._round_window(bracket_match_id, tz)
-        in_round = round_start is not None or round_end is not None
+        stage = await RoundScheduleService().window_for(
+            bracket_match_id=bracket_match_id, challonge_match_id=challonge_match_id,
+            startgg_set_id=startgg_set_id,
+            match_id=exclude_match_id if bracket_match_id is None else None,
+        )
+        stage_window = stage.window if stage is not None else None
+        if stage_window is not None and bracket_match_id is None:
+            round_start = stage_window.opens.astimezone(tz) if stage_window.opens else None
+            round_end = stage_window.closes.astimezone(tz) if stage_window.closes else None
+        in_round = round_start is not None or round_end is not None or stage_window is not None
         # A round that opens later moves the whole search forward; one that has
         # already opened leaves the "no earlier than now" floor alone.
         if round_start is not None:
@@ -129,36 +185,40 @@ class MatchSuggestionService:
                 "This round's scheduled window has no room left for a match."
             )
 
-        existing_matches = await Match.filter(
+        # The tournament's event: its room and its other matches, whatever page asked.
+        existing_matches = await event_scoped(Match.filter(
             scheduled_at__isnull=False, confirmed_at__isnull=True,
-            tenant_id=require_tenant_id(),
-        ).prefetch_related('tournament', 'players')
+        ), tournament.event_id if tournament else None).prefetch_related('tournament', 'players')
         existing_matches = [m for m in existing_matches if m.id != exclude_match_id]
         capacity = await SystemConfigService.get_max_concurrent_players(_DEFAULT_CAPACITY)
 
         event_start_dt = parse_local_datetime(event_start.isoformat(), '00:00', tz)
         event_end_dt = parse_local_datetime(event_end.isoformat(), '23:59', tz)
         avail_map = await self._build_availability_map(player_ids, event_start_dt, event_end_dt)
+        shifts = await self._shift_map(player_ids, event_start_dt, event_end_dt)
 
         # --- Primary search: next 4 hours ---
         primary_end = now + timedelta(hours=_PRIMARY_WINDOW_HOURS)
-        primary_candidates = self._generate_candidates(
+        primary_candidates = self._in_stage_hours(self._generate_candidates(
             now, primary_end, hours_map, duration, event_start, event_end, tz, round_end,
-        )
+        ), stage_window, duration, tz)
+        takes_room = tournament is None or tournament.uses_tournament_room
         result = self._best_candidate(
             primary_candidates, player_ids, avail_map, existing_matches, duration, capacity,
+            shifts=shifts, takes_room=takes_room,
         )
         if result is not None:
             return result
 
         # --- Fallback search: full remaining event window ---
-        fallback_candidates = self._generate_candidates(
+        fallback_candidates = self._in_stage_hours(self._generate_candidates(
             now, None, hours_map, duration, event_start, event_end, tz, round_end,
-        )
+        ), stage_window, duration, tz)
         primary_set = {s for s, _ in primary_candidates}
         fallback_candidates = [(s, e) for s, e in fallback_candidates if s not in primary_set]
         result = self._best_candidate(
             fallback_candidates, player_ids, avail_map, existing_matches, duration, capacity,
+            shifts=shifts, takes_room=takes_room,
         )
         if result is not None:
             return result
@@ -170,9 +230,164 @@ class MatchSuggestionService:
             )
         raise ValueError("No available slot found for these players within the event schedule.")
 
+    async def find_clashes(
+        self,
+        tournament_id: int,
+        player_ids: List[int],
+        scheduled_at: datetime,
+        *,
+        actor: User,
+        exclude_match_id: Optional[int] = None,
+    ) -> List[Clash]:
+        """Why ``scheduled_at`` might not work for these players, or ``[]``.
+
+        Advisory only: the booking dialogs show these and let the person save
+        anyway, so nothing here refuses. The rules are Suggest a time's, so a
+        suggested slot comes back clean, plus the one commitment it never
+        reads: approved crew slots.
+
+        Each player's own commitments are spelled out to themselves, and to
+        Staff and the tournament's admins. Anyone else gets a player's other
+        matches and crew slots in full (the schedule is public) but only
+        "isn't free then" for their shifts and blocked-out times, so the warning
+        can't be used to read someone's availability one probe at a time.
+        """
+        await self._ensure_may_suggest(actor, tournament_id, player_ids)
+        tenant_id = require_tenant_id()
+        tournament = await Tournament.get_or_none(id=tournament_id, tenant_id=tenant_id)
+        duration = timedelta(minutes=(tournament.average_match_duration or 90) if tournament else 90)
+        tz = get_zone(await TimezoneService.tenant_timezone_name())
+        start = to_utc_aware(scheduled_at).astimezone(tz)
+        end = start + duration
+        sees_all = await AuthService.is_staff(actor) or await AuthService.is_tournament_admin(
+            actor, tournament_id,
+        )
+        users = await UserRepository.get_by_ids(player_ids)
+
+        def name(uid: int) -> str:
+            user = users.get(uid)
+            label = user.preferred_name if user else 'A player'
+            return f'{label} (you)' if uid == actor.id else label
+
+        def detailed(uid: int) -> bool:
+            return sees_all or uid == actor.id
+
+        clashes: List[Clash] = []
+        clashes += await self._hours_clashes(tournament, start, end, tz)
+
+        existing = await event_scoped(Match.filter(
+            scheduled_at__isnull=False, confirmed_at__isnull=True,
+        ), tournament.event_id if tournament else None).prefetch_related(
+            'tournament', 'players__user', 'commentators', 'trackers',
+        )
+        existing = [m for m in existing if m.id != exclude_match_id]
+        wanted = set(player_ids)
+        overlapping: List[Tuple[Match, _Booking]] = [
+            (m, b) for m, b in zip(existing, self._bookings(existing, duration), strict=True)
+            if b.start < end and b.end > start
+        ]
+        for m, b in overlapping:
+            for uid in sorted(b.user_ids & wanted):
+                rivals = [p.user.preferred_name for p in m.players if p.user_id not in wanted]  # type: ignore[attr-defined]
+                where = m.tournament.name if m.tournament else 'another match'
+                vs = f', vs {players_label(rivals)}' if rivals else ''
+                clashes.append(Clash(
+                    ClashKind.PLAYING,
+                    f'{name(uid)} is already playing at {format_local_time(b.start)} ({where}{vs}).',
+                ))
+            crew_rows = (('commentating', m.commentators), ('tracking', m.trackers))  # type: ignore[attr-defined]
+            for role, rows in crew_rows:
+                for crew in rows:
+                    if crew.approved and crew.user_id in wanted and crew.user_id not in b.user_ids:
+                        clashes.append(Clash(
+                            ClashKind.CREW,
+                            f'{name(crew.user_id)} is {role} a match at {format_local_time(b.start)}.',
+                        ))
+
+        load = self._peak_load([b for _, b in overlapping], start) + len(player_ids)
+        capacity = await SystemConfigService.get_max_concurrent_players(_DEFAULT_CAPACITY)
+        if load > capacity and (tournament is None or tournament.uses_tournament_room):
+            clashes.append(Clash(
+                ClashKind.ROOM_FULL,
+                f'The room is full then: this would make {load} players at once, '
+                f'and it holds {capacity}.',
+            ))
+
+        # Stored instants are UTC; bound the range reads in UTC too.
+        start_utc, end_utc = start.astimezone(dt_timezone.utc), end.astimezone(dt_timezone.utc)
+        avail_map = await self._build_availability_map(player_ids, start_utc, end_utc)
+        shifts_on = await FeatureFlagService().is_enabled(FeatureFlag.VOLUNTEERS)
+        for uid in player_ids:
+            private: List[Clash] = []
+            for w in avail_map.get(uid, []):
+                if w.status == VolunteerAvailabilityStatus.UNAVAILABLE and w.starts_at < end and w.ends_at > start:
+                    private.append(Clash(
+                        ClashKind.BLOCKED,
+                        f'{name(uid)} blocked out {format_local_time_range(w.starts_at, w.ends_at)}.',
+                    ))
+            if shifts_on:
+                for a in await self.assignment_repository.overlapping_for_user(
+                    uid, start_utc, end_utc, published_only=True,
+                ):
+                    shift = a.shift
+                    private.append(Clash(
+                        ClashKind.SHIFT,
+                        f'{name(uid)} is on a volunteer shift then '
+                        f'({shift.position.name}, {format_local_time_range(shift.starts_at, shift.ends_at)}).',
+                    ))
+            if private and detailed(uid):
+                clashes += private
+            elif private:
+                clashes.append(Clash(ClashKind.NOT_FREE, f"{name(uid)} isn't free then."))
+        return clashes
+
+    @staticmethod
+    async def _hours_clashes(
+        tournament: Optional[Tournament], start: datetime, end: datetime, tz,
+    ) -> List[Clash]:
+        """The day-level reasons: outside the event, no hours that day, or
+        running past closing. A start outside the day's hours isn't here,
+        because saving refuses that outright."""
+        event_start, event_end = await SystemConfigService.get_event_window(tournament)
+        day = start.date()
+        if not event_start <= day <= event_end:
+            return [Clash(
+                ClashKind.OUTSIDE_EVENT,
+                f'{start:%a %-d %b} is outside the event, which runs '
+                f'{event_start:%a %-d %b} to {event_end:%a %-d %b}.',
+            )]
+        hours_map = await SystemConfigService.get_tournament_hours(tournament)
+        window = hours_map.get(day)
+        if window is None:
+            if not hours_map:
+                return []
+            return [Clash(
+                ClashKind.NO_HOURS,
+                f'No hours are set for {start:%a %-d %b}, so the room may not be open.',
+            )]
+        open_t, close_t = window
+        close = datetime(day.year, day.month, day.day, close_t.hour, close_t.minute, tzinfo=tz)
+        if open_t <= start.time() < close_t and end > close:
+            return [Clash(
+                ClashKind.PAST_CLOSE,
+                f'The match runs to {format_local_time(end)}, past closing at '
+                f'{format_local_time(close)}.',
+            )]
+        return []
+
     # ------------------------------------------------------------------
     # Internals
     # ------------------------------------------------------------------
+
+    @staticmethod
+    def _in_stage_hours(
+        candidates: List[Tuple[datetime, datetime]], window: Optional[RoundWindow],
+        duration: timedelta, tz,
+    ) -> List[Tuple[datetime, datetime]]:
+        """Drop slots outside a stage's daily hours (its open/close already bound the grid)."""
+        if window is None or not window.has_daily_hours:
+            return candidates
+        return [(s, e) for s, e in candidates if window.slot_fits(s, duration, tz)]
 
     async def _round_window(
         self, bracket_match_id: Optional[int], tz,
@@ -271,12 +486,17 @@ class MatchSuggestionService:
         existing_matches: List[Match],
         duration: timedelta,
         capacity: int = _DEFAULT_CAPACITY,
+        *,
+        shifts: Optional[dict[int, List[Tuple[datetime, datetime]]]] = None,
+        takes_room: bool = True,
     ) -> Optional[datetime]:
         """Score candidates and return the best UTC start time, or None.
 
-        A slot is out when a player blocked it, when a player is already in a
-        match that overlaps it, or when adding this match would take the room
-        past ``capacity`` concurrent players at any moment of the slot.
+        A slot is out when a player blocked it, is on a published volunteer
+        shift then (``shifts``), is already in a match that overlaps it, or when
+        adding this match would take the room past ``capacity`` concurrent
+        players at any moment of the slot. A match whose tournament plays
+        outside the room (``takes_room`` false) skips the room entirely.
 
         Of the rest, the earliest slot that keeps the room within its headroom
         wins; only when none does is the room filled up to the cap. A player's
@@ -301,14 +521,21 @@ class MatchSuggestionService:
 
             if not eligible:
                 continue
+            if shifts and any(
+                start < slot_end and end > slot_start
+                for pid in player_ids for start, end in shifts.get(pid, ())
+            ):
+                continue
 
             overlapping = [b for b in bookings if b.start < slot_end and b.end > slot_start]
             if any(b.user_ids & wanted for b in overlapping):
                 continue
-            load = self._peak_load(overlapping, slot_start) + len(player_ids)
-            if load > capacity:
-                continue
-            band = 0 if load <= capacity * _HEADROOM else 1
+            band = 0
+            if takes_room:
+                load = self._peak_load(overlapping, slot_start) + len(player_ids)
+                if load > capacity:
+                    continue
+                band = 0 if load <= capacity * _HEADROOM else 1
             scored.append((band, slot_start.date(), -preferred_count, slot_start))
 
         if not scored:
@@ -319,7 +546,11 @@ class MatchSuggestionService:
 
     @staticmethod
     def _bookings(matches: List[Match], duration: timedelta) -> List[_Booking]:
-        """Each scheduled match as its occupied window and who is in it."""
+        """Each scheduled match as its occupied window and who is in it.
+
+        An off-stage match of a tournament played outside the room keeps its
+        players (they still can't double-book) but adds nothing to room load.
+        """
         out: List[_Booking] = []
         for m in matches:
             if not m.scheduled_at:
@@ -329,8 +560,9 @@ class MatchSuggestionService:
             if m.tournament and m.tournament.average_match_duration:
                 dur = timedelta(minutes=m.tournament.average_match_duration)
             players = list(m.players)
+            in_room = m.stage_id is not None or m.tournament is None or m.tournament.uses_tournament_room  # type: ignore[attr-defined]
             out.append(_Booking(
-                start, start + dur, len(players),
+                start, start + dur, len(players) if in_room else 0,
                 frozenset(uid for uid in (getattr(p, 'user_id', None) for p in players) if uid is not None),
             ))
         return out
@@ -357,6 +589,21 @@ class MatchSuggestionService:
             return dt.replace(second=0, microsecond=0)
         add = _SLOT_INTERVAL_MIN - remainder
         return (dt + timedelta(minutes=add)).replace(second=0, microsecond=0)
+
+    async def _shift_map(
+        self, player_ids: List[int], start: datetime, end: datetime,
+    ) -> dict[int, List[Tuple[datetime, datetime]]]:
+        """Each player's published volunteer shifts in the range, the same ones
+        the "Check this time" sheet warns about. Crew slots stay advisory."""
+        if not await FeatureFlagService().is_enabled(FeatureFlag.VOLUNTEERS):
+            return {}
+        out: dict[int, List[Tuple[datetime, datetime]]] = {}
+        for uid in player_ids:
+            for a in await self.assignment_repository.overlapping_for_user(
+                uid, start, end, published_only=True,
+            ):
+                out.setdefault(uid, []).append((a.shift.starts_at, a.shift.ends_at))
+        return out
 
     async def _build_availability_map(
         self, player_ids: List[int], start: datetime, end: datetime,

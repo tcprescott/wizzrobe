@@ -3,7 +3,7 @@ Seed Generation Service - Business Logic Layer
 
 Handles random seed generation for various randomizers.
 Supports: ALTTPR, AVIANART, FF1R, Z1R, Z2R, SMB3R, AoSR, SM, SMZ3, SMMAP, OOTR,
-DK64R, DASH, WWR, and Test.
+DK64R, DASH, VARIA, WWR, and Test.
 """
 
 import asyncio
@@ -19,6 +19,7 @@ from typing import ClassVar, Dict, List, Optional, Set
 import aiohttp
 import yaml
 from pyz3r import ALTTPR
+from pyz3r.exceptions import Pyz3rException
 
 import application.services._seedgen_codes as seed_codes
 import application.services._seedgen_local as local_rolls
@@ -45,6 +46,7 @@ from application.services._seedgen_types import (
     RolledSeed,
     WWPermalinkInfo,
 )
+from application.services._seedgen_varia import VARIA_GENERATION_TIMEOUT, generate_varia, varia_settings
 from application.utils.mocks.mock_seedgen import is_mock_seedgen
 from application.utils.seed_provider import (
     PROVIDER_MAX_ATTEMPTS,
@@ -77,27 +79,6 @@ async def _read_bundled_preset(path: str) -> str:
     return await asyncio.to_thread(Path(path).read_text, encoding='utf-8')
 
 
-_FF1R_HOST = 'finalfantasyrandomizer.com'
-
-
-def _ff1r_reference_url(settings: Optional[dict]) -> str:
-    """The FFR flags link a preset holds, checked, or ``ValueError`` naming what's wrong."""
-    url = settings.get('url') if isinstance(settings, dict) else None
-    if not isinstance(url, str) or not url.strip():
-        raise ValueError('A Final Fantasy preset needs a "url": the flags link copied from finalfantasyrandomizer.com.')
-    unknown = set(settings) - {'url'}
-    if unknown:
-        raise ValueError(f"A Final Fantasy preset holds only a flags link, not {', '.join(sorted(unknown))}.")
-    url = url.strip()
-    parsed = urllib.parse.urlparse(url)
-    host = (parsed.hostname or '').lower()
-    if parsed.scheme != 'https' or not (host == _FF1R_HOST or host.endswith('.' + _FF1R_HOST)):
-        raise ValueError('That isn\'t a finalfantasyrandomizer.com link. Copy the link from the site\'s address bar.')
-    if not urllib.parse.parse_qs(parsed.query).get('f', [''])[0]:
-        raise ValueError('That link has no flags in it (the "f=" part). Copy it again after setting the flags.')
-    return url
-
-
 # The bare domain 308s to www, and the generate call is read without following
 # redirects, so it has to start on the host that answers it.
 _DASH_BASE_URL = 'https://www.dashrando.net'
@@ -120,6 +101,7 @@ class SeedGenerationService(DK64RBackend):
         'smmap',
         'ootr',
         'smdash',
+        'smvaria',
         'dk64r',
         'wwr',
         'test',
@@ -139,6 +121,7 @@ class SeedGenerationService(DK64RBackend):
         'smmap': 'Super Metroid Map Rando',
         'ootr': 'Ocarina of Time',
         'smdash': 'Super Metroid DASH',
+        'smvaria': 'Super Metroid VARIA',
         'dk64r': 'Donkey Kong 64',
         'wwr': 'Wind Waker',
         'test': 'Test randomizer',
@@ -151,7 +134,8 @@ class SeedGenerationService(DK64RBackend):
     # Randomizers whose generator resolves a ``Preset`` (its settings feed the
     # roll). Anything else ignores the preset and rolls hard-coded settings.
     PRESET_AWARE_RANDOMIZERS: ClassVar[Set[str]] = {
-        'alttpr', 'aosr', 'avianart', 'dk64r', 'ff1r', 'sm', 'smb3r', 'smdash', 'smz3', 'wwr', 'z1r', 'z2r',
+        'alttpr', 'aosr', 'avianart', 'dk64r', 'ff1r', 'sm', 'smb3r', 'smdash', 'smvaria', 'smz3', 'wwr',
+        'z1r', 'z2r',
     }
 
     # Rolls that ``MOCK_SEEDGEN`` leaves alone. DK64R mocks one layer down (see
@@ -187,11 +171,12 @@ class SeedGenerationService(DK64RBackend):
     # queue whose *whole* roll (submit → poll → result) legitimately runs for
     # minutes, so the outer budget has to exceed the poll deadline rather than
     # cut it short — and re-running that roll would submit a second generation
-    # task, so it gets exactly one attempt. Retrying the individual requests
-    # inside it is safe and is handled within the generator.
+    # task, so it gets exactly one attempt. Its other calls (the preset list)
+    # take the default attempts and retry a 429 or 5xx.
     PROVIDER_TIMEOUTS: ClassVar[dict] = {
         'avianart': AVIANART_MAX_POLLS * AVIANART_POLL_INTERVAL + 30.0,
         'dk64r': DK64R_GENERATION_TIMEOUT + 60.0,
+        'smvaria': VARIA_GENERATION_TIMEOUT + 10.0,
     }
     PROVIDER_ATTEMPTS: ClassVar[dict] = {
         # AVIANART builds a game per generate call; its polls run inside the attempt.
@@ -200,6 +185,8 @@ class SeedGenerationService(DK64RBackend):
         # DASH saves the seed upstream before answering, so a retry after a
         # timeout mints a second seed and orphans the first.
         'smdash': 1,
+        # VARIA stores every seed it builds, so a retry orphans one.
+        'smvaria': 1,
     }
 
     @staticmethod
@@ -211,10 +198,10 @@ class SeedGenerationService(DK64RBackend):
         and one that isn't a permalink, or doesn't fit its vendored build, is
         refused with a ``ValueError`` rather than at the desk minutes before a race.
         FFR, AoSR and the flag-string games are built locally too, so theirs are
-        checked here as well, as are AVIANART preset names and samus.link settings.
+        checked here as well, as are AVIANART and VARIA preset names and samus.link settings.
         """
         if randomizer == 'ff1r':
-            return {'url': _ff1r_reference_url(settings)}
+            return {'url': local_rolls.ff1r_reference_url(settings)}
         if randomizer == 'aosr':
             return {'url': local_rolls.aosr_reference_url(settings)}
         if randomizer in local_rolls.FLAG_GAMES:
@@ -223,6 +210,8 @@ class SeedGenerationService(DK64RBackend):
             return {'preset': avianart_preset_name(settings)}
         if randomizer in ('sm', 'smz3'):
             return samus_settings(randomizer, settings)
+        if randomizer == 'smvaria':
+            return varia_settings(settings)
         if randomizer != 'wwr':
             return settings
         permalink = settings.get('permalink')
@@ -265,8 +254,8 @@ class SeedGenerationService(DK64RBackend):
     @staticmethod
     def describe_ff1r_link(url: str) -> str:
         """The site version an FFR flags link pins, for the Presets tab, or ``ValueError``."""
-        host = urllib.parse.urlparse(_ff1r_reference_url({'url': url})).hostname or ''
-        prefix = host.lower()[:-len(_FF1R_HOST)].rstrip('.')
+        host = urllib.parse.urlparse(local_rolls.ff1r_reference_url({'url': url})).hostname or ''
+        prefix = host.lower()[:-len(local_rolls.FF1R_HOST)].rstrip('.')
         return prefix.replace('-', '.') if prefix and prefix != 'www' else 'latest'
 
     @staticmethod
@@ -390,6 +379,7 @@ class SeedGenerationService(DK64RBackend):
             'smmap': self._generate_smmap,
             'ootr': self._generate_ootr,
             'smdash': self._generate_smdash,
+            'smvaria': self._generate_smvaria,
             'dk64r': self._generate_dk64r,
             'wwr': self._generate_wwr,
             'test': self._generate_test,
@@ -458,10 +448,18 @@ class SeedGenerationService(DK64RBackend):
         if triforce_text:
             settings.setdefault('texts', {})['end_triforce'] = "{NOBORDER}\n" + triforce_text
 
-        seed = await ALTTPR.generate(
-            settings=settings,
-            endpoint='/api/customizer',
-        )
+        try:
+            seed = await ALTTPR.generate(
+                settings=settings,
+                endpoint='/api/customizer',
+            )
+        except Pyz3rException as e:
+            # pyz3r has already retried five times, so this is terminal here
+            # rather than another round of retries; only an outage gets here.
+            raise SeedProviderBadResponse(
+                "alttpr.com didn't make the seed. It may be down, so try again in a minute.",
+                provider='alttpr', operation='generate_seed',
+            ) from e
         return RolledSeed(
             url=seed.url, settings=settings, code=seed_codes.alttpr_code(seed.data.get('patch')),
         )
@@ -479,7 +477,7 @@ class SeedGenerationService(DK64RBackend):
         try:
             if preset is None:
                 raise ValueError('Final Fantasy needs a preset with a flags link. Add one on the Presets tab.')
-            reference = _ff1r_reference_url(preset.settings)
+            reference = local_rolls.ff1r_reference_url(preset.settings)
         except ValueError as e:
             raise SeedProviderInvalidRequest(str(e), provider='ff1r', operation='generate_seed') from None
         seed = ('%008x' % random.randrange(16 ** 8)).upper()
@@ -514,6 +512,10 @@ class SeedGenerationService(DK64RBackend):
         """Generate a Super Metroid Randomizer seed on sm.samus.link."""
         return await generate_samus('sm', preset.settings if preset is not None else None)
 
+    async def _generate_smvaria(self, preset: Optional[Preset] = None) -> RolledSeed:
+        """Generate a Super Metroid VARIA Randomizer race seed."""
+        return await generate_varia(preset.settings if preset is not None else None)
+
     async def _generate_smz3(self, preset: Optional[Preset] = None) -> RolledSeed:
         """Generate an SMZ3 Combo Randomizer seed on samus.link."""
         return await generate_samus('smz3', preset.settings if preset is not None else None)
@@ -527,7 +529,7 @@ class SeedGenerationService(DK64RBackend):
         spoiler_token = await self._credential('smmap', 'spoiler_token')
         settings = await _read_bundled_preset("presets/smmap/community_race_s5.json")
 
-        async with aiohttp.ClientSession() as session:
+        async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=120)) as session:
             with aiohttp.MultipartWriter('form-data') as mpwriter:
                 mpwriter.append(spoiler_token).set_content_disposition('form-data', name='spoiler_token')
                 mpwriter.append(settings).set_content_disposition('form-data', name='settings')

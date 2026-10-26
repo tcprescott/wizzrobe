@@ -4,7 +4,9 @@ Discord Service - Business Logic Layer
 Handles Discord-related operations like sending DMs.
 """
 
+import asyncio
 import logging
+import os
 from typing import Awaitable, Callable, Dict, Optional, Tuple
 
 import discord
@@ -25,8 +27,13 @@ from application.services.discord.discord_scheduled_events import (
     MockScheduledEventsMixin,
     ScheduledEventsMixin,
 )
+from application.services.notification_catalog import NoticeTarget
+from application.services.notification_links import settings_footnote
+from application.services.sent_message_service import SentMessageRef, SentMessageService
 from application.services.web_push_service import WebPushService
 from application.utils.discord_messages import DMLink
+from application.utils.settings_footnote import SettingsFootnote
+from models import SentMessageStatus
 
 logger = logging.getLogger(__name__)
 
@@ -39,6 +46,19 @@ DM_UNREACHABLE = frozenset({DM_USER_NOT_FOUND, DM_REFUSED})
 # Not a failure: the recipient turned Discord DMs off on their profile. Any
 # device notifications still went out through the mirror.
 DM_DISCORD_OFF = "Discord DMs are turned off for this user"
+# The community turned this message off for this kind of recipient (Admin → Notifications).
+DM_NOTICE_OFF = "This notification is turned off in the community's notification settings"
+DM_SEND_TIMEOUT_SECONDS = 45
+
+def sent_message_status(result: Tuple[bool, str]) -> Tuple[SentMessageStatus, Optional[str]]:
+    """How a ``send_dm`` result reads in the Sent messages log, with any error."""
+    ok, detail = result
+    if ok:
+        return (SentMessageStatus.DISCORD_OFF if detail == DM_DISCORD_OFF else SentMessageStatus.DELIVERED), None
+    if detail in DM_UNREACHABLE:
+        return SentMessageStatus.BLOCKED, detail
+    return SentMessageStatus.FAILED, detail
+
 
 # Called with ``(channel_id, message_id)`` once Discord has accepted a DM, so a
 # sender can find the message again to edit it.
@@ -60,8 +80,44 @@ async def discord_dms_enabled(discord_id: int) -> bool:
     return user is None or user.dm_notifications
 
 
+async def _apply_notice(notice: NoticeTarget, discord_id: int) -> Tuple[bool, bool]:
+    """``(muted, silent)`` for ``notice``: the quieter of the community's setting
+    and the recipient's own choice (Profile → Notifications)."""
+    from application.services.notification_preference_service import NotificationPreferenceService, quieter
+    from application.services.notification_settings_service import NotificationSettingsService
+    from models import NotificationMode
+
+    mode = await NotificationSettingsService.mode_for(notice)
+    if mode is not NotificationMode.OFF:
+        mode = quieter(mode, await NotificationPreferenceService.mode_for(discord_id, notice))
+    return mode is NotificationMode.OFF, mode is NotificationMode.SILENT
+
+
+async def _mirror_text(discord_id: int, message: str) -> str:
+    """``message`` as the device, email and Telegram copies show it.
+
+    Those channels can't render Discord's ``<t:…>`` timestamps, so each becomes
+    a plain time on the recipient's own clock. Resolved here, in the sender's
+    community, because the copies go out from a worker with none in scope.
+    """
+    if '<t:' not in message:
+        return message
+    from application.repositories import UserRepository
+    from application.services.timezone_service import TimezoneService
+    from application.utils.timezone import readable_discord_times
+
+    try:
+        user = await UserRepository.get_by_discord_id(str(discord_id))
+        zone = await TimezoneService.resolve(user)
+    except Exception:
+        logger.exception('Resolving the mirror timezone for %s failed', discord_id)
+        zone = None
+    return readable_discord_times(message, zone)
+
+
 def _mirror_dm_to_web_push(
     user_id: int, message: str, navigate: Optional[str] = None, silent: bool = False,
+    ref: Optional[SentMessageRef] = None,
 ) -> None:
     """Fan every outgoing DM out to the recipient's web-push devices.
 
@@ -79,12 +135,13 @@ def _mirror_dm_to_web_push(
     if not WebPushService.is_configured():
         return
     event_dispatch_queue.enqueue(
-        WebPushService().mirror_dm(user_id, message, navigate=navigate, silent=silent)
+        WebPushService().mirror_dm(user_id, message, navigate=navigate, silent=silent, ref=ref)
     )
 
 
 def _mirror_dm_to_channels(
     user_id: int, message: str, link: Optional[DMLink] = None, silent: bool = False,
+    ref: Optional[SentMessageRef] = None, footnote: Optional[SettingsFootnote] = None,
 ) -> None:
     """Fan every outgoing DM out to the recipient's email and Telegram too.
 
@@ -92,6 +149,7 @@ def _mirror_dm_to_channels(
     is sent from decides whether its ``notification_channels`` flag is on, so
     its id is captured here: the dispatch worker runs outside any request.
     """
+    from application.event_context import event_scope, get_current_event_id
     from application.services.notification_channel_service import (
         NotificationChannelService,
         email_available,
@@ -104,17 +162,29 @@ def _mirror_dm_to_channels(
     tenant_id = get_current_tenant_id()
     if tenant_id is None:
         return
+    event_id = get_current_event_id()
 
     async def _run() -> None:
-        with tenant_scope(tenant_id):
+        with tenant_scope(tenant_id), event_scope(event_id, tenant_id):
             await NotificationChannelService().mirror_dm(
                 user_id, message,
                 navigate=link.url if link else None,
                 label=link.label if link else None,
                 silent=silent,
+                ref=ref,
+                footnote=footnote,
             )
 
     event_dispatch_queue.enqueue(_run())
+
+
+def _with_footnote(
+    message: str, embed: Optional[discord.Embed], footnote: SettingsFootnote,
+) -> Tuple[str, Optional[discord.Embed]]:
+    """The Discord copy with the settings footnote: inside the card, or under the text."""
+    if embed is not None:
+        return message, footnote.with_embed(embed)
+    return footnote.with_message(message), None
 
 
 def _with_link_button(
@@ -171,6 +241,9 @@ VIEW_VOLUNTEER_ARRIVAL = 'volunteer_arrival'
 VIEW_UNWATCH = 'match_watch'
 VIEW_RESCHEDULE_AGREE = 'reschedule_agree'
 VIEW_HARD_PRESET = 'match_hard'
+VIEW_PLAYER_LATE = 'match_late'
+VIEW_SEED_READY = 'seed_ready'
+VIEW_PARTNER_INVITE = 'partner_invite'
 
 InteractionHandler = Callable[[discord.Interaction], Awaitable[None]]
 ViewFactory = Callable[..., discord.ui.View]
@@ -236,7 +309,11 @@ def get_discord_bot() -> commands.Bot:
         intents.members = True
         intents.dm_messages = True
         
-        _bot_instance = commands.Bot(command_prefix='!', intents=intents)
+        # max_ratelimit_timeout: a 429 otherwise sleeps as long as Discord asks,
+        # holding up every DM queued behind it.
+        _bot_instance = commands.Bot(
+            command_prefix='!', intents=intents, max_ratelimit_timeout=30,
+        )
 
         async def setup_hook() -> None:
             await _install_app_commands(_bot_instance)
@@ -304,6 +381,7 @@ class DiscordService(GuildOpsMixin, ScheduledEventsMixin):
         on_sent: Optional[DMSentHook] = None,
         mirror: bool = True,
         silent: bool = False,
+        notice: Optional[NoticeTarget] = None,
     ) -> Tuple[bool, str]:
         """
         Send a direct message to a Discord user, optionally with attached buttons.
@@ -333,6 +411,10 @@ class DiscordService(GuildOpsMixin, ScheduledEventsMixin):
             silent: Deliver without a ping or phone buzz (Discord's @silent),
                 for news the recipient doesn't need to act on. Device and
                 Telegram copies go quietly too; email can't.
+            notice: Which catalogued notification this is and to whom. The
+                community's setting for it, capped by the recipient's own
+                choice, decides ``silent`` (overriding the argument), or stops
+                the message on every channel when off.
 
         Returns:
             Tuple of (success: bool, message: str)
@@ -342,16 +424,40 @@ class DiscordService(GuildOpsMixin, ScheduledEventsMixin):
         if not user_id:
             # A password-only account has no Discord to message.
             return False, DM_NO_DISCORD
+        if notice is not None:
+            muted, silent = await _apply_notice(notice, user_id)
+            if muted:
+                return True, DM_NOTICE_OFF
+        log = SentMessageService()
+        ref = await log.record_attempt(user_id, message, embed=embed, link=link, silent=silent, notice=notice)
+        footnote = await settings_footnote(notice, ref.id if ref else None)
         # Mirror before the bot-readiness checks so device notifications still
         # go out when the bot is down or the user blocks Discord DMs. Corollary:
         # a (False, ...) return means the *Discord* send failed — subscribed
         # devices may already have been notified, so don't blindly re-send. The
         # mirror always uses the plain text, even when an embed carries the DM.
         if mirror:
+            copy = await _mirror_text(user_id, message)
             _mirror_dm_to_web_push(
-                user_id, message, navigate=link.url if link else None, silent=silent,
+                user_id, copy, navigate=link.url if link else None, silent=silent, ref=ref,
             )
-            _mirror_dm_to_channels(user_id, message, link, silent=silent)
+            _mirror_dm_to_channels(user_id, copy, link, silent=silent, ref=ref, footnote=footnote)
+        if footnote is not None:
+            message, embed = _with_footnote(message, embed, footnote)
+        result = await self._send_to_discord(user_id, message, view_factory, embed, link, on_sent, silent)
+        await log.record_result(ref, *sent_message_status(result))
+        return result
+
+    async def _send_to_discord(
+        self,
+        user_id: int,
+        message: str,
+        view_factory: Optional[Callable[[], discord.ui.View]],
+        embed: Optional[discord.Embed],
+        link: Optional[DMLink],
+        on_sent: Optional[DMSentHook],
+        silent: bool,
+    ) -> Tuple[bool, str]:
         try:
             if self._bot is None:
                 logger.error('Discord DM to %s not sent: bot not initialized', user_id)
@@ -366,21 +472,29 @@ class DiscordService(GuildOpsMixin, ScheduledEventsMixin):
             if not await discord_dms_enabled(user_id):
                 return True, DM_DISCORD_OFF
 
-            user = await self._bot.fetch_user(user_id)
-            kwargs: dict = {'silent': silent}
-            view = _with_link_button(
-                view_factory() if view_factory is not None else None, link,
-            )
-            if view is not None:
-                kwargs['view'] = view
-            if embed is not None:
-                # Embed is the Discord representation; content omitted to avoid
-                # showing the plain text above the card.
-                sent = await user.send(embed=embed, **kwargs)
-            else:
-                sent = await user.send(message, **kwargs)
+            async def _send():
+                user = self._bot.get_user(user_id) or await self._bot.fetch_user(user_id)
+                kwargs: dict = {'silent': silent}
+                view = _with_link_button(
+                    view_factory() if view_factory is not None else None, link,
+                )
+                if view is not None:
+                    kwargs['view'] = view
+                if embed is not None:
+                    # Embed is the Discord representation; content omitted to avoid
+                    # showing the plain text above the card.
+                    return await user.send(embed=embed, **kwargs)
+                return await user.send(message, **kwargs)
+
+            # Every DM shares one serial queue, and discord.py's HTTP calls have
+            # no deadline of their own, so one stalled send delayed every match
+            # call behind it.
+            sent = await asyncio.wait_for(_send(), DM_SEND_TIMEOUT_SECONDS)
             await _run_sent_hook(on_sent, sent.channel.id, sent.id)
             return True, "Message sent successfully."
+        except asyncio.TimeoutError:
+            logger.warning('Discord DM to %s timed out after %ss', user_id, DM_SEND_TIMEOUT_SECONDS)
+            return False, "Discord didn't answer in time. Please try again in a moment."
         except discord.NotFound:
             return False, DM_USER_NOT_FOUND
         except discord.Forbidden:
@@ -427,13 +541,13 @@ class DiscordService(GuildOpsMixin, ScheduledEventsMixin):
     # The five view-bearing senders below are thin wrappers over send_dm: each
     # resolves its registered view factory by kind (populated by the bot package
     # at startup — see the registries above) and defers to send_dm.
-    async def send_dm_with_crew_buttons(self, user_id: int, message: str, match_id: int, embed: Optional[discord.Embed] = None, link: Optional[DMLink] = None, silent: bool = False) -> Tuple[bool, str]:
+    async def send_dm_with_crew_buttons(self, user_id: int, message: str, match_id: int, embed: Optional[discord.Embed] = None, link: Optional[DMLink] = None, notice: Optional[NoticeTarget] = None) -> Tuple[bool, str]:
         """Send a DM with the commentator/tracker crew signup buttons for a match."""
-        return await self.send_dm(user_id, message, lambda: _view_factories[VIEW_CREW_SIGNUP](match_id), embed=embed, link=link, silent=silent)
+        return await self.send_dm(user_id, message, lambda: _view_factories[VIEW_CREW_SIGNUP](match_id), embed=embed, link=link, notice=notice)
 
-    async def send_dm_with_acknowledgment_button(self, user_id: int, message: str, match_id: int, embed: Optional[discord.Embed] = None, link: Optional[DMLink] = None) -> Tuple[bool, str]:
+    async def send_dm_with_acknowledgment_button(self, user_id: int, message: str, match_id: int, embed: Optional[discord.Embed] = None, link: Optional[DMLink] = None, notice: Optional[NoticeTarget] = None) -> Tuple[bool, str]:
         """Send a DM with a match Acknowledge button."""
-        return await self.send_dm(user_id, message, lambda: _view_factories[VIEW_MATCH_ACK](match_id), embed=embed, link=link)
+        return await self.send_dm(user_id, message, lambda: _view_factories[VIEW_MATCH_ACK](match_id), embed=embed, link=link, notice=notice)
 
     async def send_dm_with_reschedule_agree_button(
         self,
@@ -442,11 +556,12 @@ class DiscordService(GuildOpsMixin, ScheduledEventsMixin):
         request_id: int,
         embed: Optional[discord.Embed] = None,
         link: Optional[DMLink] = None,
+        notice: Optional[NoticeTarget] = None,
     ) -> Tuple[bool, str]:
         """Send a DM with the opponent's Agree button for a reschedule request."""
         return await self.send_dm(
             user_id, message, lambda: _view_factories[VIEW_RESCHEDULE_AGREE](request_id),
-            embed=embed, link=link,
+            embed=embed, link=link, notice=notice,
         )
 
     async def send_dm_with_hard_preset_buttons(
@@ -457,6 +572,7 @@ class DiscordService(GuildOpsMixin, ScheduledEventsMixin):
         opted_in: bool,
         embed: Optional[discord.Embed] = None,
         link: Optional[DMLink] = None,
+        notice: Optional[NoticeTarget] = None,
     ) -> Tuple[bool, str]:
         """Send a DM with the harder-settings opt-in (or back-out) button.
 
@@ -466,7 +582,7 @@ class DiscordService(GuildOpsMixin, ScheduledEventsMixin):
         return await self.send_dm(
             user_id, message,
             lambda: _view_factories[VIEW_HARD_PRESET](match_id, opted_in),
-            embed=embed, link=link,
+            embed=embed, link=link, notice=notice,
         )
 
     async def send_dm_with_crew_acknowledgment_button(
@@ -477,23 +593,33 @@ class DiscordService(GuildOpsMixin, ScheduledEventsMixin):
         crew_id: int,
         embed: Optional[discord.Embed] = None,
         link: Optional[DMLink] = None,
+        notice: Optional[NoticeTarget] = None,
     ) -> Tuple[bool, str]:
         """Send a DM with a crew-assignment Acknowledge button.
 
         ``crew_type`` is 'commentator' or 'tracker'; ``crew_id`` is the crew row id.
         """
-        return await self.send_dm(user_id, message, lambda: _view_factories[VIEW_CREW_ACK](crew_type, crew_id), embed=embed, link=link)
+        return await self.send_dm(user_id, message, lambda: _view_factories[VIEW_CREW_ACK](crew_type, crew_id), embed=embed, link=link, notice=notice)
 
-    async def send_dm_with_volunteer_acknowledgment_button(
+    async def send_dm_with_partner_invite_buttons(
         self,
         user_id: int,
         message: str,
-        assignment_id: int,
+        invite_id: int,
         embed: Optional[discord.Embed] = None,
         link: Optional[DMLink] = None,
+        on_sent: Optional[DMSentHook] = None,
+        notice: Optional[NoticeTarget] = None,
     ) -> Tuple[bool, str]:
+        """Send a DM with Decline and Accept for a commentary partner invite."""
+        return await self.send_dm(
+            user_id, message, lambda: _view_factories[VIEW_PARTNER_INVITE](invite_id),
+            embed=embed, link=link, on_sent=on_sent, notice=notice,
+        )
+
+    async def send_dm_with_volunteer_acknowledgment_button(self, user_id: int, message: str, assignment_id: int, embed: Optional[discord.Embed] = None, link: Optional[DMLink] = None, notice: Optional[NoticeTarget] = None) -> Tuple[bool, str]:
         """Send a DM with a volunteer shift Acknowledge button."""
-        return await self.send_dm(user_id, message, lambda: _view_factories[VIEW_VOLUNTEER_ACK](assignment_id), embed=embed, link=link)
+        return await self.send_dm(user_id, message, lambda: _view_factories[VIEW_VOLUNTEER_ACK](assignment_id), embed=embed, link=link, notice=notice)
 
     async def send_dm_with_volunteer_arrival_buttons(
         self,
@@ -502,13 +628,22 @@ class DiscordService(GuildOpsMixin, ScheduledEventsMixin):
         assignment_id: int,
         embed: Optional[discord.Embed] = None,
         link: Optional[DMLink] = None,
+        notice: Optional[NoticeTarget] = None,
     ) -> Tuple[bool, str]:
-        """Send the shift-start DM: I'm here / Running late / I can't make it."""
-        return await self.send_dm(user_id, message, lambda: _view_factories[VIEW_VOLUNTEER_ARRIVAL](assignment_id), embed=embed, link=link)
+        """Send the shift-start DM: I'm here / Tell staff I'm late / I can't make it."""
+        return await self.send_dm(user_id, message, lambda: _view_factories[VIEW_VOLUNTEER_ARRIVAL](assignment_id), embed=embed, link=link, notice=notice)
 
-    async def send_dm_with_unwatch_button(self, user_id: int, message: str, match_id: int, embed: Optional[discord.Embed] = None, link: Optional[DMLink] = None, silent: bool = False) -> Tuple[bool, str]:
+    async def send_dm_with_player_late_button(self, user_id: int, message: str, match_id: int, embed: Optional[discord.Embed] = None, link: Optional[DMLink] = None, notice: Optional[NoticeTarget] = None) -> Tuple[bool, str]:
+        """Send a match player's DM with a Tell staff I'm late button."""
+        return await self.send_dm(user_id, message, lambda: _view_factories[VIEW_PLAYER_LATE](match_id), embed=embed, link=link, notice=notice)
+
+    async def send_dm_with_seed_ready_button(self, user_id: int, message: str, match_id: int, embed: Optional[discord.Embed] = None, link: Optional[DMLink] = None, notice: Optional[NoticeTarget] = None) -> Tuple[bool, str]:
+        """Send a match player's DM with a Ready for seed button."""
+        return await self.send_dm(user_id, message, lambda: _view_factories[VIEW_SEED_READY](match_id), embed=embed, link=link, notice=notice)
+
+    async def send_dm_with_unwatch_button(self, user_id: int, message: str, match_id: int, embed: Optional[discord.Embed] = None, link: Optional[DMLink] = None, notice: Optional[NoticeTarget] = None) -> Tuple[bool, str]:
         """Send a DM with an Unwatch button for match watchers."""
-        return await self.send_dm(user_id, message, lambda: _view_factories[VIEW_UNWATCH](match_id), embed=embed, link=link, silent=silent)
+        return await self.send_dm(user_id, message, lambda: _view_factories[VIEW_UNWATCH](match_id), embed=embed, link=link, notice=notice)
 
     def get_bot(self) -> Optional[commands.Bot]:
         """Get the Discord bot instance."""
@@ -538,11 +673,38 @@ class MockDiscordService(MockGuildOpsMixin, MockScheduledEventsMixin):
         on_sent: Optional[DMSentHook] = None,
         mirror: bool = True,
         silent: bool = False,
+        notice: Optional[NoticeTarget] = None,
+    ) -> Tuple[bool, str]:
+        if notice is not None:
+            muted, silent = await _apply_notice(notice, user_id)
+            if muted:
+                print(f"[MOCK Discord DM] -> {user_id}: skipped, {notice.key}:{notice.recipient.value} is off")
+                return True, DM_NOTICE_OFF
+        log = SentMessageService()
+        ref = await log.record_attempt(user_id, message, embed=embed, link=link, silent=silent, notice=notice)
+        footnote = await settings_footnote(notice, ref.id if ref else None)
+        result = await self._mock_send(user_id, message, embed, link, on_sent, mirror, silent, ref, footnote)
+        await log.record_result(ref, *sent_message_status(result))
+        return result
+
+    async def _mock_send(
+        self,
+        user_id: int,
+        message: str,
+        embed: Optional["discord.Embed"],
+        link: Optional[DMLink],
+        on_sent: Optional[DMSentHook],
+        mirror: bool,
+        silent: bool,
+        ref: Optional[SentMessageRef],
+        footnote: Optional[SettingsFootnote] = None,
     ) -> Tuple[bool, str]:
         # Email and Telegram mirror in mock mode too: their transports print
         # instead of sending, so there's no external side effect to fear.
         if mirror:
-            _mirror_dm_to_channels(user_id, message, link, silent=silent)
+            _mirror_dm_to_channels(
+                user_id, await _mirror_text(user_id, message), link, silent=silent, ref=ref, footnote=footnote,
+            )
         # Deliberately no web-push mirror: mock mode must have no external side
         # effects (a dev with a prod DB snapshot + prod VAPID keys would push
         # to real users' phones). Real delivery requires the real service.
@@ -557,6 +719,8 @@ class MockDiscordService(MockGuildOpsMixin, MockScheduledEventsMixin):
             suffix += f" [button: {link.label} -> {link.url}]"
         if silent:
             suffix += " [silent]"
+        if footnote is not None:
+            suffix += f" [footnote: {footnote.markdown()}]"
         print(f"[MOCK Discord DM] -> {user_id}: {message}{suffix}")
         # Made-up ids, so a later edit_dm has something to print against.
         self.__class__._mock_message_id += 1
@@ -576,29 +740,35 @@ class MockDiscordService(MockGuildOpsMixin, MockScheduledEventsMixin):
 
     # Thin wrappers matching DiscordService's public surface; all defer to the
     # single send_dm stub above (the buttons are irrelevant in mock mode).
-    async def send_dm_with_crew_buttons(self, user_id: int, message: str, match_id: int, embed: Optional["discord.Embed"] = None, link: Optional[DMLink] = None, silent: bool = False) -> Tuple[bool, str]:
-        return await self.send_dm(user_id, message, embed=embed, link=link, silent=silent)
+    async def send_dm_with_crew_buttons(self, user_id: int, message: str, match_id: int, embed: Optional["discord.Embed"] = None, link: Optional[DMLink] = None, notice: Optional[NoticeTarget] = None) -> Tuple[bool, str]:
+        return await self.send_dm(user_id, message, embed=embed, link=link, notice=notice)
 
-    async def send_dm_with_acknowledgment_button(self, user_id: int, message: str, match_id: int, embed: Optional["discord.Embed"] = None, link: Optional[DMLink] = None) -> Tuple[bool, str]:
-        return await self.send_dm(user_id, message, embed=embed, link=link)
+    async def send_dm_with_acknowledgment_button(self, user_id: int, message: str, match_id: int, embed: Optional["discord.Embed"] = None, link: Optional[DMLink] = None, notice: Optional[NoticeTarget] = None) -> Tuple[bool, str]:
+        return await self.send_dm(user_id, message, embed=embed, link=link, notice=notice)
 
-    async def send_dm_with_reschedule_agree_button(self, user_id: int, message: str, request_id: int, embed: Optional["discord.Embed"] = None, link: Optional[DMLink] = None) -> Tuple[bool, str]:
-        return await self.send_dm(user_id, message, embed=embed, link=link)
+    async def send_dm_with_reschedule_agree_button(self, user_id: int, message: str, request_id: int, embed: Optional["discord.Embed"] = None, link: Optional[DMLink] = None, notice: Optional[NoticeTarget] = None) -> Tuple[bool, str]:
+        return await self.send_dm(user_id, message, embed=embed, link=link, notice=notice)
 
-    async def send_dm_with_hard_preset_buttons(self, user_id: int, message: str, match_id: int, opted_in: bool, embed: Optional["discord.Embed"] = None, link: Optional[DMLink] = None) -> Tuple[bool, str]:
-        return await self.send_dm(user_id, message, embed=embed, link=link)
+    async def send_dm_with_hard_preset_buttons(self, user_id: int, message: str, match_id: int, opted_in: bool, embed: Optional["discord.Embed"] = None, link: Optional[DMLink] = None, notice: Optional[NoticeTarget] = None) -> Tuple[bool, str]:
+        return await self.send_dm(user_id, message, embed=embed, link=link, notice=notice)
 
-    async def send_dm_with_crew_acknowledgment_button(self, user_id: int, message: str, crew_type: str, crew_id: int, embed: Optional["discord.Embed"] = None, link: Optional[DMLink] = None) -> Tuple[bool, str]:
-        return await self.send_dm(user_id, message, embed=embed, link=link)
+    async def send_dm_with_crew_acknowledgment_button(self, user_id: int, message: str, crew_type: str, crew_id: int, embed: Optional["discord.Embed"] = None, link: Optional[DMLink] = None, notice: Optional[NoticeTarget] = None) -> Tuple[bool, str]:
+        return await self.send_dm(user_id, message, embed=embed, link=link, notice=notice)
 
-    async def send_dm_with_volunteer_acknowledgment_button(self, user_id: int, message: str, assignment_id: int, embed: Optional["discord.Embed"] = None, link: Optional[DMLink] = None) -> Tuple[bool, str]:
-        return await self.send_dm(user_id, message, embed=embed, link=link)
+    async def send_dm_with_partner_invite_buttons(self, user_id: int, message: str, invite_id: int, embed: Optional["discord.Embed"] = None, link: Optional[DMLink] = None, on_sent: Optional[DMSentHook] = None, notice: Optional[NoticeTarget] = None) -> Tuple[bool, str]:
+        return await self.send_dm(user_id, message, embed=embed, link=link, on_sent=on_sent, notice=notice)
 
-    async def send_dm_with_volunteer_arrival_buttons(self, user_id: int, message: str, assignment_id: int, embed: Optional["discord.Embed"] = None, link: Optional[DMLink] = None) -> Tuple[bool, str]:
-        return await self.send_dm(user_id, message, embed=embed, link=link)
+    async def send_dm_with_volunteer_acknowledgment_button(self, user_id: int, message: str, assignment_id: int, embed: Optional["discord.Embed"] = None, link: Optional[DMLink] = None, notice: Optional[NoticeTarget] = None) -> Tuple[bool, str]:
+        return await self.send_dm(user_id, message, embed=embed, link=link, notice=notice)
 
-    async def send_dm_with_unwatch_button(self, user_id: int, message: str, match_id: int, embed: Optional["discord.Embed"] = None, link: Optional[DMLink] = None, silent: bool = False) -> Tuple[bool, str]:
-        return await self.send_dm(user_id, message, embed=embed, link=link, silent=silent)
+    async def send_dm_with_volunteer_arrival_buttons(self, user_id: int, message: str, assignment_id: int, embed: Optional["discord.Embed"] = None, link: Optional[DMLink] = None, notice: Optional[NoticeTarget] = None) -> Tuple[bool, str]:
+        return await self.send_dm(user_id, message, embed=embed, link=link, notice=notice)
+
+    async def send_dm_with_player_late_button(self, user_id: int, message: str, match_id: int, embed: Optional["discord.Embed"] = None, link: Optional[DMLink] = None, notice: Optional[NoticeTarget] = None) -> Tuple[bool, str]:
+        return await self.send_dm(user_id, message, embed=embed, link=link, notice=notice)
+
+    async def send_dm_with_unwatch_button(self, user_id: int, message: str, match_id: int, embed: Optional["discord.Embed"] = None, link: Optional[DMLink] = None, notice: Optional[NoticeTarget] = None) -> Tuple[bool, str]:
+        return await self.send_dm(user_id, message, embed=embed, link=link, notice=notice)
 
     def get_bot(self) -> None:
         return None
@@ -613,3 +783,15 @@ _RealDiscordService = DiscordService
 
 if is_mock_discord():
     DiscordService = MockDiscordService  # type: ignore[misc,assignment]
+
+
+def discord_bot_down() -> bool:
+    """True when a real bot should be connected and isn't.
+
+    For workers that stamp a reminder as sent before queueing the DM: while this
+    holds they wait, so the reminder goes out after the reconnect instead of
+    being stamped and dropped.
+    """
+    if is_mock_discord() or _bot_instance is None or not os.environ.get('DISCORD_TOKEN'):
+        return False
+    return not _bot_instance.is_ready()

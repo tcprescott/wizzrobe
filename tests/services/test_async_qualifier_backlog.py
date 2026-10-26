@@ -23,7 +23,7 @@ def captured_dms(monkeypatch):
     sent: list[tuple[int, str, object]] = []
 
     class _Fake:
-        async def send_dm(self, discord_id, message, view_factory=None, embed=None, link=None):
+        async def send_dm(self, discord_id, message, view_factory=None, embed=None, link=None, notice=None):
             sent.append((discord_id, message, link))
             return True, 'ok'
 
@@ -184,6 +184,7 @@ async def test_a_reviewer_without_discord_is_skipped_rather_than_crashing(db, ca
     service = AsyncQualifierService()
     staff = await _staff(900416, 'backlog_staff_f')
     silent = await User.create(username='backlog_no_discord')
+    await TenantMembership.create(user=silent, tenant_id=1)
     player = await User.create(discord_id='900417', username='backlog_runner_f')
     qualifier, _ = await _submitted_run(
         service, staff, player, waited=rules.REVIEW_BACKLOG_AGE + timedelta(hours=1))

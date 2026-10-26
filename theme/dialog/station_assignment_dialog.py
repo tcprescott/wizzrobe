@@ -7,7 +7,7 @@ from nicegui import app, ui
 from application.services import MatchService, StationService, get_user_from_session
 from application.services.system_config_service import SystemConfigService
 from application.utils.match_labels import match_model_label
-from models import STATION_REGEXES, Match
+from models import STATION_REGEXES, Match, StationFormat
 from theme.dialog._helpers import dialog_actions, form_dialog
 from theme.help import resolve_help
 from theme.notify import notify_error
@@ -143,9 +143,13 @@ class StationAssignmentDialog:
                         else:
                             station_input = ui.input(
                                 label=name,
-                                placeholder='Station, e.g. A1, B2, Station 3',
+                                placeholder=('Station number, e.g. 12' if fmt == StationFormat.NUMERIC
+                                             else 'Station, e.g. A1, B2, Station 3'),
                                 validation={'Invalid station format': lambda v: not v or STATION_REGEXES[fmt].fullmatch(v) is not None},
                             ).props('outlined dense hide-bottom-space maxlength=50').classes('full-width')
+                            if fmt == StationFormat.NUMERIC:
+                                # Phones open the number pad, not the full keyboard.
+                                station_input.props('inputmode=numeric')
 
                         if player.assigned_station:
                             station_input.value = player.assigned_station

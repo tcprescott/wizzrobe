@@ -37,8 +37,11 @@ from application.errors import require_found
 from application.events import Event, EventType, event_bus
 from application.feature_flags import requires_feature
 from application.repositories import RacetimeRoomRepository
+from application.repositories._save import save_fields
 from application.services.audit_service import AuditActions, AuditService
 from application.services.auth_service import AuthService
+from application.services.match.match_status import has_recorded_result
+from application.services.notification_catalog import PLAYERS, RACE_ROOM_OPEN
 from application.services.user_service import UserService
 from application.tenant_context import require_tenant_id
 from application.utils.clients import racetime_rooms_client
@@ -209,7 +212,7 @@ class RaceRoomService:
                 user = player.user
                 if user.discord_id:
                     discord_queue.enqueue(service.send_dm(
-                        int(user.discord_id), body, embed=embed, link=link,
+                        int(user.discord_id), body, embed=embed, link=link, notice=RACE_ROOM_OPEN.to(PLAYERS),
                     ))
         except Exception:
             logger.exception('race room open DM failed for match %s', match.id)
@@ -296,7 +299,7 @@ class RaceRoomService:
             if match.seated_at is None:
                 match.seated_at = now
             match.started_at = now
-            await match.save()
+            await save_fields(match, 'seated_at', 'started_at')
         await self.room_repository.update(
             room, status=RaceRoomStatus.IN_PROGRESS,
             opened_at=(room.opened_at or now),
@@ -319,6 +322,18 @@ class RaceRoomService:
         )
 
     # feature-gate: exempt — lifecycle of an already-open room (see above).
+    async def cancel_room_as(
+        self, room: RacetimeRoom, *, actor: Optional[User], reason: Optional[str] = None,
+    ) -> None:
+        """A person calling a room off by hand: staff or a sync admin. Calling off
+        the match (``cancel_room`` from match cancellation) needs no sync role."""
+        await AuthService.ensure(
+            await AuthService.can_manage_sync(actor),
+            'You do not have permission to cancel a racetime room.',
+        )
+        await self.cancel_room(room, actor=actor, reason=reason)
+
+    # feature-gate: exempt — lifecycle of an already-open room (see above).
     async def record_finish(
         self, room: RacetimeRoom, entrants: List[RaceEntrant], *, actor: Optional[User] = None,
     ) -> None:
@@ -334,16 +349,17 @@ class RaceRoomService:
         match = await self._match_of(room, with_players=True)
 
         results, unmatched = self._map_results(match, entrants)
+        first_result = match is not None and not has_recorded_result(match.players)  # type: ignore[attr-defined]
         for mp, (rank, ftime) in results.items():
             mp.finish_rank = rank
             mp.finish_time = ftime
-            await mp.save()
+            await save_fields(mp, 'finish_rank', 'finish_time')
 
         if match is not None:
             if match.started_at is None:
                 match.started_at = now
             match.finished_at = now
-            await match.save()
+            await save_fields(match, 'started_at', 'finished_at')
 
         await self.room_repository.update(room, status=RaceRoomStatus.FINISHED)
 
@@ -363,7 +379,12 @@ class RaceRoomService:
         # react exactly as they do for a manually-recorded result.
         if match is not None:
             self._publish_match_result(match, results, actor)
+            if first_result:
+                from application.services import result_alerts
+                from application.services.discord import discord_queue
+                discord_queue.enqueue(result_alerts.match_result_in(match.id, None, result_alerts.RACE_ROOM))
             await self._push_challonge(match, actor)
+            await self._notify_bracket_sources(match, actor)
             await self._settle_bracket(match, actor)
 
     # ---- result mapping --------------------------------------------------
@@ -415,7 +436,9 @@ class RaceRoomService:
         try:
             from application.services.match.match_schedule_service import MatchScheduleService
 
-            await MatchScheduleService().generate_seed(match.id, actor)
+            ok, message, _url = await MatchScheduleService().generate_seed(match.id, actor)
+            if not ok:
+                logger.warning('seed attach for match %s refused: %s', match.id, message)
         except Exception:
             logger.exception('seed attach failed for match %s', match.id)
 
@@ -458,6 +481,13 @@ class RaceRoomService:
             await ChallongeService().push_result_if_linked(match, actor)
         except Exception:
             logger.exception('challonge push failed for match %s', match.id)
+
+    async def _notify_bracket_sources(self, match: Match, actor: User) -> None:
+        # The confirm path reaches start.gg through this hook; a bot-finished
+        # race must too, or its result never leaves Wizzrobe.
+        from application.services import bracket_sources
+
+        await bracket_sources.on_match_confirmed(match, actor)
 
     async def _system_actor(self) -> User:
         return await UserService().get_system_user()

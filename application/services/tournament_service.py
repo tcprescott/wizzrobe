@@ -15,6 +15,7 @@ from application.repositories import (
     RacetimeBotRepository,
     TournamentRepository,
 )
+from application.services._tournament_drop import TournamentDropMixin
 from application.services._tournament_signup import (
     COLOR_SIGNUP,
     TournamentSignupCard,
@@ -46,11 +47,12 @@ _UNSET = object()
 DELETE_CONFIRMATION_PHRASE = 'permanently delete'
 
 
-class TournamentService(TournamentSignupMixin):
+class TournamentService(TournamentDropMixin, TournamentSignupMixin):
     """Service for tournament-related business operations.
 
     Player self-service signup lives in
-    :class:`~application.services._tournament_signup.TournamentSignupMixin`.
+    :class:`~application.services._tournament_signup.TournamentSignupMixin`, and
+    staff dropping a player in :class:`~application.services._tournament_drop.TournamentDropMixin`.
     """
 
     def __init__(self) -> None:
@@ -231,6 +233,8 @@ class TournamentService(TournamentSignupMixin):
         max_match_duration: Optional[int] = None,
         is_active: bool = True,
         is_test: bool = False,
+        players_release_seed: bool = False,
+        uses_tournament_room: bool = True,
         players_per_match: int = 2,
         required_commentators: int = 1,
         required_trackers: int = 1,
@@ -300,6 +304,8 @@ class TournamentService(TournamentSignupMixin):
             max_match_duration=max_match_duration,
             is_active=is_active,
             is_test=is_test,
+            players_release_seed=players_release_seed,
+            uses_tournament_room=uses_tournament_room,
             players_per_match=players_per_match,
             required_commentators=self._crew_requirement(required_commentators, 'commentators'),
             required_trackers=self._crew_requirement(required_trackers, 'trackers'),
@@ -345,6 +351,8 @@ class TournamentService(TournamentSignupMixin):
         max_match_duration: Optional[int] = None,
         is_active: Optional[bool] = None,
         is_test: Optional[bool] = None,
+        players_release_seed: Optional[bool] = None,
+        uses_tournament_room: Optional[bool] = None,
         players_per_match: Optional[int] = None,
         required_commentators: Optional[int] = None,
         required_trackers: Optional[int] = None,
@@ -406,6 +414,10 @@ class TournamentService(TournamentSignupMixin):
             update_data['is_active'] = is_active
         if is_test is not None:
             update_data['is_test'] = is_test
+        if players_release_seed is not None:
+            update_data['players_release_seed'] = players_release_seed
+        if uses_tournament_room is not None:
+            update_data['uses_tournament_room'] = uses_tournament_room
         if players_per_match is not None:
             update_data['players_per_match'] = players_per_match
         if required_commentators is not None:
@@ -580,6 +592,7 @@ class TournamentService(TournamentSignupMixin):
             await AuthService.can_grant_roles(actor),
             "Only Staff can grant Tournament Admin",
         )
+        await TenantMembershipService.require_community_users([target.id], actor)
         await self.repository.set_tournament_grant(
             tournament, target, TournamentGrant.TOURNAMENT_ADMIN, granted=True
         )
@@ -614,6 +627,7 @@ class TournamentService(TournamentSignupMixin):
             await AuthService.can_grant_roles(actor),
             "Only Staff can grant Crew Coordinator",
         )
+        await TenantMembershipService.require_community_users([target.id], actor)
         await self.repository.set_tournament_grant(
             tournament, target, TournamentGrant.CREW_COORDINATOR, granted=True
         )
@@ -734,7 +748,7 @@ class TournamentService(TournamentSignupMixin):
         if not await TenantMembershipService().is_member(target):
             raise ValueError(
                 f'{target.display_name or target.username} is not a member of this '
-                'community — add them on the Users tab first.'
+                'community — add them on the Members tab first.'
             )
         if await self.repository.is_player_enrolled(tournament, target):
             raise ValueError(

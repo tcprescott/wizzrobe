@@ -2,7 +2,9 @@
 
 Both players hear about a match once, when it becomes bookable: on the sync
 that opens it, or on the staff hand-assignment that links its last entrant.
-Re-syncing an unchanged bracket must stay quiet.
+Re-syncing an unchanged bracket must stay quiet, but a match whose players
+change (a result corrected on Challonge moved a different winner up) is
+announced to the new pair.
 """
 
 from unittest.mock import AsyncMock, MagicMock
@@ -80,6 +82,23 @@ class TestSyncAnnouncesOnce:
         service, _, actor, tournament = await _setup(_payload(p2_challonge_id='9999'))
         await service.sync_bracket(tournament.id, actor)
         assert sent == []
+
+    async def test_a_different_winner_moving_up_announces_again(self, db, sent):
+        service, api, actor, tournament = await _setup(_payload())
+        await User.create(discord_id=5, username='carol', challonge_user_id='1003')
+        await service.sync_bracket(tournament.id, actor)
+        assert len(sent) == 1
+
+        corrected = _payload()
+        corrected['participants'].append(
+            {'participant_id': '9003', 'name': 'Carol', 'challonge_user_id': '1003', 'username': 'carol'})
+        corrected['matches'][0]['player2_participant_id'] = '9003'
+        api.get_tournament_full.return_value = corrected
+        await service.sync_bracket(tournament.id, actor, force=True)
+        assert len(sent) == 2
+
+        await service.sync_bracket(tournament.id, actor, force=True)
+        assert len(sent) == 2
 
     async def test_a_failed_dm_never_fails_the_sync(self, db, monkeypatch):
         async def boom(cmatch):

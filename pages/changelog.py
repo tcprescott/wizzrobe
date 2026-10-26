@@ -51,7 +51,7 @@ def _entry(entry: ChangelogEntry) -> None:
 
 
 def create() -> None:
-    @public_page('/changelog')
+    @public_page('/changelog', scope='community')
     async def changelog() -> None:
         community = await TenantService.current_community_name() or 'Wizzrobe'
         ui.page_title(f"What's new — {community}")

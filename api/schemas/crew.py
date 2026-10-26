@@ -17,7 +17,7 @@ class CrewSignupInfo(BaseModel):
 
     id: int = Field(..., description="Id of the signup. Use it as `crew_id` on the `/crew` endpoints.")
     user: UserBase = Field(..., description="The person who signed up.")
-    approved: bool = Field(..., description="Whether an admin has approved the signup.")
+    approved: bool = Field(..., description="Whether staff have approved the signup.")
     acknowledged_at: Optional[datetime] = Field(
         None,
         description=(

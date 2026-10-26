@@ -6,6 +6,7 @@ tournament's bracket. Built once per change for every reader; answered
 statically when staff say so or a rush of arrivals trips it.
 """
 
+import asyncio
 from datetime import time, timedelta
 
 import pytest
@@ -16,6 +17,7 @@ import pages.watch_data as watch_data
 from application.services.system_config_service import (
     KEY_WATCH_AUTO_THRESHOLD,
     KEY_WATCH_MODE,
+    KEY_WATCH_STATIC_SIGNED_OUT,
     SystemConfigService,
 )
 from application.tenant_context import tenant_scope
@@ -129,6 +131,21 @@ class TestBuildWatchView:
         assert len(view.coming) == 2
         assert [m.stage for d in view.coming for m in d.matches] == ['Main', 'Main']
 
+    async def test_upcoming_rows_use_the_tournament_short_name(self, db):
+        with tenant_scope(DEFAULT_TEST_TENANT_ID):
+            stage = await Stage.create(name='Main', tenant_id=DEFAULT_TEST_TENANT_ID)
+            short = await Tournament.create(name='A Link to the Past Randomizer', short_name='ALTTPR')
+            plain = await Tournament.create(name='Cup')
+            await _match_on(stage, short, 12, days_ahead=1)
+            await _match_on(stage, plain, 12, days_ahead=2)
+            view = await watch_data.build_watch_view(DEFAULT_TEST_TENANT_ID)
+
+        rows = [m for d in view.coming for m in d.matches]
+        assert [m.tournament_short for m in rows] == ['ALTTPR', 'Cup']
+        assert rows[0].tournament == 'A Link to the Past Randomizer'
+        # The Tournaments panel keeps the full name; the tight rows use the short one.
+        assert 'wizs-muted">ALTTPR<' in render_watch_document(view)
+
     async def test_tournaments_with_a_bracket_or_a_streamed_match_are_listed(self, db):
         with tenant_scope(DEFAULT_TEST_TENANT_ID):
             stage = await Stage.create(name='Main', tenant_id=DEFAULT_TEST_TENANT_ID)
@@ -147,6 +164,55 @@ class TestBuildWatchView:
         assert by_name['Linked'].tone == 'live'
         assert by_name['Linked'].rules_url == 'https://example.com/rules'
         assert by_name['Streamed'].bracket_url == ''
+
+    async def test_a_tournament_shows_its_pool_plus_bonus(self, db):
+        from datetime import datetime, timezone
+        from decimal import Decimal
+
+        with tenant_scope(DEFAULT_TEST_TENANT_ID):
+            await Tournament.create(
+                name='Synced', bracket_url='https://example.challonge.com/a',
+                prize_pool=Decimal('1701'), prize_bonus=Decimal('500'), sglive_slug='wwr',
+                prize_pool_synced_at=datetime.now(timezone.utc),
+            )
+            await Tournament.create(
+                name='Typed', bracket_url='https://example.challonge.com/b', prize_pool=Decimal('50'),
+            )
+            await Tournament.create(name='None', bracket_url='https://example.challonge.com/c')
+            view = await watch_data.build_watch_view(DEFAULT_TEST_TENANT_ID)
+
+        by_name = {t.name: t for t in view.tournaments}
+        assert by_name['Synced'].prize_total == Decimal('2201')
+        assert by_name['Synced'].prize_synced
+        assert by_name['Typed'].prize_total == Decimal('50')
+        assert not by_name['Typed'].prize_synced
+        assert by_name['None'].prize_total is None
+
+    async def test_no_pool_shows_where_payouts_are_off(self, db):
+        from decimal import Decimal
+
+        from models import FeatureFlag, TenantFeatureFlag
+
+        with tenant_scope(DEFAULT_TEST_TENANT_ID):
+            await Tournament.create(
+                name='Cup', bracket_url='https://example.challonge.com/a', prize_pool=Decimal('100'),
+            )
+            await TenantFeatureFlag.filter(
+                tenant_id=DEFAULT_TEST_TENANT_ID, flag=FeatureFlag.PAYOUTS.value,
+            ).update(enabled=False)
+            view = await watch_data.build_watch_view(DEFAULT_TEST_TENANT_ID)
+
+        assert view.tournaments[0].prize_total is None
+
+    async def test_a_pool_change_refreshes_the_page(self, db):
+        before = watch_data.watch_version(DEFAULT_TEST_TENANT_ID)
+        watch_data.subscribe()
+        from application.events import Event, EventType, event_bus
+
+        with tenant_scope(DEFAULT_TEST_TENANT_ID):
+            event_bus.publish(Event.create(EventType.TOURNAMENT_PRIZE_POOL_UPDATED, {'tournament_id': 1}, None))
+        await asyncio.sleep(0)
+        assert watch_data.watch_version(DEFAULT_TEST_TENANT_ID) > before
 
     async def test_one_build_serves_every_reader_until_something_changes(self, db, monkeypatch):
         calls = []
@@ -184,6 +250,31 @@ class TestRender:
         assert 'javascript:' not in body
         assert '&lt;b&gt;Com&lt;/b&gt;' in body
 
+    def test_a_prize_pool_draws_as_a_chip_with_the_sglive_footnote(self):
+        from decimal import Decimal
+
+        body = render_watch_document(WatchView(
+            community='C',
+            tournaments=[
+                WatchTournament(id=1, name='Cup', prize_total=Decimal('2201'), prize_synced=True),
+                WatchTournament(id=2, name='Plain'),
+            ],
+        ))
+        assert 'wiz-chip--ok' in body
+        assert '$2,201 prize pool' in body
+        assert body.count('prize pool</span>') == 1
+        assert 'sglive.speedgaming.org</a> every 15 minutes' in body
+
+    def test_no_footnote_without_a_synced_pool(self):
+        from decimal import Decimal
+
+        body = render_watch_document(WatchView(
+            community='C',
+            tournaments=[WatchTournament(id=1, name='Cup', prize_total=Decimal('50'))],
+        ))
+        assert '$50 prize pool' in body
+        assert 'sglive' not in body
+
     def test_it_updates_in_place_instead_of_reloading(self):
         body = render_watch_document(
             WatchView(community='C'), root_path='/t/sgl', refresh_url='/t/sgl/live/static',
@@ -204,11 +295,53 @@ class TestRender:
 
 
 class TestStaticSwitch:
+    @pytest.fixture(autouse=True)
+    def _signed_in(self, monkeypatch):
+        monkeypatch.setattr(static_watch, '_signed_in', lambda: True)
+
     def _request(self) -> Request:
         return Request({
             'type': 'http', 'method': 'GET', 'path': '/live', 'root_path': '/t/default',
             'headers': [], 'query_string': b'',
         })
+
+    async def test_signed_out_stays_live_until_staff_switch_it(self, db, monkeypatch):
+        monkeypatch.setattr(static_watch, '_signed_in', lambda: False)
+        with tenant_scope(DEFAULT_TEST_TENANT_ID):
+            assert await static_watch.serve_static_arrival(self._request()) is None
+        assert live_audience.snapshot(DEFAULT_TEST_TENANT_ID).arrivals_last_minute == 1
+
+    async def test_signed_out_gets_static_and_signed_in_gets_live(self, db, monkeypatch):
+        async def fake_view(tenant_id):
+            return WatchView(community='C')
+
+        monkeypatch.setattr(static_watch, 'get_watch_view', fake_view)
+        with tenant_scope(DEFAULT_TEST_TENANT_ID):
+            await SystemConfigService.set_validated(KEY_WATCH_STATIC_SIGNED_OUT, 'true', await _staff())
+            assert await static_watch.serve_static_arrival(self._request()) is None
+            monkeypatch.setattr(static_watch, '_signed_in', lambda: False)
+            response = await static_watch.serve_static_arrival(self._request())
+        assert response is not None
+        assert b'data-refresh-url="/t/default/live/static"' in response.body
+        assert response.headers['Cache-Control'] == 'private, no-cache'
+        assert live_audience.snapshot(DEFAULT_TEST_TENANT_ID).arrivals_last_minute == 1
+
+    async def test_signed_out_static_stays_shared_when_static_for_everyone(self, db, monkeypatch):
+        async def fake_view(tenant_id):
+            return WatchView(community='C')
+
+        monkeypatch.setattr(static_watch, 'get_watch_view', fake_view)
+        monkeypatch.setattr(static_watch, '_signed_in', lambda: False)
+        with tenant_scope(DEFAULT_TEST_TENANT_ID):
+            staff = await _staff()
+            await SystemConfigService.set_validated(KEY_WATCH_STATIC_SIGNED_OUT, 'true', staff)
+            await SystemConfigService.set_validated(KEY_WATCH_MODE, 'static', staff)
+            response = await static_watch.serve_static_arrival(self._request())
+        assert response.headers['Cache-Control'].startswith('public')
+
+    def test_outside_a_request_nobody_is_signed_in(self, monkeypatch):
+        monkeypatch.undo()
+        assert static_watch._signed_in() is False
 
     async def test_live_by_default_and_every_arrival_counts(self, db):
         with tenant_scope(DEFAULT_TEST_TENANT_ID):
@@ -256,6 +389,17 @@ class TestAudience:
         assert snap.peak == 2
         assert snap.peak_at is not None
 
+    def test_leaving_twice_counts_once_and_the_page_also_leaves_on_delete(self):
+        import inspect
+
+        import pages.live_watch as live_watch
+
+        live_audience.viewer_joined(5, 'a')
+        live_audience.viewer_left(5, 'a')
+        live_audience.viewer_left(5, 'a')
+        assert live_audience.snapshot(5).live_viewers == 0
+        assert 'client.on_delete(lambda: live_audience.viewer_left' in inspect.getsource(live_watch)
+
 
 class TestRoutes:
     def test_registered_anonymous_and_cookie_free_only_when_public(self):
@@ -296,3 +440,81 @@ def test_a_twitch_stage_names_its_channel_as_the_link_spells_it():
                            channel='speedgaming', channel_name='SpeedGaming')],
     ))
     assert 'twitch.tv/SpeedGaming' in body
+
+
+def test_twitch_stages_are_tiles_led_by_the_stream_still():
+    from datetime import datetime, timedelta, timezone
+
+    started = datetime.now(timezone.utc) - timedelta(minutes=42)
+    body = render_watch_document(WatchView(
+        community='C',
+        stages=[
+            WatchStage(id=1, name='Main', stream_url='https://twitch.tv/SpeedGaming',
+                       channel='speedgaming', channel_name='SpeedGaming',
+                       on_now=WatchMatch(time='20:00', players='A vs B', started_at=started)),
+            WatchStage(id=2, name='Side', stream_url='https://twitch.tv/sg2', channel='sg2',
+                       on_now=WatchMatch(time='21:00', players='C vs D')),
+        ],
+    ))
+    assert 'previews-ttv/live_user_speedgaming-640x360.jpg' in body
+    assert 'referrerpolicy="no-referrer"' in body
+    assert body.count('class="wiz-onair"') == 1
+    assert f'data-since="{int(started.timestamp())}"' in body
+    assert '42 min in' in body
+    assert 'Getting ready' in body
+    assert '1 live' in body
+
+
+def test_tracking_and_commentary_lines_use_different_icons():
+    import re
+
+    body = render_watch_document(WatchView(
+        community='C',
+        stages=[WatchStage(id=1, name='Main', on_now=WatchMatch(
+            time='20:00', players='A vs B', commentators='Tony', trackers='vidya'))],
+    ))
+    crew = re.findall(r'class="wiz-tile__crew">(<svg.*?</svg>)<span>(\w+):', body)
+    icons = {label: svg for svg, label in crew}
+    assert set(icons) == {'Commentary', 'Tracking'}
+    assert icons['Commentary'] != icons['Tracking']
+
+
+def test_live_for_counts_minutes_then_hours():
+    from datetime import datetime, timedelta, timezone
+
+    from theme.watch_view import live_for
+
+    now = datetime(2026, 10, 22, 12, 0, tzinfo=timezone.utc)
+    assert live_for(None, now) == ''
+    assert live_for(now - timedelta(minutes=5), now) == '5 min in'
+    assert live_for(now - timedelta(minutes=72), now) == '1 h 12 min in'
+    assert live_for(now + timedelta(minutes=1), now) == '0 min in'
+
+
+class TestReminderBells:
+    async def test_signed_out_viewers_get_no_bells(self, db):
+        from theme.watch_live import WatchReminders
+
+        assert await WatchReminders.load(None) is None
+
+    async def test_a_viewer_s_bells_start_from_what_they_already_watch(self, db):
+        from application.services import MatchWatcherService
+        from theme.watch_live import WatchReminders
+
+        with tenant_scope(DEFAULT_TEST_TENANT_ID):
+            stage = await Stage.create(name='Main', tenant_id=DEFAULT_TEST_TENANT_ID)
+            cup = await Tournament.create(name='Cup')
+            watched = await _match_on(stage, cup, 12, days_ahead=1)
+            await _match_on(stage, cup, 14, days_ahead=1)
+            viewer = await make_user(discord_id=8501, username='viewer')
+            await MatchWatcherService().watch(watched.id, viewer)
+            reminders = await WatchReminders.load(viewer)
+
+        assert reminders.watched == {watched.id}
+
+
+def test_the_stage_reminder_pings_watchers_by_default():
+    from application.services.notification_catalog import STAGE_REMINDER
+    from models import NotificationMode, NotificationRecipient
+
+    assert STAGE_REMINDER.defaults[NotificationRecipient.WATCHERS] == NotificationMode.PING

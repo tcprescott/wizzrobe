@@ -54,6 +54,7 @@ async def _tick() -> None:
         links,
         _sync,
         tenant_id_of=lambda link: link.tenant_id,
+        event_id_of=lambda link: link.tournament.event_id,
         logger=logger,
         describe=lambda link: f'event link {getattr(link, "id", None)}',
     )

@@ -27,11 +27,16 @@ import asyncio
 import importlib
 import logging
 import sys
+from pathlib import Path
+
+# Ensure project root is on the path when run as a script
+sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from tortoise import Tortoise
 
 # Worker name -> module holding `_tick`. Keep in step with the
-# `run_worker_loop(...)` call sites (`grep -rn run_worker_loop application/`).
+# `run_worker_loop(...)` call sites; tests/test_registry_drift.py fails when a
+# worker is missing here.
 WORKERS = {
     'discord_event': 'application.services.discord.discord_event_worker',
     'seed_roll': 'application.services.seed_roll_worker',
@@ -42,8 +47,17 @@ WORKERS = {
     'service_health': 'application.services.service_health_worker',
     'race_room': 'application.services.race_room_worker',
     'check_in_sync': 'application.services.check_in_sync_worker',
+    'sglive_pool': 'application.services.sglive_pool_worker',
     'startgg_sync': 'application.services.startgg_sync_worker',
+    'challonge_sync': 'application.services.challonge_sync_worker',
+    'data_export': 'application.services.exports.data_export_worker',
     'community_event_reminder': 'application.services.community_event_reminder',
+    'discord_role_sync': 'application.services.discord.discord_role_sync_worker',
+    'telegram_bot': 'application.services.telegram_bot_worker',
+    'active_users_metrics': 'application.services.active_users_metrics',
+    'telemetry_retention': 'application.services.telemetry_retention',
+    'metrics_sampler': 'application.utils.metrics_sampler',
+    'worker_watchdog': 'application.utils.worker_watchdog',
 }
 
 

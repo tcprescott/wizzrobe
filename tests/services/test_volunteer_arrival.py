@@ -26,16 +26,16 @@ class _RecordingDiscord:
     calls: ClassVar[list] = []
 
     def send_dm_with_volunteer_arrival_buttons(
-        self, user_id, message, assignment_id, embed=None, link=None,
+        self, user_id, message, assignment_id, embed=None, link=None, notice=None,
     ):
         self.calls.append((assignment_id, link))
         return _noop()
 
-    def send_dm(self, user_id, message, view_factory=None, embed=None, link=None):
+    def send_dm(self, user_id, message, view_factory=None, embed=None, link=None, notice=None):
         return _noop()
 
     def send_dm_with_volunteer_acknowledgment_button(
-        self, user_id, message, assignment_id, embed=None, link=None,
+        self, user_id, message, assignment_id, embed=None, link=None, notice=None,
     ):
         return _noop()
 

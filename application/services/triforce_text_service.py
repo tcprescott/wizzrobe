@@ -12,6 +12,7 @@ import random
 import re
 from typing import List, Optional
 
+from application.event_context import event_scoped
 from application.feature_flags import requires_feature
 from application.repositories.triforce_text_repository import TriforceTextRepository
 from application.services.audit_service import AuditActions, AuditService
@@ -95,11 +96,10 @@ class TriforceTextService:
     @requires_feature(FeatureFlag.TRIFORCE_TEXTS)
     async def list_supporting_tournaments(self) -> List[Tournament]:
         """Active tournaments whose generator can embed triforce texts."""
-        return await Tournament.filter(
+        return await event_scoped(Tournament.filter(
             is_active=True,
             seed_generator__in=list(SeedGenerationService.TRIFORCE_TEXT_RANDOMIZERS),
-            tenant_id=require_tenant_id(),
-        ).order_by('name')
+        )).order_by('name')
 
     @requires_feature(FeatureFlag.TRIFORCE_TEXTS)
     async def list_user_submissions(
@@ -115,12 +115,19 @@ class TriforceTextService:
         self,
         tournament_id: int,
         status: Optional[str] = None,
+        *,
+        actor: Optional[User],
     ) -> List[TriforceText]:
-        """List submissions for moderation.
+        """List submissions for moderation: staff, or an admin of this tournament.
 
         ``status`` may be ``None`` (all), ``'pending'``, ``'approved'``, or
         ``'rejected'``.
         """
+        if not (
+            await AuthService.is_staff(actor)
+            or await AuthService.is_tournament_admin(actor, tournament_id)
+        ):
+            raise PermissionError('You do not have permission to moderate this pool.')
         tournament = await Tournament.get_or_none(id=tournament_id, tenant_id=require_tenant_id())
         if tournament is None:
             return []

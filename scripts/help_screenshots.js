@@ -30,6 +30,7 @@
  *     "padding": 8,                  // px of page around the cropped element
  *     "fullPage": false,             // whole scrollable page instead of the viewport (no selector)
  *     "hide": [".some-banner"],      // hidden before capture, on top of the defaults
+ *     "remove": [".some-banner"],    // taken out of the layout (display: none) so nothing gapes
  *     "annotate": [                  // numbered red call-outs drawn over controls
  *       { "selector": "text=Sign up", "n": 1 },   // optional "tab": "top" | "bottom"
  *     ],
@@ -42,6 +43,10 @@
  *     ]
  *   }
  * DEFAULTS below supplies any field an entry leaves out.
+ *
+ * An entry with "device" instead of "path" is a photo of a phone's own UI (the
+ * iOS Add to Home Screen sheet, say) that no browser here can render. The
+ * script skips it; "device" says what it shows and how to retake it by hand.
  *
  * Shots are taken in the light theme with reduced motion. WebP is encoded by
  * Chromium itself (canvas.toDataURL), so this needs nothing beyond the global
@@ -259,10 +264,12 @@ async function toWebp(encoder, png) {
 
 (async () => {
   const args = parseArgs(process.argv.slice(2));
-  const shots = loadManifest()
+  const matched = loadManifest()
     .filter((s) => !args.only || args.only === s.slug || args.only === `${s.slug}/${s.name}`);
+  for (const s of matched.filter((s) => s.device)) console.log(`skip ${s.slug}/${s.name}  (device shot: ${s.device})`);
+  const shots = matched.filter((s) => !s.device);
   if (!shots.length) {
-    console.error(`no manifest entries match "${args.only}"`);
+    console.error(`no capturable manifest entries match "${args.only}"`);
     process.exit(1);
   }
 
@@ -299,6 +306,10 @@ async function toWebp(encoder, png) {
       await runSetup(page, shot.setup);
       const hide = DEFAULT_HIDE.concat(shot.hide || []);
       await page.addStyleTag({ content: `${hide.join(', ')} { visibility: hidden !important; }` });
+      if (shot.remove && shot.remove.length) {
+        await page.addStyleTag({ content: `${shot.remove.join(', ')} { display: none !important; }` });
+        await page.waitForTimeout(300);
+      }
       const png = await capturePng(page, shot);
       const webp = await toWebp(encoder, png);
       const out = path.join(OUT_ROOT, shot.slug, `${shot.name}.webp`);

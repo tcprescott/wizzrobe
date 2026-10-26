@@ -16,14 +16,15 @@ def _local(hour, day=15, month=1):
 
 
 def make_match(scheduled_hour=10, player_count=2, duration_min=90, tournament_duration=None,
-               user_ids=None, match_id=None, day=15):
-    t = SimpleNamespace(average_match_duration=tournament_duration, name='Test')
+               user_ids=None, match_id=None, day=15, in_room=True, stage_id=None):
+    t = SimpleNamespace(average_match_duration=tournament_duration, name='Test', uses_tournament_room=in_room)
     ids = list(user_ids) if user_ids is not None else [None] * player_count
     return SimpleNamespace(
         id=match_id,
         scheduled_at=_local(scheduled_hour, day).astimezone(timezone.utc),
         players=[SimpleNamespace(user_id=uid) for uid in ids],
         tournament=t,
+        stage_id=stage_id,
     )
 
 
@@ -291,6 +292,30 @@ class TestBestCandidate:
         )
         assert result is None
 
+    def test_matches_played_outside_the_room_take_no_room(self, service):
+        duration = timedelta(hours=2)
+        elsewhere = [make_match(10, player_count=39, in_room=False)]
+        result = service._best_candidate(
+            [(_local(10), _local(12))], [1, 2], {}, elsewhere, duration, capacity=40,
+        )
+        assert result.astimezone(EASTERN_TZ).hour == 10
+
+    def test_a_stage_match_outside_the_room_still_counts(self, service):
+        duration = timedelta(hours=2)
+        on_stage = [make_match(10, player_count=39, in_room=False, stage_id=1)]
+        result = service._best_candidate(
+            [(_local(10), _local(12))], [1, 2], {}, on_stage, duration, capacity=40,
+        )
+        assert result is None
+
+    def test_a_booking_outside_the_room_ignores_the_cap(self, service):
+        duration = timedelta(hours=2)
+        full = [make_match(10, player_count=39)]
+        result = service._best_candidate(
+            [(_local(10), _local(12))], [1, 2], {}, full, duration, capacity=40, takes_room=False,
+        )
+        assert result.astimezone(EASTERN_TZ).hour == 10
+
     def test_never_double_books_a_player(self, service):
         duration = timedelta(minutes=90)
         candidates = [(_local(10), _local(10) + duration), (_local(13), _local(13) + duration)]
@@ -385,3 +410,20 @@ class TestBestCandidate:
         )
         assert result is not None
         assert result.astimezone(EASTERN_TZ).hour == 14
+
+
+class TestInStageHours:
+    def test_keeps_only_slots_inside_daily_hours(self):
+        from datetime import time
+
+        from application.services.round_windows import RoundWindow
+
+        window = RoundWindow(daily_from=time(18), daily_until=time(23))
+        hour = timedelta(hours=1)
+        slots = [(_local(h), _local(h) + hour) for h in (12, 18, 22, 23)]
+        kept = MatchSuggestionService._in_stage_hours(slots, window, hour, EASTERN_TZ)
+        assert [s.hour for s, _ in kept] == [18, 22]
+
+    def test_no_window_keeps_everything(self):
+        slots = [(_local(12), _local(13))]
+        assert MatchSuggestionService._in_stage_hours(slots, None, timedelta(hours=1), EASTERN_TZ) == slots

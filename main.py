@@ -30,18 +30,19 @@ import frontend
 # would otherwise win the race against the basicConfig below and strip the log
 # format for the whole process.
 import mcpserver
-from api.openapi_docs import api_description
+from api.openapi_docs import api_description, warm_openapi
 from api.openapi_docs import install as install_openapi_docs
 from application.events import dispatch_queue as event_dispatch_queue
-from application.events import event_bus
-from application.services import TelemetryService, WebhookService, web_push_service
+from application.events import event_bus, webhook_queue
+from application.services import PersonalWebhookService, TelemetryService, WebhookService, web_push_service
 from application.services.discord import discord_queue
 from application.services.discord.discord_service import get_discord_bot
 from application.services.match import stage_reminder
+from application.services.personal_webhook_service import SUBSCRIBABLE_EVENT_TYPES
 from application.services.volunteer import volunteer_reminder
-from application.utils import metrics_sampler
+from application.utils import element_cycles, gc_monitor, memory_census, metrics_sampler, worker_watchdog
 from application.utils.easter_eggs import random_fact
-from application.utils.environment import loop_watchdog_enabled
+from application.utils.environment import env_flag, loop_watchdog_enabled
 from application.utils.http_headers import header_safe
 from application.utils.log_levels import default_root_level, register_trace_level
 from application.utils.loop_watchdog import watchdog as loop_watchdog
@@ -117,6 +118,31 @@ def _log_bot_task_result(task: asyncio.Task) -> None:
         logger.error('Discord bot task exited with an exception', exc_info=exc)
 
 
+_BOT_RETRY_SECONDS = 30
+
+
+async def _run_discord_bot(bot, token: str) -> None:
+    """Keep trying to bring the bot up until it connects.
+
+    discord.py reconnects on its own once logged in, but ``login()`` runs outside
+    that loop: one failed attempt (Discord down while the container restarts) left
+    the bot dead, and every DM and button with it, until the next restart.
+    """
+    import discord
+    while True:
+        try:
+            await bot.start(token)
+            return
+        except discord.LoginFailure:
+            raise
+        except Exception:
+            logger.warning('Discord bot could not connect; retrying in %ss',
+                           _BOT_RETRY_SECONDS, exc_info=True)
+        await bot.close()
+        bot.clear()
+        await asyncio.sleep(_BOT_RETRY_SECONDS)
+
+
 async def init_discord_bot() -> None:
     """
     Initialize the Discord bot.
@@ -128,7 +154,7 @@ async def init_discord_bot() -> None:
     token = os.environ.get('DISCORD_TOKEN')
     bot = get_discord_bot()
     if token:
-        _bot_task = asyncio.create_task(bot.start(token))
+        _bot_task = asyncio.create_task(_run_discord_bot(bot, token))
         _bot_task.add_done_callback(_log_bot_task_result)
     else:
         logger.warning('DISCORD_TOKEN not set. Discord features will not work.')
@@ -164,6 +190,18 @@ async def _apply_stored_log_levels() -> None:
     except Exception:
         logger.exception('Could not apply stored log levels; continuing with defaults')
 
+async def _load_browser_monitoring() -> None:
+    """Load the browser Sentry settings a super-admin set on /platform.
+
+    Same rule as the log levels: a failure leaves the defaults in place rather
+    than stopping boot.
+    """
+    from application.services import BrowserMonitoringService
+    try:
+        await BrowserMonitoringService().load()
+    except Exception:
+        logger.exception('Could not load browser monitoring settings; continuing with defaults')
+
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     """
@@ -176,6 +214,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         await init_db()
     with _startup_step('stored log levels'):
         await _apply_stored_log_levels()
+        await _load_browser_monitoring()
     with _startup_step('discord bot'):
         # Importing discordbot registers its interaction handlers and DM view
         # factories with discord_service's registries — the one-way wiring that
@@ -211,11 +250,9 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
             discord_event_worker.start()
         # Platform external-service health monitor: periodically probes every external
         # dependency so the /platform board is warm and alerts fire on transitions.
-        # Gated by SERVICE_HEALTH_ENABLED (off by default).
+        # Always on; a dependency in mock mode reports "mock" and is not contacted.
         from application.services import service_health_worker
-        from application.utils.environment import service_health_enabled
-        if service_health_enabled():
-            service_health_worker.start()
+        service_health_worker.start()
         # Async-qualifier run expiry: forfeits runs a player drew and abandoned, after
         # one warning. Ungated by an env switch — it only ever touches tenants that
         # have the qualifier feature on, and a tenant without it has no runs to find.
@@ -232,10 +269,28 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         # and skips tenants with EVENT_CHECK_IN off.
         from application.services import check_in_sync_worker
         check_in_sync_worker.start()
+        # sglive prize pools: reads sglive.speedgaming.org every 15 minutes into
+        # linked tournaments' pools. Idle until staff link one; skips tenants
+        # with PAYOUTS off.
+        from application.services import sglive_pool_worker
+        sglive_pool_worker.start()
         # start.gg mirror: re-reads linked events every two minutes (no webhooks).
         # Idle without STARTGG_API_TOKEN; skips tenants with STARTGG off.
         from application.services import startgg_sync_worker
         startgg_sync_worker.start()
+        # Challonge auto-sync: re-reads unfinished linked brackets on the interval
+        # each community picks (off by default). Skips tenants with CHALLONGE off.
+        from application.services import challonge_sync_worker
+        challonge_sync_worker.start()
+        # Data exports: builds queued exports one at a time (Reports → Exports)
+        # and deletes them after three days. Idle until someone asks for one.
+        from application.services import data_export_worker
+        data_export_worker.start()
+        # Discord roles Wizzrobe hands out: syncs a community soon after a rule
+        # change or a match/enrollment/badge event, and every 10 minutes in full.
+        # Only communities with rules; skips tenants with DISCORD_ROLE_SYNC off.
+        from application.services import discord_role_sync_worker
+        discord_role_sync_worker.start()
         # Telegram bot: binds chats from profile Connect links and answers /stop.
         # Only with a bot token, and never against a mocked Discord.
         from application.services import telegram_bot_worker
@@ -256,17 +311,39 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         # Central event bus: start the async-subscriber worker and register the
         # webhook delivery subscriber (fans published events out to staff webhooks).
         event_dispatch_queue.start()
+        webhook_queue.start()
         event_bus.subscribe_async(WebhookService().deliver_event)
+        # Members' own webhooks: only the catalogue events, each checked against
+        # what the owner can see when it is sent.
+        event_bus.subscribe_async(
+            PersonalWebhookService().deliver_event, event_types=SUBSCRIBABLE_EVENT_TYPES,
+        )
         # Engagement telemetry: mirror every published domain event into the
         # TelemetryEvent log (page views / interactions are captured separately from
         # the presentation layer). No event_types filter — record them all.
         event_bus.subscribe_async(TelemetryService().record_event)
     # Started after boot so migrations and the first imports don't read as stalls.
     if loop_watchdog_enabled():
+        gc_monitor.install()
         loop_watchdog.start()
+    warm_openapi(app)
     metrics_sampler.start()
-    from application.services import active_users_metrics
+    worker_watchdog.start()
+    from application.services import active_users_metrics, telemetry_retention
     active_users_metrics.start()
+    telemetry_retention.start()
+    # Everything alive now lives as long as the process; freezing it keeps every
+    # full collection from re-walking it (a third off each pause, SGLMAN-20/22).
+    element_cycles.install()
+    if env_flag('GC_FREEZE', default=True):
+        logger.info('startup: froze %d objects out of garbage collection', gc_monitor.freeze())
+        # Live page trees grow every pass with each open tab; freeze what each
+        # full pass leaves so the next one skips it.
+        if env_flag('GC_REFREEZE', default=True):
+            thaw_minutes = float(os.environ.get('GC_THAW_MINUTES') or gc_monitor.THAW_SECONDS / 60)
+            gc_monitor.refreeze_after_full_passes(asyncio.get_running_loop(), thaw_minutes * 60)
+    if census_dump := os.environ.get('MEMORY_CENSUS_DUMP'):
+        memory_census.dump_on_signal(census_dump)
     # The MCP transport's session manager owns a task group that each per-request
     # server task is started on; entering it here (and exiting it around the
     # yield) means /mcp stops accepting calls before the workers below tear down,
@@ -277,10 +354,15 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         yield
     try:
         await active_users_metrics.stop()
+        await telemetry_retention.stop()
         await race_room_worker.stop()
         await seed_roll_worker.stop()
         await check_in_sync_worker.stop()
+        await sglive_pool_worker.stop()
         await startgg_sync_worker.stop()
+        await challonge_sync_worker.stop()
+        await data_export_worker.stop()
+        await discord_role_sync_worker.stop()
         await telegram_bot_worker.stop()
         await speedgaming_sync_worker.stop()
         await discord_event_worker.stop()
@@ -291,11 +373,13 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         await stage_reminder.stop()
         await community_event_reminder.stop()
         await event_dispatch_queue.stop()
+        await webhook_queue.stop()
         await discord_queue.stop()
         await web_push_service.aclose_http_client()
         await close_discord_bot()
         await close_db()
     finally:
+        await worker_watchdog.stop()
         await metrics_sampler.stop()
         loop_watchdog.stop()
         await flush_sentry()

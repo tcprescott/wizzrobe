@@ -31,7 +31,7 @@ async def _tick() -> None:
     from application.services.discord.discord_event_reconciler_service import DiscordEventReconcilerService
     from application.services.user_service import UserService
 
-    tenants = [t for t in await TenantRepository.list_all() if t.discord_guild_id is not None]
+    tenants = [t for t in await TenantRepository.list_all() if t.discord_guild_id is not None and t.is_active]
     if not tenants:
         return
 
@@ -48,12 +48,14 @@ async def _tick() -> None:
         tenants,
         _reconcile,
         tenant_id_of=lambda tenant: tenant.id,
+        each_live_event=True,
         logger=logger,
         describe=lambda tenant: f'tenant {getattr(tenant, "id", None)}',
     )
 
 
-_loop = run_worker_loop(_tick, TICK_SECONDS, 'Discord events reconcile', logger)
+# Creating a tournament's worth of scheduled events waits out Discord's rate limits.
+_loop = run_worker_loop(_tick, TICK_SECONDS, 'Discord events reconcile', logger, tick_timeout=900)
 
 
 def start() -> None:

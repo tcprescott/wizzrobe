@@ -1,9 +1,11 @@
 name: Publish Container
 
+# Paused: production deploys are a git pull + restart and never use the image.
+# Run it by hand from the Actions tab if an image is needed; to resume automatic
+# builds, restore the `push` trigger (main + `v*` tags) and drop `push` from
+# test.yml so a main push doesn't run the suite twice.
 on:
-  push:
-    branches: [main]
-    tags: ["v*"]
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -21,7 +23,7 @@ jobs:
   test:
     # Gate the image build on a green suite so a red main never ships :latest.
     # The whole suite, not a subset of it — calling test.yml means the gate is
-    # lint + guardrails + pytest + the PostgreSQL and migration lanes, and it
+    # lint + guardrails + pytest + Swiss + the PostgreSQL and browser lanes, and it
     # cannot drift away from what a PR was checked against.
     uses: ./.github/workflows/test.yml
 
@@ -36,6 +38,10 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v7
+
+      - name: Read commit date
+        id: commit
+        run: echo "date=$(git log -1 --format=%cI)" >> "$GITHUB_OUTPUT"
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v4
@@ -68,5 +74,7 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           build-args: |
             GIT_SHA=${{ github.sha }}
+            GIT_COMMIT_DATE=${{ steps.commit.outputs.date }}
+            APP_VERSION=${{ github.ref_type == 'tag' && github.ref_name || '' }}
           cache-from: type=gha
           cache-to: type=gha,mode=max

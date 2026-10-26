@@ -1,4 +1,8 @@
 import random
+from dataclasses import dataclass, field
+from datetime import datetime
+
+from application.utils.timezone import now_local
 
 CAT_FACT_SECTIONS: dict[str, list[str]] = {
     'Anatomy': [
@@ -280,9 +284,281 @@ CAT_FACT_SECTIONS: dict[str, list[str]] = {
 CAT_FACTS = [fact for facts in CAT_FACT_SECTIONS.values() for fact in facts]
 
 
-def random_fact() -> str:
-    """A random cat fact. Cats are the only trivia this app deals in."""
-    return random.choice(CAT_FACTS)
+HADESTOWN_FACT_SECTIONS: dict[str, list[str]] = {
+    'From Vermont to Broadway': [
+        "Hadestown started in 2006 as a community theatre show in Barre, Vermont, staged by Anaïs Mitchell and a group of friends.",
+        "Anaïs Mitchell played Eurydice herself in those first Vermont performances.",
+        "Artist Ben T. Matchstick helped make the 2006 version and played Hermes in it.",
+        "Composer Michael Chorney worked on the music in Vermont in 2006, and won a Tony for the Broadway orchestrations 13 years later.",
+        "In 2007 a reworked Hadestown toured small venues around Vermont and Massachusetts.",
+        "Before it was a musical, Hadestown was a concept album, released in 2010 on Ani DiFranco's label, Righteous Babe Records.",
+        "On the 2010 album, Justin Vernon of Bon Iver sang Orpheus and Ani DiFranco sang Persephone.",
+        "Folk singer Greg Brown sang Hades on the 2010 album, and Mitchell sang Eurydice.",
+        "The Haden Triplets, daughters of jazz bassist Charlie Haden, sang the Fates on the 2010 album.",
+        "Mitchell met director Rachel Chavkin in 2012, and the two spent years reshaping the album into a stage show.",
+        "The first New York production opened at New York Theatre Workshop in May 2016.",
+        "Mitchell wrote around 15 new songs for the 2016 Off-Broadway version.",
+        "On the way to Broadway, Hadestown played the Citadel Theatre in Edmonton in 2017.",
+        "Hadestown played the Olivier Theatre at London's National Theatre from November 2018 to January 2019.",
+        "Hadestown opened on Broadway at the Walter Kerr Theatre on April 17, 2019.",
+        "Broadway's shutdown stopped Hadestown on March 12, 2020. It came back on September 2, 2021.",
+        "Mitchell has said Les Misérables inspired her to write a show about both romance and politics.",
+        "Mitchell's line about the show: \"It's a love story, but politics really is romantic.\"",
+        "Mitchell published the show's lyrics, with notes on how she wrote them, as Working on a Song in 2020.",
+        "Anaïs Mitchell also plays in the folk band Bonny Light Horseman.",
+    ],
+    'On stage': [
+        "The original Broadway cast: Reeve Carney as Orpheus, Eva Noblezada as Eurydice, Amber Gray as Persephone, Patrick Page as Hades and André De Shields as Hermes.",
+        "Jewelle Blackman, Yvette González-Nacer and Kay Trinidad were Broadway's original Fates.",
+        "Hermes is the show's narrator. In Greek myth, he's the god who guides souls to the underworld.",
+        "The band plays on stage, in plain view, for the whole show.",
+        "The Broadway band is seven players: piano, guitar, violin, cello, bass, drums and trombone.",
+        "Rachel Hauck's set mixes a Greek amphitheatre with a New Orleans jazz hall.",
+        "Hadestown's stage is built around turntables, so the cast can walk in circles without going anywhere.",
+        "When the show goes underground, the back wall splits open onto a wall of rusty pipes.",
+        "The workers' swinging lamps in \"Wait for Me\" are one of the show's best-known images.",
+        "Reeve Carney, Broadway's first Orpheus, had played Peter Parker in Spider-Man: Turn Off the Dark.",
+        "Before Eurydice, Eva Noblezada was Tony-nominated as Kim in the 2017 Miss Saigon revival.",
+        "André De Shields, the first Hermes, had starred as the Wizard in the original 1975 Broadway run of The Wiz.",
+        "Lillias White became the first woman to play Hermes on Broadway, in September 2022.",
+        "Ani DiFranco, Persephone on the 2010 album, later played the role on Broadway too.",
+        "Jordan Fisher, Lola Tung, Norbert Leo Butz and Allison Russell are among the actors who later joined the Broadway cast.",
+        "In the show, Hades rules a factory town down below, powered by the workers he lures there.",
+        "Persephone's seasons are part of the plot: Hades keeps calling her back early, and the world above gets colder.",
+        "Rachel Chavkin has said climate change was part of the show from the beginning.",
+    ],
+    'The songs': [
+        "Broadway's Hadestown has 33 numbers: 16 in Act One and 17 in Act Two.",
+        "The show opens with Hermes leading \"Road to Hell.\"",
+        "Near the end, Hermes's reprise of \"Road to Hell\" admits it's a sad song, and says they sing it anyway.",
+        "Act One ends with \"Why We Build the Wall,\" sung by Hades.",
+        "Mitchell wrote \"Why We Build the Wall\" in 2006, about a decade before border walls became a campaign slogan.",
+        "Act Two opens with Persephone's \"Our Lady of the Underground.\"",
+        "Orpheus's song \"Epic\" comes in three parts, spread across the whole show.",
+        "\"Epic III\" is the song Orpheus sings to move Hades, and it makes Hades remember falling for Persephone.",
+        "\"Hey, Little Songbird\" is Hades tempting Eurydice down to Hadestown.",
+        "\"Livin' It Up on Top\" is Persephone's party, thrown while she's above ground for the summer.",
+        "The Fates sing \"Any Way the Wind Blows,\" \"Nothing Changes\" and \"Word to the Wise.\"",
+        "\"Doubt Comes In\" is the walk out of the underworld, with the Fates singing Orpheus's doubts at him.",
+        "\"Flowers\" is Eurydice's song, sung from Hadestown.",
+        "The show ends with \"We Raise Our Cups,\" a toast to Orpheus.",
+    ],
+    'Awards and records': [
+        "Hadestown had 14 Tony nominations in 2019, more than any other show that year.",
+        "It won eight Tonys, including Best Musical.",
+        "The other seven: Score, Direction, Featured Actor, Orchestrations, and Scenic, Lighting and Sound Design.",
+        "Anaïs Mitchell won the Tony for Best Original Score.",
+        "Rachel Chavkin won Best Direction of a Musical. In her speech she said she wished she wasn't the only woman directing a musical on Broadway that season.",
+        "André De Shields won his first Tony for Hermes, at 73.",
+        "De Shields's acceptance speech gave his rules for longevity, including \"slowly is the fastest way to get to where you want to be.\"",
+        "Another De Shields rule from that speech: \"The top of one mountain is the bottom of the next, so keep climbing.\"",
+        "Bradley King won the lighting Tony, and Nevin Steinberg and Jessica Paz won for sound.",
+        "Michael Chorney and Todd Sickafoose shared the Tony for orchestrations.",
+        "The Broadway cast album won the Grammy for Best Musical Theater Album in January 2020.",
+        "On January 4, 2023, Hadestown became the longest-running show in the Walter Kerr Theatre's history, passing Proof.",
+    ],
+    'Around the world': [
+        "The first US tour started at the Kennedy Center in October 2021.",
+        "That tour closed in Toronto in May 2024 after playing 85 cities.",
+        "A Korean-language Hadestown opened in Seoul in 2021 and won Best Musical at the Korea Musical Awards.",
+        "Hadestown opened at the Lyric Theatre in London's West End on February 21, 2024.",
+        "In 2025, the five original Broadway principals reunited in the West End production for a few weeks.",
+        "Australia got Hadestown in 2025, in Sydney and Melbourne, with Christine Anu as Hermes.",
+        "A Dutch production played Royal Theater Carré in Amsterdam in the summer of 2025.",
+        "A filmed version starring five of the original Broadway leads reached cinemas in July 2026.",
+    ],
+    'The myth behind it': [
+        "The best-known ancient tellings of Orpheus and Eurydice are in Virgil's Georgics and Ovid's Metamorphoses.",
+        "In the myths, Eurydice dies of a snakebite. In Hadestown she goes down willingly, because she's hungry.",
+        "Orpheus's mother was a Muse, Calliope, the Muse of epic poetry.",
+        "In myth, Orpheus sailed with the Argonauts and drowned out the Sirens with his lyre.",
+        "Persephone is bound to the underworld because she ate pomegranate seeds there.",
+        "The ancient Fates had names: Clotho spun the thread of life, Lachesis measured it, Atropos cut it.",
+        "In Ovid, Orpheus's head kept singing as it floated down the river Hebrus.",
+        "Monteverdi's L'Orfeo, from 1607, is one of the earliest operas still performed. It's about Orpheus too.",
+        "Gluck's 1762 opera Orfeo ed Euridice gives the story a happy ending.",
+        "The famous can-can tune comes from Offenbach's Orpheus in the Underworld, an 1858 send-up of the same myth.",
+        "The 1959 film Black Orpheus moved the myth to Rio's Carnival and won the Palme d'Or.",
+    ],
+}
+
+HADESTOWN_FACTS = [fact for facts in HADESTOWN_FACT_SECTIONS.values() for fact in facts]
+
+ROLLERCOASTER_FACT_SECTIONS: dict[str, list[str]] = {
+    'Beginnings': [
+        "Roller coasters grew out of Russian ice slides: tall wooden ramps covered in ice that people sledded down in winter.",
+        "French speakers still call roller coasters montagnes russes, Russian mountains.",
+        "In Russia, roller coasters are called American mountains.",
+        "Pennsylvania's Mauch Chunk Switchback Railway was built in 1827 to haul coal, and ended up carrying thrill-seeking tourists.",
+        "LaMarcus Adna Thompson opened the Switchback Railway at Coney Island in 1884.",
+        "Thompson's Switchback Railway topped out around 6 mph and cost a nickel a ride.",
+        "Coney Island's Flip Flap Railway of 1895 had a circular loop, and it was rough on riders' necks.",
+        "Coney Island's Loop the Loop, built by Edwin Prescott in 1901, used an oval loop to go easier on riders.",
+        "The 1920s were the golden age of the wooden coaster: an estimated 2,000 were running in the US by the end of the decade.",
+        "The Great Depression closed most of them, and many were never rebuilt.",
+        "John A. Miller patented the under-friction wheels that lock a train to the track from below, which made wild drops safe.",
+        "The click-clack on a lift hill is the anti-rollback ratchet catching. John A. Miller patented an early version.",
+    ],
+    'Firsts': [
+        "Disneyland's Matterhorn Bobsleds, opened in 1959, was the first coaster with tubular steel track.",
+        "Corkscrew at Knott's Berry Farm, in 1975, was the first modern coaster to turn riders upside down.",
+        "That original Corkscrew still runs, at Silverwood Theme Park in Idaho.",
+        "Revolution at Six Flags Magic Mountain, in 1976, was the first modern coaster with a vertical loop.",
+        "Walt Disney World's Space Mountain opened in 1975 and runs almost entirely in the dark.",
+        "Magnum XL-200 at Cedar Point, in 1989, was the first coaster to top 200 feet with a full circuit: the first hypercoaster.",
+        "Millennium Force at Cedar Point became the first giga coaster, over 300 feet, in 2000.",
+        "Top Thrill Dragster at Cedar Point became the first coaster over 400 feet in 2003.",
+        "Oblivion at Alton Towers, from 1998, was the first dive coaster: it holds riders over the edge before the vertical drop.",
+        "X at Six Flags Magic Mountain, from 2002, was the first 4th Dimension coaster, with seats that spin on their own axis.",
+        "Steel Vengeance at Cedar Point, from 2018, was the first hybrid coaster over 200 feet: steel track on a wooden structure.",
+        "New Texas Giant, in 2011, was Rocky Mountain Construction's first conversion of a wooden coaster to steel track.",
+    ],
+    'Records': [
+        "Falcons Flight at Six Flags Qiddiya City in Saudi Arabia opened on December 31, 2025, as the world's tallest, fastest and longest coaster.",
+        "Falcons Flight hits about 155 mph and runs on more than four kilometres of track.",
+        "Formula Rossa at Ferrari World Abu Dhabi reaches 240 km/h, about 149 mph, in 4.9 seconds.",
+        "Formula Rossa riders wear safety goggles.",
+        "Kingda Ka at Six Flags Great Adventure stood 456 feet tall and hit 128 mph.",
+        "Kingda Ka gave its last rides in November 2024 and was demolished in February 2025.",
+        "Steel Dragon 2000 in Japan, at 8,133 feet, was the world's longest coaster for 25 years.",
+        "The Smiler at Alton Towers turns riders upside down 14 times, the world record since 2013.",
+        "TMNT Shellraiser at American Dream in New Jersey has the steepest drop in the world, at 121.5 degrees.",
+        "Takabisha at Fuji-Q Highland held the steepest-drop record at 121 degrees, from 2011 until Shellraiser opened in 2019.",
+        "The Beast at Kings Island, from 1979, is still the longest wooden coaster in the world at 7,359 feet.",
+        "Son of Beast at Kings Island, from 2000, was the only looping wooden coaster of its day. It closed in 2009.",
+        "Six Flags Magic Mountain has long held the record for the most roller coasters in one park.",
+        "Cedar Point bills itself as the Roller Coaster Capital of the World.",
+    ],
+    'Physics and engineering': [
+        "A coaster train has no engine. Once it's lifted or launched, gravity does the rest.",
+        "Modern loops aren't circles. They're clothoids, tighter at the top, which keeps the forces at the bottom bearable.",
+        "Werner Stengel pioneered the clothoid loop, starting with Revolution in 1976.",
+        "Airtime is the floating feeling when the track drops away faster than you fall: negative g.",
+        "The back seat gets the most airtime on a big drop, because the train pulls it over the crest at full speed.",
+        "Coasters often run faster late in the day, once the wheels and their grease warm up.",
+        "Magnetic brakes slow a train with eddy currents, and never touch it.",
+        "Launches come in several kinds: linear motors, hydraulics, and even compressed air.",
+        "Millennium Force skips the chain and hauls its trains up with a fast elevator-style cable lift.",
+        "A heartline roll spins the train around the riders' hearts, so your head barely moves.",
+        "Coasters are split into blocks, and two trains are never allowed in the same block at once.",
+        "Wooden coasters flex and settle, so crews retrack parts of them every year.",
+    ],
+    'Landmarks': [
+        "Leap-the-Dips in Altoona, Pennsylvania, opened in 1902 and is the oldest roller coaster still standing.",
+        "Leap-the-Dips was named a National Historic Landmark in 1996.",
+        "The Coney Island Cyclone opened on June 26, 1927, and is a New York City landmark.",
+        "The Giant Dipper at the Santa Cruz Beach Boardwalk opened in 1924 and became a National Historic Landmark in 1987.",
+        "In Annie Hall, Alvy Singer grew up in a house under a Coney Island roller coaster: the real Thunderbolt.",
+        "Blackpool's Grand National, from 1935, is a racing coaster on one continuous track: two trains, two sides, one Möbius loop.",
+        "Mack Rides, the German coaster builder, started out in 1780 making wagons.",
+        "Bolliger & Mabillard was founded in Switzerland in 1988. Its first coaster was Iron Wolf, a stand-up coaster.",
+    ],
+    'Odd and wonderful': [
+        "A Michigan State study found riding Big Thunder Mountain Railroad helped kidney stones pass, best in the back seat.",
+        "That kidney stone study won an Ig Nobel Prize in 2018.",
+        "The researchers carried a 3D-printed silicone kidney, with real stones inside, onto the ride in a backpack.",
+        "RollerCoaster Tycoon, from 1999, was written by Chris Sawyer almost entirely in assembly language.",
+        "American Coaster Enthusiasts, the biggest coaster fan club, was founded in 1978.",
+        "Coaster fans count every coaster they've ridden as a credit.",
+        "A wing coaster hangs riders off both sides of the track, with nothing above or below them.",
+        "Falcons Flight's big drop runs down the side of a cliff.",
+    ],
+    'Adventureland, Iowa': [
+        "Adventureland opened in Altoona, just outside Des Moines, in August 1974.",
+        "Founder Jack Krantz, a Des Moines homebuilder, got the idea for Adventureland after a trip to Disneyland.",
+        "A tornado damaged Adventureland before its planned July 1974 opening, pushing it back to August.",
+        "Adventureland's Tornado, a wooden coaster that opened on July 4, 1978, is named after that storm.",
+        "Tornado was designed by William Cobb and built by Frontier Construction Company.",
+        "American Coaster Enthusiasts named Tornado a Roller Coaster Landmark in 2024.",
+        "Outlaw, Adventureland's second wooden coaster, opened on April 24, 1993.",
+        "The Underground, from 1996, is a wooden coaster built completely indoors, and is said to be the only fully enclosed wooden coaster in the world.",
+        "The Monster, from 2016, was the first Gerstlauer Infinity Coaster in the US, with a 101-degree first drop and five inversions.",
+        "The Monster stands where the River Rapids log flume ran from 1974 to 2015.",
+        "Phoenix, from 2019, is a Maurer spinning coaster.",
+        "Dragon Slayer, from 2021, is an S&S 4D Free Spin: the seats flip end over end as the train runs.",
+        "Adventureland's Sky Ride chairlift came from Expo '74, the world's fair in Spokane.",
+    ],
+    'Gone from Adventureland': [
+        "Der Flitzer, a snow-capped mountain coaster by Zierer, ran from Adventureland's first season in 1974 until 1990.",
+        "The Giant Sky Wheel stands where Der Flitzer used to be.",
+        "Super Screamer, an S.D.C. Galaxi, ran at Adventureland from 1976 to 1999.",
+        "Super Screamer's spot went to the Inverter, which hung riders upside down 50 feet up from 2000 to 2017.",
+        "The Dragon, an O.D. Hopkins coaster with two loops, ran at Adventureland from 1990 to 2019.",
+        "Dragon Slayer took the old Dragon's place in 2021.",
+        "Phoenix took the Inverter's spot in 2019.",
+    ],
+    'Words for coasters': [
+        "A hypercoaster is 200 to 299 feet tall, a giga coaster 300 to 399, and a strata coaster 400 to 499.",
+        "An inversion is any element that turns riders upside down.",
+        "A headchopper is a beam that looks like it'll take your head off, and never does.",
+        "A wild mouse is a small coaster with sharp, unbanked turns that feel like you're about to go off the edge.",
+        "The brake run is the stretch of track at the end that brings the train to a stop.",
+        "Ejector airtime throws you up out of your seat. Floater airtime just lets you drift.",
+    ],
+}
+
+ROLLERCOASTER_FACTS = [fact for facts in ROLLERCOASTER_FACT_SECTIONS.values() for fact in facts]
+
+
+@dataclass(frozen=True)
+class FactTheme:
+    """One topic the app's trivia can be about, and the words around it."""
+
+    key: str
+    title: str
+    noun: str
+    emoji: str
+    icon: str
+    another: str
+    sections: dict[str, list[str]]
+    facts: tuple[str, ...] = field(init=False)
+
+    def __post_init__(self) -> None:
+        object.__setattr__(
+            self, 'facts', tuple(fact for facts in self.sections.values() for fact in facts),
+        )
+
+
+CAT_THEME = FactTheme(
+    key='cats', title='Cat facts', noun='Cat fact', emoji='🐱', icon='pets',
+    another='Meow another', sections=CAT_FACT_SECTIONS,
+)
+HADESTOWN_THEME = FactTheme(
+    key='hadestown', title='Hadestown facts', noun='Hadestown fact', emoji='🎶',
+    icon='music_note', another='Sing it again', sections=HADESTOWN_FACT_SECTIONS,
+)
+ROLLERCOASTER_THEME = FactTheme(
+    key='rollercoasters', title='Rollercoaster facts', noun='Rollercoaster fact', emoji='🎢',
+    icon='attractions', another='Ride again', sections=ROLLERCOASTER_FACT_SECTIONS,
+)
+
+FACT_THEMES = (CAT_THEME, HADESTOWN_THEME, ROLLERCOASTER_THEME)
+
+# SG Live 2026 weekend: Hadestown until Sunday 06:00, rollercoasters for Sunday,
+# cats again from Monday 06:00. Starts are wall-clock times on the viewer's
+# resolved clock, which is the community's own zone for a pinned community.
+_THEME_BEFORE_SCHEDULE = HADESTOWN_THEME
+THEME_SCHEDULE: tuple[tuple[datetime, FactTheme], ...] = (
+    (datetime(2026, 10, 25, 6, 0), ROLLERCOASTER_THEME),
+    (datetime(2026, 10, 26, 6, 0), CAT_THEME),
+)
+
+
+def current_theme(now: datetime | None = None) -> FactTheme:
+    """The theme on the schedule at ``now`` (default: the current local time)."""
+    wall = (now if now is not None else now_local()).replace(tzinfo=None)
+    theme = _THEME_BEFORE_SCHEDULE
+    for starts, scheduled in THEME_SCHEDULE:
+        if wall >= starts:
+            theme = scheduled
+    return theme
+
+
+def random_fact(exclude: str | None = None) -> str:
+    """A random fact from today's theme, avoiding ``exclude`` so a re-roll visibly changes."""
+    facts = current_theme().facts
+    pool = [fact for fact in facts if fact != exclude] or facts
+    return random.choice(pool)
 
 
 def random_cat_fact(exclude: str | None = None) -> str:

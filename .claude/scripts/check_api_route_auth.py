@@ -40,9 +40,10 @@ NON_ACTOR = {"require_feature"}
 
 # Documented exceptions, by (module stem, function name):
 #   health   — a liveness probe, deliberately open.
+#   version  — the build version, also printed on the public /about page.
 #   rotate   — a push service reissued an endpoint; the caller proves itself by
 #              knowing the old endpoint and auth, and has no token to send.
-ALLOWLIST = {("health", "health"), ("web_push", "rotate")}
+ALLOWLIST = {("health", "health"), ("version", "version"), ("web_push", "rotate")}
 
 
 def is_write_dep(name: str) -> bool:

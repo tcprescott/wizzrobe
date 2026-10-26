@@ -147,6 +147,7 @@ async def _restart_bot(actor, table, row) -> None:
         message=f"Restart the {row['category']} bot? Its racetime connection drops and "
                 'reconnects for every community using it.',
         on_confirm=do_restart, confirm_text='Restart', title='Restart bot?', tone='warning',
+        busy_text='Restarting…',
     ).open()
 
 

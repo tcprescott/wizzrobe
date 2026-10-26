@@ -6,12 +6,35 @@ Returns domain objects (Match, MatchPlayers, etc.) without business logic.
 """
 
 from datetime import datetime
-from typing import List, Optional
+from typing import List, Optional, Tuple, cast
 
 from tortoise.expressions import Q
+from tortoise.query_utils import Prefetch
 
+from application.repositories._event import event_scoped, live_event_scoped, parent_event_id
 from application.repositories._tenant import current_tenant_id, scoped
-from models import Match, MatchPlayers, User
+from models import (
+    BracketMatchGame,
+    ChallongeMatch,
+    Commentator,
+    Match,
+    MatchPlayers,
+    StartggSet,
+    Tournament,
+    Tracker,
+    User,
+)
+
+#: The person fields a schedule row reads (``MatchDisplayService`` names and DM
+#: badges). ``User`` is ~45 columns wide and a 1,300-match board loads ~5,000 of
+#: them, so building the whole row for each was a fifth of the board's load.
+#: Anything that reads a person off :meth:`MatchRepository.get_all` must stay
+#: inside this list or add to it.
+BOARD_USER_FIELDS = ('id', 'discord_id', 'display_name', 'username', 'dm_notifications')
+
+
+def _board_user() -> Prefetch:
+    return Prefetch('user', queryset=User.all().only(*BOARD_USER_FIELDS))
 
 
 class MatchRepository:
@@ -50,6 +73,8 @@ class MatchRepository:
                 # N+1 (U4).
                 'bracket_match_game__bracket_match__bracket',
                 'bracket_match_game__bracket_match__games',
+                # Each game's match, so "Game 2 of 3" follows the games' times.
+                'bracket_match_game__bracket_match__games__match',
             )
         
         return await query.first()
@@ -59,7 +84,8 @@ class MatchRepository:
         """The Match materialized from an SG episode, or None (tenant-scoped).
 
         Used by the ETL to find an already-materialized match on re-sync. The
-        source FK is a OneToOne, so at most one match matches.
+        source FK is a OneToOne, so at most one match matches, and that row
+        decides its own event (event-scope: exempt — one row per episode).
         """
         return await scoped(
             Match.filter(speedgaming_episode_id=episode_id)
@@ -132,11 +158,13 @@ class MatchRepository:
         *,
         tournament_ids: Optional[List[int]] = None,
         stage_ids: Optional[List[int]] = None,
+        include_unstaged: bool = False,
         only_upcoming: bool = False,
         user_discord_id: Optional[str] = None,
         crew_discord_id: Optional[str] = None,
         exclude_racetime: bool = False,
         match_ids: Optional[List[int]] = None,
+        scheduled_window: Optional[Tuple[datetime, datetime]] = None,
         prefetch_relations: bool = True
     ) -> List[Match]:
         """
@@ -145,6 +173,8 @@ class MatchRepository:
         Args:
             tournament_ids: Filter by tournament IDs
             stage_ids: Filter by stage IDs
+            include_unstaged: Also keep matches with no stage; on its own
+                (no ``stage_ids``) it keeps only those
             only_upcoming: Only return matches that haven't finished
             user_discord_id: Filter matches where user is a player
             crew_discord_id: Filter matches where user signed up to commentate
@@ -153,18 +183,32 @@ class MatchRepository:
             match_ids: Restrict to these IDs. Still tenant-scoped, so an ID from
                 another community narrows the result to nothing rather than
                 leaking a row.
+            scheduled_window: Half-open ``(start, end)`` on ``scheduled_at``; an
+                unscheduled match falls outside every window
             prefetch_relations: Whether to prefetch related objects
 
         Returns:
             List of Match objects
+
+        The current event's matches, except that a board filtered to one
+        person (``user_discord_id`` / ``crew_discord_id``) is a personal page
+        and spans every live event (cross-event).
         """
-        query = scoped(Match.all())
+        query = (
+            live_event_scoped(Match.all()) if user_discord_id or crew_discord_id
+            else event_scoped(Match.all())
+        )
 
         if match_ids:
             query = query.filter(id__in=match_ids)
 
         if only_upcoming:
             query = query.filter(finished_at__isnull=True)
+
+        if scheduled_window is not None:
+            query = query.filter(
+                scheduled_at__gte=scheduled_window[0], scheduled_at__lt=scheduled_window[1],
+            )
 
         if exclude_racetime:
             # ``Tournament.is_racetime_enabled`` is a Python property over the
@@ -174,9 +218,13 @@ class MatchRepository:
         if tournament_ids:
             query = query.filter(tournament_id__in=tournament_ids)
         
-        if stage_ids:
+        if stage_ids and include_unstaged:
+            query = query.filter(Q(stage_id__in=stage_ids) | Q(stage_id__isnull=True))
+        elif stage_ids:
             query = query.filter(stage_id__in=stage_ids)
-        
+        elif include_unstaged:
+            query = query.filter(stage_id__isnull=True)
+
         if user_discord_id:
             query = query.filter(players__user__discord_id=user_discord_id)
 
@@ -189,14 +237,11 @@ class MatchRepository:
         if prefetch_relations:
             query = query.prefetch_related(
                 'tournament',
-                'players',
-                'players__user',
+                Prefetch('players', queryset=scoped(MatchPlayers.all()).prefetch_related(_board_user())),
                 'stage',
                 'generated_seed',
-                'commentators',
-                'commentators__user',
-                'trackers',
-                'trackers__user',
+                Prefetch('commentators', queryset=scoped(Commentator.all()).prefetch_related(_board_user())),
+                Prefetch('trackers', queryset=scoped(Tracker.all()).prefetch_related(_board_user())),
                 # The bracket seam, for the schedule's "part of <bracket>" link.
                 # A batched prefetch, so it costs a fixed few queries rather
                 # than one per row; most matches have no game row at all. The
@@ -205,6 +250,8 @@ class MatchRepository:
                 # N+1 (U4).
                 'bracket_match_game__bracket_match__bracket',
                 'bracket_match_game__bracket_match__games',
+                # Each game's match, so "Game 2 of 3" follows the games' times.
+                'bracket_match_game__bracket_match__games__match',
             )
         
         return await query.order_by('scheduled_at')
@@ -217,6 +264,8 @@ class MatchRepository:
         stage_id: Optional[int] = None,
         is_stream_candidate: bool = False,
         title: Optional[str] = None,
+        description: Optional[str] = None,
+        bracket_placeholders: Optional[list] = None,
     ) -> Match:
         """
         Create a new match.
@@ -234,15 +283,41 @@ class MatchRepository:
         """
         match = await Match.create(
             tenant_id=current_tenant_id(),
+            event_id=await parent_event_id(Tournament, parent_id=tournament_id),
             tournament_id=tournament_id,
             scheduled_at=scheduled_at,
             comment=comment,
             stage_id=stage_id,
             is_stream_candidate=is_stream_candidate,
             title=title,
+            description=description,
+            bracket_placeholders=bracket_placeholders,
         )
         return match
     
+    @staticmethod
+    async def create_crew_hold(
+        tournament_id: int, source: str, key: int, title: str, placeholders: list,
+    ) -> Match:
+        """A match with no players and no time, holding crew signups for one bracket matchup."""
+        return await Match.create(
+            tenant_id=current_tenant_id(), tournament_id=tournament_id, scheduled_at=None,
+            event_id=await parent_event_id(Tournament, parent_id=tournament_id),
+            title=title, bracket_placeholders=placeholders,
+            crew_hold_source=source, crew_hold_key=key,
+        )
+
+    @staticmethod
+    async def get_crew_hold(source: str, key: int) -> Optional[Match]:
+        """The hold for one bracket matchup (event-scope: exempt — one row per matchup)."""
+        return await scoped(Match.filter(crew_hold_source=source, crew_hold_key=key)).first()
+
+    @staticmethod
+    async def list_crew_holds() -> List[Match]:
+        return await event_scoped(Match.filter(crew_hold_source__isnull=False)).prefetch_related(
+            'tournament', 'commentators', 'trackers',
+        )
+
     @staticmethod
     async def update(
         match: Match,
@@ -323,6 +398,76 @@ class MatchRepository:
             await player.delete()
     
     @staticmethod
+    async def clear_seed_ready(match_id: int) -> None:
+        """Forget every player's Ready for seed on a match."""
+        await scoped(MatchPlayers.filter(match_id=match_id)).update(
+            seed_ready_at=None, seed_nudged_at=None,
+        )
+
+    @staticmethod
+    async def bracket_link_candidates(tournament_ids: List[int]) -> List[Match]:
+        """Unconfirmed matches in these tournaments that back no bracket matchup."""
+        if not tournament_ids:
+            return []
+        linked = {
+            *await scoped(ChallongeMatch.filter(
+                tournament_id__in=tournament_ids, match_id__isnull=False,
+            )).values_list('match_id', flat=True),
+            *await scoped(StartggSet.filter(
+                tournament_id__in=tournament_ids, match_id__isnull=False,
+            )).values_list('match_id', flat=True),
+            *await scoped(BracketMatchGame.filter(
+                bracket_match__bracket__tournament_id__in=tournament_ids, match_id__isnull=False,
+            )).values_list('match_id', flat=True),
+        }
+        return await scoped(Match.filter(
+            tournament_id__in=tournament_ids, confirmed_at__isnull=True, set_first_id__isnull=True,
+        )).exclude(id__in=list(linked)).prefetch_related('players__user', 'stage').order_by('scheduled_at', 'id')
+
+    @staticmethod
+    async def set_games(first_id: int) -> List[Match]:
+        """Every game of the best-of set that match ``first_id`` leads, in game order."""
+        return await scoped(
+            Match.filter(Q(id=first_id) | Q(set_first_id=first_id))
+        ).prefetch_related('players').order_by('set_game', 'id')
+
+    @staticmethod
+    async def games_of_sets(first_ids: List[int]) -> List[Match]:
+        """Every game of the sets these matches lead, for working out game numbers."""
+        if not first_ids:
+            return []
+        return await scoped(Match.filter(Q(id__in=first_ids) | Q(set_first_id__in=first_ids)))
+
+    @staticmethod
+    async def games_of_sets_with_stage(first_ids: List[int]) -> List[Match]:
+        """:meth:`games_of_sets` with each game's stage, for listing the bookings."""
+        if not first_ids:
+            return []
+        return await scoped(
+            Match.filter(Q(id__in=first_ids) | Q(set_first_id__in=first_ids))
+        ).prefetch_related('stage')
+
+    @staticmethod
+    async def set_first_id_of(match_id: int) -> Optional[int]:
+        """What the database says ``match_id``'s set is led by now, which a hand-off can change."""
+        rows = await scoped(Match.filter(id=match_id)).values_list('set_first_id', flat=True)
+        return cast(Optional[int], rows[0]) if rows else None
+
+    @staticmethod
+    async def repoint_set(old_first_id: int, new_first: Match) -> None:
+        """Make ``new_first`` lead the set ``old_first_id`` led."""
+        await scoped(Match.filter(id=new_first.id)).update(set_first_id=None)
+        await scoped(Match.filter(set_first_id=old_first_id)).exclude(id=new_first.id).update(
+            set_first_id=new_first.id,
+        )
+        new_first.set_first_id = None
+
+    @staticmethod
+    async def set_followers(first_id: int) -> List[Match]:
+        """The games after game 1 of the set match ``first_id`` leads."""
+        return await scoped(Match.filter(set_first_id=first_id)).order_by('set_game', 'id')
+
+    @staticmethod
     async def get_players(match: "Match | int") -> List[MatchPlayers]:
         """
         Get all players for a match.
@@ -390,7 +535,7 @@ class MatchRepository:
         Returns:
             List of matches with tournament/players/stage/seed prefetched
         """
-        return await scoped(Match.all()).prefetch_related(
+        return await event_scoped(Match.all()).prefetch_related(
             'tournament', 'players', 'stage', 'generated_seed'
         ).order_by('scheduled_at')
 
@@ -416,7 +561,7 @@ class MatchRepository:
         Returns:
             List of matches with all related data prefetched
         """
-        query = scoped(Match.filter(
+        query = event_scoped(Match.filter(
             scheduled_at__gte=start,
             scheduled_at__lt=end
         ))
@@ -442,8 +587,11 @@ class MatchRepository:
         streams at once *and* cannot commentate a match they are racing in. One
         query per role would be three; a single OR'd filter is one, deduped by id
         because a person could hold two roles on the same match.
+
+        Spans every live event (cross-event): a person can't be in two places
+        at once whichever event each match belongs to.
         """
-        query = scoped(Match.filter(
+        query = live_event_scoped(Match.filter(
             Q(players__user_id=user_id)
             | Q(commentators__user_id=user_id)
             | Q(trackers__user_id=user_id),
@@ -467,9 +615,19 @@ class MatchRepository:
             discord_id: Discord ID of the player
 
         Returns:
-            List of matches where the player is participating
+            List of matches where the player is participating, in any live
+            event (cross-event: it feeds the player's own schedule)
         """
-        return await scoped(Match.filter(players__user__discord_id=discord_id))
+        return await live_event_scoped(Match.filter(players__user__discord_id=discord_id))
+
+    @staticmethod
+    async def unconfirmed_for_player(tournament_id: int, user_id: int) -> List[Match]:
+        """This player's matches in one tournament that are not confirmed yet."""
+        return await scoped(Match.filter(
+            tournament_id=tournament_id, players__user_id=user_id, confirmed_at__isnull=True,
+        )).distinct().order_by('scheduled_at', 'id').prefetch_related(
+            'tournament', 'players', 'players__user', 'stage',
+        )
 
     @staticmethod
     async def get_upcoming_for_user(user_id: int) -> List[Match]:
@@ -484,8 +642,11 @@ class MatchRepository:
         ``MatchRescheduleService._blocking_state``, which lists all four, rather
         than agreeing with it only for as long as ``confirm_match`` keeps
         requiring a finish first.
+
+        Across every live event (cross-event): it backs the player's own
+        schedule.
         """
-        return await scoped(Match.filter(
+        return await live_event_scoped(Match.filter(
             players__user_id=user_id,
             scheduled_at__isnull=False,
             seated_at__isnull=True,

@@ -31,6 +31,7 @@ from typing import Any, Dict, List, Optional
 from application.events import EventType
 from application.repositories import DiscordScheduledEventRepository, MatchRepository
 from application.services.audit_service import AuditActions, AuditService
+from application.services.discord.discord_scheduled_events import SETUP_FAILURES
 from application.services.discord.discord_service import DiscordService
 from application.utils.hashing import stable_content_hash
 from models import DiscordEventSource, DiscordScheduledEvent, Match, Tenant, User
@@ -56,6 +57,9 @@ class ReconcileResult:
     unchanged: int = 0
     errors: int = 0
     error_messages: List[str] = field(default_factory=list)
+    #: Set when the pass stopped on a problem staff fix in Discord (the bot's
+    #: permissions, or it isn't in the server), which every event would hit.
+    setup_error: Optional[str] = None
 
     def as_dict(self) -> Dict[str, Any]:
         return {
@@ -64,7 +68,16 @@ class ReconcileResult:
             'cancelled': self.cancelled,
             'unchanged': self.unchanged,
             'errors': self.errors,
+            'setup_error': self.setup_error,
         }
+
+
+class DiscordEventSetupError(RuntimeError):
+    """The guild isn't set up for the bot to manage events; see :data:`SETUP_FAILURES`."""
+
+
+def _failure(message: str) -> RuntimeError:
+    return DiscordEventSetupError(message) if message in SETUP_FAILURES else RuntimeError(message)
 
 
 class DiscordEventReconcilerService:
@@ -100,29 +113,49 @@ class DiscordEventReconcilerService:
         existing = await self.repo.list_for_source_type(DiscordEventSource.MATCH)
         existing_by_source: Dict[int, DiscordScheduledEvent] = {e.source_id: e for e in existing}
 
-        for match in matches:
-            try:
-                await self._reconcile_match(
-                    tenant, guild_id, match, existing_by_source.get(match.id),
-                    result, actor=actor, now=now,
-                )
-            except Exception as e:  # per-event isolation
-                logger.exception('Discord event reconcile failed for match %s', match.id)
-                result.errors += 1
-                result.error_messages.append(f'match {match.id}: {e}')
+        if matches or existing:
+            problem = await self.discord.bot_event_problem(guild_id)
+            if problem is not None:
+                # Paused, not failed: staff fix this in Discord, and the page says so.
+                logger.warning('Discord event reconcile paused for tenant %s: %s', tenant.id, problem)
+                result.setup_error = problem
+                return result
 
-        # Cancel mirrored events whose source is gone from the desired set — only
-        # rows THIS tenant owns are ever iterated (repo is tenant-scoped), so a
-        # sibling tenant's event in a shared guild is never touched.
-        for link in existing:
-            if link.source_id in desired:
-                continue
-            try:
-                await self._cancel(tenant, guild_id, link, result, actor=actor)
-            except Exception as e:
-                logger.exception('Discord event cancel failed for link %s', link.id)
-                result.errors += 1
-                result.error_messages.append(f'cancel {link.id}: {e}')
+        try:
+            for match in matches:
+                try:
+                    await self._reconcile_match(
+                        tenant, guild_id, match, existing_by_source.get(match.id),
+                        result, actor=actor, now=now,
+                    )
+                except DiscordEventSetupError:
+                    raise
+                except Exception as e:  # per-event isolation
+                    logger.exception('Discord event reconcile failed for match %s', match.id)
+                    result.errors += 1
+                    result.error_messages.append(f'match {match.id}: {e}')
+
+            # Cancel mirrored events whose source is gone from the desired set — only
+            # rows THIS tenant owns are ever iterated (repo is tenant-scoped), so a
+            # sibling tenant's event in a shared guild is never touched.
+            for link in existing:
+                if link.source_id in desired:
+                    continue
+                try:
+                    await self._cancel(tenant, guild_id, link, result, actor=actor)
+                except DiscordEventSetupError:
+                    raise
+                except Exception as e:
+                    logger.exception('Discord event cancel failed for link %s', link.id)
+                    result.errors += 1
+                    result.error_messages.append(f'cancel {link.id}: {e}')
+        except DiscordEventSetupError as e:
+            # Sentry SGLMAN-18: a missing permission is staff's to fix in Discord,
+            # and every remaining event would fail the same way.
+            logger.warning('Discord event reconcile stopped for tenant %s: %s', tenant.id, e)
+            result.errors += 1
+            result.setup_error = str(e)
+            result.error_messages.append(str(e))
 
         action = AuditActions.DISCORD_EVENT_SYNC_COMPLETED if result.errors == 0 else AuditActions.DISCORD_EVENT_SYNC_FAILED
         await self.audit.write_log(
@@ -160,7 +193,7 @@ class DiscordEventReconcilerService:
             # the link rather than erroring on it forever. Non-recoverable errors
             # (e.g. permission) surface when the re-create also fails.
             if 'not found' not in message.lower():
-                raise RuntimeError(message)
+                raise _failure(message)
             await self.repo.delete(link)
             await self._create(tenant, guild_id, match, name, description, start, end,
                                location, content_hash, result, actor=actor, now=now)
@@ -190,7 +223,7 @@ class DiscordEventReconcilerService:
             description=description, location=location,
         )
         if not ok:
-            raise RuntimeError(str(payload))
+            raise _failure(str(payload))
         created = await self.repo.create(
             guild_id=guild_id, discord_event_id=int(payload),
             source_type=DiscordEventSource.MATCH, source_id=match.id,
@@ -214,7 +247,7 @@ class DiscordEventReconcilerService:
     ) -> None:
         ok, message = await self.discord.delete_scheduled_event(guild_id, link.discord_event_id)
         if not ok:
-            raise RuntimeError(message)
+            raise _failure(message)
         await self.repo.delete(link)
         result.cancelled += 1
         await self.audit.write_and_publish(

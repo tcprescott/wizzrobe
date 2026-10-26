@@ -52,6 +52,7 @@ from application.services.async_qualifier.async_qualifier_reads import PlayerRea
 from application.services.async_qualifier.async_qualifier_review import RunReviewMixin
 from application.services.audit_service import AuditActions, AuditService
 from application.services.auth_service import AuthService
+from application.services.tenant_membership_service import TenantMembershipService
 from application.utils.safe_url import normalize_http_url
 from models import (
     AsyncQualifier,
@@ -241,6 +242,7 @@ class AsyncQualifierService(
     async def add_admin(self, actor: Optional[User], qualifier_id: int, target: User) -> None:
         qualifier = await self._require_qualifier(qualifier_id)
         await access.ensure_qualifier_admin(actor, qualifier)
+        await TenantMembershipService.require_community_users([target.id], actor)
         await qualifier.admins.add(target)
         await self.audit_service.write_log(
             actor, AuditActions.ASYNC_QUALIFIER_ADMIN_GRANTED,

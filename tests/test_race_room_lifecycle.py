@@ -167,6 +167,31 @@ async def test_record_finish_captures_results(db):
     assert (pb.finish_rank, pb.finish_time) == (2, 3720)
 
 
+async def test_record_finish_tells_every_bracket_site(db, monkeypatch):
+    from application.services import bracket_sources
+
+    told = []
+
+    async def record(match, actor):
+        told.append(match.id)
+
+    monkeypatch.setattr(bracket_sources, 'on_match_confirmed', record)
+    bot = await _bot()
+    tourn = await _tournament(bot)
+    ua = await _user('a', 'rt-a')
+    ub = await _user('b', 'rt-b')
+    match = await _match_with_players(tourn, [ua, ub])
+    svc = RaceRoomService()
+    room = await svc.create_room_for_match(match)
+
+    await svc.record_finish(room, [
+        RaceEntrant(user_id='rt-a', display_name='a', status=EntrantStatus.DONE, finish_time=3600),
+        RaceEntrant(user_id='rt-b', display_name='b', status=EntrantStatus.DONE, finish_time=3720),
+    ])
+
+    assert told == [match.id]
+
+
 async def test_record_finish_forfeit_and_one_finisher(db):
     bot = await _bot()
     tourn = await _tournament(bot)

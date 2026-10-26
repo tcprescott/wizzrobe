@@ -1,3 +1,4 @@
+import re
 from contextlib import contextmanager
 from datetime import datetime, timezone
 from typing import Callable, Optional, Sequence
@@ -6,7 +7,7 @@ from nicegui import ui
 
 from application.utils.timezone import (
     format_local_date,
-    format_local_time,
+    input_time,
     parse_local_datetime,
     timezone_label,
     to_local,
@@ -68,7 +69,7 @@ def form_dialog(title: str, *, card_classes: str = 'dialog-card', help: Sequence
         yield dialog
 
 
-def dialog_header(title: str, dialog, *, help: Sequence[ResolvedHelp] = ()) -> None:
+def dialog_header(title: str, dialog, *, help: Sequence[ResolvedHelp] = ()) -> ui.label:
     """Standard dialog header row: title, help, close button, always on one row.
 
     ``help`` (from ``resolve_help``) is the dialog's one help button, beside the
@@ -84,6 +85,7 @@ def dialog_header(title: str, dialog, *, help: Sequence[ResolvedHelp] = ()) -> N
         heading.tag = 'h2'
         help_button(help, pill=True)
         dialog_close_button(dialog)
+    return heading
 
 
 def dialog_close_button(dialog):
@@ -185,9 +187,25 @@ def native_time_input(
     """
     if show_timezone:
         label = f'{label} ({timezone_label(tz)})'
-    return ui.input(label, value=value).props(_native_props(
+    return ui.input(label, value=input_clock(value)).props(_native_props(
         'time', required=required, clearable=False, dense=dense, stack_label=stack_label,
     ))
+
+
+_TWELVE_HOUR = re.compile(r'^\s*(\d{1,2}):(\d{2})\s*([AaPp])[Mm]\s*$')
+
+
+def input_clock(value: str) -> str:
+    """``value`` as the ``HH:MM`` a ``type=time`` input accepts.
+
+    A 12-hour ``9:30 PM`` (what ``format_local_time`` gives a 12-hour viewer)
+    renders as an empty field, so it is converted; anything else passes through.
+    """
+    m = _TWELVE_HOUR.match(value or '')
+    if not m:
+        return value
+    hour = int(m.group(1)) % 12 + (12 if m.group(3) in 'Pp' else 0)
+    return f'{hour:02d}:{m.group(2)}'
 
 
 def native_datetime_input(
@@ -224,6 +242,8 @@ def render_suggest_time_button(
     missing_message: str,
     get_bracket_match_id: Callable[[], object] = lambda: None,
     exclude_match_id: Optional[int] = None,
+    challonge_match_id: Optional[int] = None,
+    startgg_set_id: Optional[int] = None,
 ) -> None:
     """The 'Suggest a time' button shared by every match-scheduling dialog.
 
@@ -234,6 +254,8 @@ def render_suggest_time_button(
     evaluated at click time so callers can source them from selects that change
     after the dialog opens. ``get_bracket_match_id`` clamps the suggestion to a
     bracket matchup's round window; omit it outside a bracket-run tournament.
+    ``challonge_match_id``/``startgg_set_id`` clamp it to that matchup's stage
+    in the tournament's round schedule.
     ``exclude_match_id`` is the match being edited, so its current slot doesn't
     count as taken.
     """
@@ -252,9 +274,11 @@ def render_suggest_time_button(
                 player_ids=player_ids,
                 bracket_match_id=get_bracket_match_id(),
                 exclude_match_id=exclude_match_id,
+                challonge_match_id=challonge_match_id,
+                startgg_set_id=startgg_set_id,
             )
             date.value = format_local_date(suggested)
-            time.value = format_local_time(suggested)
+            time.value = input_time(suggested)
             with dialog:
                 ui.notify('Suggested time filled in — review and save.', color='info')
         except ValueError as e:
@@ -320,6 +344,15 @@ class FieldError:
         self.row.set_visibility(False)
         for field in self.fields:
             field.props(remove='error')
+
+
+def booking_window_line(text: Optional[str]) -> None:
+    """The stage's booking window under a matchup line, when it has one."""
+    if not text:
+        return
+    with ui.row().classes('wiz-pick-row__window no-wrap items-start gap-1'):
+        ui.icon('schedule', size='16px')
+        ui.label(text)
 
 
 def matchup_line(tournament_name: str, round_label: str) -> None:

@@ -1,12 +1,15 @@
 """The start.gg mirror: linking, entrant mapping, booking, DMs and writeback."""
 
 import copy
+from datetime import datetime, timezone
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
 from application.errors import FeatureDisabledError
 from application.services import bracket_sources
+from application.services.startgg_connection_service import StartggConnectionService
 from application.services.startgg_service import StartggService
 from application.utils.clients.startgg_client import StartggAPIError, parse_event_slug
 from application.utils.mocks.mock_startgg import mock_event_full
@@ -47,8 +50,14 @@ class FakeClient:
 @pytest.fixture
 def client(monkeypatch):
     fake = FakeClient()
-    monkeypatch.setattr(StartggService, '_client', staticmethod(lambda: fake))
-    monkeypatch.setattr(StartggService, 'is_configured', staticmethod(lambda: True))
+    async def _client(self):
+        return fake
+
+    async def has_access(self):
+        return True
+
+    monkeypatch.setattr(StartggService, '_client', _client)
+    monkeypatch.setattr(StartggConnectionService, 'has_access', has_access)
     return fake
 
 
@@ -111,6 +120,14 @@ class TestLinkAndMirror:
         assert e3.user_id is None and e3.suggested_user_id == three.id
         assert e4.suggested_user_id is None
 
+    async def test_entry_with_no_account_suggests_the_member_who_linked_that_tag(self, db, client, sent):
+        """An admin-added start.gg entry carries no account, so a link can't map it by id."""
+        client.full['entrants'][2].update(name='Inc', gamer_tag='Inc', startgg_user_id=None)
+        inc = await make_member(13, 'inc7', startgg_user_id='3449391', startgg_username='Inc')
+        tournament, _ = await _linked(client)
+        entrant = await StartggEntrant.get(tournament=tournament, entrant_id='9003')
+        assert entrant.user_id is None and entrant.suggested_user_id == inc.id
+
     async def test_discord_connected_on_startgg_maps(self, db, client, sent):
         client.full['entrants'][2]['discord_id'] = '555'
         three = await make_member(555, 'three')
@@ -130,6 +147,15 @@ class TestLinkAndMirror:
         await StartggService().sync_event(tournament.id, actor, force=True)
         assert not await StartggEntrant.filter(tournament=tournament, entrant_id='9008').exists()
 
+    async def test_throttle_tolerates_a_naive_sync_time(self, db, client, sent):
+        await _players()
+        tournament, actor = await _linked(client)
+        await Tournament.filter(id=tournament.id).update(
+            startgg_last_synced_at=datetime.now(timezone.utc).replace(tzinfo=None),
+        )
+        counts = await StartggService().sync_event(tournament.id, actor)
+        assert counts['skipped'] == 1
+
     async def test_feature_off_refuses(self, db, client, monkeypatch):
         from application.services.feature_flag_service import FeatureFlagService
 
@@ -140,6 +166,27 @@ class TestLinkAndMirror:
         tournament = await Tournament.create(name='T')
         with pytest.raises(FeatureDisabledError):
             await StartggService().link_event(tournament.id, SLUG, actor)
+
+
+    async def test_only_staff_link_and_unlink(self, db, client, sent, monkeypatch):
+        from application.services.auth_service import AuthService
+
+        tournament, actor = await _linked(client)
+
+        async def no(*_a, **_k):
+            return False
+
+        async def ensure(ok, message):
+            if not ok:
+                raise PermissionError(message)
+
+        monkeypatch.setattr(AuthService, 'is_staff', no)
+        monkeypatch.setattr(AuthService, 'ensure', ensure)
+        with pytest.raises(PermissionError, match='Only staff'):
+            await StartggService().unlink_event(tournament.id, actor)
+        with pytest.raises(PermissionError, match='Only staff'):
+            await StartggService().link_event(tournament.id, SLUG, actor)
+        await StartggService().sync_event(tournament.id, actor, force=True)
 
 
 class TestMatchupReady:
@@ -162,6 +209,16 @@ class TestMatchupReady:
         await service.assign_entrant(
             (await StartggEntrant.get(tournament=tournament, entrant_id='9006')).id, darunia.id, actor)
         assert sent == ['8101', '8102']
+
+    async def test_a_new_player_on_an_open_set_announces_again(self, db, client, sent):
+        await _players()
+        tournament, actor = await _linked(client)
+        saria = await make_member(21, 'saria')
+        await StartggService().assign_entrant(
+            (await StartggEntrant.get(tournament=tournament, entrant_id='9002')).id, saria.id, actor)
+        assert sent == ['8101', '8101']
+        await StartggService().sync_event(tournament.id, actor, force=True)
+        assert sent == ['8101', '8101']
 
     async def test_manual_assignment_survives_a_sync(self, db, client, sent):
         await _players()
@@ -188,16 +245,15 @@ class TestBooking:
         tournament, _ = await _linked(client)
         created = await Match.create(tournament=tournament)
         fake = MagicMock()
-        fake.submit_match_request = AsyncMock(return_value=created)
+        fake.book_from_bracket = AsyncMock(return_value=created)
         monkeypatch.setattr('application.services.startgg_service.MatchService', lambda: fake)
 
         bookable = await bracket_sources.list_bookable_for_user(one)
         assert [b.opponent_name for b in bookable] == ['Player Two']
         await bracket_sources.schedule('startgg', bookable[0].key, '2026-10-23', '14:00', one)
 
-        _, kwargs = fake.submit_match_request.call_args
+        _, kwargs = fake.book_from_bracket.call_args
         assert sorted(kwargs['player_ids']) == sorted([one.id, two.id])
-        assert kwargs['from_bracket'] is True
         assert (await StartggSet.get(set_id='8101')).match_id == created.id
         assert await bracket_sources.list_bookable_for_user(one) == []
 
@@ -207,6 +263,43 @@ class TestBooking:
         pool_set = await StartggSet.get(tournament=tournament, set_id='8001')
         with pytest.raises(ValueError, match='ready'):
             await StartggService().schedule_set(pool_set.id, '2026-10-23', '14:00', one)
+
+
+class TestLinkExistingMatch:
+    async def test_staff_link_a_hand_made_match_to_its_set(self, db, client, sent):
+        one, two = await _players()
+        tournament, actor = await _linked(client)
+        match = await Match.create(tournament=tournament)
+        await MatchPlayers.create(match=match, user=one)
+        await MatchPlayers.create(match=match, user=two)
+        row = await StartggSet.get(tournament=tournament, set_id='8101')
+        await bracket_sources.link_existing('startgg', row.id, match.id, actor)
+        assert (await StartggSet.get(id=row.id)).match_id == match.id
+        assert await AuditLog.filter(action='startgg.set_linked').count() == 1
+
+
+class TestBookablePhase:
+    @staticmethod
+    def _phases(*states):
+        return [SimpleNamespace(phase_id=str(i), phase_order=i, id=i, state=st) for i, st in enumerate(states, 1)]
+
+    def test_defaults_to_the_phase_under_way(self):
+        tournament = SimpleNamespace(startgg_bookable_phase_id=None)
+        phases = self._phases('ACTIVE', 'CREATED')
+        assert StartggService.bookable_phase_id(tournament, phases) == '1'
+
+    def test_moves_on_when_the_next_phase_starts(self):
+        tournament = SimpleNamespace(startgg_bookable_phase_id=None)
+        phases = self._phases('COMPLETED', 'ACTIVE')
+        assert StartggService.bookable_phase_id(tournament, phases) == '2'
+
+    def test_falls_back_to_the_last_phase_when_none_is_under_way(self):
+        tournament = SimpleNamespace(startgg_bookable_phase_id=None)
+        assert StartggService.bookable_phase_id(tournament, self._phases('CREATED', 'CREATED')) == '2'
+
+    def test_a_staff_pick_wins(self):
+        tournament = SimpleNamespace(startgg_bookable_phase_id='2')
+        assert StartggService.bookable_phase_id(tournament, self._phases('ACTIVE', 'CREATED')) == '2'
 
 
 class TestWriteback:

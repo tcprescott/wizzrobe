@@ -14,17 +14,20 @@ are ``make_``-prefixed because their callers bind the result to ``staff`` and
 
 from datetime import datetime, timedelta, timezone
 
-from models import AsyncQualifierRun, Role, User, UserRole
+from models import AsyncQualifierRun, Role, TenantMembership, User, UserRole
 
 
 async def make_staff(discord_id: int = 900001, username: str = 'staffy') -> User:
     u = await User.create(discord_id=discord_id, username=username)
     await UserRole.create(user=u, role=Role.STAFF, tenant_id=1)
+    await TenantMembership.create(user=u, tenant_id=1)
     return u
 
 
 async def make_player(discord_id: int, name: str, **extra) -> User:
-    return await User.create(discord_id=discord_id, username=name, **extra)
+    u = await User.create(discord_id=discord_id, username=name, **extra)
+    await TenantMembership.create(user=u, tenant_id=1)
+    return u
 
 
 async def open_qualifier(service, actor, *, runs_per_pool=1, allowed_reattempts=0):

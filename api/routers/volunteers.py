@@ -10,6 +10,7 @@ from api.dependencies import ServiceErrorRoute, require_api_actor, require_write
 from api.schemas.volunteers import (
     AssignRequest,
     AssignResponse,
+    CallOffRequest,
     CoverageRow,
     ReleaseAssignmentRequest,
     SetAvailabilityRequest,
@@ -26,6 +27,7 @@ from api.schemas.volunteers import (
 from application.errors import require_found
 from application.services.auth_service import AuthService
 from application.services.volunteer.volunteer_availability_service import VolunteerAvailabilityService
+from application.services.volunteer.volunteer_call_off_service import VolunteerCallOffService
 from application.services.volunteer.volunteer_hours import VolunteerHoursService
 from application.services.volunteer.volunteer_position_service import VolunteerPositionService
 from application.services.volunteer.volunteer_schedule_service import VolunteerScheduleService
@@ -93,10 +95,7 @@ async def create_position(payload: VolunteerPositionCreate, actor: User = Depend
 async def update_position(position_id: int, payload: VolunteerPositionUpdate, actor: User = Depends(require_write_actor)):
     service = VolunteerPositionService()
     position = require_found(await service.get(position_id), "Position")
-    fields = payload.model_dump(exclude_unset=True)
-    if not fields:
-        return position
-    return await service.update(actor, position, **fields)
+    return await service.update(actor, position, **payload.model_dump(exclude_unset=True))
 
 
 @router.delete(
@@ -162,13 +161,9 @@ async def get_shift(shift_id: int, actor: User = Depends(require_api_actor)):
 )
 async def create_shift(payload: VolunteerShiftCreate, actor: User = Depends(require_write_actor)):
     service = VolunteerScheduleService()
-    await service.create_shift(actor, **payload.model_dump())
-    # Re-fetch with relations for a complete response.
-    shifts = await service.list_shifts_for_window(payload.starts_at, payload.ends_at)
-    created = next((s for s in shifts if s.position_id == payload.position_id
-                    and s.starts_at == payload.starts_at), None)
+    shift = await service.create_shift(actor, **payload.model_dump())
     # create_shift has already required can_manage_volunteers.
-    return _shift_resp(created or shifts[-1], include_drafts=True)
+    return _shift_resp(require_found(await service.get_shift(shift.id), "Shift"), include_drafts=True)
 
 
 @router.patch(
@@ -188,8 +183,7 @@ async def update_shift(shift_id: int, payload: VolunteerShiftUpdate, actor: User
     for key in ('label', 'notes'):
         if key in fields:
             fields[key] = (fields[key] or '').strip() or None
-    if fields:
-        await service.update_shift(actor, shift, **fields)
+    await service.update_shift(actor, shift, **fields)
     return _shift_resp(require_found(await service.get_shift(shift_id), "Shift"), include_drafts=True)
 
 
@@ -273,6 +267,61 @@ async def check_in(assignment_id: int, actor: User = Depends(require_write_actor
     return _assignment_resp(assignment)
 
 
+@router.post(
+    "/assignments/{assignment_id}/call-off",
+    response_model=VolunteerAssignmentResponse,
+    summary="Call off one volunteer's shift (coordinators and staff)",
+    description=(
+        "Tells the volunteer by DM they don't need to come (or can head out, if the shift has started). "
+        "The shift skips check-in and still counts as fully worked for their hours, comps and attendance. "
+        "Calling off twice changes nothing.\n\n"
+        "Fails with 400 for an unpublished draft or a finished shift.\n\n"
+        "**Who can call this:** Staff or Volunteer coordinator."
+    ),
+)
+async def call_off(
+    assignment_id: int, body: CallOffRequest = CallOffRequest(),
+    actor: User = Depends(require_write_actor),
+):
+    assignment = await VolunteerCallOffService().call_off(assignment_id, actor, body.note)
+    return _assignment_resp(assignment)
+
+
+@router.delete(
+    "/assignments/{assignment_id}/call-off",
+    response_model=VolunteerAssignmentResponse,
+    summary="Undo a call-off (coordinators and staff)",
+    description=(
+        "Puts the volunteer back on the shift and DMs them that they're needed after all. "
+        "Doing it when the shift isn't called off changes nothing.\n\n"
+        "Fails with 400 once the shift has finished.\n\n"
+        "**Who can call this:** Staff or Volunteer coordinator."
+    ),
+)
+async def undo_call_off(assignment_id: int, actor: User = Depends(require_write_actor)):
+    assignment = await VolunteerCallOffService().undo_call_off(assignment_id, actor)
+    return _assignment_resp(assignment)
+
+
+@router.post(
+    "/shifts/{shift_id}/call-off",
+    response_model=List[VolunteerAssignmentResponse],
+    summary="Call off everyone on a shift (coordinators and staff)",
+    description=(
+        "Calls off every published assignment on the shift that isn't already called off, with a DM to each. "
+        "Drafts are left alone. Returns the assignments newly called off.\n\n"
+        "Fails with 400 when the shift has finished or nobody is left to call off.\n\n"
+        "**Who can call this:** Staff or Volunteer coordinator."
+    ),
+)
+async def call_off_shift(
+    shift_id: int, body: CallOffRequest = CallOffRequest(),
+    actor: User = Depends(require_write_actor),
+):
+    done = await VolunteerCallOffService().call_off_shift(shift_id, actor, body.note)
+    return [_assignment_resp(a) for a in done]
+
+
 # --- Coverage -------------------------------------------------------------
 
 @router.get(
@@ -319,11 +368,7 @@ async def hours(
     end: date | None = Query(None, description="Last event day to count (local date)"),
     actor: User = Depends(require_api_actor),
 ):
-    await AuthService.ensure(
-        await AuthService.can_manage_volunteers(actor),
-        "Only volunteer coordinators can read the volunteer hours roster.",
-    )
-    summaries = await VolunteerHoursService().roster(start=start, end=end)
+    summaries = await VolunteerHoursService().roster(actor=actor, start=start, end=end)
     return [_hours_resp(s) for s in summaries]
 
 

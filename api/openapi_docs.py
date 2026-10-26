@@ -8,6 +8,8 @@ those by hand on 268 routes is how they drifted, so they are derived here and
 each route's own ``description=`` carries only what it does and who may call it.
 """
 
+import asyncio
+import logging
 from typing import Any, Callable, Dict, Iterable, List, Optional, Set
 
 from fastapi import FastAPI
@@ -29,6 +31,8 @@ from application.events import EventType
 from application.feature_flags import spec_for
 from application.services.webhook_service import WebhookService
 from models import FeatureFlag
+
+logger = logging.getLogger(__name__)
 
 API_PREFIX = '/api'
 
@@ -135,7 +139,7 @@ TAG_GROUPS: List[tuple[str, List[tuple[str, str]]]] = [
         ('Users', 'People in this community, their profiles and roles.'),
         ('Membership', 'Requests to join the community, and answering them.'),
         ('Player availability', 'When players say they can and can\'t play.'),
-        ('Notifications', 'Which Discord and push notifications you receive.'),
+        ('Notifications', 'Which messages reach you and whether they ping, and the tournaments you follow.'),
         ('API tokens', 'Your personal API tokens.'),
     ]),
     ('Setup', [
@@ -144,11 +148,14 @@ TAG_GROUPS: List[tuple[str, List[tuple[str, str]]]] = [
         ('Webhooks', 'Outbound webhooks that POST to your server when events happen.'),
         ('Discord role mappings', 'Discord roles granted to people with a given Wizzrobe role.'),
         ('System config', 'Community settings stored as key/value pairs.'),
+        ('Notification settings', 'Which DMs the community sends, to whom, and whether they ping.'),
     ]),
     ('Reports', [
         ('Reports', 'Operational reports: stage use, crew coverage, tournament health and trends.'),
         ('Telemetry', 'Which parts of the app people use.'),
         ('Audit', 'The log of who changed what.'),
+        ('Sent messages', 'Every DM sent in the community, and whether it got there.'),
+        ('Exports', 'Tournament and volunteer data exports, built in the background.'),
     ]),
     ('Online tournaments', [
         ('Brackets', 'Brackets run inside Wizzrobe: entrants, matches, results and standings.'),
@@ -407,4 +414,21 @@ def install(app: FastAPI) -> None:
     app.openapi = lambda: build_openapi(app)  # type: ignore[method-assign]
 
 
-__all__ = ['TAG_GROUPS', 'WHO_CAN_CALL', 'api_description', 'build_openapi', 'install']
+def warm_openapi(app: FastAPI) -> None:
+    """Build the schema once at startup, off the event loop.
+
+    Sentry SGLMAN-17: the first ``/api/openapi.json`` after a deploy built it on
+    the loop and froze every page for over two seconds.
+    """
+    from nicegui import background_tasks
+
+    async def _warm() -> None:
+        try:
+            await asyncio.to_thread(build_openapi, app)
+        except Exception:
+            logger.warning('Building the OpenAPI schema at startup failed', exc_info=True)
+
+    background_tasks.create(_warm(), name='warm openapi schema')
+
+
+__all__ = ['TAG_GROUPS', 'WHO_CAN_CALL', 'api_description', 'build_openapi', 'install', 'warm_openapi']

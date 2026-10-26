@@ -9,6 +9,7 @@ these pass tenant ids explicitly rather than through ``scoped(...)``, and
 
 from typing import List, Optional
 
+from application.repositories._save import save_fields
 from models import JoinRequestStatus, TenantJoinRequest, User
 
 
@@ -42,7 +43,7 @@ class TenantJoinRequestRepository:
             request.message = message
             request.decided_by = None
             request.decided_at = None
-            await request.save()
+            await save_fields(request, 'status', 'message', 'decided_by', 'decided_at')
         return request
 
     @staticmethod
@@ -58,5 +59,5 @@ class TenantJoinRequestRepository:
         request.status = status
         request.decided_by = actor
         request.decided_at = decided_at
-        await request.save()
+        await save_fields(request, 'status', 'decided_by', 'decided_at')
         return request

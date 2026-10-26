@@ -1,9 +1,11 @@
 """Admin Dashboard Page"""
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
+from typing import Optional
 
 from fastapi import Request
 from nicegui import app, ui
+from starlette.responses import RedirectResponse
 
 from application.services import (
     AuthService,
@@ -15,13 +17,15 @@ from application.services import (
 )
 from application.tenant_context import get_current_tenant_id
 from middleware.auth import protected_page, protected_tab_page
-from models import FeatureFlag, Role
+from middleware.event_routing import default_event_redirect
+from models import FeatureFlag, Role, User
 from pages.admin_tabs.admin_brackets import admin_brackets_page
-from pages.admin_tabs.admin_challonge import admin_challonge_page
 from pages.admin_tabs.admin_check_in import admin_check_in_page
 from pages.admin_tabs.admin_community_events import admin_community_events_page
 from pages.admin_tabs.admin_equipment import admin_equipment_page
+from pages.admin_tabs.admin_events import admin_events_page
 from pages.admin_tabs.admin_feedback import admin_feedback_page
+from pages.admin_tabs.admin_notifications import admin_notifications_page
 from pages.admin_tabs.admin_payouts import admin_payouts_page
 from pages.admin_tabs.admin_presets import admin_presets_page
 from pages.admin_tabs.admin_qualifiers import admin_qualifiers_page
@@ -32,21 +36,36 @@ from pages.admin_tabs.admin_settings import admin_stages_page, admin_tournaments
 from pages.admin_tabs.admin_setup import admin_setup_page
 from pages.admin_tabs.admin_shift_board import admin_shift_board_page
 from pages.admin_tabs.admin_speedgaming import admin_speedgaming_page
+from pages.admin_tabs.admin_stream_layouts import admin_stream_layouts_page
 from pages.admin_tabs.admin_users import admin_users_page
 from pages.admin_tabs.admin_volunteer_roster import admin_volunteer_roster_page
 from pages.admin_tabs.admin_volunteers import admin_volunteers_page
 from pages.admin_tabs.reports import VOLUNTEER_REPORTS, reports_page
 from pages.admin_tabs.settings import (
+    EVENT_SETTINGS_TAB_LABEL,
     LEGACY_TAB_PANES,
+    MOVED_TO_EVENT_PANES,
     SETTINGS_TAB_LABEL,
     admin_settings_page,
+    build_event_settings_panes,
     build_settings_panes,
 )
 from pages.admin_tabs.triforce_texts import admin_triforce_texts_page
-from theme.base import BaseLayout
+from theme.base import BaseLayout, tab_slug
+from theme.section_menu import register_section_menu
 from theme.tables.match_access import MatchBoardAccess
 
-_ADMIN_GROUP_ORDER = ['Operations', 'Online play', 'Community', 'System']
+RUN_THE_EVENT = 'Run the event'
+ONLINE_PLAY = 'Online play'
+PEOPLE = 'People'
+COMMUNITY = 'Community'
+CONFIGURATION = 'Configuration'
+SYSTEM = 'System'
+MEETUPS_TAB_LABEL = 'Meetups'
+
+#: The drawer's groups, in order: the event's own pages, then the community's.
+ADMIN_GROUP_ORDER = [RUN_THE_EVENT, ONLINE_PLAY, PEOPLE, COMMUNITY, CONFIGURATION, SYSTEM]
+EVENT_GROUPS = frozenset({RUN_THE_EVENT, ONLINE_PLAY, PEOPLE})
 
 
 @dataclass(frozen=True)
@@ -92,8 +111,10 @@ def build_admin_tabs(
     qualifier: int | None = None,
     qualifier_tab: str | None = None,
     ada_request: int | None = None,
+    member: int | None = None,
     community_event: int | None = None,
     settings_pane: str | None = None,
+    event_settings_pane: str | None = None,
 ) -> list[dict]:
     """The admin drawer's tabs, ordered by group.
 
@@ -115,6 +136,9 @@ def build_admin_tabs(
         admin_tournament_ids=access.admin_tournament_ids,
         crew_tournament_ids=access.crew_tournament_ids,
     )
+    # Pinning a match to its stage's OBS overlay rides on the board's match sheet.
+    if (is_staff or is_sm) and FeatureFlag.STREAM_LAYOUTS in live:
+        board_access = replace(board_access, pin_overlay=True)
     # Staff and the stream manager operate community-wide; a TA/CC's authority is
     # per tournament, so their board is narrowed to the ones they run rather than
     # showing every match in the community with controls that refuse.
@@ -150,88 +174,159 @@ def build_admin_tabs(
     # Filled in once every tab is known, so a step only links to a tab the viewer has.
     setup_kwargs: dict = {'steps': setup_steps, 'base_path': base_path}
     if setup_steps and not TenantSetupService.is_ready(setup_steps) and (is_staff or is_ta_any):
-        tabs.append({'label': 'Setup', 'icon': 'checklist', 'group': 'Operations',
+        tabs.append({'label': 'Setup', 'icon': 'checklist', 'group': RUN_THE_EVENT,
                      'content': (admin_setup_page, (), setup_kwargs)})
     # STREAM_MANAGER is here because assigning a stage is a match-board action
     # and this is the only board that offers it — the role existed for that job
     # with no surface that did it. What they get once here is one control:
     # ``board_access`` grants them ``assign_stream`` and nothing else.
     if is_staff or is_ta_any or is_cc_any or is_sm:
-        tabs.append({'label': 'Match Schedule', 'icon': 'view_timeline', 'group': 'Operations', 'aliases': ('schedule',), 'content': (admin_schedule_page, (), schedule_kwargs)})
+        tabs.append({'label': 'Match Schedule', 'icon': 'view_timeline', 'group': RUN_THE_EVENT, 'aliases': ('schedule',), 'content': (admin_schedule_page, (), schedule_kwargs)})
+    if is_staff or is_ta_any:
+        tabs.append({'label': 'Tournaments', 'icon': 'emoji_events', 'group': RUN_THE_EVENT, 'content': admin_tournaments_page})
+    if is_staff or access.is_stream_manager:
+        tabs.append({'label': 'Stages', 'icon': 'tv', 'group': RUN_THE_EVENT, 'content': admin_stages_page})
+    if (is_staff or access.is_stream_manager) and FeatureFlag.STREAM_LAYOUTS in live:
+        tabs.append({'label': 'Stream Layouts', 'icon': 'live_tv', 'group': RUN_THE_EVENT,
+                     'content': admin_stream_layouts_page})
+    if is_staff and FeatureFlag.EVENT_CHECK_IN in live:
+        tabs.append({'label': 'Check-in Roster', 'icon': 'fact_check', 'group': RUN_THE_EVENT, 'aliases': ('check-in',), 'content': admin_check_in_page})
+    # A tournament admin belongs here: posting their event's payout block is the
+    # job this replaces, and the service scopes each of them to their own events.
+    if (is_staff or is_ta_any) and FeatureFlag.PAYOUTS in live:
+        tabs.append({'label': 'Payouts', 'icon': 'payments', 'group': RUN_THE_EVENT, 'content': admin_payouts_page})
+    if (is_staff or is_ta_any) and FeatureFlag.TRIFORCE_TEXTS in live:
+        tabs.append({'label': 'Triforce Texts', 'icon': 'svguse:/static/triforce.svg#triforce|0 0 512 512', 'group': RUN_THE_EVENT, 'content': admin_triforce_texts_page})
+    event_panes = build_event_settings_panes(access, live)
+    if event_panes:
+        tabs.append({'label': EVENT_SETTINGS_TAB_LABEL, 'icon': 'event', 'group': RUN_THE_EVENT,
+                     'content': (admin_settings_page, (),
+                                 {'panes': event_panes, 'pane': event_settings_pane,
+                                  'base_path': base_path, 'tab_label': EVENT_SETTINGS_TAB_LABEL,
+                                  'title': 'Event settings',
+                                  'subtitle': 'What this event sets for itself. Pick an area to change it.'})})
+    if (is_staff or access.is_qualifier_admin or is_qa_any) and FeatureFlag.ASYNC_QUALIFIERS in live:
+        # The "runs are waiting" DM lands here with a qualifier and a tab, so a
+        # reviewer arrives at the queue rather than at a list to go and search.
+        tabs.append({'label': 'Qualifiers', 'icon': 'timer', 'group': ONLINE_PLAY,
+                     'content': (admin_qualifiers_page, (),
+                                 {'qualifier': qualifier, 'open_tab': qualifier_tab})})
+    if is_staff and FeatureFlag.BRACKETS in live:
+        tabs.append({'label': 'Brackets', 'icon': 'schema', 'group': ONLINE_PLAY, 'content': admin_brackets_page})
+    if (is_staff or access.is_sync_admin) and FeatureFlag.SPEEDGAMING_ETL in live:
+        tabs.append({'label': 'SpeedGaming', 'icon': 'sync_alt', 'group': ONLINE_PLAY, 'content': admin_speedgaming_page})
+    if (is_staff or access.is_volunteer_coordinator) and FeatureFlag.VOLUNTEERS in live:
+        tabs.append({'label': 'Volunteers', 'icon': 'groups', 'group': PEOPLE, 'aliases': ('vol-roster',), 'content': admin_volunteer_roster_page})
+        tabs.append({'label': 'Volunteer Shifts', 'icon': 'calendar_view_week', 'group': PEOPLE, 'aliases': ('vol-schedule',), 'content': (admin_volunteers_page, (), {'day': day})})
+        tabs.append({'label': 'Shift Board', 'icon': 'edit_calendar', 'group': PEOPLE, 'content': (admin_shift_board_page, (), {'day': day})})
+    if is_staff and FeatureFlag.COMMUNITY_EVENTS in live:
+        # The "meetup to review" DM lands here with the meetup's dialog open.
+        tabs.append({'label': MEETUPS_TAB_LABEL, 'icon': 'celebration', 'group': PEOPLE,
+                     'aliases': ('community-events',),
+                     'content': (admin_community_events_page, (), {'open_event': community_event})})
     if is_staff:
-        tabs.append({'label': 'Members', 'icon': 'manage_accounts', 'group': 'Operations', 'aliases': ('users',),
+        tabs.append({'label': 'Members', 'icon': 'manage_accounts', 'group': COMMUNITY, 'aliases': ('users',),
                      'content': (admin_users_page, (),
                                  {'accommodations': FeatureFlag.ADA_ACCOMMODATIONS in live,
                                   'emergency_contacts': FeatureFlag.EMERGENCY_CONTACTS in live,
                                   # The ADA staff DMs' button: opens that request.
-                                  'ada_request': ada_request})})
-    if is_staff or is_ta_any:
-        tabs.append({'label': 'Tournaments', 'icon': 'emoji_events', 'group': 'Operations', 'content': admin_tournaments_page})
-    if is_staff or access.is_stream_manager:
-        tabs.append({'label': 'Stages', 'icon': 'tv', 'group': 'Operations', 'content': admin_stages_page})
-    # A tournament admin belongs here: posting their event's payout block is the
-    # job this replaces, and the service scopes each of them to their own events.
-    if (is_staff or is_ta_any) and FeatureFlag.PAYOUTS in live:
-        tabs.append({'label': 'Payouts', 'icon': 'payments', 'group': 'Operations', 'content': admin_payouts_page})
-    if is_staff and FeatureFlag.EVENT_CHECK_IN in live:
-        tabs.append({'label': 'Check-in Roster', 'icon': 'fact_check', 'group': 'Operations', 'aliases': ('check-in',), 'content': admin_check_in_page})
-    if is_staff or access.is_preset_manager:
-        tabs.append({'label': 'Seed Presets', 'icon': 'tune', 'group': 'Online play', 'aliases': ('presets',), 'content': admin_presets_page})
-    if (is_staff or access.is_qualifier_admin or is_qa_any) and FeatureFlag.ASYNC_QUALIFIERS in live:
-        # The "runs are waiting" DM lands here with a qualifier and a tab, so a
-        # reviewer arrives at the queue rather than at a list to go and search.
-        tabs.append({'label': 'Qualifiers', 'icon': 'timer', 'group': 'Online play',
-                     'content': (admin_qualifiers_page, (),
-                                 {'qualifier': qualifier, 'open_tab': qualifier_tab})})
-    if (is_staff or access.is_sync_admin) and FeatureFlag.RACETIME_ROOMS in live:
-        tabs.append({'label': 'Racetime', 'icon': 'flag', 'group': 'Online play', 'content': admin_racetime_page})
-    if (is_staff or access.is_sync_admin) and FeatureFlag.SPEEDGAMING_ETL in live:
-        tabs.append({'label': 'SpeedGaming', 'icon': 'sync_alt', 'group': 'Online play', 'content': admin_speedgaming_page})
-    if is_staff and FeatureFlag.CHALLONGE in live:
-        tabs.append({'label': 'Challonge', 'icon': 'account_tree', 'group': 'Online play', 'content': admin_challonge_page})
-    if is_staff and FeatureFlag.BRACKETS in live:
-        tabs.append({'label': 'Brackets', 'icon': 'schema', 'group': 'Online play', 'content': admin_brackets_page})
-    if (is_staff or is_ta_any) and FeatureFlag.TRIFORCE_TEXTS in live:
-        tabs.append({'label': 'Triforce Texts', 'icon': 'svguse:/static/triforce.svg#triforce|0 0 512 512', 'group': 'Community', 'content': admin_triforce_texts_page})
-    if (is_staff or access.is_volunteer_coordinator) and FeatureFlag.VOLUNTEERS in live:
-        tabs.append({'label': 'Volunteers', 'icon': 'groups', 'group': 'Community', 'aliases': ('vol-roster',), 'content': admin_volunteer_roster_page})
-        tabs.append({'label': 'Volunteer Shifts', 'icon': 'calendar_view_week', 'group': 'Community', 'aliases': ('vol-schedule',), 'content': (admin_volunteers_page, (), {'day': day})})
-        tabs.append({'label': 'Shift Board', 'icon': 'edit_calendar', 'group': 'Community', 'content': (admin_shift_board_page, (), {'day': day})})
+                                  'ada_request': ada_request,
+                                  'member': member})})
     if (is_staff or access.is_equipment_manager) and FeatureFlag.EQUIPMENT in live:
-        tabs.append({'label': 'Equipment', 'icon': 'inventory_2', 'group': 'Community', 'content': admin_equipment_page})
-    if is_staff and FeatureFlag.COMMUNITY_EVENTS in live:
-        # The "event to review" DM lands here with the event's dialog open.
-        tabs.append({'label': 'Community Events', 'icon': 'celebration', 'group': 'Community',
-                     'content': (admin_community_events_page, (), {'open_event': community_event})})
+        tabs.append({'label': 'Equipment', 'icon': 'inventory_2', 'group': COMMUNITY, 'content': admin_equipment_page})
+    if (is_staff or access.is_sync_admin) and FeatureFlag.RACETIME_ROOMS in live:
+        tabs.append({'label': 'Racetime', 'icon': 'flag', 'group': COMMUNITY, 'content': admin_racetime_page})
     if is_staff and FeatureFlag.FEEDBACK in live:
-        tabs.append({'label': 'Feedback', 'icon': 'feedback', 'group': 'Community', 'content': admin_feedback_page})
-    if is_staff or is_ta_any or is_cc_any:
-        tabs.append({'label': 'Reports', 'icon': 'analytics', 'group': 'System', 'content': (reports_page, (), reports_kwargs)})
-    elif access.is_volunteer_coordinator and FeatureFlag.VOLUNTEERS in live:
-        # A coordinator reads Volunteer Coverage and nothing else here: the
-        # other reports cover matches, crew and stages they have no say over.
-        tabs.append({'label': 'Reports', 'icon': 'analytics', 'group': 'System',
-                     'content': (reports_page, (), {**reports_kwargs, 'only': VOLUNTEER_REPORTS})})
+        tabs.append({'label': 'Feedback', 'icon': 'feedback', 'group': COMMUNITY, 'content': admin_feedback_page})
     if is_staff:
-        tabs.append({'label': 'Service Health', 'icon': 'monitor_heart', 'group': 'System', 'content': admin_service_health_page})
+        tabs.append({'label': 'Events', 'icon': 'calendar_month', 'group': CONFIGURATION, 'content': admin_events_page})
+    # Configuration because presets outlive an event: every year's tournaments
+    # attach the same ones, and on-site rolls read them as much as race rooms.
+    if is_staff or access.is_preset_manager:
+        tabs.append({'label': 'Seed Presets', 'icon': 'tune', 'group': CONFIGURATION, 'aliases': ('presets',), 'content': admin_presets_page})
+    if is_staff:
+        tabs.append({'label': 'Notifications', 'icon': 'notifications', 'group': CONFIGURATION, 'content': admin_notifications_page})
     # Every setting lives under one entry with its own menu; the panes keep
     # their old tabs' role gates, so a sync admin or preset manager still finds
     # the one pane they had, and the retired slugs resolve to it.
     settings_panes = build_settings_panes(access, live)
     if settings_panes:
-        tabs.append({'label': SETTINGS_TAB_LABEL, 'icon': 'settings', 'group': 'System',
+        tabs.append({'label': SETTINGS_TAB_LABEL, 'icon': 'settings', 'group': CONFIGURATION,
                      'aliases': tuple(LEGACY_TAB_PANES),
                      'content': (admin_settings_page, (),
                                  {'panes': settings_panes, 'pane': settings_pane,
                                   'base_path': base_path})})
+    if is_staff or is_ta_any or is_cc_any:
+        tabs.append({'label': 'Reports', 'icon': 'analytics', 'group': SYSTEM, 'content': (reports_page, (), reports_kwargs)})
+    elif access.is_volunteer_coordinator and FeatureFlag.VOLUNTEERS in live:
+        # A coordinator reads Volunteer Coverage and nothing else here: the
+        # other reports cover matches, crew and stages they have no say over.
+        tabs.append({'label': 'Reports', 'icon': 'analytics', 'group': SYSTEM,
+                     'content': (reports_page, (), {**reports_kwargs, 'only': VOLUNTEER_REPORTS})})
+    if is_staff:
+        tabs.append({'label': 'Service Health', 'icon': 'monitor_heart', 'group': SYSTEM, 'content': admin_service_health_page})
 
     setup_kwargs['reachable_tabs'] = frozenset(t['label'] for t in tabs)
-    tabs.sort(key=lambda t: _ADMIN_GROUP_ORDER.index(t['group']))
+    tabs.sort(key=lambda t: ADMIN_GROUP_ORDER.index(t['group']))
+    for tab in tabs:
+        tab['half'] = 'event' if tab['group'] in EVENT_GROUPS else 'community'
     return tabs
 
 
+def selected_admin_tab(tabs: list[dict], section: str | None) -> dict:
+    """The tab ``section`` opens, as BaseLayout resolves it: slug, then alias, else the first."""
+    if section:
+        for tab in tabs:
+            if (tab.get('slug') or tab_slug(tab['label'])) == section:
+                return tab
+        for tab in tabs:
+            if section in tab.get('aliases', ()):
+                return tab
+    return tabs[0]
+
+
+async def resolve_admin_access(user: User) -> AdminAccess:
+    """What ``user`` may reach in the admin area of the community in scope."""
+    roles = await AuthService.get_roles(user)
+    # Tenant-filtered inside the service: these reverse relations hang off
+    # the *global* User, so unfiltered they let a tournament admin in one
+    # community through this gate in every other one. The ids (not just
+    # "any?") because the Schedule board scopes to them.
+    admin_tournament_ids, cc_tournament_ids = await AuthService.tournament_scope(user)
+    return AdminAccess(
+        # Staff-equivalence (not the literal grant) so a platform super-admin
+        # has full authority in this tenant.
+        is_staff=await AuthService.is_staff(user),
+        is_stream_manager=Role.STREAM_MANAGER in roles,
+        is_volunteer_coordinator=Role.VOLUNTEER_COORDINATOR in roles,
+        is_equipment_manager=Role.EQUIPMENT_MANAGER in roles,
+        is_preset_manager=Role.PRESET_MANAGER in roles,
+        is_sync_admin=Role.SYNC_ADMIN in roles,
+        is_qualifier_admin=Role.QUALIFIER_ADMIN in roles,
+        is_tournament_admin=bool(admin_tournament_ids),
+        is_crew_coordinator=bool(cc_tournament_ids),
+        is_qualifier_owner=await user.admin_async_qualifiers.filter(
+            tenant_id=get_current_tenant_id()).exists(),
+        operated_tournament_ids=frozenset(admin_tournament_ids | cc_tournament_ids),
+        admin_tournament_ids=frozenset(admin_tournament_ids),
+        crew_tournament_ids=frozenset(cc_tournament_ids),
+    )
+
+
+async def _admin_menu(user: User) -> list[dict]:
+    access = await resolve_admin_access(user)
+    if not access.any():
+        return []
+    live = await FeatureFlagService().enabled_flags()
+    setup_steps = await TenantSetupService().status()
+    return build_admin_tabs(access, live, {}, setup_steps)
+
+
+register_section_menu('/admin', _admin_menu)
+
+
 def create() -> None:
-    @protected_tab_page('/admin')
+    @protected_tab_page('/admin', scope='community')
     async def admin_dashboard_page(
         section: str | None = None,
         request: Request = None,
@@ -257,13 +352,13 @@ def create() -> None:
         ada_request: int | None = None,
         community_event: int | None = None,
         pane: str | None = None,
-    ) -> None:
-        ui.page_title(f'{await TenantService.current_community_name() or "Wizzrobe"} — Admin')
+    ) -> Optional[RedirectResponse]:
+        ui.page_title(f'Admin — {await TenantService.current_community_name() or "Wizzrobe"}')
         signed_in = app.storage.user.get('authenticated', False)
         if not signed_in:
             with ui.row():
                 ui.label('You must be logged in to view this page.').classes('text-error')
-            return
+            return None
 
         # get_user_from_session enforces is_active, so a deactivated account
         # loses admin access on its next request — consistent with the REST API
@@ -272,32 +367,9 @@ def create() -> None:
         if user is None:
             with ui.row():
                 ui.label('User not found in the database.').classes('text-error')
-            return
+            return None
 
-        roles = await AuthService.get_roles(user)
-        # Tenant-filtered inside the service: these reverse relations hang off
-        # the *global* User, so unfiltered they let a tournament admin in one
-        # community through this gate in every other one. The ids (not just
-        # "any?") because the Schedule board scopes to them.
-        admin_tournament_ids, cc_tournament_ids = await AuthService.tournament_scope(user)
-        access = AdminAccess(
-            # Staff-equivalence (not the literal grant) so a platform super-admin
-            # has full authority in this tenant.
-            is_staff=await AuthService.is_staff(user),
-            is_stream_manager=Role.STREAM_MANAGER in roles,
-            is_volunteer_coordinator=Role.VOLUNTEER_COORDINATOR in roles,
-            is_equipment_manager=Role.EQUIPMENT_MANAGER in roles,
-            is_preset_manager=Role.PRESET_MANAGER in roles,
-            is_sync_admin=Role.SYNC_ADMIN in roles,
-            is_qualifier_admin=Role.QUALIFIER_ADMIN in roles,
-            is_tournament_admin=bool(admin_tournament_ids),
-            is_crew_coordinator=bool(cc_tournament_ids),
-            is_qualifier_owner=await user.admin_async_qualifiers.filter(
-                tenant_id=get_current_tenant_id()).exists(),
-            operated_tournament_ids=frozenset(admin_tournament_ids | cc_tournament_ids),
-            admin_tournament_ids=frozenset(admin_tournament_ids),
-            crew_tournament_ids=frozenset(cc_tournament_ids),
-        )
+        access = await resolve_admin_access(user)
 
         # Per-tenant feature flags: a subsystem's tab only appears when the
         # tenant has that feature live (available AND enabled), in addition to
@@ -327,9 +399,12 @@ def create() -> None:
             match_id=match_id, day=day, reschedule_request=reschedule_request,
             comments=comments,
             qualifier=qualifier, qualifier_tab=tab, ada_request=ada_request,
+            # ?user_id= on the Members tab opens that person's member sheet.
+            member=user_id if section in ('members', 'users') else None,
             community_event=community_event,
             # A retired tab slug (/admin/appearance) names the pane that took it in.
             settings_pane=pane or LEGACY_TAB_PANES.get(section or ''),
+            event_settings_pane=pane,
         )
 
         # No tabs is a refusal too: a coordinator or equipment manager whose
@@ -342,7 +417,14 @@ def create() -> None:
                 user=user,
                 layout=await prepared_layout(user),
             )
-            return
+            return None
+
+        # The hub holds both halves, so only an event tab follows a bare link
+        # to the default event; Members or Settings keep the URL they came in on.
+        if selected_admin_tab(tabs, section)['half'] == 'event':
+            redirect = await default_event_redirect(request)
+            if redirect is not None:
+                return redirect
 
         base_layout = BaseLayout(
             tabs=tabs, section=section, base_path=base_path, page_name='admin', user=user,
@@ -352,6 +434,15 @@ def create() -> None:
 
     # Settings panes are a path segment below the Settings tab, like the tab is
     # below /admin, so a pane's URL reads like a route and can be bookmarked.
-    @protected_page('/admin/settings/{pane}', telemetry_path='/admin')
-    async def admin_settings_pane_page(pane: str, request: Request = None) -> None:
-        await admin_dashboard_page(section='settings', pane=pane, request=request)
+    @protected_page('/admin/settings/{pane}', telemetry_path='/admin', scope='community')
+    async def admin_settings_pane_page(pane: str, request: Request = None) -> Optional[RedirectResponse]:
+        # Event and Venue moved to the event's own settings; old links follow.
+        if pane in MOVED_TO_EVENT_PANES:
+            return await admin_dashboard_page(
+                section=tab_slug(EVENT_SETTINGS_TAB_LABEL), pane=MOVED_TO_EVENT_PANES[pane], request=request,
+            )
+        return await admin_dashboard_page(section='settings', pane=pane, request=request)
+
+    @protected_page('/admin/event-settings/{pane}', telemetry_path='/admin', scope='community')
+    async def admin_event_settings_pane_page(pane: str, request: Request = None) -> Optional[RedirectResponse]:
+        return await admin_dashboard_page(section=tab_slug(EVENT_SETTINGS_TAB_LABEL), pane=pane, request=request)

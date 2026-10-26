@@ -42,10 +42,10 @@ async def handle_unwatch_interaction(interaction: discord.Interaction) -> None:
     Responds ephemerally so only the clicking user sees the result.
     """
     from application.services import MatchService, MatchWatcherService
-    from discordbot._tenant import match_tenant_id
+    from discordbot._tenant import match_scope
 
     async def resolve_tenant(match_id: int):
-        return await match_tenant_id(match_id)
+        return await match_scope(match_id)
 
     async def handle(_interaction, match_id: int, user, send: SendFn) -> None:
         removed = await MatchWatcherService().unwatch(match_id, user)

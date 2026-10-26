@@ -26,6 +26,7 @@ from application.repositories.accommodation_repository import AccommodationRepos
 from application.services.audit_service import AuditActions, AuditService
 from application.services.auth_service import AuthService
 from application.services.feature_flag_service import FeatureFlagService
+from application.services.notification_catalog import ADA_CHANGED
 from application.services.tenant_membership_service import TenantMembershipService
 from application.utils.discord_messages_accommodation import (
     accommodation_changed_dm,
@@ -332,11 +333,12 @@ class AccommodationService:
             body, embed = await self._staff_card(member, changed=changed)
             link = await notification_links.admin_ada_request(request.id)
             staff = [
-                u for u in await UserRoleRepository.list_users_with_role(Role.STAFF)
+                u for u in await UserRoleRepository.list_users_with_role(Role.STAFF, active_only=True)
                 if u.id != member.id
             ]
             await staff_request_dms.send(
                 StaffRequestKind.ADA_REQUEST, request.id, staff, body, embed=embed, link=link,
+                notice=ADA_CHANGED if changed else None,
             )
             await self.repository.update(request, staff_notified_at=now)
         except Exception:

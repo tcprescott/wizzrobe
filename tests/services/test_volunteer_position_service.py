@@ -1,6 +1,6 @@
 """Tests for VolunteerPositionService."""
 
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
@@ -79,39 +79,34 @@ class TestValidateStagger:
 class TestCreate:
     async def test_raises_when_name_empty(self, service):
         with pytest.raises(ValueError, match='required'):
-            with patch('application.services.volunteer.volunteer_position_service.VolunteerPosition') as MockPos:
-                MockPos.filter.return_value.exists = AsyncMock(return_value=False)
-                await service.create(actor=MagicMock(), name='')
+            service.repository.name_taken = AsyncMock(return_value=False)
+            await service.create(actor=MagicMock(), name='')
 
     async def test_raises_when_name_whitespace(self, service):
         with pytest.raises(ValueError, match='required'):
-            with patch('application.services.volunteer.volunteer_position_service.VolunteerPosition') as MockPos:
-                MockPos.filter.return_value.exists = AsyncMock(return_value=False)
-                await service.create(actor=MagicMock(), name='   ')
+            service.repository.name_taken = AsyncMock(return_value=False)
+            await service.create(actor=MagicMock(), name='   ')
 
     async def test_raises_when_name_already_exists(self, service):
-        with patch('application.services.volunteer.volunteer_position_service.VolunteerPosition') as MockPos:
-            MockPos.filter.return_value.exists = AsyncMock(return_value=True)
-            with pytest.raises(ValueError, match="already exists"):
-                await service.create(actor=MagicMock(), name='Check-in')
+        service.repository.name_taken = AsyncMock(return_value=True)
+        with pytest.raises(ValueError, match="already exists"):
+            await service.create(actor=MagicMock(), name='Check-in')
 
     async def test_creates_and_audits_on_success(self, service):
         position = make_position(id=5, name='Check-in')
         service.repository.create = AsyncMock(return_value=position)
-        with patch('application.services.volunteer.volunteer_position_service.VolunteerPosition') as MockPos:
-            MockPos.filter.return_value.exists = AsyncMock(return_value=False)
-            result = await service.create(actor=MagicMock(), name='Check-in')
+        service.repository.name_taken = AsyncMock(return_value=False)
+        result = await service.create(actor=MagicMock(), name='Check-in')
         assert result is position
         service.audit_service.write_log.assert_awaited_once()
 
     async def test_raises_on_invalid_stagger_config(self, service):
-        with patch('application.services.volunteer.volunteer_position_service.VolunteerPosition') as MockPos:
-            MockPos.filter.return_value.exists = AsyncMock(return_value=False)
-            with pytest.raises(ValueError):
-                await service.create(
-                    actor=MagicMock(), name='Tech',
-                    shift_length_minutes=240, stagger_minutes=None,
-                )
+        service.repository.name_taken = AsyncMock(return_value=False)
+        with pytest.raises(ValueError):
+            await service.create(
+                actor=MagicMock(), name='Tech',
+                shift_length_minutes=240, stagger_minutes=None,
+            )
 
 
 # ---------------------------------------------------------------------------
@@ -123,25 +118,22 @@ class TestUpdate:
     async def test_raises_when_new_name_empty(self, service):
         position = make_position()
         service.repository.update = AsyncMock(return_value=position)
-        with patch('application.services.volunteer.volunteer_position_service.VolunteerPosition') as MockPos:
-            MockPos.filter.return_value.exclude.return_value.exists = AsyncMock(return_value=False)
-            with pytest.raises(ValueError, match='required'):
-                await service.update(actor=MagicMock(), position=position, name='')
+        service.repository.name_taken = AsyncMock(return_value=False)
+        with pytest.raises(ValueError, match='required'):
+            await service.update(actor=MagicMock(), position=position, name='')
 
     async def test_raises_when_name_taken_by_other(self, service):
         position = make_position()
-        with patch('application.services.volunteer.volunteer_position_service.VolunteerPosition') as MockPos:
-            MockPos.filter.return_value.exclude.return_value.exists = AsyncMock(return_value=True)
-            with pytest.raises(ValueError, match="already exists"):
-                await service.update(actor=MagicMock(), position=position, name='Other Name')
+        service.repository.name_taken = AsyncMock(return_value=True)
+        with pytest.raises(ValueError, match="already exists"):
+            await service.update(actor=MagicMock(), position=position, name='Other Name')
 
     async def test_updates_and_audits_on_success(self, service):
         position = make_position()
         updated = make_position(name='New Name')
         service.repository.update = AsyncMock(return_value=updated)
-        with patch('application.services.volunteer.volunteer_position_service.VolunteerPosition') as MockPos:
-            MockPos.filter.return_value.exclude.return_value.exists = AsyncMock(return_value=False)
-            result = await service.update(actor=MagicMock(), position=position, name='New Name')
+        service.repository.name_taken = AsyncMock(return_value=False)
+        result = await service.update(actor=MagicMock(), position=position, name='New Name')
         assert result is updated
         service.audit_service.write_log.assert_awaited_once()
 

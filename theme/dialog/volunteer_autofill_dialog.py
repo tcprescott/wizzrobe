@@ -14,7 +14,9 @@ from application.services.volunteer.volunteer_autoschedule_service import (
     DEFAULT_MAX_HOURS,
     DraftPolicy,
 )
+from theme.busy import busy_click
 from theme.dialog._helpers import dialog_actions, dialog_header, mobile_sheet
+from theme.pickers import CHIP_PROPS
 
 
 def build_policy(max_hours, fill_outside_availability: bool) -> DraftPolicy:
@@ -70,7 +72,7 @@ class VolunteerAutofillDialog:
                 position_select = ui.select(
                     options, multiple=True, label='Positions',
                     value=list(options.keys()),
-                ).classes('full-width').props('use-chips')
+                ).classes('full-width').props(CHIP_PROPS)
 
             async def submit() -> None:
                 policy = build_policy(hours_input.value, outside_checkbox.value)
@@ -79,13 +81,13 @@ class VolunteerAutofillDialog:
                 # button's behaviour rather than silently filling nothing.
                 if not position_ids or len(position_ids) == len(options):
                     position_ids = None
-                dialog.close()
                 if self.on_submit:
                     await self.on_submit(policy, position_ids)
+                dialog.close()
 
             with dialog_actions().classes('justify-end'):
                 ui.button('Cancel', on_click=dialog.close).props('flat')
-                ui.button('Create draft', icon='smart_toy', on_click=submit) \
+                ui.button('Create draft', icon='smart_toy', on_click=busy_click('Creating draft…', submit)) \
                     .props('color=primary')
 
             dialog.open()

@@ -78,7 +78,7 @@ async def match_ops_page(
 
         bounds_start, bounds_end = display_bounds(start_d, end_d)
         ops = await ReportsService().match_operations(
-            bounds_start, bounds_end, tournament_id=tournament_id,
+            bounds_start, bounds_end, tournament_id=tournament_id, actor=viewer,
         )
         rows = ops['rows']
         if selected_state != 'All':

@@ -98,6 +98,7 @@ def create() -> None:
         '/equipment/qr-labels',
         roles=[Role.STAFF, Role.EQUIPMENT_MANAGER],
         feature=FeatureFlag.EQUIPMENT,
+        scope='community',
     )
     async def equipment_qr_labels(
         ids: str = '', cols: int = _DEFAULT_COLS,
@@ -208,6 +209,7 @@ def create() -> None:
                 if is_avery:
                     ui.badge(_AVERY[tpl]['label']).props('color=grey-7')
                 else:
+                    # url-state: exempt — a print layout setting, not a view
                     ui.toggle(
                         {2: '2', 3: '3', 4: '4'},
                         value=state['cols'] if state['cols'] in (2, 3, 4) else 3,

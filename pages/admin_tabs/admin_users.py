@@ -6,6 +6,7 @@ from nicegui import app, context, ui
 
 from application.services import (
     AccommodationService,
+    DiscordMemberImportService,
     NotFoundError,
     TenantMembershipService,
     UserService,
@@ -16,7 +17,9 @@ from application.tenant_context import require_tenant_id
 from application.utils.timezone import format_local_datetime, format_local_display
 from models import MembershipSource, Role, User
 from pages.admin_tabs.admin_accommodations import render_accommodation_panel
+from pages.admin_tabs.member_sheet import MemberSheet
 from theme.accommodation_copy import STATUS_LABELS
+from theme.busy import busy, busy_click
 from theme.dialog import AdminUserDialog
 from theme.dialog._helpers import dialog_actions, form_dialog
 from theme.dialog.confirmation_dialog import ConfirmationDialog
@@ -29,6 +32,7 @@ from theme.tables.admin_crud import refresh_button
 from theme.tables.export import csv_export_menu_item
 from theme.tables.preferences import TableKeys, preferences_button, search_input
 from theme.tables.user import UserTableView
+from theme.url_state import bind_url, consume_deep_link
 
 _TA_FILTER = '_tournament_admin'
 #: The Users-tab "Joined in the last N days" filter.
@@ -42,6 +46,7 @@ JOIN_SOURCE_LABELS: dict = {
     MembershipSource.ROLE_GRANT: 'Role grant',
     MembershipSource.DISCORD_ROLE: 'Discord role sync',
     MembershipSource.IMPORT: 'SpeedGaming import',
+    MembershipSource.DISCORD_IMPORT: 'Discord import',
 }
 
 _JOINED_VIA_SLOT = '''<q-td :props="props">
@@ -58,6 +63,16 @@ _EMERGENCY_CONTACT_ITEM = '''
                     <q-item-section avatar><q-icon name="contact_phone"/></q-item-section>
                     <q-item-section>Emergency contact…</q-item-section>
                 </q-item>'''
+
+
+def _count(n: int, one: str, many: str) -> str:
+    return f'{n} {one if n == 1 else many}'
+
+
+def _import_stat(value: int, label: str, *, accent: bool = False) -> None:
+    with ui.element('div').classes('wiz-import-stat' + (' wiz-import-stat--accent' if accent else '')):
+        ui.label(str(value)).classes('wiz-import-stat__value')
+        ui.label(label).classes('wiz-import-stat__label')
 
 
 def _row_actions(emergency_contacts: bool) -> str:
@@ -90,12 +105,12 @@ async def _in_client(client, coro) -> None:
 
 async def admin_users_page(
     accommodations: bool = False, ada_request: int | None = None,
-    emergency_contacts: bool = False,
+    emergency_contacts: bool = False, member: int | None = None,
 ) -> None:
     """Members table, plus an ADA requests sub-tab when the community has the feature.
 
     ``ada_request`` is the staff DM's deep link: the ADA sub-tab opens on that
-    request's dialog.
+    request's dialog. ``member`` opens that person's member sheet.
     """
     with ui.column().classes('page-container-wide w-full'):
         page_header('Members')
@@ -107,7 +122,10 @@ async def admin_users_page(
                     'ADA requests aren’t turned on for this community, so that '
                     'link has nothing to open.', color='warning',
                 )
-            await _members_panel(accommodations=False, emergency_contacts=emergency_contacts)
+                consume_deep_link('ada_request')
+            await _members_panel(
+                accommodations=False, emergency_contacts=emergency_contacts, member=member,
+            )
             return
 
         actor = await get_user_from_session(app.storage.user)
@@ -141,24 +159,27 @@ async def admin_users_page(
             with ui.tab_panel(members_tab).style('padding-left: 0; padding-right: 0'):
                 await _members_panel(
                     accommodations=True, actor=actor, on_open_ada=open_ada,
-                    emergency_contacts=emergency_contacts,
+                    emergency_contacts=emergency_contacts, member=member,
                 )
             with ui.tab_panel(ada_tab).style('padding-left: 0; padding-right: 0'):
                 opener['open'] = await render_accommodation_panel(on_change=recount)
+        bind_url('list', sub_tabs, default='members', choices=('members', 'ada'),
+                 label=lambda v: 'ADA requests' if v == 'ada' else None)
         await recount()
         if ada_request is not None:
             await open_ada(ada_request)
+            consume_deep_link('ada_request')
 
 
 async def _members_panel(
     accommodations: bool, actor: User | None = None, on_open_ada=None,
-    emergency_contacts: bool = False,
+    emergency_contacts: bool = False, member: int | None = None,
 ) -> None:
     with ui.column().classes('w-full gap-4'):
         ui.label(
             'Everyone in this community and the roles they hold. Add Member '
             'brings in an existing account; Actions › Add user creates a new one. '
-            'Click a username to edit it.'
+            'Click a name to see everything about them, including how their notifications are set up.'
         ).classes('text-caption text-grey')
 
         # Pending join requests, above the member table. The queue carries its
@@ -326,6 +347,62 @@ async def _members_panel(
             dialog = AdminUserDialog(on_submit=after_submit)
             await dialog.open()
 
+        async def import_from_discord():
+            actor = await get_user_from_session(app.storage.user)
+            service = DiscordMemberImportService()
+            try:
+                preview = await service.preview(actor)
+            except (ValueError, PermissionError) as e:
+                notify_error(e)
+                return
+
+            with form_dialog('Import from Discord', card_classes='dialog-card dialog-card--sm gap-2') as dialog:
+                ui.label(
+                    f'The {preview.server_name} Discord server has '
+                    f'{_count(preview.people, "person", "people")}.'
+                )
+                with ui.element('div').classes('wiz-import-stats'):
+                    _import_stat(preview.new_members, 'to add as members', accent=True)
+                    _import_stat(preview.already_members, 'already members')
+                    _import_stat(preview.bots, 'bots, skipped')
+                    _import_stat(preview.removed, 'removed from this community, skipped')
+                if preview.new_members:
+                    ui.label(
+                        f'{_count(preview.new_accounts, "of them gets", "of them get")} a new '
+                        'Wizzrobe account, ready for them when they sign in with Discord. '
+                        'Nobody gets a DM.'
+                    ).classes('text-caption text-grey')
+                else:
+                    ui.label('Everyone in the server is already a member.').classes('text-caption text-grey')
+                ui.label(
+                    "Safe to run again later: it only adds people who aren't members yet."
+                ).classes('wiz-import-note')
+
+                async def submit(e):
+                    async with busy(e.sender, 'Importing…'):
+                        try:
+                            result = await service.run(actor)
+                        except (ValueError, PermissionError) as err:
+                            notify_error(err)
+                            return
+                    dialog.close()
+                    ui.notify(
+                        f'Added {_count(result.members_added, "person", "people")} from Discord'
+                        f' ({_count(result.accounts_created, "new account", "new accounts")})',
+                        color='positive',
+                    )
+                    await table_view.refresh()
+
+                with dialog_actions().classes('justify-end'):
+                    ui.button('Cancel', on_click=dialog.close).props('flat')
+                    import_button = ui.button(
+                        f'Import {_count(preview.new_members, "person", "people")}'
+                        if preview.new_members else 'Nothing to import',
+                        icon='download', on_click=submit,
+                    ).props('color=primary')
+                    import_button.set_enabled(preview.new_members > 0)
+            dialog.open()
+
         async def add_member():
             actor = await get_user_from_session(app.storage.user)
             candidates = await TenantMembershipService().addable_users()
@@ -472,6 +549,7 @@ async def _members_panel(
         table_view = UserTableView(
             columns=columns, get_query=get_query, show_toolbar=False,
             row_actions=_row_actions(emergency_contacts), table_key=TableKeys.ADMIN_USERS,
+            name_event='member_details',
             before_refresh=load_row_data,
             decorate_row=decorate,
             extra_slots={'body-cell-joined_via': _JOINED_VIA_SLOT},
@@ -499,6 +577,37 @@ async def _members_panel(
                 'emergency_contact',
                 lambda e: table_view._bg(open_contact(e.args, context.client)),
             )
+        page_client = context.client
+
+        async def edit_member(member_id: int) -> None:
+            user = await UserService().get_user_by_id(member_id)
+            if user is None:
+                ui.notify('That account no longer exists', color='negative')
+                return
+
+            async def after_submit(_):
+                await table_view.refresh()
+            await AdminUserDialog(user, on_submit=after_submit).open()
+
+        async def remove_from_sheet(member_id: int) -> None:
+            await remove_member({'id': member_id}, page_client)
+
+        async def contact_from_sheet(member_id: int) -> None:
+            await open_contact({'id': member_id}, page_client)
+
+        sheet = MemberSheet(
+            on_edit=edit_member, on_remove=remove_from_sheet,
+            on_emergency_contact=contact_from_sheet if emergency_contacts else None,
+        )
+
+        async def open_sheet(e) -> None:
+            row = e.args.get('row', e.args) if isinstance(e.args, dict) else {}
+            if row.get('id'):
+                await sheet.open(row['id'])
+        table_view.table.on('member_details', open_sheet)
+        if member is not None:
+            await sheet.open(member)
+
         if on_open_ada is not None:
             async def open_ada(e) -> None:
                 row = e.args.get('row', e.args) if isinstance(e.args, dict) else {}
@@ -511,6 +620,10 @@ async def _members_panel(
             preferences_button(table_view.table)
         with more_menu:
             menu_action('add', 'Add user', add_user)
+            menu_action(
+                'group_add', 'Import from Discord…',
+                busy_click('Reading the Discord server…', import_from_discord),
+            )
             # The plan's columns, not the shipped list: the export matches what
             # the person is looking at, hidden columns and all.
             csv_export_menu_item(

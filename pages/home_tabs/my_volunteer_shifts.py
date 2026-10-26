@@ -13,9 +13,11 @@ from typing import Optional
 from nicegui import ui
 
 from application.services import (
+    EventService,
     SystemConfigService,
     VolunteerArrivalService,
 )
+from application.services.event_service import with_event_name
 from application.services.volunteer import can_self_check_in, can_undo_check_in, describe_late
 from application.services.volunteer.volunteer_hours import VolunteerHoursService
 from application.services.volunteer.volunteer_schedule_service import VolunteerScheduleService
@@ -28,6 +30,7 @@ from pages.volunteer_tabs.my_shifts import (
     shift_actions,
     shift_title,
 )
+from theme.anchors import copy_link_item, shift_anchor
 from theme.dialog._helpers import form_dialog
 from theme.menu import menu_action, more_menu
 from theme.notify import notify_error
@@ -42,11 +45,14 @@ SHIFTS_SECTION_ID = 'my-shifts'
 def shift_status(assignment, now: datetime) -> tuple[str, str, str]:
     """(chip kind, icon, text) for one row.
 
-    Module-level and pure so the precedence is testable: arriving says more
-    than running late, which says more than the shift being under way, which
+    Module-level and pure so the precedence is testable: being called off says
+    the most (staff told them not to come), then arriving says more than
+    running late, which says more than the shift being under way, which
     says more than having acknowledged it.
     """
     shift = assignment.shift
+    if assignment.called_off_at is not None:
+        return 'info', 'event_available', 'Called off'
     if assignment.checked_in_at is not None:
         return 'ok', 'how_to_reg', f'Arrived {format_local_time(assignment.checked_in_at)}'
     late = describe_late(assignment)
@@ -57,6 +63,18 @@ def shift_status(assignment, now: datetime) -> tuple[str, str, str]:
     if assignment.acknowledged_at is not None:
         return 'ok', 'check', 'Acknowledged'
     return 'pending', 'error_outline', 'Needs your OK'
+
+
+def called_off_note(assignment, now: datetime) -> Optional[str]:
+    """The line under a called-off row's chip: what it means for them now."""
+    if assignment.called_off_at is None:
+        return None
+    shift = assignment.shift
+    if shift.ends_at <= now:
+        return 'Counted as worked'
+    if shift.starts_at <= now:
+        return 'You can head out. It still counts as worked.'
+    return 'No need to come. It still counts as worked.'
 
 
 def primary_action(assignment, now: datetime) -> Optional[str]:
@@ -91,6 +109,8 @@ def day_heading(starts_at: datetime) -> str:
 
 def finished_status(assignment) -> tuple[str, str, str]:
     """(chip kind, icon, text) for a shift that has ended."""
+    if assignment.called_off_at is not None:
+        return 'info', 'event_available', 'Called off'
     if assignment.checked_in_at is not None:
         return 'ok', 'how_to_reg', f'Arrived {format_local_time(assignment.checked_in_at)}'
     return 'neutral', 'history', 'Finished'
@@ -98,23 +118,24 @@ def finished_status(assignment) -> tuple[str, str, str]:
 
 async def my_volunteer_shifts_section(
     user: User, *, release: Optional[int] = None, focus: bool = False,
-) -> None:
+) -> bool:
     """Build the panel; the caller has already checked ``FeatureFlag.VOLUNTEERS``.
 
     Nothing renders for someone who has never had a shift: most players never
     volunteer, and an empty panel would sit on every one of their schedules.
     ``release`` is an assignment id from the reminder DM's "Can't make it"
     button and opens that shift's give-back dialog; ``focus`` scrolls here.
+    Returns whether the panel was drawn.
     """
     service = VolunteerScheduleService()
     arrival_service = VolunteerArrivalService()
     every = await service.assignments_for_user(user, with_shiftmates=True)
     if not every and release is None:
-        return
+        return False
 
     summary = await VolunteerHoursService().for_user(user)
     lead_minutes = await SystemConfigService.get_volunteer_reminder_lead_minutes()
-    state = {'finished': False}
+    state: dict = {'finished': False, 'events': {}}
 
     panel = await section_panel(
         'Your volunteer shifts',
@@ -159,11 +180,16 @@ async def my_volunteer_shifts_section(
 
     def render_row(assignment, now: datetime) -> None:
         shift = assignment.shift
-        title = shift_title(shift)
+        title = with_event_name(shift_title(shift), shift.event_id, state['events'])
         ended = shift.ends_at <= now
         kind, icon, text = finished_status(assignment) if ended else shift_status(assignment, now)
         _, can_release = shift_actions(assignment, now)
-        with ui.element('div').classes('wiz-shift-row' + (' wiz-shift-row--done' if ended else '')):
+        called_off = assignment.called_off_at is not None
+        row = ui.element('div').classes(
+            'wiz-shift-row' + (' wiz-shift-row--done' if ended or called_off else '')
+        )
+        row.props['data-wiz-shift'] = shift.id
+        with row:
             with ui.column().classes('wiz-shift-row__time gap-0'):
                 ui.label(format_local_time(shift.starts_at)).classes('text-weight-medium')
                 ui.label(f'to {format_local_time(shift.ends_at)}').classes('text-caption text-muted')
@@ -172,6 +198,9 @@ async def my_volunteer_shifts_section(
                 with ui.element('span').classes(f'wiz-chip wiz-chip--{kind}'):
                     ui.icon(icon, size='14px')
                     ui.label(text)
+                note = called_off_note(assignment, now)
+                if note:
+                    ui.label(note).classes('text-caption text-muted')
             with ui.row().classes('wiz-shift-row__actions items-center no-wrap gap-1'):
                 action = None if ended else primary_action(assignment, now)
                 if action == 'arrive':
@@ -184,6 +213,7 @@ async def my_volunteer_shifts_section(
                     menu_action('info', 'Shift details', lambda a=assignment: open_shift_details(a))
                     if can_undo_check_in(assignment, user, now):
                         menu_action('undo', 'Undo check-in', lambda a=assignment: undo(a))
+                    copy_link_item(shift_anchor(shift.id))
                     if can_release:
                         ui.separator()
                         menu_action('event_busy', "Can't make it…",
@@ -202,6 +232,7 @@ async def my_volunteer_shifts_section(
     async def rows() -> None:
         now = datetime.now(timezone.utc)
         current = await service.assignments_for_user(user, with_shiftmates=True)
+        state['events'] = await EventService.names_if_mixed(a.shift.event_id for a in current)
         upcoming = [a for a in current if a.shift.ends_at > now]
         finished = [a for a in current if a.shift.ends_at <= now]
         if not upcoming:
@@ -236,3 +267,4 @@ async def my_volunteer_shifts_section(
             )
         else:
             await release_shift(target)
+    return True

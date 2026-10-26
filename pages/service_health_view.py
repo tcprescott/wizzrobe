@@ -12,11 +12,13 @@ from nicegui import background_tasks, context, ui
 
 from application.services import ProbeResult, ServiceStatus
 from application.utils.timezone import format_local_display
+from theme.busy import busy_click
 from theme.empty_state import empty_panel
 from theme.tables.preferences import TableKeys, customize_table, preferences_button
 
 _STATUS_COLOR = {
     ServiceStatus.HEALTHY: 'positive',
+    ServiceStatus.MOCK: 'info',
     ServiceStatus.DEGRADED: 'orange',
     ServiceStatus.CREDENTIAL_WARNING: 'amber-8',
     ServiceStatus.DOWN: 'negative',
@@ -25,6 +27,7 @@ _STATUS_COLOR = {
 
 _STATUS_LABEL = {
     ServiceStatus.HEALTHY: 'Healthy',
+    ServiceStatus.MOCK: 'Mock',
     ServiceStatus.DEGRADED: 'Degraded',
     ServiceStatus.CREDENTIAL_WARNING: 'Credential warning',
     ServiceStatus.DOWN: 'Down',
@@ -167,7 +170,7 @@ def build_refreshable_board(
         # do would bind nothing. The admin tab passes no refresh_loader at all.
         with refresh_slot if refresh_slot is not None else nullcontext():
             ui.button('Refresh now', icon='refresh',
-                      on_click=lambda: background_tasks.create(_load(refresh_loader, notify=True)))
+                      on_click=busy_click('Checking…', lambda: _load(refresh_loader, notify=True)))
 
     board()
     background_tasks.create(_load(initial_loader, notify=False))

@@ -124,7 +124,10 @@ FEATURE_FLAG_REGISTRY: Dict[FeatureFlag, FeatureFlagSpec] = {
             established=True,
             service_modules=('application/services/challonge_service.py',
                              'application/services/_challonge_participants.py',
-                             'application/services/_challonge_stages.py'),
+                             'application/services/_challonge_stages.py',
+                             'application/services/_challonge_link.py',
+                             'application/services/_challonge_results.py',
+                             'application/services/_challonge_auto_sync.py'),
         ),
         FeatureFlagSpec(
             FeatureFlag.EQUIPMENT,
@@ -183,12 +186,21 @@ FEATURE_FLAG_REGISTRY: Dict[FeatureFlag, FeatureFlagSpec] = {
             service_modules=('application/services/event_info_service.py',),
         ),
         FeatureFlagSpec(
+            FeatureFlag.ITEM_TRACKER,
+            'Item Tracker',
+            'Approved trackers mark what an ALTTPR runner collects on a board, '
+            'and a transparent page shows it on stream after a delay you set.',
+            'Operations',
+            service_modules=('application/services/item_tracker_service.py',),
+        ),
+        FeatureFlagSpec(
             FeatureFlag.PAYOUTS,
             'Prize Payouts',
             "Prize pool, placement splits and Matcherino handles for a "
             "tournament's winners, with an export for the payout run.",
             'Operations',
-            service_modules=('application/services/payout_service.py',),
+            service_modules=('application/services/payout_service.py',
+                             'application/services/sglive_pool_worker.py'),
         ),
         FeatureFlagSpec(
             FeatureFlag.ADA_ACCOMMODATIONS,
@@ -222,11 +234,41 @@ FEATURE_FLAG_REGISTRY: Dict[FeatureFlag, FeatureFlagSpec] = {
             'let players book their matches. Results are recorded on start.gg; each '
             'tournament can opt in to reporting confirmed results back.',
             'Community',
-            service_modules=('application/services/startgg_service.py',),
+            service_modules=(
+                'application/services/startgg_service.py',
+                'application/services/startgg_connection_service.py',
+            ),
+        ),
+        FeatureFlagSpec(
+            FeatureFlag.DISCORD_ROLE_SYNC,
+            'Discord Roles from Wizzrobe',
+            "Hand out roles in the community's Discord server to players, "
+            "people in a match right now, each tournament's entrants and badge "
+            'holders. Only roles Wizzrobe gave are ever taken back.',
+            'Community',
+            service_modules=('application/services/discord/discord_role_sync_service.py',),
+        ),
+        FeatureFlagSpec(
+            FeatureFlag.PERSONAL_WEBHOOKS,
+            'Personal Webhooks',
+            'Members can send what happens to them, or anything else they can see, '
+            'to a Discord channel or their own app from their profile. Three per '
+            'member; staff-only details are never sent.',
+            'Community',
+            service_modules=('application/services/personal_webhook_service.py',),
+        ),
+        FeatureFlagSpec(
+            FeatureFlag.STREAM_LAYOUTS,
+            'Stream Layouts',
+            'Design broadcast overlays for each event: upload the art, place '
+            'player names, round, commentators and more on it, and load each '
+            "stage's overlay in OBS on top of the video feeds.",
+            'Operations',
+            service_modules=('application/services/stream_layout_service.py',),
         ),
         FeatureFlagSpec(
             FeatureFlag.COMMUNITY_EVENTS,
-            'Community Events',
+            'Meetups',
             'Members submit the meetups, panels and side events they are running '
             'during the event; staff approve them, and anyone can subscribe for a '
             'Discord reminder before one starts.',

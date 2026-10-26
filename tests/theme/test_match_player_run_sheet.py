@@ -96,6 +96,22 @@ class TestCrew:
         role = _role(row, 'commentators')
         assert role['can_withdraw'] and not role['can_sign_up']
 
+    def test_a_live_or_finished_match_drops_the_signup_controls(self):
+        # Thomas, 2026-10-22: no "Sign up · Signups closed" on a race that's on.
+        for state in ('Started', 'Finished', 'Confirmed'):
+            row = _row(state=state, commentators=[{'name': 'SM User', 'discord_id': '5', 'approved': True}])
+            roles = player_crew(row, ME)
+            assert [r['key'] for r in roles] == ['commentators']
+            role = roles[0]
+            assert not role['tray'] and not role['can_sign_up'] and not role['empty']
+            assert role['unavailable'] == '' and not role['short']
+            assert [p['name'] for p in role['people']] == ['SM User']
+
+    def test_a_live_match_keeps_only_the_viewers_own_withdraw(self):
+        row = _row(state='Started', commentators=[{'discord_id': ME, 'approved': True, 'acknowledged': False}])
+        role = _role(row, 'commentators')
+        assert role['tray'] and role['can_withdraw'] and role['ack_idx'] is None
+
     def test_names_show_with_the_viewer_as_you_and_approved_first(self):
         row = _row(commentators=[{'name': 'Me', 'discord_id': ME, 'approved': False},
                                  {'name': 'SM User', 'discord_id': '5', 'approved': True}])
@@ -139,7 +155,7 @@ class TestTemplates:
         # disabled one when there's nothing to press, under the count.
         for slot in (_BODY_SLOT, _ITEM_SLOT):
             assert slot.index('run-sheet__crew') < slot.index('wiz-crew-action') < slot.index('run-sheet__people')
-            assert '<div class="wiz-crew-action">' in slot
+            assert '<div v-if="c.tray" class="wiz-crew-action">' in slot
             assert ' disable ' in slot
         assert 'player-sheet__crew-cell' in _BODY_SLOT
 
@@ -167,6 +183,7 @@ class TestMyScheduleMenu:
         class Table:
             def __init__(self):
                 self.slots = {}
+                self._props = {}
 
             def add_slot(self, name, template):
                 self.slots[name] = template
@@ -210,3 +227,11 @@ class TestMyScheduleMenu:
         src = pathlib.Path('pages/home_tabs/my_crew.py').read_text()
         assert "layout='player_run_sheet'" in src
         assert 'crew_discord_id=discord_id' in src
+
+
+def test_no_column_points_at_a_list():
+    # NiceGUI patches in its own body-cell slot (and logs a warning) for any
+    # column whose field holds a list, unaware the body slot draws the cell.
+    row = arrange_player_run_sheet([_row(commentators=[{'discord_id': '5', 'approved': True}])], ME)[0]
+    for col in PLAYER_RUN_SHEET_COLUMNS:
+        assert not isinstance(row.get(col['field']), (list, set, tuple)), col['name']

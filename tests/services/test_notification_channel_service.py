@@ -222,6 +222,14 @@ async def test_a_dm_is_copied_to_email_and_telegram(player, transports):
     assert transports['telegram'][-1] == {'chat_id': 5555, 'text': 'Your match is up\nStation 4', 'url': 'https://x.test/m/1'}
 
 
+async def test_the_copy_keeps_underscores_in_names(player, transports):
+    await _with_both(player)
+    await NotificationChannelService().mirror_dm(700, '**Match** vs dark__link')
+
+    assert transports['email'][-1]['subject'] == 'Match vs dark__link'
+    assert transports['telegram'][-1]['text'] == 'Match vs dark__link'
+
+
 async def test_a_silent_dm_reaches_telegram_quietly(player, transports):
     await _with_both(player)
     await NotificationChannelService().mirror_dm(700, 'Match started', silent=True)
@@ -298,3 +306,19 @@ async def test_discord_tests_work_with_the_flag_off_but_email_does_not(player, m
         assert results == {Channel.DISCORD: True}
         with pytest.raises(ValueError, match="aren't turned on"):
             await NotificationChannelService().send_test(player, [Channel.DISCORD, Channel.EMAIL])
+
+
+async def test_the_copy_carries_the_settings_footnote(player, transports):
+    from application.utils.discord_messages import DMLink
+    from application.utils.settings_footnote import SettingsFootnote
+
+    await _with_both(player)
+    footnote = SettingsFootnote('Seed ready', DMLink('Notification settings', 'https://x.test/home/profile'))
+    await NotificationChannelService().mirror_dm(700, 'Your seed is ready', footnote=footnote)
+
+    email = transports['email'][-1]
+    assert 'Change how you get “Seed ready” messages: https://x.test/home/profile' in email['text']
+    assert 'href="https://x.test/home/profile"' in email['html']
+    assert transports['telegram'][-1]['text'].endswith(
+        '\n\nChange how you get “Seed ready” messages: https://x.test/home/profile'
+    )

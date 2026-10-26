@@ -2,7 +2,7 @@
 
 from nicegui import app, ui
 
-from application.services import MatchService
+from application.services import CrewHoldService, MatchService
 from application.utils.tenant_session import tenant_session_get, tenant_session_set
 from theme.dialog.match_sheet import MatchSheet
 from theme.help import help_icon
@@ -67,6 +67,7 @@ async def schedule():
             on_rows_changed=sheet.sync,
             layout='player_run_sheet',
             on_open_match=sheet.open,
+            extra_rows=CrewHoldService().dress_schedule_rows,
         )
         sheet.view = view
 

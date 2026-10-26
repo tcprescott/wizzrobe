@@ -3,24 +3,31 @@
 Admin → Shift Board opens this when a shift is tapped: a side sheet on a
 desktop, a bottom sheet on a phone, like the match sheet on the run sheet. It
 shows who is on the shift and whether they've turned up, and holds the shift's
-edits: assign, check in, swap, move, remove, edit and delete.
+edits: assign, check in, call off, swap, move, remove, edit and delete.
 
 The sheet reads the board's latest grid through ``lookup`` rather than holding
 a copy, so after any change (here, or by someone else and picked up by the
 board's timer) ``sync`` repaints it from the same data the grid shows.
 """
 
+from datetime import datetime, timezone
 from typing import Awaitable, Callable, List, Optional, Tuple
 
 from nicegui import app, ui
 
-from application.services import get_user_from_session
+from application.services import (
+    VolunteerArrivalService,
+    VolunteerCallOffService,
+    get_user_from_session,
+)
 from application.services.volunteer import (
     GridPerson,
     GridShift,
     VolunteerScheduleService,
     VolunteerShiftMoveService,
 )
+from application.services.volunteer.volunteer_schedule_grid import CALLED_OFF
+from application.utils.discord_messages_volunteer import REASON_MAX_CHARS
 from application.utils.timezone import timezone_label, to_local
 from models import User
 from theme.dialog._helpers import dialog_actions, dialog_header, dialog_more_menu, form_dialog
@@ -35,6 +42,15 @@ from theme.volunteer_grid import day_label, filled_label, person_status, shift_r
 DayShifts = List[Tuple[str, GridShift]]
 
 _STALE = 'That shift has changed since the board loaded. It has been refreshed.'
+
+
+def _ended(shift: GridShift) -> bool:
+    return shift.ends_at <= datetime.now(timezone.utc)
+
+
+def _hours(shift: GridShift) -> str:
+    hours = round((shift.ends_at - shift.starts_at).total_seconds() / 3600, 1)
+    return f'{hours:g} hour' + ('' if hours == 1 else 's')
 
 
 def _show_warnings(warnings: List[str]) -> None:
@@ -135,6 +151,9 @@ class VolunteerShiftSheet:
         with dialog_actions():
             with dialog_more_menu():
                 menu_action('edit', 'Edit shift…', lambda: self._edit_shift(shift.shift_id))
+                if shift.can_call_off and not _ended(shift):
+                    menu_action('event_available', 'Call off whole shift…',
+                                lambda: self._confirm_call_off_shift(position, shift))
                 ui.separator()
                 menu_action('delete', 'Delete shift…', lambda: self._confirm_delete(shift), negative=True)
             ui.space()
@@ -150,9 +169,19 @@ class VolunteerShiftSheet:
                     'text-weight-medium' + (' wiz-vgrid__name--draft' if person.draft else '')
                 )
                 ui.label(status).classes(f'text-caption {tone}')
+            called_off = person.arrival == CALLED_OFF
+            open_ = not _ended(shift)
             with more_menu(person.name):
-                if not person.draft and person.checked_in_at is None:
+                if not person.draft and person.checked_in_at is None and not called_off:
                     menu_action('how_to_reg', 'Check in', lambda: self._check_in(person))
+                if not person.draft and not called_off and open_:
+                    menu_action('event_available', 'Call off…',
+                                lambda: self._confirm_call_off(person, position, shift))
+                if called_off and open_:
+                    menu_action('undo', 'Undo call-off…',
+                                lambda: self._confirm_undo_call_off(person, position, shift))
+                if person.checked_in_at is not None and not called_off:
+                    menu_action('undo', 'Undo check-in…', lambda: self._confirm_undo_check_in(person))
                 menu_action('swap_horiz', 'Swap with someone…',
                             lambda: self._swap(person, position, shift))
                 menu_action('arrow_forward', 'Move to another shift…',
@@ -171,6 +200,116 @@ class VolunteerShiftSheet:
             return
         ui.notify(f'Checked in {person.name}.', color='positive')
         await self._changed()
+
+    def _confirm_undo_check_in(self, person: GridPerson) -> None:
+        async def undo() -> None:
+            try:
+                await VolunteerArrivalService().undo_check_in_as_coordinator(
+                    person.assignment_id, await self._actor(),
+                )
+            except (ValueError, PermissionError) as e:
+                notify_error(e)
+                return
+            ui.notify(f'{person.name} is no longer checked in.', color='info')
+            await self._changed()
+
+        ConfirmationDialog(
+            message=f'Mark {person.name} as not here yet?',
+            on_confirm=undo, confirm_text='Undo check-in', title='Undo check-in?',
+        ).open()
+
+    def _call_off_dialog(
+        self, title: str, message: str, note_label: str,
+        do_call_off: Callable[[Optional[str]], Awaitable[bool]],
+    ) -> None:
+        """The confirm both call-offs share: what happens, plus a note for the DM."""
+        with form_dialog(title, card_classes='dialog-card dialog-card--sm') as dialog:
+            with ui.column().classes('q-pa-md gap-2 full-width'):
+                ui.label(message).classes('text-body2')
+                note = ui.textarea(note_label).classes('full-width').props(
+                    f'maxlength={REASON_MAX_CHARS} counter '
+                    'hint="Goes in the DM."'
+                )
+
+            async def go() -> None:
+                if await do_call_off(note.value):
+                    dialog.close()
+
+            with dialog_actions().classes('justify-end'):
+                ui.button('Cancel', on_click=dialog.close).props('flat no-caps')
+                ui.button('Call off', on_click=go).props('color=primary no-caps')
+        dialog.open()
+
+    def _confirm_call_off(self, person: GridPerson, position: str, shift: GridShift) -> None:
+        started = shift.starts_at <= datetime.now(timezone.utc)
+        hours = _hours(shift)
+        if started:
+            message = (f'{person.name} can head out from {position} ({shift_range(shift)}). '
+                       f"They'll get a DM now, and the whole shift still counts as worked: "
+                       f'all {hours} toward their total and comps.')
+        else:
+            message = (f"{person.name} doesn't need to come in for {position} "
+                       f"({shift_range(shift)}). They'll get a DM now, and the shift still "
+                       f'counts as worked: all {hours} toward their total and comps.')
+
+        async def call_off(note: Optional[str]) -> bool:
+            try:
+                await VolunteerCallOffService().call_off(
+                    person.assignment_id, await self._actor(), note,
+                )
+            except (ValueError, PermissionError) as e:
+                notify_error(e)
+                return False
+            ui.notify(f'Called off {person.name}. They still get credit.', color='positive')
+            await self._changed()
+            return True
+
+        self._call_off_dialog(
+            f"Call off {person.name}'s shift?", message, f'Note to {person.name} (optional)', call_off,
+        )
+
+    def _confirm_call_off_shift(self, position: str, shift: GridShift) -> None:
+        count = shift.can_call_off
+        people = 'person' if count == 1 else 'people'
+        message = (f"All {count} {people} on {position} ({shift_range(shift)}) will get a DM "
+                   f"saying they're not needed, and the shift still counts as worked for "
+                   f'each of them: {_hours(shift)} toward their total and comps.')
+        if any(p.draft for p in shift.people):
+            message += ' Drafts are left as they are.'
+
+        async def call_off(note: Optional[str]) -> bool:
+            try:
+                done = await VolunteerCallOffService().call_off_shift(
+                    shift.shift_id, await self._actor(), note,
+                )
+            except (ValueError, PermissionError) as e:
+                notify_error(e)
+                return False
+            called = 'person' if len(done) == 1 else 'people'
+            ui.notify(f'Called off {len(done)} {called}. They still get credit.', color='positive')
+            await self._changed()
+            return True
+
+        self._call_off_dialog(
+            f'Call off all {count} {people} on {position}?', message, 'Note to everyone (optional)',
+            call_off,
+        )
+
+    def _confirm_undo_call_off(self, person: GridPerson, position: str, shift: GridShift) -> None:
+        async def undo() -> None:
+            try:
+                await VolunteerCallOffService().undo_call_off(person.assignment_id, await self._actor())
+            except (ValueError, PermissionError) as e:
+                notify_error(e)
+                return
+            ui.notify(f'{person.name} is back on the shift.', color='info')
+            await self._changed()
+
+        ConfirmationDialog(
+            message=(f"Put {person.name} back on {position} ({shift_range(shift)})? "
+                     "They'll get a DM saying they're needed after all."),
+            on_confirm=undo, confirm_text='Undo call-off', title='Undo call-off?', tone='primary',
+        ).open()
 
     async def _assign(self, shift_id: int) -> None:
         model = await self.service.get_shift(shift_id)

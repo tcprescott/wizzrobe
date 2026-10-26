@@ -23,19 +23,22 @@ from typing import Dict, List, Optional
 
 from application.events import EventType, event_bus
 from application.services import BracketService, MatchService, StageService, TournamentService
+from application.services.event_info_service import prize_fields
 from application.services.feature_flag_service import FeatureFlagService
 from application.services.system_config_service import (
     DEFAULT_WATCH_AUTO_THRESHOLD,
     KEY_WATCH_AUTO_STATIC,
     KEY_WATCH_AUTO_THRESHOLD,
     KEY_WATCH_MODE,
+    KEY_WATCH_STATIC_SIGNED_OUT,
     SystemConfigService,
 )
 from application.services.tenant_service import TenantService
 from application.services.tenant_theme_service import TenantThemeService
 from application.services.timezone_service import TimezoneService
 from application.tenant_context import tenant_scope
-from application.timezone_context import tz_scope
+from application.timezone_context import hour_cycle_scope, tz_scope
+from application.utils.match_labels import has_undecided
 from application.utils.safe_url import http_url_or_empty
 from application.utils.timezone import (
     format_local_time,
@@ -45,7 +48,7 @@ from application.utils.timezone import (
 )
 from application.utils.twitch_embed import twitch_channel, twitch_channel_name
 from models import BracketState, FeatureFlag
-from theme.join_page import roster_label
+from theme.join_page import roster_label, roster_parts
 from theme.watch_view import (
     COMING_UP_LIMIT,
     UP_NEXT_LIMIT,
@@ -148,6 +151,7 @@ class WatchSettings:
     mode: str = 'live'
     auto_static: bool = True
     threshold: int = DEFAULT_WATCH_AUTO_THRESHOLD
+    static_signed_out: bool = False
 
 
 _settings: Dict[int, tuple[float, WatchSettings]] = {}
@@ -165,6 +169,7 @@ async def watch_settings(tenant_id: int) -> WatchSettings:
             threshold=await SystemConfigService.get_int(
                 KEY_WATCH_AUTO_THRESHOLD, DEFAULT_WATCH_AUTO_THRESHOLD,
             ) or DEFAULT_WATCH_AUTO_THRESHOLD,
+            static_signed_out=await SystemConfigService.get_bool(KEY_WATCH_STATIC_SIGNED_OUT, default=False),
         )
     _settings[tenant_id] = (time.monotonic(), settings)
     return settings
@@ -180,15 +185,19 @@ def _crew(signups) -> str:
 
 
 def _row(match, stage_name: str = '') -> WatchMatch:
+    parts = roster_parts(match)
     return WatchMatch(
         time=format_local_time(match.scheduled_at) if match.scheduled_at else 'TBD',
         players=roster_label(match),
         tournament=match.tournament.name if match.tournament else '',
+        tournament_short=match.tournament.short_label if match.tournament else '',
         stage=stage_name,
         commentators=_crew(match.commentators),
         trackers=_crew(match.trackers),
         match_id=match.id,
         tournament_id=match.tournament_id,
+        started_at=match.started_at,
+        players_parts=parts if has_undecided(parts) else [],
     )
 
 
@@ -217,6 +226,7 @@ async def _tournaments(streamed_ids: set[int]) -> List[WatchTournament]:
         for bracket in await BracketService().list_all_visible_brackets(None):
             published.setdefault(bracket.tournament_id, []).append(bracket)
 
+    payouts_live = await FeatureFlagService().is_enabled(FeatureFlag.PAYOUTS)
     rows: List[WatchTournament] = []
     for t in await TournamentService().get_all_tournaments(active_only=True):
         stages = published.get(t.id, [])
@@ -229,10 +239,13 @@ async def _tournaments(streamed_ids: set[int]) -> List[WatchTournament]:
         if not bracket and t.id not in streamed_ids:
             continue
         status, tone = _status(t, stages)
+        prize = prize_fields(t) if payouts_live else {}
         rows.append(WatchTournament(
             id=t.id, name=t.name, format=t.tournament_format or '',
             status=status, tone=tone, bracket_url=bracket,
             rules_url=http_url_or_empty(t.rules_url),
+            prize_total=prize.get('prize_total'),
+            prize_synced=prize.get('prize_synced_at') is not None,
         ))
     return sorted(rows, key=lambda r: r.name.lower())
 
@@ -242,7 +255,8 @@ async def build_watch_view(tenant_id: int) -> WatchView:
     tz = await TimezoneService.tenant_timezone_name(tenant_id)
     stages = sorted(await StageService().get_all_stages(active_only=True), key=lambda s: s.name)
 
-    with tz_scope(tz):
+    # Cached and shared by every viewer, so the default 12-hour clock, not one viewer's.
+    with tz_scope(tz), hour_cycle_scope(True):
         today = today_local()
         matches = await MatchService().get_streamed_matches(today, COMING_UP_DAYS)
         by_stage: Dict[int, list] = {}
@@ -287,10 +301,10 @@ async def build_watch_view(tenant_id: int) -> WatchView:
         zone = timezone_label()
 
     try:
-        primary = (await TenantThemeService.get_current_theme()).get('primary')
+        theme = await TenantThemeService.get_current_theme()
     except Exception:
         logger.debug('Watch page: falling back to the default palette', exc_info=True)
-        primary = None
+        theme = {}
 
     return WatchView(
         community=await TenantService.current_community_name() or 'Wizzrobe',
@@ -298,6 +312,7 @@ async def build_watch_view(tenant_id: int) -> WatchView:
         coming=coming,
         tournaments=await _tournaments({m.tournament_id for m in matches}),  # type: ignore[attr-defined]
         timezone_label=zone,
-        primary_color=primary,
+        primary_color=theme.get('primary'),
+        icons=theme,
         generated_at=datetime.now(timezone.utc),
     )

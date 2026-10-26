@@ -45,6 +45,35 @@ the community default and reloads once. A zone that later *changes* (someone
 travelled) updates the cookie silently and applies on the next navigation — a
 surprise reload mid-session is worse than a few seconds of stale clock.
 
+## 12- or 24-hour
+
+The same snippet writes the browser's preferred clock to `wiz_hc` (`12` or
+`24`, from `Intl.DateTimeFormat([], {hour: 'numeric'}).resolvedOptions()`).
+It never reloads by itself: a first visit's zone reload carries it, and a
+browser that already had `wiz_tz` picks it up on its next navigation.
+`User.hour_cycle` (Profile → Time format) outranks it; a page viewer with
+neither (a first visit before the cookie lands, cookies blocked) gets 12-hour. `_bind_display_timezone` binds the answer beside the zone (contextvar
+plus `app.storage.client['hour12']`), and `capture_render_context` carries it
+into detached tasks.
+
+Every `%H:%M` that goes through `format_local_datetime` (so every
+`format_local_*` builder) becomes `9:30 PM` for a 12-hour viewer; use
+`strftime_local` for a datetime already on the wall clock and
+`format_local_hour` for hour-grid labels. Values for `<input type=time>` /
+`datetime-local` stay `%H:%M` (a format containing `T%H` is never rewritten).
+Sortable table columns get a clock-aware `:sort` for 12-hour viewers
+(`theme/tables/preferences.CLOCK_SORT`), since `10:00 PM` sorts before
+`9:30 AM` as text.
+
+**Unbound means 12-hour**, which is what workers, the
+bot and the static spectator pages get. Output that isn't for the viewer's own
+page but may be rendered inside one forces it with `hour_cycle_scope(True)`, so
+a 24-hour staff member's handler can't lend it their clock: notification copies
+(`readable_discord_times`), CSV exports, and the shared Watch view cache. REST,
+MCP and webhooks are unaffected: they send UTC ISO timestamps, not formatted
+text. The test suite runs on the 24-hour clock (an autouse fixture in
+`tests/conftest.py`); `tests/test_hour_cycle.py` unbinds it to test the default.
+
 ## Resolution, and where it is bound
 
 `middleware/auth.py::_tenant_page` resolves once per page build and writes the
@@ -81,7 +110,8 @@ whenever the output is **not** for the current request's viewer.
 | `local_day_bounds(start, end, tz=None)` | a picked date range → half-open UTC query bounds |
 | `format_local_datetime(dt, fmt, tz=None)` | UTC → local, custom format |
 | `format_local_date(dt, tz=None)` | UTC → `YYYY-MM-DD` |
-| `format_local_time(dt, tz=None)` | UTC → `HH:MM` |
+| `format_local_time(dt, tz=None)` | UTC → `HH:MM` (or `9:30 PM`, see above) |
+| `format_local_hour(dt, tz=None)` | UTC → hour-axis label, `21:00` or `9 PM` |
 | `format_local_time_range(start, end, tz=None)` | UTC pair → `HH:MM–HH:MM EDT` (label taken at `start`) |
 | `format_local_display(dt, tz=None)` | UTC → `YYYY-MM-DD HH:MM EST` |
 | `timezone_label(tz=None, at=None)` | the zone's short label, for captions |

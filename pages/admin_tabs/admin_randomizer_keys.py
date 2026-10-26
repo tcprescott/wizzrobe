@@ -80,23 +80,23 @@ async def admin_randomizer_keys_page() -> None:
                             ui.label('Configured').classes('text-caption text-positive')
                         else:
                             ui.label('Not set').classes('text-caption text-grey')
-                with ui.row().classes('items-center w-full'):
-                    value_input = ui.input(row['label']).props(
-                        'type=password autocomplete=off dense outlined'
-                    ).classes('flex-grow')
-                    if row['configured']:
-                        value_input.props('hint="Entering a new value replaces the stored one"')
+                value_input = ui.input(row['label']).props(
+                    'type=password autocomplete=off dense outlined'
+                ).classes('w-full')
+                if row['configured']:
+                    value_input.props('hint="Entering a new value replaces the stored one"')
+                with ui.element('div').classes('wiz-pair-actions'):
                     if row['configured']:
                         ui.button(
                             'Clear', icon='delete',
                             on_click=lambda r=row: confirm_clear(r),
-                        ).props('flat color=negative dense')
+                        ).props('flat color=negative')
                     ui.button(
                         'Save', icon='save',
                         on_click=lambda r=row, i=value_input: background_tasks.create(
                             save(r['randomizer'], r['key'], i, context.client)
                         ),
-                    ).props('color=primary dense')
+                    ).props('color=primary')
 
     with ui.column().classes('page-container-narrow'):
         page_header(

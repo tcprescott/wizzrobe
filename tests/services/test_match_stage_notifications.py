@@ -12,11 +12,13 @@ from unittest.mock import AsyncMock
 import pytest
 
 from application.services.match.match_service import MatchService
+from application.services.notification_catalog import CREW, PLAYERS, STAGE_CALL, WATCHERS
 from models import (
     Commentator,
     Match,
     MatchPlayers,
     MatchWatcher,
+    NotificationMode,
     Role,
     Stage,
     Tournament,
@@ -117,6 +119,9 @@ async def test_clearing_the_stage_retracts_and_rearms(
     await _drain(stub_discord_queue)
 
     assert sent, 'clearing a stage must send its own DM'
+    assert fixture['approved'].discord_id in {call['discord_id'] for call in sent}, (
+        'crew were told they are on stage, so they must hear it was called off'
+    )
     assert all('tournament room' in call['message'] for call in sent)
     assert all('Kraid' not in call['message'] for call in sent)
     match = await Match.get(id=fixture['match'].id)
@@ -180,10 +185,15 @@ async def test_each_audience_gets_its_own_copy_and_button(
     watching = by_id[6]
     assert watching['message'].startswith("A match you're watching in **Cup**")
     assert watching['link'].url.endswith('/home/schedule')
-    # Players and crew have somewhere to be; a watcher only follows along.
-    assert watching['silent'] is True
-    assert not any(by_id[pid].get('silent') for pid in (1, 2))
-    assert not crew.get('silent')
+    # Players and crew have somewhere to be; a watcher only follows along,
+    # so the catalogue quiets only the watcher's copy.
+    assert watching['notice'] == STAGE_CALL.to(WATCHERS)
+    assert watching['notice'].default is NotificationMode.SILENT
+    for pid in (1, 2):
+        assert by_id[pid]['notice'] == STAGE_CALL.to(PLAYERS)
+    assert crew['notice'] == STAGE_CALL.to(CREW)
+    assert STAGE_CALL.to(PLAYERS).default is NotificationMode.PING
+    assert STAGE_CALL.to(CREW).default is NotificationMode.PING
 
 
 async def test_reminder_dm_names_the_stage_and_the_time(
@@ -241,3 +251,51 @@ def test_stage_embed_is_not_coloured_like_a_schedule_change():
     embed = stage_embed(title='📺 You are on stage', tournament='Cup', stage_name='Kraid')
     assert COLOR_STAGE not in (COLOR_SCHEDULED, COLOR_RESCHEDULED)
     assert embed.colour.value == COLOR_STAGE
+
+
+async def test_moving_the_match_arms_the_reminder_again(fixture, stub_discord_queue):
+    """A reminder sent for the old time must not suppress the one for the new time."""
+    match_id = fixture['match'].id
+    await Match.filter(id=match_id).update(stage_reminder_sent_at=utc(2026, 10, 23, 17))
+
+    await MatchService().update_match(
+        match_id, scheduled_at=utc(2026, 10, 23, 20), actor=fixture['staff'],
+    )
+    await _drain(stub_discord_queue)
+
+    assert (await Match.get(id=match_id)).stage_reminder_sent_at is None
+
+
+async def test_an_edit_that_keeps_the_time_leaves_the_reminder_sent(fixture, stub_discord_queue):
+    match_id = fixture['match'].id
+    await Match.filter(id=match_id).update(stage_reminder_sent_at=utc(2026, 10, 23, 17))
+
+    await MatchService().update_match(match_id, comment='Bring a controller', actor=fixture['staff'])
+    await _drain(stub_discord_queue)
+
+    assert (await Match.get(id=match_id)).stage_reminder_sent_at is not None
+
+
+async def test_the_reminder_gives_players_a_running_late_button(
+    fixture, sent, stub_discord_queue, monkeypatch,
+):
+    """Players' copies carry Running late; crew's don't, since it's the player's match."""
+    from application.services.match.match_schedule_service import MatchScheduleService
+
+    with_button: list[int] = []
+
+    async def _late(discord_id, message, match_id, **kwargs):
+        with_button.append(discord_id)
+        return True, 'ok'
+
+    monkeypatch.setattr(
+        'application.services.discord.discord_service.DiscordService'
+        '.send_dm_with_player_late_button',
+        AsyncMock(side_effect=_late),
+    )
+    await Match.filter(id=fixture['match'].id).update(stage_id=fixture['stage'].id)
+    match = await Match.get(id=fixture['match'].id)
+    await MatchScheduleService().notify_stage_reminder(match, stage_name='Kraid')
+
+    assert sorted(with_button) == [1, 2]
+    assert fixture['approved'].discord_id in {call['discord_id'] for call in sent}

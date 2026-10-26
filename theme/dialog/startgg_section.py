@@ -6,8 +6,9 @@ reporting results back, and open the entrant matching dialog.
 
 from nicegui import app, ui
 
-from application.services import StartggService, get_user_from_session
+from application.services import AuthService, StartggService, get_user_from_session
 from application.utils.timezone import format_local_display
+from theme.busy import busy_click
 from theme.dialog.confirmation_dialog import ConfirmationDialog
 from theme.dialog.startgg_entrants_dialog import StartggEntrantsDialog
 from theme.notify import notify_error
@@ -24,8 +25,11 @@ async def render_startgg_section(tournament, dialog) -> None:
     @steady_refreshable
     async def body() -> None:
         actor = await get_user_from_session(app.storage.user)
+        can_link = await AuthService.is_staff(actor)
         if not tournament.startgg_event_slug:
             ui.label('Not linked to a start.gg event.').classes('text-caption text-muted')
+            if not can_link:
+                return
             link_input = ui.input(
                 'start.gg event link',
                 placeholder='https://www.start.gg/tournament/…/event/…',
@@ -48,7 +52,7 @@ async def render_startgg_section(tournament, dialog) -> None:
                     ui.notify(f"Linked and synced: {result['entrants']} entrants.", color='positive')
                 body.refresh()
 
-            ui.button('Link & Sync', icon='sync', on_click=link).props('flat color=primary')
+            ui.button('Link & Sync', icon='sync', on_click=busy_click('Syncing…', link)).props('flat color=primary')
             return
 
         synced = (
@@ -64,7 +68,7 @@ async def render_startgg_section(tournament, dialog) -> None:
             .classes('text-caption text-muted')
 
         phases = await service.list_phases(tournament.id, actor)
-        options = {_LAST_PHASE: 'Last phase (default)'}
+        options = {_LAST_PHASE: 'The phase in progress (default)'}
         options.update({p.phase_id: p.name for p in phases})
 
         async def set_phase(e) -> None:
@@ -128,11 +132,12 @@ async def render_startgg_section(tournament, dialog) -> None:
             ).open()
 
         with ui.row().classes('items-center gap-2'):
-            ui.button('Sync now', icon='sync', on_click=sync).props('flat color=primary')
+            ui.button('Sync now', icon='sync', on_click=busy_click('Syncing…', sync)).props('flat color=primary')
             ui.button(
                 'Entrants', icon='group',
                 on_click=lambda: StartggEntrantsDialog(tournament).open(),
             ).props('flat color=primary')
-            ui.button('Unlink', icon='link_off', on_click=unlink).props('flat color=negative')
+            if can_link:
+                ui.button('Unlink', icon='link_off', on_click=unlink).props('flat color=negative')
 
     await body()

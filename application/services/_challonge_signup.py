@@ -40,11 +40,43 @@ def roster_locked(challonge_state: Optional[str]) -> bool:
     return bool(challonge_state) and challonge_state not in _ROSTER_OPEN_STATES
 
 
+def announce_if_started(tournament: Tournament, new_state: Optional[str]) -> None:
+    """Queue the opt-in bracket-started DM when a sync sees the bracket leave
+    pending or check-in. A first sync (no previous state) announces nothing."""
+    was = tournament.challonge_state
+    if was and not roster_locked(was) and roster_locked(new_state):
+        from application.services import opt_in_notifications
+        from application.services.discord import discord_queue
+        discord_queue.enqueue(opt_in_notifications.bracket_started(tournament.id))
+
+
+def refuse_empty_started_bracket(full: dict, mirrored_participants: int) -> None:
+    """A started bracket can't lose every entrant.
+
+    An answer that says it did is Challonge degrading, and pruning the mirror on
+    it would unlink every booked match.
+    """
+    if (not full['participants'] and mirrored_participants
+            and roster_locked(full['tournament'].get('state'))):
+        raise ValueError(
+            "Challonge sent back a started bracket with no entrants, so nothing "
+            "was changed. Try Sync again in a few minutes."
+        )
+
+
 def misc_user_id(misc: Optional[str]) -> Optional[int]:
     if not misc or not misc.startswith(MISC_USER_PREFIX):
         return None
     tail = misc[len(MISC_USER_PREFIX):]
     return int(tail) if tail.isdigit() else None
+
+
+_CHALLONGE_DOWN = "Challonge isn't answering right now. Try again in a few minutes."
+
+
+def _challonge_down(error: ChallongeAPIError) -> bool:
+    """No answer at all, or Challonge's own server error: not a refusal."""
+    return error.status is None or error.status >= 500
 
 
 class ChallongeSignupMixin:
@@ -111,11 +143,13 @@ class ChallongeSignupMixin:
                 misc=f'{MISC_USER_PREFIX}{user.id}',
                 community=tournament.challonge_community,
             )
-        except ChallongeAPIError:
+        except ChallongeAPIError as e:
             logger.warning(
                 'Challonge refused sign-up: tournament=%s user=%s', tournament.id, user.id,
                 exc_info=True,
             )
+            if _challonge_down(e):
+                raise ValueError(_CHALLONGE_DOWN) from None
             raise ValueError(
                 f"Challonge wouldn't add you to {tournament.name}. The bracket may have "
                 'started or be full. Ask staff if you think it should have worked.'
@@ -157,11 +191,51 @@ class ChallongeSignupMixin:
                     'Challonge refused withdrawal: tournament=%s user=%s',
                     tournament.id, user.id, exc_info=True,
                 )
+                if _challonge_down(e):
+                    raise ValueError(_CHALLONGE_DOWN) from None
                 raise ValueError(
                     f"Challonge wouldn't remove you from {tournament.name}. Ask staff."
                 ) from None
         await self.repository.delete_participant(participant)
         await self._record_roster_change(user, tournament, participant, added=False)
+
+    @requires_feature(FeatureFlag.CHALLONGE)
+    async def drop_participant(self, tournament: Tournament, user: User, actor: User) -> bool:
+        """Staff taking ``user`` out of the bracket, at any stage.
+
+        Before the start Challonge deletes the entry; after it, Challonge keeps
+        the entrant as inactive and forfeits every match they haven't played.
+        Either way the mirror stops counting them. False when they have no entry.
+        """
+        from application.services.auth_service import AuthService
+
+        await AuthService.ensure(
+            await AuthService.can_edit_tournament(actor, tournament),
+            "Only staff or this tournament's admins can drop a player",
+        )
+        participant = await self.repository.get_participant_for_user(tournament, user)
+        if participant is None or not tournament.challonge_tournament_id:
+            return False
+        try:
+            await self._api_client().delete_participant(
+                tournament.challonge_tournament_id,
+                participant.challonge_participant_id,
+                community=tournament.challonge_community,
+            )
+        except ChallongeAPIError as e:
+            if e.status != 404:
+                logger.warning(
+                    'Challonge refused drop: tournament=%s user=%s',
+                    tournament.id, user.id, exc_info=True,
+                )
+                if _challonge_down(e):
+                    raise ValueError(_CHALLONGE_DOWN) from None
+                raise ValueError(
+                    f"Challonge wouldn't take {user.preferred_name} out of {tournament.name}, "
+                    'so nothing was changed. Try again, or drop them on Challonge first.'
+                ) from None
+        await self.repository.set_participant_active(participant, False)
+        return True
 
     async def _record_roster_change(
         self, user: User, tournament: Tournament, participant: ChallongeParticipant, *, added: bool,
@@ -177,3 +251,9 @@ class ChallongeSignupMixin:
             EventType.TOURNAMENT_ENROLLED if added else EventType.TOURNAMENT_WITHDRAWN,
             event_extra={'user_id': user.id},
         )
+        if not added:
+            from application.services import opt_in_notifications
+            from application.services.discord import discord_queue
+            discord_queue.enqueue(opt_in_notifications.enrolment_changed(
+                tournament.id, user.id, user.id, added=False,
+            ))

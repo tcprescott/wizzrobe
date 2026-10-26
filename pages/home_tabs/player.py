@@ -1,6 +1,6 @@
 
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Callable
 
 from nicegui import app, ui
@@ -8,21 +8,25 @@ from nicegui import app, ui
 from application.services import (
     BracketService,
     ChallongeService,
+    EventService,
     FeatureFlagService,
     MatchHardPresetService,
     MatchRescheduleService,
     MatchService,
+    RoundScheduleService,
     TournamentService,
     bracket_sources,
     get_user_from_session,
 )
+from application.services.event_service import with_event_name
 from application.services.match.match_reads import (
     RELATION_CREW,
     RELATION_PLAYER,
     RELATION_WATCHER,
 )
 from application.utils.app_links import HOME_PLAYER, HOME_SCHEDULE, home_url
-from application.utils.match_labels import challonge_round_label
+from application.utils.game_order import remaining_slots
+from application.utils.match_labels import challonge_round_label, entrant_name
 from application.utils.timezone import format_local_display
 from models import FeatureFlag, RescheduleRequestKind, RescheduleRequestStatus
 from pages.home_tabs.player_asks import render_opponent_requests
@@ -34,6 +38,7 @@ from theme.dialog.hard_preset_dialog import HardPresetDialog
 from theme.dialog.match_dialog import UserMatchDialog
 from theme.dialog.match_sheet import MatchSheet
 from theme.dialog.reschedule_request_dialog import RescheduleRequestDialog
+from theme.links import link_button
 from theme.nav_badges import set_nav_count
 from theme.notify import notify_error
 from theme.section import section_panel
@@ -49,10 +54,10 @@ from theme.tables.preferences import TableKeys
 
 
 def _next_game_number(bracket_match, best_of: int) -> int:
-    """The slot the service would allocate next — for labelling only.
+    """The slot the service would allocate next, which guards a stale dialog.
 
     ``list_open_matches_for_user`` only returns matchups with a slot free, so the
-    fallback is unreachable; it keeps the label sane rather than raising in a
+    fallback is unreachable; it keeps the dialog sane rather than raising in a
     render pass if that ever changes.
     """
     taken = {g.game_number for g in bracket_match.games}
@@ -108,7 +113,17 @@ async def _waiting_on_you(user) -> tuple[list, list, list]:
     if FeatureFlag.BRACKETS in live:
         matchups = await BracketService().list_open_matches_for_user(user.id)
     external = await bracket_sources.list_bookable_for_user(user)
+    # A Challonge best-of set comes back from the bracket sources a row per game.
+    sets = {x.key for x in external if x.source == 'challonge'}
+    challonge_rows = [cm for cm in challonge_rows if cm.id not in sets]
     return challonge_rows, matchups, external
+
+
+def _open_games(bracket_match) -> list[bool]:
+    """One entry per native game still to book, True where it's only played if needed."""
+    best_of = BracketService.resolve_best_of(bracket_match.bracket, bracket_match)
+    taken = {g.game_number for g in bracket_match.games}
+    return remaining_slots(best_of, len(taken), False) or [False]
 
 
 def _bookable_count(challonge_rows, matchups, external=()) -> int:
@@ -123,7 +138,7 @@ def _bookable_count(challonge_rows, matchups, external=()) -> int:
         if cm.participant1 is not None and cm.participant2 is not None
         and cm.participant1.user_id is not None and cm.participant2.user_id is not None
     )
-    return linked + len(matchups) + len(external)
+    return linked + sum(len(_open_games(bm)) for bm in matchups) + len(external)
 
 
 async def count_waiting_on_you(user) -> int:
@@ -143,6 +158,9 @@ class _Pick:
     round_label: str
     on_click: Callable
     blocked: str | None = None
+    window_text: str | None = None
+    if_needed: bool = False
+    event_id: int | None = None
 
 
 def _render_picks(picks: list[_Pick]) -> None:
@@ -171,6 +189,14 @@ def _render_picks(picks: list[_Pick]) -> None:
                                 ui.label(f'vs {pick.opponent_name}').classes('wiz-pick-row__opponent')
                                 if pick.round_label:
                                     ui.label(pick.round_label).classes('text-caption text-grey-7')
+                                # In the text column, not beside the button: a
+                                # phone row has no width to spare there.
+                                if pick.if_needed:
+                                    ui.label('If needed').classes('wiz-chip wiz-chip--pending self-start q-mt-xs')
+                                if pick.window_text and not pick.blocked:
+                                    with ui.row().classes('wiz-pick-row__window no-wrap items-start gap-1'):
+                                        ui.icon('schedule', size='16px')
+                                        ui.label(pick.window_text)
                             if not pick.blocked:
                                 ui.button('Pick a time', on_click=pick.on_click) \
                                     .props('color=primary outline no-caps')
@@ -219,22 +245,6 @@ def _notify_stale_reschedule_link() -> None:
     )
 
 
-def _show_one_match_chip() -> None:
-    """The board is narrowed to the DM's match. Say so, and offer the way out.
-
-    A one-row board with no explanation reads as a board that lost rows, and a
-    DM outlives the stage call it was sent about.
-    """
-    with ui.row().classes('items-center gap-2 q-mb-sm'):
-        with ui.element('span').classes('wiz-chip wiz-chip--pending'):
-            ui.icon('filter_alt', size='14px')
-            ui.label('Showing one match only')
-        ui.button(
-            'Show all my matches', icon='clear',
-            on_click=lambda: ui.navigate.to(home_url(HOME_PLAYER)),
-        ).props('flat dense color=primary')
-
-
 def _explain_other_match(relation: str) -> None:
     """``?match=`` named a match the viewer isn't playing. Say what it is to them.
 
@@ -252,10 +262,8 @@ def _explain_other_match(relation: str) -> None:
             with ui.element('span').classes('wiz-chip wiz-chip--neutral'):
                 ui.icon('visibility', size='14px')
                 ui.label("You're watching that match, not playing in it")
-            ui.button(
-                'Find it on the schedule', icon='event',
-                on_click=lambda: ui.navigate.to(home_url(HOME_SCHEDULE)),
-            ).props('flat dense color=primary')
+            link_button('Find it on the schedule', home_url(HOME_SCHEDULE), icon='event', new_tab=False) \
+                .props('flat dense color=primary')
         return
     ui.notify(
         "That match isn't one of yours, so here's your whole schedule.",
@@ -311,11 +319,11 @@ def _render_request_card(row, *, on_withdraw) -> None:
     ui.separator()
 
 
-def _round_label(bracket_match, best_of: int, number: int) -> str:
-    """'Round 2' / 'Losers round 1', plus the series position for a best-of-N."""
+def _round_label(bracket_match, best_of: int, position: int) -> str:
+    """'Round 2' / 'Losers round 1', plus where a best-of-N row sits among the games to book."""
     rnd = bracket_match.round
     base = f'Losers round {abs(rnd)}' if rnd < 0 else f'Round {rnd}'
-    return f'{base} — game {number} of {best_of}' if best_of > 1 else base
+    return bracket_sources.set_game_label(base, best_of, position)
 
 
 async def render_player_dashboard(
@@ -385,7 +393,6 @@ async def render_player_dashboard(
             relation = await match_service.viewer_relation(int(match), viewer)
             if relation == RELATION_PLAYER:
                 board_match_ids = [int(match)]
-                _show_one_match_chip()
             else:
                 _explain_other_match(relation)
 
@@ -433,10 +440,11 @@ async def render_player_dashboard(
                     + [x.tournament for x in external],
                 )).classes('text-caption text-grey-7')
                 picks: list[_Pick] = []
+                round_schedule = RoundScheduleService()
                 for cm in challonge_rows:
                     me_is_p1 = cm.participant1 is not None and cm.participant1.user_id == user.id
                     opponent = cm.participant2 if me_is_p1 else cm.participant1
-                    opponent_name = opponent.name if opponent else 'TBD'
+                    opponent_name = entrant_name(opponent)
                     opponent_linked = opponent is not None and opponent.user_id is not None
 
                     async def do_challonge(_=None, m=cm, oname=opponent_name):
@@ -452,8 +460,10 @@ async def render_player_dashboard(
                         challonge_round_label(cm.round), do_challonge,
                         blocked=None if opponent_linked else (
                             f"Can't book yet: {opponent_name} isn't matched to a "
-                            "Wizzrobe account. Staff can match them."
+                            "Wizzrobe account."
                         ),
+                        window_text=await round_schedule.describe_for_challonge_match(cm),
+                        event_id=cm.tournament.event_id,
                     ))
 
                 for x in external:
@@ -465,6 +475,8 @@ async def render_player_dashboard(
                     picks.append(_Pick(
                         x.tournament.id, x.tournament.name, x.source_label,
                         x.opponent_name, x.round_label, do_external,
+                        window_text=x.window_text, if_needed=x.if_needed,
+                        event_id=x.tournament.event_id,
                     ))
 
                 for bm in matchups:
@@ -496,18 +508,28 @@ async def render_player_dashboard(
                         ).open()
 
                     openers[bm.id] = do_schedule
-                    picks.append(_Pick(
-                        bm.bracket.tournament_id, bm.bracket.tournament.name, None,
-                        opponent_name, _round_label(bm, best_of, number), do_schedule,
-                    ))
+                    window_text = await round_schedule.describe_for_bracket_match(bm)
+                    booked = len({g.game_number for g in bm.games})
+                    for position, if_needed in enumerate(_open_games(bm), start=booked + 1):
+                        picks.append(_Pick(
+                            bm.bracket.tournament_id, bm.bracket.tournament.name, None,
+                            opponent_name, _round_label(bm, best_of, position), do_schedule,
+                            window_text=window_text, if_needed=if_needed,
+                            event_id=bm.bracket.tournament.event_id,
+                        ))
 
-                _render_picks(picks)
+                events = await EventService.names_if_mixed(p.event_id for p in picks)
+                _render_picks([
+                    replace(p, tournament_name=with_event_name(p.tournament_name, p.event_id, events))
+                    for p in picks
+                ])
 
             # The openers only hold this viewer's own open matchups — the
             # listings are already scoped to them — so an id from a forwarded
             # link cannot open someone else's dialog; it falls through to the
             # stale notice.
             startgg_openers = {k: v for (src, k), v in external_openers.items() if src == 'startgg'}
+            challonge_openers.update({k: v for (src, k), v in external_openers.items() if src == 'challonge'})
             for key, table in (
                 ('matchup_id', openers), ('challonge_id', challonge_openers), ('startgg', startgg_openers),
             ):
@@ -627,6 +649,8 @@ async def render_player_dashboard(
             on_open_match=sheet.open,
         )
         sheet.view = table_view
+        if board_match_ids:
+            table_view.show_one_match_chip(home_url(HOME_PLAYER), 'Show all my matches')
         if comments and board_match_ids:
             sheet.open_when_loaded(int(comments))
 

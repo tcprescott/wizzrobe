@@ -7,10 +7,13 @@ No business logic.
 """
 
 from datetime import datetime, timezone
-from typing import Dict, List, Optional, Set
+from typing import Dict, Iterable, List, Optional, Set, cast
 
 from tortoise.expressions import Q
+from tortoise.functions import Count
 
+from application.repositories._event import event_scoped, live_event_scoped
+from application.repositories._save import save_fields
 from application.repositories._tenant import current_tenant_id, scoped
 from models import (
     ChallongeApiUsage,
@@ -18,6 +21,7 @@ from models import (
     ChallongeMatch,
     ChallongeMatchState,
     ChallongeParticipant,
+    EventStatus,
     Match,
     Tournament,
     User,
@@ -74,7 +78,10 @@ class ChallongeRepository:
             existing.scopes = scopes
             existing.challonge_username = challonge_username
             existing.connected_by = connected_by
-            await existing.save()
+            await save_fields(
+                existing, 'access_token', 'refresh_token', 'token_expires_at', 'scopes',
+                'challonge_username', 'connected_by',
+            )
             return existing
         return await ChallongeConnection.create(
             tenant_id=current_tenant_id(),
@@ -97,11 +104,14 @@ class ChallongeRepository:
         if refresh_token:
             connection.refresh_token = refresh_token
         connection.token_expires_at = token_expires_at
-        await connection.save()
+        await save_fields(connection, 'access_token', 'refresh_token', 'token_expires_at')
 
     @staticmethod
     async def linked_tournament_communities() -> Dict[str, int]:
-        """How many of this tenant's linked tournaments live on each Challonge community."""
+        """How many of this tenant's linked tournaments, in any event, live on each Challonge community.
+
+        Cross-event: the Challonge sign-in is the community's.
+        """
         rows = await scoped(Tournament.filter(
             challonge_tournament_id__isnull=False, challonge_community__isnull=False,
         )).values_list('challonge_community', flat=True)
@@ -110,6 +120,33 @@ class ChallongeRepository:
             if isinstance(community, str) and community:
                 counts[community] = counts.get(community, 0) + 1
         return counts
+
+    @staticmethod
+    async def auto_sync_tournaments() -> List[Tournament]:
+        """The current event's active linked tournaments whose bracket isn't finished on Challonge."""
+        return await event_scoped(Tournament.filter(
+            Q(challonge_state__isnull=True) | Q(challonge_state__not='complete'),
+            challonge_tournament_id__isnull=False, is_active=True,
+        )).order_by('id')
+
+    @staticmethod
+    async def live_auto_sync_count() -> int:
+        """How many tournaments in any live event :meth:`auto_sync_tournaments` would sync.
+
+        Cross-event: the sync interval is the community's setting.
+        """
+        return await live_event_scoped(Tournament.filter(
+            Q(challonge_state__isnull=True) | Q(challonge_state__not='complete'),
+            challonge_tournament_id__isnull=False, is_active=True,
+        )).count()
+
+    @staticmethod
+    async def linked_tenant_ids() -> Set[int]:
+        """Cross-tenant and cross-event: every tenant with an active linked bracket, for the auto-sync worker."""
+        rows = await Tournament.filter(
+            challonge_tournament_id__isnull=False, is_active=True,
+        ).values_list('tenant_id', flat=True)
+        return {r for r in rows if isinstance(r, int)}  # type: ignore[misc]
 
     @staticmethod
     async def clear_connection() -> int:
@@ -125,18 +162,25 @@ class ChallongeRepository:
         name: Optional[str],
         challonge_user_id: Optional[str],
         user: Optional[User],
+        active: bool = True,
     ) -> ChallongeParticipant:
         participant, _ = await ChallongeParticipant.get_or_create(
             tenant_id=current_tenant_id(),
             tournament=tournament,
             challonge_participant_id=challonge_participant_id,
-            defaults={'name': name, 'challonge_user_id': challonge_user_id, 'user': user},
+            defaults={'name': name, 'challonge_user_id': challonge_user_id, 'user': user, 'active': active},
         )
         participant.name = name
         participant.challonge_user_id = challonge_user_id
         participant.user = user
-        await participant.save()
+        participant.active = active
+        await save_fields(participant, 'name', 'challonge_user_id', 'user', 'active')
         return participant
+
+    @staticmethod
+    async def set_participant_active(participant: ChallongeParticipant, active: bool) -> None:
+        participant.active = active
+        await save_fields(participant, 'active')
 
     @staticmethod
     async def resolve_users_by_challonge_ids(challonge_user_ids: List[str]) -> dict:
@@ -165,6 +209,16 @@ class ChallongeRepository:
         return await scoped(ChallongeParticipant.filter(tournament=tournament)).prefetch_related('user')
 
     @staticmethod
+    async def count_unmatched_participants(tournament_ids: List[int]) -> Dict[int, int]:
+        """Entrants with no Wizzrobe user, per tournament; tournaments with none are left out."""
+        if not tournament_ids:
+            return {}
+        rows = await scoped(ChallongeParticipant.filter(
+            tournament_id__in=tournament_ids, user_id__isnull=True,
+        )).annotate(n=Count('id')).group_by('tournament_id').values('tournament_id', 'n')
+        return {r['tournament_id']: r['n'] for r in rows}
+
+    @staticmethod
     async def get_participant_by_id(participant_pk: int) -> Optional[ChallongeParticipant]:
         return await scoped(ChallongeParticipant.filter(id=participant_pk)).prefetch_related(
             'user', 'tournament',
@@ -177,6 +231,13 @@ class ChallongeRepository:
         participant.user = user
         participant.user_assigned_manually = manual
         await participant.save(update_fields=['user_id', 'user_assigned_manually', 'updated_at'])
+
+    @staticmethod
+    async def participants_for_challonge_account(challonge_user_id: str) -> List[ChallongeParticipant]:
+        """Entrants on this community's brackets that carry the given Challonge account."""
+        return await scoped(ChallongeParticipant.filter(
+            challonge_user_id=challonge_user_id,
+        )).prefetch_related('user', 'tournament')
 
     @staticmethod
     async def get_participant_for_user(
@@ -219,6 +280,8 @@ class ChallongeRepository:
         participant1: Optional[ChallongeParticipant],
         participant2: Optional[ChallongeParticipant],
         winner_participant: Optional[ChallongeParticipant],
+        group_stage: bool = False,
+        slots: Optional[Dict[str, Optional[str]]] = None,
     ) -> ChallongeMatch:
         match, _ = await ChallongeMatch.get_or_create(
             tenant_id=current_tenant_id(),
@@ -231,8 +294,61 @@ class ChallongeRepository:
         match.participant1 = participant1
         match.participant2 = participant2
         match.winner_participant = winner_participant
-        await match.save()
+        if group_stage:
+            match.group_stage = True
+        # identifier and slot{1,2}_prereq / slot{1,2}_label, when the caller knows them.
+        for key, value in (slots or {}).items():
+            setattr(match, key, value)
+        await save_fields(
+            match, 'round', 'state', 'participant1', 'participant2', 'winner_participant', 'group_stage',
+            *(slots or {}),
+        )
         return match
+
+    @staticmethod
+    async def unfinished_match_ids(tournament: Tournament) -> Set[str]:
+        """Remote ids of the mirrored matches not yet complete, to tell what a sync just finished."""
+        rows = await scoped(ChallongeMatch.filter(tournament=tournament)).exclude(
+            state=ChallongeMatchState.COMPLETE,
+        ).values_list('challonge_match_id', flat=True)
+        return set(cast(Iterable[str], rows))
+
+    @staticmethod
+    async def matches_by_remote_ids(tournament: Tournament, remote_ids: Iterable[str]) -> List[ChallongeMatch]:
+        """Mirrored matches with their entrants, winner and any booked match's players loaded."""
+        return await scoped(ChallongeMatch.filter(
+            tournament=tournament, challonge_match_id__in=list(remote_ids),
+        )).prefetch_related(
+            'tournament', 'participant1__user', 'participant2__user', 'winner_participant', 'match__players',
+        )
+
+    @staticmethod
+    async def booked_matches_for_participant(participant: ChallongeParticipant) -> List[ChallongeMatch]:
+        """Bracket matches this entrant plays that have a Wizzrobe match attached."""
+        return await scoped(ChallongeMatch.filter(
+            Q(participant1=participant) | Q(participant2=participant), match_id__isnull=False,
+        )).prefetch_related('participant1', 'participant2', 'match')
+
+    @staticmethod
+    async def list_placeholder_bookings(tournament: Tournament) -> List[ChallongeMatch]:
+        """Matchups booked before their players were known, with the booking attached."""
+        rows = await scoped(ChallongeMatch.filter(
+            tournament=tournament, match_id__isnull=False,
+        )).prefetch_related('tournament', 'match', 'participant1__user', 'participant2__user')
+        return [r for r in rows if r.match.bracket_placeholders is not None]
+
+    @staticmethod
+    async def unscheduled_pending_matches(tournament_ids: Optional[List[int]] = None) -> List[ChallongeMatch]:
+        """Unbooked elimination matchups whose players aren't both decided yet."""
+        qs = scoped(ChallongeMatch.filter(
+            state=ChallongeMatchState.PENDING, match_id__isnull=True, tournament__is_active=True,
+            group_stage=False,
+        ))
+        if tournament_ids is not None:
+            qs = qs.filter(tournament_id__in=tournament_ids)
+        return await qs.prefetch_related(
+            'tournament', 'participant1__user', 'participant2__user',
+        ).order_by('tournament_id', 'round', 'id')
 
     @staticmethod
     async def list_matches(tournament: Tournament) -> List[ChallongeMatch]:
@@ -253,9 +369,18 @@ class ChallongeRepository:
         )
 
     @staticmethod
+    async def completed_for_matches(match_ids: List[int]) -> List[ChallongeMatch]:
+        """Booked bracket matches Challonge already has a result for."""
+        if not match_ids:
+            return []
+        return await scoped(ChallongeMatch.filter(
+            match_id__in=match_ids, state=ChallongeMatchState.COMPLETE,
+        )).prefetch_related('winner_participant', 'participant1', 'participant2')
+
+    @staticmethod
     async def link_match(challonge_match: ChallongeMatch, match: Match) -> None:
         challonge_match.match = match
-        await challonge_match.save()
+        await save_fields(challonge_match, 'match')
 
     @staticmethod
     async def count_participants(tournament: Tournament) -> int:
@@ -300,12 +425,15 @@ class ChallongeRepository:
     @staticmethod
     async def record_sync(
         tournament: Tournament, when: datetime, state: Optional[str], group_stage: bool,
+        tournament_type: Optional[str] = None,
     ) -> None:
         tournament.challonge_last_synced_at = when
         tournament.challonge_state = state  # type: ignore[assignment]
         tournament.challonge_group_stage = group_stage
+        tournament.challonge_tournament_type = (tournament_type or '')[:32] or None  # type: ignore[assignment]
         await tournament.save(update_fields=[
             'challonge_last_synced_at', 'challonge_state', 'challonge_group_stage',
+            'challonge_tournament_type',
         ])
 
     # ------------------------------------------------------------------
@@ -332,11 +460,58 @@ class ChallongeRepository:
 
     @staticmethod
     async def unscheduled_open_matches_for_user(user: User) -> List[ChallongeMatch]:
-        """Open bracket matches the user is in that aren't yet scheduled in wizzrobe."""
+        """Open bracket matches the user is in that aren't yet scheduled in wizzrobe.
+
+        Across every live event (cross-event: it feeds the player's own schedule).
+        """
         return await scoped(ChallongeMatch.filter(
             Q(participant1__user=user) | Q(participant2__user=user),
             state=ChallongeMatchState.OPEN,
             match_id__isnull=True,
+            tournament__event__status=EventStatus.LIVE,
         )).prefetch_related(
             'tournament', 'participant1__user', 'participant2__user',
         )
+
+    @staticmethod
+    async def open_set_matches_for_user(user: User) -> List[ChallongeMatch]:
+        """Open bracket matches the user is in whose best-of set has some games booked.
+
+        Across every live event (cross-event: it feeds the player's own schedule).
+        """
+        return await scoped(ChallongeMatch.filter(
+            Q(participant1__user=user) | Q(participant2__user=user),
+            state=ChallongeMatchState.OPEN, match__set_best_of__gt=1,
+            tournament__event__status=EventStatus.LIVE,
+        )).prefetch_related(
+            'tournament', 'participant1__user', 'participant2__user',
+        )
+
+    @staticmethod
+    async def open_set_matches(tournament_ids: Optional[List[int]] = None) -> List[ChallongeMatch]:
+        """Every open bracket match whose best-of set has some games booked; ``None`` means all."""
+        qs = scoped(ChallongeMatch.filter(
+            state=ChallongeMatchState.OPEN, match__set_best_of__gt=1, tournament__is_active=True,
+        ))
+        if tournament_ids is not None:
+            qs = qs.filter(tournament_id__in=tournament_ids)
+        return await qs.prefetch_related(
+            'tournament', 'participant1__user', 'participant2__user',
+        ).order_by('tournament_id', 'round', 'id')
+
+    @staticmethod
+    async def move_match_link(old_match_id: int, new_match_id: int) -> None:
+        await scoped(ChallongeMatch.filter(match_id=old_match_id)).update(match_id=new_match_id)
+
+    @staticmethod
+    async def unscheduled_open_matches(tournament_ids: Optional[List[int]] = None) -> List[ChallongeMatch]:
+        """Every open, unbooked bracket match in active tournaments; ``None`` means all of them."""
+        qs = scoped(ChallongeMatch.filter(
+            state=ChallongeMatchState.OPEN, match_id__isnull=True, tournament__is_active=True,
+            participant1_id__isnull=False, participant2_id__isnull=False,
+        ))
+        if tournament_ids is not None:
+            qs = qs.filter(tournament_id__in=tournament_ids)
+        return await qs.prefetch_related(
+            'tournament', 'participant1__user', 'participant2__user',
+        ).order_by('tournament_id', 'round', 'id')

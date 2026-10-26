@@ -13,15 +13,29 @@ a line's buttons are only ever as current as its row, which the board already
 re-fetches after every change.
 """
 
-from theme.tables.match_run_sheet import CREW_NAMES, HELD_TAG, crew_people, decorate_run_sheet_row
+from theme.tables.match_run_sheet import (
+    CREW_NAMES,
+    HELD_TAG,
+    META,
+    META_WITH_STAGE,
+    RAIL,
+    STATUS_WORD,
+    UNTIL_LINE,
+    WHO,
+    card_head,
+    crew_people,
+    decorate_run_sheet_row,
+    fold_header,
+    use_fold_filter,
+)
 from theme.tables.match_slots import MY_ACTIONS_COLUMN, STREAM_VOLUNTEER_ACTIONABLE
 
 PLAYER_RUN_SHEET_COLUMNS = [
     {'name': 'scheduled_at', 'label': 'Time', 'field': 'scheduled_at', 'align': 'left'},
     {'name': 'match', 'label': 'Match', 'field': 'title', 'align': 'left'},
     {'name': 'stage', 'label': 'Stage', 'field': 'stage', 'align': 'left'},
-    {'name': 'commentators', 'label': 'Commentators', 'field': 'commentators', 'align': 'left'},
-    {'name': 'trackers', 'label': 'Trackers', 'field': 'trackers', 'align': 'left'},
+    {'name': 'commentators', 'label': 'Commentators', 'field': '_role_by', 'align': 'left'},
+    {'name': 'trackers', 'label': 'Trackers', 'field': '_role_by', 'align': 'left'},
     {'name': 'status', 'label': 'Status', 'field': 'state', 'align': 'left'},
     {'name': 'watch', 'label': 'Watch', 'field': 'watch', 'align': 'center'},
 ]
@@ -38,7 +52,10 @@ PLAYER_MENU_COLUMN = {'name': MY_ACTIONS_COLUMN, 'label': 'More', 'field': MY_AC
 _LIVE = (0, 'Live now')
 _NEXT = (1, 'Up next')
 _NO_PLAYERS = (2, 'Waiting for players')
-_DONE = (3, 'Finished')
+# Bracket matchups nobody has booked, which crew can sign up for ahead.
+NOT_BOOKED_GROUP = 'Not scheduled yet'
+_NOT_BOOKED = (3, NOT_BOOKED_GROUP)
+_DONE = (4, 'Finished')
 
 _ROLES = (
     # (row key, singular the board's handlers take, label)
@@ -54,6 +71,8 @@ def player_status(row: dict) -> tuple[str, str]:
     can act on, so a recorded result reads as Finished until it's official.
     """
     state = row.get('state')
+    if row.get('crew_hold'):
+        return ('Players TBD' if row.get('_players_tbd') else 'Waiting on players'), 'neutral'
     if state == 'Confirmed':
         return 'Confirmed', 'ok'
     if state == 'Finished':
@@ -63,13 +82,15 @@ def player_status(row: dict) -> tuple[str, str]:
     if not row.get('players'):
         return 'Waiting for players', 'neutral'
     if state == 'Checked In':
-        return 'Checked in', 'neutral'
+        return 'Checked in', 'info'
     if row.get('is_overdue'):
         return 'Late', 'pending'
     return 'Scheduled', 'neutral'
 
 
 def _group(row: dict) -> tuple[int, str]:
+    if row.get('crew_hold'):
+        return _NOT_BOOKED
     state = row.get('state')
     if state in ('Finished', 'Confirmed'):
         return _DONE
@@ -90,27 +111,41 @@ def player_crew(row: dict, discord_id) -> list[dict]:
     set when the viewer is approved but hasn't confirmed they'll cover it.
     ``unavailable`` is why there's no button to press. ``people`` are the names, the viewer's followed by "(you)", and ``empty`` is
     the "No signups yet" line while the role can still be filled.
+
+    Once the match is live or over there's nobody left to recruit, so the
+    sign-up controls go (``tray`` is False) and a role nobody covered drops
+    out. The viewer's own signup keeps its Withdraw: the crew help promises a
+    stale signup can be cleared at any time.
     """
     wanted = row.get('crew_wanted') or {}
     required = row.get('crew_required') or {}
-    open_ = bool(row.get('crew_signup_open'))
-    plays = bool(discord_id) and any(
+    recruiting = row.get('state') not in ('Started', 'Finished', 'Confirmed')
+    open_ = recruiting and bool(row.get('crew_signup_open'))
+    plays = bool(discord_id) and (any(
         str(p.get('discord_id')) == str(discord_id) for p in row.get('players') or [])
+        or str(discord_id) in (row.get('_crew_blocked') or []))
     roles = []
     for key, singular, label in _ROLES:
         people = row.get(key) or []
-        if wanted.get(key) is False or not (wanted.get(key) or people):
+        if wanted.get(key) is False or not (people or (recruiting and wanted.get(key))):
             continue
         need = required.get(key, 1) or 0
         approved = sum(1 for p in people if p.get('approved'))
-        mine, ack_idx = None, None
+        mine, ack_idx, my_user_id, brought = None, None, None, None
         if discord_id:
             for idx, person in enumerate(people):
                 if str(person.get('discord_id')) == str(discord_id):
                     mine = 'approved' if person.get('approved') else 'waiting'
+                    my_user_id = person.get('user_id')
+                    brought = person.get('invited_by_id')
                     if person.get('approved') and not person.get('acknowledged'):
                         ack_idx = idx
                     break
+        my_invite = _my_invite(row, discord_id) if key == 'commentators' and mine else None
+        # Already one of a pair: asked someone, brought someone, or was brought.
+        paired = my_invite is not None or any(
+            (my_user_id is not None and p.get('invited_by_id') == my_user_id)
+            or (brought is not None and p.get('user_id') == brought) for p in people)
         roles.append({
             'key': key,
             'singular': singular,
@@ -118,14 +153,26 @@ def player_crew(row: dict, discord_id) -> list[dict]:
             'count': f'{approved}/{need}' if need else str(approved),
             'short': open_ and approved < need,
             'mine': mine,
+            'tray': recruiting or mine is not None,
             'can_sign_up': bool(discord_id) and open_ and mine is None and not plays,
-            'unavailable': _unavailable(mine, open_, plays),
+            'unavailable': _unavailable(mine, open_, plays) if recruiting else '',
             'can_withdraw': mine is not None,
-            'ack_idx': ack_idx,
+            'ack_idx': ack_idx if recruiting else None,
+            # Pair commentary: once signed up, bring a partner (or cancel the ask).
+            'can_invite': (key == 'commentators' and mine is not None and open_ and not paired
+                           and len(people) < (row.get('commentary_seats') or 0) and (row.get('commentary_seats') or 0) >= 2),
+            'my_invite': my_invite if recruiting else None,
             'people': crew_people(people, discord_id, waiting_note='waiting for approval'),
             'empty': open_ and not people,
         })
     return roles
+
+
+def _my_invite(row: dict, discord_id) -> dict | None:
+    """The viewer's own partner invite on this match still waiting on an answer."""
+    return next(({'id': i.get('id'), 'invitee': i.get('invitee')}
+                 for i in row.get('partner_invites') or []
+                 if discord_id and str(i.get('inviter_discord_id')) == str(discord_id)), None)
 
 
 def _unavailable(mine, open_: bool, plays: bool) -> str:
@@ -161,10 +208,81 @@ def decorate_player_row(row: dict, discord_id) -> dict:
     row['_tone'] = tone
     row['_roles'] = player_crew(row, discord_id)
     row['_role_by'] = {r['key']: r for r in row['_roles']}
+    # Who else was asked is between them and the inviter.
+    row['partner_invites'] = [
+        i for i in row.get('partner_invites') or []
+        if discord_id and str(i.get('inviter_discord_id')) == str(discord_id)]
     row['_ack'] = needs_my_ack(row, discord_id)
     row['_mine'] = bool(discord_id) and any(
         str(p.get('discord_id')) == str(discord_id) for p in row.get('players') or [])
+    mark_my_late(row, discord_id)
+    mark_my_seed_ready(row, discord_id)
     return row
+
+
+def mark_my_seed_ready(row: dict, discord_id) -> None:
+    """The Ready for seed panel on the viewer's own checked-in match. Mutates ``row``.
+
+    ``_seed_panel`` shows it (the viewer plays the match and ``seed_ready_open``
+    says their Ready counts now), ``_seed_who`` is every player with a tick or
+    "not yet", the viewer named "(you)", and ``_my_seed_ready`` swaps the big
+    button for Not ready and who they're waiting on.
+    """
+    players = row.get('players') or []
+    me = next((p for p in players if discord_id and str(p.get('discord_id')) == str(discord_id)), None)
+    row['_seed_panel'] = bool(me and row.get('seed_ready_open'))
+    if not row['_seed_panel']:
+        row['_seed_who'], row['_my_seed_ready'], row['_seed_waiting'] = [], False, ''
+        row['_seed_retry'] = False
+        return
+    row['_seed_who'] = [{
+        'key': p.get('user_id'),
+        'name': (p.get('name') or '') + (' (you)' if p is me else ''),
+        'ready': bool(p.get('seed_ready')),
+    } for p in players]
+    row['_my_seed_ready'] = bool(me.get('seed_ready'))  # type: ignore[union-attr]
+    waiting = [p.get('name') or '' for p in players if p is not me and not p.get('seed_ready')]
+    row['_seed_waiting'] = f"Waiting on {_and(waiting)}" if waiting else ''
+    # Everyone's ready and the panel is still up: a roll in flight closes it,
+    # so this one didn't roll. Ready again retries.
+    row['_seed_retry'] = row['_my_seed_ready'] and not waiting
+
+
+def _and(names: list[str]) -> str:
+    return names[0] if len(names) == 1 else ', '.join(names[:-1]) + ' and ' + names[-1]
+
+
+def keep_own_late_only(rows: list, discord_id) -> None:
+    """Drop every running-late entry but the viewer's own. Mutates ``rows``.
+
+    A heads-up is between a player and staff: the opponent's copy of the row,
+    and everyone's on Event > Schedule, must not carry it to the browser.
+    """
+    me = str(discord_id or '')
+    for row in rows:
+        ids = {p.get('user_id') for p in row.get('players') or []
+               if me and str(p.get('discord_id')) == me}
+        row['late'] = [entry for entry in row.get('late') or [] if entry.get('user_id') in ids]
+
+
+def mark_my_late(row: dict, discord_id) -> None:
+    """The viewer's own running-late state on their match. Mutates ``row``.
+
+    ``_my_late`` is the "~20 min" tag once they've said so, and the Status chip
+    says it in their words; ``_can_late`` offers the button, from half an hour
+    before the match until check-in (``late_window``, worked out server-side).
+    """
+    me = next((p for p in row.get('players') or []
+               if discord_id and str(p.get('discord_id')) == str(discord_id)), None)
+    mine = me and next(
+        (entry for entry in row.get('late') or [] if entry.get('user_id') == me.get('user_id')), None)
+    row['_my_late'] = mine['tag'] if mine else ''
+    row['_can_late'] = bool(
+        me and not mine and row.get('late_window') and row.get('state') == 'Scheduled'
+        and not row.get('is_racetime'))
+    if mine:
+        row['_status'] = f"Staff know: {mine['tag']}"
+        row['_tone'] = 'pending'
 
 
 def arrange_player_run_sheet(rows: list, discord_id) -> list:
@@ -174,21 +292,29 @@ def arrange_player_run_sheet(rows: list, discord_id) -> list:
 
     def key(row):
         order, _ = _group(row)
-        ts = row.get('scheduled_ts') or 0
+        ts = row.get('started_ts') or row.get('scheduled_ts') or 0
+        if order == _NOT_BOOKED[0]:
+            return (order, row.get('_future_order') or 0)
         return (order, -ts if order == _DONE[0] else ts)
 
     arranged = sorted(rows, key=key)
+    counts: dict[str, int] = {}
+    for row in arranged:
+        header = _group(row)[1]
+        counts[header] = counts.get(header, 0) + 1
     previous = None
     for row in arranged:
         _, header = _group(row)
         row['_group'] = header
+        row['_group_count'] = counts[header]
         row['_group_start'] = header != previous
         previous = header
     return arranged
 
 
 _WHEN = r'''<span v-if="props.row._time" class="run-sheet__time" :class="props.row._status === 'Late' ? 'st-pending' : ''">{{ props.row._time }}</span>
-<span v-else class="run-sheet__day">No time</span>
+<span v-else class="run-sheet__day">{{ props.row.crew_hold ? 'Not booked' : 'No time' }}</span>
+''' + UNTIL_LINE + r'''
 <span v-if="props.row._day && props.row._day !== 'Today'" class="run-sheet__day">{{ props.row._day }}</span>''' + HELD_TAG
 
 _TITLE = "props.row._who || (props.row.bracket ? props.row.bracket.name : props.row.title)"
@@ -202,13 +328,17 @@ _TITLE = "props.row._who || (props.row.bracket ? props.row.bracket.name : props.
 # Commentators or Trackers header and doesn't need to. Every button stops the
 # click so pressing it doesn't also open the details sheet.
 _ROLE = r'''<span class="run-sheet__crew" :class="c.short ? 'st-pending' : ''">__LABEL__<b>{{ c.count }}</b><template v-if="c.short"> · needs crew</template></span>
-<div class="wiz-crew-action">
+<div v-if="c.tray" class="wiz-crew-action">
 <q-btn v-if="c.can_withdraw" outline no-caps no-wrap color="negative" dense icon="undo" :label="__WITHDRAW__"
        :aria-label="'Withdraw as ' + c.singular"
        @click.stop="$parent.$emit('undo_' + c.singular, props.row)" />
 <q-btn v-else-if="c.can_sign_up" outline no-caps no-wrap color="primary" dense icon="assignment_ind" :label="__SIGN_UP__"
        :aria-label="'Sign up as ' + c.singular"
        @click.stop="$parent.$emit('signup_' + c.singular, props.row)" />
+<q-btn v-if="c.can_invite" flat no-caps no-wrap color="primary" dense icon="group_add" label="Invite a partner"
+       @click.stop="$parent.$emit('invite_partner', props.row)">
+    <q-tooltip>Ask someone to commentate this match with you</q-tooltip>
+</q-btn>
 <q-btn v-if="c.ack_idx !== null" outline no-caps no-wrap color="primary" dense icon="check" label="Confirm"
        @click.stop="$parent.$emit('acknowledge_' + c.singular, { row: props.row, idx: c.ack_idx })">
     <q-tooltip>Confirm you can cover this {{ c.singular }} slot</q-tooltip>
@@ -217,6 +347,12 @@ _ROLE = r'''<span class="run-sheet__crew" :class="c.short ? 'st-pending' : ''">_
 <q-btn outline no-caps no-wrap dense disable icon="assignment_ind" :label="__SIGN_UP__" />
 <span v-if="c.unavailable" class="wiz-crew-why st-neutral">{{ c.unavailable }}</span>
 </template>
+</div>
+<div v-if="c.my_invite" class="wiz-crew-invite">
+<span class="st-pending"><q-icon name="schedule" size="14px" aria-hidden="true" /> Invited {{ c.my_invite.invitee }} · waiting</span>
+<q-btn flat no-caps no-wrap dense color="negative" label="Cancel invite"
+       :aria-label="'Cancel your invite to ' + c.my_invite.invitee"
+       @click.stop="$parent.$emit('cancel_partner_invite', { row: props.row, invite: c.my_invite })" />
 </div>
 ''' + CREW_NAMES
 
@@ -230,7 +366,41 @@ _ACK = r'''<q-btn v-if="props.row._ack" unelevated no-caps no-wrap color="primar
     <q-tooltip>Confirm you've seen this match and will play it</q-tooltip>
 </q-btn>'''
 
-_BELL = r'''<q-btn :icon="props.row._watching ? 'notifications' : 'notifications_none'"
+# The player's own heads-up, beside Acknowledge: the button while they can
+# still say it, then Undo once the chip says they did.
+# On the phone card the late chip sits with its Undo rather than in the top line,
+# where its length squeezed the names to a letter a line.
+_LATE_CHIP = r'''<div v-if="props.row._my_late" class="player-sheet__late"><span class="wiz-chip wiz-chip--pending">{{ props.row._status }}</span>
+<q-btn flat no-caps no-wrap color="primary" dense label="Undo"
+       aria-label="Undo running late" @click.stop="$parent.$emit('take_back_late', props.row)" /></div>'''
+_LATE_UNDO = r'''<q-btn v-if="props.row._my_late" flat no-caps no-wrap color="primary" dense label="Undo"
+       aria-label="Undo running late" @click.stop="$parent.$emit('take_back_late', props.row)" />'''
+_LATE = r'''<q-btn v-if="props.row._can_late" outline no-caps no-wrap color="primary" dense icon="schedule"
+       label="Tell staff I'm late" @click.stop="$parent.$emit('running_late', props.row)">
+    <q-tooltip>Tell staff on duty you're on your way</q-tooltip>
+</q-btn>'''
+
+# The viewer's own Ready for seed, once their match is checked in on a
+# tournament where players release the seed: who's ready, then the big button,
+# or Not ready on the left and who they're waiting on on the right.
+_SEED_READY = r'''<div v-if="props.row._seed_panel" class="player-sheet__seed" @click.stop>
+<div class="player-sheet__seed-head"><b>Seed</b><span>Sent when you're all ready</span></div>
+<ul class="player-sheet__seed-who">
+<li v-for="p in props.row._seed_who" :key="p.key"><q-icon :name="p.ready ? 'check_circle' : 'schedule'" size="18px" :class="p.ready ? 'st-ok' : 'st-neutral'" aria-hidden="true" />{{ p.name }}
+<span v-if="p.ready" class="wiz-chip wiz-chip--ok">Ready</span><span v-else class="st-neutral">not yet</span></li>
+</ul>
+<q-btn v-if="!props.row._my_seed_ready" unelevated no-caps color="primary" icon="casino" label="I'm ready for my seed"
+       class="player-sheet__seed-go" @click.stop="$parent.$emit('seed_ready', props.row)" />
+<div v-else class="player-sheet__seed-wait">
+<q-btn flat no-caps no-wrap dense color="primary" label="Not ready" aria-label="I'm not ready for my seed after all"
+       @click.stop="$parent.$emit('seed_not_ready', props.row)" />
+<span v-if="props.row._seed_waiting" class="st-neutral">{{ props.row._seed_waiting }}</span>
+<q-btn v-if="props.row._seed_retry" unelevated no-caps no-wrap dense color="primary" icon="refresh" label="Try the seed again"
+       @click.stop="$parent.$emit('seed_ready', props.row)" />
+</div>
+</div>'''
+
+_BELL = r'''<q-btn v-if="!props.row.crew_hold" :icon="props.row._watching ? 'notifications' : 'notifications_none'"
        :color="props.row._watching ? 'primary' : 'grey-8'" flat round dense
        @click.stop="$parent.$emit('toggle_watch', props.row)"
        :aria-label="props.row._watching ? 'Stop watching this match' : 'Watch this match for Discord updates'">
@@ -242,13 +412,15 @@ _ASK = "props.row._can_reschedule && props.row.state === 'Scheduled'"
 _HAS_MENU = ("props.row._mine && ((" + _ASK + ") || props.row._reschedule_pending"
              " || props.row._hard_offered || (" + STREAM_VOLUNTEER_ACTIONABLE + "))")
 
-# The viewer's own match only. A state that can't be changed from here (a
-# request waiting on staff, settings staff fixed) is a disabled item rather than
-# a missing one, so the menu still says where things stand.
-_MENU = r'''<q-btn v-if="__HAS__" flat round dense icon="more_vert" color="grey-8"
+# Every row has one, for Copy link; the rest is the viewer's own match only. A
+# state that can't be changed from here (a request waiting on staff, settings
+# staff fixed) is a disabled item rather than a missing one, so the menu still
+# says where things stand.
+_MENU = r'''<q-btn flat round dense icon="more_vert" color="grey-8"
        :aria-label="'More for ' + (__TITLE__)" @click.stop>
     <q-menu auto-close anchor="bottom right" self="top right">
         <q-list style="min-width: 240px">
+            <template v-if="__HAS__">
             <q-item v-if="__ASK__" clickable @click.stop="$parent.$emit('request_reschedule', props.row)">
                 <q-item-section avatar><q-icon name="edit_calendar" /></q-item-section>
                 <q-item-section><q-item-label>Ask to change</q-item-label>
@@ -290,6 +462,12 @@ _MENU = r'''<q-btn v-if="__HAS__" flat round dense icon="more_vert" color="grey-
                         : "Tell staff you're happy to be on stream" }}</q-item-label>
                 </q-item-section>
             </q-item>
+            <q-separator />
+            </template>
+            <q-item clickable :data-wiz-copy-link="'match-' + props.row.id">
+                <q-item-section avatar><q-icon name="link" /></q-item-section>
+                <q-item-section><q-item-label>Copy link</q-item-label></q-item-section>
+            </q-item>
         </q-list>
     </q-menu>
 </q-btn>'''.replace('__HAS__', _HAS_MENU).replace('__ASK__', _ASK).replace(
@@ -302,17 +480,17 @@ _STAGE = r'''<a v-if="props.row._stage && props.row.stage_url" :href="props.row.
 
 _BODY_SLOT = r'''
 <q-tr v-if="props.row._group_start" class="run-sheet__group-row">
-    <q-td colspan="100%" class="run-sheet__group">{{ props.row._group }}</q-td>
+    <q-td colspan="100%" class="run-sheet__group">''' + fold_header(False) + r'''</q-td>
 </q-tr>
-<q-tr :props="props" class="run-sheet__row player-sheet__row" :class="[props.row._flash ? 'wiz-row-flash' : '', props.row._removed ? 'wiz-row-removed' : '']" :inert="props.row._removed ? '' : null" :data-wiz-row="props.row.id"
+<q-tr v-if="!props.row._folded" :props="props" class="run-sheet__row player-sheet__row" :class="[''' + RAIL + ''', props.row._flash ? 'wiz-row-flash' : '', props.row._removed ? 'wiz-row-removed' : '']" :inert="props.row._removed ? '' : null" :data-wiz-row="props.row.id"
       @click="$parent.$emit('open_match', props.row.id)">
     <q-td v-for="col in props.cols" :key="col.name" :props="props"
-          :class="col.name === 'commentators' || col.name === 'trackers' ? 'player-sheet__crew-cell' : ''">
+          :class="col.name === 'commentators' || col.name === 'trackers' ? 'player-sheet__crew-cell' : col.name === 'match' ? 'player-sheet__match-cell' : ''">
         <template v-if="col.name === 'scheduled_at'">''' + _WHEN + '''</template>
         <template v-else-if="col.name === 'match'">
             <button type="button" class="run-sheet__open" @click.stop="$parent.$emit('open_match', props.row.id)">
-                {{ ''' + _TITLE + ''' }}</button>
-            <span class="run-sheet__meta" :title="props.row.tournament">{{ props.row.tournament_short || props.row.tournament }}<template v-if="props.row.bracket"> · {{ props.row.bracket.name }}<template v-if="props.row.bracket.game"> · Game {{ props.row.bracket.game }}</template></template></span>
+                ''' + WHO + '''</button>
+            ''' + META + '''
         </template>
         <template v-else-if="col.name === 'stage'">''' + _STAGE + '''</template>
         <template v-else-if="col.name === 'commentators' || col.name === 'trackers'">
@@ -321,8 +499,8 @@ _BODY_SLOT = r'''
         </template>
         <template v-else-if="col.name === 'status'">
             <div class="player-sheet__status">
-                <span class="wiz-chip" :class="'wiz-chip--' + props.row._tone">{{ props.row._status }}</span>''' + _ACK + '''
-            </div>
+                ''' + STATUS_WORD + _LATE_UNDO + _ACK + _LATE + '''
+            </div>''' + _SEED_READY + '''
         </template>
         <template v-else-if="col.name === 'watch'">''' + _BELL + '''</template>
         <template v-else-if="col.name === 'my_actions'">''' + _MENU + '''</template>
@@ -333,21 +511,24 @@ _BODY_SLOT = r'''
 
 # Phone: the names are the button that opens the sheet; the bell and the crew
 # buttons sit beside it rather than inside it (a button can't hold buttons).
+# The status chip leads the tray below, the way it heads desktop's Status
+# column: beside the names it squeezed them to a letter a line.
+# Staff know says so in the tray, beside its Undo.
+_HEAD_STATUS = STATUS_WORD.replace('<span ', '<span v-if="!props.row._my_late" ', 1)
 _ITEM_SLOT = r'''
 <div class="run-sheet__item">
-    <div v-if="props.row._group_start" class="run-sheet__group">{{ props.row._group }}</div>
-    <div class="player-sheet__card" :class="[props.row._flash ? 'wiz-row-flash' : '', props.row._removed ? 'wiz-row-removed' : '']" :inert="props.row._removed ? '' : null" :data-wiz-row="props.row.id">
+    <div v-if="props.row._group_start" class="run-sheet__group">''' + fold_header(False) + r'''</div>
+    <div v-if="!props.row._folded" class="player-sheet__card" :class="[''' + RAIL + ''', props.row._flash ? 'wiz-row-flash' : '', props.row._removed ? 'wiz-row-removed' : '']" :inert="props.row._removed ? '' : null" :data-wiz-row="props.row.id">
         <div class="player-sheet__top">
             <button type="button" class="player-sheet__open" @click="$parent.$emit('open_match', props.row.id)">
-                <span class="run-sheet__when">''' + _WHEN + '''</span>
                 <span class="run-sheet__main">
-                    <span class="run-sheet__who">{{ ''' + _TITLE + ''' }}</span>
-                    <span class="run-sheet__meta" :title="props.row.tournament">{{ props.row.tournament_short || props.row.tournament }}<template v-if="props.row._stage"> · {{ props.row._stage }}</template></span>
+                    ''' + card_head(_WHEN, _HEAD_STATUS) + '''
+                    <span class="run-sheet__who">''' + WHO + '''</span>
+                    ''' + META_WITH_STAGE + '''
                 </span>
-                <span v-if="props.row._status !== 'Scheduled'" class="wiz-chip" :class="'wiz-chip--' + props.row._tone">{{ props.row._status }}</span>
             </button>''' + _BELL + '''__MENU__
         </div>
-        <div v-if="props.row._ack || props.row._roles.length" class="player-sheet__acts">''' + _ACK + '''
+        <div v-if="props.row._ack || props.row._can_late || props.row._my_late || props.row._seed_panel || props.row._roles.length" class="player-sheet__acts">''' + _LATE_CHIP + _ACK + _LATE + _SEED_READY + '''
             <div v-for="c in props.row._roles" :key="c.key" class="player-sheet__role">''' + _ROLE_CARD + '''</div>
         </div>
     </div>
@@ -363,3 +544,4 @@ def register_player_run_sheet_slots(table, *, menu: bool = False) -> None:
     """
     table.add_slot('body', _BODY_SLOT)
     table.add_slot('item', _ITEM_SLOT.replace('__MENU__', _MENU if menu else ''))
+    use_fold_filter(table)

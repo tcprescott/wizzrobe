@@ -621,6 +621,12 @@ class TestDeleteTournament:
 
 
 class TestAdminAndCoordinator:
+    @pytest.fixture(autouse=True)
+    def _everyone_is_a_member(self, monkeypatch):
+        from application.services.tenant_membership_service import TenantMembershipService
+
+        monkeypatch.setattr(TenantMembershipService, 'require_community_users', AsyncMock())
+
     async def test_add_admin_calls_m2m_and_audits(self, service):
         t = make_tournament(tournament_id=5)
         target = make_user(user_id=99)

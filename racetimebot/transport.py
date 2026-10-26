@@ -148,7 +148,7 @@ class RealRacetimeTransport(RacetimeTransport):
             'grant_type': 'client_credentials',
         }
         try:
-            async with aiohttp.ClientSession() as session:
+            async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=20)) as session:
                 async with session.post(self.OAUTH_EXCHANGE_URL, data=data) as resp:
                     if resp.status in (400, 401, 403):
                         body = await resp.text()
@@ -188,7 +188,7 @@ class RealRacetimeTransport(RacetimeTransport):
         # access token before it expires. Room automation over the per-race
         # websocket attaches here in the lifecycle work; until then the connection
         # is held open, its credential kept valid, and its health kept fresh.
-        while not self._stop:
+        while not self._stop:  # worker-loop: the connection's run_forever reconnects with backoff and records health
             await on_heartbeat()
             if self._token_is_stale():
                 # An auth error here is a real credential problem (revoked, or

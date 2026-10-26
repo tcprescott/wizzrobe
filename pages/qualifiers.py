@@ -9,8 +9,10 @@
 """
 
 from datetime import datetime, timezone
+from typing import Optional
 
 from nicegui import app, ui
+from starlette.responses import RedirectResponse
 
 from application.content import parse_blocks
 from application.services import AsyncQualifierService, AuthService, TenantService, get_user_from_session
@@ -23,6 +25,7 @@ from application.services.async_qualifier.async_qualifier_rules import (
 from application.utils.duration import format_hms, parse_hms
 from application.utils.timezone import format_local_display
 from middleware.auth import protected_page
+from middleware.event_routing import page_request, row_event_redirect
 from models import FeatureFlag
 from theme.base import BaseLayout
 from theme.dialog._helpers import dialog_actions, form_dialog
@@ -30,6 +33,7 @@ from theme.dialog.confirmation_dialog import ConfirmationDialog
 from theme.empty_state import empty_panel
 from theme.help import help_icon
 from theme.help.render import render_blocks
+from theme.links import link_button
 from theme.notify import notify_error
 from theme.page_header import page_header, page_title
 from theme.qualifier_copy import (
@@ -141,7 +145,7 @@ def create() -> None:
 
     @protected_page('/qualifiers', feature=FeatureFlag.ASYNC_QUALIFIERS)
     async def qualifiers_list() -> None:
-        ui.page_title(f'{await TenantService.current_community_name() or "Wizzrobe"} — Async Qualifiers')
+        ui.page_title(f'Async Qualifiers — {await TenantService.current_community_name() or "Wizzrobe"}')
         user = await get_user_from_session(app.storage.user)
         show_admin = await AuthService.can_open_admin(user)
         await BaseLayout(user=user, show_admin=show_admin).render()
@@ -159,31 +163,36 @@ def create() -> None:
                         with ui.row().classes('items-center full-width'):
                             ui.label(q.name).classes('section-title')
                             ui.space()
-                            ui.button('Open', icon='arrow_forward',
-                                      on_click=lambda qid=q.id: ui.navigate.to(f'/qualifiers/{qid}')
-                                      ).props('flat color=primary')
+                            link_button('Open', f'/qualifiers/{q.id}', icon='arrow_forward', new_tab=False) \
+                                .props('flat color=primary')
                         ui.label(f'Window: {_fmt(q.opens_at)} → {_fmt(q.closes_at)}').classes(
                             'text-caption text-grey')
                         if q.description:
                             with ui.element('div').classes('wiz-help-prose'):
                                 render_blocks(parse_blocks(q.description))
 
-    @protected_page('/qualifiers/{qualifier_id}', feature=FeatureFlag.ASYNC_QUALIFIERS)
-    async def qualifier_detail(qualifier_id: int, focus: str | None = None) -> None:
-        ui.page_title(f'{await TenantService.current_community_name() or "Wizzrobe"} — Async Qualifier')
+    @protected_page('/qualifiers/{qualifier_id}', feature=FeatureFlag.ASYNC_QUALIFIERS, scope='row')
+    async def qualifier_detail(qualifier_id: int, focus: str | None = None) -> Optional[RedirectResponse]:
+        ui.page_title(f'Async Qualifier — {await TenantService.current_community_name() or "Wizzrobe"}')
         user = await get_user_from_session(app.storage.user)
+        qualifier = None
+        error = 'You must be logged in.'
+        if user is not None:
+            try:
+                qualifier = await service.get_qualifier_for_player(qualifier_id)
+            except ValueError as e:
+                error = str(e)
+        if qualifier is not None:
+            redirect = await row_event_redirect(page_request(), qualifier.event_id)
+            if redirect is not None:
+                return redirect
+
         show_admin = await AuthService.can_open_admin(user)
         await BaseLayout(user=user, show_admin=show_admin).render()
 
-        if user is None:
-            ui.label('You must be logged in.').classes('text-error')
-            return
-
-        try:
-            qualifier = await service.get_qualifier_for_player(qualifier_id)
-        except ValueError as e:
-            ui.label(str(e)).classes('text-error')
-            return
+        if user is None or qualifier is None:
+            ui.label(error).classes('text-error')
+            return None
 
         container = ui.column().classes('page-container')
 
@@ -519,6 +528,7 @@ def create() -> None:
                 f"setTimeout(() => document.getElementById('{_MY_RUNS_ID}')"
                 "?.scrollIntoView({behavior: 'smooth', block: 'start'}), 400)"
             )
+        return None
 
 
 def _window_open(qualifier) -> bool:

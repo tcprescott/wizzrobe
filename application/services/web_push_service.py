@@ -34,6 +34,7 @@ from cryptography.hazmat.primitives.asymmetric import ec
 from application.errors import NotFoundError
 from application.repositories import WebPushRepository
 from application.services.audit_service import AuditActions, AuditService
+from application.services.sent_message_service import SentMessageRef, SentMessageService
 from application.utils import web_push as protocol
 from application.utils.environment import get_base_url, is_production
 from application.utils.ssrf import ensure_public_host
@@ -300,7 +301,7 @@ class WebPushService:
 
     async def mirror_dm(
         self, discord_id: int, message: str, navigate: Optional[str] = None,
-        silent: bool = False,
+        silent: bool = False, ref: Optional[SentMessageRef] = None,
     ) -> None:
         """Mirror a Discord DM to the recipient's subscribed devices.
 
@@ -318,13 +319,15 @@ class WebPushService:
             subscriptions = await self.repository.list_for_discord_id(discord_id)
             if not subscriptions:
                 return
-            await self._send_to_subscriptions(
+            sent = await self._send_to_subscriptions(
                 subscriptions,
                 title='Wizzrobe',
                 body=self._plain_text(message),
                 navigate=navigate,
                 silent=silent,
             )
+            if ref is not None:
+                await SentMessageService().record_push(ref, sent)
         except Exception:
             logger.exception('web push DM mirror failed for discord id %s', discord_id)
 

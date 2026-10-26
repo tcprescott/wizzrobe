@@ -23,6 +23,8 @@ from typing import Any, Generic, Optional, Type, TypeVar
 
 from tortoise.models import Model
 
+from application.repositories._event import stamp_event_id
+from application.repositories._save import save_fields
 from application.repositories._tenant import current_tenant_id
 
 T = TypeVar("T", bound=Model)
@@ -43,11 +45,31 @@ class TenantScopedRepository(Generic[T]):
 
     @classmethod
     async def update(cls, obj: T, **fields: Any) -> T:
+        # Writes only the named columns. A caller often holds a row loaded long
+        # before (an edit dialog's tournament), and a full save would put back
+        # every column changed since then by anyone else.
         for key, value in fields.items():
             setattr(obj, key, value)
-        await obj.save()
+        if fields:
+            await save_fields(obj, *fields)
         return obj
 
     @classmethod
     async def delete(cls, obj: T) -> None:
         await obj.delete()
+
+
+class EventScopedRepository(TenantScopedRepository[T]):
+    """:class:`TenantScopedRepository` for a model an event owns.
+
+    ``create`` stamps the event as well as the tenant: the parent's event for a
+    model listed in ``EVENT_PARENTS`` (a match takes its tournament's), else the
+    ambient one. ``get_by_id`` stays tenant-scoped only, because a row decides
+    its own event.
+    """
+
+    @classmethod
+    async def create(cls, **fields: Any) -> T:
+        if 'event' not in fields and 'event_id' not in fields:
+            fields['event_id'] = await stamp_event_id(cls.model, fields)
+        return await cls.model.create(tenant_id=current_tenant_id(), **fields)

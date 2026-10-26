@@ -3,7 +3,7 @@
 A room PC is a shared machine in a public room; nobody signs in on it, and it
 still has to show the seed for the next match. So this route authorizes on an
 unlisted :class:`~models.RoomToken` instead of a session, and shows exactly one
-thing: matches whose seed is rolled and which nobody has started yet.
+thing: matches whose seed is rolled and which haven't finished yet.
 
 ``GET /t/<slug>/room/<token>/seeds`` — **inside** the tenant prefix on purpose.
 The middleware there has already resolved the community and bound the display
@@ -21,11 +21,15 @@ about to be played is not a trade worth making for a machine sitting in a room
 the public walks through.
 """
 
+from typing import Optional
+
 from nicegui import app, ui
+from starlette.responses import RedirectResponse
 
 from application.services import RoomTokenService, get_user_from_session
-from application.services.match.match_display_service import is_seeded_and_unplayed
+from application.services.match.match_display_service import is_room_seed_row
 from middleware.auth import public_page
+from middleware.event_routing import page_request, row_event_redirect
 from theme.base import BaseLayout
 from theme.page_header import page_header
 from theme.tables.match import MatchTableView
@@ -42,8 +46,8 @@ COLUMNS = [
 
 
 def create() -> None:
-    @public_page('/room/{token}/seeds', telemetry_path='/room/seeds')
-    async def room_seeds(token: str) -> None:
+    @public_page('/room/{token}/seeds', telemetry_path='/room/seeds', scope='row')
+    async def room_seeds(token: str) -> Optional[RedirectResponse]:
         ui.page_title('Wizzrobe — Room Seeds')
 
         # An unknown, revoked, malformed or wrong-community token renders the
@@ -51,12 +55,16 @@ def create() -> None:
         # so guessing at a URL tells you nothing about which tokens are live.
         # The copy ("the link's out of date") is also the true one for the
         # staff member at a room PC whose token was just revoked.
-        if await RoomTokenService().resolve(token) is None:
+        room_token = await RoomTokenService().resolve(token)
+        if room_token is None:
             from theme.error_page import render_not_found
             await render_not_found(
                 user=await get_user_from_session(app.storage.user),
             )
-            return
+            return None
+        redirect = await row_event_redirect(page_request(), room_token.event_id)
+        if redirect is not None:
+            return redirect
 
         # Anonymous by construction, and chromeless: a room PC has no session to
         # sign out of and nowhere else to go, so the layout contributes the
@@ -64,10 +72,10 @@ def create() -> None:
         await BaseLayout(user=None, chromeless=True).render()
 
         with ui.column().classes('page-container'):
-            page_header('Seeds ready to play')
+            page_header('Seeds')
             ui.label(
-                'Matches with a rolled seed that nobody has started yet. '
-                'Updates on its own — leave it open.'
+                'Every match with a rolled seed, from the ones in progress to the '
+                'ones still to play. Updates on its own — leave it open.'
             ).classes('text-muted')
 
             ui.separator().classes('separator-spacing')
@@ -80,12 +88,16 @@ def create() -> None:
                     'body-cell-state': state_readonly_slot(scheduled_detailed=False),
                     'body-cell-generated_seed': SEED_SLOT_READONLY,
                 },
-                row_filter=is_seeded_and_unplayed,
-                default_state_filter=['Scheduled', 'Checked In'],
-                storage_key='room_seeds',
+                row_filter=is_room_seed_row,
+                default_state_filter=['Scheduled', 'Checked In', 'Started'],
+                # Renamed when Started joined the default: a room PC that had
+                # already saved the old two-state filter under the old key would
+                # have kept hiding in-progress seeds.
+                storage_key='room_seeds_v2',
                 # table-prefs: exempt — an anonymous kiosk has no user row to key
                 # a saved layout to, and the columns here are fixed. Rearranging
                 # them would need a general anonymous-preferences path, not a
                 # second persistence backend for one page.
                 table_key=None,
             )
+        return None

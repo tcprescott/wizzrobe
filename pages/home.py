@@ -2,14 +2,16 @@ from fastapi import Request
 from fastapi.responses import RedirectResponse
 from nicegui import app, ui
 
-from application.services import AuthService, TenantService, get_user_from_session
+from application.event_context import get_current_event_id, stash_client_event_id
+from application.services import AuthService, EventService, TenantService, get_user_from_session
 from application.tenant_context import (
     get_current_tenant_id,
     is_host_mode,
     stash_client_host_mode,
     stash_client_tenant_id,
 )
-from middleware.auth import bind_display_timezone, enforce_membership, record_page_view
+from middleware.auth import bind_display_timezone, can_view_bound_event, enforce_membership, record_page_view
+from middleware.event_routing import default_event_redirect, row_event_redirect
 from pages.home_tabs.event import community_new_count, event_tab
 from pages.home_tabs.my_schedule import my_schedule_tab
 from pages.home_tabs.player import count_waiting_on_you
@@ -18,6 +20,7 @@ from pages.home_tabs.tournaments import tournaments_tab
 from theme.assets import asset_url
 from theme.base import BaseLayout
 from theme.empty_state import empty_panel
+from theme.links import link_button, set_link
 from theme.page_header import page_title
 from theme.timer_teardown import PageTimer
 
@@ -57,14 +60,11 @@ async def _render_platform_landing() -> None:
                 # No avatar URL (mock-login sessions, or Discord users on the
                 # default avatar): show a placeholder glyph rather than a broken image.
                 ui.icon('account_circle').classes('user-avatar user-avatar-placeholder')
-            ui.button(on_click=lambda: ui.navigate.to('/logout'), icon='logout', color=None) \
-                .props('flat').tooltip('Log out')
+            logout_btn = ui.button(icon='logout', color=None).props('flat').tooltip('Log out')
+            set_link(logout_btn, '/logout', new_tab=False)
         else:
-            login_btn = ui.button(
-                on_click=lambda: ui.navigate.to('/login'),
-                icon='login',
-                color=None,
-            ).props('flat').classes('login-button')
+            login_btn = ui.button(icon='login', color=None).props('flat').classes('login-button')
+            set_link(login_btn, '/login', new_tab=False)
             with login_btn:
                 ui.label('Login with Discord').classes('login-button-text')
             login_btn.tooltip('Login with Discord')
@@ -95,8 +95,7 @@ async def _render_platform_landing() -> None:
                         .classes('text-caption')
         if await AuthService.is_super_admin(user):
             ui.separator().classes('separator-spacing')
-            ui.button('Platform administration', icon='admin_panel_settings',
-                      on_click=lambda: ui.navigate.to('/platform')) \
+            link_button('Platform administration', '/platform', icon='admin_panel_settings', new_tab=False) \
                 .props('outline color=primary')
 
 
@@ -119,6 +118,13 @@ def deep_link_ids(**raw: str | None) -> tuple[dict[str, int | None], bool]:
             ids[name] = None
             malformed = True
     return ids, malformed
+
+
+#: Home sections that belong to the viewer rather than to one event, with
+#: their retired slugs.
+PERSONAL_HOME_SECTIONS = frozenset({
+    'my-schedule', 'player', 'my-crew', 'availability', 'profile', 'equipment',
+})
 
 
 def create() -> None:
@@ -149,11 +155,23 @@ def create() -> None:
             schedule=schedule, reschedule=reschedule, match=match, hard=hard, agree=agree,
             book=book, startgg=startgg, comments=comments, release=release, shifts=shifts,
         )
+        # A link about one match opens in that match's event. My Schedule and
+        # Profile are the viewer's own, across every live event, so they keep a
+        # bare URL; any other bare link opens in the default event.
+        match_id = next((ids[k] for k in ('match', 'comments', 'hard', 'reschedule') if ids.get(k)), None)
+        redirect = None
+        if match_id is not None:
+            redirect = await row_event_redirect(request, await EventService.match_event_id(match_id))
+        elif section not in PERSONAL_HOME_SECTIONS:
+            redirect = await default_event_redirect(request)
+        if redirect is not None:
+            return redirect
         # A bare ``ui.page`` misses the page view ``_tenant_page`` records, so
         # home records its own: every section under one path, like the hubs.
         record_page_view('/home', {'section': section, **ids})
         # Stash the tenant onto the connection so websocket UI handlers resolve it.
         stash_client_tenant_id(tid)
+        stash_client_event_id(get_current_event_id())
         # Carry host mode too, so link-section buttons can hide on a custom domain.
         stash_client_host_mode(is_host_mode())
 
@@ -181,6 +199,10 @@ def create() -> None:
         # as commentator and tracker. The community's own spectator surface —
         # the bracket views — stays public on its own routes.
         if await enforce_membership(tid, user):
+            return
+        if not await can_view_bound_event(user):
+            from theme.error_page import render_not_found
+            await render_not_found(user=user)
             return
         if user is None and signed_in:
             with ui.row():

@@ -18,7 +18,8 @@ import pytest
 import application.services.match.match_suggestion_service as mss
 from application.services.match.match_suggestion_service import MatchSuggestionService
 from application.utils.timezone import EASTERN_TZ
-from models import Match, MatchPlayers, SystemConfiguration, Tournament, User
+from models import Match, MatchPlayers, Tournament, User
+from tests.factories import set_setting
 
 DAYS = [date(2026, 10, 22), date(2026, 10, 23)]
 CAP = 12
@@ -30,13 +31,13 @@ def _local(d: date, h: int, mi: int = 0) -> datetime:
 
 @pytest.fixture
 async def event(db, monkeypatch):
-    await SystemConfiguration.create(name='event_start_date', value=DAYS[0].isoformat())
-    await SystemConfiguration.create(name='event_end_date', value=DAYS[-1].isoformat())
-    await SystemConfiguration.create(
+    await set_setting(name='event_start_date', value=DAYS[0].isoformat())
+    await set_setting(name='event_end_date', value=DAYS[-1].isoformat())
+    await set_setting(
         name='tournament_hours_by_date',
         value=json.dumps({d.isoformat(): {'open': '10:00', 'close': '22:00'} for d in DAYS}),
     )
-    await SystemConfiguration.create(name='max_concurrent_players', value=str(CAP))
+    await set_setting(name='max_concurrent_players', value=str(CAP))
     clock = {'now': _local(date(2026, 10, 20), 12)}
     monkeypatch.setattr(mss, 'now_local', lambda tz=None: clock['now'].astimezone(tz or EASTERN_TZ))
     short = await Tournament.create(name='Short', average_match_duration=60)
