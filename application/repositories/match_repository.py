@@ -16,6 +16,7 @@ from application.repositories._event import event_scoped, live_event_scoped, par
 from application.repositories._tenant import current_tenant_id, scoped
 from models import (
     BracketMatchGame,
+    Broadcaster,
     ChallongeMatch,
     Commentator,
     Match,
@@ -66,6 +67,8 @@ class MatchRepository:
                 'commentators__user',
                 'trackers',
                 'trackers__user',
+                'broadcasters',
+                'broadcasters__user',
                 # The bracket seam, for the schedule's "part of <bracket>" link.
                 # A batched prefetch, so it costs a fixed few queries rather
                 # than one per row; most matches have no game row at all. The
@@ -149,7 +152,7 @@ class MatchRepository:
             )
             .prefetch_related(
                 'tournament', 'stage', 'players__user',
-                'commentators__user', 'trackers__user', 'watchers__user',
+                'commentators__user', 'trackers__user', 'broadcasters__user', 'watchers__user',
             )
             .order_by('scheduled_at')
         )
@@ -233,6 +236,7 @@ class MatchRepository:
             query = query.filter(
                 Q(commentators__user__discord_id=crew_discord_id)
                 | Q(trackers__user__discord_id=crew_discord_id)
+                | Q(broadcasters__user__discord_id=crew_discord_id)
             ).distinct()
 
         if prefetch_relations:
@@ -243,6 +247,7 @@ class MatchRepository:
                 'generated_seed',
                 Prefetch('commentators', queryset=scoped(Commentator.all()).prefetch_related(_board_user())),
                 Prefetch('trackers', queryset=scoped(Tracker.all()).prefetch_related(_board_user())),
+                Prefetch('broadcasters', queryset=scoped(Broadcaster.all()).prefetch_related(_board_user())),
                 # The bracket seam, for the schedule's "part of <bracket>" link.
                 # A batched prefetch, so it costs a fixed few queries rather
                 # than one per row; most matches have no game row at all. The
@@ -316,7 +321,7 @@ class MatchRepository:
     @staticmethod
     async def list_crew_holds() -> List[Match]:
         return await event_scoped(Match.filter(crew_hold_source__isnull=False)).prefetch_related(
-            'tournament', 'commentators', 'trackers',
+            'tournament', 'commentators', 'trackers', 'broadcasters',
         )
 
     @staticmethod
@@ -573,7 +578,8 @@ class MatchRepository:
 
         return await query.prefetch_related(
             'tournament', 'stage', 'players', 'players__user',
-            'commentators', 'commentators__user', 'trackers', 'trackers__user'
+            'commentators', 'commentators__user', 'trackers', 'trackers__user',
+            'broadcasters', 'broadcasters__user',
         ).order_by('scheduled_at')
 
     @staticmethod
@@ -582,9 +588,9 @@ class MatchRepository:
     ) -> List[Match]:
         """Every match in ``[start, end)`` this user is already committed to.
 
-        Committed means any of the three roles — a commentator cannot cover two
+        Committed means playing or any crew role — a commentator cannot cover two
         streams at once *and* cannot commentate a match they are racing in. One
-        query per role would be three; a single OR'd filter is one, deduped by id
+        query per role would be four; a single OR'd filter is one, deduped by id
         because a person could hold two roles on the same match.
 
         Spans every live event (cross-event): a person can't be in two places
@@ -593,7 +599,8 @@ class MatchRepository:
         query = live_event_scoped(Match.filter(
             Q(players__user_id=user_id)
             | Q(commentators__user_id=user_id)
-            | Q(trackers__user_id=user_id),
+            | Q(trackers__user_id=user_id)
+            | Q(broadcasters__user_id=user_id),
             scheduled_at__gte=start,
             scheduled_at__lt=end,
         ))

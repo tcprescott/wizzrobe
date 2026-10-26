@@ -278,7 +278,7 @@ class MatchSuggestionService:
         existing = await event_scoped(Match.filter(
             scheduled_at__isnull=False, confirmed_at__isnull=True,
         ), tournament.event_id if tournament else None).prefetch_related(
-            'tournament', 'players__user', 'commentators', 'trackers',
+            'tournament', 'players__user', 'commentators', 'trackers', 'broadcasters',
         )
         existing = [m for m in existing if m.id != exclude_match_id]
         wanted = set(player_ids)
@@ -295,7 +295,8 @@ class MatchSuggestionService:
                     ClashKind.PLAYING,
                     f'{name(uid)} is already playing at {format_local_time(b.start)} ({where}{vs}).',
                 ))
-            crew_rows = (('commentating', m.commentators), ('tracking', m.trackers))  # type: ignore[attr-defined]
+            crew_rows = (('commentating', m.commentators), ('tracking', m.trackers),  # type: ignore[attr-defined]
+                         ('broadcasting', m.broadcasters))  # type: ignore[attr-defined]
             for role, rows in crew_rows:
                 for crew in rows:
                     if crew.approved and crew.user_id in wanted and crew.user_id not in b.user_ids:

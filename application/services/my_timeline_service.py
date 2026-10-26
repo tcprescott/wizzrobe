@@ -40,7 +40,7 @@ UNAVAILABLE = 'unavailable'
 #: 01:00 sits on the evening it belongs to.
 DAY_STARTS_AT_HOUR = 6
 
-_ROLE_TITLES = {'commentator': 'Commentary', 'tracker': 'Tracking'}
+_ROLE_TITLES = {'commentator': 'Commentary', 'tracker': 'Tracking', 'broadcaster': 'Broadcast'}
 
 
 @dataclass(frozen=True)

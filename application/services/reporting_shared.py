@@ -66,6 +66,13 @@ def crew_requirement(tournament: Optional[Tournament]) -> tuple[int, int]:
     return tournament.required_commentators, tournament.required_trackers
 
 
+def broadcaster_requirement(tournament: Optional[Tournament], event_has_broadcasters: bool) -> int:
+    """Broadcasters a stream candidate needs: the tournament's count, or 0 in an event without them."""
+    if not event_has_broadcasters:
+        return 0
+    return tournament.required_broadcasters if tournament is not None else 1
+
+
 def is_crew_covered(
     tournament: Optional[Tournament],
     commentators_approved: int,

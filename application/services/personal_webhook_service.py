@@ -512,7 +512,7 @@ class PersonalWebhookService:
         if match is None:
             return None
         players = list(match.players)  # type: ignore[attr-defined]
-        crew = [*match.commentators, *match.trackers]  # type: ignore[attr-defined]
+        crew = [*match.commentators, *match.trackers, *match.broadcasters]  # type: ignore[attr-defined]
         crew_ids = {c.user_id for c in crew if c.approved}
         about_me = owner.id in {p.user_id for p in players} or owner.id in crew_ids
         tournament = match.tournament

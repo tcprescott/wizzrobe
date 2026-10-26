@@ -16,6 +16,8 @@ from dataclasses import dataclass, field
 from datetime import date
 from typing import Any, Mapping, Optional, Sequence
 
+from application.utils.match_labels import and_join
+
 
 @dataclass(frozen=True)
 class AuditArea:
@@ -45,6 +47,7 @@ AREAS: tuple[AuditArea, ...] = (
     AuditArea('events', 'Events', ('event.',)),
     AuditArea('settings', 'Settings', (
         'system_config.', 'notification_setting.', 'notification_settings.', 'theme.', 'timezone.', 'profile_nudges.', 'station.', 'stage.',
+        'stream_layout.', 'stage_overlay.',
         'discord.', 'discord_role.', 'discord_event.', 'apitoken.', 'roomtoken.', 'log_level.',
         'browser_monitoring.', 'browser_ignore_rule.',
         'racetime_bot.', 'race_room_profile.', 'sg_sync.', 'feature_flag.', 'feature_group.',
@@ -350,6 +353,13 @@ ACTION_LABELS: dict[str, str] = {
     'stage.created': 'Added a stage',
     'stage.updated': 'Edited a stage',
     'stage.deleted': 'Deleted a stage',
+    'stream_layout.created': 'Added a stream layout',
+    'stream_layout.updated': 'Edited a stream layout',
+    'stream_layout.deleted': 'Deleted a stream layout',
+    'stage_overlay.updated': "Changed a stage's overlay layout",
+    'stage_overlay.pinned': 'Pinned a match to a stage overlay',
+    'stage_overlay.unpinned': 'Set a stage overlay back to automatic',
+    'stage_overlay.link_renewed': "Replaced a stage's OBS link",
     'discord.server_linked': 'Linked a Discord server',
     'discord.server_unlinked': 'Unlinked the Discord server',
     'discord.login_panel_posted': 'Posted the Discord sign-in panel',
@@ -456,7 +466,7 @@ def actions_matching(text: str) -> list[str]:
 
 HIDDEN_KEYS = frozenset({'actor_discord_id', 'actor_username', 'tenant_id'})
 _USER_KEYS = frozenset({'user_id', 'target_user_id', 'winner_id', 'borrower_id', 'volunteer_id'})
-_USER_LIST_KEYS = frozenset({'player_ids', 'commentator_ids', 'tracker_ids', 'user_ids'})
+_USER_LIST_KEYS = frozenset({'player_ids', 'commentator_ids', 'tracker_ids', 'broadcaster_ids', 'user_ids'})
 _SUBJECT_NAME_KEYS = ('display_name', 'name', 'challonge_username', 'title')
 _BOOL_TEXT = {'true': 'Yes', 'false': 'No'}
 
@@ -475,6 +485,7 @@ FIELD_LABELS: dict[str, str] = {
     'player_ids': 'players',
     'commentator_ids': 'commentators',
     'tracker_ids': 'trackers',
+    'broadcaster_ids': 'broadcasters',
     'matcherino_user_id': 'Matcherino ID',
     'matcherino_username': 'Matcherino username',
     'challonge_user_id': 'Challonge ID',
@@ -627,12 +638,6 @@ def _diff(label: str, old: Any, new: Any) -> list[AuditChange]:
     return [AuditChange(label, _plain(old), _plain(new))]
 
 
-def _join_words(words: list[str]) -> str:
-    if len(words) <= 1:
-        return ''.join(words)
-    return ', '.join(words[:-1]) + ' and ' + words[-1]
-
-
 def describe(
     action: str,
     details: Any,
@@ -705,13 +710,13 @@ def describe(
             c = changes[0]
             parts.append(f'{c.field}: {c.before} → {c.after}' if c.before is not None else f'{c.field}: {c.after}')
         else:
-            parts.append(f'{len(changes)} changes: ' + _join_words([c.field for c in changes[:3]])
+            parts.append(f'{len(changes)} changes: ' + and_join([c.field for c in changes[:3]])
                          + ('…' if len(changes) > 3 else ''))
     elif no_op:
         what = field_label(str(shown['key'])) if 'key' in shown else 'Value'
         parts.append(f'{what}: saved unchanged')
     elif changed_fields:
-        parts.append('Changed ' + _join_words(changed_fields))
+        parts.append('Changed ' + and_join(changed_fields))
     else:
         extras = [f'{k}: {v}' for k, v in facts if v != subject and not k.endswith(' ID')
                   and not v.startswith('#') and v not in ('(empty)', '(none)', '0')]

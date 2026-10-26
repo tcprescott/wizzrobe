@@ -15,11 +15,16 @@ These rows now feed three surfaces, not one: the board's crew cells, Reports →
 Crew Activity with its Pending-only filter (the unapproved rows), and **My Crew**
 on Home (the volunteer's own view — ``players[0]``'s approved-but-unacknowledged
 tracker slot on ``future`` is the fixture that renders its Confirm button).
+
+Broadcasters are the third role, and only on an event that turns them on, so
+the seed switches them on for the event these matches belong to and adds one
+broadcaster per state: approved and acknowledged, approved but not yet, and
+pending.
 """
 
 from datetime import datetime, timedelta
 
-from models import Commentator, Match, Tenant, Tracker, User
+from models import Broadcaster, Commentator, Event, Match, Tenant, Tracker, User
 
 
 async def seed_crew_for_tenant(
@@ -100,4 +105,19 @@ async def seed_crew_for_tenant(
         )
     await Tracker.get_or_create(
         match=checked_in, user=players[3], tenant=tenant, defaults=approved,
+    )
+
+    event = await Event.get(id=checked_in.event_id)
+    if (event.config or {}).get("broadcasters") != "true":
+        event.config = {**(event.config or {}), "broadcasters": "true"}
+        await event.save(update_fields=["config"])
+    await Broadcaster.get_or_create(
+        match=checked_in, user=proctor, tenant=tenant, defaults=approved,
+    )
+    await Broadcaster.get_or_create(
+        match=stage3, user=players[2], tenant=tenant,
+        defaults={"approved": True, "approved_by": staff},
+    )
+    await Broadcaster.get_or_create(
+        match=future, user=players[2], tenant=tenant, defaults={"approved": False},
     )

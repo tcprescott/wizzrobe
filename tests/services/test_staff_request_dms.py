@@ -417,5 +417,5 @@ class TestDiscordService:
 def test_kinds_are_stable_strings():
     assert {k.value for k in StaffRequestKind} == {
         'community_event', 'ada_request', 'join_request', 'reschedule_request',
-        'commentator_signup', 'tracker_signup',
+        'commentator_signup', 'tracker_signup', 'broadcaster_signup',
     }

@@ -14,11 +14,12 @@ delete made elsewhere (the signals at the bottom).
 import re
 from dataclasses import dataclass
 from datetime import date, datetime, timezone
-from typing import Any, Dict, Iterable, List, Optional
+from typing import Any, Dict, Iterable, List, Optional, Set
 
 from tortoise.signals import post_delete, post_save
 from tortoise.transactions import in_transaction
 
+from application.event_context import get_current_event_id
 from application.event_writes import archive_maintenance
 from application.events import EventType, event_status_live
 from application.repositories.event_repository import EventRepository
@@ -28,6 +29,10 @@ from application.tenant_context import require_tenant_id
 from models import Event, EventStatus, Tenant, User
 
 _events_cache: dict[int, tuple['EventRef', ...]] = {}
+#: The ``Event.config`` key of the Broadcasters switch; ``SystemConfigService``
+#: writes it as one of the event's own settings.
+BROADCASTERS_KEY = 'broadcasters'
+NO_BROADCASTERS = "This event doesn't have broadcasters. Staff can turn them on in Event settings → Crew."
 _CACHE_MAX = 2048
 
 #: Lowercase letters, digits and hyphens, 2 to 64 characters, starting with a letter or digit.
@@ -59,6 +64,9 @@ class EventRef:
     #: The event's own timezone settings (``{mode, name}``), overriding the
     #: community's; None follows the community.
     timezone: Optional[tuple[str, str]] = None
+    #: Whether matches in this event have a Broadcaster crew role
+    #: (Event settings → Crew). Off by default.
+    broadcasters: bool = False
     #: Set once the retention job deleted an archived event's private data.
     pii_purged: bool = False
 
@@ -80,6 +88,7 @@ class EventRef:
             id=event.id, tenant_id=event.tenant_id, name=event.name, slug=event.slug,
             status=EventStatus(event.status), is_default=event.is_default,
             starts_on=event.starts_on, ends_on=event.ends_on, timezone=_timezone_of(event.config),
+            broadcasters=_flag_of(event.config, BROADCASTERS_KEY),
             pii_purged=event.pii_purged_at is not None,
         )
 
@@ -89,6 +98,11 @@ def _timezone_of(config: Any) -> Optional[tuple[str, str]]:
     if not isinstance(stored, dict) or not stored.get('mode') or not stored.get('name'):
         return None
     return (str(stored['mode']), str(stored['name']))
+
+
+def _flag_of(config: Any, key: str) -> bool:
+    stored = config.get(key) if isinstance(config, dict) else None
+    return str(stored).strip().lower() == 'true'
 
 
 def _sort_key(info: EventRef) -> tuple:
@@ -193,6 +207,43 @@ class EventService:
         if event is None or not event.is_draft:
             return True
         return await AuthService.is_staff(user)
+
+    @staticmethod
+    async def broadcaster_events(
+        event_ids: Iterable[Optional[int]], tenant_id: Optional[int] = None,
+    ) -> Set[int]:
+        """Which of these events have broadcasters switched on.
+
+        ``tenant_id`` defaults to the current community; a worker with none in
+        scope passes the row's own.
+        """
+        ids = {eid for eid in event_ids if eid is not None}
+        if not ids:
+            return set()
+        events = await EventService.events_for_tenant(
+            tenant_id if tenant_id is not None else require_tenant_id())
+        return {e.id for e in events if e.id in ids and e.broadcasters}
+
+    @staticmethod
+    async def broadcasters_on(event_id: Optional[int], tenant_id: Optional[int] = None) -> bool:
+        """Whether matches in ``event_id`` have a Broadcaster crew role."""
+        return event_id in await EventService.broadcaster_events([event_id], tenant_id)
+
+    @staticmethod
+    async def current_event_broadcasters() -> bool:
+        """Whether the event this page is showing has broadcasters on."""
+        return await EventService.broadcasters_on(get_current_event_id())
+
+    @staticmethod
+    async def match_wants_broadcaster(match: Any) -> bool:
+        """Whether ``match`` takes broadcaster signups: its event has them and its tournament asks for any.
+
+        Works with no community in scope (the DM queue), from the match's own.
+        """
+        await match.fetch_related('tournament')
+        if match.tournament is not None and not match.tournament.required_broadcasters:
+            return False
+        return await EventService.broadcasters_on(match.event_id, match.tenant_id)
 
     @staticmethod
     async def match_event_id(match_id: int) -> Optional[int]:

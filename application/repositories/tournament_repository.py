@@ -241,6 +241,7 @@ class TournamentRepository(EventScopedRepository[Tournament]):
         max_match_duration: Optional[int] = None,
         required_commentators: int = 1,
         required_trackers: int = 1,
+        required_broadcasters: int = 1,
         allow_player_match_requests: bool = True,
         config: Optional[Dict[str, Any]] = None,
         preset_id: Optional[int] = None,
@@ -278,6 +279,7 @@ class TournamentRepository(EventScopedRepository[Tournament]):
             required_commentators: Approved commentators a streamed match needs
                 to count as covered (0 = the role is not used here)
             required_trackers: Approved trackers a streamed match needs
+            required_broadcasters: Approved broadcasters, where the event has them
             
         Returns:
             Created Tournament object
@@ -303,6 +305,7 @@ class TournamentRepository(EventScopedRepository[Tournament]):
             max_match_duration=max_match_duration,
             required_commentators=required_commentators,
             required_trackers=required_trackers,
+            required_broadcasters=required_broadcasters,
             allow_player_match_requests=allow_player_match_requests,
             config=config,
             preset_id=preset_id,

@@ -50,6 +50,7 @@
     { "name": "admin-users", "path": "/admin/users" },
     { "name": "admin-tournaments", "path": "/admin/tournaments" },
     { "name": "admin-stages", "path": "/admin/stages" },
+    { "name": "admin-stream-layouts", "path": "/admin/stream-layouts" },
     { "name": "admin-check-in", "path": "/admin/check-in" },
     { "name": "admin-presets", "path": "/admin/presets" },
     { "name": "admin-qualifiers", "path": "/admin/qualifiers" },

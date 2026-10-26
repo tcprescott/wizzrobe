@@ -33,7 +33,7 @@ def make_crew_acknowledgment_view(crew_type: str, crew_id: int) -> discord.ui.Vi
 
 def _parse(custom_id: str) -> tuple[str, int]:
     parts = custom_id.split(':')
-    if len(parts) != 3 or parts[1] not in ('commentator', 'tracker'):
+    if len(parts) != 3 or parts[1] not in ('commentator', 'tracker', 'broadcaster'):
         raise DMInteractionError('Invalid interaction.')
     crew_type = parts[1]
     try:
@@ -60,7 +60,7 @@ async def handle_crew_acknowledgment_interaction(interaction: discord.Interactio
     async def handle(inter: discord.Interaction, parsed, user, send: SendFn) -> None:
         crew_type, crew_id = parsed
         crew_member = await CrewService().acknowledge_crew_assignment(crew_id, crew_type, user)
-        player_names = await MatchService().get_player_names(crew_member.match_id)
+        player_names = await MatchService().get_player_names(crew_member.match_id)  # type: ignore[union-attr]
 
         try:
             await inter.message.edit(view=make_acknowledged_view(CUSTOM_ID_PREFIX))

@@ -11,6 +11,7 @@ from typing import Any, Dict, List, Optional
 from application.errors import require_found
 from application.events import EventType, match_live
 from application.repositories import (
+    BroadcasterRepository,
     CommentatorRepository,
     MatchAcknowledgmentRepository,
     MatchRepository,
@@ -24,6 +25,7 @@ from application.services._tournament_signup import record_enrolment_change
 from application.services.audit_service import AuditActions, AuditService
 from application.services.auth_service import AuthService
 from application.services.discord import discord_queue
+from application.services.event_service import NO_BROADCASTERS, EventService
 from application.services.match.match_acknowledgment import MatchAcknowledgmentMixin
 from application.services.match.match_cancellation import CancellationMixin
 from application.services.match.match_forfeit import ForfeitMixin
@@ -70,6 +72,7 @@ class MatchService(
         self.user_repository = UserRepository()
         self.commentator_repository = CommentatorRepository()
         self.tracker_repository = TrackerRepository()
+        self.broadcaster_repository = BroadcasterRepository()
         self.ack_repository = MatchAcknowledgmentRepository()
         self.audit_service = AuditService()
         self.match_schedule_service = MatchScheduleService()
@@ -110,6 +113,7 @@ class MatchService(
         commentator_ids: Optional[List[int]] = None,
         tracker_ids: Optional[List[int]] = None,
         is_stream_candidate: bool = False,
+        broadcaster_ids: Optional[List[int]] = None,
         title: Optional[str] = None,
         description: Optional[str] = None,
         actor: Optional[User] = None,
@@ -133,6 +137,7 @@ class MatchService(
             stage_id: Optional stage ID
             commentator_ids: Optional list of commentator user IDs
             tracker_ids: Optional list of tracker user IDs
+            broadcaster_ids: Optional list of broadcaster user IDs
             title: Optional display label. It **replaces** the Discord scheduled
                 event's whole title and names the racetime room, so a caller must
                 pass something self-describing (see
@@ -151,7 +156,7 @@ class MatchService(
         # short-circuits the check below, and assert_within_tournament_hours
         # falls through for a tournament it cannot see. submit_match_request
         # already does this.
-        require_found(
+        tournament = require_found(
             await self.tournament_repository.get_by_id(tournament_id),
             f"Tournament {tournament_id}",
         )
@@ -170,7 +175,8 @@ class MatchService(
         # A bracket game's players come from the matchup's entrants, which staff
         # linked (and that link is checked); only caller-supplied ids need it.
         await TenantMembershipService.require_community_users(
-            [*([] if from_bracket else player_ids), *(commentator_ids or []), *(tracker_ids or [])],
+            [*([] if from_bracket else player_ids), *(commentator_ids or []), *(tracker_ids or []),
+             *(broadcaster_ids or [])],
             actor,
         )
 
@@ -189,12 +195,17 @@ class MatchService(
         players = await self.participants.resolve_users(player_ids)
         commentators = await self.participants.resolve_users(commentator_ids or [])
         trackers = await self.participants.resolve_users(tracker_ids or [])
+        broadcasters = await self.participants.resolve_users(broadcaster_ids or [])
 
         player_id_set = {u.id for u in players}
         if player_id_set & {u.id for u in commentators}:
             raise ValueError("A player in this match can't also crew it as a commentator.")
         if player_id_set & {u.id for u in trackers}:
             raise ValueError("A player in this match can't also crew it as a tracker.")
+        if player_id_set & {u.id for u in broadcasters}:
+            raise ValueError("A player in this match can't also crew it as a broadcaster.")
+        if broadcasters and not await EventService.broadcasters_on(tournament.event_id):
+            raise ValueError(NO_BROADCASTERS)
 
         match = await self.repository.create(
             tournament_id=tournament_id,
@@ -224,6 +235,11 @@ class MatchService(
                 match=match, user=user, approved=True, approved_by=actor,
             ), 'tracker')
             for user in trackers
+        ] + [
+            (await self.broadcaster_repository.create(
+                match=match, user=user, approved=True, approved_by=actor,
+            ), 'broadcaster')
+            for user in broadcasters
         ]
 
         await self.audit_service.write_and_publish(
@@ -235,6 +251,7 @@ class MatchService(
                 'player_ids': player_ids,
                 'commentator_ids': commentator_ids or [],
                 'tracker_ids': tracker_ids or [],
+                'broadcaster_ids': broadcaster_ids or [],
                 'is_stream_candidate': is_stream_candidate,
             },
             EventType.MATCH_CREATED,
@@ -270,6 +287,7 @@ class MatchService(
         player_ids: Optional[List[int]] = None,
         commentator_ids: Optional[List[int]] = None,
         tracker_ids: Optional[List[int]] = None,
+        broadcaster_ids: Optional[List[int]] = None,
         comment: Optional[str] = None,
         title: Optional[str] = None,
         description: Optional[str] = None,
@@ -299,6 +317,7 @@ class MatchService(
             player_ids: New player list
             commentator_ids: New commentator list
             tracker_ids: New tracker list
+            broadcaster_ids: New broadcaster list
             comment: New comment
             title, description: New text; ``''`` clears it, None leaves it alone
             stage_id: New stage ID
@@ -358,18 +377,28 @@ class MatchService(
         current_tracker_ids = {t.user_id for t in match.trackers}
         effective_commentator_ids = set(commentator_ids) if commentator_ids is not None else current_commentator_ids
         effective_tracker_ids = set(tracker_ids) if tracker_ids is not None else current_tracker_ids
+        current_broadcaster_ids = {b.user_id for b in match.broadcasters}
+        effective_broadcaster_ids = (
+            set(broadcaster_ids) if broadcaster_ids is not None else current_broadcaster_ids
+        )
         # Only the people this edit adds: someone already on the match stays
         # editable even if they have since left the community.
         await TenantMembershipService.require_community_users(
             (new_player_ids - old_player_ids)
             | (effective_commentator_ids - current_commentator_ids)
-            | (effective_tracker_ids - current_tracker_ids),
+            | (effective_tracker_ids - current_tracker_ids)
+            | (effective_broadcaster_ids - current_broadcaster_ids),
             actor,
         )
         if new_player_ids & effective_commentator_ids:
             raise ValueError("A player in this match can't also crew it as a commentator.")
         if new_player_ids & effective_tracker_ids:
             raise ValueError("A player in this match can't also crew it as a tracker.")
+        if new_player_ids & effective_broadcaster_ids:
+            raise ValueError("A player in this match can't also crew it as a broadcaster.")
+        if (effective_broadcaster_ids - current_broadcaster_ids) and not await EventService.broadcasters_on(
+                match.event_id):
+            raise ValueError(NO_BROADCASTERS)
 
         update_fields = {}
 
@@ -451,6 +480,7 @@ class MatchService(
         for crew_type, ids, crew_repository in (
             ('commentator', commentator_ids, self.commentator_repository),
             ('tracker', tracker_ids, self.tracker_repository),
+            ('broadcaster', broadcaster_ids, self.broadcaster_repository),
         ):
             if ids is None:
                 continue
@@ -468,6 +498,8 @@ class MatchService(
             audit_details['commentator_ids'] = commentator_ids
         if tracker_ids is not None:
             audit_details['tracker_ids'] = tracker_ids
+        if broadcaster_ids is not None:
+            audit_details['broadcaster_ids'] = broadcaster_ids
         new_scheduled_at = update_fields.get('scheduled_at')
         scheduled_at_changed = bool(
             new_scheduled_at and old_scheduled_at and new_scheduled_at != old_scheduled_at

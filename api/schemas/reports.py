@@ -191,6 +191,11 @@ class CrewCoverageRow(BaseModel):
     trackers_total: int = Field(..., description="All tracker signups, approved or not.")
     commentators_required: int = Field(..., description="Commentators the tournament requires.")
     trackers_required: int = Field(..., description="Trackers the tournament requires.")
+    broadcasters_approved: int = Field(0, description="Approved broadcaster signups.")
+    broadcasters_total: int = Field(0, description="All broadcaster signups, approved or not.")
+    broadcasters_required: int = Field(
+        0, description="Broadcasters the tournament requires; 0 when its event doesn't have broadcasters."
+    )
     coverage_gap: bool = Field(
         ..., description="True when a stream candidate lacks the approved crew its tournament requires."
     )
@@ -203,6 +208,8 @@ class CrewContributionRow(BaseModel):
     commentator_total: int = Field(..., description="All commentator signups.")
     tracker_approved: int = Field(..., description="Approved tracker signups.")
     tracker_total: int = Field(..., description="All tracker signups.")
+    broadcaster_approved: int = Field(0, description="Approved broadcaster signups.")
+    broadcaster_total: int = Field(0, description="All broadcaster signups.")
     hours_covered: float = Field(..., description="Match hours covered by approved signups, to one decimal.")
     hours_total: float = Field(
         ...,
@@ -215,7 +222,8 @@ class CrewedPerson(BaseModel):
     name: str = Field(..., description="Display name of the crew member.")
     commentary: int = Field(..., description="Matches they commentated.")
     tracker: int = Field(..., description="Matches they tracked.")
-    total: int = Field(..., description="Commentary plus tracker.")
+    broadcast: int = Field(0, description="Matches they broadcast.")
+    total: int = Field(..., description="Commentary, tracker and broadcast together.")
 
 
 class CrewedTournamentRow(BaseModel):
@@ -223,6 +231,7 @@ class CrewedTournamentRow(BaseModel):
     tournament_name: str = Field(..., description="Name of the tournament.")
     commentary: int = Field(..., description="Commentary slots crewed across the tournament.")
     tracker: int = Field(..., description="Tracker slots crewed across the tournament.")
+    broadcast: int = Field(0, description="Broadcast slots crewed across the tournament.")
     people: List[CrewedPerson] = Field(..., description="Who crewed it, most matches first.")
 
 

@@ -19,3 +19,8 @@ RAIL = "'run-sheet--' + props.row._tone"
 def card_head(time: str, status: str = STATUS_WORD) -> str:
     """A phone card's first line: the time and its end, then the state on the right."""
     return '<span class="run-sheet__head"><span class="run-sheet__head-time">' + time + '</span>' + status + '</span>'
+
+
+def crew_columns(columns: list[dict], broadcasters: bool) -> list[dict]:
+    """``columns`` without the Broadcasters column on an event that doesn't use them."""
+    return columns if broadcasters else [c for c in columns if c['name'] != 'broadcasters']

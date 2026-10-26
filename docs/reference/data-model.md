@@ -129,6 +129,9 @@ erDiagram
     Match ||--o{ Tracker : "match"
     User ||--o{ Tracker : "user"
     User |o--o{ Tracker : "approved_by"
+    Match ||--o{ Broadcaster : "match"
+    User ||--o{ Broadcaster : "user"
+    User |o--o{ Broadcaster : "approved_by"
 
     User ||--o{ ApiToken : "user"
     User ||--o{ Feedback : "user"
@@ -357,8 +360,9 @@ join later without a schema change.
 
 Which request a [`StaffRequestDM`](#staffrequestdm) asked staff to decide:
 `COMMUNITY_EVENT`, `ADA_REQUEST`, `JOIN_REQUEST`, `RESCHEDULE_REQUEST`,
-`COMMENTATOR_SIGNUP`, `TRACKER_SIGNUP` (values are the snake_case names). The two
-crew kinds are separate because `Commentator` and `Tracker` ids overlap.
+`COMMENTATOR_SIGNUP`, `TRACKER_SIGNUP`, `BROADCASTER_SIGNUP` (values are the
+snake_case names). The crew kinds are separate because `Commentator`, `Tracker`
+and `Broadcaster` ids overlap.
 
 ### `AsyncQualifierRunStatus` / `AsyncQualifierReviewStatus`
 
@@ -680,7 +684,7 @@ Discord-authenticated account. Created/updated during OAuth login; access contro
 
 The Challonge identity is **identity only** — the player's Challonge access token is never retained (writes use the shared service-account `ChallongeConnection`). The Twitch and racetime.gg identities are likewise **identity only** — the user's access token is used once during linking and discarded. There is no `access_token` field; the Discord OAuth token is not persisted on `User`.
 
-Relationships: declared reverse/M2M accessors for `admin_tournaments` and `crew_coordinated_tournaments` (M2M from `Tournament`), `match_players`, `match_acknowledgments`, `tournament_players`, `tournament_notifications`, `commentaries`, `approved_commentaries`, `trackers`, `approved_trackers`, `watched_matches`, `roles`, `granted_roles`, `audit_logs`, `triforce_texts`, `triforce_texts_moderated`, `api_tokens`, `feedback_submissions`, `owned_equipment`, `equipment_loans`, `equipment_checkouts_performed`, `equipment_checkins_performed`, `volunteer_profiles` (one per tenant), `volunteer_assignments`, `volunteer_assignments_made`, `volunteer_qualifications`, `volunteer_availability`, `challonge_participations`, `web_push_subscriptions`, `tenant_memberships`. Accessors that exist only implicitly via the children's `related_name` (no class-level annotation): `player_availability`, `challonge_connections`, `telemetry_events`, `volunteer_check_ins`, `bracket_entrants`, `mcp_authorization_codes`, `admin_async_qualifiers` (M2M), `async_qualifier_runs`, `reviewed_async_qualifier_runs`, `claimed_async_qualifier_runs`, `granted_async_qualifier_reattempts`, `authored_async_qualifier_review_notes`, `join_requests`, `join_requests_decided`, `discord_tournament_grants`, `table_preferences`, `stream_volunteered_matches`, `match_comments`, `hard_preset_opt_ins`, `reschedule_requests`, `decided_reschedule_requests`, `payouts`, `rolled_seeds`, `provider_tasks`, `room_tokens_created`, `check_in_entries`, `check_in_links_made`, `check_ins_performed`.
+Relationships: declared reverse/M2M accessors for `admin_tournaments` and `crew_coordinated_tournaments` (M2M from `Tournament`), `match_players`, `match_acknowledgments`, `tournament_players`, `tournament_notifications`, `commentaries`, `approved_commentaries`, `trackers`, `approved_trackers`, `broadcasts`, `approved_broadcasts`, `watched_matches`, `roles`, `granted_roles`, `audit_logs`, `triforce_texts`, `triforce_texts_moderated`, `api_tokens`, `feedback_submissions`, `owned_equipment`, `equipment_loans`, `equipment_checkouts_performed`, `equipment_checkins_performed`, `volunteer_profiles` (one per tenant), `volunteer_assignments`, `volunteer_assignments_made`, `volunteer_qualifications`, `volunteer_availability`, `challonge_participations`, `web_push_subscriptions`, `tenant_memberships`. Accessors that exist only implicitly via the children's `related_name` (no class-level annotation): `player_availability`, `challonge_connections`, `telemetry_events`, `volunteer_check_ins`, `bracket_entrants`, `mcp_authorization_codes`, `admin_async_qualifiers` (M2M), `async_qualifier_runs`, `reviewed_async_qualifier_runs`, `claimed_async_qualifier_runs`, `granted_async_qualifier_reattempts`, `authored_async_qualifier_review_notes`, `join_requests`, `join_requests_decided`, `discord_tournament_grants`, `table_preferences`, `stream_volunteered_matches`, `match_comments`, `hard_preset_opt_ins`, `reschedule_requests`, `decided_reschedule_requests`, `payouts`, `rolled_seeds`, `provider_tasks`, `room_tokens_created`, `check_in_entries`, `check_in_links_made`, `check_ins_performed`.
 
 Properties: `preferred_name` returns `display_name` if it is truthy, otherwise `username`.
 
@@ -945,6 +949,7 @@ Tournament metadata and configuration; the root aggregate for matches, enrollmen
 | `crew_coordinators` | M2M → `User` | — | `through='TournamentCrewCoordinators'`, `related_name='crew_coordinated_tournaments'` |
 | `required_commentators` | `IntField` | default `1` | Approved commentators a **stream candidate** needs before the coverage surfaces count it as covered. `0` means the tournament does not use the role. Read by `ReportsService.crew_coverage` and `AnalyticsService.tournament_health` through the shared `reporting_shared.is_crew_covered`, and by the schedule board — a role requiring `0` renders no **Sign up**, and `CrewService.signup_crew` refuses it (hiding a control is not enforcing a rule). Withdrawing stays open at any requirement. |
 | `required_trackers` | `IntField` | default `1` | Same, for trackers. The defaults reproduce the pre-migration assumption that every streamed match needs one of each. |
+| `required_broadcasters` | `IntField` | default `1` | Same, for broadcasters; only counts on an event with broadcasters on. |
 | `allow_player_match_requests` | `BooleanField` | default `True` | Whether players may request matches outside a bracket. Turned off automatically by `BracketService.create_bracket` (stage 0) and `ChallongeService.link_tournament` — a bracket-run tournament schedules only its own matchups. Enforced in `MatchService.submit_match_request`; staff can re-enable it per tournament. |
 | `players_release_seed` | `BooleanField` | default `False` | Players release their own seed: after check-in each taps Ready for seed, and the seed rolls when all have. Proctors and staff still roll any time. Ignored on racetime tournaments |
 | `allow_reschedule_requests` | `BooleanField` | default `True` | Whether players may ask staff to move or call off one of their matches ([`MatchRescheduleRequest`](#matchreschedulerequest)). Independent of the toggle above — a bracket-run tournament still needs a way to say "we can't make Saturday". Off hides the control **and** makes `MatchRescheduleService` refuse, since the REST route reaches past the hidden control |
@@ -1023,7 +1028,7 @@ Core scheduling unit. Lifecycle is derived from nullable timestamps rather than 
 | `preset_override` | `CharEnumField(PresetOverride)` | null | `max_length=16`. Staff overruling the players' hard-preset choice for this one match, in either direction. Null = the players decide. Refused once the seed is rolled, after which `generated_seed.preset` is the record |
 | `speedgaming_episode` | O2O → `SpeedGamingEpisode` | null, `SET_NULL` | The canonical **source marker**: non-null = materialized by the SpeedGaming ETL, which makes its ETL-owned fields (`scheduled_at`, players, `tournament`) read-only in Wizzrobe (guard in `MatchService.update_match`). `SET_NULL` soft-detaches the match if its episode is purged. `related_name='match'` |
 
-Relationships: declared reverse accessors `acknowledgments` and `challonge_match` (the linked Challonge bracket match, if scheduled from one); `players`, `commentators`, `trackers`, `watchers`, `stream_volunteers`, `comments`, `reschedule_requests`, `hard_preset_opt_ins`, `provider_tasks`, `racetime_room`, and `bracket_match_game` exist via the children's `related_name`s without class-level declarations.
+Relationships: declared reverse accessors `acknowledgments` and `challonge_match` (the linked Challonge bracket match, if scheduled from one); `players`, `commentators`, `trackers`, `broadcasters`, `watchers`, `stream_volunteers`, `comments`, `reschedule_requests`, `hard_preset_opt_ins`, `provider_tasks`, `racetime_room`, and `bracket_match_game` exist via the children's `related_name`s without class-level declarations.
 
 Properties: `is_seated`, `is_started`, `is_finished`, `is_confirmed` are each `<field> is not None`; `current_state` returns the first of `'Finished'` / `'In Progress'` / `'Checked In'` whose timestamp is set, else `'Scheduled'` (see [Match lifecycle](#match-lifecycle)).
 
@@ -1242,6 +1247,23 @@ Item/map tracker operator signup for a match. Structurally identical to `Comment
 
 Constraint: `unique_together (('match', 'user'),)`.
 
+#### `Broadcaster`
+
+Someone running the stream for a match. The third crew role, structurally
+identical to `Tracker`, and only in use on an event with broadcasters switched on
+(`Event.config['broadcasters']`, Event settings → Crew).
+
+| Field | Type | Null / default | Notes |
+|---|---|---|---|
+| `tenant` | FK → `Tenant` | not null, `CASCADE` | `related_name='broadcasters'` |
+| `user` | FK → `User` | not null, `CASCADE` | `related_name='broadcasts'` |
+| `match` | FK → `Match` | not null, `CASCADE` | `related_name='broadcasters'` |
+| `approved` | `BooleanField` | default `False` | |
+| `approved_by` | FK → `User` | null, `SET_NULL` | `related_name='approved_broadcasts'` |
+| `acknowledged_at` | `DatetimeField` | null | |
+
+Constraint: `unique_together (('match', 'user'),)`.
+
 ### Infrastructure
 
 #### `Station`
@@ -1403,6 +1425,10 @@ Per-attempt delivery log for observability. See [webhooks.md](../features/webhoo
 | `error` | `TextField` | null | Last error (non-2xx / transport) when unsuccessful |
 | `created_at` | `DatetimeField` | `auto_now_add`, indexed | |
 | `delivered_at` | `DatetimeField` | null | Set on success |
+
+#### `StreamLayout`, `StreamLayoutArt`, `StageOverlay`
+
+An event's OBS overlay designs and each stage's overlay link (`FeatureFlag.STREAM_LAYOUTS`). `StreamLayout` (tenant, event, name unique per event, width, height, `boxes` JSON, `art_sha256`); `StreamLayoutArt` (one PNG per layout, bytea); `StageOverlay` (one per stage: layout, secret `token`, `pinned_match`). See [stream-layouts.md](../features/stream-layouts.md).
 
 #### `PersonalWebhook`
 
@@ -2491,6 +2517,7 @@ Consult the source for full signatures.
 | `NotificationPreferenceRepository` | [`notification_preference_repository.py`](../../application/repositories/notification_preference_repository.py) | `NotificationPreference` | `get(user_id)`, `save(user_id, preset, overrides)` (update or create, scoped) |
 | `NotificationSettingRepository` | [`notification_setting_repository.py`](../../application/repositories/notification_setting_repository.py) | `NotificationSetting` | `overrides` (the community's rows as `{(notice, recipient): mode}`), `upsert`, `delete`, `delete_all` |
 | `TablePreferenceRepository` | [`table_preference_repository.py`](../../application/repositories/table_preference_repository.py) | `UserTablePreference` | **Global — never tenant-scoped** (the model has no tenant column). `all_for_user` (one query; the only read a page build makes), `get`, `upsert`, `delete`, `delete_all_for_user` |
+| `StreamLayoutRepository` | [`stream_layout_repository.py`](../../application/repositories/stream_layout_repository.py) | `StreamLayout`, `StreamLayoutArt`, `StageOverlay` | `list_for_event`, `get_in_event`, `name_taken`, `set_art`, `get_art`, `overlays`, `overlay_for_stage`, `create_overlay`, `overlay_by_token`, `match_for_overlay`, `stage_matches_between` |
 | `PersonalWebhookRepository` | [`personal_webhook_repository.py`](../../application/repositories/personal_webhook_repository.py) | `PersonalWebhook` | `list_for_user`, `count_for_user`, `get_for_user`, `list_active`, `record_success`, `record_failure`, `pause` |
 | `WebhookRepository` | [`webhook_repository.py`](../../application/repositories/webhook_repository.py) | `Webhook` | `get_by_id`, `list_all`, `list_active`, `create`, `update`, `delete` |
 | `WebhookDeliveryRepository` | [`webhook_delivery_repository.py`](../../application/repositories/webhook_delivery_repository.py) | `WebhookDelivery` | `create`, `list_for_webhook`, `outcome_counts_since`, `prune_older_than` |

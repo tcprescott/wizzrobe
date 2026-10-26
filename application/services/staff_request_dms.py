@@ -20,6 +20,7 @@ from application.services.discord import discord_queue
 from application.services.discord.discord_service import DiscordService
 from application.services.notification_catalog import (
     ADA_REQUEST,
+    BROADCASTER_SIGNUP,
     COMMENTATOR_SIGNUP,
     EVENT_TO_REVIEW,
     JOIN_REQUEST,
@@ -43,6 +44,7 @@ _NOTICES: dict[StaffRequestKind, Notice] = {
     StaffRequestKind.RESCHEDULE_REQUEST: RESCHEDULE_REQUEST,
     StaffRequestKind.COMMENTATOR_SIGNUP: COMMENTATOR_SIGNUP,
     StaffRequestKind.TRACKER_SIGNUP: TRACKER_SIGNUP,
+    StaffRequestKind.BROADCASTER_SIGNUP: BROADCASTER_SIGNUP,
 }
 
 

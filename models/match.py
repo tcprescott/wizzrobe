@@ -333,6 +333,27 @@ class Tracker(Model):
         table = 'tracker'
 
 
+class Broadcaster(Model):
+    """Someone running the stream for a match: a crew role shaped like :class:`Tracker`."""
+
+    id = fields.IntField(pk=True)
+    tenant = fields.ForeignKeyField('models.Tenant', related_name='broadcasters', on_delete=fields.CASCADE)  # type: ignore[var-annotated]
+    user = fields.ForeignKeyField('models.User', related_name='broadcasts')  # type: ignore[var-annotated]
+    match = fields.ForeignKeyField('models.Match', related_name='broadcasters')  # type: ignore[var-annotated]
+    approved = fields.BooleanField(default=False)
+    # SET_NULL: deleting the approver must not delete another user's crew signup.
+    approved_by = fields.ForeignKeyField(  # type: ignore[var-annotated]
+        'models.User', related_name='approved_broadcasts', null=True, on_delete=fields.SET_NULL
+    )
+    acknowledged_at = fields.DatetimeField(null=True)
+    created_at = fields.DatetimeField(auto_now_add=True)
+    updated_at = fields.DatetimeField(auto_now=True)
+
+    class Meta:
+        unique_together = (('match', 'user'),)
+        table = 'broadcaster'
+
+
 class MatchWatcher(Model):
     id = fields.IntField(pk=True)
     tenant = fields.ForeignKeyField('models.Tenant', related_name='match_watchers', on_delete=fields.CASCADE)
