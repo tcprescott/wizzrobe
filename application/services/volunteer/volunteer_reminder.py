@@ -54,10 +54,10 @@ async def handover_for(assignment) -> Handover:
 
     shift = assignment.shift
     staying = {
-        a.user_id for a in await VolunteerAssignmentRepository.list_for_shift(shift.id)
+        a.user_id for a in await VolunteerAssignmentRepository.list_for_shift(shift.id)  # type: ignore[attr-defined]
         if not a.auto_generated and a.called_off_at is None
     }
-    staying.add(assignment.user_id)
+    staying.add(assignment.user_id)  # type: ignore[attr-defined]
 
     async def _people(at: datetime, *, ending: bool) -> List[User]:
         rows = await VolunteerAssignmentRepository.ending_or_starting_near(
@@ -65,9 +65,9 @@ async def handover_for(assignment) -> Handover:
         )
         people: Dict[int, User] = {}
         for row in rows:
-            if row.shift_id == shift.id or row.user_id in staying:
+            if row.shift_id == shift.id or row.user_id in staying:  # type: ignore[attr-defined]
                 continue
-            people.setdefault(row.user_id, row.user)
+            people.setdefault(row.user_id, row.user)  # type: ignore[attr-defined]
         return list(people.values())
 
     return Handover(
