@@ -1971,6 +1971,8 @@ tenant routing, mirroring the `ApiToken`→tenant pattern.
 | `opened_at` | `DatetimeField` | null | |
 | `greeted_at` | `DatetimeField` | null | When the room bot posted its greeting; claimed conditionally so it posts once |
 | `seed_posted_at` | `DatetimeField` | null | When the room bot posted the seed; claimed conditionally so it posts once |
+| `broadcaster_ready_at` | `DatetimeField` | null | When a broadcaster typed `!ready`, releasing a restream's held seed |
+| `broadcaster_nudged_at` | `DatetimeField` | null | When the start-time "still waiting on the broadcaster" nudge went out; claimed so it goes once |
 | `fpa_calls` | `JSONField` | default `[]` | `!fpa` calls: `{racetime_user_id, name, at, race_seconds, note}` each |
 | `held_reason` | `CharEnumField(RaceRoomHoldReason)` | null | Set while a finished race waits for staff's Check result; cleared on confirm |
 | `held_detail` | `TextField` | null | The sentence staff see beside the hold |

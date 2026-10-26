@@ -236,6 +236,12 @@ RACETIME_FPA = _notice(
     {ON_DUTY: PING, ADMINS: PING, STAFF: PING},
     {ON_DUTY: _ON_SHIFT, ADMINS: _TOURNAMENT_ADMINS, STAFF: _FALLBACK},
 )
+RACETIME_BROADCASTER_WAITING = _notice(
+    'racetime_broadcaster_waiting', 'Matches', 'Seed waiting for the broadcaster',
+    "A restreamed match reaches its start time and the broadcaster hasn't typed !ready",
+    {CREW: PING, ON_DUTY: PING, ADMINS: PING, STAFF: PING},
+    {CREW: "The match's approved broadcasters", ON_DUTY: _ON_SHIFT, ADMINS: _TOURNAMENT_ADMINS, STAFF: _FALLBACK},
+)
 OPPONENT_ACKNOWLEDGED = _notice(
     'opponent_acknowledged', 'Matches', 'Opponent acknowledged',
     'Another player in your match acknowledges its time', {PLAYERS: PING}, {PLAYERS: _OPTED_IN},
@@ -568,8 +574,8 @@ SECTIONS: Dict[str, Tuple[Tuple[str, Tuple[Notice, ...]], ...]] = {
         )),
         ('Results', (MATCH_CONFIRMED, MATCH_FORFEITED, MATCH_RESULT, RESULT_IN)),
         ('Comments and staff alerts', (
-            STAFF_COMMENT, PLAYER_COMMENT, PLAYER_LATE, PLAYER_LATE_ON_STAGE, RACETIME_FPA, MATCH_FLAGGED, STREAM_OFFER,
-            SEED_FAILED,
+            STAFF_COMMENT, PLAYER_COMMENT, PLAYER_LATE, PLAYER_LATE_ON_STAGE, RACETIME_FPA, RACETIME_BROADCASTER_WAITING, MATCH_FLAGGED,
+            STREAM_OFFER, SEED_FAILED,
         )),
         ('Seed settings', (
             HARDER_SETTINGS_OFFER, HARDER_SETTINGS_AGREED, HARDER_SETTINGS_DROPPED,
