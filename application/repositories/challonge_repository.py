@@ -21,6 +21,7 @@ from models import (
     ChallongeMatch,
     ChallongeMatchState,
     ChallongeParticipant,
+    EventStatus,
     Match,
     Tournament,
     User,
@@ -459,21 +460,29 @@ class ChallongeRepository:
 
     @staticmethod
     async def unscheduled_open_matches_for_user(user: User) -> List[ChallongeMatch]:
-        """Open bracket matches the user is in that aren't yet scheduled in wizzrobe."""
+        """Open bracket matches the user is in that aren't yet scheduled in wizzrobe.
+
+        Across every live event (cross-event: it feeds the player's own schedule).
+        """
         return await scoped(ChallongeMatch.filter(
             Q(participant1__user=user) | Q(participant2__user=user),
             state=ChallongeMatchState.OPEN,
             match_id__isnull=True,
+            tournament__event__status=EventStatus.LIVE,
         )).prefetch_related(
             'tournament', 'participant1__user', 'participant2__user',
         )
 
     @staticmethod
     async def open_set_matches_for_user(user: User) -> List[ChallongeMatch]:
-        """Open bracket matches the user is in whose best-of set has some games booked."""
+        """Open bracket matches the user is in whose best-of set has some games booked.
+
+        Across every live event (cross-event: it feeds the player's own schedule).
+        """
         return await scoped(ChallongeMatch.filter(
             Q(participant1__user=user) | Q(participant2__user=user),
             state=ChallongeMatchState.OPEN, match__set_best_of__gt=1,
+            tournament__event__status=EventStatus.LIVE,
         )).prefetch_related(
             'tournament', 'participant1__user', 'participant2__user',
         )
