@@ -105,6 +105,7 @@ class MatchNotificationMixin:
         self, match: Match, message: str, embed: Optional[discord.Embed] = None,
         *, notice: Notice, player_copies: Optional[dict] = None,
         skip_discord_ids: frozenset = frozenset(),
+        seed_ready_buttons: bool = False,
     ) -> None:
         """
         Send a DM to all opted-in players, approved crew, and watchers for a match.
@@ -116,7 +117,8 @@ class MatchNotificationMixin:
         the web-push mirror. ``notice`` is the catalogued message, whose
         community setting decides per audience whether each copy pings, goes
         silent, or isn't sent. ``player_copies`` maps a player's Discord id to their own ``(text,
-        embed)``, used in place of the shared one.
+        embed)``, used in place of the shared one. ``seed_ready_buttons`` puts
+        Ready for seed on every player's copy.
 
         Never raises; partial DM failures are logged and swallowed so the
         calling lifecycle operation is never blocked.
@@ -126,13 +128,17 @@ class MatchNotificationMixin:
             for discord_id, recipient in recipients.items():
                 if discord_id in skip_discord_ids:
                     continue
-                if player_copies and recipient.audience == AUDIENCE_PLAYER and discord_id in player_copies:
+                is_player = recipient.audience == AUDIENCE_PLAYER
+                if player_copies and is_player and discord_id in player_copies:
                     text, card = player_copies[discord_id]
                 else:
                     text, card = _for_crew(recipient.crew_roles, message, embed)
+                ready = seed_ready_buttons and is_player
                 await self._send_one(
-                    match, discord_id, recipient, text, embed=card, link=None,
+                    match, discord_id, recipient, text, embed=card,
+                    link=await notification_links.player_match(match.id) if ready else None,
                     log_label='notify_match_participants', notice=_target(notice, recipient),
+                    seed_ready_button=ready,
                 )
         except Exception:
             logger.exception("notify_match_participants unexpected error for match %s", match.id)
@@ -412,13 +418,19 @@ class MatchNotificationMixin:
         log_label: str,
         notice: NoticeTarget,
         late_button: bool = False,
+        seed_ready_button: bool = False,
     ) -> None:
         """One DM of a per-audience fan-out; a failure is logged, not raised.
 
-        ``late_button`` puts Tell staff I'm late on a player's copy (the stage reminder).
+        ``late_button`` puts Tell staff I'm late on a player's copy (the stage
+        reminder), ``seed_ready_button`` Ready for seed (the check-in DM).
         """
         try:
-            if late_button:
+            if seed_ready_button:
+                success, err = await self.discord_service.send_dm_with_seed_ready_button(
+                    discord_id, message, match.id, embed=embed, link=link, notice=notice,
+                )
+            elif late_button:
                 success, err = await self.discord_service.send_dm_with_player_late_button(
                     discord_id, message, match.id, embed=embed, link=link, notice=notice,
                 )

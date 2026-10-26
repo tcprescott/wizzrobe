@@ -81,6 +81,9 @@ class TournamentResponse(BaseModel):
     is_test: bool = Field(
         False, description="A test tournament: usable, but left off the public event-info tournament list.",
     )
+    players_release_seed: bool = Field(
+        False, description="Players release their own seed: after check-in each taps Ready, and the seed rolls when all have.",
+    )
     uses_tournament_room: bool = Field(
         True, description="Whether its off-stream matches are played in, and count toward, the tournament room.",
     )

@@ -430,6 +430,9 @@ class MatchService(
             if clear_finished and match.forfeit_reason is not None:
                 rearm = {**rearm, 'forfeit_reason': None, 'forfeit_note': None}
             await self.repository.update(match, **update_fields, **rearm)
+            # A cleared seed or check-in starts the players' Ready over.
+            if clear_seed or clear_seated:
+                await self.repository.clear_seed_ready(match.id)
 
         removed_players: List[User] = []
         if player_ids is not None:

@@ -33,8 +33,10 @@ from application.services.match._match_recipients import (  # noqa: F401  (re-ex
     collect_match_recipients,
 )
 from application.services.match._schedule_notifications import MatchNotificationMixin
+from application.services.match._seed_ready_notifications import SEED_READY_PROMPT
 from application.services.match.match_hard_preset_service import MatchHardPresetService
 from application.services.match.match_status import closes_without_winner, has_recorded_result
+from application.services.match.seed_ready import players_may_release, seed_ready_open
 from application.services.notification_catalog import (
     MATCH_CHECKED_IN,
     MATCH_CONFIRMED,
@@ -114,12 +116,15 @@ def _seats_line(match: Match) -> str:
 
 def _checked_in_notification(
     match: Match, community: str, bracket_line: str = '', your_seat: str = '',
+    ready_prompt: bool = False,
 ) -> tuple:
-    """(text, embed) for the check-in DM; ``your_seat`` makes it one player's copy."""
+    """(text, embed) for the check-in DM; ``your_seat`` makes it one player's copy,
+    and ``ready_prompt`` one that asks them for Ready for seed."""
     seats = _seats_line(match)
     embed = match_embed(
-        title='✅ Match checked in', color=COLOR_CHECKED_IN,
-        description='The match is about to begin — good luck!',
+        title='✅ Checked in · ready for your seed?' if ready_prompt else '✅ Match checked in',
+        color=COLOR_CHECKED_IN,
+        description=SEED_READY_PROMPT if ready_prompt else 'The match is about to begin — good luck!',
         **_match_embed_kwargs(match, community),
     )
     if seats:
@@ -130,18 +135,22 @@ def _checked_in_notification(
         checked_in_dm(
             match.tournament.name, **_match_descriptor(match, bracket_line),
             seats=seats, your_seat=your_seat,
+            closing=SEED_READY_PROMPT if ready_prompt else '',
         ),
         embed,
     )
 
 
 def _checked_in_player_copies(match: Match, community: str, bracket_line: str = '') -> dict:
-    """Each seated player's own check-in DM, keyed by Discord id."""
+    """Each player's own check-in DM, keyed by Discord id: a seated player's names
+    their seat, and every player's asks for Ready when they release the seed."""
+    ready = seed_ready_open(match)
     return {
         p.user.discord_id: _checked_in_notification(
-            match, community, bracket_line, your_seat=p.assigned_station,
+            match, community, bracket_line, your_seat=p.assigned_station, ready_prompt=ready,
         )
-        for p in match.players if p.assigned_station and p.user.discord_id  # type: ignore[attr-defined]
+        for p in match.players  # type: ignore[attr-defined]
+        if p.user.discord_id and (p.assigned_station or ready)
     }
 
 
@@ -191,6 +200,7 @@ class MatchScheduleService(MatchNotificationMixin):
         authorize: Optional[Callable] = None,
         build_player_copies: Optional[Callable[[Match, str, str], dict]] = None,
         notify: bool = True,
+        seed_ready_buttons: bool = False,
     ) -> None:
         """Shared match lifecycle transition: authorize, validate, stamp, audit, notify.
 
@@ -207,7 +217,9 @@ class MatchScheduleService(MatchNotificationMixin):
         ``notice`` is the catalogued message; the community's setting for it
         decides who hears and whether it pings. ``build_player_copies`` takes the same arguments as ``build_message``
         and returns ``{discord_id: (text, embed)}`` for players who get their
-        own version.
+        own version. ``seed_ready_buttons`` puts Ready for seed on the players'
+        copies when the match is open for it (check-in, on a tournament where
+        players release their own seed).
         """
         gate = authorize or AuthService.can_run_match
         await AuthService.ensure(
@@ -246,6 +258,7 @@ class MatchScheduleService(MatchNotificationMixin):
         )
         discord_queue.enqueue(self.notify_match_participants(
             match, message, embed, notice=notice, player_copies=player_copies,
+            seed_ready_buttons=seed_ready_buttons and seed_ready_open(match),
         ))
         match_live.publish(match.id)
 
@@ -282,6 +295,7 @@ class MatchScheduleService(MatchNotificationMixin):
             notice=MATCH_CHECKED_IN,
             build_message=lambda m, c, b: _checked_in_notification(m, c, b),
             build_player_copies=_checked_in_player_copies,
+            seed_ready_buttons=True,
         )
 
     async def start_match(self, match: Match, actor: Optional[User] = None) -> None:
@@ -475,6 +489,24 @@ class MatchScheduleService(MatchNotificationMixin):
             - If already in progress: (False, "Generation already in progress", None)
             - If failed: (False, error_message, None)
         """
+        return await self._roll_seed(match_id, actor, players_release=False)
+
+    async def release_seed_to_ready_players(
+        self, match_id: int, actor: User,
+    ) -> Tuple[bool, str, Optional[str]]:
+        """Roll and send the seed because every player tapped Ready for seed.
+
+        ``actor`` is the player whose tap completed the set. It is not a proctor,
+        so instead of ``can_run_match`` the roll checks, under the same lock, that
+        the tournament lets players release their seed, the match is checked in,
+        ``actor`` plays it and every player is ready. Same return as
+        :meth:`generate_seed`.
+        """
+        return await self._roll_seed(match_id, actor, players_release=True)
+
+    async def _roll_seed(
+        self, match_id: int, actor: Optional[User], *, players_release: bool,
+    ) -> Tuple[bool, str, Optional[str]]:
         lock = self._seed_locks.get(match_id)
         if lock is None:
             lock = asyncio.Lock()
@@ -490,7 +522,10 @@ class MatchScheduleService(MatchNotificationMixin):
                     'players', 'players__user', 'stage',
                 )
 
-                if not await AuthService.can_run_match(actor, match):
+                if players_release:
+                    if not players_may_release(match, actor):
+                        return False, "The seed can't be released by the players right now", None
+                elif not await AuthService.can_run_match(actor, match):
                     return False, "You do not have permission to roll a seed for this match", None
 
                 if match.generated_seed:

@@ -408,9 +408,11 @@ def checked_in_dm(
     bracket_line: str = '',
     seats: str = '',
     your_seat: str = '',
+    closing: str = '',
 ) -> str:
     """``seats`` lists every assigned seat; ``your_seat`` is the recipient's
-    own, for a player who has one, and leads so it reads at a glance."""
+    own, for a player who has one, and leads so it reads at a glance.
+    ``closing`` replaces the good-luck line (the Ready for seed ask)."""
     info = _match_info_lines(
         player_names=player_names,
         scheduled_at_display=scheduled_at_display,
@@ -425,7 +427,7 @@ def checked_in_dm(
         f"You're checked in for your match in **{tournament_name}**.\n\n"
         f"{lead}"
         f"{block}"
-        f"The match is about to begin — good luck!"
+        + (closing or "The match is about to begin — good luck!")
     )
 
 

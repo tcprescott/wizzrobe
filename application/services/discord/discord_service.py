@@ -240,6 +240,7 @@ VIEW_UNWATCH = 'match_watch'
 VIEW_RESCHEDULE_AGREE = 'reschedule_agree'
 VIEW_HARD_PRESET = 'match_hard'
 VIEW_PLAYER_LATE = 'match_late'
+VIEW_SEED_READY = 'seed_ready'
 VIEW_PARTNER_INVITE = 'partner_invite'
 
 InteractionHandler = Callable[[discord.Interaction], Awaitable[None]]
@@ -614,15 +615,7 @@ class DiscordService(GuildOpsMixin, ScheduledEventsMixin):
             embed=embed, link=link, on_sent=on_sent, notice=notice,
         )
 
-    async def send_dm_with_volunteer_acknowledgment_button(
-        self,
-        user_id: int,
-        message: str,
-        assignment_id: int,
-        embed: Optional[discord.Embed] = None,
-        link: Optional[DMLink] = None,
-        notice: Optional[NoticeTarget] = None,
-    ) -> Tuple[bool, str]:
+    async def send_dm_with_volunteer_acknowledgment_button(self, user_id: int, message: str, assignment_id: int, embed: Optional[discord.Embed] = None, link: Optional[DMLink] = None, notice: Optional[NoticeTarget] = None) -> Tuple[bool, str]:
         """Send a DM with a volunteer shift Acknowledge button."""
         return await self.send_dm(user_id, message, lambda: _view_factories[VIEW_VOLUNTEER_ACK](assignment_id), embed=embed, link=link, notice=notice)
 
@@ -641,6 +634,10 @@ class DiscordService(GuildOpsMixin, ScheduledEventsMixin):
     async def send_dm_with_player_late_button(self, user_id: int, message: str, match_id: int, embed: Optional[discord.Embed] = None, link: Optional[DMLink] = None, notice: Optional[NoticeTarget] = None) -> Tuple[bool, str]:
         """Send a match player's DM with a Tell staff I'm late button."""
         return await self.send_dm(user_id, message, lambda: _view_factories[VIEW_PLAYER_LATE](match_id), embed=embed, link=link, notice=notice)
+
+    async def send_dm_with_seed_ready_button(self, user_id: int, message: str, match_id: int, embed: Optional[discord.Embed] = None, link: Optional[DMLink] = None, notice: Optional[NoticeTarget] = None) -> Tuple[bool, str]:
+        """Send a match player's DM with a Ready for seed button."""
+        return await self.send_dm(user_id, message, lambda: _view_factories[VIEW_SEED_READY](match_id), embed=embed, link=link, notice=notice)
 
     async def send_dm_with_unwatch_button(self, user_id: int, message: str, match_id: int, embed: Optional[discord.Embed] = None, link: Optional[DMLink] = None, notice: Optional[NoticeTarget] = None) -> Tuple[bool, str]:
         """Send a DM with an Unwatch button for match watchers."""

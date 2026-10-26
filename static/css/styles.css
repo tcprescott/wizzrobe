@@ -7884,6 +7884,52 @@ ol.wiz-help-list { list-style-type: decimal; }
     align-items: center;
     gap: 0.5rem;
 }
+/* Ready for seed on the player's own checked-in match. */
+.player-sheet__seed {
+    background: var(--surface-sunken);
+    border-radius: 10px;
+    padding: 0.75rem;
+    min-width: 15rem;
+    cursor: default;
+}
+.player-sheet__status + .player-sheet__seed {
+    margin-top: 0.5rem;
+}
+.player-sheet__seed-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 0.5rem;
+    font-size: var(--text-sm);
+}
+.player-sheet__seed-head span {
+    /* --fg-muted is 4.37:1 on the sunken panel. */
+    color: var(--fg-secondary);
+}
+.player-sheet__seed-who {
+    list-style: none;
+    margin: 0.375rem 0 0;
+    padding: 0;
+}
+.player-sheet__seed-who li {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.125rem 0;
+}
+.player-sheet__seed .player-sheet__seed-go {
+    width: 100%;
+    margin-top: 0.625rem;
+    min-height: 2.75rem;
+}
+.player-sheet__seed-wait {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.5rem;
+    margin-top: 0.5rem;
+    font-size: var(--text-sm);
+}
 .player-sheet__acts {
     display: flex;
     flex-direction: column;

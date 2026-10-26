@@ -12,6 +12,7 @@ from application.services import (
     MatchStreamVolunteerService,
     MatchWatcherService,
     PlayerLateService,
+    SeedReadyService,
     UserService,
 )
 from application.tenant_context import get_current_tenant_id
@@ -224,6 +225,7 @@ class MatchTableView(MatchFiltersMixin, MatchTableHandlersMixin, MatchBoardHoldM
         self.watcher_service = MatchWatcherService()
         self.stream_volunteer_service = MatchStreamVolunteerService()
         self.player_late_service = PlayerLateService()
+        self.seed_ready_service = SeedReadyService()
         self.hard_preset_service = MatchHardPresetService()
         self.reschedule_service = MatchRescheduleService()
         self.accommodation_service = AccommodationService()
@@ -412,6 +414,8 @@ class MatchTableView(MatchFiltersMixin, MatchTableHandlersMixin, MatchBoardHoldM
             self.table.on('open_hard_preset', self._handle_open_hard_preset)
             self.table.on('running_late', self._handle_running_late)
             self.table.on('take_back_late', self._handle_take_back_late)
+            self.table.on('seed_ready', self._handle_seed_ready)
+            self.table.on('seed_not_ready', self._handle_seed_not_ready)
 
         # Bracket link: navigation only, so it needs no tenant rebind — and it
         # goes through ui.navigate.to precisely to pick up the tenant root_path.

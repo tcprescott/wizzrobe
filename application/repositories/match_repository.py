@@ -385,6 +385,13 @@ class MatchRepository:
             await player.delete()
     
     @staticmethod
+    async def clear_seed_ready(match_id: int) -> None:
+        """Forget every player's Ready for seed on a match."""
+        await scoped(MatchPlayers.filter(match_id=match_id)).update(
+            seed_ready_at=None, seed_nudged_at=None,
+        )
+
+    @staticmethod
     async def bracket_link_candidates(tournament_ids: List[int]) -> List[Match]:
         """Unconfirmed matches in these tournaments that back no bracket matchup."""
         if not tournament_ids:

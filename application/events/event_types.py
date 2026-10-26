@@ -50,6 +50,8 @@ class EventType:
     MATCH_COMMENT_DELETED = 'match.comment_deleted'
     MATCH_PLAYER_RUNNING_LATE = 'match.player_running_late'
     MATCH_PLAYER_LATE_CLEARED = 'match.player_late_cleared'
+    MATCH_PLAYER_SEED_READY = 'match.player_seed_ready'
+    MATCH_PLAYER_SEED_NOT_READY = 'match.player_seed_not_ready'
     # A player asking staff to move or call off their match. Worth publishing
     # separately from the match.rescheduled an approval also emits: a subscriber
     # wants to hear that someone *asked*, not only that the schedule moved.
@@ -250,6 +252,7 @@ class EventType:
         MATCH_STREAM_VOLUNTEERED, MATCH_STREAM_VOLUNTEER_WITHDRAWN,
         MATCH_COMMENT_ADDED, MATCH_COMMENT_DELETED,
         MATCH_PLAYER_RUNNING_LATE, MATCH_PLAYER_LATE_CLEARED,
+        MATCH_PLAYER_SEED_READY, MATCH_PLAYER_SEED_NOT_READY,
         MATCH_HARD_PRESET_AGREED, MATCH_HARD_PRESET_AGREEMENT_REVOKED,
         MATCH_PRESET_OVERRIDE_SET, MATCH_PRESET_OVERRIDE_CLEARED,
         MATCH_RESCHEDULE_REQUESTED, MATCH_RESCHEDULE_AGREED,

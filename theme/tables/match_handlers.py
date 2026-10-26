@@ -554,6 +554,33 @@ class MatchTableHandlersMixin:
         ui.notify("Done. Staff won't see you as running late.", color='positive')
         self._set_my_late(match_id, '')
 
+    async def _handle_seed_ready(self, event):
+        await self._set_seed_ready(event, ready=True)
+
+    async def _handle_seed_not_ready(self, event):
+        await self._set_seed_ready(event, ready=False)
+
+    async def _set_seed_ready(self, event, *, ready):
+        """A player's Ready for seed, or taking it back. The row follows on the
+        ``match_live`` refresh the service publishes."""
+        row = event.args if isinstance(event.args, dict) else {}
+        match_id = row.get('id')
+        if match_id is None:
+            return
+        user = await get_user_from_session(app.storage.user)
+        if not user:
+            ui.notify('You must be logged in to say you are ready.', color='warning')
+            return
+        try:
+            if ready:
+                result = await self.seed_ready_service.set_ready(match_id, user)
+            else:
+                result = await self.seed_ready_service.set_not_ready(match_id, user)
+        except ValueError as e:
+            ui.notify(str(e), color='warning')
+            return
+        ui.notify(result.message, color='positive' if result.ok else 'warning')
+
     async def _handle_open_hard_preset(self, event):
         """A player opening their private harder-settings choice.
 

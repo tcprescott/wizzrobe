@@ -616,7 +616,7 @@ _ADA = """<span v-if="props.row._ada.length" class="run-sheet__ada"><q-icon name
 # why there isn't one yet. Clicks stop here so the link and copy button don't
 # also open the sheet.
 _SEED_LINE = r"""<template v-if="props.row._seed_line"><span v-if="props.row.generated_seed" class="run-sheet__seed" @click.stop><q-icon name="casino" size="16px" aria-hidden="true" /><span class="wiz-sr-only">Seed: </span><span class="run-sheet__seed-value">""" + seed_value_template('props.row.generated_seed') + r"""</span></span>
-<span v-else class="run-sheet__seed" :class="props.row.seed_rolling_since ? '' : (props.row.seed_roll_error ? 'st-cancelled' : 'st-pending')"><q-spinner v-if="props.row.seed_rolling_since" size="14px" aria-hidden="true" /><q-icon v-else name="casino" size="16px" aria-hidden="true" /><span>{{ props.row.seed_rolling_since ? (props.row.seed_rolling_label || 'Rolling…') : (props.row.seed_roll_error ? 'Seed failed: ' + props.row.seed_roll_error : 'Seed not rolled') }}</span></span></template>"""
+<span v-else class="run-sheet__seed" :class="props.row.seed_rolling_since ? '' : (props.row.seed_roll_error ? 'st-cancelled' : 'st-pending')"><q-spinner v-if="props.row.seed_rolling_since" size="14px" aria-hidden="true" /><q-icon v-else name="casino" size="16px" aria-hidden="true" /><span>{{ props.row.seed_rolling_since ? (props.row.seed_rolling_label || 'Rolling…') : (props.row.seed_roll_error ? 'Seed failed: ' + props.row.seed_roll_error : 'Seed not rolled' + (props.row.seed_ready_label ? ' · ' + props.row.seed_ready_label : '')) }}</span></span></template>"""
 
 # The next lifecycle step, on the line. Late and Ready are the primary buttons:
 # the room is waiting on them. The group already says Late or Checked in, so

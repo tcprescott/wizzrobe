@@ -377,6 +377,16 @@ class TournamentDialog:
                             'preset. Pick one to replace it — saving with None turns '
                             'seed rolling off.'
                         ).classes('text-caption text-warning')
+                    with ui.column().classes('gap-0'):
+                        players_release_seed_checkbox = ui.checkbox(
+                            'Players release their own seed',
+                            value=self.tournament.players_release_seed if self.tournament else False,
+                        )
+                        ui.label(
+                            "After check-in, each player taps Ready for seed. The seed "
+                            "rolls and is sent when everyone is. Proctors and staff can "
+                            "still roll it any time. Not used by racetime.gg tournaments."
+                        ).classes('text-caption text-grey q-ml-xl')
                     triforce_access_message_input = MarkdownEditor(
                         'Triforce Text Access Message',
                         value=self.tournament.triforce_access_message if self.tournament and self.tournament.triforce_access_message else '',
@@ -567,6 +577,7 @@ class TournamentDialog:
                                 required_trackers=required_trackers_input.value,
                                 stage_reminder_minutes=int(stage_reminder_input.value or 0),
                                 allow_player_match_requests=allow_requests_checkbox.value,
+                                players_release_seed=players_release_seed_checkbox.value,
                                 preset_id=(preset_input.value or None),
                                 hard_preset_id=(hard_preset_input.value or None),
                                 actor=actor,
@@ -598,6 +609,7 @@ class TournamentDialog:
                             required_trackers=required_trackers_input.value,
                             stage_reminder_minutes=int(stage_reminder_input.value or 0),
                             allow_player_match_requests=allow_requests_checkbox.value,
+                            players_release_seed=players_release_seed_checkbox.value,
                             preset_id=(preset_input.value or None),
                             hard_preset_id=(hard_preset_input.value or None),
                             actor=actor,

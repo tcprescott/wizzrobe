@@ -917,6 +917,7 @@ Tournament metadata and configuration; the root aggregate for matches, enrollmen
 | `required_commentators` | `IntField` | default `1` | Approved commentators a **stream candidate** needs before the coverage surfaces count it as covered. `0` means the tournament does not use the role. Read by `ReportsService.crew_coverage` and `AnalyticsService.tournament_health` through the shared `reporting_shared.is_crew_covered`, and by the schedule board — a role requiring `0` renders no **Sign up**, and `CrewService.signup_crew` refuses it (hiding a control is not enforcing a rule). Withdrawing stays open at any requirement. |
 | `required_trackers` | `IntField` | default `1` | Same, for trackers. The defaults reproduce the pre-migration assumption that every streamed match needs one of each. |
 | `allow_player_match_requests` | `BooleanField` | default `True` | Whether players may request matches outside a bracket. Turned off automatically by `BracketService.create_bracket` (stage 0) and `ChallongeService.link_tournament` — a bracket-run tournament schedules only its own matchups. Enforced in `MatchService.submit_match_request`; staff can re-enable it per tournament. |
+| `players_release_seed` | `BooleanField` | default `False` | Players release their own seed: after check-in each taps Ready for seed, and the seed rolls when all have. Proctors and staff still roll any time. Ignored on racetime tournaments |
 | `allow_reschedule_requests` | `BooleanField` | default `True` | Whether players may ask staff to move or call off one of their matches ([`MatchRescheduleRequest`](#matchreschedulerequest)). Independent of the toggle above — a bracket-run tournament still needs a way to say "we can't make Saturday". Off hides the control **and** makes `MatchRescheduleService` refuse, since the REST route reaches past the hidden control |
 
 Relationships: declared reverse accessors `players`, `matches`, `notification_preferences`, `triforce_texts`, `challonge_participants`, `challonge_matches`; `payouts`, `brackets`, `bracket_entrants`, `sg_event_links`, `discord_role_mappings`, and `discord_tournament_grants` exist implicitly via the children's `related_name`. Both M2M through tables carry a unique index on `(tournament_id, user_id)`.
@@ -1011,6 +1012,8 @@ Players assigned to a match, with result and station assignment.
 | `late_minutes` | `IntField` | null | The player's own "running late" heads-up: 10, 20 or 30 (30 means 30+). Null when they haven't said so or took it back |
 | `late_at` | `DatetimeField` | null | When they said it (UTC) |
 | `late_note` | `CharField(280)` | null | Optional note for staff; never sent to the opponent or a webhook |
+| `seed_ready_at` | `DatetimeField` | null | When the player tapped Ready for seed, on a tournament with `players_release_seed`. Cleared by Not ready, or when staff clear the seed or the check-in ([match-participation.md](../features/match-participation.md#ready-for-seed)) |
+| `seed_nudged_at` | `DatetimeField` | null | When this player's first Ready DMed the others; set once so toggling can't re-send it |
 
 Constraint: `unique_together (('match', 'user'),)`.
 

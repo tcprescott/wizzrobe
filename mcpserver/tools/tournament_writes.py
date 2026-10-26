@@ -91,6 +91,7 @@ async def create_tournament(
     required_trackers: int = 1,
     is_active: bool = True,
     is_test: bool = False,
+    players_release_seed: bool = False,
     uses_tournament_room: bool = True,
     allow_player_match_requests: bool = True,
     stage_reminder_minutes: int = 30,
@@ -115,6 +116,8 @@ async def create_tournament(
     the randomizer. `is_test` keeps it off the public event-info list.
     `uses_tournament_room` false is for a tournament played outside the
     tournament room: its off-stream matches take no room capacity.
+    `players_release_seed` lets the players of a checked-in match release its
+    seed by all marking ready.
     """
     args = dict(locals())
     fields = {k: v for k, v in args.items() if k != 'tenant'}
@@ -146,6 +149,7 @@ async def update_tournament(
     required_trackers: Optional[int] = None,
     is_active: Optional[bool] = None,
     is_test: Optional[bool] = None,
+    players_release_seed: Optional[bool] = None,
     uses_tournament_room: Optional[bool] = None,
     allow_player_match_requests: Optional[bool] = None,
     stage_reminder_minutes: Optional[int] = None,
