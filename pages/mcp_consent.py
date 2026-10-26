@@ -12,12 +12,14 @@ There is no community picker. The issued token carries no tenant; each MCP tool
 call names its own community and is authorized against the user's role there.
 Asking here would imply a scoping the credential does not actually have.
 
-There *is* a write checkbox, unticked. Write access is the one thing a grant can
-carry that the user cannot undo by reading more carefully, so it is asked for
-here and nowhere else: a client cannot request its way past this, and a refresh
-cannot widen a grant that was approved without it. Ticking it is not enough on
-its own: the person also types "this is dangerous", which the service checks
-again, so a hurried click through the card still ends in a read-only grant.
+The card is the same scope checklist outside apps get (``theme.consent_scopes``):
+what it may see, ticked, and what it may do as you, unticked. Write access is
+the one thing a grant can carry that the user cannot undo by reading more
+carefully, so it is asked for here and nowhere else: a client cannot request
+its way past this, and a refresh cannot widen a grant that was approved
+without it. Ticking a change is not enough on its own: the person also types
+"this is dangerous", which the service checks again, so a hurried click
+through the card still ends in a read-only grant.
 """
 
 import logging
@@ -26,6 +28,7 @@ from urllib.parse import urlencode, urlparse
 from nicegui import app, ui
 from starlette.responses import RedirectResponse
 
+from application.api_scopes import WRITE_SCOPES, ApiScope
 from application.errors import NotFoundError
 from application.services import McpAuthService
 from application.services.auth_service import get_user_from_session
@@ -37,27 +40,11 @@ from application.services.mcp_auth_service import (
 from middleware.auth import protected_routes
 from theme.banner import banner
 from theme.chrome import render_platform_chrome
+from theme.consent_scopes import render_scope_checklist
 
 logger = logging.getLogger(__name__)
 
 CONSENT_PATH = '/oauth/mcp/consent'
-
-# What the caller is actually agreeing to. Deliberately concrete: "read-only"
-# is only reassuring if it says what can be read.
-_GRANTS = [
-    ('visibility', 'See the communities you belong to and your roles in them'),
-    ('event', 'Read tournaments, matches, schedules and results'),
-    ('groups', 'Read crew and volunteer assignments'),
-    ('history', 'Read audit history, where your role already allows it'),
-]
-
-# Added to the list only when the write box is ticked, so the card always
-# describes the grant the user is about to make rather than one they might.
-_WRITE_GRANTS = [
-    ('edit_calendar', 'Schedule, edit, cancel and run matches'),
-    ('emoji_events', 'Record results, roll seeds and manage crew signups'),
-]
-
 
 def _redirect_target(redirect_uri: str) -> str:
     """Where approving actually sends the code, as a person can check it.
@@ -126,15 +113,16 @@ def create() -> None:
         client = await service.get_client(pending.client_id)
         client_name = client.client_name if client else 'An MCP client'
 
-        # Off by default. Everything below reads it; nothing else decides it.
-        allow_write = {'value': False}
+        offered = await service.offered_scopes(user)
+        # Reads ticked, changes not: everything below reads this set and
+        # nothing else decides the grant.
+        ticked = {scope for scope in offered if scope not in WRITE_SCOPES}
         confirmation = {'value': ''}
 
         async def approve() -> None:
             try:
                 code, redirect_uri, state = await service.approve(
-                    txn, user, allow_write=allow_write['value'],
-                    write_confirmation=confirmation['value'],
+                    txn, user, scopes=ticked, write_confirmation=confirmation['value'],
                 )
             except (ValueError, NotFoundError) as exc:
                 ui.notify(str(exc), color='warning')
@@ -163,45 +151,18 @@ def create() -> None:
             """Whose grant this is, in the header — the same identity the card names."""
             ui.label(user.preferred_name).classes('user-name')
 
-        @ui.refreshable
-        def grant_summary() -> None:
-            """The grant list and its closing note, redrawn as the box is ticked.
-
-            Both halves move together on purpose: a card that lists writes but
-            still promises "it cannot change anything" is worse than either.
-            """
-            ui.label('It will be able to:').classes('consent-grants-title')
-            with ui.column().classes('consent-grants'):
-                grants = _GRANTS + (_WRITE_GRANTS if allow_write['value'] else [])
-                for icon, text in grants:
-                    with ui.row().classes('consent-grant no-wrap'):
-                        ui.icon(icon).props('size=sm').classes('consent-grant-icon')
-                        ui.label(text)
-            with ui.row().classes('consent-note consent-note--lock no-wrap'):
-                if allow_write['value']:
-                    ui.icon('lock_open').props('size=sm')
-                    ui.label(
-                        'It acts as you, so it can change whatever you can change '
-                        'and nothing you cannot. Every change lands in the audit '
-                        'log under your name.'
-                    )
-                else:
-                    ui.icon('lock').props('size=sm')
-                    ui.label(
-                        'It cannot change anything — this connection is read-only, '
-                        'and it only ever sees what you can already see.'
-                    )
+        def writes_ticked() -> bool:
+            return bool(ticked & WRITE_SCOPES)
 
         def sync_approve() -> None:
             approve_button.set_enabled(
-                not allow_write['value']
-                or write_confirmation_matches(confirmation['value'])
+                bool(ticked)
+                and (not writes_ticked() or write_confirmation_matches(confirmation['value']))
             )
 
-        def on_write_toggle(event) -> None:
-            allow_write['value'] = bool(event.value)
-            write_confirm.set_visibility(allow_write['value'])
-            grant_summary.refresh()
+        def set_tick(scope: ApiScope, on: bool) -> None:
+            (ticked.add if on else ticked.discard)(scope)
+            write_confirm.set_visibility(writes_ticked())
             sync_approve()
 
         def on_confirmation(event) -> None:
@@ -225,34 +186,36 @@ def create() -> None:
                         'Any app can call itself anything here, so check that address '
                         'is the one you started from.'
                     )
-                ui.separator().classes('consent-rule')
-                grant_summary()
-                with ui.column().classes('consent-write'):
-                    ui.checkbox(
-                        'Let it make changes', value=False, on_change=on_write_toggle,
-                    ).classes('consent-write-toggle')
+                with ui.row().classes('consent-note consent-note--lock no-wrap'):
+                    ui.icon('groups').props('size=sm')
                     ui.label(
-                        'Leave this off unless you want the client to schedule '
-                        'matches, record results and manage crew for you. You can '
-                        'turn it on later by reconnecting.'
-                    ).classes('consent-note')
-                    with ui.column().classes('consent-write-confirm') as write_confirm:
-                        with banner(
-                            'Anything you can change, it can change too, without '
-                            'asking you first: cancel matches, overwrite results, '
-                            'drop people from crew. A model that misreads a request '
-                            'acts on the misreading.',
-                            title='This is dangerous',
-                            tone='warning',
-                        ):
-                            pass
-                        ui.input(
-                            label=f'Type "{WRITE_CONFIRMATION_PHRASE}" to allow changes',
-                            on_change=on_confirmation,
-                        ).props('outlined dense autocomplete=off spellcheck=false').classes(
-                            'consent-write-input'
-                        )
-                    write_confirm.set_visibility(False)
+                        'Works in every community you belong to, as whatever you are in each one.'
+                    )
+                ui.separator().classes('consent-rule')
+                render_scope_checklist(offered, ticked, set_tick, every_community=True)
+                with ui.column().classes('consent-write-confirm') as write_confirm:
+                    with banner(
+                        'Anything you can change, it can change too, without '
+                        'asking you first: cancel matches, overwrite results, '
+                        'drop people from crew. A model that misreads a request '
+                        'acts on the misreading.',
+                        title='This is dangerous',
+                        tone='warning',
+                    ):
+                        pass
+                    ui.input(
+                        label=f'Type "{WRITE_CONFIRMATION_PHRASE}" to allow changes',
+                        on_change=on_confirmation,
+                    ).props('outlined dense autocomplete=off spellcheck=false').classes(
+                        'consent-write-input'
+                    )
+                write_confirm.set_visibility(False)
+                with ui.row().classes('consent-note consent-note--lock no-wrap'):
+                    ui.icon('lock').props('size=sm')
+                    ui.label(
+                        'Changes are off until you tick them. It never sees more than you '
+                        'can, and anything it changes is logged under your name.'
+                    )
                 ui.label(
                     'You can disconnect it at any time from your profile.'
                 ).classes('consent-note')

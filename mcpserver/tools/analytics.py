@@ -16,6 +16,7 @@ from typing import Any, Dict, List, Optional
 
 from mcp.server.mcpserver import MCPServer
 
+from application.api_scopes import ApiScope
 from application.services import AnalyticsService, ReportsService
 from mcpserver.auth import Gate, current_actor
 from mcpserver.registry import register
@@ -183,15 +184,15 @@ async def matches_active_at(
 
 
 def register_tools(mcp: MCPServer) -> None:
-    register(mcp, capacity_forecast, gate=Gate.ADMIN, title='Capacity forecast')
+    register(mcp, capacity_forecast, gate=Gate.ADMIN, scope=ApiScope.STAFF_READ, title='Capacity forecast')
     register(
-        mcp, stage_utilization, gate=Gate.ADMIN,
+        mcp, stage_utilization, gate=Gate.ADMIN, scope=ApiScope.STAFF_READ,
         title='Stage utilization',
     )
-    register(mcp, tournament_health, gate=Gate.ADMIN, title='Tournament health')
+    register(mcp, tournament_health, gate=Gate.ADMIN, scope=ApiScope.STAFF_READ, title='Tournament health')
     register(
-        mcp, crew_participation_trends, gate=Gate.ADMIN,
+        mcp, crew_participation_trends, gate=Gate.ADMIN, scope=ApiScope.STAFF_READ,
         title='Crew participation trends',
     )
-    register(mcp, activity_trends, gate=Gate.ADMIN, title='Activity trends')
-    register(mcp, matches_active_at, gate=Gate.ADMIN, title='Matches active at')
+    register(mcp, activity_trends, gate=Gate.ADMIN, scope=ApiScope.STAFF_READ, title='Activity trends')
+    register(mcp, matches_active_at, gate=Gate.ADMIN, scope=ApiScope.STAFF_READ, title='Matches active at')

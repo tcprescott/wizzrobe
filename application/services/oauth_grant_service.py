@@ -48,7 +48,7 @@ from application.services.oauth_app_service import secret_matches, strict_scopes
 from application.services.tenant_service import TenantService
 from application.tenant_context import tenant_scope
 from application.utils.environment import get_base_url
-from models import ApiToken, FeatureFlag, OAuthApp, OAuthClientType, Role, User
+from models import ApiToken, FeatureFlag, OAuthApp, OAuthClientType, User
 
 logger = logging.getLogger(__name__)
 
@@ -372,7 +372,7 @@ class OAuthGrantService:
             if not await FeatureFlagService().is_enabled(FeatureFlag.THIRD_PARTY_APPS):
                 return None
             scopes: Set[ApiScope] = set(requested)
-            if not await self._may_use_staff_scopes(user):
+            if not await AuthService.can_use_staff_scopes(user):
                 scopes -= STAFF_SCOPES
         if not scopes:
             return None
@@ -380,14 +380,6 @@ class OAuthGrantService:
             tenant_id=tenant.id, name=tenant.name, slug=tenant.slug,
             scopes=[s for s in ApiScope if s in scopes],
         )
-
-    @staticmethod
-    async def _may_use_staff_scopes(user: User) -> bool:
-        """Any admin-side role here: staff, a tournament admin or crew coordinator,
-        or one of the narrower admin roles. A plain volunteer is not one."""
-        if await AuthService.can_view_admin(user):
-            return True
-        return bool(await AuthService.get_roles(user) - {Role.VOLUNTEER})
 
     @staticmethod
     def _redirect_label(uri: str) -> str:

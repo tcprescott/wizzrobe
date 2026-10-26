@@ -182,6 +182,15 @@ class AuthService:
         return await cc_q.exists()
 
     @staticmethod
+    async def can_use_staff_scopes(user: Optional[User]) -> bool:
+        """Whether a consent screen offers ``staff:*`` here: any admin-side role
+        (staff, a tournament admin or crew coordinator, or one of the narrower
+        admin roles). A plain volunteer is not one."""
+        if await AuthService.can_view_admin(user):
+            return True
+        return bool(await AuthService.get_roles(user) - {Role.VOLUNTEER})
+
+    @staticmethod
     async def can_view_volunteer_admin(user: Optional[User]) -> bool:
         """The admin-side volunteer reads: positions, shifts, coverage and hours.
 

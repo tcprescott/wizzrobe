@@ -33,6 +33,7 @@ from api.schemas.volunteers import (
     VolunteerPositionUpdate,
     VolunteerShiftResponse,
 )
+from application.api_scopes import ApiScope
 from application.errors import require_found
 from application.services import (
     EquipmentService,
@@ -579,45 +580,46 @@ async def set_tournament_payout_split(
 
 def register_tools(mcp: MCPServer) -> None:
     def write_tool(
-        fn: Callable, title: str, feature: Optional[FeatureFlag] = None, *, destructive: bool = False,
+        fn: Callable, title: str, feature: Optional[FeatureFlag] = None, *,
+        scope: ApiScope, destructive: bool = False,
     ) -> None:
         register(
-            mcp, fn, gate=Gate.ACTOR, feature=feature, write=True, title=title,
+            mcp, fn, gate=Gate.ACTOR, scope=scope, feature=feature, write=True, title=title,
             destructive=destructive,
         )
 
-    write_tool(create_stage, 'Create stage')
-    write_tool(update_stage, 'Update stage')
-    write_tool(delete_stage, 'Delete stage', destructive=True)
+    write_tool(create_stage, 'Create stage', scope=ApiScope.STAFF_WRITE)
+    write_tool(update_stage, 'Update stage', scope=ApiScope.STAFF_WRITE)
+    write_tool(delete_stage, 'Delete stage', destructive=True, scope=ApiScope.STAFF_WRITE)
 
     volunteers = FeatureFlag.VOLUNTEERS
-    write_tool(create_volunteer_position, 'Create volunteer position', volunteers)
-    write_tool(update_volunteer_position, 'Update volunteer position', volunteers)
-    write_tool(delete_volunteer_position, 'Delete volunteer position', volunteers, destructive=True)
-    write_tool(create_volunteer_shift, 'Create volunteer shift', volunteers)
-    write_tool(update_volunteer_shift, 'Update volunteer shift', volunteers)
-    write_tool(delete_volunteer_shift, 'Delete volunteer shift', volunteers, destructive=True)
-    write_tool(assign_volunteer, 'Assign volunteer', volunteers)
-    write_tool(unassign_volunteer, 'Unassign volunteer', volunteers, destructive=True)
+    write_tool(create_volunteer_position, 'Create volunteer position', volunteers, scope=ApiScope.STAFF_WRITE)
+    write_tool(update_volunteer_position, 'Update volunteer position', volunteers, scope=ApiScope.STAFF_WRITE)
+    write_tool(delete_volunteer_position, 'Delete volunteer position', volunteers, destructive=True, scope=ApiScope.STAFF_WRITE)
+    write_tool(create_volunteer_shift, 'Create volunteer shift', volunteers, scope=ApiScope.STAFF_WRITE)
+    write_tool(update_volunteer_shift, 'Update volunteer shift', volunteers, scope=ApiScope.STAFF_WRITE)
+    write_tool(delete_volunteer_shift, 'Delete volunteer shift', volunteers, destructive=True, scope=ApiScope.STAFF_WRITE)
+    write_tool(assign_volunteer, 'Assign volunteer', volunteers, scope=ApiScope.STAFF_WRITE)
+    write_tool(unassign_volunteer, 'Unassign volunteer', volunteers, destructive=True, scope=ApiScope.STAFF_WRITE)
 
-    write_tool(add_community_member, 'Add community member')
-    write_tool(remove_community_member, 'Remove community member', destructive=True)
-    write_tool(grant_community_role, 'Grant community role')
-    write_tool(revoke_community_role, 'Revoke community role', destructive=True)
+    write_tool(add_community_member, 'Add community member', scope=ApiScope.STAFF_WRITE)
+    write_tool(remove_community_member, 'Remove community member', destructive=True, scope=ApiScope.STAFF_WRITE)
+    write_tool(grant_community_role, 'Grant community role', scope=ApiScope.STAFF_WRITE)
+    write_tool(revoke_community_role, 'Revoke community role', destructive=True, scope=ApiScope.STAFF_WRITE)
 
-    write_tool(set_notification_setting, 'Set notification setting')
-    write_tool(set_staff_notification_setting, 'Set staff notification setting')
-    write_tool(reset_notification_settings, 'Reset notification settings', destructive=True)
-    write_tool(set_my_notification_preset, 'Set my notification preset')
-    write_tool(set_my_notification, 'Set my notification')
+    write_tool(set_notification_setting, 'Set notification setting', scope=ApiScope.STAFF_WRITE)
+    write_tool(set_staff_notification_setting, 'Set staff notification setting', scope=ApiScope.STAFF_WRITE)
+    write_tool(reset_notification_settings, 'Reset notification settings', destructive=True, scope=ApiScope.STAFF_WRITE)
+    write_tool(set_my_notification_preset, 'Set my notification preset', scope=ApiScope.PROFILE_WRITE)
+    write_tool(set_my_notification, 'Set my notification', scope=ApiScope.PROFILE_WRITE)
 
     equipment = FeatureFlag.EQUIPMENT
-    write_tool(create_equipment, 'Create equipment', equipment)
-    write_tool(update_equipment, 'Update equipment', equipment)
-    write_tool(delete_equipment, 'Delete equipment', equipment, destructive=True)
-    write_tool(check_out_equipment, 'Check out equipment', equipment)
-    write_tool(check_in_equipment, 'Check in equipment', equipment)
+    write_tool(create_equipment, 'Create equipment', equipment, scope=ApiScope.STAFF_WRITE)
+    write_tool(update_equipment, 'Update equipment', equipment, scope=ApiScope.STAFF_WRITE)
+    write_tool(delete_equipment, 'Delete equipment', equipment, destructive=True, scope=ApiScope.STAFF_WRITE)
+    write_tool(check_out_equipment, 'Check out equipment', equipment, scope=ApiScope.PLAY)
+    write_tool(check_in_equipment, 'Check in equipment', equipment, scope=ApiScope.STAFF_WRITE)
 
     payouts = FeatureFlag.PAYOUTS
-    write_tool(set_tournament_prize_pool, 'Set prize pool', payouts)
-    write_tool(set_tournament_payout_split, 'Set payout split', payouts)
+    write_tool(set_tournament_prize_pool, 'Set prize pool', payouts, scope=ApiScope.STAFF_WRITE)
+    write_tool(set_tournament_payout_split, 'Set payout split', payouts, scope=ApiScope.STAFF_WRITE)

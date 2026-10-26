@@ -16,6 +16,7 @@ from datetime import datetime, timezone
 
 import pytest
 
+from application.api_scopes import ApiScope
 from application.services import McpAuthService
 from application.services.api_token_service import MCP_TOKEN_PREFIX
 from models import User
@@ -66,7 +67,7 @@ async def authorize_and_approve(client, client_id, challenge, user, redirect_uri
     location = resp.headers['location']
     assert '/oauth/mcp/consent' in location, location
     txn = location.split('txn=')[1].split('&')[0]
-    code, _, returned_state = await McpAuthService().approve(txn, user)
+    code, _, returned_state = await McpAuthService().approve(txn, user, scopes={ApiScope.SCHEDULE_READ})
     assert returned_state == state
     return code
 
@@ -278,7 +279,7 @@ class TestRedirectUriRules:
             scopes=['mcp'], resource=None, created_at=datetime.now(timezone.utc),
         ))
         with pytest.raises(ValueError):
-            await service.approve(txn, user)
+            await service.approve(txn, user, scopes={ApiScope.SCHEDULE_READ})
 
 
 class TestSecretBasedRegistration:
@@ -394,7 +395,7 @@ class TestConsentPage:
         user = await User.create(discord_id=555007, username='oauth-expired')
         service = McpAuthService()
         try:
-            await service.approve('not-a-real-transaction', user)
+            await service.approve('not-a-real-transaction', user, scopes={ApiScope.SCHEDULE_READ})
         except Exception as exc:
             assert 'expired' in str(exc).lower()
         else:
@@ -416,9 +417,9 @@ class TestConsentPage:
             })
             txn = resp.headers['location'].split('txn=')[1].split('&')[0]
             service = McpAuthService()
-            await service.approve(txn, user)
+            await service.approve(txn, user, scopes={ApiScope.SCHEDULE_READ})
             try:
-                await service.approve(txn, user)
+                await service.approve(txn, user, scopes={ApiScope.SCHEDULE_READ})
             except Exception as exc:
                 assert 'expired' in str(exc).lower()
             else:

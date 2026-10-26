@@ -10,6 +10,7 @@ from typing import List, Optional
 from mcp.server.mcpserver import MCPServer
 
 from api.schemas.tournaments import TournamentResponse
+from application.api_scopes import ApiScope
 from application.errors import require_found
 from application.services import (
     MatchSuggestionService,
@@ -204,22 +205,22 @@ async def suggest_match_time(
 
 
 def register_tools(mcp: MCPServer) -> None:
-    register(mcp, list_tournaments, gate=Gate.ACTOR, title='List tournaments')
-    register(mcp, get_tournament, gate=Gate.ACTOR, title='Get tournament')
-    register(mcp, list_tournament_signups, gate=Gate.ACTOR, title='List tournament signups')
-    register(mcp, list_tournament_players, gate=Gate.ACTOR, title='List tournament players')
+    register(mcp, list_tournaments, gate=Gate.ACTOR, scope=ApiScope.SCHEDULE_READ, title='List tournaments')
+    register(mcp, get_tournament, gate=Gate.ACTOR, scope=ApiScope.SCHEDULE_READ, title='Get tournament')
+    register(mcp, list_tournament_signups, gate=Gate.ACTOR, scope=ApiScope.SCHEDULE_READ, title='List tournament signups')
+    register(mcp, list_tournament_players, gate=Gate.ACTOR, scope=ApiScope.STAFF_READ, title='List tournament players')
     register(
-        mcp, sign_up_for_tournament, gate=Gate.ACTOR, write=True,
+        mcp, sign_up_for_tournament, gate=Gate.ACTOR, scope=ApiScope.PLAY, write=True,
         title='Sign up for tournament',
     )
     register(
-        mcp, withdraw_from_tournament, gate=Gate.ACTOR, write=True,
+        mcp, withdraw_from_tournament, gate=Gate.ACTOR, scope=ApiScope.PLAY, write=True,
         title='Withdraw from tournament', destructive=True,
     )
     register(
-        mcp, get_tournament_payouts, gate=Gate.ACTOR,
+        mcp, get_tournament_payouts, gate=Gate.ACTOR, scope=ApiScope.STAFF_READ,
         feature=FeatureFlag.PAYOUTS, title='Get tournament payouts',
     )
-    register(mcp, list_stages, gate=Gate.ACTOR, title='List stages')
-    register(mcp, get_stage, gate=Gate.ACTOR, title='Get stage')
-    register(mcp, suggest_match_time, gate=Gate.ACTOR, title='Suggest a match time')
+    register(mcp, list_stages, gate=Gate.ACTOR, scope=ApiScope.SCHEDULE_READ, title='List stages')
+    register(mcp, get_stage, gate=Gate.ACTOR, scope=ApiScope.SCHEDULE_READ, title='Get stage')
+    register(mcp, suggest_match_time, gate=Gate.ACTOR, scope=ApiScope.SCHEDULE_READ, title='Suggest a match time')

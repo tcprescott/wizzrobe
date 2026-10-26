@@ -18,6 +18,7 @@ from mcp.server.mcpserver import MCPServer
 
 from api.schemas.platform import LogLevelResponse
 from api.schemas.service_health import ProbeResultResponse
+from application.api_scopes import ApiScope
 from application.errors import require_found
 from application.services import (
     FeatureFlagService,
@@ -325,7 +326,7 @@ def _snowflake(value: Optional[str]) -> Optional[int]:
 
 def register_tools(mcp: MCPServer) -> None:
     def write_tool(fn, title: str, *, destructive: bool = False) -> None:
-        register(mcp, fn, gate=Gate.PLATFORM, write=True, title=title, destructive=destructive)
+        register(mcp, fn, gate=Gate.PLATFORM, scope=ApiScope.STAFF_WRITE, write=True, title=title, destructive=destructive)
 
     write_tool(platform_create_community, 'Create a community')
     write_tool(platform_update_community, 'Edit a community')

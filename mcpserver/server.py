@@ -15,9 +15,10 @@ from mcp.server.transport_security import TransportSecuritySettings
 from mcp.types import Tool as MCPTool
 
 from application.services.auth_service import AuthService
+from application.services.mcp_auth_service import grant_scopes
 from application.utils.build_info import build_info
 from mcpserver.auth import optional_actor
-from mcpserver.registry import platform_tool_names, write_tool_names
+from mcpserver.registry import platform_tool_names, tools_outside, write_tool_names
 from mcpserver.tools import register_all
 
 INSTRUCTIONS = """\
@@ -111,6 +112,7 @@ class WizzrobeMCP(MCPServer):
         hidden: Set[str] = set()
         if actor.token.read_only:
             hidden |= write_tool_names()
+        hidden |= tools_outside(grant_scopes(actor.token.scope))
         if not await AuthService.is_super_admin(actor.user):
             hidden |= platform_tool_names()
         return [tool for tool in tools if tool.name not in hidden]
