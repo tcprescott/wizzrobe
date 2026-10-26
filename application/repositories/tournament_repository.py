@@ -10,7 +10,7 @@ from typing import Any, Dict, List, Optional
 from application.repositories._base import EventScopedRepository
 from application.repositories._event import current_event_id, event_scoped, live_event_scoped
 from application.repositories._tenant import current_tenant_id, scoped
-from models import Bracket, Match, Tournament, TournamentGrant, TournamentPlayers, TriforceText, User
+from models import Bracket, EventStatus, Match, Tournament, TournamentGrant, TournamentPlayers, TriforceText, User
 
 
 class TournamentRepository(EventScopedRepository[Tournament]):
@@ -87,7 +87,12 @@ class TournamentRepository(EventScopedRepository[Tournament]):
             query = query.prefetch_related('players', 'players__user')
         
         return await query
-    
+
+    @staticmethod
+    async def active_in_live_events() -> List[Tournament]:
+        """Every live event's active tournaments, by name (cross-event: Home › Tournaments)."""
+        return await live_event_scoped(Tournament.filter(is_active=True)).order_by('name')
+
     @staticmethod
     async def enrolment_counts() -> dict[int, int]:
         """``{tournament_id: entrants}`` for this tenant, in one query.
@@ -400,16 +405,10 @@ class TournamentRepository(EventScopedRepository[Tournament]):
 
     @staticmethod
     async def get_enrolled_players_by_user(user) -> List:
-        """
-        Get all tournament enrollments for a specific user.
-        
-        Args:
-            user: User to get enrollments for
-            
-        Returns:
-            List of TournamentPlayers objects
-        """
-        return await scoped(TournamentPlayers.filter(user=user)).prefetch_related('tournament')
+        """This user's enrolments in every live event's tournaments (cross-event: their own schedule)."""
+        return await scoped(TournamentPlayers.filter(
+            user=user, tournament__event__status=EventStatus.LIVE,
+        )).prefetch_related('tournament')
     
     @staticmethod
     async def get_enrolled_players_by_tournament_id(tournament_id: int) -> List:

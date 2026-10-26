@@ -38,6 +38,7 @@ from urllib.parse import urlparse
 import httpx
 
 from application.errors import require_found
+from application.event_context import get_current_event_id
 from application.events import Event, EventType, webhook_queue
 from application.feature_flags import requires_feature
 from application.repositories import (
@@ -63,7 +64,7 @@ from application.utils.app_links import (
 )
 from application.utils.environment import is_production
 from application.utils.ssrf import ensure_public_host, pin_public_url
-from application.utils.tenant_urls import tenant_url
+from application.utils.tenant_urls import event_path, tenant_url
 from models import FeatureFlag, PersonalWebhook, User
 
 logger = logging.getLogger(__name__)
@@ -657,10 +658,13 @@ class PersonalWebhookService:
             return view.url
         if not view.path:
             return None
+        from application.services.notification_links import event_slug
         from application.services.tenant_service import TenantService
 
-        tenant = await TenantService.get_by_id(require_tenant_id())
-        return tenant_url(tenant, view.path) if tenant else None
+        tenant_id = require_tenant_id()
+        tenant = await TenantService.get_by_id(tenant_id)
+        slug = await event_slug(tenant_id, get_current_event_id())
+        return tenant_url(tenant, event_path(slug, view.path)) if tenant else None
 
     async def _community_slug(self) -> Optional[str]:
         from application.services.tenant_service import TenantService

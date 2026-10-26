@@ -24,7 +24,7 @@ from theme.notify import notify_error
 from theme.pickers import member_select
 
 DISCLAIMER = (
-    'Community events are run by attendees, not by event staff. Listing one here '
+    'Meetups are run by attendees, not by event staff. Listing one here '
     "doesn't mean staff endorse it; the listing is just for convenience."
 )
 
@@ -79,7 +79,7 @@ class CommunityEventDialog:
         event = self.event
         host_choices = await self._host_choices() if self.is_staff else None
         hours, minutes = divmod(event.duration_minutes if event else 60, 60)
-        title_text = 'Edit community event' if event else 'Submit a community event'
+        title_text = 'Edit meetup' if event else 'Submit a meetup'
 
         with form_dialog(title_text) as dialog:
             with ui.column().classes('gap-3 full-width'):

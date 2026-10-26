@@ -215,3 +215,45 @@ def test_the_guide_size_reads_for_a_person(size, label, tmp_path):
     from application.services import EventGuide
 
     assert EventGuide(path=tmp_path, filename='g.pdf', size_bytes=size).size_label == label
+
+
+class TestEventFolders:
+    """A community's handbook sits in ``content/<community>/``; an event may have its own inside it."""
+
+    @pytest.fixture
+    def content(self, tmp_path, monkeypatch):
+        from application.event_info import catalog
+
+        monkeypatch.setattr(catalog, 'CONTENT_ROOT', tmp_path)
+        for folder in ('acme', 'acme/y2025', 'other/y2026'):
+            (tmp_path / folder).mkdir(parents=True)
+            (tmp_path / folder / 'attending.md').write_text('# x\n')
+        return catalog
+
+    def test_an_event_with_a_folder_reads_its_own(self, content):
+        assert content.handbook_key('acme', ['y2025']) == 'acme/y2025'
+
+    def test_an_event_without_one_falls_back_to_the_next_candidate(self, content):
+        assert content.handbook_key('acme', ['y2026', 'y2025']) == 'acme/y2025'
+
+    def test_with_no_event_folder_it_reads_the_communitys(self, content):
+        assert content.handbook_key('acme', ['y2026']) == 'acme'
+
+    def test_another_communitys_event_folder_is_never_reached(self, content):
+        """Event slugs are unique only within a community."""
+        assert content.handbook_key('acme', ['y2026']) == 'acme'
+        assert content.handbook_key('acme', ['../other/y2026']) == 'acme'
+
+    async def test_the_service_reads_the_current_events_folder(self, db, content):
+        from application.event_context import event_scope
+        from models import Event, EventStatus
+
+        await Tenant.filter(id=1).update(slug='acme')
+        default = await Event.get(tenant_id=1, is_default=True)
+        default.slug = 'y2025'
+        await default.save(update_fields=['slug'])
+        nxt = await Event.create(tenant_id=1, name='Next', slug='y2026', status=EventStatus.LIVE)
+        with event_scope(nxt.id):
+            assert await EventInfoService._tenant_slug() == 'acme/y2025'
+        with event_scope(default.id):
+            assert await EventInfoService._tenant_slug() == 'acme/y2025'

@@ -18,7 +18,6 @@ from models import (
     MatchPlayers,
     PlayerAvailability,
     Role,
-    SystemConfiguration,
     Tournament,
     UserRole,
     VolunteerAssignment,
@@ -27,7 +26,7 @@ from models import (
     VolunteerShift,
 )
 from tests.conftest import DEFAULT_TEST_TENANT_ID
-from tests.factories import make_member
+from tests.factories import make_member, set_setting
 
 THU, FRI, SAT = date(2026, 10, 22), date(2026, 10, 23), date(2026, 10, 24)
 T = DEFAULT_TEST_TENANT_ID
@@ -39,13 +38,13 @@ def _at(d: date, h: int, mi: int = 0) -> datetime:
 
 @pytest.fixture
 async def event(db):
-    await SystemConfiguration.create(name='event_start_date', value=THU.isoformat())
-    await SystemConfiguration.create(name='event_end_date', value=SAT.isoformat())
-    await SystemConfiguration.create(
+    await set_setting(name='event_start_date', value=THU.isoformat())
+    await set_setting(name='event_end_date', value=SAT.isoformat())
+    await set_setting(
         name='tournament_hours_by_date',
         value=json.dumps({d.isoformat(): {'open': '08:00', 'close': '23:59'} for d in (THU, FRI)}),
     )
-    await SystemConfiguration.create(name='max_concurrent_players', value='4')
+    await set_setting(name='max_concurrent_players', value='4')
     tournament = await Tournament.create(name='ALttPR', average_match_duration=90, tenant_id=T)
     alice = await make_member(9001, 'alice')
     bob = await make_member(9002, 'bob')

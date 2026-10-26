@@ -8,7 +8,7 @@ it disappears (restoring Schedule) once the community is set up.
 """
 
 from application.services.tenant_setup_service import SetupStep
-from pages.admin import AdminAccess, build_admin_tabs
+from pages.admin import ADMIN_GROUP_ORDER, AdminAccess, build_admin_tabs
 
 
 def _steps(*, ready: bool):
@@ -108,8 +108,7 @@ def test_setup_tab_carries_the_root_path_so_its_links_survive_a_tenant_prefix():
 def test_group_order_is_unchanged_by_the_new_tab():
     tabs = build_admin_tabs(STAFF, set(), {}, _steps(ready=False))
     groups = [t['group'] for t in tabs]
-    assert groups == sorted(groups, key=['Operations', 'Online play', 'Community',
-                                         'Integrations', 'System'].index)
+    assert groups == sorted(groups, key=ADMIN_GROUP_ORDER.index)
 
 
 def test_setup_steps_only_link_to_tabs_the_viewer_has():

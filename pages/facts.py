@@ -26,7 +26,7 @@ LEGACY_PATHS = ('/cat-facts', '/hadestown-facts', '/rollercoaster-facts')
 
 
 def create() -> None:
-    @public_page(FACTS_PATH)
+    @public_page(FACTS_PATH, scope='community')
     async def facts() -> None:
         theme = current_theme()
         ui.page_title(theme.title)
@@ -65,6 +65,6 @@ def create() -> None:
                             ui.label(fact)
 
     for legacy in LEGACY_PATHS:
-        @public_page(legacy)
+        @public_page(legacy, scope='community')
         async def legacy_facts(request: Request) -> RedirectResponse:
             return RedirectResponse(f"{request.scope.get('root_path', '')}{FACTS_PATH}")

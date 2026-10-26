@@ -1,5 +1,5 @@
 ---
-title: Community events
+title: Meetups
 slug: community-events
 icon: groups
 order: 67
@@ -7,7 +7,7 @@ feature: COMMUNITY_EVENTS
 summary: Finding meetups and side events attendees are running, getting a reminder or RSVPing, and listing your own.
 ---
 
-Community events are the meetups, panels, side tournaments and board game nights
+Meetups are the get-togethers, panels, side tournaments and board game nights
 attendees run for each other. They aren't part of the official programme, and the
 page says so at the top. Staff don't endorse what's listed. They just give it a
 home.
@@ -16,13 +16,13 @@ You have to be a member of the community to see the list or add to it.
 
 ## Finding events
 
-Open Event on Home and switch to **Community** at the top. You'll see every event
+Open Event on Home and switch to **Meetups** at the top. You'll see every event
 that hasn't finished yet, grouped by day, soonest first. Each card shows the time
 and length, where it is, and who's hosting. An event that's on right now has a
 {chip:live:Happening now} chip.
 
 When new events have gone up since you last looked, the Event tab and the
-**Community** switch both show how many. Those events carry a {chip:new:New} chip
+**Meetups** switch both show how many. Those events carry a {chip:new:New} chip
 while you look through them, and the count clears once you've opened the list.
 Your own events never count as new.
 
@@ -78,7 +78,7 @@ What happens after **Submit** depends on the community.
 The form tells you which one applies before you submit.
 :::
 
-![The Submit a community event form on a phone, scrolled to Length, Where and Description, with the Take RSVPs switch turned on and its Cap (optional) box marked 1, and the Submit button marked 2](/static/help/community-events/submit-phone.webp "Switch on **Take RSVPs** to set a cap (1), then **Submit** (2).")
+![The Submit a meetup form on a phone, scrolled to Length, Where and Description, with the Take RSVPs switch turned on and its Cap (optional) box marked 1, and the Submit button marked 2](/static/help/community-events/submit-phone.webp "Switch on **Take RSVPs** to set a cap (1), then **Submit** (2).")
 
 Your submissions show up under Your events at the bottom of the page, each with
 its status.
@@ -117,7 +117,7 @@ cancelled event, so submit a new one if plans change again.
 This part's for staff. Everyone else can stop here.
 
 :::snippet community-events-review
-Submissions are in Admin → Community Events. You get a DM when a member submits
+Submissions are in Admin → Meetups. You get a DM when a member submits
 one, and its button opens that event's review dialog. The **Show** filter starts on
 *Waiting for review* whenever something's waiting.
 
@@ -141,7 +141,7 @@ The same **Host** field in **Edit** hands an existing event to another member.
 Only members of this community can be picked.
 :::
 
-There are two settings under Admin → Settings → Community Events.
+There are two settings under Admin → Settings → Meetups.
 **Require staff approval** is on by default. Turn it off and members' events are
 listed as soon as they're submitted, though you can still take any of them down.
 **Reminder lead (minutes)** is how long before an event its subscribers get their

@@ -7,13 +7,14 @@ draws boxes. Lane placement and the event-day rule are pure functions so they
 are testable without a database.
 """
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import date, datetime, time, timedelta
 from typing import Any, List, Optional, Sequence, Tuple
 
 from application.repositories import MatchRepository, VolunteerAssignmentRepository
 from application.services.community_event_service import CommunityEventService, ends_at
 from application.services.crew_service import CrewService
+from application.services.event_service import EventService, with_event_name
 from application.services.player_availability_service import PlayerAvailabilityService
 from application.services.system_config_service import SystemConfigService
 from application.utils.timezone import combine_local, local_day_bounds, to_local, to_utc_aware
@@ -144,35 +145,41 @@ class MyTimelineService:
             row['match_id']: row
             for row in await self.crew_service.list_my_commitments(user, upcoming_only=False)
         }
-        items: List[TimelineItem] = []
+        # Each item beside the event it came from: the list spans every live event.
+        sourced: List[Tuple[TimelineItem, Optional[int]]] = []
         for match in await self.match_repository.commitments_for_user(user.id, start, end):
             row = crew.get(match.id)
-            items.append(self._match_item(
+            sourced.append((self._match_item(
                 match, user, row['role'] if row else None, approved=bool(row and row['approved']),
-            ))
+            ), match.event_id))
         if include_shifts:
             for assignment in await self.assignment_repository.list_for_user(user, with_shiftmates=True):
                 shift = assignment.shift
                 if shift.ends_at <= start or shift.starts_at >= end:
                     continue
-                items.append(TimelineItem(
+                sourced.append((TimelineItem(
                     kind=SHIFT,
                     starts_at=to_utc_aware(shift.starts_at),
                     ends_at=to_utc_aware(shift.ends_at),
                     title=shift.position.name if shift.position else 'Volunteer',
                     detail=shift.label or '',
                     assignment=assignment,
-                ))
+                ), shift.event_id))
         if include_community:
             for event, attending in await self.community_service.list_attending(user, start, end):
                 lo = max(to_utc_aware(event.starts_at), start)
                 hi = min(to_utc_aware(ends_at(event)), end)
                 for a, b in split_by_event_day(lo, hi):
-                    items.append(TimelineItem(
+                    sourced.append((TimelineItem(
                         kind=COMMUNITY, starts_at=a, ends_at=b,
                         title=event.title, detail=event.location or '',
                         event_id=event.id, badge=attending, optional=attending == REMINDER,
-                    ))
+                    ), event.event_id))
+        names = await EventService.names_if_mixed(eid for _, eid in sourced)
+        items = [
+            replace(item, detail=with_event_name(item.detail, eid, names)) if eid in names else item
+            for item, eid in sourced
+        ]
         items.sort(key=lambda i: i.starts_at)
         return items
 

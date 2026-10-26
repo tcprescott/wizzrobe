@@ -14,6 +14,7 @@ from theme.chrome import apply_brand_palette, cookie_dark_pref, dark_mode_button
 from theme.connection import install_connection_watch
 from theme.drawer_help import render_drawer_help, render_github_item
 from theme.drawer_nav import render_drawer_nav
+from theme.event_switcher import EventSwitcherState, load_event_switcher, render_event_switcher
 from theme.links import set_link
 from theme.nav_badges import bottom_nav_tab
 from theme.notice import drain_notice
@@ -166,6 +167,9 @@ class BaseLayout:
         # Gates what only a member can use: Feedback, whose submit the service
         # refuses to anyone else, and the home sections on a tab-less page.
         self._is_member = False
+        # The event the page shows, and the events the header's switcher lists
+        # (resolved in prepare()). An empty list draws no switcher.
+        self.events = EventSwitcherState()
         self._prepared = False
         self.top_menu: list[dict] = []
 
@@ -258,6 +262,8 @@ class BaseLayout:
         if self._is_member:
             self._show_check_in = await AuthService.can_view_check_in_desk(self.user)
             self._show_proctor = await AuthService.can_open_proctor_station(self.user)
+        if self._tenant_id is not None and not self._chromeless:
+            self.events = await load_event_switcher(self.user, self._tenant_id)
         await self._load_theme_colors()
         return self
 
@@ -453,6 +459,7 @@ class BaseLayout:
                     FactDialog().open()
 
             ui.label(self._wordmark or 'Wizzrobe').classes('wiz-wordmark').on('click', on_wordmark_tap)
+            render_event_switcher(self)
 
             # Flexible spacer that pushes the user/login controls to the right
             # edge. It must be a real element rather than margin-left:auto on the

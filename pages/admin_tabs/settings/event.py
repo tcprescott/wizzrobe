@@ -1,4 +1,4 @@
-"""Settings → Event: when the event runs, its daily hours, and how much runs at once."""
+"""Event settings → Dates & hours, and → Capacity: when this event runs and how much of it runs at once."""
 
 from datetime import date, timedelta
 
@@ -20,10 +20,10 @@ from theme.section import section_panel
 from theme.steady import steady_refreshable
 
 
-async def event_settings_pane(can_edit: bool) -> None:
-    # Operating hours are the community's rule, so they are written and enforced
-    # on the community's clock, never the admin's, and labelled with that zone so
-    # an admin abroad is not silently reading the numbers as their own time.
+async def dates_and_hours_pane(can_edit: bool) -> None:
+    # Operating hours are the event's rule, so they are written and enforced on
+    # the event's clock, never the admin's, and labelled with that zone so an
+    # admin abroad is not silently reading the numbers as their own time.
     tenant_tz_label = timezone_label(await TimezoneService.tenant_timezone_name())
 
     @steady_refreshable
@@ -96,7 +96,7 @@ async def event_settings_pane(can_edit: bool) -> None:
         'Daily hours', icon='schedule',
         subtitle=(
             f'Matches can only be scheduled to start inside these hours, in '
-            f'{tenant_tz_label}, the community’s own timezone. Leave a day blank '
+            f'{tenant_tz_label}, the event’s own timezone. Leave a day blank '
             f'to allow any time.'
         ),
     )
@@ -123,6 +123,9 @@ async def event_settings_pane(can_edit: bool) -> None:
     with hours.body:
         await hours_rows()
 
+
+
+async def capacity_pane(can_edit: bool) -> None:
     max_players = await SystemConfigService.get_int(KEY_MAX_CONCURRENT_PLAYERS)
     max_stages = await SystemConfigService.get_int(KEY_MAX_CONCURRENT_STAGES)
 

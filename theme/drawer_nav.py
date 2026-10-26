@@ -12,6 +12,7 @@ from typing import TYPE_CHECKING
 from nicegui import ui
 
 from application.tenant_context import tenant_scope
+from theme.event_switcher import event_status_chip
 from theme.nav_badges import drawer_tab_badge, nav_icon
 from theme.nav_section import mark_nav_section, nav_section_matches
 from theme.section_menu import section_menu_provider
@@ -84,7 +85,14 @@ def render_page_items(layout: 'BaseLayout', tabs: list[dict], section_url: str |
     """A section's pages as drawer rows: this page's tabs switch in place
     (``section_url`` None), another section's rows navigate to it."""
     current_group = None
+    current_half = None
     for tab in tabs:
+        # Admin's list has two halves: the event's pages under its name and
+        # status, then the community's under a Community-wide divider.
+        half = tab.get('half')
+        if half and half != current_half:
+            current_half = half
+            render_half_heading(layout, half)
         # Section headers for grouped drawers (admin passes a 'group' per tab);
         # ungrouped sections render a flat list.
         group = tab.get('group')
@@ -108,6 +116,21 @@ def render_page_items(layout: 'BaseLayout', tabs: list[dict], section_url: str |
             if tab['label'] == layout._default_tab:
                 tab_item.props(add='active')
             layout._tab_item_refs[tab['label']] = tab_item
+
+
+def render_half_heading(layout: 'BaseLayout', half: str) -> None:
+    """The row that opens a half of the admin list: the event, or Community-wide."""
+    event = layout.events.current
+    if half == 'event' and event is None:
+        return
+    with ui.element('div').classes(f'wiz-drawer-half wiz-drawer-half--{half}'):
+        if event is not None and half == 'event':
+            ui.icon(nav_icon('event')).props('size=sm')
+            ui.label(event.name).classes('wiz-drawer-half__name')
+            event_status_chip(event.status)
+        else:
+            ui.icon(nav_icon('apartment')).props('size=sm')
+            ui.label('Community-wide').classes('wiz-drawer-half__name')
 
 
 def mark_section_button(layout: 'BaseLayout', url: str) -> None:

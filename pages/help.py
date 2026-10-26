@@ -79,7 +79,7 @@ async def _title(*parts: str) -> str:
 
 
 def create() -> None:
-    @public_page('/help')
+    @public_page('/help', scope='community')
     async def help_index() -> None:
         ui.page_title(await _title('Help'))
         user = await _viewer()
@@ -136,7 +136,7 @@ def create() -> None:
             if not articles:
                 ui.label('No help articles are available.').classes('text-muted')
 
-    @public_page('/help/{slug}')
+    @public_page('/help/{slug}', scope='community')
     async def help_article(slug: str) -> None:
         user = await _viewer()
         article = await HelpService.get_article(slug, user)

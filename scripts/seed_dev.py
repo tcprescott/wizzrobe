@@ -957,7 +957,7 @@ async def seed_all() -> None:
         # colour square, so both header shapes are reachable.
         if slug == 'default':
             await seed_logo_for_tenant(tenant)
-            await seed_events_for_tenant(tenant)
+            await seed_events_for_tenant(tenant, users)
         # Tier first: the per-tenant fixtures below consult the live flags (a
         # service that enforces a flag refuses to seed data for a tenant that
         # lacks the feature), so availability has to be settled before seeding.

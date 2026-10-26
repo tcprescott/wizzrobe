@@ -19,7 +19,7 @@ Telegram can get a copy of every DM too. There's no SMS.
 | Crew | Your signup being approved, and approval being withdrawn |
 | A volunteer | Being assigned a shift, and a reminder before it starts |
 | Watching a match | Every state change on it |
-| Someone who tapped **Remind me** or **RSVP** on a community event | A reminder shortly before it starts, and word if it moves or is cancelled |
+| Someone who tapped **Remind me** or **RSVP** on a meetup | A reminder shortly before it starts, and word if it moves or is cancelled |
 
 ## The buttons on a DM
 
@@ -99,7 +99,7 @@ Silent or Ping. **Reset to preset…** undoes those changes and keeps your pick.
 
 Some messages are off unless you turn them on, like hearing that your opponent
 acknowledged, that you've been given a station, the result of every match in a
-tournament you follow, or a new community event. They say "Off unless you turn it on" under Customize.
+tournament you follow, or a new meetup. They say "Off unless you turn it on" under Customize.
 
 Your community decides what it sends, and you can only make things quieter. If
 it sends a message silently you can't make it ping, and one it switched off

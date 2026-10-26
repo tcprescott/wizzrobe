@@ -28,11 +28,10 @@ from models import (
     MatchAcknowledgment,
     MatchPlayers,
     Stage,
-    SystemConfiguration,
     TournamentPlayers,
     Tracker,
 )
-from tests.factories import utc
+from tests.factories import set_setting, utc
 from tests.services._match_service_setup import make_player, make_staff, make_tournament
 
 pytestmark = pytest.mark.usefixtures("stub_discord_queue")
@@ -187,7 +186,7 @@ class TestCreateMatch:
             )
 
     async def test_within_configured_hours_succeeds(self, service, db):
-        await SystemConfiguration.create(
+        await set_setting(
             name=KEY_TOURNAMENT_HOURS,
             value=json.dumps({"2025-01-15": {"open": "00:00", "close": "23:00"}}),
         )
@@ -204,7 +203,7 @@ class TestCreateMatch:
         assert match.id is not None
 
     async def test_outside_configured_hours_raises(self, service, db):
-        await SystemConfiguration.create(
+        await set_setting(
             name=KEY_TOURNAMENT_HOURS,
             value=json.dumps({"2025-01-15": {"open": "20:00", "close": "23:00"}}),
         )

@@ -14,6 +14,8 @@ import pytest
 from application.services.audit_service import AuditActions
 from application.services.feedback_service import PAGE_URL_MAX_LENGTH, FeedbackService
 from application.services.system_config_service import (
+    EVENT_CONFIG_KEYS,
+    EVENT_DATE_FIELDS,
     KEY_EVENT_END_DATE,
     KEY_EVENT_START_DATE,
     KEY_MAX_CONCURRENT_PLAYERS,
@@ -26,6 +28,7 @@ from application.services.system_config_service import (
 from application.utils.timezone import EASTERN_TZ
 from models import (
     AuditLog,
+    Event,
     Feedback,
     FeedbackCategory,
     FeedbackStatus,
@@ -54,7 +57,15 @@ async def make_user(discord_id: int, username: str = 'user', staff: bool = False
 
 
 async def set_config(name: str, value: str) -> None:
-    await SystemConfiguration.create(name=name, value=value)
+    # The event's own settings live on the default event, written raw so a test
+    # can store what the service would refuse (an end before the start).
+    if name in EVENT_DATE_FIELDS:
+        await Event.filter(tenant_id=1, is_default=True).update(**{EVENT_DATE_FIELDS[name]: date.fromisoformat(value)})
+    elif name in EVENT_CONFIG_KEYS:
+        event = await Event.get(tenant_id=1, is_default=True)
+        await Event.filter(id=event.id).update(config={**(event.config or {}), name: value})
+    else:
+        await SystemConfiguration.create(name=name, value=value)
 
 
 # ---------------------------------------------------------------------------

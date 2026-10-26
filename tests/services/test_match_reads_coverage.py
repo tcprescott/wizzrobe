@@ -21,7 +21,6 @@ from models import (
     MatchPlayers,
     PlayerAvailability,
     Stage,
-    SystemConfiguration,
     Tournament,
     Tracker,
     User,
@@ -32,7 +31,7 @@ UTC = timezone.utc
 Status = VolunteerAvailabilityStatus
 
 
-from tests.factories import utc
+from tests.factories import set_setting, utc
 
 
 def to_display(y, mo, d, h=0, mi=0):
@@ -382,7 +381,7 @@ class TestSuggestMatchTime:
         # Configure hours only for a date outside the event window: every event
         # day is then unconfigured and skipped, leaving no eligible slot.
         unrelated = (today + timedelta(days=1)).isoformat()
-        await SystemConfiguration.create(
+        await set_setting(
             name="tournament_hours_by_date",
             value=json.dumps({unrelated: {"open": "10:00", "close": "14:00"}}),
         )
@@ -403,8 +402,8 @@ def _win(starts_at, ends_at, status):
 
 
 async def _event_window(start, end):
-    await SystemConfiguration.create(name="event_start_date", value=start.isoformat())
-    await SystemConfiguration.create(name="event_end_date", value=end.isoformat())
+    await set_setting(name="event_start_date", value=start.isoformat())
+    await set_setting(name="event_end_date", value=end.isoformat())
 
 
 @pytest.fixture

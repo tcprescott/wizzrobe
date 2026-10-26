@@ -1,6 +1,6 @@
 
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Callable
 
 from nicegui import app, ui
@@ -8,6 +8,7 @@ from nicegui import app, ui
 from application.services import (
     BracketService,
     ChallongeService,
+    EventService,
     FeatureFlagService,
     MatchHardPresetService,
     MatchRescheduleService,
@@ -17,6 +18,7 @@ from application.services import (
     bracket_sources,
     get_user_from_session,
 )
+from application.services.event_service import with_event_name
 from application.services.match.match_reads import (
     RELATION_CREW,
     RELATION_PLAYER,
@@ -158,6 +160,7 @@ class _Pick:
     blocked: str | None = None
     window_text: str | None = None
     if_needed: bool = False
+    event_id: int | None = None
 
 
 def _render_picks(picks: list[_Pick]) -> None:
@@ -460,6 +463,7 @@ async def render_player_dashboard(
                             "Wizzrobe account."
                         ),
                         window_text=await round_schedule.describe_for_challonge_match(cm),
+                        event_id=cm.tournament.event_id,
                     ))
 
                 for x in external:
@@ -472,6 +476,7 @@ async def render_player_dashboard(
                         x.tournament.id, x.tournament.name, x.source_label,
                         x.opponent_name, x.round_label, do_external,
                         window_text=x.window_text, if_needed=x.if_needed,
+                        event_id=x.tournament.event_id,
                     ))
 
                 for bm in matchups:
@@ -510,9 +515,14 @@ async def render_player_dashboard(
                             bm.bracket.tournament_id, bm.bracket.tournament.name, None,
                             opponent_name, _round_label(bm, best_of, position), do_schedule,
                             window_text=window_text, if_needed=if_needed,
+                            event_id=bm.bracket.tournament.event_id,
                         ))
 
-                _render_picks(picks)
+                events = await EventService.names_if_mixed(p.event_id for p in picks)
+                _render_picks([
+                    replace(p, tournament_name=with_event_name(p.tournament_name, p.event_id, events))
+                    for p in picks
+                ])
 
             # The openers only hold this viewer's own open matchups — the
             # listings are already scoped to them — so an id from a forwarded
