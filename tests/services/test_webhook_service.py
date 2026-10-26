@@ -205,6 +205,82 @@ class TestDelivery:
         assert len(enqueued) == 2
 
 
+class TestEventFilter:
+    @pytest.fixture
+    async def events(self, db):
+        from models import Event, EventStatus
+
+        other = await Event.create(tenant_id=1, name='SGL 2027', slug='sgl27', status=EventStatus.LIVE, is_default=False)
+        old = await Event.create(tenant_id=1, name='SGL 2025', slug='sgl25', status=EventStatus.ARCHIVED, is_default=False)
+        return 1, other.id, old.id
+
+    async def test_messages_carry_their_event_and_community_ones_none(self, events):
+        from application.event_context import event_scope
+
+        _, other, _ = events
+        with event_scope(other):
+            match_message = Event.create(EventType.MATCH_CREATED, {})
+            member_message = Event.create(EventType.TENANT_MEMBER_ADDED, {})
+        lifecycle = Event.create(EventType.EVENT_ARCHIVED, {'event_id': 99})
+        assert match_message.event_id == other
+        assert member_message.event_id is None
+        assert lifecycle.event_id == 99
+        assert 'event_id' not in match_message.to_wire()
+
+    async def test_delivery_follows_the_filter(self, events, monkeypatch):
+        from application.event_context import event_scope
+
+        default, other, _ = events
+        await Webhook.create(name='all', url='https://a.example', secret='s', event_types=['*'])
+        await Webhook.create(name='2027', url='https://b.example', secret='s', event_types=['*'], event_ids=[other])
+        enqueued = []
+        monkeypatch.setattr(
+            'application.services.webhook_service.webhook_queue.enqueue',
+            lambda coro: (enqueued.append(coro), coro.close()),
+        )
+        with event_scope(default):
+            await WebhookService().deliver_event(Event.create(EventType.MATCH_CREATED, {}))
+        assert len(enqueued) == 1
+        with event_scope(other):
+            await WebhookService().deliver_event(Event.create(EventType.MATCH_CREATED, {}))
+        assert len(enqueued) == 3
+
+    async def test_the_filter_names_open_events_of_this_community(self, events):
+        default, other, archived = events
+        actor = await _staff()
+        service = WebhookService()
+        hook = await service.create_webhook(
+            actor, name='h', url='https://example.com/hook', event_types=['*'], event_ids=[other, other],
+        )
+        assert hook.event_ids == [other]
+        with pytest.raises(ValueError, match='archived'):
+            await service.update_webhook(actor, hook.id, event_ids=[archived])
+        with pytest.raises(ValueError, match='at least one'):
+            await service.update_webhook(actor, hook.id, event_ids=[])
+        with pytest.raises(ValueError, match='not found'):
+            await service.update_webhook(actor, hook.id, event_ids=[12345])
+        updated = await service.update_webhook(actor, hook.id, event_ids=None)
+        assert updated.event_ids is None
+        kept = await service.update_webhook(actor, hook.id, name='renamed')
+        assert kept.event_ids is None
+
+    async def test_an_event_archived_after_it_was_picked_can_stay(self, events):
+        from application.services.event_service import _clear_cache
+        from models import Event as EventRow
+        from models import EventStatus
+
+        _, other, _ = events
+        actor = await _staff()
+        service = WebhookService()
+        hook = await service.create_webhook(
+            actor, name='h', url='https://example.com/hook', event_types=['*'], event_ids=[other],
+        )
+        await EventRow.filter(id=other).update(status=EventStatus.ARCHIVED)
+        _clear_cache()
+        edited = await service.update_webhook(actor, hook.id, name='renamed', event_ids=[other])
+        assert edited.event_ids == [other]
+
+
 # ---------------------------------------------------------------------------
 # In-app format reference (drift guard against the delivery code)
 # ---------------------------------------------------------------------------

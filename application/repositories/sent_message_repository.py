@@ -38,8 +38,11 @@ class SentMessageRepository:
         statuses: Optional[List[SentMessageStatus]] = None,
         search: Optional[str] = None,
         recipient_id: Optional[int] = None,
+        event_id: Optional[int] = None,
     ) -> QuerySet:
         qs = scoped(SentMessage.all())
+        if event_id is not None:
+            qs = qs.filter(event_id=event_id)
         if start is not None:
             qs = qs.filter(created_at__gte=start)
         if end is not None:
@@ -64,10 +67,11 @@ class SentMessageRepository:
         statuses: Optional[List[SentMessageStatus]] = None,
         search: Optional[str] = None,
         recipient_id: Optional[int] = None,
+        event_id: Optional[int] = None,
         limit: int = 50,
         offset: int = 0,
     ) -> List[SentMessage]:
-        qs = SentMessageRepository._filtered(start, end, statuses, search, recipient_id)
+        qs = SentMessageRepository._filtered(start, end, statuses, search, recipient_id, event_id)
         return await (
             qs.order_by('-created_at', '-id').offset(offset).limit(limit).prefetch_related('recipient')
         )
@@ -79,8 +83,9 @@ class SentMessageRepository:
         statuses: Optional[List[SentMessageStatus]] = None,
         search: Optional[str] = None,
         recipient_id: Optional[int] = None,
+        event_id: Optional[int] = None,
     ) -> int:
-        return await SentMessageRepository._filtered(start, end, statuses, search, recipient_id).count()
+        return await SentMessageRepository._filtered(start, end, statuses, search, recipient_id, event_id).count()
 
     @staticmethod
     async def get(message_id: int) -> Optional[SentMessage]:
@@ -124,10 +129,12 @@ class SentMessageRepository:
         return await SentMessageRepository._for_recipient(user_id, discord_id).filter(id=message_id).first()
 
     @staticmethod
-    async def totals(start: Optional[datetime], end: Optional[datetime]) -> Dict[str, int]:
+    async def totals(
+        start: Optional[datetime], end: Optional[datetime], event_id: Optional[int] = None,
+    ) -> Dict[str, int]:
         """Counts by status, plus ``silent``, over the window, in two grouped queries."""
-        qs = SentMessageRepository._filtered(start, end)
+        qs = SentMessageRepository._filtered(start, end, event_id=event_id)
         rows = await qs.annotate(n=Count('id')).group_by('status').values('status', 'n')
         totals = {str(getattr(r['status'], 'value', r['status'])): r['n'] for r in rows}
-        totals['silent'] = await SentMessageRepository._filtered(start, end).filter(silent=True).count()
+        totals['silent'] = await SentMessageRepository._filtered(start, end, event_id=event_id).filter(silent=True).count()
         return totals

@@ -19,17 +19,18 @@ import logging
 import secrets
 import uuid
 from datetime import datetime, timedelta, timezone
-from typing import Any, Dict, List, Optional
+from typing import Any, Collection, Dict, List, Optional
 from urllib.parse import urlparse
 
 import httpx
 
-from application.errors import require_found
+from application.errors import NotFoundError, require_found
 from application.events import Event, EventType, webhook_queue
 from application.repositories import WebhookDeliveryRepository, WebhookRepository
 from application.services.audit_service import AuditActions, AuditService
 from application.services.auth_service import AuthService
-from application.tenant_context import tenant_scope
+from application.services.event_service import EventService
+from application.tenant_context import require_tenant_id, tenant_scope
 from application.utils.environment import is_production
 from application.utils.ssrf import ensure_public_host, pin_public_url
 from models import User, Webhook, WebhookDelivery
@@ -136,24 +137,31 @@ class WebhookService:
         url: str,
         event_types: List[str],
         is_active: bool = True,
+        event_ids: Optional[List[int]] = None,
     ) -> Webhook:
+        """``event_ids`` limits it to those community events; None sends every event's."""
         await AuthService.ensure(await AuthService.is_staff(actor), "Only Staff can create webhooks")
         name = (name or '').strip()
         if not name:
             raise ValueError("Webhook name is required")
         await self._validate_url(url)
         self._validate_event_types(event_types)
+        event_ids = await self._clean_event_ids(event_ids)
         webhook = await self.repository.create(
             name=name,
             url=url.strip(),
             secret=secrets.token_urlsafe(32),
             event_types=list(event_types),
+            event_ids=event_ids,
             is_active=is_active,
         )
         await self.audit_service.write_log(
             actor,
             AuditActions.WEBHOOK_CREATED,
-            {'webhook_id': webhook.id, 'name': name, 'url': webhook.url, 'event_types': list(event_types)},
+            {
+                'webhook_id': webhook.id, 'name': name, 'url': webhook.url,
+                'event_types': list(event_types), 'event_ids': event_ids,
+            },
         )
         return webhook
 
@@ -166,7 +174,9 @@ class WebhookService:
         url: Optional[str] = None,
         event_types: Optional[List[str]] = None,
         is_active: Optional[bool] = None,
+        event_ids: Any = ...,
     ) -> Webhook:
+        """``event_ids``: a list of community events, None for every event, or left out to keep it."""
         await AuthService.ensure(await AuthService.is_staff(actor), "Only Staff can modify webhooks")
         webhook = await self._require(webhook_id)
         changes: dict[str, Any] = {}
@@ -183,6 +193,10 @@ class WebhookService:
             changes['event_types'] = list(event_types)
         if is_active is not None:
             changes['is_active'] = is_active
+        if event_ids is not ...:
+            cleaned = await self._clean_event_ids(event_ids, kept=webhook.event_ids or ())
+            if cleaned != webhook.event_ids:
+                changes['event_ids'] = cleaned
         if changes:
             webhook = await self.repository.update(webhook, **changes)
             await self.audit_service.write_log(
@@ -267,10 +281,14 @@ class WebhookService:
             return
         for webhook in await self.repository.list_active():
             subscribed = webhook.event_types or []
-            if EventType.WILDCARD in subscribed or event.event_type in subscribed:
-                webhook_queue.enqueue(
-                    _deliver_scoped(self._deliver_one(webhook, event), webhook.tenant_id)
-                )
+            if not (EventType.WILDCARD in subscribed or event.event_type in subscribed):
+                continue
+            # A community-wide message carries no event and passes every filter.
+            if webhook.event_ids is not None and event.event_id not in (None, *webhook.event_ids):
+                continue
+            webhook_queue.enqueue(
+                _deliver_scoped(self._deliver_one(webhook, event), webhook.tenant_id)
+            )
 
     async def _deliver_one(self, webhook: Webhook, event: Event) -> None:
         body = json.dumps(event.to_wire(), default=str, sort_keys=True)
@@ -356,6 +374,28 @@ class WebhookService:
 
     async def _require(self, webhook_id: int) -> Webhook:
         return require_found(await self.repository.get_by_id(webhook_id), "Webhook")
+
+    @staticmethod
+    async def _clean_event_ids(
+        event_ids: Optional[List[int]], kept: Collection[int] = (),
+    ) -> Optional[List[int]]:
+        """None (every event) or the sorted, distinct ids of this community's live or draft events.
+
+        An event archived since it was picked (in ``kept``) may stay, so editing
+        the webhook's name doesn't make staff drop it first.
+        """
+        if event_ids is None:
+            return None
+        if not event_ids:
+            raise ValueError("Pick at least one event, or send every event's updates.")
+        events = {e.id: e for e in await EventService.events_for_tenant(require_tenant_id())}
+        for event_id in event_ids:
+            event = events.get(event_id)
+            if event is None:
+                raise NotFoundError(f'Event {event_id} not found')
+            if event.is_archived and event_id not in kept:
+                raise ValueError(f"{event.name} is archived, so it never sends anything.")
+        return sorted(set(event_ids))
 
     def _validate_event_types(self, event_types: List[str]) -> None:
         if not event_types:

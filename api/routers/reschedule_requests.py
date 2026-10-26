@@ -14,7 +14,7 @@ from typing import List, Optional
 
 from fastapi import APIRouter, Depends, Query, status
 
-from api.dependencies import ServiceErrorRoute, require_api_actor, require_write_actor
+from api.dependencies import ServiceErrorRoute, event_binding, require_api_actor, require_write_actor
 from api.schemas.reschedule_requests import (
     RescheduleApproveRequest,
     RescheduleDeclineRequest,
@@ -22,9 +22,9 @@ from api.schemas.reschedule_requests import (
     RescheduleRequestResponse,
 )
 from application.services import MatchRescheduleService
-from models import User
+from models import Match, MatchRescheduleRequest, User
 
-router = APIRouter(tags=["Reschedule requests"], route_class=ServiceErrorRoute)
+router = APIRouter(tags=["Reschedule requests"], route_class=ServiceErrorRoute, dependencies=[Depends(event_binding(match_id=Match, request_id=MatchRescheduleRequest))])
 
 MAX_ROWS = 500
 

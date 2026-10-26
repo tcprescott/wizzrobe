@@ -22,6 +22,7 @@ from api.schemas.notifications import MyNotificationsResponse
 from application.api_scopes import ApiScope
 from application.services import (
     AuditService,
+    EventService,
     FeedbackService,
     RuntimeStatsService,
     SentMessageService,
@@ -36,6 +37,7 @@ from mcpserver.registry import register
 from mcpserver.schemas import (
     AuditEntry,
     AuditPage,
+    EventFilterArg,
     FeedbackEntry,
     RuntimeStats,
     SentMessageInfo,
@@ -51,12 +53,18 @@ from models import FeatureFlag
 MAX_ROWS = 500
 
 
+async def _event_filter(slug: Optional[str]) -> Optional[int]:
+    """The event a community-wide report narrows to; None keeps all of it."""
+    return await EventService.call_event_id(current_actor().user, slug) if slug else None
+
+
 async def list_audit_log(
     tenant: TenantArg = None,
     start: Optional[str] = None,
     end: Optional[str] = None,
     user_id: Optional[int] = None,
     action_contains: Optional[str] = None,
+    event: EventFilterArg = None,
     limit: int = 50,
     offset: int = 0,
 ) -> AuditPage:
@@ -71,13 +79,12 @@ async def list_audit_log(
 
     service = AuditService()
     actor = current_actor().user
-    total = await service.count_logs(
+    query: Dict[str, Any] = dict(
         actor=actor, start=start_dt, end=end_dt, user_id=user_id, action_contains=action_contains,
+        event_id=await _event_filter(event),
     )
-    logs = await service.list_logs(
-        actor=actor, start=start_dt, end=end_dt, user_id=user_id, action_contains=action_contains,
-        limit=limit, offset=offset,
-    )
+    total = await service.count_logs(**query)
+    logs = await service.list_logs(**query, limit=limit, offset=offset)
     return AuditPage(
         total=total, limit=limit, offset=offset,
         items=[
@@ -97,6 +104,7 @@ async def list_sent_messages(
     user_id: Optional[int] = None,
     search: Optional[str] = None,
     problems_only: bool = False,
+    event: EventFilterArg = None,
     limit: int = 50,
     offset: int = 0,
 ) -> SentMessagePage:
@@ -114,13 +122,14 @@ async def list_sent_messages(
     start_dt, end_dt = parse_ts('start', start), parse_ts('end', end)
     service = SentMessageService()
     actor = current_actor().user
+    event_id = await _event_filter(event)
     query: Dict[str, Any] = dict(
         actor=actor, start=start_dt, end=end_dt, problems_only=problems_only,
-        search=search or None, recipient_id=user_id,
+        search=search or None, recipient_id=user_id, event_id=event_id,
     )
     total = await service.count_messages(**query)
     messages = await service.list_messages(**query, limit=limit, offset=offset)
-    counts = await service.totals(actor=actor, start=start_dt, end=end_dt)
+    counts = await service.totals(actor=actor, start=start_dt, end=end_dt, event_id=event_id)
     return SentMessagePage(
         total=total, limit=limit, offset=offset, counts=counts,
         items=[
@@ -142,6 +151,7 @@ async def telemetry_summary(
     tenant: TenantArg = None,
     start: Optional[str] = None,
     end: Optional[str] = None,
+    event: EventFilterArg = None,
 ) -> Dict[str, Any]:
     """Engagement totals for a window: events, unique users, sessions, page views,
     and distinct MCP and REST API users.
@@ -151,6 +161,7 @@ async def telemetry_summary(
     actor = current_actor()
     return await TelemetryService().engagement_summary(
         actor.user, start=parse_ts('start', start), end=parse_ts('end', end),
+        event_id=await _event_filter(event),
     )
 
 
@@ -161,6 +172,7 @@ async def telemetry_top(
     end: Optional[str] = None,
     limit: int = 15,
     user_id: Optional[int] = None,
+    event: EventFilterArg = None,
 ) -> List[Dict[str, Any]]:
     """Top engagement rows for one dimension: `paths`, `event_types`, `users`,
     `controls` (the tabs, buttons, menu items, dialogs and fields people used,
@@ -186,7 +198,8 @@ async def telemetry_top(
         'api': service.top_api_calls,
         'api_users': service.top_api_users,
     })
-    return await fn(actor.user, start=start_dt, end=end_dt, user_id=user_id, limit=limit)
+    event_id = await _event_filter(event)
+    return await fn(actor.user, start=start_dt, end=end_dt, event_id=event_id, user_id=user_id, limit=limit)
 
 
 async def get_system_config(
@@ -262,12 +275,14 @@ async def list_webhooks(
     Requires staff access. Signing secrets are never returned.
     """
     hooks = await WebhookService().list_webhooks(current_actor().user)
+    slugs = {e.id: e.slug for e in await EventService.events_for_tenant(require_tenant_id())}
     return [
         WebhookInfo(
             id=hook.id,
             name=hook.name,
             url=hook.url,
             event_types=list(hook.event_types or []),
+            events=None if hook.event_ids is None else [slugs[i] for i in hook.event_ids if i in slugs],
             is_active=hook.is_active,
         )
         for hook in hooks

@@ -36,6 +36,22 @@ webhook only ever receives events for its own tenant — `Webhook` rows are
 tenant-scoped and the subscriber delivers to just that tenant's — so the field is
 a stable label, not a filter the receiver must apply.
 
+### Event filter
+
+`Webhook.event_ids` limits a webhook to some of the community's
+[events](events.md): `NULL` (every new webhook, and every existing one but
+"SG Schedule Update", which migration 143 pinned to its community's default
+event) sends every event's messages, including events added later. A message
+carries `Event.event_id` (see [event-system.md](event-system.md#which-event-a-message-is-from));
+`deliver_event` skips a webhook whose list doesn't hold it. A community-wide
+message (`tenant.*`, `oauth_grant.*`) has no event and always passes.
+`WebhookService` refuses an empty list, an unknown event and an archived one.
+
+The wire payload has **no event field yet**: adding `event: {id, slug, name}`
+changes what the outside automation in
+`tests/services/test_webhook_consumer_contract.py` receives, so it waits until
+its author has been told.
+
 Headers (built by `WebhookService.build_delivery_headers` — the single source of
 truth the in-app reference also renders):
 
@@ -102,6 +118,12 @@ sends. Reject requests whose timestamp is too old to defend against replay.
   Delete. A narrow list stacks the same row (a container query, not the
   viewport). The toolbar is **Add webhook** plus an Actions menu holding the
   payload & event reference dialog and Refresh.
+- **Event filter** (Thomas's layout A): the dialog's **From events** is a
+  radio, *All events* (`NULL`) or *Only these events* with a picker of live and
+  draft events (an archived one only when the webhook already has it, which
+  `WebhookService` lets it keep). Each row names its events under the URL.
+  The event-type multiselect is labelled **Updates** so the two don't clash.
+- **REST**: `event_ids` on create and update sets the event filter (above).
 - **REST**: `/api/webhooks` — `GET` (staff), `POST` (staff-write, returns the
   secret once), `GET/PUT/DELETE /{id}`, `POST /{id}/regenerate-secret`,
   `GET /{id}/deliveries`. See [rest-api.md](../reference/rest-api.md).

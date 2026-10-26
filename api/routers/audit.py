@@ -1,11 +1,11 @@
 """Audit log endpoints (read, admin only)."""
 
 from datetime import datetime
-from typing import Optional
+from typing import Any, Optional
 
 from fastapi import APIRouter, Depends, Query
 
-from api.dependencies import ServiceErrorRoute, require_staff
+from api.dependencies import ServiceErrorRoute, event_filter, require_staff
 from api.schemas.audit import AuditLogEntry, AuditLogPage
 from application.services import AuditService
 from application.utils.serialization import decode_json_details
@@ -36,15 +36,14 @@ async def list_audit_logs(
     limit: int = Query(100, ge=1, le=500, description="Maximum entries to return."),
     offset: int = Query(0, ge=0, description="Entries to skip before this page."),
     actor: User = Depends(require_staff),
+    event_id: Optional[int] = Depends(event_filter),
 ):
     service = AuditService()
-    total = await service.count_logs(
-        actor=actor, start=start, end=end, user_id=user_id, action_contains=action_contains,
+    query: dict[str, Any] = dict(
+        actor=actor, start=start, end=end, user_id=user_id, action_contains=action_contains, event_id=event_id,
     )
-    logs = await service.list_logs(
-        actor=actor, start=start, end=end, user_id=user_id, action_contains=action_contains,
-        limit=limit, offset=offset,
-    )
+    total = await service.count_logs(**query)
+    logs = await service.list_logs(**query, limit=limit, offset=offset)
     items = [
         AuditLogEntry(
             id=log.id,

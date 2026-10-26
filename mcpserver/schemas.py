@@ -15,7 +15,7 @@ Every datetime is UTC, as stored. Tools do not localize; the model is told once,
 in the server instructions, rather than per field.
 """
 
-from datetime import datetime
+from datetime import date, datetime
 from decimal import Decimal
 from typing import Annotated, Dict, List, Optional
 
@@ -34,6 +34,24 @@ TenantArg = Annotated[
     Field(description='Community slug, as returned by list_tenants. Required.'),
 ]
 
+# Added by the registry to every event-owned tool rather than declared on each.
+EventArg = Annotated[
+    Optional[str],
+    Field(description=(
+        "Event slug, as returned by list_events. Leave it out for the community's default event. "
+        "A call about one row (a match, a shift) works in that row's event, and naming another "
+        "event answers not_found."
+    )),
+]
+
+EventFilterArg = Annotated[
+    Optional[str],
+    Field(description=(
+        "Only records from this event, by slug (see list_events). Leave it out for the whole "
+        "community: every event, plus records that belong to none."
+    )),
+]
+
 
 class OperationResult(BaseModel):
     """The outcome of a write that has no record to hand back.
@@ -45,6 +63,17 @@ class OperationResult(BaseModel):
 
     ok: bool = True
     detail: str = Field(description='What changed, in one line.')
+
+
+class EventInfo(BaseModel):
+    """One of a community's events."""
+
+    slug: str = Field(description="Pass this as the `event` argument of event-day tools.")
+    name: str
+    status: str = Field(description="draft (staff only until it goes live), live, or archived (read-only).")
+    is_default: bool = Field(description="The event a tool uses when `event` is left out.")
+    starts_on: Optional[date] = None
+    ends_on: Optional[date] = None
 
 
 class TenantInfo(BaseModel):
@@ -64,6 +93,10 @@ class TenantInfo(BaseModel):
             "Optional subsystems this community has switched on. A tool for a "
             "feature absent here reports not_found, so check this before calling."
         ),
+    )
+    events: List[EventInfo] = Field(
+        default_factory=list,
+        description="The community's events you can see, the default first.",
     )
 
 
@@ -697,6 +730,9 @@ class WebhookInfo(BaseModel):
     name: str
     url: str
     event_types: List[str] = Field(default_factory=list)
+    events: Optional[List[str]] = Field(
+        None, description="Slugs of the events whose updates it sends; null sends every event's.",
+    )
     is_active: bool = True
 
 

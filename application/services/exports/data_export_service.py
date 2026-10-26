@@ -21,6 +21,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Dict, List, Optional
 
 from application.errors import require_found
+from application.event_context import event_scope
 from application.repositories import (
     DataExportRepository,
     TenantRepository,
@@ -223,15 +224,21 @@ class DataExportService:
     # --- building (worker side) -------------------------------------------
 
     async def build(self, export: DataExport) -> None:
-        """Build a claimed export inside its own tenant scope. Never raises."""
+        """Build a claimed export inside its own tenant scope. Never raises.
+
+        It reads the event it was asked for in, archived ones included (last
+        year's results are what people export), so the worker binds that event
+        here rather than through ``for_each_tenant_scoped``, which skips them.
+        """
         try:
             actor = await self._requester(export)
-            if export.kind == DataExportKind.TOURNAMENTS:
-                files = await self._build_tournaments(export, actor)
-            elif export.kind == DataExportKind.VOLUNTEERS:
-                files = await self._build_volunteers(export, actor)
-            else:
-                raise ValueError(f'Exports of kind {export.kind.value} are not built in the background.')
+            with event_scope(export.event_id):
+                if export.kind == DataExportKind.TOURNAMENTS:
+                    files = await self._build_tournaments(export, actor)
+                elif export.kind == DataExportKind.VOLUNTEERS:
+                    files = await self._build_volunteers(export, actor)
+                else:
+                    raise ValueError(f'Exports of kind {export.kind.value} are not built in the background.')
         except (ValueError, PermissionError) as exc:
             await self.repository.finish(export.id, status=DataExportStatus.FAILED, error=str(exc)[:500])
             return

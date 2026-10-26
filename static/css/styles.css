@@ -9129,6 +9129,19 @@ ol.wiz-help-list { list-style-type: decimal; }
     white-space: nowrap;
 }
 
+.wiz-webhook-row__scope {
+    margin-top: 2px;
+    font-size: 0.8rem;
+    color: var(--fg-muted);
+}
+
+.wiz-webhook-row__scope-text {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    min-width: 0;
+}
+
 .wiz-webhook-row__events { grid-area: events; min-width: 0; font-size: 0.875rem; }
 
 .wiz-webhook-row__group:not(:last-child)::after { content: " · "; color: var(--fg-muted); }

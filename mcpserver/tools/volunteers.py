@@ -156,16 +156,20 @@ def register_tools(mcp: MCPServer) -> None:
     register(
         mcp, list_volunteer_positions, gate=Gate.ACTOR, scope=ApiScope.SCHEDULE_READ,
         feature=FeatureFlag.VOLUNTEERS, title='List volunteer positions',
+        event=True,
     )
     register(
         mcp, list_volunteer_shifts, gate=Gate.ACTOR, scope=ApiScope.SCHEDULE_READ,
         feature=FeatureFlag.VOLUNTEERS, title='List volunteer shifts',
+        event=True,
     )
     register(
         mcp, volunteer_coverage, gate=Gate.ACTOR, scope=ApiScope.SCHEDULE_READ,
         feature=FeatureFlag.VOLUNTEERS, title='Volunteer coverage',
+        event=True,
     )
     register(
         mcp, volunteer_hour_trends, gate=Gate.VOLUNTEER_ADMIN, scope=ApiScope.STAFF_READ,
         feature=FeatureFlag.VOLUNTEERS, title='Volunteer hour trends',
+        event=True,
     )

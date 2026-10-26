@@ -6,14 +6,14 @@ is the id of the Commentator/Tracker/Broadcaster signup row.
 
 from fastapi import APIRouter, Depends
 
-from api.dependencies import ServiceErrorRoute, require_write_actor
+from api.dependencies import ServiceErrorRoute, event_binding, require_write_actor
 from api.schemas.crew import CrewApprovalRequest
 from api.schemas.detail import DetailResponse
 from application.errors import require_found
 from application.services import CrewService
 from models import User
 
-router = APIRouter(prefix="/crew", tags=["Crew"], route_class=ServiceErrorRoute)
+router = APIRouter(prefix="/crew", tags=["Crew"], route_class=ServiceErrorRoute, dependencies=[Depends(event_binding())])
 
 
 @router.post(

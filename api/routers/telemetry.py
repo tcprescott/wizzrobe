@@ -9,7 +9,7 @@ from typing import List, Literal, Optional
 
 from fastapi import APIRouter, Depends, Query
 
-from api.dependencies import ServiceErrorRoute, require_staff
+from api.dependencies import ServiceErrorRoute, event_filter, require_staff
 from api.schemas.telemetry import TelemetrySummaryResponse, TelemetryTopRow
 from application.services import TelemetryService
 from models import User
@@ -37,8 +37,9 @@ async def summary(
     start: Optional[datetime] = StartQuery,
     end: Optional[datetime] = EndQuery,
     actor: User = Depends(require_staff),
+    event_id: Optional[int] = Depends(event_filter),
 ):
-    return await TelemetryService().engagement_summary(actor, start=start, end=end)
+    return await TelemetryService().engagement_summary(actor, start=start, end=end, event_id=event_id)
 
 
 @router.get(
@@ -61,6 +62,7 @@ async def top(
     limit: int = Query(15, ge=1, le=100, description="Maximum rows to return."),
     user_id: Optional[int] = Query(None, description="Count only this person's rows."),
     actor: User = Depends(require_staff),
+    event_id: Optional[int] = Depends(event_filter),
 ):
     service = TelemetryService()
     fn = {
@@ -71,4 +73,4 @@ async def top(
         'api': service.top_api_calls,
         'api_users': service.top_api_users,
     }[dimension]
-    return await fn(actor, start=start, end=end, user_id=user_id, limit=limit)
+    return await fn(actor, start=start, end=end, event_id=event_id, user_id=user_id, limit=limit)

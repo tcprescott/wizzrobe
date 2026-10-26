@@ -147,6 +147,20 @@ class SystemConfigService:
         return sorted(rows.items())
 
     @staticmethod
+    async def list_event_entries(actor: Optional[User]) -> List[Tuple[str, str]]:
+        """The settings stored on the event in scope as ``(name, value)``, for staff."""
+        await AuthService.ensure(
+            await AuthService.is_staff(actor),
+            "Only Staff can read system configuration",
+        )
+        rows = []
+        for key in sorted(EVENT_CONFIG_KEYS | set(EVENT_DATE_FIELDS)):
+            value = await SystemConfigService._get_event_raw(key)
+            if value is not None:
+                rows.append((key, value))
+        return rows
+
+    @staticmethod
     async def set_raw(key: str, value: str, actor: User) -> SystemConfiguration:
         await AuthService.ensure(
             await AuthService.is_staff(actor),

@@ -10,6 +10,8 @@ decides its annotation, its gate and whether a read-only connection is even
 shown it, so it is the property the layout should make obvious. ``exports`` is
 the one mixed module: queuing an export only writes the request row, never
 community data, so its two write tools sit beside the reads that poll them.
+``events`` is mixed too: the community's events and their lifecycle, read and
+run from one place as Admin → Events does.
 """
 
 from mcp.server.mcpserver import MCPServer
@@ -21,6 +23,7 @@ from mcpserver.tools import (
     competition,
     equipment,
     event_writes,
+    events,
     exports,
     match_writes,
     matches,
@@ -39,6 +42,7 @@ from mcpserver.tools import (
 def register_all(mcp: MCPServer) -> None:
     """Register every tool module onto the server."""
     orientation.register_tools(mcp)
+    events.register_tools(mcp)
     tournaments.register_tools(mcp)
     matches.register_tools(mcp)
     people.register_tools(mcp)

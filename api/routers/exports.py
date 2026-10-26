@@ -4,7 +4,7 @@ from datetime import timezone
 
 from fastapi import APIRouter, Depends, Query, Response
 
-from api.dependencies import ServiceErrorRoute, require_api_actor, require_write_actor
+from api.dependencies import ServiceErrorRoute, event_binding, require_api_actor, require_write_actor
 from api.schemas.exports import (
     ExportInfo,
     ExportList,
@@ -35,6 +35,7 @@ async def list_exports(actor: User = Depends(require_api_actor)):
 
 @router.post(
     "/tournaments",
+    dependencies=[Depends(event_binding())],
     response_model=ExportInfo,
     status_code=202,
     summary="Export tournaments",
@@ -51,6 +52,7 @@ async def export_tournaments(body: TournamentExportRequest, actor: User = Depend
 
 @router.post(
     "/volunteers",
+    dependencies=[Depends(event_binding())],
     response_model=ExportInfo,
     status_code=202,
     summary="Export volunteer data",

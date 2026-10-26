@@ -234,6 +234,7 @@ def register_tools(mcp: MCPServer) -> None:
     register(
         mcp, get_player_availability, gate=Gate.ACTOR, scope=ApiScope.STAFF_READ,
         title='Get player availability',
+        event=True,
     )
-    register(mcp, list_match_crew, gate=Gate.ADMIN, scope=ApiScope.STAFF_READ, title='List match crew')
-    register(mcp, crew_coverage_report, gate=Gate.ADMIN, scope=ApiScope.STAFF_READ, title='Crew coverage report')
+    register(mcp, list_match_crew, gate=Gate.ADMIN, scope=ApiScope.STAFF_READ, title='List match crew', event=True)
+    register(mcp, crew_coverage_report, gate=Gate.ADMIN, scope=ApiScope.STAFF_READ, title='Crew coverage report', event=True)

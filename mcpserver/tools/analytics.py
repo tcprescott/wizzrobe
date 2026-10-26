@@ -184,15 +184,17 @@ async def matches_active_at(
 
 
 def register_tools(mcp: MCPServer) -> None:
-    register(mcp, capacity_forecast, gate=Gate.ADMIN, scope=ApiScope.STAFF_READ, title='Capacity forecast')
+    register(mcp, capacity_forecast, gate=Gate.ADMIN, scope=ApiScope.STAFF_READ, title='Capacity forecast', event=True)
     register(
         mcp, stage_utilization, gate=Gate.ADMIN, scope=ApiScope.STAFF_READ,
         title='Stage utilization',
+        event=True,
     )
-    register(mcp, tournament_health, gate=Gate.ADMIN, scope=ApiScope.STAFF_READ, title='Tournament health')
+    register(mcp, tournament_health, gate=Gate.ADMIN, scope=ApiScope.STAFF_READ, title='Tournament health', event=True)
     register(
         mcp, crew_participation_trends, gate=Gate.ADMIN, scope=ApiScope.STAFF_READ,
         title='Crew participation trends',
+        event=True,
     )
-    register(mcp, activity_trends, gate=Gate.ADMIN, scope=ApiScope.STAFF_READ, title='Activity trends')
-    register(mcp, matches_active_at, gate=Gate.ADMIN, scope=ApiScope.STAFF_READ, title='Matches active at')
+    register(mcp, activity_trends, gate=Gate.ADMIN, scope=ApiScope.STAFF_READ, title='Activity trends', event=True)
+    register(mcp, matches_active_at, gate=Gate.ADMIN, scope=ApiScope.STAFF_READ, title='Matches active at', event=True)

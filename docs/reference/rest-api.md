@@ -63,6 +63,31 @@ Tokens can also be managed programmatically via the `/api/tokens` endpoints (cre
 
 It runs **before** authentication, so unauthenticated floods are capped too. The client IP is always enforced as a ceiling; a *well-formed* bearer token additionally gets its own bucket (keyed by SHA-256 hash, never the raw secret) so one client's traffic is throttled independently below that ceiling. Garbage or rotating bearer values fall through to the IP key — the `wizzrobe_pat_` prefix is public, so bucketing solely on a presented token would let an attacker mint a fresh empty bucket per request. `X-Forwarded-For` is trusted only when `TRUST_PROXY_FORWARDED_FOR` is set, since the header is client-spoofable.
 
+### Events
+
+A token is bound to one community; within it, a call works in one **event**
+([events.md](../features/events.md)).
+
+- **Event-owned routers** (matches, tournaments, brackets, stages, volunteers,
+  check-in, qualifiers, race rooms, reports, seeds, triforce texts, SpeedGaming,
+  crew, payouts, reschedule requests, Discord events) attach
+  `Depends(event_binding(**rows))` from `api/dependencies.py`. It reads an
+  optional `?event=<slug>`; leaving it out keeps the default event. `rows` maps
+  each path parameter that names a row to its model (`match_id=Match`): such a
+  call works in the row's own event, and an `event` that names another one is
+  `404`, the same wall as another community's row. A draft is `404` for anyone
+  `EventService.can_view` refuses. `tests/api/test_event_binding.py` fails when
+  an event-owned router has no binding, or a path parameter is neither mapped
+  nor listed in its `NOT_ROWS`.
+- **A write in an archived event is `409`** (`EventArchivedError`).
+- **Community-wide reports** (audit, sent messages, telemetry) take
+  `Depends(event_filter)` instead: `?event=` narrows the rows to that event and
+  binds nothing; left out, every row comes back, including ones that belong to
+  no event.
+- **Exports** bind the event on `POST /exports/tournaments` and
+  `/exports/volunteers`; the worker builds the export in the event it was asked
+  for in, archived ones included.
+
 ## Architecture
 
 API handlers are a thin presentation layer: they authenticate, then delegate to the **service layer**, passing the token's user as `actor`. Services enforce permissions, validate, write audit logs, and queue Discord notifications — so the API automatically inherits all of that behaviour. Handlers contain no business logic and (aside from simple read lookups) no direct ORM writes.
@@ -190,6 +215,7 @@ Two are **reshaped rather than passed through**, exactly as the matching MCP too
 Engagement telemetry (Staff; `TelemetryService` re-checks that itself).
 - `GET /telemetry/summary?start=&end=` — events, unique users, sessions, page views.
 - `GET /telemetry/top?dimension=&start=&end=&limit=&user_id=` — `dimension` is `paths`, `event_types`, `users`, `controls` (tabs, buttons, menu items, dialogs and fields per page, with distinct users and phone uses), `api` or `api_users`. `user_id` narrows the counts to one person.
+- Both take `event` (a slug) to count one event's rows only.
 
 ### Notifications (`/api/notifications`) · `notifications.py`
 Your own settings; any member. Schemas in [`api/schemas/notifications.py`](../../api/schemas/notifications.py).
@@ -207,7 +233,7 @@ Which messages this community sends, to whom, and whether they ping — the Admi
 - `POST /notification-settings/reset` — clears every override; returns `NotificationSettingsReset {reset}` (how many went back). Audited as `notification_settings.reset`.
 
 ### Sent messages (`/api/sent-messages`) · `sent_messages.py`
-- `GET /sent-messages` — every DM sent in the community, newest first, **Staff only**. Filters: `start`/`end` (UTC), `user_id` (recipient), `search` (text or recipient name), `problems_only` (blocked or failed); paginate with `limit` (1–500, default 50) and `offset`. Response carries `total`, window `counts` (`sent`, `silent`, `off_or_blocked`, `failed`) and each message's per-channel result. `discord_id` is a number, like the rest of REST.
+- `GET /sent-messages` — every DM sent in the community, newest first, **Staff only**. Filters: `start`/`end` (UTC), `user_id` (recipient), `search` (text or recipient name), `problems_only` (blocked or failed), `event` (a slug; `counts` follow it too); paginate with `limit` (1–500, default 50) and `offset`. Response carries `total`, window `counts` (`sent`, `silent`, `off_or_blocked`, `failed`) and each message's per-channel result. `discord_id` is a number, like the rest of REST.
 
 ### Exports (`/api/exports`) · `exports.py`
 Your own data exports ([data-exports.md](../features/data-exports.md)). Only the requester sees an export; anyone else gets `404`.
@@ -218,13 +244,22 @@ Your own data exports ([data-exports.md](../features/data-exports.md)). Only the
 - `GET /exports/{id}/download?format=file|json` — the ZIP (or `tournaments.json`) with `Content-Disposition`; `400` until it's ready.
 
 ### Audit (`/api/audit-logs`) · `audit.py`
-- `GET /audit-logs` — paginated, **Staff only** (the log carries webhook receiver URLs, role grants and accommodation requests). Filters: `start`/`end` (UTC time bounds), `user_id`, `action_contains` (substring match on the action string); paginate with `limit` (1–500, default 100) and `offset` (default 0). Response includes the matching-entry `total`.
+- `GET /audit-logs` — paginated, **Staff only** (the log carries webhook receiver URLs, role grants and accommodation requests). Filters: `start`/`end` (UTC time bounds), `user_id`, `action_contains` (substring match on the action string), `event` (a slug); paginate with `limit` (1–500, default 100) and `offset` (default 0). Response includes the matching-entry `total`.
 
 ### System config (`/api/config`) · `system_config.py`
 - `GET /config` · `GET /config/{key}` · `PUT /config/{key}` (Staff). A write is validated by key with the same rules as the admin page (dates, positive integers, booleans, comp tiers, station format, tournament hours as a JSON object, Discord invite links only); an unknown key or a bad value is `400`.
 
 ### Webhooks (`/api/webhooks`) · `webhooks.py`
-- `GET /webhooks` (Staff) · `POST /webhooks` (Staff-write; response includes the signing `secret` once) · `GET/PUT/DELETE /webhooks/{id}` · `POST /webhooks/{id}/regenerate-secret` (returns a new secret once) · `GET /webhooks/{id}/deliveries`. Staff-managed outbound webhooks; see [webhooks.md](../features/webhooks.md).
+- `GET /webhooks` (Staff) · `POST /webhooks` (Staff-write; response includes the signing `secret` once) · `GET/PUT/DELETE /webhooks/{id}` · `POST /webhooks/{id}/regenerate-secret` (returns a new secret once) · `GET /webhooks/{id}/deliveries`. Staff-managed outbound webhooks; see [webhooks.md](../features/webhooks.md). `event_ids` on create/update limits a webhook to those events (`null` = every event, `[]` is `400`, an archived or unknown event is refused); community-wide messages ignore it.
+
+### Events (`/api/events`) · `events.py`
+The community's events, by slug. Reads list what the caller may see (`EventService.visible_events`: drafts only for staff and that event's role holders); every write is Staff and audited by `EventService`.
+- `GET /events` · `GET /events/{slug}` — `EventResponse {id, slug, name, status, is_default, starts_on, ends_on}`.
+- `POST /events` — body `{name, slug?, starts_on?, ends_on?, copy_from?, copy?}`; `copy_from` is a slug and `copy` the setup groups (`tournaments`, `positions`, `stages`, `check_in`, `discord_roles`). `201` with the draft and what was copied or skipped.
+- `PATCH /events/{slug}` — name, slug (drafts only), dates.
+- `POST /events/{slug}/go-live` · `/make-default` · `/archive` (body `{new_default}` when archiving the default with another live event) · `/unarchive`.
+- `DELETE /events/{slug}` — a draft with no matches; `204`.
+- `GET /events/{slug}/settings` · `PUT /events/{slug}/settings/{key}` — the per-event keys (`SystemConfigService.EVENT_CONFIG_KEYS`), validated like `PUT /config/{key}`; a community-wide key is `400`.
 
 ### API tokens (`/api/tokens`) · `tokens.py`
 - `GET /tokens` · `POST /tokens` · `DELETE /tokens/{id}` — manage your own tokens.

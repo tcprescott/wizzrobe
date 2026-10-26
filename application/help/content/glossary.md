@@ -21,6 +21,10 @@ Acknowledging isn't checking in.
 Checking matches in, flagged results, no-shows, disputes and who may come into
 the room are the admin's call. Everyone else who runs the event is called staff.
 
+**Archived event**: a past event, kept read-only so its brackets and results
+stay up. Nobody can change anything in it, staff included, until staff unarchive
+it. See [Archiving last year's event](/help/staff-events#archiving-last-year-s-event).
+
 **Ask to change**: the item in a match's ⋮ menu on My Schedule that asks staff to
 move or call off one of your matches. Nothing changes until staff answer. Your
 requests and their answers are listed under *Your change requests* on My
@@ -77,15 +81,26 @@ along with staff and the tournament's admin.
 
 ## D–P
 
+**Default event**: the event a link with no event in it opens. A community has
+exactly one, and staff pick it on Admin → Events.
+
 **Display name**: the name people see next to your matches, on stream and in
 crew lists. Set it on your Profile. If you leave it blank, your Discord username
 is used.
+
+**Draft event**: an event staff are still setting up. Only staff, and people
+given a role in it, can see it until it goes live.
 
 **Enrolled / opted in**: see *Signed up*.
 
 **Equipment manager**: the person who runs the equipment desk, lending gear out
 and checking it back in. Staff can do the same. See [Running the equipment
 desk](/help/equipment#running-the-equipment-desk).
+
+**Event**: one run of what a community holds, like SGL 2026: its tournaments,
+matches, stages, shifts and check-in. The header's event button switches
+between them when there's more than one, and the Event tab shows the one you
+picked. See [More than one event](/help/getting-started#more-than-one-event).
 
 **Event check-in**: arriving at the event and picking up your lanyard at the
 check-in desk. Separate from a match's check-in. See [Checking in when you

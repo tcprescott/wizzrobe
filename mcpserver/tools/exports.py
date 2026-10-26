@@ -87,5 +87,5 @@ async def get_export(tenant: TenantArg = None, export_id: int = 0, include_docum
 def register_tools(mcp: MCPServer) -> None:
     register(mcp, list_my_exports, gate=Gate.ACTOR, scope=ApiScope.STAFF_READ, title='List my exports')
     register(mcp, get_export, gate=Gate.ACTOR, scope=ApiScope.STAFF_READ, title='Get an export')
-    register(mcp, export_tournaments, gate=Gate.ACTOR, scope=ApiScope.STAFF_WRITE, title='Export tournaments', write=True)
-    register(mcp, export_volunteer_data, gate=Gate.ACTOR, scope=ApiScope.STAFF_WRITE, title='Export volunteer data', write=True)
+    register(mcp, export_tournaments, gate=Gate.ACTOR, scope=ApiScope.STAFF_WRITE, title='Export tournaments', write=True, event=True)
+    register(mcp, export_volunteer_data, gate=Gate.ACTOR, scope=ApiScope.STAFF_WRITE, title='Export volunteer data', write=True, event=True)

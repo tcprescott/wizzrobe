@@ -11,7 +11,9 @@ from datetime import date, datetime
 from typing import Any, Dict, Iterable, List, Optional, Set
 
 from tortoise.functions import Count
+from tortoise.models import Model
 
+from application.event_writes import event_id_path
 from application.repositories._base import TenantScopedRepository
 from application.repositories._tenant import current_tenant_id, scoped
 from models import (
@@ -132,6 +134,23 @@ class EventRepository(TenantScopedRepository[Event]):
     @staticmethod
     async def match_event_id(match_id: int) -> Optional[int]:
         ids = await scoped(Match.filter(id=match_id)).values_list('event_id', flat=True)
+        return ids[0] if ids else None  # type: ignore[return-value]
+
+    @staticmethod
+    async def row_event_id(model: type[Model], row_id: int) -> Optional[int]:
+        """The event an event-owned row belongs to, None when there's no such row.
+
+        cross-event: the row decides its own event. A model with a ``tenant``
+        is filtered to the community here; the rest are checked by the caller,
+        which looks the event up in the community.
+        """
+        path = event_id_path(model)
+        if path is None:
+            return None
+        query = model.filter(id=row_id)
+        if 'tenant' in model._meta.fk_fields:
+            query = scoped(query)
+        ids = await query.limit(1).values_list(path, flat=True)
         return ids[0] if ids else None  # type: ignore[return-value]
 
     @staticmethod

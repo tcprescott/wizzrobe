@@ -5,7 +5,9 @@ import json
 from nicegui import app, context, ui
 
 from application.events import EventType
-from application.services import WebhookService, get_user_from_session
+from application.services import EventService, WebhookService, get_user_from_session
+from application.services.event_service import EventRef
+from application.tenant_context import require_tenant_id
 from application.utils.timezone import format_local_display
 from theme.dialog._helpers import dialog_actions, form_dialog
 from theme.dialog.confirmation_dialog import ConfirmationDialog
@@ -20,8 +22,8 @@ from theme.tables.admin_crud import capture_render_context, scoped_background, w
 from theme.tables.mobile_grid import enable_mobile_grid
 from theme.tables.preferences import TableKeys
 
-# Event-type options for the multiselect. '*' (all events) is offered first.
-_EVENT_OPTIONS = {EventType.WILDCARD: 'All events (*)'}
+# Update options for the multiselect. '*' (every update) is offered first.
+_EVENT_OPTIONS = {EventType.WILDCARD: 'All updates (*)'}
 _EVENT_OPTIONS.update({name: name for name in sorted(EventType.ALL)})
 
 # Receiver-side verification snippet shown in the payload-format reference.
@@ -87,9 +89,9 @@ def _open_format_reference() -> None:
             'Each attempt is recorded (see Recent deliveries).'
         ).classes('text-caption text-grey q-mt-md')
 
-        ui.label('Events').classes('text-subtitle2 q-mt-md')
+        ui.label('Updates').classes('text-subtitle2 q-mt-md')
         ui.label(
-            f"Subscribe to specific events, or '{ref['wildcard']}' for all:"
+            f"Subscribe to specific updates, or '{ref['wildcard']}' for all:"
         ).classes('text-caption text-grey')
         with ui.column().classes('gap-0'):
             for group, names in ref['events'].items():
@@ -113,12 +115,28 @@ def _event_groups(event_types) -> list[tuple[str, str]]:
     if not event_types:
         return []
     if EventType.WILDCARD in event_types:
-        return [('All events', '')]
+        return [('All updates', '')]
     groups: dict[str, list[str]] = {}
     for name in event_types:
         area, _, action = name.partition('.')
         groups.setdefault(area, []).append(action.replace('_', ' '))
     return [(area, ', '.join(actions)) for area, actions in groups.items()]
+
+
+def _event_label(event: EventRef) -> str:
+    if event.is_draft:
+        return f'{event.name} (Draft)'
+    if event.is_archived:
+        return f'{event.name} (Archived)'
+    return event.name
+
+
+def _events_line(event_ids, events: dict[int, EventRef]) -> str:
+    """Which community events a webhook sends from, for the line under its URL."""
+    if event_ids is None:
+        return 'All events'
+    names = [_event_label(events[i]) for i in event_ids if i in events]
+    return ', '.join(names) or 'No events'
 
 
 async def admin_webhooks_page() -> None:
@@ -135,6 +153,8 @@ async def admin_webhooks_page() -> None:
         )
 
         table_container = ui.column().classes('w-full')
+        # The community's events, by id, refreshed with the list.
+        events: dict[int, EventRef] = {}
 
         async def refresh_table():
             await webhook_list.refresh()
@@ -234,16 +254,35 @@ async def admin_webhooks_page() -> None:
                     ).classes('w-full')
                     events_select = ui.select(
                         options=_EVENT_OPTIONS,
-                        label='Events',
+                        label='Updates',
                         multiple=True,
                         value=existing['event_types'] if is_edit else [],
                     ).props(CHIP_PROPS).classes('w-full')
+                    picked = existing['event_ids'] if is_edit else None
+                    # Archived events send nothing, so they're offered only to
+                    # keep one this webhook already had.
+                    choices = {
+                        e.id: _event_label(e) for e in events.values()
+                        if not e.is_archived or (picked and e.id in picked)
+                    }
+                    ui.label('From events').classes('text-subtitle2 q-mt-sm')
+                    scope = ui.radio(
+                        {'all': 'All events', 'some': 'Only these events'},
+                        value='all' if picked is None else 'some',
+                    ).props('dense')
+                    ui.label('All events includes events added later.').classes('wiz-field-hint')
+                    events_picker = ui.select(
+                        options=choices, label='Events', multiple=True,
+                        value=[i for i in (picked or []) if i in choices],
+                    ).props(CHIP_PROPS).classes('w-full')
+                    events_picker.bind_visibility_from(scope, 'value', backward=lambda v: v == 'some')
                     active_switch = ui.switch(
                         'Active', value=existing['is_active_raw'] if is_edit else True,
                     )
 
                     async def submit():
-                        events = list(events_select.value or [])
+                        updates = list(events_select.value or [])
+                        event_ids = list(events_picker.value or []) if scope.value == 'some' else None
                         try:
                             current = await _current()
                             if is_edit:
@@ -251,7 +290,8 @@ async def admin_webhooks_page() -> None:
                                     current, existing['id'],
                                     name=name_input.value,
                                     url=url_input.value,
-                                    event_types=events,
+                                    event_types=updates,
+                                    event_ids=event_ids,
                                     is_active=active_switch.value,
                                 )
                                 dialog.close()
@@ -262,7 +302,8 @@ async def admin_webhooks_page() -> None:
                                     current,
                                     name=name_input.value,
                                     url=url_input.value,
-                                    event_types=events,
+                                    event_types=updates,
+                                    event_ids=event_ids,
                                     is_active=active_switch.value,
                                 )
                                 dialog.close()
@@ -300,6 +341,8 @@ async def admin_webhooks_page() -> None:
                 except (ValueError, PermissionError) as e:
                     notify_error(e)
                     return
+                events.clear()
+                events.update({e.id: e for e in await EventService.events_for_tenant(require_tenant_id())})
                 if not webhooks:
                     empty_panel('No webhooks yet. Add one to send events to another app.', icon='webhook')
                     return
@@ -311,6 +354,7 @@ async def admin_webhooks_page() -> None:
                             'name': w.name,
                             'url': w.url,
                             'event_types': w.event_types,
+                            'event_ids': w.event_ids,
                             'is_active_raw': w.is_active,
                         }
                         _webhook_row(row, _health_cell(health.get(w.id)), client)
@@ -329,6 +373,9 @@ async def admin_webhooks_page() -> None:
                                 ui.label('Paused').classes('wiz-chip wiz-chip--neutral')
                         url_label = ui.label(row['url']).classes('wiz-webhook-row__url')
                         url_label.props['title'] = row['url']
+                        with ui.row().classes('wiz-webhook-row__scope items-center no-wrap gap-1'):
+                            ui.icon('event', size='14px').props('aria-hidden="true"')
+                            ui.label(_events_line(row['event_ids'], events)).classes('wiz-webhook-row__scope-text')
                     with ui.element('div').classes('wiz-webhook-row__events'):
                         groups = _event_groups(row['event_types'])
                         if not groups:

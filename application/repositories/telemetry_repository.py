@@ -62,6 +62,7 @@ class TelemetryRepository:
         *,
         start: Optional[datetime],
         end: Optional[datetime],
+        event_id: Optional[int] = None,
         category: Optional[str] = None,
         event_type: Optional[str] = None,
         user_id: Optional[int] = None,
@@ -71,6 +72,8 @@ class TelemetryRepository:
         # Scope every read/aggregate to the current tenant (None -> platform
         # rows). Single choke point for list/count/top_* reads.
         query = TelemetryEvent.filter(tenant_id=get_current_tenant_id())
+        if event_id is not None:
+            query = query.filter(event_id=event_id)
         if start is not None:
             query = query.filter(created_at__gte=start)
         if end is not None:
@@ -93,6 +96,7 @@ class TelemetryRepository:
         *,
         start: Optional[datetime] = None,
         end: Optional[datetime] = None,
+        event_id: Optional[int] = None,
         category: Optional[str] = None,
         event_type: Optional[str] = None,
         user_id: Optional[int] = None,
@@ -102,7 +106,7 @@ class TelemetryRepository:
         offset: int = 0,
     ) -> List[TelemetryEvent]:
         query = cls._filtered(
-            start=start, end=end, category=category, event_type=event_type,
+            start=start, end=end, event_id=event_id, category=category, event_type=event_type,
             user_id=user_id, session_id=session_id, path_contains=path_contains,
         )
         query = query.order_by('-created_at', '-id').offset(offset).limit(limit)
@@ -114,6 +118,7 @@ class TelemetryRepository:
         *,
         start: Optional[datetime] = None,
         end: Optional[datetime] = None,
+        event_id: Optional[int] = None,
         category: Optional[str] = None,
         event_type: Optional[str] = None,
         user_id: Optional[int] = None,
@@ -121,7 +126,7 @@ class TelemetryRepository:
         path_contains: Optional[str] = None,
     ) -> int:
         return await cls._filtered(
-            start=start, end=end, category=category, event_type=event_type,
+            start=start, end=end, event_id=event_id, category=category, event_type=event_type,
             user_id=user_id, session_id=session_id, path_contains=path_contains,
         ).count()
 
@@ -130,10 +135,11 @@ class TelemetryRepository:
     @classmethod
     async def count_distinct_users(
         cls, *, start: Optional[datetime] = None, end: Optional[datetime] = None,
+        event_id: Optional[int] = None,
     ) -> int:
         # COUNT(DISTINCT user_id) in the DB — do not transfer the whole distinct
         # set into Python just to len() it.
-        rows = await cls._filtered(start=start, end=end).filter(
+        rows = await cls._filtered(start=start, end=end, event_id=event_id).filter(
             user_id__isnull=False
         ).annotate(c=Count('user_id', distinct=True)).values_list('c', flat=True)
         return rows[0] if rows else 0
@@ -144,10 +150,11 @@ class TelemetryRepository:
         *,
         start: Optional[datetime] = None,
         end: Optional[datetime] = None,
+        event_id: Optional[int] = None,
         category: Optional[str] = None,
     ) -> Dict[str, int]:
         rows = await (
-            cls._filtered(start=start, end=end, category=category)
+            cls._filtered(start=start, end=end, event_id=event_id, category=category)
             .filter(user_id__isnull=False)
             .annotate(c=Count('user_id', distinct=True))
             .group_by('event_type')
@@ -177,10 +184,11 @@ class TelemetryRepository:
     @classmethod
     async def count_distinct_sessions(
         cls, *, start: Optional[datetime] = None, end: Optional[datetime] = None,
+        event_id: Optional[int] = None,
     ) -> int:
         # COUNT(DISTINCT session_id) in the DB — the session set is unbounded
         # over a long window, so never materialize it in Python.
-        rows = await cls._filtered(start=start, end=end).filter(
+        rows = await cls._filtered(start=start, end=end, event_id=event_id).filter(
             session_id__isnull=False
         ).annotate(c=Count('session_id', distinct=True)).values_list('c', flat=True)
         return rows[0] if rows else 0
@@ -191,13 +199,14 @@ class TelemetryRepository:
         *,
         start: Optional[datetime] = None,
         end: Optional[datetime] = None,
+        event_id: Optional[int] = None,
         category: Optional[str] = None,
         user_id: Optional[int] = None,
         limit: int = 15,
     ) -> List[dict]:
         """Most-viewed paths with view + distinct-user counts, busiest first."""
         rows = await (
-            cls._filtered(start=start, end=end, category=category, user_id=user_id)
+            cls._filtered(start=start, end=end, event_id=event_id, category=category, user_id=user_id)
             .filter(path__isnull=False)
             .annotate(views=Count('id'), users=Count('user_id', distinct=True))
             .group_by('path')
@@ -213,11 +222,12 @@ class TelemetryRepository:
         *,
         start: Optional[datetime] = None,
         end: Optional[datetime] = None,
+        event_id: Optional[int] = None,
         user_id: Optional[int] = None,
         limit: int = 20,
     ) -> List[dict]:
         rows = await (
-            cls._filtered(start=start, end=end, user_id=user_id)
+            cls._filtered(start=start, end=end, event_id=event_id, user_id=user_id)
             .annotate(count=Count('id'))
             .group_by('category', 'event_type')
             .order_by('-count')
@@ -232,12 +242,13 @@ class TelemetryRepository:
         *,
         start: Optional[datetime] = None,
         end: Optional[datetime] = None,
+        event_id: Optional[int] = None,
         user_id: Optional[int] = None,
         limit: int = 15,
     ) -> List[dict]:
         """Busiest identified users: event + distinct-session counts."""
         rows = await (
-            cls._filtered(start=start, end=end, user_id=user_id)
+            cls._filtered(start=start, end=end, event_id=event_id, user_id=user_id)
             .filter(user_id__isnull=False)
             .annotate(events=Count('id'), sessions=Count('session_id', distinct=True))
             .group_by('user_id')
@@ -253,13 +264,14 @@ class TelemetryRepository:
         *,
         start: Optional[datetime] = None,
         end: Optional[datetime] = None,
+        event_id: Optional[int] = None,
         category: Optional[str] = None,
         user_id: Optional[int] = None,
         limit: int = 50,
     ) -> List[dict]:
         """Most-used controls: one row per (page, kind of use, control)."""
         rows = await (
-            cls._filtered(start=start, end=end, category=category, user_id=user_id)
+            cls._filtered(start=start, end=end, event_id=event_id, category=category, user_id=user_id)
             .filter(target__isnull=False)
             .annotate(
                 uses=Count('id'),
@@ -279,13 +291,14 @@ class TelemetryRepository:
         *,
         start: Optional[datetime] = None,
         end: Optional[datetime] = None,
+        event_id: Optional[int] = None,
         category: Optional[str] = None,
         user_id: Optional[int] = None,
         limit: int = 50,
     ) -> List[dict]:
         """One row per (surface, tool or route): calls, distinct users, failures."""
         rows = await (
-            cls._filtered(start=start, end=end, category=category, user_id=user_id)
+            cls._filtered(start=start, end=end, event_id=event_id, category=category, user_id=user_id)
             .filter(target__isnull=False)
             .annotate(
                 calls=Count('id'),
@@ -305,13 +318,14 @@ class TelemetryRepository:
         *,
         start: Optional[datetime] = None,
         end: Optional[datetime] = None,
+        event_id: Optional[int] = None,
         category: Optional[str] = None,
         user_id: Optional[int] = None,
         limit: int = 50,
     ) -> List[dict]:
         """One row per (person, surface): calls, distinct tools/routes, last call."""
         rows = await (
-            cls._filtered(start=start, end=end, category=category, user_id=user_id)
+            cls._filtered(start=start, end=end, event_id=event_id, category=category, user_id=user_id)
             .filter(user_id__isnull=False)
             .annotate(
                 calls=Count('id'),

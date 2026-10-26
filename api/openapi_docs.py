@@ -76,6 +76,12 @@ Click **Authorize** above and paste it to try endpoints from this page.
   with a `Retry-After` header giving the seconds to wait.
 - Some sections only work when the community has turned the feature on
   (Admin → Features). Those endpoints say so.
+- **Events.** A community runs events (one weekend each). Event-day
+  endpoints work in the community's default event unless you add
+  `?event=<slug>`; `GET /api/events` lists the slugs. A call about one row (a
+  match, a shift) works in that row's event whatever you pass, and naming a
+  different event answers `404`. An archived event is read-only: writes to it
+  answer `409`.
 
 ## Recipes
 
@@ -137,6 +143,7 @@ TAG_GROUPS: List[tuple[str, List[tuple[str, str]]]] = [
         ('API tokens', 'Your personal API tokens.'),
     ]),
     ('Setup', [
+        ('Events', 'The community\'s events, from draft to live to archived, and each one\'s settings.'),
         ('Tournaments', 'Tournaments, their admins and crew coordinators, and signing up.'),
         ('Payouts', 'Prize pools and payouts per tournament.'),
         ('Webhooks', 'Outbound webhooks that POST to your server when events happen.'),

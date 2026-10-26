@@ -19,6 +19,18 @@ subscribers (presentation) can import it with no cycle.
 | `bus.py` | The core: `subscribe_sync`, `subscribe_async`, `unsubscribe`, `publish`. |
 | `match_live.py` | The narrow predecessor: `(match_id, change_type)` nudges to open UI views. Deliberately **not** re-exported from `__init__.py`, so reaching for it takes an explicit `from application.events import match_live` and can never be mistaken for the bus. Its sibling `check_in_live.py` has the same shape for the check-in desk, `(event_id, entrant_id, change_type)` with `entrant_id=None` on the one `ROSTER` signal a sync sends; desks pass it as `register_view(..., channel=check_in_live)`. Views subscribe through `theme/realtime.register_view`, whose runner re-enters the view's client *and* rebinds NiceGUI's request contextvar to that client's request: the task inherits the publisher's contextvars, so without the rebind `app.storage.user` named the publisher (a staff member approving a move) as every board's viewer. A client whose session has no user storage is skipped. A publisher that changes state in two writes must publish after the last one; `MatchRescheduleService.approve` publishes again once the decision is recorded, and `MatchTableView` serialises single-row updates so an earlier, staler re-fetch cannot land last. |
 
+## Which event a message is from
+
+`Event.event_id` (not on the wire) says which community event a message belongs
+to, so a subscriber can filter by it ([webhooks.md](webhooks.md#event-filter)).
+`Event.create` stamps it: `None` for the community-wide families in
+`COMMUNITY_FAMILIES` (`tenant`, `oauth_grant`, `service_health`;
+`is_event_owned(name)` tells them apart), the payload's own `event_id` for an
+`event.*` lifecycle message, and otherwise the ambient
+`get_current_event_id()`, which a page, REST call, MCP tool or worker has bound.
+A new family that belongs to the community, not an event, goes in
+`COMMUNITY_FAMILIES`.
+
 ## Two kinds of subscriber
 
 - **Sync** (`subscribe_sync`) run **inline** during `publish` and must be fast and

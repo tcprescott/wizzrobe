@@ -42,7 +42,8 @@ async def list_webhooks(actor: User = Depends(require_staff)):
         "Creates a webhook that POSTs the chosen events to the URL, and records it in the audit log. The response "
         "carries the signing secret; it isn't shown again except by rotating it.\n\n"
         "Fails with 400 when the name is blank, the URL isn't https, has no host or points at a private "
-        "or internal address, or the event list is empty or names an unknown event.\n\n"
+        "or internal address, the event list is empty or names an unknown event, or `event_ids` is empty or "
+        "names an archived event (404 for an event id that isn't this community's).\n\n"
         "**Who can call this:** Staff."
     ),
 )
@@ -53,6 +54,7 @@ async def create_webhook(body: WebhookCreate, actor: User = Depends(require_staf
         url=body.url,
         event_types=body.event_types,
         is_active=body.is_active,
+        event_ids=body.event_ids,
     )
 
 
@@ -77,7 +79,8 @@ async def get_webhook(webhook_id: int, actor: User = Depends(require_staff)):
         "Changes only the fields you send and records the change in the audit log. Set `is_active` to false to "
         "pause deliveries without deleting the webhook.\n\n"
         "Fails with 400 when the name is blank, the URL isn't https, has no host or points at a private "
-        "or internal address, or the event list is empty or names an unknown event.\n\n"
+        "or internal address, the event list is empty or names an unknown event, or `event_ids` is empty or "
+        "names an archived event (404 for an event id that isn't this community's).\n\n"
         "**Who can call this:** Staff."
     ),
 )
@@ -91,6 +94,7 @@ async def update_webhook(
         url=body.url,
         event_types=body.event_types,
         is_active=body.is_active,
+        **({'event_ids': body.event_ids} if 'event_ids' in body.model_fields_set else {}),
     )
 
 

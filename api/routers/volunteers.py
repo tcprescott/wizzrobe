@@ -6,7 +6,7 @@ from typing import List
 from fastapi import APIRouter, Depends, Query, status
 
 from api._helpers import load_community_user_or_404
-from api.dependencies import ServiceErrorRoute, require_api_actor, require_write_actor
+from api.dependencies import ServiceErrorRoute, event_binding, require_api_actor, require_write_actor
 from api.schemas.volunteers import (
     AssignRequest,
     AssignResponse,
@@ -31,13 +31,13 @@ from application.services.volunteer.volunteer_call_off_service import VolunteerC
 from application.services.volunteer.volunteer_hours import VolunteerHoursService
 from application.services.volunteer.volunteer_position_service import VolunteerPositionService
 from application.services.volunteer.volunteer_schedule_service import VolunteerScheduleService
-from models import User
+from models import User, VolunteerAssignment, VolunteerPosition, VolunteerShift
 
 router = APIRouter(
     prefix="/volunteers",
     tags=["Volunteers"],
     route_class=ServiceErrorRoute,
-    dependencies=[Depends(require_api_actor)],
+    dependencies=[Depends(event_binding(position_id=VolunteerPosition, shift_id=VolunteerShift, assignment_id=VolunteerAssignment)), Depends(require_api_actor)],
 )
 
 

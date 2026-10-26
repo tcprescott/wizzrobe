@@ -231,6 +231,7 @@ def register_tools(mcp: MCPServer) -> None:
     register(
         mcp, list_triforce_texts, gate=Gate.ACTOR, scope=ApiScope.STAFF_READ,
         feature=FeatureFlag.TRIFORCE_TEXTS, title='List triforce texts',
+        event=True,
     )
     register(
         mcp, list_race_room_profiles, gate=Gate.ACTOR, scope=ApiScope.STAFF_READ,
@@ -239,16 +240,20 @@ def register_tools(mcp: MCPServer) -> None:
     register(
         mcp, list_race_rooms, gate=Gate.ACTOR, scope=ApiScope.STAFF_READ,
         feature=FeatureFlag.RACETIME_ROOMS, title='List open race rooms',
+        event=True,
     )
     register(
         mcp, get_race_room, gate=Gate.ACTOR, scope=ApiScope.SCHEDULE_READ,
         feature=FeatureFlag.RACETIME_ROOMS, title='Get a match race room',
+        event=True,
     )
     register(
         mcp, list_speedgaming_links, gate=Gate.ACTOR, scope=ApiScope.STAFF_READ,
         feature=FeatureFlag.SPEEDGAMING_ETL, title='List SpeedGaming links',
+        event=True,
     )
     register(
         mcp, list_speedgaming_episodes, gate=Gate.ACTOR, scope=ApiScope.STAFF_READ,
         feature=FeatureFlag.SPEEDGAMING_ETL, title='List SpeedGaming episodes',
+        event=True,
     )
