@@ -161,6 +161,10 @@ _EXCLUDED_BY_DESIGN = frozenset({
     AuditActions.OAUTH_APP_DELETED,
     AuditActions.OAUTH_APP_DISABLED,
     AuditActions.OAUTH_APP_ENABLED,
+    # A community's block is staff housekeeping; the grants it ends are
+    # revoked in bulk and already invisible to the app.
+    AuditActions.OAUTH_APP_BLOCKED,
+    AuditActions.OAUTH_APP_UNBLOCKED,
     AuditActions.OAUTH_GRANT_REFRESH_REUSED,
     # Room tokens, for the same reason: the credential a venue machine holds is
     # a security fact, not a domain one.

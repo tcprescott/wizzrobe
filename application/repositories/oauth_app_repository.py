@@ -16,7 +16,8 @@ from datetime import datetime
 from typing import List, Optional
 
 from application.repositories._base import TenantScopedRepository
-from models import ApiToken, OAuthApp, OAuthAppCode, OAuthClientType, User
+from application.repositories._tenant import current_tenant_id, scoped
+from models import ApiToken, OAuthApp, OAuthAppBlock, OAuthAppCode, OAuthClientType, User
 
 
 class OAuthAppRepository(TenantScopedRepository[OAuthApp]):
@@ -135,3 +136,37 @@ class OAuthAppRepository(TenantScopedRepository[OAuthApp]):
     async def purge_expired_codes(now: datetime) -> int:
         """Delete codes past their expiry. cross-tenant housekeeping."""
         return await OAuthAppCode.filter(expires_at__lt=now).delete()
+
+    # --- Community blocks --------------------------------------------------
+
+    @staticmethod
+    async def is_blocked(app_id: int, tenant_id: int) -> bool:
+        """Whether ``tenant_id`` blocks this app.
+
+        The community is an argument: the consent screen and the token endpoint
+        ask about a community they name, not the ambient one.
+        """
+        return await scoped(OAuthAppBlock.filter(app_id=app_id), tenant_id).exists()
+
+    @staticmethod
+    async def blocked_app_ids() -> List[int]:
+        return await scoped(OAuthAppBlock.all()).values_list('app_id', flat=True)  # type: ignore[return-value]
+
+    @staticmethod
+    async def block(app: OAuthApp, actor: User) -> bool:
+        """Block ``app`` in this community; False when it already was."""
+        _, created = await OAuthAppBlock.get_or_create(
+            tenant_id=current_tenant_id(), app=app, defaults={'blocked_by': actor},
+        )
+        return created
+
+    @staticmethod
+    async def unblock(app_id: int) -> bool:
+        return await scoped(OAuthAppBlock.filter(app_id=app_id)).delete() > 0
+
+    @staticmethod
+    async def list_by_ids(app_ids: List[int]) -> List[OAuthApp]:
+        """Apps by id, for a community's connected-apps list. Apps are global."""
+        if not app_ids:
+            return []
+        return await OAuthApp.filter(id__in=app_ids).order_by('name', 'id').prefetch_related('owner')

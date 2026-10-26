@@ -2,7 +2,19 @@
 
 _Backend reference for the `/oauth` authorization server that lets people sign in to outside apps with their Wizzrobe account. Part of the [documentation index](../README.md). The design and work plan live outside the repo; this page describes what the code does._
 
-**Status:** backend only, behind `FeatureFlag.THIRD_PARTY_APPS` (ships dark). The consent screen (`/oauth/consent`), the developer-apps and connected-apps views, per-route scope enforcement on `/api`, per-app rate limits and CORS are later work items. Until the consent page exists, `/oauth/authorize` parks the request and redirects to a path nothing serves yet.
+**Status:** behind `FeatureFlag.THIRD_PARTY_APPS` (ships dark). Backend, per-route scopes and the screens are built; per-app rate limits and CORS are later work items.
+
+## Screens
+
+| Where | File | What |
+|---|---|---|
+| `/oauth/consent?request=<id>` | [`pages/oauth_consent.py`](../../pages/oauth_consent.py) | One card: app, maker, Unverified tag, redirect host, community picker, scopes grouped *Let it see* / *Let it act as you*. Reads start ticked; writes and `staff:*` (tagged Staff) never do. Tenant-less `@ui.page` in `protected_routes`, like the MCP consent page |
+| Profile → Developer apps | [`pages/home_tabs/developer_apps_section.py`](../../pages/home_tabs/developer_apps_section.py) | Folded section beside API tokens. New app asks *What are you building?* (website = confidential with secret, device = public/PKCE), then name, homepage, redirect URLs one at a time, scopes. Secret shown once; ⋮ Edit / Show client ID / Rotate secret / Delete |
+| Profile → API tokens | [`pages/home_tabs/api_tokens_section.py`](../../pages/home_tabs/api_tokens_section.py) | App grants listed with the tokens, tagged App, scope chips, bin disconnects |
+| Admin → Settings → Connected apps | [`pages/admin_tabs/settings/connected_apps.py`](../../pages/admin_tabs/settings/connected_apps.py) | Staff. One row per app connected here with member count (never who); ⋮ Block here / Unblock; switch that turns the flag off for the community after a confirm |
+| `/platform?tab=apps` | [`pages/platform_apps.py`](../../pages/platform_apps.py) | Super admin. Every app with owner, kind, people, communities; ⋮ Enable / Disable (reason) |
+
+**Community block** (`OAuthAppBlock`, one row per community × app): blocking revokes every grant the app holds in that community, hides that community on the consent card, refuses the token endpoint (`invalid_grant`) and the API (401). Other communities are untouched. Audited `oauth_app.blocked` / `oauth_app.unblocked`, no event (the revoked grants already stop the app).
 
 ## Shape
 
@@ -42,8 +54,8 @@ All four share the `/api` rate limiter.
 
 ## Audit and events
 
-Audit: `oauth_app.created/updated/secret_rotated/deleted/disabled/enabled`, `oauth_grant.created/revoked/refresh_reused`. Events: `oauth_grant.created` and `oauth_grant.revoked` (tenant-scoped, payload names the app and scope). App registration is global and stays audit-only.
+Audit: `oauth_app.created/updated/secret_rotated/deleted/disabled/enabled/blocked/unblocked`, `oauth_grant.created/revoked/refresh_reused`. Events: `oauth_grant.created` and `oauth_grant.revoked` (tenant-scoped, payload names the app and scope). App registration is global and stays audit-only.
 
 ## Dev seed
 
-[`scripts/seed_oauth_apps.py`](../../scripts/seed_oauth_apps.py): a confidential `Dev Schedule Bot` and a public `Dev Desktop Client`, both owned by `staff_user`, and per community a read-only grant whose bearer is `wizzrobe_app_devseed_<slug>_local_only_do_not_use`.
+[`scripts/seed_oauth_apps.py`](../../scripts/seed_oauth_apps.py): a confidential `Dev Schedule Bot` and a public `Dev Desktop Client`, a `Dev Blocked App` blocked in every community (so Connected apps shows the Blocked state), all owned by `staff_user`, and per community a read-only grant whose bearer is `wizzrobe_app_devseed_<slug>_local_only_do_not_use`.

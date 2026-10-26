@@ -99,3 +99,33 @@ class OAuthAppCode(Model):
 
     class Meta:
         table = 'oauthappcode'
+
+
+class OAuthAppBlock(Model):
+    """One community's refusal of one app.
+
+    Staff block an app from Admin → Settings → Connected apps: its grants in
+    this community are revoked, the community stops appearing on that app's
+    consent screen, and new codes and refreshes for it are refused here. Other
+    communities are untouched; a platform admin's
+    :attr:`OAuthApp.disabled_at` is the everywhere switch.
+    """
+
+    id = fields.IntField(pk=True)
+    tenant: fields.ForeignKeyRelation = fields.ForeignKeyField(
+        'models.Tenant', related_name='oauth_app_blocks', on_delete=fields.CASCADE,
+    )
+    tenant_id: int
+    app: fields.ForeignKeyRelation = fields.ForeignKeyField(
+        'models.OAuthApp', related_name='blocks', on_delete=fields.CASCADE,
+    )
+    app_id: int
+    blocked_by: fields.ForeignKeyNullableRelation = fields.ForeignKeyField(
+        'models.User', related_name='oauth_app_blocks', on_delete=fields.SET_NULL, null=True,
+    )
+    blocked_by_id: Optional[int]
+    created_at = fields.DatetimeField(auto_now_add=True)
+
+    class Meta:
+        table = 'oauthappblock'
+        unique_together = (('tenant', 'app'),)

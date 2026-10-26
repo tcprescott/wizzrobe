@@ -11,7 +11,7 @@ from typing import List, Optional
 
 from tortoise.expressions import Q
 
-from application.repositories._tenant import current_tenant_id
+from application.repositories._tenant import current_tenant_id, scoped
 from models import ApiToken, ApiTokenOrigin, McpOAuthClient, OAuthApp, User
 
 
@@ -195,6 +195,40 @@ class ApiTokenRepository:
         return await ApiToken.filter(
             oauth_app_id=app_id, origin=ApiTokenOrigin.APP.value, revoked_at=None,
         ).update(revoked_at=when)
+
+    @staticmethod
+    async def app_grant_users_here() -> dict[int, int]:
+        """People holding a live grant in this community, per app id."""
+        rows = await scoped(ApiToken.filter(
+            origin=ApiTokenOrigin.APP.value, revoked_at=None, oauth_app_id__isnull=False,
+        )).values_list('oauth_app_id', 'user_id')
+        users: dict[int, set] = {}
+        for app_id, user_id in rows:
+            users.setdefault(app_id, set()).add(user_id)
+        return {app_id: len(ids) for app_id, ids in users.items()}
+
+    @staticmethod
+    async def revoke_app_grants_here(app_id: int, when: datetime) -> int:
+        """Revoke every live grant of one app in this community."""
+        return await scoped(ApiToken.filter(
+            oauth_app_id=app_id, origin=ApiTokenOrigin.APP.value, revoked_at=None,
+        )).update(revoked_at=when)
+
+    @staticmethod
+    async def app_grant_reach() -> dict[int, tuple[int, int]]:
+        """Per app id: (people holding a live grant, communities they're in).
+
+        cross-tenant: the /platform view of every app, for a super admin.
+        """
+        rows = await ApiToken.filter(
+            origin=ApiTokenOrigin.APP.value, revoked_at=None, oauth_app_id__isnull=False,
+        ).values_list('oauth_app_id', 'user_id', 'tenant_id')
+        users: dict[int, set] = {}
+        tenants: dict[int, set] = {}
+        for app_id, user_id, tenant_id in rows:
+            users.setdefault(app_id, set()).add(user_id)
+            tenants.setdefault(app_id, set()).add(tenant_id)
+        return {app_id: (len(users[app_id]), len(tenants[app_id])) for app_id in users}
 
     @staticmethod
     async def count_app_grant_users(app_id: int) -> int:

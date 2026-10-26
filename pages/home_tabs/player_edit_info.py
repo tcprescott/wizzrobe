@@ -21,6 +21,7 @@ from pages.home_tabs._link_section import render_connected_accounts_section
 from pages.home_tabs.accommodation_section import render_accommodation_section
 from pages.home_tabs.api_tokens_section import render_api_tokens_section
 from pages.home_tabs.challonge_link_section import CONFIG as CHALLONGE_CONFIG
+from pages.home_tabs.developer_apps_section import render_developer_apps_section
 from pages.home_tabs.emergency_contact_section import render_emergency_contact_section
 from pages.home_tabs.equipment import equipment_checkouts_section
 from pages.home_tabs.my_feedback_section import render_my_feedback_section
@@ -507,6 +508,9 @@ async def render_edit_info_tab(focus: str | None = None):
 
             if FeatureFlag.PERSONAL_WEBHOOKS in live:
                 await render_personal_webhooks_section(user)
+
+            if FeatureFlag.THIRD_PARTY_APPS in live:
+                await render_developer_apps_section(user)
 
             # API token management (self-contained; collapsed developer surface).
             await render_api_tokens_section(user)
