@@ -7903,7 +7903,8 @@ ol.wiz-help-list { list-style-type: decimal; }
     font-size: var(--text-sm);
 }
 .player-sheet__seed-head span {
-    color: var(--fg-muted);
+    /* --fg-muted is 4.37:1 on the sunken panel. */
+    color: var(--fg-secondary);
 }
 .player-sheet__seed-who {
     list-style: none;
