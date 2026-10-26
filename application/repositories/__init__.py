@@ -27,6 +27,7 @@ from .check_in_repository import (
     CheckInTierRepository,
     CheckInUserLookupRepository,
 )
+from .commentary_invite_repository import CommentaryInviteRepository
 from .commentator_repository import CommentatorRepository
 from .community_event_repository import (
     CommunityEventRepository,
@@ -115,6 +116,7 @@ __all__ = [
     'CheckInPassRepository',
     'CheckInTierRepository',
     'CheckInUserLookupRepository',
+    'CommentaryInviteRepository',
     'CommentatorRepository',
     'CommunityEventRepository',
     'CommunityEventSeenRepository',

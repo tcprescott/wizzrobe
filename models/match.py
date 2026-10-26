@@ -2,6 +2,7 @@ from tortoise import fields
 from tortoise.models import Model
 
 from .enums import (
+    CommentaryInviteStatus,
     ForfeitReason,
     MatchCommentKind,
     PresetOverride,
@@ -233,12 +234,54 @@ class Commentator(Model):
         'models.User', related_name='approved_commentaries', null=True, on_delete=fields.SET_NULL
     )
     acknowledged_at = fields.DatetimeField(null=True)
+    # Who brought them on as a partner, when they joined through a pair
+    # invite. Staff still approve each commentator on their own; this only
+    # lets the boards say who they came with.
+    invited_by = fields.ForeignKeyField(
+        'models.User', related_name='invited_commentaries', null=True, on_delete=fields.SET_NULL
+    )
     created_at = fields.DatetimeField(auto_now_add=True)
     updated_at = fields.DatetimeField(auto_now=True)
 
     class Meta:
         unique_together = (('match', 'user'),)
         table = 'commentator'
+
+
+class CommentaryInvite(Model):
+    """A commentator asking someone to commentate a match with them.
+
+    Nobody is signed up until the partner accepts; then they get an ordinary
+    ``Commentator`` row (``invited_by`` set) that staff approve on its own.
+    ``dm_channel_id``/``dm_message_id`` are the partner's DM, so it can be
+    edited once the invite is answered or cancelled.
+    """
+
+    id = fields.IntField(pk=True)
+    tenant: fields.ForeignKeyRelation = fields.ForeignKeyField(
+        'models.Tenant', related_name='commentary_invites', on_delete=fields.CASCADE
+    )
+    match: fields.ForeignKeyRelation = fields.ForeignKeyField(
+        'models.Match', related_name='commentary_invites', on_delete=fields.CASCADE
+    )
+    inviter: fields.ForeignKeyRelation = fields.ForeignKeyField(
+        'models.User', related_name='commentary_invites_sent', on_delete=fields.CASCADE
+    )
+    invitee: fields.ForeignKeyRelation = fields.ForeignKeyField(
+        'models.User', related_name='commentary_invites_received', on_delete=fields.CASCADE
+    )
+    status = fields.CharEnumField(
+        CommentaryInviteStatus, default=CommentaryInviteStatus.PENDING, max_length=16
+    )
+    dm_channel_id = fields.BigIntField(null=True)
+    dm_message_id = fields.BigIntField(null=True)
+    responded_at = fields.DatetimeField(null=True)
+    created_at = fields.DatetimeField(auto_now_add=True)
+    updated_at = fields.DatetimeField(auto_now=True)
+
+    class Meta:
+        table = 'commentaryinvite'
+        indexes = (('match', 'status'), ('invitee', 'status'))
 
 
 class Tracker(Model):

@@ -410,6 +410,12 @@ _EXCLUDED_BY_DESIGN = frozenset({
     # booking, which is what a crew subscriber mirrors. The hold itself never
     # reached the bus.
     AuditActions.CREW_MOVED_TO_BOOKING,
+    # A partner invite signs nobody up. Accepting goes through the ordinary
+    # crew signup, which publishes crew.signup_created; an invite still waiting,
+    # declined or cancelled changes no crew a subscriber mirrors.
+    AuditActions.CREW_PARTNER_INVITED,
+    AuditActions.CREW_PARTNER_INVITE_ANSWERED,
+    AuditActions.CREW_PARTNER_INVITE_CANCELLED,
 })
 
 _EVENTLESS_AUDIT_ACTIONS = _EVENT_CANDIDATES | _EXCLUDED_BY_DESIGN

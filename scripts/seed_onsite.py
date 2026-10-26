@@ -15,6 +15,8 @@ this fixture exists to exercise.
 from datetime import date, datetime, timedelta
 
 from models import (
+    CommentaryInvite,
+    CommentaryInviteStatus,
     Commentator,
     Match,
     MatchPlayers,
@@ -158,7 +160,24 @@ async def seed_onsite_for_tenant(
         )
     # Scheduled, on a stage, and inside this tournament's 45-minute lead — the
     # row the stage reminder worker has to find on a freshly seeded database.
-    await make_match("On-Site Stage Call", 0.5, stage=stage3)
+    stage_call = await make_match("On-Site Stage Call", 0.5, stage=stage3)
+    # Pair commentary, both states: on the stage call players[2] is signed up
+    # and waiting on players[3]'s answer (their My Schedule carries the invite);
+    # on the scheduled match players[3] brought players[2], who accepted.
+    await Commentator.get_or_create(match=stage_call, user=players[2], tenant=tenant)
+    await CommentaryInvite.get_or_create(
+        match=stage_call, inviter=players[2], invitee=players[3], tenant=tenant,
+        defaults={"status": CommentaryInviteStatus.PENDING},
+    )
+    paired = await Match.get(title="On-Site Scheduled", tournament=onsite, tenant=tenant)
+    await Commentator.get_or_create(match=paired, user=players[3], tenant=tenant)
+    await Commentator.get_or_create(
+        match=paired, user=players[2], tenant=tenant, defaults={"invited_by": players[3]},
+    )
+    await CommentaryInvite.get_or_create(
+        match=paired, inviter=players[3], invitee=players[2], tenant=tenant,
+        defaults={"status": CommentaryInviteStatus.ACCEPTED, "responded_at": now},
+    )
     await make_match("On-Site In Progress", -1, seated=True, started=True, stations=('4', '8'), stage=stage3)
     # Recorded but not yet confirmed — the admin's review queue.
     await make_match(

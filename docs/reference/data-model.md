@@ -1178,8 +1178,23 @@ Commentary signup for a match, with approval workflow and crew acknowledgment. S
 | `approved` | `BooleanField` | default `False` | |
 | `approved_by` | FK → `User` | null, `SET_NULL` | `related_name='approved_commentaries'`; survives approver deletion |
 | `acknowledged_at` | `DatetimeField` | null | Crew member confirmed the assignment |
+| `invited_by` | FK → `User` | null, `SET_NULL` | `related_name='invited_commentaries'`; the commentator whose partner invite they accepted (migration 130) |
 
 Constraint: `unique_together (('match', 'user'),)`.
+
+#### `CommentaryInvite`
+
+A commentator asking someone to commentate a match with them (pair commentary). Nobody is signed up until the partner accepts; then they get an ordinary `Commentator` row with `invited_by` set. Tenant-scoped. See [match-participation.md](../features/match-participation.md#pair-commentary).
+
+| Field | Type | Null / default | Notes |
+|---|---|---|---|
+| `match` | FK → `Match` | not null, `CASCADE` | `related_name='commentary_invites'`; moved with a crew hold onto its booking |
+| `inviter` / `invitee` | FK → `User` | not null, `CASCADE` | |
+| `status` | `CharEnumField(CommentaryInviteStatus)` | default `pending` | `pending` / `accepted` / `declined` / `cancelled` |
+| `dm_channel_id` / `dm_message_id` | `BigIntField` | null | The partner's invite DM, edited once it's answered or cancelled |
+| `responded_at` | `DatetimeField` | null | |
+
+Indexes: `(match, status)`, `(invitee, status)`.
 
 #### `Tracker`
 

@@ -240,6 +240,7 @@ VIEW_UNWATCH = 'match_watch'
 VIEW_RESCHEDULE_AGREE = 'reschedule_agree'
 VIEW_HARD_PRESET = 'match_hard'
 VIEW_PLAYER_LATE = 'match_late'
+VIEW_PARTNER_INVITE = 'partner_invite'
 
 InteractionHandler = Callable[[discord.Interaction], Awaitable[None]]
 ViewFactory = Callable[..., discord.ui.View]
@@ -597,6 +598,22 @@ class DiscordService(GuildOpsMixin, ScheduledEventsMixin):
         """
         return await self.send_dm(user_id, message, lambda: _view_factories[VIEW_CREW_ACK](crew_type, crew_id), embed=embed, link=link, notice=notice)
 
+    async def send_dm_with_partner_invite_buttons(
+        self,
+        user_id: int,
+        message: str,
+        invite_id: int,
+        embed: Optional[discord.Embed] = None,
+        link: Optional[DMLink] = None,
+        on_sent: Optional[DMSentHook] = None,
+        notice: Optional[NoticeTarget] = None,
+    ) -> Tuple[bool, str]:
+        """Send a DM with Decline and Accept for a commentary partner invite."""
+        return await self.send_dm(
+            user_id, message, lambda: _view_factories[VIEW_PARTNER_INVITE](invite_id),
+            embed=embed, link=link, on_sent=on_sent, notice=notice,
+        )
+
     async def send_dm_with_volunteer_acknowledgment_button(
         self,
         user_id: int,
@@ -738,6 +755,9 @@ class MockDiscordService(MockGuildOpsMixin, MockScheduledEventsMixin):
 
     async def send_dm_with_crew_acknowledgment_button(self, user_id: int, message: str, crew_type: str, crew_id: int, embed: Optional["discord.Embed"] = None, link: Optional[DMLink] = None, notice: Optional[NoticeTarget] = None) -> Tuple[bool, str]:
         return await self.send_dm(user_id, message, embed=embed, link=link, notice=notice)
+
+    async def send_dm_with_partner_invite_buttons(self, user_id: int, message: str, invite_id: int, embed: Optional["discord.Embed"] = None, link: Optional[DMLink] = None, on_sent: Optional[DMSentHook] = None, notice: Optional[NoticeTarget] = None) -> Tuple[bool, str]:
+        return await self.send_dm(user_id, message, embed=embed, link=link, on_sent=on_sent, notice=notice)
 
     async def send_dm_with_volunteer_acknowledgment_button(self, user_id: int, message: str, assignment_id: int, embed: Optional["discord.Embed"] = None, link: Optional[DMLink] = None, notice: Optional[NoticeTarget] = None) -> Tuple[bool, str]:
         return await self.send_dm(user_id, message, embed=embed, link=link, notice=notice)

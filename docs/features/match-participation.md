@@ -92,6 +92,27 @@ by a path that skipped the hand-over is absorbed the next time the list loads,
 and a hold everyone withdrew from is deleted. Crew get no DM of their own when
 the match is booked: the stage-only rule above still holds.
 
+### Pair commentary
+
+On a match whose tournament wants two or more commentators, a signed-up
+commentator can invite a partner (`CommentaryInviteService.invite`, from
+**Invite a partner** in their own tray on the player run sheet). The partner gets
+a `crew_partner_invite` DM with Decline / Accept buttons (`discordbot/partner_invite.py`)
+and the same pair under Commentary invites on My Schedule. Accepting calls the
+ordinary `CrewService.signup_crew` (or `CrewHoldService.signup` on a crew hold),
+so every signup rule applies and staff approve each commentator separately; the
+new row's `Commentator.invited_by` lets the boards print "with *inviter*". The
+inviter gets a silent `crew_partner_answered` DM either way.
+
+One partner per inviter per match: a waiting invite, or an accepted partner
+still on commentary, blocks another. Invites are capped at ten an hour per
+person. When the inviter withdraws (or staff remove them), an accepted partner
+stays signed up and every waiting invite is cancelled, with the partner's DM
+edited to say so (`CrewService._cancel_partner_invites`). A crew hold's invites
+move onto the booking with its crew. Invite, answer and cancel are audited
+(`crew.partner_*`) but publish no event: accepting already publishes
+`crew.signup_created`.
+
 **Approving checks for a clash.** `find_scheduling_conflicts` answers, in one
 query across all three roles, what else the person is committed to in the
 match's window (the tournament's `average_match_duration`, or 90 minutes), and

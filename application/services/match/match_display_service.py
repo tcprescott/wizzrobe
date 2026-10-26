@@ -14,6 +14,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from application.content import parse_user_blocks, plain_text
 from application.repositories import (
+    CommentaryInviteRepository,
     MatchAcknowledgmentRepository,
     MatchRepository,
     MatchStreamVolunteerRepository,
@@ -109,6 +110,7 @@ class MatchDisplayService:
         )
         await self._attach_site_results([row], [match])
         await self._attach_set_labels([row], [match])
+        await self._attach_partner_invites([row])
         return row
 
     async def get_matches_for_display(
@@ -177,7 +179,20 @@ class MatchDisplayService:
         ]
         await self._attach_site_results(rows, matches)
         await self._attach_set_labels(rows, matches)
+        await self._attach_partner_invites(rows)
         return rows
+
+    @staticmethod
+    async def _attach_partner_invites(rows: List[Dict[str, Any]]) -> None:
+        """Each row's commentary partner invites still waiting on an answer, one query."""
+        invites = await CommentaryInviteRepository.pending_by_match([r['id'] for r in rows])
+        for row in rows:
+            row['partner_invites'] = [{
+                'id': invite.id,
+                'inviter_id': invite.inviter_id,
+                'inviter_discord_id': str(invite.inviter.discord_id) if invite.inviter.discord_id else None,
+                'invitee': invite.invitee.preferred_name,
+            } for invite in invites.get(row['id'], [])]
 
     @staticmethod
     async def _attach_set_labels(rows: List[Dict[str, Any]], matches: List[Match]) -> None:
@@ -559,9 +574,16 @@ class MatchDisplayService:
                     'acknowledged': c.acknowledged_at is not None,
                     'ack_ts': format_local_display(c.acknowledged_at) if c.acknowledged_at else '',
                     'id': c.id,
+                    # The commentator who invited them, while that one's still on.
+                    'invited_by_id': c.invited_by_id,
+                    'with': next((o.user.preferred_name for o in match.commentators
+                                  if c.invited_by_id and o.user_id == c.invited_by_id), ''),
                 }
                 for c in match.commentators
             ],
+            # Commentators the tournament wants, stage or not: two or more and a
+            # commentator can bring a partner while there's a seat left.
+            'commentary_seats': (match.tournament.required_commentators or 0) if match.tournament else 0,
             'trackers': [
                 {
                     'name': t.user.preferred_name,

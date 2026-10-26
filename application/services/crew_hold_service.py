@@ -20,7 +20,12 @@ from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Tuple
 
 from application.events import Event, EventType, event_bus, match_live
-from application.repositories import CommentatorRepository, MatchRepository, TrackerRepository
+from application.repositories import (
+    CommentaryInviteRepository,
+    CommentatorRepository,
+    MatchRepository,
+    TrackerRepository,
+)
 from application.repositories.bracket_repository import BracketRepository
 from application.repositories.challonge_repository import ChallongeRepository
 from application.repositories.startgg_repository import StartggRepository
@@ -191,6 +196,7 @@ class CrewHoldService:
                     continue
                 await repository.move_to_match(crew, match)
                 moved.append((role, crew))
+        await CommentaryInviteRepository.move_to_match(hold.id, match.id)
         await self.repository.delete(hold)
         actor = actor or await UserService().get_system_user()
         await self.audit_service.write_log(actor, AuditActions.CREW_MOVED_TO_BOOKING, {

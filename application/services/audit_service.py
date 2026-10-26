@@ -94,6 +94,9 @@ class AuditActions:
     CREW_APPROVAL_CHANGED = 'crew.approval_changed'
     CREW_ACKNOWLEDGED = 'crew.acknowledged'
     CREW_MOVED_TO_BOOKING = 'crew.moved_to_booking'
+    CREW_PARTNER_INVITED = 'crew.partner_invited'
+    CREW_PARTNER_INVITE_ANSWERED = 'crew.partner_invite_answered'
+    CREW_PARTNER_INVITE_CANCELLED = 'crew.partner_invite_cancelled'
 
     # Tournament
     TOURNAMENT_CREATED = 'tournament.created'

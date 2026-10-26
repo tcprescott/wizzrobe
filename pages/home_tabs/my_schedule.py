@@ -34,6 +34,7 @@ from application.utils.app_links import HOME_SCHEDULE, HOME_TOURNAMENTS, home_ur
 from models import FeatureFlag
 from pages.home_tabs.availability import AVAILABILITY_SECTION_ID, availability_tab
 from pages.home_tabs.availability_reminder import render_availability_reminder
+from pages.home_tabs.crew_invites import crew_invites_section
 from pages.home_tabs.my_crew import my_crew_tab
 from pages.home_tabs.my_timeline import my_timeline_view
 from pages.home_tabs.my_volunteer_shifts import my_volunteer_shifts_section
@@ -158,7 +159,8 @@ async def my_schedule_tab(
 
     async def list_view() -> None:
         plays, links = applies[0], dict(state_links)
-        drew = False
+        # Someone waiting on an answer from the viewer comes before everything.
+        drew = await crew_invites_section(on_change=recheck_soon)
         if plays or any(v is not None for v in links.values()):
             await render_player_dashboard(**links)
             drew = True

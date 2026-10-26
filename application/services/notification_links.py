@@ -29,6 +29,7 @@ from typing import Any, Optional
 from application.services.notification_catalog import CATALOG, NoticeTarget
 from application.tenant_context import get_current_tenant_id
 from application.utils.app_links import (
+    HOME_MY_CREW,
     HOME_SCHEDULE,
     HOME_TOURNAMENTS,
     SCHEDULE,
@@ -220,6 +221,11 @@ async def crew_match(
     "No matches to show yet".
     """
     return await link_for(label, crew_match_url(match_id))
+
+
+async def crew_invites(*, label: str = 'Open your invites') -> Optional[DMLink]:
+    """My Schedule, whose first card lists the commentary invites waiting on the reader."""
+    return await link_for(label, home_url(HOME_MY_CREW))
 
 
 def race_room(url: str, *, label: str = 'Join the race room') -> Optional[DMLink]:
