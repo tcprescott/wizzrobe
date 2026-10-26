@@ -1,6 +1,6 @@
 """Admin Dashboard Page"""
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Optional
 
 from fastapi import Request
@@ -36,6 +36,7 @@ from pages.admin_tabs.admin_settings import admin_stages_page, admin_tournaments
 from pages.admin_tabs.admin_setup import admin_setup_page
 from pages.admin_tabs.admin_shift_board import admin_shift_board_page
 from pages.admin_tabs.admin_speedgaming import admin_speedgaming_page
+from pages.admin_tabs.admin_stream_layouts import admin_stream_layouts_page
 from pages.admin_tabs.admin_users import admin_users_page
 from pages.admin_tabs.admin_volunteer_roster import admin_volunteer_roster_page
 from pages.admin_tabs.admin_volunteers import admin_volunteers_page
@@ -135,6 +136,9 @@ def build_admin_tabs(
         admin_tournament_ids=access.admin_tournament_ids,
         crew_tournament_ids=access.crew_tournament_ids,
     )
+    # Pinning a match to its stage's OBS overlay rides on the board's match sheet.
+    if (is_staff or is_sm) and FeatureFlag.STREAM_LAYOUTS in live:
+        board_access = replace(board_access, pin_overlay=True)
     # Staff and the stream manager operate community-wide; a TA/CC's authority is
     # per tournament, so their board is narrowed to the ones they run rather than
     # showing every match in the community with controls that refuse.
@@ -182,6 +186,9 @@ def build_admin_tabs(
         tabs.append({'label': 'Tournaments', 'icon': 'emoji_events', 'group': RUN_THE_EVENT, 'content': admin_tournaments_page})
     if is_staff or access.is_stream_manager:
         tabs.append({'label': 'Stages', 'icon': 'tv', 'group': RUN_THE_EVENT, 'content': admin_stages_page})
+    if (is_staff or access.is_stream_manager) and FeatureFlag.STREAM_LAYOUTS in live:
+        tabs.append({'label': 'Stream Layouts', 'icon': 'live_tv', 'group': RUN_THE_EVENT,
+                     'content': admin_stream_layouts_page})
     if is_staff and FeatureFlag.EVENT_CHECK_IN in live:
         tabs.append({'label': 'Check-in Roster', 'icon': 'fact_check', 'group': RUN_THE_EVENT, 'aliases': ('check-in',), 'content': admin_check_in_page})
     # A tournament admin belongs here: posting their event's payout block is the

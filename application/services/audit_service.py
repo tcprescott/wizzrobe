@@ -230,6 +230,14 @@ class AuditActions:
     EMERGENCY_CONTACT_SAVED = 'emergency_contact.saved'
     EMERGENCY_CONTACT_REMOVED = 'emergency_contact.removed'
     EMERGENCY_CONTACT_VIEWED = 'emergency_contact.viewed'
+    # Stream layouts (OBS overlays)
+    STREAM_LAYOUT_CREATED = 'stream_layout.created'
+    STREAM_LAYOUT_UPDATED = 'stream_layout.updated'
+    STREAM_LAYOUT_DELETED = 'stream_layout.deleted'
+    STAGE_OVERLAY_UPDATED = 'stage_overlay.updated'
+    STAGE_OVERLAY_PINNED = 'stage_overlay.pinned'
+    STAGE_OVERLAY_UNPINNED = 'stage_overlay.unpinned'
+    STAGE_OVERLAY_LINK_RENEWED = 'stage_overlay.link_renewed'
 
     # Equipment lending
     EQUIPMENT_CREATED = 'equipment.created'
