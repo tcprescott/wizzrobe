@@ -417,6 +417,7 @@ question. `list_race_rooms` follows the same shape: the service's
 |---|---|---|
 | `list_brackets`, `get_bracket`, `list_bracket_matches` | ACTOR | `BRACKETS` |
 | `list_bracket_entrants`, `get_bracket_standings` | ACTOR | `BRACKETS` |
+| `get_tournament_bracket` | ACTOR (entrants' `user_id` only for Staff and the tournament's admins) | the tournament's bracket site: `BRACKETS`, `STARTGG` or `CHALLONGE` |
 | `list_async_qualifiers`, `get_async_qualifier` | ACTOR (admins get every qualifier they run and its pools; members get the open ones, without pools, as `/qualifiers` shows them) | `ASYNC_QUALIFIERS` |
 | `get_async_qualifier_leaderboard` | ACTOR | `ASYNC_QUALIFIERS` |
 | `list_async_qualifier_live_races` | ACTOR | `ASYNC_QUALIFIERS` |
@@ -429,6 +430,19 @@ the public pages and REST ([brackets.md](brackets.md#public-access--anonymous-an
 `list_bracket_matches` resolves entry ids to entrant names from two list reads
 rather than prefetching per match: a fixed pair of queries covers the whole
 field, whatever its size.
+
+`get_tournament_bracket` (`BracketOverviewService`, mirrored by REST
+`GET /tournaments/{id}/bracket`) is the whole bracket in one shape, whichever
+site runs it: phases, pools, sets with both sides, feeders (`from_set_id` /
+`from_outcome`) and where the result goes (`winner_to` / `loser_to`), scores,
+the booked Wizzrobe games, and standings. It registers with no `feature=`
+because the tournament decides which flag applies; the delegated gated reads
+(`BracketService`, `StartggService.get_event_view`,
+`ChallongeService.get_bracket_mirror`) raise `not_found` when that flag is off.
+start.gg and Challonge come from the synced mirror only, never a live call
+(Challonge's API is metered), so Challonge scores come from confirmed bookings.
+Filters (`phase`, `pool`, `state`, `entrant`, `include_sets`) trim sets but not
+pool counts or standings.
 
 ## Writes
 
