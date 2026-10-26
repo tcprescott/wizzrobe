@@ -213,13 +213,13 @@ PLAYER_COMMENT = _notice(
 )
 PLAYER_LATE = _notice(
     'player_late', 'Matches', 'Player running late',
-    'A player taps Running late on their match',
+    "A player taps Tell staff I'm late on their match",
     {ON_DUTY: PING, ADMINS: PING, STAFF: PING},
     {ON_DUTY: _ON_SHIFT, ADMINS: _TOURNAMENT_ADMINS, STAFF: _FALLBACK},
 )
 PLAYER_LATE_ON_STAGE = _notice(
     'player_late_on_stage', 'Matches', 'Player running late (Broadcast Techs)',
-    'A player taps Running late on a match that has a stage',
+    "A player taps Tell staff I'm late on a match that has a stage",
     {ON_DUTY: PING, STAFF: PING},
     {ON_DUTY: 'Broadcast Techs holding a volunteer shift right now',
      STAFF: 'Every Broadcast Tech, only when none is on shift'},
@@ -379,7 +379,7 @@ SHIFT_REMINDER = _notice(
     "Before a shift, at the community's reminder lead", {VOLUNTEERS: PING},
 )
 SHIFT_STARTING = _notice(
-    'shift_starting', 'Volunteer shifts', 'Shift starting (I\'m here / Running late)',
+    'shift_starting', 'Volunteer shifts', "Shift starting (I'm here / Tell staff I'm late)",
     'At shift start, if the volunteer has not checked in', {VOLUNTEERS: PING},
 )
 SHIFT_GIVEN_BACK = _notice(
@@ -390,7 +390,7 @@ SHIFT_GIVEN_BACK = _notice(
 )
 VOLUNTEER_LATE = _notice(
     'volunteer_late', 'Volunteer shifts', 'Volunteer running late',
-    'A volunteer taps Running late',
+    "A volunteer taps Tell staff I'm late",
     {ON_DUTY: PING, ADMINS: PING, STAFF: PING},
     {ON_DUTY: _ON_SHIFT_ROSTER, ADMINS: 'Volunteer coordinators', STAFF: _FALLBACK},
 )

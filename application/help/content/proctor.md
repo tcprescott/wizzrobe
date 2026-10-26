@@ -37,7 +37,7 @@ with the station each one's sitting at, the stage, and a button for the next
 step: **Check in**, **Roll seed**, **Start** or **Finish**. Press it and that
 step's dialog opens, just like anywhere else in the app. Once a match is checked
 in, its line also shows the seed, as the link and its code or as Seed not
-rolled. A player who tapped **Running late** gets a tag on the line, like
+rolled. A player who tapped **Tell staff I'm late** gets a tag on the line, like
 {chip:pending:Player One ~20 min late · said 09:41}, until the match is checked in. The time and the stage are what you call out across the room.
 
 Tap anywhere else on a line to open the match's details. They start with a

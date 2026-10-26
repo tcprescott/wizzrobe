@@ -218,7 +218,7 @@ def mark_my_late(row: dict, discord_id) -> None:
         me and not mine and row.get('late_window') and row.get('state') == 'Scheduled'
         and not row.get('is_racetime'))
     if mine:
-        row['_status'] = f"Running {mine['tag']}"
+        row['_status'] = f"Staff know: {mine['tag']}"
         row['_tone'] = 'pending'
 
 
@@ -301,7 +301,7 @@ _LATE_CHIP = r'''<div v-if="props.row._my_late" class="player-sheet__late"><span
 _LATE_UNDO = r'''<q-btn v-if="props.row._my_late" flat no-caps no-wrap color="primary" dense label="Undo"
        aria-label="Undo running late" @click.stop="$parent.$emit('take_back_late', props.row)" />'''
 _LATE = r'''<q-btn v-if="props.row._can_late" outline no-caps no-wrap color="primary" dense icon="schedule"
-       label="Running late" @click.stop="$parent.$emit('running_late', props.row)">
+       label="Tell staff I'm late" @click.stop="$parent.$emit('running_late', props.row)">
     <q-tooltip>Tell staff on duty you're on your way</q-tooltip>
 </q-btn>'''
 
@@ -418,7 +418,7 @@ _BODY_SLOT = r'''
 # buttons sit beside it rather than inside it (a button can't hold buttons).
 # The status chip leads the tray below, the way it heads desktop's Status
 # column: beside the names it squeezed them to a letter a line.
-# Running late says so in the tray, beside its Undo.
+# Staff know says so in the tray, beside its Undo.
 _HEAD_STATUS = STATUS_WORD.replace('<span ', '<span v-if="!props.row._my_late" ', 1)
 _ITEM_SLOT = r'''
 <div class="run-sheet__item">

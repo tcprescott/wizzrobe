@@ -70,7 +70,7 @@ Once a shift is yours, the bot sends you a Discord DM:
 |---|---|---|
 | Volunteer shift assigned | A coordinator puts you on a shift. | Tap **Acknowledge** to say you'll cover it. |
 | Volunteer shift reminder | Before it starts (an hour, unless your community set a different lead). | Nothing, if you're coming. If you can't, its **Can't make it** button opens that shift's give-back dialog. |
-| Your shift is starting | When the shift starts, unless you've already said you're here. | Tap **I'm here** once you're at your post. **Running late** asks how late (about 10, about 20, or 30 minutes or more) and tells your coordinator, and you keep the shift. **I can't make it** asks for an optional reason and gives the shift back. |
+| Your shift is starting | When the shift starts, unless you've already said you're here. | Tap **I'm here** once you're at your post. **Tell staff I'm late** asks how late (about 10, about 20, or 30 minutes or more) and tells your coordinator, and you keep the shift. **I can't make it** asks for an optional reason and gives the shift back. |
 | Volunteer shift moved | Its start or end time changes. | Tap **Acknowledge** again. Saying yes to the old time doesn't count for the new one. |
 | Volunteer shift removed | A coordinator takes you off it. | Nothing. It's gone from My Schedule. |
 

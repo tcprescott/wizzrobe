@@ -592,9 +592,9 @@ Display rows carry `late` (only until check-in) and `late_window`. Staff boards
 `run-sheet__late` tags and as Needs you → Running late items, which list a late
 match before its start time too. Every other board runs `keep_own_late_only`,
 so the opponent's browser never receives the heads-up; the viewer's own entry
-becomes the player run sheet's `Running ~20 min` status chip with Undo, and
-`_can_late` draws the **Running late** button that opens `RunningLateDialog`.
-The stage reminder DM gives players a **Running late** button
+becomes the player run sheet's `Staff know: ~20 min` status chip with Undo, and
+`_can_late` draws the **Tell staff I'm late** button that opens `RunningLateDialog`.
+The stage reminder DM gives players a **Tell staff I'm late** button
 (`discordbot/player_late.py`, `match_late:` / `match_late_min:` custom ids).
 
 ## Match alerts: the admin on duty

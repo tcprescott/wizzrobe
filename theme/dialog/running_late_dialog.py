@@ -1,6 +1,6 @@
 """A player telling staff they're running late: how far out, and a short note.
 
-Opened from the Running late button on the player's own match row (My Schedule,
+Opened from the Tell staff I'm late button on the player's own match row (My Schedule,
 Event > Schedule) and from the stage reminder DM's link. The choices are the
 volunteer ones, 10, 20 or 30 minutes; anything worse is a reschedule, so the
 dialog points there instead of offering a bigger number.
@@ -65,7 +65,7 @@ class RunningLateDialog:
         )
         state = {'minutes': (mine.late_minutes if mine and mine.late_minutes else LATE_CHOICES[1])}
 
-        with form_dialog('Running late', card_classes='dialog-card dialog-card--sm') as dialog:
+        with form_dialog("Tell staff you're running late", card_classes='dialog-card dialog-card--sm') as dialog:
             with ui.column().classes('q-pa-md gap-3 full-width'):
                 ui.label(self._subtitle()).classes('text-caption text-grey-7')
                 # url-state: exempt — a form choice inside a dialog

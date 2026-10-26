@@ -222,7 +222,7 @@ def volunteer_shift_start_dm(
     blocks = ["Your volunteer shift is starting."]
     if details:
         blocks.append("\n".join(details))
-    blocks.append("Tap **I'm here** so your coordinator knows, **Running late** if "
+    blocks.append("Tap **I'm here** so your coordinator knows, **Tell staff I'm late** if "
                   "you're on your way, or **I can't make it**.")
     return "\n\n".join(blocks)
 

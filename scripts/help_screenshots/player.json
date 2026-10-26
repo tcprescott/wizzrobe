@@ -49,7 +49,7 @@
     "path": "/home/my-schedule",
     "setup": [
       {
-        "click": "button:has-text('Running late')"
+        "click": "button:has-text(\"Tell staff I'm late\")"
       },
       {
         "waitFor": ".q-dialog"
