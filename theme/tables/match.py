@@ -389,6 +389,8 @@ class MatchTableView(MatchFiltersMixin, MatchTableHandlersMixin, MatchBoardHoldM
         self.table.on('signup_tracker', lambda event: self._handle_signup_or_undo_role('signup', 'tracker', event.args))
         self.table.on('undo_commentator', lambda event: self._handle_signup_or_undo_role('undo', 'commentator', event.args))
         self.table.on('undo_tracker', lambda event: self._handle_signup_or_undo_role('undo', 'tracker', event.args))
+        self.table.on('invite_partner', lambda event: self._handle_invite_partner(event.args))
+        self.table.on('cancel_partner_invite', lambda event: self._handle_cancel_partner_invite(event.args))
 
         self.table.on('acknowledge_commentator', lambda event: background_tasks.create(
             self._handle_acknowledge_crew('commentator', event, context.client)))

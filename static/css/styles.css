@@ -4037,9 +4037,24 @@ body:has(.wiz-header) .q-notifications__list--top {
     white-space: nowrap;
 }
 
+.wiz-crew-action {
+    flex-wrap: wrap;
+}
+
 /* In a desktop table cell the tray hugs its button rather than the column. */
 td .wiz-crew-action {
     display: inline-flex;
+}
+
+/* The viewer's own commentary partner invite, still waiting, under their tray. */
+.wiz-crew-invite {
+    display: flex;
+    flex-basis: 100%;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-1);
+    font-size: var(--text-sm);
+    margin-bottom: var(--space-1);
 }
 
 /* An approver's crew member on the phone card: the name is the approval
@@ -9099,6 +9114,26 @@ ol.wiz-help-list { list-style-type: decimal; }
 .wiz-tbd {
     color: var(--fg-muted);
     font-style: italic;
+}
+
+/* A commentary invite waiting on the viewer (My Schedule): the ask on the
+   left, Decline and Accept on the right; on a phone the buttons drop under it. */
+.wiz-invite-row {
+    flex-wrap: nowrap;
+    gap: var(--space-3);
+    padding: var(--space-2) 0;
+    border-bottom: 1px solid var(--border-subtle);
+}
+.wiz-invite-row:last-child {
+    border-bottom: 0;
+}
+@media (max-width: 599.98px) {
+    .wiz-invite-row {
+        flex-wrap: wrap;
+    }
+    .wiz-invite-row__acts {
+        margin-left: auto;
+    }
 }
 
 /* Profile → Webhooks: a member's own webhooks, one row each. */

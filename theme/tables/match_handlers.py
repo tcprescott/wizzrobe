@@ -212,6 +212,10 @@ class MatchTableHandlersMixin:
                     ui.notify(str(e), color='warning')
 
             message = f'Remove yourself as a {role} for {match_row_label(row)}?'
+            waiting = next((i for i in row.get('partner_invites') or []
+                            if role == 'commentator' and i.get('inviter_id') == user.id), None)
+            if waiting:
+                message += f"\n\nYour invite to {waiting.get('invitee')} is cancelled too."
             if was_approved:
                 message += ('\n\nStaff approved you for this slot — they will be told '
                             'you have withdrawn so they can find cover.')
@@ -253,6 +257,41 @@ class MatchTableHandlersMixin:
             return
         ui.notify(_signed_up_copy(role, row), color='positive')
         await self.refresh()  # type: ignore[attr-defined]
+
+    async def _handle_invite_partner(self, row) -> None:
+        from theme.dialog.partner_invite_dialog import open_partner_invite_dialog
+
+        user = await get_user_from_session(app.storage.user)
+        if not user:
+            ui.notify('You must be logged in to invite a partner.', color='warning')
+            return
+        await open_partner_invite_dialog(row, user, lambda: self.update_row_by_id(row['id']))  # type: ignore[attr-defined]
+
+    async def _handle_cancel_partner_invite(self, args) -> None:
+        from application.services import CommentaryInviteService
+
+        row, invite = args.get('row') or {}, args.get('invite') or {}
+        user = await get_user_from_session(app.storage.user)
+        if not user or not invite.get('id'):
+            return
+
+        async def cancel() -> None:
+            try:
+                await CommentaryInviteService().cancel(int(invite['id']), user)
+            except ValueError as e:
+                ui.notify(str(e), color='warning')
+                return
+            ui.notify(f"Invite to {invite.get('invitee')} cancelled.", color='positive')
+            await self.update_row_by_id(row['id'])  # type: ignore[attr-defined]
+
+        ConfirmationDialog(
+            f"Cancel your invite to {invite.get('invitee')}? Their DM will say you took it back.",
+            title='Cancel invite',
+            confirm_text='Cancel invite',
+            cancel_text='Keep it',
+            tone='negative',
+            on_confirm=cancel,
+        ).open()
 
     async def _handle_acknowledge_crew(self, role, event, client):
         from application.services import CrewService

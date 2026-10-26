@@ -61,6 +61,23 @@ booked for, the staff who approve crew get told so they can sort it out.
 You won't get a new DM when it's booked. As with every match, you hear about it
 once it's on a stage. If you end up playing in it, your crew signup is dropped.
 
+## Commentating as a pair
+
+:::snippet crew-pairs
+On a match that needs two commentators, sign up first, then tap **Invite a
+partner** next to your **Withdraw** and pick who you want on the mic with you.
+They get a Discord DM with **Decline** and **Accept**, and the same pair under
+Commentary invites at the top of My Schedule.
+
+Until they answer, your tray says who you invited, with **Cancel invite** if you
+change your mind. Once they accept, they're signed up as commentator with
+"with *your name*" beside them. You get one partner per match.
+
+Staff still approve each of you on their own, so they can take one of you and
+not the other. If you withdraw, a partner who already accepted stays signed up,
+and an invite nobody has answered yet is cancelled.
+:::
+
 ## Signing up from Discord
 
 If you follow a tournament, the DM announcing each new match has **Sign up as

@@ -408,6 +408,19 @@ class MatchCommentKind(str, Enum):
     STAFF_TO_PLAYERS = 'staff_to_players'
 
 
+class CommentaryInviteStatus(str, Enum):
+    """Where a commentator's invite to a partner has got to.
+
+    ``CANCELLED`` is the inviter taking it back, or withdrawing from the match
+    before it was answered; ``DECLINED`` is the partner saying no.
+    """
+
+    PENDING = 'pending'
+    ACCEPTED = 'accepted'
+    DECLINED = 'declined'
+    CANCELLED = 'cancelled'
+
+
 class RescheduleRequestStatus(str, Enum):
     """Where a request has got to.
 

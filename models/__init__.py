@@ -60,6 +60,7 @@ from .enums import (
     CheckInEventStatus,
     CheckInLinkMethod,
     CheckInTierLanyard,
+    CommentaryInviteStatus,
     CommunityEventStatus,
     DataExportKind,
     DataExportStatus,
@@ -97,6 +98,7 @@ from .equipment import Equipment, EquipmentLoan
 from .feature_flag import FeatureFlagGroup, TenantFeatureFlag
 from .feedback import Feedback
 from .match import (
+    CommentaryInvite,
     Commentator,
     Match,
     MatchAcknowledgment,
@@ -223,6 +225,8 @@ __all__ = [
     'CheckInTier',
     'CheckInTierLanyard',
     # match / crew
+    'CommentaryInvite',
+    'CommentaryInviteStatus',
     'Commentator',
     'CommunityEvent',
     'CommunityEventSeen',

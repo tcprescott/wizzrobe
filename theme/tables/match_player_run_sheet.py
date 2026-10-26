@@ -131,14 +131,21 @@ def player_crew(row: dict, discord_id) -> list[dict]:
             continue
         need = required.get(key, 1) or 0
         approved = sum(1 for p in people if p.get('approved'))
-        mine, ack_idx = None, None
+        mine, ack_idx, my_user_id, brought = None, None, None, None
         if discord_id:
             for idx, person in enumerate(people):
                 if str(person.get('discord_id')) == str(discord_id):
                     mine = 'approved' if person.get('approved') else 'waiting'
+                    my_user_id = person.get('user_id')
+                    brought = person.get('invited_by_id')
                     if person.get('approved') and not person.get('acknowledged'):
                         ack_idx = idx
                     break
+        my_invite = _my_invite(row, discord_id) if key == 'commentators' and mine else None
+        # Already one of a pair: asked someone, brought someone, or was brought.
+        paired = my_invite is not None or any(
+            (my_user_id is not None and p.get('invited_by_id') == my_user_id)
+            or (brought is not None and p.get('user_id') == brought) for p in people)
         roles.append({
             'key': key,
             'singular': singular,
@@ -151,10 +158,21 @@ def player_crew(row: dict, discord_id) -> list[dict]:
             'unavailable': _unavailable(mine, open_, plays) if recruiting else '',
             'can_withdraw': mine is not None,
             'ack_idx': ack_idx if recruiting else None,
+            # Pair commentary: once signed up, bring a partner (or cancel the ask).
+            'can_invite': (key == 'commentators' and mine is not None and open_ and not paired
+                           and len(people) < (row.get('commentary_seats') or 0) and (row.get('commentary_seats') or 0) >= 2),
+            'my_invite': my_invite if recruiting else None,
             'people': crew_people(people, discord_id, waiting_note='waiting for approval'),
             'empty': open_ and not people,
         })
     return roles
+
+
+def _my_invite(row: dict, discord_id) -> dict | None:
+    """The viewer's own partner invite on this match still waiting on an answer."""
+    return next(({'id': i.get('id'), 'invitee': i.get('invitee')}
+                 for i in row.get('partner_invites') or []
+                 if discord_id and str(i.get('inviter_discord_id')) == str(discord_id)), None)
 
 
 def _unavailable(mine, open_: bool, plays: bool) -> str:
@@ -190,6 +208,10 @@ def decorate_player_row(row: dict, discord_id) -> dict:
     row['_tone'] = tone
     row['_roles'] = player_crew(row, discord_id)
     row['_role_by'] = {r['key']: r for r in row['_roles']}
+    # Who else was asked is between them and the inviter.
+    row['partner_invites'] = [
+        i for i in row.get('partner_invites') or []
+        if discord_id and str(i.get('inviter_discord_id')) == str(discord_id)]
     row['_ack'] = needs_my_ack(row, discord_id)
     row['_mine'] = bool(discord_id) and any(
         str(p.get('discord_id')) == str(discord_id) for p in row.get('players') or [])
@@ -280,6 +302,10 @@ _ROLE = r'''<span class="run-sheet__crew" :class="c.short ? 'st-pending' : ''">_
 <q-btn v-else-if="c.can_sign_up" outline no-caps no-wrap color="primary" dense icon="assignment_ind" :label="__SIGN_UP__"
        :aria-label="'Sign up as ' + c.singular"
        @click.stop="$parent.$emit('signup_' + c.singular, props.row)" />
+<q-btn v-if="c.can_invite" flat no-caps no-wrap color="primary" dense icon="group_add" label="Invite a partner"
+       @click.stop="$parent.$emit('invite_partner', props.row)">
+    <q-tooltip>Ask someone to commentate this match with you</q-tooltip>
+</q-btn>
 <q-btn v-if="c.ack_idx !== null" outline no-caps no-wrap color="primary" dense icon="check" label="Confirm"
        @click.stop="$parent.$emit('acknowledge_' + c.singular, { row: props.row, idx: c.ack_idx })">
     <q-tooltip>Confirm you can cover this {{ c.singular }} slot</q-tooltip>
@@ -288,6 +314,12 @@ _ROLE = r'''<span class="run-sheet__crew" :class="c.short ? 'st-pending' : ''">_
 <q-btn outline no-caps no-wrap dense disable icon="assignment_ind" :label="__SIGN_UP__" />
 <span v-if="c.unavailable" class="wiz-crew-why st-neutral">{{ c.unavailable }}</span>
 </template>
+</div>
+<div v-if="c.my_invite" class="wiz-crew-invite">
+<span class="st-pending"><q-icon name="schedule" size="14px" aria-hidden="true" /> Invited {{ c.my_invite.invitee }} · waiting</span>
+<q-btn flat no-caps no-wrap dense color="negative" label="Cancel invite"
+       :aria-label="'Cancel your invite to ' + c.my_invite.invitee"
+       @click.stop="$parent.$emit('cancel_partner_invite', { row: props.row, invite: c.my_invite })" />
 </div>
 ''' + CREW_NAMES
 

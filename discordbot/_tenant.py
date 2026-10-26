@@ -9,7 +9,7 @@ belongs to — then wraps its scoped service work in ``tenant_scope(tenant_id)``
 
 from typing import Optional
 
-from models import Commentator, Match, MatchRescheduleRequest, Tracker, VolunteerAssignment
+from models import CommentaryInvite, Commentator, Match, MatchRescheduleRequest, Tracker, VolunteerAssignment
 
 
 async def match_tenant_id(match_id: int) -> Optional[int]:
@@ -31,3 +31,8 @@ async def assignment_tenant_id(assignment_id: int) -> Optional[int]:
 async def reschedule_request_tenant_id(request_id: int) -> Optional[int]:
     request = await MatchRescheduleRequest.get_or_none(id=request_id)
     return request.tenant_id if request else None  # type: ignore[attr-defined]
+
+
+async def commentary_invite_tenant_id(invite_id: int) -> Optional[int]:
+    invite = await CommentaryInvite.get_or_none(id=invite_id)
+    return invite.tenant_id if invite else None

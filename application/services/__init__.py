@@ -60,6 +60,7 @@ from .browser_monitoring_service import BrowserMonitoringService
 from .challonge_service import ChallongeService
 from .check_in_desk_service import CheckInDeskService
 from .check_in_service import CheckInService
+from .commentary_invite_service import CommentaryInviteService
 from .community_event_service import CommunityEventService, EventDraft
 from .crew_hold_service import CrewHoldService
 from .crew_service import CrewService
@@ -193,6 +194,7 @@ __all__ = [
     'ChallongeService',
     'CheckInDeskService',
     'CheckInService',
+    'CommentaryInviteService',
     'CommunityEventService',
     'CommunityOverview',
     'CrewHoldService',

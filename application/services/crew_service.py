@@ -233,6 +233,8 @@ class CrewService:
             event_extra={'user_id': user.id},
         )
         match_live.publish(match_id)
+        if role == 'commentator':
+            await self._cancel_partner_invites(match_id, user, user)
 
         if was_approved:
             await self._notify_crew_withdrawal(match, user, role, approved_by_id)
@@ -495,6 +497,8 @@ class CrewService:
             EventType.CREW_SIGNUP_REMOVED,
             event_extra={'user_id': crew_member.user.id},
         )
+        if crew_type == 'commentator':
+            await self._cancel_partner_invites(crew_member.match.id, crew_member.user, actor)
         if was_approved:
             await self._notify_crew_approval_withdrawn(crew_member, crew_type)
         else:
@@ -567,6 +571,19 @@ class CrewService:
         }, user))
 
         return crew_member
+
+    @staticmethod
+    async def _cancel_partner_invites(match_id: int, inviter: User, actor: User) -> None:
+        """Someone off commentary can't bring a partner: cancel the invites still waiting.
+
+        An accepted partner keeps their own signup.
+        """
+        from application.services.commentary_invite_service import CommentaryInviteService
+
+        try:
+            await CommentaryInviteService().cancel_open_for(match_id, inviter, actor)
+        except Exception:
+            logger.exception('Cancelling partner invites failed for match %s', match_id)
 
     async def _crew_dm_parts(self, match):
         return await crew_dm_parts(match)

@@ -239,6 +239,8 @@ class TestFormatMatchForDisplay:
                 "acknowledged": False,
                 "ack_ts": "",
                 "id": 11,
+                "invited_by_id": None,
+                "with": "",
             }
         ]
 

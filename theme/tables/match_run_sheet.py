@@ -326,6 +326,7 @@ def crew_people(people: list, discord_id=None, *, waiting_note: str = 'to approv
         'me': bool(discord_id) and str(p.get('discord_id')) == str(discord_id),
         'note': '' if p.get('approved') else waiting_note,
         'id': p.get('id'),
+        'with': p.get('with') or '',
     } for p in ordered]
 
 
@@ -537,6 +538,7 @@ def crew_names(approve: str = 'false') -> str:
             '    <span v-for="(p, i) in c.people" :key="i" class="run-sheet__person" :class="p.approved ? \'\' : \'st-pending\'">\n'
             '        <q-icon :name="p.approved ? \'check_circle\' : \'schedule\'" size="14px" :class="p.approved ? \'st-ok\' : \'st-pending\'" aria-hidden="true" />'
             '<span class="run-sheet__person-name">{{ p.name }}<span v-if="p.me" class="wiz-you"> (you)</span></span>'
+            '<span v-if="p.with" class="run-sheet__person-note"> · with {{ p.with }}</span>'
             f'<span v-if="{note}" class="run-sheet__person-note"> · {{{{ p.note }}}}</span>{button}\n'
             '    </span>\n'
             '</span>\n'
