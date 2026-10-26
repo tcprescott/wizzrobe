@@ -98,7 +98,7 @@ async def code_row(
     parts = [emojis.get(emoji_name(prefix, icon)) for icon in code]
     if not any(parts):
         return None
-    return ' '.join(part or icon for part, icon in zip(parts, code))
+    return ' '.join(part or icon for part, icon in zip(parts, code, strict=True))
 
 
 def reset_cache() -> None:
