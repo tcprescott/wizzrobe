@@ -86,6 +86,7 @@ from scripts.seed_fledgling import seed_fledgling_tenant
 from scripts.seed_item_tracker import seed_item_tracker_for_tenant
 from scripts.seed_match_day import seed_match_day_for_tenant
 from scripts.seed_matches import seed_matches_for_tenant
+from scripts.seed_oauth_apps import seed_oauth_apps_for_tenant
 from scripts.seed_observability import seed_observability_for_tenant
 from scripts.seed_online import (
     assert_unlinked_probe_users,
@@ -501,6 +502,9 @@ async def seed_for_tenant(
 
         # --- API + room tokens (scripts/seed_tokens.py) -------------------
         await seed_tokens_for_tenant(tenant, staff, now)
+
+        # --- Third-party apps (scripts/seed_oauth_apps.py) ----------------
+        await seed_oauth_apps_for_tenant(tenant, staff, now)
 
 
         # --- Triforce texts --------------------------------------------------

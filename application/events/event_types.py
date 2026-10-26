@@ -136,6 +136,12 @@ class EventType:
     # health transitions are observations by the monitor, not user actions.
     SERVICE_HEALTH_ALERT = 'service_health.alert'
 
+    # A member connecting a third-party app to this community, and that
+    # connection ending (the member, the app, staff, or reuse detection). The
+    # payload names the app and the scopes, never a token.
+    OAUTH_GRANT_CREATED = 'oauth_grant.created'
+    OAUTH_GRANT_REVOKED = 'oauth_grant.revoked'
+
     # Async Qualifiers (PR 9; mirrors AuditActions.ASYNC_QUALIFIER_RUN_*). A run
     # entering review (submitted) and a run being reviewed (approved/rejected) are
     # tenant-scoped domain events a subscriber can act on. Qualifier/pool/permalink
@@ -283,6 +289,7 @@ class EventType:
         SG_EPISODE_IMPORTED, SG_EPISODE_CANCELLED, SG_MATCH_AUTO_FINISHED,
         DISCORD_EVENT_CREATED, DISCORD_EVENT_UPDATED, DISCORD_EVENT_CANCELLED,
         SERVICE_HEALTH_ALERT,
+        OAUTH_GRANT_CREATED, OAUTH_GRANT_REVOKED,
         ASYNC_QUALIFIER_RUN_SUBMITTED, ASYNC_QUALIFIER_RUN_REVIEWED,
         ASYNC_QUALIFIER_RUN_EXPIRED, ASYNC_QUALIFIER_RUN_FORFEITED,
         ASYNC_QUALIFIER_RUN_REATTEMPTED,

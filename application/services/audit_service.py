@@ -200,6 +200,21 @@ class AuditActions:
     APITOKEN_CREATED = 'apitoken.created'
     APITOKEN_REVOKED = 'apitoken.revoked'
 
+    # Third-party apps (the /oauth authorization server). App registration is
+    # global, so those rows carry no community; grants are per community.
+    OAUTH_APP_CREATED = 'oauth_app.created'
+    OAUTH_APP_UPDATED = 'oauth_app.updated'
+    OAUTH_APP_SECRET_ROTATED = 'oauth_app.secret_rotated'
+    OAUTH_APP_DELETED = 'oauth_app.deleted'
+    OAUTH_APP_DISABLED = 'oauth_app.disabled'
+    OAUTH_APP_ENABLED = 'oauth_app.enabled'
+    OAUTH_APP_BLOCKED = 'oauth_app.blocked'
+    OAUTH_APP_UNBLOCKED = 'oauth_app.unblocked'
+    OAUTH_GRANT_CREATED = 'oauth_grant.created'
+    OAUTH_GRANT_REVOKED = 'oauth_grant.revoked'
+    # A spent refresh token presented again: the grant is revoked as stolen.
+    OAUTH_GRANT_REFRESH_REUSED = 'oauth_grant.refresh_reused'
+
     # Tournament-room kiosk tokens
     ROOM_TOKEN_CREATED = 'roomtoken.created'
     ROOM_TOKEN_REVOKED = 'roomtoken.revoked'

@@ -79,6 +79,7 @@ from .enums import (
     NotificationMode,
     NotificationPreset,
     NotificationRecipient,
+    OAuthClientType,
     PresetOverride,
     ProviderTaskStatus,
     RaceRoomHoldReason,
@@ -120,6 +121,7 @@ from .match import (
 from .mcp import McpAuthorizationCode, McpOAuthClient
 from .notification_preference import NotificationPreference
 from .notification_setting import NotificationSetting
+from .oauth_app import OAuthApp, OAuthAppBlock, OAuthAppCode
 from .preferences import UserTablePreference
 from .racetime import RaceRoomProfile, RacetimeBot, RacetimeBotTenant, RacetimeRoom
 from .speedgaming import SpeedGamingEpisode, SpeedGamingEventLink
@@ -294,6 +296,10 @@ __all__ = [
     'NotificationPreset',
     'NotificationRecipient',
     'NotificationSetting',
+    'OAuthApp',
+    'OAuthAppBlock',
+    'OAuthAppCode',
+    'OAuthClientType',
     # webhooks
     'PersonalWebhook',
     # volunteer

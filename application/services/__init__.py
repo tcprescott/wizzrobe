@@ -121,6 +121,8 @@ from .my_timeline_service import MyTimelineService
 from .notification_channel_service import NotificationChannelService
 from .notification_preference_service import NotificationPreferenceService
 from .notification_settings_service import NotificationSettingsService
+from .oauth_app_service import OAuthAppService
+from .oauth_grant_service import OAuthGrantService
 from .password_auth_service import PasswordAuthService
 from .payout_service import PayoutService
 from .personal_webhook_service import PersonalWebhookService
@@ -262,6 +264,8 @@ __all__ = [
     'NotificationChannelService',
     'NotificationPreferenceService',
     'NotificationSettingsService',
+    'OAuthAppService',
+    'OAuthGrantService',
     'PasswordAuthService',
     'PayoutService',
     'PersonalWebhookService',

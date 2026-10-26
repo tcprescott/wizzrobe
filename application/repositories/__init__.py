@@ -61,6 +61,7 @@ from .member_details_repository import MemberDetailsRepository
 from .notification_channel_repository import NotificationChannelRepository
 from .notification_preference_repository import NotificationPreferenceRepository
 from .notification_setting_repository import NotificationSettingRepository
+from .oauth_app_repository import OAuthAppRepository
 from .personal_webhook_repository import PersonalWebhookRepository
 from .player_availability_repository import PlayerAvailabilityRepository
 from .preset_repository import PresetRepository
@@ -153,6 +154,7 @@ __all__ = [
     'NotificationChannelRepository',
     'NotificationPreferenceRepository',
     'NotificationSettingRepository',
+    'OAuthAppRepository',
     'PersonalWebhookRepository',
     'PlayedPermalinks',
     'PlayerAvailabilityRepository',

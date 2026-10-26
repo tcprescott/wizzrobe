@@ -25,6 +25,7 @@ from application.services.api_token_service import ApiTokenService
 from application.services.auth_service import AuthService
 from application.services.event_service import EventService
 from application.services.feature_flag_service import FeatureFlagService
+from application.services.oauth_grant_service import OAuthGrantService
 from application.services.telemetry_service import TelemetryEventType, TelemetryService
 from application.services.tenant_service import TenantService
 from application.services.timezone_service import TimezoneService
@@ -63,6 +64,31 @@ def _reject_read_only(token: ApiToken) -> None:
             status_code=status.HTTP_403_FORBIDDEN,
             detail="This token is read-only and cannot perform write actions",
         )
+
+
+async def _ensure_app_grant_usable(token: ApiToken) -> None:
+    """A third-party app grant also needs its community's flag on and its app alive.
+
+    Runs after the grant's community is bound. A community that turned the
+    flag off answers 404, as for any other disabled feature; a disabled app's
+    grant is a dead credential, so 401. What the grant's scopes allow is a
+    separate check.
+    """
+    if not await FeatureFlagService().is_enabled(FeatureFlag.THIRD_PARTY_APPS):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Third-party apps are not enabled for this community",
+        )
+    try:
+        await OAuthGrantService().ensure_grant_usable(token)
+    except NotFoundError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+    except PermissionError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=str(exc),
+            headers={"WWW-Authenticate": "Bearer"},
+        ) from exc
 
 
 async def resolve_token(
@@ -127,6 +153,8 @@ async def resolve_token(
             detail="You are not a member of this community",
         )
     set_tenant_id(tenant.id)
+    if token.origin == ApiTokenOrigin.APP.value:
+        await _ensure_app_grant_usable(token)
     # The community's default event, until routes take an ``event`` parameter.
     # A route about one row still uses that row's event.
     set_event_id(await EventService.default_event_id(tenant.id), tenant.id)

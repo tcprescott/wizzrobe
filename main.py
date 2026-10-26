@@ -30,6 +30,7 @@ import frontend
 # would otherwise win the race against the basicConfig below and strip the log
 # format for the whole process.
 import mcpserver
+from api import oauth_server
 from api.openapi_docs import api_description, warm_openapi
 from api.openapi_docs import install as install_openapi_docs
 from application.events import dispatch_queue as event_dispatch_queue
@@ -424,8 +425,9 @@ app.include_router(
 install_openapi_docs(app)
 
 # ORDER IS LOAD-BEARING: frontend.init() hands the app to NiceGUI, which mounts
-# itself at '/' and would swallow /mcp. Register the MCP routes first.
+# itself at '/' and would swallow /mcp and /oauth. Register those routes first.
 mcpserver.mount(app)
+oauth_server.mount(app)
 
 frontend.init(app)
 

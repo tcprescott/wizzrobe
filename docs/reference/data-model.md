@@ -31,8 +31,8 @@ community owns or produces is tenant-scoped.**
 
 | Class | Models | Notes |
 |---|---|---|
-| **Global** — no `tenant` FK | `User`, `WebPushSubscription`, `ContactVerification`, `UserTablePreference`, `Tenant`, `FeatureFlagGroup`, `RacetimeBot`, `McpOAuthClient`, `McpAuthorizationCode` | `User.discord_id` / `challonge_user_id` / `twitch_user_id` / `racetime_user_id` / `startgg_user_id` / `matcherino_user_id` uniques stay global — identity links are to the person. `RacetimeBot.category` is globally unique. An OAuth grant authenticates a user platform-wide |
-| **Nullable `tenant`** — stamped from context, NULL = platform-level row | `AuditLog`, `TelemetryEvent` (`SET NULL` on tenant delete), `UserRole` (`CASCADE`; NULL only for the global `SUPER_ADMIN`), `ApiToken` (`CASCADE`; NULL only for platform-wide OAuth tokens) | |
+| **Global** — no `tenant` FK | `User`, `WebPushSubscription`, `ContactVerification`, `UserTablePreference`, `Tenant`, `FeatureFlagGroup`, `RacetimeBot`, `McpOAuthClient`, `McpAuthorizationCode`, `OAuthApp` | `User.discord_id` / `challonge_user_id` / `twitch_user_id` / `racetime_user_id` / `startgg_user_id` / `matcherino_user_id` uniques stay global — identity links are to the person. `RacetimeBot.category` is globally unique. An OAuth grant authenticates a user platform-wide |
+| **Nullable `tenant`** — stamped from context, NULL = platform-level row | `AuditLog`, `TelemetryEvent` (`SET NULL` on tenant delete), `UserRole` (`CASCADE`; NULL only for the global `SUPER_ADMIN`), `ApiToken` (`CASCADE`; NULL only for platform-wide MCP OAuth tokens — app grants carry the community picked on consent) | |
 | **Has a `tenant` FK but is never auto-scoped** | `TenantMembership`, `TenantJoinRequest`, `TenantMemberBlock`, `RacetimeBotTenant` | All answer "which tenants?" and so are queried across tenants with explicit ids |
 | **Tenant-scoped** — `tenant` FK, NOT NULL, `CASCADE` | every other model | The default (see conventions above) |
 
@@ -249,8 +249,23 @@ live in `application/feature_flags`; see [feature-flags.md](../features/feature-
 Used by `ApiToken.origin` (`max_length=16`, default `PAT`): `PAT` = `'pat'` —
 created on the profile page, carries a `tenant`, accepted only by the REST API;
 `OAUTH` = `'oauth'` — minted by the MCP authorization server, tenant-less
-(platform-wide), accepted only at `/mcp`. Each surface rejects the other kind, so
-a credential minted for one can never be replayed against the other.
+(platform-wide), accepted only at `/mcp`; `APP` = `'app'` — a grant a person
+approved for a third-party app (`OAuthApp`), bound to the community picked on
+consent and to the approved scopes, accepted only by the REST API. Each surface
+rejects the other kinds, so a credential minted for one can never be replayed
+against another.
+
+### `OAuthClientType`
+
+Used by `OAuthApp.client_type` (`max_length=16`): `CONFIDENTIAL` = `'confidential'`
+(a server-side app holding a client secret), `PUBLIC` = `'public'` (desktop,
+mobile, browser-only; PKCE alone). Both must use PKCE.
+
+App scopes are not a `models` enum: `ApiScope` lives in
+[`application/api_scopes.py`](../../application/api_scopes.py), shared by the
+authorization server and the REST scope check. Grants keep a space-separated
+scope string (`ApiToken.scope`, `OAuthAppCode.scope`) and apps a JSON list
+(`OAuthApp.allowed_scopes`); see [oauth-apps.md](../features/oauth-apps.md).
 
 ### `RoleSource`
 
@@ -757,7 +772,9 @@ A bearer credential acting as its owning user. Only the SHA-256 hash is stored; 
 | `user` | FK → `User` | not null | `related_name='api_tokens'` |
 | `origin` | `CharField(16)` | default `'pat'`, `index=True` | An `ApiTokenOrigin` value. Each surface refuses the other's kind, so a credential minted for one can never be replayed against the other |
 | `oauth_client` | FK → `McpOAuthClient` | null, `CASCADE` | The MCP client this token was issued to. `related_name='tokens'` |
+| `oauth_app` | FK → `OAuthApp` | null, `CASCADE` | The third-party app an `origin='app'` grant belongs to. `related_name='grants'` |
 | `refresh_token_hash` | `CharField(64)` | null, `unique=True`, `index=True` | SHA-256 of the refresh token; rotated on every refresh |
+| `previous_refresh_hash` | `CharField(64)` | null, `index=True` | App grants only: the refresh hash this row rotated away from. Presenting it again is reuse, and revokes the grant |
 | `refresh_expires_at` | `DatetimeField` | null | Refresh-token expiry (30 days) |
 | `scope` | `CharField(255)` | null | OAuth scope granted |
 | `name` | `CharField(100)` | not null | User-supplied label |
@@ -767,6 +784,47 @@ A bearer credential acting as its owning user. Only the SHA-256 hash is stored; 
 | `last_used_at` | `DatetimeField` | null | Stamped on each authenticated request |
 | `expires_at` | `DatetimeField` | null | Optional expiry; null = never |
 | `revoked_at` | `DatetimeField` | null | Set when revoked; non-null tokens are rejected |
+
+#### `OAuthApp`
+
+A third-party app a user registered for the `/oauth` authorization server. **Global — no tenant FK**; each grant names its own community. Name, description and homepage are player-written plain text. See [features/oauth-apps.md](../features/oauth-apps.md).
+
+| Field | Type | Null / default | Notes |
+|---|---|---|---|
+| `owner` | FK → `User` | not null, `CASCADE` | `related_name='oauth_apps'` |
+| `name` / `description` | `CharField(60)` / `CharField(300)` | description default `''` | Plain text, one line |
+| `homepage_url` | `CharField(512)` | null | https only |
+| `client_type` | `CharEnumField(OAuthClientType)` | not null | |
+| `client_id` | `CharField(64)` | `unique=True`, `index=True` | `wza_…`, public |
+| `client_secret_hash` / `secret_prefix` | `CharField(64)` / `CharField(24)` | null | Confidential apps only; plaintext shown once |
+| `previous_secret_hash` / `secret_rotated_at` | `CharField(64)` / `DatetimeField` | null | The old secret stays valid 24 h after a rotation |
+| `redirect_uris` | `JSONField` | default `[]` | Exact-match allowlist (max 10) |
+| `allowed_scopes` | `JSONField` | default `[]` | `ApiScope` values the app may request |
+| `disabled_at` / `disabled_reason` | `DatetimeField` / `CharField(300)` | null | Platform-admin kill switch; grants stop while set |
+| `created_at` / `updated_at` | `DatetimeField` | auto | |
+
+#### `OAuthAppBlock`
+
+A community's block on one `OAuthApp` (Admin → Settings → Connected apps). Tenant-scoped; `unique_together (tenant, app)`. While it exists the app can't be granted, refreshed or used in that community.
+
+| Field | Type | Null / default | Notes |
+|---|---|---|---|
+| `tenant` | FK → `Tenant` | `CASCADE` | `related_name='oauth_app_blocks'` |
+| `app` | FK → `OAuthApp` | `CASCADE` | `related_name='blocks'` |
+| `blocked_by` | FK → `User` | null, `SET_NULL` | |
+| `created_at` | `DatetimeField` | auto | |
+
+#### `OAuthAppCode`
+
+A single-use authorization code for an `OAuthApp`, 5-minute expiry, hash only. Carries the community picked on consent and the approved scope, which the grant inherits. `grant` (FK → `ApiToken`, `SET_NULL`) records what it was exchanged for, so a replayed code revokes that grant.
+
+| Field | Type | Null / default | Notes |
+|---|---|---|---|
+| `code_hash` | `CharField(64)` | `unique=True`, `index=True` | |
+| `app` / `user` / `tenant` | FK | not null, `CASCADE` | |
+| `redirect_uri` / `code_challenge` / `scope` | `CharField` | not null | S256 challenge only |
+| `expires_at` / `consumed_at` | `DatetimeField` | consumed null | |
+| `grant` | FK → `ApiToken` | null, `SET_NULL` | |
 
 #### `McpOAuthClient`
 
@@ -2509,6 +2567,7 @@ Consult the source for full signatures.
 | `TenantJoinRequestRepository` | [`tenant_join_request_repository.py`](../../application/repositories/tenant_join_request_repository.py) | `TenantJoinRequest` | **Never scoped** — the requester is not in the target tenant. `get`, `get_by_id`, `upsert_pending` (re-opens a decided row in place), `list_pending`, `decide` |
 | `ApiTokenRepository` | [`api_token_repository.py`](../../application/repositories/api_token_repository.py) | `ApiToken` | `create`, `create_oauth_token`, `get_by_id`, `get_by_hash`, `get_by_refresh_hash`, `rotate_refresh`, `list_for_user`, `touch_last_used`, `revoke`. Reads match this tenant's PATs **or** the user's tenant-less OAuth tokens, so MCP connections stay revocable from any community. `create_oauth_token` defaults `read_only=True`, matching the consent screen's own default. |
 | `McpAuthRepository` | [`mcp_auth_repository.py`](../../application/repositories/mcp_auth_repository.py) | `McpOAuthClient`, `McpAuthorizationCode` | `create_client`, `get_client`, `create_code`, `get_code`, `consume_code`, `purge_expired_codes`. Global by design — neither model carries a tenant. |
+| `OAuthAppRepository` | [`oauth_app_repository.py`](../../application/repositories/oauth_app_repository.py) | `OAuthApp`, `OAuthAppCode` | App CRUD (global, unscoped lookups), `create_code` stamped with the picked community, `get_code`/`consume_code`/`link_code_to_grant` by hash (cross-tenant: the token endpoint runs before any tenant exists). App grants themselves live on `ApiTokenRepository` (`create_app_grant`, `get_app_grant_by_*`, `live_app_grants`, `revoke_app_grants_for_app`, `count_app_grant_users`). |
 | `AccommodationRepository` | [`accommodation_repository.py`](../../application/repositories/accommodation_repository.py) | `AccommodationRequest` | `TenantScopedRepository` CRUD plus `get_by_id` (prefetches `user`), `get_for_user`, `list_by_status` (oldest first), `user_ids_with_status` |
 | `EmergencyContactRepository` | [`emergency_contact_repository.py`](../../application/repositories/emergency_contact_repository.py) | `EmergencyContact` | `TenantScopedRepository` CRUD plus `get_for_user` (prefetches `last_viewed_by`) and `create_for` |
 | `CommunityEventRepository` | [`community_event_repository.py`](../../application/repositories/community_event_repository.py) | `CommunityEvent` | `create`, `get_by_id` (prefetches `host`, `reviewed_by`), `update`, `list_by_status(statuses, starts_after=None)`, `list_for_host`, `count_by_status` |
