@@ -10,6 +10,7 @@ from tortoise.models import Model
 from tortoise.utils import get_schema_sql
 
 import models as _models
+from application.event_context import reset_event_id, set_event_id
 from application.services import event_service, tenant_service
 from application.tenant_context import require_tenant_id, reset_tenant_id, set_tenant_id
 
@@ -17,6 +18,7 @@ from application.tenant_context import require_tenant_id, reset_tenant_id, set_t
 # Tenant is the first row inserted into the fresh in-memory schema, its id is 1,
 # which matches the ambient context set by ``_tenant_context`` below.
 DEFAULT_TEST_TENANT_ID = 1
+DEFAULT_TEST_EVENT_ID = 1
 
 
 # The suite runs on in-memory SQLite: no service to start, and a fresh schema
@@ -65,12 +67,17 @@ def _tenant_context():
     DB-backed tests get the real default ``Tenant`` (id 1) created by the ``db``
     fixture; pure-mock tests just need *some* ambient id (their repositories are
     mocked, so the value is never used against a real query). Leak/isolation
-    tests override this with explicit ``tenant_scope`` blocks.
+    tests override this with explicit ``tenant_scope`` blocks. The default
+    tenant's default event (id 1) is bound the same way; under any other tenant
+    the binding reads as unbound and the harness falls back to that tenant's
+    default event.
     """
     token = set_tenant_id(DEFAULT_TEST_TENANT_ID)
+    event_token = set_event_id(DEFAULT_TEST_EVENT_ID, DEFAULT_TEST_TENANT_ID)
     try:
         yield
     finally:
+        reset_event_id(event_token)
         reset_tenant_id(token)
 
 

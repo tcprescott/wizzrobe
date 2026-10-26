@@ -26,6 +26,14 @@ class VolunteerPositionRepository(EventScopedRepository[VolunteerPosition]):
         return await event_scoped(VolunteerPosition.filter(is_active=True)).order_by('display_order', 'name')
 
     @staticmethod
+    async def name_taken(name: str, exclude_id: Optional[int] = None) -> bool:
+        """Whether another of the current event's positions already has this name."""
+        query = event_scoped(VolunteerPosition.filter(name=name))
+        if exclude_id is not None:
+            query = query.exclude(id=exclude_id)
+        return await query.exists()
+
+    @staticmethod
     async def create(
         name: str,
         description: Optional[str] = None,

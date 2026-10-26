@@ -11,6 +11,13 @@ from application.event_context import (
 )
 
 
+@pytest.fixture(autouse=True)
+def _no_ambient_event():
+    """Start each test with no event bound, unlike the suite-wide default."""
+    with event_scope(None):
+        yield
+
+
 def test_no_event_in_scope_resolves_to_none():
     assert get_current_event_id() is None
 

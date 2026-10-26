@@ -99,5 +99,5 @@ async def test_event_scoped_raises_without_an_event(db, monkeypatch):
     from application import event_context
 
     monkeypatch.setattr(event_context, '_fallback_event_id', lambda _tenant_id: None)
-    with pytest.raises(RuntimeError, match='No event in context'):
+    with event_scope(None), pytest.raises(RuntimeError, match='No event in context'):
         event_scoped(Stage.all())

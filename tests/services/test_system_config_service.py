@@ -220,12 +220,12 @@ def _patch_match_minmax(monkeypatch, first_at=None, last_at=None):
                 return last_match
             return None
 
-    def fake_filter(**_kwargs):
-        # The service now scopes by tenant: Match.filter(tenant_id=...).
-        return FakeQS('match_qs')
-
+    # The service scopes by event: event_scoped(Match.all(), ...).
     monkeypatch.setattr(
-        'application.services.system_config_service.Match.filter', fake_filter,
+        'application.services.system_config_service.Match.all', lambda: FakeQS('match_qs'),
+    )
+    monkeypatch.setattr(
+        'application.services.system_config_service.event_scoped', lambda qs, *_a: qs,
     )
 
 
@@ -322,6 +322,9 @@ class TestGetMaxConcurrentStages:
         monkeypatch.setattr(
             'application.services.system_config_service.Stage.filter',
             lambda **_kw: FakeFilter(5),
+        )
+        monkeypatch.setattr(
+            'application.services.system_config_service.event_scoped', lambda qs, *_a: qs,
         )
         assert await SystemConfigService.get_max_concurrent_stages() == 5
 

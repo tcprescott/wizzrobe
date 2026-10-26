@@ -6,14 +6,12 @@ CRUD for coordinator-defined volunteer positions/jobs.
 
 from typing import List, Optional
 
-from application.event_context import event_scoped
 from application.repositories import VolunteerPositionRepository
 from application.services.audit_service import AuditActions, AuditService
 from application.services.auth_service import AuthService
 from application.services.volunteer.volunteer_role_mapping_service import (
     VolunteerRoleMappingService,
 )
-from application.tenant_context import require_tenant_id
 from models import User, VolunteerPosition
 
 
@@ -80,7 +78,7 @@ class VolunteerPositionService:
         name = (name or '').strip()
         if not name:
             raise ValueError("Position name is required.")
-        if await event_scoped(VolunteerPosition.filter(name=name)).exists():
+        if await self.repository.name_taken(name):
             raise ValueError(f"A position named '{name}' already exists.")
         self._validate_stagger(shift_length_minutes, stagger_minutes)
         position = await self.repository.create(
@@ -106,7 +104,7 @@ class VolunteerPositionService:
             new_name = (fields['name'] or '').strip()
             if not new_name:
                 raise ValueError("Position name is required.")
-            if await VolunteerPosition.filter(name=new_name, tenant_id=require_tenant_id()).exclude(id=position.id).exists():
+            if await self.repository.name_taken(new_name, exclude_id=position.id):
                 raise ValueError(f"A position named '{new_name}' already exists.")
             fields['name'] = new_name
         if 'shift_length_minutes' in fields or 'stagger_minutes' in fields:

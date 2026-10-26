@@ -189,9 +189,16 @@ def find_violations(tree, fks, owned, tagged, spans, *, check_reads: bool, check
 
     def chain_names_scope(node: ast.Call, model: str) -> bool:
         # Model.filter(a=1).filter(event_id=…) or .filter(tournament_id=…)
+        # Only a narrowing call counts: ``.exclude(id=x)`` names a row to drop,
+        # which leaves every other event's rows in.
         cur = parents.get(node)
         while isinstance(cur, (ast.Attribute, ast.Call)):
-            if isinstance(cur, ast.Call) and (_names_event(cur) or _names_row(cur, model, fks, owned)):
+            if (
+                isinstance(cur, ast.Call)
+                and isinstance(cur.func, ast.Attribute)
+                and cur.func.attr in ("filter", "get", "get_or_none")
+                and (_names_event(cur) or _names_row(cur, model, fks, owned))
+            ):
                 return True
             cur = parents.get(cur)
         return False
@@ -215,7 +222,9 @@ def find_violations(tree, fks, owned, tagged, spans, *, check_reads: bool, check
         elif method in LIST_ROOTS:
             if not check_reads or model not in owned:
                 continue
-            if inside_event_scoped(node) or _names_event(node) or _names_row(node, model, fks, owned):
+            if inside_event_scoped(node) or _names_event(node):
+                continue
+            if method != "exclude" and _names_row(node, model, fks, owned):
                 continue
             if chain_names_scope(node, model):
                 continue
