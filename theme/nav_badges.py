@@ -54,9 +54,9 @@ def nav_icon(name: str) -> str:
 #: nav icon means re-downloading that subset with the new name in the list (the
 #: font file's header comment in styles.css has the URL, and the ?v= stamp to bump).
 NAV_ICON_NAMES: frozenset[str] = frozenset({
-    'account_circle', 'account_tree', 'admin_panel_settings', 'analytics', 'assignment_ind',
+    'account_circle', 'account_tree', 'admin_panel_settings', 'analytics', 'assignment_ind', 'calendar_month',
     'calendar_view_week', 'celebration', 'checklist', 'circle', 'code', 'edit_calendar', 'emoji_events',
-    'event_available', 'fact_check', 'feedback', 'flag', 'groups', 'help', 'home', 'how_to_reg',
+    'event', 'event_available', 'fact_check', 'feedback', 'flag', 'groups', 'help', 'home', 'how_to_reg',
     'inventory_2', 'live_tv', 'manage_accounts', 'menu_book', 'monitor_heart', 'notifications', 'payments',
     'rate_review', 'schema', 'settings', 'sports_esports', 'stadium', 'sync_alt', 'timer', 'tune',
     'tv', 'view_timeline', 'volunteer_activism',

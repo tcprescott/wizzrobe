@@ -40,9 +40,12 @@ from pages.admin_tabs.admin_volunteer_roster import admin_volunteer_roster_page
 from pages.admin_tabs.admin_volunteers import admin_volunteers_page
 from pages.admin_tabs.reports import VOLUNTEER_REPORTS, reports_page
 from pages.admin_tabs.settings import (
+    EVENT_SETTINGS_TAB_LABEL,
     LEGACY_TAB_PANES,
+    MOVED_TO_EVENT_PANES,
     SETTINGS_TAB_LABEL,
     admin_settings_page,
+    build_event_settings_panes,
     build_settings_panes,
 )
 from pages.admin_tabs.triforce_texts import admin_triforce_texts_page
@@ -109,6 +112,7 @@ def build_admin_tabs(
     member: int | None = None,
     community_event: int | None = None,
     settings_pane: str | None = None,
+    event_settings_pane: str | None = None,
 ) -> list[dict]:
     """The admin drawer's tabs, ordered by group.
 
@@ -185,6 +189,14 @@ def build_admin_tabs(
         tabs.append({'label': 'Payouts', 'icon': 'payments', 'group': RUN_THE_EVENT, 'content': admin_payouts_page})
     if (is_staff or is_ta_any) and FeatureFlag.TRIFORCE_TEXTS in live:
         tabs.append({'label': 'Triforce Texts', 'icon': 'svguse:/static/triforce.svg#triforce|0 0 512 512', 'group': RUN_THE_EVENT, 'content': admin_triforce_texts_page})
+    event_panes = build_event_settings_panes(access, live)
+    if event_panes:
+        tabs.append({'label': EVENT_SETTINGS_TAB_LABEL, 'icon': 'event', 'group': RUN_THE_EVENT,
+                     'content': (admin_settings_page, (),
+                                 {'panes': event_panes, 'pane': event_settings_pane,
+                                  'base_path': base_path, 'tab_label': EVENT_SETTINGS_TAB_LABEL,
+                                  'title': 'Event settings',
+                                  'subtitle': 'What this event sets for itself. Pick an area to change it.'})})
     if (is_staff or access.is_qualifier_admin or is_qa_any) and FeatureFlag.ASYNC_QUALIFIERS in live:
         # The "runs are waiting" DM lands here with a qualifier and a tab, so a
         # reviewer arrives at the queue rather than at a list to go and search.
@@ -382,6 +394,7 @@ def create() -> None:
             community_event=community_event,
             # A retired tab slug (/admin/appearance) names the pane that took it in.
             settings_pane=pane or LEGACY_TAB_PANES.get(section or ''),
+            event_settings_pane=pane,
         )
 
         # No tabs is a refusal too: a coordinator or equipment manager whose
@@ -413,4 +426,13 @@ def create() -> None:
     # below /admin, so a pane's URL reads like a route and can be bookmarked.
     @protected_page('/admin/settings/{pane}', telemetry_path='/admin', scope='community')
     async def admin_settings_pane_page(pane: str, request: Request = None) -> Optional[RedirectResponse]:
+        # Event and Venue moved to the event's own settings; old links follow.
+        if pane in MOVED_TO_EVENT_PANES:
+            return await admin_dashboard_page(
+                section=tab_slug(EVENT_SETTINGS_TAB_LABEL), pane=MOVED_TO_EVENT_PANES[pane], request=request,
+            )
         return await admin_dashboard_page(section='settings', pane=pane, request=request)
+
+    @protected_page('/admin/event-settings/{pane}', telemetry_path='/admin', scope='community')
+    async def admin_event_settings_pane_page(pane: str, request: Request = None) -> Optional[RedirectResponse]:
+        return await admin_dashboard_page(section=tab_slug(EVENT_SETTINGS_TAB_LABEL), pane=pane, request=request)

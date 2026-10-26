@@ -49,6 +49,18 @@ def stub_storage(monkeypatch):
         'application.services.system_config_service.SystemConfiguration.create',
         fake_create,
     )
+
+    # The event settings live on the event; the same store stands in for it.
+    async def fake_get_event_raw(key):
+        return storage.get(key)
+
+    async def fake_set_event_raw(key, value):
+        old = storage.get(key)
+        storage[key] = value
+        return old
+
+    monkeypatch.setattr(SystemConfigService, '_get_event_raw', staticmethod(fake_get_event_raw))
+    monkeypatch.setattr(SystemConfigService, '_set_event_raw', staticmethod(fake_set_event_raw))
     return storage
 
 

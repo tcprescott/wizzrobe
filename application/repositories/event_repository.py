@@ -108,11 +108,13 @@ class EventRepository(TenantScopedRepository[Event]):
 
     @staticmethod
     async def tournament_counts() -> Dict[int, int]:
+        """Tournaments per event of this community. Cross-event: the Events list counts every event."""
         rows = await scoped(Tournament.all()).annotate(n=Count('id')).group_by('event_id').values_list('event_id', 'n')
         return {event_id: n for event_id, n in rows}
 
     @staticmethod
     async def match_counts() -> Dict[int, int]:
+        """Matches per event of this community. Cross-event, like tournament_counts."""
         rows = await scoped(Match.all()).annotate(n=Count('id')).group_by('event_id').values_list('event_id', 'n')
         return {event_id: n for event_id, n in rows}
 

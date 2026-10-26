@@ -55,6 +55,9 @@ class EventRef:
     is_default: bool
     starts_on: Optional[date]
     ends_on: Optional[date]
+    #: The event's own timezone settings (``{mode, name}``), overriding the
+    #: community's; None follows the community.
+    timezone: Optional[tuple[str, str]] = None
 
     @property
     def is_live(self) -> bool:
@@ -73,8 +76,15 @@ class EventRef:
         return cls(
             id=event.id, tenant_id=event.tenant_id, name=event.name, slug=event.slug,
             status=EventStatus(event.status), is_default=event.is_default,
-            starts_on=event.starts_on, ends_on=event.ends_on,
+            starts_on=event.starts_on, ends_on=event.ends_on, timezone=_timezone_of(event.config),
         )
+
+
+def _timezone_of(config: Any) -> Optional[tuple[str, str]]:
+    stored = config.get('timezone') if isinstance(config, dict) else None
+    if not isinstance(stored, dict) or not stored.get('mode') or not stored.get('name'):
+        return None
+    return (str(stored['mode']), str(stored['name']))
 
 
 def _sort_key(info: EventRef) -> tuple:
@@ -409,6 +419,10 @@ class EventService:
             new_default = await EventService.get(new_default_id)
             if new_default.id == event.id or new_default.status != EventStatus.LIVE:
                 raise ValueError('Pick a live event to become the default.')
+        elif event.is_default and any(
+            ref.is_live and ref.id != event.id for ref in await EventService.events_for_tenant(event.tenant_id)
+        ):
+            raise ValueError('Pick which live event becomes the default.')
         async with in_transaction():
             await EventRepository.update(
                 event, status=EventStatus.ARCHIVED, archived_at=datetime.now(timezone.utc), archived_by=actor,
