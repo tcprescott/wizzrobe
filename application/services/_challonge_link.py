@@ -1,5 +1,7 @@
 """Linking a match made outside the bracket to its Challonge matchup, mixed into ``ChallongeService``.
 
+Also the read of the linked bracket as last mirrored (:meth:`ChallongeLinkMixin.get_bracket_mirror`).
+
 A match staff scheduled by hand (New match, or before the tournament was
 linked) leaves its Challonge matchup on Not booked yet, and its result never
 reaches Challonge. Linking records which match backs the matchup, as booking
@@ -7,18 +9,22 @@ it would have. A sync does the same on its own when the pairing leaves only
 one match it could be, which is how bookings survive a bracket reset.
 """
 
+from typing import Any, Dict
+
 from application.errors import require_found
 from application.feature_flags import requires_feature
-from application.repositories import ChallongeRepository
+from application.repositories import ChallongeRepository, TournamentRepository
 from application.services._challonge_notifications import is_bookable
 from application.services.audit_service import AuditActions, AuditService
 from application.services.auth_service import AuthService
+from application.utils.safe_url import http_url_or_empty
 from models import ChallongeMatchState, FeatureFlag, Match, Tournament, User
 
 
 class ChallongeLinkMixin:
     repository: ChallongeRepository
     audit_service: AuditService
+    tournament_repository: TournamentRepository
 
     @requires_feature(FeatureFlag.CHALLONGE)
     async def link_existing_match(self, challonge_match_pk: int, match_id: int, actor: User) -> Match:
@@ -68,3 +74,22 @@ class ChallongeLinkMixin:
             })
             linked += 1
         return linked
+
+    @requires_feature(FeatureFlag.CHALLONGE)
+    async def get_bracket_mirror(self, tournament_id: int) -> Dict[str, Any]:
+        """The mirrored bracket as last synced, without calling Challonge.
+
+        Publicly readable like the bracket itself; callers decide who sees it.
+        """
+        tournament = require_found(
+            await self.tournament_repository.get_by_id(tournament_id), f"Tournament {tournament_id}"
+        )
+        if not tournament.challonge_tournament_id:
+            raise ValueError("This tournament isn't linked to Challonge.")
+        return {
+            'tournament': tournament,
+            'url': http_url_or_empty(tournament.challonge_tournament_url) or None,
+            'last_synced_at': tournament.challonge_last_synced_at,
+            'participants': await self.repository.list_participants(tournament),
+            'matches': await self.repository.list_matches(tournament),
+        }
