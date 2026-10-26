@@ -39,12 +39,16 @@ _ROUTES: Dict[RouteScope, tuple[str, ...]] = {
         'GET /users/me',
         'GET /users/me/availability',
         'GET /notifications/preferences',
+        'GET /notifications/messages',
     ),
     ApiScope.PROFILE_WRITE: (
         'PATCH /users/me',
         'PUT /users/me/availability',
         'DELETE /users/me/availability',
         'PUT /notifications/preferences',
+        'PUT /notifications/messages/preset',
+        'PUT /notifications/messages/{notice}/{recipient}',
+        'POST /notifications/messages/reset',
     ),
     ApiScope.SCHEDULE_READ: (
         'GET /matches',
@@ -70,6 +74,8 @@ _ROUTES: Dict[RouteScope, tuple[str, ...]] = {
         'GET /async-qualifiers/open',
         'GET /async-qualifiers/{qualifier_id}/public',
         'GET /async-qualifiers/{qualifier_id}/leaderboard',
+        'GET /tournaments/{tournament_id}/bracket',
+        'GET /tournaments/{tournament_id}/round-schedule',
     ),
     ApiScope.PLAY: (
         'POST /matches/request',
@@ -168,6 +174,12 @@ _ROUTES: Dict[RouteScope, tuple[str, ...]] = {
         'GET /async-qualifiers/{qualifier_id}/pools',
         'GET /async-qualifiers/{qualifier_id}/review-queue',
         'GET /async-qualifiers/{qualifier_id}/runs',
+        'GET /users/{user_id}/details',
+        'GET /sent-messages',
+        'GET /notification-settings',
+        'GET /exports',
+        'GET /exports/{export_id}',
+        'GET /exports/{export_id}/download',
     ),
     ApiScope.STAFF_WRITE: (
         'POST /matches',
@@ -297,6 +309,16 @@ _ROUTES: Dict[RouteScope, tuple[str, ...]] = {
         'POST /async-qualifiers/runs/{run_id}/claim',
         'POST /async-qualifiers/runs/{run_id}/release',
         'POST /async-qualifiers/runs/{run_id}/review',
+        'POST /matches/{match_id}/extend-to-set',
+        'PUT /tournaments/{tournament_id}/round-schedule/{stage_key}/best-of',
+        'PUT /notification-settings/{notice}/staff-alerts',
+        'PUT /notification-settings/{notice}/{recipient}',
+        'POST /notification-settings/reset',
+        'POST /exports/tournaments',
+        'POST /exports/volunteers',
+        'POST /volunteers/assignments/{assignment_id}/call-off',
+        'DELETE /volunteers/assignments/{assignment_id}/call-off',
+        'POST /volunteers/shifts/{shift_id}/call-off',
     ),
     # Credentials, secrets, platform-wide controls and community wiring that an
     # app has no business holding even for a staff member.
@@ -352,6 +374,7 @@ _ROUTES: Dict[RouteScope, tuple[str, ...]] = {
     PUBLIC: (
         'GET /health',
         'POST /web-push/rotate',
+        'GET /version',
     ),
 }
 
