@@ -215,7 +215,8 @@ class RaceRoomService:
             from application.services.discord import DiscordService, discord_queue
             from application.services.tenant_service import TenantService
             from application.utils.discord_embeds import COLOR_STARTED, match_embed, time_field
-            from application.utils.discord_messages import race_room_open_dm, race_room_open_unlinked_dm
+            from application.utils.discord_messages import race_room_open_dm
+            from application.utils.discord_messages_racetime import race_room_open_unlinked_dm
 
             link = notification_links.race_room(room.url)
             if link is None:

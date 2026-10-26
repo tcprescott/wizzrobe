@@ -308,7 +308,7 @@ class RaceRoomBotService:
         from application.services.notification_catalog import RACETIME_FPA
         from application.services.staff_alert_service import StaffAlertService
         from application.utils.discord_embeds import COLOR_RESCHEDULED, match_embed
-        from application.utils.discord_messages import racetime_fpa_staff_dm
+        from application.utils.discord_messages_racetime import racetime_fpa_staff_dm
 
         try:
             recipients = await StaffAlertService.tagged_match_alert_recipients(
