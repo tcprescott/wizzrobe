@@ -70,6 +70,7 @@ async def install_event_stamping() -> None:
     owned = [
         model for model in Tortoise.apps.get('models', {}).values()
         if 'event' in model._meta.fields_map
+        and getattr(model._meta.fields_map['event'], 'related_model', None) is Event
         and getattr(model._meta.fields_map['event'], 'on_delete', None) == CASCADE
     ]
     pre_save(*owned)(_stamp_event)

@@ -459,9 +459,12 @@ def _event_owned_models() -> frozenset[type[Model]]:
     """Models an event owns: their ``event`` FK cascades (tagged ones SET NULL)."""
     from tortoise.fields.relational import CASCADE
 
+    # ``event`` on a check-in entrant or a meetup subscription is *their* parent
+    # (a CheckInEvent, a CommunityEvent), not an Event: match on the target.
     return frozenset(
         model for model in _scoped_models()
         if 'event' in model._meta.fields_map
+        and getattr(model._meta.fields_map['event'], 'related_model', None) is _models.Event
         and getattr(model._meta.fields_map['event'], 'on_delete', None) == CASCADE
     )
 
