@@ -473,6 +473,10 @@ class AuditActions:
     WEBHOOK_UPDATED = 'webhook.updated'
     WEBHOOK_DELETED = 'webhook.deleted'
     WEBHOOK_SECRET_REGENERATED = 'webhook.secret_regenerated'
+    PERSONAL_WEBHOOK_CREATED = 'personal_webhook.created'
+    PERSONAL_WEBHOOK_UPDATED = 'personal_webhook.updated'
+    PERSONAL_WEBHOOK_DELETED = 'personal_webhook.deleted'
+    PERSONAL_WEBHOOK_SECRET_REGENERATED = 'personal_webhook.secret_regenerated'
 
     # Feature flags. Availability is a platform-level grant (super-admin on
     # /platform, tenant=NULL row, target tenant in details); the enable/disable

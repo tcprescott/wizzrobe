@@ -119,6 +119,7 @@ class FeatureFlag(str, Enum):
     NOTIFICATION_CHANNELS = 'notification_channels'
     STARTGG = 'startgg'
     DISCORD_ROLE_SYNC = 'discord_role_sync'
+    PERSONAL_WEBHOOKS = 'personal_webhooks'
 
 
 class BracketFormat(str, Enum):

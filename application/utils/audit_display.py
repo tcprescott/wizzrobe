@@ -47,7 +47,7 @@ AREAS: tuple[AuditArea, ...] = (
         'discord.', 'discord_role.', 'discord_event.', 'apitoken.', 'roomtoken.', 'log_level.',
         'browser_monitoring.', 'browser_ignore_rule.',
         'racetime_bot.', 'race_room_profile.', 'sg_sync.', 'feature_flag.', 'feature_group.',
-        'webhook.', 'tenant.', 'platform.',
+        'webhook.', 'personal_webhook.', 'tenant.', 'platform.',
     )),
 )
 _AREAS_BY_KEY = {a.key: a for a in AREAS}
@@ -400,6 +400,10 @@ ACTION_LABELS: dict[str, str] = {
     'webhook.updated': 'Edited a webhook',
     'webhook.deleted': 'Deleted a webhook',
     'webhook.secret_regenerated': 'Made a new webhook secret',
+    'personal_webhook.created': 'Added a personal webhook',
+    'personal_webhook.updated': 'Edited a personal webhook',
+    'personal_webhook.deleted': 'Deleted a personal webhook',
+    'personal_webhook.secret_regenerated': 'Made a new personal webhook secret',
     'tenant.created': 'Created the community',
     'tenant.updated': 'Edited the community',
     'tenant.deleted': 'Deleted the community',

@@ -9100,3 +9100,50 @@ ol.wiz-help-list { list-style-type: decimal; }
     color: var(--fg-muted);
     font-style: italic;
 }
+
+/* Profile → Webhooks: a member's own webhooks, one row each. */
+.wiz-pwebhook-row {
+    display: flex;
+    width: 100%;
+    align-items: flex-start;
+    gap: var(--space-2);
+    padding: var(--space-2) 0;
+    border-top: 1px solid var(--border-subtle);
+}
+
+.wiz-pwebhook-row--first { border-top: 0; }
+
+.wiz-pwebhook-row__dot {
+    flex: none;
+    width: 9px;
+    height: 9px;
+    margin-top: 7px;
+    border-radius: 50%;
+    background: var(--border-strong);
+}
+
+.wiz-pwebhook-row__dot--on { background: var(--status-ok); }
+.wiz-pwebhook-row__dot--warn { background: var(--status-pending); }
+
+.wiz-pwebhook-row__url {
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    color: var(--fg-muted);
+    overflow-wrap: anywhere;
+}
+
+.wiz-pwebhook-areas {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--space-2) var(--space-3);
+}
+
+@media (max-width: 599.98px) {
+    .wiz-pwebhook-areas { grid-template-columns: minmax(0, 1fr); }
+}
+
+.wiz-pwebhook-lock {
+    padding: var(--space-2);
+    border-radius: var(--radius-sm);
+    background: var(--surface-sunken);
+}
