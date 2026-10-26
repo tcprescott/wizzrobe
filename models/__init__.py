@@ -121,6 +121,7 @@ from .preferences import UserTablePreference
 from .racetime import RaceRoomProfile, RacetimeBot, RacetimeBotTenant, RacetimeRoom
 from .speedgaming import SpeedGamingEpisode, SpeedGamingEventLink
 from .startgg import StartggConnection, StartggEntrant, StartggPhase, StartggPool, StartggSet
+from .stream_layout import StageOverlay, StreamLayout, StreamLayoutArt
 from .system import (
     BrowserErrorIgnoreRule,
     BrowserMonitoringSettings,
@@ -316,6 +317,7 @@ __all__ = [
     'StaffRequestDM',
     'StaffRequestKind',
     'Stage',
+    'StageOverlay',
     'StartggConnection',
     'StartggEntrant',
     'StartggPhase',
@@ -325,6 +327,8 @@ __all__ = [
     'Station',
     'StationFormat',
     'StationSide',
+    'StreamLayout',
+    'StreamLayoutArt',
     'SyncStatus',
     # system
     'SystemConfiguration',

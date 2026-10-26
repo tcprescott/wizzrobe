@@ -129,6 +129,7 @@ Services are the business-logic layer of the [three-layer architecture](../refac
 | `SpeedGamingETLService` | [speedgaming_etl_service.py](../../application/services/speedgaming_etl_service.py) | One-way SpeedGaming→Wizzrobe schedule ETL (extract/transform/load into `Match`) | — |
 | `SpeedGamingSyncService` | [speedgaming_sync_service.py](../../application/services/speedgaming_sync_service.py) | Tenant-facing SpeedGaming event-link CRUD + on-demand "sync now" | — |
 | `UserService` | [user_service.py](../../application/services/user_service.py) | User CRUD, profiles, roles, enrollments | [role-based-auth.md](authentication.md#roles) |
+| `StreamLayoutService` | [stream_layout_service.py](../../application/services/stream_layout_service.py) | OBS overlays: layouts, art, stage overlay links and pins, the public overlay feed | [stream-layouts.md](../features/stream-layouts.md) |
 | `PersonalWebhookService` | [personal_webhook_service.py](../../application/services/personal_webhook_service.py) | Members' own webhooks: CRUD, per-delivery visibility check, allowlisted payloads, Discord/JSON delivery | [webhooks.md](../features/webhooks.md#personal-webhooks-members) |
 | `WebhookService` | [webhook_service.py](../../application/services/webhook_service.py) | Staff-managed outbound webhooks: CRUD + signed delivery | [webhooks.md](../features/webhooks.md) |
 | `WebPushService` | [web_push_service.py](../../application/services/web_push_service.py) | Per-device browser push subscriptions + encrypted delivery | [web-push.md](../features/web-push.md) |

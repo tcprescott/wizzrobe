@@ -1,0 +1,61 @@
+---
+title: Stream layouts for OBS
+slug: stream-layouts
+icon: picture_in_picture
+order: 248
+feature: STREAM_LAYOUTS
+roles: STAFF, STREAM_MANAGER
+summary: Designing an event's broadcast overlays, giving each stage its OBS link, and pinning a match to a stage's overlay.
+---
+
+:::snippet stream-layouts
+Admin → Stream Layouts builds the overlay that sits on top of your stream in
+OBS. Wizzrobe fills in everything it knows, like player names, the round and
+who's on commentary. OBS keeps the video. Staff and Broadcast Techs can edit
+layouts and pin matches.
+:::
+
+## How it fits together
+
+A **layout** is your background art plus boxes placed on it. Each box shows one
+thing: a player's name, the tournament and round, the commentators, the seed
+code, what's up next, or your own text. A **Video hole** box cuts the art away
+so the video underneath shows through.
+
+Each **stage** gets its own overlay link and picks one layout. The overlay
+follows the stage: it shows the match being played there, or the next one
+booked, and moves on by itself when the next match is checked in.
+
+## Making a layout
+
+1. Press **New layout** and give it a name, like "2-player race".
+2. Open the layout's ⋮ and choose **Upload art…**. Export the art at your
+   stream's resolution (usually 1920×1080). Transparent areas in a PNG become
+   holes for the video. If your art is a flat image, add **Video hole** boxes
+   where the feeds go.
+3. Press **Add box…** and pick what it shows. Drag the box into place and pull
+   its bottom-right corner to resize it. Arrow keys nudge a selected box by one
+   pixel, or ten with Shift.
+4. Tap a box to open its settings: what it shows, which player, font, size,
+   colour, alignment, uppercase and shadow. Long names shrink to fit their box.
+5. Pick a match under **Preview** to see the layout with real names, then
+   press **Save**. Overlays already open in OBS pick up the change within a few
+   seconds.
+
+## Putting it in OBS
+
+On the Stages list, choose the stage's layout and press **Copy OBS link**. In
+OBS, add a **Browser** source with that link, set its width and height to the
+layout's size (shown under its name), and put it **above** your video sources.
+Then line the video sources up with the holes.
+
+The link opens nothing but that stage's overlay, so it's safe to hand to a
+broadcaster. If it ends up somewhere it shouldn't, open the stage's ⋮ and
+choose **New link…**. The old link stops working straight away.
+
+## Pinning a match
+
+When the overlay picks the wrong match (an overrun, or a match moved between
+stages), pin the right one. Open the match from the Match Schedule and press
+**Pin to overlay**, or use **Pin a match…** in the stage's ⋮ menu. The overlay
+holds that match until you choose **Back to automatic** on the same menu.

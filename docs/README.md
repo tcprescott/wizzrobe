@@ -67,6 +67,7 @@ How each shipped subsystem behaves.
 | [features/community-events.md](features/community-events.md) | Members-only `/community-events`: member-submitted, staff-approved events with Discord reminders for subscribers, and the reusable Tiptap markdown editor. Behind `FeatureFlag.COMMUNITY_EVENTS` |
 | [features/startgg.md](features/startgg.md) | start.gg bracket mirror: linking, entrant mapping, booking ready sets, opt-in result writeback, the shared `bracket_sources` contract. Behind `FeatureFlag.STARTGG` |
 | [features/event-check-in.md](features/event-check-in.md) | Matcherino-backed check-in desk for in-person events: badge-sale sync over the unofficial API, badge tiers, account matching, walk-ups, the `CHECK_IN_DESK` role. Behind `FeatureFlag.EVENT_CHECK_IN` |
+| [features/stream-layouts.md](features/stream-layouts.md) | OBS browser-source overlays per event: layout editor, stage links that follow the match on stage, pins. Behind `FeatureFlag.STREAM_LAYOUTS` |
 | [features/payouts.md](features/payouts.md) | Prize pool, placement splits with ties, computed amounts, Matcherino handles and the payout block. Behind `FeatureFlag.PAYOUTS` |
 | [features/profile-reminders.md](features/profile-reminders.md) | Staff-picked recommended profile items (Challonge linked, pronouns, ...) and the red banner that asks members to finish them |
 | [features/triforce-texts.md](features/triforce-texts.md) | Player submission and admin moderation |

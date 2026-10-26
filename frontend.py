@@ -54,6 +54,7 @@ from pages import (
     startgg_oauth,
     static_brackets,
     static_watch,
+    stream_overlay,
     twitch_oauth,
     volunteer,
     watch_data,
@@ -333,6 +334,7 @@ def init(fastapi_app: FastAPI) -> None:
     brackets.create()
     startgg_bracket.create()
     room_seeds.create()
+    stream_overlay.create()
     # Registered before ui.run_with so the cached, socket-free spectator views
     # sit on the same app (and behind the same tenant middleware) as the pages.
     static_brackets.create()

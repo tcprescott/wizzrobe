@@ -33,6 +33,7 @@ from . import (
     speedgaming_sync_worker,
     staff_request_dms,
     startgg_sync_worker,
+    stream_layout_rules,
     telegram_bot_worker,
     telemetry_retention,
 )
@@ -143,6 +144,7 @@ from .startgg_connection_service import StartggConnectionService
 from .startgg_link_service import StartggLinkService
 from .startgg_service import StartggService
 from .station_service import StationService
+from .stream_layout_service import StreamLayoutService
 from .system_config_service import SystemConfigService
 from .table_preference_service import TablePreferenceService
 from .telemetry_service import TelemetryService
@@ -288,6 +290,7 @@ __all__ = [
     'StartggLinkService',
     'StartggService',
     'StationService',
+    'StreamLayoutService',
     'SystemConfigService',
     'TablePreferenceService',
     'TelemetryService',
@@ -351,6 +354,7 @@ __all__ = [
     'speedgaming_sync_worker',
     'staff_request_dms',
     'startgg_sync_worker',
+    'stream_layout_rules',
     'telegram_bot_worker',
     'telemetry_retention',
     'validate_async_qualifier_config',

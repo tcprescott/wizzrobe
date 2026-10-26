@@ -1,0 +1,137 @@
+/* Admin → Stream Layouts: the layout editor's canvas and box list. */
+
+.sl-canvas {
+  position: relative;
+  width: 100%;
+  container-type: inline-size;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  /* The checkerboard is what OBS will see through: no art, or a hole. */
+  background-color: var(--surface-sunken);
+  background-image:
+    linear-gradient(45deg, var(--border-subtle) 25%, transparent 25%),
+    linear-gradient(-45deg, var(--border-subtle) 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, var(--border-subtle) 75%),
+    linear-gradient(-45deg, transparent 75%, var(--border-subtle) 75%);
+  background-size: 16px 16px;
+  background-position: 0 0, 0 8px, 8px -8px, -8px 0;
+  user-select: none;
+}
+
+.sl-canvas__art {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.sl-box {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  box-sizing: border-box;
+  overflow: hidden;
+  line-height: 1.15;
+  border: 1.5px dashed var(--wiz-gold);
+  cursor: move;
+  touch-action: none;
+}
+
+.sl-box > span { display: block; width: 100%; }
+.sl-box--one > span { white-space: nowrap; overflow: hidden; text-overflow: clip; }
+
+.sl-box--hole {
+  border-color: var(--status-info);
+  background-color: var(--surface-sunken);
+  background-image:
+    linear-gradient(45deg, var(--border-subtle) 25%, transparent 25%),
+    linear-gradient(-45deg, var(--border-subtle) 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, var(--border-subtle) 75%),
+    linear-gradient(-45deg, transparent 75%, var(--border-subtle) 75%);
+  background-size: 16px 16px;
+  background-position: 0 0, 0 8px, 8px -8px, -8px 0;
+  justify-content: center;
+  color: var(--fg-muted);
+  font-size: var(--text-xs);
+  font-weight: 700;
+}
+
+.sl-box--on {
+  border: 2px solid var(--status-info);
+  box-shadow: 0 0 0 1px var(--n-900);
+  z-index: 2;
+}
+
+.sl-box:focus-visible {
+  outline: 3px solid var(--status-info);
+  outline-offset: 1px;
+}
+
+.sl-handle {
+  position: absolute;
+  right: -1px;
+  bottom: -1px;
+  width: 14px;
+  height: 14px;
+  background: var(--status-info);
+  border: 1px solid var(--n-0);
+  cursor: nwse-resize;
+}
+
+.sl-list {
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  overflow: hidden;
+}
+
+.sl-list__row {
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr) auto;
+  gap: var(--space-2);
+  align-items: center;
+  width: 100%;
+  padding: var(--space-2) var(--space-3);
+  border: 0;
+  border-bottom: 1px solid var(--border-subtle);
+  background: transparent;
+  color: var(--fg);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.sl-list__row:last-child { border-bottom: 0; }
+.sl-list__row--on { background: var(--accent-soft); }
+.sl-list__row .sl-list__sample {
+  display: block;
+  color: var(--fg-muted);
+  font-size: var(--text-sm);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sl-list__pos {
+  color: var(--fg-muted);
+  font-size: var(--text-sm);
+  font-variant-numeric: tabular-nums;
+}
+
+.sl-stage {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(160px, 1fr) auto;
+  gap: var(--space-3);
+  align-items: center;
+  padding: var(--space-3) 0;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.sl-stage:last-child { border-bottom: 0; }
+
+@media (max-width: 599px) {
+  .sl-stage { grid-template-columns: minmax(0, 1fr) auto; }
+  .sl-stage__layout { grid-column: 1 / -1; grid-row: 2; }
+  .sl-list__pos { display: none; }
+}

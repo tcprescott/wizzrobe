@@ -1,6 +1,6 @@
 """Admin Dashboard Page"""
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 from fastapi import Request
 from nicegui import app, ui
@@ -32,6 +32,7 @@ from pages.admin_tabs.admin_settings import admin_stages_page, admin_tournaments
 from pages.admin_tabs.admin_setup import admin_setup_page
 from pages.admin_tabs.admin_shift_board import admin_shift_board_page
 from pages.admin_tabs.admin_speedgaming import admin_speedgaming_page
+from pages.admin_tabs.admin_stream_layouts import admin_stream_layouts_page
 from pages.admin_tabs.admin_users import admin_users_page
 from pages.admin_tabs.admin_volunteer_roster import admin_volunteer_roster_page
 from pages.admin_tabs.admin_volunteers import admin_volunteers_page
@@ -117,6 +118,9 @@ def build_admin_tabs(
         admin_tournament_ids=access.admin_tournament_ids,
         crew_tournament_ids=access.crew_tournament_ids,
     )
+    # Pinning a match to its stage's OBS overlay rides on the board's match sheet.
+    if (is_staff or is_sm) and FeatureFlag.STREAM_LAYOUTS in live:
+        board_access = replace(board_access, pin_overlay=True)
     # Staff and the stream manager operate community-wide; a TA/CC's authority is
     # per tournament, so their board is narrowed to the ones they run rather than
     # showing every match in the community with controls that refuse.
@@ -176,6 +180,9 @@ def build_admin_tabs(
         tabs.append({'label': 'Seed Presets', 'icon': 'tune', 'group': 'Operations', 'aliases': ('presets',), 'content': admin_presets_page})
     if is_staff or access.is_stream_manager:
         tabs.append({'label': 'Stages', 'icon': 'tv', 'group': 'Operations', 'content': admin_stages_page})
+    if (is_staff or access.is_stream_manager) and FeatureFlag.STREAM_LAYOUTS in live:
+        tabs.append({'label': 'Stream Layouts', 'icon': 'live_tv', 'group': 'Operations',
+                     'content': admin_stream_layouts_page})
     # A tournament admin belongs here: posting their event's payout block is the
     # job this replaces, and the service scopes each of them to their own events.
     if (is_staff or is_ta_any) and FeatureFlag.PAYOUTS in live:
