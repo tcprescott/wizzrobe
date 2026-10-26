@@ -118,8 +118,12 @@ sends. Reject requests whose timestamp is too old to defend against replay.
   Delete. A narrow list stacks the same row (a container query, not the
   viewport). The toolbar is **Add webhook** plus an Actions menu holding the
   payload & event reference dialog and Refresh.
+- **Event filter** (Thomas's layout A): the dialog's **From events** is a
+  radio, *All events* (`NULL`) or *Only these events* with a picker of live and
+  draft events (an archived one only when the webhook already has it, which
+  `WebhookService` lets it keep). Each row names its events under the URL.
+  The event-type multiselect is labelled **Updates** so the two don't clash.
 - **REST**: `event_ids` on create and update sets the event filter (above).
-  The Admin dialog's control for it is still to come.
 - **REST**: `/api/webhooks` — `GET` (staff), `POST` (staff-write, returns the
   secret once), `GET/PUT/DELETE /{id}`, `POST /{id}/regenerate-secret`,
   `GET /{id}/deliveries`. See [rest-api.md](../reference/rest-api.md).

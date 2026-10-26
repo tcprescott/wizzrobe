@@ -15,6 +15,7 @@ than the split buys.
 import json
 
 from models import (
+    Event,
     Feedback,
     FeedbackCategory,
     FeedbackStatus,
@@ -45,6 +46,19 @@ async def seed_observability_for_tenant(
             "is_active": False,
         },
     )
+    # Limited to the default event, so the list shows both kinds of event line.
+    default_event = await Event.filter(tenant=tenant, is_default=True).first()
+    if default_event is not None:
+        await Webhook.get_or_create(
+            name="Dev Webhook (one event)", tenant=tenant,
+            defaults={
+                "url": "http://127.0.0.1:9/dev-webhook-one-event",
+                "secret": "dev-webhook-secret-not-real",
+                "event_types": ["match.rescheduled", "match.stage_assigned", "crew.approval_changed"],
+                "event_ids": [default_event.id],
+                "is_active": False,
+            },
+        )
     if not await WebhookDelivery.filter(webhook=webhook, tenant=tenant).exists():
         payload = json.dumps({"match_id": finished_match.id}, sort_keys=True)
         await WebhookDelivery.create(

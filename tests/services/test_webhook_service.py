@@ -264,6 +264,22 @@ class TestEventFilter:
         kept = await service.update_webhook(actor, hook.id, name='renamed')
         assert kept.event_ids is None
 
+    async def test_an_event_archived_after_it_was_picked_can_stay(self, events):
+        from application.services.event_service import _clear_cache
+        from models import Event as EventRow
+        from models import EventStatus
+
+        _, other, _ = events
+        actor = await _staff()
+        service = WebhookService()
+        hook = await service.create_webhook(
+            actor, name='h', url='https://example.com/hook', event_types=['*'], event_ids=[other],
+        )
+        await EventRow.filter(id=other).update(status=EventStatus.ARCHIVED)
+        _clear_cache()
+        edited = await service.update_webhook(actor, hook.id, name='renamed', event_ids=[other])
+        assert edited.event_ids == [other]
+
 
 # ---------------------------------------------------------------------------
 # In-app format reference (drift guard against the delivery code)

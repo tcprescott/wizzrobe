@@ -19,7 +19,7 @@ import logging
 import secrets
 import uuid
 from datetime import datetime, timedelta, timezone
-from typing import Any, Dict, List, Optional
+from typing import Any, Collection, Dict, List, Optional
 from urllib.parse import urlparse
 
 import httpx
@@ -194,7 +194,7 @@ class WebhookService:
         if is_active is not None:
             changes['is_active'] = is_active
         if event_ids is not ...:
-            cleaned = await self._clean_event_ids(event_ids)
+            cleaned = await self._clean_event_ids(event_ids, kept=webhook.event_ids or ())
             if cleaned != webhook.event_ids:
                 changes['event_ids'] = cleaned
         if changes:
@@ -376,8 +376,14 @@ class WebhookService:
         return require_found(await self.repository.get_by_id(webhook_id), "Webhook")
 
     @staticmethod
-    async def _clean_event_ids(event_ids: Optional[List[int]]) -> Optional[List[int]]:
-        """None (every event) or the sorted, distinct ids of this community's live or draft events."""
+    async def _clean_event_ids(
+        event_ids: Optional[List[int]], kept: Collection[int] = (),
+    ) -> Optional[List[int]]:
+        """None (every event) or the sorted, distinct ids of this community's live or draft events.
+
+        An event archived since it was picked (in ``kept``) may stay, so editing
+        the webhook's name doesn't make staff drop it first.
+        """
         if event_ids is None:
             return None
         if not event_ids:
@@ -387,7 +393,7 @@ class WebhookService:
             event = events.get(event_id)
             if event is None:
                 raise NotFoundError(f'Event {event_id} not found')
-            if event.is_archived:
+            if event.is_archived and event_id not in kept:
                 raise ValueError(f"{event.name} is archived, so it never sends anything.")
         return sorted(set(event_ids))
 
