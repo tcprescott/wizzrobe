@@ -39,6 +39,7 @@ This file is the lean, always-loaded guide: the behavioral rules to follow on ev
 | Crew signup, match acknowledgment, watching | [docs/features/match-participation.md](docs/features/match-participation.md) |
 | Online tournaments (presets, race rooms, qualifiers, SG sync) | [docs/features/online-tournaments.md](docs/features/online-tournaments.md) |
 | start.gg brackets (mirror, booking, writeback, bracket-source contract) | [docs/features/startgg.md](docs/features/startgg.md) |
+| OBS stream overlays (layouts per event, stage links, pins) | [docs/features/stream-layouts.md](docs/features/stream-layouts.md) |
 | Event check-in (Matcherino roster sync, account matching, the desk) | [docs/features/event-check-in.md](docs/features/event-check-in.md) |
 | Single-worker constraint and the way out of it | [docs/scaling-roadmap.md](docs/scaling-roadmap.md) |
 | Remaining per-feature docs | [docs/features/](docs/features/) |

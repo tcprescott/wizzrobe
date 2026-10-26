@@ -258,6 +258,15 @@ FEATURE_FLAG_REGISTRY: Dict[FeatureFlag, FeatureFlagSpec] = {
             service_modules=('application/services/personal_webhook_service.py',),
         ),
         FeatureFlagSpec(
+            FeatureFlag.STREAM_LAYOUTS,
+            'Stream Layouts',
+            'Design broadcast overlays for each event: upload the art, place '
+            'player names, round, commentators and more on it, and load each '
+            "stage's overlay in OBS on top of the video feeds.",
+            'Operations',
+            service_modules=('application/services/stream_layout_service.py',),
+        ),
+        FeatureFlagSpec(
             FeatureFlag.COMMUNITY_EVENTS,
             'Meetups',
             'Members submit the meetups, panels and side events they are running '
