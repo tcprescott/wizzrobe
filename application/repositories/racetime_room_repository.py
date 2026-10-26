@@ -41,6 +41,78 @@ class RacetimeRoomRepository(TenantScopedRepository[RacetimeRoom]):
             status__in=[RaceRoomStatus.OPEN, RaceRoomStatus.IN_PROGRESS],
         ).prefetch_related('tenant').order_by('id')
 
+    async def list_bot_run_open(self, category: str) -> List[RacetimeRoom]:
+        """Open match rooms in ``category`` whose tournament has the bot run them — **unscoped**.
+
+        The bot's connection asks for these every few seconds to know which rooms
+        to sit in, across every community that shares the category's bot.
+        """
+        return await RacetimeRoom.filter(
+            category=category,
+            status__in=[RaceRoomStatus.OPEN, RaceRoomStatus.IN_PROGRESS],
+            match__tournament__racetime_bot_runs_room=True,
+        ).order_by('id')
+
+    async def claim_hold(self, room: RacetimeRoom) -> bool:
+        """Clear the room's held result; ``False`` when someone else already did.
+
+        Conditional on the hold still being there, so two staff confirming the
+        same race at once record it once.
+        """
+        cleared = await scoped(
+            RacetimeRoom.filter(id=room.id, held_reason__isnull=False)
+        ).update(held_reason=None, held_detail=None)
+        if cleared:
+            room.held_reason = None  # type: ignore[assignment]
+            room.held_detail = None  # type: ignore[assignment]
+        return bool(cleared)
+
+    async def claim_seed_post(self, room: RacetimeRoom, at: datetime) -> bool:
+        """Stamp the seed as posted; ``False`` when it already was (post once)."""
+        claimed = await scoped(
+            RacetimeRoom.filter(id=room.id, seed_posted_at__isnull=True)
+        ).update(seed_posted_at=at)
+        if claimed:
+            room.seed_posted_at = at
+        return bool(claimed)
+
+    async def claim_greeting(self, room: RacetimeRoom, at: datetime) -> bool:
+        """Stamp the room as greeted; ``False`` when it already was."""
+        claimed = await scoped(
+            RacetimeRoom.filter(id=room.id, greeted_at__isnull=True)
+        ).update(greeted_at=at)
+        if claimed:
+            room.greeted_at = at
+        return bool(claimed)
+
+    async def claim_broadcaster_ready(self, room: RacetimeRoom, at: datetime) -> bool:
+        """Stamp the broadcaster as ready; ``False`` when they already were."""
+        return await self._claim(room, 'broadcaster_ready_at', at)
+
+    async def claim_broadcaster_nudge(self, room: RacetimeRoom, at: datetime) -> bool:
+        """Stamp the start-time broadcaster nudge as sent; ``False`` when it was."""
+        return await self._claim(room, 'broadcaster_nudged_at', at)
+
+    async def _claim(self, room: RacetimeRoom, field: str, at: datetime) -> bool:
+        claimed = await scoped(
+            RacetimeRoom.filter(id=room.id, **{f'{field}__isnull': True})
+        ).update(**{field: at})
+        if claimed:
+            setattr(room, field, at)
+        return bool(claimed)
+
+    async def bot_run_awaiting_seed(self) -> List[RacetimeRoom]:
+        """Open bot-run match rooms whose seed isn't posted yet — **unscoped** cross-tenant.
+
+        The worker's scan for seeds that have come due; each room is handled
+        inside its own community's scope.
+        """
+        return await RacetimeRoom.filter(
+            status__in=[RaceRoomStatus.OPEN, RaceRoomStatus.IN_PROGRESS],
+            seed_posted_at__isnull=True,
+            match__tournament__racetime_bot_runs_room=True,
+        ).prefetch_related('match', 'match__tournament').order_by('id')
+
     async def matches_due_for_auto_open(self, window_start: Any, window_end: Any) -> List[Match]:
         """Candidate matches for the auto-open worker — **unscoped** cross-tenant.
 

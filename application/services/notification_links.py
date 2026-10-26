@@ -313,6 +313,10 @@ async def admin_reschedule_request(
     return await link_for(label, admin_reschedule_request_url(request_id))
 
 
+async def profile_connected_accounts(*, label: str = 'Link racetime') -> Optional[DMLink]:
+    return await link_for(label, '/home/profile?focus=connected-accounts')
+
+
 async def profile_notifications(*, label: str = 'Notification settings') -> Optional[DMLink]:
     return await link_for(label, '/home/profile?focus=notifications')
 

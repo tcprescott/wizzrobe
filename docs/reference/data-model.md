@@ -336,6 +336,10 @@ Health of a racetime bot's websocket connection (`RacetimeBot.status`, `max_leng
 
 Cached racetime room lifecycle state (`RacetimeRoom.status`, `max_length=20`, default `OPEN`): `OPEN` = `'open'` (room open, race not started) → `IN_PROGRESS` = `'in_progress'` → `FINISHED` = `'finished'`, plus `CANCELLED` = `'cancelled'` for a cancelled room.
 
+### `RaceRoomHoldReason`
+
+Why a finished race on a bot-run tournament waits for staff (`RacetimeRoom.held_reason`, `max_length=20`), in the order `race_room_holds.hold_for` checks them: `FPA` = `'fpa'`, `UNMATCHED` = `'unmatched'` (a player unlinked or absent, or a runner who isn't a player), `FORFEIT` = `'forfeit'`, `CLOSE_FINISH` = `'close_finish'`.
+
 ### `SyncStatus`
 
 Used by `SpeedGamingEpisode.sync_status` (`max_length=20`, default `PENDING`).
@@ -930,6 +934,9 @@ Tournament metadata and configuration; the root aggregate for matches, enrollmen
 | `racetime_auto_create_rooms` | `BooleanField` | default `False` | Opt-in: auto-open a race room per scheduled match |
 | `room_open_minutes_before` | `IntField` | default `30` | Lead time before `scheduled_at` to open the room |
 | `require_racetime_link` | `BooleanField` | default `False` | Require players to have a linked racetime identity |
+| `racetime_bot_runs_room` | `BooleanField` | default `False` | The racetime bot sits in each room: invites, seed post, chat commands, held results ([online tournaments](../features/online-tournaments.md#the-room-bot-racetime_bot_runs_room)) |
+| `racetime_seed_post_minutes` | `IntField` | default `10` | How long before the start the room bot posts the seed |
+| `racetime_close_finish_ms` | `IntField` | default `1000` | Two finishers this close hold the result for staff; `0` turns the check off |
 | `stage_reminder_minutes` | `IntField` | default `30` | How long before a match to DM its players and approved crew which stage they are on. Deliberately **not** `room_open_minutes_before`, which governs racetime room creation; `0` sends no reminder. Read by `application/services/match/stage_reminder.py` |
 | `racetime_default_goal` | `CharField(255)` | null | Default racetime goal for opened rooms |
 | `discord_events_enabled` | `BooleanField` | default `False` | Opt-in: mirror this tournament's scheduled matches into the tenant guild's Discord Scheduled Events |
@@ -1962,6 +1969,14 @@ tenant routing, mirroring the `ApiToken`→tenant pattern.
 | `status` | `CharEnumField(RaceRoomStatus)` | default `OPEN` | Cached room state, written by the bot runtime |
 | `match` | O2O → `Match` | null, `SET_NULL` | `related_name='racetime_room'` |
 | `opened_at` | `DatetimeField` | null | |
+| `greeted_at` | `DatetimeField` | null | When the room bot posted its greeting; claimed conditionally so it posts once |
+| `seed_posted_at` | `DatetimeField` | null | When the room bot posted the seed; claimed conditionally so it posts once |
+| `broadcaster_ready_at` | `DatetimeField` | null | When a broadcaster typed `!ready`, releasing a restream's held seed |
+| `broadcaster_nudged_at` | `DatetimeField` | null | When the start-time "still waiting on the broadcaster" nudge went out; claimed so it goes once |
+| `fpa_calls` | `JSONField` | default `[]` | `!fpa` calls: `{racetime_user_id, name, at, race_seconds, note}` each |
+| `held_reason` | `CharEnumField(RaceRoomHoldReason)` | null | Set while a finished race waits for staff's Check result; cleared on confirm |
+| `held_detail` | `TextField` | null | The sentence staff see beside the hold |
+| `held_entrants` | `JSONField` | null | What racetime reported per entrant (`user_id, name, status, place, finish_ms`) when the result was held |
 
 Index on `match`.
 

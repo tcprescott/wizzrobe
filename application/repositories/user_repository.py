@@ -68,6 +68,10 @@ class UserRepository(TenantScopedRepository[User]):
         return await User.get_or_none(discord_id=discord_id)
 
     @staticmethod
+    async def get_by_racetime_user_id(racetime_user_id: str) -> Optional[User]:
+        return await User.filter(racetime_user_id=racetime_user_id).first()
+
+    @staticmethod
     async def get_by_discord_ids(discord_ids: Iterable[int]) -> dict[int, User]:
         """Resolve many Discord ids in one query, keyed by Discord id."""
         wanted = list(set(discord_ids))
