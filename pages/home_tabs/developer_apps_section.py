@@ -89,7 +89,7 @@ async def render_developer_apps_section(user: User) -> None:
     @steady_refreshable
     async def app_list() -> None:
         apps = await service.list_my_apps(user)
-        counter.set_text(str(len(apps)))
+        section.props(f'caption="{len(apps)} registered"' if apps else 'caption=""')
         if not apps:
             ui.label('No apps yet.').classes('text-muted')
         for i, oauth_app in enumerate(apps):
@@ -271,17 +271,18 @@ async def render_developer_apps_section(user: User) -> None:
         dialog.open()
 
     with ui.card().classes('card-full-width'):
-        with ui.expansion().classes('w-full').props('header-class=text-weight-bold') as section:
-            with section.add_slot('header'):
-                with ui.row().classes('items-center gap-2 no-wrap w-full wiz-help-row'):
-                    ui.icon('code').classes('text-muted')
-                    ui.label('Developer apps')
-                    counter = ui.badge('0').props('color=grey-6 rounded')
-                    await help_icon('developer-apps', user=user)
-            ui.label(
-                "Build something that signs people in with Wizzrobe. You'll see how many "
-                'people connected, never who.'
-            ).classes('text-muted text-caption')
+        # A plain label, not a header slot: Quasar names a slotted header
+        # "Expand", which axe flags against the visible text.
+        with ui.expansion('Developer apps', icon='code').classes('w-full') \
+                .props('header-class=text-weight-bold') as section:
+            # The help button sits in the body: a button inside the expansion's
+            # clickable header is a nested control (axe nested-interactive).
+            with ui.row().classes('items-center gap-1 no-wrap w-full wiz-help-row'):
+                ui.label(
+                    "Build something that signs people in with Wizzrobe. You'll see how many "
+                    'people connected, never who.'
+                ).classes('text-muted text-caption')
+                await help_icon('developer-apps', user=user)
             list_slot = ui.column().classes('w-full gap-0')
             with ui.row().classes('items-center gap-2 q-mt-sm'):
                 new_button = ui.button('New app', icon='add', on_click=lambda: open_dialog()) \
