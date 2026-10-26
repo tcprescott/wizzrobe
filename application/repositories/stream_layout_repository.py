@@ -73,15 +73,15 @@ class StreamLayoutRepository(TenantScopedRepository[StreamLayout]):
 
     @staticmethod
     async def stages() -> List[Stage]:
-        return await scoped(Stage.filter(is_active=True)).order_by('name')
+        return await event_scoped(Stage.filter(is_active=True)).order_by('name')
 
     @staticmethod
     async def get_stage(stage_id: int) -> Optional[Stage]:
-        return await scoped(Stage.filter(id=stage_id)).first()
+        return await event_scoped(Stage.filter(id=stage_id)).first()
 
     @staticmethod
     async def overlays() -> List[StageOverlay]:
-        return await scoped(StageOverlay.all()).prefetch_related('layout', 'pinned_match')
+        return await event_scoped(StageOverlay.all()).prefetch_related('layout', 'pinned_match')
 
     @staticmethod
     async def overlay_for_stage(stage_id: int) -> Optional[StageOverlay]:
@@ -90,7 +90,7 @@ class StreamLayoutRepository(TenantScopedRepository[StreamLayout]):
     @staticmethod
     async def create_overlay(stage: Stage, token: str) -> StageOverlay:
         return await StageOverlay.create(
-            tenant_id=current_tenant_id(), event_id=getattr(stage, 'event_id', None),
+            tenant_id=current_tenant_id(), event_id=stage.event_id,
             stage_id=stage.id, token=token,
         )
 

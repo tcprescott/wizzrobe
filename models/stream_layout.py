@@ -80,10 +80,10 @@ class StageOverlay(Model):
         'models.Tenant', related_name='stage_overlays', on_delete=fields.CASCADE,
     )
     tenant_id: int
-    event: fields.ForeignKeyNullableRelation = fields.ForeignKeyField(
-        'models.Event', related_name='stage_overlays', on_delete=fields.CASCADE, null=True,
+    event: fields.ForeignKeyRelation = fields.ForeignKeyField(
+        'models.Event', related_name='stage_overlays', on_delete=fields.CASCADE,
     )
-    event_id: Optional[int]
+    event_id: int
     stage: fields.OneToOneRelation = fields.OneToOneField(
         'models.Stage', related_name='overlay', on_delete=fields.CASCADE,
     )

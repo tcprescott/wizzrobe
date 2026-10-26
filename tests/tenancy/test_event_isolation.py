@@ -24,6 +24,7 @@ from application.repositories import (
     RoomTokenRepository,
     StageRepository,
     StationRepository,
+    StreamLayoutRepository,
     TournamentRepository,
     VolunteerPositionRepository,
     VolunteerShiftRepository,
@@ -43,7 +44,9 @@ from models import (
     MatchPlayers,
     RoomToken,
     Stage,
+    StageOverlay,
     Station,
+    StreamLayout,
     Tournament,
     VolunteerPosition,
     VolunteerShift,
@@ -82,6 +85,7 @@ def _ids(rows) -> list[int]:
     (VolunteerPosition, lambda n: VolunteerPosition.create(name=f'Desk {n}'), lambda: VolunteerPositionRepository.list_all()),
     (AsyncQualifier, lambda n: AsyncQualifier.create(name=f'Q {n}'), lambda: AsyncQualifierRepository().list_all()),
     (CheckInEvent, lambda n: CheckInEvent.create(name=f'Check-in {n}'), lambda: CheckInEventRepository.list_all()),
+    (StreamLayout, lambda n: StreamLayout.create(name=f'Layout {n}', boxes=[]), lambda: StreamLayoutRepository.list_for_event()),
 ])
 async def test_a_list_shows_only_its_own_events_rows(two_events, model, make, read):
     row_a, row_b = await _in_each(two_events, make)
@@ -199,6 +203,21 @@ async def test_a_persons_private_rows_are_per_event(two_events):
     with event_scope(b):
         assert await AccommodationRepository.get_for_user(person) is None
         assert await EmergencyContactRepository.get_for_user(person.id) is None
+
+
+async def test_stage_overlays_take_their_stages_event_and_list_per_event(two_events):
+    a, b = two_events
+    with event_scope(a):
+        stage = await Stage.create(name='Main Stage')
+    with event_scope(b):
+        overlay = await StreamLayoutRepository.create_overlay(stage, 'ovl_a')
+        assert await StreamLayoutRepository.overlays() == []
+        assert await StreamLayoutRepository.stages() == []
+
+    assert isinstance(overlay, StageOverlay) and overlay.event_id == a
+    with event_scope(a):
+        assert _ids(await StreamLayoutRepository.overlays()) == [overlay.id]
+        assert _ids(await StreamLayoutRepository.stages()) == [stage.id]
 
 
 # Event-owned models with no event isolation test yet, and why. Shrink this,

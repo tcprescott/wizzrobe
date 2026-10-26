@@ -9,7 +9,7 @@ keeps the video; Wizzrobe never touches it.
 
 Behind `FeatureFlag.STREAM_LAYOUTS` (Operations, ships dark). Staff and
 Broadcast Techs (`Role.STREAM_MANAGER`) manage it. Layouts belong to an
-**event** (`StreamLayout.event`); stage overlays carry their stage's event.
+**event** (`StreamLayout.event`); stage overlays carry their stage's event, and the Stages panel lists the current event's stages.
 
 ## Decisions (Thomas, 2026-10-26)
 
