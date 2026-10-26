@@ -19,6 +19,7 @@ from typing import List, Optional
 from mcp.server.mcpserver import MCPServer
 
 from api.schemas.equipment import MyCheckoutResponse
+from application.api_scopes import ApiScope
 from application.errors import require_found
 from application.services import EquipmentService
 from mcpserver.auth import Gate, current_actor
@@ -121,14 +122,14 @@ async def my_equipment_checkouts(tenant: TenantArg = None) -> List[MyCheckoutRes
 
 def register_tools(mcp: MCPServer) -> None:
     register(
-        mcp, my_equipment_checkouts, gate=Gate.ACTOR,
+        mcp, my_equipment_checkouts, gate=Gate.ACTOR, scope=ApiScope.PROFILE,
         feature=FeatureFlag.EQUIPMENT, title='My equipment checkouts',
     )
     register(
-        mcp, list_equipment, gate=Gate.ACTOR,
+        mcp, list_equipment, gate=Gate.ACTOR, scope=ApiScope.STAFF_READ,
         feature=FeatureFlag.EQUIPMENT, title='List equipment',
     )
     register(
-        mcp, get_equipment, gate=Gate.ACTOR,
+        mcp, get_equipment, gate=Gate.ACTOR, scope=ApiScope.STAFF_READ,
         feature=FeatureFlag.EQUIPMENT, title='Get equipment',
     )

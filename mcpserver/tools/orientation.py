@@ -102,6 +102,6 @@ async def server_version() -> ServerVersion:
 
 
 def register_tools(mcp: MCPServer) -> None:
-    register(mcp, list_tenants, gate=Gate.GLOBAL, title='List communities')
-    register(mcp, whoami, gate=Gate.GLOBAL, title='Who am I')
-    register(mcp, server_version, gate=Gate.GLOBAL, title='Server version')
+    register(mcp, list_tenants, gate=Gate.GLOBAL, scope=None, title='List communities')
+    register(mcp, whoami, gate=Gate.GLOBAL, scope=None, title='Who am I')
+    register(mcp, server_version, gate=Gate.GLOBAL, scope=None, title='Server version')

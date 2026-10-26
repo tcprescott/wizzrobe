@@ -16,36 +16,24 @@ rendered as plain labels.
 """
 
 import logging
-from typing import Dict, List, Optional
+from typing import Dict, Optional
 
 from fastapi import Query
 from nicegui import app, ui
 from starlette.responses import RedirectResponse
 
-from application.api_scopes import CONSENT_WORDING, STAFF_SCOPES, WRITE_SCOPES, ApiScope
+from application.api_scopes import ApiScope
 from application.errors import NotFoundError
 from application.services import OAuthGrantService
 from application.services.auth_service import get_user_from_session
 from middleware.auth import protected_routes
 from theme.chrome import render_platform_chrome
+from theme.consent_scopes import default_ticks, render_scope_checklist
 from theme.notify import notify_error
 
 logger = logging.getLogger(__name__)
 
 CONSENT_PATH = '/oauth/consent'
-
-# A line under each scope, so "Staff-only information" says which information.
-_DETAIL: Dict[ApiScope, str] = {
-    ApiScope.PROFILE: 'Name, pronouns and when you said you are free',
-    ApiScope.SCHEDULE_READ: 'Anything a member of this community can already see',
-    ApiScope.STAFF_READ: 'Reports, audit log, member list, equipment and check-in',
-    ApiScope.PROFILE_WRITE: 'Availability and notification settings',
-    ApiScope.PLAY: 'Acknowledge and confirm your matches, ask to reschedule, sign up for tournaments',
-    ApiScope.CREW: 'Commentary, tracking and other crew signups',
-    ApiScope.VOLUNTEER: 'Your own shifts and checking in for them',
-    ApiScope.STAFF_WRITE: 'Tournaments, matches, volunteers and equipment, as your role allows',
-}
-
 
 def _render_notice(headline: str, message: str) -> None:
     render_platform_chrome('Authorize')
@@ -87,9 +75,6 @@ def create() -> None:
             'ticked': set(),
         }
 
-        def default_ticks(scopes: List[ApiScope]) -> set:
-            return {s for s in scopes if s not in WRITE_SCOPES and s not in STAFF_SCOPES}
-
         if state['tenant_id'] is not None:
             state['ticked'] = default_ticks(communities[state['tenant_id']].scopes)  # type: ignore[index]
 
@@ -125,29 +110,11 @@ def create() -> None:
             tenant_id = state['tenant_id']
             if tenant_id is None:
                 return
-            offered = communities[tenant_id].scopes  # type: ignore[index]
-            ticked: set = state['ticked']  # type: ignore[assignment]
-            groups = [
-                ('Let it see', [s for s in offered if s not in WRITE_SCOPES]),
-                ('Let it act as you', [s for s in offered if s in WRITE_SCOPES]),
-            ]
-            for title, scopes in groups:
-                if not scopes:
-                    continue
-                ui.label(title).classes('consent-grants-title')
-                with ui.column().classes('consent-grants'):
-                    for scope in scopes:
-                        with ui.row().classes('consent-scope no-wrap'):
-                            ui.checkbox(
-                                value=scope in ticked,
-                                on_change=lambda e, s=scope: set_tick(s, bool(e.value)),
-                            ).props(f'dense aria-label="{CONSENT_WORDING[scope]}"')
-                            with ui.column().classes('gap-0'):
-                                with ui.row().classes('items-center gap-1'):
-                                    ui.label(CONSENT_WORDING[scope])
-                                    if scope in STAFF_SCOPES:
-                                        ui.badge('Staff').props('color=warning outline')
-                                ui.label(_DETAIL[scope]).classes('consent-note')
+            render_scope_checklist(
+                communities[tenant_id].scopes,  # type: ignore[index]
+                state['ticked'],  # type: ignore[arg-type]
+                set_tick,
+            )
             with ui.row().classes('consent-note consent-note--lock no-wrap'):
                 ui.icon('lock').props('size=sm')
                 ui.label(

@@ -20,6 +20,7 @@ from mcp.server.mcpserver import MCPServer
 from api._match_view import MATCH_PREFETCH, serialize_match
 from api.schemas.matches import MatchResponse
 from api.schemas.reschedule_requests import RescheduleRequestResponse
+from application.api_scopes import ApiScope
 from application.errors import require_found
 from application.services import MatchRescheduleService, MatchService, ReportsService, bracket_sources
 from application.services.match.match_status import resolve as resolve_status
@@ -229,12 +230,13 @@ async def my_reschedule_requests(
 
 
 def register_tools(mcp: MCPServer) -> None:
-    register(mcp, my_reschedule_requests, gate=Gate.ACTOR, title='My reschedule requests')
-    register(mcp, list_matches, gate=Gate.ACTOR, title='List matches', event=True)
-    register(mcp, get_match, gate=Gate.ACTOR, title='Get match', event=True)
-    register(mcp, list_unbooked_matches, gate=Gate.ACTOR, title='List unbooked matchups', event=True)
-    register(mcp, get_schedule, gate=Gate.ACTOR, title='Get daily schedule', event=True)
+    register(mcp, my_reschedule_requests, gate=Gate.ACTOR, scope=ApiScope.PROFILE, title='My reschedule requests')
+    register(mcp, list_matches, gate=Gate.ACTOR, scope=ApiScope.SCHEDULE_READ, title='List matches', event=True)
+    register(mcp, get_match, gate=Gate.ACTOR, scope=ApiScope.SCHEDULE_READ, title='Get match', event=True)
+    register(mcp, list_unbooked_matches, gate=Gate.ACTOR, scope=ApiScope.SCHEDULE_READ, title='List unbooked matchups', event=True)
+    register(mcp, get_schedule, gate=Gate.ACTOR, scope=ApiScope.SCHEDULE_READ, title='Get daily schedule', event=True)
     register(
-        mcp, match_operations_report, gate=Gate.ADMIN,
-        title='Match operations report', event=True,
+        mcp, match_operations_report, gate=Gate.ADMIN, scope=ApiScope.STAFF_READ,
+        title='Match operations report',
+        event=True,
     )

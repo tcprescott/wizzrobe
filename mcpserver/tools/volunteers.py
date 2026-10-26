@@ -15,6 +15,7 @@ from typing import Any, Dict, List
 
 from mcp.server.mcpserver import MCPServer
 
+from application.api_scopes import ApiScope
 from application.services import AnalyticsService, AuthService
 from application.services.volunteer.volunteer_position_service import (
     VolunteerPositionService,
@@ -149,22 +150,26 @@ async def my_volunteer_shifts(
 
 def register_tools(mcp: MCPServer) -> None:
     register(
-        mcp, my_volunteer_shifts, gate=Gate.ACTOR,
+        mcp, my_volunteer_shifts, gate=Gate.ACTOR, scope=ApiScope.PROFILE,
         feature=FeatureFlag.VOLUNTEERS, title='My volunteer shifts',
     )
     register(
-        mcp, list_volunteer_positions, gate=Gate.ACTOR,
-        feature=FeatureFlag.VOLUNTEERS, title='List volunteer positions', event=True,
+        mcp, list_volunteer_positions, gate=Gate.ACTOR, scope=ApiScope.SCHEDULE_READ,
+        feature=FeatureFlag.VOLUNTEERS, title='List volunteer positions',
+        event=True,
     )
     register(
-        mcp, list_volunteer_shifts, gate=Gate.ACTOR,
-        feature=FeatureFlag.VOLUNTEERS, title='List volunteer shifts', event=True,
+        mcp, list_volunteer_shifts, gate=Gate.ACTOR, scope=ApiScope.SCHEDULE_READ,
+        feature=FeatureFlag.VOLUNTEERS, title='List volunteer shifts',
+        event=True,
     )
     register(
-        mcp, volunteer_coverage, gate=Gate.ACTOR,
-        feature=FeatureFlag.VOLUNTEERS, title='Volunteer coverage', event=True,
+        mcp, volunteer_coverage, gate=Gate.ACTOR, scope=ApiScope.SCHEDULE_READ,
+        feature=FeatureFlag.VOLUNTEERS, title='Volunteer coverage',
+        event=True,
     )
     register(
-        mcp, volunteer_hour_trends, gate=Gate.VOLUNTEER_ADMIN,
-        feature=FeatureFlag.VOLUNTEERS, title='Volunteer hour trends', event=True,
+        mcp, volunteer_hour_trends, gate=Gate.VOLUNTEER_ADMIN, scope=ApiScope.STAFF_READ,
+        feature=FeatureFlag.VOLUNTEERS, title='Volunteer hour trends',
+        event=True,
     )

@@ -15,6 +15,7 @@ from typing import List, Optional
 
 from mcp.server.mcpserver import MCPServer
 
+from application.api_scopes import ApiScope
 from application.errors import require_found
 from application.services import (
     MatchService,
@@ -224,30 +225,35 @@ async def list_triforce_texts(
 
 
 def register_tools(mcp: MCPServer) -> None:
-    register(mcp, list_presets, gate=Gate.ACTOR, title='List presets')
-    register(mcp, get_preset, gate=Gate.ACTOR, title='Get preset')
-    register(mcp, list_randomizers, gate=Gate.ACTOR, title='List randomizers')
+    register(mcp, list_presets, gate=Gate.ACTOR, scope=ApiScope.SCHEDULE_READ, title='List presets')
+    register(mcp, get_preset, gate=Gate.ACTOR, scope=ApiScope.STAFF_READ, title='Get preset')
+    register(mcp, list_randomizers, gate=Gate.ACTOR, scope=ApiScope.SCHEDULE_READ, title='List randomizers')
     register(
-        mcp, list_triforce_texts, gate=Gate.ACTOR,
-        feature=FeatureFlag.TRIFORCE_TEXTS, title='List triforce texts', event=True,
+        mcp, list_triforce_texts, gate=Gate.ACTOR, scope=ApiScope.STAFF_READ,
+        feature=FeatureFlag.TRIFORCE_TEXTS, title='List triforce texts',
+        event=True,
     )
     register(
-        mcp, list_race_room_profiles, gate=Gate.ACTOR,
+        mcp, list_race_room_profiles, gate=Gate.ACTOR, scope=ApiScope.STAFF_READ,
         feature=FeatureFlag.RACETIME_ROOMS, title='List race room profiles',
     )
     register(
-        mcp, list_race_rooms, gate=Gate.ACTOR,
-        feature=FeatureFlag.RACETIME_ROOMS, title='List open race rooms', event=True,
+        mcp, list_race_rooms, gate=Gate.ACTOR, scope=ApiScope.STAFF_READ,
+        feature=FeatureFlag.RACETIME_ROOMS, title='List open race rooms',
+        event=True,
     )
     register(
-        mcp, get_race_room, gate=Gate.ACTOR,
-        feature=FeatureFlag.RACETIME_ROOMS, title='Get a match race room', event=True,
+        mcp, get_race_room, gate=Gate.ACTOR, scope=ApiScope.SCHEDULE_READ,
+        feature=FeatureFlag.RACETIME_ROOMS, title='Get a match race room',
+        event=True,
     )
     register(
-        mcp, list_speedgaming_links, gate=Gate.ACTOR,
-        feature=FeatureFlag.SPEEDGAMING_ETL, title='List SpeedGaming links', event=True,
+        mcp, list_speedgaming_links, gate=Gate.ACTOR, scope=ApiScope.STAFF_READ,
+        feature=FeatureFlag.SPEEDGAMING_ETL, title='List SpeedGaming links',
+        event=True,
     )
     register(
-        mcp, list_speedgaming_episodes, gate=Gate.ACTOR,
-        feature=FeatureFlag.SPEEDGAMING_ETL, title='List SpeedGaming episodes', event=True,
+        mcp, list_speedgaming_episodes, gate=Gate.ACTOR, scope=ApiScope.STAFF_READ,
+        feature=FeatureFlag.SPEEDGAMING_ETL, title='List SpeedGaming episodes',
+        event=True,
     )

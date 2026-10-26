@@ -12,6 +12,7 @@ from mcp.server.mcpserver import MCPServer
 
 from api.schemas.bracket_overview import TournamentBracketResponse
 from api.schemas.brackets import StandingsGroupResponse
+from application.api_scopes import ApiScope
 from application.errors import require_found
 from application.services import BracketOverviewService, BracketService
 from application.services.async_qualifier.async_qualifier_live_race_service import (
@@ -319,41 +320,50 @@ async def list_async_qualifier_live_races(
 
 def register_tools(mcp: MCPServer) -> None:
     register(
-        mcp, list_brackets, gate=Gate.ACTOR,
-        feature=FeatureFlag.BRACKETS, title='List brackets', event=True,
+        mcp, list_brackets, gate=Gate.ACTOR, scope=ApiScope.SCHEDULE_READ,
+        feature=FeatureFlag.BRACKETS, title='List brackets',
+        event=True,
     )
     register(
-        mcp, get_bracket, gate=Gate.ACTOR,
-        feature=FeatureFlag.BRACKETS, title='Get bracket', event=True,
+        mcp, get_bracket, gate=Gate.ACTOR, scope=ApiScope.SCHEDULE_READ,
+        feature=FeatureFlag.BRACKETS, title='Get bracket',
+        event=True,
     )
     register(
-        mcp, list_bracket_matches, gate=Gate.ACTOR,
-        feature=FeatureFlag.BRACKETS, title='List bracket matches', event=True,
+        mcp, list_bracket_matches, gate=Gate.ACTOR, scope=ApiScope.SCHEDULE_READ,
+        feature=FeatureFlag.BRACKETS, title='List bracket matches',
+        event=True,
     )
     register(
-        mcp, list_bracket_entrants, gate=Gate.ACTOR,
-        feature=FeatureFlag.BRACKETS, title='List bracket entrants', event=True,
+        mcp, list_bracket_entrants, gate=Gate.ACTOR, scope=ApiScope.SCHEDULE_READ,
+        feature=FeatureFlag.BRACKETS, title='List bracket entrants',
+        event=True,
     )
     register(
-        mcp, get_bracket_standings, gate=Gate.ACTOR,
-        feature=FeatureFlag.BRACKETS, title='Bracket standings', event=True,
+        mcp, get_bracket_standings, gate=Gate.ACTOR, scope=ApiScope.SCHEDULE_READ,
+        feature=FeatureFlag.BRACKETS, title='Bracket standings',
+        event=True,
     )
     # No feature= here: the tournament's bracket site decides which flag
     # applies, and the service raises not_found when that one is off.
-    register(mcp, get_tournament_bracket, gate=Gate.ACTOR, title='Get tournament bracket', event=True)
+    register(mcp, get_tournament_bracket, gate=Gate.ACTOR, scope=ApiScope.SCHEDULE_READ, title='Get tournament bracket', event=True)
     register(
-        mcp, list_async_qualifiers, gate=Gate.ACTOR,
-        feature=FeatureFlag.ASYNC_QUALIFIERS, title='List async qualifiers', event=True,
+        mcp, list_async_qualifiers, gate=Gate.ACTOR, scope=ApiScope.SCHEDULE_READ,
+        feature=FeatureFlag.ASYNC_QUALIFIERS, title='List async qualifiers',
+        event=True,
     )
     register(
-        mcp, get_async_qualifier, gate=Gate.ACTOR,
-        feature=FeatureFlag.ASYNC_QUALIFIERS, title='Get async qualifier', event=True,
+        mcp, get_async_qualifier, gate=Gate.ACTOR, scope=ApiScope.SCHEDULE_READ,
+        feature=FeatureFlag.ASYNC_QUALIFIERS, title='Get async qualifier',
+        event=True,
     )
     register(
-        mcp, get_async_qualifier_leaderboard, gate=Gate.ACTOR,
-        feature=FeatureFlag.ASYNC_QUALIFIERS, title='Qualifier leaderboard', event=True,
+        mcp, get_async_qualifier_leaderboard, gate=Gate.ACTOR, scope=ApiScope.SCHEDULE_READ,
+        feature=FeatureFlag.ASYNC_QUALIFIERS, title='Qualifier leaderboard',
+        event=True,
     )
     register(
-        mcp, list_async_qualifier_live_races, gate=Gate.ACTOR,
-        feature=FeatureFlag.ASYNC_QUALIFIERS, title='List qualifier live races', event=True,
+        mcp, list_async_qualifier_live_races, gate=Gate.ACTOR, scope=ApiScope.STAFF_READ,
+        feature=FeatureFlag.ASYNC_QUALIFIERS, title='List qualifier live races',
+        event=True,
     )

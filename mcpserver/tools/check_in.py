@@ -11,6 +11,7 @@ from typing import List, Optional
 from mcp.server.mcpserver import MCPServer
 
 from api.schemas.check_in import CheckInEntrantResponse, CheckInEventResponse
+from application.api_scopes import ApiScope
 from application.services import CheckInDeskService, CheckInService
 from mcpserver.auth import Gate, current_actor
 from mcpserver.registry import register
@@ -59,12 +60,15 @@ async def get_check_in_roster(
 #: Check-in rows: ``event_id`` here is a check-in event, not a Wizzrobe event.
 _CHECK_IN_EVENT = {'event_id': CheckInEvent}
 
+
 def register_tools(mcp: MCPServer) -> None:
     register(
-        mcp, list_check_in_events, gate=Gate.ACTOR,
-        feature=FeatureFlag.EVENT_CHECK_IN, title='List check-in events', event=True,
+        mcp, list_check_in_events, gate=Gate.ACTOR, scope=ApiScope.STAFF_READ,
+        feature=FeatureFlag.EVENT_CHECK_IN, title='List check-in events',
+        event=True,
     )
     register(
-        mcp, get_check_in_roster, gate=Gate.ACTOR,
-        feature=FeatureFlag.EVENT_CHECK_IN, title='Get check-in roster', event=_CHECK_IN_EVENT,
+        mcp, get_check_in_roster, gate=Gate.ACTOR, scope=ApiScope.STAFF_READ,
+        feature=FeatureFlag.EVENT_CHECK_IN, title='Get check-in roster',
+        event=_CHECK_IN_EVENT,
     )

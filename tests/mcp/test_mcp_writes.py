@@ -17,11 +17,14 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 
+from application.api_scopes import READ_SCOPES, ApiScope, parse_scope
 from models import Commentator, Match, MatchPlayers, Role, Stage, Tournament, User
 from tests.api_helpers import create_community_member
 from tests.mcp.conftest import call_tool, create_oauth_token, mcp_session
 
 TENANT = 'default'
+# What a plain member is offered to read: everything but staff.
+READS = READ_SCOPES - {ApiScope.STAFF_READ}
 
 # Every write tool with arguments that reach the gate rather than failing
 # validation first. The gate runs before the tool body, so these need not name
@@ -385,50 +388,66 @@ class TestOrientationReportsTheGrant:
 
 
 class TestConsentDecidesTheGrant:
-    async def test_approving_without_the_box_mints_a_read_only_token(self, db):
-        from application.services.mcp_auth_service import READ_SCOPE, WRITE_SCOPE
-
-        _, token = await _approve(allow_write=False)
+    async def test_approving_the_reads_mints_a_read_only_token(self, db):
+        _, token = await _approve(scopes=READS)
         assert token.read_only is True
-        assert token.scope == READ_SCOPE
-        assert WRITE_SCOPE not in (token.scope or '')
+        assert parse_scope(token.scope) == READS
 
-    async def test_approving_with_the_box_mints_a_writing_token(self, db):
-        from application.services.mcp_auth_service import WRITE_SCOPE
-
-        _, token = await _approve(allow_write=True)
+    async def test_approving_a_change_mints_a_writing_token(self, db):
+        _, token = await _approve(scopes=READS | {ApiScope.PLAY})
         assert token.read_only is False
-        assert WRITE_SCOPE in token.scope
+        assert ApiScope.PLAY in parse_scope(token.scope)
+        assert ApiScope.CREW not in parse_scope(token.scope)
 
     @pytest.mark.parametrize('typed', [None, '', 'this is fine', 'dangerous'])
     async def test_write_without_the_phrase_is_refused(self, db, typed):
-        """Ticking the box is not enough; the sentence has to be typed."""
+        """Ticking a change is not enough; the sentence has to be typed."""
         service, user, txn = await _pending_grant()
         with pytest.raises(ValueError, match='this is dangerous'):
-            await service.approve(txn, user, allow_write=True, write_confirmation=typed)
+            await service.approve(txn, user, scopes={ApiScope.PLAY}, write_confirmation=typed)
         # A typo must not burn the request: the same screen can try again.
         raw_code, _, _ = await service.approve(
-            txn, user, allow_write=True, write_confirmation='this is dangerous',
+            txn, user, scopes={ApiScope.PLAY}, write_confirmation='this is dangerous',
         )
         assert raw_code
 
     @pytest.mark.parametrize('typed', ['This Is Dangerous', '  this  is dangerous '])
     async def test_case_and_spacing_are_forgiven(self, db, typed):
         service, user, txn = await _pending_grant()
-        assert await service.approve(txn, user, allow_write=True, write_confirmation=typed)
+        assert await service.approve(txn, user, scopes={ApiScope.CREW}, write_confirmation=typed)
 
-    async def test_read_only_needs_no_phrase(self, db):
+    async def test_reads_need_no_phrase(self, db):
         service, user, txn = await _pending_grant()
-        assert await service.approve(txn, user, allow_write=False)
+        assert await service.approve(txn, user, scopes=READS)
 
-    async def test_a_client_requesting_write_still_gets_read_only(self, db):
+    async def test_nothing_ticked_is_refused(self, db):
+        service, user, txn = await _pending_grant()
+        with pytest.raises(ValueError, match='at least one'):
+            await service.approve(txn, user, scopes=set())
+
+    async def test_staff_areas_are_refused_without_a_staff_role(self, db):
+        service, user, txn = await _pending_grant()
+        assert ApiScope.STAFF_READ not in await service.offered_scopes(user)
+        with pytest.raises(ValueError, match='roles'):
+            await service.approve(txn, user, scopes={ApiScope.STAFF_READ})
+
+    async def test_staff_somewhere_is_offered_the_staff_areas(self, db):
+        from models import UserRole
+
+        service, user, _ = await _pending_grant()
+        await UserRole.create(user=user, role=Role.STAFF, tenant_id=1)
+        from application.repositories.tenant_membership_repository import TenantMembershipRepository
+        await TenantMembershipRepository.add(user, 1)
+        assert set(await service.offered_scopes(user)) == set(ApiScope)
+
+    async def test_a_client_requesting_write_still_gets_what_was_ticked(self, db):
         """The client asks; the human decides. Nothing else does.
 
         Without this, a client that pads its authorize request with
-        `scope=wizzrobe:write` would be granted it by default, and the box on
+        `scope=wizzrobe:write` would be granted it by default, and the boxes on
         the consent screen would be decoration.
         """
-        _, token = await _approve(allow_write=False, requested_scopes=[
+        _, token = await _approve(scopes=READS, requested_scopes=[
             'wizzrobe:read', 'wizzrobe:write',
         ])
         assert token.read_only is True
@@ -437,10 +456,11 @@ class TestConsentDecidesTheGrant:
         """Rotation re-keys the row, so the grant is fixed at consent."""
         from application.services import McpAuthService
 
-        _, token = await _approve(allow_write=False)
+        _, token = await _approve(scopes=READS)
         await McpAuthService().exchange_refresh(token)
         await token.refresh_from_db()
         assert token.read_only is True
+        assert parse_scope(token.scope) == READS
 
 
 async def _pending_grant(requested_scopes: list[str] | None = None):
@@ -475,7 +495,7 @@ async def _pending_grant(requested_scopes: list[str] | None = None):
     return service, user, txn
 
 
-async def _approve(*, allow_write: bool, requested_scopes: list[str] | None = None):
+async def _approve(*, scopes, requested_scopes: list[str] | None = None):
     """Drive one grant through consent and return ``(user, token)``."""
     from application.services.mcp_auth_service import WRITE_CONFIRMATION_PHRASE
     from models import ApiToken
@@ -483,8 +503,7 @@ async def _approve(*, allow_write: bool, requested_scopes: list[str] | None = No
     service, user, txn = await _pending_grant(requested_scopes)
     client_id = service.get_pending(txn).client_id
     raw_code, _, _ = await service.approve(
-        txn, user, allow_write=allow_write,
-        write_confirmation=WRITE_CONFIRMATION_PHRASE if allow_write else None,
+        txn, user, scopes=scopes, write_confirmation=WRITE_CONFIRMATION_PHRASE,
     )
     code = await service.load_code(client_id, raw_code)
     await service.exchange_code(code)

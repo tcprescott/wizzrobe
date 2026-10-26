@@ -10,6 +10,7 @@ from mcp.server.mcpserver import MCPServer
 
 from api._helpers import load_community_user_or_404
 from api.schemas.memberships import JoinRequestResponse
+from application.api_scopes import ApiScope
 from application.services import (
     AuthService,
     CrewService,
@@ -226,13 +227,14 @@ async def list_join_requests(tenant: TenantArg = None) -> List[JoinRequestRespon
 
 
 def register_tools(mcp: MCPServer) -> None:
-    register(mcp, list_join_requests, gate=Gate.STAFF, title='List join requests')
-    register(mcp, list_users, gate=Gate.STAFF, title='List users')
-    register(mcp, get_user, gate=Gate.ACTOR, title='Get user')
-    register(mcp, get_member_details, gate=Gate.STAFF, title='Get member details')
+    register(mcp, list_join_requests, gate=Gate.STAFF, scope=ApiScope.STAFF_READ, title='List join requests')
+    register(mcp, list_users, gate=Gate.STAFF, scope=ApiScope.STAFF_READ, title='List users')
+    register(mcp, get_user, gate=Gate.ACTOR, scope=ApiScope.STAFF_READ, title='Get user')
+    register(mcp, get_member_details, gate=Gate.STAFF, scope=ApiScope.STAFF_READ, title='Get member details')
     register(
-        mcp, get_player_availability, gate=Gate.ACTOR,
-        title='Get player availability', event=True,
+        mcp, get_player_availability, gate=Gate.ACTOR, scope=ApiScope.STAFF_READ,
+        title='Get player availability',
+        event=True,
     )
-    register(mcp, list_match_crew, gate=Gate.ADMIN, title='List match crew', event=True)
-    register(mcp, crew_coverage_report, gate=Gate.ADMIN, title='Crew coverage report', event=True)
+    register(mcp, list_match_crew, gate=Gate.ADMIN, scope=ApiScope.STAFF_READ, title='List match crew', event=True)
+    register(mcp, crew_coverage_report, gate=Gate.ADMIN, scope=ApiScope.STAFF_READ, title='Crew coverage report', event=True)

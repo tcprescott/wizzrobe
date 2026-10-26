@@ -19,6 +19,7 @@ from pydantic import BaseModel, Field
 
 from api.schemas.notification_settings import NotificationSettingResponse
 from api.schemas.notifications import MyNotificationsResponse
+from application.api_scopes import ApiScope
 from application.services import (
     AuditService,
     EventService,
@@ -408,22 +409,22 @@ async def memory_census(top: int = 40, collect: bool = True, explain: int = 50) 
 
 
 def register_tools(mcp: MCPServer) -> None:
-    register(mcp, list_audit_log, gate=Gate.STAFF, title='Search audit log')
-    register(mcp, list_sent_messages, gate=Gate.STAFF, title='List sent messages')
-    register(mcp, telemetry_summary, gate=Gate.STAFF, title='Telemetry summary')
-    register(mcp, telemetry_top, gate=Gate.STAFF, title='Telemetry leaderboards')
-    register(mcp, get_system_config, gate=Gate.STAFF, title='Get system config')
-    register(mcp, list_notification_settings, gate=Gate.STAFF, title='List notification settings')
-    register(mcp, my_notification_settings, gate=Gate.ACTOR, title='My notification settings')
-    register(mcp, list_service_health, gate=Gate.STAFF, title='Service health')
-    register(mcp, runtime_stats, gate=Gate.PLATFORM, title='Runtime stats')
-    register(mcp, memory_census, gate=Gate.PLATFORM, title='Memory census')
-    register(mcp, list_webhooks, gate=Gate.STAFF, title='List webhooks')
+    register(mcp, list_audit_log, gate=Gate.STAFF, scope=ApiScope.STAFF_READ, title='Search audit log')
+    register(mcp, list_sent_messages, gate=Gate.STAFF, scope=ApiScope.STAFF_READ, title='List sent messages')
+    register(mcp, telemetry_summary, gate=Gate.STAFF, scope=ApiScope.STAFF_READ, title='Telemetry summary')
+    register(mcp, telemetry_top, gate=Gate.STAFF, scope=ApiScope.STAFF_READ, title='Telemetry leaderboards')
+    register(mcp, get_system_config, gate=Gate.STAFF, scope=ApiScope.STAFF_READ, title='Get system config')
+    register(mcp, list_notification_settings, gate=Gate.STAFF, scope=ApiScope.STAFF_READ, title='List notification settings')
+    register(mcp, my_notification_settings, gate=Gate.ACTOR, scope=ApiScope.PROFILE, title='My notification settings')
+    register(mcp, list_service_health, gate=Gate.STAFF, scope=ApiScope.STAFF_READ, title='Service health')
+    register(mcp, runtime_stats, gate=Gate.PLATFORM, scope=ApiScope.STAFF_READ, title='Runtime stats')
+    register(mcp, memory_census, gate=Gate.PLATFORM, scope=ApiScope.STAFF_READ, title='Memory census')
+    register(mcp, list_webhooks, gate=Gate.STAFF, scope=ApiScope.STAFF_READ, title='List webhooks')
     register(
-        mcp, list_webhook_deliveries, gate=Gate.STAFF,
+        mcp, list_webhook_deliveries, gate=Gate.STAFF, scope=ApiScope.STAFF_READ,
         title='List webhook deliveries',
     )
     register(
-        mcp, list_feedback, gate=Gate.STAFF,
+        mcp, list_feedback, gate=Gate.STAFF, scope=ApiScope.STAFF_READ,
         feature=FeatureFlag.FEEDBACK, title='List feedback',
     )

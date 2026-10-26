@@ -20,6 +20,14 @@ A tool that changes data declares ``write=True``. That one flag drives three
 things at once — the ``readOnlyHint`` clients read, the read-only-token refusal
 in :func:`~mcpserver.auth.authorize`, and whether the tool is listed to a
 read-only connection at all — so a write tool cannot be half-declared.
+
+Every tool also names the one :class:`~application.api_scopes.ApiScope` a
+connection must hold to call it, the same eight areas the REST API maps its
+routes to. ``scope`` has no default, so a tool cannot ship without that
+decision, and registration refuses a tool filed in the wrong kind of area: a
+write tool under a read area, or a read tool under a write one (where a
+read-only connection could never reach it).
+Only the orientation tools (``Gate.GLOBAL``) take none.
 """
 
 import functools
@@ -31,6 +39,7 @@ from mcp.server.mcpserver import MCPServer
 from mcp.types import ToolAnnotations
 from tortoise.models import Model
 
+from application.api_scopes import WRITE_SCOPES, ApiScope
 from application.event_context import event_scope
 from application.services.event_service import EventService
 from application.services.telemetry_service import TelemetryEventType, TelemetryService
@@ -76,6 +85,7 @@ class ToolSpec:
     """How a tool is gated, as declared at registration."""
 
     gate: Gate
+    scope: Optional[ApiScope]
     feature: Optional[FeatureFlag] = None
     write: bool = False
     destructive: bool = False
@@ -90,6 +100,14 @@ TOOL_SPECS: Dict[str, ToolSpec] = {}
 def write_tool_names() -> FrozenSet[str]:
     """Tools that change data, by name."""
     return frozenset(name for name, spec in TOOL_SPECS.items() if spec.write)
+
+
+def tools_outside(scopes: FrozenSet[ApiScope]) -> FrozenSet[str]:
+    """Tools a connection holding ``scopes`` may not call, by name."""
+    return frozenset(
+        name for name, spec in TOOL_SPECS.items()
+        if spec.scope is not None and spec.scope not in scopes
+    )
 
 
 def platform_tool_names() -> FrozenSet[str]:
@@ -126,6 +144,7 @@ def register(
     fn: Callable,
     *,
     gate: Gate,
+    scope: Optional[ApiScope],
     feature: Optional[FeatureFlag] = None,
     title: Optional[str] = None,
     write: bool = False,
@@ -148,6 +167,12 @@ def register(
     decide how hard to ask the user before proceeding.
     """
     name = fn.__name__
+    if (scope is None) != (gate is Gate.GLOBAL):
+        raise ValueError(f'MCP tool {name}: only Gate.GLOBAL tools go without a scope')
+    if scope is not None and write != (scope in WRITE_SCOPES):
+        # A read tool in a write area would only be reachable by a connection
+        # that also agreed to changes, so a read-only grant would lose it.
+        raise ValueError(f'MCP tool {name}: write tools go in write areas, reads in read areas')
     signature = inspect.signature(fn)
     rows: Optional[Dict[str, type[Model]]] = None
     if event:
@@ -163,7 +188,7 @@ def register(
         try:
             actor = current_actor()
             if gate.names_no_community:
-                await authorize(actor, gate, feature, write=write)
+                await authorize(actor, gate, feature, write=write, scope=scope)
                 return await fn(**kwargs)
             slug = kwargs.pop('event', None) if rows is not None else None
             tenant = await resolve_tenant(kwargs.get('tenant'))
@@ -171,7 +196,7 @@ def register(
             with tenant_scope(tenant.id):
                 event_id = await EventService.default_event_id(tenant.id)
                 with event_scope(event_id):
-                    await authorize(actor, gate, feature, slug=tenant.slug, write=write)
+                    await authorize(actor, gate, feature, slug=tenant.slug, write=write, scope=scope)
                 if rows is not None:
                     pairs = [(model, row_id) for arg, model in rows.items() for row_id in _ids(kwargs.get(arg))]
                     event_id = await EventService.call_event_id(actor.user, slug, pairs) or event_id
@@ -205,7 +230,7 @@ def register(
         assert inspect.signature(wrapped).parameters == signature.parameters
 
     TOOL_SPECS[name] = ToolSpec(
-        gate=gate, feature=feature, write=write, destructive=destructive, event_rows=rows,
+        gate=gate, scope=scope, feature=feature, write=write, destructive=destructive, event_rows=rows,
     )
     mcp.add_tool(
         wrapped,

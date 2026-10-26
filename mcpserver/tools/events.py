@@ -12,6 +12,7 @@ from typing import Dict, List, Optional
 from mcp.server.mcpserver import MCPServer
 from pydantic import BaseModel, Field
 
+from application.api_scopes import ApiScope
 from application.event_context import event_scope
 from application.services import EventService, SystemConfigService
 from application.services.event_service import EventRef
@@ -161,14 +162,14 @@ async def delete_draft_event(slug: str, tenant: TenantArg = None) -> OperationRe
 
 
 def register_tools(mcp: MCPServer) -> None:
-    register(mcp, list_events, gate=Gate.ACTOR, title='List events')
-    register(mcp, get_event, gate=Gate.ACTOR, title='Get event')
-    register(mcp, get_event_settings, gate=Gate.ACTOR, title='Get event settings')
-    register(mcp, create_event, gate=Gate.ACTOR, write=True, title='Create event')
-    register(mcp, update_event, gate=Gate.ACTOR, write=True, title='Update event')
-    register(mcp, update_event_settings, gate=Gate.ACTOR, write=True, title='Update event setting')
-    register(mcp, go_live_event, gate=Gate.ACTOR, write=True, title='Make event live')
-    register(mcp, make_default_event, gate=Gate.ACTOR, write=True, title='Make event the default')
-    register(mcp, archive_event, gate=Gate.ACTOR, write=True, title='Archive event')
-    register(mcp, unarchive_event, gate=Gate.ACTOR, write=True, title='Unarchive event')
-    register(mcp, delete_draft_event, gate=Gate.ACTOR, write=True, destructive=True, title='Delete draft event')
+    register(mcp, list_events, gate=Gate.ACTOR, scope=ApiScope.SCHEDULE_READ, title='List events')
+    register(mcp, get_event, gate=Gate.ACTOR, scope=ApiScope.SCHEDULE_READ, title='Get event')
+    register(mcp, get_event_settings, gate=Gate.ACTOR, scope=ApiScope.STAFF_READ, title='Get event settings')
+    register(mcp, create_event, gate=Gate.ACTOR, scope=ApiScope.STAFF_WRITE, write=True, title='Create event')
+    register(mcp, update_event, gate=Gate.ACTOR, scope=ApiScope.STAFF_WRITE, write=True, title='Update event')
+    register(mcp, update_event_settings, gate=Gate.ACTOR, scope=ApiScope.STAFF_WRITE, write=True, title='Update event setting')
+    register(mcp, go_live_event, gate=Gate.ACTOR, scope=ApiScope.STAFF_WRITE, write=True, title='Make event live')
+    register(mcp, make_default_event, gate=Gate.ACTOR, scope=ApiScope.STAFF_WRITE, write=True, title='Make event the default')
+    register(mcp, archive_event, gate=Gate.ACTOR, scope=ApiScope.STAFF_WRITE, write=True, title='Archive event')
+    register(mcp, unarchive_event, gate=Gate.ACTOR, scope=ApiScope.STAFF_WRITE, write=True, title='Unarchive event')
+    register(mcp, delete_draft_event, gate=Gate.ACTOR, scope=ApiScope.STAFF_WRITE, write=True, destructive=True, title='Delete draft event')

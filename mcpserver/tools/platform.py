@@ -16,6 +16,7 @@ from mcp.server.mcpserver import MCPServer
 
 from api.schemas.platform import LogLevelResponse
 from api.schemas.service_health import ProbeResultResponse
+from application.api_scopes import ApiScope
 from application.services import (
     CommunityOverview,
     FeatureFlagService,
@@ -185,4 +186,4 @@ def register_tools(mcp: MCPServer) -> None:
         (platform_list_log_levels, 'List log levels'),
         (platform_service_health, 'Platform health board'),
     ):
-        register(mcp, fn, gate=Gate.PLATFORM, title=title)
+        register(mcp, fn, gate=Gate.PLATFORM, scope=ApiScope.STAFF_READ, title=title)

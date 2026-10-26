@@ -38,6 +38,7 @@ from mcp.server.mcpserver import MCPServer
 from api._match_view import load_match_response
 from api.schemas.match_actions import ExtendToSetRequest, SeedResultResponse, SetGameTime
 from api.schemas.matches import MatchResponse
+from application.api_scopes import ApiScope
 from application.errors import require_found
 from application.services import (
     BracketSetService,
@@ -501,7 +502,9 @@ async def withdraw_stream_offer(
 
 
 def register_tools(mcp: MCPServer) -> None:
-    def write_tool(fn: Callable, title: str, *, destructive: bool = False, event: Any = False) -> None:
+    def write_tool(
+        fn: Callable, title: str, *, scope: ApiScope, destructive: bool = False, event: Any = False,
+    ) -> None:
         """Every tool in this module, registered the same way.
 
         The gate and ``write=True`` are not per-tool decisions here — they are
@@ -509,30 +512,31 @@ def register_tools(mcp: MCPServer) -> None:
         nineteen times where one of them could quietly go missing.
         """
         register(
-            mcp, fn, gate=Gate.ACTOR, write=True, title=title,
-            destructive=destructive, event=event,
+            mcp, fn, gate=Gate.ACTOR, scope=scope, write=True, title=title,
+            destructive=destructive,
+            event=event,
         )
 
-    write_tool(create_match, 'Create match', event=True)
-    write_tool(submit_match_request, 'Request match', event=True)
-    write_tool(update_match, 'Update match', event=True)
-    write_tool(delete_match, 'Delete match', destructive=True, event=True)
-    write_tool(extend_match_to_set, 'Turn match into a set', event=True)
-    write_tool(set_match_stream_candidate, 'Set stream candidate', event=True)
-    write_tool(assign_match_stage, 'Assign stage', event=True)
-    write_tool(assign_match_stations, 'Assign stations', event=True)
-    write_tool(seat_match, 'Check in match', event=True)
-    write_tool(start_match, 'Start match', event=True)
-    write_tool(finish_match, 'Finish match', event=True)
-    write_tool(confirm_match, 'Confirm match', event=True)
-    write_tool(record_match_result, 'Record result', event=True)
-    write_tool(set_match_review, 'Flag or clear review', event=True)
-    write_tool(generate_match_seed, 'Generate seed', event=True)
-    write_tool(set_crew_approval, 'Approve or reject crew', event=True)
-    write_tool(signup_as_crew, 'Sign up as crew', event=True)
-    write_tool(withdraw_crew_signup, 'Withdraw crew signup', destructive=True, event=True)
-    write_tool(acknowledge_match, 'Acknowledge match', event=True)
-    write_tool(watch_match, 'Watch match', event=True)
-    write_tool(unwatch_match, 'Stop watching match', event=True)
-    write_tool(offer_match_for_stream, 'Offer match for stream', event=True)
-    write_tool(withdraw_stream_offer, 'Withdraw stream offer', destructive=True, event=True)
+    write_tool(create_match, 'Create match', scope=ApiScope.STAFF_WRITE, event=True)
+    write_tool(submit_match_request, 'Request match', scope=ApiScope.PLAY, event=True)
+    write_tool(update_match, 'Update match', scope=ApiScope.STAFF_WRITE, event=True)
+    write_tool(delete_match, 'Delete match', destructive=True, scope=ApiScope.STAFF_WRITE, event=True)
+    write_tool(extend_match_to_set, 'Turn match into a set', scope=ApiScope.STAFF_WRITE, event=True)
+    write_tool(set_match_stream_candidate, 'Set stream candidate', scope=ApiScope.STAFF_WRITE, event=True)
+    write_tool(assign_match_stage, 'Assign stage', scope=ApiScope.STAFF_WRITE, event=True)
+    write_tool(assign_match_stations, 'Assign stations', scope=ApiScope.STAFF_WRITE, event=True)
+    write_tool(seat_match, 'Check in match', scope=ApiScope.STAFF_WRITE, event=True)
+    write_tool(start_match, 'Start match', scope=ApiScope.STAFF_WRITE, event=True)
+    write_tool(finish_match, 'Finish match', scope=ApiScope.STAFF_WRITE, event=True)
+    write_tool(confirm_match, 'Confirm match', scope=ApiScope.STAFF_WRITE, event=True)
+    write_tool(record_match_result, 'Record result', scope=ApiScope.STAFF_WRITE, event=True)
+    write_tool(set_match_review, 'Flag or clear review', scope=ApiScope.STAFF_WRITE, event=True)
+    write_tool(generate_match_seed, 'Generate seed', scope=ApiScope.STAFF_WRITE, event=True)
+    write_tool(set_crew_approval, 'Approve or reject crew', scope=ApiScope.STAFF_WRITE, event=True)
+    write_tool(signup_as_crew, 'Sign up as crew', scope=ApiScope.CREW, event=True)
+    write_tool(withdraw_crew_signup, 'Withdraw crew signup', destructive=True, scope=ApiScope.CREW, event=True)
+    write_tool(acknowledge_match, 'Acknowledge match', scope=ApiScope.PLAY, event=True)
+    write_tool(watch_match, 'Watch match', scope=ApiScope.CREW, event=True)
+    write_tool(unwatch_match, 'Stop watching match', scope=ApiScope.CREW, event=True)
+    write_tool(offer_match_for_stream, 'Offer match for stream', scope=ApiScope.PLAY, event=True)
+    write_tool(withdraw_stream_offer, 'Withdraw stream offer', destructive=True, scope=ApiScope.PLAY, event=True)
