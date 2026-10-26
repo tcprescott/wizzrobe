@@ -82,7 +82,7 @@ async def admin_triforce_texts_page() -> None:
         with ui.card().classes('match-filters-card match-filters-card--compact') as filters_card:
             with ui.row().classes('match-filter-row'):
                 tournament_select = ui.select(
-                    options={t.id: t.name for t in tournaments},
+                    options=Tournament.short_label_options(tournaments),
                     label='Tournament',
                     value=state['tournament_id'],
                 ).classes('match-filter-field').props('outlined dense options-dense')

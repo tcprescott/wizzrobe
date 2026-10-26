@@ -1,3 +1,5 @@
+from typing import Iterable
+
 from tortoise import fields
 from tortoise.models import Model
 
@@ -198,6 +200,14 @@ class Tournament(Model):
     @property
     def short_label(self) -> str:
         return (self.short_name or '').strip() or self.name
+
+    @staticmethod
+    def short_label_options(tournaments: Iterable['Tournament']) -> dict[int, str]:
+        """``{id: short_label}`` for a filter dropdown, ordered by what it shows."""
+        return {
+            t.id: t.short_label
+            for t in sorted(tournaments, key=lambda t: t.short_label.casefold())
+        }
 
     @property
     def is_racetime_enabled(self) -> bool:
