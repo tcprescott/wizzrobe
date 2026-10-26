@@ -155,8 +155,11 @@ async def crew_page(
             {'name': 'stream_candidate', 'label': 'Candidate', 'field': 'stream_candidate'},
             {'name': 'commentators', 'label': 'Comms (apprv/total)', 'field': 'commentators'},
             {'name': 'trackers', 'label': 'Trackers (apprv/total)', 'field': 'trackers'},
-            *([{'name': 'broadcasters', 'label': 'Broadcasters (apprv/total)', 'field': 'broadcasters'}]
-              if broadcast else []),
+            # Hidden until picked in the gear, like the contribution columns
+            # below: both tables are already as wide as the page. Coverage gap
+            # still counts broadcasters.
+            *([{'name': 'broadcasters', 'label': 'Broadcasters (apprv/total)', 'field': 'broadcasters',
+                'hidden': True}] if broadcast else []),
             {'name': 'gap', 'label': 'Coverage gap', 'field': 'gap'},
         ]
         cov_panel = await section_panel('Coverage by match', icon='headset_mic')
@@ -202,9 +205,9 @@ async def crew_page(
             {'name': 'tracker_approved', 'label': 'Tracker approved', 'field': 'tracker_approved', 'sortable': True},
             {'name': 'tracker_pct', 'label': 'Tracker %', 'field': 'tracker_pct', 'sortable': True},
             *([
-                {'name': 'broadcaster_total', 'label': 'Broadcaster signups', 'field': 'broadcaster_total', 'sortable': True},
-                {'name': 'broadcaster_approved', 'label': 'Broadcaster approved', 'field': 'broadcaster_approved', 'sortable': True},
-                {'name': 'broadcaster_pct', 'label': 'Broadcaster %', 'field': 'broadcaster_pct', 'sortable': True},
+                {'name': 'broadcaster_total', 'label': 'Broadcaster signups', 'field': 'broadcaster_total', 'sortable': True, 'hidden': True},
+                {'name': 'broadcaster_approved', 'label': 'Broadcaster approved', 'field': 'broadcaster_approved', 'sortable': True, 'hidden': True},
+                {'name': 'broadcaster_pct', 'label': 'Broadcaster %', 'field': 'broadcaster_pct', 'sortable': True, 'hidden': True},
             ] if broadcast else []),
             {'name': 'hours_covered', 'label': 'Hours covered', 'field': 'hours_covered', 'sortable': True},
         ]
