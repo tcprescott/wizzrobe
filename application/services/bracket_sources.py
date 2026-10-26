@@ -651,7 +651,7 @@ async def record_site_result(match_id: int, actor: User) -> SiteResult:
             f"{result.winner_name or 'The winner'} on {result.site} isn't one of this "
             f"match's players. Record the result by hand."
         )
-    await MatchService().record_match_result(match_id, winner.id, actor=actor)
+    await MatchService().record_match_result(match_id, winner.id, actor=actor, announce=False)
     await MatchScheduleService().close_played_elsewhere(match, actor, result.site)
     return result
 

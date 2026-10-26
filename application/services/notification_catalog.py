@@ -141,6 +141,13 @@ MATCH_RESULT = _notice(
     {PLAYERS: _opted_in('Every player in the match'),
      FOLLOWERS: _opted_in('People following the tournament, at their follow level')},
 )
+# Tournament admins hear every result the moment it lands, wherever it was
+# reported, so they stop refreshing the bracket. Silent: there's nothing to do.
+RESULT_IN = _notice(
+    'result_in', 'Matches', 'Result in',
+    'A result is recorded, comes from the race room, or is reported on Challonge or start.gg',
+    {ADMINS: SILENT}, {ADMINS: _TOURNAMENT_ADMINS},
+)
 SEED_READY = _notice(
     'seed_ready', 'Matches', 'Seed ready', "The match's seed is rolled",
     {PLAYERS: PING},
@@ -524,7 +531,7 @@ SECTIONS: Dict[str, Tuple[Tuple[str, Tuple[Notice, ...]], ...]] = {
             MATCH_CHECKED_IN, SEED_READY, STATION_ASSIGNED, RACE_ROOM_OPEN, STAGE_CALL,
             STAGE_CLEARED, STAGE_REMINDER, MATCH_STARTED, MATCH_FINISHED,
         )),
-        ('Results', (MATCH_CONFIRMED, MATCH_FORFEITED, MATCH_RESULT)),
+        ('Results', (MATCH_CONFIRMED, MATCH_FORFEITED, MATCH_RESULT, RESULT_IN)),
         ('Comments and staff alerts', (
             STAFF_COMMENT, PLAYER_COMMENT, PLAYER_LATE, PLAYER_LATE_ON_STAGE, MATCH_FLAGGED, STREAM_OFFER, SEED_FAILED,
         )),

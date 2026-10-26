@@ -7,7 +7,7 @@ No business logic.
 """
 
 from datetime import datetime, timezone
-from typing import Dict, List, Optional, Set
+from typing import Dict, Iterable, List, Optional, Set, cast
 
 from tortoise.expressions import Q
 from tortoise.functions import Count
@@ -288,6 +288,23 @@ class ChallongeRepository:
             *(slots or {}),
         )
         return match
+
+    @staticmethod
+    async def unfinished_match_ids(tournament: Tournament) -> Set[str]:
+        """Remote ids of the mirrored matches not yet complete, to tell what a sync just finished."""
+        rows = await scoped(ChallongeMatch.filter(tournament=tournament)).exclude(
+            state=ChallongeMatchState.COMPLETE,
+        ).values_list('challonge_match_id', flat=True)
+        return set(cast(Iterable[str], rows))
+
+    @staticmethod
+    async def matches_by_remote_ids(tournament: Tournament, remote_ids: Iterable[str]) -> List[ChallongeMatch]:
+        """Mirrored matches with their entrants, winner and any booked match's players loaded."""
+        return await scoped(ChallongeMatch.filter(
+            tournament=tournament, challonge_match_id__in=list(remote_ids),
+        )).prefetch_related(
+            'tournament', 'participant1__user', 'participant2__user', 'winner_participant', 'match__players',
+        )
 
     @staticmethod
     async def booked_matches_for_participant(participant: ChallongeParticipant) -> List[ChallongeMatch]:

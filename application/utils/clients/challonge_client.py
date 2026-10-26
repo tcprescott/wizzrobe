@@ -12,7 +12,7 @@ to know the JSON:API wire shape:
     participant      -> {'participant_id', 'name', 'challonge_user_id', 'username', 'misc'}
     match            -> {'match_id', 'state', 'round', 'identifier',
                          'player1_participant_id', 'player2_participant_id',
-                         'winner_participant_id',
+                         'winner_participant_id', 'scores',
                          'player1_prereq_match_id', 'player1_is_prereq_loser',
                          'player2_prereq_match_id', 'player2_is_prereq_loser'}
 
@@ -176,6 +176,7 @@ def _normalize_match(resource: Dict[str, Any]) -> Dict[str, Any]:
             _attr(resource, 'winner_id') or _rel_id(resource, 'winner')
         ),
         'identifier': _opt_str(_attr(resource, 'identifier')),
+        'scores': _scores_by_participant(points),
         # Which match feeds each empty slot. Undocumented in v2.1, so the v1
         # names and a relationship are all tried; absent, the slot reads "TBD".
         **{
@@ -189,6 +190,19 @@ def _normalize_match(resource: Dict[str, Any]) -> Dict[str, Any]:
             for n in (1, 2)
         },
     }
+
+
+def _scores_by_participant(points: Any) -> Dict[str, int]:
+    """``participant id -> games won`` from ``points_by_participant``; empty when
+    Challonge sent nothing usable, since a score is decoration on a result."""
+    out: Dict[str, int] = {}
+    for entry in points if isinstance(points, list) else []:
+        if not isinstance(entry, dict) or entry.get('participant_id') is None:
+            continue
+        scores = entry.get('scores')
+        if isinstance(scores, list) and scores and all(isinstance(x, int) for x in scores):
+            out[str(entry['participant_id'])] = sum(scores)
+    return out
 
 
 def _opt_str(value: Any) -> Optional[str]:

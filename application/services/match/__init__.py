@@ -30,6 +30,7 @@ from application.services.match.match_placeholders import PlaceholderBookingMixi
 from application.services.match.match_reads import MatchReadsMixin
 from application.services.match.match_request import MatchRequestMixin
 from application.services.match.match_request_guard import assert_player_requests_allowed
+from application.services.match.match_result import RecordResultMixin
 from application.services.match.match_review import MatchReviewMixin
 from application.services.match.match_rewind import (
     MATCH_STEP_LABELS,
@@ -79,6 +80,7 @@ __all__ = [
     'MatchWatcherService',
     'PlaceholderBookingMixin',
     'PlayerLateService',
+    'RecordResultMixin',
     'StationAssignmentMixin',
     'StationDrawMixin',
     'StationSuggestion',
