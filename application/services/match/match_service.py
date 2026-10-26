@@ -20,14 +20,10 @@ from application.repositories import (
     TrackerRepository,
     UserRepository,
 )
-from application.repositories._save import save_fields
 from application.services._tournament_signup import record_enrolment_change
 from application.services.audit_service import AuditActions, AuditService
 from application.services.auth_service import AuthService
 from application.services.discord import discord_queue
-from application.services.match.bracket_result_guard import (
-    assert_bracket_result_editable,
-)
 from application.services.match.match_acknowledgment import MatchAcknowledgmentMixin
 from application.services.match.match_cancellation import CancellationMixin
 from application.services.match.match_forfeit import ForfeitMixin
@@ -36,6 +32,7 @@ from application.services.match.match_participants import MatchParticipants
 from application.services.match.match_placeholders import PlaceholderBookingMixin
 from application.services.match.match_reads import MatchReadsMixin
 from application.services.match.match_request import MatchRequestMixin
+from application.services.match.match_result import RecordResultMixin
 from application.services.match.match_review import MatchReviewMixin
 from application.services.match.match_schedule_service import MatchScheduleService
 from application.services.match.match_source_guard import assert_sg_fields_unchanged
@@ -61,7 +58,7 @@ from models import (
 
 class MatchService(
     CancellationMixin, ForfeitMixin, MatchAcknowledgmentMixin, MatchReadsMixin, MatchRequestMixin,
-    MatchReviewMixin, PlaceholderBookingMixin, StationAssignmentMixin, StationDrawMixin,
+    MatchReviewMixin, PlaceholderBookingMixin, RecordResultMixin, StationAssignmentMixin, StationDrawMixin,
 ):
     """Service for match-related business operations."""
 
@@ -690,74 +687,6 @@ class MatchService(
     # in MatchScheduleService._transition, which enforces the ordering rules and
     # emits state-change notifications. Earlier permissive seat_players /
     # finish_match duplicates were removed to keep one lifecycle path.
-
-    async def record_match_result(
-        self,
-        match_id: int,
-        winner_id: int,
-        actor: User,
-    ) -> Match:
-        """Record finish ranks for a 2-player match.
-
-        Winner gets rank 1; remaining player gets rank 2. The ``winner_id``
-        is a :class:`MatchPlayers` row id, not a User id.
-        """
-        match = await self._require_match(match_id)
-
-        await AuthService.ensure(
-            await AuthService.can_run_match(actor, match),
-            f"User cannot record results for match {match_id}",
-        )
-        # Confirming is the admin's verification step and has already pushed the
-        # result on, so rewriting a confirmed winner is a correction, not a
-        # recording: it takes the same gate confirming did.
-        if match.confirmed_at:
-            await AuthService.ensure(
-                await AuthService.can_confirm_match(actor, match),
-                "This result is confirmed. Only staff or the tournament admin can change it.",
-            )
-
-        if not match.players:
-            raise ValueError("Match has no players")
-
-        if not any(p.id == winner_id for p in match.players):
-            raise ValueError("That player isn't part of this match.")
-
-        # D6: one correction path. A match whose bracket game already settled is
-        # corrected from the bracket, which re-advances; rewriting the ranks here
-        # would leave the bracket silently disagreeing with its own game.
-        from application.services.bracket_service import BracketService
-
-        assert_bracket_result_editable(
-            await BracketService().get_game_for_match(match.id)
-        )
-
-        ranks: Dict[int, int] = {}
-        for player in match.players:
-            player.finish_rank = 1 if player.id == winner_id else 2
-            await save_fields(player, 'finish_rank')
-            ranks[player.id] = player.finish_rank
-        # A hand-recorded winner replaces a forfeit: both players have a rank again.
-        if getattr(match, 'forfeit_reason', None) is not None:
-            match.forfeit_reason = None
-            match.forfeit_note = None
-            await save_fields(match, 'forfeit_reason', 'forfeit_note')
-
-        await self.audit_service.write_and_publish(
-            actor,
-            AuditActions.MATCH_RESULT_RECORDED,
-            {
-                'match_id': match.id,
-                'winner_id': winner_id,
-                'ranks': {str(k): v for k, v in ranks.items()},
-            },
-            EventType.MATCH_RESULT_RECORDED,
-            event_extra={'tournament_id': match.tournament_id},
-        )
-
-        match_live.publish(match.id)
-
-        return match
 
     async def _check_round_window(
         self, match: Match, scheduled_at: datetime, actor: Optional[User], allow_outside_round: bool,

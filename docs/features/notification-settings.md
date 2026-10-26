@@ -217,6 +217,11 @@ the ceiling. Text is in `application/utils/discord_messages_opt_in.py`.
 | `match_flagged`, `seed_failed`, `stream_offer` | staff alert columns | `flag_for_review`, `SeedRollService._fail`, `MatchStreamVolunteerService.volunteer` |
 | `volunteer_arrived` | volunteer alert columns (silent) | `check_in_self` |
 
+`result_in` is not opt-in but sits beside `match_result`: the tournament's admins
+hear each result as it first lands (recorded, race room, forfeit, or a Challonge /
+start.gg sync), silent by default. See `result_alerts.py` in
+[services.md](../reference/services.md#result_alertspy--module-functions).
+
 When adding a notification, decide whether it belongs in `_URGENT` (can't wait:
 someone has to move now) or `_ACT` (asks the reader to do something); both feed
 the presets.

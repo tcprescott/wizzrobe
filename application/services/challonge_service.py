@@ -23,6 +23,7 @@ from application.errors import require_found
 from application.feature_flags import requires_feature
 from application.repositories import ChallongeRepository, TournamentRepository, UserRepository
 from application.repositories._save import save_fields
+from application.services import result_alerts
 from application.services._challonge_auto_sync import ChallongeAutoSyncMixin
 from application.services._challonge_communities import ChallongeCommunitiesMixin, not_found_message
 from application.services._challonge_link import ChallongeLinkMixin
@@ -650,6 +651,7 @@ class ChallongeService(ChallongeParticipantAssignmentMixin, ChallongeStageMixin,
         actor: User, remote_tournament: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, int]:
         bookable_before = await self._bookable_pairings(tournament)
+        unfinished_before = await self.repository.unfinished_match_ids(tournament)
         # Participants -> resolve to linked wizzrobe users by Challonge account id.
         # Resolve every linked user in one query rather than per participant.
         users_by_cuid = await self.repository.resolve_users_by_challonge_ids(
@@ -719,6 +721,7 @@ class ChallongeService(ChallongeParticipantAssignmentMixin, ChallongeStageMixin,
         })
         await self._refresh_placeholder_bookings(tournament, actor)
         await self._announce_newly_bookable(tournament, bookable_before)
+        await result_alerts.challonge_results_in(tournament, unfinished_before, remote_matches)
         return result
 
     @staticmethod

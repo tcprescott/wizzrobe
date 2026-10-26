@@ -18,6 +18,7 @@ from application.services.audit_service import AuditActions
 from application.services.auth_service import AuthService
 from application.services.discord import discord_queue
 from application.services.match.bracket_result_guard import assert_bracket_result_editable
+from application.services.match.match_status import has_recorded_result
 from application.services.notification_catalog import MATCH_FORFEITED
 from models import ForfeitReason, Match, MatchPlayers, User
 
@@ -85,6 +86,7 @@ class ForfeitMixin:
             raise ValueError(f"Keep the note under {NOTE_MAX} characters.")
         assert_bracket_result_editable(await BracketService().get_game_for_match(match.id))
 
+        first_result = not has_recorded_result(players)
         winner = next(p for p in players if p.id != forfeiter.id)
         winner.finish_rank = 1
         winner.finish_time = None
@@ -124,8 +126,10 @@ class ForfeitMixin:
         )
         await self._notify_forfeit(match, winner, forfeiter, reason, tell_forfeiter=tell_forfeiter)
 
-        from application.services import opt_in_notifications
+        from application.services import opt_in_notifications, result_alerts
         discord_queue.enqueue(opt_in_notifications.match_result(match.id))
+        if first_result:
+            discord_queue.enqueue(result_alerts.match_result_in(match.id, actor.id, result_alerts.FORFEIT))
         self.match_schedule_service.push_confirmed_result(match, actor)  # type: ignore[attr-defined]
         match_live.publish(match.id)
         return winner

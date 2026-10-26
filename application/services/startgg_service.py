@@ -30,7 +30,7 @@ from application.repositories import (
     TournamentRepository,
     UserRepository,
 )
-from application.services import notification_links
+from application.services import notification_links, result_alerts
 from application.services._bracket.notifications import BracketNotificationMixin
 from application.services._startgg_placeholders import StartggPlaceholderMixin
 from application.services._tournament_signup import record_enrolment_change
@@ -242,6 +242,7 @@ class StartggService(StartggPlaceholderMixin):
         removed = await self.repository.prune(
             tournament, entrant_ids=set(entrants), phase_ids=phase_ids, pool_ids=pool_ids, set_ids=set_ids,
         )
+        await result_alerts.startgg_results_in(tournament, full)
         await self.repository.record_sync(tournament, datetime.now(timezone.utc), full['event'].get('name'))
         await self._mirror_players(tournament, actor)
         relinked = await self._relink_bookings(tournament, actor)

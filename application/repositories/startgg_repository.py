@@ -239,6 +239,13 @@ class StartggRepository:
         return row
 
     @staticmethod
+    async def sets_by_ids(tournament: Tournament, set_ids: Iterable[str]) -> List[StartggSet]:
+        """Mirrored sets with their entrants, winner and any booked match's players loaded."""
+        return await scoped(StartggSet.filter(tournament=tournament, set_id__in=list(set_ids))).prefetch_related(
+            'tournament', 'pool__phase', 'entrant1__user', 'entrant2__user', 'winner', 'match__players',
+        )
+
+    @staticmethod
     async def list_phases(tournament: Tournament) -> List[StartggPhase]:
         return await scoped(StartggPhase.filter(tournament=tournament)).order_by('phase_order', 'id')
 

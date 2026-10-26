@@ -40,6 +40,7 @@ from application.repositories import RacetimeRoomRepository
 from application.repositories._save import save_fields
 from application.services.audit_service import AuditActions, AuditService
 from application.services.auth_service import AuthService
+from application.services.match.match_status import has_recorded_result
 from application.services.notification_catalog import PLAYERS, RACE_ROOM_OPEN
 from application.services.user_service import UserService
 from application.tenant_context import require_tenant_id
@@ -348,6 +349,7 @@ class RaceRoomService:
         match = await self._match_of(room, with_players=True)
 
         results, unmatched = self._map_results(match, entrants)
+        first_result = match is not None and not has_recorded_result(match.players)  # type: ignore[attr-defined]
         for mp, (rank, ftime) in results.items():
             mp.finish_rank = rank
             mp.finish_time = ftime
@@ -377,6 +379,10 @@ class RaceRoomService:
         # react exactly as they do for a manually-recorded result.
         if match is not None:
             self._publish_match_result(match, results, actor)
+            if first_result:
+                from application.services import result_alerts
+                from application.services.discord import discord_queue
+                discord_queue.enqueue(result_alerts.match_result_in(match.id, None, result_alerts.RACE_ROOM))
             await self._push_challonge(match, actor)
             await self._notify_bracket_sources(match, actor)
             await self._settle_bracket(match, actor)
