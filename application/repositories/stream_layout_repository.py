@@ -6,7 +6,7 @@ the overlay feed needs.
 """
 
 from datetime import datetime
-from typing import List, Optional
+from typing import Any, List, Optional
 
 from application.repositories._base import TenantScopedRepository
 from application.repositories._event import current_event_id, event_scoped
@@ -93,6 +93,11 @@ class StreamLayoutRepository(TenantScopedRepository[StreamLayout]):
             tenant_id=current_tenant_id(), event_id=getattr(stage, 'event_id', None),
             stage_id=stage.id, token=token,
         )
+
+    @classmethod
+    async def update_overlay(cls, overlay: StageOverlay, **fields: Any) -> StageOverlay:
+        # The base update is typed to this repository's StreamLayout; the column-only write is the same.
+        return await cls.update(overlay, **fields)  # type: ignore[arg-type,return-value]
 
     @staticmethod
     async def overlay_by_token(token: str) -> Optional[StageOverlay]:

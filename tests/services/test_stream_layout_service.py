@@ -11,6 +11,7 @@ from application.event_context import event_scope
 from application.services import stream_layout_service as sls
 from application.services.stream_layout_rules import clean_box, clean_boxes
 from application.services.stream_layout_service import StreamLayoutService, prepare_art
+from application.services.stream_layout_starters import STARTERS, STARTERS_BY_KEY
 from application.tenant_context import tenant_scope
 from models import (
     AuditLog,
@@ -217,3 +218,51 @@ class TestOverlay:
         with tenant_scope(tenant_b.id), event_scope(ev_b.id):
             with pytest.raises(NotFoundError):
                 await service.overlay_feed(await StreamLayoutService.resolve_token(overlay.token))
+
+
+class TestStarters:
+    async def test_starter_brings_boxes_and_a_plain_background(self, event):
+        staff = await _staff()
+        service = StreamLayoutService()
+        layout = await service.create_layout(staff, 'Race', starter='sg_2p_trackers', background='#14213d')
+        assert (layout.width, layout.height) == (1920, 1080)
+        assert sum(b['kind'] == 'hole' for b in layout.boxes) == 7
+        assert layout.art_sha256
+        art = await StreamLayoutService.art_bytes(layout.tenant_id, layout.id, layout.art_sha256)
+        assert Image.open(BytesIO(art)).getpixel((5, 5)) == (0x14, 0x21, 0x3D, 255)
+
+    async def test_every_starter_fits_its_canvas(self, event):
+        staff = await _staff()
+        service = StreamLayoutService()
+        for i, starter in enumerate(STARTERS):
+            layout = await service.create_layout(staff, f'S{i}', starter=starter.key)
+            assert len(layout.boxes) == len(starter.boxes)
+            for clean, raw in zip(layout.boxes, starter.boxes, strict=True):
+                assert (clean['x'], clean['y'], clean['w'], clean['h']) == (raw['x'], raw['y'], raw['w'], raw['h'])
+
+    async def test_unknown_starter_and_bad_colour_are_refused(self, event):
+        staff = await _staff()
+        with pytest.raises(ValueError):
+            await StreamLayoutService().create_layout(staff, 'Race', starter='nope')
+        with pytest.raises(ValueError):
+            await StreamLayoutService().create_layout(staff, 'Race', background='red')
+
+    async def test_plain_background_replaces_art_and_keeps_boxes(self, event):
+        staff = await _staff()
+        service = StreamLayoutService()
+        layout = await service.create_layout(staff, 'Race', starter='ffr_1p')
+        await service.set_art(staff, layout.id, _png(1920, 1080))
+        layout = await service.set_background(staff, layout.id, '#000000')
+        assert len(layout.boxes) == len(STARTERS_BY_KEY['ffr_1p'].boxes)
+        art = await StreamLayoutService.art_bytes(layout.tenant_id, layout.id, layout.art_sha256)
+        assert Image.open(BytesIO(art)).getpixel((300, 300)) == (0, 0, 0, 255)
+
+    async def test_plain_background_keeps_the_old_arts_transparent_areas(self, event):
+        staff = await _staff()
+        service = StreamLayoutService()
+        layout = await service.create_layout(staff, 'Race')
+        await service.set_art(staff, layout.id, _png(1920, 1080))
+        layout = await service.set_background(staff, layout.id, '#14213D')
+        art = Image.open(BytesIO(await StreamLayoutService.art_bytes(layout.tenant_id, layout.id, layout.art_sha256)))
+        assert art.getpixel((50, 50))[3] == 0
+        assert art.getpixel((500, 500)) == (0x14, 0x21, 0x3D, 255)

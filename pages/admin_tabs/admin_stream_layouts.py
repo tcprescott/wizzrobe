@@ -16,9 +16,9 @@ from __future__ import annotations
 import copy
 from typing import Any, Optional
 
-from nicegui import app, events, ui
+from nicegui import events, ui
 
-from application.services import StreamLayoutService, TenantService, get_user_from_session
+from application.services import StreamLayoutService, TenantService
 from application.services.stream_layout_rules import (
     ALIGNS,
     FIELDS,
@@ -34,7 +34,7 @@ from application.services.stream_layout_service import ART_ACCEPT, MAX_ART_BYTES
 from application.tenant_context import require_tenant_id
 from application.utils.tenant_urls import tenant_url
 from application.utils.timezone import format_local_time
-from models import Match, StreamLayout, User
+from models import Match, StreamLayout
 from theme.assets import asset_url
 from theme.busy import busy_click
 from theme.clipboard import copy_to_clipboard
@@ -48,22 +48,17 @@ from theme.page_header import page_header
 from theme.section import section_panel
 from theme.steady import steady_refreshable
 
+from .stream_layout_dialogs import background_dialog, current_actor, new_layout_dialog, rename_dialog
+
 _ICON = {f.key: f.icon for f in FIELDS}
 
 
 def _match_label(match: Match) -> str:
-    names = [p.user.preferred_name for p in sorted(match.players, key=lambda p: p.id)]
+    names = [p.user.preferred_name for p in sorted(match.players, key=lambda p: p.id)]  # type: ignore[attr-defined]
     who = ' vs '.join(names) if 0 < len(names) <= 2 else (match.title or f'{len(names)} players')
     when = format_local_time(match.scheduled_at) if match.scheduled_at else ''
     tournament = match.tournament.short_label if match.tournament else ''
     return ' · '.join(x for x in (when, who, tournament) if x)
-
-
-async def _actor() -> User:
-    user = await get_user_from_session(app.storage.user)
-    if user is None:
-        raise PermissionError('Your session has ended. Sign in again.')
-    return user
 
 
 async def _obs_url(token: str) -> str:
@@ -99,7 +94,7 @@ async def admin_stream_layouts_page() -> None:
 
     async def open_editor(layout_id: int) -> None:
         try:
-            layout = await service.get_layout(await _actor(), layout_id)
+            layout = await service.get_layout(await current_actor(), layout_id)
         except (ValueError, PermissionError) as err:
             notify_error(err)
             return
@@ -113,7 +108,7 @@ async def admin_stream_layouts_page() -> None:
 
 
 async def _render_overview(service: StreamLayoutService, open_editor) -> None:
-    actor = await _actor()
+    actor = await current_actor()
     with page_header(
         'Stream Layouts',
         'Overlays OBS puts on top of the video. Each stage has its own link, '
@@ -121,14 +116,14 @@ async def _render_overview(service: StreamLayoutService, open_editor) -> None:
     ):
         await help_icon('stream-layouts', user=actor)
         ui.space()
-        ui.button('New layout', icon='add', on_click=lambda: _new_layout_dialog(service, open_editor)) \
+        ui.button('New layout', icon='add', on_click=lambda: new_layout_dialog(service, open_editor)) \
             .props('color=primary')
 
     @steady_refreshable
     async def stages() -> None:
         try:
-            rows = await service.stage_overlays(await _actor())
-            layouts = await service.list_layouts(await _actor())
+            rows = await service.stage_overlays(await current_actor())
+            layouts = await service.list_layouts(await current_actor())
         except (ValueError, PermissionError) as err:
             notify_error(err)
             return
@@ -143,7 +138,7 @@ async def _render_overview(service: StreamLayoutService, open_editor) -> None:
     @steady_refreshable
     async def layout_list() -> None:
         try:
-            layouts = await service.list_layouts(await _actor())
+            layouts = await service.list_layouts(await current_actor())
         except (ValueError, PermissionError) as err:
             notify_error(err)
             return
@@ -175,7 +170,7 @@ def _stage_row(service: StreamLayoutService, row, options: dict, refresh) -> Non
 
     async def set_layout(e) -> None:
         try:
-            await service.set_stage_layout(await _actor(), stage.id, e.value or None)
+            await service.set_stage_layout(await current_actor(), stage.id, e.value or None)
             ui.notify(f'{stage.name} now uses {options[e.value]}.' if e.value else
                       f'{stage.name} has no layout; its overlay is blank.', color='positive')
         except (ValueError, PermissionError) as err:
@@ -186,7 +181,7 @@ def _stage_row(service: StreamLayoutService, row, options: dict, refresh) -> Non
 
     async def unpin() -> None:
         try:
-            await service.unpin(await _actor(), stage.id)
+            await service.unpin(await current_actor(), stage.id)
             ui.notify(f'{stage.name} follows its matches again.', color='positive')
         except (ValueError, PermissionError) as err:
             notify_error(err)
@@ -194,7 +189,7 @@ def _stage_row(service: StreamLayoutService, row, options: dict, refresh) -> Non
 
     async def renew() -> None:
         try:
-            await service.renew_link(await _actor(), stage.id)
+            await service.renew_link(await current_actor(), stage.id)
             ui.notify(f'New link for {stage.name}. Paste it into OBS; the old one has stopped working.',
                       color='positive')
         except (ValueError, PermissionError) as err:
@@ -225,7 +220,7 @@ def _stage_row(service: StreamLayoutService, row, options: dict, refresh) -> Non
 
 async def _pin_dialog(service: StreamLayoutService, stage, refresh) -> None:
     try:
-        matches = await service.stage_matches(await _actor(), stage.id)
+        matches = await service.stage_matches(await current_actor(), stage.id)
     except (ValueError, PermissionError) as err:
         notify_error(err)
         return
@@ -243,7 +238,7 @@ async def _pin_dialog(service: StreamLayoutService, stage, refresh) -> None:
                 notify_error(ValueError('Pick a match.'))
                 return
             try:
-                await service.pin_match(await _actor(), choice.value)
+                await service.pin_match(await current_actor(), choice.value)
             except (ValueError, PermissionError) as err:
                 notify_error(err)
                 return
@@ -266,7 +261,7 @@ def _layout_row(service: StreamLayoutService, layout: StreamLayout, open_editor,
 
     async def duplicate() -> None:
         try:
-            copy_ = await service.duplicate_layout(await _actor(), layout.id)
+            copy_ = await service.duplicate_layout(await current_actor(), layout.id)
             ui.notify(f'Made “{copy_.name}”.', color='positive')
         except (ValueError, PermissionError) as err:
             notify_error(err)
@@ -275,7 +270,7 @@ def _layout_row(service: StreamLayoutService, layout: StreamLayout, open_editor,
 
     async def delete() -> None:
         try:
-            await service.delete_layout(await _actor(), layout.id)
+            await service.delete_layout(await current_actor(), layout.id)
             ui.notify(f'Deleted “{layout.name}”.', color='positive')
         except (ValueError, PermissionError) as err:
             notify_error(err)
@@ -292,56 +287,13 @@ def _layout_row(service: StreamLayoutService, layout: StreamLayout, open_editor,
                 .props('outline color=primary no-caps')
             with more_menu(layout.name):
                 menu_action('drive_file_rename_outline', 'Rename…',
-                            lambda: _rename_dialog(service, layout, refresh))
+                            lambda: rename_dialog(service, layout, refresh))
                 menu_action('content_copy', 'Duplicate', duplicate)
                 ui.separator()
                 menu_action('delete', 'Delete layout…', lambda: ConfirmationDialog(
                     f'Delete “{layout.name}”? Any stage using it shows a blank overlay until you pick another.',
                     on_confirm=delete, confirm_text='Delete', title='Delete layout?',
                 ).open(), negative=True)
-
-
-def _new_layout_dialog(service: StreamLayoutService, open_editor) -> None:
-    with form_dialog('New layout') as dialog:
-        name = ui.input('Name', placeholder='2-player race').props('outlined autofocus').classes('w-full')
-        ui.label('Upload the art next. The canvas takes the art\'s size, so export it at your '
-                 'stream resolution, with transparent holes where the video goes.') \
-            .classes('text-caption text-muted')
-
-        async def submit() -> None:
-            try:
-                layout = await service.create_layout(await _actor(), name.value)
-            except (ValueError, PermissionError) as err:
-                notify_error(err)
-                return
-            dialog.close()
-            await open_editor(layout.id)
-
-        with dialog_actions().classes('justify-end'):
-            ui.button('Cancel', on_click=dialog.close).props('flat')
-            ui.button('Create', on_click=submit).props('color=primary')
-        submit_on_enter(dialog, submit)
-    dialog.open()
-
-
-def _rename_dialog(service: StreamLayoutService, layout: StreamLayout, after) -> None:
-    with form_dialog('Rename layout') as dialog:
-        name = ui.input('Name', value=layout.name).props('outlined autofocus').classes('w-full')
-
-        async def submit() -> None:
-            try:
-                await service.rename_layout(await _actor(), layout.id, name.value)
-            except (ValueError, PermissionError) as err:
-                notify_error(err)
-                return
-            dialog.close()
-            await after()
-
-        with dialog_actions().classes('justify-end'):
-            ui.button('Cancel', on_click=dialog.close).props('flat')
-            ui.button('Save', on_click=submit).props('color=primary')
-        submit_on_enter(dialog, submit)
-    dialog.open()
 
 
 class LayoutEditor:
@@ -363,7 +315,7 @@ class LayoutEditor:
     # ── build ──────────────────────────────────────────────────────────
 
     async def build(self) -> None:
-        actor = await _actor()
+        actor = await current_actor()
         try:
             self.preview_options |= {m.id: _match_label(m) for m in await self.service.preview_matches(actor)}
         except (ValueError, PermissionError) as err:
@@ -383,9 +335,11 @@ class LayoutEditor:
             with more_menu(self.layout.name):
                 menu_action('upload', 'Replace art…' if self.layout.art_sha256 else 'Upload art…',
                             lambda: self.uploader.run_method('pickFiles'))
+                menu_action('format_color_fill', 'Plain background…',
+                            lambda: background_dialog(self.service, self.layout, self.reopen))
                 menu_action('add_box', 'Add box…', self._add_dialog)
                 menu_action('drive_file_rename_outline', 'Rename…',
-                            lambda: _rename_dialog(self.service, self.layout, self._renamed))
+                            lambda: rename_dialog(self.service, self.layout, self._renamed))
                 ui.separator()
                 if self.layout.art_sha256:
                     menu_action('hide_image', 'Remove art…', lambda: ConfirmationDialog(
@@ -398,7 +352,7 @@ class LayoutEditor:
                 ).open(), negative=True)
 
         # Quasar's uploader card fails axe, so it stays hidden behind the menu item.
-        self.uploader = ui.upload(
+        self.uploader: ui.upload = ui.upload(
             auto_upload=True, max_file_size=MAX_ART_BYTES, on_upload=self._uploaded,
             on_rejected=lambda: ui.notify('Layout art can be up to 10 MB, as a PNG, JPEG or WebP.',
                                           color='warning'),
@@ -523,7 +477,7 @@ class LayoutEditor:
             with ui.row().classes('w-full gap-2 no-wrap'):
                 for key, label in (('x', 'X'), ('y', 'Y'), ('w', 'Width'), ('h', 'Height')):
                     ui.number(label, value=box[key], min=0, step=1,
-                              on_change=lambda e, k=key: self._set(box, **{k: int(e.value or 0)})) \
+                              on_change=lambda e, k=key: self._set_geometry(box, k, int(e.value or 0))) \
                         .props('outlined dense').classes('col')
         with dialog_actions().classes('justify-end'):
             ui.button('Delete box', icon='delete', on_click=lambda: self._delete_box(box['id'])) \
@@ -605,6 +559,9 @@ class LayoutEditor:
         if self.sheet.value:
             self.sheet_body.refresh()
 
+    def _set_geometry(self, box: dict, key: str, value: int) -> None:
+        self._set(box, **{key: value})  # type: ignore[arg-type]
+
     def _set(self, box: dict, *, refresh_sheet: bool = False, **changes) -> None:
         box.update(changes)
         W, H = self.layout.width, self.layout.height
@@ -674,7 +631,7 @@ class LayoutEditor:
     async def _load_values(self) -> None:
         try:
             self.values = await self.service.preview_values(
-                await _actor(), self.layout.id, self.preview_match, self.boxes)
+                await current_actor(), self.layout.id, self.preview_match, self.boxes)
         except (ValueError, PermissionError) as err:
             notify_error(err)
 
@@ -701,7 +658,7 @@ class LayoutEditor:
 
     async def _save(self) -> None:
         try:
-            layout = await self.service.save_boxes(await _actor(), self.layout.id, self.boxes, self.saved_at)
+            layout = await self.service.save_boxes(await current_actor(), self.layout.id, self.boxes, self.saved_at)
         except (ValueError, PermissionError) as err:
             notify_error(err)
             return
@@ -717,7 +674,7 @@ class LayoutEditor:
         try:
             if self.dirty:
                 await self._save()
-            layout, transparent = await self.service.set_art(await _actor(), self.layout.id, data)
+            layout, transparent = await self.service.set_art(await current_actor(), self.layout.id, data)
         except (ValueError, PermissionError) as err:
             notify_error(err)
             self.uploader.reset()
@@ -732,7 +689,7 @@ class LayoutEditor:
 
     async def _remove_art(self) -> None:
         try:
-            await self.service.remove_art(await _actor(), self.layout.id)
+            await self.service.remove_art(await current_actor(), self.layout.id)
         except (ValueError, PermissionError) as err:
             notify_error(err)
             return
@@ -740,7 +697,7 @@ class LayoutEditor:
 
     async def _delete(self) -> None:
         try:
-            await self.service.delete_layout(await _actor(), self.layout.id)
+            await self.service.delete_layout(await current_actor(), self.layout.id)
         except (ValueError, PermissionError) as err:
             notify_error(err)
             return

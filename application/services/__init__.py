@@ -34,6 +34,7 @@ from . import (
     staff_request_dms,
     startgg_sync_worker,
     stream_layout_rules,
+    stream_layout_starters,
     telegram_bot_worker,
     telemetry_retention,
 )
@@ -355,6 +356,7 @@ __all__ = [
     'staff_request_dms',
     'startgg_sync_worker',
     'stream_layout_rules',
+    'stream_layout_starters',
     'telegram_bot_worker',
     'telemetry_retention',
     'validate_async_qualifier_config',

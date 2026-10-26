@@ -28,11 +28,19 @@ booked, and moves on by itself when the next match is checked in.
 
 ## Making a layout
 
-1. Press **New layout** and give it a name, like "2-player race".
-2. Open the layout's ⋮ and choose **Upload art…**. Export the art at your
-   stream's resolution (usually 1920×1080). Transparent areas in a PNG become
-   holes for the video. If your art is a flat image, add **Video hole** boxes
-   where the feeds go.
+1. Press **New layout** and pick a starter. The SpeedGaming ones (2P 4:3
+   with standard, small or DK trackers, 2P with cams only, and Zelda 1
+   Randomizer) and the FFR ones (1P to 4P, and 4P co-op) have the same box
+   positions as the SGL broadcast layouts, so the cams and comms line up from
+   one to the next. There's also Blank, Commentary / interview and Starting
+   soon / break. Each comes on a plain background colour (your community's
+   colour to start) with the video holes and boxes already placed. Pick a
+   colour, give it a name and press **Create**.
+2. Want your own art instead? Open the layout's ⋮ and choose **Upload art…**.
+   Export it at your stream's resolution (usually 1920×1080). Transparent
+   areas in a PNG become holes for the video. If your art is a flat image, add
+   **Video hole** boxes where the feeds go. **Plain background…** on the same
+   menu swaps any art back for a single colour.
 3. Press **Add box…** and pick what it shows. Drag the box into place and pull
    its bottom-right corner to resize it. Arrow keys nudge a selected box by one
    pixel, or ten with Shift.

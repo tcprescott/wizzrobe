@@ -41,6 +41,9 @@ from application.services.stream_layout_rules import (
     default_box,
     sample_values,
 )
+from application.services.stream_layout_starters import STARTERS_BY_KEY, clean_background, plain_background
+from application.services.stream_layout_starters import H as STARTER_H
+from application.services.stream_layout_starters import W as STARTER_W
 from application.tenant_context import require_tenant_id, tenant_scope
 from application.timezone_context import tz_scope
 from application.utils.timezone import format_local_time, to_utc_aware
@@ -113,7 +116,8 @@ def prepare_art(data: bytes) -> tuple[bytes, int, int]:
 def has_transparency(png: bytes) -> bool:
     with Image.open(BytesIO(png)) as img:
         alpha = img.getchannel('A')
-        return alpha.getextrema()[0] < 255
+        low = alpha.getextrema()[0]
+        return isinstance(low, (int, float)) and low < 255
 
 
 @dataclass
@@ -145,7 +149,7 @@ def _names(signups) -> str:
 
 
 def _players(match: Match) -> list:
-    return sorted(match.players, key=lambda p: p.id)
+    return sorted(match.players, key=lambda p: p.id)  # type: ignore[attr-defined]
 
 
 def _money(amount) -> str:
@@ -196,13 +200,26 @@ class StreamLayoutService:
         return name
 
     @requires_feature(FeatureFlag.STREAM_LAYOUTS)
-    async def create_layout(self, actor: User, name: str) -> StreamLayout:
+    async def create_layout(
+        self, actor: User, name: str, starter: Optional[str] = None, background: Optional[str] = None,
+    ) -> StreamLayout:
+        """A new layout, empty or from a built-in starter, on a plain background if one is given."""
         await self._ensure(actor)
+        picked = STARTERS_BY_KEY.get(starter or 'blank')
+        if picked is None:
+            raise ValueError('That starter layout no longer exists.')
+        colour = clean_background(background) if background is not None else None
+        name = await self._clean_name(name)
+        boxes = clean_boxes([dict(b) for b in picked.boxes], STARTER_W, STARTER_H)
         layout = await self.repository.create(
-            name=await self._clean_name(name), boxes=[], created_by=actor,
+            name=name, width=STARTER_W, height=STARTER_H, boxes=boxes, created_by=actor,
         )
+        if colour is not None:
+            content = await asyncio.to_thread(plain_background, colour, STARTER_W, STARTER_H)
+            await self._store_art(layout, content, STARTER_W, STARTER_H)
         await self.audit.write_log(
-            actor, AuditActions.STREAM_LAYOUT_CREATED, {'layout_id': layout.id, 'name': layout.name},
+            actor, AuditActions.STREAM_LAYOUT_CREATED,
+            {'layout_id': layout.id, 'name': layout.name, 'starter': picked.key, 'background': colour},
         )
         return layout
 
@@ -275,6 +292,36 @@ class StreamLayoutService:
         layout = await self._layout(layout_id)
         content, width, height = await asyncio.to_thread(prepare_art, data)
         transparent = await asyncio.to_thread(has_transparency, content)
+        sha256 = await self._store_art(layout, content, width, height)
+        await self.audit.write_log(
+            actor, AuditActions.STREAM_LAYOUT_UPDATED,
+            {'layout_id': layout.id, 'art_sha256': sha256, 'width': width, 'height': height},
+        )
+        return layout, transparent
+
+    @requires_feature(FeatureFlag.STREAM_LAYOUTS)
+    async def set_background(self, actor: User, layout_id: int, colour: str) -> StreamLayout:
+        """Replace the art with one plain colour at the layout's size.
+
+        Hole boxes stay, and so do the old art's transparent areas: plenty of
+        art cuts its game frames with alpha rather than hole boxes.
+        """
+        await self._ensure(actor)
+        layout = await self._layout(layout_id)
+        colour = clean_background(colour)
+        old = (
+            await self.repository.get_art(layout.tenant_id, layout.id, layout.art_sha256)
+            if layout.art_sha256 else None
+        )
+        content = await asyncio.to_thread(plain_background, colour, layout.width, layout.height, old)
+        sha256 = await self._store_art(layout, content, layout.width, layout.height)
+        await self.audit.write_log(
+            actor, AuditActions.STREAM_LAYOUT_UPDATED,
+            {'layout_id': layout.id, 'art_sha256': sha256, 'background': colour},
+        )
+        return layout
+
+    async def _store_art(self, layout: StreamLayout, content: bytes, width: int, height: int) -> str:
         sha256 = hashlib.sha256(content).hexdigest()
         boxes = list(layout.boxes or [])
         if boxes and (width, height) != (layout.width, layout.height):
@@ -288,11 +335,7 @@ class StreamLayoutService:
         await self.repository.set_art(layout, content, sha256)
         await self.repository.update(layout, art_sha256=sha256, width=width, height=height, boxes=boxes)
         _feed_cache.clear()
-        await self.audit.write_log(
-            actor, AuditActions.STREAM_LAYOUT_UPDATED,
-            {'layout_id': layout.id, 'art_sha256': sha256, 'width': width, 'height': height},
-        )
-        return layout, transparent
+        return sha256
 
     @requires_feature(FeatureFlag.STREAM_LAYOUTS)
     async def remove_art(self, actor: User, layout_id: int) -> StreamLayout:
@@ -346,7 +389,7 @@ class StreamLayoutService:
         stage = await self._stage(stage_id)
         overlay = await self._overlay(stage)
         layout = await self._layout(layout_id) if layout_id is not None else None
-        await self.repository.update(overlay, layout=layout)
+        await self.repository.update_overlay(overlay, layout=layout)
         _feed_cache.pop(overlay.id, None)
         await self.audit.write_log(
             actor, AuditActions.STAGE_OVERLAY_UPDATED,
@@ -361,7 +404,7 @@ class StreamLayoutService:
         stage = await self._stage(stage_id)
         overlay = await self._overlay(stage)
         _feed_cache.pop(overlay.id, None)
-        await self.repository.update(overlay, token=TOKEN_PREFIX + secrets.token_urlsafe(24))
+        await self.repository.update_overlay(overlay, token=TOKEN_PREFIX + secrets.token_urlsafe(24))
         await self.audit.write_log(actor, AuditActions.STAGE_OVERLAY_LINK_RENEWED, {'stage_id': stage.id})
         return overlay
 
@@ -374,8 +417,8 @@ class StreamLayoutService:
             raise NotFoundError('That match no longer exists.')
         if match.stage_id is None:  # type: ignore[attr-defined]
             raise ValueError('Put the match on a stage first; overlays follow stages.')
-        overlay = await self._overlay(match.stage)
-        await self.repository.update(
+        overlay = await self._overlay(match.stage)  # type: ignore[arg-type]
+        await self.repository.update_overlay(
             overlay, pinned_match=match, pinned_by=actor, pinned_at=datetime.now(timezone.utc),
         )
         _feed_cache.pop(overlay.id, None)
@@ -391,7 +434,7 @@ class StreamLayoutService:
         overlay = await self._overlay(stage)
         if overlay.pinned_match_id is not None:
             details = {'stage_id': stage.id, 'match_id': overlay.pinned_match_id}
-            await self.repository.update(overlay, pinned_match=None, pinned_by=None, pinned_at=None)
+            await self.repository.update_overlay(overlay, pinned_match=None, pinned_by=None, pinned_at=None)
             _feed_cache.pop(overlay.id, None)
             await self.audit.write_log(actor, AuditActions.STAGE_OVERLAY_UNPINNED, details)
         return overlay
@@ -447,7 +490,7 @@ class StreamLayoutService:
             if underway:
                 current = underway[-1]
             else:
-                upcoming = [m for m in matches if to_utc_aware(m.scheduled_at) >= now - timedelta(hours=1)]  # type: ignore[arg-type]
+                upcoming = [m for m in matches if to_utc_aware(m.scheduled_at) >= now - timedelta(hours=1)]
                 current = upcoming[0] if upcoming else None
         after = [
             m for m in matches
@@ -499,8 +542,8 @@ class StreamLayoutService:
             'prize_pool': _money(prize['prize_total']) if prize else '',
             'stage_name': stage.name if stage else '',
             'channel': f'twitch.tv/{channel}' if channel else '',
-            'commentators': _names(match.commentators) if match else '',
-            'trackers': _names(match.trackers) if match else '',
+            'commentators': _names(match.commentators) if match else '',  # type: ignore[attr-defined]
+            'trackers': _names(match.trackers) if match else '',  # type: ignore[attr-defined]
             'up_next': up_next_text(),
             'event_name': event_name,
             'community_name': await TenantService.current_community_name(),
