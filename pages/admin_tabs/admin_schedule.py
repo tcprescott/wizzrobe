@@ -100,18 +100,6 @@ async def admin_schedule_page(
                     ui.label('Showing only your tournament' if n == 1
                              else f'Showing only your {n} tournaments')
 
-        # A report linked here naming one match. Say so and offer the way out —
-        # a one-row board with no explanation reads as a broken board.
-        if match_id:
-            with ui.row().classes('items-center gap-2 q-mb-sm'):
-                with ui.element('span').classes('wiz-chip wiz-chip--pending'):
-                    ui.icon('filter_alt', size='14px')
-                    ui.label('Showing one match only')
-                ui.button(
-                    'Show all matches', icon='clear',
-                    on_click=lambda: ui.navigate.to(admin_url(SCHEDULE)),
-                ).props('flat dense color=primary')
-
         # Creating a match is a scheduling action, not a lifecycle one, so it
         # stays here rather than moving into MatchLifecycleHandlers.
         async def submit_admin_match():
@@ -262,6 +250,8 @@ async def admin_schedule_page(
                         on_booked=lambda: table_view.refresh(),
                         can_open_native_entrants=access.edit_scope is None,
                     )
+        if match_id:
+            table_view.show_one_match_chip(admin_url(SCHEDULE), 'Show all matches')
         handlers.table_view = table_view
         sheet.view = table_view
         inbox.view = table_view

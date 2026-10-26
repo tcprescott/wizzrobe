@@ -226,20 +226,6 @@ def _notify_stale_reschedule_link() -> None:
     )
 
 
-def _show_one_match_chip() -> None:
-    """The board is narrowed to the DM's match. Say so, and offer the way out.
-
-    A one-row board with no explanation reads as a board that lost rows, and a
-    DM outlives the stage call it was sent about.
-    """
-    with ui.row().classes('items-center gap-2 q-mb-sm'):
-        with ui.element('span').classes('wiz-chip wiz-chip--pending'):
-            ui.icon('filter_alt', size='14px')
-            ui.label('Showing one match only')
-        link_button('Show all my matches', home_url(HOME_PLAYER), icon='clear', new_tab=False) \
-            .props('flat dense color=primary')
-
-
 def _explain_other_match(relation: str) -> None:
     """``?match=`` named a match the viewer isn't playing. Say what it is to them.
 
@@ -388,7 +374,6 @@ async def render_player_dashboard(
             relation = await match_service.viewer_relation(int(match), viewer)
             if relation == RELATION_PLAYER:
                 board_match_ids = [int(match)]
-                _show_one_match_chip()
             else:
                 _explain_other_match(relation)
 
@@ -634,6 +619,8 @@ async def render_player_dashboard(
             on_open_match=sheet.open,
         )
         sheet.view = table_view
+        if board_match_ids:
+            table_view.show_one_match_chip(home_url(HOME_PLAYER), 'Show all my matches')
         if comments and board_match_ids:
             sheet.open_when_loaded(int(comments))
 
