@@ -347,7 +347,7 @@ class AsyncQualifierRunRepository(TenantScopedRepository[AsyncQualifierRun]):
         return await AsyncQualifierRun.filter(
             review_claimed_at__lt=cutoff,
             review_claimed_by_id__not_isnull=True,
-        ).prefetch_related('tenant').order_by('review_claimed_at')
+        ).prefetch_related('tenant', 'qualifier').order_by('review_claimed_at')
 
     async def list_approved_finished_for_permalink(self, permalink_id: int) -> List[AsyncQualifierRun]:
         """Approved, finished, non-voided runs on a permalink — the par inputs."""

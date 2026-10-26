@@ -51,6 +51,8 @@ async def _tick() -> None:
     await for_each_tenant_scoped(
         tasks, _poll,
         tenant_id_of=lambda task: task.tenant_id,  # type: ignore[attr-defined]
+        # A roll with no match (a preset test) is community-wide.
+        event_id_of=lambda task: task.match.event_id if task.match_id else None,  # type: ignore[attr-defined]
         logger=logger,
         describe=lambda task: f'provider task {task.id} ({task.provider})',
     )

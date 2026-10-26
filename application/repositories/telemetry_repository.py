@@ -52,9 +52,9 @@ class TelemetryRepository:
 
     @staticmethod
     async def bulk_create(rows: List[dict]) -> None:
-        tenant_id = get_current_tenant_id()
+        tenant_id, event_id = get_current_tenant_id(), get_current_event_id()
         await TelemetryEvent.bulk_create(
-            [TelemetryEvent(tenant_id=tenant_id, **row) for row in rows]
+            [TelemetryEvent(tenant_id=tenant_id, event_id=event_id, **row) for row in rows]
         )
 
     @staticmethod

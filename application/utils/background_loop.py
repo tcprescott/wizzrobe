@@ -20,10 +20,11 @@ import contextvars
 import logging
 import time
 import weakref
-from typing import Awaitable, Callable, Dict, Iterable, List, Optional, TypeVar
+from typing import Awaitable, Callable, Dict, Iterable, List, Optional, Set, TypeVar
 
 import sentry_sdk
 
+from application.event_context import event_scope
 from application.tenant_context import tenant_scope
 from application.timezone_context import tz_scope
 from application.utils import sentry_metrics
@@ -300,6 +301,8 @@ async def for_each_tenant_scoped(
     handle: Callable[[T], Awaitable[None]],
     *,
     tenant_id_of: Callable[[T], Optional[int]],
+    event_id_of: Optional[Callable[[T], Optional[int]]] = None,
+    each_live_event: bool = False,
     logger: Optional[logging.Logger] = None,
     describe: Callable[[T], object] = repr,
 ) -> None:
@@ -312,13 +315,35 @@ async def for_each_tenant_scoped(
 
     Binds the community's display timezone as well as its tenant, so a worker
     that formats a time gets that community's clock rather than the fallback.
-    """
-    from application.repositories.tenant_repository import TenantRepository
-    from application.services.timezone_service import TimezoneService
 
+    Workers run only for live events, and say which event an item is in one of
+    two ways:
+
+    - ``event_id_of``: the item belongs to one event (a match, a shift). It runs
+      inside that event's ``event_scope`` and is skipped when the event is a
+      draft or archived. ``None`` binds no event: the item is community-wide.
+    - ``each_live_event``: the item is a community (a tenant id to sync). It
+      runs once per live event of that community, each in its own scope, and
+      not at all when the community has none.
+
+    With neither, no event is bound, which suits community-wide work only.
+    """
+    from application.repositories.event_repository import EventRepository
+    from application.repositories.tenant_repository import TenantRepository
+
+    if event_id_of is not None and each_live_event:
+        raise ValueError('pass event_id_of or each_live_event, not both')
     log = logger or _default_logger
     batch = [(item, tenant_id_of(item)) for item in items]
     active = await TenantRepository.active_ids(t for _, t in batch if t is not None)
+    events: Dict[int, Optional[int]] = {}
+    live: Set[int] = set()
+    if event_id_of is not None:
+        events = {id(item): event_id_of(item) for item, _ in batch}
+        live = await EventRepository.live_ids(e for e in events.values() if e is not None)
+    per_tenant: Dict[int, List[int]] = {}
+    if each_live_event:
+        per_tenant = await EventRepository.live_ids_by_tenant(active)
     # Once per community, not per item: a reminder worker hands this hundreds of
     # rows from one community, and re-reading the tenant for each was most of
     # its tick.
@@ -326,19 +351,44 @@ async def for_each_tenant_scoped(
     for item, tenant_id in batch:
         if tenant_id is None or tenant_id not in active:
             continue
-        # The tenant is bound around the except too, so the failure is logged
-        # (and reaches Sentry) tagged with the community it happened in.
-        with tenant_scope(tenant_id), sentry_tags(work_item=describe(item)):
-            try:
-                # The community's own clock, bound alongside its tenant: a worker has
-                # no viewer, so anything it renders locally (a reminder DM, an export)
-                # would otherwise fall back to the default zone and tell every
-                # community the same wrong time.
-                if tenant_id not in zones:
-                    zones[tenant_id] = await TimezoneService.tenant_timezone_name(tenant_id)
-                with tz_scope(zones[tenant_id]):
-                    await handle(item)
-            except Exception:
-                log.exception(
-                    'scoped work failed for %s (tenant %s)', describe(item), tenant_id,
-                )
+        scopes: List[Optional[int]]
+        if each_live_event:
+            scopes = list(per_tenant.get(tenant_id, []))
+        elif event_id_of is not None:
+            event_id = events[id(item)]
+            if event_id is not None and event_id not in live:
+                continue
+            scopes = [event_id]
+        else:
+            scopes = [None]
+        for event_id in scopes:
+            await _run_scoped(item, handle, tenant_id, event_id, zones, log, describe)
+
+
+async def _run_scoped(
+    item: T,
+    handle: Callable[[T], Awaitable[None]],
+    tenant_id: int,
+    event_id: Optional[int],
+    zones: Dict[int, str],
+    log: logging.Logger,
+    describe: Callable[[T], object],
+) -> None:
+    from application.services.timezone_service import TimezoneService
+
+    # The tenant is bound around the except too, so the failure is logged
+    # (and reaches Sentry) tagged with the community it happened in.
+    with tenant_scope(tenant_id), event_scope(event_id, tenant_id), sentry_tags(work_item=describe(item)):
+        try:
+            # The community's own clock, bound alongside its tenant: a worker has
+            # no viewer, so anything it renders locally (a reminder DM, an export)
+            # would otherwise fall back to the default zone and tell every
+            # community the same wrong time.
+            if tenant_id not in zones:
+                zones[tenant_id] = await TimezoneService.tenant_timezone_name(tenant_id)
+            with tz_scope(zones[tenant_id]):
+                await handle(item)
+        except Exception:
+            log.exception(
+                'scoped work failed for %s (tenant %s, event %s)', describe(item), tenant_id, event_id,
+            )
