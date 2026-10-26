@@ -130,7 +130,8 @@ def seed_tags(settings: Optional[Mapping]) -> list[str]:
         tags.append(WORLD_STATES[settings['mode']])
     if settings.get('goal'):
         tags.append(GOALS.get(settings['goal'], str(settings['goal']).replace('_', ' ').title()))
-    crystals = settings.get('crystals') if isinstance(settings.get('crystals'), Mapping) else {}
+    raw = settings.get('crystals')
+    crystals: Mapping = raw if isinstance(raw, Mapping) else {}
     if crystals.get('tower') is not None and crystals.get('ganon') is not None:
         tags.append(f"GT {crystals['tower']} · Ganon {crystals['ganon']}")
     return tags
@@ -200,7 +201,7 @@ class ItemTrackerService:
             runner.log = await self._log(runner.board)
         items, source = self._items_for(match, runners[0].board)
         names = ' vs '.join(r.name for r in runners)
-        tournament = match.tournament.name if match.tournament else ''  # type: ignore[attr-defined]
+        tournament = match.tournament.name if match.tournament else ''
         return TrackerView(
             match=match,
             title=' · '.join(p for p in (tournament, match.title or names) if p),
@@ -239,7 +240,7 @@ class ItemTrackerService:
                 id=change.id,
                 at=change.created_at,
                 text=('Undid: ' if change.is_undo else '') + describe(change.key, change.after),
-                who=change.actor.preferred_name if change.actor else '',  # type: ignore[attr-defined]
+                who=change.actor.preferred_name if change.actor else '',
                 can_undo=latest and not change.undone and not change.is_undo,
             ))
         return entries

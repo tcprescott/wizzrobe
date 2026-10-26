@@ -7,7 +7,7 @@ picture's ``src`` rather than rebuilding the grid under the tracker's finger.
 """
 
 from functools import lru_cache
-from typing import Callable, Mapping, Optional
+from typing import Any, Callable, Mapping, Optional
 
 from nicegui import ui
 
@@ -27,8 +27,8 @@ from application.services.item_tracker_catalog import (
 )
 from theme.assets import asset_url
 
-OnItem = Callable[[ItemSpec], None]
-OnDungeon = Callable[[DungeonSpec], None]
+OnItem = Callable[[ItemSpec], Any]
+OnDungeon = Callable[[DungeonSpec], Any]
 
 
 @lru_cache(maxsize=256)
@@ -90,15 +90,16 @@ class BoardView:
         self._dungeon_tiles.clear()
         with self.root:
             with ui.element('div').classes('itk-items'):
+                on_item, on_dungeon = self.on_item, self.on_dungeon
                 for item in ITEMS:
-                    click = (lambda i=item: self.on_item(i)) if self.on_item else None
+                    click = (lambda i=item: on_item(i)) if on_item else None
                     with self._tile(item.label, click) as tile:
                         img = ui.element('img').props(f'src="{sprite(item.sprites[0])}" alt=""')
                     self._item_tiles[item.key] = (tile, img)
             if self.show_dungeons:
                 with ui.element('div').classes('itk-dungeons'):
                     for dungeon in visible_dungeons(items):
-                        click = (lambda d=dungeon: self.on_dungeon(d)) if self.on_dungeon else None
+                        click = (lambda d=dungeon: on_dungeon(d)) if on_dungeon else None
                         with self._tile(dungeon.name, click).classes('itk-dtile') as tile:
                             ui.label(dungeon.short).classes('itk-dtile__abbr')
                             boss = ui.element('img').classes('itk-dtile__boss').props('alt=""')

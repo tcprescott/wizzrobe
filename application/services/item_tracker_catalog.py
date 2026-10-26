@@ -165,7 +165,8 @@ def mode_from_settings(settings: Optional[Mapping]) -> Optional[str]:
     """
     if not isinstance(settings, Mapping):
         return None
-    custom = settings.get('custom') if isinstance(settings.get('custom'), Mapping) else {}
+    raw = settings.get('custom')
+    custom: Mapping = raw if isinstance(raw, Mapping) else {}
     wild = {k: bool(custom.get(f'region.wild{k}')) for k in ('Maps', 'Compasses', 'Keys', 'BigKeys')}
     if settings.get('customizer') or any(wild.values()):
         if wild['BigKeys']:
