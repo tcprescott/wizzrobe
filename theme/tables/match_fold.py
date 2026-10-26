@@ -34,7 +34,8 @@ class MatchBoardFoldMixin:
         self.table.on('toggle_racers', lambda event: self._toggle_racers(event.args))
 
     def _is_folded(self, group: str) -> bool:
-        return getattr(self, '_folded', {}).get(group, group in FOLDED_BY_DEFAULT)
+        default = group in FOLDED_BY_DEFAULT and group not in getattr(self, 'open_by_default', ())
+        return getattr(self, '_folded', {}).get(group, default)
 
     def _stamp_folded(self, rows: list) -> list:
         opened: set = getattr(self, '_racers_open', set())

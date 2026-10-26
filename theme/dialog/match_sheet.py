@@ -220,6 +220,9 @@ class MatchSheet:
             self.dialog.close()
 
     async def open(self, match_id, *, record: bool = True) -> None:
+        if isinstance(match_id, str) and match_id.startswith('future:'):
+            # A bracket matchup nobody has signed up for yet: not a match, no sheet.
+            return
         row = self._find(match_id)
         if row is None:
             return

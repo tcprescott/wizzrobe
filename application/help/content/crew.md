@@ -46,6 +46,21 @@ to it.
 If you've already signed up for that role on that match, you'll see
 **Withdraw** instead.
 
+## Signing up before a match is booked
+
+Want the final while the semifinals haven't been played? Open **Not scheduled
+yet** at the bottom of Event › Schedule. It lists every bracket match nobody has
+booked a time for, with the sides it's still waiting on ("Andy or Benny",
+"Winner of C", "TBD"). Sign up there the same way.
+
+Your signup waits on the match. When it gets booked, your signup moves onto the
+booking, approved or not, and the match shows up on your list with its time.
+Staff can approve you before then. If you turn out to be busy at the time it's
+booked for, the staff who approve crew get told so they can sort it out.
+
+You won't get a new DM when it's booked. As with every match, you hear about it
+once it's on a stage. If you end up playing in it, your crew signup is dropped.
+
 ## Signing up from Discord
 
 If you follow a tournament, the DM announcing each new match has **Sign up as

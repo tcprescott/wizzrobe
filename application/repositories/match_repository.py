@@ -285,6 +285,27 @@ class MatchRepository:
         return match
     
     @staticmethod
+    async def create_crew_hold(
+        tournament_id: int, source: str, key: int, title: str, placeholders: list,
+    ) -> Match:
+        """A match with no players and no time, holding crew signups for one bracket matchup."""
+        return await Match.create(
+            tenant_id=current_tenant_id(), tournament_id=tournament_id, scheduled_at=None,
+            title=title, bracket_placeholders=placeholders,
+            crew_hold_source=source, crew_hold_key=key,
+        )
+
+    @staticmethod
+    async def get_crew_hold(source: str, key: int) -> Optional[Match]:
+        return await scoped(Match.filter(crew_hold_source=source, crew_hold_key=key)).first()
+
+    @staticmethod
+    async def list_crew_holds() -> List[Match]:
+        return await scoped(Match.filter(crew_hold_source__isnull=False)).prefetch_related(
+            'tournament', 'commentators', 'trackers',
+        )
+
+    @staticmethod
     async def update(
         match: Match,
         **fields

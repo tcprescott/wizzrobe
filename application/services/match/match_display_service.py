@@ -184,7 +184,7 @@ class MatchDisplayService:
         """Fill each set game's "Game 2 of 3", which depends on when the set's other games are."""
         labels = await BracketSetService().labels_for(matches)
         for row in rows:
-            row['set_label'] = labels.get(row['id'])
+            row['set_label'] = labels.get(row['id'], row.get('set_label'))
 
     @staticmethod
     async def _attach_site_results(rows: List[Dict[str, Any]], matches: List[Match]) -> None:
@@ -397,7 +397,8 @@ class MatchDisplayService:
             # link into the (publicly readable) bracket view.
             'bracket': self._bracket_ref(match),
             # "Game 2 of 3" comes from the set's other games: _attach_set_labels.
-            'set_label': None,
+            # A crew hold's round ("Grand final") rides here, beside the tournament.
+            'set_label': match.title if getattr(match, 'crew_hold_source', None) else None,
             'scheduled_at': format_local_datetime(match.scheduled_at) if match.scheduled_at else '',
             # Sort key and urgency flag for the proctor board. The formatted
             # ``scheduled_at`` string is display-only and does not sort.
@@ -446,6 +447,9 @@ class MatchDisplayService:
             # it loose from its matchup.
             'placeholders': list(getattr(match, 'bracket_placeholders', None) or []),
             'bracket_link_lost': bool(getattr(match, 'bracket_link_lost', False)),
+            # Crew signed up for a bracket matchup nobody has booked yet: this
+            # match only holds their signups (``CrewHoldService``).
+            'crew_hold': getattr(match, 'crew_hold_source', None) is not None,
             # Players who said they're running late, while it still matters:
             # check-in makes the heads-up moot, so it drops off the row then.
             'late': [] if match.seated_at or match.finished_at else [
