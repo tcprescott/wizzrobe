@@ -27,7 +27,7 @@ Broadcast Techs (`Role.STREAM_MANAGER`) manage it. Layouts belong to an
 
 ## Models
 
-`models/stream_layout.py`, migration `134_*_stream_layouts.py`.
+`models/stream_layout.py`, migration `135_*_stream_layouts.py`.
 
 | Model | What |
 |---|---|

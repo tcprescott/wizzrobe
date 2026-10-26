@@ -69,6 +69,7 @@ How each shipped subsystem behaves.
 | [features/event-check-in.md](features/event-check-in.md) | Matcherino-backed check-in desk for in-person events: badge-sale sync over the unofficial API, badge tiers, account matching, walk-ups, the `CHECK_IN_DESK` role. Behind `FeatureFlag.EVENT_CHECK_IN` |
 | [features/stream-layouts.md](features/stream-layouts.md) | OBS browser-source overlays per event: layout editor, stage links that follow the match on stage, pins. Behind `FeatureFlag.STREAM_LAYOUTS` |
 | [features/payouts.md](features/payouts.md) | Prize pool, placement splits with ties, computed amounts, Matcherino handles and the payout block. Behind `FeatureFlag.PAYOUTS` |
+| [features/item-tracker.md](features/item-tracker.md) | ALTTP item tracker for restreams: crew board, delayed stream preview, change log with undo, transparent OBS overlay, keysanity. Behind `FeatureFlag.ITEM_TRACKER` |
 | [features/profile-reminders.md](features/profile-reminders.md) | Staff-picked recommended profile items (Challonge linked, pronouns, ...) and the red banner that asks members to finish them |
 | [features/triforce-texts.md](features/triforce-texts.md) | Player submission and admin moderation |
 | [features/help.md](features/help.md) | Public `/help` articles + tappable help icons; the safe (non-`ui.markdown`) document model |

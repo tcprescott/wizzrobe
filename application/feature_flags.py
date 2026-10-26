@@ -186,6 +186,14 @@ FEATURE_FLAG_REGISTRY: Dict[FeatureFlag, FeatureFlagSpec] = {
             service_modules=('application/services/event_info_service.py',),
         ),
         FeatureFlagSpec(
+            FeatureFlag.ITEM_TRACKER,
+            'Item Tracker',
+            'Approved trackers mark what an ALTTPR runner collects on a board, '
+            'and a transparent page shows it on stream after a delay you set.',
+            'Operations',
+            service_modules=('application/services/item_tracker_service.py',),
+        ),
+        FeatureFlagSpec(
             FeatureFlag.PAYOUTS,
             'Prize Payouts',
             "Prize pool, placement splits and Matcherino handles for a "

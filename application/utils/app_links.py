@@ -238,3 +238,17 @@ MY_MESSAGES = '/messages'
 def my_message_url(message_id: Optional[int] = None) -> str:
     """Messages sent to you, opened on one message (and its Off/Silent/Ping switch)."""
     return f'{MY_MESSAGES}{_query({"message": message_id})}'
+
+
+ITEM_TRACKER = '/tracker/{match_id}'
+ITEM_TRACKER_OVERLAY = '/tracker/overlay/{token}'
+
+
+def item_tracker_path(match_id: int) -> str:
+    """The crew's ALTTP item tracker for one match."""
+    return ITEM_TRACKER.format(match_id=match_id)
+
+
+def item_tracker_overlay_path(token: str) -> str:
+    """One runner's transparent board, for an OBS browser source."""
+    return ITEM_TRACKER_OVERLAY.format(token=token)

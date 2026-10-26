@@ -121,6 +121,7 @@ class FeatureFlag(str, Enum):
     DISCORD_ROLE_SYNC = 'discord_role_sync'
     PERSONAL_WEBHOOKS = 'personal_webhooks'
     STREAM_LAYOUTS = 'stream_layouts'
+    ITEM_TRACKER = 'item_tracker'
 
 
 class BracketFormat(str, Enum):

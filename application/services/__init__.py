@@ -19,6 +19,7 @@ from . import (
     check_in_sales,
     check_in_sync_worker,
     community_event_reminder,
+    item_tracker_catalog,
     notification_catalog,
     notification_links,
     oauth_handoff_service,
@@ -90,6 +91,7 @@ from .feature_flag_service import FeatureFlagService
 from .feedback_service import FeedbackService
 from .help_service import HelpService
 from .identity_link_service import IdentityLinkProvider, IdentityLinkService
+from .item_tracker_service import ItemTrackerService
 from .log_level_service import LoggerLevelRow, LogLevelService
 from .match import (
     CancellationMixin,
@@ -231,6 +233,7 @@ __all__ = [
     'HoursSummary',
     'IdentityLinkProvider',
     'IdentityLinkService',
+    'ItemTrackerService',
     'LogLevelService',
     'LoggerLevelRow',
     'MatchCommentService',
@@ -341,6 +344,7 @@ __all__ = [
     'discord_role_sync_worker',
     'get_user_from_discord_id',
     'get_user_from_session',
+    'item_tracker_catalog',
     'notification_catalog',
     'notification_links',
     'oauth_handoff_service',

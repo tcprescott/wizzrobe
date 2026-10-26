@@ -2345,6 +2345,28 @@ A community's start.gg sign-in (Settings → Integrations). One per tenant; toke
 
 Constraint: `unique_together (('tournament', 'set_id'),)`.
 
+### ALTTP item tracker
+
+Tenant-scoped, behind `FeatureFlag.ITEM_TRACKER`. Detail: [item-tracker.md](../features/item-tracker.md).
+
+#### `ItemTrackerBoard`
+
+| Field | Type | Null / default | Notes |
+|---|---|---|---|
+| `match` | FK → `Match` | not null, `CASCADE` | |
+| `runner` | FK → `User` | not null, `CASCADE` | The player being tracked |
+| `state` | `JSONField` | default `{}` | Flat `{key: level}` (`bow`, `ep.boss`, `ep.keys`…) |
+| `dungeon_items` | `CharField(16)` | null | Override of the seed's mode (`standard`/`mc`/`mcs`/`full`); null follows the seed |
+| `delay_seconds` | `IntField` | default `0` | Stream delay for the overlay and preview |
+| `overlay_token` | `CharField(64)` | unique | Authorizes the public OBS page |
+| `version` | `IntField` | default `0` | Bumped on every write; the page polls it |
+
+Constraint: `unique_together (('match', 'runner'),)`.
+
+#### `ItemTrackerChange`
+
+The change log: `board` (FK, `CASCADE`), `actor` (FK → `User`, null, `SET_NULL`), `key` `CharField(32)`, `before`/`after` ints, `undone`, `is_undo`, `created_at`. Indexed on `(board, created_at)`.
+
 ## Match lifecycle
 
 `Match.current_state` is derived from three nullable timestamps; there is no status column. State is recomputed from whichever timestamps are set, so the precedence order (`finished_at` > `started_at` > `seated_at`) is what matters: a match with `started_at` set but `seated_at` still null reads "In Progress", and clearing a timestamp moves the match back a state.
@@ -2436,6 +2458,7 @@ Consult the source for full signatures.
 | `StageRepository` | [`stage_repository.py`](../../application/repositories/stage_repository.py) | `Stage` | `get_by_id`, `get_all`, `any_exists`, `get_all_as_dict` (id → name for select options), `count_matches`, `create`, `update`, `delete` |
 | `TournamentRepository` | [`tournament_repository.py`](../../application/repositories/tournament_repository.py) | `Tournament`, `TournamentPlayers` | `get_by_id`, `get_by_ids`, `get_all`, `get_all_as_dict`, `any_exists`, `get_player_requestable`, `create`, `update`, `delete`; batched counts `enrolment_counts`, `dependent_counts`, `entrants_by_tournament`, `admins_by_tournament`; enrollment `enroll_player`, `enroll_player_by_id`, `unenroll_player`, `get_enrolled_players`, `get_enrolled_players_by_user`, `get_enrolled_players_by_tournament_id`, `get_enrolled_user_ids`, `enrolled_tournament_ids`, `any_enrolment`, `is_player_enrolled`, `is_player_enrolled_by_id`; `get_crew_owners`; per-tournament grants `set_tournament_grant` (adds/removes an `admins` / `crew_coordinators` row, picking the relation from a `TournamentGrant` so reconciling callers don't branch), `has_tournament_grant` |
 | `TournamentNotificationRepository` | [`tournament_notification_repository.py`](../../application/repositories/tournament_notification_repository.py) | `TournamentNotificationPreference` | `get_by_user_and_tournament`, `get_all_for_user`, `upsert`, `set_staff_alerts`, `staff_alert_opt_out_user_ids`, `get_match_notification_subscribers` (`ALL` always; `STREAMED`/`STREAMED_AND_CANDIDATES` only when a stage is assigned; drops users without `discord_id`), `get_stream_candidate_subscribers` (same filter), `get_followers` (any level but `NONE`; same filter) |
+| `ItemTrackerRepository` | [`item_tracker_repository.py`](../../application/repositories/item_tracker_repository.py) | `ItemTrackerBoard`, `ItemTrackerChange` | `TenantScopedRepository` subclass. `list_for_match`, `get_for_runner`, `get_by_token`, `version`, `save_state`/`set_fields` (both bump `version` with `F()`), `add_change`, `get_change`, `latest_change_for_key`, `mark_undone`, `recent_changes`, `changes_since`, `clear_changes` |
 | `TournamentPayoutRepository` | [`tournament_payout_repository.py`](../../application/repositories/tournament_payout_repository.py) | `TournamentPayout` | `TenantScopedRepository` subclass. `get_by_id` (prefetches `entrant`/`tournament`), `list_for_tournament` (ordered `place, id` so joint placings keep a stable order), `replace_split` (delete-then-create inside one `in_transaction()` — a split is one document, and half of each is worse than either) |
 | `TriforceTextRepository` | [`triforce_text_repository.py`](../../application/repositories/triforce_text_repository.py) | `TriforceText` | `get_by_id`, `list_by_tournament`, `list_by_tournament_and_user`, `list_approved`, `list_approved_user_buckets` (distinct submitter ids with ≥1 approved text, plus a `None` bucket for deleted submitters so their texts stay in the balanced rotation), `list_approved_by_user`, `create`, `update`, `set_moderation`, `delete`. Module-level `APPROVAL_STATUSES = ('pending', 'approved', 'rejected')` is the vocabulary callers pass; a private helper maps it onto the tri-state `approved` column (`pending` → `NULL`) and raises `ValueError` for anything else |
 | `UserRepository` | [`user_repository.py`](../../application/repositories/user_repository.py) | `User` | **Unscoped** — `User` is global, so `create`/`get_by_id` override the base. `get_by_id`, `get_by_ids`, `get_by_discord_id`, `get_by_username`, `get_all` (optional role filter through the `userrole` join; optional has-discord filter), `get_community_people`, `search_by_name`, `create`, `get_or_create_by_discord_id`, `get_or_create_system_user`, `update_discord_info` (username + avatar hash), `set_discord_avatar` (no-op when unchanged), `set_timezone`; SpeedGaming placeholders `get_placeholder_by_speedgaming_id`, `create_placeholder`, `upgrade_placeholder` (+ the base `update`/`delete`) |

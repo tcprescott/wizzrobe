@@ -1491,6 +1491,25 @@ Two shared, ORM-free passes sit beside the engines so a service, a Discord DM, o
 - [`round_names.py`](../../application/services/bracket_engines/round_names.py) — `round_label(...)` for one round, `round_names(nodes, *, double_elim, elimination)` for a whole stage graph (`elimination=False` gives the flat formats plain "Round N"), and `detect_finals_ids` (the structural "which match is the grand final / reset" rule). `theme/brackets/layout.py` re-exports `round_label` and `render.detect_finals` adapts `detect_finals_ids`, so the renderer and the notification path cannot disagree.
 - [`standings.py`](../../application/services/bracket_engines/standings.py) — `compute_standings(refs, results, config)` over opaque `int` refs and `ResultRow` records, computing match points and a configurable tiebreaker chain (`buchholz`, `omw`, `head_to_head`) into 1-based competition ranks (unresolved ties share a rank and list each other in `tied_with`). Round robin, Swiss re-pairing, stage-completion ranking, and the public bracket page's live standings all consume it.
 
+### item_tracker_service.py — ItemTrackerService
+
+The ALTTP item tracker. Behind `FeatureFlag.ITEM_TRACKER`: every public method but `sheet_link` carries `@requires_feature`. Who may track is checked inside each method (staff, Broadcast Tech, or an approved `Tracker` on the match); `overlay(token)` authorizes on the token alone. Marks are not audited; `ItemTrackerChange` is their log. Feature doc: [item-tracker.md](../features/item-tracker.md).
+
+| Method | Returns | Description |
+|---|---|---|
+| `sheet_link(match_id, user)` | `str \| None` | The tracker path for the match sheet button, or `None` (flag off, not ALTTP, can't track). Never raises. |
+| `open_match(match_id, actor)` | `TrackerView` | Match, one `RunnerBoard` per player (boards created lazily), dungeon-item mode and its source, seed tags, delay. |
+| `board` / `versions` / `preview` | | One runner's board and log; `{board_id: version}` for the poll; the delayed state. |
+| `set_level(board_id, key, level, actor)` | `ItemTrackerBoard` | Clamps to the key's range, logs the change. |
+| `undo(board_id, change_id, actor)` / `undo_last` | `ItemTrackerBoard` | Only the newest change on its key can be undone. |
+| `reset(board_id, actor)` | `ItemTrackerBoard` | Clears state and log. |
+| `set_delay(match_id, seconds, actor)` | `int` | 0–600 s, every runner on the match. |
+| `set_dungeon_items(match_id, mode, actor)` | `None` | Override the seed's mode; `None` goes back to the seed. |
+| `overlay_link(board_id, actor)` | `str` | Absolute, tenant-qualified overlay URL. |
+| `overlay(token)` | `OverlayView \| None` | The delayed state for the OBS page. |
+
+Pure data lives beside it in `item_tracker_catalog.py` (items, levels, sprites, dungeons, `dungeon_items`, `mode_from_settings`, `chest_total`).
+
 ### payout_service.py — PayoutService
 
 Prize pool and placement splits. Behind `FeatureFlag.PAYOUTS` — every public method carries `@requires_feature`. A row stores a place and a percentage; the money is computed as `(prize_pool + prize_bonus) x percentage / 100`, quantized to the cent, at read time. Authorization is `AuthService.can_manage_payouts` (staff, super-admin, or that tournament's admin) and gates reads as well as writes. Feature doc: [payouts.md](../features/payouts.md).

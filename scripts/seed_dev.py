@@ -83,6 +83,7 @@ from scripts.seed_discord import seed_discord_for_tenant
 from scripts.seed_equipment import seed_equipment_for_tenant
 from scripts.seed_events import seed_events_for_tenant
 from scripts.seed_fledgling import seed_fledgling_tenant
+from scripts.seed_item_tracker import seed_item_tracker_for_tenant
 from scripts.seed_match_day import seed_match_day_for_tenant
 from scripts.seed_matches import seed_matches_for_tenant
 from scripts.seed_observability import seed_observability_for_tenant
@@ -970,6 +971,7 @@ async def seed_all() -> None:
         await seed_running_late(tenant, users)
         await seed_ready_for_seed(tenant, users)
         await seed_stream_layouts_for_tenant(tenant, users['staff_user'])
+        await seed_item_tracker_for_tenant(tenant, users)
         await seed_staff_request_dms(tenant, users)
         await seed_sent_messages(tenant, users)
         await seed_data_exports(tenant, users)

@@ -87,6 +87,8 @@
     { "name": "help-article", "path": "/help/glossary" },
     { "name": "watch-live", "path": "/live" },
     { "name": "settings-watch", "path": "/admin/settings/watch" },
+    { "name": "item-tracker", "path": "/tracker/60" },
+    { "name": "item-tracker-overlay", "path": "/tracker/overlay/9f347913c771fec697d4540034ccb3fccc01a65a" },
     { "name": "changelog", "path": "/changelog" },
     { "name": "about", "path": "/about" },
     { "name": "about-privacy", "path": "/about/privacy" },
