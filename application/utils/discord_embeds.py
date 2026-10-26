@@ -201,13 +201,16 @@ def volunteer_embed(
     starts: Optional[datetime] = None,
     ends: Optional[datetime] = None,
     description: Optional[str] = None,
+    handover: str = '',
 ) -> discord.Embed:
-    """Embed for a volunteer shift: Position / Start / End."""
+    """Embed for a volunteer shift: Position / Start / End, then the handover line."""
     fields: list[Field] = [('Position', position, False)]
     if starts is not None:
         fields.append(('Start', time_field(starts), True))
     if ends is not None:
         fields.append(('End', time_field(ends), True))
+    # A field needs a name; a zero-width one shows the line without a heading.
+    fields.append(('\u200b', handover, False))
     return notification_embed(
         title=title, color=COLOR_VOLUNTEER, community_name=community_name,
         description=description, fields=fields,

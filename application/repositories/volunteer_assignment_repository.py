@@ -4,7 +4,7 @@ VolunteerAssignment Repository - Data Access Layer
 Volunteers placed into shifts.
 """
 
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import List, Optional, Sequence, Set, cast
 
 from application.repositories._save import save_fields
@@ -117,6 +117,20 @@ class VolunteerAssignmentRepository:
         if shift_id is not None:
             query = query.filter(shift_id=shift_id)
         return set(cast(List[int], await query.values_list('user_id', flat=True)))
+
+    @staticmethod
+    async def ending_or_starting_near(
+        position_id: int, at: datetime, slack: timedelta, *, ending: bool,
+    ) -> List[VolunteerAssignment]:
+        """Published, not called-off assignments on this position whose shift ends
+        (``ending=True``) or starts within ``slack`` of ``at``."""
+        edge = 'ends_at' if ending else 'starts_at'
+        return await scoped(VolunteerAssignment.filter(
+            auto_generated=False,
+            called_off_at__isnull=True,
+            shift__position_id=position_id,
+            **{f'shift__{edge}__gte': at - slack, f'shift__{edge}__lte': at + slack},
+        )).order_by('shift__starts_at', 'id').prefetch_related('user', 'shift')
 
     @staticmethod
     async def list_for_window(start: datetime, end: datetime) -> List[VolunteerAssignment]:

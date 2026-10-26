@@ -9,11 +9,12 @@ assignment is only reminded once.
 
 import logging
 from datetime import datetime, timedelta, timezone
-from typing import Dict
+from typing import Dict, List, NamedTuple
 
 from application.services.notification_catalog import SHIFT_REMINDER, SHIFT_STARTING, VOLUNTEERS
 from application.tenant_context import tenant_scope
 from application.utils.background_loop import for_each_tenant_scoped, run_worker_loop
+from models import User
 
 logger = logging.getLogger(__name__)
 
@@ -31,6 +32,82 @@ MAX_LEAD_MINUTES = 7 * 24 * 60
 
 # The shift-start DM goes out only this soon after the start; see _start_dms.
 START_DM_GRACE = timedelta(minutes=30)
+
+# How far apart two shifts' end and start may be and still count as a handover.
+HANDOVER_SLACK = timedelta(minutes=15)
+
+
+class Handover(NamedTuple):
+    """Who a volunteer takes over from at the start, and hands over to at the end."""
+
+    relieving: List[User]
+    relieved_by: List[User]
+
+
+async def handover_for(assignment) -> Handover:
+    """The handover around this assignment's shift, on the same position.
+
+    Someone also on this shift is left out of both lists: they keep working
+    alongside, so they are not being relieved and are not relieving anyone.
+    """
+    from application.repositories import VolunteerAssignmentRepository
+
+    shift = assignment.shift
+    staying = {
+        a.user_id for a in await VolunteerAssignmentRepository.list_for_shift(shift.id)
+        if not a.auto_generated and a.called_off_at is None
+    }
+    staying.add(assignment.user_id)
+
+    async def _people(at: datetime, *, ending: bool) -> List[User]:
+        rows = await VolunteerAssignmentRepository.ending_or_starting_near(
+            shift.position_id, at, HANDOVER_SLACK, ending=ending,
+        )
+        people: Dict[int, User] = {}
+        for row in rows:
+            if row.shift_id == shift.id or row.user_id in staying:
+                continue
+            people.setdefault(row.user_id, row.user)
+        return list(people.values())
+
+    return Handover(
+        relieving=await _people(shift.starts_at, ending=True),
+        relieved_by=await _people(shift.ends_at, ending=False),
+    )
+
+
+def _mention(user: User) -> str:
+    import discord
+
+    return f'<@{user.discord_id}>' if user.discord_id else discord.utils.escape_markdown(user.preferred_name)
+
+
+async def _handover_lines(assignment) -> tuple[str, str]:
+    """The handover line for the embed (mentions) and for the text (plain names).
+
+    Never raises: the assignment is already stamped, so a failure here must not
+    cost the volunteer the DM itself.
+    """
+    import discord
+
+    from application.utils.discord_messages_volunteer import handover_text
+
+    try:
+        handover = await handover_for(assignment)
+    except Exception:
+        logger.exception('Handover lookup failed for assignment %s', getattr(assignment, 'id', None))
+        return '', ''
+    at = f'<t:{int(assignment.shift.ends_at.timestamp())}:t>'
+
+    def _plain(user: User) -> str:
+        return discord.utils.escape_markdown(user.preferred_name)
+
+    return (
+        handover_text([_mention(u) for u in handover.relieving],
+                      [_mention(u) for u in handover.relieved_by], at),
+        handover_text([_plain(u) for u in handover.relieving],
+                      [_plain(u) for u in handover.relieved_by], at),
+    )
 
 
 async def _scoped_dm(tenant_id: int, coro) -> None:
@@ -104,12 +181,14 @@ async def _tick() -> None:
             return
         acknowledged = assignment.acknowledged_at is not None
         position_name = shift.position.name if shift.position else ''
+        handover_embed, handover_plain = await _handover_lines(assignment)
         message = volunteer_reminder_dm(
             position_name=position_name,
             label=shift.label,
             starts_display=time_field(shift.starts_at),
             ends_display=time_field(shift.ends_at),
             acknowledged=acknowledged,
+            handover=handover_plain,
         )
         description = volunteer_reminder_description(acknowledged)
         if shift.label:
@@ -121,6 +200,7 @@ async def _tick() -> None:
             starts=shift.starts_at,
             ends=shift.ends_at,
             description=description,
+            handover=handover_embed,
         )
         # The reminder is when someone finds out they can't make it, so it
         # carries the way out: My Shifts, with this shift's give-back dialog open.
@@ -180,11 +260,13 @@ async def _start_dms(now: datetime) -> None:
             return
         shift = assignment.shift
         position_name = shift.position.name if shift.position else ''
+        handover_embed, handover_plain = await _handover_lines(assignment)
         message = volunteer_shift_start_dm(
             position_name=position_name,
             label=shift.label,
             starts_display=time_field(shift.starts_at),
             ends_display=time_field(shift.ends_at),
+            handover=handover_plain,
         )
         description = VOLUNTEER_SHIFT_START_DESCRIPTION
         if shift.label:
@@ -196,6 +278,7 @@ async def _start_dms(now: datetime) -> None:
             starts=shift.starts_at,
             ends=shift.ends_at,
             description=description,
+            handover=handover_embed,
         )
         link = await notification_links.volunteer_my_shifts()
         send = discord_service.send_dm_with_volunteer_arrival_buttons(
