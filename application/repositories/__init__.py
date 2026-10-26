@@ -45,6 +45,7 @@ from .event_repository import EventRepository
 from .feature_flag_group_repository import FeatureFlagGroupRepository
 from .feature_flag_repository import TenantFeatureFlagRepository
 from .feedback_repository import FeedbackRepository
+from .item_tracker_repository import ItemTrackerRepository
 from .log_level_override_repository import LogLevelOverrideRepository
 from .match_acknowledgment_repository import MatchAcknowledgmentRepository
 from .match_comment_repository import MatchCommentRepository
@@ -133,6 +134,7 @@ __all__ = [
     'EventRepository',
     'FeatureFlagGroupRepository',
     'FeedbackRepository',
+    'ItemTrackerRepository',
     'LogLevelOverrideRepository',
     'MatchAcknowledgmentRepository',
     'MatchCommentRepository',

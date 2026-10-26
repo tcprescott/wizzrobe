@@ -96,6 +96,7 @@ the key is set, and rolling without one raises. See
 | `personal_webhooks` | Community | no (ships dark) | the **Webhooks** card on Profile; the delivery subscriber skips the tenant (no REST router or MCP tool exists) | `personal_webhook_service.py` |
 | `payouts` | Operations | no (ships dark) | admin Payouts tab, the profile's Matcherino-handle card, `/tournaments/{id}/payouts` + `/prize-pool` API, the MCP `get_tournament_payouts` tool | `payout_service.py` |
 | `event_check_in` | Operations | no (ships dark) | `/checkin` + `/checkin/{event_id}` (redirects), the Volunteer hub's **Check-in Desk** tab and the hub itself, which opens on `VOLUNTEERS` or `EVENT_CHECK_IN` (`AuthService.can_view_check_in_desk`), admin Check-in tab, sync worker skips (no REST router or MCP tool exists) | `check_in_service.py`, `check_in_sync_worker.py` |
+| `item_tracker` | Operations | no (ships dark) | `/tracker/{match_id}`, `/tracker/overlay/{token}`, the match sheet's Item tracker button (no REST router or MCP tool exists) | `item_tracker_service.py`; `sheet_link` soft-returns `None` |
 
 `established=True` marks a feature that was **already in live use** when its flag
 was added. [Migration 30](../../migrations/models/30_20260715000000_feature_flags.py)
