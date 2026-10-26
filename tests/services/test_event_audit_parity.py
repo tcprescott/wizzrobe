@@ -410,6 +410,11 @@ _EXCLUDED_BY_DESIGN = frozenset({
     AuditActions.TENANT_DELETED,
     AuditActions.SUPER_ADMIN_GRANTED,
     AuditActions.SUPER_ADMIN_REVOKED,
+    # Moving crew held on an unbooked bracket matchup onto its booking: each
+    # approved member it moves is announced as crew.approval_changed on the
+    # booking, which is what a crew subscriber mirrors. The hold itself never
+    # reached the bus.
+    AuditActions.CREW_MOVED_TO_BOOKING,
 })
 
 _EVENTLESS_AUDIT_ACTIONS = _EVENT_CANDIDATES | _EXCLUDED_BY_DESIGN

@@ -86,6 +86,8 @@ def run_sheet_status(row: dict) -> tuple[str, str]:
         return ('Forfeit', 'ok') if row.get('forfeit') else ('Confirmed', 'ok')
     if state == 'Started':
         return 'Live', 'live'
+    if row.get('crew_hold'):
+        return 'Not booked yet', 'neutral'
     if row.get('bracket_link_lost'):
         return 'Bracket link lost', 'pending'
     if row.get('placeholders'):
@@ -149,7 +151,7 @@ def proctor_group(row: dict) -> tuple[int, str]:
 #: The groups a viewer who has never touched them finds folded: finished
 #: matches are the longest group by mid-event and rarely the proctor's business
 #: (Thomas, 2026-10-22). 'Finished' is the player run sheet's results group.
-FOLDED_BY_DEFAULT = frozenset({_DONE[1], _FINISHED[1], 'Finished'})
+FOLDED_BY_DEFAULT = frozenset({_DONE[1], _FINISHED[1], 'Finished', 'Not scheduled yet'})
 
 #: Quasar's filter over a run sheet: the search text as its default filter
 #: does it, and a folded group down to the row carrying its header. ``terms``

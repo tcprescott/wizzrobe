@@ -231,17 +231,28 @@ class MatchTableHandlersMixin:
             # staff approve it, and Withdraw sits in the same cell the moment
             # it lands. The dialog was a second tap on the one action a
             # volunteer opens this board to take.
+            if isinstance(match_id, str) and match_id.startswith('future:'):
+                await self._sign_up_ahead(match_id, user, role, row)
+                return
             try:
                 await crew_service.signup_crew(match_id, user, role)
-                ui.notify(
-                    f'Signed up as a {role} for '
-                    f"{match_row_label(row, with_context=False)}. You'll get a Discord "
-                    'message once staff approve it.',
-                    color='positive',
-                )
+                ui.notify(_signed_up_copy(role, row), color='positive')
                 await self.update_row_by_id(match_id)
             except ValueError as e:
                 ui.notify(str(e), color='warning')
+
+    async def _sign_up_ahead(self, row_id: str, user, role: str, row) -> None:
+        """Sign up on a bracket matchup nobody has booked; the line becomes its hold."""
+        from application.services import CrewHoldService
+
+        _, source, key = row_id.split(':')
+        try:
+            await CrewHoldService().signup(source, int(key), user, role)
+        except ValueError as e:
+            ui.notify(str(e), color='warning')
+            return
+        ui.notify(_signed_up_copy(role, row), color='positive')
+        await self.refresh()  # type: ignore[attr-defined]
 
     async def _handle_acknowledge_crew(self, role, event, client):
         from application.services import CrewService
@@ -547,3 +558,11 @@ class MatchTableHandlersMixin:
         from theme.dialog.hard_preset_dialog import HardPresetDialog
 
         await HardPresetDialog(match, user, state, on_change=after).open()
+
+
+def _signed_up_copy(role: str, row: dict) -> str:
+    label = match_row_label(row, with_context=False)
+    if row.get('crew_hold'):
+        return (f"Signed up as a {role} for {label}. It isn't booked yet: your signup "
+                "moves onto it when it is, and you'll get a Discord message once staff approve it.")
+    return f"Signed up as a {role} for {label}. You'll get a Discord message once staff approve it."

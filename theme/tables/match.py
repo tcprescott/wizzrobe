@@ -92,8 +92,15 @@ class MatchTableView(MatchFiltersMixin, MatchTableHandlersMixin, MatchBoardHoldM
                  storage_key='match', default_state_filter=None, default_day_scope=ALL_DAYS, match_ids=None,
                  scope_tournament_ids=None, table_key=None, searchable=False,
                  show_accommodations=False, layout='table', on_open_match=None,
-                 run_sheet_group=None, proctor_run_sheet=False, show_comment_counts=False):
+                 run_sheet_group=None, proctor_run_sheet=False, show_comment_counts=False,
+                 extra_rows=None):
         self.columns = columns
+        # ``await extra_rows(rows, tournament_ids)`` adds lines that aren't matches
+        # yet (Event > Schedule's bracket matchups nobody has booked), on an
+        # all-days board with no stage filter and no deep link.
+        self.extra_rows = extra_rows
+        # Groups that start open here though FOLDED_BY_DEFAULT folds them elsewhere.
+        self.open_by_default: tuple = ()
         # 'table' draws every column's control in its cell (and a full card per
         # match on a phone); 'run_sheet' draws one grouped line per match and
         # hands a tapped line to ``on_open_match(match_id)``, which shows the
@@ -541,6 +548,11 @@ class MatchTableView(MatchFiltersMixin, MatchTableHandlersMixin, MatchBoardHoldM
             match_ids=self.match_ids,
             scheduled_window=scheduled_window,
         )
+
+        if self.extra_rows is not None and window is None and not self.match_ids and not stage_ids:
+            rows = await self.extra_rows(
+                rows, tournament_ids,
+            )
 
         # Client-side filter by state (narrows within the fetched set)
         if state_filter:

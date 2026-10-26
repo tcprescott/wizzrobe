@@ -259,6 +259,13 @@ class BracketRepository(TenantScopedRepository[Bracket]):
             'bracket_match__entry2__entrant__user',
         ).first()
 
+    async def first_booked_match_id(self, bracket_match_id: int) -> Optional[int]:
+        """The earliest-booked game's match on a bracket match, if any game is booked."""
+        game = await scoped(
+            BracketMatchGame.filter(bracket_match_id=bracket_match_id, match_id__isnull=False)
+        ).order_by('id').first()
+        return game.match_id if game is not None else None
+
     async def get_bracket_match_for_match(self, match_id: int) -> Optional[BracketMatch]:
         """The bracket match whose series contains the game backed by ``match_id``."""
         game = await self.get_game_for_match(match_id)

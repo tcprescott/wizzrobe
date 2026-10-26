@@ -65,6 +65,7 @@ tenant costs the button, not the DM.
 | Crew assignment | View your crew slot | `/home/my-crew?match=<id>`, beside Acknowledge — the card that also carries Confirm and Withdraw |
 | Crew signup (to admins) | Review the signup | `/admin/match-schedule?match_id=<id>` — the approval toggle is on that row |
 | Crew withdrew (to admins) | Fill the slot | `/admin/match-schedule?match_id=<id>` |
+| Crew busy at the booked time (to admins) | Check the crew | `/admin/match-schedule?match_id=<id>` — the booking the held signups just moved onto |
 | Volunteer released (to coordinators) | Find cover | `/admin/volunteer-shifts?day=<shift day>` |
 | Volunteer shift reminder | Acknowledge (only if not yet acknowledged) · Can't make it | `/home/my-schedule?release=<assignment id>` — the give-back dialog for that shift, open; a gone, finished or checked-in shift says so instead |
 | Reschedule request (to staff) | Review the request | `/admin/match-schedule?reschedule_request=<id>` — the decision dialog, open. Not the board filtered to the match: the proposed time and the player's reason are the whole message and live in the dialog |

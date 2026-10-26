@@ -212,6 +212,7 @@ the ceiling. Text is in `application/utils/discord_messages_opt_in.py`.
 | `community_event_listed` | members but the host (Profile list puts it under "Tournaments and events you follow") | `CommunityEventService.approve` of a pending event, or a staff submission listed straight away |
 | `added_to_tournament` / `removed_from_tournament` | players | `record_enrolment_change(notify=True)`: roster dialog, admin user dialog; never a sync or scheduling auto-enrol |
 | `player_withdrew` | admins (`StaffAlertService.tournament_alert_admins`) | self-withdraw, Challonge withdraw |
+| `crew_booked_busy` | the tournament's crew owners and whoever approved them | `CrewHoldService.absorb`: an approved signup held on an unbooked matchup moves onto a booking it clashes with |
 | `request_withdrawn` | the opponent (head-to-head only) | `MatchRescheduleService.withdraw` |
 | `qualifier_opened` / `qualifier_closed` | members / players with a valid run | `sync_window_state` |
 | `match_flagged`, `seed_failed`, `stream_offer` | staff alert columns | `flag_for_review`, `SeedRollService._fail`, `MatchStreamVolunteerService.volunteer` |

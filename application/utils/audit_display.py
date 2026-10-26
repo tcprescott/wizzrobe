@@ -113,6 +113,7 @@ ACTION_LABELS: dict[str, str] = {
     'crew.signup_removed': 'Removed a crew signup',
     'crew.approval_changed': 'Changed crew approval',
     'crew.acknowledged': 'Acknowledged a crew slot',
+    'crew.moved_to_booking': 'Moved crew signups onto a booked bracket match',
     'race_room.created': 'Created a race room',
     'race_room.opened': 'Opened a race room',
     'race_room.started': 'Race room started',

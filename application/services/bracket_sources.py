@@ -21,7 +21,7 @@ here, a row per game). Native brackets live in Wizzrobe, so they have nothing to
 
 import logging
 from dataclasses import dataclass, field, replace
-from typing import Callable, Dict, List, Optional, Protocol, Sequence, Tuple
+from typing import Any, Callable, Dict, List, Optional, Protocol, Sequence, Tuple
 from urllib.parse import urlparse
 
 from application.services.auth_service import AuthService
@@ -346,9 +346,18 @@ async def schedule(
     source_key: str, key: int, scheduled_date: str, scheduled_time: str, actor: User,
     *, allow_outside_round: bool = False,
 ) -> Match:
-    return await by_key(source_key).schedule(
+    match = await by_key(source_key).schedule(
         key, scheduled_date, scheduled_time, actor, allow_outside_round=allow_outside_round,
     )
+    await _hand_over_held_crew(match, actor)
+    return match
+
+
+async def _hand_over_held_crew(match: Match, actor: User) -> None:
+    """Move crew who signed up for the matchup ahead onto its new booking."""
+    from application.services.crew_hold_service import CrewHoldService
+
+    await CrewHoldService().absorb(match, actor)
 
 
 async def schedule_set(
@@ -417,8 +426,39 @@ async def list_unbooked(actor: Optional[User], *, include_players_tbd: bool = Fa
     scope = await _bookable_scope(actor)
     if scope == []:
         return []
+    out = await _list_open(scope, include_players_tbd)
+    await _attach_same_player_matches(out)
+    return out
+
+
+async def list_open_for_crew() -> List[UnbookedMatch]:
+    """Every open matchup in the community nobody has booked a game of, players known or not.
+
+    What crew can sign up for ahead (:mod:`crew_hold_service`): the whole
+    community's, whoever is looking, since the schedule it feeds is public to
+    members. A set with a game booked already has a match to sign up on.
+    """
+    return [row for row in await _list_open(None, True, windows=False) if not row.games_booked]
+
+
+class _NoWindows:
+    """Stands in for the round schedule where nobody reads a matchup's booking window."""
+
+    async def describe_for_challonge_match(self, _row) -> None:
+        return None
+
+    async def describe_for_startgg_set(self, _row) -> None:
+        return None
+
+    async def describe_for_bracket_match(self, _row) -> None:
+        return None
+
+
+async def _list_open(
+    scope: Optional[List[int]], include_players_tbd: bool, *, windows: bool = True,
+) -> List[UnbookedMatch]:
     live = await FeatureFlagService().enabled_flags()
-    rounds = RoundScheduleService()
+    rounds: Any = RoundScheduleService() if windows else _NoWindows()
     out: List[UnbookedMatch] = []
 
     sets = BracketSetService()
@@ -489,13 +529,12 @@ async def list_unbooked(actor: Optional[User], *, include_players_tbd: bool = Fa
                 unlinked_entrants=[(e.id, e.display_name) for e in (a, b) if e.user_id is None],
             ))
 
-    await _attach_same_player_matches(out)
     out.sort(key=lambda u: (u.tournament.name.lower(), u.tournament.id))
     return out
 
 
 async def _list_players_tbd(
-    scope: Optional[List[int]], live: set, rounds: RoundScheduleService,
+    scope: Optional[List[int]], live: set, rounds: Any,
 ) -> List[UnbookedMatch]:
     """Unbooked Challonge and start.gg matchups still waiting on a player, for booking ahead."""
     out: List[UnbookedMatch] = []
@@ -548,10 +587,13 @@ def _tbd_names(first, second, labels: List[str]) -> List[str]:
 async def relink_ahead(source_key: str, key: int, match_id: int, actor: User) -> Match:
     """Attach a placeholder booking a bracket reset cut loose to this matchup."""
     if source_key == 'challonge':
-        return await ChallongeService().relink_ahead(key, match_id, actor)
-    if source_key == 'startgg':
-        return await StartggService().relink_ahead(key, match_id, actor)
-    raise ValueError("Only Challonge and start.gg bookings are linked this way.")
+        match = await ChallongeService().relink_ahead(key, match_id, actor)
+    elif source_key == 'startgg':
+        match = await StartggService().relink_ahead(key, match_id, actor)
+    else:
+        raise ValueError("Only Challonge and start.gg bookings are linked this way.")
+    await _hand_over_held_crew(match, actor)
+    return match
 
 
 async def book_ahead(
@@ -560,14 +602,17 @@ async def book_ahead(
 ) -> Match:
     """Book a Challonge or start.gg matchup before its players are known (staff, tournament admins)."""
     if source_key == 'challonge':
-        return await ChallongeService().book_ahead(
+        match = await ChallongeService().book_ahead(
             key, scheduled_date, scheduled_time, actor, allow_outside_round=allow_outside_round,
         )
-    if source_key == 'startgg':
-        return await StartggService().book_ahead(
+    elif source_key == 'startgg':
+        match = await StartggService().book_ahead(
             key, scheduled_date, scheduled_time, actor, allow_outside_round=allow_outside_round,
         )
-    raise ValueError("Only Challonge and start.gg matchups can be booked before their players are known.")
+    else:
+        raise ValueError("Only Challonge and start.gg matchups can be booked before their players are known.")
+    await _hand_over_held_crew(match, actor)
+    return match
 
 
 async def _attach_same_player_matches(items: List[UnbookedMatch]) -> None:
@@ -592,13 +637,15 @@ async def link_existing(source_key: str, key: int, match_id: int, actor: User) -
     own two players: each site settles the matchup by whose rank is whose.
     """
     if source_key == 'challonge':
-        await ChallongeService().link_existing_match(key, match_id, actor)
+        match = await ChallongeService().link_existing_match(key, match_id, actor)
     elif source_key == 'startgg':
-        await StartggService().link_existing_match(key, match_id, actor)
+        match = await StartggService().link_existing_match(key, match_id, actor)
     elif source_key == 'bracket':
         await BracketService().link_match_to_bracket_match(actor, key, match_id)
+        return
     else:
         raise ValueError(f'Unknown bracket source: {source_key}')
+    await _hand_over_held_crew(match, actor)
 
 
 @dataclass(frozen=True)

@@ -53,6 +53,7 @@ from .async_qualifier import (
 from .audit_service import AuditService
 from .auth_service import AuthService, get_user_from_discord_id, get_user_from_session
 from .bracket_config import BracketConfig, validate_bracket_config
+from .bracket_overview_service import BracketOverviewService
 from .bracket_service import BracketService
 from .bracket_set_service import BracketSetService
 from .browser_monitoring_service import BrowserMonitoringService
@@ -60,6 +61,7 @@ from .challonge_service import ChallongeService
 from .check_in_desk_service import CheckInDeskService
 from .check_in_service import CheckInService
 from .community_event_service import CommunityEventService, EventDraft
+from .crew_hold_service import CrewHoldService
 from .crew_service import CrewService
 from .discord import (
     DiscordEmailService,
@@ -183,6 +185,7 @@ __all__ = [
     'AuditService',
     'AuthService',
     'BracketConfig',
+    'BracketOverviewService',
     'BracketService',
     'BracketSetService',
     'BrowserMonitoringService',
@@ -192,6 +195,7 @@ __all__ = [
     'CheckInService',
     'CommunityEventService',
     'CommunityOverview',
+    'CrewHoldService',
     'CrewService',
     'DataExportService',
     'DiscordEmailService',

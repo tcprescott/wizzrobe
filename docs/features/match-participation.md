@@ -67,6 +67,31 @@ await CrewService().list_my_commitments(user, upcoming_only=True)
 await CrewService().find_scheduling_conflicts(user, match, 'commentator')
 ```
 
+**Signing up before a match is booked.** Event › Schedule ends with a
+*Not scheduled yet* group (folded by default; open by default on My Schedule's
+crew list) listing every open Challonge, start.gg or native bracket matchup with
+no game booked, players known or not, in tournaments that use crew
+(`bracket_sources.list_open_for_crew`). The first signup on one makes a **crew
+hold** (`CrewHoldService.signup`): a `Match` with no players and no time whose
+`crew_hold_source` / `crew_hold_key` name the matchup. It is never linked to the
+matchup, so players and staff still see it as unbooked and book it the usual
+way. The hold carries the signups like any match, so approval, withdrawal, the
+owners' DMs and My Schedule all work unchanged; a matchup's players can't crew
+it (`_crew_blocked` on the row, refused by the service).
+
+Booking or linking the matchup's first game calls `CrewHoldService.absorb`
+(from `bracket_sources.schedule` / `book_ahead` / `link_existing` /
+`relink_ahead` and the native `schedule_bracket_match` /
+`link_match_to_bracket_match`). It moves each signup onto the booking with its
+id, approval and acknowledgment, drops one from a person now playing it or
+already on it, deletes the hold, publishes `crew.approval_changed` for each
+approved member on the booking, and DMs the crew owners (`crew_booked_busy`)
+about any approved member `find_scheduling_conflicts` says is busy then.
+`CrewHoldService.list_future` is the safety net: a hold whose matchup got booked
+by a path that skipped the hand-over is absorbed the next time the list loads,
+and a hold everyone withdrew from is deleted. Crew get no DM of their own when
+the match is booked: the stage-only rule above still holds.
+
 **Approving checks for a clash.** `find_scheduling_conflicts` answers, in one
 query across all three roles, what else the person is committed to in the
 match's window (the tournament's `average_match_duration`, or 90 minutes), and

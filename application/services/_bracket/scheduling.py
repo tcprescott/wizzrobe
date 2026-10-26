@@ -236,6 +236,7 @@ class SchedulingMixin(ComposedBracketService):
             actor, AuditActions.BRACKET_GAME_SCHEDULED, details,
             EventType.BRACKET_GAME_SCHEDULED,
         )
+        await _hand_over_held_crew(match, actor)
         return match
 
     @staticmethod
@@ -380,6 +381,7 @@ class SchedulingMixin(ComposedBracketService):
             },
             EventType.BRACKET_GAME_LINKED,
         )
+        await _hand_over_held_crew(match, actor)
         return game
 
     async def unlink_match(self, actor: Optional[User], match_id: int) -> bool:
@@ -604,3 +606,9 @@ class SchedulingMixin(ComposedBracketService):
         ``push_match_result``, which has no staff gate.
         """
         return await self.settle_game_if_linked(match, actor)
+
+
+async def _hand_over_held_crew(match: Match, actor: Optional[User]) -> None:
+    from application.services.crew_hold_service import CrewHoldService
+
+    await CrewHoldService().absorb(match, actor)
