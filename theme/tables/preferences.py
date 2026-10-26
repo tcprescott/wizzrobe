@@ -668,6 +668,9 @@ def search_input(table: ui.table, *,
     return box
 
 
+_SINGULAR = {'matches': 'match', 'people': 'person', 'rows': 'row', 'runs': 'run', 'players': 'player'}
+
+
 def row_count_label(table: ui.table, noun: str = 'rows') -> ui.label:
     """A live ``124 matches`` caption above a client-paginated board.
 
@@ -678,7 +681,8 @@ def row_count_label(table: ui.table, noun: str = 'rows') -> ui.label:
     """
     return ui.label().classes('text-caption text-grey-7') \
         .bind_text_from(table, 'rows',
-                        backward=lambda rows: f'{len(rows or []):,} {noun}')
+                        backward=lambda rows: f'{len(rows or []):,} '
+                                              f'{_SINGULAR.get(noun, noun) if len(rows or []) == 1 else noun}')
 
 
 def sticky_header(table: ui.table, max_height: str = '70vh') -> ui.table:

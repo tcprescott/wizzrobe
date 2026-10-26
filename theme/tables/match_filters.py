@@ -274,6 +274,20 @@ class MatchFiltersMixin:
         chip.set_visibility(False)
         return chip
 
+    def show_one_match_chip(self, show_all_url: str, show_all_label: str) -> None:
+        """Say the board is narrowed to one match, in the filter strip itself.
+
+        A DM link opens the board on one match. The chip leads both strips (the
+        phone toggle row and the desktop card) and is the way back to the whole
+        board: its own line plus a separate link wrapped to two rows on a phone.
+        """
+        for lead in self.toolbar_lead:
+            with lead:
+                ui.button('One match', icon='filter_alt', color=None,
+                          on_click=lambda: ui.navigate.to(show_all_url)) \
+                    .props(f'unelevated rounded dense no-caps no-wrap icon-right=close aria-label="{show_all_label}"') \
+                    .classes('wiz-one-match').tooltip(show_all_label)
+
     def _build_filter_bar(self):
         """Render the toggle row and the filter card; returns the two header slots.
 

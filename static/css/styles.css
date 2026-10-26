@@ -4020,19 +4020,16 @@ body:has(.wiz-header) .q-notifications__list--top {
 }
 
 /* The viewer's own Sign up / Withdraw for one crew role (crew_signup_section),
-   on the phone card and the desktop crew cell alike. A sunken tray of its own
-   above the names, so the button keeps one spot whether the list is empty, long,
-   or has the viewer in it, and reads as "your control", not one more name. */
+   on the phone card and the desktop crew cell alike. A line of its own above
+   the names, so the button keeps one spot whether the list is empty, long, or
+   has the viewer in it. The outlined button already reads as "your control";
+   the sunken dashed tray it used to sit in only added a box around a box. */
 .wiz-crew-action {
     display: flex;
     align-items: center;
     flex-basis: 100%;
     gap: var(--space-2);
-    padding: var(--space-1) var(--space-2);
     margin-bottom: var(--space-1);
-    background: var(--surface-sunken);
-    border: 1px dashed var(--border-strong);
-    border-radius: var(--radius-sm);
 }
 
 .wiz-crew-empty {
@@ -7581,6 +7578,10 @@ ol.wiz-help-list { list-style-type: decimal; }
 }
 .run-sheet__item > .run-sheet__group {
     margin: 0.75rem 0 0.375rem;
+}
+/* The first header sits right under the toolbar, which already spaces it. */
+.run-sheet__item:first-child > .run-sheet__group {
+    margin-top: 0;
     padding: 0.25rem 0.75rem;
     background: var(--surface-alt);
     border-radius: var(--radius-md);
@@ -9063,6 +9064,16 @@ ol.wiz-help-list { list-style-type: decimal; }
 .wiz-filter-reset {
     flex: none;
     font-weight: 700;
+}
+
+/* A DM link narrowed the board to one match: the chip says so and is the way
+   back to the whole board, like the filter-count chip beside it. */
+.q-btn.wiz-one-match {
+    flex: none;
+    font-weight: 700;
+    color: color-mix(in srgb, var(--status-pending) 80%, var(--fg));
+    background: color-mix(in srgb, var(--status-pending) 12%, transparent);
+    border: 1px solid currentColor;
 }
 
 @media (max-width: 1023.98px) {

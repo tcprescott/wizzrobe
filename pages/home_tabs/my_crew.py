@@ -22,7 +22,6 @@ from nicegui import app, ui
 from application.services import CrewService, get_user_from_session
 from application.utils.app_links import HOME_MY_CREW, home_url
 from theme.dialog.match_sheet import MatchSheet
-from theme.links import link_button
 from theme.section import section_panel
 from theme.tables.match import MatchTableView
 from theme.tables.match_access import MatchBoardAccess
@@ -71,14 +70,6 @@ async def my_crew_tab(
     )
     panel.body.props(f'id={CREW_SECTION_ID}')
     with panel.body:
-        if match_ids:
-            with ui.row().classes('items-center gap-2 q-mb-sm'):
-                with ui.element('span').classes('wiz-chip wiz-chip--pending'):
-                    ui.icon('filter_alt', size='14px')
-                    ui.label('Showing one match only')
-                link_button('Show all your crew slots', home_url(HOME_MY_CREW), icon='clear', new_tab=False) \
-                    .props('flat dense color=primary')
-
         sheet = MatchSheet(None, access=MatchBoardAccess(), url_key='crew_sheet',
                            decorate=lambda row: decorate_player_row(row, discord_id))
 
@@ -100,6 +91,8 @@ async def my_crew_tab(
             on_open_match=sheet.open,
         )
         sheet.view = view
+        if match_ids:
+            view.show_one_match_chip(home_url(HOME_MY_CREW), 'Show all your crew slots')
 
     if match_ids:
         ui.run_javascript(
