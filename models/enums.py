@@ -49,13 +49,10 @@ class Role(str, Enum):
 
     @property
     def is_per_event(self) -> bool:
-        """Granted inside one event rather than across the community.
+        """Granted inside one event: a proctor at SGL 2026 isn't one at SGL 2027.
 
-        The on-site roles are: a proctor at SGL 2026 isn't one at SGL 2027
-        until someone says so. Staff and the three online-tournament admin
-        roles run things that outlive an event (presets, sync, qualifiers), so
-        they stay community-wide, and SUPER_ADMIN is global.
-        """
+        Staff and the online admin roles run things that outlive an event
+        (presets, sync, qualifiers), so they stay community-wide."""
         return self in _PER_EVENT_ROLES
 
     @classmethod
@@ -83,11 +80,7 @@ class Role(str, Enum):
         ]
 
 
-_PER_EVENT_ROLES = frozenset({
-    Role.PROCTOR, Role.STREAM_MANAGER, Role.TRIFORCE_SUBMITTER,
-    Role.VOLUNTEER_COORDINATOR, Role.EQUIPMENT_MANAGER, Role.VOLUNTEER,
-    Role.CHECK_IN_DESK,
-})
+_PER_EVENT_ROLES = frozenset({Role.VOLUNTEER_COORDINATOR, *Role.volunteer_mappable()})
 
 _ROLE_LABELS: dict[Role, str] = {
     Role.STREAM_MANAGER: 'Broadcast Tech',
