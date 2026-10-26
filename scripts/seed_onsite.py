@@ -41,6 +41,13 @@ _ONSITE_META = {
 }
 
 
+async def _invite(tenant, match, inviter, invitee, status, responded_at) -> None:
+    """One commentary invite in ``status``, unless the pair already has one in it."""
+    keys = dict(match=match, inviter=inviter, invitee=invitee, tenant=tenant, status=status)
+    if not await CommentaryInvite.filter(**keys).exists():
+        await CommentaryInvite.create(**keys, responded_at=responded_at)
+
+
 async def seed_onsite_for_tenant(
     tenant: Tenant,
     staff: User,
@@ -165,26 +172,17 @@ async def seed_onsite_for_tenant(
     # and waiting on players[3]'s answer (their My Schedule carries the invite);
     # on the scheduled match players[3] brought players[2], who accepted.
     await Commentator.get_or_create(match=stage_call, user=players[2], tenant=tenant)
-    await CommentaryInvite.get_or_create(
-        match=stage_call, inviter=players[2], invitee=players[3], tenant=tenant,
-        defaults={"status": CommentaryInviteStatus.PENDING},
-    )
+    await _invite(tenant, stage_call, players[2], players[3], CommentaryInviteStatus.PENDING, None)
     paired = await Match.get(title="On-Site Scheduled", tournament=onsite, tenant=tenant)
     await Commentator.get_or_create(match=paired, user=players[3], tenant=tenant)
     await Commentator.get_or_create(
         match=paired, user=players[2], tenant=tenant, defaults={"invited_by": players[3]},
     )
-    await CommentaryInvite.get_or_create(
-        match=paired, inviter=players[3], invitee=players[2], tenant=tenant,
-        defaults={"status": CommentaryInviteStatus.ACCEPTED, "responded_at": now},
-    )
+    await _invite(tenant, paired, players[3], players[2], CommentaryInviteStatus.ACCEPTED, now)
     # The settled states the board never draws: an invite declined and one
     # taken back. Seed-only history, so the audit log has no row for them.
     for status in (CommentaryInviteStatus.DECLINED, CommentaryInviteStatus.CANCELLED):
-        await CommentaryInvite.get_or_create(
-            match=stage_call, inviter=players[3], invitee=players[2], tenant=tenant, status=status,
-            defaults={"responded_at": now - timedelta(hours=1)},
-        )
+        await _invite(tenant, stage_call, players[3], players[2], status, now - timedelta(hours=1))
     await make_match("On-Site In Progress", -1, seated=True, started=True, stations=('4', '8'), stage=stage3)
     # Recorded but not yet confirmed — the admin's review queue.
     await make_match(
