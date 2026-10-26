@@ -79,12 +79,16 @@ async def capacity_page(
         intervals = forecast['intervals']
         player_counts = forecast['player_counts']
         on_stream_counts = forecast['on_stream_player_counts']
+        off_stream_counts = forecast['off_stream_player_counts']
         capacity = forecast['max_capacity']
 
         palette = await chart_palette()
         chart_panel = await section_panel(
             'Concurrent players', icon='show_chart',
-            subtitle=f'{forecast["interval_minutes"]}-minute intervals. Capacity {capacity}.',
+            subtitle=(
+                f'{forecast["interval_minutes"]}-minute intervals. Capacity {capacity}. '
+                'Off-stream and on-stream players stack to the total.'
+            ),
         )
         with chart_panel.body:
             time_labels = [format_local_datetime(t, '%m-%d %H:%M %Z') for t in intervals]
@@ -114,17 +118,22 @@ async def capacity_page(
 
             echart_option = {
                 'tooltip': {'trigger': 'axis', 'axisPointer': {'type': 'cross'}},
-                'legend': {'data': ['Active players', 'On-stream players', 'Capacity'], 'top': 0},
-                'grid': {'left': '3%', 'right': '4%', 'bottom': '14%', 'containLabel': True},
+                # The toolbox sits top-right; the legend keeps to the left half so the two
+                # never overlap when the legend wraps on a phone.
+                'legend': {'data': ['Off-stream players', 'On-stream players', 'Capacity'], 'top': 0, 'left': 0, 'width': '50%'},
+                'grid': {'left': '3%', 'right': '4%', 'top': 96, 'bottom': '14%', 'containLabel': True},
                 'toolbox': {'feature': {'saveAsImage': {}, 'dataZoom': {}, 'restore': {}}},
                 'dataZoom': data_zoom_options,
                 'xAxis': {'type': 'category', 'boundaryGap': False, 'data': time_labels},
                 'yAxis': [{'type': 'value', 'name': 'Players'}],
                 'series': [
+                    # Stage matches have their own setups, so the floor load
+                    # against capacity is the lower band; the top edge is the total.
                     {
-                        'name': 'Active players',
+                        'name': 'Off-stream players',
                         'type': 'line',
-                        'data': player_counts,
+                        'stack': 'players',
+                        'data': off_stream_counts,
                         'smooth': True,
                         'itemStyle': {'color': palette.primary},
                         'areaStyle': {'color': palette.primary_area},
@@ -133,9 +142,11 @@ async def capacity_page(
                     {
                         'name': 'On-stream players',
                         'type': 'line',
+                        'stack': 'players',
                         'data': on_stream_counts,
                         'smooth': True,
                         'itemStyle': {'color': palette.secondary},
+                        'areaStyle': {'color': palette.secondary, 'opacity': 0.18},
                         'lineStyle': {'width': 2, 'color': palette.secondary},
                     },
                     {
@@ -194,17 +205,21 @@ async def capacity_page(
                                        table_key=TableKeys.REPORTS_CAPACITY_FOCUS)
 
         with ui.element('div').classes('wiz-report-split'):
-            peaks_panel = await section_panel('Busiest times', icon='bar_chart')
+            peaks_panel = await section_panel(
+                'Busiest times', icon='bar_chart', subtitle='Ranked by off-stream players.',
+            )
             with peaks_panel.body:
-                peaks = ReportsService.peak_times(intervals, player_counts, top_n=5)
-                if not peaks or peaks[0][1] == 0:
+                totals = dict(zip(intervals, player_counts, strict=True))
+                peaks = ReportsService.peak_times(intervals, off_stream_counts, top_n=5)
+                if not any(player_counts):
                     ui.label('No matches found in the selected window.').classes('italic-note')
                 else:
                     for peak_time, count in peaks:
                         with ui.row().classes('items-center no-wrap full-width'):
                             ui.label(format_local_display(peak_time)).classes('cell-timestamp')
-                            ui.label(f'{count} players').classes(
-                                'text-weight-bold' + (' text-negative' if count > capacity else ''))
+                            ui.label(f'{count} off stream').classes(
+                                'text-weight-bold text-no-wrap' + (' text-negative' if count > capacity else ''))
+                            ui.label(f'{totals[peak_time]} total').classes('text-caption text-muted text-no-wrap')
                             ui.space()
                             ui.link(
                                 'Inspect',
@@ -218,6 +233,7 @@ async def capacity_page(
                 {
                     'time': format_local_display(intervals[i]),
                     'active_players': player_counts[i],
+                    'off_stream_players': off_stream_counts[i],
                     'on_stream_players': on_stream_counts[i],
                     'match_ids': ','.join(str(m) for m in forecast['match_ids_per_interval'][i]),
                 }
@@ -226,6 +242,7 @@ async def capacity_page(
             columns = [
                 {'name': 'time', 'label': 'Time', 'field': 'time', 'sortable': True},
                 {'name': 'active_players', 'label': 'Active players', 'field': 'active_players', 'sortable': True},
+                {'name': 'off_stream_players', 'label': 'Off-stream players', 'field': 'off_stream_players', 'sortable': True},
                 {'name': 'on_stream_players', 'label': 'On-stream players', 'field': 'on_stream_players', 'sortable': True},
                 {'name': 'match_ids', 'label': 'Match IDs', 'field': 'match_ids'},
             ]
@@ -241,6 +258,14 @@ async def capacity_page(
                     .classes('full-width')
                 enable_mobile_grid(forecast_table, columns,
                                    table_key=TableKeys.REPORTS_CAPACITY_FORECAST)
+                # Five columns overflow the half-width panel, and QTable gives its
+                # scroll region no attributes of its own: make it a keyboard stop
+                # (WCAG 2.1.1, axe scrollable-region-focusable).
+                ui.run_javascript(
+                    f"const m = document.querySelector('#{forecast_table.html_id} .q-table__middle');"
+                    "if (m) { m.tabIndex = 0; m.setAttribute('role', 'region');"
+                    " m.setAttribute('aria-label', 'Forecast data'); }"
+                )
 
 
 def _parse_focus(value: Optional[str]) -> Optional[datetime]:

@@ -45,7 +45,7 @@ async def _flag(tenant_id: int, flag: FeatureFlag, *, available: bool, enabled: 
 # --- registry ---------------------------------------------------------------
 
 def test_registry_covers_every_flag():
-    assert len(FEATURE_FLAG_REGISTRY) == 18
+    assert len(FEATURE_FLAG_REGISTRY) == 22
     assert set(FEATURE_FLAG_REGISTRY) == set(FeatureFlag)
 
 

@@ -20,6 +20,7 @@ TICK_SECONDS = 120
 async def _tick() -> None:
     from application.repositories import StartggRepository
     from application.services.feature_flag_service import FeatureFlagService
+    from application.services.startgg_connection_service import StartggConnectionService
     from application.services.startgg_service import StartggService
     from application.services.user_service import UserService
     from models import FeatureFlag
@@ -34,6 +35,8 @@ async def _tick() -> None:
     async def _sync(_tenant_id: int) -> None:
         if not await FeatureFlagService().is_enabled(FeatureFlag.STARTGG):
             return
+        if not await StartggConnectionService().has_access():
+            return
         synced = await StartggService().sync_linked_events(system_user)
         logger.debug('start.gg sync: %s events', synced)
 
@@ -41,6 +44,7 @@ async def _tick() -> None:
         tenant_ids,
         _sync,
         tenant_id_of=lambda tenant_id: tenant_id,
+        each_live_event=True,
         logger=logger,
         describe=lambda tenant_id: f'start.gg events of tenant {tenant_id}',
     )

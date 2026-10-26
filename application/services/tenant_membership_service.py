@@ -22,10 +22,17 @@ from application.events import Event, EventType, event_bus
 from application.repositories.api_token_repository import ApiTokenRepository
 from application.repositories.tenant_join_request_repository import TenantJoinRequestRepository
 from application.repositories.tenant_membership_repository import TenantMembershipRepository
-from application.repositories.user_repository import UserRepository
 from application.repositories.user_role_repository import UserRoleRepository
 from application.services.audit_service import AuditActions, AuditService
 from application.services.auth_service import AuthService
+from application.services.notification_catalog import (
+    JOIN_APPROVED,
+    JOIN_DECLINED,
+    MEMBERS,
+    MEMBERSHIP_REMOVED,
+    WELCOME,
+    NoticeTarget,
+)
 from application.tenant_context import require_tenant_id, tenant_scope
 from application.utils.discord_embeds import (
     COLOR_CANCELLED,
@@ -96,7 +103,7 @@ class JoinMode(str, Enum):
         return self in (JoinMode.DISCORD_OR_REQUEST, JoinMode.DISCORD)
 
 
-async def _close_pending_request(
+async def close_pending_request(
     user: User, tenant_id: int, decided_by: Optional[User],
 ) -> Optional[TenantJoinRequest]:
     """Close ``user``'s pending request here as approved, if they have one.
@@ -153,7 +160,7 @@ async def _mark_staff_dms(
                 community_name=community,
             )
 
-        link = await notification_links.admin_users(label='Open the Users tab')
+        link = await notification_links.admin_users(label='Open the Members tab')
         staff_request_dms.mark_handled(
             StaffRequestKind.JOIN_REQUEST, request.id, build, link,
             actor_id=decided_by.id if decided_by else None,
@@ -175,7 +182,7 @@ class TenantMembershipService:
 
     async def memberships_by_user(self) -> Dict[int, TenantMembership]:
         """This community's membership rows keyed by user id: when and how each joined."""
-        rows = await TenantMembershipRepository.list_for_tenant(require_tenant_id())
+        rows = await TenantMembershipRepository.list_rows_for_tenant(require_tenant_id())
         return {m.user_id: m for m in rows}
 
     async def addable_users(self) -> List[User]:
@@ -188,11 +195,7 @@ class TenantMembershipService:
         for what it does, rather than as a bare ``get_all_users()`` call in the
         page.
         """
-        members = {u.id for u in await self.list_members()}
-        return [
-            u for u in await UserRepository.get_all()
-            if u.id not in members and not u.is_system
-        ]
+        return await TenantMembershipRepository.non_members(require_tenant_id())
 
     async def is_member(self, user: User) -> bool:
         return await TenantMembershipRepository.is_member(user.id, require_tenant_id())
@@ -208,14 +211,14 @@ class TenantMembershipService:
             return
         await TenantMembershipRepository.add(user, tenant_id, MembershipSource.STAFF)
         await TenantMembershipRepository.unblock(user.id, tenant_id)
-        closed = await _close_pending_request(user, tenant_id, actor)
+        closed = await close_pending_request(user, tenant_id, actor)
         details: dict = {'target_user_id': user.id}
         if closed is not None:
             details['closed_request_id'] = closed.id
         await self.audit_service.write_and_publish(
             actor, AuditActions.TENANT_MEMBER_ADDED, details, EventType.TENANT_MEMBER_ADDED,
         )
-        await self._notify_member(user, member_added_dm, by_staff=True)
+        await self._notify_member(user, member_added_dm, WELCOME.to(MEMBERS), by_staff=True)
 
     async def remove_member(self, actor: User, user: User) -> None:
         """Take a user out of this community.
@@ -268,7 +271,7 @@ class TenantMembershipService:
         from application.services.emergency_contact_service import EmergencyContactService
         await EmergencyContactService().remove_for_removed_member(actor, user)
         await self._notify_member(
-            user, member_removed_dm,
+            user, member_removed_dm, MEMBERSHIP_REMOVED.to(MEMBERS),
             can_ask=await self.get_join_mode(tenant_id) in (
                 JoinMode.DISCORD_OR_REQUEST, JoinMode.REQUEST,
             ),
@@ -401,7 +404,7 @@ class TenantMembershipService:
                 if not await SystemConfigService.get_bool(KEY_OPEN_MEMBERSHIP):
                     return False
                 await TenantMembershipRepository.add(user, tenant_id, MembershipSource.OPEN)
-                closed = await _close_pending_request(user, tenant_id, None)
+                closed = await close_pending_request(user, tenant_id, None)
                 details: dict = {'target_user_id': user.id, 'source': 'open'}
                 if closed is not None:
                     details['closed_request_id'] = closed.id
@@ -483,7 +486,7 @@ class TenantMembershipService:
                 # (the gate shows a welcome), so no DM to them. Staff aren't
                 # DM'd either: nothing needs doing, and the Users tab marks the
                 # member "Joined via Discord".
-                closed = await _close_pending_request(user, tenant_id, None)
+                closed = await close_pending_request(user, tenant_id, None)
                 details: dict = {'target_user_id': user.id, 'source': 'discord_auto_join'}
                 if closed is not None:
                     details['closed_request_id'] = closed.id
@@ -593,7 +596,7 @@ class TenantMembershipService:
         from application.services.tenant_service import TenantService
 
         community = await TenantService.community_name(tenant_id)
-        staff = await UserRoleRepository.list_users_with_role(Role.STAFF)
+        staff = await UserRoleRepository.list_users_with_role(Role.STAFF, active_only=True)
         body = join_requested_dm(
             community, requester.display_name or requester.username, message or '',
         )
@@ -640,7 +643,7 @@ class TenantMembershipService:
             link = invite
         discord_queue.enqueue(
             DiscordService().send_dm(
-                int(requester.discord_id), body, embed=embed, link=link,
+                int(requester.discord_id), body, embed=embed, link=link, notice=(JOIN_APPROVED if approved else JOIN_DECLINED).to(MEMBERS),
             )
         )
 
@@ -668,7 +671,7 @@ class TenantMembershipService:
         return DMLink('Join the Discord server', url) if url else None
 
     @staticmethod
-    async def _notify_member(user: User, build, **kwargs) -> None:
+    async def _notify_member(user: User, build, notice: NoticeTarget, **kwargs) -> None:
         """DM ``user`` about their own membership, with a link when they're in."""
         from application.services import notification_links
         from application.services.discord import DiscordService, discord_queue
@@ -688,7 +691,7 @@ class TenantMembershipService:
             )
             link = await notification_links.home_tournaments(label='Find a tournament') if joined else None
             discord_queue.enqueue(
-                DiscordService().send_dm(int(user.discord_id), body, embed=embed, link=link)
+                DiscordService().send_dm(int(user.discord_id), body, embed=embed, link=link, notice=notice)
             )
         except Exception:
             logger.exception('Membership DM to user %s failed', user.id)
@@ -783,7 +786,7 @@ class TenantMembershipService:
             await TenantMembershipRepository.unblock(user.id, tenant_id)
         if not await TenantMembershipRepository.add_returning_created(user, tenant_id, source):
             return None
-        closed = await _close_pending_request(user, tenant_id, actor)
+        closed = await close_pending_request(user, tenant_id, actor)
         if closed is not None:
-            await TenantMembershipService._notify_member(user, member_added_dm, by_staff=False)
+            await TenantMembershipService._notify_member(user, member_added_dm, WELCOME.to(MEMBERS), by_staff=False)
         return closed

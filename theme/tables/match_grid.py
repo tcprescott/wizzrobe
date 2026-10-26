@@ -103,7 +103,7 @@ _PLAYERS = '''
                         <q-icon name="emoji_events" size="12px" />Winner</span>
                     <span v-if="props.row.acknowledgments && props.row.acknowledgments[idx] && props.row.acknowledgments[idx].acknowledged && props.row.acknowledgments[idx].auto"
                           class="st-neutral italic-note"> (auto)</span>
-                    <q-btn v-if="props.row.acknowledgments && props.row.acknowledgments[idx] && !props.row.acknowledgments[idx].acknowledged && props.row.acknowledgments[idx].discord_id && props.row.acknowledgments[idx].discord_id == __DID__"
+                    <q-btn v-if="!__IA__ && props.row.acknowledgments && props.row.acknowledgments[idx] && !props.row.acknowledgments[idx].acknowledged && props.row.acknowledgments[idx].discord_id && props.row.acknowledgments[idx].discord_id == __DID__"
                            icon="check" color="primary" dense flat no-caps no-wrap label="Acknowledge"
                            @click="$parent.$emit('acknowledge_match', props.row)">
                         <q-tooltip>Confirm you've seen this match and will play it</q-tooltip>
@@ -386,14 +386,18 @@ def render_grid_slot(table, columns, *, admin_controls: bool, access: MatchBoard
     # Caption (tournament + #id edit link)
     caption_inner = ''
     if 'tournament' in present:
-        caption_inner += '<span v-if="props.row.tournament">{{ props.row.tournament }}</span>'
+        caption_inner += (
+            '<span v-if="props.row.tournament">{{ props.row.tournament }}'
+            '<template v-if="props.row.set_label"> · {{ props.row.set_label }}</template></span>'
+        )
         # Same bracket link as the desktop Tournament cell (see match_slots).
         caption_inner += (
             '<a v-if="props.row.bracket" href="#" class="mgc-bracket-link q-ml-sm"'
             ' @click.prevent="$parent.$emit(\'open_bracket\', props.row)">'
             '<q-icon name="account_tree" size="14px" class="q-mr-xs" />'
             '{{ props.row.bracket.name }}'
-            '<template v-if="props.row.bracket.game"> · Game {{ props.row.bracket.game }}</template>'
+            '<template v-if="props.row.bracket.game"> · Game {{ props.row.bracket.game }}'
+            '<template v-if="props.row.bracket.best_of > 1"> of {{ props.row.bracket.best_of }}</template></template>'
             '<template v-if="props.row.bracket.standing"> · {{ props.row.bracket.standing }}</template>'
             '</a>'
         )

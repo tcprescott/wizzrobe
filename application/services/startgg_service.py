@@ -19,7 +19,7 @@ set yet, re-read right before writing.
 import logging
 import os
 from datetime import datetime, timedelta, timezone
-from typing import Any, Dict, List, Optional, Set, Tuple
+from typing import Any, Dict, FrozenSet, List, Optional, Set, Tuple
 
 from application.errors import require_found
 from application.feature_flags import requires_feature
@@ -30,14 +30,18 @@ from application.repositories import (
     TournamentRepository,
     UserRepository,
 )
-from application.services import notification_links
+from application.services import notification_links, result_alerts
 from application.services._bracket.notifications import BracketNotificationMixin
+from application.services._startgg_placeholders import StartggPlaceholderMixin
 from application.services._tournament_signup import record_enrolment_change
 from application.services.audit_service import AuditActions, AuditService
 from application.services.auth_service import AuthService
+from application.services.bracket_set_service import BracketSetService
 from application.services.discord import discord_queue
 from application.services.feature_flag_service import FeatureFlagService
 from application.services.match.match_service import MatchService
+from application.services.round_schedule_service import RoundScheduleService
+from application.services.startgg_connection_service import StartggConnectionService
 from application.tenant_context import require_tenant_id
 from application.utils.clients.startgg_client import (
     StartggAPIError,
@@ -45,7 +49,9 @@ from application.utils.clients.startgg_client import (
     event_url,
     parse_event_slug,
 )
+from application.utils.match_labels import entrant_name
 from application.utils.mocks.mock_startgg import MockStartggClient, is_mock_startgg
+from application.utils.timezone import to_utc_aware
 from models import (
     FeatureFlag,
     Match,
@@ -63,6 +69,7 @@ logger = logging.getLogger(__name__)
 # A manual Sync within this window of the last one is a no-op, so a double-tap
 # doesn't spend start.gg's per-minute budget twice.
 _SYNC_THROTTLE = timedelta(seconds=20)
+_LINK_STAFF_ONLY = "Only staff can link or unlink a tournament's start.gg event"
 
 
 def _display(user: Optional[User]) -> str:
@@ -76,25 +83,36 @@ def _is_real_set(set_id: str) -> bool:
     return not set_id.startswith('preview')
 
 
-class StartggService:
+def _set_prereq(slot: Dict[str, Any]) -> Optional[str]:
+    return slot.get('prereq_id') if slot.get('prereq_type') == 'set' else None
+
+
+class StartggService(StartggPlaceholderMixin):
     """Business logic for the read-only start.gg integration."""
 
     def __init__(self) -> None:
         self.repository = StartggRepository()
         self.tournament_repository = TournamentRepository()
         self.audit_service = AuditService()
+        self.connection_service = StartggConnectionService()
 
     # ------------------------------------------------------------------
     # Configuration
     # ------------------------------------------------------------------
     @staticmethod
     def is_configured() -> bool:
-        """True when the platform's start.gg API token is set (or mock is on)."""
-        return is_mock_startgg() or bool(os.getenv('STARTGG_API_TOKEN'))
+        """True when the server can reach start.gg at all: a platform API token,
+        an OAuth app communities sign in with, or mock."""
+        return (
+            is_mock_startgg()
+            or bool(os.getenv('STARTGG_API_TOKEN'))
+            or StartggConnectionService.is_configured()
+        )
 
-    @staticmethod
-    def _client() -> Any:
-        return MockStartggClient() if is_mock_startgg() else StartggClient()
+    async def _client(self) -> Any:
+        if is_mock_startgg():
+            return MockStartggClient()
+        return StartggClient(await self.connection_service.api_token() or '')
 
     @staticmethod
     def event_url(tournament: Tournament) -> Optional[str]:
@@ -112,7 +130,7 @@ class StartggService:
 
     async def _fetch(self, slug: str) -> Dict[str, Any]:
         try:
-            return await self._client().get_event_full(slug)
+            return await (await self._client()).get_event_full(slug)
         except StartggAPIError as e:
             if e.status == 404:
                 raise ValueError(f"start.gg has no event at {event_url(slug)}.") from e
@@ -124,8 +142,12 @@ class StartggService:
     @requires_feature(FeatureFlag.STARTGG)
     async def link_event(self, tournament_id: int, id_or_url: str, actor: User) -> Dict[str, int]:
         tournament = await self._editable_tournament(tournament_id, actor)
-        if not self.is_configured():
-            raise ValueError('start.gg is not set up on this server yet (no API token).')
+        await AuthService.ensure(await AuthService.is_staff(actor), _LINK_STAFF_ONLY)
+        if not await self.connection_service.has_access():
+            raise ValueError(
+                "start.gg isn't connected for this community yet. A staff member can "
+                'connect it under Settings → Integrations.'
+            )
         if tournament.challonge_tournament_id:
             raise ValueError(
                 'This tournament is linked to Challonge. Unlink it there first; a tournament '
@@ -150,6 +172,7 @@ class StartggService:
     @requires_feature(FeatureFlag.STARTGG)
     async def unlink_event(self, tournament_id: int, actor: User) -> None:
         tournament = await self._editable_tournament(tournament_id, actor)
+        await AuthService.ensure(await AuthService.is_staff(actor), _LINK_STAFF_ONLY)
         if not tournament.startgg_event_slug:
             raise ValueError("This tournament isn't linked to start.gg.")
         old = {'event_id': tournament.startgg_event_id, 'slug': tournament.startgg_event_slug}
@@ -164,7 +187,7 @@ class StartggService:
         tournament = await self._editable_tournament(tournament_id, actor)
         if phase_id is not None and phase_id not in {p.phase_id for p in await self.repository.list_phases(tournament)}:
             raise ValueError("That phase isn't part of the linked event.")
-        before = await self._bookable_set_ids(tournament)
+        before = await self._bookable_pairings(tournament)
         await self.repository.set_bookable_phase(tournament, phase_id)
         await self.audit_service.write_log(actor, AuditActions.STARTGG_BOOKABLE_PHASE_SET, {
             'tournament_id': tournament.id, 'phase_id': phase_id,
@@ -188,7 +211,7 @@ class StartggService:
         if not tournament.startgg_event_slug:
             raise ValueError("This tournament isn't linked to a start.gg event yet.")
         last = tournament.startgg_last_synced_at
-        if not force and last and datetime.now(timezone.utc) - last < _SYNC_THROTTLE:
+        if not force and last and datetime.now(timezone.utc) - to_utc_aware(last) < _SYNC_THROTTLE:
             return {'entrants': await self.repository.count_entrants(tournament), 'skipped': 1}
         full = await self._fetch(tournament.startgg_event_slug)
         return await self._apply(tournament, full, actor, audit=True)
@@ -202,7 +225,7 @@ class StartggService:
         synced = 0
         for tournament in await self.repository.linked_tournaments():
             try:
-                full = await self._client().get_event_full(tournament.startgg_event_slug)
+                full = await (await self._client()).get_event_full(tournament.startgg_event_slug)
                 await self._apply(tournament, full, actor, audit=False)
                 synced += 1
             except StartggAPIError as e:
@@ -212,19 +235,24 @@ class StartggService:
     async def _apply(
         self, tournament: Tournament, full: Dict[str, Any], actor: User, *, audit: bool,
     ) -> Dict[str, int]:
-        before = await self._bookable_set_ids(tournament)
+        before = await self._bookable_pairings(tournament)
         entrants = await self._mirror_entrants(tournament, full['entrants'])
         phase_ids, pool_ids, set_ids = await self._mirror_structure(tournament, full, entrants)
+        await self._flag_lost_placeholders(tournament, set_ids)
         removed = await self.repository.prune(
             tournament, entrant_ids=set(entrants), phase_ids=phase_ids, pool_ids=pool_ids, set_ids=set_ids,
         )
+        await result_alerts.startgg_results_in(tournament, full)
         await self.repository.record_sync(tournament, datetime.now(timezone.utc), full['event'].get('name'))
         await self._mirror_players(tournament, actor)
+        relinked = await self._relink_bookings(tournament, actor)
+        await self._refresh_placeholder_bookings(tournament, actor)
         result = {'entrants': len(entrants), 'sets': len(set_ids), 'pools': len(pool_ids)}
         if audit:
             await self.audit_service.write_log(actor, AuditActions.STARTGG_EVENT_SYNCED, {
                 'tournament_id': tournament.id, **result,
                 'entrants_removed': removed['entrants'], 'sets_removed': removed['sets'],
+                'sets_relinked': relinked,
             })
         await self._announce_newly_bookable(tournament, before)
         return result
@@ -318,6 +346,7 @@ class StartggService:
             'identifier': s.get('identifier'), 'state': state,
             'entrant1_id': ents[0].id if ents[0] else None, 'entrant2_id': ents[1].id if ents[1] else None,
             'slot1_label': labels[0], 'slot2_label': labels[1],
+            'slot1_prereq': _set_prereq(slots[0]), 'slot2_prereq': _set_prereq(slots[1]),
             'winner_id': winner.id if winner else None,
             'score1': slots[0].get('score'), 'score2': slots[1].get('score'),
             'completed_at': s.get('completed_at'),
@@ -339,11 +368,43 @@ class StartggService:
     # ------------------------------------------------------------------
     @staticmethod
     def bookable_phase_id(tournament: Tournament, phases: List[StartggPhase]) -> Optional[str]:
-        """The phase players book from: the chosen one, else the event's last phase."""
+        """The phase players book from: the chosen one, else the earliest phase
+        start.gg has under way, else the event's last phase."""
         if tournament.startgg_bookable_phase_id:
             return tournament.startgg_bookable_phase_id
         ordered = sorted(phases, key=lambda p: (p.phase_order, p.id))
+        active = [p for p in ordered if p.state == 'ACTIVE']
+        if active:
+            return active[0].phase_id
         return ordered[-1].phase_id if ordered else None
+
+    async def _relink_bookings(self, tournament: Tournament, actor: User) -> int:
+        """Re-attach each open, unbooked set to its players' one unlinked match.
+
+        Resetting a phase on start.gg gives its sets new ids, so the sync drops
+        the rows a booking hung off. Linking here, as Link an existing match
+        would, keeps the result flowing back and skips a second ready DM.
+        """
+        orphans = await MatchService().unambiguous_link_candidates(tournament.id)
+        if not orphans:
+            return 0
+        linked = 0
+        for row in await self.repository.list_sets(tournament):
+            e1, e2 = row.entrant1, row.entrant2
+            if (row.state != StartggSetState.OPEN or row.match_id is not None  # type: ignore[attr-defined]
+                    or not _is_real_set(row.set_id) or e1 is None or e2 is None
+                    or e1.user_id is None or e2.user_id is None):
+                continue
+            match = orphans.pop(frozenset((e1.user_id, e2.user_id)), None)
+            if match is None:
+                continue
+            await self.repository.link_match(row, match)
+            await self.audit_service.write_log(actor, AuditActions.STARTGG_SET_LINKED, {
+                'tournament_id': tournament.id, 'set_id': row.set_id, 'match_id': match.id,
+                'automatic': True,
+            })
+            linked += 1
+        return linked
 
     @staticmethod
     def _is_bookable(row: StartggSet, phase_id: Optional[str]) -> bool:
@@ -354,16 +415,28 @@ class StartggService:
             and row.entrant1.user_id is not None and row.entrant2.user_id is not None
         )
 
-    async def _bookable_set_ids(self, tournament: Tournament) -> Set[int]:
-        phase_id = self.bookable_phase_id(tournament, await self.repository.list_phases(tournament))
-        return {r.id for r in await self.repository.list_sets(tournament) if self._is_bookable(r, phase_id)}
+    @staticmethod
+    def _pairing(row: StartggSet) -> FrozenSet[int]:
+        return frozenset(e.user_id for e in (row.entrant1, row.entrant2) if e is not None and e.user_id is not None)
 
-    async def _announce_newly_bookable(self, tournament: Tournament, before: Set[int]) -> None:
-        """DM both players of each set that just became bookable. Never fails the sync."""
+    async def _bookable_pairings(self, tournament: Tournament) -> Dict[int, FrozenSet[int]]:
+        """Each bookable set's id, with the pair of users who play it."""
+        phase_id = self.bookable_phase_id(tournament, await self.repository.list_phases(tournament))
+        return {
+            r.id: self._pairing(r)
+            for r in await self.repository.list_sets(tournament) if self._is_bookable(r, phase_id)
+        }
+
+    async def _announce_newly_bookable(self, tournament: Tournament, before: Dict[int, FrozenSet[int]]) -> None:
+        """DM both players of each set that just became bookable, or whose players changed.
+
+        A changed pairing is a corrected result upstream moving a different
+        winner up; the new pair hasn't heard about it. Never fails the sync.
+        """
         try:
             phase_id = self.bookable_phase_id(tournament, await self.repository.list_phases(tournament))
             for row in await self.repository.list_sets(tournament):
-                if row.id not in before and self._is_bookable(row, phase_id):
+                if self._is_bookable(row, phase_id) and before.get(row.id) != self._pairing(row):
                     await self._notify_matchup_ready(tournament, row)
         except Exception:
             logger.exception('start.gg matchup-ready notifications failed for tournament %s', tournament.id)
@@ -377,7 +450,7 @@ class StartggService:
         for me, opponent in ((e1, e2), (e2, e1)):
             discord_queue.enqueue(BracketNotificationMixin._send_matchup_ready(
                 user=me.user,
-                opponent_name=opponent.name,
+                opponent_name=entrant_name(opponent),
                 opponent_seed=None,
                 tournament_name=tournament.name,
                 round_name=row.round_text or 'Bracket match',
@@ -387,9 +460,17 @@ class StartggService:
             ))
 
     @requires_feature(FeatureFlag.STARTGG)
-    async def list_unbooked_sets_for_user(self, user: User) -> List[StartggSet]:
-        """The player's sets that are ready to book, in each tournament's bookable phase."""
+    async def list_unbooked_sets_for_user(
+        self, user: User, *, include_partial_sets: bool = False,
+    ) -> List[StartggSet]:
+        """The player's sets that are ready to book, in each tournament's bookable phase.
+
+        ``include_partial_sets`` adds the best-of sets with some games booked,
+        which may have more to book.
+        """
         rows = await self.repository.open_unbooked_sets_for_user(user)
+        if include_partial_sets:
+            rows += await self.repository.open_set_sets_for_user(user)
         phases: Dict[int, Optional[str]] = {}
         for row in rows:
             if row.tournament_id not in phases:  # type: ignore[attr-defined]
@@ -402,9 +483,64 @@ class StartggService:
         ]
 
     @requires_feature(FeatureFlag.STARTGG)
+    async def list_unbooked_sets(
+        self, tournament_ids: Optional[List[int]] = None, *, include_partial_sets: bool = False,
+    ) -> List[StartggSet]:
+        """Sets in each tournament's bookable phase that nobody has booked yet. Callers authorize.
+
+        ``include_partial_sets`` adds the best-of sets with some games booked.
+        """
+        rows = await self.repository.open_unbooked_sets(tournament_ids)
+        if include_partial_sets:
+            rows += await self.repository.open_set_sets(tournament_ids)
+        phases: Dict[int, Optional[str]] = {}
+        for row in rows:
+            if row.tournament_id not in phases:  # type: ignore[attr-defined]
+                phases[row.tournament_id] = self.bookable_phase_id(  # type: ignore[attr-defined]
+                    row.tournament, await self.repository.list_phases(row.tournament),
+                )
+        return [
+            r for r in rows
+            if _is_real_set(r.set_id) and r.entrant1 is not None and r.entrant2 is not None
+            and r.pool.phase.phase_id == phases[r.tournament_id]  # type: ignore[attr-defined]
+        ]
+
+    @requires_feature(FeatureFlag.STARTGG)
+    async def results_on_site(self, match_ids: List[int]) -> Dict[int, Tuple[Optional[int], Optional[str]]]:
+        """``match id -> (winner user id, winner name)`` for booked sets start.gg has finished.
+
+        A set closed without a winner (a double DQ, or a dead pool set the TO
+        cleared) reports ``(None, None)``.
+        """
+        out: Dict[int, Tuple[Optional[int], Optional[str]]] = {}
+        for row in await self.repository.completed_for_matches(match_ids):
+            winner = row.winner
+            out[row.match_id] = (  # type: ignore[attr-defined]
+                (winner.user_id, winner.name or '') if winner else (None, None)
+            )
+        return out
+
+    @requires_feature(FeatureFlag.STARTGG)
+    async def link_existing_match(self, set_pk: int, match_id: int, actor: User) -> Match:
+        """Record that a match scheduled by hand is this set's, as booking it would have."""
+        row = require_found(await self.repository.get_set(set_pk), 'start.gg match')
+        await self._editable_tournament(row.tournament_id, actor)  # type: ignore[attr-defined]
+        if row.match_id is not None:  # type: ignore[attr-defined]
+            raise ValueError('This matchup is already booked.')
+        if row.state != StartggSetState.OPEN or not _is_real_set(row.set_id):
+            raise ValueError("This matchup isn't ready yet.")
+        players = [e.user_id if e else None for e in (row.entrant1, row.entrant2)]
+        match = await MatchService().require_bracket_linkable(match_id, row.tournament_id, players)  # type: ignore[attr-defined]
+        await self.repository.link_match(row, match)
+        await self.audit_service.write_log(actor, AuditActions.STARTGG_SET_LINKED, {
+            'tournament_id': row.tournament_id, 'set_id': row.set_id, 'match_id': match.id,  # type: ignore[attr-defined]
+        })
+        return match
+
+    @requires_feature(FeatureFlag.STARTGG)
     async def schedule_set(
         self, set_pk: int, scheduled_date: str, scheduled_time: str, actor: User,
-        comment: Optional[str] = None,
+        comment: Optional[str] = None, *, allow_outside_round: bool = False,
     ) -> Match:
         row = require_found(await self.repository.get_set(set_pk), 'start.gg match')
         if row.match_id is not None:  # type: ignore[attr-defined]
@@ -418,17 +554,18 @@ class StartggService:
                 'Both players need to be matched to a Wizzrobe account first. Linking start.gg '
                 'on your profile does it, or ask staff.'
             )
-        match = await MatchService().submit_match_request(
+        rounds = RoundScheduleService()
+        await rounds.check_booking(
+            await rounds.window_for_startgg_set(row), row.tournament,
+            scheduled_date, scheduled_time, actor, allow_outside_round=allow_outside_round,
+        )
+        match = await MatchService().book_from_bracket(
             tournament_id=row.tournament_id,  # type: ignore[attr-defined]
             scheduled_date=scheduled_date,
             scheduled_time=scheduled_time,
             player_ids=[e1.user.id, e2.user.id],
             actor=actor,
             comment=comment,
-            # The bracket is the sanctioned path here, and the service authorizes
-            # the actor as one of the set's players, so the tournament's
-            # player-request toggle doesn't apply.
-            from_bracket=True,
         )
         await self.repository.link_match(row, match)
         return match
@@ -440,6 +577,11 @@ class StartggService:
     async def list_entrants(self, tournament_id: int, actor: User) -> List[StartggEntrant]:
         tournament = await self._editable_tournament(tournament_id, actor)
         return await self.repository.list_entrants(tournament)
+
+    @requires_feature(FeatureFlag.STARTGG)
+    async def count_unmatched_entrants(self, tournament_ids: List[int]) -> Dict[int, int]:
+        """How many entrants on each linked event still need a Wizzrobe user."""
+        return await self.repository.count_unmatched_entrants(tournament_ids)
 
     @requires_feature(FeatureFlag.STARTGG)
     async def list_phases(self, tournament_id: int, actor: User) -> List[StartggPhase]:
@@ -468,14 +610,26 @@ class StartggService:
         )
         if taken is not None:
             raise ValueError(f'{_display(user)} is already matched to {taken.name}.')
-        before = await self._bookable_set_ids(entrant.tournament)
+        before = await self._bookable_pairings(entrant.tournament)
         await self.repository.set_entrant_user(entrant, user, manual=True)
         await self.audit_service.write_log(actor, AuditActions.STARTGG_ENTRANT_ASSIGNED, {
             'tournament_id': entrant.tournament.id, 'entrant_id': entrant.entrant_id, 'user_id': user.id,
         })
         await self._mirror_players(entrant.tournament, actor)
+        await self._move_booked_matches(entrant, actor)
+        await self._refresh_placeholder_bookings(entrant.tournament, actor)
         await self._announce_newly_bookable(entrant.tournament, before)
         return entrant
+
+    async def _move_booked_matches(self, entrant: StartggEntrant, actor: User) -> None:
+        """Put the entrant's new member on its booked, unstarted matches. Never raises."""
+        try:
+            service = MatchService()
+            for row in await self.repository.booked_sets_for_entrant(entrant):
+                sides = [e.user_id if e else None for e in (row.entrant1, row.entrant2)]
+                await service.move_bracket_player(row.match, sides, actor)  # type: ignore[arg-type]
+        except Exception:
+            logger.exception('Moving booked matches failed for start.gg entrant %s', entrant.id)
 
     @requires_feature(FeatureFlag.STARTGG)
     async def confirm_all_suggestions(self, tournament_id: int, actor: User) -> int:
@@ -547,7 +701,7 @@ class StartggService:
             'tournament': tournament,
             'event_url': self.event_url(tournament),
             'last_synced_at': tournament.startgg_last_synced_at,
-            'phases': view_phases,
+            'phases': view_phases, 'entrants': list(entrants.values()),
         }
 
     @staticmethod
@@ -596,27 +750,38 @@ class StartggService:
             return False
         if not await FeatureFlagService().is_enabled(FeatureFlag.STARTGG):
             return False
+        winner_id: Optional[int] = None
+        standing = await BracketSetService().standing(match)
+        if standing is not None:
+            # A set's game: start.gg hears only the set's result, once it's won.
+            if not standing.decided:
+                return False
+            match, winner_id = standing.first, standing.winner_id
         row = next(iter(await self.repository.sets_for_match(match)), None)
         if row is None or not row.tournament.startgg_report_results:
             return False
         try:
-            return await self._report(row, match, actor)
+            return await self._report(row, match, actor, winner_id=winner_id)
         except (ValueError, StartggAPIError):
             logger.error('start.gg result report failed for match %s', match.id, exc_info=True)
             return False
 
-    async def _report(self, row: StartggSet, match: Match, actor: User) -> bool:
-        await match.fetch_related('players')
-        winner = next((p for p in match.players if p.finish_rank == 1), None)  # type: ignore[attr-defined]
-        if winner is None:
-            return False
+    async def _report(
+        self, row: StartggSet, match: Match, actor: User, *, winner_id: Optional[int] = None,
+    ) -> bool:
+        if winner_id is None:
+            await match.fetch_related('players')
+            winner = next((p for p in match.players if p.finish_rank == 1), None)  # type: ignore[attr-defined]
+            if winner is None:
+                return False
+            winner_id = winner.user_id
         entrant = next(
-            (e for e in (row.entrant1, row.entrant2) if e is not None and e.user_id == winner.user_id),
+            (e for e in (row.entrant1, row.entrant2) if e is not None and e.user_id == winner_id),
             None,
         )
         if entrant is None:
             raise ValueError("The match winner isn't one of the start.gg set's players.")
-        client = self._client()
+        client = await self._client()
         current = await client.get_set_state(row.set_id)
         if current['complete']:
             # start.gg already has a result (an admin reported it): theirs stands.
@@ -629,6 +794,7 @@ class StartggService:
         try:
             full = await client.get_event_full(row.tournament.startgg_event_slug)
             await self._apply(row.tournament, full, actor, audit=False)
-        except StartggAPIError:
-            logger.error('start.gg re-sync after report failed for tournament %s', row.tournament.id, exc_info=True)
+        except StartggAPIError as e:
+            # The result is already on start.gg; the 2-minute sync picks it up.
+            logger.warning('start.gg re-sync after report failed for tournament %s: %s', row.tournament.id, e)
         return True

@@ -119,6 +119,15 @@ class TournamentDialog:
                         "Left out of the event info tournament list. Use it for a "
                         "rehearsal, like a Challonge integration check."
                     ).classes('text-caption text-grey q-ml-xl')
+                with ui.column().classes('gap-0'):
+                    uses_room_checkbox = ui.checkbox(
+                        'Plays in the tournament room',
+                        value=self.tournament.uses_tournament_room if self.tournament else True,
+                    )
+                    ui.label(
+                        "Untick for a tournament played elsewhere. Its matches that "
+                        "aren't on a stage then don't count toward the room's capacity."
+                    ).classes('text-caption text-grey q-ml-xl')
 
                 # Everything below is optional and defaulted. Collapsed on create
                 # so the cheapest correct action — type a name, save — stops
@@ -176,7 +185,7 @@ class TournamentDialog:
                     ui.separator()
                     ui.label('Tournament Days').classes('text-bold')
                     ui.label(
-                        'Override the community event window and per-day match hours for '
+                        'Override the event window and per-day match hours for '
                         'this tournament. Leave blank to use the community default.'
                     ).classes('text-caption text-grey')
 
@@ -325,11 +334,11 @@ class TournamentDialog:
                     preset_input = ui.select(
                         preset_options, label='Seed Preset', value=default_preset,
                     ).classes('input-full-width').props(
-                        'hint="Picks the randomizer and the settings seeds roll with. Manage presets under Presets."'
+                        'hint="Picks the randomizer and the settings seeds roll with. Manage them under Admin → Seed Presets."'
                     )
                     if not presets:
                         ui.label(
-                            'No presets yet — add one under Online Play → Presets, '
+                            'No presets yet — add one under Admin → Seed Presets, '
                             'or import a randomizer\'s published presets there.'
                         ).classes('text-caption text-grey')
 
@@ -368,6 +377,16 @@ class TournamentDialog:
                             'preset. Pick one to replace it — saving with None turns '
                             'seed rolling off.'
                         ).classes('text-caption text-warning')
+                    with ui.column().classes('gap-0'):
+                        players_release_seed_checkbox = ui.checkbox(
+                            'Players release their own seed',
+                            value=self.tournament.players_release_seed if self.tournament else False,
+                        )
+                        ui.label(
+                            "After check-in, each player taps Ready for seed. The seed "
+                            "rolls and is sent when everyone is. Proctors and staff can "
+                            "still roll it any time. Not used by racetime.gg tournaments."
+                        ).classes('text-caption text-grey q-ml-xl')
                     triforce_access_message_input = MarkdownEditor(
                         'Triforce Text Access Message',
                         value=self.tournament.triforce_access_message if self.tournament and self.tournament.triforce_access_message else '',
@@ -552,11 +571,13 @@ class TournamentDialog:
                                 max_match_duration=max_match_duration_input.value,
                                 is_active=is_active_checkbox.value,
                                 is_test=is_test_checkbox.value,
+                                uses_tournament_room=uses_room_checkbox.value,
                                 players_per_match=players_per_match_input.value,
                                 required_commentators=required_commentators_input.value,
                                 required_trackers=required_trackers_input.value,
                                 stage_reminder_minutes=int(stage_reminder_input.value or 0),
                                 allow_player_match_requests=allow_requests_checkbox.value,
+                                players_release_seed=players_release_seed_checkbox.value,
                                 preset_id=(preset_input.value or None),
                                 hard_preset_id=(hard_preset_input.value or None),
                                 actor=actor,
@@ -582,11 +603,13 @@ class TournamentDialog:
                             max_match_duration=max_match_duration_input.value,
                             is_active=is_active_checkbox.value,
                             is_test=is_test_checkbox.value,
+                            uses_tournament_room=uses_room_checkbox.value,
                             players_per_match=players_per_match_input.value,
                             required_commentators=required_commentators_input.value,
                             required_trackers=required_trackers_input.value,
                             stage_reminder_minutes=int(stage_reminder_input.value or 0),
                             allow_player_match_requests=allow_requests_checkbox.value,
+                            players_release_seed=players_release_seed_checkbox.value,
                             preset_id=(preset_input.value or None),
                             hard_preset_id=(hard_preset_input.value or None),
                             actor=actor,

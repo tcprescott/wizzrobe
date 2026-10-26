@@ -182,3 +182,40 @@ class TestAvailabilityMap:
         service.repository.for_users_overlapping = AsyncMock(return_value=[])
         result = await service.availability_map([1], _dt(8), _dt(16))
         assert result == {}
+
+
+# ---------------------------------------------------------------------------
+# The one-time "When you can't play" card
+# ---------------------------------------------------------------------------
+
+
+class TestReminder:
+    @pytest.fixture
+    def dismissals(self, monkeypatch):
+        from application.services import player_availability_service as mod
+
+        repo = SimpleNamespace(dismissed_checks=AsyncMock(return_value=set()), dismiss=AsyncMock(return_value=True))
+        monkeypatch.setattr(mod, 'ProfileNudgeRepository', repo)
+        return repo
+
+    async def test_shown_to_a_player_with_nothing_blocked(self, service, dismissals):
+        service.repository.list_for_user = AsyncMock(return_value=[])
+        assert await service.needs_reminder(SimpleNamespace(id=7)) is True
+
+    async def test_hidden_once_anything_is_blocked(self, service, dismissals):
+        service.repository.list_for_user = AsyncMock(return_value=[make_window(8, 10)])
+        assert await service.needs_reminder(SimpleNamespace(id=7)) is False
+        dismissals.dismissed_checks.assert_not_awaited()
+
+    async def test_hidden_for_good_once_put_away(self, service, dismissals):
+        from application.services.player_availability_service import REMINDER_KEY
+
+        service.repository.list_for_user = AsyncMock(return_value=[])
+        dismissals.dismissed_checks.return_value = {REMINDER_KEY}
+        assert await service.needs_reminder(SimpleNamespace(id=7)) is False
+
+    async def test_dismiss_records_the_key(self, service, dismissals):
+        from application.services.player_availability_service import REMINDER_KEY
+
+        await service.dismiss_reminder(SimpleNamespace(id=7))
+        dismissals.dismiss.assert_awaited_once_with(7, REMINDER_KEY)

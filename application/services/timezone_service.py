@@ -44,6 +44,8 @@ import logging
 from typing import Optional
 
 from application.errors import require_found
+from application.event_context import get_current_event_id, require_event_id
+from application.repositories.event_repository import EventRepository
 from application.repositories.tenant_repository import TenantRepository
 from application.repositories.user_repository import UserRepository
 from application.services.audit_service import AuditActions, AuditService
@@ -51,6 +53,7 @@ from application.services.auth_service import AuthService
 from application.tenant_context import get_current_tenant_id, require_tenant_id
 from application.timezone_context import (
     FALLBACK_TIMEZONE,
+    HOUR_CYCLES,
     is_valid_timezone,
 )
 from models import User
@@ -147,13 +150,83 @@ class TimezoneService:
 
     @staticmethod
     async def get_settings(tenant_id: Optional[int] = None) -> dict:
-        """The community's ``{mode, name}``, defaults applied."""
+        """The ``{mode, name}`` in force, defaults applied: the event's own when
+        the event in scope sets one, else the community's."""
+        current = get_current_tenant_id()
+        tenant_id = tenant_id if tenant_id is not None else current
+        if tenant_id is None:
+            return {'mode': DEFAULT_MODE, 'name': FALLBACK_TIMEZONE}
+        if tenant_id == current:
+            override = await TimezoneService.event_override()
+            if override is not None:
+                return override
+        return await TimezoneService.community_settings(tenant_id)
+
+    @staticmethod
+    async def community_settings(tenant_id: Optional[int] = None) -> dict:
+        """The community's own ``{mode, name}``, whatever any event overrides."""
         tenant_id = tenant_id if tenant_id is not None else get_current_tenant_id()
         if tenant_id is None:
             return {'mode': DEFAULT_MODE, 'name': FALLBACK_TIMEZONE}
         tenant = await TenantRepository.get_by_id(tenant_id)
         stored = (tenant.config or {}).get(CONFIG_KEY) if tenant else None
         return TimezoneService._clean(stored)
+
+    @staticmethod
+    async def event_override(event_id: Optional[int] = None) -> Optional[dict]:
+        """The ``{mode, name}`` an event sets for itself, or None when it follows the community.
+
+        ``event_id`` defaults to the event in scope. Read from the cached event
+        list, so the per-page-build resolve costs no query.
+        """
+        from application.services.event_service import EventService
+
+        tenant_id = get_current_tenant_id()
+        event_id = event_id if event_id is not None else get_current_event_id()
+        if tenant_id is None or event_id is None:
+            return None
+        ref = await EventService.ref(tenant_id, event_id)
+        if ref is None or ref.timezone is None:
+            return None
+        mode, name = ref.timezone
+        return TimezoneService._clean({'mode': mode, 'name': name})
+
+    @staticmethod
+    async def set_event_override(actor: User, mode: Optional[str], name: Optional[str] = None) -> Optional[dict]:
+        """Give the event in scope its own clock, or (``mode`` None) follow the community again."""
+        await AuthService.ensure(
+            await AuthService.is_staff(actor),
+            'Only Staff can change the event timezone.',
+        )
+        settings: Optional[dict] = None
+        if mode is not None:
+            settings = TimezoneService._validated(mode, name)
+        event_id = require_event_id()
+        event = require_found(await EventRepository.get_in_tenant(event_id), 'Event')
+        config = dict(event.config or {})
+        if settings is None:
+            config.pop(CONFIG_KEY, None)
+        else:
+            config[CONFIG_KEY] = settings
+        await EventRepository.update(event, config=config)
+        await AuditService().write_log(
+            actor,
+            AuditActions.TIMEZONE_UPDATED,
+            {'event_id': event_id, 'mode': mode, 'timezone': settings['name'] if settings else None},
+        )
+        return settings
+
+    @staticmethod
+    def _validated(mode: str, name: Optional[str]) -> dict:
+        if mode not in MODES:
+            raise ValueError('Timezone mode must be either "pinned" or "user".')
+        name = (name or '').strip()
+        if not is_valid_timezone(name):
+            raise ValueError(
+                f'"{name}" is not a recognised timezone. Use an IANA name like '
+                'America/New_York or Europe/London.'
+            )
+        return {'mode': mode, 'name': name}
 
     @staticmethod
     async def tenant_timezone_name(tenant_id: Optional[int] = None) -> str:
@@ -178,18 +251,9 @@ class TimezoneService:
             await AuthService.is_staff(actor),
             'Only Staff can change the community timezone.',
         )
-        if mode not in MODES:
-            raise ValueError('Timezone mode must be either "pinned" or "user".')
-        name = (name or '').strip()
-        if not is_valid_timezone(name):
-            raise ValueError(
-                f'"{name}" is not a recognised timezone. Use an IANA name like '
-                'America/New_York or Europe/London.'
-            )
-
+        settings = TimezoneService._validated(mode, name)
         tenant_id = require_tenant_id()
         tenant = require_found(await TenantRepository.get_by_id(tenant_id), 'Tenant')
-        settings = {'mode': mode, 'name': name}
 
         config = dict(tenant.config or {})
         config[CONFIG_KEY] = settings
@@ -223,6 +287,22 @@ class TimezoneService:
             actor, AuditActions.USER_TIMEZONE_UPDATED, {'timezone': name},
         )
         return name
+
+    @staticmethod
+    async def set_user_hour_cycle(actor: User, hour_cycle: Optional[str]) -> Optional[str]:
+        """Save (or clear) ``actor``'s own 12/24-hour preference.
+
+        ``'12'`` or ``'24'``; empty or ``None`` returns them to browser
+        detection. Self-service only, like :meth:`set_user_timezone`.
+        """
+        hour_cycle = (hour_cycle or '').strip() or None
+        if hour_cycle is not None and hour_cycle not in HOUR_CYCLES:
+            raise ValueError('Pick 12-hour, 24-hour or Detect automatically.')
+        await UserRepository.set_hour_cycle(actor, hour_cycle)
+        await AuditService().write_log(
+            actor, AuditActions.USER_HOUR_CYCLE_UPDATED, {'hour_cycle': hour_cycle},
+        )
+        return hour_cycle
 
     # --- resolution --------------------------------------------------------
 

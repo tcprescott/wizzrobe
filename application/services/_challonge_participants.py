@@ -5,6 +5,7 @@ never resolve them to anyone. A tournament editor assigns them by hand here, and
 ``ChallongeService._mirror_bracket`` keeps that assignment on every re-sync.
 """
 
+import logging
 from typing import Any, Dict, List
 
 from application.errors import require_found
@@ -21,6 +22,8 @@ from application.services.audit_service import AuditActions, AuditService
 from application.services.auth_service import AuthService
 from application.tenant_context import require_tenant_id
 from models import ChallongeParticipant, FeatureFlag, Tournament, User
+
+logger = logging.getLogger(__name__)
 
 
 class ChallongeParticipantAssignmentMixin(ChallongeNotificationMixin):
@@ -74,6 +77,11 @@ class ChallongeParticipantAssignmentMixin(ChallongeNotificationMixin):
         return rows
 
     @requires_feature(FeatureFlag.CHALLONGE)
+    async def count_unmatched_participants(self, tournament_ids: List[int]) -> Dict[int, int]:
+        """How many entrants on each linked bracket still need a Wizzrobe user."""
+        return await self.repository.count_unmatched_participants(tournament_ids)
+
+    @requires_feature(FeatureFlag.CHALLONGE)
     async def assign_participant_user(
         self, participant_id: int, user_id: int, actor: User,
     ) -> ChallongeParticipant:
@@ -92,7 +100,7 @@ class ChallongeParticipantAssignmentMixin(ChallongeNotificationMixin):
                 f"{user.display_name or user.username} is already mapped to "
                 f"{taken.name or 'another entrant'} in this bracket."
             )
-        bookable_before = await self._bookable_match_ids(participant.tournament)
+        bookable_before = await self._bookable_pairings(participant.tournament)
         await self.repository.set_participant_user(participant, user, manual=True)
         await self.audit_service.write_log(
             actor, AuditActions.CHALLONGE_PARTICIPANT_ASSIGNED,
@@ -101,8 +109,22 @@ class ChallongeParticipantAssignmentMixin(ChallongeNotificationMixin):
              'user_id': user.id},
         )
         await self._mirror_players(participant.tournament, actor)
+        await self._move_booked_matches(participant, actor)
+        await self._refresh_placeholder_bookings(participant.tournament, actor)  # type: ignore[attr-defined]
         await self._announce_newly_bookable(participant.tournament, bookable_before)
         return participant
+
+    async def _move_booked_matches(self, participant: ChallongeParticipant, actor: User) -> None:
+        """Put the entrant's new member on its booked, unstarted matches. Never raises."""
+        try:
+            from application.services.match.match_service import MatchService
+
+            service = MatchService()
+            for cmatch in await self.repository.booked_matches_for_participant(participant):
+                sides = [p.user_id if p else None for p in (cmatch.participant1, cmatch.participant2)]
+                await service.move_bracket_player(cmatch.match, sides, actor)  # type: ignore[arg-type]
+        except Exception:
+            logger.exception('Moving booked matches failed for Challonge entrant %s', participant.id)
 
     @requires_feature(FeatureFlag.CHALLONGE)
     async def clear_participant_user(
@@ -130,11 +152,12 @@ class ChallongeParticipantAssignmentMixin(ChallongeNotificationMixin):
         """Make the tournament's Players list the bracket's mapped entrants.
 
         Challonge owns a linked tournament's roster, so a player dropped there
-        (or a whole reset) leaves the list too. Their scheduled matches stay.
+        (or a whole reset) leaves the list too, and so does an entrant Challonge
+        marked inactive. Their scheduled matches stay.
         """
         wanted = {
             p.user.id: p.user for p in await self.repository.list_participants(tournament)
-            if p.user is not None
+            if p.user is not None and p.active
         }
         enrolled = {tp.user.id: tp.user for tp in await self.tournament_repository.get_enrolled_players(tournament)}
         for user_id in wanted.keys() - enrolled.keys():

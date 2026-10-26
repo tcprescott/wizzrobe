@@ -40,6 +40,8 @@ def make_service():
     svc.tournament_repository.get_by_id = AsyncMock(return_value=None)
     svc.tournament_repository.has_tournament_grant = AsyncMock(return_value=False)
     svc.tournament_repository.set_tournament_grant = AsyncMock()
+    svc.sync_repository = MagicMock()
+    svc.sync_repository.rule_role_ids = AsyncMock(return_value=set())
     svc.audit_service = make_audit_double()
     return svc
 

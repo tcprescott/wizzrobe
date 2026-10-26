@@ -21,6 +21,7 @@ def service():
     svc.repository.update = AsyncMock(side_effect=lambda stage, **f: stage)
     svc.repository.get_by_id = AsyncMock()
     svc.repository.count_matches = AsyncMock(return_value=0)
+    svc.repository.name_taken = AsyncMock(return_value=False)
     svc.audit_service = make_audit_double()
     return svc
 

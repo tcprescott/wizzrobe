@@ -20,6 +20,9 @@ The board is Volunteer → Proctor Station. If you can't see it, you haven't bee
 given the Proctor role yet, so ask a coordinator. Being scheduled on a proctor
 shift usually gives it to you.
 
+Broadcast Techs get Proctor Station too, listing only the matches on a stage,
+since those are the ones they run.
+
 ## The board
 
 :::snippet proctor-station
@@ -34,7 +37,11 @@ with the station each one's sitting at, the stage, and a button for the next
 step: **Check in**, **Roll seed**, **Start** or **Finish**. Press it and that
 step's dialog opens, just like anywhere else in the app. Once a match is checked
 in, its line also shows the seed, as the link and its code or as Seed not
-rolled. The time and the stage are what you call out across the room.
+rolled. A player who tapped **Tell staff I'm late** gets a tag on the line, like
+{chip:pending:Player One ~20 min late · said 09:41}, until the match is checked in.
+On a tournament where players release their own seed, the seed line counts who's
+ready, like Seed not rolled · 1 of 2 ready. The seed rolls itself when the last
+player taps Ready, and **Roll seed** still works if you need it sooner. The time and the stage are what you call out across the room.
 
 Tap anywhere else on a line to open the match's details. They start with a
 Ready to play? checklist covering players confirmed, stations, stage and seed.
@@ -48,7 +55,10 @@ on the admin Match Schedule tab.
 By default you see matches still to be played or in play. Use **Filters** to
 narrow it to the day and the tournaments your room is running, or add Finished
 to the State filter to see what you've already recorded, under Done. The search
-box filters lines by any text in them, like a player's name.
+box filters lines by any text in them, like a player's name. Type just a number
+to find a station instead: **7** (or **Station 7**) shows the matches with
+someone at station 7 that aren't finished yet, and lights up that player's
+station. On a phone the search box sits above **Filters**, so it's always there.
 :::
 
 ### Reading a line
@@ -58,7 +68,7 @@ box filters lines by any text in them, like a player's name.
 | You see | Means |
 |---|---|
 | Station 4 beside a name | The station they're seated at. On a phone the line sums it up instead, like Stations 3 and 7. |
-| No station beside a name | They aren't seated yet. Check-in seats them. On a phone it reads No stations yet. |
+| No station beside a name | They aren't seated yet. Check-in seats them. On a phone it reads No stations yet. Matches on a stage never show this. |
 | ADA: and a name | Staff have arranged an accommodation for them. Open the match and tap the accommodation to see it. |
 | Live | The match is in play. |
 
@@ -76,6 +86,8 @@ it's also at the top of the match's details.
    station for each player (or press **Randomize**), and press **Check in &
    seat**. The match goes to {state:Checked In} and the app records where each
    player is sitting. Stations are optional here. You can fill them in at Start.
+   A match on a stage is played on the stage, so it skips the stations: one tap
+   on **Check in** checks it in.
 2. Roll the seed if the match doesn't have one yet. The line's button says
    **Roll seed** until it does. You can only roll a seed once per match, and the
    players get it by DM. The code shows on the line so you can read it out.
@@ -87,9 +99,10 @@ it's also at the top of the match's details.
    on everyone watching the board sees it as {state:Started}.
 4. Press **Finish** when it ends and say who won. Tap the winner, then the
    **Yes** button with their name on it. Picking a name doesn't record anything
-   by itself, so a mis-tap only costs you a **Back**. With more than two
+   by itself, so a mis-tap only costs you a **Back**. With three or four
    players, choose the winner from the list and press **Submit Results**. The
-   match moves to {state:Finished}.
+   match moves to {state:Finished}. A race with more than four players has no
+   winner to record: Finish asks once, then closes the race out as confirmed.
 
 What you do between those presses, like helping players set up, running a
 countdown and keeping the room in order, is up to the event. The app records

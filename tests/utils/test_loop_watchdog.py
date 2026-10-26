@@ -1,13 +1,14 @@
 """Tests for the event-loop watchdog and the runtime snapshot built on it."""
 
 import asyncio
+import gc
 import logging
 import time
 
 import pytest
 
+from application.utils import gc_monitor, runtime_stats
 from application.utils import loop_watchdog as wd
-from application.utils import runtime_stats
 from application.utils.background_loop import BackgroundLoop, worker_stats
 
 
@@ -75,6 +76,18 @@ class TestLoopWatchdog:
             record = await _blocked_record(caplog)
         assert record.levelno == logging.ERROR
 
+    async def test_an_expected_block_is_recorded_but_not_reported(self, fast_watchdog, caplog, monkeypatch):
+        monkeypatch.setattr(wd, 'STUCK_SECONDS', 0.15)
+        fast_watchdog.start()
+        await asyncio.sleep(0.05)
+        with caplog.at_level(logging.WARNING, logger=wd.__name__):
+            with fast_watchdog.expected_block('memory census'):
+                _block_the_loop(0.4)
+            await _settle(fast_watchdog, 1)
+            await asyncio.sleep(0.1)
+        assert fast_watchdog.snapshot()['recent_stalls'][0]['culprit'] == 'memory census (on request)'
+        assert not [r for r in caplog.records if 'Event loop' in r.getMessage()]
+
     async def test_start_is_idempotent_and_stop_ends_the_thread(self, fast_watchdog):
         fast_watchdog.start()
         thread = fast_watchdog._thread
@@ -113,3 +126,150 @@ class TestRuntimeSnapshot:
         for key in ('uptime_seconds', 'rss_mb', 'clients', 'db_pool', 'event_loop', 'workers'):
             assert key in snap
         assert snap['asyncio_tasks'] >= 1
+
+
+@pytest.fixture
+def gc_watch():
+    gc_monitor.install()
+    yield
+    gc_monitor.uninstall()
+
+
+def _fake_collection(seconds: float, generation: int = 2) -> None:
+    """A collection as the watchdog sees one: the loop thread stuck between the
+    collector's start and stop callbacks."""
+    gc_monitor._callback('start', {'generation': generation})
+    _block_the_loop(seconds)
+    gc_monitor._callback('stop', {'generation': generation, 'collected': 7, 'uncollectable': 0})
+
+
+class TestGarbageCollectionStalls:
+    async def test_a_collection_pause_is_named_as_one_not_as_the_line_it_interrupted(
+        self, fast_watchdog, gc_watch, caplog,
+    ):
+        fast_watchdog.start()
+        await asyncio.sleep(0.05)
+        with caplog.at_level(logging.WARNING, logger=wd.__name__):
+            _fake_collection(0.4)
+            await _settle(fast_watchdog, 1)
+            record = await _blocked_record(caplog)
+        stall = fast_watchdog.snapshot()['recent_stalls'][0]
+        assert stall['culprit'].startswith('garbage collection (gen 2, ')
+        assert stall['gc_seconds'] >= 0.3
+        assert 'garbage collection' in record.getMessage()
+        assert record.levelno == logging.ERROR
+
+    async def test_ordinary_slow_code_keeps_its_own_culprit(self, fast_watchdog, gc_watch):
+        fast_watchdog.start()
+        await asyncio.sleep(0.05)
+        _block_the_loop(0.2)
+        await _settle(fast_watchdog, 1)
+        stall = fast_watchdog.snapshot()['recent_stalls'][0]
+        assert '_block_the_loop' in stall['culprit']
+        assert stall['gc_seconds'] < 0.1
+
+    def test_real_collections_are_timed_by_generation(self, gc_watch):
+        before = gc_monitor.snapshot()['by_generation']['2']['passes']
+        gc.collect()
+        snap = gc_monitor.snapshot()
+        assert snap['installed']
+        assert snap['by_generation']['2']['passes'] == before + 1
+        assert len(snap['thresholds']) == 3
+
+    def test_overlap_counts_only_collection_time_inside_the_window(self):
+        with gc_monitor._lock:
+            gc_monitor._passes.append(gc_monitor.Pass(started=100.0, seconds=2.0, generation=2, collected=0))
+        try:
+            assert gc_monitor.seconds_between(101.0, 105.0) == (1.0, 2)
+            assert gc_monitor.seconds_between(103.0, 105.0) == (0.0, -1)
+        finally:
+            with gc_monitor._lock:
+                gc_monitor._passes.pop()
+
+    async def test_runtime_stats_has_a_gc_section(self):
+        assert 'by_generation' in runtime_stats.collect()['gc']
+
+    def test_freeze_moves_live_objects_out_of_collection(self):
+        try:
+            frozen = gc_monitor.freeze()
+            assert frozen > 0
+            assert gc.get_freeze_count() == frozen
+            assert gc_monitor.snapshot()['frozen_objects'] == frozen
+        finally:
+            gc.unfreeze()
+
+    async def test_the_mcp_tool_schema_keeps_the_gc_block(self, gc_watch):
+        from mcpserver.schemas import RuntimeStats
+
+        gc.collect()
+        stats = RuntimeStats.model_validate(runtime_stats.collect())
+        assert stats.gc.installed
+        assert stats.gc.by_generation['2']['passes'] >= 1
+
+
+class TestMemoryCensus:
+    def test_counts_types_and_live_channels(self):
+        from application.events import match_live
+        from application.utils import memory_census
+
+        token = match_live.subscribe(lambda *_: None)
+        try:
+            census = memory_census.take(top=10)
+        finally:
+            match_live.unsubscribe(token)
+        assert census['tracked_objects'] > 0
+        assert len(census['top_types']) == 10
+        assert census['match_live_subscribers'] >= 1
+        assert census['elements_deleted'] <= census['elements_alive']
+        assert census['collected_first'] is not None
+        assert isinstance(census['stale_clients_held_by'], list)
+
+    def test_retained_by_names_the_holder(self):
+        from application.utils import memory_census
+
+        class _Leaked:
+            pass
+
+        class _Holder:
+            def __init__(self):
+                self.pages = []
+
+        holder = _Holder()
+        holder.pages.extend(_Leaked() for _ in range(3))
+        chains = memory_census.retained_by(list(holder.pages), depth=3)
+        assert len(chains) == 1
+        assert chains[0]['count'] == 3
+        assert chains[0]['chain'].startswith(f'{__name__}.TestMemoryCensus.test_retained_by_names_the_holder.<locals>._Leaked <- builtins.list')
+        assert '_Holder' in chains[0]['chain']
+
+    async def test_dump_on_signal_writes_a_census(self, tmp_path):
+        import asyncio
+        import json
+        import os
+        import signal
+
+        from application.utils import memory_census
+
+        dump = tmp_path / 'census.json'
+        memory_census.dump_on_signal(str(dump))
+        try:
+            assert (tmp_path / 'census.json.pid').read_text() == str(os.getpid())
+            os.kill(os.getpid(), signal.SIGUSR1)
+            for _ in range(400):
+                await asyncio.sleep(0.05)
+                if dump.exists():
+                    break
+            assert json.loads(dump.read_text())['clients_registered'] >= 0
+        finally:
+            asyncio.get_running_loop().remove_signal_handler(signal.SIGUSR1)
+
+    def test_retained_by_nothing_to_trace(self):
+        from application.utils import memory_census
+
+        assert memory_census.retained_by([]) == []
+
+    async def test_only_a_super_admin_may_run_it(self):
+        from application.services import RuntimeStatsService
+
+        with pytest.raises(PermissionError):
+            await RuntimeStatsService.memory_census(None)

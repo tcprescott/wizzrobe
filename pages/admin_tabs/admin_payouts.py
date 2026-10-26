@@ -1,13 +1,17 @@
 """Admin Payouts Page — prize pool and placement splits per tournament."""
 
+import re
 from decimal import Decimal, InvalidOperation
 
 from nicegui import app, background_tasks, context, ui
 
 from application.services import PayoutService, TournamentService, get_user_from_session
 from application.services.payout_service import format_percentage
+from application.utils.timezone import format_local_time
+from theme.busy import busy_click
 from theme.clipboard import copy_to_clipboard
 from theme.dialog._helpers import dialog_actions, form_dialog
+from theme.dialog.confirmation_dialog import ConfirmationDialog
 from theme.help import help_icon
 from theme.menu import SlotItem, slot_more_menu, slot_row_button
 from theme.notify import notify_error
@@ -15,6 +19,12 @@ from theme.page_header import page_header
 from theme.tables.admin_crud import current_actor, refresh_button, wire_tab_refresh
 from theme.tables.mobile_grid import enable_mobile_grid
 from theme.tables.preferences import TableKeys
+
+_POOL_CELL = (
+    '{{ props.row.pool }}<q-icon v-if="props.row.sglive_slug" name="sync" size="xs" '
+    'class="q-ml-xs text-positive" aria-label="Synced from sglive">'
+    '<q-tooltip>Synced from sglive</q-tooltip></q-icon>'
+)
 
 _STATUS_CHIP = '''
     <span class="wiz-chip" :class="props.row.status_chip">{{ props.row.status }}</span>
@@ -48,6 +58,34 @@ def _parse_percentage(raw: str | None) -> Decimal:
         return Decimal(text)
     except InvalidOperation as err:
         raise ValueError(f'{text!r} is not a percentage.') from err
+
+
+def _name_key(name: str) -> str:
+    words = re.sub(r'[^a-z0-9 ]', ' ', name.lower()).split()
+    return ' '.join(w for w in words if w not in {'the', 'tournament', 'online'})
+
+
+def _suggest_links(games, tournaments: dict[int, str]) -> dict[str, int]:
+    """Pair sglive games with tournaments whose names match once normalised."""
+    keys: dict[str, list[int]] = {}
+    for tid, name in tournaments.items():
+        keys.setdefault(_name_key(name), []).append(tid)
+    suggestions: dict[str, int] = {}
+    for game in games:
+        match = keys.get(_name_key(game.name), [])
+        if len(match) == 1 and match[0] not in suggestions.values():
+            suggestions[game.slug] = match[0]
+    return suggestions
+
+
+def _notify_synced(missing: list[str]) -> None:
+    if missing:
+        ui.notify(
+            f"sglive no longer lists {', '.join(missing)}; those pools kept their last amount.",
+            color='warning',
+        )
+    else:
+        ui.notify('Prize pools updated from sglive', color='positive')
 
 
 def _status(overview) -> dict:
@@ -108,6 +146,8 @@ async def admin_payouts_page() -> None:
                     'place_count': o.place_count,
                     'allocated_raw': float(o.allocated_percentage),
                     'allocated': f'{format_percentage(o.allocated_percentage)}%',
+                    'sglive_slug': o.sglive_slug,
+                    'synced_label': format_local_time(o.synced_at) if o.synced_at else '',
                     **_status(o),
                 }
                 for o in overviews
@@ -121,13 +161,43 @@ async def admin_payouts_page() -> None:
                 except (ValueError, PermissionError) as e:
                     notify_error(e)
                     return
+                synced = bool(row.get('sglive_slug'))
                 with table_container:
                     with form_dialog(f"Prize pool — {row['name']}", card_classes='dialog-card dialog-card--sm') as dialog:
                         with ui.column().classes('gap-2 full-width'):
+                            if synced:
+                                async def do_unlink():
+                                    try:
+                                        await service.unlink_sglive(row['tournament_id'], await _current())
+                                    except (ValueError, PermissionError) as e:
+                                        notify_error(e)
+                                        return
+                                    dialog.close()
+                                    ui.notify('Unlinked from sglive. The pool is yours to type.', color='positive')
+                                    await refresh_table()
+
+                                def unlink():
+                                    ConfirmationDialog(
+                                        message='Stop updating this pool from sglive? It keeps '
+                                                'its current amount, and you can type it by hand.',
+                                        on_confirm=do_unlink, confirm_text='Unlink',
+                                        title='Unlink from sglive?', tone='primary',
+                                    ).open()
+
+                                with ui.row().classes('wiz-sglive-synced items-center no-wrap full-width gap-2'):
+                                    ui.icon('sync').classes('text-positive')
+                                    when = row.get('synced_label')
+                                    ui.label(
+                                        f'Synced from sglive at {when}' if when else 'Syncs from sglive'
+                                    ).classes('col')
+                                    ui.button('Unlink', on_click=unlink).props('flat dense no-caps color=primary')
                             with ui.row().classes('form-pair gap-2'):
                                 pool_input = ui.input(
                                     'Prize pool', value=f'{split.pool:.2f}',
-                                ).props('outlined dense prefix="$"')
+                                ).props('outlined dense prefix="$"' + (' readonly' if synced else ''))
+                                if synced:
+                                    with pool_input.add_slot('append'):
+                                        ui.icon('lock', size='xs').tooltip('Synced from sglive')
                                 bonus_input = ui.input(
                                     'Bonus', value=f'{split.bonus:.2f}',
                                 ).props('outlined dense prefix="$"')
@@ -255,6 +325,69 @@ async def admin_payouts_page() -> None:
                             ui.button('Save', icon='save', on_click=submit).props('color=primary')
                 dialog.open()
 
+        async def open_sglive_dialog():
+            actor = await _current()
+            try:
+                games = await service.fetch_sglive_games(actor)
+                overviews = await service.list_overview(actor)
+            except (ValueError, PermissionError) as e:
+                notify_error(e)
+                return
+            tournaments = {o.tournament_id: o.name for o in overviews}
+            current = {o.sglive_slug: o.tournament_id for o in overviews if o.sglive_slug}
+            suggested = _suggest_links(
+                [g for g in games if g.slug not in current],
+                {tid: name for tid, name in tournaments.items() if tid not in current.values()},
+            )
+            options: dict[int | None, str] = {None: 'Not linked', **tournaments}
+            pickers: dict[str, ui.select] = {}
+            with table_container:
+                with form_dialog('Link sglive pages') as dialog:
+                    with ui.column().classes('gap-0 full-width'):
+                        ui.label(
+                            'Pick the tournament each sglive game pays out for. Linked pools '
+                            'update every 15 minutes. Leave one on "Not linked" to keep typing '
+                            'its pool by hand.'
+                        ).classes('text-caption text-grey q-mb-sm')
+                        for game in games:
+                            with ui.element('div').classes('wiz-sglive-link'):
+                                with ui.column().classes('gap-0 wiz-sglive-link__game'):
+                                    ui.label(game.name).classes('text-weight-bold')
+                                    ui.label(f'${game.total:,.2f} on sglive').classes('text-caption text-grey')
+                                pickers[game.slug] = ui.select(
+                                    options,
+                                    value=current.get(game.slug, suggested.get(game.slug)),
+                                    label='Tournament',
+                                ).props('outlined dense').classes('wiz-sglive-link__pick')
+
+                    async def submit():
+                        try:
+                            await service.set_sglive_links(
+                                {slug: pick.value for slug, pick in pickers.items()},
+                                await _current(),
+                            )
+                        except (ValueError, PermissionError) as e:
+                            notify_error(e)
+                            return
+                        dialog.close()
+                        ui.notify('sglive links saved', color='positive')
+                        await refresh_table()
+
+                    with dialog_actions().classes('justify-end'):
+                        ui.button('Cancel', on_click=dialog.close).props('flat')
+                        ui.button('Save', icon='save', on_click=busy_click('Saving…', submit)) \
+                            .props('color=primary')
+            dialog.open()
+
+        async def sync_sglive_now():
+            try:
+                missing = await service.sync_sglive_pools(await _current())
+            except (ValueError, PermissionError) as e:
+                notify_error(e)
+                return
+            _notify_synced(missing)
+            await refresh_table()
+
         async def copy_block(row, client):
             with client:
                 try:
@@ -265,14 +398,18 @@ async def admin_payouts_page() -> None:
                 copy_to_clipboard(block, 'Payout block')
 
         with table_container:
-            with ui.row().classes('full-width'):
+            with ui.row().classes('full-width items-center'):
+                with ui.button('Actions').props('flat color=primary icon-right=expand_more'):
+                    with ui.menu():
+                        ui.menu_item('Link sglive pages…', on_click=open_sglive_dialog)
+                        ui.menu_item('Update from sglive now', on_click=sync_sglive_now)
                 ui.space()
                 refresh_button(refresh_table)
 
             table = ui.table(columns=columns, rows=[], row_key='tournament_id') \
                 .classes('w-full wiz-table')
 
-            table.add_slot('body-cell-pool', '<q-td :props="props">{{ props.row.pool }}</q-td>')
+            table.add_slot('body-cell-pool', f'<q-td :props="props">{_POOL_CELL}</q-td>')
             table.add_slot('body-cell-bonus', '<q-td :props="props">{{ props.row.bonus }}</q-td>')
             table.add_slot('body-cell-total', '<q-td :props="props">{{ props.row.total }}</q-td>')
             table.add_slot('body-cell-allocated',
@@ -291,7 +428,7 @@ async def admin_payouts_page() -> None:
                 table, columns, actions=_ROW_ACTIONS,
                 table_key=TableKeys.ADMIN_PAYOUTS,
                 field_slots={
-                    'pool': '{{ props.row.pool }}',
+                    'pool': _POOL_CELL,
                     'bonus': '{{ props.row.bonus }}',
                     'total': '{{ props.row.total }}',
                     'allocated': '{{ props.row.allocated }}',

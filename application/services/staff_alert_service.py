@@ -15,24 +15,29 @@ in the roster) the alert falls back to every STAFF member, so it is never lost.
 Community-wide requests (join, ADA, community events) are not match alerts and
 still go to all staff. A volunteer running late or giving a shift back goes to
 the volunteer coordinators plus the same on-duty set, with the same fallback.
+A player running late on a stage match also reaches the Broadcast Techs on
+shift (every tech when none is).
 """
 
 from datetime import datetime, timezone
-from typing import Awaitable, Callable, Dict, Iterable, List, NamedTuple, Optional
+from typing import Awaitable, Callable, Dict, Iterable, List, NamedTuple, Optional, Tuple
 
 from application.errors import require_found
 from application.repositories import (
+    MatchRepository,
     TournamentNotificationRepository,
     TournamentRepository,
     UserRoleRepository,
     VolunteerAssignmentRepository,
 )
 from application.services.auth_service import AuthService
-from models import Match, Role, Tournament, User
+from models import Match, NotificationRecipient, Role, Tournament, User
 
 #: May this person act on the alert? A DM that links somewhere the reader
 #: cannot act is worse than none, so recipients are filtered by it.
 CanAct = Callable[[User, Match], Awaitable[bool]]
+#: A recipient and the notification setting that governs their copy.
+Tagged = Tuple[User, NotificationRecipient]
 
 
 class DutySummary(NamedTuple):
@@ -61,32 +66,98 @@ class StaffAlertService:
     ) -> List[User]:
         """The on-duty admins plus the tournament's opted-in admins.
 
-        ``exclude`` drops user ids (the comment's author, the requester).
+        ``exclude`` drops user ids (the comment's author, the requester). The
+        match's own players are always dropped: a tournament admin or staff
+        member playing in it is the opponent here, and the player was told
+        their opponent doesn't see it.
         Falls back to every STAFF member when nobody who can act is on duty.
         """
-        skip = set(exclude)
-        recipients: Dict[int, User] = {}
+        tagged = await StaffAlertService.tagged_match_alert_recipients(
+            match, can_act=can_act, exclude=exclude, at=at,
+        )
+        return [user for user, _ in tagged]
 
-        async def add(user: User) -> None:
+    @staticmethod
+    async def tagged_match_alert_recipients(
+        match: Match,
+        *,
+        can_act: CanAct = AuthService.can_run_match,
+        exclude: Iterable[int] = (),
+        at: Optional[datetime] = None,
+    ) -> List[Tagged]:
+        """:meth:`match_alert_recipients`, each tagged with why they hear it.
+
+        The tag picks which notification setting applies: someone on duty is
+        ``ON_DUTY`` even when they also admin the tournament.
+        """
+        skip = set(exclude) | {p.user_id for p in await MatchRepository.get_players(match)}  # type: ignore[attr-defined]
+        recipients: Dict[int, Tagged] = {}
+
+        async def add(user: User, why: NotificationRecipient) -> None:
             if user.id in skip or user.id in recipients or not user.is_active:
                 return
             if await can_act(user, match):
-                recipients[user.id] = user
+                recipients[user.id] = (user, why)
 
         for user in await StaffAlertService.on_duty_now(at):
-            await add(user)
-        if not recipients:
-            for user in await UserRoleRepository.list_users_with_role(Role.STAFF):
-                await add(user)
+            await add(user, NotificationRecipient.ON_DUTY)
+        nobody_on_duty = not recipients
 
+        # Admins before the fallback, so a staff member who also admins the
+        # tournament reads as an admin and follows that column's setting, unless
+        # the desk is empty and they are standing in for it.
         await match.fetch_related('tournament__admins')
         tournament = match.tournament
         if tournament is not None:
             opted_out = await TournamentNotificationRepository().staff_alert_opt_out_user_ids(tournament.id)
             for admin in tournament.admins:
                 if admin.id not in opted_out:
-                    await add(admin)
+                    await add(admin, NotificationRecipient.ADMINS)
+        if nobody_on_duty:
+            for user in await UserRoleRepository.list_users_with_role(Role.STAFF):
+                if user.id in recipients:
+                    # A staff member who also admins the tournament is standing
+                    # in for the empty desk: tagged as an admin, "Ping on-duty"
+                    # (admins off) muted the very fallback it promises to keep.
+                    recipients[user.id] = (recipients[user.id][0], NotificationRecipient.STAFF)
+                else:
+                    await add(user, NotificationRecipient.STAFF)
         return list(recipients.values())
+
+    @staticmethod
+    async def tagged_broadcast_tech_recipients(
+        match: Match,
+        *,
+        exclude: Iterable[int] = (),
+        at: Optional[datetime] = None,
+    ) -> List[Tagged]:
+        """The Broadcast Techs who hear about a stage match, tagged with why.
+
+        Techs holding a published shift right now are ``ON_DUTY``; when none
+        is, every tech stands in as ``STAFF``. A match off stage has nothing for
+        a tech to do, so it gets nobody. The match's own players are dropped,
+        as for a match alert.
+        """
+        if getattr(match, 'stage_id', None) is None:
+            return []
+        skip = set(exclude) | {p.user_id for p in await MatchRepository.get_players(match)}  # type: ignore[attr-defined]
+        techs = [
+            user for user in await UserRoleRepository.list_users_with_role(Role.STREAM_MANAGER, active_only=True)
+            if user.id not in skip
+        ]
+        on_shift = await VolunteerAssignmentRepository.on_shift_user_ids(
+            at or datetime.now(timezone.utc), [user.id for user in techs],
+        )
+        if on_shift:
+            return [(user, NotificationRecipient.ON_DUTY) for user in techs if user.id in on_shift]
+        return [(user, NotificationRecipient.STAFF) for user in techs]
+
+    @staticmethod
+    async def tournament_alert_admins(tournament: Tournament) -> List[User]:
+        """The tournament's active admins who haven't switched its alerts off."""
+        await tournament.fetch_related('admins')
+        opted_out = await TournamentNotificationRepository().staff_alert_opt_out_user_ids(tournament.id)
+        return [admin for admin in tournament.admins if admin.is_active and admin.id not in opted_out]
 
     @staticmethod
     async def volunteer_alert_recipients(at: Optional[datetime] = None) -> List[User]:
@@ -96,15 +167,22 @@ class StaffAlertService:
         roster; every STAFF member stands in for the on-duty set when that is
         empty.
         """
-        recipients: Dict[int, User] = {}
+        return [user for user, _ in await StaffAlertService.tagged_volunteer_alert_recipients(at)]
+
+    @staticmethod
+    async def tagged_volunteer_alert_recipients(at: Optional[datetime] = None) -> List[Tagged]:
+        """:meth:`volunteer_alert_recipients`, each tagged with why they hear it."""
+        recipients: Dict[int, Tagged] = {}
         for user in await StaffAlertService.on_duty_now(at):
             if user.is_active and await AuthService.can_manage_volunteers(user):
-                recipients.setdefault(user.id, user)
-        if not recipients:
-            for user in await UserRoleRepository.list_users_with_role(Role.STAFF):
-                recipients.setdefault(user.id, user)
-        for user in await UserRoleRepository.list_users_with_role(Role.VOLUNTEER_COORDINATOR):
-            recipients.setdefault(user.id, user)
+                recipients.setdefault(user.id, (user, NotificationRecipient.ON_DUTY))
+        nobody_on_duty = not recipients
+        for user in await UserRoleRepository.list_users_with_role(Role.VOLUNTEER_COORDINATOR, active_only=True):
+            recipients.setdefault(user.id, (user, NotificationRecipient.ADMINS))
+        if nobody_on_duty:
+            for user in await UserRoleRepository.list_users_with_role(Role.STAFF, active_only=True):
+                # Staff who coordinate volunteers too still stand in for the desk.
+                recipients[user.id] = (user, NotificationRecipient.STAFF)
         return list(recipients.values())
 
     @staticmethod

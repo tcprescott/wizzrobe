@@ -31,6 +31,7 @@ from theme.dialog._helpers import (
     native_date_input,
     native_time_input,
 )
+from theme.dialog.clash_warning import confirm_time
 from theme.notify import notify_error
 
 # How long either side of the proposed slot to check the players against. The
@@ -139,6 +140,13 @@ class RescheduleDecisionDialog:
                         scheduled_at = parse_local_datetime(date_value, time_value)
                     except ValueError as e:
                         ui.notify(str(e), color='warning')
+                        return
+                    if not await confirm_time(
+                        tournament_id=match.tournament_id,
+                        player_ids=[p.user_id for p in players],
+                        scheduled_at=scheduled_at, actor=self.actor,
+                        exclude_match_id=match.id, confirm_label='Move it anyway',
+                    ):
                         return
                 try:
                     await self.service.approve(

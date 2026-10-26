@@ -13,6 +13,7 @@ from api.schemas.memberships import JoinRequestResponse
 from application.services import (
     AuthService,
     CrewService,
+    MemberDetailsService,
     PlayerAvailabilityService,
     ReportsService,
     TenantMembershipService,
@@ -24,6 +25,7 @@ from mcpserver.schemas import (
     AvailabilityWindow,
     CrewMemberInfo,
     MatchCrew,
+    MemberDetailsInfo,
     PlayerAvailability,
     TenantArg,
     UserDetail,
@@ -88,6 +90,24 @@ async def get_user(
     )
 
 
+async def get_member_details(
+    user_id: int,
+    tenant: TenantArg = None,
+) -> MemberDetailsInfo:
+    """Everything this community knows about one member, for troubleshooting.
+
+    Requires staff. The same data as clicking a name on Admin → Members: roles,
+    tournaments, upcoming matches and shifts, how DMs reach them (Discord,
+    devices, email, Telegram), every message they can get with the community's
+    setting, their own choice and what they actually get (`effective`, with a
+    `reason` when the two differ), and the last DMs sent to them here. Use it to
+    answer "why didn't they get told?". Someone outside this community is not
+    found. Times are UTC.
+    """
+    details = await MemberDetailsService().get(user_id, actor=current_actor().user)
+    return MemberDetailsInfo.build(details)
+
+
 async def list_match_crew(
     match_id: int,
     tenant: TenantArg = None,
@@ -128,7 +148,10 @@ async def crew_coverage_report(
 ) -> Dict[str, Any]:
     """Crew coverage across a window: which matches have commentary and tracking.
 
-    Requires admin access. `start` and `end` are ISO 8601 timestamps.
+    `tournament_rows` answers "who crewed how many matches of each tournament":
+    approved crew on finished matches that went to a stage, split into
+    commentary and tracker. The other counts include unstaged and upcoming
+    matches. Requires admin access. `start` and `end` are ISO 8601 timestamps.
     """
     start_dt, end_dt = _window(start, end)
     return await ReportsService().crew_coverage(
@@ -205,6 +228,7 @@ def register_tools(mcp: MCPServer) -> None:
     register(mcp, list_join_requests, gate=Gate.STAFF, title='List join requests')
     register(mcp, list_users, gate=Gate.STAFF, title='List users')
     register(mcp, get_user, gate=Gate.ACTOR, title='Get user')
+    register(mcp, get_member_details, gate=Gate.STAFF, title='Get member details')
     register(
         mcp, get_player_availability, gate=Gate.ACTOR,
         title='Get player availability',

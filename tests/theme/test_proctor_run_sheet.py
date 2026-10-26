@@ -7,6 +7,7 @@ rows, so a regression here is caught without a browser.
 
 from theme.dialog.match_sheet import readiness
 from theme.tables.match_run_sheet import (
+    _SEATED_WHO,
     _body_slot,
     _item_slot,
     arrange_run_sheet,
@@ -127,6 +128,14 @@ class TestSeatLine:
         both = [{'name': 'Player One', 'station': 4}, {'name': 'Player Two', 'station': 7}]
         assert seat_line(dict(_row(1, 'Scheduled'), players=both)) == 'Stations 4 and 7'
 
+    def test_a_stage_match_never_asks_for_stations(self):
+        assert seat_line(_row(1, 'Scheduled', stage='Main Stage')) == ''
+        some = [{'name': 'Player One', 'station': 4}, {'name': 'Player Two', 'station': None}]
+        assert seat_line(dict(_row(1, 'Scheduled', stage='Main Stage'), players=some)) == 'Player One at 4'
+
+    def test_the_no_station_tag_skips_stage_matches(self):
+        assert 'v-if="s.station || !props.row.stage"' in _SEATED_WHO
+
 
 class TestSlots:
     def test_the_step_button_needs_the_run_capability(self):
@@ -137,7 +146,9 @@ class TestSlots:
 
     def test_the_admin_line_is_untouched(self):
         assert "_next" not in _body_slot(False) and "_seats" not in _body_slot(False)
-        assert "_group_count" not in _item_slot(False)
+        # The admin header counts a group only once it's folded away.
+        folded_count = '<template v-if="props.row._folded"> · {{ props.row._group_count }}</template>'
+        assert "_group_count" not in _item_slot(False).replace(folded_count, '')
 
     def test_the_phone_step_is_not_nested_in_the_line_button(self):
         slot = _item_slot(True, can_run=True)

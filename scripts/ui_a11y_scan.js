@@ -19,10 +19,11 @@
  * With a "phone" block in the config it then makes a pass per phone (CI checks
  * 360, 393, 412 and 440px) and fails any page whose layout breaks there: the
  * page scrolls sideways, an element runs past the screen or out of the card that
- * holds it, text is cut off without an ellipsis, or a flex item is stretched
- * more than 96px past its content (an empty band). The 2026-10 phone sweep
- * found Settings fields 90px past their card and a whole family of these, none
- * of which a desktop-width scan can see.
+ * holds it, text is cut off without an ellipsis, text is squeezed to a few
+ * letters a line, or a flex item is stretched more than 96px past its content
+ * (an empty band). The 2026-10 phone sweep found Settings fields 90px past their
+ * card and a whole family of these, none of which a desktop-width scan can see;
+ * at SG Live a status chip squeezed My Schedule's player names to a letter a line.
  *
  * Prereqs: the app booted and seeded (see the ui-validation skill), Playwright
  * and axe-core resolvable (`npm install --no-save playwright@1.56.1
@@ -46,6 +47,12 @@
  *   }
  * A phone ignore entry matches an offending element by CSS selector (the
  * element or any ancestor); `target` narrows it to one page.
+ *
+ * A11Y_PHONE_WIDTHS=360,412 keeps only the phones at those widths. CI's pull
+ * request runs check 360px alone; main checks every phone in the config.
+ *
+ * A target may name its own "loginAs" for a page that only shows something to
+ * that user (a player's own match cards on My Schedule).
  */
 const { chromium, devices } = require('playwright');
 const fs = require('fs');
@@ -158,6 +165,22 @@ function layoutCheck(ignoreSelectors) {
     const inner = r.height - ['paddingTop', 'paddingBottom', 'borderTopWidth', 'borderBottomWidth'].reduce((a, k) => a + parseFloat(s[k]), 0);
     return inner - (bottom - top);
   }
+  // A flex item that gives up its width to a chip or a button beside it wraps
+  // its text a few letters a line: nothing overflows, so only the line count
+  // shows it. Returns the box's width when its own text runs three or more
+  // lines of fewer than eight characters.
+  function squeezedText(el) {
+    const lines = new Set();
+    let chars = 0;
+    for (const n of el.childNodes) {
+      if (n.nodeType !== Node.TEXT_NODE || !n.textContent.trim()) continue;
+      chars += n.textContent.trim().length;
+      const range = document.createRange();
+      range.selectNodeContents(n);
+      for (const rect of range.getClientRects()) if (rect.width) lines.add(Math.round(rect.top));
+    }
+    return lines.size >= 3 && chars / lines.size < 8 ? el.getBoundingClientRect().width : 0;
+  }
   const vw = window.innerWidth;
   const out = [];
   const seen = new Set();
@@ -186,7 +209,8 @@ function layoutCheck(ignoreSelectors) {
   };
   for (const el of document.querySelectorAll('body *')) {
     if (!el.offsetParent && getComputedStyle(el).position !== 'fixed') continue;
-    if (el.closest('[aria-hidden="true"], .q-tooltip, .q-menu, .wiz-sr-only, .wiz-skip-link, svg')) continue;
+    // .dialog-close .block is the phone close disc's visually hidden "Close".
+    if (el.closest('[aria-hidden="true"], .q-tooltip, .q-menu, .wiz-sr-only, .wiz-skip-link, .dialog-close .block, svg')) continue;
     const r = el.getBoundingClientRect();
     if (!r.width || !r.height) continue;
     const s = getComputedStyle(el);
@@ -196,6 +220,8 @@ function layoutCheck(ignoreSelectors) {
         && el.scrollWidth > el.clientWidth + 2 && el.childElementCount <= 1 && text(el)) {
       report('text cut off', el, el.scrollWidth - el.clientWidth);
     }
+    const squeezed = squeezedText(el);
+    if (squeezed) report('text squeezed to a few letters a line', el, squeezed);
     const empty = emptySpace(el, r, s);
     if (empty > EMPTY_LIMIT) report('leaves an empty gap', el, empty);
     let box = null;
@@ -238,7 +264,7 @@ async function runAxe(page, source) {
 // phone Playwright has no profile for. A device's defaultBrowserType is
 // dropped: CI only has Chromium, so this is Chromium's layout at that size.
 function phoneProfiles(phone) {
-  return (phone.devices || [{ name: 'phone', viewport: phone.viewport || { width: 390, height: 844 } }]).map((d) => {
+  const all = (phone.devices || [{ name: 'phone', viewport: phone.viewport || { width: 390, height: 844 } }]).map((d) => {
     if (typeof d === 'string') {
       if (!devices[d]) throw new Error(`unknown phone device ${d}`);
       const { defaultBrowserType, ...profile } = devices[d];
@@ -247,6 +273,11 @@ function phoneProfiles(phone) {
     const { name, ...profile } = d;
     return { name, profile };
   });
+  const widths = (process.env.A11Y_PHONE_WIDTHS || '').split(',').filter(Boolean).map(Number);
+  if (!widths.length) return all;
+  const kept = all.filter((p) => widths.includes(p.profile.viewport.width));
+  if (!kept.length) throw new Error(`A11Y_PHONE_WIDTHS=${process.env.A11Y_PHONE_WIDTHS} matches no phone in the config`);
+  return kept;
 }
 
 (async () => {
@@ -277,8 +308,18 @@ function phoneProfiles(phone) {
   await loginPage.waitForTimeout(800);
   await loginPage.locator('tr, .wiz-grid-card', { hasText: loginAs }).first().getByRole('button', { name: 'Log in as' }).click();
   await loginPage.waitForTimeout(1500);
-  const storageState = await loginCtx.storageState();
+  const storageStates = { [loginAs]: await loginCtx.storageState() };
   await loginCtx.close();
+  for (const user of new Set(targets.map((t) => t.loginAs).filter((u) => u && !storageStates[u]))) {
+    const ctx = await browser.newContext({ viewport: cfg.viewport || { width: 1440, height: 900 } });
+    const page = await ctx.newPage();
+    await page.goto(`${baseUrl}${withTenant('/login')}`, { waitUntil: 'networkidle' });
+    await page.waitForTimeout(800);
+    await page.locator('tr, .wiz-grid-card', { hasText: user }).first().getByRole('button', { name: 'Log in as' }).click();
+    await page.waitForTimeout(1500);
+    storageStates[user] = await ctx.storageState();
+    await ctx.close();
+  }
 
   const passes = schemes.map((scheme) => ({
     key: `a11y ${scheme}`,
@@ -340,11 +381,12 @@ function phoneProfiles(phone) {
       while (next < jobs.length) {
         const i = next++;
         const { pass, t } = jobs[i];
-        if (pass.key !== key) {
+        const user = t.loginAs || loginAs;
+        if (`${pass.key} ${user}` !== key) {
           if (ctx) await ctx.close();
-          ctx = await browser.newContext({ ...pass.context, storageState });
+          ctx = await browser.newContext({ ...pass.context, storageState: storageStates[user] });
           page = await ctx.newPage();
-          key = pass.key;
+          key = `${pass.key} ${user}`;
         }
         results[i] = await scan(page, pass, t);
         console.log(`  [${results[i].label}] ${results[i].summary || 'failed'}`);

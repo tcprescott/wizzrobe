@@ -81,6 +81,7 @@ async def _tick() -> None:
         events,
         _sync,
         tenant_id_of=lambda event: event.tenant_id,
+        event_id_of=lambda event: event.event_id,
         logger=logger,
         describe=lambda event: f'check-in event {getattr(event, "id", None)}',
     )

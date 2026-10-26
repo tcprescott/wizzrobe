@@ -34,7 +34,7 @@ much crew is still needed. Everyone signed up as crew is listed under that.
 
 An empty cell or "None" just means there's nothing to show yet. A match usually
 gets its stage, seed and crew at different times. "needs crew" in orange means a
-role is still short of approved crew while signup is open.
+match on a stage is still short of approved crew while signup is open.
 
 ## Match states
 
@@ -64,7 +64,7 @@ There are four filters above the board.
 
 | Filter | Narrows the board to |
 |---|---|
-| Day | All dates, Today, Tomorrow, or the next 7 days. "Today" is your today. |
+| Day | All dates, Today, Tomorrow, or the next 7 days. "Today" is your today. Admin → Match Schedule opens on Today; the other boards open on All dates. |
 | Tournament | One or more tournaments. |
 | Stage | One or more stages, handy for following one stream. |
 | State | The match states you pick. |
@@ -103,6 +103,14 @@ DM it sends you.
 Watching a match is different from the community's Watch page. The page is a link
 anyone can open to find the streams. See
 [Watching the event](/help/on-air#the-watch-page).
+
+## Start and end times
+
+Before a match starts, its line shows the booked time. Once it starts, that changes
+to when it actually started, with "to ~21:44" underneath: the start plus the
+tournament's usual match length. The end turns amber if the match runs past it.
+A finished match shows when it really started and finished. The booked time is
+still in the match's details.
 
 ## On a phone
 

@@ -1,7 +1,8 @@
 """Tenant Logo Service — a community's uploaded logo.
 
 The logo replaces the coloured brand mark beside the wordmark and becomes the
-browser tab icon, and can sit in black in the middle of the community's
+browser tab and home-screen icon (as PNGs rendered from the stored logo, since
+Safari and iOS won't use an SVG or WebP there), and can sit in black in the middle of the community's
 equipment QR codes (chosen per print run). Uploads are never stored or served as
 sent: a bitmap is decoded, checked and re-encoded into one square WebP, and an
 SVG is rebuilt from an allowlist of drawing elements (``svg_sanitize``), so only
@@ -17,11 +18,13 @@ changes content and is cached for a year; a new upload is a new URL.
 import asyncio
 import base64
 import hashlib
+import logging
 import re
 from collections import OrderedDict
 from io import BytesIO
 from typing import Optional
 
+import resvg_py
 from PIL import Image, ImageOps, UnidentifiedImageError
 from tortoise.transactions import in_transaction
 
@@ -33,6 +36,8 @@ from application.services.auth_service import AuthService
 from application.tenant_context import require_tenant_id
 from application.utils.svg_sanitize import looks_like_svg, sanitise_svg
 from models import User
+
+logger = logging.getLogger(__name__)
 
 MAX_UPLOAD_BYTES = 1024 * 1024
 MAX_SOURCE_SIDE = 4096
@@ -49,14 +54,28 @@ ROUTE_PREFIX = '/brand-logo'
 _SHA_RE = re.compile(r'^[0-9a-f]{64}$')
 _TOO_BIG = f'Logos can be up to {MAX_SOURCE_SIDE}×{MAX_SOURCE_SIDE} pixels.'
 
+# 32 is the tab icon; 180 is the iOS home-screen (apple-touch) icon, which iOS
+# draws on black when transparent, so it gets the app's dark shell behind it.
+TAB_ICON_SIDE = 32
+TOUCH_ICON_SIDE = 180
+ICON_SIDES = frozenset({TAB_ICON_SIDE, TOUCH_ICON_SIDE})
+TOUCH_ICON_BACKGROUND = (0x17, 0x12, 0x0D, 255)
+TOUCH_ICON_FILL = 0.8
+_SVG_RENDER_WIDTH = 512
+
 # Keyed by (tenant_id, sha256). Entries never go stale because the key names
 # the content, so the only policy needed is a size bound.
 _CACHE_MAX = 128
 _cache: 'OrderedDict[tuple[int, str], bytes]' = OrderedDict()
+_icon_cache: 'OrderedDict[tuple[int, str, int], bytes]' = OrderedDict()
 
 
 def logo_url(tenant_id: int, sha256: str, fmt: str = 'webp') -> str:
     return f'{ROUTE_PREFIX}/{tenant_id}/{sha256}.{fmt}'
+
+
+def icon_url(tenant_id: int, sha256: str, side: int) -> str:
+    return f'{ROUTE_PREFIX}/{tenant_id}/{sha256}-{side}.png'
 
 
 def stored_format(content: bytes) -> str:
@@ -112,6 +131,31 @@ def normalise_logo(data: bytes) -> bytes:
     canvas.paste(fitted, ((OUTPUT_SIDE - fitted.width) // 2, (OUTPUT_SIDE - fitted.height) // 2))
     out = BytesIO()
     canvas.save(out, 'WEBP', quality=90, method=6)
+    return out.getvalue()
+
+
+def render_icon(content: bytes, side: int) -> bytes:
+    """The stored logo as a square ``side`` PNG.
+
+    ``content`` is only ever bytes :func:`prepare_logo` produced: a sanitised
+    SVG has no external references for the renderer to follow.
+    """
+    if stored_format(content) == 'svg':
+        source = resvg_py.svg_to_bytes(svg_string=content.decode('utf-8'), width=_SVG_RENDER_WIDTH)
+    else:
+        source = content
+    with Image.open(BytesIO(source)) as img:
+        img.load()
+        logo = img.convert('RGBA')
+    if side == TOUCH_ICON_SIDE:
+        inner, background = round(side * TOUCH_ICON_FILL), TOUCH_ICON_BACKGROUND
+    else:
+        inner, background = side, (0, 0, 0, 0)
+    fitted = ImageOps.contain(logo, (inner, inner), Image.Resampling.LANCZOS)
+    canvas = Image.new('RGBA', (side, side), background)
+    canvas.alpha_composite(fitted, ((side - fitted.width) // 2, (side - fitted.height) // 2))
+    out = BytesIO()
+    canvas.save(out, 'PNG', optimize=True)
     return out.getvalue()
 
 
@@ -220,3 +264,30 @@ class TenantLogoService:
         if len(_cache) > _CACHE_MAX:
             _cache.popitem(last=False)
         return content
+
+    @staticmethod
+    async def get_icon_png(tenant_id: int, sha256: str, side: int) -> Optional[bytes]:
+        """The logo rendered as a ``side`` PNG icon, else ``None``.
+
+        ``None`` too when the logo won't render, so the browser falls back to
+        the other icons the page declares instead of the request failing.
+        """
+        if side not in ICON_SIDES:
+            return None
+        key = (tenant_id, sha256, side)
+        cached = _icon_cache.get(key)
+        if cached is not None:
+            _icon_cache.move_to_end(key)
+            return cached
+        content = await TenantLogoService.get_logo_bytes(tenant_id, sha256)
+        if content is None:
+            return None
+        try:
+            png = await asyncio.to_thread(render_icon, content, side)
+        except (ValueError, OSError, UnicodeDecodeError, Image.DecompressionBombError):
+            logger.warning('Could not render logo %s for tenant %s as an icon', sha256, tenant_id, exc_info=True)
+            return None
+        _icon_cache[key] = png
+        if len(_icon_cache) > _CACHE_MAX:
+            _icon_cache.popitem(last=False)
+        return png

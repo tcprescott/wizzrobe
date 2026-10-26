@@ -124,13 +124,13 @@ class TestSubmitWithDb:
             )
         assert await Feedback.filter(user=outsider).count() == 0
 
-    async def test_a_super_admin_needs_no_membership(self, db):
+    async def test_a_super_admin_joins_first_like_everyone(self, db):
         admin = await User.create(discord_id=557, username='platform')
         await UserRole.create(user=admin, role=Role.SUPER_ADMIN, tenant=None)
-        feedback = await FeedbackService().submit(
-            actor=admin, category='other', message='hello', page_url='/',
-        )
-        assert feedback.id is not None
+        with pytest.raises(PermissionError, match='members'):
+            await FeedbackService().submit(
+                actor=admin, category='other', message='hello', page_url='/',
+            )
 
 
 class TestSetReviewed:

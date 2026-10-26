@@ -103,6 +103,14 @@ class TestPositions:
             assert resp.status_code == 200
             assert resp.json()['name'] == 'Steady'
 
+    async def test_empty_patch_is_still_refused_for_a_plain_member(self, db, app):
+        """An empty body changes nothing, but must not skip the coordinator check."""
+        _, raw = await create_user_token(username='plain')
+        pos = await VolunteerPosition.create(name='Steady')
+        async with client_for(app, raw) as c:
+            resp = await c.patch(f'/api/volunteers/positions/{pos.id}', json={})
+            assert resp.status_code == 403
+
     async def test_update_position_not_found(self, db, app):
         _, raw = await _coordinator_token()
         async with client_for(app, raw) as c:
@@ -187,6 +195,20 @@ class TestShifts:
         for body in (listed, one):
             assert {a['user_id'] for a in body['assignments']} == {published.id, drafted.id}
 
+    async def test_empty_patch_does_not_show_drafts_to_a_plain_member(self, db, app):
+        """An empty shift PATCH used to skip the coordinator check and return drafts."""
+        _, raw = await create_user_token(username='plain')
+        pos = await VolunteerPosition.create(name='Desk')
+        shift = await VolunteerShift.create(
+            position=pos, starts_at=utc(2025, 10, 8, 12), ends_at=utc(2025, 10, 8, 16),
+        )
+        drafted = await create_community_member(username='drafted')
+        await VolunteerAssignment.create(shift=shift, user=drafted, auto_generated=True)
+        async with client_for(app, raw) as c:
+            resp = await c.patch(f'/api/volunteers/shifts/{shift.id}', json={})
+            assert resp.status_code == 403
+            assert 'drafted' not in resp.text
+
     async def test_get_shift_not_found(self, db, app):
         _, raw = await create_user_token(username='reader', roles=[Role.VOLUNTEER])
         async with client_for(app, raw) as c:
@@ -210,6 +232,29 @@ class TestShifts:
             body = resp.json()
             assert body['position_id'] == pos.id
             assert body['slots_needed'] == 2
+
+    async def test_create_shift_returns_the_new_shift_beside_a_twin(self, db, app):
+        """The response used to be guessed from the window by position and start,
+        so a second shift at the same time came back as the first one."""
+        _, raw = await _coordinator_token()
+        pos = await VolunteerPosition.create(name='Desk')
+        existing = await VolunteerShift.create(
+            position=pos, starts_at=utc(2025, 10, 8, 12), ends_at=utc(2025, 10, 8, 16), label='First',
+        )
+        async with client_for(app, raw) as c:
+            resp = await c.post(
+                '/api/volunteers/shifts',
+                json={
+                    'position_id': pos.id,
+                    'starts_at': iso(2025, 10, 8, 12),
+                    'ends_at': iso(2025, 10, 8, 18),
+                    'label': 'Second',
+                },
+            )
+            assert resp.status_code == 201
+            body = resp.json()
+            assert body['id'] != existing.id
+            assert body['label'] == 'Second'
 
     async def test_create_shift_end_before_start_bad_request(self, db, app):
         _, raw = await _coordinator_token()

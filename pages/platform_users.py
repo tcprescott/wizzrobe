@@ -29,6 +29,7 @@ from theme.tables.preferences import (
     preferences_button,
     search_input,
 )
+from theme.url_state import bind_url
 
 _NAME = '''
     <div class="text-weight-bold">{{ props.row.display }}</div>
@@ -166,8 +167,9 @@ async def render_users_section(user: User) -> None:
 
     with header_row:
         search_input(table, placeholder='Search name, handle or Discord ID…', width='flex-1 sm:flex-none sm:w-64')
-        ui.toggle({'all': 'Everyone', 'password': 'Has password'}, value='all', on_change=on_filter) \
+        accounts = ui.toggle({'all': 'Everyone', 'password': 'Has password'}, value='all', on_change=on_filter) \
             .props('no-caps dense unelevated no-wrap').classes('wiz-segmented')
+        bind_url('accounts', accounts, default='all', history='replace')
         preferences_button(table)
 
     async def on_set_password(e) -> None:

@@ -159,7 +159,7 @@ calls.)
 Do not re-attempt these:
 
 - **`BaseHTTPMiddleware` → pure ASGI** for the two header-only middlewares: fully converted, headers verified byte-for-byte; 63 ms baseline vs 71 ms converted, 288/500 vs 255/500 under burst. Reverted. If revisited, the candidates are `Auth` and `Tenant`, which run real logic — not the header ones.
-- **Raising NiceGUI's `response_timeout`** 3 s → 20 s: 304/500 and 219/500 against a baseline spread of 92–288. No signal. Reverted.
+- **Raising NiceGUI's `response_timeout`** 3 s → 20 s: 304/500 and 219/500 against a baseline spread of 92–288. No signal for *throughput* past the knee, so it was reverted then. It is now raised to 30 s anyway (`application/utils/page_build_timeout.py`) for a different reason: a restart sends every open tab back inside a few seconds, a burst of ~25 just past the admission ceiling, and the builds that needed 4–5 s were being cancelled at 3 s into a dead-end error page instead of finishing.
 - **Disabling TLS on the DB connection**: the profile showed heavy `asyncio.sslproto` and ~1200 HMAC ops per render, but that is a test-environment artefact — Debian's packaged Postgres enables `ssl=on` with a snakeoil cert, while `postgres:16-alpine` (what compose runs) ships no server certificate, so production is already un-TLS'd. Every CPU figure here is therefore slightly *pessimistic* relative to the real deployment.
 
 ## Traps in the remaining Phase 1 items

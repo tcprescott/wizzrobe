@@ -66,11 +66,11 @@ async def handle_hard_preset_interaction(interaction: discord.Interaction) -> No
     Responds ephemerally so only the clicking user sees the result.
     """
     from application.services import MatchHardPresetService
-    from discordbot._tenant import match_tenant_id
+    from discordbot._tenant import match_scope
 
     async def resolve_tenant(parsed):
         _, match_id = parsed
-        return await match_tenant_id(match_id)
+        return await match_scope(match_id)
 
     async def handle(inter: discord.Interaction, parsed, user, send: SendFn) -> None:
         action, match_id = parsed

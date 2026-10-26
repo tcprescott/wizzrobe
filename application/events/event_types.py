@@ -12,6 +12,16 @@ from typing import FrozenSet
 
 
 class EventType:
+    # A community's events (one SGL weekend each). ``event`` here is the
+    # weekend; the bus's own "event" is a published message.
+    EVENT_CREATED = 'event.created'
+    EVENT_UPDATED = 'event.updated'
+    EVENT_WENT_LIVE = 'event.went_live'
+    EVENT_ARCHIVED = 'event.archived'
+    EVENT_UNARCHIVED = 'event.unarchived'
+    EVENT_DEFAULT_CHANGED = 'event.default_changed'
+    EVENT_DELETED = 'event.deleted'
+    EVENT_SETUP_COPIED = 'event.setup_copied'
     # Match lifecycle
     MATCH_CREATED = 'match.created'
     MATCH_UPDATED = 'match.updated'
@@ -22,6 +32,7 @@ class EventType:
     MATCH_STARTED = 'match.started'
     MATCH_FINISHED = 'match.finished'
     MATCH_CONFIRMED = 'match.confirmed'
+    MATCH_FORFEITED = 'match.forfeited'
     MATCH_ACKNOWLEDGED = 'match.acknowledged'
     MATCH_RESULT_RECORDED = 'match.result_recorded'
     MATCH_SEED_ROLLED = 'match.seed_rolled'
@@ -47,6 +58,10 @@ class EventType:
     # Player comments and private staff notes never leave the app as text.
     MATCH_COMMENT_ADDED = 'match.comment_added'
     MATCH_COMMENT_DELETED = 'match.comment_deleted'
+    MATCH_PLAYER_RUNNING_LATE = 'match.player_running_late'
+    MATCH_PLAYER_LATE_CLEARED = 'match.player_late_cleared'
+    MATCH_PLAYER_SEED_READY = 'match.player_seed_ready'
+    MATCH_PLAYER_SEED_NOT_READY = 'match.player_seed_not_ready'
     # A player asking staff to move or call off their match. Worth publishing
     # separately from the match.rescheduled an approval also emits: a subscriber
     # wants to hear that someone *asked*, not only that the schedule moved.
@@ -82,6 +97,9 @@ class EventType:
     VOLUNTEER_CHECKED_IN = 'volunteer.checked_in'
     VOLUNTEER_CHECK_IN_UNDONE = 'volunteer.check_in_undone'
     VOLUNTEER_RUNNING_LATE = 'volunteer.running_late'
+    # Staff said a volunteer isn't needed; the shift still counts as worked.
+    VOLUNTEER_CALLED_OFF = 'volunteer.called_off'
+    VOLUNTEER_CALL_OFF_UNDONE = 'volunteer.call_off_undone'
 
     # Racetime race-room lifecycle (mirrors AuditActions.RACE_ROOM_*). Tenant-
     # scoped domain events a webhook subscriber can act on; published by the
@@ -185,6 +203,9 @@ class EventType:
     # webhook subscriber can see or act on.
     TENANT_MEMBER_ADDED = 'tenant.member_added'
     TENANT_MEMBER_REMOVED = 'tenant.member_removed'
+    # A bulk import from the community's Discord server, one event per run
+    # carrying every added member's id rather than one event per person.
+    TENANT_MEMBERS_IMPORTED = 'tenant.members_imported'
     # The join-request lifecycle. A subscriber routing "someone wants in" to a
     # staff channel is the point; the decisions close the loop for it.
     TENANT_JOIN_REQUESTED = 'tenant.join_requested'
@@ -198,12 +219,18 @@ class EventType:
     # ``user_id`` as routing keys.
     TOURNAMENT_ENROLLED = 'tournament.enrolled'
     TOURNAMENT_WITHDRAWN = 'tournament.withdrawn'
+    TOURNAMENT_PLAYER_DROPPED = 'tournament.player_dropped'
 
     # Prize money. A subscriber mirroring results to a site or a payout run
     # needs to hear both halves — the pool changing and the split changing —
     # because either moves what every placement is owed.
     TOURNAMENT_PRIZE_POOL_UPDATED = 'tournament.prize_pool_updated'
     TOURNAMENT_PAYOUT_UPDATED = 'tournament.payout_updated'
+    TOURNAMENT_SGLIVE_LINK_UPDATED = 'tournament.sglive_link_updated'
+
+    # The booking windows of a tournament's stages changed; booking clients
+    # holding a cached window should re-read it. Carries ``tournament_id``.
+    TOURNAMENT_ROUND_SCHEDULE_UPDATED = 'tournament.round_schedule_updated'
 
     # Event check-in (mirrors AuditActions.CHECK_IN_*). Someone arriving is what
     # a subscriber wants to hear about (a welcome post, a live attendance count),
@@ -231,8 +258,10 @@ class EventType:
 
     # Every published event name; drives the webhook UI multiselect + validation.
     ALL: FrozenSet[str] = frozenset({
+        EVENT_CREATED, EVENT_UPDATED, EVENT_WENT_LIVE, EVENT_ARCHIVED, EVENT_UNARCHIVED,
+        EVENT_DEFAULT_CHANGED, EVENT_DELETED, EVENT_SETUP_COPIED,
         MATCH_CREATED, MATCH_UPDATED, MATCH_DELETED, MATCH_CANCELLED, MATCH_RESCHEDULED,
-        MATCH_SEATED, MATCH_STARTED, MATCH_FINISHED, MATCH_CONFIRMED,
+        MATCH_SEATED, MATCH_STARTED, MATCH_FINISHED, MATCH_CONFIRMED, MATCH_FORFEITED,
         MATCH_ACKNOWLEDGED, MATCH_RESULT_RECORDED, MATCH_SEED_ROLLED,
         MATCH_SEED_ROLL_QUEUED, MATCH_SEED_ROLL_FAILED,
         MATCH_STAGE_ASSIGNED, MATCH_STAGE_CLEARED, MATCH_STATIONS_ASSIGNED,
@@ -240,6 +269,8 @@ class EventType:
         MATCH_FLAGGED_FOR_REVIEW, MATCH_REVIEW_CLEARED,
         MATCH_STREAM_VOLUNTEERED, MATCH_STREAM_VOLUNTEER_WITHDRAWN,
         MATCH_COMMENT_ADDED, MATCH_COMMENT_DELETED,
+        MATCH_PLAYER_RUNNING_LATE, MATCH_PLAYER_LATE_CLEARED,
+        MATCH_PLAYER_SEED_READY, MATCH_PLAYER_SEED_NOT_READY,
         MATCH_HARD_PRESET_AGREED, MATCH_HARD_PRESET_AGREEMENT_REVOKED,
         MATCH_PRESET_OVERRIDE_SET, MATCH_PRESET_OVERRIDE_CLEARED,
         MATCH_RESCHEDULE_REQUESTED, MATCH_RESCHEDULE_AGREED,
@@ -249,7 +280,7 @@ class EventType:
         CREW_ACKNOWLEDGED,
         VOLUNTEER_ASSIGNED, VOLUNTEER_UNASSIGNED, VOLUNTEER_ACKNOWLEDGED,
         VOLUNTEER_RELEASED, VOLUNTEER_CHECKED_IN, VOLUNTEER_CHECK_IN_UNDONE,
-        VOLUNTEER_RUNNING_LATE,
+        VOLUNTEER_RUNNING_LATE, VOLUNTEER_CALLED_OFF, VOLUNTEER_CALL_OFF_UNDONE,
         RACE_ROOM_CREATED, RACE_ROOM_OPENED, RACE_ROOM_STARTED,
         RACE_ROOM_FINISHED, RACE_ROOM_CANCELLED, RACE_ROOM_RESULT_RECORDED,
         SG_EPISODE_IMPORTED, SG_EPISODE_CANCELLED, SG_MATCH_AUTO_FINISHED,
@@ -267,10 +298,12 @@ class EventType:
         BRACKET_ENTRY_RETIRED, BRACKET_CANCELLED,
         BRACKET_GAME_SCHEDULED, BRACKET_GAME_COMPLETED, BRACKET_GAME_CANCELLED,
         BRACKET_GAME_LINKED, BRACKET_GAME_UNLINKED, BRACKET_GAME_RELEASED,
-        TENANT_MEMBER_ADDED, TENANT_MEMBER_REMOVED,
+        TENANT_MEMBER_ADDED, TENANT_MEMBER_REMOVED, TENANT_MEMBERS_IMPORTED,
         TENANT_JOIN_REQUESTED, TENANT_JOIN_APPROVED, TENANT_JOIN_DENIED,
-        TOURNAMENT_ENROLLED, TOURNAMENT_WITHDRAWN,
+        TOURNAMENT_ENROLLED, TOURNAMENT_WITHDRAWN, TOURNAMENT_PLAYER_DROPPED,
         TOURNAMENT_PRIZE_POOL_UPDATED, TOURNAMENT_PAYOUT_UPDATED,
+        TOURNAMENT_SGLIVE_LINK_UPDATED,
+        TOURNAMENT_ROUND_SCHEDULE_UPDATED,
         CHECK_IN_EVENT_SYNCED, CHECK_IN_ENTRANT_CHECKED_IN,
         CHECK_IN_ENTRANT_CHECK_IN_UNDONE, CHECK_IN_ENTRANT_LINKED,
         CHECK_IN_ENTRANT_UNLINKED, CHECK_IN_ENTRANT_WALK_UP_ADDED,

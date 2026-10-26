@@ -22,6 +22,7 @@ from typing import Any
 from nicegui import app, ui
 
 from application.services import MatchScheduleService, MatchService, get_user_from_session
+from application.services.match.match_status import closes_without_winner
 from application.tenant_context import require_tenant_id
 from application.utils.match_labels import match_model_label
 from models import Match
@@ -30,6 +31,12 @@ from theme.dialog.match_dialog import AdminMatchDialog
 from theme.notify import notify_error
 from theme.tables.match_access import MatchBoardAccess
 from theme.tables.match_slots import CANDIDATE_STAGE
+
+
+def open_race_finish_message(match: Match) -> str:
+    """The body of the Finish prompt for an open race (more than four players)."""
+    return (f'Finish this {len(match.players)}-player race? No winner is recorded, '  # type: ignore[attr-defined]
+            'and finishing also confirms the result.')
 
 
 def confirm_result_message(match: Match) -> str:
@@ -126,17 +133,50 @@ class MatchLifecycleHandlers:
             if success:
                 ui.notify(message, color='positive')
             else:
-                # Check if it's just "already in progress" (not an error per se)
                 if "already in progress" in message.lower():
-                    pass  # Skip notification, just refresh
+                    # Said, not swallowed: a roll stranded by a restart blocks
+                    # re-rolls for a while, and silence read as a dead button.
+                    ui.notify(message, color='info')
                 else:
                     ui.notify(message, color='warning' if "already been generated" in message else 'negative')
 
         # Always refresh the row to clear spinner
         await self.table_view.update_row_by_id(match_id)
 
+    async def on_clear_seed(self, match_id: int):
+        """Clear a rolled seed from the match sheet, after a confirm.
+
+        Not in :meth:`callbacks`: the board has no clear-seed control, only the
+        sheet does, and it offers this only where the viewer may edit the match.
+        """
+        async def confirm():
+            try:
+                actor = await self._actor()
+                await self.match_service.clear_match_seed(match_id, actor=actor)
+                await self.table_view.update_row_by_id(match_id)
+                with self.page_container:
+                    ui.notify('Seed cleared', color='positive')
+            except (ValueError, PermissionError) as e:
+                with self.page_container:
+                    notify_error(e)
+
+        with self.page_container:
+            ConfirmationDialog(
+                title='Clear seed?',
+                message="Clear this match's seed? Players will need a new one rolled.",
+                on_confirm=confirm,
+                confirm_text='Clear seed',
+                cancel_text='Back',
+            ).open()
+
     async def on_seat(self, match_id: int):
         match = await Match.get(id=match_id, tenant_id=require_tenant_id()).prefetch_related('tournament', 'players', 'players__user')
+
+        # A stage match is played on the stage, so there is nobody to seat:
+        # one tap checks it in (Thomas, 2026-10-25).
+        if match.stage_id is not None:  # type: ignore[attr-defined]
+            await self.confirm_seating(match)
+            return
 
         async def handle_confirm(_):
             dialog.dialog.close()
@@ -202,6 +242,17 @@ class MatchLifecycleHandlers:
 
     async def on_finish(self, match_id: int):
         match = await Match.get(id=match_id, tenant_id=require_tenant_id()).prefetch_related('tournament', 'players', 'players__user')
+
+        if closes_without_winner(match.players):  # type: ignore[attr-defined]
+            with self.page_container:
+                ConfirmationDialog(
+                    title='Finish race',
+                    message=open_race_finish_message(match),
+                    confirm_text='Finish race',
+                    tone='primary',
+                    on_confirm=lambda _: self.confirm_finishing(match),
+                ).open()
+            return
 
         async def handle_confirm(_):
             dialog.dialog.close()

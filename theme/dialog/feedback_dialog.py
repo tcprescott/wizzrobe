@@ -5,12 +5,20 @@ from models import FeedbackCategory, User
 from theme.dialog._helpers import dialog_actions, dialog_header, mobile_sheet, submit_on_enter
 from theme.help import resolve_help
 from theme.notify import notify_error
+from theme.pickers import ColorSelect
 
 CATEGORY_OPTIONS = {
     FeedbackCategory.BUG.value: 'Bug',
     FeedbackCategory.SUGGESTION.value: 'Suggestion',
     FeedbackCategory.PRAISE.value: 'Praise',
     FeedbackCategory.OTHER.value: 'Other',
+}
+
+CATEGORY_ICONS = {
+    FeedbackCategory.BUG.value: {'icon': 'o_bug_report'},
+    FeedbackCategory.SUGGESTION.value: {'icon': 'o_lightbulb'},
+    FeedbackCategory.PRAISE.value: {'icon': 'o_favorite_border'},
+    FeedbackCategory.OTHER.value: {'icon': 'o_chat_bubble_outline'},
 }
 
 
@@ -30,11 +38,12 @@ class FeedbackDialog:
             mobile_sheet(dialog)
             dialog_header('Send Feedback', dialog, help=await resolve_help(['feedback-send'], user=self.user))
             with ui.column().classes('q-pa-md gap-2 full-width'):
-                category_input = ui.select(
-                    options=CATEGORY_OPTIONS,
+                category_input = ColorSelect(
+                    CATEGORY_OPTIONS,
                     value=self.initial_category,
                     label='Category',
-                ).classes('full-width')
+                    extras=CATEGORY_ICONS,
+                ).classes('full-width').props(remove='options-dense')
                 message_input = ui.textarea(
                     label='Message',
                     value=self.initial_message,

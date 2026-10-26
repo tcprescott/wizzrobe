@@ -7,12 +7,14 @@ draws boxes. Lane placement and the event-day rule are pure functions so they
 are testable without a database.
 """
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import date, datetime, time, timedelta
 from typing import Any, List, Optional, Sequence, Tuple
 
 from application.repositories import MatchRepository, VolunteerAssignmentRepository
+from application.services.community_event_service import CommunityEventService, ends_at
 from application.services.crew_service import CrewService
+from application.services.event_service import EventService, with_event_name
 from application.services.player_availability_service import PlayerAvailabilityService
 from application.services.system_config_service import SystemConfigService
 from application.utils.timezone import combine_local, local_day_bounds, to_local, to_utc_aware
@@ -21,6 +23,15 @@ from models import User, VolunteerAvailabilityStatus
 MATCH = 'match'
 CREW = 'crew'
 SHIFT = 'shift'
+#: A community event they host, RSVP'd to or asked a reminder for.
+COMMUNITY = 'community'
+#: How they're attending a community event, strongest first.
+HOSTING = 'hosting'
+GOING = 'going'
+REMINDER = 'reminder'
+#: An approved crew slot on a match with no stage yet: crew is only needed on
+#: stage, so it may not happen.
+NO_STAGE = 'no_stage'
 #: Time the player blocked out under "When you can't play". Not a commitment:
 #: the page draws it behind the blocks rather than in a lane of its own.
 UNAVAILABLE = 'unavailable'
@@ -42,6 +53,12 @@ class TimelineItem:
     match_id: int = 0
     #: The shift's assignment, for its details dialog.
     assignment: Any = None
+    event_id: int = 0
+    #: ``HOSTING``, ``GOING`` or ``REMINDER`` for a community event,
+    #: ``NO_STAGE`` for an off-stage crew slot, else empty.
+    badge: str = ''
+    #: Drawn as optional: a reminder-only event, an off-stage crew slot.
+    optional: bool = False
 
 
 @dataclass(frozen=True)
@@ -109,6 +126,7 @@ class MyTimelineService:
         self.assignment_repository = VolunteerAssignmentRepository()
         self.crew_service = CrewService()
         self.availability_service = PlayerAvailabilityService()
+        self.community_service = CommunityEventService()
 
     async def window(self) -> Tuple[datetime, datetime]:
         """The event's days on the viewer's clock, each running 06:00 to 06:00."""
@@ -117,29 +135,51 @@ class MyTimelineService:
         shift = timedelta(hours=DAY_STARTS_AT_HOUR)
         return lo + shift, hi + shift
 
-    async def items(self, user: User, *, include_shifts: bool) -> List[TimelineItem]:
-        """``include_shifts`` is the caller's ``FeatureFlag.VOLUNTEERS`` check."""
+    async def items(
+        self, user: User, *, include_shifts: bool, include_community: bool = False,
+    ) -> List[TimelineItem]:
+        """``include_shifts`` is the caller's ``FeatureFlag.VOLUNTEERS`` check,
+        ``include_community`` its ``FeatureFlag.COMMUNITY_EVENTS`` one."""
         start, end = await self.window()
-        crew_roles = {
-            row['match_id']: row['role']
+        crew = {
+            row['match_id']: row
             for row in await self.crew_service.list_my_commitments(user, upcoming_only=False)
         }
-        items: List[TimelineItem] = []
+        # Each item beside the event it came from: the list spans every live event.
+        sourced: List[Tuple[TimelineItem, Optional[int]]] = []
         for match in await self.match_repository.commitments_for_user(user.id, start, end):
-            items.append(self._match_item(match, user, crew_roles.get(match.id)))
+            row = crew.get(match.id)
+            sourced.append((self._match_item(
+                match, user, row['role'] if row else None, approved=bool(row and row['approved']),
+            ), match.event_id))
         if include_shifts:
             for assignment in await self.assignment_repository.list_for_user(user, with_shiftmates=True):
                 shift = assignment.shift
                 if shift.ends_at <= start or shift.starts_at >= end:
                     continue
-                items.append(TimelineItem(
+                sourced.append((TimelineItem(
                     kind=SHIFT,
                     starts_at=to_utc_aware(shift.starts_at),
                     ends_at=to_utc_aware(shift.ends_at),
                     title=shift.position.name if shift.position else 'Volunteer',
                     detail=shift.label or '',
                     assignment=assignment,
-                ))
+                ), shift.event_id))
+        if include_community:
+            for event, attending in await self.community_service.list_attending(user, start, end):
+                lo = max(to_utc_aware(event.starts_at), start)
+                hi = min(to_utc_aware(ends_at(event)), end)
+                for a, b in split_by_event_day(lo, hi):
+                    sourced.append((TimelineItem(
+                        kind=COMMUNITY, starts_at=a, ends_at=b,
+                        title=event.title, detail=event.location or '',
+                        event_id=event.id, badge=attending, optional=attending == REMINDER,
+                    ), event.event_id))
+        names = await EventService.names_if_mixed(eid for _, eid in sourced)
+        items = [
+            replace(item, detail=with_event_name(item.detail, eid, names)) if eid in names else item
+            for item, eid in sourced
+        ]
         items.sort(key=lambda i: i.starts_at)
         return items
 
@@ -161,7 +201,9 @@ class MyTimelineService:
         return pieces
 
     @staticmethod
-    def _match_item(match: Any, user: User, crew_role: Optional[str]) -> TimelineItem:
+    def _match_item(
+        match: Any, user: User, crew_role: Optional[str], *, approved: bool = False,
+    ) -> TimelineItem:
         tournament = match.tournament
         minutes = (
             getattr(tournament, 'average_match_duration', None)
@@ -179,9 +221,10 @@ class MyTimelineService:
                 detail=short, match_id=match.id,
             )
         names = ' vs '.join(p.user.preferred_name for p in players)
+        off_stage = approved and match.stage_id is None
         return TimelineItem(
             kind=CREW, starts_at=starts_at, ends_at=starts_at + timedelta(minutes=minutes),
             title=_ROLE_TITLES.get(crew_role, 'Crew'),
             detail=' · '.join(part for part in (names, short) if part),
-            match_id=match.id,
+            match_id=match.id, badge=NO_STAGE if off_stage else '', optional=off_stage,
         )

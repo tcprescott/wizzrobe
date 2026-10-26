@@ -23,9 +23,12 @@ from typing import List, Optional, Tuple
 
 from nicegui import background_tasks, context, ui
 
+from application.utils.match_labels import has_undecided, matchup_parts
 from application.utils.tenant_urls import login_path
 from models import JoinRequestStatus, User
 from theme.base import BaseLayout, current_local_url
+from theme.links import link_button
+from theme.matchup import matchup_label
 
 logger = logging.getLogger(__name__)
 
@@ -43,6 +46,8 @@ class PreviewMatch:
     time: str
     players: str
     tournament: str
+    #: ``players`` in pieces when a side is still a bracket placeholder, else empty.
+    players_parts: list = field(default_factory=list)
 
 
 @dataclass
@@ -72,6 +77,23 @@ class JoinPreview:
     open_membership: bool = False
 
 
+def roster_parts(match) -> list:
+    """:func:`roster_label` in pieces, flagging the sides a bracket hasn't decided.
+
+    Empty for a match with no roster, which reads as its title instead.
+    """
+    return matchup_parts(
+        [p.user.preferred_name for p in match.players],
+        list(getattr(match, 'bracket_placeholders', None) or []),
+        max_names=2,
+    )
+
+
+def _undecided_parts(match) -> list:
+    parts = roster_parts(match)
+    return parts if has_undecided(parts) else []
+
+
 def roster_label(match) -> str:
     """Who is playing, in one line that stays one line.
 
@@ -79,6 +101,7 @@ def roster_label(match) -> str:
     ran off the card, so past two the rest are counted.
     """
     names = [p.user.preferred_name for p in match.players]
+    names += list(getattr(match, 'bracket_placeholders', None) or [])
     if not names:
         return match.title or 'TBD'
     if len(names) <= 2:
@@ -148,6 +171,7 @@ async def resolve_join_preview(tenant_id: int) -> JoinPreview:
                     time=format_local_time(match.scheduled_at),
                     players=roster_label(match),
                     tournament=match.tournament.name if match.tournament else '',
+                    players_parts=_undecided_parts(match),
                 )
                 for match in matches[:PREVIEW_LIMIT]
             ]
@@ -178,10 +202,8 @@ def _render_discord(preview: JoinPreview, *, signed_in: bool) -> None:
         return
     with ui.row().classes('items-center justify-center gap-2'):
         if url:
-            ui.button(
-                'Join the Discord server', icon='forum',
-                on_click=lambda: ui.navigate.to(url, new_tab=True),
-            ).props('color=primary outline no-caps')
+            link_button('Join the Discord server', url, icon='forum') \
+                .props('color=primary outline no-caps')
         if recheck:
             ui.button(
                 'I’ve joined, check again', icon='refresh',
@@ -214,7 +236,10 @@ def _render_preview(preview: JoinPreview) -> None:
     for match in preview.matches:
         with ui.row().classes('items-center gap-3 no-wrap w-full'):
             ui.label(match.time).classes('text-mono text-caption')
-            ui.label(match.players).classes('text-body2 col ellipsis')
+            if match.players_parts:
+                matchup_label(match.players_parts, 'text-body2 col ellipsis', tag='div')
+            else:
+                ui.label(match.players).classes('text-body2 col ellipsis')
             if match.tournament:
                 ui.label(match.tournament).classes('text-caption text-grey ellipsis')
     if preview.more_matches:

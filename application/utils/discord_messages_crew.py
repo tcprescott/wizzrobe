@@ -84,7 +84,7 @@ def crew_approval_withdrawn_dm(
     return _crew_dm(
         f"You've been taken off the {crew_type} slot for this match.",
         _crew_match_lines(match_title, scheduled_at_display, stage_name, player_names),
-        "Check with an admin if this looks wrong.",
+        "Check with staff if this looks wrong.",
     )
 
 
@@ -137,6 +137,56 @@ def crew_withdrawn_dm(
     )
 
 
+def partner_invite_dm(
+    inviter_name: str,
+    match_title: Optional[str],
+    scheduled_at_display: str,
+    stage_name: Optional[str],
+    player_names: Optional[list[str]],
+) -> str:
+    """DM asking someone to commentate a match alongside the commentator who invited them."""
+    return _crew_dm(
+        f"{inviter_name} wants you on commentary with them.",
+        _crew_match_lines(match_title, scheduled_at_display, stage_name, player_names),
+        "Accept and you're signed up as commentator. Staff still approve each of you.",
+    )
+
+
+def partner_answered_dm(
+    partner_name: str,
+    accepted: bool,
+    match_title: Optional[str],
+    scheduled_at_display: str,
+    stage_name: Optional[str],
+    player_names: Optional[list[str]],
+) -> str:
+    """DM to the inviter once their partner has answered."""
+    if accepted:
+        intro = f"{partner_name} accepted. You're both signed up to commentate."
+        cta = 'Staff approve each of you on your own.'
+    else:
+        intro = f"{partner_name} can't commentate this one with you."
+        cta = 'You can invite someone else from the schedule.'
+    return _crew_dm(
+        intro,
+        _crew_match_lines(match_title, scheduled_at_display, stage_name, player_names),
+        cta,
+    )
+
+
+# The partner's invite DM, once it's settled. ``(title, description)``.
+def partner_invite_accepted_card() -> tuple[str, str]:
+    return ('✅ You accepted', "You're signed up as commentator. Staff still approve it.")
+
+
+def partner_invite_declined_card() -> tuple[str, str]:
+    return ('↩️ You declined', 'Nothing more to do.')
+
+
+def partner_invite_cancelled_card(inviter_name: str) -> tuple[str, str]:
+    return ('↩️ Invite cancelled', f'{inviter_name} took this invite back, so there\'s nothing to answer.')
+
+
 # ---------------------------------------------------------------------------
 # Ephemeral replies to the crew buttons
 # ---------------------------------------------------------------------------
@@ -155,6 +205,14 @@ def crew_signup_confirmation(role: str, player_names: str) -> str:
     """Ephemeral success reply after a user signs up for crew via a DM button."""
     match_ref = f' for the match ({player_names})' if player_names else ''
     return (
-        f"You're signed up as **{role}**{match_ref}. An admin will confirm it "
+        f"You're signed up as **{role}**{match_ref}. Staff will confirm it "
         f'shortly.'
     )
+
+
+def partner_invite_reply(accepted: bool, inviter_name: str) -> str:
+    """Ephemeral reply after the partner presses Accept or Decline on the invite DM."""
+    if accepted:
+        return (f"You're signed up to commentate with {inviter_name}. "
+                'Staff will confirm it shortly.')
+    return f'Done. {inviter_name} will see you can\'t make it.'

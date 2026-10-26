@@ -25,7 +25,7 @@
     "path": "/volunteer/check-in-desk?event=1",
     "setup": [
       {
-        "fill": "input[placeholder=\"Search by name or badge code\"]",
+        "fill": "input[placeholder=\"Name or badge code\"]",
         "value": "Base Buyer"
       },
       {
@@ -61,7 +61,7 @@
     "selector": ".checkin-grid-card",
     "setup": [
       {
-        "fill": "input[placeholder=\"Search by name or badge code\"]",
+        "fill": "input[placeholder=\"Name or badge code\"]",
         "value": "Racer Nine"
       },
       {
@@ -76,7 +76,7 @@
     "selector": ".checkin-grid-card",
     "setup": [
       {
-        "fill": "input[placeholder=\"Search by name or badge code\"]",
+        "fill": "input[placeholder=\"Name or badge code\"]",
         "value": "Refund Requester"
       },
       {

@@ -90,7 +90,7 @@ def _notice_row(notice: Notice) -> None:
 
 
 def create() -> None:
-    @public_page('/about')
+    @public_page('/about', scope='community')
     async def about() -> None:
         await _frame('About')
         with ui.column().classes('page-container-narrow w-full'):
@@ -119,7 +119,7 @@ def create() -> None:
                           '/changelog')
                 link_card('help', 'Help', 'Guides for players, crew, volunteers and staff.', '/help')
 
-    @public_page('/about/privacy')
+    @public_page('/about/privacy', scope='community')
     async def privacy() -> None:
         await _frame('Privacy policy')
         with ui.column().classes('page-container-narrow w-full'):
@@ -128,7 +128,7 @@ def create() -> None:
             with ui.element('div').classes('wiz-help-prose'):
                 render_blocks(privacy_blocks())
 
-    @public_page('/about/notices')
+    @public_page('/about/notices', scope='community')
     async def notices() -> None:
         await _frame('Third-party notices')
         with ui.column().classes('page-container-narrow w-full'):

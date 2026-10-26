@@ -3,8 +3,8 @@
 
 from nicegui import app, background_tasks, context, ui
 
+from application.event_context import event_scoped
 from application.services import AuthService, StageService, get_user_from_session
-from application.tenant_context import require_tenant_id
 from application.utils.safe_url import http_url_or_empty
 from models import Tournament
 from theme.dialog import TournamentDialog
@@ -40,15 +40,14 @@ async def admin_tournaments_page() -> None:
             await dialog.open()
 
         def get_query():
-            query = Tournament.filter(tenant_id=require_tenant_id())
+            query = event_scoped(Tournament.all())
             return query if own_ids is None else query.filter(id__in=own_ids)
         
         table_view = TournamentTableView(
             columns=columns, get_query=get_query,
             submit_tournament_callback=add_tournament if can_create else None,
             table_key=TableKeys.ADMIN_TOURNAMENTS, searchable=True, can_delete=can_create,
-            can_sync=True,
-            sync_sites=None if can_create else frozenset({'startgg'}),
+            can_sync=True, can_link=can_create,
         )
         
         # Route through the view's _bg so the tab-switch refresh rebinds the

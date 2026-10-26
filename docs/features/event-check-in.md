@@ -378,10 +378,13 @@ events staff have opened. Run one tick by hand with
   is on, so desk workers can find it before doors open (`BaseLayout` via
   `AuthService.can_view_check_in_desk`). `/checkin` and
   `/checkin/{event_id}` redirect there.
-- The desk itself It's phone-first: the search box, progress
-  bar, the All / Not yet / Checked in / Comped / Walk-ups switch (the app's
-  `.wiz-segmented` control, with counts; it scrolls sideways on a phone) and
-  sync status stick under the app header. **Comped** is everyone with a comp,
+- The desk is phone-first. The event title, help, Sync and Add walk-up sit at
+  the top and scroll away; the search box with the filter menu beside it (All /
+  Not yet / Checked in / Comped / Walk-ups, each with its count) and the progress
+  line ("7 of 14 checked in · synced 09:13") stick under the app header, about
+  110px. The full sync line shows under them only when the roster may be stale
+  (an error, or never synced). Pinning the title and a wrapping filter switch too
+  left a phone room for one card and none above the keyboard. **Comped** is everyone with a comp,
   buyers and walk-ups comped on top of a badge included. All also
   lists people whose badge was refunded, so a search still finds them, marked
   **Refunded**; they don't count towards the progress bar. Below

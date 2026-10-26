@@ -10,16 +10,31 @@ from application.utils.tenant_urls import login_path
 from models import FeatureFlag, User
 from theme.assets import asset_url
 from theme.browser_monitoring import install_browser_monitoring
-from theme.chrome import apply_brand_palette, cookie_dark_pref, dark_mode_button, install_timezone_detection
+from theme.chrome import apply_brand_palette, cookie_dark_pref, dark_mode_button, install_page_scripts
 from theme.connection import install_connection_watch
-from theme.nav_badges import bottom_nav_tab, drawer_tab_badge, nav_icon
-from theme.nav_section import mark_nav_section, nav_section_matches
+from theme.drawer_help import render_drawer_help, render_github_item
+from theme.drawer_nav import render_drawer_nav
+from theme.event_switcher import EventSwitcherState, load_event_switcher, render_event_switcher
+from theme.links import set_link
+from theme.nav_badges import bottom_nav_tab
 from theme.notice import drain_notice
 from theme.page_header import heading_fallback
+from theme.url_state import PUSH_ATTR, History, url_state
 from theme.usage_telemetry import install_usage_capture, record_tab_view
 from theme.waiting import waiting_panel
 
 logger = logging.getLogger(__name__)
+
+#: How a hub tab switch enters the browser's history: ``'push'`` makes Back undo it.
+TAB_HISTORY: History = 'push'
+
+DRAWER_WIDTH_DESKTOP = 248
+DRAWER_WIDTH_PHONE_MAX = 340
+DRAWER_WIDTH_JS = (
+    'Quasar.Screen.lt.md'
+    f' ? Math.min(Math.round(Quasar.Screen.width * 0.85), {DRAWER_WIDTH_PHONE_MAX})'
+    f' : {DRAWER_WIDTH_DESKTOP}'
+)
 
 #: Home's four sections as ``(label, icon)``. Home builds its tabs from these,
 #: and a tab-less page (a bracket, an article) offers them in the drawer to a
@@ -99,6 +114,11 @@ class BaseLayout:
         self._bottom_tab_labels: list = []
         self._syncing_nav = False
         self._tab_item_refs: dict = {}
+        self._section_buttons: dict = {}
+        self._section_lists: dict = {}
+        self._section_host: ui.element | None = None
+        self._shown_tab: str | None = None
+        self._section = section
         # Lazy tab rendering: every panel gets a container up front, but its
         # content is built on first show. `_pending_tabs` holds the not-yet-built
         # tabs; a label leaves it exactly once, when its content is built.
@@ -147,6 +167,9 @@ class BaseLayout:
         # Gates what only a member can use: Feedback, whose submit the service
         # refuses to anyone else, and the home sections on a tab-less page.
         self._is_member = False
+        # The event the page shows, and the events the header's switcher lists
+        # (resolved in prepare()). An empty list draws no switcher.
+        self.events = EventSwitcherState()
         self._prepared = False
         self.top_menu: list[dict] = []
 
@@ -200,7 +223,7 @@ class BaseLayout:
     def offers_feedback(self) -> bool:
         """Whether this viewer may send this community feedback here.
 
-        A member (or super-admin) where ``FEEDBACK`` is live — the same test the
+        A member where ``FEEDBACK`` is live — the same test the
         drawer's item uses, so every Feedback affordance agrees with it.
         """
         return bool(self.user) and self._is_member and self._show_feedback
@@ -224,12 +247,12 @@ class BaseLayout:
         if self._show_admin is not True and self.user is not None and self._tenant_id is not None:
             self._show_admin = await AuthService.can_open_admin(self.user)
         if self.user is not None and self._tenant_id is not None:
-            self._is_member = (
-                await AuthService.is_super_admin(self.user)
-                or await TenantService.is_member(self.user.id, self._tenant_id)
-            )
-        if self._is_member:
-            self._show_feedback = await FeatureFlagService().is_enabled(FeatureFlag.FEEDBACK)
+            joined = await TenantService.is_member(self.user.id, self._tenant_id)
+            self._is_member = joined or await AuthService.is_super_admin(self.user)
+            # Feedback is for people who joined; a super-admin joins first, as
+            # for every other sign-up (the service refuses them otherwise).
+            if joined:
+                self._show_feedback = await FeatureFlagService().is_enabled(FeatureFlag.FEEDBACK)
         if self._tenant_id is not None:
             self._show_event_info = await FeatureFlagService().is_enabled(FeatureFlag.EVENT_INFO)
         if self._is_member:
@@ -239,6 +262,8 @@ class BaseLayout:
         if self._is_member:
             self._show_check_in = await AuthService.can_view_check_in_desk(self.user)
             self._show_proctor = await AuthService.can_open_proctor_station(self.user)
+        if self._tenant_id is not None and not self._chromeless:
+            self.events = await load_event_switcher(self.user, self._tenant_id)
         await self._load_theme_colors()
         return self
 
@@ -321,9 +346,10 @@ class BaseLayout:
         ui.add_head_html('<meta name="robots" content="noindex, nofollow">')
         # PWA wiring: the manifest makes the app installable, the two media-scoped
         # theme-color metas tint the mobile browser/status-bar chrome to the gold
-        # header (light) / charcoal (dark) palette, and the apple-touch-icon is the
-        # iOS home-screen icon. The service worker is registered from the site root
-        # (/sw.js, served in frontend.py) so its scope covers start_url '/'.
+        # header (light) / charcoal (dark) palette; the tab and iOS home-screen
+        # icons come with the palette (apply_brand_palette). The service worker
+        # is registered from the site root (/sw.js, served in frontend.py) so its
+        # scope covers start_url '/'.
         ui.add_head_html('<link rel="manifest" href="/static/manifest.webmanifest">')
         # Light-mode browser/status-bar tint follows the tenant's header colour;
         # dark mode keeps the charcoal bar (the header stays charcoal in dark).
@@ -333,7 +359,6 @@ class BaseLayout:
         ui.add_head_html(
             '<meta name="theme-color" content="#17120D" media="(prefers-color-scheme: dark)">'
         )
-        ui.add_head_html('<link rel="apple-touch-icon" href="/static/icons/apple-touch-icon.png">')
         ui.add_head_html(
             '<script>'
             "if('serviceWorker' in navigator){"
@@ -365,7 +390,7 @@ class BaseLayout:
             "if(m){event.preventDefault();m.focus();}"
             '">Skip to content</a>'
         )
-        # Konami code (↑↑↓↓←→←→BA) opens a hidden cat-fact dialog. The guard keeps
+        # Konami code (↑↑↓↓←→←→BA) opens a hidden fact dialog. The guard keeps
         # the window listener from being installed more than once across renders.
         ui.add_body_html(
             '<script>'
@@ -375,6 +400,8 @@ class BaseLayout:
             "'ArrowLeft','ArrowRight','ArrowLeft','ArrowRight','b','a'];"
             'let pos=0;'
             "window.addEventListener('keydown',function(e){"
+            # Autofill and some iOS keyboards fire keydown with no key (SGLMAN-2C).
+            "if(typeof e.key!=='string'||e.isComposing)return;"
             'const key=e.key.length===1?e.key.toLowerCase():e.key;'
             'if(key===seq[pos]){pos++;'
             "if(pos===seq.length){pos=0;emitEvent('wiz_konami',{});}}"
@@ -383,8 +410,8 @@ class BaseLayout:
             '}'
             '</script>'
         )
-        ui.on('wiz_konami', lambda _: self._open_cat_fact())
-        install_timezone_detection()
+        ui.on('wiz_konami', lambda _: self._open_fact())
+        install_page_scripts()
         # A dropped socket eats a click silently; this makes the page say so.
         install_connection_watch()
         # Drag-to-resize table headers; in the head because a lazy tab build's <script> never runs.
@@ -392,6 +419,8 @@ class BaseLayout:
         ui.add_head_html(f'<script defer src="{asset_url("js/a11y.js")}"></script>')
         ui.add_head_html(f'<script defer src="{asset_url("js/busy.js")}"></script>')
         ui.add_head_html(f'<script defer src="{asset_url("js/dialog-keyboard.js")}"></script>')
+        ui.add_head_html(f'<script defer src="{asset_url("js/timeline.js")}"></script>')
+        ui.add_head_html(f'<script defer src="{asset_url("js/anchors.js")}"></script>')
         install_usage_capture(self._tenant_id)
         install_browser_monitoring()
         # Phoenix palette (gold primary, ember secondary), overridable per tenant via TenantThemeService.
@@ -407,9 +436,9 @@ class BaseLayout:
         self._render_drawer()
         self._render_footer()
 
-    def _open_cat_fact(self) -> None:
-        from theme.dialog import CatFactDialog
-        CatFactDialog().open()
+    def _open_fact(self) -> None:
+        from theme.dialog import FactDialog
+        FactDialog().open()
 
     def _render_header(self) -> None:
         """Render the header with burger menu button and user controls."""
@@ -423,13 +452,14 @@ class BaseLayout:
             wordmark_taps = {'n': 0}
 
             def on_wordmark_tap():
-                from theme.dialog import CatFactDialog
+                from theme.dialog import FactDialog
                 wordmark_taps['n'] += 1
                 if wordmark_taps['n'] >= 5:
                     wordmark_taps['n'] = 0
-                    CatFactDialog().open()
+                    FactDialog().open()
 
             ui.label(self._wordmark or 'Wizzrobe').classes('wiz-wordmark').on('click', on_wordmark_tap)
+            render_event_switcher(self)
 
             # Flexible spacer that pushes the user/login controls to the right
             # edge. It must be a real element rather than margin-left:auto on the
@@ -449,7 +479,10 @@ class BaseLayout:
                     # default avatar): show a placeholder glyph instead of an empty
                     # ui.image(None), which also renders a broken image + console error.
                     ui.icon('account_circle').classes('user-avatar user-avatar-placeholder')
-                ui.button(on_click=lambda: ui.navigate.to('/logout'), icon='logout', color=None).props('flat').tooltip('Log out')
+                # A real link: a Home Screen web app on an iPhone ignored the tap
+                # when it went through the server (see theme.links).
+                logout_btn = ui.button(icon='logout', color=None).props('flat').tooltip('Log out')
+                set_link(logout_btn, '/logout', new_tab=False)
             else:
                 # The full-text "Login with Discord" button also lives in the page
                 # body; here the label is a child element (not the q-btn text prop)
@@ -460,11 +493,8 @@ class BaseLayout:
                 # bracket or an article comes back to it rather than to home.
                 # Off any community there is nowhere local to come back to.
                 target = login_path(current_local_url()) if self._tenant_id is not None else '/login'
-                login_btn = ui.button(
-                    on_click=lambda: ui.navigate.to(target),
-                    icon='login',
-                    color=None,
-                ).props('flat').classes('login-button')
+                login_btn = ui.button(icon='login', color=None).props('flat').classes('login-button')
+                set_link(login_btn, target, new_tab=False)
                 with login_btn:
                     ui.label('Login with Discord').classes('login-button-text')
                 login_btn.tooltip('Login with Discord')
@@ -479,165 +509,73 @@ class BaseLayout:
         # NiceGUI renders the drawer body (.q-drawer__content) as a flex column,
         # so a trailing ui.space() pushes the copyright to the foot of the drawer
         # when the nav fits, and it falls to the scroll-end when the nav is long.
-        # 224px fits the longest label ("Event Information") with room to spare;
-        # Quasar's 300px default left a wide empty strip beside the nav.
+        # Pinned on desktop it is 248px; as the phone overlay it takes 85% of the
+        # screen (up to 340px) so rows are thumb-sized and a sliver of the page
+        # still shows behind it. Quasar's width prop is a pixel number and also
+        # sets the closed drawer's offset, so it's computed client-side rather
+        # than overridden in CSS, which would leave the closed drawer peeking out.
         with ui.left_drawer(value=False).props(
-            'breakpoint=1023 show-if-above bordered width=224'
+            'breakpoint=1023 show-if-above bordered '
+            f':width="{DRAWER_WIDTH_JS}"'
         ) as self._drawer:
             current_path = current_local_url().split('?', 1)[0]
-            with ui.list().props('padding'):
-                for item in self.top_menu:
-                    with ui.item(on_click=lambda u=item['url']: ui.navigate.to(u)).props('clickable v-ripple') as top_item:
-                        with ui.item_section().props('avatar'):
-                            ui.icon(nav_icon(item['icon'])).props('size=sm')
-                        with ui.item_section():
-                            ui.item_label(item['label'])
-                    if nav_section_matches(item['url'], current_path):
-                        mark_nav_section(top_item)
+            render_drawer_nav(self, current_path)
 
-            if not self.tabs and self._is_member:
-                # A tab-less page has no section list of its own, so a member
-                # gets home's: the bracket or article they followed a link to
-                # is not where they stop being a player.
-                ui.separator()
-                with ui.list().props('padding'):
-                    for label, icon in HOME_SECTIONS:
-                        with ui.item(
-                            on_click=lambda slug=tab_slug(label): ui.navigate.to(f'/home/{slug}')
-                        ).props('clickable v-ripple'):
-                            with ui.item_section().props('avatar'):
-                                ui.icon(nav_icon(icon)).props('size=sm')
-                            with ui.item_section():
-                                ui.item_label(label)
-
-            if self.tabs:
-                ui.separator()
-                with ui.list().props('padding'):
-                    current_group = None
-                    for tab in self.tabs:
-                        # Section headers for grouped drawers (admin passes a
-                        # 'group' per tab); ungrouped pages render a flat list.
-                        group = tab.get('group')
-                        if group and group != current_group:
-                            current_group = group
-                            ui.item_label(group).props('header').classes('wiz-drawer-group')
-                        with ui.item(
-                            on_click=lambda t=tab['label']: self._switch_tab(t)
-                        ).props('clickable v-ripple') as tab_item:
-                            with ui.item_section().props('avatar'):
-                                ui.icon(nav_icon(tab.get('icon', 'circle'))).props('size=sm')
-                            with ui.item_section():
-                                ui.item_label(tab['label'])
-                            drawer_tab_badge(tab)
-                        if tab['label'] == self._default_tab:
-                            tab_item.props(add='active')
-                        self._tab_item_refs[tab['label']] = tab_item
-
-            if self._tenant_id is not None:
-                self._render_drawer_help()
-
-            # Copyright and source link live at the foot of the drawer (every
-            # page renders the drawer, so this replaces the old desktop-only
-            # footer meta row).
+            # The info card and the copyright sit at the foot of the drawer
+            # when the nav fits, and fall to its scroll-end when it is long.
             ui.space()
-            with ui.row().classes('items-center q-px-md q-pb-xs no-wrap'):
-                ui.icon('code').props('size=xs').classes('wiz-drawer-github-link')
-                ui.link('GitHub', 'https://github.com/tcprescott/wizzrobe', new_tab=True) \
-                    .classes('text-caption wiz-drawer-github-link')
+            if self._tenant_id is not None:
+                render_drawer_help(self)
+            else:
+                with ui.list().props('padding'):
+                    render_github_item()
+
             ui.label(self._copyright).classes('text-caption q-px-md q-pb-md wiz-drawer-copyright')
-
-    def _render_drawer_help(self) -> None:
-        """The drawer's public foot: Event Information, Help, Feedback.
-
-        Only inside a community — off one there is no /help or /event-info to
-        reach, and an item pointing at the page it sits on is a circle.
-        """
-        from theme.dialog import FeedbackDialog
-
-        current_path = current_local_url().split('?', 1)[0]
-        ui.separator()
-        with ui.list().props('padding'):
-            # Above Help, and ungated on ``self.user`` for the same reason:
-            # the event handbook answers the questions people have before
-            # they sign in, and some of its readers never will.
-            if self._show_event_info:
-                with ui.item(
-                    on_click=lambda: ui.navigate.to('/event-info')
-                ).props('clickable v-ripple') as event_item:
-                    with ui.item_section().props('avatar'):
-                        ui.icon(nav_icon('menu_book')).props('size=sm')
-                    with ui.item_section():
-                        ui.item_label('Event Guide')
-                if nav_section_matches('/event-info', current_path):
-                    mark_nav_section(event_item)
-
-            if self._show_qualifiers:
-                with ui.item(
-                    on_click=lambda: ui.navigate.to('/qualifiers')
-                ).props('clickable v-ripple') as qualifiers_item:
-                    with ui.item_section().props('avatar'):
-                        ui.icon(nav_icon('timer')).props('size=sm')
-                    with ui.item_section():
-                        ui.item_label('Qualifiers')
-                if nav_section_matches('/qualifiers', current_path):
-                    mark_nav_section(qualifiers_item)
-
-            # Not gated on ``self.user``: /help is a public page, and a
-            # signed-out visitor on any framed public surface is exactly the
-            # reader who most needs the way in. The real /login is a bare
-            # redirect to Discord with no page to hang a link on, so the
-            # drawer is that way in.
-            with ui.item(
-                on_click=lambda: ui.navigate.to('/help')
-            ).props('clickable v-ripple') as help_item:
-                with ui.item_section().props('avatar'):
-                    ui.icon(nav_icon('help')).props('size=sm')
-                with ui.item_section():
-                    ui.item_label('Help')
-            if nav_section_matches('/help', current_path):
-                mark_nav_section(help_item)
-
-            # Members only, and flag-gated: the service refuses a submit
-            # from anyone else, so the item would open a dialog that fails.
-            if self.offers_feedback:
-                with ui.item(
-                    on_click=lambda: FeedbackDialog(self.user).open()
-                ).props('clickable v-ripple'):
-                    with ui.item_section().props('avatar'):
-                        ui.icon(nav_icon('rate_review')).props('size=sm')
-                    with ui.item_section():
-                        ui.item_label('Send Feedback')
 
     def _switch_tab(self, label: str) -> None:
         # Only move the panel; the drawer highlight and the /base/<slug> history
         # replace are handled centrally by _handle_tab_change so every entry point
-        # (drawer, bottom nav, swipe) produces identical side effects and no loops.
+        # (drawer, bottom nav) produces identical side effects and no loops.
         self._tab_panels.set_value(label)
 
     async def _handle_tab_change(self) -> None:
-        """Single sink for panel-value changes: sync the drawer highlight, the
-        bottom-nav highlight, and the /base/<slug> section URL regardless of what
-        drove the change (drawer item, bottom tab, or swipe). Registered after the
-        panels are built so the initial deep-linked value does not fire a spurious
-        history entry."""
+        """Single sink for panel-value changes: drawer item or bottom tab.
+        Back/Forward go through :meth:`_show_slug`, which shows the tab first."""
         label = self._tab_panels.value
+        if label == self._shown_tab:
+            return
+        await self._show_tab(label, history=TAB_HISTORY)
+
+    async def _show_slug(self, slug: str) -> None:
+        """Back or Forward landed on the tab ``slug`` names (none: the first)."""
+        label = self._label_by_slug.get(slug) or self._label_by_alias.get(slug) or self.tabs[0]['label']
+        if label == self._shown_tab:
+            return
+        self._shown_tab = label
+        self._tab_panels.set_value(label)  # type: ignore[attr-defined]
+        await self._show_tab(label, history=None)
+
+    async def _show_tab(self, label: str, *, history: 'History | None') -> None:
+        """Highlights, address and title, then build or refresh the tab.
+        ``history=None`` when Back/Forward did it and the address has moved."""
+        self._shown_tab = label
         for lbl, item in self._tab_item_refs.items():
             if lbl == label:
                 item.props(add='active')
             else:
                 item.props(remove='active')
         self._sync_bottom_nav(label)
-        # replace(), not push(): tab switches (incl. every swipe) update the URL for
-        # deep-linking/sharing without a Back-button trap per tab on mobile, and so
-        # load no page — hence the explicit tab-view telemetry. Done before the
-        # (possibly awaited) first build so the URL lands promptly.
+        # Done before the (possibly awaited) first build so the address lands
+        # promptly. A switch loads no page, hence the explicit tab-view telemetry.
         if self._base_path is not None:
-            ui.navigate.history.replace(f'{self._base_path}/{self._slug_by_label[label]}')
+            url_state().show_tab(label, f'{self._base_path}/{self._slug_by_label[label]}', history=history)
             record_tab_view(self._base_path, self._slug_by_label[label])
         # First visit builds the panel, which loads its own data — broadcasting
         # ``selected_tab`` as well would make it fetch twice. Afterwards the panel
         # already exists, so the broadcast is what refreshes it.
         if await self._build_tab(label):
+            if history is not None:
+                url_state().sync()
             return
         # Notify the newly-shown tab so it can refresh its data. Tabs listen via
         # ``ui.on('selected_tab', ...)`` (see theme/tables/admin_crud.wire_tab_refresh
@@ -645,6 +583,12 @@ class BaseLayout:
         # own label, so a single broadcast reaches exactly the active tab. Emitted
         # client-side via the global emitEvent so e.args is the plain label string.
         ui.run_javascript(f"emitEvent('selected_tab', {json.dumps(label)})")
+
+    def mark_tab_push(self, element: ui.element, label: str) -> None:
+        """Let a click on ``element`` push ``label``'s address itself (``PUSH_ATTR``)."""
+        slug = self._slug_by_label.get(label)
+        if self._base_path is not None and slug:
+            element.props[PUSH_ATTR] = f'{self._base_path}/{slug}'
 
     def _sync_bottom_nav(self, label: str) -> None:
         """Highlight the active tab in the bottom nav.
@@ -707,9 +651,10 @@ class BaseLayout:
             self._bottom_tab_labels = [tab['label'] for tab in self.tabs]
             # Every tab is in the bar, so the deep-linked default always has a
             # matching child — no empty value to bind and no Quasar warning.
+            # url-state: exempt — the hub tabs, which BaseLayout keeps in the address itself
             with ui.tabs(value=self._default_tab).props('dense no-caps').classes('wiz-bottom-nav') as self._bottom_tabs:
                 for tab in self.tabs:
-                    bottom_nav_tab(tab)
+                    self.mark_tab_push(bottom_nav_tab(tab), tab['label'])
             # Tapping a bottom tab drives the panel; the highlight/URL sync then
             # flows back through _handle_tab_change.
             self._bottom_tabs.on_value_change(self._on_bottom_tab)
@@ -774,13 +719,13 @@ class BaseLayout:
         """Build the panel shells, then fill in only the visible one.
 
         Every ``ui.tab_panel`` container is created up front so panel switching,
-        deep-linked sections, and swipe all keep working, but a tab's *content* is
+        and deep-linked sections keep working, but a tab's *content* is
         built the first time that tab is shown. The home page carries up to nine
         tabs and a viewer sees one, so eager rendering spent ~47% of the page's
         render CPU on panels nobody looked at
         (docs/scaling-roadmap.md).
         """
-        with ui.tab_panels(value=self._default_tab).props('swipeable animated').classes(
+        with ui.tab_panels(value=self._default_tab).props('animated').classes(
             'w-full'
         ) as self._tab_panels:
             for tab in self.tabs:
@@ -788,10 +733,16 @@ class BaseLayout:
                     self._tab_containers[tab['label']] = ui.row().classes('full-width')
                 self._pending_tabs[tab['label']] = tab
 
+        state = url_state()
+        state.bind_hub(self._base_path, self._section, self._default_tab,
+                       self._slug_by_label[self._default_tab], self._tab_containers, self._show_slug)
+        self._shown_tab = self._default_tab
         await self._build_tab(self._default_tab, deferred=False)
         record_tab_view(self._base_path, self._slug_by_label.get(self._default_tab))
+        # The address and title name the tab and any view it opened on.
+        state.sync(keep_foreign=True)
 
-        # Panel changes (drawer click, bottom-tab tap, or swipe) all route through
+        # Panel changes (drawer click or bottom-tab tap) all route through
         # _handle_tab_change, which syncs both highlights and the URL. Registered
         # after construction so the initial deep-linked value does not fire it (no
         # spurious history entry). The bottom nav is kept in sync manually rather

@@ -211,7 +211,7 @@ class TestParser:
 
 class TestChangelogPage:
     def test_registers_the_route_as_public(self):
-        assert "@public_page('/changelog')" in inspect.getsource(changelog_page.create)
+        assert "@public_page('/changelog', scope='community')" in inspect.getsource(changelog_page.create)
 
     def test_route_never_joins_protected_routes(self):
         changelog_page.create()

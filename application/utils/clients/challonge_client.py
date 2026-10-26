@@ -8,11 +8,13 @@ The client returns **normalized** Python dicts so the service layer never has
 to know the JSON:API wire shape:
 
     me               -> {'user_id', 'username'}
-    tournament       -> {'id', 'name', 'url', 'state'}
+    tournament       -> {'id', 'name', 'url', 'state', 'group_stage', 'tournament_type'}
     participant      -> {'participant_id', 'name', 'challonge_user_id', 'username', 'misc'}
-    match            -> {'match_id', 'state', 'round',
+    match            -> {'match_id', 'state', 'round', 'identifier',
                          'player1_participant_id', 'player2_participant_id',
-                         'winner_participant_id'}
+                         'winner_participant_id', 'scores',
+                         'player1_prereq_match_id', 'player1_is_prereq_loser',
+                         'player2_prereq_match_id', 'player2_is_prereq_loser'}
 
 Authenticated service calls obtain a bearer token via a ``token_provider``
 callback (``async (force_refresh: bool = False) -> str``) so the client can
@@ -24,8 +26,11 @@ callback, which never stores a token).
 
 from __future__ import annotations
 
+import asyncio
 import os
-from typing import Any, Awaitable, Callable, Dict, List, Optional
+import re
+from contextlib import asynccontextmanager
+from typing import Any, AsyncIterator, Awaitable, Callable, Dict, List, Optional
 from urllib.parse import quote
 
 import aiohttp
@@ -34,6 +39,11 @@ AUTHORIZE_URL = 'https://api.challonge.com/oauth/authorize'
 TOKEN_URL = 'https://api.challonge.com/oauth/token'
 BASE_URL = 'https://api.challonge.com/v2.1'
 _PAGE_SIZE = 100
+# Challonge tacks this onto an invited entrant's name until they accept.
+_INVITE_PENDING = re.compile(r'\s*\(invitation pending\)\s*$', re.IGNORECASE)
+# aiohttp's default is five minutes, long enough to freeze a staff click or the
+# DM queue a result push rides on while Challonge is down.
+_TIMEOUT = aiohttp.ClientTimeout(total=20)
 
 TokenProvider = Callable[..., Awaitable[str]]
 RequestHook = Callable[[], Awaitable[None]]
@@ -42,9 +52,33 @@ RequestHook = Callable[[], Awaitable[None]]
 class ChallongeAPIError(Exception):
     """Raised when the Challonge API returns an error or unexpected payload."""
 
-    def __init__(self, message: str, status: Optional[int] = None):
+    def __init__(
+        self, message: str, status: Optional[int] = None, retry_after: Optional[float] = None,
+    ):
         super().__init__(message)
         self.status = status
+        self.retry_after = retry_after
+
+
+def _retry_after_seconds(value: Optional[str]) -> Optional[float]:
+    # Only the delta-seconds form; Cloudflare and Challonge don't send HTTP dates.
+    try:
+        return max(0.0, float(value)) if value else None
+    except ValueError:
+        return None
+
+
+@asynccontextmanager
+async def _session() -> AsyncIterator[aiohttp.ClientSession]:
+    # Callers only catch ChallongeAPIError, so a hung or unreachable Challonge
+    # must surface as one rather than escape as a raw aiohttp/timeout error.
+    try:
+        async with aiohttp.ClientSession(timeout=_TIMEOUT) as session:
+            yield session
+    except asyncio.TimeoutError as e:
+        raise ChallongeAPIError('Challonge did not respond in time') from e
+    except aiohttp.ClientError as e:
+        raise ChallongeAPIError(f'Could not reach Challonge: {e}') from e
 
 
 def build_authorize_url(
@@ -98,18 +132,26 @@ def _normalize_tournament(resource: Dict[str, Any]) -> Dict[str, Any]:
         'url': _attr(resource, 'full_challonge_url', 'url'),
         'state': _attr(resource, 'state'),
         'group_stage': bool(_attr(resource, 'group_stage_enabled')),
+        'tournament_type': _attr(resource, 'tournament_type'),
     }
+
+
+def _entrant_name(resource: Dict[str, Any]) -> Optional[str]:
+    name = _attr(resource, 'name', 'display_name')
+    return _INVITE_PENDING.sub('', name) if isinstance(name, str) else name
 
 
 def _normalize_participant(resource: Dict[str, Any]) -> Dict[str, Any]:
     return {
         'participant_id': str(resource.get('id')),
-        'name': _attr(resource, 'name', 'display_name'),
+        'name': _entrant_name(resource),
         'challonge_user_id': _opt_str(
             _attr(resource, 'challonge_user_id', 'user_id') or _rel_id(resource, 'user')
         ),
         'username': _attr(resource, 'challonge_username', 'username'),
         'misc': _opt_str(_attr(resource, 'misc')),
+        # Challonge keeps an entrant dropped after the start as inactive.
+        'active': _attr(resource, 'active') is not False,
     }
 
 
@@ -133,7 +175,34 @@ def _normalize_match(resource: Dict[str, Any]) -> Dict[str, Any]:
         'winner_participant_id': _opt_str(
             _attr(resource, 'winner_id') or _rel_id(resource, 'winner')
         ),
+        'identifier': _opt_str(_attr(resource, 'identifier')),
+        'scores': _scores_by_participant(points),
+        # Which match feeds each empty slot. Undocumented in v2.1, so the v1
+        # names and a relationship are all tried; absent, the slot reads "TBD".
+        **{
+            f'player{n}_prereq_match_id': _opt_str(
+                _attr(resource, f'player{n}_prereq_match_id') or _rel_id(resource, f'player{n}_prereq_match')
+            )
+            for n in (1, 2)
+        },
+        **{
+            f'player{n}_is_prereq_loser': bool(_attr(resource, f'player{n}_is_prereq_match_loser'))
+            for n in (1, 2)
+        },
     }
+
+
+def _scores_by_participant(points: Any) -> Dict[str, int]:
+    """``participant id -> games won`` from ``points_by_participant``; empty when
+    Challonge sent nothing usable, since a score is decoration on a result."""
+    out: Dict[str, int] = {}
+    for entry in points if isinstance(points, list) else []:
+        if not isinstance(entry, dict) or entry.get('participant_id') is None:
+            continue
+        scores = entry.get('scores')
+        if isinstance(scores, list) and scores and all(isinstance(x, int) for x in scores):
+            out[str(entry['participant_id'])] = sum(scores)
+    return out
 
 
 def _opt_str(value: Any) -> Optional[str]:
@@ -194,7 +263,7 @@ class ChallongeClient:
 
     async def _token_request(self, data: Dict[str, str]) -> Dict[str, Any]:
         await self._count_request()
-        async with aiohttp.ClientSession() as session:
+        async with _session() as session:
             async with session.post(TOKEN_URL, data=data) as resp:
                 payload = await resp.json()
                 if resp.status >= 400:
@@ -236,6 +305,14 @@ class ChallongeClient:
         )
         return [_normalize_match(r) for r in rows]
 
+    async def get_match(
+        self, tournament_id: str, match_id: str, community: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        data = await self._authed_request(
+            'GET', f'{_tournament_path(tournament_id, community)}/matches/{match_id}.json',
+        )
+        return _normalize_match(data.get('data') or {})
+
     async def get_tournament_full(
         self, tournament_id: str, community: Optional[str] = None,
     ) -> Dict[str, Any]:
@@ -252,6 +329,10 @@ class ChallongeClient:
             '?include_participants=1&include_matches=1',
         )
         resource = data.get('data') or {}
+        if not resource.get('id'):
+            # A sync prunes whatever this answer leaves out, so an empty or
+            # truncated 200 must never read as "the bracket is now empty".
+            raise ChallongeAPIError('Challonge returned no tournament in its answer')
         tournament = _normalize_tournament(resource)
         participants: List[Dict[str, Any]] = []
         matches: List[Dict[str, Any]] = []
@@ -362,7 +443,7 @@ class ChallongeClient:
 
     async def _raw_get(self, path: str, token: str) -> Dict[str, Any]:
         await self._count_request()
-        async with aiohttp.ClientSession() as session:
+        async with _session() as session:
             async with session.get(BASE_URL + path, headers=self._headers(token)) as resp:
                 return await self._parse(resp)
 
@@ -386,15 +467,24 @@ class ChallongeClient:
     ) -> Dict[str, Any]:
         if self._token_provider is None:
             raise ChallongeAPIError('No token provider configured for authenticated calls')
-        token = await self._token_provider()
-        async with aiohttp.ClientSession() as session:
+        try:
+            return await self._send(self._token_provider, method, path, json)
+        except (aiohttp.ClientError, asyncio.TimeoutError) as e:
+            raise ChallongeAPIError(f"Challonge didn't answer ({type(e).__name__})") from e
+
+    async def _send(
+        self, token_provider: TokenProvider, method: str, path: str,
+        json: Optional[Dict[str, Any]],
+    ) -> Dict[str, Any]:
+        token = await token_provider()
+        async with aiohttp.ClientSession(timeout=_TIMEOUT) as session:
             await self._count_request()
             async with session.request(
                 method, BASE_URL + path, headers=self._headers(token), json=json,
             ) as resp:
                 if resp.status == 401:
                     # Token may have expired between refresh checks — force one refresh + retry.
-                    token = await self._token_provider(force_refresh=True)
+                    token = await token_provider(force_refresh=True)
                     await self._count_request()
                     async with session.request(
                         method, BASE_URL + path, headers=self._headers(token), json=json,
@@ -406,7 +496,10 @@ class ChallongeClient:
     async def _parse(resp: aiohttp.ClientResponse) -> Dict[str, Any]:
         text = await resp.text()
         if resp.status >= 400:
-            raise ChallongeAPIError(f"Challonge API error ({resp.status}): {text}", status=resp.status)
+            raise ChallongeAPIError(
+                f"Challonge API error ({resp.status}): {text}", status=resp.status,
+                retry_after=_retry_after_seconds(resp.headers.get('Retry-After')),
+            )
         if not text:
             return {}
         import json as _json
@@ -432,7 +525,8 @@ _MOCK_MATCHES = [
     {'match_id': '8002', 'state': 'open', 'round': 1, 'player1_participant_id': '9003',
      'player2_participant_id': '9004', 'winner_participant_id': None},
     {'match_id': '8003', 'state': 'pending', 'round': 2, 'player1_participant_id': None,
-     'player2_participant_id': None, 'winner_participant_id': None},
+     'player2_participant_id': None, 'winner_participant_id': None, 'identifier': 'C',
+     'player1_prereq_match_id': '8001', 'player2_prereq_match_id': '8002'},
 ]
 
 
@@ -461,7 +555,7 @@ class MockChallongeClient(ChallongeClient):
     async def get_tournament(self, tournament_id: str, community: Optional[str] = None) -> Dict[str, Any]:
         return {'id': str(tournament_id), 'name': 'Mock Challonge Tournament',
                 'url': f'https://challonge.com/{tournament_id}', 'state': 'underway',
-                'group_stage': False}
+                'group_stage': False, 'tournament_type': 'single elimination'}
 
     async def list_participants(
         self, tournament_id: str, community: Optional[str] = None,
@@ -472,6 +566,11 @@ class MockChallongeClient(ChallongeClient):
         self, tournament_id: str, community: Optional[str] = None,
     ) -> List[Dict[str, Any]]:
         return [dict(m) for m in _MOCK_MATCHES]
+
+    async def get_match(
+        self, tournament_id: str, match_id: str, community: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        return next((dict(m) for m in _MOCK_MATCHES if m['match_id'] == str(match_id)), dict(_MOCK_MATCHES[0]))
 
     async def get_tournament_full(
         self, tournament_id: str, community: Optional[str] = None,

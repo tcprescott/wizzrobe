@@ -98,10 +98,10 @@ def render_error_page(
             ui.label(message).classes('error-message')
 
             if status_code == 404:
-                from application.utils.easter_eggs import random_cat_fact
-                with ui.row().classes('error-cat-fact items-center'):
-                    ui.icon('pets').props('size=sm')
-                    ui.label(random_cat_fact())
+                from application.utils.easter_eggs import current_theme, random_fact
+                with ui.row().classes('error-fact items-center'):
+                    ui.icon(current_theme().icon).props('size=sm')
+                    ui.label(random_fact())
 
             if error_id:
                 _remember_error_id(error_id)
@@ -129,8 +129,8 @@ def render_error_page(
                         # notify calls inside would raise.
                         on_click=lambda: _open_error_report(error_id),
                     ).props('flat')
-                    # Only where the viewer could actually send it — a member (or
-                    # super-admin) with Feedback live, as the drawer decides. The
+                    # Only where the viewer could actually send it — a member with
+                    # Feedback live, as the drawer decides. The
                     # 500 path renders synchronously with no prepared layout, so
                     # there it starts hidden and an async check reveals it.
                     if layout is not None and layout.is_prepared:
@@ -164,7 +164,6 @@ def _reveal_when_member(button) -> None:
 
 async def _reveal(button, client, tenant_id: int, session: dict) -> None:
     from application.services import (
-        AuthService,
         FeatureFlagService,
         TenantService,
         get_user_from_session,
@@ -178,9 +177,9 @@ async def _reveal(button, client, tenant_id: int, session: dict) -> None:
             if user is None:
                 return
             allowed = (
-                await AuthService.is_super_admin(user)
-                or await TenantService.is_member(user.id, tenant_id)
-            ) and await FeatureFlagService().is_enabled(FeatureFlag.FEEDBACK)
+                await TenantService.is_member(user.id, tenant_id)
+                and await FeatureFlagService().is_enabled(FeatureFlag.FEEDBACK)
+            )
         if allowed:
             with client:
                 button.set_visibility(True)

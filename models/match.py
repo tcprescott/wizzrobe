@@ -1,7 +1,10 @@
+
 from tortoise import fields
 from tortoise.models import Model
 
 from .enums import (
+    CommentaryInviteStatus,
+    ForfeitReason,
     MatchCommentKind,
     PresetOverride,
     RescheduleRequestKind,
@@ -13,6 +16,12 @@ from .enums import (
 class Match(Model):
     id = fields.IntField(pk=True)
     tenant = fields.ForeignKeyField('models.Tenant', related_name='matches', on_delete=fields.CASCADE)
+    # Nullable until every write stamps it; the events migration backfilled the
+    # rows that existed before (see docs/features/events.md).
+    event: fields.ForeignKeyRelation = fields.ForeignKeyField(
+        'models.Event', related_name='matches', on_delete=fields.CASCADE,
+    )
+    event_id: int
     tournament = fields.ForeignKeyField('models.Tournament', related_name='matches')
     # SET_NULL: deleting a stage (or seed) detaches its matches instead of
     # cascade-deleting the entire match and its players/crew/acknowledgments.
@@ -27,6 +36,9 @@ class Match(Model):
     comment = fields.TextField(null=True)
     is_stream_candidate = fields.BooleanField(default=False)
     title = fields.CharField(max_length=255, null=True)
+    # Staff-written markdown about the match, shown with it on the schedules. It
+    # is what a placeholder (a booked slot with no players yet) says it's for.
+    description = fields.TextField(null=True)
     generated_seed = fields.ForeignKeyField(
         'models.GeneratedSeeds', related_name='matches', null=True, on_delete=fields.SET_NULL
     )
@@ -53,9 +65,35 @@ class Match(Model):
     # proctor raising it is standing in the room, and typing up what happened is
     # the admin's conversation to have, not a textarea to fill in mid-event.
     needs_review = fields.BooleanField(default=False)
+    # Staff booked a bracket matchup before its players were known: what stands
+    # in for each side nobody fills yet ("Andy or Benny"), kept current by the
+    # bracket sync and emptied once both players are in. Null on every other match.
+    bracket_placeholders = fields.JSONField(null=True)  # type: ignore[var-annotated]
+    # A bracket reset removed the matchup a placeholder booking hung off; staff
+    # re-link it from Not booked yet.
+    bracket_link_lost = fields.BooleanField(default=False)
+    # Crew signed up for a bracket matchup nobody has booked yet: this match
+    # holds their signups (source "challonge", "startgg" or "bracket", and that
+    # source's row id). It has no players and no time. Booking the matchup moves
+    # the crew onto the booking and deletes this one. Null on every other match.
+    crew_hold_source = fields.CharField(max_length=16, null=True)
+    crew_hold_key = fields.IntField(null=True)
+    # One game of a best-of set booked from a Challonge or start.gg matchup.
+    # Game 1 holds the bracket link; later games point at it through
+    # ``set_first``, and the set's result reaches the bracket once someone has
+    # won enough games. Null on every other match.
+    set_game = fields.IntField(null=True)
+    set_best_of = fields.IntField(null=True)
+    set_first = fields.ForeignKeyField(  # type: ignore[var-annotated]
+        'models.Match', related_name='set_games', null=True, on_delete=fields.CASCADE
+    )
     # Set when the stage reminder for this match has been sent, so the worker
     # fires once. Cleared whenever the stage changes, which re-arms it.
     stage_reminder_sent_at = fields.DatetimeField(null=True)
+    # Set when staff decided the match by forfeit. The player who forfeited is
+    # the one left without a finish rank, as a race room records a DQ.
+    forfeit_reason = fields.CharEnumField(ForfeitReason, max_length=16, null=True)
+    forfeit_note = fields.CharField(max_length=280, null=True)
     created_at = fields.DatetimeField(auto_now_add=True)
     updated_at = fields.DatetimeField(auto_now=True)
 
@@ -94,6 +132,7 @@ class Match(Model):
         # scheduled_at / finished_at are indexed at the field level; these FK
         # columns drive the tournament- and stage-scoped schedule/report filters.
         indexes = (('tournament',), ('stage',))
+        unique_together = (('tenant', 'crew_hold_source', 'crew_hold_key'),)
 
 
 class MatchPlayers(Model):
@@ -107,12 +146,28 @@ class MatchPlayers(Model):
     # run through a race room. ``finish_rank`` remains the place (1 = winner).
     finish_time = fields.IntField(null=True)
     assigned_station = fields.CharField(max_length=50, null=True)
+    # The player's own "running late" heads-up: how far out they said they were,
+    # when they said it, and an optional note for staff. Cleared by the player's
+    # Undo; check-in makes it moot rather than clearing it, so the record stays.
+    late_minutes = fields.IntField(null=True)
+    late_at = fields.DatetimeField(null=True)
+    late_note = fields.CharField(max_length=280, null=True)
+    # When the player tapped Ready for seed, on a tournament where players
+    # release their own seed. Cleared by Not ready; kept once the seed is out.
+    seed_ready_at = fields.DatetimeField(null=True)
+    # When this player's first Ready told the others. Set once, so tapping Ready
+    # and Not ready over and over can't DM the opponent over and over.
+    seed_nudged_at = fields.DatetimeField(null=True)
     created_at = fields.DatetimeField(auto_now_add=True)
     updated_at = fields.DatetimeField(auto_now=True)
 
     class Meta:
         unique_together = (('match', 'user'),)
         table = 'matchplayers'
+        # Postgres returns rows in heap order, and an UPDATE moves the row, so
+        # without this a seat assignment or a running-late note swaps who is
+        # listed first on every board, dialog and DM that reads match.players.
+        ordering = ('id',)
         indexes = (('user',),)  # composite is match-first; user-only reverse lookup uncovered
 
 
@@ -134,6 +189,12 @@ class MatchAcknowledgment(Model):
 class Stage(Model):
     id = fields.IntField(pk=True)
     tenant = fields.ForeignKeyField('models.Tenant', related_name='stages', on_delete=fields.CASCADE)
+    # Nullable until every write stamps it; the events migration backfilled the
+    # rows that existed before (see docs/features/events.md).
+    event: fields.ForeignKeyRelation = fields.ForeignKeyField(
+        'models.Event', related_name='stages', on_delete=fields.CASCADE,
+    )
+    event_id: int
     name = fields.CharField(max_length=255)
     stream_url = fields.CharField(max_length=255, null=True)
     is_active = fields.BooleanField(default=True)
@@ -142,7 +203,7 @@ class Stage(Model):
 
     class Meta:
         table = 'stage'
-        unique_together = (('tenant', 'name'),)
+        unique_together = (('tenant', 'event', 'name'),)
 
 
 class Station(Model):
@@ -160,6 +221,12 @@ class Station(Model):
 
     id = fields.IntField(pk=True)
     tenant = fields.ForeignKeyField('models.Tenant', related_name='stations', on_delete=fields.CASCADE)
+    # Nullable until every write stamps it; the events migration backfilled the
+    # rows that existed before (see docs/features/events.md).
+    event: fields.ForeignKeyRelation = fields.ForeignKeyField(
+        'models.Event', related_name='stations', on_delete=fields.CASCADE,
+    )
+    event_id: int
     name = fields.CharField(max_length=50)
     # Free-text grouping ("North wall", "Row A") shown beside the name in the
     # picker. Purely a label — it carries no pairing semantics.
@@ -178,7 +245,7 @@ class Station(Model):
 
     class Meta:
         table = 'station'
-        unique_together = (('tenant', 'name'),)
+        unique_together = (('tenant', 'event', 'name'),)
 
 
 class Commentator(Model):
@@ -192,12 +259,59 @@ class Commentator(Model):
         'models.User', related_name='approved_commentaries', null=True, on_delete=fields.SET_NULL
     )
     acknowledged_at = fields.DatetimeField(null=True)
+    # Who brought them on as a partner, when they joined through a pair
+    # invite. Staff still approve each commentator on their own; this only
+    # lets the boards say who they came with.
+    invited_by: fields.ForeignKeyNullableRelation = fields.ForeignKeyField(
+        'models.User', related_name='invited_commentaries', null=True, on_delete=fields.SET_NULL
+    )
+    invited_by_id: int | None
     created_at = fields.DatetimeField(auto_now_add=True)
     updated_at = fields.DatetimeField(auto_now=True)
 
     class Meta:
         unique_together = (('match', 'user'),)
         table = 'commentator'
+
+
+class CommentaryInvite(Model):
+    """A commentator asking someone to commentate a match with them.
+
+    Nobody is signed up until the partner accepts; then they get an ordinary
+    ``Commentator`` row (``invited_by`` set) that staff approve on its own.
+    ``dm_channel_id``/``dm_message_id`` are the partner's DM, so it can be
+    edited once the invite is answered or cancelled.
+    """
+
+    id = fields.IntField(pk=True)
+    tenant: fields.ForeignKeyRelation = fields.ForeignKeyField(
+        'models.Tenant', related_name='commentary_invites', on_delete=fields.CASCADE
+    )
+    tenant_id: int
+    match: fields.ForeignKeyRelation = fields.ForeignKeyField(
+        'models.Match', related_name='commentary_invites', on_delete=fields.CASCADE
+    )
+    match_id: int
+    inviter: fields.ForeignKeyRelation = fields.ForeignKeyField(
+        'models.User', related_name='commentary_invites_sent', on_delete=fields.CASCADE
+    )
+    inviter_id: int
+    invitee: fields.ForeignKeyRelation = fields.ForeignKeyField(
+        'models.User', related_name='commentary_invites_received', on_delete=fields.CASCADE
+    )
+    invitee_id: int
+    status = fields.CharEnumField(
+        CommentaryInviteStatus, default=CommentaryInviteStatus.PENDING, max_length=16
+    )
+    dm_channel_id = fields.BigIntField(null=True)
+    dm_message_id = fields.BigIntField(null=True)
+    responded_at = fields.DatetimeField(null=True)
+    created_at = fields.DatetimeField(auto_now_add=True)
+    updated_at = fields.DatetimeField(auto_now=True)
+
+    class Meta:
+        table = 'commentaryinvite'
+        indexes = (('match', 'status'), ('invitee', 'status'))
 
 
 class Tracker(Model):

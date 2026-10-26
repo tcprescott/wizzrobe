@@ -7,6 +7,7 @@ exclude other tenants' rows)."""
 
 import pytest
 
+from application.repositories.audit_repository import AuditRepository
 from application.repositories.telemetry_repository import TelemetryRepository
 from application.services.audit_service import AuditActions, AuditService
 from application.services.system_config_service import SystemConfigService
@@ -44,10 +45,10 @@ async def test_audit_reads_are_tenant_isolated(tenants_with_staff):
     a, b, staff = tenants_with_staff
     with tenant_scope(a.id):
         await AuditService().write_log(staff, AuditActions.MATCH_CREATED, {'x': 1})
-        assert len(await AuditService().get_recent_logs()) == 1
+        assert len(await AuditRepository.list()) == 1
     with tenant_scope(b.id):
         # B's trail excludes A's row.
-        assert await AuditService().get_recent_logs() == []
+        assert await AuditRepository.list() == []
 
 
 async def test_telemetry_reads_are_tenant_isolated(tenants_with_staff):

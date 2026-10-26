@@ -30,6 +30,9 @@ def _audit_action_values() -> set[str]:
 # Audited today, plausibly worth emitting later, but no consumer needs it yet.
 _EVENT_CANDIDATES = frozenset({
     AuditActions.MATCH_REQUESTED,
+    # Games 2 and up each emit MATCH_CREATED; the link back to game 1 has no
+    # subscriber yet.
+    AuditActions.MATCH_SET_EXTENDED,
     AuditActions.TOURNAMENT_CREATED,
     AuditActions.TOURNAMENT_UPDATED,
     AuditActions.TOURNAMENT_DELETED,
@@ -58,6 +61,15 @@ _EVENT_CANDIDATES = frozenset({
     AuditActions.STAGE_CREATED,
     AuditActions.STAGE_UPDATED,
     AuditActions.STAGE_DELETED,
+    # Broadcast overlay authoring and pins: production plumbing for the stream,
+    # read by the overlay page's own feed rather than by any outside listener.
+    AuditActions.STREAM_LAYOUT_CREATED,
+    AuditActions.STREAM_LAYOUT_UPDATED,
+    AuditActions.STREAM_LAYOUT_DELETED,
+    AuditActions.STAGE_OVERLAY_UPDATED,
+    AuditActions.STAGE_OVERLAY_PINNED,
+    AuditActions.STAGE_OVERLAY_UNPINNED,
+    AuditActions.STAGE_OVERLAY_LINK_RENEWED,
     AuditActions.TRIFORCE_TEXT_SUBMITTED,
     AuditActions.TRIFORCE_TEXT_APPROVED,
     AuditActions.TRIFORCE_TEXT_REJECTED,
@@ -97,6 +109,9 @@ _EXCLUDED_BY_DESIGN = frozenset({
     # Discord role mapping / sync plumbing.
     AuditActions.DISCORD_ROLE_MAPPING_ADDED,
     AuditActions.DISCORD_ROLE_MAPPING_REMOVED,
+    AuditActions.DISCORD_ROLE_RULE_SET,
+    AuditActions.DISCORD_ROLE_RULE_CLEARED,
+    AuditActions.DISCORD_ROLE_RULES_RESET,
     AuditActions.ROLE_DISCORD_SYNC_GRANTED,
     AuditActions.ROLE_DISCORD_SYNC_REVOKED,
     AuditActions.ROLE_DISCORD_SYNC_BULK,
@@ -120,6 +135,7 @@ _EXCLUDED_BY_DESIGN = frozenset({
     # excludes the account internals above.
     AuditActions.TIMEZONE_UPDATED,
     AuditActions.USER_TIMEZONE_UPDATED,
+    AuditActions.USER_HOUR_CYCLE_UPDATED,
     # Profile reminders — the rules are tenant-internal settings, and a member
     # dismissing one only hides a banner on their own screen.
     AuditActions.PROFILE_NUDGES_UPDATED,
@@ -163,6 +179,11 @@ _EXCLUDED_BY_DESIGN = frozenset({
     AuditActions.WEBHOOK_UPDATED,
     AuditActions.WEBHOOK_DELETED,
     AuditActions.WEBHOOK_SECRET_REGENERATED,
+    # A member's own webhook config is theirs, not a community event.
+    AuditActions.PERSONAL_WEBHOOK_CREATED,
+    AuditActions.PERSONAL_WEBHOOK_UPDATED,
+    AuditActions.PERSONAL_WEBHOOK_DELETED,
+    AuditActions.PERSONAL_WEBHOOK_SECRET_REGENERATED,
     # In-app feedback triage. Reopening is the reverse of reviewing and stays
     # in the same bucket — the submitter learns the state from their own list on
     # the profile, not from a broadcast.
@@ -186,6 +207,9 @@ _EXCLUDED_BY_DESIGN = frozenset({
     # the tenant can see who took a copy; deliberately not webhooked, since
     # announcing a PII export to arbitrary receivers is the wrong direction.
     AuditActions.VOLUNTEER_DATA_EXPORTED,
+    # Same reasoning for tournament exports: names and Discord ids leaving the
+    # app are audited for the community, never announced to receivers.
+    AuditActions.TOURNAMENT_DATA_EXPORTED,
     # Equipment catalog CRUD (checkout/checkin are candidates above).
     AuditActions.EQUIPMENT_CREATED,
     AuditActions.EQUIPMENT_UPDATED,
@@ -210,10 +234,14 @@ _EXCLUDED_BY_DESIGN = frozenset({
     AuditActions.CHALLONGE_TOURNAMENT_UNLINKED,
     AuditActions.CHALLONGE_BRACKET_SYNCED,
     AuditActions.CHALLONGE_RESULT_PUSHED,
+    AuditActions.CHALLONGE_RESULT_SKIPPED,
+    AuditActions.CHALLONGE_RESULT_PUSH_FAILED,
+    AuditActions.CHALLONGE_AUTO_SYNC_UPDATED,
     AuditActions.CHALLONGE_WEBHOOK_SYNCED,
     AuditActions.CHALLONGE_PARTICIPANT_ASSIGNED,
     AuditActions.CHALLONGE_PARTICIPANT_UNASSIGNED,
     AuditActions.CHALLONGE_STAGE_ADVANCED,
+    AuditActions.CHALLONGE_MATCH_LINKED,
     # A player's own Challonge sign-up/withdrawal publishes tournament.enrolled /
     # tournament.withdrawn, the roster events every other enrolment path shares.
     AuditActions.CHALLONGE_PARTICIPANT_SIGNED_UP,
@@ -231,6 +259,9 @@ _EXCLUDED_BY_DESIGN = frozenset({
     AuditActions.STARTGG_SUGGESTION_DISMISSED,
     AuditActions.STARTGG_REPORTING_SET,
     AuditActions.STARTGG_RESULT_REPORTED,
+    AuditActions.STARTGG_SET_LINKED,
+    AuditActions.STARTGG_CONNECTED,
+    AuditActions.STARTGG_DISCONNECTED,
     # Twitch account linking.
     AuditActions.TWITCH_LINKED,
     AuditActions.TWITCH_UNLINKED,
@@ -305,6 +336,10 @@ _EXCLUDED_BY_DESIGN = frozenset({
     AuditActions.NOTIFICATION_EMAIL_REMOVED,
     AuditActions.NOTIFICATION_TELEGRAM_LINKED,
     AuditActions.NOTIFICATION_TELEGRAM_UNLINKED,
+    # Which DMs a community sends and whether they ping (Admin → Notifications):
+    # tenant-internal delivery config, not a domain event a subscriber acts on.
+    AuditActions.NOTIFICATION_SETTING_CHANGED,
+    AuditActions.NOTIFICATION_SETTINGS_RESET,
     # Tenant ↔ Discord-server connection: admin infrastructure configuration,
     # not a tournament domain event a webhook subscriber would act on.
     AuditActions.DISCORD_SERVER_LINKED,
@@ -394,6 +429,17 @@ _EXCLUDED_BY_DESIGN = frozenset({
     AuditActions.TENANT_DELETED,
     AuditActions.SUPER_ADMIN_GRANTED,
     AuditActions.SUPER_ADMIN_REVOKED,
+    # Moving crew held on an unbooked bracket matchup onto its booking: each
+    # approved member it moves is announced as crew.approval_changed on the
+    # booking, which is what a crew subscriber mirrors. The hold itself never
+    # reached the bus.
+    AuditActions.CREW_MOVED_TO_BOOKING,
+    # A partner invite signs nobody up. Accepting goes through the ordinary
+    # crew signup, which publishes crew.signup_created; an invite still waiting,
+    # declined or cancelled changes no crew a subscriber mirrors.
+    AuditActions.CREW_PARTNER_INVITED,
+    AuditActions.CREW_PARTNER_INVITE_ANSWERED,
+    AuditActions.CREW_PARTNER_INVITE_CANCELLED,
 })
 
 _EVENTLESS_AUDIT_ACTIONS = _EVENT_CANDIDATES | _EXCLUDED_BY_DESIGN

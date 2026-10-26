@@ -1,3 +1,4 @@
+
 from tortoise import fields
 from tortoise.models import Model
 
@@ -7,7 +8,7 @@ class EmergencyContact(Model):
 
     Per tenant, like :class:`AccommodationRequest`: a contact given to one
     community is never readable by another's staff, even a staff member of both.
-    One row per person per community. Removing it deletes the row outright;
+    One row per person per event. Removing it deletes the row outright;
     nothing of the contact survives in history.
 
     ``name``, ``relationship`` and ``phone`` never leave the app: audit rows
@@ -20,6 +21,12 @@ class EmergencyContact(Model):
     tenant: fields.ForeignKeyRelation = fields.ForeignKeyField(
         'models.Tenant', related_name='emergency_contacts', on_delete=fields.CASCADE,
     )
+    # Nullable until every write stamps it; the events migration backfilled the
+    # rows that existed before (see docs/features/events.md).
+    event: fields.ForeignKeyRelation = fields.ForeignKeyField(
+        'models.Event', related_name='emergency_contacts', on_delete=fields.CASCADE,
+    )
+    event_id: int
     user: fields.ForeignKeyRelation = fields.ForeignKeyField(
         'models.User', related_name='emergency_contacts', on_delete=fields.CASCADE,
     )
@@ -38,4 +45,4 @@ class EmergencyContact(Model):
 
     class Meta:
         table = 'emergency_contact'
-        unique_together = (('tenant', 'user'),)
+        unique_together = (('tenant', 'event', 'user'),)

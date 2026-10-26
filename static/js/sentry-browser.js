@@ -45,6 +45,29 @@
     return out;
   }
 
+  // Without Vue the page is dead, and everything that runs after says so in its
+  // own words: Quasar reading window.Vue (Safari's "Cannot destructure property
+  // 'h' from null or undefined value" names nothing of ours, SGLMAN-1R), the
+  // language pack, NiceGUI's page script. The framework load guard reloads the
+  // page and reports a failure that outlives the reload, so everything else is
+  // follow-on noise. The SDK attaches a stack to that report too, so it is told
+  // apart by its text. Quasar missing with Vue present is the same dead page:
+  // the page script's "Can't find variable: Quasar" and, when Quasar's
+  // stylesheet failed with it, NiceGUI's QCard hack reading the failed @import
+  // ("Not allowed to access cross-origin stylesheet", SGLMAN-27/28).
+  var GUARD_REPORT = 'framework scripts failed to load';
+
+  function missingFramework(event) {
+    if (window.Vue && window.Quasar) return false;
+    return !messagesOf(event).some(function (text) { return text.indexOf(GUARD_REPORT) !== -1; });
+  }
+
+  // Without import maps (Safari before 16.4) NiceGUI's Vue module never loads
+  // and its Tailwind build won't parse (SGLMAN-21). The load guard tells the
+  // person to update; nothing from such a browser is ours to fix.
+  var unsupportedBrowser = !(window.HTMLScriptElement && HTMLScriptElement.supports &&
+    HTMLScriptElement.supports('importmap'));
+
   function ignored(event) {
     var messages = messagesOf(event);
     var urls = urlsOf(event);
@@ -69,9 +92,10 @@
     replaysSessionSampleRate: 0,
     replaysOnErrorSampleRate: cfg.replay ? 1.0 : 0,
     beforeSend: function (event) {
-      if (!live.enabled) return null;
+      if (!live.enabled || unsupportedBrowser) return null;
       if (live.sampleRate < 1 && Math.random() >= live.sampleRate) return null;
       if (ignored(event)) return null;
+      if (missingFramework(event)) return null;
       return event;
     },
   });

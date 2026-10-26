@@ -2,19 +2,23 @@
 start.gg Repository - Data Access Layer
 
 Pure data access for the read-only start.gg mirror (entrants, phases, pools,
-sets), each tournament's event link, and the lookups that map entrants to
-Wizzrobe users. No business logic.
+sets), each tournament's event link, the community's start.gg sign-in, and the
+lookups that map entrants to Wizzrobe users. No business logic.
 """
 
 from datetime import datetime
 from typing import Any, Dict, Iterable, List, Optional, Set, cast
 
 from tortoise.expressions import Q
-from tortoise.functions import Lower
+from tortoise.functions import Count, Lower
 
+from application.repositories._event import event_scoped, live_event_scoped
+from application.repositories._save import save_fields
 from application.repositories._tenant import current_tenant_id, scoped
 from models import (
+    EventStatus,
     Match,
+    StartggConnection,
     StartggEntrant,
     StartggPhase,
     StartggPool,
@@ -61,13 +65,50 @@ class StartggRepository:
 
     @staticmethod
     async def linked_tournaments() -> List[Tournament]:
-        return await scoped(Tournament.filter(startgg_event_slug__isnull=False))
+        """The current event's tournaments linked to start.gg."""
+        return await event_scoped(Tournament.filter(startgg_event_slug__isnull=False))
+
+    @staticmethod
+    async def live_linked_tournaments() -> List[Tournament]:
+        """Every live event's start.gg-linked tournaments (cross-event: the sign-in is the community's)."""
+        return await live_event_scoped(Tournament.filter(startgg_event_slug__isnull=False))
 
     @staticmethod
     async def linked_tenant_ids() -> Set[int]:
-        """Cross-tenant: every tenant with at least one linked event, for the sync worker."""
+        """Cross-tenant and cross-event: every tenant with at least one linked event, for the sync worker."""
         rows = await Tournament.filter(startgg_event_slug__isnull=False).values_list('tenant_id', flat=True)
         return set(cast(List[int], rows))
+
+    # ------------------------------------------------------------------
+    # The community's start.gg sign-in
+    # ------------------------------------------------------------------
+    @staticmethod
+    async def get_connection() -> Optional[StartggConnection]:
+        return await scoped(StartggConnection.all()).first()
+
+    @staticmethod
+    async def save_connection(**values: Any) -> StartggConnection:
+        connection, _ = await StartggConnection.update_or_create(
+            tenant_id=current_tenant_id(), defaults=values,
+        )
+        return connection
+
+    @staticmethod
+    async def update_connection_tokens(
+        connection: StartggConnection,
+        access_token: str,
+        refresh_token: Optional[str],
+        token_expires_at: Optional[datetime],
+    ) -> None:
+        connection.access_token = access_token
+        if refresh_token:
+            connection.refresh_token = refresh_token
+        connection.token_expires_at = token_expires_at  # type: ignore[assignment]  # null=True field
+        await save_fields(connection, 'access_token', 'refresh_token', 'token_expires_at')
+
+    @staticmethod
+    async def clear_connection() -> int:
+        return await scoped(StartggConnection.all()).delete()
 
     # ------------------------------------------------------------------
     # Identity lookups (global: users are not tenant-scoped)
@@ -88,21 +129,26 @@ class StartggRepository:
 
     @staticmethod
     async def members_by_lower_name(names: Iterable[str], tenant_id: int) -> Dict[str, List[User]]:
-        """This community's members whose username or display name matches, lower-cased.
+        """This community's members whose username, display name or linked
+        start.gg gamer tag matches, lower-cased.
 
         Global user table filtered to one tenant's membership, for same-name
-        suggestions.
+        suggestions. The gamer tag catches a player whose start.gg entry was added
+        by name with no account behind it, so their link has no id to match.
         """
         wanted = list({n.lower() for n in names if n})
         if not wanted:
             return {}
         member_ids = await TenantMembership.filter(tenant_id=tenant_id).values_list('user_id', flat=True)
-        users = await User.annotate(lu=Lower('username'), ld=Lower('display_name')).filter(
-            Q(lu__in=wanted) | Q(ld__in=wanted), id__in=list(member_ids), is_active=True,
+        users = await User.annotate(
+            lu=Lower('username'), ld=Lower('display_name'), lg=Lower('startgg_username'),
+        ).filter(
+            Q(lu__in=wanted) | Q(ld__in=wanted) | Q(lg__in=wanted), id__in=list(member_ids), is_active=True,
         )
         found: Dict[str, List[User]] = {}
         for user in users:
-            for key in {(user.username or '').lower(), (user.display_name or '').lower()}:
+            names = (user.username, user.display_name, user.startgg_username)
+            for key in {(n or '').lower() for n in names}:
                 if key in wanted:
                     found.setdefault(key, []).append(user)
         return found
@@ -115,6 +161,16 @@ class StartggRepository:
         return await scoped(StartggEntrant.filter(tournament=tournament)).prefetch_related(
             'user', 'suggested_user',
         ).order_by('name')
+
+    @staticmethod
+    async def count_unmatched_entrants(tournament_ids: List[int]) -> Dict[int, int]:
+        """Entrants with no Wizzrobe user, per tournament; tournaments with none are left out."""
+        if not tournament_ids:
+            return {}
+        rows = await scoped(StartggEntrant.filter(
+            tournament_id__in=tournament_ids, user_id__isnull=True,
+        )).annotate(n=Count('id')).group_by('tournament_id').values('tournament_id', 'n')
+        return {r['tournament_id']: r['n'] for r in rows}
 
     @staticmethod
     async def count_entrants(tournament: Tournament) -> int:
@@ -191,6 +247,13 @@ class StartggRepository:
         return row
 
     @staticmethod
+    async def sets_by_ids(tournament: Tournament, set_ids: Iterable[str]) -> List[StartggSet]:
+        """Mirrored sets with their entrants, winner and any booked match's players loaded."""
+        return await scoped(StartggSet.filter(tournament=tournament, set_id__in=list(set_ids))).prefetch_related(
+            'tournament', 'pool__phase', 'entrant1__user', 'entrant2__user', 'winner', 'match__players',
+        )
+
+    @staticmethod
     async def list_phases(tournament: Tournament) -> List[StartggPhase]:
         return await scoped(StartggPhase.filter(tournament=tournament)).order_by('phase_order', 'id')
 
@@ -205,6 +268,33 @@ class StartggRepository:
         ).order_by('round', 'identifier', 'id')
 
     @staticmethod
+    async def booked_sets_for_entrant(entrant: StartggEntrant) -> List[StartggSet]:
+        """Sets this entrant plays that have a Wizzrobe match attached."""
+        return await scoped(StartggSet.filter(
+            Q(entrant1=entrant) | Q(entrant2=entrant), match_id__isnull=False,
+        )).prefetch_related('entrant1', 'entrant2', 'match')
+
+    @staticmethod
+    async def list_placeholder_bookings(tournament: Tournament) -> List[StartggSet]:
+        """Sets booked before their players were known, with the booking attached."""
+        rows = await scoped(StartggSet.filter(tournament=tournament, match_id__isnull=False)).prefetch_related(
+            'tournament', 'entrant1__user', 'entrant2__user', 'match',
+        )
+        return [r for r in rows if r.match.bracket_placeholders is not None]
+
+    @staticmethod
+    async def pending_unbooked_sets(tournament_ids: Optional[List[int]] = None) -> List[StartggSet]:
+        """Unbooked, unplayed sets in active tournaments whose players aren't both decided."""
+        qs = scoped(StartggSet.filter(
+            state=StartggSetState.PENDING, match_id__isnull=True, tournament__is_active=True,
+        ))
+        if tournament_ids is not None:
+            qs = qs.filter(tournament_id__in=tournament_ids)
+        return await qs.prefetch_related(
+            'tournament', 'pool__phase', 'entrant1__user', 'entrant2__user',
+        ).order_by('tournament_id', 'round', 'identifier', 'id')
+
+    @staticmethod
     async def get_set(set_pk: int) -> Optional[StartggSet]:
         return await scoped(StartggSet.filter(id=set_pk)).prefetch_related(
             'tournament', 'pool__phase', 'entrant1__user', 'entrant2__user', 'match',
@@ -213,8 +303,17 @@ class StartggRepository:
     @staticmethod
     async def sets_for_match(match: Match) -> List[StartggSet]:
         return await scoped(StartggSet.filter(match_id=match.id)).prefetch_related(
-            'tournament', 'entrant1', 'entrant2',
+            'tournament', 'entrant1', 'entrant2', 'pool__phase',
         )
+
+    @staticmethod
+    async def completed_for_matches(match_ids: List[int]) -> List[StartggSet]:
+        """Booked sets start.gg already has a result for."""
+        if not match_ids:
+            return []
+        return await scoped(StartggSet.filter(
+            match_id__in=match_ids, state=StartggSetState.COMPLETE,
+        )).prefetch_related('winner', 'entrant1', 'entrant2')
 
     @staticmethod
     async def link_match(row: StartggSet, match: Match) -> None:
@@ -223,10 +322,55 @@ class StartggRepository:
 
     @staticmethod
     async def open_unbooked_sets_for_user(user: User) -> List[StartggSet]:
+        """Open, unbooked sets the user is in.
+
+        Across every live event (cross-event: it feeds the player's own schedule).
+        """
         return await scoped(StartggSet.filter(
             Q(entrant1__user=user) | Q(entrant2__user=user),
             state=StartggSetState.OPEN, match_id__isnull=True,
+            tournament__event__status=EventStatus.LIVE,
         )).prefetch_related('tournament', 'pool__phase', 'entrant1__user', 'entrant2__user')
+
+    @staticmethod
+    async def open_unbooked_sets(tournament_ids: Optional[List[int]] = None) -> List[StartggSet]:
+        """Every open, unbooked set in active tournaments; ``None`` means all of them."""
+        qs = scoped(StartggSet.filter(
+            state=StartggSetState.OPEN, match_id__isnull=True, tournament__is_active=True,
+        ))
+        if tournament_ids is not None:
+            qs = qs.filter(tournament_id__in=tournament_ids)
+        return await qs.prefetch_related(
+            'tournament', 'pool__phase', 'entrant1__user', 'entrant2__user',
+        ).order_by('tournament_id', 'round', 'identifier', 'id')
+
+    @staticmethod
+    async def open_set_sets_for_user(user: User) -> List[StartggSet]:
+        """Open sets the user is in whose best-of games are partly booked.
+
+        Across every live event (cross-event: it feeds the player's own schedule).
+        """
+        return await scoped(StartggSet.filter(
+            Q(entrant1__user=user) | Q(entrant2__user=user),
+            state=StartggSetState.OPEN, match__set_best_of__gt=1,
+            tournament__event__status=EventStatus.LIVE,
+        )).prefetch_related('tournament', 'pool__phase', 'entrant1__user', 'entrant2__user')
+
+    @staticmethod
+    async def open_set_sets(tournament_ids: Optional[List[int]] = None) -> List[StartggSet]:
+        """Every open set whose best-of games are partly booked; ``None`` means all of them."""
+        qs = scoped(StartggSet.filter(
+            state=StartggSetState.OPEN, match__set_best_of__gt=1, tournament__is_active=True,
+        ))
+        if tournament_ids is not None:
+            qs = qs.filter(tournament_id__in=tournament_ids)
+        return await qs.prefetch_related(
+            'tournament', 'pool__phase', 'entrant1__user', 'entrant2__user',
+        ).order_by('tournament_id', 'round', 'identifier', 'id')
+
+    @staticmethod
+    async def move_match_link(old_match_id: int, new_match_id: int) -> None:
+        await scoped(StartggSet.filter(match_id=old_match_id)).update(match_id=new_match_id)
 
     @staticmethod
     async def prune(

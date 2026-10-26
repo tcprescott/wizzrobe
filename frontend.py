@@ -9,8 +9,9 @@ import os
 from fastapi import FastAPI, Request
 from fastapi.responses import FileResponse, PlainTextResponse, Response
 from fastapi.staticfiles import StaticFiles
-from nicegui import app, ui
+from nicegui import app, core, ui
 
+from application.utils import page_build_timeout, socketio_closed_session
 from application.utils.environment import (
     get_platform_host,
     is_production,
@@ -21,6 +22,7 @@ from application.utils.environment import (
 from application.utils.timer_teardown import install_log_filter, is_timer_teardown_race
 from middleware.auth import AuthMiddleware
 from middleware.error_handlers import register_error_handlers
+from middleware.framework_cache import FrameworkCacheMiddleware
 from middleware.public_cache import PublicCacheMiddleware
 from middleware.tenant import TenantMiddleware, TransportPrefixMiddleware
 from middleware.watch_mode import WatchModeMiddleware
@@ -29,7 +31,6 @@ from pages import (
     admin,
     auth,
     brackets,
-    cat_facts,
     challonge_oauth,
     changelog,
     check_in,
@@ -39,9 +40,12 @@ from pages import (
     equipment,
     equipment_labels,
     event_info,
+    facts,
     home,
+    item_tracker,
     live_watch,
     mcp_consent,
+    my_messages,
     password_login,
     platform,
     qualifiers,
@@ -51,6 +55,7 @@ from pages import (
     startgg_oauth,
     static_brackets,
     static_watch,
+    stream_overlay,
     twitch_oauth,
     volunteer,
     watch_data,
@@ -229,6 +234,26 @@ def _register_root_routes(fastapi_app: FastAPI) -> None:
     async def _brand_logo(tenant_id: int, sha256: str, request: Request) -> Response:
         return await _brand_logo_response(tenant_id, sha256, 'webp', request)
 
+    # The same logo as a square PNG tab / home-screen icon, rendered on demand
+    # from the stored bytes (TenantLogoService.render_icon). Same hash, so same
+    # caching; a logo that won't render is a 404 and the page's other icons win.
+    @fastapi_app.get('/brand-logo/{tenant_id}/{sha256}-{side}.png', include_in_schema=False)
+    async def _brand_logo_icon(tenant_id: int, sha256: str, side: int, request: Request) -> Response:
+        from application.services import TenantLogoService
+
+        etag = f'"{sha256}-{side}"'
+        headers = {
+            'Cache-Control': 'public, max-age=31536000, immutable',
+            'ETag': etag,
+            'X-Content-Type-Options': 'nosniff',
+        }
+        content = await TenantLogoService.get_icon_png(tenant_id, sha256, side)
+        if content is None:
+            return Response(status_code=404, headers={'Cache-Control': 'no-store'})
+        if request.headers.get('if-none-match') == etag:
+            return Response(status_code=304, headers=headers)
+        return Response(content, media_type='image/png', headers=headers)
+
     @fastapi_app.get('/brand-logo/{tenant_id}/{sha256}.svg', include_in_schema=False)
     async def _brand_logo_svg(tenant_id: int, sha256: str, request: Request) -> Response:
         return await _brand_logo_response(tenant_id, sha256, 'svg', request)
@@ -246,6 +271,9 @@ def init(fastapi_app: FastAPI) -> None:
     validate_security_config()
     validate_session_storage()
     install_log_filter()
+    socketio_closed_session.install(core.sio.eio)
+    # Before any page is registered: the default is read when ui.page is built.
+    page_build_timeout.install()
     install_tooltip_labels()
     install_toast_position()
     install_layout_probe()
@@ -307,6 +335,7 @@ def init(fastapi_app: FastAPI) -> None:
     brackets.create()
     startgg_bracket.create()
     room_seeds.create()
+    stream_overlay.create()
     # Registered before ui.run_with so the cached, socket-free spectator views
     # sit on the same app (and behind the same tenant middleware) as the pages.
     static_brackets.create()
@@ -318,7 +347,9 @@ def init(fastapi_app: FastAPI) -> None:
     help_pages.create()
     event_info.create()
     community_events.create()
-    cat_facts.create()
+    my_messages.create()
+    item_tracker.create()
+    facts.create()
     changelog.create()
     about.create()
     ui.run_with(
@@ -333,9 +364,15 @@ def init(fastapi_app: FastAPI) -> None:
         language='en-US',
         storage_secret=(os.environ.get('STORAGE_SECRET') or '').strip(),  # required; enforced by validate_security_config()
         session_middleware_kwargs=_session_middleware_kwargs(),
+        # NiceGUI's 3s default dropped the page, and anything half-typed in a
+        # dialog, whenever a phone locked or venue Wi-Fi blinked.
+        reconnect_timeout=30,
     )
     # Installed on the wrapping app, so it sits *outside* the session middleware
     # ui.run_with just added — that is the only place a Set-Cookie can be taken
     # back off the publicly-cacheable spectator responses.
     fastapi_app.add_middleware(PublicCacheMiddleware)
+    # Also outside NiceGUI's cache middleware, which marks every /_nicegui/
+    # answer immutable, failures included.
+    fastapi_app.add_middleware(FrameworkCacheMiddleware)
     register_error_handlers(fastapi_app)

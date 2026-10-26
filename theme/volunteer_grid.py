@@ -22,9 +22,15 @@ from application.services.volunteer import (
     arrange_roles,
     roles_config,
 )
-from application.services.volunteer.volunteer_schedule_grid import ARRIVED, LATE, NOT_HERE
+from application.services.volunteer.volunteer_schedule_grid import (
+    ARRIVED,
+    CALLED_OFF,
+    LATE,
+    NOT_HERE,
+)
+from application.timezone_context import current_timezone_name, uses_12_hour
 from application.utils.discord_messages_volunteer import late_label
-from application.utils.timezone import format_local_time
+from application.utils.timezone import format_local_hour, format_local_time
 from theme.dialog._helpers import dialog_actions, dialog_more_menu, form_dialog
 from theme.menu import menu_action
 
@@ -39,6 +45,7 @@ ARRIVAL_MARKS = {
     ARRIVED: ('check_circle', 'st-ok', 'Checked in'),
     LATE: ('schedule', 'st-pending', 'Running late'),
     NOT_HERE: ('radio_button_unchecked', 'st-neutral', 'Not here yet'),
+    CALLED_OFF: ('event_available', 'st-info', 'Called off'),
 }
 
 
@@ -274,21 +281,11 @@ def render_day_grid(
     now_hour = grid.hour_at(datetime.now(timezone.utc))
     render_legend(grid, now_hour, staff=staff)
     body_height = _px(grid.last_hour - grid.first_hour)
-    region = ui.element('div').classes('wiz-vgrid').props(
-        f'tabindex=0 role=region aria-label="Volunteer schedule for {day_label(day)}"'
+    region = timeline_region(
+        grid.midnight, grid.first_hour, f'Volunteer schedule for {day_label(day)}', focusable=True,
     )
-    # The Volunteer tabs are swipeable, so a sideways swipe meant to scroll
-    # the grid would flip to the next tab. Keep the gesture inside the grid.
-    for gesture in ('touchstart', 'mousedown'):
-        region.on(gesture, js_handler='(e) => e.stopPropagation()')
     with region:
-        with ui.element('div').classes('wiz-vgrid__times'):
-            ui.element('div').classes('wiz-vgrid__head')
-            with ui.element('div').classes('wiz-vgrid__body').style(f'height: {body_height};'):
-                for hour in grid.hours:
-                    ui.label(format_local_time(grid.midnight + timedelta(hours=hour))) \
-                        .classes('wiz-vgrid__hour').style(f'top: {_px(hour - grid.first_hour)};')
-                _render_now(grid, now_hour)
+        render_hour_column(grid.midnight, grid.first_hour, grid.last_hour, now_hour)
         for column in grid.columns:
             with ui.element('div').classes('wiz-vgrid__col'):
                 ui.label(column.position).classes('wiz-vgrid__head')
@@ -308,7 +305,7 @@ def render_day_grid(
                             shift, column.position, grid, staff=staff, on_shift=on_shift,
                             selected=bool(selected_shift_id) and shift.shift_id == selected_shift_id,
                         )
-                    _render_now(grid, now_hour)
+                    render_column_markers(grid.first_hour, now_hour)
 
 
 def _empty_clicked(grid: DayGrid, position_id: int, offset_y, on_empty):
@@ -327,6 +324,8 @@ def _render_shift(
     classes = 'wiz-vgrid__shift'
     if shift.has_viewer and not staff:
         classes += ' wiz-vgrid__shift--mine'
+    if staff and shift.called_off:
+        classes += ' wiz-vgrid__shift--off'
     if selected:
         classes += ' wiz-vgrid__shift--selected'
     top = shift.start_hour - grid.first_hour
@@ -335,12 +334,13 @@ def _render_shift(
         f'top: calc({_px(top)} + 3px); height: calc({_px(shift.end_hour - shift.start_hour)} - 6px); '
         f'left: calc(4px + (100% - 8px) * {shift.lane} / {shift.lanes}); '
         f'width: calc((100% - 8px) / {shift.lanes} - {4 if shift.lanes > 1 else 0}px);'
-    )
+    ).props(f'data-wiz-shift={shift.shift_id}')
     if staff and on_shift is not None:
         block.classes('wiz-vgrid__shift--button')
         block.props(
             f'tabindex=0 role=button '
-            f'aria-label="{position}, {shift_range(shift)}, {filled_label(shift)}"'
+            f'aria-label="{position}, {shift_range(shift)}, {filled_label(shift)}'
+            f'{", called off" if shift.called_off else ""}"'
         )
         block.on('click', lambda s=shift: on_shift(s, position))
         block.on('keydown.enter', lambda s=shift: on_shift(s, position))
@@ -362,15 +362,54 @@ def _render_shift(
             ui.label('Nobody yet').classes('wiz-vgrid__open')
 
 
-def _render_now(grid: DayGrid, now_hour: Optional[float]) -> None:
-    if now_hour is not None:
-        ui.element('div').classes('wiz-vgrid__now').style(f'top: {_px(now_hour - grid.first_hour)};')
+def timeline_region(midnight: datetime, first_hour: int, label: str, *, focusable: bool = False) -> ui.element:
+    """The outer element of an hour-scale grid. ``data-t0`` (the instant at the
+    top of the scale), ``data-tz`` and ``data-h12`` let static/js/timeline.js turn a pointer
+    position back into a time, and keep the now line moving."""
+    t0 = int((midnight + timedelta(hours=first_hour)).timestamp() * 1000)
+    h12 = 1 if uses_12_hour() else 0
+    props = f'role=region aria-label="{label}" data-t0={t0} data-tz="{current_timezone_name()}" data-h12={h12}'
+    if focusable:
+        props = f'tabindex=0 {props}'
+    return ui.element('div').classes('wiz-vgrid wiz-vgrid--h12' if h12 else 'wiz-vgrid').props(props)
+
+
+def render_hour_column(midnight: datetime, first_hour: int, last_hour: int, now_hour: Optional[float]) -> None:
+    """The pinned hour labels, with the time tags for the now and pointer lines."""
+    with ui.element('div').classes('wiz-vgrid__times'):
+        ui.element('div').classes('wiz-vgrid__head')
+        with ui.element('div').classes('wiz-vgrid__body').style(f'height: {_px(last_hour - first_hour)};'):
+            for hour in range(first_hour, last_hour):
+                ui.label(format_local_hour(midnight + timedelta(hours=hour))) \
+                    .classes('wiz-vgrid__hour').style(f'top: {_px(hour - first_hour)};')
+            now_tag = ui.label(format_local_time(datetime.now(timezone.utc))).classes('wiz-vgrid__tag wiz-vgrid__tag--now')
+            _place(now_tag, first_hour, now_hour)
+            ui.label().classes('wiz-vgrid__tag wiz-vgrid__tag--cursor').props('hidden aria-hidden=true')
+
+
+def render_column_markers(first_hour: int, now_hour: Optional[float]) -> None:
+    """The now and pointer lines inside one column; timeline.js moves them."""
+    _place(ui.element('div').classes('wiz-vgrid__now'), first_hour, now_hour)
+    ui.element('div').classes('wiz-vgrid__cursor').props('hidden aria-hidden=true')
+
+
+def _place(marker: ui.element, first_hour: int, hour: Optional[float]) -> None:
+    # A transform rather than top, so the minute-by-minute move is not a layout shift.
+    marker.props('aria-hidden=true')
+    if hour is None:
+        marker.props('hidden')
+    else:
+        marker.style(f'transform: translateY({_px(hour - first_hour)});')
 
 
 def person_status(person: GridPerson) -> Tuple[str, str]:
     """What the Shift Board's sheet says under a name, and its tone class."""
     if person.draft:
         return 'Draft, not told yet', 'st-neutral'
+    if person.arrival == CALLED_OFF and person.called_off_at is not None:
+        by = f' by {person.called_off_by}' if person.called_off_by else ''
+        return (f'Called off{by} {format_local_time(person.called_off_at)} · counts as worked',
+                'st-info')
     if person.arrival == ARRIVED and person.checked_in_at is not None:
         return f'Checked in {format_local_time(person.checked_in_at)}', 'st-ok'
     if person.arrival == LATE and person.late_minutes is not None:

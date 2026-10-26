@@ -10,13 +10,15 @@ availability/occupancy-aware suggestion on open.
 
 from nicegui import context, ui
 
-from application.services import ChallongeService
+from application.services import ChallongeService, RoundScheduleService, bracket_sources
+from application.services.bracket_sources import BookableMatch
 from application.tenant_context import get_current_tenant_id, tenant_scope
 from application.utils.match_labels import challonge_round_label
 from application.utils.timezone import next_whole_hour_local
 from theme.dialog._helpers import (
     FieldError,
     booked_notice,
+    booking_window_line,
     dialog_actions,
     dialog_header,
     matchup_line,
@@ -26,6 +28,8 @@ from theme.dialog._helpers import (
     render_suggest_time_button,
     submit_on_enter,
 )
+from theme.dialog.bracket_source_schedule_dialog import BracketSourceScheduleDialog
+from theme.dialog.clash_warning import confirm_local_time, window_refusal
 from theme.help import resolve_help
 
 
@@ -40,6 +44,18 @@ class ChallongeScheduleDialog:
 
     async def open(self):
         cm = self.challonge_match
+        # This dialog books one game. A best-of stage books one match per game,
+        # so hand those to the shared dialog that collects every game's time.
+        if await bracket_sources.best_of_for('challonge', cm.id) > 1:
+            item = BookableMatch(
+                source='challonge', source_label='Challonge', key=cm.id,
+                tournament=cm.tournament, round_label=challonge_round_label(cm.round),
+                opponent_name=self.opponent_name,
+                player_ids=[cm.participant1.user_id, cm.participant2.user_id],
+                window_text=await RoundScheduleService().describe_for_challonge_match(cm),
+            )
+            await BracketSourceScheduleDialog(item, self.actor, on_submit=self.on_submit).open()
+            return
         # Captured while the opening handler's slot is alive. on_submit
         # refreshes the section this dialog was built in, deleting it, so the
         # refresh after it has to be handed its client and tenant back
@@ -50,6 +66,7 @@ class ChallongeScheduleDialog:
         default_date = slot.strftime('%Y-%m-%d')
         default_time = slot.strftime('%H:%M')
         player_ids = [cm.participant1.user_id, cm.participant2.user_id]
+        window_text = await RoundScheduleService().describe_for_challonge_match(cm)
 
         with ui.dialog() as dialog, ui.card().classes('dialog-card dialog-card--sm'):
             self.dialog = dialog
@@ -60,6 +77,7 @@ class ChallongeScheduleDialog:
             )
             with ui.column().classes('q-pa-md gap-2'):
                 matchup_line(cm.tournament.name, challonge_round_label(cm.round))
+                booking_window_line(window_text)
                 ui.label('Pick a time you both can play.').classes('text-caption text-grey-7')
 
                 with ui.row().classes('form-pair items-center gap-2'):
@@ -74,11 +92,24 @@ class ChallongeScheduleDialog:
                     date=date,
                     time=time,
                     missing_message='Unable to suggest a time for this match.',
+                    challonge_match_id=cm.id,
                 )
 
             async def submit():
                 if not (date.value and time.value):
                     error.show('Choose a date and a time.')
+                    return
+                refusal = await window_refusal(
+                    date_value=date.value, time_value=time.value, actor=self.actor,
+                    challonge_match_id=cm.id,
+                )
+                if refusal:
+                    error.show(refusal)
+                    return
+                if not await confirm_local_time(
+                    tournament_id=cm.tournament_id, player_ids=player_ids,
+                    date_value=date.value, time_value=time.value, actor=self.actor,
+                ):
                     return
                 try:
                     await self.challonge_service.schedule_challonge_match(

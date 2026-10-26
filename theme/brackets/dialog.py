@@ -100,11 +100,12 @@ def _render_games(
                 on_saved=on_saved,
             )
 
-    for game in sorted(games, key=lambda g: g.game_number):
+    numbers = BracketService.numbers_by_time(games)
+    for game in sorted(games, key=lambda g: numbers.get(g.id, g.game_number)):
         with ui.row().classes('items-center justify-between w-full q-py-xs'):
             with ui.row().classes('items-center gap-2 no-wrap'):
                 if best_of > 1:
-                    ui.label(f'Game {game.game_number}').classes('text-caption')
+                    ui.label(f'Game {numbers.get(game.id, game.game_number)}').classes('text-caption')
                 scheduled = _scheduled_label(game)
                 if scheduled:
                     ui.label(scheduled).classes('text-caption text-grey')
@@ -187,7 +188,7 @@ def _schedule_button(
     tenant_id: int,
     on_saved: Callable[[], Awaitable[None]],
 ) -> None:
-    """'Schedule game N' — staff's route into ``schedule_bracket_match``.
+    """'Schedule a game' — staff's route into ``schedule_bracket_match``.
 
     Players book the same matchups from their own dashboard, which is why the
     dialog is shared rather than bracket-local.
@@ -195,7 +196,7 @@ def _schedule_button(
     number = _next_game_number(games, best_of)
     if number is None:
         return
-    label = f'Schedule game {number}' if best_of > 1 else 'Schedule match'
+    label = 'Schedule a game' if best_of > 1 else 'Schedule match'
     ui.button(
         label, icon='event',
         on_click=lambda _=None: background_tasks.create(_schedule_dialog(

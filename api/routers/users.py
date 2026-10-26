@@ -12,6 +12,7 @@ from api.dependencies import (
     require_write_actor,
 )
 from api.schemas.detail import DetailResponse
+from api.schemas.member_details import MemberDetailsResponse
 from api.schemas.user_actions import (
     RoleRequest,
     TournamentEnrollmentUpdate,
@@ -21,7 +22,7 @@ from api.schemas.user_actions import (
     UserSelfUpdate,
 )
 from api.schemas.users import UserDetailResponse, UserListItem
-from application.services import TenantMembershipService, TournamentService, UserService
+from application.services import MemberDetailsService, TenantMembershipService, TournamentService, UserService
 from application.services.auth_service import AuthService
 from models import Role, User
 
@@ -91,6 +92,23 @@ async def get_user(user_id: int, actor: User = Depends(require_api_actor)):
     if actor.id != user_id and not await AuthService.is_staff(actor):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Staff access required")
     return await _to_detail(await load_community_user_or_404(user_id, actor))
+
+
+@router.get(
+    "/{user_id}/details",
+    response_model=MemberDetailsResponse,
+    summary="Get everything about a member",
+    description=(
+        "The data behind clicking a name on Admin → Members, for troubleshooting: roles, tournaments, "
+        "upcoming matches and shifts, how DMs reach them, every message they can get with the community's "
+        "setting, their own choice and what they actually get, and the last DMs sent to them here. "
+        "Someone outside the community reads as not found. Email is reported as a state, never the "
+        "address, and the emergency contact is not included.\n\n"
+        "**Who can call this:** Staff."
+    ),
+)
+async def get_member_details(user_id: int, actor: User = Depends(require_staff)):
+    return MemberDetailsResponse.build(await MemberDetailsService().get(user_id, actor=actor))
 
 
 # --- Writes -----------------------------------------------------------------

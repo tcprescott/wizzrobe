@@ -19,7 +19,7 @@ Every row is one `TelemetryEvent` (append-only; see the
 | Column | Meaning |
 |---|---|
 | `tenant` | nullable FK (`SET_NULL`), stamped from the ambient tenant at write time — the event's tenant for domain rows, the page's for page views. `NULL` marks a platform-level row |
-| `category` | `page` (a page load), `interaction` (a curated UI action), or `domain` (a bus event) |
+| `category` | `page` (a page load), `interaction` (a curated UI action), `domain` (a bus event), or `api` (an MCP tool call or REST request) |
 | `event_type` | `page.view`, `report.viewed`, `table.preferences_saved` / `table.preferences_reset` / `table.preferences_reset_all`, or the `EventType` string for domain rows. `TelemetryEventType.REPORT_EXPORTED` (`report.exported`) is declared but nothing emits it yet |
 | `path` | the route/report the event happened on (null for domain events) |
 | `session_id` | the NiceGUI `app.storage.browser` id — lets a single user's activity be reconstructed as an ordered session |
@@ -34,7 +34,7 @@ inactive users on purpose for authorization).
 ## Capture points
 
 All capture is **best-effort and non-blocking**: a telemetry failure is logged
-and swallowed so it can never break a page render or a mutating call. All three
+and swallowed so it can never break a page render or a mutating call. All of them
 honor the `TELEMETRY_ENABLED` kill-switch.
 
 1. **Domain-event mirror** — `TelemetryService.record_event` is registered on
@@ -49,7 +49,7 @@ honor the `TELEMETRY_ENABLED` kill-switch.
    handing the write to `background_tasks.create` (rebound to the page's tenant
    so the row is tenant-stamped). `protected_page` rows always carry a user
    (`AuthMiddleware` redirects anyone else first); `public_page` rows — the
-   bracket views, `/help`, `/event-info`, `/cat-facts`, the room-seeds board —
+   bracket views, `/help`, `/event-info`, `/facts`, the room-seeds board —
    may have a null `user`/`username` and are attributed to `session_id` alone.
    Page params are bounded (15 keys, 120 chars each), and any param whose name
    contains `token`, `secret`, `password` or `code` is stored as `[redacted]`
@@ -84,6 +84,10 @@ honor the `TELEMETRY_ENABLED` kill-switch.
      "… for <row>" suffix is dropped so every row's ⋮ counts as one control.
    - `ui.dialog_opened` / `ui.dialog_closed` — by dialog title; a close carries
      `via`, the last button pressed inside it, or `dismissed` (Escape / outside).
+     A dropdown's option popup on a touch screen (Quasar's `.q-select__dialog`)
+     is not counted as a dialog, so phone and desktop count alike; a choice
+     made in it is a `ui.click` of kind `option` whose `menu` is the dropdown's
+     label. Rows before 2026-10-24 logged these popups as `(untitled dialog)`.
    - `ui.field_used` — a field whose value changed, by its label. **Never the
      value.**
    Each row carries `device` (`phone` < 600px ≤ `tablet` < 1024px ≤ `desktop`)
@@ -92,6 +96,20 @@ honor the `TELEMETRY_ENABLED` kill-switch.
    pins the match). The browser is untrusted: the service keeps only the four
    known types, bounds every string, takes at most 50 rows a batch, and a page
    stops forwarding after 5,000. The `/platform` chrome doesn't load the script.
+
+6. **MCP and REST API calls** — `TelemetryService.track_api_call` writes one
+   `api` row per call: `mcp.tool_call` from the tool wrapper in
+   [`mcpserver/registry.py`](../../mcpserver/registry.py) (`target` = tool name,
+   `path` = `/mcp`) and `rest.request` from `ServiceErrorRoute` in
+   [`api/dependencies.py`](../../api/dependencies.py) (`target` =
+   `METHOD /api/route/{template}`, never the filled-in path). `details.outcome`
+   is `ok`, the MCP error code (`forbidden`, `not_found`, …) or the HTTP status.
+   Arguments and bodies are never stored. Only authenticated REST requests are
+   recorded (`resolve_token` stashes the actor on `request.state.api_actor`);
+   `/api/health` and `/api/version` take no token. MCP tools that name no
+   community (`whoami`, `list_tenants`, `platform_*`) land as platform rows, so
+   a community's reads don't see them. The insert is awaited inline: one row per
+   call, after the result is built.
 
 Telemetry has its own table rather than reusing either neighbour: `EventType.ALL`
 is an external webhook contract that high-volume page views would flood and
@@ -118,10 +136,24 @@ summary and leaderboards are exposed over REST (`GET /api/telemetry/summary`,
 `GET /api/telemetry/top?dimension=…`) and as the MCP tools `telemetry_summary`
 and `telemetry_top`. Those two also take `dimension=controls`: one row per
 (page, event type, `target`) with uses, distinct users, and how many came from
-a phone. The in-app report has no controls view yet.
+a phone. The in-app report has no controls view yet. `dimension=api` gives
+one row per MCP tool or REST route (`surface`, `target`, calls, distinct users,
+errors) and `dimension=api_users` one row per person per surface (calls,
+distinct tools/routes, last call); the summary's `mcp_users` / `rest_users`
+count distinct callers. No in-app view for these either. Every `top` dimension also takes an
+optional `user_id` that narrows the counts to one person, so `controls` with a
+`user_id` answers "what did this person use most".
 
 Aggregations run in the database (`GROUP BY` / `COUNT DISTINCT` via
 `TelemetryRepository`), never by loading the table into memory.
+
+## Retention
+
+Rows older than about 13 months (396 days) are deleted once a day by
+[`application/services/telemetry_retention.py`](../../application/services/telemetry_retention.py),
+in every community, in batches of 5,000. Thirteen months keeps this year's event
+and last year's side by side; at roughly 1.5M rows a year per busy community,
+keeping everything would slow every report year on year.
 
 ## Configuration
 

@@ -12,14 +12,14 @@ member approves them. Signup works from the web or from Discord DM buttons — b
 land in the same service, so the rules and audit trail are identical.
 
 1. Signup inserts a `Commentator` or `Tracker` row with `approved=False`, either from the web UI (one tap on the board's **Sign up**, no confirmation step) or from the buttons on a stream-candidate DM (`discordbot/crew_signup.py`). The tournament's admins and crew coordinators get a DM linking the match on the admin board, so approval doesn't wait on someone happening to look. Home's schedule has a **Needs crew** switch that narrows the board to matches still short of approved crew for a role the tournament uses.
-2. Whoever `can_approve_crew` admits — staff, the tournament's admin, **or its crew coordinator** — approves from the toggle beside the crew member's name in the match table (both directions confirm first).
+2. Whoever `can_approve_crew` admits — staff, the tournament's admin, **or its crew coordinator** — approves from the **Approve** button beside a waiting name on the Admin → Match Schedule run sheet (two taps; the clash warning dialog appears only when they're booked elsewhere), or from Match details (both directions confirm first).
 3. The approved crew member acknowledges — from **My Schedule**, the schedule board, or the DM button.
 
 Each side has a surface of its own for the work it owns:
 
 | Who | Where | What it carries |
 |---|---|---|
-| Staff / TA / crew coordinator | Admin → Match Schedule; Reports → Crew Activity | The approval toggle beside each name on the board, and a Pending-only filter in the report |
+| Staff / TA / crew coordinator | Admin → Match Schedule; Reports → Crew Activity | The Approve button beside each waiting name on the board, and a Pending-only filter in the report |
 | The volunteer | Home → **My Schedule** → crew section (`home_tabs/my_crew.py`) | The player run sheet (`layout='player_run_sheet'`) narrowed to the matches they crew (`MatchTableView(crew_discord_id=...)`, approved or waiting), so their Withdraw and Confirm sit in their own role's tray as on Event › Schedule. A line they withdraw from leaves the board (`_still_crews`), and `?match=` narrows it to that match with a *Showing one match only* chip. It leads the tab for anyone entered in no tournament |
 
 The crew list is on Home rather than the Volunteer hub deliberately: crew signup
@@ -41,6 +41,14 @@ Acknowledge DM as approving a signup. Dropping an approved crew member from that
 dialog goes through `announce_admin_removal`, which publishes
 `crew.signup_removed` and sends the withdrawal notice.
 
+**Crew hear about a match only while it is on a stage.** A match with no stage
+isn't being broadcast, so neither DM goes out for it (the approval and its event
+still happen), and `collect_match_audience` leaves crew out of every match DM
+until a stage is assigned. The "You're on stage" DM is then their first message.
+The one exception is the stage-cleared DM, which still reaches them because they
+were told they were on stage. A crew member who also watches the match keeps the
+watcher copy.
+
 ```python
 from application.services import CrewService
 
@@ -58,6 +66,52 @@ await CrewService().list_my_commitments(user, upcoming_only=True)
 # because someone racing at 19:00 cannot commentate at 19:00 either.
 await CrewService().find_scheduling_conflicts(user, match, 'commentator')
 ```
+
+**Signing up before a match is booked.** Event › Schedule ends with a
+*Not scheduled yet* group (folded by default; open by default on My Schedule's
+crew list) listing every open Challonge, start.gg or native bracket matchup with
+no game booked, players known or not, in tournaments that use crew
+(`bracket_sources.list_open_for_crew`). The first signup on one makes a **crew
+hold** (`CrewHoldService.signup`): a `Match` with no players and no time whose
+`crew_hold_source` / `crew_hold_key` name the matchup. It is never linked to the
+matchup, so players and staff still see it as unbooked and book it the usual
+way. The hold carries the signups like any match, so approval, withdrawal, the
+owners' DMs and My Schedule all work unchanged; a matchup's players can't crew
+it (`_crew_blocked` on the row, refused by the service).
+
+Booking or linking the matchup's first game calls `CrewHoldService.absorb`
+(from `bracket_sources.schedule` / `book_ahead` / `link_existing` /
+`relink_ahead` and the native `schedule_bracket_match` /
+`link_match_to_bracket_match`). It moves each signup onto the booking with its
+id, approval and acknowledgment, drops one from a person now playing it or
+already on it, deletes the hold, publishes `crew.approval_changed` for each
+approved member on the booking, and DMs the crew owners (`crew_booked_busy`)
+about any approved member `find_scheduling_conflicts` says is busy then.
+`CrewHoldService.list_future` is the safety net: a hold whose matchup got booked
+by a path that skipped the hand-over is absorbed the next time the list loads,
+and a hold everyone withdrew from is deleted. Crew get no DM of their own when
+the match is booked: the stage-only rule above still holds.
+
+### Pair commentary
+
+On a match whose tournament wants two or more commentators, a signed-up
+commentator can invite a partner (`CommentaryInviteService.invite`, from
+**Invite a partner** in their own tray on the player run sheet). The partner gets
+a `crew_partner_invite` DM with Decline / Accept buttons (`discordbot/partner_invite.py`)
+and the same pair under Commentary invites on My Schedule. Accepting calls the
+ordinary `CrewService.signup_crew` (or `CrewHoldService.signup` on a crew hold),
+so every signup rule applies and staff approve each commentator separately; the
+new row's `Commentator.invited_by` lets the boards print "with *inviter*". The
+inviter gets a silent `crew_partner_answered` DM either way.
+
+One partner per inviter per match: a waiting invite, or an accepted partner
+still on commentary, blocks another. Invites are capped at ten an hour per
+person. When the inviter withdraws (or staff remove them), an accepted partner
+stays signed up and every waiting invite is cancelled, with the partner's DM
+edited to say so (`CrewService._cancel_partner_invites`). A crew hold's invites
+move onto the booking with its crew. Invite, answer and cancel are audited
+(`crew.partner_*`) but publish no event: accepting already publishes
+`crew.signup_created`.
 
 **Approving checks for a clash.** `find_scheduling_conflicts` answers, in one
 query across all three roles, what else the person is committed to in the
@@ -548,7 +602,7 @@ run-sheet line; the staff count includes private notes, which is why players
 never get counts.
 
 A `staff_to_players` message DMs each player whose `User.dm_match_comments` is on
-(default on; Profile → "Staff comments on your matches"). The DM's button opens
+(default on; Profile → Notifications → Customize → "Staff comment on a match", which keeps the flag in step). The DM's button opens
 `/home/player?comments=<match_id>`, which narrows My Schedule to that match and
 opens its sheet. Every add and delete audits and emits `match.comment_added` /
 `match.comment_deleted`, with `kind` in the payload so a webhook can drop private
@@ -558,6 +612,71 @@ A `player` comment DMs the match's alert recipients (below), whose button opens
 `/admin/match-schedule?comments=<match_id>`: the board narrowed to that match
 with its sheet open. The comment text is escaped (`player_comment_staff_dm`) so
 a player's masked link or mention can't render in Discord.
+
+## Running late
+
+`PlayerLateService` (`application/services/match/player_late_service.py`) lets a
+match's own player tell staff they're on their way. `report_late(match_id, user,
+minutes, note)` takes 10, 20 or 30 (`LATE_CHOICES`, shared with volunteers) and an
+optional note (280 chars), and writes `late_minutes` / `late_at` / `late_note` on
+their `MatchPlayers` row; `take_back_late` is the player's Undo. Both audit and emit
+`match.player_running_late` / `match.player_late_cleared` (no note in the event)
+and nudge `match_live`. A report DMs the match's alert recipients (below) under
+the `player_late` notice, with the name and note escaped. On a stage match it
+also DMs the Broadcast Techs (`StaffAlertService.tagged_broadcast_tech_recipients`)
+under `player_late_on_stage`: techs holding any published volunteer shift right
+now (`ON_DUTY`), or every tech when none is (`STAFF`). A tech already told as
+staff gets only the `player_late` copy, and Undo DMs nobody.
+
+The window (`late_window_open`) opens 30 minutes before the match, or as early
+as the tournament's `stage_reminder_minutes` for a stage match, and closes at
+check-in; racetime matches never open it. Before the window the error points at
+Ask to change.
+
+Display rows carry `late` (only until check-in) and `late_window`. Staff boards
+(`show_comment_counts` + `access.run`) keep every entry, drawn as
+`run-sheet__late` tags and as Needs you → Running late items, which list a late
+match before its start time too. Every other board runs `keep_own_late_only`,
+so the opponent's browser never receives the heads-up; the viewer's own entry
+becomes the player run sheet's `Staff know: ~20 min` status chip with Undo, and
+`_can_late` draws the **Tell staff I'm late** button that opens `RunningLateDialog`.
+The stage reminder DM gives players a **Tell staff I'm late** button
+(`discordbot/player_late.py`, `match_late:` / `match_late_min:` custom ids).
+
+## Ready for seed
+
+A tournament with `players_release_seed` on (Admin → Tournaments → Edit →
+Seeds & randomizer, off by default; also on REST and the MCP tournament tools)
+lets the players of a checked-in match release their own seed.
+`SeedReadyService` (`application/services/match/seed_ready_service.py`) owns it:
+`set_ready(match_id, user)` stamps `MatchPlayers.seed_ready_at`, and the tap that
+makes every player ready calls `MatchScheduleService.release_seed_to_ready_players`,
+which rolls through the same locked path as `generate_seed` but swaps
+`can_run_match` for `players_may_release` (the actor plays the match and every
+player is ready). Rolling is what sends the seed, so the usual `seed_ready` DM
+goes out. `set_not_ready` clears the stamp until the seed exists or a task-queue
+roll is in flight. Both audit and emit `match.player_seed_ready` /
+`match.player_seed_not_ready`. Tapping Ready again while everyone is ready retries
+a roll that failed. Proctors and staff roll whenever they like, as before.
+
+The window (`seed_ready_open` in `seed_ready.py`) is check-in until a seed exists,
+never on a racetime tournament. Clearing the seed or the check-in
+(`MatchService.update_match`) wipes every player's Ready
+(`MatchRepository.clear_seed_ready`).
+
+The check-in DM's player copies (`_checked_in_player_copies`) end by asking for
+Ready and carry a **Ready for seed** button (`discordbot/seed_ready.py`,
+`seed_ready:in:` / `seed_ready:out:` custom ids, the button flipping to **Not
+ready** after a press). A player's first Ready DMs each player who isn't ready
+under `opponent_seed_ready` (silent by default), once per player per match
+(`seed_nudged_at`), so toggling can't spam the opponent.
+
+Display rows carry `players[].seed_ready`, `seed_ready_open` and
+`seed_ready_label` ("1 of 2 ready"). The staff run sheets put the label on the
+seed line ("Seed not rolled · 1 of 2 ready"); the player run sheet
+(`mark_my_seed_ready`) draws the viewer's own Ready panel: every player ticked or
+"not yet", the big **I'm ready for my seed** button, then **Not ready** and who
+they're waiting on.
 
 ## Match alerts: the admin on duty
 

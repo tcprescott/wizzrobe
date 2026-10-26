@@ -6,26 +6,35 @@ Coordinator-defined volunteer positions/jobs.
 
 from typing import List, Optional
 
-from application.repositories._base import TenantScopedRepository
-from application.repositories._tenant import current_tenant_id, scoped
+from application.repositories._base import EventScopedRepository
+from application.repositories._event import current_event_id, event_scoped
+from application.repositories._tenant import current_tenant_id
 from models import VolunteerPosition
 
 
-class VolunteerPositionRepository(TenantScopedRepository[VolunteerPosition]):
-    """Repository for volunteer positions."""
+class VolunteerPositionRepository(EventScopedRepository[VolunteerPosition]):
+    """Repository for the current event's volunteer positions."""
 
     model = VolunteerPosition
 
     @staticmethod
     async def list_all() -> List[VolunteerPosition]:
-        return await scoped(VolunteerPosition.all()).order_by('display_order', 'name')
+        return await event_scoped(VolunteerPosition.all()).order_by('display_order', 'name')
 
     @staticmethod
     async def list_active() -> List[VolunteerPosition]:
-        return await scoped(VolunteerPosition.filter(is_active=True)).order_by('display_order', 'name')
+        return await event_scoped(VolunteerPosition.filter(is_active=True)).order_by('display_order', 'name')
 
     @staticmethod
-    async def create(
+    async def name_taken(name: str, exclude_id: Optional[int] = None) -> bool:
+        """Whether another of the current event's positions already has this name."""
+        query = event_scoped(VolunteerPosition.filter(name=name))
+        if exclude_id is not None:
+            query = query.exclude(id=exclude_id)
+        return await query.exists()
+
+    @staticmethod
+    async def create(  # type: ignore[override]
         name: str,
         description: Optional[str] = None,
         color: Optional[str] = None,
@@ -37,6 +46,7 @@ class VolunteerPositionRepository(TenantScopedRepository[VolunteerPosition]):
     ) -> VolunteerPosition:
         return await VolunteerPosition.create(
             tenant_id=current_tenant_id(),
+            event_id=current_event_id(),
             name=name,
             description=description,
             color=color,

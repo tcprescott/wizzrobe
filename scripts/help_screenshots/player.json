@@ -5,6 +5,9 @@
     "path": "/home/my-schedule",
     "hide": [
       ".q-footer"
+    ],
+    "remove": [
+      "[aria-label=\"Your volunteer shift\"]"
     ]
   },
   {
@@ -35,6 +38,24 @@
       },
       {
         "waitFor": ".q-dialog"
+      }
+    ],
+    "selector": ".q-dialog .q-card",
+    "padding": 0
+  },
+  {
+    "name": "running-late-phone",
+    "user": "player_one",
+    "path": "/home/my-schedule",
+    "setup": [
+      {
+        "click": "button:has-text(\"Tell staff I'm late\")"
+      },
+      {
+        "waitFor": ".q-dialog"
+      },
+      {
+        "wait": 500
       }
     ],
     "selector": ".q-dialog .q-card",

@@ -31,10 +31,11 @@ CONSTRUCTION_SITES = {
 }
 
 
-def _view(storage_key='match', default_state_filter=None):
+def _view(storage_key='match', default_state_filter=None, default_day_scope='All dates'):
     view = MatchTableView.__new__(MatchTableView)
     view.storage_key = storage_key
     view.default_state_filter = default_state_filter
+    view.default_day_scope = default_day_scope
     # The badge reads every filter widget; an unbuilt view has none.
     view.tournament_filter = None
     view.stage_filter = None
@@ -190,12 +191,17 @@ def test_tomorrow_starts_where_today_ends():
 
 
 def test_the_week_scope_starts_today_and_runs_seven_days():
+    from datetime import timedelta
+
+    from application.utils.timezone import local_day_bounds, today_local
     from theme.tables.match_filters import day_scope_window
 
     today_start, _today_end = day_scope_window('Today')
     week_start, week_end = day_scope_window('Next 7 days')
     assert week_start == today_start
-    assert (week_end - week_start) == 7 * 24 * 3600
+    # Seven local days, not 7 * 24h: a week across a DST change is 167h or 169h.
+    _start, seventh_end = local_day_bounds(today_local() + timedelta(days=6), today_local() + timedelta(days=6))
+    assert week_end == seventh_end.timestamp()
 
 
 def test_the_day_filter_counts_toward_the_mobile_badge():
@@ -211,6 +217,22 @@ def test_the_day_filter_counts_toward_the_mobile_badge():
     assert view._active_filter_count() == 0
 
     view.day_filter = SimpleNamespace(value='Today')
+    assert view._active_filter_count() == 1
+
+
+def test_the_admin_board_opens_on_today_and_today_is_not_a_custom_filter():
+    """Thomas's pick: All dates sent all ~1,300 rows on every open. Opening on
+    Today must not light the badge, but switching to All dates must."""
+    from types import SimpleNamespace
+
+    src = (REPO / 'pages/admin_tabs/admin_schedule.py').read_text()
+    assert "default_day_scope='Today'" in src
+
+    view = _view('admin_schedule', DEFAULT_STATE_FILTER, default_day_scope='Today')
+    view.state_filter = SimpleNamespace(value=list(DEFAULT_STATE_FILTER))
+    view.day_filter = SimpleNamespace(value='Today')
+    assert view._active_filter_count() == 0
+    view.day_filter = SimpleNamespace(value='All dates')
     assert view._active_filter_count() == 1
 
 
@@ -285,3 +307,62 @@ def test_the_resolution_matches_the_one_refresh_uses():
     src = inspect.getsource(MatchTableView.refresh)
     assert 'self.scope_tournament_ids is not None' in src
     assert '_MATCHES_NOTHING' in src
+
+
+# --- The one-tap reset chip -------------------------------------------------
+#
+# Thomas's pick B: the filter count is a chip that clears every filter in one
+# tap, then offers Undo for a few seconds.
+
+def _filtered_view(monkeypatch):
+    from types import SimpleNamespace
+
+    monkeypatch.setattr('theme.tables.match_filters.PageTimer', lambda *a, **k: None)
+    view = _view('admin_schedule', DEFAULT_STATE_FILTER, default_day_scope='Today')
+    view.day_filter = SimpleNamespace(value='Tomorrow')
+    view.tournament_filter = SimpleNamespace(value=[3, 4])
+    view.stage_filter = SimpleNamespace(value=None)
+    view.state_filter = SimpleNamespace(value=['Finished'])
+    view.filter_badge = None
+    view.filter_reset_desk = None
+    view._reset_undo = None
+    view.filters_card = _NullContext()
+    view.refreshes = 0
+
+    async def refresh():
+        view.refreshes += 1
+    view.refresh = refresh
+    view._bg = lambda coro: coro.close()
+    return view
+
+
+class _NullContext:
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        return False
+
+
+def test_reset_puts_every_filter_back_to_the_boards_own_defaults(monkeypatch):
+    view = _filtered_view(monkeypatch)
+    assert view._active_filter_count() == 3
+
+    view._on_reset_chip()
+
+    assert view._active_filter_count() == 0
+    assert view.day_filter.value == 'Today'
+    assert view.tournament_filter.value is None
+    assert view.state_filter.value == list(DEFAULT_STATE_FILTER)
+    assert view._initializing is False
+
+
+def test_a_second_tap_undoes_the_reset(monkeypatch):
+    view = _filtered_view(monkeypatch)
+    view._on_reset_chip()
+    view._on_reset_chip()
+
+    assert view.day_filter.value == 'Tomorrow'
+    assert view.tournament_filter.value == [3, 4]
+    assert view.state_filter.value == ['Finished']
+    assert view._reset_undo is None

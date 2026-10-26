@@ -10,13 +10,15 @@ from tortoise.models import Model
 from tortoise.utils import get_schema_sql
 
 import models as _models
-from application.services import tenant_service
+from application.event_context import reset_event_id, set_event_id
+from application.services import event_service, tenant_service
 from application.tenant_context import require_tenant_id, reset_tenant_id, set_tenant_id
 
 # Every DB-backed test runs inside a single default tenant. Because the default
 # Tenant is the first row inserted into the fresh in-memory schema, its id is 1,
 # which matches the ambient context set by ``_tenant_context`` below.
 DEFAULT_TEST_TENANT_ID = 1
+DEFAULT_TEST_EVENT_ID = 1
 
 
 # The suite runs on in-memory SQLite: no service to start, and a fresh schema
@@ -65,12 +67,17 @@ def _tenant_context():
     DB-backed tests get the real default ``Tenant`` (id 1) created by the ``db``
     fixture; pure-mock tests just need *some* ambient id (their repositories are
     mocked, so the value is never used against a real query). Leak/isolation
-    tests override this with explicit ``tenant_scope`` blocks.
+    tests override this with explicit ``tenant_scope`` blocks. The default
+    tenant's default event (id 1) is bound the same way; under any other tenant
+    the binding reads as unbound and the harness falls back to that tenant's
+    default event.
     """
     token = set_tenant_id(DEFAULT_TEST_TENANT_ID)
+    event_token = set_event_id(DEFAULT_TEST_EVENT_ID, DEFAULT_TEST_TENANT_ID)
     try:
         yield
     finally:
+        reset_event_id(event_token)
         reset_tenant_id(token)
 
 
@@ -104,6 +111,20 @@ def stub_discord_queue(monkeypatch):
     yield captured
     for coro in captured:
         coro.close()
+
+
+@pytest.fixture(autouse=True)
+def _24_hour_clock():
+    """Run the suite on the 24-hour clock.
+
+    The default with no viewer is 12-hour, but most format assertions were
+    written as ``21:30``. tests/test_hour_cycle.py covers the default by
+    unbinding it with ``hour_cycle_scope(None)``.
+    """
+    from application.timezone_context import hour_cycle_scope
+
+    with hour_cycle_scope(False):
+        yield
 
 
 @pytest.fixture(autouse=True)
@@ -166,10 +187,24 @@ def _reset_rate_limiter():
 @pytest.fixture(autouse=True)
 def _reset_crew_signup_notices():
     """Isolate the per-process crew-signup DM throttle; match ids repeat across tests."""
-    from application.services.crew_service import _signup_notices
+    from application.services.crew_service import _signup_notice_rows, _signup_notices
     _signup_notices.clear()
+    _signup_notice_rows.clear()
     yield
     _signup_notices.clear()
+    _signup_notice_rows.clear()
+
+
+@pytest.fixture(autouse=True)
+def _reset_notification_settings_cache():
+    """Isolate the per-process notification-settings cache; tenant ids repeat across tests."""
+    from application.services.notification_preference_service import _cache as personal
+    from application.services.notification_settings_service import _cache
+    _cache.clear()
+    personal.clear()
+    yield
+    _cache.clear()
+    personal.clear()
 
 
 async def _seed_baseline() -> None:
@@ -192,6 +227,10 @@ async def _seed_baseline() -> None:
             "SELECT setval(pg_get_serial_sequence('tenant', 'id'), "
             "(SELECT MAX(id) FROM tenant));"
         )
+    await _models.Event.create(
+        tenant_id=DEFAULT_TEST_TENANT_ID, name='Default', slug='default',
+        status=_models.EventStatus.LIVE, is_default=True,
+    )
     await _models.TenantFeatureFlag.bulk_create([
         _models.TenantFeatureFlag(
             tenant_id=DEFAULT_TEST_TENANT_ID, flag=flag.value,
@@ -360,6 +399,7 @@ async def db(monkeypatch):
     # a write, so with the database now outliving a single test they have to be
     # dropped here or a stale row survives into the next one.
     tenant_service._clear_cache()
+    event_service._clear_cache()
 
     await _bootstrap_engine()
     if ON_POSTGRES:
@@ -376,20 +416,26 @@ async def db(monkeypatch):
         await _bind_shared_sqlite()
         await restore_template(BASELINE_TEMPLATE)
 
+    await _install_event_harness(monkeypatch)
+
     for model in _scoped_models():
         original = model.create
 
-        def _make(original):
+        def _make(model, original):
+            owned = model in _event_owned_models()
+
             async def _stamped_create(**kwargs):
                 # Stamp the currently-scoped tenant (default id 1, or whatever a
                 # leak test set via tenant_scope) so direct test creates land in
                 # the right tenant without a per-call edit.
                 if 'tenant' not in kwargs and 'tenant_id' not in kwargs:
                     kwargs['tenant_id'] = require_tenant_id()
+                if owned and 'event' not in kwargs and 'event_id' not in kwargs:
+                    kwargs['event_id'] = await _test_event_id_for(model, kwargs)
                 return await original(**kwargs)
             return _stamped_create
 
-        monkeypatch.setattr(model, 'create', _make(original))
+        monkeypatch.setattr(model, 'create', _make(model, original))
 
     try:
         yield
@@ -399,6 +445,86 @@ async def db(monkeypatch):
         # database that has never seen the schema — rather than a quiet read of
         # whatever the previous test left behind.
         connections.discard('default')
+
+
+# Each community's default event, as the harness knows it. Read synchronously by
+# the event-context fallback below, the way ``_tenant_context`` binds a default
+# tenant: the suite's thousands of direct creates and repository calls then run
+# in the community's default event without binding one each.
+_default_events: dict[int, int] = {}
+
+
+@functools.cache
+def _event_owned_models() -> frozenset[type[Model]]:
+    """Models an event owns: their ``event`` FK cascades (tagged ones SET NULL)."""
+    from tortoise.fields.relational import CASCADE
+
+    # ``event`` on a check-in entrant or a meetup subscription is *their* parent
+    # (a CheckInEvent, a CommunityEvent), not an Event: match on the target.
+    return frozenset(
+        model for model in _scoped_models()
+        if 'event' in model._meta.fields_map
+        and getattr(model._meta.fields_map['event'], 'related_model', None) is _models.Event
+        and getattr(model._meta.fields_map['event'], 'on_delete', None) == CASCADE
+    )
+
+
+async def _load_default_events() -> None:
+    _default_events.clear()
+    for tenant_id, event_id in await _models.Event.filter(is_default=True).values_list('tenant_id', 'id'):
+        _default_events[tenant_id] = event_id
+
+
+async def _test_event_id_for(model: type[Model], kwargs: dict) -> int:
+    """The event a direct test create lands in: its parent's, else the tenant's default."""
+    from application.repositories._event import stamp_event_id
+    from application.tenant_context import tenant_scope
+
+    tenant_id = kwargs.get('tenant_id') or kwargs['tenant'].pk
+    with tenant_scope(tenant_id):
+        return await stamp_event_id(model, kwargs)
+
+
+async def _install_event_harness(monkeypatch) -> None:
+    """Give every community an event in tests, as production guarantees.
+
+    ``Tenant.create`` also creates the community's default event (production's
+    ``TenantService.create_tenant`` does the same through ``ensure_first_event``),
+    and the event-context fallback resolves a tenant's default when no event is
+    bound. Tests about a community *without* events use ``bare_tenant_create``.
+    """
+    from application import event_context
+
+    await _load_default_events()
+    monkeypatch.setattr(event_context, '_fallback_event_id', _default_events.get)
+
+    original_event_create = _models.Event.create
+    original_tenant_create = _models.Tenant.create
+
+    async def _event_create(**kwargs):
+        event = await original_event_create(**kwargs)
+        if event.is_default:
+            _default_events[event.tenant_id] = event.id
+        return event
+
+    async def _tenant_create(**kwargs):
+        tenant = await original_tenant_create(**kwargs)
+        event = await original_event_create(
+            tenant_id=tenant.id, name=tenant.name, slug=tenant.slug,
+            status=_models.EventStatus.LIVE, is_default=True,
+        )
+        _default_events[tenant.id] = event.id
+        return tenant
+
+    monkeypatch.setattr(_models.Event, 'create', _event_create)
+    monkeypatch.setattr(_models.Tenant, 'create', _tenant_create)
+    _tenant_create.bare = original_tenant_create  # type: ignore[attr-defined]
+
+
+@pytest.fixture
+def bare_tenant_create(db):
+    """``Tenant.create`` without the harness's default event."""
+    return _models.Tenant.create.bare
 
 
 SEEDED_TEMPLATE = 'seeded'
@@ -420,10 +546,13 @@ async def seeded_db(db):
     if not ON_POSTGRES and SEEDED_TEMPLATE in _templates:
         await restore_template(SEEDED_TEMPLATE)
         tenant_service._clear_cache()
+        event_service._clear_cache()
+        await _load_default_events()
         return
     from scripts.seed_dev import seed_all
 
     await seed_all()
+    await _load_default_events()
     if not ON_POSTGRES:
         await capture_template(SEEDED_TEMPLATE)
 

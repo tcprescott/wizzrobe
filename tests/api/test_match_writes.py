@@ -395,3 +395,29 @@ async def ApiToken_for(user: User):
     """Mint a token for an already-created user."""
     from application.services.api_token_service import ApiTokenService
     return await ApiTokenService().create_token(user, name='test')
+
+
+class TestBroadcastTechStageBoundary:
+    """A Broadcast Tech runs a match only while it is on a stage.
+
+    Proctor Station shows them stage matches only; this is the server half, so
+    a token holder can't reach an off-stage match the board leaves out.
+    """
+
+    async def test_seats_a_match_on_a_stage(self, db, app):
+        from models import Stage
+
+        _, raw = await create_user_token(username='tech', roles=[Role.STREAM_MANAGER])
+        match = await _seeded_match()
+        stage = await Stage.create(name='Main Stage', is_active=True)
+        await Match.filter(id=match.id).update(stage_id=stage.id)
+        async with client_for(app, raw) as c:
+            assert (await c.post(f'/api/matches/{match.id}/seat')).status_code == 200
+
+    async def test_is_refused_an_off_stage_match(self, db, app):
+        _, raw = await create_user_token(username='tech', roles=[Role.STREAM_MANAGER])
+        match = await _seeded_match()
+        async with client_for(app, raw) as c:
+            assert (await c.post(f'/api/matches/{match.id}/seat')).status_code == 403
+        await match.refresh_from_db()
+        assert match.seated_at is None

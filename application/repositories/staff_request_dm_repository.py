@@ -8,6 +8,7 @@ from typing import List
 
 from models import StaffRequestDM, StaffRequestKind
 
+from ._event import tagged_event_id
 from ._tenant import current_tenant_id, scoped
 
 
@@ -19,7 +20,7 @@ class StaffRequestDMRepository:
         kind: StaffRequestKind, object_id: int, user_id: int, channel_id: int, message_id: int,
     ) -> StaffRequestDM:
         return await StaffRequestDM.create(
-            tenant_id=current_tenant_id(), kind=kind, object_id=object_id,
+            tenant_id=current_tenant_id(), event_id=tagged_event_id(), kind=kind, object_id=object_id,
             user_id=user_id, channel_id=channel_id, message_id=message_id,
         )
 
@@ -30,3 +31,8 @@ class StaffRequestDMRepository:
     @staticmethod
     async def forget(kind: StaffRequestKind, object_id: int) -> int:
         return await scoped(StaffRequestDM.filter(kind=kind, object_id=object_id)).delete()
+
+    @staticmethod
+    async def rebind(kind: StaffRequestKind, old_id: int, new_id: int) -> int:
+        """Point the DMs about ``old_id`` at ``new_id``, for a request that came back."""
+        return await scoped(StaffRequestDM.filter(kind=kind, object_id=old_id)).update(object_id=new_id)

@@ -88,7 +88,7 @@ async def generate_avianart(settings: Optional[dict]) -> RolledSeed:
     except ValueError as e:
         raise SeedProviderInvalidRequest(str(e), provider='avianart', operation='generate_seed') from None
 
-    async with aiohttp.ClientSession() as session:
+    async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=120)) as session:
         async with session.post(
             AVIANART_API, params={'action': 'generate', 'preset': name},
             json=[{'args': {'race': True}}],

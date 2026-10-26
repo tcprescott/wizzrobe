@@ -9,6 +9,9 @@ import re
 from datetime import date, time
 from typing import Dict, List, Optional, Tuple
 
+from application.event_context import event_scoped, get_current_event_id, require_event_id
+from application.repositories._save import save_fields
+from application.repositories.event_repository import EventRepository
 from application.services.audit_service import AuditActions, AuditService
 from application.services.auth_service import AuthService
 from application.tenant_context import require_tenant_id
@@ -51,6 +54,24 @@ WATCH_MODES = ('live', 'static')
 KEY_WATCH_AUTO_STATIC = 'watch_page_auto_static'
 KEY_WATCH_AUTO_THRESHOLD = 'watch_page_auto_threshold'
 DEFAULT_WATCH_AUTO_THRESHOLD = 300
+# Whether signed-out visitors always get the static page while it is otherwise
+# live (default off): cheaper, but they lose the live updates.
+KEY_WATCH_STATIC_SIGNED_OUT = 'watch_page_static_signed_out'
+
+#: Settings each event keeps for itself in ``Event.config``; the rest stay the
+#: community's. Read and written for the event in scope, so a page in last
+#: year's event shows last year's capacity, and a worker reads the event it bound.
+EVENT_CONFIG_KEYS = frozenset({
+    KEY_MAX_CONCURRENT_PLAYERS, KEY_MAX_CONCURRENT_STAGES, KEY_TOURNAMENT_HOURS,
+    KEY_STATION_FORMAT, KEY_VOLUNTEER_COMP_TIERS,
+})
+#: The event dates, which are the event's own columns rather than config.
+EVENT_DATE_FIELDS = {KEY_EVENT_START_DATE: 'starts_on', KEY_EVENT_END_DATE: 'ends_on'}
+
+
+def is_event_key(key: str) -> bool:
+    return key in EVENT_CONFIG_KEYS or key in EVENT_DATE_FIELDS
+
 
 _DISCORD_INVITE_RE = re.compile(
     r'^(?:https?://)?(?:www\.)?(?:discord\.gg|(?:discord|discordapp)\.com/invite)/([A-Za-z0-9-]{2,64})/?$'
@@ -62,9 +83,49 @@ class SystemConfigService:
 
     @staticmethod
     async def get_raw(key: str) -> Optional[str]:
+        if is_event_key(key):
+            return await SystemConfigService._get_event_raw(key)
         # SystemConfiguration is per-tenant (unique on (tenant, name)).
         config = await SystemConfiguration.get_or_none(name=key, tenant_id=require_tenant_id())
         return config.value if config else None
+
+    @staticmethod
+    async def _get_event_raw(key: str) -> Optional[str]:
+        """An event setting of the event in scope, as the text a community row held."""
+        event_id = get_current_event_id()
+        event = await EventRepository.get_in_tenant(event_id) if event_id is not None else None
+        if event is None:
+            return None
+        if key in EVENT_DATE_FIELDS:
+            value = getattr(event, EVENT_DATE_FIELDS[key])
+            return value.isoformat() if value else None
+        stored = (event.config or {}).get(key)
+        return None if stored is None else str(stored)
+
+    @staticmethod
+    async def _set_event_raw(key: str, value: str) -> Optional[str]:
+        """Write an event setting onto the event in scope. Returns the old value."""
+        event = await EventRepository.get_in_tenant(require_event_id())
+        if event is None:
+            raise ValueError('That event no longer exists.')
+        if key in EVENT_DATE_FIELDS:
+            field = EVENT_DATE_FIELDS[key]
+            old = getattr(event, field)
+            new = date.fromisoformat(value) if value else None
+            starts_on = new if field == 'starts_on' else event.starts_on
+            ends_on = new if field == 'ends_on' else event.ends_on
+            if starts_on and ends_on and ends_on < starts_on:
+                raise ValueError('The event has to end on or after the day it starts.')
+            await EventRepository.update(event, **{field: new})
+            return old.isoformat() if old else None
+        config = dict(event.config or {})
+        old_value = config.get(key)
+        if value == '':
+            config.pop(key, None)
+        else:
+            config[key] = value
+        await EventRepository.update(event, config=config)
+        return None if old_value is None else str(old_value)
 
     @staticmethod
     async def list_entries(actor: Optional[User]) -> List[Tuple[str, str]]:
@@ -74,7 +135,12 @@ class SystemConfigService:
             "Only Staff can read system configuration",
         )
         entries = await SystemConfiguration.filter(tenant_id=require_tenant_id()).order_by('name')
-        return [(e.name, e.value) for e in entries]
+        rows = {e.name: e.value for e in entries}
+        for key in sorted(EVENT_CONFIG_KEYS | set(EVENT_DATE_FIELDS)):
+            value = await SystemConfigService._get_event_raw(key)
+            if value is not None:
+                rows[key] = value
+        return sorted(rows.items())
 
     @staticmethod
     async def set_raw(key: str, value: str, actor: User) -> SystemConfiguration:
@@ -83,11 +149,20 @@ class SystemConfigService:
             "Only Staff can modify system configuration",
         )
         tenant_id = require_tenant_id()
+        if is_event_key(key):
+            event_id = require_event_id()
+            old_event_value = await SystemConfigService._set_event_raw(key, value)
+            await AuditService().write_log(
+                actor,
+                AuditActions.SYSTEM_CONFIG_UPDATED,
+                {'key': key, 'old_value': old_event_value, 'new_value': value, 'event_id': event_id},
+            )
+            return SystemConfiguration(name=key, value=value, tenant_id=tenant_id)
         config = await SystemConfiguration.get_or_none(name=key, tenant_id=tenant_id)
         old_value = config.value if config else None
         if config:
             config.value = value
-            await config.save()
+            await save_fields(config, 'value')
             result = config
         else:
             result = await SystemConfiguration.create(name=key, value=value, tenant_id=tenant_id)
@@ -161,8 +236,9 @@ class SystemConfigService:
             end = await SystemConfigService.get_date(KEY_EVENT_END_DATE)
 
         if start is None or end is None:
-            first = await Match.filter(tenant_id=require_tenant_id()).order_by('scheduled_at').first()
-            last = await Match.filter(tenant_id=require_tenant_id()).order_by('-scheduled_at').first()
+            matches = event_scoped(Match.all(), tournament.event_id if tournament else None)
+            first = await matches.order_by('scheduled_at').first()
+            last = await matches.order_by('-scheduled_at').first()
             derived_start = (
                 to_local(first.scheduled_at).date()
                 if first and first.scheduled_at else None
@@ -192,7 +268,7 @@ class SystemConfigService:
             return value
         if default is not None:
             return default
-        return await Stage.filter(is_active=True, tenant_id=require_tenant_id()).count()
+        return await event_scoped(Stage.filter(is_active=True)).count()
 
     @staticmethod
     async def get_volunteer_reminder_lead_minutes(default: int = 60) -> int:
@@ -491,4 +567,5 @@ _NORMALIZERS = {
     KEY_WATCH_MODE: _watch_mode_value,
     KEY_WATCH_AUTO_STATIC: _bool_value,
     KEY_WATCH_AUTO_THRESHOLD: _positive_int_value,
+    KEY_WATCH_STATIC_SIGNED_OUT: _bool_value,
 }

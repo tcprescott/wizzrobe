@@ -46,10 +46,12 @@ How each shipped subsystem behaves.
 | Doc | Feature |
 |---|---|
 | [features/brackets.md](features/brackets.md) | Native brackets: four formats, multi-stage chains, best-of-N series, the scheduling seam. Behind `FeatureFlag.BRACKETS` |
+| [features/data-exports.md](features/data-exports.md) | The export queue: tournament participants + matches ZIP/JSON (versioned schema), volunteer data, logged table CSVs, 3-day retention, throttling |
 | [features/match-participation.md](features/match-participation.md) | Crew signup and approval, player and crew acknowledgment, match watching |
 | [features/discord.md](features/discord.md) | Match DMs and fan-out, guild-role → app-role sync, notification preferences, `MOCK_DISCORD` |
 | [features/online-tournaments.md](features/online-tournaments.md) | SahasrahBot succession, user-definable tournament config, racetime/SpeedGaming/Discord-Events design rules |
 | [features/multitenancy.md](features/multitenancy.md) | `/t/<slug>` and custom-domain addressing, tenant context, query scoping, per-tenant roles, `/platform` |
+| [features/events.md](features/events.md) | Events inside a community: the `Event` model, event context, default event, which rows carry `event_id`, the events migration |
 | [features/feature-flags.md](features/feature-flags.md) | Two-tier per-tenant flags: super-admin availability + tenant enable, and how to gate a subsystem |
 | [features/mcp-server.md](features/mcp-server.md) | Remote MCP server at `/mcp`: typed tools, reads by default and writes on request, OAuth 2.1 only |
 | [features/oauth-apps.md](features/oauth-apps.md) | The `/oauth` authorization server for third-party apps: registration, consent, PKCE, community-bound grants, rotation and reuse detection |
@@ -60,12 +62,15 @@ How each shipped subsystem behaves.
 | [features/observability.md](features/observability.md) | Sentry wiring (events, logs, traces, tenant/worker tags), which failures log at ERROR, runtime log levels on `/platform` |
 | [features/web-push.md](features/web-push.md) | Declarative Web Push device notifications mirroring Discord DMs |
 | [features/notification-channels.md](features/notification-channels.md) | Email (SendGrid) and Telegram copies of Discord DMs, confirmation, tests |
+| [features/notification-settings.md](features/notification-settings.md) | Admin → Notifications: the catalogue of every DM, per-community off/silent/ping per recipient, on-shift staff alerts, `send_dm(notice=...)` |
 | [features/admin-reports.md](features/admin-reports.md) | Crew hours, match export, audit viewer, trended insights |
 | [features/ada-accommodations.md](features/ada-accommodations.md) | Per-community ADA accommodation requests from the profile, a STAFF queue with status and private notes. Behind `FeatureFlag.ADA_ACCOMMODATIONS` |
 | [features/community-events.md](features/community-events.md) | Members-only `/community-events`: member-submitted, staff-approved events with Discord reminders for subscribers, and the reusable Tiptap markdown editor. Behind `FeatureFlag.COMMUNITY_EVENTS` |
 | [features/startgg.md](features/startgg.md) | start.gg bracket mirror: linking, entrant mapping, booking ready sets, opt-in result writeback, the shared `bracket_sources` contract. Behind `FeatureFlag.STARTGG` |
 | [features/event-check-in.md](features/event-check-in.md) | Matcherino-backed check-in desk for in-person events: badge-sale sync over the unofficial API, badge tiers, account matching, walk-ups, the `CHECK_IN_DESK` role. Behind `FeatureFlag.EVENT_CHECK_IN` |
+| [features/stream-layouts.md](features/stream-layouts.md) | OBS browser-source overlays per event: layout editor, stage links that follow the match on stage, pins. Behind `FeatureFlag.STREAM_LAYOUTS` |
 | [features/payouts.md](features/payouts.md) | Prize pool, placement splits with ties, computed amounts, Matcherino handles and the payout block. Behind `FeatureFlag.PAYOUTS` |
+| [features/item-tracker.md](features/item-tracker.md) | ALTTP item tracker for restreams: crew board, delayed stream preview, change log with undo, transparent OBS overlay, keysanity. Behind `FeatureFlag.ITEM_TRACKER` |
 | [features/profile-reminders.md](features/profile-reminders.md) | Staff-picked recommended profile items (Challonge linked, pronouns, ...) and the red banner that asks members to finish them |
 | [features/triforce-texts.md](features/triforce-texts.md) | Player submission and admin moderation |
 | [features/help.md](features/help.md) | Public `/help` articles + tappable help icons; the safe (non-`ui.markdown`) document model |

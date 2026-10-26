@@ -209,7 +209,7 @@ Signed-out readability is **not** publication: the app serves a blanket `robots.
 | Decorator | Route(s) | Gating |
 |---|---|---|
 | `protected_tab_page` | `/admin` ([`pages/admin.py`](../../pages/admin.py)) | Login-only; the page body does its own tab-by-tab authorization |
-| `protected_tab_page` | `/volunteer` ([`pages/volunteer.py`](../../pages/volunteer.py)) | `roles=[VOLUNTEER, PROCTOR, STAFF, CHECK_IN_DESK, VOLUNTEER_COORDINATOR]`, no page-level flag; the volunteer tabs follow `can_view_volunteer`, Proctor Station `can_open_proctor_station`, the desk tab `can_view_check_in_desk`, and a visitor with no tab gets the not-found page a flag would give |
+| `protected_tab_page` | `/volunteer` ([`pages/volunteer.py`](../../pages/volunteer.py)) | `roles=[VOLUNTEER, PROCTOR, STAFF, CHECK_IN_DESK, VOLUNTEER_COORDINATOR, STREAM_MANAGER]`, no page-level flag; the volunteer tabs follow `can_view_volunteer`, Proctor Station `can_open_proctor_station` (a Broadcast Tech's board lists only matches on a stage, `proctor_station_on_stage_only`), the desk tab `can_view_check_in_desk`, and a visitor with no tab gets the not-found page a flag would give |
 | `protected_page` | `/equipment/{asset_id}` ([`pages/equipment.py`](../../pages/equipment.py)) | `feature=EQUIPMENT` |
 | `protected_page` | `/equipment/qr-labels` ([`pages/equipment_labels.py`](../../pages/equipment_labels.py)) | `roles=[STAFF, EQUIPMENT_MANAGER]`, `feature=EQUIPMENT` |
 | `protected_page` | `/checkin`, `/checkin/{event_id}` ([`pages/check_in.py`](../../pages/check_in.py)) | `roles=[STAFF, CHECK_IN_DESK]`, `feature=EVENT_CHECK_IN`; both redirect to the Volunteer hub's desk tab |
@@ -218,7 +218,7 @@ Signed-out readability is **not** publication: the app serves a blanket `robots.
 | `public_page` | `/event-info`, `/event-info/{slug}` ([`pages/event_info.py`](../../pages/event_info.py)) | `feature=EVENT_INFO` |
 | `public_page` | `/help`, `/help/{slug}` ([`pages/help.py`](../../pages/help.py)) | None — in-app help articles |
 | `public_page` | `/room/{token}/seeds` ([`pages/room_seeds.py`](../../pages/room_seeds.py)) | None; the URL token is the credential (`telemetry_path='/room/seeds'`, and the token value is redacted from telemetry) |
-| `public_page` | `/cat-facts` ([`pages/cat_facts.py`](../../pages/cat_facts.py)) | None |
+| `public_page` | `/facts`, plus the `/cat-facts`, `/hadestown-facts` and `/rollercoaster-facts` redirects ([`pages/facts.py`](../../pages/facts.py)) | None |
 
 `pages/mcp_consent.py` is a bespoke `@ui.page` that registers itself in `protected_routes` directly, because an MCP grant is platform-wide and must not 404 on the tenant check ([features/mcp-server.md](../features/mcp-server.md)). Page registration order is described in [frontend.md](frontend.md).
 

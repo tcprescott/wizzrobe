@@ -12,7 +12,7 @@ schedules at all. It gates for itself and routes privileged callers through
 scheduling fields (stage, crew) are rejected for an entrant.
 """
 
-from typing import List, Optional
+from typing import Any, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 
@@ -559,7 +559,7 @@ async def schedule_game(
     400 rather than having it silently dropped.
     """
     service = BracketService()
-    extra = {} if body.stage_id is None else {'stage_id': body.stage_id}
+    extra: dict[str, Any] = {} if body.stage_id is None else {'stage_id': body.stage_id}
     await service.schedule_bracket_match(
         actor, match_id,
         scheduled_date=body.scheduled_date,

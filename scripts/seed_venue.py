@@ -16,7 +16,8 @@ field, which is the other half of that setting.
 import json
 from datetime import date, timedelta
 
-from models import Stage, Station, StationSide, SystemConfiguration, Tenant
+from application.services.system_config_service import EVENT_CONFIG_KEYS, EVENT_DATE_FIELDS
+from models import Event, Stage, Station, StationSide, SystemConfiguration, Tenant
 
 
 async def seed_venue_for_tenant(
@@ -93,8 +94,20 @@ async def seed_venue_for_tenant(
         ("join_requests_enabled", "false" if tenant.slug == "second" else "true"),
         ("discord_invite_url", f"https://discord.gg/wizzrobe-{tenant.slug}"),
     ]
+    # The event's own settings go on the default event; the rest stay rows.
+    default_event = await Event.get(tenant=tenant, is_default=True)
+    event_config = dict(default_event.config or {})
     for key, val in config_specs:
-        await SystemConfiguration.get_or_create(
-            name=key, tenant=tenant, defaults={"value": val},
-        )
+        if key in EVENT_DATE_FIELDS:
+            column = EVENT_DATE_FIELDS[key]
+            if getattr(default_event, column) is None:
+                setattr(default_event, column, date.fromisoformat(val))
+        elif key in EVENT_CONFIG_KEYS:
+            event_config.setdefault(key, val)
+        else:
+            await SystemConfiguration.get_or_create(
+                name=key, tenant=tenant, defaults={"value": val},
+            )
+    default_event.config = event_config
+    await default_event.save(update_fields=["config", "starts_on", "ends_on"])
     print(f"    [{tenant.slug}] system config ok")

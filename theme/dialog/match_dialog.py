@@ -1,7 +1,10 @@
+from typing import Optional
+
 from nicegui import app, background_tasks, context, ui
 
 from application.services import (
     AuthService,
+    BracketSetService,
     FeatureFlagService,
     MatchStreamVolunteerService,
     RaceRoomService,
@@ -16,12 +19,15 @@ from theme.dialog._helpers import (
     dialog_header,
     mobile_sheet,
 )
+from theme.dialog._set_join_notice import SetJoinNotice
 from theme.dialog.confirmation_dialog import ConfirmationDialog
 from theme.dialog.match_dialog_base import (
     BaseMatchDialog,
     enrolment_preview,
 )
 from theme.help import resolve_help
+from theme.markdown_editor import MarkdownEditor
+from theme.pickers import CHIP_PROPS
 from theme.tables.admin_crud import capture_render_context, scoped_background
 
 # The empty-Tournament hints differ by audience: an admin can go and make one, a
@@ -165,7 +171,7 @@ class AdminMatchDialog(BaseMatchDialog):
         # include_inactive: a SpeedGaming placeholder entrant is inactive by
         # construction, and a synced match's roster already contains it — leaving
         # it out of the options would blank an existing player's chip.
-        users = await self.user_service.get_community_people(include_inactive=True)
+        users = await self.user_service.get_community_people_summaries(include_inactive=True)
         stages = await self.stage_service.get_all_stages()
         tournaments, entrant_counts = await self.tournament_service.list_schedulable(
             await get_user_from_session(app.storage.user),
@@ -250,7 +256,7 @@ class AdminMatchDialog(BaseMatchDialog):
                         value=player_ids,
                         multiple=True,
                         with_input=True,
-                    ).props('use-chips')
+                    ).props(CHIP_PROPS)
                     selected_players.disable()
                     # "Choose any players" meant "any account on the platform"
                     # and now means "any member of this community", which is not
@@ -269,6 +275,19 @@ class AdminMatchDialog(BaseMatchDialog):
                 # dialog: enrolment is reversible from the tournament's own
                 # entrants dialog.
                 enrolment_note = ui.label('').classes('text-caption text-grey')
+                ui.label(
+                    'Leave Players empty to hold the slot, and add them later. '
+                    'The title shows in their place until then.'
+                ).classes('text-caption text-grey')
+
+                title_input = ui.input(
+                    'Title', value=(self.match.title or '') if self.match else '',
+                ).props('maxlength=255').classes('input-full-width')
+                description_input = MarkdownEditor(
+                    'Description', value=(self.match.description or '') if self.match else '',
+                    placeholder='What the slot is for, shown with the match on the schedules.',
+                    compact=True,
+                ).classes('full-width')
 
                 async def update_enrolment_note():
                     tournament_id = selected_tournament.value
@@ -295,7 +314,7 @@ class AdminMatchDialog(BaseMatchDialog):
                         value=commentator_ids,
                         multiple=True,
                         with_input=True,
-                    ).props('use-chips')
+                    ).props(CHIP_PROPS)
 
                     selected_trackers = ui.select(
                         label='Trackers',
@@ -303,7 +322,7 @@ class AdminMatchDialog(BaseMatchDialog):
                         value=tracker_ids,
                         multiple=True,
                         with_input=True,
-                    ).props('use-chips')
+                    ).props(CHIP_PROPS)
 
                 async def update_selection_options():
                     tournament_id = selected_tournament.value
@@ -368,6 +387,18 @@ class AdminMatchDialog(BaseMatchDialog):
                     exclude_match_id=self.match.id if self.match else None,
                 )
 
+                set_notice: Optional[SetJoinNotice] = None
+                if is_create:
+                    set_notice = SetJoinNotice(
+                        tenant_id, await get_user_from_session(app.storage.user),
+                        {u.id: u.preferred_name for u in users},
+                    )
+                    set_notice.watch(
+                        selected_tournament, selected_players,
+                        get_state=lambda: (selected_tournament.value, get_player_ids()),
+                    )
+                    await set_notice.refresh(selected_tournament.value, get_player_ids())
+
                 comment_input = ui.textarea(
                     label='Comment (optional)',
                     value=defaults['comment'],
@@ -414,6 +445,8 @@ class AdminMatchDialog(BaseMatchDialog):
                 date_value = date.value
                 time_value = time.value
                 comment_value = comment_input.value
+                title_value = title_input.value or ''
+                description_value = description_input.value or ''
                 new_player_ids = selected_players.value if isinstance(selected_players.value, list) else [selected_players.value]
                 new_commentator_ids = selected_commentators.value if isinstance(selected_commentators.value, list) else [selected_commentators.value]
                 new_tracker_ids = selected_trackers.value if isinstance(selected_trackers.value, list) else [selected_trackers.value]
@@ -429,7 +462,10 @@ class AdminMatchDialog(BaseMatchDialog):
                         commentator_ids=new_commentator_ids,
                         tracker_ids=new_tracker_ids,
                         comment=comment_value,
+                        title=title_value,
+                        description=description_value,
                         actor=actor,
+                        allow_outside_round=getattr(self, 'allow_outside_round', False),
                     )
                     if (stage_id or None) != self.match.stage_id:
                         await self.match_service.assign_stage(
@@ -454,6 +490,8 @@ class AdminMatchDialog(BaseMatchDialog):
                         scheduled_date=date_value,
                         scheduled_time=time_value,
                         comment=comment_value,
+                        title=title_value,
+                        description=description_value,
                         player_ids=new_player_ids,
                         commentator_ids=new_commentator_ids,
                         tracker_ids=new_tracker_ids,
@@ -462,6 +500,10 @@ class AdminMatchDialog(BaseMatchDialog):
                     )
                     if stage_id:
                         await self.match_service.assign_stage(new_match.id, stage_id, actor=actor)
+                    first_id = set_notice.joining() if set_notice else None
+                    if first_id is not None:
+                        await BracketSetService().join_set(new_match.id, first_id, actor)
+                        return
                     await bracket_link.apply_link(
                         self.bracket_service, selected_bracket_match, new_match.id, None,
                     )
@@ -471,10 +513,12 @@ class AdminMatchDialog(BaseMatchDialog):
                     required_fields={'Tournament': tournament_id, 'Date': date_value, 'Time': time_value},
                     tournament_id=tournament_id,
                     player_ids=new_player_ids,
-                    stale_message='Another admin saved this match while you had it open.',
+                    stale_message='Someone else on staff saved this match while you had it open.',
                     do_update=do_update,
                     do_create=do_create,
                     create_success_message='Match created successfully',
+                    scheduled=(date_value, time_value),
+                    confirm_label='Save anyway' if self.match else 'Create anyway',
                 )
 
             self._render_submit_footer(dialog, submit, create_label='Create')
@@ -491,7 +535,7 @@ class UserMatchDialog(BaseMatchDialog):
         # include_inactive: a SpeedGaming placeholder entrant is inactive by
         # construction, and a synced match's roster already contains it — leaving
         # it out of the options would blank an existing player's chip.
-        users = await self.user_service.get_community_people(include_inactive=True)
+        users = await self.user_service.get_community_people_summaries(include_inactive=True)
 
         user = await self.user_service.get_user_by_discord_id(self.discord_id)
         if not user:
@@ -652,6 +696,8 @@ class UserMatchDialog(BaseMatchDialog):
                     do_update=do_update,
                     do_create=do_create,
                     create_success_message='Match submitted successfully',
+                    scheduled=(date_value, time_value),
+                    confirm_label='Save anyway' if self.match else 'Submit anyway',
                 )
 
             self._render_submit_footer(dialog, submit, create_label='Submit')

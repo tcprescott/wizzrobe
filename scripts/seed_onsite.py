@@ -15,6 +15,8 @@ this fixture exists to exercise.
 from datetime import date, datetime, timedelta
 
 from models import (
+    CommentaryInvite,
+    CommentaryInviteStatus,
     Commentator,
     Match,
     MatchPlayers,
@@ -37,6 +39,13 @@ _ONSITE_META = {
     "average_match_duration": 75,
     "max_match_duration": 120,
 }
+
+
+async def _invite(tenant, match, inviter, invitee, status, responded_at) -> None:
+    """One commentary invite in ``status``, unless the pair already has one in it."""
+    keys = dict(match=match, inviter=inviter, invitee=invitee, tenant=tenant, status=status)
+    if not await CommentaryInvite.filter(**keys).exists():
+        await CommentaryInvite.create(**keys, responded_at=responded_at)
 
 
 async def seed_onsite_for_tenant(
@@ -158,7 +167,22 @@ async def seed_onsite_for_tenant(
         )
     # Scheduled, on a stage, and inside this tournament's 45-minute lead — the
     # row the stage reminder worker has to find on a freshly seeded database.
-    await make_match("On-Site Stage Call", 0.5, stage=stage3)
+    stage_call = await make_match("On-Site Stage Call", 0.5, stage=stage3)
+    # Pair commentary, both states: on the stage call players[2] is signed up
+    # and waiting on players[3]'s answer (their My Schedule carries the invite);
+    # on the scheduled match players[3] brought players[2], who accepted.
+    await Commentator.get_or_create(match=stage_call, user=players[2], tenant=tenant)
+    await _invite(tenant, stage_call, players[2], players[3], CommentaryInviteStatus.PENDING, None)
+    paired = await Match.get(title="On-Site Scheduled", tournament=onsite, tenant=tenant)
+    await Commentator.get_or_create(match=paired, user=players[3], tenant=tenant)
+    await Commentator.get_or_create(
+        match=paired, user=players[2], tenant=tenant, defaults={"invited_by": players[3]},
+    )
+    await _invite(tenant, paired, players[3], players[2], CommentaryInviteStatus.ACCEPTED, now)
+    # The settled states the board never draws: an invite declined and one
+    # taken back. Seed-only history, so the audit log has no row for them.
+    for status in (CommentaryInviteStatus.DECLINED, CommentaryInviteStatus.CANCELLED):
+        await _invite(tenant, stage_call, players[3], players[2], status, now - timedelta(hours=1))
     await make_match("On-Site In Progress", -1, seated=True, started=True, stations=('4', '8'), stage=stage3)
     # Recorded but not yet confirmed — the admin's review queue.
     await make_match(

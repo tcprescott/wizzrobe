@@ -20,11 +20,14 @@ SCHEDULE = 'match-schedule'
 REPORTS = 'reports'
 VOL_SCHEDULE = 'volunteer-shifts'
 SHIFT_BOARD = 'shift-board'
-CHALLONGE = 'challonge'
+# The Challonge sign-in lives on Settings → Integrations.
+INTEGRATIONS = 'settings/integrations'
 USERS = 'members'
 QUALIFIERS = 'qualifiers'
 CHECK_IN = 'check-in-roster'
 COMMUNITY_EVENTS = 'community-events'
+NOTIFICATIONS = 'notifications'
+TOURNAMENTS = 'tournaments'
 
 # Home tab slugs.
 HOME_PLAYER = 'player'
@@ -227,3 +230,25 @@ def admin_community_event_url(event_id: int) -> str:
 def admin_check_in_url() -> str:
     """Admin → Check-in, whose first control is the Matcherino login card."""
     return admin_url(CHECK_IN)
+
+
+MY_MESSAGES = '/messages'
+
+
+def my_message_url(message_id: Optional[int] = None) -> str:
+    """Messages sent to you, opened on one message (and its Off/Silent/Ping switch)."""
+    return f'{MY_MESSAGES}{_query({"message": message_id})}'
+
+
+ITEM_TRACKER = '/tracker/{match_id}'
+ITEM_TRACKER_OVERLAY = '/tracker/overlay/{token}'
+
+
+def item_tracker_path(match_id: int) -> str:
+    """The crew's ALTTP item tracker for one match."""
+    return ITEM_TRACKER.format(match_id=match_id)
+
+
+def item_tracker_overlay_path(token: str) -> str:
+    """One runner's transparent board, for an OBS browser source."""
+    return ITEM_TRACKER_OVERLAY.format(token=token)

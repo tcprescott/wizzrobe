@@ -32,7 +32,9 @@ def stub_storage(monkeypatch):
     async def fake_get_or_none(**kwargs):
         name = kwargs.get('name')
         if name in storage:
-            return SimpleNamespace(name=name, value=storage[name], save=AsyncMock())
+            return SimpleNamespace(
+                name=name, value=storage[name], save=AsyncMock(), _meta=SimpleNamespace(fields_map={}),
+            )
         return None
 
     async def fake_create(**kwargs):
@@ -47,6 +49,18 @@ def stub_storage(monkeypatch):
         'application.services.system_config_service.SystemConfiguration.create',
         fake_create,
     )
+
+    # The event settings live on the event; the same store stands in for it.
+    async def fake_get_event_raw(key):
+        return storage.get(key)
+
+    async def fake_set_event_raw(key, value):
+        old = storage.get(key)
+        storage[key] = value
+        return old
+
+    monkeypatch.setattr(SystemConfigService, '_get_event_raw', staticmethod(fake_get_event_raw))
+    monkeypatch.setattr(SystemConfigService, '_set_event_raw', staticmethod(fake_set_event_raw))
     return storage
 
 
@@ -137,8 +151,8 @@ class TestSetRaw:
             name = kwargs.get('name')
             if name not in stub_storage:
                 return None
-            obj = SimpleNamespace(name=name, value=stub_storage[name])
-            async def _save():
+            obj = SimpleNamespace(name=name, value=stub_storage[name], _meta=SimpleNamespace(fields_map={}))
+            async def _save(update_fields=None):
                 stub_storage[name] = obj.value
             obj.save = _save
             return obj
@@ -158,8 +172,8 @@ class TestSetRaw:
             name = kwargs.get('name')
             if name not in stub_storage:
                 return None
-            ns = SimpleNamespace(name=name, value=stub_storage[name])
-            async def _save():
+            ns = SimpleNamespace(name=name, value=stub_storage[name], _meta=SimpleNamespace(fields_map={}))
+            async def _save(update_fields=None):
                 stub_storage[name] = ns.value
             ns.save = _save
             return ns
@@ -218,12 +232,12 @@ def _patch_match_minmax(monkeypatch, first_at=None, last_at=None):
                 return last_match
             return None
 
-    def fake_filter(**_kwargs):
-        # The service now scopes by tenant: Match.filter(tenant_id=...).
-        return FakeQS('match_qs')
-
+    # The service scopes by event: event_scoped(Match.all(), ...).
     monkeypatch.setattr(
-        'application.services.system_config_service.Match.filter', fake_filter,
+        'application.services.system_config_service.Match.all', lambda: FakeQS('match_qs'),
+    )
+    monkeypatch.setattr(
+        'application.services.system_config_service.event_scoped', lambda qs, *_a: qs,
     )
 
 
@@ -320,6 +334,9 @@ class TestGetMaxConcurrentStages:
         monkeypatch.setattr(
             'application.services.system_config_service.Stage.filter',
             lambda **_kw: FakeFilter(5),
+        )
+        monkeypatch.setattr(
+            'application.services.system_config_service.event_scoped', lambda qs, *_a: qs,
         )
         assert await SystemConfigService.get_max_concurrent_stages() == 5
 

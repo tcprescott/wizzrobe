@@ -88,3 +88,40 @@ async def test_roll_permalinks_refuses_async_randomizer(db):
 
         from models import AsyncQualifierPermalink
         assert await AsyncQualifierPermalink.all().count() == 0
+
+
+async def test_rolled_permalinks_keep_the_seed_code(db, monkeypatch):
+    from application.services._seedgen_types import RolledSeed
+    from application.services.seedgen_service import SeedGenerationService
+    from application.tenant_context import tenant_scope
+    from application.utils.seed_provider import ProviderCall
+    from models import FeatureFlag, GeneratedSeeds, Preset, Tenant, TenantFeatureFlag
+
+    async def fake_call(self, randomizer, preset, surface=None):
+        return ProviderCall(
+            value=RolledSeed(url='https://seed.test/1', code=['Bow', 'Hookshot']),
+            provider=randomizer, operation='generate_seed',
+        )
+
+    monkeypatch.setattr(SeedGenerationService, 'generate_seed_call', fake_call)
+    service = AsyncQualifierService()
+    b = await Tenant.create(name='Codes', slug='codes-q')
+    await TenantFeatureFlag.create(
+        tenant_id=b.id, flag=FeatureFlag.ASYNC_QUALIFIERS.value,
+        available=True, enabled=True,
+    )
+    with tenant_scope(b.id):
+        staff = await User.create(discord_id=900501, username='qstaff2')
+        await UserRole.create(user=staff, role=Role.STAFF)
+        preset = await Preset.create(name='Z3', randomizer='alttpr', settings={})
+        now = datetime.now(timezone.utc)
+        q = await service.create_qualifier(
+            staff, name='Q', opens_at=now - timedelta(days=1),
+            closes_at=now + timedelta(days=1), runs_per_pool=1,
+        )
+        pool = await service.create_pool(staff, q.id, name='Pool A', preset_id=preset.id)
+
+        await service.roll_permalinks(staff, pool.id, count=1)
+
+        seed = await GeneratedSeeds.get(seed_url='https://seed.test/1')
+        assert seed.seed_code == ['Bow', 'Hookshot']

@@ -25,11 +25,14 @@ from typing import Callable, Dict, FrozenSet, Optional
 from mcp.server.mcpserver import MCPServer
 from mcp.types import ToolAnnotations
 
+from application.event_context import event_scope
+from application.services.event_service import EventService
+from application.services.telemetry_service import TelemetryEventType, TelemetryService
 from application.services.timezone_service import TimezoneService
 from application.tenant_context import tenant_scope
 from application.timezone_context import tz_scope
 from application.utils.sentry import sentry_tags
-from mcpserver.auth import Gate, authorize, current_actor, resolve_tenant
+from mcpserver.auth import Gate, authorize, current_actor, optional_actor, resolve_tenant
 from mcpserver.errors import map_service_error
 from models import FeatureFlag
 
@@ -56,6 +59,23 @@ def write_tool_names() -> FrozenSet[str]:
 def platform_tool_names() -> FrozenSet[str]:
     """Super-admin tools, by name."""
     return frozenset(name for name, spec in TOOL_SPECS.items() if spec.gate is Gate.PLATFORM)
+
+
+async def _record_call(name: str, tenant_id: Optional[int], outcome: str) -> None:
+    actor = optional_actor()
+    if actor is None:
+        return
+    # Platform and orientation tools (whoami, list_tenants) name no community,
+    # so they land as platform rows (tenant NULL).
+    with tenant_scope(tenant_id):
+        await TelemetryService().track_api_call(
+            event_type=TelemetryEventType.MCP_TOOL_CALL,
+            target=name,
+            path='/mcp',
+            user_id=actor.user.id,
+            username=actor.user.username,
+            outcome=outcome,
+        )
 
 
 def register(
@@ -87,13 +107,18 @@ def register(
 
     @functools.wraps(fn)
     async def wrapped(**kwargs):
+        tenant_id: Optional[int] = None
+        outcome = 'ok'
         try:
             actor = current_actor()
             if gate.names_no_community:
                 await authorize(actor, gate, feature, write=write)
                 return await fn(**kwargs)
             tenant = await resolve_tenant(kwargs.get('tenant'))
-            with tenant_scope(tenant.id):
+            tenant_id = tenant.id
+            # The community's default event, until tools take an ``event``
+            # argument. A tool about one row still uses that row's event.
+            with tenant_scope(tenant.id), event_scope(await EventService.default_event_id(tenant.id)):
                 await authorize(actor, gate, feature, slug=tenant.slug, write=write)
                 # An MCP caller has no browser and is not "a viewer", so there is
                 # no personal clock to resolve — but tools still take and derive
@@ -104,7 +129,11 @@ def register(
                     return await fn(**kwargs)
         except Exception as exc:
             with sentry_tags(mcp_tool=name, tenant_slug=kwargs.get('tenant')):
-                raise map_service_error(exc, tool=name) from exc
+                error = map_service_error(exc, tool=name)
+            outcome = str(error).split(':', 1)[0]
+            raise error from exc
+        finally:
+            await _record_call(name, tenant_id, outcome)
 
     # func_metadata builds the JSON schema from inspect.signature(func,
     # eval_str=True), which follows __wrapped__ back to fn — so the schema comes

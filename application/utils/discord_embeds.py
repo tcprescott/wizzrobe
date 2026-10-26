@@ -98,14 +98,17 @@ def match_embed(
     stage_name: Optional[str] = None,
     description: Optional[str] = None,
     url: Optional[str] = None,
+    code: Optional[str] = None,
 ) -> discord.Embed:
-    """Embed for a match notification: Tournament / Players / Time / Stage."""
+    """Embed for a match notification: Tournament / Players / Time / Code / Stage."""
     fields: list[Field] = [('Tournament', tournament, True)]
     players = _players_value(player_names)
     if players:
         fields.append(('Players', players, True))
     if when is not None:
         fields.append(('Time', time_field(when), False))
+    if code:
+        fields.append(('Code', code, False))
     if stage_name:
         fields.append(('Stage', stage_name, True))
     return notification_embed(
@@ -125,8 +128,9 @@ def state_changed_embed(
 ) -> discord.Embed:
     """Started / Finished / Confirmed transition card."""
     emoji = {'Started': '🔴', 'Finished': '🏁', 'Confirmed': '☑️'}.get(new_state, '•')
+    label = 'Match result confirmed' if new_state == 'Confirmed' else f'Match {new_state.lower()}'
     return match_embed(
-        title=f"{emoji} Match {new_state.lower()}",
+        title=f"{emoji} {label}",
         color=_STATE_COLORS.get(new_state, COLOR_SCHEDULED),
         tournament=tournament, community_name=community_name,
         player_names=player_names, when=when, stage_name=stage_name,
@@ -200,13 +204,16 @@ def volunteer_embed(
     starts: Optional[datetime] = None,
     ends: Optional[datetime] = None,
     description: Optional[str] = None,
+    handover: str = '',
 ) -> discord.Embed:
-    """Embed for a volunteer shift: Position / Start / End."""
+    """Embed for a volunteer shift: Position / Start / End, then the handover line."""
     fields: list[Field] = [('Position', position, False)]
     if starts is not None:
         fields.append(('Start', time_field(starts), True))
     if ends is not None:
         fields.append(('End', time_field(ends), True))
+    # A field needs a name; a zero-width one shows the line without a heading.
+    fields.append(('\u200b', handover, False))
     return notification_embed(
         title=title, color=COLOR_VOLUNTEER, community_name=community_name,
         description=description, fields=fields,

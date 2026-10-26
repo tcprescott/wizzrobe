@@ -100,6 +100,9 @@ class StartggSet(Model):
     # What fills an empty slot, e.g. "Winner of B", shown until it's decided.
     slot1_label = fields.CharField(max_length=64, null=True)
     slot2_label = fields.CharField(max_length=64, null=True)
+    # The set whose result fills each empty slot.
+    slot1_prereq = fields.CharField(max_length=64, null=True)
+    slot2_prereq = fields.CharField(max_length=64, null=True)
     winner = fields.ForeignKeyField('models.StartggEntrant', related_name='sets_won', null=True, on_delete=fields.SET_NULL)
     score1 = fields.IntField(null=True)
     score2 = fields.IntField(null=True)
@@ -112,3 +115,32 @@ class StartggSet(Model):
         table = 'startggset'
         unique_together = (('tournament', 'set_id'),)
         indexes = (('match',), ('entrant1',), ('entrant2',))
+
+
+class StartggConnection(Model):
+    """A community's start.gg sign-in: the staff member's OAuth grant that syncs
+    and reports results run as.
+
+    One row per tenant. Tokens are secrets: shown to no one and never logged.
+    ``STARTGG_API_TOKEN`` is the read-only fallback when a community has none.
+    """
+
+    id = fields.IntField(pk=True)
+    tenant: fields.OneToOneRelation = fields.OneToOneField(
+        'models.Tenant', related_name='startgg_connection', on_delete=fields.CASCADE,
+    )
+    tenant_id: int
+    access_token = fields.TextField()
+    refresh_token = fields.TextField(null=True)
+    token_expires_at = fields.DatetimeField(null=True)
+    scopes = fields.CharField(max_length=255, null=True)
+    startgg_user_id = fields.CharField(max_length=64, null=True)
+    startgg_username = fields.CharField(max_length=255, null=True)
+    connected_by: fields.ForeignKeyNullableRelation = fields.ForeignKeyField(
+        'models.User', related_name='startgg_connections', null=True, on_delete=fields.SET_NULL,
+    )
+    created_at = fields.DatetimeField(auto_now_add=True)
+    updated_at = fields.DatetimeField(auto_now=True)
+
+    class Meta:
+        table = 'startggconnection'

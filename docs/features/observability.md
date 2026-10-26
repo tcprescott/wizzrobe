@@ -15,11 +15,11 @@ SDK once, before the FastAPI app is built, and only when `SENTRY_DSN` is set.
 | **Error events** | any `logger.error` / `logger.exception`, plus unhandled exceptions the FastAPI/Starlette integration sees | `LoggingIntegration(event_level=ERROR)`. A `logger.warning` is a breadcrumb only, so a failure someone relied on must log at ERROR. |
 | **Breadcrumbs** | every INFO+ record before an event | Attached to the next event in the same scope. |
 | **Sentry Logs** | every INFO+ record (`SENTRY_LOGS_LEVEL`) | Searchable alongside events. `uvicorn.access`, `httpx` and `httpcore` are excluded (one line per request). DEBUG/TRACE never ship, whatever a logger is set to. |
-| **Traces** | `SENTRY_TRACES_SAMPLE_RATE`, default `0.1` in production and `0` elsewhere | Slow pages, slow DB and outbound HTTP calls. HTTP only: a NiceGUI button click arrives over the websocket and is never traced, which is what the [watchdog](#blocked-event-loop-watchdog) covers. |
+| **Traces** | `SENTRY_TRACES_SAMPLE_RATE`, default `0.1` in production and `0` elsewhere | Slow pages, slow DB and outbound HTTP calls. HTTP only: `_traces_sampler` drops every websocket transaction (a tab's websocket lives for hours and fooled the N+1 detector, SGLMAN-2K), so a NiceGUI button click is never traced, which is what the [watchdog](#blocked-event-loop-watchdog) covers. |
 | **Profiles** | `SENTRY_PROFILES_SAMPLE_RATE`, default `1.0` (of traced requests) in production | Which functions a slow traced request spent its CPU in. |
 | **Loop stalls** | the [watchdog](#blocked-event-loop-watchdog) | WARNING from 0.5s, an ERROR issue from 2s, grouped by the blocking line. |
 | **Metrics** | [`sentry_metrics.py`](../../application/utils/sentry_metrics.py); on with Sentry unless `SENTRY_METRICS=off` | See [Metrics](#metrics). Explore > Metrics in Sentry. |
-| **Health alerts** | `ServiceHealthService._alert` → `capture_message` | Fingerprinted on probe + status, tagged `health_probe` / `health_status`, so one outage is one issue. |
+| **Health alerts** | `ServiceHealthService._alert` → `capture_message` | Fingerprinted on probe + status, tagged `health_probe` / `health_status`, so one outage is one issue. `down` alerts only after two consecutive failed checks (~2 min apart), so a one-off timeout stays on the board without opening an issue; credential warnings alert at once. |
 | **Browser errors + replays** | the JavaScript SDK on every page, same DSN | See [Browser errors](#browser-errors-platform--monitoring). Tagged `surface: browser`; server events carry `surface: server`. |
 
 Every event carries `environment`, `release` (`SENTRY_RELEASE`, else
@@ -31,6 +31,15 @@ the 10s deadline, mostly socket.io long-polls on every deploy). Each cancelled
 request is still named at WARNING on `wizzrobe.shutdown` in Sentry Logs, and the
 lifespan shutdown calls `flush_sentry()` so those last log lines leave the
 process before it exits.
+
+One more restart artefact is fixed at the source rather than filtered: a
+socket.io long-poll for a session engine.io has just closed raised
+`KeyError('Session is disconnected')` out of `handle_request` and ended as a 500
+(SGLMAN-1P). `application/utils/socketio_closed_session.py` wraps NiceGUI's
+engine.io server so that request gets the 400 engine.io answers for any stale
+session, and the browser reconnects. The same wrapper answers 400 when the browser left
+before engine.io read the request, which otherwise failed on
+`environ['REQUEST_METHOD']` (SGLMAN-1T/1V).
 
 ## Context on every event
 
@@ -174,8 +183,97 @@ not the library line underneath it.
 | still blocked at 10s | reported immediately, since it may never return |
 
 Each log line carries the sampled stack. `LOOP_WATCHDOG_ENABLED=false` turns it
-off. `BackgroundLoop` also times every worker tick and logs a tick over 30s at
+off.
+
+### Garbage-collection pauses
+
+A full CPython garbage collection also stops the loop, and it starts on whatever
+allocation tips a generation over its threshold, so a sampled stack lands on an
+innocent line (a label's constructor, a dataclass `__init__`, a weakref
+callback). [`gc_monitor.py`](../../application/utils/gc_monitor.py) hooks
+`gc.callbacks` and times every pass; when at least half of a stall was
+collection, the watchdog reports it as `garbage collection (gen N, X.XXs)`
+instead, all such stalls group into one Sentry issue
+(`event-loop-blocked` + `garbage collection`), and each stall in `runtime_stats`
+carries `gc_seconds`. `runtime_stats` also has a `gc` block: passes, total and
+worst seconds per generation, the slowest recent passes, thresholds, pending
+counts.
+
+Most of what a full pass walks is page element trees: anywhere from 5,000 to
+120,000 objects per open tab (about 32 per element), so passes grow with the
+number of tabs open. The other big share is what start-up loaded (about 370,000 objects), so
+`main.py` calls `gc_monitor.freeze()` once boot is done: those objects move to
+the permanent generation and no pass walks them again. In a local event-size run
+that cut the worst pause from 0.78s to 0.51s. `GC_FREEZE=false` turns it off.
+
+Two more things keep passes short as tabs pile up:
+
+- **Deleted elements go at once.** NiceGUI's `Classes`, `Style` and `Props` each
+  register their own bound `_update` as change handler, a self-cycle, so every
+  deleted element used to leave three behind for the next full pass (about
+  150,000 objects a pass in production). `element_cycles.install()` clears those
+  handlers when a client removes elements, so reference counting frees them with
+  the element. `tests/utils/test_element_cycles.py` fails if NiceGUI stops
+  building the cycle, at which point the patch can go.
+- **Survivors are re-frozen.** `gc_monitor.refreeze_after_full_passes` freezes
+  whatever is alive right after each full pass, so the next one walks only what
+  was allocated since. Frozen objects are still freed by reference counting; a
+  cycle among them waits for the next thaw, every `GC_THAW_MINUTES` (default 10),
+  when the frozen set is handed back for one ordinary pass. An hourly thaw was
+  tried first in production: RSS climbed 560 to 907 MB in that hour and the thaw
+  pass took 3.9s. With 42 tabs open locally, passes
+  went from 0.66-0.84s to 0.06-0.11s. `GC_REFREEZE=false` turns it off (it is
+  also off when `GC_FREEZE` is). `runtime_stats` shows `refreeze` counts and the
+  current `frozen_objects`.
+
+Raising the collection thresholds was measured too and rejected: fewer passes,
+but each one longer. `BackgroundLoop` also times every worker tick and logs a tick over 30s at
 WARNING.
+
+## Worker self-healing and the worker watchdog
+
+Every periodic worker is a `BackgroundLoop` (`run_worker_loop(...)`) and every
+in-memory queue is a `CoroutineQueue`. Both register themselves when built, so a
+new worker gets all of this by using them; don't hand-roll a `while True` task.
+
+| Fault | What happens |
+|---|---|
+| A tick raises | Logged (`"{name} tick failed"`), counted in `worker.tick_failures`, next tick runs on time |
+| A tick runs past its limit (`TICK_TIMEOUT_SECONDS`, 300s; per worker `tick_timeout=`) | Cancelled, counted as a failure and a timeout, ERROR fingerprinted `background-worker-fault` + worker |
+| A queued call runs past `ITEM_TIMEOUT_SECONDS` (300s) | Cancelled so the calls behind it run; same ERROR |
+| A `CancelledError` leaks out of a tick or queued call | Treated as a failure; the loop carries on (only `stop()` ends it) |
+| The loop or queue task ends any other way | ERROR, then restarted after 5s, doubling to 60s while it keeps dying |
+| None of that worked (a tick that swallows its cancel, a restart that never runs) | The `worker watchdog` loop (every 30s, [`worker_watchdog.py`](../../application/utils/worker_watchdog.py)) logs one ERROR per stalled worker, `Background worker X is stalled: …`, and a WARNING when it recovers |
+
+A worker counts as stalled when it is enabled and has gone `interval +
+STALL_GRACE_SECONDS` (60s) without a tick, or a tick or queued call has run 60s
+past its limit. A worker switched off by config (`enabled: false` in
+`runtime_stats`) is never stalled.
+
+### Finding a leak (`memory_census`)
+
+Gen-2 passes that keep getting longer mean the live heap is growing. The
+super-admin MCP tool `memory_census`
+([`memory_census.py`](../../application/utils/memory_census.py)) runs a full
+collection first (`collect`, on by default, so only reachable objects count),
+then counts every tracked object by type and reports NiceGUI pages still in
+memory against pages still served (`clients_alive` vs `clients_registered`),
+elements of deleted pages still in memory, and `match_live` / `check_in_live`
+subscribers. For up to `explain` leaked pages and deleted elements it walks
+back through their referrers and returns the chains, counted by shape
+(`stale_clients_held_by`, `deleted_elements_held_by`): the first entry is
+usually the leak. Take two some minutes apart; the types that keep rising are
+what leaks. Each call walks the heap several times and freezes the loop for
+seconds, so don't poll it. The census runs inside `watchdog.expected_block()`,
+so that freeze shows in `recent_stalls` as `memory census (on request)` but
+opens no Sentry issue.
+
+The first leak it found (SGLMAN-29) was per-tab state in a
+`WeakKeyDictionary[Client, …]` whose value pointed back at its client, so the
+weak key never died and every closed tab's page stayed in memory. Per-tab state
+must let go in `client.on_delete` (a disconnect alone isn't enough: a page can
+be deleted without one). A handful of deleted pages held only by a shared
+`refreshable`'s target list is normal; NiceGUI prunes those on its next call.
 
 ## Live load (`runtime_stats`)
 
@@ -183,8 +281,10 @@ The super-admin MCP tool `runtime_stats` reads the process without shell access:
 uptime and release, RSS, asyncio task count, NiceGUI clients (held and with a
 live socket), distinct signed-in people online (per community too), the DB pool, the watchdog's last minute (lag p50/p95/max, process
 CPU where 100 is one core, the last 20 stalls with their culprit), every worker's
-tick count, failures and last/max tick time, in-flight HTTP requests, the depth
-of each coroutine queue (Discord DMs, event dispatch), and each community's
+enabled/running/stalled state, tick count, failures, timeouts, restarts and
+last/max/current tick time, in-flight HTTP requests, each coroutine queue's
+worker (Discord DMs, event dispatch, webhook delivery: depth, current call
+time, timeouts, restarts, stalled), and each community's
 Watch-page audience. Healthy at rest is a p95 lag of a few milliseconds and no stalls; CPU
 pinned near 100 with a rising p95 is the admission ceiling the scaling roadmap
 describes. Code: [`application/utils/runtime_stats.py`](../../application/utils/runtime_stats.py).
@@ -200,6 +300,8 @@ after a slow afternoon. Production only in practice (they need `SENTRY_DSN`);
 | `process.cpu` (percent, 100 = one core), `process.memory_rss` (MB), `process.asyncio_tasks` | gauge | | `metrics_sampler`, every 30s |
 | `loop.lag_p50` / `lag_p95` / `lag_max` (ms) | gauge | | watchdog's last minute |
 | `loop.stalls` | counter | | new stalls since the last sample |
+| `gc.pause` (s) | distribution | `generation` | every garbage-collection pass of 10ms or longer since the last sample (from `gc_monitor`); gen-2 p95/max rising with `process.memory_rss` is a leak |
+| `gc.seconds` | counter | `generation` | collection time since the last sample, all passes |
 | `clients.open`, `clients.connected` | gauge | | NiceGUI tabs held / with a live socket |
 | `http.in_flight` | gauge | | requests open at sample time |
 | `users.online` / `users.online_by_community` | gauge | `community` (slug) on the second | distinct signed-in people with a live tab; a tab belongs to the `/t/<slug>` it's on |

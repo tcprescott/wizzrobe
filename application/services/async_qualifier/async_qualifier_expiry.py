@@ -218,6 +218,11 @@ class RunExpiryMixin:
                 'opens_at': qualifier.opens_at.isoformat() if qualifier.opens_at else None,
                 'closes_at': qualifier.closes_at.isoformat() if qualifier.closes_at else None,
             }))
+            from application.services import opt_in_notifications
+            from application.services.discord import discord_queue
+            discord_queue.enqueue(opt_in_notifications.qualifier_window(
+                qualifier, opened=state is rules.WindowState.OPEN,
+            ))
         return state
 
     @requires_feature(FeatureFlag.ASYNC_QUALIFIERS)

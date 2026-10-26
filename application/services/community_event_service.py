@@ -18,13 +18,17 @@ if it's approved again they start from nothing rather than getting a reminder
 for an event they were told was off. A rejected event edited by its host goes
 back into the review queue.
 
+Staff can post an event for another member, or hand an existing one over: the
+member becomes its host, with the host's edit and cancel rights, and is DM'd.
+The host has to belong to the community.
+
 Members only throughout: the listing, the submissions and the subscriptions all
 belong to the community. Gated by :attr:`~models.FeatureFlag.COMMUNITY_EVENTS`.
 """
 
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
-from typing import Dict, List, Optional, Set
+from typing import Dict, List, Optional, Set, Tuple
 
 from tortoise.transactions import in_transaction
 
@@ -36,6 +40,7 @@ from application.repositories.community_event_repository import (
     CommunityEventSeenRepository,
     CommunityEventSubscriptionRepository,
 )
+from application.repositories.user_repository import UserRepository
 from application.services import _community_event_notifications as notify
 from application.services.audit_service import AuditActions, AuditService
 from application.services.auth_service import AuthService
@@ -83,6 +88,12 @@ def listed_at(event: CommunityEvent) -> datetime:
     A re-approval after a takedown moves it, so a returning event is new again.
     """
     return event.reviewed_at or event.created_at
+
+
+def _announce_listing(event: CommunityEvent) -> None:
+    from application.services import opt_in_notifications
+    from application.services.discord import discord_queue
+    discord_queue.enqueue(opt_in_notifications.event_listed(event.id))
 
 
 def _now() -> datetime:
@@ -144,18 +155,15 @@ class CommunityEventService:
         from application.services.tenant_membership_service import TenantMembershipService
 
         await AuthService.ensure(
-            actor is not None and (
-                await AuthService.is_super_admin(actor)
-                or await TenantMembershipService().is_member(actor)
-            ),
-            'Community events are for members of this community. Ask to join it first.',
+            actor is not None and await TenantMembershipService().is_member(actor),
+            'Meetups are for members of this community. Ask to join it first.',
         )
 
     @staticmethod
     async def _ensure_staff(actor: Optional[User]) -> None:
         await AuthService.ensure(
             await AuthService.is_staff(actor),
-            'Only staff can review community events.',
+            'Only staff can review meetups.',
         )
 
     @staticmethod
@@ -175,6 +183,27 @@ class CommunityEventService:
         if event.status is CommunityEventStatus.APPROVED or await self._can_manage(actor, event):
             return event
         raise NotFoundError('Community event not found.')
+
+    @staticmethod
+    async def _pick_host(actor: User, host_id: Optional[int]) -> User:
+        """Who hosts an event ``actor`` saves: themselves, or a member staff named.
+
+        Refused like an unknown id when the person isn't in this community, so
+        the picker can't be used to find accounts elsewhere. A super-admin is
+        held to the same rule: a host outside the community couldn't open it.
+        """
+        from application.services.tenant_membership_service import TenantMembershipService
+
+        if host_id is None or host_id == actor.id:
+            return actor
+        await AuthService.ensure(
+            await AuthService.is_staff(actor),
+            'Only staff can post an event for someone else.',
+        )
+        host = await UserRepository.get_by_id(host_id)
+        if host is None or not host.is_active or not await TenantMembershipService().is_member(host):
+            raise NotFoundError('That member was not found in this community.')
+        return host
 
     async def _load_managed(self, actor: User, event_id: int) -> CommunityEvent:
         event = await self._load_visible(actor, event_id)
@@ -239,16 +268,41 @@ class CommunityEventService:
         counts = await self.subscriptions.counts_for(event_ids)
         return mine, counts
 
+    @requires_feature(FeatureFlag.COMMUNITY_EVENTS)
+    async def list_attending(
+        self, actor: User, start: datetime, end: datetime,
+    ) -> List[Tuple[CommunityEvent, str]]:
+        """Approved events overlapping ``start``–``end`` that ``actor`` is part of.
+
+        Each comes with how: ``'hosting'`` their own, ``'going'`` an RSVP
+        (which only counts while the event takes RSVPs), else ``'reminder'``.
+        """
+        await self._ensure_member(actor)
+        after = start - _RUNNING_LOOKBACK
+        attending: Dict[int, Tuple[CommunityEvent, str]] = {}
+        for row in await self.subscriptions.list_for_user_starting(actor.id, after, end):
+            going = row.going and row.event.rsvp_enabled
+            attending[row.event_id] = (row.event, 'going' if going else 'reminder')
+        for event in await self.repository.list_hosted_starting(actor.id, after, end):
+            attending[event.id] = (event, 'hosting')
+        return sorted(
+            (pair for pair in attending.values() if ends_at(pair[0]) > start),
+            key=lambda pair: (pair[0].starts_at, pair[0].id),
+        )
+
     # --- the host's side --------------------------------------------------
 
     @requires_feature(FeatureFlag.COMMUNITY_EVENTS)
-    async def submit(self, actor: User, draft: EventDraft) -> CommunityEvent:
-        """Submit an event.
+    async def submit(
+        self, actor: User, draft: EventDraft, *, host_id: Optional[int] = None,
+    ) -> CommunityEvent:
+        """Submit an event, hosted by ``actor`` or, for staff, by the member ``host_id``.
 
         Staff's own go straight onto the listing, and so does everyone's when
         the community has turned off staff approval.
         """
         await self._ensure_member(actor)
+        host = await self._pick_host(actor, host_id)
         draft = _clean_draft(draft)
         if draft.starts_at <= _now():
             raise ValueError('Pick a start time in the future.')
@@ -256,7 +310,7 @@ class CommunityEventService:
         listed = is_staff or not await SystemConfigService.community_events_require_approval()
         status = CommunityEventStatus.APPROVED if listed else CommunityEventStatus.PENDING
         event = await self.repository.create(
-            host=actor,
+            host=host,
             title=draft.title,
             description=draft.description,
             location=draft.location,
@@ -268,37 +322,50 @@ class CommunityEventService:
             reviewed_by=actor if is_staff else None,
             reviewed_at=_now() if is_staff else None,
         )
+        on_behalf = host.id != actor.id
         await self._record(actor, AuditActions.COMMUNITY_EVENT_SUBMITTED,
-                           EventType.COMMUNITY_EVENT_SUBMITTED, event)
+                           EventType.COMMUNITY_EVENT_SUBMITTED, event,
+                           **({'on_behalf_of': host.id} if on_behalf else {}))
+        if on_behalf:
+            await notify.notify_host_of_handover(event, host, actor, new_event=True)
         if listed:
             await self._record(actor, AuditActions.COMMUNITY_EVENT_APPROVED,
                                EventType.COMMUNITY_EVENT_APPROVED, event, automatic=True)
+            _announce_listing(event)
         else:
             await notify.notify_staff_of_submission(event, actor)
         return event
 
     @requires_feature(FeatureFlag.COMMUNITY_EVENTS)
-    async def update(self, actor: User, event_id: int, draft: EventDraft) -> CommunityEvent:
-        """Edit an event.
+    async def update(
+        self, actor: User, event_id: int, draft: EventDraft, *, host_id: Optional[int] = None,
+    ) -> CommunityEvent:
+        """Edit an event; staff can also hand it to another member with ``host_id``.
 
         An approved event stays approved; if its start moved, subscribers are
         told and their reminders re-armed for the new time. A rejected event
-        edited by its host goes back to staff for review.
+        edited by its host goes back to staff for review. A new host is DM'd.
         """
         await self._ensure_member(actor)
         event = await self._load_managed(actor, event_id)
         if event.status not in _EDITABLE:
             raise ValueError("A cancelled event can't be edited.")
+        new_host = None
+        if host_id is not None and host_id != event.host_id:
+            new_host = await self._pick_host(actor, host_id)
         draft = _clean_draft(draft)
         moved = draft.starts_at != event.starts_at
         if moved and draft.starts_at <= _now():
             raise ValueError('Pick a start time in the future.')
 
-        fields = dict(
+        fields: Dict[str, object] = dict(
             title=draft.title, description=draft.description, location=draft.location,
             starts_at=draft.starts_at, duration_minutes=draft.duration_minutes,
             rsvp_enabled=draft.rsvp_enabled, rsvp_capacity=draft.rsvp_capacity,
         )
+        previous_host_id = event.host_id
+        if new_host is not None:
+            fields.update(host=new_host)
         resubmitted = (
             event.status is CommunityEventStatus.REJECTED and not await AuthService.is_staff(actor)
         )
@@ -315,7 +382,10 @@ class CommunityEventService:
             await self.repository.update(event, **fields)
         await self._record(actor, AuditActions.COMMUNITY_EVENT_UPDATED,
                            EventType.COMMUNITY_EVENT_UPDATED, event,
-                           moved=moved, resubmitted=resubmitted)
+                           moved=moved, resubmitted=resubmitted,
+                           **({'previous_host_id': previous_host_id} if new_host else {}))
+        if new_host is not None and new_host.id != actor.id:
+            await notify.notify_host_of_handover(event, new_host, actor, new_event=False)
 
         if resubmitted:
             await notify.notify_staff_of_submission(event, event.host)
@@ -443,6 +513,7 @@ class CommunityEventService:
             return event
         if event.status is CommunityEventStatus.CANCELLED:
             raise ValueError("This event was cancelled, so it can't be approved.")
+        first_listing = event.status is CommunityEventStatus.PENDING
         await self.repository.update(
             event, status=CommunityEventStatus.APPROVED,
             reviewed_by=actor, reviewed_at=_now(), review_note=None,
@@ -451,6 +522,8 @@ class CommunityEventService:
                            EventType.COMMUNITY_EVENT_APPROVED, event)
         await notify.notify_host_of_decision(event, event.host, approved=True)
         await notify.mark_staff_dms_decided(event, actor, approved=True)
+        if first_listing:
+            _announce_listing(event)
         return event
 
     @requires_feature(FeatureFlag.COMMUNITY_EVENTS)

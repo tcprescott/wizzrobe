@@ -8,9 +8,10 @@ import re
 from datetime import datetime
 from typing import Dict, Iterable, List, Optional, Set
 
+from application.repositories._save import save_fields
 from application.repositories.tenant_membership_repository import TenantMembershipRepository
 from application.repositories.tournament_repository import TournamentRepository
-from application.repositories.user_repository import UserRepository
+from application.repositories.user_repository import PersonSummary, UserRepository
 from application.repositories.user_role_repository import UserRoleRepository
 from application.services._tournament_signup import record_enrolment_change
 from application.services.audit_service import AuditActions, AuditService
@@ -100,7 +101,7 @@ class UserService:
             return
         latest_user = await self.repository.get_by_id(user.id)
         if latest_user and latest_user.updated_at != initial_updated_at:
-            raise ValueError("This user has been modified by another admin. Please reload and try again.")
+            raise ValueError("Someone else on staff changed this member. Reload and try again.")
 
     async def get_all_users(
         self,
@@ -118,6 +119,11 @@ class UserService:
         people outside this community" toggle.
         """
         return await self.repository.get_all(role=role, has_discord=has_discord)
+
+    async def member_role_summary(self, tenant_id: int):
+        """Roles, tournament-admin and crew-coordinator counts per user in ``tenant_id``,
+        for the members table: see :meth:`UserRepository.role_summary`."""
+        return await self.repository.role_summary(tenant_id)
 
     async def get_community_people(
         self,
@@ -148,6 +154,19 @@ class UserService:
             has_discord=has_discord,
             include_user_ids=include_user_ids,
             include_inactive=include_inactive,
+        )
+
+    async def get_community_people_summaries(
+        self,
+        *,
+        include_user_ids: Optional[List[int]] = None,
+        include_inactive: bool = False,
+    ) -> List[PersonSummary]:
+        """:meth:`get_community_people` as light rows (id, names, ``discord_id``,
+        ``is_active``, ``preferred_name``) for a picker: a 2,000-member community
+        costs milliseconds instead of a second of the shared event loop."""
+        return await self.repository.get_community_people_summaries(
+            include_user_ids=include_user_ids, include_inactive=include_inactive,
         )
 
     async def get_current_user_from_storage(self, storage_discord_id: Optional[str]) -> Optional[User]:
@@ -291,39 +310,39 @@ class UserService:
         same user (self-edit); permission check is performed at the page level
         via authentication.
         """
-        any_provided = False
+        provided: List[str] = []
         changed: Dict[str, object] = {}
         if display_name is not None:
-            any_provided = True
+            provided.append('display_name')
             new_value = _clean_name(display_name, 'Display name')
             if new_value != user.display_name:
                 changed['display_name'] = new_value
             user.display_name = new_value
         if pronouns is not None:
-            any_provided = True
+            provided.append('pronouns')
             new_value = _clean_name(pronouns, 'Pronouns')
             if new_value != user.pronouns:
                 changed['pronouns'] = new_value
             user.pronouns = new_value
         if dm_notifications is not None:
-            any_provided = True
+            provided.append('dm_notifications')
             if dm_notifications != user.dm_notifications:
                 changed['dm_notifications'] = dm_notifications
             user.dm_notifications = dm_notifications
         if dm_match_comments is not None:
-            any_provided = True
+            provided.append('dm_match_comments')
             if dm_match_comments != user.dm_match_comments:
                 changed['dm_match_comments'] = dm_match_comments
             user.dm_match_comments = dm_match_comments
         if matcherino_username is not None:
-            any_provided = True
+            provided.append('matcherino_username')
             new_value = matcherino_username.strip() or None
             if new_value != user.matcherino_username:
                 changed['matcherino_username'] = new_value
             user.matcherino_username = new_value  # type: ignore[assignment]
 
-        if any_provided:
-            await user.save()
+        if provided:
+            await save_fields(user, *provided)
         if changed:
             await self.audit_service.write_log(
                 actor,
@@ -365,11 +384,11 @@ class UserService:
         # at the same granularity or its copy drifts with nothing to show why.
         for tournament_id in sorted(removed_ids):
             await record_enrolment_change(
-                self.audit_service, actor, user, tournament_id, added=False,
+                self.audit_service, actor, user, tournament_id, added=False, notify=True,
             )
         for tournament_id in sorted(created_ids):
             await record_enrolment_change(
-                self.audit_service, actor, user, tournament_id, added=True,
+                self.audit_service, actor, user, tournament_id, added=True, notify=True,
             )
 
     async def create_user(
@@ -584,5 +603,5 @@ class UserService:
                     added.append(tournament_id)
             for tournament_id in sorted(added):
                 await record_enrolment_change(
-                    self.audit_service, actor, user, tournament_id, added=True,
+                    self.audit_service, actor, user, tournament_id, added=True, notify=True,
                 )

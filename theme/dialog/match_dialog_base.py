@@ -27,9 +27,10 @@ from application.services.match import (
 )
 from application.utils.timezone import (
     format_local_date,
-    format_local_time,
+    input_time,
     next_whole_hour_local,
     now_local,
+    parse_local_datetime,
 )
 from models import Match, PresetOverride
 from theme.dialog._helpers import (
@@ -42,7 +43,9 @@ from theme.dialog._helpers import (
     render_suggest_time_button,
     submit_on_enter,
 )
+from theme.dialog.clash_warning import confirm_local_time
 from theme.dialog.confirmation_dialog import ConfirmationDialog
+from theme.dialog.round_schedule_dialog import confirm_outside_window
 from theme.menu import menu_action
 from theme.notify import notify_error
 
@@ -107,7 +110,7 @@ class BaseMatchDialog:
             return {
                 'tournament': self.match.tournament_id if self.match.tournament_id else None,
                 'date': format_local_date(self.match.scheduled_at) if self.match.scheduled_at else now.strftime('%Y-%m-%d'),
-                'time': format_local_time(self.match.scheduled_at) if self.match.scheduled_at else now.strftime('%H:%M'),
+                'time': input_time(self.match.scheduled_at) if self.match.scheduled_at else now.strftime('%H:%M'),
                 'comment': self.match.comment or '',
                 'stage': self.match.stage_id if self.match.stage_id else None,
             }
@@ -504,6 +507,8 @@ class BaseMatchDialog:
         do_update: Callable[[], Awaitable[None]],
         do_create: Callable[[], Awaitable[None]],
         create_success_message: str,
+        scheduled: tuple = (None, None),
+        confirm_label: str = 'Save anyway',
     ) -> None:
         """Shared submit pipeline for both match dialogs.
 
@@ -514,11 +519,24 @@ class BaseMatchDialog:
 
         ``required_fields`` is an ordered ``{label: value}`` mapping; any falsy value
         marks its label as missing.
+
+        ``scheduled`` is the ``(date, time)`` as typed. A new time goes through
+        the "Check this time" sheet first; an edit that keeps the match's time
+        doesn't, so fixing a comment never re-raises a clash already accepted.
         """
         missing = [label for label, value in required_fields.items() if not value]
         if missing:
             with self.dialog:
                 ui.notify(f'Please fill required field(s): {", ".join(missing)}.', color='warning')
+            return
+
+        if self._time_changed(*scheduled) and not await confirm_local_time(
+            tournament_id=tournament_id, player_ids=player_ids,
+            date_value=scheduled[0], time_value=scheduled[1],
+            actor=await get_user_from_session(app.storage.user),
+            exclude_match_id=self.match.id if self.match else None,
+            confirm_label=confirm_label,
+        ):
             return
 
         try:
@@ -549,7 +567,12 @@ class BaseMatchDialog:
                         await self.on_submit(self.match)
                 except (ValueError, PermissionError) as e:
                     with self.dialog:
-                        notify_error(e)
+                        if not confirm_outside_window(e, save_outside_round):
+                            notify_error(e)
+
+            async def save_outside_round() -> None:
+                self.allow_outside_round = True
+                await save()
 
             latest_match = await self.match_service.get_match_by_id(self.match.id)
             if latest_match and latest_match.updated_at != self._initial_updated_at:
@@ -580,6 +603,14 @@ class BaseMatchDialog:
             except (ValueError, PermissionError) as e:
                 with self.dialog:
                     notify_error(e)
+
+    def _time_changed(self, date_value: Optional[str], time_value: Optional[str]) -> bool:
+        if not (self.match and self.match.scheduled_at):
+            return True
+        try:
+            return parse_local_datetime(date_value or '', time_value or '') != self.match.scheduled_at
+        except ValueError:
+            return True
 
     def _render_submit_footer(self, dialog, submit, *, create_label: str) -> None:
         """Render the shared footer (Delete/Cancel/primary) and wire Enter-to-submit.

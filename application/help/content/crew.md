@@ -33,7 +33,7 @@ Every streamed match has commentary. Some tournaments don't use trackers, and
 for those the Trackers column is empty on purpose.
 :::
 
-![A match on the board on a phone: Player Four vs Player One with no time yet, Commentary 0/1 and Tracking 0/1 both marked needs crew, with Sign up as commentator marked 1 and Sign up as tracker marked 2](/static/help/crew/signup-phone.webp "A match that still needs crew: tap **Sign up as commentator** (1) or **Sign up as tracker** (2).")
+![A match on the board on a phone: Racer Five vs Racer Six on Stage 3, Commentary 0/1 and Tracking 0/1 both marked needs crew, with Sign up as commentator marked 1 and Sign up as tracker marked 2](/static/help/crew/signup-phone.webp "A match that still needs crew: tap **Sign up as commentator** (1) or **Sign up as tracker** (2).")
 
 If you can't sign up, the **Sign up** button is greyed out with the reason next
 to it.
@@ -45,6 +45,38 @@ to it.
 
 If you've already signed up for that role on that match, you'll see
 **Withdraw** instead.
+
+## Signing up before a match is booked
+
+Want the final while the semifinals haven't been played? Open **Not scheduled
+yet** at the bottom of Event › Schedule. It lists every bracket match nobody has
+booked a time for, with the sides it's still waiting on ("Andy or Benny",
+"Winner of C", "TBD"). Sign up there the same way.
+
+Your signup waits on the match. When it gets booked, your signup moves onto the
+booking, approved or not, and the match shows up on your list with its time.
+Staff can approve you before then. If you turn out to be busy at the time it's
+booked for, the staff who approve crew get told so they can sort it out.
+
+You won't get a new DM when it's booked. As with every match, you hear about it
+once it's on a stage. If you end up playing in it, your crew signup is dropped.
+
+## Commentating as a pair
+
+:::snippet crew-pairs
+On a match that needs two commentators, sign up first, then tap **Invite a
+partner** next to your **Withdraw** and pick who you want on the mic with you.
+They get a Discord DM with **Decline** and **Accept**, and the same pair under
+Commentary invites at the top of My Schedule.
+
+Until they answer, your tray says who you invited, with **Cancel invite** if you
+change your mind. Once they accept, they're signed up as commentator with
+"with *your name*" beside them. You get one partner per match.
+
+Staff still approve each of you on their own, so they can take one of you and
+not the other. If you withdraw, a partner who already accepted stays signed up,
+and an invite nobody has answered yet is cancelled.
+:::
 
 ## Signing up from Discord
 
@@ -124,8 +156,10 @@ The board has a Commentators column and a Trackers column. Each starts with
 approved crew against what the match needs, so "1/2" means one approved
 commentator out of two. People still waiting for approval don't count, so a
 match can have three signups and still say "needs crew". **Needs crew** uses the
-same rule to decide whether a match is covered. On a phone, each card names the
-role instead ("Commentary 1/2").
+same rule to decide whether a match is covered. Crew only works matches on a
+stage, so a match with no stage yet just shows how many have signed up and
+never says "needs crew". On a phone, each card names the role instead
+("Commentary 1/2").
 
 Your own **Sign up** or **Withdraw** sits in a shaded box under the count, in
 the same place on every match. When there's nothing you can do, the button is

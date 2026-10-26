@@ -6,12 +6,14 @@ the working proof that the flag path behaves: a community without the flag gets
 a message confirming the feature exists but is switched off.
 """
 
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 from mcp.server.mcpserver import MCPServer
 
+from api.schemas.bracket_overview import TournamentBracketResponse
+from api.schemas.brackets import StandingsGroupResponse
 from application.errors import require_found
-from application.services import BracketService
+from application.services import BracketOverviewService, BracketService
 from application.services.async_qualifier.async_qualifier_live_race_service import (
     AsyncQualifierLiveRaceService,
 )
@@ -53,26 +55,12 @@ async def list_brackets(
 async def get_bracket_standings(
     bracket_id: int,
     tenant: TenantArg = None,
-) -> List[Dict[str, Any]]:
-    """Get current standings for a bracket, grouped as the bracket format defines."""
+) -> List[StandingsGroupResponse]:
+    """Get current standings for a round-robin or Swiss bracket, one group per pool."""
     service = BracketService()
     require_found(await service.get_visible_bracket(current_actor().user, bracket_id), 'Bracket')
     groups = await service.standings(bracket_id)
-    return [
-        {
-            'group': getattr(group, 'name', None),
-            'rows': [
-                {
-                    'rank': getattr(row, 'rank', None),
-                    'entrant': getattr(row, 'label', None) or getattr(row, 'name', None),
-                    'wins': getattr(row, 'wins', None),
-                    'losses': getattr(row, 'losses', None),
-                }
-                for row in getattr(group, 'rows', [])
-            ],
-        }
-        for group in groups
-    ]
+    return [StandingsGroupResponse.model_validate(group) for group in groups]
 
 
 async def get_bracket(
@@ -176,6 +164,37 @@ async def _visible_entrants(tournament_id: int):
         await service.get_visible_tournament(current_actor().user, tournament_id), 'Tournament',
     )
     return await service.list_entrants(tournament_id)
+
+
+async def get_tournament_bracket(
+    tournament_id: int,
+    tenant: TenantArg = None,
+    phase: Optional[str] = None,
+    pool: Optional[str] = None,
+    state: Optional[str] = None,
+    entrant: Optional[str] = None,
+    include_sets: bool = True,
+) -> TournamentBracketResponse:
+    """Get a tournament's whole bracket, native, start.gg or Challonge, in one shape.
+
+    Phases, pools, every set with its two sides, where each side comes from
+    (`from_set_id`, `from_outcome`) and where the winner and loser go
+    (`winner_to`, `loser_to`), scores, results, the Wizzrobe matches booked for
+    each set (`bookings`), and standings. start.gg and Challonge are read from
+    Wizzrobe's synced copy, so check `last_synced_at`. A set's `id` is the `key`
+    the booking tools and `list_unbooked_matches` use.
+
+    A big event is large: trim it with `phase` or `pool` (id or name), `state`
+    (`pending`, `open`, `complete`), `entrant` (part of a name, or an entrant
+    id), or `include_sets=false` for just the structure and standings. Pool
+    counts and standings always cover the whole pool. Entrants' `user_id` is
+    filled in only for Staff and this tournament's admins.
+    """
+    view = await BracketOverviewService().get_tournament_bracket(
+        current_actor().user, tournament_id,
+        phase=phase, pool=pool, state=state, entrant=entrant, include_sets=include_sets,
+    )
+    return TournamentBracketResponse.model_validate(view)
 
 
 async def list_async_qualifiers(
@@ -319,6 +338,9 @@ def register_tools(mcp: MCPServer) -> None:
         mcp, get_bracket_standings, gate=Gate.ACTOR,
         feature=FeatureFlag.BRACKETS, title='Bracket standings',
     )
+    # No feature= here: the tournament's bracket site decides which flag
+    # applies, and the service raises not_found when that one is off.
+    register(mcp, get_tournament_bracket, gate=Gate.ACTOR, title='Get tournament bracket')
     register(
         mcp, list_async_qualifiers, gate=Gate.ACTOR,
         feature=FeatureFlag.ASYNC_QUALIFIERS, title='List async qualifiers',

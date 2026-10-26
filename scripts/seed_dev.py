@@ -27,6 +27,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from tortoise import Tortoise
 
 from application.services.audit_service import AuditActions
+from application.services.event_service import EventService
 from application.services.feature_flag_service import FeatureFlagService
 from application.services.mcp_auth_service import READ_SCOPE, WRITE_SCOPE
 from application.tenant_context import tenant_scope
@@ -46,7 +47,13 @@ from models import (
     Match,
     MatchComment,
     MatchCommentKind,
+    MatchPlayers,
     McpOAuthClient,
+    NotificationMode,
+    NotificationPreference,
+    NotificationPreset,
+    NotificationRecipient,
+    NotificationSetting,
     PlayerAvailability,
     ProfileNudgeDismissal,
     RacetimeBot,
@@ -71,9 +78,12 @@ from scripts.seed_challonge import seed_challonge_for_tenant
 from scripts.seed_check_in import seed_check_in_for_tenant, seed_check_in_identities
 from scripts.seed_community_events import seed_community_events_for_tenant
 from scripts.seed_crew import seed_crew_for_tenant
+from scripts.seed_data_exports import seed_data_exports
 from scripts.seed_discord import seed_discord_for_tenant
 from scripts.seed_equipment import seed_equipment_for_tenant
+from scripts.seed_events import install_event_stamping, seed_events_for_tenant
 from scripts.seed_fledgling import seed_fledgling_tenant
+from scripts.seed_item_tracker import seed_item_tracker_for_tenant
 from scripts.seed_match_day import seed_match_day_for_tenant
 from scripts.seed_matches import seed_matches_for_tenant
 from scripts.seed_oauth_apps import seed_oauth_apps_for_tenant
@@ -91,8 +101,10 @@ from scripts.seed_password import seed_password_sign_in
 from scripts.seed_payouts import seed_matcherino_handles, seed_payouts_for_tenant
 from scripts.seed_play_in import seed_play_in_for_tenant
 from scripts.seed_preferences import seed_notification_channels, seed_table_preferences
+from scripts.seed_sent_messages import seed_sent_messages
 from scripts.seed_staff_requests import seed_staff_request_dms
 from scripts.seed_startgg import seed_startgg_for_tenant
+from scripts.seed_stream_layouts import seed_stream_layouts_for_tenant
 from scripts.seed_support import (
     RACER_SPECS,
     USER_SPECS,
@@ -362,6 +374,13 @@ async def seed_for_tenant(
         await Tournament.get_or_create(
             name="Challonge Integration Test", tenant=tenant,
             defaults={"is_active": True, "is_test": True, "players_per_match": 2},
+        )
+        # Played outside the tournament room: its off-stage matches stay out of
+        # the capacity forecast, the room-full check and suggested times.
+        await Tournament.get_or_create(
+            name="Best of NES", tenant=tenant,
+            defaults={"is_active": True, "uses_tournament_room": False, "players_per_match": 2,
+                      "average_match_duration": 45, "max_match_duration": 60},
         )
         await tournament.admins.add(staff)
         await tournament.crew_coordinators.add(staff)
@@ -751,6 +770,47 @@ async def seed_profile_reminders(tenant: Tenant, users: dict[str, User]) -> None
     )
 
 
+async def seed_notification_settings(tenant: Tenant, users: dict[str, User]) -> None:
+    """A handful of Admin → Notifications overrides, and one player's own choices, on the default community.
+
+    Rows exist only where staff chose something other than the catalogue
+    default, so each one here differs from it: together they show every
+    recipient column and every mode as "changed" on the settings page. The
+    second community keeps the defaults, which is what most communities see.
+    """
+    if tenant.slug != 'default':
+        return
+    for notice, recipient, mode in (
+        ('match_confirmed', NotificationRecipient.WATCHERS, NotificationMode.OFF),
+        ('match_scheduled', NotificationRecipient.FOLLOWERS, NotificationMode.OFF),
+        ('match_finished', NotificationRecipient.PLAYERS, NotificationMode.SILENT),
+        ('matchup_ready', NotificationRecipient.PLAYERS, NotificationMode.PING),
+        ('match_checked_in', NotificationRecipient.CREW, NotificationMode.SILENT),
+        ('shift_reminder', NotificationRecipient.VOLUNTEERS, NotificationMode.SILENT),
+        ('player_comment', NotificationRecipient.ON_DUTY, NotificationMode.SILENT),
+        ('tracker_signup', NotificationRecipient.ADMINS, NotificationMode.PING),
+        ('volunteer_late', NotificationRecipient.STAFF, NotificationMode.OFF),
+        ('welcome', NotificationRecipient.MEMBERS, NotificationMode.SILENT),
+    ):
+        await NotificationSetting.update_or_create(
+            tenant=tenant, notice=notice, recipient=recipient,
+            defaults={'mode': mode, 'updated_by': users['staff_user']},
+        )
+
+    # Profile → Notifications: one player on each preset, two of them with
+    # per-message changes (one an opt-in message turned on) so the Customize
+    # list shows changed rows.
+    for username, preset, overrides in (
+        ('player_one', NotificationPreset.NEEDS_ME,
+         {'match_finished:players': 'off', 'match_scheduled:watchers': 'off',
+          'opponent_acknowledged:players': 'ping'}),
+        ('player_two', NotificationPreset.QUIET, {}),
+        ('player_three', NotificationPreset.EVERYTHING, {'match_confirmed:players': 'silent'}),
+    ):
+        await NotificationPreference.update_or_create(
+            tenant=tenant, user=users[username], defaults={'preset': preset, 'overrides': overrides},
+        )
+
 async def seed_watch_layout_votes(tenant: Tenant) -> None:
     """A few rows in the retired layout-trial table, which the seed-coverage test still counts."""
     for session_id, layout, vote in (
@@ -783,6 +843,50 @@ async def seed_match_comments(tenant: Tenant, users: dict[str, User]) -> None:
     ):
         await MatchComment.get_or_create(
             tenant=tenant, match=match, author=users[author], kind=kind, body=body,
+        )
+
+
+async def seed_running_late(tenant: Tenant, users: dict[str, User]) -> None:
+    """player_two said they're running late for the match due next, so the staff
+    boards show the tag and Needs you entry, and player_one still has the button."""
+    soon = datetime.now(timezone.utc) + timedelta(minutes=30)
+    with_one = await MatchPlayers.filter(user=users['player_one']).values_list('match_id', flat=True)
+    match = await Match.filter(
+        tenant=tenant, seated_at__isnull=True, finished_at__isnull=True,
+        scheduled_at__lte=soon, players__user=users['player_two'], id__in=list(with_one),
+    ).order_by('-scheduled_at').first()
+    if match is None:
+        return
+    row = await MatchPlayers.get_or_none(match=match, user=users['player_two'])
+    if row is None or row.late_minutes is not None:
+        return
+    await MatchPlayers.filter(id=row.id).update(
+        late_minutes=10, late_at=datetime.now(timezone.utc) - timedelta(minutes=4),
+        late_note='Parking garage is full, circling the block',
+    )
+
+
+async def seed_ready_for_seed(tenant: Tenant, users: dict[str, User]) -> None:
+    """A tournament where players release their own seed, with a checked-in match
+    that player_two is ready for, so player_one's My Schedule shows the Ready
+    panel waiting on them and the staff boards show "1 of 2 ready"."""
+    tournament, _ = await Tournament.get_or_create(
+        name="Ready Up Races", tenant=tenant,
+        defaults={"is_active": True, "players_per_match": 2, "seed_generator": "alttpr",
+                  "players_release_seed": True},
+    )
+    now = datetime.now(timezone.utc)
+    match, created = await Match.get_or_create(
+        title="Ready Up Round 1", tournament=tournament, tenant=tenant,
+        defaults={"scheduled_at": now + timedelta(minutes=5), "seated_at": now - timedelta(minutes=2)},
+    )
+    if not created:
+        return
+    for key in ('player_one', 'player_two'):
+        await MatchPlayers.get_or_create(
+            match=match, user=users[key], tenant=tenant,
+            defaults={"seed_ready_at": now - timedelta(minutes=1) if key == 'player_two' else None,
+                      "seed_nudged_at": now - timedelta(minutes=1) if key == 'player_two' else None},
         )
 
 
@@ -853,19 +957,28 @@ async def seed_all() -> None:
             tenant.config = config
             await tenant.save()
         print(f"  tenant '{slug}' ({'created' if created else 'exists'}, id={tenant.id})")
+        await EventService.ensure_first_event(tenant)
         # The default community shows an uploaded SVG logo; the second keeps the
         # colour square, so both header shapes are reachable.
         if slug == 'default':
             await seed_logo_for_tenant(tenant)
+            await seed_events_for_tenant(tenant, users)
         # Tier first: the per-tenant fixtures below consult the live flags (a
         # service that enforces a flag refuses to seed data for a tenant that
         # lacks the feature), so availability has to be settled before seeding.
         await assign_feature_group(tenant, groups)
         await seed_for_tenant(tenant, users, bots)
         await seed_profile_reminders(tenant, users)
+        await seed_notification_settings(tenant, users)
         await seed_watch_layout_votes(tenant)
         await seed_match_comments(tenant, users)
+        await seed_running_late(tenant, users)
+        await seed_ready_for_seed(tenant, users)
+        await seed_stream_layouts_for_tenant(tenant, users['staff_user'])
+        await seed_item_tracker_for_tenant(tenant, users)
         await seed_staff_request_dms(tenant, users)
+        await seed_sent_messages(tenant, users)
+        await seed_data_exports(tenant, users)
     await seed_fledgling_tenant(users, groups)
     # Last, because the per-tenant Challonge mirror above also links identities:
     # the unlinked fixtures have to be unlinked after everything that could link
@@ -892,6 +1005,7 @@ async def seed() -> None:
     from migrations.tortoise_config import TORTOISE_ORM
 
     await Tortoise.init(config=TORTOISE_ORM)
+    await install_event_stamping()
     try:
         await seed_all()
     finally:

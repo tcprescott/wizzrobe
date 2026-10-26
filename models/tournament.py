@@ -1,3 +1,5 @@
+from typing import Iterable
+
 from tortoise import fields
 from tortoise.models import Model
 
@@ -7,6 +9,12 @@ from .enums import MatchNotificationLevel, ProviderTaskStatus
 class Tournament(Model):
     id = fields.IntField(pk=True)
     tenant = fields.ForeignKeyField('models.Tenant', related_name='tournaments', on_delete=fields.CASCADE)
+    # Nullable until every write stamps it; the events migration backfilled the
+    # rows that existed before (see docs/features/events.md).
+    event: fields.ForeignKeyRelation = fields.ForeignKeyField(
+        'models.Event', related_name='tournaments', on_delete=fields.CASCADE,
+    )
+    event_id: int
     name = fields.CharField(max_length=255)
     # Where a full name will not fit (the timeline, run sheets). Blank means
     # use ``name``; read it through ``short_label``.
@@ -17,6 +25,10 @@ class Tournament(Model):
     # A staff-only rehearsal (e.g. a Challonge integration check): left out of
     # the event handbook's tournament list, which is written for attendees.
     is_test = fields.BooleanField(default=False)
+    # Off means its matches are played somewhere other than the tournament
+    # room, so the ones not on a stage take no room capacity (forecast, room
+    # cap, suggested times). A stage match counts as on-stream either way.
+    uses_tournament_room = fields.BooleanField(default=True)
     players_per_match = fields.IntField(default=2)
     bracket_url = fields.CharField(max_length=255, null=True)
     rules_url = fields.CharField(max_length=255, null=True)
@@ -38,6 +50,10 @@ class Tournament(Model):
     # so the admin page can offer the next stage action without an API call.
     challonge_state = fields.CharField(max_length=32, null=True)
     challonge_group_stage = fields.BooleanField(default=False)
+    # Challonge's own format name ("single elimination", "double elimination", …)
+    # for the elimination stage, so its round schedule can offer the right rows
+    # before Challonge has created any elimination matches.
+    challonge_tournament_type = fields.CharField(max_length=32, null=True)
     # A linked start.gg event, read only: its organisers record results on
     # start.gg and the sync mirrors them in. ``startgg_event_slug`` is the
     # ``tournament/<t>/event/<e>`` path the API looks events up by.
@@ -136,6 +152,11 @@ class Tournament(Model):
     # than storing a zero that reads as "decided, and it's nothing".
     prize_pool = fields.DecimalField(max_digits=10, decimal_places=2, null=True)
     prize_bonus = fields.DecimalField(max_digits=10, decimal_places=2, null=True)
+    # The game's slug on sglive.speedgaming.org (``wwr`` for /wwr/). While set,
+    # the sglive pool worker owns ``prize_pool`` and staff can't type over it;
+    # ``prize_pool_synced_at`` is when the worker last read a value for it.
+    sglive_slug = fields.CharField(max_length=64, null=True)
+    prize_pool_synced_at = fields.DatetimeField(null=True)
     admins = fields.ManyToManyField('models.User', related_name='admin_tournaments', through='TournamentAdmins')
     crew_coordinators = fields.ManyToManyField(
         'models.User',
@@ -171,6 +192,10 @@ class Tournament(Model):
     # finding a staff member. Off means the control is hidden *and* the service
     # refuses, since the REST route reaches past the hidden control.
     allow_reschedule_requests = fields.BooleanField(default=True)
+    # Players release their own seed: once a match is checked in, each player
+    # taps Ready for seed and the seed rolls, and goes to them, when the last one
+    # does (``SeedReadyService``). Proctors and staff can still roll it any time.
+    players_release_seed = fields.BooleanField(default=False)
     created_at = fields.DatetimeField(auto_now_add=True)
     updated_at = fields.DatetimeField(auto_now=True)
 
@@ -185,6 +210,14 @@ class Tournament(Model):
     @property
     def short_label(self) -> str:
         return (self.short_name or '').strip() or self.name
+
+    @staticmethod
+    def short_label_options(tournaments: Iterable['Tournament']) -> dict[int, str]:
+        """``{id: short_label}`` for a filter dropdown, ordered by what it shows."""
+        return {
+            t.id: t.short_label
+            for t in sorted(tournaments, key=lambda t: t.short_label.casefold())
+        }
 
     @property
     def is_racetime_enabled(self) -> bool:

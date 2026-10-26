@@ -1,8 +1,6 @@
-## 2026-10-12/2026-10-18 Help for volunteers and proctors
+## 2026-10-19/2026-10-25 SG Live 2026
 
-### Improved
-
-- The volunteering and proctor help pages are up to date for SGL 2026. They now cover the shift DMs, your hours on My Shifts, seating players with Randomize, seeds that are slow or can't be DMed, the room's seeds screen, and pointing players at a loaner's QR code. The station picker has a help icon of its own.
+## 2026-10-12/2026-10-18 start.gg, email and Telegram, and run sheets everywhere
 
 ## 2026-10-05/2026-10-11 Event check-in, race rooms and a Challonge overhaul
 

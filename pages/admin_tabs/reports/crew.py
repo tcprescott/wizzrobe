@@ -73,7 +73,8 @@ async def crew_page(
     ):
         with report_filter_bar(active):
             date_range_filter(start_d, end_d, on_change=lambda s, e: nav(start=s, end=e))
-            await tournament_filter(tournament_id, on_change=lambda t_id: nav(tournament_id=t_id))
+            await tournament_filter(tournament_id, on_change=lambda t_id: nav(tournament_id=t_id),
+                                    only=await AuthService.report_tournament_scope(viewer))
             approval_select = filter_field(ui.select(
                 APPROVAL_OPTIONS,
                 value=selected_approval,
@@ -97,6 +98,8 @@ async def crew_page(
             tournament_id=tournament_id,
             user_id=user_id_int, actor=viewer,
         )
+
+        await _crewed_by_tournament_panel(data['tournament_rows'], start_d, end_d)
 
         coverage_rows = data['coverage_rows']
         if selected_approval == 'Approved only':
@@ -212,6 +215,135 @@ async def crew_page(
             contrib_table.on('row-click', _row_clicked)
             enable_mobile_grid(contrib_table, contrib_columns, row_click_event='row-click',
                                table_key=TableKeys.REPORTS_CREW_CONTRIBUTIONS)
+
+
+CREWED_COLUMNS = [
+    {'name': 'name', 'label': 'Name', 'field': 'name', 'align': 'left'},
+    {'name': 'commentary', 'label': 'Commentary', 'field': 'commentary', 'align': 'right'},
+    {'name': 'tracker', 'label': 'Tracker', 'field': 'tracker', 'align': 'right'},
+    {'name': 'total', 'label': 'Total', 'field': 'total', 'align': 'right'},
+]
+
+CREWED_CSV_COLUMNS = [
+    {'name': 'tournament', 'label': 'Tournament', 'field': 'tournament'},
+    *CREWED_COLUMNS,
+]
+
+_COUNT = "{{ props.row.%s || '–' }}"
+
+# A heading row per tournament that folds the people under it. The rows are
+# rebuilt server-side on a fold, so the slot only has to tell the two apart.
+_CREWED_BODY = (
+    '<q-tr v-if="props.row.group" :props="props" class="wiz-crewed__group">'
+    '<q-td key="name" :props="props">'
+    '<q-btn flat dense round size="sm" :icon="props.row.open ? \'expand_less\' : \'expand_more\'"'
+    ' :aria-expanded="props.row.open ? \'true\' : \'false\'"'
+    ' :aria-label="(props.row.open ? \'Fold \' : \'Unfold \') + props.row.name"'
+    ' @click="$parent.$emit(\'toggle_group\', props.row)" />'
+    '<span class="wiz-crewed__group-name">{{ props.row.name }}</span>'
+    '<span class="wiz-crewed__group-meta"> · {{ props.row.people }}'
+    " {{ props.row.people === 1 ? 'person' : 'people' }}</span>"
+    '</q-td>'
+    f'<q-td key="commentary" :props="props">{_COUNT % "commentary"}</q-td>'
+    f'<q-td key="tracker" :props="props">{_COUNT % "tracker"}</q-td>'
+    '<q-td key="total" :props="props">{{ props.row.total }}</q-td>'
+    '</q-tr>'
+    '<q-tr v-else :props="props">'
+    '<q-td key="name" :props="props" class="wiz-crewed__person">{{ props.row.name }}</q-td>'
+    f'<q-td key="commentary" :props="props">{_COUNT % "commentary"}</q-td>'
+    f'<q-td key="tracker" :props="props">{_COUNT % "tracker"}</q-td>'
+    '<q-td key="total" :props="props" class="wiz-crewed__total">{{ props.row.total }}</q-td>'
+    '</q-tr>'
+)
+
+_CREWED_ITEM = (
+    '<div class="col-12">'
+    '<div v-if="props.row.group" class="wiz-crewed__card wiz-crewed__card--group row items-center no-wrap">'
+    '<div class="col">'
+    '<div class="wiz-crewed__group-name">{{ props.row.name }}</div>'
+    '<div class="wiz-crewed__group-meta">{{ props.row.people }}'
+    " {{ props.row.people === 1 ? 'person' : 'people' }}"
+    ' · {{ props.row.commentary }} comms · {{ props.row.tracker }} tracker</div>'
+    '</div>'
+    '<q-btn flat dense round :icon="props.row.open ? \'expand_less\' : \'expand_more\'"'
+    ' :aria-expanded="props.row.open ? \'true\' : \'false\'"'
+    ' :aria-label="(props.row.open ? \'Fold \' : \'Unfold \') + props.row.name"'
+    ' @click="$parent.$emit(\'toggle_group\', props.row)" />'
+    '</div>'
+    '<div v-else class="wiz-crewed__card row items-baseline no-wrap">'
+    '<div class="col wiz-crewed__person">{{ props.row.name }}</div>'
+    '<div class="wiz-crewed__counts"><b>{{ props.row.commentary }}</b> comms'
+    ' · <b>{{ props.row.tracker }}</b> tracker</div>'
+    '</div>'
+    '</div>'
+)
+
+
+async def _crewed_by_tournament_panel(tournaments: list[dict], start_d, end_d) -> None:
+    """Matches crewed per person, grouped under a foldable heading per tournament."""
+    collapsed: set[int] = set()
+
+    def grouped_rows() -> list[dict]:
+        rows: list[dict] = []
+        for t in tournaments:
+            tid = t['tournament_id']
+            is_open = tid not in collapsed
+            rows.append({
+                'key': f't{tid}', 'group': True, 'open': is_open,
+                'tournament_id': tid, 'name': t['tournament_name'],
+                'people': len(t['people']),
+                'commentary': t['commentary'], 'tracker': t['tracker'],
+                'total': t['commentary'] + t['tracker'],
+            })
+            if is_open:
+                rows.extend(
+                    {**p, 'key': f't{tid}-u{p["user_id"]}', 'group': False}
+                    for p in t['people']
+                )
+        return rows
+
+    def csv_rows() -> list[dict]:
+        return [
+            {'tournament': t['tournament_name'], **p}
+            for t in tournaments for p in t['people']
+        ]
+
+    panel = await section_panel(
+        'Crew by tournament', icon='emoji_events',
+        subtitle='Approved crew on finished matches that went to a stage.',
+    )
+    with panel.aside:
+        csv_export_button(
+            f'crew-by-tournament-{start_d}-to-{end_d}',
+            lambda: CREWED_CSV_COLUMNS,
+            csv_rows,
+        )
+    with panel.body:
+        if not tournaments:
+            ui.label('Nobody has crewed a finished match on a stage in this window yet.').classes('italic-note')
+            return
+        # mobile-grid: the bespoke item slot below renders the same groups as cards.
+        # table-prefs: exempt — grouped rows; hiding, reordering or paging columns would split a tournament from its people
+        table = ui.table(
+            columns=CREWED_COLUMNS,
+            rows=grouped_rows(),
+            row_key='key',
+            pagination=0,
+        ).classes('full-width wiz-crewed').props(
+            ':grid="Quasar.Screen.lt.md" hide-pagination flat'
+        )
+        table.add_slot('body', _CREWED_BODY)
+        table.add_slot('item', _CREWED_ITEM)
+
+        def toggle(e) -> None:
+            tid = (e.args or {}).get('tournament_id')
+            if tid is None:
+                return
+            collapsed.symmetric_difference_update({tid})
+            table.rows = grouped_rows()
+            table.update()
+
+        table.on('toggle_group', toggle)
 
 
 def _ratio_pct(num: int, denom: int) -> Optional[float]:

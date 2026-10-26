@@ -25,6 +25,7 @@ from application.services.volunteer.volunteer_schedule_service import (
 from mcpserver.auth import Gate, current_actor
 from mcpserver.registry import register
 from mcpserver.schemas import MyShift, ShiftSummary, TenantArg, VolunteerPositionInfo
+from mcpserver.tools._args import Bucket
 from mcpserver.tools._args import window as _window
 from models import FeatureFlag
 
@@ -82,7 +83,7 @@ async def volunteer_hour_trends(
     start: str,
     end: str,
     tenant: TenantArg = None,
-    bucket: str = 'week',
+    bucket: Bucket = 'week',
 ) -> Dict[str, Any]:
     """Scheduled versus checked-in volunteer hours over time, and the fill rate.
 
@@ -140,6 +141,7 @@ async def my_volunteer_shifts(
             ends_at=a.shift.ends_at,
             acknowledged_at=a.acknowledged_at,
             checked_in_at=a.checked_in_at,
+            called_off_at=a.called_off_at,
         )
         for a in assignments
     ]

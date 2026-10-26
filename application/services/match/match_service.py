@@ -24,20 +24,21 @@ from application.services._tournament_signup import record_enrolment_change
 from application.services.audit_service import AuditActions, AuditService
 from application.services.auth_service import AuthService
 from application.services.discord import discord_queue
-from application.services.match.bracket_result_guard import (
-    assert_bracket_result_editable,
-)
 from application.services.match.match_acknowledgment import MatchAcknowledgmentMixin
 from application.services.match.match_cancellation import CancellationMixin
+from application.services.match.match_forfeit import ForfeitMixin
 from application.services.match.match_hard_preset_service import MatchHardPresetService
 from application.services.match.match_participants import MatchParticipants
+from application.services.match.match_placeholders import PlaceholderBookingMixin
 from application.services.match.match_reads import MatchReadsMixin
 from application.services.match.match_request import MatchRequestMixin
+from application.services.match.match_result import RecordResultMixin
 from application.services.match.match_review import MatchReviewMixin
 from application.services.match.match_schedule_service import MatchScheduleService
 from application.services.match.match_source_guard import assert_sg_fields_unchanged
 from application.services.match.match_station_draw import StationDrawMixin
 from application.services.match.match_stations import StationAssignmentMixin
+from application.services.match.match_text import new_match_text, text_updates
 from application.services.stage_service import StageService
 from application.services.system_config_service import SystemConfigService
 from application.services.tenant_membership_service import TenantMembershipService
@@ -56,8 +57,8 @@ from models import (
 
 
 class MatchService(
-    CancellationMixin, MatchAcknowledgmentMixin, MatchReadsMixin, MatchRequestMixin,
-    MatchReviewMixin, StationAssignmentMixin, StationDrawMixin,
+    CancellationMixin, ForfeitMixin, MatchAcknowledgmentMixin, MatchReadsMixin, MatchRequestMixin,
+    MatchReviewMixin, PlaceholderBookingMixin, RecordResultMixin, StationAssignmentMixin, StationDrawMixin,
 ):
     """Service for match-related business operations."""
 
@@ -110,15 +111,18 @@ class MatchService(
         tracker_ids: Optional[List[int]] = None,
         is_stream_candidate: bool = False,
         title: Optional[str] = None,
+        description: Optional[str] = None,
         actor: Optional[User] = None,
         from_bracket: bool = False,
+        placeholders: Optional[List[str]] = None,
     ) -> Match:
         """
         Create a new match with validation and business rules.
 
         ``from_bracket`` is set only by ``BracketService.schedule_bracket_match``,
         whose players are the matchup's linked entrants rather than ids the
-        caller typed. Never accept it from a request body.
+        caller typed. Never accept it from a request body. ``placeholders``
+        stand in for a bracket matchup's undecided sides (``PlaceholderBookingMixin``).
 
         Args:
             tournament_id: Tournament ID
@@ -160,8 +164,9 @@ class MatchService(
                 f"User cannot create matches in tournament {tournament_id}",
             )
 
-        if not player_ids:
-            raise ValueError("Add at least one player before creating the match.")
+        title, description = new_match_text(
+            player_ids, title, description, from_bracket=from_bracket, placeholders=placeholders,
+        )
         # A bracket game's players come from the matchup's entrants, which staff
         # linked (and that link is checked); only caller-supplied ids need it.
         await TenantMembershipService.require_community_users(
@@ -198,6 +203,8 @@ class MatchService(
             stage_id=stage_id,
             is_stream_candidate=is_stream_candidate,
             title=title,
+            description=description,
+            bracket_placeholders=list(placeholders) if from_bracket and placeholders else None,
         )
 
         await self._record_auto_enrolments(
@@ -264,12 +271,15 @@ class MatchService(
         commentator_ids: Optional[List[int]] = None,
         tracker_ids: Optional[List[int]] = None,
         comment: Optional[str] = None,
+        title: Optional[str] = None,
+        description: Optional[str] = None,
         clear_seated: bool = False,
         clear_started: bool = False,
         clear_finished: bool = False,
         clear_confirmed: bool = False,
         clear_seed: bool = False,
         actor: Optional[User] = None,
+        allow_outside_round: bool = False,
     ) -> Match:
         """
         Update a match with validation.
@@ -290,12 +300,15 @@ class MatchService(
             commentator_ids: New commentator list
             tracker_ids: New tracker list
             comment: New comment
+            title, description: New text; ``''`` clears it, None leaves it alone
             stage_id: New stage ID
             clear_seated: Clear seated_at timestamp
             clear_started: Clear started_at timestamp
             clear_finished: Clear finished_at timestamp
             clear_confirmed: Clear confirmed_at timestamp
             clear_seed: Clear generated seed
+            allow_outside_round: Staff confirmed a time outside the bracket
+                stage's booking window (``RoundScheduleService``).
             clear_stage: Clear stage assignment
             admin_user: User making the update
 
@@ -377,10 +390,13 @@ class MatchService(
             await self.assert_within_tournament_hours(
                 scheduled_at, tournament_id if tournament_id is not None else match.tournament_id,
             )
+            if scheduled_at != old_scheduled_at:
+                await self._check_round_window(match, scheduled_at, actor, allow_outside_round)
             update_fields['scheduled_at'] = scheduled_at
 
         if comment is not None:
             update_fields['comment'] = comment
+        update_fields.update(text_updates(title, description))
 
         if clear_seated:
             update_fields['seated_at'] = None
@@ -402,7 +418,21 @@ class MatchService(
         hard_preset_before = await self.hard_preset_service.snapshot(match)
 
         if update_fields:
-            await self.repository.update(match, **update_fields)
+            # A moved match re-arms its stage reminder, as a stage change does
+            # (``assign_stage``); kept out of ``update_fields`` so audit and event
+            # payloads still list only what the caller changed.
+            rearm = (
+                {'stage_reminder_sent_at': None}
+                if 'scheduled_at' in update_fields and update_fields['scheduled_at'] != old_scheduled_at
+                else {}
+            )
+            # Rewinding past the finish undoes a forfeit along with the result it set.
+            if clear_finished and match.forfeit_reason is not None:
+                rearm = {**rearm, 'forfeit_reason': None, 'forfeit_note': None}
+            await self.repository.update(match, **update_fields, **rearm)
+            # A cleared seed or check-in starts the players' Ready over.
+            if clear_seed or clear_seated:
+                await self.repository.clear_seed_ready(match.id)
 
         removed_players: List[User] = []
         if player_ids is not None:
@@ -661,68 +691,16 @@ class MatchService(
     # emits state-change notifications. Earlier permissive seat_players /
     # finish_match duplicates were removed to keep one lifecycle path.
 
-    async def record_match_result(
-        self,
-        match_id: int,
-        winner_id: int,
-        actor: User,
-    ) -> Match:
-        """Record finish ranks for a 2-player match.
+    async def _check_round_window(
+        self, match: Match, scheduled_at: datetime, actor: Optional[User], allow_outside_round: bool,
+    ) -> None:
+        from application.services.round_schedule_service import RoundScheduleService
 
-        Winner gets rank 1; remaining player gets rank 2. The ``winner_id``
-        is a :class:`MatchPlayers` row id, not a User id.
-        """
-        match = await self._require_match(match_id)
-
-        await AuthService.ensure(
-            await AuthService.can_run_match(actor, match),
-            f"User cannot record results for match {match_id}",
-        )
-        # Confirming is the admin's verification step and has already pushed the
-        # result on, so rewriting a confirmed winner is a correction, not a
-        # recording: it takes the same gate confirming did.
-        if match.confirmed_at:
-            await AuthService.ensure(
-                await AuthService.can_confirm_match(actor, match),
-                "This result is confirmed. Only staff or the tournament admin can change it.",
+        tournament = await self.tournament_repository.get_by_id(match.tournament_id)  # type: ignore[attr-defined]
+        if tournament is not None:
+            await RoundScheduleService().check_match_time(
+                match, tournament, scheduled_at, actor, allow_outside_round=allow_outside_round,
             )
-
-        if not match.players:
-            raise ValueError("Match has no players")
-
-        if not any(p.id == winner_id for p in match.players):
-            raise ValueError("That player isn't part of this match.")
-
-        # D6: one correction path. A match whose bracket game already settled is
-        # corrected from the bracket, which re-advances; rewriting the ranks here
-        # would leave the bracket silently disagreeing with its own game.
-        from application.services.bracket_service import BracketService
-
-        assert_bracket_result_editable(
-            await BracketService().get_game_for_match(match.id)
-        )
-
-        ranks: Dict[int, int] = {}
-        for player in match.players:
-            player.finish_rank = 1 if player.id == winner_id else 2
-            await player.save()
-            ranks[player.id] = player.finish_rank
-
-        await self.audit_service.write_and_publish(
-            actor,
-            AuditActions.MATCH_RESULT_RECORDED,
-            {
-                'match_id': match.id,
-                'winner_id': winner_id,
-                'ranks': {str(k): v for k, v in ranks.items()},
-            },
-            EventType.MATCH_RESULT_RECORDED,
-            event_extra={'tournament_id': match.tournament_id},
-        )
-
-        match_live.publish(match.id)
-
-        return match
 
     async def assert_within_tournament_hours(
         self, scheduled_at: datetime, tournament_id: Optional[int],

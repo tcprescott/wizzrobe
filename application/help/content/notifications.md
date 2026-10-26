@@ -19,7 +19,7 @@ Telegram can get a copy of every DM too. There's no SMS.
 | Crew | Your signup being approved, and approval being withdrawn |
 | A volunteer | Being assigned a shift, and a reminder before it starts |
 | Watching a match | Every state change on it |
-| Someone who tapped **Remind me** or **RSVP** on a community event | A reminder shortly before it starts, and word if it moves or is cancelled |
+| Someone who tapped **Remind me** or **RSVP** on a meetup | A reminder shortly before it starts, and word if it moves or is cancelled |
 
 ## The buttons on a DM
 
@@ -85,10 +85,28 @@ Each switch works on its own, so you can turn Discord DMs off and still get
 notifications on your phone. If you turn everything off, the page warns you,
 because nothing can reach you.
 
-What you hear about shows what always comes to you, under About you: your own
-matches, crew slots and volunteer shifts, answers to requests you sent, and
-matches you watch. Below that, Tournaments you follow adds other people's
-matches. Pick a level for each tournament:
+What you hear about starts with how much you want to hear. Pick one of three:
+
+| Pick | What pings you |
+|---|---|
+| Everything | Every message your community sends, the way it sends it |
+| Only what needs me | Messages where you have something to do, like acknowledging a match, picking a time or taking a shift. The rest still arrive, just silently |
+| Quiet | Only what can't wait: getting checked in, stage calls, race rooms, shift starts, cancellations. Nothing about matches you watch or follow |
+
+Each one shows how many messages would ping, arrive silently or stay off.
+Open **Customize** to change a single message: tap its chip and pick Off,
+Silent or Ping. **Reset to preset…** undoes those changes and keeps your pick.
+
+Some messages are off unless you turn them on, like hearing that your opponent
+acknowledged, that you've been given a station, the result of every match in a
+tournament you follow, or a new meetup. They say "Off unless you turn it on" under Customize.
+
+Your community decides what it sends, and you can only make things quieter. If
+it sends a message silently you can't make it ping, and one it switched off
+shows **Off here**.
+
+Below that, Tournaments you follow adds other people's matches. Pick a level
+for each tournament:
 
 | Level | You hear about |
 |---|---|
@@ -101,8 +119,38 @@ You don't have to be playing in a tournament to follow it, and your own matches
 reach you either way.
 :::
 
+![Where it goes on a phone: switches for Discord DMs, Email and Telegram, then Send a test marked 1](/static/help/notifications/where-it-goes-phone.webp "One switch per way to reach you, and **Send a test…** (1) to check them.")
+
+![How much you hear on a phone: the Everything, Only what needs me and Quiet presets, each with counts of messages that ping, arrive silently or stay off, with Only what needs me picked](/static/help/notifications/presets-phone.webp "Pick a preset. The counts show what each one does.")
+
+## On an iPhone or iPad
+
+An iPhone or iPad only lets Wizzrobe send notifications once it's on your Home
+Screen. Until then, the **This phone** switch stays off and says so. Adding it
+takes a minute in Safari.
+
+Tap **⋯** at the bottom of the screen, then **Share**.
+
+![Safari's ⋯ menu over a Wizzrobe page, with Share marked 1](/static/help/notifications/ios-safari-menu-phone.webp "**Share** (1) is at the top of Safari's ⋯ menu.")
+
+Scroll the share sheet down and tap **Add to Home Screen**. If it isn't in the
+list, tap **View More** first.
+
+![The bottom of the share sheet, with Add to Home Screen marked 1](/static/help/notifications/ios-share-sheet-phone.webp "**Add to Home Screen** (1) is near the bottom of the share sheet.")
+
+Keep the name or change it, leave **Open as Web App** on, and tap **Add**.
+
+![The Add to Home Screen dialog: the name field marked 1, the Open as Web App switch marked 2 and the Add button marked 3](/static/help/notifications/ios-add-dialog-phone.webp "Name it (1), leave **Open as Web App** on (2), then **Add** (3).")
+
+Open Wizzrobe from its new icon, sign in if it asks, and turn on **This phone**
+under Profile → Notifications. From then on, open Wizzrobe from that icon rather
+than from a Safari tab.
+
+![The Wizzrobe icon on a Home Screen](/static/help/notifications/ios-home-screen-icon.webp "Your community's logo is the icon.")
+
 ## Turning it down
 
-If one tournament is too noisy, set it to Not following instead of blocking the
+If one tournament is too noisy, set it to Not following. If it's one kind of
+message, switch it to Silent or Off under Customize. Either beats blocking the
 bot. Blocking the bot also cuts off the DMs you do want, like hearing that your
 match moved or that you've been approved for a slot.

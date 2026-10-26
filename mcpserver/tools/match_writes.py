@@ -36,10 +36,11 @@ from typing import Callable, Dict, List, Literal, Optional
 from mcp.server.mcpserver import MCPServer
 
 from api._match_view import load_match_response
-from api.schemas.match_actions import SeedResultResponse
+from api.schemas.match_actions import ExtendToSetRequest, SeedResultResponse, SetGameTime
 from api.schemas.matches import MatchResponse
 from application.errors import require_found
 from application.services import (
+    BracketSetService,
     CrewService,
     MatchScheduleService,
     MatchService,
@@ -193,11 +194,35 @@ async def delete_match(
 ) -> OperationResult:
     """Delete a match. This cannot be undone — confirm with the user first.
 
-    Players and crew are notified that it is off.
+    Nobody is notified: players and crew are not told it is off, so tell them
+    yourself or have staff call the match off in the app, which does send DMs.
     """
     actor = current_actor().user
     await MatchService().delete_match(match_id, actor=actor)
     return OperationResult(detail=f'Match {match_id} deleted.')
+
+
+async def extend_match_to_set(
+    match_id: int,
+    later_games: List[SetGameTime],
+    tenant: TenantArg = None,
+    allow_outside_round: bool = False,
+) -> List[MatchResponse]:
+    """Turn a booked Challonge or start.gg match into a best-of set, keeping it as game 1.
+
+    For a matchup booked as one game before its stage became a best-of. The
+    match keeps its crew, seed, stage and comments; games 2 and up are booked
+    with the same players, who are DMed as for any booking.
+    `later_games` lists games 2, 3 and on in order, each a date (YYYY-MM-DD)
+    and time (HH:MM) on the community's own clock: two entries make a
+    best-of-3, four a best-of-5. Returns every game, game 1 first.
+    """
+    body = ExtendToSetRequest(later_games=later_games, allow_outside_round=allow_outside_round)
+    games = await BracketSetService().extend_booking(
+        match_id, [(g.scheduled_date, g.scheduled_time) for g in body.later_games], current_actor().user,
+        allow_outside_round=body.allow_outside_round,
+    )
+    return [await _match_response(g.id) for g in games]
 
 
 # --- Stream and stations ----------------------------------------------------
@@ -488,6 +513,7 @@ def register_tools(mcp: MCPServer) -> None:
     write_tool(submit_match_request, 'Request match')
     write_tool(update_match, 'Update match')
     write_tool(delete_match, 'Delete match', destructive=True)
+    write_tool(extend_match_to_set, 'Turn match into a set')
     write_tool(set_match_stream_candidate, 'Set stream candidate')
     write_tool(assign_match_stage, 'Assign stage')
     write_tool(assign_match_stations, 'Assign stations')

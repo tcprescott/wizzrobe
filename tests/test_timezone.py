@@ -15,6 +15,7 @@ from application.utils.timezone import (
     format_local_date,
     format_local_datetime,
     format_local_display,
+    format_local_short,
     format_local_time,
     format_local_time_range,
     local_day_bounds,
@@ -359,6 +360,19 @@ class TestFormatLocalDisplay:
         utc_dt = datetime(2025, 1, 15, 12, 0, tzinfo=timezone.utc)
         with tz_scope(SYDNEY):
             assert format_local_display(utc_dt).endswith("AEDT")
+
+
+class TestFormatLocalShort:
+    def test_none_returns_empty_string(self):
+        assert format_local_short(None) == ""
+
+    def test_no_year_no_zone_no_leading_zero(self):
+        utc_dt = datetime(2025, 7, 5, 3, 59, tzinfo=timezone.utc)
+        assert format_local_short(utc_dt) == "Jul 4 23:59"
+
+    def test_follows_the_zone(self):
+        utc_dt = datetime(2025, 1, 15, 12, 0, tzinfo=timezone.utc)
+        assert format_local_short(utc_dt, KOLKATA) == "Jan 15 17:30"
 
 
 class TestFormatLocalDatetime:

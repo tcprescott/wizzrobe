@@ -118,6 +118,10 @@ class FeatureFlag(str, Enum):
     EMERGENCY_CONTACTS = 'emergency_contacts'
     NOTIFICATION_CHANNELS = 'notification_channels'
     STARTGG = 'startgg'
+    DISCORD_ROLE_SYNC = 'discord_role_sync'
+    PERSONAL_WEBHOOKS = 'personal_webhooks'
+    STREAM_LAYOUTS = 'stream_layouts'
+    ITEM_TRACKER = 'item_tracker'
     THIRD_PARTY_APPS = 'third_party_apps'
 
 
@@ -299,6 +303,19 @@ class CheckInEventStatus(str, Enum):
     CLOSED = 'closed'
 
 
+class EventStatus(str, Enum):
+    """Lifecycle of an :class:`~models.Event`.
+
+    Any number of events can be ``LIVE`` at once. Workers and DMs run only for
+    live events; an ``ARCHIVED`` event is read-only and staff can bring it back.
+    A ``DRAFT`` is seen only by staff and that event's own role holders.
+    """
+
+    DRAFT = 'draft'
+    LIVE = 'live'
+    ARCHIVED = 'archived'
+
+
 class CheckInEntrantSource(str, Enum):
     MATCHERINO = 'matcherino'
     WALK_UP = 'walk_up'
@@ -316,6 +333,19 @@ class CheckInTierLanyard(str, Enum):
     VIP = 'vip'
     BASE = 'base'
     DAY_PASS = 'day_pass'
+
+
+class DiscordRoleRuleKind(str, Enum):
+    """Who a :class:`~models.DiscordRoleRule` hands its Discord role to.
+
+    ``TOURNAMENT`` names its tournament and ``BADGE`` its lanyard; the other two
+    take no target.
+    """
+
+    ANY_TOURNAMENT = 'any_tournament'
+    LIVE_MATCH = 'live_match'
+    TOURNAMENT = 'tournament'
+    BADGE = 'badge'
 
 
 class CheckInLinkMethod(str, Enum):
@@ -408,6 +438,19 @@ class MatchCommentKind(str, Enum):
     PLAYER = 'player'
     STAFF_PRIVATE = 'staff_private'
     STAFF_TO_PLAYERS = 'staff_to_players'
+
+
+class CommentaryInviteStatus(str, Enum):
+    """Where a commentator's invite to a partner has got to.
+
+    ``CANCELLED`` is the inviter taking it back, or withdrawing from the match
+    before it was answered; ``DECLINED`` is the partner saying no.
+    """
+
+    PENDING = 'pending'
+    ACCEPTED = 'accepted'
+    DECLINED = 'declined'
+    CANCELLED = 'cancelled'
 
 
 class RescheduleRequestStatus(str, Enum):
@@ -504,6 +547,9 @@ class StaffRequestKind(str, Enum):
     ADA_REQUEST = 'ada_request'
     JOIN_REQUEST = 'join_request'
     RESCHEDULE_REQUEST = 'reschedule_request'
+    # Commentator and tracker signups live in separate tables, so their ids overlap.
+    COMMENTATOR_SIGNUP = 'commentator_signup'
+    TRACKER_SIGNUP = 'tracker_signup'
 
 
 class AsyncQualifierRunStatus(str, Enum):
@@ -570,6 +616,7 @@ class MembershipSource(str, Enum):
     ROLE_GRANT = 'role_grant'                # a role granted by staff
     DISCORD_ROLE = 'discord_role'            # a role from the Discord role sync
     IMPORT = 'import'                        # the SpeedGaming import
+    DISCORD_IMPORT = 'discord_import'        # Admin → Users › Import from Discord
 
 
 class JoinRequestStatus(str, Enum):
@@ -615,6 +662,18 @@ class ProviderTaskStatus(str, Enum):
         return frozenset({cls.SUCCEEDED, cls.FAILED, cls.ABANDONED})
 
 
+class ForfeitReason(str, Enum):
+    """Why a match was decided without being played out (``Match.forfeit_reason``)."""
+
+    NO_SHOW = 'no_show'
+    WITHDREW = 'withdrew'
+    DISQUALIFIED = 'disqualified'
+
+    @property
+    def label(self) -> str:
+        return {'no_show': 'No-show', 'withdrew': 'Withdrew', 'disqualified': 'Disqualified'}[self.value]
+
+
 class PresetOverride(str, Enum):
     """Staff's per-match answer to "which preset does this match roll with".
 
@@ -632,3 +691,89 @@ class PresetOverride(str, Enum):
 
     HARD = 'hard'
     STANDARD = 'standard'
+
+
+class NotificationMode(str, Enum):
+    """How one kind of recipient gets one notification.
+
+    ``OFF`` sends nothing on any channel; ``SILENT`` delivers without a ping or
+    phone buzz (Discord's @silent; email can't be quiet); ``PING`` is a normal
+    message.
+    """
+
+    OFF = 'off'
+    SILENT = 'silent'
+    PING = 'ping'
+
+
+class NotificationRecipient(str, Enum):
+    """The kinds of people a notification goes to, the columns of the settings grid."""
+
+    PLAYERS = 'players'
+    CREW = 'crew'
+    WATCHERS = 'watchers'
+    FOLLOWERS = 'followers'
+    VOLUNTEERS = 'volunteers'
+    # Whoever holds a shift with staff alerts on right now (the Admin Desk).
+    ON_DUTY = 'on_duty'
+    # The admins or coordinators of the thing the message is about.
+    ADMINS = 'admins'
+    STAFF = 'staff'
+    MEMBERS = 'members'
+
+    @property
+    def label(self) -> str:
+        return {'on_duty': 'On shift', 'staff': 'All staff'}.get(self.value, self.value.capitalize())
+
+
+class NotificationPreset(str, Enum):
+    """A person's starting point on Profile → Notifications, before any per-message choice.
+
+    ``EVERYTHING`` takes what the community sends as it sends it; ``NEEDS_ME``
+    pings only what asks something of them; ``QUIET`` pings only what's
+    time-critical and drops matches they watch or follow.
+    """
+
+    EVERYTHING = 'everything'
+    NEEDS_ME = 'needs_me'
+    QUIET = 'quiet'
+
+
+class SentMessageStatus(str, Enum):
+    """What Discord did with one logged DM (:class:`SentMessage`).
+
+    ``(str, Enum)`` (not ``StrEnum``) — render ``.value`` in f-strings.
+    """
+
+    PENDING = 'pending'
+    DELIVERED = 'delivered'
+    DISCORD_OFF = 'discord_off'
+    BLOCKED = 'blocked'
+    FAILED = 'failed'
+
+
+class DataExportKind(str, Enum):
+    """What a :class:`DataExport` row holds; each queued kind has one builder."""
+
+    TOURNAMENTS = 'tournaments'
+    VOLUNTEERS = 'volunteers'
+    # A table's "Export CSV" button: the rows were already on screen, so it
+    # downloads at once and is only recorded here (status READY on creation).
+    TABLE_CSV = 'table_csv'
+
+
+class DataExportStatus(str, Enum):
+    """Where a requested export has got to.
+
+    ``QUEUED`` until the export worker picks it up, ``RUNNING`` while it builds,
+    then ``READY`` (files stored, downloadable until pruned) or ``FAILED``.
+    """
+
+    QUEUED = 'queued'
+    RUNNING = 'running'
+    READY = 'ready'
+    FAILED = 'failed'
+
+    @classmethod
+    def pending(cls) -> frozenset['DataExportStatus']:
+        return frozenset({cls.QUEUED, cls.RUNNING})

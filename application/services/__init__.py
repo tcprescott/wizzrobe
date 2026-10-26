@@ -11,6 +11,7 @@ from . import (
     active_users_metrics,
     availability_windows,
     bracket_sources,
+    challonge_sync_worker,
     check_in_accounts,
     check_in_comps,
     check_in_dm,
@@ -18,16 +19,27 @@ from . import (
     check_in_sales,
     check_in_sync_worker,
     community_event_reminder,
+    event_setup_copy,
+    item_tracker_catalog,
+    notification_catalog,
     notification_links,
     oauth_handoff_service,
+    opt_in_notifications,
     race_room_worker,
     reporting_shared,
+    result_alerts,
+    round_windows,
     seed_roll_worker,
     service_health_worker,
+    sglive_pool_worker,
     speedgaming_sync_worker,
     staff_request_dms,
     startgg_sync_worker,
+    stream_layout_obs,
+    stream_layout_rules,
+    stream_layout_starters,
     telegram_bot_worker,
+    telemetry_retention,
 )
 from .accommodation_service import AccommodationService
 from .analytics_service import AnalyticsService
@@ -46,12 +58,16 @@ from .async_qualifier import (
 from .audit_service import AuditService
 from .auth_service import AuthService, get_user_from_discord_id, get_user_from_session
 from .bracket_config import BracketConfig, validate_bracket_config
+from .bracket_overview_service import BracketOverviewService
 from .bracket_service import BracketService
+from .bracket_set_service import BracketSetService
 from .browser_monitoring_service import BrowserMonitoringService
 from .challonge_service import ChallongeService
 from .check_in_desk_service import CheckInDeskService
 from .check_in_service import CheckInService
+from .commentary_invite_service import CommentaryInviteService
 from .community_event_service import CommunityEventService, EventDraft
+from .crew_hold_service import CrewHoldService
 from .crew_service import CrewService
 from .discord import (
     DiscordEmailService,
@@ -59,18 +75,24 @@ from .discord import (
     DiscordEventSyncService,
     DiscordLinkService,
     DiscordLoginService,
+    DiscordMemberImportService,
     DiscordRoleMappingService,
+    DiscordRoleSyncService,
     DiscordService,
     discord_event_worker,
     discord_queue,
+    discord_role_sync_worker,
 )
 from .emergency_contact_service import EmergencyContactService
 from .equipment_service import EquipmentService
 from .event_info_service import EventGuide, EventInfoService
+from .event_service import ArchiveCheck, EventRef, EventService
+from .exports import DataExportService, ExportFile, data_export_worker
 from .feature_flag_service import FeatureFlagService
 from .feedback_service import FeedbackService
 from .help_service import HelpService
 from .identity_link_service import IdentityLinkProvider, IdentityLinkService
+from .item_tracker_service import ItemTrackerService
 from .log_level_service import LoggerLevelRow, LogLevelService
 from .match import (
     CancellationMixin,
@@ -84,17 +106,24 @@ from .match import (
     MatchStreamVolunteerService,
     MatchSuggestionService,
     MatchWatcherService,
+    PlayerLateService,
+    SeedReadyResult,
+    SeedReadyService,
     assert_sg_fields_unchanged,
 )
 from .match_reschedule_service import MatchRescheduleService
 from .matcherino_login_service import MatcherinoLoginService, MatcherinoLoginStatus
 from .mcp_auth_service import McpAuthService
+from .member_details_service import MemberDetails, MemberDetailsService
 from .my_timeline_service import MyTimelineService
 from .notification_channel_service import NotificationChannelService
+from .notification_preference_service import NotificationPreferenceService
+from .notification_settings_service import NotificationSettingsService
 from .oauth_app_service import OAuthAppService
 from .oauth_grant_service import OAuthGrantService
 from .password_auth_service import PasswordAuthService
 from .payout_service import PayoutService
+from .personal_webhook_service import PersonalWebhookService
 from .platform_admin_service import AccountOverview, CommunityOverview, PlatformAdminService
 from .player_availability_service import PlayerAvailabilityService
 from .preset_service import PresetService
@@ -108,17 +137,21 @@ from .racetime_service import RacetimeService
 from .randomizer_credential_service import RandomizerCredentialService
 from .reports_service import ReportsService
 from .room_token_service import RoomTokenService
+from .round_schedule_service import RoundScheduleService, RoundWindowError, ScheduleStage
 from .runtime_stats_service import RuntimeStatsService
 from .seed_roll_service import SeedRollService
 from .seedgen_service import SeedGenerationService
+from .sent_message_service import SentMessageRef, SentMessageService
 from .service_health_service import ProbeResult, ServiceHealthService, ServiceStatus
 from .speedgaming_etl_service import SpeedGamingETLService
 from .speedgaming_sync_service import SpeedGamingSyncService
 from .staff_alert_service import StaffAlertService
 from .stage_service import StageService
+from .startgg_connection_service import StartggConnectionService
 from .startgg_link_service import StartggLinkService
 from .startgg_service import StartggService
 from .station_service import StationService
+from .stream_layout_service import StreamLayoutService
 from .system_config_service import SystemConfigService
 from .table_preference_service import TablePreferenceService
 from .telemetry_service import TelemetryService
@@ -140,6 +173,7 @@ from .volunteer import (
     VolunteerArrivalService,
     VolunteerAutoscheduleService,
     VolunteerAvailabilityService,
+    VolunteerCallOffService,
     VolunteerExportService,
     VolunteerHoursService,
     VolunteerPoolService,
@@ -157,6 +191,7 @@ __all__ = [
     'AccountOverview',
     'AnalyticsService',
     'ApiTokenService',
+    'ArchiveCheck',
     'AsyncQualifierConfig',
     'AsyncQualifierDraw',
     'AsyncQualifierLiveRaceService',
@@ -164,21 +199,28 @@ __all__ = [
     'AuditService',
     'AuthService',
     'BracketConfig',
+    'BracketOverviewService',
     'BracketService',
+    'BracketSetService',
     'BrowserMonitoringService',
     'CancellationMixin',
     'ChallongeService',
     'CheckInDeskService',
     'CheckInService',
+    'CommentaryInviteService',
     'CommunityEventService',
     'CommunityOverview',
+    'CrewHoldService',
     'CrewService',
+    'DataExportService',
     'DiscordEmailService',
     'DiscordEventReconcilerService',
     'DiscordEventSyncService',
     'DiscordLinkService',
     'DiscordLoginService',
+    'DiscordMemberImportService',
     'DiscordRoleMappingService',
+    'DiscordRoleSyncService',
     'DiscordService',
     'DraftPolicy',
     'EmergencyContactService',
@@ -186,6 +228,9 @@ __all__ = [
     'EventDraft',
     'EventGuide',
     'EventInfoService',
+    'EventRef',
+    'EventService',
+    'ExportFile',
     'FeatureFlagService',
     'FeedbackService',
     'HardPresetState',
@@ -193,6 +238,7 @@ __all__ = [
     'HoursSummary',
     'IdentityLinkProvider',
     'IdentityLinkService',
+    'ItemTrackerService',
     'LogLevelService',
     'LoggerLevelRow',
     'MatchCommentService',
@@ -208,15 +254,21 @@ __all__ = [
     'MatcherinoLoginService',
     'MatcherinoLoginStatus',
     'McpAuthService',
+    'MemberDetails',
+    'MemberDetailsService',
     'MyTimelineService',
     'NotFoundError',
     'NotificationChannelService',
+    'NotificationPreferenceService',
+    'NotificationSettingsService',
     'OAuthAppService',
     'OAuthGrantService',
     'PasswordAuthService',
     'PayoutService',
+    'PersonalWebhookService',
     'PlatformAdminService',
     'PlayerAvailabilityService',
+    'PlayerLateService',
     'PresetService',
     'ProbeResult',
     'ProfileNudgeService',
@@ -229,9 +281,16 @@ __all__ = [
     'RandomizerCredentialService',
     'ReportsService',
     'RoomTokenService',
+    'RoundScheduleService',
+    'RoundWindowError',
     'RuntimeStatsService',
+    'ScheduleStage',
     'SeedGenerationService',
+    'SeedReadyResult',
+    'SeedReadyService',
     'SeedRollService',
+    'SentMessageRef',
+    'SentMessageService',
     'ServiceHealthService',
     'ServiceStatus',
     'SetupStep',
@@ -239,9 +298,11 @@ __all__ = [
     'SpeedGamingSyncService',
     'StaffAlertService',
     'StageService',
+    'StartggConnectionService',
     'StartggLinkService',
     'StartggService',
     'StationService',
+    'StreamLayoutService',
     'SystemConfigService',
     'TablePreferenceService',
     'TelemetryService',
@@ -260,6 +321,7 @@ __all__ = [
     'VolunteerArrivalService',
     'VolunteerAutoscheduleService',
     'VolunteerAvailabilityService',
+    'VolunteerCallOffService',
     'VolunteerExportService',
     'VolunteerHoursService',
     'VolunteerPoolService',
@@ -275,6 +337,7 @@ __all__ = [
     'async_qualifier_scoring',
     'availability_windows',
     'bracket_sources',
+    'challonge_sync_worker',
     'check_in_accounts',
     'check_in_comps',
     'check_in_dm',
@@ -282,21 +345,34 @@ __all__ = [
     'check_in_sales',
     'check_in_sync_worker',
     'community_event_reminder',
+    'data_export_worker',
     'discord_event_worker',
     'discord_queue',
+    'discord_role_sync_worker',
+    'event_setup_copy',
     'get_user_from_discord_id',
     'get_user_from_session',
+    'item_tracker_catalog',
+    'notification_catalog',
     'notification_links',
     'oauth_handoff_service',
+    'opt_in_notifications',
     'race_room_worker',
     'reporting_shared',
     'require_found',
+    'result_alerts',
+    'round_windows',
     'seed_roll_worker',
     'service_health_worker',
+    'sglive_pool_worker',
     'speedgaming_sync_worker',
     'staff_request_dms',
     'startgg_sync_worker',
+    'stream_layout_obs',
+    'stream_layout_rules',
+    'stream_layout_starters',
     'telegram_bot_worker',
+    'telemetry_retention',
     'validate_async_qualifier_config',
     'validate_bracket_config',
     'validate_counts',

@@ -87,7 +87,7 @@ def seen(monkeypatch):
 async def test_service_connect_finishes_in_the_initiating_tenant(callback, storage, seen):
     storage.update({
         'challonge_service_state': 'st',
-        'challonge_service_return': '/t/demo/admin/challonge',
+        'challonge_service_return': '/t/demo/admin/settings/integrations',
         'challonge_service_tenant': 7,
     })
     await callback('https://wizzrobe.test/challonge/oauth/callback?code=abc&state=st')
@@ -157,7 +157,7 @@ def walk(monkeypatch, storage):
 async def test_a_grant_with_more_queued_asks_challonge_for_the_next(walk, storage):
     navigated, notices = walk
     await ch._finish_service_connect(
-        object(), 'code', '/t/demo/admin/challonge',
+        object(), 'code', '/t/demo/admin/settings/integrations',
         ch._ServiceGrant('speedgaming', ['alttprleague', 'zsr'], [], 7),
     )
     assert _FakeService.saved == ['speedgaming']
@@ -172,19 +172,19 @@ async def test_a_grant_with_more_queued_asks_challonge_for_the_next(walk, storag
 async def test_the_last_grant_returns_to_admin_naming_every_community(walk):
     navigated, notices = walk
     await ch._finish_service_connect(
-        object(), 'code', '/t/demo/admin/challonge',
+        object(), 'code', '/t/demo/admin/settings/integrations',
         ch._ServiceGrant('zsr', [], ['speedgaming', 'alttprleague'], 7),
     )
-    assert navigated == ['/t/demo/admin/challonge']
+    assert navigated == ['/t/demo/admin/settings/integrations']
     assert notices == ['Challonge connected for speedgaming, alttprleague and zsr.']
 
 
 async def test_cancelling_midway_says_which_community_was_left_out(walk):
     navigated, notices = walk
     await ch._finish_service_connect(
-        object(), None, '/t/demo/admin/challonge',
+        object(), None, '/t/demo/admin/settings/integrations',
         ch._ServiceGrant('zsr', [], ['speedgaming'], 7),
     )
     assert _FakeService.saved == []
-    assert navigated == ['/t/demo/admin/challonge']
+    assert navigated == ['/t/demo/admin/settings/integrations']
     assert notices == ['Challonge connected for speedgaming. Challonge access for zsr was cancelled.']

@@ -154,6 +154,7 @@ also how the files stay under the 800-line budget.
 | `seed_discord.py` | Guild-role mappings, both shapes, plus the grants a sync would leave behind |
 | `seed_preferences.py` | Saved table layouts (`UserTablePreference`, global) — one per shape the column reconciler handles, run beside `seed_users` rather than per tenant |
 | `seed_branding.py` | A drawn logo for the default tenant only, passed through the real `normalise_logo`, so the header shows both shapes: a logo there, the colour square on `second`. Skipped when the tenant already has one, so a logo uploaded in dev survives a re-seed |
+| `seed_events.py` | A community's events beyond its first. Every tenant gets its first event (live, the default) from `EventService.ensure_first_event`; the default tenant also gets SGL 2025 (archived) and SGL 2027 (a draft), one event in each `EventStatus` |
 | `seed_brackets.py`, `seed_challonge.py`, `seed_volunteers.py`, `seed_equipment.py`, `seed_observability.py`, `seed_fledgling.py` | Their namesakes |
 
 ## What the fixtures deliberately do not do

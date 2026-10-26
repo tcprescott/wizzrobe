@@ -26,6 +26,7 @@ from theme.steady import steady_refreshable
 from theme.tables.admin_crud import current_actor, refresh_button
 from theme.tables.mobile_grid import enable_mobile_grid
 from theme.tables.preferences import TableKeys
+from theme.url_state import consume_deep_link
 
 _COLUMNS: list[dict[str, Any]] = [
     {'name': 'starts', 'label': 'Starts', 'field': 'starts', 'align': 'left', 'sortable': True},
@@ -62,7 +63,7 @@ async def admin_community_events_page(open_event: Optional[int] = None) -> None:
 
     with ui.column().classes('page-container-narrow w-full'):
         with page_header(
-            'Community Events',
+            'Meetups',
             'Events attendees want to run during the event. Approve them to list them, '
             'or reject them with a reason the host will see.',
         ):
@@ -96,7 +97,7 @@ async def admin_community_events_page(open_event: Optional[int] = None) -> None:
             table = ui.table(columns=_COLUMNS, rows=rows, row_key='id').classes('w-full wiz-table')
             table.add_slot('body-cell-status', f'<q-td :props="props">{_STATUS_SLOT}</q-td>')
             table.add_slot('body-cell-actions', f'<q-td :props="props">{_ROW_ACTIONS}</q-td>')
-            table.add_slot('no-data', no_data_slot('No community events here.', icon='groups'))
+            table.add_slot('no-data', no_data_slot('No meetups here.', icon='groups'))
             enable_mobile_grid(table, _COLUMNS, actions=_ROW_ACTIONS,
                                table_key=TableKeys.ADMIN_COMMUNITY_EVENTS,
                                field_slots={'status': _STATUS_SLOT})
@@ -113,10 +114,11 @@ async def admin_community_events_page(open_event: Optional[int] = None) -> None:
         await _render_table()
         if open_event is not None:
             await open_review(open_event)
+            consume_deep_link('community_event')
 
 
 def _review_dialog(service: CommunityEventService, actor, event: CommunityEvent, on_change) -> None:
-    with form_dialog('Review community event') as dialog:
+    with form_dialog('Review meetup') as dialog:
         with ui.column().classes('q-pa-md gap-2 full-width'):
             with ui.row().classes('items-center gap-2'):
                 ui.label(event.title).classes('section-title')

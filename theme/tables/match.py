@@ -1,22 +1,21 @@
 import asyncio
-from datetime import datetime
+from datetime import datetime, timezone
 
 from nicegui import app, background_tasks, context, ui
 
 from application.services import (
     AccommodationService,
-    MatchCommentService,
     MatchDisplayService,
     MatchHardPresetService,
     MatchRescheduleService,
     MatchService,
     MatchStreamVolunteerService,
     MatchWatcherService,
+    PlayerLateService,
+    SeedReadyService,
     UserService,
-    get_user_from_session,
 )
 from application.tenant_context import get_current_tenant_id
-from theme.dialog._helpers import form_dialog
 from theme.empty_state import no_data_slot
 from theme.realtime import register_view
 from theme.tables.admin_crud import capture_render_context, scoped_background
@@ -30,16 +29,22 @@ from theme.tables.match_filters import (
     MatchFiltersMixin,
     day_scope_window,
 )
+from theme.tables.match_fold import MatchBoardFoldMixin
 from theme.tables.match_grid import render_grid_slot
 from theme.tables.match_handlers import MatchTableHandlersMixin
 from theme.tables.match_hold import MatchBoardHoldMixin
-from theme.tables.match_player_run_sheet import arrange_player_run_sheet, register_player_run_sheet_slots
-from theme.tables.match_run_sheet import arrange_run_sheet, register_run_sheet_slots
+from theme.tables.match_player_run_sheet import (
+    arrange_player_run_sheet,
+    register_player_run_sheet_slots,
+)
+from theme.tables.match_run_sheet import arrange_run_sheet, register_run_sheet_slots, station_lookup_caption
 from theme.tables.match_slots import (
     CANDIDATE_STAGE,
     MY_ACTIONS_COLUMN,
     register_body_slots,
 )
+from theme.tables.match_stamps import MatchRowStampsMixin
+from theme.tables.plain_rows import set_plain_rows
 from theme.tables.preferences import (
     customize_table,
     preferences_button,
@@ -58,7 +63,8 @@ from theme.timer_teardown import PageTimer
 _MATCHES_NOTHING = [0]
 
 
-class MatchTableView(MatchFiltersMixin, MatchTableHandlersMixin, MatchBoardHoldMixin):
+class MatchTableView(MatchFiltersMixin, MatchTableHandlersMixin, MatchBoardHoldMixin, MatchBoardFoldMixin,
+                     MatchRowStampsMixin):
     """
     Encapsulates the match table UI and logic for admin/player dashboards.
 
@@ -66,7 +72,9 @@ class MatchTableView(MatchFiltersMixin, MatchTableHandlersMixin, MatchBoardHoldM
     strip and its stored state live in ``MatchFiltersMixin`` (``match_filters``);
     the Vue slot templates live in ``match_slots`` (columns) and ``match_grid``
     (mobile grid); the event-handler coroutines live in ``MatchTableHandlersMixin``
-    (``match_handlers``). Uses MatchService for all data operations.
+    (``match_handlers``); the per-viewer row fields (watching, reschedule,
+    accommodations, comment counts) live in ``MatchRowStampsMixin``
+    (``match_stamps``). Uses MatchService for all data operations.
     """
 
     #: Class-level defaults for the two layout attributes, so a view assembled
@@ -82,11 +90,18 @@ class MatchTableView(MatchFiltersMixin, MatchTableHandlersMixin, MatchBoardHoldM
                  on_edit_result=None, on_set_stage=None, on_assign_stations=None,
                  player_discord_id=None, crew_discord_id=None, grid_breakpoint='lt.md',
                  row_sort=None, row_filter=None, exclude_racetime=False, on_rows_changed=None, actions_first=False,
-                 storage_key='match', default_state_filter=None, match_ids=None,
+                 storage_key='match', default_state_filter=None, default_day_scope=ALL_DAYS, match_ids=None,
                  scope_tournament_ids=None, table_key=None, searchable=False,
                  show_accommodations=False, layout='table', on_open_match=None,
-                 run_sheet_group=None, proctor_run_sheet=False, show_comment_counts=False):
+                 run_sheet_group=None, proctor_run_sheet=False, show_comment_counts=False,
+                 extra_rows=None):
         self.columns = columns
+        # ``await extra_rows(rows, tournament_ids)`` adds lines that aren't matches
+        # yet (Event > Schedule's bracket matchups nobody has booked), on an
+        # all-days board with no stage filter and no deep link.
+        self.extra_rows = extra_rows
+        # Groups that start open here though FOLDED_BY_DEFAULT folds them elsewhere.
+        self.open_by_default: tuple = ()
         # 'table' draws every column's control in its cell (and a full card per
         # match on a phone); 'run_sheet' draws one grouped line per match and
         # hands a tapped line to ``on_open_match(match_id)``, which shows the
@@ -136,6 +151,7 @@ class MatchTableView(MatchFiltersMixin, MatchTableHandlersMixin, MatchBoardHoldM
         # site; the fallback exists only so a bare view still works.
         self.storage_key = storage_key
         self.default_state_filter = default_state_filter
+        self.default_day_scope = default_day_scope
         # Board-shaping hooks. ``row_sort`` reorders the fetched rows (the
         # proctor board sorts by what needs doing next rather than by clock),
         # ``exclude_racetime`` drops rows no on-site proctor can act on,
@@ -190,6 +206,8 @@ class MatchTableView(MatchFiltersMixin, MatchTableHandlersMixin, MatchBoardHoldM
         # Mobile collapsible-filter state (CSS gates the toggle/card to <1024px)
         self.filters_card = None
         self.filter_badge = None
+        self.filter_reset_desk = None
+        self._reset_undo = None
         self._filters_open = False
         # Capture the tenant at build time (context is live here). Background
         # tasks — filter/page refreshes, filter-option loads — run outside the
@@ -206,20 +224,30 @@ class MatchTableView(MatchFiltersMixin, MatchTableHandlersMixin, MatchBoardHoldM
         self.user_service = UserService()
         self.watcher_service = MatchWatcherService()
         self.stream_volunteer_service = MatchStreamVolunteerService()
+        self.player_late_service = PlayerLateService()
+        self.seed_ready_service = SeedReadyService()
         self.hard_preset_service = MatchHardPresetService()
         self.reschedule_service = MatchRescheduleService()
         self.accommodation_service = AccommodationService()
         self._setup_ui()
 
+    @property
+    def _quick_approve(self) -> bool:
+        """Whether waiting crew get an Approve button on the admin run sheet."""
+        return (self.layout == 'run_sheet' and not self.proctor_run_sheet
+                and self.admin_controls and self.access.approve_crew)
+
     def _arrange(self, rows: list) -> list:
         """Group and order ``rows`` for a run-sheet layout; a table keeps its order."""
         if self.layout == 'player_run_sheet':
-            return arrange_player_run_sheet(rows, getattr(self, '_discord_id', None))
+            return self._stamp_folded(arrange_player_run_sheet(rows, getattr(self, '_discord_id', None)))
         if self.layout != 'run_sheet':
             return rows
         if self.run_sheet_group is None:
-            return arrange_run_sheet(rows)
-        return arrange_run_sheet(rows, self.run_sheet_group)
+            arranged = arrange_run_sheet(rows)
+        else:
+            arranged = arrange_run_sheet(rows, self.run_sheet_group)
+        return self._stamp_folded(arranged)
 
     def _bg(self, coro) -> None:
         """Schedule ``coro`` with this view's tenant *and* display zone rebound."""
@@ -264,6 +292,10 @@ class MatchTableView(MatchFiltersMixin, MatchTableHandlersMixin, MatchBoardHoldM
                     on_click=self.submit_match_callback
                 ).props('color=primary')
 
+        # A proctor's phone keeps the search out from behind Filters: typing a
+        # station number is how they find a match (Thomas, 2026-10-24).
+        phone_search_slot = ui.column().classes('lt-md full-width gap-1 run-sheet__phone-search') \
+            if self.proctor_run_sheet and self.searchable else None
         search_slot, gear_slot = self._build_filter_bar()
 
         # Restore the filters, then load the table — one task, one load.
@@ -281,7 +313,8 @@ class MatchTableView(MatchFiltersMixin, MatchTableHandlersMixin, MatchBoardHoldM
             # already held. Refresh stays an explicit button.
                 pagination={'rowsPerPage': 25, 'page': 1},
             ).classes('match-table match-table-container').props(f':grid="Quasar.Screen.{self.grid_breakpoint}"')
-            self.table.add_slot('no-data', no_data_slot('No matches to show yet.'))
+            self.table.add_slot('no-data', no_data_slot('No matches to show yet.',
+                                                        from_table=self.proctor_run_sheet))
         self._build_tidy_pill()
 
         # Resolve current user's discord_id once for slot templates and event wiring.
@@ -295,7 +328,10 @@ class MatchTableView(MatchFiltersMixin, MatchTableHandlersMixin, MatchBoardHoldM
                 register_run_sheet_slots(
                     self.table, proctor=self.proctor_run_sheet,
                     can_run=self.proctor_run_sheet and self.admin_controls and self.access.run,
+                    approve=self.access.crew_js() if self._quick_approve else 'false',
                 )
+                if self._quick_approve:
+                    self.table.on('approve_crew', lambda event: self._handle_quick_approve(event.args))
             else:
                 register_player_run_sheet_slots(
                     self.table,
@@ -303,6 +339,7 @@ class MatchTableView(MatchFiltersMixin, MatchTableHandlersMixin, MatchBoardHoldM
                 )
             if self.on_open_match is not None:
                 self.table.on('open_match', lambda event: self._bg(self.on_open_match(event.args)))
+            self._wire_folding()
         else:
             self._register_table_slots(discord_id)
 
@@ -321,7 +358,18 @@ class MatchTableView(MatchFiltersMixin, MatchTableHandlersMixin, MatchBoardHoldM
                 preferences_button(self.table)
             if self.searchable:
                 with search_slot:
-                    search_input(self.table, placeholder='Search matches…')
+                    box = search_input(
+                        self.table,
+                        placeholder='Search names or a station…' if self.proctor_run_sheet else 'Search matches…',
+                        search_terms=self.layout in ('run_sheet', 'player_run_sheet'))
+                    if self.proctor_run_sheet:
+                        station_lookup_caption(self.table, box)
+                if phone_search_slot is not None:
+                    with phone_search_slot:
+                        phone_box = search_input(self.table, placeholder='Search names or a station…',
+                                                 width='full-width', search_terms=True)
+                        phone_box.bind_value(box)
+                        station_lookup_caption(self.table, phone_box)
             with self.table_container:
                 row_count_label(self.table, 'matches')
             sticky_header(self.table)
@@ -343,6 +391,8 @@ class MatchTableView(MatchFiltersMixin, MatchTableHandlersMixin, MatchBoardHoldM
         self.table.on('signup_tracker', lambda event: self._handle_signup_or_undo_role('signup', 'tracker', event.args))
         self.table.on('undo_commentator', lambda event: self._handle_signup_or_undo_role('undo', 'commentator', event.args))
         self.table.on('undo_tracker', lambda event: self._handle_signup_or_undo_role('undo', 'tracker', event.args))
+        self.table.on('invite_partner', lambda event: self._handle_invite_partner(event.args))
+        self.table.on('cancel_partner_invite', lambda event: self._handle_cancel_partner_invite(event.args))
 
         self.table.on('acknowledge_commentator', lambda event: background_tasks.create(
             self._handle_acknowledge_crew('commentator', event, context.client)))
@@ -362,6 +412,10 @@ class MatchTableView(MatchFiltersMixin, MatchTableHandlersMixin, MatchBoardHoldM
             # Same reasoning again: it opens a dialog in this client's slot
             # context, and its confirmation is a toast in this browser.
             self.table.on('open_hard_preset', self._handle_open_hard_preset)
+            self.table.on('running_late', self._handle_running_late)
+            self.table.on('take_back_late', self._handle_take_back_late)
+            self.table.on('seed_ready', self._handle_seed_ready)
+            self.table.on('seed_not_ready', self._handle_seed_not_ready)
 
         # Bracket link: navigation only, so it needs no tenant rebind — and it
         # goes through ui.navigate.to precisely to pick up the tenant root_path.
@@ -476,6 +530,20 @@ class MatchTableView(MatchFiltersMixin, MatchTableHandlersMixin, MatchBoardHoldM
             state_filter = []
         only_upcoming = bool(state_filter) and not ({'Finished', 'Confirmed'} & set(state_filter))
 
+        # The day scope goes to the database for the same reason: "Today" on a
+        # 1,300-match event is ~300 rows, and hydrating the other thousand only to
+        # drop them here cost most of the board's load. Suspended under a deep
+        # link for the reason the state filter is: a link to one match must not
+        # land on an empty board.
+        window = None if self.match_ids else day_scope_window(
+            self.day_filter.value if self.day_filter else self.default_day_scope)
+        scheduled_window = None
+        if window:
+            scheduled_window = (
+                datetime.fromtimestamp(window[0], timezone.utc),
+                datetime.fromtimestamp(window[1], timezone.utc),
+            )
+
         rows = await self.display_service.get_matches_for_display(
             tournament_ids=tournament_ids,
             stage_ids=stage_ids,
@@ -484,23 +552,17 @@ class MatchTableView(MatchFiltersMixin, MatchTableHandlersMixin, MatchBoardHoldM
             crew_discord_id=self.crew_discord_id,
             exclude_racetime=self.exclude_racetime,
             match_ids=self.match_ids,
+            scheduled_window=scheduled_window,
         )
+
+        if self.extra_rows is not None and window is None and not self.match_ids and not stage_ids:
+            rows = await self.extra_rows(
+                rows, tournament_ids,
+            )
 
         # Client-side filter by state (narrows within the fetched set)
         if state_filter:
             rows = [row for row in rows if row.get('state') in state_filter]
-
-        # ...then by day. Suspended under a deep link for the reason the state
-        # filter is: a link to one match must not land on an empty board.
-        window = None if self.match_ids else day_scope_window(
-            self.day_filter.value if self.day_filter else ALL_DAYS)
-        if window:
-            start, end = window
-            rows = [
-                row for row in rows
-                if row.get('scheduled_ts') is not None
-                and start <= row['scheduled_ts'] < end
-            ]
 
         watched_ids = await self._fetch_watched_ids()
         volunteered_ids = await self._fetch_stream_volunteered_ids()
@@ -508,6 +570,7 @@ class MatchTableView(MatchFiltersMixin, MatchTableHandlersMixin, MatchBoardHoldM
         hard_preset_states = await self._fetch_hard_preset_states(rows)
         await self._apply_accommodations(rows)
         await self._apply_comment_counts(rows)
+        self._apply_late_visibility(rows)
         stage_options = self._stage_options()
         for row in rows:
             row['_watching'] = row.get('id') in watched_ids
@@ -525,9 +588,8 @@ class MatchTableView(MatchFiltersMixin, MatchTableHandlersMixin, MatchBoardHoldM
             rows = self.row_sort(rows)
         rows = self._arrange(rows)
 
-        self.table.rows = rows
+        set_plain_rows(self.table, rows)
         self._release_hold()
-        self.table.update()
         self._notify_rows_changed()
 
     def _stage_options(self):
@@ -559,117 +621,6 @@ class MatchTableView(MatchFiltersMixin, MatchTableHandlersMixin, MatchBoardHoldM
         if self.on_rows_changed is not None:
             self.on_rows_changed(self._visible_rows())
 
-    async def _fetch_watched_ids(self) -> set:
-        user = await get_user_from_session(app.storage.user)
-        if not user:
-            return set()
-        return set(await self.watcher_service.list_watched_match_ids(user))
-
-    async def _fetch_stream_volunteered_ids(self) -> set:
-        """Matches this viewer has offered for stream — the toggle's own state.
-
-        Separate from the row's ``stream_volunteers`` names, which are everyone's
-        and are what staff read.
-        """
-        user = await get_user_from_session(app.storage.user)
-        if not user:
-            return set()
-        return set(await self.stream_volunteer_service.list_volunteered_match_ids(user))
-
-    async def _apply_comment_counts(self, rows) -> None:
-        """Stamp ``comment_counts`` on each row, in one query, on a staff board."""
-        if not (getattr(self, 'show_comment_counts', False) and self.access.run):
-            return
-        counts = await MatchCommentService().counts_by_match([row.get('id') for row in rows])
-        for row in rows:
-            row['comment_counts'] = counts.get(row.get('id'))
-
-    async def _apply_accommodations(self, rows) -> None:
-        """Mark each player with an arranged ADA accommodation, in one query.
-
-        Sets ``ada`` and ``ada_note`` on the player dicts the players cell
-        renders. Nothing is set on a board that has not opted in, or for a
-        viewer the service does not admit (it returns ``{}``). For a proctor
-        the service withholds the note (``None``), and so does this: the
-        popup is told so server-side rather than trusting what the row says.
-        """
-        if not self.show_accommodations:
-            return
-        user_ids = {p.get('user_id') for row in rows for p in row.get('players') or []}
-        actor = await get_user_from_session(app.storage.user)
-        notes = await self.accommodation_service.arranged_notes_for(actor, user_ids)
-        if not notes:
-            return
-        self._ada_notes_readable = all(n is not None for n in notes.values())
-        for row in rows:
-            for player in row.get('players') or []:
-                if player.get('user_id') in notes:
-                    player['ada'] = True
-                    player['ada_note'] = notes[player['user_id']]
-
-    def _show_accommodation(self, args) -> None:
-        """The popup behind a player's accessibility icon.
-
-        Staff get the staff notes. A proctor gets that it's arranged and who to
-        ask: the notes are written under a "only staff can read these" promise.
-        """
-        name = (args or {}).get('name') or 'This player'
-        note = (args or {}).get('note')
-        readable = getattr(self, '_ada_notes_readable', False) and note is not None
-        with form_dialog(f'ADA accommodation: {name}', card_classes='dialog-card dialog-card--sm') as dialog:
-            if readable:
-                ui.label('Staff notes').classes('subsection-title q-mt-sm')
-                # Plain text, never markup: staff wrote it.
-                ui.label(note or 'Staff marked this arranged but left no notes.') \
-                    .classes('text-body2').style('white-space: pre-wrap')
-            else:
-                ui.label(
-                    f'Staff have arranged an accommodation for {name}. Check with '
-                    'staff for what it involves before the match starts.'
-                ).classes('text-body2 q-mt-sm')
-        dialog.open()
-
-    def _shows_column(self, name: str) -> bool:
-        """Whether the board renders ``name``'s control, on its own or inside
-        the player's combined "Your actions" cell (``MY_ACTIONS_COLUMN``)."""
-        names = {c.get('name') for c in self.columns}
-        return name in names or MY_ACTIONS_COLUMN in names
-
-    async def _fetch_hard_preset_states(self, rows) -> dict:
-        """This viewer's own hard-preset state for every visible row, in bulk.
-
-        Skipped entirely on a board with no ``hard_preset`` column — the admin
-        schedule and the proctor station render matches nobody is choosing
-        settings on, so the queries would buy nothing.
-        """
-        if not self._shows_column('hard_preset'):
-            return {}
-        user = await get_user_from_session(app.storage.user)
-        if not user:
-            return {}
-        match_ids = [row.get('id') for row in rows if row.get('id') is not None]
-        return await self.hard_preset_service.board_states(user, match_ids)
-
-    async def _fetch_reschedule_state(self) -> tuple:
-        """``(requestable ids, already-asked ids)`` for this viewer, in bulk.
-
-        Two sets rather than one flag because they drive different marks: the
-        first shows the Ask button, the second shows the "Asked" chip on a row
-        where the button is gone precisely *because* they already asked.
-
-        Skipped entirely on a board with no ``reschedule`` column — the admin
-        schedule, the proctor station and the home schedule all render matches
-        and none of them offers the ask, so the two queries would buy nothing.
-        """
-        if not self._shows_column('reschedule'):
-            return set(), set()
-        user = await get_user_from_session(app.storage.user)
-        if not user:
-            return set(), set()
-        requestable = await self.reschedule_service.list_requestable_match_ids(user)
-        asked = set(await self.reschedule_service.pending_match_ids_for_user(user))
-        return requestable, asked
-
     async def update_row_by_id(self, match_id, flash=False):
         """
         Update a single row in the table by its match ID, only if the row is currently visible.
@@ -679,14 +630,19 @@ class MatchTableView(MatchFiltersMixin, MatchTableHandlersMixin, MatchBoardHoldM
         async with self._row_update_lock:
             await self._update_row(match_id, flash)
 
+    def _row_index(self, match_id):
+        return next((i for i, row in enumerate(self.table.rows) if row.get('id') == match_id), None)
+
     async def _update_row(self, match_id, flash):
-        idx = next((i for i, row in enumerate(self.table.rows)
-                   if row.get('id') == match_id), None)
-        if idx is None:
+        if self._row_index(match_id) is None:
             return  # Row not visible, do nothing
 
         match_data = await self.display_service.get_match_for_display(match_id)
 
+        # A reload can replace ``table.rows`` during any await: re-find by id.
+        idx = self._row_index(match_id)
+        if idx is None:
+            return
         if not match_data or (self.row_filter is not None and not self.row_filter(match_data)) \
                 or not self._still_crews(match_data):
             # Gone, or no longer this board's business (a room-view seed whose
@@ -700,6 +656,10 @@ class MatchTableView(MatchFiltersMixin, MatchTableHandlersMixin, MatchBoardHoldM
         await self._restamp_shared_state(match_data)
         await self._apply_accommodations([match_data])
         await self._apply_comment_counts([match_data])
+        self._apply_late_visibility([match_data])
+        idx = self._row_index(match_id)
+        if idx is None:
+            return
         stage_options = self._stage_options()
         if stage_options is not None:
             match_data['stage_options'] = stage_options
@@ -730,25 +690,10 @@ class MatchTableView(MatchFiltersMixin, MatchTableHandlersMixin, MatchBoardHoldM
             if isinstance(person, dict)
         )
 
-    async def _restamp_shared_state(self, row) -> None:
-        """Recompute the per-viewer fields other people's actions change.
-
-        The reschedule pair and the harder-preset fields (``RESTAMPED_ROW_FIELDS``)
-        for this one row, through the same bulk lookups ``refresh`` uses: staff
-        approving a move is exactly the ``match_live`` push that lands here.
-        """
-        if self._shows_column('reschedule'):
-            requestable_ids, asked_ids = await self._fetch_reschedule_state()
-            row['_can_reschedule'] = row.get('id') in requestable_ids
-            row['_reschedule_pending'] = row.get('id') in asked_ids
-        if self._shows_column('hard_preset'):
-            states = await self._fetch_hard_preset_states([row])
-            apply_hard_preset_state(row, states.get(row.get('id')))
-
     def _schedule_flash_clear(self, match_id):
         """Clear the transient highlight on a row a moment after it was set."""
         def clear():
-            i = next((j for j, r in enumerate(self.table.rows) if r.get('id') == match_id), None)
+            i = self._row_index(match_id)
             if i is not None and self.table.rows[i].get('_flash'):
                 self.table.rows[i]['_flash'] = False
                 self.table.update()
@@ -759,8 +704,7 @@ class MatchTableView(MatchFiltersMixin, MatchTableHandlersMixin, MatchBoardHoldM
         Delete a single row in the table by its match ID, only if the row is currently visible.
         Does not delete from the database, only removes from the table UI.
         """
-        idx = next((i for i, row in enumerate(self.table.rows)
-                   if row.get('id') == match_id), None)
+        idx = self._row_index(match_id)
         if idx is not None:
             self._hold_removed(idx)
             self.table.update()

@@ -16,6 +16,7 @@ from application.services.volunteer.volunteer_autoschedule_service import (
 )
 from theme.busy import busy_click
 from theme.dialog._helpers import dialog_actions, dialog_header, mobile_sheet
+from theme.pickers import CHIP_PROPS
 
 
 def build_policy(max_hours, fill_outside_availability: bool) -> DraftPolicy:
@@ -71,7 +72,7 @@ class VolunteerAutofillDialog:
                 position_select = ui.select(
                     options, multiple=True, label='Positions',
                     value=list(options.keys()),
-                ).classes('full-width').props('use-chips')
+                ).classes('full-width').props(CHIP_PROPS)
 
             async def submit() -> None:
                 policy = build_policy(hours_input.value, outside_checkbox.value)

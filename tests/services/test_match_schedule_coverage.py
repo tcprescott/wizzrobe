@@ -106,6 +106,33 @@ class TestTriforceTextAtRollTime:
         assert ok is True
         assert service.seedgen_service.generate_seed_call.await_args.kwargs['triforce_text'] is None
 
+    @pytest.mark.parametrize('available, enabled', [(True, False), (False, True)])
+    async def test_feature_off_sends_no_text_to_pyz3r(
+        self, service, db, stub_discord_queue, available, enabled,
+    ):
+        """Approved texts left over from when the feature was on must not reach
+        alttpr.com once staff switch it off (or the platform withdraws it)."""
+        from types import SimpleNamespace
+
+        from application.services.feature_flag_service import reset_flag_cache
+        from models import FeatureFlag, TenantFeatureFlag
+
+        tournament, match, user = await self._match('alttpr')
+        await TriforceText.create(tournament=tournament, user=user, text='GG', approved=True)
+        await TenantFeatureFlag.filter(flag=FeatureFlag.TRIFORCE_TEXTS.value).update(
+            available=available, enabled=enabled,
+        )
+        reset_flag_cache()
+        gen = AsyncMock(return_value=SimpleNamespace(url='https://alttpr.com/h/off', data={}))
+
+        with patch('application.services.seedgen_service.ALTTPR.generate', gen):
+            ok, _, _ = await service.generate_seed(match.id, await make_staff())
+
+        assert ok is True
+        sent = gen.await_args.kwargs['settings']
+        assert 'end_triforce' not in sent.get('texts', {})
+        assert 'GG' not in repr(sent)
+
 
 class TestHardPresetAtRollTime:
     """Which preset the roll actually uses — the one moment the opt-in matters."""
@@ -204,7 +231,7 @@ class TestGenerateSeed:
 
         assert ok is True
         assert url == "https://alttpr.com/h/xyz"
-        assert "Seed generated successfully" in message
+        assert "Seed rolled for" in message
         assert await GeneratedSeeds.all().count() == 1
         refreshed = await Match.get(id=m.id)
         assert refreshed.generated_seed_id is not None

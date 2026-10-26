@@ -19,15 +19,19 @@ import asyncio
 from datetime import date, datetime, time, timedelta
 from typing import Dict, List, Optional, Sequence, Tuple
 
+from application.event_context import event_scoped
+from application.repositories import AuditRepository
 from application.services.reporting_shared import (
     ON_TIME_THRESHOLD_MIN,
     ensure_report_reader,
     ensure_volunteer_report_reader,
     is_crew_covered,
+    is_outlier_duration,
     to_display,
     window_hours,
 )
 from application.tenant_context import require_tenant_id
+from application.timezone_context import current_timezone_name
 from application.utils.timezone import combine_local, now_local, to_local
 from models import AuditLog, Match, User, VolunteerShift
 
@@ -200,7 +204,7 @@ class AnalyticsService:
         bucket_starts, index_map, q_start, q_end = self._bucket_axis(start, end, bucket)
         n = len(bucket_starts)
 
-        query = Match.filter(tenant_id=require_tenant_id()).filter(scheduled_at__gte=q_start, scheduled_at__lt=q_end)
+        query = event_scoped(Match.filter(scheduled_at__gte=q_start, scheduled_at__lt=q_end))
         if tournament_id:
             query = query.filter(tournament_id=tournament_id)
         matches = await query.prefetch_related(
@@ -273,16 +277,16 @@ class AnalyticsService:
 
         A shift contributes ``duration_hours × assignees`` scheduled hours to the
         bucket of its ``starts_at``; checked-in hours only count assignments that
-        were actually checked in. Needed hours use ``slots_needed`` for fill rate.
+        were actually checked in, or called off by staff (credited as worked). Needed hours use ``slots_needed`` for fill rate.
         """
         await ensure_volunteer_report_reader(actor)
         bucket = self._normalize_bucket(bucket)
         bucket_starts, index_map, q_start, q_end = self._bucket_axis(start, end, bucket)
         n = len(bucket_starts)
 
-        shifts = await VolunteerShift.filter(tenant_id=require_tenant_id()).filter(
+        shifts = await event_scoped(VolunteerShift.filter(
             starts_at__gte=q_start, starts_at__lt=q_end,
-        ).prefetch_related('position', 'assignments', 'assignments__user')
+        )).prefetch_related('position', 'assignments', 'assignments__user')
 
         scheduled_hours = [0.0] * n
         checked_in_hours = [0.0] * n
@@ -297,7 +301,8 @@ class AnalyticsService:
             duration_h = self._duration_hours(shift.starts_at, shift.ends_at)
             assignments = list(shift.assignments)
             filled = len(assignments)
-            checked_in = sum(1 for a in assignments if a.checked_in_at is not None)
+            # A called-off shift is credited as worked, so it counts as attended.
+            checked_in = sum(1 for a in assignments if a.counts_as_worked)
 
             scheduled_hours[idx] += duration_h * filled
             checked_in_hours[idx] += duration_h * checked_in
@@ -316,7 +321,7 @@ class AnalyticsService:
                 u_entry = per_user.setdefault(a.user_id, _new_volunteer(a.user))
                 u_entry['scheduled_hours'] += duration_h
                 u_entry['shifts'] += 1
-                if a.checked_in_at is not None:
+                if a.counts_as_worked:
                     u_entry['checked_in_hours'] += duration_h
 
         top_volunteers = sorted(
@@ -372,7 +377,7 @@ class AnalyticsService:
         end = self._local(end)
         now = now_local()
 
-        query = Match.filter(tenant_id=require_tenant_id()).filter(scheduled_at__gte=start, scheduled_at__lt=end)
+        query = event_scoped(Match.filter(scheduled_at__gte=start, scheduled_at__lt=end))
         if tournament_id:
             query = query.filter(tournament_id=tournament_id)
         matches = await query.prefetch_related('tournament', 'commentators', 'trackers')
@@ -422,8 +427,10 @@ class AnalyticsService:
                 if abs(delay) <= ON_TIME_THRESHOLD_MIN:
                     stats['on_time_count'] += 1
             if started and finished:
-                stats['_duration_sum'] += int((finished - started).total_seconds() / 60)
-                stats['_duration_seen'] += 1
+                duration = int((finished - started).total_seconds() / 60)
+                if not is_outlier_duration(duration, t):
+                    stats['_duration_sum'] += duration
+                    stats['_duration_seen'] += 1
 
             if match.is_stream_candidate:
                 stats['stream_candidates'] += 1
@@ -511,22 +518,21 @@ class AnalyticsService:
         end = self._local(end)
         bucket_starts = self.iter_bucket_starts(start.date(), end.date(), bucket)
         index_map = self._index_map(bucket_starts, bucket)
-        n = len(bucket_starts)
+        n_buckets = len(bucket_starts)
 
-        logs = await AuditLog.filter(tenant_id=require_tenant_id()).filter(
-            created_at__gte=start, created_at__lte=end,
-        ).only('id', 'action', 'created_at')
-
+        counts = await AuditRepository.daily_category_counts(start, end, current_timezone_name())
+        bucket_of_day: Dict[date, Optional[int]] = {}
         per_category: Dict[str, List[int]] = {}
         total = 0
-        for log in logs:
-            idx = self._bucket_index(index_map, log.created_at, bucket)
+        for (category, day), n in counts.items():
+            if day not in bucket_of_day:
+                bucket_of_day[day] = index_map.get(self.bucket_start(day, bucket))
+            idx = bucket_of_day[day]
             if idx is None:
                 continue
-            category = (log.action or 'other').split('.', 1)[0]
-            series = per_category.setdefault(category, [0] * n)
-            series[idx] += 1
-            total += 1
+            series = per_category.setdefault(category, [0] * n_buckets)
+            series[idx] += n
+            total += n
 
         categories = [
             {'category': cat, 'counts': counts, 'total': sum(counts)}
@@ -564,14 +570,14 @@ class AnalyticsService:
         """
         await ensure_report_reader(actor)
         tid = require_tenant_id()
-        match_q = Match.filter(tenant_id=tid, scheduled_at__isnull=False)
+        match_q = event_scoped(Match.filter(scheduled_at__isnull=False))
         if tournament_id:
             match_q = match_q.filter(tournament_id=tournament_id)
 
         sources = [match_q.order_by('scheduled_at').first(),
                    match_q.order_by('-scheduled_at').first()]
         if not tournament_id:
-            shift_q = VolunteerShift.filter(tenant_id=tid)
+            shift_q = event_scoped(VolunteerShift.all())
             log_q = AuditLog.filter(tenant_id=tid)
             sources += [
                 shift_q.order_by('starts_at').first(),

@@ -12,7 +12,6 @@ from application.services.auth_service import AuthService
 from application.services.volunteer.volunteer_role_mapping_service import (
     VolunteerRoleMappingService,
 )
-from application.tenant_context import require_tenant_id
 from models import User, VolunteerPosition
 
 
@@ -79,7 +78,7 @@ class VolunteerPositionService:
         name = (name or '').strip()
         if not name:
             raise ValueError("Position name is required.")
-        if await VolunteerPosition.filter(name=name, tenant_id=require_tenant_id()).exists():
+        if await self.repository.name_taken(name):
             raise ValueError(f"A position named '{name}' already exists.")
         self._validate_stagger(shift_length_minutes, stagger_minutes)
         position = await self.repository.create(
@@ -99,11 +98,13 @@ class VolunteerPositionService:
             await AuthService.can_manage_volunteers(actor),
             "Only volunteer coordinators can manage positions.",
         )
+        if not fields:
+            return position
         if 'name' in fields:
             new_name = (fields['name'] or '').strip()
             if not new_name:
                 raise ValueError("Position name is required.")
-            if await VolunteerPosition.filter(name=new_name, tenant_id=require_tenant_id()).exclude(id=position.id).exists():
+            if await self.repository.name_taken(new_name, exclude_id=position.id):
                 raise ValueError(f"A position named '{new_name}' already exists.")
             fields['name'] = new_name
         if 'shift_length_minutes' in fields or 'stagger_minutes' in fields:

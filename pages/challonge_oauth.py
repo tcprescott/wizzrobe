@@ -22,6 +22,7 @@ import logging
 import secrets
 from dataclasses import dataclass
 from typing import List, Optional
+from urllib.parse import urlencode
 
 from nicegui import Client, app, ui
 from starlette.requests import Request
@@ -51,7 +52,7 @@ logger = logging.getLogger(__name__)
 _PROVIDER_LABEL = 'Challonge'
 _PROVIDER_KEY = 'challonge'
 
-_ADMIN_RETURN = '/admin/challonge'
+_ADMIN_RETURN = '/admin/settings/integrations'
 _PROFILE_RETURN = '/home/profile'
 # Where a link started from the Tournaments tab's "Link Challonge to sign up"
 # lands, so the player finishes signing up where they began. A fixed key, never
@@ -103,9 +104,13 @@ def create() -> None:
 
     @ui.page('/challonge/connect')
     async def challonge_connect(request: Request) -> RedirectResponse:
-        # Custom domain: the shared callback is on the platform host, so bounce
-        # there rather than silently failing to complete the connection.
-        detour = await platform_link_redirect(_ADMIN_RETURN)
+        # Custom domain: the shared callback is on the platform host, so restart
+        # this route there. Bouncing to the settings page instead made staff
+        # press Reconnect a second time.
+        community = request.query_params.get('community')
+        detour = await platform_link_redirect(
+            f'/challonge/connect?{urlencode({"community": community})}' if community else '/challonge/connect'
+        )
         if detour:
             return RedirectResponse(detour)
         # Initiation runs with tenant context; the shared callback lands on the
@@ -167,7 +172,7 @@ def create() -> None:
         # says which one this callback completes. Four outcomes, named — the old
         # two-branch guess fell through to the service flow whenever *neither*
         # state was pending (a replay, a stale tab, a hand-typed URL), and that
-        # flow returns to /admin/challonge, so a player was answered with a 403
+        # flow returns to the admin area, so a player was answered with a 403
         # about the admin area.
         state = returned_state(url)
         if player_state is not None and state == player_state:

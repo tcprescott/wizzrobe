@@ -1,3 +1,4 @@
+
 from tortoise import fields
 from tortoise.models import Model
 
@@ -9,7 +10,7 @@ class AccommodationRequest(Model):
 
     Per tenant, not on the global :class:`User`: asking SpeedGaming Live for a
     seat near the stage must not tell another community's staff anything. One
-    row per person per community; withdrawing keeps the row (status
+    row per person per event; withdrawing keeps the row (status
     ``WITHDRAWN``, ``details`` cleared) so the staff notes survive as history,
     and asking again reopens it as ``NEW``.
 
@@ -26,6 +27,12 @@ class AccommodationRequest(Model):
     tenant: fields.ForeignKeyRelation = fields.ForeignKeyField(
         'models.Tenant', related_name='accommodation_requests', on_delete=fields.CASCADE,
     )
+    # Nullable until every write stamps it; the events migration backfilled the
+    # rows that existed before (see docs/features/events.md).
+    event: fields.ForeignKeyRelation = fields.ForeignKeyField(
+        'models.Event', related_name='accommodation_requests', on_delete=fields.CASCADE,
+    )
+    event_id: int
     user: fields.ForeignKeyRelation = fields.ForeignKeyField(
         'models.User', related_name='accommodation_requests', on_delete=fields.CASCADE,
     )
@@ -47,4 +54,4 @@ class AccommodationRequest(Model):
 
     class Meta:
         table = 'accommodation_request'
-        unique_together = (('tenant', 'user'),)
+        unique_together = (('tenant', 'event', 'user'),)

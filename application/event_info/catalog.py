@@ -31,6 +31,7 @@ from __future__ import annotations
 import logging
 import re
 from pathlib import Path
+from typing import Iterable
 
 from application.content import ContentArticle, ContentSnippet, catalog_for
 
@@ -42,6 +43,7 @@ __all__ = [
     'article_for_tenant',
     'articles_for_tenant',
     'guide_pdf_for_tenant',
+    'handbook_key',
     'snippet_for_tenant',
     'tenant_slugs',
 ]
@@ -65,7 +67,7 @@ _warned: set[str] = set()
 
 
 def _root_for(slug: str) -> Path | None:
-    if not slug or not _SAFE_SLUG_RE.match(slug):
+    if not slug or not all(_SAFE_SLUG_RE.match(part) for part in slug.split('/', 1)):
         return None
     root = CONTENT_ROOT / slug
     if root.is_dir():
@@ -78,6 +80,23 @@ def _root_for(slug: str) -> Path | None:
             slug, root,
         )
     return None
+
+
+def handbook_key(tenant_slug: str, event_slugs: Iterable[str]) -> str:
+    """Where a community's handbook is read from: ``<tenant>/<event>`` or ``<tenant>``.
+
+    The first of ``event_slugs`` with a folder of its own inside the community's
+    wins, so next year's event reads the community's handbook until a PR adds
+    its folder. Event folders sit inside the community's because an event slug
+    is unique only within its community: a top-level ``content/<event>/`` could
+    hand one community's guide to another's event of the same name.
+    """
+    if not _SAFE_SLUG_RE.match(tenant_slug or ''):
+        return tenant_slug
+    for slug in event_slugs:
+        if _SAFE_SLUG_RE.match(slug or '') and any((CONTENT_ROOT / tenant_slug / slug).glob('*.md')):
+            return f'{tenant_slug}/{slug}'
+    return tenant_slug
 
 
 def articles_for_tenant(slug: str) -> list[ContentArticle]:

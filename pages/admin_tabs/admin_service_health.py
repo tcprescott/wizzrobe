@@ -13,7 +13,7 @@ from nicegui import app, ui
 
 from application.services import ServiceHealthService, ServiceStatus, get_user_from_session
 from application.tenant_context import get_current_tenant_id
-from pages.admin_tabs.links import CHALLONGE, admin_url
+from pages.admin_tabs.links import INTEGRATIONS, admin_url
 from pages.service_health_view import build_refreshable_board
 from theme.page_header import page_header
 
@@ -52,5 +52,5 @@ def _route_out(result) -> tuple | None:
     worse than none.
     """
     if result.key == 'challonge' and result.status is not ServiceStatus.HEALTHY:
-        return ('Reconnect on the Challonge tab', admin_url(CHALLONGE))
+        return ('Reconnect Challonge under Settings → Integrations', admin_url(INTEGRATIONS))
     return None

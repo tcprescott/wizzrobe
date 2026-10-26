@@ -148,7 +148,10 @@ class SpeedGamingETLService:
                 result.errors += 1
                 result.error_messages.append(f'{sg_id}: {e}')
 
-        result.cancelled += await self._detect_deleted_episodes(link, seen_sg_ids, actor=actor, now=now)
+        # An empty answer is far likelier an SG hiccup than every episode being
+        # cancelled at once; detaching them all would spray cancel webhooks.
+        if raw_episodes:
+            result.cancelled += await self._detect_deleted_episodes(link, seen_sg_ids, actor=actor, now=now)
         result.auto_finished += await self._auto_finish_stale(link, actor=actor, now=now)
 
         status = 'ok' if result.errors == 0 else 'partial'

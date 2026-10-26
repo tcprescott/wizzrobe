@@ -7,7 +7,8 @@ The third write module, held to the same rule as ``match_writes`` and
 router too, and vice versa.
 
 Every tool is registered at ``Gate.ACTOR`` with ``write=True``, mirroring
-``require_write_actor``. The owning service makes the real permission check
+``require_write_actor``, except ``get_round_schedule``, the read that pairs with
+``set_stage_best_of``. The owning service makes the real permission check
 (``can_edit_tournament`` lets a tournament's own admins edit it; adding staff,
 players and deleting is staff-only), so the two surfaces cannot disagree.
 Tournaments are loaded through the tenant-scoped repository, so an id from
@@ -19,12 +20,18 @@ from typing import Callable, Dict, List, Literal, Optional
 from mcp.server.mcpserver import MCPServer
 
 from api.schemas.discord_events import DiscordEventTournamentResponse
-from api.schemas.tournament_actions import TournamentCreateRequest, TournamentUpdateRequest
+from api.schemas.tournament_actions import (
+    RoundScheduleStageResponse,
+    StageBestOfRequest,
+    TournamentCreateRequest,
+    TournamentUpdateRequest,
+)
 from api.schemas.tournaments import TournamentResponse
 from application.errors import require_found
 from application.services import (
     ChallongeService,
     DiscordEventSyncService,
+    RoundScheduleService,
     TournamentService,
     UserService,
 )
@@ -84,6 +91,8 @@ async def create_tournament(
     required_trackers: int = 1,
     is_active: bool = True,
     is_test: bool = False,
+    players_release_seed: bool = False,
+    uses_tournament_room: bool = True,
     allow_player_match_requests: bool = True,
     stage_reminder_minutes: int = 30,
     event_start_date: Optional[str] = None,
@@ -105,6 +114,10 @@ async def create_tournament(
     community's clock. Leave event dates and hours out to inherit the
     community's. `preset_id` comes from `list_presets`; attaching one also sets
     the randomizer. `is_test` keeps it off the public event-info list.
+    `uses_tournament_room` false is for a tournament played outside the
+    tournament room: its off-stream matches take no room capacity.
+    `players_release_seed` lets the players of a checked-in match release its
+    seed by all marking ready.
     """
     args = dict(locals())
     fields = {k: v for k, v in args.items() if k != 'tenant'}
@@ -136,6 +149,8 @@ async def update_tournament(
     required_trackers: Optional[int] = None,
     is_active: Optional[bool] = None,
     is_test: Optional[bool] = None,
+    players_release_seed: Optional[bool] = None,
+    uses_tournament_room: Optional[bool] = None,
     allow_player_match_requests: Optional[bool] = None,
     stage_reminder_minutes: Optional[int] = None,
     event_start_date: Optional[str] = None,
@@ -274,6 +289,33 @@ async def remove_tournament_player(
     return OperationResult(detail=f'Removed user {user_id} from {tournament.name}.')
 
 
+async def drop_tournament_player(
+    tournament_id: int,
+    user_id: int,
+    reason: Literal['no_show', 'withdrew', 'disqualified'],
+    forfeit_matches: bool = True,
+    tenant: TenantArg = None,
+) -> OperationResult:
+    """Drop someone from a tournament and settle every match they still owe. Staff or that tournament's admins.
+
+    With `forfeit_matches` their head-to-head matches go to the opponent by
+    forfeit; without it they are called off. They come off larger matches'
+    line-ups, leave the roster, and are taken out of a linked Challonge bracket.
+    """
+    from models import ForfeitReason
+
+    tournament = await _tournament(tournament_id)
+    result = await TournamentService().drop_player(
+        tournament, await _user(user_id), current_actor().user,
+        reason=ForfeitReason(reason), forfeit_matches=forfeit_matches,
+    )
+    return OperationResult(detail=(
+        f'Dropped user {user_id} from {tournament.name}: {result.forfeited} forfeited, '
+        f'{result.called_off} called off, {result.removed_from} line-ups changed'
+        + (', removed on Challonge.' if result.on_bracket_site else '.')
+    ))
+
+
 # --- Integrations ---------------------------------------------------------------
 
 
@@ -310,7 +352,7 @@ async def sync_challonge_tournament(
 ) -> OperationResult:
     """Pull the latest entrants and matches from a linked Challonge bracket now.
 
-    Staff only. Linked brackets also sync on their own.
+    Staff, or an admin of this tournament. Linked brackets also sync on their own.
     """
     await _tournament(tournament_id)
     counts = await ChallongeService().sync_bracket(tournament_id, current_actor().user, force=True)
@@ -332,13 +374,52 @@ async def update_tournament_discord_events(
     `{match}` and `{players}`; an empty string restores the default. Changes
     reach Discord on the next sync.
     """
-    await _tournament(tournament_id)
     tournament = await DiscordEventSyncService().update_settings(
         current_actor().user, tournament_id,
         enabled=enabled, duration_minutes=duration_minutes,
         title_template=title_template, description_template=description_template,
     )
     return DiscordEventTournamentResponse.model_validate(tournament, from_attributes=True)
+
+
+# --- Round schedule ---------------------------------------------------------------
+
+
+async def get_round_schedule(
+    tournament_id: int,
+    tenant: TenantArg = None,
+) -> List[RoundScheduleStageResponse]:
+    """List a Challonge or start.gg tournament's stages with their booking windows and best-of. Staff or that tournament's admins.
+
+    Stage keys are `group` (a group stage), `e0` final, `e1` semifinals, `e2`
+    quarterfinals and so on for single elimination; `gf` grand final, `w0`/`l0`
+    winners/losers final and back from there for double elimination. A
+    start.gg phase prefixes its keys with `<phase_id>:`. `booked` counts
+    matchups that already have a match.
+    """
+    await _tournament(tournament_id)
+    stages = await RoundScheduleService().list_stages(tournament_id, current_actor().user)
+    return [RoundScheduleStageResponse.from_stage(s) for s in stages]
+
+
+async def set_stage_best_of(
+    tournament_id: int,
+    stage_key: str,
+    best_of: Literal[1, 3, 5],
+    tenant: TenantArg = None,
+) -> RoundScheduleStageResponse:
+    """Set how many games each matchup in one stage plays (1, 3 or 5). Staff or that tournament's admins.
+
+    `stage_key` comes from `get_round_schedule`. Only the best-of changes; the
+    stage's booking window stays. Each game is then booked as its own match.
+    Matches already booked for the stage keep the length they were booked with.
+    """
+    body = StageBestOfRequest(best_of=best_of)
+    await _tournament(tournament_id)
+    stage = await RoundScheduleService().set_best_of(
+        tournament_id, stage_key, body.best_of, current_actor().user,
+    )
+    return RoundScheduleStageResponse.from_stage(stage)
 
 
 def register_tools(mcp: MCPServer) -> None:
@@ -359,8 +440,11 @@ def register_tools(mcp: MCPServer) -> None:
     write_tool(remove_crew_coordinator, 'Remove crew coordinator', destructive=True)
     write_tool(enroll_tournament_player, 'Enroll tournament player')
     write_tool(remove_tournament_player, 'Remove tournament player', destructive=True)
+    write_tool(drop_tournament_player, 'Drop tournament player', destructive=True)
     challonge = FeatureFlag.CHALLONGE
     write_tool(link_challonge_tournament, 'Link Challonge bracket', challonge)
     write_tool(unlink_challonge_tournament, 'Unlink Challonge bracket', challonge, destructive=True)
     write_tool(sync_challonge_tournament, 'Sync Challonge bracket', challonge)
     write_tool(update_tournament_discord_events, 'Update tournament Discord events')
+    register(mcp, get_round_schedule, gate=Gate.ACTOR, title='Get round schedule')
+    write_tool(set_stage_best_of, 'Set stage best-of')

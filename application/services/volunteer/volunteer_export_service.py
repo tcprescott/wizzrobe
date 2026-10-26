@@ -13,7 +13,7 @@ app.
 
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Dict, List, Mapping, Optional, Sequence
+from typing import Dict, List, Mapping, Optional, Sequence, Tuple
 
 from application.feature_flags import requires_feature
 from application.repositories import (
@@ -29,8 +29,10 @@ from application.services.auth_service import AuthService
 from application.services.volunteer.volunteer_availability_service import (
     VolunteerAvailabilityService,
 )
+from application.services.volunteer.volunteer_hours import merged_hours
 from application.services.volunteer.volunteer_pool_service import VolunteerPoolService
 from application.timezone_context import current_timezone_name
+from application.utils.csv_export import files_to_zip_bytes, rows_to_csv_bytes
 from application.utils.timezone import (
     format_local_date,
     format_local_display,
@@ -125,6 +127,13 @@ class VolunteerExportBundle:
         ]
         return '\n'.join(lines) + '\n'
 
+    def to_zip_bytes(self) -> bytes:
+        """``README.txt`` plus one CSV per sheet, zipped."""
+        files = {'README.txt': self.readme().encode('utf-8')}
+        for sheet in self.sheets:
+            files[f'{sheet.name}.csv'] = rows_to_csv_bytes(sheet.columns, sheet.rows)
+        return files_to_zip_bytes(files)
+
 
 class VolunteerExportService:
     """Builds the coordinator's volunteer data export."""
@@ -183,7 +192,9 @@ class VolunteerExportService:
             actor_id
             for shift in shifts
             for assignment in shift.assignments
-            for actor_id in (assignment.assigned_by_id, assignment.checked_in_by_id)
+            for actor_id in (
+                assignment.assigned_by_id, assignment.checked_in_by_id, assignment.called_off_by_id,
+            )
             if actor_id and actor_id not in users
         }
         names = {uid: user.preferred_name for uid, user in users.items()}
@@ -234,15 +245,16 @@ class VolunteerExportService:
         windows_by_user: Mapping[int, Sequence[VolunteerAvailability]],
         shifts: Sequence,
     ) -> ExportSheet:
-        assigned_hours: Dict[int, float] = {}
-        assigned_count: Dict[int, int] = {}
+        assigned_windows: Dict[int, List[Tuple[datetime, datetime]]] = {}
         for shift in shifts:
             for assignment in shift.assignments:
-                assigned_count[assignment.user_id] = assigned_count.get(assignment.user_id, 0) + 1
-                assigned_hours[assignment.user_id] = round(
-                    assigned_hours.get(assignment.user_id, 0.0)
-                    + _hours(shift.starts_at, shift.ends_at), 2
+                assigned_windows.setdefault(assignment.user_id, []).append(
+                    (shift.starts_at, shift.ends_at)
                 )
+        # Overlapping shifts count once, as on the Hours roster: the CSV is what
+        # comp tiers get checked against when it's forwarded.
+        assigned_count = {uid: len(w) for uid, w in assigned_windows.items()}
+        assigned_hours = {uid: round(merged_hours(w), 2) for uid, w in assigned_windows.items()}
 
         rows = []
         for user in sorted(users.values(), key=lambda u: u.preferred_name.lower()):
@@ -442,6 +454,9 @@ class VolunteerExportService:
                     'acknowledged_at_local': format_local_display(assignment.acknowledged_at),
                     'checked_in_at_local': format_local_display(assignment.checked_in_at),
                     'checked_in_by': names.get(assignment.checked_in_by_id, ''),
+                    'called_off_at_local': format_local_display(assignment.called_off_at),
+                    'called_off_by': names.get(assignment.called_off_by_id, ''),
+                    'counts_as_worked': 'Yes' if assignment.counts_as_worked else 'No',
                 })
         return ExportSheet(
             name='assignments',
@@ -465,6 +480,9 @@ class VolunteerExportService:
                 ('acknowledged_at_local', f'Acknowledged At ({_tz_label()})'),
                 ('checked_in_at_local', f'Checked In At ({_tz_label()})'),
                 ('checked_in_by', 'Checked In By'),
+                ('called_off_at_local', f'Called Off At ({_tz_label()})'),
+                ('called_off_by', 'Called Off By'),
+                ('counts_as_worked', 'Counts As Worked'),
             ),
             rows=rows,
         )

@@ -43,6 +43,7 @@ Services are the business-logic layer of the [three-layer architecture](../refac
 | `AccommodationService` | [accommodation_service.py](../../application/services/accommodation_service.py) | ADA accommodation requests: member self-service, STAFF queue | [ada-accommodations.md](../features/ada-accommodations.md) |
 | `EmergencyContactService` | [emergency_contact_service.py](../../application/services/emergency_contact_service.py) | Members' emergency contacts: self-service, STAFF open-one-at-a-time with an audit row per look | — |
 | `CommunityEventService` | [community_event_service.py](../../application/services/community_event_service.py) | Member-submitted community events: submit, staff review, edits, cancellation, subscriptions | [community-events.md](../features/community-events.md) |
+| `EventService` | [event_service.py](../../application/services/event_service.py) | A community's events: the cached `EventRef` list, default and visibility, lifecycle (create, go live, make default, archive, unarchive, delete a draft), copy setup, and `names_if_mixed` / `with_event_name` for personal lists that span live events | [events.md](../features/events.md) |
 | `AnalyticsService` | [analytics_service.py](../../application/services/analytics_service.py) | Longitudinal trends: crew participation, volunteer hours, tournament health | — |
 | `ApiTokenService` | [api_token_service.py](../../application/services/api_token_service.py) | Bearer credential issue/revoke/authenticate (PATs and OAuth tokens) | [rest-api.md](rest-api.md) |
 | `McpAuthService` | [mcp_auth_service.py](../../application/services/mcp_auth_service.py) | The MCP OAuth 2.1 authorization server: dynamic client registration, authorization codes, access/refresh token issue and rotation | [features/mcp-server.md](../features/mcp-server.md) |
@@ -57,19 +58,25 @@ Services are the business-logic layer of the [three-layer architecture](../refac
 | `BracketService` | [bracket_service.py](../../application/services/bracket_service.py) | Native bracket lifecycle: author stages, roster/enroll/seed, start (generate + persist), report results + advance, complete, multi-stage advancement, scheduling seam, best-of-N series (`SeriesMixin`: game numbering, clinch, the racetime auto-open hold) | [brackets.md](../features/brackets.md) |
 | `ChallongeService` | [challonge_service.py](../../application/services/challonge_service.py) | Challonge OAuth, bracket sync, scheduling, result push | — |
 | `StartggService` | [startgg_service.py](../../application/services/startgg_service.py) | start.gg event mirror, entrant mapping, booking, opt-in result writeback | — |
+| `StartggConnectionService` | [startgg_connection_service.py](../../application/services/startgg_connection_service.py) | A community's start.gg sign-in: connect, token refresh, platform-token fallback, per-tournament reporting access | — |
 | `StartggLinkService` | [startgg_link_service.py](../../application/services/startgg_link_service.py) | Player start.gg account linking (`IdentityLinkService`) | — |
 | `bracket_sources` | [bracket_sources.py](../../application/services/bracket_sources.py) | Shared contract for linked bracket sites: result hook, My Schedule bookables, sync | — |
 | `startgg_sync_worker` | [startgg_sync_worker.py](../../application/services/startgg_sync_worker.py) | Re-syncs linked start.gg events every 2 minutes | — |
 | `CheckInService` | [check_in_service.py](../../application/services/check_in_service.py) | Matcherino-backed event check-in: roster sync, auto-linking, the desk's check-in/link actions, walk-ups | [event-check-in.md](../features/event-check-in.md), `EVENT_CHECK_IN` |
 | `CheckInDeskService` | [check_in_desk_service.py](../../application/services/check_in_desk_service.py) | The desk's gated reads (events you can work, an event's roster) for the REST and MCP surfaces | [event-check-in.md](../features/event-check-in.md), `EVENT_CHECK_IN` |
+| `check_in_dm` (module) | [check_in_dm.py](../../application/services/check_in_dm.py) | The "you're checked in" test DM the desk sends, and its result on the roster row | [event-check-in.md](../features/event-check-in.md), `EVENT_CHECK_IN` |
 | `MatcherinoLoginService` | [matcherino_login_service.py](../../application/services/matcherino_login_service.py) | The per-community Matcherino login check-in syncs with: status, verified save, remove, sync-time resolve | [event-check-in.md](../features/event-check-in.md#the-stored-login), `EVENT_CHECK_IN` |
+| `CommentaryInviteService` | [commentary_invite_service.py](../../application/services/commentary_invite_service.py) | Pair commentary: invite a partner, accept/decline (signs up through `CrewService`), cancel; waiting invites cancelled when the inviter leaves commentary | [match-participation.md](../features/match-participation.md#pair-commentary) |
+| `CrewHoldService` | [crew_hold_service.py](../../application/services/crew_hold_service.py) | Crew signups on bracket matchups nobody has booked: the hold, and handing it to the booking | [match-participation.md](../features/match-participation.md#crew-signup-and-approval) |
 | `CrewService` | [crew_service.py](../../application/services/crew_service.py) | Crew signup/undo, approval, and acknowledgment | [match-participation.md](../features/match-participation.md) |
-| `MyTimelineService` | [my_timeline_service.py](../../application/services/my_timeline_service.py) | My Schedule's Timeline view: one person's played matches, crew slots and volunteer shifts merged into time ranges, their can't-play windows cut per event day, plus the pure lane and 06:00 event-day rules | [frontend.md](frontend.md) |
+| `MyTimelineService` | [my_timeline_service.py](../../application/services/my_timeline_service.py) | My Schedule's Timeline view: one person's played matches, crew slots, volunteer shifts and community events (via `CommunityEventService.list_attending`) merged into time ranges, their can't-play windows cut per event day, plus the pure lane and 06:00 event-day rules | [frontend.md](frontend.md) |
 | `DiscordEventReconcilerService` | [discord_event_reconciler_service.py](../../application/services/discord/discord_event_reconciler_service.py) | Idempotent mirror of the schedule into a guild's Discord Scheduled Events | [discord.md](../features/discord.md) |
 | `DiscordEventSyncService` | [discord_event_sync_service.py](../../application/services/discord/discord_event_sync_service.py) | Admin surface over the reconciler: per-tournament opt-in + "reconcile now" | [discord.md](../features/discord.md) |
 | `DiscordLinkService` | [discord_link_service.py](../../application/services/discord/discord_link_service.py) | Verified tenant↔Discord-server link (bot-authorization OAuth + authority re-check) | [multitenancy.md](../features/multitenancy.md) |
 | `DiscordLoginService` | [discord_login_service.py](../../application/services/discord/discord_login_service.py) | One-time login links the bot hands out (`/login`, the login panel) and the panel's STAFF gate | [discord.md](../features/discord.md#log-in-from-discord) |
+| `DiscordMemberImportService` | [discord_member_import_service.py](../../application/services/discord/discord_member_import_service.py) | Admin → Users › Import from Discord: an account and a membership for everyone in the linked server | [discord.md](../features/discord.md) |
 | `DiscordRoleMappingService` | [discord_role_mapping_service.py](../../application/services/discord/discord_role_mapping_service.py) | Discord-role→app-role mapping CRUD and login-time role sync | [discord.md](../features/discord.md) |
+| `DiscordRoleSyncService` | [discord_role_sync_service.py](../../application/services/discord/discord_role_sync_service.py) | The Discord roles Wizzrobe hands out (players, live match, per tournament, badges): rules, bot-permission checks, and the sync; `discord_role_sync_worker` runs it | [discord.md](../features/discord.md#app--guild-role-sync-discord-roles-from-wizzrobe) |
 | `discord_member_events` (module) | [discord_member_events.py](../../application/services/discord/discord_member_events.py) | The bot's `GUILD_MEMBER_*` listeners: app-role re-sync and the cached avatar hash | [discord-integration.md](discord-integration.md) |
 | `discord_queue` (module) | [discord_queue.py](../../application/services/discord/discord_queue.py) | Serialized background Discord sends | [discord-integration.md](discord-integration.md) |
 | `DiscordService` / `MockDiscordService` | [discord_service.py](../../application/services/discord/discord_service.py) | Bot DMs, button views, guild roles | [discord-integration.md](discord-integration.md) |
@@ -125,9 +132,14 @@ Services are the business-logic layer of the [three-layer architecture](../refac
 | `SpeedGamingETLService` | [speedgaming_etl_service.py](../../application/services/speedgaming_etl_service.py) | One-way SpeedGaming→Wizzrobe schedule ETL (extract/transform/load into `Match`) | — |
 | `SpeedGamingSyncService` | [speedgaming_sync_service.py](../../application/services/speedgaming_sync_service.py) | Tenant-facing SpeedGaming event-link CRUD + on-demand "sync now" | — |
 | `UserService` | [user_service.py](../../application/services/user_service.py) | User CRUD, profiles, roles, enrollments | [role-based-auth.md](authentication.md#roles) |
+| `StreamLayoutService` | [stream_layout_service.py](../../application/services/stream_layout_service.py) | OBS overlays: layouts, art, stage overlay links and pins, the public overlay feed | [stream-layouts.md](../features/stream-layouts.md) |
+| `PersonalWebhookService` | [personal_webhook_service.py](../../application/services/personal_webhook_service.py) | Members' own webhooks: CRUD, per-delivery visibility check, allowlisted payloads, Discord/JSON delivery | [webhooks.md](../features/webhooks.md#personal-webhooks-members) |
 | `WebhookService` | [webhook_service.py](../../application/services/webhook_service.py) | Staff-managed outbound webhooks: CRUD + signed delivery | [webhooks.md](../features/webhooks.md) |
 | `WebPushService` | [web_push_service.py](../../application/services/web_push_service.py) | Per-device browser push subscriptions + encrypted delivery | [web-push.md](../features/web-push.md) |
 | `NotificationChannelService` | [notification_channel_service.py](../../application/services/notification_channel_service.py) | Email and Telegram as extra notification channels: confirm/link, the DM copy, user-chosen test notifications | `NOTIFICATION_CHANNELS` · [notification-channels.md](../features/notification-channels.md) |
+| `NotificationPreferenceService` | [notification_preference_service.py](../../application/services/notification_preference_service.py) | A person's own preset and per-message choices (Profile → Notifications), capped by the community setting: `mode_for` for `send_dm`, own get/set/reset | [notification-settings.md](../features/notification-settings.md#personal-choices) |
+| `NotificationSettingsService` | [notification_settings_service.py](../../application/services/notification_settings_service.py) | A community's overrides of the notification catalogue (Admin → Notifications): `mode_for` for `send_dm`, staff list/set/reset | [notification-settings.md](../features/notification-settings.md) |
+| `notification_catalog` (module) | [notification_catalog.py](../../application/services/notification_catalog.py) | Every DM Wizzrobe sends, as a `Notice` per message with its default mode per recipient kind; the source of truth for the settings grid | [notification-settings.md](../features/notification-settings.md) |
 | `DiscordEmailService` | [discord_email_service.py](../../application/services/discord/discord_email_service.py) | "Use my Discord email": one extra OAuth with `identify email`, accepts only a verified address | [notification-channels.md](../features/notification-channels.md) |
 | `VolunteerAutoscheduleService` | [volunteer_autoschedule_service.py](../../application/services/volunteer/volunteer_autoschedule_service.py) | Greedy draft generator for the volunteer schedule | — |
 | `VolunteerAvailabilityService` | [volunteer_availability_service.py](../../application/services/volunteer/volunteer_availability_service.py) | Volunteer-declared availability windows | — |
@@ -140,8 +152,9 @@ Services are the business-logic layer of the [three-layer architecture](../refac
 | `stage_reminder` (module) | [stage_reminder.py](../../application/services/match/stage_reminder.py) | Background loop DMing a stage match's players and crew shortly before it starts | — |
 | `volunteer_reminder` (module) | [volunteer_reminder.py](../../application/services/volunteer/volunteer_reminder.py) | Background loop sending shift-reminder DMs | — |
 | `VolunteerScheduleService` | [volunteer_schedule_service.py](../../application/services/volunteer/volunteer_schedule_service.py) | Volunteer shifts, assignments, acknowledgment, coverage | — |
+| `VolunteerShiftMoveService` | [volunteer_shift_move_service.py](../../application/services/volunteer/volunteer_shift_move_service.py) | Moving a volunteer to another shift and swapping one person for another (Admin → Shift Board), checking first so a refusal changes nothing | `VOLUNTEERS` |
 
-Every service **class** is re-exported from [`application/services/__init__.py`](../../application/services/__init__.py), along with `get_user_from_discord_id` and `NotFoundError` / `require_found` (from [`application/errors.py`](../../application/errors.py)). The helper and worker modules — `active_users_metrics`, `availability_windows`, `async_qualifier_access`, `async_qualifier_scoring`, `check_in_sync_worker`, `discord_queue`, `discord_event_worker`, `notification_links`, `oauth_handoff_service`, `race_room_worker`, `reporting_shared`, `seed_roll_worker`, `service_health_worker`, `speedgaming_sync_worker`, `volunteer_reminder` — are exported as modules (`from application.services import discord_queue`); `stage_reminder` is exported the same way from its own package (`from application.services.match import stage_reminder`), as are the remaining `async_qualifier_*` modules from `application.services.async_qualifier`. A few value types and validators ride along: `BracketConfig`/`validate_bracket_config`, `TournamentConfig`/`validate_tournament_config`, `AsyncQualifierConfig`/`validate_async_qualifier_config`/`validate_counts`/`validate_window`, `AsyncQualifierDraw`, `DraftPolicy`, `HoursSummary`, `HardPresetState`, `MatchParticipants`, `CancellationMixin`, `assert_sg_fields_unchanged`, `IdentityLinkProvider`, `ProbeResult`/`ServiceStatus`, `SetupStep`. The exceptions to "every class" are `MockDiscordService` (reached through the `DiscordService` rebind under `MOCK_DISCORD`) and the internal mixins. Non-class members (`AuditActions`, `MatchStatus`, `TelemetryCategory`) import from their own module (`MatchStatus` also from `application.services.match`).
+Every service **class** is re-exported from [`application/services/__init__.py`](../../application/services/__init__.py), along with `get_user_from_discord_id` and `NotFoundError` / `require_found` (from [`application/errors.py`](../../application/errors.py)). The helper and worker modules — `active_users_metrics`, `availability_windows`, `async_qualifier_access`, `async_qualifier_scoring`, `check_in_dm`, `check_in_sync_worker`, `discord_queue`, `discord_event_worker`, `notification_catalog`, `notification_links`, `oauth_handoff_service`, `race_room_worker`, `reporting_shared`, `seed_roll_worker`, `service_health_worker`, `sglive_pool_worker`, `speedgaming_sync_worker`, `telemetry_retention`, `volunteer_reminder` — are exported as modules (`from application.services import discord_queue`); `stage_reminder` is exported the same way from its own package (`from application.services.match import stage_reminder`), as are the remaining `async_qualifier_*` modules from `application.services.async_qualifier`. A few value types and validators ride along: `BracketConfig`/`validate_bracket_config`, `TournamentConfig`/`validate_tournament_config`, `AsyncQualifierConfig`/`validate_async_qualifier_config`/`validate_counts`/`validate_window`, `AsyncQualifierDraw`, `DraftPolicy`, `HoursSummary`, `HardPresetState`, `MatchParticipants`, `CancellationMixin`, `assert_sg_fields_unchanged`, `IdentityLinkProvider`, `ProbeResult`/`ServiceStatus`, `SetupStep`. The exceptions to "every class" are `MockDiscordService` (reached through the `DiscordService` rebind under `MOCK_DISCORD`) and the internal mixins. Non-class members (`AuditActions`, `MatchStatus`, `TelemetryCategory`) import from their own module (`MatchStatus` also from `application.services.match`).
 
 ### api_token_service.py — ApiTokenService
 
@@ -207,8 +220,6 @@ Writes and queries `AuditLog` rows. Every mutating service action records who di
 | `write_log(actor, action, details=None)` | `AuditLog` | Audit-only write (no event) — for changes with no paired event. JSON-encodes `details` (non-serializable values fall back to `str`). Raises `ValueError` if `actor` is `None`. |
 | `list_logs(*, start=None, end=None, user_id=None, action_contains=None, limit=100, offset=0)` | `list[AuditLog]` | Filtered, paginated log listing (delegates to `AuditRepository`). |
 | `count_logs(*, start=None, end=None, user_id=None, action_contains=None)` | `int` | Count matching the same filters as `list_logs`. |
-| `get_logs_for_user(user, limit=None)` | `list[AuditLog]` | A user's entries, most recent first. |
-| `get_recent_logs(limit=100)` | `list[AuditLog]` | Most recent entries across all users, with `user` prefetched. |
 
 Collaborators: `AuditRepository`, the [event bus](../features/event-system.md).
 
@@ -314,15 +325,27 @@ Paths come from the pure [`app_links.py`](#additional-utilities), shared with th
 
 ### startgg_service.py — StartggService
 
-A read-only mirror of a linked start.gg event (`StartggEntrant`/`Phase`/`Pool`/`Set`), gated by `FeatureFlag.STARTGG`. `link_event` (refuses a Challonge link or a native bracket), `unlink_event`, `sync_event(force)` (20 s throttle), `sync_linked_events` (worker, unaudited), `set_bookable_phase`, `set_report_results`; staff entrant mapping `list_entrants`, `assign_entrant`, `confirm_all_suggestions`, `dismiss_suggestion`, `clear_entrant`; players `list_unbooked_sets_for_user`, `schedule_set` (through `MatchService.submit_match_request(from_bracket=True)`); the public page reads `get_event_view`. A sync DMs both players of each set that newly became bookable. `report_result_if_linked` is the soft-gated writeback: only when the tournament opted in, re-reading the set and skipping it when start.gg already has a result. Detail: [startgg.md](../features/startgg.md).
+A read-only mirror of a linked start.gg event (`StartggEntrant`/`Phase`/`Pool`/`Set`), gated by `FeatureFlag.STARTGG`. `link_event` (refuses a Challonge link or a native bracket), `unlink_event`, `sync_event(force)` (20 s throttle), `sync_linked_events` (worker, unaudited), `set_bookable_phase`, `set_report_results`; staff entrant mapping `list_entrants`, `count_unmatched_entrants(tournament_ids)`, `assign_entrant`, `confirm_all_suggestions`, `dismiss_suggestion`, `clear_entrant`; players `list_unbooked_sets_for_user`, `schedule_set` (through `MatchService.submit_match_request(from_bracket=True)`); the public page reads `get_event_view`. A sync DMs both players of each set that newly became bookable. `report_result_if_linked` is the soft-gated writeback: only when the tournament opted in, re-reading the set and skipping it when start.gg already has a result. Detail: [startgg.md](../features/startgg.md).
+
+### bracket_set_service.py — BracketSetService
+
+Best-of sets on a Challonge or start.gg matchup, one `Match` per game (`Match.set_best_of`, `set_first`; `set_game` is booking order only). `standing(match)` reads the set's wins off its games' finish ranks; `call_off_unneeded(match)` cancels the unplayed games of a decided set as the system user; `open_games` / `open_games_for` say what's left to book (one entry per game, "if needed" flagged); `book_game` books one game, the first taking the bracket link; `book_followers` books games 2+ after `bracket_sources.schedule_set` booked game 1 (staff's book-all dialog); `hand_off` passes the lead and bracket link on before the leading game is removed; `check_times` validates the game times; `labels_for` / `label_for` render "Game 2 of 3" by time order (`application/utils/game_order.py`). `open_set_for(tournament_id, player_ids, actor=)` finds the pair's bracket booking a hand-booked game could still join, and `join_set(match_id, first_id, actor)` makes a match its next game (growing the best-of if needed, audited `match.set_extended` with `joined: true`). The Challonge push and start.gg writeback send only the set's result. A stage's best-of comes from `RoundScheduleService.best_of_for`.
+
+### round_schedule_service.py — RoundScheduleService
+
+Per-stage booking windows for Challonge and start.gg tournaments (`Tournament.config['round_schedule']`), and enforcement for those plus native brackets (`Bracket.config['rounds']`). Staff editor: `list_stages` (group stage / pool phases, each elimination round keyed back from the final, placeholder rows before Challonge creates the elimination matches), `save_schedule` (audited `tournament.round_schedule_updated`). Lookups: `window_for(...)`, `window_for_challonge_match`, `window_for_startgg_set`, `window_for_bracket_match`, `window_for_match`, plus `describe_for_*` for the player-facing line. Enforcement: `check_time` / `check_booking` / `check_match_time` raise `RoundWindowError` (a `ValueError`) whose `can_override` is true for staff and tournament admins, who resubmit with `allow_outside_round=True`. Called from Challonge, start.gg and native booking, `MatchService.update_match`, reschedule requests and Suggest a time. The pure window maths and stage keys live in `round_windows.py`.
+
+### round_windows.py — module functions
+
+Pure: `RoundWindow` (opens, closes, daily hours on the community clock; `slot_fits`, `describe`), `elimination_keys`, `winners_final_round`, `stage_label`, `stage_sort_key`, `placeholder_keys`, `window_to_config`.
 
 ### bracket_sources.py — module functions
 
-The shared contract for brackets that live on another site (`BracketSource` protocol; `StartggSource`, and `ChallongeSource` for sync only so far). `on_match_confirmed` (called from match confirmation, isolates each site's failure), `list_bookable_for_user` / `schedule` (My Schedule), `sync_tournament` / `sync_all` (Admin → Tournaments), `live_sources`, `source_for`.
+The shared contract for brackets that live on another site (`BracketSource` protocol; `StartggSource`, and `ChallongeSource` for sync and booking so far). `list_unbooked` (Match Schedule's Not booked yet view: open, unbooked matchups across Challonge, start.gg and native brackets, as `UnbookedMatch`), `on_match_confirmed` (called from match confirmation, isolates each site's failure), `list_bookable_for_user` / `schedule` (My Schedule), `sync_tournament` / `sync_all` (Admin → Tournaments), `unmatched_entrant_counts(tournaments)` (the Tournaments board's "N unmatched" chip; a failing site just shows no count), `live_sources`, `source_for`.
 
 ### challonge_service.py — ChallongeService
 
-Coordinates the Challonge integration: one shared Wizzrobe service-account OAuth connection writes brackets; players link their own Challonge identity (scope `me`) only so they can be mapped to bracket participants (their tokens are not retained). The service mirrors a linked tournament's bracket into local `ChallongeParticipant`/`ChallongeMatch` rows, schedules open matchups through the existing match-request flow, and pushes recorded results back to Challonge. Module constants: `CHALLONGE_MONTHLY_QUOTA = 500`, plus internal token-refresh-buffer and sync-throttle windows. Mock mode is gated by [`MOCK_CHALLONGE`](#mock-switches).
+Coordinates the Challonge integration: one shared Wizzrobe service-account OAuth connection writes brackets; players link their own Challonge identity (scope `me`) only so they can be mapped to bracket participants (their tokens are not retained). The service mirrors a linked tournament's bracket into local `ChallongeParticipant`/`ChallongeMatch` rows, schedules open matchups through the existing match-request flow, and pushes recorded results back to Challonge. Module constants: internal token-refresh-buffer and sync-throttle windows; `get_connection_status` reports the month's request count with no cap. Mock mode is gated by [`MOCK_CHALLONGE`](#mock-switches).
 
 | Method | Returns | Description |
 |---|---|---|
@@ -336,7 +359,7 @@ Coordinates the Challonge integration: one shared Wizzrobe service-account OAuth
 | `remove_community(actor, community)` | `None` | Staff-only; drops a saved community. Refuses (`ValueError`) while linked tournaments use it. Audits `challonge.community_removed`. |
 | `disconnect(actor)` | `None` | Staff-only; clears the connection; audits `challonge.disconnected`. |
 | `get_connection_status()` | `dict` | `{connected, configured, request_usage, request_quota, ...}` for the admin UI. |
-| `record_player_link(user, challonge_user_id, challonge_username, actor)` | `None` | Persist a player's linked Challonge identity (OAuth path); audits `challonge.player_linked`. |
+| `record_player_link(user, challonge_user_id, challonge_username, actor)` | `None` | Persist a player's linked Challonge identity (OAuth path); audits `challonge.player_linked`. Then maps them onto any already-mirrored entrant carrying that account (hand assignments untouched), refreshes the Players list and sends ready DMs, without waiting for the next sync. Best-effort. |
 | `participant_tournament_ids(user)` | `set[int]` | Tournament ids whose mirrored bracket includes this user. |
 | `link_player_manually(user, challonge_user_id, challonge_username, actor)` | `None` | Staff override linking a user by Challonge id; rejects ids already linked elsewhere (`ValueError`); audits `challonge.player_linked` with `manual: True`. |
 | `set_player_username(user, challonge_username, actor)` | `None` | Staff override correcting the display username on an already-linked account; audits `challonge.player_username_updated`. |
@@ -348,10 +371,11 @@ Coordinates the Challonge integration: one shared Wizzrobe service-account OAuth
 | `unlink_tournament(tournament_id, actor)` | `Tournament` | The migration path off Challonge: clears the link and deletes the local mirror (participants + `ChallongeMatch` rows), leaving the scheduled `Match` rows and the remote bracket untouched. The tournament becomes eligible for a native bracket. Audits `challonge.tournament_unlinked`. |
 | `sync_bracket(tournament_id, actor, force=False)` | `dict[str, int]` | Gated by `can_edit_tournament`; re-fetch and mirror the bracket; non-forced calls inside the throttle window are a no-op (`{skipped: True}`). Audits `challonge.bracket_synced`. DMs both players of each match that became bookable in this sync (`_challonge_notifications.py`). |
 | `list_bracket_participants(tournament_id, actor)` | `list[dict]` | Lives with the two below in `ChallongeParticipantAssignmentMixin` ([`_challonge_participants.py`](../../application/services/_challonge_participants.py)). Gated by `can_edit_tournament`; the linked bracket's entrants as `{id, name, challonge_user_id, user, status, verified_user}`. `status` is `manual` / `verified` / `unlinked`; `verified_user` is set only when a manual row's Challonge account belongs to someone else. |
+| `count_unmatched_participants(tournament_ids)` | `dict[int, int]` | Entrants with no Wizzrobe user per linked tournament (tournaments with none left out); feeds `bracket_sources.unmatched_entrant_counts`. |
 | `assign_participant_user(participant_id, user_id, actor)` | `ChallongeParticipant` | Gated by `can_edit_tournament`; maps an entrant to a community member by hand (`user_assigned_manually=True`, kept by every sync). Refuses a non-member or a user already mapped to another entrant in the bracket (`ValueError`). Audits `challonge.participant_assigned`. Sends the ready-to-schedule DM when it links a match's last entrant. |
 | `sign_up_player(tournament, user)` | `ChallongeParticipant` | `_challonge_signup.py`. Called by `TournamentService.self_enroll` for a Challonge-linked tournament. Adds the player to the bracket by their linked `challonge_username`, with `misc = wizzrobe-user:<id>` so a sync maps the entrant before Challonge's invite is accepted. Refuses an unlinked player, a started bracket (`roster_locked`), a duplicate, a connection without `participants:write`, and more than `ROSTER_CHANGES_PER_HOUR` (6) sign-ups/withdrawals per player per hour (each spends quota). Audits `challonge.participant_signed_up` and publishes `tournament.enrolled`. |
 | `withdraw_player(tournament, user)` | `None` | Deletes the player's own entry on Challonge (a 404 still withdraws locally) until the bracket starts. Audits `challonge.participant_withdrawn` and publishes `tournament.withdrawn`. |
-| `can_add_participants()` | `bool` | Whether the connection holds `participants:write`; Admin → Challonge warns staff to reconnect when it doesn't. |
+| `can_add_participants()` | `bool` | Whether the connection holds `participants:write`; the Challonge card on Settings → Integrations warns staff to reconnect when it doesn't. |
 | `clear_participant_user(participant_id, actor)` | `ChallongeParticipant` | Drops a hand assignment; the entrant falls back to whoever its Challonge account is linked to (or nobody). Audits `challonge.participant_unassigned`. |
 | `advance_stage(tournament_id, action_key, actor)` | `Tournament` | Lives in `ChallongeStageMixin` ([`_challonge_stages.py`](../../application/services/_challonge_stages.py)). Gated by `can_edit_tournament`; runs one stage action on Challonge and force-syncs, so new matches (the bracket after the groups) are bookable at once. The action must be the one `stage_actions_for` offers from the cached `challonge_state`, and the connection must hold `tournaments:write` (`can_change_stages()`), else `ValueError`. **Finalize groups and start bracket** is two calls (`finalize_group_stage`, `start`); if the second fails the mirror is still re-synced and the error says which step stuck. A refused first step also re-syncs (best-effort), because the usual cause is a stage already moved on Challonge's own site; the error then says the page now shows the live state. Challonge's refusal text is surfaced as the `ValueError`. Audits `challonge.stage_advanced`. Reset is deliberately not offered. |
 | `stage_actions_for(tournament)` / `stage_label_for(tournament)` (static) | `list[StageAction]` / `str \| None` | The next stage action(s) for the cached state (`pending` → Start tournament / Start group stage, `group_stages_underway` → Finalize groups and start bracket, `group_stages_finalized` → Start bracket, `awaiting_review` → Finalize tournament) and a readable state label. |
@@ -439,6 +463,17 @@ Crew (commentator/tracker) self-signup, the approval workflow, and crew-side ack
 
 Collaborators: `CommentatorRepository`, `TrackerRepository`, `MatchRepository` (signup match lookup, `commitments_for_user`), `TournamentRepository`, `AuditService`, `DiscordService` (via `discord_queue`).
 
+### discord_member_import_service.py — DiscordMemberImportService
+
+Admin → Users › Import from Discord. Gives every human in the community's linked server an account (matched on `discord_id`, so nobody is duplicated) and a membership, so staff can enroll and map people who have never signed in. Staff-only (`can_grant_roles`); a missing server link or a Discord failure is a `ValueError`. Bots, people removed from the community (`TenantMemberBlock`), and inactive or system accounts are skipped. No DMs. Safe to rerun: a second run only adds people new to the server.
+
+| Method | Returns | Description |
+|---|---|---|
+| `preview(actor)` | `DiscordImportPreview` | What a run would do now, without writing: `server_name`, `people` (humans), `new_accounts`, `new_members`, `already_members`, `bots`, `removed`. |
+| `run(actor)` | `DiscordImportResult` | Bulk-inserts the missing accounts (`UserRepository.bulk_create_from_discord`, conflicts ignored), then one `TenantMembershipRepository.bulk_add` (`MembershipSource.DISCORD_IMPORT`) for the people not yet members, closing their pending join requests (`close_pending_request`); no per-person DM, audit row or event. One audit row for the run, `tenant.members_imported` + `EventType.TENANT_MEMBERS_IMPORTED`, carrying the counts and `created_user_ids` / `added_user_ids`. |
+
+Collaborators: `DiscordService.list_members` / `.get_guild_summary`, `UserRepository`, `TenantMembershipRepository`, `TenantJoinRequestRepository`, `AuditService`.
+
 ### discord_role_mapping_service.py — DiscordRoleMappingService
 
 CRUD for `DiscordRoleMapping` plus the login-time sync that maps a user's Discord guild roles onto application roles **and** onto per-tournament grants. Feature doc: [discord.md](../features/discord.md).
@@ -487,7 +522,7 @@ Thin wrapper around the shared discord.py bot: DM sending (plain and with intera
 
 | Method | Returns | Description |
 |---|---|---|
-| `send_dm(user_id, message, view_factory=None, embed=None, link=None, on_sent=None)` | `(bool, str)` | DM to a Discord user id. `on_sent(channel_id, message_id)` is awaited once Discord accepts the message (a failure inside it is logged, not reported as a failed send); [`staff_request_dms`](#staff_request_dmspy--module-functions) uses it to find the message again. `embed`, when given, is sent *instead of* `message` as the Discord content (the text then only feeds web push); `link` (a `DMLink` from [`notification_links`](#notification_linkspy--module-functions)) renders as a link button beside any `view_factory` buttons and is the web-push tap target. Also enqueues a fire-and-forget mirror of the message to the recipient's web-push devices (real service only; the mock skips it) — see [web-push.md](../features/web-push.md). |
+| `send_dm(user_id, message, view_factory=None, embed=None, link=None, on_sent=None, mirror=True, silent=False, notice=None)` | `(bool, str)` | `notice` is the catalogued [`NoticeTarget`](#notification_catalogpy--notice-catalog) (`MATCH_SCHEDULED.to(PLAYERS)`): the community's setting for it overrides `silent`, and `OFF` returns `(True, DM_NOTICE_OFF)` before anything is sent or mirrored to devices, email or Telegram. DM to a Discord user id. `on_sent(channel_id, message_id)` is awaited once Discord accepts the message (a failure inside it is logged, not reported as a failed send); [`staff_request_dms`](#staff_request_dmspy--module-functions) uses it to find the message again. `embed`, when given, is sent *instead of* `message` as the Discord content (the text then only feeds web push); `link` (a `DMLink` from [`notification_links`](#notification_linkspy--module-functions)) renders as a link button beside any `view_factory` buttons and is the web-push tap target. Also enqueues a fire-and-forget mirror of the message to the recipient's web-push devices (real service only; the mock skips it) — see [web-push.md](../features/web-push.md). | Every send in a community that isn't turned off is also logged to [`SentMessage`](data-model.md#sentmessage) via [`SentMessageService`](#sent_message_servicepy--sentmessageservice), with the notice's key and recipient.
 | `edit_dm(channel_id, message_id, embed, link=None)` | `(bool, str)` | Replace a sent DM's card and buttons (`link` is the only button left). Silent: Discord doesn't notify on an edit, and the web-push copy can't change. The mock prints `[MOCK Discord DM edit]`. |
 | `send_dm_with_crew_buttons(user_id, message, match_id)` | `(bool, str)` | DM with commentator/tracker signup buttons. |
 | `send_dm_with_acknowledgment_button(user_id, message, match_id)` | `(bool, str)` | DM with a match Acknowledge button. |
@@ -497,14 +532,17 @@ Thin wrapper around the shared discord.py bot: DM sending (plain and with intera
 | `send_dm_with_hard_preset_buttons(user_id, message, match_id, opted_in)` | `(bool, str)` | DM with the hard-preset opt-in/out buttons. |
 | `send_dm_with_unwatch_button(user_id, message, match_id)` | `(bool, str)` | DM with an Unwatch button for match watchers. |
 
-Every `send_dm_with_*` also takes the optional `embed=None, link=None` pair and passes them through to `send_dm`.
+Every `send_dm_with_*` also takes the optional `embed=None, link=None, notice=None` and passes them through to `send_dm`.
 | `get_bot()` | `commands.Bot \| None` | The underlying bot instance. |
 | `list_guilds()` | `(bool, list[{id, name}] \| str)` | Guilds the bot is connected to. |
-| `list_guild_roles(guild_id)` | `(bool, list[{id, name, color, mappable}] \| str)` | All roles in a guild (fetch with cached fallback). `color` is Discord's RGB int (0 = none); `mappable` is False for `@everyone` and bot/integration-managed roles. |
+| `list_guild_roles(guild_id)` | `(bool, list[{id, name, color, mappable, position}] \| str)` | All roles in a guild (fetch with cached fallback). `color` is Discord's RGB int (0 = none); `mappable` is False for `@everyone` and bot/integration-managed roles; `position` is Discord's role order (higher outranks lower). |
+| `bot_role_access(guild_id)` | `(bool, {manage_roles, top_position} \| str)` | Whether the bot holds Manage Roles (or Administrator) and its highest role's position. It can only hand out roles strictly below that. Feeds `DiscordRoleSyncService`. |
+| `member_role_snapshot(guild_id, user_ids)` | `(bool, {user_id: frozenset[int]} \| str)` | The roles each of `user_ids` holds, one pass over the member cache (or one paged `fetch_members`); ids not in the guild are absent. Feeds `DiscordRoleSyncService`. |
 | `add_role_to_user(guild_id, user_id, role_id, reason=None)` | `(bool, str)` | Grant a Discord role to a guild member. |
 | `remove_role_from_user(guild_id, user_id, role_id, reason=None)` | `(bool, str)` | Remove a Discord role from a guild member. |
 | `get_member_role_ids(guild_id, user_id)` | `(bool, set[int] \| str)` | The member's role ids (`@everyone` excluded); `(True, set())` for a non-member. Feeds `DiscordRoleMappingService.sync_user_roles`. |
-| `list_members_with_roles(guild_id, role_ids)` | `(bool, list[GuildMember] \| str)` | Every non-bot member holding at least one of `role_ids`, as frozen `GuildMember(id, username, avatar, role_ids)` records. Reads the member cache when the guild is chunked, otherwise pages `fetch_members`. Feeds the provisioning step of `sync_all_users`. |
+| `list_members(guild_id)` | `(bool, list[GuildMember] \| str)` | Every member, bots included, as frozen `GuildMember(id, username, avatar, role_ids, bot)` records. Reads the member cache when the guild is chunked, otherwise pages `fetch_members`. Feeds `DiscordMemberImportService`. |
+| `list_members_with_roles(guild_id, role_ids)` | `(bool, list[GuildMember] \| str)` | `list_members` narrowed to non-bot members holding at least one of `role_ids`. Feeds the provisioning step of `sync_all_users`. |
 | `get_guild_summary(guild_id)` | `(bool, {id, name} \| str)` | Name of a guild the bot can see (renders the connected-server label; confirms bot presence). |
 | `is_guild_member(guild_id, user_id)` | `(bool, bool \| str)` | Whether a user is in the guild. `ok=False` when the bot can't tell. Feeds `TenantMembershipService.join_via_discord`. |
 | `member_can_manage_guild(guild_id, user_id)` | `(bool, bool \| str)` | Whether a user is owner / Administrator / has Manage Server. **Fails closed** (`ok=False`) if the bot can't determine it. The authority check behind `DiscordLinkService`. |
@@ -517,15 +555,16 @@ The methods from `list_guilds` down live in **`discord_guild_ops.py`** (`GuildOp
 
 ### staff_request_dms.py — module functions
 
-The staff DMs about a request someone has to decide (a community event to review, an ADA request, a join request, a reschedule request), and the edit once someone has. Every staff member is DM'd, so each copy that lands is recorded in [`StaffRequestDM`](data-model.md#staffrequestdm) and rewritten when the request is decided, so the others needn't open it to check. Both halves go through `discord_queue`, whose single worker keeps an edit behind the sends it edits.
+The staff DMs about a request someone has to decide (a community event to review, an ADA request, a join request, a reschedule request, a crew signup), and the edit once someone has. Every staff member is DM'd, so each copy that lands is recorded in [`StaffRequestDM`](data-model.md#staffrequestdm) and rewritten when the request is decided, so the others needn't open it to check. Both halves go through `discord_queue`, whose single worker keeps an edit behind the sends it edits.
 
 | Function | Description |
 |---|---|
 | `send(kind, object_id, recipients, message, *, embed, link)` (async) | Forgets the previous round's records for this request, then queues one DM per recipient with a `discord_id`, each recording itself through `send_dm(on_sent=...)`. |
 | `mark_handled(kind, object_id, build, link, *, actor_id=None)` | Queues the edit of every recorded copy. `build(you: bool)` returns the card, so the decider's own copy reads "You". Called again on a later decision (approved, then taken down), it edits the same copies. |
+| `carry_over(kind, old_id, new_id, build, link)` | Queues moving the records from `old_id` to `new_id`, then editing them. For a request withdrawn and made again before a second DM is due: a crew signup redone inside its 10-minute notice window turns the "withdrawn" copies back into the ask. |
 | `card(title_and_description, *, color, community_name, fields=None)` | `notification_embed` from a `(title, description)` pair out of [`discord_messages_staff_requests.py`](../../application/utils/discord_messages_staff_requests.py). |
 
-Callers: `_community_event_notifications` (approve, reject, a pending event cancelled), `AccommodationService` (moved off New, a change reviewed, withdrawn; a request that goes back to New gets its original card back), `TenantMembershipService` (approved, declined, let in another way) and the reschedule notifications mixin (approved, declined, withdrawn, superseded).
+Callers: `_community_event_notifications` (approve, reject, a pending event cancelled), `AccommodationService` (moved off New, a change reviewed, withdrawn; a request that goes back to New gets its original card back), `TenantMembershipService` (approved, declined, let in another way) the reschedule notifications mixin (approved, declined, withdrawn, superseded) and `CrewService` (a pending signup withdrawn by the volunteer, approved, or removed by staff; one whose approval is taken back gets its original card back).
 
 ### discord_member_events.py — module functions
 
@@ -546,13 +585,13 @@ Verified linking of a `Tenant` to a Discord guild. Because `discord_guild_id` is
 The bot's one-time sign-in links. `mint_link(tenant, discord_id=…, username=…, avatar_hash=…, avatar_url=…)` provisions the account exactly as an OAuth login does (`UserService.provision_from_discord_login`), refuses a deactivated one with `ValueError`, and returns `tenant_url(tenant, '/login/discord?token=…')`. `claim(token, request_host, tenant_id)` consumes it: single-use (nonce popped from an in-process store, so single-worker like `oauth_handoff_service`), `LINK_TTL_SECONDS` (120), and bound to both the link's host and its tenant, since path-mode communities share a host. There's deliberately **no browser binding** — the person opens the link wherever Discord sends them — which is why the TTL is short and the reply is ephemeral. `communities_for_guild(guild_id)` lists the active tenants linked to a server; `community_for_panel(guild_id, tenant_id)` raises `NotFoundError` for a panel whose community is no longer linked there. `authorize_panel(discord_id, tenant)` is the STAFF (or super-admin) gate on posting a panel (`PermissionError`), and `record_panel_posted(actor, tenant, channel_id)` audits `discord.login_panel_posted`. Behaviour: [discord.md § Log in from Discord](../features/discord.md#log-in-from-discord).
 ### discord_event_reconciler_service.py — DiscordEventReconcilerService
 
-Mirrors the Wizzrobe schedule into a tenant guild's **Discord Scheduled Events** as idempotent reconciliation. `reconcile_tenant(tenant, *, actor, now=None)` reads the tenant's opted-in tournaments' scheduled matches in a forward window, then per match creates / updates (on a content-hash change) / leaves unchanged its `DiscordScheduledEvent` link, and cancels links whose source match finished or vanished. **Shared-guild safety**: the working set is only the tenant's own link rows (the repository is tenant-scoped), so a sibling tenant's event in a shared guild is never enumerated or cancelled; the target guild is the verified `Tenant.discord_guild_id`. Titles/descriptions render from `{tournament}`/`{match}`/`{players}` templates. Audits + emits `discord_event.created`/`updated`/`cancelled` (the per-run summary is audit-only). Collaborators: `DiscordScheduledEventRepository`, `MatchRepository`, `DiscordService`, `AuditService`, event bus.
+Mirrors the Wizzrobe schedule into a tenant guild's **Discord Scheduled Events** as idempotent reconciliation. `reconcile_tenant(tenant, *, actor, now=None)` reads the tenant's opted-in tournaments' scheduled matches in a forward window, then per match creates / updates (on a content-hash change) / leaves unchanged its `DiscordScheduledEvent` link, and cancels links whose source match finished or vanished. **Shared-guild safety**: the working set is only the tenant's own link rows (the repository is tenant-scoped), so a sibling tenant's event in a shared guild is never enumerated or cancelled; the target guild is the verified `Tenant.discord_guild_id`. Titles/descriptions render from `{tournament}`/`{match}`/`{players}` templates. Audits + emits `discord_event.created`/`updated`/`cancelled` (the per-run summary is audit-only). Before touching Discord it asks `DiscordService.bot_event_problem(guild_id)` (Create Events, Manage Events or Administrator); when the bot can't, the pass is **paused**: one WARNING, `ReconcileResult.setup_error` set, no Discord calls and no audit row. A setup failure mid-pass (`SETUP_FAILURES`) stops the pass the same way instead of failing every match. Collaborators: `DiscordScheduledEventRepository`, `MatchRepository`, `DiscordService`, `AuditService`, event bus.
 
 **discord_event_worker.py** — the reconcile background loop (peer of `speedgaming_sync_worker`). Every 5 min it scans (cross-tenant, unscoped) every tenant with a linked guild, then reconciles each inside `tenant_scope` as the system user. Idempotent, so an unchanged schedule is a cheap no-op. Started from the lifespan only when `DISCORD_EVENTS_SYNC_ENABLED` is on.
 
 ### discord_event_sync_service.py — DiscordEventSyncService
 
-The human-driven surface over the reconciler, gated by `AuthService.can_manage_sync`. `list_tournaments` / `update_settings(actor, tournament_id, *, enabled, duration_minutes, title_template, description_template)` manage per-tournament opt-in (audits `discord_event.settings_updated`); `list_events` feeds the admin observability table; `reconcile_now(actor)` runs the reconciler for the ambient tenant on demand (raises `ValueError` when no guild is linked).
+The human-driven surface over the reconciler, gated by `AuthService.can_manage_sync`. `list_tournaments` / `update_settings(actor, tournament_id, *, enabled, duration_minutes, title_template, description_template)` manage per-tournament opt-in (audits `discord_event.settings_updated`); `setup_problem(actor)` returns why events can't sync (no linked server, or the bot can't create events), or `None`; while it is set `update_settings` raises `ValueError` (REST 400) and the admin pane shows a banner, locks every row and shows enabled tournaments as Paused; `list_events` feeds the admin observability table; `reconcile_now(actor)` runs the reconciler for the ambient tenant on demand (raises `ValueError` when no guild is linked).
 
 ### equipment_service.py — EquipmentService
 
@@ -602,6 +641,8 @@ The check-in desk for in-person events whose registration runs on Matcherino. Mi
 The roster mutations audit and publish `check_in_entrant.checked_in` / `.check_in_undone` / `.linked` / `.unlinked` / `.walk_up_added` / `.removed` in one `write_and_publish` call, then nudge open desks on [`check_in_live`](../features/event-system.md) (`application/events/check_in_live.py`). `check_in_comps.py` decides and applies comps: `comped_users(event)` (role holders and volunteers at the lowest comp tier, via `VolunteerHoursService.roster`), `apply_comps` (comp reasons on every row, `COMP` rows created and withdrawn), `absorb_comp_row` (a comp row folded into the purchase row that takes its account). `check_in_accounts.py` holds `build_lookups` and `remember_matcherino_account` / `forget_matcherino_account`. `check_in_sales.py` is the data half of the sync: `buyers_of(sales)`, `buyer_fields`, `apply_tiers` and `apply_badges` (badges that leave the feed get `removed_at`). The pure rules live in `check_in_rules.py` (no I/O): `entrant_filters(entrant, badges)` / `ROSTER_FILTERS` / `tier_filter` (the desk's filter chips, one per badge type held), `active_badges` (unrefunded and unremoved, dearest first), `summarize(entrants) -> RosterCounts` (withdrawn rows count only as withdrawn), `handle_id`, `resolve_link` (auto-link precedence over an `IdentityLookups`), and the value types `SyncResult`, `RosterCounts`, `CheckInOutcome`.
 
 Collaborators: `CheckInEventRepository`, `CheckInEntrantRepository`, `CheckInUserLookupRepository` (global identity lookups), `UserRepository` (community-scoped candidates), `AuditService`, `AuthService`, `MatcherinoClient`.
+
+**sglive_pool_worker.py** — every 15 min, reads the sglive.speedgaming.org data feed once (only when some tournament has a `sglive_slug`) and hands it to `PayoutService.apply_sglive_games` per tenant as the system user, skipping tenants with `PAYOUTS` off. A failed read keeps every pool; first failure ERROR, repeats WARNING. No env switch. One tick by hand: `scripts/run_worker_tick.py sglive_pool`.
 
 **check_in_sync_worker.py** — the roster poll (peer of `speedgaming_sync_worker`). Every 60 s it loads every open event with a bounty (cross-tenant, unscoped), then per event, inside `tenant_scope` via `for_each_tenant_scoped` and as the system user, skips one not yet due on its `sync_interval_minutes` or whose tenant has `EVENT_CHECK_IN` off, and otherwise runs `sync_event(..., audit=False)`. After a failure it backs off from the failure time rather than retrying every tick. No environment switch: it only touches events staff have opened. Started/stopped in `main.py`; one tick by hand with `scripts/run_worker_tick.py check_in_sync`.
 
@@ -691,6 +732,10 @@ Collaborators: `CommunityEventRepository`, `CommunityEventSubscriptionRepository
 
 Background worker (`run_worker_loop`, `TICK_SECONDS = 300`): sends Sentry Metrics gauges `users.active_15m` / `_1h` / `_24h` (distinct users with any `TelemetryEvent` row in the window, via the cross-tenant `TelemetryRepository.distinct_users_since`) plus a `…_by_community` gauge per tenant slug. Only started when Sentry metrics are on; a tick does nothing with telemetry off. `start()` / `stop()` from the `main.py` lifespan. See [observability.md](../features/observability.md#metrics).
 
+### telemetry_retention.py — module functions
+
+Background worker (`run_worker_loop`, `TICK_SECONDS` = 24 h, first tick at boot): `prune(now=None)` deletes every `TelemetryEvent` older than `RETENTION` (396 days, about 13 months) in every community via the cross-tenant `TelemetryRepository.delete_before`, 5,000 rows per batch, and returns the count. Runs whether or not capture is on. `start()` / `stop()` from the `main.py` lifespan. See [telemetry.md](../features/telemetry.md#retention).
+
 ### community_event_reminder.py — module functions
 
 Background worker (`run_worker_loop`, `TICK_SECONDS = 60`): scans un-reminded subscriptions to approved events starting within `MAX_LEAD_MINUTES` (24 h), then per subscription, inside its tenant, skips tenants with `COMMUNITY_EVENTS` off, re-checks `get_community_event_reminder_lead_minutes`, stamps `reminder_sent_at` and enqueues the DM. `start()` / `stop()` from the `main.py` lifespan. Imported as a module (`from application.services import community_event_reminder`).
@@ -740,7 +785,7 @@ Read-only view-model assembly for the match tables: fetches matches (and their a
 | `get_stages_for_filter()` | `dict[int, str]` | Stage id → name for filter dropdowns. |
 | `_bracket_ref(match)` | `dict \| None` | The `{id, name, game, best_of, standing}` of the bracket stage a match is a game of (series context read off the prefetched games, no per-row query), for the schedule's link into the bracket view — `None` for an ordinary match, and `None` (not an exception) when the caller skipped `prefetch_relations`, since `bracket_match_game` is a reverse OneToOne. |
 
-Module helpers: `rolling_elapsed_label(started_at)` ("Rolling… 1:24" for an in-flight task-queue seed roll) and `is_seeded_and_unplayed(row)` (the kiosk board's predicate, applied to full refreshes and single live rows alike).
+Module helpers: `rolling_elapsed_label(started_at)` ("Rolling… 1:24" for an in-flight task-queue seed roll) and `is_room_seed_row(row)` (the kiosk board's predicate, applied to full refreshes and single live rows alike).
 
 **`crew_wanted`** sits on every row: whether the tournament uses the role at all (`required_* > 0`), which is what lets the board stop offering **Sign up** for a role nobody is needed in.
 
@@ -827,8 +872,9 @@ Offers the earliest 30-minute candidate slot that fits both the players and the 
 | Method | Returns | Description |
 |---|---|---|
 | `suggest_match_time(tournament_id, player_ids, bracket_match_id=None)` | `datetime` | Best UTC start time for the match. `bracket_match_id` confines the search to that matchup's round window. Raises `ValueError` when no eligible slot exists within the event schedule (or, when given, the round window — the message names which). |
+| `find_clashes(tournament_id, player_ids, scheduled_at, *, actor, exclude_match_id=None)` | `list[Clash]` | Why a chosen time might not work, each a `Clash(kind, message)` (`ClashKind`): a player already playing or on approved crew then, a player's published volunteer shift (when `VOLUNTEERS` is live) or blocked-out time, the room past `max_concurrent_players`, the match running past closing, a day with no hours, or a date outside the event. **Advisory**: `theme/dialog/clash_warning.py` shows them on a "Check this time" sheet before every booking dialog saves, and the person can save anyway. Shifts and blocked-out times are spelled out only to the player themselves, Staff and tournament admins; anyone else gets "isn't free then". Same permission gate as `suggest_match_time`. |
 
-Collaborators: `PlayerAvailabilityRepository`, `BracketRepository` (`get_match_with_bracket`, for the round window), `SystemConfigService` (`get_tournament_hours`, `get_event_window`), [`timezone.py`](#timezonepy), queries `Match`/`Tournament` directly.
+Collaborators: `PlayerAvailabilityRepository`, `BracketRepository` (`get_match_with_bracket`, for the round window), `VolunteerAssignmentRepository` and `UserRepository` (for `find_clashes`), `SystemConfigService` (`get_tournament_hours`, `get_event_window`), [`timezone.py`](#timezonepy), queries `Match`/`Tournament` directly.
 
 ### match_watcher_service.py — MatchWatcherService
 
@@ -983,14 +1029,14 @@ Collaborators: `PlayerAvailabilityRepository`, `AuditService`, `availability_win
 
 ### reports_service.py — ReportsService
 
-Aggregation queries behind the admin Reports tabs. Day boundaries resolve on the viewer's display clock via [`application/utils/timezone.py`](../../application/utils/timezone.py); each match contributes an estimated active window (`seated_at` or scheduled−1h → `finished_at` or start+expected duration, default 90 min). The duration and on-time thresholds are imported from `reporting_shared`. Feature doc: [admin-reports.md](../features/admin-reports.md).
+Aggregation queries behind the admin Reports tabs. Day boundaries resolve on the viewer's display clock via [`application/utils/timezone.py`](../../application/utils/timezone.py); each match contributes an estimated active window (`seated_at` or scheduled−1h → `finished_at` or start+expected duration, default 90 min). On the capacity forecast and its "active at" drill-down, a late match with no check-in keeps sliding: its end is anchored at now, up to `LATE_PUSH_LIMIT` (2h) past schedule, and a late check-in anchors at `seated_at`. Those two also expect an unstarted match to start `CHECK_IN_TO_START` (15 min) after its check-in, actual or expected, so its estimated end moves out by that much; crew coverage and stage utilization don't add it. The duration and on-time thresholds are imported from `reporting_shared`. Feature doc: [admin-reports.md](../features/admin-reports.md).
 
 | Method | Returns | Description |
 |---|---|---|
 | `generate_capacity_forecast(start, end, tournament_id=None)` | `dict` | Concurrent-player counts (total and on-stream) sampled at auto-sized intervals (15/30/60 min by span), plus active match ids per interval and the configured `max_capacity`. |
 | `peak_times(intervals, counts, top_n=5)` (static) | `list[(datetime, int)]` | Top-N busiest sampled instants from a forecast. |
 | `matches_active_at(instant, tournament_id=None)` | `list[Match]` | Matches whose estimated window covers the instant (drill-down for forecast points). |
-| `match_operations(start, end, tournament_id=None)` | `dict` | Per-match rows (start delay, duration, confirmation lag) and per-tournament aggregates (averages, on-time % within ±5 min). |
+| `match_operations(start, end, tournament_id=None)` | `dict` | Per-match rows (start delay, duration, confirmation lag) and per-tournament aggregates (averages, on-time % within ±5 min). `flagged_match_ids` are left out of every average; `duration_outlier_ids` (0 min, or over 3× the tournament's match length, via `reporting_shared.is_outlier_duration`) only out of the length average. |
 | `crew_coverage(start, end, tournament_id=None, user_id=None, approved_only=False)` | `dict` | Per-match crew slot coverage (flagging stream candidates whose approved crew falls short of the tournament's `required_commentators`/`required_trackers`, via `reporting_shared.is_crew_covered`) and per-user contribution rows with covered hours. |
 | `stage_utilization(start, end, tournament_id=None, stage_id=None)` | `dict` | Per-stage scheduled hours, back-to-back counts (<15 min gaps), idle gap hours, plus unplaced stream-candidate matches. |
 
@@ -1234,11 +1280,14 @@ A community's **logo**, shown in place of the brand-mark square (28×28 in the h
 
 The stored bytes go in the `TenantLogo` table (`bytea`), never the filesystem; `Tenant.config['logo']` holds only their SHA-256 and `config['logo_format']` is `'svg'` for an SVG (absent for the WebP), which `TenantThemeService.get_theme` turns into a `logo` URL on the palette dict. `frontend.py` serves `/brand-logo/<tenant_id>/<sha256>.webp` and `.svg` publicly (each 404s unless the stored bytes are that format) with a year-long `immutable` cache, an `ETag` (304 on match), `nosniff` and a `default-src 'none'; style-src 'unsafe-inline'; sandbox` CSP, so an SVG opened directly in a tab can't run anything; a new upload is a new URL, so nothing needs invalidating. A 128-entry in-process LRU keyed by `(tenant_id, sha256)` saves the DB read on a cold browser.
 
+Safari and iOS won't use an SVG or WebP as a tab or home-screen icon, so `render_icon` turns the stored bytes into a square PNG: 32×32 on transparent for the tab, 180×180 with the logo at 80% on the app's charcoal (`#17120D`) for the apple-touch icon. SVGs render with `resvg-py`, which needs no system libraries and never follows external references (the sanitiser leaves none anyway). `frontend.py` serves them at `/brand-logo/<tenant_id>/<sha256>-<32|180>.png` with the same immutable caching, from a second LRU; any other size, or a logo that won't render, is a 404. `get_theme` adds their URLs as `logo_icon` and `logo_touch`.
+
 | Method | Returns | Description |
 |---|---|---|
 | `set_logo(actor, data)` | `str` | STAFF-gated; normalises, upserts the row and the config hash in one transaction, audits `theme.logo_updated`. Returns the URL. `ValueError` with an uploader-facing message for a rejected file |
 | `remove_logo(actor)` | `None` | STAFF-gated; drops the row and the hash, audits `theme.logo_removed` |
 | `qr_logo_data_uri()` | `str \| None` | The current community's stored logo as a `data:` URI for `qrcode_util.asset_qr_svg`, else `None` |
+| `get_icon_png(tenant_id, sha256, side)` | `bytes \| None` | The logo as a `side` (32 or 180) PNG icon, rendered off the loop and cached; `None` for another size, a missing logo or a render failure |
 | `get_logo_bytes(tenant_id, sha256)` | `bytes \| None` | For the image route (no tenant in scope); `None` unless that exact tenant and hash match |
 
 ### tenant_theme_service.py — TenantThemeService
@@ -1299,9 +1348,54 @@ Who hears about a *match alert*: a staff-facing DM about one match that someone 
 |---|---|---|
 | `on_duty_now(at=None)` | `List[User]` | Holders of a published shift at `at` on a position with `staff_alerts` on. |
 | `match_alert_recipients(match, *, can_act=AuthService.can_run_match, exclude=(), at=None)` | `List[User]` | On-duty users, falling back to all STAFF when none who `can_act` is on duty, plus the tournament's admins minus opt-outs. Every recipient passes `can_act`, so nobody is linked to a control that refuses them. Reschedule requests pass `can_crud_match`. |
+| `tagged_match_alert_recipients(...)` / `tagged_volunteer_alert_recipients(at=None)` | `List[(User, NotificationRecipient)]` | The same recipients, each tagged with the settings column that governs their copy: `ON_DUTY` for the on-shift set (even if they also admin the tournament), `ADMINS` for tournament admins or volunteer coordinators, `STAFF` only for the fallback when nobody is on duty. Senders pass the tag to `notice.to(...)`. |
+| `tournament_alert_admins(tournament)` | `List[User]` | The tournament's active admins who haven't switched its alerts off; for alerts with no match (a player withdrawing). |
 | `volunteer_alert_recipients(at=None)` | `List[User]` | Who hears a volunteer is running late or gave a shift back: on-duty users who `can_manage_volunteers` (all STAFF when none), plus every VOLUNTEER_COORDINATOR. |
 | `admin_tournaments(user)` | `List[(Tournament, bool)]` | Active tournaments the user admins, with whether alerts are on. |
 | `set_tournament_alerts(user, tournament_id, on)` | `None` | The opt-out. Raises `ValueError` unless the user admins that tournament. |
+
+### notification_catalog.py — Notice catalog
+
+Every notification Wizzrobe sends, as code. Each `Notice(key, group, title, when, defaults, who)` is declared once with `_notice(...)` as a module constant (`MATCH_SCHEDULED`, `MATCHUP_READY`, `CHECKED_IN`, …; 60 in all) and registered in `CATALOG: Dict[str, Notice]`. `defaults` maps each `NotificationRecipient` the message goes to onto its default `NotificationMode`; `who` explains a column where the label alone would mislead ("All staff" means the fallback only). `GROUPS` fixes the display order (Matches, Brackets, Reschedule requests, Crew, Volunteer shifts, Community, Event check-in, Async qualifiers); `notices()` returns the catalogue in it. `notice.to(recipient)` returns a `NoticeTarget(key, recipient)` (raising `KeyError` for a recipient the message doesn't have), which is what a sender passes to `send_dm(notice=...)`; `NoticeTarget.default` reads the catalogue default. Keys are stored in `NotificationSetting.notice`, so renaming one drops the overrides saved against it. Feature doc: [notification-settings.md](../features/notification-settings.md).
+
+### notification_settings_service.py — NotificationSettingsService
+
+A community's overrides of the catalogue defaults. Classmethods; staff-only apart from `mode_for`. No feature flag, and no event-bus event (tenant-internal config).
+
+| Method | Returns | Description |
+|---|---|---|
+| `mode_for(target)` | `NotificationMode` | The community's choice for a `NoticeTarget`, else its default. Reads overrides through a per-tenant 30 s in-process cache (`_CACHE_SECONDS`), so a burst of DMs costs one query. **Never raises**: no tenant in scope, or a failed read, falls back to the default. Called by `send_dm` and by `check_in_dm` (which records nothing when the check-in DM is off). |
+| `list_settings(actor)` | `list[NotificationSettingRow]` | Every catalogue cell (notice × recipient) with its current mode, in display order. `NotificationSettingRow(notice, recipient, mode)` adds `default` and `changed`. |
+| `set_mode(actor, notice_key, recipient, mode)` | `NotificationSettingRow` | Set one cell; choosing the default deletes the override. `ValueError` for an unknown notice, recipient or mode. Drops the tenant's cache entry; audits `notification_setting.changed` (`notice`, `title`, `recipient`, `old`, `new`) only when the mode changed. |
+| `reset_all(actor)` | `int` | Delete every override; returns the count. Audits `notification_settings.reset` when any were deleted. |
+
+Collaborators: `NotificationSettingRepository`, `AuthService` (`is_staff`), `AuditService`.
+
+### notification_preference_service.py — NotificationPreferenceService
+
+A person's own choices, one row per (tenant, user). Classmethods; every write acts on the actor's own row only (`PermissionError` when signed out). Not audited, no event.
+
+| Method | Returns | Description |
+|---|---|---|
+| `mode_for(discord_id, target)` | `NotificationMode` | The recipient's choice for a `NoticeTarget` (override, else what their preset asks), before the community ceiling; `send_dm` takes the quieter of this and `NotificationSettingsService.mode_for`. Per (tenant, Discord id) 30 s cache. **Never raises**: no tenant, account, row, or a failed read answers `PING`. |
+| `get_mine(actor)` | `MyNotifications` | `preset` plus a `MyNotificationRow(target, community, preset, override)` for every target that can reach them (staff alerts only with `can_view_admin`), sorted by `SECTIONS`. Rows expose `effective`, `changed`, `section`; `counts(preset=None)` gives ping/silent/off totals for any preset. |
+| `set_preset(actor, preset)` | `MyNotifications` | Change the preset; overrides stay. |
+| `set_mode(actor, notice_key, recipient, mode)` | `MyNotificationRow` | One message; `None` or the preset's value removes the override. `staff_comment` → `players` also writes `User.dm_match_comments`. `ValueError` for an unknown notice, recipient or mode. |
+| `reset(actor)` | `MyNotifications` | Clear overrides, keep the preset, turn `dm_match_comments` back on. |
+
+`opted_in_user_ids(target)` returns who turned an opt-in message on (one query). Module helpers: `quieter(a, b)`, `preset_mode(preset, target)` (`off` for any opt-in target), `section_for(target)`. Collaborators: `NotificationPreferenceRepository`, `NotificationSettingsService`, `AuthService`.
+
+### opt_in_notifications.py — module functions
+
+Senders for the opt-in DMs (`notification_catalog._OPT_IN`), each a never-raising coroutine handed to `discord_queue.enqueue`: `opponent_acknowledged`, `stations_assigned`, `match_flagged`, `seed_failed`, `stream_offer`, `request_withdrawn`, `enrolment_changed` (staff add/remove → the player; a self-withdrawal → the tournament's admins), `match_result` (on confirm, to players and followers), `bracket_started`, `event_listed`, `volunteer_arrived`, `qualifier_window`. Each first asks `NotificationPreferenceService.opted_in_user_ids`, so nothing loads when nobody opted in. See [notification-settings.md](../features/notification-settings.md#opt-in-messages).
+
+### result_alerts.py — module functions
+
+The "Result in" DM (`notification_catalog.RESULT_IN`, admins, silent by default) to a tournament's admins (`StaffAlertService.tournament_alert_admins`), never-raising coroutines for `discord_queue.enqueue`. `match_result_in(match_id, actor_id, source)` fires on a Wizzrobe match's first result from `record_match_result` (`match/match_result.py`; `announce=False` when `bracket_sources.record_site_result` copies a site's result), `RaceRoomService.record_finish` and `forfeit_match`; the recorder and the match's players get no copy. `challonge_results_in` / `startgg_results_in` run inside each sync and queue `site_results_in` for matchups the site finished since the previous sync (Challonge: state changed this sync; start.gg: `completed_at` after the last sync time), skipping any whose booked match already has a result. More than `ROUNDUP_OVER` (3) at once go out as one roundup. Text in `application/utils/discord_messages_results.py`.
+
+### check_in_dm.py — module functions
+
+The "you're checked in" test DM. `start_dm_check(entrant, event_name)` records nothing when the entrant has no Discord account, marks `OPTED_OUT` without sending when they turned DMs off, returns quietly when `CHECKED_IN.to(MEMBERS)` is off in Admin → Notifications, and otherwise marks `PENDING` and queues the send on `discord_queue`. The queued `_deliver` sends with `notice=CHECKED_IN.to(MEMBERS)`, writes `SENT` / `BLOCKED` / `FAILED` to `CheckInEntrant.dm_status`, and nudges open desks on `check_in_live`. Feature doc: [event-check-in.md](../features/event-check-in.md).
 
 ### tournament_notification_service.py — TournamentNotificationService
 
@@ -1400,6 +1494,25 @@ Two shared, ORM-free passes sit beside the engines so a service, a Discord DM, o
 - [`round_names.py`](../../application/services/bracket_engines/round_names.py) — `round_label(...)` for one round, `round_names(nodes, *, double_elim, elimination)` for a whole stage graph (`elimination=False` gives the flat formats plain "Round N"), and `detect_finals_ids` (the structural "which match is the grand final / reset" rule). `theme/brackets/layout.py` re-exports `round_label` and `render.detect_finals` adapts `detect_finals_ids`, so the renderer and the notification path cannot disagree.
 - [`standings.py`](../../application/services/bracket_engines/standings.py) — `compute_standings(refs, results, config)` over opaque `int` refs and `ResultRow` records, computing match points and a configurable tiebreaker chain (`buchholz`, `omw`, `head_to_head`) into 1-based competition ranks (unresolved ties share a rank and list each other in `tied_with`). Round robin, Swiss re-pairing, stage-completion ranking, and the public bracket page's live standings all consume it.
 
+### item_tracker_service.py — ItemTrackerService
+
+The ALTTP item tracker. Behind `FeatureFlag.ITEM_TRACKER`: every public method but `sheet_link` carries `@requires_feature`. Who may track is checked inside each method (staff, Broadcast Tech, or an approved `Tracker` on the match); `overlay(token)` authorizes on the token alone. Marks are not audited; `ItemTrackerChange` is their log. Feature doc: [item-tracker.md](../features/item-tracker.md).
+
+| Method | Returns | Description |
+|---|---|---|
+| `sheet_link(match_id, user)` | `str \| None` | The tracker path for the match sheet button, or `None` (flag off, not ALTTP, can't track). Never raises. |
+| `open_match(match_id, actor)` | `TrackerView` | Match, one `RunnerBoard` per player (boards created lazily), dungeon-item mode and its source, seed tags, delay. |
+| `board` / `versions` / `preview` | | One runner's board and log; `{board_id: version}` for the poll; the delayed state. |
+| `set_level(board_id, key, level, actor)` | `ItemTrackerBoard` | Clamps to the key's range, logs the change. |
+| `undo(board_id, change_id, actor)` / `undo_last` | `ItemTrackerBoard` | Only the newest change on its key can be undone. |
+| `reset(board_id, actor)` | `ItemTrackerBoard` | Clears state and log. |
+| `set_delay(match_id, seconds, actor)` | `int` | 0–600 s, every runner on the match. |
+| `set_dungeon_items(match_id, mode, actor)` | `None` | Override the seed's mode; `None` goes back to the seed. |
+| `overlay_link(board_id, actor)` | `str` | Absolute, tenant-qualified overlay URL. |
+| `overlay(token)` | `OverlayView \| None` | The delayed state for the OBS page. |
+
+Pure data lives beside it in `item_tracker_catalog.py` (items, levels, sprites, dungeons, `dungeon_items`, `mode_from_settings`, `chest_total`).
+
 ### payout_service.py — PayoutService
 
 Prize pool and placement splits. Behind `FeatureFlag.PAYOUTS` — every public method carries `@requires_feature`. A row stores a place and a percentage; the money is computed as `(prize_pool + prize_bonus) x percentage / 100`, quantized to the cent, at read time. Authorization is `AuthService.can_manage_payouts` (staff, super-admin, or that tournament's admin) and gates reads as well as writes. Feature doc: [payouts.md](../features/payouts.md).
@@ -1408,7 +1521,8 @@ Prize pool and placement splits. Behind `FeatureFlag.PAYOUTS` — every public m
 |---|---|---|
 | `list_overview(actor)` | `list[PayoutOverview]` | Every tournament this actor may manage, with pool, total, place count, allocated percentage and whether every place is named. |
 | `get_split(tournament_id, actor)` | `PayoutSplit` | The rows with their computed amounts. Publishes nothing — it is a read. |
-| `set_pool(tournament_id, pool, bonus, actor)` | `Tournament` | Sets the two columns; `None` clears rather than zeroes. Audits/publishes `tournament.prize_pool_updated`. |
+| `set_pool(tournament_id, pool, bonus, actor)` | `Tournament` | Sets the two columns; `None` clears rather than zeroes. Refuses a different pool while the tournament syncs from sglive. Audits/publishes `tournament.prize_pool_updated`. |
+| `fetch_sglive_games` / `set_sglive_links` / `unlink_sglive` / `sync_sglive_pools` / `apply_sglive_games` | `Tournament` | The sglive.speedgaming.org pool sync; see [features/payouts.md](../features/payouts.md#syncing-from-sglivespeedgamingorg). |
 | `set_split(tournament_id, rows, actor)` | `PayoutSplit` | Replaces the whole split in one transaction. Audits/publishes `tournament.payout_updated`. |
 | `set_entrant(payout_id, user_id, actor)` | `TournamentPayout` | Names (or un-names) the winner on one drafted row. |
 | `export_block(tournament_id, actor)` | `str` | The block pasted into the admin thread; an entrant with no `matcherino_username` is called out by name. |
@@ -1584,9 +1698,44 @@ Module-level helpers shared with the qualifier live-race path: `start_racetime_r
 
 **async_qualifier/async_qualifier_worker.py** — the run-expiry loop (same shape). Every 60 s it takes every started, still-in-progress qualifier run (cross-tenant, unscoped — each qualifier configures its own limit, so no single age cutoff is right for all of them, and the set is small: one active run per player per qualifier), then per run — inside `tenant_scope` — warns once ahead of its deadline and forfeits it past it, via `RunExpiryMixin.warn_run_expiring` / `expire_run`. The same tick releases review claims that have aged out (`release_stale_claim`) and, per active qualifier, publishes window open/close crossings (`sync_window_state`) and nudges reviewers about a stale queue (`notify_review_backlog`). A tenant with `ASYNC_QUALIFIERS` off is skipped rather than raising. Always started; a tenant without the feature has no runs to find.
 
+### sent_message_service.py — SentMessageService
+
+The log of every DM ([`SentMessage`](data-model.md#sentmessage)). `send_dm` (real
+and mock) calls `record_attempt` before sending, so the web-push and
+email/Telegram mirrors can report back with `record_push` / `record_channels`
+against the returned `SentMessageRef`, then `record_result` with the Discord
+outcome (`sent_message_status` in `discord_service.py` maps the result tuple).
+Every write swallows its own failure: logging never costs a DM. Reads
+(`list_messages`, `count_messages`, `totals`, `get_message`) take a keyword-only
+`actor` and are Staff only.
+
+### exports/ — DataExportService, data_export_worker
+
+The export queue ([data-exports.md](../features/data-exports.md)).
+`DataExportService` takes requests (`request_tournaments`, `request_volunteers`,
+`record_table_csv`), enforces who may export what and the throttle, and serves
+the requester's own exports (`list_mine`, `get_mine`, `download`). `build(export)`
+is the worker's entry point and never raises. `tournament_export_builder` turns
+one tournament into the versioned JSON section and the CSVs. `data_export_worker`
+(`run_worker_loop`, 5 s tick) builds one queued export per tick, fails
+interrupted ones and prunes anything older than three days.
+
+### member_details_service.py — MemberDetailsService
+
+One member's footprint in the current community, for Admin → Members' member
+sheet, `GET /api/users/{id}/details` and MCP `get_member_details`.
+`get(member_id, *, actor)` is Staff only and raises `NotFoundError` for anyone
+who isn't a member here. It returns `MemberDetails`: roles, tournaments,
+upcoming matches and shifts, equipment out, check-in state (each `None` when
+its feature is off), linked accounts, `Channels` (email and Telegram as states,
+never addresses), the preset, every notice as `NoticeDetail` (community setting,
+their choice, effective mode and a `reason`; built from
+`NotificationPreferenceService.get_mine(member)`), and the last 10 sent
+messages. The emergency contact stays behind `EmergencyContactService.open_for`.
+
 ### service_health_service.py — ServiceHealthService
 
-Platform external-service health monitor. **Computed-and-cached, no persistence model**: an async probe registry (`_PROBES`) whose results live in a process-global in-memory cache (`_CACHE`, owned by the single worker/on-demand refresh — safe module-level state). `ServiceStatus` = `healthy / degraded / credential_warning / down / unknown` (`credential_warning` is the distinct "up but a credential is expiring/rejected" signal). Each probe is wrapped with a hard timeout so one hung dependency can't stall the board; a raising probe becomes `down`.
+Platform external-service health monitor. **Computed-and-cached, no persistence model**: an async probe registry (`_PROBES`) whose results live in a process-global in-memory cache (`_CACHE`, owned by the single worker/on-demand refresh — safe module-level state). `ServiceStatus` = `healthy / mock / degraded / credential_warning / down / unknown` (`mock` = the local mock stands in) (`credential_warning` is the distinct "up but a credential is expiring/rejected" signal). Each probe is wrapped with a hard timeout so one hung dependency can't stall the board; a raising probe becomes `down`.
 
 | Method | Returns | Description |
 |---|---|---|
@@ -1594,9 +1743,9 @@ Platform external-service health monitor. **Computed-and-cached, no persistence 
 | `snapshot()` | `list[ProbeResult]` | Cached results (UNKNOWN placeholders for not-yet-probed keys); the board's instant initial paint. |
 | `tenant_subset(tenant_id)` | `list[ProbeResult]` | The read-only subset a tenant's STAFF may see — its authorized racetime bots + its own Challonge connection — probed live (not from the platform cache). Caller binds the tenant scope. |
 
-Probes, by kind: **round-trip** — PostgreSQL; **reachability** — SpeedGaming, Challonge, and the seed-gen upstreams alttpr.com / ootrandomizer.com / maprando.com; **config presence** — Discord OAuth, Twitch OAuth, web-push/VAPID, Sentry; **runtime state** — the Discord bot's gateway readiness and `RacetimeBot.status` (an `error` with an auth message maps to credential-warning). Challonge additionally checks token expiry across all tenants via `ChallongeRepository.list_all_connections()`, an explicitly-unscoped read. Alerting: `refresh` publishes `EventType.SERVICE_HEALTH_ALERT`, which is platform-level so no tenant webhook fires; the real channels are Sentry `capture_message` plus an optional super-admin DM under `SERVICE_HEALTH_ALERT_DM`.
+Probes, by kind: **round-trip** — PostgreSQL; **reachability** — SpeedGaming, Challonge, and the seed-gen upstreams alttpr.com / ootrandomizer.com / maprando.com; **config presence** — Discord OAuth, Twitch OAuth, web-push/VAPID, Sentry; **runtime state** — the Discord bot's gateway readiness and `RacetimeBot.status` (an `error` with an auth message maps to credential-warning). Challonge additionally checks token expiry across all tenants via `ChallongeRepository.list_all_connections()`, an explicitly-unscoped read. Alerting: `refresh` publishes `EventType.SERVICE_HEALTH_ALERT` (a `down` result must repeat on the next check before it alerts; credential warnings alert immediately), which is platform-level so no tenant webhook fires; the real channels are Sentry `capture_message` plus an optional super-admin DM under `SERVICE_HEALTH_ALERT_DM`.
 
-**service_health_worker.py** — the periodic probe loop (peer of `discord_event_worker`). Every 120 s it calls `ServiceHealthService().refresh()` with **no tenant scope** (all probes are platform-level). Started from the lifespan only when `SERVICE_HEALTH_ENABLED` is on; the board still refreshes on demand regardless. The loop never dies — a failing tick is logged and retried.
+**service_health_worker.py** — the periodic probe loop (peer of `discord_event_worker`). Every 120 s it calls `ServiceHealthService().refresh()` with **no tenant scope** (all probes are platform-level). Always started from the lifespan; the board can also refresh on demand. A dependency in mock mode (`MOCK_DISCORD`, `MOCK_CHALLONGE`, `MOCK_SEEDGEN`, …) reports `mock` instead of being contacted. The loop never dies — a failing tick is logged and retried.
 
 ### speedgaming_etl_service.py — SpeedGamingETLService
 
@@ -1779,6 +1928,14 @@ Core shift/assignment operations: creating shifts (including bulk day generation
 | `undo_check_in(assignment_id, user)` | `VolunteerAssignment` | Only a check-in the volunteer made themselves, before the shift ends; `volunteer.check_in_undone`. |
 | `report_late(assignment_id, user, minutes)` | `VolunteerAssignment` | `minutes` in `LATE_CHOICES` (10/20/30); keeps the shift, publishes `volunteer.running_late` and DMs coordinators + staff via `volunteer_coordinator_dm.notify_coordinators` (shared with `release`). Repeating the same answer is a no-op. |
 
+`VolunteerCallOffService` ([volunteer_call_off_service.py](../../application/services/volunteer/volunteer_call_off_service.py)) is staff saying a volunteer isn't needed. The assignment stays, stamped `called_off_at` / `called_off_by` / `called_off_note`, and counts as worked everywhere through `VolunteerAssignment.counts_as_worked` (hours already count every assignment; the attendance figures in `AnalyticsService.volunteer_hour_trends` and the export's *Counts As Worked* column read it). A called-off row is left out of `awaiting_arrival`, `due_for_start_dm` and `due_for_reminder`, and `check_in_self`, `report_late`, `release` and the coordinator `check_in` refuse it. Coordinator-only, `VOLUNTEERS`-gated; `can_call_off` and `call_off_names` (who called it off, for the Shift Board) ride along.
+
+| Method | Returns | Notes |
+|---|---|---|
+| `call_off(assignment_id, actor, note=None)` | `VolunteerAssignment` | Refuses a draft or a finished shift; works on a started one (the DM says "head out", a check-in is kept). Clears `late_minutes`. Idempotent. Audits + publishes `volunteer.called_off` (the event leaves out the note); DMs `shift_called_off`. |
+| `call_off_shift(shift_id, actor, note=None)` | `list[VolunteerAssignment]` | Every published, not-yet-called-off assignment on the shift; `ValueError` when none are left. |
+| `undo_call_off(assignment_id, actor)` | `VolunteerAssignment` | Until the shift ends; audits + publishes `volunteer.call_off_undone`, DMs `shift_call_off_undone`. |
+
 | `request_acknowledgment(assignment, shift, user)` | `None` | The best-effort acknowledgment DM (`send_dm_with_volunteer_acknowledgment_button`) that `assign` and `confirm_assignment` send. Never raises. |
 | `coverage(start, end)` | `list[dict]` | Per-shift `filled`/`needed` counts (flagging understaffed shifts), with `drafts` and `acknowledged` breaking the filled total down. `filled` **counts drafts** — this is the coordinator's working schedule. |
 | `day_summary(start, end)` | `dict` | The day's totals over `coverage`: `shifts`, `needed`, `filled`, `open`, `drafts`, `unacknowledged` (published but not acknowledged), `understaffed_shifts`. Feeds the coordinator's coverage strip. |
@@ -1795,6 +1952,9 @@ Core shift/assignment operations: creating shifts (including bulk day generation
 | Coordinator un-assigns | DM (no button) | — |
 | Volunteer releases | — | DM |
 | Reminder lead reached | DM + Acknowledge | — |
+
+| Staff call off | DM (`shift_called_off`, link to My Schedule) | — |
+| Call-off undone | DM (`shift_call_off_undone`) | — |
 
 Every DM is best-effort, gated on `discord_id` (`send_dm` applies the Discord switch), and never raises. `_notify_coordinators_of_release` is the only role-addressed DM in the codebase (it dedupes a coordinator who is also staff); it stays private to this service rather than becoming a general broadcast utility for one caller.
 
@@ -1847,7 +2007,7 @@ Read-only. Flattens the coordinator's volunteer data into plain tables so an ini
 
 ### volunteer_reminder.py — module functions
 
-A background worker (built on `run_worker_loop` from [`background_loop.py`](#additional-utilities)) that periodically finds upcoming volunteer assignments within the configured lead time, and per assignment — inside `tenant_scope` via `for_each_tenant_scoped` — enqueues a reminder DM with an acknowledge button (closed over its tenant by `_scoped_dm`, so deep links and the web-push mirror resolve correctly), and stamps `reminder_sent_at` so each assignment is reminded only once (the stamp is written before the DM so a delivery failure or restart cannot re-fire). Module constant: `TICK_SECONDS = 60`.
+A background worker (built on `run_worker_loop` from [`background_loop.py`](#additional-utilities)) that periodically finds upcoming volunteer assignments within the configured lead time, and per assignment — inside `tenant_scope` via `for_each_tenant_scoped` — enqueues a reminder DM with an acknowledge button (closed over its tenant by `_scoped_dm`, so deep links and the web-push mirror resolve correctly), and stamps `reminder_sent_at` so each assignment is reminded only once (the stamp is written before the DM so a delivery failure or restart cannot re-fire). Both the reminder and the shift-start DM end with a handover line from `handover_for(assignment)`: who on the same position has a shift ending within `HANDOVER_SLACK` (15 min) of this one's start ("Taking over from …"), and whose shift starts within it of this one's end ("Handing off to … at …"). Published, not-called-off assignments only, and anyone also on this shift is left out (they keep working alongside). The embed names people as Discord mentions; the text that becomes the web-push copy uses plain names. A failed lookup drops the line, never the DM. Module constants: `TICK_SECONDS = 60`, `HANDOVER_SLACK`.
 
 | Function | Returns | Description |
 |---|---|---|
@@ -1882,6 +2042,10 @@ A `BackgroundLoop` that long-polls Telegram's `getUpdates` (no webhook, so nothi
 ### discord_email_service.py — DiscordEmailService
 
 The provider half of "Use my Discord email". Sign-in keeps the `identify` scope; this runs a second authorization with `identify email` through the shared identity-link scaffolding (`pages/discord_email_oauth.py`, callback `/discord/email/callback`), rejects an account with no address or an unverified one, and hands the address to `NotificationChannelService.use_discord_email`. Discord's consent screen has no per-scope opt-out, so declining means pressing Cancel and typing an address instead.
+
+### personal_webhook_service.py — PersonalWebhookService
+
+Members' own webhooks (`@requires_feature(FeatureFlag.PERSONAL_WEBHOOKS)` on every public method): `list_mine`, `create` (returns the signing secret once, `None` for Discord), `update` (`url=None` keeps the stored URL), `set_active`, `delete`, `regenerate_secret`, `send_test`, plus `available_areas()`. `deliver_event` is subscribed in `main.py` for `SUBSCRIBABLE_EVENT_TYPES` only; `view_for(webhook, event)` is the per-owner visibility check and payload builder. Audited `AuditActions.PERSONAL_WEBHOOK_*`. Detail: [webhooks.md](../features/webhooks.md#personal-webhooks-members). Collaborators: `PersonalWebhookRepository`, `MatchRepository`, `VolunteerShiftRepository`, `AsyncQualifierRunRepository`, `BracketRepository`, `RacetimeRoomRepository`, `TenantMembershipRepository`, `FeatureFlagService`, `WebhookService.build_delivery_headers`.
 
 ### webhook_service.py — WebhookService
 
@@ -2044,7 +2208,7 @@ All builders are pure functions returning `str` (`DMLink` is a `NamedTuple`); op
 
 ### easter_eggs.py
 
-A bank of cat facts surfaced in incidental UI spots ([easter_eggs.py](../../application/utils/easter_eggs.py)). `CAT_FACT_SECTIONS: dict[str, list[str]]` holds the facts under user-facing headings (Anatomy, Senses, Breeds, …) that the `/cat-facts` page renders section by section; `CAT_FACTS` is derived by flattening it and is the pool everything else draws from. `random_fact() -> str` returns a uniformly-random fact — this is what the `X-Fun-Fact` response header carries. `random_cat_fact(exclude=None) -> str` draws from the same pool, and is what every UI surface uses: empty states and table `no-data` slots, the 404 page, `theme.waiting.waiting_panel`, the report busy overlay, `CatFactDialog`, and the `/cat-facts` page. Passing `exclude` drops that one fact from the pool so a re-roll always visibly changes. No external dependencies or side effects.
+Banks of trivia surfaced in incidental UI spots ([easter_eggs.py](../../application/utils/easter_eggs.py)), one per `FactTheme` (`CAT_THEME`, `HADESTOWN_THEME`, `ROLLERCOASTER_THEME` in `FACT_THEMES`). Each theme carries its title, noun, emoji, Material icon, re-roll label and `sections` (user-facing headings the `/facts` page renders section by section); `facts` is the flattened tuple. `*_FACT_SECTIONS` / `*_FACTS` hold the raw lists, and the cat bank stays in code when it isn't showing. `current_theme(now=None)` picks the theme from `THEME_SCHEDULE`, a list of wall-clock start times read on the current local clock (`now_local()`, so a pinned community flips on its own zone): Hadestown until Sun 2026-10-25 06:00, rollercoasters until Mon 2026-10-26 06:00, then cats. `random_fact(exclude=None) -> str` draws from the current theme and is what every surface uses: the `X-Fun-Fact` response header, empty states and table `no-data` slots, the 404 page, `theme.waiting.waiting_panel`, the report busy overlay, `FactDialog`, and the `/facts` page. Passing `exclude` drops that one fact from the pool so a re-roll always visibly changes. `random_cat_fact(exclude=None)` draws from the cat bank only. No side effects.
 
 ### environment.py
 
@@ -2058,7 +2222,7 @@ Environment detection and fail-fast startup validation ([environment.py](../../a
 | `get_base_url()` / `get_platform_host()` | `str` | `BASE_URL` (no trailing slash; default `http://localhost:8000`), and the shared platform host (`PLATFORM_HOST`, else `BASE_URL`'s host) that serves `/platform` and every path-mode tenant. |
 | `host_oauth_handoff_enabled()` | `bool` | `HOST_OAUTH_MODE=handoff` — custom-domain login via the [`oauth_handoff_service`](#oauth_handoff_servicepy--module-functions) signed handoff. |
 | `telemetry_enabled()` | `bool` | `TELEMETRY_ENABLED`, default **on**. |
-| `racetime_bot_enabled()` / `speedgaming_sync_enabled()` / `discord_events_sync_enabled()` / `service_health_enabled()` / `service_health_alert_dm_enabled()` | `bool` | The worker/runtime master switches (`RACETIME_BOT_ENABLED`, `SPEEDGAMING_SYNC_ENABLED`, `DISCORD_EVENTS_SYNC_ENABLED`, `SERVICE_HEALTH_ENABLED`, `SERVICE_HEALTH_ALERT_DM`), all default off. |
+| `racetime_bot_enabled()` / `speedgaming_sync_enabled()` / `discord_events_sync_enabled()` / `service_health_alert_dm_enabled()` | `bool` | The worker/runtime master switches (`RACETIME_BOT_ENABLED`, `SPEEDGAMING_SYNC_ENABLED`, `DISCORD_EVENTS_SYNC_ENABLED`, `SERVICE_HEALTH_ALERT_DM`), all default off. |
 | `session_storage_url()` / `validate_session_storage()` | `str` / `None` | The `NICEGUI_REDIS_URL` NiceGUI reads for session storage, and a one-shot startup probe that fails fast when it is set but unusable. |
 | `validate_security_config()` | `None` | Raises `RuntimeError` — aborting startup — when `STORAGE_SECRET` is missing/blank (always; it signs the session store the whole authorization model trusts), and additionally in production when `STORAGE_SECRET` is shorter than 32 characters or `DB_USERNAME` / `DB_PASSWORD` is empty. |
 
@@ -2185,8 +2349,9 @@ Shared primitives and clients used across the service layer; each is a thin, foc
 
 | Module | Purpose |
 |---|---|
-| `background_loop.py` | `run_worker_loop(tick, interval, name, logger=None)` — builds the `BackgroundLoop` (start/stop) every cadence worker is built on; a failing tick is logged, never fatal — and `for_each_tenant_scoped(items, handle, *, tenant_id_of, logger=None, describe=repr)`, which runs a per-item body inside that item's `tenant_scope` (skipping items with no tenant) so one bad row never stops the rest. |
-| `coroutine_queue.py` | `CoroutineQueue` — a serial coroutine worker queue (the primitive behind `discord_queue` and event dispatch). |
+| `background_loop.py` | `run_worker_loop(tick, interval, name, logger=None, tick_timeout=None)` — builds the `BackgroundLoop` (start/stop) every cadence worker is built on; a failing tick is logged, never fatal, a tick past its limit is cancelled, and a loop that ends unexpectedly restarts ([observability.md](../features/observability.md#worker-self-healing-and-the-worker-watchdog)) — and `for_each_tenant_scoped(items, handle, *, tenant_id_of, logger=None, describe=repr)`, which runs a per-item body inside that item's `tenant_scope` (skipping items with no tenant) so one bad row never stops the rest. |
+| `coroutine_queue.py` | `CoroutineQueue` — a serial coroutine worker queue (the primitive behind `discord_queue`, event dispatch and webhook delivery); a call past `ITEM_TIMEOUT_SECONDS` is cancelled and a worker that ends unexpectedly restarts. |
+| `worker_watchdog.py` | The `worker watchdog` loop: every 30s, one ERROR per newly stalled `BackgroundLoop`/`CoroutineQueue`, one WARNING when it recovers. |
 | `config_validation.py` | `validate_config_blob(...)` — validate/normalize a JSON config blob against a Pydantic model. |
 | `hashing.py` | `stable_content_hash(obj)` — deterministic sha256 for cheap unchanged-since-last-run checks (used by the reconcilers). |
 | `hostname.py` | Hostname normalization + effective-request-host resolution for host-based tenant routing. |

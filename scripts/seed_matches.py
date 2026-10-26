@@ -23,6 +23,7 @@ from pathlib import Path
 from application.services._seedgen_wwr import decode_permalink as decode_wwr_permalink
 from application.services._seedgen_wwr import reseed as reseed_wwr_permalink
 from models import (
+    ForfeitReason,
     GeneratedSeeds,
     Match,
     MatchAcknowledgment,
@@ -122,8 +123,36 @@ async def seed_matches_for_tenant(
         p1=players[1], p2=players[2], stage=stage2,
         comment="Result under review — desync reported by both players.",
     )
+    # Decided by forfeit: confirmed with the winner ranked and the no-show left
+    # without a rank, which is how dropping a player stores it.
+    for title, offset, reason, note, winner, out in (
+        ("Forfeited Match", -6, ForfeitReason.NO_SHOW, "Called twice, no answer.", players[3], players[0]),
+        ("Withdrawn Match", -7, ForfeitReason.WITHDREW, None, players[1], players[3]),
+        ("Disqualified Match", -8, ForfeitReason.DISQUALIFIED, "Outside assistance.", players[2], players[1]),
+    ):
+        forfeit_match = await make_match(
+            title, offset, seated=True, started=True, finished=True,
+            p1=winner, p2=out, stream_candidate=False,
+        )
+        if forfeit_match.forfeit_reason is None:
+            forfeit_match.forfeit_reason = reason
+            forfeit_match.forfeit_note = note
+            await forfeit_match.save()
+            await MatchPlayers.filter(match=forfeit_match, user=out, tenant=tenant).update(finish_rank=None)
     await make_match(
         "TBD Match", None, p1=players[3], p2=players[0], stream_candidate=False,
+    )
+    # A placeholder: staff held the slot before knowing who plays, so it has a
+    # title and description and no players.
+    await Match.get_or_create(
+        title="ALTTPR Showcase Race",
+        tournament=tournament,
+        tenant=tenant,
+        defaults={
+            "scheduled_at": now + timedelta(hours=5),
+            "stage": stage1,
+            "description": "Top 4 from Friday's open bracket. Players are added once **Saturday's semis** finish.",
+        },
     )
     # Exactly one match with **no title**. Most matches carry a round label, but a
     # blank one happens, and when it does every surface falls back to the roster

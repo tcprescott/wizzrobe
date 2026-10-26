@@ -22,6 +22,8 @@ DAY_LENGTH_HOURS = 24
 ARRIVED = 'arrived'
 LATE = 'late'
 NOT_HERE = 'not_here'
+# Staff called it off: nobody is expected, and the shift still counts as worked.
+CALLED_OFF = 'called_off'
 
 
 @dataclass(frozen=True)
@@ -36,6 +38,8 @@ class GridPerson:
     arrival: str = ''
     checked_in_at: Optional[datetime] = None
     late_minutes: Optional[int] = None
+    called_off_at: Optional[datetime] = None
+    called_off_by: str = ''
 
 
 @dataclass(frozen=True)
@@ -60,6 +64,17 @@ class GridShift:
     @property
     def has_viewer(self) -> bool:
         return any(p.is_viewer for p in self.people)
+
+    @property
+    def called_off(self) -> bool:
+        """Everyone told about this shift was called off (drafts don't count)."""
+        told = [p for p in self.people if not p.draft]
+        return bool(told) and all(p.arrival == CALLED_OFF for p in told)
+
+    @property
+    def can_call_off(self) -> int:
+        """How many people on it could still be called off."""
+        return sum(1 for p in self.people if not p.draft and p.arrival != CALLED_OFF)
 
 
 @dataclass(frozen=True)
@@ -97,8 +112,11 @@ def arrival_state(
     """Where a volunteer stands on a shift in progress; '' before it starts.
 
     Once the shift is over only a check-in is shown: "not here yet" about a
-    finished shift would be noise on a board read during the event.
+    finished shift would be noise on a board read during the event. A call-off
+    shows at any time, and wins over a check-in (they were sent home).
     """
+    if getattr(assignment, 'called_off_at', None) is not None:
+        return CALLED_OFF
     if getattr(assignment, 'checked_in_at', None) is not None:
         return ARRIVED
     if now is None or not starts_at <= now < ends_at:
@@ -106,7 +124,10 @@ def arrival_state(
     return LATE if getattr(assignment, 'late_minutes', None) is not None else NOT_HERE
 
 
-def _person(assignment, shift, viewer_id: Optional[int], now: Optional[datetime]) -> GridPerson:
+def _person(
+    assignment, shift, viewer_id: Optional[int], now: Optional[datetime],
+    names: Mapping[int, str],
+) -> GridPerson:
     draft = bool(assignment.auto_generated)
     return GridPerson(
         assignment.user.preferred_name, assignment.user_id == viewer_id,
@@ -117,6 +138,8 @@ def _person(assignment, shift, viewer_id: Optional[int], now: Optional[datetime]
         arrival='' if draft else arrival_state(assignment, shift.starts_at, shift.ends_at, now),
         checked_in_at=getattr(assignment, 'checked_in_at', None),
         late_minutes=getattr(assignment, 'late_minutes', None),
+        called_off_at=getattr(assignment, 'called_off_at', None),
+        called_off_by=names.get(getattr(assignment, 'called_off_by_id', None) or 0, ''),
     )
 
 
@@ -125,6 +148,7 @@ def build_day_grid(
     for_staff: bool = False,
     positions: Iterable[Tuple[int, str]] = (),
     now: Optional[datetime] = None,
+    caller_names: Optional[Mapping[int, str]] = None,
 ) -> DayGrid:
     """Columns per position, in the order ``shifts`` arrive (position order).
 
@@ -132,7 +156,8 @@ def build_day_grid(
     not been told, and the volunteers' grid is read by everyone on the
     schedule. ``positions`` adds an empty column for each one with no shift
     that day, so the Shift Board can add the first; ``now`` decides who is
-    late or missing on a shift that has started.
+    late or missing on a shift that has started; ``caller_names`` maps user
+    ids to names for who called someone off.
     """
     lo_bound = float(DAY_STARTS_AT_HOUR)
     hi_bound = float(DAY_STARTS_AT_HOUR + DAY_LENGTH_HOURS)
@@ -148,7 +173,7 @@ def build_day_grid(
             continue
         shown = [a for a in shift.assignments if a.user and (for_staff or not a.auto_generated)]
         people = tuple(sorted(
-            (_person(a, shift, viewer_id, now) for a in shown),
+            (_person(a, shift, viewer_id, now, caller_names or {}) for a in shown),
             key=lambda p: (p.draft, p.name.casefold()),
         ))
         key = shift.position_id

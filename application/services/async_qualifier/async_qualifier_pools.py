@@ -254,6 +254,7 @@ class PoolManagementMixin:
                 settings_snapshot=call.value.settings,
                 rolled_by_id=actor.id if actor is not None else None,
                 provider_meta=call.as_meta(),
+                seed_code=call.value.code or None,
             )
             created.append(await self.permalink_repository.create(
                 pool_id=pool_id, url=call.value.url, generated_seed_id=seed.id,

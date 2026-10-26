@@ -11,18 +11,22 @@ ready to book links to the booking picker on My Schedule.
 from typing import Any, Dict, List, Optional
 
 from nicegui import app, ui
+from starlette.responses import RedirectResponse
 
 from application.services import StartggService, TenantService, get_user_from_session
 from application.utils.app_links import player_startgg_schedule_url
 from application.utils.route_params import parse_route_id
 from application.utils.timezone import format_local_display
 from middleware.auth import public_page
+from middleware.event_routing import page_request, row_event_redirect
 from models import FeatureFlag, StartggSet, StartggSetState
 from theme.assets import asset_url
 from theme.base import BaseLayout
 from theme.empty_state import empty_panel
 from theme.error_page import render_not_found
+from theme.links import link_button
 from theme.page_header import page_header
+from theme.url_state import bind_url
 
 
 def _name(entrant, viewer_id: Optional[int]) -> str:
@@ -147,8 +151,8 @@ def _is_round_robin(phase) -> bool:
 
 
 def create() -> None:
-    @public_page('/tournament/{tournament_id}/startgg', feature=FeatureFlag.STARTGG)
-    async def startgg_bracket(tournament_id: str, phase: Optional[str] = None) -> None:
+    @public_page('/tournament/{tournament_id}/startgg', feature=FeatureFlag.STARTGG, scope='row')
+    async def startgg_bracket(tournament_id: str, phase: Optional[str] = None) -> Optional[RedirectResponse]:
         user = await get_user_from_session(app.storage.user)
         tid = parse_route_id(tournament_id)
         try:
@@ -157,9 +161,12 @@ def create() -> None:
             view = None
         if view is None:
             await render_not_found(user=user)
-            return
+            return None
 
         tournament = view['tournament']
+        redirect = await row_event_redirect(page_request(), tournament.event_id)
+        if redirect is not None:
+            return redirect
         community = await TenantService.current_community_name() or 'Wizzrobe'
         ui.page_title(f'{tournament.name}: Bracket · {community}')
         ui.add_head_html(f'<link rel="stylesheet" href="{asset_url("css/startgg.css")}">')
@@ -173,15 +180,14 @@ def create() -> None:
         with ui.column().classes('page-container q-mt-md'):
             with page_header(f'{tournament.name}: Bracket', subtitle):
                 ui.space()
-                ui.button(
-                    'Open on start.gg', icon='open_in_new',
-                    on_click=lambda: ui.navigate.to(view['event_url'], new_tab=True),
-                ).props('flat color=primary no-caps')
+                if view['event_url']:
+                    link_button('Open on start.gg', view['event_url'], icon='open_in_new') \
+                        .props('flat color=primary no-caps')
 
             phases = [p for p in view['phases'] if p['pools']]
             if not phases:
                 empty_panel('start.gg has no pools or bracket for this event yet.', icon='account_tree')
-                return
+                return None
 
             default = next((p for p in phases if p['bookable']), phases[-1])
             selected = next((p for p in phases if p['phase'].phase_id == phase), default)
@@ -196,3 +202,6 @@ def create() -> None:
                             _render_pool_grid(p['pools'], p['bookable'], viewer_id)
                         else:
                             _render_rounds(p['pools'], p['bookable'], viewer_id)
+            names = {str(p['phase'].phase_id): p['phase'].name for p in phases}
+            bind_url('phase', tabs, default=default['phase'].phase_id, choices=names, label=names.get)
+        return None

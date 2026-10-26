@@ -189,7 +189,7 @@ surface them unchanged:
 | `MissingCredentialError` | `(False, str(e), None)` — names the credential to configure |
 | A `SeedProviderError` (upstream down / rate-limiting / rejected the settings) | `(False, str(e), None)` — the envelope's curated message, so the reader can tell "try again in a minute" from "this preset will never roll" |
 | Any other exception during generation | `(False, "Seed generation failed. Please check the server logs.", None)` |
-| Success | `(True, "Seed generated successfully for match ID {id}", seed_url)` |
+| Success | `(True, "Seed rolled for {match label}.", seed_url)` — the label is the matchup or title, never the id |
 
 The UI maps these to `ui.notify` colors and silently skips the "already in progress" case.
 
@@ -285,6 +285,10 @@ The file-select symbols racers compare before starting ("Code: Bow · Hookshot �
 | `ootr` | `settingsLog.file_hash` from `GET /api/v2/seed/details`; for an encrypted seed only a key with `locked_encrypt_spoiler_access` gets it, and a seed still generating answers 204 | 5 item names |
 
 `ff1r` (hashed in the browser from the RNG state after the whole randomization), `z1r` (closed-source tool), `wwr` (see above), `z2r`, `smb3r` and `aosr` (all built on the player's machine) have none. `MOCK_SEEDGEN` returns a believable code for the randomizers that have one.
+
+#### Code emojis in the seed DM
+
+For the games whose code is pictures (`alttpr`, `avianart`, `dk64r`, `ootr`), the seed DM draws it with the bot's **application emojis** (Developer Portal → the app → Emojis), matched by name: `<set>_<icon slug>`, e.g. `alttpr_magic_powder`, `dk64_dk_coin` (`seed_emojis.emoji_name`; `expected_names()` lists them all). AVIANART uses the `alttpr` set. When any icon has an emoji, the code moves out of the embed description into its own **Code** field (after Time): the emoji row, then the words as `-#` subtext; an icon without an emoji keeps its word. With none, or for the word games, the old `Code:` line stays. The push/plain text always keeps the words. [`seed_emojis.py`](../../application/services/discord/seed_emojis.py) caches the list for 5 minutes, gives the fetch 3 seconds, and keeps the last good list if Discord fails; mock Discord has no bot, so dev shows the text line.
 
 ### Pasted seeds (the copy card)
 

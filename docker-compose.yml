@@ -48,6 +48,9 @@ services:
       redis:
         condition: service_healthy
     restart: unless-stopped
+    # Room for uvicorn's graceful window plus the lifespan shutdown (queue
+    # drain, Sentry flush) before Docker falls back to SIGKILL.
+    stop_grace_period: 30s
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/health').read()"]
       interval: 30s

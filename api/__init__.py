@@ -19,11 +19,13 @@ from api.routers import (
     discord_events,
     discord_role_mappings,
     equipment,
+    exports,
     feedback,
     health,
     match_actions,
     matches,
     memberships,
+    notification_settings,
     notifications,
     payouts,
     platform,
@@ -35,6 +37,7 @@ from api.routers import (
     reports,
     reschedule_requests,
     seeds,
+    sent_messages,
     service_health,
     speedgaming,
     stage_actions,
@@ -84,7 +87,10 @@ router.include_router(
 )
 router.include_router(notifications.router)
 router.include_router(audit.router)
+router.include_router(sent_messages.router)
+router.include_router(exports.router)
 router.include_router(system_config.router)
+router.include_router(notification_settings.router)
 router.include_router(tokens.router)
 router.include_router(
     volunteers.router,

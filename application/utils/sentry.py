@@ -33,10 +33,11 @@ import asyncio
 import logging
 import os
 from contextlib import contextmanager
-from typing import Any, Dict, Iterator, Optional
+from typing import Any, Callable, Dict, Iterator, Optional
 
 import sentry_sdk
 from sentry_sdk.integrations.logging import LoggingIntegration, ignore_logger_for_sentry_logs
+from uvicorn.protocols.utils import ClientDisconnected
 
 from application.tenant_context import client_stash, get_current_tenant_id
 from application.utils import browser_monitoring, sentry_metrics
@@ -68,16 +69,18 @@ _SHUTDOWN_FLUSH_TIMEOUT = 2.0
 REPLAY_ID_KEY = 'sentry_replay_id'
 
 
-#: engine.io's ERROR for a poll that names a session the server no longer holds:
-#: a tab left open across a deploy, or a phone waking from sleep. The browser
-#: opens a fresh session on its own, so nobody can act on the report.
-_STALE_SESSION_PREFIXES = ('Invalid session ', "'Session is disconnected' ")
+#: engine.io's ERRORs caused by the client, not the server: a poll naming a
+#: session the server no longer holds (a tab left open across a deploy, a phone
+#: waking from sleep), which the browser recovers from on its own, and a
+#: crawler GETting the socket URL without upgrade headers (SGLMAN-J). Nobody can
+#: act on either report.
+_STALE_SESSION_PREFIXES = ('Invalid session ', "'Session is disconnected' ", 'Invalid websocket upgrade')
 
 
 class StaleSocketSessionFilter(logging.Filter):
-    """Downgrades engine.io's stale-session error to a WARNING.
+    """Downgrades engine.io's client-caused errors to a WARNING.
 
-    Sentry SGLMAN-13/14. Still in the container log and Sentry Logs, so a burst
+    Sentry SGLMAN-13/14/J. Still in the container log and Sentry Logs, so a burst
     after a deploy stays visible, but no longer opens an issue.
     """
 
@@ -182,11 +185,15 @@ def _before_send(event: Dict[str, Any], hint: Optional[Dict[str, Any]]) -> Optio
 
     Noise is the NiceGUI timer-teardown race (the ``nicegui`` logger filter
     already stops it reaching the logging hook; this catches it arriving by any
-    other integration) and uvicorn's graceful-shutdown cancellations.
+    other integration), uvicorn's graceful-shutdown cancellations, and a socket
+    write to a browser that has already gone (SGLMAN-1D: a tab closed mid
+    engine.io upgrade; uvicorn raises ``ClientDisconnected`` only then).
     """
     exc_info = (hint or {}).get('exc_info')
     exc = exc_info[1] if exc_info else None
     if exc is not None and is_timer_teardown_race(exc):
+        return None
+    if isinstance(exc, ClientDisconnected):
         return None
     if _is_graceful_shutdown_cancel(event, exc):
         return None
@@ -216,6 +223,25 @@ def _traces_sample_rate() -> float:
         return min(max(float(raw), 0.0), 1.0)
     except ValueError:
         return 0.0
+
+
+def _traces_sampler(rate: float) -> Callable[[Dict[str, Any]], float]:
+    """Sample requests at ``rate`` but never trace a websocket.
+
+    A NiceGUI tab's websocket is one ASGI connection for as long as the tab is
+    open, so its transaction runs for hours and Sentry's N+1 detector reads the
+    scattered ``BEGIN;`` spans of every click as one request's N+1 (SGLMAN-2K).
+    Profiles follow sampled transactions, so they stay on HTTP requests only.
+    """
+    def sampler(sampling_context: Dict[str, Any]) -> float:
+        asgi_scope = sampling_context.get('asgi_scope') or {}
+        if asgi_scope.get('type') == 'websocket':
+            return 0.0
+        parent = sampling_context.get('parent_sampled')
+        if parent is not None:
+            return float(parent)
+        return rate
+    return sampler
 
 
 def _profiles_sample_rate() -> float:
@@ -301,7 +327,7 @@ def init_sentry() -> None:
         release=_release(),
         send_default_pii=False,
         before_send=_before_send,  # type: ignore[arg-type]
-        traces_sample_rate=_traces_sample_rate(),
+        traces_sampler=_traces_sampler(_traces_sample_rate()),
         profiles_sample_rate=_profiles_sample_rate(),
         enable_logs=logs_level is not None,
         before_send_log=_before_send_log,  # type: ignore[arg-type]

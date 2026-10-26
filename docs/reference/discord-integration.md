@@ -224,7 +224,7 @@ Because `stop()` cancels the worker without draining, anything still queued at s
 
 ## Edited staff DMs
 
-A community event to review, an ADA request, a join request and a reschedule request each DM every staff member (reschedules: every decider). Once one decides it, [`staff_request_dms`](../../application/services/staff_request_dms.py) edits every copy to say who and when ("✅ Approved by Hurfy", "You" on the decider's own copy), recolours it, and swaps the button for one that opens the thing. Each landed copy is recorded in `StaffRequestDM` via `send_dm(on_sent=...)`; the edit runs on the same serial queue, so it always sees the records of sends queued before it. Only DMs sent after this shipped can be edited, and the web-push copy is never changed.
+A community event to review, an ADA request, a join request and a reschedule request each DM every staff member (reschedules: every decider); a crew signup DMs the tournament's admins and crew coordinators. Once one decides it, [`staff_request_dms`](../../application/services/staff_request_dms.py) edits every copy to say who and when ("✅ Approved by Hurfy", "You" on the decider's own copy), recolours it, and swaps the button for one that opens the thing. Each landed copy is recorded in `StaffRequestDM` via `send_dm(on_sent=...)`; the edit runs on the same serial queue, so it always sees the records of sends queued before it. Only DMs sent after this shipped can be edited, and the web-push copy is never changed.
 
 ## Interaction handlers (`discordbot/`)
 
@@ -314,7 +314,7 @@ Ephemeral confirmation strings sit beside their domain's builders: `match_ack_co
 | Crew approved — ack request | `CrewService.update_crew_approval(approved=True)` → `_request_crew_acknowledgment` | `send_dm_with_crew_acknowledgment_button` | Acknowledge |
 | Match seated (checked in) | `MatchScheduleService.seat_match` → `notify_match_participants` | `send_dm` / `send_dm_with_unwatch_button` | Unwatch (watchers only) |
 | Match started / finished | `MatchScheduleService.start_match` / `finish_match` → `notify_match_participants(silent=True, players=False)`: crew and watchers only, no ping | `send_dm` / `send_dm_with_unwatch_button` | Unwatch (watchers only) |
-| Match confirmed | `MatchScheduleService.confirm_match` → `notify_match_participants(silent=True)`: everyone, no ping | `send_dm` / `send_dm_with_unwatch_button` | Unwatch (watchers only) |
+| Match result confirmed | `MatchScheduleService.confirm_match` → `notify_match_participants(silent=True)`: everyone, no ping | `send_dm` / `send_dm_with_unwatch_button` | Unwatch (watchers only) |
 | Match cancelled | `MatchService._cancel_match` (the `CancellationMixin` in `match_cancellation.py`) → `notify_match_cancelled(recipients, message, embed)` (recipients collected before the delete) | `send_dm` | none |
 | Stage assigned / cleared | `MatchService.assign_stage` → `notify_stage_changed` (watcher copy silent) | `send_dm` | View your match (link) |
 | Stage reminder | `stage_reminder` loop → `notify_stage_reminder` (watcher copy silent) | `send_dm` | View your match (link) |

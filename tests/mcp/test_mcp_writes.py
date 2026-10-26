@@ -27,6 +27,8 @@ TENANT = 'default'
 # validation first. The gate runs before the tool body, so these need not name
 # rows that exist.
 WRITE_CALLS = {
+    'export_tournaments': {},
+    'export_volunteer_data': {'start': '2026-10-22T00:00:00', 'end': '2026-10-26T00:00:00'},
     'create_match': {
         'tournament_id': 1, 'scheduled_date': '2026-05-01',
         'scheduled_time': '18:00', 'player_ids': [1, 2],
@@ -37,6 +39,11 @@ WRITE_CALLS = {
     },
     'update_match': {'match_id': 1, 'comment': 'x'},
     'delete_match': {'match_id': 1},
+    'extend_match_to_set': {
+        'match_id': 1,
+        'later_games': [{'scheduled_date': '2026-05-01', 'scheduled_time': '20:00'},
+                        {'scheduled_date': '2026-05-01', 'scheduled_time': '22:00'}],
+    },
     'set_match_stream_candidate': {'match_id': 1, 'flag': True},
     'assign_match_stage': {'match_id': 1, 'stage_id': 1},
     'assign_match_stations': {'match_id': 1, 'assignments': {}},
@@ -62,6 +69,9 @@ WRITE_CALLS = {
     'add_walk_up': {'event_id': 1, 'user_id': 1},
     'sync_check_in_event': {'event_id': 1},
     'check_in_volunteer': {'assignment_id': 1},
+    'call_off_volunteer': {'assignment_id': 1},
+    'call_off_volunteer_shift': {'shift_id': 1},
+    'undo_volunteer_call_off': {'assignment_id': 1},
     'approve_join_request': {'request_id': 1},
     'deny_join_request': {'request_id': 1},
     'create_tournament': {'name': 'Gate Cup'},
@@ -73,6 +83,7 @@ WRITE_CALLS = {
     'remove_crew_coordinator': {'tournament_id': 1, 'user_id': 1},
     'enroll_tournament_player': {'tournament_id': 1, 'user_id': 1},
     'remove_tournament_player': {'tournament_id': 1, 'user_id': 1},
+    'drop_tournament_player': {'tournament_id': 1, 'user_id': 1, 'reason': 'withdrew'},
     'link_challonge_tournament': {'tournament_id': 1, 'challonge': 'abc'},
     'unlink_challonge_tournament': {'tournament_id': 1},
     'sync_challonge_tournament': {'tournament_id': 1},
@@ -177,6 +188,26 @@ class TestTheRoleGateUnderneath:
         assert is_error, payload
         assert 'forbidden:' in payload, payload
         assert await Match.filter(id=match.id).exists()
+
+    async def test_broadcast_tech_runs_only_a_match_on_a_stage(self, db):
+        """Their Proctor Station lists stage matches only; this is the gate
+        that keeps an off-stage match out of reach over MCP too."""
+        _, raw = await create_oauth_token(roles=[Role.STREAM_MANAGER], write=True)
+        player = await create_community_member(discord_id=772101, username='p-stage')
+        off_stage = await _match(players=[player])
+        on_stage = await _match(players=[player])
+        stage = await Stage.create(name='Main Stage', is_active=True)
+        await Match.filter(id=on_stage.id).update(stage_id=stage.id)
+        async with mcp_session() as client:
+            is_error, payload = await call_tool(
+                client, raw, 'seat_match', tenant=TENANT, match_id=off_stage.id,
+            )
+            assert is_error, payload
+            assert 'forbidden:' in payload, payload
+            is_error, payload = await call_tool(
+                client, raw, 'seat_match', tenant=TENANT, match_id=on_stage.id,
+            )
+            assert not is_error, payload
 
 
 class TestTheWritesLand:

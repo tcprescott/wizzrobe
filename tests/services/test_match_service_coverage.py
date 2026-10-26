@@ -29,10 +29,9 @@ from models import (
     MatchAcknowledgment,
     MatchPlayers,
     Stage,
-    SystemConfiguration,
     TournamentPlayers,
 )
-from tests.factories import utc
+from tests.factories import set_setting, utc
 from tests.services._match_service_setup import (
     make_player,
     make_staff,
@@ -208,7 +207,7 @@ class TestAssignStations:
             await service.assign_stations(match_id=999999, assignments={}, actor=actor)
 
     async def test_invalid_format_raises(self, service, db):
-        await SystemConfiguration.create(name=KEY_STATION_FORMAT, value="numeric")
+        await set_setting(name=KEY_STATION_FORMAT, value="numeric")
         actor = await make_staff()
         t = await make_tournament()
         match = await Match.create(tournament=t, scheduled_at=utc(2025, 1, 15, 18))
@@ -218,7 +217,7 @@ class TestAssignStations:
             await service.assign_stations(match_id=match.id, assignments={mp.id: "abc"}, actor=actor)
 
     async def test_valid_assignment_persists(self, service, db, captured_events):
-        await SystemConfiguration.create(name=KEY_STATION_FORMAT, value="numeric")
+        await set_setting(name=KEY_STATION_FORMAT, value="numeric")
         actor = await make_staff()
         t = await make_tournament()
         match = await Match.create(tournament=t, scheduled_at=utc(2025, 1, 15, 18))
@@ -237,7 +236,7 @@ class TestAssignStations:
     async def test_racetime_tournament_rejects_station_assignment(self, service, db):
         from models import RacetimeBot
 
-        await SystemConfiguration.create(name=KEY_STATION_FORMAT, value="numeric")
+        await set_setting(name=KEY_STATION_FORMAT, value="numeric")
         actor = await make_staff()
         bot = await RacetimeBot.create(
             category="alttpr", client_id="cid", client_secret="secret", name="Bot",

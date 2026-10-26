@@ -313,7 +313,9 @@ async def run(args: argparse.Namespace) -> int:
 
     from tortoise import Tortoise
 
+    from application.event_context import event_scope
     from application.services import ChallongeService, TimezoneService, TournamentService
+    from application.services.event_service import EventService
     from application.tenant_context import tenant_scope
     from application.utils.timezone import parse_local_datetime
     from migrations.tortoise_config import TORTOISE_ORM
@@ -334,7 +336,11 @@ async def run(args: argparse.Namespace) -> int:
             raise SystemExit(f'No user with discord_id {args.actor!r}.')
         tz = await TimezoneService.tenant_timezone_name(tenant.id)
 
-        with tenant_scope(tenant.id):
+        # Into the community's default event, the one its board shows.
+        event_id = await EventService.default_event_id(tenant.id)
+        if event_id is None:
+            raise SystemExit(f'{args.tenant!r} has no event yet.')
+        with tenant_scope(tenant.id), event_scope(event_id):
             link_challonge = not args.skip_challonge
             if link_challonge and not (await ChallongeService().get_connection_status())['connected']:
                 print(f"! Challonge isn't connected for {args.tenant!r}; skipping bracket links. "
@@ -342,7 +348,7 @@ async def run(args: argparse.Namespace) -> int:
                 link_challonge = False
 
             existing = {
-                t.name.casefold(): t for t in await Tournament.filter(tenant_id=tenant.id)
+                t.name.casefold(): t for t in await Tournament.filter(tenant_id=tenant.id, event_id=event_id)
             }
             for entry in sheet:
                 wanted = dict(entry.fields)

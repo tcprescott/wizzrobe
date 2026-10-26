@@ -4,13 +4,17 @@ Audit Repository - Data Access Layer
 Filtered/paginated queries over AuditLog.
 """
 
-from datetime import datetime
-from typing import List, Optional, Sequence
+from collections import Counter
+from datetime import date, datetime
+from typing import Dict, List, Optional, Sequence, Tuple
 
+from tortoise import connections
 from tortoise.expressions import Q
 from tortoise.queryset import QuerySet
 
-from application.repositories._tenant import scoped
+from application.repositories._tenant import current_tenant_id, scoped
+from application.timezone_context import get_zone
+from application.utils.timezone import to_local
 from models import AuditLog
 
 
@@ -83,3 +87,32 @@ class AuditRepository:
             start=start, end=end, user_id=user_id, action_contains=action_contains,
             action_prefixes=action_prefixes, actions_in=actions_in,
         ).count()
+
+    @staticmethod
+    async def daily_category_counts(
+        start: datetime, end: datetime, zone_name: str,
+    ) -> Dict[Tuple[str, date], int]:
+        """Rows per (action namespace, local day in ``zone_name``), ``start``..``end`` inclusive.
+
+        The namespace is the part of ``verb.object`` before the dot. A year of an
+        active community is a few hundred thousand rows; Postgres groups them in
+        ~0.1s, where hydrating each row in Python took seconds of event-loop time.
+        """
+        tenant_id = current_tenant_id()
+        client = connections.get('default')
+        if client.capabilities.dialect == 'postgres':
+            rows = await client.execute_query_dict(
+                'SELECT split_part(coalesce(action, \'other\'), \'.\', 1) AS category, '
+                '(created_at AT TIME ZONE $1)::date AS day, count(*) AS n '
+                'FROM auditlog WHERE tenant_id = $2 AND created_at >= $3 AND created_at <= $4 '
+                'GROUP BY 1, 2',
+                [zone_name, tenant_id, start, end],
+            )
+            return {((r['category'] or 'other'), r['day']): r['n'] for r in rows}
+        zone = get_zone(zone_name)
+        logs = await scoped(AuditLog.filter(created_at__gte=start, created_at__lte=end)) \
+            .values_list('action', 'created_at')
+        return dict(Counter(
+            ((action or 'other').split('.', 1)[0], to_local(created_at, zone).date())  # type: ignore[union-attr]
+            for action, created_at in logs
+        ))

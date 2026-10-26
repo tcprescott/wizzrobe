@@ -40,6 +40,7 @@ from theme.notify import notify_error
 from theme.page_header import page_header
 from theme.tables.preferences import TableKeys
 from theme.timer_teardown import PageTimer
+from theme.url_state import iso_day, url_param, url_state
 from theme.volunteer_grid import (
     day_label,
     event_days,
@@ -102,7 +103,10 @@ async def admin_shift_board_page(day: Optional[str] = None) -> None:
         positions = []
     stored = await prefs.get(actor, TableKeys.ADMIN_SHIFT_BOARD) if actor else None
     saved = (stored or {}).get('columns') or []
-    # A deep link (?day=) outranks the remembered day, when it is a day of this event.
+    # The address (?day=: a deep link, a reload, Back) outranks the remembered
+    # day, when it is a day of this event. ``day`` is the request's, which only
+    # holds for the tab the page opened on; the address keeper tracks switches.
+    day = url_state().requested('day')
     wanted = day if day in {d.isoformat() for d in days} else tenant_session_get(_DAY_KEY)
     state = _BoardState(
         day=opening_day(days, wanted, today_local()),
@@ -167,12 +171,19 @@ async def admin_shift_board_page(day: Optional[str] = None) -> None:
             roles=state.roles, saved=state.saved, on_saved=columns_saved,
         )
 
-    async def pick_day(d: date) -> None:
+    async def show_day(d: Optional[date]) -> None:
         state.day = d
         state.selected = 0
-        tenant_session_set(_DAY_KEY, d.isoformat())
         day_bar.refresh()
         await reload()
+
+    async def pick_day(d: date) -> None:
+        tenant_session_set(_DAY_KEY, d.isoformat())
+        await show_day(d)
+        day_param.set(d.isoformat())
+
+    async def restore_day(value: str) -> None:
+        await show_day(opening_day(days, value, today_local()))
 
     def toolbar() -> None:
         ui.button('Add shift', icon='add', on_click=lambda: add_shift()) \
@@ -224,7 +235,11 @@ async def admin_shift_board_page(day: Optional[str] = None) -> None:
             selected_shift_id=state.selected,
         )
 
-    with ui.column().classes('page-container-wide'):
+    with ui.column().classes('page-container-wide') as page:
+        day_param = url_param(
+            'day', page, default='', value=state.day.isoformat() if state.day else '',
+            label=lambda v: day_label(d) if (d := iso_day(v)) else None, on_restore=restore_day,
+        )
         with page_header(
             'Shift Board',
             "Every station, hour by hour. Tap a shift to change who's on it, or an "

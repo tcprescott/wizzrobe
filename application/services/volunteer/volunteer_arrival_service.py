@@ -15,8 +15,16 @@ from application.events import EventType
 from application.feature_flags import requires_feature
 from application.repositories import VolunteerAssignmentRepository
 from application.services.audit_service import AuditActions, AuditService
+from application.services.auth_service import AuthService
+from application.services.notification_catalog import VOLUNTEER_LATE
 from application.utils.discord_messages_volunteer import LATE_CHOICES, late_label
 from models import FeatureFlag, User, VolunteerAssignment
+
+# What a called-off volunteer hears if they try to check in or say they're late.
+CALLED_OFF_MESSAGE = (
+    "You've been called off this shift, so there's no need to check in. "
+    "It still counts as worked."
+)
 
 # How long before a shift starts its "I'm here" opens.
 CHECK_IN_LEAD = timedelta(minutes=30)
@@ -32,6 +40,7 @@ def can_self_check_in(assignment: VolunteerAssignment, now: datetime) -> bool:
     """The "I'm here" button's own rule, mirroring what the service accepts."""
     return (
         assignment.checked_in_at is None
+        and assignment.called_off_at is None
         and not assignment.auto_generated
         and check_in_open(assignment, now)
     )
@@ -79,6 +88,8 @@ class VolunteerArrivalService:
         assignment = await self._own(assignment_id, user)
         if assignment.checked_in_at is not None:
             return assignment
+        if assignment.called_off_at is not None:
+            raise ValueError(CALLED_OFF_MESSAGE)
         now = datetime.now(timezone.utc)
         if now >= assignment.shift.ends_at:
             raise ValueError('That shift has already finished.')
@@ -99,6 +110,9 @@ class VolunteerArrivalService:
              'self_reported': True},
             EventType.VOLUNTEER_CHECKED_IN, event_extra={'user_id': user.id},
         )
+        from application.services import opt_in_notifications
+        from application.services.discord import discord_queue
+        discord_queue.enqueue(opt_in_notifications.volunteer_arrived(assignment.shift, user.preferred_name))
         return assignment
 
     @requires_feature(FeatureFlag.VOLUNTEERS)
@@ -124,6 +138,37 @@ class VolunteerArrivalService:
         return assignment
 
     @requires_feature(FeatureFlag.VOLUNTEERS)
+    async def undo_check_in_as_coordinator(
+        self, assignment_id: int, actor: User,
+    ) -> VolunteerAssignment:
+        """Take back anyone's check-in, whoever recorded it.
+
+        The volunteer can only undo their own and is told to ask a coordinator
+        otherwise, so this is the way out for a mis-tap at the desk or an
+        "I'm here" sent from home.
+        """
+        if not await AuthService.can_manage_volunteers(actor):
+            raise PermissionError('Only coordinators and staff can undo check-ins.')
+        assignment = require_found(
+            await self.assignment_repository.get_by_id(assignment_id), 'Volunteer assignment',
+        )
+        if assignment.checked_in_at is None:
+            return assignment
+        assignment.checked_in_at = None  # type: ignore[assignment]
+        assignment.checked_in_by_id = None
+        await self.assignment_repository.save(
+            assignment, update_fields=['checked_in_at', 'checked_in_by_id'],
+        )
+        await self.audit_service.write_and_publish(
+            actor, AuditActions.VOLUNTEER_CHECK_IN_UNDONE,
+            {'assignment_id': assignment.id, 'shift_id': assignment.shift_id,  # type: ignore[attr-defined]
+             'self_reported': False},
+            EventType.VOLUNTEER_CHECK_IN_UNDONE,
+            event_extra={'user_id': assignment.user_id},  # type: ignore[attr-defined]
+        )
+        return assignment
+
+    @requires_feature(FeatureFlag.VOLUNTEERS)
     async def report_late(
         self, assignment_id: int, user: User, minutes: int,
     ) -> VolunteerAssignment:
@@ -133,6 +178,8 @@ class VolunteerArrivalService:
         assignment = await self._own(assignment_id, user)
         if assignment.checked_in_at is not None:
             raise ValueError("You're already checked in for this shift.")
+        if assignment.called_off_at is not None:
+            raise ValueError(CALLED_OFF_MESSAGE)
         if assignment.shift.ends_at <= datetime.now(timezone.utc):
             raise ValueError('That shift has already finished.')
         if assignment.late_minutes == minutes:
@@ -177,7 +224,10 @@ class VolunteerArrivalService:
             ends=shift.ends_at,
             description=running_late_description(volunteer.preferred_name, minutes),
         )
-        await notify_coordinators(shift, message, embed, link_label='Open the schedule')
+        await notify_coordinators(
+            shift, message, embed, link_label='Open the schedule',
+            notice=VOLUNTEER_LATE,
+        )
 
 
 def describe_late(assignment: VolunteerAssignment) -> Optional[str]:

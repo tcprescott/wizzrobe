@@ -89,6 +89,7 @@ async def _tick() -> None:
         candidates,
         _open,
         tenant_id_of=lambda match: match.tenant_id,
+        event_id_of=lambda match: match.event_id,
         logger=logger,
         describe=lambda match: f'match {getattr(match, "id", None)}',
     )

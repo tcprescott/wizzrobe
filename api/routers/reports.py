@@ -166,8 +166,10 @@ async def stage_utilization(
     response_model=MatchOperationsResponse,
     summary="Per-tournament match operations: scheduling, lifecycle, punctuality",
     description=(
-        "Lists every match scheduled in the window with its start delay, length and confirmation lag, "
-        "plus per-tournament averages and on-time rate (within 5 minutes of schedule).\n\n"
+        "Lists every match scheduled in the window with its start delay, check-in delay, check-in-to-start "
+        "time, length and confirmation lag, plus per-tournament averages and on-time rates (within 5 "
+        "minutes of schedule), the check-in figures also split by staged and unstaged matches. Matches "
+        "whose times can't be a real race are listed in `flagged_match_ids` and left out of the averages.\n\n"
         "Fails with 400 when `end` is before `start`.\n\n"
         "**Who can call this:** Staff, tournament admins or crew coordinators."
     ),
@@ -191,8 +193,10 @@ async def match_operations(
     summary="Per-match crew coverage and per-person contribution",
     description=(
         "Shows commentator and tracker signups against each match's requirement, flags stream "
-        "candidates short on approved crew, and totals the hours each crew member covered. With `user_id` "
-        "set, only that person's matches and contribution are returned.\n\n"
+        "candidates short on approved crew, and totals the hours each crew member covered. `tournament_rows` "
+        "counts the matches each person actually crewed per tournament: approved crew on finished "
+        "matches that went to a stage. With `user_id` set, only that person's matches and "
+        "contribution are returned.\n\n"
         "Fails with 400 when `end` is before `start`.\n\n"
         "**Who can call this:** Staff, tournament admins or crew coordinators."
     ),
@@ -328,7 +332,9 @@ async def activity_trends(
         "Fails with 400 when `end` is before `start`.\n\n"
         "**Who can call this:** Staff, Volunteer coordinators, tournament admins or crew coordinators."
     ),
-    dependencies=[Depends(require_volunteer_admin), Depends(require_feature(FeatureFlag.VOLUNTEERS))],
+    # Feature before role, like every other gated route: a switched-off feature
+    # is hidden from everyone, so a non-admin must get the same 404 staff do.
+    dependencies=[Depends(require_feature(FeatureFlag.VOLUNTEERS)), Depends(require_volunteer_admin)],
 )
 async def volunteer_hour_trends(
     start: datetime = StartQuery,

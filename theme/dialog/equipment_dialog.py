@@ -41,7 +41,7 @@ class EquipmentDialog:
         # useful record. The stored owner is force-included so editing an asset
         # whose owner has since fallen out of the set cannot silently drop them.
         stored_owner = self.equipment.owner_user_id if is_edit else None
-        users = await UserService().get_community_people(
+        users = await UserService().get_community_people_summaries(
             include_user_ids=[i for i in (self.actor.id, stored_owner) if i is not None],
         )
         community = await TenantService.current_community_name()

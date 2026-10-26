@@ -1,0 +1,18 @@
+[
+  {
+    "name": "signed-up-phone",
+    "user": "player_one",
+    "path": "/home/tournaments",
+    "selector": ".wiz-tournament-card:has-text('Challonge Open')",
+    "hide": [
+      ".q-footer"
+    ],
+    "annotate": [
+      {
+        "selector": ".wiz-tournament-card:has-text('Challonge Open') >> button:has-text('Withdraw')",
+        "n": 1,
+        "tab": "bottom"
+      }
+    ]
+  }
+]

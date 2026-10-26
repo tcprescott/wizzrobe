@@ -17,6 +17,10 @@ Players acknowledge a match they've been scheduled into, and crew acknowledge an
 approved slot. The crew button says *Confirm*, but it does the same thing.
 Acknowledging isn't checking in.
 
+**Admin**: the Admin Desk, the staff member overseeing the tournament room.
+Checking matches in, flagged results, no-shows, disputes and who may come into
+the room are the admin's call. Everyone else who runs the event is called staff.
+
 **Ask to change**: the item in a match's ⋮ menu on My Schedule that asks staff to
 move or call off one of your matches. Nothing changes until staff answer. Your
 requests and their answers are listed under *Your change requests* on My
@@ -30,7 +34,7 @@ equipment](/help/equipment).
 instead of against an opponent at a set time. Only if your community runs them.
 See [Async qualifiers](/help/qualifiers).
 
-**Attendee**: someone at the event in person. Community Events and accommodation
+**Attendee**: someone at the event in person. Meetups and accommodation
 requests use this word. *Member* means you belong to the community in the app.
 
 **Bracket**: what decides who plays whom. In a bracket-run tournament, matchups
@@ -51,10 +55,6 @@ players seated. It's per match, not per player, and a proctor or an admin does
 it, not you. Don't mix it up with *event check-in* or checking equipment in.
 
 **Commentator**: crew who talk over a match on stream.
-
-**Community event**: a meetup, panel or side event an attendee runs and lists on
-Home › Event › Community. It's not official programming. See [Community
-events](/help/community-events).
 
 **Comp / comped**: getting into the event without buying a badge, because of a
 role (usually staff) or enough scheduled volunteer hours. See [Comped staff and
@@ -101,13 +101,17 @@ Volunteer, VIP, Base or Day Pass, whichever is the highest you qualify for. See
 checked in. Proctor Station puts these first, under *Late, check in now*. See
 [The board](/help/proctor#the-board).
 
+**Meetup**: a get-together, panel or side event an attendee runs and lists on
+Home › Event › Meetups. It's not official programming. See
+[Meetups](/help/community-events).
+
 **Member**: someone who belongs to a community. You need to be one to see its
 schedule, sign up for its tournaments or be scheduled. Signing in isn't enough
 on its own.
 
 **Needs crew**: the switch above Event › Schedule that shows only matches still
-short of approved crew. A match that's still short also says *needs crew* next to
-its crew count. See [Signing up as crew](/help/crew#signing-up).
+on a stage and still short of approved crew. A match that's still short also says
+*needs crew* next to its crew count. See [Signing up as crew](/help/crew#signing-up).
 
 **Needs review**: a finished match a proctor flagged for an admin to look at. Its
 status on Admin › Schedule and Proctor Station says *Flagged*, and the match's own
@@ -154,7 +158,7 @@ every match about to be played. It opens from a private link staff give out for
 each machine, it's read-only, and a match drops off once it starts. See [The
 room's seeds screen](/help/proctor#the-room-s-seeds-screen).
 
-**RSVP**: on a community event that takes RSVPs, telling the host you're coming.
+**RSVP**: on a meetup that takes RSVPs, telling the host you're coming.
 You also get the reminder DM. See [Getting a reminder or
 RSVPing](/help/community-events#getting-a-reminder-or-rsvping).
 
@@ -185,10 +189,12 @@ Its *Stage* says *Candidate* on the schedule boards, and the *Streamed, plus
 possible streams* match alert DMs you about these.
 
 **Suggest a time**: the button in the scheduling dialogs that picks a slot
-neither player has blocked out. It fills in the form but doesn't book anything.
+neither player has blocked out and the room has space for. It fills in the form
+but doesn't book anything. See [How Suggest a time works](/help/suggest-a-time).
 
 **Tournament admin**: the person who runs a particular tournament. They can do
-most of what staff can, but only in their own tournament.
+most of what staff can, but only in their own tournament. Not the same as the
+Admin Desk in the tournament room.
 
 **Tournament room**: a room of stations where matches are played off stream, run
 by a proctor. It's the counterpart to a stage. The two have different rules, and

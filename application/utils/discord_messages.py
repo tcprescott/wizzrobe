@@ -14,7 +14,8 @@ own, all of them moved out as this module kept crossing the 800-line budget:
 :mod:`~application.utils.discord_messages_crew` (crew assignment),
 :mod:`~application.utils.discord_messages_volunteer` (volunteer shifts),
 :mod:`~application.utils.discord_messages_qualifier` (async qualifiers),
-:mod:`~application.utils.discord_messages_reschedule` (reschedule requests) and
+:mod:`~application.utils.discord_messages_reschedule` (reschedule requests),
+:mod:`~application.utils.discord_messages_forfeit` (forfeits and drops) and
 :mod:`~application.utils.discord_messages_tenant` (community join requests).
 """
 
@@ -407,9 +408,11 @@ def checked_in_dm(
     bracket_line: str = '',
     seats: str = '',
     your_seat: str = '',
+    closing: str = '',
 ) -> str:
     """``seats`` lists every assigned seat; ``your_seat`` is the recipient's
-    own, for a player who has one, and leads so it reads at a glance."""
+    own, for a player who has one, and leads so it reads at a glance.
+    ``closing`` replaces the good-luck line (the Ready for seed ask)."""
     info = _match_info_lines(
         player_names=player_names,
         scheduled_at_display=scheduled_at_display,
@@ -424,7 +427,7 @@ def checked_in_dm(
         f"You're checked in for your match in **{tournament_name}**.\n\n"
         f"{lead}"
         f"{block}"
-        f"The match is about to begin — good luck!"
+        + (closing or "The match is about to begin — good luck!")
     )
 
 
@@ -446,6 +449,19 @@ def cancelled_dm(
         bracket_line=bracket_line,
     )
     block = ("\n".join(info) + "\n\n") if info else ''
+    return (
+        f"Your match in **{tournament_name}** has been cancelled.\n\n"
+        f"{block}"
+        f"{cancelled_description(reason=reason, released=released)}"
+    )
+
+
+def cancelled_description(*, reason: str = '', released: bool = False) -> str:
+    """The why and what-next of a cancelled-match DM, shared by its text and its card.
+
+    The card needs it as its own description: Discord shows only the embed when
+    there is one, so a reason left in the text alone never reached anyone there.
+    """
     why = f"{reason}\n\n" if reason else ''
     # A bracket game that was cancelled hands its series slot back (D3), so the
     # matchup is open again and the entrants are the ones who have to rebook it —
@@ -454,12 +470,7 @@ def cancelled_dm(
         "This game has been released — the matchup is open to reschedule."
         if released else "You're all set. Nothing else to do here."
     )
-    return (
-        f"Your match in **{tournament_name}** has been cancelled.\n\n"
-        f"{block}"
-        f"{why}"
-        f"{closing}"
-    )
+    return f"{why}{closing}"
 
 
 def removed_from_match_dm(
@@ -763,6 +774,24 @@ def player_comment_staff_dm(player_name: str, tournament_name: str, body: str) -
         f"**{safe(player_name)}** commented on their **{tournament_name}** match:\n\n"
         f"{safe(body)}"
     )
+
+
+def player_late_staff_dm(
+    player_name: str, tournament_name: str, minutes: int, note: Optional[str],
+) -> str:
+    """A player said they're running late; the copy staff get. Name and note are escaped."""
+    from application.utils.discord_messages_volunteer import late_label
+
+    def safe(text: str) -> str:
+        return discord.utils.escape_mentions(discord.utils.escape_markdown(text))
+
+    lines = [
+        f"**{safe(player_name)}** is running late for their **{tournament_name}** match: "
+        f"{late_label(minutes).lower()}."
+    ]
+    if note:
+        lines.append(f"> {safe(note)}")
+    return '\n\n'.join(lines)
 
 
 def match_comment_dm(author_name: str, tournament_name: str, body: str) -> str:

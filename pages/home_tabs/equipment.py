@@ -21,6 +21,7 @@ from application.utils.timezone import format_local_display
 from models import User
 from theme.connection import REQUIRES_SOCKET_CLASS
 from theme.help import help_icon
+from theme.links import link_button
 
 #: Anchor for links that should land on the card.
 EQUIPMENT_SECTION_ID = 'equipment-yours'
@@ -47,8 +48,5 @@ async def equipment_checkouts_section(user: User) -> None:
                         f'#{loan.equipment.asset_number} · out since '
                         f'{format_local_display(loan.checked_out_at)}'
                     ).classes('text-muted text-caption')
-                ui.button(
-                    'View',
-                    on_click=lambda _, eid=loan.equipment_id: ui.navigate.to(f'/equipment/{eid}'),
-                ).props(f'flat no-caps color=primary aria-label="View {loan.equipment.name}"') \
+                link_button('View', f'/equipment/{loan.equipment_id}', new_tab=False).props(f'flat no-caps color=primary aria-label="View {loan.equipment.name}"') \
                     .classes(REQUIRES_SOCKET_CLASS)

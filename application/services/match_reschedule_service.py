@@ -41,6 +41,8 @@ from application.repositories import (
 from application.services._reschedule_notifications import RescheduleNotificationMixin
 from application.services.audit_service import AuditActions, AuditService
 from application.services.auth_service import AuthService
+from application.services.notification_catalog import MATCH_CANCELLED_ON_REQUEST
+from application.services.round_schedule_service import RoundScheduleService
 from models import (
     Match,
     MatchRescheduleRequest,
@@ -354,6 +356,7 @@ class MatchRescheduleService(RescheduleNotificationMixin):
             if proposed_at <= datetime.now(timezone.utc):
                 raise ValueError("Pick a time in the future.")
             await self._assert_schedulable(proposed_at, match.tournament_id)  # type: ignore[attr-defined]
+            await RoundScheduleService().check_match_time(match, tournament, proposed_at, actor)
 
         request = await self.repository.create(
             match=match,
@@ -472,6 +475,11 @@ class MatchRescheduleService(RescheduleNotificationMixin):
         await self._mark_staff_dms(
             request, 'withdrawn', actor=actor, tournament_name=request.match.tournament.name,
         )
+        from application.services import opt_in_notifications
+        from application.services.discord import discord_queue
+        discord_queue.enqueue(opt_in_notifications.request_withdrawn(
+            request.match_id, actor.id, request.kind is RescheduleRequestKind.CANCEL,  # type: ignore[attr-defined]
+        ))
         return request
 
     # ---- the decision --------------------------------------------------
@@ -521,6 +529,7 @@ class MatchRescheduleService(RescheduleNotificationMixin):
         if request.kind is RescheduleRequestKind.CANCEL:
             await match_service.cancel_match(
                 match_id, actor=actor, reason=note or request.reason,
+                notice=MATCH_CANCELLED_ON_REQUEST,
             )
             final_at = None
         else:
@@ -529,8 +538,10 @@ class MatchRescheduleService(RescheduleNotificationMixin):
                 raise ValueError(
                     "This request didn't name a time — pick one before approving it."
                 )
+            # The player's proposal was held to the stage's window when they
+            # made it; a staff counter-offer is staff's call to make.
             await match_service.update_match(
-                match_id, scheduled_at=final_at, actor=actor,
+                match_id, scheduled_at=final_at, actor=actor, allow_outside_round=True,
             )
             await self.repository.update(
                 request,

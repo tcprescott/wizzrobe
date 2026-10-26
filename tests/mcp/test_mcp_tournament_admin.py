@@ -6,6 +6,9 @@ another community's tournament stays out of reach.
 """
 
 from models import (
+    ChallongeMatch,
+    ChallongeMatchState,
+    ChallongeParticipant,
     MembershipSource,
     Preset,
     Role,
@@ -231,7 +234,14 @@ class TestStaffAndRoster:
 
 
 class TestDiscordEvents:
-    async def test_staff_turn_events_on(self, db):
+    async def test_staff_turn_events_on(self, db, monkeypatch):
+        from application.services.discord import discord_event_sync_service
+        from application.services.discord.discord_service import MockDiscordService
+
+        monkeypatch.setattr(discord_event_sync_service, 'DiscordService', MockDiscordService)
+        tenant = await Tenant.get(id=1)
+        tenant.discord_guild_id = 424242
+        await tenant.save()
         _, raw = await create_oauth_token(roles=[Role.STAFF], write=True)
         tournament = await Tournament.create(name='Cup')
         async with mcp_session() as client:
@@ -243,3 +253,62 @@ class TestDiscordEvents:
         assert payload['discord_events_enabled'] is True
         await tournament.refresh_from_db()
         assert tournament.discord_event_duration_minutes == 90
+
+    async def test_a_non_admin_is_refused_whether_or_not_the_tournament_exists(self, db):
+        """The permission check comes first, as on REST, so the answer can't be
+        used to probe which tournament ids exist."""
+        _, raw = await _member_token(write=True)
+        tournament = await Tournament.create(name='Cup')
+        async with mcp_session() as client:
+            for tournament_id in (tournament.id, tournament.id + 999):
+                is_error, payload = await call_tool(
+                    client, raw, 'update_tournament_discord_events', tenant=TENANT,
+                    tournament_id=tournament_id, enabled=True,
+                )
+                assert is_error and 'forbidden:' in payload, (tournament_id, payload)
+
+
+class TestRoundSchedule:
+    async def _bracket(self):
+        tournament = await Tournament.create(name='Cup', challonge_tournament_id='C1')
+        a = await ChallongeParticipant.create(tournament=tournament, challonge_participant_id='1', name='A')
+        b = await ChallongeParticipant.create(tournament=tournament, challonge_participant_id='2', name='B')
+        for n, r in enumerate((1, 1, 2)):
+            await ChallongeMatch.create(
+                tournament=tournament, challonge_match_id=f'm{n}', round=r,
+                state=ChallongeMatchState.OPEN, participant1=a, participant2=b,
+            )
+        return tournament
+
+    async def test_staff_read_then_set_best_of(self, db):
+        _, raw = await create_oauth_token(roles=[Role.STAFF], write=True)
+        tournament = await self._bracket()
+        async with mcp_session() as client:
+            is_error, payload = await call_tool(
+                client, raw, 'get_round_schedule', tenant=TENANT, tournament_id=tournament.id,
+            )
+            assert not is_error, payload
+            stages = payload['result'] if isinstance(payload, dict) else payload
+            assert [(s['key'], s['label'], s['best_of']) for s in stages] == [
+                ('e1', 'Semifinals', 1), ('e0', 'Final', 1),
+            ]
+            is_error, payload = await call_tool(
+                client, raw, 'set_stage_best_of', tenant=TENANT, tournament_id=tournament.id,
+                stage_key='e0', best_of=3,
+            )
+            assert not is_error, payload
+            assert payload['best_of'] == 3
+        await tournament.refresh_from_db()
+        assert tournament.config['round_schedule'] == {'e0': {'best_of': 3}}
+
+    async def test_a_player_cannot_set_it(self, db):
+        _, raw = await _member_token(write=True)
+        tournament = await self._bracket()
+        async with mcp_session() as client:
+            is_error, payload = await call_tool(
+                client, raw, 'set_stage_best_of', tenant=TENANT, tournament_id=tournament.id,
+                stage_key='e0', best_of=3,
+            )
+        assert is_error and 'forbidden:' in payload, payload
+        await tournament.refresh_from_db()
+        assert not (tournament.config or {}).get('round_schedule')

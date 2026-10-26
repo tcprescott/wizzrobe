@@ -10,6 +10,7 @@ from typing import Any, Dict, List, Optional
 
 from application.errors import AlreadyBookedError, require_found
 from application.events import EventType
+from application.feature_flags import requires_feature
 from application.repositories import MatchAcknowledgmentRepository, MatchRepository
 from application.services._bracket._composed import ComposedBracketService
 from application.services.audit_service import AuditActions
@@ -20,6 +21,7 @@ from models import (
     BracketMatchGameState,
     BracketMatchState,
     BracketState,
+    FeatureFlag,
     Match,
     User,
 )
@@ -41,6 +43,23 @@ class SchedulingMixin(ComposedBracketService):
         return [
             m for m in matches
             if self._both_entrants_linked(m) and self._has_free_game_slot(m)
+        ]
+
+    @requires_feature(FeatureFlag.BRACKETS)
+    async def list_unbooked_matchups(
+        self, tournament_ids: Optional[List[int]] = None
+    ) -> List[BracketMatch]:
+        """OPEN matchups with a game still to book and none booked, for the staff board.
+
+        A series with a game already booked is waiting on that game, not on a
+        booking, so it is left out. Callers authorize.
+        """
+        matches = await self.repository.open_matches_for_tournaments(tournament_ids)
+        return [
+            m for m in matches
+            if m.entry1 is not None and m.entry2 is not None
+            and self._has_free_game_slot(m)
+            and not any(g.state == BracketMatchGameState.SCHEDULED for g in m.games)
         ]
 
     def _has_free_game_slot(self, bracket_match: BracketMatch) -> bool:
@@ -97,7 +116,8 @@ class SchedulingMixin(ComposedBracketService):
 
     async def schedule_bracket_match(
         self, actor: Optional[User], bracket_match_id: int,
-        *, game_number: Optional[int] = None, **match_kwargs: Any,
+        *, game_number: Optional[int] = None, allow_outside_round: bool = False,
+        **match_kwargs: Any,
     ) -> Match:
         """Schedule an OPEN bracket match into a real ``Match``.
 
@@ -113,8 +133,9 @@ class SchedulingMixin(ComposedBracketService):
         series never needs are cancelled on the clinch). Raises once every slot is
         taken or the series is already decided.
 
-        ``game_number`` is the game the caller *thinks* it is booking (the dialog
-        reads "Schedule game 2 of 3"). It never chooses the slot; it only makes a
+        ``game_number`` is the game the caller *thinks* it is booking (a
+        best-of-1's dialog passes 1; a set's games are booked in any order, so
+        its dialog passes none). It never chooses the slot; it only makes a
         stale caller fail loudly with :class:`AlreadyBookedError` when that game
         was taken in the meantime, instead of quietly booking the next one.
 
@@ -167,6 +188,16 @@ class SchedulingMixin(ComposedBracketService):
         number = await self.next_game_number(bracket_match, best_of)
 
         from application.services.match.match_service import MatchService
+        from application.services.round_schedule_service import RoundScheduleService
+
+        # The round's window binds players; staff confirm past it with
+        # ``allow_outside_round`` (see RoundScheduleService).
+        rounds = RoundScheduleService()
+        await rounds.check_booking(
+            await rounds.window_for_bracket_match(bracket_match), bracket.tournament,
+            match_kwargs.get('scheduled_date') or '', match_kwargs.get('scheduled_time') or '',
+            actor, allow_outside_round=allow_outside_round,
+        )
 
         title = self._game_title(bracket, bracket_match, number, best_of)
         if privileged:
@@ -205,6 +236,7 @@ class SchedulingMixin(ComposedBracketService):
             actor, AuditActions.BRACKET_GAME_SCHEDULED, details,
             EventType.BRACKET_GAME_SCHEDULED,
         )
+        await _hand_over_held_crew(match, actor)
         return match
 
     @staticmethod
@@ -213,9 +245,9 @@ class SchedulingMixin(ComposedBracketService):
     ) -> None:
         """Refuse a booking for a game someone else filled since the caller looked.
 
-        The dialog says which game it is booking ("Schedule game 2 of 3"), so
-        that is the slot it lost if two players had it open: without this the
-        second Schedule silently took game 3 instead. A slot that is gone for
+        A best-of-1's dialog says it is booking the match, so that is the slot
+        it lost if two players had it open, and the second one hears who booked
+        it and for when. A slot that is gone for
         any other reason (cancelled on the clinch, already played) is a plain
         refusal, not a lost race.
 
@@ -349,6 +381,7 @@ class SchedulingMixin(ComposedBracketService):
             },
             EventType.BRACKET_GAME_LINKED,
         )
+        await _hand_over_held_crew(match, actor)
         return game
 
     async def unlink_match(self, actor: Optional[User], match_id: int) -> bool:
@@ -573,3 +606,9 @@ class SchedulingMixin(ComposedBracketService):
         ``push_match_result``, which has no staff gate.
         """
         return await self.settle_game_if_linked(match, actor)
+
+
+async def _hand_over_held_crew(match: Match, actor: Optional[User]) -> None:
+    from application.services.crew_hold_service import CrewHoldService
+
+    await CrewHoldService().absorb(match, actor)

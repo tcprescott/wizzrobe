@@ -12,6 +12,7 @@ import json
 from datetime import datetime
 from typing import Any, Mapping, Optional, Sequence
 
+from application.event_context import get_current_event_id
 from application.events import Event, event_bus
 from application.repositories.audit_repository import AuditRepository
 from application.repositories.stage_repository import StageRepository
@@ -26,6 +27,15 @@ from models import AuditLog, User
 # Canonical action verbs used across the codebase. Keeping them here gives
 # one place to grep when reviewing audit coverage.
 class AuditActions:
+    # A community's events (one SGL weekend each) and their lifecycle
+    EVENT_CREATED = 'event.created'
+    EVENT_UPDATED = 'event.updated'
+    EVENT_WENT_LIVE = 'event.went_live'
+    EVENT_ARCHIVED = 'event.archived'
+    EVENT_UNARCHIVED = 'event.unarchived'
+    EVENT_DEFAULT_CHANGED = 'event.default_changed'
+    EVENT_DELETED = 'event.deleted'
+    EVENT_SETUP_COPIED = 'event.setup_copied'
     # Match lifecycle and CRUD
     MATCH_CREATED = 'match.created'
     MATCH_UPDATED = 'match.updated'
@@ -37,6 +47,7 @@ class AuditActions:
     MATCH_STARTED = 'match.started'
     MATCH_FINISHED = 'match.finished'
     MATCH_CONFIRMED = 'match.confirmed'
+    MATCH_FORFEITED = 'match.forfeited'
     MATCH_ACKNOWLEDGED = 'match.acknowledged'
     MATCH_RESULT_RECORDED = 'match.result_recorded'
     MATCH_SEED_ROLLED = 'match.seed_rolled'
@@ -60,6 +71,10 @@ class AuditActions:
     # A comment on a match, from a player or staff, and its removal.
     MATCH_COMMENT_ADDED = 'match.comment_added'
     MATCH_COMMENT_DELETED = 'match.comment_deleted'
+    MATCH_PLAYER_RUNNING_LATE = 'match.player_running_late'
+    MATCH_PLAYER_LATE_CLEARED = 'match.player_late_cleared'
+    MATCH_PLAYER_SEED_READY = 'match.player_seed_ready'
+    MATCH_PLAYER_SEED_NOT_READY = 'match.player_seed_not_ready'
     # A player asking staff to move or call off their match, and what became of
     # it. The approval also writes the underlying match.rescheduled / match.cancelled,
     # since approving *performs* the change rather than blessing it.
@@ -83,17 +98,24 @@ class AuditActions:
     MATCH_RESCHEDULE_APPROVED = 'match.reschedule_approved'
     MATCH_RESCHEDULE_DECLINED = 'match.reschedule_declined'
     MATCH_RESCHEDULE_WITHDRAWN = 'match.reschedule_withdrawn'
+    MATCH_SET_EXTENDED = 'match.set_extended'
 
     # Crew
     CREW_SIGNUP_CREATED = 'crew.signup_created'
     CREW_SIGNUP_REMOVED = 'crew.signup_removed'
     CREW_APPROVAL_CHANGED = 'crew.approval_changed'
     CREW_ACKNOWLEDGED = 'crew.acknowledged'
+    CREW_MOVED_TO_BOOKING = 'crew.moved_to_booking'
+    CREW_PARTNER_INVITED = 'crew.partner_invited'
+    CREW_PARTNER_INVITE_ANSWERED = 'crew.partner_invite_answered'
+    CREW_PARTNER_INVITE_CANCELLED = 'crew.partner_invite_cancelled'
 
     # Tournament
     TOURNAMENT_CREATED = 'tournament.created'
     TOURNAMENT_UPDATED = 'tournament.updated'
+    TOURNAMENT_ROUND_SCHEDULE_UPDATED = 'tournament.round_schedule_updated'
     TOURNAMENT_DELETED = 'tournament.deleted'
+    TOURNAMENT_PLAYER_DROPPED = 'tournament.player_dropped'
     TOURNAMENT_ADMIN_GRANTED = 'tournament.admin_granted'
     TOURNAMENT_ADMIN_REVOKED = 'tournament.admin_revoked'
     TOURNAMENT_CREW_COORDINATOR_GRANTED = 'tournament.crew_coordinator_granted'
@@ -102,6 +124,9 @@ class AuditActions:
     # who set the pool, and who decided each placement's share.
     TOURNAMENT_PRIZE_POOL_UPDATED = 'tournament.prize_pool_updated'
     TOURNAMENT_PAYOUT_UPDATED = 'tournament.payout_updated'
+    TOURNAMENT_SGLIVE_LINK_UPDATED = 'tournament.sglive_link_updated'
+    # A participants + matches export left the app (Reports → Exports).
+    TOURNAMENT_DATA_EXPORTED = 'tournament.data_exported'
 
     # User
     USER_CREATED = 'user.created'
@@ -124,6 +149,10 @@ class AuditActions:
     ROLE_DISCORD_SYNC_GRANTED = 'role.discord_sync_granted'
     ROLE_DISCORD_SYNC_REVOKED = 'role.discord_sync_revoked'
     ROLE_DISCORD_SYNC_BULK = 'role.discord_sync_bulk'
+    # Outbound: Discord roles Wizzrobe hands out (DiscordRoleSyncService)
+    DISCORD_ROLE_RULE_SET = 'discord_role.rule_set'
+    DISCORD_ROLE_RULE_CLEARED = 'discord_role.rule_cleared'
+    DISCORD_ROLE_RULES_RESET = 'discord_role.rules_reset'
     # Tenant ↔ Discord server link (tenant-scoped; stamped with the tenant)
     DISCORD_SERVER_LINKED = 'discord.server_linked'
     DISCORD_SERVER_UNLINKED = 'discord.server_unlinked'
@@ -157,6 +186,7 @@ class AuditActions:
     THEME_LOGO_REMOVED = 'theme.logo_removed'
     TIMEZONE_UPDATED = 'timezone.updated'
     USER_TIMEZONE_UPDATED = 'user.timezone_updated'
+    USER_HOUR_CYCLE_UPDATED = 'user.hour_cycle_updated'
     PROFILE_NUDGES_UPDATED = 'profile_nudges.updated'
     PROFILE_NUDGE_DISMISSED = 'profile_nudge.dismissed'
 
@@ -213,6 +243,14 @@ class AuditActions:
     EMERGENCY_CONTACT_SAVED = 'emergency_contact.saved'
     EMERGENCY_CONTACT_REMOVED = 'emergency_contact.removed'
     EMERGENCY_CONTACT_VIEWED = 'emergency_contact.viewed'
+    # Stream layouts (OBS overlays)
+    STREAM_LAYOUT_CREATED = 'stream_layout.created'
+    STREAM_LAYOUT_UPDATED = 'stream_layout.updated'
+    STREAM_LAYOUT_DELETED = 'stream_layout.deleted'
+    STAGE_OVERLAY_UPDATED = 'stage_overlay.updated'
+    STAGE_OVERLAY_PINNED = 'stage_overlay.pinned'
+    STAGE_OVERLAY_UNPINNED = 'stage_overlay.unpinned'
+    STAGE_OVERLAY_LINK_RENEWED = 'stage_overlay.link_renewed'
 
     # Equipment lending
     EQUIPMENT_CREATED = 'equipment.created'
@@ -251,12 +289,16 @@ class AuditActions:
     CHALLONGE_TOURNAMENT_UNLINKED = 'challonge.tournament_unlinked'
     CHALLONGE_BRACKET_SYNCED = 'challonge.bracket_synced'
     CHALLONGE_RESULT_PUSHED = 'challonge.result_pushed'
+    CHALLONGE_RESULT_SKIPPED = 'challonge.result_skipped'
+    CHALLONGE_RESULT_PUSH_FAILED = 'challonge.result_push_failed'
+    CHALLONGE_AUTO_SYNC_UPDATED = 'challonge.auto_sync_updated'
     CHALLONGE_PARTICIPANT_ASSIGNED = 'challonge.participant_assigned'
     CHALLONGE_PARTICIPANT_UNASSIGNED = 'challonge.participant_unassigned'
     CHALLONGE_PARTICIPANT_SIGNED_UP = 'challonge.participant_signed_up'
     CHALLONGE_PARTICIPANT_WITHDRAWN = 'challonge.participant_withdrawn'
     CHALLONGE_STAGE_ADVANCED = 'challonge.stage_advanced'
     CHALLONGE_WEBHOOK_SYNCED = 'challonge.webhook_synced'
+    CHALLONGE_MATCH_LINKED = 'challonge.match_linked'
 
     # Twitch integration
     STARTGG_LINKED = 'startgg.linked'
@@ -270,6 +312,9 @@ class AuditActions:
     STARTGG_SUGGESTION_DISMISSED = 'startgg.suggestion_dismissed'
     STARTGG_REPORTING_SET = 'startgg.reporting_set'
     STARTGG_RESULT_REPORTED = 'startgg.result_reported'
+    STARTGG_SET_LINKED = 'startgg.set_linked'
+    STARTGG_CONNECTED = 'startgg.connected'
+    STARTGG_DISCONNECTED = 'startgg.disconnected'
     TWITCH_LINKED = 'twitch.linked'
     TWITCH_UNLINKED = 'twitch.unlinked'
 
@@ -326,6 +371,8 @@ class AuditActions:
     VOLUNTEER_CHECKED_IN = 'volunteer.checked_in'
     VOLUNTEER_CHECK_IN_UNDONE = 'volunteer.check_in_undone'
     VOLUNTEER_RUNNING_LATE = 'volunteer.running_late'
+    VOLUNTEER_CALLED_OFF = 'volunteer.called_off'
+    VOLUNTEER_CALL_OFF_UNDONE = 'volunteer.call_off_undone'
     VOLUNTEER_AVAILABILITY_UPDATED = 'volunteer.availability_updated'
     VOLUNTEER_DRAFT_GENERATED = 'volunteer.draft_generated'
     VOLUNTEER_DRAFT_CLEARED = 'volunteer.draft_cleared'
@@ -347,6 +394,8 @@ class AuditActions:
     NOTIFICATION_EMAIL_REMOVED = 'notification_email.removed'
     NOTIFICATION_TELEGRAM_LINKED = 'notification_telegram.linked'
     NOTIFICATION_TELEGRAM_UNLINKED = 'notification_telegram.unlinked'
+    NOTIFICATION_SETTING_CHANGED = 'notification_setting.changed'
+    NOTIFICATION_SETTINGS_RESET = 'notification_settings.reset'
 
     # Presets (seed-rolling settings)
     PRESET_CREATED = 'preset.created'
@@ -461,6 +510,10 @@ class AuditActions:
     WEBHOOK_UPDATED = 'webhook.updated'
     WEBHOOK_DELETED = 'webhook.deleted'
     WEBHOOK_SECRET_REGENERATED = 'webhook.secret_regenerated'
+    PERSONAL_WEBHOOK_CREATED = 'personal_webhook.created'
+    PERSONAL_WEBHOOK_UPDATED = 'personal_webhook.updated'
+    PERSONAL_WEBHOOK_DELETED = 'personal_webhook.deleted'
+    PERSONAL_WEBHOOK_SECRET_REGENERATED = 'personal_webhook.secret_regenerated'
 
     # Feature flags. Availability is a platform-level grant (super-admin on
     # /platform, tenant=NULL row, target tenant in details); the enable/disable
@@ -481,6 +534,8 @@ class AuditActions:
     TENANT_DELETED = 'tenant.deleted'
     TENANT_MEMBER_ADDED = 'tenant.member_added'
     TENANT_MEMBER_REMOVED = 'tenant.member_removed'
+    # Admin → Users › Import from Discord: one row for the whole run.
+    TENANT_MEMBERS_IMPORTED = 'tenant.members_imported'
     # The self-serve enrollment path. The request is written by someone who is
     # not yet in the tenant, so its audit row is stamped with the *target*
     # tenant rather than the requester's ambient one.
@@ -627,9 +682,10 @@ class AuditService:
 
         # Stamp the ambient tenant so the trail is per-tenant; NULL when the
         # action is platform-level (super-admin tenant CRUD on /platform, which
-        # runs with no tenant context).
+        # runs with no tenant context). The event is tagged the same way.
         return await AuditLog.create(
             tenant_id=get_current_tenant_id(),
+            event_id=get_current_event_id(),
             user=actor,
             action=action,
             details=_encode_details(enriched),
@@ -679,22 +735,3 @@ class AuditService:
                 payload.update(event_extra)
         event_bus.publish(Event.create(event_type, payload, actor))
         return log
-
-    async def get_logs_for_user(
-        self,
-        user: User,
-        limit: Optional[int] = None,
-    ) -> list[AuditLog]:
-        """Get audit logs for a specific user in the current tenant, most recent first."""
-        query = AuditLog.filter(
-            user=user, tenant_id=get_current_tenant_id()
-        ).order_by('-created_at')
-        if limit:
-            query = query.limit(limit)
-        return await query
-
-    async def get_recent_logs(self, limit: int = 100) -> list[AuditLog]:
-        """Get recent audit logs for the current tenant, across all users."""
-        return await AuditLog.filter(
-            tenant_id=get_current_tenant_id()
-        ).order_by('-created_at').limit(limit).prefetch_related('user')

@@ -129,7 +129,7 @@ turns up without checking in, press the check-in button beside their name. Once
 someone's checked in, they can't give the shift back from their phone, so they'll
 need to come and talk to you.
 
-If someone taps **Running late** in the shift-start DM, they keep the shift, and
+If someone taps **Tell staff I'm late** in the shift-start DM, they keep the shift, and
 every coordinator and staff member gets a DM saying how late they expect to be.
 
 ## The auto-scheduler
@@ -205,8 +205,9 @@ Volunteer Shifts to build the schedule and run auto-fill.
 
 Each shift shows who's on it. Once it's started, a tick means the person checked
 in, a clock means they said they're running late, and an empty circle means they
-haven't turned up yet. Drafts show in italics with a dashed underline, and a
-short shift says how many places are open.
+haven't turned up yet. A calendar tick means you called them off. Drafts show
+in italics with a dashed underline, and a short shift says how many places are
+open. A shift where everyone was called off is hatched.
 
 Tap a shift to open its details. **Assign volunteer** adds someone there, and
 each person's ⋮ menu lets you check them in, swap someone else in, move them to
@@ -214,6 +215,20 @@ another shift that day, or take them off. The ⋮ at the bottom edits or deletes
 the shift. Tap an empty hour in a column to add a shift there, or use **Add
 shift** at the top. **Columns** hides and reorders positions, just for you.
 :::
+
+## Calling off a shift
+
+When you don't need someone after all, call them off instead of taking them off
+the shift. Open the shift, then pick **Call off…** from their ⋮, or **Call off
+whole shift…** from the ⋮ at the bottom to do everyone on it. You can add a
+note, and they get a DM saying they don't need to come in. If the shift has
+already started, the DM tells them they can head out.
+
+A called-off shift still counts as fully worked, so it keeps their hours toward
+comps and shows as attended in the reports. They skip check-in: no **I'm here**
+banner, no reminder and no shift-start DM. Their My Schedule row says *Called
+off*. If you change your mind before the shift ends, **Undo call-off…** puts
+them back and DMs them that they're needed after all.
 
 Swapping and moving tell people the same way doing it by hand does. Whoever
 comes off gets a DM saying so, and whoever goes on is asked to acknowledge.

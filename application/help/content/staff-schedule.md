@@ -31,10 +31,11 @@ aren't decided yet) and Confirmed. A time in orange with a {chip:pending:Late} c
 means the match is past its start and nobody's checked it in.
 
 The Commentators and Trackers columns count signups against what the tournament
-needs, so "1/2" is one signup for two places. Until the match starts, a role that's
-short says "needs crew" in orange, and one with enough signups you haven't approved
-yet says "to approve". The names are listed under the count, with a tick for
-approved and a clock and "to approve" for the rest.
+needs, so "1/2" is one signup for two places. Until the match starts, a role
+that's short says "needs crew" in orange, and one with enough signups you haven't
+approved yet says "to approve". A match with no stage needs no crew, so it shows
+just the signup count. The names are listed under the count, with a tick for
+approved and a clock and an **Approve** button for the rest.
 
 Tap a line to open the match. Its next step (**Check in**, **Start match**,
 **Finish** or **Confirm result**) sits under the title. Below that, the Ready to
@@ -52,6 +53,31 @@ that's waiting on you instead of on the clock. See
 ![The Admin Schedule board: one line per match, grouped into Needs a decision, Live now and Up next, with a Flagged chip marked 1, a commentary count reading needs crew marked 2, and a tracker signup reading to approve marked 3](/static/help/staff-schedule/board-desktop.webp "A result to decide (1), a role that **needs crew** (2), and a signup **to approve** (3).")
 
 ![A match opened from the board: its next step, Check in, marked 1, then the Ready to play? checklist of players, stations, stage, seed and crew, each ticked or flagged, with the stations' Assign fix marked 2 and Edit match at the bottom marked 3](/static/help/staff-schedule/match-sheet.webp "Tap a line to open the match: its next step (1), a fix on the checklist (2), and **Edit match** (3).")
+
+### Matchups nobody has booked
+
+Challonge, start.gg and Wizzrobe brackets turn up matchups that are ready to play,
+and only their two players see them, on My Schedule. Switch the board from
+**Booked** to **Not booked yet** to see every one that's still waiting, grouped by
+tournament. The switch counts them.
+
+A matchup only shows up once both players are known. A Challonge or start.gg
+bracket has none until it's started on that site and synced here, so the view
+stays empty while signups are still open.
+
+**Book…** schedules a matchup for both players, the same as a player booking it,
+with Suggest a time and the clash check. Outside the round's booking window you're
+warned and can book anyway. A matchup marked {chip:pending:Needs account} has a
+player who isn't matched to a Wizzrobe account yet, so nobody can book it. The line
+names them, and **Fix entrant** opens the place to match them. **All**,
+**Ready to book** and **Needs account** narrow the list, and the search finds a
+player.
+
+If the match was already scheduled by hand (with **New match**, say), link it
+instead of booking a second one. When a match with the same two players is on the
+schedule, the row says so and **Link** attaches it in one tap; otherwise use the
+row's ⋮ › **Link an existing match…**. Only unconfirmed matches with exactly the
+matchup's two players can be linked, because the result counts for that matchup.
 
 ### Who sees what
 
@@ -166,8 +192,13 @@ Admin → Stages. Staff and broadcast techs can add and edit them there. Untick
 ## Approving crew
 
 :::snippet staff-crew-approval
-Commentators and trackers who sign themselves up start out unapproved. Open the
-match. Under Crew, each role lists the people Waiting for you, each with an
+Commentators and trackers who sign themselves up start out unapproved. The
+quickest way in is the board itself: a waiting name has an **Approve** button
+beside it. Tap it once and it turns into **Confirm**; tap again to approve. Tap
+anywhere else and it goes back to **Approve**. If that person's booked somewhere
+else at the same time, you get the warning below before anything's saved.
+
+You can also open the match. Under Crew, each role lists the people Waiting for you, each with an
 **Approve** button, and says how many more it needs. Approved people are listed
 above, after "Approved:", as a name with "confirmed" or "hasn't confirmed". Their
 ⋮ menu has **Un-approve**.
