@@ -1,5 +1,6 @@
 """Text of the DMs the racetime room bot causes: a room opening for a player who
-hasn't linked racetime, and a fair play pause reaching staff."""
+hasn't linked racetime, a fair play pause reaching staff, and a restream's seed
+still waiting on its broadcaster at the start time."""
 
 from typing import Optional
 
@@ -52,3 +53,26 @@ def racetime_fpa_staff_dm(
     if note:
         lines.append(f"> {safe(note)}")
     return '\n\n'.join(lines)
+
+
+def racetime_broadcaster_waiting_dm(
+    tournament_name: str,
+    broadcaster_names: list[str],
+    *,
+    to_broadcaster: bool,
+    linked: bool = True,
+) -> str:
+    """A restreamed match is due to start and its seed is held for the broadcaster's !ready."""
+    if to_broadcaster:
+        how = (
+            "Type **!ready** in the race room once the stream is set up, and the seed goes to the runners."
+            if linked else
+            "The room bot can't see your !ready until you link racetime.gg on your Wizzrobe profile. "
+            "Link it, or ask staff to type **!forceroll** in the room."
+        )
+        return f"Your **{tournament_name}** match is due to start, and its seed is waiting on you.\n\n{how}"
+    who = ', '.join(broadcaster_names) or 'The broadcaster'
+    return (
+        f"**{who}** hasn't typed !ready in their **{tournament_name}** race room, so the seed is still held. "
+        f"Type **!forceroll** in the room to send it without them."
+    )

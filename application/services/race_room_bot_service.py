@@ -9,9 +9,15 @@ judgement there:
 * **The seed** goes up ``racetime_seed_post_minutes`` before the start, from
   the race-room worker's tick, or as soon as an async roll completes when that
   is later. ``!forceroll`` posts it early. It goes up once (``seed_posted_at``).
+* **The restream gate**: on an event with broadcasters switched on, a match
+  with an approved broadcaster holds its seed until a broadcaster types
+  ``!ready``. At the start time, if they still haven't, the bot says so in the
+  room and DMs the broadcasters and on-duty staff once. ``!forceroll`` skips
+  the gate.
 * **Chat commands**: ``!seed`` shows it again, ``!forceroll`` (room monitors
-  and the match's staff) posts it now, ``!fpa`` (a runner, mid-race) logs a fair
-  play pause, tells on-duty staff, and holds the result for them.
+  and the match's staff) posts it now, ``!ready`` (the match's broadcaster)
+  releases a held seed, ``!fpa`` (a runner, mid-race) logs a fair play pause,
+  tells on-duty staff, and holds the result for them.
 
 Everything here runs on an already-open room, so like the lifecycle methods it
 is not feature-gated: switching racetime rooms off stops new rooms opening and
@@ -24,7 +30,7 @@ from __future__ import annotations
 import logging
 import time
 from datetime import datetime, timedelta, timezone
-from typing import Dict, Optional
+from typing import Dict, List, Optional
 
 from application.event_context import event_scope
 from application.events import EventType
@@ -36,7 +42,7 @@ from application.services.user_service import UserService
 from application.utils.clients import racetime_room_actions
 from application.utils.discord_messages import is_seed_link, seed_code_line
 from application.utils.duration import format_hms
-from models import Match, RaceRoomStatus, RacetimeRoom
+from models import Match, RaceRoomStatus, RacetimeRoom, User
 from racetimebot.protocol import entrant_ids
 from racetimebot.transport import RaceRoomEvent
 
@@ -86,10 +92,11 @@ class RaceRoomBotService:
                     if rtid and rtid not in present:
                         await racetime_room_actions.invite(room.slug, rtid)
             if await self.room_repository.claim_greeting(room, datetime.now(timezone.utc)):
-                await racetime_room_actions.say(room.slug, self._greeting(match))
+                gated = bool(await self._broadcasters(match))
+                await racetime_room_actions.say(room.slug, self._greeting(match, gated))
             await self.post_seed_if_due(room, match)
 
-    def _greeting(self, match: Match) -> str:
+    def _greeting(self, match: Match, gated: bool) -> str:
         minutes = match.tournament.racetime_seed_post_minutes
         when = (
             f'{minutes} minutes before the start' if minutes > 0 else 'at the start'
@@ -99,6 +106,8 @@ class RaceRoomBotService:
             f"The seed posts here {when}.",
             'Type !seed to see it again, or !fpa to call a fair play pause during the race.',
         ]
+        if gated:
+            lines.append("This match is on a restream, so the seed waits until the broadcaster types !ready.")
         unlinked = [mp.user.preferred_name for mp in match.players if not mp.user.racetime_user_id]  # type: ignore[attr-defined]
         if unlinked:
             lines.append(
@@ -137,8 +146,38 @@ class RaceRoomBotService:
         if match is None or room.seed_posted_at is not None:
             return
         now = now or datetime.now(timezone.utc)
-        if seed_due(match, match.tournament.racetime_seed_post_minutes, now):
-            await self._post_seed(room, match)
+        if not seed_due(match, match.tournament.racetime_seed_post_minutes, now):
+            return
+        if room.broadcaster_ready_at is None:
+            broadcasters = await self._broadcasters(match)
+            if broadcasters:
+                await self._nudge_if_late(room, match, broadcasters, now)
+                return
+        await self._post_seed(room, match)
+
+    async def _broadcasters(self, match: Match) -> List[User]:
+        """The approved broadcasters whose !ready the seed waits for; empty when there's no gate."""
+        from application.services.event_service import EventService
+
+        approved = [b.user for b in match.broadcasters if b.approved]  # type: ignore[attr-defined]
+        if not approved or not await EventService.broadcasters_on(match.event_id, match.tenant_id):  # type: ignore[attr-defined]
+            return []
+        return approved
+
+    async def _nudge_if_late(
+        self, room: RacetimeRoom, match: Match, broadcasters: List[User], now: datetime,
+    ) -> None:
+        if match.scheduled_at is None or now < match.scheduled_at:
+            return
+        if not await self.room_repository.claim_broadcaster_nudge(room, now):
+            return
+        names = [b.preferred_name for b in broadcasters]
+        await racetime_room_actions.say(
+            room.slug,
+            f"Waiting on {', '.join(names)} to type !ready before the seed goes out. "
+            'Staff can type !forceroll to send it now.',
+        )
+        await self._tell_broadcaster_waiting(match, room, broadcasters)
 
     async def _post_seed(self, room: RacetimeRoom, match: Match) -> str:
         """Put the seed in the room, rolling it first if there isn't one.
@@ -200,7 +239,7 @@ class RaceRoomBotService:
             return
         command, _, rest = line.text.partition(' ')
         command = command.lower()
-        if command not in ('!seed', '!forceroll', '!fpa'):
+        if command not in ('!seed', '!forceroll', '!ready', '!fpa'):
             return
         match = await self._match(room)
         if match is None or not match.tournament.racetime_bot_runs_room:
@@ -210,6 +249,8 @@ class RaceRoomBotService:
                 await self._command_seed(room, match)
             elif command == '!forceroll':
                 await self._command_forceroll(room, match, event)
+            elif command == '!ready':
+                await self._command_ready(room, match, event)
             else:
                 await self._command_fpa(room, match, event, rest.strip())
 
@@ -221,14 +262,45 @@ class RaceRoomBotService:
         if room.seed_posted_at is not None:
             await racetime_room_actions.say(room.slug, await self._seed_text(match))
             return
-        if match.scheduled_at is None:
-            await racetime_room_actions.say(room.slug, "The seed isn't out yet.")
+        due = match.scheduled_at is not None and seed_due(
+            match, match.tournament.racetime_seed_post_minutes, datetime.now(timezone.utc),
+        )
+        if due and room.broadcaster_ready_at is None and await self._broadcasters(match):
+            await racetime_room_actions.say(room.slug, 'The seed is waiting for the broadcaster to type !ready.')
             return
+        await racetime_room_actions.say(room.slug, self._posts_in(match))
+
+    @staticmethod
+    def _posts_in(match: Match) -> str:
+        if match.scheduled_at is None:
+            return "The seed isn't out yet."
         due = match.scheduled_at - timedelta(minutes=match.tournament.racetime_seed_post_minutes)
         minutes = max(1, int((due - datetime.now(timezone.utc)).total_seconds() // 60) + 1)
-        await racetime_room_actions.say(
-            room.slug, f"The seed posts in {minutes} minute{'s' if minutes != 1 else ''}.",
-        )
+        return f"The seed posts in {minutes} minute{'s' if minutes != 1 else ''}."
+
+    async def _command_ready(self, room: RacetimeRoom, match: Match, event: RaceRoomEvent) -> None:
+        assert event.chat is not None
+        broadcasters = await self._broadcasters(match)
+        if not broadcasters:
+            await racetime_room_actions.say(room.slug, "This match isn't waiting on a broadcaster.")
+            return
+        speaker = event.chat.user_id
+        if not speaker or not any(b.racetime_user_id == speaker for b in broadcasters):
+            await racetime_room_actions.say(
+                room.slug, "Only this match's broadcaster can use !ready. Staff can use !forceroll.",
+            )
+            return
+        if room.seed_posted_at is not None:
+            await racetime_room_actions.say(room.slug, 'The seed is already out. Type !seed to see it again.')
+            return
+        now = datetime.now(timezone.utc)
+        if not await self.room_repository.claim_broadcaster_ready(room, now):
+            return
+        if not seed_due(match, match.tournament.racetime_seed_post_minutes, now):
+            await racetime_room_actions.say(room.slug, f'Broadcast is ready. {self._posts_in(match)}')
+            return
+        await racetime_room_actions.say(room.slug, 'Broadcast is ready. Posting the seed.')
+        await self._post_seed(room, match)
 
     async def _command_forceroll(self, room: RacetimeRoom, match: Match, event: RaceRoomEvent) -> None:
         assert event.chat is not None
@@ -303,36 +375,70 @@ class RaceRoomBotService:
     async def _tell_staff_fpa(
         self, match: Match, room: RacetimeRoom, runner: str, race_time: str, note: Optional[str],
     ) -> None:
-        from application.services import notification_links
-        from application.services.discord import DiscordService, discord_queue
         from application.services.notification_catalog import RACETIME_FPA
-        from application.services.staff_alert_service import StaffAlertService
-        from application.utils.discord_embeds import COLOR_RESCHEDULED, match_embed
         from application.utils.discord_messages_racetime import racetime_fpa_staff_dm
 
         try:
-            recipients = await StaffAlertService.tagged_match_alert_recipients(
-                match, can_act=AuthService.can_run_match,
-            )
-            if not recipients:
-                return
             message = racetime_fpa_staff_dm(runner, match.tournament.name, race_time, note)
+            await self._dm(match, room, '⏸️ Fair play pause called', [
+                (user, message, RACETIME_FPA.to(why)) for user, why in await self._staff(match)
+            ])
+        except Exception:
+            logger.exception('FPA staff alert failed for match %s', match.id)
+
+    async def _tell_broadcaster_waiting(
+        self, match: Match, room: RacetimeRoom, broadcasters: List[User],
+    ) -> None:
+        from application.services.notification_catalog import CREW, RACETIME_BROADCASTER_WAITING
+        from application.utils.discord_messages_racetime import racetime_broadcaster_waiting_dm
+
+        try:
+            tournament = match.tournament.name
+            sends = [
+                (b, racetime_broadcaster_waiting_dm(
+                    tournament, [], to_broadcaster=True, linked=bool(b.racetime_user_id),
+                ), RACETIME_BROADCASTER_WAITING.to(CREW))
+                for b in broadcasters
+            ]
+            staff_text = racetime_broadcaster_waiting_dm(
+                tournament, [b.preferred_name for b in broadcasters], to_broadcaster=False,
+            )
+            skip = {b.id for b in broadcasters}
+            sends += [
+                (user, staff_text, RACETIME_BROADCASTER_WAITING.to(why))
+                for user, why in await self._staff(match) if user.id not in skip
+            ]
+            await self._dm(match, room, '📺 Seed waiting for the broadcaster', sends)
+        except Exception:
+            logger.exception('broadcaster-waiting alert failed for match %s', match.id)
+
+    @staticmethod
+    async def _staff(match: Match) -> list:
+        from application.services.staff_alert_service import StaffAlertService
+
+        return await StaffAlertService.tagged_match_alert_recipients(match, can_act=AuthService.can_run_match)
+
+    @staticmethod
+    async def _dm(match: Match, room: RacetimeRoom, title: str, sends: list) -> None:
+        """Queue one DM per ``(user, message, notice)``, each a match card linking the room."""
+        from application.services import notification_links
+        from application.services.discord import DiscordService, discord_queue
+        from application.utils.discord_embeds import COLOR_RESCHEDULED, match_embed
+
+        link = notification_links.race_room(room.url, label='Open the race room')
+        service = DiscordService()
+        for user, message, notice in sends:
+            if not user.discord_id:
+                continue
             embed = match_embed(
-                title='⏸️ Fair play pause called', color=COLOR_RESCHEDULED, description=message,
+                title=title, color=COLOR_RESCHEDULED, description=message,
                 tournament=match.tournament.name,
                 player_names=[mp.user.preferred_name for mp in match.players],  # type: ignore[attr-defined]
                 when=match.scheduled_at, url=room.url,
             )
-            link = notification_links.race_room(room.url, label='Open the race room')
-            service = DiscordService()
-            for user, why in recipients:
-                if user.discord_id:
-                    discord_queue.enqueue(service.send_dm(
-                        int(user.discord_id), message, embed=embed, link=link,
-                        notice=RACETIME_FPA.to(why),
-                    ))
-        except Exception:
-            logger.exception('FPA staff alert failed for match %s', match.id)
+            discord_queue.enqueue(service.send_dm(
+                int(user.discord_id), message, embed=embed, link=link, notice=notice,
+            ))
 
     # ---- internals -------------------------------------------------------
 
@@ -341,7 +447,9 @@ class RaceRoomBotService:
             return None
         return await Match.get_or_none(
             id=room.match_id, tenant_id=room.tenant_id,  # type: ignore[attr-defined]
-        ).prefetch_related('tournament', 'players', 'players__user')
+        ).prefetch_related(
+            'tournament', 'players', 'players__user', 'broadcasters', 'broadcasters__user',
+        )
 
 
 async def on_seed_rolled_event(event) -> None:

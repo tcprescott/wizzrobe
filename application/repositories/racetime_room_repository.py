@@ -85,6 +85,22 @@ class RacetimeRoomRepository(TenantScopedRepository[RacetimeRoom]):
             room.greeted_at = at
         return bool(claimed)
 
+    async def claim_broadcaster_ready(self, room: RacetimeRoom, at: datetime) -> bool:
+        """Stamp the broadcaster as ready; ``False`` when they already were."""
+        return await self._claim(room, 'broadcaster_ready_at', at)
+
+    async def claim_broadcaster_nudge(self, room: RacetimeRoom, at: datetime) -> bool:
+        """Stamp the start-time broadcaster nudge as sent; ``False`` when it was."""
+        return await self._claim(room, 'broadcaster_nudged_at', at)
+
+    async def _claim(self, room: RacetimeRoom, field: str, at: datetime) -> bool:
+        claimed = await scoped(
+            RacetimeRoom.filter(id=room.id, **{f'{field}__isnull': True})
+        ).update(**{field: at})
+        if claimed:
+            setattr(room, field, at)
+        return bool(claimed)
+
     async def bot_run_awaiting_seed(self) -> List[RacetimeRoom]:
         """Open bot-run match rooms whose seed isn't posted yet — **unscoped** cross-tenant.
 

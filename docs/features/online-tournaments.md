@@ -130,7 +130,8 @@ changed), and `chat`. `RaceRoomLifecycle` sends the first and last to
 | Joins | Invites every linked player not yet in the room, greets once (`greeted_at`), posts the seed if due |
 | `racetime_seed_post_minutes` before the start (default 10) | Rolls the seed if there isn't one (system user, `generate_seed`) and posts its link and code once (`seed_posted_at`). The race-room worker's tick drives it; a `MATCH_SEED_ROLLED` subscriber posts an async roll the moment it lands |
 | `!seed` | Shows the seed again, or how long until it posts. Once per 20s per room |
-| `!forceroll` | Room monitors, or a linked account that `can_run_match`: posts the seed now |
+| `!forceroll` | Room monitors, or a linked account that `can_run_match`: posts the seed now, past the restream gate too |
+| `!ready` | An approved broadcaster on the match (by their linked racetime account): releases a seed the restream gate is holding (`broadcaster_ready_at`); posts it now if due, otherwise says when |
 | `!fpa [note]` | Runners only, mid-race, once a minute each, ten per race: logged in `fpa_calls`, acknowledged with the race time, audited (`race_room.fpa_called`), and on-duty staff DMed (`racetime_fpa` notice, button into the room) |
 
 A bot-run room opens for players who haven't linked racetime (auto-open's
@@ -156,8 +157,19 @@ tournament's admins) writes the corrected places and times, clears the hold
 as a clean finish would (result event, result alert, Challonge, start.gg, the
 bracket).
 
-Not there yet: the restream `!ready` gate (planned with the Broadcaster crew
-role), and setting the three bot fields over REST or MCP.
+### The restream gate
+
+On an event with Broadcasters switched on (Event settings → Crew), a match with
+an approved broadcaster holds its seed past the set time until a broadcaster
+types `!ready`. The greeting says so, and `!seed` answers "waiting for the
+broadcaster" once the seed is due. If the start time comes and nobody has typed
+it, the bot says so in the room and DMs once (`broadcaster_nudged_at`): the
+broadcasters (with a "link racetime first" line for one who hasn't) and the
+match's on-duty staff, under the `racetime_broadcaster_waiting` notice.
+`!forceroll` is staff's way past it. No event switch, or no approved broadcaster,
+means no gate.
+
+Not there yet: setting the three bot fields over REST or MCP.
 
 ## Migrating a community off SahasrahBot
 

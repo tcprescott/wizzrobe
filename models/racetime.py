@@ -123,6 +123,10 @@ class RacetimeRoom(Model):
     # Stamped so a reconnect, a restart or a second trigger never says it twice.
     greeted_at = fields.DatetimeField(null=True)
     seed_posted_at = fields.DatetimeField(null=True)
+    # The restream gate: a broadcaster's !ready releases the seed, and the
+    # start-time nudge to broadcaster and staff goes out once.
+    broadcaster_ready_at = fields.DatetimeField(null=True)
+    broadcaster_nudged_at = fields.DatetimeField(null=True)
     # Each runner's !fpa: ``{racetime_user_id, name, at, race_seconds, note}``.
     fpa_calls = fields.JSONField(default=list)  # type: ignore[var-annotated]
     # A finished race waiting on staff: why, the line staff read, and racetime's
