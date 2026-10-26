@@ -82,7 +82,7 @@ async def _tick() -> None:
         due,
         _remind,
         tenant_id_of=lambda match: match.tenant_id,  # type: ignore[attr-defined]
-        event_id_of=lambda match: match.event_id,  # type: ignore[attr-defined]
+        event_id_of=lambda match: match.event_id,
         logger=logger,
         describe=lambda match: f'match {getattr(match, "id", None)}',
     )

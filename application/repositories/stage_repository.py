@@ -45,7 +45,7 @@ class StageRepository(EventScopedRepository[Stage]):
         return {sr.id: sr.name for sr in stages}
     
     @staticmethod
-    async def create(
+    async def create(  # type: ignore[override]
         name: str,
         stream_url: Optional[str] = None,
         is_active: bool = True

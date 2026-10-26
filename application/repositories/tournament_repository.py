@@ -216,7 +216,7 @@ class TournamentRepository(EventScopedRepository[Tournament]):
         return {t.id: t.name for t in tournaments}
     
     @staticmethod
-    async def create(
+    async def create(  # type: ignore[override]
         name: str,
         description: Optional[str] = None,
         short_name: Optional[str] = None,

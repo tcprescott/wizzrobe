@@ -10,7 +10,7 @@ same community, never another community's rows:
 Both helpers raise when no event is in scope, like their tenant twins.
 """
 
-from typing import Any, Optional
+from typing import Any, Optional, cast
 
 from tortoise.models import Model
 
@@ -64,7 +64,7 @@ async def parent_event_id(parent_model: type[Model], parent: Any = None, parent_
     ).limit(1).values_list('event_id', flat=True)
     if not ids or ids[0] is None:
         raise ValueError(f'{parent_model.__name__} {parent_id} was not found.')
-    return ids[0]
+    return cast(int, ids[0])
 
 
 async def stamp_event_id(model: type[Model], fields: dict[str, Any]) -> int:
@@ -77,6 +77,6 @@ async def stamp_event_id(model: type[Model], fields: dict[str, Any]) -> int:
     if parent is not None:
         instance, parent_id = fields.get(parent), fields.get(f'{parent}_id')
         if instance is not None or parent_id is not None:
-            parent_model = model._meta.fields_map[parent].related_model
+            parent_model = model._meta.fields_map[parent].related_model  # type: ignore[attr-defined]
             return await parent_event_id(parent_model, instance, parent_id)
     return current_event_id()

@@ -219,7 +219,7 @@ async def _tick() -> None:
         due,
         _remind,
         tenant_id_of=lambda assignment: assignment.tenant_id,  # type: ignore[attr-defined]
-        event_id_of=lambda assignment: assignment.shift.event_id,  # type: ignore[attr-defined]
+        event_id_of=lambda assignment: assignment.shift.event_id,
         logger=logger,
         describe=lambda assignment: f'assignment {getattr(assignment, "id", None)}',
     )
@@ -291,7 +291,7 @@ async def _start_dms(now: datetime) -> None:
         due,
         _send,
         tenant_id_of=lambda assignment: assignment.tenant_id,  # type: ignore[attr-defined]
-        event_id_of=lambda assignment: assignment.shift.event_id,  # type: ignore[attr-defined]
+        event_id_of=lambda assignment: assignment.shift.event_id,
         logger=logger,
         describe=lambda assignment: f'start DM for assignment {getattr(assignment, "id", None)}',
     )

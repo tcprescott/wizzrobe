@@ -14,7 +14,7 @@ from typing import Any
 import discord
 
 from discordbot._ack_common import DMInteractionError, SendFn, run_dm_interaction
-from discordbot._tenant import match_tenant_id
+from discordbot._tenant import match_scope
 
 logger = logging.getLogger(__name__)
 
@@ -82,7 +82,7 @@ async def handle_seed_ready_interaction(interaction: discord.Interaction) -> Non
         interaction,
         log_label=CUSTOM_ID_PREFIX,
         parse=_parse,
-        resolve_tenant=lambda parsed: match_tenant_id(parsed[1]),
+        resolve_tenant=lambda parsed: match_scope(parsed[1]),
         not_found_message='That match no longer exists.',
         handle=handle,
         unexpected_error_message=MSG_UNEXPECTED_ERROR,

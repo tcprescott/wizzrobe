@@ -48,10 +48,10 @@ async def handle_partner_invite_interaction(interaction: discord.Interaction) ->
     Responds ephemerally so only the clicking user sees the result.
     """
     from application.services import CommentaryInviteService
-    from discordbot._tenant import commentary_invite_tenant_id
+    from discordbot._tenant import commentary_invite_scope
 
     async def resolve_tenant(parsed: tuple[bool, int]):
-        return await commentary_invite_tenant_id(parsed[1])
+        return await commentary_invite_scope(parsed[1])
 
     async def handle(_interaction, parsed, user, send: SendFn) -> None:
         accept, invite_id = parsed

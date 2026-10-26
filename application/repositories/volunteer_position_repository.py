@@ -34,7 +34,7 @@ class VolunteerPositionRepository(EventScopedRepository[VolunteerPosition]):
         return await query.exists()
 
     @staticmethod
-    async def create(
+    async def create(  # type: ignore[override]
         name: str,
         description: Optional[str] = None,
         color: Optional[str] = None,

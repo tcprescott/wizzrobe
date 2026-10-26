@@ -103,9 +103,12 @@ class TenantSetupService:
         derivation itself is :meth:`status`, so the two entry points can never
         disagree.
         """
+        from application.event_context import event_scope
+        from application.services.event_service import EventService
         from application.tenant_context import tenant_scope
 
-        with tenant_scope(tenant_id):
+        # The checklist counts the default event's tournaments and stages.
+        with tenant_scope(tenant_id), event_scope(await EventService.default_event_id(tenant_id)):
             return await TenantSetupService().status()
 
     @staticmethod

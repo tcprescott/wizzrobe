@@ -51,10 +51,10 @@ async def handle_volunteer_acknowledgment_interaction(interaction: discord.Inter
     custom_id format: 'volunteer_ack:<assignment_id>'
     """
     from application.services import VolunteerScheduleService
-    from discordbot._tenant import assignment_tenant_id
+    from discordbot._tenant import assignment_scope
 
     async def resolve_tenant(assignment_id: int):
-        return await assignment_tenant_id(assignment_id)
+        return await assignment_scope(assignment_id)
 
     async def handle(inter: discord.Interaction, assignment_id: int, user, send: SendFn) -> None:
         assignment = await VolunteerScheduleService().acknowledge(assignment_id, user)

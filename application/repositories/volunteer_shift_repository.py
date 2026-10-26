@@ -46,7 +46,7 @@ class VolunteerShiftRepository(EventScopedRepository[VolunteerShift]):
         )
 
     @staticmethod
-    async def create(
+    async def create(  # type: ignore[override]
         position_id: int,
         starts_at: datetime,
         ends_at: datetime,

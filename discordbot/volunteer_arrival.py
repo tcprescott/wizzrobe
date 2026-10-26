@@ -22,7 +22,7 @@ from application.utils.discord_messages_volunteer import (
     volunteer_released_confirmation,
 )
 from discordbot._ack_common import DMInteractionError, SendFn, run_dm_interaction
-from discordbot._tenant import assignment_tenant_id
+from discordbot._tenant import assignment_scope
 
 logger = logging.getLogger(__name__)
 
@@ -106,7 +106,7 @@ async def _run(interaction: discord.Interaction, *, log_label: str, parse, handl
         interaction,
         log_label=log_label,
         parse=parse,
-        resolve_tenant=lambda parsed: assignment_tenant_id(
+        resolve_tenant=lambda parsed: assignment_scope(
             parsed[0] if isinstance(parsed, tuple) else parsed
         ),
         not_found_message='That shift no longer exists.',
