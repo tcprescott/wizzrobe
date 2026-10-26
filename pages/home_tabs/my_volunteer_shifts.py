@@ -13,9 +13,11 @@ from typing import Optional
 from nicegui import ui
 
 from application.services import (
+    EventService,
     SystemConfigService,
     VolunteerArrivalService,
 )
+from application.services.event_service import with_event_name
 from application.services.volunteer import can_self_check_in, can_undo_check_in, describe_late
 from application.services.volunteer.volunteer_hours import VolunteerHoursService
 from application.services.volunteer.volunteer_schedule_service import VolunteerScheduleService
@@ -133,7 +135,7 @@ async def my_volunteer_shifts_section(
 
     summary = await VolunteerHoursService().for_user(user)
     lead_minutes = await SystemConfigService.get_volunteer_reminder_lead_minutes()
-    state = {'finished': False}
+    state: dict = {'finished': False, 'events': {}}
 
     panel = await section_panel(
         'Your volunteer shifts',
@@ -178,7 +180,7 @@ async def my_volunteer_shifts_section(
 
     def render_row(assignment, now: datetime) -> None:
         shift = assignment.shift
-        title = shift_title(shift)
+        title = with_event_name(shift_title(shift), shift.event_id, state['events'])
         ended = shift.ends_at <= now
         kind, icon, text = finished_status(assignment) if ended else shift_status(assignment, now)
         _, can_release = shift_actions(assignment, now)
@@ -230,6 +232,7 @@ async def my_volunteer_shifts_section(
     async def rows() -> None:
         now = datetime.now(timezone.utc)
         current = await service.assignments_for_user(user, with_shiftmates=True)
+        state['events'] = await EventService.names_if_mixed(a.shift.event_id for a in current)
         upcoming = [a for a in current if a.shift.ends_at > now]
         finished = [a for a in current if a.shift.ends_at <= now]
         if not upcoming:

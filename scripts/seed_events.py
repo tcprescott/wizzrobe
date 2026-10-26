@@ -5,6 +5,8 @@ Every community gets its first event (live, the default) from
 event in each other state, so the switcher, the archived banner and the
 draft-visibility rules all have something to show:
 
+- **Winter Online**, a second live event with one tournament and a match for
+  player_one and player_two, so their personal pages span two events;
 - **SGL 2025**, archived a week after it ended;
 - **SGL 2027**, a draft being set up.
 
@@ -16,7 +18,7 @@ community's default event, and a row an event owns created directly lands in
 its parent's event (a match in its tournament's) or else that default.
 """
 
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from typing import Any, Dict, Optional
 
 from tortoise.fields.relational import CASCADE
@@ -24,7 +26,7 @@ from tortoise.models import Model
 from tortoise.signals import post_save, pre_save
 
 from application.repositories._event import EVENT_PARENTS
-from models import Event, EventStatus, Tenant
+from models import Event, EventStatus, Match, MatchPlayers, Tenant, Tournament, TournamentPlayers, User
 
 _defaults: Dict[int, int] = {}
 
@@ -76,7 +78,29 @@ async def install_event_stamping() -> None:
     pre_save(*owned)(_stamp_event)
 
 
-async def seed_events_for_tenant(tenant: Tenant) -> None:
+async def seed_events_for_tenant(tenant: Tenant, users: Dict[str, User]) -> None:
+    today = datetime.now(timezone.utc).date()
+    winter, _ = await Event.get_or_create(
+        tenant=tenant, slug='winter',
+        defaults={
+            'name': 'Winter Online', 'status': EventStatus.LIVE, 'is_default': False,
+            'starts_on': today, 'ends_on': today + timedelta(days=30),
+        },
+    )
+    cup, _ = await Tournament.get_or_create(
+        tenant=tenant, event=winter, name='Winter Async Cup',
+        defaults={'is_active': True, 'average_match_duration': 60},
+    )
+    players = [users[k] for k in ('player_one', 'player_two') if k in users]
+    for player in players:
+        await TournamentPlayers.get_or_create(tenant=tenant, tournament=cup, user=player)
+    match, created = await Match.get_or_create(
+        tenant=tenant, tournament=cup, title='Winter Cup Round 1',
+        defaults={'scheduled_at': datetime.now(timezone.utc).replace(minute=0, second=0, microsecond=0) + timedelta(days=2)},
+    )
+    if created:
+        for player in players:
+            await MatchPlayers.get_or_create(tenant=tenant, match=match, user=player)
     await Event.get_or_create(
         tenant=tenant, slug='sgl25',
         defaults={

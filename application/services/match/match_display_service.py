@@ -181,7 +181,22 @@ class MatchDisplayService:
         await self._attach_site_results(rows, matches)
         await self._attach_set_labels(rows, matches)
         await self._attach_partner_invites(rows)
+        if user_discord_id or crew_discord_id:
+            await self._attach_event_names(rows, matches)
         return rows
+
+    @staticmethod
+    async def _attach_event_names(rows: List[Dict[str, Any]], matches: List[Match]) -> None:
+        """A person's own list spans live events: lead the tournament with its event once two share it."""
+        from application.services.event_service import EventService, with_event_name
+
+        names = await EventService.names_if_mixed(m.event_id for m in matches)
+        if not names:
+            return
+        for row, match in zip(rows, matches, strict=True):
+            event_id = match.event_id
+            row['tournament'] = with_event_name(row['tournament'], event_id, names)
+            row['tournament_short'] = with_event_name(row['tournament_short'], event_id, names)
 
     @staticmethod
     async def _attach_partner_invites(rows: List[Dict[str, Any]]) -> None:

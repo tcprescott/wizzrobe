@@ -14,7 +14,7 @@ delete made elsewhere (the signals at the bottom).
 import re
 from dataclasses import dataclass
 from datetime import date, datetime, timezone
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Iterable, List, Optional
 
 from tortoise.signals import post_delete, post_save
 from tortoise.transactions import in_transaction
@@ -112,6 +112,15 @@ class ArchiveCheck:
         return bool(self.open_matches or self.future_shifts or self.open_race_rooms)
 
 
+
+def with_event_name(label: str, event_id: Optional[int], names: Dict[int, str]) -> str:
+    """``SGL 2026 · ALttPR Main`` when ``names`` (from ``names_if_mixed``) has the event, else ``label``."""
+    name = names.get(event_id) if event_id is not None else None
+    if not name:
+        return label
+    return f'{name} · {label}' if label else name
+
+
 class EventService:
 
     # ------------------------------------------------------------------ reads
@@ -160,6 +169,19 @@ class EventService:
         if await AuthService.is_staff(user):
             return list(events)
         return [e for e in events if not e.is_draft]
+
+    @staticmethod
+    async def names_if_mixed(event_ids: Iterable[Optional[int]]) -> Dict[int, str]:
+        """Event names for a personal list's rows, or nothing when they're all one event's.
+
+        A person's own pages span every live event; the name only earns its place
+        on a row once two events share the list.
+        """
+        ids = {eid for eid in event_ids if eid is not None}
+        if len(ids) < 2:
+            return {}
+        events = await EventService.events_for_tenant(require_tenant_id())
+        return {e.id: e.name for e in events if e.id in ids}
 
     @staticmethod
     async def can_view(user: Optional[User], event: Optional[EventRef]) -> bool:

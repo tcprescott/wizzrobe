@@ -15,7 +15,7 @@ what is built.
 |---|---|---|
 | 0 | `Event` model, event context, default-event binding, migration + backfill | built |
 | 1 | Repositories read and stamp the event; workers loop live events; NOT NULL; leak tests | built |
-| 2 | `/e/<slug>` URLs, switcher, admin menu split, Admin → Events, copy setup | planned |
+| 2 | `/e/<slug>` URLs, switcher, admin menu split, Admin → Events, copy setup, event settings | built |
 | 3 | Archive = read-only, enforced in services | planned |
 | 4 | Per-event roles | planned |
 | 5 | REST + MCP `event` argument, webhook event filter, docs | planned |
@@ -108,6 +108,61 @@ Discord role sync (outbound) is per event, but the roles live on one server:
 a sync combines the rules of every live event, and each grant is tagged with
 the event of the rule that gave it.
 
+## URLs and pages (phase 2)
+
+`TenantMiddleware` strips `/e/<slug>` after the community prefix into the
+root path and binds that event (a draft 404s for anyone but staff). Every
+page declares a scope on `@protected_page` / `@public_page`:
+
+| `scope=` | Bare link (no `/e/`) | Used by |
+|---|---|---|
+| `'event'` (default) | 302 to the default event | event pages, event-half admin tabs |
+| `'row'` | the page calls `row_event_redirect(page_request(), row.event_id)` once it has loaded its row | brackets, start.gg bracket, qualifier, meetup, room seeds |
+| `'community'` | never redirected | Volunteer (My Availability), community-wide admin tabs |
+
+Home's personal sections (`PERSONAL_HOME_SECTIONS` in `pages/home.py`) skip the
+redirect too. `middleware/event_routing.py` holds `event_href`, `local_url` and
+the redirect helpers. DM links (`notification_links.link_for`) carry the
+`/e/<slug>` of the event they were sent from, so last year's DM still opens last
+year's page once a new event is the default.
+
+**The switcher** (`theme/event_switcher.py`) is the header button: Live events
+(default first), then drafts for staff, then past events, and Manage events for
+staff. It is drawn when more than one event is visible or the viewer is staff.
+Picking an event keeps the path; a row page goes to the event's home instead.
+
+**The admin menu** splits into an event half (Run the event, Online play,
+People) headed by the event's name and status, and a Community-wide half
+(Community, Configuration, System). `pages/admin.py` derives each tab's `half`
+from its group (`EVENT_GROUPS`).
+
+**Admin → Events** (`pages/admin_tabs/admin_events.py`, staff): the list,
+New event (with "Copy setup from", see `EventService.copy_setup`), Rename, Go
+live, Make default, Archive (lists what's still open and asks for a new
+default), Unarchive and Delete (drafts with no matches).
+
+**Event settings** (Run the event → Event settings, `/admin/event-settings/<pane>`):
+Dates & hours, Capacity, Venue, Timezone, Volunteer reward tiers, Discord
+roles. The keys in `SystemConfigService.EVENT_CONFIG_KEYS` live in
+`Event.config` and the event dates in `Event.starts_on` / `ends_on`;
+`get_raw` / `set_raw` route them there, so callers didn't change. The old
+`/admin/settings/event` and `/venue` links redirect. An event's own timezone
+(`Event.config['timezone']`) overrides the community's
+(`TimezoneService.event_override`).
+
+**Personal reads** follow a person across every live event, never drafts or
+archived ones: `live_event_scoped` on event-owned rows, and
+`tournament__event__status` / `shift__event__status` on the by-user reads of
+`TournamentPlayers` and `VolunteerAssignment`.
+
+**The event guide** reads `application/event_info/content/<community>/<event>/`
+when that folder has articles, else the latest event's folder, else
+`content/<community>/` (where today's files are). Event folders sit inside the
+community's because an event slug is unique only within its community.
+
+"Community Events" are called **Meetups** in every string a person reads; the
+model, table, routes and code names are unchanged.
+
 ## The migration
 
 `migrations/models/133_*_events.py`, additive and invisible:
@@ -136,3 +191,8 @@ the audit and telemetry tables in full.
 4. Swaps the community-wide uniques for the per-event ones above. The old ones
    are found by their columns, because two were created by hand under names
    Tortoise doesn't generate.
+
+`migrations/models/136_*_event_settings.py` (phase 2) copies the event keys
+from `systemconfiguration` into every event's `config` (where the key isn't
+set), fills empty `starts_on` / `ends_on` from the date settings, then deletes
+those rows. The downgrade writes them back from each community's default event.

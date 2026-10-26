@@ -87,7 +87,12 @@ class TournamentRepository(EventScopedRepository[Tournament]):
             query = query.prefetch_related('players', 'players__user')
         
         return await query
-    
+
+    @staticmethod
+    async def active_in_live_events() -> List[Tournament]:
+        """Every live event's active tournaments, by name (cross-event: Home › Tournaments)."""
+        return await live_event_scoped(Tournament.filter(is_active=True)).order_by('name')
+
     @staticmethod
     async def enrolment_counts() -> dict[int, int]:
         """``{tournament_id: entrants}`` for this tenant, in one query.

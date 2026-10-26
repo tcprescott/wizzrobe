@@ -975,6 +975,22 @@ body:has(.wiz-header) .q-notifications__list--top {
     }
 }
 
+/* Home › Tournaments with several live events: one heading per event. */
+.wiz-event-heading {
+    margin-top: var(--space-4);
+}
+
+.wiz-event-heading__name {
+    font-size: 1.125rem;
+    font-weight: 700;
+}
+
+/* The links back to archived events at the end of a personal page. */
+.wiz-past-events {
+    margin-top: var(--space-3);
+    color: var(--fg-muted);
+}
+
 /* Admin's list in two halves (theme/drawer_nav.render_half_heading): the event
    the pages belong to, then Community-wide. A label row, not a destination. */
 .q-drawer .wiz-drawer-half {

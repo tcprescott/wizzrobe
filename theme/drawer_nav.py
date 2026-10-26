@@ -124,7 +124,7 @@ def render_half_heading(layout: 'BaseLayout', half: str) -> None:
     if half == 'event' and event is None:
         return
     with ui.element('div').classes(f'wiz-drawer-half wiz-drawer-half--{half}'):
-        if half == 'event':
+        if event is not None and half == 'event':
             ui.icon(nav_icon('event')).props('size=sm')
             ui.label(event.name).classes('wiz-drawer-half__name')
             event_status_chip(event.status)
