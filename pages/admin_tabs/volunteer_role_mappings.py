@@ -199,7 +199,7 @@ async def volunteer_role_mappings_section(can_manage: bool) -> None:
     with container:
         with ui.row().classes('full-width items-center'):
             if can_manage:
-                ui.button('Add Mappings', icon='add', on_click=open_add_dialog).props('color=primary')
+                ui.button('Add Mappings', icon='add', on_click=open_add_dialog).props('color=primary').classes('wiz-write')
                 remove_button = ui.button(
                     icon='delete', on_click=confirm_remove_selected,
                 ).props('outline color=negative')

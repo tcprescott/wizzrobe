@@ -230,3 +230,24 @@ def test_the_backlog_only_shrinks():
     owned = {m.__name__ for m in _event_owned_models()}
     stale = [name for name in _BACKLOG if name not in owned or re.search(rf'(?<!\w){name}(?!\w)', text)]
     assert stale == [], f'remove from _BACKLOG (now tested, or no longer event-owned): {stale}'
+
+
+async def test_the_reschedule_queue_on_a_board_is_its_events(two_events):
+    from application.services import MatchRescheduleService
+    from models import MatchRescheduleRequest, RescheduleRequestKind
+
+    player = await make_member(discord_id=7090)
+
+    async def ask(n):
+        cup = await Tournament.create(name=f'Cup {n}')
+        match = await Match.create(tournament=cup, scheduled_at=NOW)
+        return await MatchRescheduleRequest.create(
+            match=match, requested_by=player, kind=RescheduleRequestKind.CANCEL, reason='Sick',
+        )
+
+    req_a, req_b = await _in_each(two_events, ask)
+    a, b = two_events
+    service = MatchRescheduleService()
+    assert _ids(await service.list_pending(event_id=a)) == [req_a.id]
+    assert _ids(await service.list_pending(event_id=b)) == [req_b.id]
+    assert _ids(await service.list_pending()) == sorted([req_a.id, req_b.id])

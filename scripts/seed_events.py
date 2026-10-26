@@ -7,7 +7,8 @@ draft-visibility rules all have something to show:
 
 - **Winter Online**, a second live event with one tournament and a match for
   player_one and player_two, so their personal pages span two events;
-- **SGL 2025**, archived a week after it ended;
+- **SGL 2025**, archived a week after it ended, with a finished tournament and
+  its private data already deleted;
 - **SGL 2027**, a draft being set up.
 
 Idempotent: rows are keyed by ``(tenant, slug)``.
@@ -25,6 +26,7 @@ from tortoise.fields.relational import CASCADE
 from tortoise.models import Model
 from tortoise.signals import post_save, pre_save
 
+from application.event_writes import archive_maintenance
 from application.repositories._event import EVENT_PARENTS
 from models import Event, EventStatus, Match, MatchPlayers, Tenant, Tournament, TournamentPlayers, User
 
@@ -101,14 +103,31 @@ async def seed_events_for_tenant(tenant: Tenant, users: Dict[str, User]) -> None
     if created:
         for player in players:
             await MatchPlayers.get_or_create(tenant=tenant, match=match, user=player)
-    await Event.get_or_create(
+    sgl25, _ = await Event.get_or_create(
         tenant=tenant, slug='sgl25',
         defaults={
             'name': 'SGL 2025', 'status': EventStatus.ARCHIVED, 'is_default': False,
             'starts_on': date(2025, 10, 23), 'ends_on': date(2025, 10, 26),
             'archived_at': datetime(2025, 11, 2, 17, 0, tzinfo=timezone.utc),
+            'pii_purged_at': datetime(2025, 12, 2, 17, 0, tzinfo=timezone.utc),
         },
     )
+    # What it ran, for the read-only look. Written as the archive job would.
+    with archive_maintenance():
+        main, _ = await Tournament.get_or_create(
+            tenant=tenant, event=sgl25, name='ALttPR Main 2025',
+            defaults={'is_active': False, 'average_match_duration': 90},
+        )
+        for hour, title in ((19, 'ALttPR Main 2025 Final'), (16, 'ALttPR Main 2025 Semi-final')):
+            at = datetime(2025, 10, 26, hour, 0, tzinfo=timezone.utc)
+            done, created = await Match.get_or_create(
+                tenant=tenant, tournament=main, title=title,
+                defaults={'scheduled_at': at, 'seated_at': at, 'started_at': at,
+                          'finished_at': at + timedelta(hours=1, minutes=40)},
+            )
+            if created:
+                for player in players:
+                    await MatchPlayers.get_or_create(tenant=tenant, match=done, user=player)
     await Event.get_or_create(
         tenant=tenant, slug='sgl27',
         defaults={

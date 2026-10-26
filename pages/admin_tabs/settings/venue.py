@@ -195,7 +195,7 @@ async def _stations_card(can_edit: bool) -> None:
                 position_input.value = None
                 station_list.refresh()
 
-            ui.button('Add station', icon='add', on_click=add).props('color=primary unelevated no-caps')
+            ui.button('Add station', icon='add', on_click=add).props('color=primary unelevated no-caps').classes('wiz-write')
 
 
 async def venue_settings_pane(can_edit: bool) -> None:

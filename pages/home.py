@@ -247,7 +247,7 @@ def create() -> None:
             # "Can't make it" button, opening that shift's give-back dialog;
             # `shifts` scrolls to the shifts section (both used to address the
             # retired Volunteer → My Shifts).
-            {'label': 'My Schedule', 'icon': 'event_available',
+            {'label': 'My Schedule', 'icon': 'event_available', 'half': 'personal',
              'badge': await count_waiting_on_you(user),
              'aliases': ('player', 'my-crew', 'availability'),
              'content': (my_schedule_tab, (),
@@ -260,13 +260,13 @@ def create() -> None:
             # and it used to be a checkbox on Profile that a player could use the
             # app for a season without ever finding. Triforce text submission
             # hangs off the card for the tournament it belongs to.
-            {'label': 'Tournaments', 'icon': 'emoji_events', 'aliases': ('triforce-texts',),
+            {'label': 'Tournaments', 'icon': 'emoji_events', 'aliases': ('triforce-texts',), 'half': 'personal',
              'content': tournaments_tab},
             # `focus` is a Profile section id from the profile-nudge banner: the tab
             # scrolls to and highlights the card that fixes the item.
             # `equipment` is the old Home → Equipment tab; what you're holding
             # is now the top card on Profile.
-            {'label': 'Profile', 'icon': 'account_circle', 'aliases': ('equipment',),
+            {'label': 'Profile', 'icon': 'account_circle', 'aliases': ('equipment',), 'half': 'personal',
              'content': (render_edit_info_tab, (), {'focus': focus})},
         ]
         if malformed_link:

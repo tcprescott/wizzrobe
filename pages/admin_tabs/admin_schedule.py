@@ -9,6 +9,7 @@ from application.services import FeatureFlagService, MatchRescheduleService
 from application.tenant_context import require_tenant_id
 from models import FeatureFlag, Match, RescheduleRequestStatus
 from pages.admin_tabs.links import SCHEDULE, admin_url
+from theme.archived_banner import current_archived_view
 from theme.dialog.match_dialog import AdminMatchDialog
 from theme.dialog.match_sheet import MatchSheet
 from theme.dialog.reschedule_decision_dialog import RescheduleDecisionDialog
@@ -86,7 +87,7 @@ async def admin_schedule_page(
             if access.edit:
                 ui.space()
                 ui.button('New match', icon='add', on_click=lambda: submit_admin_match()) \
-                    .props('color=primary')
+                    .props('color=primary').classes('wiz-write')
 
         # Same reasoning as the match_id chip below: a board showing a subset
         # with no explanation reads as a board that lost rows.
@@ -182,7 +183,7 @@ async def admin_schedule_page(
                 # Staff and tournament admins can book a bracket's matchups for
                 # its players, so they get the matchups nobody has booked yet
                 # as a second view of the board.
-                show_unbooked = access.edit and bool(
+                show_unbooked = access.edit and current_archived_view() is None and bool(
                     _BRACKET_FLAGS & await FeatureFlagService().enabled_flags()
                 )
                 switch: Any = None

@@ -14,6 +14,7 @@ from typing import Any, Awaitable, Callable, Optional
 
 from nicegui import background_tasks, context, ui
 
+from application.event_context import get_current_event_id
 from application.services import BracketService, TablePreferenceService, UserService, bracket_sources
 from application.services.bracket_sources import BookableMatch, UnbookedMatch
 from application.utils.timezone import format_local_display
@@ -103,10 +104,13 @@ class UnbookedBoard:
         if actor is None:
             return []
         try:
-            return await bracket_sources.list_unbooked(actor, include_players_tbd=True)
+            rows = await bracket_sources.list_unbooked(actor, include_players_tbd=True)
         except (ValueError, PermissionError) as e:
             notify_error(e)
             return []
+        # The board shows one event; bracket sources list every live one's.
+        event_id = get_current_event_id()
+        return [m for m in rows if event_id is None or m.tournament.event_id == event_id]
 
     def refresh(self) -> None:
         scoped_background(self._render_context, self._reload())

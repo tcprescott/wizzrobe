@@ -17,6 +17,7 @@ from typing import Any, Awaitable, Callable, Optional
 
 from nicegui import context, ui
 
+from application.event_context import get_current_event_id
 from application.services import MatchRescheduleService, MatchService, bracket_sources
 from application.tenant_context import require_tenant_id
 from application.utils.timezone import format_local_time, to_local, today_local
@@ -109,7 +110,7 @@ class MatchInbox:
         if actor is None:
             return []
         return await MatchRescheduleService().list_pending(
-            actor, tournament_ids=self.tournament_ids,
+            actor, tournament_ids=self.tournament_ids, event_id=get_current_event_id(),
         )
 
     async def render(self) -> None:

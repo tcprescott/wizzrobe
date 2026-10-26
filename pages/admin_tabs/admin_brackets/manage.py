@@ -277,7 +277,7 @@ def _render_roster(
             ui.notify('Entrant added', color='positive')
             await body.refresh()
 
-        ui.button('Add', icon='person_add', on_click=add_entrant).props('color=primary')
+        ui.button('Add', icon='person_add', on_click=add_entrant).props('color=primary').classes('wiz-write')
     ui.label(
         'Entrants belong to the tournament, not to this stage — the same entrant '
         'carries into every stage they are enrolled in.'

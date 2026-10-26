@@ -30,15 +30,18 @@ class RescheduleRequestRepository(TenantScopedRepository[MatchRescheduleRequest]
     @staticmethod
     async def list_pending(
         tournament_ids: Optional[List[int]] = None,
+        event_id: Optional[int] = None,
     ) -> List[MatchRescheduleRequest]:
         """The staff queue, oldest first — the one waiting longest is the one to answer.
 
         ``tournament_ids`` narrows it to the tournaments a viewer operates, the
-        same way the schedule board narrows itself.
+        same way the schedule board narrows itself; ``event_id`` to the board's event.
         """
         qs = MatchRescheduleRequest.filter(status=RescheduleRequestStatus.PENDING)
         if tournament_ids is not None:
             qs = qs.filter(match__tournament_id__in=tournament_ids)
+        if event_id is not None:
+            qs = qs.filter(match__event_id=event_id)
         return await scoped(qs).prefetch_related(*_FULL).order_by('created_at')
 
     @staticmethod

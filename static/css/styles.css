@@ -1541,6 +1541,11 @@ body:has(.wiz-header) .q-notifications__list--top {
    phone, a full-width line of it) under the message. */
 .wiz-banner__actions:empty { display: none; }
 
+/* An archived event's page or tab (theme/archived_banner.py): every row's ⋮
+   and anything marked wiz-write goes. The server refuses the write anyway. */
+.wiz-read-only [aria-label^="More for "],
+.wiz-read-only .wiz-write { display: none !important; }
+
 @media (max-width: 599px) {
     .wiz-banner { flex-wrap: wrap; }
     /* A zero basis keeps the message beside its icon: with `auto` the long

@@ -19,6 +19,7 @@ import logging
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Tuple
 
+from application.event_context import get_current_event_id
 from application.events import Event, EventType, event_bus, match_live
 from application.repositories import (
     CommentaryInviteRepository,
@@ -121,10 +122,14 @@ class CrewHoldService:
             row['_future_order'] = order[future.ref]
             row['set_label'] = future.matchup.round_label or None
             out.append(row)
+        # The board shows one event; open matchups come from every live one.
+        event_id = get_current_event_id()
         for future in futures:
             if future.hold is not None:
                 continue
             if tournament_ids is not None and future.matchup.tournament.id not in tournament_ids:
+                continue
+            if event_id is not None and future.matchup.tournament.event_id != event_id:
                 continue
             row = _future_row(future.matchup, blocked.get(future.ref, []))
             row['_future_order'] = order[future.ref]
