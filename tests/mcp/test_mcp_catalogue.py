@@ -74,6 +74,7 @@ READ_TOOLS = {
     'get_stage',
     'get_system_config',
     'get_tournament',
+    'get_tournament_bracket',
     'get_round_schedule',
     'get_tournament_payouts',
     'get_user',

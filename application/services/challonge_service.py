@@ -44,6 +44,7 @@ from application.utils.clients.challonge_client import (
 )
 from application.utils.environment import get_base_url
 from application.utils.mocks.mock_challonge import is_mock_challonge
+from application.utils.safe_url import http_url_or_empty
 from models import (
     ChallongeConnection,
     ChallongeMatch,
@@ -735,6 +736,25 @@ class ChallongeService(ChallongeParticipantAssignmentMixin, ChallongeStageMixin,
     # ------------------------------------------------------------------
     # Scheduling a bracket matchup (reuses the existing match-request flow)
     # ------------------------------------------------------------------
+    @requires_feature(FeatureFlag.CHALLONGE)
+    async def get_bracket_mirror(self, tournament_id: int) -> Dict[str, Any]:
+        """The mirrored bracket as last synced, without calling Challonge.
+
+        Publicly readable like the bracket itself; callers decide who sees it.
+        """
+        tournament = require_found(
+            await self.tournament_repository.get_by_id(tournament_id), f"Tournament {tournament_id}"
+        )
+        if not tournament.challonge_tournament_id:
+            raise ValueError("This tournament isn't linked to Challonge.")
+        return {
+            'tournament': tournament,
+            'url': http_url_or_empty(tournament.challonge_tournament_url) or None,
+            'last_synced_at': tournament.challonge_last_synced_at,
+            'participants': await self.repository.list_participants(tournament),
+            'matches': await self.repository.list_matches(tournament),
+        }
+
     @requires_feature(FeatureFlag.CHALLONGE)
     async def list_unscheduled_matches_for_user(
         self, user: User, *, include_partial_sets: bool = False,

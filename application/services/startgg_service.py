@@ -702,6 +702,7 @@ class StartggService(StartggPlaceholderMixin):
             'event_url': self.event_url(tournament),
             'last_synced_at': tournament.startgg_last_synced_at,
             'phases': view_phases,
+            'entrants': list(entrants.values()),
         }
 
     @staticmethod

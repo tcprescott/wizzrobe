@@ -398,6 +398,15 @@ class MatchRepository:
         return await scoped(Match.filter(Q(id__in=first_ids) | Q(set_first_id__in=first_ids)))
 
     @staticmethod
+    async def games_of_sets_with_stage(first_ids: List[int]) -> List[Match]:
+        """:meth:`games_of_sets` with each game's stage, for listing the bookings."""
+        if not first_ids:
+            return []
+        return await scoped(
+            Match.filter(Q(id__in=first_ids) | Q(set_first_id__in=first_ids))
+        ).prefetch_related('stage')
+
+    @staticmethod
     async def set_first_id_of(match_id: int) -> Optional[int]:
         """What the database says ``match_id``'s set is led by now, which a hand-off can change."""
         rows = await scoped(Match.filter(id=match_id)).values_list('set_first_id', flat=True)
