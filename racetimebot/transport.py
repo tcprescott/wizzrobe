@@ -23,13 +23,14 @@ Errors are split into two kinds so the loop can react correctly:
 from __future__ import annotations
 
 import asyncio
+import functools
 import json
 import logging
 import time
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import Awaitable, Callable, Dict, List, Optional, Tuple
+from typing import Any, Awaitable, Callable, Dict, List, Optional, Tuple
 
 from models import RaceRoomStatus
 
@@ -206,10 +207,10 @@ class RealRacetimeTransport(RacetimeTransport):
         # Monotonic deadline at which the token must have been replaced.
         self._token_expires_at: Optional[float] = None
         self._stop = False
-        self._session = None
+        self._session: Any = None
         # slug -> the task sitting in that room / its open socket / when it last failed.
         self._room_tasks: Dict[str, asyncio.Task] = {}
-        self._sockets: Dict[str, object] = {}
+        self._sockets: Dict[str, Any] = {}
         self._retry_after: Dict[str, float] = {}
 
     async def authenticate(self) -> None:
@@ -291,7 +292,7 @@ class RealRacetimeTransport(RacetimeTransport):
             if slug in self._room_tasks or self._retry_after.get(slug, 0) > now:
                 continue
             task = asyncio.get_event_loop().create_task(self._sit_in_room(slug, recorded, on_event))
-            task.add_done_callback(lambda t, s=slug: self._room_done(s, t))
+            task.add_done_callback(functools.partial(self._room_done, slug))
             self._room_tasks[slug] = task
 
     def _room_done(self, slug: str, task: asyncio.Task) -> None:

@@ -78,10 +78,10 @@ class RaceRoomBotService:
         match = await self._match(room)
         if match is None or not match.tournament.racetime_bot_runs_room:
             return
-        with event_scope(match.event_id, match.tenant_id):
+        with event_scope(match.event_id, match.tenant_id):  # type: ignore[attr-defined]
             if event.status == RaceRoomStatus.OPEN:
                 present = set(entrant_ids(event))
-                for mp in match.players:
+                for mp in match.players:  # type: ignore[attr-defined]
                     rtid = mp.user.racetime_user_id
                     if rtid and rtid not in present:
                         await racetime_room_actions.invite(room.slug, rtid)
@@ -99,7 +99,7 @@ class RaceRoomBotService:
             f"The seed posts here {when}.",
             'Type !seed to see it again, or !fpa to call a fair play pause during the race.',
         ]
-        unlinked = [mp.user.preferred_name for mp in match.players if not mp.user.racetime_user_id]
+        unlinked = [mp.user.preferred_name for mp in match.players if not mp.user.racetime_user_id]  # type: ignore[attr-defined]
         if unlinked:
             lines.append(
                 f"I can't invite {', '.join(unlinked)} yet: link racetime.gg on your "
@@ -125,8 +125,8 @@ class RaceRoomBotService:
 
         await for_each_tenant_scoped(
             rooms, _post,
-            tenant_id_of=lambda r: r.tenant_id,
-            event_id_of=lambda r: r.match.event_id,
+            tenant_id_of=lambda r: r.tenant_id,  # type: ignore[attr-defined]
+            event_id_of=lambda r: r.match.event_id,  # type: ignore[union-attr]
             logger=logger,
             describe=lambda r: f'racetime room {r.slug}',
         )
@@ -146,13 +146,13 @@ class RaceRoomBotService:
         Returns what happened: ``'posted'``, ``'rolling'`` (an async roll is on
         its way and posts when it lands), or ``'failed'``.
         """
-        if match.generated_seed_id is None:
+        if match.generated_seed_id is None:  # type: ignore[attr-defined]
             from application.services.match.match_schedule_service import MatchScheduleService
 
             system_user = await UserService().get_system_user()
             ok, message, _url = await MatchScheduleService().generate_seed(match.id, system_user)
             match = await self._match(room) or match
-            if match.generated_seed_id is None:
+            if match.generated_seed_id is None:  # type: ignore[attr-defined]
                 if ok or 'in progress' in message:
                     _forced_ids.add(match.id)
                     return 'rolling'
@@ -165,7 +165,7 @@ class RaceRoomBotService:
         return 'posted'
 
     async def _seed_text(self, match: Match) -> str:
-        seed = await match.generated_seed
+        seed = await match.generated_seed  # type: ignore[misc]
         url = seed.seed_url if seed else ''
         code = seed_code_line(seed.seed_code if seed else None)
         if url and is_seed_link(url):
@@ -185,7 +185,7 @@ class RaceRoomBotService:
         match = await self._match(room)
         if match is None or not match.tournament.racetime_bot_runs_room:
             return
-        with event_scope(match.event_id, match.tenant_id):
+        with event_scope(match.event_id, match.tenant_id):  # type: ignore[attr-defined]
             if match.id in _forced_ids:
                 await self._post_seed(room, match)
             else:
@@ -205,7 +205,7 @@ class RaceRoomBotService:
         match = await self._match(room)
         if match is None or not match.tournament.racetime_bot_runs_room:
             return
-        with event_scope(match.event_id, match.tenant_id):
+        with event_scope(match.event_id, match.tenant_id):  # type: ignore[attr-defined]
             if command == '!seed':
                 await self._command_seed(room, match)
             elif command == '!forceroll':
@@ -293,7 +293,7 @@ class RaceRoomBotService:
             system_user, AuditActions.RACE_ROOM_FPA_CALLED,
             {
                 'room_id': room.id, 'slug': room.slug, 'match_id': match.id,
-                'tournament_id': match.tournament_id, 'runner': line.display_name,
+                'tournament_id': match.tournament_id, 'runner': line.display_name,  # type: ignore[attr-defined]
                 'race_seconds': race_seconds,
             },
             EventType.RACE_ROOM_FPA_CALLED,
@@ -320,7 +320,7 @@ class RaceRoomBotService:
             embed = match_embed(
                 title='⏸️ Fair play pause called', color=COLOR_RESCHEDULED, description=message,
                 tournament=match.tournament.name,
-                player_names=[mp.user.preferred_name for mp in match.players],
+                player_names=[mp.user.preferred_name for mp in match.players],  # type: ignore[attr-defined]
                 when=match.scheduled_at, url=room.url,
             )
             link = notification_links.race_room(room.url, label='Open the race room')
@@ -337,10 +337,10 @@ class RaceRoomBotService:
     # ---- internals -------------------------------------------------------
 
     async def _match(self, room: RacetimeRoom) -> Optional[Match]:
-        if room.match_id is None:
+        if room.match_id is None:  # type: ignore[attr-defined]
             return None
         return await Match.get_or_none(
-            id=room.match_id, tenant_id=room.tenant_id,
+            id=room.match_id, tenant_id=room.tenant_id,  # type: ignore[attr-defined]
         ).prefetch_related('tournament', 'players', 'players__user')
 
 

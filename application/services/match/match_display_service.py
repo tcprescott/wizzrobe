@@ -284,7 +284,7 @@ class MatchDisplayService:
                 }
             if row['state'] in ('Scheduled', 'Checked In', 'Started'):
                 row['racetime_unlinked'] = [
-                    p.user.preferred_name for p in match.players if not p.user.racetime_user_id
+                    p.user.preferred_name for p in match.players if not p.user.racetime_user_id  # type: ignore[attr-defined]
                 ]
 
     async def get_room_seed_rows(self) -> List[Dict[str, Any]]:

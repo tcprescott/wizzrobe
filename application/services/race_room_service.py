@@ -398,7 +398,7 @@ class RaceRoomService:
 
         if match is not None and match.tournament.racetime_bot_runs_room:
             hold = hold_for(
-                [RacePlayer(mp.user.preferred_name, mp.user.racetime_user_id) for mp in match.players],
+                [RacePlayer(mp.user.preferred_name, mp.user.racetime_user_id) for mp in match.players],  # type: ignore[attr-defined]
                 entrants,
                 fpa_calls=room.fpa_calls or [],
                 close_finish_ms=match.tournament.racetime_close_finish_ms,
@@ -500,22 +500,22 @@ class RaceRoomService:
             raise ValueError('This race result is no longer waiting for a check.')
         reported = {e.get('user_id'): e for e in room.held_entrants or [] if e.get('user_id')}
         rows = []
-        for mp in match.players:
+        for mp in match.players:  # type: ignore[attr-defined]
             raced = reported.get(mp.user.racetime_user_id or '')
             ms = raced.get('finish_ms') if raced else None
-            finished = bool(raced) and raced.get('status') == EntrantStatus.DONE.value and ms is not None
+            finished = bool(raced) and raced.get('status') == EntrantStatus.DONE.value and ms is not None  # type: ignore[union-attr]
             rows.append(HeldPlayer(
                 match_player_id=mp.id,
                 name=mp.user.preferred_name,
                 racetime_name=(raced or {}).get('name') or '',
                 place=(raced or {}).get('place') if finished else None,
-                finish_seconds=ms // 1000 if finished else None,
+                finish_seconds=ms // 1000 if finished else None,  # type: ignore[operator]
                 status=(raced or {}).get('status') or '',
             ))
         rows.sort(key=lambda r: (r.place is None, r.place or 0, r.finish_seconds or 0))
         strangers = [
             e.get('name') or e.get('user_id') for uid, e in reported.items()
-            if uid not in {mp.user.racetime_user_id for mp in match.players}
+            if uid not in {mp.user.racetime_user_id for mp in match.players}  # type: ignore[attr-defined]
         ]
         return HeldResult(
             match_id=match.id, room_url=room.url, reason=room.held_reason,
@@ -541,7 +541,7 @@ class RaceRoomService:
         room = await self.room_repository.get_by_match(match)
         if room is None or room.held_reason is None:
             raise ValueError('This race result is no longer waiting for a check.')
-        by_id = {mp.id: mp for mp in match.players}
+        by_id = {mp.id: mp for mp in match.players}  # type: ignore[attr-defined]
         if set(placements) != set(by_id):
             raise ValueError('Give every player a place, or mark them as forfeited.')
         places = sorted(p for p, _t in placements.values() if p is not None)
@@ -557,13 +557,13 @@ class RaceRoomService:
             by_id[mp_id]: (place, seconds if place is not None else None)
             for mp_id, (place, seconds) in placements.items()
         }
-        first_result = not has_recorded_result(match.players)  # type: ignore[arg-type]
+        first_result = not has_recorded_result(match.players)  # type: ignore[attr-defined]
         reason = room.held_reason
         if not await self.room_repository.claim_hold(room):
             raise ValueError('Someone else has already confirmed this result.')
         await self._write_results(match, results)
         await self._report_results(
-            room, match, results, actor, first_result=first_result,
+            room, match, results, actor, first_result=first_result,  # type: ignore[arg-type]
             extra={'checked_hold': reason.value if hasattr(reason, 'value') else str(reason)},
         )
 
@@ -728,7 +728,7 @@ class RaceRoomLifecycle:
         # The bot arriving in a room, and what's said there, are the room bot's;
         # only status changes drive the lifecycle below.
         if event.kind != 'race':
-            if room.match_id is not None:
+            if room.match_id is not None:  # type: ignore[attr-defined]
                 from application.services.race_room_bot_service import RaceRoomBotService
 
                 bot = RaceRoomBotService()

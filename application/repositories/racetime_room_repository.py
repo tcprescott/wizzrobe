@@ -63,8 +63,8 @@ class RacetimeRoomRepository(TenantScopedRepository[RacetimeRoom]):
             RacetimeRoom.filter(id=room.id, held_reason__isnull=False)
         ).update(held_reason=None, held_detail=None)
         if cleared:
-            room.held_reason = None
-            room.held_detail = None
+            room.held_reason = None  # type: ignore[assignment]
+            room.held_detail = None  # type: ignore[assignment]
         return bool(cleared)
 
     async def claim_seed_post(self, room: RacetimeRoom, at: datetime) -> bool:

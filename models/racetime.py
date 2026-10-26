@@ -124,12 +124,12 @@ class RacetimeRoom(Model):
     greeted_at = fields.DatetimeField(null=True)
     seed_posted_at = fields.DatetimeField(null=True)
     # Each runner's !fpa: ``{racetime_user_id, name, at, race_seconds, note}``.
-    fpa_calls = fields.JSONField(default=list)
+    fpa_calls = fields.JSONField(default=list)  # type: ignore[var-annotated]
     # A finished race waiting on staff: why, the line staff read, and racetime's
     # entrants as they finished, so Check result starts from what racetime said.
     held_reason = fields.CharEnumField(RaceRoomHoldReason, max_length=20, null=True)
     held_detail = fields.TextField(null=True)
-    held_entrants = fields.JSONField(null=True)
+    held_entrants = fields.JSONField(null=True)  # type: ignore[var-annotated]
     created_at = fields.DatetimeField(auto_now_add=True)
     updated_at = fields.DatetimeField(auto_now=True)
 

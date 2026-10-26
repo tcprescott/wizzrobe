@@ -45,10 +45,10 @@ class RacetimeRoomService:
 
         rooms = await self.repository.list_bot_run_open(category)
         live: dict = {}
-        for tenant_id in {room.tenant_id for room in rooms}:
+        for tenant_id in {room.tenant_id for room in rooms}:  # type: ignore[attr-defined]
             with tenant_scope(tenant_id):
                 live[tenant_id] = await FeatureFlagService().is_enabled(FeatureFlag.RACETIME_ROOMS)
-        return [(room.slug, room.status) for room in rooms if live.get(room.tenant_id)]
+        return [(room.slug, room.status) for room in rooms if live.get(room.tenant_id)]  # type: ignore[attr-defined]
 
     async def list_open_rooms_for_current_tenant(self, actor: Optional[User]) -> List[RacetimeRoom]:
         """Not-yet-terminal rooms for the current tenant: staff or a sync admin,

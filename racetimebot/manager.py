@@ -25,6 +25,7 @@ infrastructure, not per-user state).
 from __future__ import annotations
 
 import asyncio
+import functools
 import logging
 from collections import defaultdict
 from typing import Dict, List, Optional, Tuple
@@ -102,7 +103,7 @@ class RacetimeBotManager:
             handler=handler,
             bot_service=self.bot_service,
             system_user=self._system_user,
-            room_source=lambda c=category: self.room_service.list_bot_run_rooms(c),
+            room_source=functools.partial(self.room_service.list_bot_run_rooms, category),
         )
         task = asyncio.get_event_loop().create_task(connection.run_forever())
         task.add_done_callback(lambda t, bid=bot_id: self._on_connection_done(bid, t))
