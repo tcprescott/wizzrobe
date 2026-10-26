@@ -57,6 +57,18 @@ them like any other. `set_background` swaps a layout's art for a plain colour
 at its current size. A starter is only a first draft: nothing links a layout
 back to the starter it came from.
 
+## OBS scene download
+
+`application/services/stream_layout_obs.py` (pure) builds an OBS 28+ scene
+collection: per stage with a layout, a scene of nested **feed scenes** (one per
+hole `label`; an unnamed hole gets its own) under a Browser source for the
+overlay, plus the feed scenes, each holding a grey `color_source_v3`
+placeholder the size of the biggest hole using it. Stage scenes crop the
+nested feed to that rectangle and fit it with "scale to inner bounds", so
+slightly different holes share a feed. UUIDs are `uuid5` of the names, so the
+same layouts produce the same file. `StreamLayoutService.obs_scene_collection`
+serves it to Actions → Download OBS scenes and the stage ⋮.
+
 ## Service
 
 `StreamLayoutService` (`@requires_feature` on every public entry). Layout CRUD

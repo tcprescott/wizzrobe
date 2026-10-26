@@ -57,6 +57,16 @@ OBS, add a **Browser** source with that link, set its width and height to the
 layout's size (shown under its name), and put it **above** your video sources.
 Then line the video sources up with the holes.
 
+Or let Wizzrobe build the scenes. **Actions → Download OBS scenes** (or
+**Download OBS scene** on one stage's ⋮) saves a file to import in OBS under
+**Scene Collection → Import**. Each stage arrives as a scene with the overlay
+on top and a "Feed ·" scene sized into every video hole. Open each feed scene
+(Feed · Player 1 game, Feed · Comms cam and so on), swap its grey placeholder
+for your capture and fit it to the grey box. Every stage scene that uses that
+hole picks it up, because holes with the same name share one feed. Name a hole
+in its settings; the starter layouts come with names already. Set your OBS
+canvas to the layout's size before importing.
+
 The link opens nothing but that stage's overlay, so it's safe to hand to a
 broadcaster. If it ends up somewhere it shouldn't, open the stage's ⋮ and
 choose **New link…**. The old link stops working straight away.

@@ -169,3 +169,14 @@ async def background_dialog(service: StreamLayoutService, layout: StreamLayout, 
             ui.button('Apply', on_click=submit).props('color=primary')
         submit_on_enter(dialog, submit)
     dialog.open()
+
+
+async def download_obs_scenes(service: StreamLayoutService, stage_id: Optional[int] = None) -> None:
+    try:
+        filename, data = await service.obs_scene_collection(await current_actor(), stage_id)
+    except (ValueError, PermissionError) as err:
+        notify_error(err)
+        return
+    ui.download(data, filename, media_type='application/json')
+    ui.notify('In OBS: Scene Collection → Import, then put each capture into its "Feed ·" scene.',
+              color='positive', timeout=8000)

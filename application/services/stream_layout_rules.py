@@ -15,6 +15,7 @@ from typing import Any, Optional
 
 MAX_BOXES = 60
 MAX_TEXT = 200
+MAX_LABEL = 40
 MAX_PLAYERS = 4
 MIN_SIDE = 4
 MAX_CANVAS = 3840
@@ -80,7 +81,7 @@ def new_box_id() -> str:
 def box_label(box: dict) -> str:
     """What the box list calls a box: "Player 1 · name", "Video hole"."""
     if box.get('kind') == KIND_HOLE:
-        return 'Video hole'
+        return f"Video hole · {box['label']}" if box.get('label') else 'Video hole'
     field = FIELDS_BY_KEY.get(box.get('field', ''))
     if field is None:
         return 'Box'
@@ -101,6 +102,7 @@ def default_box(kind: str, field: Optional[str], width: int, height: int) -> dic
     }
     if kind == KIND_HOLE:
         box['radius'] = 0
+        box['label'] = ''
         return box
     box.update({
         'field': field or 'custom_text', 'which': 1, 'font': DEFAULT_FONT,
@@ -131,6 +133,10 @@ def clean_box(raw: Any, width: int, height: int) -> dict:
     box: dict[str, Any] = {'id': box_id, 'kind': kind, 'x': x, 'y': y, 'w': w, 'h': h}
     if kind == KIND_HOLE:
         box['radius'] = _int(raw.get('radius', 0), 0, min(w, h) // 2, 'Corner radius')
+        label = raw.get('label') or ''
+        if not isinstance(label, str):
+            raise ValueError('A video hole name must be text.')
+        box['label'] = ' '.join(label.split())[:MAX_LABEL]
         return box
 
     field = raw.get('field')

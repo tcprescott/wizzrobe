@@ -1,5 +1,6 @@
 """StreamLayoutService: layouts, art, stage overlays, pins, and the overlay feed."""
 
+import json
 from datetime import datetime, timedelta, timezone
 from io import BytesIO
 
@@ -266,3 +267,40 @@ class TestStarters:
         art = Image.open(BytesIO(await StreamLayoutService.art_bytes(layout.tenant_id, layout.id, layout.art_sha256)))
         assert art.getpixel((50, 50))[3] == 0
         assert art.getpixel((500, 500)) == (0x14, 0x21, 0x3D, 255)
+
+
+class TestObsScenes:
+    async def test_collection_nests_shared_feeds_under_the_overlay(self, event):
+        staff = await _staff()
+        service = StreamLayoutService()
+        one = await Stage.create(name='Stage 1')
+        two = await Stage.create(name='Stage 2')
+        race = await service.create_layout(staff, 'Race', starter='sg_2p_trackers')
+        cams = await service.create_layout(staff, 'Cams', starter='sg_2p_cams')
+        await service.set_stage_layout(staff, one.id, race.id)
+        await service.set_stage_layout(staff, two.id, cams.id)
+
+        filename, data = await service.obs_scene_collection(staff)
+        collection = json.loads(data)
+        assert filename.endswith('-obs-scenes.json')
+        by_name = {s['name']: s for s in collection['sources']}
+        stage1 = by_name['Stage 1 · Race']['settings']['items']
+        assert stage1[-1]['name'].startswith('Wizzrobe overlay')
+        overlay = by_name[stage1[-1]['name']]
+        token = (await StageOverlay.get(stage_id=one.id)).token
+        assert overlay['settings']['url'].endswith(f'/overlay/{token}')
+        game = next(i for i in stage1 if i['name'] == 'Feed · Player 1 game')
+        assert (game['pos']['x'], game['pos']['y']) == (26, 96)
+        assert (game['bounds']['x'], game['bounds']['y']) == (846, 679)
+        # Both layouts nest the same Player 1 game feed, sized to the bigger hole.
+        stage2 = by_name['Stage 2 · Cams']['settings']['items']
+        assert any(i['source_uuid'] == game['source_uuid'] for i in stage2)
+        placeholder = by_name['Feed · Player 1 game']['settings']['items'][0]
+        assert by_name[placeholder['name']]['settings']['width'] == 886
+        assert game['crop_right'] == 1920 - 886
+
+    async def test_one_stage_without_a_layout_is_refused(self, event):
+        staff = await _staff()
+        stage = await Stage.create(name='Stage 1')
+        with pytest.raises(ValueError, match='no layout'):
+            await StreamLayoutService().obs_scene_collection(staff, stage.id)

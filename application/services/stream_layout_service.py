@@ -16,7 +16,9 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
+import json
 import logging
+import re
 import secrets
 import time
 from dataclasses import dataclass, field
@@ -27,11 +29,13 @@ from typing import Optional
 from PIL import Image, ImageOps, UnidentifiedImageError
 
 from application.errors import NotFoundError
+from application.event_context import get_current_event_id
 from application.feature_flags import requires_feature
 from application.repositories.stream_layout_repository import StreamLayoutRepository
 from application.services.audit_service import AuditActions, AuditService
 from application.services.auth_service import AuthService
 from application.services.event_info_service import prize_fields
+from application.services.stream_layout_obs import ObsHole, ObsScene, build_collection
 from application.services.stream_layout_rules import (
     FIELDS_BY_KEY,
     KIND_FIELD,
@@ -382,6 +386,40 @@ class StreamLayoutService:
             showing, pinned = await self._showing(stage, overlay)
             rows.append(StageOverlayRow(stage=stage, overlay=overlay, showing=showing, pinned=pinned))
         return rows
+
+    @requires_feature(FeatureFlag.STREAM_LAYOUTS)
+    async def obs_scene_collection(self, actor: User, stage_id: Optional[int] = None) -> tuple[str, bytes]:
+        """An OBS scene collection (file name, JSON bytes) for one stage, or every stage with a layout."""
+        from application.services.tenant_service import TenantService
+        from application.utils.tenant_urls import tenant_url
+
+        await self._ensure(actor)
+        tenant = await TenantService.get_by_id(require_tenant_id())
+        stages = [await self._stage(stage_id)] if stage_id is not None else await self.repository.stages()
+        scenes = []
+        for stage in stages:
+            overlay = await self._overlay(stage)
+            if overlay.layout_id is None:
+                continue
+            layout = await self._layout(overlay.layout_id)
+            holes = tuple(
+                ObsHole(b.get('label', ''), b['x'], b['y'], b['w'], b['h'])
+                for b in layout.boxes or [] if b.get('kind') == KIND_HOLE
+            )
+            scenes.append(ObsScene(
+                name=f'{stage.name} · {layout.name}', overlay_url=tenant_url(tenant, overlay_path(overlay.token)),
+                width=layout.width, height=layout.height, holes=holes,
+            ))
+        if not scenes:
+            raise ValueError(
+                f'{stages[0].name} has no layout yet. Pick one first.' if stage_id is not None
+                else 'No stage has a layout yet. Pick one on a stage first.',
+            )
+        event_name = await self._event_name(get_current_event_id()) or 'Wizzrobe'
+        title = f'{event_name} · {stages[0].name}' if stage_id is not None else event_name
+        collection = build_collection(title, scenes)
+        slug = re.sub(r'[^a-z0-9]+', '-', title.lower()).strip('-') or 'wizzrobe'
+        return f'{slug}-obs-scenes.json', json.dumps(collection, indent=2).encode()
 
     @requires_feature(FeatureFlag.STREAM_LAYOUTS)
     async def set_stage_layout(self, actor: User, stage_id: int, layout_id: Optional[int]) -> StageOverlay:

@@ -62,7 +62,8 @@ def _boxes() -> list[dict]:
         _text('commentators', (516, 777, 216, 219), 24),
         _text('up_next', (1191, 777, 216, 219), 20),
         _text('seed_code', (27, 1011, 1866, 51), 22, upper=False),
-        {'kind': 'hole', 'x': _COMMS[0], 'y': _COMMS[1], 'w': _COMMS[2], 'h': _COMMS[3], 'radius': 12},
+        {'kind': 'hole', 'x': _COMMS[0], 'y': _COMMS[1], 'w': _COMMS[2], 'h': _COMMS[3], 'radius': 12,
+         'label': 'Comms cam'},
     ], W, H)
 
 

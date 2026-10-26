@@ -26,6 +26,7 @@ from application.services.stream_layout_rules import (
     FONTS,
     KIND_FIELD,
     KIND_HOLE,
+    MAX_LABEL,
     MAX_PLAYERS,
     WEIGHTS,
     box_label,
@@ -48,7 +49,13 @@ from theme.page_header import page_header
 from theme.section import section_panel
 from theme.steady import steady_refreshable
 
-from .stream_layout_dialogs import background_dialog, current_actor, new_layout_dialog, rename_dialog
+from .stream_layout_dialogs import (
+    background_dialog,
+    current_actor,
+    download_obs_scenes,
+    new_layout_dialog,
+    rename_dialog,
+)
 
 _ICON = {f.key: f.icon for f in FIELDS}
 
@@ -118,6 +125,8 @@ async def _render_overview(service: StreamLayoutService, open_editor) -> None:
         ui.space()
         ui.button('New layout', icon='add', on_click=lambda: new_layout_dialog(service, open_editor)) \
             .props('color=primary')
+        with ui.button('Actions').props('flat color=primary icon-right=expand_more'), ui.menu():
+            menu_action('download', 'Download OBS scenes', lambda: download_obs_scenes(service))
 
     @steady_refreshable
     async def stages() -> None:
@@ -210,6 +219,8 @@ def _stage_row(service: StreamLayoutService, row, options: dict, refresh) -> Non
                 if row.pinned:
                     menu_action('sync', 'Back to automatic', unpin)
                 menu_link('open_in_new', 'Open overlay', overlay_path(overlay.token))
+                if overlay.layout_id:
+                    menu_action('download', 'Download OBS scene', lambda: download_obs_scenes(service, stage.id))
                 ui.separator()
                 menu_action('autorenew', 'New link…', lambda: ConfirmationDialog(
                     f'Retire {stage.name}\'s overlay link and make a new one? OBS shows nothing '
@@ -427,7 +438,7 @@ class LayoutEditor:
                 with ui.element('span'):
                     ui.label(self.values.get(box['id'], '')).classes('inline')
             else:
-                ui.label('Video')
+                ui.label(box.get('label') or 'Video')
             if box['id'] == self.selected:
                 ui.element('div').classes('sl-handle').props('aria-hidden=true')
 
@@ -471,6 +482,9 @@ class LayoutEditor:
             else:
                 ui.label('OBS video shows through this rectangle; the art inside it is cut away.') \
                     .classes('text-caption text-muted')
+                ui.input('Name', value=box.get('label', ''), placeholder='Player 1 game',
+                         on_change=lambda e: self._set(box, label=(e.value or '')[:MAX_LABEL])) \
+                    .props(f'outlined dense maxlength={MAX_LABEL} hint="The OBS feed this hole shows. Holes with the same name share one feed."')
                 ui.number('Corner radius', value=box.get('radius', 0), min=0, step=1,
                           on_change=lambda e: self._set(box, radius=int(e.value or 0))) \
                     .props('outlined dense suffix=px')
