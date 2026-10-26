@@ -310,7 +310,7 @@ class BracketOverviewService:
         event = await StartggService().get_event_view(tournament.id)
         all_sets = [row for phase in event['phases'] for pool in phase['pools'] for row in pool['sets']]
         by_remote = {row.set_id: row.id for row in all_sets}
-        leads = {row.match_id: row.match for row in all_sets if row.match_id}  # type: ignore[attr-defined]
+        leads = {row.match_id: row.match for row in all_sets if row.match_id}
         bookings = await self._bookings_by_lead(leads)
 
         sets: Dict[int, SetView] = {}
@@ -328,14 +328,14 @@ class BracketOverviewService:
                     from_set_id=by_remote.get(getattr(row, f'slot{n}_prereq') or ''),
                     from_outcome=_outcome(label),
                 ))
-            booked = bookings.get(row.match_id, [])  # type: ignore[attr-defined]
+            booked = bookings.get(row.match_id, [])
             sets[row.id] = SetView(
                 id=row.id, source_id=row.set_id, identifier=row.identifier,
                 round=row.round, round_label=row.round_text or f'Round {row.round}',
                 state=_value(row.state) or 'pending', slots=slots,
-                winner_entrant_id=row.winner_id,  # type: ignore[attr-defined]
+                winner_entrant_id=row.winner_id,
                 completed_at=row.completed_at, bookings=booked,
-                best_of=self._best_of(booked, leads.get(row.match_id)),  # type: ignore[attr-defined]
+                best_of=self._best_of(booked, leads.get(row.match_id)),
             )
         self._link_forward(sets.values())
 
@@ -365,7 +365,7 @@ class BracketOverviewService:
             tournament_id=tournament.id, tournament=tournament.name, source=SOURCE_STARTGG,
             url=event['event_url'], last_synced_at=event['last_synced_at'], phases=phases,
             entrants=[
-                EntrantView(id=e.id, name=e.name, user_id=e.user_id if show_users else None)  # type: ignore[attr-defined]
+                EntrantView(id=e.id, name=e.name, user_id=e.user_id if show_users else None)
                 for e in event['entrants']
             ],
         )
@@ -378,7 +378,7 @@ class BracketOverviewService:
         participants = {p.id: p for p in mirror['participants']}
         rows = mirror['matches']
         by_remote = {cm.challonge_match_id: cm.id for cm in rows}
-        lead_ids = [cm.match_id for cm in rows]  # type: ignore[attr-defined]
+        lead_ids = [cm.match_id for cm in rows]
         bookings = await self._bookings_by_lead(lead_ids)
         leads = {m.id: m for m in await self.match_repository.get_by_ids_with_players(
             [i for i in lead_ids if i],
@@ -390,8 +390,8 @@ class BracketOverviewService:
 
         groups: Dict[bool, List[SetView]] = {True: [], False: []}
         for cm in sorted(rows, key=lambda c: (not c.group_stage, abs(c.round or 0), c.round or 0, c.identifier or '', c.id)):
-            lead = leads.get(cm.match_id)  # type: ignore[attr-defined]
-            booked = bookings.get(cm.match_id, [])  # type: ignore[attr-defined]
+            lead = leads.get(cm.match_id)
+            booked = bookings.get(cm.match_id, [])
             ranks = self._lead_scores(lead)
             slots = []
             for n in (1, 2):
@@ -400,8 +400,8 @@ class BracketOverviewService:
                 p = participants.get(pk) if pk else None
                 slots.append(SlotView(
                     entrant_id=pk, name=name_of(pk),
-                    user_id=p.user_id if p and show_users else None,  # type: ignore[attr-defined]
-                    score=ranks.get(p.user_id) if p else None,  # type: ignore[attr-defined]
+                    user_id=p.user_id if p and show_users else None,
+                    score=ranks.get(p.user_id) if p else None,
                     placeholder=None if pk else (label or 'TBD'),
                     from_set_id=by_remote.get(getattr(cm, f'slot{n}_prereq') or ''),
                     from_outcome=_outcome(label),
@@ -410,7 +410,7 @@ class BracketOverviewService:
                 id=cm.id, source_id=cm.challonge_match_id, identifier=cm.identifier,
                 round=cm.round, round_label=challonge_round_label(cm.round) or 'Group stage',
                 state=_value(cm.state) or 'pending', slots=slots,
-                winner_entrant_id=cm.winner_participant_id,  # type: ignore[attr-defined]
+                winner_entrant_id=cm.winner_participant_id,
                 bookings=booked, best_of=self._best_of(booked, lead),
             ))
         self._link_forward([s for g in groups.values() for s in g])
@@ -435,7 +435,7 @@ class BracketOverviewService:
             entrants=[
                 EntrantView(
                     id=p.id, name=name_of(p.id) or '', status='active' if p.active else 'dropped',
-                    user_id=p.user_id if show_users else None,  # type: ignore[attr-defined]
+                    user_id=p.user_id if show_users else None,
                 )
                 for p in sorted(participants.values(), key=lambda p: (p.name or '').lower())
             ],
@@ -476,7 +476,7 @@ class BracketOverviewService:
             entrants=[
                 EntrantView(
                     id=e.id, name=e.display_name, status=_value(e.status),
-                    user_id=e.user_id if show_users else None,  # type: ignore[attr-defined]
+                    user_id=e.user_id if show_users else None,
                 )
                 for e in sorted(entrants.values(), key=lambda e: e.display_name.lower())
             ],
@@ -489,7 +489,7 @@ class BracketOverviewService:
         matches = await service.list_matches(bracket.id)
         elimination = bracket.format in _ELIM_FORMATS
         names = round_names(
-            [RoundNode(id=m.id, round=m.round, winner_to_id=m.winner_to_id, loser_to_id=m.loser_to_id)  # type: ignore[attr-defined]
+            [RoundNode(id=m.id, round=m.round, winner_to_id=m.winner_to_id, loser_to_id=m.loser_to_id)
              for m in matches],
             double_elim=bracket.format == BracketFormat.DOUBLE_ELIM,
             elimination=elimination,
@@ -498,7 +498,7 @@ class BracketOverviewService:
 
         def entrant_of(entry_id: Optional[int]) -> Optional[Any]:
             entry = entries.get(entry_id) if entry_id else None
-            return entrants.get(entry.entrant_id) if entry else None  # type: ignore[attr-defined]
+            return entrants.get(entry.entrant_id) if entry else None
 
         def label(m: BracketMatch) -> str:
             name = names.get(m.round) or f'Round {m.round}'
@@ -507,8 +507,8 @@ class BracketOverviewService:
         feeders: Dict[Tuple[int, int], Tuple[int, str]] = {}
         for m in matches:
             for target, slot, outcome in (
-                (m.winner_to_id, m.winner_to_slot, 'winner'),  # type: ignore[attr-defined]
-                (m.loser_to_id, m.loser_to_slot, 'loser'),  # type: ignore[attr-defined]
+                (m.winner_to_id, m.winner_to_slot, 'winner'),
+                (m.loser_to_id, m.loser_to_slot, 'loser'),
             ):
                 if target and slot:
                     feeders[(target, slot)] = (m.id, outcome)
@@ -532,19 +532,19 @@ class BracketOverviewService:
                     from_set_id=feeder[0] if feeder else None,
                     from_outcome=feeder[1] if feeder else None,
                 ))
-            games = sorted(m.games, key=lambda g: g.game_number)  # type: ignore[attr-defined]
+            games = sorted(m.games, key=lambda g: g.game_number)
             numbers = service.numbers_by_time(games)
             best_of = service.resolve_best_of(bracket, m)
-            winner = entrant_of(m.winner_id)  # type: ignore[attr-defined]
+            winner = entrant_of(m.winner_id)
             pools.setdefault(m.group_number, []).append(SetView(
                 id=m.id, identifier=f'{m.round}.{m.position}', round=m.round, round_label=label(m),
                 state=_value(m.state) or 'pending', slots=slots, best_of=best_of,
                 winner_entrant_id=winner.id if winner else None, forfeit=m.forfeit,
-                winner_to=FeedView(m.winner_to_id, m.winner_to_slot) if m.winner_to_id else None,  # type: ignore[attr-defined]
-                loser_to=FeedView(m.loser_to_id, m.loser_to_slot) if m.loser_to_id else None,  # type: ignore[attr-defined]
+                winner_to=FeedView(m.winner_to_id, m.winner_to_slot) if m.winner_to_id else None,
+                loser_to=FeedView(m.loser_to_id, m.loser_to_slot) if m.loser_to_id else None,
                 bookings=[
                     _booking(g.match, f'Game {numbers.get(g.id, g.game_number)} of {best_of}', g.state)
-                    for g in games if g.match_id is not None  # type: ignore[attr-defined]
+                    for g in games if g.match_id is not None
                 ],
             ))
 
