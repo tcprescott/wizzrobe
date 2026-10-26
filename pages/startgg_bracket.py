@@ -11,12 +11,14 @@ ready to book links to the booking picker on My Schedule.
 from typing import Any, Dict, List, Optional
 
 from nicegui import app, ui
+from starlette.responses import RedirectResponse
 
 from application.services import StartggService, TenantService, get_user_from_session
 from application.utils.app_links import player_startgg_schedule_url
 from application.utils.route_params import parse_route_id
 from application.utils.timezone import format_local_display
 from middleware.auth import public_page
+from middleware.event_routing import page_request, row_event_redirect
 from models import FeatureFlag, StartggSet, StartggSetState
 from theme.assets import asset_url
 from theme.base import BaseLayout
@@ -149,8 +151,8 @@ def _is_round_robin(phase) -> bool:
 
 
 def create() -> None:
-    @public_page('/tournament/{tournament_id}/startgg', feature=FeatureFlag.STARTGG)
-    async def startgg_bracket(tournament_id: str, phase: Optional[str] = None) -> None:
+    @public_page('/tournament/{tournament_id}/startgg', feature=FeatureFlag.STARTGG, scope='row')
+    async def startgg_bracket(tournament_id: str, phase: Optional[str] = None) -> Optional[RedirectResponse]:
         user = await get_user_from_session(app.storage.user)
         tid = parse_route_id(tournament_id)
         try:
@@ -159,9 +161,12 @@ def create() -> None:
             view = None
         if view is None:
             await render_not_found(user=user)
-            return
+            return None
 
         tournament = view['tournament']
+        redirect = await row_event_redirect(page_request(), tournament.event_id)
+        if redirect is not None:
+            return redirect
         community = await TenantService.current_community_name() or 'Wizzrobe'
         ui.page_title(f'{tournament.name}: Bracket · {community}')
         ui.add_head_html(f'<link rel="stylesheet" href="{asset_url("css/startgg.css")}">')

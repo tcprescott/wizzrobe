@@ -206,7 +206,7 @@ class MessageSheet:
 
 
 def create() -> None:
-    @protected_page(MY_MESSAGES)
+    @protected_page(MY_MESSAGES, scope='community')
     async def my_messages(message: Optional[str] = None) -> None:
         user = await get_user_from_session(app.storage.user)
         if user is None:

@@ -9,8 +9,10 @@
 """
 
 from datetime import datetime, timezone
+from typing import Optional
 
 from nicegui import app, ui
+from starlette.responses import RedirectResponse
 
 from application.content import parse_blocks
 from application.services import AsyncQualifierService, AuthService, TenantService, get_user_from_session
@@ -23,6 +25,7 @@ from application.services.async_qualifier.async_qualifier_rules import (
 from application.utils.duration import format_hms, parse_hms
 from application.utils.timezone import format_local_display
 from middleware.auth import protected_page
+from middleware.event_routing import page_request, row_event_redirect
 from models import FeatureFlag
 from theme.base import BaseLayout
 from theme.dialog._helpers import dialog_actions, form_dialog
@@ -168,22 +171,28 @@ def create() -> None:
                             with ui.element('div').classes('wiz-help-prose'):
                                 render_blocks(parse_blocks(q.description))
 
-    @protected_page('/qualifiers/{qualifier_id}', feature=FeatureFlag.ASYNC_QUALIFIERS)
-    async def qualifier_detail(qualifier_id: int, focus: str | None = None) -> None:
+    @protected_page('/qualifiers/{qualifier_id}', feature=FeatureFlag.ASYNC_QUALIFIERS, scope='row')
+    async def qualifier_detail(qualifier_id: int, focus: str | None = None) -> Optional[RedirectResponse]:
         ui.page_title(f'Async Qualifier — {await TenantService.current_community_name() or "Wizzrobe"}')
         user = await get_user_from_session(app.storage.user)
+        qualifier = None
+        error = 'You must be logged in.'
+        if user is not None:
+            try:
+                qualifier = await service.get_qualifier_for_player(qualifier_id)
+            except ValueError as e:
+                error = str(e)
+        if qualifier is not None:
+            redirect = await row_event_redirect(page_request(), qualifier.event_id)
+            if redirect is not None:
+                return redirect
+
         show_admin = await AuthService.can_open_admin(user)
         await BaseLayout(user=user, show_admin=show_admin).render()
 
-        if user is None:
-            ui.label('You must be logged in.').classes('text-error')
-            return
-
-        try:
-            qualifier = await service.get_qualifier_for_player(qualifier_id)
-        except ValueError as e:
-            ui.label(str(e)).classes('text-error')
-            return
+        if user is None or qualifier is None:
+            ui.label(error).classes('text-error')
+            return None
 
         container = ui.column().classes('page-container')
 

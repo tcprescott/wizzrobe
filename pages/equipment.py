@@ -65,7 +65,7 @@ def _render_loans(loans) -> None:
 
 
 def create() -> None:
-    @protected_page('/equipment/{asset_id}', feature=FeatureFlag.EQUIPMENT)
+    @protected_page('/equipment/{asset_id}', feature=FeatureFlag.EQUIPMENT, scope='community')
     async def equipment_detail(asset_id: int) -> None:
         ui.page_title(f'Equipment — {await TenantService.current_community_name() or "Wizzrobe"}')
         # get_user_from_session enforces is_active so a deactivated user

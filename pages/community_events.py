@@ -29,6 +29,7 @@ from application.services import (
     get_user_from_session,
 )
 from middleware.auth import protected_page
+from middleware.event_routing import page_request, row_event_redirect
 from models import CommunityEvent, CommunityEventStatus, FeatureFlag, User
 from theme.base import BaseLayout
 from theme.community_events import (
@@ -283,8 +284,8 @@ def create() -> None:
     async def community_events_index(request: Request) -> RedirectResponse:
         return RedirectResponse(f"{request.scope.get('root_path', '')}{LISTING}")
 
-    @protected_page('/community-events/{event_id}', feature=FeatureFlag.COMMUNITY_EVENTS)
-    async def community_event_detail(event_id: int) -> None:
+    @protected_page('/community-events/{event_id}', feature=FeatureFlag.COMMUNITY_EVENTS, scope='row')
+    async def community_event_detail(event_id: int) -> Optional[RedirectResponse]:
         user = await _viewer()
         if user is None:
             ui.label('Your account could not be found.').classes('text-error')
@@ -298,7 +299,10 @@ def create() -> None:
                 message="We couldn't find that event. It may have been cancelled or taken down.",
                 actions=[('All community events', 'event', LISTING)],
             )
-            return
+            return None
+        redirect = await row_event_redirect(page_request(), event.event_id)
+        if redirect is not None:
+            return redirect
 
         await _chrome(user, event.title, 'Community Events')
         can_manage = event.host_id == user.id or await AuthService.is_staff(user)

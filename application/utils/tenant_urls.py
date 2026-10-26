@@ -120,6 +120,11 @@ def tenant_url(tenant: Any, path: str) -> str:
     return f'{tenant_base_url(tenant)}{path}'
 
 
+def event_path(slug: Optional[str], path: str) -> str:
+    """``path`` inside event ``slug`` (``/e/<slug>/…``), or ``path`` as-is without one."""
+    return f'/e/{slug}{path}' if slug else path
+
+
 def tenant_home(root_path: str) -> str:
     """The current tenant's home path — ``/t/<slug>/`` in path mode, ``/`` bare."""
     return f'{root_path}/'

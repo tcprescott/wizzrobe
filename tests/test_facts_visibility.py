@@ -22,7 +22,7 @@ from theme.dialog.fact_dialog import FactDialog
 class TestFactsPage:
     def test_registers_the_route_as_public(self):
         source = inspect.getsource(facts_page.create)
-        assert '@public_page(FACTS_PATH)' in source
+        assert "@public_page(FACTS_PATH, scope='community')" in source
         assert facts_page.FACTS_PATH == '/facts'
 
     def test_route_never_joins_protected_routes(self):

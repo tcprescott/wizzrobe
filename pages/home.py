@@ -3,14 +3,15 @@ from fastapi.responses import RedirectResponse
 from nicegui import app, ui
 
 from application.event_context import get_current_event_id, stash_client_event_id
-from application.services import AuthService, TenantService, get_user_from_session
+from application.services import AuthService, EventService, TenantService, get_user_from_session
 from application.tenant_context import (
     get_current_tenant_id,
     is_host_mode,
     stash_client_host_mode,
     stash_client_tenant_id,
 )
-from middleware.auth import bind_display_timezone, enforce_membership, record_page_view
+from middleware.auth import bind_display_timezone, can_view_bound_event, enforce_membership, record_page_view
+from middleware.event_routing import default_event_redirect, row_event_redirect
 from pages.home_tabs.event import community_new_count, event_tab
 from pages.home_tabs.my_schedule import my_schedule_tab
 from pages.home_tabs.player import count_waiting_on_you
@@ -119,6 +120,13 @@ def deep_link_ids(**raw: str | None) -> tuple[dict[str, int | None], bool]:
     return ids, malformed
 
 
+#: Home sections that belong to the viewer rather than to one event, with
+#: their retired slugs.
+PERSONAL_HOME_SECTIONS = frozenset({
+    'my-schedule', 'player', 'my-crew', 'availability', 'profile', 'equipment',
+})
+
+
 def create() -> None:
     async def home(
         section: str | None = None,
@@ -147,6 +155,17 @@ def create() -> None:
             schedule=schedule, reschedule=reschedule, match=match, hard=hard, agree=agree,
             book=book, startgg=startgg, comments=comments, release=release, shifts=shifts,
         )
+        # A link about one match opens in that match's event. My Schedule and
+        # Profile are the viewer's own, across every live event, so they keep a
+        # bare URL; any other bare link opens in the default event.
+        match_id = next((ids[k] for k in ('match', 'comments', 'hard', 'reschedule') if ids.get(k)), None)
+        redirect = None
+        if match_id is not None:
+            redirect = await row_event_redirect(request, await EventService.match_event_id(match_id))
+        elif section not in PERSONAL_HOME_SECTIONS:
+            redirect = await default_event_redirect(request)
+        if redirect is not None:
+            return redirect
         # A bare ``ui.page`` misses the page view ``_tenant_page`` records, so
         # home records its own: every section under one path, like the hubs.
         record_page_view('/home', {'section': section, **ids})
@@ -180,6 +199,10 @@ def create() -> None:
         # as commentator and tracker. The community's own spectator surface —
         # the bracket views — stays public on its own routes.
         if await enforce_membership(tid, user):
+            return
+        if not await can_view_bound_event(user):
+            from theme.error_page import render_not_found
+            await render_not_found(user=user)
             return
         if user is None and signed_in:
             with ui.row():

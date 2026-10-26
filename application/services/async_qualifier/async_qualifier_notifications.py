@@ -36,7 +36,7 @@ from application.utils.discord_messages_qualifier import (
     qualifier_run_expiring_dm,
     qualifier_run_reviewed_dm,
 )
-from application.utils.tenant_urls import tenant_url
+from application.utils.tenant_urls import event_path, tenant_url
 from models import AsyncQualifier, AsyncQualifierRun, User
 
 logger = logging.getLogger(__name__)
@@ -156,7 +156,10 @@ async def notify_review_queue_waiting(
     # caller that loaded it any other way leaves the relation a queryset — and a
     # link built from that yields ``'QuerySet' object has no attribute 'slug'``.
     await qualifier.fetch_related('tenant')
-    path = admin_qualifier_queue_url(qualifier.id)
+    # The queue is an event page: without its event a bare link would open the
+    # default event's queue, which doesn't hold this qualifier once another is live.
+    slug = await notification_links.event_slug(qualifier.tenant_id, qualifier.event_id)
+    path = event_path(slug, admin_qualifier_queue_url(qualifier.id))
     link = notification_links.link_for_tenant(qualifier.tenant, 'Open the review queue', path)
     url = tenant_url(qualifier.tenant, path) if qualifier.tenant else ''
     message = qualifier_review_queue_dm(

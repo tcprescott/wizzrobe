@@ -21,11 +21,15 @@ about to be played is not a trade worth making for a machine sitting in a room
 the public walks through.
 """
 
+from typing import Optional
+
 from nicegui import app, ui
+from starlette.responses import RedirectResponse
 
 from application.services import RoomTokenService, get_user_from_session
 from application.services.match.match_display_service import is_room_seed_row
 from middleware.auth import public_page
+from middleware.event_routing import page_request, row_event_redirect
 from theme.base import BaseLayout
 from theme.page_header import page_header
 from theme.tables.match import MatchTableView
@@ -42,8 +46,8 @@ COLUMNS = [
 
 
 def create() -> None:
-    @public_page('/room/{token}/seeds', telemetry_path='/room/seeds')
-    async def room_seeds(token: str) -> None:
+    @public_page('/room/{token}/seeds', telemetry_path='/room/seeds', scope='row')
+    async def room_seeds(token: str) -> Optional[RedirectResponse]:
         ui.page_title('Wizzrobe — Room Seeds')
 
         # An unknown, revoked, malformed or wrong-community token renders the
@@ -51,12 +55,16 @@ def create() -> None:
         # so guessing at a URL tells you nothing about which tokens are live.
         # The copy ("the link's out of date") is also the true one for the
         # staff member at a room PC whose token was just revoked.
-        if await RoomTokenService().resolve(token) is None:
+        room_token = await RoomTokenService().resolve(token)
+        if room_token is None:
             from theme.error_page import render_not_found
             await render_not_found(
                 user=await get_user_from_session(app.storage.user),
             )
-            return
+            return None
+        redirect = await row_event_redirect(page_request(), room_token.event_id)
+        if redirect is not None:
+            return redirect
 
         # Anonymous by construction, and chromeless: a room PC has no session to
         # sign out of and nowhere else to go, so the layout contributes the

@@ -12,6 +12,7 @@ from starlette.responses import RedirectResponse
 
 from application.event_context import event_scope, get_current_event_id, stash_client_event_id
 from application.services.auth_service import AuthService, get_user_from_session
+from application.services.event_service import EventService
 from application.services.feature_flag_service import FeatureFlagService
 from application.services.telemetry_service import TelemetryService
 from application.services.tenant_membership_service import TenantMembershipService
@@ -34,6 +35,7 @@ from application.timezone_context import (
     stash_client_timezone,
 )
 from application.utils.hostname import effective_request_host
+from middleware.event_routing import PageScope, default_event_redirect, page_request
 from models import FeatureFlag, Role
 
 #: A page's feature gate: one flag, or several of which any one opens it.
@@ -70,6 +72,23 @@ async def bind_display_timezone(tenant_id: int, user=None) -> str:
     name = TimezoneService.pick(settings, user=user, browser_timezone=browser_tz)
     _bind_display_timezone(name, user)
     return name
+
+
+async def can_view_bound_event(user=None) -> bool:
+    """Whether the viewer may open the event this page is bound to.
+
+    A draft is staff's until it goes live (phase 4 adds its own role holders).
+    ``user`` is loaded from the session when not passed; only a draft needs it.
+    """
+    tenant_id = get_current_tenant_id()
+    if tenant_id is None:
+        return True
+    event = await EventService.ref(tenant_id, get_current_event_id())
+    if event is None or not event.is_draft:
+        return True
+    if user is None:
+        user = await get_user_from_session(app.storage.user)
+    return await EventService.can_view(user, event)
 
 
 async def _run_in_tenant(tenant_id, coro, event_id=None) -> None:
@@ -288,6 +307,7 @@ def _tenant_page(
     feature: FeatureGate = None,
     telemetry_path: Optional[str] = None,
     require_auth: bool = True,
+    scope: PageScope = 'event',
     **page_kwargs,
 ):
     """Shared implementation of :func:`protected_page` and :func:`public_page`.
@@ -314,6 +334,13 @@ def _tenant_page(
 
         @functools.wraps(func)
         async def wrapper(*args, **kwargs):
+            # A bare link to an event page lands on the default event's /e/
+            # form first, so the address names the event the page shows.
+            if scope == 'event':
+                redirect = await default_event_redirect(page_request())
+                if redirect is not None:
+                    return redirect
+
             # Capture engagement telemetry for every page load, gated or not,
             # before any auth short-circuit. On a public page the visitor may be
             # anonymous, and the row is then attributed to the browser session
@@ -374,6 +401,13 @@ def _tenant_page(
                 if await enforce_membership(tid, user, is_super_admin=is_super_admin):
                     return
 
+            # A draft event is invisible, like an unknown one, to anyone who
+            # can't open it yet.
+            if not await can_view_bound_event(user if require_auth else None):
+                from theme.error_page import render_not_found
+                await render_not_found(user=user)
+                return
+
             # Authorization for a *gated* page comes from the user's tenant-scoped
             # roles / tournament-admin membership / super-admin — all evaluated in
             # this tenant's context, so a role in another tenant grants nothing
@@ -418,6 +452,7 @@ def protected_page(
     allow_tournament_membership: bool = False,
     feature: FeatureGate = None,
     telemetry_path: Optional[str] = None,
+    scope: PageScope = 'event',
     **page_kwargs,
 ):
     """Register a NiceGUI page that requires authentication and optional roles.
@@ -437,6 +472,12 @@ def protected_page(
         telemetry_path: Page-view path recorded for engagement telemetry. Lets
             sibling routes that render the same page (e.g. ``/admin`` and
             ``/admin/{section}``) report under one stable path.
+        scope: ``'event'`` (the default) for a page that shows one event: a
+            bare link redirects to the default event's ``/e/`` path.
+            ``'row'`` for a page about one row, which redirects to its row's
+            event itself (``middleware.event_routing.row_event_redirect``).
+            ``'community'`` for a page that belongs to the whole community and
+            never redirects.
     """
     return _tenant_page(
         path,
@@ -445,6 +486,7 @@ def protected_page(
         feature=feature,
         telemetry_path=telemetry_path,
         require_auth=True,
+        scope=scope,
         **page_kwargs,
     )
 
@@ -454,6 +496,7 @@ def public_page(
     *,
     feature: Optional[FeatureFlag] = None,
     telemetry_path: Optional[str] = None,
+    scope: PageScope = 'event',
     **page_kwargs,
 ):
     """Register a tenant page that renders for signed-out visitors.
@@ -475,6 +518,7 @@ def public_page(
         feature=feature,
         telemetry_path=telemetry_path,
         require_auth=False,
+        scope=scope,
         **page_kwargs,
     )
 

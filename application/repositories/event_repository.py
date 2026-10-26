@@ -1,19 +1,20 @@
 """Event Repository: data access for :class:`~models.Event`.
 
 Events are tenant-scoped like everything a community owns: reads go through
-``scoped(...)``. Two lookups take the tenant explicitly because they run before
-or outside any tenant context: the default-event resolution the page middleware
-does right after resolving the tenant, and creating a community's first event
-from ``/platform``.
+``scoped(...)``. Some lookups take the tenant explicitly because they run before
+or outside any tenant context: the page middleware resolving the event a URL
+names, and creating a community's first event from ``/platform``.
 """
 
 from collections import defaultdict
-from datetime import date
-from typing import Dict, Iterable, List, Optional, Set
+from datetime import date, datetime
+from typing import Any, Dict, Iterable, List, Optional, Set
+
+from tortoise.functions import Count
 
 from application.repositories._base import TenantScopedRepository
-from application.repositories._tenant import scoped
-from models import Event, EventStatus
+from application.repositories._tenant import current_tenant_id, scoped
+from models import Event, EventStatus, Match, RaceRoomStatus, RacetimeRoom, Tournament, VolunteerShift
 
 
 class EventRepository(TenantScopedRepository[Event]):
@@ -24,8 +25,24 @@ class EventRepository(TenantScopedRepository[Event]):
         return await scoped(Event.all()).order_by('-is_default', '-starts_on', 'name')
 
     @staticmethod
+    async def list_for_tenant(tenant_id: int) -> List[Event]:
+        """Every event of ``tenant_id``. Explicit tenant: the page middleware resolves events before any scope."""
+        return await Event.filter(tenant_id=tenant_id).order_by('id')
+
+    @staticmethod
     async def get_by_slug(slug: str) -> Optional[Event]:
         return await scoped(Event.filter(slug=slug)).first()
+
+    @staticmethod
+    async def get_in_tenant(event_id: int) -> Optional[Event]:
+        return await scoped(Event.filter(id=event_id)).first()
+
+    @staticmethod
+    async def slug_taken(slug: str, *, exclude_id: Optional[int] = None) -> bool:
+        qs = scoped(Event.filter(slug=slug))
+        if exclude_id is not None:
+            qs = qs.filter(id__not=exclude_id)
+        return await qs.exists()
 
     @staticmethod
     async def default_id_for_tenant(tenant_id: int) -> Optional[int]:
@@ -80,3 +97,45 @@ class EventRepository(TenantScopedRepository[Event]):
             tenant_id=tenant_id, name=name, slug=slug, status=status,
             is_default=is_default, starts_on=starts_on, ends_on=ends_on,
         )
+
+    @classmethod
+    async def create(cls, **fields: Any) -> Event:
+        return await Event.create(tenant_id=current_tenant_id(), **fields)
+
+    @staticmethod
+    async def clear_default() -> None:
+        await scoped(Event.filter(is_default=True)).update(is_default=False)
+
+    @staticmethod
+    async def tournament_counts() -> Dict[int, int]:
+        rows = await scoped(Tournament.all()).annotate(n=Count('id')).group_by('event_id').values_list('event_id', 'n')
+        return {event_id: n for event_id, n in rows}
+
+    @staticmethod
+    async def match_counts() -> Dict[int, int]:
+        rows = await scoped(Match.all()).annotate(n=Count('id')).group_by('event_id').values_list('event_id', 'n')
+        return {event_id: n for event_id, n in rows}
+
+    @staticmethod
+    async def match_event_id(match_id: int) -> Optional[int]:
+        ids = await scoped(Match.filter(id=match_id)).values_list('event_id', flat=True)
+        return ids[0] if ids else None  # type: ignore[return-value]
+
+    @staticmethod
+    async def has_matches(event_id: int) -> bool:
+        return await scoped(Match.filter(event_id=event_id)).exists()
+
+    @staticmethod
+    async def open_matches(event_id: int) -> int:
+        """Matches not yet finished: live ones and those still to be played."""
+        return await scoped(Match.filter(event_id=event_id, finished_at__isnull=True)).count()
+
+    @staticmethod
+    async def future_shifts(event_id: int, now: datetime) -> int:
+        return await scoped(VolunteerShift.filter(event_id=event_id, ends_at__gt=now)).count()
+
+    @staticmethod
+    async def open_race_rooms(event_id: int) -> int:
+        return await scoped(RacetimeRoom.filter(
+            match__event_id=event_id, status__in=(RaceRoomStatus.OPEN, RaceRoomStatus.IN_PROGRESS),
+        )).count()

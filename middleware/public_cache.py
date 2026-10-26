@@ -26,9 +26,10 @@ import re
 
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
-# The static spectator routes, with or without a ``/t/<slug>`` tenant prefix.
+# The static spectator routes, with or without a ``/t/<slug>`` tenant prefix
+# and an ``/e/<slug>`` event prefix.
 _PUBLIC_CACHEABLE = re.compile(
-    r'^(?:/t/[a-z0-9][a-z0-9-]*)?/live'
+    r'^(?:/t/[a-z0-9][a-z0-9-]*)?(?:/e/[a-z0-9][a-z0-9-]*)?/live'
     r'(?:/brackets/\d+|/tournament/\d+/brackets|/static)?/?$'
 )
 

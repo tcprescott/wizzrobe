@@ -4,7 +4,6 @@ import pytest
 
 from application.event_context import event_scope
 from application.repositories._event import event_scoped
-from application.services import event_service
 from application.services.event_service import EventService
 from application.services.tenant_service import TenantService
 from application.tenant_context import tenant_scope
@@ -28,13 +27,12 @@ async def test_default_event_id_is_none_without_events(bare_tenant_create):
     assert await EventService.default_event_id(tenant.id) is None
 
 
-async def test_default_event_id_is_cached_until_a_write(bare_tenant_create):
+async def test_default_event_id_is_cached_until_an_event_is_written(bare_tenant_create):
     tenant = await bare_tenant_create(name='Later', slug='later')
     assert await EventService.default_event_id(tenant.id) is None
+    # Even a row written behind the service's back drops the cache: the model's
+    # save signal clears it, so a script or migration helper can't leave it stale.
     await Event.create(tenant_id=tenant.id, name='Raw', slug='raw', is_default=True)
-    # A row written behind the service's back isn't seen until the cache drops.
-    assert await EventService.default_event_id(tenant.id) is None
-    event_service._clear_cache()
     assert await EventService.default_event_id(tenant.id) is not None
 
 
