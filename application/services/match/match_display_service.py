@@ -578,7 +578,7 @@ class MatchDisplayService:
                     'id': c.id,
                     # The commentator who invited them, while that one's still on.
                     'invited_by_id': getattr(c, 'invited_by_id', None),
-                    'with': next((o.user.preferred_name for o in match.commentators
+                    'with': next((o.user.preferred_name for o in match.commentators  # type: ignore[attr-defined]
                                   if getattr(c, 'invited_by_id', None) and o.user_id == c.invited_by_id), ''),
                 }
                 for c in match.commentators

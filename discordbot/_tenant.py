@@ -35,4 +35,4 @@ async def reschedule_request_tenant_id(request_id: int) -> Optional[int]:
 
 async def commentary_invite_tenant_id(invite_id: int) -> Optional[int]:
     invite = await CommentaryInvite.get_or_none(id=invite_id)
-    return invite.tenant_id if invite else None  # type: ignore[attr-defined]
+    return invite.tenant_id if invite else None

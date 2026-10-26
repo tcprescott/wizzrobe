@@ -265,7 +265,7 @@ class MatchTableHandlersMixin:
         if not user:
             ui.notify('You must be logged in to invite a partner.', color='warning')
             return
-        await open_partner_invite_dialog(row, user, lambda: self.update_row_by_id(row['id']))
+        await open_partner_invite_dialog(row, user, lambda: self.update_row_by_id(row['id']))  # type: ignore[attr-defined]
 
     async def _handle_cancel_partner_invite(self, args) -> None:
         from application.services import CommentaryInviteService
@@ -282,7 +282,7 @@ class MatchTableHandlersMixin:
                 ui.notify(str(e), color='warning')
                 return
             ui.notify(f"Invite to {invite.get('invitee')} cancelled.", color='positive')
-            await self.update_row_by_id(row['id'])
+            await self.update_row_by_id(row['id'])  # type: ignore[attr-defined]
 
         ConfirmationDialog(
             f"Cancel your invite to {invite.get('invitee')}? Their DM will say you took it back.",

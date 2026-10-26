@@ -237,9 +237,10 @@ class Commentator(Model):
     # Who brought them on as a partner, when they joined through a pair
     # invite. Staff still approve each commentator on their own; this only
     # lets the boards say who they came with.
-    invited_by = fields.ForeignKeyField(
+    invited_by: fields.ForeignKeyNullableRelation = fields.ForeignKeyField(
         'models.User', related_name='invited_commentaries', null=True, on_delete=fields.SET_NULL
     )
+    invited_by_id: int | None
     created_at = fields.DatetimeField(auto_now_add=True)
     updated_at = fields.DatetimeField(auto_now=True)
 
@@ -261,15 +262,19 @@ class CommentaryInvite(Model):
     tenant: fields.ForeignKeyRelation = fields.ForeignKeyField(
         'models.Tenant', related_name='commentary_invites', on_delete=fields.CASCADE
     )
+    tenant_id: int
     match: fields.ForeignKeyRelation = fields.ForeignKeyField(
         'models.Match', related_name='commentary_invites', on_delete=fields.CASCADE
     )
+    match_id: int
     inviter: fields.ForeignKeyRelation = fields.ForeignKeyField(
         'models.User', related_name='commentary_invites_sent', on_delete=fields.CASCADE
     )
+    inviter_id: int
     invitee: fields.ForeignKeyRelation = fields.ForeignKeyField(
         'models.User', related_name='commentary_invites_received', on_delete=fields.CASCADE
     )
+    invitee_id: int
     status = fields.CharEnumField(
         CommentaryInviteStatus, default=CommentaryInviteStatus.PENDING, max_length=16
     )

@@ -73,14 +73,15 @@ class CommentaryInviteService:
             await self.match_repository.get_by_id(match_id, prefetch_relations=True), f'Match {match_id}',
         )
         self._check_open(match)
+        commentators = list(match.commentators)  # type: ignore[attr-defined]
         if not pairs_commentary(match):
             raise ValueError('This match only needs one commentator, so there is no partner to invite.')
-        if not any(c.user_id == inviter.id for c in match.commentators):
+        if not any(c.user_id == inviter.id for c in commentators):
             raise ValueError('Sign up as commentator first, then invite your partner.')
         if await self.repository.pending_for_inviter(match.id, inviter.id) or any(
-                c.invited_by_id == inviter.id for c in match.commentators):
+                c.invited_by_id == inviter.id for c in commentators):
             raise ValueError("You've already invited a partner for this match.")
-        if len(match.commentators) >= match.tournament.required_commentators:
+        if len(commentators) >= match.tournament.required_commentators:
             raise ValueError('Commentary is already full for this match.')
 
         invitee = await UserService().get_user_by_id(int(invitee_id))
@@ -88,9 +89,9 @@ class CommentaryInviteService:
             raise ValueError("That person isn't a member of this community.")
         if invitee.id == inviter.id:
             raise ValueError("You can't invite yourself.")
-        if any(c.user_id == invitee.id for c in match.commentators):
+        if any(c.user_id == invitee.id for c in commentators):
             raise ValueError(f'{invitee.preferred_name} is already signed up to commentate this match.')
-        if any(p.user_id == invitee.id for p in await self.match_repository.get_players(match)):
+        if any(p.user_id == invitee.id for p in await self.match_repository.get_players(match)):  # type: ignore[attr-defined]
             raise ValueError(f"{invitee.preferred_name} is playing in this match.")
         if await self.repository.pending_for_pair(match.id, invitee.id):
             raise ValueError(f'{invitee.preferred_name} already has an invite for this match.')
@@ -176,8 +177,8 @@ class CommentaryInviteService:
         match = require_found(
             await self.match_repository.get_by_id(match_id, prefetch_relations=True), f'Match {match_id}',
         )
-        taken = {inviter.id} | {c.user_id for c in match.commentators}
-        taken |= {p.user_id for p in await self.match_repository.get_players(match)}
+        taken = {inviter.id} | {c.user_id for c in match.commentators}  # type: ignore[attr-defined]
+        taken |= {p.user_id for p in await self.match_repository.get_players(match)}  # type: ignore[attr-defined]
         members = await TenantMembershipService().list_members()
         return {
             m.id: m.preferred_name
