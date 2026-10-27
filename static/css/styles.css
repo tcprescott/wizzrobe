@@ -9726,3 +9726,28 @@ ol.wiz-help-list { list-style-type: decimal; }
 .wiz-agree-l3 { background: var(--border-subtle); }
 .wiz-agree-l4 { background: color-mix(in srgb, var(--status-ok) 45%, var(--surface)); }
 .wiz-agree-l5 { background: var(--status-ok); }
+
+/* Survey choice extras, long answers, section descriptions and drag order
+   (theme/survey_form.py, pages/admin_tabs/admin_surveys/; Thomas's picks 2026-10-27). */
+.wiz-survey-question__hint { font-size: var(--text-sm); color: var(--fg-secondary); }
+.wiz-survey-error { font-size: var(--text-sm); font-weight: 600; color: var(--status-cancelled); }
+.wiz-survey-or { font-size: var(--text-sm); color: var(--fg-secondary); margin: 4px 0 0 2px; }
+.wiz-survey-none-hint { margin-left: 40px; }
+.wiz-survey-other { padding-left: 40px; }
+.wiz-survey-long textarea { min-height: 9rem; }
+.wiz-survey-count { font-size: var(--text-sm); color: var(--fg-secondary); }
+.wiz-survey-count--over { color: var(--status-cancelled); font-weight: 600; }
+.wiz-survey-sheet__description,
+.wiz-survey-section__description { font-size: var(--text-sm); color: var(--fg-secondary); white-space: pre-line; }
+.wiz-survey-section__description { padding: 0 16px 8px; }
+.wiz-survey-extras__sub { margin-left: 48px; }
+.wiz-survey-qlist > .wiz-survey-q:first-child { border-top: 0; }
+.wiz-survey-drag { color: var(--fg-secondary); cursor: grab; touch-action: none; font-size: 20px; flex: none; }
+.wiz-survey-q.is-lifted {
+  position: relative; z-index: 5; background: var(--surface);
+  border: 1px solid var(--accent); border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, .18); pointer-events: none;
+}
+.wiz-survey-slot { align-self: stretch; box-sizing: border-box; margin: 2px 8px; border: 2px dashed var(--accent); border-radius: 8px; background: var(--accent-soft); }
+body.wiz-survey-dragging, body.wiz-survey-dragging * { cursor: grabbing !important; user-select: none; }
+.wiz-survey-bar--apart { border-top: 1px dashed var(--border-subtle); padding-top: 4px; margin-top: 2px; }

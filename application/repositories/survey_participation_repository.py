@@ -23,6 +23,9 @@ from models import (
     VolunteerAssignment,
 )
 
+# Crew role (as stored in a recipient's ``crew_roles`` fact) → the table of approvals for it.
+CREW_ROLES = {'commentary': Commentator, 'tracking': Tracker, 'broadcast': Broadcaster}
+
 
 class SurveyParticipationRepository:
     """Bulk reads of one event's participation, keyed by user id."""
@@ -50,16 +53,21 @@ class SurveyParticipationRepository:
         )
 
     @staticmethod
-    async def crew_user_ids(event_id: int) -> Set[int]:
-        """Everyone approved to commentate, track or broadcast a match in the event."""
-        match_ids = list(await event_scoped(Match.all(), event_id).values_list('id', flat=True))
+    async def crew_user_ids(event_id: int) -> Dict[str, Set[int]]:
+        """Per crew role, everyone approved for it on a match in the event that was on a stage.
+
+        Crew on a match that never got a stage didn't go on air, so they didn't
+        crew anything (Thomas, 2026-10-27).
+        """
+        match_ids = list(await event_scoped(Match.filter(stage_id__isnull=False), event_id)
+                         .values_list('id', flat=True))
+        roles: Dict[str, Set[int]] = {role: set() for role in CREW_ROLES}
         if not match_ids:
-            return set()
-        users: Set[int] = set()
-        for model in (Commentator, Tracker, Broadcaster):
-            users.update(await scoped(model.filter(match_id__in=match_ids, approved=True))  # type: ignore[arg-type]
-                         .values_list('user_id', flat=True))
-        return users
+            return roles
+        for role, model in CREW_ROLES.items():
+            roles[role] = set(await scoped(model.filter(match_id__in=match_ids, approved=True))  # type: ignore[arg-type]
+                              .values_list('user_id', flat=True))
+        return roles
 
     @staticmethod
     async def checked_in_user_ids(event_id: int) -> Set[int]:

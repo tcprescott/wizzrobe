@@ -5,13 +5,13 @@ a group under five answers shows only its count, so nobody in it can be picked
 out. Comments are what respondents typed, drawn as plain text.
 """
 
-from typing import Optional
+from typing import List, Optional
 
 from nicegui import ui
 
 from application.services import SurveyResults
 from application.services.survey import AGREE_LEVELS
-from application.services.survey.results import Breakdown, QuestionResult
+from application.services.survey.results import Breakdown, CommentRow, QuestionResult
 from models import SurveyQuestionKind
 from theme.empty_state import empty_panel
 
@@ -24,12 +24,17 @@ def _tile(label: str, value: str, caption: str = '') -> None:
             ui.label(caption).classes('wiz-survey-stat__caption')
 
 
-def _bars(result: Breakdown) -> None:
-    total = sum(result.counts.values()) or 1
+def _bars(result: Breakdown, *, per_person: bool = False, set_apart: Optional[str] = None) -> None:
+    """One bar per answer. A pick-many counts people (``per_person``), so its bars can total over 100%."""
+    total = (result.count if per_person else sum(result.counts.values())) or 1
     with ui.column().classes('wiz-survey-bars w-full gap-1'):
+        if per_person:
+            ui.label('% of people who answered, so the bars can add up to more than 100%.') \
+                .classes('wiz-survey-result__meta')
         for option, n in result.counts.items():
             share = n / total
-            with ui.row().classes('wiz-survey-bar no-wrap items-center w-full'):
+            apart = ' wiz-survey-bar--apart' if option == set_apart else ''
+            with ui.row().classes(f'wiz-survey-bar no-wrap items-center w-full{apart}'):
                 ui.label(option).classes('wiz-survey-bar__label')
                 ui.linear_progress(value=share, show_value=False, size='8px').classes('col') \
                     .props(f'rounded aria-label="{option}: {n}"')
@@ -56,6 +61,39 @@ def _agree(result: Breakdown) -> None:
                 .classes('wiz-survey-result__meta')
 
 
+SHOWN_COMMENTS = 50
+
+
+def _comments(comments: List[CommentRow], prompt: str) -> None:
+    """The answers people typed, newest first, as plain text, with a search over them."""
+    state = {'q': ''}
+
+    @ui.refreshable
+    def listing() -> None:
+        needle = state['q'].strip().lower()
+        found = [c for c in comments if needle in c.text.lower()] if needle else comments
+        if needle and not found:
+            ui.label(f'Nothing matches “{state["q"].strip()}”.').classes('wiz-survey-result__meta')
+        with ui.column().classes('wiz-survey-comments w-full gap-0'):
+            for comment in found[:SHOWN_COMMENTS]:
+                with ui.column().classes('wiz-survey-comment gap-0 w-full'):
+                    who = comment.who + (f' · {comment.group}' if comment.group and not
+                                         comment.who.startswith('Anonymous ·') else '')
+                    ui.label(who).classes('wiz-survey-comment__who')
+                    ui.label(comment.text).classes('wiz-survey-comment__text')
+            if len(found) > SHOWN_COMMENTS:
+                ui.label(f'and {len(found) - SHOWN_COMMENTS} more. Search to narrow them, '
+                         'or read them all over REST or MCP.').classes('wiz-survey-result__meta')
+
+    if len(comments) > 3:
+        # url-state: exempt — a filter inside one card, not a view
+        search = ui.input(placeholder='Search answers').props('dense outlined clearable') \
+            .classes('wiz-survey-comments__search w-full')
+        search._props['aria-label'] = f'Search answers to {prompt}'
+        search.on_value_change(lambda e: (state.update(q=e.value or ''), listing.refresh()))
+    listing()
+
+
 def _summary_line(result: Breakdown) -> str:
     bits = [f'{result.count} answer' + ('' if result.count == 1 else 's')]
     if result.average is not None:
@@ -73,21 +111,19 @@ def _question_card(result: QuestionResult) -> None:
         if result.kind is SurveyQuestionKind.COMMENT:
             if not result.comments:
                 ui.label('No comments yet.').classes('wiz-survey-result__meta')
-            with ui.column().classes('wiz-survey-comments w-full gap-0'):
-                for comment in result.comments[:50]:
-                    with ui.column().classes('wiz-survey-comment gap-0 w-full'):
-                        who = comment.who + (f' · {comment.group}' if comment.group and not
-                                             comment.who.startswith('Anonymous ·') else '')
-                        ui.label(who).classes('wiz-survey-comment__who')
-                        ui.label(comment.text).classes('wiz-survey-comment__text')
-                if len(result.comments) > 50:
-                    ui.label(f'and {len(result.comments) - 50} more. Read them all over REST or MCP.') \
-                        .classes('wiz-survey-result__meta')
+            else:
+                _comments(result.comments, result.prompt)
             return
         if result.kind is SurveyQuestionKind.AGREE_SCALE:
             _agree(result.overall)
         elif result.overall.count:
-            _bars(result.overall)
+            _bars(result.overall, per_person=result.kind is SurveyQuestionKind.CHOICE_MANY,
+                  set_apart=result.none_option)
+        if result.comments:
+            n = len(result.comments)
+            with ui.expansion(f'{n} “Other” write-in' + ('' if n == 1 else 's')).props('dense') \
+                    .classes('wiz-survey-writeins w-full'):
+                _comments(result.comments, result.prompt)
         if result.groups:
             with ui.column().classes('wiz-survey-groups w-full gap-1'):
                 for label, group in result.groups.items():

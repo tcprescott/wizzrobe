@@ -13,6 +13,7 @@ from collections import Counter, defaultdict
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Sequence
 
+from application.services.survey._validation import answer_values
 from models import SurveyAnswer, SurveyAudience, SurveyQuestion, SurveyQuestionKind, SurveyResponse
 
 MIN_GROUP = 5
@@ -51,7 +52,10 @@ class QuestionResult:
     kind: SurveyQuestionKind
     overall: Breakdown
     groups: Dict[str, Breakdown] = field(default_factory=dict)
+    #: A comment's answers, or a choice question's "Other" write-ins.
     comments: List[CommentRow] = field(default_factory=list)
+    #: A pick-many's exclusive "none" choice, drawn apart from the real ones.
+    none_option: Optional[str] = None
 
 
 def _options(question: SurveyQuestion) -> List[str]:
@@ -62,7 +66,7 @@ def _options(question: SurveyQuestion) -> List[str]:
         return [str(i) for i in range(11)]
     if kind is SurveyQuestionKind.YES_NO:
         return ['Yes', 'No']
-    return [str(o) for o in (question.options or [])]
+    return [str(o) for o in answer_values(question)]
 
 
 def _label(value: Any, kind: SurveyQuestionKind) -> List[str]:
@@ -151,6 +155,7 @@ def summarize(
         result = QuestionResult(
             question_id=question.id, section_id=question.section_id,
             section_title=section.title if section else '', prompt=question.prompt, kind=question.kind,
+            none_option=question.none_option,
             overall=breakdown(question, [a.value for a in rows if a.value is not None]),
         )
         if question.kind is SurveyQuestionKind.COMMENT:
@@ -164,7 +169,8 @@ def summarize(
                 label: breakdown(question, values, protect=True)
                 for label, values in sorted(per_scope.items(), key=lambda kv: kv[0].lower())
             }
-        if question.kind is SurveyQuestionKind.COMMENT:
+        # A comment's text, or the "Other" write-ins of a choice question.
+        if question.kind is SurveyQuestionKind.COMMENT or question.other_option:
             for a in sorted(rows, key=lambda a: -a.response_id):
                 response = response_by_id.get(a.response_id)
                 if response is None or not (a.text or '').strip():

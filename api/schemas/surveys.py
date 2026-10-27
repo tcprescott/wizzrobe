@@ -23,6 +23,13 @@ _CONDITIONS_DOC = (
     "Conditions the respondent must all meet to see it (no OR); see `GET /surveys/conditions`. "
     "A question takes up to 3, a section 1."
 )
+_OTHER_DOC = (
+    "`choice_one`/`choice_many`: adds an `Other` choice with a write-in. The write-in comes back as the answer's `text`."
+)
+_NONE_DOC = "`choice_many` only: the label of an exclusive \"none\" choice, listed last. It can't be picked with anything else."
+_PICKS_DOC = "`choice_many` only: the fewest / most choices a respondent may pick (\"none\" aside). Null for no limit."
+_LONG_DOC = "`comment` only: a tall box taking up to 3000 characters instead of 1000."
+_DESCRIPTION_DOC = "One or two plain-text lines under the section title (up to 240 characters)."
 
 
 class SurveyQuestionResponse(BaseModel):
@@ -31,6 +38,11 @@ class SurveyQuestionResponse(BaseModel):
     kind: str = Field(..., description="`rating` (1-5), `nps` (0-10), `yes_no`, `choice_one`, `choice_many`, `comment` or `agree_scale` (each statement Strongly disagree 1 to Strongly agree 5).")
     options: Optional[List[str]] = Field(None, description="The choices of a `choice_one` or `choice_many` question, or the statements of an `agree_scale`.")
     required: bool = Field(..., description="Whether it must be answered before sending.")
+    other_option: bool = Field(False, description=_OTHER_DOC)
+    none_option: Optional[str] = Field(None, description=_NONE_DOC)
+    min_picks: Optional[int] = Field(None, description=_PICKS_DOC)
+    max_picks: Optional[int] = Field(None, description=_PICKS_DOC)
+    long_answer: bool = Field(False, description=_LONG_DOC)
     position: int = Field(..., description="Order inside its section, from 0.")
     conditions: List[SurveyConditionModel] = Field(default_factory=list, description=_CONDITIONS_DOC)
 
@@ -38,6 +50,7 @@ class SurveyQuestionResponse(BaseModel):
 class SurveySectionResponse(BaseModel):
     id: int = Field(..., description="Section ID.")
     title: str = Field(..., description="Section title.")
+    description: Optional[str] = Field(None, description=_DESCRIPTION_DOC)
     audience: str = Field(..., description="Who sees it: `everyone`, `each_tournament`, `each_position`, `crew` or `checked_in`.")
     position: int = Field(..., description="Order in the survey, from 0.")
     conditions: List[SurveyConditionModel] = Field(default_factory=list, description=_CONDITIONS_DOC)
@@ -104,8 +117,10 @@ class SurveyAnswerResponse(BaseModel):
     question_id: int
     scope: str = Field(..., description="`t:<tournament id>` or `p:<position id>` for a repeating section, else empty.")
     scope_label: str = Field(..., description="The tournament or position name the answer is about.")
-    value: Any = Field(None, description="The number, choice or list of choices.")
-    text: Optional[str] = Field(None, description="A comment's text. Plain text: never render it as markup.")
+    value: Any = Field(None, description="The number, choice or list of choices; an agree scale's {statement: 1-5}.")
+    text: Optional[str] = Field(
+        None, description="A comment's text, or the write-in of an `Other` answer. Plain text: never render it as markup.",
+    )
 
 
 class SubmittedResponse(BaseModel):
@@ -139,12 +154,14 @@ class SurveyUpdateRequest(BaseModel):
 
 class SectionRequest(BaseModel):
     title: str = Field(..., max_length=120)
+    description: Optional[str] = Field(None, max_length=240, description=_DESCRIPTION_DOC)
     audience: SurveyAudience = SurveyAudience.EVERYONE
     conditions: Optional[List[SurveyConditionModel]] = Field(None, description=_CONDITIONS_DOC)
 
 
 class SectionUpdateRequest(BaseModel):
     title: Optional[str] = Field(None, max_length=120)
+    description: Optional[str] = Field(None, max_length=240, description=_DESCRIPTION_DOC)
     audience: Optional[SurveyAudience] = None
     conditions: Optional[List[SurveyConditionModel]] = Field(None, description="Send `[]` to clear them.")
 
@@ -158,7 +175,15 @@ class QuestionRequest(BaseModel):
     kind: SurveyQuestionKind
     options: Optional[List[str]] = Field(None, description="2 to 10 choices, for `choice_one` and `choice_many`; 2 to 10 statements for `agree_scale`.")
     required: bool = False
+    other_option: bool = Field(False, description=_OTHER_DOC)
+    none_option: Optional[str] = Field(None, max_length=60, description=_NONE_DOC)
+    min_picks: Optional[int] = Field(None, ge=1, description=_PICKS_DOC)
+    max_picks: Optional[int] = Field(None, ge=1, description=_PICKS_DOC)
+    long_answer: bool = Field(False, description=_LONG_DOC)
     conditions: Optional[List[SurveyConditionModel]] = Field(None, description=_CONDITIONS_DOC)
+
+    def extras(self) -> Dict[str, Any]:
+        return self.model_dump(include={'other_option', 'none_option', 'min_picks', 'max_picks', 'long_answer'})
 
 
 class QuestionUpdateRequest(BaseModel):
@@ -166,6 +191,11 @@ class QuestionUpdateRequest(BaseModel):
     kind: Optional[SurveyQuestionKind] = None
     options: Optional[List[str]] = None
     required: Optional[bool] = None
+    other_option: Optional[bool] = Field(None, description=_OTHER_DOC)
+    none_option: Optional[str] = Field(None, max_length=60, description=_NONE_DOC + " Send `\"\"` to remove it.")
+    min_picks: Optional[int] = Field(None, ge=0, description=_PICKS_DOC + " Send 0 to remove it.")
+    max_picks: Optional[int] = Field(None, ge=0, description=_PICKS_DOC + " Send 0 to remove it.")
+    long_answer: Optional[bool] = Field(None, description=_LONG_DOC)
     conditions: Optional[List[SurveyConditionModel]] = Field(None, description="Send `[]` to always show it.")
 
 
@@ -183,13 +213,14 @@ def conditions_in(entries: Optional[List[SurveyConditionModel]]) -> Optional[Lis
 def question_out(q: SurveyQuestion) -> SurveyQuestionResponse:
     return SurveyQuestionResponse(
         id=q.id, prompt=q.prompt, kind=q.kind.value, options=q.options, required=q.required,
-        position=q.position, conditions=conditions_out(q.conditions),
+        other_option=q.other_option, none_option=q.none_option, min_picks=q.min_picks, max_picks=q.max_picks,
+        long_answer=q.long_answer, position=q.position, conditions=conditions_out(q.conditions),
     )
 
 
 def section_out(s: SurveySection) -> SurveySectionResponse:
     return SurveySectionResponse(
-        id=s.id, title=s.title, audience=s.audience.value, position=s.position,
+        id=s.id, title=s.title, description=s.description, audience=s.audience.value, position=s.position,
         conditions=conditions_out(s.conditions), questions=[question_out(q) for q in s.questions],
     )
 

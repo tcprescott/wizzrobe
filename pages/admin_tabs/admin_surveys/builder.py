@@ -52,6 +52,14 @@ async def _run(ctx: BuilderContext, coro) -> None:
     await ctx.reload()
 
 
+async def _dropped(ctx: BuilderContext, drop: dict) -> None:
+    try:
+        question, section, index = int(drop['question']), int(drop['section']), int(drop['index'])
+    except (KeyError, TypeError, ValueError):
+        return
+    await _run(ctx, ctx.service.place_question(ctx.user, question, section, index))
+
+
 async def _reload(ctx: BuilderContext, _=None) -> None:
     await ctx.reload()
 
@@ -65,7 +73,11 @@ def _condition_chips(entries, prompts: Dict[int, str]) -> None:
 
 def _question_row(ctx: BuilderContext, section: SurveySection, question: SurveyQuestion,
                   prompts: Dict[int, str], first: bool, last: bool) -> None:
-    with ui.row().classes('wiz-survey-q no-wrap items-center w-full'):
+    with ui.row().classes('wiz-survey-q no-wrap items-center w-full').props(f'data-qid={question.id}'):
+        if ctx.editable:
+            # static/js/survey-drag.js; the ⋮ menu's Move up/down is the keyboard path.
+            ui.icon('drag_indicator').classes('wiz-survey-drag').props('aria-hidden=true') \
+                .tooltip('Drag to move')
         ui.icon(KIND_ICONS[question.kind]).classes('wiz-survey-q__icon').props('aria-hidden=true')
         with ui.row().classes('wiz-survey-q__text col min-w-0 items-center gap-2'):
             ui.label(question.prompt).classes('wiz-survey-q__prompt')
@@ -117,11 +129,14 @@ def _section_card(ctx: BuilderContext, section: SurveySection, prompts: Dict[int
                         title='Delete section', confirm_text='Delete',
                         on_confirm=lambda: _run(ctx, ctx.service.delete_section(ctx.user, section.id)),
                     ).open(), negative=True)
+        if section.description:
+            ui.label(section.description).classes('wiz-survey-section__description')
         questions = list(section.questions)
-        if not questions:
-            ui.label('No questions yet.').classes('wiz-survey-section__empty')
-        for i, question in enumerate(questions):
-            _question_row(ctx, section, question, prompts, i == 0, i == len(questions) - 1)
+        with ui.column().classes('wiz-survey-qlist w-full gap-0').props(f'data-section={section.id}'):
+            if not questions:
+                ui.label('No questions yet.').classes('wiz-survey-section__empty')
+            for i, question in enumerate(questions):
+                _question_row(ctx, section, question, prompts, i == 0, i == len(questions) - 1)
         batch = ctx.suggestions.get(section.id) if ctx.editable else None
         if batch is not None:
             _suggested_rows(ctx, section, batch)
@@ -208,7 +223,9 @@ def _budget_card(ctx: BuilderContext) -> None:
 def _who_card(ctx: BuilderContext) -> None:
     counts = ctx.summary.counts
     rows = [('Players', counts.get('players', 0)), ('Volunteers', counts.get('volunteers', 0)),
-            ('Crew', counts.get('crew', 0)), ('Checked in only', counts.get('checked_in_only', 0))]
+            ('Commentators', counts.get('crew_commentary', 0)), ('Trackers', counts.get('crew_tracking', 0)),
+            ('Broadcast crew', counts.get('crew_broadcast', 0)),
+            ('Checked in only', counts.get('checked_in_only', 0))]
     top = max([n for _, n in rows] + [1])
     with ui.element('section').classes('wiz-survey-side'):
         ui.label('Who gets it').classes('wiz-survey-side__title')
@@ -232,7 +249,10 @@ def render_builder(ctx: BuilderContext) -> None:
     survey = ctx.survey
     prompts = _prompts(survey)
     sections = list(survey.sections)
-    with ui.element('div').classes('wiz-survey-builder w-full'):
+    builder = ui.element('div').classes('wiz-survey-builder w-full')
+    if ctx.editable:
+        builder.on('survey-drop', lambda e: _dropped(ctx, (e.args or {}).get('detail') or {}), args=['detail'])
+    with builder:
         with ui.column().classes('wiz-survey-builder__main gap-3'):
             if survey.intro:
                 ui.label(survey.intro).classes('wiz-survey-builder__intro')

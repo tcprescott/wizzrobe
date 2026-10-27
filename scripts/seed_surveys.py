@@ -41,7 +41,11 @@ A = SurveyAudience
 _AGREE_STATEMENTS = ('The schedule ran on time', 'Staff answered my questions quickly',
                      'I knew where my station was')
 
-# (section title, audience, [(prompt, kind, options, condition)])
+_DESCRIPTIONS = {
+    'Your tournaments': "About the tournament room and your matches. Skip anything you didn't use.",
+}
+
+# (section title, audience, [(prompt, kind, options, condition[, extras])])
 _SECTIONS = [
     ('The event', A.EVERYONE, [
         ('Overall, how was the event?', K.RATING, None, None),
@@ -49,6 +53,8 @@ _SECTIONS = [
         ('Will you come back next year?', K.CHOICE_ONE, ['Yes', 'Maybe', 'No'], None),
     ]),
     ('Your tournaments', A.EACH_TOURNAMENT, [
+        ('How did you hear about the tournament?', K.CHOICE_ONE, ['Discord', 'Twitter / Bluesky', 'A friend'],
+         None, {'other_option': True}),
         ('How was the tournament room?', K.RATING, None, 'tournament_room'),
         ('How was playing on stage?', K.RATING, None, 'on_stage'),
         ('Did your matches start on time?', K.CHOICE_ONE, ['Yes', 'Mostly', 'No'], None),
@@ -57,16 +63,26 @@ _SECTIONS = [
     ]),
     ('Volunteering', A.EACH_POSITION, [
         ('Did you have what you needed on shift?', K.YES_NO, None, None),
-        ('What helped most?', K.CHOICE_MANY, ['Briefing', 'Radio', 'Snacks', 'Shift length'], None),
+        ('What helped most?', K.CHOICE_MANY, ['Briefing', 'Radio', 'Snacks', 'Shift length'], None,
+         {'other_option': True, 'none_option': 'None of these helped', 'max_picks': 2}),
     ]),
     ('Match crew', A.CREW, [
         ('How smooth was the crew signup?', K.RATING, None, None),
+    ]),
+    ('On commentary', A.COMMENTATORS, [
+        ('Could you hear the game audio clearly?', K.YES_NO, None, None),
+    ]),
+    ('On tracking', A.TRACKERS, [
+        ('Was the tracker layout readable?', K.RATING, None, None),
+    ]),
+    ('On broadcast', A.BROADCASTERS, [
+        ('How was the stage handover between matches?', K.RATING, None, None),
     ]),
     ('Check-in', A.CHECKED_IN, [
         ('Was check-in quick?', K.YES_NO, None, None),
     ]),
     ('Anything else?', A.EVERYONE, [
-        ('Anything else you want to tell us?', K.COMMENT, None, None),
+        ('Anything else you want to tell us?', K.COMMENT, None, None, {'long_answer': True}),
     ]),
 ]
 
@@ -75,11 +91,12 @@ async def _build(tenant: Tenant, survey: Survey) -> dict[str, SurveyQuestion]:
     questions: dict[str, SurveyQuestion] = {}
     for s_pos, (title, audience, rows) in enumerate(_SECTIONS):
         section = await SurveySection.create(tenant=tenant, survey=survey, title=title, audience=audience,
-                                             position=s_pos)
-        for q_pos, (prompt, kind, options, condition) in enumerate(rows):
+                                             position=s_pos, description=_DESCRIPTIONS.get(title))
+        for q_pos, (prompt, kind, options, condition, *extras) in enumerate(rows):
             questions[prompt] = await SurveyQuestion.create(
                 tenant=tenant, section=section, prompt=prompt, kind=kind, options=options,
                 conditions=[{'key': condition}] if condition else None, position=q_pos,
+                **(extras[0] if extras else {}),
             )
     come_back = questions['Will you come back next year?']
     section = await SurveySection.get(id=come_back.section_id)
@@ -114,15 +131,16 @@ def _facts(tournament: Tournament | None, position: VolunteerPosition | None, *,
     return {
         'tournaments': tournaments,
         'positions': [{'id': position.id, 'name': position.name, 'shifts': 3}] if position else [],
-        'crew': crew, 'checked_in': True, 'conditions': conditions,
+        'crew': crew, 'crew_roles': ['commentary'] if crew else [], 'checked_in': True, 'conditions': conditions,
     }
 
 
 async def _answer(tenant: Tenant, response: SurveyResponse, question: SurveyQuestion, value, *,
-                  scope: str = '', label: str = '') -> None:
-    text = value if question.kind is K.COMMENT else None
+                  scope: str = '', label: str = '', other: str | None = None) -> None:
+    comment = question.kind is K.COMMENT
     await SurveyAnswer.create(tenant=tenant, response=response, question=question, scope=scope,
-                              scope_label=label, data=None if text else {'v': value}, text=text)
+                              scope_label=label, data=None if comment else {'v': value},
+                              text=value if comment else other)
 
 
 async def _seed_ai(tenant: Tenant, staff: User, draft: Survey) -> None:
@@ -199,6 +217,9 @@ async def seed_surveys_for_tenant(tenant: Tenant, users: dict[str, User]) -> Non
             if facts['tournaments']:
                 await _answer(tenant, response, q['How was the tournament room?'], 5, scope=scope, label=label)
                 await _answer(tenant, response, q['Did your matches start on time?'], 'Mostly', scope=scope, label=label)
+                await _answer(tenant, response, q['How did you hear about the tournament?'],
+                              'Other' if anonymous else 'Discord', scope=scope, label=label,
+                              other='A friend at the venue' if anonymous else None)
                 await _answer(tenant, response, q['How much do you agree?'],
                               dict(zip(_AGREE_STATEMENTS, (4, 5, 2) if not anonymous else (2, 4, 3), strict=True)),
                               scope=scope, label=label)

@@ -153,6 +153,10 @@ def section_dialog(service: SurveyService, user: User, survey: Survey, section: 
         with ui.column().classes('w-full gap-2'):
             title = ui.input('Title', value=section.title if section else '') \
                 .props('outlined dense maxlength=120').classes('w-full')
+            description = ui.textarea('Description (optional)', value=(section.description or '') if section else '') \
+                .props('outlined autogrow maxlength=240 rows=2').classes('w-full')
+            ui.label('A line or two under the title, saying what the part is about.') \
+                .classes('text-caption text-grey-7')
             audience = ui.select(
                 {a.value: AUDIENCE_CHIPS[a] for a in SurveyAudience},
                 value=(section.audience if section else SurveyAudience.EVERYONE).value, label='Who sees it',
@@ -170,10 +174,11 @@ def section_dialog(service: SurveyService, user: User, survey: Survey, section: 
             try:
                 if section is None:
                     await service.add_section(user, survey.id, title.value or '', SurveyAudience(audience.value),
-                                              conditions=editor.value)
+                                              conditions=editor.value, description=description.value)
                 else:
                     await service.update_section(user, section.id, title=title.value or '',
-                                                 audience=SurveyAudience(audience.value), conditions=editor.value)
+                                                 audience=SurveyAudience(audience.value), conditions=editor.value,
+                                                 description=description.value)
             except (ValueError, PermissionError) as e:
                 notify_error(e)
                 return
@@ -202,6 +207,25 @@ def question_dialog(service: SurveyService, user: User, survey: Survey, section:
             ).props('outlined autogrow').classes('w-full')
             scale_hint = ui.label('Each statement is answered ' + ' · '.join(AGREE_LEVELS) + '.') \
                 .classes('text-caption text-grey-7')
+            with ui.column().classes('wiz-survey-extras w-full gap-1') as choice_extras:
+                other = ui.switch('Add “Other” with a write-in box', value=bool(question and question.other_option))
+                with ui.column().classes('w-full gap-1') as many_extras:
+                    none_on = ui.switch('Add “None of these”', value=bool(question and question.none_option))
+                    none_label = ui.input('“None” choice says', value=(question.none_option if question and
+                                                                       question.none_option else 'None of these')) \
+                        .props('outlined dense maxlength=60').classes('wiz-survey-extras__sub')
+                    limit_on = ui.switch('Limit how many they pick',
+                                         value=bool(question and (question.min_picks or question.max_picks)))
+                    with ui.row().classes('wiz-survey-extras__sub items-center no-wrap gap-2') as limits:
+                        low = ui.number('At least', value=question.min_picks if question else None,
+                                        min=1, max=11, step=1, format='%d').props('outlined dense').classes('w-24')
+                        ui.label('to')
+                        high = ui.number('At most', value=(question.max_picks if question and question.max_picks
+                                                           else 3), min=1, max=11, step=1, format='%d') \
+                            .props('outlined dense').classes('w-24')
+            long_answer = ui.switch('Long answer', value=bool(question and question.long_answer))
+            long_hint = ui.label('A taller box with a character count, for the one “anything else?” question.') \
+                .classes('text-caption text-grey-7')
             editor = ConditionEditor(
                 plan.earlier(survey.sections, section.id, question.id if question else None),
                 question.conditions if question else None, limit=conditions.MAX_PER_QUESTION, noun='question',
@@ -213,9 +237,31 @@ def question_dialog(service: SurveyService, user: User, survey: Survey, section:
             options.set_visibility(chosen in CHOICE_KINDS or agree)
             options.props(f'label="{"Statements, one per line (2 to 10)" if agree else "Choices, one per line"}"')
             scale_hint.set_visibility(agree)
+            choice_extras.set_visibility(chosen in CHOICE_KINDS)
+            many_extras.set_visibility(chosen is SurveyQuestionKind.CHOICE_MANY)
+            comment = chosen is SurveyQuestionKind.COMMENT
+            long_answer.set_visibility(comment)
+            long_hint.set_visibility(comment)
+            switches_changed()
+
+        def switches_changed() -> None:
+            none_label.set_visibility(bool(none_on.value))
+            limits.set_visibility(bool(limit_on.value))
 
         kind.on_value_change(lambda e: kind_changed(e.value))
+        none_on.on_value_change(lambda _: switches_changed())
+        limit_on.on_value_change(lambda _: switches_changed())
         kind_changed(initial_kind)
+
+        def extras() -> dict:
+            limited = bool(limit_on.value)
+            return {
+                'other_option': bool(other.value),
+                'none_option': (none_label.value or '').strip() or None if none_on.value else None,
+                'min_picks': low.value if limited else None,
+                'max_picks': high.value if limited else None,
+                'long_answer': bool(long_answer.value),
+            }
 
         async def save() -> None:
             chosen = SurveyQuestionKind(kind.value)
@@ -224,12 +270,12 @@ def question_dialog(service: SurveyService, user: User, survey: Survey, section:
                 if question is None:
                     await service.add_question(
                         user, section.id, prompt.value or '', chosen, options=lines, required=bool(required.value),
-                        conditions=editor.value,
+                        conditions=editor.value, **extras(),
                     )
                 else:
                     await service.update_question(
                         user, question.id, prompt=prompt.value or '', kind=chosen, options=lines,
-                        required=bool(required.value), conditions=editor.value,
+                        required=bool(required.value), conditions=editor.value, **extras(),
                     )
             except (ValueError, PermissionError) as e:
                 notify_error(e)

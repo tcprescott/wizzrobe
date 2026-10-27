@@ -182,7 +182,7 @@ register(SurveyCondition(
     'not_tournament_room', "Didn't play in the tournament room", per_tournament=True,
     negates='tournament_room',
 ))
-register(SurveyCondition('crewed', 'Crewed a match (comms, tracking or broadcast)', collect=_crewed))
+register(SurveyCondition('crewed', 'Crewed a match on stage (comms, tracking or broadcast)', collect=_crewed))
 register(SurveyCondition('checked_in', 'Checked in at the desk', collect=_checked_in))
 register(SurveyCondition('rescheduled', 'Asked to reschedule a match', per_tournament=True, collect=_rescheduled))
 register(SurveyCondition(ANSWER, 'Answered an earlier question a certain way'))

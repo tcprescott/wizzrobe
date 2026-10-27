@@ -116,17 +116,19 @@ async def delete_survey(survey_id: int, tenant: TenantArg = None) -> str:
 
 async def add_survey_section(
     survey_id: int, title: str, tenant: TenantArg = None, audience: SurveyAudience = SurveyAudience.EVERYONE,
-    conditions: Optional[List[SurveyConditionModel]] = None,
+    conditions: Optional[List[SurveyConditionModel]] = None, description: Optional[str] = None,
 ) -> SurveySectionResponse:
     """Add a section to the end of a draft.
 
     `each_tournament` and `each_position` repeat once for every tournament a
     person played or position they worked, so keep those short. `conditions`
     holds at most one entry, shaped as for `add_survey_question`; an `answer`
-    one waits on a question in an earlier section.
+    one waits on a question in an earlier section. `description` is one or two
+    plain-text lines under the title.
     """
     service = SurveyService()
-    section = await service.add_section(_user(), survey_id, title, audience, conditions=conditions_in(conditions))
+    section = await service.add_section(_user(), survey_id, title, audience, conditions=conditions_in(conditions),
+                                        description=description)
     survey = await service.get_survey(_user(), survey_id)
     return section_out(next(s for s in survey.sections if s.id == section.id))
 
@@ -134,9 +136,14 @@ async def add_survey_section(
 async def update_survey_section(
     section_id: int, tenant: TenantArg = None, title: Optional[str] = None,
     audience: Optional[SurveyAudience] = None, conditions: Optional[List[SurveyConditionModel]] = None,
+    description: Optional[str] = None,
 ) -> SurveySectionResponse:
-    """Change a draft section's title, audience or condition. Leave a field out to keep it; `[]` clears the condition."""
-    fields: dict = {k: v for k, v in (('title', title), ('audience', audience)) if v is not None}
+    """Change a draft section's title, description, audience or condition.
+
+    Leave a field out to keep it; `[]` clears the condition and `""` the description.
+    """
+    fields: dict = {k: v for k, v in (('title', title), ('audience', audience), ('description', description))
+                    if v is not None}
     if conditions is not None:
         fields['conditions'] = conditions_in(conditions)
     service = SurveyService()
@@ -160,7 +167,9 @@ async def move_survey_section(section_id: int, step: int, tenant: TenantArg = No
 async def add_survey_question(
     section_id: int, prompt: str, kind: SurveyQuestionKind, tenant: TenantArg = None,
     options: Optional[List[str]] = None, required: bool = False,
-    conditions: Optional[List[SurveyConditionModel]] = None,
+    conditions: Optional[List[SurveyConditionModel]] = None, other_option: bool = False,
+    none_option: Optional[str] = None, min_picks: Optional[int] = None, max_picks: Optional[int] = None,
+    long_answer: bool = False,
 ) -> SurveyQuestionResponse:
     """Add a question to the end of a draft section.
 
@@ -170,9 +179,16 @@ async def add_survey_question(
     with a key from `list_survey_conditions`; an `answer` entry also names the
     earlier question in `question_id` and the answers that show this one in
     `values` (any of them).
+
+    Choice questions can add an `Other` choice with a write-in (`other_option`).
+    A `choice_many` can add an exclusive "none" choice (`none_option`, its
+    label) and pick limits (`min_picks`, `max_picks`, e.g. max 3 for "pick your
+    top 3"). `long_answer` makes a `comment` a tall box of up to 3000 characters.
     """
     question = await SurveyService().add_question(
         _user(), section_id, prompt, kind, options=options, required=required, conditions=conditions_in(conditions),
+        other_option=other_option, none_option=none_option, min_picks=min_picks, max_picks=max_picks,
+        long_answer=long_answer,
     )
     return question_out(question)
 
@@ -181,10 +197,17 @@ async def update_survey_question(
     question_id: int, tenant: TenantArg = None, prompt: Optional[str] = None,
     kind: Optional[SurveyQuestionKind] = None, options: Optional[List[str]] = None,
     required: Optional[bool] = None, conditions: Optional[List[SurveyConditionModel]] = None,
+    other_option: Optional[bool] = None, none_option: Optional[str] = None, min_picks: Optional[int] = None,
+    max_picks: Optional[int] = None, long_answer: Optional[bool] = None,
 ) -> SurveyQuestionResponse:
-    """Change a draft question. Leave a field out to keep it; `conditions` `[]` always shows it."""
+    """Change a draft question. Leave a field out to keep it; `conditions` `[]` always shows it.
+
+    `none_option` `""` and a pick limit of 0 remove them.
+    """
     fields: dict = {k: v for k, v in (('prompt', prompt), ('kind', kind), ('options', options),
-                                      ('required', required)) if v is not None}
+                                      ('required', required), ('other_option', other_option),
+                                      ('none_option', none_option), ('min_picks', min_picks),
+                                      ('max_picks', max_picks), ('long_answer', long_answer)) if v is not None}
     if conditions is not None:
         fields['conditions'] = conditions_in(conditions)
     return question_out(await SurveyService().update_question(_user(), question_id, **fields))

@@ -15,13 +15,18 @@ from models import SurveyQuestion, SurveyQuestionKind
 TITLE_MAX = 120
 PROMPT_MAX = 280
 INTRO_MAX = 2000
+DESCRIPTION_MAX = 240
 OPTION_MAX = 60
 STATEMENT_MAX = 160
 OPTIONS_MIN, OPTIONS_MAX = 2, 10
 COMMENT_MAX = 1000
+LONG_COMMENT_MAX = 3000
+OTHER_TEXT_MAX = 200
 
 CHOICE_KINDS = (SurveyQuestionKind.CHOICE_ONE, SurveyQuestionKind.CHOICE_MANY)
 YES, NO = 'Yes', 'No'
+# The write-in choice a question with ``other_option`` adds; its text rides in the answer's ``text``.
+OTHER = 'Other'
 # An agree-scale answer is one of these per statement, stored as its number (1-5).
 AGREE_LEVELS = ('Strongly disagree', 'Disagree', 'Neither agree nor disagree', 'Agree', 'Strongly agree')
 
@@ -56,6 +61,87 @@ def clean_options(kind: SurveyQuestionKind, options: Optional[Sequence[str]]) ->
     return cleaned
 
 
+def clean_extras(kind: SurveyQuestionKind, options: Optional[Sequence[str]], *, other_option: Any = False,
+                 none_option: Any = None, min_picks: Any = None, max_picks: Any = None,
+                 long_answer: Any = False) -> dict:
+    """The per-kind extras to store, each reset where ``kind`` doesn't take it.
+
+    ``options`` are the already-cleaned choices.
+    """
+    choice = kind in CHOICE_KINDS
+    many = kind is SurveyQuestionKind.CHOICE_MANY
+    other = bool(other_option) and choice
+    taken = {o.lower() for o in options or []}
+    if other and OTHER.lower() in taken:
+        raise ValueError('Remove the “Other” choice: the write-in switch adds one.')
+    none: Optional[str] = None
+    if many and none_option:
+        none = clean_text(str(none_option), limit=OPTION_MAX, what='The “none” choice', required=False) or None
+        if none and (none.lower() in taken or (other and none.lower() == OTHER.lower())):
+            raise ValueError(f'“{none}” is already a choice. Give the “none” choice its own words.')
+    low = high = None
+    if many:
+        total = len(options or []) + (1 if other else 0)
+        low, high = _picks(min_picks), _picks(max_picks)
+        for limit in (low, high):
+            if limit is not None and limit > total:
+                raise ValueError(f'There are only {total} choices to pick from.')
+        if low is not None and high is not None and low > high:
+            raise ValueError('The fewest picks can’t be more than the most.')
+    return {'other_option': other, 'none_option': none, 'min_picks': low, 'max_picks': high,
+            'long_answer': bool(long_answer) and kind is SurveyQuestionKind.COMMENT}
+
+
+def _picks(value: Any) -> Optional[int]:
+    if value in (None, '', 0):
+        return None
+    if isinstance(value, bool):
+        raise ValueError('A pick limit is a whole number.')
+    try:
+        number = int(value)
+    except (TypeError, ValueError):
+        raise ValueError('A pick limit is a whole number.') from None
+    if number < 1:
+        raise ValueError('A pick limit is 1 or more.')
+    return number
+
+
+def limit_hint(question: SurveyQuestion) -> str:
+    """"Pick up to 3." and the like, for a pick-many with limits; else empty."""
+    low, high = question.min_picks, question.max_picks
+    if low and high:
+        return f'Pick {low}.' if low == high else f'Pick {low} to {high}.'
+    if high:
+        return f'Pick up to {high}.'
+    if low:
+        return f'Pick at least {low}.'
+    return ''
+
+
+def pick_problem(question: SurveyQuestion, picked: Sequence[Any], other_text: str) -> Optional[str]:
+    """What's wrong with these picks, in a line the form shows under the question; ``None`` if nothing."""
+    picked = list(picked)
+    none = question.none_option
+    if none and none in picked and len(picked) > 1:
+        return f'“{none}” can’t go with other answers. Untick one.'
+    if question.other_option and OTHER in picked and not other_text.strip():
+        return 'Tell us what “Other” was, or untick it.'
+    if question.kind is SurveyQuestionKind.CHOICE_MANY and picked and not (none and none in picked):
+        n = len(picked)
+        too_many = question.max_picks and n > question.max_picks
+        too_few = question.min_picks and n < question.min_picks
+        if too_many or too_few:
+            return f'{limit_hint(question)} You’ve picked {n}.'
+    return None
+
+
+def split_other(value: Any) -> tuple[Any, str]:
+    """A choice answer as sent: the value alone, or ``{'value': ..., 'other': write-in}``."""
+    if isinstance(value, dict):
+        return value.get('value'), str(value.get('other') or '')
+    return value, ''
+
+
 def answer_values(question: SurveyQuestion) -> List[Any]:
     """Every answer ``question`` can take, for an answer-based condition's picker."""
     kind = question.kind
@@ -66,7 +152,8 @@ def answer_values(question: SurveyQuestion) -> List[Any]:
     if kind is SurveyQuestionKind.YES_NO:
         return [YES, NO]
     if kind in CHOICE_KINDS:
-        return list(question.options or [])
+        return [*(question.options or []), *([OTHER] if question.other_option else []),
+                *([question.none_option] if question.none_option else [])]
     return []
 
 
@@ -124,8 +211,11 @@ def coerce_answer(question: SurveyQuestion, value: Any) -> tuple[Any, Optional[s
     if value is None or value == '' or value == []:
         return None, None
     if kind is SurveyQuestionKind.COMMENT:
-        text = clean_text(str(value), limit=COMMENT_MAX, what='A comment', required=False)
+        text = clean_text(str(value), limit=LONG_COMMENT_MAX if question.long_answer else COMMENT_MAX,
+                          what='A comment', required=False)
         return (None, text) if text else (None, None)
+    if kind in CHOICE_KINDS:
+        return _coerce_choice(question, value)
     if kind in (SurveyQuestionKind.RATING, SurveyQuestionKind.NPS):
         low, high = (1, 5) if kind is SurveyQuestionKind.RATING else (0, 10)
         try:
@@ -156,11 +246,28 @@ def coerce_answer(question: SurveyQuestion, value: Any) -> tuple[Any, Optional[s
                 raise ValueError(f'“{question.prompt}” takes Strongly disagree to Strongly agree.')
             levels[statement] = int(level)
         return ({s: levels[s] for s in options if s in levels} or None), None
-    if kind is SurveyQuestionKind.CHOICE_ONE:
-        if value not in options:
+    raise ValueError(f'“{question.prompt}” can’t take that answer.')
+
+
+def _coerce_choice(question: SurveyQuestion, raw: Any) -> tuple[Any, Optional[str]]:
+    value, other_text = split_other(raw)
+    allowed = answer_values(question)
+    other = clean_text(other_text, limit=OTHER_TEXT_MAX, what='The “Other” answer', required=False)
+    if question.kind is SurveyQuestionKind.CHOICE_ONE:
+        if value in (None, ''):
+            return None, None
+        if value not in allowed:
             raise ValueError(f'Pick one of the choices for “{question.prompt}”.')
-        return value, None
-    picked = value if isinstance(value, list) else [value]
-    if any(p not in options for p in picked):
-        raise ValueError(f'Pick from the choices for “{question.prompt}”.')
-    return [o for o in options if o in picked], None
+        picked = [value]
+    else:
+        listed = value if isinstance(value, list) else [value]
+        if any(p not in allowed for p in listed):
+            raise ValueError(f'Pick from the choices for “{question.prompt}”.')
+        picked = [o for o in allowed if o in listed]
+        if not picked:
+            return None, None
+    problem = pick_problem(question, picked, other)
+    if problem:
+        raise ValueError(f'“{question.prompt}”: {problem}')
+    text = other if question.other_option and OTHER in picked else None
+    return (picked[0] if question.kind is SurveyQuestionKind.CHOICE_ONE else picked), text

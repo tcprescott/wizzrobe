@@ -19,10 +19,10 @@ from application.services import (
     TenantService,
     get_user_from_session,
 )
-from application.services.survey import plan
+from application.services.survey import coerce_answer, plan
 from middleware.auth import protected_page
 from middleware.event_routing import page_request, row_event_redirect
-from models import FeatureFlag, SurveyQuestionKind, User
+from models import FeatureFlag, User
 from theme.banner import banner
 from theme.base import BaseLayout
 from theme.error_page import render_not_found
@@ -103,13 +103,17 @@ def create() -> None:
                 part = view.part(part_key)
                 if part is None:
                     raise ValueError("That part isn't in this preview.")
-                comments = {q.id for q in part.questions if q.kind is SurveyQuestionKind.COMMENT}
-                for qid, value in answers.items():
+                by_id = {q.id: q for q in part.questions}
+                for qid, raw in answers.items():
                     key = (qid, part.scope)
                     view.answers.pop(key, None)
                     view.texts.pop(key, None)
-                    if value not in (None, '', []):
-                        (view.texts if qid in comments else view.answers)[key] = value
+                    # Checked as a real save would be, so the preview shows the same errors.
+                    value, text = coerce_answer(by_id[qid], raw)
+                    if value is not None:
+                        view.answers[key] = value
+                    if text:
+                        view.texts[key] = text
                 return view
 
             async def submit(_anonymous: bool) -> None:

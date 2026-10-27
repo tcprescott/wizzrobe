@@ -68,11 +68,17 @@ class RespondentView:
         return [q for q in part.questions if plan.visible(q, part.scope, self.answers)]
 
     def answers_in(self, part: plan.Part) -> Dict[int, Any]:
-        """Question id → what's saved for it in ``part`` (the comment text for a comment)."""
+        """Question id → what's saved for it in ``part``, in the shape :meth:`SurveyResponseService.save_part` takes.
+
+        The comment text for a comment, and ``{'value': …, 'other': write-in}``
+        for a choice answered "Other".
+        """
         found: Dict[int, Any] = {}
         for q in part.questions:
             key = (q.id, part.scope)
-            if key in self.answers:
+            if key in self.answers and key in self.texts:
+                found[q.id] = {'value': self.answers[key], 'other': self.texts[key]}
+            elif key in self.answers:
                 found[q.id] = self.answers[key]
             elif key in self.texts:
                 found[q.id] = self.texts[key]

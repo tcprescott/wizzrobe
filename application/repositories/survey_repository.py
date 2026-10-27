@@ -115,6 +115,14 @@ class SurveyRepository(EventScopedRepository[Survey]):
             await guarded_update(scoped(SurveyQuestion.filter(id=question_id)), position=position)
 
     @staticmethod
+    async def place_question(question: SurveyQuestion, section_id: int, order: Dict[int, int]) -> None:
+        """Move ``question`` into ``section_id`` and renumber that section's questions to ``order``."""
+        if question.section_id != section_id:
+            await guarded_update(scoped(SurveyQuestion.filter(id=question.id)), section_id=section_id)
+        for question_id, position in order.items():
+            await guarded_update(scoped(SurveyQuestion.filter(id=question_id)), position=position)
+
+    @staticmethod
     async def questions_for_survey(survey_id: int) -> List[SurveyQuestion]:
         return await scoped(SurveyQuestion.filter(section__survey_id=survey_id)).order_by(
             'section__position', 'section_id', 'position', 'id',

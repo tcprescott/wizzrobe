@@ -28,7 +28,10 @@ AUDIENCE_CHIPS: Dict[SurveyAudience, str] = {
     SurveyAudience.EVERYONE: 'Everyone',
     SurveyAudience.EACH_TOURNAMENT: 'Repeats per tournament played',
     SurveyAudience.EACH_POSITION: 'Repeats per position worked',
-    SurveyAudience.CREW: 'Match crew',
+    SurveyAudience.CREW: 'Crew, any role',
+    SurveyAudience.COMMENTATORS: 'Commentators',
+    SurveyAudience.TRACKERS: 'Trackers',
+    SurveyAudience.BROADCASTERS: 'Broadcast crew',
     SurveyAudience.CHECKED_IN: 'Checked in at the desk',
 }
 

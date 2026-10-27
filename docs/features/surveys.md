@@ -27,14 +27,52 @@ A new survey starts from `template.py` unless staff untick it. Sections have an
 | `everyone` | everyone it was sent to |
 | `each_tournament` | once per tournament they played, titled with its name |
 | `each_position` | once per volunteer position they worked |
-| `crew` | anyone who crewed a match (comms, tracking, broadcast) |
+| `crew` | anyone approved to crew a match that was on a stage (comms, tracking, broadcast); crew on a match that never got a stage doesn't count |
+| `commentators` / `trackers` / `broadcasters` | crew of that one role on a stage match (`Commentator`, `Tracker`, `Broadcaster` rows) |
 | `checked_in` | anyone the check-in desk checked in |
+
+Crew only counts matches that had a stage (Thomas, 2026-10-27: approved but
+never given a stage "was as if they never did"). That holds for the audiences,
+the `crewed` condition and the "Who gets it" counts alike;
+`survey_participation_repository.crew_user_ids` filters on `stage_id`. Facts
+carry `crew` plus `crew_roles` (`commentary`, `tracking`, `broadcast`), and the
+preview's "Showing" switch has one persona per role.
+
+A section can carry a one- or two-line **description** (240 characters) shown
+under its title on the form.
 
 Question kinds: `rating` (1–5), `nps` (0–10), `yes_no`, `choice_one`,
 `choice_many` (2–10 choices), `comment` (plain text, 1000 characters) and
 `agree_scale` (2–10 statements, each answered Strongly disagree to Strongly
 agree, stored as `{statement: 1..5}`). A required agree scale needs every
 statement answered. An agree scale can't be the target of an answer condition.
+
+Choice extras, all checked in `_validation.clean_extras` and again on every
+answer (`coerce_answer`), so REST and MCP can't get round them:
+
+- `other_option` (pick one / pick many) adds **Other** with a write-in box that
+  is always visible with its own label. Typing in it picks Other; Other with an
+  empty box is an error. The answer is sent as `{"value": …, "other": "text"}`;
+  the stored value holds `Other` and the write-in goes in `SurveyAnswer.text`
+  (200 characters). Results list write-ins under the bar chart.
+- `none_option` (pick many) is an exclusive choice such as "None of these",
+  placed last after an "or". Ticking it clears the others; both together is
+  refused. Results draw its bar apart from the rest.
+- `min_picks` / `max_picks` (pick many). The hint states the limit; going over
+  shows a red line under the question instead of blocking the tick. Ticking
+  the none choice satisfies any minimum.
+- `long_answer` (comment) raises the cap to 3000 characters, shows a taller
+  box with a GOV.UK-style "You have N characters left" count, and doubles the
+  question's time estimate. Results get a search box once there are more than
+  three comments.
+
+In the builder, every question row has a drag handle (Thomas picked A). Mouse
+drags start after 8px of movement; a finger has to press and hold for 400ms so
+a swipe still scrolls. Questions can land in another section.
+`static/js/survey-drag.js` only moves a placeholder and fires `survey-drop`
+on `.wiz-survey-builder`; `SurveyService.place_question` decides, and refuses a
+drop that would put a question above the one it follows. Move up / Move down
+stay in the row's ⋮ menu as the no-drag path (WCAG 2.5.7).
 
 On the respondent form, `rating` and `nps` are sliders (`_scale_slider` in
 `theme/survey_form.py`): no handle until the first touch, numbers under each
@@ -113,8 +151,8 @@ DMs them (`SURVEY_INVITE`); **Remind** DMs people who haven't answered, at most
 once a day (`SURVEY_REMINDER`). Both are in the notification catalogue, so
 communities can silence them. The DM link goes straight to `/survey/{id}`.
 
-Who gets it: everyone who took part in the event (played, volunteered, crewed or
-was checked in).
+Who gets it: everyone who took part in the event (played, volunteered, crewed a
+stage match or was checked in).
 
 ## Anonymity
 
@@ -125,6 +163,9 @@ the survey allows it. An anonymous submit:
   tournaments and positions they were in);
 - stores only the day on `submitted_on`, and the recipient row keeps only the
   day it was opened and answered, so the two can't be lined up by time.
+
+The switch says so plainly: "We cannot guarantee anonymity based on your
+answers: what you write may still identify you." (Thomas's wording.)
 
 In results, a group with fewer than 5 answers shows its count only, and an
 anonymous comment from a group that small carries no group name.

@@ -15,6 +15,15 @@ from nicegui import ui
 
 from application.services import RespondentView
 from application.services.survey import AGREE_LEVELS, plan
+from application.services.survey._validation import (
+    LONG_COMMENT_MAX,
+    OTHER,
+    OTHER_TEXT_MAX,
+    answer_values,
+    limit_hint,
+    pick_problem,
+    split_other,
+)
 from models import SurveyQuestion, SurveyQuestionKind
 from theme.a11y import make_activatable
 from theme.banner import banner
@@ -39,49 +48,163 @@ def _minutes(parts: List[plan.Part]) -> str:
     return f'About {_plural(minutes, "minute")} · {_plural(len(parts), "short part")}'
 
 
-def _question_control(question: SurveyQuestion, value: Any, on_change: Callable[[Any], None],
-                      enabled: bool) -> None:
+#: ``on_change(value, quiet)``: ``quiet`` for typing, which mustn't redraw the part under the cursor.
+Changed = Callable[[Any, bool], None]
+
+
+def _question_control(question: SurveyQuestion, value: Any, on_change: Changed, enabled: bool) -> None:
     """One question's answer control, bound to ``on_change``."""
     kind = question.kind
     if kind in (SurveyQuestionKind.RATING, SurveyQuestionKind.NPS):
-        _scale_slider(question, value, on_change, enabled)
+        _scale_slider(question, value, lambda v: on_change(v, False), enabled)
         return
-    if kind is SurveyQuestionKind.YES_NO or (kind is SurveyQuestionKind.CHOICE_ONE and len(question.options or []) <= 4):
-        options = ['Yes', 'No'] if kind is SurveyQuestionKind.YES_NO else list(question.options or [])
+    if kind is SurveyQuestionKind.YES_NO:
         # url-state: exempt — an answer, not a view
-        toggle = ui.toggle(options, value=value, clearable=True, on_change=lambda e: on_change(e.value)) \
+        toggle = ui.toggle(['Yes', 'No'], value=value, clearable=True, on_change=lambda e: on_change(e.value, False)) \
             .props('no-caps unelevated').classes('wiz-segmented wiz-survey-pills')
-        toggle.props(f'aria-label="{question.prompt}"')
+        toggle._props['aria-label'] = question.prompt
         toggle.set_enabled(enabled)
         return
-    if kind is SurveyQuestionKind.CHOICE_ONE:
-        radio = ui.radio(list(question.options or []), value=value, on_change=lambda e: on_change(e.value)) \
-            .classes('wiz-survey-options')
-        radio.props(f'aria-label="{question.prompt}"')
-        radio.set_enabled(enabled)
-        return
-    if kind is SurveyQuestionKind.CHOICE_MANY:
-        picked = set(value or [])
-
-        def toggle_option(option: str, checked: bool) -> None:
-            if checked:
-                picked.add(option)
-            else:
-                picked.discard(option)
-            on_change([o for o in question.options or [] if o in picked])
-
-        with ui.column().classes('wiz-survey-options gap-0'):
-            for option in question.options or []:
-                ui.checkbox(option, value=option in picked,
-                            on_change=lambda e, o=option: toggle_option(o, e.value)).set_enabled(enabled)
+    if kind in (SurveyQuestionKind.CHOICE_ONE, SurveyQuestionKind.CHOICE_MANY):
+        _choices(question, value, on_change, enabled)
         return
     if kind is SurveyQuestionKind.AGREE_SCALE:
-        _agree_grid(question, value, on_change, enabled)
+        _agree_grid(question, value, lambda v: on_change(v, False), enabled)
         return
-    area = ui.textarea(placeholder='Optional', value=value or '', on_change=lambda e: on_change(e.value)) \
-        .props(f'outlined autogrow maxlength={COMMENT_MAX} counter').classes('w-full')
-    area.props(f'aria-label="{question.prompt}"')
+    _comment(question, value, on_change, enabled)
+
+
+def _comment(question: SurveyQuestion, value: Any, on_change: Changed, enabled: bool) -> None:
+    if not question.long_answer:
+        area = ui.textarea(placeholder='Optional', value=value or '', on_change=lambda e: on_change(e.value, True)) \
+            .props(f'outlined autogrow maxlength={COMMENT_MAX} counter').classes('w-full')
+        area._props['aria-label'] = question.prompt
+        area.set_enabled(enabled)
+        return
+    # A long answer counts down instead of cutting people off (the GOV.UK
+    # character count): going over shows how far, and Done says so.
+    ui.label(f'Up to {LONG_COMMENT_MAX:,} characters.').classes('wiz-survey-question__hint')
+    area = ui.textarea(value=value or '').props('outlined').classes('w-full wiz-survey-long')
+    area._props['aria-label'] = question.prompt
+    count = ui.label('').classes('wiz-survey-count').props('aria-live=polite')
+
+    def counted(text: str) -> None:
+        left = LONG_COMMENT_MAX - len(text or '')
+        if left >= 0:
+            count.set_text(f'You have {left:,} character{"" if left == 1 else "s"} left')
+        else:
+            count.set_text(f'You have {-left:,} character{"" if left == -1 else "s"} too many')
+        count.classes(add='wiz-survey-count--over' if left < 0 else '', remove='' if left < 0 else 'wiz-survey-count--over')
+
+    def typed(e) -> None:
+        counted(e.value)
+        on_change(e.value, True)
+
+    area.on_value_change(typed)
     area.set_enabled(enabled)
+    counted(area.value)
+
+
+def _choices(question: SurveyQuestion, value: Any, on_change: Changed, enabled: bool) -> None:
+    """Pick one or pick many, with the "Other" write-in, the exclusive "none" choice and pick limits.
+
+    The write-in box is always there with its own label; typing in it picks
+    Other. A problem (too many picks, Other left blank) shows in red under
+    the question as it happens and never blocks a tap.
+    """
+    many = question.kind is SurveyQuestionKind.CHOICE_MANY
+    raw, other_text = split_other(value)
+    picked = list(raw or []) if many else ([] if raw in (None, '') else [raw])
+    state: Dict[str, Any] = {'picked': picked, 'other': other_text, 'syncing': False}
+    none = question.none_option
+    regular = [o for o in answer_values(question) if o != none]
+    widgets: Dict[str, Any] = {}
+
+    def emit(quiet: bool) -> None:
+        order = answer_values(question)
+        chosen = [o for o in order if o in state['picked']]
+        payload: Any = chosen if many else (chosen[0] if chosen else None)
+        if question.other_option and state['other'].strip():
+            payload = {'value': payload, 'other': state['other']}
+        problem = pick_problem(question, chosen, state['other'])
+        error.set_text(problem or '')
+        error.set_visibility(bool(problem))
+        on_change(payload, quiet)
+
+    def pick_one(choice: Any) -> None:
+        if state['syncing']:
+            return
+        state['picked'] = [] if choice in (None, '') else [choice]
+        emit(False)
+
+    def tick(option: str, checked: bool) -> None:
+        if state['syncing']:
+            return
+        current = [o for o in state['picked'] if o != option]
+        if checked:
+            # "None of these" and the real choices clear each other.
+            current = [option] if option == none else [o for o in current if o != none] + [option]
+        state['picked'] = current
+        emit(False)
+
+    def typed(text: str) -> None:
+        state['other'] = text or ''
+        if state['other'].strip() and OTHER not in state['picked']:
+            state['syncing'] = True
+            try:
+                if many:
+                    state['picked'] = [o for o in state['picked'] if o != none] + [OTHER]
+                    widgets[OTHER].set_value(True)
+                    if none in widgets:
+                        widgets[none].set_value(False)
+                else:
+                    state['picked'] = [OTHER]
+                    widgets['one'].set_value(OTHER)
+            finally:
+                state['syncing'] = False
+        emit(True)
+
+    def other_box() -> None:
+        with ui.column().classes('wiz-survey-other w-full gap-1'):
+            box = ui.input('If other, tell us what', value=state['other'],
+                           on_change=lambda e: typed(e.value)) \
+                .props(f'outlined dense maxlength={OTHER_TEXT_MAX}').classes('w-full')
+            box.set_enabled(enabled)
+
+    hint = limit_hint(question) if many else ''
+    if hint:
+        ui.label(hint).classes('wiz-survey-question__hint')
+    error = ui.label('').classes('wiz-survey-error').props('role=alert')
+    error.set_visibility(False)
+    if many:
+        with ui.column().classes('wiz-survey-options gap-0'):
+            for option in regular:
+                widgets[option] = ui.checkbox(option, value=option in picked,
+                                              on_change=lambda e, o=option: tick(o, e.value))
+                widgets[option].set_enabled(enabled)
+            if question.other_option:
+                other_box()
+            if none:
+                ui.label('or').classes('wiz-survey-or')
+                widgets[none] = ui.checkbox(none, value=none in picked, on_change=lambda e: tick(none, e.value))
+                widgets[none].set_enabled(enabled)
+                ui.label('Ticking this clears the others.').classes('wiz-survey-question__hint wiz-survey-none-hint')
+    elif len(regular) <= 4:
+        # url-state: exempt — an answer, not a view
+        widgets['one'] = ui.toggle(regular, value=picked[0] if picked else None, clearable=True,
+                                   on_change=lambda e: pick_one(e.value)) \
+            .props('no-caps unelevated').classes('wiz-segmented wiz-survey-pills')
+    else:
+        widgets['one'] = ui.radio(regular, value=picked[0] if picked else None,
+                                  on_change=lambda e: pick_one(e.value)).classes('wiz-survey-options')
+    if 'one' in widgets:
+        widgets['one']._props['aria-label'] = question.prompt
+        widgets['one'].set_enabled(enabled)
+    if question.other_option and not many:
+        other_box()
+    problem = pick_problem(question, state['picked'], state['other']) if state['picked'] else None
+    error.set_text(problem or '')
+    error.set_visibility(bool(problem))
 
 
 def _scale_slider(question: SurveyQuestion, value: Any, on_change: Callable[[Any], None], enabled: bool) -> None:
@@ -184,6 +307,7 @@ class PartSheet:
                 ui.card().classes('dialog-card match-sheet wiz-survey-sheet') as self.card:
             self.title = dialog_header('Part', self.dialog)
             self.reason = ui.label('').classes('wiz-survey-sheet__reason')
+            self.description = ui.label('').classes('wiz-survey-sheet__description')
             self.body = ui.refreshable(self._questions)
             self.body()
             with dialog_actions().classes('justify-end'):
@@ -201,6 +325,8 @@ class PartSheet:
         position = shown.index(part) + 1 if part in shown else 0
         where = f' · Part {position} of {len(shown)}' if position else ''
         self.reason.set_text(f'{part.reason}{where}')
+        self.description.set_text(part.description)
+        self.description.set_visibility(bool(part.description))
         self.done_button.set_visibility(self.form.editable)
         self.body.refresh()
         self.dialog.open()
@@ -210,14 +336,18 @@ class PartSheet:
         if self.part is not None:
             for qid in [q.id for q in self.part.questions]:
                 merged.pop((qid, self.part.scope), None)
+            choices = {q.id for q in self.part.questions
+                       if q.kind in (SurveyQuestionKind.CHOICE_ONE, SurveyQuestionKind.CHOICE_MANY)}
             for qid, value in self.draft.items():
+                if qid in choices:
+                    value, _ = split_other(value)
                 if value not in (None, '', []):
                     merged[(qid, self.part.scope)] = value
         return merged
 
-    def _set(self, question: SurveyQuestion, value: Any) -> None:
+    def _set(self, question: SurveyQuestion, value: Any, quiet: bool = False) -> None:
         self.draft[question.id] = value
-        if question.kind is not SurveyQuestionKind.COMMENT:
+        if not quiet:
             self.body.refresh()
 
     def _questions(self) -> None:
@@ -285,7 +415,8 @@ class SurveyForm:
                         ui.label('Answer anonymously').classes('wiz-survey-anon__title')
                         ui.label(
                             'Staff see only which tournament or role you answered about, not your name. '
-                            'Groups under 5 people are hidden.',
+                            'Groups under 5 people are hidden. We cannot guarantee anonymity based on '
+                            'your answers: what you write may still identify you.',
                         ).classes('wiz-survey-anon__text')
             self.parts_list = ui.refreshable(self._parts)
             self.parts_list()

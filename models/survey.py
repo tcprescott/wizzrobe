@@ -31,6 +31,10 @@ class SurveyAudience(str, Enum):
     EACH_TOURNAMENT = 'each_tournament'
     EACH_POSITION = 'each_position'
     CREW = 'crew'
+    # One crew role each, so commentators, trackers and broadcasters get their own questions.
+    COMMENTATORS = 'commentators'
+    TRACKERS = 'trackers'
+    BROADCASTERS = 'broadcasters'
     CHECKED_IN = 'checked_in'
 
 
@@ -118,6 +122,8 @@ class SurveySection(Model):
     )
     survey_id: int
     title = fields.CharField(max_length=120)
+    # One or two plain-text lines under the title, setting the context.
+    description = fields.CharField(max_length=240, null=True)
     audience = fields.CharEnumField(SurveyAudience, max_length=24, default=SurveyAudience.EVERYONE)
     position = fields.IntField(default=0)
     conditions = fields.JSONField(null=True)  # type: ignore[var-annotated]
@@ -134,7 +140,11 @@ class SurveySection(Model):
 class SurveyQuestion(Model):
     """One question in a section.
 
-    ``options`` holds the choices of a pick-one or pick-many question.
+    ``options`` holds the choices of a pick-one or pick-many question, or an
+    agree scale's statements. A choice question can add an ``Other`` choice
+    with a write-in (``other_option``, the text stored in the answer's
+    ``text``), and a pick-many an exclusive "none" choice (``none_option``,
+    its label) and pick limits. ``long_answer`` makes a comment a tall box.
     ``conditions`` lists the registered conditions (``application/services/
     survey/conditions.py``) the respondent must all meet to see it, each
     ``{'key': …}`` plus, for an answer-based one, the earlier question and
@@ -154,6 +164,11 @@ class SurveyQuestion(Model):
     kind = fields.CharEnumField(SurveyQuestionKind, max_length=16)
     options = fields.JSONField(null=True)  # type: ignore[var-annotated]
     required = fields.BooleanField(default=False)
+    other_option = fields.BooleanField(default=False)
+    none_option = fields.CharField(max_length=60, null=True)
+    min_picks = fields.SmallIntField(null=True)
+    max_picks = fields.SmallIntField(null=True)
+    long_answer = fields.BooleanField(default=False)
     position = fields.IntField(default=0)
     conditions = fields.JSONField(null=True)  # type: ignore[var-annotated]
     created_at = fields.DatetimeField(auto_now_add=True)
