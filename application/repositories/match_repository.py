@@ -263,6 +263,43 @@ class MatchRepository:
         return await query.order_by('scheduled_at')
     
     @staticmethod
+    async def schedule_page(
+        *,
+        first: int,
+        after: Optional[Tuple[datetime, int]] = None,
+        tournament_ids: Optional[List[int]] = None,
+        stage_ids: Optional[List[int]] = None,
+        start: Optional[datetime] = None,
+        end: Optional[datetime] = None,
+    ) -> List[Match]:
+        """Up to ``first + 1`` of the current event's scheduled matches after
+        the ``(scheduled_at, id)`` keyset ``after``, so a caller can tell
+        whether another page follows. Unscheduled matches are left out: a NULL
+        sorts first on SQLite and last on Postgres, so it can't hold a keyset.
+        """
+        query = event_scoped(Match.filter(scheduled_at__isnull=False))
+        if tournament_ids:
+            query = query.filter(tournament_id__in=tournament_ids)
+        if stage_ids:
+            query = query.filter(stage_id__in=stage_ids)
+        if start is not None:
+            query = query.filter(scheduled_at__gte=start)
+        if end is not None:
+            query = query.filter(scheduled_at__lt=end)
+        if after is not None:
+            at, last_id = after
+            query = query.filter(Q(scheduled_at__gt=at) | Q(scheduled_at=at, id__gt=last_id))
+        return await query.prefetch_related(
+            'tournament',
+            'stage',
+            'generated_seed',
+            'players__user',
+            'commentators__user',
+            'trackers__user',
+            'broadcasters__user',
+        ).order_by('scheduled_at', 'id').limit(first + 1)
+
+    @staticmethod
     async def create(
         tournament_id: int,
         scheduled_at: datetime,

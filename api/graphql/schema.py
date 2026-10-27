@@ -7,11 +7,13 @@ from strawberry.types import Info
 
 from api.graphql.context import GraphContext
 from api.graphql.limits import limit_extensions
-from api.graphql.types import Event, UserNode, Viewer
-from application.errors import NotFoundError
-from application.services import AuthService
+from api.graphql.types import Event, MatchNode, StageNode, TournamentNode, UserNode, Viewer
+from application.errors import NotFoundError, require_found
+from application.event_context import event_scope
+from application.services import AuthService, MatchService, StageService, TournamentService
 from application.services.event_service import EventService
 from application.tenant_context import require_tenant_id
+from models import Match, Stage, Tournament
 
 
 @strawberry.type
@@ -47,6 +49,29 @@ class Query:
         if ref is None or not await EventService.can_view(info.context.actor, ref):
             raise NotFoundError(f"Event '{slug}' not found" if slug else 'This community has no default event')
         return Event.of(ref)
+
+    @strawberry.field(description='One tournament by id, in whichever event it belongs to.')
+    async def tournament(self, info: Info[GraphContext, None], id: int) -> Optional[TournamentNode]:
+        with event_scope(await _row_event(info, Tournament, id)):
+            found = await TournamentService().get_for_viewer(info.context.actor, id)
+        return TournamentNode.of(require_found(found, 'Tournament'))
+
+    @strawberry.field(description='One stage by id, in whichever event it belongs to.')
+    async def stage(self, info: Info[GraphContext, None], id: int) -> Optional[StageNode]:
+        with event_scope(await _row_event(info, Stage, id)):
+            found = await StageService().get_stage_by_id(id)
+        return StageNode.of(require_found(found, 'Stage'))
+
+    @strawberry.field(description='One match by id, in whichever event it belongs to.')
+    async def match(self, info: Info[GraphContext, None], id: int) -> Optional[MatchNode]:
+        with event_scope(await _row_event(info, Match, id)):
+            found = await MatchService().get_by_id(id)
+        return MatchNode.of(require_found(found, 'Match'))
+
+
+async def _row_event(info: Info[GraphContext, None], model: type, row_id: int) -> Optional[int]:
+    """The row's own event; a draft the viewer can't open is a not-found."""
+    return await EventService.call_event_id(info.context.actor, None, [(model, row_id)])
 
 
 class WizzrobeSchema(strawberry.Schema):
