@@ -127,6 +127,18 @@ from .racetime import RaceRoomProfile, RacetimeBot, RacetimeBotTenant, RacetimeR
 from .speedgaming import SpeedGamingEpisode, SpeedGamingEventLink
 from .startgg import StartggConnection, StartggEntrant, StartggPhase, StartggPool, StartggSet
 from .stream_layout import StageOverlay, StreamLayout, StreamLayoutArt
+from .survey import (
+    Survey,
+    SurveyAnswer,
+    SurveyAudience,
+    SurveyQuestion,
+    SurveyQuestionKind,
+    SurveyRecipient,
+    SurveyResponse,
+    SurveyResponseStatus,
+    SurveySection,
+    SurveyStatus,
+)
 from .system import (
     BrowserErrorIgnoreRule,
     BrowserMonitoringSettings,
@@ -342,6 +354,16 @@ __all__ = [
     'StationSide',
     'StreamLayout',
     'StreamLayoutArt',
+    'Survey',
+    'SurveyAnswer',
+    'SurveyAudience',
+    'SurveyQuestion',
+    'SurveyQuestionKind',
+    'SurveyRecipient',
+    'SurveyResponse',
+    'SurveyResponseStatus',
+    'SurveySection',
+    'SurveyStatus',
     'SyncStatus',
     # system
     'SystemConfiguration',

@@ -143,6 +143,7 @@ class FeatureFlag(str, Enum):
     STREAM_LAYOUTS = 'stream_layouts'
     ITEM_TRACKER = 'item_tracker'
     THIRD_PARTY_APPS = 'third_party_apps'
+    SURVEYS = 'surveys'
 
 
 class BracketFormat(str, Enum):

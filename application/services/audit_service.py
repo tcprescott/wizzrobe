@@ -231,6 +231,14 @@ class AuditActions:
     COMMUNITY_EVENT_REJECTED = 'community_event.rejected'
     COMMUNITY_EVENT_CANCELLED = 'community_event.cancelled'
 
+    # Post-event surveys. Details carry ids and counts, never answers.
+    SURVEY_CREATED = 'survey.created'
+    SURVEY_UPDATED = 'survey.updated'
+    SURVEY_DELETED = 'survey.deleted'
+    SURVEY_SENT = 'survey.sent'
+    SURVEY_REMINDED = 'survey.reminded'
+    SURVEY_CLOSED = 'survey.closed'
+
     # ADA accommodation requests. Details carry ids and status only, never the
     # requester's text or staff notes.
     ACCOMMODATION_REQUESTED = 'accommodation.requested'
