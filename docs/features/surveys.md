@@ -136,7 +136,11 @@ keeps this a list rather than a rules engine. Rules enforced in
   on is refused, and so is deleting a question something follows.
 
 A per-tournament condition inside an `each_tournament` section checks that
-tournament; anywhere else it holds when it holds for any of them.
+tournament; anywhere else it holds when it holds for any of them. The
+`on_stage_any` and `tournament_room_any` conditions (and their `not_` opposites)
+always look at the whole event, so a tournament section can ask "were you on a
+stage at all?" in every repeat (Thomas, 2026-10-27). Like the per-tournament
+ones, "tournament room" means the tournament has `uses_tournament_room` set.
 
 On the page, a part whose section waits on an answer appears and disappears as
 the answer changes (`RespondentView.shown_parts`). On submit, saved answers to

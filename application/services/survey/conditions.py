@@ -158,6 +158,13 @@ async def _tournament_room(p: 'Participation') -> Collected:
     return {user_id: sorted(ids) for user_id, ids in p.room_tournaments.items() if ids}
 
 
+def _any(per_tournament: Callable[['Participation'], Awaitable[Collected]]
+         ) -> Callable[['Participation'], Awaitable[Collected]]:
+    async def collect(p: 'Participation') -> Collected:
+        return {user_id: True for user_id, held in (await per_tournament(p)).items() if held}
+    return collect
+
+
 async def _crewed(p: 'Participation') -> Collected:
     return {user_id: True for user_id in p.crew}
 
@@ -181,6 +188,17 @@ register(SurveyCondition(
 register(SurveyCondition(
     'not_tournament_room', "Didn't play in the tournament room", per_tournament=True,
     negates='tournament_room',
+))
+# The same two facts, ignoring which tournament: inside a section that repeats
+# per tournament they still ask about the whole event (Thomas, 2026-10-27).
+register(SurveyCondition('on_stage_any', 'Had a match on a stage (any tournament)', collect=_any(_on_stage)))
+register(SurveyCondition('not_on_stage_any', 'Had no match on a stage (any tournament)', negates='on_stage_any'))
+register(SurveyCondition(
+    'tournament_room_any', 'Played in the tournament room (any tournament)', collect=_any(_tournament_room),
+))
+register(SurveyCondition(
+    'not_tournament_room_any', "Didn't play in the tournament room (any tournament)",
+    negates='tournament_room_any',
 ))
 register(SurveyCondition('crewed', 'Crewed a match on stage (comms, tracking or broadcast)', collect=_crewed))
 register(SurveyCondition('checked_in', 'Checked in at the desk', collect=_checked_in))

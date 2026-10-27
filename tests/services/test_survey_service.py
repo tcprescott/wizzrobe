@@ -499,3 +499,25 @@ async def test_crew_role_sections_reach_only_that_role(event_world):
     tia = await SurveyResponseService().open_survey(tracker, survey.id)
     assert [p.title for p in cam.parts] == ['Comms']
     assert [p.title for p in tia.parts] == ['Tracking']
+
+
+async def test_any_tournament_conditions_ignore_which_tournament_a_part_is_about(event_world):
+    w = event_world
+    await Tournament.filter(id=w['ootr'].id).update(uses_tournament_room=True)
+    service = SurveyService()
+    survey = await service.create_survey(w['staff'], 'Any', from_template=False)
+    section = await service.add_section(w['staff'], survey.id, 'Per tournament', SurveyAudience.EACH_TOURNAMENT)
+    for prompt, key in (('Stage any?', 'on_stage_any'), ('No stage any?', 'not_on_stage_any'),
+                        ('Room any?', 'tournament_room_any'), ('No room any?', 'not_tournament_room_any')):
+        await service.add_question(w['staff'], section.id, prompt, SurveyQuestionKind.YES_NO,
+                                   conditions=[{'key': key}])
+    await service.send(w['staff'], survey.id, closes_at=NOW + timedelta(days=7))
+    alice = await SurveyResponseService().open_survey(w['alice'], survey.id)
+    bob = await SurveyResponseService().open_survey(w['bob'], survey.id)
+    # Alice was on stage only in ALTTPR, but "any tournament" asks in her OoTR part too.
+    assert {p.scope_label: [q.prompt for q in p.questions] for p in alice.parts} == {
+        'ALTTPR': ['Stage any?', 'Room any?'], 'OoTR': ['Stage any?', 'Room any?'],
+    }
+    assert {p.scope_label: [q.prompt for q in p.questions] for p in bob.parts} == {
+        'OoTR': ['No stage any?', 'Room any?'],
+    }

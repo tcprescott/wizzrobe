@@ -51,6 +51,7 @@ _SECTIONS = [
         ('Overall, how was the event?', K.RATING, None, None),
         ('How likely are you to recommend it to a friend?', K.NPS, None, None),
         ('Will you come back next year?', K.CHOICE_ONE, ['Yes', 'Maybe', 'No'], None),
+        ('Would you play on a stream stage again?', K.YES_NO, None, 'on_stage_any'),
     ]),
     ('Your tournaments', A.EACH_TOURNAMENT, [
         ('How did you hear about the tournament?', K.CHOICE_ONE, ['Discord', 'Twitter / Bluesky', 'A friend'],
@@ -125,7 +126,8 @@ def _facts(tournament: Tournament | None, position: VolunteerPosition | None, *,
         if tournament else []
     conditions: dict = {'checked_in': True}
     if tournament:
-        conditions.update(tournament_room=[tournament.id], on_stage=[tournament.id])
+        conditions.update(tournament_room=[tournament.id], on_stage=[tournament.id],
+                          tournament_room_any=True, on_stage_any=True)
     if crew:
         conditions['crewed'] = True
     return {
