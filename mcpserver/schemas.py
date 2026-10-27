@@ -201,7 +201,8 @@ class PayoutEntry(BaseModel):
     """One placement's share of a prize pool, with the money worked out."""
 
     place: int
-    percentage: Decimal
+    percentage: Optional[Decimal] = Field(None, description='Share of the total; null on a fixed-amount line.')
+    is_fixed: bool = Field(False, description='True when the line pays a fixed amount that does not move with the pool.')
     amount: Decimal
     entrant_name: Optional[str] = None
     matcherino_username: Optional[str] = None
