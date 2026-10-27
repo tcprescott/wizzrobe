@@ -81,6 +81,13 @@ class RespondentView:
         return missing
 
 
+def _day(now: Optional[datetime] = None) -> datetime:
+    """Midnight UTC of today. A recipient row keeps only the day it was opened
+    and answered, so its times can't be lined up with an anonymous response."""
+    now = now or datetime.now(timezone.utc)
+    return now.replace(hour=0, minute=0, second=0, microsecond=0)
+
+
 def _groups(facts: Mapping[str, Any]) -> List[dict]:
     groups = [{'key': f"t:{t['id']}", 'label': f"{t['name']} player"} for t in facts.get('tournaments') or []]
     groups += [{'key': f"p:{p['id']}", 'label': p['name']} for p in facts.get('positions') or []]
@@ -126,7 +133,7 @@ class SurveyResponseService:
         """The survey as ``actor`` sees it, with what they've answered so far. Marks it opened."""
         survey, recipient = await self._recipient(actor, survey_id)
         if recipient.opened_at is None:
-            await self.repository.update(recipient, opened_at=datetime.now(timezone.utc))
+            await self.repository.update(recipient, opened_at=_day())
         return await self._view(survey, recipient, actor)
 
     @requires_feature(FeatureFlag.SURVEYS)
@@ -177,7 +184,7 @@ class SurveyResponseService:
         await self.repository.submit_response(
             draft, anonymous=anonymous, groups=_groups(recipient.facts or {}), submitted_on=now.date(),
         )
-        await self.repository.update(recipient, submitted_at=now)
+        await self.repository.update(recipient, submitted_at=_day(now))
 
     @requires_feature(FeatureFlag.SURVEYS)
     async def my_open_surveys(self, actor: User) -> List[Survey]:

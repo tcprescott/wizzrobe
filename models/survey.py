@@ -167,6 +167,8 @@ class SurveyRecipient(Model):
 
     It records *that* someone answered (``submitted_at``), never *what*: an
     anonymous :class:`SurveyResponse` carries no link back to this row.
+    ``opened_at`` and ``submitted_at`` hold the day only (midnight UTC), so
+    they can't be lined up with when an anonymous response was written.
     """
 
     id = fields.IntField(pk=True)

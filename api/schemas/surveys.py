@@ -5,7 +5,10 @@ from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field
 
-from models import SurveyAudience, SurveyQuestionKind
+from application.services import SurveyResults
+from application.services.survey import response_answers
+from application.services.survey.results import Breakdown
+from models import Survey, SurveyAudience, SurveyQuestion, SurveyQuestionKind, SurveyResponse, SurveySection
 
 
 class SurveyQuestionResponse(BaseModel):
@@ -148,3 +151,64 @@ class QuestionUpdateRequest(BaseModel):
     required: Optional[bool] = None
     condition: Optional[str] = Field(None, description="Send an empty string to clear it.")
     condition_args: Optional[Dict[str, Any]] = None
+
+
+# Built from service results by both the REST router and the MCP tools, so the
+# two surfaces return the same shapes.
+
+def question_out(q: SurveyQuestion) -> SurveyQuestionResponse:
+    return SurveyQuestionResponse(
+        id=q.id, prompt=q.prompt, kind=q.kind.value, options=q.options, required=q.required,
+        position=q.position, condition=q.condition, condition_args=q.condition_args,
+    )
+
+
+def section_out(s: SurveySection) -> SurveySectionResponse:
+    return SurveySectionResponse(
+        id=s.id, title=s.title, audience=s.audience.value, position=s.position,
+        questions=[question_out(q) for q in s.questions],
+    )
+
+
+def _summary(s: Survey, sent: int = 0, answered: int = 0) -> Dict[str, Any]:
+    return dict(
+        id=s.id, title=s.title, status=s.status.value, allow_anonymous=s.allow_anonymous,
+        sent_at=s.sent_at, closes_at=s.closes_at, recipients=sent, answered=answered,
+    )
+
+
+def summary_out(s: Survey, sent: int = 0, answered: int = 0) -> SurveySummaryResponse:
+    return SurveySummaryResponse(**_summary(s, sent, answered))
+
+
+def survey_out(s: Survey) -> SurveyResponseModel:
+    return SurveyResponseModel(**_summary(s), intro=s.intro or '', sections=[section_out(x) for x in s.sections])
+
+
+def _breakdown(b: Breakdown) -> BreakdownResponse:
+    return BreakdownResponse(count=b.count, average=b.average, score=b.score, counts=b.counts, hidden=b.hidden)
+
+
+def results_out(survey_id: int, results: SurveyResults) -> SurveyResultsResponse:
+    return SurveyResultsResponse(
+        survey_id=survey_id, recipients=results.recipients.get('sent', 0),
+        opened=results.recipients.get('opened', 0), responses=results.responses, anonymous=results.anonymous,
+        questions=[
+            QuestionResultResponse(
+                question_id=r.question_id, section_id=r.section_id, section_title=r.section_title,
+                prompt=r.prompt, kind=r.kind.value, overall=_breakdown(r.overall),
+                groups={k: _breakdown(v) for k, v in r.groups.items()},
+                comments=[CommentResponse(text=c.text, who=c.who, group=c.group) for c in r.comments],
+            )
+            for r in results.questions
+        ],
+    )
+
+
+def response_out(r: SurveyResponse) -> SubmittedResponse:
+    return SubmittedResponse(
+        id=r.id, user_id=r.user_id, user_name=r.user.preferred_name if r.user else None,
+        anonymous=r.anonymous, groups=[g.get('label', '') for g in r.groups or []],
+        submitted_on=r.submitted_on.isoformat() if r.submitted_on else None,
+        answers=[SurveyAnswerResponse(**a) for a in response_answers(r)],
+    )

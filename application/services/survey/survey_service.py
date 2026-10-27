@@ -293,10 +293,16 @@ class SurveyService:
         return await self._load(survey.id)
 
     @requires_feature(FeatureFlag.SURVEYS)
-    async def delete_survey(self, actor: User, survey_id: int) -> None:
-        """Delete a survey and every answer it collected."""
+    async def delete_survey(self, actor: User, survey_id: int, *, drafts_only: bool = False) -> None:
+        """Delete a survey and every answer it collected.
+
+        ``drafts_only`` is REST and MCP: they build surveys, and answers people
+        gave are deleted only from the app, behind a typed confirmation.
+        """
         await self._ensure_staff(actor)
         survey = await self._load(survey_id)
+        if drafts_only and survey.status is not SurveyStatus.DRAFT:
+            raise ValueError('Only a draft can be deleted here. Delete a sent survey from Admin → Surveys.')
         await self._audit(actor, AuditActions.SURVEY_DELETED, survey, status=survey.status.value)
         await self.repository.delete(survey)
 
