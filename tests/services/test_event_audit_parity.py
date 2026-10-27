@@ -451,6 +451,12 @@ _EXCLUDED_BY_DESIGN = frozenset({
     AuditActions.SURVEY_UPDATED,
     AuditActions.SURVEY_DELETED,
     AuditActions.SURVEY_REMINDED,
+    # Asking the AI for draft questions and setting the community's AI key are
+    # staff tooling: nothing a person outside sees changes until a draft is kept
+    # (an ordinary question edit) and the survey is sent.
+    AuditActions.SURVEY_QUESTIONS_SUGGESTED,
+    AuditActions.AI_PROVIDER_SET,
+    AuditActions.AI_PROVIDER_CLEARED,
 })
 
 _EVENTLESS_AUDIT_ACTIONS = _EVENT_CANDIDATES | _EXCLUDED_BY_DESIGN

@@ -406,7 +406,7 @@ message once per kind of recipient, with this community's mode and the default
 (see [notification-settings.md](notification-settings.md)).
 
 ### Surveys
-`mcpserver/tools/surveys.py`, Gate STAFF, flag `SURVEYS`; mirrors `/api/surveys`.
+`mcpserver/tools/surveys.py`, Gate STAFF, flag `SURVEYS`; mirrors `/api/surveys`. `add_survey_question` takes `agree_scale`, and the question tools take `other_option`, `none_option`, `min_picks`, `max_picks` and `long_answer`; the section tools take `description` and the per-role crew audiences. No tool asks the AI for suggestions.
 
 | Reads | Writes |
 |---|---|

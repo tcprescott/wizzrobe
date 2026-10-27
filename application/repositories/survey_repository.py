@@ -5,7 +5,7 @@ Post-event surveys: the survey and its sections and questions, the people it
 was sent to, and their responses and answers.
 """
 
-from datetime import date
+from datetime import date, datetime
 from typing import Any, Dict, Iterable, List, Optional, TypeVar
 
 from tortoise.functions import Count
@@ -25,6 +25,7 @@ from models import (
     SurveyResponseStatus,
     SurveySection,
     SurveyStatus,
+    SurveySuggestionBatch,
 )
 
 M = TypeVar('M', bound=Model)
@@ -110,6 +111,14 @@ class SurveyRepository(EventScopedRepository[Survey]):
 
     @staticmethod
     async def set_question_positions(order: Dict[int, int]) -> None:
+        for question_id, position in order.items():
+            await guarded_update(scoped(SurveyQuestion.filter(id=question_id)), position=position)
+
+    @staticmethod
+    async def place_question(question: SurveyQuestion, section_id: int, order: Dict[int, int]) -> None:
+        """Move ``question`` into ``section_id`` and renumber that section's questions to ``order``."""
+        if question.section_id != section_id:
+            await guarded_update(scoped(SurveyQuestion.filter(id=question.id)), section_id=section_id)
         for question_id, position in order.items():
             await guarded_update(scoped(SurveyQuestion.filter(id=question_id)), position=position)
 
@@ -259,3 +268,40 @@ class SurveyRepository(EventScopedRepository[Survey]):
             response__survey_id=survey_id, response__status=SurveyResponseStatus.SUBMITTED,
         )).prefetch_related('response')
 
+
+    # --- AI suggestions ---------------------------------------------------
+
+    @staticmethod
+    async def create_suggestion_batch(survey: Survey, section: SurveySection, **fields: Any) -> SurveySuggestionBatch:
+        return await SurveySuggestionBatch.create(
+            tenant_id=current_tenant_id(), survey=survey, section=section, **fields,
+        )
+
+    @staticmethod
+    async def get_suggestion_batch(batch_id: int) -> Optional[SurveySuggestionBatch]:
+        return await scoped(SurveySuggestionBatch.filter(id=batch_id)).first()
+
+    @staticmethod
+    async def open_suggestion_batches(survey_id: int) -> List[SurveySuggestionBatch]:
+        """Batches on ``survey_id`` nobody has dismissed, newest first."""
+        return await scoped(SurveySuggestionBatch.filter(
+            survey_id=survey_id, dismissed_at__isnull=True,
+        )).order_by('-id')
+
+    @staticmethod
+    async def suggestion_batches_since(since: datetime) -> int:
+        return await scoped(SurveySuggestionBatch.filter(created_at__gte=since)).count()
+
+    @staticmethod
+    async def update_suggestion_batch(batch: SurveySuggestionBatch, **fields: Any) -> SurveySuggestionBatch:
+        batch.update_from_dict(fields)
+        await save_fields(batch, *fields)
+        return batch
+
+    @staticmethod
+    async def latest_closed_survey(before_event_id: int) -> Optional[Survey]:
+        """The community's most recent sent survey from another event, with its questions (cross-event by design)."""
+        return await scoped(Survey.filter(
+            status__in=[SurveyStatus.OPEN, SurveyStatus.CLOSED],
+        ).exclude(event_id=before_event_id)).order_by('-sent_at', '-id') \
+            .prefetch_related('sections__questions').first()

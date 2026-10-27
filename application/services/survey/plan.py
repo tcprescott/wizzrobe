@@ -22,15 +22,28 @@ SECONDS: Dict[SurveyQuestionKind, int] = {
     SurveyQuestionKind.CHOICE_ONE: 8,
     SurveyQuestionKind.CHOICE_MANY: 12,
     SurveyQuestionKind.COMMENT: 25,
+    SurveyQuestionKind.AGREE_SCALE: 5,  # per statement
 }
 BUDGET_SECONDS = 5 * 60
 REPEATING = (SurveyAudience.EACH_TOURNAMENT, SurveyAudience.EACH_POSITION)
+
+# A crew-role audience → the role in a recipient's ``crew_roles`` fact, and the part's reason line.
+CREW_AUDIENCES: Dict[SurveyAudience, Tuple[str, str]] = {
+    SurveyAudience.COMMENTATORS: ('commentary', 'You commentated a match on stage'),
+    SurveyAudience.TRACKERS: ('tracking', 'You tracked a match on stage'),
+    SurveyAudience.BROADCASTERS: ('broadcast', 'You crewed a broadcast on stage'),
+}
+CREW_ROLE_NAMES = ('commentary', 'tracking', 'broadcast')
+PERSONA_ROLES = {'commentator': 'commentary', 'tracker': 'tracking', 'broadcaster': 'broadcast'}
 
 AUDIENCE_LABELS: Dict[SurveyAudience, str] = {
     SurveyAudience.EVERYONE: 'Everyone',
     SurveyAudience.EACH_TOURNAMENT: 'Repeats for each tournament they played',
     SurveyAudience.EACH_POSITION: 'Repeats for each volunteer position they worked',
-    SurveyAudience.CREW: 'Match crew (comms, tracking, broadcast)',
+    SurveyAudience.CREW: 'Match crew, any role (comms, tracking, broadcast)',
+    SurveyAudience.COMMENTATORS: 'Commentators on stage matches',
+    SurveyAudience.TRACKERS: 'Trackers on stage matches',
+    SurveyAudience.BROADCASTERS: 'Broadcast crew on stage matches',
     SurveyAudience.CHECKED_IN: 'Everyone the desk checked in',
 }
 
@@ -41,6 +54,7 @@ KIND_LABELS: Dict[SurveyQuestionKind, str] = {
     SurveyQuestionKind.CHOICE_ONE: 'Pick one',
     SurveyQuestionKind.CHOICE_MANY: 'Pick any',
     SurveyQuestionKind.COMMENT: 'Comment',
+    SurveyQuestionKind.AGREE_SCALE: 'Agree scale',
 }
 
 
@@ -56,6 +70,7 @@ class Part:
     icon: str
     questions: List[SurveyQuestion] = field(default_factory=list)
     follows: List[Entry] = field(default_factory=list)  # the section's answer-based conditions
+    description: str = ''
 
     @property
     def key(self) -> str:
@@ -86,6 +101,9 @@ def _repeats(section: SurveySection, facts: Mapping[str, Any]) -> List[Tuple[str
         ]
     if audience is SurveyAudience.CREW:
         return [('', '', section.title, 'You crewed a match')] if facts.get('crew') else []
+    if audience in CREW_AUDIENCES:
+        role, reason = CREW_AUDIENCES[audience]
+        return [('', '', section.title, reason)] if role in (facts.get('crew_roles') or []) else []
     if audience is SurveyAudience.CHECKED_IN:
         return [('', '', section.title, 'The desk checked you in')] if facts.get('checked_in') else []
     return [('', '', section.title, 'Everyone')]
@@ -96,6 +114,9 @@ _ICONS = {
     SurveyAudience.EACH_TOURNAMENT: 'sports_esports',
     SurveyAudience.EACH_POSITION: 'badge',
     SurveyAudience.CREW: 'mic',
+    SurveyAudience.COMMENTATORS: 'record_voice_over',
+    SurveyAudience.TRACKERS: 'checklist',
+    SurveyAudience.BROADCASTERS: 'videocam',
     SurveyAudience.CHECKED_IN: 'how_to_reg',
 }
 
@@ -121,7 +142,8 @@ def parts_for(sections: Iterable[SurveySection], facts: Mapping[str, Any], *,
             ]
             if shown:
                 parts.append(Part(section.id, title, reason, scope, label, _ICONS[section.audience], shown,
-                                  [] if ignore_conditions else answer_entries(section.conditions)))
+                                  [] if ignore_conditions else answer_entries(section.conditions),
+                                  section.description or ''))
     return parts
 
 
@@ -182,7 +204,16 @@ def part_shown(part: Part, answers: Mapping[AnswerKey, Any]) -> bool:
 
 def seconds(parts: Sequence[Part]) -> int:
     """How long ``parts`` take, counting answer-based follow-ups as shown (worst case)."""
-    return sum(SECONDS.get(q.kind, 8) for part in parts for q in part.questions)
+    return sum(question_seconds(q) for part in parts for q in part.questions)
+
+
+def question_seconds(question: SurveyQuestion) -> int:
+    each = SECONDS.get(question.kind, 8)
+    if question.kind is SurveyQuestionKind.AGREE_SCALE:
+        return each * max(1, len(question.options or []))
+    if question.long_answer:
+        return each * 2
+    return each
 
 
 def question_count(parts: Sequence[Part]) -> int:
@@ -217,10 +248,14 @@ def preview_facts(persona: str, tournaments: Sequence[dict], positions: Sequence
     elif persona == 'volunteer':
         base['positions'] = one_position
     elif persona == 'crew':
-        base['crew'] = True
+        base.update(crew=True, crew_roles=list(CREW_ROLE_NAMES))
+        base['conditions']['crewed'] = True
+    elif persona in PERSONA_ROLES:
+        base.update(crew=True, crew_roles=[PERSONA_ROLES[persona]])
         base['conditions']['crewed'] = True
     elif persona == 'everything':
-        base.update(tournaments=two_tournaments[:1], positions=one_position, crew=True)
+        base.update(tournaments=two_tournaments[:1], positions=one_position, crew=True,
+                    crew_roles=list(CREW_ROLE_NAMES))
     return base
 
 
@@ -229,6 +264,9 @@ PREVIEW_PERSONAS: Dict[str, str] = {
     'player': 'Player',
     'player_on_stage': 'Player on stage',
     'volunteer': 'Volunteer',
-    'crew': 'Crew',
+    'crew': 'Crew, every role',
+    'commentator': 'Commentator',
+    'tracker': 'Tracker',
+    'broadcaster': 'Broadcast crew',
     'checked_in': 'Checked in only',
 }

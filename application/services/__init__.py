@@ -44,6 +44,7 @@ from . import (
     telemetry_retention,
 )
 from .accommodation_service import AccommodationService
+from .ai_provider_service import AiProviderService
 from .analytics_service import AnalyticsService
 from .api_token_service import ApiTokenService
 from .async_qualifier import (
@@ -162,6 +163,7 @@ from .survey import (
     SurveyResults,
     SurveyRow,
     SurveyService,
+    SurveySuggestionService,
 )
 from .system_config_service import SystemConfigService
 from .table_preference_service import TablePreferenceService
@@ -200,6 +202,7 @@ from .webhook_service import WebhookService
 __all__ = [
     'AccommodationService',
     'AccountOverview',
+    'AiProviderService',
     'AnalyticsService',
     'ApiTokenService',
     'ArchiveCheck',
@@ -322,6 +325,7 @@ __all__ = [
     'SurveyResults',
     'SurveyRow',
     'SurveyService',
+    'SurveySuggestionService',
     'SystemConfigService',
     'TablePreferenceService',
     'TelemetryService',

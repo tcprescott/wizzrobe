@@ -22,6 +22,7 @@ class Participation:
     on_stage: Dict[int, Set[int]] = field(default_factory=dict)
     room_tournaments: Dict[int, Set[int]] = field(default_factory=dict)
     crew: Set[int] = field(default_factory=set)
+    crew_roles: Dict[str, Set[int]] = field(default_factory=dict)
     checked_in: Set[int] = field(default_factory=set)
     _reschedules: Optional[Set[Tuple[int, int]]] = None
 
@@ -47,7 +48,8 @@ class Participation:
             worked = p.positions.setdefault(user_id, {})
             entry = worked.setdefault(position_id, {'id': position_id, 'name': row['position_name'], 'shifts': 0})
             entry['shifts'] += 1
-        p.crew = await repo.crew_user_ids(event_id)
+        p.crew_roles = await repo.crew_user_ids(event_id)
+        p.crew = set().union(*p.crew_roles.values()) if p.crew_roles else set()
         p.checked_in = await repo.checked_in_user_ids(event_id)
         return p
 
@@ -73,6 +75,7 @@ class Participation:
                 'tournaments': sorted(self.tournaments.get(user_id, {}).values(), key=lambda t: t['name'].lower()),
                 'positions': sorted(self.positions.get(user_id, {}).values(), key=lambda p: p['name'].lower()),
                 'crew': user_id in self.crew,
+                'crew_roles': [role for role, users in self.crew_roles.items() if user_id in users],
                 'checked_in': user_id in self.checked_in,
                 'conditions': {key: values[user_id] for key, values in collected.items() if user_id in values},
             }
@@ -106,6 +109,7 @@ class Participation:
             'players': len(self.tournaments),
             'volunteers': len(self.positions),
             'crew': len(self.crew),
+            **{f'crew_{role}': len(users) for role, users in self.crew_roles.items()},
             'checked_in_only': len(only_checked_in),
             'everyone': len(everyone),
         }

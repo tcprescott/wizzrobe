@@ -4,16 +4,19 @@ Editable while the survey is a draft. Once sent it's the same view read-only:
 the answers already given belong to these exact questions.
 """
 
-from dataclasses import dataclass
-from typing import Awaitable, Callable, Dict
+from dataclasses import dataclass, field
+from typing import Awaitable, Callable, Dict, Optional
 
 from nicegui import ui
 
-from application.services import BuilderSummary, SurveyService
+from application.services import BuilderSummary, SurveyService, SurveySuggestionService
 from application.services.survey import conditions, plan
-from models import Survey, SurveyQuestion, SurveySection, SurveyStatus, User
+from application.services.survey.suggestions import pending_drafts, provider_label
+from models import Survey, SurveyQuestion, SurveyQuestionKind, SurveySection, SurveyStatus, SurveySuggestionBatch, User
 from pages.admin_tabs.admin_surveys import dialogs
 from pages.admin_tabs.admin_surveys.shared import AUDIENCE_CHIPS, KIND_CHIPS, KIND_ICONS
+from theme.busy import busy_click
+from theme.dialog._helpers import form_dialog
 from theme.dialog.confirmation_dialog import ConfirmationDialog
 from theme.menu import menu_action, more_menu
 from theme.notify import notify_error
@@ -26,6 +29,10 @@ class BuilderContext:
     survey: Survey
     summary: BuilderSummary
     reload: Callable[[], Awaitable[None]]
+    #: The community's AI provider, when it has one; no "Suggest questions" without it.
+    ai_label: Optional[str] = None
+    #: Section id → its batch of drafts still waiting to be kept.
+    suggestions: Dict[int, SurveySuggestionBatch] = field(default_factory=dict)
 
     @property
     def editable(self) -> bool:
@@ -45,6 +52,14 @@ async def _run(ctx: BuilderContext, coro) -> None:
     await ctx.reload()
 
 
+async def _dropped(ctx: BuilderContext, drop: dict) -> None:
+    try:
+        question, section, index = int(drop['question']), int(drop['section']), int(drop['index'])
+    except (KeyError, TypeError, ValueError):
+        return
+    await _run(ctx, ctx.service.place_question(ctx.user, question, section, index))
+
+
 async def _reload(ctx: BuilderContext, _=None) -> None:
     await ctx.reload()
 
@@ -58,7 +73,11 @@ def _condition_chips(entries, prompts: Dict[int, str]) -> None:
 
 def _question_row(ctx: BuilderContext, section: SurveySection, question: SurveyQuestion,
                   prompts: Dict[int, str], first: bool, last: bool) -> None:
-    with ui.row().classes('wiz-survey-q no-wrap items-center w-full'):
+    with ui.row().classes('wiz-survey-q no-wrap items-center w-full').props(f'data-qid={question.id}'):
+        if ctx.editable:
+            # static/js/survey-drag.js; the ⋮ menu's Move up/down is the keyboard path.
+            ui.icon('drag_indicator').classes('wiz-survey-drag').props('aria-hidden=true') \
+                .tooltip('Drag to move')
         ui.icon(KIND_ICONS[question.kind]).classes('wiz-survey-q__icon').props('aria-hidden=true')
         with ui.row().classes('wiz-survey-q__text col min-w-0 items-center gap-2'):
             ui.label(question.prompt).classes('wiz-survey-q__prompt')
@@ -110,16 +129,74 @@ def _section_card(ctx: BuilderContext, section: SurveySection, prompts: Dict[int
                         title='Delete section', confirm_text='Delete',
                         on_confirm=lambda: _run(ctx, ctx.service.delete_section(ctx.user, section.id)),
                     ).open(), negative=True)
+        if section.description:
+            ui.label(section.description).classes('wiz-survey-section__description')
         questions = list(section.questions)
-        if not questions:
-            ui.label('No questions yet.').classes('wiz-survey-section__empty')
-        for i, question in enumerate(questions):
-            _question_row(ctx, section, question, prompts, i == 0, i == len(questions) - 1)
+        with ui.column().classes('wiz-survey-qlist w-full gap-0').props(f'data-section={section.id}'):
+            if not questions:
+                ui.label('No questions yet.').classes('wiz-survey-section__empty')
+            for i, question in enumerate(questions):
+                _question_row(ctx, section, question, prompts, i == 0, i == len(questions) - 1)
+        batch = ctx.suggestions.get(section.id) if ctx.editable else None
+        if batch is not None:
+            _suggested_rows(ctx, section, batch)
         if ctx.editable:
-            with ui.row().classes('wiz-survey-section__foot w-full'):
+            with ui.row().classes('wiz-survey-section__foot w-full items-center gap-1'):
                 ui.button('Add question', icon='add', on_click=lambda: dialogs.question_dialog(
                     ctx.service, ctx.user, ctx.survey, section, None, lambda _: _reload(ctx),
                 )).props('flat no-caps color=primary')
+                if ctx.ai_label:
+                    ui.button('Suggest questions', icon='auto_awesome',
+                              on_click=busy_click('Asking…', lambda: _suggest(ctx, section))) \
+                        .props('flat no-caps').classes('wiz-survey-suggest-btn').style('color: var(--status-suggested)')
+
+
+async def _suggest(ctx: BuilderContext, section: SurveySection) -> None:
+    await _run(ctx, SurveySuggestionService().suggest(ctx.user, section.id))
+
+
+def _sent_dialog(ctx: BuilderContext, batch: SurveySuggestionBatch) -> Callable[[], Awaitable[None]]:
+    async def load() -> None:
+        try:
+            text = await SurveySuggestionService().sent_context(ctx.user, batch.id)
+        except (ValueError, PermissionError) as e:
+            notify_error(e)
+            return
+        with form_dialog('What was sent', card_classes='dialog-card dialog-card--lg') as dialog:
+            with ui.column().classes('w-full gap-2'):
+                ui.label(f'Everything {provider_label(batch)} ({batch.model}) was given for these suggestions. '
+                         'No names, handles or anything people wrote.').classes('text-caption text-grey-7')
+                ui.label(text).classes('wiz-survey-sent')
+        dialog.open()
+
+    return load
+
+
+def _suggested_rows(ctx: BuilderContext, section: SurveySection, batch: SurveySuggestionBatch) -> None:
+    service = SurveySuggestionService()
+    for index, draft in pending_drafts(batch):
+        kind = SurveyQuestionKind(draft['kind'])
+        with ui.row().classes('wiz-survey-q wiz-survey-q--suggested no-wrap items-center w-full'):
+            ui.icon(KIND_ICONS[kind]).classes('wiz-survey-q__icon').props('aria-hidden=true')
+            with ui.row().classes('wiz-survey-q__text col min-w-0 items-center gap-2'):
+                ui.label(draft['prompt']).classes('wiz-survey-q__prompt')
+                ui.label('Suggested').classes('wiz-chip wiz-chip--suggested')
+                if draft.get('options'):
+                    ui.label(' · '.join(draft['options'])).classes('wiz-survey-q__options')
+            ui.label(KIND_CHIPS[kind]).classes('wiz-chip wiz-chip--neutral wiz-survey-q__kind')
+            keep = ui.button(icon='add_circle_outline', on_click=lambda i=index: _run(
+                ctx, service.keep(ctx.user, batch.id, i))).props('flat round dense').classes('wiz-survey-q__keep')
+            keep._props['aria-label'] = f'Keep “{draft["prompt"]}”'
+            keep.tooltip('Keep this question')
+    with ui.row().classes('wiz-survey-suggested-note w-full items-center gap-2'):
+        ui.label(f'Suggested by {provider_label(batch)} from “{plan.AUDIENCE_LABELS[section.audience]}”. '
+                 'Tap + to keep, or').classes('col-auto')
+        ui.button('dismiss all', on_click=lambda: _run(ctx, service.dismiss(ctx.user, batch.id))) \
+            .props('flat dense no-caps').classes('wiz-survey-suggested-note__link') \
+            .style('color: var(--status-suggested)')
+        ui.button('What was sent', icon='visibility', on_click=_sent_dialog(ctx, batch)) \
+            .props('flat dense no-caps').classes('wiz-survey-suggested-note__link') \
+            .style('color: var(--status-suggested)')
 
 
 def _budget_card(ctx: BuilderContext) -> None:
@@ -146,7 +223,9 @@ def _budget_card(ctx: BuilderContext) -> None:
 def _who_card(ctx: BuilderContext) -> None:
     counts = ctx.summary.counts
     rows = [('Players', counts.get('players', 0)), ('Volunteers', counts.get('volunteers', 0)),
-            ('Crew', counts.get('crew', 0)), ('Checked in only', counts.get('checked_in_only', 0))]
+            ('Commentators', counts.get('crew_commentary', 0)), ('Trackers', counts.get('crew_tracking', 0)),
+            ('Broadcast crew', counts.get('crew_broadcast', 0)),
+            ('Checked in only', counts.get('checked_in_only', 0))]
     top = max([n for _, n in rows] + [1])
     with ui.element('section').classes('wiz-survey-side'):
         ui.label('Who gets it').classes('wiz-survey-side__title')
@@ -170,7 +249,10 @@ def render_builder(ctx: BuilderContext) -> None:
     survey = ctx.survey
     prompts = _prompts(survey)
     sections = list(survey.sections)
-    with ui.element('div').classes('wiz-survey-builder w-full'):
+    builder = ui.element('div').classes('wiz-survey-builder w-full')
+    if ctx.editable:
+        builder.on('survey-drop', lambda e: _dropped(ctx, (e.args or {}).get('detail') or {}), args=['detail'])
+    with builder:
         with ui.column().classes('wiz-survey-builder__main gap-3'):
             if survey.intro:
                 ui.label(survey.intro).classes('wiz-survey-builder__intro')

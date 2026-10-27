@@ -15,6 +15,7 @@ from models import (
     Stage,
     Survey,
     SurveyAudience,
+    SurveyQuestion,
     SurveyQuestionKind,
     SurveyRecipient,
     SurveyResponse,
@@ -332,3 +333,169 @@ async def test_a_section_can_wait_on_an_answer_and_hidden_answers_are_dropped(ev
     results = await service.results(staff, survey.id)
     comments = next(r for r in results.questions if r.question_id == add.id)
     assert comments.comments == [] and comments.overall.count == 0
+
+
+def test_agree_scale_statements_and_answers():
+    from application.services.survey._validation import clean_options, coerce_answer
+    from application.services.survey.results import breakdown
+
+    kind = SurveyQuestionKind.AGREE_SCALE
+    assert clean_options(kind, ['Rooms ran on time', ' ', 'Rooms ran on time', 'Signs were clear']) == \
+        ['Rooms ran on time', 'Signs were clear']
+    with pytest.raises(ValueError, match='statements'):
+        clean_options(kind, ['Only one'])
+    q = SurveyQuestion(prompt='Agree?', kind=kind, options=['A', 'B'])
+    assert coerce_answer(q, {'B': '2', 'A': 5}) == ({'A': 5, 'B': 2}, None)
+    assert coerce_answer(q, {'A': None}) == (None, None)
+    for crafted in ({'C': 3}, {'A': 6}, {'A': True}, {'A': '12'}, 'A', [1]):
+        with pytest.raises(ValueError):
+            coerce_answer(q, crafted)
+    result = breakdown(q, [{'A': 5, 'B': 1}, {'A': 4}, {'A': 1, 'Z': 3}])
+    assert result.statements == {'A': [1, 0, 0, 1, 1], 'B': [1, 0, 0, 0, 0]}
+    assert result.agree_share('A') == 67 and result.agree_share('B') == 0
+    assert breakdown(q, [{'A': 5}], protect=True).hidden
+
+
+async def test_required_agree_scale_needs_every_statement(event_world):
+    w = event_world
+    service = SurveyService()
+    survey = await service.create_survey(w['staff'], 'Agree survey', from_template=False)
+    section = await service.add_section(w['staff'], survey.id, 'Overall', SurveyAudience.EVERYONE)
+    question = await service.add_question(w['staff'], section.id, 'How much do you agree?',
+                                          SurveyQuestionKind.AGREE_SCALE, options=['A', 'B'], required=True)
+    await service.send(w['staff'], survey.id, closes_at=NOW + timedelta(days=7))
+    responses = SurveyResponseService()
+    view = await responses.open_survey(w['alice'], survey.id)
+    await responses.save_part(w['alice'], survey.id, view.parts[0].key, {question.id: {'A': 4}})
+    with pytest.raises(ValueError, match='every statement'):
+        await responses.submit(w['alice'], survey.id)
+    await responses.save_part(w['alice'], survey.id, view.parts[0].key, {question.id: {'A': 4, 'B': 2}})
+    await responses.submit(w['alice'], survey.id)
+
+
+async def test_crew_counts_only_matches_on_a_stage(event_world, stub_discord_queue):
+    w = event_world
+    off_stage = await Match.create(tournament=w['ootr'])
+    dan = await make_member(7, 'dan')
+    await Commentator.create(match=off_stage, user=dan, approved=True)
+    survey = await _sent(w)
+    recipients = {r.user_id for r in await SurveyRecipient.filter(survey_id=survey.id)}
+    assert w['cam'].id in recipients
+    assert dan.id not in recipients
+
+
+async def test_choice_extras_are_checked_when_built(event_world):
+    w = event_world
+    service = SurveyService()
+    survey = await service.create_survey(w['staff'], 'Extras', from_template=False)
+    section = await service.add_section(w['staff'], survey.id, 'Overall', SurveyAudience.EVERYONE,
+                                        description='About the weekend.')
+    assert section.description == 'About the weekend.'
+    many = SurveyQuestionKind.CHOICE_MANY
+    with pytest.raises(ValueError, match='only 3 choices'):
+        await service.add_question(w['staff'], section.id, 'Q', many, options=['A', 'B', 'C'], max_picks=4)
+    with pytest.raises(ValueError, match='fewest'):
+        await service.add_question(w['staff'], section.id, 'Q', many, options=['A', 'B', 'C'], min_picks=3,
+                                   max_picks=2)
+    with pytest.raises(ValueError, match='write-in switch'):
+        await service.add_question(w['staff'], section.id, 'Q', many, options=['A', 'Other'], other_option=True)
+    with pytest.raises(ValueError, match='already a choice'):
+        await service.add_question(w['staff'], section.id, 'Q', many, options=['A', 'B'], none_option='a')
+    # A kind that doesn't take an extra drops it.
+    rating = await service.add_question(w['staff'], section.id, 'Rate', SurveyQuestionKind.RATING,
+                                        other_option=True, long_answer=True, max_picks=2)
+    assert not rating.other_option and not rating.long_answer and rating.max_picks is None
+    q = await service.add_question(w['staff'], section.id, 'Top 2?', many, options=['A', 'B', 'C'],
+                                   other_option=True, none_option='None of these', max_picks=2)
+    assert (q.other_option, q.none_option, q.max_picks) == (True, 'None of these', 2)
+    updated = await service.update_question(w['staff'], q.id, none_option='', max_picks=0)
+    assert updated.none_option is None and updated.max_picks is None and updated.other_option
+
+
+def test_choice_answers_hold_to_their_extras():
+    from application.services.survey._validation import coerce_answer
+
+    q = SurveyQuestion(prompt='Top 2?', kind=SurveyQuestionKind.CHOICE_MANY, options=['A', 'B', 'C'],
+                       other_option=True, none_option='None of these', min_picks=None, max_picks=2)
+    assert coerce_answer(q, ['B', 'A']) == (['A', 'B'], None)
+    assert coerce_answer(q, {'value': ['Other'], 'other': 'Radio'}) == (['Other'], 'Radio')
+    assert coerce_answer(q, {'value': ['A'], 'other': 'ignored'}) == (['A'], None)
+    assert coerce_answer(q, ['None of these']) == (['None of these'], None)
+    with pytest.raises(ValueError, match='Pick up to 2'):
+        coerce_answer(q, ['A', 'B', 'C'])
+    with pytest.raises(ValueError, match='can’t go with'):
+        coerce_answer(q, ['A', 'None of these'])
+    with pytest.raises(ValueError, match='what “Other” was'):
+        coerce_answer(q, ['Other'])
+    one = SurveyQuestion(prompt='Where?', kind=SurveyQuestionKind.CHOICE_ONE, options=['X', 'Y'],
+                         other_option=True, none_option=None, min_picks=None, max_picks=None)
+    assert coerce_answer(one, {'value': 'Other', 'other': 'A friend'}) == ('Other', 'A friend')
+    with pytest.raises(ValueError):
+        coerce_answer(one, 'Z')
+    long = SurveyQuestion(prompt='More?', kind=SurveyQuestionKind.COMMENT, long_answer=True)
+    assert coerce_answer(long, 'x' * 2500) == (None, 'x' * 2500)
+    with pytest.raises(ValueError, match='3000'):
+        coerce_answer(long, 'x' * 3001)
+    short = SurveyQuestion(prompt='More?', kind=SurveyQuestionKind.COMMENT, long_answer=False)
+    with pytest.raises(ValueError, match='1000'):
+        coerce_answer(short, 'x' * 1001)
+
+
+async def test_other_write_ins_reach_results_and_round_trip(event_world):
+    w = event_world
+    service = SurveyService()
+    survey = await service.create_survey(w['staff'], 'Write-ins', from_template=False)
+    section = await service.add_section(w['staff'], survey.id, 'Overall', SurveyAudience.EVERYONE)
+    q = await service.add_question(w['staff'], section.id, 'Where did you hear?', SurveyQuestionKind.CHOICE_ONE,
+                                   options=['Discord', 'Twitter'], other_option=True)
+    await service.send(w['staff'], survey.id, closes_at=NOW + timedelta(days=7))
+    responses = SurveyResponseService()
+    view = await responses.open_survey(w['alice'], survey.id)
+    key = view.parts[0].key
+    view = await responses.save_part(w['alice'], survey.id, key, {q.id: {'value': 'Other', 'other': 'A friend'}})
+    assert view.answers_in(view.parts[0]) == {q.id: {'value': 'Other', 'other': 'A friend'}}
+    await responses.submit(w['alice'], survey.id)
+    result = next(r for r in (await service.results(w['staff'], survey.id)).questions if r.question_id == q.id)
+    assert list(result.overall.counts) == ['Discord', 'Twitter', 'Other']
+    assert [c.text for c in result.comments] == ['A friend']
+
+
+async def test_drag_places_a_question_in_another_section_but_not_above_what_it_follows(event_world):
+    w = event_world
+    service = SurveyService()
+    survey = await service.create_survey(w['staff'], 'Order', from_template=False)
+    first = await service.add_section(w['staff'], survey.id, 'First', SurveyAudience.EVERYONE)
+    second = await service.add_section(w['staff'], survey.id, 'Second', SurveyAudience.EVERYONE)
+    a = await service.add_question(w['staff'], first.id, 'A?', SurveyQuestionKind.YES_NO)
+    b = await service.add_question(w['staff'], first.id, 'B?', SurveyQuestionKind.RATING)
+    c = await service.add_question(w['staff'], second.id, 'C?', SurveyQuestionKind.RATING, conditions=[
+        {'key': 'answer', 'question_id': a.id, 'values': ['Yes']}])
+    await service.place_question(w['staff'], b.id, second.id, 0)
+    loaded = await service.get_survey(w['staff'], survey.id)
+    assert [[q.prompt for q in s.questions] for s in loaded.sections] == [['A?'], ['B?', 'C?']]
+    with pytest.raises(ValueError, match='would come after'):
+        await service.place_question(w['staff'], a.id, second.id, 2)
+    await service.place_question(w['staff'], c.id, first.id, 1)
+    loaded = await service.get_survey(w['staff'], survey.id)
+    assert [[q.prompt for q in s.questions] for s in loaded.sections] == [['A?', 'C?'], ['B?']]
+    with pytest.raises(ValueError, match='would come after'):
+        await service.place_question(w['staff'], c.id, first.id, 0)
+
+
+async def test_crew_role_sections_reach_only_that_role(event_world):
+    from models import Tracker
+
+    w = event_world
+    tracker = await make_member(8, 'tia')
+    await Tracker.create(match=await Match.get(stage_id__isnull=False), user=tracker, approved=True)
+    service = SurveyService()
+    survey = await service.create_survey(w['staff'], 'Crew', from_template=False)
+    for title, audience in (('Comms', SurveyAudience.COMMENTATORS), ('Tracking', SurveyAudience.TRACKERS),
+                            ('Broadcast', SurveyAudience.BROADCASTERS)):
+        section = await service.add_section(w['staff'], survey.id, title, audience)
+        await service.add_question(w['staff'], section.id, f'{title}?', SurveyQuestionKind.RATING)
+    await service.send(w['staff'], survey.id, closes_at=NOW + timedelta(days=7))
+    cam = await SurveyResponseService().open_survey(w['cam'], survey.id)
+    tia = await SurveyResponseService().open_survey(tracker, survey.id)
+    assert [p.title for p in cam.parts] == ['Comms']
+    assert [p.title for p in tia.parts] == ['Tracking']

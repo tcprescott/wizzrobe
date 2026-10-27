@@ -25,7 +25,7 @@ from application.repositories.survey_repository import SurveyRepository
 from application.services.survey import plan
 from application.services.survey._validation import coerce_answer
 from application.services.survey.survey_service import is_open
-from models import FeatureFlag, Survey, SurveyRecipient, SurveyResponse, User
+from models import FeatureFlag, Survey, SurveyQuestionKind, SurveyRecipient, SurveyResponse, User
 
 
 @dataclass
@@ -68,11 +68,17 @@ class RespondentView:
         return [q for q in part.questions if plan.visible(q, part.scope, self.answers)]
 
     def answers_in(self, part: plan.Part) -> Dict[int, Any]:
-        """Question id → what's saved for it in ``part`` (the comment text for a comment)."""
+        """Question id → what's saved for it in ``part``, in the shape :meth:`SurveyResponseService.save_part` takes.
+
+        The comment text for a comment, and ``{'value': …, 'other': write-in}``
+        for a choice answered "Other".
+        """
         found: Dict[int, Any] = {}
         for q in part.questions:
             key = (q.id, part.scope)
-            if key in self.answers:
+            if key in self.answers and key in self.texts:
+                found[q.id] = {'value': self.answers[key], 'other': self.texts[key]}
+            elif key in self.answers:
                 found[q.id] = self.answers[key]
             elif key in self.texts:
                 found[q.id] = self.texts[key]
@@ -86,8 +92,13 @@ class RespondentView:
         for part in self.shown_parts:
             for q in self.showing(part):
                 key = (q.id, part.scope)
-                if q.required and key not in self.answers and key not in self.texts:
+                if not q.required:
+                    continue
+                if key not in self.answers and key not in self.texts:
                     missing.append(f'{part.title}: {q.prompt}')
+                elif q.kind is SurveyQuestionKind.AGREE_SCALE and \
+                        len(self.answers.get(key) or {}) < len(q.options or []):
+                    missing.append(f'{part.title}: {q.prompt} (every statement)')
         return missing
 
 

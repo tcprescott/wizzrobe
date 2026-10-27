@@ -31,6 +31,10 @@ class SurveyAudience(str, Enum):
     EACH_TOURNAMENT = 'each_tournament'
     EACH_POSITION = 'each_position'
     CREW = 'crew'
+    # One crew role each, so commentators, trackers and broadcasters get their own questions.
+    COMMENTATORS = 'commentators'
+    TRACKERS = 'trackers'
+    BROADCASTERS = 'broadcasters'
     CHECKED_IN = 'checked_in'
 
 
@@ -43,6 +47,7 @@ class SurveyQuestionKind(str, Enum):
     CHOICE_ONE = 'choice_one'
     CHOICE_MANY = 'choice_many'
     COMMENT = 'comment'        # short free text, sanitized player input
+    AGREE_SCALE = 'agree_scale'  # 2 to 10 statements, each Strongly disagree (1) to Strongly agree (5)
 
 
 class SurveyResponseStatus(str, Enum):
@@ -117,6 +122,8 @@ class SurveySection(Model):
     )
     survey_id: int
     title = fields.CharField(max_length=120)
+    # One or two plain-text lines under the title, setting the context.
+    description = fields.CharField(max_length=240, null=True)
     audience = fields.CharEnumField(SurveyAudience, max_length=24, default=SurveyAudience.EVERYONE)
     position = fields.IntField(default=0)
     conditions = fields.JSONField(null=True)  # type: ignore[var-annotated]
@@ -133,7 +140,11 @@ class SurveySection(Model):
 class SurveyQuestion(Model):
     """One question in a section.
 
-    ``options`` holds the choices of a pick-one or pick-many question.
+    ``options`` holds the choices of a pick-one or pick-many question, or an
+    agree scale's statements. A choice question can add an ``Other`` choice
+    with a write-in (``other_option``, the text stored in the answer's
+    ``text``), and a pick-many an exclusive "none" choice (``none_option``,
+    its label) and pick limits. ``long_answer`` makes a comment a tall box.
     ``conditions`` lists the registered conditions (``application/services/
     survey/conditions.py``) the respondent must all meet to see it, each
     ``{'key': …}`` plus, for an answer-based one, the earlier question and
@@ -153,6 +164,11 @@ class SurveyQuestion(Model):
     kind = fields.CharEnumField(SurveyQuestionKind, max_length=16)
     options = fields.JSONField(null=True)  # type: ignore[var-annotated]
     required = fields.BooleanField(default=False)
+    other_option = fields.BooleanField(default=False)
+    none_option = fields.CharField(max_length=60, null=True)
+    min_picks = fields.SmallIntField(null=True)
+    max_picks = fields.SmallIntField(null=True)
+    long_answer = fields.BooleanField(default=False)
     position = fields.IntField(default=0)
     conditions = fields.JSONField(null=True)  # type: ignore[var-annotated]
     created_at = fields.DatetimeField(auto_now_add=True)
@@ -273,3 +289,45 @@ class SurveyAnswer(Model):
     class Meta:
         table = 'survey_answer'
         unique_together = (('response', 'question', 'scope'),)
+
+
+class SurveySuggestionBatch(Model):
+    """One press of "Suggest questions" on a section: what was sent, and the drafts that came back.
+
+    ``context`` is the exact text the AI provider was given, kept so staff can
+    read it back ("What was sent"). ``drafts`` is a list of
+    ``{"prompt", "kind", "options", "state"}``; a draft only becomes a
+    :class:`SurveyQuestion` when staff keep it (``state`` ``kept``), and
+    dismissing the batch sets ``dismissed_at``. Rows stay after that: they are
+    also the community's usage log for the daily cap.
+    """
+
+    id = fields.IntField(pk=True)
+    tenant: fields.ForeignKeyRelation = fields.ForeignKeyField(
+        'models.Tenant', related_name='survey_suggestion_batches', on_delete=fields.CASCADE,
+    )
+    tenant_id: int
+    survey: fields.ForeignKeyRelation = fields.ForeignKeyField(
+        'models.Survey', related_name='suggestion_batches', on_delete=fields.CASCADE,
+    )
+    survey_id: int
+    section: fields.ForeignKeyRelation = fields.ForeignKeyField(
+        'models.SurveySection', related_name='suggestion_batches', on_delete=fields.CASCADE,
+    )
+    section_id: int
+    requested_by: fields.ForeignKeyNullableRelation = fields.ForeignKeyField(
+        'models.User', related_name='survey_suggestion_batches', null=True, on_delete=fields.SET_NULL,
+    )
+    requested_by_id: Optional[int]
+    provider = fields.CharField(max_length=32)
+    model = fields.CharField(max_length=120)
+    context = fields.TextField()
+    drafts = fields.JSONField(default=list)  # type: ignore[var-annotated]
+    input_tokens = fields.IntField(null=True)
+    output_tokens = fields.IntField(null=True)
+    dismissed_at = fields.DatetimeField(null=True)
+    created_at = fields.DatetimeField(auto_now_add=True)
+
+    class Meta:
+        table = 'survey_suggestion_batch'
+        indexes = (('tenant', 'created_at'), ('survey', 'section'))

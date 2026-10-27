@@ -8,7 +8,13 @@ from typing import Any, Dict, List, Optional
 
 from nicegui import app, context, ui
 
-from application.services import SurveyRow, SurveyService, get_user_from_session, notification_links
+from application.services import (
+    SurveyRow,
+    SurveyService,
+    SurveySuggestionService,
+    get_user_from_session,
+    notification_links,
+)
 from application.tenant_context import require_tenant_id, tenant_scope
 from application.utils.app_links import survey_preview_url
 from application.utils.timezone import format_local_display
@@ -215,7 +221,13 @@ async def admin_surveys_page(survey: Optional[int] = None, view: Optional[str] =
                 render_results(await service.results(user, s.id))
                 return
             summary = await service.builder_summary(user, s.id)
-        render_builder(BuilderContext(service=service, user=user, survey=s, summary=summary, reload=reload))
+        ai_label, suggestions = None, {}
+        if s.status is SurveyStatus.DRAFT:
+            ai = SurveySuggestionService()
+            ai_label = await ai.provider_label(user)
+            suggestions = await ai.open_batches(user, s.id)
+        render_builder(BuilderContext(service=service, user=user, survey=s, summary=summary, reload=reload,
+                                      ai_label=ai_label, suggestions=suggestions))
 
     async def _after_send() -> None:
         await load_list()

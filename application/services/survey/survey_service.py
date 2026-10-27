@@ -17,6 +17,7 @@ The respondent's side is :mod:`~application.services.survey.survey_response_serv
 
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
+from types import SimpleNamespace
 from typing import Any, Dict, Iterable, List, Mapping, Optional, Sequence
 
 from application.errors import require_found
@@ -28,10 +29,12 @@ from application.services.audit_service import AuditActions, AuditService
 from application.services.auth_service import AuthService
 from application.services.survey import _notifications, plan
 from application.services.survey._validation import (
+    DESCRIPTION_MAX,
     INTRO_MAX,
     PROMPT_MAX,
     TITLE_MAX,
     check_conditions,
+    clean_extras,
     clean_options,
     clean_text,
 )
@@ -251,13 +254,15 @@ class SurveyService:
         ids: Dict[int, int] = {}
         for section in source.sections:
             new_section = await self.repository.create_section(
-                copy, title=section.title, audience=section.audience, position=section.position,
-                conditions=remap(section.conditions, ids),
+                copy, title=section.title, description=section.description, audience=section.audience,
+                position=section.position, conditions=remap(section.conditions, ids),
             )
             for q in section.questions:
                 new_q = await self.repository.create_question(
                     new_section, prompt=q.prompt, kind=q.kind, options=q.options, required=q.required,
-                    position=q.position, conditions=remap(q.conditions, ids),
+                    position=q.position, conditions=remap(q.conditions, ids), other_option=q.other_option,
+                    none_option=q.none_option, min_picks=q.min_picks, max_picks=q.max_picks,
+                    long_answer=q.long_answer,
                 )
                 ids[q.id] = new_q.id
         await self._audit(actor, AuditActions.SURVEY_CREATED, copy, copied_from=source.id)
@@ -315,7 +320,8 @@ class SurveyService:
     @requires_feature(FeatureFlag.SURVEYS)
     async def add_section(self, actor: User, survey_id: int, title: str,
                           audience: SurveyAudience = SurveyAudience.EVERYONE,
-                          conditions: Optional[Sequence[Mapping[str, Any]]] = None) -> SurveySection:
+                          conditions: Optional[Sequence[Mapping[str, Any]]] = None,
+                          description: Optional[str] = None) -> SurveySection:
         """Add a section at the end. Its conditions may wait on any question already in the survey."""
         await self._ensure_staff(actor)
         survey = await self._load(survey_id)
@@ -325,7 +331,7 @@ class SurveyService:
         earlier = {q.id: q for s in survey.sections for q in s.questions}
         section = await self.repository.create_section(
             survey, title=clean_text(title, limit=TITLE_MAX, what='A section title'),
-            audience=SurveyAudience(audience), position=await self.repository.next_section_position(survey.id),
+            description=_description(description), audience=SurveyAudience(audience), position=await self.repository.next_section_position(survey.id),
             conditions=_section_conditions(conditions, earlier),
         )
         await self._audit(actor, AuditActions.SURVEY_UPDATED, survey, section_added=section.id)
@@ -333,12 +339,15 @@ class SurveyService:
 
     @requires_feature(FeatureFlag.SURVEYS)
     async def update_section(self, actor: User, section_id: int, *, title: Any = _UNSET,
-                             audience: Any = _UNSET, conditions: Any = _UNSET) -> SurveySection:
+                             audience: Any = _UNSET, conditions: Any = _UNSET,
+                             description: Any = _UNSET) -> SurveySection:
         await self._ensure_staff(actor)
         survey, section = await self._draft_section(section_id)
         fields: Dict[str, Any] = {}
         if title is not _UNSET:
             fields['title'] = clean_text(title, limit=TITLE_MAX, what='A section title')
+        if description is not _UNSET:
+            fields['description'] = _description(description)
         if audience is not _UNSET:
             fields['audience'] = SurveyAudience(audience)
         if conditions is not _UNSET:
@@ -369,17 +378,25 @@ class SurveyService:
     @requires_feature(FeatureFlag.SURVEYS)
     async def add_question(self, actor: User, section_id: int, prompt: str, kind: SurveyQuestionKind, *,
                            options: Optional[Sequence[str]] = None, required: bool = False,
-                           conditions: Optional[Sequence[Mapping[str, Any]]] = None) -> SurveyQuestion:
+                           conditions: Optional[Sequence[Mapping[str, Any]]] = None,
+                           **extras: Any) -> SurveyQuestion:
+        """Add a question at the end of its section.
+
+        ``extras`` are the per-kind options (``other_option``, ``none_option``,
+        ``min_picks``, ``max_picks``, ``long_answer``); a kind that doesn't
+        take one ignores it.
+        """
         await self._ensure_staff(actor)
         survey, section = await self._draft_section(section_id)
         current = next((s for s in survey.sections if s.id == section.id), None)
         if current is not None and len(current.questions) >= MAX_QUESTIONS_PER_SECTION:
             raise ValueError(f'A section holds at most {MAX_QUESTIONS_PER_SECTION} questions.')
         kind = SurveyQuestionKind(kind)
+        cleaned = clean_options(kind, options)
         question = await self.repository.create_question(
             section,
             prompt=clean_text(prompt, limit=PROMPT_MAX, what='The question'),
-            kind=kind, options=clean_options(kind, options), required=bool(required),
+            kind=kind, options=cleaned, required=bool(required), **clean_extras(kind, cleaned, **_known(extras)),
             conditions=_question_conditions(conditions, plan.earlier(survey.sections, section.id, None)),
             position=await self.repository.next_question_position(section.id),
         )
@@ -389,7 +406,8 @@ class SurveyService:
     @requires_feature(FeatureFlag.SURVEYS)
     async def update_question(self, actor: User, question_id: int, *, prompt: Any = _UNSET, kind: Any = _UNSET,
                               options: Any = _UNSET, required: Any = _UNSET,
-                              conditions: Any = _UNSET) -> SurveyQuestion:
+                              conditions: Any = _UNSET, **extras: Any) -> SurveyQuestion:
+        """Change what's given; ``extras`` as for :meth:`add_question`, unchanged where left out."""
         await self._ensure_staff(actor)
         question = require_found(await self.repository.get_question(question_id), 'Question')
         survey, _ = await self._draft_section(question.section_id)
@@ -399,8 +417,15 @@ class SurveyService:
         new_kind = SurveyQuestionKind(kind) if kind is not _UNSET else question.kind
         if kind is not _UNSET:
             fields['kind'] = new_kind
+        new_options = question.options
         if options is not _UNSET or kind is not _UNSET:
-            fields['options'] = clean_options(new_kind, options if options is not _UNSET else question.options)
+            new_options = clean_options(new_kind, options if options is not _UNSET else question.options)
+            fields['options'] = new_options
+        given = _known(extras)
+        if given or 'options' in fields or kind is not _UNSET:
+            current = {name: getattr(question, name) for name in EXTRA_FIELDS}
+            merged = clean_extras(new_kind, new_options, **{**current, **given})
+            fields.update({k: v for k, v in merged.items() if v != current[k]})
         if required is not _UNSET:
             fields['required'] = bool(required)
         if conditions is not _UNSET:
@@ -435,6 +460,29 @@ class SurveyService:
         positions = _moved(ids, question.id, step)
         _check_order(survey.sections, positions)
         await self.repository.set_question_positions(positions)
+
+    @requires_feature(FeatureFlag.SURVEYS)
+    async def place_question(self, actor: User, question_id: int, section_id: int, index: int) -> None:
+        """Put a question at ``index`` in ``section_id`` (its own section or another), as a drag drops it."""
+        await self._ensure_staff(actor)
+        question = require_found(await self.repository.get_question(question_id), 'Question')
+        survey, _ = await self._draft_section(question.section_id)
+        target = next((s for s in survey.sections if s.id == section_id), None)
+        if target is None:
+            raise ValueError('That section isn’t in this survey.')
+        order = [q for q in target.questions if q.id != question.id]
+        if target.id != question.section_id and len(order) >= MAX_QUESTIONS_PER_SECTION:
+            raise ValueError(f'A section holds at most {MAX_QUESTIONS_PER_SECTION} questions.')
+        moving = next(q for s in survey.sections for q in s.questions if q.id == question.id)
+        order.insert(max(0, min(len(order), int(index))), moving)
+        positions = {q.id: i for i, q in enumerate(order)}
+        layout = [SimpleNamespace(title=s.title, conditions=s.conditions,
+                                  questions=order if s.id == target.id else
+                                  [q for q in s.questions if q.id != question.id])
+                  for s in survey.sections]
+        _check_order(layout, positions)
+        await self.repository.place_question(question, target.id, positions)
+        await self._audit(actor, AuditActions.SURVEY_UPDATED, survey, question_moved=question.id)
 
     # --- lifecycle ------------------------------------------------------
 
@@ -507,6 +555,20 @@ class SurveyService:
         return survey
 
 
+EXTRA_FIELDS = ('other_option', 'none_option', 'min_picks', 'max_picks', 'long_answer')
+
+
+def _known(extras: Mapping[str, Any]) -> Dict[str, Any]:
+    unknown = set(extras) - set(EXTRA_FIELDS)
+    if unknown:
+        raise TypeError(f'Unknown question option: {sorted(unknown)[0]}')
+    return dict(extras)
+
+
+def _description(value: Optional[str]) -> Optional[str]:
+    return clean_text(value, limit=DESCRIPTION_MAX, what='A section description', required=False) or None
+
+
 def _question_conditions(entries: Any, earlier: Mapping[int, SurveyQuestion]) -> Optional[List[dict]]:
     return check_conditions(entries, earlier, limit=MAX_PER_QUESTION, what='a question')
 
@@ -515,7 +577,7 @@ def _section_conditions(entries: Any, earlier: Mapping[int, SurveyQuestion]) -> 
     return check_conditions(entries, earlier, limit=MAX_PER_SECTION, what='a section')
 
 
-def _check_order(sections: Iterable[SurveySection], question_positions: Mapping[int, int]) -> None:
+def _check_order(sections: Iterable[Any], question_positions: Mapping[int, int]) -> None:
     """Refuse an order that puts something before the question whose answer it waits on.
 
     ``sections`` are in their new order; ``question_positions`` overrides the

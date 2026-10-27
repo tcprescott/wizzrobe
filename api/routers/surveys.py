@@ -189,8 +189,10 @@ async def delete_survey(survey_id: int, actor: User = Depends(require_staff_writ
 async def add_section(survey_id: int, body: SectionRequest, actor: User = Depends(require_staff_write)):
     section = await SurveyService().add_section(
         actor, survey_id, body.title, body.audience, conditions=conditions_in(body.conditions),
+        description=body.description,
     )
-    return SurveySectionResponse(id=section.id, title=section.title, audience=section.audience.value,
+    return SurveySectionResponse(id=section.id, title=section.title, description=section.description,
+                                 audience=section.audience.value,
                                  position=section.position, conditions=conditions_out(section.conditions))
 
 
@@ -247,7 +249,7 @@ async def move_section(section_id: int, body: MoveRequest, actor: User = Depends
 async def add_question(section_id: int, body: QuestionRequest, actor: User = Depends(require_staff_write)):
     question = await SurveyService().add_question(
         actor, section_id, body.prompt, body.kind, options=body.options, required=body.required,
-        conditions=conditions_in(body.conditions),
+        conditions=conditions_in(body.conditions), **body.extras(),
     )
     return question_out(question)
 
