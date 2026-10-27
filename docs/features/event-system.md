@@ -21,7 +21,7 @@ subscribers (presentation) can import it with no cycle.
 
 ## Which event a message is from
 
-`Event.event_id` (not on the wire) says which community event a message belongs
+`Event.event_id` (on the webhook wire as `event: {id, slug, name}`) says which community event a message belongs
 to, so a subscriber can filter by it ([webhooks.md](webhooks.md#event-filter)).
 `Event.create` stamps it: `None` for the community-wide families in
 `COMMUNITY_FAMILIES` (`tenant`, `oauth_grant`, `service_health`;

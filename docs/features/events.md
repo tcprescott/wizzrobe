@@ -18,7 +18,7 @@ what is built.
 | 2 | `/e/<slug>` URLs, switcher, admin menu split, Admin → Events, copy setup, event settings | built |
 | 3 | Archive = read-only (ORM guard), close-out, 30-day private-data purge, banner | built |
 | 4 | Per-event roles, Edit member layout A, drafts open to their role holders | built |
-| 5 | REST + MCP `event` argument, `/api/events` + event tools, webhook event filter, report filters, docs | built (webhook payload field to come) |
+| 5 | REST + MCP `event` argument, `/api/events` + event tools, webhook event filter, report filters, docs | built |
 
 ## The model
 
@@ -281,11 +281,10 @@ Equipment Manager, Volunteer and Check-in Desk. Staff and the online admin roles
   through `event_id_path`), then the slug, then `can_view`.
 - **Webhooks** carry `event_ids` (NULL = every event), set in the webhook
   dialog's From events (layout A); bus messages carry `Event.event_id` for the
-  filter. An `event` field in the payload is still to come; it waits on the
-  consumer of `test_webhook_consumer_contract.py`. Detail: [webhooks.md](webhooks.md#event-filter).
+  filter, and the body names it as `event: {id, slug, name}`. Detail: [webhooks.md](webhooks.md#event-filter).
 - **Exports** build in the event they were asked for in, archived included
   (`DataExportService.build` binds `export.event_id`).
-- Not done: an event filter on personal webhooks and API tokens, and event
+- Not done: an event filter (and the `event` body field) on personal webhooks, an event filter on API tokens, and event
   pickers on the Reports pages (Telemetry, Audit, Sent messages).
 
 ## The migration

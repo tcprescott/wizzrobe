@@ -6,6 +6,10 @@ means a change would reach that automation. Don't update the expected values to
 make it pass: call the change out to Thomas in the PR so the author can be told
 first. Adding a new event type is fine; renaming, dropping or reshaping one of
 these, the envelope, the headers or the signature is not.
+
+2026-10-26: the envelope gained ``event`` ({id, slug, name} of the community
+event, null for community-wide messages). Thomas approved the break after SG
+Live 2026 ended, for the author to be told.
 """
 
 import hashlib
@@ -72,13 +76,15 @@ def test_event_names_unchanged():
 def test_envelope_unchanged():
     event = Event(
         event_type='match.deleted', payload={'match_id': 1}, actor_id=2,
-        actor_username='staff', tenant_id=3,
+        actor_username='staff', tenant_id=3, event_id=4,
         occurred_at=datetime(2026, 10, 7, tzinfo=timezone.utc),
     )
-    assert event.to_wire() == {
+    ref = {'id': 4, 'slug': 'sgl26', 'name': 'SG Live 2026'}
+    assert event.to_wire(ref) == {
         'event_type': 'match.deleted',
         'occurred_at': '2026-10-07T00:00:00+00:00',
         'tenant_id': 3,
+        'event': {'id': 4, 'slug': 'sgl26', 'name': 'SG Live 2026'},
         'actor_id': 2,
         'actor_username': 'staff',
         'data': {'match_id': 1},
