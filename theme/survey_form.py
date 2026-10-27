@@ -14,7 +14,7 @@ from typing import Any, Awaitable, Callable, Dict, List, Optional
 from nicegui import ui
 
 from application.services import RespondentView
-from application.services.survey import plan
+from application.services.survey import AGREE_LEVELS, plan
 from models import SurveyQuestion, SurveyQuestionKind
 from theme.a11y import make_activatable
 from theme.banner import banner
@@ -27,6 +27,7 @@ Submit = Callable[[bool], Awaitable[None]]
 RATING_ENDS = ('Poor', 'Great')
 NPS_ENDS = ('Not likely', 'Very likely')
 COMMENT_MAX = 1000
+_SLIDER_KEYS = {'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End', 'PageUp', 'PageDown', 'Enter', ' '}
 
 
 def _plural(n: int, word: str) -> str:
@@ -43,18 +44,7 @@ def _question_control(question: SurveyQuestion, value: Any, on_change: Callable[
     """One question's answer control, bound to ``on_change``."""
     kind = question.kind
     if kind in (SurveyQuestionKind.RATING, SurveyQuestionKind.NPS):
-        low, high = (1, 5) if kind is SurveyQuestionKind.RATING else (0, 10)
-        ends = RATING_ENDS if kind is SurveyQuestionKind.RATING else NPS_ENDS
-        with ui.column().classes('wiz-survey-scale gap-1'):
-            # url-state: exempt — an answer, not a view
-            toggle = ui.toggle({n: str(n) for n in range(low, high + 1)}, value=value, clearable=True,
-                               on_change=lambda e: on_change(e.value)) \
-                .props('no-caps unelevated').classes(f'wiz-segmented wiz-survey-scale__choices wiz-survey-scale--{kind.value}')
-            toggle.props(f'aria-label="{question.prompt}"')
-            with ui.row().classes('wiz-survey-scale__ends justify-between no-wrap'):
-                ui.label(ends[0])
-                ui.label(ends[1])
-        toggle.set_enabled(enabled)
+        _scale_slider(question, value, on_change, enabled)
         return
     if kind is SurveyQuestionKind.YES_NO or (kind is SurveyQuestionKind.CHOICE_ONE and len(question.options or []) <= 4):
         options = ['Yes', 'No'] if kind is SurveyQuestionKind.YES_NO else list(question.options or [])
@@ -85,10 +75,102 @@ def _question_control(question: SurveyQuestion, value: Any, on_change: Callable[
                 ui.checkbox(option, value=option in picked,
                             on_change=lambda e, o=option: toggle_option(o, e.value)).set_enabled(enabled)
         return
+    if kind is SurveyQuestionKind.AGREE_SCALE:
+        _agree_grid(question, value, on_change, enabled)
+        return
     area = ui.textarea(placeholder='Optional', value=value or '', on_change=lambda e: on_change(e.value)) \
         .props(f'outlined autogrow maxlength={COMMENT_MAX} counter').classes('w-full')
     area.props(f'aria-label="{question.prompt}"')
     area.set_enabled(enabled)
+
+
+def _scale_slider(question: SurveyQuestion, value: Any, on_change: Callable[[Any], None], enabled: bool) -> None:
+    """A 1–5 or 0–10 answer as a slider (Thomas picked sliders, 2026-10-27).
+
+    Unanswered, the slider has no handle, so a skipped question never reads as
+    its lowest score; the first tap or drag answers it, and Clear takes it back.
+    """
+    rating = question.kind is SurveyQuestionKind.RATING
+    low, high = (1, 5) if rating else (0, 10)
+    ends = RATING_ENDS if rating else NPS_ENDS
+    state: Dict[str, Any] = {'value': value}
+
+    with ui.column().classes('wiz-survey-slider w-full gap-0'):
+        with ui.row().classes('wiz-survey-slider__top w-full items-center no-wrap'):
+            hint = ui.label('Not answered yet. Drag or tap the line.').classes('wiz-survey-slider__hint col')
+            clear = ui.button('Clear', on_click=lambda: answer(None)).props('flat dense no-caps color=primary') \
+                .classes('wiz-survey-slider__clear')
+        slider = ui.slider(min=low, max=high, step=1, value=value if value is not None else (low + high) // 2) \
+            .props('markers marker-labels snap label-always').classes('wiz-survey-slider__line')
+        slider._props['aria-label'] = question.prompt
+        with ui.row().classes('wiz-survey-slider__ends w-full justify-between no-wrap'):
+            ui.label(ends[0])
+            ui.label(ends[1])
+
+    def show() -> None:
+        empty = state['value'] is None
+        slider.classes(add='is-empty' if empty else '', remove='' if empty else 'is-empty')
+        hint.set_visibility(empty and enabled)
+        clear.set_visibility(not empty and enabled)
+
+    def answer(picked: Any) -> None:
+        state['value'] = None if picked is None else int(picked)
+        show()
+        on_change(state['value'])
+
+    def released(e) -> None:
+        # ``change`` fires when a drag or tap ends; answering on every step of a
+        # drag would redraw the slider under the finger.
+        picked = e.args if isinstance(e.args, (int, float)) else slider.value
+        if picked is not None and picked != state['value']:
+            answer(picked)
+
+    def touched(_=None) -> None:
+        # A tap on the value the hidden handle already sits at changes nothing,
+        # so the first touch answers with whatever the slider now shows.
+        if state['value'] is None:
+            answer(slider.value)
+
+    def key(e) -> None:
+        if (e.args or {}).get('key') in _SLIDER_KEYS:
+            touched()
+
+    slider.on('change', released)
+    slider.on('pointerup', touched)
+    slider.on('keydown', key, args=['key'])
+    slider.set_enabled(enabled)
+    show()
+
+
+def _agree_grid(question: SurveyQuestion, value: Any, on_change: Callable[[Any], None], enabled: bool) -> None:
+    """One row per statement: a table of radios when there's room, stacked full-word cards when there isn't."""
+    statements = list(question.options or [])
+    picked: Dict[str, int] = dict(value or {})
+
+    def pick(statement: str, level: Optional[int]) -> None:
+        if level is None:
+            picked.pop(statement, None)
+        else:
+            picked[statement] = int(level)
+        on_change({s: picked[s] for s in statements if s in picked} or None)
+
+    group = ui.element('div').classes('wiz-agree')
+    group._props.update(role='group')
+    group._props['aria-label'] = question.prompt
+    with group:
+        with ui.element('div').classes('wiz-agree__head').props('aria-hidden=true'):
+            ui.element('span')
+            for label in AGREE_LEVELS:
+                ui.label(label)
+        for index, statement in enumerate(statements):
+            with ui.element('div').classes('wiz-agree__row'):
+                ui.label(f'{index + 1} of {len(statements)}').classes('wiz-agree__count')
+                ui.label(statement).classes('wiz-agree__statement')
+                radio = ui.radio(dict(enumerate(AGREE_LEVELS, 1)), value=picked.get(statement),
+                                 on_change=lambda e, s=statement: pick(s, e.value)) \
+                    .props('inline').classes('wiz-agree__choices')
+                radio._props['aria-label'] = statement
+                radio.set_enabled(enabled)
 
 
 class PartSheet:
@@ -99,7 +181,7 @@ class PartSheet:
         self.part: Optional[plan.Part] = None
         self.draft: Dict[int, Any] = {}
         with ui.dialog().props(''':position="Quasar.Screen.lt.sm ? 'bottom' : 'right'"''') as self.dialog, \
-                ui.card().classes('dialog-card match-sheet wiz-survey-sheet'):
+                ui.card().classes('dialog-card match-sheet wiz-survey-sheet') as self.card:
             self.title = dialog_header('Part', self.dialog)
             self.reason = ui.label('').classes('wiz-survey-sheet__reason')
             self.body = ui.refreshable(self._questions)
@@ -112,6 +194,9 @@ class PartSheet:
         self.part = part
         self.draft = self.form.view.answers_in(part)
         self.title.set_text(part.title)
+        # An agree scale wants a table's width; the sheet widens for the part that has one.
+        wide = any(q.kind is SurveyQuestionKind.AGREE_SCALE for q in part.questions)
+        self.card.classes(add='wiz-survey-sheet--wide' if wide else '', remove='' if wide else 'wiz-survey-sheet--wide')
         shown = self.form.view.shown_parts
         position = shown.index(part) + 1 if part in shown else 0
         where = f' · Part {position} of {len(shown)}' if position else ''

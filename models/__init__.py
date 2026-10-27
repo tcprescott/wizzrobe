@@ -10,6 +10,7 @@ other — only the shared enums in :mod:`models.enums` are imported directly.
 """
 
 from .accommodation import AccommodationRequest
+from .ai import AiProvider, AiProviderSetting
 from .async_qualifier import (
     AsyncQualifier,
     AsyncQualifierLiveRace,
@@ -138,6 +139,7 @@ from .survey import (
     SurveyResponseStatus,
     SurveySection,
     SurveyStatus,
+    SurveySuggestionBatch,
 )
 from .system import (
     BrowserErrorIgnoreRule,
@@ -197,6 +199,9 @@ __all__ = [
     # accommodation
     'AccommodationRequest',
     'AccommodationStatus',
+    # ai
+    'AiProvider',
+    'AiProviderSetting',
     # user / auth
     'ApiToken',
     # enums
@@ -364,6 +369,7 @@ __all__ = [
     'SurveyResponseStatus',
     'SurveySection',
     'SurveyStatus',
+    'SurveySuggestionBatch',
     'SyncStatus',
     # system
     'SystemConfiguration',

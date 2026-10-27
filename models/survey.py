@@ -43,6 +43,7 @@ class SurveyQuestionKind(str, Enum):
     CHOICE_ONE = 'choice_one'
     CHOICE_MANY = 'choice_many'
     COMMENT = 'comment'        # short free text, sanitized player input
+    AGREE_SCALE = 'agree_scale'  # 2 to 10 statements, each Strongly disagree (1) to Strongly agree (5)
 
 
 class SurveyResponseStatus(str, Enum):
@@ -273,3 +274,45 @@ class SurveyAnswer(Model):
     class Meta:
         table = 'survey_answer'
         unique_together = (('response', 'question', 'scope'),)
+
+
+class SurveySuggestionBatch(Model):
+    """One press of "Suggest questions" on a section: what was sent, and the drafts that came back.
+
+    ``context`` is the exact text the AI provider was given, kept so staff can
+    read it back ("What was sent"). ``drafts`` is a list of
+    ``{"prompt", "kind", "options", "state"}``; a draft only becomes a
+    :class:`SurveyQuestion` when staff keep it (``state`` ``kept``), and
+    dismissing the batch sets ``dismissed_at``. Rows stay after that: they are
+    also the community's usage log for the daily cap.
+    """
+
+    id = fields.IntField(pk=True)
+    tenant: fields.ForeignKeyRelation = fields.ForeignKeyField(
+        'models.Tenant', related_name='survey_suggestion_batches', on_delete=fields.CASCADE,
+    )
+    tenant_id: int
+    survey: fields.ForeignKeyRelation = fields.ForeignKeyField(
+        'models.Survey', related_name='suggestion_batches', on_delete=fields.CASCADE,
+    )
+    survey_id: int
+    section: fields.ForeignKeyRelation = fields.ForeignKeyField(
+        'models.SurveySection', related_name='suggestion_batches', on_delete=fields.CASCADE,
+    )
+    section_id: int
+    requested_by: fields.ForeignKeyNullableRelation = fields.ForeignKeyField(
+        'models.User', related_name='survey_suggestion_batches', null=True, on_delete=fields.SET_NULL,
+    )
+    requested_by_id: Optional[int]
+    provider = fields.CharField(max_length=32)
+    model = fields.CharField(max_length=120)
+    context = fields.TextField()
+    drafts = fields.JSONField(default=list)  # type: ignore[var-annotated]
+    input_tokens = fields.IntField(null=True)
+    output_tokens = fields.IntField(null=True)
+    dismissed_at = fields.DatetimeField(null=True)
+    created_at = fields.DatetimeField(auto_now_add=True)
+
+    class Meta:
+        table = 'survey_suggestion_batch'
+        indexes = (('tenant', 'created_at'), ('survey', 'section'))

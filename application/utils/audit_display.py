@@ -51,7 +51,7 @@ AREAS: tuple[AuditArea, ...] = (
         'discord.', 'discord_role.', 'discord_event.', 'apitoken.', 'roomtoken.', 'log_level.',
         'oauth_app.', 'oauth_grant.', 'browser_monitoring.', 'browser_ignore_rule.',
         'racetime_bot.', 'race_room_profile.', 'sg_sync.', 'feature_flag.', 'feature_group.',
-        'webhook.', 'personal_webhook.', 'tenant.', 'platform.',
+        'webhook.', 'personal_webhook.', 'tenant.', 'platform.', 'ai_provider.',
     )),
 )
 _AREAS_BY_KEY = {a.key: a for a in AREAS}
@@ -172,6 +172,8 @@ ACTION_LABELS: dict[str, str] = {
     'preset.test_rolled': 'Test-rolled a seed preset',
     'randomizer_credential.set': 'Saved a randomizer login',
     'randomizer_credential.cleared': 'Removed a randomizer login',
+    'ai_provider.set': 'Saved the AI provider',
+    'ai_provider.cleared': 'Removed the AI provider',
     'triforce_text.submitted': 'Submitted a triforce text',
     'triforce_text.approved': 'Approved a triforce text',
     'triforce_text.rejected': 'Rejected a triforce text',
@@ -346,6 +348,7 @@ ACTION_LABELS: dict[str, str] = {
     'survey.sent': 'Sent a survey',
     'survey.reminded': 'Sent a survey reminder',
     'survey.closed': 'Closed a survey',
+    'survey.questions_suggested': 'Asked the AI for survey questions',
     # Settings
     'system_config.updated': 'Changed a setting',
     'notification_setting.changed': 'Changed how a notification is sent',

@@ -25,7 +25,7 @@ from application.repositories.survey_repository import SurveyRepository
 from application.services.survey import plan
 from application.services.survey._validation import coerce_answer
 from application.services.survey.survey_service import is_open
-from models import FeatureFlag, Survey, SurveyRecipient, SurveyResponse, User
+from models import FeatureFlag, Survey, SurveyQuestionKind, SurveyRecipient, SurveyResponse, User
 
 
 @dataclass
@@ -86,8 +86,13 @@ class RespondentView:
         for part in self.shown_parts:
             for q in self.showing(part):
                 key = (q.id, part.scope)
-                if q.required and key not in self.answers and key not in self.texts:
+                if not q.required:
+                    continue
+                if key not in self.answers and key not in self.texts:
                     missing.append(f'{part.title}: {q.prompt}')
+                elif q.kind is SurveyQuestionKind.AGREE_SCALE and \
+                        len(self.answers.get(key) or {}) < len(q.options or []):
+                    missing.append(f'{part.title}: {q.prompt} (every statement)')
         return missing
 
 

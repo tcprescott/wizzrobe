@@ -12,7 +12,7 @@ Behind `FeatureFlag.SURVEYS` (per community, off by default).
 | REST | `/api/surveys` (`api/routers/surveys.py`), reads plus build-only writes |
 | MCP | `mcpserver/tools/surveys.py`, same split as REST |
 | Services | `application/services/survey/` |
-| Models | `models/survey.py`: `Survey`, `SurveySection`, `SurveyQuestion`, `SurveyRecipient`, `SurveyResponse`, `SurveyAnswer` |
+| Models | `models/survey.py`: `Survey`, `SurveySection`, `SurveyQuestion`, `SurveyRecipient`, `SurveyResponse`, `SurveyAnswer`, `SurveySuggestionBatch`; `models/ai.py`: `AiProviderSetting` |
 
 A survey is event-owned (`event_id` beside `tenant_id`). Its children are
 tenant-scoped and reached through the survey.
@@ -31,10 +31,46 @@ A new survey starts from `template.py` unless staff untick it. Sections have an
 | `checked_in` | anyone the check-in desk checked in |
 
 Question kinds: `rating` (1–5), `nps` (0–10), `yes_no`, `choice_one`,
-`choice_many` (2–10 choices) and `comment` (plain text, 1000 characters).
+`choice_many` (2–10 choices), `comment` (plain text, 1000 characters) and
+`agree_scale` (2–10 statements, each answered Strongly disagree to Strongly
+agree, stored as `{statement: 1..5}`). A required agree scale needs every
+statement answered. An agree scale can't be the target of an answer condition.
+
+On the respondent form, `rating` and `nps` are sliders (`_scale_slider` in
+`theme/survey_form.py`): no handle until the first touch, numbers under each
+step, both ends labelled, and a Clear link. An agree scale is a grid of radios
+on a wide sheet that turns into one card per statement below 36rem (a container
+query, so it follows the sheet, not the window). Results draw one diverging bar
+per statement with "% agree".
 
 Once sent, the structure is frozen: answers belong to the exact questions they
 were given to.
+
+## Suggest questions (AI)
+
+Each section of a draft has a **Suggest questions** button once the community
+has an AI provider under Settings → Integrations (`pages/admin_tabs/admin_ai_provider.py`,
+`AiProviderService`, STAFF). The community brings its own key: Claude
+(Anthropic) or any OpenAI-compatible endpoint. There is no platform key.
+
+- The key is sealed with AES-GCM under a key derived from `STORAGE_SECRET`
+  (`application/utils/secret_box.py`), bound to `tenant:<id>`, so a copied row
+  doesn't open in another community. Status and audit never carry it. If
+  `STORAGE_SECRET` changes, the card says so and asks for the key again.
+- The provider is called only when staff press the button, once per press.
+  Nothing runs in the background. `daily_limit` (default 20, 1–200) caps
+  requests per community per rolling 24 hours.
+- The context (`survey/ai_context.py`) holds the survey so far, event facts
+  (tournaments, formats, stage names, start delays, match lengths, reschedule
+  counts, positions and hours, check-in rate) and last event's survey results.
+  It never holds names, handles, comments, reschedule reasons or anything else
+  a person typed, and results for groups under five are left out.
+- Answers come back as JSON and go through the same checks as a
+  staff-written question (`_clean_drafts`); at most five per press. They're
+  stored as a `SurveySuggestionBatch` with the exact context sent, which staff
+  read from **What was sent**. Keeping a draft calls `SurveyService.add_question`.
+- In dev, any key starting `mock-` (or `MOCK_AI=1`) returns canned drafts from
+  `application/utils/mocks/mock_ai.py`. Both are ignored in production.
 
 ## Conditions ("Only show if…")
 

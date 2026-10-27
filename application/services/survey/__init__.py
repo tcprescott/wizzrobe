@@ -3,9 +3,10 @@
 See docs/features/surveys.md.
 """
 
-from application.services.survey import conditions, participation, plan, results
-from application.services.survey._validation import answer_values
+from application.services.survey import ai_context, conditions, participation, plan, results
+from application.services.survey._validation import AGREE_LEVELS, answer_values
 from application.services.survey.participation import Participation
+from application.services.survey.suggestions import SurveySuggestionService
 from application.services.survey.survey_response_service import (
     RespondentView,
     SurveyResponseService,
@@ -20,6 +21,7 @@ from application.services.survey.survey_service import (
 )
 
 __all__ = [
+    'AGREE_LEVELS',
     'BuilderSummary',
     'Participation',
     'RespondentView',
@@ -27,6 +29,8 @@ __all__ = [
     'SurveyResults',
     'SurveyRow',
     'SurveyService',
+    'SurveySuggestionService',
+    'ai_context',
     'answer_values',
     'conditions',
     'is_open',

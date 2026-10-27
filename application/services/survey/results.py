@@ -25,6 +25,14 @@ class Breakdown:
     score: Optional[int] = None  # recommend score, -100..100
     counts: Dict[str, int] = field(default_factory=dict)
     hidden: bool = False
+    # Agree scale: statement → how many picked each level, Strongly disagree first.
+    statements: Dict[str, List[int]] = field(default_factory=dict)
+
+    def agree_share(self, statement: str) -> Optional[int]:
+        """Percent of a statement's answers that were Agree or Strongly agree."""
+        levels = self.statements.get(statement) or []
+        total = sum(levels)
+        return round((levels[3] + levels[4]) * 100 / total) if total else None
 
 
 @dataclass
@@ -72,6 +80,13 @@ def breakdown(question: SurveyQuestion, values: Sequence[Any], *, protect: bool 
     n = len(values)
     if protect and n < MIN_GROUP:
         return Breakdown(count=n, hidden=True)
+    if question.kind is SurveyQuestionKind.AGREE_SCALE:
+        statements = {str(st): [0] * 5 for st in question.options or []}
+        for value in values:
+            for statement, level in (value if isinstance(value, dict) else {}).items():
+                if statement in statements and isinstance(level, int) and 1 <= level <= 5:
+                    statements[statement][level - 1] += 1
+        return Breakdown(count=n, statements=statements)
     counts: Counter = Counter()
     for value in values:
         counts.update(_label(value, question.kind))

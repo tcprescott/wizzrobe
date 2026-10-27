@@ -4,11 +4,20 @@ Three surveys per community: a draft on the builder, an open one with answers
 (one named, one anonymous, one half-done draft), and last year's closed one.
 Between them every question type, every audience and every status shows, plus
 a question with two conditions and a section that waits on an answer.
+
+Each community also gets an AI provider with a ``mock-`` key (canned answers,
+no network) and one set of pending AI suggestions on the draft. The first
+community seeded uses Claude, the rest the OpenAI-compatible adapter.
 """
 
 from datetime import datetime, timedelta, timezone
 
+from application.services.survey.suggestions import _clean_drafts
+from application.utils import secret_box
+from application.utils.mocks.mock_ai import mock_answer
 from models import (
+    AiProvider,
+    AiProviderSetting,
     Survey,
     SurveyAnswer,
     SurveyAudience,
@@ -19,6 +28,7 @@ from models import (
     SurveyResponseStatus,
     SurveySection,
     SurveyStatus,
+    SurveySuggestionBatch,
     Tenant,
     Tournament,
     User,
@@ -27,6 +37,9 @@ from models import (
 
 K = SurveyQuestionKind
 A = SurveyAudience
+
+_AGREE_STATEMENTS = ('The schedule ran on time', 'Staff answered my questions quickly',
+                     'I knew where my station was')
 
 # (section title, audience, [(prompt, kind, options, condition)])
 _SECTIONS = [
@@ -39,6 +52,7 @@ _SECTIONS = [
         ('How was the tournament room?', K.RATING, None, 'tournament_room'),
         ('How was playing on stage?', K.RATING, None, 'on_stage'),
         ('Did your matches start on time?', K.CHOICE_ONE, ['Yes', 'Mostly', 'No'], None),
+        ('How much do you agree?', K.AGREE_SCALE, list(_AGREE_STATEMENTS), None),
         ('Anything we should change?', K.COMMENT, None, None),
     ]),
     ('Volunteering', A.EACH_POSITION, [
@@ -111,6 +125,28 @@ async def _answer(tenant: Tenant, response: SurveyResponse, question: SurveyQues
                               scope_label=label, data=None if text else {'v': value}, text=text)
 
 
+async def _seed_ai(tenant: Tenant, staff: User, draft: Survey) -> None:
+    first = not await AiProviderSetting.exists()
+    provider = AiProvider.ANTHROPIC if first else AiProvider.OPENAI_COMPATIBLE
+    await AiProviderSetting.get_or_create(tenant=tenant, defaults={
+        'provider': provider,
+        'model': 'claude-opus-5-5' if first else 'gpt-local',
+        'base_url': None if first else 'http://localhost:11434/v1',
+        'key_ciphertext': secret_box.seal('mock-seed-key', purpose='ai-provider-key', context=f'tenant:{tenant.id}'),
+        'updated_by': staff,
+    })
+    section = await SurveySection.filter(survey=draft).order_by('position').first()
+    if section is None or await SurveySuggestionBatch.exists(survey=draft):
+        return
+    context = 'Seeded suggestions: no request was sent for these.'
+    answer = mock_answer(context)
+    await SurveySuggestionBatch.create(
+        tenant=tenant, survey=draft, section=section, requested_by=staff,
+        provider=provider.value, model='claude-opus-5-5' if first else 'gpt-local', context=context,
+        drafts=_clean_drafts(answer.data)[:3], input_tokens=answer.input_tokens, output_tokens=answer.output_tokens,
+    )
+
+
 async def seed_surveys_for_tenant(tenant: Tenant, users: dict[str, User]) -> None:
     staff = users['staff_user']
     now = datetime.now(timezone.utc)
@@ -122,6 +158,7 @@ async def seed_surveys_for_tenant(tenant: Tenant, users: dict[str, User]) -> Non
     )
     if created:
         await _build(tenant, draft)
+    await _seed_ai(tenant, staff, draft)
 
     tournament = await Tournament.filter(tenant=tenant, is_test=False).order_by('id').first()
     position = await VolunteerPosition.filter(tenant=tenant).order_by('id').first()
@@ -162,6 +199,9 @@ async def seed_surveys_for_tenant(tenant: Tenant, users: dict[str, User]) -> Non
             if facts['tournaments']:
                 await _answer(tenant, response, q['How was the tournament room?'], 5, scope=scope, label=label)
                 await _answer(tenant, response, q['Did your matches start on time?'], 'Mostly', scope=scope, label=label)
+                await _answer(tenant, response, q['How much do you agree?'],
+                              dict(zip(_AGREE_STATEMENTS, (4, 5, 2) if not anonymous else (2, 4, 3), strict=True)),
+                              scope=scope, label=label)
                 await _answer(tenant, response, q['Anything we should change?'],
                               'The room got loud during the finals.', scope=scope, label=label)
             if facts['positions']:
@@ -178,4 +218,4 @@ async def seed_surveys_for_tenant(tenant: Tenant, users: dict[str, User]) -> Non
     )
     if created:
         await _build(tenant, closed)
-    print('  surveys ok (draft, open with answers, closed)')
+    print('  surveys ok (draft with AI suggestions, open with answers, closed)')

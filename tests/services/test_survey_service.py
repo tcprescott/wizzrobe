@@ -15,6 +15,7 @@ from models import (
     Stage,
     Survey,
     SurveyAudience,
+    SurveyQuestion,
     SurveyQuestionKind,
     SurveyRecipient,
     SurveyResponse,
@@ -332,3 +333,41 @@ async def test_a_section_can_wait_on_an_answer_and_hidden_answers_are_dropped(ev
     results = await service.results(staff, survey.id)
     comments = next(r for r in results.questions if r.question_id == add.id)
     assert comments.comments == [] and comments.overall.count == 0
+
+
+def test_agree_scale_statements_and_answers():
+    from application.services.survey._validation import clean_options, coerce_answer
+    from application.services.survey.results import breakdown
+
+    kind = SurveyQuestionKind.AGREE_SCALE
+    assert clean_options(kind, ['Rooms ran on time', ' ', 'Rooms ran on time', 'Signs were clear']) == \
+        ['Rooms ran on time', 'Signs were clear']
+    with pytest.raises(ValueError, match='statements'):
+        clean_options(kind, ['Only one'])
+    q = SurveyQuestion(prompt='Agree?', kind=kind, options=['A', 'B'])
+    assert coerce_answer(q, {'B': '2', 'A': 5}) == ({'A': 5, 'B': 2}, None)
+    assert coerce_answer(q, {'A': None}) == (None, None)
+    for crafted in ({'C': 3}, {'A': 6}, {'A': True}, {'A': '12'}, 'A', [1]):
+        with pytest.raises(ValueError):
+            coerce_answer(q, crafted)
+    result = breakdown(q, [{'A': 5, 'B': 1}, {'A': 4}, {'A': 1, 'Z': 3}])
+    assert result.statements == {'A': [1, 0, 0, 1, 1], 'B': [1, 0, 0, 0, 0]}
+    assert result.agree_share('A') == 67 and result.agree_share('B') == 0
+    assert breakdown(q, [{'A': 5}], protect=True).hidden
+
+
+async def test_required_agree_scale_needs_every_statement(event_world):
+    w = event_world
+    service = SurveyService()
+    survey = await service.create_survey(w['staff'], 'Agree survey', from_template=False)
+    section = await service.add_section(w['staff'], survey.id, 'Overall', SurveyAudience.EVERYONE)
+    question = await service.add_question(w['staff'], section.id, 'How much do you agree?',
+                                          SurveyQuestionKind.AGREE_SCALE, options=['A', 'B'], required=True)
+    await service.send(w['staff'], survey.id, closes_at=NOW + timedelta(days=7))
+    responses = SurveyResponseService()
+    view = await responses.open_survey(w['alice'], survey.id)
+    await responses.save_part(w['alice'], survey.id, view.parts[0].key, {question.id: {'A': 4}})
+    with pytest.raises(ValueError, match='every statement'):
+        await responses.submit(w['alice'], survey.id)
+    await responses.save_part(w['alice'], survey.id, view.parts[0].key, {question.id: {'A': 4, 'B': 2}})
+    await responses.submit(w['alice'], survey.id)

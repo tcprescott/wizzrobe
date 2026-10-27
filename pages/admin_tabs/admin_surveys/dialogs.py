@@ -6,7 +6,7 @@ from typing import Any, Awaitable, Callable, List, Mapping, Optional
 from nicegui import ui
 
 from application.services import SurveyService
-from application.services.survey import answer_values, conditions, plan
+from application.services.survey import AGREE_LEVELS, answer_values, conditions, plan
 from application.utils.timezone import now_local
 from models import Survey, SurveyAudience, SurveyQuestion, SurveyQuestionKind, SurveySection, User
 from pages.admin_tabs.admin_surveys.shared import AUDIENCE_CHIPS
@@ -200,13 +200,19 @@ def question_dialog(service: SurveyService, user: User, survey: Survey, section:
             options = ui.textarea(
                 'Choices, one per line', value='\n'.join(question.options or []) if question else '',
             ).props('outlined autogrow').classes('w-full')
+            scale_hint = ui.label('Each statement is answered ' + ' · '.join(AGREE_LEVELS) + '.') \
+                .classes('text-caption text-grey-7')
             editor = ConditionEditor(
                 plan.earlier(survey.sections, section.id, question.id if question else None),
                 question.conditions if question else None, limit=conditions.MAX_PER_QUESTION, noun='question',
             )
 
         def kind_changed(value: str) -> None:
-            options.set_visibility(SurveyQuestionKind(value) in CHOICE_KINDS)
+            chosen = SurveyQuestionKind(value)
+            agree = chosen is SurveyQuestionKind.AGREE_SCALE
+            options.set_visibility(chosen in CHOICE_KINDS or agree)
+            options.props(f'label="{"Statements, one per line (2 to 10)" if agree else "Choices, one per line"}"')
+            scale_hint.set_visibility(agree)
 
         kind.on_value_change(lambda e: kind_changed(e.value))
         kind_changed(initial_kind)

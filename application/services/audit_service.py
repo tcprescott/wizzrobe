@@ -238,6 +238,7 @@ class AuditActions:
     SURVEY_SENT = 'survey.sent'
     SURVEY_REMINDED = 'survey.reminded'
     SURVEY_CLOSED = 'survey.closed'
+    SURVEY_QUESTIONS_SUGGESTED = 'survey.questions_suggested'
 
     # ADA accommodation requests. Details carry ids and status only, never the
     # requester's text or staff notes.
@@ -417,6 +418,8 @@ class AuditActions:
     PRESET_TEST_ROLLED = 'preset.test_rolled'
     RANDOMIZER_CREDENTIAL_SET = 'randomizer_credential.set'
     RANDOMIZER_CREDENTIAL_CLEARED = 'randomizer_credential.cleared'
+    AI_PROVIDER_SET = 'ai_provider.set'
+    AI_PROVIDER_CLEARED = 'ai_provider.cleared'
 
     # SpeedGaming ETL (PR 7). Config CRUD is tenant-scoped, actor = a human
     # SYNC_ADMIN; the sync/import/skip/cancel/auto-finish rows are written by the

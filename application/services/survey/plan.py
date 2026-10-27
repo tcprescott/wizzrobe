@@ -22,6 +22,7 @@ SECONDS: Dict[SurveyQuestionKind, int] = {
     SurveyQuestionKind.CHOICE_ONE: 8,
     SurveyQuestionKind.CHOICE_MANY: 12,
     SurveyQuestionKind.COMMENT: 25,
+    SurveyQuestionKind.AGREE_SCALE: 5,  # per statement
 }
 BUDGET_SECONDS = 5 * 60
 REPEATING = (SurveyAudience.EACH_TOURNAMENT, SurveyAudience.EACH_POSITION)
@@ -41,6 +42,7 @@ KIND_LABELS: Dict[SurveyQuestionKind, str] = {
     SurveyQuestionKind.CHOICE_ONE: 'Pick one',
     SurveyQuestionKind.CHOICE_MANY: 'Pick any',
     SurveyQuestionKind.COMMENT: 'Comment',
+    SurveyQuestionKind.AGREE_SCALE: 'Agree scale',
 }
 
 
@@ -182,7 +184,14 @@ def part_shown(part: Part, answers: Mapping[AnswerKey, Any]) -> bool:
 
 def seconds(parts: Sequence[Part]) -> int:
     """How long ``parts`` take, counting answer-based follow-ups as shown (worst case)."""
-    return sum(SECONDS.get(q.kind, 8) for part in parts for q in part.questions)
+    return sum(question_seconds(q) for part in parts for q in part.questions)
+
+
+def question_seconds(question: SurveyQuestion) -> int:
+    each = SECONDS.get(question.kind, 8)
+    if question.kind is SurveyQuestionKind.AGREE_SCALE:
+        return each * max(1, len(question.options or []))
+    return each
 
 
 def question_count(parts: Sequence[Part]) -> int:

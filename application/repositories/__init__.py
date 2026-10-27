@@ -6,6 +6,7 @@ They should NOT contain business logic - only data fetching/persistence.
 """
 
 from .accommodation_repository import AccommodationRepository
+from .ai_provider_repository import AiProviderRepository
 from .api_token_repository import ApiTokenRepository
 from .async_qualifier_repository import (
     AsyncQualifierLiveRaceRepository,
@@ -81,6 +82,7 @@ from .stage_repository import StageRepository
 from .startgg_repository import StartggRepository
 from .station_repository import StationRepository
 from .stream_layout_repository import StreamLayoutRepository
+from .survey_context_repository import SurveyContextRepository
 from .survey_participation_repository import SurveyParticipationRepository
 from .survey_repository import SurveyRepository
 from .table_preference_repository import TablePreferenceRepository
@@ -109,6 +111,7 @@ from .webhook_repository import WebhookRepository
 
 __all__ = [
     'AccommodationRepository',
+    'AiProviderRepository',
     'ApiTokenRepository',
     'AsyncQualifierLiveRaceRepository',
     'AsyncQualifierPermalinkRepository',
@@ -177,6 +180,7 @@ __all__ = [
     'StartggRepository',
     'StationRepository',
     'StreamLayoutRepository',
+    'SurveyContextRepository',
     'SurveyParticipationRepository',
     'SurveyRepository',
     'TablePreferenceRepository',

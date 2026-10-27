@@ -164,7 +164,8 @@ async def add_survey_question(
 ) -> SurveyQuestionResponse:
     """Add a question to the end of a draft section.
 
-    `options` holds 2 to 10 choices for `choice_one` and `choice_many`.
+    `options` holds 2 to 10 choices for `choice_one` and `choice_many`, or 2 to 10
+    statements for `agree_scale` (each answered Strongly disagree 1 to Strongly agree 5).
     `conditions` holds up to 3 entries that must all hold, each `{"key": …}`
     with a key from `list_survey_conditions`; an `answer` entry also names the
     earlier question in `question_id` and the answers that show this one in

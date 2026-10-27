@@ -11,6 +11,7 @@ KIND_ICONS: Dict[SurveyQuestionKind, str] = {
     SurveyQuestionKind.CHOICE_ONE: 'radio_button_checked',
     SurveyQuestionKind.CHOICE_MANY: 'checklist',
     SurveyQuestionKind.COMMENT: 'notes',
+    SurveyQuestionKind.AGREE_SCALE: 'table_rows',
 }
 
 KIND_CHIPS: Dict[SurveyQuestionKind, str] = {
@@ -20,6 +21,7 @@ KIND_CHIPS: Dict[SurveyQuestionKind, str] = {
     SurveyQuestionKind.CHOICE_ONE: 'Pick one',
     SurveyQuestionKind.CHOICE_MANY: 'Pick any',
     SurveyQuestionKind.COMMENT: 'Comment',
+    SurveyQuestionKind.AGREE_SCALE: 'Agree scale',
 }
 
 AUDIENCE_CHIPS: Dict[SurveyAudience, str] = {

@@ -23,6 +23,7 @@ from application.table_preferences_context import current_table_prefs, table_pre
 from application.tenant_context import get_current_tenant_id, tenant_scope
 from application.timezone_context import current_timezone_name, tz_scope
 from models import FeatureFlag
+from pages.admin_tabs.admin_ai_provider import admin_ai_provider_page
 from pages.admin_tabs.admin_challonge import admin_challonge_connection_page
 from pages.admin_tabs.admin_discord_events import admin_discord_events_page
 from pages.admin_tabs.admin_discord_role_sync import TAB_LABEL as ROLE_SYNC_TAB_LABEL
@@ -149,6 +150,8 @@ def build_settings_panes(access, live: set) -> list[SettingsPane]:
         integrations.append(EmbeddedPage(admin_challonge_connection_page))
     if is_staff and FeatureFlag.STARTGG in live:
         integrations.append(EmbeddedPage(admin_startgg_connection_page))
+    if is_staff and FeatureFlag.SURVEYS in live:
+        integrations.append(EmbeddedPage(admin_ai_provider_page))
     if is_staff:
         integrations.append(EmbeddedPage(admin_webhooks_page, refresh_label='Webhooks'))
     if is_staff or access.is_preset_manager:

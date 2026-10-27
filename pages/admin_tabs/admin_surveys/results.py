@@ -10,6 +10,7 @@ from typing import Optional
 from nicegui import ui
 
 from application.services import SurveyResults
+from application.services.survey import AGREE_LEVELS
 from application.services.survey.results import Breakdown, QuestionResult
 from models import SurveyQuestionKind
 from theme.empty_state import empty_panel
@@ -33,6 +34,26 @@ def _bars(result: Breakdown) -> None:
                 ui.linear_progress(value=share, show_value=False, size='8px').classes('col') \
                     .props(f'rounded aria-label="{option}: {n}"')
                 ui.label(f'{round(share * 100)}%').classes('wiz-survey-bar__pct')
+
+
+def _agree(result: Breakdown) -> None:
+    with ui.row().classes('wiz-agree-key items-center').props('aria-hidden=true'):
+        for level, label in enumerate(AGREE_LEVELS, 1):
+            with ui.element('span'):
+                ui.element('span').classes(f'wiz-agree-key__swatch wiz-agree-l{level}')
+                ui.label(label).style('display:inline')
+    for statement, levels in result.statements.items():
+        total = sum(levels)
+        share = result.agree_share(statement)
+        with ui.column().classes('wiz-agree-result w-full'):
+            ui.label(statement).classes('wiz-agree-result__statement')
+            spoken = ', '.join(f'{label} {n}' for label, n in zip(AGREE_LEVELS, levels, strict=True))
+            with ui.element('div').classes('wiz-agree-bar w-full').props(f'role=img aria-label="{spoken}"'):
+                for level, n in enumerate(levels, 1):
+                    if n:
+                        ui.element('span').classes(f'wiz-agree-l{level}').style(f'width:{n * 100 / total}%')
+            ui.label(f'{share}% agree · {total} answers' if share is not None else 'No answers yet') \
+                .classes('wiz-survey-result__meta')
 
 
 def _summary_line(result: Breakdown) -> str:
@@ -63,7 +84,9 @@ def _question_card(result: QuestionResult) -> None:
                     ui.label(f'and {len(result.comments) - 50} more. Read them all over REST or MCP.') \
                         .classes('wiz-survey-result__meta')
             return
-        if result.overall.count:
+        if result.kind is SurveyQuestionKind.AGREE_SCALE:
+            _agree(result.overall)
+        elif result.overall.count:
             _bars(result.overall)
         if result.groups:
             with ui.column().classes('wiz-survey-groups w-full gap-1'):

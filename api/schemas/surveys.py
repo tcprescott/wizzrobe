@@ -28,8 +28,8 @@ _CONDITIONS_DOC = (
 class SurveyQuestionResponse(BaseModel):
     id: int = Field(..., description="Question ID.")
     prompt: str = Field(..., description="The question as respondents read it.")
-    kind: str = Field(..., description="`rating` (1-5), `nps` (0-10), `yes_no`, `choice_one`, `choice_many` or `comment`.")
-    options: Optional[List[str]] = Field(None, description="The choices of a `choice_one` or `choice_many` question.")
+    kind: str = Field(..., description="`rating` (1-5), `nps` (0-10), `yes_no`, `choice_one`, `choice_many`, `comment` or `agree_scale` (each statement Strongly disagree 1 to Strongly agree 5).")
+    options: Optional[List[str]] = Field(None, description="The choices of a `choice_one` or `choice_many` question, or the statements of an `agree_scale`.")
     required: bool = Field(..., description="Whether it must be answered before sending.")
     position: int = Field(..., description="Order inside its section, from 0.")
     conditions: List[SurveyConditionModel] = Field(default_factory=list, description=_CONDITIONS_DOC)
@@ -66,6 +66,10 @@ class BreakdownResponse(BaseModel):
     score: Optional[int] = Field(None, description="Recommend score (-100 to 100), for a 0-10 question.")
     counts: Dict[str, int] = Field(default_factory=dict, description="Answers per option.")
     hidden: bool = Field(False, description="True when fewer than 5 answered, so only the count is shown.")
+    statements: Dict[str, List[int]] = Field(
+        default_factory=dict,
+        description="Agree scale only: per statement, how many answered each level, Strongly disagree first.",
+    )
 
 
 class CommentResponse(BaseModel):
@@ -152,7 +156,7 @@ class MoveRequest(BaseModel):
 class QuestionRequest(BaseModel):
     prompt: str = Field(..., max_length=280)
     kind: SurveyQuestionKind
-    options: Optional[List[str]] = Field(None, description="2 to 10 choices, for `choice_one` and `choice_many`.")
+    options: Optional[List[str]] = Field(None, description="2 to 10 choices, for `choice_one` and `choice_many`; 2 to 10 statements for `agree_scale`.")
     required: bool = False
     conditions: Optional[List[SurveyConditionModel]] = Field(None, description=_CONDITIONS_DOC)
 
@@ -206,7 +210,8 @@ def survey_out(s: Survey) -> SurveyResponseModel:
 
 
 def _breakdown(b: Breakdown) -> BreakdownResponse:
-    return BreakdownResponse(count=b.count, average=b.average, score=b.score, counts=b.counts, hidden=b.hidden)
+    return BreakdownResponse(count=b.count, average=b.average, score=b.score, counts=b.counts, hidden=b.hidden,
+                             statements=b.statements)
 
 
 def results_out(survey_id: int, results: SurveyResults) -> SurveyResultsResponse:

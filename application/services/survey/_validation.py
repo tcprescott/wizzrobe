@@ -16,11 +16,14 @@ TITLE_MAX = 120
 PROMPT_MAX = 280
 INTRO_MAX = 2000
 OPTION_MAX = 60
+STATEMENT_MAX = 160
 OPTIONS_MIN, OPTIONS_MAX = 2, 10
 COMMENT_MAX = 1000
 
 CHOICE_KINDS = (SurveyQuestionKind.CHOICE_ONE, SurveyQuestionKind.CHOICE_MANY)
 YES, NO = 'Yes', 'No'
+# An agree-scale answer is one of these per statement, stored as its number (1-5).
+AGREE_LEVELS = ('Strongly disagree', 'Disagree', 'Neither agree nor disagree', 'Agree', 'Strongly agree')
 
 # Control characters and the bidi/zero-width marks that can disguise text,
 # keeping newlines so a comment's paragraphs survive.
@@ -37,16 +40,19 @@ def clean_text(value: Optional[str], *, limit: int, what: str, required: bool = 
 
 
 def clean_options(kind: SurveyQuestionKind, options: Optional[Sequence[str]]) -> Optional[List[str]]:
-    """The choices of a pick-one or pick-many question; ``None`` for any other kind."""
-    if kind not in CHOICE_KINDS:
+    """The choices of a pick-one or pick-many question, or an agree scale's statements; ``None`` for any other kind."""
+    if kind not in CHOICE_KINDS and kind is not SurveyQuestionKind.AGREE_SCALE:
         return None
+    statements = kind is SurveyQuestionKind.AGREE_SCALE
+    what = 'statements' if statements else 'choices'
     cleaned: List[str] = []
     for option in options or []:
-        text = clean_text(option, limit=OPTION_MAX, what='Each choice', required=False)
+        text = clean_text(option, limit=STATEMENT_MAX if statements else OPTION_MAX,
+                          what='Each statement' if statements else 'Each choice', required=False)
         if text and text not in cleaned:
             cleaned.append(text)
     if not OPTIONS_MIN <= len(cleaned) <= OPTIONS_MAX:
-        raise ValueError(f'Give between {OPTIONS_MIN} and {OPTIONS_MAX} different choices.')
+        raise ValueError(f'Give between {OPTIONS_MIN} and {OPTIONS_MAX} different {what}.')
     return cleaned
 
 
@@ -97,7 +103,7 @@ def check_conditions(
             raise ValueError('Pick an earlier question for this one to follow.')
         allowed = answer_values(target)
         if not allowed:
-            raise ValueError("A follow-up can't depend on a comment. Pick a question with set answers.")
+            raise ValueError("A follow-up can't depend on a comment or an agree scale. Pick a question with set answers.")
         by_text = {str(a): a for a in allowed}
         values = list(dict.fromkeys(by_text[str(v)] for v in entry.get('values') or [] if str(v) in by_text))
         if not values:
@@ -136,6 +142,20 @@ def coerce_answer(question: SurveyQuestion, value: Any) -> tuple[Any, Optional[s
             return NO, None
         raise ValueError(f'“{question.prompt}” takes Yes or No.')
     options = list(question.options or [])
+    if kind is SurveyQuestionKind.AGREE_SCALE:
+        if not isinstance(value, dict):
+            raise ValueError(f'“{question.prompt}” takes one answer per statement.')
+        levels: dict = {}
+        for statement, level in value.items():
+            if statement not in options:
+                raise ValueError(f'Answer the statements listed for “{question.prompt}”.')
+            if level in (None, ''):
+                continue
+            if isinstance(level, bool) or not isinstance(level, (int, str)) or str(level) not in '12345' \
+                    or len(str(level)) != 1:
+                raise ValueError(f'“{question.prompt}” takes Strongly disagree to Strongly agree.')
+            levels[statement] = int(level)
+        return ({s: levels[s] for s in options if s in levels} or None), None
     if kind is SurveyQuestionKind.CHOICE_ONE:
         if value not in options:
             raise ValueError(f'Pick one of the choices for “{question.prompt}”.')
