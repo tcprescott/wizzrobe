@@ -47,10 +47,9 @@ Add every redirect URL your app uses: Wizzrobe only sends people back to an
 exact match. Then tick what it may ask for. People still choose on the consent
 card, so ask for what you need.
 
-You can register 10 apps. You'll see how many people connected each one, never
-who.
+You can register 10 apps, and 5 new ones a day. You'll see how many people
+connected each one, never who.
 :::
 
-The sign-in follows OAuth 2 with PKCE (S256). The server's details are at
-`/.well-known/oauth-authorization-server/oauth`, and the API it unlocks is
-documented at [/api/docs](/api/docs), with the scope each endpoint needs.
+[Building an app on Wizzrobe](/help/building-apps) has the sign-in steps, what
+each scope reaches, the limits and a working example script.
