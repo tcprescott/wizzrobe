@@ -5,7 +5,7 @@ Three surveys per community: a draft on the builder, an open one with answers
 Between them every question type, every audience and every status shows.
 """
 
-from datetime import date, datetime, timedelta, timezone
+from datetime import datetime, timedelta, timezone
 
 from models import (
     Survey,
@@ -138,7 +138,7 @@ async def seed_surveys_for_tenant(tenant: Tenant, users: dict[str, User]) -> Non
                 status=SurveyResponseStatus.SUBMITTED if submitted else SurveyResponseStatus.DRAFT,
                 groups=[{'key': scope, 'label': f'{label} player'}] if facts['tournaments'] else
                 [{'key': p_scope, 'label': p_label}],
-                submitted_on=date.today() if submitted else None,
+                submitted_on=now.date() if submitted else None,
             )
             await _answer(tenant, response, q['Overall, how was the event?'], 4 if not anonymous else 3)
             await _answer(tenant, response, q['How likely are you to recommend it to a friend?'], 9 if not anonymous else 6)
