@@ -63,6 +63,10 @@ All four share the `/api` rate limiter.
 - **Registration:** anyone signed in, 10 apps each, 5 new ones a day. Name ≤ 60, description ≤ 300, plain text with control and bidi characters stripped; homepage https only. Redirects follow the MCP rules (`is_allowed_redirect_uri`), max 10, and a confidential app may only use https or loopback http. Secret rotation keeps the old secret for 24 h. Deleting an app revokes every grant; a platform admin's disable stops them reversibly.
 - **Revocation paths that already work:** the person (profile token list, since grants are `ApiToken` rows), the app (`/oauth/revoke`), member removal (`revoke_for_user_in_tenant`), app delete, platform disable.
 
+## For app makers
+
+The outside-facing guide is the help article `application/help/content/building-apps.md` (`/help/building-apps`, behind the flag like `/help/apps`). It links a stdlib-only example client served from `static/developers/wizzrobe_app_example.py`; `tests/oauth/test_developer_example.py` drives the script's own PKCE, authorize-URL and form builders through the test app, so a server change that breaks the published example fails CI.
+
 ## Audit and events
 
 Audit: `oauth_app.created/updated/secret_rotated/deleted/disabled/enabled/blocked/unblocked`, `oauth_grant.created/revoked/refresh_reused`. Events: `oauth_grant.created` and `oauth_grant.revoked` (tenant-scoped, payload names the app and scope). App registration is global and stays audit-only.
