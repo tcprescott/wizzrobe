@@ -29,6 +29,7 @@ from typing import Callable, Dict, List, Optional
 from nicegui import app, background_tasks, context, ui
 from starlette.responses import RedirectResponse
 
+from application.event_context import event_scope, get_current_event_id
 from application.services import (
     AuthService,
     BracketService,
@@ -454,6 +455,7 @@ def create() -> None:
         # contextvar (and the slot context), so scoped reads/writes rebind the
         # tenant and refreshes re-enter this client.
         tenant_id = require_tenant_id()
+        event_id = get_current_event_id()
         client = context.client
 
         # Which view the phone toggle is on. Held per client (not module level)
@@ -486,7 +488,7 @@ def create() -> None:
 
         async def open_match_dialog(match_id: int, client) -> None:
             with client:
-                with tenant_scope(tenant_id):
+                with tenant_scope(tenant_id), event_scope(event_id):
                     bracket = await service.get_visible_bracket(user, stage_id)
                     if bracket is None:
                         return
@@ -520,7 +522,7 @@ def create() -> None:
             # A live-event/dialog refresh re-runs this from a background task whose
             # tenant contextvar is unset, so scope the reads explicitly (the admin
             # dialogs do the same) rather than relying on the client-stash fallback.
-            with tenant_scope(tenant_id):
+            with tenant_scope(tenant_id), event_scope(event_id):
                 bracket = await service.get_visible_bracket(user, stage_id)
                 # An unpublished (DRAFT) stage reads as absent to everyone but
                 # staff — its seeded field is not public until the stage starts.
@@ -609,7 +611,7 @@ def create() -> None:
                             toolbar_row, views, wrapper, request_refresh, view_state,
                         )
                 else:
-                    with tenant_scope(tenant_id):
+                    with tenant_scope(tenant_id), event_scope(event_id):
                         advancement = await _next_stage_advancement(service, bracket)
                     complete = bracket.state == BracketState.COMPLETE
                     if bracket.format == BracketFormat.ROUND_ROBIN:
@@ -629,7 +631,7 @@ def create() -> None:
         # The tournament id enables the live match half (U2): MATCH_* payloads
         # carry no bracket_id, so the subscriber filters on the tournament and
         # lets the debounce absorb the wider net.
-        with tenant_scope(tenant_id):
+        with tenant_scope(tenant_id), event_scope(event_id):
             live_bracket = await service.get_visible_bracket(user, stage_id)
         register_bracket_view(
             stage_id, request_refresh,

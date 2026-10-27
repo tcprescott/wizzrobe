@@ -15,6 +15,7 @@ from typing import Any, Awaitable, Callable, Dict, List, Optional
 
 from nicegui import app, ui
 
+from application.event_context import event_scope, get_current_event_id
 from application.services import (
     RoundScheduleService,
     RoundWindowError,
@@ -91,6 +92,7 @@ class RoundScheduleDialog:
         self.drafts: Dict[str, Dict[str, Any]] = {}
         self.tz: Any = None
         self.tenant_id = get_current_tenant_id()
+        self.event_id = get_current_event_id()
 
     async def open(self) -> None:
         actor = await get_user_from_session(app.storage.user)
@@ -279,7 +281,7 @@ class RoundScheduleDialog:
         if actor is None:
             return
         try:
-            with tenant_scope(self.tenant_id):
+            with tenant_scope(self.tenant_id), event_scope(self.event_id):
                 await self.service.save_schedule(self.tournament.id, self._entries(), actor)
         except (ValueError, PermissionError) as e:
             notify_error(e)

@@ -2,6 +2,7 @@ from typing import Optional
 
 from nicegui import app, background_tasks, context, ui
 
+from application.event_context import event_scope, get_current_event_id
 from application.services import (
     AuthService,
     BracketSetService,
@@ -247,9 +248,10 @@ class AdminMatchDialog(BaseMatchDialog):
                 # every tournament change, where the contextvar is unset — the
                 # scoped read raised "No tenant in context" and left Players empty.
                 tenant_id = require_tenant_id()
+                event_id = get_current_event_id()
 
                 async def get_opted_in_users(tournament_id):
-                    with tenant_scope(tenant_id):
+                    with tenant_scope(tenant_id), event_scope(event_id):
                         enrolled = await self.tournament_service.get_enrolled_players_by_tournament_id(tournament_id)
                     user_ids = [tp.user_id for tp in enrolled]
                     return [u for u in users if u.id in user_ids]
@@ -306,7 +308,7 @@ class AdminMatchDialog(BaseMatchDialog):
                         by_id[uid].preferred_name
                         for uid in chosen if uid in by_id and uid not in enrolled
                     ]
-                    with tenant_scope(tenant_id):
+                    with tenant_scope(tenant_id), event_scope(event_id):
                         tournament = await self.tournament_service.get_tournament_by_id(tournament_id)
                     enrolment_note.text = enrolment_preview(
                         names, tournament.name if tournament else 'this tournament',

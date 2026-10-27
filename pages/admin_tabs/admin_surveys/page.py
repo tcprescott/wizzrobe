@@ -8,6 +8,7 @@ from typing import Any, Dict, List, Optional
 
 from nicegui import app, context, ui
 
+from application.event_context import event_scope, get_current_event_id
 from application.services import (
     SurveyRow,
     SurveyService,
@@ -51,13 +52,14 @@ async def admin_surveys_page(survey: Optional[int] = None, view: Optional[str] =
     service = SurveyService()
     client = context.client
     tenant_id = require_tenant_id()
+    event_id = get_current_event_id()
     state: Dict[str, Any] = {'rows': [], 'open': None, 'view': RESULTS}
 
     async def current():
         return await get_user_from_session(app.storage.user)
 
     async def load_list() -> None:
-        with tenant_scope(tenant_id):
+        with tenant_scope(tenant_id), event_scope(event_id):
             try:
                 state['rows'] = await service.list_overview(await current())
             except (ValueError, PermissionError) as e:
@@ -236,7 +238,7 @@ async def admin_surveys_page(survey: Optional[int] = None, view: Optional[str] =
 
     @steady_refreshable
     async def body() -> None:
-        with tenant_scope(tenant_id):
+        with tenant_scope(tenant_id), event_scope(event_id):
             if state['open'] is None:
                 await load_list()
                 list_view(state['rows'])

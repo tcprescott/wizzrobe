@@ -2,7 +2,7 @@
 
 from nicegui import app, background_tasks, ui
 
-from application.event_context import event_scoped
+from application.event_context import event_scope, event_scoped, get_current_event_id
 from application.services import AuthService, TriforceTextService, get_user_from_session
 from application.tenant_context import require_tenant_id, tenant_scope
 from models import Tournament
@@ -49,6 +49,7 @@ async def admin_triforce_texts_page() -> None:
     }
     service = TriforceTextService()
     tenant_id = require_tenant_id()
+    event_id = get_current_event_id()
 
     with ui.column().classes('page-container-narrow'):
         page_header('Triforce Texts')
@@ -100,7 +101,7 @@ async def admin_triforce_texts_page() -> None:
                 # A background task started from a filter or moderation handler
                 # has no slot context, so the client's tenant stash is out of
                 # reach and the feature gate would read the tenant as missing.
-                with tenant_scope(tenant_id):
+                with tenant_scope(tenant_id), event_scope(event_id):
                     rows = await service.list_for_moderation(
                         state['tournament_id'],
                         status=_to_status(state['status']),

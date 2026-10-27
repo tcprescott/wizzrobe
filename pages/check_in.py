@@ -27,6 +27,7 @@ from nicegui import background_tasks, context, ui
 from starlette.requests import Request
 from starlette.responses import RedirectResponse
 
+from application.event_context import event_scope
 from application.events import check_in_live
 from application.services import (
     AuthService,
@@ -723,7 +724,7 @@ async def _render_desk(service: CheckInService, user, event: CheckInEvent) -> No
         ).open()
 
     async def add_walk_up() -> None:
-        with client, tenant_scope(render_context[0]), tz_scope(render_context[1]), hour_cycle_scope(render_context[3]), \
+        with client, tenant_scope(render_context[0]), event_scope(render_context[4]), tz_scope(render_context[1]), hour_cycle_scope(render_context[3]), \
                 table_prefs_scope(render_context[2]):
             await open_walk_up_dialog(service, user, state['event'], on_done=reload)
 
@@ -751,7 +752,7 @@ async def _render_desk(service: CheckInService, user, event: CheckInEvent) -> No
 
     def bind(event_name: str, handler) -> None:
         async def run_in_context(args) -> None:
-            with client, tenant_scope(render_context[0]), tz_scope(render_context[1]), hour_cycle_scope(render_context[3]), \
+            with client, tenant_scope(render_context[0]), event_scope(render_context[4]), tz_scope(render_context[1]), hour_cycle_scope(render_context[3]), \
                     table_prefs_scope(render_context[2]):
                 await handler(args)
         table.on(event_name, lambda e: background_tasks.create(run_in_context(e.args)))
@@ -768,14 +769,14 @@ async def _render_desk(service: CheckInService, user, event: CheckInEvent) -> No
     async def on_live_change(event_id: int, entrant_id: Optional[int], change_type: str) -> None:
         if event_id != state['event'].id:
             return
-        with tenant_scope(render_context[0]), tz_scope(render_context[1]), hour_cycle_scope(render_context[3]), \
+        with tenant_scope(render_context[0]), event_scope(render_context[4]), tz_scope(render_context[1]), hour_cycle_scope(render_context[3]), \
                 table_prefs_scope(render_context[2]):
             await reload(flash=entrant_id if change_type == check_in_live.CHANGED else None)
 
     register_view(on_live_change, channel=check_in_live)
 
     async def reread() -> None:
-        with tenant_scope(render_context[0]), tz_scope(render_context[1]), hour_cycle_scope(render_context[3]), \
+        with tenant_scope(render_context[0]), event_scope(render_context[4]), tz_scope(render_context[1]), hour_cycle_scope(render_context[3]), \
                 table_prefs_scope(render_context[2]):
             await reload()
 
