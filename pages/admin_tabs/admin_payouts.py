@@ -60,6 +60,35 @@ def _parse_percentage(raw: str | None) -> Decimal:
         raise ValueError(f'{text!r} is not a percentage.') from err
 
 
+def _parse_share(raw: str | None, unit: str) -> tuple[Decimal | None, Decimal | None]:
+    """A Share box as ``(percentage, amount)``, exactly one of them set."""
+    if unit == '$':
+        amount = _parse_money(raw, 'Each amount')
+        if amount is None:
+            raise ValueError('Every place needs a share.')
+        return None, amount
+    return _parse_percentage(raw), None
+
+
+def _share_hint(raw: str | None, unit: str, total: Decimal) -> str:
+    """The other unit, shown greyed inside the Share box as it's typed."""
+    try:
+        pct, amount = _parse_share(raw, unit)
+    except ValueError:
+        return ''
+    if pct is not None:
+        return f'= {_money(PayoutService.amount_for(total, pct))}'
+    if amount is None or not total:
+        return ''
+    return f'{format_percentage((amount * 100 / total).quantize(Decimal("0.01")))}%'
+
+
+def _allocated_label(overview) -> str:
+    if overview.has_fixed:
+        return f'{_money(overview.allocated_amount)} of {_money(overview.total)}'
+    return f'{format_percentage(overview.allocated_percentage)}%'
+
+
 def _name_key(name: str) -> str:
     words = re.sub(r'[^a-z0-9 ]', ' ', name.lower()).split()
     return ' '.join(w for w in words if w not in {'the', 'tournament', 'online'})
@@ -104,9 +133,9 @@ async def admin_payouts_page() -> None:
     with ui.column().classes('page-container-narrow'):
         with page_header(
             'Payouts',
-            'Record what each placement wins as a share of the pool. Amounts are '
-            'worked out from the pool and the bonus every time they are read, so '
-            'moving the pool moves every share with it.',
+            'Record what each placement wins, as a share of the pool or a fixed '
+            'dollar amount. Shares are worked out from the pool and the bonus every '
+            'time they are read, so moving the pool moves them; dollar amounts stay put.',
         ):
             await help_icon('admin-payouts', user=await current_actor())
 
@@ -144,8 +173,11 @@ async def admin_payouts_page() -> None:
                     'bonus': _money(o.bonus),
                     'total': _money(o.total),
                     'place_count': o.place_count,
-                    'allocated_raw': float(o.allocated_percentage),
-                    'allocated': f'{format_percentage(o.allocated_percentage)}%',
+                    'allocated_raw': float(
+                        o.allocated_amount * 100 / o.total if o.has_fixed and o.total
+                        else o.allocated_percentage
+                    ),
+                    'allocated': _allocated_label(o),
                     'sglive_slug': o.sglive_slug,
                     'synced_label': format_local_time(o.synced_at) if o.synced_at else '',
                     **_status(o),
@@ -253,61 +285,116 @@ async def admin_payouts_page() -> None:
                     with form_dialog(f"Split — {row['name']}") as dialog:
                         with ui.column().classes('q-pa-md gap-2 full-width'):
                             ui.label(
-                                f'Sharing {_money(split.total)}. Two rows may hold the '
-                                'same place — joint placings are paid separately, not '
-                                'halved.'
+                                f'Sharing {_money(split.total)}. Each place takes a dollar '
+                                'amount or a percent. Two rows may hold the same place; '
+                                'joint placings are paid separately, not halved.'
                             ).classes('text-caption text-grey')
                             rows_column = ui.element('div').classes('wiz-edit-list')
 
-                            def add_row(place=1, percentage='', entrant_id=None):
+                            def refresh_allocated():
+                                spent = Decimal(0)
+                                for entry in widgets.values():
+                                    try:
+                                        pct, amount = _parse_share(
+                                            entry['share'].value, entry['unit'].value,
+                                        )
+                                    except ValueError:
+                                        continue
+                                    spent += amount if amount is not None else \
+                                        PayoutService.amount_for(split.total, pct)
+                                allocated_value.text = f'{_money(spent)} of {_money(split.total)}'
+                                over = split.total > 0 and spent > split.total
+                                allocated_value.classes(
+                                    replace='text-weight-medium ' + ('text-negative' if over else 'text-positive'),
+                                )
+
+                            def add_row(place=1, share='', entrant_id=None, unit='%'):
                                 key = next_key['n']
                                 next_key['n'] += 1
                                 with rows_column:
                                     with ui.element('div').classes('wiz-edit-row') as holder:
                                         place_input = ui.number(
                                             'Place', value=place, min=1, format='%d',
-                                        ).props('outlined dense').classes('wiz-edit-row__half')
-                                        pct_input = ui.input(
-                                            'Share', value=str(percentage),
-                                        ).props('outlined dense suffix="%"').classes('wiz-edit-row__half')
+                                        ).props('outlined dense').classes('wiz-edit-row__place')
+                                        share_input = ui.input('Share', value=str(share)) \
+                                            .props('outlined dense').classes('wiz-edit-row__grow')
+                                        with share_input.add_slot('prepend'):
+                                            prefix = ui.label('$').classes('text-body2')
+                                        with share_input.add_slot('append'):
+                                            hint = ui.label().classes('text-caption text-grey')
+                                        # url-state: exempt — a form input on one split row, not a view
+                                        unit_toggle = ui.toggle({'$': '$', '%': '%'}, value=unit) \
+                                            .props('no-caps dense unelevated aria-label="Dollars or percent"') \
+                                            .classes('wiz-segmented wiz-edit-row__fixed')
+
+                                        def sync(_=None):
+                                            dollars = unit_toggle.value == '$'
+                                            prefix.set_visibility(dollars)
+                                            if dollars:
+                                                share_input.props(remove='suffix')
+                                            else:
+                                                share_input.props('suffix="%"')
+                                            hint.text = _share_hint(
+                                                share_input.value, unit_toggle.value, split.total,
+                                            )
+                                            refresh_allocated()
+
+                                        share_input.on_value_change(sync)
+                                        unit_toggle.on_value_change(sync)
 
                                         def remove():
                                             holder.delete()
                                             widgets.pop(key, None)
+                                            refresh_allocated()
 
+                                        entrant_select = ui.select(
+                                            options, value=entrant_id, label='Winner',
+                                            with_input=True,
+                                        ).props('outlined dense').classes('wiz-edit-row__lead')
                                         ui.button(icon='delete', on_click=remove) \
                                             .props('flat dense round color=negative') \
                                             .classes('wiz-edit-row__fixed') \
                                             .tooltip('Remove this place')
-                                        entrant_select = ui.select(
-                                            options, value=entrant_id, label='Winner',
-                                            with_input=True,
-                                        ).props('outlined dense').classes('wiz-edit-row__full')
                                 widgets[key] = {
                                     'place': place_input,
-                                    'percentage': pct_input,
+                                    'share': share_input,
+                                    'unit': unit_toggle,
                                     'entrant': entrant_select,
                                 }
+                                sync()
+
+                            def next_unit() -> str:
+                                rows = list(widgets.values())
+                                return rows[-1]['unit'].value if rows else '%'
+
+                            ui.button('Add place', icon='add',
+                                      on_click=lambda: add_row(len(widgets) + 1, '', unit=next_unit())) \
+                                .props('flat color=primary')
+                            with ui.row().classes('wiz-payout-allocated full-width items-center no-wrap'):
+                                ui.label('Allocated').classes('col')
+                                allocated_value = ui.label().classes('text-weight-medium')
 
                             for line in split.lines:
                                 add_row(
-                                    line.place, format_percentage(line.percentage),
+                                    line.place,
+                                    f'{line.amount:.2f}' if line.is_fixed else format_percentage(line.percentage),
                                     line.entrant.id if line.entrant else None,
+                                    unit='$' if line.is_fixed else '%',
                                 )
                             if not split.lines:
                                 add_row(1, '')
-
-                            ui.button('Add place', icon='add',
-                                      on_click=lambda: add_row(len(widgets) + 1, '')) \
-                                .props('flat color=primary')
 
                         async def submit():
                             payload = []
                             try:
                                 for entry in widgets.values():
+                                    percentage, amount = _parse_share(
+                                        entry['share'].value, entry['unit'].value,
+                                    )
                                     payload.append({
                                         'place': int(entry['place'].value or 0),
-                                        'percentage': _parse_percentage(entry['percentage'].value),
+                                        'percentage': percentage,
+                                        'amount': amount,
                                         'entrant_id': entry['entrant'].value,
                                     })
                                 await service.set_split(

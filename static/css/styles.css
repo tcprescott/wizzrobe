@@ -700,6 +700,15 @@ main.q-page:focus {
 .wiz-edit-row__half  { flex: 1 1 calc(50% - 3rem); min-width: 0; }
 .wiz-edit-row__full  { flex: 1 1 100%; min-width: 0; }
 .wiz-edit-row__fixed { flex: none; }
+.wiz-edit-row__place { flex: 0 0 4.5rem; min-width: 0; }
+.wiz-edit-row__grow  { flex: 1 1 0; min-width: 6rem; }
+
+.wiz-payout-allocated {
+    background: var(--surface-sunken);
+    border-radius: var(--radius-md);
+    padding: var(--space-2) var(--space-3);
+    gap: var(--space-2);
+}
 
 @media (min-width: 600px) {
     .avail-window { flex-wrap: nowrap; }
@@ -6191,6 +6200,8 @@ ol.wiz-help-list { list-style-type: decimal; }
 @media (max-width: 599px) {
     .wiz-segmented { display: flex; width: 100%; }
     .wiz-segmented .q-btn { flex: 1 1 0; padding: 4px 8px; }
+    /* A unit switch inside a form row stays beside its field. */
+    .wiz-edit-row .wiz-segmented { display: inline-flex; width: auto; }
 }
 
 /* ── Stacked page sections ──────────────────────────────────────────────────

@@ -1,9 +1,10 @@
 """Prize payouts — the pool, the placement split, and the block to paste.
 
-A payout row stores a *place* and a *percentage*; the money is computed from
-the tournament's pool at read time. Nothing here writes an amount, so moving
-the pool moves every placement's share with it and there is never a second
-number to reconcile.
+A payout row stores a *place* and either a *percentage* or a fixed *amount*.
+A percentage's money is computed from the tournament's pool at read time, so
+moving the pool moves the share with it. A fixed amount is for organizers who
+announce dollars ("1st gets $650"): no two-decimal percentage reproduces those
+to the cent, and the amount stays put when the pool moves.
 
 The whole surface is gated behind :attr:`~models.FeatureFlag.PAYOUTS`: prize
 money is SpeedGaming-shaped and most communities never pay anyone.
@@ -45,6 +46,10 @@ def format_percentage(value: Decimal) -> str:
     return format(Decimal(value).normalize(), 'f')
 
 
+def _str_or_none(value: Optional[Decimal]) -> Optional[str]:
+    return None if value is None else str(value)
+
+
 def _ordinal(place: int) -> str:
     """``3`` -> ``3rd``. Matches how the block is written by hand today."""
     if 10 <= place % 100 <= 20:
@@ -66,8 +71,13 @@ class PayoutLine:
         return self.payout.place
 
     @property
-    def percentage(self) -> Decimal:
+    def percentage(self) -> Optional[Decimal]:
+        """The stored share, or ``None`` on a fixed-amount line."""
         return self.payout.percentage
+
+    @property
+    def is_fixed(self) -> bool:
+        return self.payout.amount is not None
 
     @property
     def entrant(self) -> Optional[User]:
@@ -98,7 +108,17 @@ class PayoutSplit:
 
     @property
     def allocated_percentage(self) -> Decimal:
-        return sum((line.percentage for line in self.lines), Decimal(0))
+        """Sum of the percentage lines; fixed-amount lines are not counted."""
+        return sum((line.percentage or Decimal(0) for line in self.lines), Decimal(0))
+
+    @property
+    def allocated_amount(self) -> Decimal:
+        """Every line's money added up, fixed and percentage alike."""
+        return sum((line.amount for line in self.lines), Decimal(0))
+
+    @property
+    def has_fixed(self) -> bool:
+        return any(line.is_fixed for line in self.lines)
 
     @property
     def is_complete(self) -> bool:
@@ -118,6 +138,8 @@ class PayoutOverview:
     place_count: int
     allocated_percentage: Decimal
     is_complete: bool
+    allocated_amount: Decimal = Decimal(0)
+    has_fixed: bool = False
     sglive_slug: Optional[str] = None
     synced_at: Optional[datetime] = None
 
@@ -155,6 +177,8 @@ class PayoutService:
                 place_count=len(rows),
                 allocated_percentage=split.allocated_percentage,
                 is_complete=split.is_complete,
+                allocated_amount=split.allocated_amount,
+                has_fixed=split.has_fixed,
                 sglive_slug=tournament.sglive_slug,
                 synced_at=tournament.prize_pool_synced_at,
             ))
@@ -181,10 +205,11 @@ class PayoutService:
             '',
         ]
         for line in split.lines:
-            lines.append(
-                f'{_ordinal(line.place)} place - {self._entrant_label(line)}: '
-                f'{format_percentage(line.percentage)}% / ${line.amount:.2f}'
+            share = (
+                f'${line.amount:.2f}' if line.is_fixed
+                else f'{format_percentage(line.percentage)}% / ${line.amount:.2f}'
             )
+            lines.append(f'{_ordinal(line.place)} place - {self._entrant_label(line)}: {share}')
         return '\n'.join(lines)
 
     # --- writes --------------------------------------------------------------
@@ -234,12 +259,12 @@ class PayoutService:
     ) -> PayoutSplit:
         """Replace the whole split with ``rows``.
 
-        Each row carries ``place``, ``percentage``, and optionally ``entrant_id``
-        and ``note``. Replacing rather than patching keeps the split one
+        Each row carries ``place``, exactly one of ``percentage`` or a fixed
+        ``amount``, and optionally ``entrant_id`` and ``note``. Replacing rather than patching keeps the split one
         document, which is how the person editing it thinks about it.
         """
         tournament = await self._require_manageable(tournament_id, actor)
-        cleaned = self._validate_rows(rows)
+        cleaned = self._validate_rows(rows, self._total(tournament))
         await TenantMembershipService.require_community_users(
             [row['entrant_id'] for row in cleaned], actor,
         )
@@ -252,7 +277,8 @@ class PayoutService:
                 'places': [
                     {
                         'place': row['place'],
-                        'percentage': str(row['percentage']),
+                        'percentage': _str_or_none(row['percentage']),
+                        'amount': _str_or_none(row['amount']),
                         'entrant_id': row.get('entrant_id'),
                     }
                     for row in cleaned
@@ -454,23 +480,29 @@ class PayoutService:
         """
         return (total * percentage / _HUNDRED).quantize(CENT)
 
-    def _build_split(
-        self, tournament: Tournament, rows: List[TournamentPayout],
-    ) -> PayoutSplit:
+    @staticmethod
+    def _total(tournament: Tournament) -> Decimal:
         # Quantized on the way out: the DB backend decides the scale it hands
         # back (SQLite returns an unscaled Decimal), and money that renders as
         # ``1.1E+3`` in a payout export is money nobody trusts.
         pool = (tournament.prize_pool or Decimal(0)).quantize(CENT)
         bonus = (tournament.prize_bonus or Decimal(0)).quantize(CENT)
-        total = pool + bonus
+        return pool + bonus
+
+    def _line_amount(self, total: Decimal, row: TournamentPayout) -> Decimal:
+        if row.amount is not None:
+            return Decimal(row.amount).quantize(CENT)
+        return self.amount_for(total, row.percentage)
+
+    def _build_split(
+        self, tournament: Tournament, rows: List[TournamentPayout],
+    ) -> PayoutSplit:
+        total = self._total(tournament)
         return PayoutSplit(
             tournament=tournament,
-            pool=pool,
-            bonus=bonus,
-            lines=[
-                PayoutLine(payout=row, amount=self.amount_for(total, row.percentage))
-                for row in rows
-            ],
+            pool=(tournament.prize_pool or Decimal(0)).quantize(CENT),
+            bonus=(tournament.prize_bonus or Decimal(0)).quantize(CENT),
+            lines=[PayoutLine(payout=row, amount=self._line_amount(total, row)) for row in rows],
         )
 
     @staticmethod
@@ -510,17 +542,25 @@ class PayoutService:
             raise ValueError(f'{label} cannot be negative.')
         return value.quantize(CENT)
 
-    @staticmethod
-    def _validate_rows(rows: Iterable[Mapping[str, Any]]) -> List[dict]:
+    @classmethod
+    def _validate_rows(cls, rows: Iterable[Mapping[str, Any]], total: Decimal) -> List[dict]:
         cleaned: List[dict] = []
         seen: set[tuple[int, Optional[int]]] = set()
         for row in rows:
             place = int(row['place'])
             if place < 1:
                 raise ValueError('Place must be 1 or higher.')
-            percentage = Decimal(row['percentage'])
-            if percentage <= 0:
+            raw_pct, raw_amount = row.get('percentage'), row.get('amount')
+            if (raw_pct is None) == (raw_amount is None):
+                raise ValueError(
+                    f'Place {place} needs either a percentage or a dollar amount, not both.'
+                )
+            percentage = None if raw_pct is None else Decimal(raw_pct).quantize(CENT)
+            amount = None if raw_amount is None else Decimal(raw_amount).quantize(CENT)
+            if percentage is not None and percentage <= 0:
                 raise ValueError('Each share must be above 0%.')
+            if amount is not None and amount <= 0:
+                raise ValueError('Each amount must be above $0.')
             entrant_id = row.get('entrant_id')
             key = (place, entrant_id)
             if entrant_id is not None and key in seen:
@@ -530,17 +570,33 @@ class PayoutService:
             seen.add(key)
             cleaned.append({
                 'place': place,
-                'percentage': percentage.quantize(CENT),
+                'percentage': percentage,
+                'amount': amount,
                 'entrant_id': entrant_id,
                 'note': (row.get('note') or None),
             })
-        allocated = sum((row['percentage'] for row in cleaned), Decimal(0))
-        # Above 100 is a mistake; below is not. An unallocated remainder is
-        # real — an organizer holding back a share is a normal state of a split
-        # part way through being agreed.
+        allocated = sum((row['percentage'] or Decimal(0) for row in cleaned), Decimal(0))
+        # Above the total is a mistake; below is not. An unallocated remainder
+        # is real — an organizer holding back a share is a normal state of a
+        # split part way through being agreed.
         if allocated > _HUNDRED:
             raise ValueError(
                 f'The shares add up to {format_percentage(allocated)}%, which is '
                 f'more than the pool.'
             )
+        # Money is only checked when a fixed amount is in play (per-row cent
+        # rounding can tip an all-percentage 100% split a cent over), and only
+        # against a total that exists: dollars drafted before the pool is set
+        # are a plan, not an overspend.
+        if total > 0 and any(row['amount'] is not None for row in cleaned):
+            money = sum(
+                (row['amount'] if row['amount'] is not None else cls.amount_for(total, row['percentage'])
+                 for row in cleaned),
+                Decimal(0),
+            )
+            if money > total:
+                raise ValueError(
+                    f'The places add up to ${money:,.2f}, which is more than the '
+                    f'${total:,.2f} total.'
+                )
         return cleaned

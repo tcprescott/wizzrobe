@@ -29,8 +29,8 @@ The **Prize pool** button on each row sets the advertised pool and any bonus on
 top. Shares come out of the two added together. Leave a field blank until
 someone's decided it, because blank and zero mean different things.
 
-Change the pool whenever it moves. Shares are worked out from it every time, so
-you don't need to edit anything else.
+Change the pool whenever it moves. Percentage shares are worked out from it every
+time, so you don't need to edit anything else. Dollar amounts stay as typed.
 
 ## Pools from sglive
 
@@ -53,11 +53,17 @@ together, for any tournament whose total is above zero.
 ## The split
 
 **Edit split**, in the row's ⋮ menu, has one row per paid place: the place, its
-share as a percentage, and the winner. **Add place** (1) adds a row, and the red
-bin (2) on a row removes it.
+share, and the winner. **Add place** (1) adds a row, and the red bin (2) on a row
+removes it.
 
-Shares can add up to less than 100%, and the Allocated column shows what's left
-over. They can't add up to more.
+Each share is a percent or a dollar amount: the **$ | %** switch beside it picks
+which. Use dollars when the organizer announced dollars ("1st gets $650"),
+because a percentage can only hold two decimals and $650 of $1,490 would come
+out as $649.94. Dollar amounts don't move when the pool does. A split can mix
+the two, and the greyed text in each box shows the other unit as you type.
+
+Shares can add up to less than the total, and the Allocated line at the bottom
+shows how much is placed. They can't add up to more.
 
 For a tie, add two rows with the same place and give each its own share. Two
 players tied for third at 10% each are two 10% rows, not one 20% row you split
@@ -79,9 +85,10 @@ total pool and the bonus, then has one line per place:
 | A named winner | `1st place - Jemgold (jemgold#100234): 50% / $550.00` |
 | No handle on file | `3rd place - greenpotion (no Matcherino handle): 10% / $110.00` |
 | Nobody named yet | `3rd place - (unassigned): 10% / $110.00` |
+| A dollar amount | `1st place - SpeckySpecks (specky#1234): $650.00` |
 
 Each winner's Matcherino handle comes from their Profile. If a winner hasn't
 entered one, the block says so, and you know who to chase before you pay out.
 
-Amounts are rounded to the cent on each row, so the total paid can come out a
-cent under the pool.
+Percentage amounts are rounded to the cent on each row, so the total paid can
+come out a cent under the pool.

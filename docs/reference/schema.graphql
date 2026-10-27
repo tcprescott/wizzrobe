@@ -1,0 +1,74 @@
+"""Date (isoformat)"""
+scalar Date
+
+"""One of the community's events, such as an SG Live weekend."""
+type Event {
+  id: Int!
+  slug: String!
+  name: String!
+  status: EventStatus!
+
+  """The event a query without a slug uses."""
+  isDefault: Boolean!
+  startsOn: Date
+  endsOn: Date
+}
+
+enum EventStatus {
+  DRAFT
+  LIVE
+  ARCHIVED
+}
+
+type Query {
+  """Who this token acts as."""
+  viewer: Viewer!
+
+  """
+  The events you can see: drafts only for staff and the people holding a role in them.
+  """
+  events: [Event!]!
+
+  """
+  One event by its slug, or the community's default event when the slug is left out. A draft you cannot see is a not-found.
+  """
+  event(slug: String = null): Event
+}
+
+enum Role {
+  STAFF
+  PROCTOR
+  STREAM_MANAGER
+  TRIFORCE_SUBMITTER
+  VOLUNTEER_COORDINATOR
+  EQUIPMENT_MANAGER
+  VOLUNTEER
+  CHECK_IN_DESK
+  PRESET_MANAGER
+  SYNC_ADMIN
+  QUALIFIER_ADMIN
+  SUPER_ADMIN
+}
+
+"""A person, as any member of the community sees them."""
+type User {
+  id: Int!
+  username: String!
+  displayName: String
+  pronouns: String
+
+  """Too large for a JSON number, so sent as a string."""
+  discordId: String
+}
+
+"""Who this token acts as, in the community it belongs to."""
+type Viewer {
+  user: User!
+
+  """Roles held in this community."""
+  roles: [Role!]!
+  isStaff: Boolean!
+
+  """An app grant's scopes. Null for a personal token, which is unscoped."""
+  scopes: [String!]
+}

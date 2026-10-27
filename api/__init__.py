@@ -7,6 +7,7 @@ personal bearer token; see :mod:`api.dependencies`.
 
 from fastapi import APIRouter, Depends
 
+from api import graphql
 from api.dependencies import require_feature, tenant_context_scope
 from api.rate_limit import rate_limit
 from api.routers import (
@@ -118,6 +119,7 @@ router.include_router(
 # present, and proves ownership of the subscription instead (see the module).
 router.include_router(web_push.router)
 router.include_router(webhooks.router)
+router.include_router(graphql.router)
 
 # --- online-tournament feature routers ---
 # Feature-gated per tenant (mirrors the web UI's per-tenant flags). ``presets``,
