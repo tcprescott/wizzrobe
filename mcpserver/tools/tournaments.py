@@ -137,8 +137,8 @@ async def get_tournament_payouts(
 ) -> TournamentPayouts:
     """Get a tournament's prize split — each placement's share and what it pays.
 
-    Amounts are computed from the pool plus the bonus at read time, so they
-    always match the pool as it stands now. Several rows may share a place:
+    Percentage lines are computed from the pool plus the bonus at read time, so
+    they always match the pool as it stands now; fixed lines pay their amount. Several rows may share a place:
     joint placings are paid separately, not halved. Requires staff, or being an
     admin of this tournament.
     """
@@ -152,6 +152,7 @@ async def get_tournament_payouts(
             PayoutEntry(
                 place=line.place,
                 percentage=line.percentage,
+                is_fixed=line.is_fixed,
                 amount=line.amount,
                 entrant_name=line.entrant_name,
                 matcherino_username=line.matcherino_username,

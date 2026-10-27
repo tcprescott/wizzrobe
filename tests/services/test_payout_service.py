@@ -223,3 +223,81 @@ async def test_a_split_cannot_name_someone_outside_the_community(staff, tourname
     drafted = await TournamentPayout.get(tournament=tournament, place=2)
     with pytest.raises(ValueError, match='not found'):
         await PayoutService().set_entrant(drafted.id, stranger.id, staff)
+
+
+async def test_a_fixed_amount_pays_exactly_and_ignores_the_pool(staff, tournament):
+    """SGL26 ALTTPR: $650 of $1,490 is 43.6241…%, which two decimals can't hold."""
+    await PayoutService().set_pool(tournament.id, Decimal('1490'), None, staff)
+    await PayoutService().set_split(
+        tournament.id,
+        [{'place': 1, 'amount': Decimal('650')},
+         {'place': 2, 'amount': Decimal('350')},
+         {'place': 3, 'amount': Decimal('145')},
+         {'place': 3, 'amount': Decimal('145')},
+         {'place': 5, 'percentage': Decimal('10')}],
+        staff,
+    )
+    split = await PayoutService().get_split(tournament.id, staff)
+
+    assert [line.amount for line in split.lines] == [
+        Decimal('650.00'), Decimal('350.00'), Decimal('145.00'), Decimal('145.00'), Decimal('149.00'),
+    ]
+    assert split.lines[0].is_fixed and split.lines[0].percentage is None
+    assert split.allocated_amount == Decimal('1439.00')
+    assert split.allocated_percentage == Decimal('10.00')
+
+    await PayoutService().set_pool(tournament.id, Decimal('2000'), None, staff)
+    split = await PayoutService().get_split(tournament.id, staff)
+    assert split.lines[0].amount == Decimal('650.00')
+    assert split.lines[4].amount == Decimal('200.00')
+
+
+async def test_fixed_amounts_may_not_exceed_the_total(staff, tournament):
+    with pytest.raises(ValueError, match=r'\$1,150.00, which is more than the \$1,100.00'):
+        await PayoutService().set_split(
+            tournament.id,
+            [{'place': 1, 'amount': Decimal('600')},
+             {'place': 2, 'percentage': Decimal('50')}],
+            staff,
+        )
+
+
+async def test_fixed_amounts_may_be_drafted_before_a_pool(staff, db):
+    unpriced = await Tournament.create(name='No pool yet')
+
+    split = await PayoutService().set_split(
+        unpriced.id, [{'place': 1, 'amount': Decimal('650')}], staff,
+    )
+
+    assert split.lines[0].amount == Decimal('650.00')
+
+
+@pytest.mark.parametrize('row', [
+    {'place': 1},
+    {'place': 1, 'percentage': Decimal('10'), 'amount': Decimal('10')},
+])
+async def test_a_place_takes_exactly_one_of_percentage_or_amount(staff, tournament, row):
+    with pytest.raises(ValueError, match='either a percentage or a dollar amount'):
+        await PayoutService().set_split(tournament.id, [row], staff)
+
+
+async def test_an_amount_of_zero_is_refused(staff, tournament):
+    with pytest.raises(ValueError, match=r'above \$0'):
+        await PayoutService().set_split(
+            tournament.id, [{'place': 1, 'amount': Decimal('0')}], staff,
+        )
+
+
+async def test_the_export_block_shows_a_fixed_line_in_dollars(staff, tournament):
+    await PayoutService().set_split(
+        tournament.id,
+        [{'place': 1, 'amount': Decimal('650')}, {'place': 2, 'percentage': Decimal('10')}],
+        staff,
+    )
+
+    block = await PayoutService().export_block(tournament.id, staff)
+
+    assert block.splitlines()[3:] == [
+        '1st place - (unassigned): $650.00',
+        '2nd place - (unassigned): 10% / $110.00',
+    ]

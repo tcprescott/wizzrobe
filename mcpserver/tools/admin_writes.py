@@ -544,7 +544,12 @@ async def check_in_equipment(
 
 class PayoutLine(BaseModel):
     place: int = Field(..., ge=1, description='Finishing place this share pays, starting at 1.')
-    percentage: Decimal = Field(..., gt=0, description='Share of the total, as a percentage ("25" is 25%).')
+    percentage: Optional[Decimal] = Field(
+        None, gt=0, description='Share of the total, as a percentage ("25" is 25%). Give this or amount.',
+    )
+    amount: Optional[Decimal] = Field(
+        None, gt=0, description='A fixed dollar amount ("650" is $650) that does not move with the pool. Give this or percentage.',
+    )
     entrant_id: Optional[int] = Field(None, description='User ID of the person paid; leave out while drafting.')
     note: Optional[str] = None
 
@@ -570,8 +575,9 @@ async def set_tournament_payout_split(
 ) -> TournamentPayouts:
     """Replace a tournament's whole prize split. An empty list clears it.
 
-    Percentages may add up to less than 100 but not more, and every entrant must
-    be a member. Staff or that tournament's admins.
+    Each place takes a percentage or a fixed dollar amount. Percentages may add
+    up to less than 100 but not more, the money may not exceed the total, and
+    every entrant must be a member. Staff or that tournament's admins.
     """
     rows = [PayoutLineRequest.model_validate(line.model_dump()).model_dump() for line in lines]
     await PayoutService().set_split(tournament_id, rows, current_actor().user)

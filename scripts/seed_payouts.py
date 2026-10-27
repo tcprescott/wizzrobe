@@ -23,6 +23,13 @@ _ARCHIVED_SPLIT = [
     (3, Decimal('10.00'), 3),
 ]
 
+#: place -> (fixed dollar amount, index into the players list).
+_FIXED_SPLIT = [
+    (1, Decimal('400.00'), 0),
+    (2, Decimal('200.00'), 1),
+    (3, Decimal('135.00'), 3),
+]
+
 #: Who carries a handle. player_three is left without one on purpose — they are
 #: a third place in the split above, so the export renders its missing-handle
 #: branch every time someone opens it.
@@ -80,4 +87,21 @@ async def seed_payouts_for_tenant(
         active.prize_pool_synced_at = datetime.now(timezone.utc)
         await active.save()
 
-    print(f'    [{tenant.slug}] payouts ok (one paid out, one still drafting, one synced from sglive)')
+    # Fixed dollars, as SGL26 ALTTPR announced them: $400 / $200 / $135 of a
+    # $735 pool, which no two-decimal percentage reproduces to the cent.
+    fixed = await Tournament.get_or_none(name='Wizzrobe Archive Cup', tenant=tenant)
+    if fixed is not None:
+        if fixed.prize_pool is None:
+            fixed.prize_pool = Decimal('735.00')
+            await fixed.save()
+        for place, amount, index in _FIXED_SPLIT:
+            entrant = players[index]
+            await TournamentPlayers.get_or_create(
+                tournament=fixed, user=entrant, tenant=tenant,
+            )
+            await TournamentPayout.get_or_create(
+                tournament=fixed, place=place, entrant=entrant, tenant=tenant,
+                defaults={'amount': amount},
+            )
+
+    print(f'    [{tenant.slug}] payouts ok (one paid out, one in fixed dollars, one still drafting, one synced from sglive)')

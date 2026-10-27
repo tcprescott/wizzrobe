@@ -259,10 +259,11 @@ class TournamentPlayers(Model):
 class TournamentPayout(Model):
     """One placement's share of a tournament's prize pool.
 
-    A row is a *share*, not a payment: ``place`` and ``percentage`` are stored
-    and the money is computed as ``(prize_pool + prize_bonus) * percentage`` at
-    read time. Storing the amount would be a second source of truth that drifts
-    the moment the pool moves, which it does throughout the event.
+    A percentage row is a *share*, not a payment: the money is computed as
+    ``(prize_pool + prize_bonus) * percentage`` at read time, so it follows the
+    pool as it moves through the event. A fixed row stores ``amount`` instead,
+    for the organizer who announced dollars, which no two-decimal percentage
+    can reproduce to the cent.
 
     ``place`` is not unique. Joint placings are the normal case — SGL's ALTTPR
     2025 paid two third places at 10% each — and splitting a single 20% third
@@ -277,7 +278,12 @@ class TournamentPayout(Model):
         'models.Tournament', related_name='payouts', on_delete=fields.CASCADE
     )
     place = fields.IntField()
-    percentage = fields.DecimalField(max_digits=5, decimal_places=2)
+    # Exactly one of the two is set. ``amount`` is a fixed sum for organizers
+    # who promise dollars ("1st gets $650") rather than shares; it does not move
+    # with the pool, so a falling pool can leave fixed places paying more than
+    # the total and the Payouts tab says so rather than scaling them down.
+    percentage = fields.DecimalField(max_digits=5, decimal_places=2, null=True)
+    amount = fields.DecimalField(max_digits=10, decimal_places=2, null=True)
     # Null while the split is drafted before the bracket finishes. SET_NULL so
     # retiring a user leaves the historical split intact and legible.
     entrant = fields.ForeignKeyField(  # type: ignore[var-annotated]

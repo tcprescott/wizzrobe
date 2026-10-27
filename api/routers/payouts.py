@@ -23,11 +23,13 @@ def _to_response(tournament_id: int, split: PayoutSplit) -> PayoutSplitResponse:
         prize_bonus=split.bonus,
         total=split.total,
         allocated_percentage=split.allocated_percentage,
+        allocated_amount=split.allocated_amount,
         lines=[
             PayoutLineResponse(
                 id=line.payout.id,
                 place=line.place,
                 percentage=line.percentage,
+                is_fixed=line.is_fixed,
                 amount=line.amount,
                 entrant_id=line.payout.entrant_id,  # type: ignore[attr-defined]
                 entrant_name=line.entrant_name,
