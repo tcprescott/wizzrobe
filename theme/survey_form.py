@@ -232,6 +232,10 @@ class SurveyForm:
                 row.on('click', lambda _, p=part: self.sheet.open(p))
                 make_activatable(row, f'Open {part.title}')
             with ui.row().classes('wiz-survey-parts__foot items-center no-wrap w-full'):
+                if view.submitted:
+                    ui.label('Sent. Open a part to see what you answered.') \
+                        .classes('wiz-survey-parts__count col min-w-0')
+                    return
                 ui.label(f'{done} of {_plural(len(view.parts), "part")} done · answers save as you go') \
                     .classes('wiz-survey-parts__count col min-w-0')
                 send = ui.button('Send answers', on_click=self._send).props('unelevated no-caps color=primary')

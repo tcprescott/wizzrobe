@@ -42,7 +42,7 @@ class SurveyRepository(EventScopedRepository[Survey]):
     @staticmethod
     async def list_for_event(event_id: Optional[int] = None) -> List[Survey]:
         """The event's surveys, newest first (the ambient event unless named)."""
-        return await event_scoped(Survey.all(), event_id).order_by('-created_at', '-id')
+        return await event_scoped(Survey.all(), event_id).order_by('-created_at', '-id').prefetch_related('sections__questions')
 
     @staticmethod
     async def list_open() -> List[Survey]:

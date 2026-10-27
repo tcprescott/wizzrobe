@@ -175,6 +175,6 @@ def render_builder(ctx: BuilderContext) -> None:
                 ui.button('Add section', icon='add', on_click=lambda: dialogs.section_dialog(
                     ctx.service, ctx.user, survey, None, lambda _: _reload(ctx),
                 )).props('outline no-caps color=primary')
-        with ui.column().classes('wiz-survey-builder__side gap-3'):
+        with ui.column().classes('wiz-survey-builder__side gap-3 items-stretch'):
             _budget_card(ctx)
             _who_card(ctx)

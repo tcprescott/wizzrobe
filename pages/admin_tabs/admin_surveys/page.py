@@ -177,7 +177,7 @@ async def admin_surveys_page(survey: Optional[int] = None, view: Optional[str] =
             ui.space()
             text, color = STATUS_BADGES[s.status]
             ui.badge(text, color=color)
-            with ui.button('Actions', icon_right='expand_more').props('flat no-caps color=primary'):
+            with ui.button('Actions').props('flat no-caps color=primary icon-right=expand_more'):
                 with ui.menu():
                     if draft:
                         menu_action('edit', 'Edit title and intro…', lambda: dialogs.details_dialog(

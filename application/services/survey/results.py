@@ -138,6 +138,8 @@ def summarize(
             section_title=section.title if section else '', prompt=question.prompt, kind=question.kind,
             overall=breakdown(question, [a.value for a in rows if a.value is not None]),
         )
+        if question.kind is SurveyQuestionKind.COMMENT:
+            result.overall = Breakdown(count=sum(1 for a in rows if (a.text or '').strip()))
         if section is not None and section.audience in (SurveyAudience.EACH_TOURNAMENT, SurveyAudience.EACH_POSITION):
             per_scope: Dict[str, List[Any]] = defaultdict(list)
             for a in rows:
