@@ -84,6 +84,13 @@ class BuilderSummary:
 
 
 @dataclass
+class SurveyRow:
+    survey: Survey
+    sent: int
+    answered: int
+
+
+@dataclass
 class SurveyResults:
     survey: Survey
     recipients: Dict[str, int]
@@ -133,6 +140,14 @@ class SurveyService:
         """The current event's surveys, newest first."""
         await self._ensure_staff(actor)
         return await self.repository.list_for_event()
+
+    @requires_feature(FeatureFlag.SURVEYS)
+    async def list_overview(self, actor: User) -> List[SurveyRow]:
+        """The current event's surveys with how many people each went to and how many answered."""
+        await self._ensure_staff(actor)
+        surveys = await self.repository.list_for_event()
+        sent, answered = await self.repository.recipient_totals([s.id for s in surveys])
+        return [SurveyRow(s, sent.get(s.id, 0), answered.get(s.id, 0)) for s in surveys]
 
     @requires_feature(FeatureFlag.SURVEYS)
     async def get_survey(self, actor: User, survey_id: int) -> Survey:
@@ -336,23 +351,6 @@ class SurveyService:
         ids = await self.repository.section_ids(survey.id)
         await self.repository.set_section_positions(_moved(ids, section.id, step))
 
-    @staticmethod
-    def _earlier(survey: Survey, section_id: int, before_question_id: Optional[int]) -> Dict[int, SurveyQuestion]:
-        """The questions before a point in the survey, which an answer-based condition may follow.
-
-        ``before_question_id`` is the question being edited; ``None`` means a new
-        question at the end of ``section_id``.
-        """
-        earlier: Dict[int, SurveyQuestion] = {}
-        for section in survey.sections:
-            for q in section.questions:
-                if q.id == before_question_id:
-                    return earlier
-                earlier[q.id] = q
-            if section.id == section_id:
-                return earlier
-        return earlier
-
     @requires_feature(FeatureFlag.SURVEYS)
     async def add_question(self, actor: User, section_id: int, prompt: str, kind: SurveyQuestionKind, *,
                            options: Optional[Sequence[str]] = None, required: bool = False,
@@ -369,7 +367,7 @@ class SurveyService:
             prompt=clean_text(prompt, limit=PROMPT_MAX, what='The question'),
             kind=kind, options=clean_options(kind, options), required=bool(required),
             condition=condition or None,
-            condition_args=check_condition(condition, condition_args, self._earlier(survey, section.id, None)),
+            condition_args=check_condition(condition, condition_args, plan.earlier(survey.sections, section.id, None)),
             position=await self.repository.next_question_position(section.id),
         )
         await self._audit(actor, AuditActions.SURVEY_UPDATED, survey, question_added=question.id)
@@ -397,7 +395,7 @@ class SurveyService:
             args = condition_args if condition_args is not _UNSET else question.condition_args
             fields['condition'] = key or None
             fields['condition_args'] = check_condition(
-                key, args, self._earlier(survey, question.section_id, question.id),
+                key, args, plan.earlier(survey.sections, question.section_id, question.id),
             )
         if fields:
             await self.repository.update(question, **fields)

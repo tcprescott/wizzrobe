@@ -8,6 +8,8 @@ was sent to, and their responses and answers.
 from datetime import date
 from typing import Any, Dict, Iterable, List, Optional
 
+from tortoise.functions import Count
+
 from application.event_writes import ensure_event_writable, guarded_delete, guarded_update
 from application.repositories._base import EventScopedRepository
 from application.repositories._event import event_scoped
@@ -141,6 +143,17 @@ class SurveyRepository(EventScopedRepository[Survey]):
             'opened': await query.filter(opened_at__isnull=False).count(),
             'submitted': await query.filter(submitted_at__isnull=False).count(),
         }
+
+    @staticmethod
+    async def recipient_totals(survey_ids: List[int]) -> tuple[Dict[int, int], Dict[int, int]]:
+        """``({survey id: sent}, {survey id: answered})`` for a list of surveys, two queries."""
+        if not survey_ids:
+            return {}, {}
+        query = scoped(SurveyRecipient.filter(survey_id__in=survey_ids))
+        sent = await query.annotate(n=Count('id')).group_by('survey_id').values('survey_id', 'n')
+        answered = await query.filter(submitted_at__isnull=False).annotate(n=Count('id')) \
+            .group_by('survey_id').values('survey_id', 'n')
+        return ({r['survey_id']: r['n'] for r in sent}, {r['survey_id']: r['n'] for r in answered})
 
     @staticmethod
     async def mark_recipients(recipient_ids: Iterable[int], **fields: Any) -> None:

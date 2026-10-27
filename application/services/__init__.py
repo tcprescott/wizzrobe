@@ -155,7 +155,14 @@ from .startgg_link_service import StartggLinkService
 from .startgg_service import StartggService
 from .station_service import StationService
 from .stream_layout_service import StreamLayoutService
-from .survey import BuilderSummary, RespondentView, SurveyResponseService, SurveyResults, SurveyService
+from .survey import (
+    BuilderSummary,
+    RespondentView,
+    SurveyResponseService,
+    SurveyResults,
+    SurveyRow,
+    SurveyService,
+)
 from .system_config_service import SystemConfigService
 from .table_preference_service import TablePreferenceService
 from .telemetry_service import TelemetryService
@@ -313,6 +320,7 @@ __all__ = [
     'StreamLayoutService',
     'SurveyResponseService',
     'SurveyResults',
+    'SurveyRow',
     'SurveyService',
     'SystemConfigService',
     'TablePreferenceService',

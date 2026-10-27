@@ -33,7 +33,7 @@ class RespondentView:
     """Everything the survey page needs for one person."""
 
     survey: Survey
-    recipient: SurveyRecipient
+    recipient: Optional[SurveyRecipient]  # None in the staff preview
     parts: List[plan.Part]
     answers: Dict[plan.AnswerKey, Any] = field(default_factory=dict)
     texts: Dict[plan.AnswerKey, str] = field(default_factory=dict)
@@ -56,6 +56,17 @@ class RespondentView:
 
     def showing(self, part: plan.Part) -> List[Any]:
         return [q for q in part.questions if plan.visible(q, part.scope, self.answers)]
+
+    def answers_in(self, part: plan.Part) -> Dict[int, Any]:
+        """Question id → what's saved for it in ``part`` (the comment text for a comment)."""
+        found: Dict[int, Any] = {}
+        for q in part.questions:
+            key = (q.id, part.scope)
+            if key in self.answers:
+                found[q.id] = self.answers[key]
+            elif key in self.texts:
+                found[q.id] = self.texts[key]
+        return found
 
     def done(self, part: plan.Part) -> bool:
         return bool(self.showing(part)) and self.answered(part) > 0

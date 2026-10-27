@@ -9486,3 +9486,152 @@ ol.wiz-help-list { list-style-type: decimal; }
     border-radius: var(--radius-sm);
     background: var(--surface-sunken);
 }
+
+/* Post-event surveys. The respondent's list of parts (theme/survey_form.py),
+   the staff builder and results (pages/admin_tabs/admin_surveys/). */
+.wiz-survey__kicker,
+.wiz-survey__meta,
+.wiz-survey-part__meta,
+.wiz-survey-parts__count,
+.wiz-survey-sheet__reason,
+.wiz-survey-anon__text,
+.wiz-survey-card__meta,
+.wiz-survey-result__meta,
+.wiz-survey-side__text,
+.wiz-survey-comment__who,
+.wiz-survey-stat__label,
+.wiz-survey-stat__caption {
+    font-size: var(--text-sm);
+    color: var(--fg-secondary);
+}
+.wiz-survey__title {
+    font-size: var(--text-xl);
+    font-weight: 700;
+    line-height: 1.25;
+    margin: 0;
+}
+.wiz-survey__intro,
+.wiz-survey-builder__intro { white-space: pre-line; overflow-wrap: anywhere; }
+.wiz-survey-anon {
+    gap: var(--space-2);
+    padding: 12px 16px;
+    background: var(--surface-sunken);
+    border-radius: var(--radius-md);
+}
+.wiz-survey-anon__title { font-weight: 700; }
+.wiz-survey-parts,
+.wiz-survey-section,
+.wiz-survey-side,
+.wiz-survey-result,
+.wiz-survey-stats {
+    background: var(--surface);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-lg);
+}
+.wiz-survey-part {
+    gap: var(--space-3);
+    padding: 14px 16px;
+    border-top: 1px solid var(--border-subtle);
+    cursor: pointer;
+}
+.wiz-survey-part:first-child { border-top: 0; }
+.wiz-survey-part:hover { background: var(--accent-soft); }
+.wiz-survey-part:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.wiz-survey-part__icon {
+    display: inline-flex;
+    flex: none;
+    align-items: center;
+    justify-content: center;
+    width: 2.25rem;
+    height: 2.25rem;
+    border-radius: 50%;
+    background: var(--surface-sunken);
+    color: var(--fg-secondary);
+}
+.wiz-survey-part__icon.is-done { color: var(--status-ok); }
+.wiz-survey-part__title { font-weight: 700; overflow-wrap: anywhere; }
+.wiz-survey-parts__foot {
+    gap: var(--space-3);
+    padding: 12px 16px;
+    border-top: 1px solid var(--border-subtle);
+}
+.wiz-survey-question {
+    padding: 14px 0;
+    border-top: 1px solid var(--border-subtle);
+}
+.wiz-survey-question:first-child { border-top: 0; }
+.wiz-survey-question__prompt { font-weight: 600; overflow-wrap: anywhere; }
+.wiz-survey-question__required { font-size: var(--text-xs); color: var(--fg-secondary); }
+.wiz-survey-scale__choices,
+.wiz-survey-pills { flex-wrap: wrap; gap: 6px; box-shadow: none; }
+.wiz-survey-scale__choices .q-btn,
+.wiz-survey-pills .q-btn {
+    min-width: 2.75rem;
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius-md) !important;
+}
+.wiz-survey-scale__ends {
+    max-width: 17rem;
+    font-size: var(--text-xs);
+    color: var(--fg-secondary);
+}
+.wiz-survey-scale--nps + .wiz-survey-scale__ends { max-width: 100%; }
+.wiz-survey-field-label { font-size: var(--text-sm); color: var(--fg-secondary); margin-top: var(--space-2); }
+.wiz-survey-conditions { border: 1px solid var(--border-subtle); border-radius: var(--radius-md); padding: 4px 8px; }
+
+/* Builder: sections beside the time box on desktop, stacked on a phone. */
+.wiz-survey-builder {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 20rem;
+    gap: var(--space-4);
+    align-items: start;
+}
+@media (max-width: 1023px) {
+    .wiz-survey-builder { grid-template-columns: minmax(0, 1fr); }
+}
+.wiz-survey-builder__main,
+.wiz-survey-builder__side { min-width: 0; }
+.wiz-survey-section__head { gap: var(--space-2); padding: 12px 8px 12px 16px; border-bottom: 1px solid var(--border-subtle); }
+.wiz-survey-section__title { font-size: var(--text-md); font-weight: 700; margin: 0; }
+.wiz-survey-section__empty { padding: 12px 16px; color: var(--fg-secondary); font-size: var(--text-sm); }
+.wiz-survey-section__foot { padding: 6px 8px; border-top: 1px solid var(--border-subtle); }
+.wiz-survey-q { gap: var(--space-2); padding: 8px 8px 8px 16px; border-top: 1px solid var(--border-subtle); }
+.wiz-survey-section__head + .wiz-survey-q { border-top: 0; }
+.wiz-survey-q__icon { flex: none; color: var(--fg-secondary); }
+.wiz-survey-q__prompt { overflow-wrap: anywhere; min-width: 0; }
+.wiz-survey-q__condition { display: inline-flex; align-items: center; gap: 4px; }
+.wiz-survey-q__kind { flex: none; }
+@media (max-width: 599px) {
+    .wiz-survey-q__kind { display: none; }
+}
+.wiz-survey-side { padding: 16px; display: flex; flex-direction: column; gap: var(--space-2); }
+.wiz-survey-side__title { font-weight: 700; }
+.wiz-survey-side__figure { font-size: var(--text-lg); font-weight: 700; }
+.wiz-survey-side__warn { font-size: var(--text-sm); color: var(--status-cancelled); }
+.wiz-survey-who { gap: var(--space-2); }
+.wiz-survey-who__label { flex: none; width: 7.5rem; font-size: var(--text-sm); }
+.wiz-survey-who__n { flex: none; width: 2.5rem; text-align: right; font-weight: 700; }
+.wiz-survey-card__title { font-weight: 700; cursor: pointer; color: var(--wiz-link); overflow-wrap: anywhere; }
+
+/* Results */
+.wiz-survey-stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 11rem), 1fr));
+    overflow: hidden;
+}
+.wiz-survey-stat { padding: 14px 16px; border-left: 1px solid var(--border-subtle); min-width: 0; }
+.wiz-survey-stat:first-child { border-left: 0; }
+.wiz-survey-stat__value { font-size: var(--text-xl); font-weight: 700; }
+.wiz-survey-stat__caption { overflow-wrap: anywhere; }
+.wiz-survey-result { padding: 16px; display: flex; flex-direction: column; gap: var(--space-2); }
+.wiz-survey-result__title { font-size: var(--text-md); font-weight: 700; margin: 0; overflow-wrap: anywhere; }
+.wiz-survey-bar { gap: var(--space-2); }
+.wiz-survey-bar__label { flex: none; width: 6rem; font-size: var(--text-sm); overflow-wrap: anywhere; }
+.wiz-survey-bar__pct { flex: none; width: 3rem; text-align: right; font-size: var(--text-sm); font-weight: 700; }
+.wiz-survey-groups { padding-top: var(--space-2); border-top: 1px solid var(--border-subtle); }
+.wiz-survey-group { gap: var(--space-2); font-size: var(--text-sm); }
+.wiz-survey-group__value { flex: none; color: var(--fg-secondary); }
+.wiz-survey-comment { padding: 10px 0; border-top: 1px solid var(--border-subtle); }
+.wiz-survey-comment:first-child { border-top: 0; }
+.wiz-survey-comment__text { white-space: pre-line; overflow-wrap: anywhere; }
+.wiz-survey-preview__showing { width: 16rem; max-width: 100%; }

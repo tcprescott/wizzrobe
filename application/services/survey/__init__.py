@@ -4,6 +4,7 @@ See docs/features/surveys.md.
 """
 
 from application.services.survey import conditions, participation, plan, results
+from application.services.survey._validation import answer_values
 from application.services.survey.participation import Participation
 from application.services.survey.survey_response_service import (
     RespondentView,
@@ -13,6 +14,7 @@ from application.services.survey.survey_response_service import (
 from application.services.survey.survey_service import (
     BuilderSummary,
     SurveyResults,
+    SurveyRow,
     SurveyService,
     is_open,
 )
@@ -23,7 +25,9 @@ __all__ = [
     'RespondentView',
     'SurveyResponseService',
     'SurveyResults',
+    'SurveyRow',
     'SurveyService',
+    'answer_values',
     'conditions',
     'is_open',
     'participation',

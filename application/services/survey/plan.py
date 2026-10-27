@@ -119,6 +119,24 @@ def parts_for(sections: Iterable[SurveySection], facts: Mapping[str, Any], *,
     return parts
 
 
+def earlier(sections: Iterable[SurveySection], section_id: int,
+            before_question_id: Optional[int]) -> Dict[int, SurveyQuestion]:
+    """The questions before a point in the survey, which an answer-based question may follow.
+
+    ``before_question_id`` is the question being edited; ``None`` means a new
+    question at the end of ``section_id``.
+    """
+    found: Dict[int, SurveyQuestion] = {}
+    for section in sections:
+        for q in section.questions:
+            if q.id == before_question_id:
+                return found
+            found[q.id] = q
+        if section.id == section_id:
+            return found
+    return found
+
+
 AnswerKey = Tuple[int, str]
 
 

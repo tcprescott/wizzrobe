@@ -37,6 +37,7 @@ from pages.admin_tabs.admin_setup import admin_setup_page
 from pages.admin_tabs.admin_shift_board import admin_shift_board_page
 from pages.admin_tabs.admin_speedgaming import admin_speedgaming_page
 from pages.admin_tabs.admin_stream_layouts import admin_stream_layouts_page
+from pages.admin_tabs.admin_surveys import admin_surveys_page
 from pages.admin_tabs.admin_users import admin_users_page
 from pages.admin_tabs.admin_volunteer_roster import admin_volunteer_roster_page
 from pages.admin_tabs.admin_volunteers import admin_volunteers_page
@@ -115,6 +116,8 @@ def build_admin_tabs(
     community_event: int | None = None,
     settings_pane: str | None = None,
     event_settings_pane: str | None = None,
+    survey: int | None = None,
+    survey_view: str | None = None,
 ) -> list[dict]:
     """The admin drawer's tabs, ordered by group.
 
@@ -238,6 +241,9 @@ def build_admin_tabs(
         tabs.append({'label': 'Racetime', 'icon': 'flag', 'group': COMMUNITY, 'content': admin_racetime_page})
     if is_staff and FeatureFlag.FEEDBACK in live:
         tabs.append({'label': 'Feedback', 'icon': 'feedback', 'group': COMMUNITY, 'content': admin_feedback_page})
+    if is_staff and FeatureFlag.SURVEYS in live:
+        tabs.append({'label': 'Surveys', 'icon': 'poll', 'group': PEOPLE,
+                     'content': (admin_surveys_page, (), {'survey': survey, 'view': survey_view})})
     if is_staff:
         tabs.append({'label': 'Events', 'icon': 'calendar_month', 'group': CONFIGURATION, 'content': admin_events_page})
     # Configuration because presets outlive an event: every year's tournaments
@@ -353,6 +359,8 @@ def create() -> None:
         ada_request: int | None = None,
         community_event: int | None = None,
         pane: str | None = None,
+        survey: int | None = None,
+        view: str | None = None,
     ) -> Optional[RedirectResponse]:
         ui.page_title(f'Admin — {await TenantService.current_community_name() or "Wizzrobe"}')
         signed_in = app.storage.user.get('authenticated', False)
@@ -406,6 +414,7 @@ def create() -> None:
             # A retired tab slug (/admin/appearance) names the pane that took it in.
             settings_pane=pane or LEGACY_TAB_PANES.get(section or ''),
             event_settings_pane=pane,
+            survey=survey, survey_view=view,
         )
 
         # No tabs is a refusal too: a coordinator or equipment manager whose
