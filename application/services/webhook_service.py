@@ -85,7 +85,7 @@ class WebhookService:
         example_payload = Event.create(
             EventType.MATCH_CREATED,
             {'match_id': 5, 'tournament_id': 2, 'player_ids': [1, 2]},
-        ).to_wire()
+        ).to_wire({'id': 3, 'slug': 'sgl26', 'name': 'SG Live 2026'})
         descriptions = {
             'Content-Type': 'Always application/json.',
             'User-Agent': 'Identifies the sender.',
@@ -279,7 +279,11 @@ class WebhookService:
         """
         if event.tenant_id is None:
             return
-        for webhook in await self.repository.list_active():
+        webhooks = await self.repository.list_active()
+        if not webhooks:
+            return
+        event_ref = await self.event_ref(event)
+        for webhook in webhooks:
             subscribed = webhook.event_types or []
             if not (EventType.WILDCARD in subscribed or event.event_type in subscribed):
                 continue
@@ -287,11 +291,31 @@ class WebhookService:
             if webhook.event_ids is not None and event.event_id not in (None, *webhook.event_ids):
                 continue
             webhook_queue.enqueue(
-                _deliver_scoped(self._deliver_one(webhook, event), webhook.tenant_id)
+                _deliver_scoped(self._deliver_one(webhook, event, event_ref), webhook.tenant_id)
             )
 
-    async def _deliver_one(self, webhook: Webhook, event: Event) -> None:
-        body = json.dumps(event.to_wire(), default=str, sort_keys=True)
+    @staticmethod
+    async def event_ref(event: Event) -> Optional[Dict[str, Any]]:
+        """``{id, slug, name}`` of the community event a message is from.
+
+        A deleted draft is gone by delivery time, so ``event.deleted`` falls back
+        to the slug and name its own payload carries.
+        """
+        if event.event_id is None or event.tenant_id is None:
+            return None
+        ref = await EventService.ref(event.tenant_id, event.event_id)
+        if ref is not None:
+            return {'id': ref.id, 'slug': ref.slug, 'name': ref.name}
+        return {
+            'id': event.event_id,
+            'slug': event.payload.get('slug'),
+            'name': event.payload.get('name'),
+        }
+
+    async def _deliver_one(
+        self, webhook: Webhook, event: Event, event_ref: Optional[Dict[str, Any]] = None,
+    ) -> None:
+        body = json.dumps(event.to_wire(event_ref), default=str, sort_keys=True)
         timestamp = str(int(datetime.now(timezone.utc).timestamp()))
         signature = hmac.new(
             webhook.secret.encode(), f"{timestamp}.{body}".encode(), hashlib.sha256

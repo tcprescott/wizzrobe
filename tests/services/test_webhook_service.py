@@ -245,6 +245,20 @@ class TestEventFilter:
             await WebhookService().deliver_event(Event.create(EventType.MATCH_CREATED, {}))
         assert len(enqueued) == 3
 
+    async def test_the_wire_names_the_event(self, events):
+        from application.event_context import event_scope
+        from application.tenant_context import tenant_scope
+
+        _, other, _ = events
+        with tenant_scope(1), event_scope(other):
+            match_message = Event.create(EventType.MATCH_CREATED, {})
+            member_message = Event.create(EventType.TENANT_MEMBER_ADDED, {})
+            deleted = Event.create(EventType.EVENT_DELETED, {'event_id': 98765, 'slug': 'gone', 'name': 'Gone'})
+        assert await WebhookService.event_ref(match_message) == {'id': other, 'slug': 'sgl27', 'name': 'SGL 2027'}
+        assert await WebhookService.event_ref(member_message) is None
+        assert await WebhookService.event_ref(deleted) == {'id': 98765, 'slug': 'gone', 'name': 'Gone'}
+        assert member_message.to_wire()['event'] is None
+
     async def test_the_filter_names_open_events_of_this_community(self, events):
         default, other, archived = events
         actor = await _staff()
