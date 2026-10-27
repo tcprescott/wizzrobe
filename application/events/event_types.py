@@ -258,6 +258,12 @@ class EventType:
     COMMUNITY_EVENT_REJECTED = 'community_event.rejected'
     COMMUNITY_EVENT_CANCELLED = 'community_event.cancelled'
 
+    # Post-event surveys (mirrors AuditActions.SURVEY_*): when one goes out and
+    # when it stops taking answers. Responses are never published, so an
+    # anonymous answer can't be timed back to the person who sent it.
+    SURVEY_SENT = 'survey.sent'
+    SURVEY_CLOSED = 'survey.closed'
+
     # Every published event name; drives the webhook UI multiselect + validation.
     ALL: FrozenSet[str] = frozenset({
         EVENT_CREATED, EVENT_UPDATED, EVENT_WENT_LIVE, EVENT_ARCHIVED, EVENT_UNARCHIVED,
@@ -314,6 +320,7 @@ class EventType:
         COMMUNITY_EVENT_SUBMITTED, COMMUNITY_EVENT_UPDATED,
         COMMUNITY_EVENT_APPROVED, COMMUNITY_EVENT_REJECTED,
         COMMUNITY_EVENT_CANCELLED,
+        SURVEY_SENT, SURVEY_CLOSED,
     })
 
     # Wildcard a subscriber can register to receive every event.

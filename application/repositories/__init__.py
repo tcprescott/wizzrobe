@@ -81,6 +81,8 @@ from .stage_repository import StageRepository
 from .startgg_repository import StartggRepository
 from .station_repository import StationRepository
 from .stream_layout_repository import StreamLayoutRepository
+from .survey_participation_repository import SurveyParticipationRepository
+from .survey_repository import SurveyRepository
 from .table_preference_repository import TablePreferenceRepository
 from .telemetry_repository import TelemetryRepository
 from .tenant_join_request_repository import TenantJoinRequestRepository
@@ -175,6 +177,8 @@ __all__ = [
     'StartggRepository',
     'StationRepository',
     'StreamLayoutRepository',
+    'SurveyParticipationRepository',
+    'SurveyRepository',
     'TablePreferenceRepository',
     'TelemetryRepository',
     'TenantFeatureFlagRepository',

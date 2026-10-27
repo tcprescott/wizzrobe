@@ -509,6 +509,16 @@ EVENT_REMINDER = _notice(
     "Before an event, at the community's reminder lead",
     {FOLLOWERS: PING}, {FOLLOWERS: "The event's subscribers"},
 )
+SURVEY_INVITE = _notice(
+    'survey_invite', 'Community', 'Post-event survey',
+    'Staff send a survey after an event', {MEMBERS: PING},
+    {MEMBERS: 'Everyone who took part in the event'},
+)
+SURVEY_REMINDER = _notice(
+    'survey_reminder', 'Community', 'Survey reminder',
+    "Staff remind people who haven't answered a survey yet", {MEMBERS: PING},
+    {MEMBERS: "Everyone it was sent to who hasn't answered"},
+)
 
 # Event check-in
 CHECKED_IN = _notice(
@@ -596,6 +606,7 @@ SECTIONS: Dict[str, Tuple[Tuple[str, Tuple[Notice, ...]], ...]] = {
             EVENT_TO_REVIEW, EVENT_APPROVED, EVENT_POSTED_FOR_YOU, EVENT_LISTED, EVENT_REJECTED, EVENT_MOVED,
             EVENT_CANCELLED, EVENT_REMINDER,
         )),
+        ('Surveys', (SURVEY_INVITE, SURVEY_REMINDER)),
     ),
 }
 _SECTION_OF: Dict[str, str] = {
@@ -733,6 +744,8 @@ _ACT: Dict[str, frozenset] = {
     EVENT_REJECTED.key: frozenset({MEMBERS}),
     EVENT_CANCELLED.key: frozenset({FOLLOWERS}),
     EVENT_REMINDER.key: frozenset({FOLLOWERS}),
+    SURVEY_INVITE.key: frozenset({MEMBERS}),
+    SURVEY_REMINDER.key: frozenset({MEMBERS}),
     MATCHERINO_REFUSED.key: frozenset({STAFF}),
     RUN_REJECTED.key: frozenset({PLAYERS}),
     REATTEMPT_GRANTED.key: frozenset({PLAYERS}),

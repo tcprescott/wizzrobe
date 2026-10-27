@@ -209,6 +209,12 @@ Lending inventory and the checkout workflow. **Reads take any token** — the ga
   `PUT`, not `PATCH`, because the service takes the whole record: `description`, `private_notes` and `owner_user_id` are cleared when omitted. `status` is the exception (omit to leave it), and it cannot move into or out of `checked_out` — that is what the two lending routes are for.
 - **Lending:** `POST /equipment/{id}/checkout` (optional `{borrower_id}` — only an Equipment Manager may name someone else, and a non-manager who sends one gets **403** rather than a loan against themselves; with no body, any authenticated member borrows to themselves) · `POST /equipment/{id}/checkin` (Staff/Equipment Manager only — the check-in gate is deliberately narrower than checkout, which is role-less).
 
+### Surveys (`/api/surveys`) · `surveys.py`
+Post-event surveys, Staff only, behind `FeatureFlag.SURVEYS` (see [surveys.md](../features/surveys.md)). Writes build a draft and nothing more: sending, reminding and closing stay buttons in Admin → Surveys, so no route DMs anyone.
+- **Reads:** `GET /surveys` (the event's surveys with sent/answered counts) · `GET /surveys/conditions` · `GET /surveys/{id}` (sections and questions, with their `conditions`) · `GET /surveys/{id}/results` (small groups hidden) · `GET /surveys/{id}/responses?limit=&offset=` (anonymous ones carry no user).
+- **Writes:** `POST /surveys` · `POST /surveys/{id}/duplicate` · `PATCH /surveys/{id}` (`closes_at` is the only field an open survey takes) · `DELETE /surveys/{id}` (drafts only, `400` otherwise) · `POST /surveys/{id}/sections` · `PATCH`/`DELETE /surveys/sections/{section_id}` · `POST /surveys/sections/{id}/move` · `POST /surveys/sections/{id}/questions` · `PATCH`/`DELETE /surveys/questions/{question_id}` · `POST /surveys/questions/{id}/move`.
+- `conditions` is a list of `{key, question_id?, values?}`, all of which must hold: up to 3 on a question, 1 on a section. `[]` clears them on a `PATCH`.
+
 ### Feedback (`/api/feedback`) · `feedback.py`
 In-app feedback: submit, read your own, and the staff queue.
 - `POST /feedback` (`{message, category?, page_url?}`) · `GET /feedback/mine?limit=` — any token; a person's own submissions carry their review status. Submitting needs membership of the community (or super-admin); a non-member gets `403`.

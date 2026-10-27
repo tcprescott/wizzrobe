@@ -43,6 +43,7 @@ from api.routers import (
     speedgaming,
     stage_actions,
     stages,
+    surveys,
     system_config,
     telemetry,
     tokens,
@@ -108,6 +109,10 @@ router.include_router(
 router.include_router(
     feedback.router,
     dependencies=[Depends(require_feature(FeatureFlag.FEEDBACK))],
+)
+router.include_router(
+    surveys.router,
+    dependencies=[Depends(require_feature(FeatureFlag.SURVEYS))],
 )
 # Also no auth dependency: the service worker that calls it has no session to
 # present, and proves ownership of the subscription instead (see the module).

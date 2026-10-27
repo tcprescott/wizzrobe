@@ -125,6 +125,18 @@ async def test_meetups_list_per_event(two_events):
         assert _ids(await CommunityEventRepository.list_by_status([CommunityEventStatus.APPROVED])) == [meetup_b.id]
 
 
+async def test_surveys_list_per_event(two_events):
+    from application.repositories.survey_repository import SurveyRepository
+    from models import Survey
+
+    survey_a, survey_b = await _in_each(two_events, lambda n: Survey.create(title=f'Survey {n}'))
+    a, b = two_events
+    with event_scope(a):
+        assert _ids(await SurveyRepository().list_for_event()) == [survey_a.id]
+    with event_scope(b):
+        assert _ids(await SurveyRepository().list_for_event()) == [survey_b.id]
+
+
 async def test_role_rules_list_per_event_and_a_sync_reads_every_live_one(two_events):
     def make(n):
         return DiscordRoleRule.create(

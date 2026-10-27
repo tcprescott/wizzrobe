@@ -43,7 +43,7 @@ AREAS: tuple[AuditArea, ...] = (
     AuditArea('equipment', 'Equipment', ('equipment.',)),
     AuditArea('challonge', 'Challonge', ('challonge.',)),
     AuditArea('startgg', 'start.gg', ('startgg.',)),
-    AuditArea('community', 'Community', ('community_event.', 'feedback.')),
+    AuditArea('community', 'Community', ('community_event.', 'feedback.', 'survey.')),
     AuditArea('events', 'Events', ('event.',)),
     AuditArea('settings', 'Settings', (
         'system_config.', 'notification_setting.', 'notification_settings.', 'theme.', 'timezone.', 'profile_nudges.', 'station.', 'stage.',
@@ -340,6 +340,12 @@ ACTION_LABELS: dict[str, str] = {
     'feedback.submitted': 'Sent feedback',
     'feedback.reviewed': 'Reviewed feedback',
     'feedback.reopened': 'Reopened feedback',
+    'survey.created': 'Created a survey',
+    'survey.updated': 'Edited a survey',
+    'survey.deleted': 'Deleted a survey',
+    'survey.sent': 'Sent a survey',
+    'survey.reminded': 'Sent a survey reminder',
+    'survey.closed': 'Closed a survey',
     # Settings
     'system_config.updated': 'Changed a setting',
     'notification_setting.changed': 'Changed how a notification is sent',

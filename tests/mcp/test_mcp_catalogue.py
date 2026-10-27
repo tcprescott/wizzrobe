@@ -129,6 +129,11 @@ READ_TOOLS = {
     'volunteer_coverage',
     'volunteer_hour_trends',
     'whoami',
+    'get_survey',
+    'get_survey_results',
+    'list_survey_conditions',
+    'list_survey_responses',
+    'list_surveys',
 }
 
 # The tools that change data. Served only to a connection whose consent screen
@@ -225,6 +230,18 @@ WRITE_TOOLS = {
     'withdraw_crew_signup',
     'withdraw_from_tournament',
     'withdraw_stream_offer',
+    'add_survey_question',
+    'add_survey_section',
+    'create_survey',
+    'delete_survey',
+    'delete_survey_question',
+    'delete_survey_section',
+    'duplicate_survey',
+    'move_survey_question',
+    'move_survey_section',
+    'update_survey',
+    'update_survey_question',
+    'update_survey_section',
 }
 
 EXPECTED_TOOLS = READ_TOOLS | WRITE_TOOLS
@@ -258,6 +275,9 @@ DESTRUCTIVE_TOOLS = {
     'withdraw_crew_signup',
     'withdraw_from_tournament',
     'withdraw_stream_offer',
+    'delete_survey',
+    'delete_survey_question',
+    'delete_survey_section',
 }
 
 

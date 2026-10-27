@@ -444,6 +444,13 @@ _EXCLUDED_BY_DESIGN = frozenset({
     AuditActions.CREW_PARTNER_INVITED,
     AuditActions.CREW_PARTNER_INVITE_ANSWERED,
     AuditActions.CREW_PARTNER_INVITE_CANCELLED,
+    # Building a survey is staff drafting in private; what reaches people is the
+    # send (survey.sent) and the close, which are published. A reminder DMs the
+    # same people the send already did.
+    AuditActions.SURVEY_CREATED,
+    AuditActions.SURVEY_UPDATED,
+    AuditActions.SURVEY_DELETED,
+    AuditActions.SURVEY_REMINDED,
 })
 
 _EVENTLESS_AUDIT_ACTIONS = _EVENT_CANDIDATES | _EXCLUDED_BY_DESIGN
