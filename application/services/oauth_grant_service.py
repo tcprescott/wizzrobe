@@ -48,6 +48,7 @@ from application.services.oauth_app_service import secret_matches, strict_scopes
 from application.services.tenant_service import TenantService
 from application.tenant_context import tenant_scope
 from application.utils.environment import get_base_url
+from application.utils.parked_requests import prune_parked
 from models import ApiToken, FeatureFlag, OAuthApp, OAuthClientType, User
 
 logger = logging.getLogger(__name__)
@@ -255,7 +256,7 @@ class OAuthGrantService:
         if not requested <= allowed:
             raise fail('invalid_scope', 'This app asked for more than it registered for.')
 
-        self._sweep_pending()
+        self._sweep_pending(room_for=1)
         txn_id = secrets.token_urlsafe(24)
         _pending[txn_id] = PendingAppAuthorization(
             app_id=app.id,
@@ -279,10 +280,8 @@ class OAuthGrantService:
         return pending
 
     @staticmethod
-    def _sweep_pending() -> None:
-        cutoff = datetime.now(timezone.utc) - PENDING_TTL
-        for key in [k for k, v in _pending.items() if v.created_at < cutoff]:
-            del _pending[key]
+    def _sweep_pending(room_for: int = 0) -> None:
+        prune_parked(_pending, PENDING_TTL, room_for=room_for)
 
     # --- Consent -----------------------------------------------------------
 

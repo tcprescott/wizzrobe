@@ -73,6 +73,13 @@ class OAuthAppRepository(TenantScopedRepository[OAuthApp]):
         return await OAuthApp.filter(owner=owner).count()
 
     @staticmethod
+    async def public_redirect_uris() -> List[List[str]]:
+        """Redirect URIs of every live public app, for the browser CORS allow-list. Global."""
+        return await OAuthApp.filter(
+            client_type=OAuthClientType.PUBLIC, disabled_at__isnull=True, owner__is_active=True,
+        ).values_list('redirect_uris', flat=True)  # type: ignore[return-value]
+
+    @staticmethod
     async def list_all() -> List[OAuthApp]:
         """Every app on the platform, for the super-admin view. Global."""
         return await OAuthApp.all().order_by('name', 'id').prefetch_related('owner')

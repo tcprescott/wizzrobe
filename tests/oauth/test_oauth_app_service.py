@@ -11,7 +11,12 @@ import pytest
 
 from application.errors import NotFoundError
 from application.services import OAuthAppService
-from application.services.oauth_app_service import MAX_APPS_PER_OWNER, secret_matches
+from application.services.oauth_app_service import (
+    APPS_CREATED_PER_DAY,
+    MAX_APPS_PER_OWNER,
+    reset_registration_limits,
+    secret_matches,
+)
 from models import AuditLog, OAuthApp, OAuthClientType, Role, User, UserRole
 from tests.api_helpers import create_community_member
 from tests.conftest import DEFAULT_TEST_TENANT_ID
@@ -82,9 +87,25 @@ async def test_text_fields_are_plain_and_capped():
 async def test_each_person_may_register_ten_apps():
     owner = await create_community_member(username='dev')
     for i in range(MAX_APPS_PER_OWNER):
+        reset_registration_limits()
         await _create(owner, name=f'App {i}')
-    with pytest.raises(ValueError):
+    reset_registration_limits()
+    with pytest.raises(ValueError, match='at most'):
         await _create(owner, name='One too many')
+
+
+async def test_deleting_apps_does_not_reset_the_daily_registrations():
+    owner = await create_community_member(username='dev')
+    other = await create_community_member(username='other')
+    service = OAuthAppService()
+    with pytest.raises(ValueError):
+        await _create(owner, redirect_uris=['javascript:alert(1)'])
+    for i in range(APPS_CREATED_PER_DAY):
+        app, _ = await _create(owner, name=f'App {i}')
+        await service.delete_app(owner, app.id)
+    with pytest.raises(ValueError, match='a day'):
+        await _create(owner, name='Churned')
+    await _create(other, name='Someone else is unaffected')
 
 
 async def test_someone_elses_app_reads_as_missing():

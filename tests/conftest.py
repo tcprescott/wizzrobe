@@ -185,6 +185,15 @@ def _reset_rate_limiter():
 
 
 @pytest.fixture(autouse=True)
+def _reset_app_registration_limit():
+    """Isolate the per-owner app-creation window; user ids repeat across tests."""
+    from application.services.oauth_app_service import reset_registration_limits
+    reset_registration_limits()
+    yield
+    reset_registration_limits()
+
+
+@pytest.fixture(autouse=True)
 def _reset_crew_signup_notices():
     """Isolate the per-process crew-signup DM throttle; match ids repeat across tests."""
     from application.services.crew_service import _signup_notice_rows, _signup_notices

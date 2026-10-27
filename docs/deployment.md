@@ -179,6 +179,7 @@ Every boolean variable below uses one grammar (`env_flag` in `application/utils/
 | `TELEGRAM_BOT_TOKEN` | no | — | `application/utils/clients/telegram_client.py`, `main.py` | Enables Telegram notifications and starts the long-polling bot worker. The token @BotFather gives for `/newbot`. **Keep secret.** |
 | `DISCORD_EMAIL_REDIRECT_URI` | no | `{BASE_URL}/discord/email/callback` | `application/services/discord/discord_email_service.py` | Callback for "Use my Discord email". Must be added to the Discord application's OAuth2 redirects. |
 | `API_RATE_LIMIT_PER_MIN` | no | `120` | `api/rate_limit.py` | Per-client budget per minute, keyed by token (or client IP). Shared by the REST API and MCP, so one credential gets one budget. |
+| `API_APP_RATE_LIMIT_PER_MIN` | no | `600` | `api/rate_limit.py` | Ceiling per third-party app across all of its users' grants, on top of each grant's own budget. |
 | `MCP_ENABLED` | no | on | `mcpserver/__init__.py` | Kill switch for the remote MCP server: off removes `/mcp`, its OAuth and discovery routes, and the lifespan hook. See [mcp-server.md](features/mcp-server.md). |
 | `TRUST_PROXY_FORWARDED_FOR` | no | off | `api/rate_limit.py` | Rate limiter trusts `X-Forwarded-For` for the client IP — only behind a trusted proxy. |
 

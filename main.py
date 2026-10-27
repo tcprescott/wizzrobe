@@ -50,6 +50,7 @@ from application.utils.loop_watchdog import watchdog as loop_watchdog
 from application.utils.migration_lock import migration_lock
 from application.utils.mocks.mock_discord import is_mock_discord
 from application.utils.sentry import flush_sentry, init_sentry
+from middleware.app_cors import AppCorsMiddleware
 from middleware.inflight_requests import InFlightRequestLogMiddleware
 from middleware.request_metrics import RequestMetricsMiddleware
 from middleware.security_headers import SecurityHeadersMiddleware
@@ -415,6 +416,7 @@ class FunFactMiddleware(BaseHTTPMiddleware):
 app.add_middleware(FunFactMiddleware)
 app.add_middleware(SecurityHeadersMiddleware)
 app.add_middleware(RequestMetricsMiddleware)
+app.add_middleware(AppCorsMiddleware)
 # Added last so it is outermost and sees every request the shutdown cancels.
 app.add_middleware(InFlightRequestLogMiddleware)
 

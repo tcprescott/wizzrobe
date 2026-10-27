@@ -27,6 +27,13 @@ def limit_per_minute() -> int:
         return 120
 
 
+def app_limit_per_minute() -> int:
+    try:
+        return max(1, int(os.environ.get('API_APP_RATE_LIMIT_PER_MIN', '600')))
+    except ValueError:
+        return 600
+
+
 _WINDOW_SECONDS = 60.0
 # Hard ceiling on the number of distinct keys tracked at once. A flood of
 # distinct bearer values (the token prefix is public) or spoofed keys must not
@@ -135,3 +142,26 @@ async def rate_limit(request: Request) -> None:
 
     for key in keys:
         _hits[key].append(now)
+
+
+def enforce_app_limit(app_id: int) -> None:
+    """Cap one third-party app's calls across all of its users.
+
+    Each grant already has its own token bucket; this is the ceiling over all
+    of them, so one popular or runaway app can't take the single worker from
+    everyone else. Runs after the token is resolved, since only then is the app
+    known, and so counts only calls that got that far.
+    """
+    now = time.monotonic()
+    _sweep(now)
+    bucket = _hits[f'app:{app_id}']
+    while bucket and bucket[0] < now - _WINDOW_SECONDS:
+        bucket.popleft()
+    if len(bucket) >= app_limit_per_minute():
+        retry_after = max(1, int(bucket[0] + _WINDOW_SECONDS - now) + 1)
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail='This app is making too many requests. Try again shortly.',
+            headers={'Retry-After': str(retry_after)},
+        )
+    bucket.append(now)

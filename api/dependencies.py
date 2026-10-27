@@ -21,6 +21,7 @@ from fastapi.routing import APIRoute
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from tortoise.models import Model
 
+from api.rate_limit import enforce_app_limit
 from api.scopes import scope_for
 from application.api_scopes import ApiScope, parse_scope
 from application.errors import EventArchivedError, NotFoundError
@@ -188,6 +189,8 @@ async def resolve_token(
     set_tenant_id(tenant.id)
     if token.origin == ApiTokenOrigin.APP.value:
         await _ensure_app_grant_usable(token)
+        if token.oauth_app_id is not None:
+            enforce_app_limit(token.oauth_app_id)
     # The community's default event. Event-owned routers override it from
     # ``?event=`` or the row the call is about (``event_binding``).
     set_event_id(await EventService.default_event_id(tenant.id), tenant.id)
