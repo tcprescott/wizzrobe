@@ -101,6 +101,8 @@ class SurveySection(Model):
 
     A repeating audience (each tournament played, each position worked) shows
     the section once per tournament or position, titled with its name.
+    ``conditions`` narrows who sees it further, in the same shape as a
+    question's (``application/services/survey/conditions.py``).
     """
 
     id = fields.IntField(pk=True)
@@ -115,6 +117,7 @@ class SurveySection(Model):
     title = fields.CharField(max_length=120)
     audience = fields.CharEnumField(SurveyAudience, max_length=24, default=SurveyAudience.EVERYONE)
     position = fields.IntField(default=0)
+    conditions = fields.JSONField(null=True)  # type: ignore[var-annotated]
     created_at = fields.DatetimeField(auto_now_add=True)
     updated_at = fields.DatetimeField(auto_now=True)
 
@@ -127,10 +130,10 @@ class SurveyQuestion(Model):
     """One question in a section.
 
     ``options`` holds the choices of a pick-one or pick-many question.
-    ``condition`` names a registered condition (``application/services/survey/
-    conditions.py``) the respondent must meet to see it; ``condition_args``
-    carries its arguments (the earlier question and answers, for an
-    answer-based one).
+    ``conditions`` lists the registered conditions (``application/services/
+    survey/conditions.py``) the respondent must all meet to see it, each
+    ``{'key': …}`` plus, for an answer-based one, the earlier question and
+    the answers that show it.
     """
 
     id = fields.IntField(pk=True)
@@ -147,8 +150,7 @@ class SurveyQuestion(Model):
     options = fields.JSONField(null=True)  # type: ignore[var-annotated]
     required = fields.BooleanField(default=False)
     position = fields.IntField(default=0)
-    condition = fields.CharField(max_length=40, null=True)
-    condition_args = fields.JSONField(null=True)  # type: ignore[var-annotated]
+    conditions = fields.JSONField(null=True)  # type: ignore[var-annotated]
     created_at = fields.DatetimeField(auto_now_add=True)
     updated_at = fields.DatetimeField(auto_now=True)
 

@@ -106,7 +106,7 @@ async def test_tournament_section_repeats_per_tournament_and_stage_question_only
     tournament_parts = [p for p in view.parts if p.tournament_id]
     assert [p.scope_label for p in tournament_parts] == ['ALTTPR', 'OoTR']
     prompts = {p.scope_label: [q.prompt for q in p.questions] for p in tournament_parts}
-    stage_q = next(q for s in survey.sections for q in s.questions if q.condition == 'on_stage')
+    stage_q = next(q for s in survey.sections for q in s.questions if q.conditions == [{'key': 'on_stage'}])
     assert stage_q.prompt in prompts['ALTTPR']
     assert stage_q.prompt not in prompts['OoTR']
     bob_view = await SurveyResponseService().open_survey(w['bob'], survey.id)
@@ -209,13 +209,13 @@ async def test_answer_condition_follows_an_earlier_question(event_world):
     first = await service.add_question(staff, section.id, 'Come back?', SurveyQuestionKind.YES_NO)
     follow = await service.add_question(
         staff, section.id, 'Why not?', SurveyQuestionKind.COMMENT,
-        condition='answer', condition_args={'question_id': first.id, 'values': ['No']},
+        conditions=[{'key': 'answer', 'question_id': first.id, 'values': ['No']}],
     )
     with pytest.raises(ValueError, match='follows this question'):
         await service.delete_question(staff, first.id)
     with pytest.raises(ValueError, match='earlier question'):
-        await service.update_question(staff, first.id, condition='answer',
-                                      condition_args={'question_id': follow.id, 'values': ['x']})
+        await service.update_question(staff, first.id,
+                                      conditions=[{'key': 'answer', 'question_id': follow.id, 'values': ['x']}])
     await service.send(staff, survey.id)
     bob = event_world['bob']
     responder = SurveyResponseService()
@@ -266,7 +266,69 @@ async def test_duplicate_keeps_follow_ups_pointing_at_the_copy(event_world):
     section = await service.add_section(staff, survey.id, 'S')
     first = await service.add_question(staff, section.id, 'Q1', SurveyQuestionKind.YES_NO)
     await service.add_question(staff, section.id, 'Q2', SurveyQuestionKind.COMMENT,
-                               condition='answer', condition_args={'question_id': first.id, 'values': ['Yes']})
+                               conditions=[{'key': 'answer', 'question_id': first.id, 'values': ['Yes']}])
+    await service.add_section(staff, survey.id, 'T',
+                              conditions=[{'key': 'answer', 'question_id': first.id, 'values': ['No']}])
     copy = await service.duplicate(staff, survey.id)
     q1, q2 = copy.sections[0].questions
-    assert q2.condition_args['question_id'] == q1.id != first.id
+    assert q2.conditions[0]['question_id'] == q1.id != first.id
+    assert copy.sections[1].conditions[0]['question_id'] == q1.id
+
+
+async def test_question_conditions_stack_and_all_must_hold(event_world):
+    service = SurveyService()
+    staff = event_world['staff']
+    survey = await service.create_survey(staff, 'Stacked', from_template=False)
+    section = await service.add_section(staff, survey.id, 'Yours', SurveyAudience.EACH_TOURNAMENT)
+    rate = await service.add_question(staff, section.id, 'Stage?', SurveyQuestionKind.RATING)
+    entries = [{'key': 'on_stage'}, {'key': 'answer', 'question_id': rate.id, 'values': ['1', 2]}]
+    why = await service.add_question(staff, section.id, 'What went wrong?', SurveyQuestionKind.COMMENT,
+                                     conditions=entries)
+    assert why.conditions == [{'key': 'on_stage'}, {'key': 'answer', 'question_id': rate.id, 'values': [1, 2]}]
+    with pytest.raises(ValueError, match='at most 3'):
+        await service.update_question(staff, why.id, conditions=[
+            {'key': 'on_stage'}, {'key': 'crewed'}, {'key': 'checked_in'}, {'key': 'rescheduled'}])
+    with pytest.raises(ValueError, match='contradicts'):
+        await service.update_question(staff, why.id, conditions=[{'key': 'on_stage'}, {'key': 'not_on_stage'}])
+    await service.send(staff, survey.id)
+    alice = event_world['alice']
+    responder = SurveyResponseService()
+    view = await responder.open_survey(alice, survey.id)
+    on_stage, off_stage = (next(p for p in view.parts if p.scope_label == name) for name in ('ALTTPR', 'OoTR'))
+    assert [q.prompt for q in on_stage.questions] == ['Stage?', 'What went wrong?']
+    assert [q.prompt for q in off_stage.questions] == ['Stage?']
+    view = await responder.save_part(alice, survey.id, on_stage.key, {rate.id: 5})
+    assert [q.prompt for q in view.showing(view.part(on_stage.key))] == ['Stage?']
+    view = await responder.save_part(alice, survey.id, on_stage.key, {rate.id: 1})
+    assert [q.prompt for q in view.showing(view.part(on_stage.key))] == ['Stage?', 'What went wrong?']
+
+
+async def test_a_section_can_wait_on_an_answer_and_hidden_answers_are_dropped(event_world):
+    service = SurveyService()
+    staff = event_world['staff']
+    survey = await service.create_survey(staff, 'Sections', from_template=False)
+    first = await service.add_section(staff, survey.id, 'The event')
+    back = await service.add_question(staff, first.id, 'Come back?', SurveyQuestionKind.YES_NO)
+    with pytest.raises(ValueError, match='at most 1'):
+        await service.add_section(staff, survey.id, 'Two', conditions=[{'key': 'crewed'}, {'key': 'checked_in'}])
+    later = await service.add_section(staff, survey.id, 'Next year', conditions=[
+        {'key': 'answer', 'question_id': back.id, 'values': ['Yes']}])
+    add = await service.add_question(staff, later.id, 'What should we add?', SurveyQuestionKind.COMMENT)
+    with pytest.raises(ValueError, match='follows this question'):
+        await service.delete_question(staff, back.id)
+    with pytest.raises(ValueError, match='would come after it'):
+        await service.move_section(staff, later.id, -1)
+    await service.send(staff, survey.id)
+    bob = event_world['bob']
+    responder = SurveyResponseService()
+    view = await responder.open_survey(bob, survey.id)
+    assert [p.title for p in view.shown_parts] == ['The event']
+    view = await responder.save_part(bob, survey.id, view.parts[0].key, {back.id: 'Yes'})
+    assert [p.title for p in view.shown_parts] == ['The event', 'Next year']
+    view = await responder.save_part(bob, survey.id, view.parts[1].key, {add.id: 'More snacks'})
+    view = await responder.save_part(bob, survey.id, view.parts[0].key, {back.id: 'No'})
+    assert [p.title for p in view.shown_parts] == ['The event']
+    await responder.submit(bob, survey.id)
+    results = await service.results(staff, survey.id)
+    comments = next(r for r in results.questions if r.question_id == add.id)
+    assert comments.comments == [] and comments.overall.count == 0

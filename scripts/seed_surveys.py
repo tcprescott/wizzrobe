@@ -2,7 +2,8 @@
 
 Three surveys per community: a draft on the builder, an open one with answers
 (one named, one anonymous, one half-done draft), and last year's closed one.
-Between them every question type, every audience and every status shows.
+Between them every question type, every audience and every status shows, plus
+a question with two conditions and a section that waits on an answer.
 """
 
 from datetime import datetime, timedelta, timezone
@@ -64,13 +65,26 @@ async def _build(tenant: Tenant, survey: Survey) -> dict[str, SurveyQuestion]:
         for q_pos, (prompt, kind, options, condition) in enumerate(rows):
             questions[prompt] = await SurveyQuestion.create(
                 tenant=tenant, section=section, prompt=prompt, kind=kind, options=options,
-                condition=condition, position=q_pos,
+                conditions=[{'key': condition}] if condition else None, position=q_pos,
             )
     come_back = questions['Will you come back next year?']
     section = await SurveySection.get(id=come_back.section_id)
     questions['What would bring you back?'] = await SurveyQuestion.create(
-        tenant=tenant, section=section, prompt='What would bring you back?', kind=K.COMMENT,
-        condition='answer', condition_args={'question_id': come_back.id, 'values': ['Maybe', 'No']}, position=3,
+        tenant=tenant, section=section, prompt='What would bring you back?', kind=K.COMMENT, position=3,
+        conditions=[{'key': 'answer', 'question_id': come_back.id, 'values': ['Maybe', 'No']}],
+    )
+    stage = questions['How was playing on stage?']
+    questions['What went wrong on stage?'] = await SurveyQuestion.create(
+        tenant=tenant, section_id=stage.section_id, prompt='What went wrong on stage?', kind=K.COMMENT, position=4,
+        conditions=[{'key': 'on_stage'}, {'key': 'answer', 'question_id': stage.id, 'values': [1, 2]}],
+    )
+    next_year = await SurveySection.create(
+        tenant=tenant, survey=survey, title='Next year', audience=A.EVERYONE, position=len(_SECTIONS) - 1,
+        conditions=[{'key': 'answer', 'question_id': come_back.id, 'values': ['Yes', 'Maybe']}],
+    )
+    await SurveySection.filter(survey=survey, title='Anything else?').update(position=len(_SECTIONS))
+    questions['What should we add next year?'] = await SurveyQuestion.create(
+        tenant=tenant, section=next_year, prompt='What should we add next year?', kind=K.COMMENT, position=0,
     )
     return questions
 

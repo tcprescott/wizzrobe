@@ -49,6 +49,13 @@ async def _reload(ctx: BuilderContext, _=None) -> None:
     await ctx.reload()
 
 
+def _condition_chips(entries, prompts: Dict[int, str]) -> None:
+    for entry in entries or []:
+        with ui.element('span').classes('wiz-chip wiz-chip--pending wiz-survey-q__condition'):
+            ui.icon('alt_route', size='14px').props('aria-hidden=true')
+            ui.label(conditions.describe(entry, prompts))
+
+
 def _question_row(ctx: BuilderContext, section: SurveySection, question: SurveyQuestion,
                   prompts: Dict[int, str], first: bool, last: bool) -> None:
     with ui.row().classes('wiz-survey-q no-wrap items-center w-full'):
@@ -57,10 +64,7 @@ def _question_row(ctx: BuilderContext, section: SurveySection, question: SurveyQ
             ui.label(question.prompt).classes('wiz-survey-q__prompt')
             if question.required:
                 ui.label('Required').classes('wiz-chip wiz-chip--neutral')
-            if question.condition:
-                with ui.element('span').classes('wiz-chip wiz-chip--pending wiz-survey-q__condition'):
-                    ui.icon('alt_route', size='14px').props('aria-hidden=true')
-                    ui.label(conditions.describe(question.condition, question.condition_args, prompts))
+            _condition_chips(question.conditions, prompts)
         ui.label(KIND_CHIPS[question.kind]).classes('wiz-chip wiz-chip--neutral wiz-survey-q__kind')
         if ctx.editable:
             with more_menu(question.prompt):
@@ -89,6 +93,7 @@ def _section_card(ctx: BuilderContext, section: SurveySection, prompts: Dict[int
                 with ui.element('span').classes('wiz-chip wiz-chip--live'):
                     ui.icon('groups', size='14px').props('aria-hidden=true')
                     ui.label(AUDIENCE_CHIPS[section.audience])
+                _condition_chips(section.conditions, prompts)
             if ctx.editable:
                 with more_menu(section.title):
                     menu_action('edit', 'Edit section…', lambda: dialogs.section_dialog(

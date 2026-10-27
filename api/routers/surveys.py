@@ -30,6 +30,8 @@ from api.schemas.surveys import (
     SurveySectionResponse,
     SurveySummaryResponse,
     SurveyUpdateRequest,
+    conditions_in,
+    conditions_out,
     question_out,
     response_out,
     results_out,
@@ -69,8 +71,9 @@ async def list_surveys(actor: User = Depends(require_staff)):
     response_model=List[ConditionResponse],
     summary="List the conditions a question can wait on",
     description=(
-        "The keys a question's `condition` takes. Each question has at most one. `answer` waits "
-        "on an earlier question's answer and takes `condition_args` `{question_id, values}`."
+        "The keys a question's or section's `conditions` take. A question has up to 3 and a "
+        "section 1, and all of them must hold. `answer` waits on an earlier question's answer "
+        "and takes `question_id` and `values`."
         "\n\n**Who can call this:** Staff."
     ),
 )
@@ -184,19 +187,26 @@ async def delete_survey(survey_id: int, actor: User = Depends(require_staff_writ
     ),
 )
 async def add_section(survey_id: int, body: SectionRequest, actor: User = Depends(require_staff_write)):
-    section = await SurveyService().add_section(actor, survey_id, body.title, body.audience)
+    section = await SurveyService().add_section(
+        actor, survey_id, body.title, body.audience, conditions=conditions_in(body.conditions),
+    )
     return SurveySectionResponse(id=section.id, title=section.title, audience=section.audience.value,
-                                 position=section.position)
+                                 position=section.position, conditions=conditions_out(section.conditions))
 
 
 @router.patch(
     "/sections/{section_id}",
     response_model=SurveySectionResponse,
-    summary="Change a section's title or audience",
-    description="Only the fields you send change. Drafts only.\n\n**Who can call this:** Staff.",
+    summary="Change a section's title, audience or condition",
+    description=(
+        "Only the fields you send change. A section's condition may wait on a question in an "
+        "earlier section. Drafts only.\n\n**Who can call this:** Staff."
+    ),
 )
 async def update_section(section_id: int, body: SectionUpdateRequest, actor: User = Depends(require_staff_write)):
     fields = body.model_dump(exclude_unset=True)
+    if 'conditions' in fields:
+        fields['conditions'] = conditions_in(body.conditions) or []
     service = SurveyService()
     section = await service.update_section(actor, section_id, **fields)
     survey = await service.get_survey(actor, section.survey_id)
@@ -230,14 +240,14 @@ async def move_section(section_id: int, body: MoveRequest, actor: User = Depends
     summary="Add a question to a section",
     description=(
         "Adds a question at the end of the section. Fails with 400 when a choice question has "
-        "fewer than 2 or more than 10 choices, or an `answer` condition names a question that "
-        "isn't earlier in the survey. Drafts only.\n\n**Who can call this:** Staff."
+        "fewer than 2 or more than 10 choices, it has more than 3 conditions, or an `answer` "
+        "condition names a question that isn't earlier in the survey. Drafts only.\n\n**Who can call this:** Staff."
     ),
 )
 async def add_question(section_id: int, body: QuestionRequest, actor: User = Depends(require_staff_write)):
     question = await SurveyService().add_question(
         actor, section_id, body.prompt, body.kind, options=body.options, required=body.required,
-        condition=body.condition, condition_args=body.condition_args,
+        conditions=conditions_in(body.conditions),
     )
     return question_out(question)
 
@@ -247,12 +257,14 @@ async def add_question(section_id: int, body: QuestionRequest, actor: User = Dep
     response_model=SurveyQuestionResponse,
     summary="Change a question",
     description=(
-        "Only the fields you send change. Send `condition` as an empty string to always show it. "
+        "Only the fields you send change. Send `conditions` as `[]` to always show it. "
         "Drafts only.\n\n**Who can call this:** Staff."
     ),
 )
 async def update_question(question_id: int, body: QuestionUpdateRequest, actor: User = Depends(require_staff_write)):
     fields = body.model_dump(exclude_unset=True)
+    if 'conditions' in fields:
+        fields['conditions'] = conditions_in(body.conditions) or []
     return question_out(await SurveyService().update_question(actor, question_id, **fields))
 
 
@@ -261,7 +273,7 @@ async def update_question(question_id: int, body: QuestionUpdateRequest, actor: 
     status_code=status.HTTP_204_NO_CONTENT,
     summary="Delete a question",
     description=(
-        "Fails with 400 while a later question's condition follows it. Drafts only.\n\n"
+        "Fails with 400 while a later question's or section's condition follows it. Drafts only.\n\n"
         "**Who can call this:** Staff."
     ),
 )

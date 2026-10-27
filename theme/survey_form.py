@@ -111,8 +111,10 @@ class PartSheet:
         self.part = part
         self.draft = self.form.view.answers_in(part)
         self.title.set_text(part.title)
-        position = self.form.view.parts.index(part) + 1
-        self.reason.set_text(f'{part.reason} · Part {position} of {len(self.form.view.parts)}')
+        shown = self.form.view.shown_parts
+        position = shown.index(part) + 1 if part in shown else 0
+        where = f' · Part {position} of {len(shown)}' if position else ''
+        self.reason.set_text(f'{part.reason}{where}')
         self.done_button.set_visibility(self.form.editable)
         self.body.refresh()
         self.dialog.open()
@@ -213,9 +215,10 @@ class SurveyForm:
 
     def _parts(self) -> None:
         view = self.view
-        done = sum(1 for p in view.parts if view.done(p))
+        shown = view.shown_parts
+        done = sum(1 for p in shown if view.done(p))
         with ui.element('div').classes('wiz-survey-parts w-full'):
-            for part in view.parts:
+            for part in shown:
                 is_done = view.done(part)
                 with ui.row().classes('wiz-survey-part no-wrap items-center') as row:
                     with ui.element('span').classes('wiz-survey-part__icon' + (' is-done' if is_done else '')):
@@ -236,7 +239,7 @@ class SurveyForm:
                     ui.label('Sent. Open a part to see what you answered.') \
                         .classes('wiz-survey-parts__count col min-w-0')
                     return
-                ui.label(f'{done} of {_plural(len(view.parts), "part")} done · answers save as you go') \
+                ui.label(f'{done} of {_plural(len(shown), "part")} done · answers save as you go') \
                     .classes('wiz-survey-parts__count col min-w-0')
                 send = ui.button('Send answers', on_click=self._send).props('unelevated no-caps color=primary')
                 if self.preview:

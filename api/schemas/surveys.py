@@ -11,6 +11,20 @@ from application.services.survey.results import Breakdown
 from models import Survey, SurveyAudience, SurveyQuestion, SurveyQuestionKind, SurveyResponse, SurveySection
 
 
+class SurveyConditionModel(BaseModel):
+    key: str = Field(..., description="A key from `GET /surveys/conditions`.")
+    question_id: Optional[int] = Field(None, description="For `answer`: the earlier question it waits on.")
+    values: Optional[List[Any]] = Field(
+        None, description="For `answer`: the answers to that question that show this one (any of them).",
+    )
+
+
+_CONDITIONS_DOC = (
+    "Conditions the respondent must all meet to see it (no OR); see `GET /surveys/conditions`. "
+    "A question takes up to 3, a section 1."
+)
+
+
 class SurveyQuestionResponse(BaseModel):
     id: int = Field(..., description="Question ID.")
     prompt: str = Field(..., description="The question as respondents read it.")
@@ -18,10 +32,7 @@ class SurveyQuestionResponse(BaseModel):
     options: Optional[List[str]] = Field(None, description="The choices of a `choice_one` or `choice_many` question.")
     required: bool = Field(..., description="Whether it must be answered before sending.")
     position: int = Field(..., description="Order inside its section, from 0.")
-    condition: Optional[str] = Field(None, description="The one condition a respondent must meet to see it; see `GET /surveys/conditions`.")
-    condition_args: Optional[Dict[str, Any]] = Field(
-        None, description="For `answer`: `{question_id, values}`, the earlier question and the answers that show this one.",
-    )
+    conditions: List[SurveyConditionModel] = Field(default_factory=list, description=_CONDITIONS_DOC)
 
 
 class SurveySectionResponse(BaseModel):
@@ -29,6 +40,7 @@ class SurveySectionResponse(BaseModel):
     title: str = Field(..., description="Section title.")
     audience: str = Field(..., description="Who sees it: `everyone`, `each_tournament`, `each_position`, `crew` or `checked_in`.")
     position: int = Field(..., description="Order in the survey, from 0.")
+    conditions: List[SurveyConditionModel] = Field(default_factory=list, description=_CONDITIONS_DOC)
     questions: List[SurveyQuestionResponse] = Field(default_factory=list)
 
 
@@ -124,11 +136,13 @@ class SurveyUpdateRequest(BaseModel):
 class SectionRequest(BaseModel):
     title: str = Field(..., max_length=120)
     audience: SurveyAudience = SurveyAudience.EVERYONE
+    conditions: Optional[List[SurveyConditionModel]] = Field(None, description=_CONDITIONS_DOC)
 
 
 class SectionUpdateRequest(BaseModel):
     title: Optional[str] = Field(None, max_length=120)
     audience: Optional[SurveyAudience] = None
+    conditions: Optional[List[SurveyConditionModel]] = Field(None, description="Send `[]` to clear them.")
 
 
 class MoveRequest(BaseModel):
@@ -140,8 +154,7 @@ class QuestionRequest(BaseModel):
     kind: SurveyQuestionKind
     options: Optional[List[str]] = Field(None, description="2 to 10 choices, for `choice_one` and `choice_many`.")
     required: bool = False
-    condition: Optional[str] = Field(None, description="A key from `GET /surveys/conditions`, or null to always show it.")
-    condition_args: Optional[Dict[str, Any]] = Field(None, description="For `answer`: `{question_id, values}`.")
+    conditions: Optional[List[SurveyConditionModel]] = Field(None, description=_CONDITIONS_DOC)
 
 
 class QuestionUpdateRequest(BaseModel):
@@ -149,24 +162,31 @@ class QuestionUpdateRequest(BaseModel):
     kind: Optional[SurveyQuestionKind] = None
     options: Optional[List[str]] = None
     required: Optional[bool] = None
-    condition: Optional[str] = Field(None, description="Send an empty string to clear it.")
-    condition_args: Optional[Dict[str, Any]] = None
+    conditions: Optional[List[SurveyConditionModel]] = Field(None, description="Send `[]` to always show it.")
 
 
 # Built from service results by both the REST router and the MCP tools, so the
 # two surfaces return the same shapes.
 
+def conditions_out(entries: Optional[List[Dict[str, Any]]]) -> List[SurveyConditionModel]:
+    return [SurveyConditionModel(**e) for e in entries or []]
+
+
+def conditions_in(entries: Optional[List[SurveyConditionModel]]) -> Optional[List[Dict[str, Any]]]:
+    return None if entries is None else [e.model_dump(exclude_none=True) for e in entries]
+
+
 def question_out(q: SurveyQuestion) -> SurveyQuestionResponse:
     return SurveyQuestionResponse(
         id=q.id, prompt=q.prompt, kind=q.kind.value, options=q.options, required=q.required,
-        position=q.position, condition=q.condition, condition_args=q.condition_args,
+        position=q.position, conditions=conditions_out(q.conditions),
     )
 
 
 def section_out(s: SurveySection) -> SurveySectionResponse:
     return SurveySectionResponse(
         id=s.id, title=s.title, audience=s.audience.value, position=s.position,
-        questions=[question_out(q) for q in s.questions],
+        conditions=conditions_out(s.conditions), questions=[question_out(q) for q in s.questions],
     )
 
 

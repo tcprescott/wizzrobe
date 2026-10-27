@@ -43,6 +43,16 @@ class RespondentView:
     def open(self) -> bool:
         return is_open(self.survey) and not self.submitted
 
+    @property
+    def shown_parts(self) -> List[plan.Part]:
+        """The parts showing now: a section that waits on an answer comes and goes with it."""
+        return [p for p in self.parts if plan.part_shown(p, self.answers)]
+
+    def stale_keys(self) -> List[plan.AnswerKey]:
+        """Saved answers to questions or parts an answer changed later has hidden."""
+        live = {(q.id, p.scope) for p in self.shown_parts for q in self.showing(p)}
+        return [key for key in {*self.answers, *self.texts} if key not in live]
+
     def part(self, key: str) -> Optional[plan.Part]:
         return next((p for p in self.parts if p.key == key), None)
 
@@ -73,7 +83,7 @@ class RespondentView:
 
     def missing_required(self) -> List[str]:
         missing = []
-        for part in self.parts:
+        for part in self.shown_parts:
             for q in self.showing(part):
                 key = (q.id, part.scope)
                 if q.required and key not in self.answers and key not in self.texts:
@@ -178,8 +188,11 @@ class SurveyResponseService:
         if missing:
             raise ValueError(f'Answer “{missing[0]}” first.')
         draft = await self.repository.draft_for(survey.id, actor.id)
-        if draft is None or not (view.answers or view.texts):
+        stale = view.stale_keys()
+        if draft is None or len(stale) == len({*view.answers, *view.texts}):
             raise ValueError('Answer at least one question first.')
+        for question_id, scope in stale:
+            await self.repository.clear_answer(draft, question_id, scope)
         now = datetime.now(timezone.utc)
         await self.repository.submit_response(
             draft, anonymous=anonymous, groups=_groups(recipient.facts or {}), submitted_on=now.date(),

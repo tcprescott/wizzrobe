@@ -15,11 +15,13 @@ from mcp.server.mcpserver import MCPServer
 from api.schemas.surveys import (
     ConditionResponse,
     SubmittedResponse,
+    SurveyConditionModel,
     SurveyQuestionResponse,
     SurveyResponseModel,
     SurveyResultsResponse,
     SurveySectionResponse,
     SurveySummaryResponse,
+    conditions_in,
     question_out,
     response_out,
     results_out,
@@ -55,7 +57,7 @@ async def get_survey(survey_id: int, tenant: TenantArg = None) -> SurveyResponse
 
 
 async def list_survey_conditions(tenant: TenantArg = None) -> List[ConditionResponse]:
-    """The keys a question's `condition` takes. `answer` waits on an earlier question's answer."""
+    """The keys a question's or section's `conditions` take. `answer` waits on an earlier question's answer."""
     return [ConditionResponse(key=k, label=v) for k, v in conditions.choices().items()]
 
 
@@ -114,24 +116,29 @@ async def delete_survey(survey_id: int, tenant: TenantArg = None) -> str:
 
 async def add_survey_section(
     survey_id: int, title: str, tenant: TenantArg = None, audience: SurveyAudience = SurveyAudience.EVERYONE,
+    conditions: Optional[List[SurveyConditionModel]] = None,
 ) -> SurveySectionResponse:
     """Add a section to the end of a draft.
 
     `each_tournament` and `each_position` repeat once for every tournament a
-    person played or position they worked, so keep those short.
+    person played or position they worked, so keep those short. `conditions`
+    holds at most one entry, shaped as for `add_survey_question`; an `answer`
+    one waits on a question in an earlier section.
     """
     service = SurveyService()
-    section = await service.add_section(_user(), survey_id, title, audience)
+    section = await service.add_section(_user(), survey_id, title, audience, conditions=conditions_in(conditions))
     survey = await service.get_survey(_user(), survey_id)
     return section_out(next(s for s in survey.sections if s.id == section.id))
 
 
 async def update_survey_section(
     section_id: int, tenant: TenantArg = None, title: Optional[str] = None,
-    audience: Optional[SurveyAudience] = None,
+    audience: Optional[SurveyAudience] = None, conditions: Optional[List[SurveyConditionModel]] = None,
 ) -> SurveySectionResponse:
-    """Change a draft section's title or audience. Leave a field out to keep it."""
+    """Change a draft section's title, audience or condition. Leave a field out to keep it; `[]` clears the condition."""
     fields = {k: v for k, v in (('title', title), ('audience', audience)) if v is not None}
+    if conditions is not None:
+        fields['conditions'] = conditions_in(conditions)
     service = SurveyService()
     section = await service.update_section(_user(), section_id, **fields)
     survey = await service.get_survey(_user(), section.survey_id)
@@ -152,19 +159,19 @@ async def move_survey_section(section_id: int, step: int, tenant: TenantArg = No
 
 async def add_survey_question(
     section_id: int, prompt: str, kind: SurveyQuestionKind, tenant: TenantArg = None,
-    options: Optional[List[str]] = None, required: bool = False, condition: Optional[str] = None,
-    condition_question_id: Optional[int] = None, condition_values: Optional[List[str]] = None,
+    options: Optional[List[str]] = None, required: bool = False,
+    conditions: Optional[List[SurveyConditionModel]] = None,
 ) -> SurveyQuestionResponse:
     """Add a question to the end of a draft section.
 
     `options` holds 2 to 10 choices for `choice_one` and `choice_many`.
-    `condition` is a key from `list_survey_conditions`; for `answer`, name the
-    earlier question in `condition_question_id` and the answers that show this
-    one in `condition_values` (numbers as strings for a rating).
+    `conditions` holds up to 3 entries that must all hold, each `{"key": …}`
+    with a key from `list_survey_conditions`; an `answer` entry also names the
+    earlier question in `question_id` and the answers that show this one in
+    `values` (any of them).
     """
     question = await SurveyService().add_question(
-        _user(), section_id, prompt, kind, options=options, required=required, condition=condition,
-        condition_args=_answer_args(condition, condition_question_id, condition_values),
+        _user(), section_id, prompt, kind, options=options, required=required, conditions=conditions_in(conditions),
     )
     return question_out(question)
 
@@ -172,20 +179,18 @@ async def add_survey_question(
 async def update_survey_question(
     question_id: int, tenant: TenantArg = None, prompt: Optional[str] = None,
     kind: Optional[SurveyQuestionKind] = None, options: Optional[List[str]] = None,
-    required: Optional[bool] = None, condition: Optional[str] = None,
-    condition_question_id: Optional[int] = None, condition_values: Optional[List[str]] = None,
+    required: Optional[bool] = None, conditions: Optional[List[SurveyConditionModel]] = None,
 ) -> SurveyQuestionResponse:
-    """Change a draft question. Leave a field out to keep it; `condition` "" always shows it."""
+    """Change a draft question. Leave a field out to keep it; `conditions` `[]` always shows it."""
     fields: dict = {k: v for k, v in (('prompt', prompt), ('kind', kind), ('options', options),
                                       ('required', required)) if v is not None}
-    if condition is not None:
-        fields['condition'] = condition
-        fields['condition_args'] = _answer_args(condition, condition_question_id, condition_values)
+    if conditions is not None:
+        fields['conditions'] = conditions_in(conditions)
     return question_out(await SurveyService().update_question(_user(), question_id, **fields))
 
 
 async def delete_survey_question(question_id: int, tenant: TenantArg = None) -> str:
-    """Delete a draft question. Refused while a later question's condition follows it."""
+    """Delete a draft question. Refused while a later question's or section's condition follows it."""
     await SurveyService().delete_question(_user(), question_id)
     return 'Deleted.'
 
@@ -194,13 +199,6 @@ async def move_survey_question(question_id: int, step: int, tenant: TenantArg = 
     """Move a draft question one place up (`step` -1) or down (1) inside its section."""
     await SurveyService().move_question(_user(), question_id, step)
     return 'Moved.'
-
-
-def _answer_args(condition: Optional[str], question_id: Optional[int], values: Optional[List[str]]) -> Optional[dict]:
-    if condition != conditions.ANSWER:
-        return None
-    parsed = [int(v) if isinstance(v, str) and v.isdigit() else v for v in values or []]
-    return {'question_id': question_id, 'values': parsed}
 
 
 def register_tools(mcp: MCPServer) -> None:

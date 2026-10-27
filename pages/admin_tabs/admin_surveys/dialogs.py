@@ -1,7 +1,7 @@
 """The survey builder's forms: new survey, details, section, question, send."""
 
 from datetime import timedelta
-from typing import Any, Awaitable, Callable, Dict, Optional
+from typing import Any, Awaitable, Callable, List, Mapping, Optional
 
 from nicegui import ui
 
@@ -22,7 +22,6 @@ from theme.notify import notify_error
 from theme.pickers import CHIP_PROPS
 
 Done = Callable[[Any], Awaitable[None]]
-ALWAYS = ''
 CHOICE_KINDS = (SurveyQuestionKind.CHOICE_ONE, SurveyQuestionKind.CHOICE_MANY)
 
 
@@ -31,6 +30,79 @@ def _footer(dialog, label: str, on_save) -> None:
         ui.button('Cancel', on_click=dialog.close).props('flat no-caps')
         ui.button(label, on_click=on_save).props('unelevated no-caps color=primary')
     submit_on_enter(dialog, on_save)
+
+
+class ConditionEditor:
+    """The "Only show if…" rows of a question or section: up to ``limit``, all must hold.
+
+    ``earlier`` holds the questions an answer-based row may wait on; with none,
+    that choice isn't offered.
+    """
+
+    def __init__(self, earlier: Mapping[int, SurveyQuestion], entries: Optional[List[dict]], *,
+                 limit: int, noun: str) -> None:
+        self.earlier = {qid: q for qid, q in earlier.items() if answer_values(q)}
+        self.rows: List[dict] = [dict(e) for e in entries or []]
+        self.limit = limit
+        self.noun = noun
+        self.choices = dict(conditions.choices())
+        if not self.earlier:
+            self.choices.pop(conditions.ANSWER, None)
+        hint = 'all must be true' if limit > 1 else 'one condition'
+        ui.label(f'Only show if… ({hint})').classes('wiz-survey-field-label')
+        with ui.column().classes('wiz-survey-conditions w-full gap-2'):
+            self._render = ui.refreshable(self._rows)
+            self._render()
+
+    def _rows(self) -> None:
+        if not self.rows:
+            ui.label(f'Always shows. Add a condition to show this {self.noun} to fewer people.') \
+                .classes('text-caption text-grey-7')
+        for index, row in enumerate(self.rows):
+            with ui.row().classes('wiz-survey-condition no-wrap items-start w-full'):
+                with ui.column().classes('col min-w-0 gap-2'):
+                    ui.select(self.choices, value=row.get('key'), label=f'Condition {index + 1}',
+                              on_change=lambda e, r=row: self._set_key(r, e.value)) \
+                        .props('outlined dense').classes('w-full')
+                    if row.get('key') == conditions.ANSWER:
+                        self._answer_fields(row)
+                ui.button(icon='close', on_click=lambda _, i=index: self._remove(i)) \
+                    .props('flat round dense').tooltip('Remove this condition')
+        if len(self.rows) < self.limit:
+            ui.button('Add condition', icon='add', on_click=self._add).props('flat no-caps color=primary dense')
+
+    def _answer_fields(self, row: dict) -> None:
+        ui.select({qid: q.prompt for qid, q in self.earlier.items()}, value=row.get('question_id'),
+                  label='Earlier question',
+                  on_change=lambda e, r=row: self._set_target(r, e.value)) \
+            .props('outlined dense').classes('w-full')
+        picked = self.earlier.get(row.get('question_id') or 0)
+        if picked is not None:
+            ui.select({v: str(v) for v in answer_values(picked)}, multiple=True, value=list(row.get('values') or []),
+                      label='Any of these answers',
+                      on_change=lambda e, r=row: r.update(values=list(e.value or []))) \
+                .props(f'outlined dense {CHIP_PROPS}').classes('w-full')
+
+    def _set_key(self, row: dict, key: str) -> None:
+        row.clear()
+        row['key'] = key
+        self._render.refresh()
+
+    def _set_target(self, row: dict, question_id: int) -> None:
+        row.update(question_id=question_id, values=[])
+        self._render.refresh()
+
+    def _add(self) -> None:
+        self.rows.append({'key': next(iter(self.choices))})
+        self._render.refresh()
+
+    def _remove(self, index: int) -> None:
+        self.rows.pop(index)
+        self._render.refresh()
+
+    @property
+    def value(self) -> List[dict]:
+        return [dict(r) for r in self.rows if r.get('key')]
 
 
 def new_survey_dialog(service: SurveyService, user: User, on_done: Done) -> None:
@@ -89,14 +161,19 @@ def section_dialog(service: SurveyService, user: User, survey: Survey, section: 
                 'A repeating section shows once for every tournament a person played, or every '
                 'position they worked, titled with its name. Keep those short.',
             ).classes('text-caption text-grey-7')
+            earlier = plan.before_section(survey.sections, section.id) if section else \
+                {q.id: q for s in survey.sections for q in s.questions}
+            editor = ConditionEditor(earlier, section.conditions if section else None,
+                                     limit=conditions.MAX_PER_SECTION, noun='section')
 
         async def save() -> None:
             try:
                 if section is None:
-                    await service.add_section(user, survey.id, title.value or '', SurveyAudience(audience.value))
+                    await service.add_section(user, survey.id, title.value or '', SurveyAudience(audience.value),
+                                              conditions=editor.value)
                 else:
                     await service.update_section(user, section.id, title=title.value or '',
-                                                 audience=SurveyAudience(audience.value))
+                                                 audience=SurveyAudience(audience.value), conditions=editor.value)
             except (ValueError, PermissionError) as e:
                 notify_error(e)
                 return
@@ -109,81 +186,44 @@ def section_dialog(service: SurveyService, user: User, survey: Survey, section: 
 
 def question_dialog(service: SurveyService, user: User, survey: Survey, section: SurveySection,
                     question: Optional[SurveyQuestion], on_done: Done) -> None:
-    """Add or edit a question, with its one "Only show if…" condition."""
-    earlier: Dict[int, SurveyQuestion] = {
-        qid: q for qid, q in plan.earlier(survey.sections, section.id, question.id if question else None).items()
-        if answer_values(q)
-    }
-    args = (question.condition_args or {}) if question else {}
-    state: Dict[str, Any] = {
-        'kind': (question.kind if question else SurveyQuestionKind.RATING).value,
-        'condition': (question.condition or ALWAYS) if question else ALWAYS,
-        'follow': args.get('question_id'),
-        'values': list(args.get('values') or []),
-    }
+    """Add or edit a question, with up to three "Only show if…" conditions."""
+    initial_kind = (question.kind if question else SurveyQuestionKind.RATING).value
 
     with form_dialog('Edit question' if question else 'Add question') as dialog:
         with ui.column().classes('w-full gap-2'):
             prompt = ui.input('Question', value=question.prompt if question else '') \
                 .props('outlined dense maxlength=280').classes('w-full')
             with ui.element('div').classes('form-pair w-full'):
-                kind = ui.select({k.value: plan.KIND_LABELS[k] for k in SurveyQuestionKind}, value=state['kind'],
+                kind = ui.select({k.value: plan.KIND_LABELS[k] for k in SurveyQuestionKind}, value=initial_kind,
                                  label='Type').props('outlined dense')
                 required = ui.switch('Required', value=bool(question.required) if question else False)
             options = ui.textarea(
                 'Choices, one per line', value='\n'.join(question.options or []) if question else '',
             ).props('outlined autogrow').classes('w-full')
-
-            ui.label('Only show if…').classes('wiz-survey-field-label')
-            condition_choices = {ALWAYS: 'Always show', **conditions.choices()}
-            if not earlier:
-                condition_choices.pop(conditions.ANSWER, None)
-            condition = ui.radio(condition_choices, value=state['condition']).classes('wiz-survey-conditions w-full')
-            condition.props('aria-label="Only show if"')
-
-            follow_box = ui.column().classes('w-full gap-2 wiz-survey-follow')
-
-        @ui.refreshable
-        def follow_fields() -> None:
-            if state['condition'] != conditions.ANSWER:
-                return
-            target = ui.select({qid: q.prompt for qid, q in earlier.items()}, value=state['follow'],
-                               label='Earlier question').props('outlined dense').classes('w-full')
-            target.on_value_change(lambda e: (state.update(follow=e.value, values=[]), follow_fields.refresh()))
-            picked = earlier.get(state['follow'])
-            if picked is not None:
-                values = answer_values(picked)
-                ui.select({v: str(v) for v in values}, multiple=True, value=state['values'],
-                          label='Answers that show this question',
-                          on_change=lambda e: state.update(values=list(e.value or []))) \
-                    .props(f'outlined dense {CHIP_PROPS}').classes('w-full')
-
-        with follow_box:
-            follow_fields()
+            editor = ConditionEditor(
+                plan.earlier(survey.sections, section.id, question.id if question else None),
+                question.conditions if question else None, limit=conditions.MAX_PER_QUESTION, noun='question',
+            )
 
         def kind_changed(value: str) -> None:
-            state['kind'] = value
             options.set_visibility(SurveyQuestionKind(value) in CHOICE_KINDS)
 
         kind.on_value_change(lambda e: kind_changed(e.value))
-        kind_changed(state['kind'])
-        condition.on_value_change(lambda e: (state.update(condition=e.value), follow_fields.refresh()))
+        kind_changed(initial_kind)
 
         async def save() -> None:
-            chosen = SurveyQuestionKind(state['kind'])
+            chosen = SurveyQuestionKind(kind.value)
             lines = [line for line in (options.value or '').splitlines() if line.strip()]
-            key = state['condition'] or None
-            cargs = {'question_id': state['follow'], 'values': state['values']} if key == conditions.ANSWER else None
             try:
                 if question is None:
                     await service.add_question(
                         user, section.id, prompt.value or '', chosen, options=lines, required=bool(required.value),
-                        condition=key, condition_args=cargs,
+                        conditions=editor.value,
                     )
                 else:
                     await service.update_question(
                         user, question.id, prompt=prompt.value or '', kind=chosen, options=lines,
-                        required=bool(required.value), condition=key, condition_args=cargs,
+                        required=bool(required.value), conditions=editor.value,
                     )
             except (ValueError, PermissionError) as e:
                 notify_error(e)

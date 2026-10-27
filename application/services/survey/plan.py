@@ -10,7 +10,7 @@ played.
 from dataclasses import dataclass, field
 from typing import Any, Dict, Iterable, List, Mapping, Optional, Sequence, Tuple
 
-from application.services.survey.conditions import ANSWER, answer_matches, holds
+from application.services.survey.conditions import Entry, all_hold, answer_entries, answer_matches
 from models import SurveyAudience, SurveyQuestion, SurveyQuestionKind, SurveySection
 
 # Rough seconds to answer each kind, for the 5-minute budget. A comment is
@@ -55,6 +55,7 @@ class Part:
     scope_label: str
     icon: str
     questions: List[SurveyQuestion] = field(default_factory=list)
+    follows: List[Entry] = field(default_factory=list)  # the section's answer-based conditions
 
     @property
     def key(self) -> str:
@@ -104,19 +105,35 @@ def parts_for(sections: Iterable[SurveySection], facts: Mapping[str, Any], *,
     """The parts one person sees, in survey order; a part left with no questions is dropped.
 
     Sections must have their ``questions`` prefetched. ``ignore_conditions`` is
-    the preview's "Every question" view: every repeat, every question.
+    the preview's "Every question" view: every repeat, every question. A part
+    whose section waits on an answer is still listed; :func:`part_shown`
+    decides on the page whether it shows.
     """
     parts: List[Part] = []
     for section in sections:
         questions = list(section.questions)
         for scope, label, title, reason in _repeats(section, facts):
             tournament_id = int(scope[2:]) if scope.startswith('t:') else None
+            if not ignore_conditions and not all_hold(section.conditions, facts, tournament_id):
+                continue
             shown = questions if ignore_conditions else [
-                q for q in questions if holds(q.condition, facts, tournament_id)
+                q for q in questions if all_hold(q.conditions, facts, tournament_id)
             ]
             if shown:
-                parts.append(Part(section.id, title, reason, scope, label, _ICONS[section.audience], shown))
+                parts.append(Part(section.id, title, reason, scope, label, _ICONS[section.audience], shown,
+                                  [] if ignore_conditions else answer_entries(section.conditions)))
     return parts
+
+
+def before_section(sections: Iterable[SurveySection], section_id: int) -> Dict[int, SurveyQuestion]:
+    """The questions in the sections before ``section_id``, which that section may wait on."""
+    found: Dict[int, SurveyQuestion] = {}
+    for section in sections:
+        if section.id == section_id:
+            return found
+        for q in section.questions:
+            found[q.id] = q
+    return found
 
 
 def earlier(sections: Iterable[SurveySection], section_id: int,
@@ -147,12 +164,20 @@ def lookup_answer(answers: Mapping[AnswerKey, Any], question_id: int, scope: str
     return answers.get((question_id, ''))
 
 
+def _matches(entries: Sequence[Entry], scope: str, answers: Mapping[AnswerKey, Any]) -> bool:
+    return all(
+        answer_matches(e, lookup_answer(answers, int(e.get('question_id') or 0), scope)) for e in entries
+    )
+
+
 def visible(question: SurveyQuestion, scope: str, answers: Mapping[AnswerKey, Any]) -> bool:
-    """Whether an answer-based question shows, given the respondent's answers so far."""
-    if question.condition != ANSWER:
-        return True
-    args = question.condition_args or {}
-    return answer_matches(args, lookup_answer(answers, int(args.get('question_id') or 0), scope))
+    """Whether a question shows, given the respondent's answers so far (its answer-based conditions)."""
+    return _matches(answer_entries(question.conditions), scope, answers)
+
+
+def part_shown(part: Part, answers: Mapping[AnswerKey, Any]) -> bool:
+    """Whether a part shows, given the respondent's answers so far (its section's answer-based conditions)."""
+    return _matches(part.follows, part.scope, answers)
 
 
 def seconds(parts: Sequence[Part]) -> int:

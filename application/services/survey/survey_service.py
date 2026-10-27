@@ -31,10 +31,11 @@ from application.services.survey._validation import (
     INTRO_MAX,
     PROMPT_MAX,
     TITLE_MAX,
-    check_condition,
+    check_conditions,
     clean_options,
     clean_text,
 )
+from application.services.survey.conditions import MAX_PER_QUESTION, MAX_PER_SECTION, answer_entries, follows, remap
 from application.services.survey.participation import Participation
 from application.services.survey.results import QuestionResult, summarize
 from application.services.survey.template import STARTER
@@ -232,7 +233,8 @@ class SurveyService:
                 )
                 for q_pos, (prompt, kind, options, condition) in enumerate(questions):
                     await self.repository.create_question(
-                        section, prompt=prompt, kind=kind, options=options, condition=condition, position=q_pos,
+                        section, prompt=prompt, kind=kind, options=options, position=q_pos,
+                        conditions=[{'key': condition}] if condition else None,
                     )
         await self._audit(actor, AuditActions.SURVEY_CREATED, survey, from_template=from_template)
         return await self._load(survey.id)
@@ -250,14 +252,12 @@ class SurveyService:
         for section in source.sections:
             new_section = await self.repository.create_section(
                 copy, title=section.title, audience=section.audience, position=section.position,
+                conditions=remap(section.conditions, ids),
             )
             for q in section.questions:
-                args = dict(q.condition_args or {}) or None
-                if args and args.get('question_id') in ids:
-                    args['question_id'] = ids[args['question_id']]
                 new_q = await self.repository.create_question(
                     new_section, prompt=q.prompt, kind=q.kind, options=q.options, required=q.required,
-                    position=q.position, condition=q.condition, condition_args=args,
+                    position=q.position, conditions=remap(q.conditions, ids),
                 )
                 ids[q.id] = new_q.id
         await self._audit(actor, AuditActions.SURVEY_CREATED, copy, copied_from=source.id)
@@ -314,22 +314,26 @@ class SurveyService:
 
     @requires_feature(FeatureFlag.SURVEYS)
     async def add_section(self, actor: User, survey_id: int, title: str,
-                          audience: SurveyAudience = SurveyAudience.EVERYONE) -> SurveySection:
+                          audience: SurveyAudience = SurveyAudience.EVERYONE,
+                          conditions: Optional[Sequence[Mapping[str, Any]]] = None) -> SurveySection:
+        """Add a section at the end. Its conditions may wait on any question already in the survey."""
         await self._ensure_staff(actor)
         survey = await self._load(survey_id)
         self._ensure_draft(survey)
         if len(survey.sections) >= MAX_SECTIONS:
             raise ValueError(f'A survey holds at most {MAX_SECTIONS} sections.')
+        earlier = {q.id: q for s in survey.sections for q in s.questions}
         section = await self.repository.create_section(
             survey, title=clean_text(title, limit=TITLE_MAX, what='A section title'),
             audience=SurveyAudience(audience), position=await self.repository.next_section_position(survey.id),
+            conditions=_section_conditions(conditions, earlier),
         )
         await self._audit(actor, AuditActions.SURVEY_UPDATED, survey, section_added=section.id)
         return section
 
     @requires_feature(FeatureFlag.SURVEYS)
     async def update_section(self, actor: User, section_id: int, *, title: Any = _UNSET,
-                             audience: Any = _UNSET) -> SurveySection:
+                             audience: Any = _UNSET, conditions: Any = _UNSET) -> SurveySection:
         await self._ensure_staff(actor)
         survey, section = await self._draft_section(section_id)
         fields: Dict[str, Any] = {}
@@ -337,6 +341,8 @@ class SurveyService:
             fields['title'] = clean_text(title, limit=TITLE_MAX, what='A section title')
         if audience is not _UNSET:
             fields['audience'] = SurveyAudience(audience)
+        if conditions is not _UNSET:
+            fields['conditions'] = _section_conditions(conditions, plan.before_section(survey.sections, section.id))
         if fields:
             await self.repository.update(section, **fields)
             await self._audit(actor, AuditActions.SURVEY_UPDATED, survey, section_updated=section.id)
@@ -355,13 +361,15 @@ class SurveyService:
         await self._ensure_staff(actor)
         survey, section = await self._draft_section(section_id)
         ids = await self.repository.section_ids(survey.id)
-        await self.repository.set_section_positions(_moved(ids, section.id, step))
+        positions = _moved(ids, section.id, step)
+        by_id = {s.id: s for s in survey.sections}
+        _check_order([by_id[i] for i in sorted(positions, key=positions.get) if i in by_id], {})
+        await self.repository.set_section_positions(positions)
 
     @requires_feature(FeatureFlag.SURVEYS)
     async def add_question(self, actor: User, section_id: int, prompt: str, kind: SurveyQuestionKind, *,
                            options: Optional[Sequence[str]] = None, required: bool = False,
-                           condition: Optional[str] = None,
-                           condition_args: Optional[Mapping[str, Any]] = None) -> SurveyQuestion:
+                           conditions: Optional[Sequence[Mapping[str, Any]]] = None) -> SurveyQuestion:
         await self._ensure_staff(actor)
         survey, section = await self._draft_section(section_id)
         current = next((s for s in survey.sections if s.id == section.id), None)
@@ -372,8 +380,7 @@ class SurveyService:
             section,
             prompt=clean_text(prompt, limit=PROMPT_MAX, what='The question'),
             kind=kind, options=clean_options(kind, options), required=bool(required),
-            condition=condition or None,
-            condition_args=check_condition(condition, condition_args, plan.earlier(survey.sections, section.id, None)),
+            conditions=_question_conditions(conditions, plan.earlier(survey.sections, section.id, None)),
             position=await self.repository.next_question_position(section.id),
         )
         await self._audit(actor, AuditActions.SURVEY_UPDATED, survey, question_added=question.id)
@@ -381,8 +388,8 @@ class SurveyService:
 
     @requires_feature(FeatureFlag.SURVEYS)
     async def update_question(self, actor: User, question_id: int, *, prompt: Any = _UNSET, kind: Any = _UNSET,
-                              options: Any = _UNSET, required: Any = _UNSET, condition: Any = _UNSET,
-                              condition_args: Any = _UNSET) -> SurveyQuestion:
+                              options: Any = _UNSET, required: Any = _UNSET,
+                              conditions: Any = _UNSET) -> SurveyQuestion:
         await self._ensure_staff(actor)
         question = require_found(await self.repository.get_question(question_id), 'Question')
         survey, _ = await self._draft_section(question.section_id)
@@ -396,12 +403,9 @@ class SurveyService:
             fields['options'] = clean_options(new_kind, options if options is not _UNSET else question.options)
         if required is not _UNSET:
             fields['required'] = bool(required)
-        if condition is not _UNSET or condition_args is not _UNSET:
-            key = condition if condition is not _UNSET else question.condition
-            args = condition_args if condition_args is not _UNSET else question.condition_args
-            fields['condition'] = key or None
-            fields['condition_args'] = check_condition(
-                key, args, plan.earlier(survey.sections, question.section_id, question.id),
+        if conditions is not _UNSET:
+            fields['conditions'] = _question_conditions(
+                conditions, plan.earlier(survey.sections, question.section_id, question.id),
             )
         if fields:
             await self.repository.update(question, **fields)
@@ -413,10 +417,11 @@ class SurveyService:
         await self._ensure_staff(actor)
         question = require_found(await self.repository.get_question(question_id), 'Question')
         survey, _ = await self._draft_section(question.section_id)
-        followers = [q for s in survey.sections for q in s.questions
-                     if (q.condition_args or {}).get('question_id') == question.id]
+        followers = [s.title for s in survey.sections if follows(s.conditions, question.id)]
+        followers += [q.prompt for s in survey.sections for q in s.questions
+                      if follows(q.conditions, question.id)]
         if followers:
-            raise ValueError(f'“{followers[0].prompt}” follows this question. Change or delete that one first.')
+            raise ValueError(f'“{followers[0]}” follows this question. Change or delete that one first.')
         await self.repository.delete(question)
         await self._audit(actor, AuditActions.SURVEY_UPDATED, survey, question_deleted=question_id)
 
@@ -425,9 +430,11 @@ class SurveyService:
         """Move a question one place up (``-1``) or down (``1``) inside its section."""
         await self._ensure_staff(actor)
         question = require_found(await self.repository.get_question(question_id), 'Question')
-        await self._draft_section(question.section_id)
+        survey, _ = await self._draft_section(question.section_id)
         ids = await self.repository.question_ids(question.section_id)
-        await self.repository.set_question_positions(_moved(ids, question.id, step))
+        positions = _moved(ids, question.id, step)
+        _check_order(survey.sections, positions)
+        await self.repository.set_question_positions(positions)
 
     # --- lifecycle ------------------------------------------------------
 
@@ -498,6 +505,33 @@ class SurveyService:
             EventType.SURVEY_CLOSED,
         )
         return survey
+
+
+def _question_conditions(entries: Any, earlier: Mapping[int, SurveyQuestion]) -> Optional[List[dict]]:
+    return check_conditions(entries, earlier, limit=MAX_PER_QUESTION, what='a question')
+
+
+def _section_conditions(entries: Any, earlier: Mapping[int, SurveyQuestion]) -> Optional[List[dict]]:
+    return check_conditions(entries, earlier, limit=MAX_PER_SECTION, what='a section')
+
+
+def _check_order(sections: Sequence[SurveySection], question_positions: Mapping[int, int]) -> None:
+    """Refuse an order that puts something before the question whose answer it waits on.
+
+    ``sections`` are in their new order; ``question_positions`` overrides the
+    order of the questions it names (one section's, after a move).
+    """
+    seen: set = set()
+    for section in sections:
+        for entry in answer_entries(section.conditions):
+            if int(entry.get('question_id') or 0) not in seen:
+                raise ValueError(f'“{section.title}” follows a question that would come after it.')
+        questions = sorted(section.questions, key=lambda q: question_positions.get(q.id, q.position))
+        for q in questions:
+            for entry in answer_entries(q.conditions):
+                if int(entry.get('question_id') or 0) not in seen:
+                    raise ValueError(f'“{q.prompt}” follows a question that would come after it.')
+            seen.add(q.id)
 
 
 def _moved(ids: List[int], item: int, step: int) -> Dict[int, int]:

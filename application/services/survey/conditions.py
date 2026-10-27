@@ -1,4 +1,4 @@
-"""The "Only show if…" conditions a survey question can carry.
+"""The "Only show if…" conditions a survey question or section can carry.
 
 A condition registers itself here and nowhere else: the builder's list, the
 send-time facts and the respondent's page all read :data:`CONDITIONS`. Adding
@@ -17,12 +17,17 @@ that tournament; anywhere else it holds when it holds for any of them.
 
 Two shapes are not collected: a *negation* (``negates=``) is the opposite of
 another condition, and the answer-based condition is decided on the page from
-the respondent's own earlier answer. Deliberately one condition per question,
-with no AND/OR: that limit is what keeps this a list and not a rules engine.
+the respondent's own earlier answer.
+
+A question or section stores its conditions as a list of entries,
+``{'key': 'on_stage'}`` or ``{'key': 'answer', 'question_id': 12, 'values':
+[1, 2]}``. A question takes up to :data:`MAX_PER_QUESTION` and a section up to
+:data:`MAX_PER_SECTION`, and every one must hold: there is no OR and no
+nesting, which is what keeps this a list and not a rules engine.
 """
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Awaitable, Callable, Dict, List, Mapping, Optional, Union
+from typing import TYPE_CHECKING, Any, Awaitable, Callable, Dict, List, Mapping, Optional, Sequence, Union
 
 if TYPE_CHECKING:
     from application.services.survey.participation import Participation
@@ -30,6 +35,10 @@ if TYPE_CHECKING:
 Collected = Dict[int, Union[bool, List[int]]]
 
 ANSWER = 'answer'
+MAX_PER_QUESTION = 3
+MAX_PER_SECTION = 1
+
+Entry = Mapping[str, Any]
 
 
 @dataclass(frozen=True)
@@ -82,15 +91,26 @@ def holds(
     return tournament_id in ids if tournament_id is not None else bool(ids)
 
 
-def answer_matches(args: Optional[Mapping[str, Any]], answer: Any) -> bool:
-    """Whether an earlier answer is one of the values an answer-based question waits for.
+def all_hold(entries: Optional[Sequence[Entry]], facts: Mapping[str, Any],
+             tournament_id: Optional[int] = None) -> bool:
+    """Whether every send-time condition in ``entries`` holds (answer-based ones are left to the page)."""
+    return all(holds(e.get('key'), facts, tournament_id) for e in entries or [])
 
-    ``args`` is ``{'question_id': 12, 'values': [1, 2]}``; a pick-many answer
-    matches when any picked option is listed. No answer yet means it doesn't.
+
+def answer_entries(entries: Optional[Sequence[Entry]]) -> List[Entry]:
+    return [e for e in entries or [] if e.get('key') == ANSWER]
+
+
+def answer_matches(entry: Optional[Entry], answer: Any) -> bool:
+    """Whether an earlier answer is one of the values an answer-based condition waits for.
+
+    ``entry`` is ``{'key': 'answer', 'question_id': 12, 'values': [1, 2]}``; a
+    pick-many answer matches when any picked option is listed. No answer yet
+    means it doesn't.
     """
-    if not args:
+    if not entry:
         return True
-    wanted = list(args.get('values') or [])
+    wanted = list(entry.get('values') or [])
     if answer is None or not wanted:
         return False
     if isinstance(answer, list):
@@ -98,14 +118,32 @@ def answer_matches(args: Optional[Mapping[str, Any]], answer: Any) -> bool:
     return answer in wanted
 
 
-def describe(key: Optional[str], args: Optional[Mapping[str, Any]] = None,
-             prompts: Optional[Mapping[int, str]] = None) -> str:
+def follows(entries: Optional[Sequence[Entry]], question_id: int) -> bool:
+    """Whether one of ``entries`` waits on ``question_id``'s answer."""
+    return any(int(e.get('question_id') or 0) == question_id for e in answer_entries(entries))
+
+
+def remap(entries: Optional[Sequence[Entry]], ids: Mapping[int, int]) -> Optional[List[dict]]:
+    """``entries`` with answer-based question ids swapped through ``ids``, for a copied survey."""
+    if not entries:
+        return None
+    copied = []
+    for e in entries:
+        e = dict(e)
+        if e.get('key') == ANSWER and e.get('question_id') in ids:
+            e['question_id'] = ids[e['question_id']]
+        copied.append(e)
+    return copied
+
+
+def describe(entry: Optional[Entry], prompts: Optional[Mapping[int, str]] = None) -> str:
     """A short chip label for the builder: "Only if on stage"."""
+    key = (entry or {}).get('key')
     if not key:
         return ''
     if key == ANSWER:
-        prompt = (prompts or {}).get(int((args or {}).get('question_id') or 0), 'an earlier question')
-        values = ', '.join(str(v) for v in (args or {}).get('values') or [])
+        prompt = (prompts or {}).get(int(entry.get('question_id') or 0), 'an earlier question')
+        values = ', '.join(str(v) for v in entry.get('values') or [])
         return f'Only if “{prompt}” is {values}' if values else f'Only if “{prompt}” is answered'
     condition = CONDITIONS.get(key)
     return f'Only if {condition.label[0].lower()}{condition.label[1:]}' if condition else ''

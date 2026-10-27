@@ -21,14 +21,22 @@ async def test_staff_build_a_survey_end_to_end(db, app):
         section = (await c.post(f'/api/surveys/{survey_id}/sections',
                                 json={'title': 'Your tournaments', 'audience': 'each_tournament'})).json()
         q1 = await c.post(f"/api/surveys/sections/{section['id']}/questions",
-                          json={'prompt': 'Room?', 'kind': 'rating', 'condition': 'tournament_room'})
+                          json={'prompt': 'Room?', 'kind': 'rating', 'conditions': [{'key': 'tournament_room'}]})
         assert q1.status_code == 201, q1.text
         q2 = await c.post(f"/api/surveys/sections/{section['id']}/questions",
                           json={'prompt': 'Back?', 'kind': 'choice_one', 'options': ['Yes', 'No']})
         q3 = await c.post(f"/api/surveys/sections/{section['id']}/questions",
-                          json={'prompt': 'Why not?', 'kind': 'comment', 'condition': 'answer',
-                                'condition_args': {'question_id': q2.json()['id'], 'values': ['No']}})
+                          json={'prompt': 'Why not?', 'kind': 'comment', 'conditions': [
+                              {'key': 'on_stage'},
+                              {'key': 'answer', 'question_id': q2.json()['id'], 'values': ['No']}]})
         assert q3.status_code == 201, q3.text
+        assert q3.json()['conditions'][1] == {'key': 'answer', 'question_id': q2.json()['id'], 'values': ['No']}
+        gated = await c.post(f'/api/surveys/{survey_id}/sections', json={
+            'title': 'Next year', 'conditions': [{'key': 'answer', 'question_id': q2.json()['id'], 'values': ['Yes']}]})
+        assert gated.status_code == 201, gated.text
+        assert gated.json()['conditions'][0]['key'] == 'answer'
+        cleared = await c.patch(f"/api/surveys/sections/{gated.json()['id']}", json={'conditions': []})
+        assert cleared.json()['conditions'] == []
         moved = await c.post(f"/api/surveys/questions/{q2.json()['id']}/move", json={'step': -1})
         assert moved.status_code == 204
         body = (await c.get(f'/api/surveys/{survey_id}')).json()
@@ -50,7 +58,7 @@ async def test_bad_shapes_are_400(db, app):
                                   json={'prompt': 'Pick', 'kind': 'choice_one', 'options': ['Only']})
         assert one_choice.status_code == 400
         unknown = await c.post(f"/api/surveys/sections/{section['id']}/questions",
-                               json={'prompt': 'Q', 'kind': 'rating', 'condition': 'made_up'})
+                               json={'prompt': 'Q', 'kind': 'rating', 'conditions': [{'key': 'made_up'}]})
         assert unknown.status_code == 400
 
 

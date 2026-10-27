@@ -21,10 +21,12 @@ async def test_staff_build_a_draft(db):
         assert not is_error, first
         is_error, follow = await call_tool(
             client, raw, 'add_survey_question', tenant=TENANT, section_id=section['id'], prompt='What went wrong?',
-            kind='comment', condition='answer', condition_question_id=first['id'], condition_values=['1', '2'],
+            kind='comment', conditions=[{'key': 'on_stage'},
+                                        {'key': 'answer', 'question_id': first['id'], 'values': ['1', 2]}],
         )
         assert not is_error, follow
-        assert follow['condition_args'] == {'question_id': first['id'], 'values': [1, 2]}
+        assert [c['key'] for c in follow['conditions']] == ['on_stage', 'answer']
+        assert follow['conditions'][1] == {'key': 'answer', 'question_id': first['id'], 'values': [1, 2]}
         is_error, full = await call_tool(client, raw, 'get_survey', tenant=TENANT, survey_id=survey['id'])
         assert [q['prompt'] for q in full['sections'][0]['questions']] == ['Rate the room', 'What went wrong?']
         is_error, results = await call_tool(client, raw, 'get_survey_results', tenant=TENANT,

@@ -9,7 +9,7 @@ characters and capped, rendered only ever as text.
 import re
 from typing import Any, List, Mapping, Optional, Sequence
 
-from application.services.survey.conditions import ANSWER, CONDITIONS
+from application.services.survey.conditions import ANSWER, CONDITIONS, Entry
 from models import SurveyQuestion, SurveyQuestionKind
 
 TITLE_MAX = 120
@@ -64,31 +64,48 @@ def answer_values(question: SurveyQuestion) -> List[Any]:
     return []
 
 
-def check_condition(
-    condition: Optional[str], args: Optional[Mapping[str, Any]], earlier: Mapping[int, SurveyQuestion],
-) -> Optional[dict]:
-    """Validate a question's condition; return the args to store.
+def check_conditions(
+    entries: Optional[Sequence[Entry]], earlier: Mapping[int, SurveyQuestion], *, limit: int, what: str,
+) -> Optional[List[dict]]:
+    """Validate the conditions of a question or section; return the list to store.
 
-    ``earlier`` holds the questions that come before this one in the survey:
-    an answer-based question can only wait on one of those.
+    ``earlier`` holds the questions that come before it in the survey: an
+    answer-based condition can only wait on one of those. ``what`` names the
+    thing for messages ("a question", "a section").
     """
-    if not condition:
-        return None
-    if condition not in CONDITIONS:
-        raise ValueError('Pick a condition from the list.')
-    if condition != ANSWER:
-        return None
-    question_id = int((args or {}).get('question_id') or 0)
-    target = earlier.get(question_id)
-    if target is None:
-        raise ValueError('Pick an earlier question for this one to follow.')
-    allowed = answer_values(target)
-    if not allowed:
-        raise ValueError("A follow-up can't depend on a comment. Pick a question with set answers.")
-    values = [v for v in (args or {}).get('values') or [] if v in allowed]
-    if not values:
-        raise ValueError('Pick at least one answer that shows this question.')
-    return {'question_id': question_id, 'values': values}
+    cleaned: List[dict] = []
+    seen: set = set()
+    for entry in entries or []:
+        key = (entry or {}).get('key')
+        if not key:
+            continue
+        condition = CONDITIONS.get(key)
+        if condition is None:
+            raise ValueError('Pick a condition from the list.')
+        if key != ANSWER:
+            if key in seen:
+                continue
+            opposite = condition.negates or next((c.key for c in CONDITIONS.values() if c.negates == key), None)
+            if opposite in seen:
+                raise ValueError(f'“{condition.label}” contradicts another condition, so it would never show.')
+            seen.add(key)
+            cleaned.append({'key': key})
+            continue
+        question_id = int(entry.get('question_id') or 0)
+        target = earlier.get(question_id)
+        if target is None:
+            raise ValueError('Pick an earlier question for this one to follow.')
+        allowed = answer_values(target)
+        if not allowed:
+            raise ValueError("A follow-up can't depend on a comment. Pick a question with set answers.")
+        by_text = {str(a): a for a in allowed}
+        values = list(dict.fromkeys(by_text[str(v)] for v in entry.get('values') or [] if str(v) in by_text))
+        if not values:
+            raise ValueError(f'Pick at least one answer of “{target.prompt}” that shows it.')
+        cleaned.append({'key': ANSWER, 'question_id': question_id, 'values': values})
+    if len(cleaned) > limit:
+        raise ValueError(f'Give {what} at most {limit} condition{"s" if limit != 1 else ""}.')
+    return cleaned or None
 
 
 def coerce_answer(question: SurveyQuestion, value: Any) -> tuple[Any, Optional[str]]:
