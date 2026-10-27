@@ -136,7 +136,7 @@ async def update_survey_section(
     audience: Optional[SurveyAudience] = None, conditions: Optional[List[SurveyConditionModel]] = None,
 ) -> SurveySectionResponse:
     """Change a draft section's title, audience or condition. Leave a field out to keep it; `[]` clears the condition."""
-    fields = {k: v for k, v in (('title', title), ('audience', audience)) if v is not None}
+    fields: dict = {k: v for k, v in (('title', title), ('audience', audience)) if v is not None}
     if conditions is not None:
         fields['conditions'] = conditions_in(conditions)
     service = SurveyService()

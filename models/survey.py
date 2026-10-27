@@ -91,6 +91,8 @@ class Survey(Model):
     created_at = fields.DatetimeField(auto_now_add=True)
     updated_at = fields.DatetimeField(auto_now=True)
 
+    sections: fields.ReverseRelation['SurveySection']
+
     class Meta:
         table = 'survey'
         indexes = (('tenant', 'event', 'status'),)
@@ -120,6 +122,8 @@ class SurveySection(Model):
     conditions = fields.JSONField(null=True)  # type: ignore[var-annotated]
     created_at = fields.DatetimeField(auto_now_add=True)
     updated_at = fields.DatetimeField(auto_now=True)
+
+    questions: fields.ReverseRelation['SurveyQuestion']
 
     class Meta:
         table = 'survey_section'
@@ -224,6 +228,8 @@ class SurveyResponse(Model):
     anonymous = fields.BooleanField(default=False)
     groups = fields.JSONField(default=list)  # type: ignore[var-annotated]
     submitted_on = fields.DateField(null=True)
+
+    answers: fields.ReverseRelation['SurveyAnswer']
 
     class Meta:
         table = 'survey_response'

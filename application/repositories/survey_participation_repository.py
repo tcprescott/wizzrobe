@@ -57,14 +57,14 @@ class SurveyParticipationRepository:
             return set()
         users: Set[int] = set()
         for model in (Commentator, Tracker, Broadcaster):
-            users.update(await scoped(model.filter(match_id__in=match_ids, approved=True))
+            users.update(await scoped(model.filter(match_id__in=match_ids, approved=True))  # type: ignore[arg-type]
                          .values_list('user_id', flat=True))
         return users
 
     @staticmethod
     async def checked_in_user_ids(event_id: int) -> Set[int]:
         """Everyone the check-in desk checked in at the event, matched to an account."""
-        return set(await scoped(CheckInEntrant.filter(
+        return set(await scoped(CheckInEntrant.filter(  # type: ignore[arg-type]
             event__event_id=event_id, checked_in_at__isnull=False, user_id__isnull=False,
             withdrawn_at__isnull=True,
         )).values_list('user_id', flat=True))

@@ -17,7 +17,7 @@ The respondent's side is :mod:`~application.services.survey.survey_response_serv
 
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Mapping, Optional, Sequence
+from typing import Any, Dict, Iterable, List, Mapping, Optional, Sequence
 
 from application.errors import require_found
 from application.events import EventType
@@ -363,7 +363,7 @@ class SurveyService:
         ids = await self.repository.section_ids(survey.id)
         positions = _moved(ids, section.id, step)
         by_id = {s.id: s for s in survey.sections}
-        _check_order([by_id[i] for i in sorted(positions, key=positions.get) if i in by_id], {})
+        _check_order([by_id[i] for i in sorted(positions, key=lambda i: positions[i]) if i in by_id], {})
         await self.repository.set_section_positions(positions)
 
     @requires_feature(FeatureFlag.SURVEYS)
@@ -515,7 +515,7 @@ def _section_conditions(entries: Any, earlier: Mapping[int, SurveyQuestion]) -> 
     return check_conditions(entries, earlier, limit=MAX_PER_SECTION, what='a section')
 
 
-def _check_order(sections: Sequence[SurveySection], question_positions: Mapping[int, int]) -> None:
+def _check_order(sections: Iterable[SurveySection], question_positions: Mapping[int, int]) -> None:
     """Refuse an order that puts something before the question whose answer it waits on.
 
     ``sections`` are in their new order; ``question_positions`` overrides the

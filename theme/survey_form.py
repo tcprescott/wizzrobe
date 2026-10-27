@@ -8,6 +8,7 @@ The staff preview draws the same form with nothing saved.
 Everything the respondent typed is shown back as text, never as markup.
 """
 
+from functools import partial
 from typing import Any, Awaitable, Callable, Dict, List, Optional
 
 from nicegui import ui
@@ -149,7 +150,7 @@ class PartSheet:
                         if question.required:
                             ui.label('Required').classes('wiz-survey-question__required')
                     _question_control(question, self.draft.get(question.id),
-                                      lambda value, q=question: self._set(q, value), self.form.editable)
+                                      partial(self._set, question), self.form.editable)
 
     async def _done(self) -> None:
         part = self.part

@@ -138,7 +138,8 @@ def remap(entries: Optional[Sequence[Entry]], ids: Mapping[int, int]) -> Optiona
 
 def describe(entry: Optional[Entry], prompts: Optional[Mapping[int, str]] = None) -> str:
     """A short chip label for the builder: "Only if on stage"."""
-    key = (entry or {}).get('key')
+    entry = entry or {}
+    key = entry.get('key')
     if not key:
         return ''
     if key == ANSWER:

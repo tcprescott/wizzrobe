@@ -6,9 +6,10 @@ was sent to, and their responses and answers.
 """
 
 from datetime import date
-from typing import Any, Dict, Iterable, List, Optional
+from typing import Any, Dict, Iterable, List, Optional, TypeVar
 
 from tortoise.functions import Count
+from tortoise.models import Model
 
 from application.event_writes import ensure_event_writable, guarded_delete, guarded_update
 from application.repositories._base import EventScopedRepository
@@ -26,11 +27,22 @@ from models import (
     SurveyStatus,
 )
 
+M = TypeVar('M', bound=Model)
+
 
 class SurveyRepository(EventScopedRepository[Survey]):
     """Surveys belong to one event; sections and questions hang off them."""
 
     model = Survey
+
+    @classmethod
+    async def update(cls, obj: M, **fields: Any) -> M:
+        """The base update, for a survey or any of its rows (section, question, recipient)."""
+        return await super().update(obj, **fields)  # type: ignore[arg-type, return-value]
+
+    @classmethod
+    async def delete(cls, obj: Model) -> None:
+        await obj.delete()
 
     @staticmethod
     async def get_full(survey_id: int) -> Optional[Survey]:
@@ -62,11 +74,11 @@ class SurveyRepository(EventScopedRepository[Survey]):
     @staticmethod
     async def next_section_position(survey_id: int) -> int:
         positions = await scoped(SurveySection.filter(survey_id=survey_id)).values_list('position', flat=True)
-        return max(positions, default=-1) + 1
+        return max(positions, default=-1) + 1  # type: ignore[operator]
 
     @staticmethod
     async def section_ids(survey_id: int) -> List[int]:
-        return list(await scoped(SurveySection.filter(survey_id=survey_id)).order_by('position', 'id')
+        return list(await scoped(SurveySection.filter(survey_id=survey_id)).order_by('position', 'id')  # type: ignore[arg-type]
                     .values_list('id', flat=True))
 
     @staticmethod
@@ -89,11 +101,11 @@ class SurveyRepository(EventScopedRepository[Survey]):
     @staticmethod
     async def next_question_position(section_id: int) -> int:
         positions = await scoped(SurveyQuestion.filter(section_id=section_id)).values_list('position', flat=True)
-        return max(positions, default=-1) + 1
+        return max(positions, default=-1) + 1  # type: ignore[operator]
 
     @staticmethod
     async def question_ids(section_id: int) -> List[int]:
-        return list(await scoped(SurveyQuestion.filter(section_id=section_id)).order_by('position', 'id')
+        return list(await scoped(SurveyQuestion.filter(section_id=section_id)).order_by('position', 'id')  # type: ignore[arg-type]
                     .values_list('id', flat=True))
 
     @staticmethod
@@ -200,7 +212,8 @@ class SurveyRepository(EventScopedRepository[Survey]):
                 scope=scope, scope_label=scope_label, data=data, text=text,
             )
             return
-        existing.scope_label, existing.data, existing.text = scope_label, data, text
+        existing.scope_label, existing.data = scope_label, data
+        existing.text = text  # type: ignore[assignment]
         await save_fields(existing, 'scope_label', 'data', 'text')
 
     @staticmethod

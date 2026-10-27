@@ -57,7 +57,7 @@ def _embed(survey: Survey, community: Optional[str], text: str, closes_at: Optio
     )
 
 
-async def send_invites(survey: Survey, recipients: Iterable[Tuple[SurveyRecipient, Optional[str]]], *,
+async def send_invites(survey: Survey, recipients: Iterable[Tuple[SurveyRecipient, Optional[int]]], *,
                        reminder: bool = False) -> List[int]:
     """DM each ``(recipient, discord id)`` pair; return the recipient ids a DM was queued for."""
     from application.services import notification_links
