@@ -76,9 +76,11 @@ def _share_hint(raw: str | None, unit: str, total: Decimal) -> str:
         pct, amount = _parse_share(raw, unit)
     except ValueError:
         return ''
-    if amount is not None:
-        return f'{format_percentage((amount * 100 / total).quantize(Decimal("0.01")))}%' if total else ''
-    return f'= {_money(PayoutService.amount_for(total, pct))}'
+    if pct is not None:
+        return f'= {_money(PayoutService.amount_for(total, pct))}'
+    if amount is None or not total:
+        return ''
+    return f'{format_percentage((amount * 100 / total).quantize(Decimal("0.01")))}%'
 
 
 def _allocated_label(overview) -> str:
