@@ -22,6 +22,7 @@ This file is the lean, always-loaded guide: the behavioral rules to follow on ev
 | OAuth mechanics, route protection, `AuthService` | [docs/reference/authentication.md](docs/reference/authentication.md) |
 | Bot singleton, DM queue, interaction handlers | [docs/reference/discord-integration.md](docs/reference/discord-integration.md) |
 | REST endpoints & schemas | [docs/reference/rest-api.md](docs/reference/rest-api.md) |
+| Read-only GraphQL API (`/api/graphql`), limits, schema contract | [docs/features/graphql-api.md](docs/features/graphql-api.md) |
 | MCP server (`/mcp`), its OAuth flow & tool catalogue | [docs/features/mcp-server.md](docs/features/mcp-server.md) |
 | Randomizer integrations & presets | [docs/reference/seed-generation.md](docs/reference/seed-generation.md) |
 | In-process event bus (publish/subscribe) | [docs/features/event-system.md](docs/features/event-system.md) |

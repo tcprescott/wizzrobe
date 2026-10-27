@@ -186,6 +186,9 @@ TAG_GROUPS: List[tuple[str, List[tuple[str, str]]]] = [
         ('Health', 'Liveness check for the server itself.'),
         ('Web push', 'Browser push subscription upkeep, called by the app\'s service worker.'),
     ]),
+    ('GraphQL', [
+        ('GraphQL', 'Read events, the schedule and brackets as one graph, in a single query.'),
+    ]),
 ]
 
 # Router tags written before there was a naming rule; renamed in the document

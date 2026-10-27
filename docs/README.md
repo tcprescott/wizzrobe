@@ -54,6 +54,7 @@ How each shipped subsystem behaves.
 | [features/events.md](features/events.md) | Events inside a community: the `Event` model, event context, default event, which rows carry `event_id`, the events migration |
 | [features/feature-flags.md](features/feature-flags.md) | Two-tier per-tenant flags: super-admin availability + tenant enable, and how to gate a subsystem |
 | [features/mcp-server.md](features/mcp-server.md) | Remote MCP server at `/mcp`: typed tools, reads by default and writes on request, OAuth 2.1 only |
+| [features/graphql-api.md](features/graphql-api.md) | Read-only GraphQL at `/api/graphql`: REST's token door, limits, error codes, the committed schema |
 | [features/oauth-apps.md](features/oauth-apps.md) | The `/oauth` authorization server for third-party apps: registration, consent, PKCE, community-bound grants, rotation and reuse detection |
 | [features/webhooks.md](features/webhooks.md) | Staff-managed outbound webhooks: signing, retries, delivery log |
 | [features/event-system.md](features/event-system.md) | In-process event bus: publish/subscribe, `EventType` registry, `match_live` |
