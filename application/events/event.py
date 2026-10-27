@@ -35,8 +35,7 @@ class Event:
     tenant_id: Optional[int] = None
     # The community event (weekend) it happened in: the one the request or
     # worker was working in, or the event an ``event.*`` message is about.
-    # None for community-wide messages. Not on the wire yet: the webhook
-    # consumer's author hears about the new field before it ships.
+    # None for community-wide messages. The wire carries it as ``event``.
     event_id: Optional[int] = None
     occurred_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
 
@@ -54,16 +53,18 @@ class Event:
             event_id=_event_of(event_type, payload),
         )
 
-    def to_wire(self) -> dict[str, Any]:
+    def to_wire(self, event_ref: Optional[dict[str, Any]] = None) -> dict[str, Any]:
         """The canonical JSON-serialisable shape delivered to webhook subscribers.
 
-        ``tenant_id`` is additive to the wire contract (webhook consumers begin
-        receiving it); the ``event_type`` names are unchanged.
+        ``event_ref`` is ``{id, slug, name}`` of :attr:`event_id`, resolved by the
+        caller because this runs without the database; None for a community-wide
+        message.
         """
         return {
             'event_type': self.event_type,
             'occurred_at': self.occurred_at.isoformat(),
             'tenant_id': self.tenant_id,
+            'event': event_ref,
             'actor_id': self.actor_id,
             'actor_username': self.actor_username,
             'data': self.payload,

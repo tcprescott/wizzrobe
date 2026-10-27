@@ -24,6 +24,7 @@ signature is reproducible:
   "event_type": "match.created",
   "occurred_at": "2026-07-03T23:25:33.739+00:00",
   "tenant_id": 2,
+  "event": { "id": 3, "slug": "sgl26", "name": "SG Live 2026" },
   "actor_id": 12,
   "actor_username": "alice",
   "data": { "match_id": 5, "tournament_id": 2, "player_ids": [1, 2] }
@@ -47,10 +48,14 @@ carries `Event.event_id` (see [event-system.md](event-system.md#which-event-a-me
 message (`tenant.*`, `oauth_grant.*`) has no event and always passes.
 `WebhookService` refuses an empty list, an unknown event and an archived one.
 
-The wire payload has **no event field yet**: adding `event: {id, slug, name}`
-changes what the outside automation in
-`tests/services/test_webhook_consumer_contract.py` receives, so it waits until
-its author has been told.
+The body's `event` is `{id, slug, name}` of that event, `null` for a
+community-wide message. `deliver_event` resolves it once per message
+(`WebhookService.event_ref`, from the cached `EventService.ref`) and hands it to
+`to_wire`; a deleted draft is gone by then, so `event.deleted` falls back to the
+slug and name in its own payload. It was added on 2026-10-26, after SG Live 2026,
+with Thomas's go-ahead to break the frozen envelope in
+`tests/services/test_webhook_consumer_contract.py`. Personal webhooks' bodies
+don't carry it yet.
 
 Headers (built by `WebhookService.build_delivery_headers` — the single source of
 truth the in-app reference also renders):
