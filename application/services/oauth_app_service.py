@@ -31,6 +31,7 @@ from application.repositories.oauth_app_repository import OAuthAppRepository
 from application.services.audit_service import AuditActions, AuditService
 from application.services.auth_service import AuthService
 from application.services.mcp_auth_service import is_allowed_redirect_uri
+from application.utils.slot_limit import SlotLimiter
 from models import OAuthApp, OAuthClientType, User
 
 logger = logging.getLogger(__name__)
@@ -38,6 +39,9 @@ logger = logging.getLogger(__name__)
 CLIENT_ID_PREFIX = 'wza_'
 CLIENT_SECRET_PREFIX = 'wzs_'
 MAX_APPS_PER_OWNER = 10
+# Deleting an app frees its slot under the cap, so creation has its own window
+# to keep delete-and-recreate from minting client ids without end.
+APPS_CREATED_PER_DAY = 5
 MAX_REDIRECT_URIS = 10
 NAME_MAX = 60
 DESCRIPTION_MAX = 300
@@ -47,6 +51,32 @@ SECRET_GRACE = timedelta(hours=24)
 
 _CONTROL_CHARS = re.compile(r'[\x00-\x1f\x7f-\x9f​-‏‪-‮⁦-⁩]')
 _LOOPBACK_HOSTS = frozenset({'localhost', '127.0.0.1', '::1'})
+_creations = SlotLimiter(APPS_CREATED_PER_DAY, 24 * 3600)
+
+
+def reset_registration_limits() -> None:
+    _creations.reset()
+
+
+def browser_origin(uri: str) -> Optional[str]:
+    """The web origin a redirect URI's page runs on, or None for an app scheme.
+
+    https anywhere, or http on loopback for an app in development; the scheme
+    and host are lower-cased and a default port is dropped, as browsers send it.
+    """
+    try:
+        parts = urlsplit(uri)
+        port = parts.port
+    except ValueError:
+        return None
+    scheme = parts.scheme.lower()
+    host = (parts.hostname or '').lower()
+    if not host or not (scheme == 'https' or (scheme == 'http' and host in _LOOPBACK_HOSTS)):
+        return None
+    if ':' in host:
+        host = f'[{host}]'
+    default = 443 if scheme == 'https' else 80
+    return f'{scheme}://{host}' + (f':{port}' if port and port != default else '')
 
 
 def hash_secret(value: str) -> str:
@@ -183,17 +213,26 @@ class OAuthAppService:
             raise ValueError('Choose whether the app can keep a secret.') from None
         if await self.repository.count_for_owner(actor) >= MAX_APPS_PER_OWNER:
             raise ValueError(f'You can register at most {MAX_APPS_PER_OWNER} apps.')
+        name = _plain_text(name, field='Name', max_len=NAME_MAX, required=True)
+        description = _plain_text(description, field='Description', max_len=DESCRIPTION_MAX, required=False)
+        homepage_url = _homepage(homepage_url)
+        uris = _redirect_uris(redirect_uris, kind)
+        scopes = _scopes(allowed_scopes)
+        if not _creations.take(actor.id):
+            raise ValueError(
+                f'You can register {APPS_CREATED_PER_DAY} apps a day. Edit one you have, or try again tomorrow.'
+            )
 
         secret, prefix = _new_secret() if kind == OAuthClientType.CONFIDENTIAL else (None, None)
         app = await self.repository.create_app(
             owner=actor,
-            name=_plain_text(name, field='Name', max_len=NAME_MAX, required=True),
-            description=_plain_text(description, field='Description', max_len=DESCRIPTION_MAX, required=False),
-            homepage_url=_homepage(homepage_url),
+            name=name,
+            description=description,
+            homepage_url=homepage_url,
             client_type=kind,
             client_id=CLIENT_ID_PREFIX + secrets.token_urlsafe(18),
-            redirect_uris=_redirect_uris(redirect_uris, kind),
-            allowed_scopes=_scopes(allowed_scopes),
+            redirect_uris=uris,
+            allowed_scopes=scopes,
             client_secret_hash=hash_secret(secret) if secret else None,
             secret_prefix=prefix,
         )
@@ -202,6 +241,23 @@ class OAuthAppService:
             {'app_id': app.id, 'name': app.name, 'client_type': kind.value},
         )
         return app, secret
+
+    async def browser_origins(self) -> FrozenSet[str]:
+        """Web origins allowed to call ``/api`` and ``/oauth/token`` from a browser.
+
+        Taken from live public apps' redirect URIs: a public app is the only
+        kind that runs in a browser, and its page is served from the origin it
+        redirects to. A confidential app talks from its server, which needs no
+        CORS. Not behind the flag: a community with apps off still refuses the
+        call itself, and the list only says who may ask.
+        """
+        origins = set()
+        for uris in await self.repository.public_redirect_uris():
+            for uri in uris or []:
+                origin = browser_origin(uri)
+                if origin:
+                    origins.add(origin)
+        return frozenset(origins)
 
     async def list_my_apps(self, actor: User) -> List[OAuthApp]:
         return await self.repository.list_for_owner(actor)

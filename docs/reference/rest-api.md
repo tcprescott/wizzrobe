@@ -73,6 +73,8 @@ Third-party apps signed in through OAuth call this same API with tokens of `orig
 
 It runs **before** authentication, so unauthenticated floods are capped too. The client IP is always enforced as a ceiling; a *well-formed* bearer token additionally gets its own bucket (keyed by SHA-256 hash, never the raw secret) so one client's traffic is throttled independently below that ceiling. Garbage or rotating bearer values fall through to the IP key — the `wizzrobe_pat_` prefix is public, so bucketing solely on a presented token would let an attacker mint a fresh empty bucket per request. `X-Forwarded-For` is trusted only when `TRUST_PROXY_FORWARDED_FOR` is set, since the header is client-spoofable.
 
+A third-party app's calls also count against one bucket for the whole app (`API_APP_RATE_LIMIT_PER_MIN`, default 600), checked once its grant is resolved. A refusal there says so (`This app is making too many requests`) with `Retry-After`. See [OAuth apps › Limits](../features/oauth-apps.md#limits-and-browser-access), which also covers CORS for browser apps.
+
 ### Events
 
 A token is bound to one community; within it, a call works in one **event**

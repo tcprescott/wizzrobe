@@ -42,6 +42,17 @@ Hand-rolled rather than built on the MCP SDK's authorization server: the SDK com
 
 All four share the `/api` rate limiter.
 
+## Limits and browser access
+
+| Limit | Where | Value |
+|---|---|---|
+| Calls per app, across all its users | `enforce_app_limit` in `api/rate_limit.py`, run from `resolve_token` once the grant is known | `API_APP_RATE_LIMIT_PER_MIN`, default 600. Sits above each grant's own token bucket so one popular or runaway app can't take the single worker |
+| Apps per person | `MAX_APPS_PER_OWNER` | 10 |
+| New apps per person per day | `APPS_CREATED_PER_DAY` (in-process window) | 5, so delete-and-recreate can't mint client ids without end. A refused request (bad redirect, no scope) doesn't spend one |
+| Parked sign-in requests | `application/utils/parked_requests.py`, shared with the MCP server's authorize step | 15 min each, at most 5,000; past that the oldest go first |
+
+**CORS** (`middleware/app_cors.py`) covers `/api/*`, `/oauth/token` and `/oauth/revoke`. An origin is allowed when a live public app (not disabled, owner active) registered a redirect URI on it: https anywhere, or http on loopback for local development (`OAuthAppService.browser_origins`, cached 60 s). Preflights from other origins get 400 and no CORS headers; their plain requests get no CORS headers, as before. Credentials are never allowed, since the API takes bearer tokens and never the session cookie. The issuer metadata is readable from any origin. `/oauth/authorize` and the consent page stay same-origin: they are navigations, not fetches.
+
 ## Rules worth knowing
 
 - **Scopes only narrow.** A grant does what its scopes cover *and* what the person's roles in that community allow. A grant with no write scope is also stamped `read_only`, so write routes refuse it twice over. Each REST route's scope is listed in `api/scopes.py`; a call outside the grant gets `403` with an `insufficient_scope` challenge (see [REST API › App scopes](../reference/rest-api.md)).
@@ -49,7 +60,7 @@ All four share the `/api` rate limiter.
 - **One live grant per person × app × community.** Approving again replaces the old grant.
 - **Rotation and reuse.** Access tokens last 1 h, refresh tokens 30 days sliding and rotate on every use. Presenting a rotated-away refresh token revokes the grant (`oauth_grant.refresh_reused`). A replayed authorization code revokes the grant it produced.
 - **Re-checked at each exchange and each API call:** flag on, community active, account active, still a member, app not disabled and owner active. Flag off answers 404 at `/api` and `invalid_grant` at the token endpoint, without revoking anything.
-- **Registration:** anyone signed in, 10 apps each. Name ≤ 60, description ≤ 300, plain text with control and bidi characters stripped; homepage https only. Redirects follow the MCP rules (`is_allowed_redirect_uri`), max 10, and a confidential app may only use https or loopback http. Secret rotation keeps the old secret for 24 h. Deleting an app revokes every grant; a platform admin's disable stops them reversibly.
+- **Registration:** anyone signed in, 10 apps each, 5 new ones a day. Name ≤ 60, description ≤ 300, plain text with control and bidi characters stripped; homepage https only. Redirects follow the MCP rules (`is_allowed_redirect_uri`), max 10, and a confidential app may only use https or loopback http. Secret rotation keeps the old secret for 24 h. Deleting an app revokes every grant; a platform admin's disable stops them reversibly.
 - **Revocation paths that already work:** the person (profile token list, since grants are `ApiToken` rows), the app (`/oauth/revoke`), member removal (`revoke_for_user_in_tenant`), app delete, platform disable.
 
 ## Audit and events

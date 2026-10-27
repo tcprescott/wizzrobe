@@ -45,6 +45,7 @@ from application.services.audit_service import AuditActions, AuditService
 from application.services.auth_service import AuthService
 from application.services.tenant_service import TenantService
 from application.tenant_context import tenant_scope
+from application.utils.parked_requests import prune_parked
 from models import ApiToken, ApiTokenOrigin, McpAuthorizationCode, McpOAuthClient, User
 
 logger = logging.getLogger(__name__)
@@ -213,7 +214,7 @@ class McpAuthService:
         session, and the code it produces is bound to the client's PKCE
         challenge — so a leaked id cannot be exchanged for anything.
         """
-        self._sweep_pending()
+        self._sweep_pending(room_for=1)
         txn_id = secrets.token_urlsafe(24)
         _pending[txn_id] = pending
         return txn_id
@@ -231,10 +232,8 @@ class McpAuthService:
         _pending.pop(txn_id, None)
 
     @staticmethod
-    def _sweep_pending() -> None:
-        cutoff = datetime.now(timezone.utc) - PENDING_TTL
-        for key in [k for k, v in _pending.items() if v.created_at < cutoff]:
-            del _pending[key]
+    def _sweep_pending(room_for: int = 0) -> None:
+        prune_parked(_pending, PENDING_TTL, room_for=room_for)
 
     async def offered_scopes(self, user: User) -> List[ApiScope]:
         """The areas the consent screen offers ``user``, in display order.
