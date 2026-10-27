@@ -19,6 +19,7 @@ from theme.dialog._helpers import (
     submit_on_enter,
 )
 from theme.notify import notify_error
+from theme.pickers import CHIP_PROPS
 
 Done = Callable[[Any], Awaitable[None]]
 ALWAYS = ''
@@ -155,7 +156,7 @@ def question_dialog(service: SurveyService, user: User, survey: Survey, section:
                 ui.select({v: str(v) for v in values}, multiple=True, value=state['values'],
                           label='Answers that show this question',
                           on_change=lambda e: state.update(values=list(e.value or []))) \
-                    .props('outlined dense use-chips').classes('w-full')
+                    .props(f'outlined dense {CHIP_PROPS}').classes('w-full')
 
         with follow_box:
             follow_fields()

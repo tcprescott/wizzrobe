@@ -242,7 +242,7 @@ def build_admin_tabs(
     if is_staff and FeatureFlag.FEEDBACK in live:
         tabs.append({'label': 'Feedback', 'icon': 'feedback', 'group': COMMUNITY, 'content': admin_feedback_page})
     if is_staff and FeatureFlag.SURVEYS in live:
-        tabs.append({'label': 'Surveys', 'icon': 'poll', 'group': PEOPLE,
+        tabs.append({'label': 'Surveys', 'icon': 'rate_review', 'group': PEOPLE,
                      'content': (admin_surveys_page, (), {'survey': survey, 'view': survey_view})})
     if is_staff:
         tabs.append({'label': 'Events', 'icon': 'calendar_month', 'group': CONFIGURATION, 'content': admin_events_page})

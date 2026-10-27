@@ -48,7 +48,7 @@ def _question_control(question: SurveyQuestion, value: Any, on_change: Callable[
             # url-state: exempt — an answer, not a view
             toggle = ui.toggle({n: str(n) for n in range(low, high + 1)}, value=value, clearable=True,
                                on_change=lambda e: on_change(e.value)) \
-                .props('no-caps unelevated').classes(f'wiz-survey-scale__choices wiz-survey-scale--{kind.value}')
+                .props('no-caps unelevated').classes(f'wiz-segmented wiz-survey-scale__choices wiz-survey-scale--{kind.value}')
             toggle.props(f'aria-label="{question.prompt}"')
             with ui.row().classes('wiz-survey-scale__ends justify-between no-wrap'):
                 ui.label(ends[0])
@@ -59,7 +59,7 @@ def _question_control(question: SurveyQuestion, value: Any, on_change: Callable[
         options = ['Yes', 'No'] if kind is SurveyQuestionKind.YES_NO else list(question.options or [])
         # url-state: exempt — an answer, not a view
         toggle = ui.toggle(options, value=value, clearable=True, on_change=lambda e: on_change(e.value)) \
-            .props('no-caps unelevated').classes('wiz-survey-pills')
+            .props('no-caps unelevated').classes('wiz-segmented wiz-survey-pills')
         toggle.props(f'aria-label="{question.prompt}"')
         toggle.set_enabled(enabled)
         return

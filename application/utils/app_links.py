@@ -26,7 +26,6 @@ USERS = 'members'
 QUALIFIERS = 'qualifiers'
 CHECK_IN = 'check-in-roster'
 COMMUNITY_EVENTS = 'community-events'
-SURVEYS = 'surveys'
 NOTIFICATIONS = 'notifications'
 TOURNAMENTS = 'tournaments'
 
@@ -241,11 +240,6 @@ def survey_url(survey_id: int) -> str:
 def survey_preview_url(survey_id: int) -> str:
     """A staff-only preview of a draft survey: every part, nothing saved."""
     return f'/survey/{survey_id}/preview'
-
-
-def admin_survey_url(survey_id: int, view: Optional[str] = None) -> str:
-    """Admin → Surveys opened on one survey's builder, or its results with ``view='results'``."""
-    return admin_url(SURVEYS, survey=survey_id, view=view)
 
 
 MY_MESSAGES = '/messages'

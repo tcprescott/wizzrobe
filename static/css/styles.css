@@ -9563,13 +9563,8 @@ ol.wiz-help-list { list-style-type: decimal; }
 .wiz-survey-question__prompt { font-weight: 600; overflow-wrap: anywhere; }
 .wiz-survey-question__required { font-size: var(--text-xs); color: var(--fg-secondary); }
 .wiz-survey-scale__choices,
-.wiz-survey-pills { flex-wrap: wrap; gap: 6px; box-shadow: none; }
-.wiz-survey-scale__choices .q-btn,
-.wiz-survey-pills .q-btn {
-    min-width: 2.75rem;
-    border: 1px solid var(--border-strong);
-    border-radius: var(--radius-md) !important;
-}
+.wiz-survey-pills { flex-wrap: wrap; max-width: 100%; }
+.wiz-survey-scale__choices .q-btn { min-width: 2.75rem; }
 .wiz-survey-scale__ends {
     max-width: 17rem;
     font-size: var(--text-xs);
