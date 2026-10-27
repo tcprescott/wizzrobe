@@ -41,6 +41,7 @@ This file is the lean, always-loaded guide: the behavioral rules to follow on ev
 | start.gg brackets (mirror, booking, writeback, bracket-source contract) | [docs/features/startgg.md](docs/features/startgg.md) |
 | OBS stream overlays (layouts per event, stage links, pins) | [docs/features/stream-layouts.md](docs/features/stream-layouts.md) |
 | Event check-in (Matcherino roster sync, account matching, the desk) | [docs/features/event-check-in.md](docs/features/event-check-in.md) |
+| Post-event surveys (targeted parts, conditions, anonymity, send/remind) | [docs/features/surveys.md](docs/features/surveys.md) |
 | Single-worker constraint and the way out of it | [docs/scaling-roadmap.md](docs/scaling-roadmap.md) |
 | Remaining per-feature docs | [docs/features/](docs/features/) |
 
