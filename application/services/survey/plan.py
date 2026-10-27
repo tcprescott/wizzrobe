@@ -242,9 +242,9 @@ def preview_facts(persona: str, tournaments: Sequence[dict], positions: Sequence
                             'conditions': {'checked_in': True}}
     if persona in ('player', 'player_on_stage'):
         base['tournaments'] = two_tournaments
-        base['conditions']['tournament_room'] = ids
+        base['conditions'].update(tournament_room=ids, tournament_room_any=True)
         if persona == 'player_on_stage':
-            base['conditions']['on_stage'] = ids[:1]
+            base['conditions'].update(on_stage=ids[:1], on_stage_any=True)
     elif persona == 'volunteer':
         base['positions'] = one_position
     elif persona == 'crew':
