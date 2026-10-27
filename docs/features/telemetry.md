@@ -137,10 +137,12 @@ summary and leaderboards are exposed over REST (`GET /api/telemetry/summary`,
 and `telemetry_top`. Those two also take `dimension=controls`: one row per
 (page, event type, `target`) with uses, distinct users, and how many came from
 a phone. The in-app report has no controls view yet. `dimension=api` gives
-one row per MCP tool or REST route (`surface`, `target`, calls, distinct users,
-errors) and `dimension=api_users` one row per person per surface (calls,
-distinct tools/routes, last call); the summary's `mcp_users` / `rest_users`
-count distinct callers. No in-app view for these either. Every `top` dimension also takes an
+one row per MCP tool, REST route or GraphQL root-field set (`surface`, `target`,
+calls, distinct users, errors) and `dimension=api_users` one row per person per
+surface (calls, distinct tools/routes, last call); the summary's `mcp_users` /
+`rest_users` / `graphql_users` count distinct callers. A GraphQL row's target is
+`graphql <root fields>` (e.g. `graphql events viewer`), taken from the schema
+rather than the client's operation name. No in-app view for these either. Every `top` dimension also takes an
 optional `user_id` that narrows the counts to one person, so `controls` with a
 `user_id` answers "what did this person use most".
 

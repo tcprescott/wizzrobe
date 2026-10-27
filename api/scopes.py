@@ -51,6 +51,7 @@ _ROUTES: Dict[RouteScope, tuple[str, ...]] = {
         'POST /notifications/messages/reset',
     ),
     ApiScope.SCHEDULE_READ: (
+        'POST /graphql',
         'GET /events',
         'GET /events/{slug}',
         'GET /matches',
@@ -403,8 +404,13 @@ _ROUTES: Dict[RouteScope, tuple[str, ...]] = {
         'GET /health',
         'POST /web-push/rotate',
         'GET /version',
+        'GET /graphql',
     ),
 }
+
+#: POST routes that only read. GraphQL takes its query in a POST body, but
+#: every operation on it is a query, so it sits on a read scope.
+READ_ONLY_POSTS: Final = frozenset({'POST /graphql'})
 
 
 def _flatten() -> Dict[str, RouteScope]:
@@ -432,4 +438,4 @@ def scope_for(method: str, path: str) -> Optional[RouteScope]:
     return ROUTE_SCOPES.get(route_key(method, path))
 
 
-__all__ = ['PAT_ONLY', 'PUBLIC', 'ROUTE_SCOPES', 'RouteScope', 'route_key', 'scope_for']
+__all__ = ['PAT_ONLY', 'PUBLIC', 'READ_ONLY_POSTS', 'ROUTE_SCOPES', 'RouteScope', 'route_key', 'scope_for']

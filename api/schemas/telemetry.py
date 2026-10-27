@@ -13,6 +13,7 @@ class TelemetrySummaryResponse(BaseModel):
     page_views: int = Field(..., description="Page loads recorded in the window.")
     mcp_users: int = Field(..., description="Distinct people who called an MCP tool in the window.")
     rest_users: int = Field(..., description="Distinct people who made an authenticated REST API request in the window.")
+    graphql_users: int = Field(..., description="Distinct people who ran a GraphQL query in the window.")
 
 
 class _Row(BaseModel):

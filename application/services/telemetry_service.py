@@ -65,15 +65,18 @@ class TelemetryEventType:
     UI_DIALOG_OPENED = 'ui.dialog_opened'
     UI_DIALOG_CLOSED = 'ui.dialog_closed'
     UI_FIELD_USED = 'ui.field_used'
-    # One row per MCP tool call / authenticated REST request (track_api_call).
+    # One row per MCP tool call / authenticated REST request / GraphQL
+    # operation (track_api_call).
     MCP_TOOL_CALL = 'mcp.tool_call'
     REST_REQUEST = 'rest.request'
+    GRAPHQL_QUERY = 'graphql.query'
 
 
 #: event_type -> the surface name the API usage reads report.
 API_SURFACES = {
     TelemetryEventType.MCP_TOOL_CALL: 'mcp',
     TelemetryEventType.REST_REQUEST: 'rest',
+    TelemetryEventType.GRAPHQL_QUERY: 'graphql',
 }
 
 
@@ -407,6 +410,7 @@ class TelemetryService:
             ),
             'mcp_users': api_users.get(TelemetryEventType.MCP_TOOL_CALL, 0),
             'rest_users': api_users.get(TelemetryEventType.REST_REQUEST, 0),
+            'graphql_users': api_users.get(TelemetryEventType.GRAPHQL_QUERY, 0),
         }
 
     async def top_paths(

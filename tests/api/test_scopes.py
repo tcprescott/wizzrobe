@@ -20,7 +20,7 @@ from api.dependencies import (
     resolve_token,
     tenant_context_scope,
 )
-from api.scopes import PAT_ONLY, PUBLIC, ROUTE_SCOPES, route_key
+from api.scopes import PAT_ONLY, PUBLIC, READ_ONLY_POSTS, ROUTE_SCOPES, route_key
 from application.api_scopes import (
     ALL_SCOPES,
     READ_SCOPES,
@@ -109,7 +109,7 @@ def test_reads_and_writes_land_on_matching_scopes():
     wrong = []
     for key, _, _ in _routes():
         scope = ROUTE_SCOPES[key]
-        is_read = key.startswith('GET ')
+        is_read = key.startswith('GET ') or key in READ_ONLY_POSTS
         if is_read and scope in write_only:
             wrong.append(f'{key} is a read mapped to {scope.value}')
         if not is_read and scope in READ_SCOPES:
