@@ -2,7 +2,25 @@
 
 A read-only GraphQL endpoint beside the REST API and the MCP server. Same data, same tokens, same community walls; the difference is that a client asks for a nested view (an event's matches with their players, stage and seed) in one round trip.
 
-Status: **skeleton (G1)**. The graph has `viewer`, `events` and `event(slug)`. Tournaments, stages, matches and brackets follow in later PRs; the full plan is in the design notes the GraphQL thread keeps in the project files (`graphql-api/design.md`).
+The graph covers core event data: `viewer`, `events`, `event(slug)` with its tournaments, stages and scheduled matches, each tournament's bracket, and `tournament(id)` / `stage(id)` / `match(id)` lookups. Volunteers, check-in, qualifiers, race rooms and staff reads are later phases; the plan is in the design notes the GraphQL thread keeps in the project files (`graphql-api/design.md`).
+
+```graphql
+query RunSheet {
+  event {                        # the default event; or event(slug: "sgl26")
+    matches(first: 50, start: "2026-10-23T14:00:00Z") {
+      nodes {
+        id scheduledAt
+        tournament { name shortName }
+        stage { name }
+        seed { url info }
+        players { user { displayName } station finishRank }
+        crew { role user { displayName } }
+      }
+      pageInfo { hasNextPage endCursor }
+    }
+  }
+}
+```
 
 ## Shape
 
@@ -11,6 +29,8 @@ Status: **skeleton (G1)**. The graph has `viewer`, `events` and `event(slug)`. T
 | Endpoint (`POST /api/graphql`) and GraphiQL (`GET /api/graphql`) | `api/graphql/router.py` |
 | Root `Query` and the schema | `api/graphql/schema.py` |
 | Object types | `api/graphql/types.py` |
+| Bracket types (generated from the REST bracket schemas) | `api/graphql/brackets.py` |
+| Relay cursors | `api/graphql/pagination.py` |
 | Per-request context (`actor`, `token`, `scopes`) | `api/graphql/context.py` |
 | Limits (depth, tokens, aliases, row estimate, body size, timeout) | `api/graphql/limits.py` |
 | Service exceptions → `extensions.code` | `api/graphql/errors.py` |
@@ -36,7 +56,26 @@ GraphiQL at `GET /api/graphql` is a static page (listed under `PUBLIC`); its que
 
 `event(slug)` with no slug is the community's default event. A draft the viewer can't open (`EventService.can_view`) and a slug from another community are both `NOT_FOUND`, reported at the field's path. `events` is `EventService.visible_events`.
 
-Later types bind their event per subtree: each object carries its `event_id` and child resolvers run in `event_scope(parent.event_id)`. They can't rely on a contextvar set by a parent resolver, because sibling fields resolve concurrently and a contextvar set in one never reaches another.
+Each object carries its `event_id` (a `strawberry.Private` field) and its child resolvers run in `event_scope(parent.event_id)`. They can't rely on a contextvar set by a parent resolver, because sibling fields resolve concurrently and a contextvar set in one never reaches another.
+
+`tournament(id)`, `stage(id)` and `match(id)` work in the row's own event (`EventService.call_event_id` with the row), so a match in another live event answers without naming it, and one in a draft the viewer can't open is `NOT_FOUND`. Another community's id is `NOT_FOUND` too: the services' reads are tenant-scoped.
+
+## Types and where they come from
+
+| Field | Service read | Visibility it inherits |
+|---|---|---|
+| `Event.tournaments`, `Query.tournament` | `TournamentService.list_for_viewer` / `get_for_viewer` | inactive tournaments only for `can_view_admin` |
+| `Event.stages`, `Query.stage` | `StageService.get_all_stages` / `get_stage_by_id` | any member |
+| `Event/Tournament/Stage.matches`, `Query.match` | `MatchService.schedule_page` / `get_by_id` | any member; crew via `MatchService.approved_crew`, so pending signups never show |
+| `Tournament.bracket` | `BracketOverviewService.get_tournament_bracket` | unpublished stages hidden, `userId` only for staff and the tournament's admins, the bracket source's feature flag |
+
+`TournamentBracket` and its children are generated from `api/schemas/bracket_overview.py` with Strawberry's pydantic integration, so the bracket in GraphQL is the REST/MCP payload field for field, descriptions included.
+
+## Pagination
+
+Match lists are Relay connections: `first` (default 50, at most 100) and `after`, answering `edges { cursor node }`, `nodes` and `pageInfo { hasNextPage endCursor }`. The cursor is the last row's `(scheduled_at, id)` keyset, so a match booked into an earlier page while a client pages forward neither repeats nor shifts later pages. Unscheduled matches are left out: a NULL sorts first on SQLite and last on Postgres, so it can't hold a keyset.
+
+A page is one match query plus one batched query per prefetched relation (tournament, stage, seed, players, three crew tables), whatever its size; `test_a_page_costs_the_same_queries_for_3_or_12_matches` holds that. A connection nested under a list (each tournament's matches) runs one page per parent, which the row estimate bounds.
 
 ## Limits
 
@@ -83,6 +122,6 @@ Removing or renaming a field breaks clients: deprecate it (`strawberry.field(dep
 ## Adding a type
 
 1. Add the type to `types.py` with a classmethod that builds it from a service result.
-2. Resolve it through a service method that takes the viewer as `actor`, so the service's visibility rules apply. Batch relations through a per-request DataLoader on the context.
-3. Paginate lists as Relay connections taking `first` / `after` (keyset), so the row estimate sees them.
+2. Resolve it through a service method that takes the viewer as `actor`, so the service's visibility rules apply, inside `event_scope` of the parent's event.
+3. Paginate lists as Relay connections taking `first` / `after` (keyset), so the row estimate sees them. Prefetch to-one relations in the page's query rather than resolving them one row at a time.
 4. Regenerate `schema.graphql` and add a cross-community leak test for each new root field.

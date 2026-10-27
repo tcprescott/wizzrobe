@@ -13,7 +13,7 @@ instants make up "that day" is a rule about the display clock, and grouping by
 stage is the shape the board wants rather than the shape the table has.
 """
 
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from typing import Dict, FrozenSet, List, Optional, Tuple
 
 from application.repositories import MatchRepository
@@ -44,6 +44,38 @@ class MatchReadsMixin:
         through ``match_service.repository`` for a simple read.
         """
         return await self.repository.get_by_id(match_id, prefetch_relations=prefetch_relations)
+
+    async def schedule_page(
+        self,
+        *,
+        first: int,
+        after: Optional[Tuple[datetime, int]] = None,
+        tournament_ids: Optional[List[int]] = None,
+        stage_ids: Optional[List[int]] = None,
+        start: Optional[datetime] = None,
+        end: Optional[datetime] = None,
+    ) -> Tuple[List[Match], bool]:
+        """One page of the current event's scheduled matches, soonest first,
+        and whether another page follows. Any member may read the schedule."""
+        if first < 0:
+            raise ValueError('first must be 0 or more')
+        rows = await self.repository.schedule_page(
+            first=first, after=after, tournament_ids=tournament_ids, stage_ids=stage_ids, start=start, end=end,
+        )
+        return rows[:first], len(rows) > first
+
+    @staticmethod
+    def approved_crew(match: Match) -> List[Tuple[str, User]]:
+        """``(role, user)`` for the match's approved crew. A pending signup is
+        between the volunteer and the coordinators, so a schedule never shows it."""
+        crew: List[Tuple[str, User]] = []
+        for role, rows in (
+            ('commentator', match.commentators),  # type: ignore[attr-defined]
+            ('tracker', match.trackers),  # type: ignore[attr-defined]
+            ('broadcaster', match.broadcasters),  # type: ignore[attr-defined]
+        ):
+            crew.extend((role, row.user) for row in rows if row.approved)
+        return crew
 
     async def viewer_relation(self, match_id: int, user: Optional[User]) -> str:
         """What ``match_id`` is to ``user``: player, crew, watcher, or none.

@@ -1,5 +1,185 @@
+type BracketBooking {
+  """The Wizzrobe match booked for this set (use `get_match` for detail)."""
+  matchId: Int!
+
+  """
+  The match's status, e.g. `scheduled`, `live`, `awaiting_result`, `complete`.
+  """
+  status: String!
+
+  """When it's booked for (UTC)."""
+  scheduledAt: DateTime
+
+  """"Game 2 of 3" for a game of a best-of set."""
+  game: String
+
+  """The stage (stream or table) it's on."""
+  stage: String
+}
+
+type BracketEntrant {
+  id: Int!
+  name: String!
+
+  """Wizzrobe account. Staff and this tournament's admins only."""
+  userId: Int
+  status: String
+}
+
+type BracketFeed {
+  """The set the result moves on to."""
+  setId: Int!
+
+  """Which side of that set (1 or 2)."""
+  slot: Int
+}
+
+type BracketPhase {
+  """
+  Phase id: the native bracket stage id, the start.gg phase row id, or 1/2 for Challonge's group/final stage.
+  """
+  id: Int!
+
+  """The phase's id on start.gg."""
+  sourceId: String
+  name: String!
+  order: Int!
+  format: String
+  state: String
+
+  """start.gg: whether players book this phase's sets in Wizzrobe."""
+  bookable: Boolean
+  pools: [BracketPool!]!
+}
+
+type BracketPool {
+  """
+  The pool's row id (start.gg). Null where a phase has one implicit pool.
+  """
+  id: Int
+
+  """Pool name, like "A1" or "Group 2"."""
+  name: String!
+  format: String
+  complete: Boolean!
+
+  """Sets in the whole pool, whatever the filters dropped."""
+  setsTotal: Int!
+  setsComplete: Int!
+
+  """
+  Placement order. Challonge has none mirrored, so it's tallied from completed sets.
+  """
+  standings: [BracketStanding!]!
+  sets: [BracketSet!]!
+}
+
+type BracketSet {
+  """
+  The matchup's Wizzrobe id: a native bracket match, a start.gg set or a Challonge match row, the same `key` the unbooked-matchups list and the booking tools use.
+  """
+  id: Int!
+
+  """The set's id on start.gg or Challonge. Null for native."""
+  sourceId: String
+
+  """The set's short label, like "A3" (native: "round.position")."""
+  identifier: String
+
+  """Round number; negative is a losers round on start.gg and Challonge."""
+  round: Int
+
+  """Round name, like "Winners Semi-Final"."""
+  roundLabel: String!
+
+  """`pending` (a side is undecided), `open` (playable) or `complete`."""
+  state: String!
+
+  """
+  Games in the set. Null on start.gg and Challonge until a game is booked.
+  """
+  bestOf: Int
+
+  """The two sides, in order."""
+  slots: [BracketSlot!]!
+
+  """The winning entrant, once complete."""
+  winnerEntrantId: Int
+
+  """Settled by forfeit (native only)."""
+  forfeit: Boolean!
+
+  """When it was completed (start.gg only, UTC)."""
+  completedAt: DateTime
+
+  """Where the winner goes next."""
+  winnerTo: BracketFeed
+
+  """Where the loser goes next."""
+  loserTo: BracketFeed
+
+  """Wizzrobe matches booked for this set, one per game."""
+  bookings: [BracketBooking!]!
+}
+
+type BracketSlot {
+  """The entrant in this side (see `entrants`). Null while undecided."""
+  entrantId: Int
+
+  """The entrant's name. Null while undecided."""
+  name: String
+
+  """
+  The entrant's Wizzrobe account. Only Staff and this tournament's admins get it; null otherwise.
+  """
+  userId: Int
+
+  """
+  This side's score. Challonge's mirror has no score line, so there it comes from a confirmed booking.
+  """
+  score: Int
+
+  """What fills an undecided side, like "Winner of A3"."""
+  placeholder: String
+
+  """The set this side is fed from."""
+  fromSetId: Int
+
+  """`winner` or `loser`: which result of `from_set_id` fills this side."""
+  fromOutcome: String
+}
+
+type BracketStanding {
+  entrantId: Int!
+  name: String!
+
+  """Placement or rank. Null until the site or stage sets one."""
+  placement: Int
+  wins: Int!
+  losses: Int!
+  draws: Int!
+
+  """Standings points (native round robin and Swiss only)."""
+  points: Float
+}
+
+"""An approved crew member. Pending signups are never listed."""
+type CrewMember {
+  role: CrewRole!
+  user: User!
+}
+
+enum CrewRole {
+  COMMENTATOR
+  TRACKER
+  BROADCASTER
+}
+
 """Date (isoformat)"""
 scalar Date
+
+"""Date with time (isoformat)"""
+scalar DateTime
 
 """One of the community's events, such as an SG Live weekend."""
 type Event {
@@ -12,12 +192,73 @@ type Event {
   isDefault: Boolean!
   startsOn: Date
   endsOn: Date
+
+  """Inactive tournaments are only listed for admins."""
+  tournaments(activeOnly: Boolean! = false): [Tournament!]!
+  stages(activeOnly: Boolean! = false): [Stage!]!
+
+  """
+  Scheduled matches, soonest first. Unscheduled matches are left out. `first` is at most 100 (default 50); pass the last `endCursor` as `after` for the next page.
+  """
+  matches(first: Int! = 50, after: String = null, start: DateTime = null, end: DateTime = null, tournamentIds: [Int!] = null, stageIds: [Int!] = null): MatchConnection!
 }
 
 enum EventStatus {
   DRAFT
   LIVE
   ARCHIVED
+}
+
+"""One scheduled match."""
+type Match {
+  id: Int!
+
+  """Custom title; null means tournament and players."""
+  title: String
+  scheduledAt: DateTime
+
+  """When the players checked in."""
+  seatedAt: DateTime
+  finishedAt: DateTime
+
+  """A proctor flagged the result for an admin to check."""
+  needsReview: Boolean!
+  comment: String
+  tournament: Tournament!
+  stage: Stage
+  seed: Seed
+  players: [MatchPlayer!]!
+  crew: [CrewMember!]!
+}
+
+"""A page of matches. `nodes` and `edges` hold the same matches."""
+type MatchConnection {
+  edges: [MatchEdge!]!
+  nodes: [Match!]!
+  pageInfo: PageInfo!
+}
+
+type MatchEdge {
+  cursor: String!
+  node: Match!
+}
+
+"""A player's seat in a match."""
+type MatchPlayer {
+  """The seat's id, not the user's."""
+  id: Int!
+  user: User!
+
+  """1 for the winner; null before a result."""
+  finishRank: Int
+  station: String
+}
+
+type PageInfo {
+  hasNextPage: Boolean!
+
+  """Pass as `after` for the next page."""
+  endCursor: String
 }
 
 type Query {
@@ -33,6 +274,15 @@ type Query {
   One event by its slug, or the community's default event when the slug is left out. A draft you cannot see is a not-found.
   """
   event(slug: String = null): Event
+
+  """One tournament by id, in whichever event it belongs to."""
+  tournament(id: Int!): Tournament
+
+  """One stage by id, in whichever event it belongs to."""
+  stage(id: Int!): Stage
+
+  """One match by id, in whichever event it belongs to."""
+  match(id: Int!): Match
 }
 
 enum Role {
@@ -48,6 +298,91 @@ enum Role {
   SYNC_ADMIN
   QUALIFIER_ADMIN
   SUPER_ADMIN
+}
+
+"""A rolled seed."""
+type Seed {
+  url: String!
+
+  """Extra text the randomizer returned, such as a hash."""
+  info: String
+  randomizer: String
+  rolledAt: DateTime!
+}
+
+"""A stream or setup that matches are played on."""
+type Stage {
+  id: Int!
+  name: String!
+  streamUrl: String
+  isActive: Boolean!
+
+  """
+  Scheduled matches, soonest first. Unscheduled matches are left out. `first` is at most 100 (default 50); pass the last `endCursor` as `after` for the next page.
+  """
+  matches(first: Int! = 50, after: String = null, start: DateTime = null, end: DateTime = null): MatchConnection!
+}
+
+"""One of the event's tournaments."""
+type Tournament {
+  id: Int!
+  name: String!
+
+  """Shown where the full name will not fit."""
+  shortName: String
+
+  """Shown to players, as markdown."""
+  description: String
+
+  """Free-text format label, such as "Double elimination"."""
+  format: String
+
+  """Inactive tournaments are only listed for admins."""
+  isActive: Boolean!
+
+  """A test tournament, left off the event guide."""
+  isTest: Boolean!
+  playersPerMatch: Int!
+
+  """The randomizer it rolls seeds with, if any."""
+  seedGenerator: String
+  bracketUrl: String
+  rulesUrl: String
+
+  """Typical match length, in minutes."""
+  averageMatchDuration: Int
+
+  """Longest a match is expected to run, in minutes."""
+  maxMatchDuration: Int
+
+  """
+  Scheduled matches, soonest first. Unscheduled matches are left out. `first` is at most 100 (default 50); pass the last `endCursor` as `after` for the next page.
+  """
+  matches(first: Int! = 50, after: String = null, start: DateTime = null, end: DateTime = null): MatchConnection!
+
+  """
+  The whole bracket, from whichever site runs it: Wizzrobe, start.gg or Challonge. `state` is pending, open or complete; `entrant` keeps the sets a name plays in. Null with a NOT_FOUND error when the community has that bracket source turned off.
+  """
+  bracket(phase: String = null, pool: String = null, state: String = null, entrant: String = null): TournamentBracket
+}
+
+type TournamentBracket {
+  tournamentId: Int!
+  tournament: String!
+
+  """`native`, `startgg` or `challonge`."""
+  source: String!
+
+  """The bracket's page on its site (a Wizzrobe path for native)."""
+  url: String
+
+  """When the start.gg or Challonge mirror last synced (UTC)."""
+  lastSyncedAt: DateTime
+
+  """True when filters trimmed the phases, pools or sets."""
+  filtered: Boolean!
+  phases: [BracketPhase!]!
+  entrants: [BracketEntrant!]!
 }
 
 """A person, as any member of the community sees them."""
