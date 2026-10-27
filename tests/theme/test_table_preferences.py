@@ -256,3 +256,30 @@ class TestClockSort:
         assert _with_clock_sort({'name': 'when', 'sortable': True})[':sort'] == CLOCK_SORT
         assert ':sort' not in _with_clock_sort({'name': 'when'})
         assert _with_clock_sort({'name': 'n', 'sortable': True, ':sort': 'x'})[':sort'] == 'x'
+
+
+class TestEventCarry:
+    """SGLMAN-2R/2S: a detached refresh lost the event and raised "No event in context"."""
+
+    @pytest.mark.asyncio
+    async def test_scoped_background_rebinds_the_captured_event(self, monkeypatch):
+        from application import event_context
+        from application.event_context import event_scope, require_event_id
+        from application.tenant_context import tenant_scope
+        from theme.tables import admin_crud
+
+        monkeypatch.setattr(event_context, '_fallback_event_id', lambda tenant_id: None)
+        with tenant_scope(7), event_scope(42):
+            context = admin_crud.capture_render_context()
+        assert context[4] == 42
+
+        seen = {}
+
+        async def body():
+            seen['event'] = require_event_id()
+
+        spawned = []
+        monkeypatch.setattr(admin_crud.background_tasks, 'create', spawned.append)
+        admin_crud.scoped_background(context, body())
+        await spawned[0]
+        assert seen['event'] == 42

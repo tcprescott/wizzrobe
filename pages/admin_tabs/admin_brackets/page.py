@@ -25,7 +25,7 @@ from typing import Dict, List, Optional
 
 from nicegui import app, background_tasks, context, ui
 
-from application.event_context import event_scoped
+from application.event_context import event_scope, event_scoped, get_current_event_id
 from application.services import BracketService
 from application.tenant_context import require_tenant_id, tenant_scope
 from models import BracketMatchState, BracketState, Tournament
@@ -162,6 +162,7 @@ async def admin_brackets_page() -> None:
     # Captured while the request context is live; rebound around every detached
     # client-event handler (see module docstring).
     tenant_id = require_tenant_id()
+    event_id = get_current_event_id()
     state: Dict[str, Optional[int]] = {'tournament_id': None}
     # The Results dialog embeds the shared bracket renderer for click-to-report.
     ui.add_head_html(f'<link rel="stylesheet" href="{asset_url("css/brackets.css")}">')
@@ -205,7 +206,7 @@ async def admin_brackets_page() -> None:
         async def refresh_table() -> None:
             tid = state['tournament_id']
             rows: List[dict] = []
-            with tenant_scope(tenant_id):
+            with tenant_scope(tenant_id), event_scope(event_id):
                 if tid is not None:
                     brackets = await service.list_brackets(tid)
                     loaded = {
@@ -306,7 +307,7 @@ async def admin_brackets_page() -> None:
             with client:
                 async def do_complete() -> None:
                     actor = await current_actor()
-                    with tenant_scope(tenant_id):
+                    with tenant_scope(tenant_id), event_scope(event_id):
                         try:
                             await service.complete_stage(actor, row['id'])
                         except (ValueError, PermissionError) as ex:
@@ -331,7 +332,7 @@ async def admin_brackets_page() -> None:
             from_stage_order = row['stage_order']
             with client:
                 actor = await current_actor()
-                with tenant_scope(tenant_id):
+                with tenant_scope(tenant_id), event_scope(event_id):
                     try:
                         plan = await service.advancement_plan(tid, from_stage_order)
                         names = await entry_name_map(service, row['id'], tid)
@@ -369,7 +370,7 @@ async def admin_brackets_page() -> None:
                             ).classes('ellipsis w-full')
 
                     async def do_advance() -> None:
-                        with tenant_scope(tenant_id):
+                        with tenant_scope(tenant_id), event_scope(event_id):
                             try:
                                 await service.advance_stage(actor, tid, from_stage_order)
                             except (ValueError, PermissionError) as ex:

@@ -13,6 +13,7 @@ from typing import Callable, Dict, List, Optional
 
 from nicegui import ui
 
+from application.event_context import event_scope, get_current_event_id
 from application.services import BracketSetService
 from application.services.bracket_set_service import OpenBracketSet, game_winner
 from application.tenant_context import tenant_scope
@@ -36,6 +37,7 @@ class SetJoinNotice:
 
     def __init__(self, tenant_id: int, actor, names: Dict[int, str]) -> None:
         self.tenant_id = tenant_id
+        self.event_id = get_current_event_id()
         self.actor = actor
         self.names = names
         self.found: Optional[OpenBracketSet] = None
@@ -46,7 +48,7 @@ class SetJoinNotice:
     async def refresh(self, tournament_id: Optional[int], player_ids: List[int]) -> None:
         found = None
         if tournament_id and self.actor is not None:
-            with tenant_scope(self.tenant_id):
+            with tenant_scope(self.tenant_id), event_scope(self.event_id):
                 found = await BracketSetService().open_set_for(tournament_id, player_ids, actor=self.actor)
         self.found = found
         self.checkbox = None

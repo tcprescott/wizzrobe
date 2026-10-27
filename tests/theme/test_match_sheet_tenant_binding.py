@@ -57,7 +57,7 @@ def test_a_deleted_slot_parent_takes_the_client_stash_with_it():
 @pytest.mark.asyncio
 async def test_a_sheet_callback_keeps_the_tenant_after_its_control_is_deleted(monkeypatch):
     monkeypatch.setattr(core, 'loop', asyncio.get_running_loop())
-    render_context = (7, 'UTC', None, False)
+    render_context = (7, 'UTC', None, False, None)
     sheet = MatchSheet.__new__(MatchSheet)
     sheet.view = SimpleNamespace(_bg=lambda coro: scoped_background(render_context, coro))
 

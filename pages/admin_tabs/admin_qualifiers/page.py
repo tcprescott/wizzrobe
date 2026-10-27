@@ -14,6 +14,7 @@ without a background task.
 
 from nicegui import app, context, ui
 
+from application.event_context import event_scope, get_current_event_id
 from application.services import (
     AsyncQualifierLiveRaceService,
     AsyncQualifierService,
@@ -92,6 +93,7 @@ async def admin_qualifiers_page(
     # Captured at page build, where a request tenant is guaranteed; every
     # later handler re-binds it rather than re-resolving.
     tenant_id = require_tenant_id()
+    event_id = get_current_event_id()
     state: dict = {
         'qualifiers': [], 'managing': None, 'shell': None, 'list_error': None,
         'can_create': False,
@@ -115,7 +117,7 @@ async def admin_qualifiers_page(
 
     async def load_list() -> None:
         try:
-            with tenant_scope(tenant_id):
+            with tenant_scope(tenant_id), event_scope(event_id):
                 current = await _current()
                 state['qualifiers'] = await service.list_qualifiers(current)
                 # A per-qualifier reviewer sees the ones they review, but only
@@ -198,7 +200,7 @@ async def admin_qualifiers_page(
             state['shell'] = None
         else:
             try:
-                with tenant_scope(tenant_id):
+                with tenant_scope(tenant_id), event_scope(event_id):
                     current = await _current()
                     state['shell'] = {
                         'qualifier': await service.get_qualifier(current, qid)}
@@ -236,7 +238,7 @@ async def admin_qualifiers_page(
             # three tabs read tenant 1, 1, then None — and a None tenant makes
             # every feature flag read as off, so the third tab rendered "the Async
             # Qualifiers feature is not enabled for this community".
-            with tenant_scope(tenant_id):
+            with tenant_scope(tenant_id), event_scope(event_id):
                 await _FETCH[name](await _current(), qid)
             state['errors'].pop(name, None)
         except (ValueError, PermissionError) as e:
