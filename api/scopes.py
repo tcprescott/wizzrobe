@@ -51,6 +51,8 @@ _ROUTES: Dict[RouteScope, tuple[str, ...]] = {
         'POST /notifications/messages/reset',
     ),
     ApiScope.SCHEDULE_READ: (
+        'GET /events',
+        'GET /events/{slug}',
         'GET /matches',
         'GET /matches/{match_id}',
         'GET /tournaments',
@@ -182,6 +184,13 @@ _ROUTES: Dict[RouteScope, tuple[str, ...]] = {
         'GET /exports/{export_id}/download',
     ),
     ApiScope.STAFF_WRITE: (
+        'POST /events',
+        'PATCH /events/{slug}',
+        'DELETE /events/{slug}',
+        'POST /events/{slug}/go-live',
+        'POST /events/{slug}/make-default',
+        'POST /events/{slug}/archive',
+        'POST /events/{slug}/unarchive',
         'POST /matches',
         'PATCH /matches/{match_id}',
         'DELETE /matches/{match_id}',
@@ -323,6 +332,8 @@ _ROUTES: Dict[RouteScope, tuple[str, ...]] = {
     # Credentials, secrets, platform-wide controls and community wiring that an
     # app has no business holding even for a staff member.
     PAT_ONLY: (
+        'GET /events/{slug}/settings',
+        'PUT /events/{slug}/settings/{key}',
         'GET /tokens',
         'POST /tokens',
         'DELETE /tokens/{token_id}',
