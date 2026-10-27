@@ -58,6 +58,7 @@ from application.utils.app_links import (
     player_startgg_schedule_url,
     qualifier_runs_url,
     qualifier_url,
+    survey_url,
     volunteer_my_shifts_url,
     volunteer_release_url,
 )
@@ -386,6 +387,11 @@ async def admin_community_event(
 ) -> Optional[DMLink]:
     """Admin → Community Events with this event's review dialog open on arrival."""
     return await link_for(label, admin_community_event_url(event_id))
+
+
+async def survey(survey_id: int, *, label: str = 'Take the survey') -> Optional[DMLink]:
+    """The survey itself, open on its list of parts: the control the DM asks for."""
+    return await link_for(label, survey_url(survey_id))
 
 
 async def admin_matcherino_login(*, label: str = 'Update the Matcherino login') -> Optional[DMLink]:

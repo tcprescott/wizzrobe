@@ -1,0 +1,131 @@
+"""The post-event survey page and its staff preview.
+
+``/survey/<id>`` is where the people a survey was sent to answer it (the DM's
+button lands here). ``/survey/<id>/preview`` shows staff the same form as one
+kind of person would see it, with a banner saying nothing is saved; a staff
+member can share that link with other staff before sending.
+"""
+
+from typing import Any, Dict, Optional
+
+from nicegui import app, ui
+from starlette.responses import RedirectResponse
+
+from application.services import (
+    AuthService,
+    RespondentView,
+    SurveyResponseService,
+    SurveyService,
+    TenantService,
+    get_user_from_session,
+)
+from application.services.survey import plan
+from middleware.auth import protected_page
+from middleware.event_routing import page_request, row_event_redirect
+from models import FeatureFlag, SurveyQuestionKind, User
+from theme.banner import banner
+from theme.base import BaseLayout
+from theme.error_page import render_not_found
+from theme.survey_form import SurveyForm
+from theme.url_state import bind_url
+
+__all__ = ['create']
+
+
+async def _chrome(user: User, title: str) -> str:
+    community = await TenantService.current_community_name() or 'Wizzrobe'
+    ui.page_title(f'{title} — {community}')
+    await BaseLayout(user=user, show_admin=await AuthService.can_open_admin(user)).render()
+    return community
+
+
+def create() -> None:
+    @protected_page('/survey/{survey_id}', feature=FeatureFlag.SURVEYS, scope='row')
+    async def survey_page(survey_id: int) -> Optional[RedirectResponse]:
+        user = await get_user_from_session(app.storage.user)
+        if user is None:
+            ui.label('Your account could not be found.').classes('text-error')
+            return None
+        service = SurveyResponseService()
+        try:
+            view = await service.open_survey(user, survey_id)
+        except (ValueError, PermissionError):
+            await render_not_found(
+                user=user, message="We couldn't find that survey. It may have been deleted, or it wasn't sent to you.",
+            )
+            return None
+        redirect = await row_event_redirect(page_request(), view.survey.event_id)
+        if redirect is not None:
+            return redirect
+        community = await _chrome(user, view.survey.title)
+
+        async def save_part(part_key: str, answers: Dict[int, Any]) -> RespondentView:
+            return await service.save_part(user, survey_id, part_key, answers)
+
+        async def submit(anonymous: bool) -> None:
+            await service.submit(user, survey_id, anonymous=anonymous)
+
+        SurveyForm(view, save_part=save_part, submit=submit, editable=view.open, community=community)
+        return None
+
+    @protected_page('/survey/{survey_id}/preview', feature=FeatureFlag.SURVEYS, scope='row')
+    async def survey_preview_page(survey_id: int) -> Optional[RedirectResponse]:
+        user = await get_user_from_session(app.storage.user)
+        if user is None:
+            ui.label('Your account could not be found.').classes('text-error')
+            return None
+        service = SurveyService()
+        try:
+            survey, _ = await service.preview(user, survey_id)
+        except (ValueError, PermissionError):
+            await render_not_found(user=user, message="We couldn't find that survey preview.")
+            return None
+        redirect = await row_event_redirect(page_request(), survey.event_id)
+        if redirect is not None:
+            return redirect
+        community = await _chrome(user, f'Preview: {survey.title}')
+
+        with ui.column().classes('page-container-narrow w-full gap-2 wiz-survey-preview'):
+            with banner(
+                "Answers here aren't saved, Send answers is turned off, and nothing is recorded. "
+                'Only staff of this community can open this link.',
+                title='Preview', tone='warning',
+            ):
+                pass
+            showing = ui.select(plan.PREVIEW_PERSONAS, value='everything', label='Showing') \
+                .props('outlined dense').classes('wiz-survey-preview__showing')
+
+        @ui.refreshable
+        def form(parts: list) -> None:
+            view = RespondentView(survey=survey, recipient=None, parts=parts)
+
+            async def save_part(part_key: str, answers: Dict[int, Any]) -> RespondentView:
+                part = view.part(part_key)
+                if part is None:
+                    raise ValueError("That part isn't in this preview.")
+                comments = {q.id for q in part.questions if q.kind is SurveyQuestionKind.COMMENT}
+                for qid, value in answers.items():
+                    key = (qid, part.scope)
+                    view.answers.pop(key, None)
+                    view.texts.pop(key, None)
+                    if value not in (None, '', []):
+                        (view.texts if qid in comments else view.answers)[key] = value
+                return view
+
+            async def submit(_anonymous: bool) -> None:
+                raise ValueError('Sending is turned off in the preview.')
+
+            SurveyForm(view, save_part=save_part, submit=submit, editable=True, preview=True, community=community)
+
+        async def switch(persona: str) -> None:
+            try:
+                _, parts = await service.preview(user, survey_id, persona)
+            except (ValueError, PermissionError):
+                return
+            form.refresh(parts)
+
+        _, first_parts = await service.preview(user, survey_id, 'everything')
+        form(first_parts)
+        showing.on_value_change(lambda e: switch(e.value))
+        bind_url('showing', showing)
+        return None

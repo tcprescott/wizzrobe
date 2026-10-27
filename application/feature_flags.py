@@ -294,6 +294,15 @@ FEATURE_FLAG_REGISTRY: Dict[FeatureFlag, FeatureFlagSpec] = {
             'Community',
             service_modules=('application/services/oauth_grant_service.py',),
         ),
+        FeatureFlagSpec(
+            FeatureFlag.SURVEYS,
+            'Surveys',
+            'Send a short survey after an event by Discord DM. Each person only '
+            'gets the questions about what they did: the tournaments they played, '
+            'the positions they worked, and the rest.',
+            'Community',
+            service_modules=('application/services/survey/',),
+        ),
     )
 }
 

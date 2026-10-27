@@ -232,6 +232,16 @@ def admin_check_in_url() -> str:
     return admin_url(CHECK_IN)
 
 
+def survey_url(survey_id: int) -> str:
+    """One survey's page, where the person it was sent to answers it."""
+    return f'/survey/{survey_id}'
+
+
+def survey_preview_url(survey_id: int) -> str:
+    """A staff-only preview of a draft survey: every part, nothing saved."""
+    return f'/survey/{survey_id}/preview'
+
+
 MY_MESSAGES = '/messages'
 
 

@@ -57,6 +57,7 @@ from pages import (
     static_brackets,
     static_watch,
     stream_overlay,
+    survey,
     twitch_oauth,
     volunteer,
     watch_data,
@@ -350,6 +351,7 @@ def init(fastapi_app: FastAPI) -> None:
     event_info.create()
     community_events.create()
     my_messages.create()
+    survey.create()
     item_tracker.create()
     facts.create()
     changelog.create()

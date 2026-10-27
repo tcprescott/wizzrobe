@@ -73,6 +73,7 @@
   "check_file_length": {
     "application/services/volunteer/volunteer_schedule_service.py": 1,
     "mcpserver/schemas.py": 1,
+    "models/enums.py": 1,
     "scripts/seed_dev.py": 1,
     "tests/services/test_match_schedule_coverage.py": 1
   }

@@ -140,6 +140,7 @@ TAG_GROUPS: List[tuple[str, List[tuple[str, str]]]] = [
         ('Stages', 'Stages (streams and setups) that matches are assigned to.'),
         ('Triforce texts', 'Player-submitted triforce texts and their moderation.'),
         ('Feedback', 'Feedback people send from inside the app.'),
+        ('Surveys', 'Post-event surveys: build one and read what came back. Sending stays in the app.'),
     ]),
     ('People', [
         ('Users', 'People in this community, their profiles and roles.'),
