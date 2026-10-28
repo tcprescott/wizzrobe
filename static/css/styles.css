@@ -9894,6 +9894,4 @@ body.wiz-survey-dragging, body.wiz-survey-dragging * { cursor: grabbing !importa
     .wiz-compare__cell--count { display: flex; gap: 6px; align-items: baseline; font-size: var(--text-sm); }
     .wiz-compare__cell--count .wiz-compare__cell-label { order: 2; font-size: var(--text-sm); }
 }
-.wiz-comment-sheet__chips { padding: 0 16px 8px; flex-wrap: wrap; }
-.wiz-comment-sheet__search { padding: 0 16px 8px; }
-.wiz-comment-sheet__list { padding: 0 16px 16px; }
+.wiz-comment-sheet__chips { flex-wrap: wrap; }
