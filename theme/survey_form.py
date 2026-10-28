@@ -476,7 +476,7 @@ class SurveyForm:
     def _status(self) -> None:
         view = self.view
         if view.submitted:
-            how = {True: 'Sent anonymously', False: 'Sent with your name'}.get(view.anonymous, 'Sent')
+            how = 'Sent' if view.anonymous is None else ('Sent anonymously' if view.anonymous else 'Sent with your name')
             with banner(f'What happens next: {view.after_send}',
                         title='Your answers are in. Thanks for taking the time.', tone='ok',
                         footnote=f"{how} · You can't change answers now."):

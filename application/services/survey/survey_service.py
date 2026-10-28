@@ -447,9 +447,9 @@ class SurveyService:
         question = require_found(await self.repository.get_question(question_id), 'Question')
         section = require_found(await self.repository.get_section(question.section_id), 'Section')
         survey = await self._load(section.survey_id)
-        given = {name for name, value in (('prompt', prompt), ('kind', kind), ('options', options),
+        named = {name for name, value in (('prompt', prompt), ('kind', kind), ('options', options),
                                           ('required', required), ('conditions', conditions)) if value is not _UNSET}
-        self._ensure_wording_only(survey, given | set(_known(extras)), ('prompt',))
+        self._ensure_wording_only(survey, named | set(_known(extras)), ('prompt',))
         fields: Dict[str, Any] = {}
         if prompt is not _UNSET:
             fields['prompt'] = clean_text(prompt, limit=PROMPT_MAX, what='The question')
