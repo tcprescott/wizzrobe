@@ -239,6 +239,8 @@ class AuditActions:
     SURVEY_REMINDED = 'survey.reminded'
     SURVEY_CLOSED = 'survey.closed'
     SURVEY_QUESTIONS_SUGGESTED = 'survey.questions_suggested'
+    SURVEY_COMMENT_TAG_CREATED = 'survey.comment_tag_created'
+    SURVEY_COMMENT_TAG_DELETED = 'survey.comment_tag_deleted'
 
     # ADA accommodation requests. Details carry ids and status only, never the
     # requester's text or staff notes.

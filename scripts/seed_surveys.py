@@ -12,6 +12,7 @@ community seeded uses Claude, the rest the OpenAI-compatible adapter.
 
 from datetime import datetime, timedelta, timezone
 
+from application.services.survey.comments import STARTER_TAGS
 from application.services.survey.suggestions import _clean_drafts
 from application.utils import secret_box
 from application.utils.mocks.mock_ai import mock_answer
@@ -21,6 +22,8 @@ from models import (
     Survey,
     SurveyAnswer,
     SurveyAudience,
+    SurveyCommentMark,
+    SurveyCommentTag,
     SurveyPartTally,
     SurveyQuestion,
     SurveyQuestionKind,
@@ -191,6 +194,22 @@ async def _seed_dropoff(tenant: Tenant, survey: Survey, users: dict[str, User]) 
         )
 
 
+async def _seed_comment_marks(tenant: Tenant, survey: Survey, staff: User) -> None:
+    """The comments inbox's rows: the starter tags, one comment read and tagged, one tagged only."""
+    for position, name in enumerate(STARTER_TAGS):
+        await SurveyCommentTag.get_or_create(tenant=tenant, survey=survey, name=name, defaults={'position': position})
+    tags = {t.name: t.id for t in await SurveyCommentTag.filter(survey=survey)}
+    answers = await SurveyAnswer.filter(
+        response__survey=survey, response__status=SurveyResponseStatus.SUBMITTED, text__not_isnull=True,
+    ).exclude(text='').order_by('id')
+    for answer, read, tag in zip(answers, (True, False), ('Venue', 'Wizzrobe'), strict=False):
+        await SurveyCommentMark.get_or_create(
+            tenant=tenant, answer=answer,
+            defaults={'survey': survey, 'tags': [tags[tag]], 'read_at': datetime.now(timezone.utc) if read else None,
+                      'read_by': staff if read else None},
+        )
+
+
 async def seed_surveys_for_tenant(tenant: Tenant, users: dict[str, User]) -> None:
     staff = users['staff_user']
     now = datetime.now(timezone.utc)
@@ -258,6 +277,7 @@ async def seed_surveys_for_tenant(tenant: Tenant, users: dict[str, User]) -> Non
                               scope=p_scope, label=p_label)
 
     await _seed_dropoff(tenant, survey, users)
+    await _seed_comment_marks(tenant, survey, staff)
 
     closed, created = await Survey.get_or_create(
         tenant=tenant, title='SG Live 2025 survey',

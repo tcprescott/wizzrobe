@@ -160,8 +160,10 @@ from .station_service import StationService
 from .stream_layout_service import StreamLayoutService
 from .survey import (
     BuilderSummary,
+    CommentInbox,
     MissingAnswer,
     RespondentView,
+    SurveyCommentService,
     SurveyResponseService,
     SurveyResults,
     SurveyRow,
@@ -225,6 +227,7 @@ __all__ = [
     'ChallongeService',
     'CheckInDeskService',
     'CheckInService',
+    'CommentInbox',
     'CommentaryInviteService',
     'CommunityEventService',
     'CommunityOverview',
@@ -327,6 +330,7 @@ __all__ = [
     'StartggService',
     'StationService',
     'StreamLayoutService',
+    'SurveyCommentService',
     'SurveyResponseService',
     'SurveyResults',
     'SurveyRow',

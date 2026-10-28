@@ -1,5 +1,7 @@
 import pytest
 
+from tests.services.test_survey_service import event_world  # noqa: F401  (shared with test_survey_comments)
+
 # ``stub_discord_queue`` is defined suite-wide (autouse) in ``tests/conftest.py``.
 
 
