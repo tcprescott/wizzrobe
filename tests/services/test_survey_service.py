@@ -9,6 +9,7 @@ from application.errors import NotFoundError
 from application.services import SurveyResponseService, SurveyService
 from application.services.survey import plan
 from models import (
+    AuditLog,
     Commentator,
     Match,
     MatchPlayers,
@@ -680,9 +681,11 @@ def test_not_interested_button_round_trips_its_survey():
         _parse('survey:decline:x')
 
 
+# --- comments inbox: shared read marks and staff-only tags ---
+
+
 async def test_a_sent_survey_takes_wording_fixes_but_nothing_else(event_world):
     """Thomas, 2026-10-28: wording only after sending, logged; structure stays frozen."""
-    from models import AuditLog
 
     survey = await _sent(event_world)
     staff = event_world['staff']

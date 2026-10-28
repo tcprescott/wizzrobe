@@ -190,7 +190,7 @@ def breakdown(question: SurveyQuestion, values: Sequence[Any], *, protect: bool 
     return result
 
 
-def _group_sizes(responses: Sequence[SurveyResponse]) -> Counter:
+def group_sizes(responses: Sequence[SurveyResponse]) -> Counter:
     sizes: Counter = Counter()
     for response in responses:
         for group in response.groups or []:
@@ -198,7 +198,7 @@ def _group_sizes(responses: Sequence[SurveyResponse]) -> Counter:
     return sizes
 
 
-def _who(answer: SurveyAnswer, response: SurveyResponse, sizes: Counter) -> tuple[str, str]:
+def who_for(answer: SurveyAnswer, response: SurveyResponse, sizes: Counter) -> tuple[str, str]:
     """``(who, group)`` to show beside a comment; a small group's name is withheld for an anonymous one."""
     if not response.anonymous and response.user is not None:
         return response.user.preferred_name, answer.scope_label
@@ -233,7 +233,7 @@ def summarize(
     for answer in answers:
         by_question[answer.question_id].append(answer)
     response_by_id = {r.id: r for r in responses}
-    sizes = _group_sizes(responses)
+    sizes = group_sizes(responses)
     prompts = {q.id: q.prompt for q in questions}
     results: List[QuestionResult] = []
     for question in questions:
@@ -265,7 +265,7 @@ def summarize(
                 response = response_by_id.get(a.response_id)
                 if response is None or not (a.text or '').strip():
                     continue
-                who, group = _who(a, response, sizes)
+                who, group = who_for(a, response, sizes)
                 result.comments.append(CommentRow(text=a.text or '', who=who, group=group))
         results.append(result)
     return results

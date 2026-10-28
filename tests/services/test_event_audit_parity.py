@@ -455,6 +455,10 @@ _EXCLUDED_BY_DESIGN = frozenset({
     # staff tooling: nothing a person outside sees changes until a draft is kept
     # (an ordinary question edit) and the survey is sent.
     AuditActions.SURVEY_QUESTIONS_SUGGESTED,
+    # Comment tags are staff's private filing for survey comments; respondents
+    # never see them.
+    AuditActions.SURVEY_COMMENT_TAG_CREATED,
+    AuditActions.SURVEY_COMMENT_TAG_DELETED,
     AuditActions.AI_PROVIDER_SET,
     AuditActions.AI_PROVIDER_CLEARED,
 })

@@ -109,6 +109,7 @@
     { "name": "admin-surveys", "path": "/admin/surveys" },
     { "name": "admin-survey-builder", "path": "/admin/surveys?survey=1" },
     { "name": "admin-survey-results", "path": "/admin/surveys?survey=2" },
+    { "name": "admin-survey-comments", "path": "/admin/surveys?survey=2&view=comments" },
     { "name": "survey-preview", "path": "/survey/1/preview" },
     { "name": "survey-respondent", "path": "/survey/2", "loginAs": "volunteer_only" },
     { "name": "platform", "path": "/platform", "platform": true },
