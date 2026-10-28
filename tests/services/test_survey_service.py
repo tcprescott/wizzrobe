@@ -171,6 +171,21 @@ async def test_anonymous_submit_cuts_the_link(event_world):
     assert recipient.submitted_at is not None
 
 
+async def test_a_sent_survey_says_how_it_went_and_what_happens_next(event_world):
+    survey = await _sent(event_world)
+    w = event_world
+    service = SurveyResponseService()
+    for user in (w['alice'], w['bob']):
+        await _answer_everything(user, survey.id, 4)
+        await service.submit(user, survey.id, anonymous=user is w['bob'])
+    alice, bob = await service.open_survey(w['alice'], survey.id), await service.open_survey(w['bob'], survey.id)
+    assert alice.anonymous is False and bob.anonymous is True
+    assert bob.after_send == "We'll share what we change because of your answers."
+    await SurveyService().update_survey(w['staff'], survey.id, after_send='Results go up on the blog.')
+    assert (await service.open_survey(w['bob'], survey.id)).after_send == 'Results go up on the blog.'
+    assert (await SurveyService().builder_summary(w['staff'], survey.id)).answered == 2
+
+
 async def test_crafted_answers_are_refused(event_world):
     survey = await _sent(event_world)
     w = event_world

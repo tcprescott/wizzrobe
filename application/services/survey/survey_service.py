@@ -85,6 +85,8 @@ class BuilderSummary:
     counts: Dict[str, int]
     tournaments: List[dict] = field(default_factory=list)
     positions: List[dict] = field(default_factory=list)
+    #: Responses sent in so far; always 0 on a draft.
+    answered: int = 0
 
     @property
     def over_budget(self) -> bool:
@@ -195,6 +197,7 @@ class SurveyService:
             longest_seconds=longest, longest_questions=count, longest_who=who,
             counts=participation.counts(),
             tournaments=participation.tournament_names(), positions=participation.position_names(),
+            answered=0 if survey.status is SurveyStatus.DRAFT else await self.repository.submitted_count(survey.id),
         )
 
     @requires_feature(FeatureFlag.SURVEYS)

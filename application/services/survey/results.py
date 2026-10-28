@@ -11,6 +11,7 @@ it counts. Two rules protect anonymous respondents:
 
 from collections import Counter, defaultdict
 from dataclasses import dataclass, field
+from datetime import datetime
 from typing import Any, Dict, List, Optional, Sequence
 
 from application.services.survey._validation import answer_values
@@ -56,6 +57,10 @@ class QuestionResult:
     comments: List[CommentRow] = field(default_factory=list)
     #: A pick-many's exclusive "none" choice, drawn apart from the real ones.
     none_option: Optional[str] = None
+    #: Set when the prompt was reworded after answers came in: the first wording and how many saw it.
+    original_prompt: Optional[str] = None
+    reworded_at: Optional[datetime] = None
+    reworded_after: Optional[int] = None
 
 
 def _options(question: SurveyQuestion) -> List[str]:
@@ -155,7 +160,8 @@ def summarize(
         result = QuestionResult(
             question_id=question.id, section_id=question.section_id,
             section_title=section.title if section else '', prompt=question.prompt, kind=question.kind,
-            none_option=question.none_option,
+            none_option=question.none_option, original_prompt=question.original_prompt,
+            reworded_at=question.reworded_at, reworded_after=question.reworded_after,
             overall=breakdown(question, [a.value for a in rows if a.value is not None]),
         )
         if question.kind is SurveyQuestionKind.COMMENT:

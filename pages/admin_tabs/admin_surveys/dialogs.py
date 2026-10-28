@@ -133,10 +133,15 @@ def details_dialog(service: SurveyService, user: User, survey: Survey, on_done: 
             intro = ui.textarea('Intro (optional)', value=survey.intro or '') \
                 .props('outlined autogrow maxlength=2000').classes('w-full')
             ui.label('Shown above the parts. Plain text.').classes('text-caption text-grey-7')
+            after_send = ui.textarea('After you send (optional)', value=survey.after_send or '') \
+                .props('outlined autogrow maxlength=500').classes('w-full')
+            ui.label(f'Shown after someone sends their answers. Blank shows: “{plan.DEFAULT_AFTER_SEND}”') \
+                .classes('text-caption text-grey-7')
 
         async def save() -> None:
             try:
-                updated = await service.update_survey(user, survey.id, title=title.value or '', intro=intro.value or '')
+                updated = await service.update_survey(user, survey.id, title=title.value or '', intro=intro.value or '',
+                                                      after_send=after_send.value or '')
             except (ValueError, PermissionError) as e:
                 notify_error(e)
                 return
@@ -144,6 +149,66 @@ def details_dialog(service: SurveyService, user: User, survey: Survey, on_done: 
             await on_done(updated)
 
         _footer(dialog, 'Save', save)
+    dialog.open()
+
+
+def _answered_hint(answered: int) -> None:
+    if not answered:
+        return
+    who = '1 person has' if answered == 1 else f'{answered} people have'
+    with ui.row().classes('no-wrap items-start gap-1'):
+        ui.icon('history', size='16px').classes('text-grey-7').props('aria-hidden=true')
+        ui.label(f'{who} answered. They saw the old wording; the change is logged with both versions.') \
+            .classes('text-caption text-grey-7')
+
+
+def question_wording_dialog(service: SurveyService, user: User, question: SurveyQuestion, answered: int,
+                            on_done: Done) -> None:
+    """A sent survey's question: the prompt only. What it asks for stays as answered."""
+    with form_dialog('Fix wording') as dialog:
+        with ui.column().classes('w-full gap-2'):
+            prompt = ui.input('Question', value=question.prompt).props('outlined dense maxlength=280') \
+                .classes('w-full')
+            locked = plan.KIND_LABELS[question.kind]
+            if question.options:
+                locked += ' · ' + ' · '.join(str(o) for o in question.options)
+            ui.input('Answer type (locked)', value=locked).props('outlined dense readonly').classes('w-full')
+            _answered_hint(answered)
+
+        async def save() -> None:
+            try:
+                updated = await service.update_question(user, question.id, prompt=prompt.value or '')
+            except (ValueError, PermissionError) as e:
+                notify_error(e)
+                return
+            dialog.close()
+            await on_done(updated)
+
+        _footer(dialog, 'Save wording', save)
+    dialog.open()
+
+
+def section_wording_dialog(service: SurveyService, user: User, section: SurveySection, answered: int,
+                           on_done: Done) -> None:
+    """A sent survey's section: its title and description only."""
+    with form_dialog('Fix wording') as dialog:
+        with ui.column().classes('w-full gap-2'):
+            title = ui.input('Title', value=section.title).props('outlined dense maxlength=120').classes('w-full')
+            description = ui.textarea('Description (optional)', value=section.description or '') \
+                .props('outlined autogrow maxlength=240 rows=2').classes('w-full')
+            _answered_hint(answered)
+
+        async def save() -> None:
+            try:
+                updated = await service.update_section(user, section.id, title=title.value or '',
+                                                       description=description.value or '')
+            except (ValueError, PermissionError) as e:
+                notify_error(e)
+                return
+            dialog.close()
+            await on_done(updated)
+
+        _footer(dialog, 'Save wording', save)
     dialog.open()
 
 

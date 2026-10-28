@@ -24,6 +24,10 @@ SECONDS: Dict[SurveyQuestionKind, int] = {
     SurveyQuestionKind.COMMENT: 25,
     SurveyQuestionKind.AGREE_SCALE: 5,  # per statement
 }
+
+# Shown after someone sends their answers when staff wrote no line of their own.
+DEFAULT_AFTER_SEND = "We'll share what we change because of your answers."
+
 BUDGET_SECONDS = 10 * 60
 REPEATING = (SurveyAudience.EACH_TOURNAMENT, SurveyAudience.EACH_POSITION)
 

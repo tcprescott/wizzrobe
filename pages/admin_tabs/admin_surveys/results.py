@@ -13,6 +13,7 @@ from application.services import SurveyResults
 from application.services.survey import AGREE_LEVELS, plan
 from application.services.survey.dropoff import Dropoff
 from application.services.survey.results import Breakdown, CommentRow, QuestionResult
+from application.utils.timezone import format_local_date
 from models import SurveyQuestionKind
 from theme.empty_state import empty_panel
 
@@ -106,8 +107,15 @@ def _summary_line(result: Breakdown) -> str:
 
 def _question_card(result: QuestionResult) -> None:
     with ui.element('section').classes('wiz-survey-result'):
-        heading = ui.label(result.prompt).classes('wiz-survey-result__title')
-        heading.tag = 'h3'
+        with ui.row().classes('items-center gap-2 no-wrap'):
+            heading = ui.label(result.prompt).classes('wiz-survey-result__title')
+            heading.tag = 'h3'
+            if result.reworded_at:
+                ui.label('Edited').classes('wiz-chip wiz-chip--info')
+        if result.reworded_at:
+            ui.label(f'Wording changed {format_local_date(result.reworded_at)} after '
+                     f'{result.reworded_after} answers. It was “{result.original_prompt}”.') \
+                .classes('wiz-survey-result__meta')
         ui.label(f'{result.section_title} · {_summary_line(result.overall)}').classes('wiz-survey-result__meta')
         if result.kind is SurveyQuestionKind.COMMENT:
             if not result.comments:

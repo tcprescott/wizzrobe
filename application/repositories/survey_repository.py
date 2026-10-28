@@ -284,6 +284,12 @@ class SurveyRepository(EventScopedRepository[Survey]):
         return await query
 
     @staticmethod
+    async def submitted_by(survey_id: int, user_id: int) -> bool:
+        return await scoped(SurveyResponse.filter(
+            survey_id=survey_id, user_id=user_id, status=SurveyResponseStatus.SUBMITTED,
+        )).exists()
+
+    @staticmethod
     async def submitted_count(survey_id: int) -> int:
         return await scoped(SurveyResponse.filter(
             survey_id=survey_id, status=SurveyResponseStatus.SUBMITTED,

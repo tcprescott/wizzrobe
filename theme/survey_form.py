@@ -474,8 +474,12 @@ class SurveyForm:
         self.sheet = PartSheet(self)
 
     def _status(self) -> None:
-        if self.view.submitted:
-            with banner("Your answers are in. Thanks for taking the time.", title='Sent', tone='ok'):
+        view = self.view
+        if view.submitted:
+            how = {True: 'Sent anonymously', False: 'Sent with your name'}.get(view.anonymous, 'Sent')
+            with banner(f'What happens next: {view.after_send}',
+                        title='Your answers are in. Thanks for taking the time.', tone='ok',
+                        footnote=f"{how} · You can't change answers now."):
                 pass
         elif not self.editable and not self.preview:
             with banner("This survey is closed, so it isn't taking answers any more.", tone='warning'):
@@ -523,6 +527,7 @@ class SurveyForm:
             notify_error(e)
             return
         self.view.submitted = True
+        self.view.anonymous = self.anonymous
         self.editable = False
         self.status_slot.clear()
         with self.status_slot:

@@ -1,7 +1,8 @@
 """One survey's sections and questions, with the time box and "Who gets it" beside them.
 
-Editable while the survey is a draft. Once sent it's the same view read-only:
-the answers already given belong to these exact questions.
+Editable while the survey is a draft. Once sent only the wording can change
+("Fix wording…" in each ⋮): the answers already given belong to these exact
+questions, choices and conditions.
 """
 
 from dataclasses import dataclass, field
@@ -12,9 +13,11 @@ from nicegui import ui
 from application.services import BuilderSummary, SurveyService, SurveySuggestionService
 from application.services.survey import conditions, plan
 from application.services.survey.suggestions import pending_drafts, provider_label
+from application.utils.timezone import format_local_date
 from models import Survey, SurveyQuestion, SurveyQuestionKind, SurveySection, SurveyStatus, SurveySuggestionBatch, User
 from pages.admin_tabs.admin_surveys import dialogs
 from pages.admin_tabs.admin_surveys.shared import AUDIENCE_CHIPS, KIND_CHIPS, KIND_ICONS
+from theme.banner import banner
 from theme.busy import busy_click
 from theme.dialog._helpers import form_dialog
 from theme.dialog.confirmation_dialog import ConfirmationDialog
@@ -81,6 +84,9 @@ def _question_row(ctx: BuilderContext, section: SurveySection, question: SurveyQ
         ui.icon(KIND_ICONS[question.kind]).classes('wiz-survey-q__icon').props('aria-hidden=true')
         with ui.row().classes('wiz-survey-q__text col min-w-0 items-center gap-2'):
             ui.label(question.prompt).classes('wiz-survey-q__prompt')
+            if question.reworded_at:
+                ui.label('Edited').classes('wiz-chip wiz-chip--info') \
+                    .tooltip(f'Was “{question.original_prompt}” for the first {question.reworded_after} answers')
             if question.required:
                 ui.label('Required').classes('wiz-chip wiz-chip--neutral')
             _condition_chips(question.conditions, prompts)
@@ -100,6 +106,10 @@ def _question_row(ctx: BuilderContext, section: SurveySection, question: SurveyQ
                     f'Delete “{question.prompt}”?', title='Delete question', confirm_text='Delete',
                     on_confirm=lambda: _run(ctx, ctx.service.delete_question(ctx.user, question.id)),
                 ).open(), negative=True)
+        else:
+            with more_menu(question.prompt):
+                menu_action('edit', 'Fix wording…', lambda: dialogs.question_wording_dialog(
+                    ctx.service, ctx.user, question, ctx.summary.answered, lambda _: _reload(ctx)))
 
 
 def _section_card(ctx: BuilderContext, section: SurveySection, prompts: Dict[int, str],
@@ -129,6 +139,10 @@ def _section_card(ctx: BuilderContext, section: SurveySection, prompts: Dict[int
                         title='Delete section', confirm_text='Delete',
                         on_confirm=lambda: _run(ctx, ctx.service.delete_section(ctx.user, section.id)),
                     ).open(), negative=True)
+            else:
+                with more_menu(section.title):
+                    menu_action('edit', 'Fix wording…', lambda: dialogs.section_wording_dialog(
+                        ctx.service, ctx.user, section, ctx.summary.answered, lambda _: _reload(ctx)))
         if section.description:
             ui.label(section.description).classes('wiz-survey-section__description')
         questions = list(section.questions)
@@ -254,6 +268,11 @@ def render_builder(ctx: BuilderContext) -> None:
         builder.on('survey-drop', lambda e: _dropped(ctx, (e.args or {}).get('detail') or {}), args=['detail'])
     with builder:
         with ui.column().classes('wiz-survey-builder__main gap-3'):
+            if not ctx.editable:
+                sent = f'Sent on {format_local_date(survey.sent_at)}.' if survey.sent_at else 'Sent.'
+                with banner('You can fix wording; questions, choices, order and conditions are locked '
+                            'so answers stay comparable.', title=sent, icon='lock'):
+                    pass
             if survey.intro:
                 ui.label(survey.intro).classes('wiz-survey-builder__intro')
             for i, section in enumerate(sections):
