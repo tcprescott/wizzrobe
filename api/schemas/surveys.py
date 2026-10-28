@@ -7,6 +7,7 @@ from pydantic import BaseModel, Field
 
 from application.services import SurveyResults
 from application.services.survey import response_answers
+from application.services.survey.comments import CommentInbox, InboxComment
 from application.services.survey.dropoff import Dropoff
 from application.services.survey.results import Breakdown
 from models import Survey, SurveyAudience, SurveyQuestion, SurveyQuestionKind, SurveyResponse, SurveySection
@@ -149,6 +150,44 @@ class SurveyResultsResponse(BaseModel):
     )
     audiences: List[SurveyGroupResponse] = Field(
         default_factory=list, description="Response rate for players, volunteers and crew (key is empty).",
+    )
+
+
+class SurveyCommentResponse(BaseModel):
+    answer_id: int = Field(..., description="Pass to the mark call to mark this comment read or tag it.")
+    question_id: int
+    prompt: str
+    section_title: str
+    scope_label: str = Field('', description="The tournament or position it was about, for a repeating section.")
+    who: str = Field(..., description="Their name, or `Anonymous` (with their group when it has 5 or more people).")
+    group: str = Field('', description="The group shown beside an anonymous comment, when it can be.")
+    text: str = Field(..., description="What the respondent wrote. Plain text: never render it as markup.")
+    write_in: bool = Field(False, description="An `Other` write-in on a choice question, not a comment question.")
+    read: bool = Field(False, description="Marked read by a staff member. Shared by all staff.")
+    read_at: Optional[datetime] = None
+    read_by: str = Field('', description="Who marked it read.")
+    tags: List[int] = Field(default_factory=list, description="Ids of the survey's comment tags on it.")
+
+
+class SurveyCommentTagResponse(BaseModel):
+    id: int
+    name: str
+    count: int = Field(0, description="How many comments carry it.")
+
+
+class SurveyCommentsResponse(BaseModel):
+    survey_id: int
+    unread: int
+    tags: List[SurveyCommentTagResponse] = Field(
+        default_factory=list, description="Staff-only tags. Respondents never see them.",
+    )
+    comments: List[SurveyCommentResponse] = Field(default_factory=list, description="Newest first.")
+
+
+class SurveyCommentMarkRequest(BaseModel):
+    read: Optional[bool] = Field(None, description="True marks it read, false unread. Leave out to keep it.")
+    tags: Optional[List[int]] = Field(
+        None, description="The comment's tags after the call (tag ids from this survey). Leave out to keep them.",
     )
 
 
@@ -323,4 +362,20 @@ def response_out(r: SurveyResponse) -> SubmittedResponse:
         anonymous=r.anonymous, groups=[g.get('label', '') for g in r.groups or []],
         submitted_on=r.submitted_on.isoformat() if r.submitted_on else None,
         answers=[SurveyAnswerResponse(**a) for a in response_answers(r)],
+    )
+
+
+def comments_out(inbox: CommentInbox) -> SurveyCommentsResponse:
+    return SurveyCommentsResponse(
+        survey_id=inbox.survey.id, unread=inbox.unread,
+        tags=[SurveyCommentTagResponse(id=t.id, name=t.name, count=t.count) for t in inbox.tags],
+        comments=[comment_out(c) for c in inbox.comments],
+    )
+
+
+def comment_out(c: InboxComment) -> SurveyCommentResponse:
+    return SurveyCommentResponse(
+        answer_id=c.answer_id, question_id=c.question_id, prompt=c.prompt, section_title=c.section_title,
+        scope_label=c.scope_label, who=c.who, group=c.group, text=c.text, write_in=c.write_in,
+        read=c.read, read_at=c.read_at, read_by=c.read_by, tags=c.tags,
     )

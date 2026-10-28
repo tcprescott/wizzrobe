@@ -334,6 +334,62 @@ class SurveyAnswer(Model):
         unique_together = (('response', 'question', 'scope'),)
 
 
+class SurveyCommentTag(Model):
+    """A staff-only label for sorting a survey's comments ("Venue", "Wizzrobe").
+
+    Each survey starts with a starter set
+    (:data:`application.services.survey.comments.STARTER_TAGS`) and staff add
+    their own. Respondents never see tags.
+    """
+
+    id = fields.IntField(pk=True)
+    tenant: fields.ForeignKeyRelation = fields.ForeignKeyField(
+        'models.Tenant', related_name='survey_comment_tags', on_delete=fields.CASCADE,
+    )
+    tenant_id: int
+    survey: fields.ForeignKeyRelation = fields.ForeignKeyField(
+        'models.Survey', related_name='comment_tags', on_delete=fields.CASCADE,
+    )
+    survey_id: int
+    name = fields.CharField(max_length=40)
+    position = fields.IntField(default=0)
+
+    class Meta:
+        table = 'survey_comment_tag'
+        unique_together = (('survey', 'name'),)
+
+
+class SurveyCommentMark(Model):
+    """Staff's shared working state for one comment: read, and its tags.
+
+    One row per answer, made the first time a comment is marked read or
+    tagged. ``tags`` holds :class:`SurveyCommentTag` ids.
+    """
+
+    id = fields.IntField(pk=True)
+    tenant: fields.ForeignKeyRelation = fields.ForeignKeyField(
+        'models.Tenant', related_name='survey_comment_marks', on_delete=fields.CASCADE,
+    )
+    tenant_id: int
+    survey: fields.ForeignKeyRelation = fields.ForeignKeyField(
+        'models.Survey', related_name='comment_marks', on_delete=fields.CASCADE,
+    )
+    survey_id: int
+    answer: fields.OneToOneRelation = fields.OneToOneField(
+        'models.SurveyAnswer', related_name='mark', on_delete=fields.CASCADE,
+    )
+    answer_id: int
+    read_at = fields.DatetimeField(null=True)
+    read_by: fields.ForeignKeyNullableRelation = fields.ForeignKeyField(
+        'models.User', related_name='survey_comment_reads', null=True, on_delete=fields.SET_NULL,
+    )
+    read_by_id: Optional[int]
+    tags = fields.JSONField(default=list)  # type: ignore[var-annotated]
+
+    class Meta:
+        table = 'survey_comment_mark'
+
+
 class SurveySuggestionBatch(Model):
     """One press of "Suggest questions" on a section: what was sent, and the drafts that came back.
 

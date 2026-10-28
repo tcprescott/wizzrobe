@@ -20,6 +20,8 @@ from application.repositories._tenant import current_tenant_id, scoped
 from models import (
     Survey,
     SurveyAnswer,
+    SurveyCommentMark,
+    SurveyCommentTag,
     SurveyPartTally,
     SurveyQuestion,
     SurveyRecipient,
@@ -295,6 +297,50 @@ class SurveyRepository(EventScopedRepository[Survey]):
         return await scoped(SurveyAnswer.filter(
             response__survey_id=survey_id, response__status=SurveyResponseStatus.SUBMITTED,
         )).prefetch_related('response')
+
+
+    # --- comments inbox ---------------------------------------------------
+
+    @staticmethod
+    async def comment_tags(survey_id: int) -> List[SurveyCommentTag]:
+        return await scoped(SurveyCommentTag.filter(survey_id=survey_id)).order_by('position', 'id')
+
+    @staticmethod
+    async def get_comment_tag(tag_id: int) -> Optional[SurveyCommentTag]:
+        return await SurveyCommentTag.get_or_none(id=tag_id, tenant_id=current_tenant_id())
+
+    @staticmethod
+    async def create_comment_tag(survey: Survey, name: str, position: int) -> SurveyCommentTag:
+        return await SurveyCommentTag.create(tenant_id=current_tenant_id(), survey=survey, name=name, position=position)
+
+    @staticmethod
+    async def delete_comment_tag(tag: SurveyCommentTag) -> None:
+        await guarded_delete(scoped(SurveyCommentTag.filter(id=tag.id)))
+
+    @staticmethod
+    async def comment_marks(survey_id: int) -> Dict[int, SurveyCommentMark]:
+        """Each marked comment's read state and tags, by answer id."""
+        marks = await scoped(SurveyCommentMark.filter(survey_id=survey_id)).prefetch_related('read_by')
+        return {m.answer_id: m for m in marks}
+
+    @staticmethod
+    async def submitted_answer(answer_id: int) -> Optional[SurveyAnswer]:
+        """One answer on a submitted response, with its response and question loaded."""
+        return await scoped(SurveyAnswer.filter(
+            id=answer_id, response__status=SurveyResponseStatus.SUBMITTED,
+        )).prefetch_related('response__user', 'question__section').first()
+
+    @staticmethod
+    async def save_comment_mark(survey_id: int, answer_id: int, **fields: Any) -> SurveyCommentMark:
+        mark, created = await SurveyCommentMark.get_or_create(
+            answer_id=answer_id, tenant_id=current_tenant_id(),
+            defaults={'survey_id': survey_id, **fields},
+        )
+        if not created:
+            for name, value in fields.items():
+                setattr(mark, name, value)
+            await save_fields(mark, *fields)
+        return mark
 
 
     # --- AI suggestions ---------------------------------------------------

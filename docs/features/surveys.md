@@ -171,8 +171,7 @@ The builder's time check warns over **10 minutes** (`plan.BUDGET_SECONDS`).
 
 ## Results report
 
-Results (Thomas picked layout A, 2026-10-28; spec
-`docs/specs/survey-results-view.md` until the comments inbox ships) opens on
+Results (Thomas picked layout A, 2026-10-28) opens on
 four tiles (responses, recommend score, overall rating, and the first
 "Yes / …" question everyone saw), the response rate for players, volunteers
 and crew, the group filter, the drop-off card, then the survey's own sections
@@ -195,6 +194,27 @@ and crew, the group filter, the drop-off card, then the survey's own sections
   lists only groups with 5 or more answers (`audiences.group_options`) and
   refuses others; a narrowed question under 5 answers shows its count only,
   and the drop-off card is left out.
+
+## Comments inbox
+
+The **Comments n** tab (Thomas picked B, 2026-10-28; `pages/admin_tabs/admin_surveys/inbox.py`,
+`application/services/survey/comments.py`) lists every comment and "Other"
+write-in, newest first. On desktop a question list sits on the left; on a phone
+it's a dropdown. Above the list: search, **Unread n** / **Read n** chips, and a
+chip per tag with its count; the chips' ⋮ adds or deletes a tag. Each comment
+shows who (the results' rule: an anonymous one names its group only when the
+group has 5 or more), its tournament or position and question, **Mark read**
+(a green tick once read, which marks it unread again) and **+ Tag**.
+
+- Read marks and tags are shared by all staff (Thomas's pick) and stored per
+  answer in `SurveyCommentMark`; respondents never see them.
+- Each survey starts with the starter tags Wizzrobe, Venue, Schedule, Staff and
+  Praise (`STARTER_TAGS`, made the first time the inbox opens) and staff add
+  their own, up to 20. Deleting a tag takes it off every comment. Adding or
+  deleting a tag is audited; marking a comment isn't, since it would flood the log.
+- REST `GET /api/surveys/{id}/comments` and `PATCH .../comments/{answer_id}`
+  (`read`, `tags`); MCP `list_survey_comments` and `mark_survey_comment`.
+  Staff only, behind the Surveys flag (no flag of its own, Thomas's pick).
 
 ## Drop-off
 
@@ -241,8 +261,8 @@ event is archived.
 
 ## REST and MCP
 
-Reads (STAFF_READ): list, get, conditions, results, responses. Writes
-(STAFF_WRITE) build a draft only: create, duplicate, update, delete (drafts
+Reads (STAFF_READ): list, get, conditions, results, responses, comments.
+Writes (STAFF_WRITE) mark a comment read or tag it, and build a draft: create, duplicate, update, delete (drafts
 only), add/update/delete/move sections and questions. Sending, reminding and
 closing stay buttons in the app (Thomas's call). The MCP tools mirror the
 routes one for one; see [mcp-server.md](mcp-server.md#surveys) and

@@ -349,6 +349,8 @@ ACTION_LABELS: dict[str, str] = {
     'survey.reminded': 'Sent a survey reminder',
     'survey.closed': 'Closed a survey',
     'survey.questions_suggested': 'Asked the AI for survey questions',
+    'survey.comment_tag_created': 'Added a survey comment tag',
+    'survey.comment_tag_deleted': 'Deleted a survey comment tag',
     # Settings
     'system_config.updated': 'Changed a setting',
     'notification_setting.changed': 'Changed how a notification is sent',

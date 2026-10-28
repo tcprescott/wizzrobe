@@ -1,7 +1,7 @@
 """Admin → Surveys: the event's surveys, and one survey's builder or results.
 
 ``?survey=<id>`` opens one survey: a draft on its builder, a sent one on its
-results with a Results / Questions switch (``?view=``).
+results with a Results / Comments / Questions switch (``?view=``).
 """
 
 from typing import Any, Dict, List, Optional
@@ -10,6 +10,8 @@ from nicegui import app, context, ui
 
 from application.event_context import event_scope, get_current_event_id
 from application.services import (
+    CommentInbox,
+    SurveyCommentService,
     SurveyRow,
     SurveyService,
     SurveySuggestionService,
@@ -23,6 +25,7 @@ from application.utils.timezone import format_local_display
 from models import Survey, SurveyStatus
 from pages.admin_tabs.admin_surveys import dialogs
 from pages.admin_tabs.admin_surveys.builder import BuilderContext, render_builder
+from pages.admin_tabs.admin_surveys.inbox import render_comments
 from pages.admin_tabs.admin_surveys.results import render_results
 from pages.admin_tabs.admin_surveys.shared import STATUS_BADGES
 from theme.a11y import make_activatable
@@ -37,7 +40,7 @@ from theme.tables.admin_crud import wire_tab_refresh
 from theme.url_state import url_param, url_state
 
 TAB_LABEL = 'Surveys'
-RESULTS, QUESTIONS = 'results', 'questions'
+RESULTS, COMMENTS, QUESTIONS = 'results', 'comments', 'questions'
 
 
 def _counts_line(row: SurveyRow) -> str:
@@ -215,7 +218,11 @@ async def admin_surveys_page(survey: Optional[int] = None, view: Optional[str] =
             closes = f' · open until {format_local_display(s.closes_at)}' \
                 if s.closes_at and s.status is SurveyStatus.OPEN else ''
             ui.label(f'Sent {format_local_display(s.sent_at)}{closes}').classes('text-caption text-grey-7')
-            switch = ui.toggle({RESULTS: 'Results', QUESTIONS: 'Questions'}, value=state['view']) \
+            comments = SurveyCommentService()
+            inbox = await comments.inbox(user, s.id)
+            count = f' {len(inbox.comments)}' if inbox.comments else ''
+            switch = ui.toggle({RESULTS: 'Results', COMMENTS: f'Comments{count}', QUESTIONS: 'Questions'},
+                               value=state['view']) \
                 .props('no-caps dense unelevated').classes('wiz-segmented')
             view_param = url_param('view', switch, default=RESULTS, value=state['view'],
                                    on_restore=lambda v: (state.update(view=v or RESULTS), body.refresh()))
@@ -242,6 +249,13 @@ async def admin_surveys_page(survey: Optional[int] = None, view: Optional[str] =
                     state['group'] = None
                     results = await service.results(user, s.id)
                 render_results(results, pick_group)
+                return
+            if state['view'] == COMMENTS:
+                async def load() -> CommentInbox:
+                    with tenant_scope(tenant_id), event_scope(event_id):
+                        return await comments.inbox(await current(), s.id)
+
+                render_comments(inbox, user, load)
                 return
             summary = await service.builder_summary(user, s.id)
         ai_label, suggestions = None, {}
@@ -273,7 +287,8 @@ async def admin_surveys_page(survey: Optional[int] = None, view: Optional[str] =
         asked = url_state().requested('survey') or (str(survey) if survey else '')
         if asked.isdecimal():
             state['open'] = int(asked)
-            state['view'] = QUESTIONS if (url_state().requested('view') or view) == QUESTIONS else RESULTS
+            asked_view = url_state().requested('view') or view
+            state['view'] = asked_view if asked_view in (COMMENTS, QUESTIONS) else RESULTS
             state['group'] = url_state().requested('group') or None
         await body()
         if state['open'] is not None:

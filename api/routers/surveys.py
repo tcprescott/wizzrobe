@@ -23,6 +23,8 @@ from api.schemas.surveys import (
     SectionRequest,
     SectionUpdateRequest,
     SubmittedResponse,
+    SurveyCommentMarkRequest,
+    SurveyCommentsResponse,
     SurveyCreateRequest,
     SurveyQuestionResponse,
     SurveyResponseModel,
@@ -30,6 +32,7 @@ from api.schemas.surveys import (
     SurveySectionResponse,
     SurveySummaryResponse,
     SurveyUpdateRequest,
+    comments_out,
     conditions_in,
     conditions_out,
     question_out,
@@ -39,7 +42,7 @@ from api.schemas.surveys import (
     summary_out,
     survey_out,
 )
-from application.services import SurveyService
+from application.services import SurveyCommentService, SurveyService
 from application.services.survey import conditions
 from models import Survey, SurveyQuestion, SurveySection, User
 
@@ -104,6 +107,37 @@ async def get_survey(survey_id: int, actor: User = Depends(require_staff)):
 )
 async def get_results(survey_id: int, group: Optional[str] = None, actor: User = Depends(require_staff)):
     return results_out(survey_id, await SurveyService().results(actor, survey_id, group=group))
+
+
+@router.get(
+    "/{survey_id}/comments",
+    response_model=SurveyCommentsResponse,
+    summary="Get a survey's comments inbox",
+    description=(
+        "Every comment and `Other` write-in, newest first, with whether staff have marked it read and "
+        "its tags. Read marks and tags are shared by all staff and never shown to respondents. "
+        "Anonymous comments carry their group only when it has 5 or more people.\n\n"
+        "**Who can call this:** Staff."
+    ),
+)
+async def get_comments(survey_id: int, actor: User = Depends(require_staff)):
+    return comments_out(await SurveyCommentService().inbox(actor, survey_id))
+
+
+@router.patch(
+    "/{survey_id}/comments/{answer_id}",
+    response_model=SurveyCommentsResponse,
+    summary="Mark a survey comment read, or set its tags",
+    description=(
+        "Only the fields you send change. Returns the whole inbox afterwards.\n\n"
+        "**Who can call this:** Staff."
+    ),
+)
+async def mark_comment(survey_id: int, answer_id: int, body: SurveyCommentMarkRequest,
+                       actor: User = Depends(require_staff_write)):
+    service = SurveyCommentService()
+    await service.mark(actor, survey_id, answer_id, read=body.read, tags=body.tags)
+    return comments_out(await service.inbox(actor, survey_id))
 
 
 @router.get(

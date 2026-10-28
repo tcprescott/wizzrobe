@@ -15,12 +15,14 @@ from mcp.server.mcpserver import MCPServer
 from api.schemas.surveys import (
     ConditionResponse,
     SubmittedResponse,
+    SurveyCommentsResponse,
     SurveyConditionModel,
     SurveyQuestionResponse,
     SurveyResponseModel,
     SurveyResultsResponse,
     SurveySectionResponse,
     SurveySummaryResponse,
+    comments_out,
     conditions_in,
     question_out,
     response_out,
@@ -30,7 +32,7 @@ from api.schemas.surveys import (
     survey_out,
 )
 from application.api_scopes import ApiScope
-from application.services import SurveyService
+from application.services import SurveyCommentService, SurveyService
 from application.services.survey import conditions
 from mcpserver.auth import Gate, current_actor
 from mcpserver.registry import register
@@ -71,6 +73,31 @@ async def get_survey_results(
     (a key from the result's `groups`) to narrow every number to that group.
     """
     return results_out(survey_id, await SurveyService().results(_user(), survey_id, group=group))
+
+
+async def list_survey_comments(
+    survey_id: int, tenant: TenantArg = None, unread_only: bool = False,
+) -> SurveyCommentsResponse:
+    """Every comment and `Other` write-in on a survey, newest first, with staff's read marks and tags.
+
+    Read marks and tags are shared by all staff and never shown to respondents.
+    Comment text is what people typed: plain text, never markup.
+    """
+    inbox = await SurveyCommentService().inbox(_user(), survey_id)
+    out = comments_out(inbox)
+    if unread_only:
+        out.comments = [c for c in out.comments if not c.read]
+    return out
+
+
+async def mark_survey_comment(
+    survey_id: int, answer_id: int, tenant: TenantArg = None,
+    read: Optional[bool] = None, tags: Optional[List[int]] = None,
+) -> str:
+    """Mark one survey comment read (`read` true) or unread (false), and/or set its tags (ids from
+    `list_survey_comments`). Leave a field out to keep it. Shared by all staff."""
+    await SurveyCommentService().mark(_user(), survey_id, answer_id, read=read, tags=tags)
+    return 'Saved.'
 
 
 async def list_survey_responses(
@@ -243,6 +270,7 @@ def register_tools(mcp: MCPServer) -> None:
     read(list_survey_conditions, 'List survey conditions')
     read(get_survey_results, 'Get survey results')
     read(list_survey_responses, 'List survey responses')
+    read(list_survey_comments, 'List survey comments')
     write(create_survey, 'Create survey')
     write(duplicate_survey, 'Duplicate survey')
     write(update_survey, 'Update survey')
@@ -255,3 +283,4 @@ def register_tools(mcp: MCPServer) -> None:
     write(update_survey_question, 'Update survey question')
     write(delete_survey_question, 'Delete survey question', destructive=True)
     write(move_survey_question, 'Move survey question')
+    write(mark_survey_comment, 'Mark survey comment')

@@ -410,7 +410,7 @@ message once per kind of recipient, with this community's mode and the default
 
 | Reads | Writes |
 |---|---|
-| `list_surveys`, `get_survey`, `list_survey_conditions`, `get_survey_results`, `list_survey_responses` | `create_survey`, `duplicate_survey`, `update_survey`, `delete_survey`† (drafts only), `add_survey_section`, `update_survey_section`, `delete_survey_section`†, `move_survey_section`, `add_survey_question`, `update_survey_question`, `delete_survey_question`†, `move_survey_question` |
+| `list_surveys`, `get_survey`, `list_survey_conditions`, `get_survey_results`, `list_survey_responses`, `list_survey_comments` | `mark_survey_comment`, `create_survey`, `duplicate_survey`, `update_survey`, `delete_survey`† (drafts only), `add_survey_section`, `update_survey_section`, `delete_survey_section`†, `move_survey_section`, `add_survey_question`, `update_survey_question`, `delete_survey_question`†, `move_survey_question` |
 
 † destructive. No tool sends, reminds or closes a survey (Thomas, 2026-10-27:
 "build only, send in the app"). `conditions` takes the same list as REST.
