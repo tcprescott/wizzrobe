@@ -267,6 +267,11 @@ def question_dialog(service: SurveyService, user: User, survey: Survey, section:
                 kind = ui.select({k.value: plan.KIND_LABELS[k] for k in SurveyQuestionKind}, value=initial_kind,
                                  label='Type').props('outlined dense')
                 required = ui.switch('Required', value=bool(question.required) if question else False)
+            with ui.row().classes('wiz-survey-nudge no-wrap items-start w-full') as agree_nudge:
+                ui.icon('lightbulb').props('aria-hidden=true')
+                ui.label('Agree scales get more “agree” than people mean. For “how good was it”, a Rating '
+                         'question measures it better. Use agree statements for things people can check, '
+                         'like “Check-in was quick”.')
             options = ui.textarea(
                 'Choices, one per line', value='\n'.join(question.options or []) if question else '',
             ).props('outlined autogrow').classes('w-full')
@@ -302,6 +307,7 @@ def question_dialog(service: SurveyService, user: User, survey: Survey, section:
             options.set_visibility(chosen in CHOICE_KINDS or agree)
             options.props(f'label="{"Statements, one per line (2 to 10)" if agree else "Choices, one per line"}"')
             scale_hint.set_visibility(agree)
+            agree_nudge.set_visibility(agree)
             choice_extras.set_visibility(chosen in CHOICE_KINDS)
             many_extras.set_visibility(chosen is SurveyQuestionKind.CHOICE_MANY)
             comment = chosen is SurveyQuestionKind.COMMENT

@@ -29,6 +29,8 @@ SECONDS: Dict[SurveyQuestionKind, int] = {
 DEFAULT_AFTER_SEND = "We'll share what we change because of your answers."
 
 BUDGET_SECONDS = 10 * 60
+# What most people's path should stay under; the budget above is the ceiling for anyone's.
+TARGET_SECONDS = 5 * 60
 REPEATING = (SurveyAudience.EACH_TOURNAMENT, SurveyAudience.EACH_POSITION)
 
 # A crew-role audience → the role in a recipient's ``crew_roles`` fact, and the part's reason line.

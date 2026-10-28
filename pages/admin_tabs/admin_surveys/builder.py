@@ -221,17 +221,36 @@ def _budget_card(ctx: BuilderContext) -> None:
             ui.label('Nobody has taken part in this event yet, so there is no one to time it for.') \
                 .classes('wiz-survey-side__text')
             return
-        share = min(1.0, summary.longest_seconds / plan.BUDGET_SECONDS)
-        ui.label(f'About {plan.format_duration(summary.longest_seconds)} at most') \
-            .classes('wiz-survey-side__figure')
-        ui.linear_progress(value=share, show_value=False, size='8px',
-                           color='negative' if summary.over_budget else 'primary') \
-            .props('rounded aria-label="Share of the 10 minute budget"')
-        ui.label(f'{summary.longest_who}: {summary.longest_questions} questions.') \
-            .classes('wiz-survey-side__text')
+        typical, longest = summary.typical_seconds, summary.longest_seconds
+        ui.label(f'Most people: about {plan.format_duration(typical)}').classes('wiz-survey-side__figure')
+        ui.label(f'Longest: about {plan.format_duration(longest)} · {summary.longest_who}, '
+                 f'{summary.longest_questions} questions').classes('wiz-survey-side__text')
+        budget = plan.BUDGET_SECONDS
+
+        def pct(seconds: int) -> float:
+            return round(min(1.0, seconds / budget) * 100, 1)
+
+        bar = ui.element('div').classes('wiz-survey-time' + (' is-over' if summary.over_budget else '')) \
+            .props('role=img')
+        bar._props['aria-label'] = (f'Most people about {plan.format_duration(typical)}, longest about '
+                                    f'{plan.format_duration(longest)}, on a {budget // 60} minute scale')
+        with bar:
+            ui.element('span').classes('wiz-survey-time__longest').style(f'width: {pct(longest)}%')
+            ui.element('span').classes('wiz-survey-time__typical').style(f'width: {pct(typical)}%')
+            ui.element('span').classes('wiz-survey-time__tick').style(f'left: {pct(plan.TARGET_SECONDS)}%')
+        with ui.row().classes('wiz-survey-time__scale w-full no-wrap').props('aria-hidden=true'):
+            ui.label('0')
+            ui.label(f'{plan.TARGET_SECONDS // 60} min')
+            ui.label(str(budget // 60))
         if summary.over_budget:
-            ui.label('That is over 10 minutes. Trim a repeating section first; it counts once per tournament.') \
+            ui.label(f'The longest path is over {budget // 60} minutes. Trim a repeating section first; '
+                     'it counts once per tournament.').classes('wiz-survey-side__warn')
+        elif typical > plan.TARGET_SECONDS:
+            ui.label(f'Most people take over {plan.TARGET_SECONDS // 60} minutes. Aim for under that.') \
                 .classes('wiz-survey-side__warn')
+        else:
+            ui.label(f'Aim for most people under {plan.TARGET_SECONDS // 60}. '
+                     f'Over {budget // 60} is too long for anyone.').classes('wiz-survey-side__text')
 
 
 def _who_card(ctx: BuilderContext) -> None:

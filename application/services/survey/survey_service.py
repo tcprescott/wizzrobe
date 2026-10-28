@@ -17,6 +17,7 @@ The respondent's side is :mod:`~application.services.survey.survey_response_serv
 
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
+from statistics import median_low
 from types import SimpleNamespace
 from typing import Any, Dict, Iterable, List, Mapping, Optional, Sequence
 
@@ -85,6 +86,8 @@ class BuilderSummary:
     counts: Dict[str, int]
     tournaments: List[dict] = field(default_factory=list)
     positions: List[dict] = field(default_factory=list)
+    #: The middle person's time (median over everyone who took part).
+    typical_seconds: int = 0
     #: Responses sent in so far; always 0 on a draft.
     answered: int = 0
 
@@ -178,23 +181,26 @@ class SurveyService:
 
     @requires_feature(FeatureFlag.SURVEYS)
     async def builder_summary(self, actor: User, survey_id: int) -> BuilderSummary:
-        """How long the survey takes the person with the most to answer, and who gets it.
+        """How long the survey takes most people and the person with the most to answer, and who gets it.
 
         Worked out over the people who actually took part in the survey's event,
-        so the time box speaks about the real worst case, not a guess.
+        so the time box speaks about the real typical and worst cases, not a guess.
         """
         await self._ensure_staff(actor)
         survey = await self._load(survey_id)
         participation = await Participation.load(survey.event_id)
         longest, who, count = 0, '', 0
+        everyone: List[int] = []
         for facts in (await participation.facts_by_user()).values():
             parts = plan.parts_for(survey.sections, facts)
             seconds = plan.seconds(parts)
+            everyone.append(seconds)
             if seconds > longest:
                 longest, count = seconds, plan.question_count(parts)
                 who = _describe(facts)
         return BuilderSummary(
             longest_seconds=longest, longest_questions=count, longest_who=who,
+            typical_seconds=int(median_low(everyone)) if everyone else 0,
             counts=participation.counts(),
             tournaments=participation.tournament_names(), positions=participation.position_names(),
             answered=0 if survey.status is SurveyStatus.DRAFT else await self.repository.submitted_count(survey.id),

@@ -9,6 +9,7 @@ from application.services.survey.dropoff import Dropoff
 from application.services.survey.participation import Participation
 from application.services.survey.suggestions import SurveySuggestionService
 from application.services.survey.survey_response_service import (
+    MissingAnswer,
     RespondentView,
     SurveyResponseService,
     response_answers,
@@ -25,6 +26,7 @@ __all__ = [
     'AGREE_LEVELS',
     'BuilderSummary',
     'Dropoff',
+    'MissingAnswer',
     'Participation',
     'RespondentView',
     'SurveyResponseService',

@@ -262,6 +262,7 @@ async def test_builder_summary_finds_the_longest_path(event_world):
     summary = await SurveyService().builder_summary(event_world['staff'], survey.id)
     assert 'played 2 tournaments' in summary.longest_who
     assert summary.longest_seconds > 0 and not summary.over_budget
+    assert 0 < summary.typical_seconds <= summary.longest_seconds
 
 
 async def test_remind_once_a_day_and_close(event_world, stub_discord_queue):

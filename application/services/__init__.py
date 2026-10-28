@@ -159,6 +159,7 @@ from .station_service import StationService
 from .stream_layout_service import StreamLayoutService
 from .survey import (
     BuilderSummary,
+    MissingAnswer,
     RespondentView,
     SurveyResponseService,
     SurveyResults,
@@ -273,6 +274,7 @@ __all__ = [
     'McpAuthService',
     'MemberDetails',
     'MemberDetailsService',
+    'MissingAnswer',
     'MyTimelineService',
     'NotFoundError',
     'NotificationChannelService',
