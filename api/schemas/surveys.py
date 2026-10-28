@@ -46,6 +46,9 @@ class SurveyQuestionResponse(BaseModel):
     long_answer: bool = Field(False, description=_LONG_DOC)
     position: int = Field(..., description="Order inside its section, from 0.")
     conditions: List[SurveyConditionModel] = Field(default_factory=list, description=_CONDITIONS_DOC)
+    original_prompt: Optional[str] = Field(None, description="The wording before it was first changed after answers came in.")
+    reworded_at: Optional[datetime] = Field(None, description="When the wording first changed after answers came in (UTC).")
+    reworded_after: Optional[int] = Field(None, description="How many responses had been sent before that change.")
 
 
 class SurveySectionResponse(BaseModel):
@@ -71,6 +74,7 @@ class SurveySummaryResponse(BaseModel):
 
 class SurveyResponseModel(SurveySummaryResponse):
     intro: str = Field('', description="Plain text shown above the parts.")
+    after_send: str = Field('', description="Shown after someone sends their answers; blank shows a default line.")
     sections: List[SurveySectionResponse] = Field(default_factory=list)
 
 
@@ -166,8 +170,9 @@ class SurveyCreateRequest(BaseModel):
 class SurveyUpdateRequest(BaseModel):
     title: Optional[str] = Field(None, max_length=120)
     intro: Optional[str] = Field(None, max_length=2000)
-    allow_anonymous: Optional[bool] = None
-    closes_at: Optional[datetime] = Field(None, description="When it stops taking answers (UTC). The only field an open survey takes.")
+    after_send: Optional[str] = Field(None, max_length=500, description="Shown after someone sends their answers.")
+    allow_anonymous: Optional[bool] = Field(None, description="Fixed once the survey is sent.")
+    closes_at: Optional[datetime] = Field(None, description="When it stops taking answers (UTC). Moves only while it's open.")
 
 
 class SectionRequest(BaseModel):
@@ -233,6 +238,7 @@ def question_out(q: SurveyQuestion) -> SurveyQuestionResponse:
         id=q.id, prompt=q.prompt, kind=q.kind.value, options=q.options, required=q.required,
         other_option=q.other_option, none_option=q.none_option, min_picks=q.min_picks, max_picks=q.max_picks,
         long_answer=q.long_answer, position=q.position, conditions=conditions_out(q.conditions),
+        original_prompt=q.original_prompt, reworded_at=q.reworded_at, reworded_after=q.reworded_after,
     )
 
 
@@ -255,7 +261,7 @@ def summary_out(s: Survey, sent: int = 0, answered: int = 0) -> SurveySummaryRes
 
 
 def survey_out(s: Survey) -> SurveyResponseModel:
-    return SurveyResponseModel(**_summary(s), intro=s.intro or '', sections=[section_out(x) for x in s.sections])
+    return SurveyResponseModel(**_summary(s), intro=s.intro or '', after_send=s.after_send or '', sections=[section_out(x) for x in s.sections])
 
 
 def _breakdown(b: Breakdown) -> BreakdownResponse:

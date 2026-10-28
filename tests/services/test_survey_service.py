@@ -1,5 +1,6 @@
 """Post-event surveys: building, sending to the right people, answering, results."""
 
+import json
 from datetime import datetime, timedelta, timezone
 
 import pytest
@@ -629,3 +630,62 @@ def test_not_interested_button_round_trips_its_survey():
     assert done.disabled
     with pytest.raises(DMInteractionError):
         _parse('survey:decline:x')
+
+
+async def test_a_sent_survey_takes_wording_fixes_but_nothing_else(event_world):
+    """Thomas, 2026-10-28: wording only after sending, logged; structure stays frozen."""
+    from models import AuditLog
+
+    survey = await _sent(event_world)
+    staff = event_world['staff']
+    service = SurveyService()
+    survey = await service._load(survey.id)
+    section = survey.sections[0]
+    question = section.questions[0]
+
+    await service.update_survey(staff, survey.id, title='SGL26: how did it go?', after_send='Changes by December.')
+    await service.update_section(staff, section.id, title='The whole event', description='Everyone gets these.')
+    await service.update_question(staff, question.id, prompt='Overall, how was the event for you?')
+    survey = await service._load(survey.id)
+    assert survey.title == 'SGL26: how did it go?' and survey.after_send == 'Changes by December.'
+    assert survey.sections[0].title == 'The whole event'
+    assert survey.sections[0].questions[0].prompt == 'Overall, how was the event for you?'
+    # Nobody had answered yet, so there's nothing to mark.
+    assert survey.sections[0].questions[0].reworded_at is None
+    logs = await AuditLog.filter(action='survey.updated').order_by('id')
+    assert json.loads(logs[-1].details)['wording'] == {'prompt': [question.prompt, 'Overall, how was the event for you?']}
+
+    with pytest.raises(ValueError, match='only its wording'):
+        await service.update_question(staff, question.id, required=True)
+    with pytest.raises(ValueError, match='only its wording'):
+        await service.update_question(staff, question.id, prompt='x?', long_answer=True)
+    with pytest.raises(ValueError, match='only its wording'):
+        await service.update_section(staff, section.id, audience=SurveyAudience.CREW)
+    with pytest.raises(ValueError, match='been sent'):
+        await service.update_survey(staff, survey.id, allow_anonymous=False)
+
+
+async def test_rewording_after_answers_came_in_is_marked_once(event_world):
+    survey = await _sent(event_world)
+    w = event_world
+    await _answer_everything(w['alice'], survey.id, 4)
+    await SurveyResponseService().submit(w['alice'], survey.id)
+    service = SurveyService()
+    question = (await service._load(survey.id)).sections[0].questions[0]
+    first = question.prompt
+
+    await service.update_question(w['staff'], question.id, prompt='Overall, how was it?')
+    await service.update_question(w['staff'], question.id, prompt='Overall, how was SGL26?')
+    question = await SurveyQuestion.get(id=question.id)
+    assert question.prompt == 'Overall, how was SGL26?'
+    assert question.original_prompt == first and question.reworded_after == 1
+    assert question.reworded_at is not None
+
+
+async def test_after_send_line_is_plain_text_and_capped(event_world):
+    service = SurveyService()
+    survey = await service.create_survey(event_world['staff'], 'SGL26 survey')
+    updated = await service.update_survey(event_world['staff'], survey.id, after_send='  <b>Soon</b>  ')
+    assert updated.after_send == '<b>Soon</b>'
+    with pytest.raises(ValueError):
+        await service.update_survey(event_world['staff'], survey.id, after_send='x' * 501)

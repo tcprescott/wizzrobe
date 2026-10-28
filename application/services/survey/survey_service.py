@@ -29,6 +29,7 @@ from application.services.audit_service import AuditActions, AuditService
 from application.services.auth_service import AuthService
 from application.services.survey import _notifications, dropoff, plan
 from application.services.survey._validation import (
+    AFTER_SEND_MAX,
     DESCRIPTION_MAX,
     INTRO_MAX,
     PROMPT_MAX,
@@ -137,6 +138,16 @@ class SurveyService:
     def _ensure_draft(survey: Survey) -> None:
         if survey.status is not SurveyStatus.DRAFT:
             raise ValueError("This survey has been sent, so its questions can't change. Duplicate it to start a new one.")
+
+    @staticmethod
+    def _ensure_wording_only(survey: Survey, given: Iterable[str], wording: Iterable[str]) -> None:
+        """Once sent, only wording may change (Thomas, 2026-10-28): answers stay tied to the same questions."""
+        if survey.status is SurveyStatus.DRAFT:
+            return
+        locked = sorted(set(given) - set(wording))
+        if locked:
+            raise ValueError("This survey has been sent, so only its wording can change. "
+                             "Duplicate it to change anything else.")
 
     async def _audit(self, actor: User, action: str, survey: Survey, **details: Any) -> None:
         await self.audit_service.write_log(actor, action, {'survey_id': survey.id, 'title': survey.title, **details})
@@ -278,20 +289,25 @@ class SurveyService:
 
     @requires_feature(FeatureFlag.SURVEYS)
     async def update_survey(self, actor: User, survey_id: int, *, title: Any = _UNSET, intro: Any = _UNSET,
-                            allow_anonymous: Any = _UNSET, closes_at: Any = _UNSET) -> Survey:
-        """Change the survey's title, intro, anonymity switch or close time.
+                            allow_anonymous: Any = _UNSET, closes_at: Any = _UNSET,
+                            after_send: Any = _UNSET) -> Survey:
+        """Change the survey's title, intro, "after you send" line, anonymity switch or close time.
 
-        The close time can move while it's open; the rest is fixed once sent.
+        Once sent, the close time can move while it's open and the wording can
+        be fixed; the anonymity switch is fixed.
         """
         await self._ensure_staff(actor)
         survey = await self._load(survey_id)
         fields: Dict[str, Any] = {}
-        if title is not _UNSET or intro is not _UNSET or allow_anonymous is not _UNSET:
+        if allow_anonymous is not _UNSET:
             self._ensure_draft(survey)
         if title is not _UNSET:
             fields['title'] = clean_text(title, limit=TITLE_MAX, what='A title')
         if intro is not _UNSET:
             fields['intro'] = clean_text(intro, limit=INTRO_MAX, what='The intro', required=False)
+        if after_send is not _UNSET:
+            fields['after_send'] = clean_text(after_send, limit=AFTER_SEND_MAX, what='The after-you-send line',
+                                              required=False)
         if allow_anonymous is not _UNSET:
             fields['allow_anonymous'] = bool(allow_anonymous)
         if closes_at is not _UNSET:
@@ -301,8 +317,10 @@ class SurveyService:
                 raise ValueError('Pick a close time in the future.')
             fields['closes_at'] = closes_at
         if fields:
+            wording = _wording_changes(survey, fields, ('title', 'intro', 'after_send'))
             await self.repository.update(survey, **fields)
-            await self._audit(actor, AuditActions.SURVEY_UPDATED, survey, fields=sorted(fields))
+            await self._audit(actor, AuditActions.SURVEY_UPDATED, survey, fields=sorted(fields),
+                              **({'wording': wording} if wording and survey.status is not SurveyStatus.DRAFT else {}))
         return await self._load(survey.id)
 
     @requires_feature(FeatureFlag.SURVEYS)
@@ -350,7 +368,11 @@ class SurveyService:
                              audience: Any = _UNSET, conditions: Any = _UNSET,
                              description: Any = _UNSET) -> SurveySection:
         await self._ensure_staff(actor)
-        survey, section = await self._draft_section(section_id)
+        section = require_found(await self.repository.get_section(section_id), 'Section')
+        survey = await self._load(section.survey_id)
+        given = {name for name, value in (('title', title), ('description', description), ('audience', audience),
+                                          ('conditions', conditions)) if value is not _UNSET}
+        self._ensure_wording_only(survey, given, ('title', 'description'))
         fields: Dict[str, Any] = {}
         if title is not _UNSET:
             fields['title'] = clean_text(title, limit=TITLE_MAX, what='A section title')
@@ -361,8 +383,10 @@ class SurveyService:
         if conditions is not _UNSET:
             fields['conditions'] = _section_conditions(conditions, plan.before_section(survey.sections, section.id))
         if fields:
+            wording = _wording_changes(section, fields, ('title', 'description'))
             await self.repository.update(section, **fields)
-            await self._audit(actor, AuditActions.SURVEY_UPDATED, survey, section_updated=section.id)
+            await self._audit(actor, AuditActions.SURVEY_UPDATED, survey, section_updated=section.id,
+                              **({'wording': wording} if wording and survey.status is not SurveyStatus.DRAFT else {}))
         return section
 
     @requires_feature(FeatureFlag.SURVEYS)
@@ -418,7 +442,11 @@ class SurveyService:
         """Change what's given; ``extras`` as for :meth:`add_question`, unchanged where left out."""
         await self._ensure_staff(actor)
         question = require_found(await self.repository.get_question(question_id), 'Question')
-        survey, _ = await self._draft_section(question.section_id)
+        section = require_found(await self.repository.get_section(question.section_id), 'Section')
+        survey = await self._load(section.survey_id)
+        given = {name for name, value in (('prompt', prompt), ('kind', kind), ('options', options),
+                                          ('required', required), ('conditions', conditions)) if value is not _UNSET}
+        self._ensure_wording_only(survey, given | set(_known(extras)), ('prompt',))
         fields: Dict[str, Any] = {}
         if prompt is not _UNSET:
             fields['prompt'] = clean_text(prompt, limit=PROMPT_MAX, what='The question')
@@ -441,8 +469,15 @@ class SurveyService:
                 conditions, plan.earlier(survey.sections, question.section_id, question.id),
             )
         if fields:
+            wording = _wording_changes(question, fields, ('prompt',))
+            if wording and survey.status is not SurveyStatus.DRAFT and question.reworded_at is None:
+                answered = await self.repository.submitted_count(survey.id)
+                if answered:
+                    fields.update(reworded_at=datetime.now(timezone.utc), reworded_after=answered,
+                                  original_prompt=question.prompt)
             await self.repository.update(question, **fields)
-            await self._audit(actor, AuditActions.SURVEY_UPDATED, survey, question_updated=question.id)
+            await self._audit(actor, AuditActions.SURVEY_UPDATED, survey, question_updated=question.id,
+                              **({'wording': wording} if wording and survey.status is not SurveyStatus.DRAFT else {}))
         return question
 
     @requires_feature(FeatureFlag.SURVEYS)
@@ -635,3 +670,9 @@ def _describe(facts: Mapping[str, Any]) -> str:
 
 async def _reachable(user_ids: set) -> Dict[int, User]:
     return await SurveyParticipationRepository.reachable_users(user_ids)
+
+
+def _wording_changes(row: Any, fields: Mapping[str, Any], names: Sequence[str]) -> Dict[str, List[Any]]:
+    """``{field: [old, new]}`` for the wording fields ``fields`` actually changes, for the audit row."""
+    return {name: [getattr(row, name), fields[name]] for name in names
+            if name in fields and fields[name] != getattr(row, name)}
