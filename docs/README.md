@@ -98,12 +98,13 @@ feature docs become the truth.
 | [plans/sgl26-randomizers.md](plans/sgl26-randomizers.md) | Research notes: what each SGL 2026 on-site tournament races on, per its rules doc, with the open questions to settle before `Tournament.randomizer_notes` is filled in. Delete after the October event |
 | [plans/pre-event-validation/](plans/pre-event-validation/README.md) | The manual test plan for everything the mocks and `/ui-validation` cannot reach — live Discord, real randomizers, racetime, push on real phones, PostgreSQL concurrency, deployment and load — plus the day-of runbook. Delete after the October event |
 | [plans/sahasrahbot-lessons/](plans/sahasrahbot-lessons/README.md) | Status tracker for the seven findings in [reviews/sahasrahbot-lessons.md](reviews/sahasrahbot-lessons.md): which shipped (the seed-provider envelope, seed provenance, abandoned-run expiry, racetime token refresh, config prerequisites) and why the rest are still open |
+| [specs/](specs/README.md) | Agreed specs for features in flight, and the lite/full templates. A spec is committed with the feature's first PR and deleted by the PR that ships it |
 | [reviews/](reviews/README.md) | UX evaluations, one flow each, measured against the running app — with the cross-cutting themes that recur across them |
 
 ## Conventions for this directory
 
 - **CLAUDE.md is canonical for rules.** A doc here explains mechanism and gives examples; it should not restate a rule CLAUDE.md already states — that is how the two drift apart.
 - **No hand-maintained counts.** Doc-stated totals of models, routers, services or repositories go stale within weeks — every such number in this tree was wrong before this was written, and two of them contradicted each other because the same count was maintained in two files. Say "every model", not a number, unless the number is the point and stable (the eleven roles, the four bracket formats).
-- **Design records are not kept after they ship.** Once a plan is implemented, the feature doc is the truth and the plan is deleted — git history holds the rationale. The same goes for point-in-time audit reports.
+- **Design records are not kept after they ship.** Once a plan or spec is implemented, the feature doc is the truth and the plan is deleted — git history holds the rationale. The same goes for point-in-time audit reports.
 - **Prose that restates code is what rots.** Prefer a table of names and one-line purposes over paragraphs describing what a function does.
 - `.claude/` hooks nag on edits to `models/`, `application/`, `api/`, `pages/`, `theme/`, `discordbot/` and `mcpserver/` — see [`.claude/README.md`](../.claude/README.md).

@@ -748,10 +748,10 @@ procedural knowledge (how to do a thing right the first time). Together they
 cover the feature lifecycle end to end — plan → implement → test → review:
 
 - **`skills/plan-feature/`** — step **-1**: turn a feature request into a
-  reviewed design brief (flag decision, model + tenant impact, layer
-  touchpoints naming the shared primitives, test plan incl. leak tests, seed
-  and docs touchpoints, open questions) and stop for user sign-off before any
-  code.
+  lite or full spec under [`docs/specs/`](../docs/specs/README.md) (flag
+  decision, model + tenant impact, layer touchpoints naming the shared
+  primitives, PR plan, acceptance list) and stop for the one sign-off before
+  any code.
 - **`skills/add-feature/`** — the end-to-end implementation checklist:
   model → migration → repository (tenant scoping, `TenantScopedRepository`) →
   service (audit + events, `require_found`) → exports → UI/API (shared

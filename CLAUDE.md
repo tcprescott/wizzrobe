@@ -45,6 +45,7 @@ This file is the lean, always-loaded guide: the behavioral rules to follow on ev
 | Post-event surveys (targeted parts, conditions, anonymity, send/remind) | [docs/features/surveys.md](docs/features/surveys.md) |
 | Single-worker constraint and the way out of it | [docs/scaling-roadmap.md](docs/scaling-roadmap.md) |
 | Remaining per-feature docs | [docs/features/](docs/features/) |
+| **Specs** — when one's needed, lite/full templates, sign-off, acceptance check | [docs/specs/README.md](docs/specs/README.md) |
 
 ## Architecture: three-layer pattern
 
@@ -62,6 +63,8 @@ Presentation (pages/, theme/)  →  Service (application/services/)  →  Reposi
 See [docs/refactoring-guide.md](docs/refactoring-guide.md) for the full pattern and examples.
 
 ### Adding a new feature
+**New features and changed workflows start from an approved spec** ([docs/specs/](docs/specs/README.md), lite or full template, via `/plan-feature`); bug fixes, copy tweaks, small polish and refactors skip it. Commit the spec to `docs/specs/<topic>.md` as the PR's first commit, edit it in the same PR when the plan changes, tick every acceptance item in the PR description before leaving draft, and delete it (folding lasting behaviour into `docs/features/`) in the PR that finishes the feature.
+
 0. **Ask the user whether this feature warrants a per-tenant feature flag.** Not every feature needs one — flags exist only for deliberately-gated subsystems (see [Feature flags](#feature-flags)). Always ask; if yes, gate it (page/tab/API/worker) and register the flag. Do **not** add flags retroactively to existing features unless asked.
 1. Add/update model in the `models/` package (per-domain submodule; re-export from `models/__init__.py`) → `poetry run aerich migrate && poetry run aerich upgrade`
 2. Update/create the repository in `application/repositories/`
