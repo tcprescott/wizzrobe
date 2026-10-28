@@ -83,6 +83,12 @@ counted with the filters. It shows only matches that haven't started yet and are
 still short of an approved commentator or tracker. If you came to crew, that's the
 list you want, and [Signing up as crew](/help/crew#signing-up) has the rest.
 
+The **Friends** switch beside it shows only matches your friends play in, across
+every tournament. Pick them in the **Friends** filter (type a name to find
+someone). Your list is saved to your account, so it's there on your phone and
+your laptop, and in other communities too. Friends' names are underlined on the
+board whether the switch is on or not.
+
 The board keeps its own order, so the columns don't sort. The refresh button
 reloads it, but it also updates by itself when a match changes.
 

@@ -14,6 +14,7 @@ a line's buttons are only ever as current as its row, which the board already
 re-fetches after every change.
 """
 
+from application.utils.match_labels import matchup_parts
 from theme.tables.match_run_sheet import (
     CREW_NAMES,
     HELD_TAG,
@@ -288,10 +289,35 @@ def mark_my_late(row: dict, discord_id) -> None:
         row['_tone'] = 'pending'
 
 
-def arrange_player_run_sheet(rows: list, discord_id) -> list:
+def mark_friends(row: dict, friend_ids) -> None:
+    """Underline the viewer's friends in the matchup line.
+
+    Runs after :func:`decorate_run_sheet_row`, which leaves ``_who_parts`` unset
+    on a fully decided line; a line with a friend on it takes parts so the
+    template can mark them. Sides alternate with separators, so player ``i`` is
+    part ``2 * i``.
+    """
+    players = row.get('players') or []
+    row['_friend'] = has_friend(row, friend_ids)
+    if not row['_friend']:
+        return
+    parts = matchup_parts([p.get('name') or '' for p in players], row.get('placeholders') or [])
+    for i, player in enumerate(players):
+        if player.get('user_id') in friend_ids and 2 * i < len(parts):
+            parts[2 * i]['friend'] = True
+    row['_who_parts'] = parts
+
+
+def has_friend(row: dict, friend_ids) -> bool:
+    """Whether one of ``friend_ids`` plays in ``row``. Reads the raw row, so a board's ``row_filter`` can use it."""
+    return bool(friend_ids) and any(p.get('user_id') in friend_ids for p in row.get('players') or [])
+
+
+def arrange_player_run_sheet(rows: list, discord_id, friend_ids=frozenset()) -> list:
     """Decorate, group and order ``rows``; mark the first row of each group."""
     for row in rows:
         decorate_player_row(row, discord_id)
+        mark_friends(row, friend_ids)
 
     def key(row):
         order, _ = _group(row)

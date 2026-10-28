@@ -36,3 +36,26 @@ class UserTablePreference(Model):
 
     def __str__(self) -> str:
         return f'{self.table_key} prefs for user {self.user_id}'  # type: ignore[attr-defined]
+
+
+class UserFriend(Model):
+    """One person on someone's friends list, for the Friends switch on Event > Schedule.
+
+    Global like the table layout above: a friend is a person, and the same crowd
+    turns up in several communities, so one list follows its owner everywhere.
+    A community's schedule only ever shows that community's matches, so the list
+    widens nothing a viewer can see.
+    """
+
+    id = fields.IntField(pk=True)
+    user: fields.ForeignKeyRelation = fields.ForeignKeyField(
+        'models.User', related_name='friends', on_delete=fields.CASCADE)
+    friend: fields.ForeignKeyRelation = fields.ForeignKeyField(
+        'models.User', related_name='friend_of', on_delete=fields.CASCADE)
+    created_at = fields.DatetimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = (('user', 'friend'),)
+
+    def __str__(self) -> str:
+        return f'user {self.user_id} friends user {self.friend_id}'  # type: ignore[attr-defined]

@@ -8,7 +8,7 @@ Returns domain objects (Match, MatchPlayers, etc.) without business logic.
 from datetime import datetime
 from typing import List, Optional, Tuple, cast
 
-from tortoise.expressions import Q
+from tortoise.expressions import Q, Subquery
 from tortoise.query_utils import Prefetch
 
 from application.event_writes import guarded_update
@@ -567,6 +567,14 @@ class MatchRepository:
             'tournament', 'tournament__preset', 'tournament__hard_preset',
             'players', 'players__user',
         )
+
+    @staticmethod
+    async def players_in_event() -> List[User]:
+        """Everyone with a seat in a match of the current event, for the Friends picker."""
+        match_ids = event_scoped(Match.all()).values_list('id', flat=True)
+        return await User.filter(
+            match_players__match_id__in=Subquery(match_ids),
+        ).distinct().only(*BOARD_USER_FIELDS)
 
     @staticmethod
     async def get_all_for_schedule() -> List[Match]:

@@ -69,6 +69,8 @@ class MatchFiltersMixin:
     default_state_filter: Optional[list]
     _bg: Callable[[Any], None]
     refresh: Callable[[], Any]
+    extra_filters: Optional[Callable[[], None]]
+    _filters_open: bool
 
     def _skey(self, name: str) -> str:
         """Session key for one of this view's filters.
@@ -149,6 +151,11 @@ class MatchFiltersMixin:
             self.filters_card.classes(add='wiz-filters-open')
         else:
             self.filters_card.classes(remove='wiz-filters-open')
+
+    def open_filters(self) -> None:
+        """Open the phone's filter card, to point at a field in it; desktop shows it anyway."""
+        if not self._filters_open:
+            self._toggle_filters()
 
     def _active_filter_count(self) -> int:
         """Number of the three filters set away from this board's own default.
@@ -338,6 +345,9 @@ class MatchFiltersMixin:
                     multiple=True,
                     on_change=self._on_tournament_filter_change
                 ).classes('match-filter-field').props('outlined dense options-dense')
+
+                if self.extra_filters is not None:
+                    self.extra_filters()
 
                 self.stage_filter = ui.select(
                     options=[],
