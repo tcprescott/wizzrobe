@@ -111,6 +111,7 @@ Services are the business-logic layer of the [three-layer architecture](../refac
 | `StageService` | [stage_service.py](../../application/services/stage_service.py) | Stage (stage) CRUD | — |
 | `SystemConfigService` | [system_config_service.py](../../application/services/system_config_service.py) | Typed access to `SystemConfiguration` keys | [admin-reports.md](../features/admin-reports.md) |
 | `ProfileNudgeService` | [profile_nudge_service.py](../../application/services/profile_nudge_service.py) | A community's recommended profile items and which ones a member still owes | [profile-reminders.md](../features/profile-reminders.md) |
+| `FriendService` | [friend_service.py](../../application/services/friend_service.py) | A person's friends list for Event › Schedule's Friends switch (global; no audit, telemetry only) | [frontend.md](frontend.md) |
 | `TablePreferenceService` | [table_preference_service.py](../../application/services/table_preference_service.py) | Per-user table layouts (columns, order, widths, page size, density, wrap) | [frontend.md](frontend.md#data-tables) |
 | `PayoutService` | [payout_service.py](../../application/services/payout_service.py) | Prize pool, placement splits, and the Matcherino export | [payouts.md](../features/payouts.md), `PAYOUTS` |
 | `TelemetryService` / `TelemetryCategory` / `TelemetryEventType` | [telemetry_service.py](../../application/services/telemetry_service.py) | Engagement telemetry capture + Staff-gated engagement report | [telemetry.md](../features/telemetry.md) |
