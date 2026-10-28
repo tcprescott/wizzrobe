@@ -81,6 +81,10 @@ on a wide sheet that turns into one card per statement below 36rem (a container
 query, so it follows the sheet, not the window). Results draw one diverging bar
 per statement with "% agree".
 
+A part saves however its sheet closes: Done, Back to parts, the close button,
+Escape or a tap outside (Thomas, 2026-10-28). If a close can't save (an answer
+breaks a rule), the toast says why and reopening the part shows what was typed.
+
 Once sent, the structure is frozen: answers belong to the exact questions they
 were given to.
 
