@@ -223,9 +223,36 @@ results, a question whose origin has answers shows a "Last time in <survey>"
 line with that survey's average or count, linking to it (Thomas picked layout
 A). REST serves `copied_from_id` on each question.
 
+## Results report
+
+Results (Thomas picked layout A, 2026-10-28; spec
+`docs/specs/survey-results-view.md` until the comments inbox ships) opens on
+four tiles (responses, recommend score, overall rating, and the first
+"Yes / …" question everyone saw), the response rate for players, volunteers
+and crew, the group filter, the drop-off card, then the survey's own sections
+(`pages/admin_tabs/admin_surveys/report.py`):
+
+- Each question is one line: prompt and answer count, a stacked bar (1–5 and
+  0–10 run red to green, choices in accent shades) and its headline number
+  (`avg 4.1` with "% rated 4–5", the recommend score with its 9–10 / 0–6
+  split under 50 answers, "% said yes"). A pick-many lists its choices in a
+  line, since people pick several. A follow-up shows "↳" and who was asked.
+- A section that repeats per tournament or position is a comparison table, one
+  row per group (cards on a phone). A group 20 or more points under the
+  average of the others (`OUTLIER_POINTS`, on "% rated 4–5" or "% yes") is
+  flagged.
+- A comment question collapses to "n comments ›", which opens
+  `CommentSheet`: a side sheet (bottom sheet on a phone) with search and one
+  chip per group. "Other" write-ins open the same way.
+- The filter (`?group=` in the address, `group=` on REST and MCP) re-runs every
+  number for one tournament's players, one position, crew or checked in. It
+  lists only groups with 5 or more answers (`audiences.group_options`) and
+  refuses others; a narrowed question under 5 answers shows its count only,
+  and the drop-off card is left out.
+
 ## Drop-off
 
-The Results tab opens with a drop-off card (Thomas picked layout A plus a
+The Results tab shows a drop-off card (Thomas picked layout A plus a
 median time, 2026-10-28): Sent, Opened, Started (saved at least one part),
 Submitted, then each part in survey order with how many opened it, how many
 answered it, and how many stopped there (opened it last, never sent it), plus
@@ -238,7 +265,8 @@ and `save_part` marks it done, on the recipient row's `progress`. That would
 say which parts an anonymous respondent skipped, so `submit` adds the person's
 parts to `SurveyPartTally` (running counts) and clears `progress`, `last_part`
 and `started_at`, keeping only `finish_seconds`. The card adds the tallies to
-the progress of people who haven't sent it.
+the progress of people who haven't sent it. The list of parts is folded under
+"Each part, in survey order (n)" so the report starts on the first screen.
 
 Who gets it: everyone who took part in the event (played, volunteered, crewed a
 stage match or was checked in).
@@ -256,8 +284,11 @@ the survey allows it. An anonymous submit:
 The switch says so plainly: "We cannot guarantee anonymity based on your
 answers: what you write may still identify you." (Thomas's wording.)
 
-In results, a group with fewer than 5 answers shows its count only, and an
-anonymous comment from a group that small carries no group name.
+In results, every group with fewer than 5 answers is folded into one "Other"
+row (`results.fold_small`). When the folded groups still come to fewer than
+5, the smallest shown groups join them, because the overall minus the shown
+groups would otherwise be the small groups' answers. An anonymous comment from
+a group under 5 carries no group name.
 
 Known limits: response ids are sequential, and answering is blocked once the
 event is archived.

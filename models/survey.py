@@ -182,6 +182,7 @@ class SurveyQuestion(Model):
     copied_from: fields.ForeignKeyNullableRelation = fields.ForeignKeyField(
         'models.SurveyQuestion', related_name='copies', null=True, on_delete=fields.SET_NULL,
     )
+    copied_from_id: Optional[int]
     created_at = fields.DatetimeField(auto_now_add=True)
     updated_at = fields.DatetimeField(auto_now=True)
 

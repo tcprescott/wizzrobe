@@ -85,6 +85,7 @@ class BreakdownResponse(BaseModel):
     score: Optional[int] = Field(None, description="Recommend score (-100 to 100), for a 0-10 question.")
     counts: Dict[str, int] = Field(default_factory=dict, description="Answers per option.")
     hidden: bool = Field(False, description="True when fewer than 5 answered, so only the count is shown.")
+    top_share: Optional[int] = Field(None, description="Rating only: percent who rated it 4 or 5.")
     statements: Dict[str, List[int]] = Field(
         default_factory=dict,
         description="Agree scale only: per statement, how many answered each level, Strongly disagree first.",
@@ -105,8 +106,12 @@ class QuestionResultResponse(BaseModel):
     kind: str
     overall: BreakdownResponse
     groups: Dict[str, BreakdownResponse] = Field(
-        default_factory=dict, description="Per tournament or position, for a repeating section.",
+        default_factory=dict,
+        description="Per tournament or position, for a repeating section. Groups under 5 answers are folded "
+                    "into `Other`, with the smallest shown groups joining it until it has 5.",
     )
+    folded: List[str] = Field(default_factory=list, description="The groups folded into `Other`.")
+    condition: str = Field('', description="Who was asked, for a question only some people saw.")
     comments: List[CommentResponse] = Field(default_factory=list)
 
 
@@ -126,6 +131,13 @@ class DropoffResponse(BaseModel):
     parts: List[DropoffPartResponse]
 
 
+class SurveyGroupResponse(BaseModel):
+    key: str = Field('', description="Pass as `group` to narrow the results to this group.")
+    label: str
+    sent: int = Field(..., description="How many people in it were sent the survey.")
+    responded: int = Field(..., description="How many of them sent answers.")
+
+
 class SurveyResultsResponse(BaseModel):
     survey_id: int
     recipients: int = Field(..., description="How many people it was sent to.")
@@ -133,7 +145,16 @@ class SurveyResultsResponse(BaseModel):
     responses: int = Field(..., description="How many sent answers.")
     anonymous: int = Field(..., description="How many of those answered anonymously.")
     questions: List[QuestionResultResponse]
-    dropoff: Optional[DropoffResponse] = Field(None, description="Where people stopped, counted in people.")
+    dropoff: Optional[DropoffResponse] = Field(
+        None, description="Where people stopped, counted in people. Left out when narrowed to a group.",
+    )
+    group: Optional[str] = Field(None, description="The group the numbers are narrowed to, if any.")
+    groups: List[SurveyGroupResponse] = Field(
+        default_factory=list, description="Groups the results can be narrowed to (each with 5 or more answers).",
+    )
+    audiences: List[SurveyGroupResponse] = Field(
+        default_factory=list, description="Response rate for players, volunteers and crew (key is empty).",
+    )
 
 
 class SurveyAnswerResponse(BaseModel):
@@ -266,9 +287,10 @@ def survey_out(s: Survey) -> SurveyResponseModel:
     return SurveyResponseModel(**_summary(s), intro=s.intro or '', after_send=s.after_send or '', sections=[section_out(x) for x in s.sections])
 
 
-def _breakdown(b: Breakdown) -> BreakdownResponse:
+def _breakdown(b: Breakdown, kind: SurveyQuestionKind) -> BreakdownResponse:
     return BreakdownResponse(count=b.count, average=b.average, score=b.score, counts=b.counts, hidden=b.hidden,
-                             statements=b.statements)
+                             statements=b.statements,
+                             top_share=b.top_share if kind is SurveyQuestionKind.RATING and not b.hidden else None)
 
 
 def results_out(survey_id: int, results: SurveyResults) -> SurveyResultsResponse:
@@ -278,13 +300,19 @@ def results_out(survey_id: int, results: SurveyResults) -> SurveyResultsResponse
         questions=[
             QuestionResultResponse(
                 question_id=r.question_id, section_id=r.section_id, section_title=r.section_title,
-                prompt=r.prompt, kind=r.kind.value, overall=_breakdown(r.overall),
-                groups={k: _breakdown(v) for k, v in r.groups.items()},
+                prompt=r.prompt, kind=r.kind.value, overall=_breakdown(r.overall, r.kind),
+                groups={k: _breakdown(v, r.kind) for k, v in r.groups.items()},
+                folded=r.folded, condition=r.condition,
                 comments=[CommentResponse(text=c.text, who=c.who, group=c.group) for c in r.comments],
             )
             for r in results.questions
         ],
         dropoff=_dropoff(results.dropoff) if results.dropoff else None,
+        group=results.group.key if results.group else None,
+        groups=[SurveyGroupResponse(key=g.key, label=g.label, sent=g.sent, responded=g.responded)
+                for g in results.groups],
+        audiences=[SurveyGroupResponse(key='', label=a.label, sent=a.sent, responded=a.responded)
+                   for a in results.audiences],
     )
 
 

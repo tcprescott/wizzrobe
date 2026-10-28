@@ -3,7 +3,7 @@
 See docs/features/surveys.md.
 """
 
-from application.services.survey import ai_context, conditions, dropoff, participation, plan, results
+from application.services.survey import ai_context, audiences, checks, conditions, dropoff, participation, plan, results
 from application.services.survey._validation import AGREE_LEVELS, answer_values, coerce_answer
 from application.services.survey.dropoff import Dropoff
 from application.services.survey.participation import Participation
@@ -36,6 +36,8 @@ __all__ = [
     'SurveySuggestionService',
     'ai_context',
     'answer_values',
+    'audiences',
+    'checks',
     'coerce_answer',
     'conditions',
     'dropoff',

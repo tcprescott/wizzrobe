@@ -69,7 +69,7 @@ async def admin_surveys_page(survey: Optional[int] = None, view: Optional[str] =
                     notify_error(e)
 
     async def show(survey_id: Optional[int], view_name: str = RESULTS) -> None:
-        state['open'], state['view'] = survey_id, view_name
+        state['open'], state['view'], state['group'] = survey_id, view_name, None
         async with open_param.changing(survey_id or ''):
             await body.refresh()
 
@@ -226,7 +226,21 @@ async def admin_surveys_page(survey: Optional[int] = None, view: Optional[str] =
 
             switch.on_value_change(lambda e: switch_view(e.value))
             if state['view'] == RESULTS:
-                render_results(await service.results(user, s.id), on_open=lambda sid: show(sid))
+                group_param = url_param('group', switch, default='', value=state.get('group') or '',
+                                        on_restore=lambda v: (state.update(group=v or None), body.refresh()))
+
+                async def pick_group(key: Optional[str]) -> None:
+                    state['group'] = key
+                    group_param.set(key or '')
+                    await body.refresh()
+
+                try:
+                    results = await service.results(user, s.id, group=state.get('group'))
+                except ValueError as e:
+                    ui.notify(str(e), color='warning')
+                    state['group'] = None
+                    results = await service.results(user, s.id)
+                render_results(results, pick_group, on_open=lambda sid: show(sid))
                 return
             summary = await service.builder_summary(user, s.id)
         ai_label, suggestions = None, {}
@@ -259,6 +273,7 @@ async def admin_surveys_page(survey: Optional[int] = None, view: Optional[str] =
         if asked.isdecimal():
             state['open'] = int(asked)
             state['view'] = QUESTIONS if (url_state().requested('view') or view) == QUESTIONS else RESULTS
+            state['group'] = url_state().requested('group') or None
         await body()
         if state['open'] is not None:
             open_param.set(state['open'], history='replace')
