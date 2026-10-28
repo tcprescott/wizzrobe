@@ -36,6 +36,7 @@ class _Form:
     def __init__(self, part: plan.Part, *, fail: bool = False) -> None:
         self.view = RespondentView(survey=SimpleNamespace(), recipient=None, parts=[part])
         self.editable = True
+        self.opened_part = None
         self.saves: List[Dict[int, Any]] = []
         self.fail = fail
         self.parts_list = SimpleNamespace(refresh=lambda: None)
