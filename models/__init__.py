@@ -123,7 +123,7 @@ from .mcp import McpAuthorizationCode, McpOAuthClient
 from .notification_preference import NotificationPreference
 from .notification_setting import NotificationSetting
 from .oauth_app import OAuthApp, OAuthAppBlock, OAuthAppCode
-from .preferences import UserTablePreference
+from .preferences import UserFriend, UserTablePreference
 from .racetime import RaceRoomProfile, RacetimeBot, RacetimeBotTenant, RacetimeRoom
 from .speedgaming import SpeedGamingEpisode, SpeedGamingEventLink
 from .startgg import StartggConnection, StartggEntrant, StartggPhase, StartggPool, StartggSet
@@ -391,6 +391,7 @@ __all__ = [
     'User',
     'UserRole',
     # per-user UI preferences
+    'UserFriend',
     'UserTablePreference',
     'VolunteerAssignment',
     'VolunteerAvailability',

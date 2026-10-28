@@ -94,8 +94,13 @@ class MatchTableView(MatchFiltersMixin, MatchTableHandlersMixin, MatchBoardHoldM
                  scope_tournament_ids=None, table_key=None, searchable=False,
                  show_accommodations=False, layout='table', on_open_match=None,
                  run_sheet_group=None, proctor_run_sheet=False, show_comment_counts=False,
-                 extra_rows=None):
+                 extra_rows=None, extra_filters=None):
         self.columns = columns
+        # The viewer's friends (user ids), underlined on a player run sheet.
+        self.friend_ids: frozenset = frozenset()
+        # ``extra_filters()`` builds a page's own fields into the filter strip,
+        # after Tournament (Event > Schedule's Friends field).
+        self.extra_filters = extra_filters
         # ``await extra_rows(rows, tournament_ids)`` adds lines that aren't matches
         # yet (Event > Schedule's bracket matchups nobody has booked), on an
         # all-days board with no stage filter and no deep link.
@@ -240,7 +245,8 @@ class MatchTableView(MatchFiltersMixin, MatchTableHandlersMixin, MatchBoardHoldM
     def _arrange(self, rows: list) -> list:
         """Group and order ``rows`` for a run-sheet layout; a table keeps its order."""
         if self.layout == 'player_run_sheet':
-            return self._stamp_folded(arrange_player_run_sheet(rows, getattr(self, '_discord_id', None)))
+            return self._stamp_folded(arrange_player_run_sheet(
+                rows, getattr(self, '_discord_id', None), self.friend_ids))
         if self.layout != 'run_sheet':
             return rows
         if self.run_sheet_group is None:

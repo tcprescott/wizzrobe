@@ -100,7 +100,7 @@ from scripts.seed_onsite import seed_onsite_for_tenant
 from scripts.seed_password import seed_password_sign_in
 from scripts.seed_payouts import seed_matcherino_handles, seed_payouts_for_tenant
 from scripts.seed_play_in import seed_play_in_for_tenant
-from scripts.seed_preferences import seed_notification_channels, seed_table_preferences
+from scripts.seed_preferences import seed_friends, seed_notification_channels, seed_table_preferences
 from scripts.seed_sent_messages import seed_sent_messages
 from scripts.seed_staff_requests import seed_staff_request_dms
 from scripts.seed_startgg import seed_startgg_for_tenant
@@ -911,6 +911,7 @@ async def seed_all() -> None:
     await seed_log_levels(users)
     await seed_browser_monitoring(users)
     await seed_table_preferences(users)
+    await seed_friends(users)
     await seed_mcp_oauth(users)
     await seed_push_devices(users)
     await seed_notification_channels(users)

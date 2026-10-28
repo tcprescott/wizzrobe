@@ -15,11 +15,15 @@ from nicegui import ui
 from application.utils.match_labels import MatchupPart, has_undecided
 
 TBD_CLASS = 'wiz-tbd'
+# One of the viewer's friends (Event > Schedule's Friends list).
+FRIEND_CLASS = 'wiz-friend'
 
 # For a q-table slot whose row carries ``_who_parts``.
 WHO_PARTS_VUE = (
     '<template v-for="(p, i) in props.row._who_parts" :key="i">'
     f'<span v-if="p.tbd" class="{TBD_CLASS}">{{{{ p.text }}}}</span>'
+    f'<span v-else-if="p.friend" class="{FRIEND_CLASS}">{{{{ p.text }}}}'
+    '<span class="wiz-sr-only"> (friend)</span></span>'
     '<template v-else>{{ p.text }}</template></template>'
 )
 

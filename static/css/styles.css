@@ -4639,6 +4639,41 @@ td .wiz-crew-action {
     max-width: 15rem;
 }
 
+.match-filter-field--wide {
+    flex-basis: 12rem;
+    max-width: 20rem;
+}
+
+/* Event > Schedule's phone row holds two switches (Needs crew, Friends) as well
+   as Filters, the reset chip, refresh and help: more than a 360px phone has, so
+   the switches take a line of their own above the rest. */
+.wiz-filter-toggle:has(.wiz-friends-switch) {
+    flex-wrap: wrap;
+    row-gap: var(--space-1);
+}
+
+.wiz-filter-toggle:has(.wiz-friends-switch) > .wiz-toolbar-slot:first-child {
+    flex-basis: 100%;
+    gap: var(--space-4);
+}
+
+/* A searchable multi-select puts its input on a line of its own under the
+   picks, which made the Friends field a row taller than its neighbours. Keep
+   it on the picks' line, and only give it room while someone is typing. */
+.match-filter-field--wide .q-field__native {
+    flex-wrap: nowrap;
+}
+
+.match-filter-field--wide .q-field__input {
+    min-width: 0;
+    width: 0;
+}
+
+.match-filter-field--wide.q-field--focused .q-field__input {
+    min-width: 4rem;
+    width: auto;
+}
+
 .match-filter-field .q-field__native > span {
     overflow: hidden;
     text-overflow: ellipsis;
@@ -4664,6 +4699,10 @@ td .wiz-crew-action {
     .match-filters-card--compact .match-filter-field {
         min-width: 0;
         max-width: none;
+    }
+
+    .match-filters-card--compact .match-filter-field--wide {
+        grid-column: 1 / -1;
     }
 
     .match-filters-card--compact .match-filter-tools {
@@ -9410,6 +9449,16 @@ ol.wiz-help-list { list-style-type: decimal; }
 .wiz-tbd {
     color: var(--fg-muted);
     font-style: italic;
+}
+
+/* One of the viewer's friends on Event > Schedule (the Friends list). The
+   underline carries it, so it still reads in both themes without leaning on
+   the accent's contrast against the row. */
+.wiz-friend {
+    text-decoration: underline;
+    text-decoration-color: var(--wiz-link);
+    text-decoration-thickness: 2px;
+    text-underline-offset: 3px;
 }
 
 /* A commentary invite waiting on the viewer (My Schedule): the ask on the

@@ -93,6 +93,7 @@ from .event_service import ArchiveCheck, EventRef, EventService
 from .exports import DataExportService, ExportFile, data_export_worker
 from .feature_flag_service import FeatureFlagService
 from .feedback_service import FeedbackService
+from .friend_service import FriendService
 from .help_service import HelpService
 from .identity_link_service import IdentityLinkProvider, IdentityLinkService
 from .item_tracker_service import ItemTrackerService
@@ -248,6 +249,7 @@ __all__ = [
     'ExportFile',
     'FeatureFlagService',
     'FeedbackService',
+    'FriendService',
     'HardPresetState',
     'HelpService',
     'HoursSummary',

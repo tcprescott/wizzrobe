@@ -2,18 +2,20 @@
 
 from nicegui import app, ui
 
-from application.services import CrewHoldService, EventService, MatchService
+from application.services import CrewHoldService, EventService, FriendService, MatchService, get_user_from_discord_id
 from application.utils.tenant_session import tenant_session_get, tenant_session_set
 from theme.dialog.match_sheet import MatchSheet
 from theme.help import help_icon
 from theme.tables.match import MatchTableView
 from theme.tables.match_access import MatchBoardAccess
-from theme.tables.match_player_run_sheet import PLAYER_RUN_SHEET_COLUMNS, decorate_player_row
+from theme.tables.match_player_run_sheet import PLAYER_RUN_SHEET_COLUMNS, decorate_player_row, has_friend
 from theme.tables.preferences import TableKeys
 from theme.tables.run_sheet_meta import crew_columns
 
 #: Session key for the Needs crew switch, namespaced like the board's filters.
 NEEDS_CREW_KEY = 'home_schedule:needs_crew'
+#: Session key for the Friends switch. The list itself is saved to the account.
+FRIENDS_KEY = 'home_schedule:friends'
 
 _CREW_ROLES = ('commentators', 'trackers', 'broadcasters')
 
@@ -43,25 +45,73 @@ def needs_crew(row: dict) -> bool:
 
 async def schedule():
     match_service = MatchService()
+    friend_service = FriendService()
 
     with ui.column().classes('page-container wiz-board-page'):
         # No intro line and no title: the view switcher already names the view,
         # the Sign up buttons on each line say what the board is for, and the
-        # help topic says the rest. The Needs crew switch and the help button
-        # ride the board's own filter strip instead of rows of their own.
-        needs_crew_on = bool(tenant_session_get(NEEDS_CREW_KEY, False))
+        # help topic says the rest. The Needs crew and Friends switches and the
+        # help button ride the board's own filter strip instead of rows of their own.
+        discord_id = app.storage.user.get('discord_id')
+        viewer = await get_user_from_discord_id(discord_id)
+        friend_ids = await friend_service.friend_ids(viewer)
+        friend_options = await friend_service.picker_options(viewer) if viewer else {}
+        on = {
+            'crew': bool(tenant_session_get(NEEDS_CREW_KEY, False)),
+            'friends': bool(tenant_session_get(FRIENDS_KEY, False)) and bool(friend_ids),
+        }
+
+        def row_filter():
+            checks = []
+            if on['crew']:
+                checks.append(needs_crew)
+            if on['friends']:
+                checks.append(lambda row: has_friend(row, view.friend_ids))
+            if not checks:
+                return None
+            return lambda row: all(check(row) for check in checks)
 
         async def get_query():
             return await match_service.get_all_matches_for_schedule()
 
         # The details sheet holds what the line leaves out (seed, stations,
         # who's confirmed). A spectator's access, so it offers no staff control.
-        discord_id = app.storage.user.get('discord_id')
         sheet = MatchSheet(None, access=MatchBoardAccess(),
                            decorate=lambda row: decorate_player_row(row, discord_id))
 
+        async def on_friends_change(event) -> None:
+            if viewer is None:
+                return
+            try:
+                saved = await friend_service.set_friends(viewer, event.value or [])
+            except ValueError as e:
+                ui.notify(str(e), color='warning')
+                return
+            view.friend_ids = frozenset(saved)
+            if not saved and on['friends']:
+                for switch in switches['friends']:
+                    switch.set_value(False)
+                on['friends'] = False
+                tenant_session_set(FRIENDS_KEY, False)
+                view.row_filter = row_filter()
+            await view.refresh()
+
+        # Built inside the view's filter strip, after Tournament: on a phone
+        # that's the Filters card, on desktop the row.
+        def build_friends_field() -> None:
+            if viewer is None:
+                return
+            ui.select(
+                options=friend_options,
+                label='Friends',
+                value=[uid for uid in friend_options if uid in friend_ids],
+                multiple=True,
+                with_input=True,
+                on_change=on_friends_change,
+            ).classes('match-filter-field match-filter-field--wide').props('outlined dense options-dense')
+
         view = MatchTableView(
-            row_filter=needs_crew if needs_crew_on else None,
+            row_filter=row_filter(),
             columns=crew_columns(PLAYER_RUN_SHEET_COLUMNS, await EventService.current_event_broadcasters()),
             get_query=get_query,
             admin_controls=False,
@@ -71,31 +121,51 @@ async def schedule():
             layout='player_run_sheet',
             on_open_match=sheet.open,
             extra_rows=CrewHoldService().dress_schedule_rows,
+            extra_filters=build_friends_field,
         )
+        view.friend_ids = frozenset(friend_ids)
         sheet.view = view
 
-        # One switch per strip (phone row, desktop card); only one is ever
-        # visible, and flipping either moves the other with it.
-        switches: list = []
+        # One switch of each per strip (phone row, desktop card); only one strip
+        # is ever visible, and flipping either moves the other with it.
+        switches: dict[str, list] = {'crew': [], 'friends': []}
+
+        async def flip(key: str, value: bool, sender, session_key: str) -> None:
+            if on[key] == value:
+                return
+            on[key] = value
+            tenant_session_set(session_key, value)
+            view.row_filter = row_filter()
+            for other in switches[key]:
+                if other is not sender:
+                    other.set_value(value)
+            await view.refresh()
 
         async def on_needs_crew(event) -> None:
-            on = bool(event.value)
-            if view.row_filter is (needs_crew if on else None):
+            await flip('crew', bool(event.value), event.sender, NEEDS_CREW_KEY)
+
+        async def on_friends(event) -> None:
+            if event.value and not view.friend_ids:
+                # Nothing to show yet: point at the field that fills the list.
+                event.sender.set_value(False)
+                view.open_filters()
+                ui.notify('Pick your friends in the Friends field first.', color='info')
                 return
-            tenant_session_set(NEEDS_CREW_KEY, on)
-            view.row_filter = needs_crew if on else None
-            for other in switches:
-                if other is not event.sender:
-                    other.set_value(on)
-            await view.refresh()
+            await flip('friends', bool(event.value), event.sender, FRIENDS_KEY)
 
         for lead, end in zip(view.toolbar_lead, view.toolbar_end, strict=True):
             with lead:
-                switches.append(
-                    ui.switch('Needs crew', value=needs_crew_on, on_change=on_needs_crew)
+                switches['crew'].append(
+                    ui.switch('Needs crew', value=on['crew'], on_change=on_needs_crew)
                     .props('dense').classes('wiz-needs-crew')
                     .tooltip('Only matches still short of commentators or trackers')
                 )
+                if viewer is not None:
+                    switches['friends'].append(
+                        ui.switch('Friends', value=on['friends'], on_change=on_friends)
+                        .props('dense').classes('wiz-friends-switch')
+                        .tooltip("Only matches your friends play in. Pick them in the Friends field.")
+                    )
             with end:
                 await help_icon(('schedule-columns', 'Reading the board'), 'match-states')
 

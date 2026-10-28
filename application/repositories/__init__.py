@@ -48,6 +48,7 @@ from .event_setup_repository import EventSetupRepository
 from .feature_flag_group_repository import FeatureFlagGroupRepository
 from .feature_flag_repository import TenantFeatureFlagRepository
 from .feedback_repository import FeedbackRepository
+from .friend_repository import FriendRepository
 from .item_tracker_repository import ItemTrackerRepository
 from .log_level_override_repository import LogLevelOverrideRepository
 from .match_acknowledgment_repository import MatchAcknowledgmentRepository
@@ -184,6 +185,7 @@ __all__ = [
     'SurveyParticipationRepository',
     'SurveyRepository',
     'TablePreferenceRepository',
+    'FriendRepository',
     'TelemetryRepository',
     'TenantFeatureFlagRepository',
     'TenantJoinRequestRepository',
