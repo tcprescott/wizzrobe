@@ -521,3 +521,111 @@ async def test_any_tournament_conditions_ignore_which_tournament_a_part_is_about
     assert {p.scope_label: [q.prompt for q in p.questions] for p in bob.parts} == {
         'OoTR': ['No stage any?', 'Room any?'],
     }
+
+
+async def test_progress_counts_parts_and_folds_into_tallies_on_submit(event_world):
+    survey = await _sent(event_world)
+    w = event_world
+    responder = SurveyResponseService()
+    view = await responder.open_survey(w['bob'], survey.id)
+    first, second = view.parts[0], view.parts[1]
+    await responder.open_part(w['bob'], survey.id, first.key)
+    await responder.open_part(w['bob'], survey.id, second.key)
+    rating = next(q for q in first.questions if q.kind is SurveyQuestionKind.RATING)
+    await responder.save_part(w['bob'], survey.id, first.key, {rating.id: 4})
+    bob = await SurveyRecipient.get(survey_id=survey.id, user_id=w['bob'].id)
+    assert bob.progress == {'opened': [first.key, second.key], 'done': [first.key]}
+    assert bob.last_part == first.key and bob.started_at is not None
+    with pytest.raises(ValueError, match="isn't in your survey"):
+        await responder.open_part(w['bob'], survey.id, '999|')
+
+    alice = w['alice']
+    await responder.open_survey(alice, survey.id)
+    alice_parts = (await responder.open_survey(alice, survey.id)).parts
+    await responder.open_part(alice, survey.id, alice_parts[0].key)
+
+    results = await SurveyService().results(w['staff'], survey.id)
+    d = results.dropoff
+    assert (d.sent, d.opened, d.started, d.submitted) == (4, 2, 1, 0)
+    by_key = {p.key: p for p in d.parts}
+    assert by_key[first.key].opened == 2 and by_key[first.key].answered == 1
+    assert by_key[first.key].stopped == 2  # bob saved it last, alice only opened it
+    assert by_key[second.key].opened == 1 and by_key[second.key].stopped == 0
+
+    await responder.submit(w['bob'], survey.id, anonymous=True)
+    bob = await SurveyRecipient.get(survey_id=survey.id, user_id=w['bob'].id)
+    # Nothing on the named row says which parts the anonymous answers came from.
+    assert bob.progress == {} and bob.last_part is None and bob.started_at is None
+    assert bob.finish_seconds is not None and bob.finish_seconds >= 0
+    d = (await SurveyService().results(w['staff'], survey.id)).dropoff
+    assert (d.started, d.submitted) == (1, 1)
+    by_key = {p.key: p for p in d.parts}
+    assert (by_key[first.key].opened, by_key[first.key].answered, by_key[first.key].stopped) == (2, 1, 1)
+    assert (by_key[second.key].opened, by_key[second.key].answered) == (1, 0)
+    assert d.median_seconds is None  # under five finishers
+
+
+async def test_not_interested_stops_reminders(event_world, stub_discord_queue):
+    survey = await _sent(event_world)
+    w = event_world
+    responder = SurveyResponseService()
+    assert await responder.decline(w['bob'], survey.id) is True
+    assert await responder.decline(w['bob'], survey.id) is False
+    assert await SurveyService().remind(w['staff'], survey.id) == 3
+    d = (await SurveyService().results(w['staff'], survey.id)).dropoff
+    assert d.declined == 1
+    # The link still works for someone who changes their mind.
+    await _answer_everything(w['bob'], survey.id, 3)
+    await responder.submit(w['bob'], survey.id)
+
+
+async def test_reminder_to_someone_partway_through_says_so(event_world):
+    from application.services.survey._notifications import invite_text
+
+    survey = await SurveyService().get_survey(event_world['staff'], (await _sent(event_world)).id)
+    facts = {'tournaments': [{'id': 1, 'name': 'ALTTPR'}]}
+    invite = invite_text(survey, facts, name='Sam')
+    assert invite.startswith('Hi Sam, ') and 'ALTTPR' in invite and 'about ' in invite
+    assert "We'll share what we change" in invite
+    assert invite_text(survey, facts).startswith('**')
+    partway = invite_text(survey, facts, name='Sam', reminder=True, partway=True)
+    assert "you're partway through" in partway and 'ALTTPR' not in partway
+    assert 'last call' in invite_text(survey, facts, reminder=True, last_call=True).lower()
+
+
+async def test_two_reminders_then_no_more(event_world, stub_discord_queue):
+    survey = await _sent(event_world)
+    service = SurveyService()
+    staff = event_world['staff']
+    await service.remind(staff, survey.id)
+    await Survey.filter(id=survey.id).update(reminded_at=NOW - timedelta(days=2))
+    await service.remind(staff, survey.id)
+    assert (await Survey.get(id=survey.id)).reminders_sent == 2
+    await Survey.filter(id=survey.id).update(reminded_at=NOW - timedelta(days=2))
+    with pytest.raises(ValueError, match='last call'):
+        await service.remind(staff, survey.id)
+
+
+async def test_close_date_moves_while_open(event_world):
+    survey = await _sent(event_world)
+    service = SurveyService()
+    later = NOW + timedelta(days=10)
+    moved = await service.update_survey(event_world['staff'], survey.id, closes_at=later)
+    assert moved.closes_at == later
+    with pytest.raises(ValueError, match='future'):
+        await service.update_survey(event_world['staff'], survey.id, closes_at=NOW - timedelta(hours=1))
+    cleared = await service.update_survey(event_world['staff'], survey.id, closes_at=None)
+    assert cleared.closes_at is None
+
+
+def test_not_interested_button_round_trips_its_survey():
+    from discordbot._ack_common import DMInteractionError
+    from discordbot.survey_buttons import _parse, make_survey_decline_view
+
+    button = make_survey_decline_view(7).children[0]
+    assert button.label == 'Not interested' and not button.disabled
+    assert _parse(button.custom_id) == 7
+    done = make_survey_decline_view(7, declined=True).children[0]
+    assert done.disabled
+    with pytest.raises(DMInteractionError):
+        _parse('survey:decline:x')

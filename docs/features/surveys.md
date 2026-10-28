@@ -1,7 +1,7 @@
 # Post-event surveys
 
 Staff ask the people who took part in an event how it went. Each person gets
-only the parts that fit what they did, so the survey stays under five minutes.
+only the parts that fit what they did, so the survey stays under ten minutes.
 Behind `FeatureFlag.SURVEYS` (per community, off by default).
 
 | Surface | Where |
@@ -152,8 +152,39 @@ the person could see.
 Only from the app: Admin → Surveys → **Send…** with a close time (default seven
 days out). `send` freezes each person's facts on a `SurveyRecipient` row and
 DMs them (`SURVEY_INVITE`); **Remind** DMs people who haven't answered, at most
-once a day (`SURVEY_REMINDER`). Both are in the notification catalogue, so
-communities can silence them. The DM link goes straight to `/survey/{id}`.
+once a day and twice in all (`SURVEY_REMINDER`); the second is worded as a last
+call, and the menu then reads "Two reminders sent". Both are in the notification
+catalogue, so communities can silence them. The DM link goes straight to
+`/survey/{id}`. **Change close date…** in an open survey's Actions menu moves or
+clears `closes_at`.
+
+The invite greets the reader by name ("Hi Sam,"), gives their own time to
+answer (from `plan.seconds` over their parts) and what the questions are about,
+and ends "We'll share what we change because of your answers." A reminder to
+someone who saved a part but never sent it says they're partway through
+instead. Both DMs carry a grey **Not interested** button
+(`discordbot/survey_buttons.py`, `SurveyResponseService.decline`): pressing it
+sets `declined_at`, greys the button out, and drops them from reminders; the
+link keeps working.
+
+The builder's time check warns over **10 minutes** (`plan.BUDGET_SECONDS`).
+
+## Drop-off
+
+The Results tab opens with a drop-off card (Thomas picked layout A plus a
+median time, 2026-10-28): Sent, Opened, Started (saved at least one part),
+Submitted, then each part in survey order with how many opened it, how many
+answered it, and how many stopped there (opened it last, never sent it), plus
+"Median time to finish: X (estimate was Y)" once five people have sent it.
+Counts are of people, never answers. REST and MCP results carry the same
+numbers under `dropoff`.
+
+The survey page reports each part it opens (`SurveyResponseService.open_part`)
+and `save_part` marks it done, on the recipient row's `progress`. That would
+say which parts an anonymous respondent skipped, so `submit` adds the person's
+parts to `SurveyPartTally` (running counts) and clears `progress`, `last_part`
+and `started_at`, keeping only `finish_seconds`. The card adds the tallies to
+the progress of people who haven't sent it.
 
 Who gets it: everyone who took part in the event (played, volunteered, crewed a
 stage match or was checked in).

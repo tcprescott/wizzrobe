@@ -212,11 +212,11 @@ def _budget_card(ctx: BuilderContext) -> None:
             .classes('wiz-survey-side__figure')
         ui.linear_progress(value=share, show_value=False, size='8px',
                            color='negative' if summary.over_budget else 'primary') \
-            .props('rounded aria-label="Share of the 5 minute budget"')
+            .props('rounded aria-label="Share of the 10 minute budget"')
         ui.label(f'{summary.longest_who}: {summary.longest_questions} questions.') \
             .classes('wiz-survey-side__text')
         if summary.over_budget:
-            ui.label('That is over 5 minutes. Trim a repeating section first; it counts once per tournament.') \
+            ui.label('That is over 10 minutes. Trim a repeating section first; it counts once per tournament.') \
                 .classes('wiz-survey-side__warn')
 
 

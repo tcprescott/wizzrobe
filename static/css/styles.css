@@ -9811,3 +9811,31 @@ ol.wiz-help-list { list-style-type: decimal; }
 .wiz-survey-slot { align-self: stretch; box-sizing: border-box; margin: 2px 8px; border: 2px dashed var(--accent); border-radius: 8px; background: var(--accent-soft); }
 body.wiz-survey-dragging, body.wiz-survey-dragging * { cursor: grabbing !important; user-select: none; }
 .wiz-survey-bar--apart { border-top: 1px dashed var(--border-subtle); padding-top: 4px; margin-top: 2px; }
+
+/* Drop-off card (Thomas picked A + B's median time, 2026-10-28): the funnel,
+   then each part with its opened bar behind its answered bar. */
+.wiz-survey-dropoff {
+    background: var(--surface);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+}
+.wiz-survey-dropoff__head { gap: var(--space-2); padding: 14px 16px; border-bottom: 1px solid var(--border-subtle); }
+.wiz-survey-stats--flat { border: 0; border-radius: 0; }
+.wiz-survey-dropoff__median { padding: 10px 16px; border-top: 1px solid var(--border-subtle); font-size: var(--text-sm); }
+.wiz-survey-dropoff__band {
+    padding: 10px 16px;
+    background: var(--surface-sunken);
+    font-size: var(--text-xs);
+    font-weight: 700;
+    letter-spacing: .05em;
+    text-transform: uppercase;
+    color: var(--fg-secondary);
+}
+.wiz-survey-dropoff__part { gap: var(--space-3); padding: 12px 16px; border-top: 1px solid var(--border-subtle); }
+.wiz-survey-dropoff__title { font-weight: 600; overflow-wrap: anywhere; }
+.wiz-survey-dropoff__bar { position: relative; height: 8px; border-radius: 4px; background: var(--surface-sunken); overflow: hidden; }
+.wiz-survey-dropoff__bar > span { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 4px; }
+.wiz-survey-dropoff__opened { background: var(--accent-soft); outline: 1px solid var(--accent); outline-offset: -1px; }
+.wiz-survey-dropoff__answered { background: var(--accent); }
+.wiz-survey-dropoff__note { padding: 10px 16px; border-top: 1px solid var(--border-subtle); }

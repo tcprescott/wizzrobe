@@ -7,6 +7,7 @@ from pydantic import BaseModel, Field
 
 from application.services import SurveyResults
 from application.services.survey import response_answers
+from application.services.survey.dropoff import Dropoff
 from application.services.survey.results import Breakdown
 from models import Survey, SurveyAudience, SurveyQuestion, SurveyQuestionKind, SurveyResponse, SurveySection
 
@@ -104,6 +105,22 @@ class QuestionResultResponse(BaseModel):
     comments: List[CommentResponse] = Field(default_factory=list)
 
 
+class DropoffPartResponse(BaseModel):
+    title: str = Field(..., description="The section, with the tournament or position for a repeat.")
+    opened: int = Field(..., description="People who opened this part.")
+    answered: int = Field(..., description="People who saved an answer in it.")
+    stopped: int = Field(..., description="People who opened it last and haven't sent the survey.")
+
+
+class DropoffResponse(BaseModel):
+    started: int = Field(..., description="People who saved at least one part.")
+    declined: int = Field(..., description="People who pressed Not interested on a survey DM.")
+    median_seconds: Optional[int] = Field(None, description="Median time from first save to send; "
+                                                            "empty under 5 finishers.")
+    estimate_seconds: Optional[int] = Field(None, description="The survey's own time estimate, median per person.")
+    parts: List[DropoffPartResponse]
+
+
 class SurveyResultsResponse(BaseModel):
     survey_id: int
     recipients: int = Field(..., description="How many people it was sent to.")
@@ -111,6 +128,7 @@ class SurveyResultsResponse(BaseModel):
     responses: int = Field(..., description="How many sent answers.")
     anonymous: int = Field(..., description="How many of those answered anonymously.")
     questions: List[QuestionResultResponse]
+    dropoff: Optional[DropoffResponse] = Field(None, description="Where people stopped, counted in people.")
 
 
 class SurveyAnswerResponse(BaseModel):
@@ -258,6 +276,16 @@ def results_out(survey_id: int, results: SurveyResults) -> SurveyResultsResponse
             )
             for r in results.questions
         ],
+        dropoff=_dropoff(results.dropoff) if results.dropoff else None,
+    )
+
+
+def _dropoff(d: Dropoff) -> DropoffResponse:
+    return DropoffResponse(
+        started=d.started, declined=d.declined, median_seconds=d.median_seconds,
+        estimate_seconds=d.estimate_seconds,
+        parts=[DropoffPartResponse(title=p.title, opened=p.opened, answered=p.answered, stopped=p.stopped)
+               for p in d.parts],
     )
 
 

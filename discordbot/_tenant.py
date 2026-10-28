@@ -19,6 +19,7 @@ from models import (
     Commentator,
     Match,
     MatchRescheduleRequest,
+    Survey,
     Tracker,
     VolunteerAssignment,
 )
@@ -52,6 +53,10 @@ async def assignment_scope(assignment_id: int) -> Optional[RowScope]:
 async def reschedule_request_scope(request_id: int) -> Optional[RowScope]:
     rows = await MatchRescheduleRequest.filter(id=request_id).values('tenant_id', 'match__event_id')
     return _scope(rows, 'match__event_id')
+
+
+async def survey_scope(survey_id: int) -> Optional[RowScope]:
+    return _scope(await Survey.filter(id=survey_id).values('tenant_id', 'event_id'), 'event_id')
 
 
 async def commentary_invite_scope(invite_id: int) -> Optional[RowScope]:

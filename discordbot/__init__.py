@@ -22,6 +22,7 @@ from application.services.discord.discord_service import (
     VIEW_PLAYER_LATE,
     VIEW_RESCHEDULE_AGREE,
     VIEW_SEED_READY,
+    VIEW_SURVEY_DECLINE,
     VIEW_UNWATCH,
     VIEW_VOLUNTEER_ACK,
     VIEW_VOLUNTEER_ARRIVAL,
@@ -97,6 +98,13 @@ from discordbot.seed_ready import (
     handle_seed_ready_interaction,
     make_seed_ready_view,
 )
+from discordbot.survey_buttons import (
+    CUSTOM_ID_PREFIX as SURVEY_DECLINE_PREFIX,
+)
+from discordbot.survey_buttons import (
+    handle_survey_decline_interaction,
+    make_survey_decline_view,
+)
 from discordbot.volunteer_acknowledgment import (
     CUSTOM_ID_PREFIX as VOLUNTEER_ACK_PREFIX,
 )
@@ -150,6 +158,7 @@ register_interaction_handler(PLAYER_LATE_PREFIX, handle_player_late_interaction)
 register_interaction_handler(PLAYER_LATE_MINUTES_PREFIX, handle_player_late_minutes_interaction)
 register_interaction_handler(WATCH_PREFIX, handle_unwatch_interaction)
 register_interaction_handler(SEED_READY_PREFIX, handle_seed_ready_interaction)
+register_interaction_handler(SURVEY_DECLINE_PREFIX, handle_survey_decline_interaction)
 register_interaction_handler(RESCHEDULE_AGREE_PREFIX, handle_reschedule_agree_interaction)
 register_interaction_handler(HARD_PRESET_PREFIX, handle_hard_preset_interaction)
 register_interaction_handler(LOGIN_PANEL_PREFIX, handle_login_panel_interaction)
@@ -170,4 +179,5 @@ register_view_factory(VIEW_RESCHEDULE_AGREE, make_reschedule_agree_view)
 register_view_factory(VIEW_HARD_PRESET, make_hard_preset_view)
 register_view_factory(VIEW_PLAYER_LATE, make_player_late_view)
 register_view_factory(VIEW_SEED_READY, make_seed_ready_view)
+register_view_factory(VIEW_SURVEY_DECLINE, make_survey_decline_view)
 register_view_factory(VIEW_PARTNER_INVITE, make_partner_invite_view)
