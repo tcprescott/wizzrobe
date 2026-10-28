@@ -10,7 +10,7 @@ Comment text is what respondents typed. It's returned as plain text and must
 never be rendered as markup.
 """
 
-from typing import List
+from typing import List, Optional
 
 from fastapi import APIRouter, Depends, Query, status
 
@@ -98,11 +98,12 @@ async def get_survey(survey_id: int, actor: User = Depends(require_staff)):
     description=(
         "Counts per question, split by tournament or position for a repeating section. A group "
         "with fewer than 5 answers shows only its count. Anonymous comments carry their group "
-        "only when it has 5 or more people.\n\n**Who can call this:** Staff."
+        "only when it has 5 or more people. Pass `group` (a key from `groups`) to narrow every number "
+        "to that group.\n\n**Who can call this:** Staff."
     ),
 )
-async def get_results(survey_id: int, actor: User = Depends(require_staff)):
-    return results_out(survey_id, await SurveyService().results(actor, survey_id))
+async def get_results(survey_id: int, group: Optional[str] = None, actor: User = Depends(require_staff)):
+    return results_out(survey_id, await SurveyService().results(actor, survey_id, group=group))
 
 
 @router.get(

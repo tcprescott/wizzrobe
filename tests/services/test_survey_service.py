@@ -218,6 +218,39 @@ async def test_results_hide_small_groups(event_world):
     assert all(g.hidden for g in room.groups.values())
 
 
+async def test_results_narrow_to_a_group_of_five_or_more(event_world):
+    w = event_world
+    players = [w['alice']]
+    for i in range(5):
+        player = await make_member(200 + i, f'player{i}')
+        match = await Match.create(tournament=w['alttpr'])
+        await MatchPlayers.create(match=match, user=player)
+        players.append(player)
+    survey = await _sent(event_world)
+    for player in players:
+        await _answer_everything(player, survey.id, 4)
+        await SurveyResponseService().submit(player, survey.id)
+    await _answer_everything(w['bob'], survey.id, 2)
+    await SurveyResponseService().submit(w['bob'], survey.id)
+    service = SurveyService()
+    everyone = await service.results(w['staff'], survey.id)
+    key = f't:{w["alttpr"].id}'
+    assert [g.key for g in everyone.groups] == [key]
+    assert {a.label: (a.sent, a.responded) for a in everyone.audiences}['Players'] == (7, 7)
+    narrowed = await service.results(w['staff'], survey.id, group=key)
+    assert narrowed.responses == 6 and narrowed.group is not None and narrowed.dropoff is None
+    overall = narrowed.headline(SurveyQuestionKind.RATING)
+    assert overall is not None and overall.overall.average == 4
+    # OoTR has two players, so it can't be picked out on its own.
+    with pytest.raises(ValueError, match='fewer than 5'):
+        await service.results(w['staff'], survey.id, group=f't:{w["ootr"].id}')
+    # OoTR's two answers fold into Other, and ALTTPR goes with them: with only
+    # two tournaments, everyone minus ALTTPR would be OoTR's two people.
+    repeat = next(r for r in everyone.questions
+                  if r.audience is SurveyAudience.EACH_TOURNAMENT and r.kind is not SurveyQuestionKind.COMMENT)
+    assert list(repeat.groups) == ['Other'] and repeat.folded == ['ALTTPR', 'OoTR']
+
+
 async def test_answer_condition_follows_an_earlier_question(event_world):
     service = SurveyService()
     staff = event_world['staff']

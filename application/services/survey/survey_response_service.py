@@ -24,6 +24,7 @@ from application.feature_flags import requires_feature
 from application.repositories.survey_repository import SurveyRepository
 from application.services.survey import plan
 from application.services.survey._validation import coerce_answer
+from application.services.survey.audiences import groups_for
 from application.services.survey.survey_service import is_open
 from models import FeatureFlag, Survey, SurveyQuestionKind, SurveyRecipient, SurveyResponse, User
 
@@ -121,16 +122,6 @@ def _progress_with(progress: Optional[Mapping[str, Any]], kind: str, part_key: s
     if part_key not in keys:
         keys.append(part_key)
     return out
-
-
-def _groups(facts: Mapping[str, Any]) -> List[dict]:
-    groups = [{'key': f"t:{t['id']}", 'label': f"{t['name']} player"} for t in facts.get('tournaments') or []]
-    groups += [{'key': f"p:{p['id']}", 'label': p['name']} for p in facts.get('positions') or []]
-    if facts.get('crew'):
-        groups.append({'key': 'crew', 'label': 'Crew'})
-    if facts.get('checked_in'):
-        groups.append({'key': 'checked_in', 'label': 'Checked in'})
-    return groups
 
 
 class SurveyResponseService:
@@ -248,7 +239,7 @@ class SurveyResponseService:
             await self.repository.clear_answer(draft, question_id, scope)
         now = datetime.now(timezone.utc)
         await self.repository.submit_response(
-            draft, anonymous=anonymous, groups=_groups(recipient.facts or {}), submitted_on=now.date(),
+            draft, anonymous=anonymous, groups=groups_for(recipient.facts or {}), submitted_on=now.date(),
         )
         await self._fold_progress(survey, recipient, view, now)
 
