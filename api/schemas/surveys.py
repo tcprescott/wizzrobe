@@ -49,6 +49,7 @@ class SurveyQuestionResponse(BaseModel):
     original_prompt: Optional[str] = Field(None, description="The wording before it was first changed after answers came in.")
     reworded_at: Optional[datetime] = Field(None, description="When the wording first changed after answers came in (UTC).")
     reworded_after: Optional[int] = Field(None, description="How many responses had been sent before that change.")
+    copied_from_id: Optional[int] = Field(None, description="The question this one was duplicated from (an earlier survey's), for year-over-year comparison.")
 
 
 class SurveySectionResponse(BaseModel):
@@ -239,6 +240,7 @@ def question_out(q: SurveyQuestion) -> SurveyQuestionResponse:
         other_option=q.other_option, none_option=q.none_option, min_picks=q.min_picks, max_picks=q.max_picks,
         long_answer=q.long_answer, position=q.position, conditions=conditions_out(q.conditions),
         original_prompt=q.original_prompt, reworded_at=q.reworded_at, reworded_after=q.reworded_after,
+        copied_from_id=q.copied_from_id,
     )
 
 

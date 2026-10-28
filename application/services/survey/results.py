@@ -45,6 +45,15 @@ class CommentRow:
 
 
 @dataclass
+class LastTime:
+    """The same question in the survey this one was duplicated from: its numbers there."""
+
+    survey_id: int
+    survey_title: str
+    overall: Breakdown
+
+
+@dataclass
 class QuestionResult:
     question_id: int
     section_id: int
@@ -61,6 +70,18 @@ class QuestionResult:
     original_prompt: Optional[str] = None
     reworded_at: Optional[datetime] = None
     reworded_after: Optional[int] = None
+    #: The question it was duplicated from, when that survey has answers.
+    last_time: Optional[LastTime] = None
+
+
+def last_time(question: SurveyQuestion, answers: Sequence[SurveyAnswer]) -> LastTime:
+    """``question`` (from an earlier survey, its section's survey loaded) summed over ``answers`` to it."""
+    if question.kind is SurveyQuestionKind.COMMENT:
+        overall = Breakdown(count=sum(1 for a in answers if (a.text or '').strip()))
+    else:
+        overall = breakdown(question, [a.value for a in answers if a.value is not None])
+    survey = question.section.survey
+    return LastTime(survey_id=survey.id, survey_title=survey.title, overall=overall)
 
 
 def _options(question: SurveyQuestion) -> List[str]:

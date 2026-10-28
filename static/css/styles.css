@@ -9764,6 +9764,11 @@ ol.wiz-help-list { list-style-type: decimal; }
 .wiz-survey-part--hidden { color: var(--fg-muted); }
 .wiz-survey-part--hidden .wiz-survey-part__title { font-weight: 600; }
 
+/* A duplicated question's numbers from the survey it came from. */
+.wiz-survey-result__last { font-size: var(--text-sm); color: var(--fg); margin-top: 4px; flex-wrap: wrap; }
+.wiz-survey-result__last .q-icon { font-size: 16px; color: var(--fg-muted); }
+.wiz-survey-result__last-link { color: var(--wiz-link); text-decoration: underline; }
+
 /* The question dialog's agree-scale tip: a nudge toward item-specific wording, never a block. */
 .wiz-survey-nudge {
     gap: var(--space-2);

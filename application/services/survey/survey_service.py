@@ -44,7 +44,7 @@ from application.services.survey._validation import (
 from application.services.survey.conditions import MAX_PER_QUESTION, MAX_PER_SECTION, answer_entries, follows, remap
 from application.services.survey.dropoff import Dropoff
 from application.services.survey.participation import Participation
-from application.services.survey.results import QuestionResult, summarize
+from application.services.survey.results import QuestionResult, last_time, summarize
 from application.services.survey.template import STARTER
 from models import (
     FeatureFlag,
@@ -262,17 +262,33 @@ class SurveyService:
         answers = await self.repository.submitted_answers(survey.id)
         questions = [q for s in survey.sections for q in s.questions]
         sections = {s.id: s for s in survey.sections}
+        summary = summarize(questions, sections, answers, responses)
+        await self._add_last_time(questions, summary)
         return SurveyResults(
             survey=survey,
             recipients=await self.repository.recipient_counts(survey.id),
             responses=len(responses),
             anonymous=sum(1 for r in responses if r.anonymous),
-            questions=summarize(questions, sections, answers, responses),
+            questions=summary,
             dropoff=dropoff.build(
                 list(survey.sections), await self.repository.progress_rows(survey.id),
                 await self.repository.part_tallies(survey.id),
             ),
         )
+
+    async def _add_last_time(self, questions: Sequence[SurveyQuestion], summary: List[QuestionResult]) -> None:
+        """Put each duplicated question's numbers from the survey it came from beside this year's."""
+        parents = {q.id: q.copied_from_id for q in questions if q.copied_from_id}
+        if not parents:
+            return
+        earlier = {q.id: q for q in await self.repository.questions_with_survey(list(set(parents.values())))}
+        answers: Dict[int, List[Any]] = {}
+        for answer in await self.repository.submitted_answers_to(list(earlier)):
+            answers.setdefault(answer.question_id, []).append(answer)
+        for result in summary:
+            parent = earlier.get(parents.get(result.question_id, 0))
+            if parent is not None and answers.get(parent.id):
+                result.last_time = last_time(parent, answers[parent.id])
 
     @requires_feature(FeatureFlag.SURVEYS)
     async def list_responses(self, actor: User, survey_id: int, *, limit: int = 100,
@@ -327,7 +343,7 @@ class SurveyService:
                     new_section, prompt=q.prompt, kind=q.kind, options=q.options, required=q.required,
                     position=q.position, conditions=remap(q.conditions, ids), other_option=q.other_option,
                     none_option=q.none_option, min_picks=q.min_picks, max_picks=q.max_picks,
-                    long_answer=q.long_answer,
+                    long_answer=q.long_answer, copied_from_id=q.id,
                 )
                 ids[q.id] = new_q.id
         await self._audit(actor, AuditActions.SURVEY_CREATED, copy, copied_from=source.id)

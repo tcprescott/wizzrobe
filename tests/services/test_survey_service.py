@@ -716,3 +716,18 @@ async def test_after_send_line_is_plain_text_and_capped(event_world):
     assert updated.after_send == '<b>Soon</b>'
     with pytest.raises(ValueError):
         await service.update_survey(event_world['staff'], survey.id, after_send='x' * 501)
+
+
+async def test_a_duplicated_question_shows_last_times_numbers(event_world):
+    w = event_world
+    survey = await _sent(w)
+    for user, rating in ((w['alice'], 5), (w['bob'], 3)):
+        await _answer_everything(user, survey.id, rating)
+        await SurveyResponseService().submit(user, survey.id)
+    copy = await SurveyService().duplicate(w['staff'], survey.id)
+    originals = {q.id for s in survey.sections for q in s.questions}
+    assert {q.copied_from_id for s in copy.sections for q in s.questions} == originals
+    results = await SurveyService().results(w['staff'], copy.id)
+    rating = next(r for r in results.questions if r.kind is SurveyQuestionKind.RATING)
+    assert rating.last_time is not None and rating.last_time.survey_id == survey.id
+    assert rating.last_time.overall.count == 2 and rating.last_time.overall.average == 4

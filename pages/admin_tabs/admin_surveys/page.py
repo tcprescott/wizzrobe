@@ -226,7 +226,7 @@ async def admin_surveys_page(survey: Optional[int] = None, view: Optional[str] =
 
             switch.on_value_change(lambda e: switch_view(e.value))
             if state['view'] == RESULTS:
-                render_results(await service.results(user, s.id))
+                render_results(await service.results(user, s.id), on_open=lambda sid: show(sid))
                 return
             summary = await service.builder_summary(user, s.id)
         ai_label, suggestions = None, {}

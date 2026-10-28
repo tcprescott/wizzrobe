@@ -5,7 +5,7 @@ a group under five answers shows only its count, so nobody in it can be picked
 out. Comments are what respondents typed, drawn as plain text.
 """
 
-from typing import List, Optional
+from typing import Any, Callable, List, Optional
 
 from nicegui import ui
 
@@ -105,7 +105,26 @@ def _summary_line(result: Breakdown) -> str:
     return ' · '.join(bits)
 
 
-def _question_card(result: QuestionResult) -> None:
+def _last_time(result: QuestionResult, on_open: Optional[Callable[[int], Any]]) -> None:
+    last = result.last_time
+    if last is None:
+        return
+    before, now = last.overall.average, result.overall.average
+    icon = 'trending_flat'
+    if before is not None and now is not None and now != before:
+        icon = 'trending_up' if now > before else 'trending_down'
+    with ui.row().classes('wiz-survey-result__last no-wrap items-center gap-1'):
+        ui.icon(icon).props('aria-hidden=true')
+        ui.label('Last time in')
+        if on_open is not None:
+            link = ui.link(last.survey_title, '#').classes('wiz-survey-result__last-link')
+            link.on('click.prevent', lambda _, sid=last.survey_id: on_open(sid))
+        else:
+            ui.label(last.survey_title)
+        ui.label(f'· {_summary_line(last.overall)}')
+
+
+def _question_card(result: QuestionResult, on_open: Optional[Callable[[int], Any]] = None) -> None:
     with ui.element('section').classes('wiz-survey-result'):
         with ui.row().classes('items-center gap-2 no-wrap'):
             heading = ui.label(result.prompt).classes('wiz-survey-result__title')
@@ -118,6 +137,7 @@ def _question_card(result: QuestionResult) -> None:
                 .classes('wiz-survey-result__meta')
         ui.label(f'{result.section_title} · {_summary_line(result.overall)}').classes('wiz-survey-result__meta')
         if result.kind is SurveyQuestionKind.COMMENT:
+            _last_time(result, on_open)
             if not result.comments:
                 ui.label('No comments yet.').classes('wiz-survey-result__meta')
             else:
@@ -128,6 +148,7 @@ def _question_card(result: QuestionResult) -> None:
         elif result.overall.count:
             _bars(result.overall, per_person=result.kind is SurveyQuestionKind.CHOICE_MANY,
                   set_apart=result.none_option)
+        _last_time(result, on_open)
         if result.comments:
             n = len(result.comments)
             with ui.expansion(f'{n} “Other” write-in' + ('' if n == 1 else 's')).props('dense') \
@@ -190,7 +211,8 @@ def _dropoff(d: Dropoff) -> None:
                  'Lighter bar: opened. Darker: answered.').classes('wiz-survey-result__meta wiz-survey-dropoff__note')
 
 
-def render_results(results: SurveyResults) -> None:
+def render_results(results: SurveyResults, on_open: Optional[Callable[[int], Any]] = None) -> None:
+    """``on_open`` opens another survey by id (a "Last time" link to the one this was duplicated from)."""
     sent = results.recipients.get('sent', 0)
     nps = results.headline(SurveyQuestionKind.NPS)
     overall = results.headline(SurveyQuestionKind.RATING)
@@ -209,4 +231,4 @@ def render_results(results: SurveyResults) -> None:
         return
     with ui.element('div').classes('wiz-tile-grid wiz-tile-grid--md w-full'):
         for result in results.questions:
-            _question_card(result)
+            _question_card(result, on_open)

@@ -267,4 +267,23 @@ async def seed_surveys_for_tenant(tenant: Tenant, users: dict[str, User]) -> Non
     )
     if created:
         await _build(tenant, closed)
-    print('  surveys ok (draft with AI suggestions, open with answers, closed)')
+    await _seed_lineage(tenant, survey, closed, users)
+    print('  surveys ok (draft with AI suggestions, open with answers, closed, last year linked)')
+
+
+async def _seed_lineage(tenant: Tenant, survey: Survey, last_year: Survey, users: dict[str, User]) -> None:
+    """This year's questions as if duplicated from last year's, and a few answers there, for "Last time"."""
+    earlier = {q.prompt: q for q in await SurveyQuestion.filter(section__survey=last_year)}
+    for question in await SurveyQuestion.filter(section__survey=survey, copied_from_id=None):
+        if question.prompt in earlier:
+            question.copied_from_id = earlier[question.prompt].id
+            await question.save(update_fields=['copied_from_id'])
+    if await SurveyResponse.filter(survey=last_year).exists():
+        return
+    year_ago = (datetime.now(timezone.utc) - timedelta(days=360)).date()
+    for user, rating, recommend in ((users['player_one'], 3, 7), (users['volunteer_only'], 4, 8)):
+        response = await SurveyResponse.create(tenant=tenant, survey=last_year, user=user,
+                                               status=SurveyResponseStatus.SUBMITTED, groups=[],
+                                               submitted_on=year_ago)
+        await _answer(tenant, response, earlier['Overall, how was the event?'], rating)
+        await _answer(tenant, response, earlier['How likely are you to recommend it to a friend?'], recommend)

@@ -185,7 +185,43 @@ instead. Both DMs carry a grey **Not interested** button
 sets `declined_at`, greys the button out, and drops them from reminders; the
 link keeps working.
 
-The builder's time check warns over **10 minutes** (`plan.BUDGET_SECONDS`).
+The builder's time box (Thomas picked layout A, 2026-10-28) leads with "Most
+people", the median of everyone's path (`BuilderSummary.typical_seconds`), and
+puts the longest path and who it is on the second line. One bar on a 10-minute
+scale carries both, with a tick at 5 (`plan.TARGET_SECONDS`): aim for most
+people under 5, and the longest path warns over **10 minutes**
+(`plan.BUDGET_SECONDS`).
+
+**Checks** (Thomas picked layout A) is a card under the time box on a draft.
+Each rule registers itself in `application/services/survey/checks.py` and runs
+over the sections and the real paths of everyone who took part. The rules are:
+an empty part, a part or question nobody who took part reaches, "and" in a
+rating/recommend/yes-no prompt, more than 3 comment boxes on one path, a part
+over 5 questions, an agree scale over 5 statements, and a required comment.
+Each finding names its question or part and scrolls to it; checks that found
+nothing fold into one grey line. They never block Send.
+
+The question dialog shows a tip under Type when Agree scale is picked: agree
+statements lean "agree", so "how good was it" is better as a Rating.
+
+The **preview** opens with a paths table (Thomas picked layout A): one row per
+kind of person (`SurveyService.preview_paths`, the personas of
+`plan.PREVIEW_PERSONAS` bar "Every question") with parts, questions and time.
+Tapping a row switches the preview to them. The parts they won't see are
+listed in grey with why (`plan.hidden_from`: the audience, or the first
+condition that fails), and inside a part the questions they won't see, or
+won't see until an earlier answer, show the same way.
+
+**Missing answers** (Thomas picked layout A): Send with a required question
+unanswered doesn't send. A red box above the parts lists each one
+(`RespondentView.missing()`) as a link that opens its part at the question,
+the part rows say "Needs an answer", and the question is marked in place. Each
+entry drops off as it's answered. The service refuses the same send anyway.
+
+**Duplicate** records each copy's origin in `SurveyQuestion.copied_from`. On
+results, a question whose origin has answers shows a "Last time in <survey>"
+line with that survey's average or count, linking to it (Thomas picked layout
+A). REST serves `copied_from_id` on each question.
 
 ## Drop-off
 
