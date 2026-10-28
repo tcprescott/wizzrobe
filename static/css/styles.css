@@ -9732,6 +9732,38 @@ ol.wiz-help-list { list-style-type: decimal; }
 .wiz-survey-check__link { color: var(--wiz-link); text-decoration: underline; overflow-wrap: anywhere; }
 .wiz-survey-check__passed { color: var(--fg-muted); }
 
+/* The preview's paths table (one row per kind of person) and its "won't see" lines. */
+.wiz-survey-paths {
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-md);
+    background: var(--surface);
+    overflow: hidden;
+    font-size: var(--text-sm);
+}
+.wiz-survey-paths__row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 3.5rem 4.5rem 5.5rem;
+    gap: var(--space-2);
+    align-items: center;
+    padding: 8px 12px;
+    border-top: 1px solid var(--border-subtle);
+    cursor: pointer;
+}
+.wiz-survey-paths__row > :not(:first-child) { text-align: right; font-variant-numeric: tabular-nums; }
+.wiz-survey-paths__row.is-head { border-top: 0; cursor: default; color: var(--fg-muted); font-weight: 600; font-size: var(--text-xs); }
+.wiz-survey-paths__row.is-on { background: color-mix(in srgb, var(--q-primary) 14%, transparent); font-weight: 600; }
+.wiz-survey-paths__row:not(.is-head):hover { background: var(--surface-alt); }
+.wiz-survey-hidden {
+    gap: var(--space-2);
+    padding: 8px 0;
+    border-top: 1px dashed var(--border-subtle);
+    color: var(--fg-muted);
+    font-size: var(--text-sm);
+}
+.wiz-survey-hidden .q-icon { font-size: 18px; flex: none; }
+.wiz-survey-part--hidden { color: var(--fg-muted); }
+.wiz-survey-part--hidden .wiz-survey-part__title { font-weight: 600; }
+
 /* The question dialog's agree-scale tip: a nudge toward item-specific wording, never a block. */
 .wiz-survey-nudge {
     gap: var(--space-2);

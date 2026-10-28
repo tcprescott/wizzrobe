@@ -101,6 +101,18 @@ class BuilderSummary:
 
 
 @dataclass
+class PreviewPath:
+    """What one kind of person sees in the preview, for its paths table, and what's left out for them."""
+
+    persona: str
+    label: str
+    parts: int
+    questions: int
+    seconds: int
+    hidden: List[plan.Hidden] = field(default_factory=list)
+
+
+@dataclass
 class SurveyRow:
     survey: Survey
     sent: int
@@ -213,6 +225,23 @@ class SurveyService:
             tournaments=participation.tournament_names(), positions=participation.position_names(),
             answered=0 if survey.status is SurveyStatus.DRAFT else await self.repository.submitted_count(survey.id),
         )
+
+    @requires_feature(FeatureFlag.SURVEYS)
+    async def preview_paths(self, actor: User, survey_id: int) -> List[PreviewPath]:
+        """One row per kind of person the preview can show: parts, questions and time, and what they won't see."""
+        await self._ensure_staff(actor)
+        survey = await self._load(survey_id)
+        participation = await Participation.load(survey.event_id)
+        tournaments, positions = participation.tournament_names(), participation.position_names()
+        rows = []
+        for persona, label in plan.PREVIEW_PERSONAS.items():
+            if persona == 'everything':
+                continue
+            facts = plan.preview_facts(persona, tournaments, positions)
+            parts = plan.parts_for(survey.sections, facts)
+            rows.append(PreviewPath(persona, label, len(parts), plan.question_count(parts), plan.seconds(parts),
+                                    plan.hidden_from(survey.sections, facts)))
+        return rows
 
     @requires_feature(FeatureFlag.SURVEYS)
     async def preview(self, actor: User, survey_id: int, persona: str = 'everything') -> tuple[Survey, List[plan.Part]]:

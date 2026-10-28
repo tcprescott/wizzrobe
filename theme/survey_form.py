@@ -12,7 +12,7 @@ Everything the respondent typed is shown back as text, never as markup.
 
 import logging
 from functools import partial
-from typing import Any, Awaitable, Callable, Dict, List, Optional
+from typing import Any, Awaitable, Callable, Dict, List, Optional, Sequence
 
 from nicegui import background_tasks, ui
 
@@ -27,6 +27,7 @@ from application.services.survey._validation import (
     pick_problem,
     split_other,
 )
+from application.services.survey.conditions import answer_entries, describe
 from models import SurveyQuestion, SurveyQuestionKind
 from theme.a11y import make_activatable
 from theme.banner import banner
@@ -317,6 +318,13 @@ def _still_missing(question: SurveyQuestion, value: Any) -> bool:
     return (value.strip() if isinstance(value, str) else value) in (None, '', []) and not other
 
 
+def _hidden_line(prompt: str, reason: str) -> None:
+    """The preview's note for a question this person won't see (or not yet)."""
+    with ui.row().classes('wiz-survey-hidden no-wrap items-start w-full'):
+        ui.icon('visibility_off').props('aria-hidden=true')
+        ui.label(f'Hidden: {prompt} · {reason}').classes('col min-w-0')
+
+
 def _missing_message(question: SurveyQuestion) -> str:
     if question.kind is SurveyQuestionKind.AGREE_SCALE:
         return 'Answer every statement to send your answers.'
@@ -398,6 +406,9 @@ class PartSheet:
         with ui.column().classes('wiz-survey-sheet__questions w-full gap-0'):
             for question in part.questions:
                 if not plan.visible(question, part.scope, answers):
+                    if self.form.preview:
+                        entry = next(iter(answer_entries(question.conditions)), None)
+                        _hidden_line(question.prompt, describe(entry, self.form.prompts))
                     continue
                 missing = flagged.get(question.id)
                 if missing is not None and not _still_missing(question, self.draft.get(question.id)):
@@ -414,6 +425,9 @@ class PartSheet:
                             ui.label(_missing_message(question))
                     _question_control(question, self.draft.get(question.id),
                                       partial(self._set, question), self.form.editable)
+            for item in self.form.hidden:
+                if item.section_id == part.section_id and item.prompt:
+                    _hidden_line(item.prompt, item.reason)
 
     def _payload(self, part: plan.Part) -> Dict[int, Any]:
         answers = self._answers_for_visibility()
@@ -466,8 +480,11 @@ class SurveyForm:
 
     def __init__(self, view: RespondentView, *, save_part: SavePart, submit: Submit,
                  editable: bool, preview: bool = False, community: str = '',
-                 opened_part: Optional[OpenedPart] = None) -> None:
+                 opened_part: Optional[OpenedPart] = None, hidden: Sequence[plan.Hidden] = ()) -> None:
         self.view = view
+        #: The preview's "won't see" list for the kind of person showing (empty on the real page).
+        self.hidden = list(hidden)
+        self.prompts = {q.id: q.prompt for part in view.parts for q in part.questions}
         self.save_part = save_part
         self.opened_part = opened_part
         self.submit = submit
@@ -576,6 +593,15 @@ class SurveyForm:
                         ui.icon('chevron_right').classes('text-grey-7').props('aria-hidden=true')
                 row.on('click', lambda _, p=part: self.sheet.open(p))
                 make_activatable(row, f'Open {part.title}')
+            shown_ids = {p.section_id for p in shown}
+            for item in self.hidden:
+                if item.prompt is None and item.section_id not in shown_ids:
+                    with ui.row().classes('wiz-survey-part wiz-survey-part--hidden no-wrap items-center'):
+                        with ui.element('span').classes('wiz-survey-part__icon'):
+                            ui.icon('visibility_off').props('aria-hidden=true')
+                        with ui.column().classes('gap-0 col min-w-0'):
+                            ui.label(item.title).classes('wiz-survey-part__title')
+                            ui.label(f'Hidden for this person · {item.reason}').classes('wiz-survey-part__meta')
             with ui.row().classes('wiz-survey-parts__foot items-center no-wrap w-full'):
                 if view.submitted:
                     ui.label('Sent. Open a part to see what you answered.') \

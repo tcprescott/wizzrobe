@@ -257,6 +257,17 @@ async def test_preview_shows_every_part_without_recording(event_world):
         await SurveyService().preview(event_world['bob'], survey.id)
 
 
+async def test_preview_paths_count_each_kind_of_person_and_say_what_they_miss(event_world):
+    survey = await SurveyService().create_survey(event_world['staff'], 'Draft')
+    paths = {row.persona: row for row in await SurveyService().preview_paths(event_world['staff'], survey.id)}
+    assert 'everything' not in paths and set(paths) == set(plan.PREVIEW_PERSONAS) - {'everything'}
+    player, checked_in = paths['player'], paths['checked_in']
+    assert player.parts > checked_in.parts and player.seconds > checked_in.seconds
+    # Someone only checked in doesn't play, so the per-tournament part is listed as hidden, with why.
+    assert any(h.prompt is None and h.reason == 'Only for people who played a tournament'
+               for h in checked_in.hidden)
+
+
 async def test_builder_summary_finds_the_longest_path(event_world):
     survey = await SurveyService().create_survey(event_world['staff'], 'Draft')
     summary = await SurveyService().builder_summary(event_world['staff'], survey.id)

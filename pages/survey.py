@@ -6,7 +6,7 @@ kind of person would see it, with a banner saying nothing is saved; a staff
 member can share that link with other staff before sending.
 """
 
-from typing import Any, Dict, Optional
+from typing import Any, Callable, Dict, Optional
 
 from nicegui import app, ui
 from starlette.responses import RedirectResponse
@@ -23,6 +23,7 @@ from application.services.survey import coerce_answer, plan
 from middleware.auth import protected_page
 from middleware.event_routing import page_request, row_event_redirect
 from models import FeatureFlag, User
+from theme.a11y import make_activatable
 from theme.banner import banner
 from theme.base import BaseLayout
 from theme.error_page import render_not_found
@@ -72,6 +73,25 @@ def create() -> None:
                    opened_part=opened_part)
         return None
 
+    def _paths_table(rows: list, selected: str, pick: Callable[[str], None]) -> None:
+        with ui.element('div').classes('wiz-survey-paths w-full'):
+            with ui.element('div').classes('wiz-survey-paths__row is-head').props('aria-hidden=true'):
+                for heading in ('Who', 'Parts', 'Questions', 'Time'):
+                    ui.label(heading)
+            for row in rows:
+                classes = 'wiz-survey-paths__row' + (' is-on' if row.persona == selected else '')
+                time = plan.format_duration(row.seconds)
+                with ui.element('div').classes(classes) as line:
+                    ui.label(row.label)
+                    ui.label(str(row.parts))
+                    ui.label(str(row.questions))
+                    ui.label(time)
+                line.on('click', lambda _, p=row.persona: pick(p))
+                make_activatable(line, f'{row.label}: {row.parts} parts, {row.questions} questions, about {time}. '
+                                       'Show the preview as them.')
+                if row.persona == selected:
+                    line.props('aria-current=true')
+
     @protected_page('/survey/{survey_id}/preview', feature=FeatureFlag.SURVEYS, scope='row')
     async def survey_preview_page(survey_id: int) -> Optional[RedirectResponse]:
         user = await get_user_from_session(app.storage.user)
@@ -96,11 +116,14 @@ def create() -> None:
                 title='Preview', tone='warning',
             ):
                 pass
+            paths = {row.persona: row for row in await service.preview_paths(user, survey_id)}
+            paths_table = ui.refreshable(_paths_table)
+            paths_table(list(paths.values()), 'everything', lambda persona: setattr(showing, 'value', persona))
             showing = ui.select(plan.PREVIEW_PERSONAS, value='everything', label='Showing') \
                 .props('outlined dense').classes('wiz-survey-preview__showing')
 
         @ui.refreshable
-        def form(parts: list) -> None:
+        def form(parts: list, hidden: list) -> None:
             view = RespondentView(survey=survey, recipient=None, parts=parts)
 
             async def save_part(part_key: str, answers: Dict[int, Any]) -> RespondentView:
@@ -123,17 +146,20 @@ def create() -> None:
             async def submit(_anonymous: bool) -> None:
                 raise ValueError('Sending is turned off in the preview.')
 
-            SurveyForm(view, save_part=save_part, submit=submit, editable=True, preview=True, community=community)
+            SurveyForm(view, save_part=save_part, submit=submit, editable=True, preview=True, community=community,
+                       hidden=hidden)
 
         async def switch(persona: str) -> None:
             try:
                 _, parts = await service.preview(user, survey_id, persona)
             except (ValueError, PermissionError):
                 return
-            form.refresh(parts)
+            row = paths.get(persona)
+            paths_table.refresh(list(paths.values()), persona, lambda p: setattr(showing, 'value', p))
+            form.refresh(parts, row.hidden if row else [])
 
         _, first_parts = await service.preview(user, survey_id, 'everything')
-        form(first_parts)
+        form(first_parts, [])
         showing.on_value_change(lambda e: switch(e.value))
         bind_url('showing', showing)
         return None
