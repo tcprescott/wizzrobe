@@ -28,6 +28,7 @@ from application.services.match.match_hard_preset_service import (
 from application.services.match.match_participants import MatchParticipants
 from application.services.match.match_placeholders import PlaceholderBookingMixin
 from application.services.match.match_reads import MatchReadsMixin
+from application.services.match.match_report_service import MatchReportService, ReportCheck
 from application.services.match.match_request import MatchRequestMixin
 from application.services.match.match_request_guard import assert_player_requests_allowed
 from application.services.match.match_result import RecordResultMixin
@@ -71,6 +72,7 @@ __all__ = [
     'MatchHardPresetService',
     'MatchParticipants',
     'MatchReadsMixin',
+    'MatchReportService',
     'MatchRequestMixin',
     'MatchReviewMixin',
     'MatchScheduleService',
@@ -82,6 +84,7 @@ __all__ = [
     'PlaceholderBookingMixin',
     'PlayerLateService',
     'RecordResultMixin',
+    'ReportCheck',
     'SeedReadyResult',
     'SeedReadyService',
     'StationAssignmentMixin',

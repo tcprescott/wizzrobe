@@ -21,7 +21,13 @@ from typing import Any
 
 from nicegui import app, ui
 
-from application.services import MatchScheduleService, MatchService, get_user_from_session
+from application import pending_actions
+from application.services import (
+    MatchReportService,
+    MatchScheduleService,
+    MatchService,
+    get_user_from_session,
+)
 from application.services.match.match_status import closes_without_winner
 from application.tenant_context import require_tenant_id
 from application.utils.match_labels import match_model_label
@@ -31,6 +37,7 @@ from theme.dialog.match_dialog import AdminMatchDialog
 from theme.notify import notify_error
 from theme.tables.match_access import MatchBoardAccess
 from theme.tables.match_slots import CANDIDATE_STAGE
+from theme.undo_toast import undo_toast
 
 
 def open_race_finish_message(match: Match) -> str:
@@ -103,6 +110,7 @@ class MatchLifecycleHandlers:
             cb['on_seat'] = self.on_seat
             cb['on_start'] = self.on_start
             cb['on_finish'] = self.on_finish
+            cb['on_report_winner'] = self.on_report_winner
             cb['on_assign_stations'] = self.on_assign_stations
         if self.access.edit:
             cb['on_edit'] = self.on_edit
@@ -273,11 +281,64 @@ class MatchLifecycleHandlers:
             with self.page_container:
                 notify_error(e)
 
+    async def on_report_winner(self, match_id: int, player_id: int):
+        """One tap on a winner's name: held behind Undo, then recorded and
+        finished, and confirmed too when this viewer may confirm."""
+        actor = await self._actor()
+        service = MatchReportService()
+        try:
+            checked = await service.check(match_id, player_id, actor)
+        except (ValueError, PermissionError) as e:
+            with self.page_container:
+                notify_error(e)
+            return
+        client = self.page_container.client
+        flagged = {'on': False}
+
+        async def commit() -> None:
+            await service.report(match_id, player_id, actor, flag=flagged['on'])
+
+        async def refused(error: Exception) -> None:
+            if not client.is_deleted:
+                with client:
+                    ui.notify(f"{checked.winner_name}'s win wasn't saved: {error}", color='negative')
+
+        try:
+            token = pending_actions.hold(
+                ('result', match_id), f'{checked.winner_name} wins', commit,
+                match_id=match_id, on_error=refused,
+            )
+        except ValueError as e:
+            with self.page_container:
+                notify_error(e)
+            return
+
+        async def flag() -> None:
+            flagged['on'] = True
+            if not await pending_actions.commit_now(token):
+                ui.notify('Too late to flag it here. Open the match to flag the result.', color='warning')
+                return
+            ui.notify('Saved and flagged for admin review.', color='warning')
+
+        with self.page_container:
+            undo_toast(
+                f'{checked.winner_name} wins', token,
+                caption='Recorded and confirmed' if checked.confirms else 'Recorded · an admin will confirm',
+                icon='emoji_events', undone='Result undone.',
+                on_undone=lambda: self.table_view.update_row_by_id(match_id),
+                extra=None if checked.confirms else ('Flag for review', flag),
+            )
+
     async def on_confirm(self, match_id: int):
         match = await Match.get(id=match_id, tenant_id=require_tenant_id()).prefetch_related('tournament', 'players', 'players__user')
 
         async def handle_confirm(_):
             await self.confirm_confirming(match)
+        if not match.needs_review:
+            # The proctor already named the winner and nothing is in dispute:
+            # one tap, with Undo, like recording it.
+            await self._confirm_with_undo(match)
+            return
         with self.page_container:
             dialog = ConfirmationDialog(
                 title='Confirm result',
@@ -287,6 +348,32 @@ class MatchLifecycleHandlers:
                 on_confirm=handle_confirm,
             )
             dialog.open()
+
+    async def _confirm_with_undo(self, match: Match):
+        actor = await self._actor()
+        client = self.page_container.client
+        winner = next((p for p in match.players if p.finish_rank == 1), None)  # type: ignore[attr-defined]
+        label = f'{winner.user.preferred_name} wins' if winner else 'Result'
+
+        async def commit() -> None:
+            await self.schedule_service.confirm_match(match, actor=actor)
+
+        async def refused(error: Exception) -> None:
+            if not client.is_deleted:
+                with client:
+                    ui.notify(f"The result wasn't confirmed: {error}", color='negative')
+
+        try:
+            token = pending_actions.hold(('confirm', match.id), 'Confirming', commit,
+                                         match_id=match.id, on_error=refused)
+        except ValueError as e:
+            with self.page_container:
+                notify_error(e)
+            return
+        with self.page_container:
+            undo_toast(f'{label} · confirmed', token, caption=match_model_label(match, with_context=False),
+                       icon='verified', undone='Confirm undone.',
+                       on_undone=lambda: self.table_view.update_row_by_id(match.id))
 
     async def confirm_confirming(self, match: Match):
         try:

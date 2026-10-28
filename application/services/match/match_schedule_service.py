@@ -315,12 +315,16 @@ class MatchScheduleService(MatchNotificationMixin):
             notice=MATCH_STARTED,
         )
 
-    async def finish_match(self, match: Match, actor: Optional[User] = None) -> None:
+    async def finish_match(
+        self, match: Match, actor: Optional[User] = None, *, confirm: bool = False,
+    ) -> None:
         """Finish a live match. An open race (more than four players) is confirmed too.
 
         Nobody records a winner for an open race, so there is nothing for the
         admin's confirm step to check: whoever may finish it closes it out, and
-        only the confirmed DM goes out rather than two in a row.
+        only the confirmed DM goes out rather than two in a row. ``confirm`` does
+        the same for a result someone who may confirm just recorded, under the
+        confirm gate.
         """
         await match.fetch_related('players')
         open_race = closes_without_winner(match.players)  # type: ignore[attr-defined]
@@ -339,10 +343,12 @@ class MatchScheduleService(MatchNotificationMixin):
             event_type=EventType.MATCH_FINISHED,
             build_message=lambda m, c, b: _state_notification(m, c, "Finished", b),
             notice=MATCH_FINISHED,
-            notify=not open_race,
+            notify=not (open_race or confirm),
         )
         if open_race:
             await self._confirm(match, actor, authorize=AuthService.can_run_match)
+        elif confirm:
+            await self._confirm(match, actor, authorize=AuthService.can_confirm_match)
 
     async def confirm_match(self, match: Match, actor: Optional[User] = None) -> None:
         await self._confirm(match, actor, authorize=AuthService.can_confirm_match)

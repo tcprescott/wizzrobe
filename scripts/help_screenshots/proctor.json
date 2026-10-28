@@ -54,25 +54,17 @@
     "path": "/volunteer/proctor-station",
     "setup": [
       {
-        "click": "button:has-text('Finish')"
-      },
-      {
-        "waitFor": ".q-dialog"
+        "waitFor": ".run-sheet__winners"
       },
       {
         "wait": 500
       }
     ],
-    "selector": ".q-dialog .q-card",
-    "padding": 0,
+    "selector": ".run-sheet__card:has(.run-sheet__winners) >> nth=0",
     "annotate": [
       {
-        "selector": ".q-dialog button:has-text('Player One')",
+        "selector": ".run-sheet__card:has(.run-sheet__winners) >> nth=0 >> .run-sheet__winner >> nth=0",
         "n": 1
-      },
-      {
-        "selector": ".q-dialog .q-checkbox:has-text('Flag for admin review')",
-        "n": 2
       }
     ]
   }

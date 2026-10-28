@@ -188,13 +188,22 @@ class TestQuickApprove:
         assert CREW_NAMES == crew_names()
         assert 'approve_crew' not in _body_slot(False) + _item_slot(False)
 
-    def test_two_taps_and_the_viewers_gate(self):
+    def test_one_tap_and_the_viewers_gate(self):
         names = crew_names('[3].includes(props.row.tournament_id)')
         assert "$parent.$emit('approve_crew'" in names
-        assert 'p._arm ?' in names
+        # No armed state on the client: a board refresh used to clear it
+        # between the two taps, so the second tap only re-armed the button.
+        assert '_arm' not in names
         assert '[3].includes(props.row.tournament_id)' in names
         # The note gives way to the button rather than sitting beside it.
         assert 'p.note && !(' in names
+
+    def test_phone_card_is_a_div_when_it_holds_winner_buttons(self):
+        slot = _item_slot(False, run='true')
+        assert '<div v-if="!props.row._folded" class="run-sheet__card"' in slot
+        assert "report_winner" in slot
+        assert "report_winner" in _body_slot(False, run='true')
+        assert "report_winner" not in _body_slot(False) + _item_slot(False)
 
     def test_phone_card_stops_being_a_button_when_it_holds_one(self):
         # A button inside the card's button is invalid HTML and the inner click
@@ -205,3 +214,48 @@ class TestQuickApprove:
         assert '<div v-if="!props.row._folded" class="run-sheet__card"' in slot
         assert 'class="run-sheet__who run-sheet__open"' in slot
         assert "approve_crew" in _body_slot(False, approve='true')
+
+
+class TestWinnerButtons:
+    """A live head-to-head offers both names; anything else keeps Finish."""
+
+    @staticmethod
+    def _live(**extra):
+        row = {'id': 9, 'state': 'Started', 'players': [
+            {'id': 41, 'name': 'Andy'}, {'id': 42, 'name': 'Benny'}]}
+        row.update(extra)
+        return row
+
+    def test_two_players_live_get_both_names(self):
+        from theme.tables.run_sheet_winners import winner_choices
+        assert winner_choices(self._live()) == [{'id': 41, 'name': 'Andy'}, {'id': 42, 'name': 'Benny'}]
+
+    def test_not_live_or_not_two_or_played_elsewhere_get_none(self):
+        from theme.tables.run_sheet_winners import winner_choices
+        assert winner_choices(self._live(state='Checked In')) == []
+        assert winner_choices(self._live(players=[{'id': 1, 'name': 'A'}] * 3)) == []
+        assert winner_choices(self._live(is_racetime=True)) == []
+        assert winner_choices(self._live(played_on_site='challonge')) == []
+
+    def test_next_step_is_the_winner_pick_for_two_and_finish_for_more(self):
+        from theme.tables.match_run_sheet import next_step
+        assert next_step(self._live())['event'] == 'winner'
+        assert next_step(self._live(players=[{'id': i, 'name': str(i)} for i in range(3)]))['event'] == 'finish'
+
+    def test_a_held_result_shows_in_place_of_the_buttons(self):
+        import asyncio
+
+        from application import pending_actions
+        from theme.tables.run_sheet_winners import stamp_winners
+
+        async def run():
+            async def commit():
+                return None
+            token = pending_actions.hold(('result', 9), 'Andy wins', commit, seconds=5)
+            row = self._live()
+            stamp_winners(row)
+            pending_actions.cancel(token)
+            return row
+
+        row = asyncio.run(run())
+        assert row['_pending_result'] == 'Andy wins'
