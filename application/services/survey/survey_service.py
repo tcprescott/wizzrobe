@@ -29,6 +29,7 @@ from application.repositories.survey_repository import SurveyRepository
 from application.services.audit_service import AuditActions, AuditService
 from application.services.auth_service import AuthService
 from application.services.survey import _notifications, dropoff, plan
+from application.services.survey import checks as survey_checks
 from application.services.survey._validation import (
     AFTER_SEND_MAX,
     DESCRIPTION_MAX,
@@ -88,6 +89,9 @@ class BuilderSummary:
     positions: List[dict] = field(default_factory=list)
     #: The middle person's time (median over everyone who took part).
     typical_seconds: int = 0
+    #: What the Checks card lists, and the checks that found nothing.
+    checks: List[survey_checks.Finding] = field(default_factory=list)
+    checks_passed: List[str] = field(default_factory=list)
     #: Responses sent in so far; always 0 on a draft.
     answered: int = 0
 
@@ -191,16 +195,20 @@ class SurveyService:
         participation = await Participation.load(survey.event_id)
         longest, who, count = 0, '', 0
         everyone: List[int] = []
+        paths: List[survey_checks.Path] = []
         for facts in (await participation.facts_by_user()).values():
             parts = plan.parts_for(survey.sections, facts)
             seconds = plan.seconds(parts)
             everyone.append(seconds)
+            paths.append(survey_checks.Path(_describe(facts), parts))
             if seconds > longest:
                 longest, count = seconds, plan.question_count(parts)
                 who = _describe(facts)
+        found, passed = survey_checks.run_checks(list(survey.sections), paths)
         return BuilderSummary(
             longest_seconds=longest, longest_questions=count, longest_who=who,
             typical_seconds=int(median_low(everyone)) if everyone else 0,
+            checks=found, checks_passed=passed,
             counts=participation.counts(),
             tournaments=participation.tournament_names(), positions=participation.position_names(),
             answered=0 if survey.status is SurveyStatus.DRAFT else await self.repository.submitted_count(survey.id),

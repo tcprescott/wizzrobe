@@ -114,7 +114,7 @@ def _question_row(ctx: BuilderContext, section: SurveySection, question: SurveyQ
 
 def _section_card(ctx: BuilderContext, section: SurveySection, prompts: Dict[int, str],
                   first: bool, last: bool) -> None:
-    with ui.element('section').classes('wiz-survey-section w-full'):
+    with ui.element('section').classes('wiz-survey-section w-full').props(f'data-sid={section.id}'):
         with ui.row().classes('wiz-survey-section__head no-wrap items-center w-full'):
             with ui.row().classes('col min-w-0 items-center gap-2'):
                 heading = ui.label(section.title).classes('wiz-survey-section__title')
@@ -253,6 +253,35 @@ def _budget_card(ctx: BuilderContext) -> None:
                      f'Over {budget // 60} is too long for anyone.').classes('wiz-survey-side__text')
 
 
+def _scroll_to(finding) -> None:
+    selector = (f'[data-qid="{finding.question_id}"]' if finding.question_id is not None
+                else f'[data-sid="{finding.section_id}"]')
+    ui.run_javascript(f"document.querySelector('{selector}')?.scrollIntoView({{block: 'center', behavior: 'smooth'}})")
+
+
+def _checks_card(ctx: BuilderContext) -> None:
+    summary = ctx.summary
+    findings = summary.checks
+    with ui.element('section').classes('wiz-survey-side'):
+        with ui.row().classes('items-center no-wrap w-full'):
+            ui.label('Checks').classes('wiz-survey-side__title col')
+            if findings:
+                ui.label(f'{len(findings)} to look at').classes('wiz-chip wiz-chip--pending')
+        for finding in findings:
+            with ui.row().classes('wiz-survey-check no-wrap items-start w-full'):
+                ui.icon('warning').classes('wiz-survey-check__icon is-warn').props('aria-hidden=true')
+                with ui.element('div').classes('col min-w-0'):
+                    if finding.link:
+                        link = ui.link(finding.link, '#').classes('wiz-survey-check__link')
+                        link.on('click.prevent', lambda _, f=finding: _scroll_to(f))
+                    text = ui.label(finding.text).classes('wiz-survey-check__text')
+                    text.tag = 'span'
+        if summary.checks_passed:
+            with ui.row().classes('wiz-survey-check no-wrap items-start w-full'):
+                ui.icon('check_circle').classes('wiz-survey-check__icon is-ok').props('aria-hidden=true')
+                ui.label(' · '.join(summary.checks_passed)).classes('wiz-survey-check__passed col min-w-0')
+
+
 def _who_card(ctx: BuilderContext) -> None:
     counts = ctx.summary.counts
     rows = [('Players', counts.get('players', 0)), ('Volunteers', counts.get('volunteers', 0)),
@@ -302,4 +331,6 @@ def render_builder(ctx: BuilderContext) -> None:
                 )).props('outline no-caps color=primary')
         with ui.column().classes('wiz-survey-builder__side gap-3 items-stretch'):
             _budget_card(ctx)
+            if ctx.editable:
+                _checks_card(ctx)
             _who_card(ctx)
