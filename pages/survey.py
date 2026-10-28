@@ -65,7 +65,11 @@ def create() -> None:
         async def submit(anonymous: bool) -> None:
             await service.submit(user, survey_id, anonymous=anonymous)
 
-        SurveyForm(view, save_part=save_part, submit=submit, editable=view.open, community=community)
+        async def opened_part(part_key: str) -> None:
+            await service.open_part(user, survey_id, part_key)
+
+        SurveyForm(view, save_part=save_part, submit=submit, editable=view.open, community=community,
+                   opened_part=opened_part)
         return None
 
     @protected_page('/survey/{survey_id}/preview', feature=FeatureFlag.SURVEYS, scope='row')

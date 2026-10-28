@@ -16,6 +16,7 @@ from application.services import (
     get_user_from_session,
     notification_links,
 )
+from application.services.survey.survey_service import MAX_REMINDERS
 from application.tenant_context import require_tenant_id, tenant_scope
 from application.utils.app_links import survey_preview_url
 from application.utils.timezone import format_local_display
@@ -193,7 +194,13 @@ async def admin_surveys_page(survey: Optional[int] = None, view: Optional[str] =
                     menu_action('link', 'Copy preview link', lambda: copy_preview(s))
                     menu_link('visibility', 'Open preview', survey_preview_url(s.id))
                     if s.status is SurveyStatus.OPEN:
-                        menu_action('notifications', 'Remind people who haven’t answered', lambda: remind(s))
+                        if s.reminders_sent >= MAX_REMINDERS:
+                            menu_action('notifications_off', 'Two reminders sent', None).props('disable')
+                        else:
+                            menu_action('notifications', 'Remind people who haven’t answered' if not s.reminders_sent
+                                        else 'Send the last-call reminder', lambda: remind(s))
+                        menu_action('event', 'Change close date…', lambda: dialogs.close_date_dialog(
+                            service, user, s, lambda _: reload()))
                     menu_action('content_copy', 'Duplicate', lambda: duplicate(s))
                     if s.status is SurveyStatus.OPEN:
                         menu_action('lock', 'Close survey…', lambda: confirm_close(s))

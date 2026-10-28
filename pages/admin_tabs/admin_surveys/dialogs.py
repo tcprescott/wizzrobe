@@ -1,4 +1,4 @@
-"""The survey builder's forms: new survey, details, section, question, send."""
+"""The survey builder's forms: new survey, details, section, question, send, close date."""
 
 from datetime import timedelta
 from typing import Any, Awaitable, Callable, List, Mapping, Optional
@@ -7,7 +7,7 @@ from nicegui import ui
 
 from application.services import SurveyService
 from application.services.survey import AGREE_LEVELS, answer_values, conditions, plan
-from application.utils.timezone import now_local
+from application.utils.timezone import now_local, to_local
 from models import Survey, SurveyAudience, SurveyQuestion, SurveyQuestionKind, SurveySection, User
 from pages.admin_tabs.admin_surveys.shared import AUDIENCE_CHIPS
 from theme.busy import busy_click
@@ -310,4 +310,28 @@ def send_dialog(service: SurveyService, user: User, survey: Survey, reach: int, 
         with dialog_actions().classes('justify-end'):
             ui.button('Cancel', on_click=dialog.close).props('flat no-caps')
             ui.button('Send survey', on_click=busy_click('Sending…', send)).props('unelevated no-caps color=primary')
+    dialog.open()
+
+
+def close_date_dialog(service: SurveyService, user: User, survey: Survey, on_done: Done) -> None:
+    """Move an open survey's close time, or clear it to leave it open until someone closes it."""
+    current = to_local(survey.closes_at)
+    with form_dialog('Change close date', card_classes='dialog-card dialog-card--sm') as dialog:
+        with ui.column().classes('w-full gap-2'):
+            ui.label('People can answer until then. Leave it empty to keep it open until you close it.')
+            closes = native_datetime_input(
+                'Open until', current.strftime('%Y-%m-%dT%H:%M') if current else '',
+            ).classes('w-full')
+
+        async def save() -> None:
+            try:
+                await service.update_survey(user, survey.id, closes_at=local_input_to_datetime(closes.value))
+            except (ValueError, PermissionError) as e:
+                notify_error(e)
+                return
+            dialog.close()
+            ui.notify('Close date saved.', color='positive')
+            await on_done(None)
+
+        _footer(dialog, 'Save', save)
     dialog.open()

@@ -27,7 +27,7 @@ from application.repositories.survey_participation_repository import SurveyParti
 from application.repositories.survey_repository import SurveyRepository
 from application.services.audit_service import AuditActions, AuditService
 from application.services.auth_service import AuthService
-from application.services.survey import _notifications, plan
+from application.services.survey import _notifications, dropoff, plan
 from application.services.survey._validation import (
     DESCRIPTION_MAX,
     INTRO_MAX,
@@ -39,6 +39,7 @@ from application.services.survey._validation import (
     clean_text,
 )
 from application.services.survey.conditions import MAX_PER_QUESTION, MAX_PER_SECTION, answer_entries, follows, remap
+from application.services.survey.dropoff import Dropoff
 from application.services.survey.participation import Participation
 from application.services.survey.results import QuestionResult, summarize
 from application.services.survey.template import STARTER
@@ -58,6 +59,8 @@ _UNSET: Any = object()
 MAX_SECTIONS = 20
 MAX_QUESTIONS_PER_SECTION = 20
 REMIND_GAP_HOURS = 24
+#: Reminders a survey can send; the last one is worded as a last call.
+MAX_REMINDERS = 2
 
 
 def is_open(survey: Survey, now: Optional[datetime] = None) -> bool:
@@ -101,6 +104,7 @@ class SurveyResults:
     responses: int
     anonymous: int
     questions: List[QuestionResult]
+    dropoff: Optional[Dropoff] = None
 
     @property
     def response_rate(self) -> Optional[int]:
@@ -207,6 +211,10 @@ class SurveyService:
             responses=len(responses),
             anonymous=sum(1 for r in responses if r.anonymous),
             questions=summarize(questions, sections, answers, responses),
+            dropoff=dropoff.build(
+                list(survey.sections), await self.repository.progress_rows(survey.id),
+                await self.repository.part_tallies(survey.id),
+            ),
         )
 
     @requires_feature(FeatureFlag.SURVEYS)
@@ -524,20 +532,26 @@ class SurveyService:
 
     @requires_feature(FeatureFlag.SURVEYS)
     async def remind(self, actor: User, survey_id: int) -> int:
-        """DM everyone who hasn't answered yet. Once a day at most."""
+        """DM everyone who hasn't answered yet or said "Not interested".
+
+        Once a day at most, and :data:`MAX_REMINDERS` in all; the last is a last call.
+        """
         await self._ensure_staff(actor)
         survey = await self._load(survey_id)
         if not is_open(survey):
             raise ValueError('This survey is closed.')
+        if survey.reminders_sent >= MAX_REMINDERS:
+            raise ValueError(f'{MAX_REMINDERS} reminders already went out; that was the last call.')
         now = datetime.now(timezone.utc)
         if survey.reminded_at and (now - survey.reminded_at).total_seconds() < REMIND_GAP_HOURS * 3600:
             raise ValueError('A reminder already went out in the last day.')
-        pending = await self.repository.recipients(survey.id, unanswered=True)
+        pending = await self.repository.recipients(survey.id, remindable=True)
         queued = await _notifications.send_invites(
             survey, [(r, r.user.discord_id) for r in pending], reminder=True,
+            last_call=survey.reminders_sent + 1 >= MAX_REMINDERS,
         )
-        await self.repository.update(survey, reminded_at=now)
-        await self._audit(actor, AuditActions.SURVEY_REMINDED, survey, dms=len(queued))
+        await self.repository.update(survey, reminded_at=now, reminders_sent=survey.reminders_sent + 1)
+        await self._audit(actor, AuditActions.SURVEY_REMINDED, survey, dms=len(queued), reminder=survey.reminders_sent)
         return len(queued)
 
     @requires_feature(FeatureFlag.SURVEYS)

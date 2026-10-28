@@ -83,6 +83,7 @@ class Survey(Model):
     closes_at = fields.DatetimeField(null=True)
     sent_at = fields.DatetimeField(null=True)
     reminded_at = fields.DatetimeField(null=True)
+    reminders_sent = fields.SmallIntField(default=0)
     closed_at = fields.DatetimeField(null=True)
     # SET_NULL: the survey outlives the accounts that built or sent it.
     created_by: fields.ForeignKeyNullableRelation = fields.ForeignKeyField(
@@ -210,11 +211,53 @@ class SurveyRecipient(Model):
     dm_sent_at = fields.DatetimeField(null=True)
     opened_at = fields.DatetimeField(null=True)
     submitted_at = fields.DatetimeField(null=True)
+    # How far they got while they haven't sent it, for the drop-off card: part
+    # keys opened and saved, and the last one opened; never what they answered.
+    # Submitting folds this into :class:`SurveyPartTally` and clears it, so
+    # which parts someone skipped can't be matched to an anonymous response.
+    progress = fields.JSONField(default=dict)  # type: ignore[var-annotated]
+    last_part = fields.CharField(max_length=64, null=True)
+    # When they first saved a part, kept only until they submit: it becomes
+    # ``finish_seconds`` and is cleared, so no exact time outlives the draft.
+    started_at = fields.DatetimeField(null=True)
+    finish_seconds = fields.IntField(null=True)
+    # The day they pressed "Not interested" on a survey DM: no more reminders.
+    declined_at = fields.DatetimeField(null=True)
     created_at = fields.DatetimeField(auto_now_add=True)
 
     class Meta:
         table = 'survey_recipient'
         unique_together = (('survey', 'user'),)
+
+
+class SurveyPartTally(Model):
+    """How many people who sent the survey opened and answered one part.
+
+    Bumped once per submit from that person's progress, which is then cleared:
+    a running count, with no row per person to line up with a response.
+    """
+
+    id = fields.IntField(pk=True)
+    tenant: fields.ForeignKeyRelation = fields.ForeignKeyField(
+        'models.Tenant', related_name='survey_part_tallies', on_delete=fields.CASCADE,
+    )
+    tenant_id: int
+    survey: fields.ForeignKeyRelation = fields.ForeignKeyField(
+        'models.Survey', related_name='part_tallies', on_delete=fields.CASCADE,
+    )
+    survey_id: int
+    section: fields.ForeignKeyRelation = fields.ForeignKeyField(
+        'models.SurveySection', related_name='tallies', on_delete=fields.CASCADE,
+    )
+    section_id: int
+    scope = fields.CharField(max_length=24, default='')
+    scope_label = fields.CharField(max_length=255, default='')
+    opened = fields.IntField(default=0)
+    answered = fields.IntField(default=0)
+
+    class Meta:
+        table = 'survey_part_tally'
+        unique_together = (('survey', 'section', 'scope'),)
 
 
 class SurveyResponse(Model):

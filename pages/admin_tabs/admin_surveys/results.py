@@ -10,7 +10,8 @@ from typing import List, Optional
 from nicegui import ui
 
 from application.services import SurveyResults
-from application.services.survey import AGREE_LEVELS
+from application.services.survey import AGREE_LEVELS, plan
+from application.services.survey.dropoff import Dropoff
 from application.services.survey.results import Breakdown, CommentRow, QuestionResult
 from models import SurveyQuestionKind
 from theme.empty_state import empty_panel
@@ -134,6 +135,53 @@ def _question_card(result: QuestionResult) -> None:
                         ui.label(text).classes('wiz-survey-group__value')
 
 
+def _pct(part: int, whole: int) -> str:
+    return f'{round(part * 100 / whole)}% of ' if whole else ''
+
+
+def _dropoff(d: Dropoff) -> None:
+    """Sent, opened, started, submitted; then each part in survey order, opened against answered."""
+    with ui.element('section').classes('wiz-survey-dropoff w-full'):
+        with ui.row().classes('wiz-survey-dropoff__head items-center no-wrap'):
+            title = ui.label('Drop-off').classes('wiz-survey-result__title')
+            title.tag = 'h3'
+            ui.badge('People, not answers', color='grey')
+        with ui.element('div').classes('wiz-survey-stats wiz-survey-stats--flat w-full'):
+            _tile('Sent', str(d.sent), f'{d.declined} said not interested' if d.declined else '')
+            _tile('Opened', str(d.opened), _pct(d.opened, d.sent) + 'sent' if d.sent else '')
+            _tile('Started', str(d.started), _pct(d.started, d.opened) + 'opened' if d.opened else '')
+            _tile('Submitted', str(d.submitted), _pct(d.submitted, d.started) + 'started' if d.started else '')
+        if d.median_seconds is not None:
+            estimate = f' (estimate was {plan.format_duration(d.estimate_seconds)})' if d.estimate_seconds else ''
+            ui.label(f'Median time to finish: {plan.format_duration(d.median_seconds)}{estimate}.') \
+                .classes('wiz-survey-dropoff__median')
+        if not d.parts:
+            ui.label('Nobody has opened a part yet.').classes('wiz-survey-result__meta wiz-survey-dropoff__note')
+            return
+        ui.label('Each part, in survey order').classes('wiz-survey-dropoff__band')
+        scale = max(d.opened, max(p.opened for p in d.parts)) or 1
+        with ui.column().classes('w-full gap-0'):
+            for part in d.parts:
+                with ui.row().classes('wiz-survey-dropoff__part no-wrap items-center w-full'):
+                    ui.icon(part.icon).classes('wiz-survey-part__icon')
+                    with ui.column().classes('col min-w-0 gap-1'):
+                        with ui.row().classes('items-center no-wrap w-full gap-2'):
+                            ui.label(part.title).classes('wiz-survey-dropoff__title col min-w-0')
+                            if part.stopped:
+                                ui.badge(f'{part.stopped} stopped here', color='warning')
+                        spoken = f'{part.title}: {part.opened} opened, {part.answered} answered'
+                        with ui.element('div').classes('wiz-survey-dropoff__bar w-full') \
+                                .props(f'role=img aria-label="{spoken}"'):
+                            ui.element('span').classes('wiz-survey-dropoff__opened') \
+                                .style(f'width:{part.opened * 100 / scale}%')
+                            ui.element('span').classes('wiz-survey-dropoff__answered') \
+                                .style(f'width:{part.answered * 100 / scale}%')
+                        ui.label(f'{part.opened} opened it · {part.answered} answered and moved on') \
+                            .classes('wiz-survey-result__meta')
+        ui.label('"Stopped here" counts people who opened this part last and haven\'t sent the survey. '
+                 'Lighter bar: opened. Darker: answered.').classes('wiz-survey-result__meta wiz-survey-dropoff__note')
+
+
 def render_results(results: SurveyResults) -> None:
     sent = results.recipients.get('sent', 0)
     nps = results.headline(SurveyQuestionKind.NPS)
@@ -146,6 +194,8 @@ def render_results(results: SurveyResults) -> None:
         _tile('Overall', f'{overall.overall.average} / 5' if overall and overall.overall.average else '–',
               overall.prompt if overall else '')
         _tile('Anonymous', str(results.anonymous), 'of the responses')
+    if results.dropoff is not None and results.dropoff.sent:
+        _dropoff(results.dropoff)
     if not results.responses:
         empty_panel('No answers yet. They show here as people send them.', icon='poll')
         return

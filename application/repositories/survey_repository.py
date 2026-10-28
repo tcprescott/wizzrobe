@@ -8,6 +8,7 @@ was sent to, and their responses and answers.
 from datetime import date, datetime
 from typing import Any, Dict, Iterable, List, Optional, TypeVar
 
+from tortoise.expressions import F
 from tortoise.functions import Count
 from tortoise.models import Model
 
@@ -19,6 +20,7 @@ from application.repositories._tenant import current_tenant_id, scoped
 from models import (
     Survey,
     SurveyAnswer,
+    SurveyPartTally,
     SurveyQuestion,
     SurveyRecipient,
     SurveyResponse,
@@ -150,10 +152,14 @@ class SurveyRepository(EventScopedRepository[Survey]):
         )
 
     @staticmethod
-    async def recipients(survey_id: int, *, unanswered: bool = False) -> List[SurveyRecipient]:
+    async def recipients(survey_id: int, *, unanswered: bool = False,
+                         remindable: bool = False) -> List[SurveyRecipient]:
+        """``remindable``: not answered and not marked "Not interested"."""
         query = scoped(SurveyRecipient.filter(survey_id=survey_id))
-        if unanswered:
+        if unanswered or remindable:
             query = query.filter(submitted_at__isnull=True)
+        if remindable:
+            query = query.filter(declined_at__isnull=True)
         return await query.prefetch_related('user').order_by('id')
 
     @staticmethod
@@ -164,6 +170,28 @@ class SurveyRepository(EventScopedRepository[Survey]):
             'opened': await query.filter(opened_at__isnull=False).count(),
             'submitted': await query.filter(submitted_at__isnull=False).count(),
         }
+
+    @staticmethod
+    async def progress_rows(survey_id: int) -> List[Dict[str, Any]]:
+        """Each recipient's progress columns, for the drop-off card (no names)."""
+        return await scoped(SurveyRecipient.filter(survey_id=survey_id)).values(
+            'opened_at', 'submitted_at', 'declined_at', 'progress', 'last_part', 'finish_seconds', 'facts',
+        )
+
+    @staticmethod
+    async def bump_part_tallies(survey: Survey, parts: Iterable[tuple[int, str, str, bool, bool]]) -> None:
+        """Add one person's ``(section id, scope, label, opened, answered)`` parts to the running counts."""
+        for section_id, scope, label, opened, answered in parts:
+            tally, _ = await SurveyPartTally.get_or_create(
+                survey_id=survey.id, section_id=section_id, scope=scope,
+                defaults={'scope_label': label, 'tenant_id': current_tenant_id()},
+            )
+            await guarded_update(scoped(SurveyPartTally.filter(id=tally.id)),
+                                 opened=F('opened') + int(opened), answered=F('answered') + int(answered))
+
+    @staticmethod
+    async def part_tallies(survey_id: int) -> List[SurveyPartTally]:
+        return await scoped(SurveyPartTally.filter(survey_id=survey_id))
 
     @staticmethod
     async def recipient_totals(survey_ids: List[int]) -> tuple[Dict[int, int], Dict[int, int]]:

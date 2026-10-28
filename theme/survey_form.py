@@ -8,10 +8,11 @@ The staff preview draws the same form with nothing saved.
 Everything the respondent typed is shown back as text, never as markup.
 """
 
+import logging
 from functools import partial
 from typing import Any, Awaitable, Callable, Dict, List, Optional
 
-from nicegui import ui
+from nicegui import background_tasks, ui
 
 from application.services import RespondentView
 from application.services.survey import AGREE_LEVELS, plan
@@ -30,8 +31,11 @@ from theme.banner import banner
 from theme.dialog._helpers import dialog_actions, dialog_header
 from theme.notify import notify_error
 
+logger = logging.getLogger(__name__)
+
 SavePart = Callable[[str, Dict[int, Any]], Awaitable[RespondentView]]
 Submit = Callable[[bool], Awaitable[None]]
+OpenedPart = Callable[[str], Awaitable[None]]
 
 RATING_ENDS = ('Poor', 'Great')
 NPS_ENDS = ('Not likely', 'Very likely')
@@ -296,6 +300,14 @@ def _agree_grid(question: SurveyQuestion, value: Any, on_change: Callable[[Any],
                 radio.set_enabled(enabled)
 
 
+async def _note_opened(opened_part: OpenedPart, part_key: str) -> None:
+    """Record that a part was opened, for the drop-off card. Never worth an error on the page."""
+    try:
+        await opened_part(part_key)
+    except Exception:
+        logger.warning('Could not record an opened survey part', exc_info=True)
+
+
 class PartSheet:
     """One part open for answering: its questions, then Back to parts and Done."""
 
@@ -328,6 +340,8 @@ class PartSheet:
         self.description.set_text(part.description)
         self.description.set_visibility(bool(part.description))
         self.done_button.set_visibility(self.form.editable)
+        if self.form.editable and self.form.opened_part is not None:
+            background_tasks.create(_note_opened(self.form.opened_part, part.key))
         self.body.refresh()
         self.dialog.open()
 
@@ -388,9 +402,11 @@ class SurveyForm:
     """The respondent's survey page body, shared with the staff preview."""
 
     def __init__(self, view: RespondentView, *, save_part: SavePart, submit: Submit,
-                 editable: bool, preview: bool = False, community: str = '') -> None:
+                 editable: bool, preview: bool = False, community: str = '',
+                 opened_part: Optional[OpenedPart] = None) -> None:
         self.view = view
         self.save_part = save_part
+        self.opened_part = opened_part
         self.submit = submit
         self.editable = editable
         self.preview = preview

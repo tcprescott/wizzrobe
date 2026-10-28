@@ -109,6 +109,15 @@ def _day(now: Optional[datetime] = None) -> datetime:
     return now.replace(hour=0, minute=0, second=0, microsecond=0)
 
 
+def _progress_with(progress: Optional[Mapping[str, Any]], kind: str, part_key: str) -> Dict[str, List[str]]:
+    """``progress`` with ``part_key`` added to its ``opened`` or ``done`` list."""
+    out = {k: list(v) for k, v in (progress or {}).items()}
+    keys = out.setdefault(kind, [])
+    if part_key not in keys:
+        keys.append(part_key)
+    return out
+
+
 def _groups(facts: Mapping[str, Any]) -> List[dict]:
     groups = [{'key': f"t:{t['id']}", 'label': f"{t['name']} player"} for t in facts.get('tournaments') or []]
     groups += [{'key': f"p:{p['id']}", 'label': p['name']} for p in facts.get('positions') or []]
@@ -158,6 +167,27 @@ class SurveyResponseService:
         return await self._view(survey, recipient, actor)
 
     @requires_feature(FeatureFlag.SURVEYS)
+    async def open_part(self, actor: User, survey_id: int, part_key: str) -> None:
+        """Note that ``actor`` reached a part, for the drop-off card. Quietly does nothing once they've sent it."""
+        survey, recipient = await self._recipient(actor, survey_id)
+        if recipient.submitted_at is not None or not is_open(survey):
+            return
+        if not any(p.key == part_key for p in plan.parts_for(survey.sections, recipient.facts or {})):
+            raise ValueError("That part isn't in your survey.")
+        await self.repository.update(
+            recipient, progress=_progress_with(recipient.progress, 'opened', part_key), last_part=part_key,
+        )
+
+    @requires_feature(FeatureFlag.SURVEYS)
+    async def decline(self, actor: User, survey_id: int) -> bool:
+        """"Not interested": no more reminders for ``actor``. False when they'd already sent or declined it."""
+        _, recipient = await self._recipient(actor, survey_id)
+        if recipient.submitted_at is not None or recipient.declined_at is not None:
+            return False
+        await self.repository.update(recipient, declined_at=_day())
+        return True
+
+    @requires_feature(FeatureFlag.SURVEYS)
     async def save_part(self, actor: User, survey_id: int, part_key: str,
                         answers: Mapping[int, Any]) -> RespondentView:
         """Save the answers to one part (question id → answer). A blank answer clears it."""
@@ -180,6 +210,11 @@ class SurveyResponseService:
                 await self.repository.clear_answer(response, question.id, part.scope)
             else:
                 await self.repository.upsert_answer(response, question.id, part.scope, part.scope_label, value, text)
+        progress = _progress_with(_progress_with(recipient.progress, 'opened', part.key), 'done', part.key)
+        await self.repository.update(
+            recipient, progress=progress, last_part=part.key,
+            started_at=recipient.started_at or datetime.now(timezone.utc),
+        )
         return await self._view(survey, recipient, actor)
 
     async def _draft(self, survey: Survey, actor: User) -> SurveyResponse:
@@ -208,7 +243,27 @@ class SurveyResponseService:
         await self.repository.submit_response(
             draft, anonymous=anonymous, groups=_groups(recipient.facts or {}), submitted_on=now.date(),
         )
-        await self.repository.update(recipient, submitted_at=_day(now))
+        await self._fold_progress(survey, recipient, view, now)
+
+    async def _fold_progress(self, survey: Survey, recipient: SurveyRecipient, view: RespondentView,
+                             now: datetime) -> None:
+        """Add this person's parts to the survey's running counts and clear their own progress.
+
+        Which parts someone opened or skipped would let a named recipient row be
+        matched to an anonymous response, so it's kept only as a total. The
+        exact start time likewise becomes a duration and goes.
+        """
+        opened = set((recipient.progress or {}).get('opened') or [])
+        answered = {p.key for p in view.shown_parts if view.answered(p)}
+        await self.repository.bump_part_tallies(survey, [
+            (p.section_id, p.scope, p.scope_label, True, p.key in answered)
+            for p in view.parts if p.key in opened | answered
+        ])
+        started = recipient.started_at
+        await self.repository.update(
+            recipient, submitted_at=_day(now), progress={}, last_part=None, started_at=None,
+            finish_seconds=max(0, int((now - started).total_seconds())) if started else None,
+        )
 
     @requires_feature(FeatureFlag.SURVEYS)
     async def my_open_surveys(self, actor: User) -> List[Survey]:

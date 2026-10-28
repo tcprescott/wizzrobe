@@ -13,7 +13,7 @@ from typing import Any, Dict, Iterable, List, Mapping, Optional, Sequence, Tuple
 from application.services.survey.conditions import Entry, all_hold, answer_entries, answer_matches
 from models import SurveyAudience, SurveyQuestion, SurveyQuestionKind, SurveySection
 
-# Rough seconds to answer each kind, for the 5-minute budget. A comment is
+# Rough seconds to answer each kind, for the 10-minute budget. A comment is
 # optional and most people skip it, but the budget assumes they don't.
 SECONDS: Dict[SurveyQuestionKind, int] = {
     SurveyQuestionKind.RATING: 8,
@@ -24,7 +24,7 @@ SECONDS: Dict[SurveyQuestionKind, int] = {
     SurveyQuestionKind.COMMENT: 25,
     SurveyQuestionKind.AGREE_SCALE: 5,  # per statement
 }
-BUDGET_SECONDS = 5 * 60
+BUDGET_SECONDS = 10 * 60
 REPEATING = (SurveyAudience.EACH_TOURNAMENT, SurveyAudience.EACH_POSITION)
 
 # A crew-role audience → the role in a recipient's ``crew_roles`` fact, and the part's reason line.
@@ -119,6 +119,10 @@ _ICONS = {
     SurveyAudience.BROADCASTERS: 'videocam',
     SurveyAudience.CHECKED_IN: 'how_to_reg',
 }
+
+
+def icon_for(section: SurveySection) -> str:
+    return _ICONS[section.audience]
 
 
 def parts_for(sections: Iterable[SurveySection], facts: Mapping[str, Any], *,

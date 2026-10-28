@@ -15,6 +15,7 @@ from models import (
     Role,
     Survey,
     SurveyAnswer,
+    SurveyPartTally,
     SurveyQuestion,
     SurveyQuestionKind,
     SurveyRecipient,
@@ -34,6 +35,7 @@ async def _world(label: str, user):
     recipient = await SurveyRecipient.create(survey=survey, user=user, facts={})
     response = await SurveyResponse.create(survey=survey, user=user, status=SurveyResponseStatus.SUBMITTED)
     answer = await SurveyAnswer.create(response=response, question=question, data={'v': 4})
+    await SurveyPartTally.create(survey=survey, section=section, opened=1, answered=1)
     return survey, section, question, recipient, response, answer
 
 
@@ -54,6 +56,8 @@ async def test_survey_reads_are_isolated(two_tenants):
         assert await repo.answers_for(response_b.id) == []
         assert await repo.submitted_responses(sb.id) == []
         assert (await repo.recipient_counts(sb.id))['sent'] == 0
+        assert await repo.part_tallies(sb.id) == []
+        assert await repo.progress_rows(sb.id) == []
         assert [s.id for s in await repo.list_for_event()] == [sa.id]
 
 

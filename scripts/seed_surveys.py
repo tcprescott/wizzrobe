@@ -21,6 +21,7 @@ from models import (
     Survey,
     SurveyAnswer,
     SurveyAudience,
+    SurveyPartTally,
     SurveyQuestion,
     SurveyQuestionKind,
     SurveyRecipient,
@@ -167,6 +168,29 @@ async def _seed_ai(tenant: Tenant, staff: User, draft: Survey) -> None:
     )
 
 
+async def _seed_dropoff(tenant: Tenant, survey: Survey, users: dict[str, User]) -> None:
+    """The drop-off card's rows: staff stopped partway, the volunteer said Not interested,
+    and the two who sent it are folded into the per-part tallies with a time to finish."""
+    sections = await SurveySection.filter(survey=survey).order_by('position').prefetch_related('questions')
+    if not sections:
+        return
+    first, second = sections[0], sections[min(1, len(sections) - 1)]
+    staff = await SurveyRecipient.get_or_none(survey=survey, user=users['staff_user'])
+    if staff is not None and not staff.progress:
+        staff.progress = {'opened': [f'{first.id}|', f'{second.id}|'], 'done': [f'{first.id}|']}
+        staff.last_part = f'{second.id}|'
+        staff.started_at = datetime.now(timezone.utc) - timedelta(minutes=20)
+        await staff.save(update_fields=['progress', 'last_part', 'started_at'])
+    await SurveyRecipient.filter(survey=survey, user=users['volunteer_only'], declined_at__isnull=True) \
+        .update(declined_at=datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0))
+    await SurveyRecipient.filter(survey=survey, submitted_at__isnull=False, finish_seconds__isnull=True) \
+        .update(finish_seconds=260)
+    for section in sections[:2]:
+        await SurveyPartTally.get_or_create(
+            tenant=tenant, survey=survey, section=section, scope='', defaults={'opened': 2, 'answered': 2},
+        )
+
+
 async def seed_surveys_for_tenant(tenant: Tenant, users: dict[str, User]) -> None:
     staff = users['staff_user']
     now = datetime.now(timezone.utc)
@@ -232,6 +256,8 @@ async def seed_surveys_for_tenant(tenant: Tenant, users: dict[str, User]) -> Non
                               scope=p_scope, label=p_label)
                 await _answer(tenant, response, q['What helped most?'], ['Briefing', 'Radio'],
                               scope=p_scope, label=p_label)
+
+    await _seed_dropoff(tenant, survey, users)
 
     closed, created = await Survey.get_or_create(
         tenant=tenant, title='SG Live 2025 survey',
