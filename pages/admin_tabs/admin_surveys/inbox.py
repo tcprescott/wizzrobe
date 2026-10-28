@@ -6,6 +6,7 @@ Mark read and its tags. Read marks and tags are shared by all staff and never
 shown to respondents. Comment text is what people typed, drawn as plain text.
 """
 
+from functools import partial
 from typing import Awaitable, Callable, Dict, List, Optional
 
 from nicegui import ui
@@ -101,7 +102,7 @@ class CommentsTab:
 
     # --- chips ----------------------------------------------------------
 
-    def _chip(self, label: str, picked: bool, on_click: Callable[[], None]) -> None:
+    def _chip(self, label: str, picked: bool, on_click: Callable[..., None]) -> None:
         ui.button(label, on_click=on_click, color=None) \
             .props(f'dense no-caps rounded unelevated aria-pressed={"true" if picked else "false"}') \
             .classes('wiz-inbox__chip' + (' is-picked' if picked else ''))
@@ -112,13 +113,11 @@ class CommentsTab:
         with ui.row().classes('wiz-inbox__chips items-center gap-1 w-full'):
             for status, label, n in (('unread', 'Unread', unread), ('read', 'Read', len(here) - unread)):
                 picked = self.state['status'] == status
-                self._chip(f'{label} {n}', picked,
-                           lambda s=status, p=picked: self._set(status=None if p else s, shown=SHOWN))
+                self._chip(f'{label} {n}', picked, partial(self._set, status=None if picked else status, shown=SHOWN))
             for tag in self.inbox.tags:
                 n = sum(1 for c in here if tag.id in c.tags)
                 picked = self.state['tag'] == tag.id
-                self._chip(f'{tag.name} {n}', picked,
-                           lambda t=tag.id, p=picked: self._set(tag=None if p else t, shown=SHOWN))
+                self._chip(f'{tag.name} {n}', picked, partial(self._set, tag=None if picked else tag.id, shown=SHOWN))
             with more_menu('tags'):
                 menu_action('new_label', 'New tag…', self._new_tag)
                 if self.inbox.tags:

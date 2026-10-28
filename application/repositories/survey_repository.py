@@ -330,17 +330,13 @@ class SurveyRepository(EventScopedRepository[Survey]):
             id=answer_id, response__status=SurveyResponseStatus.SUBMITTED,
         )).prefetch_related('response__user', 'question__section').first()
 
-    @staticmethod
-    async def save_comment_mark(survey_id: int, answer_id: int, **fields: Any) -> SurveyCommentMark:
+    @classmethod
+    async def save_comment_mark(cls, survey_id: int, answer_id: int, **fields: Any) -> SurveyCommentMark:
         mark, created = await SurveyCommentMark.get_or_create(
             answer_id=answer_id, tenant_id=current_tenant_id(),
             defaults={'survey_id': survey_id, **fields},
         )
-        if not created:
-            for name, value in fields.items():
-                setattr(mark, name, value)
-            await save_fields(mark, *fields)
-        return mark
+        return mark if created or not fields else await cls.update(mark, **fields)
 
 
     # --- AI suggestions ---------------------------------------------------
