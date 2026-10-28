@@ -26,10 +26,16 @@ A new survey starts from `template.py` unless staff untick it. Sections have an
 |---|---|
 | `everyone` | everyone it was sent to |
 | `each_tournament` | once per tournament they played, titled with its name |
+| `each_tournament_run` | once per tournament they're a tournament admin of (`Tournament.admins`), titled with its name; scope `o:<id>` |
 | `each_position` | once per volunteer position they worked |
 | `crew` | anyone approved to crew a match that was on a stage (comms, tracking, broadcast); crew on a match that never got a stage doesn't count |
 | `commentators` / `trackers` / `broadcasters` | crew of that one role on a stage match (`Commentator`, `Tracker`, `Broadcaster` rows) |
 | `checked_in` | anyone the check-in desk checked in |
+
+Tournament admins of the event's non-test tournaments are among the people a
+survey goes to, even if they did nothing else; their facts carry `organized`
+(the tournaments they run), and they count in one results group, "Tournament
+organizers" (Thomas, 2026-10-28).
 
 Crew only counts matches that had a stage (Thomas, 2026-10-27: approved but
 never given a stage "was as if they never did"). That holds for the audiences,
@@ -133,14 +139,27 @@ has an AI provider under Settings → Integrations (`pages/admin_tabs/admin_ai_p
 `conditions.py` is a self-registering list. Each entry is `register(SurveyCondition(key, label, collect=…))`:
 `collect` runs once at send time over the event's `Participation` and returns,
 per user, `True` or the tournament ids it holds for. A *negation* (`negates=`)
-is the opposite of another key. `answer` is decided on the page from the
+is the opposite of another key. A *parameterised* one (`check=`) is decided
+from the recipient's facts and what the entry names: `positions` holds when they
+worked any of its `position_ids`. `answer` is decided on the page from the
 respondent's own earlier answer.
+
+For one volunteer position, staff use an `everyone` section with the
+`positions` condition rather than `each_position` (Thomas, 2026-10-28, mockup
+A): the builder's Positions box picks one or more of the event's positions, and
+the part shows once. `volunteered` holds for anyone with a shift;
+`ran_tournament` / `not_ran_tournament` split tournament admins from everyone
+else. A positions entry's `names` are copied from the event's schedule each
+time it's saved, so the chips read "Only if worked as Race Proctor"; a position
+from another event or community is refused, and a survey copied from another
+event shows its stale positions part under the "nobody reaches this" check.
 
 A question stores up to **3** conditions and a section up to **1**, as a JSON
 list on `conditions`:
 
 ```json
 [{"key": "on_stage"}, {"key": "answer", "question_id": 12, "values": [1, 2]}]
+[{"key": "positions", "position_ids": [4, 7], "names": ["Race Proctor", "Admin Desk"]}]
 ```
 
 All of them must hold. There is no OR and no nesting (Thomas, 2026-10-27), which
@@ -206,7 +225,9 @@ statements lean "agree", so "how good was it" is better as a Rating.
 
 The **preview** opens with a paths table (Thomas picked layout A): one row per
 kind of person (`SurveyService.preview_paths`, the personas of
-`plan.PREVIEW_PERSONAS` bar "Every question") with parts, questions and time.
+`plan.preview_personas`: `PREVIEW_PERSONAS` bar "Every question", including a
+tournament organizer, plus `position:<id>` for each of the event's volunteer
+positions) with parts, questions and time.
 Tapping a row switches the preview to them. The parts they won't see are
 listed in grey with why (`plan.hidden_from`: the audience, or the first
 condition that fails), and inside a part the questions they won't see, or
@@ -315,7 +336,9 @@ event is archived.
 
 ## REST and MCP
 
-Reads (STAFF_READ): list, get, conditions, results, responses, comments.
+Reads (STAFF_READ): list, get, conditions, results, responses, comments. The
+conditions list carries `options` for `positions`: the current event's volunteer
+positions.
 Writes (STAFF_WRITE) mark a comment read or tag it, and build a draft: create, duplicate, update, delete (drafts
 only), add/update/delete/move sections and questions. Sending, reminding and
 closing stay buttons in the app (Thomas's call). The MCP tools mirror the

@@ -23,6 +23,7 @@ from api.schemas.surveys import (
     SurveySectionResponse,
     SurveySummaryResponse,
     comments_out,
+    condition_choices_out,
     conditions_in,
     question_out,
     response_out,
@@ -33,7 +34,6 @@ from api.schemas.surveys import (
 )
 from application.api_scopes import ApiScope
 from application.services import SurveyCommentService, SurveyService
-from application.services.survey import conditions
 from mcpserver.auth import Gate, current_actor
 from mcpserver.registry import register
 from mcpserver.schemas import TenantArg
@@ -59,8 +59,13 @@ async def get_survey(survey_id: int, tenant: TenantArg = None) -> SurveyResponse
 
 
 async def list_survey_conditions(tenant: TenantArg = None) -> List[ConditionResponse]:
-    """The keys a question's or section's `conditions` take. `answer` waits on an earlier question's answer."""
-    return [ConditionResponse(key=k, label=v) for k, v in conditions.choices().items()]
+    """The keys a question's or section's `conditions` take.
+
+    `answer` waits on an earlier question's answer. `positions` shows to anyone
+    who worked one of its `position_ids`, picked from that entry's `options`
+    (the event's volunteer positions).
+    """
+    return condition_choices_out(await SurveyService().condition_choices(_user()))
 
 
 async def get_survey_results(
@@ -152,8 +157,9 @@ async def add_survey_section(
 ) -> SurveySectionResponse:
     """Add a section to the end of a draft.
 
-    `each_tournament` and `each_position` repeat once for every tournament a
-    person played or position they worked, so keep those short. `conditions`
+    `each_tournament`, `each_tournament_run` and `each_position` repeat once
+    for every tournament a person played, tournament they ran (as its
+    tournament admin) or position they worked, so keep those short. `conditions`
     holds at most one entry, shaped as for `add_survey_question`; an `answer`
     one waits on a question in an earlier section. `description` is one or two
     plain-text lines under the title.
@@ -210,7 +216,8 @@ async def add_survey_question(
     `conditions` holds up to 3 entries that must all hold, each `{"key": …}`
     with a key from `list_survey_conditions`; an `answer` entry also names the
     earlier question in `question_id` and the answers that show this one in
-    `values` (any of them).
+    `values` (any of them), and a `positions` entry names the volunteer
+    positions it shows to in `position_ids` (any of them).
 
     Choice questions can add an `Other` choice with a write-in (`other_option`).
     A `choice_many` can add an exclusive "none" choice (`none_option`, its

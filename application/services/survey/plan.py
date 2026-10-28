@@ -4,13 +4,20 @@ Pure functions over a survey's sections and one recipient's frozen facts, so
 the respondent page, the preview, the builder's time estimate and the results
 all agree on the same answer. A *part* is one section as one person sees it:
 a section that repeats per tournament becomes one part per tournament they
-played.
+played (or ran, for an organizer's section).
 """
 
 from dataclasses import dataclass, field
 from typing import Any, Dict, Iterable, List, Mapping, Optional, Sequence, Tuple
 
-from application.services.survey.conditions import Entry, all_hold, answer_entries, answer_matches, describe, holds
+from application.services.survey.conditions import (
+    Entry,
+    all_hold,
+    answer_entries,
+    answer_matches,
+    describe,
+    entry_holds,
+)
 from models import SurveyAudience, SurveyQuestion, SurveyQuestionKind, SurveySection
 
 # Rough seconds to answer each kind, for the 10-minute budget. A comment is
@@ -31,7 +38,7 @@ DEFAULT_AFTER_SEND = "We'll share what we change because of your answers."
 BUDGET_SECONDS = 10 * 60
 # What most people's path should stay under; the budget above is the ceiling for anyone's.
 TARGET_SECONDS = 5 * 60
-REPEATING = (SurveyAudience.EACH_TOURNAMENT, SurveyAudience.EACH_POSITION)
+REPEATING = (SurveyAudience.EACH_TOURNAMENT, SurveyAudience.EACH_TOURNAMENT_RUN, SurveyAudience.EACH_POSITION)
 
 # A crew-role audience → the role in a recipient's ``crew_roles`` fact, and the part's reason line.
 CREW_AUDIENCES: Dict[SurveyAudience, Tuple[str, str]] = {
@@ -45,6 +52,7 @@ PERSONA_ROLES = {'commentator': 'commentary', 'tracker': 'tracking', 'broadcaste
 AUDIENCE_LABELS: Dict[SurveyAudience, str] = {
     SurveyAudience.EVERYONE: 'Everyone',
     SurveyAudience.EACH_TOURNAMENT: 'Repeats for each tournament they played',
+    SurveyAudience.EACH_TOURNAMENT_RUN: 'Repeats for each tournament they ran (tournament admins)',
     SurveyAudience.EACH_POSITION: 'Repeats for each volunteer position they worked',
     SurveyAudience.CREW: 'Match crew, any role (comms, tracking, broadcast)',
     SurveyAudience.COMMENTATORS: 'Commentators on stage matches',
@@ -100,6 +108,9 @@ def _repeats(section: SurveySection, facts: Mapping[str, Any]) -> List[Tuple[str
              f"You played {_plural(int(t.get('matches') or 0), 'match', 'matches')}")
             for t in facts.get('tournaments') or []
         ]
+    if audience is SurveyAudience.EACH_TOURNAMENT_RUN:
+        return [(f"o:{t['id']}", t['name'], t['name'], 'You ran this tournament')
+                for t in facts.get('organized') or []]
     if audience is SurveyAudience.EACH_POSITION:
         return [
             (f"p:{p['id']}", p['name'], p['name'], f"You worked {_plural(int(p.get('shifts') or 0), 'shift')}")
@@ -118,6 +129,7 @@ def _repeats(section: SurveySection, facts: Mapping[str, Any]) -> List[Tuple[str
 _ICONS = {
     SurveyAudience.EVERYONE: 'public',
     SurveyAudience.EACH_TOURNAMENT: 'sports_esports',
+    SurveyAudience.EACH_TOURNAMENT_RUN: 'emoji_events',
     SurveyAudience.EACH_POSITION: 'badge',
     SurveyAudience.CREW: 'mic',
     SurveyAudience.COMMENTATORS: 'record_voice_over',
@@ -159,6 +171,7 @@ def parts_for(sections: Iterable[SurveySection], facts: Mapping[str, Any], *,
 
 _ONLY_FOR: Dict[SurveyAudience, str] = {
     SurveyAudience.EACH_TOURNAMENT: 'Only for people who played a tournament',
+    SurveyAudience.EACH_TOURNAMENT_RUN: 'Only for tournament admins',
     SurveyAudience.EACH_POSITION: 'Only for volunteers who worked a position',
     SurveyAudience.CREW: 'Only for match crew',
     SurveyAudience.COMMENTATORS: 'Only for commentators',
@@ -197,13 +210,13 @@ def hidden_from(sections: Iterable[SurveySection], facts: Mapping[str, Any]) -> 
             continue
         tournaments = [int(scope[2:]) if scope.startswith('t:') else None for scope, *_ in repeats]
         failing = next((e for e in section.conditions or []
-                        if not any(holds(e.get('key'), facts, t) for t in tournaments)), None)
+                        if not any(entry_holds(e, facts, t) for t in tournaments)), None)
         if failing is not None:
             hidden.append(Hidden(section.id, section.title, None, describe(failing, prompts)))
             continue
         for question in questions:
             failing = next((e for e in question.conditions or []
-                            if not any(holds(e.get('key'), facts, t) for t in tournaments)), None)
+                            if not any(entry_holds(e, facts, t) for t in tournaments)), None)
             if failing is not None:
                 hidden.append(Hidden(section.id, section.title, question.prompt, describe(failing, prompts)))
     return hidden
@@ -289,26 +302,38 @@ def format_duration(total_seconds: int) -> str:
     return f'{minutes} min' if minutes else f'{secs} s'
 
 
+POSITION_PERSONA = 'position:'
+
+
 def preview_facts(persona: str, tournaments: Sequence[dict], positions: Sequence[dict]) -> Dict[str, Any]:
     """Made-up facts for one kind of person, for the preview's "Showing" switch.
 
     Uses the event's real tournament and position names, up to two of each, so
-    the repeating sections read as they will.
+    the repeating sections read as they will. ``position:<id>`` is someone who
+    worked that one position.
     """
     two_tournaments = [dict(t, matches=2) for t in tournaments[:2]] or [
         {'id': 0, 'name': 'A tournament', 'matches': 2},
     ]
     one_position = [dict(p, shifts=3) for p in positions[:1]] or [{'id': 0, 'name': 'A position', 'shifts': 3}]
     ids = [t['id'] for t in two_tournaments]
-    base: Dict[str, Any] = {'tournaments': [], 'positions': [], 'crew': False, 'checked_in': True,
-                            'conditions': {'checked_in': True}}
+    base: Dict[str, Any] = {'tournaments': [], 'organized': [], 'positions': [], 'crew': False,
+                            'checked_in': True, 'conditions': {'checked_in': True}}
     if persona in ('player', 'player_on_stage'):
         base['tournaments'] = two_tournaments
         base['conditions'].update(tournament_room=ids, tournament_room_any=True)
         if persona == 'player_on_stage':
             base['conditions'].update(on_stage=ids[:1], on_stage_any=True)
+    elif persona == 'organizer':
+        base['organized'] = [{'id': t['id'], 'name': t['name']} for t in two_tournaments]
+        base['conditions']['ran_tournament'] = True
     elif persona == 'volunteer':
         base['positions'] = one_position
+        base['conditions']['volunteered'] = True
+    elif persona.startswith(POSITION_PERSONA):
+        wanted = persona[len(POSITION_PERSONA):]
+        base['positions'] = [dict(p, shifts=3) for p in positions if str(p['id']) == wanted][:1] or one_position
+        base['conditions']['volunteered'] = True
     elif persona == 'crew':
         base.update(crew=True, crew_roles=list(CREW_ROLE_NAMES))
         base['conditions']['crewed'] = True
@@ -317,7 +342,8 @@ def preview_facts(persona: str, tournaments: Sequence[dict], positions: Sequence
         base['conditions']['crewed'] = True
     elif persona == 'everything':
         base.update(tournaments=two_tournaments[:1], positions=one_position, crew=True,
-                    crew_roles=list(CREW_ROLE_NAMES))
+                    crew_roles=list(CREW_ROLE_NAMES),
+                    organized=[{'id': t['id'], 'name': t['name']} for t in two_tournaments[:1]])
     return base
 
 
@@ -325,6 +351,7 @@ PREVIEW_PERSONAS: Dict[str, str] = {
     'everything': 'Every question',
     'player': 'Player',
     'player_on_stage': 'Player on stage',
+    'organizer': 'Tournament organizer',
     'volunteer': 'Volunteer',
     'crew': 'Crew, every role',
     'commentator': 'Commentator',
@@ -332,3 +359,11 @@ PREVIEW_PERSONAS: Dict[str, str] = {
     'broadcaster': 'Broadcast crew',
     'checked_in': 'Checked in only',
 }
+
+
+def preview_personas(positions: Sequence[dict]) -> Dict[str, str]:
+    """:data:`PREVIEW_PERSONAS` plus one per volunteer position, so a part for one position can be checked."""
+    personas = dict(PREVIEW_PERSONAS)
+    for p in positions:
+        personas[f"{POSITION_PERSONA}{p['id']}"] = p['name']
+    return personas

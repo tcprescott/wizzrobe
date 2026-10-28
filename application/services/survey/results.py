@@ -18,9 +18,12 @@ from typing import Any, Dict, List, Optional, Sequence
 
 from application.services.survey._validation import answer_values
 from application.services.survey.conditions import describe
+from application.services.survey.plan import REPEATING
 from models import SurveyAnswer, SurveyAudience, SurveyQuestion, SurveyQuestionKind, SurveyResponse
 
 MIN_GROUP = 5
+#: The group every tournament admin who answered counts in, for the filter and anonymous comments.
+ORGANIZERS = 'Tournament organizers'
 
 
 @dataclass
@@ -232,6 +235,8 @@ def who_for(answer: SurveyAnswer, response: SurveyResponse, sizes: Counter) -> t
 def _group_label_for(answer: SurveyAnswer) -> str:
     if answer.scope.startswith('t:'):
         return f'{answer.scope_label} player'
+    if answer.scope.startswith('o:'):
+        return ORGANIZERS
     return answer.scope_label
 
 
@@ -271,7 +276,7 @@ def summarize(
         )
         if question.kind is SurveyQuestionKind.COMMENT:
             result.overall = Breakdown(count=sum(1 for a in rows if (a.text or '').strip()))
-        if section is not None and section.audience in (SurveyAudience.EACH_TOURNAMENT, SurveyAudience.EACH_POSITION):
+        if section is not None and section.audience in REPEATING:
             per_scope: Dict[str, List[Any]] = defaultdict(list)
             for a in rows:
                 if a.value is not None:

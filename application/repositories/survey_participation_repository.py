@@ -7,7 +7,7 @@ the desk checked them in, and the reschedules they asked for. One query per
 kind of participation, whatever the size of the event.
 """
 
-from typing import Dict, List, Set, Tuple
+from typing import Dict, List, Optional, Set, Tuple
 
 from application.repositories._event import event_scoped
 from application.repositories._tenant import scoped
@@ -18,9 +18,11 @@ from models import (
     Match,
     MatchPlayers,
     MatchRescheduleRequest,
+    Tournament,
     Tracker,
     User,
     VolunteerAssignment,
+    VolunteerPosition,
 )
 
 # Crew role (as stored in a recipient's ``crew_roles`` fact) → the table of approvals for it.
@@ -51,6 +53,19 @@ class SurveyParticipationRepository:
         return await scoped(VolunteerAssignment.filter(shift__event_id=event_id)).values(
             'user_id', position_id='shift__position_id', position_name='shift__position__name',
         )
+
+    @staticmethod
+    async def organizer_rows(event_id: int) -> List[dict]:
+        """One row per tournament admin per real (non-test) tournament in the event."""
+        return await event_scoped(Tournament.filter(is_test=False, admins__id__isnull=False), event_id).values(
+            'id', 'name', 'short_name', user_id='admins__id',
+        )
+
+    @staticmethod
+    async def position_names(event_id: Optional[int] = None) -> Dict[int, str]:
+        """Every volunteer position on the event's schedule (the current event's by default), worked or not."""
+        rows = await event_scoped(VolunteerPosition.all(), event_id).values_list('id', 'name')
+        return {int(i): str(n) for i, n in rows}
 
     @staticmethod
     async def crew_user_ids(event_id: int) -> Dict[str, Set[int]]:

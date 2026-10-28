@@ -3,7 +3,7 @@
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_serializer
 
 from application.services import SurveyResults
 from application.services.survey import response_answers
@@ -19,6 +19,20 @@ class SurveyConditionModel(BaseModel):
     values: Optional[List[Any]] = Field(
         None, description="For `answer`: the answers to that question that show this one (any of them).",
     )
+    position_ids: Optional[List[int]] = Field(
+        None, description="For `positions`: the event's volunteer positions it shows to (any of them).",
+    )
+    names: Optional[List[str]] = Field(
+        None, description="For `positions`, read only: the names of `position_ids`, filled in when it's saved.",
+    )
+
+    @model_serializer(mode='wrap')
+    def _positions_only_when_set(self, handler: Any) -> Dict[str, Any]:
+        data = handler(self)
+        for name in ('position_ids', 'names'):
+            if data.get(name) is None:
+                data.pop(name, None)
+        return data
 
 
 _CONDITIONS_DOC = (
@@ -57,7 +71,10 @@ class SurveySectionResponse(BaseModel):
     id: int = Field(..., description="Section ID.")
     title: str = Field(..., description="Section title.")
     description: Optional[str] = Field(None, description=_DESCRIPTION_DOC)
-    audience: str = Field(..., description="Who sees it: `everyone`, `each_tournament`, `each_position`, `crew` or `checked_in`.")
+    audience: str = Field(..., description=(
+        "Who sees it: `everyone`, `each_tournament`, `each_tournament_run`, `each_position`, `crew`, "
+        "`commentators`, `trackers`, `broadcasters` or `checked_in`."
+    ))
     position: int = Field(..., description="Order in the survey, from 0.")
     conditions: List[SurveyConditionModel] = Field(default_factory=list, description=_CONDITIONS_DOC)
     questions: List[SurveyQuestionResponse] = Field(default_factory=list)
@@ -216,9 +233,22 @@ class SubmittedResponse(BaseModel):
     answers: List[SurveyAnswerResponse]
 
 
+class ConditionOptionResponse(BaseModel):
+    id: int
+    name: str
+
+
 class ConditionResponse(BaseModel):
     key: str
     label: str
+    options: List[ConditionOptionResponse] = Field(
+        default_factory=list, description="For `positions`: the current event's volunteer positions to pick from.",
+    )
+
+
+def condition_choices_out(choices: Any) -> List[ConditionResponse]:
+    return [ConditionResponse(key=c.key, label=c.label, options=[ConditionOptionResponse(**o) for o in c.options])
+            for c in choices]
 
 
 class SurveyCreateRequest(BaseModel):
@@ -291,7 +321,7 @@ def conditions_out(entries: Optional[List[Dict[str, Any]]]) -> List[SurveyCondit
 
 
 def conditions_in(entries: Optional[List[SurveyConditionModel]]) -> Optional[List[Dict[str, Any]]]:
-    return None if entries is None else [e.model_dump(exclude_none=True) for e in entries]
+    return None if entries is None else [e.model_dump(exclude_none=True, exclude={'names'}) for e in entries]
 
 
 def question_out(q: SurveyQuestion) -> SurveyQuestionResponse:

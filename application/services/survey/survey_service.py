@@ -42,7 +42,17 @@ from application.services.survey._validation import (
     clean_text,
 )
 from application.services.survey.audiences import AudienceRate, GroupOption
-from application.services.survey.conditions import MAX_PER_QUESTION, MAX_PER_SECTION, answer_entries, follows, remap
+from application.services.survey.conditions import (
+    MAX_PER_QUESTION,
+    MAX_PER_SECTION,
+    POSITIONS,
+    answer_entries,
+    follows,
+    remap,
+)
+from application.services.survey.conditions import (
+    choices as condition_labels,
+)
 from application.services.survey.dropoff import Dropoff
 from application.services.survey.participation import Participation
 from application.services.survey.results import QuestionResult, last_time, summarize
@@ -76,6 +86,15 @@ def is_open(survey: Survey, now: Optional[datetime] = None) -> bool:
     if survey.status is not SurveyStatus.OPEN:
         return False
     return survey.closes_at is None or (now or datetime.now(timezone.utc)) < survey.closes_at
+
+
+@dataclass
+class ConditionChoice:
+    """One condition a question or section can carry; ``options`` are what a positions condition picks from."""
+
+    key: str
+    label: str
+    options: List[dict] = field(default_factory=list)
 
 
 @dataclass
@@ -166,6 +185,19 @@ class SurveyService:
     async def _ensure_staff(actor: User) -> None:
         await AuthService.ensure(await AuthService.is_staff(actor), 'Only Staff can manage surveys.')
 
+    @staticmethod
+    async def _positions(event_id: int) -> List[dict]:
+        """Every volunteer position on the event's schedule, by name."""
+        names = await SurveyParticipationRepository.position_names(event_id)
+        return [{'id': i, 'name': n} for i, n in sorted(names.items(), key=lambda kv: kv[1].lower())]
+
+    @staticmethod
+    async def _position_map(survey: Survey, entries: Any) -> Dict[int, str]:
+        """The event's positions, read only when a condition names some."""
+        if not any((e or {}).get('key') == POSITIONS for e in entries or []):
+            return {}
+        return await SurveyParticipationRepository.position_names(survey.event_id)
+
     async def _load(self, survey_id: int) -> Survey:
         return require_found(await self.repository.get_full(survey_id), 'Survey')
 
@@ -204,6 +236,15 @@ class SurveyService:
         return [SurveyRow(s, sent.get(s.id, 0), answered.get(s.id, 0)) for s in surveys]
 
     @requires_feature(FeatureFlag.SURVEYS)
+    async def condition_choices(self, actor: User) -> List[ConditionChoice]:
+        """Every condition, with the current event's volunteer positions for the positions condition."""
+        await self._ensure_staff(actor)
+        names = await SurveyParticipationRepository.position_names()
+        options = [{'id': i, 'name': n} for i, n in sorted(names.items(), key=lambda kv: kv[1].lower())]
+        return [ConditionChoice(key, label, options if key == POSITIONS else [])
+                for key, label in condition_labels().items()]
+
+    @requires_feature(FeatureFlag.SURVEYS)
     async def get_survey(self, actor: User, survey_id: int) -> Survey:
         """One survey with its sections and questions, in order."""
         await self._ensure_staff(actor)
@@ -236,7 +277,7 @@ class SurveyService:
             typical_seconds=int(median_low(everyone)) if everyone else 0,
             checks=found, checks_passed=passed,
             counts=participation.counts(),
-            tournaments=participation.tournament_names(), positions=participation.position_names(),
+            tournaments=participation.tournament_names(), positions=await self._positions(survey.event_id),
             answered=0 if survey.status is SurveyStatus.DRAFT else await self.repository.submitted_count(survey.id),
         )
 
@@ -246,9 +287,9 @@ class SurveyService:
         await self._ensure_staff(actor)
         survey = await self._load(survey_id)
         participation = await Participation.load(survey.event_id)
-        tournaments, positions = participation.tournament_names(), participation.position_names()
+        tournaments, positions = participation.tournament_names(), await self._positions(survey.event_id)
         rows = []
-        for persona, label in plan.PREVIEW_PERSONAS.items():
+        for persona, label in plan.preview_personas(positions).items():
             if persona == 'everything':
                 continue
             facts = plan.preview_facts(persona, tournaments, positions)
@@ -263,8 +304,9 @@ class SurveyService:
         await self._ensure_staff(actor)
         survey = await self._load(survey_id)
         participation = await Participation.load(survey.event_id)
-        persona = persona if persona in plan.PREVIEW_PERSONAS else 'everything'
-        facts = plan.preview_facts(persona, participation.tournament_names(), participation.position_names())
+        positions = await self._positions(survey.event_id)
+        persona = persona if persona in plan.preview_personas(positions) else 'everything'
+        facts = plan.preview_facts(persona, participation.tournament_names(), positions)
         return survey, plan.parts_for(survey.sections, facts, ignore_conditions=persona == 'everything')
 
     @requires_feature(FeatureFlag.SURVEYS)
@@ -452,7 +494,7 @@ class SurveyService:
         section = await self.repository.create_section(
             survey, title=clean_text(title, limit=TITLE_MAX, what='A section title'),
             description=_description(description), audience=SurveyAudience(audience), position=await self.repository.next_section_position(survey.id),
-            conditions=_section_conditions(conditions, earlier),
+            conditions=_section_conditions(conditions, earlier, await self._position_map(survey, conditions)),
         )
         await self._audit(actor, AuditActions.SURVEY_UPDATED, survey, section_added=section.id)
         return section
@@ -475,7 +517,8 @@ class SurveyService:
         if audience is not _UNSET:
             fields['audience'] = SurveyAudience(audience)
         if conditions is not _UNSET:
-            fields['conditions'] = _section_conditions(conditions, plan.before_section(survey.sections, section.id))
+            fields['conditions'] = _section_conditions(conditions, plan.before_section(survey.sections, section.id),
+                                                       await self._position_map(survey, conditions))
         if fields:
             wording = _wording_changes(section, fields, ('title', 'description'))
             await self.repository.update(section, **fields)
@@ -523,7 +566,8 @@ class SurveyService:
             section,
             prompt=clean_text(prompt, limit=PROMPT_MAX, what='The question'),
             kind=kind, options=cleaned, required=bool(required), **clean_extras(kind, cleaned, **_known(extras)),
-            conditions=_question_conditions(conditions, plan.earlier(survey.sections, section.id, None)),
+            conditions=_question_conditions(conditions, plan.earlier(survey.sections, section.id, None),
+                                            await self._position_map(survey, conditions)),
             position=await self.repository.next_question_position(section.id),
         )
         await self._audit(actor, AuditActions.SURVEY_UPDATED, survey, question_added=question.id)
@@ -561,6 +605,7 @@ class SurveyService:
         if conditions is not _UNSET:
             fields['conditions'] = _question_conditions(
                 conditions, plan.earlier(survey.sections, question.section_id, question.id),
+                await self._position_map(survey, conditions),
             )
         if fields:
             wording = _wording_changes(question, fields, ('prompt',))
@@ -712,12 +757,14 @@ def _description(value: Optional[str]) -> Optional[str]:
     return clean_text(value, limit=DESCRIPTION_MAX, what='A section description', required=False) or None
 
 
-def _question_conditions(entries: Any, earlier: Mapping[int, SurveyQuestion]) -> Optional[List[dict]]:
-    return check_conditions(entries, earlier, limit=MAX_PER_QUESTION, what='a question')
+def _question_conditions(entries: Any, earlier: Mapping[int, SurveyQuestion],
+                         positions: Mapping[int, str]) -> Optional[List[dict]]:
+    return check_conditions(entries, earlier, limit=MAX_PER_QUESTION, what='a question', positions=positions)
 
 
-def _section_conditions(entries: Any, earlier: Mapping[int, SurveyQuestion]) -> Optional[List[dict]]:
-    return check_conditions(entries, earlier, limit=MAX_PER_SECTION, what='a section')
+def _section_conditions(entries: Any, earlier: Mapping[int, SurveyQuestion],
+                        positions: Mapping[int, str]) -> Optional[List[dict]]:
+    return check_conditions(entries, earlier, limit=MAX_PER_SECTION, what='a section', positions=positions)
 
 
 def _check_order(sections: Iterable[Any], question_positions: Mapping[int, int]) -> None:

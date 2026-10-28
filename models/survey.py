@@ -22,13 +22,15 @@ class SurveyStatus(str, Enum):
 class SurveyAudience(str, Enum):
     """Who a survey section is for, decided from what each person did.
 
-    ``EACH_TOURNAMENT`` and ``EACH_POSITION`` repeat: a player in three
-    tournaments answers the section three times, once per tournament, and a
+    ``EACH_TOURNAMENT``, ``EACH_TOURNAMENT_RUN`` and ``EACH_POSITION`` repeat:
+    a player in three tournaments answers the section three times, once per
+    tournament, an organizer once per tournament they're an admin of, and a
     volunteer once per position they worked.
     """
 
     EVERYONE = 'everyone'
     EACH_TOURNAMENT = 'each_tournament'
+    EACH_TOURNAMENT_RUN = 'each_tournament_run'
     EACH_POSITION = 'each_position'
     CREW = 'crew'
     # One crew role each, so commentators, trackers and broadcasters get their own questions.

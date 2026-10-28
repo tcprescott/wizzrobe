@@ -15,13 +15,17 @@ if the event's data does afterwards.
 A per-tournament condition inside a section that repeats per tournament checks
 that tournament; anywhere else it holds when it holds for any of them.
 
-Two shapes are not collected: a *negation* (``negates=``) is the opposite of
-another condition, and the answer-based condition is decided on the page from
-the respondent's own earlier answer.
+Three shapes are not collected: a *negation* (``negates=``) is the opposite of
+another condition, a *parameterised* one (``check=``) is decided from the
+recipient's facts and what the entry names (the positions condition), and the
+answer-based condition is decided on the page from the respondent's own
+earlier answer.
 
 A question or section stores its conditions as a list of entries,
-``{'key': 'on_stage'}`` or ``{'key': 'answer', 'question_id': 12, 'values':
-[1, 2]}``. A question takes up to :data:`MAX_PER_QUESTION` and a section up to
+``{'key': 'on_stage'}``, ``{'key': 'positions', 'position_ids': [4, 7],
+'names': ['Race Proctor', 'Admin Desk']}`` or ``{'key': 'answer',
+'question_id': 12, 'values': [1, 2]}``. A positions entry's ``names`` are
+copied from the event's schedule whenever it is saved, for the chips. A question takes up to :data:`MAX_PER_QUESTION` and a section up to
 :data:`MAX_PER_SECTION`, and every one must hold: there is no OR and no
 nesting, which is what keeps this a list and not a rules engine.
 """
@@ -35,6 +39,7 @@ if TYPE_CHECKING:
 Collected = Dict[int, Union[bool, List[int]]]
 
 ANSWER = 'answer'
+POSITIONS = 'positions'
 MAX_PER_QUESTION = 3
 MAX_PER_SECTION = 1
 
@@ -48,6 +53,7 @@ class SurveyCondition:
     per_tournament: bool = False
     collect: Optional[Callable[['Participation'], Awaitable[Collected]]] = None
     negates: Optional[str] = None
+    check: Optional[Callable[['Entry', Mapping[str, Any]], bool]] = None
 
 
 CONDITIONS: Dict[str, SurveyCondition] = {}
@@ -55,7 +61,8 @@ CONDITIONS: Dict[str, SurveyCondition] = {}
 
 def register(condition: SurveyCondition) -> SurveyCondition:
     assert condition.key not in CONDITIONS, condition.key
-    assert (condition.collect is None) != (condition.negates is None) or condition.key == ANSWER
+    shapes = (condition.collect, condition.negates, condition.check)
+    assert sum(s is not None for s in shapes) == 1 or condition.key == ANSWER
     CONDITIONS[condition.key] = condition
     return condition
 
@@ -69,6 +76,7 @@ def holds(
     key: Optional[str],
     facts: Mapping[str, Any],
     tournament_id: Optional[int] = None,
+    entry: Optional[Entry] = None,
 ) -> bool:
     """Whether a send-time condition holds for these facts.
 
@@ -84,6 +92,8 @@ def holds(
         return True
     if condition.negates:
         return not holds(condition.negates, facts, tournament_id)
+    if condition.check:
+        return condition.check(entry or {}, facts)
     value = (facts.get('conditions') or {}).get(key)
     if not condition.per_tournament:
         return bool(value)
@@ -94,7 +104,11 @@ def holds(
 def all_hold(entries: Optional[Sequence[Entry]], facts: Mapping[str, Any],
              tournament_id: Optional[int] = None) -> bool:
     """Whether every send-time condition in ``entries`` holds (answer-based ones are left to the page)."""
-    return all(holds(e.get('key'), facts, tournament_id) for e in entries or [])
+    return all(entry_holds(e, facts, tournament_id) for e in entries or [])
+
+
+def entry_holds(entry: Entry, facts: Mapping[str, Any], tournament_id: Optional[int] = None) -> bool:
+    return holds(entry.get('key'), facts, tournament_id, entry)
 
 
 def answer_entries(entries: Optional[Sequence[Entry]]) -> List[Entry]:
@@ -146,8 +160,15 @@ def describe(entry: Optional[Entry], prompts: Optional[Mapping[int, str]] = None
         prompt = (prompts or {}).get(int(entry.get('question_id') or 0), 'an earlier question')
         values = ', '.join(str(v) for v in entry.get('values') or [])
         return f'Only if “{prompt}” is {values}' if values else f'Only if “{prompt}” is answered'
+    if key == POSITIONS:
+        names = [str(n) for n in entry.get('names') or []]
+        return f'Only if worked as {_either(names)}' if names else 'Only if worked a picked position'
     condition = CONDITIONS.get(key)
     return f'Only if {condition.label[0].lower()}{condition.label[1:]}' if condition else ''
+
+
+def _either(names: Sequence[str]) -> str:
+    return names[0] if len(names) == 1 else f"{', '.join(names[:-1])} or {names[-1]}"
 
 
 async def _on_stage(p: 'Participation') -> Collected:
@@ -171,6 +192,19 @@ async def _crewed(p: 'Participation') -> Collected:
 
 async def _checked_in(p: 'Participation') -> Collected:
     return {user_id: True for user_id in p.checked_in}
+
+
+async def _volunteered(p: 'Participation') -> Collected:
+    return {user_id: True for user_id, worked in p.positions.items() if worked}
+
+
+def _worked_one_of(entry: Entry, facts: Mapping[str, Any]) -> bool:
+    wanted = {int(i) for i in entry.get('position_ids') or []}
+    return any(int(p.get('id') or 0) in wanted for p in facts.get('positions') or [])
+
+
+async def _ran_tournament(p: 'Participation') -> Collected:
+    return {user_id: True for user_id, ran in p.organized.items() if ran}
 
 
 async def _rescheduled(p: 'Participation') -> Collected:
@@ -203,4 +237,8 @@ register(SurveyCondition(
 register(SurveyCondition('crewed', 'Crewed a match on stage (comms, tracking or broadcast)', collect=_crewed))
 register(SurveyCondition('checked_in', 'Checked in at the desk', collect=_checked_in))
 register(SurveyCondition('rescheduled', 'Asked to reschedule a match', per_tournament=True, collect=_rescheduled))
+register(SurveyCondition('volunteered', 'Volunteered (any position)', collect=_volunteered))
+register(SurveyCondition(POSITIONS, 'Worked one of these positions', check=_worked_one_of))
+register(SurveyCondition('ran_tournament', 'Ran a tournament (tournament admin)', collect=_ran_tournament))
+register(SurveyCondition('not_ran_tournament', "Didn't run a tournament", negates='ran_tournament'))
 register(SurveyCondition(ANSWER, 'Answered an earlier question a certain way'))

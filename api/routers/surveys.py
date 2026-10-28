@@ -33,6 +33,7 @@ from api.schemas.surveys import (
     SurveySummaryResponse,
     SurveyUpdateRequest,
     comments_out,
+    condition_choices_out,
     conditions_in,
     conditions_out,
     question_out,
@@ -43,7 +44,6 @@ from api.schemas.surveys import (
     survey_out,
 )
 from application.services import SurveyCommentService, SurveyService
-from application.services.survey import conditions
 from models import Survey, SurveyQuestion, SurveySection, User
 
 router = APIRouter(
@@ -76,12 +76,13 @@ async def list_surveys(actor: User = Depends(require_staff)):
     description=(
         "The keys a question's or section's `conditions` take. A question has up to 3 and a "
         "section 1, and all of them must hold. `answer` waits on an earlier question's answer "
-        "and takes `question_id` and `values`."
+        "and takes `question_id` and `values`. `positions` shows to anyone who worked one of "
+        "`position_ids`, picked from its `options` (the current event's volunteer positions)."
         "\n\n**Who can call this:** Staff."
     ),
 )
 async def list_conditions(actor: User = Depends(require_staff)):
-    return [ConditionResponse(key=k, label=v) for k, v in conditions.choices().items()]
+    return condition_choices_out(await SurveyService().condition_choices(actor))
 
 
 @router.get(
@@ -218,8 +219,8 @@ async def delete_survey(survey_id: int, actor: User = Depends(require_staff_writ
     status_code=status.HTTP_201_CREATED,
     summary="Add a section to a draft",
     description=(
-        "Adds a section at the end. `each_tournament` and `each_position` repeat once per "
-        "tournament played or position worked.\n\n**Who can call this:** Staff."
+        "Adds a section at the end. `each_tournament`, `each_tournament_run` and `each_position` repeat once per "
+        "tournament played, tournament run (its tournament admins) or position worked.\n\n**Who can call this:** Staff."
     ),
 )
 async def add_section(survey_id: int, body: SectionRequest, actor: User = Depends(require_staff_write)):

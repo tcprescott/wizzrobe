@@ -1,6 +1,6 @@
 """Survey tools: staff build a draft and read results; nothing here sends one."""
 
-from models import Role, Survey, SurveyStatus
+from models import Role, Survey, SurveyStatus, VolunteerPosition
 from tests.mcp.conftest import call_tool, create_oauth_token, mcp_session
 
 TENANT = 'default'
@@ -50,3 +50,22 @@ async def test_players_are_refused(db):
     async with mcp_session() as client:
         is_error, payload = await call_tool(client, raw, 'list_surveys', tenant=TENANT)
     assert is_error, payload
+
+
+async def test_conditions_list_the_events_positions_and_take_them(db):
+    _, raw = await create_oauth_token(roles=[Role.STAFF], write=True)
+    proctor = await VolunteerPosition.create(name='Proctor')
+    async with mcp_session() as client:
+        is_error, choices = await call_tool(client, raw, 'list_survey_conditions', tenant=TENANT)
+        assert not is_error, choices
+        positions = next(c for c in choices['result'] if c['key'] == 'positions')
+        assert positions['options'] == [{'id': proctor.id, 'name': 'Proctor'}]
+        is_error, survey = await call_tool(client, raw, 'create_survey', tenant=TENANT, title='S',
+                                           from_template=False)
+        is_error, section = await call_tool(
+            client, raw, 'add_survey_section', tenant=TENANT, survey_id=survey['id'], title='Running it',
+            audience='each_tournament_run', conditions=[{'key': 'positions', 'position_ids': [proctor.id]}],
+        )
+        assert not is_error, section
+        assert section['audience'] == 'each_tournament_run'
+        assert section['conditions'][0]['names'] == ['Proctor']

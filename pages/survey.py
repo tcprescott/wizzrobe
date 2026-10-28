@@ -119,7 +119,8 @@ def create() -> None:
             paths = {row.persona: row for row in await service.preview_paths(user, survey_id)}
             paths_table = ui.refreshable(_paths_table)
             paths_table(list(paths.values()), 'everything', lambda persona: setattr(showing, 'value', persona))
-            showing = ui.select(plan.PREVIEW_PERSONAS, value='everything', label='Showing') \
+            showing = ui.select({'everything': plan.PREVIEW_PERSONAS['everything'],
+                                 **{p: row.label for p, row in paths.items()}}, value='everything', label='Showing') \
                 .props('outlined dense').classes('wiz-survey-preview__showing')
 
         @ui.refreshable
