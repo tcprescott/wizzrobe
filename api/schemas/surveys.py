@@ -303,7 +303,7 @@ def results_out(survey_id: int, results: SurveyResults) -> SurveyResultsResponse
         group=results.group.key if results.group else None,
         groups=[SurveyGroupResponse(key=g.key, label=g.label, sent=g.sent, responded=g.responded)
                 for g in results.groups],
-        audiences=[SurveyGroupResponse(label=a.label, sent=a.sent, responded=a.responded)
+        audiences=[SurveyGroupResponse(key='', label=a.label, sent=a.sent, responded=a.responded)
                    for a in results.audiences],
     )
 

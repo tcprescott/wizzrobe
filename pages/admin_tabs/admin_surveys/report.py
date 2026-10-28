@@ -242,7 +242,7 @@ def _cell(result: QuestionResult, label: str, sheet: CommentSheet, flagged: bool
         elif not b.hidden and b.count and result.kind is SurveyQuestionKind.CHOICE_ONE:
             with ui.column().classes('col gap-0 min-w-0'):
                 _stack(result.kind, b, legend=False, label=label)
-        ui.label(number).classes('wiz-compare__value' + (' is-low' if flagged else ''))
+        ui.label(number).classes('wiz-compare__value')
     if under and ((result.kind is SurveyQuestionKind.CHOICE_ONE and score is None) or b.hidden):
         ui.label(under).classes('wiz-survey-result__meta')
 
@@ -261,7 +261,7 @@ def render_sections(questions: Sequence[QuestionResult], sheet: CommentSheet) ->
         first = rows[0]
         answered = max((r.overall.count for r in rows), default=0)
         with ui.element('section').classes('wiz-report w-full'):
-            with ui.row().classes('wiz-report__head items-center no-wrap'):
+            with ui.row().classes('wiz-report__head items-center'):
                 title = ui.label(first.section_title).classes('wiz-report__title col min-w-0')
                 title.tag = 'h3'
                 if first.repeats:

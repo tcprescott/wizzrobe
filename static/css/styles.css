@@ -9868,6 +9868,8 @@ body.wiz-survey-dragging, body.wiz-survey-dragging * { cursor: grabbing !importa
 .wiz-stack { height: 0.75rem; }
 @media (max-width: 599px) {
     .wiz-report__line { grid-template-columns: minmax(0, 1fr); }
+    .wiz-report__head { flex-wrap: wrap; row-gap: 2px; }
+    .wiz-report__title { flex-basis: 100%; }
     .wiz-report__num { text-align: left; align-items: flex-start; flex-direction: row; gap: var(--space-2); }
     .wiz-report__filter .wiz-report__picker { flex: 1 1 auto; min-width: 0; }
 }
@@ -9880,7 +9882,6 @@ body.wiz-survey-dragging, body.wiz-survey-dragging * { cursor: grabbing !importa
 .wiz-compare__flag { align-self: flex-start; margin-top: 2px; }
 .wiz-compare__cell-label { display: none; }
 .wiz-compare__value { flex: none; min-width: 2.75rem; text-align: right; font-weight: 700; }
-.wiz-compare__value.is-low { color: var(--status-cancelled); }
 .wiz-compare__bar--low .q-linear-progress__model { background: var(--status-cancelled); }
 .wiz-compare__note { padding: 10px 16px; border-top: 1px solid var(--border-subtle); }
 @media (max-width: 767px) {
