@@ -1,19 +1,20 @@
-"""A sent survey's results: headline numbers, then every question's answers.
+"""A sent survey's results: headline numbers, the group filter, drop-off, then the report.
 
-A repeating section's question shows its answers per tournament or position;
-a group under five answers shows only its count, so nobody in it can be picked
-out. Comments are what respondents typed, drawn as plain text.
+The report itself (one line per question, comparison tables for repeats) is
+:mod:`.report`; a group under five answers never shows on its own, and the
+filter offers only groups with five or more.
 """
 
-from typing import List, Optional
+from typing import Awaitable, Callable, Optional
 
 from nicegui import ui
 
 from application.services import SurveyResults
-from application.services.survey import AGREE_LEVELS, plan
+from application.services.survey import plan
 from application.services.survey.dropoff import Dropoff
-from application.services.survey.results import Breakdown, CommentRow, QuestionResult
 from models import SurveyQuestionKind
+from pages.admin_tabs.admin_surveys.comment_sheet import CommentSheet
+from pages.admin_tabs.admin_surveys.report import render_sections
 from theme.empty_state import empty_panel
 
 
@@ -23,116 +24,6 @@ def _tile(label: str, value: str, caption: str = '') -> None:
         ui.label(value).classes('wiz-survey-stat__value')
         if caption:
             ui.label(caption).classes('wiz-survey-stat__caption')
-
-
-def _bars(result: Breakdown, *, per_person: bool = False, set_apart: Optional[str] = None) -> None:
-    """One bar per answer. A pick-many counts people (``per_person``), so its bars can total over 100%."""
-    total = (result.count if per_person else sum(result.counts.values())) or 1
-    with ui.column().classes('wiz-survey-bars w-full gap-1'):
-        if per_person:
-            ui.label('% of people who answered, so the bars can add up to more than 100%.') \
-                .classes('wiz-survey-result__meta')
-        for option, n in result.counts.items():
-            share = n / total
-            apart = ' wiz-survey-bar--apart' if option == set_apart else ''
-            with ui.row().classes(f'wiz-survey-bar no-wrap items-center w-full{apart}'):
-                ui.label(option).classes('wiz-survey-bar__label')
-                ui.linear_progress(value=share, show_value=False, size='8px').classes('col') \
-                    .props(f'rounded aria-label="{option}: {n}"')
-                ui.label(f'{round(share * 100)}%').classes('wiz-survey-bar__pct')
-
-
-def _agree(result: Breakdown) -> None:
-    with ui.row().classes('wiz-agree-key items-center').props('aria-hidden=true'):
-        for level, label in enumerate(AGREE_LEVELS, 1):
-            with ui.element('span'):
-                ui.element('span').classes(f'wiz-agree-key__swatch wiz-agree-l{level}')
-                ui.label(label).style('display:inline')
-    for statement, levels in result.statements.items():
-        total = sum(levels)
-        share = result.agree_share(statement)
-        with ui.column().classes('wiz-agree-result w-full'):
-            ui.label(statement).classes('wiz-agree-result__statement')
-            spoken = ', '.join(f'{label} {n}' for label, n in zip(AGREE_LEVELS, levels, strict=True))
-            with ui.element('div').classes('wiz-agree-bar w-full').props(f'role=img aria-label="{spoken}"'):
-                for level, n in enumerate(levels, 1):
-                    if n:
-                        ui.element('span').classes(f'wiz-agree-l{level}').style(f'width:{n * 100 / total}%')
-            ui.label(f'{share}% agree · {total} answers' if share is not None else 'No answers yet') \
-                .classes('wiz-survey-result__meta')
-
-
-SHOWN_COMMENTS = 50
-
-
-def _comments(comments: List[CommentRow], prompt: str) -> None:
-    """The answers people typed, newest first, as plain text, with a search over them."""
-    state = {'q': ''}
-
-    @ui.refreshable
-    def listing() -> None:
-        needle = state['q'].strip().lower()
-        found = [c for c in comments if needle in c.text.lower()] if needle else comments
-        if needle and not found:
-            ui.label(f'Nothing matches “{state["q"].strip()}”.').classes('wiz-survey-result__meta')
-        with ui.column().classes('wiz-survey-comments w-full gap-0'):
-            for comment in found[:SHOWN_COMMENTS]:
-                with ui.column().classes('wiz-survey-comment gap-0 w-full'):
-                    who = comment.who + (f' · {comment.group}' if comment.group and not
-                                         comment.who.startswith('Anonymous ·') else '')
-                    ui.label(who).classes('wiz-survey-comment__who')
-                    ui.label(comment.text).classes('wiz-survey-comment__text')
-            if len(found) > SHOWN_COMMENTS:
-                ui.label(f'and {len(found) - SHOWN_COMMENTS} more. Search to narrow them, '
-                         'or read them all over REST or MCP.').classes('wiz-survey-result__meta')
-
-    if len(comments) > 3:
-        # url-state: exempt — a filter inside one card, not a view
-        search = ui.input(placeholder='Search answers').props('dense outlined clearable') \
-            .classes('wiz-survey-comments__search w-full')
-        search._props['aria-label'] = f'Search answers to {prompt}'
-        search.on_value_change(lambda e: (state.update(q=e.value or ''), listing.refresh()))
-    listing()
-
-
-def _summary_line(result: Breakdown) -> str:
-    bits = [f'{result.count} answer' + ('' if result.count == 1 else 's')]
-    if result.average is not None:
-        bits.append(f'avg {result.average}')
-    if result.score is not None:
-        bits.append(f'recommend score {result.score:+d}')
-    return ' · '.join(bits)
-
-
-def _question_card(result: QuestionResult) -> None:
-    with ui.element('section').classes('wiz-survey-result'):
-        heading = ui.label(result.prompt).classes('wiz-survey-result__title')
-        heading.tag = 'h3'
-        ui.label(f'{result.section_title} · {_summary_line(result.overall)}').classes('wiz-survey-result__meta')
-        if result.kind is SurveyQuestionKind.COMMENT:
-            if not result.comments:
-                ui.label('No comments yet.').classes('wiz-survey-result__meta')
-            else:
-                _comments(result.comments, result.prompt)
-            return
-        if result.kind is SurveyQuestionKind.AGREE_SCALE:
-            _agree(result.overall)
-        elif result.overall.count:
-            _bars(result.overall, per_person=result.kind is SurveyQuestionKind.CHOICE_MANY,
-                  set_apart=result.none_option)
-        if result.comments:
-            n = len(result.comments)
-            with ui.expansion(f'{n} “Other” write-in' + ('' if n == 1 else 's')).props('dense') \
-                    .classes('wiz-survey-writeins w-full'):
-                _comments(result.comments, result.prompt)
-        if result.groups:
-            with ui.column().classes('wiz-survey-groups w-full gap-1'):
-                for label, group in result.groups.items():
-                    with ui.row().classes('wiz-survey-group no-wrap items-center w-full'):
-                        ui.label(label).classes('wiz-survey-group__label col min-w-0')
-                        text = (f'{group.count} answers, too few to show' if group.hidden
-                                else _summary_line(group))
-                        ui.label(text).classes('wiz-survey-group__value')
 
 
 def _pct(part: int, whole: int) -> str:
@@ -158,47 +49,96 @@ def _dropoff(d: Dropoff) -> None:
         if not d.parts:
             ui.label('Nobody has opened a part yet.').classes('wiz-survey-result__meta wiz-survey-dropoff__note')
             return
-        ui.label('Each part, in survey order').classes('wiz-survey-dropoff__band')
-        scale = max(d.opened, max(p.opened for p in d.parts)) or 1
-        with ui.column().classes('w-full gap-0'):
-            for part in d.parts:
-                with ui.row().classes('wiz-survey-dropoff__part no-wrap items-center w-full'):
-                    ui.icon(part.icon).classes('wiz-survey-part__icon')
-                    with ui.column().classes('col min-w-0 gap-1'):
-                        with ui.row().classes('items-center no-wrap w-full gap-2'):
-                            ui.label(part.title).classes('wiz-survey-dropoff__title col min-w-0')
-                            if part.stopped:
-                                ui.badge(f'{part.stopped} stopped here', color='warning')
-                        spoken = f'{part.title}: {part.opened} opened, {part.answered} answered'
-                        with ui.element('div').classes('wiz-survey-dropoff__bar w-full') \
-                                .props(f'role=img aria-label="{spoken}"'):
-                            ui.element('span').classes('wiz-survey-dropoff__opened') \
-                                .style(f'width:{part.opened * 100 / scale}%')
-                            ui.element('span').classes('wiz-survey-dropoff__answered') \
-                                .style(f'width:{part.answered * 100 / scale}%')
-                        ui.label(f'{part.opened} opened it · {part.answered} answered and moved on') \
-                            .classes('wiz-survey-result__meta')
-        ui.label('"Stopped here" counts people who opened this part last and haven\'t sent the survey. '
-                 'Lighter bar: opened. Darker: answered.').classes('wiz-survey-result__meta wiz-survey-dropoff__note')
+        stopped = sum(p.stopped for p in d.parts)
+        caption = f'Each part, in survey order ({len(d.parts)})' + (f' · {stopped} stopped partway' if stopped else '')
+        with ui.expansion(caption).props('dense').classes('wiz-survey-dropoff__parts w-full'):
+            scale = max(d.opened, max(p.opened for p in d.parts)) or 1
+            with ui.column().classes('w-full gap-0'):
+                for part in d.parts:
+                    with ui.row().classes('wiz-survey-dropoff__part no-wrap items-center w-full'):
+                        ui.icon(part.icon).classes('wiz-survey-part__icon')
+                        with ui.column().classes('col min-w-0 gap-1'):
+                            with ui.row().classes('items-center no-wrap w-full gap-2'):
+                                ui.label(part.title).classes('wiz-survey-dropoff__title col min-w-0')
+                                if part.stopped:
+                                    ui.badge(f'{part.stopped} stopped here', color='warning')
+                            spoken = f'{part.title}: {part.opened} opened, {part.answered} answered'
+                            with ui.element('div').classes('wiz-survey-dropoff__bar w-full') \
+                                    .props(f'role=img aria-label="{spoken}"'):
+                                ui.element('span').classes('wiz-survey-dropoff__opened') \
+                                    .style(f'width:{part.opened * 100 / scale}%')
+                                ui.element('span').classes('wiz-survey-dropoff__answered') \
+                                    .style(f'width:{part.answered * 100 / scale}%')
+                            ui.label(f'{part.opened} opened it · {part.answered} answered and moved on') \
+                                .classes('wiz-survey-result__meta')
+            ui.label('"Stopped here" counts people who opened this part last and haven\'t sent the survey. '
+                     'Lighter bar: opened. Darker: answered.').classes('wiz-survey-result__meta wiz-survey-dropoff__note')
 
 
-def render_results(results: SurveyResults) -> None:
+def _audiences(results: SurveyResults) -> None:
+    if len(results.audiences) < 2:
+        return
+    with ui.row().classes('wiz-report__audiences items-center gap-2'):
+        ui.label('Response rate').classes('wiz-survey-result__meta')
+        for a in results.audiences:
+            ui.badge(f'{a.label} {a.rate}% · {a.responded} of {a.sent}', color='grey-3') \
+                .classes('wiz-report__audience')
+
+
+def _filter(results: SurveyResults, on_group: Callable[[Optional[str]], Awaitable[None]]) -> None:
+    if not results.groups:
+        return
+    options = {'': 'Everyone'} | {g.key: f'{g.label} · {g.responded}' for g in results.groups}
+    with ui.row().classes('wiz-report__filter items-center no-wrap gap-2 w-full'):
+        # url-state: exempt — page.py keeps the group in the address
+        picker = ui.select(options, value=results.group.key if results.group else '', with_input=True) \
+            .props('dense outlined options-dense').classes('wiz-report__picker')
+        with picker.add_slot('prepend'):
+            ui.icon('filter_list').props('aria-hidden=true')
+        picker._props['aria-label'] = 'Show results for'
+        picker.on_value_change(lambda e: on_group(e.value or None))
+        ui.label('Only groups with 5 or more answers are listed.').classes('wiz-survey-result__meta gt-xs')
+
+
+def _yes_tile(results: SurveyResults) -> None:
+    question = results.headline_yes()
+    if question is None or question.score is None:
+        _tile('Anonymous', str(results.anonymous), 'of the responses')
+        return
+    counts = question.overall.counts
+    rest = ' · '.join(f'{round(n * 100 / question.overall.count)}% {option.lower()}'
+                      for option, n in list(counts.items())[1:] if n and question.overall.count)
+    _tile(question.prompt, f'{question.score}%', 'yes' + (f' · {rest}' if rest else ''))
+
+
+def render_results(results: SurveyResults, on_group: Callable[[Optional[str]], Awaitable[None]]) -> None:
     sent = results.recipients.get('sent', 0)
     nps = results.headline(SurveyQuestionKind.NPS)
     overall = results.headline(SurveyQuestionKind.RATING)
     with ui.element('div').classes('wiz-survey-stats w-full'):
         rate: Optional[int] = results.response_rate
-        _tile('Responses', str(results.responses), f'of {sent}' + (f' · {rate}%' if rate is not None else ''))
-        _tile('Recommend score', f'{nps.overall.score:+d}' if nps and nps.overall.score is not None else '–',
-              '0–10 question')
-        _tile('Overall', f'{overall.overall.average} / 5' if overall and overall.overall.average else '–',
-              overall.prompt if overall else '')
-        _tile('Anonymous', str(results.anonymous), 'of the responses')
+        anon = f' · {results.anonymous} anonymous' if results.anonymous else ''
+        _tile('Responses', str(results.responses),
+              f'of {sent}' + (f' · {rate}%' if rate is not None else '') + anon)
+        nps_value = '–'
+        if nps and not nps.overall.hidden and nps.overall.score is not None:
+            nps_value = f'{nps.overall.score:+d}'
+        _tile('Recommend score', nps_value, _answers(nps.overall.count) if nps else '0–10 question')
+        overall_value = '–'
+        if overall and not overall.overall.hidden and overall.overall.average:
+            overall_value = f'{overall.overall.average} / 5'
+        _tile('Overall', overall_value, _answers(overall.overall.count) if overall else '')
+        _yes_tile(results)
+    if results.group is None:
+        _audiences(results)
+    _filter(results, on_group)
     if results.dropoff is not None and results.dropoff.sent:
         _dropoff(results.dropoff)
     if not results.responses:
         empty_panel('No answers yet. They show here as people send them.', icon='poll')
         return
-    with ui.element('div').classes('wiz-tile-grid wiz-tile-grid--md w-full'):
-        for result in results.questions:
-            _question_card(result)
+    render_sections(results.questions, CommentSheet())
+
+
+def _answers(n: int) -> str:
+    return f'{n} answer' + ('' if n == 1 else 's')

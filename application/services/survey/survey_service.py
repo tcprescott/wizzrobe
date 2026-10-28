@@ -27,7 +27,7 @@ from application.repositories.survey_participation_repository import SurveyParti
 from application.repositories.survey_repository import SurveyRepository
 from application.services.audit_service import AuditActions, AuditService
 from application.services.auth_service import AuthService
-from application.services.survey import _notifications, dropoff, plan
+from application.services.survey import _notifications, audiences, dropoff, plan
 from application.services.survey._validation import (
     DESCRIPTION_MAX,
     INTRO_MAX,
@@ -38,6 +38,7 @@ from application.services.survey._validation import (
     clean_options,
     clean_text,
 )
+from application.services.survey.audiences import AudienceRate, GroupOption
 from application.services.survey.conditions import MAX_PER_QUESTION, MAX_PER_SECTION, answer_entries, follows, remap
 from application.services.survey.dropoff import Dropoff
 from application.services.survey.participation import Participation
@@ -105,6 +106,11 @@ class SurveyResults:
     anonymous: int
     questions: List[QuestionResult]
     dropoff: Optional[Dropoff] = None
+    #: Groups the report can be narrowed to (each with 5 or more answers).
+    groups: List[GroupOption] = field(default_factory=list)
+    audiences: List[AudienceRate] = field(default_factory=list)
+    #: The group the numbers are narrowed to, or ``None`` for everyone.
+    group: Optional[GroupOption] = None
 
     @property
     def response_rate(self) -> Optional[int]:
@@ -114,7 +120,15 @@ class SurveyResults:
     def headline(self, kind: SurveyQuestionKind) -> Optional[QuestionResult]:
         """The first question of ``kind`` in a section everyone sees (the overall rating, the NPS)."""
         for result in self.questions:
-            if result.kind is kind and not result.groups:
+            if result.kind is kind and not result.repeats:
+                return result
+        return None
+
+    def headline_yes(self) -> Optional[QuestionResult]:
+        """The first everyone-question whose first answer is "Yes" ("Will you come back next year?")."""
+        for result in self.questions:
+            if (result.kind is SurveyQuestionKind.CHOICE_ONE and not result.repeats and not result.condition
+                    and result.score is not None):
                 return result
         return None
 
@@ -197,24 +211,41 @@ class SurveyService:
         return survey, plan.parts_for(survey.sections, facts, ignore_conditions=persona == 'everything')
 
     @requires_feature(FeatureFlag.SURVEYS)
-    async def results(self, actor: User, survey_id: int) -> SurveyResults:
-        """Counts per question, split by tournament or position where a section repeats."""
+    async def results(self, actor: User, survey_id: int, *, group: Optional[str] = None) -> SurveyResults:
+        """Counts per question, split by tournament or position where a section repeats.
+
+        ``group`` (a key from :attr:`SurveyResults.groups`) narrows every number
+        to the people in it. A group with fewer than 5 answers isn't offered and
+        is refused, and a narrowed question under 5 answers shows its count only.
+        """
         await self._ensure_staff(actor)
         survey = await self._load(survey_id)
         responses = await self.repository.submitted_responses(survey.id)
         answers = await self.repository.submitted_answers(survey.id)
+        rows = await self.repository.progress_rows(survey.id)
+        options = audiences.group_options(rows)
+        recipients = await self.repository.recipient_counts(survey.id)
+        chosen = None
+        if group:
+            chosen = next((g for g in options if g.key == group), None)
+            if chosen is None:
+                raise ValueError('That group has fewer than 5 answers, so it can\'t be shown on its own.')
+            responses = [r for r in responses if any(g.get('key') == group for g in r.groups or [])]
+            kept = {r.id for r in responses}
+            answers = [a for a in answers if a.response_id in kept]
+            recipients = {'sent': chosen.sent, 'submitted': chosen.responded}
         questions = [q for s in survey.sections for q in s.questions]
         sections = {s.id: s for s in survey.sections}
         return SurveyResults(
             survey=survey,
-            recipients=await self.repository.recipient_counts(survey.id),
+            recipients=recipients,
             responses=len(responses),
             anonymous=sum(1 for r in responses if r.anonymous),
-            questions=summarize(questions, sections, answers, responses),
-            dropoff=dropoff.build(
-                list(survey.sections), await self.repository.progress_rows(survey.id),
-                await self.repository.part_tallies(survey.id),
+            questions=summarize(questions, sections, answers, responses, protect=chosen is not None),
+            dropoff=None if chosen else dropoff.build(
+                list(survey.sections), rows, await self.repository.part_tallies(survey.id),
             ),
+            groups=options, audiences=audiences.audience_rates(rows), group=chosen,
         )
 
     @requires_feature(FeatureFlag.SURVEYS)

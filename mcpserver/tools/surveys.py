@@ -61,13 +61,16 @@ async def list_survey_conditions(tenant: TenantArg = None) -> List[ConditionResp
     return [ConditionResponse(key=k, label=v) for k, v in conditions.choices().items()]
 
 
-async def get_survey_results(survey_id: int, tenant: TenantArg = None) -> SurveyResultsResponse:
+async def get_survey_results(
+    survey_id: int, tenant: TenantArg = None, group: Optional[str] = None,
+) -> SurveyResultsResponse:
     """Counts per question, split by tournament or position for a repeating section.
 
-    A group with fewer than 5 answers shows only its count; an anonymous comment
-    carries its group only when that group has 5 or more people.
+    Groups with fewer than 5 answers fold into `Other`; an anonymous comment
+    carries its group only when that group has 5 or more people. Pass `group`
+    (a key from the result's `groups`) to narrow every number to that group.
     """
-    return results_out(survey_id, await SurveyService().results(_user(), survey_id))
+    return results_out(survey_id, await SurveyService().results(_user(), survey_id, group=group))
 
 
 async def list_survey_responses(
