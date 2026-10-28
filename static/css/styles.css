@@ -9645,7 +9645,7 @@ ol.wiz-help-list { list-style-type: decimal; }
     margin-bottom: var(--space-2);
 }
 .wiz-survey-errors:focus { outline: 3px solid var(--q-primary); outline-offset: 2px; }
-.wiz-survey-errors__title { color: var(--status-cancelled); font-size: var(--text-md); font-weight: 700; margin: 0 0 4px; }
+.wiz-survey-errors__title { color: var(--status-cancelled); font-size: var(--text-md); font-weight: 700; line-height: 1.4; margin: 0 0 4px; }
 .wiz-survey-errors__link { color: var(--wiz-link); text-decoration: underline; text-align: left; min-height: 0; padding: 2px 0; }
 .wiz-survey-errors__link .q-btn__content { justify-content: flex-start; }
 .wiz-survey-question--error {
