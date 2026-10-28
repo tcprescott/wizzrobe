@@ -14,6 +14,7 @@ from application.utils.match_labels import match_row_label
 from theme.dialog import ConfirmationDialog, UserDialog
 from theme.notify import notify_error
 from theme.tables.hard_preset_rows import apply_hard_preset_state
+from theme.undo_toast import undo_toast
 
 
 class MatchTableHandlersMixin:
@@ -99,10 +100,10 @@ class MatchTableHandlersMixin:
         await self._confirm_crew_approval(role, row, m, items[idx])
 
     async def _handle_quick_approve(self, args):
-        """Approve from the run sheet's Approve button, already tapped twice.
+        """Approve from the run sheet's Approve button.
 
-        The button has been its own confirmation, so the dialog only comes
-        back when the person is committed elsewhere at the same time.
+        One tap, with Undo in the toast; the dialog only comes back when the
+        person is committed elsewhere at the same time.
         """
         row = args['row']
         role = {'commentators': 'commentator', 'trackers': 'tracker', 'broadcasters': 'broadcaster'}.get(args.get('role'))
@@ -119,9 +120,9 @@ class MatchTableHandlersMixin:
             ui.notify(f'{crew_member.user.preferred_name} is already approved.', color='info')
             await self.update_row_by_id(row['id'])
             return
-        await self._confirm_crew_approval(role, row, m, crew_member, quick=True)
+        await self._confirm_crew_approval(role, row, m, crew_member)
 
-    async def _confirm_crew_approval(self, role, row, m, crew_member, *, quick=False):
+    async def _confirm_crew_approval(self, role, row, m, crew_member):
         from application.services import CrewService
 
         match_id = row['id']
@@ -153,8 +154,8 @@ class MatchTableHandlersMixin:
             clashes = await CrewService().find_scheduling_conflicts(
                 crew_member.user, m, role,
             )
-            if quick and not clashes:
-                await apply()
+            if not clashes:
+                await self._approve_with_undo(role, row, crew_member)
                 return
             message = (f'Approve {name} as {role} for {match_row_label(row)}?\n\n'
                        "They'll get a Discord message asking them to acknowledge the assignment.")
@@ -179,6 +180,43 @@ class MatchTableHandlersMixin:
                 on_confirm=apply,
             )
             dialog.open()
+
+    async def _approve_with_undo(self, role, row, crew_member):
+        """Approve on one tap. The write, and the DM and webhook it sets off,
+        wait out the toast's Undo, so an undone approval never reaches anyone."""
+        from application import pending_actions
+        from application.services import CrewService
+
+        match_id = row['id']
+        name = crew_member.user.preferred_name
+        client = self.table_container.client
+        actor = await get_user_from_session(app.storage.user)
+
+        async def commit() -> None:
+            await CrewService().update_crew_approval(
+                crew_member=crew_member, crew_type=role, approved=True, actor=actor,
+            )
+
+        async def refused(error: Exception) -> None:
+            if not client.is_deleted:
+                with client:
+                    ui.notify(f"{name} wasn't approved: {error}", color='negative')
+
+        try:
+            token = pending_actions.hold(
+                ('crew', f'{role}s', crew_member.id), 'approving', commit,
+                match_id=match_id, on_error=refused,
+            )
+        except ValueError as e:
+            notify_error(e)
+            return
+        with self.table_container:
+            undo_toast(
+                f'{name} approved', token,
+                caption=f'{role.capitalize()} · {match_row_label(row, with_context=False)}',
+                undone=f'Approval for {name} undone.',
+                on_undone=lambda: self.update_row_by_id(match_id),
+            )
 
     async def _handle_signup_or_undo_role(self, action, role, row):
         """Handle crew signup/undo using service layer."""
@@ -360,6 +398,12 @@ class MatchTableHandlersMixin:
         match_id = self._event_match_id(event)
         if match_id is not None and self.on_finish:
             await self.on_finish(match_id)
+
+    async def _handle_report_winner(self, event):
+        match_id = self._event_match_id(event)
+        player_id = (event.args or {}).get('player')
+        if match_id is not None and player_id is not None and self.on_report_winner:
+            await self.on_report_winner(match_id, player_id)
 
     async def _handle_confirm(self, event):
         match_id = self._event_match_id(event)

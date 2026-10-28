@@ -22,7 +22,7 @@ import theme.tables.match_lifecycle as match_lifecycle
 from theme.tables.match_access import MatchBoardAccess
 from theme.tables.match_lifecycle import MatchLifecycleHandlers
 
-RUN = ['on_generate_seed', 'on_seat', 'on_start', 'on_finish', 'on_assign_stations']
+RUN = ['on_generate_seed', 'on_seat', 'on_start', 'on_finish', 'on_report_winner', 'on_assign_stations']
 EDIT = ['on_edit']
 CONFIRM = ['on_confirm', 'on_edit_result']
 STREAM = ['on_set_stage']

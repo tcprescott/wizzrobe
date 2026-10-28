@@ -517,6 +517,7 @@ class MatchDisplayService:
             'state_time': format_local_time(state_changed_at),
             'players': [
                 {
+                    'id': p.id,
                     'name': p.user.preferred_name,
                     'user_id': p.user_id,
                     'finish_rank': p.finish_rank,
