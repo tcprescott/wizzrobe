@@ -15,6 +15,7 @@ from models import SurveyQuestion, SurveyQuestionKind
 TITLE_MAX = 120
 PROMPT_MAX = 280
 INTRO_MAX = 2000
+AFTER_SEND_MAX = 500
 DESCRIPTION_MAX = 240
 OPTION_MAX = 60
 STATEMENT_MAX = 160

@@ -103,11 +103,13 @@ async def duplicate_survey(survey_id: int, tenant: TenantArg = None) -> SurveyRe
 
 async def update_survey(
     survey_id: int, tenant: TenantArg = None, title: Optional[str] = None, intro: Optional[str] = None,
-    allow_anonymous: Optional[bool] = None,
+    allow_anonymous: Optional[bool] = None, after_send: Optional[str] = None,
 ) -> SurveyResponseModel:
-    """Change a draft's title, intro or anonymity switch. Leave a field out to keep it."""
-    fields = {k: v for k, v in (('title', title), ('intro', intro), ('allow_anonymous', allow_anonymous))
-              if v is not None}
+    """Change a survey's title, intro, "after you send" line or anonymity switch. Leave a field out to keep it.
+
+    Once sent, only the wording (title, intro, after_send) can change."""
+    fields = {k: v for k, v in (('title', title), ('intro', intro), ('allow_anonymous', allow_anonymous),
+                                ('after_send', after_send)) if v is not None}
     return survey_out(await SurveyService().update_survey(_user(), survey_id, **fields))
 
 
@@ -141,7 +143,7 @@ async def update_survey_section(
     audience: Optional[SurveyAudience] = None, conditions: Optional[List[SurveyConditionModel]] = None,
     description: Optional[str] = None,
 ) -> SurveySectionResponse:
-    """Change a draft section's title, description, audience or condition.
+    """Change a section's title, description, audience or condition. Once sent, only title and description.
 
     Leave a field out to keep it; `[]` clears the condition and `""` the description.
     """
@@ -203,7 +205,7 @@ async def update_survey_question(
     other_option: Optional[bool] = None, none_option: Optional[str] = None, min_picks: Optional[int] = None,
     max_picks: Optional[int] = None, long_answer: Optional[bool] = None,
 ) -> SurveyQuestionResponse:
-    """Change a draft question. Leave a field out to keep it; `conditions` `[]` always shows it.
+    """Change a question (once sent, only its `prompt`). Leave a field out to keep it; `conditions` `[]` always shows it.
 
     `none_option` `""` and a pick limit of 0 remove them.
     """
