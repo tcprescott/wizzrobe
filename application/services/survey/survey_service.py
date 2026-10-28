@@ -30,6 +30,7 @@ from application.services.audit_service import AuditActions, AuditService
 from application.services.auth_service import AuthService
 from application.services.survey import _notifications, audiences, dropoff, plan
 from application.services.survey import checks as survey_checks
+from application.services.survey import positions as survey_positions
 from application.services.survey._validation import (
     AFTER_SEND_MAX,
     DESCRIPTION_MAX,
@@ -45,13 +46,9 @@ from application.services.survey.audiences import AudienceRate, GroupOption
 from application.services.survey.conditions import (
     MAX_PER_QUESTION,
     MAX_PER_SECTION,
-    POSITIONS,
     answer_entries,
     follows,
     remap,
-)
-from application.services.survey.conditions import (
-    choices as condition_labels,
 )
 from application.services.survey.dropoff import Dropoff
 from application.services.survey.participation import Participation
@@ -86,15 +83,6 @@ def is_open(survey: Survey, now: Optional[datetime] = None) -> bool:
     if survey.status is not SurveyStatus.OPEN:
         return False
     return survey.closes_at is None or (now or datetime.now(timezone.utc)) < survey.closes_at
-
-
-@dataclass
-class ConditionChoice:
-    """One condition a question or section can carry; ``options`` are what a positions condition picks from."""
-
-    key: str
-    label: str
-    options: List[dict] = field(default_factory=list)
 
 
 @dataclass
@@ -185,19 +173,6 @@ class SurveyService:
     async def _ensure_staff(actor: User) -> None:
         await AuthService.ensure(await AuthService.is_staff(actor), 'Only Staff can manage surveys.')
 
-    @staticmethod
-    async def _positions(event_id: int) -> List[dict]:
-        """Every volunteer position on the event's schedule, by name."""
-        names = await SurveyParticipationRepository.position_names(event_id)
-        return [{'id': i, 'name': n} for i, n in sorted(names.items(), key=lambda kv: kv[1].lower())]
-
-    @staticmethod
-    async def _position_map(survey: Survey, entries: Any) -> Dict[int, str]:
-        """The event's positions, read only when a condition names some."""
-        if not any((e or {}).get('key') == POSITIONS for e in entries or []):
-            return {}
-        return await SurveyParticipationRepository.position_names(survey.event_id)
-
     async def _load(self, survey_id: int) -> Survey:
         return require_found(await self.repository.get_full(survey_id), 'Survey')
 
@@ -236,13 +211,10 @@ class SurveyService:
         return [SurveyRow(s, sent.get(s.id, 0), answered.get(s.id, 0)) for s in surveys]
 
     @requires_feature(FeatureFlag.SURVEYS)
-    async def condition_choices(self, actor: User) -> List[ConditionChoice]:
+    async def condition_choices(self, actor: User) -> List[survey_positions.ConditionChoice]:
         """Every condition, with the current event's volunteer positions for the positions condition."""
         await self._ensure_staff(actor)
-        names = await SurveyParticipationRepository.position_names()
-        options = [{'id': i, 'name': n} for i, n in sorted(names.items(), key=lambda kv: kv[1].lower())]
-        return [ConditionChoice(key, label, options if key == POSITIONS else [])
-                for key, label in condition_labels().items()]
+        return await survey_positions.condition_choices()
 
     @requires_feature(FeatureFlag.SURVEYS)
     async def get_survey(self, actor: User, survey_id: int) -> Survey:
@@ -277,7 +249,8 @@ class SurveyService:
             typical_seconds=int(median_low(everyone)) if everyone else 0,
             checks=found, checks_passed=passed,
             counts=participation.counts(),
-            tournaments=participation.tournament_names(), positions=await self._positions(survey.event_id),
+            tournaments=participation.tournament_names(),
+            positions=await survey_positions.event_positions(survey.event_id),
             answered=0 if survey.status is SurveyStatus.DRAFT else await self.repository.submitted_count(survey.id),
         )
 
@@ -287,7 +260,8 @@ class SurveyService:
         await self._ensure_staff(actor)
         survey = await self._load(survey_id)
         participation = await Participation.load(survey.event_id)
-        tournaments, positions = participation.tournament_names(), await self._positions(survey.event_id)
+        tournaments = participation.tournament_names()
+        positions = await survey_positions.event_positions(survey.event_id)
         rows = []
         for persona, label in plan.preview_personas(positions).items():
             if persona == 'everything':
@@ -304,7 +278,7 @@ class SurveyService:
         await self._ensure_staff(actor)
         survey = await self._load(survey_id)
         participation = await Participation.load(survey.event_id)
-        positions = await self._positions(survey.event_id)
+        positions = await survey_positions.event_positions(survey.event_id)
         persona = persona if persona in plan.preview_personas(positions) else 'everything'
         facts = plan.preview_facts(persona, participation.tournament_names(), positions)
         return survey, plan.parts_for(survey.sections, facts, ignore_conditions=persona == 'everything')
@@ -494,7 +468,8 @@ class SurveyService:
         section = await self.repository.create_section(
             survey, title=clean_text(title, limit=TITLE_MAX, what='A section title'),
             description=_description(description), audience=SurveyAudience(audience), position=await self.repository.next_section_position(survey.id),
-            conditions=_section_conditions(conditions, earlier, await self._position_map(survey, conditions)),
+            conditions=_section_conditions(conditions, earlier,
+                                           await survey_positions.named_in(survey.event_id, conditions)),
         )
         await self._audit(actor, AuditActions.SURVEY_UPDATED, survey, section_added=section.id)
         return section
@@ -518,7 +493,7 @@ class SurveyService:
             fields['audience'] = SurveyAudience(audience)
         if conditions is not _UNSET:
             fields['conditions'] = _section_conditions(conditions, plan.before_section(survey.sections, section.id),
-                                                       await self._position_map(survey, conditions))
+                                                       await survey_positions.named_in(survey.event_id, conditions))
         if fields:
             wording = _wording_changes(section, fields, ('title', 'description'))
             await self.repository.update(section, **fields)
@@ -567,7 +542,7 @@ class SurveyService:
             prompt=clean_text(prompt, limit=PROMPT_MAX, what='The question'),
             kind=kind, options=cleaned, required=bool(required), **clean_extras(kind, cleaned, **_known(extras)),
             conditions=_question_conditions(conditions, plan.earlier(survey.sections, section.id, None),
-                                            await self._position_map(survey, conditions)),
+                                            await survey_positions.named_in(survey.event_id, conditions)),
             position=await self.repository.next_question_position(section.id),
         )
         await self._audit(actor, AuditActions.SURVEY_UPDATED, survey, question_added=question.id)
@@ -605,7 +580,7 @@ class SurveyService:
         if conditions is not _UNSET:
             fields['conditions'] = _question_conditions(
                 conditions, plan.earlier(survey.sections, question.section_id, question.id),
-                await self._position_map(survey, conditions),
+                await survey_positions.named_in(survey.event_id, conditions),
             )
         if fields:
             wording = _wording_changes(question, fields, ('prompt',))
