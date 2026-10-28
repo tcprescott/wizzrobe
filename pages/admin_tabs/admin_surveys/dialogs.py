@@ -25,10 +25,10 @@ Done = Callable[[Any], Awaitable[None]]
 CHOICE_KINDS = (SurveyQuestionKind.CHOICE_ONE, SurveyQuestionKind.CHOICE_MANY)
 
 
-def _footer(dialog, label: str, on_save, *, negative: bool = False) -> None:
+def _footer(dialog, label: str, on_save) -> None:
     with dialog_actions().classes('justify-end'):
         ui.button('Cancel', on_click=dialog.close).props('flat no-caps')
-        ui.button(label, on_click=on_save).props(f'unelevated no-caps color={"negative" if negative else "primary"}')
+        ui.button(label, on_click=on_save).props('unelevated no-caps color=primary')
     submit_on_enter(dialog, on_save)
 
 

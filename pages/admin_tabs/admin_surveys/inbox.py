@@ -16,6 +16,7 @@ from application.services.survey.comments import TAG_NAME_MAX, InboxComment
 from models import User
 from pages.admin_tabs.admin_surveys.dialogs import _footer
 from theme.dialog._helpers import form_dialog
+from theme.dialog.confirmation_dialog import ConfirmationDialog
 from theme.menu import menu_action, more_menu
 from theme.notify import notify_error
 
@@ -122,7 +123,9 @@ class CommentsTab:
                 menu_action('new_label', 'New tag…', self._new_tag)
                 if self.inbox.tags:
                     ui.separator()
-                    menu_action('delete', 'Delete a tag…', self._delete_tag, negative=True)
+                for tag in self.inbox.tags:
+                    menu_action('delete', f'Delete “{tag.name}”…',
+                                partial(self._delete_tag, tag.id, tag.name), negative=True)
 
     # --- the comments ---------------------------------------------------
 
@@ -215,29 +218,19 @@ class CommentsTab:
             _footer(dialog, 'Add tag', save)
         dialog.open()
 
-    def _delete_tag(self) -> None:
-        options = {t.id: f'{t.name} · {t.count}' for t in self.inbox.tags}
-        with form_dialog('Delete a tag', card_classes='dialog-card dialog-card--sm') as dialog:
-            pick = ui.select(options, label='Tag', value=next(iter(options), None)).props('outlined') \
-                .classes('w-full')
-            ui.label('Comments that carry it just lose the tag. The comments stay.') \
-                .classes('text-caption text-grey-7')
+    def _delete_tag(self, tag_id: int, name: str) -> None:
+        async def delete() -> None:
+            try:
+                await self.service.delete_tag(self.user, self.inbox.survey.id, tag_id)
+            except (ValueError, PermissionError) as e:
+                notify_error(e)
+                return
+            if self.state['tag'] == tag_id:
+                self.state['tag'] = None
+            await self._reload()
 
-            async def delete() -> None:
-                if pick.value is None:
-                    return
-                try:
-                    await self.service.delete_tag(self.user, self.inbox.survey.id, int(pick.value))
-                except (ValueError, PermissionError) as e:
-                    notify_error(e)
-                    return
-                if self.state['tag'] == pick.value:
-                    self.state['tag'] = None
-                dialog.close()
-                await self._reload()
-
-            _footer(dialog, 'Delete tag', delete, negative=True)
-        dialog.open()
+        ConfirmationDialog(f'Delete the “{name}” tag? Comments that carry it just lose the tag.',
+                           title='Delete tag', confirm_text='Delete tag', on_confirm=delete).open()
 
 
 def render_comments(inbox: CommentInbox, user: User, load: Reload) -> Optional[CommentsTab]:
