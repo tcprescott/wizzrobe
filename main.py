@@ -361,6 +361,10 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
                     time.perf_counter() - _IMPORT_STARTED, time.perf_counter() - lifespan_started)
         yield
     try:
+        # A result or approval still inside its Undo window was meant: save it
+        # before the workers that carry its DMs and webhooks stop.
+        from application import pending_actions
+        await pending_actions.flush_all()
         await active_users_metrics.stop()
         await telemetry_retention.stop()
         await event_retention.stop()

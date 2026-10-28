@@ -37,8 +37,12 @@ approved yet says "to approve". A match with no stage needs no crew, so it shows
 just the signup count. The names are listed under the count, with a tick for
 approved and a clock and an **Approve** button for the rest.
 
-Tap a line to open the match. Its next step (**Check in**, **Start match**,
-**Finish** or **Confirm result**) sits under the title. Below that, the Ready to
+A live two-player match shows both names under "Who won?". Tap the winner and
+it's recorded, finished and confirmed in one go, with **Undo** in the message
+for a few seconds. Nothing's saved or sent until that runs out.
+
+Tap a line to open the match. Its next step (**Check in**, **Start match**, the
+winner buttons, **Finish** or **Confirm result**) sits under the title. Below that, the Ready to
 play? checklist covers the match before it starts: players confirmed, stations,
 stage, seed and crew. Each one's ticked or flagged, with the fix on the same line
 (**Assign** stations, **Generate** a seed, pick a stage). No stage is fine. It just
@@ -92,7 +96,9 @@ Other people use this board too. Each role only gets the controls it can use.
 | Proctor | Check in, start, finish and roll seeds, from Volunteer → Proctor Station rather than here |
 
 Only staff and tournament admins confirm results. A proctor records the winner, and
-you make it official.
+you make it official with **Confirm result**, which also has **Undo** rather than
+asking first. A result you record yourself is confirmed already. A flagged one
+still shows the result and asks before confirming.
 
 ## Creating a match
 
@@ -194,16 +200,17 @@ Admin → Stages. Staff and broadcast techs can add and edit them there. Untick
 :::snippet staff-crew-approval
 Commentators and trackers who sign themselves up start out unapproved. The
 quickest way in is the board itself: a waiting name has an **Approve** button
-beside it. Tap it once and it turns into **Confirm**; tap again to approve. Tap
-anywhere else and it goes back to **Approve**. If that person's booked somewhere
-else at the same time, you get the warning below before anything's saved.
+beside it. Tap it and they're approved, with **Undo** in the message for a few
+seconds; their DM waits until that runs out, so an undone approval never reaches
+them. If that person's booked somewhere else at the same time, you get the
+warning below before anything's saved.
 
 You can also open the match. Under Crew, each role lists the people Waiting for you, each with an
 **Approve** button, and says how many more it needs. Approved people are listed
 above, after "Approved:", as a name with "confirmed" or "hasn't confirmed". Their
 ⋮ menu has **Un-approve**.
 
-Approving asks you to confirm, and warns you if that person's already booked
+Approving there works the same way, and warns you if that person's already booked
 somewhere else at the same time. Once you approve, they get a DM asking them to
 acknowledge. Un-approving clears their acknowledgment and tells them.
 

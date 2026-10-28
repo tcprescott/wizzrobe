@@ -88,7 +88,7 @@ class MatchTableView(MatchFiltersMixin, MatchTableHandlersMixin, MatchBoardHoldM
     friend_ids: frozenset = frozenset()
 
     def __init__(self, columns, get_query, admin_controls=False, access=None, extra_slots=None, submit_match_callback=None,
-                 on_edit=None, on_generate_seed=None, on_seat=None, on_start=None, on_finish=None, on_confirm=None,
+                 on_edit=None, on_generate_seed=None, on_seat=None, on_start=None, on_finish=None, on_report_winner=None, on_confirm=None,
                  on_edit_result=None, on_set_stage=None, on_assign_stations=None,
                  player_discord_id=None, crew_discord_id=None, grid_breakpoint='lt.md',
                  row_sort=None, row_filter=None, exclude_racetime=False, on_rows_changed=None, actions_first=False,
@@ -192,6 +192,7 @@ class MatchTableView(MatchFiltersMixin, MatchTableHandlersMixin, MatchBoardHoldM
         self.on_seat = on_seat
         self.on_start = on_start
         self.on_finish = on_finish
+        self.on_report_winner = on_report_winner
         self.on_confirm = on_confirm
         # Correcting an already-recorded result: the admin's half of "the proctor
         # records their best guess". Reaches the same service as on_finish's
@@ -335,6 +336,8 @@ class MatchTableView(MatchFiltersMixin, MatchTableHandlersMixin, MatchBoardHoldM
                     self.table, proctor=self.proctor_run_sheet,
                     can_run=self.proctor_run_sheet and self.admin_controls and self.access.run,
                     approve=self.access.crew_js() if self._quick_approve else 'false',
+                    run=(self.access.run_js() if not self.proctor_run_sheet and self.admin_controls
+                         and self.on_report_winner is not None else 'false'),
                 )
                 if self._quick_approve:
                     self.table.on('approve_crew', lambda event: self._handle_quick_approve(event.args))
@@ -448,6 +451,8 @@ class MatchTableView(MatchFiltersMixin, MatchTableHandlersMixin, MatchBoardHoldM
                     self.table.on('start', lambda event: self._bg(self._handle_start(event)))
                 if self.on_finish is not None:
                     self.table.on('finish', lambda event: self._bg(self._handle_finish(event)))
+                if self.on_report_winner is not None:
+                    self.table.on('report_winner', lambda event: self._bg(self._handle_report_winner(event)))
                 if self.on_confirm is not None:
                     self.table.on('confirm', lambda event: self._bg(self._handle_confirm(event)))
                 if self.on_edit_result is not None:
