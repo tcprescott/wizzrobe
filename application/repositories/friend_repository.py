@@ -17,8 +17,8 @@ class FriendRepository:
 
     @staticmethod
     async def friend_ids(user_id: int) -> set[int]:
-        rows = await UserFriend.filter(user_id=user_id).values_list('friend_id', flat=True)
-        return {int(r) for r in rows}
+        rows = await UserFriend.filter(user_id=user_id).values('friend_id')
+        return {int(r['friend_id']) for r in rows}
 
     @staticmethod
     async def friends(user_id: int) -> list[User]:
@@ -29,8 +29,8 @@ class FriendRepository:
         ids = list(user_ids)
         if not ids:
             return set()
-        rows = await User.filter(id__in=ids, is_active=True).values_list('id', flat=True)
-        return {int(r) for r in rows}
+        rows = await User.filter(id__in=ids, is_active=True).values('id')
+        return {int(r['id']) for r in rows}
 
     @staticmethod
     async def add(user_id: int, friend_ids: Iterable[int]) -> None:

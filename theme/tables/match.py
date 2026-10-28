@@ -84,6 +84,8 @@ class MatchTableView(MatchFiltersMixin, MatchTableHandlersMixin, MatchBoardHoldM
     run_sheet_group = None
     proctor_run_sheet = False
     crew_discord_id = None
+    # The viewer's friends (user ids), underlined on a player run sheet.
+    friend_ids: frozenset = frozenset()
 
     def __init__(self, columns, get_query, admin_controls=False, access=None, extra_slots=None, submit_match_callback=None,
                  on_edit=None, on_generate_seed=None, on_seat=None, on_start=None, on_finish=None, on_confirm=None,
@@ -96,8 +98,6 @@ class MatchTableView(MatchFiltersMixin, MatchTableHandlersMixin, MatchBoardHoldM
                  run_sheet_group=None, proctor_run_sheet=False, show_comment_counts=False,
                  extra_rows=None, extra_filters=None):
         self.columns = columns
-        # The viewer's friends (user ids), underlined on a player run sheet.
-        self.friend_ids: frozenset = frozenset()
         # ``extra_filters()`` builds a page's own fields into the filter strip,
         # after Tournament (Event > Schedule's Friends field).
         self.extra_filters = extra_filters

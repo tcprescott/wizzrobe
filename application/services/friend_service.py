@@ -60,8 +60,8 @@ class FriendService:
         """
         try:
             wanted = {int(f) for f in friend_ids or []}
-        except (TypeError, ValueError):
-            raise ValueError("That isn't a list of people.")
+        except (TypeError, ValueError) as e:
+            raise ValueError("That isn't a list of people.") from e
         wanted.discard(user.id)
         if len(wanted) > self.MAX_FRIENDS:
             raise ValueError(f'You can keep up to {self.MAX_FRIENDS} friends.')

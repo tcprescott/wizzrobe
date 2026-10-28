@@ -389,9 +389,9 @@ __all__ = [
     'Tracker',
     'TriforceText',
     'User',
-    'UserRole',
     # per-user UI preferences
     'UserFriend',
+    'UserRole',
     'UserTablePreference',
     'VolunteerAssignment',
     'VolunteerAvailability',
