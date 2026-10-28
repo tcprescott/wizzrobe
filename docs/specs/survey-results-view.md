@@ -1,6 +1,6 @@
 # Survey results view
 
-Status: Building · Size: full · PRs: — · Requested: 2026-10-28, Thomas Prescott
+Status: Building · Size: full · PRs: #750 (report), comments inbox next · Requested: 2026-10-28, Thomas Prescott
 
 ## Problem
 
