@@ -71,7 +71,9 @@ class TestNextStep:
     def test_the_step_follows_the_state(self):
         assert next_step(_row(1, 'Scheduled'))['event'] == 'seat'
         assert next_step(_row(1, 'Checked In'))['event'] == 'start'
-        assert next_step(_row(1, 'Started'))['event'] == 'finish'
+        # A head-to-head is won by a tap on a name; anything bigger finishes.
+        assert next_step(_row(1, 'Started'))['event'] == 'winner'
+        assert next_step(_row(1, 'Started', players=PLAYERS + PLAYERS[:1]))['event'] == 'finish'
         assert next_step(_row(1, 'Finished')) is None
 
     def test_late_check_in_and_start_are_the_primary_buttons(self):

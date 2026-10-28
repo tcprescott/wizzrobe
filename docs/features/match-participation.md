@@ -17,7 +17,7 @@ column, the DM drops the Broadcaster button, and `signup_crew` /
 land in the same service, so the rules and audit trail are identical.
 
 1. Signup inserts a `Commentator` or `Tracker` row with `approved=False`, either from the web UI (one tap on the board's **Sign up**, no confirmation step) or from the buttons on a stream-candidate DM (`discordbot/crew_signup.py`). The tournament's admins and crew coordinators get a DM linking the match on the admin board, so approval doesn't wait on someone happening to look. Home's schedule has a **Needs crew** switch that narrows the board to matches still short of approved crew for a role the tournament uses.
-2. Whoever `can_approve_crew` admits — staff, the tournament's admin, **or its crew coordinator** — approves from the **Approve** button beside a waiting name on the Admin → Match Schedule run sheet (two taps; the clash warning dialog appears only when they're booked elsewhere), or from Match details (both directions confirm first).
+2. Whoever `can_approve_crew` admits — staff, the tournament's admin, **or its crew coordinator** — approves from the **Approve** button beside a waiting name on the Admin → Match Schedule run sheet, or from Match details. Approving is one tap held behind Undo for `UNDO_SECONDS` (`application/pending_actions.py`): the write, its DM and its webhook wait out the window, so an undone approval never leaves the app; the clash warning dialog appears only when they're booked elsewhere. Un-approving still confirms first.
 3. The approved crew member acknowledges — from **My Schedule**, the schedule board, or the DM button.
 
 Each side has a surface of its own for the work it owns:

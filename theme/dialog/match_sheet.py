@@ -359,6 +359,10 @@ class MatchSheet:
             elif state == 'Checked In':
                 ui.button('Start match', icon='play_arrow',
                           on_click=lambda: self._run(h.on_start, match_id)).props('color=primary')
+            elif state == 'Started' and row.get('_pending_result'):
+                ui.label(row['_pending_result']).classes('match-sheet__note')
+            elif state == 'Started' and row.get('_winners') and getattr(h, 'on_report_winner', None):
+                self._winner_buttons(row)
             elif state == 'Started':
                 ui.button('Finish', icon='sports_score',
                           on_click=lambda: self._run(h.on_finish, match_id)).props('color=primary')
@@ -377,6 +381,17 @@ class MatchSheet:
                 .props('flat color=primary')
         if row.get('is_racetime') and state not in ('Finished', 'Confirmed'):
             ui.label('Runs on racetime.gg').classes('match-sheet__note')
+
+    def _winner_buttons(self, row: dict) -> None:
+        """Who won, one tap each, with Undo in the toast: the row's buttons."""
+        with ui.row().classes('items-center gap-2 match-sheet__winners') \
+                .props('role=group aria-label="Who won?"'):
+            ui.label('Who won?').classes('match-sheet__note')
+            for player in row['_winners']:
+                ui.button(player['name'],
+                          on_click=lambda _, pid=player['id']: self._run(
+                              self.handlers.on_report_winner, row['id'], pid)) \
+                    .props('outline no-caps color=primary')
 
     def _setup(self, row: dict) -> None:
         """The setup as a checklist: what's ready, what's missing, and the fix

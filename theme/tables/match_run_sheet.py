@@ -23,6 +23,7 @@ from typing import Callable, Optional
 
 from nicegui import ui
 
+from application import pending_actions
 from application.services.reports_service import CHECK_IN_TO_START
 from application.utils.match_labels import has_undecided, matchup_parts
 from application.utils.timezone import format_local_time, to_local, today_local
@@ -31,6 +32,7 @@ from theme.matchup import WHO_PARTS_VUE
 from theme.tables.match_slots import seed_value_template
 from theme.tables.run_sheet_meta import META, META_WITH_STAGE, RAIL, STATUS_WORD, card_head
 from theme.tables.run_sheet_tags import comment_badges, late_tags
+from theme.tables.run_sheet_winners import stamp_winners, winner_buttons
 
 #: The board's columns. Kept short on purpose: anything wider than "which match,
 #: when, where, how is it doing" belongs in the sheet.
@@ -229,6 +231,8 @@ def next_step(row: dict) -> Optional[dict]:
             return {'event': 'roll', 'label': 'Roll seed', 'primary': True}
         return {'event': 'start', 'label': 'Start', 'primary': True}
     if state == 'Started':
+        if len(row.get('players') or []) == 2:
+            return {'event': 'winner', 'label': 'Who won?', 'primary': False}
         return {'event': 'finish', 'label': 'Finish', 'primary': False}
     return None
 
@@ -317,12 +321,18 @@ def _day_label(ts) -> str:
 _CREW_ROLES = (('commentators', 'Commentary'), ('trackers', 'Tracking'), ('broadcasters', 'Broadcast'))
 
 
-def crew_people(people: list, discord_id=None, *, waiting_note: str = 'to approve') -> list[dict]:
+def crew_people(people: list, discord_id=None, *, waiting_note: str = 'to approve',
+                role: Optional[str] = None) -> list[dict]:
     """The names in one crew role, approved first, as the boards print them.
 
     ``me`` marks the viewer, whose name the player board follows with "(you)";
-    ``note`` is what an unapproved name carries after it.
+    ``note`` is what an unapproved name carries after it. Given the ``role``
+    key, an approval still inside its Undo window reads as approved already.
     """
+    if role is not None:
+        people = [{**p, 'approved': True} if not p.get('approved')
+                  and pending_actions.pending_label(('crew', role, p.get('id'))) else p
+                  for p in people]
     ordered = sorted(people, key=lambda p: not p.get('approved'))
     return [{
         'name': p.get('name') or '',
@@ -356,7 +366,7 @@ def run_sheet_crew(row: dict) -> list[dict]:
             'key': key, 'label': label, 'count': count,
             'short': open_ and len(people) < need,
             'unapproved': open_ and (len(people) >= need > approved if need else len(people) > approved),
-            'people': crew_people(people),
+            'people': crew_people(people, role=key),
             'empty': open_ and not people,
             'approvable': row.get('state') in ('Scheduled', 'Checked In', 'Started'),
         })
@@ -438,6 +448,7 @@ def decorate_run_sheet_row(row: dict) -> dict:
     row['_crew'] = run_sheet_crew(row)
     row['_crew_by'] = {c['key']: c for c in row['_crew']}
     row['_next'] = next_step(row)
+    stamp_winners(row)
     row['_seed_pending'] = seed_pending(row)
     # "Not rolled" only once it's the next step; before check-in it is noise.
     # A roll in flight or one that failed is news whatever the state.
@@ -492,17 +503,14 @@ _CREW_COUNT = r"""<span class="run-sheet__crew" :class="c.short ? 'st-pending' :
 
 # Who signed up: a tick for approved, a clock and a note for the rest. Where
 # the viewer approves this row's crew, a waiting name carries Approve instead of
-# the note. It takes two taps: the first turns it into Confirm (same width, so
-# nothing moves), and moving focus away turns it back.
+# the note: one tap, with Undo in the toast it leaves.
 def crew_names(approve: str = 'false') -> str:
     can = f"!p.approved && c.approvable && p.id && {approve}"
     button = ('' if approve == 'false' else
-              f"""<q-btn v-if="{can}" dense no-caps unelevated color="primary" icon="check"
-               class="run-sheet__approve" :outline="!p._arm"
-               :label="p._arm ? 'Confirm' : 'Approve'"
-               :aria-label="(p._arm ? 'Confirm approving ' : 'Approve ') + p.name + ' for ' + c.label.toLowerCase()"
-               @focusout="$event.currentTarget.contains($event.relatedTarget) || (p._arm = false)"
-               @click.stop="p._arm ? (p._arm = false, $parent.$emit('approve_crew', {{ row: props.row, role: c.key, crew_id: p.id }})) : (p._arm = true)" />""")
+              f"""<q-btn v-if="{can}" dense no-caps unelevated outline color="primary" icon="check"
+               class="run-sheet__approve" label="Approve"
+               :aria-label="'Approve ' + p.name + ' for ' + c.label.toLowerCase()"
+               @click.stop="$parent.$emit('approve_crew', {{ row: props.row, role: c.key, crew_id: p.id }})" />""")
     note = 'p.note' if approve == 'false' else f'p.note && !({can})'
     return ('<span class="run-sheet__people">\n'
             '    <span v-for="(p, i) in c.people" :key="i" class="run-sheet__person" :class="p.approved ? \'\' : \'st-pending\'">\n'
@@ -597,7 +605,8 @@ _NEXT_CHIP = STATUS_WORD.replace('<span ', """<span v-if="!['Scheduled', 'Checke
 # Roll seed spins until the row comes back, since a synchronous roll can take
 # several seconds and a second press would only be refused. A queued roll then
 # holds the button on its clock until the seed lands.
-_NEXT_BUTTON = """<q-btn v-if="props.row._next && props.row._next.event" no-caps no-wrap unelevated color="primary" :outline="!props.row._next.primary"
+_NEXT_BUTTON = winner_buttons("props.row._next && props.row._next.event === 'winner'") + """
+<q-btn v-else-if="props.row._next && props.row._next.event && props.row._next.event !== 'winner'" no-caps no-wrap unelevated color="primary" :outline="!props.row._next.primary"
                    class="run-sheet__step" :class="{'wiz-busy-btn': !!props.row._busy}" :disable="!!props.row._busy"
                    :label="props.row._busy ? 'Rolling…' : props.row._next.label"
                    :icon="props.row._busy ? undefined : (props.row._next.event === 'roll' ? 'casino' : (props.row._next.event === 'start' ? 'play_arrow' : undefined))"
@@ -625,7 +634,7 @@ def fold_header(proctor: bool) -> str:
             """<span>{{ props.row._group }}""" + count + """</span></button>""")
 
 
-def _body_slot(proctor: bool, can_run: bool = False, approve: str = 'false') -> str:
+def _body_slot(proctor: bool, can_run: bool = False, approve: str = 'false', run: str = 'false') -> str:
     """Desktop: one row per match, a group header row above the first of each
     group. The Match cell's names are the row's button, so the row is reachable
     and operable from the keyboard; the rest of the row is a mouse convenience."""
@@ -641,7 +650,7 @@ def _body_slot(proctor: bool, can_run: bool = False, approve: str = 'false') -> 
                 """ + WHO + """
             </button>""" + COMMENT_BADGES + """</span>
             """ + META + """
-            """ + DESC_LINE + LATE_TAGS
+            """ + DESC_LINE + LATE_TAGS + (winner_buttons(run, inline=True) if run != 'false' else '')
     return """
 <q-tr v-if="props.row._group_start" class="run-sheet__group-row">
     <q-td colspan="100%" class="run-sheet__group">""" + fold_header(proctor) + """</q-td>
@@ -670,7 +679,7 @@ def _body_slot(proctor: bool, can_run: bool = False, approve: str = 'false') -> 
 """
 
 
-def _item_slot(proctor: bool, can_run: bool = False, approve: str = 'false') -> str:
+def _item_slot(proctor: bool, can_run: bool = False, approve: str = 'false', run: str = 'false') -> str:
     """Phone: the whole line is one button, the time and state across its top
     and the names under them at full width. The proctor's line is a card
     holding two buttons instead, since the step can't sit inside the button
@@ -703,14 +712,14 @@ def _item_slot(proctor: bool, can_run: bool = False, approve: str = 'false') -> 
             """ + META_WITH_STAGE + """
             """ + DESC_LINE + LATE_TAGS + """
             <span v-if="props.row._crew.length" class="run-sheet__crew-list">""" + _crew_lines(approve) + """</span>
-            """ + COMMENT_BADGES + """
+            """ + COMMENT_BADGES + (winner_buttons(run, inline=True) if run != 'false' else '') + """
         </span>"""
-    if approve == 'false':
+    if approve == 'false' and run == 'false':
         card = """<button v-if="!props.row._folded" type="button" class="run-sheet__card" :class="[""" + RAIL + """, props.row._flash ? 'wiz-row-flash' : '', props.row._removed ? 'wiz-row-removed' : '']" :inert="props.row._removed ? '' : null" :data-wiz-row="props.row.id"
             @click="$parent.$emit('open_match', props.row.id)">""" + main + """
     </button>"""
     else:
-        # The crew's Approve buttons can't sit inside a button, so this card is
+        # The crew's Approve and the winner buttons can't sit inside a button, so this card is
         # the desktop row's shape: the names are the keyboard's way in, and a
         # tap anywhere else on the card is a pointer convenience.
         main = main.replace(
@@ -729,7 +738,7 @@ def _item_slot(proctor: bool, can_run: bool = False, approve: str = 'false') -> 
 
 
 def register_run_sheet_slots(table, *, proctor: bool = False, can_run: bool = False,
-                             approve: str = 'false') -> None:
+                             approve: str = 'false', run: str = 'false') -> None:
     """The run sheet's desktop ``body`` and phone ``item`` slots on ``table``.
 
     ``proctor`` draws the proctor's line: stations beside the names and a count
@@ -737,10 +746,11 @@ def register_run_sheet_slots(table, *, proctor: bool = False, can_run: bool = Fa
     Search on the board passes ``search_terms=True`` to :func:`search_input`,
     to keep the prefixed string :data:`RUN_SHEET_FILTER` reads. ``approve`` is
     a Vue expression over ``props.row`` (``MatchBoardAccess.crew_js``) for the
-    rows whose waiting crew get an Approve button.
+    rows whose waiting crew get an Approve button, and ``run`` the same for
+    the admin board's rows whose live head-to-head gets winner buttons.
     """
-    table.add_slot('body', _body_slot(proctor, can_run, approve))
-    table.add_slot('item', _item_slot(proctor, can_run, approve))
+    table.add_slot('body', _body_slot(proctor, can_run, approve, run))
+    table.add_slot('item', _item_slot(proctor, can_run, approve, run))
     use_fold_filter(table, proctor=proctor)
 
 

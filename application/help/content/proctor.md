@@ -34,8 +34,9 @@ are left off, because the room drives those.
 
 Each line is one match. You'll see its time (orange when it's late), the players
 with the station each one's sitting at, the stage, and a button for the next
-step: **Check in**, **Roll seed**, **Start** or **Finish**. Press it and that
-step's dialog opens, just like anywhere else in the app. Once a match is checked
+step: **Check in**, **Roll seed** or **Start**. Press it and that step's dialog
+opens, just like anywhere else in the app. Once a two-player match is live, the
+step is both players' names under "Who won?". Once a match is checked
 in, its line also shows the seed, as the link and its code or as Seed not
 rolled. A player who tapped **Tell staff I'm late** gets a tag on the line, like
 {chip:pending:Player One ~20 min late · said 09:41}, until the match is checked in.
@@ -97,12 +98,15 @@ it's also at the top of the match's details.
    Start asks for stations first. Leave one blank to start anyway. To start
    without rolling a seed, open the match and press **Start match**. From then
    on everyone watching the board sees it as {state:Started}.
-4. Press **Finish** when it ends and say who won. Tap the winner, then the
-   **Yes** button with their name on it. Picking a name doesn't record anything
-   by itself, so a mis-tap only costs you a **Back**. With three or four
-   players, choose the winner from the list and press **Submit Results**. The
-   match moves to {state:Finished}. A race with more than four players has no
-   winner to record: Finish asks once, then closes the race out as confirmed.
+4. When it ends, tap the winner's name on the line. That's it: the match moves
+   to {state:Finished}. The message at the top has **Undo** for a few seconds,
+   so a mis-tap costs you one more tap, and nothing's saved or sent until it
+   runs out. With three or four players, press **Finish**, choose the winner
+   from the list and press **Submit Results**. A race with more than four
+   players has no winner to record: Finish asks once, then closes the race out
+   as confirmed.
+
+![A live match on the proctor's board, with Who won? above a button for each player, the first marked 1](/static/help/proctor/result-phone.webp "Step 4: tap the winner (1). **Undo** stays up for a few seconds.")
 
 What you do between those presses, like helping players set up, running a
 countdown and keeping the room in order, is up to the event. The app records
@@ -152,22 +156,19 @@ match is recorded as finished.
 :::snippet proctor-result
 Ask both players and record what they agree on.
 
-If they disagree, tick **Flag for admin review** first, then record your best
-call. The box is under the player buttons, and pressing **Yes** saves the result
-straight away, so tick it before you get there. Then tell an admin what
-happened. The flag only marks the match. Talking to the admin is what settles
+If they disagree, record your best call, then press **Flag for review** in the
+message that comes up, before it goes away. Then tell an admin what happened. The flag only marks the match. Talking to the admin is what settles
 it.
 
 Flagging doesn't hold the match up or change its state. It marks it
 {chip:cancelled:Flagged} so nobody confirms it without looking.
 :::
 
-![The Enter match results dialog: one button per player with their station, the first marked 1, and the Flag for admin review checkbox marked 2](/static/help/proctor/result-phone.webp "Step 4: tap the winner (1). If the players disagree, tick **Flag for admin review** (2) first.")
-
 ### If you recorded the wrong winner
 
-You can't change a result once it's recorded. An admin has to fix it. Tell one
-which match (its `#`) and who actually won.
+Press **Undo** in the message while it's still up. After that you can't change
+it. An admin has to fix it, so tell one which match (its `#`) and who actually
+won.
 
 ## The room's seeds screen
 
