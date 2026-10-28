@@ -247,7 +247,7 @@ async def admin_surveys_page(survey: Optional[int] = None, view: Optional[str] =
                     ui.notify(str(e), color='warning')
                     state['group'] = None
                     results = await service.results(user, s.id)
-                render_results(results, pick_group)
+                render_results(results, pick_group, on_open=lambda sid: show(sid))
                 return
             if state['view'] == COMMENTS:
                 async def load() -> CommentInbox:

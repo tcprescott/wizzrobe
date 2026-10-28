@@ -17,6 +17,7 @@ The respondent's side is :mod:`~application.services.survey.survey_response_serv
 
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
+from statistics import median_low
 from types import SimpleNamespace
 from typing import Any, Dict, Iterable, List, Mapping, Optional, Sequence
 
@@ -28,6 +29,7 @@ from application.repositories.survey_repository import SurveyRepository
 from application.services.audit_service import AuditActions, AuditService
 from application.services.auth_service import AuthService
 from application.services.survey import _notifications, audiences, dropoff, plan
+from application.services.survey import checks as survey_checks
 from application.services.survey._validation import (
     AFTER_SEND_MAX,
     DESCRIPTION_MAX,
@@ -43,7 +45,7 @@ from application.services.survey.audiences import AudienceRate, GroupOption
 from application.services.survey.conditions import MAX_PER_QUESTION, MAX_PER_SECTION, answer_entries, follows, remap
 from application.services.survey.dropoff import Dropoff
 from application.services.survey.participation import Participation
-from application.services.survey.results import QuestionResult, summarize
+from application.services.survey.results import QuestionResult, last_time, summarize
 from application.services.survey.template import STARTER
 from models import (
     FeatureFlag,
@@ -86,12 +88,29 @@ class BuilderSummary:
     counts: Dict[str, int]
     tournaments: List[dict] = field(default_factory=list)
     positions: List[dict] = field(default_factory=list)
+    #: The middle person's time (median over everyone who took part).
+    typical_seconds: int = 0
+    #: What the Checks card lists, and the checks that found nothing.
+    checks: List[survey_checks.Finding] = field(default_factory=list)
+    checks_passed: List[str] = field(default_factory=list)
     #: Responses sent in so far; always 0 on a draft.
     answered: int = 0
 
     @property
     def over_budget(self) -> bool:
         return self.longest_seconds > plan.BUDGET_SECONDS
+
+
+@dataclass
+class PreviewPath:
+    """What one kind of person sees in the preview, for its paths table, and what's left out for them."""
+
+    persona: str
+    label: str
+    parts: int
+    questions: int
+    seconds: int
+    hidden: List[plan.Hidden] = field(default_factory=list)
 
 
 @dataclass
@@ -192,27 +211,51 @@ class SurveyService:
 
     @requires_feature(FeatureFlag.SURVEYS)
     async def builder_summary(self, actor: User, survey_id: int) -> BuilderSummary:
-        """How long the survey takes the person with the most to answer, and who gets it.
+        """How long the survey takes most people and the person with the most to answer, and who gets it.
 
         Worked out over the people who actually took part in the survey's event,
-        so the time box speaks about the real worst case, not a guess.
+        so the time box speaks about the real typical and worst cases, not a guess.
         """
         await self._ensure_staff(actor)
         survey = await self._load(survey_id)
         participation = await Participation.load(survey.event_id)
         longest, who, count = 0, '', 0
+        everyone: List[int] = []
+        paths: List[survey_checks.Path] = []
         for facts in (await participation.facts_by_user()).values():
             parts = plan.parts_for(survey.sections, facts)
             seconds = plan.seconds(parts)
+            everyone.append(seconds)
+            paths.append(survey_checks.Path(_describe(facts), parts))
             if seconds > longest:
                 longest, count = seconds, plan.question_count(parts)
                 who = _describe(facts)
+        found, passed = survey_checks.run_checks(list(survey.sections), paths)
         return BuilderSummary(
             longest_seconds=longest, longest_questions=count, longest_who=who,
+            typical_seconds=int(median_low(everyone)) if everyone else 0,
+            checks=found, checks_passed=passed,
             counts=participation.counts(),
             tournaments=participation.tournament_names(), positions=participation.position_names(),
             answered=0 if survey.status is SurveyStatus.DRAFT else await self.repository.submitted_count(survey.id),
         )
+
+    @requires_feature(FeatureFlag.SURVEYS)
+    async def preview_paths(self, actor: User, survey_id: int) -> List[PreviewPath]:
+        """One row per kind of person the preview can show: parts, questions and time, and what they won't see."""
+        await self._ensure_staff(actor)
+        survey = await self._load(survey_id)
+        participation = await Participation.load(survey.event_id)
+        tournaments, positions = participation.tournament_names(), participation.position_names()
+        rows = []
+        for persona, label in plan.PREVIEW_PERSONAS.items():
+            if persona == 'everything':
+                continue
+            facts = plan.preview_facts(persona, tournaments, positions)
+            parts = plan.parts_for(survey.sections, facts)
+            rows.append(PreviewPath(persona, label, len(parts), plan.question_count(parts), plan.seconds(parts),
+                                    plan.hidden_from(survey.sections, facts)))
+        return rows
 
     @requires_feature(FeatureFlag.SURVEYS)
     async def preview(self, actor: User, survey_id: int, persona: str = 'everything') -> tuple[Survey, List[plan.Part]]:
@@ -250,17 +293,34 @@ class SurveyService:
             recipients = {'sent': chosen.sent, 'submitted': chosen.responded}
         questions = [q for s in survey.sections for q in s.questions]
         sections = {s.id: s for s in survey.sections}
+        summary = summarize(questions, sections, answers, responses, protect=chosen is not None)
+        if chosen is None:
+            await self._add_last_time(questions, summary)
         return SurveyResults(
             survey=survey,
             recipients=recipients,
             responses=len(responses),
             anonymous=sum(1 for r in responses if r.anonymous),
-            questions=summarize(questions, sections, answers, responses, protect=chosen is not None),
+            questions=summary,
             dropoff=None if chosen else dropoff.build(
                 list(survey.sections), rows, await self.repository.part_tallies(survey.id),
             ),
             groups=options, audiences=audiences.audience_rates(rows), group=chosen,
         )
+
+    async def _add_last_time(self, questions: Sequence[SurveyQuestion], summary: List[QuestionResult]) -> None:
+        """Put each duplicated question's numbers from the survey it came from beside this year's."""
+        parents = {q.id: q.copied_from_id for q in questions if q.copied_from_id}
+        if not parents:
+            return
+        earlier = {q.id: q for q in await self.repository.questions_with_survey(list(set(parents.values())))}
+        answers: Dict[int, List[Any]] = {}
+        for answer in await self.repository.submitted_answers_to(list(earlier)):
+            answers.setdefault(answer.question_id, []).append(answer)
+        for result in summary:
+            parent = earlier.get(parents.get(result.question_id, 0))
+            if parent is not None and answers.get(parent.id):
+                result.last_time = last_time(parent, answers[parent.id])
 
     @requires_feature(FeatureFlag.SURVEYS)
     async def list_responses(self, actor: User, survey_id: int, *, limit: int = 100,
@@ -315,7 +375,7 @@ class SurveyService:
                     new_section, prompt=q.prompt, kind=q.kind, options=q.options, required=q.required,
                     position=q.position, conditions=remap(q.conditions, ids), other_option=q.other_option,
                     none_option=q.none_option, min_picks=q.min_picks, max_picks=q.max_picks,
-                    long_answer=q.long_answer,
+                    long_answer=q.long_answer, copied_from_id=q.id,
                 )
                 ids[q.id] = new_q.id
         await self._audit(actor, AuditActions.SURVEY_CREATED, copy, copied_from=source.id)

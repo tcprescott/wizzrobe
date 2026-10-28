@@ -6,6 +6,7 @@ See docs/features/surveys.md.
 from application.services.survey import (
     ai_context,
     audiences,
+    checks,
     comments,
     conditions,
     dropoff,
@@ -19,6 +20,7 @@ from application.services.survey.dropoff import Dropoff
 from application.services.survey.participation import Participation
 from application.services.survey.suggestions import SurveySuggestionService
 from application.services.survey.survey_response_service import (
+    MissingAnswer,
     RespondentView,
     SurveyResponseService,
     response_answers,
@@ -36,6 +38,7 @@ __all__ = [
     'BuilderSummary',
     'CommentInbox',
     'Dropoff',
+    'MissingAnswer',
     'Participation',
     'RespondentView',
     'SurveyCommentService',
@@ -47,6 +50,7 @@ __all__ = [
     'ai_context',
     'answer_values',
     'audiences',
+    'checks',
     'coerce_answer',
     'comments',
     'conditions',

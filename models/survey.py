@@ -178,6 +178,11 @@ class SurveyQuestion(Model):
     reworded_at = fields.DatetimeField(null=True)
     reworded_after = fields.IntField(null=True)  # responses sent before that first change
     original_prompt = fields.CharField(max_length=280, null=True)
+    # The question this one was duplicated from, so results can put last time's numbers beside it.
+    copied_from: fields.ForeignKeyNullableRelation = fields.ForeignKeyField(
+        'models.SurveyQuestion', related_name='copies', null=True, on_delete=fields.SET_NULL,
+    )
+    copied_from_id: Optional[int]
     created_at = fields.DatetimeField(auto_now_add=True)
     updated_at = fields.DatetimeField(auto_now=True)
 

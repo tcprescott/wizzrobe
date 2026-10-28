@@ -114,7 +114,7 @@ def _question_row(ctx: BuilderContext, section: SurveySection, question: SurveyQ
 
 def _section_card(ctx: BuilderContext, section: SurveySection, prompts: Dict[int, str],
                   first: bool, last: bool) -> None:
-    with ui.element('section').classes('wiz-survey-section w-full'):
+    with ui.element('section').classes('wiz-survey-section w-full').props(f'data-sid={section.id}'):
         with ui.row().classes('wiz-survey-section__head no-wrap items-center w-full'):
             with ui.row().classes('col min-w-0 items-center gap-2'):
                 heading = ui.label(section.title).classes('wiz-survey-section__title')
@@ -221,17 +221,65 @@ def _budget_card(ctx: BuilderContext) -> None:
             ui.label('Nobody has taken part in this event yet, so there is no one to time it for.') \
                 .classes('wiz-survey-side__text')
             return
-        share = min(1.0, summary.longest_seconds / plan.BUDGET_SECONDS)
-        ui.label(f'About {plan.format_duration(summary.longest_seconds)} at most') \
-            .classes('wiz-survey-side__figure')
-        ui.linear_progress(value=share, show_value=False, size='8px',
-                           color='negative' if summary.over_budget else 'primary') \
-            .props('rounded aria-label="Share of the 10 minute budget"')
-        ui.label(f'{summary.longest_who}: {summary.longest_questions} questions.') \
-            .classes('wiz-survey-side__text')
+        typical, longest = summary.typical_seconds, summary.longest_seconds
+        ui.label(f'Most people: about {plan.format_duration(typical)}').classes('wiz-survey-side__figure')
+        ui.label(f'Longest: about {plan.format_duration(longest)} · {summary.longest_who}, '
+                 f'{summary.longest_questions} questions').classes('wiz-survey-side__text')
+        budget = plan.BUDGET_SECONDS
+
+        def pct(seconds: int) -> float:
+            return round(min(1.0, seconds / budget) * 100, 1)
+
+        bar = ui.element('div').classes('wiz-survey-time' + (' is-over' if summary.over_budget else '')) \
+            .props('role=img')
+        bar._props['aria-label'] = (f'Most people about {plan.format_duration(typical)}, longest about '
+                                    f'{plan.format_duration(longest)}, on a {budget // 60} minute scale')
+        with bar:
+            ui.element('span').classes('wiz-survey-time__longest').style(f'width: {pct(longest)}%')
+            ui.element('span').classes('wiz-survey-time__typical').style(f'width: {pct(typical)}%')
+            ui.element('span').classes('wiz-survey-time__tick').style(f'left: {pct(plan.TARGET_SECONDS)}%')
+        with ui.row().classes('wiz-survey-time__scale w-full no-wrap').props('aria-hidden=true'):
+            ui.label('0')
+            ui.label(f'{plan.TARGET_SECONDS // 60} min')
+            ui.label(str(budget // 60))
         if summary.over_budget:
-            ui.label('That is over 10 minutes. Trim a repeating section first; it counts once per tournament.') \
+            ui.label(f'The longest path is over {budget // 60} minutes. Trim a repeating section first; '
+                     'it counts once per tournament.').classes('wiz-survey-side__warn')
+        elif typical > plan.TARGET_SECONDS:
+            ui.label(f'Most people take over {plan.TARGET_SECONDS // 60} minutes. Aim for under that.') \
                 .classes('wiz-survey-side__warn')
+        else:
+            ui.label(f'Aim for most people under {plan.TARGET_SECONDS // 60}. '
+                     f'Over {budget // 60} is too long for anyone.').classes('wiz-survey-side__text')
+
+
+def _scroll_to(finding) -> None:
+    selector = (f'[data-qid="{finding.question_id}"]' if finding.question_id is not None
+                else f'[data-sid="{finding.section_id}"]')
+    ui.run_javascript(f"document.querySelector('{selector}')?.scrollIntoView({{block: 'center', behavior: 'smooth'}})")
+
+
+def _checks_card(ctx: BuilderContext) -> None:
+    summary = ctx.summary
+    findings = summary.checks
+    with ui.element('section').classes('wiz-survey-side'):
+        with ui.row().classes('items-center no-wrap w-full'):
+            ui.label('Checks').classes('wiz-survey-side__title col')
+            if findings:
+                ui.label(f'{len(findings)} to look at').classes('wiz-chip wiz-chip--pending')
+        for finding in findings:
+            with ui.row().classes('wiz-survey-check no-wrap items-start w-full'):
+                ui.icon('warning').classes('wiz-survey-check__icon is-warn').props('aria-hidden=true')
+                with ui.element('div').classes('col min-w-0'):
+                    if finding.link:
+                        link = ui.link(finding.link, '#').classes('wiz-survey-check__link')
+                        link.on('click.prevent', lambda _, f=finding: _scroll_to(f))
+                    text = ui.label(finding.text).classes('wiz-survey-check__text')
+                    text.tag = 'span'
+        if summary.checks_passed:
+            with ui.row().classes('wiz-survey-check no-wrap items-start w-full'):
+                ui.icon('check_circle').classes('wiz-survey-check__icon is-ok').props('aria-hidden=true')
+                ui.label(' · '.join(summary.checks_passed)).classes('wiz-survey-check__passed col min-w-0')
 
 
 def _who_card(ctx: BuilderContext) -> None:
@@ -283,4 +331,6 @@ def render_builder(ctx: BuilderContext) -> None:
                 )).props('outline no-caps color=primary')
         with ui.column().classes('wiz-survey-builder__side gap-3 items-stretch'):
             _budget_card(ctx)
+            if ctx.editable:
+                _checks_card(ctx)
             _who_card(ctx)

@@ -10,7 +10,7 @@ played.
 from dataclasses import dataclass, field
 from typing import Any, Dict, Iterable, List, Mapping, Optional, Sequence, Tuple
 
-from application.services.survey.conditions import Entry, all_hold, answer_entries, answer_matches
+from application.services.survey.conditions import Entry, all_hold, answer_entries, answer_matches, describe, holds
 from models import SurveyAudience, SurveyQuestion, SurveyQuestionKind, SurveySection
 
 # Rough seconds to answer each kind, for the 10-minute budget. A comment is
@@ -29,6 +29,8 @@ SECONDS: Dict[SurveyQuestionKind, int] = {
 DEFAULT_AFTER_SEND = "We'll share what we change because of your answers."
 
 BUDGET_SECONDS = 10 * 60
+# What most people's path should stay under; the budget above is the ceiling for anyone's.
+TARGET_SECONDS = 5 * 60
 REPEATING = (SurveyAudience.EACH_TOURNAMENT, SurveyAudience.EACH_POSITION)
 
 # A crew-role audience → the role in a recipient's ``crew_roles`` fact, and the part's reason line.
@@ -153,6 +155,58 @@ def parts_for(sections: Iterable[SurveySection], facts: Mapping[str, Any], *,
                                   [] if ignore_conditions else answer_entries(section.conditions),
                                   section.description or ''))
     return parts
+
+
+_ONLY_FOR: Dict[SurveyAudience, str] = {
+    SurveyAudience.EACH_TOURNAMENT: 'Only for people who played a tournament',
+    SurveyAudience.EACH_POSITION: 'Only for volunteers who worked a position',
+    SurveyAudience.CREW: 'Only for match crew',
+    SurveyAudience.COMMENTATORS: 'Only for commentators',
+    SurveyAudience.TRACKERS: 'Only for trackers',
+    SurveyAudience.BROADCASTERS: 'Only for broadcast crew',
+    SurveyAudience.CHECKED_IN: 'Only for people the desk checked in',
+}
+
+
+@dataclass(frozen=True)
+class Hidden:
+    """Something one kind of person won't see, and why: a whole part (``prompt`` None) or one question."""
+
+    section_id: int
+    title: str
+    prompt: Optional[str]
+    reason: str
+
+
+def hidden_from(sections: Iterable[SurveySection], facts: Mapping[str, Any]) -> List[Hidden]:
+    """What :func:`parts_for` leaves out for these facts, with the audience or condition that leaves it out.
+
+    For the preview. Answer-based conditions aren't here: the page shows and
+    hides those as the answers change.
+    """
+    sections = list(sections)
+    prompts = {q.id: q.prompt for s in sections for q in s.questions}
+    hidden: List[Hidden] = []
+    for section in sections:
+        questions = list(section.questions)
+        if not questions:
+            continue
+        repeats = _repeats(section, facts)
+        if not repeats:
+            hidden.append(Hidden(section.id, section.title, None, _ONLY_FOR.get(section.audience, 'Not for them')))
+            continue
+        tournaments = [int(scope[2:]) if scope.startswith('t:') else None for scope, *_ in repeats]
+        failing = next((e for e in section.conditions or []
+                        if not any(holds(e.get('key'), facts, t) for t in tournaments)), None)
+        if failing is not None:
+            hidden.append(Hidden(section.id, section.title, None, describe(failing, prompts)))
+            continue
+        for question in questions:
+            failing = next((e for e in question.conditions or []
+                            if not any(holds(e.get('key'), facts, t) for t in tournaments)), None)
+            if failing is not None:
+                hidden.append(Hidden(section.id, section.title, question.prompt, describe(failing, prompts)))
+    return hidden
 
 
 def before_section(sections: Iterable[SurveySection], section_id: int) -> Dict[int, SurveyQuestion]:

@@ -29,6 +29,21 @@ from application.services.survey.survey_service import is_open
 from models import FeatureFlag, Survey, SurveyQuestionKind, SurveyRecipient, SurveyResponse, User
 
 
+@dataclass(frozen=True)
+class MissingAnswer:
+    """A required question still unanswered, as Send reports it."""
+
+    part_key: str
+    part_title: str
+    question_id: int
+    prompt: str
+    #: An agree scale with some statements answered but not all.
+    every_statement: bool = False
+
+    def __str__(self) -> str:
+        return f'{self.part_title}: {self.prompt}' + (' (every statement)' if self.every_statement else '')
+
+
 @dataclass
 class RespondentView:
     """Everything the survey page needs for one person."""
@@ -93,19 +108,23 @@ class RespondentView:
     def done(self, part: plan.Part) -> bool:
         return bool(self.showing(part)) and self.answered(part) > 0
 
-    def missing_required(self) -> List[str]:
-        missing = []
+    def missing(self) -> List[MissingAnswer]:
+        """Required questions showing but not (fully) answered, in survey order."""
+        found = []
         for part in self.shown_parts:
             for q in self.showing(part):
                 key = (q.id, part.scope)
                 if not q.required:
                     continue
                 if key not in self.answers and key not in self.texts:
-                    missing.append(f'{part.title}: {q.prompt}')
+                    found.append(MissingAnswer(part.key, part.title, q.id, q.prompt))
                 elif q.kind is SurveyQuestionKind.AGREE_SCALE and \
                         len(self.answers.get(key) or {}) < len(q.options or []):
-                    missing.append(f'{part.title}: {q.prompt} (every statement)')
-        return missing
+                    found.append(MissingAnswer(part.key, part.title, q.id, q.prompt, every_statement=True))
+        return found
+
+    def missing_required(self) -> List[str]:
+        return [str(m) for m in self.missing()]
 
 
 def _day(now: Optional[datetime] = None) -> datetime:

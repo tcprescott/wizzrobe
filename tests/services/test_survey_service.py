@@ -291,11 +291,23 @@ async def test_preview_shows_every_part_without_recording(event_world):
         await SurveyService().preview(event_world['bob'], survey.id)
 
 
+async def test_preview_paths_count_each_kind_of_person_and_say_what_they_miss(event_world):
+    survey = await SurveyService().create_survey(event_world['staff'], 'Draft')
+    paths = {row.persona: row for row in await SurveyService().preview_paths(event_world['staff'], survey.id)}
+    assert 'everything' not in paths and set(paths) == set(plan.PREVIEW_PERSONAS) - {'everything'}
+    player, checked_in = paths['player'], paths['checked_in']
+    assert player.parts > checked_in.parts and player.seconds > checked_in.seconds
+    # Someone only checked in doesn't play, so the per-tournament part is listed as hidden, with why.
+    assert any(h.prompt is None and h.reason == 'Only for people who played a tournament'
+               for h in checked_in.hidden)
+
+
 async def test_builder_summary_finds_the_longest_path(event_world):
     survey = await SurveyService().create_survey(event_world['staff'], 'Draft')
     summary = await SurveyService().builder_summary(event_world['staff'], survey.id)
     assert 'played 2 tournaments' in summary.longest_who
     assert summary.longest_seconds > 0 and not summary.over_budget
+    assert 0 < summary.typical_seconds <= summary.longest_seconds
 
 
 async def test_remind_once_a_day_and_close(event_world, stub_discord_queue):
@@ -740,3 +752,18 @@ async def test_after_send_line_is_plain_text_and_capped(event_world):
     assert updated.after_send == '<b>Soon</b>'
     with pytest.raises(ValueError):
         await service.update_survey(event_world['staff'], survey.id, after_send='x' * 501)
+
+
+async def test_a_duplicated_question_shows_last_times_numbers(event_world):
+    w = event_world
+    survey = await _sent(w)
+    for user, rating in ((w['alice'], 5), (w['bob'], 3)):
+        await _answer_everything(user, survey.id, rating)
+        await SurveyResponseService().submit(user, survey.id)
+    copy = await SurveyService().duplicate(w['staff'], survey.id)
+    originals = {q.id for s in survey.sections for q in s.questions}
+    assert {q.copied_from_id for s in copy.sections for q in s.questions} == originals
+    results = await SurveyService().results(w['staff'], copy.id)
+    rating = next(r for r in results.questions if r.kind is SurveyQuestionKind.RATING)
+    assert rating.last_time is not None and rating.last_time.survey_id == survey.id
+    assert rating.last_time.overall.count == 2 and rating.last_time.overall.average == 4

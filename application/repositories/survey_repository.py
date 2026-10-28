@@ -6,7 +6,7 @@ was sent to, and their responses and answers.
 """
 
 from datetime import date, datetime
-from typing import Any, Dict, Iterable, List, Optional, TypeVar
+from typing import Any, Dict, Iterable, List, Optional, Sequence, TypeVar
 
 from tortoise.expressions import F
 from tortoise.functions import Count
@@ -296,6 +296,21 @@ class SurveyRepository(EventScopedRepository[Survey]):
         return await scoped(SurveyResponse.filter(
             survey_id=survey_id, status=SurveyResponseStatus.SUBMITTED,
         )).count()
+
+    @staticmethod
+    async def questions_with_survey(question_ids: Sequence[int]) -> List[SurveyQuestion]:
+        if not question_ids:
+            return []
+        return await scoped(SurveyQuestion.filter(id__in=list(question_ids))).prefetch_related('section__survey')
+
+    @staticmethod
+    async def submitted_answers_to(question_ids: Sequence[int]) -> List[SurveyAnswer]:
+        """Every submitted answer to any of ``question_ids``, whatever survey they're in."""
+        if not question_ids:
+            return []
+        return await scoped(SurveyAnswer.filter(
+            question_id__in=list(question_ids), response__status=SurveyResponseStatus.SUBMITTED,
+        ))
 
     @staticmethod
     async def submitted_answers(survey_id: int) -> List[SurveyAnswer]:

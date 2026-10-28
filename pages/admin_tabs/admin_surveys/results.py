@@ -5,7 +5,7 @@ The report itself (one line per question, comparison tables for repeats) is
 filter offers only groups with five or more.
 """
 
-from typing import Awaitable, Callable, Optional
+from typing import Any, Awaitable, Callable, Optional
 
 from nicegui import ui
 
@@ -111,7 +111,8 @@ def _yes_tile(results: SurveyResults) -> None:
     _tile(question.prompt, f'{question.score}%', 'yes' + (f' · {rest}' if rest else ''))
 
 
-def render_results(results: SurveyResults, on_group: Callable[[Optional[str]], Awaitable[None]]) -> None:
+def render_results(results: SurveyResults, on_group: Callable[[Optional[str]], Awaitable[None]],
+                   on_open: Optional[Callable[[int], Any]] = None) -> None:
     sent = results.recipients.get('sent', 0)
     nps = results.headline(SurveyQuestionKind.NPS)
     overall = results.headline(SurveyQuestionKind.RATING)
@@ -137,7 +138,7 @@ def render_results(results: SurveyResults, on_group: Callable[[Optional[str]], A
     if not results.responses:
         empty_panel('No answers yet. They show here as people send them.', icon='poll')
         return
-    render_sections(results.questions, CommentSheet())
+    render_sections(results.questions, CommentSheet(), on_open)
 
 
 def _answers(n: int) -> str:

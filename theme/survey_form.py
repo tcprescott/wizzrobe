@@ -12,11 +12,11 @@ Everything the respondent typed is shown back as text, never as markup.
 
 import logging
 from functools import partial
-from typing import Any, Awaitable, Callable, Dict, List, Optional
+from typing import Any, Awaitable, Callable, Dict, List, Optional, Sequence
 
 from nicegui import background_tasks, ui
 
-from application.services import RespondentView
+from application.services import MissingAnswer, RespondentView
 from application.services.survey import AGREE_LEVELS, plan
 from application.services.survey._validation import (
     LONG_COMMENT_MAX,
@@ -27,6 +27,7 @@ from application.services.survey._validation import (
     pick_problem,
     split_other,
 )
+from application.services.survey.conditions import answer_entries, describe
 from models import SurveyQuestion, SurveyQuestionKind
 from theme.a11y import make_activatable
 from theme.banner import banner
@@ -310,6 +311,28 @@ async def _note_opened(opened_part: OpenedPart, part_key: str) -> None:
         logger.warning('Could not record an opened survey part', exc_info=True)
 
 
+def _still_missing(question: SurveyQuestion, value: Any) -> bool:
+    if question.kind is SurveyQuestionKind.AGREE_SCALE:
+        return len(value or {}) < len(question.options or [])
+    value, other = split_other(value)
+    return (value.strip() if isinstance(value, str) else value) in (None, '', []) and not other
+
+
+def _hidden_line(prompt: str, reason: str) -> None:
+    """The preview's note for a question this person won't see (or not yet)."""
+    with ui.row().classes('wiz-survey-hidden no-wrap items-start w-full'):
+        ui.icon('visibility_off').props('aria-hidden=true')
+        ui.label(f'Hidden: {prompt} · {reason}').classes('col min-w-0')
+
+
+def _missing_message(question: SurveyQuestion) -> str:
+    if question.kind is SurveyQuestionKind.AGREE_SCALE:
+        return 'Answer every statement to send your answers.'
+    if question.kind is SurveyQuestionKind.COMMENT:
+        return 'Write an answer to send your answers.'
+    return 'Pick an answer to send your answers.'
+
+
 class PartSheet:
     """One part open for answering: its questions, then Back to parts and Done."""
 
@@ -332,7 +355,8 @@ class PartSheet:
                 self.done_button = ui.button('Done', on_click=self._done).props('unelevated no-caps color=primary')
         self.dialog.on_value_change(self._closed)
 
-    def open(self, part: plan.Part) -> None:
+    def open(self, part: plan.Part, focus: Optional[int] = None) -> None:
+        """Open ``part``; ``focus`` is a question to scroll to (one Send found missing)."""
         self.part = part
         self.draft = dict(self.unsaved.get(part.key) or self.form.view.answers_in(part))
         self.title.set_text(part.title)
@@ -350,6 +374,9 @@ class PartSheet:
             background_tasks.create(_note_opened(self.form.opened_part, part.key))
         self.body.refresh()
         self.dialog.open()
+        if focus is not None:
+            ui.run_javascript(f'setTimeout(() => document.getElementById("survey-q-{focus}")'
+                              f'?.scrollIntoView({{block: "center"}}), 300)')
 
     def _answers_for_visibility(self) -> Dict[plan.AnswerKey, Any]:
         merged = dict(self.form.view.answers)
@@ -375,17 +402,32 @@ class PartSheet:
         if part is None:
             return
         answers = self._answers_for_visibility()
+        flagged = {m.question_id: m for m in self.form.flagged if m.part_key == part.key}
         with ui.column().classes('wiz-survey-sheet__questions w-full gap-0'):
             for question in part.questions:
                 if not plan.visible(question, part.scope, answers):
+                    if self.form.preview:
+                        entry = next(iter(answer_entries(question.conditions)), None)
+                        _hidden_line(question.prompt, describe(entry, self.form.prompts))
                     continue
-                with ui.column().classes('wiz-survey-question w-full gap-2'):
+                missing = flagged.get(question.id)
+                if missing is not None and not _still_missing(question, self.draft.get(question.id)):
+                    missing = None
+                classes = 'wiz-survey-question w-full gap-2' + (' wiz-survey-question--error' if missing else '')
+                with ui.column().classes(classes).props(f'id=survey-q-{question.id}'):
                     with ui.row().classes('items-baseline gap-1'):
                         ui.label(question.prompt).classes('wiz-survey-question__prompt')
                         if question.required:
                             ui.label('Required').classes('wiz-survey-question__required')
+                    if missing is not None:
+                        with ui.row().classes('wiz-survey-question__error no-wrap items-center gap-1'):
+                            ui.icon('error').props('aria-hidden=true')
+                            ui.label(_missing_message(question))
                     _question_control(question, self.draft.get(question.id),
                                       partial(self._set, question), self.form.editable)
+            for item in self.form.hidden:
+                if item.section_id == part.section_id and item.prompt:
+                    _hidden_line(item.prompt, item.reason)
 
     def _payload(self, part: plan.Part) -> Dict[int, Any]:
         answers = self._answers_for_visibility()
@@ -422,7 +464,7 @@ class PartSheet:
             self.dialog.close()
         finally:
             self.saving = False
-        self.form.parts_list.refresh()
+        self.form.answers_changed()
 
     async def _closed(self, event) -> None:
         """Back to parts, the close button, Escape or a tap outside: keep what's there."""
@@ -430,7 +472,7 @@ class PartSheet:
         if event.value or self.saving or part is None or not self.form.editable:
             return
         await self._save(part)
-        self.form.parts_list.refresh()
+        self.form.answers_changed()
 
 
 class SurveyForm:
@@ -438,14 +480,19 @@ class SurveyForm:
 
     def __init__(self, view: RespondentView, *, save_part: SavePart, submit: Submit,
                  editable: bool, preview: bool = False, community: str = '',
-                 opened_part: Optional[OpenedPart] = None) -> None:
+                 opened_part: Optional[OpenedPart] = None, hidden: Sequence[plan.Hidden] = ()) -> None:
         self.view = view
+        #: The preview's "won't see" list for the kind of person showing (empty on the real page).
+        self.hidden = list(hidden)
+        self.prompts = {q.id: q.prompt for part in view.parts for q in part.questions}
         self.save_part = save_part
         self.opened_part = opened_part
         self.submit = submit
         self.editable = editable
         self.preview = preview
         self.anonymous = False
+        #: What the last refused Send found missing; shown above the parts until answered.
+        self.flagged: List[MissingAnswer] = []
         survey = view.survey
         with ui.column().classes('page-container-narrow w-full gap-3 wiz-survey'):
             ui.label(' · '.join(x for x in (community, 'Survey') if x)).classes('wiz-survey__kicker')
@@ -475,6 +522,8 @@ class SurveyForm:
 
     def _status(self) -> None:
         view = self.view
+        if self.flagged and not view.submitted:
+            self._error_summary()
         if view.submitted:
             how = 'Sent' if view.anonymous is None else ('Sent anonymously' if view.anonymous else 'Sent with your name')
             with banner(f'What happens next: {view.after_send}',
@@ -485,27 +534,74 @@ class SurveyForm:
             with banner("This survey is closed, so it isn't taking answers any more.", tone='warning'):
                 pass
 
+    def _error_summary(self) -> None:
+        count = len(self.flagged)
+        heading = ('1 answer is needed' if count == 1 else f'{count} answers are needed') + ' before you can send'
+        with ui.element('div').classes('wiz-survey-errors w-full') \
+                .props('id=survey-errors role=alert tabindex=-1'):
+            title = ui.label(heading).classes('wiz-survey-errors__title')
+            title.tag = 'h2'
+            for missing in self.flagged:
+                label = f'{missing.prompt} ({missing.part_title})'
+                if missing.every_statement:
+                    label = f'{missing.prompt}: every statement ({missing.part_title})'
+                ui.button(label, on_click=lambda _, m=missing: self._open_missing(m)) \
+                    .props('flat dense no-caps align=left').classes('wiz-survey-errors__link')
+
+    def _open_missing(self, missing: MissingAnswer) -> None:
+        part = next((p for p in self.view.shown_parts if p.key == missing.part_key), None)
+        if part is not None:
+            self.sheet.open(part, focus=missing.question_id)
+
+    def _show_status(self) -> None:
+        self.status_slot.clear()
+        with self.status_slot:
+            self._status()
+
+    def answers_changed(self) -> None:
+        """A part saved: drop what's now answered from the Send errors, then redraw."""
+        if self.flagged:
+            before = {(m.part_key, m.question_id) for m in self.flagged}
+            self.flagged = [m for m in self.view.missing() if (m.part_key, m.question_id) in before]
+            self._show_status()
+        self.parts_list.refresh()
+
     def _parts(self) -> None:
         view = self.view
         shown = view.shown_parts
         done = sum(1 for p in shown if view.done(p))
         with ui.element('div').classes('wiz-survey-parts w-full'):
+            needs = {m.part_key for m in self.flagged}
             for part in shown:
                 is_done = view.done(part)
+                needed = part.key in needs
+                icon_state = ' is-error' if needed else ' is-done' if is_done else ''
                 with ui.row().classes('wiz-survey-part no-wrap items-center') as row:
-                    with ui.element('span').classes('wiz-survey-part__icon' + (' is-done' if is_done else '')):
-                        ui.icon('check' if is_done else part.icon).props('aria-hidden=true')
+                    with ui.element('span').classes('wiz-survey-part__icon' + icon_state):
+                        ui.icon('priority_high' if needed else 'check' if is_done else part.icon) \
+                            .props('aria-hidden=true')
                     with ui.column().classes('gap-0 col min-w-0'):
                         ui.label(part.title).classes('wiz-survey-part__title')
                         count = len(view.showing(part))
                         ui.label(f'{_plural(count, "question")} · {part.reason[0].lower()}{part.reason[1:]}') \
                             .classes('wiz-survey-part__meta')
-                    if is_done:
+                    if needed:
+                        ui.label('Needs an answer').classes('wiz-chip wiz-chip--cancelled')
+                    elif is_done:
                         ui.badge('Done', color='positive')
                     else:
                         ui.icon('chevron_right').classes('text-grey-7').props('aria-hidden=true')
                 row.on('click', lambda _, p=part: self.sheet.open(p))
                 make_activatable(row, f'Open {part.title}')
+            shown_ids = {p.section_id for p in shown}
+            for item in self.hidden:
+                if item.prompt is None and item.section_id not in shown_ids:
+                    with ui.row().classes('wiz-survey-part wiz-survey-part--hidden no-wrap items-center'):
+                        with ui.element('span').classes('wiz-survey-part__icon'):
+                            ui.icon('visibility_off').props('aria-hidden=true')
+                        with ui.column().classes('gap-0 col min-w-0'):
+                            ui.label(item.title).classes('wiz-survey-part__title')
+                            ui.label(f'Hidden for this person · {item.reason}').classes('wiz-survey-part__meta')
             with ui.row().classes('wiz-survey-parts__foot items-center no-wrap w-full'):
                 if view.submitted:
                     ui.label('Sent. Open a part to see what you answered.') \
@@ -521,6 +617,15 @@ class SurveyForm:
                     send.disable()
 
     async def _send(self) -> None:
+        missing = self.view.missing()
+        if missing and not self.preview:
+            self.flagged = missing
+            self._show_status()
+            self.parts_list.refresh()
+            ui.run_javascript('const box = document.getElementById("survey-errors");'
+                              'box?.scrollIntoView({block: "center"}); box?.focus({preventScroll: true});')
+            return
+        self.flagged = []
         try:
             await self.submit(self.anonymous)
         except (ValueError, PermissionError) as e:

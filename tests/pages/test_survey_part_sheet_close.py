@@ -17,7 +17,7 @@ from nicegui.page import page
 from application.services import RespondentView
 from application.services.survey import plan
 from models import SurveyQuestion, SurveyQuestionKind
-from theme.survey_form import PartSheet
+from theme.survey_form import PartSheet, SurveyForm
 
 
 def _question(qid: int, kind: SurveyQuestionKind, **extra: Any) -> SurveyQuestion:
@@ -37,9 +37,13 @@ class _Form:
         self.view = RespondentView(survey=SimpleNamespace(), recipient=None, parts=[part])
         self.editable = True
         self.opened_part = None
+        self.flagged: list = []
         self.saves: List[Dict[int, Any]] = []
         self.fail = fail
         self.parts_list = SimpleNamespace(refresh=lambda: None)
+
+    def answers_changed(self) -> None:
+        pass
 
     async def save_part(self, key: str, answers: Dict[int, Any]) -> RespondentView:
         if self.fail:
@@ -110,3 +114,32 @@ async def test_answers_a_close_could_not_save_come_back_on_reopen(slot, run_now,
         await _close(sheet, run_now)
         sheet.open(part)
     assert errors and sheet.draft[1] == 'x' * 2000
+
+
+async def test_send_with_a_required_question_unanswered_lists_it_instead_of_sending(slot, run_now, monkeypatch):
+    monkeypatch.setattr('theme.survey_form.ui.run_javascript', lambda *a, **k: None)
+    part = _part()
+    part.questions[1].required = True
+    sent: list = []
+    view = RespondentView(survey=SimpleNamespace(title='S', intro='', allow_anonymous=False, after_send=''),
+                          recipient=None, parts=[part])
+
+    async def save_part(key: str, answers: Dict[int, Any]) -> RespondentView:
+        for qid, value in answers.items():
+            if value is not None:
+                view.answers[(qid, '')] = value
+        return view
+
+    async def submit(anonymous: bool) -> None:
+        sent.append(anonymous)
+
+    with slot:
+        form = SurveyForm(view, save_part=save_part, submit=submit, editable=True)
+        await form._send()
+        assert sent == [] and [m.question_id for m in form.flagged] == [2]
+        form.sheet.open(part)
+        form.sheet._set(part.questions[1], 4, quiet=True)
+        await form.sheet._done()
+        assert form.flagged == []
+        await form._send()
+    assert sent == [False]

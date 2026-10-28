@@ -7,7 +7,7 @@ others is flagged. Comments collapse to a count that opens the comment sheet.
 """
 
 from statistics import mean
-from typing import Dict, List, Optional, Sequence, Tuple
+from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple
 
 from nicegui import ui
 
@@ -120,7 +120,36 @@ def headline(result: QuestionResult, b: Optional[Breakdown] = None) -> Tuple[str
     return str(b.count), ''
 
 
-def _line(result: QuestionResult, sheet: CommentSheet) -> None:
+OpenSurvey = Optional[Callable[[int], Any]]
+
+
+def _trend(result: QuestionResult, before: Breakdown) -> str:
+    then: Optional[float] = score_of(result.kind, before)
+    now: Optional[float] = score_of(result.kind, result.overall)
+    if then is None or now is None:
+        then, now = before.average, result.overall.average
+    if then is None or now is None or then == now:
+        return 'trending_flat'
+    return 'trending_up' if now > then else 'trending_down'
+
+
+def _last_time(result: QuestionResult, on_open: OpenSurvey) -> None:
+    last = result.last_time
+    if last is None:
+        return
+    number, under = headline(result, last.overall)
+    with ui.row().classes('wiz-survey-result__last no-wrap items-center gap-1'):
+        ui.icon(_trend(result, last.overall)).props('aria-hidden=true')
+        ui.label('Last time in')
+        if on_open is not None:
+            link = ui.link(last.survey_title, '#').classes('wiz-survey-result__last-link')
+            link.on('click.prevent', lambda _, sid=last.survey_id: on_open(sid))
+        else:
+            ui.label(last.survey_title)
+        ui.label(f'· {number}' + (f' {under}' if under else '') + f' · {_plural(last.overall.count, "answer")}')
+
+
+def _line(result: QuestionResult, sheet: CommentSheet, on_open: OpenSurvey = None) -> None:
     b = result.overall
     with ui.element('div').classes('wiz-report__line'):
         with ui.column().classes('wiz-report__q gap-0 min-w-0'):
@@ -136,6 +165,7 @@ def _line(result: QuestionResult, sheet: CommentSheet) -> None:
             bits = [result.condition] if result.condition else []
             bits.append(_plural(b.count, 'comment' if result.kind is SurveyQuestionKind.COMMENT else 'answer'))
             ui.label(' · '.join(bits)).classes('wiz-survey-result__meta')
+            _last_time(result, on_open)
         with ui.column().classes('wiz-report__viz gap-1 min-w-0'):
             if result.kind is SurveyQuestionKind.COMMENT:
                 if result.comments:
@@ -255,8 +285,11 @@ def _cell(result: QuestionResult, label: str, sheet: CommentSheet, flagged: bool
         ui.label(under).classes('wiz-survey-result__meta')
 
 
-def render_sections(questions: Sequence[QuestionResult], sheet: CommentSheet) -> None:
-    """Every section in survey order: lines, or a comparison table for a repeat."""
+def render_sections(questions: Sequence[QuestionResult], sheet: CommentSheet, on_open: OpenSurvey = None) -> None:
+    """Every section in survey order: lines, or a comparison table for a repeat.
+
+    ``on_open`` opens another survey by id, for the "Last time" link to the one a question was copied from.
+    """
     order: List[int] = []
     by_section: Dict[int, List[QuestionResult]] = {}
     for q in questions:
@@ -283,4 +316,4 @@ def render_sections(questions: Sequence[QuestionResult], sheet: CommentSheet) ->
                 _compare(rows, sheet, 'Tournament' if first.audience is SurveyAudience.EACH_TOURNAMENT else 'Position')
             else:
                 for r in rows:
-                    _line(r, sheet)
+                    _line(r, sheet, on_open)

@@ -9669,6 +9669,7 @@ ol.wiz-help-list { list-style-type: decimal; }
     color: var(--fg-secondary);
 }
 .wiz-survey-part__icon.is-done { color: var(--status-ok); }
+.wiz-survey-part__icon.is-error { color: var(--status-cancelled); }
 .wiz-survey-part__title { font-weight: 700; overflow-wrap: anywhere; }
 .wiz-survey-parts__foot {
     gap: var(--space-3);
@@ -9682,6 +9683,25 @@ ol.wiz-help-list { list-style-type: decimal; }
 .wiz-survey-question:first-child { border-top: 0; }
 .wiz-survey-question__prompt { font-weight: 600; overflow-wrap: anywhere; }
 .wiz-survey-question__required { font-size: var(--text-xs); color: var(--fg-secondary); }
+
+/* Send refused: the questions still needing an answer (GOV.UK's error summary, then each in place). */
+.wiz-survey-errors {
+    padding: 12px 16px;
+    border: 2px solid var(--status-cancelled);
+    border-radius: var(--radius-md);
+    background: var(--surface);
+    margin-bottom: var(--space-2);
+}
+.wiz-survey-errors:focus { outline: 3px solid var(--q-primary); outline-offset: 2px; }
+.wiz-survey-errors__title { color: var(--status-cancelled); font-size: var(--text-md); font-weight: 700; line-height: 1.4; margin: 0 0 4px; }
+.wiz-survey-errors__link { color: var(--wiz-link); text-decoration: underline; text-align: left; min-height: 0; padding: 2px 0; }
+.wiz-survey-errors__link .q-btn__content { justify-content: flex-start; }
+.wiz-survey-question--error {
+    border-left: 4px solid var(--status-cancelled);
+    padding-left: 12px;
+}
+.wiz-survey-question__error { color: var(--status-cancelled); font-size: var(--text-sm); }
+.wiz-survey-question__error .q-icon { font-size: 16px; }
 .wiz-survey-pills { flex-wrap: wrap; max-width: 100%; }
 /* 1–5 and 0–10 answers are sliders (Thomas, 2026-10-27). Unanswered there is no
    handle or fill, so a skipped question doesn't look like its lowest score. */
@@ -9728,6 +9748,85 @@ ol.wiz-help-list { list-style-type: decimal; }
 .wiz-survey-side__title { font-weight: 700; }
 .wiz-survey-side__figure { font-size: var(--text-lg); font-weight: 700; }
 .wiz-survey-side__warn { font-size: var(--text-sm); color: var(--status-cancelled); }
+
+/* The builder's time box: most people's time over the longest path, with a tick at the target. */
+.wiz-survey-time {
+    position: relative;
+    height: 10px;
+    border-radius: 5px;
+    background: var(--surface-sunken);
+    margin-top: var(--space-1);
+}
+.wiz-survey-time > span { position: absolute; top: 0; bottom: 0; left: 0; border-radius: 5px; }
+.wiz-survey-time__longest { background: color-mix(in srgb, var(--q-primary) 30%, transparent); }
+.wiz-survey-time__typical { background: var(--q-primary); }
+.wiz-survey-time.is-over .wiz-survey-time__longest { background: var(--status-cancelled); }
+.wiz-survey-time > .wiz-survey-time__tick {
+    top: -4px; bottom: -4px; width: 2px; border-radius: 1px; background: var(--fg);
+    transform: translateX(-1px);
+}
+.wiz-survey-time__scale { justify-content: space-between; font-size: var(--text-xs); color: var(--fg-muted); }
+
+/* The builder's Checks card: one line per finding, the passed checks folded into one grey line. */
+.wiz-survey-check {
+    gap: var(--space-2);
+    padding: 8px 0;
+    border-top: 1px solid var(--border-subtle);
+    font-size: var(--text-sm);
+}
+.wiz-survey-check__icon { font-size: 18px; flex: none; }
+.wiz-survey-check__icon.is-warn { color: var(--status-pending); }
+.wiz-survey-check__icon.is-ok { color: var(--status-ok); }
+.wiz-survey-check__link { color: var(--wiz-link); text-decoration: underline; overflow-wrap: anywhere; }
+.wiz-survey-check__passed { color: var(--fg-muted); }
+
+/* The preview's paths table (one row per kind of person) and its "won't see" lines. */
+.wiz-survey-paths {
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-md);
+    background: var(--surface);
+    overflow: hidden;
+    font-size: var(--text-sm);
+}
+.wiz-survey-paths__row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 3.5rem 4.5rem 5.5rem;
+    gap: var(--space-2);
+    align-items: center;
+    padding: 8px 12px;
+    border-top: 1px solid var(--border-subtle);
+    cursor: pointer;
+}
+.wiz-survey-paths__row > :not(:first-child) { text-align: right; font-variant-numeric: tabular-nums; }
+.wiz-survey-paths__row.is-head { border-top: 0; cursor: default; color: var(--fg-muted); font-weight: 600; font-size: var(--text-xs); }
+.wiz-survey-paths__row.is-on { background: color-mix(in srgb, var(--q-primary) 14%, transparent); font-weight: 600; }
+.wiz-survey-paths__row:not(.is-head):hover { background: var(--surface-alt); }
+.wiz-survey-hidden {
+    gap: var(--space-2);
+    padding: 8px 0;
+    border-top: 1px dashed var(--border-subtle);
+    color: var(--fg-muted);
+    font-size: var(--text-sm);
+}
+.wiz-survey-hidden .q-icon { font-size: 18px; flex: none; }
+.wiz-survey-part--hidden { color: var(--fg-muted); }
+.wiz-survey-part--hidden .wiz-survey-part__title { font-weight: 600; }
+
+/* A duplicated question's numbers from the survey it came from. */
+.wiz-survey-result__last { font-size: var(--text-sm); color: var(--fg); margin-top: 4px; flex-wrap: wrap; }
+.wiz-survey-result__last .q-icon { font-size: 16px; color: var(--fg-muted); }
+.wiz-survey-result__last-link { color: var(--wiz-link); text-decoration: underline; }
+
+/* The question dialog's agree-scale tip: a nudge toward item-specific wording, never a block. */
+.wiz-survey-nudge {
+    gap: var(--space-2);
+    padding: 10px 12px;
+    border-radius: var(--radius-md);
+    background: var(--surface-sunken);
+    color: var(--fg);
+    font-size: var(--text-sm);
+}
+.wiz-survey-nudge .q-icon { color: var(--fg-muted); font-size: 18px; flex: none; }
 .wiz-survey-who { gap: var(--space-2); }
 .wiz-survey-who__label { flex: none; width: 7.5rem; font-size: var(--text-sm); }
 .wiz-survey-who__n { flex: none; width: 2.5rem; text-align: right; font-weight: 700; }
