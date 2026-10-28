@@ -78,6 +78,8 @@ class Survey(Model):
     event_id: int
     title = fields.CharField(max_length=120)
     intro = fields.TextField(default='')
+    #: Shown after someone sends their answers ("what happens next"); blank shows a default line.
+    after_send = fields.TextField(default='')
     status = fields.CharEnumField(SurveyStatus, max_length=16, default=SurveyStatus.DRAFT)
     allow_anonymous = fields.BooleanField(default=True)
     closes_at = fields.DatetimeField(null=True)
@@ -172,6 +174,10 @@ class SurveyQuestion(Model):
     long_answer = fields.BooleanField(default=False)
     position = fields.IntField(default=0)
     conditions = fields.JSONField(null=True)  # type: ignore[var-annotated]
+    # Set the first time the wording changes after answers came in, so results can say so.
+    reworded_at = fields.DatetimeField(null=True)
+    reworded_after = fields.IntField(null=True)  # responses sent before that first change
+    original_prompt = fields.CharField(max_length=280, null=True)
     created_at = fields.DatetimeField(auto_now_add=True)
     updated_at = fields.DatetimeField(auto_now=True)
 

@@ -81,8 +81,26 @@ on a wide sheet that turns into one card per statement below 36rem (a container
 query, so it follows the sheet, not the window). Results draw one diverging bar
 per statement with "% agree".
 
+A part saves however its sheet closes: Done, Back to parts, the close button,
+Escape or a tap outside (Thomas, 2026-10-28). If a close can't save (an answer
+breaks a rule), the toast says why and reopening the part shows what was typed.
+
 Once sent, the structure is frozen: answers belong to the exact questions they
-were given to.
+were given to. Only wording can change (Thomas picked "wording only, logged",
+2026-10-28): the survey's title, intro and after-send line, section titles and
+descriptions, and question prompts. In the builder's Questions view each ⋮ has
+**Fix wording…**; REST and MCP take the same fields and refuse anything else
+with "only its wording can change". Every change on a sent survey writes an
+audit row with `wording: {field: [old, new]}`. The first time a prompt changes
+after answers came in, the question keeps `original_prompt`, `reworded_at` and
+`reworded_after` (answers so far), and both the builder and results show an
+**Edited** tag with them.
+
+After someone sends, the page says what happens next: the survey's
+`after_send` line (Edit details…, plain text, 500 characters), or
+`plan.DEFAULT_AFTER_SEND` when blank, and whether it went anonymously or with
+their name (`RespondentView.anonymous`, worked out on reload from whether a
+named submitted response exists).
 
 ## Suggest questions (AI)
 

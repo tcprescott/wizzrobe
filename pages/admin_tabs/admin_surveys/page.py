@@ -191,9 +191,8 @@ async def admin_surveys_page(survey: Optional[int] = None, view: Optional[str] =
             ui.badge(text, color=color)
             with ui.button('Actions').props('flat no-caps color=primary icon-right=expand_more'):
                 with ui.menu():
-                    if draft:
-                        menu_action('edit', 'Edit title and intro…', lambda: dialogs.details_dialog(
-                            service, user, s, lambda _: reload()))
+                    menu_action('edit', 'Edit details…', lambda: dialogs.details_dialog(
+                        service, user, s, lambda _: reload()))
                     menu_action('link', 'Copy preview link', lambda: copy_preview(s))
                     menu_link('visibility', 'Open preview', survey_preview_url(s.id))
                     if s.status is SurveyStatus.OPEN:

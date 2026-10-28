@@ -1564,6 +1564,11 @@ body:has(.wiz-header) .q-notifications__list--top {
     font-weight: 700;
 }
 
+.wiz-banner__footnote {
+    color: var(--fg-muted);
+    font-size: var(--text-sm);
+}
+
 .wiz-banner__actions {
     flex: none;
     align-self: center;

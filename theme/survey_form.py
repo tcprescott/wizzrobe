@@ -2,7 +2,9 @@
 
 A short list of parts built from what the person did at the event. They open
 any part in any order (a side sheet on a desktop, a bottom sheet on a phone),
-answer it, and press Done to save it; "Send answers" works with any parts done.
+answer it, and close it; however the sheet closes (Done, Back to parts, the
+close button, Escape or a tap outside), what's in it is saved. "Send answers"
+works with any parts done.
 The staff preview draws the same form with nothing saved.
 
 Everything the respondent typed is shown back as text, never as markup.
@@ -315,6 +317,9 @@ class PartSheet:
         self.form = form
         self.part: Optional[plan.Part] = None
         self.draft: Dict[int, Any] = {}
+        #: Part key → answers a close couldn't save (one broke a rule), so reopening shows them again.
+        self.unsaved: Dict[str, Dict[int, Any]] = {}
+        self.saving = False
         with ui.dialog().props(''':position="Quasar.Screen.lt.sm ? 'bottom' : 'right'"''') as self.dialog, \
                 ui.card().classes('dialog-card match-sheet wiz-survey-sheet') as self.card:
             self.title = dialog_header('Part', self.dialog)
@@ -325,10 +330,11 @@ class PartSheet:
             with dialog_actions().classes('justify-end'):
                 ui.button('Back to parts', on_click=self.dialog.close).props('outline no-caps')
                 self.done_button = ui.button('Done', on_click=self._done).props('unelevated no-caps color=primary')
+        self.dialog.on_value_change(self._closed)
 
     def open(self, part: plan.Part) -> None:
         self.part = part
-        self.draft = self.form.view.answers_in(part)
+        self.draft = dict(self.unsaved.get(part.key) or self.form.view.answers_in(part))
         self.title.set_text(part.title)
         # An agree scale wants a table's width; the sheet widens for the part that has one.
         wide = any(q.kind is SurveyQuestionKind.AGREE_SCALE for q in part.questions)
@@ -381,20 +387,49 @@ class PartSheet:
                     _question_control(question, self.draft.get(question.id),
                                       partial(self._set, question), self.form.editable)
 
+    def _payload(self, part: plan.Part) -> Dict[int, Any]:
+        answers = self._answers_for_visibility()
+        showing = {q.id for q in part.questions if plan.visible(q, part.scope, answers)}
+        # A follow-up that stopped showing loses its answer, so nothing hidden is saved.
+        return {q.id: (self.draft.get(q.id) if q.id in showing else None) for q in part.questions}
+
+    async def _save(self, part: plan.Part) -> bool:
+        payload = self._payload(part)
+        if payload == self._payload_saved(part):
+            self.unsaved.pop(part.key, None)
+            return True
+        try:
+            self.form.view = await self.form.save_part(part.key, payload)
+        except (ValueError, PermissionError) as e:
+            self.unsaved[part.key] = dict(self.draft)
+            notify_error(e)
+            return False
+        self.unsaved.pop(part.key, None)
+        return True
+
+    def _payload_saved(self, part: plan.Part) -> Dict[int, Any]:
+        saved = self.form.view.answers_in(part)
+        return {q.id: saved.get(q.id) for q in part.questions}
+
     async def _done(self) -> None:
         part = self.part
         if part is None:
             return
-        answers = self._answers_for_visibility()
-        showing = {q.id for q in part.questions if plan.visible(q, part.scope, answers)}
-        # A follow-up that stopped showing loses its answer, so nothing hidden is saved.
-        payload = {q.id: (self.draft.get(q.id) if q.id in showing else None) for q in part.questions}
+        self.saving = True
         try:
-            self.form.view = await self.form.save_part(part.key, payload)
-        except (ValueError, PermissionError) as e:
-            notify_error(e)
+            if not await self._save(part):
+                return
+            self.dialog.close()
+        finally:
+            self.saving = False
+        self.form.parts_list.refresh()
+
+    async def _closed(self, event) -> None:
+        """Back to parts, the close button, Escape or a tap outside: keep what's there."""
+        part = self.part
+        if event.value or self.saving or part is None or not self.form.editable:
             return
-        self.dialog.close()
+        await self._save(part)
         self.form.parts_list.refresh()
 
 
@@ -439,8 +474,12 @@ class SurveyForm:
         self.sheet = PartSheet(self)
 
     def _status(self) -> None:
-        if self.view.submitted:
-            with banner("Your answers are in. Thanks for taking the time.", title='Sent', tone='ok'):
+        view = self.view
+        if view.submitted:
+            how = 'Sent' if view.anonymous is None else ('Sent anonymously' if view.anonymous else 'Sent with your name')
+            with banner(f'What happens next: {view.after_send}',
+                        title='Your answers are in. Thanks for taking the time.', tone='ok',
+                        footnote=f"{how} · You can't change answers now."):
                 pass
         elif not self.editable and not self.preview:
             with banner("This survey is closed, so it isn't taking answers any more.", tone='warning'):
@@ -488,6 +527,7 @@ class SurveyForm:
             notify_error(e)
             return
         self.view.submitted = True
+        self.view.anonymous = self.anonymous
         self.editable = False
         self.status_slot.clear()
         with self.status_slot:

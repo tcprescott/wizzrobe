@@ -39,6 +39,11 @@ class RespondentView:
     answers: Dict[plan.AnswerKey, Any] = field(default_factory=dict)
     texts: Dict[plan.AnswerKey, str] = field(default_factory=dict)
     submitted: bool = False
+    anonymous: Optional[bool] = None  # known once submitted
+
+    @property
+    def after_send(self) -> str:
+        return (getattr(self.survey, 'after_send', '') or '').strip() or plan.DEFAULT_AFTER_SEND
 
     @property
     def open(self) -> bool:
@@ -139,6 +144,8 @@ class SurveyResponseService:
             survey=survey, recipient=recipient, parts=plan.parts_for(survey.sections, recipient.facts or {}),
             submitted=recipient.submitted_at is not None,
         )
+        if view.submitted:
+            view.anonymous = not await self.repository.submitted_by(survey.id, user.id)
         draft = await self.repository.draft_for(survey.id, user.id)
         if draft is not None:
             for answer in await self.repository.answers_for(draft.id):

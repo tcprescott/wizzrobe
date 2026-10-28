@@ -12,6 +12,7 @@ from typing import Dict, List, Optional, Sequence, Tuple
 from nicegui import ui
 
 from application.services.survey.results import OTHER, Breakdown, QuestionResult, score_of
+from application.utils.timezone import format_local_date
 from models import SurveyAudience, SurveyQuestionKind
 from pages.admin_tabs.admin_surveys.comment_sheet import CommentSheet
 
@@ -123,8 +124,15 @@ def _line(result: QuestionResult, sheet: CommentSheet) -> None:
     b = result.overall
     with ui.element('div').classes('wiz-report__line'):
         with ui.column().classes('wiz-report__q gap-0 min-w-0'):
-            prompt = ui.label(('↳ ' if result.condition else '') + result.prompt).classes('wiz-report__prompt')
-            prompt.tag = 'h4'
+            with ui.row().classes('items-center gap-2 no-wrap'):
+                prompt = ui.label(('↳ ' if result.condition else '') + result.prompt).classes('wiz-report__prompt')
+                prompt.tag = 'h4'
+                if result.reworded_at:
+                    ui.label('Edited').classes('wiz-chip wiz-chip--info')
+            if result.reworded_at:
+                ui.label(f'Wording changed {format_local_date(result.reworded_at)} after '
+                         f'{result.reworded_after} answers. It was “{result.original_prompt}”.') \
+                    .classes('wiz-survey-result__meta')
             bits = [result.condition] if result.condition else []
             bits.append(_plural(b.count, 'comment' if result.kind is SurveyQuestionKind.COMMENT else 'answer'))
             ui.label(' · '.join(bits)).classes('wiz-survey-result__meta')

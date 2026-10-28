@@ -192,7 +192,8 @@ async def duplicate_survey(survey_id: int, actor: User = Depends(require_staff_w
     response_model=SurveyResponseModel,
     summary="Change a survey's title, intro, anonymity or close time",
     description=(
-        "Only the fields you send change. A sent survey takes only `closes_at`.\n\n"
+        "Only the fields you send change. A sent survey takes wording (`title`, `intro`, `after_send`) "
+        "and, while open, `closes_at`.\n\n"
         "**Who can call this:** Staff."
     ),
 )
@@ -237,7 +238,7 @@ async def add_section(survey_id: int, body: SectionRequest, actor: User = Depend
     summary="Change a section's title, audience or condition",
     description=(
         "Only the fields you send change. A section's condition may wait on a question in an "
-        "earlier section. Drafts only.\n\n**Who can call this:** Staff."
+        "earlier section. Once sent, only `title` and `description` change.\n\n**Who can call this:** Staff."
     ),
 )
 async def update_section(section_id: int, body: SectionUpdateRequest, actor: User = Depends(require_staff_write)):
@@ -295,7 +296,7 @@ async def add_question(section_id: int, body: QuestionRequest, actor: User = Dep
     summary="Change a question",
     description=(
         "Only the fields you send change. Send `conditions` as `[]` to always show it. "
-        "Drafts only.\n\n**Who can call this:** Staff."
+        "Once sent, only `prompt` changes.\n\n**Who can call this:** Staff."
     ),
 )
 async def update_question(question_id: int, body: QuestionUpdateRequest, actor: User = Depends(require_staff_write)):
