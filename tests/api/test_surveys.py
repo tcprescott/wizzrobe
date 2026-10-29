@@ -4,7 +4,7 @@ Staff build surveys and read results here; sending stays in the app, and only
 drafts can be deleted over REST.
 """
 
-from models import FeatureFlag, Role, Survey, SurveyStatus, TenantFeatureFlag
+from models import FeatureFlag, Role, Survey, SurveyStatus, TenantFeatureFlag, VolunteerPosition
 from tests.api_helpers import client_for, create_user_token
 
 
@@ -84,3 +84,25 @@ async def test_feature_off_is_404(db, app):
     _, raw = await _staff()
     async with client_for(app, raw) as c:
         assert (await c.get('/api/surveys')).status_code == 404
+
+
+async def test_positions_and_organizer_sections_over_rest(db, app):
+    _, raw = await _staff()
+    proctor = await VolunteerPosition.create(name='Proctor')
+    async with client_for(app, raw) as c:
+        choices = {c['key']: c for c in (await c.get('/api/surveys/conditions')).json()}
+        assert choices['positions']['options'] == [{'id': proctor.id, 'name': 'Proctor'}]
+        assert {'volunteered', 'ran_tournament', 'not_ran_tournament'} <= set(choices)
+        survey_id = (await c.post('/api/surveys', json={'title': 'S', 'from_template': False})).json()['id']
+        organizers = await c.post(f'/api/surveys/{survey_id}/sections',
+                                  json={'title': 'Running it', 'audience': 'each_tournament_run'})
+        assert organizers.status_code == 201, organizers.text
+        assert organizers.json()['audience'] == 'each_tournament_run'
+        desk = await c.post(f'/api/surveys/{survey_id}/sections', json={
+            'title': 'Proctoring', 'conditions': [{'key': 'positions', 'position_ids': [proctor.id]}]})
+        assert desk.status_code == 201, desk.text
+        entry = desk.json()['conditions'][0]
+        assert (entry['key'], entry['position_ids'], entry['names']) == ('positions', [proctor.id], ['Proctor'])
+        bad = await c.post(f'/api/surveys/{survey_id}/sections', json={
+            'title': 'Nope', 'conditions': [{'key': 'positions', 'position_ids': [proctor.id + 999]}]})
+        assert bad.status_code == 400

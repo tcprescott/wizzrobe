@@ -9,7 +9,7 @@ from collections import Counter
 from dataclasses import dataclass
 from typing import Any, Dict, List, Mapping, Sequence
 
-from application.services.survey.results import MIN_GROUP
+from application.services.survey.results import MIN_GROUP, ORGANIZERS
 
 
 @dataclass
@@ -32,8 +32,10 @@ class AudienceRate:
 
 
 def groups_for(facts: Mapping[str, Any]) -> List[dict]:
-    """The groups a respondent counts in: each tournament, each position, crew, checked in."""
+    """The groups a respondent counts in: each tournament, organizers, each position, crew, checked in."""
     groups = [{'key': f"t:{t['id']}", 'label': f"{t['name']} player"} for t in facts.get('tournaments') or []]
+    if facts.get('organized'):
+        groups.append({'key': 'organizers', 'label': ORGANIZERS})
     groups += [{'key': f"p:{p['id']}", 'label': p['name']} for p in facts.get('positions') or []]
     if facts.get('crew'):
         groups.append({'key': 'crew', 'label': 'Crew'})
@@ -42,11 +44,11 @@ def groups_for(facts: Mapping[str, Any]) -> List[dict]:
     return groups
 
 
-_AUDIENCES = (('Players', 'tournaments'), ('Volunteers', 'positions'), ('Crew', 'crew'))
+_AUDIENCES = (('Players', 'tournaments'), (ORGANIZERS, 'organized'), ('Volunteers', 'positions'), ('Crew', 'crew'))
 
 
 def audience_rates(rows: Sequence[Mapping[str, Any]]) -> List[AudienceRate]:
-    """Response rate for players, volunteers and crew, leaving out an audience nobody was in."""
+    """Response rate for players, organizers, volunteers and crew, leaving out an audience nobody was in."""
     out = []
     for label, fact in _AUDIENCES:
         mine = [r for r in rows if (r.get('facts') or {}).get(fact)]

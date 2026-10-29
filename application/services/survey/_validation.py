@@ -9,7 +9,7 @@ characters and capped, rendered only ever as text.
 import re
 from typing import Any, List, Mapping, Optional, Sequence
 
-from application.services.survey.conditions import ANSWER, CONDITIONS, Entry
+from application.services.survey.conditions import ANSWER, CONDITIONS, POSITIONS, Entry
 from models import SurveyQuestion, SurveyQuestionKind
 
 TITLE_MAX = 120
@@ -160,12 +160,14 @@ def answer_values(question: SurveyQuestion) -> List[Any]:
 
 def check_conditions(
     entries: Optional[Sequence[Entry]], earlier: Mapping[int, SurveyQuestion], *, limit: int, what: str,
+    positions: Optional[Mapping[int, str]] = None,
 ) -> Optional[List[dict]]:
     """Validate the conditions of a question or section; return the list to store.
 
     ``earlier`` holds the questions that come before it in the survey: an
-    answer-based condition can only wait on one of those. ``what`` names the
-    thing for messages ("a question", "a section").
+    answer-based condition can only wait on one of those. ``positions`` is the
+    event's volunteer schedule (id → name), which a positions condition picks
+    from. ``what`` names the thing for messages ("a question", "a section").
     """
     cleaned: List[dict] = []
     seen: set = set()
@@ -183,7 +185,7 @@ def check_conditions(
             if opposite in seen:
                 raise ValueError(f'“{condition.label}” contradicts another condition, so it would never show.')
             seen.add(key)
-            cleaned.append({'key': key})
+            cleaned.append(_positions_entry(entry, positions or {}) if key == POSITIONS else {'key': key})
             continue
         question_id = int(entry.get('question_id') or 0)
         target = earlier.get(question_id)
@@ -200,6 +202,19 @@ def check_conditions(
     if len(cleaned) > limit:
         raise ValueError(f'Give {what} at most {limit} condition{"s" if limit != 1 else ""}.')
     return cleaned or None
+
+
+def _positions_entry(entry: Entry, positions: Mapping[int, str]) -> dict:
+    try:
+        ids = {int(i) for i in entry.get('position_ids') or []}
+    except (TypeError, ValueError):
+        raise ValueError("Pick positions from this event's volunteer schedule.") from None
+    if not ids:
+        raise ValueError('Pick at least one position.')
+    if ids - set(positions):
+        raise ValueError("Pick positions from this event's volunteer schedule.")
+    picked = sorted(ids, key=lambda i: positions[i].lower())
+    return {'key': POSITIONS, 'position_ids': picked, 'names': [positions[i] for i in picked]}
 
 
 def coerce_answer(question: SurveyQuestion, value: Any) -> tuple[Any, Optional[str]]:

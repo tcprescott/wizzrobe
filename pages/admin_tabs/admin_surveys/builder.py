@@ -94,7 +94,8 @@ def _question_row(ctx: BuilderContext, section: SurveySection, question: SurveyQ
         if ctx.editable:
             with more_menu(question.prompt):
                 menu_action('edit', 'Edit…', lambda: dialogs.question_dialog(
-                    ctx.service, ctx.user, ctx.survey, section, question, lambda _: _reload(ctx)))
+                    ctx.service, ctx.user, ctx.survey, section, question, lambda _: _reload(ctx),
+                    positions=ctx.summary.positions))
                 if not first:
                     menu_action('arrow_upward', 'Move up',
                                 lambda: _run(ctx, ctx.service.move_question(ctx.user, question.id, -1)))
@@ -126,7 +127,8 @@ def _section_card(ctx: BuilderContext, section: SurveySection, prompts: Dict[int
             if ctx.editable:
                 with more_menu(section.title):
                     menu_action('edit', 'Edit section…', lambda: dialogs.section_dialog(
-                        ctx.service, ctx.user, ctx.survey, section, lambda _: _reload(ctx)))
+                        ctx.service, ctx.user, ctx.survey, section, lambda _: _reload(ctx),
+                        positions=ctx.summary.positions))
                     if not first:
                         menu_action('arrow_upward', 'Move up',
                                     lambda: _run(ctx, ctx.service.move_section(ctx.user, section.id, -1)))
@@ -158,6 +160,7 @@ def _section_card(ctx: BuilderContext, section: SurveySection, prompts: Dict[int
             with ui.row().classes('wiz-survey-section__foot w-full items-center gap-1'):
                 ui.button('Add question', icon='add', on_click=lambda: dialogs.question_dialog(
                     ctx.service, ctx.user, ctx.survey, section, None, lambda _: _reload(ctx),
+                    positions=ctx.summary.positions,
                 )).props('flat no-caps color=primary')
                 if ctx.ai_label:
                     ui.button('Suggest questions', icon='auto_awesome',
@@ -284,7 +287,8 @@ def _checks_card(ctx: BuilderContext) -> None:
 
 def _who_card(ctx: BuilderContext) -> None:
     counts = ctx.summary.counts
-    rows = [('Players', counts.get('players', 0)), ('Volunteers', counts.get('volunteers', 0)),
+    rows = [('Players', counts.get('players', 0)), ('Tournament organizers', counts.get('organizers', 0)),
+            ('Volunteers', counts.get('volunteers', 0)),
             ('Commentators', counts.get('crew_commentary', 0)), ('Trackers', counts.get('crew_tracking', 0)),
             ('Broadcast crew', counts.get('crew_broadcast', 0)),
             ('Checked in only', counts.get('checked_in_only', 0))]
@@ -327,7 +331,7 @@ def render_builder(ctx: BuilderContext) -> None:
                 _section_card(ctx, section, prompts, i == 0, i == len(sections) - 1)
             if ctx.editable:
                 ui.button('Add section', icon='add', on_click=lambda: dialogs.section_dialog(
-                    ctx.service, ctx.user, survey, None, lambda _: _reload(ctx),
+                    ctx.service, ctx.user, survey, None, lambda _: _reload(ctx), positions=ctx.summary.positions,
                 )).props('outline no-caps color=primary')
         with ui.column().classes('wiz-survey-builder__side gap-3 items-stretch'):
             _budget_card(ctx)

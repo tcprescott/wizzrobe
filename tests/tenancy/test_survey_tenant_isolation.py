@@ -26,6 +26,7 @@ from models import (
     SurveySection,
     SurveyStatus,
     UserRole,
+    VolunteerPosition,
 )
 from tests.factories import make_user
 
@@ -92,3 +93,19 @@ async def test_staff_in_one_community_cant_touch_anothers_survey(two_tenants):
             await comments.inbox(staff_b, sa.id)
         with pytest.raises(NotFoundError):
             await comments.mark(staff_b, sa.id, answer_a.id, read=True)
+
+
+async def test_a_positions_condition_cant_name_another_communitys_position(two_tenants):
+    a, b = two_tenants
+    staff_a = await make_user(9104, 'staff-a')
+    with tenant_scope(b.id):
+        theirs = await VolunteerPosition.create(name='Their desk')
+    with tenant_scope(a.id):
+        await UserRole.create(user=staff_a, role=Role.STAFF)
+        service = SurveyService()
+        survey = await service.create_survey(staff_a, 'Ours', from_template=False)
+        with pytest.raises(ValueError, match='volunteer schedule'):
+            await service.add_section(staff_a, survey.id, 'Desk',
+                                      conditions=[{'key': 'positions', 'position_ids': [theirs.id]}])
+        choices = {c.key: c for c in await service.condition_choices(staff_a)}
+        assert all(o['id'] != theirs.id for o in choices['positions'].options)

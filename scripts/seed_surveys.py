@@ -118,14 +118,33 @@ async def _build(tenant: Tenant, survey: Survey) -> dict[str, SurveyQuestion]:
         tenant=tenant, survey=survey, title='Next year', audience=A.EVERYONE, position=len(_SECTIONS) - 1,
         conditions=[{'key': 'answer', 'question_id': come_back.id, 'values': ['Yes', 'Maybe']}],
     )
-    await SurveySection.filter(survey=survey, title='Anything else?').update(position=len(_SECTIONS))
     questions['What should we add next year?'] = await SurveyQuestion.create(
         tenant=tenant, section=next_year, prompt='What should we add next year?', kind=K.COMMENT, position=0,
     )
+    organizers = await SurveySection.create(
+        tenant=tenant, survey=survey, title='Running your tournament', audience=A.EACH_TOURNAMENT_RUN,
+        position=len(_SECTIONS), description='For tournament admins: how running it went.',
+    )
+    questions['How well did Wizzrobe handle your bracket?'] = await SurveyQuestion.create(
+        tenant=tenant, section=organizers, prompt='How well did Wizzrobe handle your bracket?', kind=K.RATING,
+        position=0,
+    )
+    proctor = await VolunteerPosition.filter(tenant=tenant, event_id=survey.event_id).order_by('id').first()
+    if proctor is not None:
+        desk = await SurveySection.create(
+            tenant=tenant, survey=survey, title=f'{proctor.name}, once', audience=A.EVERYONE,
+            position=len(_SECTIONS) + 1,
+            conditions=[{'key': 'positions', 'position_ids': [proctor.id], 'names': [proctor.name]}],
+        )
+        questions['Was the desk briefing enough?'] = await SurveyQuestion.create(
+            tenant=tenant, section=desk, prompt='Was the desk briefing enough?', kind=K.YES_NO, position=0,
+        )
+    await SurveySection.filter(survey=survey, title='Anything else?').update(position=len(_SECTIONS) + 2)
     return questions
 
 
-def _facts(tournament: Tournament | None, position: VolunteerPosition | None, *, crew: bool = False) -> dict:
+def _facts(tournament: Tournament | None, position: VolunteerPosition | None, *, crew: bool = False,
+           organizer: bool = False) -> dict:
     tournaments = [{'id': tournament.id, 'name': tournament.short_name or tournament.name, 'matches': 2}] \
         if tournament else []
     conditions: dict = {'checked_in': True}
@@ -134,8 +153,14 @@ def _facts(tournament: Tournament | None, position: VolunteerPosition | None, *,
                           tournament_room_any=True, on_stage_any=True)
     if crew:
         conditions['crewed'] = True
+    if position:
+        conditions['volunteered'] = True
+    if organizer and tournament:
+        conditions['ran_tournament'] = True
     return {
         'tournaments': tournaments,
+        'organized': [{'id': tournament.id, 'name': tournament.short_name or tournament.name}]
+        if organizer and tournament else [],
         'positions': [{'id': position.id, 'name': position.name, 'shifts': 3}] if position else [],
         'crew': crew, 'crew_roles': ['commentary'] if crew else [], 'checked_in': True, 'conditions': conditions,
     }
@@ -238,7 +263,7 @@ async def seed_surveys_for_tenant(tenant: Tenant, users: dict[str, User]) -> Non
             (users['player_one'], _facts(tournament, None), True, False),
             (users['player_two'], _facts(tournament, None, crew=True), True, True),
             (users['volunteer_only'], _facts(None, position), False, False),
-            (staff, _facts(tournament, position), False, False),
+            (staff, _facts(tournament, position, organizer=True), False, False),
         ]
         for user, facts, submitted, anonymous in people:
             await SurveyRecipient.create(

@@ -294,7 +294,8 @@ async def test_preview_shows_every_part_without_recording(event_world):
 async def test_preview_paths_count_each_kind_of_person_and_say_what_they_miss(event_world):
     survey = await SurveyService().create_survey(event_world['staff'], 'Draft')
     paths = {row.persona: row for row in await SurveyService().preview_paths(event_world['staff'], survey.id)}
-    assert 'everything' not in paths and set(paths) == set(plan.PREVIEW_PERSONAS) - {'everything'}
+    desk = f"position:{event_world['desk'].id}"
+    assert 'everything' not in paths and set(paths) == set(plan.PREVIEW_PERSONAS) - {'everything'} | {desk}
     player, checked_in = paths['player'], paths['checked_in']
     assert player.parts > checked_in.parts and player.seconds > checked_in.seconds
     # Someone only checked in doesn't play, so the per-tournament part is listed as hidden, with why.

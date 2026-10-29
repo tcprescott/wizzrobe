@@ -1,7 +1,7 @@
 """The survey builder's forms: new survey, details, section, question, send, close date."""
 
 from datetime import timedelta
-from typing import Any, Awaitable, Callable, List, Mapping, Optional
+from typing import Any, Awaitable, Callable, List, Mapping, Optional, Sequence
 
 from nicegui import ui
 
@@ -40,14 +40,17 @@ class ConditionEditor:
     """
 
     def __init__(self, earlier: Mapping[int, SurveyQuestion], entries: Optional[List[dict]], *,
-                 limit: int, noun: str) -> None:
+                 limit: int, noun: str, positions: Sequence[dict] = ()) -> None:
         self.earlier = {qid: q for qid, q in earlier.items() if answer_values(q)}
+        self.positions = {int(p['id']): str(p['name']) for p in positions}
         self.rows: List[dict] = [dict(e) for e in entries or []]
         self.limit = limit
         self.noun = noun
         self.choices = dict(conditions.choices())
         if not self.earlier:
             self.choices.pop(conditions.ANSWER, None)
+        if not self.positions and not any(r.get('key') == conditions.POSITIONS for r in self.rows):
+            self.choices.pop(conditions.POSITIONS, None)
         hint = 'all must be true' if limit > 1 else 'one condition'
         ui.label(f'Only show if… ({hint})').classes('wiz-survey-field-label')
         with ui.column().classes('wiz-survey-conditions w-full gap-2'):
@@ -66,6 +69,8 @@ class ConditionEditor:
                         .props('outlined dense').classes('w-full')
                     if row.get('key') == conditions.ANSWER:
                         self._answer_fields(row)
+                    elif row.get('key') == conditions.POSITIONS:
+                        self._position_field(row)
                 ui.button(icon='close', on_click=lambda _, i=index: self._remove(i)) \
                     .props('flat round dense').tooltip('Remove this condition')
         if len(self.rows) < self.limit:
@@ -82,6 +87,17 @@ class ConditionEditor:
                       label='Any of these answers',
                       on_change=lambda e, r=row: r.update(values=list(e.value or []))) \
                 .props(f'outlined dense {CHIP_PROPS}').classes('w-full')
+
+    def _position_field(self, row: dict) -> None:
+        options = dict(self.positions)
+        for pid, name in zip(row.get('position_ids') or [], row.get('names') or [], strict=False):
+            options.setdefault(int(pid), str(name))
+        ui.select(options, multiple=True, value=[int(i) for i in row.get('position_ids') or []],
+                  label='Positions (any of)',
+                  on_change=lambda e, r=row: r.update(position_ids=list(e.value or []))) \
+            .props(f'outlined dense {CHIP_PROPS}').classes('w-full')
+        ui.label("From this event's volunteer schedule. Pick more than one to cover, say, both desks.") \
+            .classes('text-caption text-grey-7')
 
     def _set_key(self, row: dict, key: str) -> None:
         row.clear()
@@ -213,7 +229,7 @@ def section_wording_dialog(service: SurveyService, user: User, section: SurveySe
 
 
 def section_dialog(service: SurveyService, user: User, survey: Survey, section: Optional[SurveySection],
-                   on_done: Done) -> None:
+                   on_done: Done, *, positions: Sequence[dict] = ()) -> None:
     with form_dialog('Edit section' if section else 'Add section') as dialog:
         with ui.column().classes('w-full gap-2'):
             title = ui.input('Title', value=section.title if section else '') \
@@ -227,13 +243,13 @@ def section_dialog(service: SurveyService, user: User, survey: Survey, section: 
                 value=(section.audience if section else SurveyAudience.EVERYONE).value, label='Who sees it',
             ).props('outlined dense').classes('w-full')
             ui.label(
-                'A repeating section shows once for every tournament a person played, or every '
+                'A repeating section shows once for every tournament a person played or ran, or every '
                 'position they worked, titled with its name. Keep those short.',
             ).classes('text-caption text-grey-7')
             earlier = plan.before_section(survey.sections, section.id) if section else \
                 {q.id: q for s in survey.sections for q in s.questions}
             editor = ConditionEditor(earlier, section.conditions if section else None,
-                                     limit=conditions.MAX_PER_SECTION, noun='section')
+                                     limit=conditions.MAX_PER_SECTION, noun='section', positions=positions)
 
         async def save() -> None:
             try:
@@ -255,7 +271,7 @@ def section_dialog(service: SurveyService, user: User, survey: Survey, section: 
 
 
 def question_dialog(service: SurveyService, user: User, survey: Survey, section: SurveySection,
-                    question: Optional[SurveyQuestion], on_done: Done) -> None:
+                    question: Optional[SurveyQuestion], on_done: Done, *, positions: Sequence[dict] = ()) -> None:
     """Add or edit a question, with up to three "Only show if…" conditions."""
     initial_kind = (question.kind if question else SurveyQuestionKind.RATING).value
 
@@ -299,6 +315,7 @@ def question_dialog(service: SurveyService, user: User, survey: Survey, section:
             editor = ConditionEditor(
                 plan.earlier(survey.sections, section.id, question.id if question else None),
                 question.conditions if question else None, limit=conditions.MAX_PER_QUESTION, noun='question',
+                positions=positions,
             )
 
         def kind_changed(value: str) -> None:

@@ -12,6 +12,7 @@ from application.services.survey import (
     dropoff,
     participation,
     plan,
+    positions,
     results,
 )
 from application.services.survey._validation import AGREE_LEVELS, answer_values, coerce_answer
@@ -58,6 +59,7 @@ __all__ = [
     'is_open',
     'participation',
     'plan',
+    'positions',
     'response_answers',
     'results',
 ]

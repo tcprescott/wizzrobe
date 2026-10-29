@@ -23,6 +23,7 @@ _SECTION_WHO = {
     SurveyAudience.EVERYONE: 'everyone',
     SurveyAudience.EACH_TOURNAMENT: 'once per tournament',
     SurveyAudience.EACH_POSITION: 'once per position',
+    SurveyAudience.EACH_TOURNAMENT_RUN: 'once per tournament run',
     SurveyAudience.CREW: 'match crew',
     SurveyAudience.COMMENTATORS: 'commentators',
     SurveyAudience.TRACKERS: 'trackers',
@@ -306,14 +307,14 @@ def render_sections(questions: Sequence[QuestionResult], sheet: CommentSheet, on
                 title = ui.label(first.section_title).classes('wiz-report__title col min-w-0')
                 title.tag = 'h3'
                 if first.repeats:
-                    noun = 'tournament' if first.audience is SurveyAudience.EACH_TOURNAMENT else 'position'
+                    noun = 'position' if first.audience is SurveyAudience.EACH_POSITION else 'tournament'
                     shown = len([label for label in _row_labels(rows) if label != OTHER])
                     meta = f'{_SECTION_WHO[first.audience]} · {_plural(shown, noun)}'
                 else:
                     meta = f'{_SECTION_WHO.get(first.audience, "")} · {answered} answered'
                 ui.label(meta).classes('wiz-report__meta')
             if first.repeats:
-                _compare(rows, sheet, 'Tournament' if first.audience is SurveyAudience.EACH_TOURNAMENT else 'Position')
+                _compare(rows, sheet, 'Position' if first.audience is SurveyAudience.EACH_POSITION else 'Tournament')
             else:
                 for r in rows:
                     _line(r, sheet, on_open)

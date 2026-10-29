@@ -27,6 +27,7 @@ KIND_CHIPS: Dict[SurveyQuestionKind, str] = {
 AUDIENCE_CHIPS: Dict[SurveyAudience, str] = {
     SurveyAudience.EVERYONE: 'Everyone',
     SurveyAudience.EACH_TOURNAMENT: 'Repeats per tournament played',
+    SurveyAudience.EACH_TOURNAMENT_RUN: 'Repeats per tournament run (organizers)',
     SurveyAudience.EACH_POSITION: 'Repeats per position worked',
     SurveyAudience.CREW: 'Crew, any role',
     SurveyAudience.COMMENTATORS: 'Commentators',
