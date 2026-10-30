@@ -46,7 +46,6 @@ async def _seed_held_race(
          [done(a, 1, 5_900_000),
           {"user_id": b.racetime_user_id, "name": b.preferred_name, "status": "dnf",
            "place": None, "finish_ms": None}], []),
-        # player_three never linked racetime, so the bot couldn't place them.
         (RaceRoomHoldReason.UNMATCHED, "Runner Not Matched", 110, (a, players[2]),
          f"{players[2].preferred_name} has no racetime account linked.",
          [done(a, 1, 5_650_000),

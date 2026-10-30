@@ -26,8 +26,7 @@ const playwright = require('playwright');
 const fs = require('fs');
 const path = require('path');
 
-// Playwright ships no Android Firefox profile, and Gecko refuses isMobile, so
-// this one is a Pixel 7's screen with Firefox for Android's user agent.
+// Hand-built: Playwright has no Android Firefox profile and Gecko refuses isMobile.
 const FIREFOX_ANDROID = {
   userAgent: 'Mozilla/5.0 (Android 16; Mobile; rv:144.0) Gecko/144.0 Firefox/144.0',
   viewport: { width: 412, height: 839 },
@@ -46,8 +45,7 @@ const FAIL_MARKERS = [
   'Traceback (most recent call last)',
 ];
 
-// Errors raised inside a third-party frame (the Twitch player on /live) reach
-// the page's error stream in WebKit; they aren't ours to fix.
+// WebKit reports third-party frame errors (the Twitch player on /live) as the page's.
 const THIRD_PARTY = [/twitch/i, /enumerateDevices/];
 
 const slug = (s) => s.toLowerCase().replace(/[^a-z0-9]+/g, '-');
@@ -124,8 +122,6 @@ async function walk(browser, engine, cfg, deviceName, scheme, storageState, outD
   const prefix = cfg.tenant ? `/t/${cfg.tenant}` : '';
   const state = await login(browser, engine, cfg.baseUrl || 'http://127.0.0.1:8000', prefix, cfg.loginAs || 'staff_user');
   const failures = [];
-  // One context per device and scheme, run side by side: each keeps its own
-  // cache, so only the first page of a walk pays for the assets.
   await Promise.all(deviceNames.flatMap((d) => schemes.map(
     (s) => walk(browser, engine, cfg, d, s, state, outDir, failures))));
   await browser.close();

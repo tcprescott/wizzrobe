@@ -248,8 +248,7 @@ async def measure_workers() -> list[dict]:
         if tick is None:
             out.append({'surface': 'worker', 'name': name, 'skipped': 'no _tick'})
             continue
-        # Twice: a first tick often does one-off catch-up work (grants to hand
-        # out, reminders never sent) that the steady state never repeats.
+        # Tick twice: the first tick does one-off catch-up work the steady state never repeats.
         for label in ('first', 'steady'):
             r = await timed(tick)
             r.pop('result')

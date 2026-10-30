@@ -1,13 +1,6 @@
 /*
  * Layout-stability gate: a page must hold still when it updates.
  *
- * In the 2026-10-16 demo, buttons moved under people's fingers: the Match
- * Schedule board jumped sideways every time the Needs you list reloaded, and
- * boards reshuffled when someone else checked a match in. Neither is visible to
- * pytest or to a screenshot, because the page looks right before and after; it
- * is wrong only for the frames in between. docs/style-guide.md#hold-still has
- * the rule this enforces.
- *
  * For every target, at desktop and phone width, it loads the page, lets it
  * settle, then asks the server to redraw every live section of the page with
  * the same data (theme/layout_probe.py, installed when the app runs with
@@ -66,7 +59,6 @@ function profiles(list) {
   });
 }
 
-// Runs in every page before its own scripts.
 function startRecording() {
   window.__wizShifts = [];
   window.__wizLastShift = 0;
@@ -94,8 +86,6 @@ function startRecording() {
 
 const ROW_SELECTOR = '[data-wiz-row]';
 
-// Remembers every visible board row (theme/tables marks each with its match id)
-// and where it sits.
 function snapshotRows(selector) {
   const rows = [...document.querySelectorAll(selector)].filter((e) => e.offsetParent);
   window.__wizRowSnap = rows.map((el) => {
@@ -105,7 +95,6 @@ function snapshotRows(selector) {
   });
 }
 
-// A row may move only by how much the rows above it on the same board grew.
 function rowsOutOfPlace(selector) {
   const snap = window.__wizRowSnap || [];
   const now = snap.map((s) => {
@@ -175,8 +164,7 @@ function collect(ignoreSelectors) {
     if (!res.ok) throw new Error(`${method} ${p} -> ${res.status} ${(await res.text()).slice(0, 200)}`);
     return res.status === 204 ? null : res.json();
   }
-  // "unplayed": has players, not yet checked in or finished. "checkable" also
-  // leaves out racetime.gg tournaments, whose matches refuse a manual check-in.
+  // "checkable" skips racetime.gg tournaments: their matches refuse a manual check-in.
   async function pick(kind) {
     const racetime = new Set((await api('GET', '/api/tournaments'))
       .filter((t) => t.racetime_bot_id != null).map((t) => t.id));
@@ -202,14 +190,11 @@ function collect(ignoreSelectors) {
     } catch (e) {
       return { label, failures: [`[${label}] navigation failed: ${e.message.split('\n')[0]}`] };
     }
-    // Settled means two seconds with nothing moving: a page still filling in
-    // its first data would otherwise be blamed on the redraw.
+    // Wait for two still seconds, or a page still filling in gets blamed on the redraw.
     await page.waitForTimeout(t.settle || 2000);
     try {
       await page.waitForFunction(() => performance.now() - (window.__wizLastShift || 0) > 2000, null, { timeout: 15000, polling: 200 });
-      // A board still waiting on its first rows has not moved yet either, so
-      // also wait for the DOM to stop changing; a page with a ticking clock
-      // never does, which is fine.
+      // A page with a ticking clock never stops mutating, so this wait may time out.
       await page.waitForFunction(() => performance.now() - (window.__wizLastMutation || 0) > 1500, null, { timeout: 8000, polling: 200 }).catch(() => {});
     } catch (_) {
       failures.push(`[${label}] never stopped moving after it loaded`);
@@ -244,7 +229,7 @@ function collect(ignoreSelectors) {
   }
 
   const vps = profiles(cfg.viewports);
-  // Live steps change shared data, so a page with steps runs alone, last.
+  // Live steps change shared data: a page with steps must run alone, last.
   const jobs = vps.flatMap((vp) => targets.filter((t) => !t.live).map((t) => ({ vp, t })));
   const serial = vps.flatMap((vp) => targets.filter((t) => t.live).map((t) => ({ vp, t })));
   const results = [];

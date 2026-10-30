@@ -78,10 +78,6 @@ async def seed_qualifiers_for_tenant(tenant: Tenant, preset: Preset) -> None:
     bonus, _ = await AsyncQualifierPool.get_or_create(
         qualifier=qualifier, name="Bonus Pool", tenant=tenant,
     )
-    # A pool tied to a preset that *cannot* roll: dk64r generates asynchronously, so
-    # the Pools tab must say so on the card instead of offering a Roll button that
-    # only fails after the click. Without this fixture that refusal is unreachable
-    # in dev, which is how it went unnoticed long enough to become a finding.
     async_preset, _ = await Preset.get_or_create(
         name="DK64 Async", randomizer="dk64r", tenant=tenant,
         defaults={"settings": {"preset": "dev"},
@@ -101,16 +97,11 @@ async def seed_qualifiers_for_tenant(tenant: Tenant, preset: Preset) -> None:
     p1 = await _permalink(standard, f"https://alttpr.com/en/h/dev-{tenant.slug}-std-1")
     await _permalink(standard, f"https://alttpr.com/en/h/dev-{tenant.slug}-std-2")
     await _permalink(standard, f"https://alttpr.com/en/h/dev-{tenant.slug}-std-3")
-    # Its own seed rather than one of the three above: every one of those already
-    # carries a run below, and an ``.exists()`` guard keyed on the permalink would
-    # find that run and skip this one — silently, which is how the backlog fixture
-    # first failed to appear at all.
+    # Its own seed: an .exists() guard keyed on a shared permalink would find another run and skip this one.
     p_stale = await _permalink(standard, f"https://alttpr.com/en/h/dev-{tenant.slug}-std-4")
     await _permalink(bonus, f"https://alttpr.com/en/h/dev-{tenant.slug}-bonus-1")
     await _permalink(bonus, f"https://alttpr.com/en/h/dev-{tenant.slug}-bonus-2")
 
-    # A finished, approved, scored run on p1 — par is the run's own time, so its
-    # score is 100 and the leaderboard has an entry.
     if runner_a is not None:
         run_a = await AsyncQualifierRun.filter(
             qualifier=qualifier, user=runner_a, permalink=p1
@@ -130,9 +121,6 @@ async def seed_qualifiers_for_tenant(tenant: Tenant, preset: Preset) -> None:
                 p1.par_updated_at = now
                 await p1.save()
 
-    # A finished run awaiting review — populates the reviewer queue. Its claimed
-    # time is an hour under the server's own measurement, so the queue card shows
-    # a drift badge without anyone having to construct one by hand.
     if runner_b is not None:
         run_b = await AsyncQualifierRun.filter(
             qualifier=qualifier, user=runner_b, permalink=p1
@@ -146,7 +134,6 @@ async def seed_qualifiers_for_tenant(tenant: Tenant, preset: Preset) -> None:
                 elapsed_seconds=6000, measured_seconds=9600,
                 runner_vod_url="https://twitch.tv/videos/dev-b",
             )
-        # A reviewer note on the pending run so the review surface renders notes.
         if staff is not None and not await AsyncQualifierReviewNote.filter(
             run=run_b, tenant=tenant
         ).exists():
@@ -155,9 +142,6 @@ async def seed_qualifiers_for_tenant(tenant: Tenant, preset: Preset) -> None:
                 note="VOD checked through the halfway split; finish looks clean.",
             )
 
-    # A second pending run, submitted long enough ago to trip the backlog nudge
-    # (``rules.REVIEW_BACKLOG_AGE``), on a seed of its own. The queue needs both states to be worth looking
-    # at in dev: one submission just arrived, one has gone unworked for hours.
     if runner_b is not None and not await AsyncQualifierRun.filter(
         qualifier=qualifier, user=runner_b, permalink=p_stale,
     ).exists():
@@ -169,10 +153,6 @@ async def seed_qualifiers_for_tenant(tenant: Tenant, preset: Preset) -> None:
             elapsed_seconds=5700, measured_seconds=7200,
         )
 
-    # The states the review/reattempt surfaces are about, none of which the two
-    # runs above produce: a rejection carrying its reason (the runs table's
-    # Reviewer note column and the DM copy), a forfeit nobody can reach from the
-    # review queue (the Runs tab's reason to exist), and an already-voided run.
     p2 = await _permalink(bonus, f"https://alttpr.com/en/h/dev-{tenant.slug}-bonus-2")
     if runner_a is not None:
         rejected = await AsyncQualifierRun.filter(
@@ -198,8 +178,6 @@ async def seed_qualifiers_for_tenant(tenant: Tenant, preset: Preset) -> None:
 
     p3 = await _permalink(standard, f"https://alttpr.com/en/h/dev-{tenant.slug}-std-2")
     if runner_b is not None:
-        # A forfeit: approved with score 0 the moment it happens, so it never
-        # appears in the reviewer queue — only in the Runs tab.
         if not await AsyncQualifierRun.filter(
             qualifier=qualifier, user=runner_b, status=AsyncQualifierRunStatus.FORFEIT
         ).exists():
@@ -210,7 +188,6 @@ async def seed_qualifiers_for_tenant(tenant: Tenant, preset: Preset) -> None:
                 started_at=now - timedelta(hours=5), finished_at=now - timedelta(hours=5),
                 score=0.0,
             )
-        # And one already voided by the runner's own reattempt.
         p4 = await _permalink(standard, f"https://alttpr.com/en/h/dev-{tenant.slug}-std-3")
         if not await AsyncQualifierRun.filter(
             qualifier=qualifier, user=runner_b, reattempted=True
@@ -224,10 +201,6 @@ async def seed_qualifiers_for_tenant(tenant: Tenant, preset: Preset) -> None:
                 reattempt_reason="Emulator crashed on the opening cutscene.",
             )
 
-    # A run still being played, and one disqualified by a reviewer: the two run
-    # statuses the states above never produce. A run is created IN_PROGRESS the
-    # moment a player draws, so it is the state every runner passes through and
-    # the one the "you have a run open" surfaces are written for.
     p5 = await _permalink(bonus, f"https://alttpr.com/en/h/dev-{tenant.slug}-bonus-1")
     if runner_a is not None and not await AsyncQualifierRun.filter(
         qualifier=qualifier, user=runner_a, status=AsyncQualifierRunStatus.IN_PROGRESS
@@ -255,16 +228,9 @@ async def seed_qualifiers_for_tenant(tenant: Tenant, preset: Preset) -> None:
                 note="Ran the wrong permalink — disqualified, not a reattempt.",
             )
 
-    # A live-race pool (PR 10): a live-flagged permalink plus one race per
-    # lifecycle state, so the admin Live Races sub-tab shows a race to open a room
-    # for, one waiting in an opened room, one racing, one whose results have been
-    # captured back into runs, and one the racetime room cancelled instead.
     live_pool, _ = await AsyncQualifierPool.get_or_create(
         qualifier=qualifier, name="Live Race Pool", tenant=tenant,
     )
-    # The last spec keeps its permalink NULL: "(assign later)" is a normal way to
-    # schedule a race, and it is the state the Set permalink control and the "cannot
-    # be scored" caption exist for.
     live_race_specs = [
         (1, "Dev Live Qualifier Race", AsyncQualifierLiveRaceStatus.SCHEDULED, True),
         (2, "Dev Live Race — Room Open", AsyncQualifierLiveRaceStatus.PENDING, True),
@@ -282,19 +248,12 @@ async def seed_qualifiers_for_tenant(tenant: Tenant, preset: Preset) -> None:
             pool=live_pool, match_title=match_title, tenant=tenant,
             defaults={"permalink": permalink if seeded else None, "status": status},
         )
-        # The finished race carries an entrant nobody could match, which is the state
-        # the "link their account, then record again" to-do exists for — invisible in
-        # dev without a fixture that has one. Set on every run rather than only at
-        # creation: a `defaults=` value never reaches a row that already exists, which
-        # is how the last fixture added here silently failed to appear.
+        # Set on every run: a defaults= value never reaches a row that already exists.
         wanted = (["MysteryRacer"] if status == AsyncQualifierLiveRaceStatus.FINISHED
                   else None)
         if race.unmatched_handles != wanted:
             race.unmatched_handles = wanted
             await race.save()
-        # ``PENDING`` is the one run status the self-paced flow never writes: it
-        # belongs to a live race, where the runs exist before anyone starts. It
-        # only makes sense beside the race whose room is open.
         if (
             status is AsyncQualifierLiveRaceStatus.PENDING
             and runner_a is not None
@@ -308,9 +267,6 @@ async def seed_qualifiers_for_tenant(tenant: Tenant, preset: Preset) -> None:
                 review_status=AsyncQualifierReviewStatus.PENDING,
             )
 
-    # Defined below and never called until now, so the fixture its own docstring
-    # calls "the only way a player can see a leaderboard in dev" did not exist —
-    # and with it the exact-score half of the score lockdown was unreachable too.
     await _seed_closed_qualifier(tenant)
 
 
@@ -352,8 +308,6 @@ async def _seed_closed_qualifier(tenant: Tenant) -> None:
         )
         permalinks.append(pl)
 
-    # Different slot counts per runner (2, 1, 1 of 2) so `actual` and `estimate`
-    # differ on the board and the Slots column is not uniformly full.
     plan = [
         (runners[0], [(permalinks[0], 4500, 104.0), (permalinks[1], 5100, 98.0)]),
         (runners[1], [(permalinks[0], 5400, 92.0)]),

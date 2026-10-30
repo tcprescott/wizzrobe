@@ -67,8 +67,7 @@ async def main() -> None:
     parser.add_argument('--dry-run', action='store_true', help='report without writing')
     args = parser.parse_args()
 
-    # Lazy, so importing this module stays env-free: load_dotenv() at import
-    # time pushes the dev .env into os.environ for whatever process imports it.
+    # Lazy, so importing this module stays env-free: load_dotenv() at import time leaks the dev .env.
     from dotenv import load_dotenv
     load_dotenv()
 

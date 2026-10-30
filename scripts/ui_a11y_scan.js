@@ -11,19 +11,12 @@
  *      element's background layers, inset tints included, and fails text under
  *      4.5:1 (3:1 for large text).
  *
- * The 2026-10 style pass and accessibility audit found 59 grey captions at
- * 2.5:1, dark-mode reds at 2.8:1 and 531 unnamed icon buttons, all invisible
- * to the pytest suite. This is what keeps them from coming back.
- * docs/style-guide.md says what to do when it fails.
- *
  * With a "phone" block in the config it then makes a pass per phone (CI checks
  * 360, 393, 412 and 440px) and fails any page whose layout breaks there: the
  * page scrolls sideways, an element runs past the screen or out of the card that
  * holds it, text is cut off without an ellipsis, text is squeezed to a few
  * letters a line, or a flex item is stretched more than 96px past its content
- * (an empty band). The 2026-10 phone sweep found Settings fields 90px past their
- * card and a whole family of these, none of which a desktop-width scan can see;
- * at SG Live a status chip squeezed My Schedule's player names to a letter a line.
+ * (an empty band).
  *
  * Prereqs: the app booted and seeded (see the ui-validation skill), Playwright
  * and axe-core resolvable (`npm install --no-save playwright@1.56.1
@@ -72,7 +65,6 @@ function axeSource() {
   return fs.readFileSync(require.resolve('axe-core/axe.min.js'), 'utf8');
 }
 
-// Runs in the page. Returns text elements under the WCAG AA minimum.
 function contrastCheck() {
   const parse = (s) => {
     let m = s.match(/rgba?\(([^)]+)\)/);
@@ -93,8 +85,7 @@ function contrastCheck() {
     return 0.2126 * f(c[0]) + 0.7152 * f(c[1]) + 0.0722 * f(c[2]);
   };
   const ratio = (a, b) => { const x = lum(a); const y = lum(b); return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05); };
-  // Background layers from the element outwards, stopping at the first opaque
-  // one. A large inset box-shadow is a tint painted over the background.
+  // A large inset box-shadow is a tint painted over the background: count it as a layer.
   const layers = (el) => {
     const out = [];
     for (let e = el; e; e = e.parentElement) {
@@ -137,14 +128,9 @@ function contrastCheck() {
   return res;
 }
 
-// Runs in the page at phone width. Returns layout breaks.
 function layoutCheck(ignoreSelectors) {
   const EMPTY_LIMIT = 96;
-  // A flex or grid item stretched well past its content: a flex-basis meant as a
-  // width that became a height in a column (#350's search row left 192px under
-  // the check-in desk's search box), or a grow that soaks up the screen. Padding
-  // is deliberate spacing and doesn't count, and an item that centres or spreads
-  // its content (an error page, a toolbar) is meant to be bigger than it.
+  // Padding doesn't count, and an item that centres or spreads its content is meant to be bigger.
   function emptySpace(el, r, s) {
     const p = el.parentElement;
     if (!/flex|grid/.test(getComputedStyle(p).display)) return 0;
@@ -160,15 +146,10 @@ function layoutCheck(ignoreSelectors) {
       range.selectNodeContents(n);
       take(range.getBoundingClientRect());
     }
-    // Nothing visible inside: a spacer, or a container whose items are hidden.
     if (bottom <= top) return 0;
     const inner = r.height - ['paddingTop', 'paddingBottom', 'borderTopWidth', 'borderBottomWidth'].reduce((a, k) => a + parseFloat(s[k]), 0);
     return inner - (bottom - top);
   }
-  // A flex item that gives up its width to a chip or a button beside it wraps
-  // its text a few letters a line: nothing overflows, so only the line count
-  // shows it. Returns the box's width when its own text runs three or more
-  // lines of fewer than eight characters.
   function squeezedText(el) {
     const lines = new Set();
     let chars = 0;
@@ -199,8 +180,6 @@ function layoutCheck(ignoreSelectors) {
   if (document.documentElement.scrollWidth > vw + 1) {
     out.push({ kind: 'page scrolls sideways', by: document.documentElement.scrollWidth - vw, el: '<html>', text: '' });
   }
-  // A horizontal scroller (a wide table, a tab strip) is allowed to hold wide
-  // content; anything else is a box whose content should fit it.
   const scrolls = (e) => /(auto|scroll)/.test(getComputedStyle(e).overflowX);
   const boxed = (e) => {
     if (e.matches('.q-card, .wiz-panel, .q-field__control, .q-btn, .q-item, .q-dialog .q-card')) return true;
@@ -214,8 +193,7 @@ function layoutCheck(ignoreSelectors) {
     const r = el.getBoundingClientRect();
     if (!r.width || !r.height) continue;
     const s = getComputedStyle(el);
-    // A field scrolls its own text, and Quasar's select keeps an invisible
-    // focus input that always measures wider than it is.
+    // Skip fields: Quasar's select keeps an invisible focus input that always measures too wide.
     if (!el.matches('input, textarea, select') && /(hidden|clip)/.test(s.overflowX) && s.textOverflow !== 'ellipsis'
         && el.scrollWidth > el.clientWidth + 2 && el.childElementCount <= 1 && text(el)) {
       report('text cut off', el, el.scrollWidth - el.clientWidth);
@@ -232,7 +210,6 @@ function layoutCheck(ignoreSelectors) {
     }
     if (inScroller) continue;
     const limit = box ? box.getBoundingClientRect().right : vw;
-    // Report the outermost element that escapes, not each of its descendants.
     const parentRight = el.parentElement.getBoundingClientRect().right;
     if (r.right > limit + 2 && (parentRight <= limit + 2 || el.parentElement === box)) {
       report(box ? 'runs out of its card' : 'runs off the screen', el, r.right - limit);
@@ -259,10 +236,7 @@ async function runAxe(page, source) {
   });
 }
 
-// Each phone entry is a Playwright device name, which sets the width, pixel
-// ratio and user agent together, or { name, viewport, deviceScaleFactor } for a
-// phone Playwright has no profile for. A device's defaultBrowserType is
-// dropped: CI only has Chromium, so this is Chromium's layout at that size.
+// A device's defaultBrowserType is dropped: CI only has Chromium.
 function phoneProfiles(phone) {
   const all = (phone.devices || [{ name: 'phone', viewport: phone.viewport || { width: 390, height: 844 } }]).map((d) => {
     if (typeof d === 'string') {
@@ -294,14 +268,10 @@ function phoneProfiles(phone) {
   fs.mkdirSync(outDir, { recursive: true });
   const source = axeSource();
   const targets = cfg.targets || [];
-  // Most of a page's time is the settle wait, so pages load side by side. The
-  // app is one uvicorn worker; six tabs gave the same findings as one, at a
-  // quarter of the time.
   const concurrency = Math.max(1, +(process.env.A11Y_CONCURRENCY || cfg.concurrency || 6));
 
   const browser = await chromium.launch({ executablePath: findChrome(cfg.chrome), args: ['--no-sandbox'] });
 
-  // One login; every pass reuses its session cookie.
   const loginCtx = await browser.newContext({ viewport: cfg.viewport || { width: 1440, height: 900 } });
   const loginPage = await loginCtx.newPage();
   await loginPage.goto(`${baseUrl}${withTenant('/login')}`, { waitUntil: 'networkidle' });
@@ -368,8 +338,6 @@ function phoneProfiles(phone) {
     return { label, failures, entry: { axe, contrast }, summary: `axe=${axe.length} contrast=${contrast.length}` };
   }
 
-  // A worker keeps one tab open per pass and moves to the next pass when its
-  // own runs out, so the jobs run pass by pass, each page in a pass once.
   const jobs = passes.flatMap((pass) => targets.map((t) => ({ pass, t })));
   const results = new Array(jobs.length);
   let next = 0;

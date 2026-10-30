@@ -129,7 +129,6 @@ async def seed_events_for_tenant(tenant: Tenant, users: Dict[str, User]) -> None
             'pii_purged_at': datetime(2025, 12, 2, 17, 0, tzinfo=timezone.utc),
         },
     )
-    # What it ran, for the read-only look. Written as the archive job would.
     with archive_maintenance():
         main, _ = await Tournament.get_or_create(
             tenant=tenant, event=sgl25, name='ALttPR Main 2025',

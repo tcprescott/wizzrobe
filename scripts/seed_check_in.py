@@ -113,13 +113,8 @@ async def seed_check_in_for_tenant(tenant: Tenant, users: dict[str, User]) -> No
         await service.add_walk_up(staff, event.id, user_id=users['racer_09'].id)
     if not any(row.display_name == 'Walk-in Wendy' for row in roster):
         await service.add_walk_up(staff, event.id, name='Walk-in Wendy')
-    # Unlinked, but named like the seeded racers, so the desk's "Not linked"
-    # button has suggestions to count.
     if not any(row.display_name == 'Racer Six' for row in roster):
         await service.add_walk_up(staff, event.id, name='Racer Six')
-    # Three more arrivals, so the desk shows every test-DM state. The seed runs
-    # without the bot, so each check-in's DM stays queued (pending); the others
-    # are settled into what a volunteer would meet.
     for name in ('racer_05', 'racer_07', 'player_three'):
         row = await CheckInEntrant.get_or_none(event=event, user=users[name])
         if row is not None and row.checked_in_at is None:
