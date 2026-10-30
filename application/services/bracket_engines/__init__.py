@@ -9,9 +9,7 @@ The engines are pure structural code (no ORM); the service layer owns
 persistence. See :mod:`.base` for the contract.
 """
 
-# Each engine module self-registers via ``@register_strategy('bracket_format', …)``
-# at import time. Auto-import every sibling module so dropping a new engine file
-# needs no edit here (and parallel engine units never contend on this file).
+# Engines self-register at import; auto-importing every sibling means a new engine file needs no edit here.
 import importlib as _importlib
 import pkgutil as _pkgutil
 

@@ -55,11 +55,8 @@ class BookableMatch:
     round_label: str
     opponent_name: str
     player_ids: List[int] = field(default_factory=list)
-    # "Book between Sat 6 pm and Sun 11 pm", from the tournament's round schedule.
     window_text: Optional[str] = None
-    # Staff booking a matchup before the bracket has decided its players.
     ahead: bool = False
-    # A best-of set lists one row per game left to book, each booking one game.
     best_of: int = 1
     games_booked: int = 0
     if_needed: bool = False
@@ -84,19 +81,12 @@ class UnbookedMatch:
     unlinked: List[str] = field(default_factory=list)
     window_text: Optional[str] = None
     bracket_id: Optional[int] = None
-    # A native matchup's unlinked entrants as ``(entrant id, name)``, for linking them in place.
     unlinked_entrants: List[Tuple[int, str]] = field(default_factory=list)
     best_of: int = 1
     game_number: int = 1
-    # Games of a best-of set already booked; staff book the rest one at a time.
     games_booked: int = 0
-    # Matches already on the schedule with exactly these two players and no
-    # bracket link: what staff most likely booked by hand for this matchup.
     same_player_matches: List[Match] = field(default_factory=list)
-    # The bracket hasn't decided both players: ``player_names`` carries a
-    # placeholder ("Andy or Benny") per open side, and staff can book it ahead.
     players_tbd: bool = False
-    # Placeholder bookings in this tournament a bracket reset cut loose.
     lost_bookings: List[Match] = field(default_factory=list)
 
     @property
@@ -616,7 +606,6 @@ async def book_ahead(
 
 
 async def _attach_same_player_matches(items: List[UnbookedMatch]) -> None:
-    # A partly booked set already has its bracket link.
     ready = [i for i in items if i.ready and not i.games_booked]
     if not ready:
         return
@@ -655,8 +644,6 @@ class SiteResult:
     site: str
     winner_user_id: Optional[int]
     winner_name: str
-    #: The site closed it with nobody winning (a double DQ, or a dead set the
-    #: organiser cleared), so there is no result to copy, only a match to call off.
     no_winner: bool = False
 
 

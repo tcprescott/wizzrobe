@@ -19,21 +19,9 @@ class AsyncQualifierConfig(BaseModel):
 
     model_config = ConfigDict(extra='forbid')
 
-    # Number of fastest approved runs averaged into a permalink's par.
     par_sample_size: Optional[int] = Field(default=None, ge=1)
-    # Play-count gap (max−min across a pool's permalinks) at which the draw stops
-    # being random and forces the least-played permalink, keeping sampling even.
     draw_imbalance_threshold: Optional[int] = Field(default=None, ge=1)
-    # How long a drawn run may stay in progress before the worker forfeits it.
-    # A run that is never submitted otherwise holds its permalink assignment and
-    # the player's pool slot forever, and — because a claimed finish time is only
-    # checked against the wall clock since the draw — an indefinitely-open run
-    # also lets any finish time be claimed. Null falls back to
-    # ``DEFAULT_RUN_TIME_LIMIT_HOURS``; the ceiling is a week, matching the
-    # submitted-time bound.
     run_time_limit_hours: Optional[int] = Field(default=None, ge=1, le=168)
-    # How long before that deadline the runner is warned. Null falls back to
-    # ``DEFAULT_EXPIRY_WARNING_MINUTES``.
     expiry_warning_minutes: Optional[int] = Field(default=None, ge=1)
     # Safe ``{placeholder}`` templates for DM notifications (never eval).
     messaging_templates: Optional[Dict[str, str]] = None

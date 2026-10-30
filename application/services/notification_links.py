@@ -102,7 +102,6 @@ async def link_for(label: str, path: str) -> Optional[DMLink]:
     except Exception:
         logger.exception('notification link lookup failed for %s', path)
         return None
-    # A bare link still opens: a row page finds its own event, any other the default.
     try:
         slug = await event_slug(get_current_tenant_id(), get_current_event_id())
     except Exception:
@@ -133,10 +132,6 @@ def link_for_tenant(
     """
     return DMLink(label, tenant_url(tenant, event_path(event_slug, path))) if tenant else None
 
-
-# ---------------------------------------------------------------------------
-# Player-facing targets
-# ---------------------------------------------------------------------------
 
 async def player_schedule(
     bracket_match_id: int, *, label: str = 'Pick a time',
@@ -285,10 +280,6 @@ async def home_tournaments(*, label: str = 'View tournaments') -> Optional[DMLin
     """
     return await link_for(label, home_url(HOME_TOURNAMENTS))
 
-
-# ---------------------------------------------------------------------------
-# Staff-facing targets
-# ---------------------------------------------------------------------------
 
 async def admin_match(match_id: int, *, label: str = 'Open the match') -> Optional[DMLink]:
     """The admin Schedule board filtered to one match — where crew gets refilled."""

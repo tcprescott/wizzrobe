@@ -26,8 +26,6 @@ from models import NotificationRecipient, User
 
 logger = logging.getLogger(__name__)
 
-# Discord caps an embed description at 4096 characters; the rest of the comment
-# is one tap away on the match.
 _BODY_LIMIT = 1500
 
 

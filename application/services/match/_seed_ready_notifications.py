@@ -18,7 +18,6 @@ from application.utils.discord_embeds import COLOR_SEED, match_embed
 
 logger = logging.getLogger(__name__)
 
-#: How a player's check-in DM ends on a tournament where players release the seed.
 SEED_READY_PROMPT = (
     "Tap **Ready for seed** once you're set up. The seed is sent to everyone "
     "in the match when you're all ready."

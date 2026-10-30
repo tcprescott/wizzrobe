@@ -54,20 +54,14 @@ CODE_TTL = timedelta(minutes=15)
 TELEGRAM_LINK_TTL = timedelta(minutes=15)
 MAX_CODE_ATTEMPTS = 5
 
-#: Confirmation emails one account may request in a rolling hour.
 CODES_PER_HOUR = 5
-#: Test sends one account may make in a rolling ten minutes.
 TESTS_PER_WINDOW = 3
 TEST_WINDOW_SECONDS = 600
 
 _SUBJECT_LIMIT = 90
 _BODY_LIMIT = 4000
-# Same tokens web push strips: templates only emit **bold** and the bracket
-# escape, and member names legitimately contain __.
+# Strip only these: member names legitimately contain __.
 _MARKDOWN = re.compile(r'\*\*|\\(?=[\[\]])')
-# Deliberately plain: one @, a dotted domain, no spaces, quotes or brackets.
-# The confirmation code is the real proof; this only stops obvious junk and
-# anything that could smuggle a second recipient or a header.
 _EMAIL_RE = re.compile(
     r"^[A-Za-z0-9.!#$%&'*+/=?^_`{|}~-]{1,64}@"
     r"[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?"
@@ -84,7 +78,6 @@ class Channel(str, Enum):
     TELEGRAM = 'telegram'
 
 
-# Single worker, so an in-process window is enough (see login_throttle).
 _hits: Dict[Tuple[str, int], Deque[float]] = defaultdict(deque)
 
 
@@ -162,8 +155,6 @@ class NotificationChannelService:
     def __init__(self) -> None:
         self.repository = NotificationChannelRepository()
         self.audit_service = AuditService()
-
-    # ------------------------------------------------------------- email
 
     @requires_feature(FeatureFlag.NOTIFICATION_CHANNELS)
     async def start_email_verification(self, user: User, raw_email: str) -> str:
@@ -267,8 +258,6 @@ class NotificationChannelService:
             await self.repository.set_email_notifications(user, False)
         return True
 
-    # ---------------------------------------------------------- telegram
-
     @requires_feature(FeatureFlag.NOTIFICATION_CHANNELS)
     async def create_telegram_link(self, user: User) -> Optional[str]:
         """The ``t.me`` link that connects this account, or ``None`` in mock mode.
@@ -338,8 +327,6 @@ class NotificationChannelService:
             user, AuditActions.NOTIFICATION_TELEGRAM_LINKED, {'target_user_id': user.id},
         )
 
-    # ------------------------------------------------------------ tests
-
     # feature-gate: exempt — Discord and device tests work in every community;
     # email and Telegram are refused below unless the flag is on.
     async def send_test(self, user: User, channels: Iterable[Channel]) -> Dict[Channel, bool]:
@@ -375,8 +362,6 @@ class NotificationChannelService:
             elif channel is Channel.TELEGRAM:
                 results[channel] = await self._telegram(user, message, url, label)
         return results
-
-    # --------------------------------------------------------- delivery
 
     # feature-gate: exempt — soft integration point on every DM; checks the flag itself.
     async def mirror_dm(
@@ -488,7 +473,6 @@ class NotificationChannelService:
             try:
                 return await telegram_client.send_message(chat_id, text, navigate, label, silent=silent)
             except telegram_client.TelegramBlocked:
-                # They blocked the bot or deleted the chat; stop trying.
                 logger.info('Telegram chat for user %s refused messages; disconnecting it', user.id)
                 await self.repository.set_telegram(user, None, None)
                 return False

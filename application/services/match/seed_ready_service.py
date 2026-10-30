@@ -34,7 +34,6 @@ class SeedReadyResult:
     ready: bool
     released: bool
     message: str
-    # False when everyone was ready but the roll failed: the player is told to retry.
     ok: bool = True
 
 

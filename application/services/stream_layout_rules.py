@@ -26,8 +26,6 @@ KINDS = (KIND_FIELD, KIND_HOLE)
 
 ALIGNS = ('left', 'center', 'right')
 WEIGHTS = (400, 600, 800)
-# Font stacks, keyed by what the editor shows. A stack rather than one face so a
-# PC without the first still renders something of the same kind.
 FONTS: dict[str, str] = {
     'Inter': "Inter, 'Segoe UI', system-ui, sans-serif",
     'Arial': 'Arial, Helvetica, sans-serif',

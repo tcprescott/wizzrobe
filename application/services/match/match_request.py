@@ -57,7 +57,6 @@ class MatchRequestMixin:
         membership check, because the bracket supplied the players.
         """
         if await AuthService.is_staff(actor) or await AuthService.is_tournament_admin(actor, tournament_id):
-            # create_match lives on the host MatchService.
             return await cast(Any, self).create_match(
                 tournament_id=tournament_id, scheduled_date=scheduled_date,
                 scheduled_time=scheduled_time, player_ids=player_ids,
@@ -109,18 +108,11 @@ class MatchRequestMixin:
             await self.tournament_repository.get_by_id(tournament_id),
             f"Tournament {tournament_id}",
         )
-        # Archived is closed to everyone, the bracket path included: a matchup
-        # left open in a finished season is not a reason to book a new game.
         if not tournament.is_active:
             raise ValueError(f"{tournament.name} has finished — it isn't taking new matches.")
         if not from_bracket:
             assert_player_requests_allowed(tournament)
-            # The bracket path names its players from the matchup's entrants,
-            # which staff linked; only a caller-supplied roster needs checking.
             await TenantMembershipService.require_community_users(player_ids, actor)
-            # Booking a game names opponents; it isn't a way to sign other people
-            # up. Enrolling someone else is Staff's (``enroll_player``), and the
-            # signup window and a Challonge-owned roster would both be skipped.
             enrolled = await self.tournament_repository.get_enrolled_user_ids(tournament_id)
             if any(pid != actor.id and pid not in enrolled for pid in player_ids):
                 raise ValueError(
@@ -136,15 +128,12 @@ class MatchRequestMixin:
         except ValueError as e:
             raise ValueError(f"Invalid date/time format: {e}") from e
 
-        # A player books forward. Staff go through create_match, which stays
-        # free to record a match that already happened.
         if scheduled_at <= datetime.now(timezone.utc):
             raise ValueError("That time has already passed. Pick a time later than now.")
 
         await self.assert_within_tournament_hours(scheduled_at, tournament_id)
 
-        # Resolve every player before touching the match row so a missing user
-        # doesn't leave an orphan Match behind.
+        # Resolve players before creating the match, or a missing user leaves an orphan Match.
         players = await self.participants.resolve_users(player_ids)
 
         match = await self.repository.create(

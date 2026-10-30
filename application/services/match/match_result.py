@@ -40,9 +40,6 @@ class RecordResultMixin:
             await AuthService.can_run_match(actor, match),
             f"User cannot record results for match {match_id}",
         )
-        # Confirming is the admin's verification step and has already pushed the
-        # result on, so rewriting a confirmed winner is a correction, not a
-        # recording: it takes the same gate confirming did.
         if match.confirmed_at:
             await AuthService.ensure(
                 await AuthService.can_confirm_match(actor, match),
@@ -55,9 +52,7 @@ class RecordResultMixin:
         if not any(p.id == winner_id for p in match.players):
             raise ValueError("That player isn't part of this match.")
 
-        # D6: one correction path. A match whose bracket game already settled is
-        # corrected from the bracket, which re-advances; rewriting the ranks here
-        # would leave the bracket silently disagreeing with its own game.
+        # A settled bracket game is corrected from the bracket; rewriting ranks here desyncs it.
         from application.services.bracket_service import BracketService
 
         assert_bracket_result_editable(
@@ -70,7 +65,6 @@ class RecordResultMixin:
             player.finish_rank = 1 if player.id == winner_id else 2
             await save_fields(player, 'finish_rank')
             ranks[player.id] = player.finish_rank
-        # A hand-recorded winner replaces a forfeit: both players have a rank again.
         if getattr(match, 'forfeit_reason', None) is not None:
             match.forfeit_reason = None
             match.forfeit_note = None

@@ -78,13 +78,9 @@ def norm_name(name: Optional[str]) -> str:
     return _NAME_NOISE.sub('', (name or '').lower())
 
 
-#: The roster states ``entrant_filters`` sorts a row into; ``summarize`` counts
-#: from it. The desk offers only ``DESK_FILTERS`` as chips.
 ROSTER_FILTERS = ('all', 'not_yet', 'checked_in', 'comped', 'unlinked', 'walk_up', 'withdrawn')
 DESK_FILTERS = ('all', 'not_yet', 'checked_in', 'comped', 'walk_up')
 
-#: The comp reason for a volunteer who reached the comp threshold; every other
-#: reason is a ``Role`` value.
 VOLUNTEER_COMP = 'volunteer'
 
 
@@ -93,9 +89,7 @@ def comp_label(reason: str) -> str:
     return reason.replace('_', ' ').title()
 
 
-#: The lanyards the desk hands out, highest first. Someone who qualifies for
-#: several gets the first: a staffer who bought a VIP badge wears Staff, and a
-#: Day Pass only shows for someone holding no other badge.
+# Order matters, highest first: someone who qualifies for several lanyards gets the first.
 LANYARDS = ('staff', 'volunteer', CheckInTierLanyard.VIP.value, CheckInTierLanyard.BASE.value,
             CheckInTierLanyard.DAY_PASS.value)
 LANYARD_LABELS = {
@@ -204,7 +198,6 @@ def refuse_comp_row(entrant: CheckInEntrant) -> None:
         )
 
 
-#: How alike two names must be (difflib ratio) for the link dialog to suggest the account.
 SUGGESTION_THRESHOLD = 0.6
 
 

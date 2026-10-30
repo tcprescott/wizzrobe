@@ -42,8 +42,6 @@ class TablePreferenceService:
     def __init__(self) -> None:
         self.repository = TablePreferenceRepository()
 
-    # ------------------------------------------------------------------ reads
-
     async def prime(self, user: Optional[User]) -> dict[str, dict]:
         """Every table config for ``user`` — the one query a page build makes.
 
@@ -61,8 +59,6 @@ class TablePreferenceService:
     async def get(self, user: User, table_key: str) -> Optional[dict]:
         row = await self.repository.get(user.id, table_key)
         return (row.config or {}) if row is not None else None
-
-    # ----------------------------------------------------------------- writes
 
     async def save(self, user: User, table_key: str, config: Mapping) -> dict:
         """Validate and store one table's whole layout.
@@ -145,8 +141,6 @@ class TablePreferenceService:
         """Forget every table layout this person has saved."""
         await self.repository.delete_all_for_user(user.id)
         await self._track(user, 'table.preferences_reset_all', None)
-
-    # ------------------------------------------------------------- validation
 
     @classmethod
     def validate(cls, config: Mapping) -> dict:
@@ -262,8 +256,6 @@ class TablePreferenceService:
                 f'Column width{where} must be between '
                 f'{cls.MIN_WIDTH} and {cls.MAX_WIDTH} pixels.')
         return width
-
-    # ------------------------------------------------------------- telemetry
 
     @staticmethod
     async def _track(user: User, event_type: str, table_key: Optional[str]) -> None:

@@ -90,8 +90,6 @@ class RescheduleNotificationMixin:
             community_name=community,
             description=staff_body,
         )
-        # The decision dialog itself, not the board: the reason and the proposed
-        # time are the whole message and they live in the dialog.
         staff_link = await notification_links.admin_reschedule_request(request.id)
         await staff_request_dms.send(
             StaffRequestKind.RESCHEDULE_REQUEST, request.id, await self._deciders(match),
@@ -99,9 +97,7 @@ class RescheduleNotificationMixin:
         )
 
         opponents = self._opponents(match, requester)
-        # One column records agreement, so it can only mean "the other player".
-        # A match with more than two players skips the signal entirely rather
-        # than recording one person's yes as if it were everyone's.
+        # Skip unless exactly one opponent: the single agreement column can't speak for several players.
         if len(opponents) != 1:
             return
         opponent = opponents[0]
@@ -118,9 +114,6 @@ class RescheduleNotificationMixin:
             community_name=community,
             description=opponent_body,
         )
-        # The request itself with its Agree button, not the board: the board has
-        # no Agree, and the web-push copy of this DM has no Discord button, so
-        # landing anywhere else asked for something the reader could not do.
         discord_queue.enqueue(service.send_dm_with_reschedule_agree_button(
             int(opponent.discord_id), opponent_body, request.id,
             embed=opponent_embed,
@@ -172,7 +165,6 @@ class RescheduleNotificationMixin:
                     card = copy.reschedule_withdrawn(requester, tournament_name, cancel, when)
                 return staff_request_dms.card(card, color=color, community_name=community)
 
-            # An approved cancellation deleted the match, so there's nothing to open.
             link = (
                 None if outcome == 'approved' and cancel
                 else await notification_links.admin_match(request.match_id)  # type: ignore[attr-defined]
@@ -266,8 +258,6 @@ class RescheduleNotificationMixin:
             community_name=community,
             description=body,
         )
-        # Only a decline gets a button. "Ask again with a different time" is a
-        # real next step; an approval has nothing left for them to press.
         link = (
             None if approved
             else await notification_links.player_reschedule(request.match_id)  # type: ignore[attr-defined]

@@ -22,7 +22,7 @@ from dataclasses import dataclass, field
 FEED_PREFIX = 'Feed · '
 OVERLAY_SOURCE = 'Wizzrobe overlay'
 _NAMESPACE = uuid.UUID('6f1c7d0e-5b8a-4b8e-9a51-2f0d1d9b7c3a')
-# OBS packs colours as 0xAABBGGRR; a mid grey reads as "fill me" on any art.
+# OBS packs colours as 0xAABBGGRR.
 _PLACEHOLDER_COLOUR = 0xFF505050
 _ALIGN_TOP_LEFT = 5
 _BOUNDS_NONE, _BOUNDS_SCALE_INNER = 0, 2
@@ -92,7 +92,6 @@ def build_collection(name: str, scenes: list[ObsScene]) -> dict:
         raise ValueError('No stage has a layout yet, so there are no scenes to make.')
     canvas_w, canvas_h = scenes[0].width, scenes[0].height
 
-    # A feed's placeholder is the biggest hole that uses it.
     feed_size: dict[str, tuple[int, int]] = {}
     for scene in scenes:
         for label, hole in zip(_hole_labels(scene), scene.holes, strict=True):

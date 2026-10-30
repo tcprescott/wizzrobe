@@ -33,8 +33,6 @@ BOT_LACKS_EVENT_PERMISSION = (
     "The bot can't create events in this Discord server. Give its role the "
     "Create Events permission in Server Settings → Roles."
 )
-#: Failures that every event in the pass would hit the same way: a setup
-#: problem for staff to fix in Discord, not a fault in one event.
 SETUP_FAILURES = frozenset({BOT_NOT_CONNECTED, BOT_NOT_IN_GUILD, BOT_LACKS_EVENT_PERMISSION})
 
 
@@ -48,12 +46,9 @@ def _description_or_missing(description: Optional[str]) -> str:
     return (description or '')[:1000] or discord.utils.MISSING
 
 
-
 class ScheduledEventsMixin:
     """Scheduled-event operations against the live bot."""
 
-    #: Set by the composed class's ``__init__``; declared so the mixin's own
-    #: reads type-check without the composed class being visible from here.
     _bot: Optional[commands.Bot]
 
     async def _get_guild(self, guild_id: int) -> Optional["discord.Guild"]:

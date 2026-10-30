@@ -88,9 +88,7 @@ class OpenGames:
 
     best_of: int
     booked: int
-    # One entry per game still to book: True where it's only played if needed.
     slots: List[bool]
-    # The game that leads the set, once one is booked.
     first: Optional[Match] = None
 
 

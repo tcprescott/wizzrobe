@@ -50,8 +50,7 @@ from models import ApiToken, ApiTokenOrigin, McpAuthorizationCode, McpOAuthClien
 
 logger = logging.getLogger(__name__)
 
-# The consent page sends the browser to the redirect URI from the app's own
-# origin, so a script-bearing scheme there runs as the signed-in person.
+# The consent page redirects from our origin, so a script scheme here runs as the user.
 _REFUSED_REDIRECT_SCHEMES = frozenset({
     'javascript', 'data', 'vbscript', 'file', 'blob', 'about', 'filesystem',
 })
@@ -73,27 +72,17 @@ def is_allowed_redirect_uri(uri: str) -> bool:
         return (parts.hostname or '').lower() in _LOOPBACK_HOSTS
     return True
 
-# Short enough that a code left in a browser history or a proxy log is dead by
-# the time anyone finds it; long enough for a human to finish a consent screen.
 CODE_TTL = timedelta(minutes=5)
 ACCESS_TOKEN_TTL = timedelta(hours=1)
 REFRESH_TOKEN_TTL = timedelta(days=30)
-# A consent screen the user never completes should not pin memory forever.
 PENDING_TTL = timedelta(minutes=15)
 
 READ_SCOPE = 'wizzrobe:read'
 WRITE_SCOPE = 'wizzrobe:write'
-# Kept under the old name because the SDK provider falls back to it wherever a
-# scope is absent, and read is the floor every grant carries.
+# Don't rename: the SDK provider falls back to it wherever a scope is absent.
 DEFAULT_SCOPE = READ_SCOPE
-# What a dynamically-registered client is allowed to *ask* for. Asking is not
-# getting: the granted scope is decided on the consent screen (see
-# :func:`granted_scope`), so a client that requests write still gets a read-only
-# token unless the person approving it ticks the box.
 CLIENT_SCOPE = f'{READ_SCOPE} {WRITE_SCOPE}'
 
-# Typed by the person approving before a grant may carry write. A checkbox alone
-# is one click a hurried user makes without reading; typing a sentence is not.
 WRITE_CONFIRMATION_PHRASE = 'this is dangerous'
 
 
@@ -142,19 +131,12 @@ class PendingAuthorization:
     redirect_uri: str
     redirect_uri_provided_explicitly: bool
     code_challenge: str
-    # What the client asked for. Recorded rather than honoured: the granted
-    # scope comes from the consent screen, so this is only ever context for the
-    # person deciding.
     scopes: List[str]
     state: Optional[str]
     resource: Optional[str]
     created_at: datetime
 
 
-# In-process, like the existing cross-host OAuth handoff nonce store, and for
-# the same reason: these live for seconds, are meaningless after a restart (the
-# user simply reconnects), and the deployment is single-worker by requirement.
-# Persisting them would buy nothing and cost a table.
 _pending: Dict[str, PendingAuthorization] = {}
 
 
@@ -165,8 +147,6 @@ class McpAuthService:
         self.repository = McpAuthRepository()
         self.token_repository = ApiTokenRepository()
         self.audit_service = AuditService()
-
-    # --- Clients ---------------------------------------------------------
 
     async def register_client(
         self,
@@ -203,8 +183,6 @@ class McpAuthService:
 
     async def get_client(self, client_id: str) -> Optional[McpOAuthClient]:
         return await self.repository.get_client(client_id)
-
-    # --- Authorization request -> consent --------------------------------
 
     def begin_authorization(self, pending: PendingAuthorization) -> str:
         """Park an authorization request and return its transaction id.
@@ -312,8 +290,6 @@ class McpAuthService:
         )
         return raw_code, pending.redirect_uri, pending.state
 
-    # --- Code / token exchange -------------------------------------------
-
     async def load_code(self, client_id: str, raw_code: str) -> Optional[McpAuthorizationCode]:
         """Fetch a live, unconsumed code belonging to ``client_id``.
 
@@ -341,9 +317,6 @@ class McpAuthService:
 
         access_raw = MCP_TOKEN_PREFIX + secrets.token_urlsafe(32)
         refresh_raw = MCP_REFRESH_PREFIX + secrets.token_urlsafe(32)
-        # The scope on the code is the consent decision, carried forward. Writing
-        # it onto the token as ``read_only`` is what the MCP tool gate actually
-        # reads, so the two can never disagree.
         write_allowed = scope_allows_write(code.scope)
         await self.token_repository.create_oauth_token(
             user=code.user,

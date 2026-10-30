@@ -117,9 +117,7 @@ async def notify_hard_preset_agreement(
                 tournament_name, preset_name, standard_preset_name, actor_name,
             )
             title = '↩️ Back to the standard settings'
-            # Not the stream gold: these same players get stream-candidate DMs,
-            # and a reader who has learned gold means "you may be on stream"
-            # should not have to re-read the title to tell the two apart.
+            # Not the stream gold on purpose: these players also get stream-candidate DMs.
             color = COLOR_RESCHEDULED
         embed = match_embed(
             title=title,
@@ -172,9 +170,7 @@ async def notify_hard_preset_override(
             player_names=[u.preferred_name for u in recipients],
             when=when,
         )
-        # A forced match has no choice left to make, so "Choose your settings"
-        # would land the reader on a dialog that refuses them. Only the handing
-        # back is a call to action.
+        # No settings link for a forced match: the dialog would refuse them.
         link = (
             await notification_links.player_match(match_id) if forced
             else await notification_links.player_hard_preset(match_id)

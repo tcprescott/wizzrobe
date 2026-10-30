@@ -32,9 +32,6 @@ logger = logging.getLogger(__name__)
 
 Overrides = Dict[Tuple[str, NotificationRecipient], NotificationMode]
 
-# Per-community overrides, read once per burst of DMs rather than once per DM. The
-# app runs one worker (docs/scaling-roadmap.md), so a write here drops the entry
-# everywhere it matters; the TTL bounds a change made from another process.
 _CACHE_SECONDS = 30.0
 _cache: Dict[int, Tuple[float, Overrides]] = {}
 
@@ -44,8 +41,6 @@ class NotificationSettingRow:
     notice: Notice
     recipient: NotificationRecipient
     mode: NotificationMode
-    # On a staff recipient's row, what the message's staff recipients add up to
-    # on the Staff dropdown; None on other rows and for a custom mix.
     staff_choice: Optional[StaffChoice] = None
 
     @property

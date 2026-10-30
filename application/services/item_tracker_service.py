@@ -42,7 +42,6 @@ from models import FeatureFlag, ItemTrackerBoard, ItemTrackerChange, Match, Role
 
 logger = logging.getLogger(__name__)
 
-#: Randomizers whose seeds are A Link to the Past.
 ALTTP_RANDOMIZERS = frozenset({'alttpr', 'avianart'})
 MAX_DELAY_SECONDS = 600
 LOG_LENGTH = 8
@@ -86,7 +85,6 @@ class TrackerView:
     title: str
     runners: list[RunnerBoard]
     items: DungeonItems
-    #: ``'seed'``, ``'override'`` or ``'default'`` (no seed said).
     items_source: str
     seed_tags: list[str]
     delay_seconds: int

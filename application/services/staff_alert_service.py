@@ -33,10 +33,7 @@ from application.repositories import (
 from application.services.auth_service import AuthService
 from models import Match, NotificationRecipient, Role, Tournament, User
 
-#: May this person act on the alert? A DM that links somewhere the reader
-#: cannot act is worse than none, so recipients are filtered by it.
 CanAct = Callable[[User, Match], Awaitable[bool]]
-#: A recipient and the notification setting that governs their copy.
 Tagged = Tuple[User, NotificationRecipient]
 
 
@@ -103,9 +100,7 @@ class StaffAlertService:
             await add(user, NotificationRecipient.ON_DUTY)
         nobody_on_duty = not recipients
 
-        # Admins before the fallback, so a staff member who also admins the
-        # tournament reads as an admin and follows that column's setting, unless
-        # the desk is empty and they are standing in for it.
+        # Admins before the fallback, or a staff admin standing in for an empty desk is mis-tagged.
         await match.fetch_related('tournament__admins')
         tournament = match.tournament
         if tournament is not None:
@@ -116,9 +111,7 @@ class StaffAlertService:
         if nobody_on_duty:
             for user in await UserRoleRepository.list_users_with_role(Role.STAFF):
                 if user.id in recipients:
-                    # A staff member who also admins the tournament is standing
-                    # in for the empty desk: tagged as an admin, "Ping on-duty"
-                    # (admins off) muted the very fallback it promises to keep.
+                    # Tag as STAFF, not admin, or "Ping on-duty" (admins off) mutes the fallback.
                     recipients[user.id] = (recipients[user.id][0], NotificationRecipient.STAFF)
                 else:
                     await add(user, NotificationRecipient.STAFF)
@@ -183,7 +176,6 @@ class StaffAlertService:
             recipients.setdefault(user.id, (user, NotificationRecipient.ADMINS))
         if nobody_on_duty:
             for user in await UserRoleRepository.list_users_with_role(Role.STAFF, active_only=True):
-                # Staff who coordinate volunteers too still stand in for the desk.
                 recipients[user.id] = (user, NotificationRecipient.STAFF)
         return list(recipients.values())
 

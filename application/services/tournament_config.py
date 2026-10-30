@@ -34,7 +34,6 @@ class RoundScheduleEntry(BaseModel):
     closes_at: Optional[str] = None
     daily_from: Optional[str] = None
     daily_until: Optional[str] = None
-    # How many games each matchup in this stage plays (odd); absent means 1.
     best_of: Optional[int] = None
 
     @field_validator('best_of')
@@ -82,12 +81,8 @@ class TournamentConfig(BaseModel):
 
     model_config = ConfigDict(extra='forbid')
 
-    # Safe templated text for notifications/messages, keyed by template name.
-    # Substitution is ``str.format``-style ``{placeholder}`` only — never ``eval``
-    # (see the config/code-boundary design constraint). Values are plain strings.
+    # ``str.format``-style ``{placeholder}`` substitution only, never ``eval``.
     messaging_templates: Optional[Dict[str, str]] = None
-    # Booking windows for a Challonge or start.gg bracket's stages, keyed by the
-    # stage keys in ``round_windows``. Native brackets keep theirs on the stage.
     round_schedule: Optional[Dict[str, RoundScheduleEntry]] = None
 
 

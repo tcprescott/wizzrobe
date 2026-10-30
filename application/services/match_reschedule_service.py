@@ -55,15 +55,11 @@ logger = logging.getLogger(__name__)
 
 REASON_MAX_LENGTH = 500
 
-# What an agreement deep link finds (see agreement_link_state).
 AGREE_OPEN = 'open'
 AGREE_DONE = 'agreed'
 AGREE_DECIDED = 'decided'
 AGREE_NOT_YOURS = 'not_yours'
 
-# States in which there is still something to reschedule. Once a match is
-# seated the players are in the room and the answer is a conversation with the
-# proctor, not a queue entry staff will read later.
 _OPEN_STATES = ('seated_at', 'started_at', 'finished_at', 'confirmed_at')
 
 
@@ -90,8 +86,6 @@ class MatchRescheduleService(RescheduleNotificationMixin):
         self.tournament_repository = TournamentRepository()
         self.audit_service = AuditService()
 
-    # ---- reads ---------------------------------------------------------
-
     async def get_by_id(self, request_id: int) -> Optional[MatchRescheduleRequest]:
         """Read-only load-or-None for presentation/bot callers."""
         return await self.repository.get_by_id(request_id)
@@ -115,8 +109,6 @@ class MatchRescheduleService(RescheduleNotificationMixin):
         for deciding.
         """
         if actor is not None and not await AuthService.is_staff(actor):
-            # Deciding a request is ``can_crud_match``, so outside staff the
-            # queue is a tournament admin's own tournaments and nobody else's.
             admin_ids, _ = await AuthService.tournament_scope(actor)
             await AuthService.ensure(
                 bool(admin_ids), "Only staff can read the reschedule queue.",
@@ -204,8 +196,6 @@ class MatchRescheduleService(RescheduleNotificationMixin):
             )
         return await self.repository.list_for_match(match_id)
 
-    # ---- eligibility ---------------------------------------------------
-
     async def _is_player(self, match: Match, user: User) -> bool:
         """Whether ``user`` plays in ``match``, prefetched or not.
 
@@ -217,8 +207,6 @@ class MatchRescheduleService(RescheduleNotificationMixin):
         people it is for.
         """
         try:
-            # Reverse relation and FK id column: mypy cannot see either on a
-            # dynamically built Tortoise model.
             players = match.players  # type: ignore[attr-defined]
             return any(p.user_id == user.id for p in players)
         except NoValuesFetched:
@@ -293,8 +281,6 @@ class MatchRescheduleService(RescheduleNotificationMixin):
             and getattr(match.tournament, 'allow_reschedule_requests', True)
         }
 
-    # ---- the ask -------------------------------------------------------
-
     async def submit(
         self,
         match_id: int,
@@ -318,9 +304,6 @@ class MatchRescheduleService(RescheduleNotificationMixin):
         if blocking:
             raise ValueError(blocking)
 
-        # A sourced match's time belongs to the next sync (``assert_sg_fields_unchanged``),
-        # so nobody here could approve this. Refusing now beats a request that
-        # sits in the queue until someone discovers it can never be actioned.
         if getattr(match, 'speedgaming_episode_id', None) is not None:
             raise ValueError(
                 "This match is synced from SpeedGaming — its time has to change there."
@@ -350,8 +333,6 @@ class MatchRescheduleService(RescheduleNotificationMixin):
             )
 
         if kind is RescheduleRequestKind.CANCEL:
-            # A cancellation proposes no time by definition; accepting one would
-            # put a number on the record that nothing ever reads.
             proposed_at = None
         elif proposed_at is not None:
             if proposed_at <= datetime.now(timezone.utc):
@@ -381,9 +362,6 @@ class MatchRescheduleService(RescheduleNotificationMixin):
             event_extra={'tournament_id': match.tournament_id},  # type: ignore[attr-defined]
         )
 
-        # Nudge open views: a staff member already sitting on the schedule board
-        # should see the queue strip grow rather than discover the request on
-        # their next page load.
         match_live.publish(match_id, match_live.CHANGED)
 
         await self._notify_submitted(request, match, tournament.name, actor)
@@ -401,8 +379,6 @@ class MatchRescheduleService(RescheduleNotificationMixin):
         from application.services.match.match_service import MatchService
 
         await MatchService().assert_within_tournament_hours(proposed_at, tournament_id)
-
-    # ---- the opponent's signal ----------------------------------------
 
     async def record_opponent_agreement(
         self, request_id: int, actor: User,
@@ -438,12 +414,9 @@ class MatchRescheduleService(RescheduleNotificationMixin):
                 EventType.MATCH_RESCHEDULE_AGREED,
                 event_extra={'tournament_id': request.match.tournament_id},
             )
-            # Agreement changes what staff read on the chip they are about to
-            # click, so it earns a nudge even though the queue length is the same.
+            # Publish even though the queue length is unchanged: agreement changes the chip staff read.
             match_live.publish(request.match_id, match_live.CHANGED)
         return request
-
-    # ---- the requester taking it back ---------------------------------
 
     async def withdraw(self, request_id: int, actor: User) -> MatchRescheduleRequest:
         """Take a request back. The requester's alone.
@@ -471,7 +444,6 @@ class MatchRescheduleService(RescheduleNotificationMixin):
             EventType.MATCH_RESCHEDULE_WITHDRAWN,
             event_extra={'tournament_id': request.match.tournament_id},
         )
-        # The strip shrinks for the same reason it grew.
         match_live.publish(request.match_id, match_live.CHANGED)  # type: ignore[attr-defined]
         await self._mark_staff_dms(
             request, 'withdrawn', actor=actor, tournament_name=request.match.tournament.name,
@@ -482,8 +454,6 @@ class MatchRescheduleService(RescheduleNotificationMixin):
             request.match_id, actor.id, request.kind is RescheduleRequestKind.CANCEL,  # type: ignore[attr-defined]
         ))
         return request
-
-    # ---- the decision --------------------------------------------------
 
     async def _decidable(self, request_id: int, actor: Optional[User]) -> MatchRescheduleRequest:
         """Load a pending request ``actor`` is allowed to decide."""
@@ -539,8 +509,6 @@ class MatchRescheduleService(RescheduleNotificationMixin):
                 raise ValueError(
                     "This request didn't name a time — pick one before approving it."
                 )
-            # The player's proposal was held to the stage's window when they
-            # made it; a staff counter-offer is staff's call to make.
             await match_service.update_match(
                 match_id, scheduled_at=final_at, actor=actor, allow_outside_round=True,
             )
@@ -552,10 +520,7 @@ class MatchRescheduleService(RescheduleNotificationMixin):
                 decision_note=(note or '').strip() or None,
             )
             superseded_requests = await self._supersede_others(request, actor)
-            # update_match already published, but *before* the request was
-            # marked approved, so an open board re-read it as still pending
-            # (no chip, no Ask to change). Publish again now the decision is
-            # recorded; the row's last refresh is then the true one.
+            # Publish again: update_match published before the approval was recorded.
             match_live.publish(match_id, match_live.CHANGED)
 
         await self.audit_service.write_and_publish(
@@ -567,14 +532,9 @@ class MatchRescheduleService(RescheduleNotificationMixin):
                 'kind': request.kind.value,
                 'scheduled_at': final_at.isoformat() if final_at else None,
                 'overrode_proposal': _is_override(scheduled_at, request.proposed_at),
-                # The player's own words, and staff's. An approved cancellation
-                # deletes the match and the request cascades with it, so without
-                # these the audit row is the only record and it would hold
-                # neither side of the conversation. ``cancel_match`` records
-                # only one of the two, whichever was passed to it.
+                # Both sides' words: an approved cancel deletes the request, so this row is the only record.
                 'reason': request.reason,
                 'note': (note or '').strip() or None,
-                # Requests this approval closed out without anyone deciding them.
                 'superseded_request_ids': [other.id for other in superseded_requests],
             },
             EventType.MATCH_RESCHEDULE_APPROVED,
@@ -619,8 +579,6 @@ class MatchRescheduleService(RescheduleNotificationMixin):
             EventType.MATCH_RESCHEDULE_DECLINED,
             event_extra={'tournament_id': request.match.tournament_id},
         )
-        # A decline touches no match, so it publishes its own (approving
-        # publishes once more after recording the decision, see ``approve``).
         match_live.publish(request.match_id, match_live.CHANGED)  # type: ignore[attr-defined]
         await self._notify_decided(request, approved=False, new_at=None, note=note)
         await self._mark_staff_dms(
@@ -650,7 +608,4 @@ class MatchRescheduleService(RescheduleNotificationMixin):
                 decided_by=actor,
                 decided_at=datetime.now(timezone.utc),
             )
-        # Returned rather than audited per row: these are a consequence of the
-        # one decision, and the approval's own audit entry is where "what did
-        # this close?" is answered.
         return others

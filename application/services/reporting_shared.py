@@ -14,16 +14,10 @@ from typing import Optional
 from application.utils.timezone import to_local
 from models import Tournament, User
 
-# Fallback match length (minutes) when a match has no finish time and its
-# tournament defines no average duration.
 DEFAULT_MATCH_DURATION_MIN = 90
 
-# A match counts as "on time" when its start delay is within this many minutes
-# (absolute) of the scheduled time. Shared so every on-time percentage agrees.
 ON_TIME_THRESHOLD_MIN = 5
 
-# A recorded length this many times the tournament's configured match length is
-# a Finish clicked hours late (sgl26 #113, #276), not a long race.
 OVERRUN_OUTLIER_FACTOR = 3
 
 
@@ -54,8 +48,6 @@ def window_hours(start: Optional[datetime], end: Optional[datetime]) -> float:
     return max(0.0, (end - start).total_seconds() / 3600.0)
 
 
-# What a tournament asks for when it has not said. Matches the column defaults,
-# and is what a match with no tournament at all is measured against.
 DEFAULT_CREW_REQUIREMENT = (1, 1)
 
 

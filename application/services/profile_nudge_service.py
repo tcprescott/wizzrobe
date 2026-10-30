@@ -58,9 +58,7 @@ class ProfileSection(str, Enum):
 @dataclass(frozen=True)
 class ProfileCheckSpec:
     check: ProfileCheck
-    # Staff-facing name of the rule, on Admin → Profile nudges.
     label: str
-    # Member-facing banner line.
     prompt: str
     action_label: str
     section: ProfileSection
@@ -134,8 +132,6 @@ class ProfileNudgeService:
     def __init__(self) -> None:
         self.repository = ProfileNudgeRepository()
         self.audit_service = AuditService()
-
-    # ------------------------------------------------------------------ rules
 
     @staticmethod
     def _clean_rules(stored: object) -> list[dict]:
@@ -233,8 +229,6 @@ class ProfileNudgeService:
             {'tenant_id': tenant_id, 'rules': stored},
         )
         return cleaned
-
-    # ---------------------------------------------------------------- members
 
     async def pending_for(self, user: Optional[User]) -> list[ProfileNudge]:
         """The rules ``user`` has neither completed nor dismissed, in catalogue order.

@@ -14,7 +14,6 @@ YES_NO = SurveyQuestionKind.YES_NO
 CHOICE_ONE = SurveyQuestionKind.CHOICE_ONE
 COMMENT = SurveyQuestionKind.COMMENT
 
-# (prompt, kind, options, condition)
 Question = Tuple[str, SurveyQuestionKind, Optional[List[str]], Optional[str]]
 
 STARTER: List[Tuple[str, SurveyAudience, List[Question]]] = [

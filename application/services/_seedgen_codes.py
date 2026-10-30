@@ -31,7 +31,6 @@ ALTTPR_CODE_NAMES = (
 )
 _ALTTPR_CODE_OFFSET = 0x180215
 
-# DK64R's own racetime bot names its 0-9 hash digits this way.
 DK64R_CODE_NAMES = (
     'Bongos', 'Crown', 'DK Coin', 'Fairy', 'Guitar', 'Nintendo Coin', 'Orange',
     'Rainbow Coin', 'Rareware Coin', 'Saxophone',
@@ -93,7 +92,6 @@ def samus_code(seed_hash) -> Optional[list[str]]:
     return _words(seed_hash)
 
 
-# Door rando builds name some items more briefly than the game's own list.
 _AVIANART_SHORT_NAMES = {
     'Bomb': 'Bombs', 'Powder': 'Magic Powder', 'Rod': 'Ice Rod', 'Ocarina': 'Flute',
     'Bug Net': 'Bugnet', 'Bottle': 'Empty Bottle', 'Potion': 'Green Potion',
@@ -122,7 +120,7 @@ def avianart_code(result) -> Optional[list[str]]:
     return names
 
 
-# seed_display.asm's WordTable, in order: the options screen shows four of these.
+# seed_display.asm's WordTable, in order.
 VARIA_CODE_NAMES = (
     'GEEMER', 'RIPPER', 'ATOMIC', 'POWAMP', 'SCISER', 'NAMIHE', 'PUROMI', 'ALCOON',
     'BEETOM', 'OWTCH', 'ZEBBO', 'ZEELA', 'HOLTZ', 'VIOLA', 'WAVER', 'RINKA',

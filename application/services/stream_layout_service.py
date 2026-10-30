@@ -61,11 +61,8 @@ MIN_ART_WIDTH, MIN_ART_HEIGHT = 320, 180
 ALLOWED_ART_FORMATS = frozenset({'PNG', 'JPEG', 'WEBP'})
 ART_ACCEPT = '.png,.jpg,.jpeg,.webp'
 TOKEN_PREFIX = 'ovl_'
-# How far either side of now a stage's matches count as "today's": a late
-# show runs past midnight, and a morning stage opens before the first match.
 _WINDOW_BEHIND = timedelta(hours=12)
 _WINDOW_AHEAD = timedelta(hours=18)
-# Every OBS scene polls; a burst of them costs one build per stage.
 _FEED_TTL = 2.0
 _feed_cache: dict[int, tuple[float, 'OverlayFeed']] = {}
 
@@ -180,8 +177,6 @@ class StreamLayoutService:
         if layout is None:
             raise NotFoundError('That layout no longer exists.')
         return layout
-
-    # ── layouts ────────────────────────────────────────────────────────
 
     @requires_feature(FeatureFlag.STREAM_LAYOUTS)
     async def list_layouts(self, actor: User) -> list[StreamLayout]:
@@ -362,8 +357,6 @@ class StreamLayoutService:
         _feed_cache.clear()
         await self.audit.write_log(actor, AuditActions.STREAM_LAYOUT_DELETED, details)
 
-    # ── stages ─────────────────────────────────────────────────────────
-
     async def _overlay(self, stage: Stage) -> StageOverlay:
         overlay = await self.repository.overlay_for_stage(stage.id)
         if overlay is None:
@@ -504,8 +497,6 @@ class StreamLayoutService:
         for stage in await self.repository.stages():
             out += await self.repository.stage_matches_between(stage.id, now - _WINDOW_BEHIND, now + _WINDOW_AHEAD)
         return sorted(out, key=lambda m: (m.scheduled_at, m.id))
-
-    # ── what an overlay shows ──────────────────────────────────────────
 
     async def _showing(self, stage: Stage, overlay: StageOverlay) -> tuple[Optional[Match], bool]:
         """The match on the overlay now, and whether it was pinned there."""

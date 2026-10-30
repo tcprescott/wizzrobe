@@ -35,7 +35,6 @@ async def crew_dm_parts(match):
     """
     players = await match.players.all().prefetch_related('user')
     player_names = [p.user.preferred_name for p in players] if players else []
-    # A booking ahead, or a crew hold, names the sides the bracket hasn't filled.
     player_names += list(getattr(match, 'bracket_placeholders', None) or [])
     when = time_field(match.scheduled_at) or (
         'Not booked yet' if getattr(match, 'crew_hold_source', None) else '')

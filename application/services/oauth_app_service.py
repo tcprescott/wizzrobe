@@ -39,14 +39,10 @@ logger = logging.getLogger(__name__)
 CLIENT_ID_PREFIX = 'wza_'
 CLIENT_SECRET_PREFIX = 'wzs_'
 MAX_APPS_PER_OWNER = 10
-# Deleting an app frees its slot under the cap, so creation has its own window
-# to keep delete-and-recreate from minting client ids without end.
 APPS_CREATED_PER_DAY = 5
 MAX_REDIRECT_URIS = 10
 NAME_MAX = 60
 DESCRIPTION_MAX = 300
-# After a rotation the old secret keeps working this long, so a deployed app
-# can be updated without an outage.
 SECRET_GRACE = timedelta(hours=24)
 
 _CONTROL_CHARS = re.compile(r'[\x00-\x1f\x7f-\x9f​-‏‪-‮⁦-⁩]')
@@ -188,8 +184,6 @@ class OAuthAppService:
         self.repository = OAuthAppRepository()
         self.token_repository = ApiTokenRepository()
         self.audit_service = AuditService()
-
-    # --- Owner -------------------------------------------------------------
 
     async def create_app(
         self,
@@ -341,8 +335,6 @@ class OAuthAppService:
         """How many people have this app connected. The owner sees a count, never who."""
         app = await self.get_my_app(actor, app_id)
         return await self.token_repository.count_app_grant_users(app.id)
-
-    # --- Platform admin ----------------------------------------------------
 
     async def list_all_apps(self, actor: User) -> List[OAuthApp]:
         await AuthService.ensure_super_admin(actor)

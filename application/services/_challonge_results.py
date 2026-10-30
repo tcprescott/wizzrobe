@@ -21,13 +21,10 @@ logger = logging.getLogger(__name__)
 
 _RESYNC_RETRY_DELAY = 2.0
 _PUSH_RETRY_DELAY = 2.0
-# Two attempts plus this wait must fit inside the confirm flow's 90s budget
-# (_BRACKET_PUSH_SECONDS), so a longer Retry-After is cut down to it.
+# Two attempts plus this wait must fit the confirm flow's 90s budget (_BRACKET_PUSH_SECONDS).
 _PUSH_RETRY_MAX_DELAY = 10.0
-# 520-524 are Cloudflare's own origin errors (Sentry SGLMAN-2P), which it
-# marks retryable.
+# 520-524 are Cloudflare's own origin errors, which it marks retryable.
 _TRANSIENT_STATUSES = frozenset({429, 502, 503, 504, 520, 521, 522, 523, 524})
-# A Cloudflare error page is several KB of HTML.
 _AUDIT_ERROR_CHARS = 300
 
 
@@ -80,7 +77,6 @@ class ChallongeResultsMixin:
             return False
         standing = await BracketSetService().standing(match)
         if standing is not None:
-            # A set's game: Challonge hears only the set's result, once it's won.
             if not standing.decided:
                 return False
             match = standing.first
@@ -91,10 +87,7 @@ class ChallongeResultsMixin:
             try:
                 return await self.push_match_result(match, actor)
             except ChallongeAPIError as e:
-                # Sentry SGLMAN-2M/2N/2P: a timeout, dropped connection (no status),
-                # gateway or Cloudflare origin error, or rate limit usually clears on the next request.
-                # Retrying is safe because the push re-reads the Challonge match
-                # and leaves a complete one alone, which covers a PUT that did land.
+                # Safe to retry: the push re-reads the Challonge match and leaves a complete one alone.
                 transient = e.status is None or e.status in _TRANSIENT_STATUSES
                 if attempt == 0 and transient:
                     await asyncio.sleep(_push_retry_delay(e))
@@ -152,8 +145,6 @@ class ChallongeResultsMixin:
             community=cmatch.tournament.challonge_community,
         )
         if current.get('state') == 'complete':
-            # An admin reported it on Challonge already: theirs stands. Re-sync
-            # so the mirror catches up with the bracket.
             await self.audit_service.write_log(
                 actor, AuditActions.CHALLONGE_RESULT_SKIPPED,
                 {'match_id': match.id, 'challonge_match_id': cmatch.challonge_match_id,
@@ -181,24 +172,18 @@ class ChallongeResultsMixin:
         return True
 
     async def _resync_after_push(self, cmatch: ChallongeMatch, actor: User) -> None:
-        # The push advanced the bracket (next-round matches now open). Re-sync
-        # once so those newly-open matches surface locally without a manual
-        # Sync. Failures here must not undo the successful push.
+        # Failures here must not undo the successful push.
         for attempt in range(2):
             try:
                 await self._sync_tournament(cmatch.tournament, actor, force=True)
                 return
             except ChallongeAPIError as e:
-                # Sentry SGLMAN-2J: a timeout or dropped connection (no status)
-                # usually clears on the next request, so retry it once.
                 if attempt == 0 and e.status is None:
                     await asyncio.sleep(_RESYNC_RETRY_DELAY)
                     continue
                 error: Exception = e
             except ValueError as e:
                 error = e
-            # The result is already on Challonge; auto-sync or a manual Sync
-            # picks up the newly-open matches.
             logger.warning(
                 "Challonge post-push re-sync failed for tournament %s: %s",
                 cmatch.tournament_id, error,  # type: ignore[attr-defined]

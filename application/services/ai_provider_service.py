@@ -75,7 +75,6 @@ class AiProviderService:
             'model': row.model,
             'base_url': row.base_url,
             'daily_limit': row.daily_limit,
-            # False after STORAGE_SECRET changed: the card asks for the key again.
             'key_readable': secret_box.open_(row.key_ciphertext, purpose=_PURPOSE, context=self._context()) is not None,
             'updated_at': row.updated_at,
         }

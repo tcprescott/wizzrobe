@@ -31,11 +31,8 @@ from pathlib import Path
 from typing import NamedTuple, Optional
 
 WWR_DATA_DIR = Path(__file__).resolve().parent / '_wwr_data'
-# The build whose word lists name seeds for any build with none vendored. A seed
-# name never affects whether a permalink works, only how it reads.
 WWR_DEFAULT_WORDS_BUILD = 'dev_tanjo3.1.10.7.3_d30d27c'
 
-# randomizer.py: VALID_SEED_CHARACTERS and MAX_SEED_LENGTH (the banner's limit).
 WWR_SEED_CHARACTERS = frozenset("-_'%." + string.ascii_letters + string.digits)
 WWR_MAX_SEED_LENGTH = 42
 _VERSION_CHARACTERS = frozenset('._-' + string.ascii_letters + string.digits)
@@ -106,8 +103,7 @@ def reseed(permalink: str, seed: str) -> str:
 
 
 def _vendored_dir(version: str) -> Optional[Path]:
-    # The version comes out of a pasted permalink, so it must name a directory
-    # directly under _wwr_data and nothing else.
+    # From a pasted permalink: must name a directory directly under _wwr_data and nothing else.
     if version in ('.', '..') or not all(c in _VERSION_CHARACTERS for c in version):
         return None
     path = WWR_DATA_DIR / version
@@ -191,7 +187,6 @@ def decode_settings(permalink: str) -> Optional[dict]:
             settings[field['name']] = values[index]
         elif kind == 'int':
             value = read((field['max'] - field['min']).bit_length()) + field['min']
-            # Upstream falls back to the option's default; any in-range value reads the same here.
             settings[field['name']] = min(max(value, field['min']), field['max'])
         elif kind == 'starting_gear':
             gear = [item for item in field['regular'] if read(1)]

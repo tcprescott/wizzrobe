@@ -58,14 +58,11 @@ class SwissEngine:
         active_refs = {p.ref for p in active}
         n = len(active)
 
-        # Scale points by 2 so half-point draws survive integer conversion, then
-        # sort best-first deterministically for a stable rank assignment.
+        # Points scaled by 2 so half-point draws survive integer conversion.
         scaled = {p.ref: round(p.points * 2) for p in active}
         ordered = sorted(active, key=lambda p: (-scaled[p.ref], p.ref))
 
-        # Encode a deterministic rank tiebreak into the integer points so the
-        # min-cost matching is unique (see module docstring). ``mult`` dwarfs any
-        # accumulated rank offset, so real score gaps always dominate.
+        # ``mult`` must dwarf any accumulated rank offset so real score gaps always dominate.
         mult = 8 * n * n
 
         sp_players = []

@@ -52,12 +52,9 @@ DESCRIPTION_MAX_LENGTH = 5000
 LOCATION_MAX_LENGTH = 200
 REVIEW_NOTE_MAX_LENGTH = 1000
 MIN_DURATION_MINUTES = 5
-#: Three days: long enough for a room that runs the whole weekend.
 MAX_DURATION_MINUTES = 72 * 60
 MAX_RSVP_CAPACITY = 1000
 
-#: How far back the listing looks for an event that is still running. Matches
-#: the longest event allowed, so nothing in progress drops off early.
 _RUNNING_LOOKBACK = timedelta(minutes=MAX_DURATION_MINUTES)
 
 _EDITABLE = (CommunityEventStatus.PENDING, CommunityEventStatus.APPROVED, CommunityEventStatus.REJECTED)
@@ -73,7 +70,6 @@ class EventDraft:
     duration_minutes: int
     location: Optional[str] = None
     rsvp_enabled: bool = False
-    #: The most people who can RSVP; ``None`` means no cap. Ignored without RSVPs.
     rsvp_capacity: Optional[int] = None
 
 
@@ -148,8 +144,6 @@ class CommunityEventService:
         self.seen = CommunityEventSeenRepository()
         self.audit_service = AuditService()
 
-    # --- access -----------------------------------------------------------
-
     @staticmethod
     async def _ensure_member(actor: Optional[User]) -> None:
         from application.services.tenant_membership_service import TenantMembershipService
@@ -212,8 +206,6 @@ class CommunityEventService:
             'Only the host or staff can change this event.',
         )
         return event
-
-    # --- reading ----------------------------------------------------------
 
     @requires_feature(FeatureFlag.COMMUNITY_EVENTS)
     async def list_upcoming(self, actor: User) -> List[CommunityEvent]:
@@ -289,8 +281,6 @@ class CommunityEventService:
             (pair for pair in attending.values() if ends_at(pair[0]) > start),
             key=lambda pair: (pair[0].starts_at, pair[0].id),
         )
-
-    # --- the host's side --------------------------------------------------
 
     @requires_feature(FeatureFlag.COMMUNITY_EVENTS)
     async def submit(
@@ -412,8 +402,6 @@ class CommunityEventService:
             await notify.notify_subscribers(event, await self._subscribers(event), cancelled=True)
         return event
 
-    # --- subscriptions ----------------------------------------------------
-
     @requires_feature(FeatureFlag.COMMUNITY_EVENTS)
     async def subscribe(self, actor: User, event_id: int) -> None:
         """Follow an approved event for a reminder before it starts. Idempotent."""
@@ -433,8 +421,6 @@ class CommunityEventService:
         subscription = await self.subscriptions.get_for(event_id, actor.id)
         if subscription is not None:
             await self.subscriptions.delete(subscription)
-
-    # --- RSVPs ------------------------------------------------------------
 
     @requires_feature(FeatureFlag.COMMUNITY_EVENTS)
     async def rsvp_state(
@@ -489,8 +475,6 @@ class CommunityEventService:
         event = await self._load_managed(actor, event_id)
         return [s.user for s in await self.subscriptions.list_going(event.id)]
 
-    # --- staff review -----------------------------------------------------
-
     @requires_feature(FeatureFlag.COMMUNITY_EVENTS)
     async def list_for_review(
         self, actor: User, statuses: Optional[List[CommunityEventStatus]] = None,
@@ -539,8 +523,7 @@ class CommunityEventService:
         if event.status is CommunityEventStatus.CANCELLED:
             raise ValueError('This event was already cancelled.')
         was_listed = event.status is CommunityEventStatus.APPROVED
-        # Taking a listed event down drops its subscriptions and RSVPs: they've
-        # just been told it's cancelled, so a later re-approval must not remind them.
+        # Drop subscriptions on take-down: they were told it's cancelled, so a re-approval must not remind them.
         subscribers = await self._subscribers(event) if was_listed else []
         async with in_transaction():
             await self.repository.update(
@@ -556,8 +539,6 @@ class CommunityEventService:
         if subscribers and ends_at(event) > _now():
             await notify.notify_subscribers(event, subscribers, cancelled=True)
         return event
-
-    # --- helpers ----------------------------------------------------------
 
     async def _subscribers(self, event: CommunityEvent) -> List[User]:
         return [s.user for s in await self.subscriptions.list_for_event(event.id)]

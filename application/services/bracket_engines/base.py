@@ -38,7 +38,7 @@ class Slot:
 
     round: int
     position: int
-    slot: int  # 1 or 2
+    slot: int
 
 
 @dataclass

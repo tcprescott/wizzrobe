@@ -51,11 +51,7 @@ class StandingsRow:
     entrant_id: int
     display_name: str
     seed: Optional[int]
-    # Both drop levels are surfaced: ``status`` is this stage's participation
-    # (``BracketEntry``) while ``entrant_status`` is the tournament-wide roster
-    # state ``drop_entrant`` writes. They move independently — a rostered drop
-    # does not cascade into the stage entry — so a caller rendering "dropped"
-    # has to look at both.
+    # Moves independently of ``entrant_status`` (a roster drop doesn't cascade): check both for "dropped".
     status: BracketEntryStatus
     entrant_status: BracketEntrantStatus
     rank: int
@@ -78,8 +74,6 @@ class StandingsGroup:
 
 
 class CompletionMixin(ComposedBracketService):
-    # -- stage completion / round progression -----------------------------
-
     async def _maybe_complete_stage(
         self, bracket: Bracket, actor: Optional[User]
     ) -> None:
@@ -148,8 +142,7 @@ class CompletionMixin(ComposedBracketService):
                     state=BracketMatchState.OPEN,
                 ))
 
-        # Swiss pairs a round into existence already OPEN, so — like generation —
-        # there is no PENDING → OPEN transition for ``_settle_match`` to catch.
+        # Swiss pairs rounds already OPEN: there's no PENDING → OPEN transition for _settle_match to catch.
         for bracket_match in paired:
             await self.notify_matchup_ready(bracket_match)
 
@@ -327,10 +320,6 @@ class CompletionMixin(ComposedBracketService):
             return
         champion_id, runner_up_id, _ = result
 
-        # Depth of each losing entry's elimination match — the match they lost
-        # that has no onward loser pointer (single-elim: their only loss;
-        # double-elim: their second loss, in the losers bracket). Deeper (larger
-        # |round|) = eliminated later = better placement.
         elim_depth: Dict[int, int] = {}
         for m in matches:
             if m.state != BracketMatchState.COMPLETE or m.winner_id is None:
@@ -365,9 +354,6 @@ class CompletionMixin(ComposedBracketService):
         entries: List[BracketEntry],
         tie_breaks: Optional[Dict[int, int]] = None,
     ) -> None:
-        # Each entry's group derives from the matches it played (the engine stamps
-        # group_number on matches, not entries); stamp it back onto the entry so a
-        # later stage can read group + rank.
         group_of: Dict[int, Optional[int]] = {}
         for m in matches:
             for eid in (m.entry1_id, m.entry2_id):
@@ -391,10 +377,6 @@ class CompletionMixin(ComposedBracketService):
                 [e.id for e in group_entries], results, config
             )
             rank_by_ref = {s.ref: s.rank for s in standings}
-            # A group tie decides who advances just as a Swiss tie does, so the
-            # staff ruling applies here too — it used to be honoured on Swiss
-            # only, which made it silently inert on the grouped format where the
-            # cut line is per group and therefore tightest.
             if tie_breaks:
                 rank_by_ref.update(tie_breaks)
             for entry in group_entries:
@@ -424,8 +406,6 @@ class CompletionMixin(ComposedBracketService):
     def _standings_config(bracket: Bracket) -> StandingsConfig:
         return standings_config_from(bracket.config)
 
-    # -- standings (read) -------------------------------------------------
-
     async def standings(self, bracket_id: int) -> List[StandingsGroup]:
         """Live standings of a points-ranked bracket (round robin / Swiss).
 
@@ -452,10 +432,7 @@ class CompletionMixin(ComposedBracketService):
         config = self._standings_config(bracket)
         grouped = bracket.format == BracketFormat.ROUND_ROBIN
 
-        # Group derives from the matches an entry played (the engine stamps
-        # group_number on matches, not entries); unlike the finalize path this read
-        # also runs before a stage starts, so fall back to the entry's own group so
-        # a not-yet-paired entrant still lists under its pool.
+        # Falls back to the entry's own group: this read also runs before a stage starts.
         group_of: Dict[int, Optional[int]] = {}
         if grouped:
             for m in matches:

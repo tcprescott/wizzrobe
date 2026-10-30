@@ -59,8 +59,6 @@ REFRESH_TOKEN_TTL = timedelta(days=30)
 PENDING_TTL = timedelta(minutes=15)
 CONSENT_PATH = '/oauth/consent'
 
-# RFC 7636 §4.1: 43-128 unreserved characters. An S256 challenge is the
-# base64url of a SHA-256 digest, always exactly 43.
 _VERIFIER_RE = re.compile(r'^[A-Za-z0-9\-._~]{43,128}$')
 _CHALLENGE_RE = re.compile(r'^[A-Za-z0-9\-_]{43}$')
 _STATE_MAX = 1024
@@ -138,8 +136,6 @@ class ConsentCommunity:
     tenant_id: int
     name: str
     slug: str
-    #: What this person may grant here: the request, minus staff scopes when
-    #: they hold no role that could use them.
     scopes: List[ApiScope]
 
 
@@ -188,9 +184,6 @@ class TokenResponse:
         }
 
 
-# In-process, like McpAuthService's pending store and for the same reasons:
-# requests live for minutes, a restart just means starting again, and the
-# deployment is single-worker by requirement.
 _pending: Dict[str, PendingAppAuthorization] = {}
 
 
@@ -208,8 +201,6 @@ class OAuthGrantService:
         self.repository = OAuthAppRepository()
         self.token_repository = ApiTokenRepository()
         self.audit_service = AuditService()
-
-    # --- Authorization request ---------------------------------------------
 
     async def begin_authorization(
         self,
@@ -282,8 +273,6 @@ class OAuthGrantService:
     @staticmethod
     def _sweep_pending(room_for: int = 0) -> None:
         prune_parked(_pending, PENDING_TTL, room_for=room_for)
-
-    # --- Consent -----------------------------------------------------------
 
     async def consent_view(self, txn_id: str, user: User) -> ConsentView:
         """What the consent screen offers ``user`` for this request.
@@ -393,8 +382,6 @@ class OAuthGrantService:
         assert app is not None
         return app
 
-    # --- Token endpoint ----------------------------------------------------
-
     async def authenticate_client(self, client_id: Optional[str], client_secret: Optional[str]) -> OAuthApp:
         """Who is calling the token or revocation endpoint.
 
@@ -439,8 +426,6 @@ class OAuthGrantService:
         with tenant_scope(record.tenant_id):
             await self._ensure_still_allowed(user, record.tenant_id, app.id)
             scopes = parse_scope(record.scope)
-            # One live grant per person, app and community: approving again
-            # replaces the old one rather than stacking credentials.
             replaced = await self.token_repository.live_app_grants(user.id, app.id, record.tenant_id)
             for old in replaced:
                 await self.token_repository.revoke(old, now)
@@ -531,8 +516,6 @@ class OAuthGrantService:
             return
         await self._revoke_grant(grant, app, AuditActions.OAUTH_GRANT_REVOKED, 'app')
 
-    # --- REST API ----------------------------------------------------------
-
     async def ensure_grant_usable(self, token: ApiToken) -> None:
         """Refuse an app grant whose app is disabled or whose community has the flag off.
 
@@ -548,8 +531,6 @@ class OAuthGrantService:
             and await self.repository.is_blocked(token.oauth_app_id, token.tenant_id)
         ):
             raise PermissionError('This community has blocked this app.')
-
-    # --- Community staff ---------------------------------------------------
 
     async def list_community_apps(self, actor: User) -> List[CommunityApp]:
         """Apps members of this community have connected, plus any it blocks.
@@ -604,8 +585,6 @@ class OAuthGrantService:
         """Staff of this community, with apps turned on here."""
         await FeatureFlagService().ensure_enabled(FeatureFlag.THIRD_PARTY_APPS)
         await AuthService.ensure(await AuthService.is_staff(actor), 'Only staff can manage connected apps.')
-
-    # --- Internals ---------------------------------------------------------
 
     @staticmethod
     def _new_pair() -> tuple[str, str]:

@@ -31,19 +31,14 @@ from application.tenant_context import require_tenant_id
 from models import Event, EventStatus, Tenant, User
 
 _events_cache: dict[int, tuple['EventRef', ...]] = {}
-#: The ``Event.config`` key of the Broadcasters switch; ``SystemConfigService``
-#: writes it as one of the event's own settings.
 BROADCASTERS_KEY = 'broadcasters'
 NO_BROADCASTERS = "This event doesn't have broadcasters. Staff can turn them on in Event settings → Crew."
 _CACHE_MAX = 2048
 
-#: Lowercase letters, digits and hyphens, 2 to 64 characters, starting with a letter or digit.
 SLUG_RE = re.compile(r'^[a-z0-9][a-z0-9-]{1,63}$')
-#: Slugs that read as something else in a URL.
 RESERVED_SLUGS = frozenset({'api', 'static', 'admin', 'new', 'e', 't', 'login', 'logout', 'help'})
 NAME_MAX = 120
 
-#: Status order on every list: what's on now, what's coming, what's past.
 _STATUS_ORDER = {EventStatus.LIVE: 0, EventStatus.DRAFT: 1, EventStatus.ARCHIVED: 2}
 
 
@@ -63,13 +58,8 @@ class EventRef:
     is_default: bool
     starts_on: Optional[date]
     ends_on: Optional[date]
-    #: The event's own timezone settings (``{mode, name}``), overriding the
-    #: community's; None follows the community.
     timezone: Optional[tuple[str, str]] = None
-    #: Whether matches in this event have a Broadcaster crew role
-    #: (Event settings → Crew). Off by default.
     broadcasters: bool = False
-    #: Set once the retention job deleted an archived event's private data.
     pii_purged: bool = False
 
     @property
@@ -108,7 +98,6 @@ def _flag_of(config: Any, key: str) -> bool:
 
 
 def _sort_key(info: EventRef) -> tuple:
-    # Default first, then by status, then newest first.
     newest = -(info.starts_on.toordinal() if info.starts_on else 0)
     return (not info.is_default, _STATUS_ORDER[info.status], newest, -info.id)
 
@@ -132,7 +121,6 @@ class ArchiveCheck:
         return bool(self.open_matches or self.future_shifts or self.open_race_rooms)
 
 
-
 def with_event_name(label: str, event_id: Optional[int], names: Dict[int, str]) -> str:
     """``SGL 2026 · ALttPR Main`` when ``names`` (from ``names_if_mixed``) has the event, else ``label``."""
     name = names.get(event_id) if event_id is not None else None
@@ -142,8 +130,6 @@ def with_event_name(label: str, event_id: Optional[int], names: Dict[int, str]) 
 
 
 class EventService:
-
-    # ------------------------------------------------------------------ reads
 
     @staticmethod
     async def events_for_tenant(tenant_id: int) -> tuple[EventRef, ...]:
@@ -333,8 +319,6 @@ class EventService:
             open_race_rooms=await EventRepository.open_race_rooms(event_id),
         )
 
-    # ----------------------------------------------------------- first event
-
     @staticmethod
     async def create_first_event(tenant: Tenant) -> Event:
         """Give a new community its first event: live, the default, named after it.
@@ -361,8 +345,6 @@ class EventService:
                 return event
             raise ValueError(f'{tenant.name} has events but no default event.')
         return await EventService.create_first_event(tenant)
-
-    # ------------------------------------------------------------ lifecycle
 
     @staticmethod
     async def _ensure_staff(actor: User) -> None:

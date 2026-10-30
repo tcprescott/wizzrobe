@@ -86,7 +86,6 @@ class AsyncQualifierDraw:
         Reads the pool's prefetched ``permalinks``; the repository's pool reads all
         prefetch them.
         """
-        # A prefetched ReverseRelation iterates; mypy only sees the descriptor.
         links: Iterable[AsyncQualifierPermalink] = pool.permalinks  # type: ignore[assignment]
         return sum(1 for p in links if not p.live_race)
 
@@ -133,8 +132,6 @@ class AsyncQualifierDraw:
         for run in approved:
             score = compute_score(run.elapsed_seconds, par)
             if score != run.score:
-                # None when the permalink has no par yet — a nullable column mypy
-                # reads as non-optional.
                 run.score = score  # type: ignore[assignment]
                 rescored.append(run)
         async with in_transaction():
@@ -142,9 +139,6 @@ class AsyncQualifierDraw:
                 permalink, par_time=par, par_updated_at=datetime.now(timezone.utc)
             )
             if rescored:
-                # One statement rather than one per run: a permalink at real scale
-                # holds hundreds of approved runs and every review re-scores all of
-                # them, inside the request the reviewer is waiting on.
                 await ensure_writable(AsyncQualifierRun.filter(id__in=[run.id for run in rescored]))
                 await AsyncQualifierRun.bulk_update(rescored, fields=['score'])
 

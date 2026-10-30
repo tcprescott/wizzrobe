@@ -28,7 +28,6 @@ from models import (
 
 
 class SchedulingMixin(ComposedBracketService):
-    # -- B9: scheduling seam (mirrors the Challonge integration) ----------
     async def list_open_matches_for_user(
         self, user_id: int, tournament_id: Optional[int] = None
     ) -> List[BracketMatch]:
@@ -155,17 +154,11 @@ class SchedulingMixin(ComposedBracketService):
             "Bracket match",
         )
         if bracket_match.state == BracketMatchState.COMPLETE:
-            # Distinguished from PENDING below: "not ready yet" is wrong and
-            # confusing for a series that is already over.
             raise ValueError("This series is already decided.")
         if bracket_match.state != BracketMatchState.OPEN:
             raise ValueError("This bracket match isn't ready to schedule yet.")
         if bracket_match.bracket.state == BracketState.CANCELLED:
-            # Cancelling a stage flips the bracket's state and leaves its
-            # matchups OPEN, so the matchup check above passes on a stage that
-            # is terminal and cannot be advanced from. Hiding it from the
-            # listings is not enough — a stale dialog, the REST route and the
-            # admin's link picker all arrive here too.
+            # Must stay: a cancelled stage leaves its matchups OPEN, so the matchup check above passes on it.
             raise ValueError("This stage was cancelled — its matches can no longer be scheduled.")
         if not self._both_entrants_linked(bracket_match):
             raise ValueError("Both players must be linked to schedule this match.")
@@ -190,8 +183,6 @@ class SchedulingMixin(ComposedBracketService):
         from application.services.match.match_service import MatchService
         from application.services.round_schedule_service import RoundScheduleService
 
-        # The round's window binds players; staff confirm past it with
-        # ``allow_outside_round`` (see RoundScheduleService).
         rounds = RoundScheduleService()
         await rounds.check_booking(
             await rounds.window_for_bracket_match(bracket_match), bracket.tournament,
@@ -275,7 +266,6 @@ class SchedulingMixin(ComposedBracketService):
             booked_by_you=booker is not None and actor is not None and booker.id == actor.id,
         )
 
-    # -- linking a manually-scheduled match onto a matchup -----------------
     async def list_linkable_matches(self, tournament_id: int) -> List[BracketMatch]:
         """OPEN matchups in a tournament that a ``Match`` could still be linked to.
 

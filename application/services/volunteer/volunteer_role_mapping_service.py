@@ -202,8 +202,7 @@ class VolunteerRoleMappingService:
             roles_by_position: Dict[int, Set[Role]] = {}
             mappable = set(Role.volunteer_mappable())
             for m in mappings:
-                # Filtered here too: a stored row is what reaches this side, so a
-                # mapping written before the allow-list existed grants nothing.
+                # Filter stored rows too: a mapping saved before the allow-list must grant nothing.
                 if m.app_role in mappable:
                     roles_by_position.setdefault(m.position.id, set()).add(m.app_role)
             users = await self.user_repository.get_by_ids(sorted(ids))
@@ -236,9 +235,7 @@ class VolunteerRoleMappingService:
         tenant_id = require_tenant_id()
 
         granting = sorted(desired - current_all, key=lambda r: r.value)
-        # Assigning a shift requires membership, so a non-member here was
-        # removed after being scheduled. Their old shifts must not re-admit
-        # them; only staff bring someone back.
+        # A non-member here was removed after scheduling: old shifts must not re-admit them.
         if granting and not await TenantMembershipService().is_member(user):
             granting = []
         for role in granting:

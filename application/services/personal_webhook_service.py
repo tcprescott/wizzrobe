@@ -71,8 +71,6 @@ logger = logging.getLogger(__name__)
 
 MAX_PER_USER = 3
 NAME_MAX = 80
-# Two tries, not the staff three: a member's endpoint is more often a
-# half-finished experiment, and every retry is our outbound traffic.
 MAX_ATTEMPTS = 2
 PAUSE_AFTER_FAILURES = 20
 DELIVERIES_PER_MINUTE = 60
@@ -94,8 +92,6 @@ class PersonalEvent:
     event_type: str
     area: str
     label: str
-    # Sent only when it is about the owner, even with "Only things about me" off:
-    # someone else's crew signup or qualifier run is not something a member sees.
     mine_only: bool = False
 
 
@@ -109,8 +105,7 @@ AREAS: Tuple[WebhookArea, ...] = (
 )
 AREAS_BY_KEY = {a.key: a for a in AREAS}
 
-# match.cancelled and match.deleted are left out on purpose: both remove the
-# match before a delivery can look at it, so there is no way to tell whose it was.
+# match.cancelled/deleted left out: the match is gone before delivery can tell whose it was.
 EVENTS: Tuple[PersonalEvent, ...] = (
     PersonalEvent(EventType.MATCH_CREATED, 'matches', 'Booked'),
     PersonalEvent(EventType.MATCH_RESCHEDULED, 'matches', 'Moved'),
@@ -152,7 +147,6 @@ SUBSCRIBABLE_EVENT_TYPES = frozenset(EVENTS_BY_TYPE)
 _DISCORD_HOSTS = frozenset({'discord.com', 'discordapp.com', 'ptb.discord.com', 'canary.discord.com'})
 _DISCORD_MARKDOWN = re.compile(r'([\\*_~`|>#\[\]()-])')
 
-# Single worker, so an in-process window is enough (see notification_channel_service).
 _hits: Dict[Tuple[str, int], Deque[float]] = defaultdict(deque)
 
 
@@ -234,16 +228,12 @@ class PersonalWebhookService:
         self.repository = PersonalWebhookRepository()
         self.audit_service = AuditService()
 
-    # ------------------------------------------------------------ catalogue
-
     @staticmethod
     @requires_feature(FeatureFlag.PERSONAL_WEBHOOKS)
     async def available_areas() -> List[WebhookArea]:
         """Areas this community has the features for."""
         live = await FeatureFlagService().enabled_flags()
         return [a for a in AREAS if a.flag is None or a.flag in live]
-
-    # ------------------------------------------------------------ CRUD
 
     @requires_feature(FeatureFlag.PERSONAL_WEBHOOKS)
     async def list_mine(self, user: User) -> List[PersonalWebhook]:
@@ -343,8 +333,6 @@ class PersonalWebhookService:
         ok, status, error = await self._post(webhook, 'webhook.test', view, datetime.now(timezone.utc))
         if not ok:
             raise ValueError(f"The test didn't go through: {error or f'HTTP {status}'}")
-
-    # ------------------------------------------------------------ delivery
 
     # feature-gate: exempt — a worker: it skips a tenant with the flag off instead of raising.
     async def deliver_event(self, event: Event) -> None:
@@ -503,8 +491,6 @@ class PersonalWebhookService:
         # No pings from text a player wrote: names and titles go out as-is.
         return {'username': 'Wizzrobe', 'embeds': [embed], 'allowed_mentions': {'parse': []}}
 
-    # ------------------------------------------------------------ views
-
     async def _match_view(self, match_id: Optional[int], owner: User) -> Optional[_View]:
         if not match_id:
             return None
@@ -650,8 +636,6 @@ class PersonalWebhookService:
         view.lines.append(f'Room: {room.url}')
         view.url = room.url
         return view
-
-    # ------------------------------------------------------------ internals
 
     async def _link(self, view: _View) -> Optional[str]:
         if view.url:

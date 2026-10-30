@@ -49,11 +49,8 @@ from models import (
 
 logger = logging.getLogger(__name__)
 
-#: A match started longer ago than this and never finished is treated as
-#: abandoned, so a forgotten Finish doesn't leave "Now Playing" on for days.
 LIVE_MATCH_WINDOW = timedelta(hours=12)
 
-#: How many unreachable people the state keeps for "See who".
 UNREACHABLE_CAP = 300
 
 AUDIT_REASON = 'Wizzrobe role sync'
@@ -129,7 +126,6 @@ class RoleSyncOverview:
     rules: Dict[str, DiscordRoleRule]
     state: Optional[DiscordRoleSyncState]
     roles: List[RoleChoice]
-    #: Why the server's roles couldn't be read (no server linked, Discord down).
     roles_error: Optional[str]
     badges_available: bool
 
@@ -189,7 +185,6 @@ class DiscordRoleSyncService:
                     id=int(role['id']), name=str(role['name']),
                     color=int(role.get('color') or 0), problem=problem,
                 ))
-            # Roles the bot can hand out first; the greyed ones explain themselves below.
             roles.sort(key=lambda r: r.problem is not None)
         return RoleSyncOverview(rules, state, roles, roles_error, badges_available)
 
@@ -355,7 +350,6 @@ class DiscordRoleSyncService:
 
         qualifying = await self._qualifying(rules, badges_on)
         desired: Dict[int, Set[int]] = {}
-        # Which event's rule asked for a role first, to tag the grant with.
         giver: Dict[Tuple[int, int], Optional[int]] = {}
         for rule in rules:
             if problems.get(rule.discord_role_id) is None:
@@ -448,11 +442,7 @@ class DiscordRoleSyncService:
         return result
 
 
-# --- Sync requests ---------------------------------------------------------
-# Rule changes and events (a match starting, an enrollment) mark the tenant for
-# a sync on the worker's next short tick, so bursts coalesce into one run.
-# Module-level on purpose: the app runs one worker process (scaling-roadmap.md),
-# and this holds tenant ids, never per-user state.
+# Module-level on purpose: one worker process, and it holds tenant ids, never per-user state.
 _pending: Set[int] = set()
 
 

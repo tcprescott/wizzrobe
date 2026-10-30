@@ -55,13 +55,10 @@ def rolling_elapsed_label(started_at: datetime) -> str:
     return f'Rolling… {seconds // 60}:{seconds % 60:02d}'
 
 
-#: The states in which a rolled seed can still be needed at a room PC. Started
-#: is in on purpose: a seed rerolled mid-race has to be downloadable there, so a
-#: match leaves the room view when it finishes, not when it starts.
+# 'Started' is deliberate: a seed rerolled mid-race must stay downloadable at the room PC.
 ROOM_SEED_STATES = ('Scheduled', 'Checked In', 'Started')
 
-# The Stage filter's "No stage" choice. Stage ids start at 1, so 0 never names
-# a real stage and can ride in the same multi-select list as the real ones.
+# 0 is safe as the sentinel only because stage ids start at 1.
 NO_STAGE = 0
 
 
@@ -169,8 +166,6 @@ class MatchDisplayService:
         match_ids_loaded = [m.id for m in matches]
         ack_map = await self.ack_repository.list_for_matches(match_ids_loaded)
         volunteer_map = await self.volunteer_repository.names_by_match(match_ids_loaded)
-        # One query for the whole page, not one per row: the seed cell asks "is
-        # this match rolling?" of every row it draws.
         rolling_map, failed_map = await self.provider_task_repository.board_state_for_matches(
             match_ids_loaded,
         )
@@ -206,7 +201,6 @@ class MatchDisplayService:
     @staticmethod
     async def _attach_partner_invites(rows: List[Dict[str, Any]]) -> None:
         """Each row's commentary partner invites still waiting on an answer, one query."""
-        # Only a tournament wanting two or more commentators has partners to invite.
         invites = await CommentaryInviteRepository.pending_by_match(
             [r['id'] for r in rows if (r.get('commentary_seats') or 0) >= 2])
         for row in rows:
@@ -233,8 +227,6 @@ class MatchDisplayService:
         """
         from application.services import bracket_sources
 
-        # Only a tournament linked to a bracket site can have one, and the
-        # tournament is already loaded: a board with none costs no query.
         linked = {
             m.id for m in matches
             if m.tournament and (m.tournament.challonge_tournament_id or m.tournament.startgg_event_slug)
@@ -368,7 +360,6 @@ class MatchDisplayService:
         return {
             'id': bracket.id,
             'name': bracket.name,
-            # Only meaningful in a best-of-N series; game 1 of 1 is just "the match".
             'game': number if number and (number > 1 or best_of > 1) else None,
             'best_of': best_of,
             'standing': standing,
@@ -463,32 +454,16 @@ class MatchDisplayService:
 
         return {
             'id': match.id,
-            # Not rendered as a column — it is how the surfaces *name* the match
-            # in their copy, so a confirmation dialog can say what it is about
-            # instead of quoting a primary key (``match_labels.match_row_label``).
             'title': match.title or '',
-            # Staff markdown, rendered on the match sheet; the flattened text is
-            # the run sheet's one-line summary of it.
             'description': getattr(match, 'description', None) or '',
             'description_text': plain_text(parse_user_blocks(desc)) if (desc := getattr(match, 'description', None)) else '',
-            # Per-row board capabilities are scoped by tournament (MatchBoardAccess).
             'tournament_id': match.tournament_id,  # type: ignore[attr-defined]
             'tournament': match.tournament.name if match.tournament else '',
-            # The run sheets' label; the full name rides along as its tooltip.
             'tournament_short': match.tournament.short_label if match.tournament else '',
-            # None unless a bracket scheduled this match; drives the schedule's
-            # link into the (publicly readable) bracket view.
             'bracket': self._bracket_ref(match),
-            # "Game 2 of 3" comes from the set's other games: _attach_set_labels.
-            # A crew hold's round ("Grand final") rides here, beside the tournament.
             'set_label': match.title if getattr(match, 'crew_hold_source', None) else None,
             'scheduled_at': format_local_datetime(match.scheduled_at) if match.scheduled_at else '',
-            # Sort key and urgency flag for the proctor board. The formatted
-            # ``scheduled_at`` string is display-only and does not sort.
             'scheduled_ts': to_utc_aware(match.scheduled_at).timestamp() if match.scheduled_at else None,
-            # Once a match starts, the run sheets show these instead of the
-            # booked time: the actual start, then the finish, or while it runs
-            # an estimate of start + the tournament's match length.
             'started_ts': to_utc_aware(match.started_at).timestamp() if match.started_at else None,
             'finished_ts': to_utc_aware(match.finished_at).timestamp() if match.finished_at else None,
             'match_length': getattr(match.tournament, 'average_match_duration', None),
@@ -499,19 +474,9 @@ class MatchDisplayService:
                 and to_utc_aware(match.scheduled_at) < datetime.now(timezone.utc)
             ),
             'state': state,
-            # The proctor's dispute flag: "an admin should look at this before
-            # confirming". Cleared by confirming.
             'needs_review': match.needs_review,
-            # Whether a result is on the board. A match can be Finished with
-            # nothing recorded, and ``confirm_match`` refuses that — so the
-            # surfaces gate the Confirm control on this rather than on the state
-            # alone, instead of offering a button whose only outcome is a refusal.
-            # The *same* predicate the service enforces, not a second spelling of
-            # it: see ``has_recorded_result``. An open race confirms with none
-            # (``closes_without_winner``).
+            # Must stay the predicate confirm_match enforces: a Finished match can have no result.
             'has_result': has_recorded_result(match.players) or closes_without_winner(match.players),
-            # "No-show" etc. when staff decided it by forfeit; the player left
-            # without a finish rank is the one who forfeited.
             'forfeit': reason.label if (reason := getattr(match, 'forfeit_reason', None)) else '',
             'state_timestamp': state_timestamp,
             'state_time': format_local_time(state_changed_at),
@@ -527,16 +492,9 @@ class MatchDisplayService:
                 }
                 for p in match.players
             ],
-            # A booking made before the bracket decided its players: what stands
-            # in for each empty side ("Andy or Benny"), and whether a reset cut
-            # it loose from its matchup.
             'placeholders': list(getattr(match, 'bracket_placeholders', None) or []),
             'bracket_link_lost': bool(getattr(match, 'bracket_link_lost', False)),
-            # Crew signed up for a bracket matchup nobody has booked yet: this
-            # match only holds their signups (``CrewHoldService``).
             'crew_hold': getattr(match, 'crew_hold_source', None) is not None,
-            # Players who said they're running late, while it still matters:
-            # check-in makes the heads-up moot, so it drops off the row then.
             'late': [] if match.seated_at or match.finished_at else [
                 {
                     'name': p.user.preferred_name,
@@ -548,18 +506,14 @@ class MatchDisplayService:
                 for p in match.players if getattr(p, 'late_minutes', None) is not None  # type: ignore[attr-defined]
             ],
             'late_window': late_window_open(match),
-            # Players release their own seed on this tournament, and right now
-            # (checked in, no seed yet, nothing rolling) their Ready counts.
             'seed_ready_open': seed_ready_open(match) and rolling_task is None,
-            # "1 of 2 ready", for the staff boards' seed line while that's true.
             'seed_ready_label': (
                 '{} of {} ready'.format(*ready_count(match))
                 if seed_ready_open(match) and rolling_task is None else ''
             ),
             'acknowledgments': acknowledgments_summary,
             'stage': match.stage.name if match.stage else '',
-            # The id, not just the name: the board's Stage cell is a select whose
-            # value is the assigned stage, so it needs what the service takes back.
+            # The id, not the name: the board's Stage select needs the value the service takes back.
             'stage_id': match.stage_id,  # type: ignore[attr-defined]
             'stage_url': (
                 match.stage.stream_url
@@ -568,61 +522,32 @@ class MatchDisplayService:
                 else ''
             ),
             'is_stream_candidate': match.is_stream_candidate,
-            # Players who put this match forward for stream. Advisory: it does
-            # not set is_stream_candidate and does not book anything — staff read
-            # it while they build the stream schedule. Names rather than a count,
-            # because "one of the two asked" is the interesting case.
             'stream_volunteers': list(stream_volunteers or []),
-            # Online (racetime.gg) tournaments run remotely, so the table hides
-            # on-site-only controls (check-in, station assignment) for their rows.
             'is_racetime': match.tournament.is_racetime_enabled if match.tournament else False,
             'seed': match.generated_seed.seed_url if match.generated_seed else '',
             'generated_seed': match.generated_seed.seed_url if match.generated_seed else '',
-            # The file-select code racers compare before starting, as one line.
             'seed_code': seed_code_line(match.generated_seed.seed_code if match.generated_seed else None),
             'tournament_seed_generator': match.tournament.seed_generator if match.tournament else None,
-            # When an in-flight task-queue roll started, so the cell can show a
-            # live elapsed clock. Server-side and therefore shared: it survives a
-            # refresh and every viewer sees the same roll in progress, unlike the
-            # per-browser flag it replaces. ``None`` whenever nothing is rolling.
             'seed_rolling_since': (
                 to_utc_aware(rolling_task.created_at).isoformat()
                 if rolling_task is not None else None
             ),
-            # Rendered server-side rather than computed in the Vue slot: a slot
-            # template has no ticking clock of its own, so the board refreshes
-            # this label on a timer while any row is rolling.
+            # Server-rendered on purpose: a slot template has no ticking clock to recompute it.
             'seed_rolling_label': (
                 rolling_elapsed_label(rolling_task.created_at)
                 if rolling_task is not None else ''
             ),
-            # Why the last roll produced nothing. Without this the row reverts to
-            # a plain Generate button, which is exactly what an unrolled match
-            # looks like — so the person who clicked and walked away is never
-            # told it broke. Only meaningful while the match has no seed; a
-            # later successful roll fills that in and the cell stops asking.
             'seed_roll_error': (
                 failed_task.error or 'The seed roll did not complete.'
                 if failed_task is not None else ''
             ),
-            # Players the seed DM cannot reach — no linked Discord account, or
-            # DMs opted out. This is deliverability, not delivery: it mirrors the
-            # skip condition in ``_send_seed_dms`` and says nothing about whether
-            # any DM was actually sent or read. ``players__user`` is already
-            # prefetched, so this costs no extra query.
+            # Must match the skip condition in _send_seed_dms.
             'seed_dm_blocked': [
                 p.user.preferred_name for p in match.players
                 if not (p.user.discord_id and p.user.dm_notifications)
             ],
-            # Whether crew signup is still open on this match — the *same*
-            # predicate ``CrewService.signup_crew`` enforces, not a second
-            # spelling of it, so the table stops offering a control whose only
-            # outcome is a refusal. Withdrawing is deliberately not gated on it.
+            # Must match the open check CrewService.signup_crew enforces; withdrawing is deliberately ungated.
             'crew_signup_open': match.started_at is None and match.finished_at is None,
-            # Which crew roles this tournament actually uses. A tournament that
-            # requires none of a role has no use for volunteers in it, so the
-            # table stops offering Sign up (existing signups still render, and
-            # CrewService refuses a signup that gets here another way).
             'crew_wanted': {
                 'commentators': (
                     match.tournament.required_commentators > 0 if match.tournament else True
@@ -632,15 +557,7 @@ class MatchDisplayService:
                 ),
                 'broadcasters': need_broadcasters > 0,
             },
-            # Whether this match's event has the Broadcaster role at all, so a
-            # board shows the column only where some row can use it.
             'broadcasters_on': broadcasters_on,
-            # How much approved crew the match needs, per role, so the home
-            # board's Needs crew switch can tell a covered match from an open
-            # one. Same numbers (and same no-tournament default) as the
-            # coverage report's ``crew_requirement``. Crew only works a match
-            # on a stage, so a match without one needs none: every board,
-            # filter and checklist reads "needed" from this.
             'crew_required': {
                 **dict(zip(
                     ('commentators', 'trackers'),
@@ -659,15 +576,12 @@ class MatchDisplayService:
                     'acknowledged': c.acknowledged_at is not None,
                     'ack_ts': format_local_display(c.acknowledged_at) if c.acknowledged_at else '',
                     'id': c.id,
-                    # The commentator who invited them, while that one's still on.
                     'invited_by_id': getattr(c, 'invited_by_id', None),
                     'with': next((o.user.preferred_name for o in match.commentators  # type: ignore[attr-defined]
                                   if getattr(c, 'invited_by_id', None) and o.user_id == c.invited_by_id), ''),
                 }
                 for c in match.commentators
             ],
-            # Commentators the tournament wants, stage or not: two or more and a
-            # commentator can bring a partner while there's a seat left.
             'commentary_seats': (match.tournament.required_commentators or 0) if match.tournament else 0,
             'trackers': [
                 {

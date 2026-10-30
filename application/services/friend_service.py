@@ -26,7 +26,6 @@ def _by_name(people: Iterable[User]) -> list[User]:
 class FriendService:
     """Read and replace one person's friends list."""
 
-    #: Generous for a weekend's crowd, small enough that a picker stays usable.
     MAX_FRIENDS = 100
 
     def __init__(self) -> None:

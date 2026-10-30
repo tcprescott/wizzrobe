@@ -84,11 +84,7 @@ class HeldResult:
     other_runners: List[str] = field(default_factory=list)
     fpa_calls: List[dict] = field(default_factory=list)
 
-# One opener at a time per room key. The 60s poll and the series push can both
-# reach the same match, and with a ``startrace`` round trip between "no room yet"
-# and the row being written, two of them would otherwise open two racetime rooms.
-# Process-local, which is enough under the single-worker deployment
-# (docs/scaling-roadmap.md); weak values so idle keys don't accumulate.
+# One opener per room key: the poll and the series push can both reach a match and open two rooms.
 _open_locks: "weakref.WeakValueDictionary[str, asyncio.Lock]" = weakref.WeakValueDictionary()
 
 
@@ -126,8 +122,6 @@ class RaceRoomService:
         self.room_repository = RacetimeRoomRepository()
         self.audit_service = AuditService()
 
-    # ---- creation / open -------------------------------------------------
-
     @requires_feature(FeatureFlag.RACETIME_ROOMS)
     async def create_room_for_match(
         self, match: Match, *, actor: Optional[User] = None, attach_seed: bool = True,
@@ -152,9 +146,7 @@ class RaceRoomService:
                 raise ValueError('This tournament has no racetime bot configured.')
             settings = await self._room_settings(tournament, match)
 
-            # Everything fallible goes before startrace: once racetime has opened
-            # the room, a failure here would leave it with no row, and the next
-            # tick would open a second one.
+            # Everything fallible before startrace, or a failure leaves a rowless room and the next tick opens another.
             actor = actor or await self._system_actor()
             slug = await start_racetime_room(bot, settings)
             try:
@@ -180,8 +172,6 @@ class RaceRoomService:
             actor, room, match, AuditActions.RACE_ROOM_OPENED, EventType.RACE_ROOM_OPENED,
         )
         await self._notify_players_room_open(match, room)
-        # A room the bot runs posts its own seed, at the tournament's set time
-        # before the start (RaceRoomBotService), not the moment the room opens.
         if attach_seed and not tournament.racetime_bot_runs_room:
             await self._attach_seed(match, actor)
         return room
@@ -227,8 +217,6 @@ class RaceRoomService:
             body = race_room_open_dm(
                 tournament.name, time_field(match.scheduled_at), player_names=names,
             )
-            # The bot invites and scores players by their racetime account, so a
-            # player without one is sent to link it first.
             unlinked_body = unlinked_link = None
             if tournament.racetime_bot_runs_room:
                 unlinked_body = race_room_open_unlinked_dm(
@@ -290,30 +278,24 @@ class RaceRoomService:
         from models import FeatureFlag
 
         if not await FeatureFlagService().is_enabled(FeatureFlag.RACETIME_ROOMS):
-            return None  # tenant has racetime rooms disabled
+            return None
         lead = match.tournament.room_open_minutes_before or 30
         if match.scheduled_at is None or match.scheduled_at > now + timedelta(minutes=lead):
-            return None  # not yet within this tournament's lead window
+            return None
         if await self.room_repository.get_by_match(match) is not None:
-            return None  # idempotent: a room already exists
+            return None
         bot = await match.tournament.racetime_bot
         if bot is None:
-            return None  # no authorized bot to host the room
+            return None
         if not self._goal_for(match.tournament, await match.tournament.race_room_profile):
-            # Staff opening one by hand get the reason; the worker would only
-            # log the same refusal every tick.
             logger.info('auto-open skipped for match %s: no racetime goal set', match.id)
             return None
         players = list(match.players)
         if not players:
             return None
-        # A room the bot runs opens for unlinked players too: they're DMed to
-        # link racetime, staff see the gap on the row, and the result waits for
-        # staff if they never do.
         if not match.tournament.racetime_bot_runs_room and not all(
             getattr(p.user, 'racetime_user_id', None) for p in players
         ):
-            # Eligibility gate: every entrant must have linked racetime.
             logger.info(
                 'auto-open skipped for match %s: not all entrants have '
                 'linked racetime', match.id,
@@ -331,10 +313,7 @@ class RaceRoomService:
         """
         return await self.room_repository.open_for_player(user.id)
 
-    # ---- transitions -----------------------------------------------------
-    # Driven by racetime for a room that already exists, so deliberately not
-    # gated: switching RACETIME_ROOMS off mid-race must not drop its result or
-    # leave a match unable to cancel its room.
+    # Not gated: turning RACETIME_ROOMS off mid-race must not drop a result or strand a room.
 
     # feature-gate: exempt — lifecycle of an already-open room (see above).
     async def mark_in_progress(self, room: RacetimeRoom, *, actor: Optional[User] = None) -> None:
@@ -484,8 +463,6 @@ class RaceRoomService:
         )
         match_live.publish(match.id)
 
-    # ---- held results ----------------------------------------------------
-
     @requires_feature(FeatureFlag.RACETIME_ROOMS)
     async def held_result(self, actor: Optional[User], match_id: int) -> HeldResult:
         """What the Check result dialog shows for a held race: the reason, and
@@ -567,8 +544,6 @@ class RaceRoomService:
             extra={'checked_hold': reason.value if hasattr(reason, 'value') else str(reason)},
         )
 
-    # ---- result mapping --------------------------------------------------
-
     @staticmethod
     def _map_results(
         match: Optional[Match], entrants: List[RaceEntrant],
@@ -601,12 +576,10 @@ class RaceRoomService:
                 continue
             mp = by_rtid.get(entrant.user_id)
             if mp is not None:
-                results[mp] = (None, None)  # forfeit / no-show / DQ
+                results[mp] = (None, None)
             elif entrant.status != EntrantStatus.DONE:
                 unmatched.append(unmatched_handle(entrant))
         return results, unmatched
-
-    # ---- internals -------------------------------------------------------
 
     async def _attach_seed(self, match: Match, actor: User) -> None:
         """Roll and attach the tournament's seed (best-effort, non-blocking failure)."""
@@ -663,8 +636,7 @@ class RaceRoomService:
             logger.exception('challonge push failed for match %s', match.id)
 
     async def _notify_bracket_sources(self, match: Match, actor: User) -> None:
-        # The confirm path reaches start.gg through this hook; a bot-finished
-        # race must too, or its result never leaves Wizzrobe.
+        # A bot-finished race must reach this hook too, or its result never leaves Wizzrobe.
         from application.services import bracket_sources
 
         await bracket_sources.on_match_confirmed(match, actor)
@@ -707,17 +679,11 @@ class RaceRoomService:
             detail['tournament_id'] = match.tournament_id
         if extra:
             detail.update(extra)
-        # Builds this domain's shared room-detail payload, then hands the
-        # audit-then-publish pairing to the one shared implementation rather than
-        # repeating it here.
         await self.audit_service.write_and_publish(
             actor, audit_action, detail, event_type,
         )
 
 
-# Lifecycle adapter the racetimebot/ handler injects: translates a transport
-# RaceRoomEvent into the matching RaceRoomService transition. Lives here (not in
-# racetimebot/) so the handler stays a thin presentation shim.
 class RaceRoomLifecycle:
     """Route a transport room event to the right :class:`RaceRoomService` call."""
 
@@ -725,8 +691,6 @@ class RaceRoomLifecycle:
         self.service = service or RaceRoomService()
 
     async def handle_event(self, room: RacetimeRoom, event: RaceRoomEvent) -> None:
-        # The bot arriving in a room, and what's said there, are the room bot's;
-        # only status changes drive the lifecycle below.
         if event.kind != 'race':
             if room.match_id is not None:  # type: ignore[attr-defined]
                 from application.services.race_room_bot_service import RaceRoomBotService
@@ -737,8 +701,6 @@ class RaceRoomLifecycle:
                 elif event.kind == 'chat':
                     await bot.on_chat(room, event)
             return
-        # A room with no match is a qualifier live race (PR 10); route it to the
-        # qualifier capture path instead of the match path.
         if room.match_id is None and await self._route_qualifier(room, event):
             return
         if event.status == RaceRoomStatus.IN_PROGRESS:
@@ -747,7 +709,6 @@ class RaceRoomLifecycle:
             await self.service.record_finish(room, event.entrants)
         elif event.status == RaceRoomStatus.CANCELLED:
             await self.service.cancel_room(room)
-        # OPEN is a no-op: the room already exists in that state.
 
     async def _route_qualifier(self, room: RacetimeRoom, event: RaceRoomEvent) -> bool:
         """Drive a qualifier live race if the room maps to one; else return False.
@@ -770,9 +731,7 @@ class RaceRoomLifecycle:
             await service.record_finish(live_race, event.entrants)
             await self.service.room_repository.update(room, status=RaceRoomStatus.FINISHED)
         elif event.status == RaceRoomStatus.CANCELLED:
-            # The race itself, not only its room: without this the qualifier's live
-            # race stays at scheduled or in-progress with nothing to distinguish it
-            # from one still to come.
+            # Cancel the live race too, or it stays scheduled/in progress like one still to come.
             await service.mark_cancelled(live_race)
             await self.service.room_repository.update(room, status=RaceRoomStatus.CANCELLED)
         return True

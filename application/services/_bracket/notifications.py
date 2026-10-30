@@ -44,7 +44,6 @@ logger = logging.getLogger(__name__)
 
 
 class BracketNotificationMixin(ComposedBracketService):
-    # -- round naming ------------------------------------------------------
     async def round_name_for(self, bracket: Bracket, round_number: int) -> str:
         """The human name of one round of a stage — "Semifinals", "Losers Round 2".
 
@@ -68,7 +67,6 @@ class BracketNotificationMixin(ComposedBracketService):
                 for r in rows
             ],
             double_elim=bracket.format == BracketFormat.DOUBLE_ELIM,
-            # Defined on AdvancementMixin, reachable on the composed service.
             elimination=bracket.format in self._ELIM_FORMATS,  # type: ignore[attr-defined]
         )
         return names.get(round_number) or f'Round {round_number}'
@@ -87,7 +85,6 @@ class BracketNotificationMixin(ComposedBracketService):
             return f'Group {bracket_match.group_number} · {name}'
         return name
 
-    # -- series context for the ordinary match DMs -------------------------
     async def bracket_line_for_match(self, match_id: int) -> str:
         """"Semifinals · Game 2 of 3 · Series 1-0" for a match, or '' if not a game.
 
@@ -182,7 +179,6 @@ class BracketNotificationMixin(ComposedBracketService):
             return ''
         return f'Winner to {await self.round_name_for(bracket, target.round)}'
 
-    # -- the matchup-ready DM ----------------------------------------------
     async def notify_matchup_ready(
         self, bracket_match: BracketMatch, *, rebook: bool = False,
     ) -> None:

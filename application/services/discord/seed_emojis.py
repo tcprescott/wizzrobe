@@ -21,8 +21,6 @@ from application.services._seedgen_codes import ALTTPR_CODE_NAMES, DK64R_CODE_NA
 
 logger = logging.getLogger(__name__)
 
-# OoTR's HASH_ICONS, in its order. OoTR only returns a code to a key with spoiler
-# access, so this set stays dormant until one does.
 OOTR_CODE_NAMES = (
     'Deku Stick', 'Deku Nut', 'Bow', 'Slingshot', 'Fairy Ocarina', 'Bombchu',
     'Longshot', 'Boomerang', 'Lens of Truth', 'Beans', 'Megaton Hammer',
@@ -32,8 +30,6 @@ OOTR_CODE_NAMES = (
     'Skull Token', 'Heart Container', 'Boss Key', 'Compass', 'Map', 'Big Magic',
 )
 
-# Emoji set prefix and its icon names. AVIANART rolls ALTTPR seeds, so it
-# shares that set (its door presets' short names are mapped back already).
 EMOJI_SETS: dict[str, tuple[str, tuple[str, ...]]] = {
     'alttpr': ('alttpr', ALTTPR_CODE_NAMES),
     'avianart': ('alttpr', ALTTPR_CODE_NAMES),
@@ -44,7 +40,6 @@ EMOJI_SETS: dict[str, tuple[str, tuple[str, ...]]] = {
 # The roll waits on this, so a slow Discord costs the icons, not the DM.
 FETCH_TIMEOUT_SECONDS = 3
 
-# Most rolls read the cached list; a fresh upload still shows up within minutes.
 REFRESH_SECONDS = 300
 
 _emojis: dict[str, str] = {}

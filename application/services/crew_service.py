@@ -62,14 +62,9 @@ from models import Broadcaster, Commentator, Match, Tracker, User
 
 logger = logging.getLogger(__name__)
 
-# Signing up and undoing it are a tap each, and every signup DMs each of the
-# match's crew owners, so a loop would flood them (and the DM queue every
-# community shares). One notice per person, match and slot per window is plenty.
 _SIGNUP_NOTICE_WINDOW = timedelta(minutes=10)
 _SIGNUP_NOTICE_MAX = 2048
 _signup_notices: dict[tuple[int, int, str], datetime] = {}
-# The crew row each recent notice was about, so a signup made again inside the
-# window turns the owners' "withdrawn" DMs back into the ask.
 _signup_notice_rows: dict[tuple[int, int, str], int] = {}
 
 _WITHDREW_NOTICE = {
@@ -131,14 +126,6 @@ class CrewService:
         """
         check_role(role)
 
-        # The audit's measured symptom was not that a stranger *saw* a new
-        # community's schedule — it was that they were offered Sign Up on it. The
-        # page gate stops them reaching the surface, but UI-only gating is not
-        # gating: this is reached from the REST API and a Discord button too.
-        # ``admit`` rather than a bare membership check: the Discord signup
-        # button is often someone's first contact with the community, and a
-        # community whose rule would let them in should do so here too, not
-        # only once they've opened a web page.
         from application.services.tenant_membership_service import TenantMembershipService
         if not await TenantMembershipService().admit(user):
             raise ValueError(
@@ -150,23 +137,12 @@ class CrewService:
             f"Match {match_id}",
         )
 
-        # Crew signup closes once the match is under way. Enforced here (not in a
-        # single caller) so the web UI, REST API, and Discord button all honor it.
-        # The audit measured signups accepted on matches already in progress, on
-        # which "awaiting approval" describes a match that will be over before
-        # anyone reads it. Seated-but-not-started stays open on purpose: that is
-        # exactly when a stream discovers it still needs a commentator.
-        # Withdrawing stays open in either state.
+        # Seated-but-not-started stays open on purpose; withdrawing is never gated on this.
         if match.finished_at is not None:
             raise ValueError("This match has already finished. Crew signup is closed.")
         if match.started_at is not None:
             raise ValueError("This match has already started. Crew signup is closed.")
 
-        # A tournament that requires none of a role does not staff it, and the
-        # schedule hides its Sign up control — but UI-only hiding is not a rule,
-        # so refuse here too, for the REST route and the Discord button.
-        # Withdrawing stays open: a signup from before the setting changed must
-        # still be removable.
         if await required_crew(match, role) == 0:
             if role == 'broadcaster' and not await EventService.broadcasters_on(match.event_id):
                 raise ValueError(NO_BROADCASTERS)
@@ -210,10 +186,6 @@ class CrewService:
         """
         check_role(role)
 
-        # The audit's measured symptom was not that a stranger *saw* a new
-        # community's schedule — it was that they were offered Sign Up on it. The
-        # page gate stops them reaching the surface, but UI-only gating is not
-        # gating: this is reached from the REST API and a Discord button too.
         from application.services.tenant_membership_service import TenantMembershipService
         if not await TenantMembershipService().is_member(user):
             raise ValueError(
@@ -230,8 +202,7 @@ class CrewService:
         if not crew_member:
             raise ValueError(f"You're not signed up as {role} for this match.")
 
-        # Read before the delete: the row is the only place the approver is
-        # recorded, and the notification below needs it.
+        # Read before the delete: the row is the only record of the approver.
         was_approved = bool(crew_member.approved)
         approved_by_id = crew_member.approved_by_id
 
@@ -311,17 +282,12 @@ class CrewService:
                     'players': [p.user.preferred_name for p in match.players],
                     'approved': bool(entry.approved),
                     'acknowledged': entry.acknowledged_at is not None,
-                    # The state of the *match*, so a commitment to something
-                    # already played reads as history rather than as a duty.
                     'started': match.started_at is not None,
                     'finished': match.finished_at is not None,
                 })
-        # A match with no time sorts last: it is real, but it is not "next".
         rows.sort(key=lambda r: (r['scheduled_at'] is None, r['scheduled_at']))
         return rows
 
-    #: How long a match occupies its crew when the tournament says nothing.
-    #: Same default ``MatchSuggestionService`` uses for player availability.
     DEFAULT_MATCH_MINUTES = 90
 
     async def find_scheduling_conflicts(
@@ -348,9 +314,7 @@ class CrewService:
             or self.DEFAULT_MATCH_MINUTES
         )
         window = timedelta(minutes=minutes)
-        # Widened both ways so a match starting shortly *before* this one, and
-        # still running, is caught — a window anchored only forward would miss
-        # the overlap that matters most.
+        # Widened both ways: a forward-only window misses a match that started earlier and is still running.
         others = await self.match_repository.commitments_for_user(
             user.id, start - window, start + window, exclude_match_id=match.id,
         )
@@ -392,7 +356,6 @@ class CrewService:
         was_approved = bool(crew_member.approved)
         was_acknowledged = crew_member.acknowledged_at is not None
 
-        # No-op if state already matches — don't audit or DM for a click that didn't change anything.
         if was_approved == approved:
             return crew_member
 
@@ -618,9 +581,6 @@ class CrewService:
         discord_queue.enqueue(
             self.discord_service.send_dm_with_crew_acknowledgment_button(
                 int(discord_id), message, crew_type, crew_member.id, embed=embed,
-                # Acknowledging is one button; the other opens the crew member's
-                # own card for this match, where Confirm and Withdraw both live.
-                # The whole community board left them hunting for their row.
                 link=await notification_links.crew_match(crew_member.match.id), notice=CREW_ASSIGNED.to(CREW),
             )
         )
@@ -740,8 +700,6 @@ class CrewService:
             for owner in await TournamentRepository.get_crew_owners(match.tournament_id):
                 recipients[owner.id] = owner
         if approved_by_id and approved_by_id not in recipients:
-            # The approver is the one person who acted on this signup, and may be
-            # community STAFF rather than one of the tournament's own people.
             approver = await User.get_or_none(id=approved_by_id)
             if approver:
                 recipients[approver.id] = approver
@@ -771,8 +729,6 @@ class CrewService:
                         f'as {crew_type}. The slot is open again.',
             fields=fields,
         )
-        # The ask is "find someone else", so the button opens the board already
-        # filtered to this match rather than the whole schedule.
         link = await notification_links.admin_match(
             match.id, label='Fill the slot',
         )

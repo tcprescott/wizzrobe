@@ -66,8 +66,6 @@ class GuildMember:
 class GuildOpsMixin:
     """Guild, role and member operations against the live bot."""
 
-    #: Set by the composed class's ``__init__``; declared so the mixin's own
-    #: reads type-check without the composed class being visible from here.
     _bot: Optional[commands.Bot]
 
     async def list_guilds(self) -> Tuple[bool, Union[List[Dict[str, Union[int, str]]], str]]:
@@ -89,7 +87,7 @@ class GuildOpsMixin:
             if not self._bot.is_ready():
                 return False, "Discord bot is not connected. Please try again in a moment."
 
-            guilds = self._bot.guilds  # cached list of Guild objects
+            guilds = self._bot.guilds
             data = [{"id": g.id, "name": g.name} for g in guilds]
             return True, data
         except Exception as e:
@@ -128,7 +126,6 @@ class GuildOpsMixin:
 
             roles_list: List[discord.Role]
             try:
-                # Prefer explicit fetch to ensure complete/updated role list
                 roles_list = await guild.fetch_roles()
             except Exception:
                 roles_list = list(getattr(guild, "roles", []))
@@ -433,7 +430,6 @@ class GuildOpsMixin:
                 try:
                     member = await guild.fetch_member(user_id)
                 except discord.NotFound:
-                    # Not a member of the guild → cannot administer it.
                     return True, False
             perms = member.guild_permissions
             return True, bool(perms.administrator or perms.manage_guild)

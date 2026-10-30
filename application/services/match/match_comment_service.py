@@ -28,13 +28,8 @@ from application.services.auth_service import AuthService
 from application.utils.timezone import format_local_display
 from models import Match, MatchComment, MatchCommentKind, User
 
-#: Long enough for a paragraph or two of markdown, short enough to keep the
-#: match sheet a sheet.
 MAX_COMMENT_LENGTH = 2000
 
-#: A player's comments per match in a rolling minute. Each one refreshes every
-#: open staff board, so one player holding Send down can churn the floor's
-#: screens mid-event; nobody genuine posts this fast. Staff are not limited.
 PLAYER_COMMENTS_PER_MINUTE = 10
 
 logger = logging.getLogger(__name__)
@@ -43,7 +38,6 @@ _STAFF_KINDS = (MatchCommentKind.STAFF_PRIVATE, MatchCommentKind.STAFF_TO_PLAYER
 
 
 def _player_ids(match: Match) -> set:
-    # Reverse relation: mypy cannot see it on a dynamically built model.
     return {p.user_id for p in match.players}  # type: ignore[attr-defined]
 
 
@@ -106,9 +100,7 @@ class MatchCommentService:
             EventType.MATCH_COMMENT_ADDED,
             event_extra={
                 'tournament_id': match.tournament_id,  # type: ignore[attr-defined]
-                # Only what the players were told leaves the app: a webhook is
-                # an outside listener, and the telemetry mirror outlives a
-                # delete, so player comments and private notes carry no text.
+                # Only staff-to-player text leaves the app: webhooks are outside listeners and telemetry outlives a delete.
                 **({'body': body} if kind is MatchCommentKind.STAFF_TO_PLAYERS else {}),
             },
         )
@@ -122,8 +114,7 @@ class MatchCommentService:
         from application.services.staff_alert_service import StaffAlertService
 
         try:
-            # Resolved here, in the request's tenant scope; the queue worker
-            # that sends the DMs runs outside it.
+            # Resolve here, in the request's tenant scope: the queue worker that sends the DMs runs outside it.
             recipients = await StaffAlertService.tagged_match_alert_recipients(
                 match, can_act=AuthService.can_run_match, exclude=(author.id,),
             )

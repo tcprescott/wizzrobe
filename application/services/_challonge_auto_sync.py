@@ -21,10 +21,7 @@ from application.utils.clients.challonge_client import ChallongeAPIError
 from models import FeatureFlag, Tournament, User
 
 AUTO_SYNC_CONFIG_KEY = 'challonge_auto_sync_minutes'
-# Off, then the intervals on offer, in minutes.
 AUTO_SYNC_CHOICES: Tuple[int, ...] = (0, 15, 30, 60, 120, 360)
-# get_tournament_full plus the participants call it makes when any entrant has
-# a Challonge account, which is nearly always.
 REQUESTS_PER_SYNC = 2
 
 logger = logging.getLogger(__name__)

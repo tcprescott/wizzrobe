@@ -499,10 +499,6 @@ class MatchNotificationMixin:
                 stage_name=match.stage.name if match.stage else None,
             )
 
-            # Beside the Acknowledge button, not instead of it: someone who
-            # cannot make the time needs the match, and "reply to an admin" is
-            # not a route. The match itself rather than the whole board, where
-            # it is one row of fifteen and its Ask to change sits on that row.
             link = await notification_links.player_match(match.id)
             acks = await self.acknowledgment_repository.list_for_match(match)
             for ack in acks:
@@ -597,9 +593,6 @@ class MatchNotificationMixin:
                 tournament=match.tournament.name, community_name=community,
                 player_names=player_names, when=match.scheduled_at,
             )
-            # The signup buttons cover the crew roles; the link covers
-            # everything else the reader might want to decide first — who is
-            # playing, what else is on that day.
             link = await notification_links.community_schedule()
             broadcaster = await _wants_broadcaster(match)
             for user in subscribers:
@@ -634,13 +627,10 @@ class MatchNotificationMixin:
         stream-candidate subscriber DMs. Shared by create/update/request flows.
         """
         await match.fetch_related('tournament', 'players__user', 'stage')
-        # A booking made before the bracket decided its players names the empty sides.
         player_names = [p.user.preferred_name for p in match.players] + list(getattr(match, 'bracket_placeholders', None) or [])
         build_message = rescheduled_dm if rescheduled else scheduled_dm
         bracket_line = await bracket_line_for(match.id)
 
-        # Players are told by the acknowledgment request; everyone else hears it
-        # in copy that is true for them (see discord_messages.AUDIENCE_*).
         def message_for(audience: str, crew_roles: Sequence[str] = ()) -> str:
             return build_message(
                 match.tournament.name,
@@ -671,7 +661,6 @@ class MatchNotificationMixin:
         ))
         discord_queue.enqueue(MatchHardPresetService().send_offer(match))
 
-        # Collect IDs already notified to avoid duplicates in subscriber fan-out
         notified_ids = await self._collect_notified_discord_ids(match)
         discord_queue.enqueue(self.notify_tournament_subscribers_scheduled(
             match, message_for(AUDIENCE_SUBSCRIBER), notified_ids, embed,
@@ -684,8 +673,7 @@ class MatchNotificationMixin:
         stream candidate (used when toggling the flag outside the scheduling flow)."""
         await match.fetch_related('tournament')
         notified_ids = await self._collect_notified_discord_ids(match)
-        # Resolve the embed-footer community here (request context); the enqueued
-        # coroutine runs later in the scope-less discord_queue worker.
+        # Resolve here, in request context: the enqueued coroutine runs later in the scope-less queue worker.
         community = await _community_name()
         discord_queue.enqueue(self.notify_stream_candidate_subscribers(match, notified_ids, community))
 

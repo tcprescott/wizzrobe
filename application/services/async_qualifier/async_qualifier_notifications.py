@@ -97,8 +97,6 @@ async def notify_run_expiring(run: AsyncQualifierRun, deadline: datetime) -> Non
             int(discord_id),
             qualifier_run_expiring_dm(
                 run.qualifier.name,
-                # Discord's own timestamp markup, so each recipient reads the
-                # deadline on their own clock rather than the server's.
                 deadline_display=time_field(deadline),
                 qualifier_url=_qualifier_url(run),
             ),
@@ -130,8 +128,6 @@ async def notify_run_expired(run: AsyncQualifierRun, limit_hours: int) -> None:
 
 
 def _qualifier_url(run: AsyncQualifierRun, *, runs: bool = False) -> str:
-    # Always a string: ``tenant_url`` returns one, and a run with no tenant gets
-    # '' so the message builders simply omit the link.
     if not run.tenant:
         return ''
     qualifier_id = run.qualifier_id  # type: ignore[attr-defined]
@@ -152,12 +148,9 @@ async def notify_review_queue_waiting(
     the reason the queue stopped being pull-only. A reviewer with no Discord id is
     skipped silently — the Reviewers tab badges them so somebody can notice.
     """
-    # The worker hands over a qualifier it listed with ``tenant`` prefetched, but a
-    # caller that loaded it any other way leaves the relation a queryset — and a
-    # link built from that yields ``'QuerySet' object has no attribute 'slug'``.
+    # Don't drop this: a qualifier loaded without tenant prefetched leaves a QuerySet and the link breaks.
     await qualifier.fetch_related('tenant')
-    # The queue is an event page: without its event a bare link would open the
-    # default event's queue, which doesn't hold this qualifier once another is live.
+    # Pass the event: a bare link opens the default event's queue, which may not hold this qualifier.
     slug = await notification_links.event_slug(qualifier.tenant_id, qualifier.event_id)  # type: ignore[attr-defined]
     path = event_path(slug, admin_qualifier_queue_url(qualifier.id))
     link = notification_links.link_for_tenant(qualifier.tenant, 'Open the review queue', path)

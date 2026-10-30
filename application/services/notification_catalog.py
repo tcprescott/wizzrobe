@@ -50,8 +50,6 @@ class Notice:
     title: str
     when: str
     defaults: Mapping[NotificationRecipient, NotificationMode]
-    # Who each recipient column means for this message, where the column name
-    # alone would mislead ("Staff" is the on-duty desk for some, all staff for others).
     who: Mapping[NotificationRecipient, str]
 
     def to(self, recipient: NotificationRecipient) -> NoticeTarget:
@@ -98,7 +96,6 @@ _OPTED_IN = 'Only people who turned it on in their Profile'
 def _opted_in(who: str) -> str:
     return f'{who}, only if they turned it on in their Profile'
 
-# Matches
 MATCH_SCHEDULED = _notice(
     'match_scheduled', 'Matches', 'Match scheduled or rescheduled',
     'A match is booked, its time changes, or players are added to it',
@@ -141,8 +138,6 @@ MATCH_RESULT = _notice(
     {PLAYERS: _opted_in('Every player in the match'),
      FOLLOWERS: _opted_in('People following the tournament, at their follow level')},
 )
-# Tournament admins hear every result the moment it lands, wherever it was
-# reported, so they stop refreshing the bracket. Silent: there's nothing to do.
 RESULT_IN = _notice(
     'result_in', 'Matches', 'Result in',
     'A result is recorded, comes from the race room, or is reported on Challonge or start.gg',
@@ -280,7 +275,6 @@ SETTINGS_RELEASED = _notice(
     'Staff release a forced preset, so players choose again', {PLAYERS: PING},
 )
 
-# Brackets
 MATCHUP_READY = _notice(
     'matchup_ready', 'Brackets', 'Matchup ready to schedule',
     'A bracket matchup becomes bookable', {PLAYERS: SILENT},
@@ -316,7 +310,6 @@ PLAYER_WITHDREW = _notice(
     {ADMINS: PING}, {ADMINS: _opted_in(_TOURNAMENT_ADMINS)},
 )
 
-# Reschedule requests
 RESCHEDULE_REQUEST = _notice(
     'reschedule_request', 'Reschedule requests', 'Reschedule or cancel request',
     'A player asks to move or cancel a match',
@@ -340,10 +333,7 @@ REQUEST_WITHDRAWN = _notice(
     {PLAYERS: PING}, {PLAYERS: _opted_in('The opponent who was asked')},
 )
 
-# Crew
 _CREW_OWNERS = "The tournament's admins and crew coordinators"
-# Split by role so a community can hear about commentary and let tracking stay
-# quiet. Silent by default: a busy event sends a lot of these and none is urgent.
 COMMENTATOR_SIGNUP = _notice(
     'commentator_signup', 'Crew', 'New commentator signup',
     'Someone signs up to commentate', {ADMINS: SILENT}, {ADMINS: _CREW_OWNERS},
@@ -393,7 +383,6 @@ CREW_PARTNER_ANSWERED = _notice(
     {CREW: 'The commentator who sent the invite'},
 )
 
-# Volunteer shifts
 SHIFT_ASSIGNED = _notice(
     'shift_assigned', 'Volunteer shifts', 'Shift assigned',
     'A coordinator assigns a shift or publishes a draft', {VOLUNTEERS: PING},
@@ -442,7 +431,6 @@ VOLUNTEER_ARRIVED = _notice(
     {ON_DUTY: _opted_in(_ON_SHIFT_ROSTER), ADMINS: _opted_in('Volunteer coordinators'), STAFF: _opted_in(_FALLBACK)},
 )
 
-# Community
 JOIN_REQUEST = _notice(
     'join_request', 'Community', 'Join request', 'Someone asks to join',
     {STAFF: PING}, {STAFF: 'All staff'},
@@ -520,7 +508,6 @@ SURVEY_REMINDER = _notice(
     {MEMBERS: "Everyone it was sent to who hasn't answered"},
 )
 
-# Event check-in
 CHECKED_IN = _notice(
     'checked_in', 'Event check-in', "You're checked in",
     'The desk checks someone in (the desk also sees whether it arrived)',
@@ -532,7 +519,6 @@ MATCHERINO_REFUSED = _notice(
     {STAFF: PING}, {STAFF: 'The staff member who saved the login'},
 )
 
-# Async qualifiers
 RUN_APPROVED = _notice(
     'run_approved', 'Async qualifiers', 'Run approved',
     'A reviewer approves a run, or overturns a rejection',
@@ -570,8 +556,6 @@ REVIEW_QUEUE = _notice(
 )
 
 
-# Subheadings inside the bigger groups, in display order. A group missing here
-# shows its messages under the group heading alone.
 SECTIONS: Dict[str, Tuple[Tuple[str, Tuple[Notice, ...]], ...]] = {
     'Matches': (
         ('Booking', (
@@ -628,10 +612,6 @@ def notices() -> List[Notice]:
     )
 
 
-# The staff columns staff set together from one "Staff" dropdown on the settings
-# page. The per-recipient settings stay the stored truth; a choice writes all of
-# a message's staff recipients at once, and a mix that matches no choice reads
-# back as custom.
 STAFF_RECIPIENTS = (ON_DUTY, ADMINS, STAFF)
 
 
@@ -685,10 +665,6 @@ def staff_choice_for(
     return None
 
 
-# What each message asks of the person who gets it, for the presets on Profile →
-# Notifications. "Urgent" is time-critical (go to the stage, the room is open);
-# "act" asks for something (acknowledge, answer, pick a time). Everything else is
-# news. A target in neither set is news.
 _URGENT: Dict[str, frozenset] = {
     MATCH_CHECKED_IN.key: frozenset({PLAYERS, CREW}),
     SEED_READY.key: frozenset({PLAYERS}),
@@ -753,10 +729,6 @@ _ACT: Dict[str, frozenset] = {
 }
 
 
-# Messages nobody gets until they turn them on under Profile → Notifications.
-# The community column still holds the ceiling (staff can switch one off for
-# everybody), but every preset leaves an opt-in target off, so adding one never
-# changes what anybody already receives.
 _OPT_IN: Dict[str, frozenset] = {
     SEED_FAILED.key: _STAFF_ALERTS,
     STATION_ASSIGNED.key: frozenset({PLAYERS}),

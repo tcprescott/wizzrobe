@@ -36,7 +36,6 @@ def ff1r_reference_url(settings: Optional[dict]) -> str:
     return url
 
 
-# Randomizers a player runs on their own machine from a seed and a flag string.
 FLAG_GAMES = {'z1r': 'Zelda 1', 'z2r': 'Zelda 2', 'smb3r': 'Super Mario Bros. 3'}
 
 
@@ -55,7 +54,6 @@ def flag_string(randomizer: str, settings: Optional[dict]) -> str:
     return flags
 
 
-# Each game's own seed range, as its randomizer accepts it.
 FLAG_SEED_RANGES = {
     'z1r': (0, 8999999999999999999),
     'z2r': (0, 1000000000),

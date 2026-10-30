@@ -40,7 +40,6 @@ async def start_dm_check(entrant: CheckInEntrant, event_name: str) -> None:
     from application.services.notification_settings_service import NotificationSettingsService
     from models import NotificationMode
 
-    # Turned off in Admin → Notifications: no DM, so no result for the desk to show.
     if await NotificationSettingsService.mode_for(CHECKED_IN.to(MEMBERS)) is NotificationMode.OFF:
         return
     await _record(entrant, CheckInDmStatus.PENDING, now)

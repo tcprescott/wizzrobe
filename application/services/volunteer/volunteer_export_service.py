@@ -186,8 +186,6 @@ class VolunteerExportService:
         for user_windows in windows_by_user.values():
             user_windows.sort(key=lambda w: w.starts_at)
 
-        # Coordinators who assigned or checked someone in are usually staff, not
-        # volunteers, so they are missing from the roster map above.
         staff_ids = {
             actor_id
             for shift in shifts
@@ -235,8 +233,6 @@ class VolunteerExportService:
             community_name=await TenantService.current_community_name() or '',
         )
 
-    # --- sheets -----------------------------------------------------------
-
     def _volunteers_sheet(
         self,
         users: Mapping[int, User],
@@ -251,8 +247,6 @@ class VolunteerExportService:
                 assigned_windows.setdefault(assignment.user_id, []).append(
                     (shift.starts_at, shift.ends_at)
                 )
-        # Overlapping shifts count once, as on the Hours roster: the CSV is what
-        # comp tiers get checked against when it's forwarded.
         assigned_count = {uid: len(w) for uid, w in assigned_windows.items()}
         assigned_hours = {uid: round(merged_hours(w), 2) for uid, w in assigned_windows.items()}
 

@@ -25,11 +25,10 @@ from application.services.stream_layout_rules import KIND_HOLE
 W, H = 1920, 1080
 _COLOUR_RE = re.compile(r'^#[0-9a-fA-F]{6}$')
 
-# Hole names: one name is one OBS feed, so layouts that share them share wiring.
+# Hole names are OBS feed names: renaming one breaks the wiring layouts share.
 P1_GAME, P2_GAME = 'Player 1 game', 'Player 2 game'
 P1_CAM, P2_CAM, COMMS_CAM = 'Player 1 cam', 'Player 2 cam', 'Comms cam'
 
-# Offered beside the community's own colour in the New layout dialog.
 BACKGROUNDS: tuple[tuple[str, str], ...] = (
     ('Charcoal', '#16181D'),
     ('Navy', '#14213D'),
