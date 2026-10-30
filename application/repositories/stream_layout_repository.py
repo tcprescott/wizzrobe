@@ -46,6 +46,8 @@ class StreamLayoutRepository(TenantScopedRepository[StreamLayout]):
             qs = qs.exclude(id=exclude_id)
         return await qs.exists()
 
+    # ── art ────────────────────────────────────────────────────────────
+
     @staticmethod
     async def set_art(layout: StreamLayout, content: bytes, sha256: str) -> None:
         art = await StreamLayoutArt.get_or_none(layout_id=layout.id, tenant_id=current_tenant_id())
@@ -66,6 +68,8 @@ class StreamLayoutRepository(TenantScopedRepository[StreamLayout]):
         """The art bytes for this exact layout and hash; read with no tenant bound."""
         art = await StreamLayoutArt.get_or_none(tenant_id=tenant_id, layout_id=layout_id, sha256=sha256)
         return art.content if art else None
+
+    # ── stage overlays ─────────────────────────────────────────────────
 
     @staticmethod
     async def stages() -> List[Stage]:
@@ -99,6 +103,8 @@ class StreamLayoutRepository(TenantScopedRepository[StreamLayout]):
     async def overlay_by_token(token: str) -> Optional[StageOverlay]:
         """The overlay a URL names, across every community: the token decides."""
         return await StageOverlay.get_or_none(token=token).prefetch_related('stage', 'layout', 'event')
+
+    # ── matches ────────────────────────────────────────────────────────
 
     @staticmethod
     async def match_for_overlay(match_id: int) -> Optional[Match]:
