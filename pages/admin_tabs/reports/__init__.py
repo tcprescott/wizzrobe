@@ -39,17 +39,10 @@ _REPORT_HANDLERS = {
     'exports': exports_page,
 }
 
-# Reports whose subsystem is behind a per-tenant flag. A community that has
-# never enabled volunteer scheduling used to get a Volunteer Coverage card, open
-# it, and read volunteer data — the report was the only entry surface that did
-# not check (REST mounts behind require_feature, the MCP tool declares the flag,
-# both Vol. tabs test it). The service now refuses too; this is the surface half.
 _REPORT_FEATURES = {
     'volunteers': FeatureFlag.VOLUNTEERS,
 }
 
-# The reports a volunteer coordinator without staff, TA or CC standing may open
-# (Exports for their volunteer data ZIPs); ``build_admin_tabs`` passes it as ``only``.
 VOLUNTEER_REPORTS: frozenset[str] = frozenset({'volunteers', 'exports'})
 
 
@@ -97,8 +90,6 @@ async def _render_report(
     if handler is None and only is not None:
         return
     if handler is None:
-        # The dashboard takes a window like every other report now; the rest of
-        # the filter params belong to reports it is not rendering.
         await dashboard_page(
             live=live, start=params.get('start'), end=params.get('end'),
         )
@@ -116,24 +107,12 @@ async def reports_page(
 
     ``only`` limits the viewer to those report keys (see ``_render_report``).
     """
-    # Keeps the operator's scroll position across a filter change and
-    # acknowledges a drill-out click while they wait. Installed once here rather
-    # than per report so the dashboard gets it too; the script keys off the
-    # URL's ``report`` param and no-ops outside /admin/reports.
+    # Installed here, not per report, so the dashboard gets it too.
     ui.add_head_html(f'<script src="{asset_url("js/report-nav.js")}"></script>')
 
-    # One query for every report and every dashboard card, rather than an
-    # is_enabled call in each module. Resolved outside the refreshable: flags do
-    # not change under an open tab, and re-querying per filter change would put
-    # a DB round-trip on the path this refactor exists to shorten.
     live = await FeatureFlagService().enabled_flags()
 
-    # The refresh boundary for the whole subsystem. Every filter control routes
-    # through ``navigate_with_params``, which re-invokes this with the new
-    # params instead of reloading the page — so a filter change costs one report
-    # body, not a navigation, a fresh websocket and every other admin tab.
-    # The filter strip is built *inside* each report body, so it is rebuilt too
-    # and its handlers close over the new values rather than the stale ones.
+    # The filter strip is built inside each report body, so its handlers close over the new values.
     @steady_refreshable
     async def report_body(report: Optional[str], params: dict) -> None:
         await _render_report(report, params, live, only)

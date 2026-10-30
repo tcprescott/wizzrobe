@@ -27,7 +27,6 @@ from theme.banner import banner
 if TYPE_CHECKING:
     from theme.event_switcher import EventSwitcherState
 
-#: Marks a control that changes the event: hidden while the event is archived.
 WRITE_CLASS = 'wiz-write'
 READ_ONLY_CLASS = 'wiz-read-only'
 
@@ -35,7 +34,6 @@ READ_ONLY_CLASS = 'wiz-read-only'
 @dataclass(frozen=True)
 class ArchivedView:
     event: EventRef
-    #: The viewer may unarchive it (staff), so the banner carries the button.
     actor: Optional[User] = None
 
 

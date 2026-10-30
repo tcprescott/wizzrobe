@@ -16,7 +16,6 @@ from application.utils.timezone import format_local_date
 from models import SurveyAudience, SurveyQuestionKind
 from pages.admin_tabs.admin_surveys.comment_sheet import CommentSheet
 
-#: How far under the other groups' average a group is before it's flagged.
 OUTLIER_POINTS = 20
 
 _SECTION_WHO = {
@@ -106,7 +105,6 @@ def headline(result: QuestionResult, b: Optional[Breakdown] = None) -> Tuple[str
         return f'avg {b.average}', f'{b.top_share}% rated 4–5'
     if kind is SurveyQuestionKind.NPS and b.score is not None:
         low, _, high = b.nps_split
-        # Under about 50 answers one person swings the score a lot; the split says more.
         return f'{b.score:+d}', f'{high}% gave 9–10, {low}% 0–6' if b.count < 50 else f'avg {b.average}'
     score = score_of(kind, b)
     if score is not None:

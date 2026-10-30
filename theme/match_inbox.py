@@ -93,10 +93,7 @@ class MatchInbox:
         scoped_background(self._render_context, self._reload())
 
     async def _reload(self) -> None:
-        # Query first, then clear and rebuild in one step. A refreshable that
-        # awaits after clearing leaves the inbox empty for the length of the
-        # query, and the CSS hides an empty inbox, so the board beside it
-        # jumped to full width and back on every refresh (several per confirm).
+        # Query first, then clear and rebuild in one step: awaiting after the clear empties the inbox and the board jumps width.
         self._generation += 1
         generation = self._generation
         requests = await self._requests()
@@ -115,9 +112,7 @@ class MatchInbox:
         )
 
     async def render(self) -> None:
-        # Item handlers run in their button's slot, and a refresh (theirs or a
-        # live update) can delete it mid-await; their UI calls go through the
-        # page's client instead (SGLMAN-2B).
+        # A refresh can delete a handler's button mid-await, so UI calls go through the page's client.
         self._client = context.client
         self._help = await resolve_help(('staff-queues',))
         self._build(await self._requests())
@@ -154,7 +149,6 @@ class MatchInbox:
             self._group('requests', 'Reschedule requests', requests, self._request_item)
             self._group('site', 'Played on the bracket site', played, self._site_item)
             self._group('held', 'Racetime results held', held, self._held_item)
-            # Disputed first: it needs a decision, an unflagged result only a click.
             finished.sort(key=lambda r: (not r.get('needs_review'), r.get('has_result'), r.get('scheduled_ts') or 0))
             self._group('results', 'Results', finished, self._result_item)
             self._group('late', 'Running late', late, self._late_item)
@@ -220,8 +214,6 @@ class MatchInbox:
                     .props('outline color=primary')
                 ui.button('Approve', on_click=approve).props('color=primary')
             else:
-                # Cancelling deletes the match, and a request with no time needs
-                # one picked: both go through the full decision dialog.
                 ui.button('Review', on_click=lambda r=request: self.open_request(r.id)) \
                     .props('color=primary')
 

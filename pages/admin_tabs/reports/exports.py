@@ -33,8 +33,6 @@ _STATUS_CHIP = (
     '<span class="wiz-chip" :class="props.row.status_cls">{{ props.row.status }}</span>'
     '<div v-if="props.row.error" class="text-caption st-cancelled q-mt-xs">{{ props.row.error }}</div>'
 )
-# The phone card is one line of name and one of numbers, as in the picked
-# mockup; the generic column-per-row card ran 16 tournaments to six screens.
 _TOURNAMENT_CARD = (
     '<div class="q-pa-xs col-xs-12 col-sm-6">'
     '<q-card bordered flat class="q-pa-sm wiz-grid-card">'

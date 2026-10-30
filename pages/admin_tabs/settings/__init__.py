@@ -50,7 +50,6 @@ from theme.page_header import nested_page_headers, page_header
 from theme.save_footer import UnsavedChanges
 from theme.url_state import TAIL, url_param, url_state
 
-#: The admin drawer label, and so the ``selected_tab`` value this page hears.
 SETTINGS_TAB_LABEL = 'Settings'
 
 LEGACY_TAB_PANES: dict[str, str] = {
@@ -72,7 +71,6 @@ class EmbeddedPage:
 
     render: Callable[..., Awaitable[None]]
     kwargs: dict = field(default_factory=dict)
-    #: The old tab label its ``wire_tab_refresh`` listens for.
     refresh_label: Optional[str] = None
 
 
@@ -82,7 +80,6 @@ class SettingsPane:
     label: str
     icon: str
     subtitle: str
-    #: A pane built from cards of its own; takes ``can_edit``.
     native: Optional[Callable[[bool], Awaitable[None]]] = None
     embedded: tuple[EmbeddedPage, ...] = ()
 
@@ -243,7 +240,6 @@ def resolve_pane(panes: list[SettingsPane], requested: Optional[str]) -> Optiona
     return by_slug.get(slug or '')
 
 
-#: Arms the browser's own leave-page prompt while any card has unsaved edits.
 _BEFOREUNLOAD_JS = """
 if (!window.__wizUnsavedHook) {
     window.__wizUnsavedHook = true;
@@ -265,18 +261,16 @@ async def admin_settings_page(
 ) -> None:
     if not panes:
         return
-    # The address, not ``pane``: that is the request's, stale once the viewer
-    # has switched tabs, and Back lands here with a different one.
+    # The address, not `pane`: that's the request's, stale after a tab switch or Back.
     pane = url_state().requested(TAIL)
     current = resolve_pane(panes, pane)
     if pane and current is None:
-        # A DM button or bookmark can outlive the pane it named.
         ui.notify('That settings page doesn’t exist any more. Pick one below.', color='warning')
     has_home = len(panes) > 1
     can_edit = await AuthService.is_staff(
         await get_user_from_session(app.storage.user))
-    # Captured now: a pane built later is built inside a click handler, which
-    # has lost the tenant, the display zone and the table layouts.
+    # Captured now: a pane built later is built in a click handler, which has lost the tenant,
+    # the display zone and the table layouts.
     tenant_id = get_current_tenant_id()
     tz = current_timezone_name()
     prefs = current_table_prefs()
@@ -312,8 +306,6 @@ async def admin_settings_page(
         ui.run_javascript('window.scrollTo(0, 0)')
 
     async def restore_pane(slug: str) -> None:
-        # A pane left with unsaved edits keeps them: its container is only
-        # hidden, so Forward finds them where they were.
         target = resolve_pane(panes, slug) if slug else None
         if target is None:
             reveal(None)
@@ -389,8 +381,6 @@ async def admin_settings_page(
         await build(current)
 
     def on_admin_tab(e) -> None:
-        # Coming back to Settings from another admin tab: the open pane's
-        # embedded pages want the refresh their own tab used to get.
         if e.args != tab_label:
             return
         if state['slug'] is None:

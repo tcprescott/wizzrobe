@@ -62,8 +62,6 @@ def _redirect_target(redirect_uri: str) -> str:
     parsed = urlparse(redirect_uri or '')
     if parsed.scheme in ('http', 'https') and parsed.netloc:
         return parsed.netloc
-    # A native client's custom scheme (``cursor://…``) has no netloc; the scheme
-    # is the identifying part, so show the URI as given rather than nothing.
     return redirect_uri or 'an unknown address'
 
 
@@ -97,9 +95,6 @@ def create() -> None:
         service = McpAuthService()
         user = await get_user_from_session(app.storage.user)
         if user is None:
-            # AuthMiddleware normally prevents this; if the session is half-built
-            # the safe move is to send them to sign in rather than render a
-            # consent screen with no identity behind it.
             return RedirectResponse('/login', status_code=302)
 
         ui.page_title('Authorize — Wizzrobe')
@@ -114,8 +109,6 @@ def create() -> None:
         client_name = client.client_name if client else 'An MCP client'
 
         offered = await service.offered_scopes(user)
-        # Reads ticked, changes not: everything below reads this set and
-        # nothing else decides the grant.
         ticked = {scope for scope in offered if scope not in WRITE_SCOPES}
         confirmation = {'value': ''}
 

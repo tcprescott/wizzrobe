@@ -175,8 +175,7 @@ async def render_select(
 
     async def repopulate():
         options = await current_options()
-        # Drop a stale selection before swapping the options, for the same
-        # ChoiceElement reason: a value absent from the new options is invalid.
+        # Drop a stale selection before swapping options: ChoiceElement rejects a value absent from them.
         if select.value not in options:
             select.value = None
         select.disable()

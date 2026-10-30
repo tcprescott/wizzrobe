@@ -15,7 +15,6 @@ from theme.notify import notify_error
 from theme.save_footer import SaveFooter
 from theme.section import section_panel
 
-#: The choices, most open first, in the words staff would use for them.
 JOIN_MODE_LABELS = {
     JoinMode.OPEN: 'Anyone who signs in',
     JoinMode.DISCORD_OR_REQUEST: 'Discord server members, and others can ask',
@@ -55,8 +54,6 @@ async def _joining_card(can_edit: bool) -> None:
     tenant = await TenantService.get_by_id(require_tenant_id())
     guild_linked = bool(tenant and tenant.discord_guild_id)
 
-    # Who can join is one choice, not two switches whose combinations staff had
-    # to reason out from four paragraphs of caption.
     card = await section_panel(
         'Joining this community', icon='meeting_room',
         subtitle='Who becomes a member, and what the join page shows everyone else.',

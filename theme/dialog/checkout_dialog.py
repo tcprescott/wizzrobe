@@ -42,17 +42,12 @@ class CheckoutDialog:
 
     async def open(self) -> None:
         user_service = UserService()
-        # The actor is force-included: a manager checking something out to
-        # themselves must always be in their own picker.
         community = await user_service.get_community_people_summaries(include_user_ids=[self.actor.id])
         options = _borrower_options(community)
         with ui.dialog() as dialog, ui.card().classes('dialog-card dialog-card--sm'):
             mobile_sheet(dialog)
             dialog_header('Check out equipment', dialog)
             with ui.column().classes('q-pa-md gap-2 full-width'):
-                # Labelled as a widening, not a filter: the default list is this
-                # community's people, and the venue case — lending to someone who
-                # just walked in and is not enrolled in anything — is real.
                 widen = ui.checkbox('Include people outside this community')
                 borrower_select = ui.select(
                     label='Borrower', options=options, value=str(self.actor.id),
@@ -66,9 +61,6 @@ class CheckoutDialog:
                             include_user_ids=[self.actor.id],
                         )
                     )
-                    # The two hard exclusions survive the escape hatch: nobody
-                    # lends a cable to the automation actor, and a deactivated
-                    # account cannot even log in.
                     borrower_select.options = _borrower_options(people)
                     if borrower_select.value not in borrower_select.options:
                         borrower_select.value = str(self.actor.id)

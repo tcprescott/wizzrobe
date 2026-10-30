@@ -4,10 +4,6 @@ from nicegui import ui
 
 from application.utils.easter_eggs import current_theme, random_fact
 
-# The fact sat right under the empty-state message in the same muted italic,
-# so it read as part of what the app was telling you. The theme icon and the rule
-# above it mark it as an aside without a caption announcing it.
-
 
 def fun_fact() -> None:
     """Render a fact from today's theme, set apart from whatever it sits under."""

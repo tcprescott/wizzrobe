@@ -1,13 +1,4 @@
-/*
- * The hour-scale grids (theme/volunteer_grid.py: Full Schedule, Shift Board,
- * My Schedule's Timeline). A dashed line follows the mouse across every
- * column with its time tagged in the hour column; on a touch screen, pressing
- * and dragging down the hour column does the same. The now line moves on its
- * own, so a page left open all day doesn't show a stale "now".
- *
- * Delegated from the document, because the grids are built and rebuilt by
- * NiceGUI after this script runs.
- */
+/* Delegated from the document: NiceGUI builds and rebuilds the grids after this runs. */
 (function () {
   if (window.__wizTimeline) return;
   window.__wizTimeline = true;
@@ -16,8 +7,6 @@
   var SNAP_MIN = 5;
   var formats = {};
 
-  // The grid's data-h12 carries the viewer's clock, so these tags match the
-  // server-rendered times beside them ("21:30", or "9:30 PM").
   function format(ms, tz, h12) {
     var key = tz + (h12 ? '|12' : '|24');
     if (!formats[key]) {

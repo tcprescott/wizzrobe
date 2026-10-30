@@ -21,9 +21,7 @@ from theme.tables.preferences import TableKeys, customize_table, preferences_but
 
 _bot_service = RacetimeBotService()
 
-# Colored bot-health chip, shared by the desktop status cell and the mobile card
-# so the two never drift. Rows must carry ``status`` (text), ``status_kind`` and
-# ``status_message`` (may be empty).
+# Rows must carry `status`, `status_kind` and `status_message` (may be empty).
 _BOT_STATUS_CHIP = '''
     <span class="wiz-chip" :class="{
         'wiz-chip--ok': props.row.status_kind === 'connected',
@@ -120,8 +118,6 @@ async def _refresh_bots(table) -> None:
             'client_id': b.client_id,
             'active': 'yes' if b.is_active else 'no',
             'active_bool': b.is_active,
-            # Humanized status ('connected' -> 'Connected'), never the raw
-            # 'BotStatus.CONNECTED' repr; the message renders under the chip.
             'status': b.status.value.title(),
             'status_message': b.status_message or '',
             'status_kind': b.status.value,
@@ -196,7 +192,6 @@ async def _open_bot_edit_dialog(actor, table, row) -> None:
     bot = await _bot_service.get_bot(actor, row['id'])
     existing = _bot_service.serialize(bot)
     with form_dialog(f"Edit bot #{bot.id}", card_classes='dialog-card gap-2') as dialog:
-        # serialize() omits the secret; expose the plain fields to the form.
         existing['active'] = 'yes' if bot.is_active else 'no'
         category, name, client_id, secret, description, handler, active = _bot_form(existing)
 

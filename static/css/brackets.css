@@ -1,17 +1,7 @@
-/* Redesigned tournament bracket view — see docs/bracket-ui-plan.md.
- *
- * The renderer (theme/brackets/) positions everything absolutely from the pure
- * layout walker; this stylesheet owns all color, size, and connector geometry.
- * Every color routes through a --bracket-* custom property so Quasar dark/light
- * switching and per-tenant theming (the winner accent is the app --q-primary)
- * just work. Pixel sizes here mirror the constants in theme/brackets/layout.py
- * (COL_WIDTH 200, GUTTER 52, CARD_HEIGHT 58) — change one, change both. */
+/* Pixel sizes mirror theme/brackets/layout.py (COL_WIDTH 200, GUTTER 52, CARD_HEIGHT 58): change one, change both. */
 
-/* Declared on <body>, not :root — theme/base.py's ui.colors() writes the tenant
- * palette's --q-primary onto <body>, while Quasar's stock #1976D2 sits on :root.
- * A :root declaration here would resolve var(--q-primary) against that stock
- * blue and inherit it down, so the bracket would ignore the tenant's brand
- * (plan decision 9). Matching the element ui.colors() targets fixes that. */
+/* On <body>, not :root: ui.colors() writes the tenant --q-primary onto <body>,
+   so on :root var(--q-primary) resolves to Quasar's stock blue. */
 body {
   --bracket-col-width: 200px;
   --bracket-gutter: 52px;
@@ -19,8 +9,6 @@ body {
 
   --bracket-accent: var(--q-primary, #e0a82e);
   --bracket-accent-text: #ffffff;
-  /* Neutrals follow the app's tokens (styles.css), which switch with the mode,
-   * so only the status tones need a dark override below. */
   --bracket-line: var(--border-strong);
   --bracket-card-bg: var(--surface);
   --bracket-card-border: var(--border-subtle);
@@ -30,11 +18,7 @@ body {
   --bracket-header-bg: color-mix(in srgb, var(--page-bg) 92%, transparent);
   --bracket-run-bg: color-mix(in srgb, var(--bracket-accent) 20%, transparent);
 
-  /* Live-status tones (U2). Named for what they *mean*, not what they look
-   * like — the semantic name is chosen once in
-   * application/services/match/match_status.py (STATUS_TONES) and mapped here
-   * and in discord_embeds.py, so the web pill and the Discord card cannot drift
-   * apart. */
+  /* Tones mirror STATUS_TONES (match_status.py) and discord_embeds.py; keep the three in step. */
   --bracket-live: #d1343f;
   --bracket-imminent: #b45309;
   --bracket-attention: #b45309;
@@ -64,8 +48,7 @@ body {
   padding-bottom: 10px;
 }
 
-/* Sticky round-header strip — aligns to the card columns (flex width + gutter
- * margin match the canvas column stride). */
+/* Flex width + gutter margin must match the canvas column stride. */
 .bracket-headers {
   position: sticky;
   top: 0;
@@ -162,9 +145,6 @@ body {
   opacity: 0.72;
 }
 
-/* Live statuses (U2). The card's left rule carries the state, the same channel
- * is-open already uses, so a bracket read at a glance says which matchups are
- * happening *now* rather than merely which are playable. */
 .bracket-match.is-live {
   border-left: 3px solid var(--bracket-live);
 }
@@ -178,9 +158,6 @@ body {
   border-left: 3px solid var(--bracket-done);
 }
 
-/* The "LIVE" pill, and its pulse. Respects prefers-reduced-motion — a bracket
- * left open on a stream overlay for hours must not force animation on someone
- * who asked for none. */
 .bracket-live-pill {
   position: absolute;
   top: 0;
@@ -221,8 +198,6 @@ body {
   }
 }
 
-/* The non-live status chips (Checked in / Awaiting result / Needs reschedule)
- * sit in the same corner but read as chrome, not an alarm. */
 .bracket-status-pill {
   position: absolute;
   top: 0;
@@ -292,8 +267,6 @@ body {
   background: var(--bracket-run-bg);
 }
 
-/* The signed-in viewer's own entry, and every card it appears on: a player
- * opening a 64-entrant bracket finds their run without reading every name. */
 .bracket-slot.is-viewer {
   background: var(--bracket-run-bg);
 }
@@ -308,8 +281,6 @@ body {
   color: var(--bracket-muted);
 }
 
-/* The next booked time of an unfinished matchup, on the card's bottom edge —
- * the mirror of the match number on the top edge. */
 .bracket-time-pill {
   position: absolute;
   bottom: 0;
@@ -352,9 +323,7 @@ body {
   background: var(--bracket-seed-bg);
 }
 
-/* The Discord avatar covers the initial disc. Both are in the DOM: a hash we
-   cached before the person changed their avatar 404s, the image paints nothing,
-   and the letter underneath shows through. */
+/* Both stay in the DOM: a stale avatar hash 404s and the letter underneath shows through. */
 .bracket-avatar {
   position: relative;
   overflow: hidden;
@@ -408,7 +377,6 @@ body {
   opacity: 0.55;
 }
 
-/* Zoom: the page sets --bracket-zoom; the canvas + headers scale together. */
 .bracket-zoomable .bracket-canvas,
 .bracket-zoomable .bracket-headers {
   transform: scale(var(--bracket-zoom, 1));
@@ -417,16 +385,8 @@ body {
 
 .bracket-groups-grid {
   display: grid;
-  /* The floor is what one standings row costs at full detail: 24px of card
-     padding + rank 24 + name 140 + W-L-D 76 + Pts 42 + two tiebreakers 108 +
-     five 8px gaps. A 320px floor packed three or four cards across a desktop
-     and every one of them was too narrow for its own row — the fixed numeric
-     cells held their widths and the entrant name, the column a reader is
-     actually looking for, collapsed to "Xel…". auto-fit (not auto-fill) still
-     collapses empty tracks so two groups stretch across the width; min() caps
-     the floor at the container so a 320px phone doesn't overflow the page.
-     Below the floor the standings shed columns instead — see the @container
-     rules under .bracket-standings-wrap. */
+  /* The floor is one standings row at full detail; narrower and the name collapses.
+     auto-fit (not auto-fill) collapses empty tracks; min() stops a 320px phone overflowing. */
   grid-template-columns: repeat(auto-fit, minmax(min(460px, 100%), 1fr));
   gap: 12px;
   width: 100%;
@@ -434,36 +394,24 @@ body {
 
 .bracket-group-card {
   padding: 10px 12px;
-  /* Grid items default to min-width:auto and would grow to fit the nowrap
-     standings rows, spilling the tiebreaker columns past the card edge; 0 lets
-     the card hold its track width so .bracket-standings' overflow-x scrolls. */
+  /* 0, not auto: grid items would grow to fit the nowrap rows and spill past the card. */
   min-width: 0;
 }
 
-/* The standings size themselves against this box, not the viewport: the same
-   table renders full-page (Swiss), two-up in a group card, and inside a narrow
-   admin Results dialog, and only the first of those tracks the viewport. A
-   viewport media query left the group cards showing four numeric columns and a
-   three-character name on a 1280px desktop. */
+/* Sized against this box, not the viewport: the table renders full-page, two-up and in a narrow dialog. */
 .bracket-standings-wrap {
   container-type: inline-size;
   width: 100%;
   min-width: 0;
-  /* Comfortably above the ~455px a full row needs, so the cap never triggers a
-     shed — it only stops a full-page Swiss table (or a lone group card on a
-     laptop) from stretching the name column to 600px and stranding the numbers
-     against the far edge. */
+  /* Above the ~455px a full row needs, so the cap never triggers a shed. */
   max-width: 620px;
 }
 
-/* Standings (flex rows so a row can be tinted by fate + carry a cut line). */
 .bracket-standings {
   display: flex;
   flex-direction: column;
   overflow-x: auto;
-  /* ui.card is a flex column, so this is a flex item: min-width:0 lets it shrink
-     to the card width (default min-width:auto would grow the card to fit the
-     nowrap rows) so overflow-x scrolls instead of spilling past the card. */
+  /* Flex item: min-width:0 lets it shrink so overflow-x scrolls instead of spilling. */
   min-width: 0;
   width: 100%;
 }
@@ -476,10 +424,7 @@ body {
   border-radius: 4px;
   white-space: nowrap;
   color: var(--bracket-text);
-  /* Every row spans the same width so the fixed cells line up into columns.
-     Sizing each row to its own content (min-width: max-content) instead made a
-     long entrant name widen that row alone, stair-stepping W-L-D/Pts down the
-     table and pushing them out of view — the name ellipsises instead. */
+  /* Every row spans the same width so the fixed cells line up; max-content stair-stepped the columns. */
   min-width: 100%;
 }
 
@@ -500,18 +445,11 @@ body {
 
 .bracket-strow .c-name {
   flex: 1 1 auto;
-  /* A real floor, not 0: 0 let the fixed cells' leftover space win and the name
-     shrank to a sliver — unreadable rather than merely tight. The floor makes
-     the row's min-content wider than a squeezed box, so .bracket-standings'
-     overflow-x scrolls as a last resort; the @container rules below shed the
-     optional columns first so it rarely comes to that. */
+  /* A real floor, not 0: at 0 the name shrinks to a sliver. */
   min-width: 120px;
 }
 
-/* The numeric cells are fixed-width and inherit nowrap from the row, so a value
-   wider than its box (a long "12-10-0 · 2B" record) would paint over the cells
-   either side of it. Clip instead — a column that overlaps its neighbour is
-   worse than a truncated one. */
+/* Clip: a value wider than its fixed box paints over its neighbours. */
 .bracket-strow .c-rec,
 .bracket-strow .c-pts,
 .bracket-strow .c-tb {
@@ -538,8 +476,6 @@ body {
   color: var(--bracket-muted);
 }
 
-/* In the standings the seed sits immediately right of the rank column, where
-   two bare grey numbers read as two ranks. The chip separates them. */
 .bracket-standings .bracket-seed {
   background: var(--bracket-seed-bg);
   border-radius: 3px;
@@ -584,10 +520,7 @@ body {
   display: flex;
   flex-direction: column;
   gap: 3px;
-  /* The tab panel is a flex column, so this is a flex item; the default
-     min-width:auto sized it to the widest row's max-content (413px inside a
-     254px panel on a phone) and the right entrant's record chip was clipped
-     with nothing to scroll. 0 lets the rows shrink and .nm ellipsise. */
+  /* min-width:0: the flex default sized it to the widest row and clipped the record chip. */
   min-width: 0;
   width: 100%;
 }
@@ -666,8 +599,7 @@ body {
   align-items: stretch;
   font-size: 11px;
   overflow-x: auto;
-  /* As above: a flex item's automatic minimum size would grow the grid to fit
-     all its columns instead of letting overflow-x scroll them. */
+  /* As above: a flex item's automatic minimum would grow the grid instead of scrolling. */
   min-width: 0;
 }
 
@@ -708,11 +640,7 @@ body {
   background: var(--bracket-line);
 }
 
-/* The same match card in normal document flow (full width, auto height).
- * `relative`, not `static`: .bracket-match-num is absolutely positioned, so a
- * static card gives it no containing block and every round's badges stack on
- * one spot near the top of the accordion instead of sitting on their own card.
- * The top margin leaves room for the badge's translateY(-52%) overhang. */
+/* `relative`, not `static`: the absolutely positioned .bracket-match-num needs this containing block. */
 .bracket-match.bracket-match-flow {
   position: relative;
   width: 100%;
@@ -727,19 +655,13 @@ body {
   margin-bottom: 6px;
 }
 
-/* Per-round chrome (best-of / scheduled time) in the accordion header — the
-   mobile stand-in for .bracket-header-meta on the 2-D round headers. */
 .bracket-round-meta {
   gap: 6px;
   align-items: center;
   flex-wrap: wrap;
 }
 
-/* One view at a time. The 2-D bracket and the accordion render the same graph,
-   so showing both (the accordion was revealed without the 2-D ever being
-   hidden) duplicated every match on phones, tablets and landscape. Desktop gets
-   the 2-D view; below lt.md the accordion leads and the toggle below opts into
-   the 2-D one (plan decision 6 — it "remains available via horizontal scroll"). */
+/* One view at a time: showing both duplicated every match. */
 .bracket-mobile-list {
   display: none;
 }
@@ -769,18 +691,12 @@ body {
     display: none;
   }
 
-  /* Zoom scales the 2-D canvas, so it is inert while the accordion is showing. */
   .bracket-views.view-list .bracket-zoom-controls {
     display: none;
   }
 }
 
-/* Below the width one full row needs, shed columns rather than squeeze the
-   name — keyed to the standings box (.bracket-standings-wrap), so a group card
-   two-up on a desktop sheds exactly like a phone. Each column drops uniformly
-   from the header and every row, so what remains stays aligned.
-   455px is the .bracket-groups-grid floor minus a hair: at the floor itself the
-   full row fits, so the shed starts only once the box is genuinely narrower. */
+/* 455px is the .bracket-groups-grid floor minus a hair: at the floor itself the full row fits. */
 @container (max-width: 455px) {
   .bracket-standings .c-tb {
     display: none;
@@ -799,12 +715,6 @@ body {
   }
 }
 
-/* Phone-width, and the narrow admin Results dialog. Avatars hide at compact
-   density (plan decision 7), and the per-row seed is redundant beside the rank
-   column — together they buy the name ~45px, which is the difference between
-   "Gro…" and a readable handle. The name floor goes too: at this width the row
-   already spans its whole box, so letting the name give up its last few px
-   keeps the fixed cells on-row instead of forcing a sideways scroll. */
 @container (max-width: 340px) {
   .bracket-standings .bracket-avatar,
   .bracket-standings .c-name .bracket-seed {
@@ -824,10 +734,7 @@ body {
   }
 }
 
-/* The bracket embedded in the admin Results dialog. `flex: 0 0 auto` is load
- * bearing: the dialog card is a column flex container, and `overflow: auto`
- * zeroes a flex item's automatic minimum size, so the box collapsed to height 0
- * and the whole bracket vanished behind a blank gap at every viewport. */
+/* `flex: 0 0 auto` is load-bearing: overflow:auto zeroes a flex item's automatic minimum, collapsing the box to 0 height. */
 .bracket-embed-scroll {
   flex: 0 0 auto;
   overflow: auto;

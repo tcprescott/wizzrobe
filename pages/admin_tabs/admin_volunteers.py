@@ -34,8 +34,6 @@ from theme.steady import steady_refreshable
 from theme.url_state import iso_day, url_param, url_state
 from theme.volunteer_grid import day_label
 
-# Standard four 4-hour shift blocks, in the community's own timezone (the
-# generator resolves them against it), matching the 2025 schedule.
 STANDARD_BLOCKS = [
     ('Shift 1', '08:00', '12:00'),
     ('Shift 2', '12:00', '16:00'),
@@ -72,15 +70,7 @@ async def admin_volunteers_page(day: str | None = None) -> None:
         day_options.append(d.isoformat())
         d += timedelta(days=1)
     # Per-page state, never module level: NiceGUI shares one process across users.
-    # ``last_run`` holds the most recent auto-fill result for the summary panel;
-    # the durable record of a run is its audit row, not this.
-    #
-    # A deep link (``?day=``) is a deliberate destination, so it outranks the
-    # remembered day — but only when it names a day this event actually has; an
-    # out-of-window or malformed date falls through to the stored one rather
-    # than opening an empty grid for a day that isn't real. Read from the
-    # address keeper rather than ``day``, which is the request's and so stale
-    # once the viewer has switched tabs.
+    # Read the address, not `day` (stale after a tab switch); a day outside this event falls through to the stored one.
     day = url_state().requested('day')
     state = {
         'day': stored_or_default_day(
@@ -89,7 +79,6 @@ async def admin_volunteers_page(day: str | None = None) -> None:
             day_options[0] if day_options else event_start.isoformat(),
         ),
         'last_run': None,
-        # Per-position "I opened this fully-staffed one anyway", keyed by id.
         'folds': {},
     }
 
@@ -135,7 +124,6 @@ async def admin_volunteers_page(day: str | None = None) -> None:
 
         with ui.card().classes('full-width q-pa-md'):
             with ui.row().classes('full-width items-center no-wrap gap-3'):
-                # Shrinks below 12rem so the menu stays on the same line at 360px.
                 day_select = ui.select(
                     day_options, value=state['day'], label='Event day',
                 ).classes('col').style('max-width: 12rem; min-width: 0')
@@ -314,10 +302,6 @@ async def admin_volunteers_page(day: str | None = None) -> None:
                 filled = sum(len(s.assignments) for s in pos_shifts)
                 needed = sum(s.slots_needed for s in pos_shifts)
                 with ui.card().classes('full-width q-pa-sm q-mb-sm'):
-                    # The header always states the position's state, so a collapsed
-                    # position hides finished work and never hidden work. The action
-                    # buttons stay outside the expansion: they are how an empty day
-                    # gets populated.
                     with ui.row().classes('items-center justify-between full-width'):
                         with ui.column().classes('gap-0'):
                             with ui.row().classes('items-center gap-2'):
@@ -340,12 +324,8 @@ async def admin_volunteers_page(day: str | None = None) -> None:
                     if not pos_shifts:
                         ui.label('No shifts for this day yet.').classes('italic-note q-pa-sm')
                         continue
-                    # A fully-staffed position folds away — on phones only, where
-                    # 5.8 screenfuls of finished work is the finding. The fold is a
-                    # class our own stylesheet only honours below `md`, so the
-                    # cards render once and the desktop layout is provably
-                    # untouched; a `ui.expansion` per width would double the DOM
-                    # and register every row action twice.
+                    # Fold via a class our CSS honours only below md: a ui.expansion per width would double
+                    # the DOM and register every row action twice.
                     folded = not open_slots and not state['folds'].get(position.id)
                     if not open_slots:
                         with ui.row().classes('items-center lt-md q-pt-xs'):
@@ -387,8 +367,6 @@ async def admin_volunteers_page(day: str | None = None) -> None:
                     if understaffed and reason:
                         badge.tooltip(reason)
                     if shift.notes:
-                        # The notes field is write-only otherwise; the volunteer
-                        # reads it on their card, the coordinator could not.
                         ui.icon('sticky_note_2', size='xs').tooltip(shift.notes)
                 ui.label(
                     format_local_time_range(shift.starts_at, shift.ends_at)
@@ -434,8 +412,7 @@ async def admin_volunteers_page(day: str | None = None) -> None:
                 def ask_remove(e, a=assignment, chip=chip) -> None:
                     if e.value:
                         return
-                    # Quasar hides a removable chip the moment its ✕ is tapped, so
-                    # put it back until the confirm is answered.
+                    # Quasar hides a removable chip once its ✕ is tapped: restore it until the confirm is answered.
                     chip.value = True
                     told = '' if a.auto_generated else (
                         '\n\nThey’ve already been told about this shift, so they’ll get a DM '

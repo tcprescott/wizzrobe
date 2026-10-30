@@ -9,8 +9,6 @@ from collections.abc import Awaitable, Callable
 
 from models import User
 
-#: ``(user) -> tabs``: the section's tab dicts (``label``, ``icon``, and optional
-#: ``group``/``slug``/``badge``), as its own page would build them for ``user``.
 SectionMenu = Callable[[User], Awaitable[list[dict]]]
 
 _PROVIDERS: dict[str, SectionMenu] = {}

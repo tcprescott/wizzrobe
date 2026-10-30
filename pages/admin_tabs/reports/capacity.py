@@ -94,8 +94,6 @@ async def capacity_page(
             time_labels = [format_local_datetime(t, '%m-%d %H:%M %Z') for t in intervals]
             capacity_series = [capacity] * len(intervals)
 
-            # The slider ships in stock ECharts blue; restyle it to the
-            # community's colour so it sits with the palette in both modes.
             slider_style = {
                 'fillerColor': palette.primary_wash,
                 'borderColor': CHART_GRID,
@@ -110,7 +108,7 @@ async def capacity_page(
                 if first <= focus_dt <= last:
                     span = (last - first).total_seconds() or 1
                     center = (focus_dt - first).total_seconds() / span
-                    half = 7200 / span  # ±2h window
+                    half = 7200 / span
                     data_zoom_options = [
                         {'type': 'inside', 'start': max(0, (center - half) * 100), 'end': min(100, (center + half) * 100)},
                         {'type': 'slider', **slider_style, 'start': max(0, (center - half) * 100), 'end': min(100, (center + half) * 100)},
@@ -118,8 +116,6 @@ async def capacity_page(
 
             echart_option = {
                 'tooltip': {'trigger': 'axis', 'axisPointer': {'type': 'cross'}},
-                # The toolbox sits top-right; the legend keeps to the left half so the two
-                # never overlap when the legend wraps on a phone.
                 'legend': {'data': ['Off-stream players', 'On-stream players', 'Capacity'], 'top': 0, 'left': 0, 'width': '50%'},
                 'grid': {'left': '3%', 'right': '4%', 'top': 96, 'bottom': '14%', 'containLabel': True},
                 'toolbox': {'feature': {'saveAsImage': {}, 'dataZoom': {}, 'restore': {}}},
@@ -127,8 +123,6 @@ async def capacity_page(
                 'xAxis': {'type': 'category', 'boundaryGap': False, 'data': time_labels},
                 'yAxis': [{'type': 'value', 'name': 'Players'}],
                 'series': [
-                    # Stage matches have their own setups, so the floor load
-                    # against capacity is the lower band; the top edge is the total.
                     {
                         'name': 'Off-stream players',
                         'type': 'line',
@@ -193,8 +187,6 @@ async def capacity_page(
                     ]
                     focus_table = ui.table(columns=focus_columns, rows=focus_rows, row_key='match_id',
                                            pagination=25).classes('full-width')
-                    # Peak players over the ceiling is fixed by moving one of
-                    # *these* matches; this is the only table that names them.
                     focus_actions = enable_drill_link(
                         focus_table, focus_columns, focus_rows,
                         board_drill,
@@ -258,9 +250,7 @@ async def capacity_page(
                     .classes('full-width')
                 enable_mobile_grid(forecast_table, columns,
                                    table_key=TableKeys.REPORTS_CAPACITY_FORECAST)
-                # Five columns overflow the half-width panel, and QTable gives its
-                # scroll region no attributes of its own: make it a keyboard stop
-                # (WCAG 2.1.1, axe scrollable-region-focusable).
+                # QTable's scroll region needs a tabindex for axe scrollable-region-focusable.
                 ui.run_javascript(
                     f"const m = document.querySelector('#{forecast_table.html_id} .q-table__middle');"
                     "if (m) { m.tabIndex = 0; m.setAttribute('role', 'region');"

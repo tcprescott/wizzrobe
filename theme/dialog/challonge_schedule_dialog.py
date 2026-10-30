@@ -44,8 +44,6 @@ class ChallongeScheduleDialog:
 
     async def open(self):
         cm = self.challonge_match
-        # This dialog books one game. A best-of stage books one match per game,
-        # so hand those to the shared dialog that collects every game's time.
         if await bracket_sources.best_of_for('challonge', cm.id) > 1:
             item = BookableMatch(
                 source='challonge', source_label='Challonge', key=cm.id,
@@ -56,10 +54,7 @@ class ChallongeScheduleDialog:
             )
             await BracketSourceScheduleDialog(item, self.actor, on_submit=self.on_submit).open()
             return
-        # Captured while the opening handler's slot is alive. on_submit
-        # refreshes the section this dialog was built in, deleting it, so the
-        # refresh after it has to be handed its client and tenant back
-        # (bracket_schedule_dialog has the same shape).
+        # Captured while the slot is alive: on_submit deletes this section, so the refresh after needs its client and tenant back.
         client = context.client
         tenant_id = get_current_tenant_id()
         slot = next_whole_hour_local()

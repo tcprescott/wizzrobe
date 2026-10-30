@@ -51,8 +51,7 @@ from theme.volunteer_grid import (
     render_day_grid,
 )
 
-# Shares the Volunteer Shifts tab's remembered day: both are the coordinator's
-# "which day am I working on".
+# Shared with the Volunteer Shifts tab's remembered day on purpose.
 _DAY_KEY = 'volunteers:day'
 
 
@@ -103,9 +102,7 @@ async def admin_shift_board_page(day: Optional[str] = None) -> None:
         positions = []
     stored = await prefs.get(actor, TableKeys.ADMIN_SHIFT_BOARD) if actor else None
     saved = (stored or {}).get('columns') or []
-    # The address (?day=: a deep link, a reload, Back) outranks the remembered
-    # day, when it is a day of this event. ``day`` is the request's, which only
-    # holds for the tab the page opened on; the address keeper tracks switches.
+    # The address outranks the remembered day; `day` is the request's and goes stale after a tab switch.
     day = url_state().requested('day')
     wanted = day if day in {d.isoformat() for d in days} else tenant_session_get(_DAY_KEY)
     state = _BoardState(
@@ -250,7 +247,5 @@ async def admin_shift_board_page(day: Optional[str] = None) -> None:
         summary()
         grid_view()
     await reload()
-    # Picks up check-ins, late notes and other coordinators' edits on a screen
-    # left open at the desk.
     PageTimer(60, reload)
 

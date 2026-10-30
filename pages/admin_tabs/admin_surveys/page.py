@@ -281,8 +281,7 @@ async def admin_surveys_page(survey: Optional[int] = None, view: Optional[str] =
 
     with ui.column().classes('page-container-wide w-full gap-3 wiz-surveys') as page:
         open_param = url_param('survey', page, default='', value='', on_restore=restore)
-        # The address, not the arguments, once the viewer has moved about; the
-        # arguments are the request's (a DM's or a bookmark's link).
+        # The address, not the arguments: those are the request's and go stale once the viewer moves.
         asked = url_state().requested('survey') or (str(survey) if survey else '')
         if asked.isdecimal():
             state['open'] = int(asked)

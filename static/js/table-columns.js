@@ -1,29 +1,10 @@
-/* Drag-to-resize column widths on the app's desktop tables.
- *
- * Quasar's QTable has no built-in column resizing, so this is ours. Three
- * decisions in here are load-bearing and easy to undo by accident:
- *
- * 1. **One delegated pointerdown listener on `document`. No injected handles.**
- *    These tables re-render on every row refresh (the match board does so
- *    constantly), and any node this file inserted would be destroyed by Vue the
- *    moment that happens. A delegated listener plus a CSS `::after` affordance
- *    survives all of it for free.
- * 2. **Pointer capture, not a document-level mousemove.** A fast drag that
- *    leaves the window otherwise strands the table mid-resize.
- * 3. **The width is emitted on pointerup only.** Nothing goes to the server
- *    during the drag; the browser has already painted the new width, and the
- *    round trip is only recording it.
- *
- * A table opts in by carrying `data-wiz-table-key` (set by
- * theme/tables/preferences.customize_table), and each header cell carries a
- * `wiz-col-<name>` class from the same place — nothing else identifies which
- * table a `<th>` belongs to, or which column it is.
- */
+/* Load-bearing: one delegated listener on document (Vue destroys injected nodes on every row refresh);
+   pointer capture, not document mousemove (a drag leaving the window strands it); width emitted on pointerup only. */
 (function () {
   if (window.__wizTableColumns) return;
   window.__wizTableColumns = true;
 
-  var RESIZE_ZONE = 6;      // px from the right edge that starts a drag
+  var RESIZE_ZONE = 6;
   var MIN_WIDTH = 40;       // must match TablePreferenceService.MIN_WIDTH
   var MAX_WIDTH = 1200;     // must match TablePreferenceService.MAX_WIDTH
   var DESKTOP = '(min-width: 1024px)';
@@ -74,8 +55,7 @@
       th: hit.th, root: hit.root, key: hit.key, column: hit.column,
       startX: event.clientX, startWidth: startWidth, width: Math.round(startWidth),
     };
-    // A table only switches to fixed layout once it has a width; do it now so
-    // the drag is visible before anything is stored.
+    // A table only switches to fixed layout once it has a width; set it now so the drag shows.
     hit.root.classList.add('wiz-table--sized');
     document.body.classList.add('wiz-resizing');
     try { hit.th.setPointerCapture(event.pointerId); } catch (e) { /* not capturable */ }
@@ -111,8 +91,6 @@
     finish(false);
   });
 
-  // Double-clicking the divider auto-fits: the stored width is cleared and the
-  // column goes back to content-driven sizing.
   document.addEventListener('dblclick', function (event) {
     if (!isDesktop() || isOffline()) return;
     var hit = target(event);

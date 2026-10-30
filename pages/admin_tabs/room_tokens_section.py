@@ -30,8 +30,7 @@ async def render_room_tokens_section(can_edit: bool) -> None:
         return await get_user_from_session(app.storage.user)
 
     async def _url_for(raw_token: str) -> str:
-        # Absolute and tenant-qualified: the URL is pasted into a browser on a
-        # different machine, where a bare path resolves against nothing.
+        # Absolute and tenant-qualified: it's pasted into a browser on another machine.
         tenant = await TenantService.get_by_id(require_tenant_id())
         return tenant_url(tenant, room_seeds_path(raw_token))
 

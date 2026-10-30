@@ -44,7 +44,6 @@ _STATE_SINCE = {
 }
 
 _ROLES = (
-    # (row key, singular used by the view's handlers, heading)
     ('commentators', 'commentator', 'Commentary'),
     ('trackers', 'tracker', 'Tracking'),
     ('broadcasters', 'broadcaster', 'Broadcast'),
@@ -90,8 +89,6 @@ def readiness(row: dict, *, crew: bool = True) -> list[dict]:
 
         stations = [(p.get('name') or '', p.get('station')) for p in players]
         missing = [name for name, station in stations if not station]
-        # A stage match is played on the stage: stations are only information
-        # there, listed when someone recorded them.
         if row.get('stage'):
             if len(missing) < len(stations):
                 detail = ' · '.join(f'{name} {station}' for name, station in stations if station)
@@ -155,41 +152,25 @@ class MatchSheet:
                  decorate=decorate_run_sheet_row, url_key: str = 'sheet'):
         self.handlers = handlers
         self.access = access
-        # Off on the proctor's board: crew is not theirs to fix, so a crew gap
-        # must not hold their checklist below "ready".
         self.show_crew = show_crew
-        # The board's own row decorator, so the sheet's status chip says what
-        # the line it opened from says.
         self.decorate = decorate
         self.view: Any = None
         self.row: Optional[dict] = None
-        # Comments are read per viewer, so they are fetched when the sheet
-        # opens rather than carried on the board's rows, which every viewer of
-        # a shared board would otherwise receive.
-        # A copy, because comments can load where the session is out of reach.
+        # Fetched on open, not carried on rows that every viewer of a shared board receives.
+        # A copy: comments can load where the session is out of reach.
         self._session = dict(app.storage.user)
         self._viewer: Any = None
         self._comments: list = []
-        # Which comment box is open: 'private' or 'players' for staff, while
-        # a player's box is always open. The draft survives the repaints a
-        # live update causes while someone is typing.
         self._compose: Optional[str] = None
         self._draft = ''
-        # A deep link asks for a match before the board has loaded it.
         self._pending_open: Optional[int] = None
         self._tracker_link: Optional[str] = None
-        # mobile_sheet's own breakpoint, but a side sheet rather than a centred
-        # card above it: the board stays readable beside the open match.
         with ui.dialog().props(''':position="Quasar.Screen.lt.sm ? 'bottom' : 'right'"''') as self.dialog, \
                 ui.card().classes('dialog-card match-sheet'):
             dialog_header('Match details', self.dialog)
             self._content = ui.refreshable(self._render)
             self._content()
         self.dialog.on('hide', self._closed)
-        # The open sheet is in the address (``?sheet=<match id>``), so Back
-        # closes it, Forward reopens it, and a copied link opens the same match.
-        # ``_pushed`` remembers the sheet was opened here, where closing it is
-        # Back; one opened by a link has no entry of its own to go back over.
         self._pushed = False
         asked = url_state().requested(url_key)
         asked = asked if asked and asked.isdecimal() else ''
@@ -224,7 +205,6 @@ class MatchSheet:
 
     async def open(self, match_id, *, record: bool = True) -> None:
         if isinstance(match_id, str) and match_id.startswith('future:'):
-            # A bracket matchup nobody has signed up for yet: not a match, no sheet.
             return
         row = self._find(match_id)
         if row is None:
@@ -253,8 +233,6 @@ class MatchSheet:
                 self.view._bg(self.open(pending, record=False))
                 self._param.set(pending, history='replace')
             else:
-                # A DM outlives its match: a deleted or filtered-out one must
-                # say so rather than leave a link that silently does nothing.
                 with self.dialog:
                     ui.notify("That match isn't on this board any more.", color='warning')
                 if self._param.value == str(pending):
@@ -539,8 +517,6 @@ class MatchSheet:
                         ui.menu_item('Un-approve', on_click=self._toggle(row, role, idx))
 
     def _waiting(self, row: dict, role: str, waiting: list) -> None:
-        # The people waiting on staff get the weight; approved crew shrinks to
-        # pills above. Three runs of link-coloured text per person read as one blur.
         with ui.column().classes('match-sheet__waiting full-width gap-0'):
             heading = 'Waiting for you' if self.access.can_approve_crew_row(row) else 'Signed up'
             ui.label(f'{heading} · {len(waiting)}').classes('match-sheet__waiting-head')

@@ -26,8 +26,7 @@ _STATUS_ABBR = {
 
 _COLUMNS: list[dict] = [
     {'name': 'name', 'label': 'Name', 'field': 'name', 'sortable': True, 'align': 'left'},
-    # Sorts on the raw number, never the rendered string — "10" must not fall
-    # between "1" and "2".
+    # Sorts on the raw number, never the rendered string.
     {'name': 'hours', 'label': 'Hours', 'field': 'hours', 'sortable': True, 'align': 'right'},
     {'name': 'qualifications', 'label': 'Qualifications', 'field': 'qualifications', 'align': 'left'},
     {'name': 'availability', 'label': 'Availability', 'field': 'availability', 'align': 'left'},

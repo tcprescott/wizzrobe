@@ -47,8 +47,6 @@ class HardPresetDialog:
                 ui.label(state.preset_name).classes('text-bold text-subtitle1')
 
                 if state.override is not None:
-                    # Staff decided. Say so plainly and offer nothing — a
-                    # disabled toggle beside an explanation reads as a bug.
                     chosen = (
                         state.preset_name if state.override == PresetOverride.HARD
                         else state.standard_preset_name or 'the standard settings'

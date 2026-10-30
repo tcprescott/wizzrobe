@@ -69,7 +69,7 @@ def _match_label(match: Match) -> str:
 
 
 async def _obs_url(token: str) -> str:
-    # Absolute: it is pasted into OBS on another machine.
+    # Absolute: it's pasted into OBS on another machine.
     tenant = await TenantService.get_by_id(require_tenant_id())
     return tenant_url(tenant, overlay_path(token))
 
@@ -360,7 +360,7 @@ class LayoutEditor:
                     on_confirm=self._delete, confirm_text='Delete', title='Delete layout?',
                 ).open(), negative=True)
 
-        # Quasar's uploader card fails axe, so it stays hidden behind the menu item.
+        # Kept hidden behind the menu item: Quasar's uploader card fails axe.
         self.uploader: ui.upload = ui.upload(
             auto_upload=True, max_file_size=MAX_ART_BYTES, on_upload=self._uploaded,
             on_rejected=lambda: ui.notify('Layout art can be up to 10 MB, as a PNG, JPEG or WebP.',

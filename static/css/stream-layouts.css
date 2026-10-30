@@ -4,7 +4,6 @@
   container-type: inline-size;
   border-radius: var(--radius-sm);
   overflow: hidden;
-  /* The checkerboard is what OBS will see through: no art, or a hole. */
   background-color: var(--surface-sunken);
   background-image:
     linear-gradient(45deg, var(--border-subtle) 25%, transparent 25%),
@@ -193,7 +192,6 @@
   background-position: 0 0, 0 3px, 3px -3px, -3px 0;
 }
 
-/* Drawn on the user's background colour, so white with a dark edge reads on any of them. */
 .sl-thumb__box {
   display: flex;
   align-items: center;
@@ -221,7 +219,6 @@
 .sl-swatch--on { box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--q-primary); }
 .sl-swatch-input { width: 170px; }
 
-/* Two tiles a row on a phone; box labels would only be noise at that size. */
 @media (max-width: 599px) {
   .sl-gallery { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .sl-gallery__blurb { display: none; }

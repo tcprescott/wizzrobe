@@ -77,17 +77,12 @@ async def _embeds(article: ContentArticle) -> dict:
     if not any(block.kind == 'embed' and block.name == 'tournaments' for block in article.blocks):
         return {}
     rows = await EventInfoService.list_tournaments()
-    # The prose around the list states times on the venue's clock, so the
-    # close times use it too rather than each reader's own zone.
+    # Venue clock, not the reader's: the prose around the list states times on it.
     tz = await TimezoneService.tenant_timezone_name(require_tenant_id())
     return {'tournaments': lambda: render_tournament_list(rows, tz=tz)}
 
 
-#: The organisers' own guide, served beside the articles. A fixed path rather
-#: than the file's name so a printed link survives a new revision of the PDF.
 GUIDE_PATH = '/event-info/guide.pdf'
-#: The guide drawn inside the app. Opening the PDF itself from an iPhone Home
-#: Screen app fills the screen with no way back, so every link goes here.
 GUIDE_PAGE_PATH = '/event-info/guide'
 
 
@@ -131,8 +126,7 @@ def _nothing_published() -> None:
 
 
 def create() -> None:
-    # Registered before the article route so ``guide.pdf`` is never read as an
-    # article slug.
+    # Registered before the article route so guide.pdf is never read as an article slug.
     @app.get(GUIDE_PATH, include_in_schema=False)
     async def event_guide_pdf() -> Response:
         try:
@@ -176,14 +170,12 @@ def create() -> None:
                 for article in articles:
                     _article_card(article)
 
-            # The boundary between the two sections, stated where a reader who
-            # came looking for the wrong one will see it.
             ui.separator().classes('separator-spacing')
             with ui.row().classes('items-baseline gap-1 no-wrap'):
                 ui.label('Looking for how the app works?').classes('text-muted')
                 ui.link('Help', '/help')
 
-    # Before the article route, like the PDF, so ``guide`` is never a slug.
+    # Before the article route, so `guide` is never read as a slug.
     @public_page(GUIDE_PAGE_PATH, feature=FeatureFlag.EVENT_INFO)
     async def event_info_guide() -> None:
         user = await _viewer()
@@ -203,10 +195,6 @@ def create() -> None:
         if article is None:
             back = ('All event information', 'event_note', '/event-info')
             if user is None:
-                # Not revealing which role-gated pages exist is deliberate, but
-                # a signed-out reader holds no role by definition, so saying
-                # some pages need one leaks nothing — and it is the proctor on
-                # a borrowed laptop's only way forward.
                 await render_not_found(
                     user=None,
                     message=(

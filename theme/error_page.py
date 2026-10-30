@@ -21,15 +21,10 @@ from theme.notice import drain_notice
 
 logger = logging.getLogger(__name__)
 
-#: The one not-found page. Every "this isn't here" state — an unknown route, a
-#: feature the community has off, a dead room link, a stage or article that is
-#: missing or not public — says the same thing with the same status, so none of
-#: them tells a visitor more than an unknown route would.
+# Every not-found state reads the same, so none tells a visitor more than an unknown route would.
 NOT_FOUND_HEADLINE = 'Page not found'
 NOT_FOUND_MESSAGE = "We couldn't find that page. It may have moved, or the link's out of date."
 
-#: ``(label, icon, target)`` — a button on the error card. Targets are paths
-#: handed to ``ui.navigate.to``, so tenant-local.
 Action = tuple[str, str, str]
 
 
@@ -77,9 +72,7 @@ def render_error_page(
     _set_status(status_code)
     ui.page_title(f'{headline} — {layout.wordmark if layout else "Wizzrobe"}')
 
-    # A notice stashed before a redirect must still be shown on the error page a
-    # bad return path lands on — this renderer does not go through
-    # BaseLayout.render(), so it drains for itself.
+    # This renderer skips BaseLayout.render(), so it drains the notice itself.
     try:
         drain_notice()
     except Exception:  # pragma: no cover - defensive, inside an error handler
@@ -124,15 +117,10 @@ def render_error_page(
                 if error_id and _is_authenticated():
                     report = ui.button(
                         'Report this error', icon='feedback',
-                        # Return the coroutine so NiceGUI awaits it in the button's
-                        # slot; a bare background task has no slot and the dialog/
-                        # notify calls inside would raise.
+                        # Return the coroutine so NiceGUI awaits it in the button's slot; a bare background task would raise on notify.
                         on_click=lambda: _open_error_report(error_id),
                     ).props('flat')
-                    # Only where the viewer could actually send it — a member with
-                    # Feedback live, as the drawer decides. The
-                    # 500 path renders synchronously with no prepared layout, so
-                    # there it starts hidden and an async check reveals it.
+                    # The 500 path renders synchronously with no prepared layout, so it starts hidden and an async check reveals it.
                     if layout is not None and layout.is_prepared:
                         report.set_visibility(layout.offers_feedback)
                     else:

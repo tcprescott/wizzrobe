@@ -71,9 +71,7 @@ async def admin_triforce_texts_page() -> None:
             filter_badge.set_text(str(count))
             filter_badge.set_visibility(count > 0)
 
-        # Below 1024px the CSS collapses .match-filters-card until it carries
-        # .wiz-filters-open, so phones need this toggle (hidden on desktop) or
-        # the filters are unreachable.
+        # Phones need this toggle: below 1024px the CSS hides .match-filters-card until it has .wiz-filters-open.
         with ui.row().classes('wiz-filter-toggle full-width items-center'):
             ui.button('Filters', icon='filter_list', on_click=toggle_filters).props('flat color=primary')
             filter_badge = ui.badge('0').props('color=primary')
@@ -98,9 +96,7 @@ async def admin_triforce_texts_page() -> None:
         def submissions_table() -> None:
             async def render():
                 table_container.clear()
-                # A background task started from a filter or moderation handler
-                # has no slot context, so the client's tenant stash is out of
-                # reach and the feature gate would read the tenant as missing.
+                # A background task has no slot context, so without this the feature gate can't find the tenant.
                 with tenant_scope(tenant_id), event_scope(event_id):
                     rows = await service.list_for_moderation(
                         state['tournament_id'],

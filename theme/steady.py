@@ -33,8 +33,7 @@ class steady_refreshable(refreshable):
 
     def __init__(self, func: Any) -> None:
         super().__init__(func)
-        # The container on screen for each target. While a refresh is building
-        # off-screen, ``target.container`` is the staging container instead.
+        # While a refresh builds off-screen, target.container is the staging container.
         self._visible: dict[int, RefreshableContainer] = {}
 
     def prune(self) -> None:
@@ -60,8 +59,7 @@ class steady_refreshable(refreshable):
         visible = self._visible.setdefault(id(target), target.container)
         if visible.is_deleted:
             return
-        # Off-screen under the page root rather than beside the section, so the
-        # parent's :empty and sibling selectors never see the staging element.
+        # Off-screen under the page root so the parent's :empty and sibling selectors never see the staging element.
         with visible.client.layout:
             holder = ui.element('div').style('display: none')
         with holder:

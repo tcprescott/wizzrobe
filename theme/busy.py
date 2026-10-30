@@ -81,9 +81,7 @@ def slot_busy_template(flag: str) -> str:
 async def busy(target: Optional[Element], text: str) -> AsyncIterator[Busy]:
     """Show ``text`` as busy on ``target`` until the block exits."""
     if isinstance(target, Button) and not target.is_deleted:
-        # The words replace the label in place, so the button grows rather
-        # than squeezing them over its old label (Quasar's `loading` overlay
-        # keeps the old width and spills anything longer).
+        # Replace the label in place: Quasar's loading overlay keeps the old width and spills longer text.
         label, icon, enabled = target.text, target.props.get('icon'), target.enabled
         with target:
             extras = [

@@ -86,10 +86,6 @@ REPORT_CARDS: list[dict[str, Any]] = [
         'icon': 'insights',
         'description': 'How people use the tool: page views, interactions, and '
                        'domain events.',
-        # The card used to say "Staff only" in its own description while being
-        # offered to every viewer of this tab — the code admitting the gate
-        # belonged one level up. telemetry_page still refuses, this stops the
-        # invitation.
         'staff_only': True,
     },
     {
@@ -121,8 +117,6 @@ async def dashboard_page(
     can_export = await DataExportService.can_export(viewer)
     live = live if live is not None else set()
 
-    # An absent pair still means the event window, so the overview's subtitle
-    # keeps telling the truth and an unfiltered dashboard is unchanged.
     start_d, end_d = await default_date_range(start, end)
     bounds_start, bounds_end = display_bounds(start_d, end_d)
 
@@ -132,11 +126,6 @@ async def dashboard_page(
     with ui.column().classes('page-container-wide wiz-report'):
         page_header('Reports', 'How the event is going, and the reports behind each number.')
 
-        # `Peak players 14 / 12` is the loudest number here and the one most
-        # likely to make someone ask "over what period?"; until now there was no
-        # way to answer. No CSV: each KPI links to a report that already exports
-        # the data it comes from, so a fifth export would be maintenance, not a
-        # feature.
         with report_filter_bar(int(await is_custom_range(start_d, end_d))):
             date_range_filter(start_d, end_d, on_change=nav)
             report_jumps(await event_jump_options(), start_d, end_d, on_pick=nav)
@@ -181,9 +170,6 @@ async def dashboard_page(
             subtitle=f'{format_local_date(start_d)} to {format_local_date(end_d)} ({timezone_label()})',
         )
         with overview.body, kpi_grid():
-            # Each KPI is computed from exactly one report's data, and every
-            # link carries this page's window so the destination cannot
-            # contradict the tile it came from.
             kpi_card(
                 'Peak players',
                 f'{peak_players} / {forecast["max_capacity"]}',
@@ -207,9 +193,6 @@ async def dashboard_page(
                 href=reports_url('match_ops', start=start_d, end=end_d),
                 href_label='Match operations →',
             )
-            # Three-tier so an ops-critical gap reads as a problem, not a mild
-            # amber: green >= 80%, amber 50-79%, red < 50% (and red when there are
-            # candidates but zero coverage).
             if coverage_pct is None:
                 coverage_color = 'primary'
             elif coverage_pct >= 80:
@@ -243,9 +226,6 @@ async def dashboard_page(
 
 def _report_card(card: dict) -> None:
     url = reports_url(report=card['key'])
-    # cursor-pointer was on the card while only the link navigated. Make the
-    # whole card do what it looks like it does; the link stays for keyboard and
-    # middle-click.
     with ui.card().classes('q-pa-md cursor-pointer wiz-kpi') as card_el:
         with ui.row().classes('items-center no-wrap'):
             ui.icon(card['icon']).classes('text-h5 q-mr-sm')  # style-guide: exempt — icon size, not a title

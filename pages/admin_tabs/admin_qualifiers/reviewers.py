@@ -49,8 +49,6 @@ def build_reviewers_tab(
                       ).props('color=primary').classes('wiz-write')
         reviewers = state['reviewers']
         if not reviewers:
-            # Not a broken state: community STAFF can administer every qualifier,
-            # so an empty roster is the default rather than a lockout.
             empty_panel('No qualifier-specific reviewers. Community staff can still '
                         'review every run here.', icon='group')
             return
@@ -60,8 +58,6 @@ def build_reviewers_tab(
                     with ui.row().classes('items-center full-width'):
                         ui.label(display_name(person)).classes('text-subtitle1')
                         if not person.discord_id:
-                            # Review verdicts DM the runner, and the queue notification
-                            # DMs the reviewer — neither reaches someone with no Discord.
                             ui.badge('no Discord', color='grey').tooltip(
                                 'This reviewer will not receive queue notifications.')
                         ui.space()

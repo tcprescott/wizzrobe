@@ -65,27 +65,15 @@ from theme.brackets.static_view import (
 
 logger = logging.getLogger(__name__)
 
-# How long an un-invalidated render may be served, and how long a browser (or a
-# CDN) may reuse a response. Both are short: the events do the real freshness
-# work, and these only bound the state nothing publishes — a card whose derived
-# status turns "imminent" because the clock moved.
 _CACHE_TTL_SECONDS = 30
 _HTTP_MAX_AGE = 30
-# The document's own meta-refresh. Longer than the HTTP max-age so a reload
-# always revalidates rather than repainting the same cached bytes; short enough
-# that a spectator watching finals sees a result land without touching anything.
+# Longer than the HTTP max-age, so a reload always revalidates.
 _PAGE_REFRESH_SECONDS = 60
 _INDEX_REFRESH_SECONDS = 300
 
 _cache = HtmlPageCache(ttl_seconds=_CACHE_TTL_SECONDS)
 
-# The two event families that can change what these pages show — the same split
-# the live view subscribes to (theme/brackets/live.py): BRACKET_* for the stage
-# itself, MATCH_* because the cards mirror the scheduled match's live state.
-# Matched by *tenant*, not by bracket id: invalidation is a version bump, so
-# being generous costs one re-render of pages nobody may even be reading, and
-# the alternative (resolving a bracket id inside a sync subscriber) would mean a
-# query inside ``publish``.
+# Matched by tenant, not bracket id: resolving the bracket would put a query inside the sync publish.
 _INVALIDATING_EVENTS = tuple(
     name for name in EventType.ALL
     if name.startswith('bracket.') or name.startswith('match.')
@@ -95,9 +83,7 @@ _subscribed = False
 
 
 def _on_change(event) -> None:
-    # A tenant-less event should not happen (every scoped path publishes inside
-    # ``tenant_scope``), but if one does, serving a stale bracket is the worse
-    # failure of the two — drop everything rather than guess which tenant.
+    # Drop everything rather than guess the tenant: a stale bracket is the worse failure.
     if event.tenant_id is None:
         _cache.clear()
         return
@@ -148,8 +134,7 @@ def _conditional(request: Request, etag: str, body: str) -> Response:
     headers = {
         'Cache-Control': f'public, max-age={_HTTP_MAX_AGE}, stale-while-revalidate=300',
         'ETag': etag,
-        # The tenant is resolved from the path (or the Host), never from a
-        # cookie, so a shared cache keying on the URL alone is correct.
+        # Safe because the tenant comes from the path or Host, never a cookie.
         'Vary': 'Accept-Encoding',
         'X-Robots-Tag': 'noindex, nofollow',
     }
@@ -185,8 +170,7 @@ def create() -> None:
         event_bus.subscribe_sync(_on_change, _INVALIDATING_EVENTS)
         _subscribed = True
 
-    # GET and HEAD: a link unfurler (Discord's among them) may probe with HEAD
-    # first, and a 405 there reads as a dead link.
+    # GET and HEAD: a link unfurler (Discord's) may probe with HEAD, and a 405 reads as a dead link.
     @app.api_route(
         '/live/tournament/{tournament_id}/brackets', methods=['GET', 'HEAD'],
         include_in_schema=False,
@@ -208,15 +192,12 @@ def create() -> None:
             return _conditional(request, cached.etag, cached.body)
 
         service = BracketService()
-        # Anonymous always: no viewer, so a tournament with nothing published
-        # (its name included) and every DRAFT/CANCELLED stage stay hidden.
+        # Anonymous always, so nothing unpublished leaks.
         tournament = await service.get_visible_tournament(None, tid)
         if tournament is None:
             return await _not_found(request)
 
-        # One render is cached and served to every spectator, so it cannot carry
-        # any one viewer's clock — and these routes never run the page-build
-        # resolver anyway. The community's own zone is the only correct answer.
+        # One cached render serves every spectator: use the community's zone, never a viewer's.
         tz = await TimezoneService.tenant_timezone_name(tenant_id)
 
         brackets = await service.list_visible_brackets(None, tid)

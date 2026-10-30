@@ -48,14 +48,9 @@
         U+02DC, U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
 }
 
-/* The navigation icon set: outlined Material Symbols, subset to the drawer and
-   bottom-bar icons (theme.nav_badges.NAV_ICON_NAMES), with the FILL axis so the
-   item you are on can fill in. To add a name, download the subset again with it
-   in the sorted list:
+/* Subset to theme.nav_badges.NAV_ICON_NAMES. To add a name, re-download the subset with it in the sorted list:
    https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..24,400,0..1,0&icon_names=<names>
-   then set ?v= below to the first 12 hex digits of the new file's sha256. The
-   stamp changes the URL, so a browser holding the old subset fetches the new
-   one instead of drawing a new icon's name as text. */
+   then set ?v= below to the first 12 hex digits of the new file's sha256, or browsers keep the old subset. */
 @font-face {
     font-family: 'Material Symbols Outlined';
     font-style: normal;
@@ -79,27 +74,15 @@
     font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
 }
 
-/* Design tokens — the "Studio" system.
-
-   A neutral warm-grey shell with one accent. The accent is the community's
-   brand colour (Admin → Appearance re-points the --wiz-* brand vars in
-   theme/chrome.py), and it marks only what you can act on and where you are:
-   filled buttons, links, the active nav item, focus. Everything else — titles,
-   table headers, timestamps, the header bar — is ink or grey, so the accent
-   still means something when it appears.
-
-   Mode-aware aliases default to light values and switch under .body--dark /
-   .q-dark, so one rule serves both modes. */
 :root {
-    /* Brand (tenant-overridable) */
-    --wiz-gold: #E0A82E;        /* accent on dark surfaces */
-    --wiz-gold-deep: #9C6B12;   /* accent on light surfaces (AA on white) */
+    --wiz-gold: #E0A82E;
+    --wiz-gold-deep: #9C6B12;
     --wiz-ember: #E8631A;
     --wiz-ember-deep: #C24E12;
     --wiz-charcoal: #17120D;
-    --wiz-header-bg: var(--wiz-gold-deep);  /* the brand mark beside the wordmark */
+    --wiz-header-bg: var(--wiz-gold-deep);
 
-    /* Watch page stills: drawn over a video frame, so the same in both modes. */
+    /* Same in both modes: drawn over a video frame. */
     --wiz-onair: #D7261E;
     --wiz-still-bg: #14120F;
     --wiz-still-scrim: rgba(0, 0, 0, 0.78);
@@ -115,11 +98,10 @@
     --n-100: #ECECEA;
     --n-200: #E2E1DE;
     --n-300: #D4D3CF;
-    --n-500: #6F6D67;   /* muted text, 4.9:1 on white */
+    --n-500: #6F6D67;
     --n-700: #3F3D39;
     --n-900: #1C1B19;
 
-    /* Semantic aliases — what components should read */
     --page-bg: var(--n-50);
     --surface: var(--n-0);
     --surface-alt: var(--n-25);
@@ -130,9 +112,6 @@
     --fg-secondary: var(--n-700);
     --fg-muted: var(--n-500);
 
-    /* Text in the brand colour, a shade under it: the default gold is 4.3:1 on
-       white, and a community's own colour can be lighter still. Fills keep the
-       exact brand colour. */
     --wiz-link: color-mix(in srgb, var(--accent) 85%, #000);
     --wiz-section-title: var(--fg);
     --wiz-stage-header-bg: var(--n-100);
@@ -145,31 +124,25 @@
     --wiz-dark-muted:     #A8A59E;
     --wiz-dark-fg:        #ECEBE8;
 
-    /* Typography: one family for UI and titles, mono for times and IDs.
-       --font-display is kept as an alias so older rules that name it follow. */
+    /* --font-display stays as an alias: older rules still name it. */
     --font-body: 'Atkinson Hyperlegible', 'Segoe UI', system-ui, sans-serif;
     --font-display: var(--font-body);
     --font-mono: 'IBM Plex Mono', ui-monospace, 'Cascadia Mono', monospace;
-    --text-xs: 0.75rem;     /* 12px — chips, table headers */
-    --text-sm: 0.8125rem;   /* 13px — captions, helper text */
-    --text-md: 0.875rem;    /* 14px — body, tables, nav */
-    --text-lg: 1rem;        /* 16px — section titles */
-    --text-xl: 1.375rem;    /* 22px — page titles */
+    --text-xs: 0.75rem;
+    --text-sm: 0.8125rem;
+    --text-md: 0.875rem;
+    --text-lg: 1rem;
+    --text-xl: 1.375rem;
 
-    /* Status colors. Light values hold ≥4.5:1 on white; dark variants lift
-       under .body--dark / .q-dark. */
     --status-ok:        #557A1F;
     --status-pending:   #B45309;
     --status-live:      #0E7470;
     --status-neutral:   #6B6258;
     --status-cancelled: #B3362B;
-    /* Count on a nav item (matches waiting on you): white on the light red,
-       ink on the dark one, so both clear 4.5:1. */
     --wiz-count-bg: var(--status-cancelled);
     --wiz-count-fg: var(--n-0);
     --status-info:      #2F5F8A;
-    /* AI-suggested drafts in the survey builder: never the community accent,
-       so a suggestion can't pass for a question staff wrote. */
+    /* Never the community accent, so a suggestion can't pass for a question staff wrote. */
     --status-suggested: #5B4BB7;
     --status-suggested-soft: color-mix(in srgb, var(--status-suggested) 10%, var(--surface));
 
@@ -185,17 +158,9 @@
     --radius-lg: 12px;
     --radius-pill: 999px;
 
-    /* Height reserved for the mobile bottom nav (.wiz-bottom-nav) — the fixed
-       refresh FAB and the reconnect overlay clear it by this amount. Single
-       source so tuning the nav does not silently desync those offsets.
-       Zero by default: a page with no tabs (BaseLayout._render_footer skips
-       the <footer> entirely) renders no bottom nav to clear, so reserving 72px
-       anyway just floats these overlays in dead space above the true bottom of
-       the screen. `body.wiz-has-bottom-nav` (set only when the footer actually
-       renders) restores the clearance. */
+    /* Zero by default: body.wiz-has-bottom-nav, set only when the footer renders, restores the clearance. */
     --wiz-bottom-nav-h: 0px;
 
-    /* Shadows stay faint: borders carry separation, shadows only lift */
     --shadow-1: 0 1px 2px rgba(28, 27, 25, 0.05);
     --shadow-2: 0 4px 12px rgba(28, 27, 25, 0.08);
     --shadow-3: 0 12px 32px rgba(28, 27, 25, 0.14);
@@ -206,8 +171,6 @@
     --dur-med: 220ms;
 }
 
-/* Set by BaseLayout._render_footer only on pages that actually render the
-   mobile bottom nav — see the --wiz-bottom-nav-h comment above. */
 body.wiz-has-bottom-nav {
     --wiz-bottom-nav-h: 72px;
 }
@@ -218,8 +181,6 @@ body.wiz-has-bottom-nav {
     --accent-soft: color-mix(in srgb, var(--accent) 14%, transparent);
     --wiz-link: var(--wiz-gold);
 
-    /* Override Quasar's own dark tokens so every default-styled surface (cards,
-       dialogs, drawer, tab panels, menus) inherits the scale in one place. */
     --q-dark-page: var(--wiz-dark-bg);
     --q-dark:      var(--wiz-dark-surface);
 
@@ -243,8 +204,7 @@ body.wiz-has-bottom-nav {
     --fg: #ECEBE8;
     --fg-secondary: #CFCCC6;
     --fg-muted: var(--wiz-dark-muted);
-    /* Restated, not inherited: :root resolved var(--fg) to the light-mode ink,
-       which left section icons and card titles near-black on dark. */
+    /* Restated, not inherited: :root resolved var(--fg) to the light-mode ink. */
     --wiz-section-title: var(--fg);
     --wiz-stage-header-bg: var(--surface-sunken);
     --wiz-stage-header-text: var(--fg);
@@ -255,9 +215,7 @@ body.wiz-has-bottom-nav {
     --scrim: rgba(0, 0, 0, 0.6);
 }
 
-/* Base typography — wins over Quasar's Roboto default because this sheet loads
-   after the framework CSS. Components that set their own family are re-pointed
-   explicitly. */
+/* Wins over Quasar's Roboto because this sheet loads after the framework CSS. */
 body {
     font-family: var(--font-body);
 }
@@ -287,7 +245,6 @@ body {
     border: 0;
 }
 
-/* Off-screen until focused (theme/base.py adds it as the first tab stop). */
 .wiz-skip-link {
     position: fixed;
     top: 8px;
@@ -322,9 +279,7 @@ main.q-page:focus {
     background: color-mix(in srgb, var(--accent) 35%, transparent);
 }
 
-/* Native date/time inputs draw their calendar/clock icon and popup from the
-   page's colour scheme, not from CSS colour: without this they stay black on
-   the dark surface and open a white picker. */
+/* Native date/time pickers follow color-scheme, not CSS colour. */
 .body--dark {
     color-scheme: dark;
 }
@@ -336,9 +291,7 @@ main.q-page:focus {
     }
 }
 
-/* In dark mode, brighten primary/secondary *text and icons* to the vibrant
-   gold/ember so they stay legible on dark surfaces. Filled .bg-primary buttons
-   intentionally keep the deeper hue so their white labels retain contrast. */
+/* Filled .bg-primary keeps the deeper hue so its white labels keep contrast. */
 .body--dark .text-primary,
 .q-dark .text-primary {
     color: var(--wiz-gold) !important;
@@ -349,8 +302,6 @@ main.q-page:focus {
     color: var(--wiz-ember) !important;
 }
 
-/* Muted text (#666/#888 stays legible on white) lifts to a warm light gray on
-   dark surfaces so timestamps, form labels and filter labels remain readable. */
 .body--dark .input-label,
 .body--dark .required-legend,
 .body--dark .match-filter-label,
@@ -366,7 +317,6 @@ main.q-page:focus {
     color: var(--wiz-dark-muted);
 }
 
-/* Status utility classes — consumed by Vue slot templates and .classes() */
 .st-ok        { color: var(--status-ok); }
 .st-ok-strong { color: var(--status-ok); font-weight: 700; }
 .st-pending   { color: var(--status-pending); }
@@ -375,7 +325,6 @@ main.q-page:focus {
 .st-cancelled { color: var(--status-cancelled); }
 .st-info      { color: var(--status-info); }
 
-/* Status chips — the one badge style: tinted, sentence case, radius-sm */
 .wiz-chip {
     display: inline-flex;
     align-items: center;
@@ -386,17 +335,11 @@ main.q-page:focus {
     font-weight: 700;
     line-height: 1.5;
     background: color-mix(in srgb, var(--chip-c) 12%, transparent);
-    /* Pulled a fifth of the way to the ink: the bare status colour on its own
-       12% tint is 3.9-4.3:1, just under AA for 12px text. */
     color: color-mix(in srgb, var(--chip-c) 80%, var(--fg));
     border: 1px solid color-mix(in srgb, var(--chip-c) 22%, transparent);
 }
 
-/* A chip carrying a name somebody else typed — a preset, a stage — must not set
-   its column's width. One long name on one row widened the player board's
-   Settings column to 253px, the widest on a ten-column board, and pushed the
-   control it holds past the horizontal fold. The full text stays in the
-   tooltip. */
+/* Must not set its column's width: one long name widened the whole column. */
 .wiz-chip--name {
     max-width: 16ch;
     overflow: hidden;
@@ -413,7 +356,6 @@ main.q-page:focus {
 .wiz-chip--info      { --chip-c: var(--status-info); }
 .wiz-chip--suggested { --chip-c: var(--status-suggested); }
 .wiz-chip--candidate { --chip-c: var(--wiz-gold-deep); }
-/* The community events listed since the last visit: the nav count's colour. */
 .wiz-chip--new       { --chip-c: var(--wiz-count-bg); }
 
 .body--dark .wiz-chip--candidate,
@@ -421,8 +363,7 @@ main.q-page:focus {
     --chip-c: var(--wiz-gold);
 }
 
-/* A removable q-chip (a volunteer on a shift) in the same tint. Quasar's
-   default chip is bg-primary with near-black text, unreadable on the gold. */
+/* Quasar's default chip is bg-primary with near-black text, unreadable on gold. */
 .q-chip.wiz-chip {
     height: auto;
     min-height: 22px;
@@ -434,9 +375,6 @@ main.q-page:focus {
     opacity: 0.7;
 }
 
-/* A volunteer on a shift: the state is written after the name rather than
-   carried by the chip's colour, which hover-only tooltips never explained on a
-   phone and which red-green colourblind staff couldn't tell apart. */
 .q-chip.wiz-assign-chip {
     color: var(--fg);
 }
@@ -448,11 +386,6 @@ main.q-page:focus {
 .wiz-assign-chip__state--ok      { color: color-mix(in srgb, var(--status-ok) 80%, var(--fg)); }
 .wiz-assign-chip__state--waiting { color: var(--fg-secondary); font-weight: 400; }
 
-/* Every ui.badge in the app wears the chip above. Fifty-odd call sites pass a
-   Quasar colour (positive, warning, grey-7, blue...), and each used to paint a
-   solid, saturated pill, so one screen could carry five unrelated reds and
-   greens. Here the colour only picks a tone. Floating counters (the filter
-   count on a button) keep Quasar's solid dot. */
 .q-badge:not(.q-badge--floating) {
     --chip-c: var(--status-neutral);
     padding: 2px 8px;
@@ -462,10 +395,7 @@ main.q-page:focus {
     font-weight: 700;
     line-height: 1.5;
     letter-spacing: 0;
-    /* Quasar's bg-* classes set the background shorthand !important inside
-       its CSS layer, which beats any unlayered !important, so neither the
-       fill nor a background-image over it survives. An inset shadow paints
-       above the background, and a surface-coloured one leaves a 12% tint. */
+    /* Quasar's bg-* set background !important inside its layer, beating any unlayered !important; an inset shadow paints above it. */
     box-shadow: inset 0 0 0 100vmax color-mix(in srgb, var(--surface) 88%, transparent);
     color: color-mix(in srgb, var(--chip-c) 80%, var(--fg)) !important;
     border: 1px solid color-mix(in srgb, var(--chip-c) 24%, transparent);
@@ -484,12 +414,8 @@ main.q-page:focus {
 .q-badge[class*="bg-purple"], .q-badge[class*="bg-deep-purple"], .q-badge--outline[class*="text-info"] { --chip-c: var(--status-info); }
 .q-badge[class*="bg-primary"], .q-badge--outline[class*="text-primary"] { --chip-c: var(--accent); }
 
-/* Availability heatmap (My Availability editor, player + volunteer) — status
-   fills mapped to the phoenix --status-* tokens so the bar sits with the
-   palette and lifts in dark mode. Segment widths stay inline (dynamic
-   geometry); only the palette lives here. */
 :root {
-    --avail-none: var(--border-subtle);   /* "no availability" fill */
+    --avail-none: var(--border-subtle);
     --avail-hatch: rgb(255 255 255 / 0.55);
 }
 
@@ -499,9 +425,6 @@ main.q-page:focus {
     --avail-hatch: rgb(0 0 0 / 0.5);
 }
 
-/* Every state differs in more than hue, because the bar is read by people who
-   can't tell red from green: Preferred is blue with a star, Available an
-   outlined tint with a check, Unavailable hatched red with a cross. */
 .avail-swatch {
     width: 22px;
     height: 22px;
@@ -600,9 +523,6 @@ main.q-page:focus {
     }
 }
 
-/* Availability window editor: one card per day, one divided row per window.
-   On a phone a window takes two lines (times, then status and delete), so the
-   two time fields get the full width a 12-hour "09:00 AM" needs. */
 .avail-split {
     display: grid;
     grid-template-columns: minmax(0, 1fr);
@@ -659,9 +579,6 @@ main.q-page:focus {
 .avail-window__status { flex: 1 1 calc(100% - 4.5rem); min-width: 0; }
 .avail-window__delete { flex: none; }
 
-/* A list of editable rows inside a dialog (Record results, payout split):
-   one bordered box, a divider between rows, each row wrapping onto two lines
-   so its fields never squeeze into each other on a phone. */
 .wiz-edit-list {
     width: 100%;
     border: 1px solid var(--border-subtle);
@@ -708,16 +625,11 @@ main.q-page:focus {
     font-variant-numeric: tabular-nums;
 }
 
-/* A seed players paste into their own randomizer (a WWR permalink, a Z1R
-   seed and flags) rather than open. Cells truncate it, so copying goes through
-   the copy button beside it, never a text selection. */
 .seed-value {
     font-family: var(--font-mono);
     font-size: 0.8rem;
 }
 
-/* The file-select code racers compare before starting ("Code: Bow · Hookshot
-   · …"), one line under the seed wherever the seed shows. */
 .seed-code {
     display: block;
     font-size: var(--text-sm);
@@ -730,8 +642,6 @@ main.q-page:focus {
     flex-basis: 100%;
 }
 
-/* Read-back under a pasted preset value on the Presets tab: the FFR site
-   version with a link to check it, or a sample Z1R seed. */
 .preset-check {
     background: var(--surface-sunken);
     border-radius: 8px;
@@ -757,15 +667,11 @@ main.q-page:focus {
     color: var(--status-neutral);
 }
 
-/* Header: a neutral bar with a hairline rule. The community's colour lives in
-   the small mark before the wordmark, not across the whole bar. Quasar pins the
-   header via its own fixed-top positioning. */
 .wiz-header {
     background-color: var(--surface);
     color: var(--fg);
     min-height: 56px;
     padding: 0 var(--space-3);
-    /* Clear the status-bar / notch area when installed as a standalone PWA. */
     padding-top: env(safe-area-inset-top);
     border-bottom: 1px solid var(--border-subtle);
     box-shadow: none;
@@ -775,9 +681,6 @@ main.q-page:focus {
     color: var(--fg-secondary);
 }
 
-/* Toasts open at the top (theme/notify.py), so they clear phone bottom-sheet
-   footers and the keyboard; this drops them below the fixed header instead of
-   over it. Pages without the header keep Quasar's own top edge. */
 body:has(.wiz-header) .q-notifications__list--top {
     top: calc(var(--wiz-header-height, 56px) + env(safe-area-inset-top, 0px));
 }
@@ -807,9 +710,6 @@ body:has(.wiz-header) .q-notifications__list--top {
     display: none;
 }
 
-/* A community logo (Settings → General) replaces the colour square, a little
-   larger so a real mark reads. theme/chrome.apply_brand_palette sets the URL
-   and the body class only when one is uploaded. */
 .wiz-has-logo .wiz-wordmark::before {
     width: 28px;
     height: 28px;
@@ -817,9 +717,6 @@ body:has(.wiz-header) .q-notifications__list--top {
     background: var(--wiz-brand-logo) center / contain no-repeat;
 }
 
-/* Settings → General: the logo as it sits on each header. Fixed light and dark
-   surfaces, not the theme tokens, so both previews show whichever mode the
-   viewer is in. */
 .wiz-logo-preview {
     display: inline-flex;
     align-items: center;
@@ -853,8 +750,6 @@ body:has(.wiz-header) .q-notifications__list--top {
     background: var(--wiz-header-bg);
 }
 
-/* "Wizzrobe · Platform" — names a tenant-less surface without competing with
-   the wordmark itself. */
 .wiz-wordmark-sub {
     font-size: 0.85rem;
     font-weight: 600;
@@ -862,8 +757,6 @@ body:has(.wiz-header) .q-notifications__list--top {
     margin-left: var(--space-1);
 }
 
-/* The event button after the wordmark (theme/event_switcher.py): an outlined
-   pill naming the event the page shows. Archived turns it amber. */
 .wiz-header .q-btn.wiz-event-switch {
     margin-left: var(--space-2);
     padding: 0 var(--space-2) 0 var(--space-3);
@@ -936,9 +829,6 @@ body:has(.wiz-header) .q-notifications__list--top {
     color: var(--wiz-link);
 }
 
-/* On the narrowest phones (360px) the header's icon buttons drop to a 44px
-   target and the archived pill to its colour, or a long event name pushed the
-   last button off the screen. */
 @media (max-width: 399.98px) {
     .wiz-header .q-btn:not(.wiz-event-switch) {
         padding-left: 10px;
@@ -954,8 +844,6 @@ body:has(.wiz-header) .q-notifications__list--top {
     }
 }
 
-/* On a phone the button stands in for the community's name (its colour mark
-   stays), and the menu rises as a bottom sheet like the help menus. */
 @media (max-width: 599.98px) {
     .wiz-header:has(.wiz-event-switch) .wiz-wordmark {
         font-size: 0;
@@ -1003,8 +891,6 @@ body:has(.wiz-header) .q-notifications__list--top {
     color: var(--fg-muted);
 }
 
-/* Admin's list in two halves (theme/drawer_nav.render_half_heading): the event
-   the pages belong to, then Community-wide. A label row, not a destination. */
 .q-drawer .wiz-drawer-half {
     display: flex;
     align-items: center;
@@ -1051,8 +937,6 @@ body:has(.wiz-header) .q-notifications__list--top {
         display: none;
     }
 
-    /* Icon-only login button on phones: hide the label (the full-text button
-       still lives in the page body), leaving the lone glyph centered. */
     .login-button-text {
         display: none;
     }
@@ -1068,9 +952,7 @@ body:has(.wiz-header) .q-notifications__list--top {
     border-right: 1px solid var(--border-subtle);
 }
 
-/* NiceGUI pads the drawer body 1rem all round and shrinks each list to its
-   widest label. Halve the side padding and stretch the lists so every item's
-   hover/active fill runs the drawer's full width. */
+/* NiceGUI pads the drawer body and shrinks each list to its widest label. */
 .q-drawer .nicegui-drawer {
     padding: var(--space-3) var(--space-2);
     gap: var(--space-2);
@@ -1100,8 +982,6 @@ body:has(.wiz-header) .q-notifications__list--top {
     background: var(--surface-sunken);
 }
 
-/* Pinned on desktop the rows sit a little roomier than body text; as the phone
-   overlay they grow to a 48px tap target with 16px labels. */
 .q-drawer--standard .q-item {
     min-height: 40px;
     font-size: 0.9375rem;
@@ -1139,8 +1019,6 @@ body:has(.wiz-header) .q-notifications__list--top {
     color: var(--accent);
 }
 
-/* The section the viewer is in (Home, Volunteer, Admin, Help...): an accent
-   tint, so it reads apart from the grey "this page" row in the tab list. */
 .q-drawer .q-item.wiz-nav-section--active {
     background: color-mix(in srgb, var(--accent) 16%, transparent);
     color: var(--fg);
@@ -1166,8 +1044,6 @@ body:has(.wiz-header) .q-notifications__list--top {
     color: var(--fg);
 }
 
-/* Watch live: a link of its own above the section switcher, set apart like the
-   info card because it has no pages to switch to. */
 .q-drawer .q-item.wiz-drawer-watch {
     background: var(--surface);
     border: 1px solid var(--border-subtle);
@@ -1184,8 +1060,6 @@ body:has(.wiz-header) .q-notifications__list--top {
     background: color-mix(in srgb, var(--accent) 16%, var(--surface));
 }
 
-/* The section switcher: Home / Volunteer / Admin as one strip whose choice
-   swaps the page list under it without leaving the page. */
 .q-drawer .wiz-drawer-sections {
     display: grid;
     grid-auto-columns: 1fr;
@@ -1230,8 +1104,6 @@ body:has(.wiz-header) .q-notifications__list--top {
     font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24;
 }
 
-/* The info card at the drawer's foot (Event Guide, Help, Feedback): reference
-   items set apart from the navigation above them. */
 .q-drawer .wiz-drawer-info {
     background: var(--surface);
     border: 1px solid var(--border-subtle);
@@ -1244,8 +1116,6 @@ body:has(.wiz-header) .q-notifications__list--top {
     padding-top: var(--space-2);
 }
 
-/* Drawer section headers (grouped admin nav): a quiet grey label between
-   destination clusters, not a clickable item. */
 .q-drawer .wiz-drawer-group {
     padding: var(--space-3) 14px var(--space-1);
     font-size: 0.6875rem;
@@ -1267,9 +1137,6 @@ body:has(.wiz-header) .q-notifications__list--top {
     margin: 0 auto;
 }
 
-/* Profile's sections: two columns of short forms on a desktop, one on a
-   phone. Each column stays near the 760px the page used to be capped at, so
-   the forms keep a readable line length without leaving half the page empty. */
 .wiz-profile-sections {
     width: 100%;
     columns: 2 28rem;
@@ -1286,8 +1153,6 @@ body:has(.wiz-header) .q-notifications__list--top {
     border-top: 1px solid var(--border-subtle);
 }
 
-/* The staff view of an emergency contact: label beside value, the phone
-   number as the biggest thing in it. */
 .wiz-emergency-contact {
     display: grid;
     grid-template-columns: max-content 1fr;
@@ -1295,8 +1160,6 @@ body:has(.wiz-header) .q-notifications__list--top {
     align-items: baseline;
 }
 
-/* The member's own card: relationship and phone side by side where there's
-   room. */
 .wiz-emergency-contact-fields {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
@@ -1309,12 +1172,6 @@ body:has(.wiz-header) .q-notifications__list--top {
     margin: 0 auto;
 }
 
-/* Cards side by side on a wide screen, one column on a phone. A list page that
-   stacks full-width cards in a 1200-1400px container leaves each card's name on
-   the far left and its button 1100px away; tiles keep the two close and use the
-   width instead. The `min()` lets one tile shrink below the minimum on a phone
-   rather than overflow. --sm for short cards (brackets, events, shifts), --md
-   for cards that carry prose (tournaments, the changelog). */
 .wiz-tile-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(min(100%, 20rem), 1fr));
@@ -1337,9 +1194,6 @@ body:has(.wiz-header) .q-notifications__list--top {
     margin: 0;
 }
 
-/* A list that has nothing to show yet, as a panel the width of the list it
-   stands in for, so the page keeps its shape instead of ending in one grey
-   caption under the toolbar. */
 .wiz-empty-panel {
     width: 100%;
     padding: var(--space-5) var(--space-3);
@@ -1377,8 +1231,6 @@ body:has(.wiz-header) .q-notifications__list--top {
 .mb-1 { margin-bottom: 1em; }
 .ml-1 { margin-left: 1em; }
 
-/* Titles: one family, three sizes, ink colour. Hierarchy comes from size and
-   weight, not from colour. */
 .page-title {
     font-family: var(--font-body);
     font-weight: 700;
@@ -1398,7 +1250,6 @@ body:has(.wiz-header) .q-notifications__list--top {
     color: var(--fg);
 }
 
-/* Beside a badge or an action, the row does the spacing. */
 .row > .section-title { margin-bottom: 0; }
 
 .subsection-title {
@@ -1414,8 +1265,6 @@ body:has(.wiz-header) .q-notifications__list--top {
     margin-bottom: 1.5em;
 }
 
-/* Page header (theme/page_header.py): the title row, then a muted lede. One
-   gap below it separates the header from the page; no divider rule. */
 .wiz-page-header {
     width: 100%;
     gap: var(--space-1);
@@ -1443,8 +1292,6 @@ body:has(.wiz-header) .q-notifications__list--top {
     background: var(--surface);
 }
 
-/* Page canvas: tab panels sit on the page background rather than a full-width
-   white slab, so cards, tables and filter bars read as separate objects. */
 .q-tab-panels {
     background: transparent;
 }
@@ -1454,10 +1301,6 @@ body:has(.wiz-header) .q-notifications__list--top {
     letter-spacing: 0;
 }
 
-/* One field style everywhere. Quasar's default "standard" field is an underline;
-   about four in five inputs used it while dialogs and filters were boxed, so a
-   single settings page mixed both. Box the standard variant to match outlined.
-   Borderless, filled and outlined fields keep their own look. */
 .q-field--standard .q-field__control {
     padding: 0 10px;
     border: 1px solid var(--border-subtle);
@@ -1493,8 +1336,6 @@ body:has(.wiz-header) .q-notifications__list--top {
     border-color: var(--border-subtle);
 }
 
-/* Banner: a full-width message about the page or the viewer's account
-   (theme/banner.py). Tinted by tone, never a solid colour block. */
 .wiz-banner {
     --banner-c: var(--status-info);
     display: flex;
@@ -1543,19 +1384,14 @@ body:has(.wiz-header) .q-notifications__list--top {
     gap: var(--space-2);
 }
 
-/* A banner with no actions would otherwise keep an empty row (and, on a
-   phone, a full-width line of it) under the message. */
 .wiz-banner__actions:empty { display: none; }
 
-/* An archived event's page or tab (theme/archived_banner.py): every row's ⋮
-   and anything marked wiz-write goes. The server refuses the write anyway. */
 .wiz-read-only [aria-label^="More for "],
 .wiz-read-only .wiz-write { display: none !important; }
 
 @media (max-width: 599px) {
     .wiz-banner { flex-wrap: wrap; }
-    /* A zero basis keeps the message beside its icon: with `auto` the long
-       text claimed the whole line and wrapped under an icon left alone on top. */
+    /* A zero basis keeps the message beside its icon; `auto` wrapped it under the icon. */
     .wiz-banner__body { flex-basis: 0; }
     .wiz-banner__actions { width: 100%; justify-content: flex-end; }
 }
@@ -1627,36 +1463,25 @@ body:has(.wiz-header) .q-notifications__list--top {
     gap: 1em;
 }
 
-/* NiceGUI's ui.grid(columns=N) writes grid-template-columns inline, so it
-   otherwise keeps its multi-column layout even on a phone — cramming two text
-   inputs into a ~150px-wide column each. Collapse to a single column on narrow
-   screens (!important is required to beat the inline style). */
+/* ui.grid writes grid-template-columns inline, so !important is required. */
 @media (max-width: 600px) {
     .form-grid {
         grid-template-columns: 1fr !important;
     }
 }
 
-/* Quasar lays a field's hint out absolutely in a fixed 20px strip, so a hint
-   that wraps to two lines spills into the gap and runs into the next field: on
-   a phone the Profile's display-name hint read as the pronouns field's, and the
-   Add Tournament name hint sat under the Description box. In flow, the strip
-   keeps its 20px for a one-line hint or an empty slot and grows for a longer
-   one, so each hint stays with its own field. */
+/* Quasar lays the hint out absolutely in a 20px strip, so a wrapped hint ran into the next field. */
 .q-field.q-field--with-bottom { padding-bottom: 0; }
 .q-field .q-field__bottom--animated {
     position: static;
     transform: none;
 }
 .form-grid .q-field__bottom { padding-top: var(--space-1); }
-/* A token that never expires is allowed but worth a second look. */
 .api-token-expiry--never .q-field__bottom { color: var(--status-pending); }
 @media (max-width: 600px) {
     .form-grid { row-gap: var(--space-4); }
 }
 
-/* Stacked form column: full width up to a readable cap so a 10-char date field
-   doesn't stretch a third of the screen (System Configuration, Profile). */
 .wiz-form-column {
     width: 100%;
     max-width: 44rem;
@@ -1673,10 +1498,6 @@ body:has(.wiz-header) .q-notifications__list--top {
     min-width: 350px;
 }
 
-/* Three dialog widths, so a form opens the same size wherever it lives: --sm
-   for a few fields or a confirmation, the default for most forms, --lg for a
-   dialog that holds a table or two columns. Each caps at the viewport, so a
-   phone never scrolls sideways inside one. */
 .dialog-card--sm { width: min(520px, 92vw); }
 .dialog-card--md { width: min(640px, 92vw); }
 .dialog-card--lg { width: min(960px, 94vw); }
@@ -1700,24 +1521,13 @@ body:has(.wiz-header) .q-notifications__list--top {
     background: rgba(28, 27, 25, 0.45);
 }
 
-/* Bottom sheets on mobile. mobile_sheet() opens the dialog with
-   position=bottom below 600px, so the card slides up from the bottom edge as
-   tall as its content and no taller than the screen. The full-screen sheet it
-   replaced left short forms (pick a time, seat two players) floating over a
-   screen of blank card. Quasar already forces width:100% and the max-height;
-   these undo the .dialog-card width cap and round only the top corners. */
+/* Quasar already forces width:100% and max-height; this undoes .dialog-card's width cap. */
 .q-dialog__inner--bottom > .dialog-card {
     max-width: 100%;
     border-radius: var(--radius-lg) var(--radius-lg) 0 0;
 }
 
-/* On-screen keyboard. iOS Safari keeps fixed elements on the layout viewport,
-   so with the keyboard up a bottom sheet sat behind it and Quasar's scroll lock
-   stopped Safari panning to the field. static/js/dialog-keyboard.js sets
-   html.wiz-kb-open and the visible area's edges while a dialog is open and the
-   keyboard is up; these pin the dialog inside that area. The heights are
-   !important in Quasar's own layer, so they sit in "theme" (for !important
-   the earliest layer wins). */
+/* The heights are !important in Quasar's own layer, so they sit in "theme" (for !important the earliest layer wins). */
 @layer theme {
     html.wiz-kb-open .q-dialog__inner--bottom {
         bottom: var(--wiz-vv-bottom, 0px) !important;
@@ -1734,39 +1544,22 @@ body:has(.wiz-header) .q-notifications__list--top {
     }
 }
 
-/* Room for the sticky title and action bars when a focused field is scrolled
-   into view inside a dialog card. */
 .dialog-card .q-field {
     scroll-margin-top: 3rem;
     scroll-margin-bottom: 3.5rem;
 }
 
-/* The card is align-items:flex-start, so children size to content and the sticky
-   header/action bars (narrow button rows) don't span the width — leaving content
-   peeking past their edge and drawing their 1px borders as stubs two-thirds
-   across the card. Stretch those two bars so they fill the card and their
-   negative margins bleed to the edges. Applies at
-   every width: the centered desktop card has the same flex-start parent as the
-   mobile sheet, so scoping this to the sheet alone left every desktop
-   dialog with a stubbed rule and a footer that masked only its own width. */
+/* The card is align-items:flex-start, so the sticky bars must be stretched or their borders draw as stubs. */
 .dialog-card > .dialog-header,
 .dialog-card > .dialog-actions {
     align-self: stretch;
 }
 
-/* The form body between those bars stretches too. Sized to its content, a
-   body whose widest child is a hint or an expansion row left full-width inputs
-   at half the card on desktop (Add Tournament, Edit Stage) and short of the
-   edge on a phone. Its own children still align as the body says. */
+/* Sized to its content, the body left full-width inputs at half the card. */
 .dialog-card > .nicegui-column:not(.dialog-header):not(.dialog-actions) {
     align-self: stretch;
 }
 
-/* The card's own padding is the dialog's one inset. Most bodies also carried
-   q-pa-md, which set their fields 32px in while form_dialog bodies sat 16px in,
-   and stacked 40px of blank above the first field. Fields fill the body, so a
-   form's right edge lines up with the header and footer instead of stopping at
-   whatever width its label needed (Pick a time, Edit Stage). */
 .dialog-card > .nicegui-column:not(.dialog-header):not(.dialog-actions).q-pa-md {
     padding: 0;
 }
@@ -1774,9 +1567,6 @@ body:has(.wiz-header) .q-notifications__list--top {
     align-self: stretch;
 }
 
-/* Fields that share a row and split it evenly (a date and a time, Commentators
-   and Trackers). A checkbox beside them keeps its own width. They stay side by
-   side down to a phone and only stack when each would drop under 9rem. */
 .form-pair {
     align-self: stretch;
     flex-wrap: wrap;
@@ -1785,15 +1575,8 @@ body:has(.wiz-header) .q-notifications__list--top {
     flex: 1 1 9rem;
     min-width: 0;
 }
-/* Multi-selects with longer labels (Commentators) stack on a phone rather than
-   truncate. */
 .form-pair--wide > .q-field { flex-basis: 12rem; }
 
-/* Sticky action bar pinned to the bottom of the scrolling .dialog-card so the
-   primary Submit/Cancel row stays reachable without scrolling (fixes footers
-   clipped below the fold). Negative margins of the card's own padding bleed the
-   bar to the card edges; opaque --surface masks content scrolling beneath it
-   and re-aliases to the dark surface on its own. */
 .dialog-actions {
     position: sticky;
     bottom: calc(-1 * var(--nicegui-default-padding));
@@ -1808,8 +1591,6 @@ body:has(.wiz-header) .q-notifications__list--top {
     border-top: 1px solid var(--border-subtle);
 }
 
-/* Sticky title bar — top mirror of .dialog-actions, kept in view while the
-   sheet body scrolls under it. */
 .dialog-header {
     position: sticky;
     top: calc(-1 * var(--nicegui-default-padding));
@@ -1821,8 +1602,7 @@ body:has(.wiz-header) .q-notifications__list--top {
     padding: 0.5rem var(--nicegui-default-padding);
     background: var(--surface);
     border-bottom: 1px solid var(--border-subtle);
-    /* ui.row wraps by default, so a long title pushed the close button onto a
-       row of its own on a phone. Keep one row; the title wraps instead. */
+    /* ui.row wraps by default; nowrap keeps the close button on the title's row. */
     flex-wrap: nowrap;
 }
 
@@ -1834,9 +1614,6 @@ body:has(.wiz-header) .q-notifications__list--top {
 
 .dialog-header > .q-btn { flex-shrink: 0; }
 
-/* The labelled "Close" pill at the end of every dialog header
-   (dialog_close_button). Neutral rather than accent, so the one gold thing in
-   a dialog stays its primary action. */
 .q-btn.dialog-close {
     border-radius: var(--radius-pill);
     background: var(--surface-sunken);
@@ -1857,8 +1634,7 @@ body:has(.wiz-header) .q-notifications__list--top {
     color: var(--fg);
 }
 
-/* On a phone the pill shrinks to a 36px disc with just the X; the word stays
-   in the accessibility tree (visually hidden) so the button keeps its name. */
+/* The word stays in the accessibility tree so the button keeps its name. */
 @media (max-width: 599.98px) {
     .q-btn.dialog-close {
         width: 36px;
@@ -1899,17 +1675,10 @@ body:has(.wiz-header) .q-notifications__list--top {
     gap: 0.75rem;
 }
 
-/* The membership join door reuses the error page's centred card geometry but
-   deliberately not its red top rule: not-a-member is a state with a remedy, not
-   a failure, and the page whose whole job is to offer that remedy should not
-   open by looking like an error. */
 .join-card {
     border-top-color: var(--wiz-gold-deep);
 }
 
-/* The door's bracket list: icon beside the name on one line, the name cut
-   short rather than wrapped. At 390px a long tournament name pushed its icon
-   onto a line of its own above the label. */
 .join-preview-button .q-btn__content {
     flex-wrap: nowrap;
     min-width: 0;
@@ -1986,9 +1755,6 @@ body:has(.wiz-header) .q-notifications__list--top {
     white-space: pre;
 }
 
-/* OAuth consent (/oauth/mcp/consent) — a single centered card on the
-   tenant-less surface, sharing the error page's proportions so the two
-   chrome-light screens read as one family. */
 .consent-page {
     width: 100%;
     max-width: 560px;
@@ -2015,8 +1781,6 @@ body:has(.wiz-header) .q-notifications__list--top {
     border-top-color: var(--status-pending);
 }
 
-/* Soft brand-tinted disc behind the card's leading glyph. color-mix keeps the
-   tint derived from the palette rather than hard-coding a second gold. */
 .consent-badge {
     font-size: 1.75rem;
     width: 3rem;
@@ -2059,8 +1823,7 @@ body:has(.wiz-header) .q-notifications__list--top {
     margin: 0.25rem 0 0.75rem;
 }
 
-/* flex-start, not center: a grant that wraps to two lines on a phone would
-   otherwise float its glyph into the gutter between them. */
+/* flex-start, not center: a wrapped grant would float its glyph between the lines. */
 .consent-grant {
     align-items: flex-start;
     gap: 0.6rem;
@@ -2083,8 +1846,6 @@ body:has(.wiz-header) .q-notifications__list--top {
     gap: 0.5rem;
 }
 
-/* The write opt-in, set off from the grant list so it reads as a decision
-   rather than as one more thing the connection already does. */
 .consent-write {
     width: 100%;
     gap: 0.15rem;
@@ -2109,9 +1870,6 @@ body:has(.wiz-header) .q-notifications__list--top {
     width: 100%;
 }
 
-/* App consent (/oauth/consent): a checkbox beside each scope, its detail
-   line underneath. flex-start keeps the box on the first line when the
-   wording wraps on a phone. */
 .consent-scope {
     align-items: flex-start;
     gap: 0.5rem;
@@ -2137,8 +1895,7 @@ body:has(.wiz-header) .q-notifications__list--top {
     transition: box-shadow var(--dur-fast) var(--ease-out), background var(--dur-fast) var(--ease-out);
 }
 
-/* Flatten Quasar's default raised elevation (it lives on ::before) so filled
-   buttons read as quiet solids that lift on hover. */
+/* Quasar's raised elevation lives on ::before. */
 .q-btn:not(.q-btn--flat):not(.q-btn--outline)::before {
     box-shadow: none;
 }
@@ -2163,12 +1920,8 @@ body:has(.wiz-header) .q-notifications__list--top {
     margin-top: 1em;
 }
 
-/* The column's gap already spaces the header from the banner under it. */
 .wiz-community-events > .wiz-page-header { margin-bottom: 0; }
 
-/* Home → Tournaments cards: one tournament per card, kept short enough that a
-   phone shows more than one. NiceGUI's card gap and the full-size list item
-   behind "N signed up" took most of the height. */
 .wiz-tournament-card { gap: var(--space-2); }
 .wiz-tournament-card .q-expansion-item > .q-expansion-item__container > .q-item {
     padding: 0;
@@ -2209,8 +1962,7 @@ body:has(.wiz-header) .q-notifications__list--top {
     margin-bottom: 1em;
 }
 
-/* `.text-muted text-caption` is the card-description idiom; without this the
-   1.2em above beats Quasar's caption size and the lede outgrows the card title. */
+/* Without this the 1.2em above beats Quasar's caption size. */
 .text-muted.text-caption {
     font-size: 0.75rem;
     line-height: 1.25rem;
@@ -2250,8 +2002,6 @@ body:has(.wiz-header) .q-notifications__list--top {
     cursor: pointer;
 }
 
-/* Desktop twin of .mgc-bracket-link: the schedule's link into the bracket a
-   game belongs to, stacked under the tournament name in the same cell. */
 .cell-bracket-link {
     display: inline-flex;
     align-items: center;
@@ -2265,16 +2015,13 @@ body:has(.wiz-header) .q-notifications__list--top {
     text-decoration: underline;
 }
 
-/* Bounded and wrapping: "Bracket · Game 1 of 3 · 1-0" on one line made the
-   Tournament column the widest on the board and pushed the crew Sign up
-   buttons past the table's right edge at 1440. */
 .cell-tournament,
 .cell-bracket-link {
     max-width: 12rem;
     white-space: normal;
 }
 
-/* NiceGUI ui.link() defaults to blue — adopt the brand link color */
+/* NiceGUI's ui.link() defaults to blue. */
 .nicegui-link {
     color: var(--wiz-link);
 }
@@ -2283,9 +2030,6 @@ body:has(.wiz-header) .q-notifications__list--top {
     font-style: italic;
 }
 
-/* Filter-change acknowledgment on the reports pages (shared.show_navigating).
-   A filter change is a real navigation costing seconds; without this the page
-   sits there stale and a second click queues a second navigation. */
 .wiz-report-busy {
     position: fixed;
     inset: 0;
@@ -2294,9 +2038,7 @@ body:has(.wiz-header) .q-notifications__list--top {
     align-items: center;
     justify-content: center;
     background: rgba(0, 0, 0, 0.25);
-    /* Held invisible for the first 250ms: a navigation that completes quickly
-       must not flash an overlay, and one that does not is where this earns its
-       place. Standard delayed-spinner behaviour. */
+    /* Held invisible for 250ms so a quick navigation doesn't flash an overlay. */
     animation: wiz-report-busy-in 150ms ease-out 250ms both;
 }
 
@@ -2326,17 +2068,11 @@ body:has(.wiz-header) .q-notifications__list--top {
     color: var(--wiz-dark-muted);
 }
 
-/* A report table whose row click *filters* (as opposed to navigating). The
-   drill-out control in its own cell is what navigates; this says the rest of
-   the row does something too. */
 .wiz-rowclick tbody tr {
     cursor: pointer;
 }
 
-/* On Air: one column per stage, side by side, like the board the crew runs
-   from. auto-fit, not auto-fill, so two stages share the width instead of
-   leaving two empty tracks; five or more wrap to a second row. On a phone the
-   minimum exceeds the width and the stages stack one after another. */
+/* auto-fit, not auto-fill, so two stages share the width. */
 .timeline-container {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(min(100%, 17rem), 1fr));
@@ -2349,9 +2085,6 @@ body:has(.wiz-header) .q-notifications__list--top {
     grid-column: 1 / -1;
 }
 
-/* A stage column is phone-narrow at every width, so one set of rules serves
-   phone and desktop: the stage card pulls in, each match is time + status + ⋮
-   on one line, then players, then tournament and crew. */
 .timeline-container > .card-full-width {
     padding: var(--space-3);
     gap: var(--space-3);
@@ -2406,9 +2139,6 @@ body:has(.wiz-header) .q-notifications__list--top {
     overflow-wrap: anywhere;
 }
 
-/* Prev, date and next on one line; the tools (Today, pick a date, refresh,
-   help) beside them on desktop and on their own line on a phone. Every
-   bordered control shares one height so the row reads as one toolbar. */
 .timeline-header {
     width: 100%;
     align-items: center;
@@ -2474,8 +2204,6 @@ body:has(.wiz-header) .q-notifications__list--top {
     font-size: 1.125rem;
 }
 
-/* The stage's Twitch channel under its name: remote viewers know the channel,
-   only people at the venue know the stage. */
 .stage-channel {
     font-size: var(--text-sm);
     color: var(--fg-secondary);
@@ -2498,8 +2226,6 @@ body:has(.wiz-header) .q-notifications__list--top {
     color: var(--fg-secondary);
 }
 
-/* On Air theater (theme/twitch_theater.py): one Twitch player above the stage
-   columns, its stage's current match beside it. */
 .twitch-theater {
     width: 100%;
     display: grid;
@@ -2567,8 +2293,6 @@ body:has(.wiz-header) .q-notifications__list--top {
     margin-right: var(--space-1);
 }
 
-/* Phone: the player pins under the app header while the stages scroll past,
-   and the side panel shrinks to one bar under the video. */
 @media (max-width: 599px) {
     .twitch-theater {
         position: sticky;
@@ -2584,8 +2308,7 @@ body:has(.wiz-header) .q-notifications__list--top {
         box-shadow: var(--shadow-2);
     }
 
-    /* Quasar's tab panel clips its overflow, which would pin the player to
-       the panel instead of the window. */
+    /* Quasar's tab panel clips its overflow, which would pin the player to the panel instead of the window. */
     .q-tab-panels:has(.twitch-theater),
     .q-panel:has(.twitch-theater) {
         overflow: visible;
@@ -2646,9 +2369,6 @@ body:has(.wiz-header) .q-notifications__list--top {
     color: var(--fg-secondary);
 }
 
-/* Watch page (/live, theme/watch_live.py and the static theme/watch_view.py):
-   On Air's stage columns, then "Coming up on stream" and the tournaments side
-   by side, stacking on a phone. Both renderings share these rules. */
 .wiz-watch {
     gap: var(--space-4);
 }
@@ -2772,9 +2492,6 @@ body:has(.wiz-header) .q-notifications__list--top {
     color: var(--wiz-link);
 }
 
-/* Watch page stage tiles: Twitch's still of each stream with a LIVE pill, the
-   match on it, then what's up next. Tapping the still plays it in the theater.
-   One rule set for phone and desktop; the grid stacks below ~20rem a column. */
 .wiz-tiles-head {
     display: flex;
     flex-wrap: wrap;
@@ -3168,9 +2885,6 @@ body:has(.wiz-header) .q-notifications__list--top {
     padding: 2em;
 }
 
-/* theme/empty_state.fun_fact: an aside, not part of the message above it.
-   Space, a dashed rule and a paw part it from the empty-state text, so nobody
-   mistakes the fact for something the app is reporting. */
 .empty-state-fact {
     margin-top: var(--space-5);
     padding-top: var(--space-3);
@@ -3178,7 +2892,7 @@ body:has(.wiz-header) .q-notifications__list--top {
     max-width: 32rem;
     gap: var(--space-1);
     font-size: var(--text-sm);
-    /* Muted by colour, not opacity: 0.65 opacity left it at 2.7:1. */
+    /* Muted by colour, not opacity: opacity failed AA contrast. */
     color: var(--fg-muted);
     text-align: center;
 }
@@ -3190,9 +2904,6 @@ body:has(.wiz-header) .q-notifications__list--top {
     opacity: 0.5;
 }
 
-/* theme/waiting.waiting_panel — spinner + message + fun fact, for a wait the
-   app cannot make shorter (OAuth round trip, deferred tab build). Centered in
-   whatever container owns the wait; the fact reuses .empty-state-fact. */
 .wiz-waiting {
     width: 100%;
     padding: 2em 1em;
@@ -3205,9 +2916,6 @@ body:has(.wiz-header) .q-notifications__list--top {
     font-size: 0.95em;
 }
 
-/* theme/waiting.waiting_screen — the whole-page form, for a route that is
-   nothing but a wait (the OAuth callback, the handoff claim). Centered in the
-   viewport rather than pinned to the top of a blank page. */
 .wiz-waiting-screen {
     width: 100%;
     min-height: 100dvh;
@@ -3215,8 +2923,6 @@ body:has(.wiz-header) .q-notifications__list--top {
     padding: 1em;
 }
 
-/* A fact set loose across a desktop viewport reads as one long line; hold it to
-   a paragraph's width. */
 .wiz-waiting-screen .wiz-waiting {
     max-width: 32rem;
 }
@@ -3261,9 +2967,6 @@ body:has(.wiz-header) .q-notifications__list--top {
     flex-shrink: 0;
 }
 
-/* Right-edge alignment of the header controls is handled by the flexible
-   ui.space() spacer in the header, not margin-left:auto here — that survives
-   .user-name being display:none on phones (see .wiz-header rules). */
 .user-avatar {
     margin-left: 8px;
     margin-right: 8px;
@@ -3271,16 +2974,12 @@ body:has(.wiz-header) .q-notifications__list--top {
     max-height: 32px;
 }
 
-/* Fallback avatar glyph when the session has no Discord avatar URL. Sized to
-   match the 32px image and tinted white to sit with the header's icon buttons. */
 .user-avatar-placeholder {
     font-size: 32px;
     color: var(--fg-muted);
 }
 
-/* The login button's label is a child element rather than the q-btn text prop
-   (so it can be hidden on phones), which means the icon carries no automatic
-   gap — restore it here. */
+/* The label is a child element, so the icon gets no automatic gap. */
 .login-button-text {
     margin-left: 4px;
 }
@@ -3316,8 +3015,6 @@ body:has(.wiz-header) .q-notifications__list--top {
     height: 400px;
 }
 
-/* A report page (pages/admin_tabs/reports): an "All reports" link above the
-   header, the match boards' filter card, then section panels. */
 .wiz-report {
     gap: var(--space-4);
 }
@@ -3336,8 +3033,6 @@ body:has(.wiz-header) .q-notifications__list--top {
     margin-bottom: calc(-1 * var(--space-3));
 }
 
-/* Staff / Crew Activity → Crew by tournament: a foldable heading row per
-   tournament with its totals, people indented under it. */
 .wiz-crewed .wiz-crewed__group td {
     background: var(--surface-sunken);
     font-weight: 700;
@@ -3384,9 +3079,6 @@ body:has(.wiz-header) .q-notifications__list--top {
     color: var(--fg);
 }
 
-/* The Audit Log report: entries in plain language beside a detail panel.
-   Below 1024px the panel is hidden and an entry opens in a dialog (a bottom
-   sheet on a phone) — pages/admin_tabs/reports/audit.py keeps that width. */
 .wiz-audit {
     display: grid;
     grid-template-columns: minmax(0, 1fr);
@@ -3487,7 +3179,6 @@ body:has(.wiz-header) .q-notifications__list--top {
     content: "· ";
 }
 
-/* A phone has no room for the Area chip beside the text; the sheet shows it. */
 @media (max-width: 599.98px) {
     .wiz-audit__row {
         grid-template-columns: 3rem minmax(0, 1fr);
@@ -3556,7 +3247,6 @@ body:has(.wiz-header) .q-notifications__list--top {
     line-height: 1.3;
 }
 
-/* The dialog repeats the title in its header, so the panel's own is dropped. */
 .wiz-audit__sheet .wiz-audit__title {
     display: none;
 }
@@ -3717,10 +3407,6 @@ body:has(.wiz-header) .q-notifications__list--top {
     width: 100%;
 }
 
-/* Shortcut ranges beside the filter fields on desktop (wrapping to a line of
-   their own only when the row is full) and the full width of the phone's 2x2
-   grid, scrolling sideways rather than wrapping when a long event has more
-   days than fit. */
 .wiz-report-jumps {
     flex-basis: 100%;
     grid-column: 1 / -1;
@@ -3744,8 +3430,6 @@ body:has(.wiz-header) .q-notifications__list--top {
     flex: 0 0 auto;
 }
 
-/* Two panels side by side on desktop, the second twice as wide (a short
-   ranked list beside the table it comes from); stacked on a phone. */
 .wiz-report-split {
     display: grid;
     grid-template-columns: minmax(0, 1fr);
@@ -3772,17 +3456,6 @@ body:has(.wiz-header) .q-notifications__list--top {
     display: none;
 }
 
-/* ---------------------------------------------------------------------------
-   Data tables (match / user / tournament families)
-   Horizontal rules only — no vertical grid lines — with an uppercase caps
-   header row and warm zebra. Surface tokens re-alias under dark mode, so one
-   set of rules serves both modes. Grid mode (Quasar.Screen.lt.md) renders
-   item slots, not <table>, and is styled via the *-grid-card classes below.
---------------------------------------------------------------------------- */
-/* .wiz-table is the opt-in class for every other admin/report table (the
-   hand-rolled ones that used to render as bare default Quasar tables); the four
-   named families keep their classes and are listed alongside it so one rule set
-   drives all of them. */
 .match-table,
 .user-table,
 .tournament-table,
@@ -3827,8 +3500,6 @@ body:has(.wiz-header) .q-notifications__list--top {
     border-bottom: 1px solid var(--border-subtle);
 }
 
-/* Rows are plain surface; hover is the only row tint. Zebra striping went
-   with the Studio restyle: with hairline row borders it only added noise. */
 .match-table tbody tr,
 .user-table tbody tr,
 .tournament-table tbody tr,
@@ -3845,8 +3516,7 @@ body:has(.wiz-header) .q-notifications__list--top {
     background-color: var(--surface-alt);
 }
 
-/* Allow wrapping for long strings — target the inner wrapper element placed
-   inside the q-td, not the td itself */
+/* Target the inner wrapper inside the q-td, not the td itself. */
 .user-table td .wrap,
 .tournament-table td .wrap {
     display: block;
@@ -3864,9 +3534,7 @@ body:has(.wiz-header) .q-notifications__list--top {
     max-width: 120px;
 }
 
-/* A member's role chips wrap inside a capped cell. Quasar cells are nowrap, so
-   someone holding four roles otherwise set the Roles column to one long line
-   and pushed Joined and Via off the end of the table. */
+/* Quasar cells are nowrap; without this the chips run one long line. */
 .user-table .user-table__roles {
     display: flex;
     flex-wrap: wrap;
@@ -3876,9 +3544,6 @@ body:has(.wiz-header) .q-notifications__list--top {
     max-width: 20rem;
 }
 
-/* Discord handles run to 30-odd characters with no break point, and the
-   display name falls back to the handle, so one long name was two wide
-   columns. Break it inside a capped cell instead. */
 .user-table td .user-table__name {
     display: inline-block;
     min-width: 7rem;
@@ -3887,16 +3552,12 @@ body:has(.wiz-header) .q-notifications__list--top {
     overflow-wrap: anywhere;
 }
 
-/* Members filters on a phone: Roles across the top, the two checkboxes
-   side by side under it. */
 @media (max-width: 1023.98px) {
     .user-filters .match-filter-row > .match-filter-field {
         grid-column: 1 / -1;
     }
 }
 
-/* Nine columns share a laptop-width page, so the cells give up some of
-   Quasar's 16px side padding rather than push Via and Remove off the end. */
 .user-table .q-table th,
 .user-table .q-table td {
     padding-left: 10px;
@@ -3918,7 +3579,6 @@ body:has(.wiz-header) .q-notifications__list--top {
     width: 100%;
 }
 
-/* Transient highlight for rows/cards updated live by another user's action. */
 @keyframes wizRowFlash {
     from { background-color: rgba(224, 168, 46, 0.35); }
     to   { background-color: transparent; }
@@ -3928,8 +3588,6 @@ body:has(.wiz-header) .q-notifications__list--top {
     animation: wizRowFlash 1.6s ease-out;
 }
 
-/* A #fragment link landed here (static/js/anchors.js): clear the sticky
-   header, then mark the target long enough for the eye to find it. */
 [id], [data-wiz-row], [data-wiz-shift] {
     scroll-margin-top: 5rem;
 }
@@ -3939,10 +3597,6 @@ body:has(.wiz-header) .q-notifications__list--top {
     animation: wizRowFlash 2.4s ease-out;
 }
 
-/* The link icon after a section heading (theme/anchors.py copy_link_button).
-   With a mouse it waits until the heading is pointed at or the button has
-   focus, like a docs-site heading; a touch screen has no hover, so it stays,
-   in the muted colour. Tilted to match the ⋮ menus' Copy link. */
 .wiz-copy-link {
     flex: none;
     color: var(--fg-muted);
@@ -3961,9 +3615,6 @@ body:has(.wiz-header) .q-notifications__list--top {
     }
 }
 
-/* Hold still (docs/style-guide.md#hold-still): a row changed by someone else
-   keeps its place until the viewer tidies the board. The tag is absolutely
-   placed so adding or dropping it never changes the row's height. */
 .run-sheet__card,
 .player-sheet__card,
 .match-grid-card {
@@ -3985,8 +3636,7 @@ body:has(.wiz-header) .q-notifications__list--top {
     border-radius: 999px;
     pointer-events: none;
 }
-/* A table row can't anchor an absolute child, so on desktop the tag sits
-   under the time; the match cell is always taller than that column. */
+/* A table row can't anchor an absolute child, so on desktop the tag sits under the time. */
 .run-sheet__row .wiz-held-tag {
     position: static;
     display: table;
@@ -4015,15 +3665,12 @@ body:has(.wiz-header) .q-notifications__list--top {
     box-shadow: var(--shadow-3);
 }
 
-/* The card a DM's link button was about, so the reader's eye lands on it. */
 .wiz-deep-link-target {
     outline: 2px solid var(--q-primary);
     outline-offset: 2px;
     animation: wizRowFlash 2.4s ease-out;
 }
 
-/* Mobile grid cards — token-driven surface; the vars switch per mode on
-   their own. Slot templates keep only layout inline (width/box-sizing). */
 .match-grid-card,
 .user-grid-card,
 .tournament-grid-card,
@@ -4034,9 +3681,6 @@ body:has(.wiz-header) .q-notifications__list--top {
     box-shadow: var(--shadow-1);
 }
 
-/* Equipment card (pages/admin_tabs/admin_equipment.py): name and status chip on
-   top, "#n · owner · with holder" under it, then the state's one button on the
-   left and the overflow menu on the right. */
 .equipment-grid-card {
     display: flex;
     flex-direction: column;
@@ -4074,8 +3718,6 @@ body:has(.wiz-header) .q-notifications__list--top {
     gap: var(--space-2);
 }
 
-/* The state button leads; the menu holds the far edge whether or not there is
-   a state button (a retired asset has none). */
 .equipment-grid-card__actions > .equipment-state-btn {
     margin-right: auto;
     min-height: 44px;
@@ -4091,9 +3733,6 @@ body:has(.wiz-header) .q-notifications__list--top {
     padding: 0 var(--space-2);
 }
 
-/* The member card is a two-column label/value grid: labels take only the
-   width they need, so "Display Name" stays on one line, and empty fields are
-   left out by the slot rather than shown as a column of dashes. */
 .user-grid-card {
     display: grid;
     grid-template-columns: max-content minmax(0, 1fr);
@@ -4106,11 +3745,7 @@ body:has(.wiz-header) .q-notifications__list--top {
     grid-column: 1 / -1;
 }
 
-/* Field labels in the grid cards use Quasar's text-grey-7, a fixed cool gray
-   that goes murky on the dark surface; re-point it at the mode-aware muted token
-   (!important to match Quasar's own). ``.wiz-grid-card`` is the generic class for
-   the hand-rolled admin cards (platform tables, service health) — the card
-   counterpart of ``.wiz-table``. */
+/* Quasar's text-grey-7 goes murky on dark; !important to match Quasar's own. */
 .user-grid-card .text-grey-7,
 .tournament-grid-card .text-grey-7,
 .equipment-grid-card .text-grey-7,
@@ -4118,10 +3753,6 @@ body:has(.wiz-header) .q-notifications__list--top {
     color: var(--status-neutral) !important;
 }
 
-/* Purpose-built mobile match card (theme/tables/match_grid.py grid item slot):
-   a monospace headline row (time + state chip), players line, muted caption,
-   v-if-gated detail rows, and a single top-bordered actions row. All colors via
-   tokens so dark mode follows automatically. */
 .mgc-headline {
     display: flex;
     align-items: center;
@@ -4133,16 +3764,12 @@ body:has(.wiz-header) .q-notifications__list--top {
     font-size: 1.05em;
 }
 
-/* Keep the scheduled time intact — never let it break mid-value (e.g.
-   "2026-07-02" / "18:09"); the state chip wraps to the next line instead. */
 .mgc-time {
     white-space: nowrap;
     flex-shrink: 0;
 }
 
-/* State pill + muted time sit inline after the scheduled time, left-anchored
-   (a right-floated chip wraps onto its own line at phone widths and looks
-   detached). The pill resets to the body font — the headline itself is mono. */
+/* Not right-floated: a floated chip wraps onto its own line at phone widths. */
 .mgc-state {
     display: inline-flex;
     align-items: center;
@@ -4158,8 +3785,6 @@ body:has(.wiz-header) .q-notifications__list--top {
     margin: var(--space-1) 0;
 }
 
-/* Players line + per-player/crew rows and the #id caption link. Styling lives
-   here (not inline on the template elements) so the card is fully token-driven. */
 .mgc-players {
     margin-top: var(--space-1);
 }
@@ -4176,11 +3801,6 @@ body:has(.wiz-header) .q-notifications__list--top {
     gap: 2px;
 }
 
-/* The viewer's own Sign up / Withdraw for one crew role (crew_signup_section),
-   on the phone card and the desktop crew cell alike. A line of its own above
-   the names, so the button keeps one spot whether the list is empty, long, or
-   has the viewer in it. The outlined button already reads as "your control";
-   the sunken dashed tray it used to sit in only added a box around a box. */
 .wiz-crew-action {
     display: flex;
     align-items: center;
@@ -4212,9 +3832,6 @@ td .wiz-crew-action {
     margin-bottom: var(--space-1);
 }
 
-/* An approver's crew member on the phone card: the name is the approval
-   toggle. The chips wrap like the plain name list does, and the name is
-   clipped rather than letting one long handle widen the card. */
 .mgc-crew-toggle .q-btn__content {
     gap: var(--space-1);
     flex-wrap: nowrap;
@@ -4236,8 +3853,6 @@ td .wiz-crew-action {
     text-decoration: underline;
 }
 
-/* "Part of <bracket>" link under the tournament name — a secondary affordance,
-   so it sits a step down in size from the name it hangs off. */
 .mgc-bracket-link {
     color: var(--wiz-link);
     text-decoration: none;
@@ -4248,13 +3863,7 @@ td .wiz-crew-action {
     text-decoration: underline;
 }
 
-/* The detail rows share one two-column grid (.mgc-details, each .mgc-detail
-   dissolving into it), so every value starts on the same column and that column
-   is only as wide as the longest label shown: "Seed" alone doesn't reserve room
-   for "Commentators". minmax(0, 1fr) lets a long value shrink and wrap inside
-   the card instead of pushing past its edge. A centered axis keeps action
-   buttons (Sign Up, Generate, Assign Stage) level with their label. The
-   dispute row sits outside the group and keeps a grid of its own. */
+/* minmax(0, 1fr) lets a long value shrink and wrap instead of pushing past the card. */
 .mgc-details,
 .mgc-detail {
     display: grid;
@@ -4281,8 +3890,6 @@ td .wiz-crew-action {
     min-width: 0;
 }
 
-/* A seed or stream URL is one unbroken string: clip it to the card on one line
-   (the full URL is the link's title and its target). */
 .mgc-detail-value > a {
     min-width: 0;
     max-width: 100%;
@@ -4305,9 +3912,7 @@ td .wiz-crew-action {
     border-top: 1px solid var(--border-subtle);
 }
 
-/* Actions hoisted above the caption/details (proctor board): the divider that
-   separates them from the rest of the card belongs below the row, not above it.
-   Declared after .mgc-actions so it wins at equal specificity. */
+/* Declared after .mgc-actions so it wins at equal specificity. */
 .mgc-actions--first {
     padding-top: 0;
     padding-bottom: var(--space-2);
@@ -4326,9 +3931,6 @@ td .wiz-crew-action {
     background-color: var(--surface-alt);
 }
 
-/* Collapsible filters on mobile. The filter card is always visible on desktop
-   (≥1024px); below that it collapses behind the .wiz-filter-toggle button and
-   only shows when the server adds .wiz-filters-open. */
 @media (max-width: 1023.98px) {
     .match-filters-card {
         display: none;
@@ -4339,11 +3941,6 @@ td .wiz-crew-action {
     }
 }
 
-/* The Stage cell on the match board reads as plain text and becomes a dropdown
-   on click. A bordered select in every row of a wide board is a box of chrome
-   around one word, on a board that is read far more often than it is edited —
-   but the control still has to be findable, so the arrow and the underline come
-   back on hover, on focus, and while the menu is open. */
 .wiz-stage-select .q-field__control:before,
 .wiz-stage-select .q-field__control:after {
     border-bottom-color: transparent;
@@ -4366,8 +3963,6 @@ td .wiz-crew-action {
     border-bottom-color: var(--border-strong);
 }
 
-/* An unassigned stage is a real answer ("No Stage"), not missing data — muted
-   so a scan of the column still separates it from an assigned one. */
 .wiz-stage-select .q-field__native > span {
     color: inherit;
 }
@@ -4377,27 +3972,18 @@ td .wiz-crew-action {
     cursor: pointer;
 }
 
-/* Table preferences gear (theme/tables/preferences.preferences_button) — desktop
-   only. Below the mobile-grid breakpoint every table renders as stacked cards,
-   and a gear offering to reorder columns nobody can see is worse than no gear. */
 @media (max-width: 1023.98px) {
     .wiz-table-prefs-btn {
         display: none !important;
     }
 }
 
-/* The "this table is customized" dot. Small, unlabelled, and only present when
-   a saved layout is in force — so "why does my table look like this" has an
-   answer on screen. */
 .wiz-table-prefs-dot {
     padding: 4px;
     min-height: 0;
     min-width: 0;
 }
 
-/* The player's own controls on My Schedule (match_slots.MY_ACTIONS_SLOT):
-   labelled buttons that wrap inside a bounded cell rather than four icon
-   columns running off the table's right edge. */
 .wiz-my-actions {
     display: flex;
     flex-wrap: wrap;
@@ -4406,25 +3992,17 @@ td .wiz-crew-action {
     max-width: 220px;
 }
 
-/* WCAG 2.5.8's 24 px minimum for an icon-only control that is otherwise drawn
-   at a dense, small size (the ADA marker beside a player's name). */
 .wiz-tap-24 {
     min-width: 24px;
     min-height: 24px;
 }
 
-/* Sticky header, opt-in per table (theme/tables/preferences.sticky_header).
-   Quasar's own recipe: the header sticks to the *scroll container*, so a table
-   without a bounded height has nothing to stick to — the helper sets both, and
-   the class is what pairs them. Applied to the long operational boards, never
-   to short reference tables, where an inner scrollbar is pure cost. */
+/* The header sticks to the scroll container, so the helper also bounds the height; the class pairs them. */
 .wiz-table--sticky:not(.q-table--grid) {
     max-height: var(--wiz-sticky-max-height, 70vh);
 }
 
-/* Grid mode (the phone card view) is excluded: its cards live in
-   .q-table__grid-content, which nothing scrolls, so a capped grid overflowed its
-   box and buried every card past the third under the next panel. */
+/* Grid mode excluded: nothing scrolls .q-table__grid-content, so a capped grid buried cards under the next panel. */
 .wiz-table--sticky:not(.q-table--grid) .q-table__middle {
     overflow: auto;
 }
@@ -4436,27 +4014,18 @@ td .wiz-crew-action {
     background-color: var(--surface);
 }
 
-/* A resized column is pinned by its own min/max width, not by a fixed table
-   layout — that would divide the leftover space equally between every unsized
-   column and clip their headers. Everything else keeps content-driven sizing.
-   The class marks the table as carrying at least one stored width. */
+/* Pinned by min/max width, not a fixed table layout, which would split leftover space and clip unsized headers. */
 .wiz-table--sized td .wrap {
-    /* The per-family .wrap caps fight the width the viewer chose; the pinned
-       column bounds its own content now. */
     max-width: none;
 }
 
-/* A pinned column that cannot fit its content truncates cleanly rather than
-   spilling into its neighbour. */
 .wiz-table--sized thead th[style*="max-width"] {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
 }
 
-/* The 6px resize affordance static/js/table-columns.js hit-tests. A
-   pseudo-element, so nothing is inserted into the DOM Vue owns and re-renders
-   cannot destroy it. */
+/* A pseudo-element: anything inserted into the DOM Vue owns is destroyed on re-render. */
 .wiz-table thead th,
 .match-table thead th,
 .user-table thead th,
@@ -4496,8 +4065,6 @@ td .wiz-crew-action {
     }
 }
 
-/* Wrap long values — the modal's opt-in counterpart to the per-family .wrap
-   caps above, applied to whichever table the viewer turned it on for. */
 .wiz-table--wrap td,
 .wiz-table--wrap td .wrap {
     white-space: normal !important;
@@ -4505,8 +4072,6 @@ td .wiz-crew-action {
     max-width: none;
 }
 
-/* The Filters toggle button/badge row — mobile only; the filter card is pinned
-   open on desktop so the toggle is redundant there. */
 .wiz-filter-toggle {
     display: flex;
     align-items: center;
@@ -4521,8 +4086,6 @@ td .wiz-crew-action {
     }
 }
 
-/* A table toolbar that folds on a phone: primary actions on one line, then
-   search, Filters and refresh on the next, instead of one control per line. */
 .wiz-toolbar {
     gap: var(--space-2);
     flex-wrap: wrap;
@@ -4578,8 +4141,6 @@ td .wiz-crew-action {
     margin-bottom: 0.3em;
 }
 
-/* The match board's filter card: each field labels itself, so desktop is one
-   row and a phone is a 2x2 grid with search and the gear on a line below. */
 .match-filter-field {
     flex: 1 1 9rem;
     min-width: 8rem;
@@ -4591,9 +4152,6 @@ td .wiz-crew-action {
     max-width: 20rem;
 }
 
-/* Event > Schedule's phone row holds two switches (Needs crew, Friends) as well
-   as Filters, the reset chip, refresh and help: more than a 360px phone has, so
-   the switches take a line of their own above the rest. */
 .wiz-filter-toggle:has(.wiz-friends-switch) {
     flex-wrap: wrap;
     row-gap: var(--space-1);
@@ -4604,9 +4162,7 @@ td .wiz-crew-action {
     gap: var(--space-4);
 }
 
-/* A searchable multi-select puts its input on a line of its own under the
-   picks, which made the Friends field a row taller than its neighbours. Keep
-   it on the picks' line, and only give it room while someone is typing. */
+/* A searchable multi-select puts its input on its own line under the picks; keep it on the picks' line. */
 .match-filter-field--wide .q-field__native {
     flex-wrap: nowrap;
 }
@@ -4674,10 +4230,6 @@ td .wiz-crew-action {
     width: 100%;
 }
 
-/* Tournaments board (theme/tables/tournament.py). Headers line up with their
-   cells instead of the families' centred default, and a cell's detail goes on a
-   muted second line rather than into another column, so six columns fit a
-   laptop without the table scrolling sideways. */
 .tournament-table thead th {
     text-align: left;
 }
@@ -4700,7 +4252,6 @@ td .wiz-crew-action {
     white-space: normal;
 }
 
-/* "Closes Oct 22 19:00" reads as one stamp; never break it across lines. */
 .tournament-table__stamp {
     white-space: nowrap;
 }
@@ -4729,8 +4280,6 @@ td .wiz-crew-action {
     }
 }
 
-/* The phone card: name and ⋮ on top, a labelled line each for signups and
-   bracket, then players · seed · length on one line under a rule. */
 .tournament-grid-card {
     padding: var(--space-3) var(--space-2) var(--space-3) var(--space-3);
     margin-bottom: var(--space-2);
@@ -4795,11 +4344,6 @@ td .wiz-crew-action {
     width: 100%;
 }
 
-/* Footer / app-shell bottom navigation — the footer is *only* this bar: a
-   full-width tab row shown on phones and tablets (<1024px); on desktop the
-   drawer carries navigation so it collapses away. The wrapping ui.footer()
-   (.footer-dark-override) supplies the charcoal/cream surface + top border for
-   the whole bar, so the nav itself only owns layout. */
 .footer-dark-override {
     background-color: var(--surface-alt);
     color: var(--status-neutral);
@@ -4814,11 +4358,8 @@ td .wiz-crew-action {
     color: var(--wiz-dark-muted) !important;
 }
 
-/* Firefox for iOS (and Safari, WebKit bug 235888) can leave a bottom-fixed bar
-   at the toolbar's old height once the toolbar collapses on scroll, with the
-   page showing through the strip underneath. No CSS or viewport API sees the
-   new edge, so the bar's surface runs on below it: off-screen everywhere else,
-   it fills that strip when the browser gets it wrong. */
+/* Firefox for iOS and Safari (WebKit bug 235888) can leave a bottom-fixed bar at the toolbar's old height;
+   the surface runs on below it to fill that strip. */
 .footer-dark-override::after {
     content: '';
     position: absolute;
@@ -4830,8 +4371,7 @@ td .wiz-crew-action {
     pointer-events: none;
 }
 
-/* The home screen app's version of the same fault, measured and undone by
-   static/js/dialog-keyboard.js. `translate` leaves Quasar's own transform alone. */
+/* `translate` leaves Quasar's own transform alone. */
 .footer-dark-override {
     translate: 0 var(--wiz-standalone-gap, 0px);
 }
@@ -4841,11 +4381,7 @@ td .wiz-crew-action {
     padding-bottom: env(safe-area-inset-bottom);
 }
 
-/* Every tab gets an equal share of the bar and may shrink below its label's
-   natural width. Quasar sizes a tab to its content plus 16px padding each side,
-   so "Event / My Schedule / Tournaments / Profile" measured 373px in a 358px
-   bar and the fourth sat under a scroll arrow on every member's home. With
-   equal shares there is nothing to scroll, so the arrows are hidden outright. */
+/* Equal shares: Quasar sizes a tab to its content plus padding, which overflowed into scroll arrows. */
 .wiz-bottom-nav .q-tab {
     flex: 1 1 0;
     min-width: 0;
@@ -4865,15 +4401,13 @@ td .wiz-crew-action {
 .wiz-bottom-nav .q-tabs__arrow {
     display: none;
 }
-/* Quasar dims inactive tabs with opacity, which took the 12px labels to 4:1. */
+/* Quasar dims inactive tabs with opacity, which fails contrast. */
 .wiz-bottom-nav .q-tab--inactive {
     opacity: 1;
     color: var(--fg-muted);
 }
 
-/* The footer exists solely to host the bottom nav, so collapse the whole bar
-   (not just the nav) on desktop — otherwise the empty ui.footer() would render
-   as a stray surface strip along the bottom edge. */
+/* Collapse the whole footer, or the empty ui.footer() renders a stray strip. */
 @media (min-width: 1024px) {
     .footer-dark-override {
         display: none;
@@ -4889,20 +4423,12 @@ td .wiz-crew-action {
     color: var(--wiz-dark-muted);
 }
 
-/* ---------------------------------------------------------------------------
-   Mobile ergonomics (≤599.98px)
-   Phone-first touch sizing: 16px form text defeats iOS focus-zoom, buttons and
-   tabs meet the 44px/48px tap-target floor, and the chip remove affordance
-   grows to a comfortable target. Scoped tight so the desktop layout above is
-   untouched.
---------------------------------------------------------------------------- */
 @media (max-width: 599.98px) {
     body {
         font-size: 15px;
     }
 
-    /* 16px is the threshold below which iOS Safari zooms the viewport on focus,
-       yanking the layout around; keep every field input at or above it. */
+    /* 16px: below it iOS Safari zooms the viewport on focus. */
     .q-field__native,
     .q-field input,
     .q-field textarea,
@@ -4914,17 +4440,12 @@ td .wiz-crew-action {
         min-height: 44px;
     }
 
-    /* Dense/round buttons are the grid-card actions (Sign Up, Generate, watch,
-       Assign Stage) and the toolbar refresh — lift them to the 44px touch floor
-       on phones so they clear the tap-target minimum like the standard buttons. */
     .q-btn--dense,
     .q-btn--round {
         min-height: 44px;
         min-width: 44px;
     }
 
-    /* Enlarge the chip remove hit area (the glyph is 24px but the tappable box
-       stays small); pad it out so dismissing a filter/selection chip is easy. */
     .q-chip__icon--remove {
         font-size: 24px;
         padding: 10px;
@@ -4935,16 +4456,11 @@ td .wiz-crew-action {
         min-height: 48px;
     }
 
-    /* The caption's edit pencil sits in a line of text; at the 44px floor
-       above it padded the caption out to a full button row. 32px stays well
-       clear of WCAG 2.5.8's 24px minimum. */
     .match-grid-card .mgc-caption .q-btn {
         min-height: 32px;
         min-width: 32px;
     }
 
-    /* The Filters toggle already gets the page column's gap below it, and the
-       card grid needs no table-style top margin. */
     .wiz-filter-toggle {
         margin-bottom: 0;
     }
@@ -4953,9 +4469,6 @@ td .wiz-crew-action {
         margin-top: 0;
     }
 
-    /* On a phone even the longest-label column ("Commentators") takes a third of
-       the card and wraps a two-name crew list onto a line per name. Stack each
-       label over its value instead, so the value gets the full width. */
     .mgc-details,
     .match-grid-card > .mgc-detail {
         grid-template-columns: minmax(0, 1fr);
@@ -4972,8 +4485,6 @@ td .wiz-crew-action {
         margin-top: 0;
     }
 
-    /* On Air: the date line takes the full width, the tools drop to their own
-       line, and the bordered controls meet the 44px tap floor. */
     .timeline-nav {
         flex: 1 1 100%;
     }
@@ -4992,19 +4503,7 @@ td .wiz-crew-action {
     }
 }
 
-/* ---------------------------------------------------------------------------
-   Connection card + socket-dependent controls (theme/connection.py)
-   One card, top-centre under the header where toasts open, carries the whole
-   lost-connection story. It is driven from the browser's own offline/online
-   events as well as the socket, so it shows the moment the link drops, while
-   the server still believes the client is there. Top, not bottom: on a phone a
-   bottom card covers a bottom sheet's Save button, the very control people tap
-   while offline.
---------------------------------------------------------------------------- */
-
-/* NiceGUI's "Connection lost / Trying to reconnect" popup fires on the same
-   socket disconnect the card already reads, only seconds later, so it would
-   only repeat it. Its sibling #too_long_message_popup keeps the framework look. */
+/* Hidden: it fires on the same disconnect the card already shows, only later. */
 #popup.nicegui-error-popup {
     display: none !important;
 }
@@ -5028,7 +4527,6 @@ td .wiz-crew-action {
     font-family: var(--font-body);
 }
 
-/* On the dark page the charcoal card would sink into the background; lift it. */
 .body--dark .wiz-connection-card {
     background: var(--n-700);
     border-color: var(--n-500);
@@ -5043,8 +4541,7 @@ body:not(:has(.wiz-header)) .wiz-connection-card {
     display: none !important;
 }
 
-/* The card is charcoal in both modes, so its warning and recovery tones take
-   the dark-mode values directly; light mode's are too dark to read on it. */
+/* Charcoal in both modes, so it takes the dark-mode tones directly. */
 .wiz-connection-card__icon {
     font-size: 22px;
     flex-shrink: 0;
@@ -5101,7 +4598,6 @@ body:not(:has(.wiz-header)) .wiz-connection-card {
     color: #A8C46B; /* style-guide: exempt — the charcoal card is dark in both modes */
 }
 
-/* Toasts share the card's spot; while it shows, start the stack below it. */
 body.wiz-connection-card-shown .q-notifications__list--top {
     top: calc(var(--wiz-header-height, 56px) + env(safe-area-inset-top, 0px) + 18px + var(--wiz-connection-card-h, 0px));
 }
@@ -5110,39 +4606,19 @@ body.wiz-connection-card-shown:not(:has(.wiz-header)) .q-notifications__list--to
     top: calc(env(safe-area-inset-top, 0px) + 18px + var(--wiz-connection-card-h, 0px));
 }
 
-/* A control the guard will refuse looks refused. Deliberately not
-   `pointer-events: none` — the tap has to reach the capture-phase listener so it
-   can say why nothing happened. */
+/* Not pointer-events: none: the tap must reach the capture-phase listener so it can say why. */
 body.wiz-offline .wiz-requires-socket {
     opacity: 0.45;
     cursor: not-allowed;
     filter: grayscale(70%);
 }
 
-/* ---------------------------------------------------------------------------
-   Volunteer grid — fold a fully-staffed position away on phones.
-
-   The coordinator's day was 4,891 px at 390×844 with no way to skip the
-   positions that are done. The page marks such a position's shift row with this
-   class; the rule lives only inside the below-`md` media query, so the same
-   markup renders once and the desktop grid is untouched by construction. The
-   toggle button that clears the fold is itself `lt-md`.
---------------------------------------------------------------------------- */
 @media (max-width: 1023.98px) {
     .wiz-position-folded {
         display: none !important;
     }
 }
 
-/* ---------------------------------------------------------------------------
-   My Shifts card actions — "Can't make it" on the left, Acknowledge (or the
-   status that replaces it) on the right, in every state. A wide card packs the
-   pair right at a fixed width; a narrow one (a phone, or a desktop card in a
-   multi-column list) splits the row into equal halves so the pair never wraps
-   onto two lines. Keyed to the row's own width, not the viewport, for that
-   second case. `.wiz-pair-actions` is the same pair under a card's form field
-   (Clear and Save on a stored-secret card).
---------------------------------------------------------------------------- */
 .wiz-shift-actions,
 .wiz-pair-actions {
     container-type: inline-size;
@@ -5160,9 +4636,6 @@ body.wiz-offline .wiz-requires-socket {
     min-width: 168px;
 }
 
-/* My Schedule's volunteer shift agenda: time | shift + status | button + ⋮.
-   On a phone the actions drop under the row, right-aligned, so the title
-   keeps the width. */
 .wiz-shift-day {
     width: 100%;
     margin: var(--space-3) 0 var(--space-1);
@@ -5201,7 +4674,6 @@ body.wiz-offline .wiz-requires-socket {
         justify-content: flex-end;
     }
 
-    /* A finished shift has only its ⋮, which fits beside the title. */
     .wiz-shift-row--done {
         grid-template-columns: 64px minmax(0, 1fr) auto;
     }
@@ -5234,8 +4706,6 @@ body.wiz-offline .wiz-requires-socket {
     margin-top: var(--space-1);
 }
 
-/* My Schedule's Timeline view: one day column on the volunteer grid's hour
-   scale, a block per commitment tinted by kind. */
 .wiz-tl--match { --tl-kind: var(--status-live); }
 .wiz-tl--crew  { --tl-kind: var(--status-pending); }
 .wiz-tl--shift { --tl-kind: var(--status-ok); }
@@ -5252,7 +4722,6 @@ body.wiz-offline .wiz-requires-socket {
     background: color-mix(in srgb, var(--tl-kind) 24%, transparent);
 }
 
-/* A community event they only asked a reminder for: optional, so dashed. */
 .wiz-tl-block.wiz-tl-block--maybe,
 .wiz-tl-block.wiz-tl-block--maybe:hover {
     background: var(--surface);
@@ -5323,8 +4792,6 @@ body.wiz-offline .wiz-requires-socket {
     text-overflow: ellipsis;
 }
 
-/* Time the player blocked out: hatched, drawn behind the commitments so a
-   match booked into it still reads as a clash. */
 .wiz-tl-hatch,
 .wiz-tl-hatch:hover {
     background: repeating-linear-gradient(
@@ -5400,38 +4867,17 @@ body.wiz-offline .wiz-requires-socket {
     }
 }
 
-/* ---------------------------------------------------------------------------
-   In-app help (/help, and the tappable help icons scattered through the app).
-
-   Articles are parsed into a closed block/span vocabulary and rendered with
-   native elements (theme/help/render.py) — never ui.markdown — so everything
-   here styles elements this app created, not markup an article emitted.
-
-   The inline spans are the reason `.wiz-help-inline` exists at all: NiceGUI's
-   ui.label is a <div>, which would break every paragraph containing a bold run
-   or a status chip onto its own line.
---------------------------------------------------------------------------- */
 .wiz-help-inline { display: inline; }
 .wiz-help-em { font-style: italic; }
 
-/* Article prose is normal block flow, never a flex column. The surrounding
-   page/popup containers are `ui.column`s, and a flex parent does two things
-   prose cannot survive: its `gap` is added to every block's own margin (so a
-   heading ends up equidistant from the section above and the sentence it
-   introduces, and the hierarchy reads as one flat list), and its children
-   shrink below their content when the container is height-capped — which is
-   what silently ate half of a help popup's table. Block flow restores margin
-   collapsing, and the tuned margins below are what set the rhythm. */
+/* Block flow, never a flex column: a flex parent adds its gap to every block's margin and shrinks its children. */
 .wiz-help-prose {
     display: block;
     width: 100%;
     overflow-wrap: anywhere;
 }
 
-/* Text a person typed (descriptions, notes, reasons) can hold a seed link or
-   other unbroken run longer than a phone is wide. `anywhere` rather than
-   `break-word` because only `anywhere` lowers the min-content width, which is
-   what lets a flex item holding the text shrink to its column. */
+/* `anywhere`, not `break-word`: only `anywhere` lowers min-content width, so a flex item holding the text can shrink. */
 .wiz-free-text {
     overflow-wrap: anywhere;
 }
@@ -5446,12 +4892,7 @@ body.wiz-offline .wiz-requires-socket {
 
 .wiz-help-prose > :first-child { margin-top: 0; }
 
-/* Long-form reading measure. Uncapped, the article column tracks the viewport
-   and a paragraph on a desktop monitor runs past 110 characters a line. The cap
-   is in `ch`, which is the width of a `0` — wider than this face's average
-   character, so 68ch measures out at roughly 90 characters, which fills the
-   middle of the three-column layout without the line returns getting hard to
-   track (Thomas picked this measure from the 2026-10 layout mockups). */
+/* In `ch` (a `0`'s width, wider than this face's average), 68ch is roughly 90 characters. */
 .wiz-help-body .wiz-help-prose {
     max-width: 68ch;
     font-size: 1rem;
@@ -5466,14 +4907,10 @@ body.wiz-offline .wiz-requires-socket {
     font-size: 1.25rem;
     font-weight: 700;
     margin: 1.6rem 0 0.6rem;
-    /* Anchored headings must clear the sticky header when jumped to. */
     scroll-margin-top: 5rem;
 }
 
-/* /changelog: one card per entry. The title sits directly above its
-   date, so it drops the article heading's bottom margin, and it sets its own
-   line-height because Quasar's h2 default (3.75rem) spaces a wrapped title a
-   full line apart on a phone. */
+/* Own line-height: Quasar's h2 default (3.75rem) spaces a wrapped title a full line apart. */
 .wiz-changelog-entry {
     font-size: 0.95rem;
     background: var(--surface);
@@ -5493,10 +4930,6 @@ body.wiz-offline .wiz-requires-socket {
     margin-bottom: 0.6rem;
 }
 
-/* Each week's lines grouped by kind of change: a small heading per group with
-   a status-coloured dot and a muted count. The dot is decoration; the name says
-   it. Tighter than an article h3, since a group sits directly under the date,
-   and it sets its own line-height for the same Quasar reason as the h2 above. */
 .wiz-changelog-category {
     display: flex;
     align-items: center;
@@ -5550,9 +4983,7 @@ body.wiz-offline .wiz-requires-socket {
     margin: 0 0 0.85rem;
     padding-left: 1.35rem;
     line-height: 1.6;
-    /* Restated because the app's reset strips list-style globally: without it
-       every bullet rendered as an unmarked indented line, so a three-item list
-       read as three stray sentences. */
+    /* Restated: the app's reset strips list-style globally. */
     list-style-position: outside;
 }
 
@@ -5573,8 +5004,6 @@ ol.wiz-help-list { list-style-type: decimal; }
 .wiz-help-link { color: var(--wiz-link); text-decoration: underline; }
 .wiz-user-link__icon { margin-left: 0.15em; vertical-align: -0.1em; }
 
-/* A state name renders as the board's own icon + label pair, so the help shows
-   the reader the thing they will actually see. */
 .wiz-help-state {
     display: inline-flex;
     align-items: center;
@@ -5597,12 +5026,6 @@ ol.wiz-help-list { list-style-type: decimal; }
 
 .wiz-help-note-icon { color: var(--wiz-primary, currentColor); margin-top: 2px; }
 
-/* Prose tables carry chips and icons, so they are hand-built rather than
-   ui.table. Wide ones scroll inside their own container — the page body must
-   never scroll sideways. */
-/* Event handbook tournament list (the :::tournaments embed): one row per
-   tournament, name and format on the left, links and Sign up on the right.
-   Below 600px the actions drop under the text and Sign up sits at the end. */
 .wiz-event-tournaments {
     margin: 0 0 1rem;
     border-top: 1px solid color-mix(in srgb, currentColor 14%, transparent);
@@ -5716,18 +5139,11 @@ ol.wiz-help-list { list-style-type: decimal; }
 
 .wiz-help-table th { font-weight: 700; white-space: nowrap; }
 
-/* The prose around a table breaks `anywhere`, which lowers every cell's
-   min-content width to one letter: auto layout then squeezed the chip column
-   until "Flagged" stacked two letters a line. Cells break long words only when
-   they would overflow, and a chip never wraps. */
+/* The surrounding `anywhere` lowers every cell's min-content to one letter, so cells break only on overflow. */
 .wiz-help-table th,
 .wiz-help-table td { overflow-wrap: break-word; }
 .wiz-help-table .wiz-chip { white-space: nowrap; }
 
-/* Screenshots (theme/help/render.py). A phone capture is taller than the column
-   is wide, so the inline copy is height-capped and centred; tapping opens the
-   full-size one. The shots are taken in the light theme, so in dark mode they
-   get a frame and are dimmed a touch rather than glaring out of the page. */
 .wiz-help-figure { margin: 0 0 1.25rem; text-align: center; }
 .wiz-help-figure-open {
     display: inline-block;
@@ -5767,8 +5183,6 @@ ol.wiz-help-list { list-style-type: decimal; }
     opacity: 0.7;
 }
 
-/* Three columns, centred. Uncapped, the row ran the whole viewport: the list
-   hugged the drawer and the 68ch body left a 1920px screen two thirds empty. */
 .wiz-help-layout {
     gap: 2rem;
     max-width: 82.5rem;
@@ -5814,8 +5228,6 @@ ol.wiz-help-list { list-style-type: decimal; }
 .wiz-help-nav-item:hover { background: color-mix(in srgb, currentColor 7%, transparent); }
 .wiz-help-nav-item:focus-visible { outline: 2px solid var(--wiz-link); outline-offset: -2px; }
 
-/* The "you are here" treatment the side menu uses: a tint of the accent with
-   the text left in the body colour, so it reads in both modes. */
 .wiz-help-nav-item--active {
     font-weight: 700;
     background: color-mix(in srgb, var(--q-primary) 16%, transparent);
@@ -5855,9 +5267,6 @@ ol.wiz-help-list { list-style-type: decimal; }
 
 .wiz-help-card { width: 100%; padding: 0.75rem 1rem; }
 
-/* About (/about, /about/notices). One list row per third-party package: name
-   and version on the left, the licence on the right, the whole row opening the
-   licence dialog. The list is long (130+ rows), so rows stay one line tall. */
 .wiz-about-intro { padding: 1rem 1.25rem; gap: 0.75rem; }
 .wiz-about-build {
     font-family: var(--font-mono);
@@ -5884,8 +5293,6 @@ ol.wiz-help-list { list-style-type: decimal; }
     color: var(--fg-muted);
     white-space: nowrap;
 }
-/* Most licences are one short id; a few are "A OR B OR C", which wraps
-   rather than pushing the row past a phone's edge. */
 .wiz-about-licence {
     font-size: 0.75rem;
     padding: 0.125rem 0.5rem;
@@ -5910,8 +5317,6 @@ ol.wiz-help-list { list-style-type: decimal; }
     color: var(--fg);
 }
 
-/* The rail needs width the body can't spare below 1280px; the headings fold
-   into the "On this page" expander above the body there instead. */
 @media (max-width: 1279.98px) {
     .wiz-help-rail { display: none !important; }
 }
@@ -5919,14 +5324,6 @@ ol.wiz-help-list { list-style-type: decimal; }
     .wiz-help-toc-inline { display: none !important; }
 }
 
-/* Below the drawer's own breakpoint the columns stack and the nav stops
-   sticking — a sticky 16rem sidebar on a phone is most of the viewport.
-
-   The body is ordered *first*. Stacked in source order the nav is ~550px of
-   links, which put the article's title below the fold and its first sentence
-   most of a second screen down — on the surface most of these readers are on.
-   Ordered this way the reader lands on the words, and the article list reads as
-   a "more help" footer, which is where a phone reader looks for one anyway. */
 @media (max-width: 1023.98px) {
     .wiz-help-layout { flex-direction: column; gap: 1rem; }
     .wiz-help-nav {
@@ -5941,16 +5338,12 @@ ol.wiz-help-list { list-style-type: decimal; }
         border-top: 1px solid var(--border-subtle);
     }
     .wiz-help-body { order: 1; }
-    /* The way back moves above the body; only the article list stays below
-       it (theme/help/article.py). */
     .wiz-help-wide-only { display: none !important; }
 }
 @media (min-width: 1024px) {
     .wiz-help-narrow-only { display: none !important; }
 }
 
-/* Tap, not hover: a tooltip is unreachable on a touch screen, and this help is
-   read on phones. One per heading or dialog title, the same size everywhere. */
 .wiz-help-icon.q-btn {
     color: var(--wiz-link);
     flex-shrink: 0;
@@ -5958,19 +5351,12 @@ ol.wiz-help-list { list-style-type: decimal; }
     min-height: 32px;
 }
 
-/* Always the last thing on its heading row, whatever the caller built after
-   it, so the "?" sits in the same spot on every page. A ui.space() before the
-   row's actions still takes the free space first; the margin only matters on
-   a row with nothing pushing right. */
 .wiz-page-header__row > .wiz-help-icon,
 .wiz-help-row > .wiz-help-icon {
     order: 99;
     margin-left: auto;
 }
 
-/* In a dialog header it is a pill matching the Close pill beside it: neutral
-   on desktop with its label, a 36px disc on a phone with the word kept as its
-   accessible name. */
 .q-btn.wiz-help-icon.dialog-help {
     border-radius: var(--radius-pill);
     background: var(--surface-sunken);
@@ -6012,8 +5398,7 @@ ol.wiz-help-list { list-style-type: decimal; }
     }
 }
 
-/* The popover: a fixed reading width on desktop. Without one the menu shrank
-   to its narrowest word and wrapped a snippet a word or two per line. */
+/* A fixed width: without one the menu shrinks to its narrowest word. */
 .q-menu.wiz-help-menu {
     width: min(24rem, calc(100vw - 2rem));
     max-width: none !important;
@@ -6025,12 +5410,8 @@ ol.wiz-help-list { list-style-type: decimal; }
     color: var(--fg);
 }
 
-/* A table needs more room than a paragraph: at the reading width its third
-   column ran under the scrollbar. The phone sheet is full width already. */
 .q-menu.wiz-help-menu:has(.wiz-help-table) { width: min(32rem, calc(100vw - 2rem)); }
 
-/* ColorSelect's menu (theme/pickers.py): a disabled option's caption explains
-   why, and without a cap the long ones stretched the menu to the page edge. */
 .q-menu.wiz-color-select-menu { max-width: min(28rem, calc(100vw - 2rem)) !important; }
 .wiz-select-icon { color: var(--fg-muted); }
 .wiz-help-menu-body .wiz-help-table { min-width: 0; }
@@ -6083,9 +5464,7 @@ ol.wiz-help-list { list-style-type: decimal; }
 }
 .q-btn.wiz-help-topic .q-icon { color: var(--fg-muted); }
 
-/* On a phone the same menu rises as a bottom sheet, like the app's dialogs:
-   full width, Close in thumb reach, the page dimmed behind it. Quasar
-   positions a menu with inline top/left, hence the !important. */
+/* Quasar positions a menu with inline top/left, hence the !important. */
 @media (max-width: 599.98px) {
     .q-menu.wiz-help-menu {
         position: fixed !important;
@@ -6103,8 +5482,6 @@ ol.wiz-help-list { list-style-type: decimal; }
     .wiz-help-menu-head { padding-top: 1rem; }
 }
 
-/* The popup's last paragraph should not push the Read more link off its baseline
-   with a trailing margin. */
 .wiz-help-menu-body .wiz-help-prose > .wiz-help-p:last-child { margin-bottom: 0.4rem; }
 
 .wiz-help-more {
@@ -6114,15 +5491,7 @@ ol.wiz-help-list { list-style-type: decimal; }
     text-decoration: underline;
 }
 
-/* The Event tab's Schedule / On Air / Brackets control. Quasar renders a
-   q-btn-toggle as a button group, and the global .q-btn radius above rounds
-   every segment individually — three pills mashed together rather than one
-   control. Round the ends only, and let the filled segment be the selected one.
-   (The other half of that bug was in the page: passing `color=primary` sets the
-   *inactive* background, so all three segments were gold and none of them
-   looked chosen.) */
-/* The column's own gap is the only space under the switcher: a margin on top
-   of it left a 40px band before every view. */
+/* The global .q-btn radius rounds every q-btn-toggle segment; round the ends only. */
 .wiz-view-switch {
     width: 100%;
 }
@@ -6152,11 +5521,8 @@ ol.wiz-help-list { list-style-type: decimal; }
     color: var(--fg);
 }
 
-/* The selected segment is a raised white tile, not an accent fill. q-btn-toggle
-   marks it only with aria-pressed (there is no .q-btn--active) and paints it
-   with Quasar's `bg-primary text-white`, which carry !important in Quasar's own
-   layer. For !important the earliest layer wins, so the colours sit in the
-   "theme" layer; the old unlayered .q-btn--active rule never matched at all. */
+/* q-btn-toggle marks the selection only with aria-pressed and paints bg-primary !important in Quasar's layer,
+   so these sit in "theme" (for !important the earliest layer wins). */
 .wiz-segmented .q-btn[aria-pressed="true"] {
     box-shadow: 0 1px 2px rgba(28, 27, 25, 0.10), 0 0 0 1px var(--border-subtle);
 }
@@ -6168,18 +5534,12 @@ ol.wiz-help-list { list-style-type: decimal; }
     }
 }
 
-/* Phone: a switcher hugging the left edge reads as a stray button cluster.
-   Spread it so it reads as what it is — the tab bar for this view. */
 @media (max-width: 599px) {
     .wiz-segmented { display: flex; width: 100%; }
     .wiz-segmented .q-btn { flex: 1 1 0; padding: 4px 8px; }
     .wiz-edit-row .wiz-segmented { display: inline-flex; width: auto; }
 }
 
-/* My Schedule stacks four independent blocks on one scroll (theme/section.py).
-   Each gets a visible edge and one padding rule, instead of a bare heading with
-   ~4em of stacked header/separator margin above content that ran straight into
-   the next section. */
 .wiz-panel {
     display: block;
     width: 100%;
@@ -6210,8 +5570,6 @@ ol.wiz-help-list { list-style-type: decimal; }
     font-size: 1.35rem;
 }
 
-/* No bottom margin, unlike .section-title: that 1em is what left every one of
-   these headings floating above its own content. */
 .wiz-panel__title {
     font-family: var(--font-body);
     font-weight: 700;
@@ -6241,8 +5599,6 @@ ol.wiz-help-list { list-style-type: decimal; }
     gap: var(--space-3);
 }
 
-/* The stack itself: one gap between panels rather than each section carrying
-   its own trailing separator + margin. */
 .wiz-section-stack {
     width: 100%;
     gap: var(--space-4);
@@ -6255,10 +5611,6 @@ ol.wiz-help-list { list-style-type: decimal; }
     .wiz-section-stack { gap: var(--space-3); }
 }
 
-/* A block nested inside a panel body (the "waiting on you" list, the change
-   requests). Lighter than the panel around it, and its heading sits below the
-   panel title in the hierarchy rather than competing with it — .section-title
-   at 1.5em with a 1em bottom margin did exactly that. */
 .wiz-subcard {
     width: 100%;
     padding: var(--space-3);
@@ -6267,9 +5619,6 @@ ol.wiz-help-list { list-style-type: decimal; }
     box-shadow: none;
 }
 
-/* The "Waiting on you to pick a time" card: one group per tournament, its name
-   and bracket-site tag said once in the header, the matchups as rows under it.
-   One column on a phone, side by side on desktop (wide lists use grids). */
 .wiz-pick-groups {
     width: 100%;
     display: grid;
@@ -6307,8 +5656,6 @@ ol.wiz-help-list { list-style-type: decimal; }
 
 .wiz-pick-row__opponent { font-weight: 700; overflow-wrap: anywhere; }
 
-/* Why a row can't be booked yet, said on the row: a tooltip never shows on a
-   phone. */
 .wiz-pick-row__window {
     color: var(--status-pending);
     font-size: var(--text-sm);
@@ -6329,9 +5676,7 @@ ol.wiz-help-list { list-style-type: decimal; }
     margin-top: var(--space-2);
 }
 
-/* A count asks for action, so it stays a solid pill rather than the tinted
-   tag every other non-floating badge becomes above. Built with color=None, so
-   no Quasar bg-* class fights the fill. */
+/* Built with color=None so no Quasar bg-* class fights the fill. */
 .wiz-nav-count.q-badge {
     background: var(--wiz-count-bg);
     color: var(--wiz-count-fg) !important;
@@ -6340,8 +5685,6 @@ ol.wiz-help-list { list-style-type: decimal; }
     font-weight: 700;
 }
 
-/* A dialog's own error, under the fields it is about. Not a toast: on a phone
-   the toast covered the dialog's Schedule button. */
 .wiz-field-error {
     color: var(--status-cancelled);
     font-weight: 700;
@@ -6356,16 +5699,11 @@ ol.wiz-help-list { list-style-type: decimal; }
     line-height: 1.3;
 }
 
-/* Header switches sit tight to the title row; Quasar's default label spacing
-   pushes them out of line with the icon buttons beside them. */
 .wiz-panel__switch .q-toggle__label {
     font-size: 0.8rem;
     color: var(--status-neutral);
 }
 
-/* The one-line note under an Event view's switcher. Sits tight to the content
-   it introduces and keeps its help icons on the same baseline; on a phone they
-   wrap with it rather than stranding on a line of their own. */
 .wiz-view-note {
     width: 100%;
     gap: var(--space-2);
@@ -6373,10 +5711,6 @@ ol.wiz-help-list { list-style-type: decimal; }
     margin-bottom: var(--space-3);
 }
 
-/* Page controls a board hands to its filter strip (MatchTableView's
-   toolbar_lead / toolbar_end). An unfilled slot takes no room, and the desktop
-   pair stays out of the phone's opened filter card, where the phone row above
-   it already carries the same controls. */
 .wiz-toolbar-slot {
     gap: var(--space-2);
     flex: none;
@@ -6392,9 +5726,6 @@ ol.wiz-help-list { list-style-type: decimal; }
     }
 }
 
-/* A board page whose only header is its filter strip: the strip sits tight
-   to the lines it filters instead of a card margin, a column gap and a table
-   margin stacked between them. */
 .wiz-board-page {
     gap: var(--space-2);
 }
@@ -6413,10 +5744,6 @@ ol.wiz-help-list { list-style-type: decimal; }
     padding-right: var(--space-2);
 }
 
-/* Event check-in desk (pages/check_in.py). Built for a phone held in one hand:
-   the search/filters bar sticks under the app header while the roster scrolls,
-   each card's Check in button is full width and 48px+, and a checked-in card is
-   marked by a positive edge rather than by colour alone (the badge says it too). */
 .checkin-toolbar {
     position: sticky;
     top: var(--wiz-header-height, 56px);
@@ -6425,14 +5752,12 @@ ol.wiz-help-list { list-style-type: decimal; }
     border-bottom: 1px solid var(--border-subtle);
 }
 
-/* The desk is a Volunteer tab, and Quasar's tab panel clips its overflow, which
-   would pin the toolbar to the panel instead of the window. */
+/* Quasar's tab panel clips its overflow, which would pin the toolbar to the panel instead of the window. */
 .q-tab-panels:has(.checkin-toolbar),
 .q-panel:has(.checkin-toolbar) {
     overflow: visible;
 }
 
-/* The filter menu beside the search box: wide enough for "Checked in 120". */
 .checkin-filter {
     flex: 0 0 auto;
     min-width: 150px;
@@ -6442,8 +5767,7 @@ ol.wiz-help-list { list-style-type: decimal; }
     .checkin-filter { min-width: 128px; }
 }
 
-/* Quasar cells never wrap, so a long test-DM note stretched Status until the
-   Check in button and ⋮ ran off the card. The note wraps; the actions don't. */
+/* Quasar cells never wrap; the note wraps, the actions don't. */
 .checkin-table td.checkin-status {
     white-space: normal;
     min-width: 220px;
@@ -6493,7 +5817,6 @@ ol.wiz-help-list { list-style-type: decimal; }
     box-shadow: var(--shadow-1);
 }
 
-/* Clear the Volunteer hub's bottom nav, which shows below the desktop break. */
 @media (max-width: 1023.98px) {
     body.wiz-has-bottom-nav .checkin-undo {
         bottom: calc(16px + var(--wiz-bottom-nav-h) + env(safe-area-inset-bottom));
@@ -6504,12 +5827,6 @@ ol.wiz-help-list { list-style-type: decimal; }
     padding-bottom: calc(96px + env(safe-area-inset-bottom));
 }
 
-/* ---------------------------------------------------------------------------
-   Admin → Settings: a home page of tiles, one per pane, and each pane with a
-   link back to them. It used to be a second menu column beside the drawer,
-   which squeezed the forms on desktop and became a sideways tab strip on a
-   phone; the tiles are the same on both.
-   ------------------------------------------------------------------------- */
 .wiz-settings {
     width: 100%;
     max-width: 1040px;
@@ -6596,8 +5913,6 @@ ol.wiz-help-list { list-style-type: decimal; }
 
 .wiz-settings__pane > .wiz-page-header { margin-bottom: 0; }
 
-/* A former tab shown as one card of a pane: its own containers stop centring
-   and capping themselves, since the pane already does. */
 .wiz-settings-embed { padding: var(--space-4); }
 .wiz-settings-embed .page-container,
 .wiz-settings-embed .page-container-narrow,
@@ -6626,8 +5941,6 @@ ol.wiz-help-list { list-style-type: decimal; }
     max-width: 65ch;
 }
 
-/* Edit member: the role pickers' small caps labels, and the event picker that
-   sits inline with "Roles in" (layout A). */
 .wiz-role-group__label {
     margin-top: var(--space-2);
     font-size: 0.75rem;
@@ -6666,8 +5979,6 @@ ol.wiz-help-list { list-style-type: decimal; }
     .wiz-settings-embed { padding: var(--space-3); }
 }
 
-/* The embedded page's own title becomes the card's header band, so a former
-   tab and a native settings card share one silhouette. */
 .wiz-settings-embed .wiz-page-header--nested {
     width: calc(100% + 2 * var(--space-4));
     margin: calc(-1 * var(--space-4)) calc(-1 * var(--space-4)) var(--space-2);
@@ -6690,9 +6001,6 @@ ol.wiz-help-list { list-style-type: decimal; }
     .wiz-settings-grid { grid-template-columns: minmax(0, 1fr); gap: var(--space-2); }
     .wiz-settings-tile { min-height: 0; padding: var(--space-3); }
     .wiz-settings-time { width: auto; flex: 1 1 0; min-width: 0; }
-    /* A station's name, section and switches on one line, its side and seat
-       on the next,
-       instead of wrapping wherever the row happens to run out. */
     .wiz-station-row {
         flex-wrap: wrap !important;
         row-gap: var(--space-2);
@@ -6707,16 +6015,6 @@ ol.wiz-help-list { list-style-type: decimal; }
     .wiz-station-row > :nth-child(4) { order: 5; flex: 1 1 40%; width: auto !important; min-width: 0; }
 }
 
-/* ── Phone layout (below 600px) ─────────────────────────────────────────────
-   Shared fixes from the 2026-10 phone sweep, written once here rather than per
-   page. docs/style-guide.md#phone-layout has the rules; the phone pass in
-   scripts/ui_a11y_scan.js is what catches a new page breaking them. */
-
-/* A label/value card (enable_mobile_grid, and the bespoke tournament and
-   equipment cards): one grid per card, so the label column is only as wide as
-   its longest label (capped at 40%) and every value starts on the same line.
-   The old col-5/col-4 split gave labels a fixed share of a 300px card, which
-   wrapped "Players Per Match" over two lines and left values a narrow strip. */
 .wiz-grid-fields {
     display: grid;
     grid-template-columns: fit-content(40%) minmax(0, 1fr);
@@ -6738,23 +6036,17 @@ ol.wiz-help-list { list-style-type: decimal; }
     overflow-wrap: anywhere;
 }
 
-/* The availability graph's hour axis: justify-between spaces the ticks, so the
-   row's own 1rem gap only added 64px that pushed "24:00" past the card at 360px. */
 .avail-day-label + .row.justify-between.no-wrap {
     gap: 0;
     min-width: 0;
 }
 
-/* A shift card keeps its 220px column on a wide screen and takes the row on a
-   phone, where 220px left a third of the position card empty beside it. */
 .wiz-shift-card {
     min-width: 220px;
     flex: 0 0 auto;
 }
 
-/* Volunteer → Full Schedule: one column per role on an hour scale. The same
-   grid on every width; on a phone it scrolls sideways under a pinned hour
-   column. --wiz-vgrid-hour is HOUR_PX in pages/volunteer_tabs/full_schedule.py. */
+/* --wiz-vgrid-hour must equal HOUR_PX in theme/volunteer_grid.py. */
 .wiz-vgrid {
     --wiz-vgrid-hour: 48px;
     --wiz-vgrid-head: 44px;
@@ -6836,8 +6128,6 @@ ol.wiz-help-list { list-style-type: decimal; }
     border-radius: 8px;
 }
 
-/* Everyone on it was called off: still on the board (it counts as worked),
-   but nobody is coming, so it reads as stood down rather than staffed. */
 .wiz-vgrid__shift--off {
     background: repeating-linear-gradient(
         135deg,
@@ -6889,9 +6179,7 @@ ol.wiz-help-list { list-style-type: decimal; }
     margin-left: -4px;
 }
 
-/* The now line and the pointer line (static/js/timeline.js moves both, by
-   transform so the move is never a layout shift), with their time tags in the
-   pinned hour column. */
+/* Moved by transform (static/js/timeline.js), so a move is never a layout shift. */
 .wiz-vgrid__now,
 .wiz-vgrid__cursor {
     position: absolute;
@@ -6932,7 +6220,6 @@ ol.wiz-help-list { list-style-type: decimal; }
     background: var(--status-live);
 }
 
-/* Above the now tag, so the time under the pointer always reads. */
 .wiz-vgrid__tag--cursor {
     z-index: 5;
     color: var(--surface);
@@ -6945,19 +6232,15 @@ ol.wiz-help-list { list-style-type: decimal; }
     display: none;
 }
 
-/* "12:45 PM" in the now and pointer tags needs more room than "12:45". */
 .wiz-vgrid--h12 .wiz-vgrid__times {
     flex-basis: 4.5rem;
 }
 
-/* A phone has no hover: pressing and dragging down the hour column moves the
-   pointer line instead, so the column must not scroll the page. */
+/* No hover on a phone: the hour column takes the drag, so it must not scroll the page. */
 .wiz-vgrid__times {
     touch-action: pan-x;
 }
 
-/* The Columns button and a page's own toolbar travel as one group, pushed to
-   the right of the day chips; on a phone they take their own line. */
 .wiz-vgrid-tools {
     gap: var(--space-2, 8px);
     margin-left: auto;
@@ -6967,7 +6250,6 @@ ol.wiz-help-list { list-style-type: decimal; }
     .wiz-vgrid-tools--crowded {
         width: 100%;
     }
-    /* Three buttons don't fit a 360px line with Columns spelled out. */
     .wiz-vgrid-tools--crowded .wiz-vgrid-columns__label {
         display: none;
     }
@@ -6977,8 +6259,6 @@ ol.wiz-help-list { list-style-type: decimal; }
     margin-left: 8px;
 }
 
-/* Admin → Shift Board: the same grid, where a shift opens its sheet and an
-   empty hour adds one. */
 .wiz-vgrid__body--addable {
     cursor: copy;
 }
@@ -7049,7 +6329,6 @@ ol.wiz-help-list { list-style-type: decimal; }
     width: 100%;
 }
 
-/* The dot on Columns says "you've changed these", so a missing role isn't a mystery. */
 .wiz-vgrid-columns__dot {
     min-width: 10px;
     min-height: 10px;
@@ -7084,31 +6363,22 @@ ol.wiz-help-list { list-style-type: decimal; }
     color: var(--fg-muted);
 }
 
-/* A card's action buttons travel as one group: when the title row runs out of
-   room the whole group drops to the next line, right-aligned, instead of
-   leaving Delete alone on a line of its own. */
 .wiz-card-actions {
     margin-left: auto;
 }
 
 @media (max-width: 599px) {
-    /* One 16px gutter. A tabbed page sat inside .nicegui-content's 16px and
-       then the tab panel's own 16px, so Admin, Home and Volunteer content
-       started 32px in while every untabbed page started at 16px. */
+    /* One 16px gutter: the tab panel's own padding would double .nicegui-content's. */
     .nicegui-content > .q-tab-panels > .q-panel > .q-tab-panel {
         padding-left: 0;
         padding-right: 0;
     }
 
-    /* A fixed-width control never outgrows the screen. */
     .control-width {
         width: 100%;
         max-width: 400px;
     }
 
-    /* The table search box (theme/tables/preferences.py search_input) is w-64,
-       256px, which with Export and the column gear beside it wrapped each onto a
-       line of its own. Let it take what is left of its row instead. */
     .wiz-table-search {
         flex: 1 1 10rem;
         width: auto;
@@ -7121,22 +6391,16 @@ ol.wiz-help-list { list-style-type: decimal; }
         gap: var(--space-1);
     }
 
-    /* Only beside other controls in a row. In a column the basis is a height,
-       which left a 192px gap under the check-in desk's search box. */
+    /* Only in a row: in a column the basis is a height. */
     .row > .row:has(> .wiz-table-search) {
         flex: 1 1 12rem;
     }
 
-    /* Ledes: 1.2em grey with a 1em bottom margin reads as a paragraph of body
-       copy on a phone and pushes the first real control off the screen. */
     .text-muted {
         font-size: 1rem;
         margin-bottom: var(--space-2);
     }
 
-    /* A seed string and its copy button stay on one line; the string gives way
-       to an ellipsis (its title holds the whole thing) before the pair outgrows
-       the card. */
     .seed-copy {
         max-width: 100%;
     }
@@ -7152,8 +6416,6 @@ ol.wiz-help-list { list-style-type: decimal; }
         min-width: 0;
     }
 
-    /* Daily hours: the day over its two times, each time half the row, instead
-       of a day column and two 8rem fields running 40px past the card. */
     .wiz-settings-hours {
         flex-wrap: wrap !important;
         row-gap: var(--space-1);
@@ -7166,14 +6428,7 @@ ol.wiz-help-list { list-style-type: decimal; }
 
 }
 
-/* Quasar's palette classes, re-pointed at the theme. Quasar declares them
-   !important in its last cascade layer; for !important declarations the
-   earliest layer wins, so these sit in NiceGUI's first layer, "theme".
-
-   text-grey (#9E9E9E) is 2.5:1 on white and text-grey-7 is 3.6:1 on the dark
-   surface, and between them they carry most captions in the app. The semantic
-   colours keep Quasar's light-mode shades, which are 2.8-3.6:1 on the dark
-   surface, so in dark mode they take the lifted status tokens instead. */
+/* Quasar declares these !important in its last layer; for !important the earliest layer wins, so they sit in "theme". */
 @layer theme {
     .text-grey, .text-grey-4, .text-grey-5, .text-grey-6, .text-grey-7 {
         color: var(--fg-muted) !important;
@@ -7182,7 +6437,6 @@ ol.wiz-help-list { list-style-type: decimal; }
         color: var(--fg-secondary) !important;
     }
     .body--dark .text-negative  { color: var(--status-cancelled) !important; }
-    /* The crew tray's sunken fill drops it to 4.3:1 (a player's own Withdraw). */
     .body--dark .wiz-crew-action .text-negative {
         color: color-mix(in srgb, var(--status-cancelled) 88%, white) !important;
     }
@@ -7190,16 +6444,12 @@ ol.wiz-help-list { list-style-type: decimal; }
     .body--dark .text-warning   { color: var(--status-pending) !important; }
     .body--dark .text-info      { color: var(--status-info) !important; }
     .body--dark .text-primary   { color: var(--accent) !important; }
-    /* The unlayered rules (styles.css top, theme/chrome.py) lose to Quasar's
-       layer, which left ember text buttons at 3.5:1 in dark mode. Lifted
-       toward white so a community's own secondary keeps its hue. */
+    /* The unlayered rules (styles.css top, theme/chrome.py) lose to Quasar's layer here. */
     .body--dark .text-secondary { color: color-mix(in srgb, var(--wiz-ember) 70%, #fff) !important; }
     body:not(.body--dark) .text-primary { color: color-mix(in srgb, var(--q-primary) 85%, #000) !important; }
 }
 
-/* Quasar marks buttons, toggles and checkboxes .no-outline (!important, in its
-   layer) and shows focus only as a faint tint, which on a flat header button is
-   all but invisible. Give them the same ring as everything else (WCAG 2.4.7). */
+/* Quasar marks these .no-outline (!important, in its layer), leaving focus all but invisible. */
 @layer theme {
     .no-outline:focus-visible {
         outline: 2px solid var(--accent) !important;
@@ -7207,11 +6457,6 @@ ol.wiz-help-list { list-style-type: decimal; }
     }
 }
 
-/* ---------------------------------------------------------------------------
-   Markdown editor (theme/markdown_editor): a Tiptap surface with a toolbar.
-   The prose inside mirrors the .wiz-help-* rendering, so what a writer
-   formats looks like what readers will see.
-   --------------------------------------------------------------------------- */
 .wiz-md-editor {
     display: flex;
     flex-direction: column;
@@ -7356,8 +6601,6 @@ ol.wiz-help-list { list-style-type: decimal; }
     margin-top: 0.5rem;
 }
 
-/* A listing card: the facts, then a footer under a hairline holding the
-   count and the attendance buttons, so the buttons never squeeze the title. */
 .wiz-community-event.wiz-ce-card {
     padding: 0;
     gap: 0;
@@ -7403,9 +6646,7 @@ ol.wiz-help-list { list-style-type: decimal; }
     color: var(--fg);
 }
 
-/* A checkbox label that wraps on a phone: Quasar centres the box on the whole
-   block, so it floats between the lines. Pin it to the first line instead; on a
-   one-line label the padding lands the text exactly where centring did. */
+/* Quasar centres the box on the whole label block, so it floats between wrapped lines. */
 .q-checkbox:not(.q-checkbox--dense) {
     align-items: flex-start;
 }
@@ -7414,8 +6655,6 @@ ol.wiz-help-list { list-style-type: decimal; }
     padding-top: calc((40px - 1.5em) / 2);
 }
 
-/* ── Schedule run sheet (theme/tables/match_run_sheet.py) ─────────────────────
-   One line per match, grouped; the match sheet holds the controls. */
 .schedule-layout {
     display: flex;
     flex-wrap: wrap;
@@ -7441,10 +6680,6 @@ ol.wiz-help-list { list-style-type: decimal; }
     }
 }
 
-/* Match Schedule's view switch and its "Not booked yet" view
-   (theme/unbooked_board.py): open bracket matchups nobody has booked, one
-   group per tournament like the players' pick-a-time card. A row is one line
-   on desktop (matchup, round, actions) and stacks on a phone. */
 .schedule-view-switch {
     align-self: flex-start;
     margin-bottom: var(--space-3);
@@ -7622,7 +6857,6 @@ ol.wiz-help-list { list-style-type: decimal; }
     white-space: nowrap;
     color: var(--fg-secondary);
 }
-/* "Game 2 of 3" wraps as one piece, never "Game 2" / "of 3". */
 .run-sheet__game {
     white-space: nowrap;
 }
@@ -7709,13 +6943,9 @@ ol.wiz-help-list { list-style-type: decimal; }
     color: var(--status-pending);
     font-weight: 600;
 }
-/* A phone card shares its width with the status tag; a count that can't wrap
-   ran underneath it. */
 .run-sheet__card .run-sheet__crew {
     white-space: normal;
 }
-/* One crew role: its count, then (on the player board) the viewer's own
-   button, then the names. */
 .run-sheet__role {
     display: flex;
     flex-direction: column;
@@ -7746,9 +6976,6 @@ ol.wiz-help-list { list-style-type: decimal; }
     color: var(--fg-secondary);
     font-weight: 400;
 }
-/* Approve beside a waiting name (admin run sheet). Two taps: the outlined
-   button fills and reads Confirm on the first, at the same width. The name
-   and button wrap as a pair, so a narrow cell puts the button underneath. */
 .run-sheet__person:has(> .run-sheet__approve) {
     display: flex;
     flex-wrap: wrap;
@@ -7766,8 +6993,6 @@ ol.wiz-help-list { list-style-type: decimal; }
     font-weight: 700;
 }
 
-/* Status rail: the row's state as a word in its colour, and the same colour
-   down the card's or row's left edge. Neutral states keep a quiet grey edge. */
 .run-sheet--live      { --rail-c: var(--status-live); }
 .run-sheet--ok        { --rail-c: var(--status-ok); }
 .run-sheet--pending   { --rail-c: var(--status-pending); }
@@ -7795,7 +7020,6 @@ ol.wiz-help-list { list-style-type: decimal; }
 .run-sheet__item > .run-sheet__group {
     margin: 0.75rem 0 0.375rem;
 }
-/* The first header sits right under the toolbar, which already spaces it. */
 .run-sheet__item:first-child > .run-sheet__group {
     margin-top: 0;
     padding: 0.25rem 0.75rem;
@@ -7818,8 +7042,6 @@ ol.wiz-help-list { list-style-type: decimal; }
     text-align: left;
     cursor: pointer;
 }
-/* A phone card's first line: the time and its end, the state on the right.
-   The names get the card's whole width under it. */
 .run-sheet__head {
     display: flex;
     align-items: baseline;
@@ -8019,9 +7241,6 @@ ol.wiz-help-list { list-style-type: decimal; }
 .run-sheet__card--split {
     flex-wrap: wrap;
 }
-/* Zero basis so only the full-width seed strip wraps; the min-width drops the
-   step under the names on the narrowest phones, where a Roll seed or Start
-   button beside them squeezed the ADA line to a word a line at 360px. */
 .run-sheet__card--split > .run-sheet__card-open {
     flex-basis: 0;
     min-width: 13rem;
@@ -8032,16 +7251,12 @@ ol.wiz-help-list { list-style-type: decimal; }
     padding: 0.375rem 0 0.125rem 0.75rem;
     border-top: 1px solid var(--border-subtle);
 }
-/* The names keep 10rem, or the status tag or next step beside them drops to a
-   line of its own: a placeholder's title ("ALTTPR Showcase Race") was squeezed
-   to a word a line at 360px. */
 .run-sheet__card {
     flex-wrap: wrap;
 }
 .run-sheet__card .run-sheet__main {
     flex: 1 1 10rem;
 }
-/* A step button stays on the line (zero basis above); a status tag alone may drop. */
 .run-sheet__card--split:not(:has(.run-sheet__step)) > .run-sheet__card-open {
     flex-basis: 15rem;
 }
@@ -8056,10 +7271,7 @@ ol.wiz-help-list { list-style-type: decimal; }
     gap: 0.25rem;
 }
 
-/* The player run sheet (theme/tables/match_player_run_sheet.py): the same line,
-   with the viewer's own crew, acknowledge and watch buttons left on it. */
-/* Quasar cells don't wrap; a race with twelve entrants would push the Crew and
-   Watch columns off the right edge. */
+/* Quasar cells don't wrap. */
 .player-sheet__row > td {
     white-space: normal;
 }
@@ -8069,7 +7281,6 @@ ol.wiz-help-list { list-style-type: decimal; }
 .player-sheet__row > td.player-sheet__crew-cell {
     vertical-align: top;
 }
-/* The names wrap at their spaces, never down to a letter a line. */
 .player-sheet__row > td.player-sheet__match-cell {
     min-width: 10rem;
 }
@@ -8144,7 +7355,6 @@ ol.wiz-help-list { list-style-type: decimal; }
     font-size: var(--text-sm);
 }
 .player-sheet__seed-head span {
-    /* --fg-muted is 4.37:1 on the sunken panel. */
     color: var(--fg-secondary);
 }
 .player-sheet__seed-who {
@@ -8185,8 +7395,6 @@ ol.wiz-help-list { list-style-type: decimal; }
 .player-sheet__acts .q-btn {
     min-height: 2.25rem;
 }
-/* The phone tray spans the card, so the button sits in the same spot on
-   every card. */
 .player-sheet__acts .wiz-crew-action {
     flex-basis: auto;
     align-self: stretch;
@@ -8255,8 +7463,7 @@ ol.wiz-help-list { list-style-type: decimal; }
     max-width: 100vw;
     height: 100vh;
     max-height: 100vh;
-    /* Safari's 100vh is the viewport with its toolbars hidden, so the sheet's
-       footer would sit under them; dvh tracks what's actually visible. */
+    /* dvh, not vh: Safari's 100vh assumes hidden toolbars, putting the footer under them. */
     height: 100dvh;
     max-height: 100dvh;
     border-radius: 0;
@@ -8410,8 +7617,6 @@ ol.wiz-help-list { list-style-type: decimal; }
 .match-sheet__comment-author {
     font-weight: 700;
 }
-/* The viewer's own name, everywhere it's listed among others: their display
- * name, then a quiet "(you)" (crew lists, comments, bracket slots). */
 .wiz-you {
     color: var(--fg-secondary);
     font-weight: 400;
@@ -8481,8 +7686,6 @@ ol.wiz-help-list { list-style-type: decimal; }
     white-space: nowrap;
 }
 
-/* Seed Presets (pages/admin_tabs/admin_presets.py): one line per preset under
-   its randomizer's heading; every action sits in the line's menu. */
 .preset-list {
     width: 100%;
     background: var(--surface);
@@ -8622,8 +7825,6 @@ ol.wiz-help-list { list-style-type: decimal; }
 .wiz-notify-item__addr { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .wiz-notify-follow__select { width: 14rem; max-width: 100%; }
 
-/* Profile → Notifications presets (layout C): three radio cards, then a
-   Customize list of every message with an Off / Silent / Ping chip. */
 .wiz-notify-presets {
     display: grid;
     gap: var(--space-2);
@@ -8689,9 +7890,6 @@ ol.wiz-help-list { list-style-type: decimal; }
     overflow-wrap: anywhere;
 }
 
-/* Home → Tournaments: admins and entrants as wrapping name pills. Past the
-   preview count they wait behind "Show all", which the reader taps, so the
-   card only grows when they ask it to. */
 .wiz-people-heading {
     gap: 6px;
     font-size: var(--text-xs);
@@ -8731,8 +7929,6 @@ ol.wiz-help-list { list-style-type: decimal; }
 .wiz-name-chips:not(.is-open) > .wiz-name-chip--more { display: none; }
 .wiz-name-chips__toggle { margin-top: -4px; }
 
-/* /platform → Monitoring: settings beside the ignore rules on desktop, stacked
-   on a phone (pages/platform_monitoring.py). */
 .wiz-platform-monitoring {
     display: grid;
     grid-template-columns: minmax(0, 1fr);
@@ -8751,10 +7947,7 @@ ol.wiz-help-list { list-style-type: decimal; }
     word-break: break-all;
 }
 
-/* Busy button (theme/busy.py): while a slow action runs the pressed button
-   says what it's doing beside a spinner, on a quiet neutral fill so it reads
-   as "not pressable right now" in either mode. Quasar's bg- and text- colour
-   classes and the disabled fade are !important in its own layer, hence "theme". */
+/* Quasar's bg-/text- classes and the disabled fade are !important in its layer, hence "theme". */
 @layer theme {
     .q-btn.wiz-busy-btn {
         background: var(--surface-sunken) !important;
@@ -8773,8 +7966,6 @@ ol.wiz-help-list { list-style-type: decimal; }
 }
 .wiz-busy__elapsed:empty { display: none; }
 
-/* Round schedule (theme/dialog/round_schedule_dialog.py): a table of stages on
-   desktop, one card per stage on a phone. */
 .round-schedule__note {
     background: var(--surface-alt);
     border-radius: var(--radius-sm);
@@ -8849,8 +8040,6 @@ ol.wiz-help-list { list-style-type: decimal; }
     }
 }
 
-/* Admin → Users › Import from Discord: the preview counts, two to a row on
-   every width so the dialog reads the same on a phone. */
 .wiz-import-stats {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -8900,9 +8089,6 @@ ol.wiz-help-list { list-style-type: decimal; }
     color: var(--fg-muted);
 }
 
-/* Admin → Notifications: one row per message, one column per recipient. Each
-   cell is a chip-like button tinted by its mode; a changed cell carries a solid
-   border so overrides stand out against the defaults. */
 .wiz-notify-cell {
     --chip-c: var(--status-neutral);
     min-height: 28px;
@@ -8934,8 +8120,6 @@ ol.wiz-help-list { list-style-type: decimal; }
     border-color: color-mix(in srgb, var(--chip-c) 80%, var(--fg));
 }
 
-/* One card per catalogue subheading, two across when there's room. Columns
-   rather than a grid so a short card doesn't stretch to its taller neighbour. */
 .wiz-notify-cards {
     columns: 2 34rem;
     column-gap: var(--space-4);
@@ -9030,8 +8214,6 @@ ol.wiz-help-list { list-style-type: decimal; }
 
 .wiz-notify-card__head + .wiz-notify-card__row { border-top: 0; }
 
-/* Admin → Feedback. The message wraps in its own column and the page it came
-   from sits under it, so neither pushes the row actions off the side. */
 .wiz-feedback-category {
     display: inline-flex;
     align-items: center;
@@ -9073,8 +8255,6 @@ ol.wiz-help-list { list-style-type: decimal; }
 
 .wiz-feedback-filters.nicegui-row { flex-wrap: wrap; }
 
-/* A phone gets the status switch on its own line, and category and search
-   share the next: three in a row squeezed the switch's labels into each other. */
 @media (max-width: 599.98px) {
     .wiz-feedback-status { width: 100%; }
     .wiz-feedback-status .q-btn { flex: 1; }
@@ -9084,13 +8264,6 @@ ol.wiz-help-list { list-style-type: decimal; }
 
 .wiz-feedback-table td { vertical-align: top; }
 
-/* ---------------------------------------------------------------------------
-   Webhooks (Settings → Integrations): one full-width row per webhook. Events
-   wrap in their own column so a long subscription never scrolls sideways. A
-   narrow list (a phone, or the pane beside a wide menu) stacks the same row:
-   name and ⋮ on top, events under it, health and Deliveries last. Keyed to
-   the list's width, not the viewport.
---------------------------------------------------------------------------- */
 .wiz-webhook-list {
     container-type: inline-size;
     width: 100%;
@@ -9188,8 +8361,6 @@ ol.wiz-help-list { list-style-type: decimal; }
     .wiz-webhook-row__deliveries { justify-self: end; }
 }
 
-/* Messages sent to you (/messages): a list of your own DMs; tapping one opens
-   the match-sheet shell with the message and its Off/Silent/Ping switch. */
 .wiz-inbox__filter {
     width: 16rem;
     max-width: 100%;
@@ -9257,8 +8428,7 @@ ol.wiz-help-list { list-style-type: decimal; }
     border-top: 1px solid var(--border-subtle);
 }
 
-/* Event guide drawn in the app (pages/event_info.py, static/js/guide-viewer.js).
-   Pages are white paper in both themes: the PDF's own colours assume it. */
+/* White paper in both themes: the PDF's own colours assume it. */
 .wiz-guide-pages {
     width: 100%;
     max-width: 820px;
@@ -9295,9 +8465,6 @@ ol.wiz-help-list { list-style-type: decimal; }
     outline-offset: 1px;
 }
 
-/* One-time "Tell us when you can't play" card on My Schedule
-   (pages/home_tabs/availability_reminder.py). The sample strip reuses the
-   Timeline's hatch, so the blocked hours look the way they will once set. */
 .wiz-avail-reminder {
     display: flex;
     flex-wrap: wrap;
@@ -9364,16 +8531,11 @@ ol.wiz-help-list { list-style-type: decimal; }
     color: var(--fg-secondary);
 }
 
-/* The match board's reset chip (theme/tables/match_filters.py): the filter
-   count, tappable to clear. The phone copy rides the toggle row, which is
-   already hidden on desktop; the desktop copy leads the inline strip. */
 .wiz-filter-reset {
     flex: none;
     font-weight: 700;
 }
 
-/* A DM link narrowed the board to one match: the chip says so and is the way
-   back to the whole board, like the filter-count chip beside it. */
 .q-btn.wiz-one-match {
     flex: none;
     font-weight: 700;
@@ -9399,16 +8561,11 @@ ol.wiz-help-list { list-style-type: decimal; }
     background: color-mix(in srgb, var(--accent) 14%, transparent);
 }
 
-/* A side the bracket hasn't decided yet ("TBD", "Winner of C", "Andy or Benny"):
-   drawn like an empty bracket slot so it never reads as a player. */
 .wiz-tbd {
     color: var(--fg-muted);
     font-style: italic;
 }
 
-/* One of the viewer's friends on Event > Schedule (the Friends list). The
-   underline carries it, so it still reads in both themes without leaning on
-   the accent's contrast against the row. */
 .wiz-friend {
     text-decoration: underline;
     text-decoration-color: var(--wiz-link);
@@ -9416,8 +8573,6 @@ ol.wiz-help-list { list-style-type: decimal; }
     text-underline-offset: 3px;
 }
 
-/* A commentary invite waiting on the viewer (My Schedule): the ask on the
-   left, Decline and Accept on the right; on a phone the buttons drop under it. */
 .wiz-invite-row {
     flex-wrap: nowrap;
     gap: var(--space-3);
@@ -9507,8 +8662,6 @@ ol.wiz-help-list { list-style-type: decimal; }
     background: var(--surface-sunken);
 }
 
-/* Post-event surveys. The respondent's list of parts (theme/survey_form.py),
-   the staff builder and results (pages/admin_tabs/admin_surveys/). */
 .wiz-survey__kicker,
 .wiz-survey__meta,
 .wiz-survey-part__meta,
@@ -9602,8 +8755,7 @@ ol.wiz-help-list { list-style-type: decimal; }
 .wiz-survey-question__error { color: var(--status-cancelled); font-size: var(--text-sm); }
 .wiz-survey-question__error .q-icon { font-size: 16px; }
 .wiz-survey-pills { flex-wrap: wrap; max-width: 100%; }
-/* 1–5 and 0–10 answers are sliders (Thomas, 2026-10-27). Unanswered there is no
-   handle or fill, so a skipped question doesn't look like its lowest score. */
+/* No handle or fill until answered, so a skipped question doesn't read as its lowest score. */
 .wiz-survey-slider { max-width: 34rem; }
 .wiz-survey-slider__top { min-height: 2rem; margin-bottom: -1.25rem; }
 .wiz-survey-slider__hint { font-size: var(--text-sm); color: var(--fg-secondary); font-style: italic; }
@@ -9711,7 +8863,6 @@ ol.wiz-help-list { list-style-type: decimal; }
 .wiz-survey-result__last .q-icon { font-size: 16px; color: var(--fg-muted); }
 .wiz-survey-result__last-link { color: var(--wiz-link); text-decoration: underline; }
 
-/* The question dialog's agree-scale tip: a nudge toward item-specific wording, never a block. */
 .wiz-survey-nudge {
     gap: var(--space-2);
     padding: 10px 12px;
@@ -9742,7 +8893,6 @@ ol.wiz-help-list { list-style-type: decimal; }
 .wiz-survey-comment__text { white-space: pre-line; overflow-wrap: anywhere; }
 .wiz-survey-preview__showing { width: 16rem; max-width: 100%; }
 
-/* AI-suggested drafts: purple rows that only join the survey when staff keep them. */
 .wiz-survey-q--suggested { background: var(--status-suggested-soft); border-top: 1px dashed var(--status-suggested); }
 .wiz-survey-q__options { font-size: var(--text-xs); color: var(--fg-secondary); overflow-wrap: anywhere; }
 .wiz-survey-q__keep { color: var(--status-suggested); flex: none; }
@@ -9766,9 +8916,6 @@ ol.wiz-help-list { list-style-type: decimal; }
     background: var(--surface-sunken);
 }
 
-/* Agree scale (Thomas picked the grid, 2026-10-27): a table of radios when the
-   sheet has room, one card per statement with the five answers stacked in full
-   words when it doesn't. */
 .q-dialog__inner--right > .match-sheet.wiz-survey-sheet--wide { width: min(46rem, 100vw); }
 .wiz-agree { container-type: inline-size; width: 100%; }
 .wiz-agree__head { display: none; }
@@ -9809,7 +8956,6 @@ ol.wiz-help-list { list-style-type: decimal; }
     .wiz-agree__choices.q-option-group > div { display: flex; justify-content: center; }
     .wiz-agree__choices .q-radio { width: auto; min-height: 2.75rem; border: 0; background: none; padding: 0 10px; }
     .wiz-agree__choices .q-radio[aria-checked="true"] { background: none; }
-    /* The column heading names each radio for sighted people; the label stays for screen readers. */
     .wiz-agree__choices .q-radio__label {
         position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap;
     }
@@ -9824,8 +8970,6 @@ ol.wiz-help-list { list-style-type: decimal; }
 .wiz-agree-l4 { background: color-mix(in srgb, var(--status-ok) 45%, var(--surface)); }
 .wiz-agree-l5 { background: var(--status-ok); }
 
-/* Survey choice extras, long answers, section descriptions and drag order
-   (theme/survey_form.py, pages/admin_tabs/admin_surveys/; Thomas's picks 2026-10-27). */
 .wiz-survey-question__hint { font-size: var(--text-sm); color: var(--fg-secondary); }
 .wiz-survey-error { font-size: var(--text-sm); font-weight: 600; color: var(--status-cancelled); }
 .wiz-survey-or { font-size: var(--text-sm); color: var(--fg-secondary); margin: 4px 0 0 2px; }
@@ -9848,8 +8992,6 @@ ol.wiz-help-list { list-style-type: decimal; }
 .wiz-survey-slot { align-self: stretch; box-sizing: border-box; margin: 2px 8px; border: 2px dashed var(--accent); border-radius: 8px; background: var(--accent-soft); }
 body.wiz-survey-dragging, body.wiz-survey-dragging * { cursor: grabbing !important; user-select: none; }
 
-/* Drop-off card (Thomas picked A + B's median time, 2026-10-28): the funnel,
-   then each part with its opened bar behind its answered bar. */
 .wiz-survey-dropoff {
     background: var(--surface);
     border: 1px solid var(--border-subtle);
@@ -9876,8 +9018,6 @@ body.wiz-survey-dragging, body.wiz-survey-dragging * { cursor: grabbing !importa
 .wiz-survey-dropoff__answered { background: var(--accent); }
 .wiz-survey-dropoff__note { padding: 10px 16px; border-top: 1px solid var(--border-subtle); }
 
-/* Results report (Thomas picked A, 2026-10-28): a panel per section, one line
-   per question (prompt | stacked bar | number), comparison tables for repeats. */
 .wiz-stack-c1 { background: var(--accent); }
 .wiz-stack-c2 { background: color-mix(in srgb, var(--accent) 65%, var(--surface)); }
 .wiz-stack-c3 { background: color-mix(in srgb, var(--accent) 40%, var(--surface)); }
@@ -9941,8 +9081,6 @@ body.wiz-survey-dragging, body.wiz-survey-dragging * { cursor: grabbing !importa
 }
 .wiz-comment-sheet__chips { flex-wrap: wrap; }
 
-/* Comments inbox (Thomas picked B, 2026-10-28): the question list beside the
-   comments on desktop, a dropdown above them on a phone. */
 .wiz-inbox { display: grid; grid-template-columns: 16rem minmax(0, 1fr); gap: var(--space-4); align-items: start; }
 .wiz-inbox__nav {
     background: var(--surface);

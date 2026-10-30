@@ -78,14 +78,7 @@ def build_queue_tab(
                             ui.badge('you have this' if mine else f'{holder} has this',
                                      color='orange' if mine else 'negative')
                         ui.space()
-                        # A claim is a real lock since F5, so the card offers the way in
-                        # and the way out — a lock nobody can release is a stuck run.
                         if holder and not mine:
-                            # No verdict buttons at all, rather than disabled ones. A
-                            # `disable()`d Quasar flat button keeps its colour at 0.7
-                            # opacity, which reads as live: the reviewer clicks Approve,
-                            # nothing happens, and the reason is hidden in a tooltip.
-                            # Release is the only thing they can actually do here.
                             ui.button('Release', icon='lock_open',
                                       on_click=lambda r=run: _release_claim(r)
                                       ).props('flat color=warning').tooltip(
@@ -172,14 +165,9 @@ def build_queue_tab(
                     return
                 ui.notify('Run approved' if approved else 'Run rejected', color='positive')
                 dialog.close()
-                # A settled run leaves the queue by definition, so drop its card
-                # rather than re-reading the queue to be told the same thing. The
-                # reviewer keeps their place and the next card is already there.
                 state['queue'] = [r for r in state['queue'] if r.id != run.id]
                 with client:
                     queue_view.refresh()
-                # The verdict recomputes that permalink's par and rescores every
-                # approved run on it, so these two really did change.
                 await reload_tabs(BOARD_TAB, RUNS_TAB)
 
             with dialog_actions().classes('justify-end'):
@@ -188,8 +176,6 @@ def build_queue_tab(
                                     on_click=submit)
                 confirm.props(f'color={"positive" if approved else "negative"}')
                 if not approved:
-                    # Belt as well as braces: the service is the authority, but a
-                    # disabled button explains the rule before the click.
                     confirm.bind_enabled_from(note_in, 'value', lambda v: bool((v or '').strip()))
         dialog.open()
 

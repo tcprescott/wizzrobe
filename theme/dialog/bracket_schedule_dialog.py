@@ -93,7 +93,6 @@ class BracketScheduleDialog:
         return nullcontext() if self.tenant_id is None else tenant_scope(self.tenant_id)
 
     def _heading(self) -> str:
-        # A game's number follows when it's played, so booking one can't promise it.
         game = 'Schedule a game' if self.best_of > 1 else 'Schedule match'
 
         return f'{game} vs {self.opponent_name}' if self.opponent_name else game
@@ -144,10 +143,6 @@ class BracketScheduleDialog:
                 error = FieldError(date, time)
 
                 if can_suggest:
-                    # Needs both players' ids: the player dashboard and Match
-                    # Schedule's "Not booked yet" view pass them, the staff
-                    # bracket view doesn't. The suggestion runs in this click's
-                    # own request-scoped tenant context.
                     render_suggest_time_button(
                         dialog,
                         get_tournament_id=lambda: self.tournament_id,
@@ -185,8 +180,7 @@ class BracketScheduleDialog:
                             self.actor, self.bracket_match_id,
                             scheduled_date=date.value,
                             scheduled_time=time.value,
-                            # A set's games are booked in any order: any free
-                            # game will do, so only a best-of-1 can lose a race.
+                            # Best-of sets book any free game, so only a best-of-1 pins game_number.
                             game_number=self.game_number if self.best_of <= 1 else None,
                             allow_outside_round=allow_outside_round,
                         )

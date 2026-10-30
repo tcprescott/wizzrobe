@@ -35,7 +35,6 @@ def undo_toast(
     toast = ui.notification(
         message, position=TOAST_POSITION, type='positive', icon=icon,
         timeout=pending_actions.UNDO_SECONDS, progress=True, caption=caption,
-        # Two actions don't fit beside the message on a phone.
         multi_line=extra is not None,
     )
     client = context.client

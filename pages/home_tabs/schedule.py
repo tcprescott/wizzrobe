@@ -13,7 +13,6 @@ from theme.tables.preferences import TableKeys
 from theme.tables.run_sheet_meta import crew_columns
 
 NEEDS_CREW_KEY = 'home_schedule:needs_crew'
-#: Session key for the Friends switch. The list itself is saved to the account.
 FRIENDS_KEY = 'home_schedule:friends'
 
 _CREW_ROLES = ('commentators', 'trackers', 'broadcasters')
@@ -32,8 +31,7 @@ def needs_crew(row: dict) -> bool:
     wanted = row.get('crew_wanted') or {}
     required = row.get('crew_required') or {}
     for role in _CREW_ROLES:
-        # A row from before broadcasters says nothing about them, and most
-        # events don't have them, so only the first two default to wanted.
+        # Rows saved before broadcasters existed omit them: default those to unwanted.
         if not wanted.get(role, role != 'broadcasters'):
             continue
         approved = sum(1 for c in row.get(role) or [] if isinstance(c, dict) and c.get('approved'))
@@ -47,10 +45,6 @@ async def schedule():
     friend_service = FriendService()
 
     with ui.column().classes('page-container wiz-board-page'):
-        # No intro line and no title: the view switcher already names the view,
-        # the Sign up buttons on each line say what the board is for, and the
-        # help topic says the rest. The Needs crew and Friends switches and the
-        # help button ride the board's own filter strip instead of rows of their own.
         discord_id = app.storage.user.get('discord_id')
         viewer = await get_user_from_discord_id(discord_id)
         friend_ids = await friend_service.friend_ids(viewer)
@@ -73,8 +67,6 @@ async def schedule():
         async def get_query():
             return await match_service.get_all_matches_for_schedule()
 
-        # The details sheet holds what the line leaves out (seed, stations,
-        # who's confirmed). A spectator's access, so it offers no staff control.
         sheet = MatchSheet(None, access=MatchBoardAccess(),
                            decorate=lambda row: decorate_player_row(row, discord_id))
 
@@ -95,8 +87,6 @@ async def schedule():
                 view.row_filter = row_filter()
             await view.refresh()
 
-        # Built inside the view's filter strip, after Tournament: on a phone
-        # that's the Filters card, on desktop the row.
         def build_friends_field() -> None:
             if viewer is None:
                 return
@@ -125,8 +115,7 @@ async def schedule():
         view.friend_ids = frozenset(friend_ids)
         sheet.view = view
 
-        # One switch of each per strip (phone row, desktop card); only one strip
-        # is ever visible, and flipping either moves the other with it.
+        # One switch of each per strip (phone row, desktop card); flipping either moves the other.
         switches: dict[str, list] = {'crew': [], 'friends': []}
 
         async def flip(key: str, value: bool, sender, session_key: str) -> None:
@@ -145,7 +134,6 @@ async def schedule():
 
         async def on_friends(event) -> None:
             if event.value and not view.friend_ids:
-                # Nothing to show yet: point at the field that fills the list.
                 event.sender.set_value(False)
                 view.open_filters()
                 ui.notify('Pick your friends in the Friends field first.', color='info')
@@ -168,6 +156,4 @@ async def schedule():
             with end:
                 await help_icon(('schedule-columns', 'Reading the board'), 'match-states')
 
-        # The view loads itself once its filters are restored (MatchTableView
-        # ._initial_load) — kicking a refresh here as well raced that restore and
-        # doubled the query fan-out.
+        # No refresh here: the view loads itself after its filters are restored, and a second load races that.

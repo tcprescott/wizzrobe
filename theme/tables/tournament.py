@@ -217,8 +217,7 @@ _FACTS_LINE = '''
     <span v-else class="tournament-table__unset">No match length</span>
 '''
 
-# Sort match length by the average minutes, not the cell's text ("100 min"
-# sorts before "60 min" alphabetically). Unset lengths sink to the bottom.
+# Sort by the minutes, not the text: '100 min' sorts before '60 min'.
 _LENGTH_SORT = (
     '(a, b, rowA, rowB) => '
     '(rowA.average_match_duration ?? -1) - (rowB.average_match_duration ?? -1)'
@@ -236,8 +235,7 @@ def tournament_columns() -> list[dict]:
         {'name': 'id', 'label': 'ID', 'field': 'id', 'hidden': True},
         {'name': 'name', 'label': 'Tournament', 'field': 'name', 'sortable': True,
          'align': 'left', 'classes': 'tournament-table__name-cell'},
-        # Not sortable: the cell is a state plus the date it moves on, and sorting
-        # that string is neither chronological nor state order.
+        # Not sortable: the cell's string sorts neither by date nor by state.
         {'name': 'signups', 'label': 'Signups', 'field': 'signups', 'align': 'left'},
         {'name': 'bracket', 'label': 'Bracket', 'field': 'bracket_label',
          'sortable': True, 'align': 'left'},
@@ -266,24 +264,18 @@ class TournamentTableView:
                  can_link=False):
         self.columns = columns
         self.can_sync = can_sync
-        # Offer Link a bracket… and Unlink bracket…; the services keep these staff-only.
         self.can_link = can_link
         self._live_sites: list = []
         self._unmatched: dict = {}
         self.table_key = table_key
-        # A text box over the visible columns. Not persisted: working state.
         self.searchable = searchable
-        # Offer Delete in the row menu. The service still refuses non-staff.
         self.can_delete = can_delete
         self._plan = None
         self.get_query = get_query
         self.extra_slots = extra_slots
         self.submit_tournament_callback = submit_tournament_callback
         self.table = None
-        # Capture the tenant while the request context is live; background tasks
-        # (the initial load, pagination refreshes) run detached from the client
-        # slot where the tenant stash lives, so scoped reads would otherwise raise
-        # require_tenant_id(). _bg rebinds it — same pattern as MatchTableView.
+        # _bg rebinds this: background tasks run outside the request context, where scoped reads raise.
         self._tenant_id = get_current_tenant_id()
         self._render_context = capture_render_context()
         self._setup_ui()
@@ -293,8 +285,6 @@ class TournamentTableView:
         scoped_background(self._render_context, coro)
 
     def _more_menu(self, extra_class: str = '') -> str:
-        # Two groups: what Wizzrobe keeps for this tournament, then what talks
-        # to the site its bracket lives on, headed by that site's name.
         items: list = [
             SlotHeader('Tournament'),
             SlotItem('edit', 'Edit tournament…', 'edit_tournament'),
@@ -316,8 +306,6 @@ class TournamentTableView:
         if self.can_sync:
             items += [
                 SlotItem('sync', 'Sync now', 'sync_bracket', v_if='props.row.bracket_manage'),
-                # Challonge offers at most one stage step from any state, so the
-                # label rides on the row.
                 SlotItem('skip_next', '{{ props.row.stage_action_label }}…', 'stage_action',
                          v_if='props.row.bracket_manage && props.row.stage_action'),
                 SlotItem('link', 'Match entrants to members…', 'bracket_entrants',
@@ -330,7 +318,6 @@ class TournamentTableView:
             items.append(SlotItem('link_off', 'Unlink {{ props.row.bracket_label }} bracket…',
                                   'unlink_bracket', negative=True, v_if='props.row.bracket_unlinkable'))
         if self.can_delete:
-            # Only an inactive tournament can be deleted; the service enforces it too.
             items.append(SlotItem('delete_forever', 'Delete tournament…', 'delete_tournament',
                                   negative=True, v_if='!props.row.is_active'))
         return slot_more_menu('props.row.name', items, extra_class=extra_class)
@@ -341,9 +328,6 @@ class TournamentTableView:
                 ui.button('Add tournament', icon='add',
                           on_click=self.submit_tournament_callback).props('color=primary').classes('wiz-write')
             ui.space()
-            # Filled after the table exists; the toolbar is drawn first. The
-            # search box is its own toolbar item so a phone can move it, with
-            # refresh, onto a second line under the buttons.
             search_slot = ui.element('div').classes('tournament-toolbar__search')
             tools_slot = ui.row().classes('items-center no-wrap gap-1')
             refresh_button(self.refresh).classes('tournament-toolbar__refresh')
@@ -353,12 +337,9 @@ class TournamentTableView:
                 columns=self.columns,
                 rows=[],
                 row_key='id',
-                # Client-side paging over the rows already loaded — see the note
-                # in theme/tables/match.py; there is no pagination handler.
                 pagination={'rowsPerPage': 25, 'page': 1},
             ).classes('tournament-table tournament-table-container').props(':grid="Quasar.Screen.lt.md"')
-        # This table wires its own :grid prop rather than going through
-        # enable_mobile_grid, so it has to honour `hidden` itself.
+        # Wires its own :grid rather than enable_mobile_grid, so it must honour `hidden` itself.
         apply_column_visibility(self.table, self.columns)
         self.table.add_slot('no-data', no_data_slot('No tournaments yet.'))
         self.table.add_slot('body-cell-name', f'<q-td :props="props">{_NAME_CELL}</q-td>')
@@ -377,9 +358,6 @@ class TournamentTableView:
         self.table.add_slot('body-cell-is_active', '''<q-td :props="props">
             <span :class="props.value ? 'wiz-chip wiz-chip--ok' : 'wiz-chip wiz-chip--neutral'">{{ props.value ? 'Active' : 'Inactive' }}</span>
         </q-td>''')
-        # The phone card carries the same facts and the same ⋮ as a desktop
-        # row, so the two widths never offer different things: one line each
-        # for signups and bracket, then players, seed and length on one line.
         self.table.add_slot('item', f'''
         <div class="tournament-grid-card" style="width: 100%; box-sizing: border-box;">
             <div class="tournament-grid-card__head">
@@ -399,13 +377,10 @@ class TournamentTableView:
             for slot_name, slot_template in self.extra_slots.items():
                 self.table.add_slot(slot_name, slot_template)
         if self.table_key:
-            # **After** the item slot above, never before: the card is generated
-            # from these columns at build time and must not follow a saved
-            # layout. Pinned by tests/theme/test_table_preferences.py.
+            # After the item slot above, never before: the card is generated from these columns at build time.
             self._plan = customize_table(self.table, self.columns, key=self.table_key)
             zone = timezone_label()
             with self.table.parent_slot:
-                # Cells carry short stamps with no zone, so the board names it once.
                 ui.label().classes('text-caption text-grey-7').bind_text_from(
                     self.table, 'rows',
                     backward=lambda rows: f'{len(rows or []):,} tournaments · times in {zone}',
@@ -434,14 +409,10 @@ class TournamentTableView:
         self.table.on('unlink_bracket', self.handle_unlink_bracket)
         self.table.on('round_schedule', self.handle_round_schedule)
         self.table.on('delete_tournament', self.handle_delete_tournament)
-        # Initial load at build: correctness must not depend on the selected_tab
-        # broadcast (which only fires on a *subsequent* tab switch) or on Quasar's
-        # incidental pagination event.
+        # Load here: selected_tab only fires on a later tab switch.
         self._bg(self.refresh())
 
     async def refresh(self, *_, **__):
-        # Count enrolled players in SQL rather than hydrating every enrollment
-        # row just to len() it.
         tournament_query = self.get_query().annotate(player_count=Count('players'))
         all_tournaments = await tournament_query.order_by('name')
         self._live_sites = await bracket_sources.live_sources()
@@ -485,8 +456,6 @@ class TournamentTableView:
         t = await self._load(event)
         if not t:
             return
-        # Both callbacks repaint the table: an edit can change any visible column,
-        # and a delete leaves a row pointing at a tournament that no longer exists.
         dialog = TournamentDialog(t, on_submit=self.refresh, on_delete=self.refresh)
         await dialog.open()
 
@@ -494,7 +463,6 @@ class TournamentTableView:
         t = await self._load(event)
         if not t:
             return
-        # The dialog writes now, so the player-count column has to follow it.
         dialog = TournamentPlayersDialog(t, on_change=self.refresh)
         await dialog.open()
 
@@ -557,7 +525,6 @@ class TournamentTableView:
         if not t:
             return
         site = _bracket_site(t, self._live_sites)
-        # Each match or clear changes the row's unmatched count.
         on_change = lambda: self.update_row_by_id(t.id)
         if site == 'challonge':
             await ChallongeParticipantsDialog(t, on_change=on_change).open()
@@ -600,8 +567,7 @@ class TournamentTableView:
                            title='Unlink bracket?').open()
 
     async def sync_all(self):
-        # The menu closes as it's tapped, so nothing stops a second tap
-        # starting a second run over the same brackets.
+        # The menu closes on tap, so nothing else stops a second run.
         if getattr(self, '_syncing_all', False):
             return
         self._syncing_all = True

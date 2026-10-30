@@ -12,17 +12,6 @@ class ConfirmationDialog:
     def __init__(self, message: str = "Are you sure?", on_confirm=None, confirm_text="Confirm",
                  cancel_text="Cancel", tone: str = "negative", title: str = "Confirm",
                  require_phrase: Optional[str] = None, busy_text: Optional[str] = None):
-        # ``tone`` defaults to negative because most callers confirm a delete;
-        # a non-destructive action (start/confirm a match) opts into 'primary'.
-        # ``title`` names what is being confirmed — a bare "Confirm" over a body
-        # that also starts with "Confirm…" tells the reader nothing.
-        #
-        # ``require_phrase`` adds a second gate for the irreversible ones: the
-        # confirm button stays disabled until the reader types the phrase back.
-        # What they actually typed is on ``typed_phrase`` by the time
-        # ``on_confirm`` runs, so the service — which enforces the same phrase and
-        # is the only thing that really gates the write — can be handed the real
-        # input rather than a constant the UI supplied on its behalf.
         self.message = message
         self.on_confirm = on_confirm
         self.confirm_text = confirm_text
@@ -30,12 +19,8 @@ class ConfirmationDialog:
         self.tone = tone
         self.title = title
         self.require_phrase = require_phrase
-        # ``busy_text`` is for a slow action ("Publishing…"): the dialog stays
-        # open with its confirm button saying that until the work is done,
-        # rather than closing onto a page that shows nothing happening.
         self.busy_text = busy_text
         self.typed_phrase = ''
-        # Any: bound to the ui.dialog in open(); callers reach through it to close.
         self.dialog: Any = None
 
     def open(self):
@@ -44,9 +29,7 @@ class ConfirmationDialog:
             mobile_sheet(dialog)
             dialog_header(self.title, dialog)
             with ui.column():
-                # pre-line, because callers have always written these messages as
-                # paragraphs with '\n\n' and a plain label collapsed every one of
-                # them onto a single line.
+                # pre-line: callers write paragraphs with '\n\n' that a plain label collapses.
                 ui.label(self.message).style('white-space: pre-line')
                 phrase_input = None
                 if self.require_phrase:
@@ -59,10 +42,7 @@ class ConfirmationDialog:
             def matches(value) -> bool:
                 return (value or '').strip().lower() == required
 
-            # The question has been answered either way, so the dialog closes
-            # before a quick handler runs (a slow one keeps it open, busy). Leaving it to each caller left several
-            # confirmations sitting open over work that had already happened —
-            # a cancelled match still showing "Cancel this match?".
+            # Closes before a quick handler runs; left to callers, confirmations sat open over finished work.
             def confirm(e: ClickEventArguments) -> None:
                 if phrase_input is not None:
                     self.typed_phrase = phrase_input.value or ''

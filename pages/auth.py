@@ -74,17 +74,15 @@ config = {
     "STORAGE_SECRET": os.getenv("STORAGE_SECRET"),
 }
 
-# validate_token=False: validating is a blocking, timeout-less GET to Discord at
-# import time, so a Discord outage during a restart stopped the whole site booting.
+# validate_token=False: validating is a blocking, timeout-less GET at import, so a Discord outage stops boot.
 discordClient = (
     APIClient(config["DISCORD_TOKEN"], validate_token=False,
               client_secret=config["DISCORD_CLIENT_SECRET"])
     if not is_mock_discord() else None
 )
 
-# zenora's requests calls carry no timeout. Its own small pool keeps logins stuck
-# on a stalled Discord from filling the default pool that password hashing and
-# web-push encryption share, and the wait below gives the user an answer.
+# zenora's requests calls have no timeout: its own pool keeps a stalled Discord from starving the
+# default pool that password hashing and web push share.
 _OAUTH_POOL = ThreadPoolExecutor(max_workers=4, thread_name_prefix='discord-oauth')
 _OAUTH_TIMEOUT_SECONDS = 20
 _ROLE_SYNC_TIMEOUT_SECONDS = 10
@@ -181,8 +179,6 @@ def _oauth_url(state: str, redirect_uri: str) -> str:
         'response_type': 'code',
         'scope': 'identify',
         'state': state,
-        # Skip Discord's "Authorize" screen for anyone who has already
-        # approved the app; it still shows on a first sign-in.
         'prompt': 'none',
     })
     return f'https://discord.com/api/oauth2/authorize?{params}'
@@ -245,9 +241,6 @@ def _register_discord_connect_callback() -> None:
         try:
             with tenant_scope(int(tenant_id)):
                 if is_mock_discord():
-                    # Dev flow: the guild id is passed straight to the callback
-                    # (no real Discord). link_guild still runs the STAFF gate and
-                    # the (mock) authority check.
                     guild_raw = (params.get('guild_id') or ['1'])[0]
                     await DiscordLinkService.link_guild(actor, tenant, int(guild_raw))
                 else:
@@ -302,8 +295,7 @@ def _register_discord_login_claim() -> None:
             stash_notice('This account is inactive. Contact staff if this seems wrong.', color='negative')
             await wait.navigate_to('/')
             return
-        # Someone else was signed in on this browser: drop their whole session
-        # rather than leave their leftovers under the new identity.
+        # Someone else was signed in here: drop their whole session, not just the identity.
         if str(app.storage.user.get('discord_id')) != str(payload['discord_id']) or \
                 app.storage.user.get('user_id') not in (None, user.id):
             app.storage.user.clear()
@@ -312,7 +304,6 @@ def _register_discord_login_claim() -> None:
             'avatar': payload['avatar'],
             'discord_id': payload['discord_id'],
         })
-        # Self-defensive; never blocks login.
         await DiscordRoleMappingService().sync_user_roles(user)
         await wait.navigate_to('/')
 
@@ -326,41 +317,25 @@ def create() -> None:
 
     @ui.page('/login')
     async def login(request: Request, client: Client) -> Optional[RedirectResponse]:
-        # No drain point here: this route renders nothing, it redirects straight to
-        # Discord. A notice stashed for /login (e.g. "Please log in and try linking
-        # again.") is drained by the first framed page after the login completes.
         root_path = request.scope.get('root_path', '') or ''
         if app.storage.user.get('authenticated', False):
             return RedirectResponse(
                 return_path_for_login(root_path, request.query_params.get('next'), None)
             )
         return_path = _sanitized_return(root_path, request)
-        # Design B (HOST_OAUTH_MODE=handoff): on a custom domain, run OAuth on the
-        # platform host and hand the session back, so no per-domain Discord
-        # redirect URI is needed. The return path travels in the URL (the platform
-        # session can't see this host's cookie), not the session.
         if host_oauth_handoff_enabled() and is_host_mode():
             tenant = await _host_mode_tenant()
             if tenant is not None and tenant.domain:
-                # Bind the handoff to *this* browser: keep a secret in this custom
-                # domain's session and publish only its hash through the platform
-                # hop, so a token minted in another browser can't be replayed here
-                # (login-CSRF / forced login).
+                # Login-CSRF guard: bind the handoff to this browser; only the secret's hash crosses the platform hop.
                 bind = secrets.token_urlsafe(32)
                 app.storage.user['handoff_bind'] = bind
                 return RedirectResponse(
                     _handoff_start_url(tenant.domain, _safe_next(return_path), _bind_commit(bind))
                 )
-        # Pin the post-login return to this tenant before leaving for Discord. In
-        # path mode the callback lands on the bare platform host; in host mode
-        # (Design A) it lands on this same custom domain (cookie visible).
+        # Pin the post-login return to this tenant before leaving for Discord.
         app.storage.user['referrer_path'] = return_path
-        # CSRF protection: bind this login attempt to a one-time state token
-        # that must come back on the OAuth callback.
         state = secrets.token_urlsafe(32)
         app.storage.user['oauth_state'] = state
-        # On a custom domain the whole flow completes on that host, so the
-        # redirect_uri points at it — built from the tenant's stored domain.
         tenant = await _host_mode_tenant()
         return RedirectResponse(_oauth_url(state, _redirect_uri_for_tenant(tenant)))
 
@@ -372,10 +347,7 @@ def create() -> None:
 
     @ui.page('/oauth/callback')
     async def oauth_callback(client: Client):
-        # The code-for-token exchange and the role sync below are two network
-        # round trips the visitor stares at a blank page through. Say what is
-        # happening — built before the socket connects so the spinner paints
-        # while the work runs, and held on screen long enough to read the fact.
+        # Built before the socket connects, so the spinner paints while the work runs.
         wait = await waiting_screen('Signing you in…')
         url = await browser_url(client)
         if url is None:
@@ -405,16 +377,11 @@ def create() -> None:
                 await wait.navigate_to('/login')
                 return
 
-            # Rebuild the exact redirect_uri the /login leg sent (Discord requires
-            # the exchange to match the authorize call). In host mode the callback
-            # ran on the custom domain, so recover the tenant from the browser URL
-            # host and build from its stored domain — byte-identical by construction.
+            # Rebuild the exact redirect_uri the /login leg sent: Discord requires the exchange to match.
             callback_tenant = await _callback_tenant(url)
             redirect_uri = _redirect_uri_for_tenant(callback_tenant)
 
-            # zenora.APIClient is synchronous (requests-based); running these two
-            # Discord round-trips inline would block the single shared event loop
-            # for every connected user. Offload them to worker threads.
+            # zenora is synchronous: offload to threads or it blocks the shared event loop.
             def _exchange_and_fetch():
                 access_token = discordClient.oauth.get_access_token(
                     code, redirect_uri,
@@ -437,13 +404,10 @@ def create() -> None:
 
             user, _created = await UserService().provision_from_discord_login(
                 current_user.id, current_user.username,
-                # '' (not None) when the account has no custom avatar, so the
-                # login clears a stale hash instead of leaving it behind.
+                # '' (not None), so the login clears a stale avatar hash.
                 avatar=current_user.avatar_hash or '',
             )
 
-            # Deactivated accounts cannot log in (mirrors the REST API's
-            # is_active rejection in api/dependencies.py).
             if not user.is_active:
                 logger.warning('Inactive account %s attempted web login', current_user.id)
                 app.storage.user.clear()
@@ -454,10 +418,7 @@ def create() -> None:
                 await wait.navigate_to('/login')
                 return
 
-            # Design B: this login began via /oauth/start on the platform host for
-            # a custom domain. Do NOT authenticate the platform-host session —
-            # mint a single-use, host-bound token and hand the session over to the
-            # target domain's /session/claim, where the cookie belongs.
+            # Do NOT authenticate the platform-host session: hand it over to the target domain's /session/claim.
             handoff_host = app.storage.user.pop('handoff_target_host', None)
             handoff_next = app.storage.user.pop('handoff_next', None)
             handoff_bind_commit = app.storage.user.pop('handoff_bind_commit', None)
@@ -473,8 +434,6 @@ def create() -> None:
                 if token:
                     ui.navigate.to(_claim_url(handoff_host, token))
                     return
-                # Mint failed (host no longer valid) — fall through to a normal
-                # platform-host login rather than stranding the user.
 
             start_session(user, {
                 'username': current_user.username,
@@ -482,7 +441,6 @@ def create() -> None:
                 'discord_id': current_user.id,
             })
 
-            # Self-defensive: never raises, so login is never blocked.
             try:
                 await asyncio.wait_for(
                     DiscordRoleMappingService().sync_user_roles(user), _ROLE_SYNC_TIMEOUT_SECONDS,
@@ -490,13 +448,8 @@ def create() -> None:
             except asyncio.TimeoutError:
                 logger.warning('Role sync for user %s timed out; keeping current roles', user.id)
 
-            # referrer_path was pinned to a tenant-qualified path at /login, so
-            # this returns to the originating community even though the callback
-            # itself runs on the bare platform host with no tenant in scope.
-            # Deliberately *not* run through strip_root_path: this page is served
-            # off the bare platform host (path mode) or the tenant's own domain
-            # (host mode), so the client's options.prefix is empty and the fully
-            # qualified path is the only one that arrives in the right community.
+            # Deliberately not through strip_root_path: served off the bare platform host or the tenant's
+            # own domain, so only the fully qualified path lands in the right community.
             referrer = app.storage.user.get('referrer_path', '/')
             if referrer.split('?', 1)[0] in AUTH_ROUTES:
                 referrer = '/'
@@ -521,13 +474,10 @@ def create() -> None:
         params = request.query_params
         target = normalize_hostname(params.get('host'))
         next_path = _safe_next(params.get('next') or '/')
-        # Browser-binding commitment (hex sha256) from the initiating /login;
-        # kept opaque here and carried through to the mint.
         bind_commit = (params.get('b') or '')[:64]
         tenant = await TenantService.get_by_domain(target) if target else None
         if tenant is None or not tenant.is_active:
-            # Unknown/inactive target host — refuse rather than hand a session to
-            # an arbitrary host (open-redirect / session-fixation guard).
+            # Refuse an unknown host rather than hand it a session (open-redirect / session-fixation guard).
             return RedirectResponse('/')
         state = secrets.token_urlsafe(32)
         app.storage.user['oauth_state'] = state
@@ -552,10 +502,7 @@ def create() -> None:
             stash_notice("That login link has expired or already been used. Log in again to continue.", color='warning')
             await wait.navigate_to('/login')
             return
-        # Login-CSRF guard: the token must have been minted for a login *this*
-        # browser initiated — i.e. the secret behind the committed hash must be
-        # present in this domain's session. A token delivered to a different
-        # browser (which lacks the secret) is rejected here.
+        # Login-CSRF guard: rejects a token delivered to a browser that lacks the committed secret.
         expected = payload.get('bind_commit')
         if not (expected and isinstance(bind, str)
                 and hmac.compare_digest(expected, _bind_commit(bind))):
@@ -563,8 +510,7 @@ def create() -> None:
             stash_notice("That login link isn't valid for this browser. Log in again from here.", color='warning')
             await wait.navigate_to('/login')
             return
-        # Re-check the account is still active (it was provisioned at mint time,
-        # but could have been deactivated inside the short TTL window).
+        # Re-check is_active: the account may have been deactivated inside the token's TTL.
         user = await get_user_from_discord_id(payload['discord_id'])
         if user is None:
             app.storage.user.clear()
@@ -576,11 +522,8 @@ def create() -> None:
             'avatar': payload.get('avatar'),
             'discord_id': payload['discord_id'],
         })
-        # Self-defensive; never blocks login.
         await DiscordRoleMappingService().sync_user_roles(user)
-        # Host mode: the claim runs on the tenant's own domain, where root_path
-        # (and so the client's options.prefix) is empty — the path travels
-        # unstripped, exactly as minted.
+        # Host mode: root_path is empty here, so the path travels unstripped, exactly as minted.
         await wait.navigate_to(_safe_next(payload.get('next') or '/'))
 
 
@@ -595,9 +538,7 @@ def _login_as(user: User, root_path: str = '') -> None:
     if referrer.split('?', 1)[0] in AUTH_ROUTES:
         referrer = '/'
     app.storage.user.pop('referrer_path', None)
-    # referrer_path is stored tenant-qualified (AuthMiddleware writes
-    # f'{root_path}{path}'), but this picker is *served* under /t/<slug>, so
-    # nicegui.js adds that prefix again on the client — see strip_root_path.
+    # referrer_path is stored tenant-qualified but nicegui.js re-adds the /t/<slug> prefix: strip it.
     ui.navigate.to(strip_root_path(root_path, referrer))
 
 
@@ -611,20 +552,14 @@ def _create_mock() -> None:
     async def mock_login(request: Request, client: Client):
         root_path = request.scope.get('root_path', '') or ''
         if app.storage.user.get('authenticated', False):
-            # Tenant-local: this page is served under root_path, and the client
-            # prepends it. A qualified path would double it.
+            # Tenant-local: the client prepends root_path, so a qualified path would double it.
             ui.navigate.to(strip_root_path(
                 root_path,
                 return_path_for_login(root_path, request.query_params.get('next'), None),
             ))
             return
-        # Pin the post-login return to this tenant (mirrors the real flow) so a
-        # picked user lands on this community's home, not the platform landing.
         app.storage.user['referrer_path'] = _sanitized_return(root_path, request)
 
-        # Unlike the real /login (an immediate redirect to Discord), this one has
-        # a page to show a stashed notice on — so a message that sent the user
-        # here arrives before they pick a user rather than after.
         drain_notice()
 
         ui.page_title('Mock Discord Login')
@@ -646,9 +581,6 @@ def _create_mock() -> None:
                 )
 
                 def format_roles(u: User) -> str:
-                    # Dev impersonation picker: this is a global (pre-tenant) view,
-                    # so roles span every community — dedupe by label so the same
-                    # role held in several tenants shows once, not "Staff, Staff".
                     seen = set()
                     labels = []
                     for r in u.roles:

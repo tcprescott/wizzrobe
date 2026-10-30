@@ -34,10 +34,7 @@ from theme.tables.run_sheet_meta import META, META_WITH_STAGE, RAIL, STATUS_WORD
 from theme.tables.run_sheet_tags import comment_badges, late_tags
 from theme.tables.run_sheet_winners import stamp_winners, winner_buttons
 
-#: The board's columns. Kept short on purpose: anything wider than "which match,
-#: when, where, how is it doing" belongs in the sheet.
-#: The crew columns point at ``_crew_by`` rather than the raw crew lists: the
-#: body slot draws them, and NiceGUI patches over any column whose field is a list.
+# Crew columns point at _crew_by, not the lists: NiceGUI patches over any column whose field is a list.
 RUN_SHEET_COLUMNS = [
     {'name': 'scheduled_at', 'label': 'Time', 'field': 'scheduled_at', 'align': 'left'},
     {'name': 'match', 'label': 'Match', 'field': 'title', 'align': 'left'},
@@ -48,9 +45,6 @@ RUN_SHEET_COLUMNS = [
     {'name': 'status', 'label': 'Status', 'field': 'state', 'align': 'left'},
 ]
 
-#: The proctor's run sheet. No crew (not the proctor's job) and the next
-#: lifecycle step on the line itself: a proctor works down the list pressing
-#: one button per match, so making them open each one first is a tap per step.
 PROCTOR_RUN_SHEET_COLUMNS = [
     {'name': 'scheduled_at', 'label': 'Time', 'field': 'scheduled_at', 'align': 'left'},
     {'name': 'match', 'label': 'Match', 'field': 'title', 'align': 'left'},
@@ -58,9 +52,6 @@ PROCTOR_RUN_SHEET_COLUMNS = [
     {'name': 'next', 'label': 'Next step', 'field': 'state', 'align': 'left'},
 ]
 
-# (order, header) per group. Decisions first: a finished match nobody has
-# confirmed is the only row on the board that is waiting on staff rather than on
-# the clock.
 _DECIDE = (0, 'Needs a decision')
 _LIVE = (1, 'Live now')
 _NEXT = (2, 'Up next')
@@ -154,18 +145,10 @@ def proctor_group(row: dict) -> tuple[int, str]:
     return _COMING
 
 
-#: The groups a viewer who has never touched them finds folded: finished
-#: matches are the longest group by mid-event and rarely the proctor's business
-#: (Thomas, 2026-10-22). 'Finished' is the player run sheet's results group.
 FOLDED_BY_DEFAULT = frozenset({_DONE[1], _FINISHED[1], 'Finished', 'Not scheduled yet'})
 
-#: Quasar's filter over a run sheet: the search text as its default filter
-#: does it, and a folded group down to the row carrying its header. ``terms``
-#: is the search text behind :data:`RUN_SHEET_FILTER_PREFIX`, since Quasar only
-#: filters while the filter is truthy and a folded group has to stay folded with
-#: no search. It must stay a string: QTable deep-watches ``filter`` and jumps to
-#: page 1 on every change, and every table update hands Vue a fresh object, so an
-#: object filter threw the viewer back to page 1 each time a row changed.
+# terms must stay a string: QTable deep-watches filter, so an object jumps to page 1 on every row update.
+# The prefix exists because Quasar only filters while the filter is truthy.
 RUN_SHEET_FILTER_PREFIX = '~'
 
 RUN_SHEET_FILTER = """(rows, terms, cols, cellValue) => {
@@ -175,10 +158,6 @@ RUN_SHEET_FILTER = """(rows, terms, cols, cellValue) => {
 }"""
 
 
-#: The proctor's filter: :data:`RUN_SHEET_FILTER`, except that a station lookup
-#: (see :func:`station_key`) keeps the unfinished matches with someone at that
-#: station, folds or not. The kept rows are copies, so each group that still has
-#: a row keeps its heading and count, and ``_hit_station`` lights the seat.
 PROCTOR_RUN_SHEET_FILTER = """(rows, terms, cols, cellValue) => {
   const text = String(terms || '').slice(1).trim();
   const station = text.match(/^(?:station|st\\.?|#)?\\s*0*(\\d+)$/i);
@@ -204,8 +183,6 @@ def run_sheet_terms(text: Optional[str]) -> str:
     """The ``filter`` value :data:`RUN_SHEET_FILTER` reads for search ``text``."""
     return RUN_SHEET_FILTER_PREFIX + (text or '')
 
-#: Groups read newest first: the most recent result is the one anyone is still
-#: looking for.
 _NEWEST_FIRST = {_DONE[1], _FINISHED[1]}
 
 
@@ -223,8 +200,6 @@ def next_step(row: dict) -> Optional[dict]:
     if state == 'Scheduled':
         return {'event': 'seat', 'label': 'Check in', 'primary': bool(row.get('is_overdue'))}
     if state == 'Checked In':
-        # The seed is a step of its own: the proctor reads its code to the
-        # players before pressing Start. Starting without one stays in the sheet.
         if seed_pending(row):
             if row.get('seed_rolling_since'):
                 return {'event': None, 'label': 'Rolling', 'primary': False, 'rolling': True}
@@ -246,9 +221,7 @@ def seed_pending(row: dict) -> bool:
     )
 
 
-#: A station lookup typed into the proctor's search: a bare number, or one
-#: after "station", "st" or "#". Stations are free text, so "07" and "Station 7"
-#: written on a seat both answer "7". Mirrored in :data:`PROCTOR_RUN_SHEET_FILTER`.
+# Keep in step with the station match in PROCTOR_RUN_SHEET_FILTER's JS.
 _STATION_QUERY = re.compile(r'(?:station|st\.?|#)?\s*0*(\d+)', re.IGNORECASE)
 
 
@@ -260,7 +233,6 @@ def station_key(text: Optional[str]) -> Optional[str]:
 
 def _seats(row: dict) -> list[dict]:
     if row.get('placeholders'):
-        # Nobody sits at a station for a side the bracket hasn't decided.
         return []
     return [
         {'name': p.get('name') or '', 'station': p.get('station') or '',
@@ -287,7 +259,6 @@ def seat_line(row: dict) -> str:
     stations = [(p.get('name') or '', p.get('station')) for p in players]
     seated = [str(s) for _n, s in stations if s]
     missing = [n for n, s in stations if not s]
-    # A stage match is played on the stage, so a missing station isn't news.
     on_stage = bool(row.get('stage'))
     if not seated:
         return '' if on_stage else 'No stations yet'
@@ -373,8 +344,6 @@ def run_sheet_crew(row: dict) -> list[dict]:
     return crew
 
 
-# A race this big lists its first few racers and counts the rest, or ten names
-# wrap the row onto four lines.
 RACER_FOLD_AT = 5
 RACER_HEAD = 3
 
@@ -427,7 +396,7 @@ def decorate_run_sheet_row(row: dict) -> dict:
     row['_tone'] = tone
     row['_time'] = _hhmm(row['scheduled_ts']) if row.get('scheduled_ts') else ''
     row['_day'] = _day_label(row.get('scheduled_ts'))
-    # The match sheet keeps the booked time after the line swaps it out.
+    # Before the line swaps _time out: the match sheet still shows the booked time.
     row['_booked_time'], row['_booked_day'] = row['_time'], row['_day']
     row['_until'], row['_overrun'] = '', False
     if row.get('started_ts'):
@@ -450,8 +419,6 @@ def decorate_run_sheet_row(row: dict) -> dict:
     row['_next'] = next_step(row)
     stamp_winners(row)
     row['_seed_pending'] = seed_pending(row)
-    # "Not rolled" only once it's the next step; before check-in it is noise.
-    # A roll in flight or one that failed is news whatever the state.
     row['_seed_line'] = bool(
         (row.get('generated_seed') and row.get('state') not in ('Finished', 'Confirmed'))
         or (row['_seed_pending'] and (row.get('state') == 'Checked In'
@@ -497,13 +464,8 @@ def arrange_run_sheet(rows: list, group: Callable[[dict], tuple[int, str]] = adm
     return arranged
 
 
-# Signups over need, "needs crew" spelled out for whoever can't read the amber.
-# The desktop cell sits under the role's header, so it leaves the name off.
 _CREW_COUNT = r"""<span class="run-sheet__crew" :class="c.short ? 'st-pending' : ''">__LABEL__<b>{{ c.count }}</b><template v-if="c.short"> · needs crew</template><template v-else-if="c.unapproved"> · to approve</template></span>"""
 
-# Who signed up: a tick for approved, a clock and a note for the rest. Where
-# the viewer approves this row's crew, a waiting name carries Approve instead of
-# the note: one tap, with Undo in the toast it leaves.
 def crew_names(approve: str = 'false') -> str:
     can = f"!p.approved && c.approvable && p.id && {approve}"
     button = ('' if approve == 'false' else
@@ -538,13 +500,8 @@ def _crew_lines(approve: str) -> str:
                 """ + crew_names(approve) + """
             </span>"""
 
-# What changed on a row the board is holding in place (MatchTableView._hold):
-# "Now Ready to start", or "Removed". Positioned over the row's edge in CSS, so
-# it never makes the row taller.
 HELD_TAG = """<span v-if="props.row._held_note" class="wiz-held-tag" :class="props.row._removed ? 'wiz-held-tag--removed' : ''">{{ props.row._held_note }}</span>"""
 
-# A started match's line under its actual start: the finish, or "to ~HH:MM"
-# while it runs, amber once it has run past that estimate.
 UNTIL_LINE = """<span v-if="props.row._until" class="run-sheet__until" :class="props.row._overrun ? 'st-pending' : ''">{{ props.row._until }}</span>"""
 
 _TIME = """<span v-if="props.row._time" class="run-sheet__time" :class="props.row._status === 'Late' ? 'st-pending' : ''">{{ props.row._time }}</span>
@@ -556,55 +513,32 @@ _TIME = """<span v-if="props.row._time" class="run-sheet__time" :class="props.ro
 _WHO_TEXT = ('<template v-if="props.row._who_parts">' + WHO_PARTS_VUE + '</template><template v-else>'
              "{{ props.row._who || (props.row.bracket ? props.row.bracket.name : props.row.title) }}</template>")
 
-# The more/fewer toggle sits inside the button that opens the match, so it's a
-# mouse and touch shortcut only: a screen reader hears every name from the
-# button, and the match sheet lists them all.
 RACER_TOGGLE = r"""<span class="run-sheet__more" aria-hidden="true" @click.stop="$parent.$emit('toggle_racers', props.row.id)">{{ props.row._who_open ? 'Show fewer' : '+' + props.row._who_more + ' more' }}</span>"""
 _RACERS = r"""<span aria-hidden="true">{{ props.row._who_open ? props.row._who : props.row._who_head }} </span>""" + RACER_TOGGLE + r"""<span class="wiz-sr-only">{{ props.row._who }}</span>"""
 
-# A big race's names fold behind "+N more"; a titled race leads with its title
-# and puts the racers on the line under it.
 WHO = (r"""<template v-if="props.row._who_fold"><template v-if="props.row._who_title">{{ props.row._who_title }}<span class="run-sheet__racers">"""
        + _RACERS + r"""</span></template><template v-else>""" + _RACERS + r"""</template></template><template v-else>"""
        + _WHO_TEXT + "</template>")
 
-# How many comments players and staff left. An icon and a number, with the
-# words for a screen reader and a hover title for everyone else.
 COMMENT_BADGES = r"""<span v-if="props.row._comments && props.row._comments.length" class="run-sheet__comments">
     <span v-for="b in props.row._comments" :key="b.key" class="run-sheet__comment-count" :title="b.label"><q-icon :name="b.icon" size="14px" aria-hidden="true" /><span aria-hidden="true">{{ b.n }}</span><span class="wiz-sr-only">{{ b.label }}</span></span>
 </span>"""
 
-# The proctor's names carry their station, since "where do I send them" is half
-# of every step. ADA is text, not a control: the line's own button already
-# holds the names, and the sheet has the accommodation button.
-# The players at a station the proctor looked up, for a line that doesn't
-# show every seat: a folded race on desktop, and the phone's meta line.
 _HIT_SEATS = r"""<template v-for="(s, i) in props.row._seats.filter((s) => s.key === props.row._hit_station)" :key="'hit' + i"><span class="run-sheet__player">{{ s.name }}<span class="run-sheet__seat run-sheet__seat--hit">Station {{ s.station }}</span></span></template>"""
 
 _SEATED_WHO = r"""<template v-if="props.row._seats.length && (!props.row._who_fold || props.row._who_open)"><template v-for="(s, i) in props.row._seats" :key="i"><span v-if="i" class="run-sheet__vs">{{ props.row._seats.length > 2 ? ', ' : ' vs ' }}</span><span class="run-sheet__player">{{ s.name }}<span v-if="s.station || !props.row.stage" class="run-sheet__seat" :class="s.station ? (s.key && s.key === props.row._hit_station ? 'run-sheet__seat--hit' : '') : 'run-sheet__seat--none'">{{ s.station ? 'Station ' + s.station : 'No station' }}</span></span></template><template v-if="props.row._who_fold"> """ + RACER_TOGGLE + """</template></template><template v-else>""" + WHO + """<template v-if="props.row._hit_station"> · """ + _HIT_SEATS + """</template></template>"""
 
-# A player said they're on their way, or the racetime room bot can't invite them
-# until they link racetime. Staff boards only.
 DESC_LINE = """<span v-if="props.row.description_text" class="run-sheet__desc" :title="props.row.description_text">{{ props.row.description_text }}</span>"""
 LATE_TAGS = r"""<span v-for="l in props.row._late" :key="l.key" class="wiz-chip wiz-chip--pending run-sheet__late" :title="l.note || null"><q-icon name="schedule" size="14px" aria-hidden="true" />{{ l.label }}</span>"""
 LATE_TAGS += r"""<span v-for="n in (props.row.racetime_unlinked || [])" :key="'rt' + n" class="wiz-chip wiz-chip--pending run-sheet__late" title="The room bot can't invite this player or record their time until they link racetime.gg on their profile"><q-icon name="link_off" size="14px" aria-hidden="true" />{{ n }} not linked</span>"""
 
 _ADA = """<span v-if="props.row._ada.length" class="run-sheet__ada"><q-icon name="accessible" size="16px" aria-hidden="true" />ADA: {{ props.row._ada.join(', ') }}</span>"""
 
-# The seed, on the proctor's line: the link and code to read to the players, or
-# why there isn't one yet. Clicks stop here so the link and copy button don't
-# also open the sheet.
 _SEED_LINE = r"""<template v-if="props.row._seed_line"><span v-if="props.row.generated_seed" class="run-sheet__seed" @click.stop><q-icon name="casino" size="16px" aria-hidden="true" /><span class="wiz-sr-only">Seed: </span><span class="run-sheet__seed-value">""" + seed_value_template('props.row.generated_seed') + r"""</span></span>
 <span v-else class="run-sheet__seed" :class="props.row.seed_rolling_since ? '' : (props.row.seed_roll_error ? 'st-cancelled' : 'st-pending')"><q-spinner v-if="props.row.seed_rolling_since" size="14px" aria-hidden="true" /><q-icon v-else name="casino" size="16px" aria-hidden="true" /><span>{{ props.row.seed_rolling_since ? (props.row.seed_rolling_label || 'Rolling…') : (props.row.seed_roll_error ? 'Seed failed: ' + props.row.seed_roll_error : 'Seed not rolled' + (props.row.seed_ready_label ? ' · ' + props.row.seed_ready_label : '')) }}</span></span></template>"""
 
-# The next lifecycle step, on the line. Late and Ready are the primary buttons:
-# the room is waiting on them. The group already says Late or Checked in, so
-# the chip is left to the states a button does not explain.
 _NEXT_CHIP = STATUS_WORD.replace('<span ', """<span v-if="!['Scheduled', 'Checked in', 'Late'].includes(props.row._status)" """, 1)
 
-# Roll seed spins until the row comes back, since a synchronous roll can take
-# several seconds and a second press would only be refused. A queued roll then
-# holds the button on its clock until the seed lands.
 _NEXT_BUTTON = winner_buttons("props.row._next && props.row._next.event === 'winner'") + """
 <q-btn v-else-if="props.row._next && props.row._next.event && props.row._next.event !== 'winner'" no-caps no-wrap unelevated color="primary" :outline="!props.row._next.primary"
                    class="run-sheet__step" :class="{'wiz-busy-btn': !!props.row._busy}" :disable="!!props.row._busy"
@@ -719,9 +653,7 @@ def _item_slot(proctor: bool, can_run: bool = False, approve: str = 'false', run
             @click="$parent.$emit('open_match', props.row.id)">""" + main + """
     </button>"""
     else:
-        # The crew's Approve and the winner buttons can't sit inside a button, so this card is
-        # the desktop row's shape: the names are the keyboard's way in, and a
-        # tap anywhere else on the card is a pointer convenience.
+        # Approve and the winner buttons can't nest inside a button, so the card isn't one.
         main = main.replace(
             '<span class="run-sheet__who">' + WHO + '</span>',
             '<button type="button" class="run-sheet__who run-sheet__open" @click.stop="$parent.$emit(\'open_match\', props.row.id)">' + WHO + '</button>',

@@ -1,14 +1,5 @@
-// Shared between the page helper (static/js/web-push.js) and the service worker
-// (static/sw.js), so it attaches to `self` rather than `window`.
-//
-// The service worker's 'pushsubscriptionchange' handler wakes with no page and
-// no session, and the browser is not obliged to hand it the retired
-// subscription's keys — Chrome has shipped that event with both
-// oldSubscription and newSubscription null. So everything the worker needs to
-// re-subscribe (the application server key) and to prove to the server which
-// subscription it is rotating (the old auth secret) has to already be on disk
-// when the event fires. This is that disk: the page writes the record the
-// moment a user subscribes, the worker reads it much later.
+// Attaches to `self`: shared with the service worker. pushsubscriptionchange can fire with no page and both
+// subscriptions null, so the server key and old auth secret must already be stored when the user subscribes.
 
 self.wizWebPushKey = function (base64url) {
   const padded = base64url + '='.repeat((4 - (base64url.length % 4)) % 4);
@@ -45,9 +36,7 @@ self.wizWebPushStore = (() => {
     }
   }
 
-  // Every method is best-effort: private-browsing modes and storage-pressure
-  // eviction can make IndexedDB unavailable, and none of this is worth failing
-  // a subscribe (or an unrelated push) over.
+  // Best-effort: IndexedDB can be unavailable, and none of this may fail a subscribe or a push.
   return {
     async load() {
       try {

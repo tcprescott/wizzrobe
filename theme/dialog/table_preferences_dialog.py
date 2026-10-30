@@ -43,8 +43,6 @@ class _Staged:
         self.wrap = bool(value)
 
 
-# A row-action column ships with an empty label — correct on the table, where
-# the buttons speak for themselves, and useless in a list of column names.
 FALLBACK_LABELS = {'actions': 'Row actions', 'edit': 'Edit'}
 
 
@@ -100,8 +98,6 @@ async def open_table_preferences(table: ui.table) -> None:
 
     with form_dialog('Table preferences') as dialog:
         with ui.column().classes('q-pa-md gap-3 full-width'):
-            # Rows per page is not here on purpose: it lives in the table's
-            # footer, which saves it, so there is one control rather than two.
             with ui.column().classes('gap-1'):
                 ui.label('Density').classes('text-caption text-grey-7')
                 ui.radio(DENSITY_LABELS, value=state.density,
@@ -136,9 +132,6 @@ async def open_table_preferences(table: ui.table) -> None:
                     required = entry['name'] in custom.required
                     row = ui.row().classes(
                         'full-width items-center gap-2 q-py-xs wiz-prefs-column-row')
-                    # Drag is an addition to the ▲/▼ buttons below, never a
-                    # replacement: a dialog whose whole purpose is making a table
-                    # usable must not itself be mouse-only.
                     row.props('draggable="true"')
                     row.on('dragstart', lambda _, i=index: dragging.update(index=i))
                     row.on('dragover.prevent', lambda: None)
@@ -151,7 +144,6 @@ async def open_table_preferences(table: ui.table) -> None:
                             on_change=lambda e, c=entry: c.update(visible=e.value),
                         ).props('dense')
                         if required:
-                            # Disabled, not missing: the absence has to explain itself.
                             checkbox.props('disable')
                         ui.label(entry['label']).classes('col-grow')
                         if required:
@@ -173,8 +165,7 @@ async def open_table_preferences(table: ui.table) -> None:
         render_columns()
 
         async def confirm() -> None:
-            # Re-read at Confirm, not at open: the footer may have saved a new
-            # size while this dialog was up.
+            # Re-read at Confirm: the footer may have saved a new size meanwhile.
             config = _config_from(staged, custom.plan.page_size, state.density, state.wrap)
             try:
                 saved = await service.save(actor, custom.key, config)

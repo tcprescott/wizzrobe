@@ -12,7 +12,6 @@ from nicegui import ui
 from application.services.player_availability_service import PlayerAvailabilityService
 from models import User
 
-#: A sample day for the strip: ``True`` is a blocked-out hour.
 _SAMPLE_DAY = (False, False, False, True, True, False, False, False, False, True, False, False)
 
 
@@ -23,8 +22,7 @@ async def render_availability_reminder(user: User, on_block_out: Callable[[], Aw
 
     async def put_away(then_open: bool) -> None:
         await service.dismiss_reminder(user)
-        # The handler runs in this card's slot, so the callback has to finish
-        # before the card goes or its UI calls hit a deleted slot (SGLMAN-1Z).
+        # Finish the callback before the card goes, or its UI calls hit a deleted slot.
         if then_open:
             await on_block_out()
         card.delete()

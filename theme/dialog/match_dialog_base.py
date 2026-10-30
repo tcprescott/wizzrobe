@@ -64,9 +64,6 @@ def enrolment_preview(names: list, tournament_name: str) -> str:
     return f'{listed} will be enrolled in {tournament_name}.'
 
 
-#: Semantic tone (``match_status.STATUS_TONES``) → the chip class ``styles.css``
-#: already defines. One mapping so the dialog's chip and the board's cell cannot
-#: colour the same state differently.
 _TONE_CHIP = {
     'neutral': 'wiz-chip--neutral',
     'info': 'wiz-chip--neutral',
@@ -115,9 +112,7 @@ class BaseMatchDialog:
                 'stage': self.match.stage_id if self.match.stage_id else None,
             }
         else:
-            # A new match starts on the next whole hour, never on "now": a
-            # player request refuses a time that has passed, and by the time
-            # anyone presses Save, now has.
+            # Next whole hour, never now: a player request refuses a past time, and now has passed by Save.
             slot = next_whole_hour_local()
             return {
                 'tournament': None,
@@ -152,8 +147,7 @@ class BaseMatchDialog:
             with_input=True,
         ).props('required').classes('input-full-width')
         if not tournaments:
-            # Otherwise a required select with no options opens no menu and
-            # answers "Please fill required field(s): Tournament".
+            # A required select with no options opens no menu and fails as 'Please fill required field(s)'.
             select.disable()
             select.props(f'hint="{empty_hint}"')
         return select
@@ -244,8 +238,6 @@ class BaseMatchDialog:
                 if new_value:
                     await watcher_service.watch(match_id, user)
                     with client:
-                        # The dialog *is* the match — naming it again (or worse,
-                        # quoting its id) tells the reader nothing.
                         ui.notify(
                             'Now watching this match. You will receive Discord DMs on updates.',
                             color='positive',
@@ -469,19 +461,15 @@ class BaseMatchDialog:
         """
         async def take_mine() -> None:
             choice.close()
-            # Re-baseline: the operator has now been told what they are
-            # overwriting, so the guard has done its job and must not fire again.
+            # Re-baseline so the guard doesn't fire again.
             self._initial_updated_at = latest.updated_at
             await overwrite()
 
         def take_theirs() -> None:
-            # Their version stands, so this dialog has nothing left to show —
-            # every input in it is the losing copy.
             choice.close()
             dialog.close()
 
-        # Built inline rather than through ConfirmationDialog: both exits act,
-        # and its cancel button only closes itself.
+        # Not ConfirmationDialog: both exits act, and its cancel only closes.
         with ui.dialog() as choice, ui.card().classes('dialog-card dialog-card--sm'):
             mobile_sheet(choice)
             dialog_header('Someone else saved this match first', choice)
@@ -540,15 +528,8 @@ class BaseMatchDialog:
             return
 
         try:
-            # The actor is passed so the enrolments this creates carry a name in
-            # the audit log — scheduling someone into a tournament they were not
-            # in is a roster change somebody made, not one that happened.
             actor = await get_user_from_session(app.storage.user)
             newly_enrolled = await self.match_service.ensure_players_enrolled(
-                # This dialog is behind a staff-gated page, so the lookup cannot
-                # come back empty in practice; if it ever did, the service's
-                # audit write raises and the `except` below shows it rather than
-                # writing an unattributable enrolment.
                 tournament_id, player_ids, actor=actor,  # type: ignore[arg-type]
             )
         except ValueError as e:
@@ -622,8 +603,6 @@ class BaseMatchDialog:
                 with dialog_more_menu():
                     if rewind_targets(self.match):
                         menu_action('history', 'Rewind…', lambda: self._open_rewind(dialog))
-                    # "Call off", not "Cancel": the footer's Cancel just closes
-                    # this dialog, where this DMs everyone who committed to it.
                     menu_action('event_busy', 'Call off match…', lambda: self._confirm_cancel(dialog))
                     ui.separator()
                     if getattr(self.match, 'generated_seed_id', None) is not None:

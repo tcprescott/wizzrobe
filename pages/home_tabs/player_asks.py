@@ -30,7 +30,6 @@ from theme.dialog.reschedule_agree_dialog import (
 )
 from theme.steady import steady_refreshable
 
-# What a stale "Open the request" link says instead of opening nothing.
 _STALE_AGREE = {
     AGREE_DONE: ("You've already agreed to that request. Staff still decide.", 'info'),
     AGREE_DECIDED: (

@@ -25,8 +25,6 @@ from theme.pickers import CHIP_PROPS
 from theme.tables.mobile_grid import enable_mobile_grid
 from theme.tables.preferences import TableKeys, preferences_button
 
-# Each feature as its own chip, wrapping in the cell: as one comma-joined
-# string the Full Access tier ran the table out to twice the page width.
 _FLAG_CHIPS = '''
     <div style="display:flex;flex-wrap:wrap;gap:4px;white-space:normal">
         <span v-for="f in props.row.flags" :key="f" class="wiz-chip wiz-chip--neutral">{{ f }}</span>

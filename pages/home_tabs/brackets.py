@@ -59,14 +59,10 @@ def _render_stage(bracket: Bracket) -> None:
 
 
 async def brackets_tab() -> None:
-    # DRAFT/CANCELLED stages are unpublished: the service hands a staff viewer
-    # the full list and everyone else only what is public.
     user = await get_user_from_session(app.storage.user)
     brackets = await BracketService().list_all_visible_brackets(user)
 
     with ui.column().classes('page-container'):
-        # No page title: the Event tab's view switcher above already says
-        # Brackets.
         if not brackets:
             empty_panel('No brackets have been published yet.', icon='account_tree')
             return
@@ -85,8 +81,6 @@ def _render_tournament(tournament_id: int, name: str, stages: List[Bracket]) -> 
     with ui.card().classes('w-full q-pa-md'):
         with ui.row().classes('items-center justify-between w-full'):
             ui.label(name).classes('text-subtitle1 text-bold')
-            # Multi-stage tournaments get the stage index too; a
-            # single-stage one is fully described by the row below it.
             if len(stages) > 1:
                 link_button('All stages', f'/tournament/{tournament_id}/brackets', icon='list', new_tab=False) \
                     .props('flat dense')

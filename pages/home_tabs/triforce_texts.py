@@ -68,8 +68,7 @@ async def _build_triforce_dialog(tournament: Tournament, user: User) -> None:
 
         if not can_submit:
             if tournament.triforce_access_message:
-                # Parsed to blocks, never ui.markdown: per-tournament admins write
-                # this and every player reads it, so it renders as element content.
+                # Parsed to blocks, never ui.markdown: admins write this and every player reads it.
                 with ui.element('div').classes('wiz-help-prose'):
                     render_blocks(parse_blocks(tournament.triforce_access_message))
             else:

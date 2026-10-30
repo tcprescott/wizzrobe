@@ -1,19 +1,5 @@
-/*
- * Scroll to the address's #fragment once the thing it names exists
- * (theme/anchors.py). A page here builds over its socket after load, and a lazy
- * tab or a board's rows later still, so the browser's own jump to the fragment
- * finds nothing. This watches the page for up to 20s, scrolls the target into
- * view, and flashes it so the eye lands on it. Runs again on hashchange.
- *
- *   #your-matches  an element with that id
- *   #match-123     the first visible row or card for match 123
- *   #shift-45      the shift block for shift 45
- *
- * Anything carrying ``data-wiz-copy-link`` copies a link to this page at that
- * fragment when clicked (an empty value means the nearest enclosing section's id).
- * It's a document listener rather than a server round trip because Safari only
- * lets a page write the clipboard inside the click itself.
- */
+/* The page builds over its socket after load, so the browser's own jump to the #fragment finds nothing.
+   data-wiz-copy-link is a document listener, not a round trip: Safari only allows clipboard writes inside the click. */
 (function () {
   if (window.__wizAnchors) return;
   window.__wizAnchors = true;

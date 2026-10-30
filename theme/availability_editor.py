@@ -51,16 +51,12 @@ _STATUS_SEG_CLASS = {
 }
 _NONE_SEG_CLASS = 'avail-seg--none'
 
-# Each state also carries an icon, so the bar never relies on colour alone:
-# red and green read as one olive under deuteranopia.
 _STATUS_ICON = {
     VolunteerAvailabilityStatus.UNAVAILABLE: 'close',
     VolunteerAvailabilityStatus.PREFERRED: 'star',
     VolunteerAvailabilityStatus.AVAILABLE: 'check',
 }
 
-# Share of the day a segment needs before its pill also shows the word
-# (desktop, then phone), so the label fits inside the segment.
 _WIDE_PCT = 20
 _WIDER_PCT = 29
 
@@ -74,9 +70,6 @@ class EditorMode:
     empty_text: str
     precedence_text: str
     legend_statuses: Tuple[Optional[VolunteerAvailabilityStatus], ...]
-    #: Grey out the hours the venue is shut. Only meaningful opt-out: with
-    #: everything unblocked reading as available, an all-green 3am would
-    #: promise time no match can be scheduled in.
     shade_closed_hours: bool = False
     closed_label: str = 'Outside event hours'
     new_row_times: Tuple[str, str] = ('09:00', '13:00')
@@ -92,7 +85,6 @@ class EditorMode:
         )
 
 
-#: Volunteers declare the windows they can work; silence means nothing.
 DECLARE_MODE = EditorMode(
     status_options=_STATUS_OPTIONS,
     new_row_status=VolunteerAvailabilityStatus.AVAILABLE,
@@ -106,7 +98,6 @@ DECLARE_MODE = EditorMode(
     ),
 )
 
-#: Players block out the windows they cannot play; silence means yes.
 BLOCK_MODE = EditorMode(
     status_options={
         VolunteerAvailabilityStatus.UNAVAILABLE.value: "Can't play",
@@ -242,10 +233,6 @@ async def render_availability_editor(
         ))
         cursor = next_day
 
-    # A stored status this mode does not offer cannot be shown against a dropdown
-    # that cannot represent it, so it is left out of the editor. Nothing writes one
-    # today — PlayerAvailabilityService drops an AVAILABLE window on save — so
-    # this catches rows that predate that rule, not a live case.
     rows: list[dict] = [
         row for row in (
             {
@@ -260,10 +247,6 @@ async def render_availability_editor(
     ]
 
     with ui.column().classes('page-container'):
-        # ``title=''`` means the caller has already given this editor a heading —
-        # My Schedule wraps it in a section panel — so a second one here would
-        # only repeat the words and re-add the header/separator margin the panel
-        # exists to remove.
         if title:
             with ui.row().classes('header-row items-center wiz-help-row'):
                 ui.label(title).classes(title_class)
@@ -296,9 +279,7 @@ async def render_availability_editor(
             for day, day_rows in _days():
                 with ui.element('div').classes('avail-day'):
                     with ui.row().classes('avail-day__head items-center'):
-                        # Regroup on blur, not on every change: a typed date
-                        # passes through intermediate valid values, and
-                        # rebuilding the card mid-edit would steal the field.
+                        # Regroup on blur, not on change: rebuilding the card mid-edit steals the field.
                         native_date_input('Day', day, dense=True) \
                             .classes('avail-day__date') \
                             .on_value_change(lambda e, d=day_rows: _move_day(d, e.value)) \
@@ -435,9 +416,6 @@ async def render_availability_editor(
                 return
             ui.notify('Availability saved.', color='positive')
 
-        # Windows beside the chart on a wide screen: stacked, a form about
-        # 30rem wide and a chart that only needs a few rows both ran the full
-        # 1400px. Below 1024px the chart drops under the form as before.
         with ui.element('div').classes('avail-split'):
             with ui.element('div').classes('avail-split__form'):
                 window_rows()

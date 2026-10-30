@@ -50,8 +50,6 @@ class RescheduleRequestDialog:
     async def open(self) -> None:
         match = self.match
         current = format_local_display(match.scheduled_at)
-        # Prefill the pickers with the slot the match already has, so a player
-        # nudging it by an hour edits two characters instead of typing a date.
         local = to_local(match.scheduled_at)
         default_date = local.strftime('%Y-%m-%d') if local else ''
         default_time = local.strftime('%H:%M') if local else ''
@@ -79,9 +77,6 @@ class RescheduleRequestDialog:
                         date_input = native_date_input('Preferred date', default_date)
                         time_input = native_time_input('Preferred time', default_time)
 
-                # The time block is meaningless for a cancellation, and leaving
-                # it on screen invites someone to fill it in and expect it to
-                # mean something.
                 when_block.bind_visibility_from(
                     kind_input, 'value',
                     backward=lambda v: v == RescheduleRequestKind.RESCHEDULE.value,

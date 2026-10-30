@@ -22,7 +22,6 @@ from theme.assets import asset_url
 from theme.browser_monitoring import install_browser_monitoring
 from theme.favicon import icon_links_html
 
-# Above-the-fold weights; the rest of the family loads on demand from styles.css.
 _PRELOAD_FONTS = (
     'atkinson-hyperlegible-latin-400-normal',
     'atkinson-hyperlegible-latin-700-normal',
@@ -156,12 +155,7 @@ def apply_brand_palette(colors: dict[str, str]) -> None:
         warning='#B45309',
         info='#0E7470',
     )
-    # ui.colors only recolors Quasar's palette; links, the active nav item and
-    # the header's brand mark read the --wiz-* brand vars from styles.css.
-    # Re-point those to the tenant palette here (loaded after the stylesheet,
-    # so this wins). The two dark text-tint rules mirror the !important
-    # defaults in styles.css so primary/secondary text follows the tenant
-    # accent/secondary in dark mode too.
+    # Loaded after the stylesheet so it wins. The dark text-tint rules mirror the !important defaults in styles.css.
     ui.add_head_html(
         '<style>'
         ':root{'
@@ -178,10 +172,7 @@ def apply_brand_palette(colors: dict[str, str]) -> None:
     ui.add_head_html(icon_links_html(colors))
     logo = colors.get('logo')
     if logo:
-        # The uploaded logo takes the brand mark's place (still the decorative
-        # ::before, so the community name stays the header's accessible text).
-        # The URL is service-built from an int id and a hex hash, so it is safe
-        # inside url().
+        # Safe inside url(): the URL is service-built from an int id and a hex hash.
         ui.add_head_html(f'<style>:root{{--wiz-brand-logo:url("{logo}");}}</style>')
         ui.query('body').classes('wiz-has-logo')
 
@@ -248,7 +239,7 @@ def render_platform_chrome(
         right: Optional callable rendering extra header content before the
             dark-mode toggle, in the right-hand slot.
     """
-    dark = ui.dark_mode(app.storage.user.get('dark_mode'))  # None ⇒ follow the client's system theme
+    dark = ui.dark_mode(app.storage.user.get('dark_mode'))
     for font_file in _PRELOAD_FONTS:
         ui.add_head_html(
             f'<link rel="preload" href="/static/fonts/{font_file}.woff2" '
@@ -256,10 +247,7 @@ def render_platform_chrome(
         )
     ui.add_head_html(f'<link rel="stylesheet" href="{asset_url("css/styles.css")}">')
     ui.add_head_html('<meta name="robots" content="noindex, nofollow">')
-    # The same scripts BaseLayout loads: dialog naming and focus return,
-    # drag-to-resize table headers, and keeping dialogs above the phone
-    # keyboard. Without them a /platform dialog had no name and its table
-    # headers could not be dragged wider.
+    # The same scripts BaseLayout loads; keep the two in step.
     ui.add_head_html(f'<script src="{asset_url("js/table-columns.js")}"></script>')
     ui.add_head_html(f'<script defer src="{asset_url("js/a11y.js")}"></script>')
     ui.add_head_html(f'<script defer src="{asset_url("js/busy.js")}"></script>')
@@ -267,9 +255,7 @@ def render_platform_chrome(
     ui.add_head_html(f'<script defer src="{asset_url("js/anchors.js")}"></script>')
     install_page_scripts()
     install_browser_monitoring()
-    # The shipped phoenix defaults, not a tenant override: these surfaces belong
-    # to the platform, and the consent screen in particular grants a credential
-    # that is not scoped to any one community.
+    # Shipped defaults, never a tenant override: the consent screen grants a credential not scoped to one community.
     from application.services.tenant_theme_service import DEFAULT_THEME
     apply_brand_palette(DEFAULT_THEME)
     with ui.header().classes(replace='row items-center no-wrap wiz-header'):

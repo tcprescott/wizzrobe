@@ -116,8 +116,6 @@ async def admin_speedgaming_page() -> None:
         syncing: set[int] = set()
 
         async def sync_now(row, client):
-            # A slot button can't hold its own busy state, so the toast says
-            # it's working and a second tap on the same link is dropped.
             if row['id'] in syncing:
                 return
             syncing.add(row['id'])
@@ -143,12 +141,8 @@ async def admin_speedgaming_page() -> None:
                 await refresh_table()
 
         async def open_link_dialog(client, existing=None) -> None:
-            # Both entry points spawn this as a background task, where the slot
-            # stack is empty and with it the client stash the tenant fallback
-            # reads — so `_tournament_options` raised "No tenant in context",
-            # NiceGUI swallowed it, and Add/Edit did nothing at all on screen.
-            # Restoring the captured client is what the row handlers below
-            # already do for delete and sync.
+            # Restore the captured client: as a background task there's no slot stack, so the tenant
+            # lookup raises and NiceGUI swallows it.
             with client:
                 is_edit = existing is not None
                 options = await _tournament_options()
@@ -162,7 +156,7 @@ async def admin_speedgaming_page() -> None:
                         value=existing['tournament_id'] if is_edit else None,
                     ).classes('w-full')
                     if is_edit:
-                        tournament_select.disable()  # a link's tournament is fixed
+                        tournament_select.disable()
                     slug_input = ui.input(
                         'Event Slug', value=existing['event_slug'] if is_edit else '',
                     ).classes('w-full')

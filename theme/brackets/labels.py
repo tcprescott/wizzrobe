@@ -17,7 +17,7 @@ FORMAT_LABELS: dict[BracketFormat, str] = {
     BracketFormat.ROUND_ROBIN: 'Round robin',
 }
 
-# Keyed by the enum's *value* for ``ui.select``, whose options map raw values.
+# Keyed by the enum's value: ui.select options map raw values.
 FORMAT_OPTIONS: dict[str, str] = {
     fmt.value: label for fmt, label in FORMAT_LABELS.items()
 }

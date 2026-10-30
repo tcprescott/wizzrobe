@@ -42,8 +42,6 @@ def install_toast_position() -> None:
     _installed = True
 
 
-# A message past this length is one a five-second single-line toast truncates
-# into uselessness — the config validators produce several of them.
 _LONG_MESSAGE = 90
 
 

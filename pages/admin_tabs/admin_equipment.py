@@ -44,11 +44,7 @@ _STATUS_BADGE = '''<q-badge :color="props.row.status_value === 'available' ? 'po
                     {{ props.row.status }}
                 </q-badge>'''
 
-# One shape for the desktop row and the phone card: the state's own action as a
-# labelled button, everything else behind a menu. Delete sits last in that menu,
-# under a divider, so it is never a thumb-width from the button you meant. Every
-# emitting control carries the offline guard's class (theme/connection.py); the
-# test counts them against the emits, in this snippet and in both templates.
+# Every emitting control needs the offline guard's class; a test counts them against the emits.
 _ROW_ACTIONS = f'''<q-btn v-if="props.row.status_value === 'available'" outline dense no-caps
            icon="logout" color="primary" label="Check out"
            class="equipment-state-btn {REQUIRES_SOCKET_CLASS}"
@@ -138,12 +134,10 @@ async def admin_equipment_page() -> None:
                     .classes(REQUIRES_SOCKET_CLASS):
                 with ui.menu():
                     _menu_action('qr_code_2', 'Print QR labels', print_labels)
-                    # Same context capture as refresh_button: a bare task from a
-                    # click has no tenant and fails silently.
+                    # scoped_background, not a bare task: a click's task has no tenant and fails silently.
                     _menu_action('refresh', 'Refresh list', lambda: scoped_background(
                         refresh_context, reload()))
             ui.space()
-            # Filled from inside _render_table, which owns the table.
             gear_slot = ui.row().classes('items-center no-wrap equipment-search')
 
         @steady_refreshable
@@ -171,11 +165,9 @@ async def admin_equipment_page() -> None:
             table.add_slot('body-cell-status', _STATUS_CELL)
             table.add_slot('body-cell-actions', _ACTIONS_CELL)
             table.add_slot('item', _GRID_CARD)
-            # After the card slot, never before — the card is built from the
-            # shipped columns and must not follow a saved layout.
+            # After the card slot, never before: the card must not follow a saved layout.
             customize_table(table, _COLUMNS, key=TableKeys.ADMIN_EQUIPMENT)
-            # Cleared first: this whole block re-runs on every refresh, and the
-            # gear lives outside it so it would otherwise stack up.
+            # Clear first: this block re-runs on every refresh and the gear would stack up.
             gear_slot.clear()
             with gear_slot:
                 search_input(table, placeholder='Search equipment…')

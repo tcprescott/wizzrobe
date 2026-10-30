@@ -1,13 +1,5 @@
-/*
- * Two dialog repairs Quasar leaves to the app (WCAG 2.4.3, 4.1.2):
- *
- * - A dialog needs a name. Most of ours open on a title (.text-h6 in the
- *   shared dialog_header, or a heading); point aria-labelledby at it.
- * - Closing a dialog should hand focus back to whatever opened it. Our
- *   dialogs are built server-side and torn down on close, so Quasar's own
- *   refocus often finds nothing and focus fell to <body>, sending a keyboard
- *   user back to the top of the page.
- */
+/* Quasar leaves two dialog repairs to the app: a name, and focus return.
+   Our dialogs are torn down on close, so Quasar's own refocus finds nothing and focus falls to <body>. */
 (function () {
   if (window.__wizA11y) return;
   window.__wizA11y = true;
@@ -17,9 +9,7 @@
   var seq = 0;
   var dialogWasOpen = false;
 
-  // A table slot re-renders its rows when the dialog it opened saves or
-  // closes, replacing the very button that had focus. Remember how to find its
-  // replacement: same id, or the same position among same-named controls.
+  // A table slot re-render replaces the button that had focus; find its replacement by id or position.
   function keyFor(el) {
     if (!el.getAttribute('aria-label') && !/^(BUTTON|A)$/.test(el.tagName)) return { id: el.id };
     var name = el.getAttribute('aria-label') || (el.textContent || '').trim();

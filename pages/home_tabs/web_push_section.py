@@ -89,8 +89,6 @@ async def render_device_rows(
         with ui.column().classes('gap-0 col min-w-0'):
             ui.label(_this_device_name(user_agent)).classes('wiz-notify-item__name')
             this_caption = ui.label(_device_label(user_agent)).classes('text-muted text-caption')
-        # Disabled until the browser reports whether it is already subscribed,
-        # so the switch never shows a state it hasn't checked.
         this_switch = ui.switch(value=False).props(
             f'disable aria-label="Notifications on {_this_device_name(user_agent).lower()}"'
         )
@@ -204,8 +202,6 @@ async def render_device_rows(
     async def on_unsubscribed(e) -> None:
         args = e.args or {}
         if args.get('error'):
-            # The browser-side unsubscribe failed, so the device would keep
-            # getting pushes: put the switch back rather than show it off.
             set_this_switch(True)
             ui.notify(f"Could not turn off notifications: {args['error']}", color='warning')
             return
@@ -223,11 +219,8 @@ async def render_device_rows(
 
     await other_devices()
 
-    # Profile is usually opened by switching tabs, which builds this section
-    # inside an event handler, where ui.add_head_html falls back to
-    # insertAdjacentHTML and a <script> inserted that way never runs. So the
-    # scripts are appended as elements instead, and the switch stays disabled
-    # until they have loaded and reported a status.
+    # Append the scripts as elements: built inside an event handler, add_head_html falls back to
+    # insertAdjacentHTML, and a <script> inserted that way never runs.
     scripts = json.dumps([asset_url('js/web-push-common.js'), asset_url('js/web-push.js')])
 
     async def ask_status() -> None:

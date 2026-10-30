@@ -159,10 +159,7 @@ async def telemetry_page(
                 on_row_click=lambda uid: _nav(user_id=uid, page=None),
             )
 
-        # ``action`` is a substring filter, applied to path here for the raw log
-        # (event_type is exposed via the category + leaderboards). count_events
-        # MUST take the same filters as list_events or the total/pagination and
-        # the rows disagree.
+        # count_events MUST take the same filters as list_events, or the total and the rows disagree.
         total = await service.count_events(
             actor, start=bounds_start, end=bounds_end,
             category=category_filter or None,

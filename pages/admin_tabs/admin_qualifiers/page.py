@@ -62,9 +62,7 @@ from theme.tables.mobile_grid import enable_mobile_grid
 from theme.tables.preferences import TableKeys, row_count_label, search_input, sticky_header
 from theme.url_state import url_param, url_state
 
-# Deep-link tab keys → the tab names the drill-down is addressed by. Short slugs
-# rather than the labels themselves, so a DM's URL does not carry "Review%20Queue"
-# and does not break when a label is reworded.
+# Short slugs, not labels, so a DM's URL survives a label rewording.
 _DEEP_LINK_TABS = {
     'queue': QUEUE_TAB,
     'pools': POOLS_TAB,
@@ -90,24 +88,19 @@ async def admin_qualifiers_page(
     live_race_service = AsyncQualifierLiveRaceService()
     preset_service = PresetService()
     client = context.client
-    # Captured at page build, where a request tenant is guaranteed; every
-    # later handler re-binds it rather than re-resolving.
+    # Captured at build; later handlers rebind it rather than re-resolving.
     tenant_id = require_tenant_id()
     event_id = get_current_event_id()
     state: dict = {
         'qualifiers': [], 'managing': None, 'shell': None, 'list_error': None,
         'can_create': False,
-        # The drill-down loads one tab at a time. 'loaded' is which tabs have their
-        # data, 'errors' is the per-tab refusal to render in place of it, and 'tab'
-        # survives a rebuild so a verdict does not throw the reviewer back to Pools.
         'tab': POOLS_TAB, 'loaded': set(), 'errors': {}, 'queue_shown': QUEUE_PAGE_SIZE,
         'pools': [], 'presets': [], 'live_races': [], 'queue': [], 'queue_context': {},
         'runs': [], 'board': [], 'viewer_id': None,
         'reviewers': [], 'reviewer_options': {}, 'pending': 0, 'racer_options': {},
     }
 
-    # name → the refreshable that renders it. Filled in once the views are defined
-    # (they close over ``state``, so they cannot be declared before it).
+    # Filled once the views are defined: they close over `state`.
     _TAB_VIEWS: dict = {}
 
     async def _current():
@@ -118,8 +111,6 @@ async def admin_qualifiers_page(
             with tenant_scope(tenant_id), event_scope(event_id):
                 current = await _current()
                 state['qualifiers'] = await service.list_qualifiers(current)
-                # A per-qualifier reviewer sees the ones they review, but only
-                # STAFF and QUALIFIER_ADMIN may create one.
                 state['can_create'] = await AuthService.can_admin_qualifier(current)
             state['list_error'] = None
         except PermissionError as e:
@@ -134,16 +125,11 @@ async def admin_qualifiers_page(
 
     async def _fetch_live(current, qid) -> None:
         state['live_races'] = await live_race_service.list_live_races(current, qid)
-        # Who a hand-recorded result may be attributed to. The community's own
-        # people, like every other person picker — a live race is raced by members,
-        # and the global User table is not this page's business.
         state['racer_options'] = {
             person.id: display_name_of(person.display_name, person.username, person.id)
             for person in await UserService().get_community_people_summaries()
         }
         if POOLS_TAB not in state['loaded']:
-            # The New Live Race dialog picks a pool and one of its permalinks, so
-            # this tab cannot render its own control without them.
             await _fetch_pools(current, qid)
             state['loaded'].add(POOLS_TAB)
 
@@ -152,15 +138,12 @@ async def admin_qualifiers_page(
         state['pending'] = len(state['queue'])
         state['queue_context'] = await service.review_queue_context(current, qid, state['queue'])
         state['queue_shown'] = QUEUE_PAGE_SIZE
-        # Whose claims count as "mine" on the cards. Stashed rather than re-read
-        # per card: the view is sync and cannot await.
+        # Stashed: the view is sync and can't await.
         state['viewer_id'] = current.id if current is not None else None
 
     async def _fetch_reviewers(current, qid) -> None:
         state['reviewers'] = await service.list_admins(current, qid)
         already = {p.id for p in state['reviewers']}
-        # The community's own people, minus whoever is already on the roster. The
-        # picker's default, not an authorization rule — ``add_admin`` gates that.
         state['reviewer_options'] = {
             person.id: display_name_of(person.display_name, person.username, person.id)
             for person in await UserService().get_community_people_summaries()
@@ -202,10 +185,6 @@ async def admin_qualifiers_page(
                     current = await _current()
                     state['shell'] = {
                         'qualifier': await service.get_qualifier(current, qid)}
-                    # Two scalars, so the tab strip can carry the pending count on
-                    # arrival. Reading it from the queue tab's own data would show 0
-                    # until someone opened that tab, which is the moment the count
-                    # stops being news.
                     state['pending'] = await service.count_pending_review(current, qid)
             except (ValueError, PermissionError) as e:
                 state['shell'] = {'error': str(e)}
@@ -228,14 +207,8 @@ async def admin_qualifiers_page(
         if not force and name in state['loaded']:
             return
         try:
-            # Scope the reads explicitly rather than leaning on the client-stash
-            # fallback, the same reason pages/brackets.py does: the tenant
-            # contextvar is unset in a handler, so `get_current_tenant_id` falls
-            # back to `app.storage.client`, which is not reachable across a chain
-            # of awaited reloads in one handler. Measured: a mutation reloading
-            # three tabs read tenant 1, 1, then None — and a None tenant makes
-            # every feature flag read as off, so the third tab rendered "the Async
-            # Qualifiers feature is not enabled for this community".
+            # Scope explicitly: across a chain of awaited reloads the client-stash fallback loses
+            # the tenant, and every feature flag then reads as off.
             with tenant_scope(tenant_id), event_scope(event_id):
                 await _FETCH[name](await _current(), qid)
             state['errors'].pop(name, None)
@@ -408,14 +381,8 @@ async def admin_qualifiers_page(
         with ui.tabs().classes('w-full') as tabs:
             for name in (POOLS_TAB, LIVE_TAB, QUEUE_TAB, RUNS_TAB, BOARD_TAB,
                          REVIEWERS_TAB):
-                # The label carries the pending count while the name stays the key
-                # every loader and ``state['tab']`` are addressed by. Nothing told a
-                # moderator work was waiting without opening the tab first.
                 waiting = state['pending'] if name == QUEUE_TAB else 0
                 ui.tab(name, label=f'{name} ({waiting})' if waiting else name)
-        # Selecting a tab is what fetches it, so the drill-down opens on one read
-        # instead of seven. The value comes from state so a rebuild lands back where
-        # the reviewer was.
         tabs.on_value_change(lambda e: _select_tab(e.value))
         state['tab_param'] = url_param(
             'qualifier_tab', tabs, default='pools', value=_TAB_SLUGS.get(state['tab'], 'pools'),
@@ -455,8 +422,6 @@ async def admin_qualifiers_page(
             return True
         return False
 
-    # Each tab is its own module, built here rather than inline because every one of
-    # them needs the loaders defined above.
     pools_view = build_pools_tab(
         state=state, service=service, current=_current,
         reload_tabs=reload_open_tabs, placeholder=_tab_placeholder,
@@ -470,8 +435,6 @@ async def admin_qualifiers_page(
     queue_view = build_queue_tab(
         state=state, service=service, current=_current,
         reload_tabs=reload_open_tabs,
-        # Claim and Release change the card without settling anything, so the queue
-        # is re-read rather than patched in place the way a verdict is.
         reload_queue=lambda: load_tab(QUEUE_TAB, force=True),
         placeholder=_tab_placeholder, notify_error=notify_error, client=client,
     )
@@ -511,8 +474,6 @@ async def admin_qualifiers_page(
         toolbar = ui.row().classes('items-center w-full')
         table = ui.table(columns=columns, rows=rows, row_key='id',
                          pagination=RUNS_PAGE).classes('w-full wiz-table')
-        # This is the only place a mis-clicked forfeit can be found, and a real
-        # qualifier holds thousands of runs — so the way in is a name, not a scroll.
         with toolbar:
             search_input(table, placeholder='Find a player or pool…')
             ui.space()
@@ -581,8 +542,6 @@ async def admin_qualifiers_page(
                     return
                 ui.notify('Reattempt granted', color='positive')
                 dialog.close()
-                # Voiding a run refreshes its permalink's par, which rescores every
-                # approved run on that seed.
                 await reload_open_tabs(RUNS_TAB, QUEUE_TAB, BOARD_TAB)
 
             with dialog_actions().classes('justify-end'):
@@ -603,7 +562,7 @@ async def admin_qualifiers_page(
         columns = list(BOARD_COLUMNS)
         rows = board_rows(entries)
         toolbar = ui.row().classes('items-center w-full')
-        # Keyed by player, not by rank: ranks are now shared on a tie.
+        # Keyed by player, not rank: ranks are shared on a tie.
         table = ui.table(columns=columns, rows=rows, row_key='user',
                          pagination=BOARD_PAGE).classes('w-full wiz-table')
         with toolbar:
@@ -615,8 +574,6 @@ async def admin_qualifiers_page(
                            table_key=TableKeys.ADMIN_QUALIFIER_LEADERBOARD)
         ui.label(BOARD_EXPLAINER).classes('text-caption text-grey')
 
-    # Bound after the views exist; ``load_tab`` reads it by name, and every call
-    # happens from a handler long after this module-level wiring has run.
     _TAB_VIEWS.update({
         POOLS_TAB: pools_view,
         LIVE_TAB: live_view,
@@ -646,8 +603,7 @@ async def admin_qualifiers_page(
     await load_list()
     wire_tab_refresh('Qualifiers', load_list)
 
-    # The address, not the arguments: those are the request's, and stale once the
-    # viewer has switched tabs and come back.
+    # Read the address, not the arguments: those go stale after a tab switch.
     asked = url_state().requested('qualifier')
     qualifier = int(asked) if asked and asked.isdecimal() else None
     open_tab = url_state().requested('qualifier_tab')
@@ -658,8 +614,6 @@ async def admin_qualifiers_page(
             await load_shell()
             managing_param.set(qualifier, history='replace')
         else:
-            # Deleted, or in another community, or this viewer cannot administer it.
-            # A link that quietly does nothing reads as a broken app.
             ui.notify(
                 'That qualifier is no longer available — it may have been deleted.',
                 color='warning',

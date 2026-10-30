@@ -76,7 +76,6 @@ class RoleGrantsEditor:
 
     def __init__(self, held: Iterable[Grant], events: List[EventRef], event_id: Optional[int]) -> None:
         self.held: Set[Grant] = set(held)
-        # Grants change only in an event that can change: live or draft.
         self.events = events
         self.choosable = [e for e in events if not e.is_archived]
         ids = {e.id for e in self.choosable}

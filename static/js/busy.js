@@ -1,9 +1,4 @@
-/*
- * The seconds count on a busy button (theme/busy.py). Counted here rather
- * than pushed from the server so a long job costs no socket traffic; it
- * starts from when the browser first sees the spinner, so clock skew between
- * server and reader can't show a wrong number.
- */
+/* Counted in the browser from when it first sees the spinner, so server clock skew can't show a wrong number. */
 (function () {
   if (window.__wizBusy) return;
   window.__wizBusy = true;

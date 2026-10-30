@@ -16,16 +16,12 @@ viewer has a button and needs no prose.
 
 __all__ = ['CHECKIN_GUIDANCE', 'HOLDER_PREFIX', 'RETIRED_GUIDANCE', 'equipment_guidance']
 
-#: The one place the *reason* for the asymmetric check-in gate is written for users.
 CHECKIN_GUIDANCE = (
     'Returns are recorded by staff or an equipment manager — hand it to them to '
     'check in.'
 )
 HOLDER_PREFIX = 'You have this checked out.'
 RETIRED_GUIDANCE = 'This asset is retired, so it cannot be checked out.'
-#: Kept as the defensive fallback rather than the volunteers-and-staff rule it
-#: used to state: borrowing is open to any signed-in member, so the only viewers
-#: this can now reach are ones the page will not render for anyway.
 NOT_BORROWABLE_GUIDANCE = (
     'This account cannot borrow equipment — ask staff or an equipment manager '
     'if you need this.'
@@ -48,7 +44,6 @@ def equipment_guidance(
     whether a check-in button appears.
     """
     if can_manage:
-        # They have the buttons; prose would be noise.
         return None
     if is_checked_out and not can_checkin:
         if viewer_is_holder:

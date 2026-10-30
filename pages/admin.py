@@ -82,12 +82,9 @@ class AdminAccess:
     is_tournament_admin: bool = False
     is_crew_coordinator: bool = False
     is_qualifier_owner: bool = False
-    # The tournaments this viewer administers or coordinates, for the surfaces
-    # that scope to them. Excluded from ``any()``: it is derived from the two
-    # booleans above, and a set is not an access grant of its own.
+    # Not part of any(): derived from the booleans above, not an access grant of its own.
     operated_tournament_ids: frozenset[int] = frozenset()
-    # The two halves of that union, for the board's per-row capabilities. None
-    # when unknown (tests, older callers): the board then scopes nothing per row.
+    # None means unknown: the board then scopes nothing per row.
     admin_tournament_ids: frozenset[int] | None = None
     crew_tournament_ids: frozenset[int] | None = None
 
@@ -128,8 +125,6 @@ def build_admin_tabs(
     is_cc_any = access.is_crew_coordinator
     is_qa_any = access.is_qualifier_owner
     is_sm = access.is_stream_manager
-    # What the board may offer, resolved per capability rather than from one
-    # can-do-everything boolean — the services have always been this granular.
     board_access = MatchBoardAccess.for_roles(
         is_staff=is_staff,
         is_tournament_admin=is_ta_any,
@@ -140,43 +135,26 @@ def build_admin_tabs(
     )
     if (is_staff or is_sm) and FeatureFlag.STREAM_LAYOUTS in live:
         board_access = replace(board_access, pin_overlay=True)
-    # Staff and the stream manager operate community-wide; a TA/CC's authority is
-    # per tournament, so their board is narrowed to the ones they run rather than
-    # showing every match in the community with controls that refuse.
     board_tournament_ids = (
         None if (is_staff or is_sm)
         else sorted(access.operated_tournament_ids)
     )
-    # Each tab that can be deep-linked gets its own params. `state` in
-    # reports_kwargs is the Reports tab's own filter and deliberately not
-    # reused for the board's state filter — one param must not mean two things.
+    # Don't reuse reports_kwargs' `state` here: that's the Reports tab's filter, not the board's.
     schedule_kwargs = {
         'access': board_access,
         'match_id': match_id or comments,
         'tournament_ids': board_tournament_ids,
-        # A request id from the "Reschedule request" DM's button: the board
-        # opens that request's decision dialog on arrival, so the ask lands on
-        # the control that answers it rather than on a row to go and find.
         'reschedule_request': reschedule_request,
-        # A match id from a staff alert DM (a player's comment): the board
-        # narrows to it and opens its sheet on the comments.
         'comments': comments,
     }
 
     tabs: list[dict] = []
-    # Setup comes first while the community is not ready: BaseLayout defaults to
-    # tabs[0], so a new community lands on the checklist rather than on Create
-    # Match, which cannot yet succeed. It disappears on its own once the
-    # required steps are done — nothing stores that it was seen.
+    # Setup must stay tabs[0] while the community isn't ready: BaseLayout opens tabs[0].
     # Filled in once every tab is known, so a step only links to a tab the viewer has.
     setup_kwargs: dict = {'steps': setup_steps, 'base_path': base_path}
     if setup_steps and not TenantSetupService.is_ready(setup_steps) and (is_staff or is_ta_any):
         tabs.append({'label': 'Setup', 'icon': 'checklist', 'group': RUN_THE_EVENT,
                      'content': (admin_setup_page, (), setup_kwargs)})
-    # STREAM_MANAGER is here because assigning a stage is a match-board action
-    # and this is the only board that offers it — the role existed for that job
-    # with no surface that did it. What they get once here is one control:
-    # ``board_access`` grants them ``assign_stream`` and nothing else.
     if is_staff or is_ta_any or is_cc_any or is_sm:
         tabs.append({'label': 'Match Schedule', 'icon': 'view_timeline', 'group': RUN_THE_EVENT, 'aliases': ('schedule',), 'content': (admin_schedule_page, (), schedule_kwargs)})
     if is_staff or is_ta_any:
@@ -188,8 +166,6 @@ def build_admin_tabs(
                      'content': admin_stream_layouts_page})
     if is_staff and FeatureFlag.EVENT_CHECK_IN in live:
         tabs.append({'label': 'Check-in Roster', 'icon': 'fact_check', 'group': RUN_THE_EVENT, 'aliases': ('check-in',), 'content': admin_check_in_page})
-    # A tournament admin belongs here: posting their event's payout block is the
-    # job this replaces, and the service scopes each of them to their own events.
     if (is_staff or is_ta_any) and FeatureFlag.PAYOUTS in live:
         tabs.append({'label': 'Payouts', 'icon': 'payments', 'group': RUN_THE_EVENT, 'content': admin_payouts_page})
     if (is_staff or is_ta_any) and FeatureFlag.TRIFORCE_TEXTS in live:
@@ -203,8 +179,6 @@ def build_admin_tabs(
                                   'title': 'Event settings',
                                   'subtitle': 'What this event sets for itself. Pick an area to change it.'})})
     if (is_staff or access.is_qualifier_admin or is_qa_any) and FeatureFlag.ASYNC_QUALIFIERS in live:
-        # The "runs are waiting" DM lands here with a qualifier and a tab, so a
-        # reviewer arrives at the queue rather than at a list to go and search.
         tabs.append({'label': 'Qualifiers', 'icon': 'timer', 'group': ONLINE_PLAY,
                      'content': (admin_qualifiers_page, (),
                                  {'qualifier': qualifier, 'open_tab': qualifier_tab})})
@@ -238,15 +212,10 @@ def build_admin_tabs(
                      'content': (admin_surveys_page, (), {'survey': survey, 'view': survey_view})})
     if is_staff:
         tabs.append({'label': 'Events', 'icon': 'calendar_month', 'group': CONFIGURATION, 'content': admin_events_page})
-    # Configuration because presets outlive an event: every year's tournaments
-    # attach the same ones, and on-site rolls read them as much as race rooms.
     if is_staff or access.is_preset_manager:
         tabs.append({'label': 'Seed Presets', 'icon': 'tune', 'group': CONFIGURATION, 'aliases': ('presets',), 'content': admin_presets_page})
     if is_staff:
         tabs.append({'label': 'Notifications', 'icon': 'notifications', 'group': CONFIGURATION, 'content': admin_notifications_page})
-    # Every setting lives under one entry with its own menu; the panes keep
-    # their old tabs' role gates, so a sync admin or preset manager still finds
-    # the one pane they had, and the retired slugs resolve to it.
     settings_panes = build_settings_panes(access, live)
     if settings_panes:
         tabs.append({'label': SETTINGS_TAB_LABEL, 'icon': 'settings', 'group': CONFIGURATION,
@@ -257,8 +226,6 @@ def build_admin_tabs(
     if is_staff or is_ta_any or is_cc_any:
         tabs.append({'label': 'Reports', 'icon': 'analytics', 'group': SYSTEM, 'content': (reports_page, (), reports_kwargs)})
     elif access.is_volunteer_coordinator and FeatureFlag.VOLUNTEERS in live:
-        # A coordinator reads Volunteer Coverage and nothing else here: the
-        # other reports cover matches, crew and stages they have no say over.
         tabs.append({'label': 'Reports', 'icon': 'analytics', 'group': SYSTEM,
                      'content': (reports_page, (), {**reports_kwargs, 'only': VOLUNTEER_REPORTS})})
     if is_staff:
@@ -286,18 +253,14 @@ def selected_admin_tab(tabs: list[dict], section: str | None) -> dict:
 async def resolve_admin_access(user: User) -> AdminAccess:
     """What ``user`` may reach in the admin area of the community in scope."""
     roles = await AuthService.get_roles(user)
-    # Tenant-filtered inside the service: these reverse relations hang off
-    # the *global* User, so unfiltered they let a tournament admin in one
-    # community through this gate in every other one. The ids (not just
-    # "any?") because the Schedule board scopes to them.
+    # Must stay tenant-filtered: these hang off the global User, so unfiltered a tournament
+    # admin in one community passes this gate in every other.
     admin_tournament_ids, cc_tournament_ids = await AuthService.tournament_scope(user)
     return AdminAccess(
-        # Staff-equivalence (not the literal grant) so a platform super-admin
-        # has full authority in this tenant.
+        # is_staff, not the literal STAFF grant, so a super-admin passes.
         is_staff=await AuthService.is_staff(user),
         is_stream_manager=Role.STREAM_MANAGER in roles,
         is_volunteer_coordinator=Role.VOLUNTEER_COORDINATOR in roles,
-        # Equipment is the community's: the role held in any live event counts.
         is_equipment_manager=await AuthService.is_equipment_manager(user),
         is_preset_manager=Role.PRESET_MANAGER in roles,
         is_sync_admin=Role.SYNC_ADMIN in roles,
@@ -361,9 +324,7 @@ def create() -> None:
                 ui.label('You must be logged in to view this page.').classes('text-error')
             return None
 
-        # get_user_from_session enforces is_active, so a deactivated account
-        # loses admin access on its next request — consistent with the REST API
-        # and the login flow, and not bypassed by this non-role-gated page.
+        # get_user_from_session enforces is_active; this page isn't role-gated, so don't bypass it.
         user = await get_user_from_session(app.storage.user)
         if user is None:
             with ui.row():
@@ -399,14 +360,12 @@ def create() -> None:
             qualifier=qualifier, qualifier_tab=tab, ada_request=ada_request,
             member=user_id if section in ('members', 'users') else None,
             community_event=community_event,
-            # A retired tab slug (/admin/appearance) names the pane that took it in.
             settings_pane=pane or LEGACY_TAB_PANES.get(section or ''),
             event_settings_pane=pane,
             survey=survey, survey_view=view,
         )
 
-        # No tabs is a refusal too: a coordinator or equipment manager whose
-        # feature is off holds a role but has nothing here to open.
+        # `not tabs` too: a role whose feature is off leaves nothing to open.
         if not access.any() or not tabs:
             from theme.error_page import prepared_layout, render_error_page
             render_error_page(
@@ -417,8 +376,6 @@ def create() -> None:
             )
             return None
 
-        # The hub holds both halves, so only an event tab follows a bare link
-        # to the default event; Members or Settings keep the URL they came in on.
         if selected_admin_tab(tabs, section)['half'] == 'event':
             redirect = await default_event_redirect(request)
             if redirect is not None:
@@ -430,11 +387,8 @@ def create() -> None:
         )
         await base_layout.render()
 
-    # Settings panes are a path segment below the Settings tab, like the tab is
-    # below /admin, so a pane's URL reads like a route and can be bookmarked.
     @protected_page('/admin/settings/{pane}', telemetry_path='/admin', scope='community')
     async def admin_settings_pane_page(pane: str, request: Request = None) -> Optional[RedirectResponse]:
-        # Event and Venue moved to the event's own settings; old links follow.
         if pane in MOVED_TO_EVENT_PANES:
             return await admin_dashboard_page(
                 section=tab_slug(EVENT_SETTINGS_TAB_LABEL), pane=MOVED_TO_EVENT_PANES[pane], request=request,

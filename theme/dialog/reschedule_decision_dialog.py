@@ -34,9 +34,6 @@ from theme.dialog._helpers import (
 from theme.dialog.clash_warning import confirm_time
 from theme.notify import notify_error
 
-# How long either side of the proposed slot to check the players against. The
-# tournament's own average is used when it has one; this is the fallback the
-# rest of the app uses for the same question.
 _DEFAULT_MATCH_MINUTES = 90
 
 
@@ -59,8 +56,6 @@ class RescheduleDecisionDialog:
         request = self.request
         match = request.match
         cancel = request.kind is RescheduleRequestKind.CANCEL
-        # ``request.match`` comes off an untyped FK relation, so mypy resolves
-        # this to Any and needs no ignore here (unlike a typed ``Match``).
         players = list(match.players)
         names = ' vs '.join(p.user.preferred_name for p in players)
 

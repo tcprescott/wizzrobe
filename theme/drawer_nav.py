@@ -38,8 +38,6 @@ def section_page_path(section_url: str, tab: dict) -> str:
 
 
 def render_drawer_nav(layout: 'BaseLayout', current_path: str) -> None:
-    # Watch has no pages of its own, so it is a plain link above the section
-    # switcher rather than one of its tabs.
     for item in layout.top_menu:
         if item['url'] != WATCH_URL:
             continue
@@ -73,9 +71,6 @@ def render_drawer_nav(layout: 'BaseLayout', current_path: str) -> None:
             if layout.tabs:
                 render_page_items(layout, layout.tabs)
             elif layout._is_member:
-                # A tab-less page has no section list of its own, so a member
-                # gets home's: the bracket or article they followed a link to
-                # is not where they stop being a player.
                 render_page_items(layout, home_menu(), section_url='/')
     layout._section_lists[current] = current_list
     mark_section_button(layout, current)
@@ -87,8 +82,6 @@ def render_page_items(layout: 'BaseLayout', tabs: list[dict], section_url: str |
     current_group = None
     current_half = None
     for tab in tabs:
-        # Admin's list has two halves: the event's pages under its name and
-        # status, then the community's under a Community-wide divider.
         half = tab.get('half')
         if half and half != current_half:
             current_half = half

@@ -132,9 +132,6 @@ async def open_results(row, client, *, service, tenant_id, tournament_id, on_cha
                     with ui.element('div').classes('bracket-embed-scroll'):
                         with ui.element('div').classes('bracket-2d w-full'):
                             render_elimination(matches, ctx, double=double)
-                        # The 2-D bracket is unusable in a phone-width dialog (a
-                        # ~1200px canvas in a ~300px box), so staff get the same
-                        # accordion as the public page.
                         with ui.element('div').classes('bracket-mobile-list w-full'):
                             render_elimination_mobile(matches, ctx, double=double)
                     ui.separator()
@@ -291,10 +288,6 @@ def _render_match_lists(
         for m in complete_matches:
             result_row(m)
 
-    # Where the visual bracket is present these lists are the fallback, not the
-    # primary surface: collapsed, they stop a 32-match stage from burying the
-    # dialog's own actions under ~3000px of scroll. Swiss / round robin have no
-    # embed, so there they stay open — they are the only surface.
     if embedded:
         with ui.expansion(f'Open matches ({len(open_matches)})').classes('w-full'):
             open_list()

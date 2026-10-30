@@ -26,7 +26,6 @@ from theme.notify import notify_error
 from theme.save_footer import SaveFooter
 from theme.section import section_panel
 
-#: New live viewers the app can let in a minute, from docs/scaling-roadmap.md.
 ADMISSIONS_PER_MINUTE = 600
 
 _MODE_LABELS = {

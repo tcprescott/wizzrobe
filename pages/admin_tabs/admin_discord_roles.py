@@ -30,16 +30,13 @@ from theme.tables.admin_crud import refresh_button, wire_tab_refresh
 from theme.tables.mobile_grid import enable_mobile_grid
 from theme.tables.preferences import TableKeys, search_input
 
-# tenant_grantable, not every Role: a mapping is a standing grant, and
-# SUPER_ADMIN is a platform role no community may hand out.
+# tenant_grantable, not every Role: a mapping must never hand out SUPER_ADMIN.
 _ROLE_OPTIONS = {
     r.value: r.label for r in Role.tenant_grantable()
 }
 _GRANT_OPTIONS = {g.value: g.value.replace('_', ' ').title() for g in TournamentGrant}
 
-# The picker mixes two kinds of grant, so each option carries its kind. Without
-# the prefix "tournament_admin" and a future Role of the same name would be
-# indistinguishable once the value came back off the select.
+# The prefix keeps a Role and a tournament grant of the same name apart once the value comes back.
 _ROLE_PREFIX = 'role:'
 _GRANT_PREFIX = 'grant:'
 
@@ -128,7 +125,6 @@ async def admin_discord_roles_page(volunteer_mappings: bool = False) -> None:
     guild_id = tenant.discord_guild_id if tenant else None
     admin_path = f'/t/{tenant.slug}/admin' if tenant else '/admin'
 
-    # Resolve the connected server's name (best-effort; the bot may be starting).
     server_name = None
     if guild_id:
         ok, summary = await DiscordService().get_guild_summary(guild_id)
@@ -137,8 +133,6 @@ async def admin_discord_roles_page(volunteer_mappings: bool = False) -> None:
 
     async def connect_server():
         if is_host_mode():
-            # The connect callback is registered on the platform host; it can't
-            # see this custom domain's session cookie, so complete it there.
             ui.notify(
                 'Connect Discord from the main site (…/t/<slug>/admin), not this custom domain.',
                 color='warning',
@@ -150,8 +144,7 @@ async def admin_discord_roles_page(volunteer_mappings: bool = False) -> None:
         if tenant is None:
             ui.notify('Select a community first.', color='warning')
             return
-        # Carry the target tenant, CSRF state, and return path across the redirect
-        # — the callback lands on the bare platform host with no tenant in scope.
+        # The callback lands on the bare platform host: the state must carry tenant, CSRF and return path.
         state = secrets.token_urlsafe(32)
         app.storage.user['discord_connect_state'] = state
         app.storage.user['discord_connect_tenant_id'] = tenant.id
@@ -233,8 +226,7 @@ async def admin_discord_roles_page(volunteer_mappings: bool = False) -> None:
                 'that tournament is no longer active, and an event grant once the event is archived.'
             ).classes('text-caption text-grey')
 
-            # 'app_role' keeps its name so stored column preferences survive; it now
-            # carries a tournament grant as readily as a role, hence the label.
+            # Keep the 'app_role' name: stored column preferences are keyed on it.
             columns = [
                 {'name': 'id', 'label': 'ID', 'field': 'id', 'hidden': True},
                 {'name': 'discord_role_name', 'label': 'Discord Role', 'field': 'discord_role_name', 'sortable': True},
@@ -394,8 +386,6 @@ async def admin_discord_roles_page(volunteer_mappings: bool = False) -> None:
                         tournament_select.bind_visibility_from(
                             app_select, 'value', backward=wants_tournament,
                         )
-                        # The on-site roles are held in one event; a mapping
-                        # keeps the event it names even after the default moves.
                         event_select = ui.select(
                             options=event_options, label='Event', value=default_event,
                         ).classes('w-full')

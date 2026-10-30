@@ -69,11 +69,8 @@ class SlotItem:
     event: str
     negative: bool = False
     v_if: Optional[str] = None
-    # A row expression; when it's truthy its text shows as a chip at the item's end.
     badge: Optional[str] = None
-    # A row expression holding a URL: the item is then a link that opens it in a
-    # new tab, and ``event`` is not emitted. Opening from a server round trip is
-    # blocked as a pop-up on iPhone (see ``theme.links``).
+    # Opening from a server round trip is blocked as a pop-up on iPhone.
     href: Optional[str] = None
 
 

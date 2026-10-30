@@ -67,8 +67,6 @@ def create() -> None:
             entries = all_entries()
             if not entries:
                 empty_panel('Nothing to show yet.', icon='new_releases')
-            # Weeks as cards, two across on a wide screen: one column of prose
-            # capped at a readable measure left most of a 1200px page empty.
             with ui.element('div').classes('wiz-tile-grid wiz-tile-grid--md'):
                 for entry in entries:
                     _entry(entry)

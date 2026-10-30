@@ -66,8 +66,6 @@ def nothing_yet() -> None:
         fun_fact()
 
 
-#: DM link parameters that open something once. Left in the address, a reload
-#: reopens the dialog or repeats its "already done" notice.
 _ONE_SHOT_LINKS = ('schedule', 'reschedule', 'hard', 'agree', 'book', 'startgg', 'comments', 'release', 'shifts')
 
 
@@ -107,20 +105,12 @@ async def my_schedule_tab(
         works = bool(volunteer and await VolunteerScheduleService().assignments_for_user(volunteer))
         return plays, crews, works
 
-    # Only what applies to this person is drawn. Someone in no tournament has no
-    # matches panel and no "can't play" editor; crew and shift panels draw
-    # themselves only when there is something in them.
     applies = await what_applies()
     plays = applies[0]
-    # A forwarded or stale player link still lands on the matches panel, which
-    # says what that match is to the reader.
     player_link = any(
         v is not None for v in (schedule, reschedule, match, hard, agree, book, startgg, comments)
     )
     deep_link = shifts or player_link or release is not None
-    # A DM's link names something to open in the List view, so it wins over a
-    # remembered Timeline for this visit without changing the remembered choice.
-    # An address that names the view (a reload, Back, a shared link) wins over both.
     asked = url_state().requested('view')
     if asked not in VIEWS:
         asked = 'list' if deep_link else app.storage.user.get(VIEW_KEY, 'list')
@@ -133,10 +123,7 @@ async def my_schedule_tab(
             volunteer, release=shift_links['release'], focus=shift_links['shifts'],
         )
 
-    # The tab is built once and kept while the viewer moves between tabs, so a
-    # crew slot taken on Event > Schedule, or the last one withdrawn here, has to
-    # redraw it. Deep links were for the first build; a redraw must not reopen
-    # their dialogs.
+    # The tab is kept across tab switches, so it must redraw; a redraw must not reopen deep-link dialogs.
     state_links: dict = {
         'schedule': schedule, 'reschedule': reschedule, 'match': match, 'hard': hard,
         'agree': agree, 'book': book, 'startgg': startgg, 'comments': comments,
@@ -159,7 +146,6 @@ async def my_schedule_tab(
 
     async def list_view() -> None:
         plays, links = applies[0], dict(state_links)
-        # Someone waiting on an answer from the viewer comes before everything.
         drew = await crew_invites_section(on_change=recheck_soon)
         if plays or any(v is not None for v in links.values()):
             await render_player_dashboard(**links)
@@ -169,7 +155,6 @@ async def my_schedule_tab(
             drew = await shifts_section() or drew
             await availability_tab()
         else:
-            # Not playing: whatever they volunteered for is the schedule.
             drew = await shifts_section() or drew
             drew = await my_crew_tab(focus_match=links['match'], on_empty=recheck_soon) or drew
         if not drew:
@@ -177,7 +162,7 @@ async def my_schedule_tab(
         await render_past_events(user, home_url(HOME_SCHEDULE))
         state_links.update(dict.fromkeys(state_links))
         shift_links.update(release=None, shifts=False)
-        # ``match`` is a filter the board still shows, so it stays.
+        # `match` is a filter the board still shows, so it stays in the address.
         consume_deep_link(*_ONE_SHOT_LINKS)
 
     @steady_refreshable

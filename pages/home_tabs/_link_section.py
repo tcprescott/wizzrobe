@@ -47,13 +47,7 @@ class LinkSectionConfig:
     username_attr: str
     linked_at_attr: str
     service_factory: Callable[[], object]
-    # Only for a provider where unlinking changes more than the row: the body of
-    # a confirmation dialog. None means the unlink is cheap and reversible and
-    # goes through on one click, which is the right answer for most of them.
     unlink_confirmation: Optional[str] = None
-    # For a provider whose OAuth consent page breaks when the reader is signed
-    # out there: its sign-in page. Link then opens a dialog asking them to sign
-    # in first instead of sending them straight to the provider.
     sign_in_first_url: Optional[str] = None
 
 
@@ -70,43 +64,24 @@ def _render_provider_row(
         linked_at = getattr(user, config.linked_at_attr, None)
         with ui.row().classes('items-center w-full no-wrap gap-3'):
             ui.icon(config.icon, size='sm').classes('icon-primary')
-            # min-w-0 lets the text column shrink beside the button on a phone;
-            # without it a long handle pushes the caption under Unlink.
             with ui.column().classes('gap-0 col min-w-0'):
                 ui.label(config.title).classes('text-weight-medium')
                 if user_id:
                     with ui.row().classes('items-start gap-1 no-wrap'):
                         ui.icon('check_circle', size='xs').classes('text-positive q-mt-xs')
-                        # A date is what lets someone recognise a link they made
-                        # years ago under a provider name they have since changed.
-                        # Additive: a row linked before the column existed has none.
                         since = f' on {format_local_date(linked_at)}' if linked_at else ''
-                        # Wraps rather than truncates: the date is the part worth keeping.
                         ui.label(f'Linked as {username or user_id}{since}') \
                             .classes('text-caption text-grey-7 col min-w-0') \
                             .style('overflow-wrap: anywhere')
                 else:
                     ui.label('Not linked').classes('text-caption text-grey-7')
-                    # Only on the unlinked row: this is where the decision is made,
-                    # and three descriptions plus three statuses is a scroll on a
-                    # phone. A linked row answers a different question, which the
-                    # account name and date above already answer.
                     ui.label(config.description).classes('text-caption text-muted')
             if user_id:
-                # The visible label stays short (three rows, one narrow column);
-                # the configured full label is what a screen reader announces, so
-                # the row stops being three identically-named buttons.
                 ui.button('Unlink', icon='link_off', on_click=confirm_unlink) \
                     .classes('col-auto') \
                     .props(f'flat dense color=negative aria-label="{config.unlink_button_label}"') \
                     .tooltip(config.unlink_button_label)
             elif is_host_mode() and not host_oauth_handoff_enabled():
-                # Design A: the link callback lives on the platform host and can't
-                # see this custom domain's cookie; do it from the main site. With
-                # HOST_OAUTH_MODE=handoff the link route runs the cross-host handoff
-                # and works in place, so the button shows normally (below).
-                # Naming a place without going there is a dead end, so this is a
-                # link to the platform-host equivalent of this page.
                 ui.link('Main site only', main_site_url or '/') \
                     .classes('text-caption') \
                     .tooltip(f'Open your profile on the main site to link {config.title}.')
@@ -123,8 +98,7 @@ def _render_provider_row(
             ui.navigate.to(config.link_route)
 
     async def unlink() -> None:
-        # In place: the row re-renders under the same document, so ui.notify is
-        # correct here and stash_notice would be wrong.
+        # In place: the row re-renders under the same document, so ui.notify is right and stash_notice wrong.
         try:
             await service.unlink_player(user, actor=user)
             ui.notify(config.unlinked_message, color='positive')
@@ -185,10 +159,6 @@ async def render_connected_accounts_section(
     if not active:
         return
 
-    # Where a custom-domain user has to go to link, when the handoff is off and
-    # the button cannot work here. Built by the same helper the link route uses
-    # for its own detour, rather than reassembling a host in the view; ``None``
-    # in path mode, where the rows work in place and this is never read.
     main_site_url = await platform_link_redirect('/home/profile')
 
     with ui.card().classes('card-full-width').props(f'id={section_anchor(ProfileSection.CONNECTED_ACCOUNTS)}'):

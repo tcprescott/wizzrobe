@@ -39,8 +39,6 @@ _STATUS_LABELS = {
     'retired': 'Retired',
 }
 
-#: Loan rows painted before the "Show all" expansion. An asset lent two hundred
-#: times used to fetch and render all two hundred, on a phone.
 _HISTORY_PREVIEW = 5
 
 
@@ -68,8 +66,7 @@ def create() -> None:
     @protected_page('/equipment/{asset_id}', feature=FeatureFlag.EQUIPMENT, scope='community')
     async def equipment_detail(asset_id: int) -> None:
         ui.page_title(f'Equipment — {await TenantService.current_community_name() or "Wizzrobe"}')
-        # get_user_from_session enforces is_active so a deactivated user
-        # cannot keep reading asset owner labels / manager-only private notes.
+        # get_user_from_session enforces is_active: a deactivated user mustn't read manager-only notes.
         user = await get_user_from_session(app.storage.user)
         await BaseLayout(user=user).render()
 
@@ -93,10 +90,7 @@ def create() -> None:
             history = await service.loan_history(asset, limit=_HISTORY_PREVIEW)
             total_loans = await service.loan_count(asset)
 
-            # Tenant-qualified deep link so a scanned QR resolves to this
-            # community: its own custom domain when set, else the path-mode form
-            # (/t/<slug>/equipment/<id>). On the bare platform host a bare
-            # /equipment/<id> would 404 (protected pages require a tenant).
+            # Tenant-qualified: on the bare platform host a bare /equipment/<id> 404s.
             tid = get_current_tenant_id()
             tenant = await TenantService.get_by_id(tid) if tid is not None else None
             asset_link = (
@@ -138,11 +132,7 @@ def create() -> None:
                         qr_logo = await TenantLogoService.qr_logo_data_uri()
                         ui.image(asset_qr_svg_data_uri(asset_link, qr_logo)).classes('w-40 h-40')
                         ui.label(asset_link).classes('text-caption wiz-free-text')
-                        # Manager-only: a volunteer scanning a label cannot act
-                        # on a BASE_URL misconfiguration and does not need the
-                        # noise. Compared against the tenant's canonical base —
-                        # a custom-domain community's links are meant to differ
-                        # from the platform host.
+                        # Compare against the tenant's canonical base, not BASE_URL: custom-domain links are meant to differ.
                         wrong_host = encoded_host_mismatch(
                             asset_link,
                             effective_request_host(context.client.request.headers),
@@ -153,8 +143,6 @@ def create() -> None:
                             ).classes('text-warning text-caption')
 
                         def download_qr():
-                            # The logo is an SVG or WebP the server can't
-                            # rasterise into a PNG, so a logo code downloads as SVG.
                             if qr_logo:
                                 ui.download(asset_qr_svg(asset_link, qr_logo).encode('utf-8'),
                                             f'asset-{asset.asset_number}-qr.svg', 'image/svg+xml')
@@ -168,10 +156,7 @@ def create() -> None:
                                     'Print label', f'/equipment/qr-labels?ids={asset.id}', icon='print',
                                 ).props('flat dense').tooltip('Open a printable label for this asset')
 
-                # Every button here needs a round trip, so each carries the
-                # offline guard's class (theme/connection.py). Download QR and
-                # Print label above deliberately do not: the data URI is already
-                # in the page, and a new tab fails on its own terms.
+                # Each button here needs the offline guard's class; Download QR and Print above deliberately don't.
                 with ui.row().classes('q-mt-md gap-2'):
                     if open_loan is None and can_checkout and asset.status.value != 'retired':
                         label = 'Check out…' if can_manage else 'Check out to me'
@@ -206,9 +191,6 @@ def create() -> None:
                     with ui.column().classes('gap-1 w-full'):
                         _render_loans(history)
                     if total_loans > len(history):
-                        # Fetched on first open, not at build time: the whole
-                        # point of the bound is not paying for rows nobody asked
-                        # to see.
                         with ui.expansion(f'Show all {total_loans}').classes('w-full') as expansion:
                             rest = ui.column().classes('gap-1 w-full')
                         loaded = {'value': False}
@@ -218,9 +200,6 @@ def create() -> None:
                                 loaded['value'] = True
                                 every = await service.loan_history(asset)
                                 with rest:
-                                    # Only what is not already painted above, so
-                                    # "Show all 15" leaves fifteen on screen, not
-                                    # the first five twice.
                                     _render_loans(every[len(history):])
 
                         def on_expand(event) -> None:

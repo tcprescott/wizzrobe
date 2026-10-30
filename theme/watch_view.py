@@ -36,9 +36,7 @@ from theme.brackets.static_view.document import _document
 from theme.brackets.static_view.markup import _esc, _tag
 from theme.matchup import matchup_html
 
-#: Upcoming matches listed under each stage; the rest are in "Coming up".
 UP_NEXT_LIMIT = 3
-#: Rows in "Coming up on stream", across every stage and day.
 COMING_UP_LIMIT = 12
 STATIC_REFRESH_SECONDS = 60
 
@@ -51,16 +49,13 @@ class WatchMatch:
     time: str
     players: str
     tournament: str = ''
-    #: The tournament's short name (its full name when it has none), for the tight rows.
     tournament_short: str = ''
     stage: str = ''
     commentators: str = ''
     trackers: str = ''
     match_id: int = 0
     tournament_id: Optional[int] = None
-    #: When the match actually started (UTC), for the "42 min in" on its stage.
     started_at: Optional[datetime] = None
-    #: ``players`` in pieces when a side is still a bracket placeholder, else empty.
     players_parts: List[dict] = field(default_factory=list)
 
 
@@ -69,10 +64,7 @@ class WatchStage:
     id: int
     name: str
     stream_url: str = ''
-    #: The Twitch channel ``stream_url`` points at, when it is one.
     channel: Optional[str] = None
-    #: That channel as the link spells it, shown beside the stage name: remote
-    #: viewers know the channel, only people at the venue know the stage.
     channel_name: Optional[str] = None
     on_now: Optional[WatchMatch] = None
     up_next: List[WatchMatch] = field(default_factory=list)
@@ -93,16 +85,11 @@ class WatchTournament:
     id: int
     name: str
     format: str = ''
-    #: How far along its bracket is, for a spectator; '' when nothing says.
     status: str = ''
-    #: ``wiz-chip--<tone>``: live, ok, pending or neutral.
     tone: str = 'neutral'
-    #: Absolute (Challonge, or another site) or root-relative (``/live/...``).
     bracket_url: str = ''
     rules_url: str = ''
-    #: Pool plus bonus, when Prize Payouts is on and the total is above zero.
     prize_total: Optional[Decimal] = None
-    #: True when the pool comes from sglive.speedgaming.org.
     prize_synced: bool = False
 
 
@@ -149,8 +136,6 @@ def bracket_href(url: str, root_path: str) -> str:
     return http_url_or_empty(url)
 
 
-# Only what the live page gets from Quasar: the shared .wiz-watch-* and
-# .wiz-tile rules live in styles.css, which the static shell loads too.
 _WATCH_CSS = """
 <style>
 body { --wiz-header-height: 0px; }
@@ -168,9 +153,7 @@ body { --wiz-header-height: 0px; }
 </style>
 """
 
-# Both renderings load this. It keeps each tile's "42 min in" counting and
-# swaps in Twitch's newer still every couple of minutes; the minute bucket in
-# the query string is what gets past Twitch's CDN cache.
+# The minute bucket in the query string gets past Twitch's CDN cache.
 TILES_JS = """
 <script>(function(){
 if(window.wizTiles)return;window.wizTiles=1;
@@ -184,9 +167,7 @@ since();setInterval(since,30000);setInterval(thumbs,120000);
 })();</script>
 """
 
-# Builds the player in the browser (``parent`` must be the host the reader
-# reached, which one shared render cannot know), and refetches the page every
-# STATIC_REFRESH_SECONDS to swap #wizw-live without touching the player.
+# Built in the browser: `parent` must be the host the reader reached, which one shared render can't know.
 _WATCH_JS = """
 <script>(function(){
 var theater=document.getElementById('wizw-theater');
@@ -241,7 +222,7 @@ if(url){setInterval(function(){
 })();</script>
 """
 
-#: Material's play_arrow; the static page loads no icon font.
+# Inline SVG: the static page loads no icon font.
 PLAY_ICON = (
     '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">'
     '<path fill="currentColor" d="M8 5v14l11-7z"/></svg>'
@@ -391,7 +372,7 @@ def _coming(view: WatchView) -> str:
     return _tag('div', 'wizs-card', body)
 
 
-# Material's "payments" glyph: the static page loads no icon font.
+# Inline SVG: the static page loads no icon font.
 _PAYMENTS_ICON = (
     '<svg class="wiz-watch-tourn__icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">'
     '<path fill="currentColor" d="M19 14V6c0-1.1-.9-2-2-2H3c-1.1 0-2 .9-2 2v8c0 1.1.9 2 2 2h14'

@@ -58,8 +58,6 @@ _MESSAGE = '''
     </span>
 '''
 
-# Reversible: marking reviewed used to be one-way, so a mis-click dropped a
-# submission out of the only queue anyone looks at with no way back.
 _ROW_ACTIONS = '''
     <div class="row no-wrap items-center justify-end q-gutter-x-xs">
         <q-btn v-if="props.row.status !== 'reviewed'" unelevated dense no-caps color="primary"
@@ -118,8 +116,7 @@ def _row(fb: Any) -> dict:
         'category_icon': CATEGORY_ICONS.get(category, {}).get('icon', 'o_chat_bubble_outline'),
         'message': fb.message,
         'page_url': fb.page_url or '',
-        # Only a same-origin path is drawn as a link: the sender controls this
-        # string, and an href is where javascript: or //evil would run.
+        # Same-origin paths only: the sender controls this string.
         'page_href': safe_local_path(fb.page_url, auth_routes=()) or '',
         'status': fb.status.value,
     }
@@ -141,7 +138,7 @@ async def admin_feedback_page() -> None:
             "once it's handled.",
         ):
             ui.space()
-            # Lambda, not a direct reference: reload is defined below the header.
+            # Lambda: reload is defined below the header.
             refresh_button(lambda: reload(), tooltip='Refresh')
             await help_icon('feedback-review', user=await get_user_from_session(app.storage.user))
 
@@ -159,8 +156,6 @@ async def admin_feedback_page() -> None:
         table.add_slot('body-cell-actions',
                        f'<q-td :props="props" style="white-space: nowrap">{_ROW_ACTIONS}</q-td>')
         table.add_slot('item', _ITEM)
-        # Terminal on purpose — staff cannot manufacture feedback, so there
-        # is nothing to offer here beyond saying the queue is empty.
         table.add_slot('no-data', no_data_slot('Nothing here. New feedback shows up in this list.',
                                                icon='feedback'))
         customize_table(table, _COLUMNS, key=TableKeys.ADMIN_FEEDBACK)

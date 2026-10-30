@@ -51,21 +51,14 @@ Label = Callable[[str], Optional[str]]
 
 TITLE_SEPARATOR = ' — '
 POP_EVENT = 'wiz_url_pop'
-#: The key of a parameter carried as path segments under the hub tab's path
-#: rather than in the query string (``/admin/settings/<pane>``).
 TAIL = '/'
 
 _states: 'WeakKeyDictionary[Client, UrlState]' = WeakKeyDictionary()
 
-#: An element carrying this attribute (a hub tab's drawer row or bottom-bar tab)
-#: pushes its address in the click itself. Safari, and Chrome after five
-#: seconds, skip a Back entry that was pushed without a click to hand: a push
-#: that waits on a slow server round trip left Back with nowhere to go.
+# Pushes its address in the click itself: Safari and Chrome skip a Back entry pushed without a click to hand.
 PUSH_ATTR = 'data-wiz-push'
 
-# Installed once per document. ``popstate`` reports the address the browser moved
-# to; the server works out what changed. Inline rather than a static file,
-# because a lazily built tab can be the first thing on a page to need it.
+# Inline, not a static file: a lazily built tab can be the first thing to need it.
 _LISTENER_JS = (
     'if(!window.__wizUrlState){window.__wizUrlState=true;'
     "window.addEventListener('popstate',function(){"
@@ -151,23 +144,16 @@ class UrlState:
             self.query: dict[str, str] = dict(parse_qsl(request.url.query, keep_blank_values=False))
         except Exception:
             self.path, self.query = '/', {}
-        # Path segments under the hub tab's own (``/admin/settings/<pane>``),
-        # owned by the :data:`TAIL` parameter.
         self.tail = ''
-        # What the page called itself before any view was named in front of it.
         self.base_title: str = client.resolve_title() or 'Wizzrobe'
         self._params: list[UrlParam] = []
         self.tab: Optional[str] = None
         self._tab_containers: dict[str, ui.element] = {}
         self._on_slug: Optional[Callable[[str], Awaitable[None]]] = None
         self._hub_base = ''
-        #: The pathname the browser was last told to show (or arrived at by
-        #: Back/Forward). A replace is only applied while the browser is still
-        #: there: one computed before a Back that the server hadn't heard of
-        #: yet would otherwise rewrite the entry Back just landed on.
+        # A replace applies only while the browser is still here, or it rewrites the entry Back just landed on.
         self._at = self.path
         self.restoring = False
-        #: Switches mid-redraw (:meth:`UrlParam.changing`): late controls wait.
         self.busy = 0
         client.layout.on(POP_EVENT, self._on_pop)
         with client:
@@ -269,8 +255,7 @@ class UrlState:
         self.client.title = title
         target, label = json.dumps(url), json.dumps(title)
         if history == 'push':
-            # A push the click already made (``PUSH_ATTR``) only needs the
-            # title and query brought up to date, not a second Back step.
+            # A push the click already made only needs title and query updated, not a second Back step.
             script = (f'history[location.pathname+location.search==={target}?"replaceState":"pushState"]'
                       f'(history.state,"",{target}+location.hash);document.title={label};')
         else:
@@ -318,9 +303,7 @@ class UrlState:
                 if slug:
                     self.set_tab_path(f'{base}/{slug}')
                 await self._on_slug(slug)
-            # Restoring one parameter can rebuild a view that registers others;
-            # those read the address as they build, so a fresh pass picks up
-            # only what is still out of step.
+            # Restoring one parameter can rebuild a view that registers others, hence several passes.
             for _ in range(4):
                 stale = [
                     p for p in self._params
@@ -360,8 +343,7 @@ def url_state(client: Optional[Client] = None) -> UrlState:
     state = _states.get(client)
     if state is None:
         state = _states[client] = UrlState(client)
-        # The state holds its client, so the weak key alone never lets go and
-        # every closed tab's whole page stayed in memory (SGLMAN-29).
+        # The state holds its client, so the weak key alone never lets go.
         client.on_delete(lambda: _states.pop(client, None))
     return state
 

@@ -7,7 +7,6 @@ from application.services.player_availability_service import PlayerAvailabilityS
 from theme.availability_editor import BLOCK_MODE, render_availability_editor
 from theme.section import section_panel
 
-#: The Timeline's "can't play" bands scroll here after switching to List.
 AVAILABILITY_SECTION_ID = 'my-availability'
 
 
@@ -22,8 +21,6 @@ async def availability_tab() -> None:
     )
     panel.panel.props(f'id={AVAILABILITY_SECTION_ID}')
     with panel.body:
-        # ``title=''``: the panel above is the heading, and the editor's own
-        # ``help_snippet`` icon would duplicate the one in the panel header.
         await render_availability_editor(
             PlayerAvailabilityService(),
             help_text='Block out the times you cannot play; leave the rest alone.',

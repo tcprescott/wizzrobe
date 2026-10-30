@@ -54,7 +54,7 @@ _MATCH_EVENTS = (
     EventType.MATCH_DELETED,
 )
 
-# client.id -> event-bus subscription tokens, released on disconnect.
+# Released on disconnect.
 _client_tokens: Dict[str, List[int]] = {}
 _disconnect_installed = False
 
@@ -80,8 +80,6 @@ def register_bracket_view(
 
     def _on_bracket_event(event) -> None:
         payload = event.payload or {}
-        # Bracket events touching this bracket — including a stage advance that
-        # seeds it (to_bracket_id) or drew from it (from_bracket_id).
         related = {
             payload.get('bracket_id'),
             payload.get('to_bracket_id'),

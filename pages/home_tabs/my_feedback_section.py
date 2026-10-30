@@ -19,8 +19,6 @@ from application.services import FeedbackService
 from application.utils.timezone import format_local_display
 from models import Feedback, User
 
-#: How many of a person's own submissions the card shows. Someone who has sent
-#: more than this is not looking for the oldest one on a profile page.
 VISIBLE_LIMIT = 10
 
 _CATEGORY_LABELS = {
@@ -56,8 +54,6 @@ async def render_my_feedback_section(user: User) -> None:
     try:
         submissions = await FeedbackService().list_mine(user, limit=VISIBLE_LIMIT)
     except ValueError:
-        # FeatureDisabledError is a ValueError: the community turned feedback
-        # off, so there is no card to draw. Not an error worth showing anyone.
         return
     if not submissions:
         return

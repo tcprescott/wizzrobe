@@ -72,7 +72,6 @@ async def new_layout_dialog(service: StreamLayoutService, open_editor) -> None:
                 ui.label(starter.blurb).classes('sl-gallery__blurb')
 
         def choose(key: str) -> None:
-            # Follow the starter's name until someone types their own.
             if name.value == picked['named']:
                 name.value = STARTERS_BY_KEY[key].label
                 picked['named'] = name.value

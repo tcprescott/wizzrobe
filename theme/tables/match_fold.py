@@ -20,7 +20,6 @@ from theme.tables.match_run_sheet import FOLDED_BY_DEFAULT
 class MatchBoardFoldMixin:
     """Folded run-sheet groups for a ``MatchTableView``."""
 
-    # Supplied by MatchTableView.
     table: Any
     table_key: Optional[str]
 

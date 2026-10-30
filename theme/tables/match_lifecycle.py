@@ -56,8 +56,6 @@ def confirm_result_message(match: Match) -> str:
     reason: it is why this match is in front of them.
     """
     winner = next((p for p in match.players if p.finish_rank == 1), None)
-    # Only a head-to-head has a single loser to name; with three or more the
-    # "X beat Y" line would pick one arbitrarily, so list the field instead.
     others = [p for p in match.players if p is not winner]
 
     def name(player) -> str:
@@ -70,8 +68,6 @@ def confirm_result_message(match: Match) -> str:
         elif others:
             lines.append('Against: ' + ', '.join(name(p) for p in others) + '.')
     else:
-        # Reachable from a stale row (someone else cleared the result between the
-        # render and the click); confirm_match refuses it, so say so up front.
         lines = [f'No winner is recorded for {match_model_label(match)}.',
                  'Record one before confirming.']
     if match.needs_review:
@@ -85,9 +81,7 @@ class MatchLifecycleHandlers:
     def __init__(self, page_container, *, access: MatchBoardAccess):
         self.page_container = page_container
         self.access = access
-        # Assigned by the caller after the view exists (the two-phase construction
-        # above). Untyped because the view imports these handlers' module — naming
-        # ``MatchTableView`` here would close the import cycle.
+        # Untyped: naming MatchTableView here would close an import cycle.
         self.table_view: Any = None
         self.schedule_service = MatchScheduleService()
         self.match_service = MatchService()
@@ -142,13 +136,10 @@ class MatchLifecycleHandlers:
                 ui.notify(message, color='positive')
             else:
                 if "already in progress" in message.lower():
-                    # Said, not swallowed: a roll stranded by a restart blocks
-                    # re-rolls for a while, and silence read as a dead button.
                     ui.notify(message, color='info')
                 else:
                     ui.notify(message, color='warning' if "already been generated" in message else 'negative')
 
-        # Always refresh the row to clear spinner
         await self.table_view.update_row_by_id(match_id)
 
     async def on_clear_seed(self, match_id: int):
@@ -180,8 +171,6 @@ class MatchLifecycleHandlers:
     async def on_seat(self, match_id: int):
         match = await Match.get(id=match_id, tenant_id=require_tenant_id()).prefetch_related('tournament', 'players', 'players__user')
 
-        # A stage match is played on the stage, so there is nobody to seat:
-        # one tap checks it in (Thomas, 2026-10-25).
         if match.stage_id is not None:  # type: ignore[attr-defined]
             await self.confirm_seating(match)
             return
@@ -216,8 +205,6 @@ class MatchLifecycleHandlers:
         player_names = ', '.join(
             [p.user.preferred_name for p in match.players])
 
-        # Stations are optional at check-in, so starting asks again for any
-        # still missing. A stage match is played where the stage is.
         if match.stage_id is None and any(not p.assigned_station for p in match.players):  # type: ignore[attr-defined]
             async def handle_seated(_):
                 await self.confirm_starting(match)
@@ -335,8 +322,6 @@ class MatchLifecycleHandlers:
         async def handle_confirm(_):
             await self.confirm_confirming(match)
         if not match.needs_review:
-            # The proctor already named the winner and nothing is in dispute:
-            # one tap, with Undo, like recording it.
             await self._confirm_with_undo(match)
             return
         with self.page_container:

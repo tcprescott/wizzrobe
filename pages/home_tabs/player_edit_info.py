@@ -50,7 +50,6 @@ async def render_edit_info_tab(focus: str | None = None):
 
     tz_settings = await TimezoneService.get_settings()
     tz_pinned = tz_settings['mode'] == MODE_PINNED
-    # '' is "detect from my device" — the default, and what clearing returns to.
     tz_options = {'': 'Detect automatically from my device'}
     tz_options.update({name: name for name in COMMON_TIMEZONES})
 
@@ -87,8 +86,6 @@ async def render_edit_info_tab(focus: str | None = None):
         status_icon.props('name=check_circle').classes(replace='text-positive')
         status_label.set_text('Saved')
         status_label.classes(replace='text-muted')
-        # A toast so the confirmation is visible even when the top-of-form
-        # indicator has scrolled out of view (the common case on a phone).
         ui.notify('Saved', color='positive', timeout=1200)
 
     def show_error(message):
@@ -96,9 +93,6 @@ async def render_edit_info_tab(focus: str | None = None):
         status_label.set_text(message)
         status_label.classes(replace='text-warning')
 
-    # gap-2, not gap-4: .card-full-width already carries margin-bottom: 1.5em, so a
-    # 1rem column gap on top of it double-spaced every card down a page that is
-    # already mostly whitespace. The gap still separates the header/status rows.
     with ui.column().classes('page-container-narrow gap-2'):
         signed_in = app.storage.user.get('authenticated', False)
         if not signed_in:
@@ -115,22 +109,14 @@ async def render_edit_info_tab(focus: str | None = None):
                 ui.label('User not found in the database.').classes('text-italic')
             return
 
-        # Per-tenant grants, for the identity header (excludes the global
-        # SUPER_ADMIN, which isn't a community role).
         roles = await AuthService.get_roles(user)
 
-        # Signing up happens on the Tournaments tab now; what is still needed
-        # here is which tournaments the player is in, so the match-alert rows
-        # below can mark them.
         user_tournaments = await user_service.get_user_tournament_registrations(user)
         selected_tournament_ids = [tp.tournament_id for tp in user_tournaments]  # type: ignore[attr-defined]
 
-        # This tab is not itself flag-gated, so the Challonge row in Connected
-        # accounts has to be skipped when the community lacks the feature.
+        # This tab isn't flag-gated, so a gated row must check the flag here.
         live = await FeatureFlagService().enabled_flags()
         challonge_live = FeatureFlag.CHALLONGE in live
-        # The Matcherino handle only means anything where prize money is paid,
-        # so a community without payouts is not asked for one.
         payouts_live = FeatureFlag.PAYOUTS in live
         accommodations_live = FeatureFlag.ADA_ACCOMMODATIONS in live
         emergency_contacts_live = FeatureFlag.EMERGENCY_CONTACTS in live
@@ -149,12 +135,8 @@ async def render_edit_info_tab(focus: str | None = None):
         }
         pref_widgets: dict[int, ui.select] = {}
 
-        # Personal-info autosave. The free-text fields debounce to coalesce
-        # keystrokes; ``personal_dirty`` tracks whether that debounced write is
-        # still pending so a blur flush (or the discrete DM toggle) can commit it
-        # immediately — otherwise tabbing or navigating away inside the 0.8s
-        # window silently drops the last edit (the beforeunload guard only warns,
-        # and never fires at all for an in-app tab switch).
+        # personal_dirty tracks a pending debounced write so a blur flush can commit it; otherwise
+        # leaving inside the 0.8s window silently drops the last edit.
         personal_token = {'n': 0}
         personal_dirty = {'v': False}
 
@@ -192,9 +174,6 @@ async def render_edit_info_tab(focus: str | None = None):
             await save_personal()
 
         async def save_timezone(client):
-            # Its own save path, not part of the debounced personal-info bundle:
-            # the zone changes what every timestamp on the page reads, so it takes
-            # effect on a reload rather than silently mid-session.
             with client:
                 chosen = tz_select.value or None
                 if (chosen or None) == (user.timezone or None):
@@ -210,7 +189,6 @@ async def render_edit_info_tab(focus: str | None = None):
                 ui.navigate.reload()
 
         async def save_hour_cycle(client):
-            # Reloads for the same reason as the zone: every time on the page changes.
             with client:
                 chosen = hc_select.value or None
                 if chosen == (user.hour_cycle or None):
@@ -226,14 +204,11 @@ async def render_edit_info_tab(focus: str | None = None):
                 ui.navigate.reload()
 
         async def flush_personal():
-            # Bump the token so an in-flight debounce coroutine bails instead of
-            # firing a duplicate save after this immediate one.
+            # Bump the token so an in-flight debounce bails instead of firing a duplicate save.
             personal_token['n'] += 1
             await save_personal()
 
         async def on_dm_change():
-            # A checkbox toggle is a discrete commit — save at once rather than
-            # leaving it in the debounce window where a quick nav could lose it.
             mark_dirty()
             personal_dirty['v'] = True
             personal_token['n'] += 1
@@ -282,20 +257,12 @@ async def render_edit_info_tab(focus: str | None = None):
             status_icon = ui.icon('check_circle', size='xs').classes('text-muted')
             status_label = ui.label('Changes save automatically').classes('text-muted text-caption')
 
-        # CSS columns rather than a grid so
-        # the short sections pack under each other instead of leaving row gaps.
         with ui.element('div').classes('wiz-profile-sections'):
             with ui.card().classes('card-full-width').props(f'id={section_anchor(ProfileSection.PERSONAL)}'):
                 ui.label('Personal information').classes('section-title')
 
-                # Two-up on desktop; the .form-grid media query collapses it to a
-                # single column below 600px so neither field is squeezed on a phone.
-                #
-                # Each field carries its caption as its own Quasar label rather than a
-                # preceding ui.label: an empty label prop still sets q-field--labeled,
-                # which suppresses the placeholder entirely (so the hints below never
-                # rendered) and overwrites the input's accessible name with ''.
-                # ``stack-label`` keeps the caption above the box, as the old layout had it.
+                # Caption as the field's own label, not a preceding ui.label: an empty label prop suppresses
+                # the placeholder and blanks the input's accessible name.
                 with ui.grid(columns=2).classes('form-grid'):
                     display_name_input = ui.input(
                         'Display name',
@@ -317,9 +284,6 @@ async def render_edit_info_tab(focus: str | None = None):
                         .classes('input-full-width')
                     pronouns_input.on('blur', flush_personal)
 
-                    # Only meaningful when the community follows each member's clock;
-                    # when it pins one, this control would promise something it cannot
-                    # deliver, so it is replaced by a note saying so.
                     if tz_pinned:
                         ui.label(
                             f'Times are shown in {tz_settings["name"]} for everyone in '
@@ -359,10 +323,6 @@ async def render_edit_info_tab(focus: str | None = None):
                         'Automatic follows your browser."'
                     )
 
-            # Notifications, split by the two questions people actually have: where
-            # a message goes (each channel is its own switch) and what they'll hear
-            # about. The Discord switch is enforced inside send_dm, so turning it
-            # off leaves device notifications running.
             with ui.card().classes('card-full-width') \
                     .props(f'id={section_anchor(ProfileSection.NOTIFICATIONS)}'):
                 with ui.row().classes('items-center gap-1 no-wrap wiz-help-row'):
@@ -424,10 +384,6 @@ async def render_edit_info_tab(focus: str | None = None):
                             .props('flat dense no-caps').classes('wiz-notify-open')
                         set_link(open_btn, MY_MESSAGES, new_tab=False)
 
-                    # A follow is not a consequence of enrollment:
-                    # get_match_notification_subscribers never checks the player
-                    # pool, so every active tournament is listed and the ones the
-                    # player is in are marked.
                     with ui.column().classes('wiz-notify-item gap-2'):
                         with ui.column().classes('gap-0'):
                             ui.label('Tournaments you follow').classes('wiz-notify-item__name')
@@ -462,9 +418,6 @@ async def render_edit_info_tab(focus: str | None = None):
                 link_configs.insert(0, CHALLONGE_CONFIG)
             await render_connected_accounts_section(user, link_configs)
 
-            # Deliberately its own card rather than a row among the linked accounts:
-            # those three are verified by the provider, this one is typed in, and
-            # sitting it beside them would let it read as verified too.
             if payouts_live:
                 with ui.card().classes('card-full-width') \
                         .props(f'id={section_anchor(ProfileSection.MATCHERINO)}'):

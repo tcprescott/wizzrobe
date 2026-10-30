@@ -18,10 +18,6 @@ __all__ = [
     'STATUS_LABELS',
 ]
 
-# The two anchors a competitor reasons with (100 = par, 105 = the cap), not the
-# formula. Par moves because it is the mean of the fastest approved runs on a
-# seed, so a stranger's approval legitimately moves your score — which nothing on
-# the page said before.
 SCORE_EXPLAINER = (
     "Scores are relative to each seed's par — the average of the fastest approved runs "
     "on it. Approving someone else's run on a seed you played can move your score. "
@@ -33,9 +29,7 @@ BOARD_EXPLAINER = (
     "slots at your own average, so a partial entrant isn't understated. Ranking is by Score."
 )
 
-# While the qualifier is open a runner sees a band rather than a number, because a
-# number is exactly solvable for the seed's par. The labels say which side of par
-# they landed on and nothing more precise.
+# A band, not a number, while open: a number is exactly solvable for the seed's par.
 BAND_LABELS = {
     'under': 'Under par',
     'near': 'Near par',
@@ -48,8 +42,6 @@ BAND_EXPLAINER = (
     "hidden while other people are still running."
 )
 
-# ``pending`` only exists on a live race: the run is created when the racer is
-# entered, before the race starts.
 STATUS_LABELS = {
     'pending': 'Waiting for the race',
     'in_progress': 'Running',
@@ -64,8 +56,6 @@ REVIEW_LABELS = {
     'rejected': 'Rejected',
 }
 
-# A live race's lifecycle, for the staff cards. ``pending`` means a racetime room
-# exists and the race has not started, which is what the reader needs to know.
 LIVE_RACE_STATUS_LABELS = {
     'scheduled': 'Scheduled',
     'pending': 'Room open',

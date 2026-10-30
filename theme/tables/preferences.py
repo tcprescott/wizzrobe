@@ -45,12 +45,8 @@ __all__ = [
     'sticky_header',
 ]
 
-# Columns a person may not hide: the row-action cells. Hiding them strands every
-# row action behind no affordance at all, and the way back is a reset the user
-# cannot find because the gear that offers it is in the toolbar, not the row.
 DEFAULT_REQUIRED: Final[frozenset[str]] = frozenset({'actions', 'edit'})
 
-# Column names are code identifiers, but a CSS class cannot assume that.
 _CLASS_SAFE = re.compile(r'[^A-Za-z0-9_-]')
 
 
@@ -61,44 +57,17 @@ class TableKeys:
     quietly share one (which would have them trade column layouts).
     """
 
-    # Match boards. Four surfaces share one class and each carries its own key:
-    # a proctor's column choices must not follow them onto the admin board.
-    # _v2 since the board became a run sheet (Time, Match, Stage, Status): v1
-    # layouts name the old per-control columns, which no longer exist.
-    # _v3 since the one Crew column became Commentators and Trackers: rule 3
-    # would have appended both past Status on every saved v2 layout. _v4 for
-    # the Broadcasters column, the same way.
+    # Bump the suffix when the columns change: rule 3 appends new defaults past every saved layout.
     ADMIN_SCHEDULE = 'admin.schedule_v4'
-    # _v2 for the same reason, when the Event > Schedule board followed it; _v3
-    # for the same crew split, _v4 for Broadcasters.
     HOME_SCHEDULE = 'home.schedule_v4'
-    # _v2 since the player's four action columns became one "Your actions"
-    # beside Players: rule 3 appends a new default at the far right, so every
-    # saved v1 layout would have put the player's own controls back past the
-    # table's edge. A fresh key starts everyone on the shipped order; v1 rows
-    # name columns that no longer exist, so there is little in them to keep.
-    # _v3 since it became the player run sheet with a ⋮ per line, _v4 for
-    # Broadcasters.
     HOME_PLAYER_MATCHES = 'home.player_matches_v4'
-    # My Schedule's crew section, the same run sheet filtered to your slots.
-    # _v2 for Broadcasters.
     HOME_MY_CREW = 'home.my_crew_v2'
-    # _v2 since the proctor board became a run sheet too (Time, Match, Stage,
-    # Next step); v1 layouts name the old Seed, Tournament and # columns.
     PROCTOR_STATION = 'volunteer.proctor_station_v2'
-    # Not a ui.table: the Full Schedule grid's role columns, keyed by position id.
     VOLUNTEER_FULL_SCHEDULE = 'volunteer.full_schedule'
-    # Not a ui.table either: Admin → Shift Board's role columns, as above.
     ADMIN_SHIFT_BOARD = 'admin.shift_board'
-    # Not a ui.table: Match Schedule › Not booked yet, for the folded tournament
-    # groups only, keyed "<tournament id>:<source>".
     ADMIN_UNBOOKED = 'admin.unbooked'
 
     ADMIN_USERS = 'admin.users'
-    # _v2 since the board became six short columns with the description hidden:
-    # rule 3 would have kept every v1 layout's Description and duration columns.
-    # _v3 since the Bracket column joined beside Signups: rule 3 would have
-    # appended it past the ⋮ on every saved v2 layout.
     ADMIN_TOURNAMENTS = 'admin.tournaments_v3'
     ADMIN_BRACKETS = 'admin.brackets'
     ADMIN_CHECK_IN_EVENTS = 'admin.check_in_events'
@@ -108,8 +77,6 @@ class TableKeys:
     ADMIN_VOLUNTEER_ROLE_MAPPINGS = 'admin.volunteer_role_mappings'
     ADMIN_EQUIPMENT = 'admin.equipment'
     ADMIN_ACCOMMODATIONS = 'admin.accommodations'
-    # _v2 since the board became Submitted, From, Message, Status: a v1 layout
-    # would have kept the old User, Category and Page columns.
     ADMIN_FEEDBACK = 'admin.feedback_v2'
     ADMIN_COMMUNITY_EVENTS = 'admin.community_events'
     ADMIN_EVENTS = 'admin.events'
@@ -169,12 +136,12 @@ TABLE_KEYS: Final[frozenset[str]] = _declared_keys()
 class ColumnPlan:
     """What one table should paint for one viewer."""
 
-    columns: list[dict]        # ordered, width/style applied, ready for table.columns
-    visible: list[str]         # for Quasar's visible-columns prop
+    columns: list[dict]
+    visible: list[str]
     page_size: int
     density: str
     wrap: bool
-    is_customized: bool        # drives the gear's "modified" dot
+    is_customized: bool
     widths: dict[str, int] = field(default_factory=dict)
 
     @property
@@ -282,19 +249,13 @@ def effective_columns(
         width = entry.get('width') if entry is not None else None
         if isinstance(width, int) and not isinstance(width, bool) and width > 0:
             widths[name] = width
-            # width alone is a *suggestion* the browser overrides from content;
-            # the min/max pair is what actually pins the column. Deliberately not
-            # `table-layout: fixed`, which would divide the remaining space
-            # equally between every unsized column and clip their headers — one
-            # dragged column on a nine-column board should not resize the other
-            # eight.
+            # min/max pin the column (width alone is a suggestion). Not table-layout: fixed, which resizes every unsized column.
             pinned = (f'width: {width}px; min-width: {width}px; '
                       f'max-width: {width}px')
             out['style'] = _merge_style(out.get('style'), pinned)
             out['headerStyle'] = _merge_style(out.get('headerStyle'), pinned)
 
-        # Keep the app's own ``hidden`` convention in step with the plan so the
-        # card builder and visible-columns never disagree about one column.
+        # Keeps the card builder and visible-columns agreeing about each column.
         if is_visible:
             out.pop('hidden', None)
             visible.append(name)
@@ -349,13 +310,11 @@ class TableCustomization:
     wrap: bool
     plan: ColumnPlan
     pager: bool = True
-    badge: Any = None          # the gear's "modified" dot, when a gear was rendered
+    badge: Any = None
 
 
 _STASH = '_wiz_table_customization'
 
-# Quasar's footer order: ascending, with 0 ("All") last. The service's
-# ALLOWED_PAGE_SIZES is the same set; test_table_preferences pins the two together.
 ROWS_PER_PAGE_OPTIONS: Final[list[int]] = [10, 25, 50, 100, 0]
 
 
@@ -421,8 +380,7 @@ def customize_table(
         pager=pager,
     )
     setattr(table, _STASH, custom)
-    # Read off the DOM by static/js/table-columns.js to know which table a
-    # dragged header belongs to; nothing else identifies one.
+    # Read by static/js/table-columns.js; nothing else identifies the table.
     table._props['data-wiz-table-key'] = key
     _apply_plan(table, plan, pager=pager)
     _wire_width_drags(table, key)
@@ -458,8 +416,6 @@ def _wire_page_size_saves(table: ui.table, key: str) -> None:
             except ValueError as e:
                 ui.notify(str(e), color='warning')
                 return
-            # Quasar already shows the new size; the stashed plan follows so the
-            # gear's Confirm and the next comparison here see it too.
             custom.plan = effective_columns(
                 custom.defaults, saved, custom.required,
                 page_size=custom.page_size, density=custom.density, wrap=custom.wrap,
@@ -499,9 +455,7 @@ def _wire_width_drags(table: ui.table, key: str) -> None:
             except (ValueError, TypeError) as e:
                 ui.notify(str(e), color='warning')
                 return
-            # The browser has already painted the new width, so nothing is
-            # repainted here — but the stashed plan has to follow, or the modal
-            # and the "customized" dot would show the pre-drag state.
+            # The stashed plan must follow, or the modal and the dot show the pre-drag state.
             custom = customization_of(table)
             if custom is not None:
                 custom.plan = effective_columns(
@@ -552,24 +506,19 @@ def _apply_plan(table: ui.table, plan: ColumnPlan, *, pager: bool = True) -> Non
     pagination = dict(table._props.get('pagination') or {})
     pagination['rowsPerPage'] = plan.page_size if pager else 0
     table._props['pagination'] = pagination
-    # The footer stays even on "All": it is the only place to pick a size again.
+    # Footer stays on 'All': it's the only place to pick a size again.
     table._props['hide-pagination'] = not pager
     if pager:
         table._props['rows-per-page-options'] = list(ROWS_PER_PAGE_OPTIONS)
         table._props['rows-per-page-label'] = 'Rows per page:'
 
-    # Set as a real bool, not via .props('dense=true'): the prop string parser
-    # stores 'true', and Quasar reads a non-empty string as truthy either way —
-    # so 'dense=false' would render dense.
+    # A real bool, not .props('dense=false'): the parser stores the string, which Quasar reads as truthy.
     table._props['dense'] = plan.density == 'compact'
     _toggle_class(table, 'wiz-table--wrap', plan.wrap)
     _toggle_class(table, 'wiz-table--sized', plan.has_widths)
     table.update()
 
 
-# Quasar's default column sort, except that a ``9:30 PM`` inside the value is
-# compared as ``21:30``. A 12-hour viewer's formatted times otherwise sort
-# 10:00 PM before 9:30 AM; 24-hour text already sorts in time order.
 CLOCK_SORT = (
     "(a, b) => {"
     " if (typeof a === 'number' && typeof b === 'number') return a - b;"
@@ -630,7 +579,6 @@ def preferences_button(table: ui.table, *, tooltip: str = 'Table preferences') -
         .classes(f'wiz-table-prefs-btn {REQUIRES_SOCKET_CLASS}') \
         .tooltip(tooltip)
     with button:
-        # "Why does my table look like this" needs an answer on screen.
         custom.badge = ui.badge().props('rounded floating color=primary') \
             .classes('wiz-table-prefs-dot')
         custom.badge.set_visibility(custom.plan.is_customized)

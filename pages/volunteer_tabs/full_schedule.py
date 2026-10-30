@@ -72,7 +72,6 @@ async def full_schedule_tab() -> None:
     stored = await prefs.get(user, TableKeys.VOLUNTEER_FULL_SCHEDULE) if user else None
     saved = (stored or {}).get('columns') or []
     state = _ViewState(
-        # The address (a reload, Back, a shared link) outranks the remembered day.
         day=opening_day(days, _event_day(days, url_state().requested('day')) or tenant_session_get(_DAY_KEY),
                         today_local()),
         roles=arrange_roles(positions, saved),
@@ -156,6 +155,4 @@ async def full_schedule_tab() -> None:
         )
         day_bar()
         await grid_view()
-    # Keeps the Now line and any schedule changes current on a screen left open
-    # at a desk.
     PageTimer(300, grid_view.refresh)

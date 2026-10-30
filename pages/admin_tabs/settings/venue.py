@@ -76,10 +76,6 @@ async def _stations_card(can_edit: bool) -> None:
             with ui.row().classes('wiz-station-row items-center gap-3 q-mb-xs full-width'):
                 ui.label(station.name).classes('w-16 text-weight-medium')
                 ui.label(station.section or '—').classes('col text-caption text-grey')
-                # Editable in place rather than through a dialog: describing a
-                # room's layout means touching every row once, and a pool built
-                # before these fields existed would otherwise have to be
-                # deleted and retyped to gain a side.
                 async def set_side(e, s=station) -> None:
                     try:
                         await service.update_station(
@@ -110,8 +106,7 @@ async def _stations_card(can_edit: bool) -> None:
                     clearable=True,
                     on_change=set_side,
                 ).props('outlined dense').classes('w-32').set_enabled(can_edit)
-                # Debounced: without it every keystroke in the seat number is a
-                # write and an audit row.
+                # Debounced: otherwise every keystroke is a write and an audit row.
                 ui.number(
                     'Seat #',
                     value=station.position,

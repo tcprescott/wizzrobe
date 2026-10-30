@@ -37,7 +37,6 @@ class VolunteerShiftDialog:
         self.shift = shift
         self.position = position
         self.default_day = default_day
-        # The Shift Board's tap on an empty hour: start there, run two hours.
         self.default_start = default_start
         self.default_hours = default_hours
         self.on_submit = on_submit

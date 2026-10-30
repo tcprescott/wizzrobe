@@ -146,7 +146,6 @@ class LinkHandoffProvider:
     callback_route: str
 
 
-# provider key -> config. Populated at each provider module's ``create()`` time.
 _HANDOFF_PROVIDERS: dict[str, LinkHandoffProvider] = {}
 
 _pages_registered = False
@@ -216,9 +215,6 @@ def _default_link_return() -> str:
     return returns.pop() if len(returns) == 1 else '/'
 
 
-# What a handed-back failure means, in the wording the in-place paths already
-# use. A URL parameter the user can edit, so it selects from a fixed set and
-# anything unrecognised falls back to the generic message.
 _HANDBACK_DENIED = 'denied'
 _HANDBACK_FAILED = 'failed'
 
@@ -254,9 +250,6 @@ async def maybe_start_link_handoff(
     tenant = await TenantService.get_by_id(tid) if tid is not None else None
     if tenant is None or not getattr(tenant, 'domain', None):
         return None
-    # Bind the handoff to *this* browser: stash a secret in this domain's session
-    # and publish only its hash through the platform hop, so a token minted in
-    # another browser can't be replayed here (link-CSRF / forced link).
     bind = secrets.token_urlsafe(32)
     app.storage.user['oauth_link_bind'] = bind
     return RedirectResponse(
@@ -304,12 +297,8 @@ async def handle_link_handoff_callback(url: str) -> bool:
     if not provider_key:
         return False
     expected_state = app.storage.user.get('oauth_link_state')
-    # Own this callback as a handoff leg only when the returned state matches the
-    # one /oauth/link/start stored. A genuine provider redirect — success *or*
-    # error (a denial still carries the state back) — matches; a mismatch means
-    # these are stale markers from a handoff abandoned at the consent screen, so
-    # drop them (they must not hijack a later in-place link on this host) and let
-    # the normal callback path run.
+    # A state mismatch means stale markers from an abandoned handoff: drop them, or they
+    # hijack a later in-place link on this host.
     if not expected_state or returned_state(url) != expected_state:
         _pop_link_handoff_keys()
         return False
@@ -321,17 +310,12 @@ async def handle_link_handoff_callback(url: str) -> bool:
     if provider is None or not host:
         ui.navigate.to(_cross_host_url(host, next_path) if host else next_path)
         return True
-    # This leg runs on the *platform* host, whose session the target domain
-    # cannot read — so a failure cannot be stashed as a notice here. It hands
-    # back through the target's own claim route instead, which owns what a user
-    # is told about a handoff that did not complete.
     code = read_callback_code(url, expected_state, provider.label)
     if code is None:
         ui.navigate.to(_link_handback_url(host, provider_key, _HANDBACK_DENIED, next_path))
         return True
-    # The platform host resolves no tenant, and each provider's exchange is
-    # feature-gated per community — so it runs under the tenant the start leg
-    # resolved from the target domain, or every gated provider hands back failed.
+    # The platform host resolves no tenant: run under the start leg's tenant, or every
+    # feature-gated provider hands back failed.
     try:
         with tenant_scope(keys['tenant']):
             data = await provider.exchange(code)
@@ -401,10 +385,7 @@ def register_link_handoff_pages() -> None:
         cannot stash a notice in this domain's session (different origin), so it
         hands back a ``r=<reason>`` this route turns into a message.
         """
-        # Path mode cannot mint a claim token, so there is nothing here to claim
-        # — the sibling /oauth/link/start refuses the same way. Without this the
-        # route rendered, failed to validate a token that never existed, and
-        # redirected to an unprefixed path that resolves to the community picker.
+        # Path mode never mints a claim token; without this guard the route redirects to the community picker.
         if not host_oauth_handoff_enabled():
             return RedirectResponse('/')
         url = await browser_url(client)
@@ -414,8 +395,7 @@ def register_link_handoff_pages() -> None:
         params = parse_qs(parsed.query)
         token = next(iter(params.get('token', [])), None)
         request_host = normalize_hostname(parsed.netloc)
-        # The platform host's hand-back carries its own return path, across a host
-        # boundary as a bare query parameter — as untrusted as any other.
+        # Crosses a host boundary as a bare query parameter: untrusted, keep it behind safe_next.
         handed_back = safe_next(next(iter(params.get('next', [])), None) or _default_link_return())
         bind = app.storage.user.pop('oauth_link_bind', None)
         if not token:
@@ -429,9 +409,7 @@ def register_link_handoff_pages() -> None:
             stash_notice('Link session expired or already used. Please try again.', color='warning')
             ui.navigate.to(handed_back)
             return None
-        # Link-CSRF guard: the token must have been minted for a link *this* browser
-        # initiated — the secret behind the committed hash must be in this domain's
-        # session. A token delivered to another browser (which lacks it) is rejected.
+        # Link-CSRF guard: rejects a token delivered to a browser that didn't start the link.
         if not _bind_matches(payload.get('bind_commit'), bind):
             logger.warning('OAuth link handoff browser-binding mismatch on %r', request_host)
             stash_notice('Link is not valid for this browser. Please try again.', color='warning')
@@ -512,24 +490,17 @@ def register_identity_link_pages(flow: IdentityLinkFlow) -> None:
 
     @ui.page(flow.link_route)
     async def link(request: Request) -> RedirectResponse:
-        # Initiation runs with tenant context; the callback lands on the bare
-        # platform host, so pin the tenant-qualified return here.
+        # The callback lands on the bare platform host: pin the tenant-qualified return here.
         root_path = request.scope.get('root_path', '') or ''
         user = await get_user_from_session(app.storage.user)
         if user is None:
             return RedirectResponse(f'{root_path}/login')
-        # Custom domain + handoff: run the provider OAuth on the platform host and
-        # hand the verified identity back here, where the session and tenant live.
-        # Tried *before* the mock short-circuit so the handoff is reachable in the
-        # only environment that can drive it; a no-op (None) in path mode and
-        # wherever HOST_OAUTH_MODE is not `handoff`, so nothing else moves.
+        # Must run before the mock short-circuit, or the handoff is unreachable in the only env that drives it.
         handoff = await maybe_start_link_handoff(flow.provider_key, f'{root_path}{flow.profile_return}')
         if handoff is not None:
             return handoff
         if flow.is_mock():
-            # Mock mode records the link on the spot (no provider round trip), so
-            # this page — not the callback's _finish_link — owns its outcome. A
-            # bare call here answered an already-linked id with a 500.
+            # Mock mode links on the spot, so this page owns the outcome (a bare call 500s on an already-linked id).
             service = flow.service_factory()
             me = await service.exchange_player_code('mock')
             try:
@@ -545,9 +516,6 @@ def register_identity_link_pages(flow: IdentityLinkFlow) -> None:
                     f'Could not link {flow.provider_label}. Please try again.', color='negative',
                 )
             return RedirectResponse(f'{root_path}{flow.profile_return}')
-        # Custom domain + Design A (handoff off): the callback is on the platform
-        # host; bounce to the platform-host path-mode surface where the cookie is
-        # visible. No-op (returns None) in path mode / platform surface.
         detour = await platform_link_redirect(flow.profile_return)
         if detour:
             return RedirectResponse(detour)

@@ -29,7 +29,6 @@ class SectionPanel(NamedTuple):
     """The three slots a caller fills in."""
 
     panel: ui.element
-    #: Header's right-hand slot, for this section's own controls.
     aside: ui.row
     body: ui.column
 
@@ -52,8 +51,6 @@ async def section_panel(
     and without it each one looks the viewer up again.
     """
     topics = await resolve_help(help_topics, user=user)
-    # Every panel is linkable as ``#<its title>`` (theme/anchors.py); a caller
-    # that needs a fixed id sets its own on ``panel`` afterwards.
     panel = ui.element('section').classes('wiz-panel').props(f'id={anchor_id(title)}')
     with panel:
         with ui.element('div').classes('wiz-panel__head'):

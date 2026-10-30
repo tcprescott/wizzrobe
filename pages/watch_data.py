@@ -61,11 +61,8 @@ from theme.watch_view import (
 
 logger = logging.getLogger(__name__)
 
-#: Days of streamed matches the page looks ahead, today included.
 COMING_UP_DAYS = 7
 _TTL_SECONDS = 30
-#: How long a read of the mode settings is reused. Every arrival needs them,
-#: and a rush is exactly when three queries per request would hurt.
 _SETTINGS_TTL_SECONDS = 5
 
 _CHALLONGE_STATUS = {
@@ -233,8 +230,6 @@ async def _tournaments(streamed_ids: set[int]) -> List[WatchTournament]:
             bracket = f'/live/tournament/{t.id}/brackets'
         else:
             bracket = http_url_or_empty(t.bracket_url) or http_url_or_empty(t.challonge_tournament_url)
-        # Listed when a spectator has something to follow: a bracket to open or
-        # a match on stream. A tournament with neither is staff's business yet.
         if not bracket and t.id not in streamed_ids:
             continue
         status, tone = _status(t, stages)
@@ -272,8 +267,6 @@ async def build_watch_view(tenant_id: int) -> WatchView:
             todays = by_stage.get(stage.id, [])
             if not stage.stream_url and not todays:
                 continue
-            # One stream shows one match. A second seated match on the same
-            # stage is a result nobody recorded yet, not a second broadcast.
             seated = [m for m in todays if m.is_seated or m.is_started]
             waiting = [m for m in todays if not (m.is_seated or m.is_started)]
             watch_stages.append(WatchStage(

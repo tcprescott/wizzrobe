@@ -39,8 +39,6 @@ class TournamentDialog:
     def __init__(self, tournament=None, on_submit=None, on_delete=None):
         self.tournament = tournament
         self.on_submit = on_submit
-        # Called with no arguments after a permanent delete, so the surface that
-        # opened this dialog can drop the row it is still showing.
         self.on_delete = on_delete
         self.dialog = None
         self.tournament_service = TournamentService()
@@ -60,19 +58,13 @@ class TournamentDialog:
             EventService.current_event_broadcasters() if is_create
             else EventService.broadcasters_on(self.tournament.event_id)
         )
-        # This dialog opens from the (ungated) Tournaments tab, so its Challonge
-        # section has to check the flag itself — link_tournament refuses without it,
-        # and refuses anyone but staff.
+        # Opens from the ungated Tournaments tab, so it checks the flag itself.
         challonge_live = (
             is_staff
             and self.challonge_service.is_configured()
             and await FeatureFlagService().is_enabled(FeatureFlag.CHALLONGE)
         )
-        # Racetime room automation is only offered to sync managers of a community
-        # that has the feature on, and only the bot categories this tenant is
-        # authorized for are selectable. Same reason as Challonge above: this
-        # dialog opens from the ungated Tournaments tab, so it checks the flag
-        # itself — every racetime surface behind it already refuses without it.
+        # Same as Challonge: the ungated tab means this checks the flag itself.
         startgg_live = (
             StartggService.is_configured()
             and await FeatureFlagService().is_enabled(FeatureFlag.STARTGG)
@@ -134,11 +126,6 @@ class TournamentDialog:
                         "aren't on a stage then don't count toward the room's capacity."
                     ).classes('text-caption text-grey q-ml-xl')
 
-                # Everything below is optional and defaulted. Collapsed on create
-                # so the cheapest correct action — type a name, save — stops
-                # looking like the riskiest one; expanded on edit, because an
-                # admin who came back to configure racetime should not have to
-                # hunt for it.
                 sections_open = not is_create
 
                 with ui.expansion(
@@ -205,8 +192,7 @@ class TournamentDialog:
                             clearable=True,
                         )
 
-                    # Stored blob seeds the grid; snapshotted on every refresh so
-                    # typed-but-unsaved values survive a date-window change.
+                    # Snapshotted on every refresh so unsaved values survive a date-window change.
                     hours_state: dict = dict(t.tournament_hours) if t and t.tournament_hours else {}
                     hours_inputs: dict[str, dict] = {}
 
@@ -310,10 +296,6 @@ class TournamentDialog:
                                 min=0, max=20,
                             ).props('inputmode=numeric')
 
-                    # Sits with the stream crew rather than under Racetime, where
-                    # the other "minutes before" number lives: that whole block is
-                    # hidden from communities with no racetime bot, and a stage
-                    # call has nothing to do with race rooms.
                     ui.separator()
                     ui.label('Stage reminder').classes('text-bold')
                     ui.label(
@@ -337,8 +319,7 @@ class TournamentDialog:
                     'Seeds & randomizer', icon='casino', value=sections_open,
                 ).classes('w-full').props('dense'):
                     presets = await self.preset_service.list_selectable()
-                    # None (0) clears the FK; ui.select cannot key an option on None,
-                    # so a 0 sentinel stands in and maps back to None on submit.
+                    # ui.select can't key on None, so 0 stands in and maps back on submit.
                     preset_options = {0: '— None (no seeds) —'}
                     preset_options.update({p.id: f'{p.randomizer} / {p.name}' for p in presets})
                     default_preset = self.tournament.preset_id if self.tournament and self.tournament.preset_id else 0
@@ -353,10 +334,7 @@ class TournamentDialog:
                             'or import a randomizer\'s published presets there.'
                         ).classes('text-caption text-grey')
 
-                    # The opt-in harder preset. Same option list, same 0
-                    # sentinel; the service refuses a pairing whose randomizers
-                    # disagree, because the winning preset is what names the
-                    # randomizer at roll time.
+                    # Same 0 sentinel.
                     hard_preset_options = {0: '— None (no harder option) —'}
                     hard_preset_options.update(
                         {p.id: f'{p.randomizer} / {p.name}' for p in presets}
@@ -373,9 +351,6 @@ class TournamentDialog:
                         'rolls it when every player opted in, and nobody is told who did '
                         'unless all of them did."'
                     )
-                    # A tournament configured before the preset became the only
-                    # control still rolls on its stored generator. Say so, because
-                    # saving without a preset is what turns that off.
                     legacy_generator = (
                         self.tournament.seed_generator
                         if self.tournament and self.tournament.seed_generator
@@ -413,7 +388,6 @@ class TournamentDialog:
                         value=self.tournament.bracket_url if self.tournament and self.tournament.bracket_url else '',
                     ).classes('input-full-width')
 
-                    # A tournament follows one bracket site, so a link to one hides the other.
                     if self.tournament and challonge_live and not self.tournament.startgg_event_slug:
                         ui.separator()
                         ui.label('Challonge').classes('text-bold')
@@ -548,8 +522,6 @@ class TournamentDialog:
                     with self.dialog:
                         ui.notify('Please fill required field(s): Tournament Name.', color='warning')
                     return
-                # Per-tournament days override: blank dates inherit the tenant
-                # setting; only fully-filled day rows become hour windows.
                 event_start_value = (event_start_input.value or '').strip() or None
                 event_end_value = (event_end_input.value or '').strip() or None
                 hours_mapping: dict[date, tuple[str, str]] = {}

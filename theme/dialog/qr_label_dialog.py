@@ -175,8 +175,7 @@ class QrLabelDialog:
                     params.append('logo=0')
 
                 dialog.close()
-                # Bare path: ui.navigate.to prepends the tenant's root_path, so
-                # the new tab opens on this community (path or host mode).
+                # Bare path: ui.navigate.to prepends the tenant's root_path.
                 ui.navigate.to('/equipment/qr-labels?' + '&'.join(params), new_tab=True)
 
             with dialog_actions().classes('justify-end'):
