@@ -35,7 +35,6 @@ from theme.tables.user import UserTableView
 from theme.url_state import bind_url, consume_deep_link
 
 _TA_FILTER = '_tournament_admin'
-#: The Users-tab "Joined in the last N days" filter.
 RECENT_JOIN_WINDOW = timedelta(days=7)
 
 JOIN_SOURCE_LABELS: dict = {
@@ -523,7 +522,6 @@ async def _members_panel(
             # table_view exists.
             refresh_button(lambda: table_view.refresh())
 
-        # Filter card — between toolbar and table, matching match-filters-card pattern
         # Fields label themselves and the role multi-select reads as one line of
         # text, like the match board's filters (theme/tables/match_filters.py).
         with ui.card().classes('match-filters-card match-filters-card--compact user-filters') as filters_card:
@@ -545,7 +543,6 @@ async def _members_panel(
                         'Needs ADA',
                     ).bind_value(ada_only, 'value')
 
-        # Table — toolbar suppressed since we rendered it above
         table_view = UserTableView(
             columns=columns, get_query=get_query, show_toolbar=False,
             row_actions=_row_actions(emergency_contacts), table_key=TableKeys.ADMIN_USERS,

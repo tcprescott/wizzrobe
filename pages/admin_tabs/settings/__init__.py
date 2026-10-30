@@ -53,7 +53,6 @@ from theme.url_state import TAIL, url_param, url_state
 #: The admin drawer label, and so the ``selected_tab`` value this page hears.
 SETTINGS_TAB_LABEL = 'Settings'
 
-#: Retired admin tab slug → the pane that holds it now.
 LEGACY_TAB_PANES: dict[str, str] = {
     'appearance': 'general',
     'timezone': 'general',
@@ -177,10 +176,8 @@ def build_settings_panes(access, live: set) -> list[SettingsPane]:
     return panes
 
 
-#: The admin drawer label of the event's own settings.
 EVENT_SETTINGS_TAB_LABEL = 'Event settings'
 
-#: Community Settings panes that moved to Event settings → the pane that took them.
 MOVED_TO_EVENT_PANES: dict[str, str] = {'event': 'dates', 'venue': 'venue'}
 
 

@@ -54,7 +54,6 @@ async def render_edit_info_tab(focus: str | None = None):
     tz_options = {'': 'Detect automatically from my device'}
     tz_options.update({name: name for name in COMMON_TIMEZONES})
 
-    # Install a beforeunload guard so unsaved edits prompt before navigation.
     ui.add_head_html("""
     <script>
       if (!window.__wizzrobe_dirty_guard_installed) {
@@ -76,7 +75,6 @@ async def render_edit_info_tab(focus: str | None = None):
     def mark_clean():
         ui.run_javascript('window.wizzrobe_dirty = false;')
 
-    # Subtle auto-save status indicator (elements created just below the header).
     status_icon = None
     status_label = None
 
@@ -259,8 +257,6 @@ async def render_edit_info_tab(focus: str | None = None):
             show_saved()
             mark_clean()
 
-        # Identity header — who you are, so the page reads as a profile rather
-        # than jumping straight into an unlabeled edit form.
         with ui.row().classes('items-center gap-4 w-full no-wrap'):
             avatar_url = app.storage.user.get('avatar')
             if avatar_url:
@@ -274,20 +270,14 @@ async def render_edit_info_tab(focus: str | None = None):
                     ui.label(f'@{user.username}').classes('text-muted text-caption')
                     if user.pronouns:
                         ui.badge(user.pronouns).props('outline color=grey')
-                # Roles this community has granted, so the header carries something
-                # the app bar doesn't already show. Per-tenant, so it reads as
-                # "who you are *here*"; a player with no grants gets nothing.
                 if roles:
                     with ui.row().classes('items-center gap-1 wrap q-mt-xs'):
                         for role in sorted(roles, key=lambda r: r.value):
                             ui.badge(role.label).props('outline color=primary')
 
-        # Above the form, full width, and only while something is out: it is the
-        # one thing on Profile that isn't a setting.
         if FeatureFlag.EQUIPMENT in live:
             await equipment_checkouts_section(user)
 
-        # Auto-save status indicator (updated by the on_change handlers above).
         with ui.row().classes('items-center gap-1 q-mt-sm'):
             status_icon = ui.icon('check_circle', size='xs').classes('text-muted')
             status_label = ui.label('Changes save automatically').classes('text-muted text-caption')
@@ -465,8 +455,6 @@ async def render_edit_info_tab(focus: str | None = None):
                     user, on_saving=show_saving, on_saved=show_saved, on_error=show_error,
                 )
 
-            # Connected accounts (Challonge / Twitch / racetime) — one compact card
-            # of rows instead of three near-identical cards.
             link_configs = [TWITCH_CONFIG, RACETIME_CONFIG]
             if FeatureFlag.STARTGG in live:
                 link_configs.insert(0, STARTGG_CONFIG)
@@ -501,9 +489,6 @@ async def render_edit_info_tab(focus: str | None = None):
             if accommodations_live:
                 await render_accommodation_section(user)
 
-            # What you sent through the feedback form and whether it was read.
-            # Draws nothing when you have sent none, or when the community has the
-            # feature off.
             await render_my_feedback_section(user)
 
             if FeatureFlag.PERSONAL_WEBHOOKS in live:
@@ -512,7 +497,6 @@ async def render_edit_info_tab(focus: str | None = None):
             if FeatureFlag.THIRD_PARTY_APPS in live:
                 await render_developer_apps_section(user)
 
-            # API token management (self-contained; collapsed developer surface).
             await render_api_tokens_section(user)
 
     focus_profile_section(focus)

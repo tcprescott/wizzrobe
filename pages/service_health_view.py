@@ -52,11 +52,6 @@ _COLUMNS: list[dict] = [
     {'name': 'action', 'label': '', 'field': 'action', 'align': 'right'},
 ]
 
-# ``action_for`` maps a result to ``(link text, url)`` — the route out of the
-# problem the row just named. A board that reports "Token expiring soon" and
-# says "reconnect before it becomes an outage" without offering the page where
-# reconnecting happens is the finding the admin-reports audit shipped a fix for;
-# this board had the same shape.
 ActionFor = Callable[[ProbeResult], Optional[tuple]]
 
 _ACTION_SLOT = '''
@@ -78,7 +73,6 @@ def _rows(results: List[ProbeResult], action_for: Optional[ActionFor] = None) ->
             'status': _STATUS_LABEL[r.status],
             'status_color': _STATUS_COLOR[r.status],
             'message': r.message,
-            # App-wide convention: display on the viewer's clock, never raw UTC.
             'checked_at': format_local_display(r.checked_at),
             'action': action[0] if action else '',
             'action_url': action[1] if action else '',

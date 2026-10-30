@@ -1,5 +1,4 @@
-/* Drag a survey question to a new place in the builder (Thomas picked A: a
- * handle on every row, 2026-10-27).
+/* Drag a survey question to a new place in the builder.
  *
  * The ⠿ handle (.wiz-survey-drag) inside a question row (.wiz-survey-q with
  * data-qid) starts the drag: at once with a mouse, after a press-and-hold

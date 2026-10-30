@@ -36,7 +36,6 @@ from theme.waiting import waiting_panel
 
 logger = logging.getLogger(__name__)
 
-#: How a hub tab switch enters the browser's history: ``'push'`` makes Back undo it.
 TAB_HISTORY: History = 'push'
 
 DRAWER_WIDTH_DESKTOP = 248
@@ -110,9 +109,6 @@ class BaseLayout:
         self.tabs = tabs
         self.user = user
         self.dark_mode = None
-        # Header wordmark: the in-scope community's own name on a tenant surface,
-        # 'Wizzrobe' on the platform. Resolved from the ambient tenant in render()
-        # when a caller does not pass one explicitly.
         self._wordmark = wordmark
         # Resolved per-tenant brand palette, loaded in render() before chrome is
         # drawn. None on the synchronous error path (render_chrome without
@@ -178,8 +174,6 @@ class BaseLayout:
         # Gates what only a member can use: Feedback, whose submit the service
         # refuses to anyone else, and the home sections on a tab-less page.
         self._is_member = False
-        # The event the page shows, and the events the header's switcher lists
-        # (resolved in prepare()). An empty list draws no switcher.
         self.events = EventSwitcherState()
         self._prepared = False
         self.top_menu: list[dict] = []
@@ -337,8 +331,6 @@ class BaseLayout:
         :meth:`render`.
         """
         self._build_top_menu()
-        # Per-tenant brand palette (loaded in render(); shipped defaults on the
-        # synchronous error path or the tenant-less platform surface).
         from application.services.tenant_theme_service import DEFAULT_THEME
         colors = self._theme_colors or DEFAULT_THEME
 
@@ -361,12 +353,8 @@ class BaseLayout:
         # surfaces are shareable by link, not published to search engines, and
         # robots.txt alone does not deindex a URL a crawler already knows.
         ui.add_head_html('<meta name="robots" content="noindex, nofollow">')
-        # PWA wiring: the manifest makes the app installable, the two media-scoped
-        # theme-color metas tint the mobile browser/status-bar chrome to the gold
-        # header (light) / charcoal (dark) palette; the tab and iOS home-screen
-        # icons come with the palette (apply_brand_palette). The service worker
-        # is registered from the site root (/sw.js, served in frontend.py) so its
-        # scope covers start_url '/'.
+        # The service worker is registered from the site root (/sw.js, served in
+        # frontend.py) so its scope covers start_url '/'.
         ui.add_head_html('<link rel="manifest" href="/static/manifest.webmanifest">')
         # Light-mode browser/status-bar tint follows the tenant's header colour;
         # dark mode keeps the charcoal bar (the header stays charcoal in dark).
@@ -441,7 +429,6 @@ class BaseLayout:
         ui.add_head_html(f'<script defer src="{asset_url("js/anchors.js")}"></script>')
         install_usage_capture(self._tenant_id)
         install_browser_monitoring()
-        # Phoenix palette (gold primary, ember secondary), overridable per tenant via TenantThemeService.
         apply_brand_palette(colors)
         if self._chromeless:
             # The one control a kiosk still needs: a room's lighting is not the
@@ -502,11 +489,9 @@ class BaseLayout:
                 logout_btn = ui.button(icon='logout', color=None).props('flat').tooltip('Log out')
                 set_link(logout_btn, '/logout', new_tab=False)
             else:
-                # The full-text "Login with Discord" button also lives in the page
-                # body; here the label is a child element (not the q-btn text prop)
-                # so it can be hidden on phones via .login-button-text without
-                # fighting Quasar's `.block` utility. The tooltip keeps the
-                # icon-only mobile button labelled for accessibility.
+                # The label is a child element (not the q-btn text prop) so it can be
+                # hidden on phones via .login-button-text without fighting Quasar's
+                # `.block` utility.
                 # Carries the page it was pressed on, so signing in from a
                 # bracket or an article comes back to it rather than to home.
                 # Off any community there is nowhere local to come back to.
@@ -524,9 +509,6 @@ class BaseLayout:
         # Unify the drawer's auto-show boundary with the app-shell <1024px break:
         # below it the bottom nav + burger carry navigation, at/above it the drawer
         # pins open (show-if-above). This matches the grid-card table breakpoint.
-        # NiceGUI renders the drawer body (.q-drawer__content) as a flex column,
-        # so a trailing ui.space() pushes the copyright to the foot of the drawer
-        # when the nav fits, and it falls to the scroll-end when the nav is long.
         # Pinned on desktop it is 248px; as the phone overlay it takes 85% of the
         # screen (up to 340px) so rows are thumb-sized and a sliver of the page
         # still shows behind it. Quasar's width prop is a pixel number and also
@@ -673,8 +655,6 @@ class BaseLayout:
             with ui.tabs(value=self._default_tab).props('dense no-caps').classes('wiz-bottom-nav') as self._bottom_tabs:
                 for tab in self.tabs:
                     self.mark_tab_push(bottom_nav_tab(tab), tab['label'])
-            # Tapping a bottom tab drives the panel; the highlight/URL sync then
-            # flows back through _handle_tab_change.
             self._bottom_tabs.on_value_change(self._on_bottom_tab)
 
     @staticmethod
@@ -765,7 +745,6 @@ class BaseLayout:
         self._shown_tab = self._default_tab
         await self._build_tab(self._default_tab, deferred=False)
         record_tab_view(self._base_path, self._slug_by_label.get(self._default_tab))
-        # The address and title name the tab and any view it opened on.
         state.sync(keep_foreign=True)
 
         # Panel changes (drawer click or bottom-tab tap) all route through

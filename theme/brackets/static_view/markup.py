@@ -53,11 +53,6 @@ def _tag(tag: str, classes: str, inner: str = '', *, style: str = '', attrs: str
     return f'<{tag} class="{classes}"{style_attr}{extra}>{inner}</{tag}>'
 
 
-# ---------------------------------------------------------------------------
-# Match cards
-# ---------------------------------------------------------------------------
-
-
 def _avatar_html(name: str, url: Optional[str] = None) -> str:
     """The entrant disc: the initial, with a Discord avatar layered over it.
 
@@ -173,11 +168,6 @@ def _card_html(
     return _tag(
         'div', classes, inner, style=style, attrs=f'data-match-id="{_esc(match.id)}"',
     )
-
-
-# ---------------------------------------------------------------------------
-# Elimination sections
-# ---------------------------------------------------------------------------
 
 
 def _round_meta_html(round_number: int, ctx: BracketContext) -> str:

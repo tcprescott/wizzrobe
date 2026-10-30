@@ -34,7 +34,6 @@ class BuilderContext:
     reload: Callable[[], Awaitable[None]]
     #: The community's AI provider, when it has one; no "Suggest questions" without it.
     ai_label: Optional[str] = None
-    #: Section id → its batch of drafts still waiting to be kept.
     suggestions: Dict[int, SurveySuggestionBatch] = field(default_factory=dict)
 
     @property

@@ -145,8 +145,6 @@ def create() -> None:
         url = await browser_url(client)
         if url is None:
             return
-        # Cross-host player-link handoff leg (platform host): exchange + mint +
-        # hand the verified identity back to the custom domain's /oauth/link/claim.
         if await handle_link_handoff_callback(url):
             return
         user = await get_user_from_session(app.storage.user)

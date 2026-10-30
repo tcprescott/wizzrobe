@@ -413,7 +413,6 @@ async def admin_notifications_page() -> None:
 
         empty = ui.label('No notifications match.').classes('text-caption st-neutral q-mt-md')
 
-        # Desktop: a card per subheading, only the columns its messages use.
         with ui.element('div').classes('wiz-notify-cards gt-sm w-full'):
             for group, section, members in cards:
                 columns = [c for c in _COLUMN_ORDER if any((n.key, c) in cells for n in members)]
@@ -442,7 +441,6 @@ async def admin_notifications_page() -> None:
                                 row_elements.setdefault(notice.key, []).append(tr)
                 card_elements.setdefault((group, section), []).append(card)
 
-        # Phone: the same cards, each message's cells as labelled chips.
         with ui.column().classes('lt-md w-full gap-3'):
             for group, section, members in cards:
                 with ui.element('section').classes('wiz-notify-card w-full') as card:

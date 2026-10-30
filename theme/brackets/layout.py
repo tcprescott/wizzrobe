@@ -51,7 +51,7 @@ __all__ = [
 ]
 
 # Geometry (px) — keep in sync with static/css/brackets.css (--bracket-* vars).
-COL_WIDTH = 200          # match-card width
+COL_WIDTH = 200
 GUTTER = 52              # horizontal space between round columns (holds connectors)
 CARD_HEIGHT = 58         # match-card height (two ~29px entrant rows)
 ROW_PITCH = 82           # vertical distance between adjacent leaf slots
@@ -89,7 +89,7 @@ class Placement:
 
     match_id: int
     col: int          # 0-based column index (left → right)
-    round: int        # the round number this column represents
+    round: int
     slot: float       # vertical slot: leaf order for leaves, centered for parents
     left: float       # px
     top: float        # px
@@ -238,9 +238,6 @@ def _build_connectors(
             Segment(x=spine_x, y=parent.center_y, length=parent.left - spine_x, orientation='h')
         )
     return segments
-
-
-# --- cross-section helpers (need the whole match set) ----------------------
 
 
 def assign_match_numbers(matches: List[MatchNode]) -> Dict[int, int]:

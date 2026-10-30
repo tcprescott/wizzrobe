@@ -162,7 +162,6 @@ class TournamentDialog:
                             min=1, max=100,
                         ).props('inputmode=numeric')
 
-                    # --- Player signups ---
                     ui.separator()
                     ui.label('Player signups').classes('text-bold')
                     ui.label(
@@ -186,7 +185,6 @@ class TournamentDialog:
                             dense=True,
                         )
 
-                    # --- Tournament Days (per-tournament override of the tenant setting) ---
                     ui.separator()
                     ui.label('Tournament Days').classes('text-bold')
                     ui.label(

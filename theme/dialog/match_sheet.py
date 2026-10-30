@@ -177,7 +177,6 @@ class MatchSheet:
         self._draft = ''
         # A deep link asks for a match before the board has loaded it.
         self._pending_open: Optional[int] = None
-        # The ALTTP item tracker for the open match, when this viewer may track it.
         self._tracker_link: Optional[str] = None
         # mobile_sheet's own breakpoint, but a side sheet rather than a centred
         # card above it: the board stays readable beside the open match.
@@ -291,8 +290,6 @@ class MatchSheet:
     def _find(self, match_id) -> Optional[dict]:
         rows = self.view.table.rows if self.view else []
         return next((r for r in rows if r.get('id') == match_id), None)
-
-    # -- rendering -------------------------------------------------------
 
     def _render(self) -> None:
         row = self.row
@@ -557,8 +554,6 @@ class MatchSheet:
                         ui.button('Approve', on_click=self._toggle(row, role, idx)).props('no-caps color=primary')
                     else:
                         ui.label(name).classes('match-sheet__waiting-name col')
-
-    # -- comments ------------------------------------------------------
 
     async def _load_comments(self) -> None:
         if self.row is None:

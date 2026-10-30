@@ -121,11 +121,6 @@ def read_callback_code(
     return next(iter(params.get('code', [])), None)
 
 
-# ---------------------------------------------------------------------------
-# Cross-host link handoff (Design B): registry + URL builders + shared routes
-# ---------------------------------------------------------------------------
-
-
 @dataclass(frozen=True)
 class LinkHandoffProvider:
     """What the shared handoff routes need to complete a link for a provider.
@@ -154,7 +149,6 @@ class LinkHandoffProvider:
 # provider key -> config. Populated at each provider module's ``create()`` time.
 _HANDOFF_PROVIDERS: dict[str, LinkHandoffProvider] = {}
 
-# Guards the one-time registration of the two shared handoff routes.
 _pages_registered = False
 
 
@@ -325,7 +319,6 @@ async def handle_link_handoff_callback(url: str) -> bool:
     provider = _HANDOFF_PROVIDERS.get(provider_key)
     next_path = safe_next(keys['next'] or (provider.profile_return if provider else '/'))
     if provider is None or not host:
-        # Nothing to hand back to; return the user somewhere sane.
         ui.navigate.to(_cross_host_url(host, next_path) if host else next_path)
         return True
     # This leg runs on the *platform* host, whose session the target domain
@@ -334,7 +327,6 @@ async def handle_link_handoff_callback(url: str) -> bool:
     # is told about a handoff that did not complete.
     code = read_callback_code(url, expected_state, provider.label)
     if code is None:
-        # Cancelled / denied / state mismatch — send the user back to their domain.
         ui.navigate.to(_link_handback_url(host, provider_key, _HANDBACK_DENIED, next_path))
         return True
     # The platform host resolves no tenant, and each provider's exchange is
@@ -425,7 +417,6 @@ def register_link_handoff_pages() -> None:
         # The platform host's hand-back carries its own return path, across a host
         # boundary as a bare query parameter — as untrusted as any other.
         handed_back = safe_next(next(iter(params.get('next', [])), None) or _default_link_return())
-        # Consume the browser-binding secret this domain's /<provider>/link stashed.
         bind = app.storage.user.pop('oauth_link_bind', None)
         if not token:
             stash_notice(_handback_message(
@@ -467,11 +458,6 @@ def register_link_handoff_pages() -> None:
             stash_notice(f'Could not link {provider.label}. Please try again.', color='negative')
         ui.navigate.to(next_path)
         return None
-
-
-# ---------------------------------------------------------------------------
-# Single-flow identity links (racetime / Twitch)
-# ---------------------------------------------------------------------------
 
 
 @dataclass(frozen=True)
@@ -575,7 +561,6 @@ def register_identity_link_pages(flow: IdentityLinkFlow) -> None:
         url = await browser_url(client)
         if url is None:
             return
-        # Cross-host handoff leg (platform host): exchange + mint + hand back.
         if await handle_link_handoff_callback(url):
             return
         if flow.other_callback is not None and await flow.other_callback(url):

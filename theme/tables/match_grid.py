@@ -58,8 +58,6 @@ from theme.tables.match_slots import (
     seed_value_template,
 )
 
-# --- Headline: scheduled time (large) + compact state chip -----------------
-
 _STATE_CHIP = '''
         <span class="mgc-state">
             <span v-if="props.row.state === 'Confirmed'" class="wiz-chip wiz-chip--ok">
@@ -75,8 +73,6 @@ _STATE_CHIP = '''
             <span v-if="props.row.state_time" class="cell-timestamp">{{ props.row.state_time }}</span>
         </span>'''
 
-
-# --- Players line ----------------------------------------------------------
 
 _PLAYERS = '''
         <div class="mgc-players">
@@ -113,8 +109,6 @@ _PLAYERS = '''
         </div>'''
 
 
-# --- Dispute flag ----------------------------------------------------------
-
 # Mirrors the "Needs review" chip in the desktop State cell. Sits directly under
 # the player names: "an admin should look at this" outranks every other line on
 # the card. The desktop hangs the explanation on a q-tooltip, which is
@@ -129,8 +123,6 @@ _REVIEW_DETAIL = '''
             </span>
         </div>'''
 
-
-# --- Detail rows (each v-if-gated: empty -> renders nothing) ----------------
 
 # Commentators / trackers / broadcasters. Row shows when the list is non-empty, or while a
 # signup can still fill it (CREW_EMPTY_JS: "No signups yet", every viewer), or
@@ -249,7 +241,6 @@ _SEED_DETAIL = '''
             </span>
         </div>'''
 
-# Free-text comment. Only present when the row actually carries one.
 _COMMENT_DETAIL = '''
         <div class="mgc-detail" v-if="props.row.comment">
             <span class="mgc-label">__LABEL__</span>
@@ -257,7 +248,6 @@ _COMMENT_DETAIL = '''
         </div>'''
 
 
-# --- Actions row: lifecycle button + Change Winner + Assign Stations + watch --
 # "Change Winner" mirrors the desktop pencil, but labelled: an icon-only button
 # whose meaning lives in a tooltip is unreadable on a touch screen.
 
@@ -367,7 +357,6 @@ def render_grid_slot(table, columns, *, admin_controls: bool, access: MatchBoard
     volunteer_js = 'true' if 'stream_volunteer' in present or mine else 'false'
     hard_js = 'true' if 'hard_preset' in present or mine else 'false'
 
-    # Headline (scheduled time + optional state chip)
     headline = (
         '\n        <div class="mgc-headline">'
         # Mirrors the desktop scheduled_at cell's overdue emphasis (match_slots).
@@ -379,11 +368,9 @@ def render_grid_slot(table, columns, *, admin_controls: bool, access: MatchBoard
         + '\n        </div>'
     )
 
-    # Players line, then the dispute flag (only when the row carries one).
     players = _PLAYERS if 'players' in present else ''
     review = _REVIEW_DETAIL if 'state' in present else ''
 
-    # Caption (tournament + #id edit link)
     caption_inner = ''
     if 'tournament' in present:
         caption_inner += (
@@ -423,7 +410,6 @@ def render_grid_slot(table, columns, *, admin_controls: bool, access: MatchBoard
             caption_inner += '<span class="q-ml-sm">#{{ props.row.id }}</span>'
     caption = f'\n        <div class="mgc-caption">{caption_inner}</div>' if caption_inner else ''
 
-    # Detail rows (order: commentators, trackers, broadcasters, stage, seed, comment)
     details = ''
     for role in ('commentators', 'trackers', 'broadcasters'):
         if role in present:
@@ -445,7 +431,6 @@ def render_grid_slot(table, columns, *, admin_controls: bool, access: MatchBoard
     # values on a phone.
     details = f'\n        <div class="mgc-details">{details}\n        </div>'
 
-    # Actions (only worth emitting when an admin or the watch toggle is in play).
     # Hoisted above the caption/detail rows when the caller asked for it, with a
     # sibling class that flips the row's divider from top to bottom.
     actions = (_ACTIONS.replace('__PRESENT__', _ACTIONS_PRESENT)

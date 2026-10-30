@@ -59,7 +59,6 @@ from theme.steady import steady_refreshable
 __all__ = ['create']
 
 INDEX = '/community-events'
-#: Where the listing lives: the Community view of Home's Event tab.
 LISTING = '/home/community'
 EVENT_TAB = 'Event'
 

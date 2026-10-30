@@ -92,7 +92,6 @@ class QrLabelDialog:
                 if not assets:
                     ui.label('No equipment to print.').classes('italic-note')
                 else:
-                    # --- Layout / content ---
                     with ui.row().classes('items-center gap-2 full-width'):
                         template_select = ui.select(
                             TEMPLATE_CHOICES, value='plain', label='Template',
@@ -116,7 +115,6 @@ class QrLabelDialog:
 
                     ui.separator()
 
-                    # --- Quick-select filters ---
                     owner_opts = {_ANY: 'Any owner'}
                     seen = set()
                     for r in rows:
@@ -153,7 +151,6 @@ class QrLabelDialog:
                         ui.button('Select all', on_click=lambda: self._set_ids(r['id'] for r in rows)).props('flat dense')
                         ui.button('Select none', on_click=lambda: self._set_ids(())).props('flat dense')
 
-                    # --- Per-asset checklist ---
                     with ui.column().classes('gap-1 full-width').style('max-height: 40vh; overflow-y: auto'):
                         for a in assets:
                             self._checks[a.id] = ui.checkbox(f'#{a.asset_number} · {a.name}', value=True)

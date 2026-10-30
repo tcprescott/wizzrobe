@@ -110,7 +110,6 @@ class StationAssignmentDialog:
                         # over a "Station" field doubled each row's height.
                         name = player.user.preferred_name or player.user.username
 
-                        # Station input (leave blank to clear assignment).
                         # ``occupied`` excludes this match, so a player's own
                         # current station never shows as taken.
                         if stations:

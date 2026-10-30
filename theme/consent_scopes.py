@@ -11,7 +11,6 @@ from nicegui import ui
 
 from application.api_scopes import CONSENT_WORDING, STAFF_SCOPES, WRITE_SCOPES, ApiScope
 
-# A line under each scope, so "Staff-only information" says which information.
 SCOPE_DETAIL: Dict[ApiScope, str] = {
     ApiScope.PROFILE: 'Name, pronouns and when you said you are free',
     ApiScope.SCHEDULE_READ: 'Anything a member of this community can already see',

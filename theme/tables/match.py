@@ -55,8 +55,6 @@ from theme.tables.preferences import (
 from theme.tables.row_state import carry_viewer_row_state
 from theme.timer_teardown import PageTimer
 
-# Pagination, sorting, and filtering can be implemented server-side if needed for large datasets.
-
 #: A tournament-id list no row can match. ``tournament_ids=None`` means "every
 #: tournament", so an *empty* narrowing has to be spelled some other way or a
 #: scoped board would fall open to the whole community.
@@ -84,7 +82,6 @@ class MatchTableView(MatchFiltersMixin, MatchTableHandlersMixin, MatchBoardHoldM
     run_sheet_group = None
     proctor_run_sheet = False
     crew_discord_id = None
-    # The viewer's friends (user ids), underlined on a player run sheet.
     friend_ids: frozenset = frozenset()
 
     def __init__(self, columns, get_query, admin_controls=False, access=None, extra_slots=None, submit_match_callback=None,
@@ -186,7 +183,6 @@ class MatchTableView(MatchFiltersMixin, MatchTableHandlersMixin, MatchBoardHoldM
         self.actions_first = actions_first
         self.extra_slots = extra_slots
         self.submit_match_callback = submit_match_callback
-        # Optional callbacks for admin actions
         self.on_edit = on_edit
         self.on_generate_seed = on_generate_seed
         self.on_seat = on_seat
@@ -204,12 +200,11 @@ class MatchTableView(MatchFiltersMixin, MatchTableHandlersMixin, MatchBoardHoldM
         self.on_assign_stations = on_assign_stations
         self.table = None
         self.tournament_filter = None
-        self.tournaments_list = []  # Will be populated in _setup_ui
+        self.tournaments_list = []
         self.stage_filter = None
-        self.stages_list = []  # Will be populated in _setup_ui
+        self.stages_list = []
         self.state_filter = None
         self.day_filter = None
-        # Mobile collapsible-filter state (CSS gates the toggle/card to <1024px)
         self.filters_card = None
         self.filter_badge = None
         self.filter_reset_desk = None
@@ -263,8 +258,6 @@ class MatchTableView(MatchFiltersMixin, MatchTableHandlersMixin, MatchBoardHoldM
 
     def _register_table_slots(self, discord_id) -> None:
         """The 'table' layout: a slot per column, and the full card on a phone."""
-        # The want_* flags mirror the callback availability so the
-        # seed/state/stage slots register exactly as before (see match_slots).
         register_body_slots(
             self.table,
             admin_controls=self.admin_controls,
@@ -282,7 +275,6 @@ class MatchTableView(MatchFiltersMixin, MatchTableHandlersMixin, MatchBoardHoldM
             want_stage_readonly=self.on_set_stage is None,
         )
 
-        # Register the mobile grid slot (see match_grid).
         render_grid_slot(
             self.table, self.columns,
             admin_controls=self.admin_controls, access=self.access, discord_id=discord_id,
@@ -305,7 +297,6 @@ class MatchTableView(MatchFiltersMixin, MatchTableHandlersMixin, MatchBoardHoldM
             if self.proctor_run_sheet and self.searchable else None
         search_slot, gear_slot = self._build_filter_bar()
 
-        # Restore the filters, then load the table — one task, one load.
         self._bg(self._initial_load())
 
         with ui.column().classes('full-width') as table_container:
@@ -324,7 +315,6 @@ class MatchTableView(MatchFiltersMixin, MatchTableHandlersMixin, MatchBoardHoldM
                                                         from_table=self.proctor_run_sheet))
         self._build_tidy_pill()
 
-        # Resolve current user's discord_id once for slot templates and event wiring.
         discord_id = app.storage.user.get('discord_id', None)
         # Kept for _arrange: row updates run in background tasks, where
         # app.storage.user is out of reach.
@@ -383,7 +373,6 @@ class MatchTableView(MatchFiltersMixin, MatchTableHandlersMixin, MatchBoardHoldM
                 row_count_label(self.table, 'matches')
             sticky_header(self.table)
 
-        # --- Event wiring (handler bodies live in MatchTableHandlersMixin) ---
         self.table.on('acknowledge_match', lambda event: background_tasks.create(
             self._handle_acknowledge_match(event.args, context.client)))
         if self.show_accommodations:
@@ -463,7 +452,6 @@ class MatchTableView(MatchFiltersMixin, MatchTableHandlersMixin, MatchBoardHoldM
         if self.on_edit is not None:
             self.table.on('edit_match', lambda event: self._bg(self._handle_edit(event)))
 
-        # Live updates: react to match changes made by other users.
         register_view(self._on_remote_change)
 
         # Keeps the "Rolling… 1:24" clock moving on any row with a seed roll in
@@ -511,7 +499,6 @@ class MatchTableView(MatchFiltersMixin, MatchTableHandlersMixin, MatchBoardHoldM
             else:
                 await self.refresh()
         else:
-            # 'changed' updates in place; 'deleted' removes the row.
             await self.update_row_by_id(match_id, flash=True)
 
     async def refresh(self, *_args):
@@ -575,7 +562,6 @@ class MatchTableView(MatchFiltersMixin, MatchTableHandlersMixin, MatchBoardHoldM
                 rows, tournament_ids,
             )
 
-        # Client-side filter by state (narrows within the fetched set)
         if state_filter:
             rows = [row for row in rows if row.get('state') in state_filter]
 
@@ -650,7 +636,7 @@ class MatchTableView(MatchFiltersMixin, MatchTableHandlersMixin, MatchBoardHoldM
 
     async def _update_row(self, match_id, flash):
         if self._row_index(match_id) is None:
-            return  # Row not visible, do nothing
+            return
 
         match_data = await self.display_service.get_match_for_display(match_id)
 

@@ -44,9 +44,6 @@ _STATUS_OPTIONS = {
     VolunteerAvailabilityStatus.UNAVAILABLE.value: 'Unavailable',
 }
 
-# Resolved status -> heatmap fill class. The classes map to the phoenix
-# --status-* tokens (see .avail-seg--* in styles.css) so the bar follows the
-# palette and adapts to dark mode; None falls back to the neutral "empty" fill.
 _STATUS_SEG_CLASS = {
     VolunteerAvailabilityStatus.UNAVAILABLE: 'avail-seg--unavailable',
     VolunteerAvailabilityStatus.PREFERRED: 'avail-seg--preferred',
@@ -233,8 +230,6 @@ async def render_availability_editor(
     existing = await service.availability_for(user)
     open_ranges = await _open_ranges() if mode.shade_closed_hours else None
 
-    # Calendar days spanned by the event window, on the display clock, as
-    # (date, day_start_utc, day_end_utc) tuples for the graph.
     event_days: list[tuple] = []
     cursor = event_start
     last_day = event_end
@@ -247,9 +242,8 @@ async def render_availability_editor(
         ))
         cursor = next_day
 
-    # Working set of rows; each is a mutable dict the inputs bind to. A stored
-    # status this mode does not offer cannot be shown against a dropdown that
-    # cannot represent it, so it is left out of the editor. Nothing writes one
+    # A stored status this mode does not offer cannot be shown against a dropdown
+    # that cannot represent it, so it is left out of the editor. Nothing writes one
     # today — PlayerAvailabilityService drops an AVAILABLE window on save — so
     # this catches rows that predate that rule, not a live case.
     rows: list[dict] = [

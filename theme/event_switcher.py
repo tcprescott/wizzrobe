@@ -23,14 +23,12 @@ from models import EventStatus, User
 if TYPE_CHECKING:
     from theme.base import BaseLayout
 
-#: Status → (chip text, chip tone).
 STATUS_CHIPS = {
     EventStatus.LIVE: ('Live', 'ok'),
     EventStatus.DRAFT: ('Draft', 'info'),
     EventStatus.ARCHIVED: ('Archived', 'pending'),
 }
 
-#: The admin tab that lists every event.
 EVENTS_ADMIN_PATH = '/admin/events'
 
 # Rebuilds the address in the picked event from the browser's own location, so

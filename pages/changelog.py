@@ -20,7 +20,6 @@ from theme.page_header import page_header
 
 __all__ = ['create']
 
-#: Each category's dot takes a status colour, so the groups read apart at a glance.
 _CATEGORY_TONES = {
     'New': 'info',
     'Improved': 'ok',

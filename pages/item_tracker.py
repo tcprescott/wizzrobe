@@ -74,8 +74,6 @@ class TrackerPage:
         self._picker = ui.dialog()
         mobile_sheet(self._picker)
 
-    # -- building ------------------------------------------------------
-
     async def render(self) -> None:
         with page_header('Item tracker', subtitle=self.view.title):
             ui.space()
@@ -154,8 +152,6 @@ class TrackerPage:
                         ui.button('Undo', on_click=lambda c=entry.id: self._undo(c)) \
                             .props(f'flat dense no-caps color=primary aria-label="Undo {entry.text}"')
 
-    # -- keeping up ----------------------------------------------------
-
     async def _poll(self) -> None:
         try:
             versions = await self.service.versions(self.view.match.id, self.user)
@@ -210,8 +206,6 @@ class TrackerPage:
             return
         await self._reload()
         await self._refresh_preview()
-
-    # -- marking -------------------------------------------------------
 
     async def _set(self, key: str, level: int) -> None:
         await self._write(lambda: self.service.set_level(self.runner.board.id, key, level, self.user))
@@ -316,8 +310,6 @@ class TrackerPage:
                                      self._pick(f'{k}.medallion', level, again))
         if not self._picker.value:
             self._picker.open()
-
-    # -- actions -------------------------------------------------------
 
     async def _undo(self, change_id: int) -> None:
         await self._write(lambda: self.service.undo(self.runner.board.id, change_id, self.user))

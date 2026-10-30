@@ -93,8 +93,6 @@ def render_page_items(layout: 'BaseLayout', tabs: list[dict], section_url: str |
         if half and half != current_half:
             current_half = half
             render_half_heading(layout, half)
-        # Section headers for grouped drawers (admin passes a 'group' per tab);
-        # ungrouped sections render a flat list.
         group = tab.get('group')
         if group and group != current_group:
             current_group = group

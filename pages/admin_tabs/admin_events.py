@@ -31,7 +31,6 @@ from theme.tables.admin_crud import current_actor
 from theme.tables.mobile_grid import enable_mobile_grid
 from theme.tables.preferences import TableKeys
 
-#: What each copy checkbox brings, under its label in the New event dialog.
 COPY_HINTS = {
     'tournaments': 'Names, formats, presets, Discord role mappings. No players, brackets, '
                    'round schedules or Challonge/start.gg links.',

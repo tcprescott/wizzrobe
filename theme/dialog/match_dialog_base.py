@@ -587,7 +587,6 @@ class BaseMatchDialog:
             try:
                 await do_create()
                 with self.dialog:
-                    # Say what scheduling the match did besides schedule it.
                     report = enrolment_report(
                         [u.preferred_name for u in newly_enrolled],
                         await self._tournament_name(tournament_id),

@@ -38,7 +38,6 @@ from theme.section import section_panel
 from theme.shift_arrival_banner import arrival_changed, on_arrival_change
 from theme.steady import steady_refreshable
 
-#: The section's DOM id, so a link can scroll to it.
 SHIFTS_SECTION_ID = 'my-shifts'
 
 

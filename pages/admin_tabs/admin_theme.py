@@ -147,8 +147,6 @@ async def admin_theme_page() -> None:
                             ui.icon('warning', size='1rem').classes('text-warning').props('aria-hidden=true')
                             ui.label(issue).classes('text-caption text-warning')
 
-        # Preset picker: contrast-verified palettes; selecting one fills the
-        # fields below (which the user can then fine-tune before saving).
         preset_select = ui.select(
             options=list(THEME_PRESETS.keys()),
             label='Start from a preset',

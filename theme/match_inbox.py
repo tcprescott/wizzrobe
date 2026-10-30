@@ -32,7 +32,6 @@ from theme.notify import notify_error
 from theme.tables.admin_crud import capture_render_context, current_actor, scoped_background
 from theme.tables.match_access import MatchBoardAccess
 
-#: Items a group shows before "Show N more".
 _GROUP_LIMIT = 3
 
 

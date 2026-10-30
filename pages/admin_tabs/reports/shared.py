@@ -43,7 +43,6 @@ CHART_GRID = 'rgba(135, 125, 114, 0.35)'     # gridlines/axis lines — recessiv
 class ChartPalette(NamedTuple):
     """The series colours one report's charts are painted with."""
 
-    #: The main series, in the community's colour.
     primary: str
     #: ``primary`` at 18%, for the area under a line.
     primary_area: str

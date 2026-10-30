@@ -47,7 +47,6 @@ from theme.steady import steady_refreshable
 from theme.tables.admin_crud import capture_render_context, scoped_background
 from theme.url_state import consume_deep_link, url_param, url_state
 
-#: Where the viewer's List / Timeline choice is remembered.
 VIEW_KEY = 'my_schedule_view'
 
 VIEWS = {'list': 'List', 'timeline': 'Timeline'}

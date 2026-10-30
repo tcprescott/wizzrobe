@@ -75,7 +75,6 @@ class BracketSourceScheduleDialog:
         if single:
             best_of = 1
         length = int(getattr(item.tournament, 'average_match_duration', None) or _DEFAULT_LENGTH)
-        # One (date, time) input pair per game; rebuilt when staff change the best-of.
         games: List[Tuple] = []
         state = {'best_of': best_of}
 

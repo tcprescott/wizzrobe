@@ -31,7 +31,6 @@ class SectionPanel(NamedTuple):
     panel: ui.element
     #: Header's right-hand slot, for this section's own controls.
     aside: ui.row
-    #: The content.
     body: ui.column
 
 

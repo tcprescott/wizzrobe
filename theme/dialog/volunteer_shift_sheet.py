@@ -116,8 +116,6 @@ class VolunteerShiftSheet:
         ui.notify(_STALE, color='info')
         await self._changed()
 
-    # --- Rendering -----------------------------------------------------
-
     def _render(self) -> None:
         found = self.lookup(self.shift_id) if self.shift_id else None
         if found is None:
@@ -189,8 +187,6 @@ class VolunteerShiftSheet:
                 ui.separator()
                 menu_action('person_remove', 'Remove from shift…',
                             lambda: self._confirm_remove(person, position, shift), negative=True)
-
-    # --- Actions ---------------------------------------------------------
 
     async def _check_in(self, person: GridPerson) -> None:
         try:

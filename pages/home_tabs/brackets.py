@@ -71,7 +71,6 @@ async def brackets_tab() -> None:
             empty_panel('No brackets have been published yet.', icon='account_tree')
             return
 
-        # Same compact intro line the Schedule view uses, for the same reason.
         with ui.row().classes('wiz-view-note items-center'):
             ui.label(
                 'Tournament brackets, standings, and results.'

@@ -185,7 +185,6 @@ def create() -> None:
         browsing_host = effective_request_host(context.client.request.headers)
         wrong_host = encoded_host_mismatch(canonical_link, browsing_host)
 
-        # --- Toolbar (screen only) ---
         if wrong_host:
             # Above the Print button in reading order: a warning below the action
             # is a warning after the fact. Never blocks printing — the operator
@@ -240,7 +239,6 @@ def create() -> None:
             if lab['desc']:
                 ui.label(lab['desc']).classes('lbl-desc')
 
-        # --- Avery: exact-inch paginated sheets ---
         if is_avery:
             g = _AVERY[tpl]
             per_page = g['cols'] * g['rows']
@@ -262,7 +260,6 @@ def create() -> None:
                                     _label_text(lab, community_line=True)
             return
 
-        # --- Plain free grid (Letter/A4), column count re-toggles live ---
         @ui.refreshable
         def sheet() -> None:
             with ui.element('div').classes('qr-sheet').style(

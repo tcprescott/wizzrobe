@@ -40,7 +40,6 @@ HOUR_PX = 48
 _LINE_PX = 18
 _BLOCK_CHROME_PX = 32
 
-# How a person's arrival reads on the Shift Board: icon, class, words.
 ARRIVAL_MARKS = {
     ARRIVED: ('check_circle', 'st-ok', 'Checked in'),
     LATE: ('schedule', 'st-pending', 'Running late'),

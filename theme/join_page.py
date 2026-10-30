@@ -59,11 +59,8 @@ class JoinPreview:
     tournaments: List[Tuple[int, str]] = field(default_factory=list)
     #: Today's matches, on the **community's** clock. Player names are public.
     matches: List[PreviewMatch] = field(default_factory=list)
-    #: Matches today beyond the ones listed above, or 0.
     more_matches: int = 0
-    #: The zone the times above are in, e.g. ``EST``.
     timezone_label: str = ''
-    #: Staff's invite to the community's Discord server, or None.
     discord_invite_url: Optional[str] = None
     #: Whether members of the linked server get in without asking. Only True
     #: when staff turned it on *and* a server is linked, since the door must not

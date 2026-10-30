@@ -55,7 +55,6 @@ PLAYER_MENU_COLUMN = {'name': MY_ACTIONS_COLUMN, 'label': 'More', 'field': MY_AC
 _LIVE = (0, 'Live now')
 _NEXT = (1, 'Up next')
 _NO_PLAYERS = (2, 'Waiting for players')
-# Bracket matchups nobody has booked, which crew can sign up for ahead.
 NOT_BOOKED_GROUP = 'Not scheduled yet'
 _NOT_BOOKED = (3, NOT_BOOKED_GROUP)
 _DONE = (4, 'Finished')

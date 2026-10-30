@@ -48,8 +48,6 @@ async def _render_platform_landing() -> None:
     )
     with ui.header().classes('wiz-header items-center no-wrap'):
         ui.label('Wizzrobe').classes('wiz-wordmark')
-        # Flexible spacer pushes the login/user controls to the right edge (see
-        # BaseLayout._render_header for the same pattern on tenant surfaces).
         ui.space()
         if user is not None:
             ui.label(user.preferred_name).classes('text-lg user-name')
@@ -57,8 +55,6 @@ async def _render_platform_landing() -> None:
             if avatar_url:
                 ui.image(avatar_url).props('width=32 height=32 fit=cover round').classes('user-avatar')
             else:
-                # No avatar URL (mock-login sessions, or Discord users on the
-                # default avatar): show a placeholder glyph rather than a broken image.
                 ui.icon('account_circle').classes('user-avatar user-avatar-placeholder')
             logout_btn = ui.button(icon='logout', color=None).props('flat').tooltip('Log out')
             set_link(logout_btn, '/logout', new_tab=False)
@@ -143,7 +139,6 @@ def create() -> None:
         release: str | None = None,
         shifts: str | None = None,
     ):
-        # Bare platform host (no /t/<slug>) -> community picker, not a tenant home.
         tid = get_current_tenant_id()
         if tid is None:
             await _render_platform_landing()
@@ -192,12 +187,6 @@ def create() -> None:
         # (the same function also renders the platform community picker, which
         # has no tenant and must stay anonymous), so it applies the gate itself
         # rather than getting it from ``_tenant_page``.
-        #
-        # This is where the audit measured the symptom: a platform user with no
-        # roles and no membership loaded a brand-new community's home schedule,
-        # saw its first match with both players' names, and was offered Sign Up
-        # as commentator and tracker. The community's own spectator surface —
-        # the bracket views — stays public on its own routes.
         if await enforce_membership(tid, user):
             return
         if not await can_view_bound_event(user):

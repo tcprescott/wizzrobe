@@ -94,7 +94,6 @@ class TableKeys:
     # groups only, keyed "<tournament id>:<source>".
     ADMIN_UNBOOKED = 'admin.unbooked'
 
-    # Admin
     ADMIN_USERS = 'admin.users'
     # _v2 since the board became six short columns with the description hidden:
     # rule 3 would have kept every v1 layout's Description and duration columns.
@@ -123,18 +122,11 @@ class TableKeys:
     ADMIN_VOLUNTEER_ROSTER = 'admin.volunteer_roster'
     ADMIN_WEBHOOK_DELIVERIES = 'admin.webhook_deliveries'
 
-    # Check-in desk
     CHECK_IN_DESK = 'check_in.desk'
 
-    # Player-facing
-    # (No equipment.inventory: browsing the register left the player surface
-    # when Home came down to four tabs, and the admin table has its own key.
-    # Rows saved against the old key are simply never read. Nor equipment.mine:
-    # your own loans became a short list on Profile.)
     QUALIFIERS_LIST = 'qualifiers.list'
     QUALIFIERS_LEADERBOARD = 'qualifiers.leaderboard'
 
-    # Reports
     REPORTS_CAPACITY_FOCUS = 'reports.capacity_focus'
     REPORTS_CAPACITY_FORECAST = 'reports.capacity_forecast'
     REPORTS_CREW_CONTRIBUTIONS = 'reports.crew_contributions'
@@ -153,7 +145,6 @@ class TableKeys:
     REPORTS_TOURNAMENT_HEALTH = 'reports.tournament_health'
     REPORTS_VOLUNTEER_HOURS = 'reports.volunteer_hours'
 
-    # Platform (super-admin)
     PLATFORM_FEATURE_GROUPS = 'platform.feature_groups'
     PLATFORM_APPS = 'platform.apps'
     PLATFORM_BROWSER_IGNORE_RULES = 'platform.browser_ignore_rules'
@@ -345,8 +336,6 @@ def effective_columns(
         widths=widths,
     )
 
-
-# ---------------------------------------------------------------- application
 
 @dataclass
 class TableCustomization:

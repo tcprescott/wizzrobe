@@ -40,7 +40,6 @@ from theme.matchup import matchup_html
 UP_NEXT_LIMIT = 3
 #: Rows in "Coming up on stream", across every stage and day.
 COMING_UP_LIMIT = 12
-#: How often the static rendering refetches itself.
 STATIC_REFRESH_SECONDS = 60
 
 
@@ -115,7 +114,6 @@ class WatchView:
     tournaments: List[WatchTournament] = field(default_factory=list)
     timezone_label: str = ''
     primary_color: Optional[str] = None
-    # The community's theme (TenantThemeService), for its logo icons.
     icons: Dict[str, str] = field(default_factory=dict)
     generated_at: Optional[datetime] = None
 

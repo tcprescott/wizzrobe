@@ -34,7 +34,6 @@ class StaticBracketView:
     entries: List[BracketEntry]
     matches: List[BracketMatch]
     entry_name: Dict[int, str]
-    # entry_id -> Discord avatar URL (``theme.brackets.render.entry_avatars``).
     entry_avatar: Dict[int, str] = field(default_factory=dict)
     live_state: Dict[int, dict] = field(default_factory=dict)
     advancement: Optional[dict] = None
@@ -42,7 +41,6 @@ class StaticBracketView:
     # Path prefix carrying any /t/<slug> root_path, so links work in path mode.
     root_path: str = ''
     primary_color: Optional[str] = None
-    # The community's theme (TenantThemeService), for its logo icons.
     icons: Dict[str, str] = field(default_factory=dict)
     refresh_seconds: int = 60
 

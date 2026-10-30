@@ -68,7 +68,6 @@ _TTL_SECONDS = 30
 #: and a rush is exactly when three queries per request would hurt.
 _SETTINGS_TTL_SECONDS = 5
 
-#: Challonge's bracket states, in a spectator's words and a chip tone.
 _CHALLONGE_STATUS = {
     'pending': ('Not started', 'neutral'),
     'checking_in': ('Not started', 'neutral'),

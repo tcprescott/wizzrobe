@@ -56,7 +56,6 @@ body {
   color: var(--bracket-text);
 }
 
-/* Horizontal-scrolling viewport for a wide bracket. */
 .bracket-scroll {
   position: relative;
   width: 100%;
@@ -121,12 +120,10 @@ body {
   white-space: nowrap;
 }
 
-/* The absolutely-positioned canvas the cards + connectors live in. */
 .bracket-canvas {
   position: relative;
 }
 
-/* Connector segments (winner-links only). */
 .bracket-line {
   position: absolute;
   background: var(--bracket-line);
@@ -143,7 +140,6 @@ body {
   margin-left: -1px;
 }
 
-/* Match card. */
 .bracket-match {
   position: absolute;
   box-sizing: border-box;
@@ -277,7 +273,6 @@ body {
   z-index: 3;
 }
 
-/* Entrant row. */
 .bracket-slot {
   flex: 1 1 0;
   display: flex;
@@ -419,8 +414,6 @@ body {
   transform: scale(var(--bracket-zoom, 1));
   transform-origin: top left;
 }
-
-/* ---- Swiss / groups data tables ------------------------------------------ */
 
 .bracket-groups-grid {
   display: grid;
@@ -587,7 +580,6 @@ body {
   border-bottom: 2px solid var(--bracket-accent);
 }
 
-/* Swiss pairings. */
 .bracket-pairings {
   display: flex;
   flex-direction: column;
@@ -668,7 +660,6 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
-/* Crosstable (head-to-head grid). */
 .bracket-crosstable {
   display: grid;
   gap: 1px;
@@ -716,8 +707,6 @@ body {
 .bracket-crosstable .cx-cell.diag {
   background: var(--bracket-line);
 }
-
-/* ---- Mobile: per-round accordion (below Quasar lt.md, <1024px) ----------- */
 
 /* The same match card in normal document flow (full width, auto height).
  * `relative`, not `static`: .bracket-match-num is absolutely positioned, so a

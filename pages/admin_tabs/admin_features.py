@@ -44,7 +44,6 @@ async def admin_features_page() -> None:
         if tier:
             ui.label(f'Your tier: {tier}').classes('text-caption text-primary')
 
-        # Group by category, preserving the registry declaration order.
         categories: list[str] = []
         by_category: dict[str, list[dict]] = {}
         for row in rows:

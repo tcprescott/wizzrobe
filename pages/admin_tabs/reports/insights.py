@@ -165,9 +165,6 @@ async def _load(analytics, viewer, start, end, bucket, tournament_id):
         )
 
 
-# --- KPI strip ------------------------------------------------------------
-
-
 def _kpi_strip(crew: dict, hours: dict, health: dict) -> None:
     scored = [r['health_score'] for r in health['rows'] if r['health_score'] is not None]
     avg_health = sum(scored) / len(scored) if scored else None
@@ -184,9 +181,6 @@ def _kpi_strip(crew: dict, hours: dict, health: dict) -> None:
                   f'{avg_health:.0f}' if avg_health is not None else '—',
                   'across scored tournaments',
                   color=_health_color(avg_health))
-
-
-# --- Crew participation ---------------------------------------------------
 
 
 async def _crew_section(crew: dict, start_d: date, end_d: date, palette: ChartPalette) -> None:
@@ -246,9 +240,6 @@ async def _crew_section(crew: dict, start_d: date, end_d: date, palette: ChartPa
             enable_mobile_grid(table, columns, table_key=TableKeys.REPORTS_INSIGHTS_CREW)
 
 
-# --- Volunteer hours ------------------------------------------------------
-
-
 async def _volunteer_section(
     hours: dict, start_d: date, end_d: date, palette: ChartPalette, scoped: bool = False,
 ) -> None:
@@ -306,9 +297,6 @@ async def _volunteer_section(
         else:
             table = ui.table(columns=columns, rows=rows, pagination=10, row_key='name').classes('full-width')
             enable_mobile_grid(table, columns, table_key=TableKeys.REPORTS_INSIGHTS_PLAYERS)
-
-
-# --- Tournament health ----------------------------------------------------
 
 
 async def _health_section(health: dict, start_d: date, end_d: date) -> None:
@@ -384,9 +372,6 @@ async def _health_section(health: dict, start_d: date, end_d: date) -> None:
                                table_key=TableKeys.REPORTS_TOURNAMENT_HEALTH)
 
 
-# --- Admin activity -------------------------------------------------------
-
-
 async def _activity_section(activity: dict, palette: ChartPalette, scoped: bool = False) -> None:
     labels = activity['bucket_labels']
     categories = activity['categories']
@@ -429,9 +414,6 @@ async def _activity_section(activity: dict, palette: ChartPalette, scoped: bool 
                 'series': series,
             }
             ui.echart(themed_chart_option(option)).classes('chart-height')
-
-
-# --- Small helpers --------------------------------------------------------
 
 
 def _has_signal(values: List) -> bool:

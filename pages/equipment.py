@@ -168,7 +168,6 @@ def create() -> None:
                                     'Print label', f'/equipment/qr-labels?ids={asset.id}', icon='print',
                                 ).props('flat dense').tooltip('Open a printable label for this asset')
 
-                # --- Actions ---
                 # Every button here needs a round trip, so each carries the
                 # offline guard's class (theme/connection.py). Download QR and
                 # Print label above deliberately do not: the data URI is already
@@ -198,7 +197,6 @@ def create() -> None:
                 if guidance:
                     ui.label(guidance).classes('italic-note q-mt-sm')
 
-                # --- History ---
                 if history:
                     ui.separator().classes('separator-spacing')
                     with ui.row().classes('items-baseline gap-2 q-mt-md'):

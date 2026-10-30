@@ -64,8 +64,6 @@ class ChannelRows:
         if self.show_telegram:
             self._telegram_row()
 
-    # ------------------------------------------------------------ email
-
     def _email_row(self) -> None:
         user = self.user
         with ui.row().classes('wiz-notify-item no-wrap'):
@@ -177,8 +175,6 @@ class ChannelRows:
             ).open()
 
         dialog.open()
-
-    # --------------------------------------------------------- telegram
 
     def _telegram_row(self) -> None:
         user = self.user

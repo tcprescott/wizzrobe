@@ -157,7 +157,6 @@ class UrlState:
         # What the page called itself before any view was named in front of it.
         self.base_title: str = client.resolve_title() or 'Wizzrobe'
         self._params: list[UrlParam] = []
-        #: The hub tab on show, and the container each tab builds into.
         self.tab: Optional[str] = None
         self._tab_containers: dict[str, ui.element] = {}
         self._on_slug: Optional[Callable[[str], Awaitable[None]]] = None
@@ -173,8 +172,6 @@ class UrlState:
         client.layout.on(POP_EVENT, self._on_pop)
         with client:
             ui.run_javascript(_LISTENER_JS)
-
-    # --- wiring for BaseLayout ------------------------------------------------
 
     def bind_hub(
         self, base_path: Optional[str], section: Optional[str], tab: str, slug: str,
@@ -211,8 +208,6 @@ class UrlState:
         self.path = path
         self.tail = full[len(path):] if full.startswith(path + '/') else ''
 
-    # --- parameters -----------------------------------------------------------
-
     def _owner(self, element: ui.element) -> Optional[str]:
         ancestors = {id(a) for a in element.ancestors(include_self=True)}
         return next((label for label, c in self._tab_containers.items() if id(c) in ancestors), None)
@@ -237,8 +232,6 @@ class UrlState:
         if key == TAIL:
             return self.tail.strip('/') or None
         return self.query.get(key)
-
-    # --- writing the address --------------------------------------------------
 
     def title(self) -> str:
         parts = [p.label(p.value) for p in reversed(self._params) if self._current(p) and p.label]
@@ -310,8 +303,6 @@ class UrlState:
                 changed = True
         if changed:
             self.settle()
-
-    # --- Back and Forward -----------------------------------------------------
 
     async def _on_pop(self, e) -> None:
         args = e.args if isinstance(e.args, dict) else {}

@@ -222,8 +222,6 @@ def create() -> None:
                 await _render_leaderboard(user, is_public)
 
         async def _render_start(current) -> None:
-            # One read answers both "can I run?" and "why not?" — the page no
-            # longer has to infer a reason from an empty list.
             availability = await service.get_run_availability(current, qualifier_id)
             ui.label('Start a run').classes('text-subtitle1')
             if not availability.pools:

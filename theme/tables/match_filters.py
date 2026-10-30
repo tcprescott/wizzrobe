@@ -28,15 +28,11 @@ from theme.timer_teardown import PageTimer
 ALL_MATCH_STATES = ['Scheduled', 'Checked In', 'Started', 'Finished', 'Confirmed']
 DEFAULT_STATE_FILTER = ['Scheduled', 'Checked In', 'Started']
 
-# Day scopes for the Day filter. The board had no day or now anchor at all, so
-# an operator standing at a venue scrolled ~8 screenfuls of phone to find a
-# match by eye — the cards carry every detail and nothing narrowed them to the
-# day being run. ``ALL_DAYS`` is the default, so nothing is hidden until asked,
-# except on the admin board, which opens on Today: at 1,300 matches All dates
-# sent every row (2MB) on each open.
+# ``ALL_DAYS`` is the default, so nothing is hidden until asked, except on the
+# admin board, which opens on Today: at 1,300 matches All dates sent every row
+# (2MB) on each open.
 ALL_DAYS = 'All dates'
 
-#: Seconds the reset chip offers Undo before it goes away.
 RESET_UNDO_SECONDS = 8
 DAY_SCOPES = [ALL_DAYS, 'Today', 'Tomorrow', 'Next 7 days']
 
@@ -118,13 +114,13 @@ class MatchFiltersMixin:
         self._refresh_unless_initializing()
 
     def _on_tournament_filter_change(self, *_args, **_kwargs):
-        # Store the tournament ID value (namespaced by tenant — ids are global).
+        # Namespaced by tenant — ids are global.
         tenant_session_set(self._skey('tournament_filter'), self.tournament_filter.value)
         self._update_filter_badge()
         self._refresh_unless_initializing()
 
     def _on_stage_filter_change(self, *_args, **_kwargs):
-        # Store the stage ID value (namespaced by tenant — ids are global).
+        # Namespaced by tenant — ids are global.
         tenant_session_set(self._skey('stage_filter'), self.stage_filter.value)
         self._update_filter_badge()
         self._refresh_unless_initializing()

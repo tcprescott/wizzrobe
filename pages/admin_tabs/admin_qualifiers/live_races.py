@@ -222,7 +222,6 @@ def build_live_tab(
                 ui.button('Add racer', icon='person_add', on_click=add_row).props('flat')
 
             async def submit():
-                # The service is strict about every other input; so is the page.
                 refusal = missing_racer_message(
                     [i for i, entry in enumerate(rows, start=1) if not entry['person'].value])
                 if refusal:

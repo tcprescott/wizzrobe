@@ -92,7 +92,6 @@ class VolunteerShiftDialog:
                 with ui.row().classes('form-pair gap-2'):
                     start_date_input = native_date_input('Start date', default_start_date)
                     start_time_input = native_time_input('Start time', default_start_time)
-                # Keep the end date aligned with the start date until the user edits it.
                 end_date_edited = {'value': editing}
 
                 with ui.row().classes('form-pair gap-2'):

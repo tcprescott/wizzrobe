@@ -41,7 +41,6 @@ _BRACKET_EVENTS = (
     EventType.BRACKET_GAME_CANCELLED,
 )
 
-# The scheduled-match lifecycle, which the bracket now mirrors live.
 _MATCH_EVENTS = (
     EventType.MATCH_CREATED,
     EventType.MATCH_UPDATED,

@@ -142,8 +142,6 @@ class RoundScheduleDialog:
             found += ". The elimination rounds aren't on the bracket yet, so the usual ones are listed to plan ahead"
         return found
 
-    # --- Rows ------------------------------------------------------------
-
     def _render_rows(self) -> None:
         with ui.element('div').classes('round-schedule__table full-width'):
             with ui.element('div').classes('round-schedule__row round-schedule__row--head'):
@@ -186,8 +184,6 @@ class RoundScheduleDialog:
             'best_of': self.drafts[stage.key].get('best_of', 1),
         }
         self.rows.refresh()
-
-    # --- Editor sheet ------------------------------------------------------
 
     def _build_sheet(self) -> None:
         # mobile_sheet's breakpoint, but a side sheet on desktop so the table
@@ -257,8 +253,6 @@ class RoundScheduleDialog:
             ui.space()
             ui.button('Cancel', on_click=self.sheet.close).props('flat')
             ui.button('Done', on_click=done).props('color=primary')
-
-    # --- Save ------------------------------------------------------------
 
     def _entries(self) -> Dict[str, dict]:
         def instant(value: str) -> Optional[datetime]:

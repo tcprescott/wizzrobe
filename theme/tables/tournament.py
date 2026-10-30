@@ -35,7 +35,6 @@ _SIGNUP_LABELS = {
     SignupWindow.CLOSED: 'Closed',
 }
 
-# The chip tone per window state, as a ``wiz-chip--*`` modifier.
 _SIGNUP_TONES = {
     SignupWindow.UPCOMING: 'pending',
     SignupWindow.OPEN: 'live',
@@ -173,7 +172,6 @@ _SIGNUPS_CELL = '''
     <div class="tournament-table__sub tournament-table__stamp">{{ props.row.signup_detail }}</div>
 '''
 
-# The phone card's signups: chip and boundary on one line, not stacked.
 _SIGNUPS_LINE = '''
     <span :class="'wiz-chip wiz-chip--' + props.row.signup_tone">{{ props.row.signup_state }}</span>
     <span class="tournament-table__sub q-ml-xs">{{ props.row.signup_detail }}</span>
@@ -208,7 +206,6 @@ _PLAYERS_CELL = '''
        @click.prevent="$parent.$emit('show_players', props.row)">{{ props.row.player_count }}</a>
 '''
 
-# The phone card's last line: players · seed · match length.
 _FACTS_LINE = '''
     <a href="#" class="table-link" :aria-label="props.row.player_count + ' players in ' + props.row.name"
        @click.prevent="$parent.$emit('show_players', props.row)">{{ props.row.player_count }} {{ props.row.player_count === 1 ? 'player' : 'players' }}</a>
@@ -268,13 +265,11 @@ class TournamentTableView:
                  table_key=None, searchable=False, can_delete=False, can_sync=False,
                  can_link=False):
         self.columns = columns
-        # Offer Sync bracket (row) and Sync all linked brackets (toolbar).
         self.can_sync = can_sync
         # Offer Link a bracket… and Unlink bracket…; the services keep these staff-only.
         self.can_link = can_link
         self._live_sites: list = []
         self._unmatched: dict = {}
-        # When set, this view's desktop columns follow the viewer's saved layout.
         self.table_key = table_key
         # A text box over the visible columns. Not persisted: working state.
         self.searchable = searchable
@@ -460,11 +455,11 @@ class TournamentTableView:
         """
         idx = next((i for i, row in enumerate(self.table.rows) if row.get('id') == tournament_id), None)
         if idx is None:
-            return  # Row not visible, do nothing
+            return
         tournament_query = self.get_query().annotate(player_count=Count('players'))
         t = await tournament_query.filter(id=tournament_id).first()
         if not t:
-            return  # Tournament not found
+            return
         self._unmatched.update({t.id: 0, **await bracket_sources.unmatched_entrant_counts([t])})
         idx = next((i for i, row in enumerate(self.table.rows) if row.get('id') == tournament_id), None)
         if idx is None:

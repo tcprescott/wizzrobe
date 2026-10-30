@@ -1,10 +1,3 @@
-/* Wizzrobe Custom Styles */
-
-/* ---------------------------------------------------------------------------
-   Self-hosted fonts (SIL OFL, served from /static/fonts)
-   Atkinson Hyperlegible — UI, body and titles
-   IBM Plex Mono  — match IDs, times, timestamps
---------------------------------------------------------------------------- */
 @font-face {
     font-family: 'Atkinson Hyperlegible';
     font-style: normal;
@@ -116,7 +109,6 @@
     --accent: var(--wiz-gold-deep);
     --accent-soft: color-mix(in srgb, var(--accent) 10%, transparent);
 
-    /* Neutral scale (warm grey, biased slightly toward the brand hue) */
     --n-0:   #FFFFFF;
     --n-25:  #FAFAF9;
     --n-50:  #F5F5F4;
@@ -146,7 +138,6 @@
     --wiz-stage-header-bg: var(--n-100);
     --wiz-stage-header-text: var(--fg);
 
-    /* Dark-mode scale, referenced by the .body--dark block below */
     --wiz-dark-bg:        #161513;
     --wiz-dark-surface:   #1F1D1A;
     --wiz-dark-surface-2: #262420;
@@ -182,7 +173,6 @@
     --status-suggested: #5B4BB7;
     --status-suggested-soft: color-mix(in srgb, var(--status-suggested) 10%, var(--surface));
 
-    /* Spacing scale */
     --space-1: 0.25rem;
     --space-2: 0.5rem;
     --space-3: 1rem;
@@ -190,7 +180,6 @@
     --space-5: 2rem;
     --space-6: 3rem;
 
-    /* Radii: chips 6, controls 8, cards 12 */
     --radius-sm: 6px;
     --radius-md: 8px;
     --radius-lg: 12px;
@@ -212,7 +201,6 @@
     --shadow-3: 0 12px 32px rgba(28, 27, 25, 0.14);
     --scrim: rgba(28, 27, 25, 0.4);
 
-    /* Motion */
     --ease-out: cubic-bezier(0.22, 0.61, 0.36, 1);
     --dur-fast: 120ms;
     --dur-med: 220ms;
@@ -287,7 +275,6 @@ body {
     font-size: var(--text-md);
 }
 
-/* Read by screen readers, not drawn. */
 .wiz-sr-only {
     position: absolute !important;
     width: 1px;
@@ -321,7 +308,6 @@ main.q-page:focus {
     outline: none;
 }
 
-/* Brand focus ring and selection */
 :focus-visible {
     outline: 2px solid var(--accent);
     outline-offset: 2px;
@@ -500,9 +486,8 @@ main.q-page:focus {
 
 /* Availability heatmap (My Availability editor, player + volunteer) — status
    fills mapped to the phoenix --status-* tokens so the bar sits with the
-   palette and lifts in dark mode, replacing the old stock-Material
-   red/green/blue. Segment widths stay inline (dynamic geometry); only the
-   palette lives here. */
+   palette and lifts in dark mode. Segment widths stay inline (dynamic
+   geometry); only the palette lives here. */
 :root {
     --avail-none: var(--border-subtle);   /* "no availability" fill */
     --avail-hatch: rgb(255 255 255 / 0.55);
@@ -717,7 +702,6 @@ main.q-page:focus {
     .avail-window__status { flex: 0 0 11rem; }
 }
 
-/* Monospace data cells — match IDs, scheduled times, timestamps */
 .cell-id,
 .cell-time {
     font-family: var(--font-mono);
@@ -759,7 +743,6 @@ main.q-page:focus {
     color: var(--fg);
 }
 
-/* The value and its copy button stay on one line, even in a narrow card. */
 .seed-copy {
     display: inline-flex;
     align-items: center;
@@ -767,7 +750,6 @@ main.q-page:focus {
     white-space: nowrap;
 }
 
-/* Inline timestamp spans inside table cell templates */
 .cell-timestamp {
     font-family: var(--font-mono);
     font-variant-numeric: tabular-nums;
@@ -775,8 +757,6 @@ main.q-page:focus {
     color: var(--status-neutral);
 }
 
-/* Brand header — amber bar in light mode, charcoal in dark; the ember→gold
-   strip along the bottom is the signature accent. */
 /* Header: a neutral bar with a hairline rule. The community's colour lives in
    the small mark before the wordmark, not across the whole bar. Quasar pins the
    header via its own fixed-top positioning. */
@@ -1009,7 +989,6 @@ body:has(.wiz-header) .q-notifications__list--top {
     }
 }
 
-/* Home › Tournaments with several live events: one heading per event. */
 .wiz-event-heading {
     margin-top: var(--space-4);
 }
@@ -1019,7 +998,6 @@ body:has(.wiz-header) .q-notifications__list--top {
     font-weight: 700;
 }
 
-/* The links back to archived events at the end of a personal page. */
 .wiz-past-events {
     margin-top: var(--space-3);
     color: var(--fg-muted);
@@ -1054,7 +1032,6 @@ body:has(.wiz-header) .q-notifications__list--top {
     white-space: nowrap;
 }
 
-/* Plain nav link inside the header bar. */
 .wiz-header-link {
     color: var(--fg-secondary);
     gap: var(--space-1);
@@ -1086,8 +1063,6 @@ body:has(.wiz-header) .q-notifications__list--top {
     }
 }
 
-/* Drawer navigation: a quiet sidebar. The active item is a grey fill with
-   an accent icon; hover is a lighter grey. */
 .q-drawer {
     background: var(--surface-alt);
     border-right: 1px solid var(--border-subtle);
@@ -1280,7 +1255,6 @@ body:has(.wiz-header) .q-notifications__list--top {
     color: var(--fg-muted);
 }
 
-/* Layout & Container Styles */
 .page-container {
     width: 100%;
     max-width: 1400px;
@@ -1307,7 +1281,6 @@ body:has(.wiz-header) .q-notifications__list--top {
     margin-bottom: var(--space-3);
 }
 
-/* Profile's "Equipment you have out": one hairline between items. */
 .wiz-equipment-out__row {
     padding-top: var(--space-2);
     border-top: 1px solid var(--border-subtle);
@@ -1354,7 +1327,6 @@ body:has(.wiz-header) .q-notifications__list--top {
     grid-template-columns: repeat(auto-fill, minmax(min(100%, 28rem), 1fr));
 }
 
-/* Stat tiles: four across a desktop report, stretched to one height. */
 .wiz-tile-grid--sm {
     grid-template-columns: repeat(auto-fit, minmax(min(100%, 13rem), 1fr));
     align-items: stretch;
@@ -1377,12 +1349,10 @@ body:has(.wiz-header) .q-notifications__list--top {
     text-align: center;
 }
 
-/* theme/empty_state.empty_panel: icon, message and cat fact in the panel. */
 .wiz-empty-panel.nicegui-column { gap: var(--space-2); }
 .wiz-empty-panel__icon { color: var(--fg-muted); }
 .wiz-empty-panel .empty-state-fact { margin-top: var(--space-2); }
 
-/* An empty list's message spans the grid rather than sitting in one tile. */
 .wiz-tile-grid > .empty-state,
 .wiz-tile-grid > .wiz-empty-panel,
 .wiz-tile-grid > .italic-note {
@@ -1398,14 +1368,12 @@ body:has(.wiz-header) .q-notifications__list--top {
     padding: 1em;
 }
 
-/* Flex utilities */
 .flex-center {
     display: flex;
     align-items: center;
     justify-content: center;
 }
 
-/* Spacing utilities */
 .mb-1 { margin-bottom: 1em; }
 .ml-1 { margin-left: 1em; }
 
@@ -1468,7 +1436,6 @@ body:has(.wiz-header) .q-notifications__list--top {
     line-height: 1.5;
 }
 
-/* Cards: hairline border, near-flat. */
 .q-card {
     border-radius: var(--radius-lg);
     border: 1px solid var(--border-subtle);
@@ -1593,7 +1560,6 @@ body:has(.wiz-header) .q-notifications__list--top {
     .wiz-banner__actions { width: 100%; justify-content: flex-end; }
 }
 
-/* Community picker (bare-host landing) cards — clickable brand tiles. */
 .wiz-tenant-card {
     padding: var(--space-3) var(--space-4);
     transition: border-color var(--dur-fast) var(--ease-out),
@@ -1638,7 +1604,6 @@ body:has(.wiz-header) .q-notifications__list--top {
     margin-bottom: 0.5em;
 }
 
-/* Form & Input Styles */
 .input-full-width {
     width: 100%;
 }
@@ -1697,7 +1662,6 @@ body:has(.wiz-header) .q-notifications__list--top {
     max-width: 44rem;
 }
 
-/* Dialog Styles */
 .dialog-card {
     width: min(640px, 92vw);
     max-width: 92vw;
@@ -1918,7 +1882,6 @@ body:has(.wiz-header) .q-notifications__list--top {
     }
 }
 
-/* Error Pages (40x / 50x) */
 .error-page-container {
     width: 100%;
     max-width: 760px;
@@ -2166,7 +2129,6 @@ body:has(.wiz-header) .q-notifications__list--top {
     margin-top: 1.25rem;
 }
 
-/* Button & Action Styles */
 .q-btn {
     border-radius: var(--radius-md);
     font-weight: 700;
@@ -2201,7 +2163,6 @@ body:has(.wiz-header) .q-notifications__list--top {
     margin-top: 1em;
 }
 
-/* Separator Styles */
 /* The column's gap already spaces the header from the banner under it. */
 .wiz-community-events > .wiz-page-header { margin-bottom: 0; }
 
@@ -2223,7 +2184,6 @@ body:has(.wiz-header) .q-notifications__list--top {
     margin-bottom: 1.5em;
 }
 
-/* Icon Styles */
 .icon-large {
     color: var(--status-pending);
     margin-bottom: 0.5em;
@@ -2243,7 +2203,6 @@ body:has(.wiz-header) .q-notifications__list--top {
     margin-right: 0.5em;
 }
 
-/* Text & Label Styles */
 .text-muted {
     color: var(--status-neutral);
     font-size: 1.2em;
@@ -2374,7 +2333,6 @@ body:has(.wiz-header) .q-notifications__list--top {
     cursor: pointer;
 }
 
-/* Timeline/Schedule Specific Styles */
 /* On Air: one column per stage, side by side, like the board the crew runs
    from. auto-fit, not auto-fill, so two stages share the width instead of
    leaving two empty tracks; five or more wrap to a second row. On a phone the
@@ -2663,7 +2621,6 @@ body:has(.wiz-header) .q-notifications__list--top {
     }
 }
 
-/* Settings > Watch page: the audience numbers, one tile each. */
 .wiz-watch-stats {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(min(100%, 10rem), 1fr));
@@ -3114,7 +3071,6 @@ body:has(.wiz-header) .q-notifications__list--top {
     padding-right: var(--space-2);
 }
 
-/* "Coming up on stream" as a timeline: a dot per match on one rail. */
 .wiz-watch-row {
     border-top: 0;
 }
@@ -3147,7 +3103,6 @@ body:has(.wiz-header) .q-notifications__list--top {
     border: 2px solid var(--accent);
 }
 
-/* Tournaments as tiles: two across when the panel has room, one on a phone. */
 .wizs-card:has(> .wiz-watch-tourn),
 .wiz-panel__body:has(> .wiz-watch-tourn) {
     display: grid;
@@ -3230,7 +3185,6 @@ body:has(.wiz-header) .q-notifications__list--top {
 
 .empty-state-fact__icon { color: var(--fg-muted); }
 
-/* Muted icon atop the branded table no-data slot (theme/empty_state.no_data_slot). */
 .wiz-empty-icon {
     color: var(--status-neutral);
     opacity: 0.5;
@@ -3280,7 +3234,6 @@ body:has(.wiz-header) .q-notifications__list--top {
     color: var(--wiz-gold);
 }
 
-/* The /facts page (pages/facts.py). */
 .wiz-fact-featured {
     gap: 0.75em;
     padding: 1.5em;
@@ -3308,7 +3261,6 @@ body:has(.wiz-header) .q-notifications__list--top {
     flex-shrink: 0;
 }
 
-/* User/Avatar Styles */
 /* Right-edge alignment of the header controls is handled by the flexible
    ui.space() spacer in the header, not margin-left:auto here — that survives
    .user-name being display:none on phones (see .wiz-header rules). */
@@ -3333,7 +3285,6 @@ body:has(.wiz-header) .q-notifications__list--top {
     margin-left: 4px;
 }
 
-/* Flex & Layout Utilities */
 .flex-1 {
     flex: 1;
     min-width: 0;
@@ -3355,7 +3306,6 @@ body:has(.wiz-header) .q-notifications__list--top {
     padding: 0.5em;
 }
 
-/* Chart & Report Styles */
 .chart-container {
     width: 100%;
     min-height: 500px;
@@ -3680,7 +3630,6 @@ body:has(.wiz-header) .q-notifications__list--top {
     font-weight: 700;
 }
 
-/* Sent messages report: a run-sheet table whose rows expand in place. */
 .wiz-sent__row {
     cursor: pointer;
 }
@@ -3819,7 +3768,6 @@ body:has(.wiz-header) .q-notifications__list--top {
     width: 400px;
 }
 
-/* Visibility Utilities */
 .hidden {
     display: none;
 }
@@ -3913,7 +3861,7 @@ body:has(.wiz-header) .q-notifications__list--top {
     white-space: normal !important;
     word-break: normal;
     overflow-wrap: break-word;
-    max-width: 120px; /* reasonable default, table can expand as needed */
+    max-width: 120px;
 }
 
 /* A member's role chips wrap inside a capped cell. Quasar cells are nowrap, so
@@ -3955,14 +3903,12 @@ body:has(.wiz-header) .q-notifications__list--top {
     padding-right: 10px;
 }
 
-/* Ensure links inside the wrapper also wrap */
 .match-table td .wrap a {
     white-space: normal !important;
     word-break: normal;
     overflow-wrap: break-word;
 }
 
-/* Force tables to fill their container width */
 .user-table-container .q-table__middle,
 .user-table-container table.q-table,
 .tournament-table-container .q-table__middle,
@@ -4252,12 +4198,10 @@ body:has(.wiz-header) .q-notifications__list--top {
     flex-wrap: wrap;
 }
 
-/* In a desktop table cell the tray hugs its button rather than the column. */
 td .wiz-crew-action {
     display: inline-flex;
 }
 
-/* The viewer's own commentary partner invite, still waiting, under their tray. */
 .wiz-crew-invite {
     display: flex;
     flex-basis: 100%;
@@ -4375,7 +4319,6 @@ td .wiz-crew-action {
     min-height: 44px;
 }
 
-/* Match filters card styling */
 .match-filters-card {
     width: 100%;
     padding: 1em;
@@ -4617,7 +4560,6 @@ td .wiz-crew-action {
     }
 }
 
-/* Match filter layout */
 .match-filter-row {
     width: 100%;
     align-items: center;
@@ -4776,7 +4718,6 @@ td .wiz-crew-action {
     min-width: 0;
 }
 
-/* On a phone Add and Actions keep the first line; search and refresh share the next. */
 @media (max-width: 1023.98px) {
     .tournament-toolbar__search {
         order: 1;
@@ -4939,8 +4880,6 @@ td .wiz-crew-action {
     }
 }
 
-/* Copyright caption pinned to the foot of the drawer (replaces the old
-   desktop-only footer meta row); muted to match the surrounding chrome. */
 .wiz-drawer-copyright {
     color: var(--status-neutral);
 }
@@ -5277,7 +5216,6 @@ body.wiz-offline .wiz-requires-socket {
     color: var(--fg-muted);
 }
 
-/* Finished shifts fold under the agenda, flush with its rows. */
 .wiz-shift-finished {
     border-top: 1px solid var(--border-subtle);
 }
@@ -5498,7 +5436,6 @@ body.wiz-offline .wiz-requires-socket {
     overflow-wrap: anywhere;
 }
 
-/* The reasons on the "Check this time" sheet (theme/dialog/clash_warning.py). */
 .wiz-clash-list {
     margin: 0;
     padding-left: 1.25rem;
@@ -5821,7 +5758,6 @@ ol.wiz-help-list { list-style-type: decimal; }
 .wiz-help-zoom .wiz-help-img { max-height: 92vh; max-width: 95vw; border: 0; }
 .wiz-help-menu-body .wiz-help-img { max-height: 16rem; }
 
-/* The "For staff" group on the /help index. */
 .wiz-help-group-label {
     margin-top: 1rem;
     font-size: var(--text-sm, 0.8125rem);
@@ -5830,8 +5766,6 @@ ol.wiz-help-list { list-style-type: decimal; }
     text-transform: uppercase;
     opacity: 0.7;
 }
-
-/* --- /help and /event-info article layout ------------------------------ */
 
 /* Three columns, centred. Uncapped, the row ran the whole viewport: the list
    hugged the drawer and the 68ch body left a 1920px screen two thirds empty. */
@@ -5910,7 +5844,6 @@ ol.wiz-help-list { list-style-type: decimal; }
 .wiz-help-rail .wiz-help-nav-sub { padding-left: 0; }
 .wiz-help-nav-sub:hover { color: var(--wiz-link); }
 
-/* Section breaks the eye can find when skimming a long article. */
 .wiz-help-body .wiz-help-h2 {
     padding-top: 1rem;
     border-top: 1px solid var(--border-subtle);
@@ -6015,8 +5948,6 @@ ol.wiz-help-list { list-style-type: decimal; }
 @media (min-width: 1024px) {
     .wiz-help-narrow-only { display: none !important; }
 }
-
-/* --- the tappable help icon --------------------------------------------- */
 
 /* Tap, not hover: a tooltip is unreachable on a touch screen, and this help is
    read on phones. One per heading or dialog title, the same size everywhere. */
@@ -6138,7 +6069,6 @@ ol.wiz-help-list { list-style-type: decimal; }
     line-height: 1.55;
 }
 
-/* Several topics: a list of names that each open in place, with Back. */
 .wiz-help-topic-list { gap: 0; padding: 0 0.5rem 0.5rem; }
 .q-btn.wiz-help-topic {
     width: 100%;
@@ -6184,8 +6114,7 @@ ol.wiz-help-list { list-style-type: decimal; }
     text-decoration: underline;
 }
 
-/* ── Segmented view switcher ────────────────────────────────────────────────
-   The Event tab's Schedule / On Air / Brackets control. Quasar renders a
+/* The Event tab's Schedule / On Air / Brackets control. Quasar renders a
    q-btn-toggle as a button group, and the global .q-btn radius above rounds
    every segment individually — three pills mashed together rather than one
    control. Round the ends only, and let the filled segment be the selected one.
@@ -6244,12 +6173,10 @@ ol.wiz-help-list { list-style-type: decimal; }
 @media (max-width: 599px) {
     .wiz-segmented { display: flex; width: 100%; }
     .wiz-segmented .q-btn { flex: 1 1 0; padding: 4px 8px; }
-    /* A unit switch inside a form row stays beside its field. */
     .wiz-edit-row .wiz-segmented { display: inline-flex; width: auto; }
 }
 
-/* ── Stacked page sections ──────────────────────────────────────────────────
-   My Schedule stacks four independent blocks on one scroll (theme/section.py).
+/* My Schedule stacks four independent blocks on one scroll (theme/section.py).
    Each gets a visible edge and one padding rule, instead of a bare heading with
    ~4em of stacked header/separator margin above content that ran straight into
    the next section. */
@@ -6382,7 +6309,6 @@ ol.wiz-help-list { list-style-type: decimal; }
 
 /* Why a row can't be booked yet, said on the row: a tooltip never shows on a
    phone. */
-/* A stage's booking window under a matchup ("Book between Sat 6 pm and …"). */
 .wiz-pick-row__window {
     color: var(--status-pending);
     font-size: var(--text-sm);
@@ -7407,7 +7333,6 @@ ol.wiz-help-list { list-style-type: decimal; }
     color: var(--fg-muted);
 }
 
-/* Community events (pages/community_events.py) */
 .wiz-community-event {
     padding: 0.75rem 1rem;
 }
@@ -7527,7 +7452,6 @@ ol.wiz-help-list { list-style-type: decimal; }
 .unbooked-group {
     width: 100%;
 }
-/* The tournament heading is the group's fold button, as on the run sheets. */
 .unbooked-group__fold {
     width: 100%;
     margin: 0;
@@ -7654,7 +7578,6 @@ ol.wiz-help-list { list-style-type: decimal; }
 .run-sheet__group-row > td.run-sheet__group {
     background: var(--surface-alt);
 }
-/* The header is the group's fold button: the whole bar is the target. */
 .run-sheet__fold {
     display: flex;
     align-items: center;
@@ -7732,7 +7655,6 @@ ol.wiz-help-list { list-style-type: decimal; }
     color: var(--fg-secondary);
     overflow-wrap: anywhere;
 }
-/* A match's description, cut to the one line the row has room for. */
 .run-sheet__desc {
     display: block;
     max-width: 100%;
@@ -7742,7 +7664,6 @@ ol.wiz-help-list { list-style-type: decimal; }
     overflow: hidden;
     text-overflow: ellipsis;
 }
-/* The names, then the comment counts beside them. */
 .run-sheet__name-line {
     display: flex;
     flex-wrap: wrap;
@@ -7868,7 +7789,6 @@ ol.wiz-help-list { list-style-type: decimal; }
     white-space: nowrap;
 }
 
-/* Phone: each line is a button. */
 .run-sheet__item {
     width: 100%;
 }
@@ -7929,7 +7849,6 @@ ol.wiz-help-list { list-style-type: decimal; }
     overflow-wrap: anywhere;
 }
 
-/* The proctor's line: stations on the names, the next step on the line. */
 .run-sheet__row .run-sheet__open {
     white-space: normal;
 }
@@ -7950,7 +7869,6 @@ ol.wiz-help-list { list-style-type: decimal; }
 .run-sheet__seat--none {
     border-style: dashed;
 }
-/* Proctor Station's phone search sits above Filters, not behind it. */
 .run-sheet__phone-search .wiz-table-search {
     flex: none;
     width: 100%;
@@ -7958,7 +7876,6 @@ ol.wiz-help-list { list-style-type: decimal; }
 .run-sheet__station-caption {
     color: var(--fg-secondary);
 }
-/* The station a proctor looked up. */
 .run-sheet__seat--hit {
     border: 2px solid var(--accent);
     background: var(--accent-soft);
@@ -7969,7 +7886,6 @@ ol.wiz-help-list { list-style-type: decimal; }
     font-weight: 400;
     color: var(--fg-secondary);
 }
-/* A big race: its first racers, then "+N more" to show the rest in place. */
 .run-sheet__racers {
     display: block;
     font-weight: 500;
@@ -8018,7 +7934,6 @@ ol.wiz-help-list { list-style-type: decimal; }
     padding: 0 1rem;
     font-weight: 700;
 }
-/* Who won, on a live head-to-head: both names, one tap each (Undo in the toast). */
 .run-sheet__winners {
     display: inline-flex;
     flex-wrap: wrap;
@@ -8046,7 +7961,6 @@ ol.wiz-help-list { list-style-type: decimal; }
     font-weight: 600;
     color: var(--fg-muted);
 }
-/* The admin board: under the names, left-aligned; full width on a phone card. */
 .run-sheet__winners--inline {
     display: flex;
     justify-content: flex-start;
@@ -8085,7 +7999,6 @@ ol.wiz-help-list { list-style-type: decimal; }
     text-align: left;
     cursor: pointer;
 }
-/* The proctor's seed: link and code to read out, or why there isn't one. */
 .run-sheet__seed {
     display: flex;
     align-items: flex-start;
@@ -8213,7 +8126,6 @@ ol.wiz-help-list { list-style-type: decimal; }
     align-items: center;
     gap: 0.5rem;
 }
-/* Ready for seed on the player's own checked-in match. */
 .player-sheet__seed {
     background: var(--surface-sunken);
     border-radius: 10px;
@@ -8281,7 +8193,6 @@ ol.wiz-help-list { list-style-type: decimal; }
     flex-wrap: wrap;
 }
 
-/* The member sheet (Admin → Members): the match sheet's shape, wider for its lists. */
 .q-dialog__inner--right > .match-sheet.member-sheet {
     width: 32rem;
 }
@@ -8336,7 +8247,6 @@ ol.wiz-help-list { list-style-type: decimal; }
     padding: 0.4rem 0.75rem;
 }
 
-/* The match sheet: a full-height side sheet on a desktop, a bottom sheet on a phone. */
 .q-dialog__inner--right:has(> .match-sheet) {
     padding: 0;
 }
@@ -8485,7 +8395,6 @@ ol.wiz-help-list { list-style-type: decimal; }
     color: var(--fg);
     overflow-wrap: anywhere;
 }
-/* Match comments: a name, a tag saying who reads it, the text. */
 .match-sheet__comment + .match-sheet__comment {
     padding-top: 0.5rem;
     border-top: 1px solid var(--border-subtle);
@@ -8681,7 +8590,6 @@ ol.wiz-help-list { list-style-type: decimal; }
     }
 }
 
-/* ── Profile → Notifications groups ("Where it goes" / "What you hear about") */
 .wiz-notify-group {
     width: 100%;
     gap: 0;
@@ -8761,18 +8669,15 @@ ol.wiz-help-list { list-style-type: decimal; }
     .wiz-notify-follow__select { width: 100%; }
 }
 
-/* Watch page (theme/watch_live.py): the player column. */
 .wiz-watch-main {
     width: 100%;
     min-width: 0;
     gap: 0;
 }
 
-/* Password sign-in (/password-login): one centred card, the same at every width. */
 .password-login { padding-top: 10vh; }
 .password-login__card { max-width: 380px; padding: 24px 20px; }
 
-/* Challonge sign-up sheet: the bracket and name the player is about to join as. */
 .wiz-signup-facts {
     display: grid;
     grid-template-columns: auto minmax(0, 1fr);
@@ -8986,7 +8891,6 @@ ol.wiz-help-list { list-style-type: decimal; }
     font-size: 0.8125rem;
 }
 
-/* A group heading inside a row's ⋮ menu (slot_more_menu's SlotHeader). */
 .q-item__label--header.wiz-menu-header {
     padding: 10px 16px 4px;
     font-size: 0.75rem;
@@ -9453,7 +9357,6 @@ ol.wiz-help-list { list-style-type: decimal; }
     gap: var(--space-2);
 }
 
-/* Drop player dialog: section labels. */
 .drop-dialog__label {
     margin-bottom: calc(-1 * var(--space-2));
     font-size: var(--text-sm);
@@ -9485,7 +9388,6 @@ ol.wiz-help-list { list-style-type: decimal; }
     }
 }
 
-/* Watch page reminder bell: quiet until it's on, then tinted with the accent. */
 .q-btn.wiz-watch-bell {
     flex: none;
     color: var(--fg-muted);
@@ -9534,7 +9436,6 @@ ol.wiz-help-list { list-style-type: decimal; }
     }
 }
 
-/* Profile → Webhooks: a member's own webhooks, one row each. */
 .wiz-pwebhook-row {
     display: flex;
     width: 100%;
@@ -9575,7 +9476,6 @@ ol.wiz-help-list { list-style-type: decimal; }
     .wiz-pwebhook-areas { grid-template-columns: minmax(0, 1fr); }
 }
 
-/* Profile → Developer apps: "What are you building?" as two tappable cards. */
 .wiz-kind-card {
     display: flex;
     align-items: center;
@@ -9684,7 +9584,6 @@ ol.wiz-help-list { list-style-type: decimal; }
 .wiz-survey-question__prompt { font-weight: 600; overflow-wrap: anywhere; }
 .wiz-survey-question__required { font-size: var(--text-xs); color: var(--fg-secondary); }
 
-/* Send refused: the questions still needing an answer (GOV.UK's error summary, then each in place). */
 .wiz-survey-errors {
     padding: 12px 16px;
     border: 2px solid var(--status-cancelled);
@@ -9719,7 +9618,6 @@ ol.wiz-help-list { list-style-type: decimal; }
 .wiz-survey-field-label { font-size: var(--text-sm); color: var(--fg-secondary); margin-top: var(--space-2); }
 .wiz-survey-conditions { border: 1px solid var(--border-subtle); border-radius: var(--radius-md); padding: 4px 8px; }
 
-/* Builder: sections beside the time box on desktop, stacked on a phone. */
 .wiz-survey-builder {
     display: grid;
     grid-template-columns: minmax(0, 1fr) 20rem;
@@ -9749,7 +9647,6 @@ ol.wiz-help-list { list-style-type: decimal; }
 .wiz-survey-side__figure { font-size: var(--text-lg); font-weight: 700; }
 .wiz-survey-side__warn { font-size: var(--text-sm); color: var(--status-cancelled); }
 
-/* The builder's time box: most people's time over the longest path, with a tick at the target. */
 .wiz-survey-time {
     position: relative;
     height: 10px;
@@ -9767,7 +9664,6 @@ ol.wiz-help-list { list-style-type: decimal; }
 }
 .wiz-survey-time__scale { justify-content: space-between; font-size: var(--text-xs); color: var(--fg-muted); }
 
-/* The builder's Checks card: one line per finding, the passed checks folded into one grey line. */
 .wiz-survey-check {
     gap: var(--space-2);
     padding: 8px 0;
@@ -9780,7 +9676,6 @@ ol.wiz-help-list { list-style-type: decimal; }
 .wiz-survey-check__link { color: var(--wiz-link); text-decoration: underline; overflow-wrap: anywhere; }
 .wiz-survey-check__passed { color: var(--fg-muted); }
 
-/* The preview's paths table (one row per kind of person) and its "won't see" lines. */
 .wiz-survey-paths {
     border: 1px solid var(--border-subtle);
     border-radius: var(--radius-md);
@@ -9812,7 +9707,6 @@ ol.wiz-help-list { list-style-type: decimal; }
 .wiz-survey-part--hidden { color: var(--fg-muted); }
 .wiz-survey-part--hidden .wiz-survey-part__title { font-weight: 600; }
 
-/* A duplicated question's numbers from the survey it came from. */
 .wiz-survey-result__last { font-size: var(--text-sm); color: var(--fg); margin-top: 4px; flex-wrap: wrap; }
 .wiz-survey-result__last .q-icon { font-size: 16px; color: var(--fg-muted); }
 .wiz-survey-result__last-link { color: var(--wiz-link); text-decoration: underline; }
@@ -9832,7 +9726,6 @@ ol.wiz-help-list { list-style-type: decimal; }
 .wiz-survey-who__n { flex: none; width: 2.5rem; text-align: right; font-weight: 700; }
 .wiz-survey-card__title { font-weight: 700; cursor: pointer; color: var(--wiz-link); overflow-wrap: anywhere; }
 
-/* Results */
 .wiz-survey-stats {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(min(100%, 11rem), 1fr));

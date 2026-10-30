@@ -24,7 +24,6 @@ JOIN_MODE_LABELS = {
     JoinMode.STAFF_ONLY: 'Only people staff add',
 }
 
-#: One line under the choice saying what it means in practice.
 JOIN_MODE_HELP = {
     JoinMode.OPEN: (
         'Signing in with Discord makes someone a member on the spot. Nobody gets '

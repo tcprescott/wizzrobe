@@ -202,7 +202,6 @@ async def admin_brackets_page() -> None:
         # Resolved while the page builds: the refresh runs as a background task.
         public_base = app_href('/brackets/')
 
-        # --- brackets table refresh --------------------------------------
         async def refresh_table() -> None:
             tid = state['tournament_id']
             rows: List[dict] = []
@@ -296,7 +295,6 @@ async def admin_brackets_page() -> None:
                 return 0
             return max(r['stage_order'] for r in table.rows) + 1
 
-        # --- complete stage ----------------------------------------------
         async def complete_stage(row, client) -> None:
             """Confirm, then finalize the stage.
 
@@ -326,7 +324,6 @@ async def admin_brackets_page() -> None:
                 )
                 confirm.open()
 
-        # --- advance stage (plan + confirm) ------------------------------
         async def open_advance(row, client) -> None:
             tid = state['tournament_id']
             from_stage_order = row['stage_order']
@@ -393,7 +390,6 @@ async def admin_brackets_page() -> None:
                             ).props('color=primary')
                 dialog.open()
 
-        # --- dialog dispatch ---------------------------------------------
         def _dialog_kwargs() -> dict:
             return {
                 'service': service,
@@ -410,7 +406,6 @@ async def admin_brackets_page() -> None:
         async def edit_stage(row, client) -> None:
             await open_stage_form(client, row=row, **_dialog_kwargs())
 
-        # --- layout ------------------------------------------------------
         with page_container:
 
             # Resolved before the widget exists: assigning `.value` afterwards

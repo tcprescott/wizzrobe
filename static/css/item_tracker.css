@@ -260,7 +260,6 @@
   font-variant-numeric: tabular-nums;
 }
 
-/* The OBS overlay page: nothing behind the board but the stream. */
 body.itk-overlay,
 body.itk-overlay .q-layout,
 body.itk-overlay .q-page-container,

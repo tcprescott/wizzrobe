@@ -105,9 +105,6 @@ async def admin_volunteers_page(day: str | None = None) -> None:
         ):
             await help_icon('vol-schedule', 'vol-autofill', 'vol-drafts', user=actor)
 
-        # --- Coverage strip ----------------------------------------------
-        # The one number a coordinator wants on-site — how much of today is
-        # uncovered — used to require scrolling 5.8 screenfuls and adding up.
         strip_container = ui.row().classes('full-width')
 
         def refresh_all() -> None:
@@ -136,7 +133,6 @@ async def admin_volunteers_page(day: str | None = None) -> None:
                 if summary['drafts']:
                     ui.label(f"{summary['drafts']} draft").classes('wiz-chip wiz-chip--live')
 
-        # --- Controls ----------------------------------------------------
         with ui.card().classes('full-width q-pa-md'):
             with ui.row().classes('full-width items-center no-wrap gap-3'):
                 # Shrinks below 12rem so the menu stays on the same line at 360px.
@@ -172,7 +168,6 @@ async def admin_volunteers_page(day: str | None = None) -> None:
                         menu_action('delete_forever', 'Reset all volunteer data',
                                      lambda: open_reset_dialog(), negative=True)
 
-        # --- Draft banner ------------------------------------------------
         banner_container = ui.column().classes('full-width')
 
         @steady_refreshable
@@ -195,7 +190,6 @@ async def admin_volunteers_page(day: str | None = None) -> None:
                               on_click=lambda: confirm_publish(pending)) \
                         .props('color=positive')
 
-        # --- Last auto-fill result ---------------------------------------
         panel_container = ui.column().classes('full-width')
 
         @steady_refreshable
@@ -294,7 +288,6 @@ async def admin_volunteers_page(day: str | None = None) -> None:
             ]
             refresh_all()
 
-        # --- Grid --------------------------------------------------------
         grid_container = ui.column().classes('full-width')
 
         @steady_refreshable
@@ -478,7 +471,6 @@ async def admin_volunteers_page(day: str | None = None) -> None:
                     ui.button(icon='login', on_click=do_check_in) \
                         .props('flat dense color=teal').tooltip('Check in volunteer')
 
-        # --- Assignment picker ------------------------------------------
         async def open_assign_dialog(shift) -> None:
             async def do_assign(u) -> bool:
                 try:
@@ -493,7 +485,6 @@ async def admin_volunteers_page(day: str | None = None) -> None:
                 return True
             await VolunteerAssignDialog(shift, do_assign).open()
 
-        # --- Actions -----------------------------------------------------
         async def generate_shifts(position) -> None:
             try:
                 await schedule_service.generate_day_shifts(
@@ -619,7 +610,6 @@ async def admin_volunteers_page(day: str | None = None) -> None:
                 require_phrase='yes please delete all shifts',
             ).open()
 
-        # --- Positions manager ------------------------------------------
         async def open_positions_dialog() -> None:
             with form_dialog('Volunteer Positions') as dialog:
 

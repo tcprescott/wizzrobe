@@ -272,7 +272,6 @@ def _explain_other_match(relation: str) -> None:
     )
 
 
-# What each status means to the person who asked, rather than the machine key.
 _REQUEST_STATUS = {
     RescheduleRequestStatus.PENDING: ('Waiting on staff', 'warning'),
     RescheduleRequestStatus.APPROVED: ('Approved', 'positive'),
@@ -388,7 +387,6 @@ async def render_player_dashboard(
     )
     with panel.body:
         board_match_ids = None
-        # The staff-comment DM: the same one-match board, with the sheet open.
         match = match or comments
         if match:
             relation = await match_service.viewer_relation(int(match), viewer)

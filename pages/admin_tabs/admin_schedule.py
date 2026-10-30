@@ -49,7 +49,6 @@ async def _render_inbox(inbox, anchor, request_id, open_decision, client, *, may
         consume_deep_link('reschedule_request', client=client)
 
 
-#: The bracket features whose matchups the "Not booked yet" view lists.
 _BRACKET_FLAGS = frozenset({FeatureFlag.CHALLONGE, FeatureFlag.STARTGG, FeatureFlag.BRACKETS})
 
 
@@ -175,7 +174,6 @@ async def admin_schedule_page(
             inbox.refresh()
             sheet.sync(rows)
 
-        # The inbox sits beside the board on a desktop and above it on a phone.
         with ui.element('div').classes('schedule-layout full-width'):
             # An empty anchor claiming the inbox's place, filled by a background
             # task once the board exists (the inbox reads the board's rows).

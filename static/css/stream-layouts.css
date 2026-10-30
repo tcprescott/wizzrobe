@@ -1,5 +1,3 @@
-/* Admin → Stream Layouts: the layout editor's canvas and box list. */
-
 .sl-canvas {
   position: relative;
   width: 100%;
@@ -135,7 +133,6 @@
   .sl-list__pos { display: none; }
 }
 
-/* New layout: the starter gallery and background swatches. */
 .sl-gallery {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));

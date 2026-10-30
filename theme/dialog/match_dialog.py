@@ -37,8 +37,6 @@ from theme.tables.admin_crud import capture_render_context, scoped_background
 _ADMIN_NO_TOURNAMENTS_HINT = 'No tournaments yet — create one on the Tournaments tab.'
 _PLAYER_NO_TOURNAMENTS_HINT = 'No tournaments are open for requests right now.'
 
-# A race room's cached status, read by a human rather than by the bot that wrote
-# it — the section used to render the bare enum value ("in_progress").
 _ROOM_STATUS_LABEL = {
     RaceRoomStatus.OPEN: 'Open',
     RaceRoomStatus.IN_PROGRESS: 'Racing',
@@ -51,7 +49,6 @@ _ROOM_STATUS_CHIP = {
     RaceRoomStatus.FINISHED: 'wiz-chip--ok',
     RaceRoomStatus.CANCELLED: 'wiz-chip--cancelled',
 }
-# The two states there is still something to call off in.
 _CANCELLABLE_ROOM_STATUSES = (RaceRoomStatus.OPEN, RaceRoomStatus.IN_PROGRESS)
 
 
@@ -227,7 +224,6 @@ class AdminMatchDialog(BaseMatchDialog):
                             'updated by the next SpeedGaming sync.'
                         ).classes('text-caption text-grey')
 
-                # Lead with what the match *is*. Everything below edits it.
                 if self.match:
                     self._render_state_summary(players)
 

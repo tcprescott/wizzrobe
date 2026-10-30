@@ -37,7 +37,6 @@ class UserTableView:
                  show_toolbar=True, row_actions=None, empty_message='No users match this filter.',
                  table_key=None, before_refresh=None, decorate_row=None, name_event='edit_user'):
         self.columns = columns
-        # When set, this view's desktop columns follow the viewer's saved layout.
         self.table_key = table_key
         self._plan = None
         self.get_query = get_query
@@ -72,7 +71,6 @@ class UserTableView:
         scoped_background(self._render_context, coro)
 
     def _setup_ui(self):
-        # Toolbar with actions (skipped when caller renders it externally)
         if self.show_toolbar:
             with ui.row().classes('full-width'):
                 if self.submit_user_callback:
@@ -272,13 +270,13 @@ class UserTableView:
         idx = next((i for i, row in enumerate(self.table.rows)
                    if row.get('id') == user_id), None)
         if idx is None:
-            return  # Row not visible, do nothing
+            return
         user_query = self.get_query()
         u = await user_query.filter(id=user_id).prefetch_related(
             'roles__event', 'admin_tournaments', 'crew_coordinated_tournaments'
         ).first()
         if not u:
-            return  # User not found
+            return
         idx = next((i for i, row in enumerate(self.table.rows) if row.get('id') == user_id), None)
         if idx is None:
             return  # A reload replaced the rows while the query ran

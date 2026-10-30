@@ -12,7 +12,6 @@ from theme.tables.match_player_run_sheet import PLAYER_RUN_SHEET_COLUMNS, decora
 from theme.tables.preferences import TableKeys
 from theme.tables.run_sheet_meta import crew_columns
 
-#: Session key for the Needs crew switch, namespaced like the board's filters.
 NEEDS_CREW_KEY = 'home_schedule:needs_crew'
 #: Session key for the Friends switch. The list itself is saved to the account.
 FRIENDS_KEY = 'home_schedule:friends'

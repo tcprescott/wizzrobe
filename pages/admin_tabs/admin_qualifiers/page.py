@@ -113,8 +113,6 @@ async def admin_qualifiers_page(
     async def _current():
         return await get_user_from_session(app.storage.user)
 
-    # ---------------------------------------------------------------- loaders
-
     async def load_list() -> None:
         try:
             with tenant_scope(tenant_id), event_scope(event_id):
@@ -257,8 +255,6 @@ async def admin_qualifiers_page(
             if name in state['loaded']:
                 await load_tab(name, force=True)
 
-    # ------------------------------------------------------------ list view
-
     @ui.refreshable
     def list_view() -> None:
         if state['list_error']:
@@ -394,8 +390,6 @@ async def admin_qualifiers_page(
                 ui.button('Save' if is_edit else 'Create', icon='save',
                           on_click=submit).props('color=primary')
         dialog.open()
-
-    # ---------------------------------------------------------- detail view
 
     @ui.refreshable
     def detail_view() -> None:
@@ -631,8 +625,6 @@ async def admin_qualifiers_page(
         BOARD_TAB: board_view,
         REVIEWERS_TAB: reviewers_view,
     })
-
-    # ------------------------------------------------------------------ shell
 
     with ui.column().classes('page-container') as page:
         managing_param = url_param(

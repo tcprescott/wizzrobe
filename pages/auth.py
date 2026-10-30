@@ -331,13 +331,9 @@ def create() -> None:
         # again.") is drained by the first framed page after the login completes.
         root_path = request.scope.get('root_path', '') or ''
         if app.storage.user.get('authenticated', False):
-            # Already in: go where the sign-in button was taking them.
             return RedirectResponse(
                 return_path_for_login(root_path, request.query_params.get('next'), None)
             )
-        # Pin the post-login return to this tenant before leaving for Discord. In
-        # path mode the callback lands on the bare platform host; in host mode it
-        # lands on this same custom domain (so the session cookie is visible).
         return_path = _sanitized_return(root_path, request)
         # Design B (HOST_OAUTH_MODE=handoff): on a custom domain, run OAuth on the
         # platform host and hand the session back, so no per-domain Discord
@@ -486,7 +482,6 @@ def create() -> None:
                 'discord_id': current_user.id,
             })
 
-            # Map the user's Discord guild roles onto application roles.
             # Self-defensive: never raises, so login is never blocked.
             try:
                 await asyncio.wait_for(
@@ -551,7 +546,6 @@ def create() -> None:
         parsed = urlparse(url)
         token = next(iter(parse_qs(parsed.query).get('token', [])), None)
         request_host = normalize_hostname(parsed.netloc)
-        # Consume the browser-binding secret this domain's /login stashed.
         bind = app.storage.user.pop('handoff_bind', None)
         payload = handoff_service.claim(token, request_host) if (token and request_host) else None
         if payload is None:

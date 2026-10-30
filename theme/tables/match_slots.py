@@ -53,12 +53,8 @@ def crew_wanted_js(role: str) -> str:
     return f"((props.row.crew_wanted || {{}}).{role} !== false)"
 
 
-# --- Static pass-through slots (flash-aware) -------------------------------
-
-# The board's edit affordance. It used to be the primary key rendered as a link
-# — "click the 17 to edit this match" — which is both a database value on screen
-# and a control nobody can guess is a control. A labelled pencil in the same
-# first-column slot costs the same width and says what it does.
+# A labelled pencil rather than the primary key as a link: an id on screen is a
+# database value, and a control nobody can guess is a control.
 EDIT_SLOT = '''<q-td :props="props" :class="[props.row._flash ? 'wiz-row-flash' : '', props.row._removed ? 'wiz-row-removed' : '']" :inert="props.row._removed ? '' : null" :data-wiz-row="props.row.id">
     <q-btn v-if="__EDIT__" flat round dense icon="edit" color="primary"
            @click="$parent.$emit('edit_match', props)" aria-label="Edit this match">
@@ -213,13 +209,6 @@ RESCHEDULE_SLOT = '''<q-td :props="props" :class="[props.row._flash ? 'wiz-row-f
     </span>
 </q-td>'''.replace('__ASK__', RESCHEDULE_TOOLTIP)
 
-# The player's own controls on their own board, in one labelled cell.
-#
-# They were four columns (Stream, Change, Settings, Watch) of 30 px icon buttons,
-# laid out after Stage and Generated Seed, and at 1440 the Change column started
-# at the table's right edge: a player had to scroll sideways to reach the things
-# only they can do, and then read a tooltip to learn what each icon did. This
-# cell sits beside Players and labels each button the way the phone card does.
 # Each control keeps its own gate from the single-purpose slots above; the phone
 # card reads this column as standing for all four (match_grid.render_grid_slot).
 MY_ACTIONS_COLUMN = 'my_actions'
@@ -576,8 +565,6 @@ def state_readonly_slot(*, scheduled_detailed: bool = True) -> str:
             else _STATE_READONLY_SCHEDULED_PLAIN)
     return _STATE_READONLY_HEAD + tail
 
-
-# --- Parameterized slots (admin / admin+crud / non-admin collapsed) --------
 
 # Players: the self-acknowledge button and the Assign-Stations button are
 # mutually exclusive across the variants. The station chip is *not* admin-gated —

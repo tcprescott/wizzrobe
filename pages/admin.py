@@ -64,7 +64,6 @@ CONFIGURATION = 'Configuration'
 SYSTEM = 'System'
 MEETUPS_TAB_LABEL = 'Meetups'
 
-#: The drawer's groups, in order: the event's own pages, then the community's.
 ADMIN_GROUP_ORDER = [RUN_THE_EVENT, ONLINE_PLAY, PEOPLE, COMMUNITY, CONFIGURATION, SYSTEM]
 EVENT_GROUPS = frozenset({RUN_THE_EVENT, ONLINE_PLAY, PEOPLE})
 
@@ -139,7 +138,6 @@ def build_admin_tabs(
         admin_tournament_ids=access.admin_tournament_ids,
         crew_tournament_ids=access.crew_tournament_ids,
     )
-    # Pinning a match to its stage's OBS overlay rides on the board's match sheet.
     if (is_staff or is_sm) and FeatureFlag.STREAM_LAYOUTS in live:
         board_access = replace(board_access, pin_overlay=True)
     # Staff and the stream manager operate community-wide; a TA/CC's authority is
@@ -166,10 +164,6 @@ def build_admin_tabs(
     }
 
     tabs: list[dict] = []
-    # Each tab carries a drawer 'group'; the list is stable-sorted by
-    # _ADMIN_GROUP_ORDER below so the drawer reads as labeled sections
-    # instead of a flat scroll. Icons are unique per destination (no repeats).
-    #
     # Setup comes first while the community is not ready: BaseLayout defaults to
     # tabs[0], so a new community lands on the checklist rather than on Create
     # Match, which cannot yet succeed. It disappears on its own once the
@@ -223,7 +217,6 @@ def build_admin_tabs(
         tabs.append({'label': 'Volunteer Shifts', 'icon': 'calendar_view_week', 'group': PEOPLE, 'aliases': ('vol-schedule',), 'content': (admin_volunteers_page, (), {'day': day})})
         tabs.append({'label': 'Shift Board', 'icon': 'edit_calendar', 'group': PEOPLE, 'content': (admin_shift_board_page, (), {'day': day})})
     if is_staff and FeatureFlag.COMMUNITY_EVENTS in live:
-        # The "meetup to review" DM lands here with the meetup's dialog open.
         tabs.append({'label': MEETUPS_TAB_LABEL, 'icon': 'celebration', 'group': PEOPLE,
                      'aliases': ('community-events',),
                      'content': (admin_community_events_page, (), {'open_event': community_event})})
@@ -232,7 +225,6 @@ def build_admin_tabs(
                      'content': (admin_users_page, (),
                                  {'accommodations': FeatureFlag.ADA_ACCOMMODATIONS in live,
                                   'emergency_contacts': FeatureFlag.EMERGENCY_CONTACTS in live,
-                                  # The ADA staff DMs' button: opens that request.
                                   'ada_request': ada_request,
                                   'member': member})})
     if (is_staff or access.is_equipment_manager) and FeatureFlag.EQUIPMENT in live:
@@ -380,9 +372,6 @@ def create() -> None:
 
         access = await resolve_admin_access(user)
 
-        # Per-tenant feature flags: a subsystem's tab only appears when the
-        # tenant has that feature live (available AND enabled), in addition to
-        # the role gate. Loaded once for all tabs, as is the setup checklist.
         live = await FeatureFlagService().enabled_flags()
         setup_steps = await TenantSetupService().status()
 
@@ -408,7 +397,6 @@ def create() -> None:
             match_id=match_id, day=day, reschedule_request=reschedule_request,
             comments=comments,
             qualifier=qualifier, qualifier_tab=tab, ada_request=ada_request,
-            # ?user_id= on the Members tab opens that person's member sheet.
             member=user_id if section in ('members', 'users') else None,
             community_event=community_event,
             # A retired tab slug (/admin/appearance) names the pane that took it in.

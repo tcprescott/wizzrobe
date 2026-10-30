@@ -74,7 +74,6 @@ class BracketContext:
     # ``BracketService.matchup_live_state``. Empty for a caller that didn't
     # resolve it, which renders exactly the pre-U2 card.
     live_state: Dict[int, dict] = field(default_factory=dict)
-    # Entry ids that are the signed-in viewer's own, so their run is marked.
     viewer_entries: set = field(default_factory=set)
     # {bracket_match_id: (short, full)} — the next booked time of an
     # unfinished matchup (``render.booked_times``).
@@ -142,8 +141,8 @@ def _render_slot(match: BracketMatch, slot: int, ctx: BracketContext) -> None:
             ui.label(placeholder_text(match, slot, ctx, completed=completed)) \
                 .classes('bracket-name is-placeholder')
 
-        # Score cell: the visual anchor. Number when scored, else a W/L glyph;
-        # FF marks the forfeiting (losing) side of a walkover.
+        # Number when scored, else a W/L glyph; FF marks the forfeiting (losing)
+        # side of a walkover.
         score = _slot_score(match, slot)
         if completed and match.forfeit and is_loser:
             score_txt = 'FF'

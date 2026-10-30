@@ -52,9 +52,7 @@ RECONNECTING_TEXT = 'Trying to reconnect…'
 ONLINE_TITLE = 'Back online'
 BLOCKED_ACTION_TEXT = "No connection, so that wasn't sent. Try again once you're back online."
 
-#: Set on ``<body>`` while the client believes it cannot reach the server.
 OFFLINE_BODY_CLASS = 'wiz-offline'
-#: Set on ``<body>`` while the card is on screen, offline or "Back online".
 CARD_SHOWN_BODY_CLASS = 'wiz-connection-card-shown'
 #: Put on any control whose effect needs a round trip, so the guard can refuse it.
 REQUIRES_SOCKET_CLASS = 'wiz-requires-socket'

@@ -148,9 +148,6 @@ class MatchTableHandlersMixin:
                 notify_error(e)
 
         if approving:
-            # The dialog used to show one line — the name — and a checkbox, for a
-            # decision that needs to know whether this person is already spoken
-            # for. No conflict check existed anywhere in the crew path.
             clashes = await CrewService().find_scheduling_conflicts(
                 crew_member.user, m, role,
             )

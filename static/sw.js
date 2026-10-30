@@ -21,12 +21,10 @@
 importScripts('/static/js/web-push-common.js');
 
 self.addEventListener('install', () => {
-  // Activate immediately instead of waiting for existing tabs to close.
   self.skipWaiting();
 });
 
 self.addEventListener('activate', (event) => {
-  // Take control of any already-open pages as soon as we activate.
   event.waitUntil(self.clients.claim());
 });
 

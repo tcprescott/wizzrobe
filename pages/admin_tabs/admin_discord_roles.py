@@ -43,7 +43,6 @@ _GRANT_OPTIONS = {g.value: g.value.replace('_', ' ').title() for g in Tournament
 _ROLE_PREFIX = 'role:'
 _GRANT_PREFIX = 'grant:'
 
-# What Discord itself paints a role that has no colour set.
 _DISCORD_DEFAULT_COLOR = '#99aab5'
 
 
@@ -158,7 +157,6 @@ async def admin_discord_roles_page(volunteer_mappings: bool = False) -> None:
         app.storage.user['discord_connect_tenant_id'] = tenant.id
         app.storage.user['discord_connect_return'] = admin_path
         if is_mock_discord():
-            # Dev: skip real Discord and hand a mock guild straight to the callback.
             target = f'{connect_redirect_uri()}?state={quote(state)}&guild_id=1'
         else:
             target = DiscordLinkService.authorize_url(state)
@@ -190,7 +188,6 @@ async def admin_discord_roles_page(volunteer_mappings: bool = False) -> None:
     with ui.column().classes('page-container-narrow'):
         page_header('Role Mappings')
 
-        # --- Server connection ---
         ui.label('Discord roles').classes('subsection-title')
         with ui.card().classes('w-full'):
             if guild_id:
