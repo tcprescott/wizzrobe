@@ -77,8 +77,6 @@ def render_article(
             if intro_extra is not None:
                 intro_extra()
             ui.separator().classes('separator-spacing')
-            # Block flow rather than the enclosing flex column, so the blocks'
-            # own margins set the rhythm instead of a uniform flex gap.
             with ui.element('div').classes('wiz-help-prose'):
                 render_blocks(article.blocks, embeds=embeds)
 

@@ -82,8 +82,7 @@ def render_shift_brief(assignment) -> None:
                 .style('border: 1px solid var(--q-primary); border-radius: 4px;'):
             ui.label('For this shift').classes('text-caption text-weight-medium')
             ui.label(shift.notes).classes('text-body2 wiz-free-text')
-    # Drafts are excluded: naming someone who has not been told would leak
-    # the draft invariant out sideways.
+    # Drafts excluded: naming someone who hasn't been told would leak the draft.
     others = sorted(
         a.user.preferred_name
         for a in shift.assignments

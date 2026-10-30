@@ -77,8 +77,6 @@ class VolunteerAutofillDialog:
             async def submit() -> None:
                 policy = build_policy(hours_input.value, outside_checkbox.value)
                 position_ids: Optional[List[int]] = list(position_select.value or [])
-                # An empty pick means every position, matching the previous
-                # button's behaviour rather than silently filling nothing.
                 if not position_ids or len(position_ids) == len(options):
                     position_ids = None
                 if self.on_submit:

@@ -10,11 +10,7 @@ from typing import Any, Mapping, Optional
 
 from nicegui import ui
 
-# Props for every chip multi-select. On a phone Quasar opens a select as a
-# pop-up that repeats the whole field, chips and all, above the options: with
-# twenty players picked the chips filled the screen, the options and the way
-# out sat below the keyboard, and the dialog's Save could not be reached. As a
-# menu it drops down from the field as it does on desktop.
+# behavior=menu: Quasar's phone pop-up repeats the chips above the options and pushed Save under the keyboard.
 CHIP_PROPS = 'use-chips behavior=menu'
 
 _OPTION_SLOT = '''

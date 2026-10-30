@@ -63,8 +63,7 @@ async def _refresh_all(client) -> None:
                 if target.container.client is client:
                     targets.append((obj, target))
     containers = {id(t.container) for _, t in targets}
-    # Only the outermost section: an inner one is rebuilt by its parent anyway,
-    # and refreshing it as well would race the parent deleting it.
+    # Only the outermost: refreshing an inner one too races the parent deleting it.
     outermost = [
         (r, t) for r, t in targets
         if not any(id(a) in containers for a in t.container.ancestors())
@@ -73,7 +72,7 @@ async def _refresh_all(client) -> None:
     seen = set()
     with client:
         for r, target in outermost:
-            # _execute_refresh redraws every target of r bound to this instance.
+            # _execute_refresh redraws every target bound to this instance.
             if (id(r), id(target.instance)) in seen:
                 continue
             seen.add((id(r), id(target.instance)))

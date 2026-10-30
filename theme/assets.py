@@ -17,7 +17,7 @@ from pathlib import Path
 
 STATIC_ROOT = Path(__file__).resolve().parent.parent / 'static'
 
-# The query key frontend.py reads to decide a response is immutable.
+# frontend.py reads this key to mark a response immutable.
 VERSION_PARAM = 'v'
 
 

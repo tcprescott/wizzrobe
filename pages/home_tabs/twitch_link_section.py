@@ -24,6 +24,4 @@ CONFIG = LinkSectionConfig(
     username_attr='twitch_username',
     linked_at_attr='twitch_linked_at',
     service_factory=TwitchService,
-    # No confirmation: nothing else reads the Twitch identity, so an unlink is
-    # reversible by re-linking.
 )

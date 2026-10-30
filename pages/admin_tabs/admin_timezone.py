@@ -44,9 +44,7 @@ async def admin_timezone_page() -> None:
             _MODE_LABELS, value=settings['mode'],
         ).classes('mt-2')
 
-        # Options are the curated list plus whatever is already stored, so a zone
-        # set by hand (or an IANA name outside the shortlist) is never silently
-        # dropped when someone opens this page and saves.
+        # Include whatever is stored, or saving silently drops a zone outside the shortlist.
         options = list(COMMON_TIMEZONES)
         if settings['name'] not in options:
             options.insert(0, settings['name'])

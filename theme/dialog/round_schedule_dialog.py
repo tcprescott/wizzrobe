@@ -86,9 +86,6 @@ class RoundScheduleDialog:
         self.on_saved = on_saved
         self.service = RoundScheduleService()
         self.stages: List[ScheduleStage] = []
-        # key -> {'opens', 'closes'} as datetime-local strings on the community
-        # clock, plus 'daily_from'/'daily_until' as HH:MM ('' means unset) and
-        # 'best_of', the games each matchup in the stage plays.
         self.drafts: Dict[str, Dict[str, Any]] = {}
         self.tz: Any = None
         self.tenant_id = get_current_tenant_id()
@@ -142,8 +139,6 @@ class RoundScheduleDialog:
             found += ". The elimination rounds aren't on the bracket yet, so the usual ones are listed to plan ahead"
         return found
 
-    # --- Rows ------------------------------------------------------------
-
     def _render_rows(self) -> None:
         with ui.element('div').classes('round-schedule__table full-width'):
             with ui.element('div').classes('round-schedule__row round-schedule__row--head'):
@@ -187,11 +182,7 @@ class RoundScheduleDialog:
         }
         self.rows.refresh()
 
-    # --- Editor sheet ------------------------------------------------------
-
     def _build_sheet(self) -> None:
-        # mobile_sheet's breakpoint, but a side sheet on desktop so the table
-        # stays readable beside the stage being edited.
         position = ''':position="Quasar.Screen.lt.sm ? 'bottom' : 'right'"'''
         with ui.dialog().props(position) as self.sheet:  # style-guide: exempt — _render_sheet draws the header
             with ui.card().classes('dialog-card match-sheet round-schedule__sheet'):
@@ -257,8 +248,6 @@ class RoundScheduleDialog:
             ui.space()
             ui.button('Cancel', on_click=self.sheet.close).props('flat')
             ui.button('Done', on_click=done).props('color=primary')
-
-    # --- Save ------------------------------------------------------------
 
     def _entries(self) -> Dict[str, dict]:
         def instant(value: str) -> Optional[datetime]:

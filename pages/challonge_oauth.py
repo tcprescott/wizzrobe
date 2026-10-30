@@ -54,9 +54,7 @@ _PROVIDER_KEY = 'challonge'
 
 _ADMIN_RETURN = '/admin/settings/integrations'
 _PROFILE_RETURN = '/home/profile'
-# Where a link started from the Tournaments tab's "Link Challonge to sign up"
-# lands, so the player finishes signing up where they began. A fixed key, never
-# a path from the query string, so the parameter can't become an open redirect.
+# A fixed key, never a path from the query string, so it can't become an open redirect.
 _RETURNS = {HOME_TOURNAMENTS: home_url(HOME_TOURNAMENTS)}
 
 
@@ -104,17 +102,13 @@ def create() -> None:
 
     @ui.page('/challonge/connect')
     async def challonge_connect(request: Request) -> RedirectResponse:
-        # Custom domain: the shared callback is on the platform host, so restart
-        # this route there. Bouncing to the settings page instead made staff
-        # press Reconnect a second time.
         community = request.query_params.get('community')
         detour = await platform_link_redirect(
             f'/challonge/connect?{urlencode({"community": community})}' if community else '/challonge/connect'
         )
         if detour:
             return RedirectResponse(detour)
-        # Initiation runs with tenant context; the shared callback lands on the
-        # bare platform host, so pin the tenant-qualified return here.
+        # The callback lands on the bare platform host: pin the tenant-qualified return here.
         root_path = request.scope.get('root_path', '') or ''
         user = await get_user_from_session(app.storage.user)
         if user is None:
@@ -145,8 +139,6 @@ def create() -> None:
         url = await browser_url(client)
         if url is None:
             return
-        # Cross-host player-link handoff leg (platform host): exchange + mint +
-        # hand the verified identity back to the custom domain's /oauth/link/claim.
         if await handle_link_handoff_callback(url):
             return
         user = await get_user_from_session(app.storage.user)
@@ -163,17 +155,11 @@ def create() -> None:
         service_granted = app.storage.user.pop('challonge_service_granted', None) or []
         player_tenant = app.storage.user.pop('challonge_player_tenant', None)
         if user is None:
-            # Not authenticated: bounce to the originating tenant's login rather
-            # than the platform host (the returns carry the /t/<slug> prefix).
             stash_notice('Please log in and try linking again.', color='warning')
             ui.navigate.to(service_return if service_state is not None else player_return)
             return
-        # One registered redirect URI serves two flows, so the pending CSRF state
-        # says which one this callback completes. Four outcomes, named — the old
-        # two-branch guess fell through to the service flow whenever *neither*
-        # state was pending (a replay, a stale tab, a hand-typed URL), and that
-        # flow returns to the admin area, so a player was answered with a 403
-        # about the admin area.
+        # One redirect URI serves two flows; the pending CSRF state says which this completes. Don't fall
+        # through to the service flow when neither is pending: it answers a player with an admin 403.
         state = returned_state(url)
         if player_state is not None and state == player_state:
             with tenant_scope(player_tenant):
@@ -187,10 +173,6 @@ def create() -> None:
                     _ServiceGrant(service_community, service_queue, service_granted, service_tenant),
                 )
         elif (player_state is None) != (service_state is None):
-            # Exactly one flow pending and the state did not match it: a provider
-            # redirect carrying an error and no usable state. Complete that flow
-            # with no code so it reports cancelled/failed and returns to its own
-            # path — what the old `or service_state is None` clause was for.
             if player_state is not None:
                 with tenant_scope(player_tenant):
                     await _finish_player_link(user, None, player_return)
@@ -201,15 +183,7 @@ def create() -> None:
                         _ServiceGrant(service_community, service_queue, service_granted, service_tenant),
                     )
         else:
-            # Nothing pending, or both pending and neither matched: this callback
-            # belongs to neither flow, so complete neither. Return to the profile,
-            # never the admin area — every actor can reach their own profile, and
-            # a staff member replaying a service-connect callback lands there with
-            # an accurate message instead of a player hitting a 403. With no
-            # markers there is no tenant to prefix, so in path mode the fallback
-            # resolves on the platform host as the community picker — with the
-            # message, which is the honest answer for a callback that names no
-            # community.
+            # Neither flow: return to the profile, never the admin area a player can't reach.
             stash_notice(
                 f"That {_PROVIDER_LABEL} link didn't complete. "
                 f'Try again from your profile.', color='warning',
@@ -225,17 +199,12 @@ def create() -> None:
             return RedirectResponse(f'{root_path}/login')
         if not await _challonge_live():
             return RedirectResponse(f'{root_path}{player_return}')
-        # Custom domain + handoff: run the player OAuth on the platform host and
-        # hand the verified identity back here (where the session/tenant live).
-        # Tried before the mock short-circuit so the handoff is reachable under
-        # MOCK_CHALLONGE; returns None in path mode and with handoff off.
+        # Must run before the mock short-circuit so the handoff is reachable under MOCK_CHALLONGE.
         handoff = await maybe_start_link_handoff(_PROVIDER_KEY, f'{root_path}{player_return}')
         if handoff is not None:
             return handoff
         if is_mock_challonge():
-            # Mock mode records the link here rather than in the callback, so this
-            # page owns its outcome. A bare call answered an already-linked id
-            # with a 500.
+            # Mock mode links here, so this page owns the outcome (a bare call 500s on an already-linked id).
             service = ChallongeService()
             me = await service.exchange_player_code('mock')
             try:
@@ -247,8 +216,6 @@ def create() -> None:
                 logger.exception('Challonge mock player linking failed')
                 stash_notice(f'Could not link {_PROVIDER_LABEL}. Please try again.', color='negative')
             return RedirectResponse(f'{root_path}{player_return}')
-        # Custom domain + Design A (handoff off): bounce to the platform-host
-        # path-mode surface. No-op in path mode / platform surface.
         detour = await platform_link_redirect(player_return)
         if detour:
             return RedirectResponse(detour)

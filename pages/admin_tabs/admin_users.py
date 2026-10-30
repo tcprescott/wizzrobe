@@ -35,7 +35,6 @@ from theme.tables.user import UserTableView
 from theme.url_state import bind_url, consume_deep_link
 
 _TA_FILTER = '_tournament_admin'
-#: The Users-tab "Joined in the last N days" filter.
 RECENT_JOIN_WINDOW = timedelta(days=7)
 
 JOIN_SOURCE_LABELS: dict = {
@@ -117,7 +116,6 @@ async def admin_users_page(
 
         if not accommodations:
             if ada_request is not None:
-                # A DM link outlives the feature; say why it opens nothing.
                 ui.notify(
                     'ADA requests aren’t turned on for this community, so that '
                     'link has nothing to open.', color='warning',
@@ -131,9 +129,6 @@ async def admin_users_page(
         actor = await get_user_from_session(app.storage.user)
         service = AccommodationService()
 
-        # Counts what needs doing, not every open request: an arranged,
-        # unchanged request is done, and a count that never reaches zero can't
-        # tell staff whether anything is waiting.
         def tab_label(count: int) -> str:
             return f'ADA requests ({count})' if count else 'ADA requests'
 
@@ -182,9 +177,6 @@ async def _members_panel(
             'Click a name to see everything about them, including how their notifications are set up.'
         ).classes('text-caption text-grey')
 
-        # Pending join requests, above the member table. The queue carries its
-        # own buttons on purpose: discovery and action on different pages is the
-        # mistake that makes a report nobody acts on.
         @steady_refreshable
         async def join_queue() -> None:
             service = TenantMembershipService()
@@ -207,9 +199,8 @@ async def _members_panel(
                     return
                 ui.notify('Approved.' if approve else 'Declined.', color='positive')
 
-                # Through the view's _bg: refreshing the queue deletes the button
-                # whose handler this is, and the task that outlives it has lost
-                # the tenant unless it's rebound.
+                # Through the view's _bg: refreshing the queue deletes this button, and the outliving task
+                # loses the tenant unless it's rebound.
                 async def after_decision() -> None:
                     await join_queue.refresh()
                     await table_view.refresh()
@@ -227,8 +218,6 @@ async def _members_panel(
                          f"{'s' if len(pending) != 1 else ''}").classes('text-bold')
                 for request in pending:
                     person = request.user
-                    # Wraps on a phone: beside the two buttons the name and the
-                    # message were squeezed to a word a line.
                     with ui.row().classes('items-start justify-between w-full gap-2'):
                         with ui.column().classes('gap-0').style('flex: 1 1 12rem; min-width: 0'):
                             ui.label(person.display_name or person.username) \
@@ -236,7 +225,7 @@ async def _members_panel(
                             ui.label(f'Asked {format_local_display(request.updated_at)}') \
                                 .classes('text-caption text-grey')
                             if request.message:
-                                # Plain text, never markup — the requester writes it.
+                                # Plain text, never markup: the requester writes it.
                                 ui.label(request.message).classes('text-caption text-grey wiz-free-text')
                         with ui.row().classes('no-wrap gap-1'):
                             ui.button(
@@ -289,7 +278,6 @@ async def _members_panel(
             if accommodations:
                 mark_ada(row)
 
-        # The request's own status, so New and Arranged don't read the same.
         def mark_ada(row: dict) -> None:
             request = ada_requests.get(row['id'])
             if request is None:
@@ -308,21 +296,15 @@ async def _members_panel(
             {'name': 'challonge', 'label': 'Challonge', 'field': 'challonge', 'sortable': True},
             *([{'name': 'ada', 'label': 'ADA', 'field': 'ada', 'sortable': True}]
               if accommodations else []),
-            # Not sortable: a comma-joined list of role labels sorts on the
-            # string, which orders by whoever happens to hold 'Commentator'.
+            # Not sortable: a comma-joined list sorts on its first label.
             {'name': 'roles', 'label': 'Roles', 'field': 'roles'},
-            # When and how they got in: Discord auto-join tells nobody, so this
-            # is where staff see it.
             {'name': 'joined', 'label': 'Joined', 'field': 'joined', 'sortable': True},
             {'name': 'joined_via', 'label': 'Via', 'field': 'joined_via', 'sortable': True},
             {'name': 'actions', 'label': '', 'field': 'actions', 'align': 'right'},
         ]
 
         def get_query():
-            # Members of this community, not every account on the platform.
-            # UserTableView wants a queryset rather than a coroutine, so this
-            # hand-scopes; UserService.get_community_people is the canonical
-            # version and every other caller uses it.
+            # Hand-scoped because UserTableView wants a queryset; elsewhere use UserService.get_community_people.
             sel_list = selected.get('value') or []
             tid = require_tenant_id()
             qs = User.filter(tenant_memberships__tenant_id=tid).exclude(is_system=True)
@@ -480,13 +462,9 @@ async def _members_panel(
                     on_confirm=lambda: table_view._bg(_in_client(client, confirmed())),
                 ).open()
 
-        # One wrapping row: on a phone it folds to the two actions over search,
-        # Filters and refresh, where one control a line used to fill the screen.
         filters_open = {'value': False}
 
-        # Below 1024px the CSS collapses .match-filters-card until it carries
-        # .wiz-filters-open, so phones need this toggle (hidden on desktop) or
-        # the filters are unreachable — the match board's pattern.
+        # Phones need this toggle: below 1024px the CSS hides .match-filters-card until it has .wiz-filters-open.
         def toggle_filters() -> None:
             filters_open['value'] = not filters_open['value']
             if filters_open['value']:
@@ -509,7 +487,7 @@ async def _members_panel(
                 with ui.button('Actions').props('flat color=primary icon-right=expand_more'):
                     # Filled after the table exists: the export reads its rows.
                     more_menu = ui.menu()
-            # Filled after the table exists — the search and gear need a live table.
+            # Filled after the table exists: the search and gear need a live table.
             search_slot = ui.row().classes('wiz-toolbar__search items-center no-wrap')
 
         with search_slot:
@@ -519,13 +497,9 @@ async def _members_panel(
                 filter_badge = ui.badge('0').props('floating color=primary')
             filter_badge.set_visibility(False)
             gear_slot = ui.element('div')
-            # Lambda, not a direct reference: the toolbar is built before
-            # table_view exists.
+            # Lambda: the toolbar is built before table_view exists.
             refresh_button(lambda: table_view.refresh())
 
-        # Filter card — between toolbar and table, matching match-filters-card pattern
-        # Fields label themselves and the role multi-select reads as one line of
-        # text, like the match board's filters (theme/tables/match_filters.py).
         with ui.card().classes('match-filters-card match-filters-card--compact user-filters') as filters_card:
             with ui.row().classes('match-filter-row'):
                 role_options = {r.value: r.label for r in Role}
@@ -545,7 +519,6 @@ async def _members_panel(
                         'Needs ADA',
                     ).bind_value(ada_only, 'value')
 
-        # Table — toolbar suppressed since we rendered it above
         table_view = UserTableView(
             columns=columns, get_query=get_query, show_toolbar=False,
             row_actions=_row_actions(emergency_contacts), table_key=TableKeys.ADMIN_USERS,
@@ -624,16 +597,13 @@ async def _members_panel(
                 'group_add', 'Import from Discord…',
                 busy_click('Reading the Discord server…', import_from_discord),
             )
-            # The plan's columns, not the shipped list: the export matches what
-            # the person is looking at, hidden columns and all.
             csv_export_menu_item(
                 'community-people',
                 lambda: table_view._plan.columns if table_view._plan else columns,
                 lambda: table_view.table.rows,
             )
 
-        # Same rebind as the tab-switch below: an 'update:model-value' handler
-        # is a client event, so a bare background task loses the tenant.
+        # Through _bg: a client-event handler's bare background task loses the tenant.
         role_select.on('update:model-value', lambda *_: table_view._bg(table_view.refresh()))
         role_select.on_value_change(lambda _: update_filter_badge())
         recent_checkbox.on('update:model-value', lambda *_: table_view._bg(table_view.refresh()))
@@ -642,9 +612,7 @@ async def _members_panel(
             ada_checkbox.on('update:model-value', lambda *_: table_view._bg(table_view.refresh()))
             ada_checkbox.on_value_change(lambda _: update_filter_badge())
 
-        # Route through the view's _bg so refresh rebinds the tenant captured at
-        # build — the selected_tab handler runs detached, and _format_user_row
-        # relies on that tenant to keep the roles column scoped.
+        # Through the view's _bg so the refresh rebinds the build-time tenant that keeps the roles column scoped.
         def on_tab_selected():
             table_view._bg(table_view.refresh())
         ui.on('selected_tab', lambda e: on_tab_selected() if e.args == 'Members' else None)

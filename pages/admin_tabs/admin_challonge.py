@@ -150,9 +150,7 @@ async def admin_challonge_connection_page(tournaments_url: str = '/admin/tournam
                     notify_error(e)
                 await connection_card.refresh()
 
-            # Opened outside the card: the refresh below would delete a dialog
-            # built inside it. The chip hides itself client-side on tap, so the
-            # refresh puts it back for a cancelled dialog.
+            # Outside the card: the refresh below would delete a dialog built inside it.
             with page_root:
                 ConfirmationDialog(
                     message=f'Stop asking Challonge for {slug} when you reconnect? '

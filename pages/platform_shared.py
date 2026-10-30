@@ -11,8 +11,7 @@ from nicegui import app, ui
 
 from application.services import get_user_from_session
 
-#: Active-column icon slot (check_circle / cancel), matching the styled admin
-#: tables. Rows must carry an ``active_bool`` boolean.
+# Rows must carry an `active_bool` boolean.
 ACTIVE_ICON_SLOT = '''
     <q-td :props="props">
         <q-icon :name="props.row.active_bool ? 'check_circle' : 'cancel'"

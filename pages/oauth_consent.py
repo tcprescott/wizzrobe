@@ -54,8 +54,7 @@ def create() -> None:
 
     @ui.page(CONSENT_PATH)
     async def app_consent(request_id: str = Query('', alias='request')):
-        # Not a parameter named ``request``: NiceGUI hands a page its Starlette
-        # Request under that name, so the query value has to arrive by alias.
+        # Not a parameter named `request`: NiceGUI hands a page its Starlette Request under that name.
         request = request_id
         service = OAuthGrantService()
         user = await get_user_from_session(app.storage.user)

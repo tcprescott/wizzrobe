@@ -32,8 +32,6 @@ from theme.dialog.confirmation_dialog import ConfirmationDialog
 from theme.empty_state import empty_panel
 from theme.menu import menu_action, more_menu
 
-# The three outcomes a human may assert, worded as a person would say them rather
-# than as the enum spells them.
 _FINISHED = 'Finished'
 _OUTCOMES = [_FINISHED, 'Forfeited', 'Disqualified']
 _OUTCOME_STATUS = {
@@ -97,9 +95,6 @@ def build_live_tab(
                         ui.space()
                         cancelled = enum_value(lr.status) == 'cancelled'
                         can_open = not lr.racetime_slug and not cancelled
-                        # The next step is the one button; the step after it waits in ⋮.
-                        # A cancelled race is over: offering to open a room for it invites
-                        # a click that only produces a refusal.
                         if can_open:
                             ui.button('Open room', icon='meeting_room',
                                       on_click=busy_click('Opening room…', lambda lid=lr.id: _open_room(lid))
@@ -119,19 +114,12 @@ def build_live_tab(
                         ui.label('No permalink assigned, so results cannot be scored. '
                                  'Set one before the race runs.'
                                  ).classes('text-caption text-orange')
-                    # The to-do the audit log used to keep to itself: these racers came out
-                    # of the room with no run, and nothing said so.
                     if lr.unmatched_handles:
                         with ui.column().classes('gap-0'):
                             with ui.row().classes('items-center text-caption text-orange'):
                                 ui.icon('person_off')
                                 ui.label(f'{len(lr.unmatched_handles)} racer(s) could not be '
                                          'recorded: ' + ', '.join(lr.unmatched_handles))
-                            # Two causes, and the admin cannot tell them apart from the
-                            # handle alone: no linked account, or racetime calling them
-                            # finished without sending a time. Both remedies named.
-                            # Only the racer can link their own racetime account
-                            # (Profile → Connected accounts); no admin screen does it.
                             ui.label("Either they haven't linked racetime.gg here (each racer "
                                      'does that from their own Profile; then record the race '
                                      'again), or racetime finished them without a time. '
@@ -182,10 +170,6 @@ def build_live_tab(
                      'as an approved run, par-scored exactly as the room’s own results '
                      'would have been.').classes('text-caption text-grey')
             if race.unmatched_handles:
-                # Named as a picker question rather than "cannot be recorded", which
-                # was only ever true of the unlinked half: a racer racetime finished
-                # without timing is linked, in the picker, and typing their time in
-                # here is exactly the remedy.
                 ui.label('The picker lists members of this community. If one of the '
                          "outstanding racers isn't there, they need to sign in and join "
                          'first.'
@@ -204,8 +188,6 @@ def build_live_tab(
                                             value=_FINISHED).classes('wiz-edit-row__half')
                         time_in = ui.input('Finish time', placeholder='1:23:45') \
                             .classes('wiz-edit-row__half')
-                        # A forfeit or a DQ has no time; hiding the field is clearer
-                        # than accepting a value the service will discard.
                         time_in.bind_visibility_from(outcome, 'value',
                                                      lambda v: v == _FINISHED)
                 rows.append({'row': row, 'person': person,
@@ -222,7 +204,6 @@ def build_live_tab(
                 ui.button('Add racer', icon='person_add', on_click=add_row).props('flat')
 
             async def submit():
-                # The service is strict about every other input; so is the page.
                 refusal = missing_racer_message(
                     [i for i, entry in enumerate(rows, start=1) if not entry['person'].value])
                 if refusal:
@@ -254,7 +235,6 @@ def build_live_tab(
                     return
                 ui.notify(f'Recorded {len(captured)} run(s)', color='positive')
                 dialog.close()
-                # The runs are new rows and the board's totals move with them.
                 await reload_tabs(LIVE_TAB, RUNS_TAB, BOARD_TAB)
 
             with dialog_actions().classes('justify-end'):
@@ -305,11 +285,6 @@ def build_live_tab(
         await reload_tabs(LIVE_TAB)
 
     def _result_action(lr, *, as_button: bool) -> None:
-        # The capture refuses outright without a permalink, and "(assign later)"
-        # makes that a normal state, so offer the control that fixes it instead
-        # of a Record action that can only end in a refusal. Recording is offered
-        # on a finished race too: it's idempotent, and a race whose results came
-        # in with someone unmatched is exactly the case that needs it again.
         if lr.permalink_id is None:
             icon, label, handler = 'link', 'Set permalink', lambda race=lr: _open_permalink_dialog(race)
         else:

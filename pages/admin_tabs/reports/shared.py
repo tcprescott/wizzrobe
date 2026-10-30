@@ -24,32 +24,22 @@ from theme.tables.mobile_grid import enable_mobile_grid
 
 REPORT_KEYS = ('capacity', 'match_ops', 'crew', 'stages', 'audit')
 
-# ECharts colours. Canvas charts can't read CSS var() tokens and are painted
-# once server-side, so every colour has to hold >=3:1 on BOTH the light and dark
-# card surfaces. The main series is the community's own colour (``chart_palette``);
-# these fixed ones carry a meaning, so they stay put whatever the accent is.
-CHART_TEAL = '#17A097'     # second series (status-live hue)
-CHART_AMBER = '#B5791C'    # "middling" in a score; the second series when the accent is teal
-CHART_RED = '#C94E3D'      # thresholds/limits (status-cancelled hue)
-CHART_NEUTRAL = '#8D8379'  # absence/idle series (warm gray — reads gray by design)
+# Canvas can't read CSS var() tokens: each colour must hold >=3:1 on both the light and dark cards.
+CHART_TEAL = '#17A097'
+CHART_AMBER = '#B5791C'
+CHART_RED = '#C94E3D'
+CHART_NEUTRAL = '#8D8379'
 
-# Chart chrome. ECharts' default axis/legend grays assume a white canvas and
-# go illegible in dark mode; these sit at the equal-contrast point between the
-# light and dark surfaces (~4:1 against both), the best a single value can do.
-CHART_TEXT = '#877D72'                       # axis labels, axis names, legend
-CHART_GRID = 'rgba(135, 125, 114, 0.35)'     # gridlines/axis lines — recessive on both
+CHART_TEXT = '#877D72'
+CHART_GRID = 'rgba(135, 125, 114, 0.35)'
 
 
 class ChartPalette(NamedTuple):
     """The series colours one report's charts are painted with."""
 
-    #: The main series, in the community's colour.
     primary: str
-    #: ``primary`` at 18%, for the area under a line.
     primary_area: str
-    #: ``primary`` at 15%, for the zoom slider's selected window.
     primary_wash: str
-    #: The series beside it, never the same hue as ``primary``.
     secondary: str
 
 
@@ -61,7 +51,6 @@ def chart_palette_for(accent: str) -> ChartPalette:
     """The palette for a community whose accent is ``accent``. Pure."""
     primary = TenantThemeService.chart_series_colour(accent)
     r, g, b = _rgb(primary)
-    # A teal community would draw both series teal; amber stands in there.
     distance = sum((x - y) ** 2 for x, y in zip((r, g, b), _rgb(CHART_TEAL), strict=True)) ** 0.5
     return ChartPalette(
         primary=primary,
@@ -85,8 +74,6 @@ def themed_chart_option(option: dict) -> dict:
     anything the chart already specifies.
     """
     option.setdefault('textStyle', {}).setdefault('color', CHART_TEXT)
-    # Patterned series (decals) so stacked and multi-series charts don't rely on
-    # colour alone; aria also gives screen readers a generated description.
     option.setdefault('aria', {'enabled': True, 'decal': {'show': True}})
     if 'legend' in option:
         option['legend'].setdefault('textStyle', {}).setdefault('color', CHART_TEXT)
@@ -176,8 +163,7 @@ def report_page_shell(
         yield
 
 
-# Per client (never module state): a filter change re-renders the report body,
-# and a phone's filter card should still be open on the far side of it.
+# Per client, never module state.
 _FILTERS_OPEN_ATTR = '_wiz_report_filters_open'
 
 
@@ -295,9 +281,7 @@ def date_range_filter(
             state['end'] = parsed
             _fire()
 
-    # Typing a date fires a change per finished segment, so a year typed digit by
-    # digit passes through 0002, 0020 and 0202. Only the value a pause settles on
-    # re-runs the report; parse_date drops the out-of-range years in between.
+    # A year typed digit by digit passes through 0002, 0020, 0202: only the settled value re-runs the report.
     start_input.on('change', _on_start, throttle=0.8, leading_events=False)
     end_input.on('change', _on_end, throttle=0.8, leading_events=False)
     return start_input, end_input
@@ -357,8 +341,7 @@ def show_navigating() -> None:
                 fun_fact()
 
 
-# Set per client (never module state — one module serves every operator in every
-# tenant) by the Reports dispatcher, which owns the refreshable body.
+# Per client, never module state: one module serves every operator in every tenant.
 _REFRESH_ATTR = '_wiz_report_refresh'
 
 
@@ -406,11 +389,8 @@ def navigate_with_params(report: Optional[str] = None, **params) -> None:
         show_navigating()
         ui.navigate.to(url)
         return
-    # ``reports_url`` is root-relative and NiceGUI adds the client prefix when
-    # *it* navigates; replaceState is ours, so the /t/<slug> prefix is ours to
-    # add. Then hold the operator's scroll position across the rebuild: the body
-    # is streamed in, so the document collapses mid-refresh and the browser
-    # clamps scrollY unless something puts it back (static/js/report-nav.js).
+    # replaceState is ours, so the /t/<slug> prefix is ours to add; then restore the scroll
+    # the streamed rebuild clamps (static/js/report-nav.js).
     ui.run_javascript(
         f'history.replaceState(null, "", (window.path_prefix || "") + {json.dumps(url)});'
         'window.wizReportKeepPlace && window.wizReportKeepPlace();'
@@ -464,16 +444,10 @@ def kpi_grid() -> ui.element:
     return ui.element('div').classes('wiz-tile-grid wiz-tile-grid--sm')
 
 
-# Per-row drill-out. Reports identify work; the surface that fixes it lives
-# elsewhere, so a row carries an id there rather than growing its own mutation.
 DRILL_FIELD = 'drill_url'
 DRILL_HINT_FIELD = 'drill_hint'
 
-# Both halves are static Vue: the destination arrives as row *data*
-# (``props.row.drill_url``), never as markup templated into the slot. The button
-# emits rather than rendering an ``<a href>`` — NiceGUI prepends the client's
-# path prefix to a navigate target, so an anchor built in a template would drop
-# the ``/t/<slug>`` in path-mode tenancy and 404.
+# Emit, don't render an <a href>: an anchor built in a template drops the /t/<slug> prefix and 404s.
 _DRILL_CELL = r'''
         <q-td :props="props" class="text-right" @click.stop>
             <q-btn v-if="props.row.drill_url" flat dense round
@@ -484,9 +458,7 @@ _DRILL_CELL = r'''
             </q-btn>
         </q-td>
 '''
-# The card mirror. enable_mobile_grid builds its card body from the columns and
-# skips the actions column entirely, so a cell slot alone is invisible on a
-# phone — this is what makes the control exist there.
+# enable_mobile_grid's card skips the actions column, so without this the control is missing on a phone.
 _DRILL_ACTION = r'''
             <q-btn v-if="props.row.drill_url" flat dense
                    icon="open_in_new" color="primary"
@@ -530,9 +502,7 @@ def enable_drill_link(
         *columns,
         {'name': 'drill', 'label': '', 'field': DRILL_FIELD, 'align': 'right'},
     ]
-    # Re-assign, don't rely on the mutation above reaching the client: NiceGUI
-    # copies rows into ObservableDicts when the table is built, so the caller's
-    # dicts and ``table.rows`` are different objects from that point on.
+    # Re-assign: NiceGUI copied the rows into ObservableDicts, so the mutation above never reaches the client.
     table.rows = rows
     table.add_slot('body-cell-drill', _DRILL_CELL)
     table.on('drill', _follow_drill)
@@ -559,8 +529,6 @@ def schedule_drill(
 def _follow_drill(e) -> None:
     url = clicked_row(e).get(DRILL_FIELD)
     if url:
-        # Same acknowledgment a filter change gets: this is a full navigation
-        # to another admin tab, not an in-page update.
         show_navigating()
         ui.navigate.to(url)
 
@@ -576,9 +544,6 @@ def clicked_row(e) -> dict:
     return row if isinstance(row, dict) else {}
 
 
-# Expandable-details ``body`` slot for event-log tables. The ``details`` column
-# renders a collapsible pretty-printed JSON cell; every other column is plain.
-# Two variants: one emits ``row-click`` for a drill-down filter, one does not.
 _EVENT_LOG_DETAILS_CELL = r'''
         <q-td v-for="col in props.cols" :key="col.name" :props="props">
             <template v-if="col.name !== 'details'">
@@ -615,8 +580,6 @@ def _page_range_label(total: int, page: int, page_size: int, noun: str) -> str:
         return f'{total:,} {noun}'
     first = (page - 1) * page_size + 1
     if first > total:
-        # A hand-edited ``?page=`` past the end. Saying "Showing 101–95" would
-        # be worse than saying nothing about the range.
         return f'{total:,} {noun} — page {page} is past the end'
     last = min(page * page_size, total)
     return f'Showing {first:,}–{last:,} of {total:,} {noun}'

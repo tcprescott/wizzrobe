@@ -22,8 +22,7 @@ __all__ = ['render_blocks', 'render_spans', 'render_user_blocks']
 
 
 def _render_user_link(span: Span) -> None:
-    # Someone else wrote this link, so it always opens a new tab, says it leaves
-    # the page, and passes on neither the opener nor the referring path.
+    # Someone else wrote this link: new tab, no opener, no referrer.
     link = ui.link('', span.href, new_tab=True).classes('wiz-help-link wiz-user-link')
     link.props['rel'] = 'noopener noreferrer nofollow'
     link.props['aria-label'] = f'{span.text} (opens in a new tab)'
@@ -36,8 +35,6 @@ def _render_span(span: Span, *, untrusted: bool = False) -> None:
     if span.kind == 'link' and untrusted:
         _render_user_link(span)
     elif span.kind == 'link':
-        # Internal links stay in this tab; anything off-site opens a new one, so
-        # a reader following a link out of the help does not lose their place.
         ui.link(span.text, span.href, new_tab=not span.href.startswith(('/', '#'))) \
             .classes('wiz-help-link')
     elif span.kind == 'strong':
@@ -50,9 +47,6 @@ def _render_span(span: Span, *, untrusted: bool = False) -> None:
         with ui.element('span').classes(f'wiz-chip wiz-chip--{span.tone}'):
             ui.label(span.text).classes('wiz-help-inline')
     elif span.kind == 'state':
-        # Drawn from the same icon and colour class the schedule board's own
-        # state cell uses, so the help shows the reader the thing they will
-        # actually see rather than a stylised stand-in.
         icon, tone = STATE_STYLES[span.text]
         with ui.element('span').classes('wiz-help-state'):
             ui.icon(icon).classes(tone).props('size=xs')
@@ -68,9 +62,6 @@ def render_spans(spans: tuple[Span, ...], *, untrusted: bool = False) -> None:
 
 
 def _render_table(block: Block) -> None:
-    # A hand-built table rather than ``ui.table``: the cells hold chips, icons
-    # and links, which a ui.table column cannot carry without a Vue slot, and
-    # these are prose tables of a handful of rows, not sortable data grids.
     # (mobile-grid: exempt — static prose, scrolls in its own container.)
     with ui.element('div').classes('wiz-help-table-wrap'):
         with ui.element('table').classes('wiz-help-table'):
@@ -97,8 +88,7 @@ def _render_list(block: Block, *, untrusted: bool = False) -> None:
 
 def _img(block: Block, *, lazy: bool):
     image = ui.element('img').classes('wiz-help-img')
-    # Set as values, never through the props *string*: alt text is article prose
-    # and may hold quotes or spaces the string parser would split on.
+    # Set as values, never via the props string: alt text may hold quotes or spaces the parser splits on.
     image.props['src'] = block.src
     image.props['alt'] = block.alt
     if lazy:
@@ -108,10 +98,6 @@ def _img(block: Block, *, lazy: bool):
 
 
 def _render_image(block: Block) -> None:
-    # A phone screenshot is taller than the article column is wide, so the inline
-    # copy is height-capped; tapping it opens the full-size copy. The dialog's
-    # content is not built in the browser until it opens, so a page of
-    # screenshots costs one image fetch each.
     zoom = ui.dialog().props('transition-show=fade transition-hide=fade')
     with zoom, ui.element('div').classes('wiz-help-zoom').on('click', zoom.close):
         _img(block, lazy=False)
@@ -144,8 +130,6 @@ def render_blocks(
             level = min(block.level + heading_offset, 6)
             heading = ui.element(f'h{level}').classes(f'wiz-help-h{level}')
             if block.anchor and not heading_offset:
-                # The anchor rides on the heading itself so /help/x#y lands on it
-                # and so the in-article contents list has something to target.
                 heading.props(f'id={block.anchor}')
             with heading:
                 render_spans(block.spans)

@@ -34,15 +34,12 @@ class StaticBracketView:
     entries: List[BracketEntry]
     matches: List[BracketMatch]
     entry_name: Dict[int, str]
-    # entry_id -> Discord avatar URL (``theme.brackets.render.entry_avatars``).
     entry_avatar: Dict[int, str] = field(default_factory=dict)
     live_state: Dict[int, dict] = field(default_factory=dict)
     advancement: Optional[dict] = None
     generated_at: Optional[datetime] = None
-    # Path prefix carrying any /t/<slug> root_path, so links work in path mode.
     root_path: str = ''
     primary_color: Optional[str] = None
-    # The community's theme (TenantThemeService), for its logo icons.
     icons: Dict[str, str] = field(default_factory=dict)
     refresh_seconds: int = 60
 
@@ -61,9 +58,6 @@ class StaticIndexView:
     refresh_seconds: int = 300
 
 
-# The static views load the app stylesheets for the shared bracket look, plus
-# this small shell — the interactive pages get their frame from Quasar, which is
-# exactly the payload (and the socket behind it) this view exists to avoid.
 _SHELL_CSS = """
 *, *::before, *::after { box-sizing: border-box; }
 /* Every text colour routes through the --bracket-* properties brackets.css
@@ -106,11 +100,6 @@ a { color: var(--wiz-link, #9C6B12); }
   color: var(--bracket-muted, #6b7280); text-align: center; }
 """
 
-# Hover-run highlight, the one behaviour worth 300 bytes of vanilla JS: it needs
-# no socket, no framework and no state, and it is what makes a large bracket
-# readable. Everything else in the static view is served pre-rendered. The theme
-# follows the ``wiz_dark`` cookie the app's dark-mode toggle writes
-# (``theme.chrome.dark_mode_button``), else the reader's system theme.
 _HOVER_JS = (
     "<script>(function(){var t=function(on){return function(e){"
     "var el=e.target.closest?e.target.closest('[data-entrant-id]'):null;if(!el)return;"
@@ -139,8 +128,7 @@ def _document(
     description: str = '',
     icons: Optional[Mapping[str, str]] = None,
 ) -> str:
-    # HTML escaping does nothing inside <style>, so the colour is re-checked
-    # here rather than trusting every caller to have validated it.
+    # HTML escaping does nothing inside <style>, so the colour is re-checked here.
     if primary_color and not _HEX_COLOR.fullmatch(primary_color):
         primary_color = None
     palette = (
@@ -162,8 +150,6 @@ def _document(
         '<meta name="robots" content="noindex, nofollow">'
         f'{refresh}'
         f'<title>{_esc(title)}</title>'
-        # What a link unfurl (Discord, chat apps) shows: these pages are the
-        # link staff paste into a channel, and a bare <title> is all it had.
         f'<meta property="og:title" content="{_esc(title)}">'
         + (f'<meta property="og:description" content="{_esc(description)}">' if description else '')
         + icon_links_html(icons)
@@ -195,9 +181,7 @@ def render_bracket_document(view: StaticBracketView) -> str:
     entry_name = view.entry_name
     root = view.root_path
 
-    # No config_summary here: the stage's rules as configured are a check for
-    # staff, and this page is for spectators (the interactive page shows them
-    # to staff only, for the same reason).
+    # No config_summary: the configured rules are staff-only, and this page is for spectators.
     header = _tag(
         'div', 'wizs-card',
         _tag('div', 'wizs-title', _esc(bracket.name))

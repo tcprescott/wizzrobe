@@ -53,8 +53,6 @@ async def render_api_tokens_section(user: User) -> None:
         with ui.column().classes('input-full-width gap-0'):
             for i, t in enumerate(tokens):
                 is_oauth = t.origin == ApiTokenOrigin.OAUTH.value
-                # A third-party app's grant: its access half lasts an hour and
-                # rotates, so its expiry and prefix say nothing a person can use.
                 is_app = t.origin == ApiTokenOrigin.APP.value
                 if i:
                     ui.separator().classes('q-my-sm')
@@ -63,14 +61,7 @@ async def render_api_tokens_section(user: User) -> None:
                         with ui.row().classes('items-center gap-1'):
                             ui.label(t.name).classes('text-weight-medium')
                             if is_oauth:
-                                # The row's label is already the client name (it
-                                # is what the token was named at issue), so the
-                                # badge marks the *kind* rather than repeating it.
                                 ui.badge('AI client').props('color=primary')
-                                # Only the writing grant is badged. Read-only is
-                                # the default and the unremarkable case; the
-                                # badge is here to make the other one visible on
-                                # a page people skim.
                                 if not t.read_only:
                                     ui.badge('can make changes').props('color=warning')
                             elif is_app:
@@ -83,7 +74,6 @@ async def render_api_tokens_section(user: User) -> None:
                         )
                         expires = ''
                         if t.expires_at and not is_app:
-                            # A short-lived token needs the hour; a date alone reads as "all day".
                             soon = t.expires_at - datetime.now(timezone.utc) < timedelta(days=2)
                             fmt = format_local_display if soon else format_local_date
                             expires = f' · Expires {fmt(t.expires_at)}'
@@ -91,8 +81,6 @@ async def render_api_tokens_section(user: User) -> None:
                         ui.label(prefix + used + expires) \
                             .classes('text-caption text-grey-7') \
                             .style('overflow-wrap: anywhere')
-                        # An AI client approved before scopes carries only the
-                        # old read/write names, which parse to nothing: no chips.
                         areas = parse_scope(t.scope) if (is_app or is_oauth) else frozenset()
                         if areas:
                             with ui.row().classes('items-center gap-1'):
@@ -180,8 +168,6 @@ async def render_api_tokens_section(user: User) -> None:
         that is the OAuth flow, which signs them in and shows a consent screen.
         """
         mcp_url = f'{get_base_url()}/mcp'
-        # Not a nested card: inside the expansion a second border and padding
-        # cost a phone a third of its width, and the URL was cut to a few letters.
         with ui.row().classes('items-center gap-2 no-wrap'):
             ui.icon('smart_toy').classes('text-primary')
             ui.label('Connect an AI client').classes('subsection-title')
@@ -189,8 +175,6 @@ async def render_api_tokens_section(user: User) -> None:
             'Add this URL as a custom connector in Claude or any MCP client. '
             "It's read-only unless you allow changes when you approve it."
         ).classes('text-muted text-caption')
-        # Shown whole, wrapping if it must: a readonly input cut the URL to a
-        # few letters on a phone, and the copy button is how it gets used.
         with ui.row().classes('items-center no-wrap w-full gap-2 q-mt-xs'):
             ui.label(mcp_url).classes('col min-w-0') \
                 .style('font-family: var(--font-mono); font-size: 0.8125rem; overflow-wrap: anywhere')
@@ -200,8 +184,6 @@ async def render_api_tokens_section(user: User) -> None:
             ).classes('col-auto').props('flat dense round').tooltip('Copy MCP server URL')
         ui.separator().classes('q-my-md')
 
-    # Developer-only surface — collapsed by default so it doesn't dominate the
-    # profile for the majority of users who never touch the REST API.
     with ui.card().classes('card-full-width'):
         with ui.expansion('API tokens & AI clients', icon='vpn_key').classes('w-full') \
                 .props('header-class=text-weight-bold'):

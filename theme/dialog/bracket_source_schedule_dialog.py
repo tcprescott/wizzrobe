@@ -47,7 +47,6 @@ from theme.dialog.round_schedule_dialog import confirm_outside_window
 from theme.help import resolve_help
 
 _DEFAULT_LENGTH = 90
-# Minutes between one game's expected end and the next game's start.
 _TURNAROUND = 10
 _BEST_OF_CHOICES = (1, 3, 5)
 
@@ -62,20 +61,17 @@ class BracketSourceScheduleDialog:
 
     async def open(self):
         item = self.bookable
-        # Captured while the opening handler's slot is alive: on_submit rebuilds
-        # the section this dialog was opened from.
+        # Captured while the opening handler's slot is alive: on_submit rebuilds this section.
         client = context.client
         tenant_id = get_current_tenant_id()
         slot = next_whole_hour_local()
         staff_booking = bool(self.matchup_label)
         best_of = await bracket_sources.best_of_for(item.source, item.key) if item.source != 'bracket' else 1
         set_length = item.best_of if item.best_of > 1 else best_of
-        # One game of a set: the player's every booking, and staff's once a game is in.
         single = set_length > 1 and (not staff_booking or item.games_booked > 0)
         if single:
             best_of = 1
         length = int(getattr(item.tournament, 'average_match_duration', None) or _DEFAULT_LENGTH)
-        # One (date, time) input pair per game; rebuilt when staff change the best-of.
         games: List[Tuple] = []
         state = {'best_of': best_of}
 
@@ -166,9 +162,6 @@ class BracketSourceScheduleDialog:
                         ui.label(
                             "Only played if the set isn't won by then. It's called off by itself otherwise."
                         ).classes('text-caption text-muted')
-                # Suggest a time reads both players' calendars; a slot booked
-                # ahead doesn't have both yet. It fills game 1, and the later
-                # games follow it.
                 if not item.ahead:
                     render_suggest_time_button(
                         dialog,

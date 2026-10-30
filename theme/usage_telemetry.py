@@ -24,8 +24,6 @@ from theme.assets import asset_url
 logger = logging.getLogger(__name__)
 
 _TENANT_PREFIX = re.compile(r'^/t/[^/]+')
-# A single page build would have to emit far more than this to be real use;
-# past it the page is misbehaving or someone is replaying the event by hand.
 _MAX_EVENTS_PER_PAGE = 5000
 
 
@@ -87,8 +85,7 @@ class UsageCapture:
     def install(self) -> None:
         if not self._enabled:
             return
-        # In the head, like table-columns.js: markup added from a lazy tab build
-        # never executes its <script>, and the listener must cover those tabs.
+        # In the head: markup from a lazy tab build never runs its <script>, and the listener must cover those tabs.
         ui.add_head_html(f'<script defer src="{asset_url("js/usage.js")}"></script>')
         ui.on('wiz_usage', self._on_batch)
 

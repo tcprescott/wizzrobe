@@ -50,11 +50,7 @@ def create() -> None:
     async def room_seeds(token: str) -> Optional[RedirectResponse]:
         ui.page_title('Wizzrobe — Room Seeds')
 
-        # An unknown, revoked, malformed or wrong-community token renders the
-        # same page a route that never existed would — same copy, same 404 —
-        # so guessing at a URL tells you nothing about which tokens are live.
-        # The copy ("the link's out of date") is also the true one for the
-        # staff member at a room PC whose token was just revoked.
+        # Every bad token must render the same 404 as a route that never existed, so guessing reveals nothing.
         room_token = await RoomTokenService().resolve(token)
         if room_token is None:
             from theme.error_page import render_not_found
@@ -66,9 +62,6 @@ def create() -> None:
         if redirect is not None:
             return redirect
 
-        # Anonymous by construction, and chromeless: a room PC has no session to
-        # sign out of and nowhere else to go, so the layout contributes the
-        # palette and page scripts without a header, drawer or bottom nav.
         await BaseLayout(user=None, chromeless=True).render()
 
         with ui.column().classes('page-container'):
@@ -90,9 +83,7 @@ def create() -> None:
                 },
                 row_filter=is_room_seed_row,
                 default_state_filter=['Scheduled', 'Checked In', 'Started'],
-                # Renamed when Started joined the default: a room PC that had
-                # already saved the old two-state filter under the old key would
-                # have kept hiding in-progress seeds.
+                # Don't revert to the old key: a two-state filter saved under it would keep hiding in-progress seeds.
                 storage_key='room_seeds_v2',
                 # table-prefs: exempt — an anonymous kiosk has no user row to key
                 # a saved layout to, and the columns here are fixed. Rearranging

@@ -37,32 +37,21 @@ class UserTableView:
                  show_toolbar=True, row_actions=None, empty_message='No users match this filter.',
                  table_key=None, before_refresh=None, decorate_row=None, name_event='edit_user'):
         self.columns = columns
-        # When set, this view's desktop columns follow the viewer's saved layout.
         self.table_key = table_key
         self._plan = None
         self.get_query = get_query
         self.extra_slots = extra_slots
         self.submit_user_callback = submit_user_callback
         self.show_toolbar = show_toolbar
-        # Vue template for per-row buttons, rendered in both the desktop actions
-        # cell and the mobile card so the two never drift.
         self.row_actions = row_actions
         self.empty_message = empty_message
-        # Optional hooks for a caller that layers its own data on the rows: an
-        # async ``before_refresh()`` that loads it (``get_query`` is sync), and a
-        # ``decorate_row(row)`` that writes it onto each formatted row.
         self.before_refresh = before_refresh
         self.decorate_row = decorate_row
-        # What clicking a name emits: the edit dialog by default, or a caller's
-        # own view (Admin → Members opens the member sheet).
         self.name_event = name_event
         self.table = None
-        # Capture the tenant while the request context is live; background tasks
-        # (initial load, pagination refresh) run detached from the client slot, so
-        # scoped reads would otherwise raise require_tenant_id(). _bg rebinds it.
+        # _bg rebinds this: background tasks run outside the request context, where scoped reads raise.
         self._tenant_id = get_current_tenant_id()
-        # Captured at build like the tenant: roles held in this event read bare,
-        # others name their event.
+        # Captured at build, like the tenant.
         self._event_id = get_current_event_id()
         self._render_context = capture_render_context()
         self._setup_ui()
@@ -72,7 +61,6 @@ class UserTableView:
         scoped_background(self._render_context, coro)
 
     def _setup_ui(self):
-        # Toolbar with actions (skipped when caller renders it externally)
         if self.show_toolbar:
             with ui.row().classes('full-width'):
                 if self.submit_user_callback:
@@ -85,8 +73,6 @@ class UserTableView:
                 columns=self.columns,
                 rows=[],
                 row_key='id',
-                # Client-side paging over the rows already loaded — see the note
-                # in theme/tables/match.py; there is no pagination handler.
                 pagination={'rowsPerPage': 25, 'page': 1},
             ).classes('user-table user-table-container').props(':grid="Quasar.Screen.lt.md"')
         self.table.add_slot('no-data', no_data_slot(self.empty_message, icon='group'))
@@ -135,10 +121,7 @@ class UserTableView:
             for slot_name, slot_template in self.extra_slots.items():
                 self.table.add_slot(slot_name, slot_template)
         if self.table_key:
-            # **After** render_grid_slot(), never before: the card's item slot is
-            # generated from these columns at build time, so applying a saved
-            # layout here cannot reach it. Pinned by
-            # tests/theme/test_table_preferences.py.
+            # After render_grid_slot(), never before: the card's item slot is generated from these columns at build time.
             self._plan = customize_table(self.table, self.columns, key=self.table_key)
             with self.table.parent_slot:
                 row_count_label(self.table, 'people')
@@ -156,16 +139,13 @@ class UserTableView:
             dialog = AdminUserDialog(u)
             await dialog.open()
         self.table.on('edit_user', handle_edit_user)
-        # Initial load at build: correctness must not depend on the selected_tab
-        # broadcast (which only fires on a *subsequent* tab switch) or on Quasar's
-        # incidental pagination event.
+        # Load here: selected_tab only fires on a later tab switch.
         self._bg(self.refresh())
 
     def render_grid_slot(self):
         grid_fields = []
         for col in self.columns:
-            # An unlabelled column (the row actions) has its own row below the
-            # fields; as a field it rendered as a lone ":".
+            # As a field an unlabelled column renders as a lone ':'.
             if not col.get('label'):
                 continue
             field = { 'label': col.get('label', col.get('name', '')), 'key': col.get('name', '') }
@@ -210,8 +190,7 @@ class UserTableView:
     async def refresh(self, *_, **__):
         if self.before_refresh:
             await self.before_refresh()
-        # Plain columns, not hydrated Users: a ~40-field model per member held the
-        # one event loop for over a second on a community of 2,000.
+        # Plain columns, not hydrated Users: hydrating 2,000 members held the event loop for over a second.
         users = await self.get_query().order_by('username').values(*_ROW_FIELDS)
         rows = []
         if users:
@@ -272,13 +251,13 @@ class UserTableView:
         idx = next((i for i, row in enumerate(self.table.rows)
                    if row.get('id') == user_id), None)
         if idx is None:
-            return  # Row not visible, do nothing
+            return
         user_query = self.get_query()
         u = await user_query.filter(id=user_id).prefetch_related(
             'roles__event', 'admin_tournaments', 'crew_coordinated_tournaments'
         ).first()
         if not u:
-            return  # User not found
+            return
         idx = next((i for i, row in enumerate(self.table.rows) if row.get('id') == user_id), None)
         if idx is None:
             return  # A reload replaced the rows while the query ran

@@ -32,13 +32,9 @@ from theme.markdown_editor import MarkdownEditor
 from theme.pickers import CHIP_PROPS
 from theme.tables.admin_crud import capture_render_context, scoped_background
 
-# The empty-Tournament hints differ by audience: an admin can go and make one, a
-# player requesting a match cannot.
 _ADMIN_NO_TOURNAMENTS_HINT = 'No tournaments yet — create one on the Tournaments tab.'
 _PLAYER_NO_TOURNAMENTS_HINT = 'No tournaments are open for requests right now.'
 
-# A race room's cached status, read by a human rather than by the bot that wrote
-# it — the section used to render the bare enum value ("in_progress").
 _ROOM_STATUS_LABEL = {
     RaceRoomStatus.OPEN: 'Open',
     RaceRoomStatus.IN_PROGRESS: 'Racing',
@@ -51,7 +47,6 @@ _ROOM_STATUS_CHIP = {
     RaceRoomStatus.FINISHED: 'wiz-chip--ok',
     RaceRoomStatus.CANCELLED: 'wiz-chip--cancelled',
 }
-# The two states there is still something to call off in.
 _CANCELLABLE_ROOM_STATUSES = (RaceRoomStatus.OPEN, RaceRoomStatus.IN_PROGRESS)
 
 
@@ -133,8 +128,6 @@ class AdminMatchDialog(BaseMatchDialog):
             ui.link(room.slug, room.url, new_tab=True).classes('text-link')
             with ui.element('span').classes(f'wiz-chip {_ROOM_STATUS_CHIP[room.status]}'):
                 ui.label(_ROOM_STATUS_LABEL[room.status])
-        # Only a live room can be called off; a finished or already-cancelled one
-        # has nothing left to stop.
         if not (can_sync and room.status in _CANCELLABLE_ROOM_STATUSES):
             return
 
@@ -147,8 +140,7 @@ class AdminMatchDialog(BaseMatchDialog):
                     ui.notify(str(e), color='warning')
                     return
                 ui.notify(f'Race room {room.slug} cancelled', color='positive')
-                # Set in open() before this section renders; mypy only sees the
-                # `= None` in __init__.
+                # Set in open() before this renders; mypy only sees the None.
                 self.dialog.close()  # type: ignore[attr-defined]
                 if self.on_submit:
                     await self.on_submit(self.match)
@@ -170,9 +162,7 @@ class AdminMatchDialog(BaseMatchDialog):
         ).props('outline color=negative')
 
     async def open(self):
-        # include_inactive: a SpeedGaming placeholder entrant is inactive by
-        # construction, and a synced match's roster already contains it — leaving
-        # it out of the options would blank an existing player's chip.
+        # include_inactive: SpeedGaming placeholder entrants are inactive, and leaving them out blanks a synced player's chip.
         users = await self.user_service.get_community_people_summaries(include_inactive=True)
         stages = await self.stage_service.get_all_stages()
         tournaments, entrant_counts = await self.tournament_service.list_schedulable(
@@ -212,10 +202,7 @@ class AdminMatchDialog(BaseMatchDialog):
             with ui.column().classes('q-pa-md gap-2'):
                 ui.label('* required').classes('required-legend')
 
-                # SpeedGaming read-only contract (PR 7): a match materialized from
-                # an SG episode has read-only ETL-owned fields (schedule / players
-                # / tournament). Surface a badge and disable those inputs; the
-                # service-layer guard is the actual enforcement.
+                # Locks inputs only; the service guard is the real enforcement.
                 is_sg_sourced = self.match is not None and getattr(
                     self.match, 'speedgaming_episode_id', None
                 ) is not None
@@ -227,7 +214,6 @@ class AdminMatchDialog(BaseMatchDialog):
                             'updated by the next SpeedGaming sync.'
                         ).classes('text-caption text-grey')
 
-                # Lead with what the match *is*. Everything below edits it.
                 if self.match:
                     self._render_state_summary(players)
 
@@ -244,9 +230,7 @@ class AdminMatchDialog(BaseMatchDialog):
                     with_input=True,
                 ).classes('input-full-width')
 
-                # Rebound: update_selection_options re-runs as a background task on
-                # every tournament change, where the contextvar is unset — the
-                # scoped read raised "No tenant in context" and left Players empty.
+                # Rebound: this re-runs as a background task with no tenant contextvar.
                 tenant_id = require_tenant_id()
                 event_id = get_current_event_id()
 
@@ -265,10 +249,6 @@ class AdminMatchDialog(BaseMatchDialog):
                         with_input=True,
                     ).props(CHIP_PROPS)
                     selected_players.disable()
-                    # "Choose any players" meant "any account on the platform"
-                    # and now means "any member of this community", which is not
-                    # what it did either way: the list it opens is the community,
-                    # and what the box changes is the *enrolment* filter.
                     choose_any_players = ui.checkbox(
                         'Include players not enrolled in this tournament', value=False,
                     )
@@ -276,11 +256,6 @@ class AdminMatchDialog(BaseMatchDialog):
                 players_note = ui.label('').classes('text-caption st-pending')
                 players_note.set_visibility(False)
 
-                # Scheduling someone into a tournament they are not in does enrol
-                # them, which is right — it was just invisible. Name it before the
-                # save, and again in the success notification. No confirmation
-                # dialog: enrolment is reversible from the tournament's own
-                # entrants dialog.
                 enrolment_note = ui.label('').classes('text-caption text-grey')
                 ui.label(
                     'Leave Players empty to hold the slot, and add them later. '
@@ -331,8 +306,6 @@ class AdminMatchDialog(BaseMatchDialog):
                         with_input=True,
                     ).props(CHIP_PROPS)
 
-                # Only on an event with broadcasters, or a match that still has
-                # some from before they were turned off, so staff can clear them.
                 selected_broadcasters = None
                 if broadcasters_on or broadcaster_ids:
                     with ui.row().classes('form-pair form-pair--wide items-start gap-2'):
@@ -356,10 +329,6 @@ class AdminMatchDialog(BaseMatchDialog):
                         opted_in_users = await get_opted_in_users(tournament_id)
                         selected_players.options = {u.id: u.preferred_name for u in opted_in_users}
                         selected_players.enable()
-                        # An empty menu with no message is how the old dialog
-                        # reported "nobody is enrolled" — after Create had been
-                        # pressed, as "Match must have at least one player",
-                        # which names neither the cause nor either fix.
                         if not opted_in_users:
                             empty_reason = (
                                 'Nobody is enrolled in this tournament. Enrol '
@@ -383,8 +352,7 @@ class AdminMatchDialog(BaseMatchDialog):
 
                 date, time = self._render_date_time_inputs(defaults['date'], defaults['time'])
 
-                # Lock the ETL-owned inputs on a sourced match (after the initial
-                # option population, which re-enables the players select).
+                # After the initial option population, which re-enables the players select.
                 if is_sg_sourced:
                     selected_tournament.disable()
                     selected_players.disable()
@@ -430,9 +398,6 @@ class AdminMatchDialog(BaseMatchDialog):
                     value=self.match.is_stream_candidate if self.match else False,
                 )
 
-                # The players' own offer, read right where the decision is made.
-                # Named as advisory: it is not a second checkbox and ticking the
-                # one above is still what puts the match on the stream list.
                 if self.match:
                     volunteers = await MatchStreamVolunteerService().names_for_match(self.match)
                     if volunteers:
@@ -441,12 +406,7 @@ class AdminMatchDialog(BaseMatchDialog):
                             'advisory, tick the box above to make it a candidate.'
                         ).classes('text-caption st-pending')
 
-                # Staff's own answer to "which preset does this match roll",
-                # offered only where there is a second preset to choose between
-                # and the seed is still unrolled. Deliberately says nothing about
-                # who opted in: the players' answers are theirs, and forcing the
-                # harder preset here is a decision about the match rather than a
-                # reply to them.
+                # Says nothing about who opted in: the players' answers are theirs.
                 preset_override_select = await self._render_preset_override()
 
                 selected_bracket_match = await bracket_link.render_select(
@@ -504,8 +464,7 @@ class AdminMatchDialog(BaseMatchDialog):
                         self.bracket_service, selected_bracket_match,
                         self.match.id, linked_bracket_match_id,
                     )
-                    # Last: it DMs both players about the match's settings, so
-                    # it must not fire for an edit that then fails to save.
+                    # Last: it DMs both players, so it must not fire for an edit that then fails to save.
                     await self._save_preset_override(preset_override_select)
 
                 async def do_create():
@@ -558,9 +517,7 @@ class UserMatchDialog(BaseMatchDialog):
         self.discord_id = discord_id
 
     async def open(self):
-        # include_inactive: a SpeedGaming placeholder entrant is inactive by
-        # construction, and a synced match's roster already contains it — leaving
-        # it out of the options would blank an existing player's chip.
+        # include_inactive: SpeedGaming placeholder entrants are inactive, and leaving them out blanks a synced player's chip.
         users = await self.user_service.get_community_people_summaries(include_inactive=True)
 
         user = await self.user_service.get_user_by_discord_id(self.discord_id)
@@ -568,9 +525,6 @@ class UserMatchDialog(BaseMatchDialog):
             ui.notify("We couldn't find your account. Try logging in again.", color='negative')
             return
 
-        # Bracket-run tournaments are excluded: their matches come from the
-        # bracket, not from a request. The service rejects them either way — this
-        # keeps the dropdown from offering a choice that can only fail.
         tournaments = await self.tournament_service.list_player_requestable(user)
         enrolments = await self.tournament_service.get_enrolled_players_by_user(user)
         enrolled_running = any(e.tournament.is_active for e in enrolments)
@@ -589,9 +543,6 @@ class UserMatchDialog(BaseMatchDialog):
         with ui.dialog() as dialog, ui.card().classes('dialog-card dialog-card--sm'):
             self.dialog = dialog
             mobile_sheet(dialog)
-            # Both dialogs offer Suggest a time, but only this one carries its
-            # help: the article is written for a player, about their own and
-            # their opponent's availability windows. The admin header has none.
             dialog_header(
                 title, dialog,
                 help=await resolve_help([('match-request', 'Requesting a match'), 'suggest-time']),
@@ -648,8 +599,7 @@ class UserMatchDialog(BaseMatchDialog):
                         selected_opponent.disable()
 
                 await update_selection_options()
-                # Sentry SGLMAN-16: the re-run is a background task with no tenant
-                # bound, so picking a tournament raised and left Opponent empty.
+                # The re-run is a background task with no tenant bound, so capture the render context here.
                 render_context = capture_render_context()
                 selected_tournament.on(
                     'update:model-value',

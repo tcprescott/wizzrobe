@@ -118,8 +118,6 @@ async def connected_apps_settings_pane(can_edit: bool) -> None:
         ).open()
 
     def on_switch(value: bool) -> None:
-        # The switch only ever asks; it stays on until the confirm turns the
-        # feature off and the page reloads without this pane.
         if not value:
             apps_switch.set_value(True)
             confirm_off()

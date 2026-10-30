@@ -1,8 +1,5 @@
 import { Editor, StarterKit, Markdown, Placeholder } from "wizzrobe-tiptap";
 
-// The formatting the app's safe renderer (application/content/blocks.py) can
-// show. Anything else the editor offered would save fine and then render as
-// plain text, so it is switched off here rather than offered.
 const TOOLS = [
   { name: "bold", label: "Bold", icon: "format_bold", run: (c) => c.toggleBold(), active: "bold" },
   { name: "italic", label: "Italic", icon: "format_italic", run: (c) => c.toggleItalic(), active: "italic" },
@@ -19,11 +16,9 @@ const TOOLS = [
   { name: "redo", label: "Redo", icon: "redo", run: (c) => c.redo() },
 ];
 
-// Short fields (a line or two of notes) keep inline formatting and bullets; a
-// heading or a note block in them would outweigh the text around it.
 const COMPACT_TOOLS = ["bold", "italic", "code", "link", "bullets"];
 
-// Mirrors application/content/blocks.py: `//host` and `/\host` are other sites.
+// Must match application/content/blocks.py: `//host` and `/\host` are other sites.
 const SAFE_HREF = /^(https:\/\/[^\s\\]+|mailto:\S+|\/(?![\/\\])[^\s\\]*)$/;
 
 export default {

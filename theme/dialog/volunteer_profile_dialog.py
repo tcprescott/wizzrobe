@@ -38,8 +38,6 @@ class VolunteerProfileDialog:
             dialog_header(self.user.preferred_name, dialog)
 
             with ui.column().classes('gap-4'):
-
-                # --- Availability section ---
                 ui.label('Availability').classes('text-subtitle2')
                 if not windows:
                     ui.label('No availability windows declared.').classes('text-caption text-grey q-ml-sm')
@@ -59,7 +57,6 @@ class VolunteerProfileDialog:
 
                 ui.separator()
 
-                # --- Qualifications section ---
                 ui.label('Qualified Positions').classes('text-subtitle2')
                 if not self.positions:
                     ui.label('No active positions configured.').classes('text-caption text-grey q-ml-sm')

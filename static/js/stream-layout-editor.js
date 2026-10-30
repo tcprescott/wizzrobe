@@ -1,10 +1,4 @@
-// Admin → Stream Layouts: drag, resize and nudge the boxes on a layout's art.
-//
-// The canvas carries its layout's size in data-w / data-h, and each box its
-// position in that space, so a move is reported in the art's own pixels
-// whatever size the canvas is drawn at. The server owns the boxes: a finished
-// drag emits `sl_box_changed`, a plain tap `sl_box_selected`, and the page
-// repaints from what it stored. Arrow keys move a focused box (Shift for 10).
+// The server owns the boxes: emit, and let the page repaint from what it stored.
 (() => {
   if (window.__wizStreamLayoutEditor) return;
   window.__wizStreamLayoutEditor = true;

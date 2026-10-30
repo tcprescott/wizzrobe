@@ -31,9 +31,7 @@ from models import FeatureFlag, Role
 
 _MIN_COLS, _MAX_COLS, _DEFAULT_COLS = 1, 5, 3
 
-# Avery peel-off layouts (US Letter). Published die-cut geometry in inches — the
-# sheet is positioned so labels land on the adhesive cells when the browser
-# prints at 100% (no fit-to-page scaling). `qr` is the QR edge length in inches.
+# Published Avery die-cut geometry in inches; only lands on the cells when printed at 100% (no fit-to-page).
 _AVERY = {
     'avery5160': {
         'label': 'Avery 5160 · 30/sheet · 1"×2⅝"',
@@ -58,8 +56,6 @@ _PLAIN = 'plain'
 _PAPERS = {'letter': 'letter', 'a4': 'A4'}
 _SHOW_FIELDS = ('owner', 'community', 'desc')
 
-# One source of truth for the template picker (dialog) and the page: plain first,
-# then each Avery preset by its human label.
 TEMPLATE_CHOICES = {_PLAIN: 'Plain grid (Letter/A4)', **{k: v['label'] for k, v in _AVERY.items()}}
 
 
@@ -112,10 +108,7 @@ def create() -> None:
         paper = paper if paper in _PAPERS else 'letter'
         shown = _parse_show(show)
 
-        # Print rules can't be Quasar classes: @page sizes the sheet (Letter/A4,
-        # or margin-0 for Avery so our inch offsets place the cells), and @media
-        # print drops the screen-only toolbar. add_head_html(shared=False) keeps
-        # this scoped to this page. Only fixed enums flow in — never user text.
+        # Print rules can't be Quasar classes. Only fixed enums flow in here, never user text.
         page_rule = ('@page { size: letter; margin: 0; }' if is_avery
                      else f'@page {{ size: {_PAPERS[paper]}; margin: 0.5in; }}')
         ui.add_head_html(f"""
@@ -147,8 +140,6 @@ def create() -> None:
 
         assets = await EquipmentService().get_assets_by_ids(_parse_ids(ids))
 
-        # Tenant-qualified deep link per asset, matching the single-asset page:
-        # the custom domain when set, else the path-mode /t/<slug>/… form.
         tid = get_current_tenant_id()
         tenant = await TenantService.get_by_id(tid) if tid is not None else None
 
@@ -157,7 +148,6 @@ def create() -> None:
                 return tenant_url(tenant, f'/equipment/{asset.id}')
             return f'{get_base_url()}/equipment/{asset.id}'
 
-        # Pre-render each label once (QR generation is the expensive part).
         qr_logo = await TenantLogoService.qr_logo_data_uri() if logo != '0' else None
         labels = [
             {
@@ -176,20 +166,13 @@ def create() -> None:
             columns = _DEFAULT_COLS
         state = {'cols': columns}
 
-        # The host these labels encode, and whether it is the one the operator is
-        # actually browsing. Compared against the *tenant's* canonical base, not
-        # BASE_URL: a custom-domain community's labels are supposed to encode
-        # that domain. `no-print`, so it never lands on a sticker.
+        # Compare against the tenant's canonical base, not BASE_URL: a custom-domain community's labels encode that domain.
         canonical_link = asset_link(assets[0]) if assets else None
         encoded_host = normalize_hostname(canonical_link)
         browsing_host = effective_request_host(context.client.request.headers)
         wrong_host = encoded_host_mismatch(canonical_link, browsing_host)
 
-        # --- Toolbar (screen only) ---
         if wrong_host:
-            # Above the Print button in reading order: a warning below the action
-            # is a warning after the fact. Never blocks printing — the operator
-            # may be printing at home for a venue on another host.
             with ui.row().classes('no-print full-width q-px-sm q-pt-sm items-center gap-1'):
                 ui.icon('warning').classes('text-warning')
                 ui.label(
@@ -200,8 +183,6 @@ def create() -> None:
         with ui.row().classes('no-print items-center full-width q-pa-sm').style('gap: 0.75rem'):
             ui.label(f'{community} — equipment QR labels').classes('text-h6 q-ma-none')  # style-guide: exempt — a print sheet, not an app page
             if encoded_host:
-                # The sheet was the only surface encoding links without showing
-                # one; the asset page has printed its link under the QR all along.
                 ui.label(f'links → {encoded_host}').classes('text-caption')
             ui.space()
             if labels:
@@ -240,7 +221,6 @@ def create() -> None:
             if lab['desc']:
                 ui.label(lab['desc']).classes('lbl-desc')
 
-        # --- Avery: exact-inch paginated sheets ---
         if is_avery:
             g = _AVERY[tpl]
             per_page = g['cols'] * g['rows']
@@ -262,7 +242,6 @@ def create() -> None:
                                     _label_text(lab, community_line=True)
             return
 
-        # --- Plain free grid (Letter/A4), column count re-toggles live ---
         @ui.refreshable
         def sheet() -> None:
             with ui.element('div').classes('qr-sheet').style(

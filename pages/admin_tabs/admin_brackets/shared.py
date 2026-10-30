@@ -66,8 +66,6 @@ def round_display_names(
     )
     max_losers = max((abs(r) for r in rounds if r < 0), default=None)
     if fmt not in (BracketFormat.SINGLE_ELIM, BracketFormat.DOUBLE_ELIM):
-        # Swiss and round robin have flat, numbered rounds — "Final" would be a
-        # lie about a round everyone plays simultaneously.
         return {r: f'Round {r}' for r in rounds}
     return {
         r: round_label(

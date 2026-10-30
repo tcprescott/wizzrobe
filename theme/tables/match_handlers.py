@@ -148,9 +148,6 @@ class MatchTableHandlersMixin:
                 notify_error(e)
 
         if approving:
-            # The dialog used to show one line — the name — and a checkbox, for a
-            # decision that needs to know whether this person is already spoken
-            # for. No conflict check existed anywhere in the crew path.
             clashes = await CrewService().find_scheduling_conflicts(
                 crew_member.user, m, role,
             )
@@ -230,10 +227,6 @@ class MatchTableHandlersMixin:
         crew_service = CrewService()
 
         if action == 'undo':
-            # Withdrawing an *approved* commitment is not the same act as
-            # dropping one nobody has looked at yet: staff put this person on the
-            # match, and the service now tells them it came off. The dialog says
-            # so rather than reusing the neutral copy.
             mine = next(
                 (c for c in (row.get(f'{role}s') or [])
                  if isinstance(c, dict) and c.get('user_id') == user.id),
@@ -273,10 +266,6 @@ class MatchTableHandlersMixin:
             dialog.open()
 
         elif action == 'signup':
-            # No confirmation step: a signup commits nobody to anything until
-            # staff approve it, and Withdraw sits in the same cell the moment
-            # it lands. The dialog was a second tap on the one action a
-            # volunteer opens this board to take.
             if isinstance(match_id, str) and match_id.startswith('future:'):
                 await self._sign_up_ahead(match_id, user, role, row)
                 return
@@ -528,8 +517,6 @@ class MatchTableHandlersMixin:
             return
 
         async def after():
-            # The row's own gate flips as soon as the request exists, so the
-            # button gives way to the "Asked" chip without a page reload.
             idx = next(
                 (i for i, r in enumerate(self.table.rows) if r.get('id') == match_id), None
             )

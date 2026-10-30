@@ -25,8 +25,6 @@ _LEVEL_CHIP = '''
     </span>
 '''
 
-# A dotted module path is one long word, so it broke mid-segment
-# ("application.services.disc / ord"); <wbr> lets it break before a dot instead.
 _LOGGER_NAME = '''
     <span><template v-for="(part, i) in props.row.logger.split('.')" :key="i"><wbr v-if="i">{{ i ? '.' : '' }}{{ part }}</template></span>
 '''

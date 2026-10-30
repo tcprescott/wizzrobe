@@ -50,9 +50,7 @@ def nav_icon(name: str) -> str:
     return f'sym_o_{name}'
 
 
-#: Every icon in ``static/fonts/material-symbols-outlined-nav.woff2``. Adding a
-#: nav icon means re-downloading that subset with the new name in the list (the
-#: font file's header comment in styles.css has the URL, and the ?v= stamp to bump).
+# Adding a nav icon means re-downloading the font subset (URL and ?v= stamp in styles.css).
 NAV_ICON_NAMES: frozenset[str] = frozenset({
     'account_circle', 'account_tree', 'admin_panel_settings', 'analytics', 'apartment', 'assignment_ind',
     'calendar_month',

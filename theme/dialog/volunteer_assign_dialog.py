@@ -40,7 +40,6 @@ class VolunteerAssignDialog:
         assigned_ids = {a.user_id for a in shift.assignments}  # type: ignore[attr-defined]
         qualified_ids = await VolunteerQualificationService() \
             .get_qualified_user_ids_for_position(shift.position_id)  # type: ignore[attr-defined]
-        # If no qualifications are defined for this position, treat everyone as eligible.
         has_qualifications = bool(qualified_ids)
         picker_state = {'show_all': not has_qualifications}
         search_state = {'text': ''}

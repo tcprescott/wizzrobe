@@ -19,8 +19,6 @@ from models import BracketMatch, BracketMatchState
 
 from .cards import render_avatar
 
-# Tiebreakers the standings pass exposes as per-entrant scalars (head_to_head is
-# relational — reflected in rank/ties, not shown as a column).
 _TB_LABEL = {'buchholz': 'BH', 'omw': 'OMW%'}
 _TB_TITLE = {
     'buchholz': "Buchholz — sum of opponents' match points",
@@ -48,8 +46,6 @@ def render_standings(
     entry_avatar = entry_avatar or {}
     tb_cols = [tb for tb in tiebreakers if tb in _TB_LABEL]
 
-    # The wrapper is the size container the table's columns respond to — the box
-    # it sits in, not the viewport (see .bracket-standings-wrap in brackets.css).
     with ui.element('div').classes('bracket-standings-wrap'), \
             ui.element('div').classes('bracket-standings'):
         with ui.element('div').classes('bracket-strow is-head'):
@@ -77,8 +73,6 @@ def render_standings(
                 with ui.element('div').classes('c-name bracket-entrant-cell'):
                     seed = entry_seed.get(s.ref)
                     if seed is not None:
-                        # Two bare numbers in a row ("2  9  Xelna") read as two
-                        # ranks; the chip and the tooltip say which is which.
                         ui.label(str(seed)).classes('bracket-seed') \
                             .tooltip(f'Seed {seed}')
                     render_avatar(name, entry_avatar.get(s.ref))

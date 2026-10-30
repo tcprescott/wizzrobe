@@ -1,18 +1,8 @@
-// Client-side half of Device Notifications (Web Push).
-//
-// Subscribing MUST happen inside the click gesture (Safari refuses permission
-// prompts outside one), so these helpers are called from NiceGUI js_handler
-// click handlers and report back to the server via emitEvent().
-//
-// Declarative Web Push (Safari 18.4+ / iOS 18.4+) exposes a PushManager on
-// window and needs no service worker; everywhere else the PushManager hangs
-// off the service worker registration that theme/base.py installs on every
-// page. On iOS the APIs only exist once the app is added to the Home Screen.
+// Subscribing MUST happen inside the click gesture: Safari refuses permission prompts outside one.
 window.wizWebPush = {
   async _manager() {
-    // iOS in a normal Safari or Chrome tab can still hand back a PushManager,
-    // and subscribing through it takes the whole tab down (no JS error, so
-    // nothing reaches Sentry). Only the Home Screen app may touch it.
+    // iOS in a normal tab can return a PushManager, and subscribing through it kills the tab with no JS error.
+    // Only the Home Screen app may touch it.
     if (this._isIOS() && !this._standalone()) return null;
     if (window.pushManager) return window.pushManager;
     if ('serviceWorker' in navigator) {
@@ -68,8 +58,6 @@ window.wizWebPush = {
         applicationServerKey: this._applicationServerKey(publicKey),
       });
       const json = sub.toJSON();
-      // Everything static/sw.js needs to rotate this subscription later, when
-      // the push service retires it and no page is open. See web-push-common.js.
       await self.wizWebPushStore.save({
         endpoint: json.endpoint,
         auth: (json.keys || {}).auth,
@@ -81,8 +69,6 @@ window.wizWebPush = {
         return { error: 'permission_denied' };
       }
       if (e && e.name === 'NotAllowedError') {
-        // Prompt dismissed (permission still 'default') or the user gesture
-        // expired — not the hard "blocked in settings" state.
         return { error: 'permission_dismissed' };
       }
       return { error: String(e) };
@@ -97,8 +83,7 @@ window.wizWebPush = {
       if (!sub) return { endpoint: null };
       const endpoint = sub.endpoint;
       await sub.unsubscribe();
-      // Drop the rotation record too, so a later pushsubscriptionchange can't
-      // resurrect a device the user just turned off.
+      // Drop the rotation record too, so a later pushsubscriptionchange can't resurrect a device the user turned off.
       await self.wizWebPushStore.clear();
       return { endpoint: endpoint };
     } catch (e) {

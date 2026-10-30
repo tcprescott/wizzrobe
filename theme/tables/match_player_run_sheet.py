@@ -43,25 +43,18 @@ PLAYER_RUN_SHEET_COLUMNS = [
     {'name': 'watch', 'label': 'Watch', 'field': 'watch', 'align': 'center'},
 ]
 
-# My Schedule's own matches add a ⋮ per line holding what only a player of that
-# match can do: Ask to change, the harder-settings choice, the stream offer.
-# Named MY_ACTIONS_COLUMN so the board still fetches the reschedule and
-# harder-settings state those items read (``MatchTableView._shows_column``).
+# Named MY_ACTIONS_COLUMN so the board still fetches the state these items read.
 PLAYER_MENU_COLUMN = {'name': MY_ACTIONS_COLUMN, 'label': 'More', 'field': MY_ACTIONS_COLUMN,
                       'align': 'center'}
 
-# (order, header) per group. What's happening now leads; results trail, newest
-# first, for whoever brought them back with the State filter.
 _LIVE = (0, 'Live now')
 _NEXT = (1, 'Up next')
 _NO_PLAYERS = (2, 'Waiting for players')
-# Bracket matchups nobody has booked, which crew can sign up for ahead.
 NOT_BOOKED_GROUP = 'Not scheduled yet'
 _NOT_BOOKED = (3, NOT_BOOKED_GROUP)
 _DONE = (4, 'Finished')
 
 _ROLES = (
-    # (row key, singular the board's handlers take, label)
     ('commentators', 'commentator', 'Commentary'),
     ('trackers', 'tracker', 'Tracking'),
     ('broadcasters', 'broadcaster', 'Broadcast'),
@@ -146,7 +139,6 @@ def player_crew(row: dict, discord_id) -> list[dict]:
                         ack_idx = idx
                     break
         my_invite = _my_invite(row, discord_id) if key == 'commentators' and mine else None
-        # Already one of a pair: asked someone, brought someone, or was brought.
         paired = my_invite is not None or any(
             (my_user_id is not None and p.get('invited_by_id') == my_user_id)
             or (brought is not None and p.get('user_id') == brought) for p in people)
@@ -162,7 +154,6 @@ def player_crew(row: dict, discord_id) -> list[dict]:
             'unavailable': _unavailable(mine, open_, plays) if recruiting else '',
             'can_withdraw': mine is not None,
             'ack_idx': ack_idx if recruiting else None,
-            # Pair commentary: once signed up, bring a partner (or cancel the ask).
             'can_invite': (key == 'commentators' and mine is not None and open_ and not paired
                            and len(people) < (row.get('commentary_seats') or 0) and (row.get('commentary_seats') or 0) >= 2),
             'my_invite': my_invite if recruiting else None,
@@ -212,7 +203,7 @@ def decorate_player_row(row: dict, discord_id) -> dict:
     row['_tone'] = tone
     row['_roles'] = player_crew(row, discord_id)
     row['_role_by'] = {r['key']: r for r in row['_roles']}
-    # Who else was asked is between them and the inviter.
+    # Only the inviter sees who else was asked.
     row['partner_invites'] = [
         i for i in row.get('partner_invites') or []
         if discord_id and str(i.get('inviter_discord_id')) == str(discord_id)]
@@ -247,8 +238,6 @@ def mark_my_seed_ready(row: dict, discord_id) -> None:
     row['_my_seed_ready'] = bool(me.get('seed_ready'))  # type: ignore[union-attr]
     waiting = [p.get('name') or '' for p in players if p is not me and not p.get('seed_ready')]
     row['_seed_waiting'] = f"Waiting on {_and(waiting)}" if waiting else ''
-    # Everyone's ready and the panel is still up: a roll in flight closes it,
-    # so this one didn't roll. Ready again retries.
     row['_seed_retry'] = row['_my_seed_ready'] and not waiting
 
 
@@ -348,14 +337,7 @@ _WHEN = r'''<span v-if="props.row._time" class="run-sheet__time" :class="props.r
 
 _TITLE = "props.row._who || (props.row.bracket ? props.row.bracket.name : props.row.title)"
 
-# One role: the count, the viewer's own control in a tray of its own, then the
-# names. Every role draws a button, a disabled Sign up with the reason beside it
-# when there's nothing to press, and the cell is top-aligned, so the button sits
-# in the same spot on every line. In the tray the negative action sits left of
-# the positive one. The phone card has no
-# column header above it, so it names the role; the desktop cell sits under a
-# crew role's header and doesn't need to. Every button stops the
-# click so pressing it doesn't also open the details sheet.
+# Every button stops the click so it doesn't also open the details sheet.
 _ROLE = r'''<span class="run-sheet__crew" :class="c.short ? 'st-pending' : ''">__LABEL__<b>{{ c.count }}</b><template v-if="c.short"> · needs crew</template></span>
 <div v-if="c.tray" class="wiz-crew-action">
 <q-btn v-if="c.can_withdraw" outline no-caps no-wrap color="negative" dense icon="undo" :label="__WITHDRAW__"
@@ -395,10 +377,6 @@ _ACK = r'''<q-btn v-if="props.row._ack" unelevated no-caps no-wrap color="primar
     <q-tooltip>Confirm you've seen this match and will play it</q-tooltip>
 </q-btn>'''
 
-# The player's own heads-up, beside Acknowledge: the button while they can
-# still say it, then Undo once the chip says they did.
-# On the phone card the late chip sits with its Undo rather than in the top line,
-# where its length squeezed the names to a letter a line.
 _LATE_CHIP = r'''<div v-if="props.row._my_late" class="player-sheet__late"><span class="wiz-chip wiz-chip--pending">{{ props.row._status }}</span>
 <q-btn flat no-caps no-wrap color="primary" dense label="Undo"
        aria-label="Undo running late" @click.stop="$parent.$emit('take_back_late', props.row)" /></div>'''
@@ -409,9 +387,6 @@ _LATE = r'''<q-btn v-if="props.row._can_late" outline no-caps no-wrap color="pri
     <q-tooltip>Tell staff on duty you're on your way</q-tooltip>
 </q-btn>'''
 
-# The viewer's own Ready for seed, once their match is checked in on a
-# tournament where players release the seed: who's ready, then the big button,
-# or Not ready on the left and who they're waiting on on the right.
 _SEED_READY = r'''<div v-if="props.row._seed_panel" class="player-sheet__seed" @click.stop>
 <div class="player-sheet__seed-head"><b>Seed</b><span>Sent when you're all ready</span></div>
 <ul class="player-sheet__seed-who">
@@ -441,10 +416,6 @@ _ASK = "props.row._can_reschedule && props.row.state === 'Scheduled'"
 _HAS_MENU = ("props.row._mine && ((" + _ASK + ") || props.row._reschedule_pending"
              " || props.row._hard_offered || (" + STREAM_VOLUNTEER_ACTIONABLE + "))")
 
-# Every row has one, for Copy link; the rest is the viewer's own match only. A
-# state that can't be changed from here (a request waiting on staff, settings
-# staff fixed) is a disabled item rather than a missing one, so the menu still
-# says where things stand.
 _MENU = r'''<q-btn flat round dense icon="more_vert" color="grey-8"
        :aria-label="'More for ' + (__TITLE__)" @click.stop>
     <q-menu auto-close anchor="bottom right" self="top right">
@@ -538,11 +509,7 @@ _BODY_SLOT = r'''
 </q-tr>
 '''
 
-# Phone: the names are the button that opens the sheet; the bell and the crew
-# buttons sit beside it rather than inside it (a button can't hold buttons).
-# The status chip leads the tray below, the way it heads desktop's Status
-# column: beside the names it squeezed them to a letter a line.
-# Staff know says so in the tray, beside its Undo.
+# The bell and crew buttons sit beside the names button, not inside it: a button can't hold buttons.
 _HEAD_STATUS = STATUS_WORD.replace('<span ', '<span v-if="!props.row._my_late" ', 1)
 _ITEM_SLOT = r'''
 <div class="run-sheet__item">

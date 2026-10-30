@@ -22,11 +22,9 @@ from theme.tables.admin_crud import capture_render_context, scoped_background, w
 from theme.tables.mobile_grid import enable_mobile_grid
 from theme.tables.preferences import TableKeys
 
-# Update options for the multiselect. '*' (every update) is offered first.
 _EVENT_OPTIONS = {EventType.WILDCARD: 'All updates (*)'}
 _EVENT_OPTIONS.update({name: name for name in sorted(EventType.ALL)})
 
-# Receiver-side verification snippet shown in the payload-format reference.
 _SIGNATURE_SNIPPET = '''import hmac, hashlib
 
 signed = f"{request.headers['X-Wizzrobe-Timestamp']}.{raw_body}".encode()
@@ -153,7 +151,6 @@ async def admin_webhooks_page() -> None:
         )
 
         table_container = ui.column().classes('w-full')
-        # The community's events, by id, refreshed with the list.
         events: dict[int, EventRef] = {}
 
         async def refresh_table():
@@ -259,8 +256,6 @@ async def admin_webhooks_page() -> None:
                         value=existing['event_types'] if is_edit else [],
                     ).props(CHIP_PROPS).classes('w-full')
                     picked = existing['event_ids'] if is_edit else None
-                    # Archived events send nothing, so they're offered only to
-                    # keep one this webhook already had.
                     choices = {
                         e.id: _event_label(e) for e in events.values()
                         if not e.is_archived or (picked and e.id in picked)
@@ -327,8 +322,6 @@ async def admin_webhooks_page() -> None:
                 with ui.button('Actions').props('flat color=primary no-wrap icon-right=expand_more'):
                     with ui.menu():
                         menu_action('description', 'Payload & event reference', _open_format_reference)
-                        # Refresh lives here rather than as a loose icon: three
-                        # toolbar controls don't fit a phone inside the Settings card.
                         menu_action('refresh', 'Refresh list',
                                     lambda: scoped_background(refresh_context, refresh_table()))
 

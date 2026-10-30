@@ -26,8 +26,7 @@ async def build_volunteer_tabs(user: User | None, *, section: str | None = None,
                                event: str | None = None) -> list[dict]:
     """The hub's tabs this viewer may open, in order. Also the drawer's page list."""
     roles = await AuthService.get_roles(user)
-    # Staff-equivalence throughout, so a platform super-admin sees the whole
-    # hub in a tenant they hold no roles in.
+    # is_staff (staff-equivalence), so a super-admin sees the whole hub.
     is_staff = await AuthService.is_staff(user)
     is_volunteer = Role.VOLUNTEER in roles
     volunteers_live = await AuthService.can_view_volunteer(user)
@@ -36,26 +35,12 @@ async def build_volunteer_tabs(user: User | None, *, section: str | None = None,
 
     tabs = []
     if volunteers_live:
-        # Reads the *signed-in* user's own availability, so it is safe (and
-        # empty) for someone who volunteers for nothing; the role gate above
-        # is the only guard on saving it. This tab is when you can *work*,
-        # and it is opt-in — the player one on Home is when you can't
-        # *play*, opt-out. Their shifts are on Home → My Schedule.
         if is_volunteer or is_staff:
             tabs.append({'label': 'My Availability', 'icon': 'edit_calendar', 'content': availability_tab})
-        # Everyone the volunteer roles admit reads the whole published
-        # schedule: knowing who is at the next station over is the point,
-        # and volunteers may see what staff see.
         tabs.append({'label': 'Full Schedule', 'icon': 'calendar_view_week', 'content': full_schedule_tab})
     if proctor_station:
-        # Bound to the viewer: the tab's help icons read role-gated
-        # snippets from the event handbook, and the page has already
-        # resolved who is looking.
         tabs.append({'label': 'Proctor Station', 'icon': 'sports_esports',
                      'content': (proctor_station_tab, (user,))})
-    # Offered while an event is open, as the menu item it replaced was. A
-    # link straight to it (``/checkin``, an old bookmark) still lands, so the
-    # tab can say nothing is open rather than drop the visitor elsewhere.
     if desk and (
         section == VOLUNTEER_CHECK_IN or event is not None or not tabs
         or await CheckInService().has_open_event()
@@ -73,10 +58,7 @@ register_section_menu('/volunteer', _volunteer_menu)
 
 
 def create() -> None:
-    # The hub carries no feature gate of its own: the volunteer tabs follow
-    # VOLUNTEERS, the desk follows EVENT_CHECK_IN, and Proctor Station stays with
-    # a proctor or Broadcast Tech under neither, so each tab below keeps its own gate and a
-    # visitor with none of them gets the unknown-route page the flags would give.
+    # No feature gate on the hub itself: each tab below keeps its own.
     @protected_tab_page('/volunteer', roles=[Role.VOLUNTEER, Role.PROCTOR, Role.STAFF, Role.CHECK_IN_DESK,
                                              Role.VOLUNTEER_COORDINATOR, Role.STREAM_MANAGER],
                         scope='community')
@@ -85,13 +67,10 @@ def create() -> None:
         event: str | None = None,
     ):
         root_path = request.scope.get('root_path', '') if request else ''
-        # My Shifts folded into My Schedule; the reminder DMs already sent carry
-        # this address, and ``?release=`` still opens the give-back dialog.
         if section == VOLUNTEER_MY_SHIFTS:
             params = {'release': release} if release else {'shifts': 1}
             return RedirectResponse(f'{root_path}{home_url(HOME_MY_SCHEDULE, **params)}')
 
-        # My Availability is the viewer's own; the rest of the hub is one event's.
         if section != tab_slug('My Availability'):
             redirect = await default_event_redirect(request)
             if redirect is not None:
@@ -102,9 +81,6 @@ def create() -> None:
 
         tabs = await build_volunteer_tabs(user, section=section, event=event)
         if not tabs:
-            # A hub role whose feature is off here (a desk worker with check-in
-            # off, a volunteer with VOLUNTEERS off): the same page a page-level
-            # feature gate gives, and no menu link points here.
             from theme.error_page import render_not_found
             await render_not_found(user=user)
             return

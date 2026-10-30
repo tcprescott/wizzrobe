@@ -54,11 +54,6 @@ from .stage_form import confirm_cancel_stage, confirm_delete_stage, open_stage_f
 
 _TOURNAMENT_KEY = 'admin_brackets_tournament_id'
 
-# One primary button per row — the step that stage is actually up to — plus an
-# overflow menu for everything else that is legal on it. Every entry is `v-if`ed
-# on the row's own state: the service guards each transition anyway, so an
-# ungated button could only ever produce a toast explaining why it was never
-# going to work.
 _ROW_ACTIONS = '''
     <q-btn v-if="props.row.primary" flat dense no-caps color="primary"
            :icon="props.row.primary_icon"
@@ -159,12 +154,10 @@ def _readiness(bracket, entry_count: int, matches, champion: Optional[str]) -> s
 
 async def admin_brackets_page() -> None:
     service = BracketService()
-    # Captured while the request context is live; rebound around every detached
-    # client-event handler (see module docstring).
+    # Captured now; every detached client-event handler rebinds it.
     tenant_id = require_tenant_id()
     event_id = get_current_event_id()
     state: Dict[str, Optional[int]] = {'tournament_id': None}
-    # The Results dialog embeds the shared bracket renderer for click-to-report.
     ui.add_head_html(f'<link rel="stylesheet" href="{asset_url("css/brackets.css")}">')
 
     with ui.column().classes('page-container'):
@@ -175,11 +168,6 @@ async def admin_brackets_page() -> None:
             'is up to.',
         )
 
-        # Challonge-linked tournaments are excluded, not just sorted down: a
-        # tournament uses a native bracket or a Challonge link and never both, so
-        # every one of them could only ever answer "Create bracket" with an error.
-        # Inactive ones stay — their existing stages must remain reachable — but
-        # sort last and say so.
         tournaments = await event_scoped(Tournament.filter(
             challonge_tournament_id__isnull=True,
         )).order_by('-is_active', 'name')
@@ -199,10 +187,9 @@ async def admin_brackets_page() -> None:
 
         page_container = ui.column().classes('w-full')
 
-        # Resolved while the page builds: the refresh runs as a background task.
+        # Resolve while the page builds: the refresh runs as a background task.
         public_base = app_href('/brackets/')
 
-        # --- brackets table refresh --------------------------------------
         async def refresh_table() -> None:
             tid = state['tournament_id']
             rows: List[dict] = []
@@ -271,10 +258,6 @@ async def admin_brackets_page() -> None:
                         })
             table.rows = rows
             table.update()
-            # An empty table is replaced outright rather than left to Quasar's
-            # "No data available", which is the same sentence for "you have not
-            # chosen a tournament yet" and "this one has no stages" — the two
-            # states a first-time organizer most needs told apart.
             table.set_visibility(bool(rows))
             empty_hint.set_visibility(not rows)
             empty_hint.set_text(
@@ -285,8 +268,6 @@ async def admin_brackets_page() -> None:
 
         def on_tournament_change(e) -> None:
             state['tournament_id'] = e.value
-            # Remembered per user: staff work one tournament for weeks, and the
-            # page opened on a blank selector every single time.
             app.storage.user[_TOURNAMENT_KEY] = e.value
             background_tasks.create(refresh_table())
 
@@ -296,7 +277,6 @@ async def admin_brackets_page() -> None:
                 return 0
             return max(r['stage_order'] for r in table.rows) + 1
 
-        # --- complete stage ----------------------------------------------
         async def complete_stage(row, client) -> None:
             """Confirm, then finalize the stage.
 
@@ -326,7 +306,6 @@ async def admin_brackets_page() -> None:
                 )
                 confirm.open()
 
-        # --- advance stage (plan + confirm) ------------------------------
         async def open_advance(row, client) -> None:
             tid = state['tournament_id']
             from_stage_order = row['stage_order']
@@ -375,9 +354,6 @@ async def admin_brackets_page() -> None:
                                 await service.advance_stage(actor, tid, from_stage_order)
                             except (ValueError, PermissionError) as ex:
                                 notify_error(ex)
-                                # Terminal: the guard that refused will refuse the
-                                # same way on a second click, so the dialog closes
-                                # instead of staying open and clickable.
                                 dialog.close()
                                 return
                         ui.notify('Field advanced into next stage', color='positive')
@@ -393,7 +369,6 @@ async def admin_brackets_page() -> None:
                             ).props('color=primary')
                 dialog.open()
 
-        # --- dialog dispatch ---------------------------------------------
         def _dialog_kwargs() -> dict:
             return {
                 'service': service,
@@ -410,23 +385,16 @@ async def admin_brackets_page() -> None:
         async def edit_stage(row, client) -> None:
             await open_stage_form(client, row=row, **_dialog_kwargs())
 
-        # --- layout ------------------------------------------------------
         with page_container:
 
-            # Resolved before the widget exists: assigning `.value` afterwards
-            # loads the table but leaves a `with_input` select displaying nothing,
-            # so the page looks unselected while showing a tournament's stages.
+            # Resolve before the widget exists: setting `.value` later leaves a with_input select blank.
             remembered = app.storage.user.get(_TOURNAMENT_KEY)
-            # One choice is not a choice: pick it rather than making the first
-            # thing anyone does on this page be confirming the obvious.
             initial = (
                 remembered if remembered in options
                 else (next(iter(options)) if len(options) == 1 else None)
             )
             state['tournament_id'] = initial
 
-            # Picker, Create stage and refresh on one toolbar row: stacked, the
-            # refresh button sat alone 1100px from the button it belongs with.
             toolbar = ui.row().classes('wiz-toolbar full-width items-center')
             with toolbar:
                 selector = ui.select(

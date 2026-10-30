@@ -29,7 +29,6 @@ from theme.tables.match_player_run_sheet import NOT_BOOKED_GROUP, PLAYER_RUN_SHE
 from theme.tables.preferences import TableKeys
 from theme.tables.run_sheet_meta import crew_columns
 
-#: The section's DOM id, so a crew DM's link can scroll to it.
 CREW_SECTION_ID = 'my-crew'
 
 
@@ -91,7 +90,6 @@ async def my_crew_tab(
             layout='player_run_sheet',
             on_open_match=sheet.open,
         )
-        # Their own signups on matches not booked yet stay in sight here.
         view.open_by_default = (NOT_BOOKED_GROUP,)
         sheet.view = view
         if match_ids:

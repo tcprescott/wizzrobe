@@ -42,7 +42,6 @@ from theme.help.render import render_blocks
 
 __all__ = ['HelpTopic', 'ResolvedHelp', 'help_button', 'help_icon', 'resolve_help']
 
-#: A snippet name, or ``(name, label)`` where its heading reads badly as a menu item.
 HelpTopic = Union[str, tuple[str, str]]
 
 
@@ -57,8 +56,6 @@ async def _event_info_snippet(snippet_name: str, user: Optional[User], user_give
     if FeatureFlag.EVENT_INFO not in await FeatureFlagService().enabled_flags():
         return None
     if not user_given:
-        # Only for a caller that had no user to hand: role-gated snippets are the
-        # minority, and this costs a lookup the flag check has already earned.
         user = await get_user_from_session(app.storage.user)
     return await EventInfoService.get_snippet(snippet_name, user)
 
@@ -96,9 +93,7 @@ class ResolvedHelp:
 async def _resolve_one(snippet_name: str, user: Optional[User]) -> Optional[HelpSnippet]:
     viewer = user
     if viewer is None and _depends_on_the_reader(snippet_name):
-        # Judged as signed out, a staff snippet would vanish for staff and links
-        # to gated articles would lose their anchors. Only looked up when it
-        # matters.
+        # Judged as signed out, staff snippets would vanish for staff.
         viewer = await get_user_from_session(app.storage.user)
     snippet = await HelpService.get_snippet(snippet_name, viewer)
     if snippet is None:
@@ -130,12 +125,8 @@ async def resolve_help(
 
 
 def _snippet_body(snippet: HelpSnippet) -> None:
-    # Block flow, not the enclosing flex column: a height-capped flex parent
-    # shrinks its children, which crushed a snippet's table to half its rows
-    # instead of letting the popup scroll.
+    # Block flow, not flex: a height-capped flex parent shrinks its children instead of letting the popup scroll.
     with ui.element('div').classes('wiz-help-prose'):
-        # Demoted so a snippet that opens on its own heading does not render it
-        # at article-title scale inside a small popup.
         render_blocks(snippet.blocks, heading_offset=2)
     ui.link('Read more', snippet.href).classes('wiz-help-more')
 

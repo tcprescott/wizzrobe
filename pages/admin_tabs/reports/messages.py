@@ -44,12 +44,9 @@ TITLE = 'Sent messages'
 SUBTITLE = 'Every DM Wizzrobe sent in this community, and whether it got there.'
 PAGE_SIZE = 50
 
-# ``state`` is the Reports tab's own filter param; this report reads it as the
-# Problems only switch, and ``action`` as the search text, like the Audit Log.
 _PROBLEMS = 'problems'
 
 
-# (chip class, icon, label)
 STATUS_CHIP = {
     SentMessageStatus.PENDING: ('wiz-chip--pending', 'schedule', 'Sending'),
     SentMessageStatus.DELIVERED: ('wiz-chip--ok', 'check_circle', 'Delivered'),
@@ -118,8 +115,7 @@ def _row(m: SentMessage) -> dict[str, Any]:
     }
 
 
-# Shared by the desktop expanded row and the phone card. Values arrive as row
-# data and render through Vue interpolation, so DM text is never markup.
+# Values render through Vue interpolation, so DM text is never markup.
 _DETAIL = r'''
 <div class="wiz-sent__detail">
     <div class="wiz-sent__body">{{ props.row.body }}</div>
@@ -175,8 +171,6 @@ _BODY = (
 '''
 )
 
-# Phone card: the message field carries the whole detail behind a tap, so the
-# card reads like the expanded desktop row.
 _CARD_MESSAGE = (
     r'''<div @click.stop="props.expand = !props.expand" class="wiz-sent__card-msg">'''
     + _MESSAGE

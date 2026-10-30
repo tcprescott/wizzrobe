@@ -115,7 +115,6 @@ async def telemetry_page(
             report_jumps(await event_jump_options(), start_d, end_d,
                          on_pick=lambda s, e: _nav(start=s, end=e, page=None))
 
-        # ---- KPIs
         summary = await service.engagement_summary(actor, start=bounds_start, end=bounds_end)
         with kpi_grid():
             kpi_card('Total events', f"{summary['total_events']:,}", 'captured in window')
@@ -123,7 +122,6 @@ async def telemetry_page(
             kpi_card('Unique sessions', f"{summary['unique_sessions']:,}", 'browser sessions')
             kpi_card('Page views', f"{summary['page_views']:,}", 'authenticated loads')
 
-        # ---- Leaderboards (only meaningful without a single-user filter)
         top_paths = await service.top_paths(actor, start=bounds_start, end=bounds_end)
         top_events = await service.top_event_types(actor, start=bounds_start, end=bounds_end)
         top_users = await service.top_users(actor, start=bounds_start, end=bounds_end)
@@ -161,11 +159,7 @@ async def telemetry_page(
                 on_row_click=lambda uid: _nav(user_id=uid, page=None),
             )
 
-        # ---- Raw event log
-        # ``action`` is a substring filter, applied to path here for the raw log
-        # (event_type is exposed via the category + leaderboards). count_events
-        # MUST take the same filters as list_events or the total/pagination and
-        # the rows disagree.
+        # count_events MUST take the same filters as list_events, or the total and the rows disagree.
         total = await service.count_events(
             actor, start=bounds_start, end=bounds_end,
             category=category_filter or None,

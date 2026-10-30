@@ -136,7 +136,6 @@ def create() -> None:
                     key = (qid, part.scope)
                     view.answers.pop(key, None)
                     view.texts.pop(key, None)
-                    # Checked as a real save would be, so the preview shows the same errors.
                     value, text = coerce_answer(by_id[qid], raw)
                     if value is not None:
                         view.answers[key] = value

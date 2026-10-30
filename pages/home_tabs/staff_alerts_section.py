@@ -35,9 +35,6 @@ async def render_staff_alerts_section(user: User, *, on_saving, on_saved, on_err
             with ui.row().classes('wiz-notify-item no-wrap'):
                 ui.icon('support_agent', size='sm').classes('wiz-notify-item__icon')
                 with ui.column().classes('gap-0 col min-w-0'):
-                    # The chip sits beside the name rather than at the row's end:
-                    # on a phone the end column squeezed the explanation to a
-                    # word per line.
                     with ui.row().classes('items-center gap-2'):
                         ui.label(f'{duty.position_name} shifts').classes('wiz-notify-item__name')
                         if duty.on_now:

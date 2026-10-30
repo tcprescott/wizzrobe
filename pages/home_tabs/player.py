@@ -190,8 +190,6 @@ def _render_picks(picks: list[_Pick]) -> None:
                                 ui.label(f'vs {pick.opponent_name}').classes('wiz-pick-row__opponent')
                                 if pick.round_label:
                                     ui.label(pick.round_label).classes('text-caption text-grey-7')
-                                # In the text column, not beside the button: a
-                                # phone row has no width to spare there.
                                 if pick.if_needed:
                                     ui.label('If needed').classes('wiz-chip wiz-chip--pending self-start q-mt-xs')
                                 if pick.window_text and not pick.blocked:
@@ -255,8 +253,6 @@ def _explain_other_match(relation: str) -> None:
     watcher is pointed at the one board that lists a match they neither play nor crew.
     """
     if relation == RELATION_CREW:
-        # The crew section owns this one: it finds the card (past or upcoming),
-        # outlines it and scrolls to it, and says so if the match is over.
         return
     if relation == RELATION_WATCHER:
         with ui.row().classes('items-center gap-2 q-mb-sm'):
@@ -272,13 +268,11 @@ def _explain_other_match(relation: str) -> None:
     )
 
 
-# What each status means to the person who asked, rather than the machine key.
 _REQUEST_STATUS = {
     RescheduleRequestStatus.PENDING: ('Waiting on staff', 'warning'),
     RescheduleRequestStatus.APPROVED: ('Approved', 'positive'),
     RescheduleRequestStatus.DECLINED: ('Declined', 'negative'),
     RescheduleRequestStatus.WITHDRAWN: ('You withdrew this', 'grey'),
-    # Named from the reader's side: "superseded" is our word, not theirs.
     RescheduleRequestStatus.SUPERSEDED: ('Settled by another request', 'grey'),
 }
 
@@ -359,12 +353,8 @@ async def render_player_dashboard(
     answer is not on the row: the row holds a small toggle whose whole meaning
     is the explanation the dialog carries.
     """
-    # Always set: home applies the membership gate before any tab is built, so a
-    # signed-out visitor gets the join page and never reaches this section.
+    # Always set: home applies the membership gate before any tab is built.
     discord_id = app.storage.user.get('discord_id')
-    # Resolved once for the help icons below: three of them read from the event
-    # handbook, which filters by role, and each would otherwise look the viewer
-    # up for itself.
     viewer = await get_user_from_session(app.storage.user)
     match_service = MatchService()
     reschedule_service = MatchRescheduleService()
@@ -388,7 +378,6 @@ async def render_player_dashboard(
     )
     with panel.body:
         board_match_ids = None
-        # The staff-comment DM: the same one-match board, with the sheet open.
         match = match or comments
         if match:
             relation = await match_service.viewer_relation(int(match), viewer)
@@ -397,18 +386,9 @@ async def render_player_dashboard(
             else:
                 _explain_other_match(relation)
 
-        # The deep-linked matchup's opener, captured during the render below so
-        # `?schedule=<id>` (native) or `?book=<id>` (Challonge) can fire the same
-        # handler the button does. Per-client (a local, never module level) and
-        # cleared once used, so a later refresh of the section does not re-open
-        # the dialog under the reader.
+        # A per-client local, never module level, and cleared once used so a later refresh doesn't re-open the dialog.
         deep_link = {'matchup_id': schedule, 'challonge_id': book, 'startgg': startgg}
 
-        # Everything waiting on the player to pick a time, in one card: native
-        # bracket matchups (the *only* scheduling route in a bracket-run
-        # tournament, since those turn off manual match requests) and Challonge
-        # ones. Where a matchup came from is a tag on its row, not a second card
-        # with the same title.
         @steady_refreshable
         async def waiting_section():
             user = await get_user_from_session(app.storage.user)
@@ -525,10 +505,7 @@ async def render_player_dashboard(
                     for p in picks
                 ])
 
-            # The openers only hold this viewer's own open matchups — the
-            # listings are already scoped to them — so an id from a forwarded
-            # link cannot open someone else's dialog; it falls through to the
-            # stale notice.
+            # Only this viewer's own matchups are here, so a forwarded id can't open someone else's dialog.
             startgg_openers = {k: v for (src, k), v in external_openers.items() if src == 'startgg'}
             challonge_openers.update({k: v for (src, k), v in external_openers.items() if src == 'challonge'})
             for key, table in (
@@ -543,9 +520,6 @@ async def render_player_dashboard(
                 else:
                     _notify_stale_schedule_link()
 
-        # The player run sheet Event > Schedule uses, plus a ⋮ per line for
-        # what only a player of that match can do. The details sheet a tapped
-        # line opens holds the rest (seed, stations, who's confirmed).
         columns = [*crew_columns(PLAYER_RUN_SHEET_COLUMNS, await EventService.current_event_broadcasters()),
                    PLAYER_MENU_COLUMN]
         sheet = MatchSheet(None, access=MatchBoardAccess(),
@@ -558,11 +532,6 @@ async def render_player_dashboard(
         async def get_query():
             return await match_service.get_matches_for_player(discord_id)
 
-        # Request Match only where a request can actually be made. The dialog's
-        # own dead end — "your tournaments are scheduled from their bracket" —
-        # is the right message once you are in it, but a button that exists only
-        # to explain that it does nothing is a button that should not be there.
-        # Same list the dialog offers, so the two cannot disagree.
         can_request = bool(
             viewer is not None
             and await TournamentService().list_player_requestable(viewer)
@@ -625,15 +594,7 @@ async def render_player_dashboard(
 
             await RescheduleRequestDialog(match, viewer, on_submit=after).open()
 
-        # Render order is what the reader owes the section, not what the section
-        # holds. A matchup with no time on it is the only thing here that is
-        # waiting on *them*, and it used to sit below a twelve-row board and a
-        # filter card — far enough down that the "matchup ready" DM landed on a
-        # page whose call to action was off-screen. Then the board, then the
-        # requests they have already made and are only tracking. An open race room
-        # means the match is close, so it leads.
         await render_race_rooms(viewer)
-        # Agreeing changes nothing on the board, so nothing there refreshes.
         await render_opponent_requests(viewer, agree_request_id=agree)
         await waiting_section()
 
@@ -661,6 +622,5 @@ async def render_player_dashboard(
             await _open_reschedule(int(reschedule))
         if hard is not None:
             await _open_hard_preset(int(hard))
-        # No initial refresh here: MatchTableView._initial_load owns it, and runs
-        # after the stored filters are restored rather than racing them.
+        # No initial refresh: MatchTableView._initial_load owns it, after the stored filters are restored.
 

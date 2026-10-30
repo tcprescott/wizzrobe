@@ -21,14 +21,11 @@ from typing import Any
 
 from nicegui import ui
 
-#: How long a board may sit untouched before it tidies itself (Thomas, 2026-10-17).
 IDLE_TIDY_MS = 60_000
 
-#: The fields ``_arrange`` writes to place a row; a held row keeps its old ones.
 _PLACE_FIELDS = ('_group', '_group_start', '_group_count', '_folded')
 
-# Installs the scroll and idle listeners for one board and removes them on
-# tidy. Listeners live on window, so the board's own redraws never reset them.
+# Listeners live on window so the board's own redraws never reset them.
 _WATCH_JS = """
 (() => {
   const name = __NAME__;
@@ -56,7 +53,6 @@ _UNWATCH_JS = 'window.__wizHeldBoards && window.__wizHeldBoards[__NAME__] && win
 class MatchBoardHoldMixin:
     """Held-change bookkeeping and the Tidy up pill for a ``MatchTableView``."""
 
-    # Supplied by MatchTableView.
     table: Any
     _bg: Any
     refresh: Any

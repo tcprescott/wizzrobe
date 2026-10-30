@@ -46,9 +46,6 @@ async def crew_page(
     start_d, end_d = await default_date_range(start, end)
     selected_approval = approval if approval in APPROVAL_OPTIONS else 'All'
     user_id_int = parse_int(user_id)
-    # Resolved once, not per row: this report is readable by staff, tournament
-    # admins and crew coordinators, and all three also have the Schedule tab —
-    # but that is the destination's predicate, so ask it rather than assume it.
     viewer = await get_user_from_session(app.storage.user)
     board_drill, can_open_board = schedule_drill(await AuthService.schedule_board_scope(viewer))
 
@@ -99,8 +96,6 @@ async def crew_page(
             user_id=user_id_int, actor=viewer,
         )
 
-        # Broadcasters only show on an event that has them, or where the window
-        # still holds some from before they were turned off.
         broadcast = await EventService.current_event_broadcasters() or any(
             r.get('broadcasters_total') for r in data['coverage_rows'])
 
@@ -129,8 +124,6 @@ async def crew_page(
                 'scheduled_at': format_local_display(r['scheduled_at']),
                 'stage': r['stage'],
                 'stream_candidate': 'yes' if r['is_stream_candidate'] else '',
-                # The requirement is per-tournament, so "0/0" only means a
-                # gap when the tournament actually asks for the role.
                 'commentators': (
                     f"{r['commentators_approved']}/{r['commentators_total']}"
                     f" · need {r['commentators_required']}"
@@ -155,9 +148,6 @@ async def crew_page(
             {'name': 'stream_candidate', 'label': 'Candidate', 'field': 'stream_candidate'},
             {'name': 'commentators', 'label': 'Comms (apprv/total)', 'field': 'commentators'},
             {'name': 'trackers', 'label': 'Trackers (apprv/total)', 'field': 'trackers'},
-            # Hidden until picked in the gear, like the contribution columns
-            # below: both tables are already as wide as the page. Coverage gap
-            # still counts broadcasters.
             *([{'name': 'broadcasters', 'label': 'Broadcasters (apprv/total)', 'field': 'broadcasters',
                 'hidden': True}] if broadcast else []),
             {'name': 'gap', 'label': 'Coverage gap', 'field': 'gap'},
@@ -176,8 +166,6 @@ async def crew_page(
                 pagination=25,
                 row_key='match_id',
             ).classes('full-width')
-            # The crew cell that approves a pending signup lives on the board;
-            # this report is the only surface that can see the gap.
             drill_actions = enable_drill_link(
                 cov_table, cov_columns, cov_rows_display,
                 board_drill,

@@ -89,8 +89,6 @@ _DM_TEXT = {
     'opted_out': 'DMs off in Wizzrobe', 'failed': 'Not tested (Discord down)',
 }
 
-# A test DM still "sending" after this was dropped by a restart (the queue is in
-# memory), so offer "send it again" instead of a spinner that never settles.
 _DM_PENDING_GIVE_UP = timedelta(minutes=5)
 
 
@@ -112,13 +110,12 @@ _FILTER_LABELS = {
 }
 FILTERS = {key: _FILTER_LABELS[key] for key in DESK_FILTERS}
 
-# One colour per lanyard, matching nothing else on the desk so it reads at a glance.
 _LANYARD_COLORS = {
     'staff': 'red-8', 'volunteer': 'purple-7', 'vip': 'amber-8', 'base': 'blue-8', 'day_pass': 'teal-8',
 }
 
 
-# Desktop columns. The mobile card below is bespoke and does not read these.
+# Desktop columns only: the bespoke mobile card doesn't read these.
 _COLUMNS: list[dict] = [
     {'name': 'name', 'label': 'Name', 'field': 'name', 'align': 'left', 'sortable': True},
     {'name': 'lanyard', 'label': 'Lanyard', 'field': 'lanyard_rank', 'align': 'left', 'sortable': True},
@@ -127,7 +124,6 @@ _COLUMNS: list[dict] = [
     {'name': 'actions', 'label': '', 'field': 'actions', 'align': 'right'},
 ]
 
-# The whole roster export, not just the filtered view.
 _EXPORT_COLUMNS: list[dict] = [
     {'name': 'name', 'label': 'Name', 'field': 'name'},
     {'name': 'matcherino_id', 'label': 'Matcherino ID', 'field': 'matcherino_id'},
@@ -202,16 +198,12 @@ _CHECK_IN_BUTTON = f'''
            @click="$parent.$emit('checkin_anyway', props.row)" />
 '''
 
-# A refunded buyer, or a comp that lapsed, has nothing to check in with. Desk
-# volunteers send them to staff; staff can still let them in, deliberately.
 _WITHDRAWN_NOTE = '''
     <div v-if="props.row.withdrawn && !props.row.checked_in && !props.row.can_check_in_anyway"
          class="text-caption text-negative q-mt-sm">
         No badge to check in with. Send them to staff.</div>
 '''
 
-# The check-in test DM's result. Only a problem is loud: it's the volunteer's cue
-# to fix their Discord settings while they're still at the desk.
 _DM_NOTE = '''
     <div v-if="props.row.dm_status === 'pending'" class="text-caption text-grey-7 q-mt-xs">
         <q-spinner size="12px" class="q-mr-xs"/>Sending them a test DM…</div>
@@ -242,9 +234,6 @@ _ACTIONS_CELL = f'''<q-td :props="props" class="checkin-actions">
 </div>
 </q-td>'''
 
-# The lanyard is what the desk hands over, so it is the one loud thing on the
-# row. A buyer holding more than one badge (often one for a friend) gets a note,
-# since the extra badge needs its own lanyard.
 _LANYARD_CHIP = '''
     <q-chip v-if="props.row.lanyard" square :color="props.row.lanyard_color" :text-color="props.row.lanyard_text"
             icon="badge" class="q-ml-none text-weight-bold checkin-lanyard">{{ props.row.lanyard_label }}</q-chip>
@@ -257,8 +246,6 @@ _LANYARD_CELL = f'''<q-td :props="props">
     <span v-if="!props.row.lanyard" class="text-grey-7">—</span>
 </q-td>'''
 
-# "Not linked" opens the same link dialog as the ⋮ menu, and says up front
-# whether the dialog has anyone to suggest.
 _NOT_LINKED = f'''
     <q-btn flat dense no-caps no-wrap align="left" color="warning" icon="link"
            :label="props.row.link_label" class="{REQUIRES_SOCKET_CLASS} checkin-link-btn"
@@ -270,9 +257,6 @@ _ACCOUNT_CELL = f'''<q-td :props="props">
     <template v-else>{_NOT_LINKED}</template>
 </q-td>'''
 
-# Phone card: name and account up top, the state as badges, one thumb-sized
-# Check in button across the bottom. Link/Unlink/Undo/Remove sit behind the ⋮
-# menu so none of them is a stray tap away from the primary action.
 _GRID_CARD = f'''<div class="q-pa-xs col-12">
 <div class="checkin-grid-card q-pa-sm" :class="[props.row.checked_in ? 'checkin-grid-card--in' : '',
                                              props.row._flash ? 'wiz-row-flash' : '']">
@@ -325,8 +309,6 @@ def _row(entrant: CheckInEntrant, can_manage: bool, volunteers: set[int], sugges
     held = active_badges(all_badges)
     lanyard = lanyard_for(entrant, held, volunteer)
     lanyard_label = LANYARD_LABELS[lanyard] if lanyard else ''
-    # A second badge is someone else's (usually a friend the venue doesn't
-    # name): list every badge after the highest, which is taken as their own.
     badge_lanyards = sorted((b.tier.lanyard.value for b in held), key=LANYARDS.index)
     extra_badges = ', '.join(f'{LANYARD_LABELS[value]} badge' for value in badge_lanyards[1:])
     refunded = not held and any(b.refunded_at is not None for b in all_badges)
@@ -364,7 +346,7 @@ def _row(entrant: CheckInEntrant, can_manage: bool, volunteers: set[int], sugges
         'lanyard': lanyard or '',
         'lanyard_label': lanyard_label,
         'lanyard_color': _LANYARD_COLORS.get(lanyard or '', 'grey-7'),
-        # Amber is too light for white text (2:1); the VIP lanyard reads in ink.
+        # Amber is too light for white text, so the VIP lanyard reads in black.
         'lanyard_text': 'black' if lanyard == 'vip' else 'white',
         'lanyard_rank': LANYARDS.index(lanyard) if lanyard else len(LANYARDS),
         'extra_badges': extra_badges,
@@ -385,8 +367,6 @@ def _row(entrant: CheckInEntrant, can_manage: bool, volunteers: set[int], sugges
         'volunteer_text': 'Yes' if volunteer else '',
         'unlinked': user is None,
         'link_label': _link_label(suggestions) if user is None else '',
-        # A buyer with no account gets asked for one at check-in. Named walk-ups
-        # and rows staff unlinked on purpose were left unlinked deliberately.
         'prompt_link': (
             user is None and entrant.source == CheckInEntrantSource.MATCHERINO
             and entrant.link_method != CheckInLinkMethod.MANUAL
@@ -397,8 +377,6 @@ def _row(entrant: CheckInEntrant, can_manage: bool, volunteers: set[int], sugges
         'can_test_dm': checked_in and user is not None and bool(user.discord_id),
         'can_check_in_anyway': withdrawn and not checked_in and can_manage,
         'search': search,
-        # Everyone is under All, withdrawn rows too, so a search still finds
-        # someone whose badge was refunded (and says so).
         'filters': sorted((entrant_filters(entrant) & set(DESK_FILTERS)) | {'all'}),
         '_flash': False,
     }
@@ -469,8 +447,6 @@ async def check_in_desk_tab(user, event: Optional[str] = None) -> None:
 
 
 def create() -> None:
-    # The desk moved into the Volunteer hub; links already in DMs, bookmarks
-    # and printed signs still land on it.
     @protected_page('/checkin', roles=DESK_ROLES, feature=FeatureFlag.EVENT_CHECK_IN)
     async def check_in_index(request: Request):
         root_path = request.scope.get('root_path', '') or ''
@@ -490,9 +466,6 @@ async def _render_desk(service: CheckInService, user, event: CheckInEvent) -> No
                    'undo_timer': None}
 
     with ui.column().classes('page-container-narrow w-full gap-2 q-px-sm'):
-        # Only the search row and the progress line stay pinned. With the title
-        # and filters pinned too, a phone had room for one card, and none above
-        # the keyboard while typing a name.
         with ui.row().classes('w-full items-center no-wrap gap-2 q-pt-sm'):
             title = ui.label(event.name).classes('page-title col q-ma-none')
             title.tag = 'h1'
@@ -515,12 +488,9 @@ async def _render_desk(service: CheckInService, user, event: CheckInEvent) -> No
                 progress = ui.linear_progress(value=0, show_value=False, size='8px').classes('col') \
                     .props('rounded color=positive aria-label="Checked in"')
                 counts_label = ui.label().classes('text-caption text-weight-medium checkin-counts')
-            # Shown only when the roster may be stale; a good sync is a time on the counts line.
             sync_label = ui.label().classes('text-caption')
 
-        # The five columns need about 920px beside the nav drawer, which a 1024px
-        # laptop doesn't have: below 1200px the desk gets the phone cards, so the
-        # Check in button is never scrolled off the side.
+        # Phone cards below 1200px, not md: the five columns don't fit a 1024px laptop beside the drawer.
         table = ui.table(columns=_COLUMNS, rows=[], row_key='id', pagination=0) \
             .classes('w-full checkin-table').props(':grid="Quasar.Screen.width < 1200" flat hide-pagination')
         table._props[':filter-method'] = _FILTER_METHOD
@@ -541,7 +511,6 @@ async def _render_desk(service: CheckInService, user, event: CheckInEvent) -> No
             with chips.add_slot('prepend'):
                 ui.icon('filter_list')
 
-        # Bottom padding so the last card scrolls clear of the undo bar.
         with ui.row().classes('w-full items-center gap-2 q-mt-sm checkin-footer'):
             csv_export_button('check-in', lambda: _EXPORT_COLUMNS, lambda: state['rows'], label='Export CSV')
 
@@ -556,7 +525,6 @@ async def _render_desk(service: CheckInService, user, event: CheckInEvent) -> No
         visible = [dict(r, _flash=r['id'] in state['flash']) for r in rows if _matches(r, state['filter'])]
         table.rows = visible
         table.update()
-        # Withdrawn rows are listed under All but aren't expected at the door.
         total = counts['checked_in'] + counts['not_yet']
         progress.value = (counts['checked_in'] / total) if total else 0
         text, cls = _sync_line(current)
@@ -572,8 +540,6 @@ async def _render_desk(service: CheckInService, user, event: CheckInEvent) -> No
         sync_btn.set_visibility(_can_sync(current))
 
     async def suggestion_counts(current: CheckInEvent, entrants) -> Dict[int, int]:
-        # Every check-in at any desk reloads the roster, but the counts only
-        # move when someone is linked, unlinked, added or renamed.
         key = (
             frozenset((e.id, e.display_name) for e in entrants if e.user_id is None),
             frozenset(e.user_id for e in entrants if e.user_id is not None),
@@ -631,8 +597,6 @@ async def _render_desk(service: CheckInService, user, event: CheckInEvent) -> No
             ui.button('Undo', on_click=undo).props('flat no-caps color=yellow-4') \
                 .classes(REQUIRES_SOCKET_CLASS)
         undo_bar.set_visibility(True)
-        # A desk checks people in back to back: the last check-in's bar gets its
-        # full eight seconds, not whatever was left of the one before.
         if state['undo_timer'] is not None:
             state['undo_timer'].cancel()
         state['undo_timer'] = PageTimer(8.0, lambda: undo_bar.set_visibility(False), once=True)

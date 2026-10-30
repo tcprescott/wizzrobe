@@ -54,8 +54,6 @@ class CommentsTab:
                 self.listing = ui.refreshable(self._listing)
                 self.listing()
 
-    # --- filtering ------------------------------------------------------
-
     def _in_question(self) -> List[InboxComment]:
         key = self.state['question']
         return [c for c in self.inbox.comments if not key or c.filter_key == key]
@@ -74,8 +72,6 @@ class CommentsTab:
         self.picker.refresh()
         self.chips.refresh()
         self.listing.refresh()
-
-    # --- question list --------------------------------------------------
 
     def _options(self) -> List[tuple[str, str, int]]:
         return [(ALL, 'All comments', len(self.inbox.comments))] + \
@@ -101,8 +97,6 @@ class CommentsTab:
             ui.icon('filter_list').props('aria-hidden=true')
         picker.on_value_change(lambda e: self._set(question=e.value or ALL, shown=SHOWN))
 
-    # --- chips ----------------------------------------------------------
-
     def _chip(self, label: str, picked: bool, on_click: Callable[..., None]) -> None:
         ui.button(label, on_click=on_click, color=None) \
             .props(f'dense no-caps rounded unelevated aria-pressed={"true" if picked else "false"}') \
@@ -126,8 +120,6 @@ class CommentsTab:
                 for tag in self.inbox.tags:
                     menu_action('delete', f'Delete “{tag.name}”…',
                                 partial(self._delete_tag, tag.id, tag.name), negative=True)
-
-    # --- the comments ---------------------------------------------------
 
     def _listing(self) -> None:
         found = self._found()

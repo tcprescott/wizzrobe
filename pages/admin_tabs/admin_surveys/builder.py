@@ -32,9 +32,7 @@ class BuilderContext:
     survey: Survey
     summary: BuilderSummary
     reload: Callable[[], Awaitable[None]]
-    #: The community's AI provider, when it has one; no "Suggest questions" without it.
     ai_label: Optional[str] = None
-    #: Section id → its batch of drafts still waiting to be kept.
     suggestions: Dict[int, SurveySuggestionBatch] = field(default_factory=dict)
 
     @property
@@ -78,7 +76,6 @@ def _question_row(ctx: BuilderContext, section: SurveySection, question: SurveyQ
                   prompts: Dict[int, str], first: bool, last: bool) -> None:
     with ui.row().classes('wiz-survey-q no-wrap items-center w-full').props(f'data-qid={question.id}'):
         if ctx.editable:
-            # static/js/survey-drag.js; the ⋮ menu's Move up/down is the keyboard path.
             ui.icon('drag_indicator').classes('wiz-survey-drag').props('aria-hidden=true') \
                 .tooltip('Drag to move')
         ui.icon(KIND_ICONS[question.kind]).classes('wiz-survey-q__icon').props('aria-hidden=true')

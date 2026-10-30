@@ -23,20 +23,14 @@ from models import EventStatus, User
 if TYPE_CHECKING:
     from theme.base import BaseLayout
 
-#: Status → (chip text, chip tone).
 STATUS_CHIPS = {
     EventStatus.LIVE: ('Live', 'ok'),
     EventStatus.DRAFT: ('Draft', 'info'),
     EventStatus.ARCHIVED: ('Archived', 'pending'),
 }
 
-#: The admin tab that lists every event.
 EVENTS_ADMIN_PATH = '/admin/events'
 
-# Rebuilds the address in the picked event from the browser's own location, so
-# it is right after an in-place tab switch too. ``prefix`` is everything before
-# the community-local path (forwarded prefix, /t/<slug>, /e/<slug>); a row page
-# goes to the event's home because the row belongs to the event it was in.
 _SWITCH_JS = '''
 window.wizSwitchEvent = function (prefix, community, slug, row) {
     var path = location.pathname.indexOf(prefix) === 0 ? location.pathname.slice(prefix.length) : '/';
@@ -50,14 +44,10 @@ window.wizSwitchEvent = function (prefix, community, slug, row) {
 class EventSwitcherState:
     """What the header's event button needs, resolved once per page build."""
 
-    #: The event the page shows, or None off any community.
     current: Optional[EventRef] = None
-    #: The events the menu lists. Empty draws no button.
     events: list[EventRef] = field(default_factory=list)
     manages: bool = False
-    #: Everything in the browser's path before the community-local path.
     switch_prefix: str = ''
-    #: The browser's path to the community, before any ``/e/<slug>``.
     community_root: str = ''
     is_row_page: bool = False
 
@@ -71,7 +61,6 @@ async def load_event_switcher(user: Optional[User], tenant_id: int) -> EventSwit
     events = await EventService.visible_events(user)
     state = EventSwitcherState(
         current=await EventService.ref(tenant_id, get_current_event_id()),
-        # One event and nothing to manage: the button would only repeat the page.
         events=events if len(events) > 1 or manages else [],
         manages=manages,
     )

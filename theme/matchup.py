@@ -15,10 +15,8 @@ from nicegui import ui
 from application.utils.match_labels import MatchupPart, has_undecided
 
 TBD_CLASS = 'wiz-tbd'
-# One of the viewer's friends (Event > Schedule's Friends list).
 FRIEND_CLASS = 'wiz-friend'
 
-# For a q-table slot whose row carries ``_who_parts``.
 WHO_PARTS_VUE = (
     '<template v-for="(p, i) in props.row._who_parts" :key="i">'
     f'<span v-if="p.tbd" class="{TBD_CLASS}">{{{{ p.text }}}}</span>'
@@ -29,7 +27,6 @@ WHO_PARTS_VUE = (
 
 
 def matchup_label(parts: Sequence[MatchupPart], classes: str = '', *, tag: str = 'span') -> ui.element:
-    # A fully decided line stays one element: a long board builds a row at a time.
     if not has_undecided(parts):
         label = ui.label(''.join(str(p['text']) for p in parts)).classes(classes)
         label.tag = tag

@@ -38,8 +38,6 @@ async def proctor_station_tab(user: Optional[User] = None) -> None:
             'Every match on a stage, grouped by what it needs from you next.' if on_stage_only
             else 'Every match in this room, grouped by what it needs from you next.',
         ):
-            # The last two read from the event handbook and are role-gated, so
-            # the viewer is passed in rather than looked up per topic.
             await help_icon(
                 ('proctor-station', 'The station board'),
                 'proctor-run-match',
@@ -54,10 +52,6 @@ async def proctor_station_tab(user: Optional[User] = None) -> None:
             query = Match.filter(tenant_id=require_tenant_id())
             return query.filter(stage_id__isnull=False) if on_stage_only else query
 
-        # The proctor runs matches and nothing else: no edit dialog, no confirm,
-        # no stage, no crew approval — exactly what ``can_run_match`` admits them
-        # to and every other gate refuses. A Broadcast Tech's rows also follow
-        # the stage, so one taken off stage mid-refresh loses its buttons.
         access = (
             MatchBoardAccess(run=True, run_scope=frozenset(), run_on_stage=True)
             if on_stage_only else MatchBoardAccess(run=True)
@@ -67,8 +61,7 @@ async def proctor_station_tab(user: Optional[User] = None) -> None:
         table_view = MatchTableView(
             columns=PROCTOR_RUN_SHEET_COLUMNS,
             get_query=get_query,
-            # The board's rows come from the display service, not get_query, so
-            # the tech's stage-only scope has to ride on the row filter too.
+            # Rows come from the display service, not get_query, so the stage-only scope must ride on the row filter.
             row_filter=_on_stage if on_stage_only else None,
             admin_controls=True,
             access=access,
@@ -88,8 +81,7 @@ async def proctor_station_tab(user: Optional[User] = None) -> None:
         handlers.table_view = table_view
         sheet.view = table_view
 
-        # Through the view's _bg so the tab-switch refresh keeps the tenant the
-        # request was resolved against (the handler runs in a detached task).
+        # Through the view's _bg, so the refresh rebinds the tenant the detached tab handler lost.
         def on_tab_selected():
             table_view._bg(table_view.refresh())
         ui.on('selected_tab', lambda e: on_tab_selected() if e.args == 'Proctor Station' else None)

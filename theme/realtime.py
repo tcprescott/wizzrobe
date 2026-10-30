@@ -20,7 +20,7 @@ from application.events import match_live
 
 OnChange = Callable[..., Awaitable[None]]
 
-# client.id -> (channel, token) pairs, so we can release them on disconnect.
+# Released on disconnect.
 _client_tokens: Dict[str, List[Tuple[ModuleType, int]]] = {}
 _disconnect_installed = False
 
@@ -38,18 +38,12 @@ def register_view(on_change: OnChange, channel: Optional[ModuleType] = None) -> 
     client_id = client.id
 
     async def _runner(*args: Any) -> None:
-        # Enter the captured client's context so refresh()/update_row_by_id
-        # resolve to the right browser (mirrors the proven `with client:`
-        # pattern in theme/tables/match.py). app.storage.user is keyed off
-        # NiceGUI's request contextvar, not the client, and this task inherits
-        # the *publisher's* contextvars: without rebinding it, every open board
-        # read the staff member who approved a move as its viewer.
+        # app.storage.user follows the request contextvar, which this task inherits from the publisher:
+        # rebind it or every open board reads the publisher as its viewer.
         request = client.request
         session_id = (getattr(request, 'session', None) or {}).get('id')
         if session_id not in app.storage._users:  # pylint: disable=protected-access
-            # The page's session has no user storage (rotated at login, or the
-            # client outlived it): app.storage.user would raise, and there is
-            # no viewer to refresh for.
+            # No user storage (rotated at login, or the client outlived it): app.storage.user would raise.
             return
         token = request_contextvar.set(request)
         try:
@@ -72,9 +66,7 @@ def _install_disconnect_cleanup() -> None:
         return
     _disconnect_installed = True
     app.on_disconnect(_on_disconnect)
-    # A view registered after its socket dropped (or on a page that never
-    # connected) sees no disconnect, and its subscription would hold the whole
-    # page alive (SGLMAN-29).
+    # A view registered after its socket dropped sees no disconnect, and its subscription would hold the page alive.
     app.on_delete(_on_disconnect)
 
 
@@ -96,8 +88,7 @@ def refresh_on_reconnect(refresh: Callable[[], Awaitable[Any]]) -> None:
     socket was down.
     """
     client = context.client
-    # on_connect also fires for the initial handshake, where the page has just
-    # been built; refreshing there would double every first render.
+    # on_connect also fires on the initial handshake; refreshing there doubles every first render.
     seen_first = {'value': False}
 
     async def reread() -> None:

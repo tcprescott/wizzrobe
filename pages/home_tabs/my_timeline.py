@@ -147,7 +147,6 @@ def _render_block(item: TimelineItem, lane: int, lanes: int, midnight: datetime,
     top = (item.starts_at - midnight).total_seconds() / 3600 - first
     span = (item.ends_at - item.starts_at).total_seconds() / 3600
     when = f'{format_local_time(item.starts_at)} – {format_local_time(item.ends_at)}'
-    # Not a sure thing (a reminder-only event, a crew slot with no stage): dashed, so a clash with it reads as a maybe.
     tentative = ' wiz-tl-block--maybe' if item.optional else ''
     block = ui.element('div').classes(f'wiz-tl-block wiz-tl--{item.kind}{tentative}').style(
         f'top: calc({_px(top)} + 3px); height: calc({_px(span)} - 6px); '

@@ -21,9 +21,7 @@ from theme.steady import steady_refreshable
 
 
 async def dates_and_hours_pane(can_edit: bool) -> None:
-    # Operating hours are the event's rule, so they are written and enforced on
-    # the event's clock, never the admin's, and labelled with that zone so an
-    # admin abroad is not silently reading the numbers as their own time.
+    # Hours are on the event's clock, never the admin's.
     tenant_tz_label = timezone_label(await TimezoneService.tenant_timezone_name())
 
     @steady_refreshable
@@ -82,7 +80,6 @@ async def dates_and_hours_pane(can_edit: bool) -> None:
             notify_error(e)
             return False
         ui.notify('Event dates saved', color='positive')
-        # The hours card lists one row per event day, so new dates mean new rows.
         hours_rows.refresh()
         return True
 
@@ -116,8 +113,7 @@ async def dates_and_hours_pane(can_edit: bool) -> None:
         ui.notify('Daily hours saved', color='positive')
         return True
 
-    # Created before the rows so they can register with it; it still renders
-    # under them because the panel's body element already exists.
+    # Created before the rows so they can register with it.
     with hours.panel:
         hours_footer = SaveFooter(save_hours, enabled=can_edit)
     with hours.body:

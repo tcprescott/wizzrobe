@@ -188,9 +188,7 @@ class LiveWatch:
                     self._tournaments_box = ui.element('div')
 
     def render(self, view: WatchView) -> None:
-        # Every open tab repaints on each schedule change and every 30s; rebuilding
-        # only the sections whose content moved keeps a busy event day from
-        # stalling the loop once per viewer (0.5-1.2s each, 2026-10-23).
+        # Rebuild only what moved: every open tab repaints on each change and every 30s.
         stages = (view.stages, live_chip_text(view))
         if self._shown.get('stages') != stages:
             self._shown['stages'] = stages

@@ -1,19 +1,5 @@
-/* Drag a survey question to a new place in the builder (Thomas picked A: a
- * handle on every row, 2026-10-27).
- *
- * The ⠿ handle (.wiz-survey-drag) inside a question row (.wiz-survey-q with
- * data-qid) starts the drag: at once with a mouse, after a press-and-hold
- * with a finger so a swipe still scrolls the page. The row floats under the
- * pointer and a dashed slot shows where it lands, in its own section or
- * another (.wiz-survey-qlist with data-section). Dropping fires a
- * `survey-drop` DOM event on the builder ({question, section, index}); the
- * server decides and redraws. Escape puts it back.
- *
- * Vue owns the rows, so nothing here moves them: the row only gets a
- * transform, and the slot is a foreign node removed before the event fires.
- * Move up / Move down in the row's ⋮ menu stay the keyboard and no-drag path
- * (WCAG 2.2 SC 2.5.7).
- */
+/* Vue owns the rows, so nothing here moves them: the row only gets a transform,
+   and the slot is a foreign node removed before the event fires. */
 (function () {
   'use strict';
   var HOLD_MS = 400, SLOP = 8, EDGE = 48;
@@ -70,7 +56,6 @@
     drag.y = y;
     var step = y < EDGE ? -12 : (y > window.innerHeight - EDGE ? 12 : 0);
     if (step && !drag.scroller) {
-      // Keep scrolling while the pointer rests near an edge, not only while it moves.
       drag.scroller = setInterval(function () {
         if (!drag) return;
         var s = drag.y < EDGE ? -12 : (drag.y > window.innerHeight - EDGE ? 12 : 0);

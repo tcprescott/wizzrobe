@@ -24,7 +24,7 @@ _REPLAY_ID = re.compile(r'^[0-9a-f]{32}$')
 
 
 def _inline_json(value: Any) -> str:
-    # Rule patterns are typed by super-admins; never let one close the <script>.
+    # Super-admins type these patterns; never let one close the <script>.
     return json.dumps(value).replace('<', '\\u003c').replace('>', '\\u003e').replace('&', '\\u0026')
 
 
@@ -33,7 +33,7 @@ def install_browser_monitoring() -> None:
     config = browser_sdk_config()
     if config is None:
         return
-    # In the head, like usage.js: markup added from a lazy tab build never runs its <script>.
+    # In the head: markup added from a lazy tab build never runs its <script>.
     ui.add_head_html(f'<script>window.__wizSentryConfig={_inline_json(config)};</script>')
     ui.add_head_html(f'<script defer src="{asset_url("vendor/sentry/bundle.replay.min.js")}"></script>')
     ui.add_head_html(f'<script defer src="{asset_url("js/sentry-browser.js")}"></script>')

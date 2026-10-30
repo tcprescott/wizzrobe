@@ -38,7 +38,6 @@ from theme.menu import menu_action, more_menu
 from theme.notify import notify_error
 from theme.volunteer_grid import day_label, filled_label, person_status, shift_range
 
-# (position name, shift) pairs for every shift on the board's day.
 DayShifts = List[Tuple[str, GridShift]]
 
 _STALE = 'That shift has changed since the board loaded. It has been refreshed.'
@@ -74,8 +73,6 @@ class VolunteerShiftSheet:
         self.service = VolunteerScheduleService()
         self.moves = VolunteerShiftMoveService()
         self.shift_id = 0
-        # mobile_sheet's own breakpoint, but a side sheet rather than a centred
-        # card above it: the grid stays readable beside the open shift.
         with ui.dialog().props(''':position="Quasar.Screen.lt.sm ? 'bottom' : 'right'"''') as self.dialog, \
                 ui.card().classes('dialog-card match-sheet shift-sheet'):
             dialog_header('Shift details', self.dialog)
@@ -115,8 +112,6 @@ class VolunteerShiftSheet:
     async def _stale(self) -> None:
         ui.notify(_STALE, color='info')
         await self._changed()
-
-    # --- Rendering -----------------------------------------------------
 
     def _render(self) -> None:
         found = self.lookup(self.shift_id) if self.shift_id else None
@@ -189,8 +184,6 @@ class VolunteerShiftSheet:
                 ui.separator()
                 menu_action('person_remove', 'Remove from shift…',
                             lambda: self._confirm_remove(person, position, shift), negative=True)
-
-    # --- Actions ---------------------------------------------------------
 
     async def _check_in(self, person: GridPerson) -> None:
         try:

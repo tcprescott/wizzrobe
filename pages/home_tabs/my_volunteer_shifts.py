@@ -38,7 +38,6 @@ from theme.section import section_panel
 from theme.shift_arrival_banner import arrival_changed, on_arrival_change
 from theme.steady import steady_refreshable
 
-#: The section's DOM id, so a link can scroll to it.
 SHIFTS_SECTION_ID = 'my-shifts'
 
 
@@ -239,7 +238,6 @@ async def my_volunteer_shifts_section(
             ui.label('No upcoming shifts.').classes('text-muted')
         render_days(upcoming, now)
         if finished:
-            # Newest first, folded: they matter for the hours, not for what's next.
             with ui.expansion(f'Finished shifts ({len(finished)})', icon='history',
                               value=state['finished'],
                               on_value_change=lambda e: state.update(finished=e.value)) \

@@ -307,9 +307,7 @@ def submit_on_enter(dialog, make_coro) -> None:
     """
     def on_keydown(e):
         if e.args and e.args.get('key') == 'Enter':
-            # Return the coroutine so NiceGUI awaits it in the dialog's slot
-            # context; a bare background task has no slot and any ui.notify /
-            # ui.run_javascript in the submit handler would raise.
+            # Return the coroutine, don't background it: a bare task has no slot, so ui.notify in the handler would raise.
             return make_coro()
     dialog.on('keydown', on_keydown)
 

@@ -23,7 +23,6 @@ from theme.connection import REQUIRES_SOCKET_CLASS
 from theme.help import help_icon
 from theme.links import link_button
 
-#: Anchor for links that should land on the card.
 EQUIPMENT_SECTION_ID = 'equipment-yours'
 
 

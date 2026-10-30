@@ -1,6 +1,3 @@
-/* ALTTP item tracker (pages/item_tracker.py): the crew board, its stream
-   preview, and the transparent OBS overlay. Tokens only; the tiles sit on the
-   dark still-frame ground in both modes because the sprites are drawn for it. */
 
 .itk-layout {
   display: grid;
@@ -160,7 +157,7 @@
 .itk-preview {
   border-radius: var(--radius-md);
   padding: 10px;
-  /* Dark in both modes: it stands in for the game feed the overlay sits on. */
+  /* Dark in both modes: it stands in for the game feed. */
   background-color: var(--wiz-still-bg);
   background-image:
     linear-gradient(45deg, rgba(255, 255, 255, 0.06) 25%, transparent 25%, transparent 75%, rgba(255, 255, 255, 0.06) 75%),
@@ -169,7 +166,6 @@
   background-position: 0 0, 8px 8px;
 }
 
-/* The broadcast board: no tile ground, so it sits straight on the stream. */
 .itk-board--bare .itk-items,
 .itk-board--bare .itk-dungeons {
   gap: 2px;
@@ -185,7 +181,6 @@
   width: 88%;
 }
 
-/* Over a game feed the label needs its own backing, like the counts. */
 .itk-board--bare .itk-dtile__abbr {
   padding: 0 4px;
   border-radius: 4px;
@@ -260,7 +255,6 @@
   font-variant-numeric: tabular-nums;
 }
 
-/* The OBS overlay page: nothing behind the board but the stream. */
 body.itk-overlay,
 body.itk-overlay .q-layout,
 body.itk-overlay .q-page-container,
@@ -277,7 +271,6 @@ body.itk-overlay .nicegui-content {
   width: 100vw;
 }
 
-/* Too narrow for the key picture: "0/3" beside the big key says it alone. */
 .itk-preview .itk-dtile__key {
   display: none;
 }
@@ -298,7 +291,6 @@ body.itk-overlay .nicegui-content {
   }
 }
 
-/* The preview is a thumbnail of the stream: the dungeon facts shrink to fit. */
 .itk-preview .itk-dtile__meta img {
   width: 10px;
   height: 10px;

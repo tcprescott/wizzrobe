@@ -32,10 +32,6 @@ from theme.matchup import matchup_label
 
 logger = logging.getLogger(__name__)
 
-#: How many of today's matches the door lists. It is a first impression, not a
-#: schedule board — a real event day runs to thirty-plus rows, which buries the
-#: Request access button under a wall of names nobody outside the community can
-#: act on. The rest are counted, not listed.
 PREVIEW_LIMIT = 12
 
 
@@ -46,7 +42,6 @@ class PreviewMatch:
     time: str
     players: str
     tournament: str
-    #: ``players`` in pieces when a side is still a bracket placeholder, else empty.
     players_parts: list = field(default_factory=list)
 
 
@@ -54,26 +49,14 @@ class PreviewMatch:
 class JoinPreview:
     """What a non-member may see of this community, resolved and formatted."""
 
-    #: ``(tournament_id, tournament_name)`` for each tournament with published
-    #: stages. Empty when BRACKETS is off or nothing is published yet.
     tournaments: List[Tuple[int, str]] = field(default_factory=list)
-    #: Today's matches, on the **community's** clock. Player names are public.
     matches: List[PreviewMatch] = field(default_factory=list)
-    #: Matches today beyond the ones listed above, or 0.
     more_matches: int = 0
-    #: The zone the times above are in, e.g. ``EST``.
     timezone_label: str = ''
-    #: Staff's invite to the community's Discord server, or None.
     discord_invite_url: Optional[str] = None
-    #: Whether members of the linked server get in without asking. Only True
-    #: when staff turned it on *and* a server is linked, since the door must not
-    #: promise a way in that the gate will not honour.
+    # Only True with the setting on and a server linked: the door must not promise a way in the gate won't honour.
     discord_auto_join: bool = False
-    #: Whether the door takes join requests. Off leaves auto-join (if on) as
-    #: the only way in short of staff adding someone by hand.
     join_requests: bool = True
-    #: Whether anyone who signs in is let straight in. A signed-in visitor
-    #: only sees the door then if letting them in failed.
     open_membership: bool = False
 
 
@@ -141,8 +124,7 @@ async def resolve_join_preview(tenant_id: int) -> JoinPreview:
 
     try:
         if await FeatureFlagService().is_enabled(FeatureFlag.BRACKETS):
-            # Anonymous, always: a DRAFT or CANCELLED stage is unpublished, and
-            # the door is read by people who hold no role here by definition.
+            # Anonymous, always: the door's readers hold no role here, and unpublished stages must stay hidden.
             stages = await BracketService().list_all_visible_brackets(None)
             seen: dict = {}
             for stage in stages:
@@ -155,14 +137,10 @@ async def resolve_join_preview(tenant_id: int) -> JoinPreview:
         logger.exception('Join page: bracket preview failed for tenant %s', tenant_id)
 
     try:
-        # The community's own clock, not the visitor's: "today" here means
-        # the event's day, and someone reading from two zones over must not
-        # be shown a different list than the person standing in the venue.
+        # The community's clock, not the visitor's: 'today' is the event's day.
         tz = await TimezoneService.tenant_timezone_name(tenant_id)
         with tz_scope(tz):
             preview.timezone_label = timezone_label()
-            # Unfinished only: a door showing what already happened this
-            # morning answers a question nobody standing outside is asking.
             matches = await MatchService().get_matches_for_date(
                 today_local(), exclude_finished=True, require_stage=False,
             )
@@ -220,8 +198,6 @@ def _render_preview(preview: JoinPreview) -> None:
         for tournament_id, name in preview.tournaments:
             ui.button(
                 name, icon='account_tree',
-                # The static twin, not the interactive page: the door is where a
-                # crowd lands, and every interactive tab costs a websocket.
                 on_click=lambda tid=tournament_id: ui.navigate.to(
                     f'/live/tournament/{tid}/brackets'
                 ),
@@ -249,9 +225,6 @@ def _render_preview(preview: JoinPreview) -> None:
 WATCH_LINE = 'Here to watch? Streams and what’s on now, no sign-in needed.'
 
 
-#: First, because a member who is merely signed out — the usual reader of a
-#: Discord button opened on a phone — lands here too, and the way past the door
-#: for them is one tap, not a request.
 _MEMBER_LINE = 'Already a member? Sign in and you’ll land right back on this page.'
 
 
@@ -275,7 +248,6 @@ def _signed_out_message(preview: JoinPreview) -> str:
 
 def _non_member_message(preview: JoinPreview) -> str:
     if preview.open_membership:
-        # Only reachable when letting them in just failed.
         return (
             'This community is open to anyone, but we couldn’t add you just now. '
             'Reload the page to try again.'
@@ -332,9 +304,6 @@ def render_join_page(
             ui.icon('meeting_room').props('size=xl color=primary')
             ui.label(tenant_name).classes('error-headline').tag = 'h1'
 
-            # First, for everyone: most people who reach this door from a tweet,
-            # the stream or a QR code came to watch, and watching needs no
-            # account. The Watch page is static, so the crowd costs no socket.
             ui.label(WATCH_LINE).classes('error-message')
             ui.button(
                 'Watch live', icon='live_tv',
@@ -344,8 +313,7 @@ def render_join_page(
 
             if user is None:
                 ui.label(_signed_out_message(preview)).classes('error-message')
-                # Absolute and carrying the page: a relative 'login' resolved
-                # against /home/<section> to /home/login, which is this door again.
+                # Absolute and carrying the page: a relative 'login' resolved to /home/login, which is this door again.
                 sign_in = login_path(current_local_url())
                 ui.button('Sign in', icon='login',
                           on_click=lambda: ui.navigate.to(sign_in)).props('color=primary outline')
@@ -354,8 +322,6 @@ def render_join_page(
                 return
 
             if pending:
-                # Once asked, there is nothing else to offer — a second button
-                # would only produce a second identical request.
                 ui.label(
                     'Your request to join is with this community’s staff. '
                     'You will get a message either way.'
@@ -369,12 +335,8 @@ def render_join_page(
                 return
 
             if ask_again_at is not None and preview.join_requests:
-                # Said up front, with the date, rather than a form that refuses
-                # on submit. Auto-join (if on) still works meanwhile.
                 from application.utils.timezone import format_local_display
 
-                # With auto-join on, the server is the way in and the cooldown
-                # only holds back a new web request; say that first.
                 when = format_local_display(ask_again_at)
                 ui.label(
                     'Staff declined your request to join. Members of its Discord '
@@ -388,8 +350,6 @@ def render_join_page(
                 return
 
             if removed:
-                # Open membership and Discord auto-join would otherwise have let
-                # them in before this page drew, so say why they didn't.
                 ui.label(
                     'Staff removed you from this community, so you can’t rejoin on '
                     'your own. '
@@ -420,8 +380,6 @@ def render_join_page(
                         ui.notify(str(e), color='warning')
                         return
                     ui.notify('Request sent.', color='positive')
-                    # Re-enter the page so it re-renders in its pending state
-                    # rather than leaving a button that would resubmit.
                     ui.navigate.reload()
 
             ui.button(

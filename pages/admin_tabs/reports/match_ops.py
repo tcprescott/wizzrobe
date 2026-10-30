@@ -104,9 +104,6 @@ async def match_ops_page(
                     rows=ops['aggregates'],
                     row_key='tournament_id',
                 ).classes('full-width')
-                # The board takes no tournament param, so this aggregate drills
-                # *within* reports — re-filtering this report to the tournament
-                # whose number the operator just read.
                 agg_actions = enable_drill_link(
                     agg_table, agg_columns, ops['aggregates'],
                     lambda r: reports_url(
@@ -152,8 +149,6 @@ async def match_ops_page(
                 pagination=25,
                 row_key='match_id',
             ).classes('full-width')
-            # A Finished match with no result is found here and confirmed on the
-            # board, whose review queue is already built for exactly that pile.
             detail_actions = enable_drill_link(
                 detail_table, detail_columns, detail_rows,
                 board_drill,

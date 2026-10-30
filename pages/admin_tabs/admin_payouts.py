@@ -142,9 +142,7 @@ async def admin_payouts_page() -> None:
         columns: list[dict] = [
             {'name': 'tournament_id', 'label': 'ID', 'field': 'tournament_id', 'hidden': True},
             {'name': 'name', 'label': 'Tournament', 'field': 'name', 'sortable': True},
-            # The money columns sort on their numeric ``*_raw`` field and render
-            # through a cell slot, so Pool orders 9 before 10 rather than
-            # alphabetically on "$10.00".
+            # Sort on the numeric *_raw field, or $10.00 sorts before $9.00.
             {'name': 'pool', 'label': 'Pool', 'field': 'pool_raw', 'sortable': True},
             {'name': 'bonus', 'label': 'Bonus', 'field': 'bonus_raw', 'sortable': True},
             {'name': 'total', 'label': 'Total', 'field': 'total_raw', 'sortable': True},
@@ -276,8 +274,7 @@ async def admin_payouts_page() -> None:
                     if line.entrant is not None:
                         options.setdefault(line.entrant.id, line.entrant.preferred_name)
 
-                # Widgets keyed by an incrementing id rather than by index, so
-                # removing a middle row cannot renumber the rows below it.
+                # Keyed by an incrementing id, not index, so removing a middle row can't renumber the rest.
                 widgets: dict[int, dict] = {}
                 next_key = {'n': 0}
 

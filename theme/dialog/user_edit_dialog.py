@@ -159,9 +159,7 @@ class AdminUserDialog(BaseUserDialog):
                 ).classes('input-full-width')
                 challonge_username_input = None
                 challonge_id_input = None
-                # Credentials alone aren't enough: the identity is global but the
-                # feature is per-tenant, so a user linked in another community
-                # would otherwise get these fields here and the save would raise.
+                # Credentials aren't enough: identity is global but the feature is per-tenant, so the save would raise.
                 challonge_live = (
                     ChallongeService.is_configured()
                     and await FeatureFlagService().is_enabled(FeatureFlag.CHALLONGE)
@@ -208,9 +206,6 @@ class AdminUserDialog(BaseUserDialog):
                 else:
                     discord_id_input = None
 
-                # Community-wide roles, then the on-site roles in one event (layout
-                # A). Neither picker offers SUPER_ADMIN: it's a platform role and
-                # the service refuses it.
                 held = await self.user_service.role_grants(self.user) if self.user else []
                 roles_editor = RoleGrantsEditor(
                     held, await EventService.events_for_tenant(require_tenant_id()), get_current_event_id(),

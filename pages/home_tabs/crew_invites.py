@@ -15,7 +15,6 @@ from theme.connection import REQUIRES_SOCKET_CLASS
 from theme.section import section_panel
 from theme.steady import steady_refreshable
 
-#: The section's DOM id, so the invite DM's link lands on it.
 INVITES_SECTION_ID = 'crew-invites'
 
 

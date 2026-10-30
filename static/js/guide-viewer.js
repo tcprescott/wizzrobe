@@ -1,16 +1,4 @@
-/*
- * Draw the event guide PDF inside the app (pages/event_info.py, /event-info/guide).
- *
- * A Home Screen web app on an iPhone opens a PDF full screen with no Back
- * button, so the guide is drawn here, under the app's own header, with
- * PDF.js (static/vendor/pdfjs). Each page is a canvas at the column's width,
- * with the guide's web links laid over it as real links that open in a new
- * tab (from a Home Screen app, iOS shows those in its pop-up browser).
- *
- * The page builds over its socket after load, so this waits for the
- * ``.wiz-guide-pages`` box to appear; it carries the PDF, library and worker
- * URLs as data attributes.
- */
+/* Drawn in-app: a Home Screen web app on an iPhone opens a PDF full screen with no Back button. */
 (function () {
   if (window.__wizGuideViewer) return;
   window.__wizGuideViewer = true;

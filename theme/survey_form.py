@@ -55,7 +55,7 @@ def _minutes(parts: List[plan.Part]) -> str:
     return f'About {_plural(minutes, "minute")} · {_plural(len(parts), "short part")}'
 
 
-#: ``on_change(value, quiet)``: ``quiet`` for typing, which mustn't redraw the part under the cursor.
+# quiet is for typing, which mustn't redraw the part under the cursor.
 Changed = Callable[[Any, bool], None]
 
 
@@ -88,8 +88,6 @@ def _comment(question: SurveyQuestion, value: Any, on_change: Changed, enabled: 
         area._props['aria-label'] = question.prompt
         area.set_enabled(enabled)
         return
-    # A long answer counts down instead of cutting people off (the GOV.UK
-    # character count): going over shows how far, and Done says so.
     ui.label(f'Up to {LONG_COMMENT_MAX:,} characters.').classes('wiz-survey-question__hint')
     area = ui.textarea(value=value or '').props('outlined').classes('w-full wiz-survey-long')
     area._props['aria-label'] = question.prompt
@@ -149,7 +147,6 @@ def _choices(question: SurveyQuestion, value: Any, on_change: Changed, enabled: 
             return
         current = [o for o in state['picked'] if o != option]
         if checked:
-            # "None of these" and the real choices clear each other.
             current = [option] if option == none else [o for o in current if o != none] + [option]
         state['picked'] = current
         emit(False)
@@ -249,15 +246,13 @@ def _scale_slider(question: SurveyQuestion, value: Any, on_change: Callable[[Any
         on_change(state['value'])
 
     def released(e) -> None:
-        # ``change`` fires when a drag or tap ends; answering on every step of a
-        # drag would redraw the slider under the finger.
+        # On change, not every step: answering mid-drag redraws the slider under the finger.
         picked = e.args if isinstance(e.args, (int, float)) else slider.value
         if picked is not None and picked != state['value']:
             answer(picked)
 
     def touched(_=None) -> None:
-        # A tap on the value the hidden handle already sits at changes nothing,
-        # so the first touch answers with whatever the slider now shows.
+        # A tap on the hidden handle's own value fires no change, so the first touch answers with what the slider shows.
         if state['value'] is None:
             answer(slider.value)
 
@@ -340,7 +335,6 @@ class PartSheet:
         self.form = form
         self.part: Optional[plan.Part] = None
         self.draft: Dict[int, Any] = {}
-        #: Part key → answers a close couldn't save (one broke a rule), so reopening shows them again.
         self.unsaved: Dict[str, Dict[int, Any]] = {}
         self.saving = False
         with ui.dialog().props(''':position="Quasar.Screen.lt.sm ? 'bottom' : 'right'"''') as self.dialog, \
@@ -360,7 +354,6 @@ class PartSheet:
         self.part = part
         self.draft = dict(self.unsaved.get(part.key) or self.form.view.answers_in(part))
         self.title.set_text(part.title)
-        # An agree scale wants a table's width; the sheet widens for the part that has one.
         wide = any(q.kind is SurveyQuestionKind.AGREE_SCALE for q in part.questions)
         self.card.classes(add='wiz-survey-sheet--wide' if wide else '', remove='' if wide else 'wiz-survey-sheet--wide')
         shown = self.form.view.shown_parts
@@ -432,7 +425,7 @@ class PartSheet:
     def _payload(self, part: plan.Part) -> Dict[int, Any]:
         answers = self._answers_for_visibility()
         showing = {q.id for q in part.questions if plan.visible(q, part.scope, answers)}
-        # A follow-up that stopped showing loses its answer, so nothing hidden is saved.
+        # A hidden follow-up loses its answer, so nothing hidden is saved.
         return {q.id: (self.draft.get(q.id) if q.id in showing else None) for q in part.questions}
 
     async def _save(self, part: plan.Part) -> bool:
@@ -482,7 +475,6 @@ class SurveyForm:
                  editable: bool, preview: bool = False, community: str = '',
                  opened_part: Optional[OpenedPart] = None, hidden: Sequence[plan.Hidden] = ()) -> None:
         self.view = view
-        #: The preview's "won't see" list for the kind of person showing (empty on the real page).
         self.hidden = list(hidden)
         self.prompts = {q.id: q.prompt for part in view.parts for q in part.questions}
         self.save_part = save_part
@@ -491,7 +483,6 @@ class SurveyForm:
         self.editable = editable
         self.preview = preview
         self.anonymous = False
-        #: What the last refused Send found missing; shown above the parts until answered.
         self.flagged: List[MissingAnswer] = []
         survey = view.survey
         with ui.column().classes('page-container-narrow w-full gap-3 wiz-survey'):

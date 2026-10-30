@@ -58,8 +58,6 @@ from theme.tables.match_slots import (
     seed_value_template,
 )
 
-# --- Headline: scheduled time (large) + compact state chip -----------------
-
 _STATE_CHIP = '''
         <span class="mgc-state">
             <span v-if="props.row.state === 'Confirmed'" class="wiz-chip wiz-chip--ok">
@@ -75,8 +73,6 @@ _STATE_CHIP = '''
             <span v-if="props.row.state_time" class="cell-timestamp">{{ props.row.state_time }}</span>
         </span>'''
 
-
-# --- Players line ----------------------------------------------------------
 
 _PLAYERS = '''
         <div class="mgc-players">
@@ -113,12 +109,6 @@ _PLAYERS = '''
         </div>'''
 
 
-# --- Dispute flag ----------------------------------------------------------
-
-# Mirrors the "Needs review" chip in the desktop State cell. Sits directly under
-# the player names: "an admin should look at this" outranks every other line on
-# the card. The desktop hangs the explanation on a q-tooltip, which is
-# unreachable on a touch screen, so here it renders as text.
 _REVIEW_DETAIL = '''
         <div class="mgc-detail" v-if="props.row.needs_review">
             <span class="mgc-label">Review</span>
@@ -130,14 +120,6 @@ _REVIEW_DETAIL = '''
         </div>'''
 
 
-# --- Detail rows (each v-if-gated: empty -> renders nothing) ----------------
-
-# Commentators / trackers / broadcasters. Row shows when the list is non-empty, or while a
-# signup can still fill it (CREW_EMPTY_JS: "No signups yet", every viewer), or
-# when this viewer could sign up. The viewer's own Sign up / Withdraw sits in its
-# own tray above the names (crew_signup_section, shared with the desktop cell),
-# so the button doesn't move as names come and go. Emits props.row for
-# signup/undo and { row, idx } for view/toggle/acknowledge.
 _CREW_DETAIL = (
     '''
         <div class="mgc-detail" v-if="(props.row.__KEY__ && props.row.__KEY__.length) || '''
@@ -185,11 +167,6 @@ _CREW_DETAIL = (
         </div>'''
 )
 
-# Stage / stage. Shows when assigned, a candidate, or an admin who can
-# assign; otherwise nothing. The admin's copy is the desktop cell's select —
-# stages plus the ``Candidate`` pseudo-stage — emitting
-# { key: props.row.id, stage: <stage id | 'candidate' | null> }; everyone else
-# reads the name, or the candidate chip while no stage is set.
 _STREAM_DETAIL = '''
         <div class="mgc-detail" v-if="props.row.stage || props.row.is_stream_candidate || __STREAM__ || (props.row.stream_volunteers && props.row.stream_volunteers.length)">
             <span class="mgc-label">__LABEL__</span>
@@ -213,10 +190,6 @@ _STREAM_DETAIL = '''
             </span>
         </div>'''
 
-# Generated seed. Admin with a configured generator and no seed gets a Generate
-# button (emitting { key: props.row.id } and flagging _generating_seed); once a
-# seed exists everyone gets a truncated link. Empty for non-admins -> nothing.
-# A racetime.gg room owns its own seed, so no Generate button there.
 _SEED_DETAIL = '''
         <div class="mgc-detail" v-if="props.row.generated_seed || (__RUN__ && __ROLLABLE__)">
             <span class="mgc-label">__LABEL__</span>
@@ -249,7 +222,6 @@ _SEED_DETAIL = '''
             </span>
         </div>'''
 
-# Free-text comment. Only present when the row actually carries one.
 _COMMENT_DETAIL = '''
         <div class="mgc-detail" v-if="props.row.comment">
             <span class="mgc-label">__LABEL__</span>
@@ -257,14 +229,7 @@ _COMMENT_DETAIL = '''
         </div>'''
 
 
-# --- Actions row: lifecycle button + Change Winner + Assign Stations + watch --
-# "Change Winner" mirrors the desktop pencil, but labelled: an icon-only button
-# whose meaning lives in a tooltip is unreadable on a touch screen.
-
-# Present when this viewer has a lifecycle control to offer on this row, or the
-# Finished chip to explain, or the watch toggle. Without the per-capability
-# terms a crew coordinator — who can run nothing — got an empty bordered row on
-# every card.
+# Each capability term is needed, or a viewer who can run nothing gets an empty bordered row.
 _ACTIONS_PRESENT = (
     "((__RUN__ || __CONFIRM__) && ['Scheduled', 'Checked In', 'Started', 'Finished'].includes(props.row.state))"
     " || (__IA__ && props.row.state === 'Finished')"
@@ -360,17 +325,13 @@ def render_grid_slot(table, columns, *, admin_controls: bool, access: MatchBoard
 
     ia = 'true' if admin_controls else 'false'
     did = f"'{discord_id}'" if discord_id else 'null'
-    # The desktop's one "Your actions" cell stands for all four of the player's
-    # own controls, so the card offers each of them wherever that column shows.
     mine = MY_ACTIONS_COLUMN in present
     watch_js = 'true' if 'watch' in present or mine else 'false'
     volunteer_js = 'true' if 'stream_volunteer' in present or mine else 'false'
     hard_js = 'true' if 'hard_preset' in present or mine else 'false'
 
-    # Headline (scheduled time + optional state chip)
     headline = (
         '\n        <div class="mgc-headline">'
-        # Mirrors the desktop scheduled_at cell's overdue emphasis (match_slots).
         '<span class="mgc-time" :class="props.row.is_overdue ? \'st-pending\' : \'\'">{{ props.row.scheduled_at }}'
         '<q-icon v-if="props.row.is_overdue" name="schedule" class="st-pending q-ml-xs" size="xs">'
         '<q-tooltip>Past its scheduled time and not checked in</q-tooltip>'
@@ -379,18 +340,15 @@ def render_grid_slot(table, columns, *, admin_controls: bool, access: MatchBoard
         + '\n        </div>'
     )
 
-    # Players line, then the dispute flag (only when the row carries one).
     players = _PLAYERS if 'players' in present else ''
     review = _REVIEW_DETAIL if 'state' in present else ''
 
-    # Caption (tournament + #id edit link)
     caption_inner = ''
     if 'tournament' in present:
         caption_inner += (
             '<span v-if="props.row.tournament">{{ props.row.tournament }}'
             '<template v-if="props.row.set_label"> · {{ props.row.set_label }}</template></span>'
         )
-        # Same bracket link as the desktop Tournament cell (see match_slots).
         caption_inner += (
             '<a v-if="props.row.bracket" href="#" class="mgc-bracket-link q-ml-sm"'
             ' @click.prevent="$parent.$emit(\'open_bracket\', props.row)">'
@@ -401,9 +359,6 @@ def render_grid_slot(table, columns, *, admin_controls: bool, access: MatchBoard
             '<template v-if="props.row.bracket.standing"> · {{ props.row.bracket.standing }}</template>'
             '</a>'
         )
-    # The card's edit affordance mirrors the desktop first cell: a pencil where
-    # the board declares an `edit` column, the plain number where it declares
-    # `id` (the proctor's, who calls matches out by number).
     edit_js = access.edit_slot_js()
     if 'edit' in present and has_edit:
         caption_inner += (
@@ -423,7 +378,6 @@ def render_grid_slot(table, columns, *, admin_controls: bool, access: MatchBoard
             caption_inner += '<span class="q-ml-sm">#{{ props.row.id }}</span>'
     caption = f'\n        <div class="mgc-caption">{caption_inner}</div>' if caption_inner else ''
 
-    # Detail rows (order: commentators, trackers, broadcasters, stage, seed, comment)
     details = ''
     for role in ('commentators', 'trackers', 'broadcasters'):
         if role in present:
@@ -437,17 +391,10 @@ def render_grid_slot(table, columns, *, admin_controls: bool, access: MatchBoard
     if 'stage' in present:
         details += _STREAM_DETAIL.replace('__LABEL__', labels.get('stage', 'Stage'))
     if 'generated_seed' in present:
-        # "Generated Seed" (the desktop column label) would widen the shared label column.
         details += _SEED_DETAIL.replace('__LABEL__', 'Seed')
     details += _COMMENT_DETAIL.replace('__LABEL__', labels.get('comment', 'Comment'))
-    # One grid for every detail row, so the label column is as wide as the
-    # longest label actually shown rather than a fixed width that starves the
-    # values on a phone.
     details = f'\n        <div class="mgc-details">{details}\n        </div>'
 
-    # Actions (only worth emitting when an admin or the watch toggle is in play).
-    # Hoisted above the caption/detail rows when the caller asked for it, with a
-    # sibling class that flips the row's divider from top to bottom.
     actions = (_ACTIONS.replace('__PRESENT__', _ACTIONS_PRESENT)
                if (admin_controls or mine or 'watch' in present
                    or 'stream_volunteer' in present or 'hard_preset' in present)
@@ -463,8 +410,6 @@ def render_grid_slot(table, columns, *, admin_controls: bool, access: MatchBoard
 
     template = (
         template
-        # Shared with the desktop seed cell so the two boards agree on when a
-        # seed can still be rolled (match_slots.SEED_ROLLABLE).
         .replace('__ROLLABLE__', SEED_ROLLABLE)
         .replace('__SEED_VALUE__', seed_value_template('props.row.generated_seed'))
         .replace('__IA__', ia)
@@ -472,14 +417,10 @@ def render_grid_slot(table, columns, *, admin_controls: bool, access: MatchBoard
         .replace('__CONFIRM__', access.confirm_js())
         .replace('__CREW__', access.crew_js())
         .replace('__STREAM__', access.stream_js())
-        # Shared with the desktop stage cell so both boards read the same row
-        # keys for "which stage is this on" (match_slots.STAGE_VALUE_JS).
         .replace('__STAGEVAL__', STAGE_VALUE_JS)
         .replace('__WATCH__', watch_js)
         .replace('__VOL__', volunteer_js)
         .replace('__HARD__', hard_js)
-        # Shared with the desktop cell so both boards agree on when an offer can
-        # still be made (match_slots.STREAM_VOLUNTEER_ACTIONABLE).
         .replace('__VOLACT__', STREAM_VOLUNTEER_ACTIONABLE)
         .replace('__DID__', did)
         .replace('__ACTCLS__', act_cls)

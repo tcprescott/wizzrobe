@@ -53,11 +53,6 @@ def _tag(tag: str, classes: str, inner: str = '', *, style: str = '', attrs: str
     return f'<{tag} class="{classes}"{style_attr}{extra}>{inner}</{tag}>'
 
 
-# ---------------------------------------------------------------------------
-# Match cards
-# ---------------------------------------------------------------------------
-
-
 def _avatar_html(name: str, url: Optional[str] = None) -> str:
     """The entrant disc: the initial, with a Discord avatar layered over it.
 
@@ -101,8 +96,7 @@ def _slot_html(match: BracketMatch, slot: int, ctx: BracketContext) -> str:
         classes += ' is-loser'
 
     seed = ctx.entry_seed.get(entry_id) if entry_id is not None else None
-    # The seed cell is always emitted (empty when unseeded) so the four columns
-    # stay aligned across every slot — same rule as the interactive card.
+    # Always emitted so the four columns stay aligned.
     parts = [_tag('div', 'bracket-seed', _esc(seed) if seed is not None else '')]
 
     if entry_id is not None:
@@ -175,17 +169,11 @@ def _card_html(
     )
 
 
-# ---------------------------------------------------------------------------
-# Elimination sections
-# ---------------------------------------------------------------------------
-
-
 def _round_meta_html(round_number: int, ctx: BracketContext) -> str:
     meta = ctx.rounds_config.get(str(round_number)) or {}
     scheduled, best_of = meta.get('scheduled_at'), meta.get('best_of')
     parts = []
     if scheduled:
-        # "Round time", not the game's own scheduled time — see cards.py (U3c).
         parts.append(_tag(
             'div', 'bracket-header-time',
             f'Round time: {_esc(ctx.scheduled_fmt(scheduled))}',

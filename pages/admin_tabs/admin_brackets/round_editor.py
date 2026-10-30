@@ -57,8 +57,6 @@ def render_round_editor(
             ).classes('text-caption text-grey')
         for round_number, label in names.items():
             cfg = rounds_cfg.get(str(round_number)) or {}
-            # The round name takes its own line on a phone (a fixed w-32 label
-            # left the two inputs too little room and the row wrapped anyway).
             with ui.row().classes('items-center gap-2 w-full'):
                 ui.label(label).classes('col-12 col-sm-3 text-bold')
                 best_of = ui.number(

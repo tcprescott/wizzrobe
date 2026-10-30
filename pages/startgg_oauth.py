@@ -95,8 +95,6 @@ def create() -> None:
 
     @ui.page('/startgg/connect')
     async def startgg_connect(request: Request) -> RedirectResponse:
-        # Restart this route on the platform host, not the settings page, so
-        # Connect isn't pressed twice.
         detour = await platform_link_redirect('/startgg/connect')
         if detour:
             return RedirectResponse(detour)
@@ -104,8 +102,7 @@ def create() -> None:
         user = await get_user_from_session(app.storage.user)
         if user is None:
             return RedirectResponse(f'{root_path}/login')
-        # A bare @ui.page (it serves a cross-host OAuth leg), so it checks the
-        # staff gate and the flag itself.
+        # A bare @ui.page (a cross-host OAuth leg), so it checks the staff gate and the flag itself.
         if not await AuthService.is_staff(user) or not await FeatureFlagService().is_enabled(FeatureFlag.STARTGG):
             return RedirectResponse(f'{root_path}/admin')
         if not StartggConnectionService.is_configured():

@@ -46,9 +46,6 @@ _GAME_BADGE = {
     BracketMatchGameState.CANCELLED: 'grey',
 }
 
-# The derived status vocabulary's tones → Quasar badge colours. Mapped from the
-# semantic name defined once in ``match_status.STATUS_TONES``, so this dialog,
-# the card's pill, and the Discord embed all colour the same state the same way.
 _TONE_COLOR = {
     'neutral': 'grey',
     'info': 'positive',
@@ -117,9 +114,6 @@ def _render_games(
                 elif game.cancelled_reason:
                     ui.label(game.cancelled_reason).classes('text-caption text-grey')
             with ui.row().classes('items-center gap-1 no-wrap'):
-                # The derived status when the caller resolved it (U2) — so this
-                # row says "Live" while the match is being raced instead of
-                # "Scheduled" — falling back to the stored game state otherwise.
                 status = (game_status or {}).get(game.id)
                 if status is not None:
                     ui.badge(status_label(status), color=_TONE_COLOR.get(
@@ -160,8 +154,7 @@ async def _open_match_editor(
     match_id: int, client, tenant_id: int, on_saved: Callable[[], Awaitable[None]],
 ) -> None:
     """Open the ordinary admin match editor for one game's scheduled ``Match``."""
-    # Local import: the bracket dialog and the match dialog are peers, and only
-    # this handler needs the dependency.
+    # Local import: the bracket and match dialogs are peers.
     from theme.dialog.match_dialog import AdminMatchDialog
 
     with client:

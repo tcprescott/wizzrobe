@@ -27,21 +27,17 @@ from theme.banner import banner
 if TYPE_CHECKING:
     from theme.event_switcher import EventSwitcherState
 
-#: Marks a control that changes the event: hidden while the event is archived.
 WRITE_CLASS = 'wiz-write'
-#: On the container of a page or tab that shows an archived event.
 READ_ONLY_CLASS = 'wiz-read-only'
 
 
 @dataclass(frozen=True)
 class ArchivedView:
     event: EventRef
-    #: The viewer may unarchive it (staff), so the banner carries the button.
     actor: Optional[User] = None
 
 
 _view: ContextVar[Optional[ArchivedView]] = ContextVar('archived_view', default=None)
-#: Set once the banner is drawn in the current page or tab, so it shows once.
 _shown: ContextVar[bool] = ContextVar('archived_banner_shown', default=False)
 
 

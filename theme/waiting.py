@@ -25,8 +25,6 @@ from theme.empty_state import fun_fact
 
 __all__ = ['MIN_WAIT_SECONDS', 'WaitingScreen', 'waiting_panel', 'waiting_screen']
 
-# How long the full-page wait stays up before it is allowed to navigate away.
-# Long enough to read a fun fact; short enough that nobody taps the back button.
 MIN_WAIT_SECONDS = 3.0
 
 _PRELOAD_FONTS = (
@@ -83,7 +81,7 @@ async def waiting_screen(message: str = 'Loading…', *, brand: str | None = Non
     if brand is None:
         brand = await TenantService.current_community_name() or 'Wizzrobe'
 
-    ui.dark_mode(app.storage.user.get('dark_mode'))  # None ⇒ follow the client's system theme
+    ui.dark_mode(app.storage.user.get('dark_mode'))
     for font_file in _PRELOAD_FONTS:
         ui.add_head_html(
             f'<link rel="preload" href="/static/fonts/{font_file}.woff2" '

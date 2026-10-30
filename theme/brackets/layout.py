@@ -50,11 +50,11 @@ __all__ = [
     'slot_sources',
 ]
 
-# Geometry (px) — keep in sync with static/css/brackets.css (--bracket-* vars).
-COL_WIDTH = 200          # match-card width
-GUTTER = 52              # horizontal space between round columns (holds connectors)
-CARD_HEIGHT = 58         # match-card height (two ~29px entrant rows)
-ROW_PITCH = 82           # vertical distance between adjacent leaf slots
+# Keep in sync with static/css/brackets.css (--bracket-* vars).
+COL_WIDTH = 200
+GUTTER = 52
+CARD_HEIGHT = 58
+ROW_PITCH = 82
 COL_STRIDE = COL_WIDTH + GUTTER
 
 
@@ -80,7 +80,7 @@ class Segment:
     x: float
     y: float
     length: float
-    orientation: str  # 'h' | 'v'
+    orientation: str
 
 
 @dataclass(frozen=True)
@@ -88,19 +88,19 @@ class Placement:
     """Where one match card sits in its section."""
 
     match_id: int
-    col: int          # 0-based column index (left → right)
-    round: int        # the round number this column represents
-    slot: float       # vertical slot: leaf order for leaves, centered for parents
-    left: float       # px
-    top: float        # px
-    center_y: float   # px (vertical center of the card)
+    col: int
+    round: int
+    slot: float
+    left: float
+    top: float
+    center_y: float
 
 
 @dataclass
 class SectionLayout:
     """The full geometry of one bracket section."""
 
-    columns: List[int]                       # round numbers, left → right
+    columns: List[int]
     placements: Dict[int, Placement]
     connectors: List[Segment] = field(default_factory=list)
     width: float = 0.0
@@ -136,7 +136,6 @@ def layout_section(nodes: List[MatchNode]) -> SectionLayout:
     columns = _column_order([n.round for n in nodes])
     col_of_round = {r: i for i, r in enumerate(columns)}
 
-    # Children within the section, keyed by the parent's id (winner-link only).
     children: Dict[int, List[MatchNode]] = {n.id: [] for n in nodes}
     roots: List[MatchNode] = []
     for n in nodes:
@@ -157,7 +156,7 @@ def layout_section(nodes: List[MatchNode]) -> SectionLayout:
     def assign(node_id: int) -> float:
         if node_id in slot:
             return slot[node_id]
-        if node_id in visiting:  # cycle guard (winner-links are a DAG; belt & braces)
+        if node_id in visiting:  # cycle guard
             slot[node_id] = counter['next']
             counter['next'] += 1.0
             return slot[node_id]
@@ -240,9 +239,6 @@ def _build_connectors(
     return segments
 
 
-# --- cross-section helpers (need the whole match set) ----------------------
-
-
 def assign_match_numbers(matches: List[MatchNode]) -> Dict[int, int]:
     """Stable 1-based display number per match (staff call "match 12 on stream").
 
@@ -259,7 +255,7 @@ def assign_match_numbers(matches: List[MatchNode]) -> Dict[int, int]:
 class SlotSource:
     """Where an empty match slot's entrant will come from."""
 
-    kind: str          # 'winner' | 'loser'
+    kind: str
     source_match_id: int
 
 

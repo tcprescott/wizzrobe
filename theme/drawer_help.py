@@ -25,9 +25,6 @@ def render_drawer_help(layout: 'BaseLayout') -> None:
     current_path = current_local_url().split('?', 1)[0]
     with ui.list().props('padding').classes('wiz-drawer-info'):
         ui.item_label('Info & support').props('header').classes('wiz-drawer-group')
-        # Above Help, and ungated on ``layout.user`` for the same reason:
-        # the event handbook answers the questions people have before
-        # they sign in, and some of its readers never will.
         if layout._show_event_info:
             with ui.item(
                 on_click=lambda: ui.navigate.to('/event-info')
@@ -50,11 +47,6 @@ def render_drawer_help(layout: 'BaseLayout') -> None:
             if nav_section_matches('/qualifiers', current_path):
                 mark_nav_section(qualifiers_item)
 
-        # Not gated on ``layout.user``: /help is a public page, and a
-        # signed-out visitor on any framed public surface is exactly the
-        # reader who most needs the way in. The real /login is a bare
-        # redirect to Discord with no page to hang a link on, so the
-        # drawer is that way in.
         with ui.item(
             on_click=lambda: ui.navigate.to('/help')
         ).props('clickable v-ripple') as help_item:
@@ -65,8 +57,6 @@ def render_drawer_help(layout: 'BaseLayout') -> None:
         if nav_section_matches('/help', current_path):
             mark_nav_section(help_item)
 
-        # Members only, and flag-gated: the service refuses a submit
-        # from anyone else, so the item would open a dialog that fails.
         if layout.offers_feedback:
             with ui.item(
                 on_click=lambda: FeedbackDialog(layout.user).open()  # type: ignore[arg-type]

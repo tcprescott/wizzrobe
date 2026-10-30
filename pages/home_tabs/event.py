@@ -32,15 +32,11 @@ class EventView(NamedTuple):
     label: str
     icon: str
     build: Callable[[], Awaitable[None]]
-    # None = always offered. Otherwise the view is absent where the community
-    # has that feature off, rather than the whole tab disappearing.
     flag: Optional[FeatureFlag] = None
 
 
 COMMUNITY = 'community'
 
-# Order is the reading order: the whole schedule, the tournament structure
-# behind it, then what attendees are running around it.
 VIEWS: tuple[EventView, ...] = (
     EventView('schedule', 'Schedule', 'schedule', schedule_view),
     EventView('brackets', 'Brackets', 'account_tree', brackets_tab, FeatureFlag.BRACKETS),
@@ -101,8 +97,6 @@ def resolve_view(views: list[EventView], slug: Optional[str]) -> EventView:
 async def event_tab(view: Optional[str] = None, community_new: int = 0) -> None:
     live = await FeatureFlagService().enabled_flags()
     views = available_views(live)
-    # The address names the view (``?view=``, or the retired ``/home/<view>``
-    # section a DM still carries).
     state = {'slug': resolve_view(views, url_state().requested('view') or view).slug}
 
     @steady_refreshable
@@ -130,18 +124,9 @@ async def event_tab(view: Optional[str] = None, community_new: int = 0) -> None:
     toggle: Optional[ui.toggle] = None
     view_param = None
     with ui.column().classes('w-full'):
-        # A switcher over one option is just a label taking up room.
         if len(views) > 1:
-            # `page-container`, matching every view below it, so the switcher
-            # sits on the same left edge as the content it switches between.
             with ui.row().classes('page-container wiz-view-switch items-center'):
-                # No `color=`: on a q-btn-toggle that prop is the *inactive*
-                # background, so `color=primary` painted all three segments gold
-                # and the selected one was indistinguishable from the other two.
-                # `toggle-color` (primary by default) is the one that marks the
-                # selection; the rest of the look is .wiz-segmented in styles.css.
-                # The Event tab's count also rides the segment it leads to, and
-                # clears with it when that view opens.
+                # No `color=`: on q-btn-toggle that's the inactive background; `toggle-color` marks the selection.
                 badged = community_new > 0 and any(v.slug == COMMUNITY for v in views)
                 toggle = _SlottedToggle(
                     {v.slug: v.label for v in views},

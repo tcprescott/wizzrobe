@@ -28,8 +28,6 @@ from theme.menu import menu_action, more_menu
 from theme.notify import notify_error
 from theme.steady import steady_refreshable
 
-# Short names for the registration checkboxes. The consent screen uses the
-# longer CONSENT_WORDING, since that is the person deciding.
 SCOPE_LABELS: Dict[ApiScope, str] = {
     ApiScope.PROFILE: 'Profile',
     ApiScope.PROFILE_WRITE: 'Change profile',
@@ -271,12 +269,10 @@ async def render_developer_apps_section(user: User) -> None:
         dialog.open()
 
     with ui.card().classes('card-full-width'):
-        # A plain label, not a header slot: Quasar names a slotted header
-        # "Expand", which axe flags against the visible text.
+        # A plain label, not a header slot: Quasar names a slotted header "Expand", which axe flags.
         with ui.expansion('Developer apps', icon='code').classes('w-full') \
                 .props('header-class=text-weight-bold') as section:
-            # The help button sits in the body: a button inside the expansion's
-            # clickable header is a nested control (axe nested-interactive).
+            # Help button in the body: inside the clickable header it's a nested control (axe nested-interactive).
             with ui.row().classes('items-center gap-1 no-wrap w-full wiz-help-row'):
                 ui.label(
                     "Build something that signs people in with Wizzrobe. You'll see how many "

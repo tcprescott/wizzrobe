@@ -76,7 +76,6 @@ async def admin_discord_events_page() -> None:
                         on_click=busy_click('Checking…', refresh_tables),
                     ).props('outline color=primary')
 
-        # --- Per-tournament opt-in ------------------------------------------
         ui.label('Tournaments').classes('section-title q-mt-md')
         tournament_columns = [
             {'name': 'id', 'label': 'ID', 'field': 'id', 'hidden': True},
@@ -87,7 +86,6 @@ async def admin_discord_events_page() -> None:
         ]
         tournaments_container = ui.column().classes('w-full')
 
-        # --- Mirrored events (observability) --------------------------------
         ui.label('Mirrored events').classes('section-title q-mt-md')
         event_columns = [
             {'name': 'title', 'label': 'Title', 'field': 'title', 'sortable': True},

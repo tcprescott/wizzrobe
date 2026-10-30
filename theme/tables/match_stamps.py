@@ -24,7 +24,6 @@ from theme.tables.match_slots import MY_ACTIONS_COLUMN
 class MatchRowStampsMixin:
     """Per-viewer row fields for a ``MatchTableView``."""
 
-    # Supplied by MatchTableView.
     columns: Any
     access: Any
     show_accommodations: bool

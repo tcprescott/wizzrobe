@@ -53,21 +53,13 @@ from theme.page_header import page_header
 from theme.past_events import render_past_events
 from theme.steady import steady_refreshable
 
-# The Profile's Challonge link, returning to this tab instead of the Profile so
-# the player finishes signing up where they started.
 CHALLONGE_LINK = replace(
     _CHALLONGE_LINK_SECTION,
     link_route=f'{_CHALLONGE_LINK_SECTION.link_route}?next={HOME_TOURNAMENTS}',
 )
 
-# Section title, and the predicate that puts a card in it. Order is the reading
-# order: what you can do something about, then what you are already in, then the
-# rest. A section with no cards is not drawn.
 _SECTIONS = (
-    # "Open for signup" is the card's own answer, not a re-derivation of it:
-    # reading the window alone would put a started Challonge bracket under a
-    # heading whose whole promise is a button. A Challonge bracket the reader
-    # can enter once they link counts, because the card's button does the link.
+    # The card's own answer, not the window: the window alone would file a started Challonge bracket here.
     ('Open for signup', 'how_to_reg', lambda c: c.can_sign_up or c.needs_challonge_link or c.signs_up_on_startgg),
     ('My tournaments', 'emoji_events', lambda c: c.enrolled),
     (
@@ -76,8 +68,6 @@ _SECTIONS = (
         lambda c: not c.enrolled and not c.can_sign_up and not c.needs_challonge_link
         and c.window is SignupWindow.UPCOMING,
     ),
-    # Everything else you are not in: closed windows, and Challonge brackets
-    # that have already started.
     (
         'Not taking signups',
         'lock',
@@ -87,8 +77,6 @@ _SECTIONS = (
 )
 
 
-# Names a card shows before "Show all": two or three rows on a phone, one or
-# two on a desktop card. A 36-player field used to be a 36-row list.
 _NAME_PREVIEW = 8
 
 
@@ -240,9 +228,6 @@ async def tournaments_tab() -> None:
         return
 
     service = TournamentService()
-    # Which cards get a Triforce Texts button. One query for the whole list
-    # rather than a support check per card, and empty where the community has
-    # the feature off, which is what removes the button.
     triforce_ids: set[int] = set()
     if FeatureFlag.TRIFORCE_TEXTS in await FeatureFlagService().enabled_flags():
         triforce_ids = await supporting_tournament_ids()
@@ -256,9 +241,7 @@ async def tournaments_tab() -> None:
             await help_icon('tournament-signup')
             ui.space()
 
-        # Both handlers run as detached background tasks, where the slot stack is
-        # empty, so the client comes from the call site rather than being read in
-        # here — ``context.client`` raises inside the task.
+        # Detached background tasks: the client comes from the call site, since context.client raises in the task.
         def follow_card(tournament_id: int) -> None:
             """Bring a card back under the reader after it changed section.
 
@@ -306,8 +289,6 @@ async def tournaments_tab() -> None:
 
         def start_challonge_link() -> None:
             if is_host_mode() and not host_oauth_handoff_enabled():
-                # A custom domain without the handoff can only link from the
-                # main site, which the Profile's Connected accounts row explains.
                 ui.navigate.to(home_url('profile'))
                 return
             open_sign_in_first_dialog(
@@ -349,10 +330,7 @@ async def tournaments_tab() -> None:
                     ui.label(note).classes('text-caption text-grey-7')
 
                 if t.description:
-                    # Parsed to blocks and drawn element by element rather than
-                    # through ui.markdown: this is staff-authored prose reaching a
-                    # player's browser, so it renders as element content, never as
-                    # markup. Same renderer the help and event-info pages use.
+                    # Element by element, never ui.markdown: staff-authored prose reaching a player's browser.
                     with ui.element('div').classes('wiz-help-prose'):
                         render_blocks(parse_blocks(t.description))
 
@@ -423,9 +401,6 @@ async def tournaments_tab() -> None:
                             'The bracket has started — ask staff if you need to drop out.'
                         ).classes('text-caption text-grey-7')
                     elif card.enrolled:
-                        # Enrolled with the window shut — the only state that
-                        # leaves an entrant no button. Saying nothing reads as a
-                        # missing control, so the card says whose call it is.
                         ui.label(
                             'Signups have closed — ask staff if you need to drop out.'
                         ).classes('text-caption text-grey-7')
@@ -457,8 +432,6 @@ async def tournaments_tab() -> None:
 
         @steady_refreshable
         async def cards() -> None:
-            # A live event's page lists every live event's tournaments; a past
-            # event's (or a draft's, for staff) lists that event's alone.
             current = await EventService.ref(require_tenant_id(), get_current_event_id())
             spanning = current is None or current.is_live
             all_cards = await service.list_signup_cards(user, live_events=spanning)

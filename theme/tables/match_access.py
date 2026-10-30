@@ -86,7 +86,6 @@ class MatchBoardAccess:
     stream_scope: Optional[frozenset[int]] = None
     crew_scope: Optional[frozenset[int]] = None
     run_on_stage: bool = False
-    # Offer "Pin to stream overlay" on the match sheet (Stream Layouts flag).
     pin_overlay: bool = False
 
     def any(self) -> bool:

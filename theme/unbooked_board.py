@@ -33,8 +33,7 @@ from theme.url_state import url_param, url_state
 
 _STATUS = {'all': 'All', 'ready': 'Ready to book', 'blocked': 'Needs account', 'tbd': 'Players TBD'}
 
-#: Rows built between yields to the event loop. A few hundred rows built in one
-#: pass blocked every user for 2s (SGLMAN-1W).
+# Yield between slices: a few hundred rows in one pass blocked every user for 2s.
 _ROWS_PER_SLICE = 25
 
 
@@ -108,7 +107,6 @@ class UnbookedBoard:
         except (ValueError, PermissionError) as e:
             notify_error(e)
             return []
-        # The board shows one event; bracket sources list every live one's.
         event_id = get_current_event_id()
         return [m for m in rows if event_id is None or m.tournament.event_id == event_id]
 
@@ -169,8 +167,6 @@ class UnbookedBoard:
         return sum(1 for i in self._items if not i.players_tbd)
 
     def _visible(self) -> list[UnbookedMatch]:
-        # Every later round of every elimination bracket waits on players, so
-        # those rows stay behind their own filter rather than swamping All.
         if self.status == 'tbd':
             out = [i for i in self._items if i.players_tbd]
         else:

@@ -69,7 +69,7 @@ def _match_label(match: Match) -> str:
 
 
 async def _obs_url(token: str) -> str:
-    # Absolute: it is pasted into OBS on another machine.
+    # Absolute: it's pasted into OBS on another machine.
     tenant = await TenantService.get_by_id(require_tenant_id())
     return tenant_url(tenant, overlay_path(token))
 
@@ -323,8 +323,6 @@ class LayoutEditor:
         self.values: dict[str, str] = {}
         self.preview_options: dict = {0: 'Sample text'}
 
-    # ── build ──────────────────────────────────────────────────────────
-
     async def build(self) -> None:
         actor = await current_actor()
         try:
@@ -362,7 +360,7 @@ class LayoutEditor:
                     on_confirm=self._delete, confirm_text='Delete', title='Delete layout?',
                 ).open(), negative=True)
 
-        # Quasar's uploader card fails axe, so it stays hidden behind the menu item.
+        # Kept hidden behind the menu item: Quasar's uploader card fails axe.
         self.uploader: ui.upload = ui.upload(
             auto_upload=True, max_file_size=MAX_ART_BYTES, on_upload=self._uploaded,
             on_rejected=lambda: ui.notify('Layout art can be up to 10 MB, as a PNG, JPEG or WebP.',
@@ -397,8 +395,6 @@ class LayoutEditor:
 
     def _subtitle(self) -> str:
         return f'{self.layout.width}×{self.layout.height}'
-
-    # ── canvas ─────────────────────────────────────────────────────────
 
     def _render_canvas(self) -> None:
         W, H = self.layout.width, self.layout.height
@@ -442,8 +438,6 @@ class LayoutEditor:
             if box['id'] == self.selected:
                 ui.element('div').classes('sl-handle').props('aria-hidden=true')
 
-    # ── list ───────────────────────────────────────────────────────────
-
     def _render_list(self) -> None:
         ui.label(f'Boxes ({len(self.boxes)})').classes('wiz-panel__title q-mt-sm')
         if not self.boxes:
@@ -465,8 +459,6 @@ class LayoutEditor:
                         ui.label(box_label(box)).classes('text-weight-bold')
                         ui.label(sample).classes('sl-list__sample')
                     ui.label(f"{box['x']}, {box['y']} · {box['w']}×{box['h']}").classes('sl-list__pos')
-
-    # ── sheet ──────────────────────────────────────────────────────────
 
     def _box(self) -> Optional[dict]:
         return next((b for b in self.boxes if b['id'] == self.selected), None)
@@ -545,8 +537,6 @@ class LayoutEditor:
     def _sheet_closed(self) -> None:
         self.selected = None
         self._repaint()
-
-    # ── changes ────────────────────────────────────────────────────────
 
     def select(self, box_id: Optional[str]) -> None:
         if box_id is None or not any(b['id'] == box_id for b in self.boxes):
@@ -640,8 +630,6 @@ class LayoutEditor:
         self._refresh_values()
         self.select(twin['id'])
 
-    # ── preview text ───────────────────────────────────────────────────
-
     async def _load_values(self) -> None:
         try:
             self.values = await self.service.preview_values(
@@ -659,8 +647,6 @@ class LayoutEditor:
         self.preview_match = e.value or None
         await self._load_values()
         self._repaint()
-
-    # ── save and art ───────────────────────────────────────────────────
 
     def _repaint(self) -> None:
         self.canvas.refresh()

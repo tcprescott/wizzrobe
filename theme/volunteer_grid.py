@@ -34,13 +34,11 @@ from application.utils.timezone import format_local_hour, format_local_time
 from theme.dialog._helpers import dialog_actions, dialog_more_menu, form_dialog
 from theme.menu import menu_action
 
-# One grid hour, in px. Mirrored by --wiz-vgrid-hour in styles.css; the page
-# needs it to work out how many names fit in a block.
+# Mirrored by --wiz-vgrid-hour in styles.css.
 HOUR_PX = 48
 _LINE_PX = 18
 _BLOCK_CHROME_PX = 32
 
-# How a person's arrival reads on the Shift Board: icon, class, words.
 ARRIVAL_MARKS = {
     ARRIVED: ('check_circle', 'st-ok', 'Checked in'),
     LATE: ('schedule', 'st-pending', 'Running late'),
@@ -132,8 +130,7 @@ def render_day_bar(
             tools.classes('wiz-vgrid-tools--crowded')
         with tools:
             if on_columns is not None:
-                # The label is our own element, not the button's, so a phone can
-                # hide it: Quasar's .block utility is !important inside a layer.
+                # Our own label element so a phone can hide it: Quasar's .block is !important inside a layer.
                 with ui.button(icon='view_column', on_click=on_columns) \
                         .props('no-caps outline rounded aria-label="Columns"').classes('wiz-vgrid-columns'):
                     ui.label('Columns').classes('wiz-vgrid-columns__label')
@@ -176,8 +173,6 @@ def open_columns_dialog(
             role_list.clear()
             with role_list:
                 for index, entry in enumerate(staged):
-                    # Drag adds to the ▲/▼ buttons rather than replacing
-                    # them: touch screens and keyboards can't drag.
                     row = ui.row().classes('full-width items-center no-wrap gap-2 q-py-xs')
                     row.props('draggable="true"')
                     row.on('dragstart', lambda _, i=index: dragging.update(index=i))
@@ -296,7 +291,6 @@ def render_day_grid(
                     body.on(
                         'click',
                         lambda e, pid=column.position_id: _empty_clicked(grid, pid, e.args, on_empty),
-                        # Only a tap on the column itself, not on a shift in it.
                         js_handler='(e) => { if (e.target === e.currentTarget) emit(e.offsetY) }',
                     )
                 with body:
@@ -330,7 +324,6 @@ def _render_shift(
         classes += ' wiz-vgrid__shift--selected'
     top = shift.start_hour - grid.first_hour
     block = ui.element('div').classes(classes).style(
-        # 3px in from each hour line so back-to-back shifts never touch.
         f'top: calc({_px(top)} + 3px); height: calc({_px(shift.end_hour - shift.start_hour)} - 6px); '
         f'left: calc(4px + (100% - 8px) * {shift.lane} / {shift.lanes}); '
         f'width: calc((100% - 8px) / {shift.lanes} - {4 if shift.lanes > 1 else 0}px);'
@@ -394,7 +387,6 @@ def render_column_markers(first_hour: int, now_hour: Optional[float]) -> None:
 
 
 def _place(marker: ui.element, first_hour: int, hour: Optional[float]) -> None:
-    # A transform rather than top, so the minute-by-minute move is not a layout shift.
     marker.props('aria-hidden=true')
     if hour is None:
         marker.props('hidden')

@@ -29,8 +29,7 @@ from theme.notify import TOAST_POSITION
 
 __all__ = ['drain_notice', 'stash_notice']
 
-# One key, one slot, last write wins. A queue would let two notices pile up
-# across an aborted redirect chain and surface a stale one on a later page.
+# One slot, last write wins: a queue surfaced stale notices after an aborted redirect chain.
 _KEY = 'pending_notice'
 _STICKY_SHOWS = 2
 
@@ -97,8 +96,7 @@ def drain_notice() -> None:
         ui.notification(
             message, color=notice.get('color') or 'warning', position=TOAST_POSITION,
             timeout=None, multi_line=True, on_dismiss=dismissed,
-            # An action rather than close_button: the theme paints the close
-            # button primary, which is unreadable on a positive toast.
+            # Not close_button: the theme paints it primary, unreadable on a positive toast.
             actions=[{'label': 'Got it', 'color': 'white'}],
         )
         return

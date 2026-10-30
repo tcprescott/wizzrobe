@@ -17,7 +17,6 @@ STATUS_LABELS: dict[AccommodationStatus, str] = {
     AccommodationStatus.WITHDRAWN: 'Withdrawn',
 }
 
-#: ``wiz-chip`` modifier per status (see static/css/styles.css).
 STATUS_CHIP: dict[AccommodationStatus, str] = {
     AccommodationStatus.NEW: 'wiz-chip--pending',
     AccommodationStatus.ACKNOWLEDGED: 'wiz-chip--live',

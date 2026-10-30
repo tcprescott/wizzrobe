@@ -28,9 +28,7 @@ from theme.base import BaseLayout
 from theme.page_header import page_header
 from theme.watch_live import LiveWatch, WatchReminders
 
-#: How often an open page checks whether the content moved.
 _POLL_SECONDS = 2.0
-#: Repaint at least this often, for what no event announces (a match's time passing).
 _REPAINT_SECONDS = 30.0
 
 

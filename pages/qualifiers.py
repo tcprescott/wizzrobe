@@ -54,13 +54,8 @@ def _fmt(dt) -> str:
     return format_local_display(dt) if dt else '—'
 
 
-# Client-side paging over rows already loaded, matching the family boards
-# (theme/tables/match.py). Without an explicit pagination prop, page_size resolves
-# to 0 — which Quasar reads as "every row" — and the board renders the whole set
-# into the DOM with no pager to escape it.
+# Keep a pagination prop: without one Quasar renders every row on one page.
 _RUNS_PAGE = {'rowsPerPage': 25, 'page': 1}
-# The board is scanned for your own name rather than read top to bottom, so it
-# gets a bigger page than the runs table, plus a search box.
 _BOARD_PAGE = {'rowsPerPage': 50, 'page': 1}
 
 _MY_RUNS_ID = 'my-runs'
@@ -222,8 +217,6 @@ def create() -> None:
                 await _render_leaderboard(user, is_public)
 
         async def _render_start(current) -> None:
-            # One read answers both "can I run?" and "why not?" — the page no
-            # longer has to infer a reason from an empty list.
             availability = await service.get_run_availability(current, qualifier_id)
             ui.label('Start a run').classes('text-subtitle1')
             if not availability.pools:
@@ -262,9 +255,6 @@ def create() -> None:
                 if run.permalink:
                     ui.link('Your permalink (open the seed)', run.permalink.url, new_tab=True)
                 elapsed_label = ui.label('Elapsed: 0:00:00').classes('text-h6')  # style-guide: exempt — a running clock, not a title
-                # The run auto-forfeits at this deadline and the card used to count
-                # up with no hint a countdown existed — the runner's only warning
-                # was a DM an hour out, which is no help to anyone who missed it.
                 deadline = run_deadline(qualifier, run.started_at)
                 remaining_label = None
                 if deadline is not None:
@@ -336,9 +326,6 @@ def create() -> None:
                     except ValueError as e:
                         notify_error(e)
                         return
-                    # An impossible claim is the service's refusal to make — its
-                    # clock is the authority. The page only asks about the gap the
-                    # runner can explain.
                     measured = measure_elapsed(run.started_at)
                     if classify_claim(seconds, measured) is ClaimVerdict.IMPLAUSIBLE:
                         _ask_about_drift(seconds, measured)
@@ -358,8 +345,6 @@ def create() -> None:
                     allowance = await service.get_reattempt_allowance(user, qualifier_id)
                     remedy = ''
                     if allowance.remaining:
-                        # Never "you can undo this" — a reattempt is a fresh draw on
-                        # a new permalink, not an undo of this one.
                         plural = '' if allowance.remaining == 1 else 's'
                         remedy = (f'\n\nYou would have {allowance.remaining} reattempt{plural} '
                                   f'left, which starts a new run on a new permalink.')
@@ -383,11 +368,6 @@ def create() -> None:
             runs = await service.list_user_runs(current, qualifier_id)
             allowance = await service.get_reattempt_allowance(current, qualifier_id)
             ui.label('My runs').classes('text-subtitle1').props(f'id={_MY_RUNS_ID}')
-            # A reattempt after the window closes would delete the runner's own
-            # score with no way to replace it, so neither the action nor the
-            # sentence promising it appears once the window shuts. The service
-            # deliberately allows it either way, because a reviewer may need to
-            # void a run after close.
             window_open = _window_open(qualifier)
             if allowance.allowed and window_open:
                 ui.label(f'Reattempts: {allowance.remaining} of {allowance.allowed} remaining. '
@@ -406,13 +386,8 @@ def create() -> None:
                 {'name': 'review', 'label': 'Review', 'field': 'review', 'sortable': True},
                 # HH:MM:SS is zero-padded, so a lexical sort is a chronological one.
                 {'name': 'time', 'label': 'Time', 'field': 'time', 'sortable': True},
-                # Exact once the qualifier closes; a band while it is open, because a
-                # number and your own elapsed solve for the seed's par.
                 {'name': 'score', 'label': 'Score' if exact_scores else 'Against par',
                  'field': 'score', 'sortable': True},
-                # Capped and wrapping: a full rejection reason is the longest text
-                # on the row, and left to itself it pushes the row action off the
-                # right edge of a desktop table.
                 {'name': 'note', 'label': 'Reviewer note', 'field': 'note', 'align': 'left',
                  'style': 'max-width: 20rem; white-space: normal'},
             ]
@@ -422,8 +397,6 @@ def create() -> None:
             for r in runs:
                 status = STATUS_LABELS.get(r.status.value, r.status.value)
                 if r.was_expired:
-                    # The column exists precisely to tell these two apart, and no
-                    # page read it — an automatic forfeit looked like a chosen one.
                     status = 'Forfeited (ran out of time)'
                 rows.append({
                     'id': r.id,
@@ -491,27 +464,19 @@ def create() -> None:
                 {'name': 'actual', 'label': 'Score', 'field': 'actual', 'sortable': True},
                 {'name': 'estimate', 'label': 'Estimate', 'field': 'estimate',
                  'sortable': True},
-                # Without this the caption's "unrun slots" names something the
-                # player cannot see; the admin board has always had it.
                 {'name': 'slots', 'label': 'Slots', 'field': 'slots'},
             ]
-            # Rank comes from the scoring function, not from position: equal totals
-            # share it, so a three-way tie reads 1, 1, 3 rather than 1, 2, 3 in
-            # whatever order the input happened to arrive.
+            # Rank comes from the scoring function, not position: ties share it.
             rows = [
                 {'rank': e.rank, 'user': e.username, 'actual': e.actual,
                  'estimate': e.estimate, 'slots': f'{e.slots_filled}/{e.slots_total}'}
                 for e in entries
             ]
-            # Built before the table so it renders above it; filled in after, once
-            # there is a table to bind to.
+            # Built before the table so it renders above it; filled once the table exists.
             toolbar = ui.row().classes('items-center w-full')
-            # Keyed by player, not by rank: ranks are now shared on a tie.
+            # Keyed by player, not rank: ranks are shared on a tie.
             table = ui.table(columns=columns, rows=rows, row_key='user',
                              pagination=_BOARD_PAGE).classes('w-full wiz-table')
-            # A paged board hides the row you came to read, so the search box is
-            # part of the pagination rather than an extra: it is how a competitor
-            # finds their own line among five hundred.
             with toolbar:
                 search_input(table, placeholder='Find a player…')
                 ui.space()
@@ -521,8 +486,6 @@ def create() -> None:
             ui.label(BOARD_EXPLAINER).classes('text-caption text-grey')
 
         await render()
-        # The run-reviewed and run-expired DMs land here with ?focus=runs: the
-        # verdict is in My runs, below the start/submit card.
         if focus == 'runs':
             ui.run_javascript(
                 f"setTimeout(() => document.getElementById('{_MY_RUNS_ID}')"

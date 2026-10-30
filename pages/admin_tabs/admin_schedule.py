@@ -49,7 +49,6 @@ async def _render_inbox(inbox, anchor, request_id, open_decision, client, *, may
         consume_deep_link('reschedule_request', client=client)
 
 
-#: The bracket features whose matchups the "Not booked yet" view lists.
 _BRACKET_FLAGS = frozenset({FeatureFlag.CHALLONGE, FeatureFlag.STARTGG, FeatureFlag.BRACKETS})
 
 
@@ -90,20 +89,14 @@ async def admin_schedule_page(
                 ui.button('New match', icon='add', on_click=lambda: submit_admin_match()) \
                     .props('color=primary').classes('wiz-write')
 
-        # Same reasoning as the match_id chip below: a board showing a subset
-        # with no explanation reads as a board that lost rows.
         if tournament_ids is not None:
             with ui.row().classes('items-center gap-2 q-mb-sm'):
                 with ui.element('span').classes('wiz-chip wiz-chip--neutral'):
                     ui.icon('emoji_events', size='14px')
                     n = len(tournament_ids)
-                    # "You run" was wrong for a crew coordinator, who is scoped
-                    # here too but runs nothing.
                     ui.label('Showing only your tournament' if n == 1
                              else f'Showing only your {n} tournaments')
 
-        # Creating a match is a scheduling action, not a lifecycle one, so it
-        # stays here rather than moving into MatchLifecycleHandlers.
         async def submit_admin_match():
             async def after_submit():
                 await table_view.refresh()
@@ -123,7 +116,7 @@ async def admin_schedule_page(
                 qs = qs.filter(tournament_id__in=tournament_ids)
             return qs
 
-        # Bound after the view exists (two-phase; see MatchLifecycleHandlers).
+        # Bound after the view exists (two-phase).
         table_view: Any = None
 
         handlers = MatchLifecycleHandlers(page_container, access=access)
@@ -144,15 +137,10 @@ async def admin_schedule_page(
                 service = MatchRescheduleService()
                 request = await service.get_by_id(request_id)
                 if request is None or request.status is not RescheduleRequestStatus.PENDING:
-                    # A DM outlives the request it points at — someone else may
-                    # have answered it. Saying so beats a button that does nothing.
                     ui.notify('That request has already been dealt with.', color='warning')
                     return
                 actor = await current_actor()
                 if actor is None:
-                    # A session that outlived its account, or one deactivated
-                    # since the page loaded. Caught here rather than let through
-                    # to fail as a PermissionError from inside the decision.
                     ui.notify('Log in again to decide this.', color='warning')
                     return
 
@@ -175,15 +163,9 @@ async def admin_schedule_page(
             inbox.refresh()
             sheet.sync(rows)
 
-        # The inbox sits beside the board on a desktop and above it on a phone.
         with ui.element('div').classes('schedule-layout full-width'):
-            # An empty anchor claiming the inbox's place, filled by a background
-            # task once the board exists (the inbox reads the board's rows).
             inbox_anchor = ui.column().classes('schedule-layout__inbox gap-0')
             with ui.column().classes('schedule-layout__board gap-0'):
-                # Staff and tournament admins can book a bracket's matchups for
-                # its players, so they get the matchups nobody has booked yet
-                # as a second view of the board.
                 show_unbooked = access.edit and current_archived_view() is None and bool(
                     _BRACKET_FLAGS & await FeatureFlagService().enabled_flags()
                 )
@@ -234,8 +216,6 @@ async def admin_schedule_page(
                         show_accommodations=True,
                         show_comment_counts=True,
                         searchable=True,
-                        # The admin's job *is* the Finished-not-yet-Confirmed set, so it
-                        # must be on screen without them discovering the State filter.
                         default_state_filter=['Scheduled', 'Checked In', 'Started', 'Finished'],
                         default_day_scope='Today',
                         match_ids=[match_id] if match_id else None,
@@ -260,8 +240,7 @@ async def admin_schedule_page(
         sheet.view = table_view
         inbox.view = table_view
 
-        # After the board exists, so the inbox can read its rows, and so the
-        # deep-linked dialog opens over a rendered board.
+        # After the board exists: the inbox reads its rows and the deep-linked dialog opens over it.
         background_tasks.create(_render_inbox(
             inbox, inbox_anchor, reschedule_request,
             _open_decision, context.client, may_decide=access.edit,
@@ -284,8 +263,7 @@ async def admin_schedule_page(
 
         register_view(_on_live_change)
 
-        # Route through the view's _bg so the tab-switch refresh rebinds the
-        # tenant (the selected_tab handler runs in a detached task that lost it).
+        # Through the view's _bg, so the refresh rebinds the tenant the detached tab handler lost.
         def on_tab_selected():
             table_view._bg(table_view.refresh())
         ui.on('selected_tab', lambda e: on_tab_selected() if e.args == 'Match Schedule' else None)

@@ -59,7 +59,6 @@ from theme.steady import steady_refreshable
 __all__ = ['create']
 
 INDEX = '/community-events'
-#: Where the listing lives: the Community view of Home's Event tab.
 LISTING = '/home/community'
 EVENT_TAB = 'Event'
 
@@ -279,7 +278,6 @@ async def community_events_view() -> None:
 
 
 def create() -> None:
-    # The listing moved onto Home's Event tab; bookmarks and old links follow it.
     @protected_page('/community-events', feature=FeatureFlag.COMMUNITY_EVENTS)
     async def community_events_index(request: Request) -> RedirectResponse:
         return RedirectResponse(f"{request.scope.get('root_path', '')}{LISTING}")
