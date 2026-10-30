@@ -42,8 +42,6 @@ _SNIPPET_OPEN_RE = re.compile(r'^:::snippet\s+(?P<name>[a-z0-9-]+)\s*$')
 _SNIPPET_CLOSE = ':::'
 
 AUDIENCE_EVERYONE = 'everyone'
-#: Written for the people who run the community. Listed in its own group and
-#: readable only by someone who can open Admin here.
 AUDIENCE_STAFF = 'staff'
 
 
@@ -63,7 +61,6 @@ class ContentSnippet:
     anchor: str
     blocks: tuple[Block, ...]
     base_path: str = '/help'
-    #: The text of the heading ``anchor`` slugs: what a help menu calls the topic.
     heading: str = ''
 
     @property
@@ -81,10 +78,7 @@ class ContentArticle:
     icon: str
     order: int
     feature: FeatureFlag | None
-    #: Roles that may read this article. Empty means anyone, including signed-out
-    #: readers. A reader holding *any* one of them qualifies.
     roles: tuple[Role, ...]
-    #: ``AUDIENCE_EVERYONE`` or ``AUDIENCE_STAFF``.
     audience: str
     blocks: tuple[Block, ...]
     snippets: dict[str, ContentSnippet]

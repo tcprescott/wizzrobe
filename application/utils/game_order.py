@@ -19,7 +19,6 @@ class GameTimes:
     key: Hashable
     started_at: Optional[datetime]
     scheduled_at: Optional[datetime]
-    # Breaks ties, and orders games with neither time (a cancelled native game).
     tiebreak: int = 0
 
 

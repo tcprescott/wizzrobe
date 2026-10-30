@@ -86,8 +86,7 @@ def publish(event: Event) -> None:
         if not _matches(event_filter, event.event_type):
             continue
         try:
-            # The dispatch worker runs each coroutine later, outside any request,
-            # so wrap it so the event's tenant is active when it actually runs.
+            # Wrap so the event's tenant and event are active when the worker runs it later.
             dispatch_queue.enqueue(_scoped(handler(event), event.tenant_id, get_current_event_id()))
         except Exception:
             logger.exception("failed to enqueue async event subscriber for %s", event.event_type)

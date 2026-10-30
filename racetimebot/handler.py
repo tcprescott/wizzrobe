@@ -72,8 +72,7 @@ class RaceHandler:
             with tenant_scope(tenant_id):
                 await self.lifecycle.handle_event(room, event)
         except Exception:
-            # A crashing handler must never take down the bot or its siblings.
-            # Re-bound so the failure is tagged with the room's community.
+            # A crashing handler must never take down the bot; re-bound so the failure carries its community.
             with tenant_scope(tenant_id):
                 logger.exception(
                     'racetime handler failed for room %r (category %s, tenant %s)',

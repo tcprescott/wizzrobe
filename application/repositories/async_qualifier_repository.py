@@ -55,8 +55,6 @@ class PlayedPermalinks:
             self.voided.discard(permalink_id)
 
 
-# Runs that consumed a permalink slot: everything except a voided reattempt.
-# Used for draw fairness and the runs-per-pool cap.
 _VOIDED = {'reattempted': True}
 
 
@@ -240,8 +238,6 @@ class AsyncQualifierRunRepository(TenantScopedRepository[AsyncQualifierRun]):
                 reattempted=False,
                 permalink_id__not_isnull=True,
             ).filter(
-                # A scored finisher, or a slot the runner spent on an outcome that
-                # cannot score. Both fill a slot; only the first adds to the total.
                 Q(status=AsyncQualifierRunStatus.FINISHED,
                   review_status=AsyncQualifierReviewStatus.APPROVED,
                   score__not_isnull=True)

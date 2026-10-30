@@ -33,7 +33,6 @@ class SurveyAudience(str, Enum):
     EACH_TOURNAMENT_RUN = 'each_tournament_run'
     EACH_POSITION = 'each_position'
     CREW = 'crew'
-    # One crew role each, so commentators, trackers and broadcasters get their own questions.
     COMMENTATORS = 'commentators'
     TRACKERS = 'trackers'
     BROADCASTERS = 'broadcasters'
@@ -43,13 +42,13 @@ class SurveyAudience(str, Enum):
 class SurveyQuestionKind(str, Enum):
     """How a survey question is answered."""
 
-    RATING = 'rating'          # 1 to 5
-    NPS = 'nps'                # 0 to 10, "would you recommend"
+    RATING = 'rating'
+    NPS = 'nps'
     YES_NO = 'yes_no'
     CHOICE_ONE = 'choice_one'
     CHOICE_MANY = 'choice_many'
-    COMMENT = 'comment'        # short free text, sanitized player input
-    AGREE_SCALE = 'agree_scale'  # 2 to 10 statements, each Strongly disagree (1) to Strongly agree (5)
+    COMMENT = 'comment'
+    AGREE_SCALE = 'agree_scale'
 
 
 class SurveyResponseStatus(str, Enum):
@@ -80,7 +79,6 @@ class Survey(Model):
     event_id: int
     title = fields.CharField(max_length=120)
     intro = fields.TextField(default='')
-    #: Shown after someone sends their answers ("what happens next"); blank shows a default line.
     after_send = fields.TextField(default='')
     status = fields.CharEnumField(SurveyStatus, max_length=16, default=SurveyStatus.DRAFT)
     allow_anonymous = fields.BooleanField(default=True)
@@ -89,7 +87,6 @@ class Survey(Model):
     reminded_at = fields.DatetimeField(null=True)
     reminders_sent = fields.SmallIntField(default=0)
     closed_at = fields.DatetimeField(null=True)
-    # SET_NULL: the survey outlives the accounts that built or sent it.
     created_by: fields.ForeignKeyNullableRelation = fields.ForeignKeyField(
         'models.User', related_name='surveys_created', null=True, on_delete=fields.SET_NULL,
     )
@@ -127,7 +124,6 @@ class SurveySection(Model):
     )
     survey_id: int
     title = fields.CharField(max_length=120)
-    # One or two plain-text lines under the title, setting the context.
     description = fields.CharField(max_length=240, null=True)
     audience = fields.CharEnumField(SurveyAudience, max_length=24, default=SurveyAudience.EVERYONE)
     position = fields.IntField(default=0)
@@ -176,11 +172,9 @@ class SurveyQuestion(Model):
     long_answer = fields.BooleanField(default=False)
     position = fields.IntField(default=0)
     conditions = fields.JSONField(null=True)  # type: ignore[var-annotated]
-    # Set the first time the wording changes after answers came in, so results can say so.
     reworded_at = fields.DatetimeField(null=True)
-    reworded_after = fields.IntField(null=True)  # responses sent before that first change
+    reworded_after = fields.IntField(null=True)
     original_prompt = fields.CharField(max_length=280, null=True)
-    # The question this one was duplicated from, so results can put last time's numbers beside it.
     copied_from: fields.ForeignKeyNullableRelation = fields.ForeignKeyField(
         'models.SurveyQuestion', related_name='copies', null=True, on_delete=fields.SET_NULL,
     )
@@ -224,17 +218,12 @@ class SurveyRecipient(Model):
     dm_sent_at = fields.DatetimeField(null=True)
     opened_at = fields.DatetimeField(null=True)
     submitted_at = fields.DatetimeField(null=True)
-    # How far they got while they haven't sent it, for the drop-off card: part
-    # keys opened and saved, and the last one opened; never what they answered.
-    # Submitting folds this into :class:`SurveyPartTally` and clears it, so
-    # which parts someone skipped can't be matched to an anonymous response.
+    # Cleared on submit so skipped parts can't be matched to an anonymous response; never store answers here.
     progress = fields.JSONField(default=dict)  # type: ignore[var-annotated]
     last_part = fields.CharField(max_length=64, null=True)
-    # When they first saved a part, kept only until they submit: it becomes
-    # ``finish_seconds`` and is cleared, so no exact time outlives the draft.
+    # Cleared on submit (it becomes finish_seconds), so no exact time outlives the draft.
     started_at = fields.DatetimeField(null=True)
     finish_seconds = fields.IntField(null=True)
-    # The day they pressed "Not interested" on a survey DM: no more reminders.
     declined_at = fields.DatetimeField(null=True)
     created_at = fields.DatetimeField(auto_now_add=True)
 
@@ -333,8 +322,7 @@ class SurveyAnswer(Model):
     question_id: int
     scope = fields.CharField(max_length=24, default='')
     scope_label = fields.CharField(max_length=255, default='')
-    # ``{"v": answer}``: Tortoise reads a bare string in a JSONField as JSON
-    # text, so a chosen option ("Yes") can't be stored on its own.
+    # Wrapped as {"v": answer}: Tortoise reads a bare string in a JSONField as JSON text.
     data = fields.JSONField(null=True)  # type: ignore[var-annotated]
     text = fields.TextField(null=True)
 

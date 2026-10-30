@@ -15,8 +15,6 @@ from models import EventStatus, User, VolunteerAssignment, VolunteerShift
 
 _PREFETCH = ('user', 'shift', 'shift__position', 'assigned_by')
 
-# Only for the volunteer's own card, which names who else is on the slot. Kept
-# off _PREFETCH so every other caller does not pay for the extra two joins.
 _PREFETCH_WITH_SHIFTMATES = (*_PREFETCH, 'shift__assignments', 'shift__assignments__user')
 
 

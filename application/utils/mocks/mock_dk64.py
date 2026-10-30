@@ -42,7 +42,6 @@ from application.utils.environment import env_flag, is_production
 
 MOCK_DK64_DEFAULT_SECONDS = 20.0
 
-# Fraction of the run spent in ``queued`` before the worker picks the task up.
 _QUEUED_FRACTION = 0.25
 
 _OUTCOMES = frozenset({'finished', 'failed', 'http_error', 'stuck'})
@@ -165,14 +164,7 @@ class _MockResponse:
         return str(self._payload)
 
 
-#: Submitted tasks, by id, with the monotonic time each was accepted.
-#:
-#: Module level on purpose, and **not** the per-user state CLAUDE.md warns
-#: about: this stands in for a server, and a server remembers its tasks between
-#: connections. The persisted roll path submits on one session and polls on
-#: another, minutes later and possibly in a different process, so an
-#: instance-level registry would make every resumed poll a 404 — the one
-#: behaviour the mock exists to let us test.
+# Module level on purpose: a resumed poll arrives on another session, so per-instance state would 404 it.
 _TASKS: Dict[str, float] = {}
 
 
@@ -252,9 +244,7 @@ class MockDK64Session:
         return _MockResponse(200, {
             'status': 'finished',
             'result': {
-                # The real payload also carries a ~9 MB base64 ``patch`` that
-                # nothing here reads; omitted deliberately so the mock does not
-                # normalise a field the generator should keep discarding.
+                # The real ~9 MB `patch` field is omitted on purpose, so the mock doesn't normalise keeping it.
                 'seed_number': random.randint(100000, 999999),
                 'hash': [random.randint(0, 9) for _ in range(5)],
             },

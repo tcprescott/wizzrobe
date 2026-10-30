@@ -18,7 +18,6 @@ from typing import Any, Dict, List, Optional
 from models import RaceRoomStatus
 from racetimebot.transport import EntrantStatus, RaceEntrant, RaceRoomEvent, RoomChat
 
-# A countdown is still the room before the race: nothing has been run yet.
 _ROOM_STATUS = {
     'open': RaceRoomStatus.OPEN,
     'invitational': RaceRoomStatus.OPEN,

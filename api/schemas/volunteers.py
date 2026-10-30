@@ -10,7 +10,6 @@ from api.schemas.common import AvailabilityWindowInput as AvailabilityWindowInpu
 from api.schemas.common import SetAvailabilityRequest as SetAvailabilityRequest
 from models import VolunteerAvailabilityStatus
 
-# --- Positions ------------------------------------------------------------
 
 class VolunteerPositionResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
@@ -49,8 +48,6 @@ class VolunteerPositionUpdate(BaseModel):
     stagger_minutes: Optional[int] = Field(None, description="Minutes between the start times of overlapping generated shifts. Positive and no longer than `shift_length_minutes`.")
     staff_alerts: Optional[bool] = Field(None, description="Whoever holds one of this position's shifts gets match alerts (player comments, reschedule requests) instead of every staff member.")
 
-
-# --- Assignments ----------------------------------------------------------
 
 class VolunteerAssignmentResponse(BaseModel):
     id: int = Field(..., description="Assignment id.")
@@ -100,8 +97,6 @@ class AssignResponse(BaseModel):
     assignment: VolunteerAssignmentResponse = Field(..., description="The new assignment.")
     warnings: List[str] = Field(default_factory=list, description="Soft problems that didn't block the assignment, such as an already full shift or the volunteer's availability.")
 
-
-# --- Shifts ---------------------------------------------------------------
 
 class VolunteerShiftResponse(BaseModel):
     id: int = Field(..., description="Shift id.")
@@ -157,8 +152,6 @@ class VolunteerShiftUpdate(BaseModel):
     notes: Optional[str] = Field(None, description="Notes for the volunteers. An empty string clears them. Omit to leave them unchanged.")
 
 
-# --- Availability ---------------------------------------------------------
-
 class VolunteerAvailabilityResponse(BaseModel):
     id: int = Field(..., description="Availability window id.")
     user_id: int = Field(..., description="The volunteer the window belongs to.")
@@ -167,8 +160,6 @@ class VolunteerAvailabilityResponse(BaseModel):
     status: VolunteerAvailabilityStatus = Field(..., description="One of `available`, `unavailable` or `preferred`.")
     note: Optional[str] = Field(None, description="Optional note from the volunteer.")
 
-
-# --- Profile / coverage ---------------------------------------------------
 
 class ReleaseAssignmentRequest(BaseModel):
     """Why you can no longer cover a shift. The coordinators see it."""

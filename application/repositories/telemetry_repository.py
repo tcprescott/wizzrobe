@@ -34,9 +34,6 @@ class TelemetryRepository:
         target: Optional[str] = None,
         device: Optional[str] = None,
     ) -> TelemetryEvent:
-        # Nullable tenant: stamped from the ambient context (the event's tenant
-        # for the domain mirror, the request/page tenant for page views); None
-        # marks a platform-level row. The event is tagged the same way.
         return await TelemetryEvent.create(
             tenant_id=get_current_tenant_id(),
             event_id=get_current_event_id(),
@@ -69,8 +66,6 @@ class TelemetryRepository:
         session_id: Optional[str] = None,
         path_contains: Optional[str] = None,
     ):
-        # Scope every read/aggregate to the current tenant (None -> platform
-        # rows). Single choke point for list/count/top_* reads.
         query = TelemetryEvent.filter(tenant_id=get_current_tenant_id())
         if event_id is not None:
             query = query.filter(event_id=event_id)
@@ -130,15 +125,12 @@ class TelemetryRepository:
             user_id=user_id, session_id=session_id, path_contains=path_contains,
         ).count()
 
-    # --------------------------------------------------------------- aggregates
-
     @classmethod
     async def count_distinct_users(
         cls, *, start: Optional[datetime] = None, end: Optional[datetime] = None,
         event_id: Optional[int] = None,
     ) -> int:
-        # COUNT(DISTINCT user_id) in the DB — do not transfer the whole distinct
-        # set into Python just to len() it.
+        # Keep COUNT(DISTINCT) in the DB; don't materialize the set in Python.
         rows = await cls._filtered(start=start, end=end, event_id=event_id).filter(
             user_id__isnull=False
         ).annotate(c=Count('user_id', distinct=True)).values_list('c', flat=True)
@@ -186,8 +178,7 @@ class TelemetryRepository:
         cls, *, start: Optional[datetime] = None, end: Optional[datetime] = None,
         event_id: Optional[int] = None,
     ) -> int:
-        # COUNT(DISTINCT session_id) in the DB — the session set is unbounded
-        # over a long window, so never materialize it in Python.
+        # Keep COUNT(DISTINCT) in the DB: the session set is unbounded over a long window.
         rows = await cls._filtered(start=start, end=end, event_id=event_id).filter(
             session_id__isnull=False
         ).annotate(c=Count('session_id', distinct=True)).values_list('c', flat=True)

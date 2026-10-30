@@ -30,12 +30,7 @@ class Event:
     payload: dict[str, Any]
     actor_id: Optional[int] = None
     actor_username: Optional[str] = None
-    # The tenant this event belongs to, snapshotted at publish time. None for a
-    # platform-level event (published with no tenant context).
     tenant_id: Optional[int] = None
-    # The community event (weekend) it happened in: the one the request or
-    # worker was working in, or the event an ``event.*`` message is about.
-    # None for community-wide messages. The wire carries it as ``event``.
     event_id: Optional[int] = None
     occurred_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
 

@@ -117,7 +117,6 @@ class MatchResponse(BaseModel):
     seated_at: Optional[datetime] = Field(None, description="When the players were checked in (seated), in UTC.")
     finished_at: Optional[datetime] = Field(None, description="When the match was marked finished, in UTC.")
     comment: Optional[str] = Field(None, description="Free-text note on the match, from whoever scheduled or last edited it.")
-    # The proctor's dispute flag. Confirming clears it.
     needs_review: bool = Field(
         False,
         description=(

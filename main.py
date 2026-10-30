@@ -6,9 +6,6 @@ Initializes the database, sets up API and frontend routes, and manages applicati
 
 import time
 
-# Taken before the heavy imports below so the lifespan can report how long
-# importing the app took. A fresh container has no bytecode cache, so this phase
-# alone can run several seconds and is otherwise invisible in the log.
 _IMPORT_STARTED = time.perf_counter()
 
 import asyncio
@@ -25,10 +22,7 @@ from tortoise import Tortoise
 import api
 import frontend
 
-# Safe to import at module scope: mcpserver builds its MCPServer instance inside
-# mount(), not at import time. MCPServer.__init__ calls logging.basicConfig, which
-# would otherwise win the race against the basicConfig below and strip the log
-# format for the whole process.
+# mcpserver must not build MCPServer at import: its logging.basicConfig would beat ours.
 import mcpserver
 from api import oauth_server
 from api.openapi_docs import api_description, warm_openapi
@@ -56,9 +50,6 @@ from middleware.request_metrics import RequestMetricsMiddleware
 from middleware.security_headers import SecurityHeadersMiddleware
 from migrations.tortoise_config import DB_URL, TORTOISE_ORM
 
-# Configure application logging once, at import of the entrypoint. Without this
-# app loggers fall through to Python's lastResort handler: INFO is dropped and
-# WARNING+ has no timestamps. basicConfig is a no-op if handlers already exist.
 register_trace_level()
 logging.basicConfig(
     level=default_root_level(),
@@ -66,8 +57,7 @@ logging.basicConfig(
 )
 logger = logging.getLogger('wizzrobe.main')
 
-# Reference to the Discord bot's background task, kept so it is not garbage
-# collected and so shutdown can cancel it cleanly.
+# Hold the reference: an unreferenced task can be garbage collected.
 _bot_task: Optional[asyncio.Task] = None
 
 
@@ -218,83 +208,43 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         await _apply_stored_log_levels()
         await _load_browser_monitoring()
     with _startup_step('discord bot'):
-        # Importing discordbot registers its interaction handlers and DM view
-        # factories with discord_service's registries — the one-way wiring that
-        # replaced the old bidirectional import cycle.
         import discordbot  # noqa: F401
         await init_discord_bot()
-    # Racetime bot runtime: one long-lived connection per active RacetimeBot
-    # category. Gated by RACETIME_BOT_ENABLED (off by default) and mockable via
-    # MOCK_RACETIME; a no-op when the switch is off, so it is always safe to call.
     from racetimebot import close_racetime_bot, init_racetime_bot
     with _startup_step('racetime bot'):
         await init_racetime_bot()
     with _startup_step('background workers'):
-        # Auto-open worker: opens a racetime room ahead of each eligible scheduled
-        # match (opt-in per tournament). Runs only when the racetime runtime is on.
         from application.services import race_room_worker
         from application.utils.environment import racetime_bot_enabled
         if racetime_bot_enabled():
             race_room_worker.start()
-        # SpeedGaming ETL sync worker: polls active event links on their cadence and
-        # materializes SG episodes into Match rows. Gated by SPEEDGAMING_SYNC_ENABLED
-        # (off by default); mockable via MOCK_SPEEDGAMING.
         from application.services import speedgaming_sync_worker
         from application.utils.environment import speedgaming_sync_enabled
         if speedgaming_sync_enabled():
             speedgaming_sync_worker.start()
-        # Discord Scheduled Events reconciler: mirrors opted-in tournaments' schedules
-        # into each linked guild's Discord events. Gated by DISCORD_EVENTS_SYNC_ENABLED
-        # (off by default); uses the mock transport under MOCK_DISCORD.
         from application.services.discord import discord_event_worker
         from application.utils.environment import discord_events_sync_enabled
         if discord_events_sync_enabled():
             discord_event_worker.start()
-        # Platform external-service health monitor: periodically probes every external
-        # dependency so the /platform board is warm and alerts fire on transitions.
-        # Always on; a dependency in mock mode reports "mock" and is not contacted.
         from application.services import service_health_worker
         service_health_worker.start()
-        # Async-qualifier run expiry: forfeits runs a player drew and abandoned, after
-        # one warning. Ungated by an env switch — it only ever touches tenants that
-        # have the qualifier feature on, and a tenant without it has no runs to find.
         from application.services.async_qualifier import async_qualifier_worker
         async_qualifier_worker.start()
-        # Seed-roll polling: advances every in-flight ProviderTask, which is the only
-        # thing that finishes a task-queue roll (DK64). Ungated — with no async
-        # randomizer in use there is simply nothing in the queue to poll, and gating
-        # it would mean a restart silently stranding rolls that were already running.
+        # Leave ungated: gating it would strand rolls already in flight across a restart.
         from application.services import seed_roll_worker
         seed_roll_worker.start()
-        # Check-in roster sync: polls each open check-in event's Matcherino venue
-        # on its cadence. No env switch — it only touches events staff have opened,
-        # and skips tenants with EVENT_CHECK_IN off.
         from application.services import check_in_sync_worker
         check_in_sync_worker.start()
-        # sglive prize pools: reads sglive.speedgaming.org every 15 minutes into
-        # linked tournaments' pools. Idle until staff link one; skips tenants
-        # with PAYOUTS off.
         from application.services import sglive_pool_worker
         sglive_pool_worker.start()
-        # start.gg mirror: re-reads linked events every two minutes (no webhooks).
-        # Idle without STARTGG_API_TOKEN; skips tenants with STARTGG off.
         from application.services import startgg_sync_worker
         startgg_sync_worker.start()
-        # Challonge auto-sync: re-reads unfinished linked brackets on the interval
-        # each community picks (off by default). Skips tenants with CHALLONGE off.
         from application.services import challonge_sync_worker
         challonge_sync_worker.start()
-        # Data exports: builds queued exports one at a time (Reports → Exports)
-        # and deletes them after three days. Idle until someone asks for one.
         from application.services import data_export_worker
         data_export_worker.start()
-        # Discord roles Wizzrobe hands out: syncs a community soon after a rule
-        # change or a match/enrollment/badge event, and every 10 minutes in full.
-        # Only communities with rules; skips tenants with DISCORD_ROLE_SYNC off.
         from application.services import discord_role_sync_worker
         discord_role_sync_worker.start()
-        # Telegram bot: binds chats from profile Connect links and answers /stop.
-        # Only with a bot token, and never against a mocked Discord.
         from application.services import telegram_bot_worker
         from application.utils.clients import telegram_client
         from application.utils.mocks.mock_discord import is_mock_discord
@@ -302,30 +252,16 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
             telegram_bot_worker.start()
         discord_queue.start()
         volunteer_reminder.start()
-        # Pre-match stage reminder: DMs a stage match's players and approved crew
-        # shortly before it starts. Ungated — a community with no staged matches has
-        # nothing for it to find.
         stage_reminder.start()
-        # Community event reminders: DMs subscribers shortly before an approved
-        # event starts. Skips tenants with COMMUNITY_EVENTS off.
         from application.services import community_event_reminder
         community_event_reminder.start()
-        # Central event bus: start the async-subscriber worker and register the
-        # webhook delivery subscriber (fans published events out to staff webhooks).
         event_dispatch_queue.start()
         webhook_queue.start()
         event_bus.subscribe_async(WebhookService().deliver_event)
-        # Members' own webhooks: only the catalogue events, each checked against
-        # what the owner can see when it is sent.
         event_bus.subscribe_async(
             PersonalWebhookService().deliver_event, event_types=SUBSCRIBABLE_EVENT_TYPES,
         )
-        # Engagement telemetry: mirror every published domain event into the
-        # TelemetryEvent log (page views / interactions are captured separately from
-        # the presentation layer). No event_types filter — record them all.
         event_bus.subscribe_async(TelemetryService().record_event)
-        # The racetime room bot posts a seed that lands after its set time (an
-        # async roll, or one !forceroll asked for) the moment it's rolled.
         from application.events import EventType
         from application.services.race_room_bot_service import on_seed_rolled_event
         event_bus.subscribe_async(on_seed_rolled_event, event_types=[EventType.MATCH_SEED_ROLLED])
@@ -340,29 +276,21 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     active_users_metrics.start()
     telemetry_retention.start()
     event_retention.start()
-    # Everything alive now lives as long as the process; freezing it keeps every
-    # full collection from re-walking it (a third off each pause, SGLMAN-20/22).
     element_cycles.install()
     if env_flag('GC_FREEZE', default=True):
         logger.info('startup: froze %d objects out of garbage collection', gc_monitor.freeze())
-        # Live page trees grow every pass with each open tab; freeze what each
-        # full pass leaves so the next one skips it.
         if env_flag('GC_REFREEZE', default=True):
             thaw_minutes = float(os.environ.get('GC_THAW_MINUTES') or gc_monitor.THAW_SECONDS / 60)
             gc_monitor.refreeze_after_full_passes(asyncio.get_running_loop(), thaw_minutes * 60)
     if census_dump := os.environ.get('MEMORY_CENSUS_DUMP'):
         memory_census.dump_on_signal(census_dump)
-    # The MCP transport's session manager owns a task group that each per-request
-    # server task is started on; entering it here (and exiting it around the
-    # yield) means /mcp stops accepting calls before the workers below tear down,
-    # rather than after.
+    # Entered around the yield so /mcp stops taking calls before the workers below tear down.
     async with mcpserver.session_lifespan():
         logger.info('startup: complete in %.2fs (lifespan %.2fs)',
                     time.perf_counter() - _IMPORT_STARTED, time.perf_counter() - lifespan_started)
         yield
     try:
-        # A result or approval still inside its Undo window was meant: save it
-        # before the workers that carry its DMs and webhooks stop.
+        # Must flush before the workers that carry its DMs and webhooks stop.
         from application import pending_actions
         await pending_actions.flush_all()
         await active_users_metrics.stop()
@@ -397,8 +325,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         loop_watchdog.stop()
         await flush_sentry()
 
-# Initialize Sentry before the app/middleware are constructed so its
-# instrumentation wraps the request path. No-op when SENTRY_DSN is unset.
+# Init before the app is constructed so Sentry's instrumentation wraps the request path.
 init_sentry()
 
 app: FastAPI = FastAPI(

@@ -54,8 +54,7 @@ async def tenant_context_scope():
     finally:
         reset_tenant_id(token)
 
-# auto_error=False so a missing/malformed header yields our own 401 (FastAPI's
-# default for HTTPBearer is a 403), keeping all auth failures consistent.
+# auto_error=False so a missing header gets our 401, not HTTPBearer's default 403.
 bearer_scheme = HTTPBearer(
     auto_error=False,
     description="Personal API token generated on your profile page.",
@@ -153,15 +152,7 @@ async def resolve_token(
             headers={"WWW-Authenticate": "Bearer"},
         )
     user, token = result
-    # An OAuth token belongs to the MCP server: it is platform-wide (no tenant),
-    # and its holder consented to that surface, not to this one. Refusing it
-    # here — and refusing a PAT at /mcp — means a credential minted for one
-    # surface can never be replayed against the other.
-    #
-    # More load-bearing than it looks now that an MCP grant can carry write
-    # access: an OAuth token has tenant=NULL, and everything below this line
-    # derives the request's community from token.tenant_id. A write-capable
-    # tenant-less credential reaching that code has no community to act in.
+    # Refuse OAuth tokens here: they're tenant-less, and everything below derives the community from token.tenant_id.
     if token.origin == ApiTokenOrigin.OAUTH.value:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -169,18 +160,13 @@ async def resolve_token(
             headers={"WWW-Authenticate": "Bearer"},
         )
     _require_scope(request, token)
-    # A PAT acts within exactly one tenant: set the request tenant context from
-    # it (the token was resolved globally, before any context existed), so the
-    # same tenant-aware service checks the web UI uses apply here.
     tenant = await TenantService.get_by_id(token.tenant_id)
     if tenant is None or not tenant.is_active:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="This tenant is inactive",
         )
-    # Removal revokes a member's tokens, but a token can outlive membership by
-    # other routes (removed before that existed, a super-admin who lost the
-    # role), so the check that decides it runs on every request.
+    # Not redundant with revoke-on-removal: a token can outlive membership other ways.
     if not await TenantService.is_member(user.id, tenant.id) and not await AuthService.is_super_admin(user):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -191,16 +177,8 @@ async def resolve_token(
         await _ensure_app_grant_usable(token)
         if token.oauth_app_id is not None:
             enforce_app_limit(token.oauth_app_id)
-    # The community's default event. Event-owned routers override it from
-    # ``?event=`` or the row the call is about (``event_binding``).
     set_event_id(await EventService.default_event_id(tenant.id), tenant.id)
-    # Read back by ServiceErrorRoute to attribute the request in usage telemetry.
     request.state.api_actor = (user, token)
-    # REST responses stay UTC — timezone is a presentation concern and a
-    # programmatic client should get one canonical instant. But a few endpoints
-    # accept or derive a calendar *date*, and a date has no meaning without a
-    # zone; those resolve on the community's clock, matching what its members
-    # see, rather than silently on UTC's.
     set_timezone_name(await TimezoneService.tenant_timezone_name(tenant.id))
     return user, token
 
@@ -423,8 +401,7 @@ async def _record_api_call(request: Request, route: APIRoute, status_code: int) 
     if resolved is None:
         return
     user, token = resolved
-    # main.py mounts the API at /api; FastAPI includes routers lazily, so no
-    # route object here carries that prefix.
+    # Routers carry no /api prefix (main.py mounts it there), so add it here.
     template = f"/api{route.path_format}"
     with tenant_scope(token.tenant_id):
         await TelemetryService().track_api_call(

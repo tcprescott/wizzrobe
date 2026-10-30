@@ -17,9 +17,6 @@ from models import Match, User
 
 T = TypeVar("T", bound=Model)
 
-#: How long past its start an unfinished match still counts as upcoming crew
-#: work. Longer than any match runs late; shorter than a day, so a row nobody
-#: closed out yesterday does not sit at the top of today's list.
 STALE_UNFINISHED = timedelta(hours=12)
 
 

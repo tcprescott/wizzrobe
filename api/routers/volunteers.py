@@ -41,15 +41,11 @@ router = APIRouter(
 )
 
 
-# --- response builders ----------------------------------------------------
-
 _assignment_resp = VolunteerAssignmentResponse.from_row
 
 
 _shift_resp = VolunteerShiftResponse.from_row
 
-
-# --- Positions ------------------------------------------------------------
 
 @router.get(
     "/positions",
@@ -113,8 +109,6 @@ async def delete_position(position_id: int, actor: User = Depends(require_write_
     await service.delete(actor, position)
 
 
-# --- Shifts ---------------------------------------------------------------
-
 @router.get(
     "/shifts",
     response_model=List[VolunteerShiftResponse],
@@ -162,7 +156,6 @@ async def get_shift(shift_id: int, actor: User = Depends(require_api_actor)):
 async def create_shift(payload: VolunteerShiftCreate, actor: User = Depends(require_write_actor)):
     service = VolunteerScheduleService()
     shift = await service.create_shift(actor, **payload.model_dump())
-    # create_shift has already required can_manage_volunteers.
     return _shift_resp(require_found(await service.get_shift(shift.id), "Shift"), include_drafts=True)
 
 
@@ -202,8 +195,6 @@ async def delete_shift(shift_id: int, actor: User = Depends(require_write_actor)
     await service.delete_shift(actor, shift)
 
 
-# --- Assignments ----------------------------------------------------------
-
 @router.post(
     "/shifts/{shift_id}/assignments",
     response_model=AssignResponse,
@@ -219,7 +210,7 @@ async def assign(shift_id: int, payload: AssignRequest, actor: User = Depends(re
     shift = require_found(await service.get_shift(shift_id), "Shift")
     target = await load_community_user_or_404(payload.user_id, actor)
     assignment, warnings = await service.assign(actor, shift, target)
-    assignment.user = target  # for the response name
+    assignment.user = target
     return AssignResponse(assignment=_assignment_resp(assignment), warnings=warnings)
 
 
@@ -322,8 +313,6 @@ async def call_off_shift(
     return [_assignment_resp(a) for a in done]
 
 
-# --- Coverage -------------------------------------------------------------
-
 @router.get(
     "/coverage",
     response_model=List[CoverageRow],
@@ -340,8 +329,6 @@ async def coverage(
 ):
     return await VolunteerScheduleService().coverage_for_viewer(actor, start, end)
 
-
-# --- Hours ----------------------------------------------------------------
 
 def _hours_resp(summary) -> VolunteerHoursResponse:
     return VolunteerHoursResponse(
@@ -388,8 +375,6 @@ async def my_hours(
 ):
     return _hours_resp(await VolunteerHoursService().for_user(actor, start=start, end=end))
 
-
-# --- Self-service: availability, assignments ---------------------
 
 @router.get(
     "/me/availability",

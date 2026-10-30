@@ -10,17 +10,10 @@ class Role(str, Enum):
     VOLUNTEER_COORDINATOR = 'volunteer_coordinator'
     EQUIPMENT_MANAGER = 'equipment_manager'
     VOLUNTEER = 'volunteer'
-    # Works the event check-in desk: checks people in, links registrants to
-    # accounts, runs a sync. Walk-ups and event setup stay STAFF-only.
     CHECK_IN_DESK = 'check_in_desk'
-    # Online-tournament admin surfaces (see docs/online-tournaments). Each gates a
-    # new subsystem's management UI/worker actions the way STAFF does the rest.
     PRESET_MANAGER = 'preset_manager'
     SYNC_ADMIN = 'sync_admin'
     QUALIFIER_ADMIN = 'qualifier_admin'
-    # Global platform role: manages tenants on the /platform surface. Its
-    # UserRole rows carry tenant=NULL (the only role that may) and stay visible
-    # inside any tenant request. Not grantable per-tenant.
     SUPER_ADMIN = 'super_admin'
 
     @property
@@ -101,11 +94,6 @@ class TournamentGrant(str, Enum):
     CREW_COORDINATOR = 'crew_coordinator'
 
 
-# Sentinel ``discord_id`` for the reserved system :class:`User` that automation
-# (workers, racetime/Discord bot handlers, ETL, qualifier scoring) acts as. A
-# real snowflake is always a large positive integer, so ``0`` can never collide
-# with a genuine Discord account. The row is marked ``is_system`` and resolved
-# via ``UserService.get_system_user()``.
 SYSTEM_USER_DISCORD_ID = 0
 
 
@@ -187,9 +175,9 @@ class BracketMatchState(str, Enum):
     scheduled into a ``Match``, ``COMPLETE`` once a winner is recorded.
     """
 
-    PENDING = 'pending'   # one or both entries not yet determined
-    OPEN = 'open'         # both entries known; playable / schedulable
-    COMPLETE = 'complete' # winner recorded
+    PENDING = 'pending'
+    OPEN = 'open'
+    COMPLETE = 'complete'
 
 
 class BracketMatchGameState(str, Enum):
@@ -202,9 +190,9 @@ class BracketMatchGameState(str, Enum):
     never played.
     """
 
-    SCHEDULED = 'scheduled' # linked to a Match, not yet decided
-    COMPLETE = 'complete'   # winner recorded
-    CANCELLED = 'cancelled' # never played (series clinched, or staff override)
+    SCHEDULED = 'scheduled'
+    COMPLETE = 'complete'
+    CANCELLED = 'cancelled'
 
 
 class BracketEntrantStatus(str, Enum):
@@ -417,10 +405,6 @@ class StationFormat(str, Enum):
     ALPHANUMERIC = 'alphanumeric'
 
 
-# The pattern each StationFormat enforces on a station label. Lives beside the
-# enum as the single definition: both the service that validates an assignment
-# and the dialog that pre-validates the field need it, and they are on opposite
-# sides of the presentation/service boundary.
 STATION_REGEXES = {
     StationFormat.FREE:         re.compile(r'^.{0,50}$'),
     StationFormat.NUMERIC:      re.compile(r'^\d+$'),
@@ -494,17 +478,17 @@ class RescheduleRequestStatus(str, Enum):
 class ChallongeMatchState(str, Enum):
     """Mirrors Challonge's match states relevant to scheduling."""
 
-    PENDING = 'pending'   # participants not yet fully determined
-    OPEN = 'open'         # both participants known and ready to play
-    COMPLETE = 'complete' # result recorded on Challonge
+    PENDING = 'pending'
+    OPEN = 'open'
+    COMPLETE = 'complete'
 
 
 class StartggSetState(str, Enum):
     """A mirrored start.gg set, reduced to what scheduling needs."""
 
-    PENDING = 'pending'    # an entrant is still to be decided
-    OPEN = 'open'          # both entrants known, no result yet
-    COMPLETE = 'complete'  # result recorded on start.gg
+    PENDING = 'pending'
+    OPEN = 'open'
+    COMPLETE = 'complete'
 
 
 class BotStatus(str, Enum):
@@ -550,11 +534,11 @@ class SyncStatus(str, Enum):
     bare member (which repr's as ``SyncStatus.SYNCED``).
     """
 
-    PENDING = 'pending'      # discovered upstream, not yet materialized
-    SYNCED = 'synced'        # materialized/refreshed into a Match this cycle
-    SKIPPED = 'skipped'      # a lifecycle guard held the refresh back
-    CANCELLED = 'cancelled'  # upstream episode gone; the Match soft-detached
-    ERROR = 'error'          # transform/load failed (see ``sync_error``)
+    PENDING = 'pending'
+    SYNCED = 'synced'
+    SKIPPED = 'skipped'
+    CANCELLED = 'cancelled'
+    ERROR = 'error'
 
 
 class DiscordEventSource(str, Enum):
@@ -581,7 +565,6 @@ class StaffRequestKind(str, Enum):
     ADA_REQUEST = 'ada_request'
     JOIN_REQUEST = 'join_request'
     RESCHEDULE_REQUEST = 'reschedule_request'
-    # Each crew role's signups live in their own table, so their ids overlap.
     COMMENTATOR_SIGNUP = 'commentator_signup'
     TRACKER_SIGNUP = 'tracker_signup'
     BROADCASTER_SIGNUP = 'broadcaster_signup'
@@ -644,14 +627,14 @@ class MembershipSource(str, Enum):
     rows from before it was recorded.
     """
 
-    STAFF = 'staff'                          # Add Member, Add User, /platform bootstrap
-    JOIN_REQUEST = 'join_request'            # an approved join request
-    DISCORD_AUTO_JOIN = 'discord_auto_join'  # in the linked Discord server
-    OPEN = 'open'                            # signed in while membership was open
-    ROLE_GRANT = 'role_grant'                # a role granted by staff
-    DISCORD_ROLE = 'discord_role'            # a role from the Discord role sync
-    IMPORT = 'import'                        # the SpeedGaming import
-    DISCORD_IMPORT = 'discord_import'        # Admin → Users › Import from Discord
+    STAFF = 'staff'
+    JOIN_REQUEST = 'join_request'
+    DISCORD_AUTO_JOIN = 'discord_auto_join'
+    OPEN = 'open'
+    ROLE_GRANT = 'role_grant'
+    DISCORD_ROLE = 'discord_role'
+    IMPORT = 'import'
+    DISCORD_IMPORT = 'discord_import'
 
 
 class JoinRequestStatus(str, Enum):
@@ -749,9 +732,7 @@ class NotificationRecipient(str, Enum):
     WATCHERS = 'watchers'
     FOLLOWERS = 'followers'
     VOLUNTEERS = 'volunteers'
-    # Whoever holds a shift with staff alerts on right now (the Admin Desk).
     ON_DUTY = 'on_duty'
-    # The admins or coordinators of the thing the message is about.
     ADMINS = 'admins'
     STAFF = 'staff'
     MEMBERS = 'members'
@@ -792,8 +773,6 @@ class DataExportKind(str, Enum):
 
     TOURNAMENTS = 'tournaments'
     VOLUNTEERS = 'volunteers'
-    # A table's "Export CSV" button: the rows were already on screen, so it
-    # downloads at once and is only recorded here (status READY on creation).
     TABLE_CSV = 'table_csv'
 
 

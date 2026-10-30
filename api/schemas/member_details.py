@@ -82,7 +82,6 @@ class MemberDetailsResponse(BaseModel):
     channels: ChannelsInfo
     preset: str = Field(..., description="Their notification preset: `everything`, `needs_me` or `quiet`.")
     notifications: List[NoticeInfo] = Field(..., description="Every message that can reach them here.")
-    # Built from dicts so the MCP twin can swap in its own message model.
     recent_messages: List[SentMessageEntry] = Field(..., description="The last DMs sent to them here, newest first.")
     upcoming_matches: List[UpcomingMatchInfo]
     upcoming_shifts: Optional[List[UpcomingShiftInfo]] = Field(

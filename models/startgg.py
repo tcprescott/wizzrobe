@@ -22,13 +22,10 @@ class StartggEntrant(Model):
     startgg_user_id = fields.CharField(max_length=64, null=True)
     discord_id = fields.CharField(max_length=64, null=True)
     user = fields.ForeignKeyField('models.User', related_name='startgg_entries', null=True, on_delete=fields.SET_NULL)
-    # Set when staff chose ``user`` by hand (or confirmed a suggestion). Sync
-    # never overwrites it.
     user_assigned_manually = fields.BooleanField(default=False)
     suggested_user = fields.ForeignKeyField(
         'models.User', related_name='startgg_suggestions', null=True, on_delete=fields.SET_NULL,
     )
-    # Staff said the suggestion is someone else; sync stops offering it.
     suggestion_dismissed = fields.BooleanField(default=False)
     created_at = fields.DatetimeField(auto_now_add=True)
     updated_at = fields.DatetimeField(auto_now=True)
@@ -97,10 +94,8 @@ class StartggSet(Model):
     state = fields.CharEnumField(StartggSetState, default=StartggSetState.PENDING, max_length=16)
     entrant1 = fields.ForeignKeyField('models.StartggEntrant', related_name='sets_as_1', null=True, on_delete=fields.SET_NULL)
     entrant2 = fields.ForeignKeyField('models.StartggEntrant', related_name='sets_as_2', null=True, on_delete=fields.SET_NULL)
-    # What fills an empty slot, e.g. "Winner of B", shown until it's decided.
     slot1_label = fields.CharField(max_length=64, null=True)
     slot2_label = fields.CharField(max_length=64, null=True)
-    # The set whose result fills each empty slot.
     slot1_prereq = fields.CharField(max_length=64, null=True)
     slot2_prereq = fields.CharField(max_length=64, null=True)
     winner = fields.ForeignKeyField('models.StartggEntrant', related_name='sets_won', null=True, on_delete=fields.SET_NULL)

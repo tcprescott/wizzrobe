@@ -66,22 +66,13 @@ def start_transport(mcp: MCPServer) -> None:
     Every call mints a fresh manager, whose ``run()`` may be entered once.
     """
     mcp.streamable_http_app(
-        # CORRECTNESS, not scaling. In stateful mode the MCP server task is
-        # spawned once per session and snapshots the context of whichever request
-        # created it — so a second request on that session would run tools under
-        # the first request's identity. Stateless mode spawns a task per HTTP
-        # request, which inherits that request's actor. Do not change this.
+        # Do not change: stateful mode runs a session's later requests under the first request's identity.
         stateless_http=True,
-        # Plain JSON responses instead of SSE. The app's BaseHTTPMiddleware stack
-        # (security headers, fun facts) wraps /mcp, and BaseHTTPMiddleware around
-        # a long-lived SSE stream is a known source of hangs on client disconnect.
+        # JSON, not SSE: BaseHTTPMiddleware around a long-lived SSE stream hangs on client disconnect.
         json_response=True,
-        # We serve the path ourselves from mcpserver/__init__.py; leaving this at
-        # its '/mcp' default would put the real endpoint at '/mcp/mcp'.
+        # We serve the path ourselves; the '/mcp' default would put the endpoint at '/mcp/mcp'.
         streamable_http_path='/',
-        # Off because TLS and Host both terminate at the reverse proxy. The
-        # default would auto-enable it (host defaults to 127.0.0.1) and then
-        # reject every production request with 421 Invalid Host header.
+        # Off: TLS and Host terminate at the proxy, and the default rejects every production request with 421.
         transport_security=TransportSecuritySettings(
             enable_dns_rebinding_protection=False,
         ),

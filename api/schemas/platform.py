@@ -19,9 +19,6 @@ _DOMAIN = "Custom domain the community is served on, such as `example.com`. No s
 _GUILD = "Discord server id. One server may back several communities."
 
 
-# --- Communities --------------------------------------------------------------
-
-
 class SetupStepResponse(BaseModel):
     key: str = Field(..., description="Stable id of the step, such as `staff` or `tournament`.")
     label: str = Field(..., description="What the step asks for.")
@@ -96,9 +93,6 @@ class StaffGrantRequest(BaseModel):
     user_id: int = Field(..., description="Id of the account to make Staff, from `GET /platform/users`.")
 
 
-# --- Feature availability -----------------------------------------------------
-
-
 class CommunityFeatureResponse(BaseModel):
     flag: str = Field(..., description="Feature key, such as `volunteers`.")
     label: str = Field(..., description="Human-readable name.")
@@ -152,9 +146,6 @@ class FeatureGroupUpdateRequest(BaseModel):
     )
 
 
-# --- Accounts -----------------------------------------------------------------
-
-
 class PlatformUserResponse(BaseModel):
     id: int = Field(..., description="User id.")
     username: str = Field(..., description="Discord username, or sign-in name for a password-only account.")
@@ -178,9 +169,6 @@ class PlatformUserResponse(BaseModel):
 
 class UserActivationRequest(BaseModel):
     is_active: bool = Field(..., description="`false` signs the account out everywhere and blocks sign-in; `true` restores it.")
-
-
-# --- Log levels ---------------------------------------------------------------
 
 
 class LogLevelResponse(BaseModel):

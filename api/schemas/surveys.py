@@ -313,9 +313,6 @@ class QuestionUpdateRequest(BaseModel):
     conditions: Optional[List[SurveyConditionModel]] = Field(None, description="Send `[]` to always show it.")
 
 
-# Built from service results by both the REST router and the MCP tools, so the
-# two surfaces return the same shapes.
-
 def conditions_out(entries: Optional[List[Dict[str, Any]]]) -> List[SurveyConditionModel]:
     return [SurveyConditionModel(**e) for e in entries or []]
 

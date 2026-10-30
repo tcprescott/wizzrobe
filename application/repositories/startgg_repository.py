@@ -34,9 +34,6 @@ from models import (
 class StartggRepository:
     """Repository for the start.gg mirror. Every mirror model is tenant-scoped."""
 
-    # ------------------------------------------------------------------
-    # Tournament link
-    # ------------------------------------------------------------------
     @staticmethod
     async def set_event_link(
         tournament: Tournament, event_id: Optional[str], slug: Optional[str], name: Optional[str],
@@ -75,9 +72,6 @@ class StartggRepository:
         rows = await Tournament.filter(startgg_event_slug__isnull=False).values_list('tenant_id', flat=True)
         return set(cast(List[int], rows))
 
-    # ------------------------------------------------------------------
-    # The community's start.gg sign-in
-    # ------------------------------------------------------------------
     @staticmethod
     async def get_connection() -> Optional[StartggConnection]:
         return await scoped(StartggConnection.all()).first()
@@ -106,9 +100,6 @@ class StartggRepository:
     async def clear_connection() -> int:
         return await scoped(StartggConnection.all()).delete()
 
-    # ------------------------------------------------------------------
-    # Identity lookups (global: users are not tenant-scoped)
-    # ------------------------------------------------------------------
     @staticmethod
     async def users_by_startgg_ids(ids: Iterable[Optional[str]]) -> Dict[str, User]:
         wanted = list({i for i in ids if i})
@@ -149,9 +140,6 @@ class StartggRepository:
                     found.setdefault(key, []).append(user)
         return found
 
-    # ------------------------------------------------------------------
-    # Entrants
-    # ------------------------------------------------------------------
     @staticmethod
     async def list_entrants(tournament: Tournament) -> List[StartggEntrant]:
         return await scoped(StartggEntrant.filter(tournament=tournament)).prefetch_related(
@@ -204,9 +192,6 @@ class StartggRepository:
         rows = await scoped(StartggEntrant.filter(user=user)).values_list('tournament_id', flat=True)
         return set(cast(List[int], rows))
 
-    # ------------------------------------------------------------------
-    # Phases, pools, sets
-    # ------------------------------------------------------------------
     @staticmethod
     async def upsert_phase(tournament: Tournament, phase_id: str, **values: Any) -> StartggPhase:
         phase, created = await StartggPhase.get_or_create(

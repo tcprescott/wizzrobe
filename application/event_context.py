@@ -38,7 +38,6 @@ from tortoise.queryset import QuerySet
 from application.tenant_context import client_stash, get_current_tenant_id, require_tenant_id
 from models.enums import EventStatus
 
-#: ``(tenant_id, event_id)``: the event and the community it was bound in.
 _event_id_var: ContextVar[Optional[Tuple[Optional[int], int]]] = ContextVar(
     'wizzrobe_event_id', default=None,
 )

@@ -67,14 +67,10 @@ VENUE_URL = f'{MATCHERINO_API}/bounties/findById'
 LOGIN_SETTING = 'the saved Matcherino login (Admin → Check-in)'
 MAX_REFRESH_TOKEN_LENGTH = 512
 REQUEST_TIMEOUT_SECONDS = 20
-# Re-mint the access token this long before Matcherino says it expires, so a
-# sync never starts with a token that dies halfway through.
 TOKEN_EXPIRY_MARGIN_SECONDS = 300
 USER_AGENT = 'Wizzrobe event check-in'
 
-# The purchase fields kept as CheckInPass.source_data. An allowlist, so the
-# buyer's name, email, phone and address never reach our database even if the
-# venue starts requiring them.
+# An allowlist: buyer name, email, phone and address must never reach our database.
 _PURCHASE_KEEP = (
     'id', 'passId', 'userId', 'venueId', 'code', 'purchasedAt', 'refundedAt',
     'completed', 'sourceType', 'entries', 'bountyAttachments',
@@ -275,10 +271,7 @@ def _unwrap(payload: Any, what: str) -> Any:
     return payload['body']
 
 
-# Access tokens are cached per login for the whole process, keyed by a hash of
-# the refresh token so that replacing a community's login misses the cache and
-# two communities never share a token. The lock stops two syncs on the same
-# login minting at once.
+# Keyed by a hash of the refresh token, so communities never share a token and a replaced login misses.
 _tokens: Dict[str, Tuple[str, float]] = {}
 _token_locks: Dict[str, asyncio.Lock] = {}
 
@@ -367,8 +360,7 @@ class MatcherinoClient:
             headers['x-mno-auth'] = f'Bearer {token}'
         content = None
         if body is not None:
-            # The web app posts JSON as text/plain; match it rather than find out
-            # what else the endpoint tolerates.
+            # Keep text/plain: it's what Matcherino's own web app sends.
             headers['Content-Type'] = 'text/plain;charset=UTF-8'
             content = json.dumps(body)
         try:
@@ -426,8 +418,6 @@ class MatcherinoClient:
         token = await self._access_token(client) if auth else None
         resp, payload = await self._send(client, method, url, params=params, body=body, token=token)
         if auth and _is_auth_failure(resp, payload):
-            # The cached token may have been revoked early: mint once more, then
-            # believe Matcherino.
             token = await self._access_token(client, force=True)
             resp, payload = await self._send(client, method, url, params=params, body=body, token=token)
             if _is_auth_failure(resp, payload):
@@ -582,26 +572,10 @@ def mock_purchase(
     }
 
 
-# The MOCK_MATCHERINO sales, which ``scripts/seed_check_in.py`` also syncs into
-# the dev database, so pressing Sync in dev fetches exactly what was seeded.
-# Each buyer is lined up with a seeded fixture so a real sync produces every
-# link method (``tests/test_seed_coverage.py`` checks they all appear):
-#
-# * jemgold / blueshell / ridgeline carry the user ids from the handles the
-#   payouts seed gives player_one/two/four — the handle rule;
-# * DiscordRacer's authId is racer_06's derived fixture Discord id
-#   (``seed_support.fixture_discord_id``; a seed test pins the value) — Discord;
-# * MockTwitch's authId is the Twitch id the seed puts on racer_07 — Twitch id;
-# * Racer Five's userId is the Matcherino id the seed puts on racer_05 — the
-#   remembered-account rule;
-# * Player Three is linked by hand in the seed; the rest stay unlinked.
-#
-# The sales cover what the desk shows: every badge type, a buyer holding two
-# badges (MockTwitch), and a refunded badge (Refund Requester, withdrawn).
+# Each buyer lines up with a seeded fixture; tests/test_seed_coverage.py checks every link method appears.
 MOCK_DISCORD_RACER_ID = '100000000073811948'
 MOCK_TWITCH_RACER_ID = '555000222'
 MOCK_REMEMBERED_ID = 900005
-# The account a saved login reports under MOCK_MATCHERINO, whatever was pasted.
 MOCK_LOGIN_ACCOUNT_ID = '900000'
 
 MOCK_TIERS: List[Dict[str, Any]] = [

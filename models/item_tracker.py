@@ -26,15 +26,10 @@ class ItemTrackerBoard(Model):
         'models.User', related_name='item_tracker_boards', on_delete=fields.CASCADE
     )
     runner_id: int
-    # ``{key: level}``; a key that is absent is level 0.
     state = fields.JSONField(default=dict)  # type: ignore[var-annotated]
-    # Null reads the dungeon-item mode from the match's seed; a value overrides
-    # it, for a seed rolled outside Wizzrobe.
     dungeon_items = fields.CharField(max_length=16, null=True)
     delay_seconds = fields.IntField(default=0)
-    # The OBS browser-source link carries this instead of a session.
     overlay_token = fields.CharField(max_length=64, unique=True)
-    # Bumped on every write so open views repaint only when something changed.
     version = fields.IntField(default=0)
     created_at = fields.DatetimeField(auto_now_add=True)
     updated_at = fields.DatetimeField(auto_now=True)
@@ -57,7 +52,6 @@ class ItemTrackerChange(Model):
         'models.ItemTrackerBoard', related_name='changes', on_delete=fields.CASCADE
     )
     board_id: int
-    # SET_NULL: a departed tracker's marks still explain the board.
     actor: fields.ForeignKeyNullableRelation = fields.ForeignKeyField(
         'models.User', related_name='item_tracker_changes', null=True, on_delete=fields.SET_NULL
     )
@@ -65,7 +59,6 @@ class ItemTrackerChange(Model):
     key = fields.CharField(max_length=32)
     before = fields.IntField()
     after = fields.IntField()
-    # Set on a change someone took back; the take-back is a change of its own.
     undone = fields.BooleanField(default=False)
     is_undo = fields.BooleanField(default=False)
     created_at = fields.DatetimeField()

@@ -14,7 +14,6 @@ from models import User
 router = APIRouter(prefix="/audit-logs", tags=["Audit"], route_class=ServiceErrorRoute)
 
 
-# Shared with the MCP audit tool so both surfaces decode details identically.
 _decode_details = decode_json_details
 
 

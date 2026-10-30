@@ -66,8 +66,6 @@ class SurveyRepository(EventScopedRepository[Survey]):
         """Every open survey in the community, across events (cross-event: closing sweeps them)."""
         return await scoped(Survey.filter(status=SurveyStatus.OPEN))
 
-    # --- sections -------------------------------------------------------
-
     @staticmethod
     async def get_section(section_id: int) -> Optional[SurveySection]:
         return await SurveySection.get_or_none(id=section_id, tenant_id=current_tenant_id())
@@ -90,8 +88,6 @@ class SurveyRepository(EventScopedRepository[Survey]):
     async def set_section_positions(order: Dict[int, int]) -> None:
         for section_id, position in order.items():
             await guarded_update(scoped(SurveySection.filter(id=section_id)), position=position)
-
-    # --- questions ------------------------------------------------------
 
     @staticmethod
     async def get_question(question_id: int) -> Optional[SurveyQuestion]:
@@ -131,8 +127,6 @@ class SurveyRepository(EventScopedRepository[Survey]):
         return await scoped(SurveyQuestion.filter(section__survey_id=survey_id)).order_by(
             'section__position', 'section_id', 'position', 'id',
         )
-
-    # --- recipients -----------------------------------------------------
 
     @staticmethod
     async def add_recipients(survey: Survey, facts_by_user: Dict[int, dict]) -> int:
@@ -218,8 +212,6 @@ class SurveyRepository(EventScopedRepository[Survey]):
         return await scoped(SurveyRecipient.filter(
             user_id=user_id, submitted_at__isnull=True, survey__status=SurveyStatus.OPEN,
         )).prefetch_related('survey')
-
-    # --- responses ------------------------------------------------------
 
     @staticmethod
     async def draft_for(survey_id: int, user_id: int) -> Optional[SurveyResponse]:
@@ -320,8 +312,6 @@ class SurveyRepository(EventScopedRepository[Survey]):
         )).prefetch_related('response')
 
 
-    # --- comments inbox ---------------------------------------------------
-
     @staticmethod
     async def comment_tags(survey_id: int) -> List[SurveyCommentTag]:
         return await scoped(SurveyCommentTag.filter(survey_id=survey_id)).order_by('position', 'id')
@@ -359,8 +349,6 @@ class SurveyRepository(EventScopedRepository[Survey]):
         )
         return mark if created or not fields else await cls.update(mark, **fields)
 
-
-    # --- AI suggestions ---------------------------------------------------
 
     @staticmethod
     async def create_suggestion_batch(survey: Survey, section: SurveySection, **fields: Any) -> SurveySuggestionBatch:

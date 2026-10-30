@@ -43,11 +43,9 @@ logger = logging.getLogger(__name__)
 
 T = TypeVar('T')
 
-# Per-attempt ceiling. Generous because an ALTTPR customizer roll genuinely takes
-# tens of seconds under load — this bounds a *hang*, not a slow success.
+# Bounds a hang, not a slow success: ALTTPR rolls take tens of seconds under load.
 PROVIDER_TIMEOUT_SECONDS = 60.0
 PROVIDER_MAX_ATTEMPTS = 3
-# Backoff before attempts 2 and 3. Short on purpose: someone is waiting.
 PROVIDER_BACKOFF_SECONDS = (1.0, 2.0)
 
 
@@ -184,7 +182,6 @@ def _classify(
 ) -> Optional[_Classified]:
     """Normalize an attempt's failure — ``None`` when it is not ours to classify."""
     if isinstance(exc, SeedProviderError):
-        # Already normalized — a provider helper raised it deliberately.
         retryable = isinstance(
             exc, (SeedProviderTimeout, SeedProviderUnavailable, SeedProviderRateLimited)
         )
@@ -194,9 +191,7 @@ def _classify(
     if isinstance(exc, asyncio.TimeoutError):
         return _Classified(
             SeedProviderTimeout(
-                # The budget this call actually ran under, not the module default:
-                # DK64R's is minutes, and telling its user "60 seconds" would be
-                # a wrong number in the one message meant to explain the wait.
+                # Use the budget this call ran under, not the module default (DK64R's is minutes).
                 f'{provider} did not respond within '
                 f'{int(attempt_timeout)} seconds.',
                 provider=provider, operation=operation, attempts=attempts,
@@ -221,10 +216,7 @@ def _classify(
         )
 
     if isinstance(exc, ValueError):
-        # Includes the generators' own "returned no seed identifier" guards and
-        # aiohttp's ContentTypeError (a JSON parse of an HTML error page). These
-        # are already written to be read by a person. Deliberately terminal: the
-        # payload is wrong, not the moment.
+        # Deliberately terminal: the payload is wrong, not the moment.
         return _Classified(
             SeedProviderBadResponse(
                 str(exc) or f'{provider} returned an unexpected response.',
@@ -234,11 +226,7 @@ def _classify(
             retryable=False,
         )
 
-    # Anything else is a failure this contract does not understand, and inventing
-    # a user-facing sentence for it would leak an internal exception name into a
-    # notification while claiming to have classified something it hasn't. Let it
-    # propagate unchanged: the caller's own handler logs the traceback and shows
-    # the deliberately generic "check the server logs" message.
+    # Unknown failures propagate unchanged; don't invent a user-facing sentence for them.
     return None
 
 
@@ -271,15 +259,13 @@ async def call_provider(
             value = await asyncio.wait_for(fn(), timeout=attempt_timeout)
         except asyncio.CancelledError:
             raise
-        # Broad by design: every failure is classified below, and anything this
-        # contract does not recognise is re-raised untouched.
+        # Broad by design: anything unrecognised is re-raised untouched.
         except BaseException as exc:
             classified = _classify(
                 exc, provider=provider, operation=operation, attempts=attempts,
                 attempt_timeout=attempt_timeout,
             )
             if classified is None:
-                # Not a failure mode this contract covers — the caller sees it raw.
                 logger.warning(
                     'seed provider %s/%s attempt %d raised an unclassified %s',
                     provider, operation, attempts, type(exc).__name__,
@@ -306,7 +292,7 @@ async def call_provider(
             attempts=attempts, latency_ms=latency_ms, surface=surface,
         )
 
-    assert last is not None  # the loop only exits via success or a classified failure
+    assert last is not None
     last.error.attempts = attempts
     logger.error(
         'seed provider %s/%s failed after %d attempt(s): %s',
@@ -326,8 +312,7 @@ async def raise_for_status(resp: aiohttp.ClientResponse, *, provider: str, opera
         return
     try:
         body = await resp.text()
-    # The status is the finding; the body is a bonus, so failing to read it must
-    # not replace a clear "provider returned 503" with a decoding error.
+    # Failing to read the body must not replace a clear status with a decoding error.
     except Exception:
         body = ''
     raise _status_error(

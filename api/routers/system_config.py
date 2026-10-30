@@ -24,8 +24,6 @@ router = APIRouter(prefix="/config", tags=["System Config"], route_class=Service
     ),
 )
 async def list_config(actor: User = Depends(require_staff)):
-    # The community's rows plus the default event's own settings (capacity,
-    # hours, dates…), which live on the event now.
     return [ConfigEntryResponse(name=name, value=value) for name, value in await SystemConfigService.list_entries(actor)]
 
 

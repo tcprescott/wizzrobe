@@ -23,7 +23,6 @@ from typing import Any, Dict, Optional
 
 from sentry_sdk import metrics as _metrics
 
-#: How often the sampler sends the process gauges.
 SAMPLE_SECONDS = 30.0
 
 _enabled = False

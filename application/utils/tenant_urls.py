@@ -18,7 +18,6 @@ from application.utils.hostname import normalize_hostname, scheme_for_host
 # Routes that must never be used as a post-login return target (they would loop).
 AUTH_ROUTES: tuple[str, ...] = ('/login', '/logout', '/oauth/callback', '/login/discord', '/password-login')
 
-# A return path is a URL a person was looking at; anything longer is not one.
 _MAX_RETURN_PATH = 2048
 
 

@@ -34,8 +34,6 @@ from mcpserver.schemas import (
 )
 from mcpserver.tools._args import window as _window
 
-# A scheduling question asks about a squad, not a census. The cap keeps one call
-# from turning into a whole-community availability dump.
 MAX_AVAILABILITY_USERS = 50
 
 
@@ -57,8 +55,6 @@ async def list_users(
         except ValueError as exc:
             valid = ', '.join(r.value for r in Role)
             raise ValueError(f"Unknown role '{role}'. Valid roles: {valid}") from exc
-    # The community's members, not the platform's user table — a session
-    # resolves one tenant and every other tool here is community-scoped.
     users = await UserService().get_community_people(role=parsed, has_discord=has_discord)
     return [UserSummary.model_validate(u, from_attributes=True) for u in users]
 
@@ -75,13 +71,10 @@ async def get_user(
     actor = current_actor()
     if user_id != actor.user.id and not await AuthService.is_staff(actor.user):
         raise PermissionError('Staff access required to view another user')
-    # Scoped, like `list_users` above and the REST route this mirrors: `User` is
-    # global, so a bare id lookup let staff of any one community read every
-    # account on the platform by counting upwards.
+    # Must stay community-scoped: User is global, so a bare id lookup would expose every account.
     user = await load_community_user_or_404(user_id, actor.user)
     roles = await AuthService.get_roles(user)
-    # Built field by field: `User.roles` is the ORM's reverse relation, which
-    # `from_attributes` would try (and fail) to read as the list of role names.
+    # Build field by field: from_attributes would read the User.roles reverse relation as role names.
     return UserDetail(
         **UserSummary.model_validate(user, from_attributes=True).model_dump(),
         roles=sorted(r.value for r in roles),
@@ -186,8 +179,7 @@ async def get_player_availability(
         raise ValueError(
             f'user_ids is limited to {MAX_AVAILABILITY_USERS} players per call'
         )
-    # Staff-or-self first, so a player naming strangers learns nothing about
-    # who belongs here; the membership check then keeps staff inside the wall.
+    # Staff-or-self check first, so naming strangers reveals nothing about membership.
     windows_by_user = await PlayerAvailabilityService().availability_map_as(
         wanted, start_dt, end_dt, actor=actor.user,
     )

@@ -41,8 +41,6 @@ from mcpserver.schemas import (
 from mcpserver.tools.platform import account_row, bot_row, community_detail, group_rows
 from models import FeatureFlag
 
-# --- communities --------------------------------------------------------------
-
 
 async def platform_create_community(
     name: str,
@@ -122,9 +120,6 @@ async def platform_grant_community_staff(community: str, user_id: int) -> List[U
     tenant = await PlatformAdminService().find_community(actor, community)
     staff = await PlatformAdminService().grant_community_staff(actor, tenant.id, user_id)
     return [UserSummary.model_validate(u) for u in staff]
-
-
-# --- feature availability -----------------------------------------------------
 
 
 async def platform_set_community_feature_group(
@@ -215,9 +210,6 @@ async def _group(group_id: int) -> PlatformFeatureGroup:
     return require_found(next((g for g in rows if g.id == group_id), None), 'Feature group')
 
 
-# --- accounts -----------------------------------------------------------------
-
-
 async def platform_set_user_active(user_id: int, active: bool) -> PlatformUser:
     """Deactivate (`active=false`) or reactivate an account, platform-wide.
     Super admin only.
@@ -229,9 +221,6 @@ async def platform_set_user_active(user_id: int, active: bool) -> PlatformUser:
     actor = current_actor().user
     await PlatformAdminService().set_account_active(actor, user_id, active)
     return await account_row(actor, user_id)
-
-
-# --- racetime bots ------------------------------------------------------------
 
 
 async def platform_update_racetime_bot(
@@ -282,9 +271,6 @@ async def platform_restart_racetime_bot(bot_id: int) -> PlatformRacetimeBot:
     """
     actor = current_actor().user
     return await bot_row(actor, await RacetimeBotService().restart_connection(actor, bot_id))
-
-
-# --- logging and health -------------------------------------------------------
 
 
 async def platform_set_log_level(logger: str, level: str) -> List[LogLevelResponse]:

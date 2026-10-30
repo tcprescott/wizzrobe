@@ -38,7 +38,6 @@ from application.utils.hostname import effective_request_host
 from middleware.event_routing import PAGE_SCOPE_KEY, PageScope, default_event_redirect, page_request
 from models import FeatureFlag, Role
 
-#: A page's feature gate: one flag, or several of which any one opens it.
 FeatureGate = FeatureFlag | tuple[FeatureFlag, ...] | None
 
 
@@ -100,15 +99,9 @@ async def _run_in_tenant(tenant_id, coro, event_id=None) -> None:
     with tenant_scope(tenant_id), event_scope(event_id, tenant_id):
         await coro
 
-# Keep page-view detail bounded: query/path params carry useful engagement
-# context (which tab/report), but we cap count and length so a crafted URL
-# can't bloat a telemetry row.
 _MAX_TRACKED_PARAMS = 15
 _MAX_PARAM_LEN = 120
-# Path params whose *value* is a credential. The room-seeds view carries its
-# token in the URL, and a telemetry row is read by anyone with the reports tab —
-# recording the value would turn engagement data into a key ring. Matched on the
-# param name so a future route gets the redaction without having to remember it.
+# Matched on the param name so a new route is redacted without opting in.
 _SECRET_PARAM_MARKERS = ('token', 'secret', 'password', 'code')
 
 
@@ -165,9 +158,6 @@ def record_page_view(path: str, kwargs: dict) -> None:
     except Exception:
         pass
 
-# Registry of routes that require authentication; populated by protected_page decorator.
-# Plain strings match exactly; entries containing ``{param}`` placeholders are
-# compiled to regexes so dynamic NiceGUI routes match incoming request paths.
 protected_routes: set[str] = set()
 
 
@@ -230,9 +220,6 @@ async def enforce_membership(
         return False
     if user is not None and await TenantService.is_member(user.id, tenant_id):
         return False
-    # The other ways through: a community open to anyone who signs in, or one
-    # that opened its door to its Discord server, lets them in here, on the
-    # page they were opening.
     if user is not None:
         memberships = TenantMembershipService()
         why = None
@@ -241,9 +228,6 @@ async def enforce_membership(
         elif await memberships.join_via_discord(user, tenant_id):
             why = 'you’re in its Discord server'
         if why is not None:
-            # Only reached for someone who wasn't a member a moment ago, so this
-            # is their first landing. Without it they'd arrive on a schedule
-            # with no idea they'd just joined anything.
             from theme.notice import stash_notice
 
             tenant = await TenantService.get_by_id(tenant_id)
@@ -263,8 +247,6 @@ async def enforce_membership(
         user=user,
         pending=await resolve_join_state(user, tenant_id),
         preview=await resolve_join_preview(tenant_id),
-        # The door is the community's front page: its name, palette and the
-        # public half of its drawer (Event Information, Help), not Wizzrobe's.
         layout=await prepared_layout(user),
         ask_again_at=await resolve_ask_again_at(user, tenant_id),
         removed=await resolve_removed(user, tenant_id),
@@ -327,15 +309,11 @@ def _tenant_page(
     gated = role_list is not None or allow_tournament_membership
 
     def decorator(func):
-        # Only an auth-requiring route joins the registry AuthMiddleware
-        # redirects on; a public one is reachable signed out.
         if require_auth:
             protected_routes.add(path)
 
         @functools.wraps(func)
         async def wrapper(*args, **kwargs):
-            # A bare link to an event page lands on the default event's /e/
-            # form first, so the address names the event the page shows.
             request = page_request()
             if request is not None:
                 request.scope[PAGE_SCOPE_KEY] = scope
@@ -344,31 +322,18 @@ def _tenant_page(
                 if redirect is not None:
                     return redirect
 
-            # Capture engagement telemetry for every page load, gated or not,
-            # before any auth short-circuit. On a public page the visitor may be
-            # anonymous, and the row is then attributed to the browser session
-            # alone (no discord_id).
+            # Must run before any auth short-circuit, so gated and anonymous loads are counted.
             record_page_view(view_path, kwargs)
 
-            # Every @protected_page is a tenant page. If reached with no tenant
-            # (a bare /admin on the platform host, not /t/<slug>/admin), 404.
             tid = get_current_tenant_id()
             if tid is None:
                 await _render_community_chooser()
                 return
-            # Stash the tenant onto the connection so websocket UI event handlers
-            # (which run outside any request) can resolve it via the fallback.
             stash_client_tenant_id(tid)
             stash_client_event_id(get_current_event_id())
-            # Carry host mode too, so custom-domain-only affordances (e.g. the
-            # Discord-connect button) can hide in websocket event handlers.
             stash_client_host_mode(is_host_mode())
 
-            # Bind the display clock before anything renders a time — including
-            # the 404/403/join pages below, which show none today but must not
-            # be the surface that reintroduces a hardcoded zone. Resolved without
-            # the user here (they may not be loaded, or may not exist); the
-            # auth branch below refines it once a signed-in user is known.
+            # Bind the display clock before anything renders, the 404/403/join pages included.
             tz_settings = await TimezoneService.get_settings(tid)
             browser_tz = get_browser_timezone()
             stash_client_browser_timezone(browser_tz)
@@ -376,56 +341,37 @@ def _tenant_page(
                 TimezoneService.pick(tz_settings, user=None, browser_timezone=browser_tz)
             )
 
-            # Feature gate (before the role gate): a subsystem the tenant hasn't
-            # enabled is hidden from everyone — 404, like an unknown route — so a
-            # not-yet-released feature never leaks and role has no bearing.
+            # Feature gate must run before the role gate: a disabled feature 404s for everyone.
             if flags and not any([await FeatureFlagService().is_enabled(f) for f in flags]):
-                # The unknown-route page, word for word and status for status:
-                # anything more specific would say the feature exists here.
+                # Must match the unknown-route page exactly, or it reveals the feature exists.
                 from theme.error_page import render_not_found
                 await render_not_found(
                     user=await get_user_from_session(app.storage.user),
                 )
                 return
 
-            # Membership gate: a community is visible to the people who belong
-            # to it. Only for auth-requiring routes — a @public_page (the
-            # spectator bracket views) stays world-readable.
             user = None
             is_super_admin = False
             if require_auth:
                 user = await get_user_from_session(app.storage.user)
                 is_super_admin = await AuthService.is_super_admin(user)
-                # Now that the viewer is known, their saved preference can
-                # outrank the browser hint the first pass used.
                 _bind_display_timezone(
                     TimezoneService.pick(tz_settings, user=user, browser_timezone=browser_tz), user,
                 )
                 if await enforce_membership(tid, user, is_super_admin=is_super_admin):
                     return
 
-            # A draft event is invisible, like an unknown one, to anyone who
-            # can't open it yet.
             if not await can_view_bound_event(user if require_auth else None):
                 from theme.error_page import render_not_found
                 await render_not_found(user=user)
                 return
 
-            # Authorization for a *gated* page comes from the user's tenant-scoped
-            # roles / tournament-admin membership / super-admin — all evaluated in
-            # this tenant's context, so a role in another tenant grants nothing
-            # here. Role-less protected pages need only authentication (which
-            # AuthMiddleware already enforced) plus the membership gate above.
             if gated:
-                # Resolved once, above, on every auth-requiring page; a
-                # @public_page with a role gate would still need to load it.
                 if user is None and not require_auth:
                     user = await get_user_from_session(app.storage.user)
                     is_super_admin = await AuthService.is_super_admin(user)
                 allowed = is_super_admin
                 if not allowed and user is not None and role_list:
-                    # A community page admits a role held in any live event;
-                    # an event page, the role in the event it shows.
                     held = await AuthService.get_roles(user, RoleScope.LIVE if scope == 'community' else None)
                     allowed = bool(held.intersection(role_list))
                 if not allowed and allow_tournament_membership:
@@ -576,28 +522,20 @@ class AuthMiddleware(BaseHTTPMiddleware):
         if app.storage.user.get('authenticated', False) and not session_host_matches(
             app.storage.user, effective_request_host(request.headers),
         ):
-            # Ends the session everywhere, the host it belongs to included: a
-            # cookie showing up on another host means it has been copied.
             logger.warning(
                 'Session bound to %r presented on another host; signing it out',
                 app.storage.user.get(SESSION_HOST_KEY),
             )
             app.storage.user.clear()
-        # Enforce authentication only for routes that were explicitly marked protected
         if not app.storage.user.get('authenticated', False):
-            # Under path mode TenantMiddleware has already stripped /t/<slug> into
-            # root_path, so request.url.path is the unprefixed route; rebuild the
-            # tenant-qualified referrer and /login target from root_path so a
-            # path-mode login round-trips back to /t/<slug>/….
+            # Path mode: TenantMiddleware moved /t/<slug> into root_path, so rebuild URLs from it.
             path = request.url.path
             root_path = request.scope.get('root_path', '')
             if not path.startswith('/_nicegui') and _matches_protected_route(path):
                 app.storage.user['referrer_path'] = referrer_for(root_path, path, request.url.query)
                 return RedirectResponse(f'{root_path}/login')
         else:
-            # Attach the logged-in user to Sentry so error events show who hit them.
-            # Guarded on discord_id being present: str(None) would file the events
-            # under a phantom 'None' user that aggregates unrelated reports.
+            # Guard on discord_id: str(None) would file events under a phantom 'None' user.
             discord_id = app.storage.user.get('discord_id')
             user_id = app.storage.user.get('user_id')
             if discord_id is not None or user_id:

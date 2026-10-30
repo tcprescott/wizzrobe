@@ -91,8 +91,6 @@ def register_oauth_routes(app: FastAPI) -> None:
         provider=get_provider(),
         issuer_url=AnyHttpUrl(base),
         service_documentation_url=AnyHttpUrl(f'{base}/api/docs'),
-        # Registration is open because MCP clients self-configure from a URL;
-        # see McpAuthService.register_client for why that grants nothing.
         client_registration_options=ClientRegistrationOptions(
             enabled=True,
             valid_scopes=SCOPES_SUPPORTED,

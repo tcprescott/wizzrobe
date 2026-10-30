@@ -27,11 +27,7 @@ from models import (
     User,
 )
 
-#: The person fields a schedule row reads (``MatchDisplayService`` names and DM
-#: badges). ``User`` is ~45 columns wide and a 1,300-match board loads ~5,000 of
-#: them, so building the whole row for each was a fifth of the board's load.
-#: Anything that reads a person off :meth:`MatchRepository.get_all` must stay
-#: inside this list or add to it.
+# Anything that reads a person off MatchRepository.get_all must stay inside this list or add to it.
 BOARD_USER_FIELDS = ('id', 'discord_id', 'display_name', 'username', 'dm_notifications', 'racetime_user_id')
 
 
@@ -69,15 +65,8 @@ class MatchRepository:
                 'trackers__user',
                 'broadcasters',
                 'broadcasters__user',
-                # The bracket seam, for the schedule's "part of <bracket>" link.
-                # A batched prefetch, so it costs a fixed few queries rather
-                # than one per row; most matches have no game row at all. The
-                # ``__games`` hop is one more batched query and is what lets the
-                # row show the series standing ("Game 2 of 3 · 1-0") without an
-                # N+1 (U4).
                 'bracket_match_game__bracket_match__bracket',
                 'bracket_match_game__bracket_match__games',
-                # Each game's match, so "Game 2 of 3" follows the games' times.
                 'bracket_match_game__bracket_match__games__match',
             )
         
@@ -215,8 +204,7 @@ class MatchRepository:
             )
 
         if exclude_racetime:
-            # ``Tournament.is_racetime_enabled`` is a Python property over the
-            # ``racetime_bot`` FK, so the DB-side test is the FK being unset.
+            # is_racetime_enabled is a Python property; filter on the FK instead.
             query = query.filter(tournament__racetime_bot_id__isnull=True)
 
         if tournament_ids:
@@ -248,15 +236,8 @@ class MatchRepository:
                 Prefetch('commentators', queryset=scoped(Commentator.all()).prefetch_related(_board_user())),
                 Prefetch('trackers', queryset=scoped(Tracker.all()).prefetch_related(_board_user())),
                 Prefetch('broadcasters', queryset=scoped(Broadcaster.all()).prefetch_related(_board_user())),
-                # The bracket seam, for the schedule's "part of <bracket>" link.
-                # A batched prefetch, so it costs a fixed few queries rather
-                # than one per row; most matches have no game row at all. The
-                # ``__games`` hop is one more batched query and is what lets the
-                # row show the series standing ("Game 2 of 3 · 1-0") without an
-                # N+1 (U4).
                 'bracket_match_game__bracket_match__bracket',
                 'bracket_match_game__bracket_match__games',
-                # Each game's match, so "Game 2 of 3" follows the games' times.
                 'bracket_match_game__bracket_match__games__match',
             )
         
@@ -379,9 +360,7 @@ class MatchRepository:
         for field, value in fields.items():
             setattr(match, field, value)
 
-        # Only the named columns: the caller's row may predate a check-in or a
-        # start, and a whole-row save would write those back to NULL. Clearing a
-        # lifecycle timestamp therefore has to be asked for by name.
+        # Save only the named columns: a whole-row save would null a check-in or start the caller's row predates.
         if fields:
             fk = Match._meta.fk_fields
             await match.save(update_fields=[f'{f}_id' if f in fk else f for f in fields])

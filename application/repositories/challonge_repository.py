@@ -38,9 +38,6 @@ class ChallongeRepository:
     ``(tenant, period)``.
     """
 
-    # ------------------------------------------------------------------
-    # Service-account connection (newest row per tenant is authoritative)
-    # ------------------------------------------------------------------
     @staticmethod
     async def get_connection() -> Optional[ChallongeConnection]:
         return await scoped(ChallongeConnection.all()).order_by('-id').first()
@@ -153,9 +150,6 @@ class ChallongeRepository:
     async def clear_connection() -> int:
         return await scoped(ChallongeConnection.all()).delete()
 
-    # ------------------------------------------------------------------
-    # Participants
-    # ------------------------------------------------------------------
     @staticmethod
     async def upsert_participant(
         tournament: Tournament,
@@ -269,9 +263,6 @@ class ChallongeRepository:
         rows = await scoped(ChallongeParticipant.filter(user=user)).values_list('tournament_id', flat=True)
         return set(rows)
 
-    # ------------------------------------------------------------------
-    # Matches
-    # ------------------------------------------------------------------
     @staticmethod
     async def upsert_match(
         tournament: Tournament,
@@ -297,7 +288,6 @@ class ChallongeRepository:
         match.winner_participant = winner_participant
         if group_stage:
             match.group_stage = True
-        # identifier and slot{1,2}_prereq / slot{1,2}_label, when the caller knows them.
         for key, value in (slots or {}).items():
             setattr(match, key, value)
         await save_fields(
@@ -437,9 +427,6 @@ class ChallongeRepository:
             'challonge_tournament_type',
         ])
 
-    # ------------------------------------------------------------------
-    # API-usage tally (per UTC calendar month)
-    # ------------------------------------------------------------------
     @staticmethod
     def _current_period() -> str:
         return datetime.now(timezone.utc).strftime('%Y-%m')

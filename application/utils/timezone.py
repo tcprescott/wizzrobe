@@ -33,9 +33,6 @@ from application.timezone_context import (
     uses_12_hour,
 )
 
-# The app's historical fixed zone. Retained as a named constant because a few
-# call sites legitimately need *this specific* zone rather than the viewer's:
-# the fallback when nothing resolves, and tests asserting the default.
 EASTERN_TZ = ZoneInfo(FALLBACK_TIMEZONE)
 
 TzArg = Optional[Union[str, ZoneInfo]]
@@ -125,10 +122,7 @@ def parse_local_datetime(date_str: str, time_str: str, tz: TzArg = None) -> date
 
     local_dt = naive_dt.replace(tzinfo=zone)
 
-    # A nonexistent wall clock is detectable by round-tripping: for a real time,
-    # UTC → back to the zone reproduces the same wall clock. Inside a spring-
-    # forward gap it does not, because the zone maps the gap onto a different
-    # instant than the one the naive value names.
+    # The round-trip detects a spring-forward gap: a nonexistent wall clock won't reproduce itself.
     if local_dt.astimezone(timezone.utc).astimezone(zone).replace(tzinfo=None) != naive_dt:
         raise ValueError(
             f"{date_str} {time_str} does not exist in {zone.key} — "
@@ -325,7 +319,6 @@ def timezone_label(tz: TzArg = None, at: Optional[datetime] = None) -> str:
 
 
 _DISCORD_TIME = re.compile(r'<t:(\d{1,12})(?::[tTdDfFR])?>')
-# time_field's "<t:X:F> · <t:X:R>": the countdown only means something live in Discord.
 _DISCORD_TIME_PAIR = re.compile(r'<t:(\d{1,12}):[tTdDfF]> · <t:\1:R>')
 
 
@@ -339,8 +332,7 @@ def readable_discord_times(text: str, tz: TzArg = None) -> str:
     if '<t:' not in (text or ''):
         return text or ''
     text = _DISCORD_TIME_PAIR.sub(r'<t:\1:F>', text)
-    # Notification copies are always 12-hour: one may be rendered inside a staff
-    # member's UI handler, which would otherwise lend it their own clock.
+    # Always 12-hour: a copy rendered inside a staff UI handler would otherwise get their clock.
     with hour_cycle_scope(True):
         return _DISCORD_TIME.sub(
             lambda m: format_local_display(datetime.fromtimestamp(int(m.group(1)), timezone.utc), tz),

@@ -27,16 +27,13 @@ class AsyncQualifier(Model):
 
     id = fields.IntField(pk=True)
     tenant = fields.ForeignKeyField('models.Tenant', related_name='async_qualifiers', on_delete=fields.CASCADE)
-    # Nullable until every write stamps it; the events migration backfilled the
-    # rows that existed before (see docs/features/events.md).
+    # Keep nullable: not every write path stamps it yet.
     event: fields.ForeignKeyRelation = fields.ForeignKeyField(
         'models.Event', related_name='async_qualifiers', on_delete=fields.CASCADE,
     )
     event_id: int
     name = fields.CharField(max_length=255)
     description = fields.TextField(null=True)
-    # Informational only: the event this qualifier feeds. No structural FK — the
-    # two machines share no workflow (decisions log).
     event_name = fields.CharField(max_length=255, null=True)
     opens_at = fields.DatetimeField(null=True)
     closes_at = fields.DatetimeField(null=True)
@@ -44,14 +41,7 @@ class AsyncQualifier(Model):
     allowed_reattempts = fields.IntField(default=0)
     config = fields.JSONField(null=True)
     is_active = fields.BooleanField(default=True)
-    # When the reviewer set was last told the queue had a backlog. Worker state,
-    # not a setting, which is why it is a column rather than a ``config`` key: it
-    # is what stops a reminder becoming a message per tick.
     review_backlog_notified_at = fields.DatetimeField(null=True)
-    # The last window state subscribers were told about ('pending'/'open'/'closed').
-    # Worker state for the same reason as the line above: the state itself is derived
-    # from the dates and the clock, and this is what makes the crossing announce once
-    # rather than every tick. NULL means nothing has been announced yet.
     window_state_notified = fields.CharField(max_length=16, null=True)
     admins = fields.ManyToManyField(
         'models.User', related_name='admin_async_qualifiers', through='AsyncQualifierAdmins'
@@ -59,7 +49,6 @@ class AsyncQualifier(Model):
     created_at = fields.DatetimeField(auto_now_add=True)
     updated_at = fields.DatetimeField(auto_now=True)
 
-    # related fields
     pools = fields.ReverseRelation["AsyncQualifierPool"]
     runs = fields.ReverseRelation["AsyncQualifierRun"]
 
@@ -87,7 +76,6 @@ class AsyncQualifierPool(Model):
     created_at = fields.DatetimeField(auto_now_add=True)
     updated_at = fields.DatetimeField(auto_now=True)
 
-    # related fields
     permalinks = fields.ReverseRelation["AsyncQualifierPermalink"]
 
     class Meta:
@@ -110,10 +98,6 @@ class AsyncQualifierPermalink(Model):
     pool = fields.ForeignKeyField('models.AsyncQualifierPool', related_name='permalinks', on_delete=fields.CASCADE)
     url = fields.CharField(max_length=1024)
     notes = fields.TextField(null=True)
-    # Set for a permalink Wizzrobe rolled itself (rather than one pasted in by an
-    # admin), linking to the same provenance record a match seed gets: which
-    # preset, the settings as sent, who rolled it, what it cost. SET_NULL so
-    # purging the seed record keeps the permalink playable.
     generated_seed = fields.ForeignKeyField(  # type: ignore[var-annotated]
         'models.GeneratedSeeds', related_name='async_qualifier_permalinks',
         null=True, on_delete=fields.SET_NULL,
@@ -124,7 +108,6 @@ class AsyncQualifierPermalink(Model):
     created_at = fields.DatetimeField(auto_now_add=True)
     updated_at = fields.DatetimeField(auto_now=True)
 
-    # related fields
     runs = fields.ReverseRelation["AsyncQualifierRun"]
 
     class Meta:
@@ -156,8 +139,6 @@ class AsyncQualifierRun(Model):
     permalink = fields.ForeignKeyField(
         'models.AsyncQualifierPermalink', related_name='runs', null=True, on_delete=fields.SET_NULL
     )
-    # Set for runs captured from a synchronous racetime race (PR 10); SET_NULL so
-    # deleting a live race keeps the captured run history.
     live_race = fields.ForeignKeyField(
         'models.AsyncQualifierLiveRace', related_name='runs', null=True, on_delete=fields.SET_NULL
     )
@@ -167,42 +148,22 @@ class AsyncQualifierRun(Model):
     )
     started_at = fields.DatetimeField(null=True)
     finished_at = fields.DatetimeField(null=True)
-    # Set when the expiry worker forfeited this run because the player drew a
-    # permalink and never came back. Non-null is what distinguishes an automatic
-    # expiry from a forfeit the runner chose — both are ``FORFEIT`` (a run that
-    # did not finish), but only one of them is something the runner did, and the
-    # UI and any appeal need to tell them apart.
     expired_at = fields.DatetimeField(null=True)
-    # Stamped when the pre-expiry warning DM was queued, so the reminder fires
-    # once per run rather than on every worker tick.
     expiry_warned_at = fields.DatetimeField(null=True)
-    # Self-reported elapsed run time in whole seconds (submitted by the player).
     elapsed_seconds = fields.IntField(null=True)
-    # Wall-clock seconds from the server-stamped ``started_at`` to the moment the
-    # player submitted. Stored beside the claimed ``elapsed_seconds`` rather than
-    # replacing it: the timer starts at the draw and keeps running while the
-    # player reads the seed, pauses, and gets around to submitting, so measured is
-    # an upper bound on the real run — evidence for the reviewer, not the result.
-    # Null for runs captured from a live race and for pre-existing rows.
     measured_seconds = fields.IntField(null=True)
     runner_vod_url = fields.CharField(max_length=1024, null=True)
     reattempted = fields.BooleanField(default=False)
     reattempt_reason = fields.TextField(null=True)
-    # Set when a reviewer voided this run on the runner's behalf (a mis-clicked
-    # forfeit, a bad seed) rather than the runner spending their own allowance.
-    # Null for a self-spent reattempt, which is what makes the two countable
-    # apart: a granted one must not shrink what the runner may still spend.
     reattempt_granted_by = fields.ForeignKeyField(
         'models.User', related_name='granted_async_qualifier_reattempts', null=True,
         on_delete=fields.SET_NULL,
     )
-    # Par score in [0, 105]; null until an approved run is scored.
     score = fields.FloatField(null=True)
     reviewed_by = fields.ForeignKeyField(
         'models.User', related_name='reviewed_async_qualifier_runs', null=True, on_delete=fields.SET_NULL
     )
     reviewed_at = fields.DatetimeField(null=True)
-    # Claim-locking so two reviewers don't collide on the same run.
     review_claimed_by = fields.ForeignKeyField(
         'models.User', related_name='claimed_async_qualifier_runs', null=True, on_delete=fields.SET_NULL
     )
@@ -210,20 +171,17 @@ class AsyncQualifierRun(Model):
     created_at = fields.DatetimeField(auto_now_add=True)
     updated_at = fields.DatetimeField(auto_now=True)
 
-    # related fields
     review_notes = fields.ReverseRelation["AsyncQualifierReviewNote"]
 
     class Meta:
         table = 'asyncqualifierrun'
         indexes = (
             ('tenant',),
-            ('qualifier', 'review_status'),  # reviewer queue
-            ('user',),                       # "my runs"
-            ('permalink',),                  # par recompute
+            ('qualifier', 'review_status'),
+            ('user',),
+            ('permalink',),
             ('status', 'started_at'),        # expiry worker's cross-tenant scan
-            # The leaderboard's own filter. ('qualifier', 'review_status') covers the
-            # queue but not this one, which also constrains reattempted and status —
-            # the four columns that decide whether a run scores at all.
+            # Not redundant with ('qualifier', 'review_status'): the leaderboard filters on all four.
             ('qualifier', 'reattempted', 'status', 'review_status'),
         )
 
@@ -263,13 +221,10 @@ class AsyncQualifierLiveRace(Model):
     id = fields.IntField(pk=True)
     tenant = fields.ForeignKeyField('models.Tenant', related_name='async_qualifier_live_races', on_delete=fields.CASCADE)
     pool = fields.ForeignKeyField('models.AsyncQualifierPool', related_name='live_races', on_delete=fields.CASCADE)
-    # SET_NULL so purging a permalink keeps the live-race record + captured runs.
     permalink = fields.ForeignKeyField(
         'models.AsyncQualifierPermalink', related_name='live_races', null=True, on_delete=fields.SET_NULL
     )
     match_title = fields.CharField(max_length=255)
-    # Mirrors the RacetimeRoom slug; globally unique like the room's, nullable
-    # until a room is opened (multiple NULLs are allowed).
     racetime_slug = fields.CharField(max_length=255, unique=True, null=True)
     episode = fields.ForeignKeyField(
         'models.SpeedGamingEpisode', related_name='async_qualifier_live_races', null=True,
@@ -278,17 +233,10 @@ class AsyncQualifierLiveRace(Model):
     status = fields.CharEnumField(
         AsyncQualifierLiveRaceStatus, default=AsyncQualifierLiveRaceStatus.SCHEDULED, max_length=20
     )
-    # Racetime handles the last capture could not turn into a run: no ``User`` linked
-    # to the account, or racetime calling them finished without sending a time. Stored
-    # rather than left in the audit detail because it is a **to-do for staff**: nobody
-    # reads the audit log looking for work, so such a racer simply never appeared, with
-    # no surface saying so. Cleared when a later capture records everyone.
-    # mypy cannot infer a JSONField's type parameter, as with every sibling here.
     unmatched_handles = fields.JSONField(null=True)  # type: ignore[var-annotated]
     created_at = fields.DatetimeField(auto_now_add=True)
     updated_at = fields.DatetimeField(auto_now=True)
 
-    # related fields
     runs = fields.ReverseRelation["AsyncQualifierRun"]
 
     class Meta:

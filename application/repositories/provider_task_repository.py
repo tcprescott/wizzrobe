@@ -8,12 +8,8 @@ from application.repositories._base import TenantScopedRepository
 from application.repositories._tenant import current_tenant_id, scoped
 from models import ProviderTask, ProviderTaskStatus
 
-# Statuses a poller may still pick up. Kept here rather than derived per call so
-# the scan's shape is one thing to read.
 _ACTIVE = (ProviderTaskStatus.QUEUED, ProviderTaskStatus.RUNNING)
 
-# Terminal states that mean "this roll produced nothing". Kept apart from
-# SUCCEEDED because these are the ones a person needs told about.
 _FAILED = (ProviderTaskStatus.FAILED, ProviderTaskStatus.ABANDONED)
 
 
@@ -80,9 +76,7 @@ class ProviderTaskRepository(TenantScopedRepository[ProviderTask]):
             **fields,
         )
 
-    # ------------------------------------------------------------------
     # Poller-facing queries — deliberately cross-tenant
-    # ------------------------------------------------------------------
 
     @classmethod
     async def due_for_poll(cls, limit: int = 50) -> List[ProviderTask]:

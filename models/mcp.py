@@ -28,9 +28,6 @@ class McpOAuthClient(Model):
     id = fields.IntField(pk=True)
     client_id = fields.CharField(max_length=64, unique=True, index=True)
     client_name = fields.CharField(max_length=255)
-    # Exact-match allowlist checked on every authorize and token call; an
-    # attacker-supplied redirect_uri that is not in this list is refused before
-    # the user ever sees a consent screen.
     redirect_uris = fields.JSONField(default=list)
     grant_types = fields.JSONField(default=list)
     response_types = fields.JSONField(default=list)
@@ -59,13 +56,10 @@ class McpAuthorizationCode(Model):
     )
     user = fields.ForeignKeyField('models.User', related_name='mcp_authorization_codes')
     redirect_uri = fields.CharField(max_length=2048)
-    # Recorded so the token endpoint can enforce that a request which omitted
-    # redirect_uri at authorize time also omits it at exchange time (RFC 6749).
     redirect_uri_provided_explicitly = fields.BooleanField(default=True)
     code_challenge = fields.CharField(max_length=128)
     code_challenge_method = fields.CharField(max_length=8, default='S256')
     scope = fields.CharField(max_length=255, null=True)
-    # RFC 8707 resource indicator; bound into the issued token's audience.
     resource = fields.CharField(max_length=2048, null=True)
     expires_at = fields.DatetimeField()
     consumed_at = fields.DatetimeField(null=True)

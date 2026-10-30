@@ -49,7 +49,6 @@ def result_text(tournament: str, placings: Sequence[Placing], source: str) -> st
     return f'{result_line(placings)} in {tournament}. {source}.'
 
 
-#: A board longer than this (an open race) shows its top three and a count.
 BOARD_MAX = 5
 
 

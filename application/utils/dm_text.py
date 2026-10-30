@@ -4,7 +4,6 @@ import re
 
 from application.utils.timezone import readable_discord_times
 
-# Discord renders these itself; a page has to do it for them.
 _EMPHASIS = re.compile(r'\*\*|__')
 _MASKED_LINK = re.compile(r'\[([^\]]+)\]\(<?[^)>\s]+>?\)')
 _SUBTEXT = re.compile(r'^-# ', re.MULTILINE)

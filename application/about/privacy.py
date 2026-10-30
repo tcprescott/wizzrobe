@@ -10,7 +10,7 @@ __all__ = ['PRIVACY_PATH', 'PRIVACY_UPDATED', 'privacy_blocks']
 
 PRIVACY_PATH = Path(__file__).parent / 'privacy.md'
 
-#: Shown under the page title. Bump it with any change to what the policy says.
+# Bump with any change to what the policy says.
 PRIVACY_UPDATED = date(2026, 10, 17)
 
 

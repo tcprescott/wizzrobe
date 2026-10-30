@@ -65,9 +65,7 @@ async def list_users(
     role: Optional[Role] = Query(None, description="Filter to users holding this role in this community"),
     actor: User = Depends(require_staff),
 ):
-    # Community members, not every account on the platform. A token belongs to
-    # one tenant, so returning the platform's whole user table was a leak; there
-    # is deliberately no ?scope=all, which would re-open it behind a parameter.
+    # Community members only; don't add a ?scope=all, it would re-open the platform-wide leak.
     return await UserService().get_community_people(role=role)
 
 
@@ -115,9 +113,6 @@ async def get_user(user_id: int, actor: User = Depends(require_api_actor)):
 )
 async def get_member_details(user_id: int, actor: User = Depends(require_staff)):
     return MemberDetailsResponse.build(await MemberDetailsService().get(user_id, actor=actor))
-
-
-# --- Writes -----------------------------------------------------------------
 
 
 @router.post(
@@ -220,8 +215,6 @@ async def update_user_tournaments(
     if not await AuthService.is_staff(actor):
         if actor.id != user_id:
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Staff access required")
-        # A player editing their own list goes through the same signup rules
-        # as the Tournaments tab: window, active, Challonge-managed rosters.
         wanted = set(body.tournament_ids)
         current = {
             tp.tournament_id  # type: ignore[attr-defined]

@@ -40,8 +40,6 @@ class TenantRepository(TenantScopedRepository[Tenant]):
 
     @staticmethod
     async def list_by_guild_id(guild_id: int) -> List[Tenant]:
-        # A Discord guild may back several tenants, so this returns every tenant
-        # linked to the guild (stable id order). Callers fan out over the result.
         return await Tenant.filter(discord_guild_id=guild_id).order_by('id')
 
     @staticmethod

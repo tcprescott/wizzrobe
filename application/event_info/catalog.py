@@ -50,19 +50,12 @@ __all__ = [
 
 CONTENT_ROOT = Path(__file__).parent / 'content'
 
-#: Where this section's articles are served. Stamped onto every snippet so a
-#: help popup quoting one links back here rather than into ``/help``.
 BASE_PATH = '/event-info'
 
-# A slug reaches this module from the database and is used to build a path, so it
-# is constrained to the shape Tenant.slug is validated into rather than trusted.
-# Nothing in the app writes a slug with a separator in it; this is here so that
-# staying true stops being a matter of trust.
+# Constrain the slug before building a path from it; don't trust the database value.
 _SAFE_SLUG_RE = re.compile(r'^[a-z0-9][a-z0-9-]*$')
 
 
-#: Slugs already warned about, so a misconfigured tenant logs once rather than on
-#: every page build. Process-wide and not per-user, like the parse caches.
 _warned: set[str] = set()
 
 

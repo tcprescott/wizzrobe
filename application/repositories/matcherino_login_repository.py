@@ -40,8 +40,7 @@ class MatcherinoLoginRepository(TenantScopedRepository[MatcherinoLogin]):
 
     @staticmethod
     async def set_alert_user(user_id: Optional[int]) -> int:
-        # A queryset update, so choosing who hears about failures leaves the
-        # login's "saved" time alone.
+        # A queryset update on purpose, so the login's saved time stays put.
         return await scoped(MatcherinoLogin.all()).update(alert_user_id=user_id, alerted_at=None)
 
     @staticmethod

@@ -280,9 +280,7 @@ async def get_async_qualifier_leaderboard(
     )
     return [
         LeaderboardRow(
-            # The service's own rank, not this loop's index: equal totals share one,
-            # and three surfaces deriving it separately is how a tie came to read
-            # 1, 2, 3 in alphabetical order.
+            # The service's rank, not this loop's index: equal totals share one.
             rank=entry.rank,
             user_id=entry.user_id,
             name=entry.username,
@@ -344,8 +342,7 @@ def register_tools(mcp: MCPServer) -> None:
         feature=FeatureFlag.BRACKETS, title='Bracket standings',
         event=True,
     )
-    # No feature= here: the tournament's bracket site decides which flag
-    # applies, and the service raises not_found when that one is off.
+    # No feature= here: the tournament's bracket site picks the flag and the service enforces it.
     register(mcp, get_tournament_bracket, gate=Gate.ACTOR, scope=ApiScope.SCHEDULE_READ, title='Get tournament bracket', event=True)
     register(
         mcp, list_async_qualifiers, gate=Gate.ACTOR, scope=ApiScope.SCHEDULE_READ,
