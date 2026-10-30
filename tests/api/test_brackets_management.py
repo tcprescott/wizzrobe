@@ -234,7 +234,6 @@ class TestMatchRead:
             r = await c.get(f'/api/brackets/matches/{match_id}')
             assert r.status_code == 200
             assert r.json()['id'] == match_id
-            # Game rows are created lazily, so an unscheduled series has none.
             assert r.json()['games'] == []
 
     async def test_get_match_not_found(self, db, app):
@@ -352,8 +351,6 @@ class TestOverrideResult:
             assert r.json()['entry1_score'] == 1
             assert r.json()['entry2_score'] == 3
 
-            # The stage auto-finalized on the original result, so its ranks are
-            # recomputed from the correction rather than left stale.
             entries = (await c.get(f'/api/brackets/{bracket_id}/entries')).json()
             champion = next(e for e in entries if e['final_rank'] == 1)
             assert champion['id'] == match['entry2_id']
@@ -411,7 +408,6 @@ class TestOverrideResult:
             assert r.status_code == 403
 
 
-
 class TestCancelAndEntryRemoval:
     async def _started(self, c, tournament, names=('Alice', 'Bob')):
         bracket_id = await draft(c, tournament)
@@ -463,7 +459,6 @@ class TestCancelAndEntryRemoval:
             r = await c.post(f'/api/brackets/entries/{entry_ids[0]}/retire')
             assert r.status_code == 200
             assert r.json()['status'] == 'dropped'
-            # Not idempotent by design — a second retire is a mistake worth saying.
             assert (await c.post(
                 f'/api/brackets/entries/{entry_ids[0]}/retire'
             )).status_code == 400

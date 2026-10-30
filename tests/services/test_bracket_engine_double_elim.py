@@ -24,7 +24,6 @@ def _pickers():
         ('higher_seed', lambda a, b: min(a, b)),
         ('lower_seed', lambda a, b: max(a, b)),
     ]
-    # Pseudo-random-but-deterministic pickers derived purely from the seeds.
     for salt in (1, 7, 13, 29):
         def make(salt):
             def pick(a, b):
@@ -58,7 +57,6 @@ def test_double_elim_invariants(n):
         losses = result['losses']
         for seed in range(1, n + 1):
             if seed == champion:
-                # Champion has 0 losses (won GF1) or 1 (lost GF1, won reset).
                 assert losses.get(seed, 0) in (0, 1), (
                     f"champion {seed} has {losses.get(seed, 0)} losses "
                     f"(n={n}, {name})"
@@ -69,7 +67,6 @@ def test_double_elim_invariants(n):
                     f"(n={n}, {name})"
                 )
 
-        # The champion's loss count encodes whether the reset was needed.
         expected_reset = losses.get(champion, 0) == 1
         assert result['reset_played'] == expected_reset, (
             f"reset_played={result['reset_played']} but champion losses="

@@ -12,9 +12,6 @@ from models import FeatureFlag
 from pages.home_tabs.event import VIEWS, available_views, resolve_view
 from theme.base import BaseLayout, tab_slug
 
-# Every home path a Discord DM, an OAuth return, or a seeded feedback row can
-# carry, mapped to the tab it must open. Sourced from docs/features/discord.md,
-# application/utils/app_links.py, and pages/_oauth_link.py.
 LEGACY_PATHS = {
     'player': 'My Schedule',
     'my-crew': 'My Schedule',
@@ -26,9 +23,7 @@ LEGACY_PATHS = {
     'profile': 'Profile',
 }
 
-# The shape pages/home.py builds. Kept here rather than imported because the
-# page function needs a request, a tenant and a signed-in user to assemble it,
-# none of which this test has or needs.
+# Kept here, not imported: the page needs a request, tenant and user to build it.
 HOME_TABS = [
     {'label': 'Event', 'aliases': ('schedule', 'brackets', 'community')},
     {'label': 'My Schedule', 'aliases': ('player', 'my-crew', 'availability')},
@@ -55,9 +50,6 @@ class TestTheHomeTabsMatchThePage:
                 assert alias in src, f'{alias} is pinned here but absent from home.py'
 
     def test_the_bottom_nav_holds_every_tab(self):
-        # The phone bottom bar only renders where the whole nav fits it, so home
-        # staying within capacity is what keeps players a thumb-tap from every
-        # tab. Go over and the bar vanishes for them entirely.
         assert len(HOME_TABS) <= BaseLayout.BOTTOM_NAV_CAPACITY
 
 
@@ -67,8 +59,6 @@ class TestRetiredSlugsStillResolve:
         assert _layout(slug)._default_tab == expected
 
     def test_a_canonical_slug_always_wins_over_an_alias(self):
-        # 'schedule' is an Event alias and also the start of 'My Schedule'.
-        # Whatever else happens, a live tab's own slug must reach that tab.
         for tab in HOME_TABS:
             slug = tab_slug(tab['label'])
             assert _layout(slug)._default_tab == tab['label']
@@ -78,8 +68,6 @@ class TestRetiredSlugsStillResolve:
         assert _layout(None)._default_tab == 'Event'
 
     def test_the_url_writes_back_the_canonical_slug_not_the_alias(self):
-        # Aliases answer on read-in only, so arriving on /home/player and then
-        # switching tabs leaves a URL naming a slug we still publish.
         layout = _layout('player')
         assert layout._slug_by_label['My Schedule'] == 'my-schedule'
         assert 'player' not in layout._slug_by_label.values()
@@ -87,8 +75,6 @@ class TestRetiredSlugsStillResolve:
 
 class TestTheEventViewSwitcher:
     def test_every_view_slug_is_an_alias_on_the_event_tab(self):
-        # The switcher opens on the view the URL names, so each view's slug has
-        # to survive as a path. Miss one and /home/brackets opens the board.
         event = next(t for t in HOME_TABS if t['label'] == 'Event')
         assert {v.slug for v in VIEWS} == set(event['aliases'])
 

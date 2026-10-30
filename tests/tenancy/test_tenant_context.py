@@ -78,7 +78,6 @@ def test_contextvar_wins_over_client_stash(monkeypatch):
 
 
 def test_client_stash_helpers_are_safe_without_nicegui_context():
-    # No active NiceGUI client here — both directions must no-op, not raise.
     assert tenant_context._client_stash_tenant_id() is None
     tenant_context.stash_client_tenant_id(1)
 

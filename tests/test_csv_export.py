@@ -55,12 +55,11 @@ class TestRowsToCsvBytes:
 
     def test_missing_row_keys_emit_empty_cells(self):
         columns = [{'name': 'a', 'label': 'A'}, {'name': 'b', 'label': 'B'}]
-        rows = [{'a': '1'}]  # no 'b'
+        rows = [{'a': '1'}]
         out = _decode(rows_to_csv_bytes(columns, rows))
         assert out.splitlines()[1] == '1,'
 
     def test_output_starts_with_utf8_bom(self):
-        # The BOM hint helps Excel recognize UTF-8.
         raw = rows_to_csv_bytes([{'name': 'a', 'label': 'A'}], [])
         assert raw.startswith(b'\xef\xbb\xbf')
 
@@ -96,24 +95,22 @@ class TestCsvInjectionEscaping:
         '  +abc',
     ])
     def test_whitespace_before_formula_is_still_escaped(self, payload):
-        # Spreadsheets ignore leading whitespace, so we have to escape these too.
         result = _csv_safe_cell(payload)
         assert result.startswith("'"), f"payload {payload!r} not escaped: {result!r}"
 
     @pytest.mark.parametrize('payload', [
         'hello',
         '123abc',
-        'a=b',  # = is not at the start
+        'a=b',
         '',
-        ' ',  # whitespace-only is not a formula
-        'name@example.com',  # @ in the middle is fine
+        ' ',
+        'name@example.com',
     ])
     def test_benign_strings_are_not_escaped(self, payload):
         result = _csv_safe_cell(payload)
         assert not result.startswith("'"), f"benign payload {payload!r} unexpectedly escaped: {result!r}"
 
     def test_numeric_int_is_not_escaped(self):
-        # Negative numbers stringify with a leading '-' but should keep numeric semantics.
         assert _csv_safe_cell(-5) == '-5'
         assert _csv_safe_cell(0) == '0'
         assert _csv_safe_cell(42) == '42'
@@ -123,7 +120,6 @@ class TestCsvInjectionEscaping:
         assert _csv_safe_cell(1.5) == '1.5'
 
     def test_bool_strings_used_not_int_path(self):
-        # bool is a subclass of int but should serialize as 'true'/'false'
         assert _csv_safe_cell(True) == 'true'
         assert _csv_safe_cell(False) == 'false'
 
@@ -131,8 +127,6 @@ class TestCsvInjectionEscaping:
         columns = [{'name': 'a', 'label': 'A'}]
         payload = "=cmd|' /C calc'!A0"
         out = _decode(rows_to_csv_bytes(columns, [{'a': payload}]))
-        # No CSV quoting is triggered here — the payload contains no delimiter,
-        # double-quote, or newline — so the line is emitted as a literal.
         assert out.splitlines()[1] == "'" + payload
 
 

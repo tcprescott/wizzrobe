@@ -67,7 +67,6 @@ async def test_provider_save_keeps_the_key_out_of_status_and_audit(world):
     status = await service.status(world['staff'])
     assert status['configured'] and status['key_readable']
     assert 'sk-ant-secret' not in repr(status)
-    # A blank key keeps the stored one.
     await service.save(world['staff'], provider='anthropic', model='m2', base_url=None, api_key=None, daily_limit=5)
     resolved = await service.resolve()
     assert resolved is not None and resolved.api_key == 'sk-ant-secret' and resolved.daily_limit == 5
@@ -167,9 +166,9 @@ async def test_suggestions_follow_the_surveys_flag(world):
 def test_clean_drafts_drops_anything_a_staff_question_couldnt_be():
     drafts = _clean_drafts({'questions': [
         {'prompt': 'How was it?', 'kind': 'rating'},
-        {'prompt': 'how was it?', 'kind': 'rating'},                       # duplicate
-        {'prompt': 'Pick', 'kind': 'choice_one', 'options': ['Only one']},  # too few options
-        {'prompt': '', 'kind': 'yes_no'},                                   # blank
+        {'prompt': 'how was it?', 'kind': 'rating'},
+        {'prompt': 'Pick', 'kind': 'choice_one', 'options': ['Only one']},
+        {'prompt': '', 'kind': 'yes_no'},
         {'prompt': 'Bad kind', 'kind': 'essay'},
         'not a dict',
         {'prompt': 'Agree?', 'kind': 'agree_scale', 'options': ['Rooms ran on time', 'Signs were clear']},

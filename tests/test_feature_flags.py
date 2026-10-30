@@ -51,15 +51,11 @@ def test_established_flags_are_the_in_use_features():
     assert set(established_flags()) == {
         FeatureFlag.CHALLONGE, FeatureFlag.EQUIPMENT,
         FeatureFlag.VOLUNTEERS, FeatureFlag.TRIFORCE_TEXTS,
-        # Gated after the fact (migration 51), so it backfills rather than
-        # disappearing for communities already collecting feedback.
         FeatureFlag.FEEDBACK,
     }
     assert FeatureFlag.ASYNC_QUALIFIERS not in established_flags()
     assert FeatureFlag.RACETIME_ROOMS not in established_flags()
     assert FeatureFlag.BRACKETS not in established_flags()
-    # Event Information ships dark too: no community had one before the flag
-    # existed, so there is nothing to backfill and nothing to preserve.
     assert FeatureFlag.EVENT_INFO not in established_flags()
     assert FeatureFlag.EVENT_CHECK_IN not in established_flags()
 
@@ -117,7 +113,7 @@ async def test_ensure_enabled_passes_when_on(tenants):
     a, b = tenants
     with tenant_scope(b.id):
         await _flag(b.id, FeatureFlag.EQUIPMENT, available=True, enabled=True)
-        await FeatureFlagService().ensure_enabled(FeatureFlag.EQUIPMENT)  # no raise
+        await FeatureFlagService().ensure_enabled(FeatureFlag.EQUIPMENT)
 
 
 async def test_set_tenant_enabled_requires_availability(tenants):
@@ -161,18 +157,17 @@ async def test_set_tenant_enabled_writes_audit(tenants):
 
 async def test_set_availability_requires_super_admin(tenants):
     a, b = tenants
-    staff = await _staff(5004, b.id)  # tenant staff is NOT a super-admin
+    staff = await _staff(5004, b.id)
     with pytest.raises(PermissionError):
         await FeatureFlagService().set_availability(staff, b.id, FeatureFlag.EQUIPMENT, True)
 
 
 async def test_forcing_availability_makes_feature_live_by_default(tenants):
-    # Availability ⇒ enabled ON by default (community may opt out).
     a, b = tenants
     sa = await _super_admin(5005)
     await FeatureFlagService().set_availability(sa, b.id, FeatureFlag.ASYNC_QUALIFIERS, True)
     row = await TenantFeatureFlagRepository.get_for_tenant(b.id, 'async_qualifiers')
-    assert row is not None and row.available is True and row.enabled is None  # enabled inherits
+    assert row is not None and row.available is True and row.enabled is None
     with tenant_scope(b.id):
         assert await FeatureFlagService().is_enabled(FeatureFlag.ASYNC_QUALIFIERS) is True
 
@@ -181,7 +176,6 @@ async def test_clearing_availability_override_returns_to_inherit(tenants):
     a, b = tenants
     sa = await _super_admin(5006)
     svc = FeatureFlagService()
-    # Force off, then clear (None) → the override row is deleted (back to inherit).
     await svc.set_availability(sa, b.id, FeatureFlag.EQUIPMENT, False)
     assert await TenantFeatureFlagRepository.get_for_tenant(b.id, 'equipment') is not None
     await svc.set_availability(sa, b.id, FeatureFlag.EQUIPMENT, None)
@@ -194,7 +188,6 @@ async def test_revoking_availability_preserves_enabled_choice(tenants):
     await _flag(b.id, FeatureFlag.EQUIPMENT, available=True, enabled=True)
     await FeatureFlagService().set_availability(sa, b.id, FeatureFlag.EQUIPMENT, False)
     row = await TenantFeatureFlagRepository.get_for_tenant(b.id, 'equipment')
-    # enabled untouched, but effective is off because available is now False.
     assert row.enabled is True and row.available is False
     with tenant_scope(b.id):
         assert await FeatureFlagService().is_enabled(FeatureFlag.EQUIPMENT) is False
@@ -222,19 +215,19 @@ async def test_group_grants_availability_and_enables_by_default(tenants):
     with tenant_scope(b.id):
         assert await svc.is_enabled(FeatureFlag.ASYNC_QUALIFIERS) is True
         assert await svc.is_enabled(FeatureFlag.RACETIME_ROOMS) is True
-        assert await svc.is_enabled(FeatureFlag.EQUIPMENT) is False  # not in the group
+        assert await svc.is_enabled(FeatureFlag.EQUIPMENT) is False
         assert await svc.enabled_flags() == {
             FeatureFlag.ASYNC_QUALIFIERS, FeatureFlag.RACETIME_ROOMS,
         }
 
 
 async def test_default_group_is_live_fallback_for_ungrouped(tenants):
-    a, b = tenants  # b is never assigned a group
+    a, b = tenants
     sa = await _super_admin(6002)
     svc = FeatureFlagService()
     await svc.create_group(sa, name='Base', flags=['equipment'], is_default=True)
     with tenant_scope(b.id):
-        assert await svc.is_enabled(FeatureFlag.EQUIPMENT) is True   # from default
+        assert await svc.is_enabled(FeatureFlag.EQUIPMENT) is True
         assert await svc.is_enabled(FeatureFlag.CHALLONGE) is False
 
 
@@ -244,7 +237,7 @@ async def test_override_forces_off_a_group_granted_flag(tenants):
     svc = FeatureFlagService()
     g = await svc.create_group(sa, name='Online', flags=['async_qualifiers'])
     await svc.assign_tenant_group(sa, b.id, g.id)
-    await svc.set_availability(sa, b.id, FeatureFlag.ASYNC_QUALIFIERS, False)  # exception
+    await svc.set_availability(sa, b.id, FeatureFlag.ASYNC_QUALIFIERS, False)
     with tenant_scope(b.id):
         assert await svc.is_enabled(FeatureFlag.ASYNC_QUALIFIERS) is False
 
@@ -255,7 +248,7 @@ async def test_override_forces_on_an_ungrouped_flag(tenants):
     svc = FeatureFlagService()
     g = await svc.create_group(sa, name='Online', flags=['async_qualifiers'])
     await svc.assign_tenant_group(sa, b.id, g.id)
-    await svc.set_availability(sa, b.id, FeatureFlag.EQUIPMENT, True)  # exception grant
+    await svc.set_availability(sa, b.id, FeatureFlag.EQUIPMENT, True)
     with tenant_scope(b.id):
         assert await svc.is_enabled(FeatureFlag.EQUIPMENT) is True
 
@@ -269,7 +262,7 @@ async def test_community_can_disable_a_group_granted_feature(tenants):
     with tenant_scope(b.id):
         staff = await _staff(6006, b.id)
         await svc.set_tenant_enabled(staff, FeatureFlag.ASYNC_QUALIFIERS, False)
-        assert await svc.is_enabled(FeatureFlag.ASYNC_QUALIFIERS) is False  # sticky opt-out
+        assert await svc.is_enabled(FeatureFlag.ASYNC_QUALIFIERS) is False
         assert FeatureFlag.ASYNC_QUALIFIERS not in await svc.enabled_flags()
 
 
@@ -283,7 +276,7 @@ async def test_editing_group_updates_assigned_tenants_live(tenants):
         assert await svc.is_enabled(FeatureFlag.RACETIME_ROOMS) is False
     await svc.update_group(sa, g.id, flags=['async_qualifiers', 'racetime_rooms'])
     with tenant_scope(b.id):
-        assert await svc.is_enabled(FeatureFlag.RACETIME_ROOMS) is True  # live update
+        assert await svc.is_enabled(FeatureFlag.RACETIME_ROOMS) is True
 
 
 async def test_single_default_is_enforced(tenants):
@@ -313,7 +306,7 @@ async def test_group_flags_are_validated_against_registry(tenants):
     a, b = tenants
     sa = await _super_admin(6010)
     g = await FeatureFlagService().create_group(sa, name='Weird', flags=['equipment', 'not_a_real_flag'])
-    assert g.flags == ['equipment']  # unknown key dropped
+    assert g.flags == ['equipment']
 
 
 async def test_group_management_requires_super_admin(tenants):

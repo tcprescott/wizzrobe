@@ -27,8 +27,7 @@ from tests.mcp.test_mcp_catalogue import PLATFORM_TOOLS, PLATFORM_WRITE_TOOLS
 
 _LOGGER = 'wizzrobe.test.platform_mcp'
 
-# Every platform tool with arguments that get past argument validation, so the
-# gate is what answers. They need not name rows that exist.
+# Arguments must get past validation, so the gate is what answers.
 PLATFORM_CALLS = {
     'runtime_stats': {},
     'memory_census': {},

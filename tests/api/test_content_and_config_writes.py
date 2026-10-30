@@ -61,7 +61,7 @@ class TestTriforce:
 
             assert (await player_c.post(
                 f'/api/triforce-texts/{text_id}/moderate', json={'approved': True}
-            )).status_code == 400  # service raises ValueError -> 400
+            )).status_code == 400
 
             approved = await staff_c.post(
                 f'/api/triforce-texts/{text_id}/moderate', json={'approved': True}
@@ -73,7 +73,6 @@ class TestTriforce:
         _, raw = await create_user_token(username='player', roles=[Role.TRIFORCE_SUBMITTER])
         t = await Tournament.create(name='Cup', is_active=True, seed_generator='alttpr')
         async with client_for(app, raw) as c:
-            # Only 2 lines -> service requires exactly 3 -> 400.
             resp = await c.post('/api/triforce-texts', json={'tournament_id': t.id, 'lines': ['A', 'B']})
             assert resp.status_code == 400
 

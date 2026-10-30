@@ -315,7 +315,7 @@ async def test_taking_a_listed_event_down_tells_its_subscribers(member, other_me
     await service.reject(staff, event.id, 'Venue said no')
 
     recipients = sorted(d['to'] for d in await dms())
-    assert recipients == [601, 602]  # the host (staff here) and the subscriber
+    assert recipients == [601, 602]
 
 
 async def test_moving_a_listed_event_tells_subscribers_and_rearms_reminders(member, other_member, staff, dms):
@@ -548,7 +548,6 @@ async def test_the_rsvp_cap_cannot_drop_below_who_is_already_going(member, other
     await service.update(member, event.id, _draft(starts_at=event.starts_at, rsvp_enabled=True, rsvp_capacity=2))
     await event.refresh_from_db()
     assert event.rsvp_capacity == 2
-
 
 
 async def test_turning_rsvps_off_ignores_the_cap_check(member, other_member, staff):

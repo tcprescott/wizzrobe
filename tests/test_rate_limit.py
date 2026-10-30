@@ -17,7 +17,7 @@ async def test_requests_under_limit_pass(monkeypatch):
     _hits.clear()
     req = _FakeRequest(host='10.0.0.10')
     for _ in range(3):
-        await rate_limit(req)  # must not raise
+        await rate_limit(req)
 
 
 async def test_request_over_limit_429(monkeypatch):
@@ -33,7 +33,6 @@ async def test_request_over_limit_429(monkeypatch):
 
 
 def _bearer(suffix: str) -> dict:
-    # A well-formed personal access token: real prefix + enough length.
     return {'authorization': f'Bearer wizzrobe_pat_{suffix}'}
 
 
@@ -50,9 +49,6 @@ async def test_distinct_wellformed_tokens_isolated_across_ips(monkeypatch):
 
 
 async def test_wellformed_token_flood_from_one_ip_is_capped(monkeypatch):
-    # Regression: the token prefix is public, so an attacker can present a fresh
-    # well-formed bearer value every request. Those must NOT each get a private
-    # bucket that bypasses the limit — the shared source IP is a ceiling.
     monkeypatch.setenv('API_RATE_LIMIT_PER_MIN', '3')
     _hits.clear()
     for i in range(3):
@@ -62,9 +58,6 @@ async def test_wellformed_token_flood_from_one_ip_is_capped(monkeypatch):
 
 
 async def test_key_dict_bounded_under_token_flood(monkeypatch):
-    # A flood of distinct well-formed tokens from one IP must not grow _hits
-    # without bound: once the IP ceiling trips, no further per-token keys are
-    # created, so the tracked-key count stays small.
     monkeypatch.setenv('API_RATE_LIMIT_PER_MIN', '5')
     _hits.clear()
     for i in range(500):
@@ -77,8 +70,6 @@ async def test_key_dict_bounded_under_token_flood(monkeypatch):
 
 
 async def test_garbage_tokens_fall_back_to_ip(monkeypatch):
-    # A flood of rotating garbage bearer values must NOT get a fresh bucket each
-    # request — they share the caller's IP key so the limit still bites.
     monkeypatch.setenv('API_RATE_LIMIT_PER_MIN', '2')
     _hits.clear()
     for i in range(2):

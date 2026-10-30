@@ -111,7 +111,6 @@ async def test_a_match_with_someone_unrelated_is_left_alone(people):
     other = await ChallongeParticipant.create(
         tournament=tournament, challonge_participant_id='200', name='jax', user=jax,
     )
-    # Staff already hand-edited this one: two people on it aren't sides.
     odd = await _match(tournament, stranger, old)
     await ChallongeMatch.create(tournament=tournament, challonge_match_id='8001', state=ChallongeMatchState.OPEN,
                                 participant1=alsoa, participant2=other, match=odd)

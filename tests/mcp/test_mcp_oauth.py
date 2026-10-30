@@ -113,8 +113,6 @@ class TestFullFlow:
             assert body['refresh_token']
             assert body['expires_in'] > 0
 
-            # The issued token must actually work against the endpoint it was
-            # minted for — the flow succeeding is not the same as it being useful.
             call = await rpc(client, body['access_token'], 'tools/list')
             assert call.status_code == 200
 
@@ -181,7 +179,6 @@ class TestFullFlow:
             })
             assert replay.status_code == 400
 
-            # The old access token dies too, since rotation re-keys the row.
             stale = await rpc(client, first['access_token'], 'tools/list')
             assert stale.status_code == 401
             fresh = await rpc(client, second['access_token'], 'tools/list')
@@ -199,9 +196,7 @@ class TestFullFlow:
             tokens = (await exchange(client, client_id, code, verifier, redirect_uri)).json()
             assert (await rpc(client, tokens['access_token'], 'tools/list')).status_code == 200
 
-            # client_secret must be *present* even for a public client: the
-            # SDK's RevocationRequest types it `str | None` with no default, so
-            # pydantic requires the key. Empty is what a public client sends.
+            # client_secret must be present (empty) even for a public client: pydantic requires the key.
             revoke = await client.post('/revoke', data={
                 'client_id': client_id,
                 'client_secret': '',

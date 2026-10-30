@@ -148,7 +148,6 @@ class TestDeleteStage:
         assert details == {'stage_id': 99}
 
     async def test_audit_uses_id_before_delete(self, service):
-        # Even if the orm clears the id after delete(), audit_log should still have it.
         stage = make_stage(stage_id=42)
         await service.delete_stage(stage, actor=make_user())
         assert service.audit_service.write_log.await_args.args[2]['stage_id'] == 42

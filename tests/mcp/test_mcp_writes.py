@@ -25,9 +25,7 @@ from tests.mcp.conftest import call_tool, create_oauth_token, mcp_session
 TENANT = 'default'
 READS = READ_SCOPES - {ApiScope.STAFF_READ}
 
-# Every write tool with arguments that reach the gate rather than failing
-# validation first. The gate runs before the tool body, so these need not name
-# rows that exist.
+# Arguments must reach the gate rather than fail validation first.
 WRITE_CALLS = {
     'export_tournaments': {},
     'export_volunteer_data': {'start': '2026-10-22T00:00:00', 'end': '2026-10-26T00:00:00'},
@@ -255,8 +253,6 @@ class TestTheWritesLand:
             assert not is_error, payload
             assert payload['stage']['id'] == stage.id
 
-            # Omitting the id clears the stage rather than leaving it alone —
-            # the one argument whose absence means something.
             is_error, payload = await call_tool(
                 client, raw, 'assign_match_stage', tenant=TENANT,
                 match_id=match.id,
@@ -404,7 +400,6 @@ class TestConsentDecidesTheGrant:
         service, user, txn = await _pending_grant()
         with pytest.raises(ValueError, match='this is dangerous'):
             await service.approve(txn, user, scopes={ApiScope.PLAY}, write_confirmation=typed)
-        # A typo must not burn the request: the same screen can try again.
         raw_code, _, _ = await service.approve(
             txn, user, scopes={ApiScope.PLAY}, write_confirmation='this is dangerous',
         )

@@ -105,7 +105,6 @@ async def test_any_reviewer_may_release_another_reviewers_claim(db):
 
     await service.claim_run(holder, run.id)
     await service.release_claim(other, run.id)
-    # Refused a moment ago; now open to the same reviewer.
     reviewed = await service.review_run(other, run.id, approved=True)
     assert reviewed.review_status == AsyncQualifierReviewStatus.APPROVED
 

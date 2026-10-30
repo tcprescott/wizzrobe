@@ -47,7 +47,6 @@ async def test_signup_state_does_not_leak_across_tenants(db, tenant_b):
             name='Spring Open', tenant_id=tenant_b.id, **window,
         )
 
-    # One person in both communities, entered in tenant B's tournament only.
     player = await _member(8400, 'crossover', 1)
     with tenant_scope(tenant_b.id):
         await TenantMembership.create(user=player, tenant_id=tenant_b.id)

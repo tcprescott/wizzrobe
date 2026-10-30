@@ -86,7 +86,7 @@ class TestDrawPreview:
 
     async def test_preview_reports_a_broken_seeding_instead_of_raising(self, service):
         actor, _t, bracket, entries = await _field(service, n=4)
-        # Force a duplicate the way only a pre-validation row could carry one.
+        # Written raw: the service would refuse this duplicate.
         entry = entries[0]
         entry.seed = 2
         await entry.save()
@@ -230,7 +230,7 @@ class TestConfigValidation:
             service, fmt=BracketFormat.SWISS, n=4, config={'swiss_rounds': 3},
         )
         stored = dict(bracket.config or {})
-        assert 'grand_final_reset' in stored  # the default the normalizer added
+        assert 'grand_final_reset' in stored
         updated = await service.update_bracket(actor, bracket.id, config=stored)
         assert updated.config['swiss_rounds'] == 3
 
@@ -256,11 +256,11 @@ class TestDefaultBestOf:
         round2 = next(m for m in matches if m.round == 2)
         bracket = await service.get_bracket(bracket.id)
 
-        assert service.resolve_best_of(bracket, round1) == 3   # stage default
-        assert service.resolve_best_of(bracket, round2) == 5   # the round wins
+        assert service.resolve_best_of(bracket, round1) == 3
+        assert service.resolve_best_of(bracket, round2) == 5
         await service.set_best_of(actor, round1.id, 7)
         round1 = await service.repository.get_match(round1.id)
-        assert service.resolve_best_of(bracket, round1) == 7   # the matchup wins
+        assert service.resolve_best_of(bracket, round1) == 7
 
     async def test_falls_back_to_one_when_nothing_is_set(self, service):
         actor, _t, bracket, _entries = await _field(service, n=4)
@@ -310,7 +310,7 @@ class TestAdvancementPlan:
     async def test_missing_next_stage_is_diagnosed_before_the_source_state(self, service):
         """The likelier mistake, and the one the operator can act on."""
         actor, tournament, bracket, _entries = await _field(service, n=4)
-        await service.start_bracket(actor, bracket.id)  # ACTIVE, not COMPLETE
+        await service.start_bracket(actor, bracket.id)
         with pytest.raises(ValueError, match='no next stage'):
             await service.advancement_plan(tournament.id, 0)
 

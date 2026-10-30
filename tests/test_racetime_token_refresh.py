@@ -70,7 +70,7 @@ class TestRefreshLoop:
             transport._token_expires_at = time.monotonic() + 3600
 
         monkeypatch.setattr(transport, 'authenticate', fake_auth)
-        transport._token_expires_at = time.monotonic() - 1  # already stale
+        transport._token_expires_at = time.monotonic() - 1
 
         await self._run_ticks(transport, monkeypatch, ticks=3)
 

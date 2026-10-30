@@ -12,16 +12,16 @@ from application.utils.hostname import effective_request_host, normalize_hostnam
 
 @pytest.mark.parametrize('raw,expected', [
     ('foo.gg', 'foo.gg'),
-    ('  FOO.GG  ', 'foo.gg'),           # trim + lowercase
-    ('https://foo.gg', 'foo.gg'),       # strip scheme
-    ('https://foo.gg/path?q=1#f', 'foo.gg'),  # strip path/query/fragment
-    ('foo.gg.', 'foo.gg'),              # strip fully-qualified trailing dot
-    ('foo.gg:443', 'foo.gg'),           # drop default https port
-    ('foo.gg:80', 'foo.gg'),            # drop default http port
-    ('foo.gg:8000', 'foo.gg:8000'),     # keep a non-default port
-    ('second.localhost:8000', 'second.localhost:8000'),  # dev host keeps its port
-    ('user@foo.gg', 'foo.gg'),          # strip userinfo
-    ('localhost', 'localhost'),         # single label is valid
+    ('  FOO.GG  ', 'foo.gg'),
+    ('https://foo.gg', 'foo.gg'),
+    ('https://foo.gg/path?q=1#f', 'foo.gg'),
+    ('foo.gg.', 'foo.gg'),
+    ('foo.gg:443', 'foo.gg'),
+    ('foo.gg:80', 'foo.gg'),
+    ('foo.gg:8000', 'foo.gg:8000'),
+    ('second.localhost:8000', 'second.localhost:8000'),
+    ('user@foo.gg', 'foo.gg'),
+    ('localhost', 'localhost'),
     ('sub.foo.gg', 'sub.foo.gg'),
 ])
 def test_normalize_hostname_valid(raw, expected):
@@ -50,8 +50,6 @@ def test_effective_host_honors_forwarded_when_trusted(monkeypatch):
 
 def test_effective_host_takes_last_forwarded_value(monkeypatch):
     monkeypatch.setenv('TRUST_FORWARDED_HOST', 'true')
-    # Append-ordered: the leftmost is client-supplied/forgeable, the rightmost is
-    # set by the nearest trusted proxy. The last value must win.
     headers = {'host': 'platform', 'x-forwarded-host': 'evil.gg, foo.gg'}
     assert effective_request_host(headers) == 'foo.gg'
 
@@ -59,8 +57,6 @@ def test_effective_host_takes_last_forwarded_value(monkeypatch):
 def test_effective_host_last_of_repeated_forwarded_headers(monkeypatch):
     monkeypatch.setenv('TRUST_FORWARDED_HOST', 'true')
     from starlette.datastructures import Headers
-    # Two separate X-Forwarded-Host lines (proxy appended a new header rather than
-    # extending the comma list): the last line is the nearest trusted proxy.
     headers = Headers(raw=[
         (b'host', b'platform'),
         (b'x-forwarded-host', b'evil.gg'),

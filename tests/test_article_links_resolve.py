@@ -138,7 +138,6 @@ class TestWhatPruningKeeps:
         assert '/help/player' in hrefs
         table = next(b for b in article.blocks if b.kind == 'table')
         rows = {''.join(s.text for s in row[0]): row[1] for row in table.rows}
-        # The row stays; only its dead link loses the anchor.
         assert [s.kind for s in rows['Working shifts']] == ['text']
         assert rows['Working shifts'][0].text == 'Volunteering'
         assert rows['Playing'][0].kind == 'link'

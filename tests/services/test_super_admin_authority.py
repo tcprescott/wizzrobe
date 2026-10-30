@@ -75,7 +75,6 @@ async def test_gated_helpers_grant_super_admin_in_a_foreign_tenant(
 ):
     with tenant_scope(fresh_tenant.id):
         assert await getattr(AuthService, helper)(super_admin) is True
-        # Same call, ordinary user: proves the fixture tenant really grants nothing.
         assert await getattr(AuthService, helper)(nobody) is False
 
 

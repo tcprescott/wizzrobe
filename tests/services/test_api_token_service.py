@@ -45,7 +45,7 @@ class TestHashToken:
 
     def test_returns_hex_string(self):
         h = _hash_token('test')
-        int(h, 16)  # must not raise
+        int(h, 16)
 
     def test_length_is_64_chars(self):
         assert len(_hash_token('anything')) == 64

@@ -67,8 +67,7 @@ async def test_generate_day_shifts_counts_and_midnight(db):
     shifts = await VolunteerScheduleService().generate_day_shifts(
         staff, '2026-10-04', [p1.id, p2.id], blocks,
     )
-    assert len(shifts) == 4  # 2 positions x 2 blocks
-    # The 20:00–00:00 block must roll its end into the next day.
+    assert len(shifts) == 4
     overnight = [s for s in shifts if s.label == 'Shift 4']
     for s in overnight:
         assert s.ends_at > s.starts_at
@@ -79,9 +78,9 @@ def test_validate_stagger_rules():
     from application.services.volunteer.volunteer_position_service import VolunteerPositionService
     validate = VolunteerPositionService._validate_stagger
 
-    validate(None, None)   # both unset -> fixed blocks
-    validate(240, 120)     # overlapping rolling shifts
-    validate(240, 240)     # back-to-back, still continuous coverage
+    validate(None, None)
+    validate(240, 120)
+    validate(240, 240)
 
     with pytest.raises(ValueError, match='both'):
         validate(240, None)
@@ -98,7 +97,6 @@ async def test_generate_day_shifts_staggered_position(db):
     tech = await VolunteerPosition.create(
         name='Broadcast Tech', shift_length_minutes=240, stagger_minutes=120,
     )
-    # Coverage 08:00–20:00; 4h shifts starting every 2h.
     blocks = [
         ('Shift 1', '08:00', '12:00'),
         ('Shift 2', '12:00', '16:00'),
@@ -109,16 +107,13 @@ async def test_generate_day_shifts_staggered_position(db):
         staff, '2026-10-04', [tech.id], blocks,
     )
     shifts = sorted(shifts, key=lambda s: s.starts_at)
-    # Starts at 08,10,12,14,16,18 -> 6 rolling shifts, each a single slot.
     assert len(shifts) == 6
     assert all(s.slots_needed == 1 and s.label is None for s in shifts)
-    # Consecutive starts are offset by the 2h stagger (handoffs don't bunch up).
     for earlier, later in itertools.pairwise(shifts):
         assert later.starts_at - earlier.starts_at == timedelta(hours=2)
-    # Full shifts run 4h; the final one is clamped to the 20:00 coverage end.
     assert all(s.ends_at - s.starts_at == timedelta(hours=4) for s in shifts[:-1])
     assert shifts[-1].ends_at - shifts[-1].starts_at == timedelta(hours=2)
-    assert shifts[-1].ends_at == shifts[-2].ends_at  # both land on 20:00
+    assert shifts[-1].ends_at == shifts[-2].ends_at
 
 
 async def test_generate_day_shifts_mixes_staggered_and_fixed(db):
@@ -136,7 +131,6 @@ async def test_generate_day_shifts_mixes_staggered_and_fixed(db):
     tech_shifts = [s for s in shifts if s.position_id == tech.id]
     assert len(fixed_shifts) == 2
     assert {s.label for s in fixed_shifts} == {'Shift 1', 'Shift 2'}
-    # The staggered position rolls across 08:00–16:00: starts 08,10,12,14.
     assert len(tech_shifts) == 4
     assert all(s.label is None for s in tech_shifts)
 
@@ -276,10 +270,8 @@ async def test_publish_draft_commits_and_survives_clear_draft(db):
     assert result == {'published': 3, 'volunteers': 2, 'clashes': []}
     assert await VolunteerAssignment.filter(auto_generated=True).count() == 0
 
-    # Idempotent: nothing left to publish.
     assert (await auto.publish_draft(staff, _at(0), _at(23)))['published'] == 0
 
-    # And the published rows are no longer clear_draft's to delete.
     assert await auto.clear_draft(staff, _at(0), _at(23)) == 0
     assert await VolunteerAssignment.all().count() == 3
 
@@ -329,7 +321,6 @@ async def test_shiftmates_are_only_loaded_when_asked_for(db):
     names = {a.user.preferred_name for a in with_mates[0].shift.assignments}
     assert names == {'me', 'them'}
 
-    # Nobody quietly makes the expensive version the default.
     from tortoise.exceptions import NoValuesFetched
     plain = await svc.assignments_for_user(me)
     with pytest.raises(NoValuesFetched):
@@ -385,7 +376,6 @@ async def test_autoschedule_respects_qualification_and_availability(db):
         user=qualified, starts_at=_at(8), ends_at=_at(12),
         status=VolunteerAvailabilityStatus.AVAILABLE,
     )
-    # Qualified only for a different position -> ineligible for this shift.
     wrong = await _volunteer('wrongskill')
     await VolunteerQualification.create(user=wrong, position=tech)
 
@@ -408,7 +398,6 @@ async def test_autoschedule_load_balances(db):
 
     result = await VolunteerAutoscheduleService().generate_draft(staff, _at(0), _at(23))
     assert result['created'] == 2
-    # Each generalist volunteer should get one of the two non-overlapping shifts.
     holders = {a.user_id for a in await VolunteerAssignment.all()}
     assert holders == {a.id, b.id}
 
@@ -426,7 +415,6 @@ async def test_autoschedule_leaves_unfillable_open_and_clear_draft(db):
     assert result['unfilled'] and result['unfilled'][0]['open'] == 2
     assert result['unfilled'][0]['reason'] == 'No qualified volunteer in the pool.'
 
-    # A manual assignment must survive clear_draft; drafts must not.
     manual = await _volunteer('manual')
     await VolunteerScheduleService().assign(staff, shift, manual)
     removed = await auto.clear_draft(staff, _at(0), _at(23))
@@ -448,7 +436,7 @@ async def test_does_not_repeat_the_sixteen_hour_draft(db):
 
     result = await VolunteerAutoscheduleService().generate_draft(staff, _at(0), _at(23) + timedelta(hours=6))
 
-    assert result['created'] == 2  # 8 hours, not 16
+    assert result['created'] == 2
     assert await VolunteerAssignment.filter(user=hero).count() == 2
     at_cap = [u for u in result['unfilled']
               if u['reason'] == 'Everyone eligible is at the 8-hour limit.']
@@ -524,7 +512,6 @@ async def test_reminder_loop_fires_once(db, monkeypatch):
     assert assignment.reminder_sent_at is not None
     first_stamp = assignment.reminder_sent_at
 
-    # Second tick must not re-fire (already stamped -> filtered out).
     await volunteer_reminder._tick()
     assignment = await VolunteerAssignment.get(shift=shift)
     assert assignment.reminder_sent_at == first_stamp
@@ -542,7 +529,7 @@ async def test_reminder_skips_far_future_shift(db, monkeypatch):
     )
 
     pos = await VolunteerPosition.create(name='Admin Desk')
-    far = datetime.now(UTC) + timedelta(hours=6)  # beyond default 60-min lead
+    far = datetime.now(UTC) + timedelta(hours=6)
     shift = await VolunteerShift.create(
         position=pos, starts_at=far, ends_at=far + timedelta(hours=4),
     )

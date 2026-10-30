@@ -53,7 +53,6 @@ def test_round_robin_invariants(n, group_count):
     engine = _engine()
     matches = engine.generate(n, {'group_count': group_count})
 
-    # Recover the expected snake partition of seeds 1..n.
     expected_groups: list[list[int]] = [[] for _ in range(group_count)]
     for i in range(n):
         pass_index = i // group_count
@@ -66,8 +65,6 @@ def test_round_robin_invariants(n, group_count):
     assert sorted(s for g in expected_groups for s in g) == list(range(1, n + 1))
 
     groups = _groups(matches)
-    # A group only shows up in the match graph if it has a pair to schedule
-    # (a single-member group produces no matches).
     assert set(groups) == {
         gn for gn in range(1, group_count + 1) if len(expected_groups[gn - 1]) >= 2
     }
@@ -95,8 +92,8 @@ def test_round_robin_invariants(n, group_count):
 def test_known_four_in_one_group():
     engine = _engine()
     matches = engine.generate(4, {'group_count': 1})
-    assert max(m.round for m in matches) == 3  # 3 rounds for 4 entrants
-    assert len(matches) == 6  # C(4,2)
+    assert max(m.round for m in matches) == 3
+    assert len(matches) == 6
     pairs = {frozenset((m.entry1_seed, m.entry2_seed)) for m in matches}
     assert pairs == {frozenset(p) for p in combinations(range(1, 5), 2)}
     for r in (1, 2, 3):
@@ -106,8 +103,8 @@ def test_known_four_in_one_group():
 def test_odd_group_has_no_phantom_matches():
     engine = _engine()
     matches = engine.generate(5, {'group_count': 1})
-    assert len(matches) == 10  # C(5,2)
-    assert max(m.round for m in matches) == 5  # odd => n rounds, one bye each
+    assert len(matches) == 10
+    assert max(m.round for m in matches) == 5
     for m in matches:
         assert m.entry1_seed in range(1, 6)
         assert m.entry2_seed in range(1, 6)

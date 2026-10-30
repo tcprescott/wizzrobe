@@ -21,8 +21,6 @@ from theme.tables.match_filters import DEFAULT_STATE_FILTER
 
 REPO = Path(__file__).resolve().parents[2]
 
-# Every construction site, and the storage_key it must pass. A board missing
-# from this map is a board sharing someone else's filters.
 CONSTRUCTION_SITES = {
     'pages/admin_tabs/admin_schedule.py': 'admin_schedule',
     'pages/volunteer_tabs/proctor_station.py': 'proctor',
@@ -36,7 +34,6 @@ def _view(storage_key='match', default_state_filter=None, default_day_scope='All
     view.storage_key = storage_key
     view.default_state_filter = default_state_filter
     view.default_day_scope = default_day_scope
-    # The badge reads every filter widget; an unbuilt view has none.
     view.tournament_filter = None
     view.stage_filter = None
     view.state_filter = None
@@ -156,9 +153,6 @@ def test_badge_counts_a_state_filter_moved_off_the_boards_default():
     assert view._active_filter_count() == 1
 
 
-# The board had no day or now anchor, so an operator standing at a venue
-# scrolled ~8 screenfuls of phone to find a match by eye.
-
 def test_all_dates_is_the_default_and_narrows_nothing():
     """Nothing may be hidden until the operator asks for it."""
     from theme.tables.match_filters import ALL_DAYS, DAY_SCOPES, day_scope_window
@@ -237,9 +231,6 @@ def test_a_deep_link_suspends_the_day_filter():
     assert 'None if self.match_ids else day_scope_window' in src
 
 
-# A TA's or crew coordinator's authority is per tournament. The scope is a hard
-# bound on the rows; the Tournament filter is their choice *within* it.
-
 def _scoped_view(scope, filter_value=None):
     from types import SimpleNamespace
 
@@ -300,9 +291,6 @@ def test_the_resolution_matches_the_one_refresh_uses():
     assert 'self.scope_tournament_ids is not None' in src
     assert '_MATCHES_NOTHING' in src
 
-
-# Thomas's pick B: the filter count is a chip that clears every filter in one
-# tap, then offers Undo for a few seconds.
 
 def _filtered_view(monkeypatch):
     from types import SimpleNamespace

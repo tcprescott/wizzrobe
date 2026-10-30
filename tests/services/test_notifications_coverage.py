@@ -109,7 +109,7 @@ class TestUpdateValidation:
         updated = await WebhookService().update_webhook(
             actor, webhook.id, name='  renamed  ', url='https://new.example/hook',
         )
-        assert updated.name == 'renamed'  # stripped
+        assert updated.name == 'renamed'
         assert updated.url == 'https://new.example/hook'
 
     async def test_update_empty_name_raises(self, db):
@@ -174,7 +174,6 @@ class TestSsrfGuard:
             'application.utils.ssrf.socket.getaddrinfo',
             lambda *a, **k: [(socket.AF_INET, socket.SOCK_STREAM, 6, '', ('93.184.216.34', 0))],
         )
-        # A resolvable public address must pass without raising.
         await WebhookService()._validate_url('https://example.com/hook')
 
     async def test_create_in_production_with_public_host(self, db, monkeypatch):
@@ -205,7 +204,7 @@ class TestDeliveryErrorBranches:
         assert delivery.success is True
         assert delivery.response_status == 200
         assert delivery.attempt_count == 3
-        assert delivery.error is None  # cleared on success
+        assert delivery.error is None
         assert delivery.delivered_at is not None
 
     async def test_all_attempts_raise_records_error_and_null_status(self, db, monkeypatch, no_sleep):
@@ -222,16 +221,13 @@ class TestDeliveryErrorBranches:
         assert len(fake.calls) == WebhookService.MAX_ATTEMPTS
         delivery = await WebhookDelivery.get(webhook=webhook)
         assert delivery.success is False
-        assert delivery.response_status is None  # never got a response
-        assert delivery.error == 'down-3'  # last error retained
+        assert delivery.response_status is None
+        assert delivery.error == 'down-3'
         assert delivery.delivered_at is None
 
 
 class TestDeliverySsrfRevalidation:
     async def test_delivery_blocked_when_host_resolves_private_in_production(self, db, monkeypatch):
-        # A stored URL whose host resolves to an internal address at delivery
-        # time (DNS repoint / rebind after the create-time check) must not be
-        # dereferenced; the delivery is recorded as a blocked failure.
         webhook = await Webhook.create(
             name='w', url='https://public-then-internal.example/hook',
             secret='shhh', event_types=['*'],
@@ -246,7 +242,7 @@ class TestDeliverySsrfRevalidation:
 
         await WebhookService()._deliver_one(webhook, Event.create(EventType.MATCH_CREATED, {}))
 
-        assert fake.calls == []  # the endpoint was never contacted
+        assert fake.calls == []
         delivery = await WebhookDelivery.get(webhook=webhook)
         assert delivery.success is False
         assert delivery.attempt_count == 0
@@ -382,8 +378,6 @@ def fake_client(monkeypatch):
 
 class TestConfigResolution:
     def test_invalid_private_key_disables_and_warns(self, monkeypatch, caplog):
-        # A key with a usable subject but a value that fails to parse hits the
-        # (ValueError, TypeError) guard in _resolve_vapid_config.
         monkeypatch.setenv('VAPID_PRIVATE_KEY', 'invalid-vapid-key-value-xyz')
         monkeypatch.setenv('VAPID_SUBJECT', 'mailto:ops@example.com')
         with caplog.at_level('WARNING', logger='application.services.web_push_service'):
@@ -395,24 +389,23 @@ class TestHttpClientLifecycle:
     async def test_get_reuses_then_close_resets(self):
         import application.services.web_push_service as mod
 
-        await mod.aclose_http_client()  # start from a clean slate
+        await mod.aclose_http_client()
         client = mod._get_http_client()
         assert isinstance(client, httpx.AsyncClient)
         assert client.is_closed is False
-        assert mod._get_http_client() is client  # reused, not recreated
+        assert mod._get_http_client() is client
 
         await mod.aclose_http_client()
         assert mod._http_client is None
 
         fresh = mod._get_http_client()
-        assert fresh is not client  # a new client after close
+        assert fresh is not client
         await mod.aclose_http_client()
 
     async def test_aclose_when_already_none_is_safe(self):
         import application.services.web_push_service as mod
         await mod.aclose_http_client()
         assert mod._http_client is None
-        # Second close with nothing open must not raise.
         await mod.aclose_http_client()
         assert mod._http_client is None
 
@@ -453,8 +446,6 @@ class TestRemoveSubscription:
 
 class TestNotifyGating:
     async def test_send_to_subscriptions_zero_when_config_none(self, db, no_vapid_env):
-        # Direct call models the is_configured/config race: a caller passed the
-        # gate but the config resolved to None by delivery time.
         assert await WebPushService()._send_to_subscriptions([], title='t', body='b') == 0
 
 
@@ -470,7 +461,7 @@ class TestPlainText:
 
 class TestDeliveryPruneAndErrors:
     async def test_encrypt_valueerror_prunes_subscription(self, db, vapid_env, fake_client, monkeypatch):
-        fake = fake_client([])  # post must never be reached
+        fake = fake_client([])
         user = await _subscribed_user(discord_id=99)
 
         def _boom(*args, **kwargs):
@@ -479,8 +470,8 @@ class TestDeliveryPruneAndErrors:
 
         delivered = await _deliver(user)
         assert delivered == 0
-        assert fake.calls == []  # encryption failed before any POST
-        assert await WebPushSubscription.all().count() == 0  # pruned
+        assert fake.calls == []
+        assert await WebPushSubscription.all().count() == 0
 
     async def test_http_error_keeps_subscription(self, db, vapid_env, fake_client):
         fake = fake_client(raise_exc=httpx.HTTPError('push service unreachable'))
@@ -489,7 +480,7 @@ class TestDeliveryPruneAndErrors:
         delivered = await _deliver(user)
         assert delivered == 0
         assert len(fake.calls) == 1
-        assert await WebPushSubscription.all().count() == 1  # transient, not pruned
+        assert await WebPushSubscription.all().count() == 1
 
     async def test_server_error_status_keeps_subscription(self, db, vapid_env, fake_client):
         fake = fake_client([500])

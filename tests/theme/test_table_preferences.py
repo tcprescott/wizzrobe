@@ -113,8 +113,6 @@ class TestThePlanReachesTheTable:
         assert 'wiz-table--sized' not in table.classes
 
     def test_an_unprimed_context_renders_defaults(self, table):
-        # /platform and the public bracket views never prime; defaults are the
-        # correct answer there, not a failure.
         plan = customize_table(table, COLUMNS, key='admin.users')
         assert plan.is_customized is False
         assert [c['name'] for c in table.columns] == [c['name'] for c in COLUMNS]
@@ -137,7 +135,6 @@ class TestRowsPerPageLivesInTheFooter:
         assert table._props['rows-per-page-label'] == 'Rows per page:'
 
     def test_the_footer_stays_on_all(self, table):
-        # Hiding it on "All" would leave no way to pick a size again.
         with table_prefs_scope({'admin.users': {'page_size': 0}}):
             customize_table(table, COLUMNS, key='admin.users')
         assert table._props['pagination']['rowsPerPage'] == 0
@@ -156,8 +153,6 @@ class TestRowsPerPageLivesInTheFooter:
         assert 'set_page_size' not in source
 
     def test_every_shipped_page_size_is_one_the_footer_offers(self):
-        # A table built with pagination=15 would show 15 in the footer, and the
-        # footer could never save it back.
         import re
         allowed = set(ROWS_PER_PAGE_OPTIONS)
         bad = []
@@ -191,7 +186,6 @@ class TestReapplying:
 
 class TestTheCarriers:
     def test_capture_render_context_carries_preferences(self):
-        # The wave's subtlest bug: a background refresh reverting to defaults.
         from theme.tables.admin_crud import capture_render_context
 
         with table_prefs_scope({'admin.users': SAVED}):
@@ -201,7 +195,6 @@ class TestTheCarriers:
     def test_base_layout_primes_and_scopes(self):
         source = (REPO / 'theme' / 'base.py').read_text()
         assert 'TablePreferenceService().prime(self.user)' in source
-        # Both carriers: the page build and the lazy tab build.
         assert source.count('table_prefs_scope(') >= 2
 
 

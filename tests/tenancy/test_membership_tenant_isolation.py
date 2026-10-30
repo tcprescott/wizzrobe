@@ -157,14 +157,6 @@ async def test_get_all_users_is_unchanged(db):
     assert {'member2', 'stranger2'} <= names
 
 
-# The two legitimate callers, both deliberate and both labelled on screen:
-#
-# - the /platform first-admin dialog — a super-admin choosing from every account
-#   precisely because the target community has no members yet;
-# - the checkout dialog's "Include people outside this community" toggle — the
-#   venue case, lending to someone who just walked in. It widens *which*
-#   community's people are offered, never who may borrow; EquipmentService
-#   enforces that.
 _GLOBAL_LIST_ALLOWLIST = {
     'pages/platform_tenant_admins.py',
     'theme/dialog/checkout_dialog.py',
@@ -251,7 +243,7 @@ async def test_the_seed_has_a_member_of_one_community_and_not_another(seeded_db)
 
     assert 'local_only' in in_default
     assert 'local_only' not in in_second
-    # And the shared cast really is shared, or the assertion above proves nothing.
+    # Check the cast really is shared, or the assertion above proves nothing.
     assert 'staff_user' in in_default and 'staff_user' in in_second
 
 

@@ -40,10 +40,8 @@ import pytest
 
 TESTS_DIR = pathlib.Path(__file__).resolve().parent
 
-#: The one sanctioned builder of the full API app, and the conftest that shares it.
 APP_BUILDER_FILES = {'api_helpers.py', 'conftest.py'}
 
-#: Where each shared-once primitive is allowed to be built, by path under tests/.
 ENGINE_INIT_FILES = {'conftest.py'}
 MCP_BUILDER_FILES = {'mcp/conftest.py'}
 SEED_CALLER_FILES = {'conftest.py', 'test_seed_coverage.py'}
@@ -187,8 +185,7 @@ class TestCachesAreIntact:
             'CREATE TABLE script is a pure function of the models, so re-deriving '
             'it on each of the ~1450 DB-backed setups is wasted work.'
         )
-        # Keyed by dialect since the suite can also run against PostgreSQL,
-        # where the rendered DDL differs.
+        # Keyed by dialect: the suite can run against PostgreSQL, whose DDL differs.
         dialect = 'postgres' if ON_POSTGRES else 'sqlite'
         assert _schema_sql(dialect) is _schema_sql(dialect), (
             '_schema_sql() re-rendered the schema instead of returning the cached '

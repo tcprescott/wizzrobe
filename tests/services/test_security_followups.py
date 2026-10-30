@@ -32,8 +32,6 @@ class TestChallongeOverride:
         assert member.challonge_user_id == '2002'
 
     async def test_staff_cannot_link_someone_who_also_belongs_elsewhere(self, db):
-        # The id is global and every community's bracket sync resolves through
-        # it, so this would decide who that person is in the other community.
         staff = await _staff()
         shared = await create_community_member(username='shared')
         other = await Tenant.create(name='Elsewhere', slug='elsewhere', is_active=True)
@@ -50,7 +48,6 @@ class TestChallongeOverride:
         await TenantMembership.create(user=shared, tenant=other)
         with pytest.raises(PermissionError):
             await ChallongeService().set_player_username(shared, 'renamed', actor=staff)
-        # Saving the dialog with the name unchanged is not an edit, and passes.
         await ChallongeService().set_player_username(shared, None, actor=staff)
 
     async def test_a_non_staff_member_cannot_link_someone_else(self, db):

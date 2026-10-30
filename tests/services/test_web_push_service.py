@@ -16,10 +16,9 @@ from tests.test_web_push_protocol import (
 
 ENDPOINT = 'https://push.example.net/send/abc123'
 
-# The subscription a push service hands back when it rotates the one above.
 NEW_ENDPOINT = 'https://push.example.net/send/def456'
-NEW_P256DH = generate_vapid_keys()[1]  # any valid 65-byte uncompressed P-256 point
-NEW_AUTH = 'MTIzNDU2Nzg5YWJjZGVmZw'  # 16 bytes, base64url unpadded
+NEW_P256DH = generate_vapid_keys()[1]
+NEW_AUTH = 'MTIzNDU2Nzg5YWJjZGVmZw'
 
 
 from tests.factories import make_user as _user
@@ -173,8 +172,6 @@ class TestSubscriptions:
             )
 
     async def test_subscribe_rejects_private_host_in_production(self, db, monkeypatch):
-        # The stored endpoint is POSTed to server-side, so a private/internal
-        # host is an SSRF vector and must be rejected in production.
         monkeypatch.setattr('application.services.web_push_service.is_production', lambda: True)
         monkeypatch.setattr(
             'application.utils.ssrf.socket.getaddrinfo',
@@ -199,8 +196,6 @@ class TestSubscriptions:
         assert sub.id is not None
 
     async def test_subscribe_skips_ssrf_check_outside_production(self, db, monkeypatch):
-        # Dev allows private endpoints (mirrors the webhook guard) and never even
-        # resolves the host.
         monkeypatch.setattr('application.services.web_push_service.is_production', lambda: False)
 
         def _boom(*a, **k):
@@ -255,13 +250,10 @@ class TestSubscriptions:
         assert stored.endpoint == NEW_ENDPOINT
         assert stored.auth == NEW_AUTH
         assert stored.p256dh == NEW_P256DH
-        # Same row, same owner — the device keeps its history.
         assert stored.user_id == user.id
         assert await AuditLog.filter(action='web_push.rotated').count() == 1
 
     async def test_rotate_requires_the_old_auth_secret(self, db):
-        # Without this, knowing a stored endpoint would be enough to redirect
-        # someone else's notifications to an endpoint of your choosing.
         await _subscribed_user()
         with pytest.raises(ValueError, match='not found'):
             await WebPushService().rotate_subscription(
@@ -292,8 +284,6 @@ class TestSubscriptions:
             )
 
     async def test_rotate_displaces_a_stale_row_on_the_reissued_endpoint(self, db):
-        # The push service can hand back an endpoint we still hold a dead row
-        # for; the unique constraint allows one, and the rotating row is live.
         user = await _subscribed_user(discord_id=1)
         stale = await WebPushSubscription.create(
             user=user, endpoint=NEW_ENDPOINT, p256dh=RFC_UA_PUBLIC, auth=RFC_AUTH,
@@ -324,9 +314,6 @@ class TestSubscriptions:
         from application.repositories import WebPushRepository
         user = await _subscribed_user(discord_id=1)
         repo = WebPushRepository()
-        # Simulate the double-click race: the pre-insert existence check misses
-        # the row the concurrent handler just created, so create() hits the
-        # unique endpoint constraint and must fall back to updating that row.
         real_get = WebPushRepository.get_by_endpoint
         calls = {'n': 0}
 
@@ -362,7 +349,6 @@ class TestDelivery:
         )
         payload = json.loads(plaintext)
         assert payload['web_push'] == 8030
-        # Template bold is stripped, but literal __ in names must survive.
         assert payload['notification']['body'] == 'Match scheduled today for player__one!'
         assert payload['notification']['title'] == 'Wizzrobe'
         assert payload['notification']['navigate']
@@ -405,8 +391,6 @@ class TestDelivery:
 
         assert delivered == 0
         assert fake.calls == []
-        # Skipped, not pruned: the host may resolve publicly again next time, and
-        # dropping a real device over one transient answer is the worse failure.
         assert await WebPushSubscription.all().count() == 1
 
     async def test_delivery_proceeds_when_the_host_is_still_public(
@@ -482,5 +466,4 @@ class TestDelivery:
             raise RuntimeError('push service down')
         monkeypatch.setattr(WebPushService, '_send_to_subscriptions', _boom)
         await _subscribed_user(discord_id=42)
-        # Must swallow the failure — the DM path depends on it.
         await WebPushService().mirror_dm(42, 'hello')

@@ -25,7 +25,7 @@ async def test_credential_reads_are_isolated(two_tenants):
             randomizer='ootr', key='api_key', value='tenant-a-value',
         )
     with tenant_scope(b.id):
-        cb = await RandomizerCredential.create(   # same natural key, different tenant
+        cb = await RandomizerCredential.create(
             randomizer='ootr', key='api_key', value='tenant-b-value',
         )
 

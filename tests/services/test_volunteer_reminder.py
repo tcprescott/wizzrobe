@@ -7,9 +7,6 @@ import application.services.volunteer.volunteer_reminder as reminder_mod
 
 
 class TestStartStop:
-    # start/stop now delegate to the shared BackgroundLoop (application/utils/
-    # background_loop.py); the task lives at reminder_mod._loop._task, so these
-    # target and reset that rather than the old module-global _task.
     async def test_start_creates_task(self):
         reminder_mod._loop._task = None
         loop = asyncio.get_event_loop()
@@ -28,7 +25,7 @@ class TestStartStop:
 
     async def test_stop_when_no_task_is_noop(self):
         reminder_mod._loop._task = None
-        await reminder_mod.stop()  # must not raise
+        await reminder_mod.stop()
 
     async def test_stop_cancels_task(self):
         task = asyncio.ensure_future(asyncio.sleep(100))
@@ -54,7 +51,7 @@ async def test_tick_noop_when_no_due_assignments(monkeypatch):
         raising=False,
     )
     with patch('application.services.volunteer.volunteer_reminder._tick', AsyncMock(return_value=None)):
-        pass  # just confirm the patch mechanism works
+        pass
 
     with patch(
         'application.repositories.VolunteerAssignmentRepository',

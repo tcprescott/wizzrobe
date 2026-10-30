@@ -181,8 +181,7 @@ class TestFilters:
 
     async def test_filter_by_end_date_inclusive(self, client):
         await _seed_basic_data()
-        # Using a clearly-after cutoff avoids timezone-aware vs naive
-        # comparison ambiguity at the boundary.
+        # A clearly-after cutoff, to stay clear of aware-vs-naive comparison at the boundary.
         response = await client.get('/api/matches?end_date=2025-01-02T23:59:59')
         body = response.json()
         assert len(body) == 2
@@ -233,11 +232,6 @@ class TestLimit:
     async def test_limit_below_1_is_rejected(self, client):
         response = await client.get('/api/matches?limit=0')
         assert response.status_code == 422
-
-
-# The /matches endpoint must expose only approved crew. Filtering happens in
-# the route handler (api.get_matches) because Pydantic v2 serializes the
-# response via attribute access and never invokes a custom from_orm.
 
 
 class TestApprovedOnlyCrew:
@@ -443,6 +437,4 @@ class TestHardPresetStaysOffTheApi:
         assert 'opted' not in serialized
         assert 'hard_preset' not in serialized
         assert 'preset_override' not in serialized
-        # The roster itself is public and stays so; what must not appear is any
-        # field distinguishing the player who opted in from the one who did not.
         assert serialized.count('finish_rank') == 2

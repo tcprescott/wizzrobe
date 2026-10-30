@@ -24,7 +24,6 @@ def future_iso():
     return (datetime.now(UTC) + timedelta(days=1)).isoformat()
 
 
-
 async def _backdate(run_id: int, seconds: int):
     """Make a run look ``seconds`` old so a claim of that length is possible.
 
@@ -194,8 +193,6 @@ class TestAdminManagement:
             assert [p['url'] for p in body['created']] == [
                 'https://example.com/a', 'https://example.com/b',
             ]
-            # A bad line is reported with its position rather than silently dropped:
-            # line 3 of the submitted list, blank line included in the count.
             assert [(r['line'], r['value']) for r in body['rejected']] == [(3, 'not-a-url')]
 
             upd = await c.patch(
@@ -231,9 +228,6 @@ class TestPublicReads:
             assert resp.json()['name'] == 'Public Shell'
 
     async def test_ungated_reads_omit_internal_config(self, db, app):
-        # ``config`` holds internal draw-fairness / par-scoring knobs and messaging
-        # templates. The admin-gated GET exposes it; the two ungated player-facing
-        # surfaces (/{id}/public and /open) must NOT leak it.
         _, admin_raw = await _admin_token()
         async with client_for(app, admin_raw) as c:
             qid = await _open_qualifier(c, name='Config Guard')
@@ -360,7 +354,6 @@ class TestRunLifecycle:
             run_id = start.json()['id']
             await rc.post(f'/api/async-qualifiers/runs/{run_id}/forfeit')
 
-            # The runner has no allowance of their own (default 0).
             own = await rc.post(f'/api/async-qualifiers/runs/{run_id}/reattempt',
                                 json={'reason': 'mis-click'})
             assert own.status_code == 400
@@ -377,8 +370,6 @@ class TestRunLifecycle:
             assert [r['id'] for r in page['items']] == [run_id]
             assert (page['total'], page['offset']) == (1, 0)
 
-            # A page past the end is empty and still reports the total, so a client
-            # paging through knows it has reached the end rather than guessing.
             beyond = await c.get(f'/api/async-qualifiers/{qid}/runs?limit=1&offset=5')
             assert beyond.json()['items'] == []
             assert beyond.json()['total'] == 1

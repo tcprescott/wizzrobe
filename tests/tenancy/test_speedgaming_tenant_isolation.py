@@ -31,7 +31,7 @@ async def test_event_link_reads_are_isolated(tenants_with_tournaments):
     with tenant_scope(a.id):
         la = await SpeedGamingEventLink.create(tournament=ta, event_slug='ev')
     with tenant_scope(b.id):
-        lb = await SpeedGamingEventLink.create(tournament=tb, event_slug='ev')  # same slug, other tenant
+        lb = await SpeedGamingEventLink.create(tournament=tb, event_slug='ev')
 
     with tenant_scope(a.id):
         assert [x.id for x in await repo.list_all()] == [la.id]
@@ -47,7 +47,7 @@ async def test_episode_reads_are_isolated(tenants_with_tournaments):
     with tenant_scope(a.id):
         ea = await SpeedGamingEpisode.create(sg_episode_id='1', tenant_id=a.id)
     with tenant_scope(b.id):
-        eb = await SpeedGamingEpisode.create(sg_episode_id='1', tenant_id=b.id)  # same sg id, other tenant
+        eb = await SpeedGamingEpisode.create(sg_episode_id='1', tenant_id=b.id)
 
     with tenant_scope(a.id):
         assert (await repo.get_by_sg_id('1')).id == ea.id
@@ -66,6 +66,5 @@ async def test_active_scan_is_unscoped_cross_tenant(tenants_with_tournaments):
         lb = await SpeedGamingEventLink.create(tournament=tb, event_slug='eb', active=True)
         await SpeedGamingEventLink.create(tournament=tb, event_slug='inactive', active=False)
 
-    # No ambient tenant scope — still surfaces both tenants' active links only.
     ids = {x.id for x in await repo.list_active_all()}
     assert ids == {la.id, lb.id}

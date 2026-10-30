@@ -88,7 +88,7 @@ class TestBuildOptions:
         both = _Matchup(7, 1, 'Alice', 'Bob')
         svc = _Service(linkable=[both], linked=both)
         opts = await build_options(svc, 3, linked_id=7, match_id=42)
-        assert opts[7] == 'Round 1 — Alice vs Bob'  # no "(linked)" suffix
+        assert opts[7] == 'Round 1 — Alice vs Bob'
 
     async def test_vanished_link_degrades_to_none(self):
         """A link deleted underneath us leaves the options valid rather than raising."""

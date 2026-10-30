@@ -175,7 +175,7 @@ class TestPick:
     def test_skips_user_with_wrong_qualification(self, service):
         user = make_user(1)
         shift = make_shift(1, _dt(8), _dt(12), position_id=5)
-        quals = {1: {99}}  # qualified for position 99, not 5
+        quals = {1: {99}}
         on_shift = {1: set()}
         result = service._pick(shift, [user], [1], quals, {}, {1: []}, {1: 0.0}, on_shift)
         assert result is None
@@ -194,8 +194,7 @@ class TestPick:
         bob = make_user(2, 'Bob')
         shift = make_shift(1, _dt(8), _dt(12))
         on_shift = {1: set(), 2: set()}
-        # Alice is already at the default 8-hour ceiling, so the cap and the
-        # tiebreaker both point at Bob; raise the cap to isolate the tiebreaker.
+        # Alice is already at the default 8h cap; raise it to isolate the tiebreaker.
         hours = {1: 8.0, 2: 0.0}
         result = service._pick(
             shift, [alice, bob], [1, 2], {},
@@ -221,8 +220,6 @@ class TestPick:
         shift = make_shift(1, _dt(8), _dt(12))
         on_shift = {1: set()}
         avail = {1: available(shift)}
-        # 6h worked + this 4h shift is over the 8h ceiling, even though they are
-        # the only qualified, preferred, non-overlapping person in the pool.
         args = (shift, [user], [1], {}, avail, {1: []}, {1: 6.0}, on_shift)
 
         assert service._pick(*args, shift_hours=4.0) is None

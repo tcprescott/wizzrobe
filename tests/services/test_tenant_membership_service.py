@@ -11,8 +11,6 @@ from models import Role, Tenant, TenantMembership, User
 @pytest.fixture
 async def staff(db):
     boss = await User.create(discord_id=4000, username='boss')
-    # The repository is below the invariant — only the service layer pairs a role
-    # with a membership — so the fixture writes both by hand.
     await UserRoleRepository.add(boss, Role.STAFF)
     await TenantMembership.create(user=boss, tenant_id=1)
     return boss
@@ -34,7 +32,6 @@ async def test_add_member_is_idempotent(staff, db):
 
 
 async def test_remove_member_refuses_while_roles_are_held(staff, db):
-    # staff itself holds STAFF here, so it is the natural subject.
     with pytest.raises(ValueError) as exc:
         await TenantMembershipService().remove_member(staff, staff)
     assert 'revoke' in str(exc.value).lower()
@@ -105,7 +102,6 @@ async def test_ensure_member_is_idempotent_and_writes_no_audit(db):
     await TenantMembershipService.ensure_member(target)
     await TenantMembershipService.ensure_member(target)
     assert await TenantMembership.filter(user=target, tenant_id=1).count() == 1
-    # The role grant that calls this is audited in its own right.
     assert await AuditLog.filter(action='tenant.member_added').count() == 0
 
 
@@ -146,8 +142,7 @@ def captured_dms(monkeypatch):
     from application.services import discord as discord_pkg
 
     def _enqueue(coro):
-        coro.close()  # never awaited; we only care that it was queued
-        # Editing staff's earlier DMs once a request is decided isn't a new DM.
+        coro.close()
         if coro.__name__ != '_edit_all':
             sent.append(True)
 
@@ -176,7 +171,6 @@ async def test_a_denied_request_can_be_reopened_not_duplicated(staff, db):
     assert reopened.id == request.id
     assert reopened.status is JoinRequestStatus.PENDING
     assert reopened.message == 'asking again'
-    # The decision fields are cleared, not left pointing at the old verdict.
     assert reopened.decided_by_id is None and reopened.decided_at is None
     assert await TenantJoinRequest.filter(user=outsider, tenant_id=1).count() == 1
 
@@ -296,7 +290,6 @@ async def test_the_join_audit_row_is_stamped_with_the_target_tenant(db):
 
     row = await AuditLog.get(action='tenant.join_requested')
     assert row.tenant_id == other.id
-    # And the requester is the actor: they acted on their own behalf.
     assert row.user_id == outsider.id
 
 
@@ -310,7 +303,7 @@ async def test_an_over_long_message_is_refused_not_truncated(db):
 async def test_staff_are_notified_of_a_request(staff, captured_dms, db):
     outsider = await User.create(discord_id=4113, username='outsider')
     await TenantMembershipService().request_to_join(outsider, 1, 'hello')
-    assert len(captured_dms) == 1  # the one STAFF member
+    assert len(captured_dms) == 1
 
 
 async def test_the_requester_is_notified_on_approve_and_on_deny(staff, captured_dms, db):
@@ -436,7 +429,6 @@ async def test_declining_someone_already_a_member_is_refused(staff, dm_log, db):
     outsider = await User.create(discord_id=4403, username='outsider')
     service = TenantMembershipService()
     request = await service.request_to_join(outsider, 1)
-    # A stale row from before every way in closed the queue.
     await TenantMembership.create(user=outsider, tenant_id=1)
     (await dm_log()).clear()
 
@@ -464,7 +456,7 @@ async def test_a_declined_requester_waits_out_the_cooldown(staff, captured_dms, 
     with pytest.raises(ValueError) as exc:
         await service.request_to_join(outsider, 1, 'again')
     assert 'can’t ask again until' in str(exc.value)
-    assert captured_dms == []  # staff aren't pinged by the refused ask
+    assert captured_dms == []
 
     await _age_decision(request.id, days=JOIN_REQUEST_COOLDOWN.days - 1)
     assert await service.next_request_allowed_at(outsider, 1) is not None
@@ -539,7 +531,6 @@ async def _auto_join_on() -> None:
 
 
 async def test_the_removal_dm_holds_even_with_auto_join(staff, dm_log, db):
-    # Removal now blocks auto-join from readmitting them, so the DM says it holds.
     service = TenantMembershipService()
     await _auto_join_on()
     two = await User.create(discord_id=4501, username='two')
@@ -563,7 +554,7 @@ async def test_the_decline_dm_leads_with_the_server_when_auto_join_is_on(staff, 
     [dm] = await dm_log()
     assert 'joining the server gets you in' in dm['text']
     assert 'send a new request from <t:' in dm['text']
-    assert ':f>' in dm['text']  # date and time: the cooldown ends at a time of day
+    assert ':f>' in dm['text']
 
 
 async def test_the_cooldown_refusal_says_when(staff, captured_dms, db):
@@ -573,7 +564,7 @@ async def test_the_cooldown_refusal_says_when(staff, captured_dms, db):
     await service.deny_request(staff, request.id)
     with pytest.raises(ValueError) as exc:
         await service.request_to_join(outsider, 1)
-    assert 'until 20' in str(exc.value)  # a formatted date, e.g. "until 2026-10-09 10:00 EDT"
+    assert 'until 20' in str(exc.value)
 
 
 async def test_a_staff_role_grant_records_the_request_it_closed(staff, dm_log, db, monkeypatch):

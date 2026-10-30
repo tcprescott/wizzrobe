@@ -28,8 +28,6 @@ def mock_seedgen(monkeypatch):
 
 
 async def test_list_randomizers(db, app):
-    # The catalogue advertises what this community can actually roll: the default
-    # test tenant has no randomizer credentials, so the keyed backends are absent.
     _, raw = await create_user_token(username='reader', read_only=True)
     async with client_for(app, raw) as c:
         resp = await c.get('/api/seeds/randomizers')
@@ -61,9 +59,6 @@ async def test_randomizers_requires_auth(db, app):
 
 
 async def test_uncredentialed_randomizer_dropped_from_catalogue(db, app):
-    # A fresh tenant has no randomizer credentials, so the keyed dk64r backend is
-    # filtered out of the catalogue (mirrors the web selectors); the
-    # credential-free randomizers stay.
     b = await Tenant.create(name='NoDK', slug='no-dk')
     with tenant_scope(b.id):
         _, token_b = await create_user_token(username='b-reader', roles=[Role.STAFF])
@@ -106,8 +101,6 @@ async def test_generate_seed_queued_randomizer_202(db, app):
 
 
 async def test_task_for_a_match_reports_its_seed(db, app):
-    # A match's task resolves its permalink through match.generated_seed, which
-    # the read used to leave unfetched: every poll of a match roll was a 500.
     _, raw = await create_user_token(username='roller', roles=[Role.PRESET_MANAGER])
     tournament = await Tournament.create(name='Cup', is_active=True, seed_generator='dk64r')
     pending = await Match.create(tournament=tournament)
@@ -142,10 +135,7 @@ async def test_generate_seed_unsupported_randomizer_400(db, app):
 
 
 async def test_generate_seed_uncredentialed_randomizer_400(db, app):
-    # dk64r is a valid randomizer, but rolling it needs this community's own API
-    # key; without one the ValueError from credential resolution becomes a 400
-    # naming the missing credential. MOCK_SEEDGEN is disabled for this one case:
-    # the mock short-circuits before any credential is read, by design.
+    # MOCK_SEEDGEN off for this case: the mock short-circuits before any credential is read.
     monkeypatch = pytest.MonkeyPatch()
     monkeypatch.delenv('MOCK_SEEDGEN', raising=False)
     b = await Tenant.create(name='NoDK2', slug='no-dk2')

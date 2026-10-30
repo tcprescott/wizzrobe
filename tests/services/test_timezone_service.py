@@ -48,7 +48,6 @@ class TestClean:
         )['mode'] == DEFAULT_MODE
 
     def test_unloadable_zone_falls_back(self):
-        # A hand-edited or stale config blob must not be able to break rendering.
         assert TimezoneService._clean(
             {'mode': MODE_PINNED, 'name': 'Mars/Olympus_Mons'}
         )['name'] == FALLBACK_TIMEZONE
@@ -95,7 +94,6 @@ class TestPick:
         assert TimezoneService.pick(settings, viewer, TOKYO) == TOKYO
 
     def test_invalid_browser_zone_is_skipped(self):
-        # The cookie is client-supplied, so a forged value must not stick.
         settings = {'mode': MODE_USER, 'name': BERLIN}
         viewer = SimpleNamespace(timezone=None)
         assert TimezoneService.pick(settings, viewer, 'Mars/Olympus_Mons') == BERLIN
@@ -176,8 +174,6 @@ async def test_tenant_timezone_name_is_the_configured_zone(tenants_with_staff):
     a, _, staff = tenants_with_staff
     with tenant_scope(a.id):
         await TimezoneService.set_settings(staff, MODE_USER, TOKYO)
-    # Even in user mode: this is the community's own clock, which is what
-    # shared/cached output and tenant-anchored rules render on.
     assert await TimezoneService.tenant_timezone_name(a.id) == TOKYO
 
 

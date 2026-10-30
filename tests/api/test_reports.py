@@ -90,7 +90,6 @@ class TestReshapedReports:
             body = (await c.get('/api/reports/stage-utilization', params=WINDOW)).json()
         assert [r['stage_name'] for r in body['stages']] == ['Main']
         row = body['stages'][0]
-        # The ORM Match rows the service returns are collapsed to a count.
         assert 'matches' not in row
         assert row['match_count'] == 1
         assert 'unplaced_candidate_count' in body

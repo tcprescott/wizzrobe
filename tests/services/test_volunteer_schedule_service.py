@@ -145,8 +145,6 @@ class TestDeleteShift:
 class TestAssign:
     @pytest.fixture(autouse=True)
     def _members_only_passes(self):
-        # Membership is a DB check of its own (covered against the real tables
-        # in test_roster_membership.py); these tests are about what follows it.
         with patch(
             'application.services.volunteer.volunteer_schedule_service.'
             'TenantMembershipService.require_community_users',
@@ -377,7 +375,6 @@ class TestReleaseFanOut:
             Role.VOLUNTEER_COORDINATOR: [_coordinator(1)],
             Role.STAFF: [_coordinator(2), _coordinator(4)],
         }, on_duty=[on_duty])
-        # The coordinator and the person on duty; the other staff are spared.
         assert enqueue.call_count == 2
 
     async def test_on_duty_who_cannot_manage_volunteers_falls_back_to_staff(self, service):
@@ -482,7 +479,7 @@ class TestCoverage:
         ])
         service.shift_repository.list_for_window = AsyncMock(return_value=[shift])
         rows = await service.coverage(_dt(0), _dt(23))
-        assert rows[0]['filled'] == 3          # drafts count for the coordinator
+        assert rows[0]['filled'] == 3
         assert rows[0]['drafts'] == 1
         assert rows[0]['acknowledged'] == 1
 

@@ -130,7 +130,6 @@ async def test_ensure_players_enrolled_reports_who_it_enrolled(staff, tournament
     newly = await service.ensure_players_enrolled(tournament.id, [member.id], staff)
     assert [u.id for u in newly] == [member.id]
 
-    # Second time round nobody is new, so the dialog says nothing.
     assert await service.ensure_players_enrolled(tournament.id, [member.id], staff) == []
 
 

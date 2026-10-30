@@ -334,7 +334,6 @@ class TestListOpenMatchesForUser:
         assert (await service.get_bracket(bracket.id)).state == BracketState.CANCELLED
         assert await bmatch.__class__.get(id=bmatch.id) is not None
         assert await service.list_open_matches_for_user(users[0].id) == []
-        # The admin's "link a match to a matchup" picker reads the sibling query.
         assert await service.list_linkable_matches(bracket.tournament_id) == []
 
 
@@ -366,9 +365,6 @@ class TestAdvanceIfLinked:
         assert bracket.state == BracketState.COMPLETE
 
     async def test_non_staff_confirmation_still_advances(self, service):
-        # Regression: the auto-advance seam must NOT be Staff-gated. A Proctor (or
-        # system user) confirming a linked match must still advance the bracket —
-        # the Challonge peer push_match_result has no staff gate either.
         actor = await _staff()
         bracket, users, bmatch, match = await self._scheduled(service, actor)
         proctor = await _proctor()
@@ -407,7 +403,6 @@ class TestAdvanceIfLinked:
         await bmatch.refresh_from_db()
         bmatch.state = BracketMatchState.COMPLETE
         await bmatch.save()
-        # No finish_rank set; should short-circuit before touching players.
         assert await service.advance_if_linked(match, actor) is True
 
 
@@ -432,7 +427,6 @@ async def test_bracket_match_not_schedulable_across_tenants(service, two_tenants
         actor = await _staff()
         _, _, _, bmatch = await _linked_bracket(service, actor)
 
-    # From tenant B, the bracket match is invisible -> load-or-404.
     with tenant_scope(tenant_b.id):
         b_actor = await _staff(discord_id=4321, username='b-staff')
         with pytest.raises(NotFoundError):

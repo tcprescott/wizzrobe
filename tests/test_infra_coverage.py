@@ -101,7 +101,6 @@ class TestDispatchQueue:
         async def idle():
             await asyncio.sleep(60)
 
-        # A worker that never drains, so the enqueued items stay pending.
         dispatch_queue._worker_task = asyncio.get_running_loop().create_task(idle())
 
         leftover = []
@@ -202,8 +201,7 @@ class TestEventBusEnqueueFailure:
             raise RuntimeError('queue is down')
 
         monkeypatch.setattr('application.events.dispatch_queue.enqueue', raising_enqueue)
-        # A plain (non-coroutine) return avoids leaving an un-awaited coroutine
-        # when enqueue rejects it; the bus only forwards the call's result.
+        # A plain (non-coroutine) return, so a rejected enqueue leaves no un-awaited coroutine.
         event_bus.subscribe_async(lambda _e: 'sentinel')
 
         with caplog.at_level(logging.ERROR, logger='application.events.bus'):
@@ -277,7 +275,7 @@ class TestRegisteredHandlers:
     async def test_not_found_returns_json_for_api_route(self, handlers):
         not_found = handlers.captured[404]
 
-        def some_endpoint():  # a real, non-page endpoint
+        def some_endpoint():
             return None
 
         scope = {
@@ -329,7 +327,6 @@ class TestRegisteredHandlers:
             'application.services.auth_service.get_user_from_session', fake_get
         )
 
-        # No 'endpoint' in scope -> the JSON guard fails -> themed page path.
         scope = {'type': 'http', 'method': 'GET', 'path': '/missing', 'headers': []}
         exc = StarletteHTTPException(status_code=404)
         response = await not_found(Request(scope), exc)

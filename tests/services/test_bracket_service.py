@@ -76,7 +76,6 @@ class TestCreateBracket:
         bracket = await service.create_bracket(
             actor, t.id, 'Main', BracketFormat.SINGLE_ELIM,
         )
-        # Editable while DRAFT and independent of start state (display-only).
         updated = await service.set_round_metadata(
             actor, bracket.id,
             {'1': {'best_of': 3, 'scheduled_at': '2026-08-01T18:00:00+00:00'}},
@@ -246,9 +245,7 @@ class TestStartDoubleElim:
         assert len(matches) == len(graph)
 
         rounds = {m.round for m in matches}
-        # Losers bracket = negative rounds.
         assert any(r < 0 for r in rounds)
-        # Grand final + reset are the two highest positive rounds.
         gf_reset = sorted(r for r in rounds if r > 0)[-2:]
         assert len(gf_reset) == 2
 
@@ -261,7 +258,6 @@ class TestStartRoundRobin:
         await service.start_bracket(actor, bracket.id)
 
         matches = await service.list_matches(bracket.id)
-        # 4 players single round robin = C(4,2) = 6 pairings.
         assert len(matches) == 6
         assert all(m.state == BracketMatchState.OPEN for m in matches)
 
@@ -275,7 +271,6 @@ class TestStartSwiss:
         assert all(m.round == 1 for m in matches)
         byes = [m for m in matches if m.state == BracketMatchState.COMPLETE]
         opens = [m for m in matches if m.state == BracketMatchState.OPEN]
-        # 5 players → 2 pairs + 1 bye.
         assert len(byes) == 1
         assert len(opens) == 2
         assert byes[0].winner_id is not None
@@ -299,13 +294,12 @@ class TestStartGuards:
             await service.start_bracket(actor, bracket.id)
 
     async def test_missing_seeds_auto_assigned(self, service):
-        # Enroll with no seeds; start should fill contiguous 1..N.
         actor = await _staff()
         t = await _tournament()
         bracket = await service.create_bracket(actor, t.id, 'Main', BracketFormat.SINGLE_ELIM)
         for i in range(4):
             entrant = await service.add_entrant(actor, t.id, f'P{i}')
-            await service.enroll(actor, bracket.id, entrant.id)  # seed=None
+            await service.enroll(actor, bracket.id, entrant.id)
         await service.start_bracket(actor, bracket.id)
         seeds = sorted(e.seed for e in await service.list_entries(bracket.id))
         assert seeds == [1, 2, 3, 4]
@@ -355,10 +349,8 @@ class TestSeedValidation:
         assert (await service.get_bracket(bracket.id)).state == BracketState.ACTIVE
 
     async def test_start_rejects_duplicate_manual_seeds(self, service):
-        # enroll does not validate seeds, so duplicates reach start; start must
-        # reject rather than silently drop the collapsed entrant.
         actor, t, bracket = await self._drafted(service)
-        for i, seed in enumerate([1, 2, 2, 4]):  # duplicate 2, missing 3
+        for i, seed in enumerate([1, 2, 2, 4]):
             entrant = await service.add_entrant(actor, t.id, f'P{i}')
             await service.enroll(actor, bracket.id, entrant.id, seed=seed)
         with pytest.raises(ValueError, match='contiguous'):
@@ -366,7 +358,7 @@ class TestSeedValidation:
 
     async def test_start_rejects_out_of_range_manual_seed(self, service):
         actor, t, bracket = await self._drafted(service)
-        for i, seed in enumerate([1, 2, 3, 9]):  # 9 out of range for N=4
+        for i, seed in enumerate([1, 2, 3, 9]):
             entrant = await service.add_entrant(actor, t.id, f'P{i}')
             await service.enroll(actor, bracket.id, entrant.id, seed=seed)
         with pytest.raises(ValueError, match='contiguous'):
@@ -387,7 +379,6 @@ class TestListAllBrackets:
         rows = await service.list_all_brackets()
 
         assert [b.name for b in rows] == ['Groups', 'Playoff', 'Main']
-        # Prefetched, so the browse tab groups without a query per row.
         assert [b.tournament.name for b in rows] == ['Alpha', 'Alpha', 'Beta']
 
     async def test_inactive_tournaments_sort_last(self, service):
@@ -413,5 +404,4 @@ async def test_bracket_not_visible_across_tenants(service, two_tenants):
     with tenant_scope(tenant_b.id):
         assert await service.get_bracket(bracket.id) is None
         assert await service.list_brackets(t.id) == []
-        # The browse read spans tournaments, so it is the easiest one to leak.
         assert await service.list_all_brackets() == []

@@ -87,8 +87,6 @@ class TestUsers:
             assert any(u['username'] == 'someone' for u in resp.json())
 
     async def test_list_users_returns_members_not_the_whole_platform(self, db, app):
-        # A token belongs to one community; identity is global but this list is
-        # not. A user with no membership here must not appear.
         _, raw = await create_user_token(username='boss2', roles=[Role.STAFF])
         await User.create(discord_id=556, username='stranger')
         async with client_for(app, raw) as c:

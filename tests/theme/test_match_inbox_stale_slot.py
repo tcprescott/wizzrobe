@@ -52,7 +52,7 @@ async def test_approve_toast_survives_the_inbox_redrawing(slot, monkeypatch):
     class _Service:
         async def approve(self, request_id, actor):
             approved.append(request_id)
-            holder.clear()  # what a live refresh does to the item mid-await
+            holder.clear()
 
     monkeypatch.setattr(match_inbox, 'current_actor', current_actor)
     monkeypatch.setattr(match_inbox, 'confirm_time', confirm_time)

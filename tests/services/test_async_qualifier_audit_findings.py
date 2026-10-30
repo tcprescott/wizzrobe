@@ -133,7 +133,7 @@ async def test_a_forfeited_slot_counts_as_a_realised_zero(db):
     await service.add_permalink(staff, pool.id, url='https://x/b')
 
     player = await _player(970102, 'runner_two')
-    await _approved_run(service, staff, player, q, pool, 3600)   # scores 100 (par == own time)
+    await _approved_run(service, staff, player, q, pool, 3600)
     forfeited = await service.start_run(player, q.id, pool.id)
     await service.forfeit_run(player, forfeited.id)
 
@@ -207,8 +207,6 @@ async def test_rejecting_a_run_clears_its_score(db):
     run = await _approved_run(service, staff, player, q, pool, 3600)
     assert run.score is not None, 'precondition: the approved run is scored'
 
-    # Reversing a settled verdict is an override since F5; the score-clearing this
-    # test is about is the same on either path.
     await service.review_run(
         staff, run.id, approved=False, note='VoD does not match', override=True,
     )

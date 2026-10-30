@@ -70,7 +70,6 @@ class TestStandings:
             assert top['points'] == 3.0
             assert 'buchholz' in top['tiebreakers']
             assert [row['rank'] for row in rows] == sorted(row['rank'] for row in rows)
-            # final_rank is only persisted once the stage completes.
             assert all(row['final_rank'] is None for row in rows)
 
             assert (await c.post(f'/api/brackets/{bracket_id}/complete')).status_code == 200

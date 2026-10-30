@@ -18,7 +18,6 @@ async def test_config_reads_are_tenant_scoped(db, app):
     await SystemConfiguration.create(name='shared_key', value='tenant1-value')
     await SystemConfiguration.create(name='tenant1_only', value='a')
 
-    # A second tenant has the *same* key with a different value, plus its own key.
     tenant_b = await Tenant.create(name='Tenant B', slug='tenant-b')
     with tenant_scope(tenant_b.id):
         await SystemConfiguration.create(name='shared_key', value='tenant2-value', tenant_id=tenant_b.id)
@@ -31,7 +30,6 @@ async def test_config_reads_are_tenant_scoped(db, app):
         assert names == {'shared_key', 'tenant1_only'}
         assert 'tenant2_only' not in names
 
-        # The shared key resolves to the caller's tenant — not a 500, not tenant B's value.
         got = await c.get('/api/config/shared_key')
         assert got.status_code == 200
         assert got.json()['value'] == 'tenant1-value'

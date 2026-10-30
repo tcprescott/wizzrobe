@@ -66,7 +66,6 @@ class TestCovers:
         assert result is None
 
     def test_adjacent_window_not_counted(self):
-        # ends_at == start => no overlap
         windows = [make_window(4, 8)]
         result = VolunteerAvailabilityService.covers(windows, _dt(8), _dt(12))
         assert result is None

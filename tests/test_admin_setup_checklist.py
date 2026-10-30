@@ -16,7 +16,6 @@ def _steps(*, ready: bool):
         SetupStep(key='staff', label='Staff', done=True, hint='', tab='Members', required=True),
         SetupStep(key='tournament', label='Tournament', done=ready, hint='', tab='Tournaments', required=True),
         SetupStep(key='enrolment', label='Enrolment', done=ready, hint='', tab='Tournaments', required=True),
-        # Advisory and never done, so it can never be what keeps Setup on screen.
         SetupStep(key='stage', label='Stage', done=False, hint='', tab='Stages', required=False),
     ]
 
@@ -50,18 +49,12 @@ def test_outstanding_advisory_steps_do_not_keep_the_tab_on_screen():
 
 
 def test_no_setup_steps_means_no_setup_tab():
-    # The callers that do not load a checklist (none today) must not crash or
-    # sprout an empty panel.
     assert 'Setup' not in _labels(build_admin_tabs(STAFF, set(), {}, None))
 
 
 def test_the_checklist_is_not_offered_to_a_non_admin_role():
-    # A stream manager sees the admin area but cannot create tournaments or
-    # grant staff, so a checklist of things they cannot do is noise.
     tabs = build_admin_tabs(AdminAccess(is_stream_manager=True), set(), {}, _steps(ready=False))
     assert 'Setup' not in _labels(tabs)
-    # Schedule is theirs because assigning a stage is a match-board action and
-    # this is the only board that offers it; Stages manages the venues.
     assert _labels(tabs) == ['Match Schedule', 'Stages']
 
 
@@ -76,7 +69,6 @@ def test_the_broadcast_tech_reaches_the_board_with_the_stage_and_on_stage_run_co
     assert access.assign_stream is True
     assert access.run is True and access.run_on_stage_only is True
     assert not access.edit and not access.confirm and not access.approve_crew
-    # Community-wide authority, so their board is not narrowed to a tournament set.
     assert kwargs['tournament_ids'] is None
 
 

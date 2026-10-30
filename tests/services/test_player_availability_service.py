@@ -35,9 +35,6 @@ def service():
     return svc
 
 
-# covers is opt-out, unlike VolunteerAvailabilityService.covers.
-
-
 class TestCovers:
     def test_available_when_no_windows(self):
         """The whole point of opt-out: silence is a yes."""
@@ -71,7 +68,6 @@ class TestCovers:
         assert result == VolunteerAvailabilityStatus.AVAILABLE
 
     def test_touching_at_start_is_not_overlap(self):
-        # ends_at == slot start, so the block does not reach this slot
         windows = [make_window(4, 8, VolunteerAvailabilityStatus.UNAVAILABLE)]
         result = PlayerAvailabilityService.covers(windows, _dt(8), _dt(12))
         assert result == VolunteerAvailabilityStatus.AVAILABLE
@@ -89,7 +85,6 @@ class TestEffectiveSegments:
         assert segs[0][2] == VolunteerAvailabilityStatus.AVAILABLE
 
     def test_gap_is_available_not_unknown(self):
-        # Blocked 10–12; the untouched 8–10 is available, never None
         windows = [make_window(10, 12, VolunteerAvailabilityStatus.UNAVAILABLE)]
         segs = PlayerAvailabilityService.effective_segments(windows, _dt(8), _dt(12))
         statuses = [s[2] for s in segs]

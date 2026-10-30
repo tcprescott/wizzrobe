@@ -76,8 +76,6 @@ class TestSilenceWhereThereIsAButton:
         ) is None
 
     def test_a_check_in_capable_non_manager_gets_no_line(self):
-        # Defensive: the gate is manager-only today, but the helper must not
-        # explain away a button the viewer actually has.
         assert equipment_guidance(
             status='checked_out', is_checked_out=True, viewer_is_holder=True,
             can_checkout=True, can_checkin=True, can_manage=False,

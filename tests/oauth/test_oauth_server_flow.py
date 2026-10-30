@@ -47,8 +47,7 @@ async def _flag_off(tenant_id: int = TENANT) -> None:
     await TenantFeatureFlag.filter(tenant_id=tenant_id, flag=FeatureFlag.THIRD_PARTY_APPS.value).update(
         enabled=False,
     )
-    # The per-request flag cache lives in a contextvar; the direct service
-    # calls above ran in this test's own context and filled it.
+    # The flag cache is a contextvar the direct service calls above already filled.
     reset_flag_cache()
 
 
@@ -179,7 +178,7 @@ async def test_confidential_app_full_flow_and_grant_is_narrowed():
     grant = await ApiToken.get(token_hash=hashlib.sha256(tokens['access_token'].encode()).hexdigest())
     assert grant.origin == ApiTokenOrigin.APP.value
     assert grant.tenant_id == TENANT
-    assert grant.read_only is True  # no write scope approved
+    assert grant.read_only is True
 
     async with client(tokens['access_token']) as api:
         me = await api.get('/api/users/me')
@@ -219,7 +218,7 @@ async def test_public_app_uses_pkce_alone_and_may_not_send_a_secret():
     assert with_secret.status_code == 401 and with_secret.json()['error'] == 'invalid_client'
     assert ok.status_code == 200
     grant = await ApiToken.get(token_hash=hashlib.sha256(ok.json()['access_token'].encode()).hexdigest())
-    assert grant.read_only is False  # crew is a write scope
+    assert grant.read_only is False
 
 
 async def test_confidential_app_must_authenticate():

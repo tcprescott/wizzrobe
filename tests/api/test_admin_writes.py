@@ -124,7 +124,6 @@ class TestTournamentWrites:
             assert body['event_end_date'] == '2025-10-22'
             assert body['tournament_hours'] == {'2025-10-20': {'open': '09:00', 'close': '17:00'}}
 
-            # Explicit null clears an override back to inheriting the tenant setting.
             cleared = await c.patch(f'/api/tournaments/{tid}', json={
                 'event_start_date': None, 'tournament_hours': None,
             })

@@ -18,11 +18,11 @@ def _sourced(scheduled_at=datetime(2026, 7, 20, 18, 0, tzinfo=timezone.utc)):
 
 
 def test_guard_noop_for_unsourced_match():
-    match = SimpleNamespace()  # no speedgaming_episode_id attribute at all
+    match = SimpleNamespace()
     assert_sg_fields_unchanged(
         match, tournament_id=99, scheduled_date='2030-01-01', scheduled_time='12:00',
         players_changed=True,
-    )  # does not raise
+    )
 
 
 def test_guard_rejects_player_change():
@@ -42,8 +42,7 @@ def test_guard_rejects_tournament_change():
 
 
 def test_guard_allows_resubmitting_same_schedule():
-    # The dialog resubmits the disabled schedule fields unchanged (Eastern of the
-    # stored 18:00 UTC is 14:00 EDT); that must NOT be treated as an edit.
+    # The dialog resubmits the disabled fields unchanged (18:00 UTC shows as 14:00 EDT); that's not an edit.
     assert_sg_fields_unchanged(
         _sourced(), tournament_id=1, scheduled_date='2026-07-20',
         scheduled_time='14:00', players_changed=False,
@@ -83,6 +82,5 @@ async def test_update_match_rejects_etl_field_but_allows_comment(db):
             match_id=match.id, scheduled_date='2026-08-01', scheduled_time='12:00',
             actor=staff,
         )
-    # A Wizzrobe-owned field (comment) still updates.
     updated = await service.update_match(match_id=match.id, comment='caster note', actor=staff)
     assert updated.comment == 'caster note'

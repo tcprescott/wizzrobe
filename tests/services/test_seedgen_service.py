@@ -96,7 +96,6 @@ class TestGenerateSeedPreset:
             url = await service.generate_seed('alttpr', preset)
 
         assert url == 'https://alttpr.com/h/seed'
-        # The preset's settings are handed to the randomizer verbatim.
         assert gen.await_args.kwargs['settings'] == {'mode': 'open', 'goal': 'ganon'}
 
     async def test_alttpr_without_preset_falls_back_to_builtin(self, service):
@@ -108,7 +107,6 @@ class TestGenerateSeedPreset:
             url = await service.generate_seed('alttpr')
 
         assert url == 'https://alttpr.com/h/builtin'
-        # Falls back to the committed casualboots settings (a non-empty dict).
         settings = gen.await_args.kwargs['settings']
         assert isinstance(settings, dict) and settings
 
@@ -124,7 +122,6 @@ class TestGenerateSeedPreset:
         sent = gen.await_args.kwargs['settings']
         assert sent['texts']['end_triforce'] == '{NOBORDER}\nhello'
         assert sent['mode'] == 'open'
-        # The snapshot records the text; the shared preset row does not keep it.
         assert call.value.settings['texts']['end_triforce'] == '{NOBORDER}\nhello'
         assert preset.settings == {'mode': 'open'}
 
@@ -132,13 +129,8 @@ class TestGenerateSeedPreset:
 class TestMockSeedgen:
     @pytest.mark.parametrize('randomizer', ['alttpr', 'ff1r', 'smmap', 'ootr', 'smdash', 'test'])
     async def test_returns_mock_url_without_network(self, service, monkeypatch, randomizer):
-        # No ALTTPR.generate / aiohttp / credential rows needed: the mock returns
-        # before any backend is reached — even for randomizers that would
-        # otherwise raise for a missing credential (smmap/ootr). No ``db``
-        # fixture either, which is the point: nothing touches the credential table.
-        # ``dk64r`` is deliberately absent: it opts out of this short-circuit and
-        # runs its own simulated queue (``TestMockDK64``). So are ``wwr`` and
-        # ``z1r``, built locally with nothing upstream to stand in for.
+        # dk64r is deliberately absent (it skips this short-circuit; see TestMockDK64), as are wwr and z1r,
+        # which build locally.
         monkeypatch.setenv('ENVIRONMENT', 'development')
         monkeypatch.setenv('MOCK_SEEDGEN', 'true')
         url = await service.generate_seed(randomizer)
@@ -165,7 +157,6 @@ class TestMockSeedgen:
             await service.generate_seed('not_a_randomizer')
 
     async def test_off_by_default_uses_real_generator(self, service, monkeypatch):
-        # With MOCK_SEEDGEN unset, alttpr reaches ALTTPR.generate (patched here).
         from types import SimpleNamespace
         from unittest.mock import AsyncMock, patch
 
@@ -311,14 +302,12 @@ class TestRandomizerAvailability:
     def test_keyed_randomizer_appears_once_configured(self):
         available = SeedGenerationService.available_randomizers({'dk64r'})
         assert 'dk64r' in available
-        # Configuring one key says nothing about the others.
         assert 'ootr' not in available
 
     def test_credential_free_randomizers_always_present(self):
         available = SeedGenerationService.available_randomizers(set())
         for r in ('alttpr', 'ff1r', 'z1r', 'smdash', 'wwr', 'test'):
             assert r in available
-        # AVAILABLE_RANDOMIZERS stays whole — validity is not availability.
         for r in ('ootr', 'smmap', 'dk64r'):
             assert r in SeedGenerationService.AVAILABLE_RANDOMIZERS
 

@@ -36,10 +36,7 @@ def captured_dms(monkeypatch):
 async def _staff(discord_id: int, name: str, role: Role = Role.STAFF) -> User:
     u = await User.create(discord_id=str(discord_id), username=name)
     await UserRole.create(user=u, role=role, tenant_id=1)
-    # Holding a role in a tenant implies membership in it (see
-    # ``UserRepository.get_community_people``), which is the basis the
-    # QUALIFIER_ADMIN fallback reads — so a fixture that skips it is not a
-    # production state.
+    # A role always implies membership in production; don't drop this membership row.
     await TenantMembership.create(user=u, tenant_id=1)
     return u
 
@@ -57,7 +54,6 @@ async def _submitted_run(service, staff, player, *, waited: timedelta):
     await AsyncQualifierRun.filter(id=run.id).update(started_at=now - timedelta(seconds=3700))
     run = await AsyncQualifierRun.get(id=run.id)
     run = await service.submit_run(player, run.id, elapsed_seconds=3600)
-    # Backdate the submission itself — the wait is what decides.
     await AsyncQualifierRun.filter(id=run.id).update(finished_at=now - waited)
     return await AsyncQualifier.get(id=q.id), run
 
@@ -158,8 +154,6 @@ async def test_with_no_named_reviewers_it_falls_back_to_the_qualifier_admin_role
 async def test_with_nobody_to_tell_it_stays_unstamped(db, captured_dms):
     """So the first reviewer added hears about the backlog that was already there."""
     service = AsyncQualifierService()
-    # A staff member creates the qualifier but holds no QUALIFIER_ADMIN role, and
-    # the qualifier has no roster of its own.
     staff = await _staff(900413, 'backlog_staff_e')
     player = await User.create(discord_id='900414', username='backlog_runner_e')
     qualifier, _ = await _submitted_run(

@@ -59,7 +59,7 @@ async def test_connect_marks_connected_and_heartbeats(db):
     bot = await RacetimeBot.get(id=bot.id)
     assert bot.status == BotStatus.CONNECTED
     assert bot.last_connected_at is not None
-    assert bot.last_checked_at is not None  # heartbeat advanced it
+    assert bot.last_checked_at is not None
     assert transport.closed is True
 
 
@@ -69,7 +69,6 @@ async def test_auth_failure_sets_error_and_stops(db):
     transport = MockRacetimeTransport(category='alttpr', fail_auth=True)
     conn = _connection(bot, sysuser, transport)
 
-    # run_forever must return without retrying on an auth failure.
     await asyncio.wait_for(conn.run_forever(), timeout=1)
 
     bot = await RacetimeBot.get(id=bot.id)
@@ -98,9 +97,9 @@ async def test_transient_then_reconnect(db, monkeypatch):
 
     await asyncio.wait_for(conn.run_forever(), timeout=2)
 
-    assert attempts['n'] == 2  # failed once, then reconnected
+    assert attempts['n'] == 2
     bot = await RacetimeBot.get(id=bot.id)
-    assert bot.status == BotStatus.DISCONNECTED  # graceful stop after reconnect
+    assert bot.status == BotStatus.DISCONNECTED
 
 
 async def test_transient_attempt_reports_error(db):
@@ -141,7 +140,7 @@ async def test_scripted_room_lifecycle_updates_status(db):
 
     room = await RacetimeRoom.get(id=room.id)
     assert room.status == RaceRoomStatus.FINISHED
-    assert room.opened_at is not None  # stamped when it reached IN_PROGRESS
+    assert room.opened_at is not None
 
 
 async def test_event_routes_to_correct_tenant(db):
@@ -179,7 +178,7 @@ async def test_handler_crash_is_contained(db):
     await handler.on_event(
         RaceRoomEvent(slug='alttpr/x', category='alttpr', status=RaceRoomStatus.FINISHED)
     )
-    assert (await RacetimeRoom.get(id=room.id)).status == RaceRoomStatus.OPEN  # write never happened
+    assert (await RacetimeRoom.get(id=room.id)).status == RaceRoomStatus.OPEN
 
 
 async def test_readopt_open_rooms_groups_by_category(db):
@@ -193,7 +192,7 @@ async def test_readopt_open_rooms_groups_by_category(db):
 
     grouping = await RacetimeBotManager().readopt_open_rooms()
 
-    assert grouping['alttpr'] == ['alttpr/a']  # finished room excluded
+    assert grouping['alttpr'] == ['alttpr/a']
     assert grouping['smz3'] == ['smz3/b']
 
 

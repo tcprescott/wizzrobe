@@ -18,7 +18,6 @@ def test_small_groups_fold_into_other():
 
 
 def test_a_too_small_other_takes_the_smallest_shown_group_with_it():
-    # Overall minus Big and Bigger would give Tiny's two answers away, so Big joins Other.
     groups, folded = fold_small(RATING, {'Big': [5] * 6, 'Bigger': [4] * 9, 'Tiny': [1, 2]})
     assert set(groups) == {'Bigger', OTHER}
     assert folded == ['Big', 'Tiny']

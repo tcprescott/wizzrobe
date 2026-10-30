@@ -23,8 +23,6 @@ def _no_tournament_window(monkeypatch):
         system_config_service.SystemConfigService,
         'get_tournament_window_for_date', no_window,
     )
-    # The scheduling check loads the tournament (for its per-tournament hours
-    # override) before consulting the window; these no-DB unit tests stub it out.
     monkeypatch.setattr(
         match_service.Tournament, 'get_or_none', AsyncMock(return_value=None),
     )
@@ -40,8 +38,6 @@ def service():
     svc.station_repository.active_names = AsyncMock(return_value=set())
     svc.stage_repository = MagicMock()
     svc.tournament_repository = MagicMock()
-    # create_match resolves the tournament through the scoped repository before
-    # anything else, so the default has to be "it exists in this community".
     svc.tournament_repository.get_by_id = AsyncMock(
         return_value=SimpleNamespace(id=1, name="Test Tournament")
     )
@@ -98,9 +94,6 @@ def captured_events():
     event_bus.unsubscribe(token)
 
 
-# create_match validation needs no DB: error paths exit before any DB call.
-
-
 class TestCreateMatchValidation:
     async def test_raises_when_no_players_and_no_title(self, service):
         with pytest.raises(ValueError, match="title, or add a player"):
@@ -153,10 +146,6 @@ class TestCreateMatchValidation:
             )
 
 
-# Lifecycle transitions (seat/start/finish/confirm) are owned by
-# MatchScheduleService._transition; see tests/services/test_match_schedule_service.py.
-
-
 def _setup_create_match_mocks(service):
     """Wire up minimal mocks to let create_match reach its notification phase."""
     user = SimpleNamespace(id=1, discord_id=111)
@@ -168,10 +157,6 @@ def _setup_create_match_mocks(service):
     service.tournament_repository.enroll_player_by_id = AsyncMock()
     service.repository.add_player = AsyncMock()
 
-    # create_match delegates the whole scheduled-notification fan-out to
-    # MatchScheduleService.notify_match_scheduled (its internals — ack request,
-    # crew, subscribers, stream-candidate — are covered in
-    # test_match_schedule_service.py).
     service.match_schedule_service.notify_match_scheduled = AsyncMock()
 
     return match, user
@@ -363,7 +348,6 @@ class TestAssignStage:
         match = make_match(tournament_id=9)
         service.repository.get_by_id = AsyncMock(return_value=match)
         service.repository.update = AsyncMock()
-        # The tenant guard hits the DB; this suite is pure-mock.
         mocker.patch(
             'application.services.match.match_service.StageService'
             '.require_in_tenant',
@@ -411,8 +395,6 @@ class TestMatchLifecycleEvents:
         match = make_match(tournament_id=9, players=[p1, p2])
         service.repository.get_by_id = AsyncMock(return_value=match)
 
-        # This match backs no bracket game, which is the settled-result guard's
-        # no-op path; stubbed because these lifecycle tests run without a DB.
         with patch(
             'application.services.bracket_service.BracketService.get_game_for_match',
             AsyncMock(return_value=None),

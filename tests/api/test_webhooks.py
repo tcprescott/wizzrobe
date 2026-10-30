@@ -40,13 +40,13 @@ class TestWebhookApiCrud:
             })
             assert create.status_code == 201
             body = create.json()
-            assert body['secret']  # returned once on create
+            assert body['secret']
             webhook_id = body['id']
 
             listing = await client.get('/api/webhooks')
             assert listing.status_code == 200
             row = listing.json()[0]
-            assert 'secret' not in row  # never echoed by list/GET
+            assert 'secret' not in row
             assert row['id'] == webhook_id
 
     async def test_create_validation_error_is_400(self, app, db):

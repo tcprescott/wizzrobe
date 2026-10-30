@@ -58,7 +58,7 @@ async def test_scheduled_event_reads_are_isolated(shared_guild_tenants):
     with tenant_scope(b.id):
         rb = await DiscordScheduledEvent.create(
             guild_id=SHARED_GUILD, discord_event_id=1002,
-            source_type=DiscordEventSource.MATCH, source_id=5, title='B',  # same source_id, other tenant
+            source_type=DiscordEventSource.MATCH, source_id=5, title='B',
         )
 
     with tenant_scope(a.id):

@@ -14,23 +14,13 @@ from application.event_context import reset_event_id, set_event_id
 from application.services import event_service, tenant_service
 from application.tenant_context import require_tenant_id, reset_tenant_id, set_tenant_id
 
-# Every DB-backed test runs inside a single default tenant. Because the default
-# Tenant is the first row inserted into the fresh in-memory schema, its id is 1,
-# which matches the ambient context set by ``_tenant_context`` below.
+# The default Tenant is the first row inserted, so its id is 1, matching _tenant_context's ambient id.
 DEFAULT_TEST_TENANT_ID = 1
 DEFAULT_TEST_EVENT_ID = 1
 
 
-# The suite runs on in-memory SQLite: no service to start, and a fresh schema
-# per test. Set WIZZROBE_TEST_DB_URL to a postgres:// URL to run the same tests
-# against the real backend — see docs/development.md on what only Postgres can
-# prove (row locks are a no-op on SQLite, and the DDL itself is never exercised).
 TEST_DB_URL = os.environ.get('WIZZROBE_TEST_DB_URL', 'sqlite://:memory:')
 
-# The mocked DK64 queue simulates a minutes-long roll in real wall clock, which
-# is the point of it in a browser but pure dead time in a test. Collapse it to
-# zero for the whole suite; the handful of tests that assert on the queued and
-# started phases set their own duration.
 os.environ.setdefault('MOCK_DK64_SECONDS', '0')
 ON_POSTGRES = TEST_DB_URL.startswith(('postgres://', 'postgresql://', 'asyncpg://'))
 
@@ -229,9 +219,8 @@ async def _seed_baseline() -> None:
         id=DEFAULT_TEST_TENANT_ID, name='Default', slug='default',
     )
     if ON_POSTGRES:
-        # An explicit id does not advance the SERIAL sequence, so the next
-        # auto-assigned Tenant id would collide with the one just forced above.
-        # (SQLite hides this: its rowid counter is max(id) + 1 either way.)
+        # An explicit id doesn't advance the SERIAL sequence; reset it or the next Tenant id collides.
+        # (SQLite hides this.)
         await connections.get('default').execute_script(
             "SELECT setval(pg_get_serial_sequence('tenant', 'id'), "
             "(SELECT MAX(id) FROM tenant));"
@@ -284,19 +273,8 @@ if not ON_POSTGRES:
     _run_sqlite_on_the_event_loop()
 
 
-# ``Tortoise.init()`` is not a connect call: most of its ~15ms is
-# ``_build_initial_querysets()``, which re-derives a filter map for all ~70
-# models from their metadata. Running it per test made it the single most
-# expensive thing in the suite — 60s of a 190s profiled run. The models cannot
-# change during a run, so it happens once and every test reuses the result.
-#
-# What each test still needs is an *empty* database, and on SQLite that is where
-# the template comes in: the pristine schema-plus-baseline state is snapshotted
-# into a detached in-memory ``sqlite3`` connection, and each test restores it
-# with SQLite's own backup API — one C-level page copy, ~1ms, versus ~31ms to
-# re-init Tortoise and replay the DDL. The snapshot carries ``sqlite_sequence``
-# with it, so autoincrement ids restart at 1 exactly as they did with a
-# brand-new database.
+# Tortoise.init runs once per session (it dominated suite time per test); each test restores the
+# SQLite template via the backup API instead.
 BASELINE_TEMPLATE = 'baseline'
 
 _engine_ready = False
@@ -401,18 +379,13 @@ async def db(monkeypatch):
     only here, in the test harness). Repositories that stamp tenant themselves
     pass ``tenant_id`` explicitly, which the wrapper leaves untouched.
     """
-    # The tenant resolution caches hold ``Tenant`` instances read out of the
-    # previous test's database. They are process-global and invalidated only on
-    # a write, so with the database now outliving a single test they have to be
-    # dropped here or a stale row survives into the next one.
+    # Drop the process-global tenant caches: they hold Tenant rows from the previous test's database.
     tenant_service._clear_cache()
     event_service._clear_cache()
 
     await _bootstrap_engine()
     if ON_POSTGRES:
-        # A real database persists between tests, so hand each one an empty
-        # schema. Dropping and recreating is slower than truncating but cannot
-        # leave a stale column behind when the models move underneath it.
+        # Drop and recreate, not truncate: truncation can leave a stale column when the models move.
         conn = connections.get('default')
         await conn.execute_script(
             'DROP SCHEMA IF EXISTS public CASCADE; CREATE SCHEMA public;'
@@ -432,9 +405,6 @@ async def db(monkeypatch):
             owned = model in _event_owned_models()
 
             async def _stamped_create(**kwargs):
-                # Stamp the currently-scoped tenant (default id 1, or whatever a
-                # leak test set via tenant_scope) so direct test creates land in
-                # the right tenant without a per-call edit.
                 if 'tenant' not in kwargs and 'tenant_id' not in kwargs:
                     kwargs['tenant_id'] = require_tenant_id()
                 if owned and 'event' not in kwargs and 'event_id' not in kwargs and _held_in_event(model, kwargs):
@@ -447,17 +417,10 @@ async def db(monkeypatch):
     try:
         yield
     finally:
-        # Take the live client back out of the registry. A test that forgot to
-        # request ``db`` then gets what it always got — a connection to an empty
-        # database that has never seen the schema — rather than a quiet read of
-        # whatever the previous test left behind.
+        # Take the live client back out, so a test without `db` gets a schema-less database, not stale rows.
         connections.discard('default')
 
 
-# Each community's default event, as the harness knows it. Read synchronously by
-# the event-context fallback below, the way ``_tenant_context`` binds a default
-# tenant: the suite's thousands of direct creates and repository calls then run
-# in the community's default event without binding one each.
 _default_events: dict[int, int] = {}
 
 
@@ -466,8 +429,7 @@ def _event_owned_models() -> frozenset[type[Model]]:
     """Models an event owns: their ``event`` FK cascades (tagged ones SET NULL)."""
     from tortoise.fields.relational import CASCADE
 
-    # ``event`` on a check-in entrant or a meetup subscription is *their* parent
-    # (a CheckInEvent, a CommunityEvent), not an Event: match on the target.
+    # `event` on a check-in entrant or meetup subscription is its parent, not an Event: match on the target.
     return frozenset(
         model for model in _scoped_models()
         if 'event' in model._meta.fields_map
@@ -595,11 +557,6 @@ def pytest_sessionfinish(session, exitstatus):
     _engine_ready = False
 
 
-# Canonical two-tenant fixtures. Historically each isolation test re-created a
-# second tenant inline under one of four drifting slugs (``tenant-b``/``beta``/
-# ``b``/``community``); these fixtures give one slug convention (``tenant-b``)
-# and one place to build on. ``tenant_a`` is the default tenant (id 1) the
-# ``db`` fixture creates.
 SECOND_TENANT_SLUG = 'tenant-b'
 
 

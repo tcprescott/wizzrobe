@@ -87,7 +87,6 @@ def test_correcting_a_result_does_not_re_finish_the_match():
     """
     src = inspect.getsource(MatchLifecycleHandlers.on_edit_result)
     assert "mode='edit'" in src
-    # The call, not the word — the handler's docstring explains the omission.
     assert 'finish_match(' not in src
     assert 'confirm_finishing(' not in src
 
@@ -142,7 +141,6 @@ def _stage_handlers(monkeypatch, *, stage_id=None, is_stream_candidate=False):
 
     monkeypatch.setattr(match_lifecycle, 'Match', _Model)
     monkeypatch.setattr(match_lifecycle, 'require_tenant_id', lambda: 1)
-    # ``notify_error`` reaches for a NiceGUI client, which no unit test has.
     notified = []
     monkeypatch.setattr(match_lifecycle, 'notify_error', notified.append)
 

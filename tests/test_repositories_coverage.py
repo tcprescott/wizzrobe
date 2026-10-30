@@ -50,7 +50,6 @@ class TestMatchAcknowledgmentRepository:
         await MatchAcknowledgment.create(match=m, user=u2)
         rows = await MatchAcknowledgmentRepository.list_for_match(m)
         assert len(rows) == 2
-        # ``user`` prefetched — accessing without an extra await works.
         assert {r.user.username for r in rows} == {"alice", "bob"}
 
     async def test_list_for_matches_empty_input(self, db):
@@ -169,7 +168,6 @@ class TestTournamentNotificationRepository:
         )
         subs = await self.repo.get_match_notification_subscribers(t.id, has_stage=True)
         ids = {u.id for u in subs}
-        # ALL/STREAMED/CANDIDATES qualify when there's a stage; NONE is excluded.
         # Discord off still qualifies: send_dm drops only the Discord copy.
         assert ids == {u_all.id, u_streamed.id, u_candidates.id, u_no_dm.id}
 
@@ -451,13 +449,10 @@ class TestMatchRepository:
         sr = await Stage.create(name="Stage 1")
         target = date(2025, 3, 10)
         keep = await Match.create(tournament=t, scheduled_at=utc(2025, 3, 10, 15), stage=sr)
-        # finished -> excluded by default
         await Match.create(
             tournament=t, scheduled_at=utc(2025, 3, 10, 16), stage=sr, finished_at=utc(2025, 3, 10, 18)
         )
-        # no stage -> excluded by default
         await Match.create(tournament=t, scheduled_at=utc(2025, 3, 10, 17))
-        # different day -> excluded
         await Match.create(tournament=t, scheduled_at=utc(2025, 3, 11, 15), stage=sr)
         result = await MatchRepository.scheduled_between(*_utc_day(target))
         assert [m.id for m in result] == [keep.id]

@@ -77,7 +77,6 @@ class TestSaveServiceConnection:
         connection = await make_service(oauth=oauth).save_service_connection(payload, actor)
 
         assert connection.challonge_username is None
-        # Falls back to the default service scopes when the payload omits 'scope'.
         assert connection.scopes and 'tournaments:read' in connection.scopes
 
     async def test_missing_access_token_raises(self, db):
@@ -150,9 +149,7 @@ class TestLinkTournament:
         assert returned.challonge_tournament_id == 'T1'
         assert returned.challonge_tournament_url == 'https://challonge.com/spring25'
         assert returned.challonge_community == 'myorg'
-        # The link mirrors the bracket, so it counts as a sync.
         assert returned.challonge_last_synced_at is not None
-        # A subdomain URL is fetched under its community scope, not as ``myorg-spring25``.
         api.get_tournament_full.assert_awaited_once_with('spring25', community='myorg')
 
         participant = await ChallongeParticipant.get(tournament=returned, challonge_participant_id='9001')
@@ -313,7 +310,6 @@ class TestPushEdgeCases:
         api.update_match = AsyncMock()
         api.get_tournament_full = AsyncMock(side_effect=ChallongeAPIError('resync boom', status=502))
 
-        # Must not raise despite the re-sync failure.
         await make_service(api=api).push_match_result(match, actor)
         api.update_match.assert_awaited_once()
         api.get_tournament_full.assert_awaited_once()
@@ -548,7 +544,6 @@ class TestListUnscheduledMatches:
             tournament=tournament, challonge_match_id='8001', state=ChallongeMatchState.OPEN,
             participant1=p1, participant2=p2,
         )
-        # Pending matches and matches the user isn't in are excluded.
         await ChallongeMatch.create(
             tournament=tournament, challonge_match_id='8002', state=ChallongeMatchState.PENDING,
             participant1=p1, participant2=p2,

@@ -330,8 +330,6 @@ class TestSchedulingDms:
         assert 'has moved' in msg
         assert 'New time: 2025-03-02 12:00 EST' in msg
 
-    # Nobody who receives these is playing: players get the acknowledgment DM.
-    # Each audience's copy has to be true for that reader.
     @pytest.mark.parametrize('builder', ['scheduled_dm', 'rescheduled_dm'])
     @pytest.mark.parametrize('audience', [
         dm.AUDIENCE_SUBSCRIBER, dm.AUDIENCE_CREW, dm.AUDIENCE_WATCHER,
@@ -492,7 +490,6 @@ class TestCrewWithdrawnDm:
         assert notice(0.5).endswith('in under an hour.')
         assert notice(1.2).endswith('in about 1 hour.')
         assert notice(5.0).endswith('in about 5 hours.')
-        # Far out enough that the countdown says nothing useful.
         assert notice(96.0).endswith('withdrawn as tracker.')
         assert notice(-2.0).endswith('already past its scheduled time.')
 
@@ -531,7 +528,6 @@ class TestVolunteerDms:
 class TestDiscordEmbeds:
     def test_time_field_is_a_discord_timestamp(self):
         from datetime import datetime, timezone
-        # Discord <t:unix:F> · <t:unix:R> — renders in the viewer's own tz.
         when = datetime(2026, 7, 19, 22, 41, tzinfo=timezone.utc)
         ts = int(when.timestamp())
         assert de.time_field(when) == f'<t:{ts}:F> · <t:{ts}:R>'
@@ -563,8 +559,8 @@ class TestDiscordEmbeds:
     def test_match_embed_suppresses_empty_fields(self):
         emb = de.match_embed(title='t', color=0, tournament='Wizzrobe Dev')
         labels = {f.name for f in emb.fields}
-        assert labels == {'Tournament'}  # no Players/Time/Stage
-        # no community footer when unset (unset footer is falsy in discord.py)
+        assert labels == {'Tournament'}
+        # no community footer when unset (an unset footer is falsy in discord.py)
         assert not emb.footer or not emb.footer.text
 
     def test_state_changed_embed_colors(self):

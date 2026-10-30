@@ -128,9 +128,6 @@ class TestReadingAnotherPlayersAvailability:
 
     async def _player_with_a_window(self, app):
         player, raw = await create_user_token(username='player')
-        # A member, because the route resolves the target within the token's
-        # community — a global User with no membership is not someone this
-        # community can look up by id.
         await TenantMembership.get_or_create(user=player, tenant_id=1)
         async with client_for(app, raw) as c:
             await c.put('/api/users/me/availability', json=ONE_WINDOW)
@@ -207,8 +204,6 @@ class TestMatchSuggestion:
             assert 'suggested_at' in resp.json()
 
     async def test_a_member_can_only_ask_about_their_own_match(self, db, app):
-        # The answer, or its "no slot" refusal, read out other players' private
-        # availability one probe at a time.
         me, raw = await create_user_token(username='me', member=True)
         t = await Tournament.create(name='Cup', is_active=True)
         other = await create_community_member(discord_id=203, username='other')

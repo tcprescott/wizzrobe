@@ -112,7 +112,6 @@ class TestUnpublishedStagesAreStaffOnly:
             assert (await c.get(f'/api/brackets/entrants?tournament_id={t.id}')).status_code == 200
 
 
-
 class TestWrites:
     async def test_create_role_less_forbidden(self, db, app):
         """A non-staff token can read but a write returns 403 (service gate)."""
@@ -211,7 +210,6 @@ class TestHappyPath:
             assert reported.json()['winner_id'] == winner_entry_id
             assert reported.json()['state'] == 'complete'
 
-            # The final resolving auto-completes the single-elim stage.
             final = await c.get(f'/api/brackets/{bracket_id}')
             assert final.json()['state'] == 'complete'
 
@@ -264,7 +262,6 @@ class TestHappyPath:
             match_id = open_matches[0]['id']
             winner_entry_id = open_matches[0]['entry1_id']
 
-            # Winner with the lower score is rejected unless forfeit is set.
             bad = await c.post(f'/api/brackets/matches/{match_id}/result', json={
                 'winner_entry_id': winner_entry_id,
                 'entry1_score': 0, 'entry2_score': 2,

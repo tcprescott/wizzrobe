@@ -16,8 +16,6 @@ from theme.menu import SlotItem, slot_more_menu
 
 ROOT = Path(__file__).resolve().parents[2]
 
-# Opened only after a form is filled in, so there is no URL to link up front.
-# Staff-only and printed from a desktop.
 _ALLOWED = {'theme/dialog/qr_label_dialog.py'}
 
 

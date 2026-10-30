@@ -89,7 +89,6 @@ async def test_a_ninety_minute_lead_reminds_at_ninety_not_thirty(stage, stub_dis
 
     assert len(stub_discord_queue) == 1
     assert (await Match.get(id=early.id)).stage_reminder_sent_at is not None
-    # Still an hour out with a 30-minute lead: unstamped, so a later tick gets it.
     assert (await Match.get(id=default.id)).stage_reminder_sent_at is None
 
 

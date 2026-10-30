@@ -45,8 +45,6 @@ def test_mint_data_is_single_use():
 
 def test_mint_data_is_host_bound():
     token = h.mint_data(data={'key': 'twitch'}, target_host='foo.gg', next_path='/')
-    # A token minted for foo.gg is useless on bar.gg, and the attempt still
-    # consumes the nonce so it can't be retried on the right host.
     assert h.claim(token, 'bar.gg') is None
     assert h.claim(token, 'foo.gg') is None
 
@@ -56,8 +54,6 @@ def test_mint_data_rejects_unnormalizable_host():
 
 
 def test_login_mint_keeps_flat_identity_shape():
-    # The Discord-login mint is unchanged: its identity stays top-level (no 'data'
-    # wrapper), so the login callback keeps reading payload['discord_id'].
     token = h.mint(discord_id=1, username='u', avatar=None, target_host='foo.gg', next_path='/')
     payload = h.claim(token, 'foo.gg')
     assert payload['discord_id'] == 1
@@ -110,10 +106,6 @@ def test_register_link_handoff_provider(link):
 
 
 def test_link_handoff_provider_requires_its_mock_exit(link):
-    # The start leg needs both fields to reach a mocked provider's own callback;
-    # a provider registered without them would dead-end at an authorize URL that
-    # cannot answer under MOCK_*. No defaults, so a fourth provider cannot omit
-    # them silently.
     import dataclasses
     required = {
         f.name for f in dataclasses.fields(link.LinkHandoffProvider)
@@ -136,9 +128,6 @@ def test_mock_callback_url_targets_the_providers_own_callback(link, monkeypatch)
 
 
 def test_link_start_never_self_redirects_in_production(monkeypatch):
-    # The branch is reachable only through a provider's is_mock(), and every one
-    # of those raises rather than returning True under ENVIRONMENT=production —
-    # so the mock exit cannot be taken there. Assert it instead of trusting it.
     from application.utils.mocks.mock_challonge import is_mock_challonge
     from application.utils.mocks.mock_racetime import is_mock_racetime
     from application.utils.mocks.mock_twitch import is_mock_twitch
@@ -150,9 +139,6 @@ def test_link_start_never_self_redirects_in_production(monkeypatch):
 
 
 async def test_maybe_start_link_handoff_is_none_in_path_mode(link, monkeypatch):
-    # The reorder in each /<provider>/link page puts this call ahead of the mock
-    # short-circuit, so "returns None in path mode" is what keeps path-mode dev
-    # and every handoff-off deployment on exactly the path they were on before.
     monkeypatch.setenv('HOST_OAUTH_MODE', 'handoff')
     monkeypatch.setattr(link, 'is_host_mode', lambda: False)
     assert await link.maybe_start_link_handoff('racetime', '/home/profile') is None
@@ -165,17 +151,14 @@ async def test_maybe_start_link_handoff_is_none_with_handoff_off(link, monkeypat
 
 
 def test_link_page_prefers_handoff_over_mock(link):
-    # Source-level, because the ordering *is* the fix: maybe_start_link_handoff
-    # has to be reached before the is_mock() short-circuit returns, or the whole
-    # handoff stays unreachable in the one environment that can drive it.
+    # Source-level on purpose: the ordering is the fix (handoff before the is_mock() short-circuit).
     import inspect
 
     import pages.challonge_oauth as ch
     for module, mock_call in ((link, 'flow.is_mock()'), (ch, 'is_mock_challonge()')):
         src = inspect.getsource(module)
         handoff = src.index('maybe_start_link_handoff(')
-        # The *link page's* mock branch, i.e. the last occurrence — challonge's
-        # /connect page has its own earlier one that is not part of this flow.
+        # The link page's mock branch is the last occurrence; challonge's /connect page has an earlier one.
         assert src.rindex(mock_call) > handoff, module.__name__
 
 
@@ -189,19 +172,16 @@ def test_bind_matches_rejects_a_different_browser(link):
 
 
 @pytest.mark.parametrize('expected_commit,browser_secret', [
-    (None, 'anything'),         # token carried no commitment
-    ('', 'anything'),           # blank commitment
-    ('deadbeef' * 8, None),     # browser presents no secret
-    ('deadbeef' * 8, 123),      # non-string secret
+    (None, 'anything'),
+    ('', 'anything'),
+    ('deadbeef' * 8, None),
+    ('deadbeef' * 8, 123),
 ])
 def test_bind_matches_fails_closed(link, expected_commit, browser_secret):
     assert link._bind_matches(expected_commit, browser_secret) is False
 
 
 def test_handoff_failure_hands_back_through_the_claim_route(link):
-    # The platform host cannot stash a notice in the target domain's session, so
-    # a failure crosses as a reason code on the claim route rather than jumping
-    # straight to the return path with nothing said.
     url = link._link_handback_url('foo.gg', 'racetime', 'denied', '/home/profile')
     assert url.startswith('https://foo.gg/oauth/link/claim?')
     assert 'r=denied' in url and 'p=racetime' in url and 'next=%2Fhome%2Fprofile' in url
@@ -225,17 +205,13 @@ def test_unknown_reason_code_falls_back_to_the_generic_message(link):
         is_mock=lambda: False, callback_route='/demo/oauth/callback',
     )
     link.register_link_handoff_provider(provider)
-    # `r` is a query parameter the user can edit; it selects from a fixed set.
     for reason in ('', 'nonsense', '<script>', None):
         assert link._handback_message(reason, 'demo') == 'Could not link Demo. Please try again.'
-    # An unknown provider key cannot name a provider, and must not guess one.
     assert 'Demo' not in link._handback_message('denied', 'no-such-provider')
 
 
 def test_default_link_return_is_derived_not_hardcoded(link, monkeypatch):
-    # The expired-token branch of the claim route has no payload to read a return
-    # path from; three literal '/home/profile's is how the next provider's
-    # differing return silently stops working.
+    # Not three literal '/home/profile's: the next provider with a different return would silently break.
     monkeypatch.setattr(link, '_HANDOFF_PROVIDERS', {}, raising=False)
     assert link._default_link_return() == '/'
     one = link.LinkHandoffProvider(
@@ -248,9 +224,6 @@ def test_default_link_return_is_derived_not_hardcoded(link, monkeypatch):
 
 
 def test_claim_route_is_disabled_in_path_mode(link, monkeypatch):
-    # Path mode cannot mint a claim token, so there is nothing to claim — the
-    # audit's F1 probe landed on the community picker because this route answered
-    # anyway. Its sibling /oauth/link/start already refused the same way.
     import inspect
     src = inspect.getsource(link.register_link_handoff_pages)
     claim = src.index("@ui.page('/oauth/link/claim')")
@@ -261,8 +234,7 @@ def test_claim_route_is_disabled_in_path_mode(link, monkeypatch):
 
 
 def test_claim_failure_paths_are_all_safe_next_guarded(link):
-    # safe_next is the open-redirect guard on every return path the claim route
-    # takes; hoisting a default is exactly the kind of edit that drops it.
+    # safe_next is the open-redirect guard here; hoisting a default drops it.
     import inspect
     src = inspect.getsource(link.register_link_handoff_pages)
     claim = src[src.index("@ui.page('/oauth/link/claim')"):]
@@ -270,12 +242,10 @@ def test_claim_failure_paths_are_all_safe_next_guarded(link):
         stripped = line.strip()
         if not stripped.startswith('ui.navigate.to('):
             continue
-        # The one legitimate literal: a claim with no logged-in user goes to
-        # /login, which is not a return path the token could have supplied.
+        # The one legitimate literal: /login is not a return path the token could have supplied.
         if stripped == "ui.navigate.to('/login')":
             continue
         assert 'safe_next(' in stripped or 'handed_back' in stripped or 'next_path' in stripped, line
-    # …and every one of those names was itself produced by safe_next.
     assert "handed_back = safe_next(" in claim
     assert "next_path = safe_next(" in claim
 
@@ -297,10 +267,6 @@ def test_safe_next_guards_cross_host_return(raw, expected):
 
 
 async def test_handoff_exchange_runs_in_the_target_tenant(link, monkeypatch):
-    # The platform host resolves no tenant, and Challonge's exchange_player_code
-    # is @requires_feature(CHALLONGE): with nothing in scope it raised
-    # FeatureDisabledError and every custom-domain Challonge link handed back
-    # r=failed. The start leg pins the tenant it resolved from the target domain.
     from nicegui import app
 
     from application.tenant_context import get_current_tenant_id, tenant_scope

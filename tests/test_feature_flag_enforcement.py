@@ -55,7 +55,7 @@ async def test_ensure_enabled_raises_for_a_tenant_without_the_flag(bare_tenant):
 async def test_ensure_enabled_passes_once_live(bare_tenant):
     await _enable(bare_tenant.id, FeatureFlag.BRACKETS)
     with tenant_scope(bare_tenant.id):
-        await FeatureFlagService().ensure_enabled(FeatureFlag.BRACKETS)  # no raise
+        await FeatureFlagService().ensure_enabled(FeatureFlag.BRACKETS)
 
 
 async def test_ensure_enabled_raises_with_no_tenant_in_scope(db):
@@ -218,7 +218,6 @@ async def test_a_help_icon_over_handbook_content_is_skipped_not_raised(bare_tena
 
     with tenant_scope(bare_tenant.id):
         assert FeatureFlag.EVENT_INFO not in await FeatureFlagService().enabled_flags()
-
 
 
 async def test_challonge_result_push_is_skipped_not_raised(bare_tenant):

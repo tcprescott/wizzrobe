@@ -13,16 +13,13 @@ from pathlib import Path
 
 from tests.conftest import _scoped_models
 
-# Search the whole test tree, not just this package: a leak test is allowed to
-# live next to the feature it covers as long as its filename says "isolation".
+# Search the whole test tree: a leak test may live beside its feature if its filename says "isolation".
 TESTS_DIR = Path(__file__).resolve().parents[1]
 
 # Model name -> why it has no leak test yet. Shrink this list; never grow it.
 _DEBT = 'pre-ratchet debt (2026-07): needs a two-tenant read-isolation test'
 BACKLOG: dict[str, str] = {
-    # Leak coverage exists but lives outside the tests/*isolation* glob:
     'TenantFeatureFlag': 'covered by test_feature_flags.py::test_flags_do_not_leak_across_tenants',
-    # Models that predate the leak-test rule:
     'AsyncQualifierReviewNote': _DEBT,
     'ChallongeApiUsage': _DEBT,
     'ChallongeConnection': _DEBT,

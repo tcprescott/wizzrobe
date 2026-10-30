@@ -64,7 +64,7 @@ def slot():
 async def run_now(monkeypatch):
     scheduled: list = []
     monkeypatch.setattr(core, 'loop', asyncio.get_running_loop())
-    # Like the app does, an async handler runs inside the element's slot.
+    # Run the async handler inside the element's slot, as the app does.
     async def in_slot(coro, context):
         with context:
             await coro

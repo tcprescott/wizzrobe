@@ -13,7 +13,7 @@ from models import Role, Tenant, User, UserRole
 @pytest.fixture
 async def super_admin(db):
     su = await User.create(discord_id=1000, username='root')
-    # SUPER_ADMIN row carries tenant=NULL (explicit so the harness doesn't stamp).
+    # tenant=NULL passed explicitly so the harness doesn't stamp a tenant.
     await UserRole.create(user=su, role=Role.SUPER_ADMIN, tenant=None)
     return su
 
@@ -25,8 +25,6 @@ async def test_slugify_makes_url_safe():
 
 
 async def test_is_super_admin_true_across_any_tenant(super_admin, db):
-    # A second tenant exists; the super-admin row (tenant NULL) is visible in
-    # either tenant's context and with no context.
     b = await Tenant.create(name='B', slug='b')
     assert await AuthService.is_super_admin(super_admin) is True
     with tenant_scope(b.id):
@@ -43,17 +41,15 @@ async def test_create_tenant_validates_slug(super_admin, db):
     with pytest.raises(ValueError):
         await TenantService.create_tenant(super_admin, name='X', slug='Bad Slug')
     with pytest.raises(ValueError):
-        await TenantService.create_tenant(super_admin, name='X', slug='platform')  # reserved
+        await TenantService.create_tenant(super_admin, name='X', slug='platform')
     await TenantService.create_tenant(super_admin, name='X', slug='good-slug')
     with pytest.raises(ValueError):
-        await TenantService.create_tenant(super_admin, name='Y', slug='good-slug')  # dup
+        await TenantService.create_tenant(super_admin, name='Y', slug='good-slug')
 
 
 async def test_create_tenant_resolves_and_invalidates_cache(super_admin, db):
-    # Prime the cache with a miss.
     assert await TenantService.get_by_slug('acme') is None
     tenant = await TenantService.create_tenant(super_admin, name='Acme', slug='acme')
-    # Cache was cleared on create, so the new tenant resolves.
     resolved = await TenantService.get_by_slug('acme')
     assert resolved is not None and resolved.id == tenant.id
 
@@ -68,8 +64,6 @@ async def test_guild_resolution(super_admin, db):
 
 
 async def test_guild_resolution_returns_all_sharing_tenants(super_admin, db):
-    # Several communities can share one Discord server; every linked tenant is
-    # resolved (stable id order) so the bot fans out over all of them.
     a = await TenantService.create_tenant(
         super_admin, name='A', slug='ga', discord_guild_id=42424242,
     )
@@ -101,7 +95,6 @@ async def test_bootstrap_staff_is_per_tenant(super_admin, db):
         assert await AuthService.is_staff(staffer) is True
         assert await TenantService.is_member(staffer.id, a.id) is True
     with tenant_scope(b.id):
-        # STAFF in A must not carry into B.
         assert await AuthService.is_staff(staffer) is False
 
 
@@ -119,8 +112,6 @@ async def test_userrole_add_is_tenant_scoped(db):
 
 
 async def test_create_tenant_allows_shared_guild_id(super_admin, db):
-    # Multiple communities may share one Discord server, so a second tenant can
-    # claim the same guild id — the bot fans out over every linked tenant.
     await TenantService.create_tenant(
         super_admin, name='First', slug='first', discord_guild_id=555,
     )
@@ -138,15 +129,12 @@ async def test_update_tenant_allows_shared_guild_id(super_admin, db):
     b = await TenantService.create_tenant(
         super_admin, name='B', slug='tb', discord_guild_id=888,
     )
-    # Re-pointing B at A's guild is allowed; both now resolve for that guild.
     await TenantService.update_tenant(super_admin, b, discord_guild_id=777)
     resolved = await TenantService.list_tenants_for_guild(777)
     assert {t.id for t in resolved} == {a.id, b.id}
 
 
 async def test_slug_cache_is_bounded(db):
-    # Negative lookups are cached keyed on the URL slug; a flood of distinct
-    # unknown slugs must not grow the cache without limit.
     from application.services import tenant_service as ts
     ts._clear_cache()
     for i in range(ts._CACHE_MAX + 250):
@@ -156,11 +144,9 @@ async def test_slug_cache_is_bounded(db):
 
 
 async def test_list_staff_reads_the_named_tenant_not_the_ambient_one(super_admin, db):
-    # The ambient tenant is the default one; asking for tenant B's staff must
-    # not return A's. Written against the ambient tenant this returns A's staff.
     b = await Tenant.create(name='B', slug='b')
     staffer = await User.create(discord_id=3100, username='a_staff')
-    await UserRoleRepository.add(staffer, Role.STAFF)  # in the ambient tenant A
+    await UserRoleRepository.add(staffer, Role.STAFF)
 
     assert await TenantService.list_staff(super_admin, b.id) == []
     in_a = await TenantService.list_staff(super_admin, 1)

@@ -62,7 +62,7 @@ async def test_staff_approving_a_move_brings_ask_to_change_back():
         return {'id': match_id, 'state': 'Scheduled', 'scheduled_at': 'new'}
 
     async def reschedule_state():
-        return {7}, set()  # the request was decided: askable again, nothing pending
+        return {7}, set()
 
     async def hard_states(rows):
         return {}

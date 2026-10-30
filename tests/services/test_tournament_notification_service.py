@@ -112,6 +112,5 @@ class TestUpsertPreference:
         kwargs = service.repository.upsert.await_args.kwargs
         assert kwargs['user'] is user
         assert kwargs['tournament'] is t
-        # The service converts the raw string to an enum instance before storing.
         assert kwargs['match_notifications'] == MatchNotificationLevel.STREAMED
         assert isinstance(kwargs['match_notifications'], MatchNotificationLevel)

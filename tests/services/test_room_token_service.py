@@ -31,7 +31,6 @@ class TestIssue:
 
         assert raw.startswith(TOKEN_PREFIX)
         assert token.token_hash == hash_token(raw)
-        # The plaintext must not survive anywhere on the row.
         assert raw not in (token.label, token.token_hash)
 
     async def test_label_is_required(self, db):

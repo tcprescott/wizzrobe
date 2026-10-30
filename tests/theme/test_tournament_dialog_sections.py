@@ -44,7 +44,6 @@ def test_only_the_name_field_is_required():
         and node.args[0].value == 'required'
     ]
     assert len(required) == 1, f'{len(required)} fields marked required, expected 1'
-    # It hangs off the ui.input labelled "Tournament Name *".
     labels = [
         arg.value for call in _calls('input') for arg in call.args
         if isinstance(arg, ast.Constant) and isinstance(arg.value, str)
@@ -62,8 +61,6 @@ def _expansion_titles() -> list[str]:
 def test_the_optional_fields_live_in_named_sections():
     assert _expansion_titles() == [
         'Scheduling', 'Entry & administration', 'Seeds & randomizer', 'Integrations',
-        # Not an optional-fields section: the permanent-delete control, last and
-        # always closed (see below).
         'Danger zone',
     ]
 
@@ -76,8 +73,6 @@ def test_sections_are_collapsed_on_create_and_open_on_edit():
         values = [kw for kw in call.keywords if kw.arg == 'value']
         assert values, 'an expansion with no explicit value defaults to closed on edit too'
         if title == 'Danger zone':
-            # Deliberately not `sections_open`: an irreversible delete does not
-            # get to be the thing already open when the dialog paints.
             assert values[0].value.value is False
             continue
         assert isinstance(values[0].value, ast.Name)

@@ -57,7 +57,6 @@ async def test_first_signup_makes_a_hold_and_the_next_reuses_it(db, monkeypatch)
     assert await Commentator.filter(match_id=hold.id, user=ana).exists()
     assert await Tracker.filter(match_id=hold.id, user=bo).exists()
 
-    # The matchup stays unbooked for players and staff.
     await final.refresh_from_db()
     assert final.match_id is None
     actor = await make_user(99, 'staff2')
@@ -116,7 +115,6 @@ async def test_a_signup_from_someone_now_playing_is_dropped(db, monkeypatch):
     from application.repositories import MatchRepository
 
     actor, players, tournament, *_, final = await _final(monkeypatch)
-    # Andy signed up while both sides of the final were still TBD.
     hold = await CrewHoldService().signup('challonge', final.id, players['Andy'], 'commentator')
     match = await Match.create(tenant_id=hold.tenant_id, tournament=tournament)
     await MatchRepository.add_player(match, players['Andy'])
@@ -164,7 +162,7 @@ async def test_schedule_rows_get_a_line_per_matchup_and_tag_holds(db, monkeypatc
     assert by_id[hold.id]['_players_tbd'] is True
     assert 999 in by_id
     lines = [r for r in out if str(r['id']).startswith('future:')]
-    assert len(lines) == 2  # the two semifinals
+    assert len(lines) == 2
     semi = lines[0]
     assert semi['crew_hold'] and semi['state'] == 'Scheduled' and semi['players'] == []
     assert set(semi['_crew_blocked']) <= {'11', '12', '13', '14'} and semi['_crew_blocked']

@@ -41,14 +41,12 @@ class TestEncodeDetails:
         assert json.loads(encoded) == {'a': 1, 'b': 'two'}
 
     def test_keys_are_sorted(self):
-        # Sort order matters for deterministic queryability.
         encoded = _encode_details({'z': 1, 'a': 2, 'm': 3})
         assert encoded.index('"a"') < encoded.index('"m"') < encoded.index('"z"')
 
     def test_datetime_falls_back_to_str(self):
         dt = datetime(2025, 1, 15, 14, 30, tzinfo=timezone.utc)
         encoded = _encode_details({'when': dt})
-        # default=str renders datetimes as their str() representation.
         assert str(dt) in encoded
 
     def test_arbitrary_object_falls_back_to_str(self):
@@ -66,7 +64,6 @@ class TestEncodeDetails:
         assert decoded == {'outer': {'inner': [1, 2, 3]}}
 
     def test_accepts_any_mapping(self):
-        # Mapping protocol, not just dict.
         from collections import OrderedDict
         encoded = _encode_details(OrderedDict([('b', 1), ('a', 2)]))
         assert encoded.index('"a"') < encoded.index('"b"')
@@ -133,8 +130,6 @@ class TestWriteLog:
         kwargs = create_mock.await_args.kwargs
         assert kwargs['user'] is user
         assert kwargs['action'] == 'match.created'
-        # details should be JSON-encoded, with the actor identity snapshotted
-        # in so attribution survives a later user deletion (FK is SET_NULL).
         import json
         assert json.loads(kwargs['details']) == {
             'match_id': 99,
@@ -165,7 +160,6 @@ class TestAuditActionsConstants:
             assert value == value.lower(), f'{name}={value} should be lowercase'
 
     def test_known_actions_exist(self):
-        # Spot-check action names that callers across the codebase reference.
         assert AuditActions.MATCH_CREATED == 'match.created'
         assert AuditActions.USER_ROLE_GRANTED == 'user.role_granted'
         assert AuditActions.SYSTEM_CONFIG_UPDATED == 'system_config.updated'

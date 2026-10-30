@@ -52,10 +52,10 @@ class TestChunk:
 class TestFilteredIds:
     def _rows(self):
         return [
-            {'id': 1, 'num': 1, 'available': True, 'owner_key': ''},        # community
-            {'id': 2, 'num': 2, 'available': False, 'owner_key': '7'},      # user 7, out
-            {'id': 3, 'num': 3, 'available': True, 'owner_key': '7'},       # user 7
-            {'id': 4, 'num': 4, 'available': True, 'owner_key': ''},        # community
+            {'id': 1, 'num': 1, 'available': True, 'owner_key': ''},
+            {'id': 2, 'num': 2, 'available': False, 'owner_key': '7'},
+            {'id': 3, 'num': 3, 'available': True, 'owner_key': '7'},
+            {'id': 4, 'num': 4, 'available': True, 'owner_key': ''},
         ]
 
     def test_no_filters_returns_all(self):

@@ -184,8 +184,7 @@ class TestTheSlugMismatchWarning:
         with caplog.at_level('WARNING', logger='application.event_info.catalog'):
             articles_for_tenant('quiet-after-the-first')
             assert 'quiet-after-the-first' in caplog.text
-            # caplog accumulates across the whole test, so the second call's
-            # silence is only visible once the first call's record is dropped.
+            # caplog accumulates across the test: drop the first call's record to see the second call's silence.
             caplog.clear()
             articles_for_tenant('quiet-after-the-first')
         assert caplog.text == ''

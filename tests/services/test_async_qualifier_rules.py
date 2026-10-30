@@ -30,7 +30,6 @@ class TestClassifyClaim:
         assert classify_claim(3600, 3600 + IMPLAUSIBLE_DRIFT_SECONDS - 1) is ClaimVerdict.OK
 
     def test_a_large_shortfall_is_implausible(self):
-        # The dropped-segment case: typed 0:14:22 on a run the server timed 1:14:22.
         assert classify_claim(862, 4462) is ClaimVerdict.IMPLAUSIBLE
 
     def test_exactly_the_drift_threshold_is_implausible(self):
@@ -49,8 +48,8 @@ class TestClassifyClaim:
 class TestDescribeClaim:
     def test_names_both_numbers(self):
         message = describe_claim(4462, 862)
-        assert '0:14:22' in message      # measured
-        assert '1:14:22' in message      # claimed
+        assert '0:14:22' in message
+        assert '1:14:22' in message
         assert 'longer than the run itself' in message
 
 

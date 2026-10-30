@@ -51,7 +51,6 @@ class TestStripRootPath:
         assert strip_root_path('/t/sgl', '/t/sgl/admin?tab=equipment') == '/admin?tab=equipment'
 
     def test_host_mode_passes_through_untouched(self):
-        # On a custom domain root_path is '' and options.prefix is empty too.
         assert strip_root_path('', '/equipment/3') == '/equipment/3'
 
     def test_a_path_outside_the_prefix_is_left_alone(self):
@@ -96,8 +95,6 @@ class TestSanitizeReturnPath:
         assert sanitize_return_path('/t/sgl', 12345) == '/t/sgl/'
 
     def test_bare_host_honors_tenant_qualified_referrer(self):
-        # On the bare platform host (root_path='') a tenant-qualified referrer is
-        # still a valid onward target (this is how the OAuth callback recovers).
         assert sanitize_return_path('', '/t/sgl/admin') == '/t/sgl/admin'
 
     def test_bare_host_rejects_auth_route(self):
@@ -142,7 +139,6 @@ class TestEncodedHostMismatch:
         assert encoded_host_mismatch('https://FOO.GG/equipment/3', 'foo.gg.') is None
 
     def test_a_missing_host_never_warns(self):
-        # An absent Host header must not read as a misconfiguration.
         assert encoded_host_mismatch('https://foo.gg/x', None) is None
         assert encoded_host_mismatch('https://foo.gg/x', '') is None
         assert encoded_host_mismatch(None, 'foo.gg') is None

@@ -61,7 +61,6 @@ def callback(monkeypatch, storage):
         async def js(_):
             return url
         monkeypatch.setattr(ch.ui, 'run_javascript', js)
-        # The bare platform host: the tenant middleware sets no tenant.
         with tenant_scope(None):
             await pages['/challonge/oauth/callback'](_FakeClient())
             assert get_current_tenant_id() is None

@@ -93,8 +93,6 @@ class TestPostgres:
 class TestOtherBackends:
     @pytest.mark.parametrize('dsn', ['sqlite://:memory:', 'sqlite:///tmp/test.db'])
     async def test_sqlite_runs_the_block_unlocked(self, dsn, monkeypatch):
-        # A failure here would mean the test suite's own SQLite runs reached for
-        # asyncpg; assert it is never even imported.
         connect = AsyncMock(side_effect=AssertionError('asyncpg must not be used for SQLite'))
         module = types.ModuleType('asyncpg')
         module.connect = connect  # type: ignore[attr-defined]

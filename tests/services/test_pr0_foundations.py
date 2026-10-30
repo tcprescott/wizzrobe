@@ -33,7 +33,6 @@ class TestValidateTournamentConfig:
         assert validate_tournament_config(cfg) == cfg
 
     def test_unset_keys_dropped(self):
-        # exclude_none: a config that only names an absent optional stays empty.
         assert validate_tournament_config({'messaging_templates': None}) == {}
 
     def test_unknown_key_raises(self):
@@ -49,7 +48,6 @@ class TestValidateTournamentConfig:
             validate_tournament_config(['not', 'a', 'dict'])
 
     def test_model_forbids_extra(self):
-        # The extra='forbid' setting is what turns unknown keys into errors.
         assert TournamentConfig.model_config.get('extra') == 'forbid'
 
 
@@ -95,7 +93,6 @@ class TestSystemUser:
         assert user.discord_id == SYSTEM_USER_DISCORD_ID
         assert user.is_system is True
         assert user.username == 'System'
-        # A real username to snapshot — the reason for a row over a bare -1.
         assert user.username
 
     async def test_idempotent_single_row(self, db):
@@ -114,6 +111,5 @@ class TestSystemUser:
 
         log = await AuditService().write_log(system, 'system.ping', {'k': 'v'})
         assert log.user_id == system.id
-        # Actor identity is snapshotted into details for a real (non-sentinel) name.
         import json
         assert json.loads(log.details)['actor_username'] == 'System'

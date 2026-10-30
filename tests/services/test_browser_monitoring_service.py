@@ -90,10 +90,10 @@ async def test_add_and_remove_rule(super_admin):
 
 
 @pytest.mark.parametrize('pattern, match', [
-    ('ab', MATCH_MESSAGE),                    # too short to be distinctive
+    ('ab', MATCH_MESSAGE),
     ('x' * 201, MATCH_MESSAGE),
-    ('Some error', 'stack'),                  # unknown kind
-    ('resizeobserver loop', MATCH_MESSAGE),   # already built in
+    ('Some error', 'stack'),
+    ('resizeobserver loop', MATCH_MESSAGE),
     ('chrome-extension://', MATCH_URL),
 ])
 async def test_add_rule_rejects(super_admin, pattern, match):

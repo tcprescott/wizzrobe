@@ -96,7 +96,6 @@ class TestGroupToSingleElim:
     async def _run(self, service):
         actor = await _staff()
         t = await Tournament.create(name='Cup')
-        # Stage 0: two round-robin groups of four (seeds 1,4,5,8 | 2,3,6,7).
         stage0 = await _build_stage(
             service, actor, t.id, BracketFormat.ROUND_ROBIN, 8,
             stage_order=0, config={'group_count': 2},
@@ -104,7 +103,6 @@ class TestGroupToSingleElim:
         await service.start_bracket(actor, stage0.id)
         await _play_to_completion(service, actor, stage0, await _seed_of(service, stage0.id))
 
-        # Stage 1: single elimination, top 2 per group advance, snake seeded.
         stage1 = await _build_stage(
             service, actor, t.id, BracketFormat.SINGLE_ELIM, 0,
             stage_order=1,
@@ -165,8 +163,6 @@ class TestGroupToSingleElim:
         s1_entries = await service.list_entries(stage1.id)
         seed_of_entrant = {e.entrant_id: e.seed for e in s1_entries}
 
-        # Group winners occupy the two lowest seeds; standard seeding then places
-        # them on opposite halves of the bracket.
         winner_seeds = sorted(seed_of_entrant[eid] for eid in winners)
         assert winner_seeds == [1, 2]
 
@@ -261,8 +257,6 @@ class TestSwissToTopCut:
         seed_of = await _seed_of(service, stage0.id)
         await _play_to_completion(service, actor, stage0, seed_of, finalize=False)
 
-        # Finalize with an explicit, tie-free ranking so "top N" is unambiguous:
-        # entrant with stage-0 seed k gets final_rank = ranks[k].
         entries = await service.list_entries(stage0.id)
         tie_breaks = {e.id: ranks[e.seed] for e in entries}
         if (await service.get_bracket(stage0.id)).state != BracketState.COMPLETE:
@@ -308,7 +302,6 @@ class TestSwissToTopCut:
         await service.start_bracket(actor, stage1.id)
         await _play_to_completion(service, actor, stage1, await _seed_of(service, stage1.id))
 
-        # Standard seeding pairs the cut as 1v4 and 2v3 in round 1.
         assert standard_seeding(4) == [1, 4, 2, 3]
         final = await service.get_bracket(stage1.id)
         assert final.state == BracketState.COMPLETE
@@ -357,7 +350,6 @@ class TestAdvanceGuards:
         actor = await _staff()
         t = await Tournament.create(name='Cup')
         await self._round_robin_pair(service, actor, t, complete=True)
-        # Each group has 4; asking for 5 per group cannot be satisfied.
         await _build_stage(
             service, actor, t.id, BracketFormat.SINGLE_ELIM, 0, stage_order=1,
             config={'advancement': {'count': 5, 'per_group': True}},
@@ -384,8 +376,6 @@ class TestAdvanceGuards:
         stage1 = await _build_stage(
             service, actor, t.id, BracketFormat.SINGLE_ELIM, 8, stage_order=1,
         )
-        # Even with its own entries, a later stage may not start until stage 0 is
-        # complete.
         with pytest.raises(ValueError, match='previous stage'):
             await service.start_bracket(actor, stage1.id)
 

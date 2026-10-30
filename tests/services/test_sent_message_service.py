@@ -101,7 +101,6 @@ async def test_the_notice_is_logged_and_an_off_notice_is_not():
     row = await SentMessage.get(discord_id='907')
     assert (row.notice_key, row.audience, row.silent) == ('matchup_ready', 'players', True)
 
-    # Off by default for players: nothing went out, so nothing is logged.
     await MockDiscordService().send_dm(907, 'Match started', notice=MATCH_STARTED.to(PLAYERS))
     assert await SentMessage.filter(discord_id='907').count() == 1
 

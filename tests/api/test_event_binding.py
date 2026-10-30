@@ -15,14 +15,12 @@ from application.event_writes import event_id_path
 from models import AuditLog, Event, EventStatus, Match, Role, SentMessage, TelemetryEvent, Tournament
 from tests.api_helpers import client_for, create_user_token
 
-#: Routers whose rows belong to one event (the spec's "event-owned" list).
 EVENT_OWNED_PREFIXES = (
     '/api/async-qualifiers', '/api/brackets', '/api/check-in', '/api/crew', '/api/discord-events',
     '/api/matches', '/api/race-rooms', '/api/reports', '/api/seeds', '/api/speedgaming',
     '/api/stages', '/api/tournaments', '/api/triforce-texts', '/api/volunteers',
     '/api/reschedule-requests',
 )
-#: Path parameters that name no event-owned row, and why.
 NOT_ROWS = {
     'user_id': 'a person, community-wide',
     'role': 'a crew role name',

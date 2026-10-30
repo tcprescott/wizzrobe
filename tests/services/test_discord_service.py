@@ -5,8 +5,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-# Scheduled events must carry aware datetimes — discord.py raises ValueError on
-# naive ones. Tortoise hands back aware UTC, so this matches production.
+# Must be aware datetimes: discord.py raises ValueError on naive ones.
 START = datetime(2026, 7, 28, 18, 30, tzinfo=timezone.utc)
 END = START + timedelta(hours=1)
 
@@ -72,8 +71,6 @@ class TestMockDiscordService:
         assert ok is True
 
     async def test_get_member_role_ids_returns_coherent_roles(self, mock_svc):
-        # Mock members carry roles drawn from the guild's role set, so mock login
-        # role sync actually grants/revokes. Everyone is at least a Volunteer.
         from application.utils.mocks import mock_discord_data as mdd
 
         ok, data = await mock_svc.get_member_role_ids(guild_id=mdd.GUILD_WIZ_DEFAULT, user_id=2)
@@ -129,7 +126,6 @@ class TestDiscordServiceNotReady:
         assert ok is False
 
     async def test_member_can_manage_guild_fails_closed_when_not_ready(self, real_svc_not_ready):
-        # Must fail closed (ok=False) so callers never treat an error as authorized.
         ok, result = await real_svc_not_ready.member_can_manage_guild(guild_id=1, user_id=2)
         assert ok is False
 
@@ -220,7 +216,6 @@ class TestListMembersWithRoles:
         assert [(m.id, m.username, m.avatar) for m in found] == [
             (10, 'user10', 'hash'), (13, 'user13', None),
         ]
-        # @everyone (id == guild id) is never reported as a held role.
         assert found[1].role_ids == frozenset({111, 222})
 
     async def test_pages_the_rest_api_when_the_cache_is_incomplete(self):
@@ -263,14 +258,8 @@ class TestMockAuthorityHelpers:
         assert data['id'] == 7
 
 
-# py-cord and discord.py are hard forks that both install into the same
-# top-level ``discord/`` package, so installing both leaves whichever unpacked
-# last owning the shared modules. That happened here: py-cord shadowed
-# discord.py, ``discord.EntityType`` / ``discord.PrivacyLevel`` silently stopped
-# existing, and the scheduled-event calls below failed for every real guild
-# while the suite stayed green (they are only ever reached through
-# MockDiscordService). These tests pin the library identity and the exact
-# signatures the service depends on.
+# py-cord and discord.py both install as `discord/`; py-cord once shadowed discord.py and broke
+# scheduled events while the suite stayed green. These pin the library and its signatures.
 
 
 class TestDiscordLibraryIdentity:
@@ -340,9 +329,7 @@ class TestScheduledEventKwargs:
             description='D' * 1500, location='L' * 150,
         )
 
-        # Assert success first: _scheduled_event_op turns any exception into
-        # (False, msg), so a bare kwargs assertion would fail on call_args=None
-        # and hide the real cause.
+        # Assert success first: _scheduled_event_op swallows exceptions, so a bare kwargs assert hides the cause.
         assert (ok, event_id) == (True, 999)
         kwargs = guild.create_scheduled_event.await_args.kwargs
         assert kwargs['entity_type'] is discord.EntityType.external

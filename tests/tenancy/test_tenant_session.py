@@ -25,8 +25,7 @@ class _FakeApp:
 @pytest.fixture
 def fake_app(monkeypatch):
     app = _FakeApp()
-    # The helper does `from nicegui import app` at call time, so replacing the
-    # module attribute is enough.
+    # The helper imports `app` at call time, so patching the module attribute is enough.
     monkeypatch.setattr('nicegui.app', app, raising=False)
     return app
 

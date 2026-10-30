@@ -21,7 +21,7 @@ async def test_race_room_profile_reads_are_isolated(two_tenants):
     with tenant_scope(a.id):
         pa = await RaceRoomProfile.create(name='House')
     with tenant_scope(b.id):
-        pb = await RaceRoomProfile.create(name='House')  # same name, different tenant
+        pb = await RaceRoomProfile.create(name='House')
 
     with tenant_scope(a.id):
         assert [p.id for p in await repo.list_all()] == [pa.id]
@@ -54,7 +54,6 @@ async def test_racetime_room_by_slug_is_unscoped(two_tenants):
     with tenant_scope(b.id):
         rb = await RacetimeRoom.create(slug='alttpr/only-in-b', category='alttpr')
 
-    # No tenant scope at all — the routing entry point — still resolves it.
     room = await repo.get_by_slug('alttpr/only-in-b')
     assert room is not None and room.id == rb.id
     assert room.tenant_id == b.id
@@ -63,7 +62,6 @@ async def test_racetime_room_by_slug_is_unscoped(two_tenants):
 async def test_bot_grants_do_not_leak_across_tenants(two_tenants):
     a, b = two_tenants
     repo = RacetimeBotRepository()
-    # The bot is global; grant it only to A.
     bot = await RacetimeBot.create(category='alttpr', client_id='c', client_secret='s', name='A')
     await repo.create_grant(bot.id, a.id)
 

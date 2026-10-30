@@ -102,8 +102,6 @@ async def test_a_challonge_match_closed_with_no_winner_says_so(staff):
 
 
 async def test_a_startgg_set_closed_with_no_winner_is_not_someone_winning(staff):
-    # SGL26 OoTR pool 6: start.gg closed alsoa vs jaxstronomy 0-0 with no
-    # winner. The board said "Someone won on start.gg" and Record result failed.
     alice = await User.create(discord_id=7711, username='alice')
     bob = await User.create(discord_id=7712, username='bob')
     tournament = await Tournament.create(name='OoTR', startgg_event_slug='tournament/x/event/y')

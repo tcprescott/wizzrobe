@@ -292,7 +292,6 @@ class TestObsScenes:
         game = next(i for i in stage1 if i['name'] == 'Feed · Player 1 game')
         assert (game['pos']['x'], game['pos']['y']) == (26, 96)
         assert (game['bounds']['x'], game['bounds']['y']) == (846, 679)
-        # Both layouts nest the same Player 1 game feed, sized to the bigger hole.
         stage2 = by_name['Stage 2 · Cams']['settings']['items']
         assert any(i['source_uuid'] == game['source_uuid'] for i in stage2)
         placeholder = by_name['Feed · Player 1 game']['settings']['items'][0]

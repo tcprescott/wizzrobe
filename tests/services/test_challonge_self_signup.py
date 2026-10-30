@@ -121,7 +121,6 @@ async def test_a_linked_player_is_added_to_the_bracket(linked_player, bracket, c
     assert row.user_id == linked_player.id
     assert row.challonge_user_id == '555'
     assert not row.user_assigned_manually
-    # The Wizzrobe player pool is not the roster of a Challonge bracket.
     assert await TournamentPlayers.filter(tournament=bracket).count() == 0
     enrolled = [e for e in seen if e.event_type == EventType.TOURNAMENT_ENROLLED]
     assert [e.payload['tournament_id'] for e in enrolled] == [bracket.id]

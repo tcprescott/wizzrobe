@@ -50,7 +50,6 @@ def stub_storage(monkeypatch):
         fake_create,
     )
 
-    # The event settings live on the event; the same store stands in for it.
     async def fake_get_event_raw(key):
         return storage.get(key)
 
@@ -134,7 +133,6 @@ class TestSetRaw:
         assert stub_storage['new_key'] == 'new_value'
 
     async def test_updates_existing(self, stub_storage, bypass_audit, monkeypatch):
-        # Use a stronger stub that lets save() mutate the storage dict.
         stub_storage['k'] = 'old'
 
         async def fake_get_or_none(**kwargs):
@@ -216,7 +214,6 @@ def _patch_match_minmax(monkeypatch, first_at=None, last_at=None):
                 return last_match
             return None
 
-    # The service scopes by event: event_scoped(Match.all(), ...).
     monkeypatch.setattr(
         'application.services.system_config_service.Match.all', lambda: FakeQS('match_qs'),
     )
@@ -239,7 +236,6 @@ class TestGetEventWindow:
     ):
         _patch_match_minmax(
             monkeypatch,
-            # UTC 19:30 on Jan 15 = 14:30 Eastern Jan 15
             first_at=datetime(2025, 1, 15, 19, 30, tzinfo=timezone.utc),
             last_at=datetime(2025, 1, 18, 19, 30, tzinfo=timezone.utc),
         )
@@ -262,14 +258,13 @@ class TestGetEventWindow:
     async def test_falls_back_to_today_when_no_config_or_matches(
         self, stub_storage, monkeypatch,
     ):
-        _patch_match_minmax(monkeypatch)  # no matches
+        _patch_match_minmax(monkeypatch)
         start, end = await SystemConfigService.get_event_window()
-        # end falls back to start when only one date is derived.
         assert start == end
 
     async def test_end_never_before_start(self, stub_storage, monkeypatch):
         stub_storage[KEY_EVENT_START_DATE] = '2025-10-20'
-        stub_storage[KEY_EVENT_END_DATE] = '2025-10-15'  # before start
+        stub_storage[KEY_EVENT_END_DATE] = '2025-10-15'
         _patch_match_minmax(monkeypatch)
         start, end = await SystemConfigService.get_event_window()
         assert end >= start
@@ -295,14 +290,12 @@ class TestGetMaxConcurrentPlayers:
 class TestGetMaxConcurrentStages:
     async def test_returns_configured_value(self, stub_storage, monkeypatch):
         stub_storage['max_concurrent_stages'] = '3'
-        # Stage.filter shouldn't be called when config has a positive value.
         assert await SystemConfigService.get_max_concurrent_stages() == 3
 
     async def test_falls_back_to_default(self, stub_storage):
         assert await SystemConfigService.get_max_concurrent_stages(default=4) == 4
 
     async def test_falls_back_to_active_stage_count(self, stub_storage, monkeypatch):
-        # No config, no default -> count of active stages.
         class FakeFilter:
             def __init__(self, count):
                 self._count = count

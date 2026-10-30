@@ -182,7 +182,6 @@ class TestForUser:
         assert summary.hours_to_next is None
 
     async def test_assignments_outside_the_event_window_are_excluded(self, fixtures):
-        # The event window ends 2026-10-06; this one is a fortnight later.
         await _assign(fixtures, _dt(8, day=20), _dt(16, day=20))
         with tenant_scope(fixtures['tenant'].id):
             summary = await VolunteerHoursService().for_user(fixtures['user'])

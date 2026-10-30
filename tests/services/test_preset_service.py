@@ -58,7 +58,6 @@ class TestCreatePreset:
 
     async def test_same_name_different_randomizer_ok(self, service, actor):
         await service.create_preset(actor, name='Race', randomizer='alttpr', settings={})
-        # Natural key includes randomizer, so this is a distinct preset.
         other = await service.create_preset(actor, name='Race', randomizer='ootr', settings={})
         assert other.id is not None
 
@@ -109,8 +108,6 @@ class TestImportBuiltins:
         await service.import_builtins(actor)
         casual = await service.repository.get_by_natural_key('alttpr', 'casualboots')
         assert casual is not None
-        # ALTTPR files nest the payload under 'settings'; that subtree is stored
-        # directly so seed generation can hand it to the randomizer unchanged.
         assert isinstance(casual.settings, dict)
         assert 'goal' in casual.settings
         assert 'settings' not in casual.settings
@@ -121,7 +118,6 @@ class TestImportBuiltins:
         ootr = await service.repository.get_by_natural_key('ootr', 'sgl2026')
         assert hmg.description.startswith('SGL 2026 HMG')
         assert ootr.description.startswith('SGL 2026 Tournament')
-        # The description never leaks into the settings sent upstream.
         assert 'description' not in ootr.settings
 
     async def test_a_file_description_beats_the_txt(self, service, actor):
@@ -133,7 +129,6 @@ class TestImportBuiltins:
         first = await service.import_builtins(actor)
         assert first
         second = await service.import_builtins(actor)
-        # Nothing new the second time — existing natural keys are skipped.
         assert second == []
 
 
@@ -154,7 +149,6 @@ class TestImportRemotePresets:
         catalogue = await service.list_remote_presets(actor, 'dk64r', branch='stable')
         assert catalogue
         entry = next(p for p in catalogue if p.name == 'Season 5 Race Settings')
-        # Stored in the shape the roll expects: branch + portable settings string.
         assert entry.settings['_branch'] == 'stable'
         assert entry.settings['settings_string']
 
@@ -204,7 +198,6 @@ class TestImportRemotePresets:
 class TestManagementGate:
     async def test_non_manager_cannot_create(self, service, db):
         from models import User
-        # A plain user with no roles and no is_system fails the gate.
         user = await User.create(discord_id=555, username='nobody')
         with pytest.raises(PermissionError, match='manage presets'):
             await service.create_preset(user, name='X', randomizer='alttpr', settings={})
@@ -299,7 +292,6 @@ class TestWindWakerPresets:
         assert preset.settings == {'permalink': self.SGL26}
 
     async def test_a_rename_leaves_old_settings_unjudged(self, service, actor):
-        # A wwr row saved while the generator was a stub may hold ``{}``.
         stale = await Preset.create(name='Old', randomizer='wwr', settings={})
         renamed = await service.update_preset(actor, stale.id, name='Older')
         assert (renamed.name, renamed.settings) == ('Older', {})

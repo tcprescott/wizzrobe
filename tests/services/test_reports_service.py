@@ -78,7 +78,6 @@ class TestEastern:
         assert result.hour == 14
 
     def test_aware_utc_is_converted(self):
-        # UTC 2025-01-15 19:30 → ET 14:30
         dt = utc(2025, 1, 15, 19, 30)
         result = ReportsService._local(dt)
         assert result.hour == 14
@@ -119,7 +118,7 @@ class TestMatchWindow:
         sched = to_display(2025, 10, 23, 14, 0)
         m = make_match(scheduled_at=sched, avg_duration=60)
         ws, we = ReportsService._match_window(m)
-        assert (we - ws) == timedelta(hours=1 + 1)  # start is sched-1h, end is sched+60min
+        assert (we - ws) == timedelta(hours=1 + 1)
 
     def test_no_finished_defaults_to_90_min_when_no_tournament_avg(self):
         sched = to_display(2025, 10, 23, 14, 0)
@@ -128,7 +127,6 @@ class TestMatchWindow:
         assert (we - ws) == timedelta(minutes=60 + DEFAULT_MATCH_DURATION_MIN)
 
     def test_naive_scheduled_at_treated_as_utc(self):
-        # Naive UTC 19:00 → ET 14:00; start should be 13:00 ET (one hour prior)
         sched = naive(2025, 1, 15, 19, 0)
         m = make_match(scheduled_at=sched)
         ws, _ = ReportsService._match_window(m)
@@ -211,10 +209,9 @@ class TestMatchWindow:
         assert we == to_display(2025, 10, 23, 15, 10)
 
     def test_end_not_before_start(self):
-        # Edge case: finished_at before seated_at
         sched = to_display(2025, 10, 23, 14, 0)
         seated = to_display(2025, 10, 23, 14, 0)
-        finished = to_display(2025, 10, 23, 13, 0)  # before seated
+        finished = to_display(2025, 10, 23, 13, 0)
         m = make_match(scheduled_at=sched, seated_at=seated, finished_at=finished)
         ws, we = ReportsService._match_window(m)
         assert we >= ws
@@ -281,9 +278,6 @@ class TestEventDayBounds:
         from datetime import date
         s, e = event_day_bounds(date(2025, 10, 23))
         assert s == to_display(2025, 10, 23, 0, 0)
-        # The bound is returned UTC-aware; it is midnight *on the display clock*,
-        # which is what the equality above pins. Asserting the tzinfo object
-        # would only re-assert the storage convention.
         assert s.utcoffset() == timedelta(0)
         assert to_local(s).hour == 0
 

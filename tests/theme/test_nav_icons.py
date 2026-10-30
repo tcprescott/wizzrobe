@@ -54,8 +54,6 @@ def test_the_subset_font_is_shipped_and_declared():
 
 
 def test_the_subset_font_stamp_matches_the_file():
-    # An unchanged URL let phones keep the subset from before "notifications"
-    # joined it, so the active Notifications item drew its name as text.
     font = ROOT / 'static/fonts/material-symbols-outlined-nav.woff2'
     css = (ROOT / 'static/css/styles.css').read_text()
     stamp = re.search(r'material-symbols-outlined-nav\.woff2\?v=([0-9a-f]+)', css).group(1)

@@ -77,8 +77,7 @@ class TestRefreshParams:
     exactly like the ones a page load at the same URL would have delivered."""
 
     def test_dates_become_iso_strings(self):
-        # The route annotates ``start: str``; a date object here would fail
-        # ``parse_date`` and silently reset the range to the event window.
+        # A str, as the route annotates it: a date object would fail parse_date and silently reset the range.
         assert _refresh_params({'start': date(2026, 1, 2), 'end': date(2026, 1, 5)}) == {
             'start': '2026-01-02', 'end': '2026-01-05',
         }
@@ -87,15 +86,11 @@ class TestRefreshParams:
         assert _refresh_params({'tournament_id': None, 'approval': ''}) == {}
 
     def test_ints_keep_their_type(self):
-        # ``tournament_id: int`` / ``page: int`` are coerced by the route on a
-        # reload, and the handlers do arithmetic on the page number.
         assert _refresh_params({'tournament_id': 3, 'page': 2}) == {
             'tournament_id': 3, 'page': 2,
         }
 
     def test_zero_survives(self):
-        # 0 is falsey but meaningful (page 0 clamps downstream); only None and
-        # the empty string mean "not set".
         assert _refresh_params({'page': 0}) == {'page': 0}
 
     def test_matches_what_the_url_would_have_carried(self):
@@ -151,8 +146,6 @@ class TestHealthDisplayRows:
         assert row['health_score_display'] == 82.0
 
     def test_an_unscoreable_tournament_keeps_none_in_the_field_and_a_dash_on_screen(self):
-        # None sorts consistently in Quasar (always to the same end); the em
-        # dash in the *field* is what made the score column sort as text.
         [row] = health_display_rows([self._row(health_score=None, coverage_pct=None)])
         assert row['health_score'] is None
         assert row['health_score_display'] == '—'
@@ -160,15 +153,11 @@ class TestHealthDisplayRows:
         assert row['coverage_pct_display'] == '—'
 
     def test_every_sortable_formatted_column_has_a_cell_template(self):
-        # The pairing is the whole fix: a field without its template would paint
-        # the raw number, a template without its field would paint nothing.
         assert set(HEALTH_DISPLAY_CELLS) == set(HEALTH_SORTED_DISPLAY_FIELDS)
         for name, snippet in HEALTH_DISPLAY_CELLS.items():
             assert f'props.row.{name}_display' in snippet
 
     def test_unsortable_columns_may_stay_formatted(self):
-        # 'matches' and 'avg_duration_min' render composites ("6/8", "41 (40)")
-        # and are deliberately not sortable, so they need no numeric twin.
         [row] = health_display_rows([self._row()])
         assert row['matches'] == '6/8'
         assert row['avg_duration_min'] == '41 (40)'

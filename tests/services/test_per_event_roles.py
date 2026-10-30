@@ -241,7 +241,7 @@ class TestDiscordMappings:
             guild, 111, 'Proctors', staff, app_role=Role.PROCTOR, event_id=sgl27.id,
         )
         person = await make_member(discord_id=9114)
-        await UserService().grant_role(person, Role.PROCTOR, staff)  # by hand, default event
+        await UserService().grant_role(person, Role.PROCTOR, staff)
         self._member_of(monkeypatch, {111})
         await DiscordRoleMappingService().sync_user_roles(person)
         self._member_of(monkeypatch, set())

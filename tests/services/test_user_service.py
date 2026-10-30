@@ -18,8 +18,6 @@ from tests.factories import make_audit_double
 pytestmark = pytest.mark.usefixtures("bypass_auth")
 @pytest.fixture
 def service(monkeypatch):
-    # The membership write behind "a role implies membership" is a real DB call;
-    # this suite is mock-only, so stand it in and let the tests assert against it.
     membership = AsyncMock(return_value=None)
     monkeypatch.setattr(
         'application.services.user_service.TenantMembershipService.ensure_member',
@@ -91,8 +89,6 @@ class TestUpdateUserPersonalInfo:
         await service.update_user_personal_info(
             user, actor=user, display_name='Alice', pronouns='she/her',
         )
-        # save() is still called when any field was *provided*, but the audit log
-        # should not be written because nothing actually changed.
         service.audit_service.write_log.assert_not_called()
 
     async def test_blank_string_clears_field_to_none(self, service):
@@ -105,7 +101,7 @@ class TestUpdateUserPersonalInfo:
         await service.update_user_personal_info(
             user, actor=user,
             display_name='New',
-            pronouns='they/them',  # unchanged
+            pronouns='they/them',
             dm_notifications=True,
         )
         details = service.audit_service.write_log.await_args.args[2]
@@ -123,9 +119,7 @@ class TestUpdateUserProfile:
 
     async def test_staff_edit_allowed(self, service, monkeypatch):
         user = make_user(user_id=10)
-        actor = make_user(user_id=99)  # different from user
-        # autouse bypass_auth makes is_staff=True; the cross-community guard
-        # reads the DB and is covered in tests/tenancy.
+        actor = make_user(user_id=99)
         guard = AsyncMock()
         monkeypatch.setattr(service, 'ensure_may_edit_account', guard)
         await service.update_user_profile(user, actor=actor, display_name='New')
@@ -172,7 +166,6 @@ class TestUpdateUserProfile:
         service.repository.update.assert_awaited_once()
 
     async def test_concurrency_skipped_when_disabled(self, service):
-        # check_concurrency=False (default) means repository.get_by_id is never called.
         user = make_user(user_id=1)
         await service.update_user_profile(user, actor=user, display_name='X')
         service.repository.get_by_id.assert_not_called()
@@ -201,7 +194,6 @@ class TestUpdateUserAdminFields:
     async def test_only_audits_when_is_active_actually_flips(self, service):
         user = make_user(is_active=True)
         await service.update_user_admin_fields(user, actor=make_user(), is_active=True)
-        # Repository.update was called but no audit (value didn't change).
         service.audit_service.write_log.assert_not_called()
 
     async def test_audits_when_activation_flips(self, service):
@@ -328,8 +320,6 @@ class TestRoleManagement:
         assert set(grantable) == set(Role) - {Role.SUPER_ADMIN}
 
     async def test_revoking_a_role_leaves_membership_alone(self, service):
-        # Membership is the wider set: losing a role does not eject you from the
-        # community. TenantMembershipService.remove_member is the only way out.
         await service.revoke_role(make_user(user_id=7), Role.STAFF, make_user(user_id=1))
         service.membership_hook.assert_not_awaited()
 
@@ -377,14 +367,10 @@ class TestUpdateUserTournamentRegistrations:
             'application.services.user_service.Tournament.get_or_none',
             fake_get_or_none,
         )
-        # The write goes through the repository, which is what stamps the
-        # non-null tenant FK. Mocking TournamentPlayers.create here instead is
-        # how this suite stayed green while the service wrote unstamped rows
-        # that failed to insert on Postgres.
+        # Mock the repository's enroll_player, not TournamentPlayers.create: the repo stamps the non-null tenant FK.
         create_mock = AsyncMock()
         service.tournament_repository.enroll_player = create_mock
 
-        # keep id=1, add 5 and 6, remove 2 and 3
         await service.update_user_tournament_registrations(
             user, actor=user,
             selected_tournament_ids={1, 5, 6},
@@ -398,11 +384,7 @@ class TestUpdateUserTournamentRegistrations:
         assert create_mock.await_count == 2
         assert [c.args[0] for c in create_mock.await_args_list] == [tournament_5, tournament_6]
 
-        # One audit-plus-event record per tournament, not one batched row for
-        # the whole edit: a roster subscriber has to see staff-made changes at
-        # the same granularity as a player's own signup.
-        # write_and_publish delegates to the (mocked) write_log, so its calls
-        # are what records the per-tournament rows.
+        # write_and_publish delegates to the mocked write_log, so its calls are the per-tournament rows.
         calls = service.audit_service.write_log.await_args_list
         added, removed = [], []
         for call in calls:
@@ -430,7 +412,7 @@ class TestUpdateUserTournamentRegistrations:
         user = make_user()
 
         async def fake_get_or_none(id, tenant_id=None):
-            return None  # tournament doesn't exist
+            return None
 
         create_mock = AsyncMock()
         monkeypatch.setattr(

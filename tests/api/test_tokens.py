@@ -28,7 +28,6 @@ class TestApiTokenService:
         user = await _user()
         token, raw = await ApiTokenService().create_token(user, name='cli')
         assert raw.startswith('wizzrobe_pat_')
-        # Only the hash is persisted; the plaintext never is.
         stored = await ApiToken.get(id=token.id)
         assert stored.token_hash == _hash_token(raw)
         assert raw not in stored.token_hash
@@ -55,7 +54,7 @@ class TestApiTokenService:
     async def test_authenticate_rejects_expired_token(self, db):
         user = await _user()
         past = datetime.now(timezone.utc) - timedelta(days=1)
-        # Create directly with a past expiry (service forbids past expiry on create).
+        # Created directly: the service refuses a past expiry.
         raw = 'wizzrobe_pat_expired'
         await ApiToken.create(
             user=user, name='old', token_hash=_hash_token(raw),

@@ -84,8 +84,6 @@ async def test_preset_reads_are_isolated(tenants):
     with tenant_scope(a.id):
         assert [p.id for p in await repo.list_all()] == [pa.id]
         assert await repo.get_by_id(pb.id) is None
-        # Same (randomizer, name) exists in both tenants; the natural-key lookup
-        # resolves only A's row.
         assert (await repo.get_by_natural_key('alttpr', 'Open')).id == pa.id
     with tenant_scope(b.id):
         assert [p.id for p in await repo.list_all()] == [pb.id]
@@ -107,8 +105,6 @@ async def test_match_reads_are_isolated(tenants):
     with tenant_scope(b.id):
         assert [m.id for m in await MatchRepository.get_all_for_schedule()] == [mb.id]
 
-    # A deep link carries a raw match id in the URL, so the focused board's
-    # filter has to stay inside the tenant that asked for it.
     with tenant_scope(a.id):
         assert [m.id for m in await MatchRepository.get_all(match_ids=[ma.id])] == [ma.id]
         assert await MatchRepository.get_all(match_ids=[mb.id]) == []
@@ -119,7 +115,6 @@ async def test_stage_reads_are_isolated(tenants):
     with tenant_scope(a.id):
         ra = await Stage.create(name='Stage A')
     with tenant_scope(b.id):
-        # Same name is allowed across tenants now (per-tenant unique).
         rb = await Stage.create(name='Stage A')
 
     with tenant_scope(a.id):
@@ -146,7 +141,7 @@ async def test_volunteer_position_reads_are_isolated(tenants):
     with tenant_scope(a.id):
         pa = await VolunteerPosition.create(name='Desk')
     with tenant_scope(b.id):
-        pb = await VolunteerPosition.create(name='Desk')  # same name, different tenant
+        pb = await VolunteerPosition.create(name='Desk')
 
     with tenant_scope(a.id):
         assert [p.id for p in await VolunteerPositionRepository.list_all()] == [pa.id]
@@ -160,7 +155,7 @@ async def test_equipment_asset_numbering_is_per_tenant(tenants):
         await Equipment.create(asset_number=5, name='A gear')
         assert await EquipmentRepository.next_asset_number() == 6
     with tenant_scope(b.id):
-        # B has no equipment, so its numbering starts fresh — not 6.
+        # B has no equipment, so its numbering starts fresh, not at 6.
         assert await EquipmentRepository.next_asset_number() == 1
         assert [e.id for e in await EquipmentRepository.list_all()] == []
 
@@ -309,7 +304,6 @@ async def test_reschedule_request_does_not_leak(tenants):
         assert await RescheduleRequestRepository.pending_count() == 1
         assert await RescheduleRequestRepository.pending_match_ids() == [ma.id]
         assert await RescheduleRequestRepository.pending_by_match([ma.id, mb.id]) == {ma.id: 1}
-        # get_by_id is the sharpest leak point: a forwarded request id.
         assert await RescheduleRequestRepository.get_by_id(rb.id) is None
         assert await RescheduleRequestRepository.get_pending_for(mb.id, user.id) is None
 

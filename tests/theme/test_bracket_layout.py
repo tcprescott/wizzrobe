@@ -20,7 +20,6 @@ from theme.brackets.layout import (
 
 
 def _se4():
-    # 4-entrant single elimination: two round-1 matches feed the final.
     return [
         MatchNode(id=1, round=1, position=0, winner_to_id=3),
         MatchNode(id=2, round=1, position=1, winner_to_id=3),
@@ -57,7 +56,6 @@ class TestElimination:
         assert layout.placements[1].col == 0
         assert layout.placements[2].col == 0
         assert layout.placements[3].col == 1
-        # Leaves stacked; final centered between them.
         assert layout.placements[1].slot == 0.0
         assert layout.placements[2].slot == 1.0
         assert layout.placements[3].slot == 0.5
@@ -109,7 +107,6 @@ class TestLosersBracket:
         layout = layout_section(nodes)
         assert layout.columns == [-1, -2, -3]
         assert layout.placements[12].slot == 0.5
-        # Minor round (single feeder) sits at that feeder's height.
         assert layout.placements[13].slot == layout.placements[12].slot
         assert layout.placements[13].center_y == layout.placements[12].center_y
 
@@ -155,11 +152,6 @@ class TestRoundLabels:
         assert round_label(5, is_reset=True) == 'Grand Finals (Reset)'
 
     def test_two_entrant_double_elim_signal(self):
-        # A 2-entrant double elim has NO losers bracket (max_losers_magnitude is
-        # None), so the explicit double_elim flag must still name the winners side
-        # as a double elim — not "Quarterfinals"/"Final".
         assert round_label(1, max_winners_round=1, double_elim=True) == 'Winners Finals'
-        # Without the flag (and no losers magnitude) it would mis-name as a final.
         assert round_label(1, max_winners_round=1) == 'Final'
-        # double_elim must suppress the single-elim "Quarterfinals" branch.
         assert round_label(1, max_winners_round=3, double_elim=True) == 'Winners Round 1'

@@ -121,7 +121,7 @@ class TestBuild:
         row = bundle.sheet('availability').rows[0]
 
         assert row['date_local'] == '2026-10-04'
-        assert row['start_local'] == '08:00'  # 12:00 UTC in EDT
+        assert row['start_local'] == '08:00'
         assert row['starts_at_utc'] == '2026-10-04T12:00:00+00:00'
         assert row['note'] == 'Happy to close'
 

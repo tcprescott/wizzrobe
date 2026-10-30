@@ -233,10 +233,7 @@ class TestTheDeepLinkParamDoesNotShadowATab:
 
         import pages.home as home
 
-        # create() closes over `home`; find it among its locals via the source.
         src = inspect.getsource(home.create)
-        # A string, parsed on the page, so a mangled id renders the page
-        # instead of a 422 (pages.home.deep_link_ids).
         assert 'schedule: str | None = None' in src
         assert 'deep_link_ids(' in src
 

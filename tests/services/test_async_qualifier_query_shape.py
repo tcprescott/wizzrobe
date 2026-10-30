@@ -113,7 +113,6 @@ async def test_spent_slots_and_played_seeds_come_back_per_pool(db):
     played = await repo.played_permalink_ids_for_user_by_pool([pool_a.id, pool_b.id], player.id)
     assert played[pool_a.id].valid == {run.permalink_id}
     assert played[pool_a.id].voided == set()
-    # Present and empty, because the no-repeat filter asks about every pool.
     assert played[pool_b.id].valid == set() and played[pool_b.id].voided == set()
     assert await repo.valid_run_counts_for_user_by_pool([], player.id) == {}
     assert await repo.played_permalink_ids_for_user_by_pool([], player.id) == {}
@@ -155,7 +154,6 @@ async def test_par_and_every_score_derived_from_it_move_together(db):
     for i, seconds in enumerate((3600, 4200, 4800)):
         player = await _player(900720 + i, f'shapepar{i}')
         run = await service.start_run(player, q.id, pool.id)
-        # Force every run onto the same permalink so they share one par.
         await AsyncQualifierRun.filter(id=run.id).update(permalink_id=permalink.id)
         run = await AsyncQualifierRun.get(id=run.id)
         run = await _finish(service, player, run, seconds)
@@ -167,6 +165,4 @@ async def test_par_and_every_score_derived_from_it_move_together(db):
     for run in await AsyncQualifierRun.filter(
         permalink_id=permalink.id, status=AsyncQualifierRunStatus.FINISHED,
     ):
-        # Every stored score is the one this par implies — the pair a part-written
-        # recompute used to be able to break, undetectably, one row at a time.
         assert run.score == pytest.approx(compute_score(run.elapsed_seconds, par))

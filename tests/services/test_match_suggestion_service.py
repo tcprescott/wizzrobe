@@ -38,7 +38,7 @@ def service():
 
 class TestRoundUpToInterval:
     def test_already_on_boundary(self):
-        dt = _local(10, 15)  # 10:00 -> on boundary
+        dt = _local(10, 15)
         result = MatchSuggestionService._round_up_to_interval(dt)
         assert result == dt.replace(second=0, microsecond=0)
 
@@ -82,13 +82,12 @@ class TestGenerateCandidates:
         from datetime import date
         event_start = date(2026, 1, 15)
         event_end = date(2026, 1, 15)
-        from_dt = _local(10)  # 10:00 Eastern on Jan 15
+        from_dt = _local(10)
         hours_map = {}
         candidates = service._generate_candidates(
             from_dt, None, hours_map, timedelta(hours=2),
             event_start, event_end, EASTERN_TZ,
         )
-        # Without configured hours, every event day is open all day
         assert len(candidates) > 0
 
     def test_slots_at_30min_intervals(self, service):
@@ -137,8 +136,6 @@ class TestGenerateCandidatesHardEnd:
         assert all(slot_end <= _local(14) for _, slot_end in candidates)
 
     def test_match_must_fit_wholly_inside(self, service):
-        # 10:00–11:00 window, 90-minute match: nothing fits, even though the
-        # window is open at 10:00.
         assert self._generate(service, _local(11), timedelta(minutes=90)) == []
 
     def test_window_end_clamps_multi_day_search(self, service):
@@ -232,8 +229,6 @@ class TestBestCandidate:
         assert result.astimezone(EASTERN_TZ).hour == 10
 
     def test_keeps_headroom_before_filling_to_the_cap(self, service):
-        # 28 players on the floor at 10:00. Two more is 30, at the 75% line of
-        # a 40 cap, so 10:00 is fine; 30 already there pushes to the free 12:00.
         duration = timedelta(hours=2)
         candidates = [(_local(10), _local(12)), (_local(12), _local(14))]
         at_line = [make_match(10, player_count=28)]

@@ -60,8 +60,6 @@ class TestSubmit:
     async def test_an_unknown_category_falls_back_to_other(self, db, app):
         _, raw = await _member_token(username='plain')
         async with client_for(app, raw) as c:
-            # The enum is validated at the schema, so a bad value never reaches
-            # the service's own coercion.
             assert (await c.post(
                 '/api/feedback', json={'message': 'hi', 'category': 'nonsense'},
             )).status_code == 422

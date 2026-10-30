@@ -204,7 +204,7 @@ async def test_record_finish_forfeit_and_one_finisher(db):
     pa = await MatchPlayers.get(match_id=match.id, user_id=ua.id)
     pb = await MatchPlayers.get(match_id=match.id, user_id=ub.id)
     assert pa.finish_rank == 1
-    assert pb.finish_rank is None and pb.finish_time is None  # forfeit
+    assert pb.finish_rank is None and pb.finish_time is None
 
 
 async def test_record_finish_notes_unmatched_handles(db):
@@ -262,7 +262,7 @@ async def test_auto_open_skips_unlinked_entrant(db):
     tourn = await _tournament(bot, auto_open=True, lead=30)
     soon = datetime.now(timezone.utc) + timedelta(minutes=10)
     await _match_with_players(
-        tourn, [await _user('a', 'rt-a'), await _user('b')],  # b has no racetime link
+        tourn, [await _user('a', 'rt-a'), await _user('b')],
         scheduled_at=soon,
     )
 
@@ -274,7 +274,7 @@ async def test_auto_open_skips_unlinked_entrant(db):
 async def test_auto_open_skips_outside_lead_window(db):
     bot = await _bot()
     tourn = await _tournament(bot, auto_open=True, lead=30)
-    later = datetime.now(timezone.utc) + timedelta(hours=3)  # beyond the 30-min lead
+    later = datetime.now(timezone.utc) + timedelta(hours=3)
     await _match_with_players(tourn, [await _user('a', 'rt-a')], scheduled_at=later)
 
     await race_room_worker._tick()
@@ -311,7 +311,7 @@ async def test_room_is_opened_on_racetime_with_the_profile(db, racetime_rooms):
 
     [(category, settings)] = racetime_rooms.started
     assert category == 'alttpr'
-    assert settings.goal == 'All Dungeons'  # the profile's goal beats the default
+    assert settings.goal == 'All Dungeons'
     assert settings.invitational and settings.streaming_required
     assert settings.start_delay == 30
     assert room.slug.startswith('alttpr/mock-room-')

@@ -134,7 +134,6 @@ class TestAvatars:
         ))
         assert 'class="bracket-avatar-img"' in html
         assert 'src="https://cdn.discordapp.com/avatars/9/h.png?size=64"' in html
-        # The letter stays in the DOM so a stale hash degrades to it.
         assert 'onerror="this.remove()"' in html
 
     def test_entrants_without_one_render_only_the_letter(self):
@@ -230,7 +229,6 @@ class TestGroupAndSwissMarkup:
         ))
         assert 'bracket-standings' in html
         assert 'bracket-pairings' in html
-        # Tabs need client state; the static twin stacks the rounds instead.
         assert 'Round 1' in html and 'Round 2' in html
         assert '2–0' in html
 

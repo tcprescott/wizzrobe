@@ -27,10 +27,6 @@ from application.services.bracket_engines.base import PairingPlayer
 
 from ._trf import TrfPlayer, parse_bbp_pairings, to_trf
 
-# Each scenario is a list of played rounds; a round is a list of pairs. A pair
-# (white, black) is a decisive game the *white* (first) player won; (num, None)
-# is a full-point bye. Results and points are derived deterministically from
-# these, so there is no randomness anywhere.
 Pair = Tuple[int, Optional[int]]
 Scenario = Tuple[str, int, List[List[Pair]]]
 
@@ -121,7 +117,6 @@ def test_trf_serialization_shape():
     # round blocks start at col 91: player 1 was white vs 2 (r1) then vs 3 (r2)
     assert p1[90:] == '    2 w 1     3 w 1'
 
-    # the bye row uses the 0000 / '-' / 'U' sentinel
     bye_players, _, _, _ = _build(5, SCENARIOS[5][2])
     bye_text = to_trf(bye_players, rounds_played=1, total_rounds=2)
     p5 = next(ln for ln in bye_text.splitlines() if ln.startswith('001') and ln[4:8] == '   5')
@@ -161,10 +156,8 @@ def test_crossvalidate_against_bbppairings(name, n, rounds, tmp_path):
     assert out.exists(), 'bbpPairings produced no output file'
 
     bbp_pairings = parse_bbp_pairings(out.read_text())
-    # bbp's Dutch pairing must itself be legal for this instance...
     _assert_valid(bbp_pairings, active, opponents)
 
-    # ...and so must our engine's independent pairing of the same instance.
     engine = get_bracket_engine('swiss')()
     our_pairings = engine.pair_round(pairing_players, {})
     _assert_valid(our_pairings, active, opponents)

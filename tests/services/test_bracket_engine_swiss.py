@@ -46,7 +46,6 @@ def _apply_results(state, pairings):
             continue
         state[a]['opponents'].add(b)
         state[b]['opponents'].add(a)
-        # Winner: higher points, tie broken by lower ref.
         if (state[a]['points'], -a) >= (state[b]['points'], -b):
             winner = a
         else:
@@ -112,7 +111,6 @@ def test_bye_goes_to_low_standing_not_leader():
     """The bye must not land on the points leader while lower players qualify."""
     n = 5
     _, all_rounds = _run(n)
-    # Reconstruct standings entering each round to check the bye recipient.
     state = {
         ref: {'points': 0.0, 'opponents': set(), 'received_bye': False}
         for ref in range(1, n + 1)
@@ -124,13 +122,11 @@ def test_bye_goes_to_low_standing_not_leader():
             saw_bye = True
             bye_ref = byes[0]
             leader_pts = max(s['points'] for s in state.values())
-            # There exist lower-standing eligible players, so the leader
-            # (max points) should not be the one receiving the bye.
             assert state[bye_ref]['points'] < leader_pts or all(
                 s['points'] == leader_pts for s in state.values()
             )
         _apply_results(state, pairings)
-    assert saw_bye  # odd field must produce a bye each round
+    assert saw_bye
 
 
 def test_no_second_bye_while_others_eligible():
@@ -142,7 +138,6 @@ def test_no_second_bye_while_others_eligible():
         byes = [a for a, b in pairings if b is None]
         for bye_ref in byes:
             if bye_ref in got_bye:
-                # Only acceptable if literally everyone already had a bye.
                 assert got_bye >= set(range(1, n + 1))
             got_bye.add(bye_ref)
 

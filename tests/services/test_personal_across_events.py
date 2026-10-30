@@ -15,7 +15,7 @@ from models import Event, EventStatus, Match, MatchPlayers, Tournament, Tourname
 async def events(db):
     main = await Event.get(tenant_id=1, is_default=True)
     winter = await Event.create(tenant_id=1, name='Winter', slug='winter', status=EventStatus.LIVE)
-    # Live while the tests fill it; _archive() closes it, as staff would after the event.
+    # Created LIVE: archived events are read-only, so _archive() runs only after the tests fill it.
     past = await Event.create(tenant_id=1, name='Last Year', slug='past', status=EventStatus.LIVE)
     return main, winter, past
 

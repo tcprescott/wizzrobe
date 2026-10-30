@@ -72,8 +72,6 @@ def test_every_page_shell_loads_the_anchor_script():
 
 
 def test_copy_link_controls_are_wired_to_the_click_listener():
-    # The copy must run inside the click (Safari refuses a later clipboard
-    # write), so every control is a data attribute anchors.js listens for.
     script = (REPO / 'static/js/anchors.js').read_text()
     assert 'data-wiz-copy-link' in script and 'navigator.clipboard' in script
     for path in ('theme/anchors.py', 'theme/tables/match_player_run_sheet.py'):
@@ -83,8 +81,6 @@ def test_copy_link_controls_are_wired_to_the_click_listener():
 
 
 def test_hub_tabs_push_their_address_inside_the_click():
-    # A push that waits on the server lands outside the click, and Safari then
-    # skips that Back entry; the hub tabs' rows push in the click instead.
     from theme.url_state import _LISTENER_JS, PUSH_ATTR
     assert PUSH_ATTR in _LISTENER_JS and 'pushState' in _LISTENER_JS
     assert 'mark_tab_push(' in (REPO / 'theme/drawer_nav.py').read_text()
@@ -92,8 +88,6 @@ def test_hub_tabs_push_their_address_inside_the_click():
 
 
 def test_a_late_replace_cannot_rewrite_the_entry_back_landed_on():
-    # A tab's post-build replace can reach the browser after a Back the server
-    # hasn't heard of yet; it must only apply while the browser is still there.
     from unittest.mock import MagicMock, patch
 
     from theme.url_state import UrlState
@@ -121,8 +115,6 @@ def _state(query: dict) -> UrlState:
 
 
 def test_a_handled_deep_link_leaves_the_address_so_a_reload_cannot_replay_it():
-    # Staff answered the request from its DM link; a reload used to reread
-    # ?reschedule_request= and say "That request has already been dealt with."
     from unittest.mock import patch
 
     state = _state({'reschedule_request': '33', 'match_id': '7'})
@@ -153,15 +145,10 @@ def test_consuming_a_link_that_is_not_there_writes_nothing():
     run.assert_not_called()
 
 
-#: DM link parameters that stay in the address: they name a filter or a view
-#: (the board narrowed to one match, a qualifier and its sub-tab), not something
-#: that opens once.
 _PERSISTENT_LINK_PARAMS = {'match', 'qualifier', 'tab'}
 
 
 def test_every_one_shot_dm_link_parameter_is_consumed():
-    # A new DM deep link that opens a dialog must also strip itself once used,
-    # or a reload replays it. Keys come from the link builders DMs use.
     import re
 
     links = (REPO / 'application/utils/app_links.py').read_text()

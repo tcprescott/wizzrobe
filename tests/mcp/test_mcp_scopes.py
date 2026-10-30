@@ -48,8 +48,6 @@ def test_staff_gated_tools_sit_in_staff_areas(specs):
 
 
 def test_every_read_area_is_used(specs):
-    # Volunteer has no MCP tool yet: the shift writes there are coordinator
-    # actions (staff:write), and reading your own shifts is profile.
     assert READ_SCOPES <= {s.scope for s in specs.values()}
 
 

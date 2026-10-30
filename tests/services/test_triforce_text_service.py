@@ -176,8 +176,6 @@ async def test_balanced_selection_weights_users_equally(db):
     admin = await _make_user(3, 'mod')
     t = await _make_tournament([admin])
 
-    # Alice submits 5 approved texts; Bob submits 1. Balanced selection
-    # should not let alice's 5 dominate.
     for i in range(5):
         e = await svc.submit(t.id, [f'alice {i}', '', ''], alice)
         await svc.moderate(e.id, True, admin)
@@ -226,7 +224,6 @@ async def test_balanced_selection_includes_orphaned_texts(db):
     admin = await _make_user(2, 'mod')
     t = await _make_tournament([admin])
 
-    # Approved text whose submitter is later deleted (FK becomes NULL).
     orphan = await svc.submit(t.id, ['orphan', '', ''], submitter)
     await svc.moderate(orphan.id, True, admin)
     await submitter.delete()

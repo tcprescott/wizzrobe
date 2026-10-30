@@ -55,7 +55,6 @@ class TestNotifyMatchCrew:
             111, "hello crew\n\nYou're on this match as commentator.", embed=None, link=ANY, notice=MATCH_SCHEDULED.to(CREW),
         )
         link = service.discord_service.send_dm.await_args.kwargs['link']
-        # Their crew slot, not the player filter that is empty for them.
         assert link.url.endswith(f'/home/my-crew?match={m.id}')
         service.discord_service.send_dm_with_unwatch_button.assert_not_awaited()
 
@@ -88,7 +87,6 @@ class TestNotifyMatchCrew:
         args, kwargs = service.discord_service.send_dm.await_args
         assert args == (113, 'slot=commentator+tracker')
         assert kwargs['embed'].title == '📣 Match scheduled · your commentator and tracker slot'
-        # The shared card is copied per recipient, never retitled in place.
         assert embed.title == '📣 Match scheduled'
 
     async def test_watcher_gets_unwatch_button_dm(self, service, db):
@@ -178,7 +176,6 @@ class TestNotifyMatchCrew:
         await Commentator.create(match=m, user=await make_dm_user(666, name="c"), approved=True)
         service.discord_service.send_dm = AsyncMock(return_value=(False, "blocked"))
 
-        # A failed DM is logged, not raised.
         await service.notify_match_crew(m, "hi")
 
         service.discord_service.send_dm.assert_awaited_once()
@@ -189,7 +186,6 @@ class TestNotifyMatchCrew:
         await Commentator.create(match=m, user=await make_dm_user(777, name="c"), approved=True)
         service.discord_service.send_dm = AsyncMock(side_effect=RuntimeError("kaboom"))
 
-        # Outer try/except must swallow the send error.
         await service.notify_match_crew(m, "hi")
 
 
@@ -210,7 +206,6 @@ class TestNotifyAcknowledgmentRequest:
         call = service.discord_service.send_dm_with_acknowledgment_button.call_args
         assert call.args[0] == 111
         assert call.args[2] == m.id
-        # The match itself, not the whole board it is one row of.
         assert call.kwargs['link'].url.endswith(f'/home/player?match={m.id}')
 
     async def test_rescheduled_flag_still_sends(self, service, db):
@@ -311,8 +306,6 @@ class TestNotifySubscriberFailurePaths:
 
         await service.notify_tournament_subscribers_scheduled(m, "msg", [])
 
-        # ANY for the link: this test is about the failure being swallowed,
-        # not about where the button points.
         service.discord_service.send_dm_with_crew_buttons.assert_awaited_once_with(
             555, "msg", m.id, embed=None, link=ANY, notice=MATCH_SCHEDULED.to(FOLLOWERS), broadcaster=False,
         )
@@ -330,7 +323,6 @@ class TestNotifySubscriberFailurePaths:
 
         call = service.discord_service.send_dm_with_crew_buttons.call_args
         assert call.args[0] == 556
-
 
 
 class TestNotifyMatchParticipantsCommentatorAndWatcher:
@@ -410,16 +402,12 @@ class TestNotifyMatchScheduledFanOut:
             await service.notify_match_scheduled(m, rescheduled=False, is_stream_candidate=False)
         finally:
             dq.enqueue = original
-        # Assert the specific notifiers were fanned out (not just the count), so a
-        # regression that enqueues the wrong notifier with the same arity is caught.
         enqueued = {c.cr_code.co_qualname for c in captured}
         for coro in captured:
             coro.close()
         assert enqueued == {
             "MatchNotificationMixin.notify_acknowledgment_request",
             "MatchNotificationMixin.notify_match_crew",
-            # The harder-settings offer rides the same fan-out: being given a
-            # match is when a player first has settings to decide about.
             "MatchHardPresetService.send_offer",
             "MatchNotificationMixin.notify_tournament_subscribers_scheduled",
         }
@@ -440,12 +428,9 @@ class TestNotifyMatchScheduledFanOut:
         enqueued = {c.cr_code.co_qualname for c in captured}
         for coro in captured:
             coro.close()
-        # The stream-candidate branch adds the subscriber fan-out on top.
         assert enqueued == {
             "MatchNotificationMixin.notify_acknowledgment_request",
             "MatchNotificationMixin.notify_match_crew",
-            # The harder-settings offer rides the same fan-out: being given a
-            # match is when a player first has settings to decide about.
             "MatchHardPresetService.send_offer",
             "MatchNotificationMixin.notify_tournament_subscribers_scheduled",
             "MatchNotificationMixin.notify_stream_candidate_subscribers",

@@ -37,7 +37,6 @@ async def test_drops_entrants_and_matches_challonge_no_longer_has(db):
     cmatch.match = scheduled
     await cmatch.save()
 
-    # Bracket reset: Bob removed, Carol added, the old match gone.
     full['participants'] = [
         full['participants'][0],
         {'participant_id': '9003', 'name': 'Carol', 'challonge_user_id': None, 'username': None},
@@ -49,7 +48,6 @@ async def test_drops_entrants_and_matches_challonge_no_longer_has(db):
     assert not await ChallongeMatch.filter(tournament=tournament).exists()
     assert await Match.filter(id=scheduled.id).exists()
 
-    # Roster cleared on Challonge, which only a reset bracket allows.
     full['tournament']['state'] = 'pending'
     full['participants'] = []
     await service.sync_bracket(tournament.id, actor, force=True)

@@ -20,7 +20,7 @@ from models import Role, User, UserRole
 async def tenants_with_staff(two_tenants):
     a, b = two_tenants
     staff = await User.create(discord_id=700, username='staff')
-    # STAFF in both tenants so the staff-gated writers/readers work in each scope.
+    # STAFF in both tenants so the staff-gated calls work in each scope.
     await UserRole.create(user=staff, role=Role.STAFF, tenant=a)
     await UserRole.create(user=staff, role=Role.STAFF, tenant=b)
     return a, b, staff

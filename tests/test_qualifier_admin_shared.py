@@ -47,12 +47,9 @@ class TestPagingBounds:
             assert page.get('page') == 1
 
     def test_the_board_pages_larger_than_the_runs_table(self):
-        # A board is scanned for your own name; a runs list is worked front to back.
         assert BOARD_PAGE['rowsPerPage'] >= RUNS_PAGE['rowsPerPage']
 
     def test_the_card_surfaces_are_bounded_too(self):
-        # The review queue and a pool's permalinks are cards and links, not tables,
-        # so Quasar's pager cannot save them.
         assert 0 < QUEUE_PAGE_SIZE <= 50
         assert 0 < POOL_PERMALINK_PREVIEW <= 25
 
@@ -62,7 +59,6 @@ class TestColumns:
         assert RUNS_COLUMNS[-1]['name'] == 'actions'
 
     def test_the_slots_column_is_not_sortable(self):
-        # 'filled/total' is a composite: 2/9 sorts above 10/10.
         slots = next(c for c in BOARD_COLUMNS if c['name'] == 'slots')
         assert not slots.get('sortable')
 
@@ -110,8 +106,6 @@ class TestRowBuilders:
         assert run_rows([_run(permalink=None)])[0]['pool'] == '—'
 
     def test_board_rows_carry_the_rank_the_scoring_function_emitted(self):
-        # Not the row's position: equal totals share a rank, so a board of two tied
-        # players is 1, 1 and the builder must not renumber it.
         entries = [SimpleNamespace(rank=1, username=n, actual=5.0, estimate=5.0,
                                    slots_filled=1, slots_total=1) for n in 'AB']
         assert [r['rank'] for r in board_rows(entries)] == [1, 1]
@@ -119,7 +113,6 @@ class TestRowBuilders:
 
 class TestOtherRunsSummary:
     def test_it_subtracts_the_run_being_reviewed(self):
-        # The tally counts every run including this one; the card wants the others.
         tally = {7: {'approved': 2, 'pending': 1}}
         line = other_runs_summary(tally, _run(review_status='pending'))
         assert '2 other runs' in line

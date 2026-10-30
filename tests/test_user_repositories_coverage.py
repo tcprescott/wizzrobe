@@ -46,9 +46,6 @@ class TestUserRepository:
         assert {u.id for u in proctors} == {u1.id, u2.id}
 
     async def test_get_all_has_discord_returns_users(self, db):
-        # ``discord_id`` is a required, unique column, so the ``exclude(discord_id=None)``
-        # branch can never drop a real row — it is effectively a no-op given the schema.
-        # The test still drives the branch and asserts the created user comes back.
         u = await make_user(1, "alice")
         users = await UserRepository.get_all(has_discord=True)
         assert [x.id for x in users] == [u.id]
@@ -105,16 +102,12 @@ class TestUserRepository:
         assert (await User.get(id=u.id)).discord_avatar == "abc"
 
     async def test_update_discord_info_leaves_avatar_alone_when_not_given(self, db):
-        # None means "the caller knows nothing about the avatar", not "clear it".
         u = await make_user(1, "alice")
         await UserRepository.set_discord_avatar(u, "abc")
         await UserRepository.update_discord_info(u, username="alice_dc")
         assert (await User.get(id=u.id)).discord_avatar == "abc"
 
     async def test_update_discord_info_takes_no_non_field_arguments(self, db):
-        # The signature used to accept a discriminator and assign it to the
-        # instance, where save() silently dropped it — a write that looked like
-        # it landed. It is not a column, so it is not accepted.
         u = await make_user(1, "alice")
         with pytest.raises(TypeError):
             await UserRepository.update_discord_info(u, username="alice_dc", discriminator="0001")
@@ -155,7 +148,6 @@ class TestUserRoleRepository:
         u = await make_user(1, "alice")
         await UserRole.create(user=u, role=Role.STAFF, source=RoleSource.DISCORD)
         ur = await UserRoleRepository.add(u, Role.STAFF, source=RoleSource.DISCORD)
-        # A Discord re-sync must not flip the source to MANUAL.
         assert ur.source == RoleSource.DISCORD
 
     async def test_remove_returns_deleted_count(self, db):

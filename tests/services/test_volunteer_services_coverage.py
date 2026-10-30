@@ -67,7 +67,6 @@ class TestShiftReads:
         rows = await svc.list_shifts_for_window(utc(2026, 10, 4, 0), utc(2026, 10, 4, 14))
         ids = {s.id for s in rows}
         assert inside.id in ids
-        # The 20:00-23:00 shift starts after the window end -> excluded.
         assert len(rows) == 1
 
     async def test_get_shift_returns_row(self, db):
@@ -88,8 +87,6 @@ class TestStaggeredMidnight:
         tech = await VolunteerPosition.create(
             name='Overnight Tech', shift_length_minutes=120, stagger_minutes=60,
         )
-        # Last block end (00:00) is at/before the first block start (20:00) ->
-        # the coverage window must roll into the next day.
         blocks = [('S1', '20:00', '22:00'), ('S2', '22:00', '00:00')]
 
         shifts = await VolunteerScheduleService().generate_day_shifts(
@@ -288,7 +285,6 @@ class TestAssignAvailabilityWarning:
         pos = await VolunteerPosition.create(name='Photography')
         shift = await VolunteerShift.create(position=pos, starts_at=utc(2026, 10, 4, 8), ends_at=utc(2026, 10, 4, 12))
         vol = await _volunteer('partial')
-        # Declares availability elsewhere, but nothing overlapping the shift.
         await VolunteerAvailability.create(
             user=vol, starts_at=utc(2026, 10, 4, 14), ends_at=utc(2026, 10, 4, 18),
             status=VolunteerAvailabilityStatus.AVAILABLE,
@@ -336,7 +332,6 @@ class TestSetWindows:
         )
         assert len(created) == 1
         stored = await VolunteerAvailability.filter(user=vol)
-        # The pre-existing 06:00-07:00 window was cleared out.
         assert len(stored) == 1
         assert stored[0].starts_at == utc(2026, 10, 4, 9)
 

@@ -160,7 +160,6 @@ async def test_matches_and_shifts_take_their_parents_event_and_list_per_event(tw
     with event_scope(a):
         cup = await Tournament.create(name='Cup A')
         desk = await VolunteerPosition.create(name='Desk A')
-    # Created while the other event is bound: the parent decides.
     with event_scope(b):
         match = await Match.create(tournament=cup, scheduled_at=NOW)
         shift = await VolunteerShift.create(position=desk, starts_at=NOW, ends_at=NOW + timedelta(hours=2))
@@ -253,8 +252,7 @@ async def test_role_grants_and_discord_mappings_count_in_their_own_event(two_eve
     assert (await DiscordRoleMapping.get(discord_role_id=111)).event_id == b
 
 
-# Event-owned models with no event isolation test yet, and why. Shrink this,
-# never grow it: a new event-owned model gets a test above.
+# Shrink this, never grow it: a new event-owned model gets a test above.
 _BACKLOG = {
     'VolunteerRoleMapping': 'read through its position, which is tested',
     'VolunteerAvailability': 'per-person reads; needs a two-event test',

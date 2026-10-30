@@ -28,7 +28,6 @@ def test_speaks_a_few_hours_out():
 
 
 def test_the_window_is_at_least_a_day():
-    # A 60-minute reminder lead must not shrink the warning window to an hour.
     assert release_warning(_in(12), 60) is not None
 
 

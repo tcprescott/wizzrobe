@@ -10,8 +10,6 @@ from models import Match, RacetimeBot, Tournament
 
 @pytest.fixture
 def display_service():
-    # _get_match_state / _format_match_for_display are pure formatting helpers
-    # (no repository access), so a plain instance is sufficient.
     return MatchDisplayService()
 
 
@@ -92,7 +90,6 @@ class TestGetMatchState:
 
     def test_confirmed_beats_finished(self, display_service):
         now = datetime.now()
-        # Even without started_at, confirmed_at should dominate
         match = make_match(finished_at=now, confirmed_at=now)
         assert display_service._get_match_state(match) == "Confirmed"
 

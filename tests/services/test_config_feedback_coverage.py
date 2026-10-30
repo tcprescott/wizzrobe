@@ -57,8 +57,7 @@ async def make_user(discord_id: int, username: str = 'user', staff: bool = False
 
 
 async def set_config(name: str, value: str) -> None:
-    # The event's own settings live on the default event, written raw so a test
-    # can store what the service would refuse (an end before the start).
+    # Written raw so a test can store what the service would refuse (an end before the start).
     if name in EVENT_DATE_FIELDS:
         await Event.filter(tenant_id=1, is_default=True).update(**{EVENT_DATE_FIELDS[name]: date.fromisoformat(value)})
     elif name in EVENT_CONFIG_KEYS:
@@ -254,10 +253,10 @@ class TestGetTournamentHours:
 
     async def test_skips_invalid_date_time_and_missing_keys(self, db):
         await set_config(KEY_TOURNAMENT_HOURS, json.dumps({
-            '2025-10-20': {'open': '09:00', 'close': '17:00'},  # kept
-            'not-a-date': {'open': '09:00', 'close': '17:00'},  # bad date -> skip
-            '2025-10-21': {'open': '25:99', 'close': '17:00'},  # bad time -> skip
-            '2025-10-22': {'open': '09:00'},                    # missing close -> skip
+            '2025-10-20': {'open': '09:00', 'close': '17:00'},
+            'not-a-date': {'open': '09:00', 'close': '17:00'},
+            '2025-10-21': {'open': '25:99', 'close': '17:00'},
+            '2025-10-22': {'open': '09:00'},
         }))
         hours = await SystemConfigService.get_tournament_hours()
         assert hours == {date(2025, 10, 20): (time(9, 0), time(17, 0))}
@@ -284,7 +283,6 @@ def _tournament(*, hours=None, start=None, end=None):
 
 class TestTournamentHoursOverride:
     async def test_tournament_hours_override_replaces_tenant(self, db):
-        # Tenant configures one window; the tournament configures another.
         await set_config(KEY_TOURNAMENT_HOURS, json.dumps({
             '2025-10-20': {'open': '09:00', 'close': '17:00'},
         }))
@@ -311,8 +309,6 @@ class TestTournamentHoursOverride:
         assert window == (time(12, 0), time(20, 0))
 
     async def test_absent_day_in_tournament_override_is_unrestricted(self, db):
-        # The tournament defines its own schedule; a date it omits is unrestricted
-        # even though the tenant restricts it.
         await set_config(KEY_TOURNAMENT_HOURS, json.dumps({
             '2025-10-21': {'open': '09:00', 'close': '17:00'},
         }))
@@ -334,7 +330,6 @@ class TestEventWindowOverride:
     async def test_missing_bound_falls_back_to_tenant(self, db):
         await set_config(KEY_EVENT_START_DATE, '2025-10-20')
         await set_config(KEY_EVENT_END_DATE, '2025-10-23')
-        # Only the start is overridden; the end inherits the tenant setting.
         tournament = _tournament(start=date(2025, 10, 22), end=None)
         start, end = await SystemConfigService.get_event_window(tournament)
         assert (start, end) == (date(2025, 10, 22), date(2025, 10, 23))
@@ -409,7 +404,6 @@ class TestMatchSchedulingHonorsTournamentHours:
         from application.services.match.match_service import MatchService
         from application.utils.timezone import parse_local_datetime
 
-        # Tenant has no hours; the tournament restricts 12:00–20:00 on this date.
         tournament = await Tournament.create(
             name='Cup',
             tournament_hours={'2025-10-20': {'open': '12:00', 'close': '20:00'}},
@@ -421,7 +415,7 @@ class TestMatchSchedulingHonorsTournamentHours:
             await svc.assert_within_tournament_hours(outside, tournament.id)
 
         inside = parse_local_datetime('2025-10-20', '13:00')
-        await svc.assert_within_tournament_hours(inside, tournament.id)  # no raise
+        await svc.assert_within_tournament_hours(inside, tournament.id)
 
     async def test_falls_back_to_tenant_hours_when_tournament_unset(self, db):
         from application.services.match.match_service import MatchService
@@ -430,7 +424,7 @@ class TestMatchSchedulingHonorsTournamentHours:
         await set_config(KEY_TOURNAMENT_HOURS, json.dumps({
             '2025-10-20': {'open': '12:00', 'close': '20:00'},
         }))
-        tournament = await Tournament.create(name='NoOverride')  # tournament_hours is None
+        tournament = await Tournament.create(name='NoOverride')
         svc = object.__new__(MatchService)
 
         outside = parse_local_datetime('2025-10-20', '10:00')
@@ -448,7 +442,6 @@ class TestListRecent:
         staff = await make_user(11, username='staffer', staff=True)
         recent = await FeedbackService().list_recent(staff)
         assert len(recent) == 3
-        # user is prefetched, so the relation is accessible without an await.
         assert recent[0].user.username == 'attendee'
 
     async def test_respects_limit(self, db):
@@ -517,8 +510,8 @@ class TestSubmit:
             actor=actor, category='nonsense', message='  hello  ', page_url='/volunteer',
         )
         stored = await Feedback.get(id=fb.id)
-        assert stored.category == FeedbackCategory.OTHER  # unknown -> OTHER
-        assert stored.message == 'hello'                  # trimmed
+        assert stored.category == FeedbackCategory.OTHER
+        assert stored.message == 'hello'
         assert stored.status == FeedbackStatus.NEW
 
     async def test_empty_message_raises(self, db):

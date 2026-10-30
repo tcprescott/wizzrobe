@@ -129,7 +129,6 @@ async def test_a_registered_spa_can_preflight_and_read_the_api():
     assert pre.headers['access-control-allow-origin'] == SPA
     assert 'Authorization' in pre.headers['access-control-allow-headers']
     assert token_pre.status_code == 204
-    # The refusal itself is readable, so the app can see why and sign in.
     assert anonymous.status_code == 401
     assert anonymous.headers['access-control-allow-origin'] == SPA
     for resp in (pre, token_pre, anonymous):

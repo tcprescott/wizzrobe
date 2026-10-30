@@ -82,13 +82,9 @@ async def test_a_hand_recorded_race_scores_exactly_like_a_racetime_one(db):
 
     assert len(captured) == 3
     by_user = {r.user_id: r for r in captured}
-    # Approved without review, like any live-race run: the result is self-attributing
-    # once a human with the authority to record it has said so.
     assert all(r.review_status == AsyncQualifierReviewStatus.APPROVED for r in captured)
     assert by_user[quitter.id].status == AsyncQualifierRunStatus.FORFEIT
     assert by_user[quitter.id].score == 0.0
-    # Par is the mean of the fastest approved runs, so the faster racer scores higher
-    # and both are scored — the recompute ran.
     assert by_user[fast.id].score > by_user[slow.id].score
     assert (await AsyncQualifierLiveRace.get(id=race.id)).status == (
         AsyncQualifierLiveRaceStatus.FINISHED)
@@ -108,12 +104,10 @@ async def test_the_race_start_is_derived_so_a_run_has_a_duration(db):
     ])
     by_user = {r.user_id: r for r in captured}
 
-    # One race, one start: everybody in the room began at the same instant.
     starts = {r.started_at for r in captured}
     assert len(starts) == 1
     for run in captured:
         assert run.finished_at > run.started_at
-        # Each finisher's own finish is their start plus their own time.
         assert int((run.finished_at - run.started_at).total_seconds()) == run.elapsed_seconds
         assert run.measured_seconds == run.elapsed_seconds
     assert by_user[slow.id].finished_at > by_user[fast.id].finished_at
@@ -133,7 +127,6 @@ async def test_a_finisher_needs_a_time_and_a_forfeit_may_not_have_one(db):
             staff, race.id,
             [ManualResult(racer.id, AsyncQualifierRunStatus.FINISHED, 8 * 24 * 3600)])
 
-    # A time typed against a forfeit is dropped rather than stored beside a zero.
     captured = await lrsvc.record_manual_finish(
         staff, race.id, [ManualResult(racer.id, AsyncQualifierRunStatus.FORFEIT, 1200)])
     assert captured[0].elapsed_seconds is None
