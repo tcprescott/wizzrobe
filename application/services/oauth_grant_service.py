@@ -59,8 +59,6 @@ REFRESH_TOKEN_TTL = timedelta(days=30)
 PENDING_TTL = timedelta(minutes=15)
 CONSENT_PATH = '/oauth/consent'
 
-# RFC 7636 §4.1: 43-128 unreserved characters. An S256 challenge is the
-# base64url of a SHA-256 digest, always exactly 43.
 _VERIFIER_RE = re.compile(r'^[A-Za-z0-9\-._~]{43,128}$')
 _CHALLENGE_RE = re.compile(r'^[A-Za-z0-9\-_]{43}$')
 _STATE_MAX = 1024
@@ -138,8 +136,6 @@ class ConsentCommunity:
     tenant_id: int
     name: str
     slug: str
-    #: What this person may grant here: the request, minus staff scopes when
-    #: they hold no role that could use them.
     scopes: List[ApiScope]
 
 
@@ -188,9 +184,6 @@ class TokenResponse:
         }
 
 
-# In-process, like McpAuthService's pending store and for the same reasons:
-# requests live for minutes, a restart just means starting again, and the
-# deployment is single-worker by requirement.
 _pending: Dict[str, PendingAppAuthorization] = {}
 
 
@@ -433,8 +426,6 @@ class OAuthGrantService:
         with tenant_scope(record.tenant_id):
             await self._ensure_still_allowed(user, record.tenant_id, app.id)
             scopes = parse_scope(record.scope)
-            # One live grant per person, app and community: approving again
-            # replaces the old one rather than stacking credentials.
             replaced = await self.token_repository.live_app_grants(user.id, app.id, record.tenant_id)
             for old in replaced:
                 await self.token_repository.revoke(old, now)

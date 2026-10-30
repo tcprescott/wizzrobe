@@ -37,16 +37,11 @@ from models import SentMessageStatus
 
 logger = logging.getLogger(__name__)
 
-# send_dm's two "Discord said no" outcomes, as opposed to a failure on our side.
-# Callers that report reachability (the check-in test DM) compare against these.
 DM_USER_NOT_FOUND = "User not found"
 DM_NO_DISCORD = 'This person has no Discord account, so no DM was sent.'
 DM_REFUSED = "Cannot send DM to this user (DMs may be disabled)"
 DM_UNREACHABLE = frozenset({DM_USER_NOT_FOUND, DM_REFUSED})
-# Not a failure: the recipient turned Discord DMs off on their profile. Any
-# device notifications still went out through the mirror.
 DM_DISCORD_OFF = "Discord DMs are turned off for this user"
-# The community turned this message off for this kind of recipient (Admin → Notifications).
 DM_NOTICE_OFF = "This notification is turned off in the community's notification settings"
 DM_SEND_TIMEOUT_SECONDS = 45
 
@@ -60,8 +55,6 @@ def sent_message_status(result: Tuple[bool, str]) -> Tuple[SentMessageStatus, Op
     return SentMessageStatus.FAILED, detail
 
 
-# Called with ``(channel_id, message_id)`` once Discord has accepted a DM, so a
-# sender can find the message again to edit it.
 DMSentHook = Callable[[int, int], Awaitable[None]]
 
 
@@ -219,16 +212,6 @@ async def _run_sent_hook(hook: Optional[DMSentHook], channel_id: int, message_id
 _bot_instance: Optional[commands.Bot] = None
 
 
-# Interaction-handler and DM view-factory registries
-# These invert what used to be a bidirectional import cycle between this module
-# and the Discord bot package (previously held together by ~20 deferred,
-# function-body imports). The bot package registers each interaction handler
-# and view factory here at startup, so the dependency now runs one way (the bot
-# package -> ``application.services``) and this module never imports it back.
-# Mirrors ``application/events/match_live.py``.
-
-# Stable view-factory kinds, shared with the bot package's registration so the
-# DM senders below and the registering code agree on the lookup keys.
 VIEW_CREW_SIGNUP = 'crew_signup'
 VIEW_MATCH_ACK = 'match_ack'
 VIEW_CREW_ACK = 'crew_ack'
@@ -286,8 +269,6 @@ async def _install_app_commands(bot: commands.Bot) -> None:
         synced = await bot.tree.sync()
         logger.info('Synced %d Discord application commands', len(synced))
     except discord.HTTPException:
-        # Commands already registered with Discord keep working; only a change
-        # to them waits for the next successful sync.
         logger.exception('Failed to sync Discord application commands')
 
 
@@ -300,14 +281,12 @@ def get_discord_bot() -> commands.Bot:
     """
     global _bot_instance
     if _bot_instance is None:
-        # Intents required for DM, guild/role visibility
         intents = discord.Intents.default()
         intents.guilds = True
         intents.members = True
         intents.dm_messages = True
         
-        # max_ratelimit_timeout: a 429 otherwise sleeps as long as Discord asks,
-        # holding up every DM queued behind it.
+        # max_ratelimit_timeout: without it a 429 sleeps as long as Discord asks, stalling every queued DM.
         _bot_instance = commands.Bot(
             command_prefix='!', intents=intents, max_ratelimit_timeout=30,
         )
@@ -323,8 +302,7 @@ def get_discord_bot() -> commands.Bot:
 
         @_bot_instance.event
         async def on_interaction(interaction: discord.Interaction) -> None:
-            # A modal's submit carries the modal's own custom_id, so the same
-            # prefix registry routes it.
+            # Modal submits carry the modal's own custom_id, so they route through the same registry.
             if interaction.type in (
                 discord.InteractionType.component, discord.InteractionType.modal_submit,
             ):
@@ -336,13 +314,9 @@ def get_discord_bot() -> commands.Bot:
 
         @_bot_instance.event
         async def on_member_update(before: discord.Member, after: discord.Member) -> None:
-            # The event fires for nick/avatar/timeout/role changes alike, so each
-            # sync decides for itself whether anything it cares about moved.
             if before.avatar != after.avatar:
                 await sync_member_avatar(after)
             if {r.id for r in before.roles} != {r.id for r in after.roles}:
-                # No snapshot for a bot, so a bot given a mapped role is
-                # never provisioned an account.
                 await sync_member_roles(
                     after.guild.id, after.id,
                     None if after.bot else GuildMember.from_member(after),
@@ -350,7 +324,6 @@ def get_discord_bot() -> commands.Bot:
 
         @_bot_instance.event
         async def on_member_remove(member: discord.Member) -> None:
-            # Left/kicked/banned: re-sync strips their Discord-sourced roles.
             await sync_member_roles(member.guild.id, member.id)
 
     return _bot_instance
@@ -419,7 +392,6 @@ class DiscordService(GuildOpsMixin, ScheduledEventsMixin):
             - If failed: (False, error_message)
         """
         if not user_id:
-            # A password-only account has no Discord to message.
             return False, DM_NO_DISCORD
         if notice is not None:
             muted, silent = await _apply_notice(notice, user_id)
@@ -428,11 +400,8 @@ class DiscordService(GuildOpsMixin, ScheduledEventsMixin):
         log = SentMessageService()
         ref = await log.record_attempt(user_id, message, embed=embed, link=link, silent=silent, notice=notice)
         footnote = await settings_footnote(notice, ref.id if ref else None)
-        # Mirror before the bot-readiness checks so device notifications still
-        # go out when the bot is down or the user blocks Discord DMs. Corollary:
-        # a (False, ...) return means the *Discord* send failed — subscribed
-        # devices may already have been notified, so don't blindly re-send. The
-        # mirror always uses the plain text, even when an embed carries the DM.
+        # Mirror before the bot-readiness checks so devices still get it when Discord can't.
+        # A (False, ...) return may follow a mirror that went out: don't blindly re-send.
         if mirror:
             copy = await _mirror_text(user_id, message)
             _mirror_dm_to_web_push(
@@ -461,8 +430,6 @@ class DiscordService(GuildOpsMixin, ScheduledEventsMixin):
                 return False, "Discord bot not initialized"
 
             if not self._bot.is_ready():
-                # Every DM fails this way while the gateway is down, so this is
-                # the line that says Discord notifications have stopped.
                 logger.error('Discord DM to %s not sent: bot is not connected', user_id)
                 return False, "Discord bot is not connected. Please try again in a moment."
 
@@ -478,14 +445,11 @@ class DiscordService(GuildOpsMixin, ScheduledEventsMixin):
                 if view is not None:
                     kwargs['view'] = view
                 if embed is not None:
-                    # Embed is the Discord representation; content omitted to avoid
-                    # showing the plain text above the card.
+                    # No content= here: it would show the plain text above the embed.
                     return await user.send(embed=embed, **kwargs)
                 return await user.send(message, **kwargs)
 
-            # Every DM shares one serial queue, and discord.py's HTTP calls have
-            # no deadline of their own, so one stalled send delayed every match
-            # call behind it.
+            # discord.py HTTP calls have no deadline; without this one stalled send blocks the whole DM queue.
             sent = await asyncio.wait_for(_send(), DM_SEND_TIMEOUT_SECONDS)
             await _run_sent_hook(on_sent, sent.channel.id, sent.id)
             return True, "Message sent successfully."
@@ -500,8 +464,6 @@ class DiscordService(GuildOpsMixin, ScheduledEventsMixin):
             logger.warning('Discord DM to %s failed with HTTP %s: %s', user_id, e.status, e)
             return False, f"Failed to send message: {e!s}"
         except Exception as e:
-            # Not Discord refusing the send: a bug on our side (a bad embed, an
-            # unregistered view). Callers only see the tuple, so log it here.
             logger.exception('Discord DM to %s crashed', user_id)
             return False, f"Discord bot error: {e!s}"
 
@@ -535,9 +497,6 @@ class DiscordService(GuildOpsMixin, ScheduledEventsMixin):
             logger.warning('Discord DM %s edit failed with HTTP %s: %s', message_id, e.status, e)
             return False, f"Failed to edit message: {e!s}"
 
-    # The five view-bearing senders below are thin wrappers over send_dm: each
-    # resolves its registered view factory by kind (populated by the bot package
-    # at startup — see the registries above) and defers to send_dm.
     async def send_dm_with_crew_buttons(self, user_id: int, message: str, match_id: int, embed: Optional[discord.Embed] = None, link: Optional[DMLink] = None, notice: Optional[NoticeTarget] = None, broadcaster: bool = False) -> Tuple[bool, str]:
         """Send a DM with the crew signup buttons for a match; ``broadcaster`` adds that role's."""
         return await self.send_dm(user_id, message, lambda: _view_factories[VIEW_CREW_SIGNUP](match_id, broadcaster), embed=embed, link=link, notice=notice)
@@ -697,22 +656,15 @@ class MockDiscordService(MockGuildOpsMixin, MockScheduledEventsMixin):
         ref: Optional[SentMessageRef],
         footnote: Optional[SettingsFootnote] = None,
     ) -> Tuple[bool, str]:
-        # Email and Telegram mirror in mock mode too: their transports print
-        # instead of sending, so there's no external side effect to fear.
         if mirror:
             _mirror_dm_to_channels(
                 user_id, await _mirror_text(user_id, message), link, silent=silent, ref=ref, footnote=footnote,
             )
-        # Deliberately no web-push mirror: mock mode must have no external side
-        # effects (a dev with a prod DB snapshot + prod VAPID keys would push
-        # to real users' phones). Real delivery requires the real service.
+        # No web-push mirror in mock mode: a prod DB snapshot with prod VAPID keys would push to real phones.
         if not await discord_dms_enabled(user_id):
             print(f"[MOCK Discord DM] -> {user_id}: skipped, Discord DMs off")
             return True, DM_DISCORD_OFF
         suffix = f" [embed: {embed.title}]" if embed is not None else ""
-        # The link is printed because it is the half of the DM mock mode can
-        # actually verify — button interactions need a live bot, but whether the
-        # call to action points anywhere is checkable from stdout.
         if link is not None and link.url:
             suffix += f" [button: {link.label} -> {link.url}]"
         if silent:
@@ -720,7 +672,6 @@ class MockDiscordService(MockGuildOpsMixin, MockScheduledEventsMixin):
         if footnote is not None:
             suffix += f" [footnote: {footnote.markdown()}]"
         print(f"[MOCK Discord DM] -> {user_id}: {message}{suffix}")
-        # Made-up ids, so a later edit_dm has something to print against.
         self.__class__._mock_message_id += 1
         await _run_sent_hook(on_sent, int(user_id), self.__class__._mock_message_id)
         return True, "Message sent (mock)"
@@ -736,8 +687,6 @@ class MockDiscordService(MockGuildOpsMixin, MockScheduledEventsMixin):
         print(f"[MOCK Discord DM edit] {channel_id}/{message_id}: {embed.title}{suffix}")
         return True, "Message edited (mock)"
 
-    # Thin wrappers matching DiscordService's public surface; all defer to the
-    # single send_dm stub above (the buttons are irrelevant in mock mode).
     async def send_dm_with_crew_buttons(self, user_id: int, message: str, match_id: int, embed: Optional["discord.Embed"] = None, link: Optional[DMLink] = None, notice: Optional[NoticeTarget] = None, broadcaster: bool = False) -> Tuple[bool, str]:
         return await self.send_dm(user_id, message, embed=embed, link=link, notice=notice)
 
@@ -772,11 +721,9 @@ class MockDiscordService(MockGuildOpsMixin, MockScheduledEventsMixin):
         return None
 
 
-
 from application.utils.mocks.mock_discord import is_mock_discord
 
-# Stable handle to the real implementation; survives the mock swap below so tests
-# can exercise the real error branches regardless of MOCK_DISCORD.
+# Survives the mock swap below so tests can reach the real implementation.
 _RealDiscordService = DiscordService
 
 if is_mock_discord():

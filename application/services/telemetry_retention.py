@@ -34,7 +34,7 @@ async def _tick() -> None:
     await prune()
 
 
-# A first prune after a long gap deletes months of rows in one statement.
+# Long tick timeout: a first prune after a long gap is one huge delete.
 _loop = run_worker_loop(_tick, TICK_SECONDS, 'telemetry retention', logger, tick_timeout=1800)
 
 

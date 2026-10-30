@@ -18,14 +18,9 @@ from application.utils.background_loop import run_worker_loop
 
 logger = logging.getLogger(__name__)
 
-# Probes reach external hosts, so a gentle cadence is plenty — an outage surfaces
-# within a couple of minutes, and the board can always be force-refreshed.
 TICK_SECONDS = 120
 
-# The loop ticks as soon as it starts, before the Discord gateway and the racetime
-# bots have connected, so a boot-time probe would report them down and open a
-# Sentry issue on every deploy. Skip ticks inside this window; the first real
-# probe lands on the next interval.
+# Skip boot ticks: the gateway and racetime bots aren't connected yet and would read as down.
 STARTUP_GRACE_SECONDS = 60
 
 _started_at: Optional[float] = None

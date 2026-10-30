@@ -295,9 +295,7 @@ class PayoutService:
         if user_id is not None:
             await TenantMembershipService.require_community_users([user_id], actor)
             entrant = require_found(await User.get_or_none(id=user_id), 'User')
-            # The (tournament, place, entrant) key would raise an IntegrityError
-            # here, which reaches the caller as a 500 rather than as the thing
-            # the reader did wrong.
+            # Pre-check the unique key: the IntegrityError would reach the caller as a 500.
             clash = await TournamentPayout.filter(
                 tournament_id=payout.tournament_id, place=payout.place,  # type: ignore[attr-defined]
                 entrant_id=user_id,
@@ -474,9 +472,7 @@ class PayoutService:
 
     @staticmethod
     def _total(tournament: Tournament) -> Decimal:
-        # Quantized on the way out: the DB backend decides the scale it hands
-        # back (SQLite returns an unscaled Decimal), and money that renders as
-        # ``1.1E+3`` in a payout export is money nobody trusts.
+        # Quantize: the backend decides the scale (SQLite returns an unscaled Decimal).
         pool = (tournament.prize_pool or Decimal(0)).quantize(CENT)
         bonus = (tournament.prize_bonus or Decimal(0)).quantize(CENT)
         return pool + bonus
@@ -568,18 +564,12 @@ class PayoutService:
                 'note': (row.get('note') or None),
             })
         allocated = sum((row['percentage'] or Decimal(0) for row in cleaned), Decimal(0))
-        # Above the total is a mistake; below is not. An unallocated remainder
-        # is real — an organizer holding back a share is a normal state of a
-        # split part way through being agreed.
         if allocated > _HUNDRED:
             raise ValueError(
                 f'The shares add up to {format_percentage(allocated)}%, which is '
                 f'more than the pool.'
             )
-        # Money is only checked when a fixed amount is in play (per-row cent
-        # rounding can tip an all-percentage 100% split a cent over), and only
-        # against a total that exists: dollars drafted before the pool is set
-        # are a plan, not an overspend.
+        # Only with a fixed amount and a set pool: cent rounding can tip an all-percentage split over.
         if total > 0 and any(row['amount'] is not None for row in cleaned):
             money = sum(
                 (row['amount'] if row['amount'] is not None else cls.amount_for(total, row['percentage'])

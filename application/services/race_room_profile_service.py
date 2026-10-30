@@ -14,8 +14,6 @@ from application.services.audit_service import AuditActions, AuditService
 from application.services.auth_service import AuthService
 from models import RaceRoomProfile, User
 
-# The editable fields and their coercers — keeps create/update in lockstep and
-# the UI honest about what a profile carries.
 _BOOL_FIELDS = (
     'invitational', 'unlisted', 'auto_start', 'allow_comments',
     'allow_midrace_chat', 'allow_non_entrant_chat', 'streaming_required',

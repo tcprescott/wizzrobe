@@ -169,8 +169,6 @@ class MatchHardPresetService:
 
     @staticmethod
     def _player_ids(match: Match) -> Set[int]:
-        # Reverse relation and FK id column: mypy cannot see either on a
-        # dynamically built Tortoise model.
         return {p.user_id for p in match.players}  # type: ignore[attr-defined]
 
     async def _require_open_match(self, match_id: int, user: User) -> Match:
@@ -221,16 +219,13 @@ class MatchHardPresetService:
             standard_preset_name=standard.name if standard is not None else '',
         )
         if user is None or user.id not in self._player_ids(match):
-            # A spectator, or staff reading a player's board. They get the
-            # tournament's shape and the override, never anybody's opt-in.
             return base
 
         opted_in = await self.repository.has_opted_in(match.id, user.id)
         return HardPresetState(
             offered=True,
             opted_in=opted_in,
-            # Computed only for someone who opted in themselves, so the flag
-            # cannot become a way to ask about the other player.
+            # Only for the opted-in viewer, or the flag leaks the other player's opt-in.
             everyone_in=opted_in and await self._is_unanimous(match),
             locked=base.locked,
             override=base.override,
@@ -303,8 +298,7 @@ class MatchHardPresetService:
             was_unanimous = await self._is_unanimous(match)
             _, created = await self.repository.get_or_create(match=match, user=user)
             if created:
-                # write_log, not write_and_publish: see the module docstring. An
-                # event here would hand a lone opt-in to every webhook subscriber.
+                # write_log, not write_and_publish: an event would broadcast a lone opt-in to every webhook.
                 await self.audit_service.write_log(
                     user, AuditActions.MATCH_HARD_PRESET_OPTED_IN, {'match_id': match_id},
                 )
@@ -418,8 +412,7 @@ class MatchHardPresetService:
             when=match.scheduled_at,
             recipients=recipients,
             agreed=became,
-            # Empty for a staff edit, where naming the actor would credit their
-            # change to a player who did not back out of anything.
+            # Empty for a staff edit, or the change is credited to a player.
             actor_name=actor.preferred_name if actor_backed_out else '',
         ))
 
@@ -452,9 +445,7 @@ class MatchHardPresetService:
                 or match.generated_seed_id is not None  # type: ignore[attr-defined]
                 or match.preset_override is not None
             ):
-                # Same three refusals as ``_require_open_match``. Offering a
-                # choice whose button would be refused is worse than no DM:
-                # the reader is told they may decide something they may not.
+                # Keep in step with ``_require_open_match``: never offer a choice its button refuses.
                 return
             opted_in = await self.repository.user_ids_for_match(match.id)
             await notify_hard_preset_invite(
@@ -481,10 +472,7 @@ class MatchHardPresetService:
         agreements staff never asked to destroy.
         """
         match = await self._require_match(match_id)
-        # The same gate ``update_match`` puts on editing this match. Without it
-        # the only thing standing between an actor and overruling two players'
-        # settings — and DMing them about it — is whichever page happens to call
-        # this, which is not a gate at all for the next caller.
+        # Not redundant with the page's check: this is the only gate for every other caller.
         await AuthService.ensure(
             await AuthService.can_crud_match(actor, match),
             f"User cannot set the preset override on match {match_id}",

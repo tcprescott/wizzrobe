@@ -19,12 +19,8 @@ from dataclasses import dataclass, replace
 from enum import Enum
 from typing import Collection, Dict, List, Optional, Sequence
 
-# Score bounds and the reference multipliers behind ``(2 - elapsed/par) * 100``.
 SCORE_MIN = 0.0
 SCORE_MAX = 105.0
-# Default number of fastest approved runs averaged into a permalink's par. Read
-# from ``AsyncQualifier.config['par_sample_size']`` when set; this is the
-# fallback so a freshly-authored qualifier scores sensibly with no config.
 DEFAULT_PAR_SAMPLE_SIZE = 5
 
 
@@ -64,14 +60,12 @@ class ScoreBand(str, Enum):
     stand without being handed the number.
     """
 
-    UNDER = 'under'   # comfortably faster than par
-    NEAR = 'near'     # within the tolerance of par, either side
-    ABOVE = 'above'   # slower than par
+    UNDER = 'under'
+    NEAR = 'near'
+    ABOVE = 'above'
 
 
-# The fast side is already banded by the ``SCORE_MAX`` cap — every run 5% or more
-# under par scores exactly 105 — so the slow edge mirrors it rather than inventing
-# a second tolerance.
+# Mirrors the SCORE_MAX cap on the fast side; don't introduce a second tolerance.
 NEAR_PAR_FLOOR = 2 * 100 - SCORE_MAX
 
 
@@ -107,8 +101,8 @@ class LeaderboardEntry:
     rank: int              # competition rank: equal totals share it, then it skips
     user_id: int
     username: str
-    actual: float          # realized total: filled slots + zeros for unfilled
-    estimate: float        # projected total at the user's mean realized score
+    actual: float
+    estimate: float
     slots_filled: int
     slots_total: int
 
@@ -143,7 +137,6 @@ def build_leaderboard(
     """
     per_pool = max(1, runs_per_pool)
     pool_id_set = set(pool_ids)
-    # None means "every pool is open to everyone" — the no-live-races case.
     open_ids = pool_id_set if open_pool_ids is None else (set(open_pool_ids) & pool_id_set)
 
     # Preserve first-seen order for stable tie handling.
@@ -162,8 +155,6 @@ def build_leaderboard(
     entries: List[LeaderboardEntry] = []
     for user_id in order:
         pools = by_user_pool[user_id]
-        # This entrant's denominator: every open pool, plus any closed pool they
-        # actually raced in.
         countable = [p for p in pool_ids if p in open_ids or p in pools]
         actual = 0.0
         filled = 0
@@ -174,7 +165,7 @@ def build_leaderboard(
         slots_total = len(countable) * per_pool
         estimate = (actual / filled) * slots_total if filled else 0.0
         entries.append(LeaderboardEntry(
-            rank=0,   # assigned below, once the field is ordered
+            rank=0,
             user_id=user_id,
             username=names[user_id],
             actual=round(actual, 2),

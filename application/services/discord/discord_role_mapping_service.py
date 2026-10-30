@@ -50,9 +50,6 @@ def _grant_key(grant: Tuple[Role, Optional[int]]) -> Tuple[str, int]:
 def _name(user: User) -> str:
     return getattr(user, 'display_name', None) or getattr(user, 'username', None) or f'#{user.id}'
 
-# Audit vocabulary for a per-tournament grant, keyed by which relation it writes.
-# Reuses the actions a staff member's hand-grant already emits so the tournament's
-# audit trail reads as one story; ``source`` in the details says who made it.
 _GRANT_AUDIT = {
     TournamentGrant.TOURNAMENT_ADMIN: (
         AuditActions.TOURNAMENT_ADMIN_GRANTED, AuditActions.TOURNAMENT_ADMIN_REVOKED,
@@ -172,10 +169,6 @@ class DiscordRoleMappingService:
     @staticmethod
     def _check_app_role(app_role: Role) -> None:
         if app_role not in Role.tenant_grantable():
-            # The other half of the same door ``UserService.grant_role``
-            # closes: a mapping is a *standing* grant, so this one would have
-            # handed platform authority to whoever holds a guild role the
-            # community's own staff control, on their next login.
             raise ValueError(
                 "Super Admin is a platform role and cannot be mapped from a "
                 "Discord role."
@@ -213,8 +206,6 @@ class DiscordRoleMappingService:
             raise ValueError("Choose either an application role or a tournament grant")
 
         if discord_role_id in await self.sync_repository.rule_role_ids():
-            # The reverse of DiscordRoleSyncService's INBOUND_CONFLICT: a role
-            # Wizzrobe hands out to every player would then grant this to them.
             raise ValueError(
                 "Wizzrobe already gives this Discord role out (Discord roles from "
                 "Wizzrobe). Mapping it here would grant this to everyone it covers, "
@@ -318,8 +309,7 @@ class DiscordRoleMappingService:
             "Only Staff can sync Discord roles",
         )
 
-        # Before the user list is read, so the accounts it creates are synced
-        # (and handed their roles) by the loop below in the same run.
+        # Before the user list is read, so the accounts it creates are synced in this same run.
         created, holders = await self._provision_current_guild_members()
         tenant_id = get_current_tenant_id()
         tenant = await TenantService.get_by_id(tenant_id) if tenant_id is not None else None
@@ -467,11 +457,7 @@ class DiscordRoleMappingService:
             if not tenants:
                 summary['skipped'] = 'no_guild_configured'
                 return summary
-            # Sync every tenant concurrently: each per-tenant sync is independent
-            # (own tenant scope, own Discord call) and never raises, so login
-            # latency stays ~one Discord round-trip instead of scaling with the
-            # tenant count. asyncio.gather runs each in its own context copy, so
-            # the tenant_scope contextvar in one does not leak into another.
+            # Safe to gather: each task runs in its own context copy, so one tenant_scope can't leak into another.
             results = await asyncio.gather(*(
                 self.sync_user_roles_for_tenant(user, tenant) for tenant in tenants
             ))
@@ -528,16 +514,9 @@ class DiscordRoleMappingService:
 
             with tenant_scope(tenant.id):
                 mappings = await self.mapping_repository.list_for_guild(guild_id)
-                # Filtered here as well as at ``add_mapping``, because this side
-                # is what a *stored* row reaches. A mapping written before the
-                # grantable check existed — or restored from a backup — would
-                # otherwise grant platform authority on the next login, silently,
-                # with no one performing an action to notice.
+                # Looks redundant with add_mapping's check, but stored rows (pre-guard or restored) reach here:
+                # dropping it hands platform authority out on the next login.
                 grantable = set(Role.tenant_grantable())
-                # A grant is a role and the event it's held in (None for a
-                # community-wide role). A per-event mapping grants in the event
-                # it names; one naming none, or an archived event, grants
-                # nothing, and the archived event's own grants are left alone.
                 writable = await self._writable_event_ids(tenant.id)
                 desired: Set[Tuple[Role, Optional[int]]] = set()
                 for m in mappings:
@@ -558,13 +537,7 @@ class DiscordRoleMappingService:
                 granting = sorted(desired - current_all, key=_grant_key)
                 closed = None
                 if granting:
-                    # A role in a tenant implies membership in it. Once per sync,
-                    # not once per role — the write is idempotent either way.
-                    # Deliberately *before* the grants and inside the existing
-                    # try: if it fails, this tenant is skipped and retried on the
-                    # next login (fail-open, as the docstring promises), which is
-                    # self-healing. Granting first would instead leave roles with
-                    # no membership behind — the state wave 4's gate locks out.
+                    # Membership before the grants and inside the try: granting first can strand roles without membership.
                     closed = await TenantMembershipService.ensure_member(
                         user, source=MembershipSource.DISCORD_ROLE,
                     )
@@ -578,7 +551,6 @@ class DiscordRoleMappingService:
                     }
                     if event_id is not None:
                         details['event_id'] = event_id
-                    # On the first grant's row: that's the one that let them in.
                     if closed is not None:
                         details['closed_request_id'] = closed.id
                         closed = None
@@ -596,9 +568,6 @@ class DiscordRoleMappingService:
                     await self.audit_service.write_log(user, AuditActions.ROLE_DISCORD_SYNC_REVOKED, details)
                     summary['revoked'].append(role.value)
                     revoked_events.add(event_id)
-                # The Discord grant may have been the one row standing in for a
-                # role a volunteer assignment also confers; hand it back, in
-                # each event the sync took a role from.
                 for event_id in sorted(e for e in revoked_events if e is not None):
                     with event_scope(event_id, tenant.id):
                         await VolunteerRoleMappingService().reconcile_users(user, [user.id])
@@ -649,15 +618,13 @@ class DiscordRoleMappingService:
         }
 
         for tournament_id, grant in sorted(desired - current):
-            # Already held by hand: leave it be rather than recording provenance
-            # over it, or a later sync would revoke a grant it never made.
+            # Leave a hand-held grant unrecorded, or a later sync would revoke a grant it never made.
             if await self.tournament_repository.has_tournament_grant(tournament_id, user, grant):
                 continue
             tournament = await self.tournament_repository.get_by_id(tournament_id)
             if tournament is None:
                 continue
-            # Same ordering rationale as the role grants above: membership first,
-            # so a failure leaves no grant stranded without one.
+            # Membership first, so a failure leaves no grant stranded without one.
             closed = await TenantMembershipService.ensure_member(
                 user, source=MembershipSource.DISCORD_ROLE,
             )

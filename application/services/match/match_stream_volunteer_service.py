@@ -35,8 +35,6 @@ class MatchStreamVolunteerService:
             await self.match_repository.get_by_id(match_id),
             f"Match {match_id}",
         )
-        # Reverse relation and FK id column: mypy cannot see either on a
-        # dynamically built Tortoise model.
         players = match.players  # type: ignore[attr-defined]
         if not any(p.user_id == user.id for p in players):
             raise ValueError('Only the players in a match can offer it for stream.')

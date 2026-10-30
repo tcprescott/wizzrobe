@@ -17,7 +17,6 @@ from application.repositories.event_repository import EventRepository
 from application.repositories.event_setup_repository import EventSetupRepository
 from models import DiscordRoleRuleKind, Event
 
-#: Checkbox key → what the New event dialog calls it.
 COPY_GROUPS: Dict[str, str] = {
     'tournaments': 'Tournaments',
     'positions': 'Volunteer positions',
@@ -26,7 +25,6 @@ COPY_GROUPS: Dict[str, str] = {
     'discord_roles': 'Discord roles from Wizzrobe',
 }
 
-#: Tournament columns that belong to last year's run of it, so a copy starts without them.
 TOURNAMENT_CLEARED = frozenset({
     'bracket_url',
     'challonge_tournament_id', 'challonge_community', 'challonge_tournament_url',
@@ -37,14 +35,12 @@ TOURNAMENT_CLEARED = frozenset({
     'signups_open_at', 'signups_close_at',
     'prize_pool', 'prize_bonus', 'sglive_slug', 'prize_pool_synced_at',
 })
-#: Tournament config keys that are dated or bound to a bracket: the round schedule.
 TOURNAMENT_CONFIG_CLEARED = frozenset({'round_schedule'})
 
 CHECK_IN_CLEARED = frozenset({
     'matcherino_venue_id', 'status', 'last_synced_at', 'last_sync_error', 'last_sync_count',
 })
 
-#: Event settings that travel with a copied group (keys of ``Event.config``).
 CONFIG_WITH_GROUP: Dict[str, tuple[str, ...]] = {
     'stages': ('station_format',),
     'positions': ('volunteer_comp_tiers',),

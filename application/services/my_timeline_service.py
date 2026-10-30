@@ -23,21 +23,13 @@ from models import User, VolunteerAvailabilityStatus
 MATCH = 'match'
 CREW = 'crew'
 SHIFT = 'shift'
-#: A community event they host, RSVP'd to or asked a reminder for.
 COMMUNITY = 'community'
-#: How they're attending a community event, strongest first.
 HOSTING = 'hosting'
 GOING = 'going'
 REMINDER = 'reminder'
-#: An approved crew slot on a match with no stage yet: crew is only needed on
-#: stage, so it may not happen.
 NO_STAGE = 'no_stage'
-#: Time the player blocked out under "When you can't play". Not a commitment:
-#: the page draws it behind the blocks rather than in a lane of its own.
 UNAVAILABLE = 'unavailable'
 
-#: An event day runs 06:00 to 06:00, as on the volunteer grids, so a match at
-#: 01:00 sits on the evening it belongs to.
 DAY_STARTS_AT_HOUR = 6
 
 _ROLE_TITLES = {'commentator': 'Commentary', 'tracker': 'Tracking', 'broadcaster': 'Broadcast'}
@@ -51,13 +43,9 @@ class TimelineItem:
     title: str
     detail: str
     match_id: int = 0
-    #: The shift's assignment, for its details dialog.
     assignment: Any = None
     event_id: int = 0
-    #: ``HOSTING``, ``GOING`` or ``REMINDER`` for a community event,
-    #: ``NO_STAGE`` for an off-stage crew slot, else empty.
     badge: str = ''
-    #: Drawn as optional: a reminder-only event, an off-stage crew slot.
     optional: bool = False
 
 
@@ -145,7 +133,6 @@ class MyTimelineService:
             row['match_id']: row
             for row in await self.crew_service.list_my_commitments(user, upcoming_only=False)
         }
-        # Each item beside the event it came from: the list spans every live event.
         sourced: List[Tuple[TimelineItem, Optional[int]]] = []
         for match in await self.match_repository.commitments_for_user(user.id, start, end):
             row = crew.get(match.id)

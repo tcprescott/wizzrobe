@@ -56,7 +56,6 @@ class RoundRobinEngine:
     def _schedule_group(seeds: List[int], group_number: int) -> List[GeneratedMatch]:
         """Single round robin over ``seeds`` via the circle method."""
         matches: List[GeneratedMatch] = []
-        # Odd size: a phantom ``None`` gives each entrant one bye round (no match).
         players: List[Optional[int]] = list(seeds)
         if len(players) % 2 == 1:
             players.append(None)
@@ -81,7 +80,6 @@ class RoundRobinEngine:
                         group_number=group_number,
                     )
                 )
-            # Rotate all but the first, clockwise by one.
             arrangement = [arrangement[0], arrangement[-1], *arrangement[1:-1]]
 
         return matches

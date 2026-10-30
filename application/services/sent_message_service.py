@@ -183,9 +183,6 @@ class SentMessageService:
         await self._ensure_can_read(actor)
         return await self.repository.get(message_id)
 
-    # Everyone may read the messages sent to them, and only those: the staff
-    # check above is for reading other people's.
-
     @staticmethod
     def _keys_in(group: Optional[str]) -> Optional[List[str]]:
         if group is None:

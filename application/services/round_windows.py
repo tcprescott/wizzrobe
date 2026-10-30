@@ -229,7 +229,6 @@ def stage_sort_key(key: str) -> tuple:
     if key == GRAND_FINAL_KEY:
         return (2, 0, 0)
     kind, depth = key[0], int(key[1:])
-    # Winners and losers interleave by depth; within a depth, losers play first.
     return (1, -depth, 0 if kind == 'l' else 1)
 
 

@@ -233,9 +233,6 @@ class WebhookService:
         webhook = await self._require(webhook_id)
         return await self.delivery_repository.list_for_webhook(webhook, limit=limit, offset=offset)
 
-    # How far back the list's health summary looks. A day is the window an
-    # operator actually asks about ("is it working *now*"), and it keeps a
-    # webhook that broke last month from wearing a red badge forever.
     HEALTH_WINDOW = timedelta(hours=24)
 
     async def recent_health(self, actor: User) -> dict:
@@ -283,7 +280,6 @@ class WebhookService:
             subscribed = webhook.event_types or []
             if not (EventType.WILDCARD in subscribed or event.event_type in subscribed):
                 continue
-            # A community-wide message carries no event and passes every filter.
             if webhook.event_ids is not None and event.event_id not in (None, *webhook.event_ids):
                 continue
             webhook_queue.enqueue(
@@ -327,11 +323,7 @@ class WebhookService:
         success = False
         attempts = 0
 
-        # Re-validate the destination at delivery time, and connect to the
-        # address that passed rather than letting httpx resolve the name again:
-        # a rebinding DNS answer could otherwise pass the check and then point
-        # the POST at an internal address. Gated on production to mirror
-        # _validate_url, which allows localhost receivers in development.
+        # Connect to the address that passed, not a fresh resolve, or DNS rebinding slips past the check.
         async with httpx.AsyncClient(timeout=self.DELIVERY_TIMEOUT, follow_redirects=False) as client:
             for attempt in range(self.MAX_ATTEMPTS):
                 target: str = webhook.url
@@ -356,8 +348,7 @@ class WebhookService:
                         )
                         return
                 attempts = attempt + 1
-                # follow_redirects stays False so a 3xx to an internal Location
-                # cannot be chased past the host check above.
+                # follow_redirects=False, so a 3xx to an internal Location is never chased past the host check.
                 try:
                     response = await client.post(
                         target, content=body, headers={**headers, **extra_headers},
@@ -373,8 +364,7 @@ class WebhookService:
                 if attempt < self.MAX_ATTEMPTS - 1:
                     await asyncio.sleep(self.RETRY_BACKOFF_BASE ** attempt)
         if not success:
-            # A community's own endpoint: a warning for the log trail, not a
-            # Sentry event — the delivery row is what staff act on.
+            # Warning, not error: a community's own endpoint failing isn't a Sentry event.
             logger.warning(
                 'Webhook %s gave up on %s after %d attempt(s): %s',
                 webhook.id, event.event_type, attempts, error,
@@ -429,8 +419,6 @@ class WebhookService:
             raise ValueError("Webhook URL must use https://")
         if not parsed.hostname:
             raise ValueError("Webhook URL must include a host")
-        # Block internal targets (SSRF). Skipped outside production so a dev can
-        # point a webhook at a localhost receiver.
         if is_production():
             await self._ensure_public_host(parsed.hostname)
 

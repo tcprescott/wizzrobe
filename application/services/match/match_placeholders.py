@@ -57,7 +57,6 @@ class PlaceholderBookingMixin:
         current = {p.user_id for p in await self.repository.get_players(match)}
         wanted = {uid for uid in player_ids if uid is not None}
         if current - wanted and len(wanted) == len(player_ids):
-            # Every side is decided and someone on the match isn't one of them.
             if not match.bracket_link_lost:
                 await self.repository.update(match, bracket_link_lost=True)
                 match_live.publish(match.id)

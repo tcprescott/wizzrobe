@@ -71,7 +71,6 @@ class AuthService:
             return set()
         tid = get_current_tenant_id()
         if tid is None:
-            # No tenant in context (platform surface) — no tenant roles apply.
             return set()
         rows = await UserRole.filter(role_event_q(event), user=user, tenant_id=tid).values_list('role', flat=True)
         return {Role(r) for r in rows}
@@ -140,8 +139,7 @@ class AuthService:
 
     @staticmethod
     async def is_tournament_admin(user: Optional[User], tournament_id: int) -> bool:
-        # PKs are global, so filter by tenant too: a same-id tournament in another
-        # tenant must not satisfy the check.
+        # PKs are global: filter by tenant too, or a same-id tournament in another tenant satisfies the check.
         if user is None:
             return False
         query = Tournament.filter(id=tournament_id, admins__id=user.id)
@@ -220,13 +218,11 @@ class AuthService:
         if await AuthService.is_super_admin(user):
             return True
         roles = await AuthService.get_roles(user)
-        # Schedule has no flag: staff, a broadcast tech, a TA and a CC always land on it.
         if roles & {Role.STAFF, Role.STREAM_MANAGER}:
             return True
         admin_q, cc_q = AuthService._tournament_relations(user)
         if await admin_q.exists() or await cc_q.exists():
             return True
-        # Presets and Settings → Integrations/Discord carry no flag either.
         if roles & {Role.PRESET_MANAGER, Role.SYNC_ADMIN}:
             return True
         from application.services.feature_flag_service import FeatureFlagService
@@ -332,10 +328,6 @@ class AuthService:
         admin_ids, cc_ids = await AuthService.tournament_scope(user)
         return frozenset(admin_ids | cc_ids)
 
-    # Roles that have something to do on the Volunteer hub's volunteer tabs. The
-    # hub's ``roles=`` also admits CHECK_IN_DESK, for its Check-in Desk tab,
-    # which :meth:`can_view_check_in_desk` decides. A volunteer coordinator
-    # builds the schedule in Admin, so they read the published one here too.
     _VOLUNTEER_ROLES: ClassVar[set[Role]] = {
         Role.VOLUNTEER, Role.PROCTOR, Role.STAFF, Role.VOLUNTEER_COORDINATOR,
     }
@@ -672,10 +664,6 @@ async def get_user_from_discord_id(discord_id: str | None) -> Optional[User]:
     return user
 
 
-#: Session keys every sign-in writes into ``app.storage.user``. ``user_id`` is the
-#: identity; ``discord_id`` stays for Discord sessions (and sessions from before
-#: ``user_id`` existed). A password session also carries ``auth_method`` and
-#: ``password_stamp``, so changing or removing the password ends it.
 SESSION_USER_ID = 'user_id'
 SESSION_AUTH_METHOD = 'auth_method'
 SESSION_PASSWORD_STAMP_FIELD = 'password_stamp'
@@ -712,8 +700,7 @@ async def get_user_from_session(storage: Any) -> Optional[User]:
     if storage.get(SESSION_AUTH_METHOD) == AUTH_METHOD_PASSWORD and (
         not user.password_hash
         or storage.get(SESSION_PASSWORD_STAMP_FIELD) != password_session_stamp(user)
-        # Made a platform admin after signing in by password: that session
-        # can't carry the role (see PasswordAuthService.authenticate).
+        # Super-admin granted after a password sign-in: that session can't carry the role.
         or await AuthService.is_super_admin(user)
     ):
         return None

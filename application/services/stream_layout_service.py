@@ -61,11 +61,8 @@ MIN_ART_WIDTH, MIN_ART_HEIGHT = 320, 180
 ALLOWED_ART_FORMATS = frozenset({'PNG', 'JPEG', 'WEBP'})
 ART_ACCEPT = '.png,.jpg,.jpeg,.webp'
 TOKEN_PREFIX = 'ovl_'
-# How far either side of now a stage's matches count as "today's": a late
-# show runs past midnight, and a morning stage opens before the first match.
 _WINDOW_BEHIND = timedelta(hours=12)
 _WINDOW_AHEAD = timedelta(hours=18)
-# Every OBS scene polls; a burst of them costs one build per stage.
 _FEED_TTL = 2.0
 _feed_cache: dict[int, tuple[float, 'OverlayFeed']] = {}
 

@@ -76,7 +76,6 @@ class ScheduleStage:
     total: int = 0
     booked: int = 0
     window: Optional[RoundWindow] = None
-    # Offered ahead of the bracket: no matches carry this key yet.
     placeholder: bool = False
     best_of: int = 1
 
@@ -474,7 +473,7 @@ class RoundScheduleService:
         try:
             scheduled_at = parse_local_datetime(scheduled_date, scheduled_time)
         except ValueError:
-            return  # The booking itself reports the bad input.
+            return
         await self.check_time(
             found, tournament, scheduled_at, actor, allow_outside_round=allow_outside_round,
         )

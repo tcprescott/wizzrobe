@@ -69,7 +69,6 @@ async def _poll_until_built(session: aiohttp.ClientSession, name: str, seed_hash
         if status == 'finished':
             return result
         if status == 'failure':
-            # An unknown preset name is accepted by generate and fails here.
             raise SeedProviderInvalidRequest(
                 f'AVIANART could not build a "{name}" seed. Check the preset name on avianart.games.',
                 provider='avianart', operation='generate_seed',

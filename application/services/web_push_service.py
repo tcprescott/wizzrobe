@@ -45,10 +45,7 @@ logger = logging.getLogger(__name__)
 # Magic value that opts a push message into declarative parsing (Safari 18.4+).
 DECLARATIVE_WEB_PUSH_VERSION = 8030
 
-# The DM templates (application/utils/discord_messages.py) only ever emit
-# **bold** plus the backslash that keeps a member-typed bracket from forming a
-# masked link, so only those are stripped — usernames and URLs legitimately
-# contain __, ~~ and backticks and must pass through untouched.
+# Strip only these: usernames and URLs legitimately contain __, ~~ and backticks.
 _MARKDOWN_TOKENS = re.compile(r'\*\*|\\(?=[\[\]])')
 
 
@@ -97,8 +94,6 @@ def _resolve_vapid_config(raw_key: str, subject: str, base_url: str) -> Optional
     if not raw_key:
         return None
     if not subject and base_url.startswith('https://'):
-        # RFC 8292 wants a mailto: or https: contact; a production BASE_URL
-        # qualifies, so it is the natural fallback.
         subject = base_url
     if not (subject.startswith('mailto:') or subject.startswith('https://')):
         logger.warning(
@@ -121,8 +116,6 @@ def _vapid_config() -> Optional[_VapidConfig]:
     )
 
 
-# Shared client so keep-alive connections to the handful of push-service hosts
-# are reused across sends instead of paying a TCP+TLS handshake per DM.
 _http_client: Optional[httpx.AsyncClient] = None
 
 
@@ -146,7 +139,6 @@ class WebPushService:
 
     DELIVERY_TIMEOUT = 10.0
     TTL_SECONDS = 24 * 60 * 60
-    # DM mirrors are time-sensitive (match starting, please acknowledge).
     URGENCY = 'high'
     MAX_BODY_LENGTH = 500
 
@@ -176,11 +168,7 @@ class WebPushService:
             raise ValueError('Push subscription endpoint must be an https:// URL')
         if len(endpoint) > 1024:
             raise ValueError('Push subscription endpoint is too long')
-        # The stored endpoint is later POSTed to server-side by _deliver_one, so
-        # a browser-supplied endpoint is an SSRF vector. Reject non-public hosts
-        # in production (mirrors the webhook guard); real push services
-        # (fcm.googleapis.com, web.push.apple.com, *.notify.windows.com,
-        # updates.push.services.mozilla.com) all resolve to public addresses.
+        # SSRF guard: the stored endpoint is POSTed server-side, so reject non-public hosts.
         if is_production():
             await ensure_public_host(parsed.hostname, subject='Push subscription endpoint')
         try:
@@ -246,8 +234,7 @@ class WebPushService:
         if subscription is None:
             raise NotFoundError('Subscription not found')
         if not hmac.compare_digest(subscription.auth, (old_auth or '').strip()):
-            # Same message as the miss above: an attacker probing endpoints must
-            # not learn which of the two checks they failed.
+            # Same message as the miss above, so a prober can't tell which check failed.
             raise NotFoundError('Subscription not found')
 
         rotated = await self.repository.rotate(
@@ -373,8 +360,6 @@ class WebPushService:
             return 0
         payload = self._build_payload(title=title, body=body, navigate=navigate, silent=silent)
         client = _get_http_client()
-        # Deliveries are independent — run them concurrently so one slow push
-        # service can't serialize a whole fan-out.
         results = await asyncio.gather(
             *(self._deliver_one(client, subscription, payload, config) for subscription in subscriptions)
         )
@@ -388,8 +373,6 @@ class WebPushService:
         config: _VapidConfig,
     ) -> bool:
         try:
-            # Encryption is ~1ms of pure CPU per message (fresh ECDH + HKDF +
-            # AES-GCM, inherent to RFC 8291) — keep it off the shared event loop.
             body = await asyncio.to_thread(
                 protocol.encrypt_payload, payload, subscription.p256dh, subscription.auth
             )
@@ -401,20 +384,11 @@ class WebPushService:
                 'Authorization': config.authorization_for(subscription.endpoint),
             }
         except ValueError as exc:
-            # Stored keys the protocol layer rejects can never succeed — prune.
             logger.warning('pruning web push subscription %s (bad keys: %s)', subscription.id, exc)
             await self.repository.delete(subscription)
             return False
 
-        # Re-resolve the destination at delivery time, the way webhook_service
-        # does. The subscribe/rotate check resolved DNS once, but this POST
-        # re-resolves it — so an endpoint whose host is repointed at an internal
-        # address afterwards (slow DNS rebinding) would otherwise be
-        # dereferenced with a stale verdict. Production-only, matching
-        # _validate_subscription, which allows local endpoints in development.
-        # Not a prune: the host may be fine again on the next send, and deleting
-        # a real device's subscription over a transient answer is worse than
-        # skipping one notification.
+        # Re-resolve at delivery (DNS rebinding). Skip, don't prune: the host may answer fine next time.
         if is_production():
             try:
                 await ensure_public_host(
@@ -435,7 +409,6 @@ class WebPushService:
             return False
 
         if response.status_code in (404, 410):
-            # The push service says this subscription no longer exists.
             logger.info('pruning expired web push subscription %s (HTTP %s)',
                         subscription.id, response.status_code)
             await self.repository.delete(subscription)

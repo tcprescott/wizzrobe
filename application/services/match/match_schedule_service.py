@@ -71,8 +71,6 @@ from models import GeneratedSeeds, Match, User
 
 logger = logging.getLogger(__name__)
 
-# Bracket pushes ride the serial DM queue; a provider that hangs must not hold
-# every match call behind it.
 _BRACKET_PUSH_SECONDS = 90
 
 _LIFECYCLE_FIELDS = ('seated_at', 'started_at', 'finished_at', 'confirmed_at', 'needs_review')
@@ -226,8 +224,7 @@ class MatchScheduleService(MatchNotificationMixin):
             await gate(actor, match),
             f"User cannot {action_verb} match {match.id}",
         )
-        # The caller's row was loaded when its dialog opened; decide from the row
-        # as it stands now, and stamp only if nobody else got there first.
+        # Re-read: the caller's row may be stale. Stamp only if nobody else got there first.
         await match.refresh_from_db(fields=_LIFECYCLE_FIELDS)
         check()
 
@@ -248,8 +245,7 @@ class MatchScheduleService(MatchNotificationMixin):
         if not notify:
             match_live.publish(match.id)
             return
-        # Resolve the community name here (request context) rather than in the
-        # queue worker, and pass the pre-built embed down with the text.
+        # Resolve here, in request context: the queue worker has no tenant bound.
         community = await _community_name()
         bracket_line = await bracket_line_for(match.id)
         message, embed = build_message(match, community, bracket_line)
@@ -263,8 +259,7 @@ class MatchScheduleService(MatchNotificationMixin):
         match_live.publish(match.id)
 
     async def seat_match(self, match: Match, actor: Optional[User] = None) -> None:
-        # ``check`` below is synchronous and runs before ``_transition`` fetches
-        # relations, so the players have to be loaded here for it to see them.
+        # ``check`` runs before ``_transition`` fetches relations, so load the players here.
         await match.fetch_related('tournament', 'players')
         if match.tournament and match.tournament.is_racetime_enabled:
             raise ValueError(
@@ -354,8 +349,7 @@ class MatchScheduleService(MatchNotificationMixin):
         await self._confirm(match, actor, authorize=AuthService.can_confirm_match)
 
     async def _confirm(self, match: Match, actor: Optional[User], *, authorize: Callable) -> None:
-        # ``check`` below is synchronous and runs before ``_transition`` fetches
-        # relations, so the players have to be loaded here for it to see them.
+        # ``check`` runs before ``_transition`` fetches relations, so load the players here.
         await match.fetch_related('players')
 
         def check() -> None:
@@ -382,11 +376,6 @@ class MatchScheduleService(MatchNotificationMixin):
         from application.services import opt_in_notifications
         discord_queue.enqueue(opt_in_notifications.match_result(match.id))
 
-        # Confirming a flagged result *is* the resolution — the admin has now
-        # looked at it, which is all the flag ever asked for. A separate
-        # MATCH_REVIEW_CLEARED row (rather than extra keys on the confirm audit)
-        # keeps ``_transition``'s shared detail shape untouched and makes the
-        # trail read record → flag → clear → confirm.
         if match.needs_review:
             match.needs_review = False
             await match.save(update_fields=['needs_review'])
@@ -405,8 +394,7 @@ class MatchScheduleService(MatchNotificationMixin):
 
     def push_confirmed_result(self, match: Match, actor: Optional[User]) -> None:
         """Hand a confirmed result on to every bracket the match mirrors, off the request path."""
-        # Fire-and-forget so a Challonge outage never blocks confirmation;
-        # failures are visible via audit and the manual re-push.
+        # Fire-and-forget: a Challonge outage must not block confirmation.
         async def _push_challonge_result() -> None:
             from application.services.challonge_service import ChallongeService
             try:
@@ -420,8 +408,6 @@ class MatchScheduleService(MatchNotificationMixin):
 
         discord_queue.enqueue(_push_challonge_result())
 
-        # Every other linked bracket site (start.gg) hears about it through the
-        # shared bracket-source hook; it isolates each site's failure itself.
         async def _notify_bracket_sources() -> None:
             from application.services import bracket_sources
             try:
@@ -433,8 +419,7 @@ class MatchScheduleService(MatchNotificationMixin):
 
         discord_queue.enqueue(_notify_bracket_sources())
 
-        # Fire-and-forget so a failure never blocks confirmation; failures are
-        # visible via audit and manual replay.
+        # Fire-and-forget: a failure must not block confirmation.
         async def _advance_bracket_result() -> None:
             from application.services.bracket_service import BracketService
             try:
@@ -535,16 +520,7 @@ class MatchScheduleService(MatchNotificationMixin):
                 if match.generated_seed:
                     return False, "A seed has already been generated for this match", None
 
-                # Resolve which randomizer + settings to roll. A Preset FK wins
-                # when set (its randomizer + settings); otherwise fall back to the
-                # legacy ``seed_generator`` string (hard-coded settings).
-                #
-                # Which preset that is, is the players' answer as much as the
-                # tournament's: a match whose players all opted in rolls the
-                # harder preset, and staff can override either way. This is the
-                # only place that question is asked, and asking it here is what
-                # closes the opt-in window — from this line on, the settings are
-                # what ``GeneratedSeeds`` records rather than what anyone picks.
+                # The only place the hard-preset question is asked; resolving it closes the opt-in window.
                 preset = await self.hard_preset_service.resolve_preset(match)
                 randomizer = preset.randomizer if preset is not None else match.tournament.seed_generator
 
@@ -554,30 +530,16 @@ class MatchScheduleService(MatchNotificationMixin):
                 if randomizer not in self.seedgen_service.AVAILABLE_RANDOMIZERS:
                     return False, f"Seed generator '{randomizer}' not found", None
 
-                # Last precondition, because it is about this match rather than
-                # the tournament's setup: a match can only be seeded once and the
-                # seed reaches the players by DM, so rolling before they exist
-                # spends the single roll on nobody and leaves the real players
-                # unable to get another. Enforced here and not only in the
-                # table's Generate button, because REST and MCP reach this too.
+                # Not only the button's check: REST and MCP reach this, and a seed rolled before players exist is lost.
                 if not match.players:
                     return False, (
                         "This match has no players yet — a seed can only be rolled "
                         "once, and its DM would reach nobody"
                     ), None
 
-                # A task-queue backend cannot answer "here is your seed" from one
-                # call, so this surface hands it to ``ProviderTask`` and returns.
-                # The worker finishes the job minutes later, through
-                # ``complete_seed_roll`` below — the same completion this path
-                # runs inline, so a restart in the middle changes who finishes
-                # the roll but not what finishing means.
                 if randomizer in self.seedgen_service.ASYNC_RANDOMIZERS:
                     return await self._queue_async_seed(match, randomizer, preset, actor)
 
-                # Generate the seed. A keyed randomizer resolves this community's
-                # own credential inside the generator and raises when it is not
-                # configured; that surfaces below as "Error generating seed: …".
                 triforce_text = None
                 if self.seedgen_service.supports_triforce_texts(randomizer):
                     triforce_text = await TriforceTextService().get_balanced_text(match.tournament)
@@ -599,25 +561,15 @@ class MatchScheduleService(MatchNotificationMixin):
                 return True, message, seed_url
 
             except MissingCredentialError as e:
-                # Actionable and safe to show: it names a credential this actor
-                # can go and configure, never upstream response text.
                 return False, str(e), None
             except SeedProviderError as e:
-                # Also actionable, and also curated rather than raw: the envelope
-                # already classified this into "the upstream is down / rate-
-                # limiting / rejected the settings" and bounded the provider's own
-                # words. Telling someone minutes before a race that alttpr.com is
-                # down — rather than "check the server logs" — is the difference
-                # between waiting a minute and calling off the match.
                 logger.error(
                     'Seed generation for match %s failed after %d attempt(s): %s',
                     match_id, e.attempts, e,
                 )
                 return False, str(e), None
             except Exception:
-                # Log the full traceback (reaches logs + Sentry) and return a
-                # generic message rather than leaking raw randomizer/HTTP error
-                # text to the user and the REST 400 detail.
+                # Never return the raw exception text: it reaches users and the REST 400 detail.
                 logger.exception("Seed generation failed for match %s", match_id)
                 return False, "Seed generation failed. Please check the server logs.", None
 
@@ -657,8 +609,6 @@ class MatchScheduleService(MatchNotificationMixin):
             event_details={'match_id': match.id, 'tournament_id': match.tournament_id},
         )
 
-        # Nudges every open view into showing the rolling indicator, not just the
-        # browser that clicked Generate.
         match_live.publish(match.id)
 
         return True, (
@@ -678,8 +628,7 @@ class MatchScheduleService(MatchNotificationMixin):
         backend. Keeping one copy is what makes a restart mid-roll change only
         *who* finishes the job.
         """
-        # The settings are snapshotted as sent — a preset edited after this roll
-        # must not change what this seed is recorded as having used.
+        # Snapshot the settings: a later preset edit must not change this seed's record.
         match.generated_seed = await GeneratedSeeds.create(
             tenant_id=require_tenant_id(),
             seed_url=seed_url,
@@ -691,8 +640,7 @@ class MatchScheduleService(MatchNotificationMixin):
             provider_meta=provider_meta,
             seed_code=seed_code or None,
         )
-        # The roll waited on the provider; the proctor may have checked the
-        # players in meanwhile, so write the seed and nothing else.
+        # Write only the seed: the proctor may have checked players in while the roll ran.
         await match.save(update_fields=['generated_seed_id'])
 
         descriptor = _match_descriptor(match, await bracket_line_for(match.id))
@@ -701,17 +649,10 @@ class MatchScheduleService(MatchNotificationMixin):
             seed_description = f'[Open your seed]({seed_url})'
             embed_url: Optional[str] = seed_url
             paste_instructions = None
-            # The seed URL is the whole point of this DM, so it gets a button
-            # rather than only a hyperlink buried in the embed description. It
-            # points at the randomizer, not at Wizzrobe — the one link here that
-            # is deliberately off-site.
+            # Deliberately off-site: the button opens the seed on the randomizer.
             seed_link: Optional[DMLink] = DMLink('Open your seed', seed_url)
         else:
-            # A permalink or seed-and-flags string is pasted into the player's
-            # own randomizer. Discord refuses a non-URL as a button or embed URL
-            # (the whole DM fails), so the seed rides in a copyable code block
-            # and the button opens the match on the Player tab, where the same
-            # seed has a copy button.
+            # Discord rejects a non-URL button or embed URL (the whole DM fails), so it rides in a code block.
             paste_instructions = (
                 self.seedgen_service.paste_instructions(randomizer, settings)
                 or 'Paste this into your randomizer.'

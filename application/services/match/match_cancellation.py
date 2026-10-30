@@ -57,8 +57,7 @@ class CancellationMixin:
         """
         match_id = match.id
         tournament_id = match.tournament_id
-        # The game leading a best-of set holds the bracket link: it passes to
-        # another game first, so the rest of the set stays booked.
+        # Hand the lead game's bracket link on first, so the rest of the set stays booked.
         if self._leads_set(match):
             from application.services.bracket_set_service import BracketSetService
 
@@ -146,10 +145,7 @@ class CancellationMixin:
         await match.fetch_related('tournament', 'players__user', 'stage')
         recipients = await collect_match_audience(match)
         community = await _community_name()
-        # Both bracket facts are resolved here, before the delete, for the same
-        # reason the recipients are: the game row is reachable from this match
-        # only while it exists. ``frees_slot`` is what turns "nothing further is
-        # needed from you" into "the matchup is open to reschedule" (D3).
+        # Resolve before the delete: the game row is reachable from this match only while it exists.
         bracket_line, frees_slot = await bracket_dm_context(match.id)
         message = cancelled_dm(
             match.tournament.name, reason=reason, released=frees_slot,

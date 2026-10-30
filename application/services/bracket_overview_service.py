@@ -65,7 +65,6 @@ class SlotView:
     name: Optional[str] = None
     user_id: Optional[int] = None
     score: Optional[int] = None
-    # "Winner of A3" while the side is undecided.
     placeholder: Optional[str] = None
     from_set_id: Optional[int] = None
     from_outcome: Optional[str] = None
@@ -364,7 +363,7 @@ class BracketOverviewService:
             ],
         )
 
-    # Challonge (mirror only: no Challonge API calls)
+    # Challonge: mirror only, no Challonge API calls.
     async def _challonge(self, tournament: Tournament, show_users: bool) -> TournamentBracketView:
         mirror = await ChallongeService().get_bracket_mirror(tournament.id)
         participants = {p.id: p for p in mirror['participants']}
@@ -629,5 +628,4 @@ class BracketOverviewService:
                 else:
                     record[slot.entrant_id].losses += 1
         return sorted(record.values(), key=lambda r: (-r.wins, r.losses, r.name.lower()))
-
 

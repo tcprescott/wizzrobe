@@ -28,7 +28,6 @@ from application.services.auth_service import AuthService
 from application.services.seedgen_service import RemotePreset, SeedGenerationService
 from models import Preset, User
 
-# Where the committed built-in presets live (one subdirectory per randomizer).
 _BUILTINS_DIR = 'presets'
 
 
@@ -38,8 +37,6 @@ class PresetTestRoll:
 
     randomizer: str
     seed_url: str
-    # False for backends that roll their bundled settings and ignore the
-    # preset's: the roll proves the randomizer works, not that this row does.
     used_preset_settings: bool
 
 
@@ -137,8 +134,7 @@ class PresetService:
         new_randomizer = preset.randomizer if randomizer is None else (randomizer or '').strip()
         new_settings = preset.settings if settings is None else settings
         self._validate(new_name, new_randomizer, new_settings)
-        # A rename leaves the stored settings alone, so they aren't re-judged:
-        # a row saved before its randomizer checked settings stays renameable.
+        # A pure rename skips re-validation, so rows saved before settings were checked stay renameable.
         if settings is not None or new_randomizer != preset.randomizer:
             new_settings = SeedGenerationService.normalize_preset_settings(new_randomizer, new_settings)
         if (new_randomizer, new_name) != (preset.randomizer, preset.name):

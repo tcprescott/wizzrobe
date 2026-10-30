@@ -31,16 +31,11 @@ async def _tick() -> None:
     from models import FeatureFlag
 
     now = datetime.now(timezone.utc)
-    # Every in-progress run, not an age-filtered slice: each qualifier sets its
-    # own limit, so no single cutoff is right for all of them, and the set is
-    # small (one active run per player per qualifier).
+    # Every in-progress run, not an age-filtered slice: each qualifier sets its own limit.
     candidates = await AsyncQualifierRunRepository.list_in_progress_all()
     stale_claims = await AsyncQualifierRunRepository.list_stale_claims_all(
         now - rules.REVIEW_CLAIM_TTL
     )
-    # Qualifiers whose queue might have gone unworked. Cheap to enumerate (a
-    # community runs a handful), and the per-qualifier read behind the decision is
-    # two scalars.
     backlogs = await AsyncQualifierRepository.list_active_all()
     if not candidates and not stale_claims and not backlogs:
         return
@@ -49,7 +44,7 @@ async def _tick() -> None:
 
     async def _handle(run) -> None:
         if not await FeatureFlagService().is_enabled(FeatureFlag.ASYNC_QUALIFIERS):
-            return  # tenant has async qualifiers disabled
+            return
         qualifier = run.qualifier
         deadline = rules.run_deadline(qualifier, run.started_at)
         if deadline is None:
@@ -64,11 +59,10 @@ async def _tick() -> None:
 
     async def _unclaim(run) -> None:
         if not await FeatureFlagService().is_enabled(FeatureFlag.ASYNC_QUALIFIERS):
-            return  # tenant has async qualifiers disabled
+            return
         await service.release_stale_claim(run)
         logger.info('released a stale review claim on qualifier run %s', run.id)
 
-    # ``tenant_id`` is Tortoise's generated FK column, invisible to mypy.
     def tenant_id_of(run):
         return run.tenant_id
 
@@ -101,7 +95,7 @@ async def _tick() -> None:
         qualifier activated into its own window announces itself without waiting.
         """
         if not await FeatureFlagService().is_enabled(FeatureFlag.ASYNC_QUALIFIERS):
-            return  # tenant has async qualifiers disabled
+            return
         crossed = await service.sync_window_state(qualifier, now=now)
         if crossed is not None:
             logger.info('qualifier %s window is now %s', qualifier.id, crossed.value)

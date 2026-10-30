@@ -35,9 +35,6 @@ from application.timezone_context import current_timezone_name
 from application.utils.timezone import combine_local, now_local, to_local
 from models import AuditLog, Match, User, VolunteerShift
 
-# Weights for the composite tournament-health score. Components with no data
-# (e.g. no stream candidates) are dropped and the remaining weights renormalize,
-# so a tournament is never punished for a dimension that does not apply to it.
 HEALTH_WEIGHTS = {
     'completion': 0.30,
     'on_time': 0.25,
@@ -45,10 +42,6 @@ HEALTH_WEIGHTS = {
     'duration': 0.20,
 }
 
-# A range wider than this many buckets keeps only the most-recent MAX_BUCKETS
-# (dropping the oldest) so the series can't grow without bound from an accidental
-# multi-year weekly range. The DB query is clamped to the kept window too, so the
-# reported totals always match what the chart shows.
 MAX_BUCKETS = 240
 
 
@@ -295,7 +288,6 @@ class AnalyticsService:
             duration_h = self._duration_hours(shift.starts_at, shift.ends_at)
             assignments = list(shift.assignments)
             filled = len(assignments)
-            # A called-off shift is credited as worked, so it counts as attended.
             checked_in = sum(1 for a in assignments if a.counts_as_worked)
 
             scheduled_hours[idx] += duration_h * filled
@@ -440,8 +432,7 @@ class AnalyticsService:
 
     @classmethod
     def _finalize_health(cls, stats: Dict) -> Dict:
-        # Numerator counts only finished *past* matches so completion stays in
-        # [0, 1] even when a finished match has been rescheduled into the future.
+        # Only finished *past* matches, or one rescheduled into the future pushes completion past 1.
         completion = (
             stats['matches_finished_past'] / stats['matches_past']
             if stats['matches_past'] > 0 else None

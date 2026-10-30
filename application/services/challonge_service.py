@@ -58,13 +58,9 @@ logger = logging.getLogger(__name__)
 
 _TOKEN_REFRESH_BUFFER = timedelta(minutes=5)
 
-# Per-community, so a sync and the health worker racing on an expiring token
-# refresh it once: Challonge rotates the refresh token, and the loser would
-# send a spent one.
+# Per-community lock: Challonge rotates the refresh token, so the losing racer would send a spent one.
 _refresh_locks: Dict[int, asyncio.Lock] = {}
 
-# Collapse rapid repeat syncs (double-clicks, webhook bursts) — a non-forced
-# sync within this window of the last one is treated as a no-op.
 _SYNC_THROTTLE_WINDOW = timedelta(seconds=60)
 
 _DEFAULT_SERVICE_SCOPES = (
@@ -75,8 +71,7 @@ _PLAYER_SCOPES = 'me'
 
 
 def _redirect_uri() -> str:
-    # One registered redirect URI serves both the service-account and the
-    # per-player flows; Challonge OAuth apps only validate against a single URI.
+    # One URI for both flows: a Challonge OAuth app validates against a single redirect URI.
     return os.getenv('CHALLONGE_REDIRECT_URI') or f"{get_base_url()}/challonge/oauth/callback"
 
 
@@ -491,8 +486,6 @@ class ChallongeService(ChallongeParticipantAssignmentMixin, ChallongeStageMixin,
             "Only staff can link a tournament's Challonge bracket",
         )
 
-        # Exclusivity: one bracket site per tournament (native, Challonge or start.gg); the
-        # symmetric guards are ``BracketService._ensure_no_challonge_link`` and ``StartggService.link_event``.
         if tournament.startgg_event_slug:
             raise ValueError("This tournament follows a start.gg event; a tournament follows one bracket site.")
         from application.repositories import BracketRepository
@@ -514,9 +507,6 @@ class ChallongeService(ChallongeParticipantAssignmentMixin, ChallongeStageMixin,
             raise ValueError(f"Could not find that Challonge tournament: {e}") from e
 
         remote = full['tournament']
-        # A bracket-run tournament schedules only what the bracket produced, so
-        # close the manual player-request path. Staff can re-open it per
-        # tournament from the tournament editor.
         await self.tournament_repository.update(
             tournament, challonge_tournament_id=remote.get('id') or identifier, challonge_community=community,
             challonge_tournament_url=remote.get('url'), allow_player_match_requests=False,
@@ -527,8 +517,6 @@ class ChallongeService(ChallongeParticipantAssignmentMixin, ChallongeStageMixin,
             {'tournament_id': tournament.id, 'challonge_tournament_id': tournament.challonge_tournament_id},
         )
 
-        # The full fetch already carries the bracket, so mirror it without a
-        # second round-trip.
         await self._mirror_bracket(tournament, full['participants'], full['matches'], actor, remote)
         await self._record_sync(tournament, remote)
         return tournament
@@ -633,19 +621,15 @@ class ChallongeService(ChallongeParticipantAssignmentMixin, ChallongeStageMixin,
     ) -> Dict[str, int]:
         bookable_before = await self._bookable_pairings(tournament)
         unfinished_before = await self.repository.unfinished_match_ids(tournament)
-        # Resolve every linked user in one query rather than per participant.
         users_by_cuid = await self.repository.resolve_users_by_challonge_ids(
             [rp.get('challonge_user_id') for rp in remote_participants]
         )
-        # A hand assignment outlives every sync: an entrant added by name has no
-        # account to resolve, and staff chose this mapping on purpose.
+        # A hand assignment outlives every sync: staff chose it on purpose.
         manual = {
             p.challonge_participant_id: p.user
             for p in await self.repository.list_participants(tournament)
             if p.user_assigned_manually
         }
-        # An entrant a player added from the Tournaments tab carries no account
-        # id until they accept Challonge's invite; its ``misc`` names them.
         users_by_misc = await UserRepository.get_by_ids([
             uid for uid in (misc_user_id(rp.get('misc')) for rp in remote_participants) if uid
         ])
@@ -687,7 +671,6 @@ class ChallongeService(ChallongeParticipantAssignmentMixin, ChallongeStageMixin,
             )
 
         await self._flag_lost_placeholders(tournament, {rm['match_id'] for rm in remote_matches})
-        # A reset or cleared roster on Challonge; a hand assignment goes with its entrant.
         removed_p, removed_m = await self.repository.prune_mirror(
             tournament, set(participant_by_cid), {rm['match_id'] for rm in remote_matches},
         )

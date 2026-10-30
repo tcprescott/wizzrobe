@@ -45,8 +45,6 @@ RECORDED = 'recorded'
 RACE_ROOM = 'race_room'
 FORFEIT = 'forfeit'
 
-# A sync that finds more results than this for one tournament sends one roundup
-# instead, so an hourly sync after a busy hour doesn't buzz through ten cards.
 ROUNDUP_OVER = 3
 
 

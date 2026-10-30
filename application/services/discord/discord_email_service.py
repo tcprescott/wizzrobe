@@ -65,7 +65,6 @@ class DiscordEmailService:
     ) -> None:
         from application.services.notification_channel_service import NotificationChannelService
 
-        # The mock identity can't know who is signed in, so it vouches for them.
         if is_mock_discord() and discord_user_id == 'mock':
             discord_user_id = str(user.discord_id)
         await NotificationChannelService().use_discord_email(

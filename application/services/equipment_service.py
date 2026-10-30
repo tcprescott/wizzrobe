@@ -143,7 +143,6 @@ class EquipmentService:
                 )
                 for offset in range(count)
             ]
-            # One transaction so a clash part-way through leaves no partial block.
             async with in_transaction():
                 await self.repository.bulk_create(block)
             return block
@@ -187,8 +186,7 @@ class EquipmentService:
             if status is not None and status != equipment.status:
                 if equipment.status == EquipmentStatus.CHECKED_OUT or status == EquipmentStatus.CHECKED_OUT:
                     raise ValueError("Use check out / check in to change a checked-out status.")
-                # Conditional, like checkout's claim: retiring an asset someone
-                # checked out a moment ago must not overwrite CHECKED_OUT.
+                # Conditional, like checkout's claim: must not overwrite a CHECKED_OUT written a moment ago.
                 if not await self.repository.transition_status(equipment.id, equipment.status, status):
                     raise ValueError("This asset was just checked out. Check it in before changing its status.")
                 equipment.status = status
@@ -229,11 +227,6 @@ class EquipmentService:
             await AuthService.can_checkout_equipment(actor),
             "You do not have permission to check out equipment.",
         )
-        # Anyone signed in may borrow to themselves — that is a player scanning
-        # the QR code on a loaner. Checking out *on behalf of* someone else is
-        # the manager action, and is refused rather than quietly rewritten to the
-        # actor: a loan silently booked against the wrong person is worse than a
-        # visible no.
         if borrower_id is not None and borrower_id != actor.id:
             await AuthService.ensure(
                 await AuthService.can_manage_equipment(actor),
@@ -242,13 +235,7 @@ class EquipmentService:
             borrower = await User.get_or_none(id=borrower_id)
             if borrower is None:
                 raise ValueError("That borrower doesn't exist. Pick someone from the list.")
-            # The two hard rules, enforced here because this is the only place
-            # every caller passes through — the dialog, the MCP surface, a future
-            # REST router, a Discord handler. Deliberately *not* enforced: that
-            # the borrower belongs to this community. The picker narrows to that
-            # by default and offers an opt-in to widen, because lending to
-            # someone who just walked into the venue is the case this serves;
-            # hard-rejecting a non-member would break it.
+            # Deliberately no membership check on the borrower: lending to someone who just walked in is the point.
             if str(borrower.discord_id) == str(SYSTEM_USER_DISCORD_ID) or not borrower.is_active:
                 raise ValueError("That account cannot borrow equipment.")
         else:
@@ -260,9 +247,7 @@ class EquipmentService:
         if await self.repository.get_open_loan(equipment) is not None:
             raise ValueError("This asset is already checked out.")
 
-        # The conditional status flip is the lock: a double-tap or two phones
-        # scanning the same label both pass the reads above, and only one of
-        # them gets to move the row off AVAILABLE.
+        # The conditional status flip is the lock: two scans both pass the reads above; only one moves the row.
         async with in_transaction():
             if not await self.repository.transition_status(
                 equipment.id, EquipmentStatus.AVAILABLE, EquipmentStatus.CHECKED_OUT,
@@ -289,8 +274,7 @@ class EquipmentService:
         if loan is None:
             raise ValueError("This asset is not currently checked out.")
 
-        # Closing the loan is conditional on it still being open, so a
-        # double-tapped Check in records one return and one audit row.
+        # Conditional on the loan still being open, so a double-tap records one return.
         async with in_transaction():
             if not await self.repository.close_loan(loan, actor, datetime.now(timezone.utc)):
                 raise ValueError("This asset is not currently checked out.")

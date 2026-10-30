@@ -29,13 +29,8 @@ from models import (
     User,
 )
 
-# How long an unchecked-in late match keeps sliding forward on the capacity
-# forecast before it's treated as a no-show and stops growing.
 LATE_PUSH_LIMIT = timedelta(hours=2)
 
-# Players are asked to check in at the scheduled time; the race itself starts
-# about this long after check-in (seat_delay/setup in the match operations
-# report measure it). The capacity forecast plans unstarted matches with it.
 CHECK_IN_TO_START = timedelta(minutes=15)
 
 
@@ -43,8 +38,6 @@ def _now() -> datetime:
     return datetime.now(timezone.utc)
 
 
-# A start or check-in this long before its scheduled time is a data-entry
-# artefact (a result recorded ahead of the slot), not a team arriving early.
 IMPLAUSIBLE_EARLY_MIN = 6 * 60
 
 _SEAT_PREFIXES = ('', 'staged_', 'unstaged_')
@@ -343,8 +336,6 @@ class ReportsService:
                 'seat': {prefix: _SeatTally() for prefix in _SEAT_PREFIXES},
             })
             stats['matches_total'] += 1
-            # Counted on the timestamp alone, as Insights counts them; the
-            # averages below still need both ends of their interval.
             if started:
                 stats['matches_started'] += 1
             if finished:

@@ -102,9 +102,7 @@ class VenuePreview:
     tiers: List[MatcherinoTier]
 
 
-# One sync per event at a time. The app runs as a single process
-# (docs/scaling-roadmap.md), so an in-process lock serialises the worker's poll,
-# a staff Sync and every desk phone's Sync for the same event.
+# An in-process lock is enough only while the app runs as a single process.
 _sync_locks: Dict[int, asyncio.Lock] = {}
 
 
@@ -351,8 +349,7 @@ class CheckInService:
                 raise MatcherinoAPIError('Matcherino returned no badges for a venue that had some')
         except MatcherinoAPIError as e:
             await self.login_service.note_sync_result(e)
-            # updated_at marks when it failed: the desk shows it and the
-            # worker backs off from it.
+            # updated_at marks the failure: the desk shows it and the worker backs off from it.
             await self.events.record_sync(
                 event, last_sync_error=str(e)[:1000], updated_at=datetime.now(timezone.utc),
             )
@@ -457,8 +454,7 @@ class CheckInService:
         result.auto_linked = len(linked)
 
         tiers = await apply_tiers(self.tiers, event, sales)
-        # bulk_create doesn't hand back primary keys on every backend, so the
-        # badges look their buyer's row up again.
+        # bulk_create doesn't return primary keys on every backend, so look the rows up again.
         rows = await self.entrants.matcherino_rows_by_user_id(event)
         await apply_badges(self.passes, event, sales.purchases, stored, tiers, rows, now)
         return result
@@ -617,7 +613,6 @@ class CheckInService:
         ):
             current = await self.entrants.get_by_id(entrant_id) or entrant
             if current.checked_in_at is None and current.withdrawn_at is not None:
-                # Withdrawn by a sync between the read above and the claim.
                 raise ValueError(f"{current.display_name} doesn't hold a badge any more. {_WITHDRAWN_DENIED}")
             return CheckInOutcome(current, already=True)
         entrant.checked_in_at = now
@@ -659,7 +654,6 @@ class CheckInService:
         other = await self.entrants.get_for_user(entrant.event, user)
         absorbed: List[str] = []
         if other is not None and other.source == CheckInEntrantSource.COMP:
-            # They were comped before anyone matched this purchase to them.
             absorbed = absorb_comp_row(other, entrant)
             await self.entrants.delete(other)
         elif other is not None:

@@ -29,14 +29,11 @@ from application.utils.seed_provider import (
 )
 from models import Preset
 
-# DK64 Randomizer (api.dk64rando.com) — a task-queue backend: submit → poll →
-# result.
 DK64R_API_BASE = 'https://api.dk64rando.com/api'
 DK64R_BRANCHES = {'stable', 'dev'}
-# The player-facing site host per branch (the permalink the roll returns).
 DK64R_SITE_HOSTS = {'stable': 'dk64randomizer.com', 'dev': 'dev.dk64randomizer.com'}
-DK64R_POLL_INTERVAL = 5.0        # seconds — matches the reference web client's cadence
-DK64R_GENERATION_TIMEOUT = 600.0  # seconds (10 min) worst-case queue + generation budget
+DK64R_POLL_INTERVAL = 5.0
+DK64R_GENERATION_TIMEOUT = 600.0
 
 
 class DK64RBackend:
@@ -76,8 +73,6 @@ class DK64RBackend:
                 continue
             name = str(entry.get('name') or '').strip()
             settings_string = entry.get('settings_string')
-            # An entry without either is not importable — skipping it beats
-            # failing the whole catalogue over one malformed row.
             if not name or not settings_string:
                 continue
             description = (entry.get('description') or '').strip() or None
@@ -108,24 +103,19 @@ class DK64RBackend:
         if preset is not None:
             settings = dict(preset.settings or {})
         else:
-            # Read off the shared event loop — a blocking file read stalls every
-            # connected user (CLAUDE.md: never block the event loop).
+            # Off the event loop: a blocking file read stalls every connected user.
             def _read_default() -> dict:
                 with open("presets/dk64r/sgl.json", "r", encoding="utf-8") as f:
                     return json.load(f)
 
             settings = await asyncio.to_thread(_read_default)
 
-        # Optional per-preset branch override, stripped before anything is sent.
         branch = str(settings.pop('_branch', 'stable'))
         if branch not in DK64R_BRANCHES:
             raise ValueError(
                 f"Unknown DK64R branch '{branch}' (expected 'stable' or 'dev')."
             )
 
-        # A settings string is the site's own portable preset format; expand it
-        # to the full settings dict. A full-JSON preset is submitted as-is
-        # (converting a dict would yield a string — the opposite direction).
         return branch, settings, settings.get('settings_string')
 
     async def _dk64r_session(self):
@@ -136,9 +126,6 @@ class DK64RBackend:
         across that gap. The mock's task registry is process-wide for the same
         reason.
         """
-        # The simulated queue authenticates nobody, so dev and CI roll DK64
-        # without a credential row — matching every other backend's behaviour
-        # under MOCK_SEEDGEN, which short-circuits before its own key lookup.
         if is_mock_dk64():
             return MockDK64Session()
         api_key = await self._credential('dk64r', 'api_key')
@@ -155,14 +142,8 @@ class DK64RBackend:
             if settings_string is not None else settings
         )
 
-        # Never generate a spoiler log, whatever the preset asked for. The
-        # upstream serves one to anyone holding the seed number at
-        # ``GET /get_spoiler_log?hash=<seed_number>``, and the seed number is the
-        # permalink we DM to the players — so a preset with this on hands every
-        # racer the item locations. Several of the site's own presets, including
-        # "Season 5 Race Settings", convert with it set to true, so trusting the
-        # preset is not a safe default. Forced last, after both settings shapes
-        # have resolved, and it lands in the snapshot ``GeneratedSeeds`` records.
+        # Always forced off, after both settings shapes resolve: upstream serves the spoiler log to anyone
+        # holding the seed number, and that's the permalink we DM to players.
         settings_dict['generate_spoilerlog'] = False
         return settings_dict
 

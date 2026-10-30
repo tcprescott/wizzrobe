@@ -129,5 +129,4 @@ class VolunteerPositionService:
         await self.audit_service.write_log(
             actor, AuditActions.VOLUNTEER_POSITION_DELETED, {'position_id': position_id},
         )
-        # The cascade took its shifts, assignments and mappings with it.
         await self.role_mapping_service.reconcile_all(actor)

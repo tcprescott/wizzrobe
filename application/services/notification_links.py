@@ -102,7 +102,6 @@ async def link_for(label: str, path: str) -> Optional[DMLink]:
     except Exception:
         logger.exception('notification link lookup failed for %s', path)
         return None
-    # A bare link still opens: a row page finds its own event, any other the default.
     try:
         slug = await event_slug(get_current_tenant_id(), get_current_event_id())
     except Exception:

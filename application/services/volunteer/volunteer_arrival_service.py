@@ -20,13 +20,11 @@ from application.services.notification_catalog import VOLUNTEER_LATE
 from application.utils.discord_messages_volunteer import LATE_CHOICES, late_label
 from models import FeatureFlag, User, VolunteerAssignment
 
-# What a called-off volunteer hears if they try to check in or say they're late.
 CALLED_OFF_MESSAGE = (
     "You've been called off this shift, so there's no need to check in. "
     "It still counts as worked."
 )
 
-# How long before a shift starts its "I'm here" opens.
 CHECK_IN_LEAD = timedelta(minutes=30)
 
 

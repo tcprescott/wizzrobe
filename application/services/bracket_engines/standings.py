@@ -29,10 +29,6 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Tuple
 
-# Every tiebreaker key :func:`compute_standings` understands. ``bracket_config``
-# validates a stage's configured chain against this so an unknown key is rejected
-# at write time instead of raising mid-render, and
-# :func:`standings_config_from` drops any that a pre-validation row still carries.
 KNOWN_TIEBREAKERS: Tuple[str, ...] = ('buchholz', 'omw', 'head_to_head')
 
 
@@ -158,7 +154,6 @@ def compute_standings(
     for row in results:
         r1 = rec(row.ref1)
         if row.ref2 is None:
-            # Bye for ref1.
             if row.winner not in (None, row.ref1):
                 raise ValueError("a bye's winner must be ref1 (or None)")
             r1.byes += 1
@@ -206,7 +201,6 @@ def compute_standings(
         'omw': omw_values,
     }
 
-    # Head-to-head wins of ``ref`` against the members of ``group`` (relative).
     def h2h_scores(group: List[int]) -> Dict[int, int]:
         member = set(group)
         scores = {r: 0 for r in group}
@@ -222,7 +216,6 @@ def compute_standings(
 
     ordered_tbs = tuple(config.tiebreakers)
 
-    # Recursively split a group tied on all prior criteria into ranked buckets.
     def order_group(group: List[int], tbs: Tuple[str, ...]) -> List[List[int]]:
         if len(group) <= 1 or not tbs:
             return [list(group)]
@@ -239,7 +232,6 @@ def compute_standings(
             buckets.extend(order_group(sub, rest))
         return buckets
 
-    # Rank buckets: split first by points, then by the tiebreaker chain.
     all_buckets: List[List[int]] = []
     point_totals = sorted({records[r].points for r in refs}, reverse=True)
     for pts in point_totals:

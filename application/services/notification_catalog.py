@@ -50,8 +50,6 @@ class Notice:
     title: str
     when: str
     defaults: Mapping[NotificationRecipient, NotificationMode]
-    # Who each recipient column means for this message, where the column name
-    # alone would mislead ("Staff" is the on-duty desk for some, all staff for others).
     who: Mapping[NotificationRecipient, str]
 
     def to(self, recipient: NotificationRecipient) -> NoticeTarget:
@@ -140,8 +138,6 @@ MATCH_RESULT = _notice(
     {PLAYERS: _opted_in('Every player in the match'),
      FOLLOWERS: _opted_in('People following the tournament, at their follow level')},
 )
-# Tournament admins hear every result the moment it lands, wherever it was
-# reported, so they stop refreshing the bracket. Silent: there's nothing to do.
 RESULT_IN = _notice(
     'result_in', 'Matches', 'Result in',
     'A result is recorded, comes from the race room, or is reported on Challonge or start.gg',
@@ -338,8 +334,6 @@ REQUEST_WITHDRAWN = _notice(
 )
 
 _CREW_OWNERS = "The tournament's admins and crew coordinators"
-# Split by role so a community can hear about commentary and let tracking stay
-# quiet. Silent by default: a busy event sends a lot of these and none is urgent.
 COMMENTATOR_SIGNUP = _notice(
     'commentator_signup', 'Crew', 'New commentator signup',
     'Someone signs up to commentate', {ADMINS: SILENT}, {ADMINS: _CREW_OWNERS},
@@ -562,8 +556,6 @@ REVIEW_QUEUE = _notice(
 )
 
 
-# Subheadings inside the bigger groups, in display order. A group missing here
-# shows its messages under the group heading alone.
 SECTIONS: Dict[str, Tuple[Tuple[str, Tuple[Notice, ...]], ...]] = {
     'Matches': (
         ('Booking', (
@@ -620,10 +612,6 @@ def notices() -> List[Notice]:
     )
 
 
-# The staff columns staff set together from one "Staff" dropdown on the settings
-# page. The per-recipient settings stay the stored truth; a choice writes all of
-# a message's staff recipients at once, and a mix that matches no choice reads
-# back as custom.
 STAFF_RECIPIENTS = (ON_DUTY, ADMINS, STAFF)
 
 
@@ -677,10 +665,6 @@ def staff_choice_for(
     return None
 
 
-# What each message asks of the person who gets it, for the presets on Profile →
-# Notifications. "Urgent" is time-critical (go to the stage, the room is open);
-# "act" asks for something (acknowledge, answer, pick a time). Everything else is
-# news. A target in neither set is news.
 _URGENT: Dict[str, frozenset] = {
     MATCH_CHECKED_IN.key: frozenset({PLAYERS, CREW}),
     SEED_READY.key: frozenset({PLAYERS}),
@@ -745,10 +729,6 @@ _ACT: Dict[str, frozenset] = {
 }
 
 
-# Messages nobody gets until they turn them on under Profile → Notifications.
-# The community column still holds the ceiling (staff can switch one off for
-# everybody), but every preset leaves an opt-in target off, so adding one never
-# changes what anybody already receives.
 _OPT_IN: Dict[str, frozenset] = {
     SEED_FAILED.key: _STAFF_ALERTS,
     STATION_ASSIGNED.key: frozenset({PLAYERS}),

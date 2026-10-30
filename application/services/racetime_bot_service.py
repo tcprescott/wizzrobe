@@ -118,8 +118,7 @@ class RacetimeBotService:
             if not new_client_id:
                 raise ValueError('Client id cannot be empty')
             changes['client_id'] = new_client_id
-        # An empty secret means "leave the stored secret unchanged" — the admin
-        # form never echoes it back, so blank is the untouched state, not a clear.
+        # Blank means unchanged, not cleared: the form never echoes the secret.
         if client_secret is not None and (client_secret or '').strip():
             changes['client_secret'] = client_secret.strip()
         if name is not None:
@@ -171,7 +170,6 @@ class RacetimeBotService:
         await self._require(bot_id)
         grant = await self.repository.get_grant(bot_id, tenant_id)
         if grant is not None:
-            # Idempotent: re-granting simply re-activates a suspended grant.
             if not grant.is_active:
                 grant = await self.repository.set_grant_active(grant, True)
         else:
@@ -193,13 +191,7 @@ class RacetimeBotService:
             {'bot_id': bot_id, 'tenant_id': tenant_id},
         )
 
-    # These are NOT super-admin-gated: the caller is the trusted in-process
-    # connection loop acting as the system user, not an interactive admin. They
-    # run with no tenant scope (the bot is global), so their audit rows are
-    # platform-level (``tenant=NULL``), and the ``client_secret`` never appears
-    # in the row. The health enum has no dedicated ``auth_failed`` member, so an
-    # auth failure is ``ERROR`` with the reason in ``status_message`` and an
-    # ``auth_failed`` flag on the audit detail (the loop uses it to stop retrying).
+    # Not super-admin-gated: the caller is the in-process connection loop acting as the system user.
 
     async def list_active_bots(self) -> List[RacetimeBot]:
         """Active bots the runtime should hold a connection for."""

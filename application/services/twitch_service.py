@@ -27,8 +27,6 @@ from application.utils.clients.twitch_client import (
 from application.utils.mocks.mock_twitch import is_mock_twitch
 from models import User
 
-# Basic public identity (id / login / display name via helix/users) needs no
-# scope; an empty scope keeps the consent screen minimal.
 _PLAYER_SCOPES = ''
 
 _PROVIDER = IdentityLinkProvider(

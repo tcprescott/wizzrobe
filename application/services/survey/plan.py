@@ -20,8 +20,6 @@ from application.services.survey.conditions import (
 )
 from models import SurveyAudience, SurveyQuestion, SurveyQuestionKind, SurveySection
 
-# Rough seconds to answer each kind, for the 10-minute budget. A comment is
-# optional and most people skip it, but the budget assumes they don't.
 SECONDS: Dict[SurveyQuestionKind, int] = {
     SurveyQuestionKind.RATING: 8,
     SurveyQuestionKind.NPS: 8,
@@ -29,18 +27,15 @@ SECONDS: Dict[SurveyQuestionKind, int] = {
     SurveyQuestionKind.CHOICE_ONE: 8,
     SurveyQuestionKind.CHOICE_MANY: 12,
     SurveyQuestionKind.COMMENT: 25,
-    SurveyQuestionKind.AGREE_SCALE: 5,  # per statement
+    SurveyQuestionKind.AGREE_SCALE: 5,
 }
 
-# Shown after someone sends their answers when staff wrote no line of their own.
 DEFAULT_AFTER_SEND = "We'll share what we change because of your answers."
 
 BUDGET_SECONDS = 10 * 60
-# What most people's path should stay under; the budget above is the ceiling for anyone's.
 TARGET_SECONDS = 5 * 60
 REPEATING = (SurveyAudience.EACH_TOURNAMENT, SurveyAudience.EACH_TOURNAMENT_RUN, SurveyAudience.EACH_POSITION)
 
-# A crew-role audience → the role in a recipient's ``crew_roles`` fact, and the part's reason line.
 CREW_AUDIENCES: Dict[SurveyAudience, Tuple[str, str]] = {
     SurveyAudience.COMMENTATORS: ('commentary', 'You commentated a match on stage'),
     SurveyAudience.TRACKERS: ('tracking', 'You tracked a match on stage'),
@@ -83,7 +78,7 @@ class Part:
     scope_label: str
     icon: str
     questions: List[SurveyQuestion] = field(default_factory=list)
-    follows: List[Entry] = field(default_factory=list)  # the section's answer-based conditions
+    follows: List[Entry] = field(default_factory=list)
     description: str = ''
 
     @property

@@ -32,8 +32,6 @@ from models import FeatureFlag, Tournament, User
 
 logger = logging.getLogger(__name__)
 
-# Blurple, the same informational tone the join-request and crew DMs use — a
-# signup confirmation is news, not something to act on.
 COLOR_SIGNUP = COLOR_SCHEDULED
 
 
@@ -52,15 +50,10 @@ class TournamentSignupCard:
     entrant_count: int
     entrants: List[User] = field(default_factory=list)
     admins: List[User] = field(default_factory=list)
-    # Roster lives on a linked Challonge bracket: signing up adds the player
-    # there, under the Challonge account linked on their profile.
     challonge_managed: bool = False
     challonge_name: Optional[str] = None
-    # The bracket has started, so Challonge no longer takes roster changes.
     roster_locked: bool = False
     unmapped_entrant_names: List[str] = field(default_factory=list)
-    # Roster lives on a linked start.gg event, read-only: players sign up and
-    # withdraw there, and the sync brings them in.
     startgg_url: Optional[str] = None
 
     @property
@@ -96,11 +89,6 @@ class TournamentSignupCard:
 
     @property
     def can_withdraw(self) -> bool:
-        # UPCOMING counts: staff can enrol someone before signups open, and
-        # there is no roster to protect yet — locking them in before the window
-        # has even started would be a rule with nothing behind it. Only a closed
-        # window, or a Challonge bracket that has started, makes withdrawing
-        # staff's call.
         return (
             self.enrolled
             and self.window is not SignupWindow.CLOSED
@@ -136,10 +124,7 @@ async def record_enrolment_change(
     payloads stay a single tournament wide and every consumer sees the same
     granularity whichever screen made the change.
     """
-    # Optional in the signature because the scheduling paths that reach here
-    # carry an optional actor; `write_log` raises on None rather than writing an
-    # unattributable row, which is the enforcement — not an `if actor:` guard
-    # that would silently skip the audit.
+    # No `if actor:` guard: write_log raising on None is the enforcement.
     await audit_service.write_and_publish(
         actor,  # type: ignore[arg-type]
         AuditActions.USER_TOURNAMENT_ENROLLMENT_UPDATED,
@@ -151,8 +136,6 @@ async def record_enrolment_change(
         EventType.TOURNAMENT_ENROLLED if added else EventType.TOURNAMENT_WITHDRAWN,
         event_extra={'tournament_id': tournament_id, 'user_id': target.id},
     )
-    # Only a person's own hand on a roster tells anyone: a bracket sync or the
-    # auto-enrol behind scheduling is not news (``notify`` is False there).
     if notify and actor is not None:
         from application.services import opt_in_notifications
         from application.services.discord import discord_queue

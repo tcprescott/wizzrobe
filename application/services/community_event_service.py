@@ -52,12 +52,9 @@ DESCRIPTION_MAX_LENGTH = 5000
 LOCATION_MAX_LENGTH = 200
 REVIEW_NOTE_MAX_LENGTH = 1000
 MIN_DURATION_MINUTES = 5
-#: Three days: long enough for a room that runs the whole weekend.
 MAX_DURATION_MINUTES = 72 * 60
 MAX_RSVP_CAPACITY = 1000
 
-#: How far back the listing looks for an event that is still running. Matches
-#: the longest event allowed, so nothing in progress drops off early.
 _RUNNING_LOOKBACK = timedelta(minutes=MAX_DURATION_MINUTES)
 
 _EDITABLE = (CommunityEventStatus.PENDING, CommunityEventStatus.APPROVED, CommunityEventStatus.REJECTED)
@@ -73,7 +70,6 @@ class EventDraft:
     duration_minutes: int
     location: Optional[str] = None
     rsvp_enabled: bool = False
-    #: The most people who can RSVP; ``None`` means no cap. Ignored without RSVPs.
     rsvp_capacity: Optional[int] = None
 
 
@@ -527,8 +523,7 @@ class CommunityEventService:
         if event.status is CommunityEventStatus.CANCELLED:
             raise ValueError('This event was already cancelled.')
         was_listed = event.status is CommunityEventStatus.APPROVED
-        # Taking a listed event down drops its subscriptions and RSVPs: they've
-        # just been told it's cancelled, so a later re-approval must not remind them.
+        # Drop subscriptions on take-down: they were told it's cancelled, so a re-approval must not remind them.
         subscribers = await self._subscribers(event) if was_listed else []
         async with in_transaction():
             await self.repository.update(

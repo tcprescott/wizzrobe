@@ -39,8 +39,7 @@ logger = logging.getLogger(__name__)
 
 _REFRESH_BUFFER = timedelta(days=1)
 
-# Per-community, so two syncs racing on an expiring token refresh it once:
-# start.gg may rotate the refresh token, and the loser would send a spent one.
+# One refresh per community: start.gg may rotate the refresh token, and a racing loser sends a spent one.
 _refresh_locks: Dict[int, asyncio.Lock] = {}
 
 
@@ -146,8 +145,6 @@ class StartggConnectionService:
         }
         if connection is None:
             return {'connected': False, **base}
-        # A token nobody has used all week lapses without a renewal ever being
-        # tried, so try one before calling the sign-in lapsed.
         try:
             await self._fresh_access_token(connection)
         except StartggAPIError:

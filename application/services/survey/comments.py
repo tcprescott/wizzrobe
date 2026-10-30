@@ -27,11 +27,9 @@ from models import (
     User,
 )
 
-#: Every survey's first tags, from the comments mockup Thomas picked.
 STARTER_TAGS = ('Wizzrobe', 'Venue', 'Schedule', 'Staff', 'Praise')
 TAG_NAME_MAX = 40
 MAX_TAGS = 20
-#: The question filter's key for every "Other" write-in at once.
 WRITE_INS = 'other'
 
 

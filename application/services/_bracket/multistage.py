@@ -283,8 +283,6 @@ class MultiStageMixin(ComposedBracketService):
             s_weak = k - c
             ranked = sorted(range(g), key=lambda gi: (-remaining[gi], gi))
             first, second = ranked[0], ranked[1]
-            # Alternate orientation by pair index so the strongest seeds spread
-            # across distinct groups (group winners land in the top band).
             if c % 2 == 0:
                 group_of_seed[s_strong], group_of_seed[s_weak] = first, second
             else:

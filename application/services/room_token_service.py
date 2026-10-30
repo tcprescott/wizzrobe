@@ -22,8 +22,6 @@ from models import RoomToken, User
 
 logger = logging.getLogger(__name__)
 
-#: Public by design, like the bearer prefixes: it identifies the surface a
-#: string belongs to, it does not protect it.
 TOKEN_PREFIX = 'wizzrobe_room_'
 
 

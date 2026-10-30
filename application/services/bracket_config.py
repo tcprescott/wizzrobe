@@ -133,33 +133,17 @@ class BracketConfig(BaseModel):
 
     model_config = ConfigDict(extra='forbid')
 
-    # Double elimination: persist and activate the grand-final reset match only
-    # when the losers-bracket entrant wins the first grand final.
     grand_final_reset: bool = True
-    # The series length for every round without its own ``rounds`` entry. Set
-    # before a stage starts — the per-round editor cannot be, because it is
-    # derived from the generated match graph, which does not exist until Start.
     default_best_of: Optional[int] = None
-    # Swiss: number of rounds to run (None = derived by a later unit).
     swiss_rounds: Optional[int] = None
-    # Round robin: how many balanced groups to split the field into.
     group_count: Optional[int] = None
-    # Scoring parameters a round-robin / Swiss standings pass consumes.
     win_points: float = 1.0
     draw_points: float = 0.5
     loss_points: float = 0.0
     bye_points: float = 1.0
-    # Ordered tiebreaker keys the standings pass applies.
     tiebreakers: Optional[List[str]] = None
-    # Opponents'-match-win floor for OMW% tiebreakers (standard 1/3).
     omw_floor: float = 1 / 3
-    # Multi-stage chaining: how a non-first stage draws its field from the prior
-    # stage's final ranks (None on a single-stage or first stage).
     advancement: Optional[AdvancementConfig] = None
-    # Per-round display metadata (best-of, scheduled time), keyed by the round
-    # number as a string — negative keys address losers-bracket rounds. Purely
-    # display chrome for the redesigned bracket view; set by staff through the
-    # admin per-round editor. See docs/features/brackets.md.
     rounds: Optional[Dict[str, RoundConfig]] = None
 
     @field_validator('default_best_of')
@@ -204,10 +188,6 @@ class BracketConfig(BaseModel):
         return v
 
 
-# Config keys only one format can act on. A key stored against another format is
-# not merely useless — it reads back as a setting the organizer believes is in
-# force, which is how a Swiss stage ends up "configured" for 5 rounds that the
-# round-robin engine will never run.
 _FORMAT_ONLY_KEYS: Dict[str, str] = {
     'swiss_rounds': 'swiss',
     'group_count': 'round_robin',
@@ -250,19 +230,13 @@ def validate_bracket_config(
             if owner == fmt_value:
                 continue
             value = validated.get(key)
-            # A key at its schema default carries no intent and must pass: the
-            # normalizer injects every non-None default, so a stage's own stored
-            # blob is re-submitted carrying keys nobody typed.
+            # A key at its schema default must pass: the normalizer injects defaults, so a stored blob returns carrying keys nobody typed.
             if value is None or value == BracketConfig.model_fields[key].default:
                 continue
             raise ValueError(
                 f"{key!r} only applies to a {_FORMAT_KEY_HINT[key]} bracket"
             )
 
-    # The advancement rule describes the field a stage *draws in*, so it belongs
-    # to the destination — both readers look backwards from it. On the first
-    # stage there is nothing behind to draw from, and a rule stored there is read
-    # by nobody, forever and silently.
     if stage_order == 0 and 'advancement' in validated:
         raise ValueError(
             "An advancement rule belongs on the stage being drawn INTO, so the "

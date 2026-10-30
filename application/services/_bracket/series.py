@@ -219,13 +219,13 @@ class SeriesMixin(ComposedBracketService):
         if game is None:
             return False
         if game.state != BracketMatchGameState.SCHEDULED:
-            return True  # already settled or cancelled
+            return True
 
         bracket_match = game.bracket_match
         await match.fetch_related('players')
         winner_entry, forfeit = self._winner_from_ranks(match, bracket_match)
         if winner_entry is None:
-            return True  # no single rank-1 finisher yet
+            return True
 
         if not await self.repository.settle_game(
             game.id,
@@ -233,7 +233,7 @@ class SeriesMixin(ComposedBracketService):
             winner_entry_id=winner_entry.id,
             forfeit=forfeit,
         ):
-            return True  # another path settled it first
+            return True
 
         bracket = await self._require_bracket(bracket_match.bracket_id)
         details = {

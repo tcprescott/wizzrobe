@@ -23,18 +23,12 @@ from models import ApiToken, User
 logger = logging.getLogger(__name__)
 
 TOKEN_PREFIX = 'wizzrobe_pat_'
-# OAuth access tokens issued to MCP clients. A distinct prefix so a token is
-# recognisable on sight (in a log, a client config, a support ticket) as
-# belonging to the MCP surface rather than the REST API.
 MCP_TOKEN_PREFIX = 'wizzrobe_mcp_'
 MCP_REFRESH_PREFIX = 'wizzrobe_mcpref_'
-# Grants a person approved for a third-party app (the /oauth server).
 APP_TOKEN_PREFIX = 'wizzrobe_app_'
 APP_REFRESH_PREFIX = 'wizzrobe_appref_'
 
-# These prefixes are public by design — they identify the credential's surface,
-# they do not protect it. The rate limiter uses them only to decide whether a
-# presented bearer is well-formed enough to earn its own bucket.
+# Public by design: the prefixes identify a credential's surface, they never protect it.
 BEARER_PREFIXES = (TOKEN_PREFIX, MCP_TOKEN_PREFIX, APP_TOKEN_PREFIX)
 
 

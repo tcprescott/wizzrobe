@@ -15,7 +15,6 @@ from application.utils.clients import telegram_client
 
 logger = logging.getLogger(__name__)
 
-#: Seconds between polls; each poll itself waits up to ``POLL_TIMEOUT`` for news.
 TICK_SECONDS = 1
 POLL_TIMEOUT = 25
 

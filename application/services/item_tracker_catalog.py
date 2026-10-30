@@ -18,9 +18,7 @@ class ItemSpec:
     key: str
     label: str
     sprites: tuple[str, ...]
-    #: Names for each level, shown in the picker. ``None`` for an on/off item.
     levels: Optional[tuple[str, ...]] = None
-    #: Level 0 is something every runner has (green mail), so it never dims.
     starts_owned: bool = False
 
     @property
@@ -91,15 +89,12 @@ class DungeonSpec:
     key: str
     name: str
     short: str
-    #: ``(alive, beaten)`` sprites; ``None`` for a keys-only tile (Hyrule Castle).
     boss: Optional[tuple[str, str]]
-    #: Items in the dungeon when no dungeon item is shuffled out of it.
     chests: int
     small_keys: int
     big_key: bool
     prize: bool = True
     medallion: bool = False
-    #: Shown only when small keys are shuffled.
     keys_only: bool = False
 
 
@@ -120,7 +115,6 @@ DUNGEONS: tuple[DungeonSpec, ...] = (
 )
 DUNGEONS_BY_KEY: Mapping[str, DungeonSpec] = {d.key: d for d in DUNGEONS}
 
-#: Dungeon fields a board stores, with their highest level for one dungeon.
 DUNGEON_FIELDS = ('boss', 'prize', 'medallion', 'chests', 'keys', 'big_key')
 
 

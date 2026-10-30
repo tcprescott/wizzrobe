@@ -31,18 +31,14 @@ from application.tenant_context import require_tenant_id
 from models import Event, EventStatus, Tenant, User
 
 _events_cache: dict[int, tuple['EventRef', ...]] = {}
-#: The ``Event.config`` key of the Broadcasters switch; ``SystemConfigService``
-#: writes it as one of the event's own settings.
 BROADCASTERS_KEY = 'broadcasters'
 NO_BROADCASTERS = "This event doesn't have broadcasters. Staff can turn them on in Event settings → Crew."
 _CACHE_MAX = 2048
 
 SLUG_RE = re.compile(r'^[a-z0-9][a-z0-9-]{1,63}$')
-#: Slugs that read as something else in a URL.
 RESERVED_SLUGS = frozenset({'api', 'static', 'admin', 'new', 'e', 't', 'login', 'logout', 'help'})
 NAME_MAX = 120
 
-#: Status order on every list: what's on now, what's coming, what's past.
 _STATUS_ORDER = {EventStatus.LIVE: 0, EventStatus.DRAFT: 1, EventStatus.ARCHIVED: 2}
 
 
@@ -62,13 +58,8 @@ class EventRef:
     is_default: bool
     starts_on: Optional[date]
     ends_on: Optional[date]
-    #: The event's own timezone settings (``{mode, name}``), overriding the
-    #: community's; None follows the community.
     timezone: Optional[tuple[str, str]] = None
-    #: Whether matches in this event have a Broadcaster crew role
-    #: (Event settings → Crew). Off by default.
     broadcasters: bool = False
-    #: Set once the retention job deleted an archived event's private data.
     pii_purged: bool = False
 
     @property
@@ -107,7 +98,6 @@ def _flag_of(config: Any, key: str) -> bool:
 
 
 def _sort_key(info: EventRef) -> tuple:
-    # Default first, then by status, then newest first.
     newest = -(info.starts_on.toordinal() if info.starts_on else 0)
     return (not info.is_default, _STATUS_ORDER[info.status], newest, -info.id)
 
@@ -129,7 +119,6 @@ class ArchiveCheck:
     @property
     def anything_open(self) -> bool:
         return bool(self.open_matches or self.future_shifts or self.open_race_rooms)
-
 
 
 def with_event_name(label: str, event_id: Optional[int], names: Dict[int, str]) -> str:

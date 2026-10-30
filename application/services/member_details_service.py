@@ -80,7 +80,6 @@ class NoticeDetail:
     community: NotificationMode
     theirs: NotificationMode
     effective: NotificationMode
-    # Why they get it this way when it isn't simply what both sides ask for.
     reason: Optional[str]
 
     @property
@@ -122,8 +121,6 @@ class MemberDetails:
     notices: List[NoticeDetail]
     recent_messages: List[SentMessage]
     upcoming_matches: List[UpcomingMatch]
-    # ``None`` where the community has the feature off, so a caller can tell
-    # "nothing" from "not applicable".
     upcoming_shifts: Optional[List[UpcomingShift]]
     equipment_out: Optional[List[str]]
     check_in: Optional[str]

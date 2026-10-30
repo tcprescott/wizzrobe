@@ -39,16 +39,11 @@ from models import DataExport, DataExportKind, DataExportStatus, FeatureFlag, To
 
 logger = logging.getLogger(__name__)
 
-#: How long a finished export stays downloadable before the worker deletes it.
 RETENTION = timedelta(days=3)
-#: Background exports one person may have waiting or building at once.
 MAX_PENDING_PER_PERSON = 1
 MAX_PER_HOUR = 10
-#: Background exports a community may have waiting or building at once.
 MAX_PENDING_PER_COMMUNITY = 5
-#: Breathing room between tournaments while a big export builds.
 PAUSE_BETWEEN_TOURNAMENTS = 0.25
-#: A RUNNING export older than this was cut off by a restart.
 INTERRUPTED_AFTER = timedelta(minutes=15)
 
 INTERRUPTED_ERROR = 'The server restarted while this export was building. Request it again.'

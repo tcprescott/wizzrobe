@@ -25,7 +25,6 @@ logger = logging.getLogger(__name__)
 TICK_SECONDS = 15
 FULL_SYNC_SECONDS = 600
 
-# The events that change who qualifies, so a role follows within one tick.
 TRIGGERS = (
     EventType.MATCH_STARTED,
     EventType.MATCH_FINISHED,
@@ -35,8 +34,6 @@ TRIGGERS = (
     EventType.CHECK_IN_EVENT_SYNCED,
     EventType.CHECK_IN_ENTRANT_LINKED,
     EventType.CHECK_IN_ENTRANT_UNLINKED,
-    # Only live events' rules count: archiving takes the event's roles back,
-    # unarchiving gives them again.
     EventType.EVENT_ARCHIVED,
     EventType.EVENT_UNARCHIVED,
 )

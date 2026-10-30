@@ -29,10 +29,8 @@ TICK_SECONDS = 60
 # realistic volunteer-reminder lead (typically minutes to hours).
 MAX_LEAD_MINUTES = 7 * 24 * 60
 
-# The shift-start DM goes out only this soon after the start; see _start_dms.
 START_DM_GRACE = timedelta(minutes=30)
 
-# How far apart two shifts' end and start may be and still count as a handover.
 HANDOVER_SLACK = timedelta(minutes=15)
 
 
@@ -131,8 +129,7 @@ async def _tick() -> None:
     from models import FeatureFlag
 
     if discord_bot_down():
-        # Reminders are stamped before their DM is queued; wait for the bot so
-        # they go out after a reconnect rather than being stamped and lost.
+        # Wait for the bot: reminders are stamped before queueing, so a send now is lost.
         return
 
     now = datetime.now(timezone.utc)
@@ -145,8 +142,6 @@ async def _tick() -> None:
         return
 
     discord_service = DiscordService()
-    # Read once per community per tick: the scan window holds every assignment
-    # of the next day, and a setting read per row was most of the tick's queries.
     leads: Dict[int, int] = {}
 
     async def _remind(assignment) -> None:
@@ -164,14 +159,11 @@ async def _tick() -> None:
                 )
         lead = leads[tenant_id]
         shift = assignment.shift
-        # Not yet within this tenant's lead window — leave un-stamped so a
-        # later tick reminds it once it enters the window.
+        # Not yet in this tenant's lead: leave unstamped so a later tick sends it.
         if shift.starts_at > now + timedelta(minutes=lead):
             return
         user = assignment.user
-        # Stamp first so a delivery failure (or a restart) doesn't re-fire.
-        # Only this column: the row was loaded at the top of the tick, and a full
-        # save would put back a null over an acknowledgment or check-in made since.
+        # Stamp first, and only this column: a full save would null an ack or check-in made since.
         assignment.reminder_sent_at = now
         await VolunteerAssignmentRepository.save(assignment, update_fields=['reminder_sent_at'])
 
@@ -201,8 +193,6 @@ async def _tick() -> None:
             description=description,
             handover=handover_embed,
         )
-        # The reminder is when someone finds out they can't make it, so it
-        # carries the way out: My Shifts, with this shift's give-back dialog open.
         link = await notification_links.volunteer_release(assignment.id)
         if acknowledged:
             send = discord_service.send_dm(int(discord_id), message, embed=embed, link=link, notice=SHIFT_REMINDER.to(VOLUNTEERS))
@@ -210,8 +200,7 @@ async def _tick() -> None:
             send = discord_service.send_dm_with_volunteer_acknowledgment_button(
                 int(discord_id), message, assignment.id, embed=embed, link=link, notice=SHIFT_REMINDER.to(VOLUNTEERS),
             )
-        # Close the DM over the tenant scope so its deep links / web-push
-        # mirror resolve under the right tenant when the worker runs it.
+        # Close over the tenant so deep links resolve when the queue worker runs it.
         discord_queue.enqueue(_scoped_dm(tenant_id, send))
 
     await for_each_tenant_scoped(

@@ -41,20 +41,14 @@ from application.utils.hostname import normalize_hostname
 logger = logging.getLogger(__name__)
 
 _SALT = 'wizzrobe-oauth-handoff'
-# Tight window: mint → browser redirect → claim is sub-second; 30s absorbs a slow
-# client without leaving a leaked URL replayable for long.
 _TTL_SECONDS = 30
-# Bound the pending store so a flood of unclaimed mints can't grow it without
-# limit. FIFO eviction (insertion-ordered dict), like the tenant caches.
 _STORE_MAX = 4096
 
-# nonce -> {'discord_id', 'username', 'avatar', 'host', 'next', 'expiry'}
 _pending: dict[str, dict] = {}
 
 
 def _serializer() -> URLSafeTimedSerializer:
-    # Read STORAGE_SECRET lazily (validated at startup) so a test/tooling override
-    # applies without reimporting. The shared secret ties mint and claim together.
+    # Read lazily so a test/tooling override applies without reimporting.
     import os
     return URLSafeTimedSerializer(os.environ.get('STORAGE_SECRET') or '', salt=_SALT)
 
@@ -152,8 +146,7 @@ def claim(token: str, request_host: str) -> Optional[dict]:
         return None
     if payload['expiry'] <= time.time():
         return None
-    # Host must match the token's signed host AND the store AND where it was
-    # presented — a token minted for one domain is useless on any other.
+    # All three must match: a token minted for one host is useless on any other.
     if signed_host != host or payload['host'] != host:
         logger.warning('OAuth handoff token host mismatch (presented on %r)', host)
         return None

@@ -54,14 +54,10 @@ class AuditActions:
     MATCH_STATIONS_ASSIGNED = 'match.stations_assigned'
     MATCH_STREAM_CANDIDATE_SET = 'match.stream_candidate_set'
     MATCH_STREAM_CANDIDATE_CLEARED = 'match.stream_candidate_cleared'
-    # A proctor flagging a recorded result as contested, and the flag being
-    # resolved (explicitly, or implicitly by the admin confirming the match).
     MATCH_FLAGGED_FOR_REVIEW = 'match.flagged_for_review'
     MATCH_REVIEW_CLEARED = 'match.review_cleared'
     MATCH_WATCHER_ADDED = 'match.watcher_added'
     MATCH_WATCHER_REMOVED = 'match.watcher_removed'
-    # A player offering their own match for stream, and taking the offer back.
-    # Advisory: neither one touches is_stream_candidate.
     MATCH_STREAM_VOLUNTEERED = 'match.stream_volunteered'
     MATCH_STREAM_VOLUNTEER_WITHDRAWN = 'match.stream_volunteer_withdrawn'
     MATCH_COMMENT_ADDED = 'match.comment_added'
@@ -70,22 +66,11 @@ class AuditActions:
     MATCH_PLAYER_LATE_CLEARED = 'match.player_late_cleared'
     MATCH_PLAYER_SEED_READY = 'match.player_seed_ready'
     MATCH_PLAYER_SEED_NOT_READY = 'match.player_seed_not_ready'
-    # A player asking staff to move or call off their match, and what became of
-    # it. The approval also writes the underlying match.rescheduled / match.cancelled,
-    # since approving *performs* the change rather than blessing it.
-    # One player privately agreeing to the tournament's harder preset, and
-    # taking it back. Audited because it decides what a match is played on, but
-    # deliberately NOT published as an event: a webhook subscriber is an
-    # arbitrary outside listener, and the whole feature rests on a lone opt-in
-    # reaching nobody. Only the unanimous result below is published.
+    # Audit-only, never published as an event: a lone opt-in must reach nobody, webhook subscribers included.
     MATCH_HARD_PRESET_OPTED_IN = 'match.hard_preset_opted_in'
     MATCH_HARD_PRESET_WITHDRAWN = 'match.hard_preset_withdrawn'
-    # Everyone in the match has opted in (or somebody backed out of a set that
-    # was complete). Now public: at this point the players know, so there is
-    # nothing left to keep.
     MATCH_HARD_PRESET_AGREED = 'match.hard_preset_agreed'
     MATCH_HARD_PRESET_AGREEMENT_REVOKED = 'match.hard_preset_agreement_revoked'
-    # Staff overruling the players' choice for one match, in either direction.
     MATCH_PRESET_OVERRIDE_SET = 'match.preset_override_set'
     MATCH_PRESET_OVERRIDE_CLEARED = 'match.preset_override_cleared'
     MATCH_RESCHEDULE_REQUESTED = 'match.reschedule_requested'
@@ -113,8 +98,6 @@ class AuditActions:
     TOURNAMENT_ADMIN_REVOKED = 'tournament.admin_revoked'
     TOURNAMENT_CREW_COORDINATOR_GRANTED = 'tournament.crew_coordinator_granted'
     TOURNAMENT_CREW_COORDINATOR_REVOKED = 'tournament.crew_coordinator_revoked'
-    # Prize money. Audited because money moving is what an audit log is for:
-    # who set the pool, and who decided each placement's share.
     TOURNAMENT_PRIZE_POOL_UPDATED = 'tournament.prize_pool_updated'
     TOURNAMENT_PAYOUT_UPDATED = 'tournament.payout_updated'
     TOURNAMENT_SGLIVE_LINK_UPDATED = 'tournament.sglive_link_updated'
@@ -128,8 +111,7 @@ class AuditActions:
     USER_ROLE_GRANTED = 'user.role_granted'
     USER_ROLE_REVOKED = 'user.role_revoked'
     USER_TOURNAMENT_ENROLLMENT_UPDATED = 'user.tournament_enrollment_updated'
-    # Password sign-in, administered on /platform. The password itself is never
-    # in ``details``; only the sign-in name and whether the account is new.
+    # Never put the password in ``details``.
     USER_PASSWORD_SET = 'user.password_set'
     USER_PASSWORD_REMOVED = 'user.password_removed'
     USER_PASSWORD_SIGNED_IN = 'user.password_signed_in'
@@ -146,10 +128,6 @@ class AuditActions:
     DISCORD_SERVER_UNLINKED = 'discord.server_unlinked'
     DISCORD_LOGIN_PANEL_POSTED = 'discord.login_panel_posted'
 
-    # Discord Scheduled Events mirror. The create/update/cancel rows are
-    # written by the reconciler (system user on the worker, or a human on-demand);
-    # the per-run summary/failure and the per-tournament settings edit are
-    # audit-only plumbing.
     DISCORD_EVENT_CREATED = 'discord_event.created'
     DISCORD_EVENT_UPDATED = 'discord_event.updated'
     DISCORD_EVENT_CANCELLED = 'discord_event.cancelled'
@@ -183,8 +161,6 @@ class AuditActions:
     APITOKEN_CREATED = 'apitoken.created'
     APITOKEN_REVOKED = 'apitoken.revoked'
 
-    # Third-party apps (the /oauth authorization server). App registration is
-    # global, so those rows carry no community; grants are per community.
     OAUTH_APP_CREATED = 'oauth_app.created'
     OAUTH_APP_UPDATED = 'oauth_app.updated'
     OAUTH_APP_SECRET_ROTATED = 'oauth_app.secret_rotated'
@@ -195,7 +171,6 @@ class AuditActions:
     OAUTH_APP_UNBLOCKED = 'oauth_app.unblocked'
     OAUTH_GRANT_CREATED = 'oauth_grant.created'
     OAUTH_GRANT_REVOKED = 'oauth_grant.revoked'
-    # A spent refresh token presented again: the grant is revoked as stolen.
     OAUTH_GRANT_REFRESH_REUSED = 'oauth_grant.refresh_reused'
 
     ROOM_TOKEN_CREATED = 'roomtoken.created'
@@ -211,7 +186,7 @@ class AuditActions:
     COMMUNITY_EVENT_REJECTED = 'community_event.rejected'
     COMMUNITY_EVENT_CANCELLED = 'community_event.cancelled'
 
-    # Post-event surveys. Details carry ids and counts, never answers.
+    # Details carry ids and counts, never answers.
     SURVEY_CREATED = 'survey.created'
     SURVEY_UPDATED = 'survey.updated'
     SURVEY_DELETED = 'survey.deleted'
@@ -222,8 +197,7 @@ class AuditActions:
     SURVEY_COMMENT_TAG_CREATED = 'survey.comment_tag_created'
     SURVEY_COMMENT_TAG_DELETED = 'survey.comment_tag_deleted'
 
-    # ADA accommodation requests. Details carry ids and status only, never the
-    # requester's text or staff notes.
+    # Details carry ids and status only, never the requester's text or staff notes.
     ACCOMMODATION_REQUESTED = 'accommodation.requested'
     ACCOMMODATION_UPDATED = 'accommodation.updated'
     ACCOMMODATION_WITHDRAWN = 'accommodation.withdrawn'
@@ -231,8 +205,7 @@ class AuditActions:
     ACCOMMODATION_NOTES_UPDATED = 'accommodation.notes_updated'
     ACCOMMODATION_CHANGE_REVIEWED = 'accommodation.change_reviewed'
 
-    # Emergency contacts. Details carry ids only, never the name or number.
-    # ``viewed`` is the point of the feature: every staff look leaves a row.
+    # Details carry ids only, never the name or number.
     EMERGENCY_CONTACT_SAVED = 'emergency_contact.saved'
     EMERGENCY_CONTACT_REMOVED = 'emergency_contact.removed'
     EMERGENCY_CONTACT_VIEWED = 'emergency_contact.viewed'
@@ -308,8 +281,6 @@ class AuditActions:
     RACETIME_LINKED = 'racetime.linked'
     RACETIME_UNLINKED = 'racetime.unlinked'
 
-    # Racetime bots (platform-managed; CRUD + tenant grants are platform-level,
-    # tenant=NULL) and their reusable per-tenant room profiles
     RACETIME_BOT_CREATED = 'racetime_bot.created'
     RACETIME_BOT_UPDATED = 'racetime_bot.updated'
     RACETIME_BOT_DELETED = 'racetime_bot.deleted'
@@ -319,18 +290,14 @@ class AuditActions:
     RACE_ROOM_PROFILE_UPDATED = 'race_room_profile.updated'
     RACE_ROOM_PROFILE_DELETED = 'race_room_profile.deleted'
 
-    # Racetime bot runtime health (platform-level, tenant=NULL; audit-only —
-    # written by the racetimebot/ connection loop as the system user)
     RACETIME_BOT_CONNECTED = 'racetime_bot.connected'
     RACETIME_BOT_DISCONNECTED = 'racetime_bot.disconnected'
     RACETIME_BOT_ERROR = 'racetime_bot.error'
     RACETIME_BOT_RESTARTED = 'racetime_bot.restarted'
 
-    # Runtime log levels (platform-level, tenant=NULL; set on /platform)
     LOG_LEVEL_SET = 'log_level.set'
     LOG_LEVEL_CLEARED = 'log_level.cleared'
 
-    # Browser-side Sentry (platform-level, tenant=NULL; set on /platform)
     BROWSER_MONITORING_UPDATED = 'browser_monitoring.updated'
     BROWSER_IGNORE_RULE_ADDED = 'browser_ignore_rule.added'
     BROWSER_IGNORE_RULE_REMOVED = 'browser_ignore_rule.removed'
@@ -408,12 +375,6 @@ class AuditActions:
     SG_PLACEHOLDER_CREATED = 'sg_sync.placeholder_created'
     SG_PLACEHOLDER_UPGRADED = 'sg_sync.placeholder_upgraded'
 
-    # Async Qualifiers. A peer aggregate of Tournament: qualifier/pool/
-    # permalink authoring and the per-qualifier ``admins`` grants are tenant-
-    # internal config (event-less); the run submitted/reviewed outcomes DO emit
-    # events for subscribers (see EventType.ASYNC_QUALIFIER_RUN_*). The actor is
-    # a human QUALIFIER_ADMIN for management/review and the running player for
-    # start/submit/forfeit/reattempt.
     ASYNC_QUALIFIER_CREATED = 'async_qualifier.created'
     ASYNC_QUALIFIER_UPDATED = 'async_qualifier.updated'
     ASYNC_QUALIFIER_DELETED = 'async_qualifier.deleted'
@@ -428,41 +389,19 @@ class AuditActions:
     ASYNC_QUALIFIER_RUN_STARTED = 'async_qualifier.run_started'
     ASYNC_QUALIFIER_RUN_SUBMITTED = 'async_qualifier.run_submitted'
     ASYNC_QUALIFIER_RUN_FORFEITED = 'async_qualifier.run_forfeited'
-    # The worker forfeited a run the player drew and never came back to. Distinct
-    # from a chosen forfeit because it is not something the runner did.
     ASYNC_QUALIFIER_RUN_EXPIRED = 'async_qualifier.run_expired'
     ASYNC_QUALIFIER_RUN_REATTEMPTED = 'async_qualifier.run_reattempted'
-    # A reviewer voided someone else's run: distinct from the runner spending their
-    # own allowance, because it bypasses that allowance entirely.
     ASYNC_QUALIFIER_REATTEMPT_GRANTED = 'async_qualifier.reattempt_granted'
     ASYNC_QUALIFIER_RUN_REVIEWED = 'async_qualifier.run_reviewed'
-    # Reversing a settled verdict. Distinct from the first one because it is the
-    # rarer, more contestable act: it changes an outcome the runner was already
-    # told about, and "who overturned this, and why" is the question an appeal asks.
     ASYNC_QUALIFIER_RUN_REVIEW_OVERRIDDEN = 'async_qualifier.run_review_overridden'
-    # Async Qualifier live races. Create/open/cancel are tenant-internal
-    # scheduling (event-less); recording the finished race captures runs and DOES
-    # emit an event (see EventType.ASYNC_QUALIFIER_LIVE_RACE_RECORDED).
     ASYNC_QUALIFIER_LIVE_RACE_CREATED = 'async_qualifier.live_race_created'
     ASYNC_QUALIFIER_LIVE_RACE_OPENED = 'async_qualifier.live_race_opened'
-    # Choosing (or changing) the seed a race is run on. Its own action because it
-    # decides which permalink's par the results are scored against.
     ASYNC_QUALIFIER_LIVE_RACE_PERMALINK_ASSIGNED = 'async_qualifier.live_race_permalink_assigned'
     ASYNC_QUALIFIER_LIVE_RACE_CANCELLED = 'async_qualifier.live_race_cancelled'
     ASYNC_QUALIFIER_LIVE_RACE_RECORDED = 'async_qualifier.live_race_recorded'
-    # Staff typing the results in because the room's event never arrived. Distinct
-    # from the line above for the same reason a review override is distinct from a
-    # review: a human asserting a result is the more contestable act, and "who typed
-    # this" is what an appeal asks. Subscribers get the ordinary recorded event.
     ASYNC_QUALIFIER_LIVE_RACE_RECORDED_MANUALLY = 'async_qualifier.live_race_recorded_manually'
 
-    # Native brackets (docs/features/brackets.md). Bracket/entrant lifecycle and the
-    # match/advancement/stage events the lifecycle drives. Actor is a human STAFF
-    # for management; the started/completed/advanced rows capture the graph
-    # transitions the service performs.
     BRACKET_CREATED = 'bracket.created'
-    # Covers every edit to a bracket's own definition — name/stage/config,
-    # per-round display metadata and reseeding — with ``details`` naming which.
     BRACKET_UPDATED = 'bracket.updated'
     BRACKET_DELETED = 'bracket.deleted'
     BRACKET_STARTED = 'bracket.started'
@@ -470,12 +409,8 @@ class AuditActions:
     BRACKET_GAME_SCHEDULED = 'bracket.game_scheduled'
     BRACKET_GAME_COMPLETED = 'bracket.game_completed'
     BRACKET_GAME_CANCELLED = 'bracket.game_cancelled'
-    # A manually-scheduled Match attached to / detached from a matchup by staff,
-    # as opposed to BRACKET_GAME_SCHEDULED's book-it-from-the-bracket path.
     BRACKET_GAME_LINKED = 'bracket.game_linked'
     BRACKET_GAME_UNLINKED = 'bracket.game_unlinked'
-    # A cancelled/deleted Match handing its series slot back (D3), as opposed
-    # to BRACKET_GAME_UNLINKED's deliberate staff detach.
     BRACKET_GAME_RELEASED = 'bracket.game_released'
     BRACKET_ADVANCED = 'bracket.advanced'
     BRACKET_COMPLETED = 'bracket.completed'
@@ -483,12 +418,8 @@ class AuditActions:
     BRACKET_ENTRANT_ADDED = 'bracket.entrant_added'
     BRACKET_ENTRANT_DROPPED = 'bracket.entrant_dropped'
     BRACKET_ENTRANT_UPDATED = 'bracket.entrant_updated'
-    # Per-stage participation, distinct from the tournament-level roster above:
-    # who is enrolled in a stage decides who the generated graph contains.
     BRACKET_ENTRY_ADDED = 'bracket.entry_added'
     BRACKET_ENTRY_REMOVED = 'bracket.entry_removed'
-    # Retiring an entry mid-stage is a different fact from un-enrolling one while
-    # DRAFT: the played results stand and the field shrinks under way.
     BRACKET_ENTRY_RETIRED = 'bracket.entry_retired'
     BRACKET_CANCELLED = 'bracket.cancelled'
 
@@ -507,24 +438,17 @@ class AuditActions:
     FEATURE_FLAG_AVAILABILITY_SET = 'feature_flag.availability_set'
     FEATURE_FLAG_ENABLED = 'feature_flag.enabled'
     FEATURE_FLAG_DISABLED = 'feature_flag.disabled'
-    # Feature-flag groups (live tiers) — super-admin, platform-level (tenant=NULL).
-    # Group CRUD and the per-tenant group assignment.
     FEATURE_GROUP_CREATED = 'feature_group.created'
     FEATURE_GROUP_UPDATED = 'feature_group.updated'
     FEATURE_GROUP_DELETED = 'feature_group.deleted'
     FEATURE_GROUP_ASSIGNED = 'feature_group.assigned'
 
-    # Tenancy / platform (these audit rows carry tenant=NULL — platform-level)
     TENANT_CREATED = 'tenant.created'
     TENANT_UPDATED = 'tenant.updated'
     TENANT_DELETED = 'tenant.deleted'
     TENANT_MEMBER_ADDED = 'tenant.member_added'
     TENANT_MEMBER_REMOVED = 'tenant.member_removed'
-    # Admin → Users › Import from Discord: one row for the whole run.
     TENANT_MEMBERS_IMPORTED = 'tenant.members_imported'
-    # The self-serve enrollment path. The request is written by someone who is
-    # not yet in the tenant, so its audit row is stamped with the *target*
-    # tenant rather than the requester's ambient one.
     TENANT_JOIN_REQUESTED = 'tenant.join_requested'
     TENANT_JOIN_APPROVED = 'tenant.join_approved'
     TENANT_JOIN_DENIED = 'tenant.join_denied'
@@ -659,9 +583,6 @@ class AuditService:
         if actor is None:
             raise ValueError("AuditService.write_log requires an actor")
 
-        # Snapshot the actor's identity into details so attribution survives a
-        # later user deletion (AuditLog.user is ON DELETE SET NULL). getattr
-        # keeps auditing resilient if the actor is a partial object.
         enriched: dict[str, Any] = dict(details) if details else {}
         actor_username = getattr(actor, 'username', None)
         if actor_username is not None:
@@ -670,9 +591,6 @@ class AuditService:
         if actor_discord_id is not None:
             enriched.setdefault('actor_discord_id', str(actor_discord_id))
 
-        # Stamp the ambient tenant so the trail is per-tenant; NULL when the
-        # action is platform-level (super-admin tenant CRUD on /platform, which
-        # runs with no tenant context). The event is tagged the same way.
         return await AuditLog.create(
             tenant_id=get_current_tenant_id(),
             event_id=get_current_event_id(),

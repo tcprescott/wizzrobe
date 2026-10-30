@@ -67,7 +67,6 @@ class BracketNotificationMixin(ComposedBracketService):
                 for r in rows
             ],
             double_elim=bracket.format == BracketFormat.DOUBLE_ELIM,
-            # Defined on AdvancementMixin, reachable on the composed service.
             elimination=bracket.format in self._ELIM_FORMATS,  # type: ignore[attr-defined]
         )
         return names.get(round_number) or f'Round {round_number}'

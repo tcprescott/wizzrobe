@@ -21,8 +21,6 @@ logger = logging.getLogger(__name__)
 
 TICK_SECONDS = 60
 
-#: The widest lead any community can usefully set. A longer lead still works;
-#: those subscribers are reminded once the event enters this window.
 MAX_LEAD_MINUTES = 24 * 60
 
 
@@ -59,7 +57,6 @@ async def _tick() -> None:
         return
 
     discord_service = DiscordService()
-    # Read once per community per tick, not once per subscription.
     leads: Dict[int, int] = {}
 
     async def _remind(subscription) -> None:

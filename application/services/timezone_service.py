@@ -60,25 +60,14 @@ from models import User
 
 logger = logging.getLogger(__name__)
 
-# Config sub-key under Tenant.config where the timezone settings dict lives.
 CONFIG_KEY = 'timezone'
 
-# Community pins one clock for everyone; the per-user preference is ignored.
 MODE_PINNED = 'pinned'
-# Community defers to each viewer (profile → browser → community default).
 MODE_USER = 'user'
 MODES = (MODE_PINNED, MODE_USER)
 
-# What a community with no stored setting gets. New communities follow the
-# viewer, because getting this wrong for an online event is the hazard this
-# feature exists to remove; a community that wants one fixed clock says so.
-# Existing communities were migrated to an explicit pin, so this default only
-# ever applies to new ones.
 DEFAULT_MODE = MODE_USER
 
-# A short, curated list for the admin/profile pickers. Not exhaustive — both
-# pickers accept any IANA name — just the zones that cover most of the player
-# base without making the dropdown unusable.
 COMMON_TIMEZONES: tuple[str, ...] = (
     'America/New_York',
     'America/Chicago',

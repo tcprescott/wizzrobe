@@ -23,7 +23,7 @@ class SingleEliminationEngine:
         config = config or {}
 
         size = next_power_of_two(num_entries)
-        rounds = size.bit_length() - 1  # log2(size)
+        rounds = size.bit_length() - 1
         order = standard_seeding(size)
 
         matches: list[GeneratedMatch] = []
@@ -32,10 +32,8 @@ class SingleEliminationEngine:
             position = j + 1
             seed_a = order[2 * j]
             seed_b = order[2 * j + 1]
-            # A seed number past the real field is a structural bye.
             entry1 = seed_a if seed_a <= num_entries else None
             entry2 = seed_b if seed_b <= num_entries else None
-            # The seeding guarantees at most one bye per first-round match.
             assert entry1 is not None or entry2 is not None
             is_bye = (entry1 is None) != (entry2 is None)
             matches.append(
@@ -49,7 +47,6 @@ class SingleEliminationEngine:
                 )
             )
 
-        # Rounds 2..rounds: empty shells filled later by feeders/the service.
         for r in range(2, rounds + 1):
             for position in range(1, (size >> r) + 1):
                 matches.append(

@@ -58,9 +58,6 @@ from models import (
 
 logger = logging.getLogger(__name__)
 
-#: How long a declined requester waits before the door takes another request.
-#: Without it, request → decline → request again took ten seconds and DM'd
-#: every staff member each time.
 JOIN_REQUEST_COOLDOWN = timedelta(days=7)
 
 
@@ -73,11 +70,11 @@ class JoinMode(str, Enum):
     combination nobody meant (open *and* closed to requests, say).
     """
 
-    OPEN = 'open'                            # anyone who signs in
-    DISCORD_OR_REQUEST = 'discord_or_request'  # server members in; others ask
-    DISCORD = 'discord'                      # server members only
-    REQUEST = 'request'                      # everyone asks staff
-    STAFF_ONLY = 'staff_only'                # staff add people by hand
+    OPEN = 'open'
+    DISCORD_OR_REQUEST = 'discord_or_request'
+    DISCORD = 'discord'
+    REQUEST = 'request'
+    STAFF_ONLY = 'staff_only'
 
     @property
     def flags(self) -> tuple[bool, bool, bool]:
@@ -237,8 +234,7 @@ class TenantMembershipService:
                 f"{user.display_name or user.username} holds roles in this "
                 'community — revoke them before removing the membership.'
             )
-        # Tournament admin and crew coordinator are roles too, just per
-        # tournament. Left in place they come back with any later re-admission.
+        # Per-tournament roles too, or they come back with any later re-admission.
         admin_ids, coordinated_ids = await AuthService.tournament_scope(user)
         if admin_ids or coordinated_ids:
             raise ValueError(
@@ -250,12 +246,9 @@ class TenantMembershipService:
         removed = await TenantMembershipRepository.remove(user.id, tenant_id)
         if not removed:
             raise ValueError('That user is not a member of this community.')
-        # Without this, open membership and Discord auto-join undid the removal
-        # on the person's next page view.
+        # Block, or open membership and Discord auto-join re-admit them on the next page view.
         await TenantMembershipRepository.block(user.id, tenant_id, actor)
-        # A personal API token is bound to one community and carries no role of
-        # its own, so without this it kept reading the schedule (every player's
-        # Discord id included) long after its owner was shown the door.
+        # Revoke their tokens: a token carries no role, so it would keep reading the schedule.
         revoked_tokens = await ApiTokenRepository.revoke_for_user_in_tenant(
             user.id, tenant_id, datetime.now(timezone.utc),
         )
@@ -315,13 +308,9 @@ class TenantMembershipService:
         already_pending = existing is not None and existing.status is JoinRequestStatus.PENDING
         request = await TenantJoinRequestRepository.upsert_pending(user, tenant_id, text)
         if already_pending:
-            # Staff were told when it was opened. Re-asking only updates the
-            # note, or a client repeating the click could DM every staff
-            # member as often as it liked.
+            # Don't re-notify on a repeat, or a repeated click DMs every staff member each time.
             return request
-        # The requester acts on their own behalf, and the row belongs to the
-        # *target* tenant — which they are not scoped to, hence the explicit
-        # scope, exactly as bootstrap_staff does.
+        # Explicit scope: the row belongs to the target tenant, which the requester isn't scoped to.
         with tenant_scope(tenant_id):
             await self.audit_service.write_and_publish(
                 user, AuditActions.TENANT_JOIN_REQUESTED,
@@ -476,11 +465,6 @@ class TenantMembershipService:
                 await TenantMembershipRepository.add(
                     user, tenant_id, MembershipSource.DISCORD_AUTO_JOIN,
                 )
-                # Closed as approved with no decider: nobody on staff decided it.
-                # The person learns they're in from the page they're opening
-                # (the gate shows a welcome), so no DM to them. Staff aren't
-                # DM'd either: nothing needs doing, and the Users tab marks the
-                # member "Joined via Discord".
                 closed = await close_pending_request(user, tenant_id, None)
                 details: dict = {'target_user_id': user.id, 'source': 'discord_auto_join'}
                 if closed is not None:
@@ -560,8 +544,7 @@ class TenantMembershipService:
 
     async def deny_request(self, actor: User, request_id: int) -> TenantJoinRequest:
         request = await self._decidable(actor, request_id)
-        # A request left over from before someone was let in another way. A
-        # decline would DM a member that they weren't approved.
+        # Already let in another way: a decline would wrongly DM a member.
         if await TenantMembershipRepository.is_member(request.user_id, request.tenant_id):
             raise ValueError(
                 f'{request.user.display_name or request.user.username} is already a '
@@ -575,8 +558,6 @@ class TenantMembershipService:
             {'target_user_id': request.user_id, 'request_id': request.id},
             EventType.TENANT_JOIN_DENIED,
         )
-        # Both outcomes, not just the happy one: notification that only fires on
-        # success leaves everyone else wondering whether anyone saw it.
         await self._notify_requester(request.user, approved=False)
         await _mark_staff_dms(request, request.user, actor, approved=False)
         return request
@@ -626,8 +607,6 @@ class TenantMembershipService:
             community_name=community,
             description=body,
         )
-        # An approval links the next step, finding a tournament; a decline links
-        # the Discord invite when there is one.
         from application.services import notification_links
         link = await notification_links.home_tournaments(label='Find a tournament') if approved else None
         if invite is not None:
@@ -718,8 +697,7 @@ class TenantMembershipService:
             'Only Staff can decide join requests',
         )
         request = await TenantJoinRequestRepository.get_by_id(request_id)
-        # not_found rather than forbidden for another community's request: the
-        # message must not confirm that it exists.
+        # Not found, not forbidden: don't confirm another community's request exists.
         if request is None or request.tenant_id != require_tenant_id():
             raise NotFoundError('That join request no longer exists.')
         if request.status is not JoinRequestStatus.PENDING:

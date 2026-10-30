@@ -20,14 +20,8 @@ from models import ProviderTask, ProviderTaskStatus, User
 
 logger = logging.getLogger(__name__)
 
-# How long an unfinished task may live before the sweeper gives up on it. Above
-# the DK64 generation budget (10 minutes) with room for a restart in the middle:
-# the point is to release a row nobody will ever collect, not to race the
-# provider.
+# Must exceed the DK64 generation budget (10 minutes) with room for a restart.
 TASK_MAX_AGE = timedelta(minutes=20)
-# A task that never got the provider's handle is a submit that died with the
-# process (a restart mid-roll). Nothing will ever poll it, and while it stays
-# active it blocks re-rolling the match, so it retires much sooner.
 HANDLELESS_MAX_AGE = timedelta(minutes=5)
 
 

@@ -58,9 +58,7 @@ class ProfileSection(str, Enum):
 @dataclass(frozen=True)
 class ProfileCheckSpec:
     check: ProfileCheck
-    # Staff-facing name of the rule, on Admin → Profile nudges.
     label: str
-    # Member-facing banner line.
     prompt: str
     action_label: str
     section: ProfileSection

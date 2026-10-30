@@ -58,8 +58,6 @@ class StationAssignmentMixin:
 
         requested = [s for s in assignments.values() if s]
 
-        # Every problem at once: a proctor seating a 23-player race fixes them all
-        # in one pass instead of resubmitting once per clash.
         problems = []
         duplicates = sorted({s for s in requested if requested.count(s) > 1}, key=_station_sort)
         if duplicates:
@@ -79,8 +77,6 @@ class StationAssignmentMixin:
             elif station in occupied:
                 clashes.setdefault(occupied[station], []).append(station)
         if clashes:
-            # Named rather than numbered, and resolved only here so the happy
-            # path keeps its query count.
             names = await _station_copy.name_matches(self.repository, clashes)
             for match_id, stations in clashes.items():
                 in_use = sorted(stations, key=_station_sort)
@@ -91,10 +87,7 @@ class StationAssignmentMixin:
         if problems:
             raise ValueError(' '.join(problems))
 
-        # Keys are MatchPlayers ids, and the confusion is with User ids. Without
-        # this an assignment naming only unknown ids applies nothing and still
-        # reports success, audits and publishes — a silent no-op is the worst
-        # answer to give a caller that got the id space wrong.
+        # Keys are MatchPlayers ids, not User ids: unknown ids must fail, not silently apply nothing.
         unknown = set(assignments) - {p.id for p in match.players}
         if unknown:
             raise ValueError(

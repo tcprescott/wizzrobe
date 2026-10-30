@@ -26,27 +26,15 @@ from application.utils.hostname import normalize_hostname
 from models import MembershipSource, Role, RoleSource, Tenant, User
 
 _SLUG_RE = re.compile(r'^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$')
-# Top-level paths the platform surface owns; a tenant slug can never be one
-# (slugs live under /t/<slug>, but reserving these avoids confusing links).
 _RESERVED_SLUGS = {'platform', 'api', 'static', 'login', 'logout', 'oauth', 't', 'sw', 'health'}
 
-# Simple per-process caches; invalidated wholesale on any write. Safe under the
-# single-worker deployment. Keyed by the resolution inputs the request path uses.
-# A guild may back several tenants, so the guild cache holds the full list.
 _cache_by_slug: dict[str, Optional[Tenant]] = {}
 _cache_by_guild: dict[int, List[Tenant]] = {}
-# Host mode puts get_by_domain on the hot path of every custom-domain request.
-# Positives and negatives are capped *separately*: a flood of distinct random
-# Host values (scanners) is all-negatives, and sharing one FIFO pool would let
-# that flood evict the handful of real domains. Negatives also help only against
-# repeated unknown hosts, so their pool stays small.
+# Separate caps, so a scanner flood of unknown hosts can't evict the real domains.
 _cache_by_domain: dict[str, Tenant] = {}
 _neg_cache_by_domain: dict[str, None] = {}
 
-# Bound the resolution caches. get_by_slug caches negative lookups too, keyed on
-# the attacker-controlled URL slug, so without a cap a flood of distinct
-# /t/<slug> requests would grow the cache without limit (memory-exhaustion DoS).
-# Dicts preserve insertion order, so evict the oldest key (FIFO) when full.
+# Required cap: negative slug lookups are keyed on attacker-controlled input.
 _CACHE_MAX = 2048
 _CACHE_NEG_MAX = 512
 
@@ -116,9 +104,6 @@ class TenantService:
 
     @staticmethod
     async def get_by_domain(domain: str) -> Optional[Tenant]:
-        # Normalize the same way domains are stored (see _validate_domain), so a
-        # browser's Host matches the verbatim-stored value. A non-normalizable
-        # input can never match a stored domain, so short-circuit to None.
         key = normalize_hostname(domain)
         if key is None:
             return None
@@ -262,7 +247,6 @@ class TenantService:
     @staticmethod
     async def grant_super_admin(actor: User, user: User) -> None:
         await AuthService.ensure_super_admin(actor)
-        # SUPER_ADMIN carries tenant=NULL; UserRoleRepository.add encodes that.
         await UserRoleRepository.add(user, Role.SUPER_ADMIN, granted_by=actor)
         await AuditService().write_log(
             actor, AuditActions.SUPER_ADMIN_GRANTED, {'user_id': user.id},

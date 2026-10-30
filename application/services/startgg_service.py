@@ -66,8 +66,6 @@ from models import (
 
 logger = logging.getLogger(__name__)
 
-# A manual Sync within this window of the last one is a no-op, so a double-tap
-# doesn't spend start.gg's per-minute budget twice.
 _SYNC_THROTTLE = timedelta(seconds=20)
 _LINK_STAFF_ONLY = "Only staff can link or unlink a tournament's start.gg event"
 
@@ -732,7 +730,6 @@ class StartggService(StartggPlaceholderMixin):
         winner_id: Optional[int] = None
         standing = await BracketSetService().standing(match)
         if standing is not None:
-            # A set's game: start.gg hears only the set's result, once it's won.
             if not standing.decided:
                 return False
             match, winner_id = standing.first, standing.winner_id
@@ -763,7 +760,6 @@ class StartggService(StartggPlaceholderMixin):
         client = await self._client()
         current = await client.get_set_state(row.set_id)
         if current['complete']:
-            # start.gg already has a result (an admin reported it): theirs stands.
             return False
         await client.report_winner(row.set_id, entrant.entrant_id)
         await self.audit_service.write_log(actor, AuditActions.STARTGG_RESULT_REPORTED, {
@@ -774,6 +770,5 @@ class StartggService(StartggPlaceholderMixin):
             full = await client.get_event_full(row.tournament.startgg_event_slug)
             await self._apply(row.tournament, full, actor, audit=False)
         except StartggAPIError as e:
-            # The result is already on start.gg; the 2-minute sync picks it up.
             logger.warning('start.gg re-sync after report failed for tournament %s: %s', row.tournament.id, e)
         return True

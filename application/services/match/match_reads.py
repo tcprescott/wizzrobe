@@ -20,7 +20,6 @@ from application.repositories import MatchRepository
 from application.utils.timezone import local_day_bounds
 from models import Match, MatchPlayers, Stage, User
 
-# The four answers to "what is this match to you?", strongest tie first.
 RELATION_PLAYER = 'player'
 RELATION_CREW = 'crew'
 RELATION_WATCHER = 'watcher'
