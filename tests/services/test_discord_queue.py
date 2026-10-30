@@ -11,10 +11,6 @@ import application.services.discord.discord_queue as dq
 from application.services.discord.discord_queue import enqueue as real_enqueue
 from application.tenant_context import get_current_tenant_id, tenant_scope
 
-# ---------------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------------
-
 
 async def _noop():
     pass
@@ -22,11 +18,6 @@ async def _noop():
 
 async def _raise():
     raise RuntimeError('boom')
-
-
-# ---------------------------------------------------------------------------
-# enqueue (real implementation)
-# ---------------------------------------------------------------------------
 
 
 class TestEnqueue:
@@ -54,20 +45,16 @@ class TestEnqueue:
         c2 = tagged(2)
         dq._queue.put_nowait(c1)
         dq._queue.put_nowait(c2)
-        # Drain without running them
         got = []
         while not dq._queue.empty():
             item = dq._queue.get_nowait()
             got.append(item)
             item.close()
             dq._queue.task_done()
-        # The two coroutines should be distinct objects
         assert len(got) == 2
 
 
-# ---------------------------------------------------------------------------
-# _worker (tests use a fresh local queue to avoid event-loop binding issues)
-# ---------------------------------------------------------------------------
+# _worker tests use a fresh local queue to avoid event-loop binding issues.
 
 
 class TestWorker:
@@ -137,11 +124,6 @@ class TestWorker:
             pass
 
 
-# ---------------------------------------------------------------------------
-# start / stop
-# ---------------------------------------------------------------------------
-
-
 class TestEnqueueTenantScope:
     """The worker task is scope-less; enqueue must re-bind the caller's tenant.
 
@@ -151,9 +133,7 @@ class TestEnqueueTenantScope:
     """
 
     async def _drain_scopeless(self, queue):
-        # Await each queued coroutine with NO tenant in scope — tenant_scope(None)
-        # reproduces the long-lived worker task, whose context has no tenant even
-        # though the test harness binds a default one (autouse ``_tenant_context``).
+        # tenant_scope(None) mimics the long-lived worker task, which has no tenant even though the harness binds one.
         with tenant_scope(None):
             assert get_current_tenant_id() is None
             while not queue.empty():
@@ -171,7 +151,7 @@ class TestEnqueueTenantScope:
             real_enqueue(record('in_scope'))
 
         await self._drain_scopeless(local_queue)
-        assert seen == {'in_scope': 42}  # None without the enqueue fix
+        assert seen == {'in_scope': 42}
 
     async def test_enqueue_outside_scope_stays_unscoped(self, monkeypatch):
         local_queue: asyncio.Queue = asyncio.Queue()
@@ -181,7 +161,7 @@ class TestEnqueueTenantScope:
         async def record(label):
             seen[label] = get_current_tenant_id()
 
-        with tenant_scope(None):  # genuinely no tenant at enqueue time
+        with tenant_scope(None):
             real_enqueue(record('out_scope'))
 
         await self._drain_scopeless(local_queue)
@@ -198,7 +178,7 @@ class TestStartStop:
 
     async def test_stop_is_idempotent_when_no_task(self):
         dq._worker_task = None
-        await dq.stop()  # must not raise
+        await dq.stop()
 
     async def test_stop_cancels_and_clears_task(self):
         # start() queues the boot wait and stop() drains it, so the queue has to
@@ -231,7 +211,7 @@ class TestDiscardPending:
         with warnings.catch_warnings():
             warnings.simplefilter('error')
             assert q.discard_pending() == 2
-        assert send.cr_frame is None  # closed, so it can never warn
+        assert send.cr_frame is None
         assert q._queue.empty()
         assert q.discard_pending() == 0
 

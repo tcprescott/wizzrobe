@@ -99,7 +99,7 @@ class TestRecipients:
 
         got = await StaffAlertService.match_alert_recipients(m, at=NOW)
 
-        assert _names(got) == ['early', 'late']  # the all-staff fallback
+        assert _names(got) == ['early', 'late']
 
     async def test_only_positions_with_the_switch_count(self, db):
         _, m, _, _ = await _match()
@@ -155,9 +155,6 @@ class TestRecipients:
         assert _names(got) == ['other']
 
     async def test_a_staff_admin_standing_in_for_an_empty_desk_is_tagged_staff(self, db):
-        # "Ping on-duty" turns the Admins column off and keeps the all-staff
-        # fallback; tagged as an admin, a staff member who also ran the
-        # tournament heard nothing at all while the desk was empty.
         t, m, _, _ = await _match()
         boss = await _staff(9001, 'boss')
         await t.admins.add(boss)

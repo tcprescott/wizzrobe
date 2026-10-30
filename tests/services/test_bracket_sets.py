@@ -55,7 +55,6 @@ async def test_a_set_books_one_match_per_game(db, monkeypatch, stub_discord_queu
             players['Andy'].id, players['Benny'].id,
         }
         assert await BracketSetService().label_for(game) == f'Game {number} of 3'
-    # Later games don't show up as hand-booked matches waiting for a bracket link.
     candidates = await MatchService().bracket_link_candidates([semi.tournament_id])  # type: ignore[attr-defined]
     assert not {m.id for m in candidates} & {g.id for g in games}
 
@@ -125,7 +124,6 @@ async def test_calling_off_game_one_hands_the_set_to_the_next_game(db, monkeypat
     assert await BracketSetService().labels_for([lead, last]) == {
         lead.id: 'Game 1 of 3', last.id: 'Game 2 of 3',
     }
-    # One game is open to book again.
     left = await BracketSetService().open_games(lead, 3)
     assert (left.booked, left.slots) == (2, [True])
 
@@ -173,7 +171,6 @@ async def test_a_started_game_keeps_its_number(db, monkeypatch, stub_discord_que
     actor, _players, semi, games = await _book_semi(monkeypatch, stub_discord_queue)
     first = await Match.get(id=games[0].id)
     await Match.filter(id=first.id).update(started_at=datetime.now(timezone.utc))
-    # Game 2 moves to before game 1's booked time, after game 1 started.
     await Match.filter(id=games[1].id).update(scheduled_at=first.scheduled_at - timedelta(hours=1))
     reloaded = [await Match.get(id=g.id) for g in games]
     assert list((await BracketSetService().labels_for(reloaded)).values()) == [
@@ -270,7 +267,6 @@ async def test_the_round_schedule_sets_each_stage_best_of(db, monkeypatch):
     assert await bracket_sources.best_of_for('challonge', semi.id) == 1
     stages = await rounds.list_stages(tournament.id, actor)
     assert next(s for s in stages if s.key == final_key).best_of == 3
-    # A best-of alone is no booking window.
     assert next(s for s in stages if s.key == final_key).window is None
     assert (await Tournament.get(id=tournament.id)).config['round_schedule'] == {final_key: {'best_of': 3}}
 

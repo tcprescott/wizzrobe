@@ -124,8 +124,6 @@ class TestAuthWaitScreens:
         claim = source[source.index('async def session_claim'):source.index('def _login_as(')]
         for body in (callback, claim):
             for line in body.splitlines():
-                # The one exception: the Design B hop to the claim page, whose
-                # own wait screen carries the hold.
                 if 'ui.navigate.to(' in line and '_claim_url' not in line:
                     raise AssertionError(f'unheld navigation: {line.strip()}')
 

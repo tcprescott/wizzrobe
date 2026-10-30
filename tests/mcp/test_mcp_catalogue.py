@@ -11,12 +11,8 @@ from mcpserver.registry import TOOL_SPECS
 from models import Role
 from tests.mcp.conftest import create_oauth_token, list_tools, mcp_session
 
-# Tools that legitimately take no community, because they are how a caller
-# discovers which communities exist.
 GLOBAL_TOOLS = {'whoami', 'list_tenants', 'server_version'}
 
-# Super-admin tools: they take no `tenant` either (they reach every community),
-# and are listed only to a super admin.
 PLATFORM_READ_TOOLS = {
     'platform_get_community',
     'platform_get_user',
@@ -50,8 +46,6 @@ PLATFORM_WRITE_TOOLS = {
 }
 PLATFORM_TOOLS = PLATFORM_READ_TOOLS | PLATFORM_WRITE_TOOLS
 
-# A snapshot, so adding or renaming a tool is a deliberate diff rather than an
-# invisible change to a published contract.
 READ_TOOLS = {
     'list_events',
     'get_event',
@@ -137,10 +131,6 @@ READ_TOOLS = {
     'list_surveys',
 }
 
-# The tools that change data. Served only to a connection whose consent screen
-# was approved with the write box ticked, so they are snapshotted separately —
-# a write tool that drifted into the read set would be one every read-only
-# client is suddenly offered.
 WRITE_TOOLS = {
     'create_event',
     'update_event',
@@ -249,8 +239,6 @@ WRITE_TOOLS = {
 EXPECTED_TOOLS = READ_TOOLS | WRITE_TOOLS
 EVERY_TOOL = EXPECTED_TOOLS | PLATFORM_TOOLS
 
-# Writes that remove something rather than adding or amending it. Clients use
-# the distinction to decide how hard to ask before proceeding.
 DESTRUCTIVE_TOOLS = {
     'delete_draft_event',
     'delete_equipment',

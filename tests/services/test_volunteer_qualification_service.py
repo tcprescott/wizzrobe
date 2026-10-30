@@ -13,10 +13,6 @@ from application.services.volunteer.volunteer_autoschedule_service import (
     VolunteerAutoscheduleService,
 )
 
-# ---------------------------------------------------------------------------
-# position_ids_by_user — the query the autoschedule service reads qualifications through
-# ---------------------------------------------------------------------------
-
 
 class TestQualificationsQuery:
     """Integration tests that hit the in-memory SQLite DB."""
@@ -59,19 +55,12 @@ class TestQualificationsQuery:
         assert u2.id not in result
 
 
-# ---------------------------------------------------------------------------
-# _pick qualification filtering (unit)
-# ---------------------------------------------------------------------------
-
-
 class TestPickQualificationFiltering:
     """Unit tests; no DB needed."""
 
     def _make_svc(self):
         return object.__new__(VolunteerAutoscheduleService)
 
-    # These tests isolate the qualification dimension, so they opt out of the
-    # availability constraint rather than declaring a window per candidate.
     POLICY = DraftPolicy(fill_outside_availability=True, max_hours=0)
 
     def _make_shift(self, position_id=5):
@@ -94,7 +83,6 @@ class TestPickQualificationFiltering:
         svc = self._make_svc()
         user = self._make_user(1)
         shift = self._make_shift(position_id=5)
-        # empty quals dict means generalist -> eligible
         result = svc._pick(
             shift, [user], [1], {}, {},
             {1: []}, {1: 0.0}, {1: set()}, policy=self.POLICY,
@@ -105,7 +93,7 @@ class TestPickQualificationFiltering:
         svc = self._make_svc()
         user = self._make_user(1)
         shift = self._make_shift(position_id=5)
-        quals = {1: {5}}  # qualified for position 5
+        quals = {1: {5}}
         result = svc._pick(
             shift, [user], [1], quals, {},
             {1: []}, {1: 0.0}, {1: set()}, policy=self.POLICY,
@@ -116,7 +104,7 @@ class TestPickQualificationFiltering:
         svc = self._make_svc()
         user = self._make_user(1)
         shift = self._make_shift(position_id=5)
-        quals = {1: {99}}  # qualified only for position 99
+        quals = {1: {99}}
         result = svc._pick(
             shift, [user], [1], quals, {},
             {1: []}, {1: 0.0}, {1: set()}, policy=self.POLICY,
@@ -125,10 +113,10 @@ class TestPickQualificationFiltering:
 
     def test_qualified_user_preferred_over_generalist(self):
         svc = self._make_svc()
-        generalist = self._make_user(1, 'Zoe')  # name sorts last
+        generalist = self._make_user(1, 'Zoe')
         specialist = self._make_user(2, 'Bob')
         shift = self._make_shift(position_id=5)
-        quals = {2: {5}}  # specialist has qual for position 5
+        quals = {2: {5}}
         result = svc._pick(
             shift, [generalist, specialist], [1, 2], quals, {},
             {1: [], 2: []}, {1: 0.0, 2: 0.0}, {1: set(), 2: set()},

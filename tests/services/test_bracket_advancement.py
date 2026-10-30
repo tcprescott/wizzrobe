@@ -29,9 +29,6 @@ from models import (
 pytestmark = pytest.mark.usefixtures("db")
 
 
-# ---------------------------------------------------------------------------
-# fixtures / builders
-# ---------------------------------------------------------------------------
 async def _staff(discord_id: int = 1234, username: str = 'staff') -> User:
     user = await User.create(discord_id=discord_id, username=username)
     await UserRole.create(user=user, role=Role.STAFF)
@@ -59,7 +56,6 @@ async def _started_bracket(service, fmt, n, config=None):
     return actor, bracket
 
 
-# --- deterministic winner pickers: (match, seed_of) -> winner_entry_id -----
 def lower_seed_wins(match, seed_of):
     return (
         match.entry1_id
@@ -77,7 +73,6 @@ def higher_seed_wins(match, seed_of):
 
 
 def pseudo_random(match, seed_of):
-    # Deterministic, index-derived: parity of the match coordinates + id.
     return (
         match.entry1_id
         if (match.round + match.position + match.id) % 2 == 0
@@ -97,7 +92,7 @@ async def _play_through(service, actor, bracket, picker):
     entries = await service.list_entries(bracket.id)
     seed_of = {e.id: e.seed for e in entries}
 
-    for _ in range(10000):  # loop guard
+    for _ in range(10000):
         current = await service.get_bracket(bracket.id)
         if current.state == BracketState.COMPLETE:
             break
@@ -120,9 +115,6 @@ def _assert_permutation(ranks, n):
     assert sorted(ranks) == list(range(1, n + 1)), ranks
 
 
-# ---------------------------------------------------------------------------
-# single elimination
-# ---------------------------------------------------------------------------
 class TestSingleElim:
     @pytest.mark.parametrize('n', [2, 3, 4, 5, 8, 16])
     @pytest.mark.parametrize('picker', PICKERS)
@@ -137,7 +129,6 @@ class TestSingleElim:
         _assert_permutation(ranks, n)
         assert sum(1 for e in entries if e.final_rank == 1) == 1
 
-        # No OPEN/PENDING work is left behind.
         assert await service.get_open_matches(bracket.id) == []
 
     @pytest.mark.parametrize('n', [2, 3, 4, 5, 8, 16])
@@ -150,8 +141,6 @@ class TestSingleElim:
 
     @pytest.mark.parametrize('n', [3, 5])
     async def test_byes_autoadvance_and_complete(self, service, n):
-        # Non-power-of-two fields carry structural byes; the champion (lower-seed
-        # picker) is still seed 1 and the stage completes cleanly.
         actor, bracket = await _started_bracket(service, BracketFormat.SINGLE_ELIM, n)
         final = await _play_through(service, actor, bracket, lower_seed_wins)
         assert final.state == BracketState.COMPLETE
@@ -160,9 +149,6 @@ class TestSingleElim:
         assert champion.seed == 1
 
 
-# ---------------------------------------------------------------------------
-# double elimination
-# ---------------------------------------------------------------------------
 class TestDoubleElim:
     @pytest.mark.parametrize('n', [2, 4, 5, 8])
     @pytest.mark.parametrize('picker', PICKERS)
@@ -176,14 +162,12 @@ class TestDoubleElim:
         _assert_permutation(ranks, n)
 
         champion = next(e for e in entries if e.final_rank == 1)
-        # Two-loss invariant through the DB: every non-champion is ELIMINATED.
         for e in entries:
             if e.id == champion.id:
                 assert e.status == BracketEntryStatus.ACTIVE
             else:
                 assert e.status == BracketEntryStatus.ELIMINATED
 
-        # The reset is played iff the losers-bracket side (slot 2) won GF1.
         matches = await service.list_matches(bracket.id)
         terminals = [
             m for m in matches if m.winner_to_id is None and m.loser_to_id is None
@@ -202,8 +186,6 @@ class TestDoubleElim:
 
     @pytest.mark.parametrize('n', [2, 4, 5, 8])
     async def test_lower_seed_champion_no_reset(self, service, n):
-        # With the lower-seed picker seed 1 never loses, so it wins GF1 from the
-        # winners side and the reset is never played.
         actor, bracket = await _started_bracket(service, BracketFormat.DOUBLE_ELIM, n)
         await _play_through(service, actor, bracket, lower_seed_wins)
         entries = await service.list_entries(bracket.id)
@@ -214,18 +196,14 @@ class TestDoubleElim:
         terminals = [
             m for m in matches if m.winner_to_id is None and m.loser_to_id is None
         ]
-        assert terminals[0].state != BracketMatchState.COMPLETE  # reset unplayed
+        assert terminals[0].state != BracketMatchState.COMPLETE
 
     async def test_grand_final_reset_disabled_lb_wins_is_champion(self, service):
-        # grand_final_reset=False makes GF1 terminal: whoever wins it (even the
-        # losers-bracket entrant in slot 2) is the champion, and no reset exists.
         actor, bracket = await _started_bracket(
             service, BracketFormat.DOUBLE_ELIM, 4,
             config={'grand_final_reset': False},
         )
         matches = await service.list_matches(bracket.id)
-        # No GF->reset routing (a match whose winner_to and loser_to share a
-        # non-null target) exists when the reset is disabled.
         gf_to_reset = [
             m for m in matches
             if m.winner_to_id is not None and m.winner_to_id == m.loser_to_id
@@ -251,7 +229,6 @@ class TestDoubleElim:
                 if fresh is None or fresh.state != BracketMatchState.OPEN:
                     continue
                 if fresh.id == gf_id:
-                    # Losers-bracket side (slot 2) wins the grand final.
                     await service.report_result(actor, fresh.id, fresh.entry2_id)
                 else:
                     await service.report_result(
@@ -268,9 +245,6 @@ class TestDoubleElim:
         assert champion.id == gf.entry2_id
 
 
-# ---------------------------------------------------------------------------
-# round robin
-# ---------------------------------------------------------------------------
 class TestRoundRobin:
     @pytest.mark.parametrize('n', [4, 6])
     @pytest.mark.parametrize('group_count', [1, 2])
@@ -286,9 +260,6 @@ class TestRoundRobin:
         assert all(e.final_rank is not None for e in entries)
         assert all(e.group_number is not None for e in entries)
 
-        # Each group is ranked by standings: a leader at rank 1 and 1-based
-        # competition ranks (ties may share a rank, so not necessarily a strict
-        # permutation).
         by_group = {}
         for e in entries:
             by_group.setdefault(e.group_number, []).append(e)
@@ -310,9 +281,6 @@ class TestRoundRobin:
         assert top.seed == 1
 
 
-# ---------------------------------------------------------------------------
-# swiss
-# ---------------------------------------------------------------------------
 class TestSwiss:
     @pytest.mark.parametrize('n', [4, 5, 8])
     @pytest.mark.parametrize('picker', PICKERS)
@@ -325,7 +293,6 @@ class TestSwiss:
         target = max(1, math.ceil(math.log2(n)))
         assert max(m.round for m in matches) == target
 
-        # No rematch across rounds.
         pairs = [
             frozenset({m.entry1_id, m.entry2_id})
             for m in matches
@@ -333,15 +300,12 @@ class TestSwiss:
         ]
         assert len(pairs) == len(set(pairs)), "a pairing repeated across rounds"
 
-        # Standings-based final_rank covering every entry, with a leader.
         entries = await service.list_entries(bracket.id)
         assert all(e.final_rank is not None for e in entries)
         assert min(e.final_rank for e in entries) == 1
 
     async def test_target_rounds_counts_active_entries_only(self, service):
-        # Regression: dropped entries must not inflate the Swiss round target.
-        # 8 enrolled, 4 dropped before start -> active field of 4 targets
-        # ceil(log2(4)) = 2 rounds, not ceil(log2(8)) = 3.
+        # Dropped entries don't count: 4 active entrants target 2 rounds, not 3.
         actor = await _staff()
         t = await Tournament.create(name='Cup')
         bracket = await service.create_bracket(actor, t.id, 'Main', BracketFormat.SWISS)
@@ -361,8 +325,7 @@ class TestSwiss:
 
     async def test_complete_stage_writes_standings(self, service):
         actor, bracket = await _started_bracket(service, BracketFormat.SWISS, 4)
-        # Play only up to the point where the stage stops producing matches, then
-        # finalize explicitly (Swiss is not auto-completed).
+        # Swiss isn't auto-completed, so finalize explicitly.
         entries = await service.list_entries(bracket.id)
         seed_of = {e.id: e.seed for e in entries}
         while True:
@@ -381,9 +344,6 @@ class TestSwiss:
         assert all(e.final_rank is not None for e in entries)
 
 
-# ---------------------------------------------------------------------------
-# override_result
-# ---------------------------------------------------------------------------
 class TestOverride:
     async def _match_at(self, service, bracket_id, rnd, pos):
         matches = await service.list_matches(bracket_id)
@@ -395,7 +355,6 @@ class TestOverride:
 
     async def test_override_before_downstream_completes(self, service):
         actor, bracket = await _started_bracket(service, BracketFormat.SINGLE_ELIM, 4)
-        # R1 pos1: seed 1 vs seed 4. Report seed 1, then flip to seed 4.
         m1 = await self._match_at(service, bracket.id, 1, 1)
         seed1 = await self._entry_for_seed(service, bracket.id, 1)
         await service.report_result(actor, m1.id, seed1.id)
@@ -405,7 +364,6 @@ class TestOverride:
         overridden = await service.override_result(actor, m1.id, other.id)
         assert overridden.winner_id == other.id
 
-        # The downstream final now carries the overridden winner in slot 1.
         final = await self._match_at(service, bracket.id, 2, 1)
         assert final.entry1_id == other.id
 
@@ -420,7 +378,6 @@ class TestOverride:
             await service.repository.get_match(m1.id), seed_of))
         await service.report_result(actor, m2.id, lower_seed_wins(
             await service.repository.get_match(m2.id), seed_of))
-        # Final is now OPEN; play it so it becomes the completed downstream match.
         final = await self._match_at(service, bracket.id, 2, 1)
         await service.report_result(actor, final.id, lower_seed_wins(
             await service.repository.get_match(final.id), seed_of))
@@ -431,14 +388,12 @@ class TestOverride:
 
     async def test_override_requires_complete_match(self, service):
         actor, bracket = await _started_bracket(service, BracketFormat.SINGLE_ELIM, 4)
-        m1 = await self._match_at(service, bracket.id, 1, 1)  # still OPEN
+        m1 = await self._match_at(service, bracket.id, 1, 1)
         entry = await self._entry_for_seed(service, bracket.id, 1)
         with pytest.raises(ValueError, match='COMPLETE'):
             await service.override_result(actor, m1.id, entry.id)
 
     async def test_override_final_reranks_completed_bracket(self, service):
-        # Regression: overriding the deciding match of an already-COMPLETE
-        # elimination bracket must recompute final_rank, not leave it stale.
         actor, bracket = await _started_bracket(service, BracketFormat.SINGLE_ELIM, 2)
         final = next(
             m for m in await service.list_matches(bracket.id) if m.round == 1
@@ -453,7 +408,6 @@ class TestOverride:
         )
         assert champ.final_rank == 1
 
-        # Flip the champion; the bracket is COMPLETE, so ranks must be recomputed.
         await service.override_result(actor, final.id, e2.id)
         assert (await service.get_bracket(bracket.id)).state == BracketState.COMPLETE
 
@@ -463,14 +417,11 @@ class TestOverride:
         assert entries[e1.id].final_rank == 2
 
 
-# ---------------------------------------------------------------------------
-# guards: state / winner validation
-# ---------------------------------------------------------------------------
 class TestReportGuards:
     async def test_rejects_non_open_match(self, service):
         actor, bracket = await _started_bracket(service, BracketFormat.SINGLE_ELIM, 4)
         matches = await service.list_matches(bracket.id)
-        final = next(m for m in matches if m.round == 2)  # PENDING
+        final = next(m for m in matches if m.round == 2)
         entries = await service.list_entries(bracket.id)
         with pytest.raises(ValueError, match='OPEN'):
             await service.report_result(actor, final.id, entries[0].id)
@@ -481,7 +432,6 @@ class TestReportGuards:
             m for m in await service.list_matches(bracket.id)
             if m.state == BracketMatchState.OPEN
         )
-        # An entry not part of this match.
         entries = await service.list_entries(bracket.id)
         foreign = next(
             e for e in entries if e.id not in (m1.entry1_id, m1.entry2_id)
@@ -490,9 +440,6 @@ class TestReportGuards:
             await service.report_result(actor, m1.id, foreign.id)
 
 
-# ---------------------------------------------------------------------------
-# set scores + forfeit flag
-# ---------------------------------------------------------------------------
 class TestScoresAndForfeit:
     async def _open_match(self, service, bracket):
         return next(
@@ -581,9 +528,6 @@ class TestScoresAndForfeit:
         assert overridden.entry2_score == 2
 
 
-# ---------------------------------------------------------------------------
-# authorization + tenant scoping
-# ---------------------------------------------------------------------------
 class TestAuthAndTenant:
     async def test_non_staff_cannot_report(self, service):
         actor, bracket = await _started_bracket(service, BracketFormat.SINGLE_ELIM, 4)

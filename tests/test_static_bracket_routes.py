@@ -50,8 +50,7 @@ class TestHtmlPageCache:
         assert cache.get(1, 'bracket:7').body == 'fresh'
 
     def test_an_entry_expires_on_the_ttl(self):
-        # A negative TTL makes every stored entry already expired, which tests
-        # the expiry branch without sleeping.
+        # A negative TTL expires every stored entry, testing expiry without sleeping.
         cache = HtmlPageCache(ttl_seconds=-1)
         cache.put(1, 'bracket:7', 'body')
         assert cache.get(1, 'bracket:7') is None
@@ -89,7 +88,6 @@ class TestEventInvalidation:
         assert EventType.BRACKET_ADVANCED in subscribed
         assert EventType.MATCH_STARTED in subscribed
         assert EventType.MATCH_RESULT_RECORDED in subscribed
-        # …and nothing that cannot change a bracket.
         assert EventType.VOLUNTEER_ASSIGNED not in subscribed
         assert EventType.TENANT_MEMBER_ADDED not in subscribed
 
@@ -102,7 +100,6 @@ class TestRoutes:
         paths = {getattr(r, 'path', None) for r in app.routes}
         assert '/live/brackets/{bracket_id}' in paths
         assert '/live/tournament/{tournament_id}/brackets' in paths
-        # Never login-gated: the whole point is a link anyone can open.
         assert not _matches_protected_route('/live/brackets/7')
         assert not _matches_protected_route('/live/tournament/3/brackets')
 
@@ -135,7 +132,7 @@ class TestPublicCachePaths:
     def test_nothing_else_loses_its_cookie(self):
         for path in (
             '/', '/home/schedule', '/admin', '/login',
-            '/brackets/7',                       # the interactive twin
+            '/brackets/7',
             '/tournament/3/brackets',
             '/live/brackets/7/edit',
             '/api/brackets',

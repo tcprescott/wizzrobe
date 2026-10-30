@@ -48,8 +48,6 @@ class TestCancellableStatuses:
 
     @pytest.mark.parametrize('status', [RaceRoomStatus.FINISHED, RaceRoomStatus.CANCELLED])
     def test_a_terminal_room_offers_nothing(self, status):
-        # Nothing left to stop — offering the button would be a control the
-        # service has no work for.
         assert status not in _CANCELLABLE_ROOM_STATUSES
 
 
@@ -59,8 +57,6 @@ class TestRoomUrl:
         assert room.url == 'https://racetime.gg/alttpr/dev-room'
 
     def test_a_room_with_no_slug_has_no_url(self):
-        # Never a bare "https://racetime.gg/" — a link to the site's front page
-        # reads as a working link to the room.
         assert RacetimeRoom(slug='', category='alttpr').url == ''
 
     def test_the_bracket_watch_link_uses_the_same_derivation(self):

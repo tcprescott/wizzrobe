@@ -56,9 +56,6 @@ async def requester(db):
 
 @pytest.fixture
 async def queued_task(match_with_players, requester):
-    # Always a requester: every production caller has one (the UI's actor, the
-    # API's write token), and the completion attributes the resulting seed and
-    # its audit row to them.
     return await ProviderTaskService().queue(
         provider='dk64r', operation='generate_seed', actor=requester,
         match_id=match_with_players.id,
@@ -77,7 +74,6 @@ class TestSubmit:
 
         assert task.status == ProviderTaskStatus.RUNNING
         assert task.provider_task_id == 'up-99'
-        # Everything a later poll needs, so no part of the roll is only in memory.
         assert task.provider_params == {'branch': 'stable'}
         assert task.settings_snapshot['generate_spoilerlog'] is False
 
@@ -93,9 +89,6 @@ class TestSubmit:
         assert 'boom' in task.error
 
     async def test_misconfiguration_raises_and_leaves_no_row(self, queued_task, monkeypatch):
-        # A missing credential is not a broken roll: nothing was submitted, so
-        # filing a failed task would misreport a config mistake — and file
-        # another one on every click until it is fixed.
         service = SeedRollService()
         monkeypatch.setattr(
             service.seedgen_service, 'submit_async_roll',
@@ -143,14 +136,11 @@ class TestPollAndComplete:
         assert refreshed.generated_seed_id is not None
         seed = await GeneratedSeeds.get(id=refreshed.generated_seed_id)
         assert seed.seed_url.endswith('seed_id=42')
-        # The five-icon verification hash racers compare, kept with the roll.
         assert seed.provider_meta['verification_hash'] == [6, 2, 8, 8, 4]
 
     async def test_a_second_tick_does_not_seed_twice(
         self, queued_task, match_with_players, monkeypatch,
     ):
-        # The race the claim guard exists for: two ticks holding the same row
-        # would otherwise write two seeds and DM both players twice.
         service = SeedRollService()
         await service.task_service.mark_submitted(
             queued_task, provider_task_id='up-1',
@@ -162,7 +152,7 @@ class TestPollAndComplete:
 
         await service.poll(queued_task)
         stale = await ProviderTask.get(id=queued_task.id)
-        stale.status = ProviderTaskStatus.RUNNING  # what a concurrent tick still holds
+        stale.status = ProviderTaskStatus.RUNNING
         await service.poll(stale)
 
         assert await GeneratedSeeds.all().count() == 1
@@ -201,13 +191,10 @@ class TestPollAndComplete:
         assert refreshed.error is None
 
     async def test_an_unsubmitted_task_is_not_even_scanned(self, queued_task):
-        # It is not pollable, so the worker never picks it up in the first place.
         due = await ProviderTaskService().due_for_poll()
         assert queued_task.id not in [t.id for t in due]
 
     async def test_a_submit_that_never_landed_is_swept_eventually(self, queued_task):
-        # The other half of the trade: a row that never gets a handle is retired
-        # by the sweeper rather than left QUEUED forever.
         await ProviderTask.filter(id=queued_task.id).update(
             created_at=datetime.now(timezone.utc) - TASK_MAX_AGE - timedelta(minutes=1),
         )
@@ -234,13 +221,12 @@ class TestSurvivesRestart:
             _async_returning(_submission('up-survives')),
         )
         await submitting.submit(queued_task)
-        del submitting  # the process that started the roll is gone
+        del submitting
 
         after_restart = SeedRollService()
         monkeypatch.setattr(
             after_restart.seedgen_service, 'poll_async_roll', _async_returning(_finished()),
         )
-        # Exactly what the worker does: read the queue, act on what is there.
         due = await after_restart.task_service.due_for_poll()
         assert [t.provider_task_id for t in due] == ['up-survives']
         await after_restart.poll(due[0])
@@ -258,8 +244,6 @@ class TestSweepStale:
         assert await ProviderTaskService().sweep_stale() == 1
 
         refreshed = await ProviderTask.get(id=queued_task.id)
-        # ABANDONED, not FAILED: the provider may well have finished it, we just
-        # stopped waiting. Saying "failed" would misreport a working randomizer.
         assert refreshed.status == ProviderTaskStatus.ABANDONED
         assert refreshed.completed_at is not None
 

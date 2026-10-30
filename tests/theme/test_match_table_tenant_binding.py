@@ -112,8 +112,6 @@ def test_every_registered_event_is_either_bg_or_given_a_client():
         m = re.search(r"self\.table\.on\('([a-z_-]+)'", reg)
         if not m or 'background_tasks.create' not in reg:
             continue
-        # A bare background task is only acceptable when the handler is handed
-        # a client to restore (the acknowledge_* handlers do this).
         assert 'context.client' in reg, (
             f"event '{m.group(1)}' uses a bare background task with no tenant "
             f"rebind and no client context; use self._bg(...)"

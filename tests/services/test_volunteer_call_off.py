@@ -201,8 +201,7 @@ async def test_board_shows_who_called_it_off(db, sent):
     from application.utils.timezone import combine_local, today_local
     from models import VolunteerPosition, VolunteerShift
 
-    # Noon tomorrow, not "an hour from now": the board day runs 06:00 to 06:00,
-    # so a shift an hour out at 01:00 sits on yesterday's board.
+    # Noon tomorrow, not an hour from now: the board day runs 06:00 to 06:00.
     day = today_local() + timedelta(days=1)
     starts = combine_local(day, time(12, 0))
     pos, _ = await VolunteerPosition.get_or_create(name='Admin Desk')

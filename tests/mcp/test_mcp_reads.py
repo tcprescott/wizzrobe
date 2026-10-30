@@ -165,7 +165,6 @@ class TestOnlinePlay:
                 client, raw, 'get_preset', tenant=TENANT, preset_id=preset.id,
             )
         assert [p['name'] for p in listing['result']] == ['Open Standard']
-        # The summary carries no settings; the detail is the only way to get them.
         assert 'settings' not in listing['result'][0]
         assert not is_error, detail
         assert detail['settings'] == {'glitches': 'none'}
@@ -228,7 +227,6 @@ class TestOnlinePlay:
             )
         assert links['result'][0]['event_slug'] == 'alttprleague'
         assert episodes['result'][0]['sg_episode_id'] == '4242'
-        # The upstream payload blob is deliberately not echoed back.
         assert 'payload' not in episodes['result'][0]
 
     async def test_randomizers_list_only_what_the_community_can_roll(self, db):
@@ -237,8 +235,6 @@ class TestOnlinePlay:
             is_error, payload = await call_tool(client, raw, 'list_randomizers', tenant=TENANT)
         assert not is_error, payload
         names = {r['randomizer'] for r in payload['result']}
-        # ALTTPR needs no credential, so it is always rollable; the key-gated
-        # backends stay out until a credential is configured.
         assert 'alttpr' in names
         assert 'ootr' not in names
         assert any(r['supports_triforce_texts'] for r in payload['result'])
@@ -368,8 +364,6 @@ class TestBrackets:
     async def test_a_non_staff_caller_cannot_read_an_unpublished_stage(self, db):
         """``_bracket`` builds a DRAFT stage. The same rule as the public pages
         and REST: staff-only, answered as ``not_found``, roster included."""
-        # A role is the MCP floor for reaching a community at all; VOLUNTEER
-        # holds no authority over brackets.
         _, raw = await create_oauth_token(username='mcp-player', roles=[Role.VOLUNTEER])
         tournament, bracket = await self._bracket()
         async with mcp_session() as client:
@@ -474,7 +468,6 @@ class TestObservability:
         assert hooks['result'][0]['event_types'] == ['match.created']
         assert 'super-secret-value' not in str(hooks)
         assert deliveries['result'][0]['response_status'] == 500
-        # The serialized request body is bulk, and the audit log already has it.
         assert 'payload' not in deliveries['result'][0]
 
     async def test_feedback_lists_most_recent_first(self, db):

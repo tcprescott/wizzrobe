@@ -121,7 +121,6 @@ async def test_opt_out_tournament_not_mirrored(db):
 
 async def test_out_of_window_match_not_mirrored(db):
     tenant, actor, tourn = await _setup(db)
-    # Far in the future, beyond the lookahead window.
     await _match(tourn, when=datetime.now(timezone.utc) + timedelta(days=90))
 
     result = await _reconciler().reconcile_tenant(tenant, actor=actor)
@@ -136,15 +135,13 @@ async def test_event_deleted_out_of_band_is_recreated(db):
     reconciler = _reconciler()
 
     await reconciler.reconcile_tenant(tenant, actor=actor)
-    # Simulate an out-of-band deletion: the Discord event vanishes but the link
-    # row survives with a now-stale hash (force the edit branch next pass).
     mock_discord_data.reset_scheduled_events()
     link = await DiscordScheduledEvent.filter(source_id=match.id).first()
     await DiscordScheduledEvent.filter(id=link.id).update(content_hash='stale')
 
     result = await reconciler.reconcile_tenant(tenant, actor=actor)
     assert result.errors == 0
-    assert result.created == 1  # healed via re-create
+    assert result.created == 1
     assert await DiscordScheduledEvent.filter(source_id=match.id).count() == 1
     assert len(mock_discord_data.scheduled_events_for(GUILD)) == 1
 

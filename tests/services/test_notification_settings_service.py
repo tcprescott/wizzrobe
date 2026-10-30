@@ -120,7 +120,6 @@ class TestStaffChoice:
             NotificationRecipient.STAFF: NotificationMode.PING,
         }
         assert {r.staff_choice for r in rows} == {StaffChoice.PING_ON_DUTY}
-        # Only the admins row differs from the default, so only it is stored.
         [setting] = await NotificationSetting.all()
         assert setting.recipient is NotificationRecipient.ADMINS
         assert await NotificationSettingsService.mode_for(
@@ -157,8 +156,8 @@ class TestStaffChoice:
         assert row.staff_choice is None
 
     @pytest.mark.parametrize('notice, choice', [
-        ('match_scheduled', 'ping_all'),       # no staff recipients
-        (JOIN_REQUEST.key, 'ping_on_duty'),    # all staff only, no on-shift desk
+        ('match_scheduled', 'ping_all'),
+        (JOIN_REQUEST.key, 'ping_on_duty'),
         ('player_comment', 'loud'),
         ('no_such_notice', 'off'),
     ])
@@ -182,7 +181,7 @@ class TestModeFor:
     async def test_an_override_wins_once_set(self, db):
         staff = await _staff()
         target = MATCH_CONFIRMED.to(WATCHERS)
-        await NotificationSettingsService.mode_for(target)  # warm the cache first
+        await NotificationSettingsService.mode_for(target)
 
         row = await NotificationSettingsService.set_mode(staff, target.key, 'watchers', 'off')
 

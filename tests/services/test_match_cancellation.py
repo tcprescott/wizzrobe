@@ -80,7 +80,7 @@ class TestCancelMatch:
         await service.cancel_match(
             match.id, actor=await make_user(discord_id=1), reason='Series clinched 2-0.',
         )
-        assert await Match.filter(id=match.id).first() is None  # gone first
+        assert await Match.filter(id=match.id).first() is None
 
         queued = list(stub_discord_queue)
         assert queued, 'cancellation enqueued no notification'
@@ -94,7 +94,6 @@ class TestCancelMatch:
         body = sent[0][1]
         assert 'cancelled' in body
         assert 'Series clinched 2-0.' in body
-        # The commentator is told which slot they held; the player is not.
         assert titles[commentator.discord_id] == 'Match cancelled · your commentator slot'
         assert titles[player.discord_id] == 'Match cancelled'
         assert notices[player.discord_id] == MATCH_CANCELLED.to(PLAYERS)
@@ -116,7 +115,7 @@ class TestCancelMatch:
 
         await room.refresh_from_db()
         assert room.status == RaceRoomStatus.CANCELLED
-        assert room.match_id is None  # SET_NULL, but cancelled rather than orphaned OPEN
+        assert room.match_id is None
 
     async def test_a_finished_room_is_left_alone(self, service):
         match, _, _ = await _match_with_people()

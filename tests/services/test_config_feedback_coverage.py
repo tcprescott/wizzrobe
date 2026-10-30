@@ -57,8 +57,7 @@ async def make_user(discord_id: int, username: str = 'user', staff: bool = False
 
 
 async def set_config(name: str, value: str) -> None:
-    # The event's own settings live on the default event, written raw so a test
-    # can store what the service would refuse (an end before the start).
+    # Written raw so a test can store what the service would refuse (an end before the start).
     if name in EVENT_DATE_FIELDS:
         await Event.filter(tenant_id=1, is_default=True).update(**{EVENT_DATE_FIELDS[name]: date.fromisoformat(value)})
     elif name in EVENT_CONFIG_KEYS:
@@ -66,11 +65,6 @@ async def set_config(name: str, value: str) -> None:
         await Event.filter(id=event.id).update(config={**(event.config or {}), name: value})
     else:
         await SystemConfiguration.create(name=name, value=value)
-
-
-# ---------------------------------------------------------------------------
-# get_int
-# ---------------------------------------------------------------------------
 
 
 class TestGetInt:
@@ -94,11 +88,6 @@ class TestGetInt:
         assert await SystemConfigService.get_int('n', default=5) == 5
 
 
-# ---------------------------------------------------------------------------
-# get_date
-# ---------------------------------------------------------------------------
-
-
 class TestGetDate:
     async def test_valid_iso(self, db):
         await set_config('d', '2025-10-23')
@@ -115,11 +104,6 @@ class TestGetDate:
     async def test_default_when_unparseable(self, db):
         await set_config('d', '10/23/2025')
         assert await SystemConfigService.get_date('d', default=None) is None
-
-
-# ---------------------------------------------------------------------------
-# set_raw — upsert, permission gate, audit
-# ---------------------------------------------------------------------------
 
 
 class TestSetRaw:
@@ -151,11 +135,6 @@ class TestSetRaw:
         with pytest.raises(PermissionError):
             await SystemConfigService.set_raw('k', 'v', plain)
         assert await SystemConfigService.get_raw('k') is None
-
-
-# ---------------------------------------------------------------------------
-# get_event_window — fallback chain
-# ---------------------------------------------------------------------------
 
 
 class TestGetEventWindow:
@@ -193,11 +172,6 @@ class TestGetEventWindow:
         start, end = await SystemConfigService.get_event_window()
         assert start == date(2025, 10, 20)
         assert end == date(2025, 10, 20)
-
-
-# ---------------------------------------------------------------------------
-# get_max_concurrent_players / stages / volunteer reminder
-# ---------------------------------------------------------------------------
 
 
 class TestGetMaxConcurrentPlayers:
@@ -241,11 +215,6 @@ class TestGetVolunteerReminderLeadMinutes:
         assert await SystemConfigService.get_volunteer_reminder_lead_minutes(default=15) == 15
 
 
-# ---------------------------------------------------------------------------
-# get_station_format
-# ---------------------------------------------------------------------------
-
-
 class TestGetStationFormat:
     async def test_valid_stored_value(self, db):
         await set_config(KEY_STATION_FORMAT, 'numeric')
@@ -261,11 +230,6 @@ class TestGetStationFormat:
     async def test_custom_default_when_missing(self, db):
         result = await SystemConfigService.get_station_format(default=StationFormat.STRUCTURED)
         assert result == StationFormat.STRUCTURED
-
-
-# ---------------------------------------------------------------------------
-# get_tournament_hours / get_tournament_window_for_date
-# ---------------------------------------------------------------------------
 
 
 class TestGetTournamentHours:
@@ -289,10 +253,10 @@ class TestGetTournamentHours:
 
     async def test_skips_invalid_date_time_and_missing_keys(self, db):
         await set_config(KEY_TOURNAMENT_HOURS, json.dumps({
-            '2025-10-20': {'open': '09:00', 'close': '17:00'},  # kept
-            'not-a-date': {'open': '09:00', 'close': '17:00'},  # bad date -> skip
-            '2025-10-21': {'open': '25:99', 'close': '17:00'},  # bad time -> skip
-            '2025-10-22': {'open': '09:00'},                    # missing close -> skip
+            '2025-10-20': {'open': '09:00', 'close': '17:00'},
+            'not-a-date': {'open': '09:00', 'close': '17:00'},
+            '2025-10-21': {'open': '25:99', 'close': '17:00'},
+            '2025-10-22': {'open': '09:00'},
         }))
         hours = await SystemConfigService.get_tournament_hours()
         assert hours == {date(2025, 10, 20): (time(9, 0), time(17, 0))}
@@ -310,11 +274,6 @@ class TestGetTournamentWindowForDate:
         assert await SystemConfigService.get_tournament_window_for_date(date(2025, 10, 20)) is None
 
 
-# ---------------------------------------------------------------------------
-# Per-tournament "tournament days" override (falls back to tenant setting)
-# ---------------------------------------------------------------------------
-
-
 def _tournament(*, hours=None, start=None, end=None):
     """A stub carrying only the attributes the resolver reads."""
     return SimpleNamespace(
@@ -324,7 +283,6 @@ def _tournament(*, hours=None, start=None, end=None):
 
 class TestTournamentHoursOverride:
     async def test_tournament_hours_override_replaces_tenant(self, db):
-        # Tenant configures one window; the tournament configures another.
         await set_config(KEY_TOURNAMENT_HOURS, json.dumps({
             '2025-10-20': {'open': '09:00', 'close': '17:00'},
         }))
@@ -351,8 +309,6 @@ class TestTournamentHoursOverride:
         assert window == (time(12, 0), time(20, 0))
 
     async def test_absent_day_in_tournament_override_is_unrestricted(self, db):
-        # The tournament defines its own schedule; a date it omits is unrestricted
-        # even though the tenant restricts it.
         await set_config(KEY_TOURNAMENT_HOURS, json.dumps({
             '2025-10-21': {'open': '09:00', 'close': '17:00'},
         }))
@@ -374,7 +330,6 @@ class TestEventWindowOverride:
     async def test_missing_bound_falls_back_to_tenant(self, db):
         await set_config(KEY_EVENT_START_DATE, '2025-10-20')
         await set_config(KEY_EVENT_END_DATE, '2025-10-23')
-        # Only the start is overridden; the end inherits the tenant setting.
         tournament = _tournament(start=date(2025, 10, 22), end=None)
         start, end = await SystemConfigService.get_event_window(tournament)
         assert (start, end) == (date(2025, 10, 22), date(2025, 10, 23))
@@ -384,11 +339,6 @@ class TestEventWindowOverride:
         await set_config(KEY_EVENT_END_DATE, '2025-10-23')
         start, end = await SystemConfigService.get_event_window(None)
         assert (start, end) == (date(2025, 10, 20), date(2025, 10, 23))
-
-
-# ---------------------------------------------------------------------------
-# set_tournament_hours — persistence + validation
-# ---------------------------------------------------------------------------
 
 
 class TestSetTournamentHours:
@@ -449,17 +399,11 @@ class TestSetTournamentHours:
         assert await SystemConfigService.get_raw(KEY_TOURNAMENT_HOURS) is None
 
 
-# ---------------------------------------------------------------------------
-# Match scheduling honors a tournament's own hours (falls back to tenant)
-# ---------------------------------------------------------------------------
-
-
 class TestMatchSchedulingHonorsTournamentHours:
     async def test_tournament_override_bounds_scheduling(self, db):
         from application.services.match.match_service import MatchService
         from application.utils.timezone import parse_local_datetime
 
-        # Tenant has no hours; the tournament restricts 12:00–20:00 on this date.
         tournament = await Tournament.create(
             name='Cup',
             tournament_hours={'2025-10-20': {'open': '12:00', 'close': '20:00'}},
@@ -471,7 +415,7 @@ class TestMatchSchedulingHonorsTournamentHours:
             await svc.assert_within_tournament_hours(outside, tournament.id)
 
         inside = parse_local_datetime('2025-10-20', '13:00')
-        await svc.assert_within_tournament_hours(inside, tournament.id)  # no raise
+        await svc.assert_within_tournament_hours(inside, tournament.id)
 
     async def test_falls_back_to_tenant_hours_when_tournament_unset(self, db):
         from application.services.match.match_service import MatchService
@@ -480,17 +424,12 @@ class TestMatchSchedulingHonorsTournamentHours:
         await set_config(KEY_TOURNAMENT_HOURS, json.dumps({
             '2025-10-20': {'open': '12:00', 'close': '20:00'},
         }))
-        tournament = await Tournament.create(name='NoOverride')  # tournament_hours is None
+        tournament = await Tournament.create(name='NoOverride')
         svc = object.__new__(MatchService)
 
         outside = parse_local_datetime('2025-10-20', '10:00')
         with pytest.raises(ValueError, match='can only start between'):
             await svc.assert_within_tournament_hours(outside, tournament.id)
-
-
-# ---------------------------------------------------------------------------
-# FeedbackService.list_recent
-# ---------------------------------------------------------------------------
 
 
 class TestListRecent:
@@ -503,7 +442,6 @@ class TestListRecent:
         staff = await make_user(11, username='staffer', staff=True)
         recent = await FeedbackService().list_recent(staff)
         assert len(recent) == 3
-        # user is prefetched, so the relation is accessible without an await.
         assert recent[0].user.username == 'attendee'
 
     async def test_respects_limit(self, db):
@@ -529,11 +467,6 @@ class TestListRecent:
             await FeedbackService().list_recent(user)
         with pytest.raises(PermissionError):
             await FeedbackService().list_recent(None)
-
-
-# ---------------------------------------------------------------------------
-# FeedbackService.mark_reviewed
-# ---------------------------------------------------------------------------
 
 
 class TestMarkReviewed:
@@ -569,11 +502,6 @@ class TestMarkReviewed:
             await FeedbackService().mark_reviewed(staff, 999999)
 
 
-# ---------------------------------------------------------------------------
-# FeedbackService.submit — round trip through the real DB
-# ---------------------------------------------------------------------------
-
-
 class TestSubmit:
     async def test_persists_and_coerces_unknown_category(self, db):
         actor = await make_user(4, username='attendee')
@@ -582,8 +510,8 @@ class TestSubmit:
             actor=actor, category='nonsense', message='  hello  ', page_url='/volunteer',
         )
         stored = await Feedback.get(id=fb.id)
-        assert stored.category == FeedbackCategory.OTHER  # unknown -> OTHER
-        assert stored.message == 'hello'                  # trimmed
+        assert stored.category == FeedbackCategory.OTHER
+        assert stored.message == 'hello'
         assert stored.status == FeedbackStatus.NEW
 
     async def test_empty_message_raises(self, db):

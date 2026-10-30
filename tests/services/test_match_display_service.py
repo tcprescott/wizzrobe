@@ -10,8 +10,6 @@ from models import Match, RacetimeBot, Tournament
 
 @pytest.fixture
 def display_service():
-    # _get_match_state / _format_match_for_display are pure formatting helpers
-    # (no repository access), so a plain instance is sufficient.
     return MatchDisplayService()
 
 
@@ -67,11 +65,6 @@ def make_player(name, *, discord_id="111", dm_notifications=True,
     )
 
 
-# ---------------------------------------------------------------------------
-# _get_match_state
-# ---------------------------------------------------------------------------
-
-
 class TestGetMatchState:
     def test_scheduled_when_no_timestamps(self, display_service):
         assert display_service._get_match_state(make_match()) == "Scheduled"
@@ -97,14 +90,8 @@ class TestGetMatchState:
 
     def test_confirmed_beats_finished(self, display_service):
         now = datetime.now()
-        # Even without started_at, confirmed_at should dominate
         match = make_match(finished_at=now, confirmed_at=now)
         assert display_service._get_match_state(match) == "Confirmed"
-
-
-# ---------------------------------------------------------------------------
-# _format_match_for_display
-# ---------------------------------------------------------------------------
 
 
 class TestHasResult:
@@ -294,11 +281,6 @@ class TestFormatMatchForDisplay:
         assert result["scheduled_at"] == ""
 
 
-# ---------------------------------------------------------------------------
-# _format_match_for_display — proctor-board sort key and overdue flag
-# ---------------------------------------------------------------------------
-
-
 class TestFormatMatchOverdue:
     """``is_overdue`` drives the proctor board's top bucket and amber time.
 
@@ -348,11 +330,6 @@ class TestFormatMatchOverdue:
         assert result["scheduled_ts"] == datetime(2020, 1, 1, 12, 0, tzinfo=timezone.utc).timestamp()
 
 
-# ---------------------------------------------------------------------------
-# get_matches_for_display — exclude_racetime
-# ---------------------------------------------------------------------------
-
-
 @pytest.mark.asyncio
 class TestExcludeRacetime:
     async def test_exclude_racetime_omits_racetime_tournament_matches(self, db, display_service):
@@ -380,11 +357,6 @@ class TestExcludeRacetime:
         rows = await display_service.get_matches_for_display()
 
         assert {r['id'] for r in rows} == {onsite_match.id, online_match.id}
-
-
-# ---------------------------------------------------------------------------
-# get_matches_for_display — match_ids (the deep-linked board)
-# ---------------------------------------------------------------------------
 
 
 @pytest.mark.asyncio
@@ -416,11 +388,6 @@ class TestMatchIdsFilter:
         rows = await display_service.get_matches_for_display(match_ids=None)
 
         assert {r['id'] for r in rows} == {one.id, two.id}
-
-
-# ---------------------------------------------------------------------------
-# _format_match_for_display — is_stream_candidate field
-# ---------------------------------------------------------------------------
 
 
 class TestFormatMatchIsStreamCandidate:

@@ -38,11 +38,11 @@ async def event_world(db):
     """Two tournaments (one on a stage), a volunteer shift, a crew member, and staff."""
     staff = await make_member(100, 'staff')
     await UserRole.create(user=staff, role=Role.STAFF)
-    alice = await make_member(1, 'alice')     # plays both, ALTTPR on stage
-    bob = await make_member(2, 'bob')         # plays OoTR only
-    vic = await make_member(3, 'vic')         # volunteers
-    cam = await make_member(4, 'cam')         # commentates
-    await make_member(5, 'idle')              # member, did nothing
+    alice = await make_member(1, 'alice')
+    bob = await make_member(2, 'bob')
+    vic = await make_member(3, 'vic')
+    cam = await make_member(4, 'cam')
+    await make_member(5, 'idle')
     alttpr = await Tournament.create(name='ALTTPR')
     ootr = await Tournament.create(name='OoTR')
     test_cup = await Tournament.create(name='Test Cup', is_test=True)
@@ -87,7 +87,6 @@ async def test_send_reaches_everyone_who_took_part_and_nobody_else(event_world, 
     w = event_world
     assert set(recipients) == {w['alice'].id, w['bob'].id, w['vic'].id, w['cam'].id}
     assert [t['name'] for t in recipients[w['alice'].id].facts['tournaments']] == ['ALTTPR', 'OoTR']
-    # A test tournament doesn't make a player.
     assert recipients[w['vic'].id].facts['tournaments'] == []
     assert recipients[w['vic'].id].facts['positions'][0]['name'] == 'Proctor'
     assert recipients[w['cam'].id].facts['crew'] is True
@@ -196,7 +195,6 @@ async def test_crafted_answers_are_refused(event_world):
     rating = next(q for q in everyone.questions if q.kind is SurveyQuestionKind.RATING)
     with pytest.raises(ValueError):
         await service.save_part(w['bob'], survey.id, everyone.key, {rating.id: 9})
-    # Bob never played ALTTPR, so that part isn't his to answer.
     with pytest.raises(ValueError, match="isn't in your survey"):
         await service.save_part(w['bob'], survey.id, f'{view.parts[1].section_id}:t:{w["alttpr"].id}', {})
 
@@ -214,7 +212,7 @@ async def test_results_hide_small_groups(event_world):
     assert overall is not None and overall.overall.count == 2 and overall.overall.average == 4
     comments = [c for r in results.questions for c in r.comments]
     assert any(c.who == 'Anonymous' and c.group == '' for c in comments)
-    assert all('<b>' in c.text for c in comments)  # stored as plain text, rendered as text
+    assert all('<b>' in c.text for c in comments)
     room = next(r for r in results.questions if r.groups)
     assert all(g.hidden for g in room.groups.values())
 
@@ -242,11 +240,8 @@ async def test_results_narrow_to_a_group_of_five_or_more(event_world):
     assert narrowed.responses == 6 and narrowed.group is not None and narrowed.dropoff is None
     overall = narrowed.headline(SurveyQuestionKind.RATING)
     assert overall is not None and overall.overall.average == 4
-    # OoTR has two players, so it can't be picked out on its own.
     with pytest.raises(ValueError, match='fewer than 5'):
         await service.results(w['staff'], survey.id, group=f't:{w["ootr"].id}')
-    # OoTR's two answers fold into Other, and ALTTPR goes with them: with only
-    # two tournaments, everyone minus ALTTPR would be OoTR's two people.
     repeat = next(r for r in everyone.questions
                   if r.audience is SurveyAudience.EACH_TOURNAMENT and r.kind is not SurveyQuestionKind.COMMENT)
     assert list(repeat.groups) == ['Other'] and repeat.folded == ['ALTTPR', 'OoTR']
@@ -280,7 +275,6 @@ async def test_answer_condition_follows_an_earlier_question(event_world):
 async def test_preview_shows_every_part_without_recording(event_world):
     survey = await SurveyService().create_survey(event_world['staff'], 'Draft')
     _, parts = await SurveyService().preview(event_world['staff'], survey.id)
-    # Every question once, a repeating section shown for one tournament.
     assert [p.scope_label for p in parts if p.tournament_id] == ['ALTTPR']
     shown = {q.id for p in parts for q in p.questions}
     assert shown == {q.id for s in survey.sections for q in s.questions}
@@ -298,7 +292,6 @@ async def test_preview_paths_count_each_kind_of_person_and_say_what_they_miss(ev
     assert 'everything' not in paths and set(paths) == set(plan.PREVIEW_PERSONAS) - {'everything'} | {desk}
     player, checked_in = paths['player'], paths['checked_in']
     assert player.parts > checked_in.parts and player.seconds > checked_in.seconds
-    # Someone only checked in doesn't play, so the per-tournament part is listed as hidden, with why.
     assert any(h.prompt is None and h.reason == 'Only for people who played a tournament'
                for h in checked_in.hidden)
 
@@ -464,7 +457,6 @@ async def test_choice_extras_are_checked_when_built(event_world):
         await service.add_question(w['staff'], section.id, 'Q', many, options=['A', 'Other'], other_option=True)
     with pytest.raises(ValueError, match='already a choice'):
         await service.add_question(w['staff'], section.id, 'Q', many, options=['A', 'B'], none_option='a')
-    # A kind that doesn't take an extra drops it.
     rating = await service.add_question(w['staff'], section.id, 'Rate', SurveyQuestionKind.RATING,
                                         other_option=True, long_answer=True, max_picks=2)
     assert not rating.other_option and not rating.long_answer and rating.max_picks is None
@@ -577,7 +569,6 @@ async def test_any_tournament_conditions_ignore_which_tournament_a_part_is_about
     await service.send(w['staff'], survey.id, closes_at=NOW + timedelta(days=7))
     alice = await SurveyResponseService().open_survey(w['alice'], survey.id)
     bob = await SurveyResponseService().open_survey(w['bob'], survey.id)
-    # Alice was on stage only in ALTTPR, but "any tournament" asks in her OoTR part too.
     assert {p.scope_label: [q.prompt for q in p.questions] for p in alice.parts} == {
         'ALTTPR': ['Stage any?', 'Room any?'], 'OoTR': ['Stage any?', 'Room any?'],
     }
@@ -612,12 +603,11 @@ async def test_progress_counts_parts_and_folds_into_tallies_on_submit(event_worl
     assert (d.sent, d.opened, d.started, d.submitted) == (4, 2, 1, 0)
     by_key = {p.key: p for p in d.parts}
     assert by_key[first.key].opened == 2 and by_key[first.key].answered == 1
-    assert by_key[first.key].stopped == 2  # bob saved it last, alice only opened it
+    assert by_key[first.key].stopped == 2
     assert by_key[second.key].opened == 1 and by_key[second.key].stopped == 0
 
     await responder.submit(w['bob'], survey.id, anonymous=True)
     bob = await SurveyRecipient.get(survey_id=survey.id, user_id=w['bob'].id)
-    # Nothing on the named row says which parts the anonymous answers came from.
     assert bob.progress == {} and bob.last_part is None and bob.started_at is None
     assert bob.finish_seconds is not None and bob.finish_seconds >= 0
     d = (await SurveyService().results(w['staff'], survey.id)).dropoff
@@ -625,7 +615,7 @@ async def test_progress_counts_parts_and_folds_into_tallies_on_submit(event_worl
     by_key = {p.key: p for p in d.parts}
     assert (by_key[first.key].opened, by_key[first.key].answered, by_key[first.key].stopped) == (2, 1, 1)
     assert (by_key[second.key].opened, by_key[second.key].answered) == (1, 0)
-    assert d.median_seconds is None  # under five finishers
+    assert d.median_seconds is None
 
 
 async def test_not_interested_stops_reminders(event_world, stub_discord_queue):
@@ -637,7 +627,6 @@ async def test_not_interested_stops_reminders(event_world, stub_discord_queue):
     assert await SurveyService().remind(w['staff'], survey.id) == 3
     d = (await SurveyService().results(w['staff'], survey.id)).dropoff
     assert d.declined == 1
-    # The link still works for someone who changes their mind.
     await _answer_everything(w['bob'], survey.id, 3)
     await responder.submit(w['bob'], survey.id)
 
@@ -694,9 +683,6 @@ def test_not_interested_button_round_trips_its_survey():
         _parse('survey:decline:x')
 
 
-# --- comments inbox: shared read marks and staff-only tags ---
-
-
 async def test_a_sent_survey_takes_wording_fixes_but_nothing_else(event_world):
     """Thomas, 2026-10-28: wording only after sending, logged; structure stays frozen."""
 
@@ -714,7 +700,6 @@ async def test_a_sent_survey_takes_wording_fixes_but_nothing_else(event_world):
     assert survey.title == 'SGL26: how did it go?' and survey.after_send == 'Changes by December.'
     assert survey.sections[0].title == 'The whole event'
     assert survey.sections[0].questions[0].prompt == 'Overall, how was the event for you?'
-    # Nobody had answered yet, so there's nothing to mark.
     assert survey.sections[0].questions[0].reworded_at is None
     logs = await AuditLog.filter(action='survey.updated').order_by('id')
     assert json.loads(logs[-1].details)['wording'] == {'prompt': [question.prompt, 'Overall, how was the event for you?']}

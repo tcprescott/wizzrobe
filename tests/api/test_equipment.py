@@ -141,7 +141,6 @@ class TestWrites:
             assert updated.status_code == 200
             assert updated.json()['name'] == 'CRT 20in'
             assert updated.json()['status'] == 'retired'
-            # Omitted optional fields are cleared — this is a replace, not a patch.
             assert updated.json()['private_notes'] is None
 
             assert (await c.delete(f"/api/equipment/{body['id']}")).status_code == 204
@@ -184,8 +183,6 @@ class TestWrites:
             resp = await c.post(
                 f'/api/equipment/{asset.id}/checkout', json={'borrower_id': other.id},
             )
-            # 403 rather than a 201 recorded against the caller: a loan booked on
-            # the wrong person is the failure that outlives the request.
             assert resp.status_code == 403
 
     async def test_a_member_with_no_roles_borrows_to_themselves(self, db, app):

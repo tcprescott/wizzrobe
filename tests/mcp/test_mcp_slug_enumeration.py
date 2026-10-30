@@ -10,7 +10,6 @@ from tests.mcp.conftest import call_tool, create_oauth_token, mcp_session
 
 
 async def test_real_and_made_up_slugs_read_the_same(db):
-    # A fresh tenant starts with every feature off, equipment included.
     await Tenant.create(name='Hidden', slug='hidden-community')
     _, raw = await create_oauth_token(username='prober')
     async with mcp_session() as client:

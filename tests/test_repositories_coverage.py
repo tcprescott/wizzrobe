@@ -36,10 +36,6 @@ def _utc_day(d: date) -> tuple:
     """
     return utc(d.year, d.month, d.day), utc(d.year, d.month, d.day) + timedelta(days=1)
 
-# ---------------------------------------------------------------------------
-# MatchAcknowledgmentRepository
-# ---------------------------------------------------------------------------
-
 
 class TestMatchAcknowledgmentRepository:
     async def _match(self) -> Match:
@@ -54,7 +50,6 @@ class TestMatchAcknowledgmentRepository:
         await MatchAcknowledgment.create(match=m, user=u2)
         rows = await MatchAcknowledgmentRepository.list_for_match(m)
         assert len(rows) == 2
-        # ``user`` prefetched — accessing without an extra await works.
         assert {r.user.username for r in rows} == {"alice", "bob"}
 
     async def test_list_for_matches_empty_input(self, db):
@@ -72,7 +67,6 @@ class TestMatchAcknowledgmentRepository:
         assert set(result.keys()) == {m1.id, m2.id, m3.id}
         assert len(result[m1.id]) == 1
         assert len(result[m2.id]) == 1
-        # A requested match with no acks is present with an empty list.
         assert result[m3.id] == []
 
     async def test_get_returns_row_or_none(self, db):
@@ -90,7 +84,6 @@ class TestMatchAcknowledgmentRepository:
         ack = await MatchAcknowledgmentRepository.upsert(m, u, acknowledged=True, auto=True)
         assert ack.acknowledged_at is not None
         assert ack.auto_acknowledged is True
-        # Re-upsert with acknowledged=False clears the timestamp and auto flag.
         ack2 = await MatchAcknowledgmentRepository.upsert(m, u, acknowledged=False, auto=True)
         assert ack2.acknowledged_at is None
         assert ack2.auto_acknowledged is False
@@ -115,11 +108,6 @@ class TestMatchAcknowledgmentRepository:
         await MatchAcknowledgmentRepository.delete_for_user(m, u1)
         remaining = await MatchAcknowledgment.filter(match=m)
         assert [(await r.user).id for r in remaining] == [u2.id]
-
-
-# ---------------------------------------------------------------------------
-# TournamentNotificationRepository
-# ---------------------------------------------------------------------------
 
 
 class TestTournamentNotificationRepository:
@@ -180,7 +168,6 @@ class TestTournamentNotificationRepository:
         )
         subs = await self.repo.get_match_notification_subscribers(t.id, has_stage=True)
         ids = {u.id for u in subs}
-        # ALL/STREAMED/CANDIDATES qualify when there's a stage; NONE is excluded.
         # Discord off still qualifies: send_dm drops only the Discord copy.
         assert ids == {u_all.id, u_streamed.id, u_candidates.id, u_no_dm.id}
 
@@ -195,7 +182,6 @@ class TestTournamentNotificationRepository:
             user=u_streamed, tournament=t, match_notifications=MatchNotificationLevel.STREAMED
         )
         subs = await self.repo.get_match_notification_subscribers(t.id, has_stage=False)
-        # Only 'all' subscribers qualify with no stage.
         assert {u.id for u in subs} == {u_all.id}
 
     async def test_stream_candidate_subscribers(self, db):
@@ -214,11 +200,6 @@ class TestTournamentNotificationRepository:
         )
         subs = await self.repo.get_stream_candidate_subscribers(t.id)
         assert {u.id for u in subs} == {u_candidate.id, u_no_dm.id}
-
-
-# ---------------------------------------------------------------------------
-# TournamentRepository
-# ---------------------------------------------------------------------------
 
 
 class TestTournamentRepository:
@@ -339,11 +320,6 @@ class TestTournamentRepository:
         assert [r.user.username for r in rows] == ["alice"]
 
 
-# ---------------------------------------------------------------------------
-# MatchRepository
-# ---------------------------------------------------------------------------
-
-
 class TestMatchRepository:
     async def test_get_by_id_prefetch_and_plain(self, db):
         t = await Tournament.create(name="T")
@@ -458,7 +434,6 @@ class TestMatchRepository:
         t = await Tournament.create(name="T")
         m = await Match.create(tournament=t, scheduled_at=utc(2025, 1, 1, 12))
         u = await make_user(1, "alice")
-        # Not a player — must not raise.
         await MatchRepository.remove_player(m, u)
         assert await MatchRepository.get_players(m) == []
 
@@ -474,13 +449,10 @@ class TestMatchRepository:
         sr = await Stage.create(name="Stage 1")
         target = date(2025, 3, 10)
         keep = await Match.create(tournament=t, scheduled_at=utc(2025, 3, 10, 15), stage=sr)
-        # finished -> excluded by default
         await Match.create(
             tournament=t, scheduled_at=utc(2025, 3, 10, 16), stage=sr, finished_at=utc(2025, 3, 10, 18)
         )
-        # no stage -> excluded by default
         await Match.create(tournament=t, scheduled_at=utc(2025, 3, 10, 17))
-        # different day -> excluded
         await Match.create(tournament=t, scheduled_at=utc(2025, 3, 11, 15), stage=sr)
         result = await MatchRepository.scheduled_between(*_utc_day(target))
         assert [m.id for m in result] == [keep.id]

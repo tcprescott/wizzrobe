@@ -61,7 +61,6 @@ async def test_is_ready_ignores_the_advisory_steps(db):
         await TournamentPlayers.create(tournament=tournament, user=user)
         steps = await TenantSetupService().status()
 
-    # No stage and no event window, both advisory.
     assert _by_key(steps)['stage'].done is False
     assert _by_key(steps)['event_window'].done is False
     assert TenantSetupService.is_ready(steps) is True
@@ -105,7 +104,6 @@ async def test_status_for_reads_the_named_tenant_not_the_ambient_one(db):
         await UserRoleRepository.add(user, Role.STAFF)
         await Tournament.create(name='A tournament')
 
-    # Called from /platform, where the ambient tenant is A (or nothing at all).
     steps_b = _by_key(await TenantSetupService.status_for(b.id))
     assert steps_b['staff'].done is False
     assert steps_b['tournament'].done is False
@@ -120,14 +118,11 @@ async def test_the_fledgling_seed_tenant_is_not_setup_complete(seeded_db):
     steps = _by_key(await TenantSetupService.status_for(fledgling.id))
 
     assert steps['staff'].done is True
-    # A tournament with no entrants: the state the entrants dialog is for.
     assert steps['tournament'].done is True
     assert steps['enrolment'].done is False
     assert steps['stage'].done is False
     assert TenantSetupService.is_ready(list(steps.values())) is False
 
-    # The fully-provisioned seed tenants are the contrast: the panel must be
-    # absent there, or nothing proves it disappears.
     default = await Tenant.get(slug='default')
     assert TenantSetupService.is_ready(await TenantSetupService.status_for(default.id)) is True
 

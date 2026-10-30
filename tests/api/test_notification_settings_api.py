@@ -23,7 +23,6 @@ async def test_staff_set_the_staff_choice(db, app):
         assert {r['recipient']: r['mode'] for r in resp.json()} == {
             'on_duty': 'ping', 'admins': 'off', 'staff': 'ping',
         }
-        # The per-recipient route is untouched by the new one.
         one = await c.put('/api/notification-settings/player_comment/admins', json={'mode': 'ping'})
         assert one.status_code == 200 and one.json()['staff_choice'] == 'ping_all'
         bad = await c.put('/api/notification-settings/join_request/staff-alerts', json={'choice': 'ping_on_duty'})

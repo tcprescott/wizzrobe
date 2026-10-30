@@ -16,9 +16,6 @@ def _read(rel: str) -> str:
 
 class TestTriforceButton:
     def test_the_card_hands_the_client_to_the_dialog(self):
-        # A background task has an empty slot stack: ui.dialog() raised and the
-        # button did nothing. check_slot_context cannot see this one because the
-        # coroutine is imported, not defined beside its call site.
         source = _read('pages/home_tabs/tournaments.py')
         assert 'open_triforce_dialog(tourney, user, context.client)' in source
 
@@ -67,8 +64,6 @@ class TestBookingCopy:
             assert 'booked_notice(' in _read(rel), rel
 
     def test_the_board_refreshes_before_the_section_holding_the_dialog(self):
-        # Rebuilding the section deletes the dialog the callback runs from, and
-        # the board refresh after it found no tenant ("No tenant in context").
         source = _read('pages/home_tabs/player.py')
         after = source[source.index('waiting_section.refresh()') - 120:source.index('waiting_section.refresh()')]
         assert 'await table_view.refresh()' in after
@@ -86,7 +81,7 @@ class TestBookingDialog:
         branch = source[source.index('except AlreadyBookedError'):]
         branch = branch[:branch.index('except (PermissionError')]
         assert 'dialog.close()' in branch
-        assert 'return' not in branch  # falls through to _after_submit
+        assert 'return' not in branch
 
     def test_no_dialog_defaults_to_now(self):
         for rel in ('theme/dialog/bracket_schedule_dialog.py',

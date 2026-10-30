@@ -20,7 +20,7 @@ from models import Role, User, UserRole
 async def tenants_with_staff(two_tenants):
     a, b = two_tenants
     staff = await User.create(discord_id=700, username='staff')
-    # STAFF in both tenants so the staff-gated writers/readers work in each scope.
+    # STAFF in both tenants so the staff-gated calls work in each scope.
     await UserRole.create(user=staff, role=Role.STAFF, tenant=a)
     await UserRole.create(user=staff, role=Role.STAFF, tenant=b)
     return a, b, staff
@@ -32,12 +32,10 @@ async def test_system_config_is_tenant_isolated(tenants_with_staff):
         await SystemConfigService.set_raw('greeting', 'hello-A', staff)
         assert await SystemConfigService.get_raw('greeting') == 'hello-A'
     with tenant_scope(b.id):
-        # B has no such config; the same name in A must not bleed through.
         assert await SystemConfigService.get_raw('greeting') is None
         await SystemConfigService.set_raw('greeting', 'hello-B', staff)
         assert await SystemConfigService.get_raw('greeting') == 'hello-B'
     with tenant_scope(a.id):
-        # A's value is unchanged by B's write to the same key.
         assert await SystemConfigService.get_raw('greeting') == 'hello-A'
 
 
@@ -47,7 +45,6 @@ async def test_audit_reads_are_tenant_isolated(tenants_with_staff):
         await AuditService().write_log(staff, AuditActions.MATCH_CREATED, {'x': 1})
         assert len(await AuditRepository.list()) == 1
     with tenant_scope(b.id):
-        # B's trail excludes A's row.
         assert await AuditRepository.list() == []
 
 

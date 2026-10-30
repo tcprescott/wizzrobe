@@ -70,7 +70,7 @@ class TestCoverage:
                 continue
             tree = ast.parse(source)
             if 'self.table_key' in source:
-                continue     # a view class taking the key as a constructor arg
+                continue
             customized = _customized_targets(tree, source)
             lines = source.splitlines()
             for node in ast.walk(tree):
@@ -108,7 +108,6 @@ class TestTheKeyRegistry:
             source = path.read_text()
             for match in re.finditer(r'(?:table_key|key)=TableKeys\.([A-Z_]+)', source):
                 used.add(match.group(1))
-            # An inline string key would bypass the registry entirely.
             for match in re.finditer(r"table_key=['\"]([^'\"]+)['\"]", source):
                 assert match.group(1) in TABLE_KEYS, (
                     f'{path}: inline key {match.group(1)!r} is not in TableKeys')
@@ -116,13 +115,11 @@ class TestTheKeyRegistry:
         assert used <= declared, f'undeclared keys in use: {sorted(used - declared)}'
 
     def test_table_keys_are_unique(self):
-        # Two tables sharing a key would trade column layouts.
         values = [v for k, v in vars(TableKeys).items()
                   if not k.startswith('_') and isinstance(v, str)]
         assert len(values) == len(set(values))
 
     def test_every_declared_key_is_used(self):
-        # A key nobody passes is a rename that half-landed.
         source = '\n'.join(p.read_text() for p in _python_files())
         unused = [
             name for name, value in vars(TableKeys).items()

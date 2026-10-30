@@ -41,8 +41,6 @@ from tests.services._match_service_setup import (
 UTC = timezone.utc
 
 
-
-
 @pytest.fixture
 async def service():
     # Constructed inside the running loop: MatchService -> MatchScheduleService ->
@@ -56,11 +54,6 @@ def captured_events():
     token = event_bus.subscribe_sync(seen.append)
     yield seen
     event_bus.unsubscribe(token)
-
-
-# ---------------------------------------------------------------------------
-# Simple read/query surface
-# ---------------------------------------------------------------------------
 
 
 class TestReadMethods:
@@ -108,7 +101,6 @@ class TestReadMethods:
         t = await make_tournament()
         stage = await Stage.create(name="Stage 1")
         await Match.create(tournament=t, stage=stage, scheduled_at=utc(2025, 1, 15, 18))
-        # excluded: no stage
         await Match.create(tournament=t, scheduled_at=utc(2025, 1, 15, 19))
 
         matches = await service.get_matches_for_date(datetime(2025, 1, 15).date())
@@ -126,11 +118,6 @@ class TestReadMethods:
         await MatchPlayers.create(match=match, user=user)
         found = await service.get_matches_for_player(str(user.discord_id))
         assert [m.id for m in found] == [match.id]
-
-
-# ---------------------------------------------------------------------------
-# set_stream_candidate
-# ---------------------------------------------------------------------------
 
 
 class TestSetStreamCandidate:
@@ -159,8 +146,6 @@ class TestSetStreamCandidate:
         assert EventType.MATCH_STREAM_CANDIDATE_CLEARED in [e.event_type for e in captured_events]
 
     async def test_set_true_when_already_candidate_skips_notify(self, service, db, captured_events):
-        # already a candidate: the `flag and not was_candidate` branch is False, so no
-        # stream-candidate notify fan-out happens, but the event still fires.
         actor = await make_staff()
         t = await make_tournament()
         match = await Match.create(
@@ -169,11 +154,6 @@ class TestSetStreamCandidate:
         await service.set_stream_candidate(match_id=match.id, flag=True, actor=actor)
         assert (await Match.get(id=match.id)).is_stream_candidate is True
         assert EventType.MATCH_STREAM_CANDIDATE_SET in [e.event_type for e in captured_events]
-
-
-# ---------------------------------------------------------------------------
-# assign_stage
-# ---------------------------------------------------------------------------
 
 
 class TestAssignStage:
@@ -193,11 +173,6 @@ class TestAssignStage:
 
         await service.assign_stage(match_id=match.id, stage_id=None, actor=actor)
         assert (await Match.get(id=match.id)).stage_id is None
-
-
-# ---------------------------------------------------------------------------
-# assign_stations
-# ---------------------------------------------------------------------------
 
 
 class TestAssignStations:
@@ -226,7 +201,6 @@ class TestAssignStations:
         mp1 = await MatchPlayers.create(match=match, user=p1)
         mp2 = await MatchPlayers.create(match=match, user=p2)
 
-        # only mp1 is assigned; mp2 stays untouched
         await service.assign_stations(match_id=match.id, assignments={mp1.id: "5"}, actor=actor)
 
         assert (await MatchPlayers.get(id=mp1.id)).assigned_station == "5"
@@ -252,11 +226,6 @@ class TestAssignStations:
         assert (await MatchPlayers.get(id=mp.id)).assigned_station is None
 
 
-# ---------------------------------------------------------------------------
-# delete_match
-# ---------------------------------------------------------------------------
-
-
 class TestDeleteMatch:
     async def test_not_found_raises(self, service, db):
         actor = await make_staff()
@@ -270,11 +239,6 @@ class TestDeleteMatch:
         await service.delete_match(match_id=match.id, actor=actor)
         assert await Match.filter(id=match.id).exists() is False
         assert EventType.MATCH_DELETED in [e.event_type for e in captured_events]
-
-
-# ---------------------------------------------------------------------------
-# record_match_result
-# ---------------------------------------------------------------------------
 
 
 class TestRecordMatchResult:
@@ -315,11 +279,6 @@ class TestRecordMatchResult:
         assert EventType.MATCH_RESULT_RECORDED in [e.event_type for e in captured_events]
 
 
-# ---------------------------------------------------------------------------
-# ensure_players_enrolled & _seed_acknowledgments edge cases
-# ---------------------------------------------------------------------------
-
-
 class TestEnrollmentAndSeedHelpers:
     async def test_ensure_players_enrolled_enrolls_and_skips(self, service, db):
         t = await make_tournament()
@@ -342,6 +301,5 @@ class TestEnrollmentAndSeedHelpers:
     async def test_seed_acknowledgments_skips_missing_user(self, service, db):
         t = await make_tournament()
         match = await Match.create(tournament=t, scheduled_at=utc(2025, 1, 15, 18))
-        # id 424242 has no User row -> the loop `continue`s and no ack is created
         await service._seed_acknowledgments(match, [424242], None)
         assert await MatchAcknowledgment.filter(match=match).count() == 0

@@ -82,6 +82,5 @@ async def test_revoked_and_unknown_and_malformed_all_resolve_to_nothing(two_tena
         assert (await service.resolve(RAW_A)) is None
 
         assert (await service.resolve(TOKEN_PREFIX + 'never-issued')) is None
-        # No prefix: rejected before the query, so a guess costs nothing.
         assert (await service.resolve('not-a-room-token')) is None
         assert (await service.resolve('')) is None

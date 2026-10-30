@@ -111,8 +111,6 @@ class TestAdvanceStage:
         assert tournament.challonge_state == 'group_stages_underway'
 
     async def test_stage_already_moved_on_challonge_catches_up(self, db):
-        # The final stage was started on Challonge's own site, so Wizzrobe's
-        # cached state still offers "Finalize groups and start bracket".
         from application.utils.clients.challonge_client import ChallongeAPIError
         service, api, actor, tournament = await self._setup()
         api.change_state.side_effect = ChallongeAPIError(

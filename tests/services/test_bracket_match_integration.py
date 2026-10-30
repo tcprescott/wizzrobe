@@ -110,9 +110,6 @@ async def _play(service, actor, match: Match, winner: User) -> None:
     await service.settle_game_if_linked(match, actor)
 
 
-# ---------------------------------------------------------------------------
-# U3a — a cancelled or deleted Match frees its game slot (D3)
-# ---------------------------------------------------------------------------
 class TestReleaseOnCancel:
     async def test_cancelling_a_bo1_makes_the_matchup_schedulable_again(
         self, service,
@@ -163,7 +160,7 @@ class TestReleaseOnCancel:
         game = await BracketMatchGame.get(bracket_match_id=bmatch.id, game_number=1)
         assert game.state == BracketMatchGameState.COMPLETE
         assert game.winner_entry_id is not None
-        assert game.match_id is None  # SET_NULL, as designed
+        assert game.match_id is None
 
     async def test_a_clinch_does_not_hand_back_the_unplayed_games_slot(
         self, service,
@@ -185,7 +182,7 @@ class TestReleaseOnCancel:
             for n in range(3)
         ]
         await _play(service, actor, matches[0], users[0])
-        await _play(service, actor, matches[1], users[0])  # 2-0 clinch
+        await _play(service, actor, matches[1], users[0])
 
         game3 = await BracketMatchGame.get(bracket_match_id=bmatch.id, game_number=3)
         assert game3.state == BracketMatchGameState.CANCELLED
@@ -222,9 +219,6 @@ class TestReleaseOnCancel:
         assert await Match.filter(id=match.id).count() == 0
 
 
-# ---------------------------------------------------------------------------
-# U3b — one correction path for a settled result (D6)
-# ---------------------------------------------------------------------------
 class TestSettledResultGuard:
     async def test_recording_a_result_on_a_settled_game_is_blocked(self, service):
         actor = await _staff()
@@ -272,9 +266,6 @@ class TestSettledResultGuard:
         assert amended.winner_id == other
 
 
-# ---------------------------------------------------------------------------
-# U2 — live match state into the bracket (D4)
-# ---------------------------------------------------------------------------
 class TestMatchupLiveState:
     async def test_a_started_game_reads_live_with_a_watch_link(self, service):
         actor = await _staff()
@@ -369,9 +360,6 @@ class TestMatchupLiveState:
         assert count['n'] == 1
 
 
-# ---------------------------------------------------------------------------
-# U5 — the one new notification (D7)
-# ---------------------------------------------------------------------------
 class TestMatchupReadyNotification:
     @staticmethod
     def _capture(monkeypatch) -> list:
@@ -425,7 +413,6 @@ class TestMatchupReadyNotification:
         assert all(link is not None for link in links), 'the invitation had no button'
         assert all('/home/player?schedule=' in link.url for link in links)
         assert all('/brackets/' not in link.url for link in links)
-        # Both entrants are pointed at the same matchup.
         assert len({link.url for link in links}) == 1
 
     async def test_a_rebook_invitation_says_new_time_on_its_button(
@@ -474,8 +461,6 @@ class TestMatchupReadyNotification:
             await service.report_result(actor, semi.id, semi.entry1_id)
             await asyncio.sleep(0)
 
-        # Exactly one invitation per entrant of the final — the first semi's
-        # result leaves it PENDING (one slot), the second opens it.
         assert len(sent) == 2, [s['opponent_name'] for s in sent]
 
     async def test_a_released_game_invites_the_entrants_to_rebook(
@@ -514,8 +499,6 @@ class TestMatchupReadyNotification:
         await _play(service, actor, match, users[0])
         await asyncio.sleep(0)
 
-        # The 2-entrant final has no onward matchup, so nothing is bookable and
-        # nothing is sent — not "you advanced", not "you're eliminated".
         assert sent == []
 
     @pytest.mark.parametrize('rebook', [False, True])
@@ -553,7 +536,6 @@ class TestMatchupReadyNotification:
         notice = calls[0]['notice']
         assert notice == (MATCHUP_REOPENED if rebook else MATCHUP_READY).to(PLAYERS)
         assert notice.default is NotificationMode.SILENT
-        # With nothing changed in Admin → Notifications, send_dm resolves it silent.
         assert await NotificationSettingsService.mode_for(notice) is NotificationMode.SILENT
 
 
@@ -602,7 +584,7 @@ class TestMatchupSummary:
         assert summary['best_of'] == 3
         assert summary['standing'] == ''
         assert [e['name'] for e in summary['entrants']] == ['P1', 'P2']
-        assert summary['stakes'] == ''  # a final has no onward pointer
+        assert summary['stakes'] == ''
 
     async def test_no_summary_for_an_unlinked_match(self, service):
         actor = await _staff()

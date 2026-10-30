@@ -57,9 +57,6 @@ def privileged(monkeypatch):
     return set_to
 
 
-# ----------------------------------------------------------------------
-# Pure: keys, labels, windows
-# ----------------------------------------------------------------------
 class TestStageKeys:
     def test_single_elimination_counts_back_from_final(self):
         assert elimination_keys([1, 2, 3, 4], double=False) == {1: 'e3', 2: 'e2', 3: 'e1', 4: 'e0'}
@@ -69,11 +66,9 @@ class TestStageKeys:
         assert stage_label('e3', round_number=1) == 'Round 1'
 
     def test_third_place_match_shares_the_final(self):
-        # Challonge files a single-elim 3rd place match under round 0.
         assert elimination_keys([0, 1, 2], double=False) == {1: 'e1', 2: 'e0', 0: 'e0'}
 
     def test_double_elimination_splits_grand_final(self):
-        # 8 players: winners 1-3, losers -1..-4, grand final 4 and its reset 5.
         rounds = [1, 2, 3, 4, 5, -1, -2, -3, -4]
         assert winners_final_round(rounds) == 3
         keys = elimination_keys(rounds, double=True)
@@ -140,9 +135,6 @@ class TestConfigValidation:
             validate_tournament_config({'round_schedule': {'e0': entry}})
 
 
-# ----------------------------------------------------------------------
-# Service: editor, lookups, enforcement
-# ----------------------------------------------------------------------
 async def _challonge_bracket(group: int = 2, rounds=(1, 2, 3)):
     t = await Tournament.create(name='T', challonge_tournament_id='T1', challonge_group_stage=bool(group))
     p1 = await ChallongeParticipant.create(tournament=t, challonge_participant_id='1', name='A')
@@ -275,7 +267,6 @@ class TestEnforcement:
             await service.check_time(found, t, at(21, 12), None)
         assert not err.value.can_override
         assert 'Semifinals' in str(err.value)
-        # Allowing the override does nothing for a player.
         with pytest.raises(RoundWindowError):
             await service.check_time(found, t, at(21, 12), None, allow_outside_round=True)
         await service.check_time(found, t, at(21, 19), None)

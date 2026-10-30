@@ -2,13 +2,6 @@ import pytest
 
 from tests.services.test_survey_service import event_world  # noqa: F401  (shared with test_survey_comments)
 
-# ``stub_discord_queue`` is defined suite-wide (autouse) in ``tests/conftest.py``.
-
-
-# The permission-gate methods that the various service unit tests bypass so they
-# can exercise business logic. Patching the union is safe: a method a given
-# service never calls is simply never exercised, and denial-path tests override
-# the specific gate they care about in-test (which wins over this fixture).
 _ALLOW_GATES = (
     'is_staff',
     'is_tournament_admin',

@@ -94,7 +94,7 @@ class TestBackgroundLoop:
 
     async def test_stall_reason(self):
         loop = BackgroundLoop(lambda: asyncio.sleep(0), interval=60, name='zz stall worker', tick_timeout=100)
-        assert loop.stall_reason() is None  # never started: switched off by config
+        assert loop.stall_reason() is None
         loop.start()
         try:
             await _until(lambda: loop._last_finished is not None)

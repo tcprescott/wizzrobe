@@ -25,7 +25,6 @@ class TestMatchOperationsCheckIn:
     async def _seed(self):
         t = await Tournament.create(name='Cup', average_match_duration=90)
         stage = await Stage.create(name='Alpha')
-        # Early check-in on a stage: seated 3 min early, 12 min setup.
         early = await Match.create(
             tournament=t, stage=stage,
             scheduled_at=utc(2025, 10, 23, 14, 0),
@@ -33,7 +32,6 @@ class TestMatchOperationsCheckIn:
             started_at=utc(2025, 10, 23, 14, 9),
             finished_at=utc(2025, 10, 23, 15, 30),
         )
-        # On time with no stage: seated on the minute, 10 min setup.
         on_time = await Match.create(
             tournament=t,
             scheduled_at=utc(2025, 10, 23, 15, 0),
@@ -41,14 +39,12 @@ class TestMatchOperationsCheckIn:
             started_at=utc(2025, 10, 23, 15, 10),
             finished_at=utc(2025, 10, 23, 16, 40),
         )
-        # Late with no stage: seated 20 min late, 6 min setup.
         late = await Match.create(
             tournament=t,
             scheduled_at=utc(2025, 10, 23, 16, 0),
             seated_at=utc(2025, 10, 23, 16, 20),
             started_at=utc(2025, 10, 23, 16, 26),
         )
-        # Never checked in.
         unseated = await Match.create(tournament=t, scheduled_at=utc(2025, 10, 23, 17, 0))
         return t, stage, early, on_time, late, unseated
 
@@ -79,11 +75,9 @@ class TestMatchOperationsCheckIn:
         out = await ReportsService().match_operations(DAY_START, DAY_END, actor=(await _actor()))
         a = {x['tournament_id']: x for x in out['aggregates']}[t.id]
 
-        # Never-checked-in match counts toward neither average nor percentage.
         assert a['avg_seat_delay_min'] == round((-3 + 0 + 20) / 3, 1)
         assert a['seated_on_time_pct'] == round(2 / 3 * 100, 1)
         assert a['avg_setup_min'] == round((12 + 10 + 6) / 3, 1)
-        # The race-start view of the same matches is unchanged.
         assert a['avg_start_delay_min'] == round((9 + 10 + 26) / 3, 1)
         assert a['on_time_pct'] == 0.0
 
@@ -106,15 +100,12 @@ class TestMatchOperationsCheckIn:
 
     async def test_implausible_matches_flagged_and_left_out(self, db):
         t, _, early, on_time, late, _ = await self._seed()
-        # Result recorded the day before the slot, as with sgl26 #171: every
-        # timestamp is the moment staff closed it.
         clicked = utc(2025, 10, 22, 18, 52)
         closed_early = await Match.create(
             tournament=t,
             scheduled_at=utc(2025, 10, 23, 18, 0),
             seated_at=clicked, started_at=clicked, finished_at=clicked,
         )
-        # Closed as played elsewhere near its slot: not early, same signature.
         closed_on_slot = await Match.create(
             tournament=t,
             scheduled_at=utc(2025, 10, 23, 19, 0),
@@ -122,7 +113,6 @@ class TestMatchOperationsCheckIn:
             started_at=utc(2025, 10, 23, 19, 2),
             finished_at=utc(2025, 10, 23, 19, 2),
         )
-        # Started 7 hours early with otherwise distinct stamps.
         way_early = await Match.create(
             tournament=t,
             scheduled_at=utc(2025, 10, 23, 20, 0),
@@ -162,21 +152,18 @@ class TestMatchOperationsCheckIn:
 
     async def test_late_finish_and_zero_length_left_out_of_length_only(self, db):
         t, *_ = await self._seed()
-        # Finish clicked the next morning, as with sgl26 #276: start is real.
         late_click = await Match.create(
             tournament=t,
             scheduled_at=utc(2025, 10, 23, 21, 0),
             started_at=utc(2025, 10, 23, 21, 10),
             finished_at=utc(2025, 10, 24, 3, 41),
         )
-        # Started and finished in one go after the fact, as with sgl26 #207.
         zero = await Match.create(
             tournament=t,
             scheduled_at=utc(2025, 10, 23, 22, 0),
             started_at=utc(2025, 10, 23, 22, 4),
             finished_at=utc(2025, 10, 23, 22, 4),
         )
-        # Long but believable: exactly three times the 90-minute length.
         long_race = await Match.create(
             tournament=t,
             scheduled_at=utc(2025, 10, 23, 23, 0),

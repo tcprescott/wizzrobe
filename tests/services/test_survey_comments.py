@@ -25,7 +25,6 @@ async def test_inbox_lists_every_comment_with_starter_tags(event_world):
     assert {c.who for c in inbox.comments} >= {'Anonymous', event_world['alice'].preferred_name}
     assert sum(q.count for q in inbox.questions) == len(inbox.comments)
     assert all(c.text == 'Great <b>event</b>' for c in inbox.comments if not c.write_in)
-    # Asking again doesn't add the starter set twice.
     again = await SurveyCommentService().inbox(event_world['staff'], survey.id)
     assert len(again.tags) == len(STARTER_TAGS)
 

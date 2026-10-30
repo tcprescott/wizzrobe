@@ -185,8 +185,6 @@ async def test_each_audience_gets_its_own_copy_and_button(
     watching = by_id[6]
     assert watching['message'].startswith("A match you're watching in **Cup**")
     assert watching['link'].url.endswith('/home/schedule')
-    # Players and crew have somewhere to be; a watcher only follows along,
-    # so the catalogue quiets only the watcher's copy.
     assert watching['notice'] == STAGE_CALL.to(WATCHERS)
     assert watching['notice'].default is NotificationMode.SILENT
     for pid in (1, 2):
@@ -208,7 +206,6 @@ async def test_reminder_dm_names_the_stage_and_the_time(
     assert sent
     for call in sent:
         assert 'coming up on **Kraid**' in call['message']
-        # The commentator is reminded about their slot, not told to play.
         if call['discord_id'] == fixture['approved'].discord_id:
             assert call['message'].startswith("A match you're commentating")
             assert call['embed'].title == '⏰ Your commentator slot on stage is coming up'
@@ -223,7 +220,7 @@ async def test_a_dm_failure_never_reaches_the_caller(fixture, monkeypatch, stub_
     await MatchService().assign_stage(
         fixture['match'].id, fixture['stage'].id, fixture['staff'],
     )
-    await _drain(stub_discord_queue)  # must not raise
+    await _drain(stub_discord_queue)
 
     assert (await Match.get(id=fixture['match'].id)).stage_id == fixture['stage'].id
 

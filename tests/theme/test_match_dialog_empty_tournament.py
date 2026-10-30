@@ -41,11 +41,9 @@ class TestBothDialogsGetAudienceSpecificCopy:
         assert 'Tournaments tab' in match_dialog._ADMIN_NO_TOURNAMENTS_HINT
 
     def test_the_player_hint_does_not_send_them_to_an_admin_tab(self):
-        # A player requesting a match cannot visit the Tournaments tab.
         assert 'tab' not in match_dialog._PLAYER_NO_TOURNAMENTS_HINT.lower()
 
     def test_neither_hint_carries_a_double_quote(self):
-        # Both are interpolated into a Quasar `hint="..."` prop.
         for hint in (match_dialog._ADMIN_NO_TOURNAMENTS_HINT,
                      match_dialog._PLAYER_NO_TOURNAMENTS_HINT):
             assert '"' not in hint

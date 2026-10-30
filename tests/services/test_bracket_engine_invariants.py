@@ -37,17 +37,13 @@ def test_single_elim_invariants(n):
     for m in byes:
         present = m.entry1_seed if m.entry1_seed is not None else m.entry2_seed
         missing_slot = m.entry2_seed if m.entry1_seed is not None else m.entry1_seed
-        assert present is not None and present <= n  # opposite a real seed
+        assert present is not None and present <= n
         assert missing_slot is None
-        # the absent structural seed is one of {n+1..size}
         bye_seeds.add(present)
-    # no round-1 match may have two byes
     assert all(
         m.entry1_seed is not None or m.entry2_seed is not None for m in round1
     )
-    # exactly (size - n) byes, each a distinct real seed facing a phantom seed
     assert len(byes) == size - n
-    # the phantom seeds are precisely {n+1..size}
     phantom = {s for s in range(n + 1, size + 1)}
     assert len(phantom) == size - n
 

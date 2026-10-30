@@ -172,8 +172,6 @@ class TestAdaRequests:
         assert edited[741]['title'] == '✅ Acknowledged by You'
         assert "jordan" in edited[742]['text']
 
-        # Changing the details on an acknowledged request puts it back to New
-        # without a fresh DM, so the copies go back to asking for a look.
         await service.set_my_request(jordan, True, 'Seat near the door, and a chair')
         edited = (await discord())['edited']
         assert {e['title'] for e in edited} == {'♿ ADA request'}

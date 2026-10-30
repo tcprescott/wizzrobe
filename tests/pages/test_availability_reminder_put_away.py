@@ -42,14 +42,13 @@ async def test_pressing_a_button_puts_the_card_away_without_raising(slot, monkey
         with context:
             await coro
 
-    # Like the app does, the handler runs inside the button's slot.
+    # Run the handler inside the button's slot, as the app does.
     monkeypatch.setattr(events.background_tasks, 'create_or_defer',
                         lambda coro, *, context, **_kw: scheduled.append(in_slot(coro, context)))
     monkeypatch.setattr(availability_reminder, 'PlayerAvailabilityService', _Service)
     opened: list[bool] = []
 
     async def on_block_out() -> None:
-        # What ui.run_javascript resolves first, and what raised in production.
         opened.append(context.client is slot)
 
     with slot:

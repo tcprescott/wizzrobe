@@ -45,9 +45,6 @@ async def make_user(discord_id: int, username: str = 'u', challonge_user_id=None
     )
 
 
-# ----------------------------------------------------------------------
-# save_service_connection
-# ----------------------------------------------------------------------
 class TestSaveServiceConnection:
     async def test_persists_connection_and_resolves_username(self, db):
         actor = await make_user(1, 'admin')
@@ -80,7 +77,6 @@ class TestSaveServiceConnection:
         connection = await make_service(oauth=oauth).save_service_connection(payload, actor)
 
         assert connection.challonge_username is None
-        # Falls back to the default service scopes when the payload omits 'scope'.
         assert connection.scopes and 'tournaments:read' in connection.scopes
 
     async def test_missing_access_token_raises(self, db):
@@ -91,9 +87,6 @@ class TestSaveServiceConnection:
             await make_service(oauth=oauth).save_service_connection({'refresh_token': 'r'}, actor)
 
 
-# ----------------------------------------------------------------------
-# disconnect / get_connection_status
-# ----------------------------------------------------------------------
 class TestDisconnect:
     async def test_clears_existing_connection(self, db):
         actor = await make_user(1, 'admin')
@@ -124,9 +117,6 @@ class TestConnectionStatus:
         assert 'request_quota' not in status
 
 
-# ----------------------------------------------------------------------
-# link_tournament
-# ----------------------------------------------------------------------
 class TestLinkTournament:
     def _full(self, tid='T1', url='https://challonge.com/spring25', participants=None, matches=None):
         return {
@@ -159,9 +149,7 @@ class TestLinkTournament:
         assert returned.challonge_tournament_id == 'T1'
         assert returned.challonge_tournament_url == 'https://challonge.com/spring25'
         assert returned.challonge_community == 'myorg'
-        # The link mirrors the bracket, so it counts as a sync.
         assert returned.challonge_last_synced_at is not None
-        # A subdomain URL is fetched under its community scope, not as ``myorg-spring25``.
         api.get_tournament_full.assert_awaited_once_with('spring25', community='myorg')
 
         participant = await ChallongeParticipant.get(tournament=returned, challonge_participant_id='9001')
@@ -221,9 +209,6 @@ class TestLinkTournament:
             )
 
 
-# ----------------------------------------------------------------------
-# _map_state (pure)
-# ----------------------------------------------------------------------
 class TestMapState:
     def test_open(self):
         assert ChallongeService._map_state('open') == ChallongeMatchState.OPEN
@@ -239,9 +224,6 @@ class TestMapState:
         assert ChallongeService._map_state(None) == ChallongeMatchState.PENDING
 
 
-# ----------------------------------------------------------------------
-# push_result_if_linked / push_match_result edge + error paths
-# ----------------------------------------------------------------------
 class TestPushEdgeCases:
     async def _linked_setup(self, tournament_challonge_id='T1', p2_user_matches=True):
         """Build a match linked to a Challonge match with a recorded winner.
@@ -328,7 +310,6 @@ class TestPushEdgeCases:
         api.update_match = AsyncMock()
         api.get_tournament_full = AsyncMock(side_effect=ChallongeAPIError('resync boom', status=502))
 
-        # Must not raise despite the re-sync failure.
         await make_service(api=api).push_match_result(match, actor)
         api.update_match.assert_awaited_once()
         api.get_tournament_full.assert_awaited_once()
@@ -524,9 +505,6 @@ class TestPushEdgeCases:
         assert await AuditLog.filter(action=AuditActions.CHALLONGE_RESULT_PUSH_FAILED).count() == 1
 
 
-# ----------------------------------------------------------------------
-# Player OAuth code exchange
-# ----------------------------------------------------------------------
 class TestExchangeCode:
     async def test_exchange_player_code_returns_identity(self, db):
         oauth = MagicMock()
@@ -549,9 +527,6 @@ class TestExchangeCode:
         assert result == {'access_token': 'svc', 'scope': 'me'}
 
 
-# ----------------------------------------------------------------------
-# list_unscheduled_matches_for_user (repository passthrough)
-# ----------------------------------------------------------------------
 class TestListUnscheduledMatches:
     async def test_returns_open_unscheduled_matches_for_user(self, db):
         user = await make_user(1, 'alice', challonge_user_id='1001')
@@ -569,7 +544,6 @@ class TestListUnscheduledMatches:
             tournament=tournament, challonge_match_id='8001', state=ChallongeMatchState.OPEN,
             participant1=p1, participant2=p2,
         )
-        # Pending matches and matches the user isn't in are excluded.
         await ChallongeMatch.create(
             tournament=tournament, challonge_match_id='8002', state=ChallongeMatchState.PENDING,
             participant1=p1, participant2=p2,

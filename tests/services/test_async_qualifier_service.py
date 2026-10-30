@@ -57,7 +57,6 @@ async def test_draw_reveals_permalink_and_blocks_second_active(db):
     assert run.status == AsyncQualifierRunStatus.IN_PROGRESS
     assert run.permalink is not None and run.permalink.url in {'https://seed.test/u1', 'https://seed.test/u2'}
 
-    # Second concurrent draw blocked while one is active.
     with pytest.raises(ValueError):
         await service.start_run(player, q.id, pool.id)
 
@@ -71,7 +70,6 @@ async def test_no_repeat_and_runs_per_pool_cap(db):
 
     run = await service.start_run(player, q.id, pool.id)
     await submit(service, player, run, 1000)
-    # runs_per_pool=1 → no more runs allowed in this pool
     with pytest.raises(ValueError):
         await service.start_run(player, q.id, pool.id)
 
@@ -88,8 +86,7 @@ async def test_no_repeat_permalink_across_runs(db):
         run = await service.start_run(player, q.id, pool.id)
         seen.add(run.permalink.url)
         await submit(service, player, run, 1000)
-    assert seen == {'https://seed.test/u1', 'https://seed.test/u2'}   # both drawn
-    # pool exhausted (2 permalinks, both played)
+    assert seen == {'https://seed.test/u1', 'https://seed.test/u2'}
     with pytest.raises(ValueError):
         await service.start_run(player, q.id, pool.id)
 
@@ -106,7 +103,7 @@ async def test_submit_then_review_scores_and_sets_par(db):
     reviewed = await service.review_run(staff, run.id, approved=True, note='looks good')
 
     assert reviewed.review_status.value == 'approved'
-    assert reviewed.score == 100.0  # sole approved run → par == its own time
+    assert reviewed.score == 100.0
     permalink = await AsyncQualifierPermalink.get(id=run.permalink_id)
     assert permalink.par_time == 1200
 
@@ -116,7 +113,6 @@ async def test_self_review_blocked(db):
     staff = await make_staff()
     q, pool = await open_qualifier(service, staff)
     await service.add_permalinks_bulk(staff, pool.id, urls=['https://seed.test/u1'])
-    # staff is also the runner and a qualifier admin → self-review must be blocked
     await service.add_admin(staff, q.id, staff)
     run = await service.start_run(staff, q.id, pool.id)
     await submit(service, staff, run, 1200)
@@ -135,7 +131,6 @@ async def test_forfeit_is_terminal_and_scores_zero(db):
     forfeited = await service.forfeit_run(player, run.id)
     assert forfeited.status == AsyncQualifierRunStatus.FORFEIT
     assert forfeited.score == 0.0
-    # can't submit a forfeited run
     with pytest.raises(ValueError):
         await submit(service, player, run, 1000)
 
@@ -155,11 +150,9 @@ async def test_reattempt_requires_reason_and_is_limited(db):
 
     voided = await service.reattempt_run(player, run.id, reason='client crash')
     assert voided.reattempted is True
-    # Slot freed → the player can draw again despite runs_per_pool=1.
     run2 = await service.start_run(player, q.id, pool.id)
     assert run2.status == AsyncQualifierRunStatus.IN_PROGRESS
     await service.forfeit_run(player, run2.id)
-    # Only one reattempt allowed.
     with pytest.raises(ValueError):
         await service.reattempt_run(player, run2.id, reason='again')
 
@@ -174,14 +167,11 @@ async def test_leaderboard_locked_down_while_active(db):
     await submit(service, player, run, 1200)
     await service.review_run(staff, run.id, approved=True)
 
-    # Non-staff cannot see the board while the qualifier is open.
     with pytest.raises(PermissionError):
         await service.get_leaderboard(player, q.id)
-    # Staff can.
     board = await service.get_leaderboard(staff, q.id)
     assert board and board[0].actual == 100.0
 
-    # Close the qualifier → board goes public.
     await service.update_qualifier(staff, q.id, is_active=False)
     public = await service.get_leaderboard(player, q.id)
     assert public and public[0].actual == 100.0
@@ -217,7 +207,6 @@ async def test_submit_stores_the_server_measured_duration(db):
     run = await service.start_run(player, q.id, pool.id)
     submitted = await submit(service, player, run, 1200)
 
-    # Measured is the wall clock from the draw, not a copy of the claim.
     assert submitted.measured_seconds is not None
     assert 1200 <= submitted.measured_seconds <= 1230
     assert submitted.elapsed_seconds == 1200
@@ -234,7 +223,6 @@ async def test_submit_refuses_a_claim_longer_than_the_run_has_existed(db):
     with pytest.raises(ValueError, match='longer than the run itself'):
         await service.submit_run(player, run.id, elapsed_seconds=4462)
 
-    # The refusal must not terminate the run — the player fixes the time and retries.
     still = await AsyncQualifierRun.get(id=run.id)
     assert still.status == AsyncQualifierRunStatus.IN_PROGRESS
     assert still.elapsed_seconds is None
@@ -275,8 +263,6 @@ async def test_submit_tolerates_a_run_with_no_started_at(db):
     assert submitted.measured_seconds is None
     assert submitted.elapsed_seconds == 1200
 
-
-# --- a rejection owes the runner a reason ---------------------------------
 
 async def _pending_run(service, staff, player, *, seconds=1200):
     q, pool = await open_qualifier(service, staff)
@@ -337,8 +323,6 @@ async def test_approval_still_works_without_a_note(db):
     assert await AsyncQualifierReviewNote.filter(run_id=run.id).count() == 0
 
 
-# --- a remedy someone can actually spend ----------------------------------
-
 @pytest.fixture
 def captured_dms(monkeypatch):
     """Capture the DM text the qualifier notifications send.
@@ -349,9 +333,7 @@ def captured_dms(monkeypatch):
     sent: list[tuple[int, str, object]] = []
 
     class _Fake:
-        # Mirrors the real signature: a fake narrower than the thing it stands
-        # in for turns an added argument into "no DM was sent at all", which is
-        # exactly how the link button first went missing here.
+        # Keep the fake's signature as wide as send_dm's: a narrower one turns a new kwarg into no DM at all.
         async def send_dm(self, discord_id, message, view_factory=None, embed=None, link=None, notice=None):
             sent.append((discord_id, message, link))
             return True, 'ok'
@@ -398,8 +380,6 @@ async def test_reattempt_frees_the_pool_slot_for_a_new_draw(db):
     second = await service.start_run(player, q.id, pool.id)
     assert second.id != first.id
     assert second.status == AsyncQualifierRunStatus.IN_PROGRESS
-    # The pool still has a seed the player has never seen, so the reattempt
-    # draws that one rather than the voided run's permalink.
     assert second.permalink_id != first.permalink_id
 
 
@@ -469,7 +449,6 @@ async def test_grant_reattempt_ignores_the_runners_allowance(db, captured_dms):
     assert granted.reattempted is True
     assert granted.reattempt_granted_by_id == staff.id
 
-    # And it does not eat an allowance the runner never had.
     allowance = await service.get_reattempt_allowance(player, q.id)
     assert (allowance.spent, allowance.remaining) == (0, 0)
     assert captured_dms and 'granted you another attempt' in captured_dms[0][1]
@@ -535,7 +514,6 @@ async def test_list_runs_requires_qualifier_admin(db):
 
     with pytest.raises(PermissionError):
         await service.list_runs(player, q.id)
-    # A forfeit never reaches the review queue, which is why this read exists.
     assert await service.list_review_queue(staff, q.id) == []
     assert [r.id for r in await service.list_runs(staff, q.id)] == [run.id]
 
@@ -547,8 +525,6 @@ async def test_runner_runs_carry_their_review_notes(db):
     _, _, run = await _pending_run(service, staff, player)
     await service.review_run(staff, run.id, approved=False, note='VoD ends early.')
 
-    # ``list_user_runs`` projects to ``OwnRun`` since F7, which carries the notes
-    # as text, oldest first, plus ``latest_note`` for the column that shows one.
     runs = await service.list_user_runs(player, run.qualifier_id)
     assert runs[0].notes == ['VoD ends early.']
     assert runs[0].latest_note == 'VoD ends early.'
@@ -566,8 +542,6 @@ async def test_rejection_dm_includes_the_reason(db, captured_dms):
     assert 'rejected' in message
     assert 'Reason: The VoD cuts off early.' in message
     assert f'/qualifiers/{run.qualifier_id}' in message
-    # The button, not only the markdown link: an embed suppresses the DM's text
-    # content entirely, so a link that lives only in `message` can go unseen.
     assert link is not None and link.url.endswith(f'/qualifiers/{run.qualifier_id}?focus=runs')
 
 

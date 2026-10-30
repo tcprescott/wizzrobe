@@ -27,7 +27,6 @@ async def test_requests_do_not_leak_across_tenants(two_tenants):
         assert await service.get_mine(member) is None
         assert await service.list_requests(staff, include_withdrawn=True) == []
         assert await service.requesting_user_ids(staff) == set()
-        # Updating A's request id from B's scope is a not-found, not a write.
         try:
             await service.update_request(staff, mine_a.id, 'arranged', 'x')
         except ValueError:

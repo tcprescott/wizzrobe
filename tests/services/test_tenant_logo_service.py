@@ -55,7 +55,6 @@ class TestNormalise:
     def test_wide_image_is_fitted_not_cropped(self):
         out = normalise_logo(_png((400, 100), color=(0, 0, 255, 255)))
         with Image.open(BytesIO(out)) as img:
-            # Letterboxed: transparent above and below, the image across the middle.
             assert img.getpixel((128, 5))[3] == 0
             assert img.getpixel((5, 128))[3] == 255
 
@@ -66,7 +65,6 @@ class TestNormalise:
         assert normalise_logo(out.getvalue())
 
     def test_bitmap_path_never_takes_svg(self):
-        # SVGs go through svg_sanitize via prepare_logo, never the bitmap decoder.
         svg = b'<svg xmlns="http://www.w3.org/2000/svg"><script>alert(1)</script></svg>'
         with pytest.raises(ValueError, match="isn't an SVG, PNG"):
             normalise_logo(svg)
@@ -217,7 +215,6 @@ async def test_svg_logo_is_stored_sanitised_and_served_as_svg(tenants_with_staff
         assert resp.status_code == 200
         assert resp.headers['content-type'].startswith('image/svg+xml')
         assert 'sandbox' in resp.headers['content-security-policy']
-        # The same hash under the other extension is not served.
         assert (await client.get(url.replace('.svg', '.webp'))).status_code == 404
 
 
@@ -250,7 +247,6 @@ class TestRenderIcon:
     def test_tab_icon_is_a_transparent_square_png(self, stored):
         with Image.open(BytesIO(render_icon(stored, 32))) as img:
             assert (img.format, img.size) == ('PNG', (32, 32))
-            # A wide logo is letterboxed, not stretched or cropped.
             assert img.getpixel((16, 1))[3] == 0
             # The stored WebP is lossy, so the colour comes back near, not exact.
             assert all(abs(got - want) <= 3 for got, want in zip(img.getpixel((16, 16)), (255, 206, 41, 255), strict=True))
@@ -277,7 +273,6 @@ async def test_icon_route_serves_png_for_svg_logo(tenants_with_staff, logo_clien
                 assert img.size == (side, side)
         etag = (await client.get(theme['logo_icon'])).headers['etag']
         assert (await client.get(theme['logo_icon'], headers={'If-None-Match': etag})).status_code == 304
-        # Only the two sizes the pages declare; another tenant's id doesn't reach it.
         assert (await client.get(theme['logo_icon'].replace('-32.png', '-64.png'))).status_code == 404
         assert (await client.get(theme['logo_icon'].replace(f'/{a.id}/', f'/{b.id}/'))).status_code == 404
     assert 'logo_icon' not in await TenantThemeService.get_theme(b.id)

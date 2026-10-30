@@ -34,8 +34,6 @@ class TestRouteOut:
         assert url == '/admin/settings/integrations'
 
     def test_a_healthy_challonge_offers_nothing(self):
-        # Nothing to reconnect; a link here would be an invitation to fix what
-        # is not broken.
         assert _route_out(_result('challonge', status=ServiceStatus.HEALTHY)) is None
 
     def test_a_racetime_bot_offers_nothing_even_when_down(self):
@@ -56,8 +54,6 @@ class TestRowRendering:
         assert rows[0]['action_url'] == '/admin/settings/integrations'
 
     def test_no_action_leaves_both_fields_empty(self):
-        # The slot branches on `action_url`, so an empty string must be what a
-        # row without a route carries — not a missing key.
         rows = _rows([_result('challonge', status=ServiceStatus.HEALTHY)], _route_out)
         assert rows[0]['action'] == ''
         assert rows[0]['action_url'] == ''
@@ -71,7 +67,6 @@ class TestRowRendering:
         assert [r['category'] for r in rows] == ['Integrations', 'Racetime']
 
     def test_an_unmapped_category_is_still_readable(self):
-        # A probe added later must not print its slug raw while nobody notices.
         rows = _rows([_result('x', category='object_storage')])
         assert rows[0]['category'] == 'Object Storage'
         assert 'object_storage' not in _CATEGORY_LABEL

@@ -26,7 +26,6 @@ async def test_each_tie_to_a_match_is_named(db):
     stranger = await make_user(5, 'stranger')
     await MatchPlayers.create(match=m, user=player)
     await Commentator.create(match=m, user=commentator, approved=True)
-    # Not approved yet, but they still have a card under Crew you signed up for.
     await Tracker.create(match=m, user=pending_tracker, approved=False)
     await MatchWatcher.create(match=m, user=watcher)
     service = MatchService()

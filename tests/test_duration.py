@@ -32,8 +32,6 @@ class TestParseHms:
         ('1:23:45', 5025),
         ('0:07:30', 450),
         ('0:00:01', 1),
-        # The hour segment is unbounded — MAX_RUN_SECONDS is a service rule, and
-        # a week is 168:00:00.
         ('168:00:00', 604800),
         ('  1:23:45  ', 5025),
     ])
@@ -70,6 +68,5 @@ class TestParseHms:
             parse_hms('0:00:00')
 
     def test_a_dropped_segment_is_no_longer_sixty_times_too_fast(self):
-        # The finding: '1:23' used to parse as 83 seconds and read as correct.
         with pytest.raises(ValueError):
             parse_hms('1:23')

@@ -25,8 +25,7 @@ class _FakeApp:
 @pytest.fixture
 def fake_app(monkeypatch):
     app = _FakeApp()
-    # The helper does `from nicegui import app` at call time, so replacing the
-    # module attribute is enough.
+    # The helper imports `app` at call time, so patching the module attribute is enough.
     monkeypatch.setattr('nicegui.app', app, raising=False)
     return app
 
@@ -41,7 +40,6 @@ def test_isolated_across_tenants(fake_app):
     with tenant_scope(1):
         tenant_session.tenant_session_set('tournament_filter', 42)
     with tenant_scope(2):
-        # Tenant 2 never wrote it: sees the default, not tenant 1's value.
         assert tenant_session.tenant_session_get('tournament_filter', None) is None
         tenant_session.tenant_session_set('tournament_filter', 99)
     with tenant_scope(1):
@@ -54,7 +52,6 @@ def test_namespaced_under_by_tenant(fake_app):
     with tenant_scope(7):
         tenant_session.tenant_session_set('state_filter', ['Started'])
     assert fake_app.storage.user['by_tenant']['7']['state_filter'] == ['Started']
-    # Not written flat.
     assert 'state_filter' not in fake_app.storage.user
 
 

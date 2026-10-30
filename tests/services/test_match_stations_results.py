@@ -36,11 +36,6 @@ def captured_events():
     event_bus.unsubscribe(token)
 
 
-# ---------------------------------------------------------------------------
-# station pool validation (T2.3) — real DB, since the ladder reads the station
-# pool and derives occupancy from other matches.
-
-
 _station_seq = itertools.count(1)
 
 
@@ -63,10 +58,6 @@ async def _make_onsite_match(*, seated=False, finished=False, stations=()):
         player.assigned_station = station
         await player.save()
     return match, players
-
-
-# ---------------------------------------------------------------------------
-# record_match_result — real DB, so the ranks are asserted as persisted.
 
 
 class TestRecordMatchResult:
@@ -245,7 +236,6 @@ class TestStationAssignmentValidation:
             await MatchService().assign_stations(match.id, {players[0].id: '99'}, actor=actor)
 
     async def test_allows_free_text_when_pool_is_empty(self, db, actor):
-        # No Station rows -> historical behaviour, format regex only.
         match, players = await _make_onsite_match()
         await MatchService().assign_stations(match.id, {players[0].id: 'anything'}, actor=actor)
         await players[0].refresh_from_db()
@@ -280,7 +270,6 @@ class TestStationAssignmentValidation:
         assert players[0].assigned_station == '4'
 
     async def test_reassigning_a_match_to_its_own_station_is_allowed(self, db, actor):
-        # exclude_match_id must not make a match collide with itself.
         from models import Station
 
         for name in ('4', '5'):

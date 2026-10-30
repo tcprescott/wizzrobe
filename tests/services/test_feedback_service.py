@@ -16,9 +16,8 @@ from models import (
 )
 from tests.factories import make_audit_double
 
-# The repository stays mocked — these are unit tests of the service's own logic —
-# but the feature guard on each entry method reads TenantFeatureFlag, and the
-# ``db`` fixture is what turns every flag on for the default test tenant.
+# The repository is mocked, but the `db` fixture is still needed: it turns on the feature flags
+# each entry method's guard reads.
 pytestmark = pytest.mark.usefixtures("db")
 
 
@@ -45,7 +44,6 @@ def service():
     svc.repository = MagicMock()
     svc.repository.create = AsyncMock(side_effect=lambda **kwargs: _fake_feedback(**kwargs))
     svc.audit_service = make_audit_double()
-    # Membership is exercised against the DB in TestSubmitWithDb.
     svc._ensure_member = AsyncMock()
     return svc
 
@@ -72,7 +70,7 @@ class TestSubmit:
         kwargs = service.repository.create.await_args.kwargs
         assert kwargs['user'] is actor
         assert kwargs['category'] == FeedbackCategory.BUG
-        assert kwargs['message'] == 'something is broken'  # trimmed
+        assert kwargs['message'] == 'something is broken'
         assert kwargs['page_url'] == '/admin/users'
 
         service.audit_service.write_log.assert_awaited_once()
@@ -165,8 +163,6 @@ class TestSetReviewed:
 
         await feedback.refresh_from_db()
         assert feedback.status == FeedbackStatus.NEW
-        # Its own action, not a second FEEDBACK_REVIEWED — the log has to be
-        # readable as a sequence.
         assert await AuditLog.filter(action=AuditActions.FEEDBACK_REOPENED).exists()
 
     async def test_a_non_admin_cannot_review_or_reopen(self, db, make_player):

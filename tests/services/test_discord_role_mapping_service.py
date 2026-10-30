@@ -48,7 +48,6 @@ def make_service():
     return svc
 
 
-#: The event per-event mappings and grants in this suite name.
 EVENT = 10
 
 
@@ -93,8 +92,6 @@ def patch_deps(monkeypatch, fake_events):
     """Helper to configure the module-level dependencies of sync_user_roles."""
 
     def _apply(*, guild_id=42, member_result=(True, set()), current_roles=None):
-        # The guild id now lives on the tenant; login sync fans out over every
-        # tenant that has one. No tenant with a guild -> "no_guild_configured".
         if current_roles is None:
             current_roles = set()
         tenants = [] if guild_id is None else [SimpleNamespace(id=1, discord_guild_id=guild_id)]
@@ -108,7 +105,6 @@ def patch_deps(monkeypatch, fake_events):
             get_member_role_ids=AsyncMock(return_value=member_result)
         )
         monkeypatch.setattr(drms, 'DiscordService', lambda: fake_discord)
-        # "A role implies membership" writes a real row; this suite has no DB.
         membership = AsyncMock(return_value=None)
         monkeypatch.setattr(
             drms.TenantMembershipService, 'ensure_member', membership,
@@ -116,11 +112,6 @@ def patch_deps(monkeypatch, fake_events):
         return membership
 
     return _apply
-
-
-# ---------------------------------------------------------------------------
-# sync_user_roles
-# ---------------------------------------------------------------------------
 
 
 class TestSyncUserRoles:
@@ -137,8 +128,6 @@ class TestSyncUserRoles:
         svc.role_repository.add.assert_awaited_once_with(
             user, Role.PROCTOR, granted_by=None, source=RoleSource.DISCORD, event_id=EVENT,
         )
-        # A role in a tenant implies membership in it — the sync is a role-grant
-        # path like any other.
         membership.assert_awaited_once_with(user, source=MembershipSource.DISCORD_ROLE)
         svc.role_repository.remove.assert_not_awaited()
         assert summary['granted'] == ['proctor']
@@ -147,7 +136,6 @@ class TestSyncUserRoles:
         assert action == 'role.discord_sync_granted'
 
     async def test_revokes_discord_role_when_absent(self, patch_deps):
-        # Member no longer has the Discord role; mapping still exists.
         patch_deps(member_result=(True, set()), current_roles={Role.PROCTOR})
         svc = make_service()
         svc.mapping_repository.list_for_guild = AsyncMock(
@@ -165,8 +153,6 @@ class TestSyncUserRoles:
         assert action == 'role.discord_sync_revoked'
 
     async def test_manual_role_never_revoked(self, patch_deps):
-        # User holds STAFF manually; it is absent from Discord and from the
-        # discord-sourced rows, so it must be left untouched.
         patch_deps(member_result=(True, set()), current_roles={Role.STAFF})
         svc = make_service()
         svc.mapping_repository.list_for_guild = AsyncMock(
@@ -228,11 +214,6 @@ class TestSyncUserRoles:
         }
 
 
-# ---------------------------------------------------------------------------
-# per-tournament grants (Tournament.admins / .crew_coordinators)
-# ---------------------------------------------------------------------------
-
-
 class TestSyncTournamentGrants:
     async def test_grants_mapped_tournament_admin(self, patch_deps):
         membership = patch_deps(member_result=(True, {222}))
@@ -258,8 +239,6 @@ class TestSyncTournamentGrants:
         assert action == 'tournament.admin_granted'
 
     async def test_hand_made_grant_is_not_claimed_by_the_sync(self, patch_deps):
-        # Already a Tournament Admin with no provenance row: staff granted it.
-        # Recording provenance now would let a later sync revoke their grant.
         patch_deps(member_result=(True, {222}))
         svc = make_service()
         svc.mapping_repository.list_for_guild = AsyncMock(
@@ -299,7 +278,6 @@ class TestSyncTournamentGrants:
         assert action == 'tournament.crew_coordinator_revoked'
 
     async def test_inactive_tournament_revokes_rather_than_grants(self, patch_deps):
-        # The guild role is still held; the event is over. Authority ends with it.
         patch_deps(member_result=(True, {222}))
         svc = make_service()
         svc.mapping_repository.list_for_guild = AsyncMock(
@@ -332,11 +310,6 @@ class TestSyncTournamentGrants:
         svc.tournament_repository.set_tournament_grant.assert_not_awaited()
         assert summary['granted'] == ['proctor']
         assert summary['tournament_granted'] == []
-
-
-# ---------------------------------------------------------------------------
-# add_mapping / remove_mapping
-# ---------------------------------------------------------------------------
 
 
 @pytest.mark.usefixtures('fake_events')
@@ -398,7 +371,6 @@ class TestMappingCrud:
         svc.mapping_repository.create.assert_not_awaited()
 
     async def test_tournament_grant_requires_a_tournament(self):
-        # A guild role is guild-wide, so there is nothing to scope it to without one.
         svc = make_service()
         with pytest.raises(ValueError):
             await svc.add_mapping(
@@ -557,18 +529,12 @@ class TestMappingCrud:
             )
 
 
-# ---------------------------------------------------------------------------
-# sync_all_users (bulk)
-# ---------------------------------------------------------------------------
-
-
 class TestSyncAllUsers:
     async def test_aggregates_names_and_audits(self, monkeypatch):
         svc = make_service()
         member = SimpleNamespace(id=1, discord_id=100, display_name='Member', username='m')
         holder = SimpleNamespace(id=2, discord_id=200, display_name=None, username='holder')
         newbie = SimpleNamespace(id=3, discord_id=300, display_name=None, username='newbie')
-        # The holder is also listed as a member: synced once, not twice.
         svc._provision_current_guild_members = AsyncMock(
             return_value=([newbie], [holder, newbie]),
         )
@@ -596,7 +562,6 @@ class TestSyncAllUsers:
                 {'name': 'holder', 'granted': [], 'revoked': ['proctor', 'staff']},
             ],
         }
-        # Only this community: the per-tenant sync, with this tenant.
         assert svc.sync_user_roles_for_tenant.await_count == 3
         assert all(c.args[1] is tenant for c in svc.sync_user_roles_for_tenant.await_args_list)
         action, details = svc.audit_service.write_log.await_args.args[1:3]
@@ -619,11 +584,6 @@ class TestSyncAllUsers:
         with pytest.raises(PermissionError):
             await svc.sync_all_users(actor=make_user())
         svc._provision_current_guild_members.assert_not_awaited()
-
-
-# ---------------------------------------------------------------------------
-# provision_member (a mapped-role holder with no account)
-# ---------------------------------------------------------------------------
 
 
 def guild_member(member_id=900, role_ids=(111,)):
@@ -658,8 +618,6 @@ class TestProvisionMember:
         provision.assert_not_awaited()
 
     async def test_mapping_the_sync_would_ignore_creates_nothing(self, provision):
-        # A platform role, or a grant on an ended tournament, confers nothing on
-        # sync, so it must not conjure an account either.
         svc = make_service()
         svc.mapping_repository.list_for_guild = AsyncMock(return_value=[
             mapping(111, Role.SUPER_ADMIN),
@@ -680,11 +638,6 @@ class TestProvisionMember:
         provision.assert_awaited_once()
 
 
-# ---------------------------------------------------------------------------
-# Integration: real ORM (in-memory SQLite) exercising the migration columns
-# ---------------------------------------------------------------------------
-
-
 class TestSyncIntegration:
     async def test_full_sync_against_real_db(self, db, monkeypatch):
         from application.repositories.discord_role_mapping_repository import (
@@ -694,13 +647,11 @@ class TestSyncIntegration:
         from models import Tenant, User, UserRole
 
         guild_id = 42
-        # The routing key now lives on the tenant, not a global config row.
         default = await Tenant.get(id=1)
         default.discord_guild_id = guild_id
         await default.save()
         user = await User.create(discord_id=555, username='bob')
         await DiscordRoleMappingRepository.create(guild_id, 111, 'Mods', Role.PROCTOR, event_id=DEFAULT_TEST_EVENT_ID)
-        # A manually-granted role that must survive the sync.
         await UserRoleRepository.add(user, Role.STAFF, source=RoleSource.MANUAL)
 
         member_roles = {111}
@@ -711,13 +662,11 @@ class TestSyncIntegration:
 
         svc = DiscordRoleMappingService()
 
-        # 1) Member holds the mapped Discord role -> PROCTOR granted as `discord`.
         summary = await svc.sync_user_roles(user)
         assert summary['granted'] == ['proctor']
         proctor = await UserRole.get(user=user, role=Role.PROCTOR)
         assert proctor.source == RoleSource.DISCORD
 
-        # 2) Member loses the Discord role -> PROCTOR revoked, STAFF (manual) kept.
         member_roles.clear()
         summary = await svc.sync_user_roles(user)
         assert summary['revoked'] == ['proctor']
@@ -761,7 +710,6 @@ class TestSyncIntegration:
         assert await TenantMembership.filter(user=newcomer, tenant_id=1).exists()
         audit = await AuditLog.get(action='user.provisioned', user=newcomer)
         assert json.loads(audit.details)['source'] == 'discord_role_sync'
-        # An existing account keeps its name; sync only hands it the role.
         await existing.refresh_from_db()
         assert existing.username == 'chosen_name'
         assert await UserRole.filter(user=existing, role=Role.PROCTOR).exists()

@@ -103,7 +103,6 @@ class TestGrants:
         await service.grant_tenant(super_admin, bot.id, a.id)
 
         assert [x.id for x in await service.list_authorized_for_tenant(a.id)] == [bot.id]
-        # B was never granted — it must not see the bot.
         assert await service.list_authorized_for_tenant(b.id) == []
         assert await service.is_authorized_for_tenant(bot.id, a.id) is True
         assert await service.is_authorized_for_tenant(bot.id, b.id) is False
@@ -116,7 +115,7 @@ class TestGrants:
             super_admin, category='alttpr', client_id='c', client_secret='s', name='A',
         )
         await service.grant_tenant(super_admin, bot.id, a.id)
-        await service.grant_tenant(super_admin, bot.id, a.id)  # idempotent
+        await service.grant_tenant(super_admin, bot.id, a.id)
         assert len(await service.list_grants(super_admin, bot.id)) == 1
 
         await service.revoke_tenant(super_admin, bot.id, a.id)
@@ -130,7 +129,6 @@ class TestGrants:
         )
         await service.grant_tenant(super_admin, bot.id, a.id)
         await service.update_bot(super_admin, bot.id, is_active=False)
-        # A granted-but-deactivated bot is not selectable.
         assert await service.list_authorized_for_tenant(a.id) == []
 
 
@@ -143,7 +141,6 @@ class TestTenantSelection:
         bot = await service.create_bot(
             super_admin, category='alttpr', client_id='c', client_secret='s', name='A',
         )
-        # Grant only to A. Creating a B tournament selecting the bot must fail.
         await service.grant_tenant(super_admin, bot.id, a.id)
         staff = await User.create(discord_id=2000, username='staff')
         await UserRole.create(user=staff, role=Role.STAFF, tenant=b)

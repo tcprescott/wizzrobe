@@ -52,8 +52,6 @@ async def _qualifier(service, staff, *, opens_in=None, closes_in=None, name='Eve
     )
 
 
-# ================================================================ the window
-
 async def test_a_qualifier_created_inside_its_window_announces_itself(db):
     service = AsyncQualifierService()
     staff = await _staff()
@@ -75,7 +73,6 @@ async def test_a_qualifier_that_has_not_opened_yet_announces_nothing(db):
     q = await _qualifier(service, staff, opens_in=timedelta(days=1), closes_in=timedelta(days=2))
 
     assert seen == []
-    # Stamped all the same, so the opening is announced once when it arrives.
     assert (await AsyncQualifier.get(id=q.id)).window_state_notified == 'pending'
 
 
@@ -90,7 +87,6 @@ async def test_the_worker_announces_the_crossing_when_the_clock_reaches_it(db):
     assert await service.sync_window_state(q, now=later) is rules.WindowState.OPEN
     assert [t for t, _ in seen] == [EventType.ASYNC_QUALIFIER_OPENED]
 
-    # Idempotent: the next tick sees the same state and says nothing.
     q = await AsyncQualifier.get(id=q.id)
     assert await service.sync_window_state(q, now=later + timedelta(minutes=1)) is None
     assert len(seen) == 1
@@ -145,8 +141,6 @@ async def test_reopening_announces_again(db):
     assert [t for t, _ in seen] == [EventType.ASYNC_QUALIFIER_OPENED]
 
 
-# ========================================================= the run outcomes
-
 async def test_a_forfeit_and_a_reattempt_both_reach_subscribers(db):
     service = AsyncQualifierService()
     staff = await _staff(900808, 'evstaff8')
@@ -189,5 +183,4 @@ async def test_a_granted_reattempt_publishes_the_same_fact_marked_granted(db):
     assert [t for t, _ in seen] == [EventType.ASYNC_QUALIFIER_RUN_REATTEMPTED]
     details = seen[0][1]
     assert details['granted'] is True
-    # The runner whose slot reopened, not the reviewer who reopened it.
     assert details['user_id'] == player.id

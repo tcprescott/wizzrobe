@@ -56,7 +56,6 @@ def _sides_of(service, suggestion):
     return [pool[label].side for label in suggestion.assignments.values()]
 
 
-# A full two-sided room: four seats a side, neighbours one apart.
 def _two_sided_pool():
     return (
         [_station(f'L{n}', LEFT, n, 'left wall') for n in range(1, 5)]
@@ -105,7 +104,6 @@ class TestOppositeSides:
 
 class TestSpread:
     async def test_a_seat_beside_a_live_match_is_avoided(self, service):
-        # L2 is the only free seat on the left that neighbours nothing in use.
         _pool(service, [
             _station('L1', LEFT, 1), _station('L2', LEFT, 4),
             _station('L3', LEFT, 5), _station('R1', RIGHT, 1),
@@ -124,7 +122,6 @@ class TestSpread:
             assert suggestion.relaxations == []
 
     async def test_a_crowded_room_seats_anyway_and_says_so(self, service):
-        # Every free seat neighbours one in use.
         service.station_repository.get_active = AsyncMock(return_value=[
             _station('L1', LEFT, 1), _station('L2', LEFT, 2),
             _station('R1', RIGHT, 1), _station('R2', RIGHT, 2),
@@ -149,7 +146,6 @@ class TestSpread:
         assert len(crowded) == 1
 
     async def test_stations_in_different_sections_are_not_neighbours(self, service):
-        # Same position number, different wall — not adjacent, so no warning.
         service.station_repository.get_active = AsyncMock(return_value=[
             _station('L1', LEFT, 2, 'back row'), _station('R1', RIGHT, 2, 'far row'),
             _station('X1', LEFT, 1, 'front row'), _station('X2', RIGHT, 1, 'other row'),

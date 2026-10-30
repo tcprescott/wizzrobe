@@ -57,11 +57,6 @@ async def _volunteer(name='vol'):
     return await _user(name, roles=[Role.VOLUNTEER])
 
 
-# ---------------------------------------------------------------------------
-# Shift read helpers: list_shifts_for_window / get_shift
-# ---------------------------------------------------------------------------
-
-
 class TestShiftReads:
     async def test_list_shifts_for_window_returns_overlapping(self, db):
         pos = await VolunteerPosition.create(name='Check-in')
@@ -72,7 +67,6 @@ class TestShiftReads:
         rows = await svc.list_shifts_for_window(utc(2026, 10, 4, 0), utc(2026, 10, 4, 14))
         ids = {s.id for s in rows}
         assert inside.id in ids
-        # The 20:00-23:00 shift starts after the window end -> excluded.
         assert len(rows) == 1
 
     async def test_get_shift_returns_row(self, db):
@@ -87,19 +81,12 @@ class TestShiftReads:
         assert await svc.get_shift(999999) is None
 
 
-# ---------------------------------------------------------------------------
-# Staggered generation crossing midnight (coverage_end rollover)
-# ---------------------------------------------------------------------------
-
-
 class TestStaggeredMidnight:
     async def test_staggered_coverage_rolls_over_midnight(self, db):
         staff = await _staff()
         tech = await VolunteerPosition.create(
             name='Overnight Tech', shift_length_minutes=120, stagger_minutes=60,
         )
-        # Last block end (00:00) is at/before the first block start (20:00) ->
-        # the coverage window must roll into the next day.
         blocks = [('S1', '20:00', '22:00'), ('S2', '22:00', '00:00')]
 
         shifts = await VolunteerScheduleService().generate_day_shifts(
@@ -110,11 +97,6 @@ class TestStaggeredMidnight:
         expected_end = parse_local_datetime('2026-10-04', '00:00') + timedelta(days=1)
         latest_end = max(s.ends_at for s in shifts)
         assert latest_end == expected_end
-
-
-# ---------------------------------------------------------------------------
-# reset_all_shifts
-# ---------------------------------------------------------------------------
 
 
 class TestResetAllShifts:
@@ -139,11 +121,6 @@ class TestResetAllShifts:
             await VolunteerScheduleService().reset_all_shifts(vol)
 
 
-# ---------------------------------------------------------------------------
-# get_assignment
-# ---------------------------------------------------------------------------
-
-
 class TestGetAssignment:
     async def test_returns_assignment_by_id(self, db):
         staff = await _staff()
@@ -158,11 +135,6 @@ class TestGetAssignment:
 
     async def test_returns_none_when_missing(self, db):
         assert await VolunteerScheduleService().get_assignment(424242) is None
-
-
-# ---------------------------------------------------------------------------
-# unassign
-# ---------------------------------------------------------------------------
 
 
 class TestUnassign:
@@ -188,11 +160,6 @@ class TestUnassign:
 
         with pytest.raises(PermissionError):
             await svc.unassign(vol, assignment)
-
-
-# ---------------------------------------------------------------------------
-# check_in
-# ---------------------------------------------------------------------------
 
 
 class TestCheckIn:
@@ -283,11 +250,6 @@ class TestUndoCheckIn:
         assert result.checked_in_at is None
 
 
-# ---------------------------------------------------------------------------
-# assignments_for_user
-# ---------------------------------------------------------------------------
-
-
 class TestAssignmentsForUser:
     async def test_lists_all_for_user(self, db):
         staff = await _staff()
@@ -317,18 +279,12 @@ class TestAssignmentsForUser:
         assert rows[0].shift_id == future.id
 
 
-# ---------------------------------------------------------------------------
-# assign -> availability "not marked available" soft warning
-# ---------------------------------------------------------------------------
-
-
 class TestAssignAvailabilityWarning:
     async def test_warns_when_time_not_marked_available(self, db):
         staff = await _staff()
         pos = await VolunteerPosition.create(name='Photography')
         shift = await VolunteerShift.create(position=pos, starts_at=utc(2026, 10, 4, 8), ends_at=utc(2026, 10, 4, 12))
         vol = await _volunteer('partial')
-        # Declares availability elsewhere, but nothing overlapping the shift.
         await VolunteerAvailability.create(
             user=vol, starts_at=utc(2026, 10, 4, 14), ends_at=utc(2026, 10, 4, 18),
             status=VolunteerAvailabilityStatus.AVAILABLE,
@@ -345,11 +301,6 @@ class TestAssignAvailabilityWarning:
 
         _, warnings = await VolunteerScheduleService().assign(staff, shift, vol)
         assert warnings == []
-
-
-# ---------------------------------------------------------------------------
-# VolunteerAvailabilityService.set_windows (self-service replacement)
-# ---------------------------------------------------------------------------
 
 
 class TestSetWindows:
@@ -381,7 +332,6 @@ class TestSetWindows:
         )
         assert len(created) == 1
         stored = await VolunteerAvailability.filter(user=vol)
-        # The pre-existing 06:00-07:00 window was cleared out.
         assert len(stored) == 1
         assert stored[0].starts_at == utc(2026, 10, 4, 9)
 
@@ -396,11 +346,6 @@ class TestSetWindows:
         created = await svc.set_windows(vol, [])
         assert created == []
         assert await VolunteerAvailability.filter(user=vol).count() == 0
-
-
-# ---------------------------------------------------------------------------
-# VolunteerQualificationService
-# ---------------------------------------------------------------------------
 
 
 class TestQualificationService:
@@ -448,7 +393,6 @@ class TestQualificationService:
 
         await svc.set_qualifications(staff, vol, [p2.id, p3.id])
         ids = await svc.get_qualified_position_ids(vol)
-        # p1 removed; p2/p3 now present.
         assert ids == {p2.id, p3.id}
 
     async def test_set_qualifications_rejects_unprivileged_actor(self, db):

@@ -66,8 +66,6 @@ async def _live_race(qsvc, lrsvc, staff, *, runs_per_pool: int = 1, permalink: b
     return q, pool, pl, race
 
 
-# ==================================================== the manual record itself
-
 async def test_a_hand_recorded_race_scores_exactly_like_a_racetime_one(db):
     qsvc, lrsvc = AsyncQualifierService(), AsyncQualifierLiveRaceService()
     staff = await _staff()
@@ -84,13 +82,9 @@ async def test_a_hand_recorded_race_scores_exactly_like_a_racetime_one(db):
 
     assert len(captured) == 3
     by_user = {r.user_id: r for r in captured}
-    # Approved without review, like any live-race run: the result is self-attributing
-    # once a human with the authority to record it has said so.
     assert all(r.review_status == AsyncQualifierReviewStatus.APPROVED for r in captured)
     assert by_user[quitter.id].status == AsyncQualifierRunStatus.FORFEIT
     assert by_user[quitter.id].score == 0.0
-    # Par is the mean of the fastest approved runs, so the faster racer scores higher
-    # and both are scored — the recompute ran.
     assert by_user[fast.id].score > by_user[slow.id].score
     assert (await AsyncQualifierLiveRace.get(id=race.id)).status == (
         AsyncQualifierLiveRaceStatus.FINISHED)
@@ -110,14 +104,11 @@ async def test_the_race_start_is_derived_so_a_run_has_a_duration(db):
     ])
     by_user = {r.user_id: r for r in captured}
 
-    # One race, one start: everybody in the room began at the same instant.
     starts = {r.started_at for r in captured}
     assert len(starts) == 1
     for run in captured:
         assert run.finished_at > run.started_at
-        # Each finisher's own finish is their start plus their own time.
         assert int((run.finished_at - run.started_at).total_seconds()) == run.elapsed_seconds
-        # And the Timed column has something to show.
         assert run.measured_seconds == run.elapsed_seconds
     assert by_user[slow.id].finished_at > by_user[fast.id].finished_at
 
@@ -136,7 +127,6 @@ async def test_a_finisher_needs_a_time_and_a_forfeit_may_not_have_one(db):
             staff, race.id,
             [ManualResult(racer.id, AsyncQualifierRunStatus.FINISHED, 8 * 24 * 3600)])
 
-    # A time typed against a forfeit is dropped rather than stored beside a zero.
     captured = await lrsvc.record_manual_finish(
         staff, race.id, [ManualResult(racer.id, AsyncQualifierRunStatus.FORFEIT, 1200)])
     assert captured[0].elapsed_seconds is None
@@ -217,8 +207,6 @@ async def test_a_non_admin_cannot_record_a_race(db):
             outsider, race.id, [ManualResult(outsider.id, AsyncQualifierRunStatus.FINISHED, 1000)])
 
 
-# ================================================= the unmatched-handle to-do
-
 async def test_an_unmatched_handle_is_recorded_on_the_race_not_just_the_audit(db):
     """Nobody reads the audit log looking for work, so the race carries the to-do."""
     qsvc, lrsvc = AsyncQualifierService(), AsyncQualifierLiveRaceService()
@@ -237,7 +225,6 @@ async def test_an_unmatched_handle_is_recorded_on_the_race_not_just_the_audit(db
     assert race.unmatched_handles == ['Stranger']
     assert await AsyncQualifierRun.filter(live_race_id=race.id).count() == 1
 
-    # Link the account and record again: the to-do clears itself.
     await User.filter(id=(await _racer(931092, 'stranger')).id).update(
         racetime_user_id='rt-stranger')
     await lrsvc.record_finish(race, [

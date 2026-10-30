@@ -19,7 +19,6 @@ def service():
     return SeedGenerationService()
 
 
-
 class _FakeResp:
     """A minimal aiohttp response context manager returning scripted data."""
 
@@ -57,7 +56,7 @@ class _DK64RStub:
         self.calls = []
         self.headers = None
 
-    def __call__(self, *args, **kwargs):  # aiohttp.ClientSession(headers=...)
+    def __call__(self, *args, **kwargs):
         self.headers = kwargs.get('headers')
         return self
 
@@ -127,10 +126,10 @@ class TestGenerateDk64r:
 
     async def test_settings_string_happy_path(self, service, monkeypatch, dk64r_key):
         stub = _DK64RStub([
-            (200, {'level_randomization': 'level_order'}),        # convert_settings
-            (200, {'task_id': 'task-123', 'status': 'queued'}),   # submit-task
-            (200, {'status': 'queued', 'position': 2}),           # poll
-            (200, {'status': 'started'}),                          # poll
+            (200, {'level_randomization': 'level_order'}),
+            (200, {'task_id': 'task-123', 'status': 'queued'}),
+            (200, {'status': 'queued', 'position': 2}),
+            (200, {'status': 'started'}),
             (200, {'status': 'finished', 'result': {'seed_number': 90210, 'hash': 'DK-DK-DK'}}),
         ])
         import aiohttp
@@ -141,9 +140,7 @@ class TestGenerateDk64r:
         url = (await service._generate_dk64r(preset)).url
 
         assert url == 'https://dk64randomizer.com/randomizer.html?seed_id=90210'
-        # The API key travels as X-API-Key on the session.
         assert stub.headers == {'X-API-Key': 'k'}
-        # Convert was called with the settings string, submit with the expanded dict.
         assert stub.calls[0][1].endswith('/convert_settings')
         assert stub.calls[0][2]['json'] == {'settings': 'abc123'}
         assert stub.calls[0][2]['params'] == {'branch': 'stable'}
@@ -152,7 +149,6 @@ class TestGenerateDk64r:
         assert _json.loads(stub.calls[1][2]['json']['settings_data']) == {
             'level_randomization': 'level_order', 'generate_spoilerlog': False,
         }
-        # Poll hits task-status for the returned task id.
         assert '/task-status/task-123' in stub.calls[2][1]
 
     async def test_full_json_preset_skips_convert(self, service, monkeypatch, dk64r_key):
@@ -168,7 +164,6 @@ class TestGenerateDk64r:
         url = (await service._generate_dk64r(preset)).url
 
         assert url.endswith('seed_id=5')
-        # First (and only POST) call is submit — no convert step.
         assert stub.calls[0][1].endswith('/submit-task')
         import json as _json
         assert _json.loads(stub.calls[0][2]['json']['settings_data']) == {
@@ -189,9 +184,7 @@ class TestGenerateDk64r:
         url = (await service._generate_dk64r(preset)).url
 
         assert url == 'https://dev.dk64randomizer.com/randomizer.html?seed_id=77'
-        # Every call carries branch=dev...
         assert stub.calls[0][2]['params'] == {'branch': 'dev'}
-        # ...and _branch never leaks into the submitted settings.
         import json as _json
         assert '_branch' not in _json.loads(stub.calls[0][2]['json']['settings_data'])
 
@@ -202,7 +195,7 @@ class TestGenerateDk64r:
 
     async def test_no_preset_falls_back_to_builtin_file(self, service, monkeypatch, dk64r_key):
         stub = _DK64RStub([
-            (200, {'expanded': True}),                             # convert (builtin is a settings string)
+            (200, {'expanded': True}),
             (200, {'task_id': 't1', 'status': 'queued'}),
             (200, {'status': 'finished', 'result': {'seed_number': 1}}),
         ])
@@ -212,12 +205,11 @@ class TestGenerateDk64r:
 
         url = (await service._generate_dk64r(None)).url
         assert url.endswith('seed_id=1')
-        # The committed builtin is a settings-string preset → convert runs first.
         assert stub.calls[0][1].endswith('/convert_settings')
 
     async def test_submit_rejection_raises(self, service, monkeypatch, dk64r_key):
         stub = _DK64RStub([
-            (400, {'error': 'invalid settings_data'}),            # submit-task 400
+            (400, {'error': 'invalid settings_data'}),
         ])
         import aiohttp
         monkeypatch.setattr(aiohttp, 'ClientSession', stub)
@@ -229,7 +221,7 @@ class TestGenerateDk64r:
     async def test_task_crash_http_500_raises(self, service, monkeypatch, dk64r_key):
         stub = _DK64RStub([
             (200, {'task_id': 't1', 'status': 'queued'}),
-            (500, {'error': 'generator exploded'}),               # task-status 500
+            (500, {'error': 'generator exploded'}),
         ])
         import aiohttp
         monkeypatch.setattr(aiohttp, 'ClientSession', stub)
@@ -242,7 +234,7 @@ class TestGenerateDk64r:
     async def test_failed_status_raises(self, service, monkeypatch, dk64r_key):
         stub = _DK64RStub([
             (200, {'task_id': 't1', 'status': 'queued'}),
-            (200, {'status': 'failed'}),                          # defensive failed inside 200
+            (200, {'status': 'failed'}),
         ])
         import aiohttp
         monkeypatch.setattr(aiohttp, 'ClientSession', stub)
@@ -255,13 +247,12 @@ class TestGenerateDk64r:
     async def test_poll_timeout_raises(self, service, monkeypatch, dk64r_key):
         stub = _DK64RStub(
             [(200, {'task_id': 't1', 'status': 'queued'})],
-            default=(200, {'status': 'queued', 'position': 9}),   # never finishes
+            default=(200, {'status': 'queued', 'position': 9}),
         )
         import aiohttp
         monkeypatch.setattr(aiohttp, 'ClientSession', stub)
         monkeypatch.setattr('asyncio.sleep', _noop_sleep)
-        # Advance the monotonic clock past the deadline. A never-exhausting
-        # counter (vs. a fixed iterator) is safe even if teardown reads the clock.
+        # A never-exhausting counter, not a fixed iterator: teardown may read the clock too.
         import itertools
         clock = itertools.count(0.0, 10_000.0)
         monkeypatch.setattr(
@@ -299,8 +290,6 @@ class TestRemotePresetCatalogue:
         assert stub.calls[0][1].endswith('/get_presets')
         assert stub.calls[0][2]['params'] == {'branch': 'stable'}
         assert [(p.name, p.description) for p in presets] == [('Season 5', 'Race settings')]
-        # Stored as the roll path reads it: the branch it came from, and the
-        # portable string expanded through /convert_settings at roll time.
         assert presets[0].settings == {'_branch': 'stable', 'settings_string': 'abc123'}
 
     async def test_skips_unusable_entries(self, service, monkeypatch, dk64r_key):
@@ -314,7 +303,6 @@ class TestRemotePresetCatalogue:
         monkeypatch.setattr(aiohttp, 'ClientSession', stub)
 
         presets = await service.list_remote_presets('dk64r')
-        # One malformed row must not cost the community the whole catalogue.
         assert [p.name for p in presets] == ['Keeper']
 
     async def test_non_list_payload_raises(self, service, monkeypatch, dk64r_key):
@@ -368,8 +356,6 @@ class TestMockDK64:
         assert url.startswith('https://dk64randomizer.com/randomizer.html?seed_id=')
 
     async def test_does_not_return_the_generic_mock_url(self, service):
-        # The whole point of opting out of the short-circuit: DK64 must travel
-        # its own convert -> submit -> poll path even when mocked.
         url = await service.generate_seed('dk64r')
         assert 'mock.seedgen.local' not in url
 
@@ -401,8 +387,6 @@ class TestMockDK64:
             await service._generate_dk64r(None)
 
     async def test_walks_queued_then_started_then_finished(self, monkeypatch):
-        # The progression the presentation layer renders a waiting state from,
-        # driven off a controlled clock rather than real seconds.
         from application.utils.mocks import mock_dk64
 
         monkeypatch.setenv('MOCK_DK64_SECONDS', '100')
@@ -495,17 +479,14 @@ class TestDk64rSpoilerLog:
         import json as _json
         sent = _json.loads(stub.calls[0][2]['json']['settings_data'])
         assert sent['generate_spoilerlog'] is False
-        # And the recorded snapshot reflects what actually went upstream.
         assert rolled.settings['generate_spoilerlog'] is False
 
     async def test_converted_settings_string_is_overridden(
         self, service, monkeypatch, dk64r_key,
     ):
-        # The live API converts several of the site's own presets — including
-        # "Season 5 Race Settings" — with the spoiler log switched on, so the
-        # override has to happen after convert_settings, not before.
+        # Spoiler-log override must come after convert_settings: the live API converts some presets with it on.
         stub = _DK64RStub([
-            (200, {'krool_phases': 3, 'generate_spoilerlog': True}),   # convert
+            (200, {'krool_phases': 3, 'generate_spoilerlog': True}),
             (200, {'task_id': 't1', 'status': 'queued'}),
             (200, {'status': 'finished', 'result': {'seed_number': 2}}),
         ])

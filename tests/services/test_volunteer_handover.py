@@ -53,15 +53,15 @@ async def test_only_real_handovers_count(db):
         await _slot('Check In', -4, 0), await _slot('Check In', 0, 4), await _slot('Check In', 4, 6),
     )
     me, staying = await _user('me'), await _user('staying')
-    await _on(before, me)                                   # my own previous shift
-    await _on(before, staying)                              # carries on alongside me
+    await _on(before, me)
+    await _on(before, staying)
     await _on(mine, staying)
     await _on(before, await _user('draft'), auto_generated=True)
     await _on(before, await _user('calledoff'), called_off_at=BASE)
     await _on(await _slot('Admin Desk', -2, 0), await _user('otherpos'))
-    await _on(await _slot('Check In', -3, -0.5), await _user('gap'))       # ends 30 min early
-    await _on(await _slot('Check In', -3, 0.25), await _user('slack'))     # ends 15 min late
-    await _on(after, me)                                    # I stay on
+    await _on(await _slot('Check In', -3, -0.5), await _user('gap'))
+    await _on(await _slot('Check In', -3, 0.25), await _user('slack'))
+    await _on(after, me)
     assignment = await _on(mine, me)
     await assignment.fetch_related('shift')
 

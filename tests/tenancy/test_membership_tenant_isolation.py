@@ -21,9 +21,6 @@ from models import Role, TenantMembership, User, UserRole
 REPO = Path(__file__).resolve().parents[2]
 
 
-# --- the invariant ----------------------------------------------------------
-
-
 async def _staff(discord_id=6000):
     boss = await User.create(discord_id=discord_id, username=f'boss{discord_id}')
     await UserRole.create(user=boss, role=Role.STAFF, tenant_id=1)
@@ -76,9 +73,6 @@ async def test_a_role_in_one_tenant_does_not_make_a_member_of_another(two_tenant
 
     assert await TenantMembership.filter(user=target, tenant_id=tenant_a.id).count() == 1
     assert await TenantMembership.filter(user=target, tenant_id=tenant_b.id).count() == 0
-
-
-# --- the community user list ------------------------------------------------
 
 
 async def test_community_user_list_never_crosses_tenants(two_tenants, db):
@@ -163,17 +157,6 @@ async def test_get_all_users_is_unchanged(db):
     assert {'member2', 'stranger2'} <= names
 
 
-# --- the pickers ------------------------------------------------------------
-
-
-# The two legitimate callers, both deliberate and both labelled on screen:
-#
-# - the /platform first-admin dialog — a super-admin choosing from every account
-#   precisely because the target community has no members yet;
-# - the checkout dialog's "Include people outside this community" toggle — the
-#   venue case, lending to someone who just walked in. It widens *which*
-#   community's people are offered, never who may borrow; EquipmentService
-#   enforces that.
 _GLOBAL_LIST_ALLOWLIST = {
     'pages/platform_tenant_admins.py',
     'theme/dialog/checkout_dialog.py',
@@ -237,7 +220,6 @@ async def test_membership_is_what_the_picker_offers(two_tenants, db):
     assert boss.username in offered
     assert outsider.username not in offered
 
-    # And once staff add them, they are.
     await TenantMembershipService().add_member(boss, outsider)
     offered = {u.username for u in await UserService().get_community_people()}
     assert outsider.username in offered
@@ -261,7 +243,7 @@ async def test_the_seed_has_a_member_of_one_community_and_not_another(seeded_db)
 
     assert 'local_only' in in_default
     assert 'local_only' not in in_second
-    # And the shared cast really is shared, or the assertion above proves nothing.
+    # Check the cast really is shared, or the assertion above proves nothing.
     assert 'staff_user' in in_default and 'staff_user' in in_second
 
 
@@ -291,9 +273,6 @@ async def test_an_imported_speedgaming_player_becomes_a_member(db):
     assert resolved.username not in {u.username for u in await service.get_community_people()}
     offered = {u.username for u in await service.get_community_people(include_inactive=True)}
     assert resolved.username in offered
-
-
-# --- join requests ----------------------------------------------------------
 
 
 class TestJoinRequestIsolation:

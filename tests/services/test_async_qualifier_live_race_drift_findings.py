@@ -73,8 +73,6 @@ async def _live_race(qsvc, lrsvc, staff, *, runs_per_pool: int = 2, permalink: b
     return q, pool, pl, race
 
 
-# ============================================== T2.1 the erased unmatched to-do
-
 async def test_a_hand_recorded_race_keeps_the_handles_it_did_not_record(db):
     """The to-do outlives a manual record that had nothing to do with it.
 
@@ -97,7 +95,6 @@ async def test_a_hand_recorded_race_keeps_the_handles_it_did_not_record(db):
     race = await AsyncQualifierLiveRace.get(id=race.id)
     assert race.unmatched_handles == ['Stranger'], 'fixture precondition'
 
-    # Recording somebody else by hand says nothing about Stranger either way.
     await lrsvc.record_manual_finish(staff, race.id, [
         ManualResult(latecomer.id, AsyncQualifierRunStatus.FINISHED, 1500),
     ])
@@ -120,8 +117,6 @@ async def test_recording_the_unmatched_racer_by_hand_clears_their_handle(db):
                     status=EntrantStatus.DONE, finish_time=1100),
     ], actor=staff)
 
-    # The account gets linked, and the admin types the result in rather than waiting
-    # for a room event that already came and went.
     stranger = await _racer(932022, 'stranger', 'rt-stranger', 'Stranger')
     await lrsvc.record_manual_finish(staff, race.id, [
         ManualResult(stranger.id, AsyncQualifierRunStatus.FINISHED, 1100),
@@ -138,7 +133,6 @@ async def test_a_handle_matching_nobody_recorded_is_left_standing(db):
     staff = await _staff(932003, 'driftstaff3')
     q, pool, pl, race = await _live_race(qsvc, lrsvc, staff)
 
-    # No display name, so the handle stored is the raw account id.
     await lrsvc.record_finish(race, [
         RaceEntrant(user_id='rt-anon', display_name=None,
                     status=EntrantStatus.DONE, finish_time=900),
@@ -154,8 +148,6 @@ async def test_a_handle_matching_nobody_recorded_is_left_standing(db):
     race = await AsyncQualifierLiveRace.get(id=race.id)
     assert race.unmatched_handles is None
 
-
-# ================================== T3.1 the finisher racetime sent without a time
 
 async def test_both_capture_paths_ask_the_same_question_of_a_finisher(db):
     """The predicate is shared, so a finish with no time cannot be a finish in one path.
@@ -192,8 +184,6 @@ async def test_a_done_entrant_with_no_time_is_not_written_as_an_approved_run(db)
 
     assert [r.user_id for r in captured] == [good.id]
     assert await AsyncQualifierRun.filter(user_id=weird.id).count() == 0
-    # And the racer reaches staff instead of disappearing, on the same to-do as an
-    # unlinked account — the record dialog resolves both.
     race = await AsyncQualifierLiveRace.get(id=race.id)
     assert race.unmatched_handles == ['weird']
 
@@ -222,8 +212,6 @@ async def test_the_racer_racetime_could_not_time_is_recordable_by_hand(db):
     race = await AsyncQualifierLiveRace.get(id=race.id)
     assert race.unmatched_handles is None
 
-
-# ======================================= T5.12 the permalink that had no "later"
 
 async def test_a_scheduled_race_can_be_given_the_permalink_it_was_created_without(db):
     """"(assign later)" had no later: no page control and no route set one.
@@ -277,7 +265,6 @@ async def test_moving_a_recorded_race_to_another_permalink_is_refused(db):
 
     with pytest.raises(ValueError, match='already recorded'):
         await lrsvc.assign_permalink(staff, race.id, second.id)
-    # Re-asserting the permalink it already has is not a move, so it is allowed.
     assert (await lrsvc.assign_permalink(staff, race.id, pl.id)).permalink_id == pl.id
 
 
@@ -290,8 +277,6 @@ async def test_a_non_admin_cannot_assign_a_permalink(db):
     with pytest.raises(PermissionError):
         await lrsvc.assign_permalink(outsider, race.id, pl.id)
 
-
-# ============================================= T2.2 the silently dropped row
 
 def test_a_blank_row_is_named_rather_than_dropped():
     """Four rows filled, one blank, and the answer used to be "Recorded 3 run(s)"."""

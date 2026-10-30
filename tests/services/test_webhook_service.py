@@ -22,11 +22,6 @@ async def _plain() -> User:
     return await User.create(discord_id=2, username='nobody')
 
 
-# ---------------------------------------------------------------------------
-# CRUD, authorization, validation
-# ---------------------------------------------------------------------------
-
-
 class TestWebhookCrud:
     async def test_create_generates_secret_and_audits(self, db):
         actor = await _staff()
@@ -35,7 +30,7 @@ class TestWebhookCrud:
             event_types=[EventType.MATCH_CREATED],
         )
         assert webhook.id is not None
-        assert webhook.secret  # generated
+        assert webhook.secret
         stored = await Webhook.get(id=webhook.id)
         assert stored.event_types == [EventType.MATCH_CREATED]
         assert await AuditLog.filter(action='webhook.created').count() == 1
@@ -103,11 +98,6 @@ class TestWebhookCrud:
             await WebhookService().get_webhook(actor, 9999)
 
 
-# ---------------------------------------------------------------------------
-# Delivery: signing, logging, retries
-# ---------------------------------------------------------------------------
-
-
 class FakeResponse:
     def __init__(self, status_code: int):
         self.status_code = status_code
@@ -153,7 +143,6 @@ class TestDelivery:
         event = Event.create(EventType.MATCH_CREATED, {'match_id': 5})
         await WebhookService()._deliver_one(webhook, event)
 
-        # One POST, HMAC over "{timestamp}.{body}" verifies against the secret.
         assert len(fake.calls) == 1
         call = fake.calls[0]
         body = call['content']
@@ -191,9 +180,9 @@ class TestDelivery:
         await Webhook.create(name='b', url='https://b.example', secret='s',
                              event_types=[EventType.MATCH_STARTED], is_active=True)
         await Webhook.create(name='c', url='https://c.example', secret='s',
-                             event_types=['*'], is_active=False)  # inactive
+                             event_types=['*'], is_active=False)
         await Webhook.create(name='d', url='https://d.example', secret='s',
-                             event_types=['*'], is_active=True)  # wildcard
+                             event_types=['*'], is_active=True)
 
         enqueued = []
         monkeypatch.setattr(
@@ -201,7 +190,6 @@ class TestDelivery:
             lambda coro: (enqueued.append(coro), coro.close()),
         )
         await WebhookService().deliver_event(Event.create(EventType.MATCH_CREATED, {}))
-        # 'a' (subscribed) and 'd' (wildcard) match; 'b' wrong event, 'c' inactive.
         assert len(enqueued) == 2
 
 
@@ -295,11 +283,6 @@ class TestEventFilter:
         assert edited.event_ids == [other]
 
 
-# ---------------------------------------------------------------------------
-# In-app format reference (drift guard against the delivery code)
-# ---------------------------------------------------------------------------
-
-
 class TestFormatReference:
     def test_event_list_matches_registry(self):
         ref = WebhookService.format_reference()
@@ -321,8 +304,6 @@ class TestFormatReference:
         assert set(ref['example_payload'].keys()) == expected_keys
 
     async def test_delivery_sends_every_documented_header(self, db, monkeypatch):
-        # A real delivery must send exactly the headers the reference documents —
-        # including Content-Type and User-Agent, which the prose doc once omitted.
         webhook = await Webhook.create(
             name='w', url='https://x.example', secret='s', event_types=['*'],
         )
@@ -334,11 +315,6 @@ class TestFormatReference:
             assert header['name'] in sent
         assert sent['Content-Type'] == 'application/json'
         assert sent['User-Agent'] == 'wizzrobe-webhook'
-
-
-# ---------------------------------------------------------------------------
-# Delivery health on the list
-# ---------------------------------------------------------------------------
 
 
 class TestRecentHealth:
@@ -381,7 +357,6 @@ class TestRecentHealth:
         assert health[b.id] == {'ok': 1, 'failed': 0, 'last': health[b.id]['last']}
 
     async def test_a_webhook_with_no_recent_deliveries_is_absent(self, db):
-        # Absent, not zeroed: the row renders "—" rather than claiming health.
         actor = await _staff()
         quiet = await self._webhook('quiet')
         assert quiet.id not in await WebhookService().recent_health(actor)
@@ -417,7 +392,6 @@ class TestHealthCell:
     def test_any_failure_leads_with_the_failure_count(self):
         from pages.admin_tabs.admin_webhooks import _health_cell
 
-        # The number the operator is looking for goes first.
         cell = _health_cell({'ok': 1, 'failed': 2, 'last': None})
         assert cell['health'] == '2 of 3 failed'
         assert cell['health_chip'] == 'wiz-chip--cancelled'

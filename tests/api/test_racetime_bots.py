@@ -26,8 +26,6 @@ async def _make_bot(category='alttp', name='ALttP Bot', **kwargs):
     )
 
 
-# --- Reads ----------------------------------------------------------------
-
 class TestReads:
     async def test_list_bots_success(self, db, app):
         _, raw = await _super_admin_token()
@@ -73,8 +71,6 @@ class TestReads:
             assert resp.status_code == 404
 
 
-# --- Auth matrix ----------------------------------------------------------
-
 class TestAuth:
     async def test_list_unauthenticated_401(self, db, app):
         async with client_for(app) as c:
@@ -109,8 +105,6 @@ class TestAuth:
             })
             assert resp.status_code == 403
 
-
-# --- Writes ---------------------------------------------------------------
 
 class TestWrites:
     async def test_create_bot_success_hides_secret(self, db, app):
@@ -167,8 +161,6 @@ class TestWrites:
             resp = await c.delete('/api/racetime-bots/9999')
             assert resp.status_code == 404
 
-
-# --- Tenant grants --------------------------------------------------------
 
 class TestGrants:
     async def test_grant_then_list_then_revoke(self, db, app):

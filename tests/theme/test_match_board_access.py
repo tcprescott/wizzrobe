@@ -17,7 +17,6 @@ from application.services import AuthService
 from models import Role
 from theme.tables.match_access import MatchBoardAccess
 
-# (field on MatchBoardAccess, the AuthService gate that decides the same thing)
 PAIRS = [
     ('edit', AuthService.can_crud_match),
     ('run', AuthService.can_run_match),
@@ -26,7 +25,6 @@ PAIRS = [
     ('approve_crew', AuthService.can_approve_crew),
 ]
 
-# Each role as the board resolves it, and as the services see it.
 ROLES = {
     'staff': (dict(is_staff=True), {Role.STAFF}, False, False),
     'proctor': (dict(is_proctor=True), {Role.PROCTOR}, False, False),
@@ -40,9 +38,7 @@ ROLES = {
 def patch_gates(monkeypatch):
     """Point the ``AuthService`` role lookups at a fixed set of grants."""
     def apply(roles: set, is_ta: bool, is_cc: bool):
-        # ``has_role`` is the one leaf every role predicate bottoms out in, so
-        # patching it (rather than each ``is_*``) keeps the real ``is_staff`` /
-        # ``is_proctor`` / ``is_stream_manager`` bodies under test.
+        # Patch has_role, the leaf every role predicate uses, so the real is_* bodies stay under test.
         async def has_role(_user, role, _event=None):
             return role in roles
 
@@ -74,8 +70,6 @@ async def test_every_capability_matches_the_service_gate(role, field, gate, stag
     patch_gates(roles, is_ta, is_cc)
 
     access = MatchBoardAccess.for_roles(**kwargs)
-    # ``run`` is the one capability resolved per row (a broadcast tech's reach
-    # depends on the match having a stage); every other field is page-level.
     board = access.can_run_row({'stage_id': stage_id}) if field == 'run' else getattr(access, field)
     service = await gate(
         SimpleNamespace(id=1), SimpleNamespace(id=1, tournament_id=100, stage_id=stage_id),
@@ -133,8 +127,6 @@ def test_capabilities_combine_rather_than_replace():
     assert not access.edit and not access.confirm
 
 
-# --- Per-row scope for mixed roles -----------------------------------------
-#
 # A Broadcast Tech who is also a tournament admin has an unscoped board, and a
 # tournament admin of one tournament who coordinates crew for another sees both
 # on theirs. One capability flag for the whole board offered edit, run and
@@ -154,10 +146,8 @@ def test_a_broadcast_tech_who_admins_one_tournament_is_scoped_per_row():
     )
     assert access.can_edit_row(_row(A)) and not access.can_edit_row(_row(B))
     assert access.can_confirm_row(_row(A)) and not access.can_confirm_row(_row(B))
-    # Runs their own tournament anywhere, and any match on a stage.
     assert access.can_run_row(_row(A)) and access.can_run_row(_row(B, stage_id=3))
     assert not access.can_run_row(_row(B))
-    # Stage assignment is the Broadcast Tech's everywhere.
     assert access.can_assign_stream_row(_row(B))
     assert access.run_js() == f'([{A}].includes(props.row.tournament_id) || !!props.row.stage_id)'
     assert access.confirm_js() == f'([{A}].includes(props.row.tournament_id))'

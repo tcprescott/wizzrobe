@@ -24,13 +24,10 @@ from models import Role, TenantMembership, User, UserRole, VolunteerShift
 from scripts.seed_support import ALL_FIXTURE_USERNAMES, fixture_discord_id
 from tests.conftest import DEFAULT_TEST_TENANT_ID, _scoped_models
 
-# Model name -> one-line reason a runtime-artifact model is excused from the
-# seed. Keep empty unless a model genuinely cannot be seeded.
+# Keep empty unless a model genuinely cannot be seeded.
 EXEMPT: dict[str, str] = {}
 
-# "Model.field" -> reason that field is excused from full enum coverage. An entry
-# here is a claim that seeding the missing values would be *wrong*, not merely
-# inconvenient — keep it that way.
+# An entry here claims seeding the missing values would be wrong, not merely inconvenient.
 ENUM_EXEMPT: dict[str, str] = {
     'DiscordRoleMapping.app_role': (
         'A community maps the roles its own guild happens to have, so a mapping '
@@ -53,8 +50,6 @@ ENUM_EXEMPT: dict[str, str] = {
     ),
 }
 
-#: Holds no per-tenant role by design, so it cannot be a single-capability
-#: holder: SUPER_ADMIN's UserRole row carries ``tenant=NULL``.
 _GLOBAL_ROLES = {Role.SUPER_ADMIN}
 
 

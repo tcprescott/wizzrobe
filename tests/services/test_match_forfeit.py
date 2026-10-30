@@ -62,7 +62,6 @@ class TestForfeitMatch:
         forfeited = [e for e in captured_events if e.event_type == EventType.MATCH_FORFEITED]
         assert forfeited and forfeited[0].payload['reason'] == 'no_show'
         assert forfeited[0].payload['forfeited_user_id'] == milo.user_id
-        # Only the forfeit DM goes out: no check-in, start, finish or confirm DMs.
         assert EventType.MATCH_SEATED not in [e.event_type for e in captured_events]
         assert stub_discord_queue
 

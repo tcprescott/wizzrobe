@@ -23,7 +23,6 @@ from models import (
 
 
 async def _tournament(name: str) -> Tournament:
-    # tenant is auto-stamped from the ambient scope by the test db fixture.
     return await Tournament.create(name=name)
 
 
@@ -51,7 +50,7 @@ async def test_bracket_entrant_reads_are_isolated(two_tenants):
         ea = await BracketEntrant.create(tournament=ta, display_name='Alice')
     with tenant_scope(b.id):
         tb = await _tournament('TB')
-        eb = await BracketEntrant.create(tournament=tb, display_name='Alice')  # same name, other tenant
+        eb = await BracketEntrant.create(tournament=tb, display_name='Alice')
 
     with tenant_scope(a.id):
         assert [x.id for x in await scoped(BracketEntrant.all())] == [ea.id]
@@ -154,7 +153,6 @@ async def test_linking_cannot_reach_across_tenants(two_tenants):
                 staff, foreign_match.id, local_match.id,
             )
 
-    # And the foreign matchup gained no game row.
     with tenant_scope(b.id):
         assert not await scoped(
             BracketMatchGame.filter(bracket_match_id=foreign_match.id)
@@ -223,8 +221,6 @@ async def test_batched_room_lookup_is_isolated(two_tenants):
     a, b = two_tenants
     repo = RacetimeRoomRepository()
 
-    # One bot, two tenants' rooms: RacetimeBot is platform-level (category is
-    # globally unique), which is exactly why the *room* read must be scoped.
     bot = await RacetimeBot.create(
         category='alttpr', client_id='c', client_secret='s', name='bot',
     )

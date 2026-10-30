@@ -104,8 +104,6 @@ async def _staff() -> User:
     return staff
 
 
-# ---- results ------------------------------------------------------------
-
 async def test_clean_result_records_itself(db, sent):
     _t, match, players, room = await _setup()
     await RaceRoomService().record_finish(room, [_done('u1', 3_600_000, 1), _done('u2', 3_700_000, 2)])
@@ -132,7 +130,6 @@ async def test_close_finish_is_held_and_staff_confirm_it(db, sent):
     assert held.players[0].finish_seconds == 3600
 
     mps = {mp.user_id: mp.id for mp in await MatchPlayers.filter(match_id=match.id)}
-    # Staff reviewed the footage: Bob actually won.
     placements = {mps[players[0].id]: (2, 3600), mps[players[1].id]: (1, 3600)}
     await RaceRoomService().confirm_held_result(staff, match.id, placements)
 
@@ -184,14 +181,11 @@ async def test_board_rows_show_the_hold_and_unlinked_players(db, sent):
     await MatchPlayers.create(match_id=upcoming.id, user_id=cleo.id)
     row = await MatchDisplayService().get_match_for_display(upcoming.id)
     assert row['racetime_unlinked'] == [cleo.preferred_name]
-    # The board loads players through a trimmed user prefetch; the bot fields must survive it.
     rows = await MatchDisplayService().get_matches_for_display(match_ids=[held_match.id, upcoming.id])
     by_id = {r['id']: r for r in rows}
     assert by_id[upcoming.id]['racetime_unlinked'] == [cleo.preferred_name]
     assert by_id[held_match.id]['racetime_held']['reason'] == 'close_finish'
 
-
-# ---- in the room ----------------------------------------------------------
 
 async def test_joining_invites_missing_players_and_greets_once(db, sent):
     _t, _match, _players, room = await _setup(users=(('alice', 'u1'), ('bob', 'u2'), ('cleo', None)))

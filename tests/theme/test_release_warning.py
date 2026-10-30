@@ -28,7 +28,6 @@ def test_speaks_a_few_hours_out():
 
 
 def test_the_window_is_at_least_a_day():
-    # A 60-minute reminder lead must not shrink the warning window to an hour.
     assert release_warning(_in(12), 60) is not None
 
 
@@ -41,8 +40,6 @@ def test_a_long_reminder_lead_widens_the_window():
 def test_an_already_started_shift_says_so():
     assert 'already started' in release_warning(_in(-1), 60)
 
-
-# --- which actions a shift row offers --------------------------------
 
 def _card(*, ends_in_hours: float, acknowledged: bool = False, checked_in: bool = False):
     now = datetime.now(timezone.utc)

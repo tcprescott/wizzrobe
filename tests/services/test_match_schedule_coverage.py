@@ -70,7 +70,6 @@ def _submission(provider_task_id: str, branch: str = 'stable'):
     )
 
 
-
 class TestTriforceTextAtRollTime:
     """An approved community text rides along on the match's ALTTPR roll."""
 
@@ -333,15 +332,9 @@ class TestGenerateSeed:
         assert "not found" in message
 
     async def test_keyed_randomizer_blocked_when_credential_missing(self, service, db):
-        # A keyed randomizer (dk64r) whose credential this community has not
-        # supplied surfaces as a clean error tuple naming the missing key. The
-        # real generator runs here (no AsyncMock) — the refusal comes from
-        # credential resolution inside it, not from a boundary pre-check.
         staff = await make_staff(discord_id=9100)
         t = await Tournament.create(name="T", seed_generator="dk64r")
         m = await Match.create(tournament=t)
-        # A player, because the roll is gated on having someone to DM the seed to
-        # and this test is about what happens once generation is actually reached.
         await MatchPlayers.create(match=m, user=await make_dm_user(4, name="alice"))
 
         ok, message, url = await service.generate_seed(m.id, staff)
@@ -351,9 +344,6 @@ class TestGenerateSeed:
         assert "DK64 Randomizer API key is not configured" in message
 
     async def test_keyed_randomizer_allowed_when_credential_configured(self, service, db):
-        # dk64r is a task-queue backend, so a successful roll *starts* one rather
-        # than returning a seed: no url yet, and a RUNNING ProviderTask holding
-        # the upstream handle the worker will poll.
         from models import ProviderTask, ProviderTaskStatus, RandomizerCredential
         await RandomizerCredential.create(randomizer="dk64r", key="api_key", value="k")
         staff = await make_staff(discord_id=9200)
@@ -452,7 +442,6 @@ class TestConfirmMatchChallongePush:
         stub.push_result_if_linked = AsyncMock(side_effect=RuntimeError("challonge down"))
         monkeypatch.setattr("application.services.challonge_service.ChallongeService", lambda: stub)
 
-        # Must not raise despite the push blowing up.
         await self._run_and_drain(service, m, staff, monkeypatch)
 
         stub.push_result_if_linked.assert_awaited_once()
@@ -567,7 +556,6 @@ class TestConfirmIsAdminOnly:
         await service.seat_match(m, proctor)
         await service.start_match(m, proctor)
         await service.finish_match(m, proctor)
-        # Recorded, so the refusal below is unambiguously about the role.
         await record_winner(await MatchPlayers.filter(match_id=m.id).first())
 
         with pytest.raises(PermissionError):
@@ -616,7 +604,6 @@ class TestSeedDmDispatch:
         service.seedgen_service.generate_seed_call = AsyncMock(
             return_value=_rolled("https://alttpr.com/h/xyz", {"mode": "open"})
         )
-        # First recipient succeeds, second fails (exercises the warning branch).
         service.discord_service.send_dm = AsyncMock(side_effect=[(True, "ok"), (False, "blocked"), (True, "ok")])
 
         captured = []
@@ -629,7 +616,6 @@ class TestSeedDmDispatch:
         # Discord off only drops the Discord copy, inside send_dm; devices still need the call.
         sent_ids = sorted(call.args[0] for call in service.discord_service.send_dm.call_args_list)
         assert sent_ids == [1, 2, 3]
-
 
 
 class TestSeedDmCard:
@@ -673,12 +659,10 @@ class TestSeedDmCard:
         assert embed.url is None
         assert f"```\n{permalink}\n```" in embed.description
         assert "**dev_tanjo3.1.10.7.3**" in embed.description
-        # The button lands on the match on the Player tab, where the seed has a copy button.
         from application.utils.app_links import player_match_url
 
         assert link.url.startswith("http")
         assert link.url.endswith(player_match_url(m.id))
-        # The plain text is the web-push body, which shows fences literally.
         assert f"\n\n{permalink}\n" in message
         assert "```" not in message
 

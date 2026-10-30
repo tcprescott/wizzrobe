@@ -116,7 +116,6 @@ class TestUpdateAsset:
         assert updated.description is None
         assert updated.private_notes is None
         assert updated.owner_user is None
-        # Clearing the owner falls back to the owning community's name.
         assert updated.owner_label('Acme Community') == 'Acme Community'
 
     async def test_update_writes_audit_log(self, db, service):
@@ -277,7 +276,6 @@ class TestReads:
         history = await service.loan_history(asset)
         assert len(history) == 2
         assert isinstance(history[0], EquipmentLoan)
-        # Newest (still-open) loan first; the older one is checked in.
         assert history[0].checked_in_at is None
         assert history[1].checked_in_at is not None
 

@@ -103,9 +103,6 @@ class TestTemplates:
         assert '!row._folded || row._group_start' in RUN_SHEET_FILTER
 
     def test_the_filter_value_is_a_truthy_string(self):
-        # QTable deep-watches ``filter`` and resets to page 1 on any change; an
-        # object arrives as a new reference on every table update, so page 2
-        # snapped back to page 1 whenever a row changed.
         from theme.tables.match_run_sheet import run_sheet_terms
         for text in (None, '', 'Bob'):
             assert isinstance(run_sheet_terms(text), str) and run_sheet_terms(text)

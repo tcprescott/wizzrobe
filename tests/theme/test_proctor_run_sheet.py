@@ -71,7 +71,6 @@ class TestNextStep:
     def test_the_step_follows_the_state(self):
         assert next_step(_row(1, 'Scheduled'))['event'] == 'seat'
         assert next_step(_row(1, 'Checked In'))['event'] == 'start'
-        # A head-to-head is won by a tap on a name; anything bigger finishes.
         assert next_step(_row(1, 'Started'))['event'] == 'winner'
         assert next_step(_row(1, 'Started', players=PLAYERS + PLAYERS[:1]))['event'] == 'finish'
         assert next_step(_row(1, 'Finished')) is None
@@ -148,7 +147,6 @@ class TestSlots:
 
     def test_the_admin_line_is_untouched(self):
         assert "_next" not in _body_slot(False) and "_seats" not in _body_slot(False)
-        # The admin header counts a group only once it's folded away.
         folded_count = '<template v-if="props.row._folded"> · {{ props.row._group_count }}</template>'
         assert "_group_count" not in _item_slot(False).replace(folded_count, '')
 

@@ -59,7 +59,6 @@ async def test_reconcile_stays_in_its_tenant(two_tenants):
         await VolunteerAssignment.create(shift=shift, user=vol)
         await TenantMembership.create(user=vol, tenant_id=a.id)
     with tenant_scope(b.id):
-        # B granted the same role from its own volunteer mapping, now gone.
         await UserRole.create(user=vol, role=Role.STREAM_MANAGER, source=RoleSource.VOLUNTEER)
 
     with tenant_scope(a.id):

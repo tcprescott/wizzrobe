@@ -25,8 +25,6 @@ async def _make_preset(name='Standard', randomizer='alttpr', settings=None, desc
     )
 
 
-# --- Reads ----------------------------------------------------------------
-
 class TestReads:
     async def test_list_presets_happy_path(self, db, app):
         _, raw = await _staff_token()
@@ -114,8 +112,6 @@ class TestReads:
             assert len(resp.json()) == 1
 
 
-# --- Writes ---------------------------------------------------------------
-
 class TestWrites:
     async def test_create_preset_success(self, db, app):
         _, raw = await _staff_token()
@@ -197,8 +193,6 @@ class TestWrites:
             resp = await c.post('/api/presets/import-builtins')
             assert resp.status_code == 403
 
-
-# --- Tenant isolation -----------------------------------------------------
 
 class TestTenantIsolation:
     @pytest.fixture

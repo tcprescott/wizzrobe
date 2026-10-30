@@ -64,12 +64,12 @@ def _assert_no_overlap(layout):
     "fmt,n",
     [
         (BracketFormat.SINGLE_ELIM, 4),
-        (BracketFormat.SINGLE_ELIM, 6),   # byes (non power of two)
+        (BracketFormat.SINGLE_ELIM, 6),
         (BracketFormat.SINGLE_ELIM, 8),
         (BracketFormat.SINGLE_ELIM, 16),
         (BracketFormat.DOUBLE_ELIM, 4),
         (BracketFormat.DOUBLE_ELIM, 8),
-        (BracketFormat.DOUBLE_ELIM, 5),   # byes + losers feed-ins
+        (BracketFormat.DOUBLE_ELIM, 5),
     ],
 )
 async def test_every_match_placed_without_overlap(fmt, n):
@@ -88,7 +88,6 @@ async def test_every_match_placed_without_overlap(fmt, n):
     _assert_no_overlap(winners)
     _assert_no_overlap(losers)
 
-    # Parents sit vertically between their in-section winner-feeders.
     for section, ms in ((winners, positive), (losers, negative)):
         section_ids = {m.id for m in ms}
         children = {}
@@ -105,13 +104,10 @@ async def test_every_match_placed_without_overlap(fmt, n):
 
 
 async def test_two_entrant_double_elim_finals_detected_and_named():
-    # Regression: a 2-entrant double elim has no losers bracket, so detect_finals'
-    # negative-feeder scan finds nothing and the loser_to fallback must kick in;
-    # the columns must read Winners Finals / Grand Finals / Grand Finals (Reset).
     service = BracketService()
     _, bracket = await _started(service, BracketFormat.DOUBLE_ELIM, 2)
     matches = await service.list_matches(bracket.id)
-    assert all(m.round > 0 for m in matches)  # no losers bracket
+    assert all(m.round > 0 for m in matches)
 
     grand_final, reset = detect_finals(matches)
     assert grand_final is not None

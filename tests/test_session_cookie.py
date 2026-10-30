@@ -2,8 +2,7 @@
 
 
 def test_session_lasts_90_days_and_is_secure_in_production(monkeypatch):
-    # frontend imports pages.auth, which builds a real Discord client at
-    # import time unless mock mode is on.
+    # Mock mode first: pages.auth builds a real Discord client at import time otherwise.
     monkeypatch.setenv('MOCK_DISCORD', 'true')
     import frontend
 

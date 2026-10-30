@@ -94,7 +94,6 @@ async def test_advance_booking_wave_fills_early_without_clashes(event):
     requests = []
     for group, tournament in ((players[:4], short), (players[4:8], short), (players[8:12], long)):
         requests += [(tournament, pair) for pair in _round_robin(group)]
-    # Players 0 and 8 are in two tournaments' groups, as at SGL.
     requests += [(long, pair) for pair in _round_robin([players[0], players[12], players[13], players[14]])]
     rng.shuffle(requests)
 
@@ -104,7 +103,6 @@ async def test_advance_booking_wave_fills_early_without_clashes(event):
     windows = await _windows()
     assert _clashes(windows) == 0
     assert _peak(windows) <= CAP
-    # Group play finishes on the first day instead of drifting to the last night.
     assert all(s.date() == DAYS[0] for s, _, _ in windows)
 
 

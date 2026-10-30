@@ -312,7 +312,7 @@ class TestDelivery:
 
         stored = await PersonalWebhook.get(id=webhook.id)
         assert stored.is_active is False and 'no longer exists' in stored.paused_reason
-        assert len(fake_http.sent) == 1  # a 404 isn't retried
+        assert len(fake_http.sent) == 1
 
     async def test_deliver_event_skips_when_feature_off(self, db, monkeypatch):
         alice = await _member(1, 'alice')
@@ -329,7 +329,7 @@ class TestDelivery:
         bob = await _member(2, 'bob')
         match = await _match(alice)
         await _hook(alice, [EventType.MATCH_STARTED])
-        await _hook(bob, [EventType.MATCH_STARTED])  # not in the match, only_mine on
+        await _hook(bob, [EventType.MATCH_STARTED])
         await _hook(alice, [EventType.MATCH_FINISHED])
         queued = []
         monkeypatch.setattr(pws.webhook_queue, 'enqueue', lambda coro: queued.append(coro.close()))
