@@ -14,7 +14,7 @@ used to be typed by hand into an admin thread after every event.
 | `Tournament.prize_bonus` | The leaderboard bonus, added to the pool before shares apply |
 | `Tournament.sglive_slug` / `prize_pool_synced_at` | The game's sglive.speedgaming.org slug (`wwr`) while the pool syncs from there, and when it last did |
 | `TournamentPayout` | One placement's share: `place`, exactly one of `percentage` or a fixed `amount`, optional `entrant` and `note` |
-| `User.matcherino_username` | Where the money is sent. Global, self-entered, **not** unique |
+| `User.matcherino_username` | Where the money is sent. Global, self-entered, **not** unique: under a unique constraint someone else's typo would lock the rightful owner out of their own handle. The numeric `matcherino_user_id` is unique because it is only written from evidence (an OAuth-verified id match or a desk-confirmed link) |
 
 Two properties of `TournamentPayout` carry most of the design:
 

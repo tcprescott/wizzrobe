@@ -120,7 +120,7 @@ One module per group under [`api/routers/`](../../api/routers/), named after the
 - `POST /web-push/rotate` — **unauthenticated**. Called by `static/sw.js` on `pushsubscriptionchange` to re-point a stored device row at the subscription its push service reissued. There is no session or token in that context; the request authenticates by carrying the retired subscription's `auth` secret, and a wrong secret returns the same `404` as an unknown endpoint. Detail: [features/web-push.md](../features/web-push.md#authenticating-a-rotation).
 
 ### Matches (`/api/matches`) · `matches.py`, `match_actions.py`
-- `GET /matches` — list with filters (`match_id`, `stage_id`, `tournament_id`, `start_date`, `end_date`, `limit`); only approved crew are exposed.
+- `GET /matches` — list with filters (`match_id`, `stage_id`, `tournament_id`, `start_date`, `end_date`, `limit`); only approved crew are exposed. The filter lives in the route handler (`api.get_matches`), not the response schema: Pydantic v2 serializes by attribute access and never calls a custom `from_orm`, so filtering there would silently do nothing.
 - `GET /matches/{id}` — single match. Alongside the lifecycle timestamps the response carries `needs_review`, the proctor's dispute flag. It is a bare flag: there is no note field, and confirming clears it.
 - `POST /matches` — create (Staff/TA). `POST /matches/request` — player-initiated request.
 - `PATCH /matches/{id}` · `DELETE /matches/{id}`.

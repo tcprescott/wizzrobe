@@ -101,7 +101,13 @@ DiscordService.send_dm  ──(mirror, never raises)──▶  WebPushService.mi
   helper prefers `window.pushManager` (declarative, no service worker) and
   falls back to the service-worker registration's `pushManager`. On iOS
   without home-screen install it reports `ios_needs_install`, which the UI
-  turns into instructions.
+  turns into instructions. Only the standalone Home Screen app may touch the
+  PushManager on iOS: a normal Safari or Chrome tab can still hand one back,
+  and subscribing through it takes the whole tab down with no JS error, so
+  nothing reaches Sentry.
+- **The service worker caches nothing.** `static/sw.js` has a pass-through
+  `fetch` handler only because Android/Chrome offer "Install app" solely when a
+  registered worker has one; with no cache there is no stale-asset class of bug.
 
 ### Authenticating a rotation
 

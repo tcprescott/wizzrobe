@@ -414,6 +414,32 @@ is no service-level `get_subscribers()` abstraction.
 `Match.is_stream_candidate` is toggled by admins in the match dialog; turning it on
 fans out to `streamed_and_candidates` subscribers with crew-signup buttons attached.
 
+## Discord Scheduled Events mirror
+
+`DiscordEventReconcilerService` mirrors opted-in tournaments' matches into the
+community's guild as Scheduled Events (method detail in
+[services.md](../reference/services.md#discord_event_reconciler_servicepy--discordeventreconcilerservice)).
+
+- **Window**: matches up to 14 days ahead, with a small grace on the lower bound
+  so a match that just started keeps its event until it finishes.
+- **Setup problems pause the pass**: a missing bot permission, or the bot not
+  being in the server, stops that community's pass (one warning, shown on the
+  settings page) instead of failing every event, since staff fix it in Discord.
+- **Out-of-band deletes heal**: an event deleted in Discord is re-created and its
+  link repointed rather than erroring forever.
+- **Shared guilds**: only rows the current community owns are ever cancelled, so a
+  sibling community's events in the same guild are never touched.
+
+## Message safety
+
+Display names render live inside bot-authored DMs and embeds, and any member can
+set their own name and then trigger a DM to staff (a crew signup). So
+`UserService` refuses a name containing a masked link, a bare URL, a `discord.gg`
+invite or a mention (including `@everyone`/`@here`) (`_NAME_MARKUP`); otherwise
+an attacker's link would arrive in a message from the bot. Free text such as a
+player comment is escaped instead (see
+[match-participation.md](match-participation.md#match-comments)).
+
 ## Log in from Discord
 
 Discord deliberately won't hand a website's sign-in to its mobile app (its iOS

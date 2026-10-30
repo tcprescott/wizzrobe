@@ -142,6 +142,12 @@ deliberately *not* gated: a signup made before the requirement changed has to
 stay removable. The same numbers drive the coverage reports
 ([admin-reports](admin-reports.md#what-covered-means)).
 
+**Signup closes once the match starts.** `signup_crew` refuses a match that has
+started or finished, in the service so the web UI, REST and the Discord button
+all honour it. A seated-but-not-started match stays open on purpose: that is
+when a stream discovers it still needs a commentator. Withdrawing stays open in
+every state.
+
 ## Acknowledgment
 
 Two flows, both confirming someone has seen and accepted a match.
