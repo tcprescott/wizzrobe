@@ -29,9 +29,6 @@ from models import (
 pytestmark = pytest.mark.usefixtures("db")
 
 
-# ---------------------------------------------------------------------------
-# fixtures / builders
-# ---------------------------------------------------------------------------
 async def _staff(discord_id: int = 1234, username: str = 'staff') -> User:
     user = await User.create(discord_id=discord_id, username=username)
     await UserRole.create(user=user, role=Role.STAFF)
@@ -59,7 +56,6 @@ async def _started_bracket(service, fmt, n, config=None):
     return actor, bracket
 
 
-# --- deterministic winner pickers: (match, seed_of) -> winner_entry_id -----
 def lower_seed_wins(match, seed_of):
     return (
         match.entry1_id
@@ -120,9 +116,6 @@ def _assert_permutation(ranks, n):
     assert sorted(ranks) == list(range(1, n + 1)), ranks
 
 
-# ---------------------------------------------------------------------------
-# single elimination
-# ---------------------------------------------------------------------------
 class TestSingleElim:
     @pytest.mark.parametrize('n', [2, 3, 4, 5, 8, 16])
     @pytest.mark.parametrize('picker', PICKERS)
@@ -137,7 +130,6 @@ class TestSingleElim:
         _assert_permutation(ranks, n)
         assert sum(1 for e in entries if e.final_rank == 1) == 1
 
-        # No OPEN/PENDING work is left behind.
         assert await service.get_open_matches(bracket.id) == []
 
     @pytest.mark.parametrize('n', [2, 3, 4, 5, 8, 16])
@@ -160,9 +152,6 @@ class TestSingleElim:
         assert champion.seed == 1
 
 
-# ---------------------------------------------------------------------------
-# double elimination
-# ---------------------------------------------------------------------------
 class TestDoubleElim:
     @pytest.mark.parametrize('n', [2, 4, 5, 8])
     @pytest.mark.parametrize('picker', PICKERS)
@@ -268,9 +257,6 @@ class TestDoubleElim:
         assert champion.id == gf.entry2_id
 
 
-# ---------------------------------------------------------------------------
-# round robin
-# ---------------------------------------------------------------------------
 class TestRoundRobin:
     @pytest.mark.parametrize('n', [4, 6])
     @pytest.mark.parametrize('group_count', [1, 2])
@@ -310,9 +296,6 @@ class TestRoundRobin:
         assert top.seed == 1
 
 
-# ---------------------------------------------------------------------------
-# swiss
-# ---------------------------------------------------------------------------
 class TestSwiss:
     @pytest.mark.parametrize('n', [4, 5, 8])
     @pytest.mark.parametrize('picker', PICKERS)
@@ -325,7 +308,6 @@ class TestSwiss:
         target = max(1, math.ceil(math.log2(n)))
         assert max(m.round for m in matches) == target
 
-        # No rematch across rounds.
         pairs = [
             frozenset({m.entry1_id, m.entry2_id})
             for m in matches
@@ -333,7 +315,6 @@ class TestSwiss:
         ]
         assert len(pairs) == len(set(pairs)), "a pairing repeated across rounds"
 
-        # Standings-based final_rank covering every entry, with a leader.
         entries = await service.list_entries(bracket.id)
         assert all(e.final_rank is not None for e in entries)
         assert min(e.final_rank for e in entries) == 1
@@ -381,9 +362,6 @@ class TestSwiss:
         assert all(e.final_rank is not None for e in entries)
 
 
-# ---------------------------------------------------------------------------
-# override_result
-# ---------------------------------------------------------------------------
 class TestOverride:
     async def _match_at(self, service, bracket_id, rnd, pos):
         matches = await service.list_matches(bracket_id)
@@ -405,7 +383,6 @@ class TestOverride:
         overridden = await service.override_result(actor, m1.id, other.id)
         assert overridden.winner_id == other.id
 
-        # The downstream final now carries the overridden winner in slot 1.
         final = await self._match_at(service, bracket.id, 2, 1)
         assert final.entry1_id == other.id
 
@@ -463,9 +440,6 @@ class TestOverride:
         assert entries[e1.id].final_rank == 2
 
 
-# ---------------------------------------------------------------------------
-# guards: state / winner validation
-# ---------------------------------------------------------------------------
 class TestReportGuards:
     async def test_rejects_non_open_match(self, service):
         actor, bracket = await _started_bracket(service, BracketFormat.SINGLE_ELIM, 4)
@@ -490,9 +464,6 @@ class TestReportGuards:
             await service.report_result(actor, m1.id, foreign.id)
 
 
-# ---------------------------------------------------------------------------
-# set scores + forfeit flag
-# ---------------------------------------------------------------------------
 class TestScoresAndForfeit:
     async def _open_match(self, service, bracket):
         return next(
@@ -581,9 +552,6 @@ class TestScoresAndForfeit:
         assert overridden.entry2_score == 2
 
 
-# ---------------------------------------------------------------------------
-# authorization + tenant scoping
-# ---------------------------------------------------------------------------
 class TestAuthAndTenant:
     async def test_non_staff_cannot_report(self, service):
         actor, bracket = await _started_bracket(service, BracketFormat.SINGLE_ELIM, 4)

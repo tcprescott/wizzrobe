@@ -62,8 +62,6 @@ async def _submitted_run(service, staff, player, *, waited: timedelta):
     return await AsyncQualifier.get(id=q.id), run
 
 
-# ------------------------------------------------------------------ the gates
-
 def test_a_fresh_queue_is_not_worth_interrupting_anyone_about():
     now = datetime.now(timezone.utc)
     assert rules.backlog_is_worth_reporting(now - timedelta(minutes=5), None, now) is False
@@ -91,8 +89,6 @@ def test_a_naive_timestamp_is_read_as_utc():
     naive_old = (now - rules.REVIEW_BACKLOG_AGE - timedelta(hours=1)).replace(tzinfo=None)
     assert rules.backlog_is_worth_reporting(naive_old, None, now) is True
 
-
-# ------------------------------------------------------------- the nudge itself
 
 async def test_a_backlog_dms_the_qualifiers_own_reviewers(db, captured_dms):
     service = AsyncQualifierService()

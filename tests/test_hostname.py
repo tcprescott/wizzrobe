@@ -39,7 +39,6 @@ def test_normalize_hostname_invalid(raw):
 def test_effective_host_uses_host_header_by_default(monkeypatch):
     monkeypatch.delenv('TRUST_FORWARDED_HOST', raising=False)
     headers = {'host': 'foo.gg', 'x-forwarded-host': 'evil.gg'}
-    # Forwarded header ignored when the flag is off.
     assert effective_request_host(headers) == 'foo.gg'
 
 

@@ -56,8 +56,6 @@ async def _approved(service, staff, player, q, pool, seconds: int):
     return await service.review_run(staff, run.id, approved=True)
 
 
-# ======================================================== F7 · the score band
-
 def test_score_band_mirrors_the_cap():
     """The fast side is already banded by the 105 cap, so the slow edge mirrors it."""
     assert score_band(None) is None
@@ -116,8 +114,6 @@ async def test_a_closed_qualifier_gives_the_exact_score(db):
     assert runs[0].score == approved.score
     assert runs[0].score_band is ScoreBand.NEAR
 
-
-# ============================================ F8 · what the surface withheld
 
 async def test_own_runs_carry_the_seed_that_was_played(db):
     """A runner disputing a verdict could not cite the seed they were given."""

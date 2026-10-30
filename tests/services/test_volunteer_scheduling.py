@@ -58,8 +58,6 @@ def _at(hour, day=4):
     return datetime(2026, 10, day, hour, 0, tzinfo=UTC)
 
 
-# --- generate_day_shifts --------------------------------------------------
-
 async def test_generate_day_shifts_counts_and_midnight(db):
     staff = await _staff()
     p1 = await VolunteerPosition.create(name='Check-in')
@@ -76,8 +74,6 @@ async def test_generate_day_shifts_counts_and_midnight(db):
         assert s.ends_at > s.starts_at
         assert (s.ends_at - s.starts_at) == timedelta(hours=4)
 
-
-# --- staggered generation -------------------------------------------------
 
 def test_validate_stagger_rules():
     from application.services.volunteer.volunteer_position_service import VolunteerPositionService
@@ -138,15 +134,12 @@ async def test_generate_day_shifts_mixes_staggered_and_fixed(db):
     )
     fixed_shifts = [s for s in shifts if s.position_id == fixed.id]
     tech_shifts = [s for s in shifts if s.position_id == tech.id]
-    # The plain position keeps its two discrete labelled blocks.
     assert len(fixed_shifts) == 2
     assert {s.label for s in fixed_shifts} == {'Shift 1', 'Shift 2'}
     # The staggered position rolls across 08:00–16:00: starts 08,10,12,14.
     assert len(tech_shifts) == 4
     assert all(s.label is None for s in tech_shifts)
 
-
-# --- assign ---------------------------------------------------------------
 
 async def test_assign_then_duplicate_and_overlap_rejected(db):
     staff = await _staff()
@@ -194,8 +187,6 @@ async def test_assign_unavailable_warns(db):
     assert any('unavailable' in w.lower() for w in warnings)
 
 
-# --- acknowledge ----------------------------------------------------------
-
 async def test_acknowledge_sets_timestamp_and_guards_owner(db):
     staff = await _staff()
     pos = await VolunteerPosition.create(name='Admin Desk')
@@ -211,8 +202,6 @@ async def test_acknowledge_sets_timestamp_and_guards_owner(db):
     with pytest.raises(ValueError, match='your own'):
         await svc.acknowledge(assignment.id, intruder)
 
-
-# --- drafts: hidden until published --------------------------------------
 
 async def test_draft_is_hidden_from_the_volunteers_own_list(db):
     await _staff()
@@ -306,8 +295,6 @@ async def test_assignments_for_user_prefetches_assigned_by(db):
     assert rows[0].assigned_by.id == staff.id
 
 
-# --- release --------------------------------------------------------------
-
 async def test_release_frees_the_slot(db):
     staff = await _staff()
     pos = await VolunteerPosition.create(name='Race Proctor')
@@ -349,8 +336,6 @@ async def test_shiftmates_are_only_loaded_when_asked_for(db):
         _ = plain[0].shift.assignments[0]
 
 
-# --- coverage -------------------------------------------------------------
-
 async def test_day_summary_counts_the_states(db):
     staff = await _staff()
     pos = await VolunteerPosition.create(name='Check-in')
@@ -387,8 +372,6 @@ async def test_coverage_reports_understaffing(db):
     assert rows[0]['filled'] == 1 and rows[0]['needed'] == 2
     assert rows[0]['understaffed'] is True
 
-
-# --- auto-schedule --------------------------------------------------------
 
 async def test_autoschedule_respects_qualification_and_availability(db):
     staff = await _staff()
@@ -517,8 +500,6 @@ async def test_draft_audit_records_the_policy(db):
     assert details['pool_size'] == 1
 
 
-# --- reminders ------------------------------------------------------------
-
 async def test_reminder_loop_fires_once(db, monkeypatch):
     from application.services.volunteer import volunteer_reminder
 
@@ -573,13 +554,10 @@ async def test_reminder_skips_far_future_shift(db, monkeypatch):
     assert assignment.reminder_sent_at is None
 
 
-# --- reminder pool / profile ---------------------------------------------
-
 async def test_assignable_pool_is_volunteer_or_staff_role_users(db):
     staff = await _staff()
     with_role = await _volunteer('withvolunteer')
     both = await _user('both', roles=[Role.VOLUNTEER, Role.STAFF])
-    # A role that is neither VOLUNTEER nor STAFF -> excluded.
     proctor = await _user('proctor', roles=[Role.PROCTOR])
     no_role = await _user('norole')
 

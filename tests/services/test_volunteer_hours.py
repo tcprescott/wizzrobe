@@ -34,11 +34,6 @@ def _dt(hour: int, day: int = 4, minute: int = 0) -> datetime:
     return datetime(2026, 10, day, hour, minute, tzinfo=UTC)
 
 
-# ---------------------------------------------------------------------------
-# merged_hours — the pure fold
-# ---------------------------------------------------------------------------
-
-
 class TestMergedHours:
     def test_empty(self):
         assert merged_hours([]) == 0.0
@@ -74,11 +69,6 @@ class TestMergedHours:
     def test_three_way_chain_merges_into_one_block(self):
         windows = [(_dt(8), _dt(12)), (_dt(11), _dt(15)), (_dt(14), _dt(18))]
         assert merged_hours(windows) == 10.0
-
-
-# ---------------------------------------------------------------------------
-# VolunteerHoursService — against a real tenant
-# ---------------------------------------------------------------------------
 
 
 @pytest.fixture
@@ -251,11 +241,6 @@ class TestFeatureGate:
         with tenant_scope(tenant.id):
             with pytest.raises(FeatureDisabledError):
                 await VolunteerHoursService().roster(actor=None)
-
-
-# ---------------------------------------------------------------------------
-# Tier configuration
-# ---------------------------------------------------------------------------
 
 
 class TestCompTiers:

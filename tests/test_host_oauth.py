@@ -28,8 +28,6 @@ def auth(monkeypatch):
     return importlib.import_module('pages.auth')
 
 
-# --- redirect_uri builder (Design A) ------------------------------------------
-
 def test_redirect_uri_https_for_real_domain(auth):
     tenant = SimpleNamespace(domain='foo.gg')
     assert auth._redirect_uri_for_tenant(tenant) == 'https://foo.gg/oauth/callback'
@@ -93,8 +91,6 @@ def test_both_legs_match_by_construction(auth):
     assert login_leg == callback_leg == 'https://foo.gg/oauth/callback'
 
 
-# --- Tenant.domain normalization contract -------------------------------------
-
 async def test_validate_domain_normalizes(db, monkeypatch):
     monkeypatch.setenv('PLATFORM_HOST', 'main.gg')
     from application.services.tenant_service import TenantService
@@ -117,8 +113,6 @@ async def test_validate_domain_rejects_malformed(db, monkeypatch):
     with pytest.raises(ValueError):
         await TenantService._validate_domain('has space.gg')
 
-
-# --- secondary-provider detour off a custom domain ----------------------------
 
 async def test_platform_link_redirect_in_host_mode(db, monkeypatch):
     monkeypatch.setenv('BASE_URL', 'https://main.gg')

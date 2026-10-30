@@ -48,7 +48,6 @@ class TestMatchOperationsCheckIn:
             seated_at=utc(2025, 10, 23, 16, 20),
             started_at=utc(2025, 10, 23, 16, 26),
         )
-        # Never checked in.
         unseated = await Match.create(tournament=t, scheduled_at=utc(2025, 10, 23, 17, 0))
         return t, stage, early, on_time, late, unseated
 

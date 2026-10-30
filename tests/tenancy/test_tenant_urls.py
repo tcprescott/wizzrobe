@@ -77,11 +77,9 @@ class TestSanitizeReturnPath:
         assert sanitize_return_path('/t/sgl', '/t/sgl/admin/reports?report=capacity') == '/t/sgl/admin/reports?report=capacity'
 
     def test_rejects_referrer_from_other_tenant(self):
-        # Stale referrer for a *different* community -> fall back to this home.
         assert sanitize_return_path('/t/sgl', '/t/other/admin') == '/t/sgl/'
 
     def test_rejects_referrer_that_is_a_prefix_lookalike(self):
-        # '/t/sglother' must not be treated as belonging to '/t/sgl'.
         assert sanitize_return_path('/t/sgl', '/t/sglother/admin') == '/t/sgl/'
 
     def test_rejects_auth_route_referrer(self):

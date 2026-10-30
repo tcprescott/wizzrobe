@@ -67,7 +67,6 @@ class TestRefreshLoop:
 
         async def fake_auth():
             calls['n'] += 1
-            # A refreshed token is good for another long while.
             transport._token_expires_at = time.monotonic() + 3600
 
         monkeypatch.setattr(transport, 'authenticate', fake_auth)

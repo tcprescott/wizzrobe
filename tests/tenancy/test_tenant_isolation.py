@@ -67,7 +67,7 @@ async def test_tournament_reads_are_isolated(tenants):
 
     with tenant_scope(a.id):
         assert [t.id for t in await TournamentRepository.get_all()] == [ta.id]
-        assert await TournamentRepository.get_by_id(tb.id) is None  # B's row invisible to A
+        assert await TournamentRepository.get_by_id(tb.id) is None
     with tenant_scope(b.id):
         assert [t.id for t in await TournamentRepository.get_all()] == [tb.id]
         assert await TournamentRepository.get_by_id(ta.id) is None
@@ -83,7 +83,7 @@ async def test_preset_reads_are_isolated(tenants):
     repo = PresetRepository()
     with tenant_scope(a.id):
         assert [p.id for p in await repo.list_all()] == [pa.id]
-        assert await repo.get_by_id(pb.id) is None  # B's preset invisible to A
+        assert await repo.get_by_id(pb.id) is None
         # Same (randomizer, name) exists in both tenants; the natural-key lookup
         # resolves only A's row.
         assert (await repo.get_by_natural_key('alttpr', 'Open')).id == pa.id
@@ -308,7 +308,6 @@ async def test_reschedule_request_does_not_leak(tenants):
         assert [r.id for r in await RescheduleRequestRepository.list_for_user(user)] == [ra.id]
         assert await RescheduleRequestRepository.pending_count() == 1
         assert await RescheduleRequestRepository.pending_match_ids() == [ma.id]
-        # The other tenant's match id must not resolve a count, even when named.
         assert await RescheduleRequestRepository.pending_by_match([ma.id, mb.id]) == {ma.id: 1}
         # get_by_id is the sharpest leak point: a forwarded request id.
         assert await RescheduleRequestRepository.get_by_id(rb.id) is None
@@ -329,7 +328,6 @@ async def test_challonge_connection_is_per_tenant(tenants):
         conn = await ChallongeRepository.get_connection()
         assert conn is not None and conn.access_token == 'tok-A'
     with tenant_scope(b.id):
-        # B has its own (absent) connection; A's must not be visible.
         assert await ChallongeRepository.get_connection() is None
         await ChallongeRepository.save_connection('tok-B', None, None, None, 'acct-b', None)
     with tenant_scope(a.id):

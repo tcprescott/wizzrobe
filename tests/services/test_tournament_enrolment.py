@@ -122,11 +122,6 @@ async def test_entrant_changes_are_audited_under_the_shared_action(
     assert removed['added_tournament_ids'] == []
 
 
-# ---------------------------------------------------------------------------
-# The match-create side effect reports itself
-# ---------------------------------------------------------------------------
-
-
 async def test_ensure_players_enrolled_reports_who_it_enrolled(staff, tournament, member, db):
     """The dialog can only say "Alice was enrolled" if the service tells it."""
     from application.services import MatchService
@@ -144,13 +139,6 @@ async def test_ensure_players_enrolled_reports_nothing_for_an_empty_roster(staff
 
     assert await MatchService().ensure_players_enrolled(tournament.id, [], staff) == []
 
-
-# --- The admin match dialog's Tournament options ---------------------------
-#
-# Two thirds of the unfiltered list could not be scheduled into, and the dialog
-# said so only after Create was pressed: an inactive tournament was offered on
-# equal footing with a live one, and six of ten options opened an empty player
-# menu with no message.
 
 async def test_an_inactive_tournament_is_not_offered(staff, tournament, db):
     await Tournament.create(name='Last Year', is_active=False)

@@ -37,11 +37,6 @@ async def _create_match(client, t, p1, p2, **overrides):
     return await client.post('/api/matches', json=payload)
 
 
-# ---------------------------------------------------------------------------
-# Health probe
-# ---------------------------------------------------------------------------
-
-
 class TestHealthProbe:
     async def test_health_ok(self, db, app):
         # Unauthenticated: the probe router carries no auth dependency.
@@ -65,11 +60,6 @@ class TestHealthProbe:
             assert resp.json()['detail'] == 'database unavailable'
 
 
-# ---------------------------------------------------------------------------
-# Audit detail decoding
-# ---------------------------------------------------------------------------
-
-
 class TestAuditDetailDecoding:
     async def test_decodes_null_bad_and_good_details(self, db, app):
         user, raw = await create_user_token(username='boss', roles=[Role.STAFF])
@@ -84,11 +74,6 @@ class TestAuditDetailDecoding:
             assert by_action['gap.none'] is None
             assert by_action['gap.badjson'] == 'not valid json{'
             assert by_action['gap.goodjson'] == {'x': 1}
-
-
-# ---------------------------------------------------------------------------
-# User writes: profile, admin fields, enrollments
-# ---------------------------------------------------------------------------
 
 
 class TestUserProfileWrites:
@@ -206,11 +191,6 @@ class TestUserRead:
             assert (await c.get('/api/users/999')).status_code == 404
 
 
-# ---------------------------------------------------------------------------
-# Stage detail
-# ---------------------------------------------------------------------------
-
-
 class TestStageDetail:
     async def test_get_stage_by_id(self, db, app):
         _, raw = await create_user_token(username='viewer')
@@ -226,14 +206,8 @@ class TestStageDetail:
             assert (await c.get('/api/stages/999')).status_code == 404
 
     async def test_stage_requires_auth(self, db, app):
-        # No bearer token -> the router-level require_api_actor rejects with 401.
         async with client_for(app) as c:
             assert (await c.get('/api/stages/1')).status_code == 401
-
-
-# ---------------------------------------------------------------------------
-# Tournament admin / crew-coordinator membership
-# ---------------------------------------------------------------------------
 
 
 class TestTournamentMembership:
@@ -294,11 +268,6 @@ class TestTournamentMembership:
                 f'/api/tournaments/{t.id}/crew-coordinators', json={'user_id': target.id}
             )
             assert resp.status_code == 403
-
-
-# ---------------------------------------------------------------------------
-# Match write actions
-# ---------------------------------------------------------------------------
 
 
 class TestMatchLifecycleNotFound:
@@ -381,7 +350,6 @@ class TestUpdateMatch:
     async def test_update_missing_match_is_404(self, db, app):
         _, raw = await create_user_token(username='boss', roles=[Role.STAFF])
         async with client_for(app, raw) as c:
-            # The service raises NotFoundError("Match ... not found") -> 404 (audit §2B.6).
             assert (await c.patch('/api/matches/999', json={'comment': 'x'})).status_code == 404
 
 

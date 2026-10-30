@@ -14,10 +14,6 @@ from models import (
 )
 from tests.api_helpers import client_for, create_user_token
 
-# ---------------------------------------------------------------------------
-# Tournaments / stages — any authenticated user
-# ---------------------------------------------------------------------------
-
 
 class TestTournamentsAndStages:
     async def test_list_and_get_tournament(self, db, app):
@@ -64,11 +60,6 @@ class TestTournamentsAndStages:
             assert resp.json()[0]['name'] == 'Stage 1'
 
 
-# ---------------------------------------------------------------------------
-# Users — staff gated, plus self access
-# ---------------------------------------------------------------------------
-
-
 class TestUsers:
     async def test_me_returns_self_with_roles(self, db, app):
         _, raw = await create_user_token(username='self', roles=[Role.STAFF])
@@ -112,11 +103,6 @@ class TestUsers:
             assert (await c.get(f'/api/users/{other.id}')).status_code == 403
 
 
-# ---------------------------------------------------------------------------
-# Audit — admin gated
-# ---------------------------------------------------------------------------
-
-
 class TestAudit:
     async def test_audit_requires_admin(self, db, app):
         _, raw = await create_user_token(username='plain')
@@ -142,11 +128,6 @@ class TestAudit:
             assert entry['details'] == {'match_id': 1}
 
 
-# ---------------------------------------------------------------------------
-# System config — staff gated
-# ---------------------------------------------------------------------------
-
-
 class TestConfig:
     async def test_config_requires_staff(self, db, app):
         _, raw = await create_user_token(username='plain')
@@ -160,11 +141,6 @@ class TestConfig:
             resp = await c.get('/api/config/event_start_date')
             assert resp.status_code == 200
             assert resp.json()['value'] == '2026-06-01'
-
-
-# ---------------------------------------------------------------------------
-# Triforce texts — own vs moderation
-# ---------------------------------------------------------------------------
 
 
 class TestTriforce:
@@ -183,11 +159,6 @@ class TestTriforce:
         async with client_for(app, raw) as c:
             resp = await c.get(f'/api/triforce-texts?tournament_id={t.id}')
             assert resp.status_code == 403
-
-
-# ---------------------------------------------------------------------------
-# Match detail
-# ---------------------------------------------------------------------------
 
 
 class TestMatchDetail:

@@ -28,11 +28,6 @@ TOKYO = 'Asia/Tokyo'
 DENVER = 'America/Denver'
 
 
-# ---------------------------------------------------------------------------
-# _clean — pure, and deliberately total
-# ---------------------------------------------------------------------------
-
-
 class TestClean:
     def test_none_returns_defaults(self):
         assert TimezoneService._clean(None) == {
@@ -63,11 +58,6 @@ class TestClean:
 
     def test_missing_name_falls_back(self):
         assert TimezoneService._clean({'mode': MODE_PINNED})['name'] == FALLBACK_TIMEZONE
-
-
-# ---------------------------------------------------------------------------
-# pick — pure resolution
-# ---------------------------------------------------------------------------
 
 
 class TestPick:
@@ -109,11 +99,6 @@ class TestPick:
         settings = {'mode': MODE_USER, 'name': BERLIN}
         viewer = SimpleNamespace(timezone=None)
         assert TimezoneService.pick(settings, viewer, 'Mars/Olympus_Mons') == BERLIN
-
-
-# ---------------------------------------------------------------------------
-# Persistence, gating, isolation — DB
-# ---------------------------------------------------------------------------
 
 
 @pytest.fixture

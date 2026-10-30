@@ -57,9 +57,6 @@ def privileged(monkeypatch):
     return set_to
 
 
-# ----------------------------------------------------------------------
-# Pure: keys, labels, windows
-# ----------------------------------------------------------------------
 class TestStageKeys:
     def test_single_elimination_counts_back_from_final(self):
         assert elimination_keys([1, 2, 3, 4], double=False) == {1: 'e3', 2: 'e2', 3: 'e1', 4: 'e0'}
@@ -140,9 +137,6 @@ class TestConfigValidation:
             validate_tournament_config({'round_schedule': {'e0': entry}})
 
 
-# ----------------------------------------------------------------------
-# Service: editor, lookups, enforcement
-# ----------------------------------------------------------------------
 async def _challonge_bracket(group: int = 2, rounds=(1, 2, 3)):
     t = await Tournament.create(name='T', challonge_tournament_id='T1', challonge_group_stage=bool(group))
     p1 = await ChallongeParticipant.create(tournament=t, challonge_participant_id='1', name='A')

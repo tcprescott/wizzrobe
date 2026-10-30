@@ -245,7 +245,6 @@ class TestTheGuardItself:
         client = connections.get("default")
         with count_queries():
             assert all(name in client.__dict__ for name in COUNTED_METHODS)
-        # Back to the class methods: no instance attribute is left shadowing them.
         assert not any(name in client.__dict__ for name in COUNTED_METHODS)
 
     async def test_an_unprefetched_relation_is_visibly_worse(self):

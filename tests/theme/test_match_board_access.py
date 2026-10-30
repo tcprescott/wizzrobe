@@ -133,8 +133,6 @@ def test_capabilities_combine_rather_than_replace():
     assert not access.edit and not access.confirm
 
 
-# --- Per-row scope for mixed roles -----------------------------------------
-#
 # A Broadcast Tech who is also a tournament admin has an unscoped board, and a
 # tournament admin of one tournament who coordinates crew for another sees both
 # on theirs. One capability flag for the whole board offered edit, run and

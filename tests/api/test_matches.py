@@ -65,22 +65,18 @@ async def _seed_basic_data() -> dict:
     stage1 = await Stage.create(name='Stage 1')
     stage2 = await Stage.create(name='Stage 2')
 
-    # m1: T1 / stage1, earliest
     m1 = await Match.create(
         tournament=t1, stage=stage1,
         scheduled_at=datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc),
     )
-    # m2: T1 / stage2
     m2 = await Match.create(
         tournament=t1, stage=stage2,
         scheduled_at=datetime(2025, 1, 2, 12, 0, tzinfo=timezone.utc),
     )
-    # m3: T2 / no stage
     m3 = await Match.create(
         tournament=t2,
         scheduled_at=datetime(2025, 1, 3, 12, 0, tzinfo=timezone.utc),
     )
-    # m4: T2 / stage1, latest
     m4 = await Match.create(
         tournament=t2, stage=stage1,
         scheduled_at=datetime(2025, 1, 4, 12, 0, tzinfo=timezone.utc),
@@ -91,11 +87,6 @@ async def _seed_basic_data() -> dict:
         'stage1': stage1, 'stage2': stage2,
         'm1': m1, 'm2': m2, 'm3': m3, 'm4': m4,
     }
-
-
-# ---------------------------------------------------------------------------
-# Empty / basic cases
-# ---------------------------------------------------------------------------
 
 
 class TestAuthRequired:
@@ -115,11 +106,6 @@ class TestGetMatchesEmpty:
         response = await client.get('/api/matches')
         assert response.status_code == 200
         assert response.json() == []
-
-
-# ---------------------------------------------------------------------------
-# Result ordering and shape
-# ---------------------------------------------------------------------------
 
 
 class TestResultShape:
@@ -142,15 +128,9 @@ class TestResultShape:
         data = await _seed_basic_data()
         response = await client.get('/api/matches')
         body = response.json()
-        # m1 has stage1, m3 has no stage.
         by_id = {m['id']: m for m in body}
         assert by_id[data['m1'].id]['stage']['name'] == 'Stage 1'
         assert by_id[data['m3'].id]['stage'] is None
-
-
-# ---------------------------------------------------------------------------
-# Filtering
-# ---------------------------------------------------------------------------
 
 
 class TestFilters:
@@ -172,7 +152,6 @@ class TestFilters:
         data = await _seed_basic_data()
         response = await client.get(f'/api/matches?stage_id={data["stage1"].id}')
         body = response.json()
-        # m1 and m4 are in stage1
         assert sorted(m['id'] for m in body) == sorted([data['m1'].id, data['m4'].id])
 
     async def test_filter_by_multiple_stages(self, client):
@@ -182,7 +161,6 @@ class TestFilters:
             f'&stage_id={data["stage2"].id}'
         )
         body = response.json()
-        # m1, m2, m4 — m3 has no stage
         assert sorted(m['id'] for m in body) == sorted(
             [data['m1'].id, data['m2'].id, data['m4'].id]
         )
@@ -195,7 +173,6 @@ class TestFilters:
 
     async def test_filter_by_start_date_inclusive(self, client):
         await _seed_basic_data()
-        # 2025-01-02 onward → excludes m1
         response = await client.get('/api/matches?start_date=2025-01-02T00:00:00')
         body = response.json()
         assert len(body) == 3
@@ -204,7 +181,6 @@ class TestFilters:
 
     async def test_filter_by_end_date_inclusive(self, client):
         await _seed_basic_data()
-        # Up to 2025-01-02 23:59 → m1 and m2 (both before this cutoff).
         # Using a clearly-after cutoff avoids timezone-aware vs naive
         # comparison ambiguity at the boundary.
         response = await client.get('/api/matches?end_date=2025-01-02T23:59:59')
@@ -221,18 +197,12 @@ class TestFilters:
 
     async def test_filters_combine_with_and(self, client):
         data = await _seed_basic_data()
-        # Tournament 2 AND stage 1 → only m4.
         response = await client.get(
             f'/api/matches?tournament_id={data["t2"].id}'
             f'&stage_id={data["stage1"].id}'
         )
         body = response.json()
         assert [m['id'] for m in body] == [data['m4'].id]
-
-
-# ---------------------------------------------------------------------------
-# Limit and the 500 cap
-# ---------------------------------------------------------------------------
 
 
 class TestLimit:
@@ -244,7 +214,7 @@ class TestLimit:
                 scheduled_at=datetime(2025, 1, 1, tzinfo=timezone.utc) + timedelta(minutes=i),
             )
         response = await client.get('/api/matches')
-        assert len(response.json()) == 100  # default limit
+        assert len(response.json()) == 100
 
     async def test_custom_limit_below_cap(self, client):
         t = await Tournament.create(name='Big')
@@ -257,7 +227,6 @@ class TestLimit:
         assert len(response.json()) == 5
 
     async def test_limit_above_500_is_rejected(self, client):
-        # FastAPI validates ``le=500`` and returns 422 for over-limit values.
         response = await client.get('/api/matches?limit=501')
         assert response.status_code == 422
 
@@ -266,13 +235,9 @@ class TestLimit:
         assert response.status_code == 422
 
 
-# ---------------------------------------------------------------------------
-# Approved-only filtering for commentators / trackers
-#
 # The /matches endpoint must expose only approved crew. Filtering happens in
 # the route handler (api.get_matches) because Pydantic v2 serializes the
 # response via attribute access and never invokes a custom from_orm.
-# ---------------------------------------------------------------------------
 
 
 class TestApprovedOnlyCrew:
@@ -327,11 +292,6 @@ class TestApprovedOnlyCrew:
         assert commentators[0]['user']['username'] == 'ok'
 
 
-# ---------------------------------------------------------------------------
-# Players and generated seed
-# ---------------------------------------------------------------------------
-
-
 class TestRelatedData:
     async def test_players_are_included(self, client):
         t = await Tournament.create(name='T')
@@ -370,11 +330,6 @@ class TestRelatedData:
         )
         response = await client.get('/api/matches')
         assert response.json()[0]['generated_seed'] is None
-
-
-# ---------------------------------------------------------------------------
-# The coordinator's crew view
-# ---------------------------------------------------------------------------
 
 
 class TestMatchCrewEndpoint:

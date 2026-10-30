@@ -22,11 +22,6 @@ async def _plain() -> User:
     return await User.create(discord_id=2, username='nobody')
 
 
-# ---------------------------------------------------------------------------
-# CRUD, authorization, validation
-# ---------------------------------------------------------------------------
-
-
 class TestWebhookCrud:
     async def test_create_generates_secret_and_audits(self, db):
         actor = await _staff()
@@ -35,7 +30,7 @@ class TestWebhookCrud:
             event_types=[EventType.MATCH_CREATED],
         )
         assert webhook.id is not None
-        assert webhook.secret  # generated
+        assert webhook.secret
         stored = await Webhook.get(id=webhook.id)
         assert stored.event_types == [EventType.MATCH_CREATED]
         assert await AuditLog.filter(action='webhook.created').count() == 1
@@ -101,11 +96,6 @@ class TestWebhookCrud:
         actor = await _staff()
         with pytest.raises(ValueError, match='not found'):
             await WebhookService().get_webhook(actor, 9999)
-
-
-# ---------------------------------------------------------------------------
-# Delivery: signing, logging, retries
-# ---------------------------------------------------------------------------
 
 
 class FakeResponse:
@@ -295,11 +285,6 @@ class TestEventFilter:
         assert edited.event_ids == [other]
 
 
-# ---------------------------------------------------------------------------
-# In-app format reference (drift guard against the delivery code)
-# ---------------------------------------------------------------------------
-
-
 class TestFormatReference:
     def test_event_list_matches_registry(self):
         ref = WebhookService.format_reference()
@@ -334,11 +319,6 @@ class TestFormatReference:
             assert header['name'] in sent
         assert sent['Content-Type'] == 'application/json'
         assert sent['User-Agent'] == 'wizzrobe-webhook'
-
-
-# ---------------------------------------------------------------------------
-# Delivery health on the list
-# ---------------------------------------------------------------------------
 
 
 class TestRecentHealth:

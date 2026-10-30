@@ -23,7 +23,6 @@ from tests.api_helpers import create_community_member
 from tests.mcp.conftest import call_tool, create_oauth_token, mcp_session
 
 TENANT = 'default'
-# What a plain member is offered to read: everything but staff.
 READS = READ_SCOPES - {ApiScope.STAFF_READ}
 
 # Every write tool with arguments that reach the gate rather than failing

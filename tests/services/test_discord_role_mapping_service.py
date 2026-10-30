@@ -48,7 +48,6 @@ def make_service():
     return svc
 
 
-#: The event per-event mappings and grants in this suite name.
 EVENT = 10
 
 
@@ -116,11 +115,6 @@ def patch_deps(monkeypatch, fake_events):
         return membership
 
     return _apply
-
-
-# ---------------------------------------------------------------------------
-# sync_user_roles
-# ---------------------------------------------------------------------------
 
 
 class TestSyncUserRoles:
@@ -228,11 +222,6 @@ class TestSyncUserRoles:
         }
 
 
-# ---------------------------------------------------------------------------
-# per-tournament grants (Tournament.admins / .crew_coordinators)
-# ---------------------------------------------------------------------------
-
-
 class TestSyncTournamentGrants:
     async def test_grants_mapped_tournament_admin(self, patch_deps):
         membership = patch_deps(member_result=(True, {222}))
@@ -332,11 +321,6 @@ class TestSyncTournamentGrants:
         svc.tournament_repository.set_tournament_grant.assert_not_awaited()
         assert summary['granted'] == ['proctor']
         assert summary['tournament_granted'] == []
-
-
-# ---------------------------------------------------------------------------
-# add_mapping / remove_mapping
-# ---------------------------------------------------------------------------
 
 
 @pytest.mark.usefixtures('fake_events')
@@ -557,11 +541,6 @@ class TestMappingCrud:
             )
 
 
-# ---------------------------------------------------------------------------
-# sync_all_users (bulk)
-# ---------------------------------------------------------------------------
-
-
 class TestSyncAllUsers:
     async def test_aggregates_names_and_audits(self, monkeypatch):
         svc = make_service()
@@ -621,11 +600,6 @@ class TestSyncAllUsers:
         svc._provision_current_guild_members.assert_not_awaited()
 
 
-# ---------------------------------------------------------------------------
-# provision_member (a mapped-role holder with no account)
-# ---------------------------------------------------------------------------
-
-
 def guild_member(member_id=900, role_ids=(111,)):
     return GuildMember(
         id=member_id, username='guildie', avatar='hash', role_ids=frozenset(role_ids),
@@ -680,11 +654,6 @@ class TestProvisionMember:
         provision.assert_awaited_once()
 
 
-# ---------------------------------------------------------------------------
-# Integration: real ORM (in-memory SQLite) exercising the migration columns
-# ---------------------------------------------------------------------------
-
-
 class TestSyncIntegration:
     async def test_full_sync_against_real_db(self, db, monkeypatch):
         from application.repositories.discord_role_mapping_repository import (
@@ -694,7 +663,6 @@ class TestSyncIntegration:
         from models import Tenant, User, UserRole
 
         guild_id = 42
-        # The routing key now lives on the tenant, not a global config row.
         default = await Tenant.get(id=1)
         default.discord_guild_id = guild_id
         await default.save()

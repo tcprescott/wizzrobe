@@ -47,8 +47,6 @@ from models import (
 pytestmark = pytest.mark.anyio
 
 
-# --------------------------------------------------------------------- helpers
-
 async def _staff(discord_id: int = 970001, name: str = 'auditstaff') -> User:
     u = await User.create(discord_id=discord_id, username=name)
     await UserRole.create(user=u, role=Role.STAFF, tenant_id=1)
@@ -89,8 +87,6 @@ async def _approved_run(service, staff, player, qualifier, pool, seconds):
     return await service.review_run(staff, run.id, approved=True)
 
 
-# ============================================================ F4a · live pools
-
 async def test_leaderboard_ignores_a_live_race_only_pool(db):
     """A pool a self-paced runner can never draw from must not contribute slots.
 
@@ -122,8 +118,6 @@ async def test_leaderboard_ignores_a_live_race_only_pool(db):
     )
 
 
-# ======================================================== F4b · spent slots
-
 async def test_a_forfeited_slot_counts_as_a_realised_zero(db):
     """Decided with the maintainer: a slot the player cannot refill counts as zero.
 
@@ -154,8 +148,6 @@ async def test_a_forfeited_slot_counts_as_a_realised_zero(db):
     )
 
 
-# ============================================================== F4c · tie ranks
-
 async def test_build_leaderboard_emits_competition_ranks(db):
     """Equal scores must share a rank, and the rank must come from one place.
 
@@ -175,8 +167,6 @@ async def test_build_leaderboard_emits_competition_ranks(db):
         f'a two-way tie on 100.0 should rank 1, 1, 3 — got {ranks}'
     )
 
-
-# ==================================================== F4d · zero-score entrants
 
 async def test_an_entrant_who_scored_nothing_is_ranked_last_not_omitted(db):
     """"I came last" and "I am not on the list" are different messages."""
@@ -200,8 +190,6 @@ async def test_an_entrant_who_scored_nothing_is_ranked_last_not_omitted(db):
     )
     assert names[-1] == 'runner_zeroed', 'and should rank last'
 
-
-# ======================================================== F4e · stale scores
 
 async def test_rejecting_a_run_clears_its_score(db):
     """The recompute only rescores the approved set, so a rejected run keeps its score.
@@ -244,8 +232,6 @@ async def test_a_reattempted_run_clears_its_score(db):
     assert run.reattempted is True
     assert run.score is None, f'a voided run must not carry a score, got {run.score}'
 
-
-# ============================================================ F5 · review locks
 
 async def test_review_run_refuses_a_run_claimed_by_another_reviewer(db):
     """The claim is documented as a lock; ``review_run`` never reads it."""
@@ -316,8 +302,6 @@ async def test_two_concurrent_verdicts_do_not_both_commit(db):
     )
 
 
-# ========================================================== F6 · feature gating
-
 async def test_get_leaderboard_refuses_when_the_feature_is_disabled(db):
     """The one public read in the subsystem without the guard its siblings carry.
 
@@ -338,8 +322,6 @@ async def test_get_leaderboard_refuses_when_the_feature_is_disabled(db):
         with pytest.raises(FeatureDisabledError):
             await service.get_leaderboard(None, 1)
 
-
-# ============================================================ F10a · live races
 
 async def test_a_live_race_run_over_the_pool_cap_is_recorded_as_voided(db):
     """Decided with the maintainer: record it voided rather than dropping it silently.
@@ -407,8 +389,6 @@ async def test_a_live_race_with_no_permalink_refuses_to_record(db):
     with pytest.raises(ValueError, match='permalink'):
         await live_service.record_finish(race, [entrant])
 
-
-# =========================================================== F12 · permalinks
 
 async def test_permalink_entry_refuses_a_value_that_is_not_an_http_url(db):
     """Because reveal equals start, a typo'd permalink costs a runner their slot."""

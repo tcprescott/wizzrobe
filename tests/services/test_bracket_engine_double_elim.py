@@ -28,7 +28,6 @@ def _pickers():
     for salt in (1, 7, 13, 29):
         def make(salt):
             def pick(a, b):
-                # Deterministic hash of the pair + salt selects a participant.
                 h = (a * 1103515245 + b * 12345 + salt * 2654435761) & 0xFFFFFFFF
                 h ^= h >> 16
                 return a if (h & 1) == 0 else b

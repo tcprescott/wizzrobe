@@ -276,11 +276,6 @@ class TestUpdateCrewApproval:
         service.audit_service.write_log.assert_awaited_once()
 
 
-# ---------------------------------------------------------------------------
-# signup_crew
-# ---------------------------------------------------------------------------
-
-
 class TestSignupCrew:
     async def test_raises_for_invalid_role(self, service):
         with pytest.raises(ValueError, match="Invalid role"):
@@ -479,11 +474,6 @@ class TestSignupNotifiesCrewOwners:
         service.commentator_repository.create.assert_awaited_once()
 
 
-# ---------------------------------------------------------------------------
-# undo_crew_signup
-# ---------------------------------------------------------------------------
-
-
 class TestUndoCrewSignup:
     async def test_raises_for_invalid_role(self, service):
         with pytest.raises(ValueError, match="Invalid role"):
@@ -606,13 +596,6 @@ class TestWithdrawalNotifiesCrewOwners:
         # Discord off only drops the Discord copy, inside send_dm; devices still need the call.
         service.discord_service.send_dm.assert_called_once()
 
-
-# --- Scheduling conflicts (crew F7) ----------------------------------------
-#
-# No conflict check existed anywhere in the crew path — the only overlap-aware
-# code in the codebase was player availability — so a coordinator staffing a
-# stream day approved N people from a dialog that told them nothing they needed
-# in order to decide.
 
 def _conflict_match(match_id, when, minutes=90, players=('Alice', 'Bob')):
     return SimpleNamespace(

@@ -28,22 +28,12 @@ def make_match(scheduled_hour=10, player_count=2, duration_min=90, tournament_du
     )
 
 
-# ---------------------------------------------------------------------------
-# Fixtures
-# ---------------------------------------------------------------------------
-
-
 @pytest.fixture
 def service():
     svc = object.__new__(MatchSuggestionService)
     svc.availability_repository = MagicMock()
     svc.bracket_repository = MagicMock()
     return svc
-
-
-# ---------------------------------------------------------------------------
-# _round_up_to_interval (static)
-# ---------------------------------------------------------------------------
 
 
 class TestRoundUpToInterval:
@@ -62,11 +52,6 @@ class TestRoundUpToInterval:
         result = MatchSuggestionService._round_up_to_interval(dt)
         assert result.hour == 11
         assert result.minute == 0
-
-
-# ---------------------------------------------------------------------------
-# _peak_load (static)
-# ---------------------------------------------------------------------------
 
 
 def _bookings(*matches, duration=timedelta(minutes=90)):
@@ -92,11 +77,6 @@ class TestPeakLoad:
         assert _bookings(match) == []
 
 
-# ---------------------------------------------------------------------------
-# _generate_candidates
-# ---------------------------------------------------------------------------
-
-
 class TestGenerateCandidates:
     def test_returns_candidates_within_event_window(self, service):
         from datetime import date
@@ -109,7 +89,6 @@ class TestGenerateCandidates:
             event_start, event_end, EASTERN_TZ,
         )
         # Without configured hours, every event day is open all day
-        # from 10:00 we should have many 30-min slots throughout the rest of the day
         assert len(candidates) > 0
 
     def test_slots_at_30min_intervals(self, service):
@@ -136,7 +115,6 @@ class TestGenerateCandidates:
             from_dt, None, {}, timedelta(hours=2),
             event_start, event_end, EASTERN_TZ,
         )
-        # All candidates should start on the event date
         for slot_start, _ in candidates:
             assert slot_start.date() == event_start
 
@@ -174,11 +152,6 @@ class TestGenerateCandidatesHardEnd:
 
     def test_none_leaves_search_unbounded(self, service):
         assert len(self._generate(service, None)) > len(self._generate(service, _local(14)))
-
-
-# ---------------------------------------------------------------------------
-# _round_window
-# ---------------------------------------------------------------------------
 
 
 class TestRoundWindow:
@@ -244,11 +217,6 @@ class TestRoundWindow:
     async def test_unparseable_stored_value_degrades_to_unbounded(self):
         svc = self._service_with({'rounds': {'2': {'scheduled_at': 'not-a-date'}}})
         assert await svc._round_window(7, EASTERN_TZ) == (None, None)
-
-
-# ---------------------------------------------------------------------------
-# _best_candidate
-# ---------------------------------------------------------------------------
 
 
 class TestBestCandidate:

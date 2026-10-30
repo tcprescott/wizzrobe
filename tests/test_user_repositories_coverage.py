@@ -16,10 +16,6 @@ from application.repositories.user_role_repository import UserRoleRepository
 from models import Role, RoleSource, User, UserRole
 from tests.factories import make_user
 
-# ---------------------------------------------------------------------------
-# UserRepository
-# ---------------------------------------------------------------------------
-
 
 class TestUserRepository:
     async def test_get_by_id_and_discord_id(self, db):
@@ -40,7 +36,6 @@ class TestUserRepository:
         u1 = await make_user(1, "alice")
         u2 = await make_user(2, "bob")
         await UserRole.create(user=u1, role=Role.STAFF)
-        # A user with the role twice-over (different roles) should not duplicate.
         await UserRole.create(user=u1, role=Role.PROCTOR)
         await UserRole.create(user=u2, role=Role.PROCTOR)
 
@@ -132,11 +127,6 @@ class TestUserRepository:
         assert (await User.get(id=u.id)).discord_avatar is None
 
 
-# ---------------------------------------------------------------------------
-# UserRoleRepository
-# ---------------------------------------------------------------------------
-
-
 class TestUserRoleRepository:
     async def test_add_creates_new_role(self, db):
         u = await make_user(1, "alice")
@@ -154,12 +144,10 @@ class TestUserRoleRepository:
     async def test_manual_grant_pins_a_discord_role(self, db):
         u = await make_user(1, "alice")
         granter = await make_user(2, "granter")
-        # Pre-existing Discord-sourced role.
         await UserRole.create(user=u, role=Role.STAFF, source=RoleSource.DISCORD)
         ur = await UserRoleRepository.add(u, Role.STAFF, granted_by=granter, source=RoleSource.MANUAL)
         assert ur.source == RoleSource.MANUAL
         assert (await ur.granted_by).id == granter.id
-        # Persisted, not just in-memory.
         refreshed = await UserRole.get(id=ur.id)
         assert refreshed.source == RoleSource.MANUAL
 

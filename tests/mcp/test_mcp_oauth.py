@@ -88,7 +88,6 @@ class TestDiscoveryMetadata:
             resp = await client.get('/.well-known/oauth-authorization-server')
         assert resp.status_code == 200
         body = resp.json()
-        # A client that cannot find these three cannot complete the flow.
         for key in ('issuer', 'authorization_endpoint', 'token_endpoint',
                     'registration_endpoint'):
             assert body.get(key), key
@@ -175,7 +174,6 @@ class TestFullFlow:
             assert second['access_token'] != first['access_token']
             assert second['refresh_token'] != first['refresh_token']
 
-            # The old refresh token is dead...
             replay = await client.post('/token', data={
                 'grant_type': 'refresh_token',
                 'client_id': client_id,
@@ -183,7 +181,7 @@ class TestFullFlow:
             })
             assert replay.status_code == 400
 
-            # ...and the old access token with it, since rotation re-keys the row.
+            # The old access token dies too, since rotation re-keys the row.
             stale = await rpc(client, first['access_token'], 'tools/list')
             assert stale.status_code == 401
             fresh = await rpc(client, second['access_token'], 'tools/list')

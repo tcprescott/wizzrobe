@@ -68,7 +68,6 @@ def test_client_stash_fallback_used_when_contextvar_none(monkeypatch):
     """With no contextvar set, resolution falls through to the client stash."""
     monkeypatch.setattr(tenant_context, '_client_stash_tenant_id', lambda: 99)
     assert get_current_tenant_id() == 99
-    # require() honours the fallback too.
     assert require_tenant_id() == 99
 
 
@@ -81,7 +80,7 @@ def test_contextvar_wins_over_client_stash(monkeypatch):
 def test_client_stash_helpers_are_safe_without_nicegui_context():
     # No active NiceGUI client here — both directions must no-op, not raise.
     assert tenant_context._client_stash_tenant_id() is None
-    tenant_context.stash_client_tenant_id(1)  # no-op, must not raise
+    tenant_context.stash_client_tenant_id(1)
 
 
 async def test_scope_propagates_across_await():

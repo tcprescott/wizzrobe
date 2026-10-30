@@ -27,11 +27,6 @@ def make_window(starts_hour, ends_hour, status=VolunteerAvailabilityStatus.AVAIL
     )
 
 
-# ---------------------------------------------------------------------------
-# Fixtures
-# ---------------------------------------------------------------------------
-
-
 @pytest.fixture
 def service():
     svc = object.__new__(PlayerAvailabilityService)
@@ -40,9 +35,7 @@ def service():
     return svc
 
 
-# ---------------------------------------------------------------------------
-# covers (static) — opt-out, unlike VolunteerAvailabilityService.covers
-# ---------------------------------------------------------------------------
+# covers is opt-out, unlike VolunteerAvailabilityService.covers.
 
 
 class TestCovers:
@@ -82,11 +75,6 @@ class TestCovers:
         windows = [make_window(4, 8, VolunteerAvailabilityStatus.UNAVAILABLE)]
         result = PlayerAvailabilityService.covers(windows, _dt(8), _dt(12))
         assert result == VolunteerAvailabilityStatus.AVAILABLE
-
-
-# ---------------------------------------------------------------------------
-# effective_segments (static)
-# ---------------------------------------------------------------------------
 
 
 class TestEffectiveSegments:
@@ -130,11 +118,6 @@ class TestEffectiveSegments:
         assert VolunteerAvailabilityStatus.UNAVAILABLE in statuses
 
 
-# ---------------------------------------------------------------------------
-# set_windows
-# ---------------------------------------------------------------------------
-
-
 class TestSetWindows:
     async def test_raises_when_window_ends_before_starts(self, service):
         user = SimpleNamespace(id=1)
@@ -149,11 +132,6 @@ class TestSetWindows:
             await service.set_windows(user, [bad])
 
 
-# ---------------------------------------------------------------------------
-# clear
-# ---------------------------------------------------------------------------
-
-
 class TestClear:
     async def test_deletes_and_audits(self, service):
         service.repository.delete_for_user = AsyncMock()
@@ -161,11 +139,6 @@ class TestClear:
         await service.clear(user)
         service.repository.delete_for_user.assert_awaited_once_with(user)
         service.audit_service.write_log.assert_awaited_once()
-
-
-# ---------------------------------------------------------------------------
-# availability_map
-# ---------------------------------------------------------------------------
 
 
 class TestAvailabilityMap:
@@ -182,11 +155,6 @@ class TestAvailabilityMap:
         service.repository.for_users_overlapping = AsyncMock(return_value=[])
         result = await service.availability_map([1], _dt(8), _dt(16))
         assert result == {}
-
-
-# ---------------------------------------------------------------------------
-# The one-time "When you can't play" card
-# ---------------------------------------------------------------------------
 
 
 class TestReminder:

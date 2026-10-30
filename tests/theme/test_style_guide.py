@@ -596,8 +596,6 @@ def test_side_menu_width():
     )
 
 
-# --- styles.css ---------------------------------------------------------------
-
 def _strip_comments(css: str) -> str:
     return re.sub(r'/\*.*?\*/', lambda m: '\n' * m.group(0).count('\n'), css, flags=re.S)
 

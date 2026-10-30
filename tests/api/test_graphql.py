@@ -40,11 +40,6 @@ async def _query(client, query: str, variables=None):
     return await client.post('/api/graphql', json={'query': query, 'variables': variables})
 
 
-# ---------------------------------------------------------------------------
-# The door
-# ---------------------------------------------------------------------------
-
-
 async def test_no_token_is_a_401(app, db):
     async with client_for(app) as client:
         resp = await _query(client, '{ viewer { isStaff } }')
@@ -120,11 +115,6 @@ async def test_graphiql_is_a_static_page(app, db):
     assert 'graphiql' in resp.text.lower()
 
 
-# ---------------------------------------------------------------------------
-# Events and the community wall
-# ---------------------------------------------------------------------------
-
-
 @pytest.fixture
 async def events(db):
     live = await Event.create(tenant_id=1, name='SGL 2027', slug='sgl27', status=EventStatus.LIVE, is_default=False)
@@ -180,11 +170,6 @@ async def test_a_token_sees_only_its_own_community(app, events):
     assert ours['errors'][0]['extensions']['code'] == 'NOT_FOUND'
 
 
-# ---------------------------------------------------------------------------
-# Limits and errors
-# ---------------------------------------------------------------------------
-
-
 async def test_unknown_fields_fail_validation_with_a_400(app, db):
     _, raw = await create_user_token()
     async with client_for(app, raw) as client:
@@ -227,11 +212,6 @@ def test_the_row_estimate_multiplies_page_sizes_down_a_path():
         assert str(MAX_ROWS) in errors[0].message
 
 
-# ---------------------------------------------------------------------------
-# Telemetry and the contract
-# ---------------------------------------------------------------------------
-
-
 async def test_each_operation_is_one_telemetry_row(app, db, monkeypatch):
     monkeypatch.setattr('application.services.telemetry_service.telemetry_enabled', lambda: True)
     user, raw = await create_user_token(username='counted')
@@ -250,10 +230,6 @@ def test_the_committed_schema_matches_the_code():
         'and check the diff: removing or renaming a field breaks clients, so deprecate instead.'
     )
 
-
-# ---------------------------------------------------------------------------
-# Tournaments, stages and matches
-# ---------------------------------------------------------------------------
 
 _ids = iter(range(10_000, 10**9))
 
@@ -424,11 +400,6 @@ async def test_a_deep_page_of_pages_is_refused_before_running(app, db):
     assert fine.status_code == 200
     assert refused.status_code == 400
     assert refused.json()['errors'][0]['extensions']['code'] == 'QUERY_TOO_COMPLEX'
-
-
-# ---------------------------------------------------------------------------
-# Brackets
-# ---------------------------------------------------------------------------
 
 
 BRACKET = '''

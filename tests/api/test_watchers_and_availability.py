@@ -12,10 +12,6 @@ from application.utils.timezone import now_local
 from models import Match, Role, SystemConfiguration, TenantMembership, Tournament, User
 from tests.api_helpers import client_for, create_community_member, create_user_token
 
-# ---------------------------------------------------------------------------
-# Match watchers
-# ---------------------------------------------------------------------------
-
 
 class TestMatchWatchers:
     async def test_watch_list_and_unwatch(self, db, app):
@@ -38,7 +34,6 @@ class TestMatchWatchers:
     async def test_watch_missing_match_is_404(self, db, app):
         _, raw = await create_user_token(username='fan')
         async with client_for(app, raw) as c:
-            # Missing match -> NotFoundError -> 404 (audit §2B.6).
             assert (await c.post('/api/matches/999/watch')).status_code == 404
 
     async def test_read_only_token_cannot_watch(self, db, app):
@@ -47,11 +42,6 @@ class TestMatchWatchers:
         match = await Match.create(tournament=t)
         async with client_for(app, raw) as c:
             assert (await c.post(f'/api/matches/{match.id}/watch')).status_code == 403
-
-
-# ---------------------------------------------------------------------------
-# Player availability
-# ---------------------------------------------------------------------------
 
 
 class TestPlayerAvailability:
@@ -197,11 +187,6 @@ class TestReadingAnotherPlayersAvailability:
             assert (await c.get('/api/users/me/availability')).status_code == 200
 
 
-# ---------------------------------------------------------------------------
-# Match-time suggestion
-# ---------------------------------------------------------------------------
-
-
 class TestMatchSuggestion:
     async def test_suggests_a_time(self, db, app):
         _, raw = await create_user_token(username='ta', roles=[Role.STAFF])
@@ -240,11 +225,6 @@ class TestMatchSuggestion:
                 params=[('player_ids', me.id), ('player_ids', outsider.id)],
             )
             assert resp.status_code == 404
-
-
-# ---------------------------------------------------------------------------
-# Discord role mappings
-# ---------------------------------------------------------------------------
 
 
 class TestDiscordRoleMappings:

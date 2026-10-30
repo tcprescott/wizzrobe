@@ -54,11 +54,6 @@ DAY_START = to_display(2025, 10, 23, 0, 0)
 DAY_END = to_display(2025, 10, 24, 0, 0)
 
 
-# ---------------------------------------------------------------------------
-# generate_capacity_forecast
-# ---------------------------------------------------------------------------
-
-
 class TestGenerateCapacityForecast:
     async def test_concurrent_counts_and_shape(self, db):
         """Two overlapping matches: one placed on stream with explicit players,
@@ -181,11 +176,6 @@ class TestGenerateCapacityForecast:
         assert peaks[0][1] == max(out['player_counts']) == 2
 
 
-# ---------------------------------------------------------------------------
-# matches_active_at
-# ---------------------------------------------------------------------------
-
-
 class TestMatchesActiveAt:
     async def test_returns_only_matches_live_at_instant(self, db):
         t = await Tournament.create(name='Cup', average_match_duration=90)
@@ -214,11 +204,6 @@ class TestMatchesActiveAt:
         # 20:00 ET is after A's window end (15:30) but still inside the prefetch band.
         active = await ReportsService().matches_active_at(to_display(2025, 10, 23, 20, 0), actor=(await _actor()))
         assert active == []
-
-
-# ---------------------------------------------------------------------------
-# match_operations
-# ---------------------------------------------------------------------------
 
 
 class TestMatchOperations:
@@ -308,12 +293,6 @@ class TestMatchOperations:
         out = await ReportsService().match_operations(DAY_START, DAY_END, tournament_id=t.id, actor=(await _actor()))
         assert {r['tournament_id'] for r in out['rows']} == {t.id}
         assert [a['tournament_id'] for a in out['aggregates']] == [t.id]
-
-
-# ---------------------------------------------------------------------------
-# crew_coverage
-# ---------------------------------------------------------------------------
-
 
     async def test_counts_a_timestamp_without_its_pair(self, db):
         # Insights counts started/finished on the timestamp alone; Reports agrees,
@@ -406,7 +385,6 @@ class TestCrewCoverage:
         out = await ReportsService().crew_coverage(DAY_START, DAY_END, user_id=alice.id, actor=(await _actor()))
         # coverage_rows only include matches Alice touched (M1, M2 -- not M3).
         assert {r['match_id'] for r in out['coverage_rows']} == {m1.id, m2.id}
-        # contribution_rows are limited to Alice.
         assert [c['user_id'] for c in out['contribution_rows']] == [alice.id]
 
     async def test_tournament_rows_count_only_finished_staged_approved_crew(self, db):
@@ -538,11 +516,6 @@ def contrib_hours(out, user_id):
         if c['user_id'] == user_id:
             return c['hours_covered']
     return None
-
-
-# ---------------------------------------------------------------------------
-# stage_utilization
-# ---------------------------------------------------------------------------
 
 
 class TestStageUtilization:

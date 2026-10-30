@@ -61,7 +61,6 @@ class TestElimination:
         assert layout.placements[1].slot == 0.0
         assert layout.placements[2].slot == 1.0
         assert layout.placements[3].slot == 0.5
-        # Final's center is exactly the mean of its feeders' centers.
         mean_y = (layout.placements[1].center_y + layout.placements[2].center_y) / 2
         assert layout.placements[3].center_y == mean_y
 
@@ -79,7 +78,6 @@ class TestElimination:
         by_col = {}
         for p in layout.placements.values():
             by_col.setdefault(p.col, []).append(p)
-        # Adjacent cards in a column never overlap vertically.
         for col_placements in by_col.values():
             ordered = sorted(col_placements, key=lambda p: p.top)
             for a, b in itertools.pairwise(ordered):
@@ -110,7 +108,6 @@ class TestLosersBracket:
         ]
         layout = layout_section(nodes)
         assert layout.columns == [-1, -2, -3]
-        # Major round centered between its two feeders.
         assert layout.placements[12].slot == 0.5
         # Minor round (single feeder) sits at that feeder's height.
         assert layout.placements[13].slot == layout.placements[12].slot

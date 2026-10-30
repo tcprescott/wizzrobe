@@ -52,8 +52,6 @@ async def _qualifier(service, staff, *, opens_in=None, closes_in=None, name='Eve
     )
 
 
-# ================================================================ the window
-
 async def test_a_qualifier_created_inside_its_window_announces_itself(db):
     service = AsyncQualifierService()
     staff = await _staff()
@@ -144,8 +142,6 @@ async def test_reopening_announces_again(db):
 
     assert [t for t, _ in seen] == [EventType.ASYNC_QUALIFIER_OPENED]
 
-
-# ========================================================= the run outcomes
 
 async def test_a_forfeit_and_a_reattempt_both_reach_subscribers(db):
     service = AsyncQualifierService()

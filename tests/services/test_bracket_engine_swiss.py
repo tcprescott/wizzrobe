@@ -86,7 +86,6 @@ def test_swiss_invariants(n):
         byes = [a for a, b in pairings if b is None]
         non_bye_refs = []
 
-        # At most one bye, and only when the active count is odd.
         assert len(byes) <= 1
         if len(active) % 2 == 0:
             assert byes == []
@@ -94,19 +93,16 @@ def test_swiss_invariants(n):
             assert len(byes) == 1
 
         for a, b in pairings:
-            # No dropped player is ever paired.
             assert a not in dropped
             if b is None:
                 continue
             assert b not in dropped
             non_bye_refs.extend((a, b))
 
-            # No rematch across the whole run.
             key = frozenset((a, b))
             assert key not in seen_pairs, f"rematch {a}-{b}"
             seen_pairs.add(key)
 
-        # Everyone active is placed exactly once (paired or bye).
         placed = non_bye_refs + byes
         assert sorted(placed) == sorted(active)
         assert len(placed) == len(set(placed))
@@ -188,15 +184,11 @@ def test_none_config_treated_as_empty():
 
 def test_fewer_than_two_active():
     engine = _engine()
-    # Zero active players.
     assert engine.pair_round([], {}) == []
-    # One active, bye-eligible -> single bye.
     one = [PairingPlayer(ref=7, points=0.0, can_bye=True, received_bye=False)]
     assert engine.pair_round(one, {}) == [(7, None)]
-    # One active, not bye-eligible -> nothing.
     ineligible = [PairingPlayer(ref=7, can_bye=False)]
     assert engine.pair_round(ineligible, {}) == []
     already = [PairingPlayer(ref=7, received_bye=True)]
     assert engine.pair_round(already, {}) == []
-    # All dropped -> nothing.
     assert engine.pair_round([PairingPlayer(ref=1, dropped=True)], {}) == []

@@ -23,7 +23,6 @@ async def test_sent_messages_do_not_leak_across_tenants(two_tenants):
         assert await SentMessageRepository.count(None, None, search='secret') == 0
         assert await SentMessageRepository.get(mine.id) is None
         assert sum((await SentMessageRepository.totals(None, None)).values()) == 1
-        # An update addressed with the wrong community touches nothing.
         assert await SentMessageRepository.update(mine.id, b.id, status=SentMessageStatus.FAILED) == 0
 
     assert (await SentMessage.get(id=mine.id)).status == SentMessageStatus.PENDING

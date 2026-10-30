@@ -132,8 +132,6 @@ def test_drain_survives_having_no_user_storage(monkeypatch, notified):
     assert notified == []
 
 
-# --- the shape guard ----------------------------------------------------------
-
 _SCANNED = ('pages/_oauth_link.py', 'pages/challonge_oauth.py', 'pages/auth.py')
 _LEAVES = re.compile(r'^\s*(ui\.navigate\.to\(|return\s+RedirectResponse\(|RedirectResponse\()')
 

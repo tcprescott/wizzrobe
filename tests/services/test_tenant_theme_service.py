@@ -18,10 +18,6 @@ from application.tenant_context import tenant_scope
 from application.utils.color_contrast import contrast_ratio
 from models import Role, User, UserRole
 
-# ---------------------------------------------------------------------------
-# _merge / is_customized — pure
-# ---------------------------------------------------------------------------
-
 
 class TestMerge:
     def test_none_returns_defaults(self):
@@ -112,11 +108,6 @@ class TestContrast:
         # Returned dicts are copies — mutating one must not corrupt the registry.
         presets['Phoenix (default)']['primary'] = '#000000'
         assert TenantThemeService.list_presets()['Phoenix (default)'] == DEFAULT_THEME
-
-
-# ---------------------------------------------------------------------------
-# get_theme / set_theme — persistence, reset, gate, isolation
-# ---------------------------------------------------------------------------
 
 
 @pytest.fixture

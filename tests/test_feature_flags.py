@@ -42,8 +42,6 @@ async def _flag(tenant_id: int, flag: FeatureFlag, *, available: bool, enabled: 
     )
 
 
-# --- registry ---------------------------------------------------------------
-
 def test_registry_covers_every_flag():
     assert len(FEATURE_FLAG_REGISTRY) == 23
     assert set(FEATURE_FLAG_REGISTRY) == set(FeatureFlag)
@@ -57,19 +55,14 @@ def test_established_flags_are_the_in_use_features():
         # disappearing for communities already collecting feedback.
         FeatureFlag.FEEDBACK,
     }
-    # New/unreleased features ship dark (not established).
     assert FeatureFlag.ASYNC_QUALIFIERS not in established_flags()
     assert FeatureFlag.RACETIME_ROOMS not in established_flags()
-    # Native brackets ship dark — a brand-new, unreleased subsystem.
     assert FeatureFlag.BRACKETS not in established_flags()
     # Event Information ships dark too: no community had one before the flag
     # existed, so there is nothing to backfill and nothing to preserve.
     assert FeatureFlag.EVENT_INFO not in established_flags()
-    # Event check-in is new, so it ships dark as well.
     assert FeatureFlag.EVENT_CHECK_IN not in established_flags()
 
-
-# --- effective state: available AND enabled ---------------------------------
 
 async def test_missing_row_is_off(tenants):
     a, b = tenants
@@ -113,8 +106,6 @@ async def test_off_tenant_reads_disabled(db):
         reset_tenant_id(token)
 
 
-# --- ensure_enabled (service guard) -----------------------------------------
-
 async def test_ensure_enabled_raises_when_off(tenants):
     a, b = tenants
     with tenant_scope(b.id):
@@ -128,8 +119,6 @@ async def test_ensure_enabled_passes_when_on(tenants):
         await _flag(b.id, FeatureFlag.EQUIPMENT, available=True, enabled=True)
         await FeatureFlagService().ensure_enabled(FeatureFlag.EQUIPMENT)  # no raise
 
-
-# --- tenant tier: STAFF toggles enabled within availability -----------------
 
 async def test_set_tenant_enabled_requires_availability(tenants):
     a, b = tenants
@@ -170,8 +159,6 @@ async def test_set_tenant_enabled_writes_audit(tenants):
         assert len(rows) == 1
 
 
-# --- platform tier: super-admin grants availability -------------------------
-
 async def test_set_availability_requires_super_admin(tenants):
     a, b = tenants
     staff = await _staff(5004, b.id)  # tenant staff is NOT a super-admin
@@ -180,7 +167,7 @@ async def test_set_availability_requires_super_admin(tenants):
 
 
 async def test_forcing_availability_makes_feature_live_by_default(tenants):
-    # New semantics: availability ⇒ enabled ON by default (community may opt out).
+    # Availability ⇒ enabled ON by default (community may opt out).
     a, b = tenants
     sa = await _super_admin(5005)
     await FeatureFlagService().set_availability(sa, b.id, FeatureFlag.ASYNC_QUALIFIERS, True)
@@ -213,8 +200,6 @@ async def test_revoking_availability_preserves_enabled_choice(tenants):
         assert await FeatureFlagService().is_enabled(FeatureFlag.EQUIPMENT) is False
 
 
-# --- isolation --------------------------------------------------------------
-
 async def test_flags_do_not_leak_across_tenants(db):
     b = await Tenant.create(name='B', slug='tb')
     c = await Tenant.create(name='C', slug='tc')
@@ -224,12 +209,9 @@ async def test_flags_do_not_leak_across_tenants(db):
     with tenant_scope(b.id):
         assert await svc.is_enabled(FeatureFlag.EQUIPMENT) is True
     with tenant_scope(c.id):
-        # C never had a row — B's flag must not bleed across.
         assert await svc.is_enabled(FeatureFlag.EQUIPMENT) is False
         assert await svc.enabled_flags() == set()
 
-
-# --- groups (live tiers) ----------------------------------------------------
 
 async def test_group_grants_availability_and_enables_by_default(tenants):
     a, b = tenants

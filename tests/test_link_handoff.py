@@ -25,8 +25,6 @@ def _secret_and_reset(monkeypatch):
     h.reset()
 
 
-# --- generic payload token (mint_data) ----------------------------------------
-
 def test_mint_data_roundtrips_arbitrary_payload():
     token = h.mint_data(
         data={'key': 'racetime', 'user_id': 'rt-1', 'name': 'Speedy'},
@@ -66,8 +64,6 @@ def test_login_mint_keeps_flat_identity_shape():
     assert 'data' not in payload
 
 
-# --- auth-layer helpers -------------------------------------------------------
-
 @pytest.fixture
 def link(monkeypatch):
     monkeypatch.setenv('STORAGE_SECRET', 'x' * 40)
@@ -94,8 +90,6 @@ def test_bind_commit_is_deterministic_sha256(link):
     assert link._bind_commit('secret') == hashlib.sha256(b'secret').hexdigest()
     assert link._bind_commit('other') != link._bind_commit('secret')
 
-
-# --- provider registry --------------------------------------------------------
 
 def test_identity_flows_carry_provider_key():
     import pages.racetime_oauth as rt
@@ -127,8 +121,6 @@ def test_link_handoff_provider_requires_its_mock_exit(link):
     }
     assert {'is_mock', 'callback_route'} <= required
 
-
-# --- the mock exit on the start leg (dev-drivable handoff) --------------------
 
 def test_mock_callback_url_targets_the_providers_own_callback(link, monkeypatch):
     monkeypatch.setenv('PLATFORM_HOST', 'main.gg')
@@ -187,16 +179,12 @@ def test_link_page_prefers_handoff_over_mock(link):
         assert src.rindex(mock_call) > handoff, module.__name__
 
 
-# --- browser-binding guard (link-CSRF / forced-link) --------------------------
-
 def test_bind_matches_accepts_the_committing_browser(link):
     secret = 'a-browser-secret'
     assert link._bind_matches(link._bind_commit(secret), secret) is True
 
 
 def test_bind_matches_rejects_a_different_browser(link):
-    # A token minted for one browser (committed to secret A) claimed by another
-    # browser (holding secret B) is rejected.
     assert link._bind_matches(link._bind_commit('secret-A'), 'secret-B') is False
 
 
@@ -209,8 +197,6 @@ def test_bind_matches_rejects_a_different_browser(link):
 def test_bind_matches_fails_closed(link, expected_commit, browser_secret):
     assert link._bind_matches(expected_commit, browser_secret) is False
 
-
-# --- the cross-host hand-back (T2.4) ------------------------------------------
 
 def test_handoff_failure_hands_back_through_the_claim_route(link):
     # The platform host cannot stash a notice in the target domain's session, so
@@ -294,8 +280,6 @@ def test_claim_failure_paths_are_all_safe_next_guarded(link):
     assert "next_path = safe_next(" in claim
 
 
-# --- shared open-redirect guard -----------------------------------------------
-
 @pytest.mark.parametrize('raw,expected', [
     ('/home/profile', '/home/profile'),
     ('/home/profile?tab=1', '/home/profile?tab=1'),
@@ -311,8 +295,6 @@ def test_claim_failure_paths_are_all_safe_next_guarded(link):
 def test_safe_next_guards_cross_host_return(raw, expected):
     assert safe_next(raw) == expected
 
-
-# --- the platform-host exchange runs inside the target community -------------
 
 async def test_handoff_exchange_runs_in_the_target_tenant(link, monkeypatch):
     # The platform host resolves no tenant, and Challonge's exchange_player_code

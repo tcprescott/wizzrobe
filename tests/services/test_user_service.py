@@ -58,11 +58,6 @@ def make_user(user_id=1, **overrides):
     return SimpleNamespace(**defaults)
 
 
-# ---------------------------------------------------------------------------
-# get_current_user_from_storage
-# ---------------------------------------------------------------------------
-
-
 class TestGetCurrentUserFromStorage:
     async def test_returns_none_for_empty_discord_id(self, service):
         assert await service.get_current_user_from_storage(None) is None
@@ -75,11 +70,6 @@ class TestGetCurrentUserFromStorage:
         result = await service.get_current_user_from_storage('123')
         assert result is u
         service.repository.get_by_discord_id.assert_awaited_once_with('123')
-
-
-# ---------------------------------------------------------------------------
-# update_user_personal_info — self-edit field-change tracking
-# ---------------------------------------------------------------------------
 
 
 class TestUpdateUserPersonalInfo:
@@ -125,11 +115,6 @@ class TestUpdateUserPersonalInfo:
         assert changed['dm_notifications'] is True
 
 
-# ---------------------------------------------------------------------------
-# update_user_profile — permission & concurrency detection
-# ---------------------------------------------------------------------------
-
-
 class TestUpdateUserProfile:
     async def test_self_edit_allowed(self, service):
         user = make_user(user_id=10)
@@ -162,7 +147,6 @@ class TestUpdateUserProfile:
     async def test_concurrency_check_raises_when_user_modified(self, service):
         user = make_user(user_id=1)
         original_ts = datetime(2025, 1, 15, 12, 0, tzinfo=timezone.utc)
-        # Repository returns a user with a different updated_at.
         latest = make_user(user_id=1, updated_at=original_ts + timedelta(minutes=5))
         service.repository.get_by_id = AsyncMock(return_value=latest)
         with pytest.raises(ValueError, match='Someone else on staff changed'):
@@ -196,7 +180,6 @@ class TestUpdateUserProfile:
     async def test_no_update_when_no_fields_change(self, service):
         user = make_user(user_id=1)
         await service.update_user_profile(user, actor=user)
-        # No fields provided -> no repository call, no audit.
         service.repository.update.assert_not_called()
         service.audit_service.write_log.assert_not_called()
 
@@ -212,11 +195,6 @@ class TestUpdateUserProfile:
         assert action == 'user.profile_updated'
         assert details['target_user_id'] == 1
         assert details['changed_fields'] == {'display_name': 'Bob', 'pronouns': 'he/him'}
-
-
-# ---------------------------------------------------------------------------
-# update_user_admin_fields — staff-only, conditional audit
-# ---------------------------------------------------------------------------
 
 
 class TestUpdateUserAdminFields:
@@ -270,11 +248,6 @@ class TestUpdateUserAdminFields:
             )
 
 
-# ---------------------------------------------------------------------------
-# create_user
-# ---------------------------------------------------------------------------
-
-
 class TestCreateUser:
     async def test_empty_username_raises(self, service):
         with pytest.raises(ValueError, match='Enter a username'):
@@ -304,11 +277,6 @@ class TestCreateUser:
         assert details['target_user_id'] == 7
         assert details['username'] == 'bob'
         assert details['discord_id'] == '42'
-
-
-# ---------------------------------------------------------------------------
-# grant_role / revoke_role
-# ---------------------------------------------------------------------------
 
 
 class TestRoleManagement:
@@ -390,11 +358,6 @@ class TestRoleManagement:
             await service.grant_role(make_user(), Role.STAFF, make_user())
 
 
-# ---------------------------------------------------------------------------
-# update_user_tournament_registrations — set math
-# ---------------------------------------------------------------------------
-
-
 class TestUpdateUserTournamentRegistrations:
     async def test_added_and_removed_ids_computed_correctly(self, service, monkeypatch):
         user = make_user()
@@ -428,12 +391,10 @@ class TestUpdateUserTournamentRegistrations:
             current_registrations=current,
         )
 
-        # 2 and 3 should be deleted; 1 should not.
         current[0].delete.assert_not_called()
         current[1].delete.assert_awaited_once()
         current[2].delete.assert_awaited_once()
 
-        # 5 and 6 are created, through the repository.
         assert create_mock.await_count == 2
         assert [c.args[0] for c in create_mock.await_args_list] == [tournament_5, tournament_6]
 
@@ -486,11 +447,6 @@ class TestUpdateUserTournamentRegistrations:
         )
         create_mock.assert_not_called()
         service.audit_service.write_log.assert_not_called()
-
-
-# ---------------------------------------------------------------------------
-# provision_from_discord_login
-# ---------------------------------------------------------------------------
 
 
 class TestProvisionFromDiscordLogin:
@@ -575,11 +531,6 @@ class TestProvisionFromDiscordRoleSync:
         assert (user, created) == (existing, False)
         service.repository.update.assert_not_awaited()
         service.audit_service.write_log.assert_not_awaited()
-
-
-# ---------------------------------------------------------------------------
-# create_mock_login_user
-# ---------------------------------------------------------------------------
 
 
 class TestSyncDiscordAvatar:

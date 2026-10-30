@@ -104,8 +104,6 @@ async def _staff() -> User:
     return staff
 
 
-# ---- results ------------------------------------------------------------
-
 async def test_clean_result_records_itself(db, sent):
     _t, match, players, room = await _setup()
     await RaceRoomService().record_finish(room, [_done('u1', 3_600_000, 1), _done('u2', 3_700_000, 2)])
@@ -190,8 +188,6 @@ async def test_board_rows_show_the_hold_and_unlinked_players(db, sent):
     assert by_id[upcoming.id]['racetime_unlinked'] == [cleo.preferred_name]
     assert by_id[held_match.id]['racetime_held']['reason'] == 'close_finish'
 
-
-# ---- in the room ----------------------------------------------------------
 
 async def test_joining_invites_missing_players_and_greets_once(db, sent):
     _t, _match, _players, room = await _setup(users=(('alice', 'u1'), ('bob', 'u2'), ('cleo', None)))

@@ -73,7 +73,7 @@ class TestWebhookApiCrud:
             assert deleted.status_code == 204
 
             missing = await client.get(f'/api/webhooks/{wid}')
-            assert missing.status_code == 404  # service raises NotFoundError -> 404 (audit §2B.6)
+            assert missing.status_code == 404
 
     async def test_regenerate_secret_returns_new_secret(self, app, db):
         _, token = await create_user_token(roles=[Role.STAFF])

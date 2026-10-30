@@ -361,18 +361,15 @@ class TestCrewAndAck:
         async with client_for(app, staff_raw) as staff, client_for(app, caster_raw) as caster_c:
             mid = (await _create_match(staff, t, p1, p2)).json()['id']
 
-            # Caster signs themselves up as a commentator (pending).
             signup = await caster_c.post(f'/api/matches/{mid}/crew', json={'role': 'commentator'})
             assert signup.status_code == 201
 
             crew = await Commentator.filter(match_id=mid, user_id=caster.id).first()
-            # A non-moderator caster cannot approve their own signup.
             self_approve = await caster_c.post(
                 f'/api/crew/commentator/{crew.id}/approval', json={'approved': True}
             )
             assert self_approve.status_code == 403
 
-            # Staff approves, then the caster acknowledges.
             assert (await staff.post(
                 f'/api/crew/commentator/{crew.id}/approval', json={'approved': True}
             )).status_code == 200

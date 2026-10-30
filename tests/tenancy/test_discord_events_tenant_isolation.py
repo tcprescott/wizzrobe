@@ -63,7 +63,7 @@ async def test_scheduled_event_reads_are_isolated(shared_guild_tenants):
 
     with tenant_scope(a.id):
         assert [x.id for x in await repo.list_all()] == [ra.id]
-        assert await repo.get_by_id(rb.id) is None  # B's row invisible to A
+        assert await repo.get_by_id(rb.id) is None
         assert (await repo.get_by_source(DiscordEventSource.MATCH, 5)).id == ra.id
     with tenant_scope(b.id):
         assert [x.id for x in await repo.list_all()] == [rb.id]
@@ -95,17 +95,14 @@ async def test_shared_guild_cancel_only_touches_own_event(shared_guild_tenants):
     with tenant_scope(b.id):
         rb = await reconciler.reconcile_tenant(b, actor=actor)
     assert ra.created == 1 and rb.created == 1
-    # Both events now live in the one shared guild.
     assert len(mock_discord_data.scheduled_events_for(SHARED_GUILD)) == 2
 
-    # A's match finishes → reconcile A cancels A's event only.
     match_a.finished_at = datetime.now(timezone.utc)
     await match_a.save()
     with tenant_scope(a.id):
         ra2 = await reconciler.reconcile_tenant(a, actor=actor)
     assert ra2.cancelled == 1
 
-    # B's link row and B's Discord event are untouched.
     with tenant_scope(b.id):
         assert await DiscordScheduledEvent.filter(source_id=match_b.id).count() == 1
     with tenant_scope(a.id):

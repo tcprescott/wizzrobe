@@ -54,8 +54,6 @@ async def test_roll_permalinks_blocked_when_credential_missing(db):
         assert await AsyncQualifierPermalink.filter(pool_id=pool.id).count() == 0
 
 
-# --- the server's own clock as evidence -----------------------------------
-
 async def test_roll_permalinks_refuses_async_randomizer(db):
     # A task-queue backend (dk64r) cannot fill a pool yet: each roll takes
     # minutes and lands independently, so the batch's all-or-nothing property

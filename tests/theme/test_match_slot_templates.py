@@ -299,8 +299,6 @@ def test_overdue_emphasis_is_mirrored_on_the_mobile_headline():
     assert 'props.row.is_overdue' in cells.slots['body-cell-scheduled_at']
 
 
-# --- The capability split ---------------------------------------------------
-#
 # Each control below has one gate in ``AuthService`` and used to have a different
 # one on the board. These pin the pairing per role, on both layouts, because a
 # desktop-only fix is invisible to every phone on the floor.
@@ -401,8 +399,6 @@ def test_a_viewer_who_can_run_nothing_still_reads_the_state():
         state_cell, "$parent.$emit('seat'")
 
 
-# --- One read-only state cell, not three -----------------------------------
-
 def test_the_read_only_cells_have_callers():
     """``state_readonly_slot`` and ``SEED_SLOT_READONLY`` were written *"so pages
     can drop their inline templates"* and then had zero callers, while the home
@@ -416,7 +412,6 @@ def test_the_read_only_cells_have_callers():
         src = pathlib.Path(path).read_text()
         assert 'state_readonly_slot(' in src, path
         assert 'SEED_SLOT_READONLY' in src, path
-        # And no hand-rolled replacement crept back in beside it.
         assert "'body-cell-state': '''" not in src, path
         assert "'body-cell-generated_seed': '''" not in src, path
 

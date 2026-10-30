@@ -45,11 +45,6 @@ async def _deliver(user: User, title: str = 't', body: str = 'b') -> int:
     return await WebPushService()._send_to_subscriptions(subscriptions, title=title, body=body)
 
 
-# ===========================================================================
-# WebhookService
-# ===========================================================================
-
-
 @pytest.fixture
 def no_sleep(monkeypatch):
     async def _noop(_seconds):
@@ -339,11 +334,6 @@ class TestListDeliveries:
         actor = await _staff()
         with pytest.raises(ValueError, match='not found'):
             await WebhookService().list_deliveries(actor, 424242)
-
-
-# ===========================================================================
-# WebPushService
-# ===========================================================================
 
 
 @pytest.fixture

@@ -44,9 +44,6 @@ def service() -> BracketService:
     return BracketService()
 
 
-# ---------------------------------------------------------------------------
-# create_bracket
-# ---------------------------------------------------------------------------
 class TestCreateBracket:
     async def test_happy_path(self, service):
         actor = await _staff()
@@ -130,9 +127,6 @@ class TestCreateBracket:
             await service.create_bracket(actor, t.id, '   ', BracketFormat.SINGLE_ELIM)
 
 
-# ---------------------------------------------------------------------------
-# entrants / enrollment
-# ---------------------------------------------------------------------------
 class TestRoster:
     async def test_add_entrant_placeholder(self, service):
         actor = await _staff()
@@ -193,9 +187,6 @@ class TestRoster:
             await service.enroll(actor, bracket.id, entrant.id)
 
 
-# ---------------------------------------------------------------------------
-# start_bracket
-# ---------------------------------------------------------------------------
 async def _seeded_bracket(service, fmt, n, config=None, stage_order=0):
     """Create a bracket with ``n`` enrolled entrants seeded 1..n. Returns (actor, bracket)."""
     actor = await _staff()
@@ -219,24 +210,20 @@ class TestStartSingleElim:
         assert len(matches) == len(graph)
         assert {m.round for m in matches} == {gm.round for gm in graph}
 
-        # Byes: engine is_bye nodes are COMPLETE with the correct winner.
         by_coord = {(m.round, m.position): m for m in matches}
         for gm in graph:
             m = by_coord[(gm.round, gm.position)]
             if gm.is_bye:
                 assert m.state == BracketMatchState.COMPLETE
-                # The single real seed is the winner.
                 real_seed = gm.entry1_seed if gm.entry1_seed is not None else gm.entry2_seed
                 winner_entry = await service.repository.get_entry(m.winner_id)
                 assert winner_entry.seed == real_seed
 
-        # Round-1 real matches (both seeds present, not a bye) are OPEN.
         for gm in graph:
             if gm.round == 1 and not gm.is_bye and gm.entry1_seed and gm.entry2_seed:
                 m = by_coord[(1, gm.position)]
                 assert m.state == BracketMatchState.OPEN
 
-        # Pointers persisted: any node with a winner_to points at the right match.
         for gm in graph:
             if gm.winner_to is None:
                 continue
@@ -291,7 +278,6 @@ class TestStartSwiss:
         # 5 players → 2 pairs + 1 bye.
         assert len(byes) == 1
         assert len(opens) == 2
-        # The bye match has a winner and an empty entry2.
         assert byes[0].winner_id is not None
         assert byes[0].entry2_id is None
 
@@ -325,9 +311,6 @@ class TestStartGuards:
         assert seeds == [1, 2, 3, 4]
 
 
-# ---------------------------------------------------------------------------
-# seed validation
-# ---------------------------------------------------------------------------
 class TestSeedValidation:
     async def _drafted(self, service):
         actor = await _staff()
@@ -390,9 +373,6 @@ class TestSeedValidation:
             await service.start_bracket(actor, bracket.id)
 
 
-# ---------------------------------------------------------------------------
-# list_all_brackets (the public browse read)
-# ---------------------------------------------------------------------------
 class TestListAllBrackets:
     async def test_orders_by_tournament_then_stage_with_tournament_loaded(self, service):
         actor = await _staff()
@@ -423,9 +403,6 @@ class TestListAllBrackets:
         assert await service.list_all_brackets() == []
 
 
-# ---------------------------------------------------------------------------
-# tenant isolation
-# ---------------------------------------------------------------------------
 async def test_bracket_not_visible_across_tenants(service, two_tenants):
     tenant_a, tenant_b = two_tenants
     with tenant_scope(tenant_a.id):

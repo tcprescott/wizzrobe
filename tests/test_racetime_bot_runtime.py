@@ -47,8 +47,6 @@ class _StubHandler:
         pass
 
 
-# ---- health paths --------------------------------------------------------
-
 async def test_connect_marks_connected_and_heartbeats(db):
     sysuser = await _system_user()
     bot = await _bot()
@@ -118,8 +116,6 @@ async def test_transient_attempt_reports_error(db):
     assert bot.status == BotStatus.ERROR
 
 
-# ---- room event routing --------------------------------------------------
-
 def _lifecycle_handler():
     room_service = RacetimeRoomService()
     return RaceHandler(
@@ -162,12 +158,11 @@ async def test_event_routes_to_correct_tenant(db):
     )
 
     assert (await RacetimeRoom.get(id=room_b.id)).status == RaceRoomStatus.FINISHED
-    assert (await RacetimeRoom.get(id=room_a.id)).status == RaceRoomStatus.OPEN  # untouched
+    assert (await RacetimeRoom.get(id=room_a.id)).status == RaceRoomStatus.OPEN
 
 
 async def test_unknown_slug_is_ignored(db):
     handler = _lifecycle_handler()
-    # Must not raise even though no room matches.
     await handler.on_event(
         RaceRoomEvent(slug='alttpr/nope', category='alttpr', status=RaceRoomStatus.FINISHED)
     )
@@ -181,14 +176,11 @@ async def test_handler_crash_is_contained(db):
             raise RuntimeError('boom')
 
     handler = RaceHandler(category='alttpr', room_service=RacetimeRoomService(), lifecycle=_Boom())
-    # A crashing lifecycle must not propagate out of the handler.
     await handler.on_event(
         RaceRoomEvent(slug='alttpr/x', category='alttpr', status=RaceRoomStatus.FINISHED)
     )
     assert (await RacetimeRoom.get(id=room.id)).status == RaceRoomStatus.OPEN  # write never happened
 
-
-# ---- re-adoption ---------------------------------------------------------
 
 async def test_readopt_open_rooms_groups_by_category(db):
     a = await Tenant.get(id=1)
@@ -204,8 +196,6 @@ async def test_readopt_open_rooms_groups_by_category(db):
     assert grouping['alttpr'] == ['alttpr/a']  # finished room excluded
     assert grouping['smz3'] == ['smz3/b']
 
-
-# ---- master switch -------------------------------------------------------
 
 async def test_manager_start_is_noop_when_disabled(db, monkeypatch):
     monkeypatch.delenv('RACETIME_BOT_ENABLED', raising=False)

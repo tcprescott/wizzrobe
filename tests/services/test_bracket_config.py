@@ -100,7 +100,6 @@ class TestRoundsConfig:
             validate_bracket_config({"rounds": {"1": {"bogus": 1}}})
 
     def test_rounds_optional(self):
-        # A config with no rounds map stays valid and drops the unset key.
         normalized = validate_bracket_config({"swiss_rounds": 3})
         assert "rounds" not in normalized
 

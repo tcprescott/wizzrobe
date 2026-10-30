@@ -12,11 +12,6 @@ from tests.factories import make_audit_double
 UTC = timezone.utc
 
 
-# ---------------------------------------------------------------------------
-# Fixtures
-# ---------------------------------------------------------------------------
-
-
 @pytest.fixture
 def service():
     svc = object.__new__(ApiTokenService)
@@ -41,11 +36,6 @@ def make_token(**overrides):
     return SimpleNamespace(**defaults)
 
 
-# ---------------------------------------------------------------------------
-# _hash_token helper
-# ---------------------------------------------------------------------------
-
-
 class TestHashToken:
     def test_deterministic(self):
         assert _hash_token('abc') == _hash_token('abc')
@@ -59,11 +49,6 @@ class TestHashToken:
 
     def test_length_is_64_chars(self):
         assert len(_hash_token('anything')) == 64
-
-
-# ---------------------------------------------------------------------------
-# create_token
-# ---------------------------------------------------------------------------
 
 
 class TestCreateToken:
@@ -104,22 +89,12 @@ class TestCreateToken:
         service.audit_service.write_log.assert_awaited_once()
 
 
-# ---------------------------------------------------------------------------
-# list_tokens
-# ---------------------------------------------------------------------------
-
-
 class TestListTokens:
     async def test_delegates_to_repository(self, service):
         actor = SimpleNamespace(id=1)
         service.repository.list_for_user = AsyncMock(return_value=[make_token()])
         result = await service.list_tokens(actor)
         assert len(result) == 1
-
-
-# ---------------------------------------------------------------------------
-# revoke_token
-# ---------------------------------------------------------------------------
 
 
 class TestRevokeToken:
@@ -147,11 +122,6 @@ class TestRevokeToken:
         await service.revoke_token(actor=SimpleNamespace(id=42), token_id=1)
         service.repository.revoke.assert_awaited_once()
         service.audit_service.write_log.assert_awaited_once()
-
-
-# ---------------------------------------------------------------------------
-# authenticate
-# ---------------------------------------------------------------------------
 
 
 class TestAuthenticate:

@@ -61,7 +61,6 @@ def test_round_robin_invariants(n, group_count):
         col = offset if pass_index % 2 == 0 else group_count - 1 - offset
         expected_groups[col].append(i + 1)
 
-    # Balanced: sizes differ by at most one; every seed placed exactly once.
     sizes = [len(g) for g in expected_groups]
     assert max(sizes) - min(sizes) <= 1
     assert sorted(s for g in expected_groups for s in g) == list(range(1, n + 1))
@@ -75,10 +74,9 @@ def test_round_robin_invariants(n, group_count):
 
     seen_positions = {}
     for m in matches:
-        assert m.entry1_seed != m.entry2_seed  # no self-pairing
+        assert m.entry1_seed != m.entry2_seed
         assert m.winner_to is None and m.loser_to is None
         assert m.entry1_seed is not None and m.entry2_seed is not None
-        # position unique within (group, round)
         key = (m.group_number, m.round)
         seen_positions.setdefault(key, set())
         assert m.position not in seen_positions[key]
@@ -86,13 +84,11 @@ def test_round_robin_invariants(n, group_count):
 
     for group_number, pairs in groups.items():
         members = expected_groups[group_number - 1]
-        # No cross-group matches: every scheduled pair is inside this group.
         member_set = set(members)
         for pair in pairs:
             assert pair <= member_set
-        # Every within-group pair appears exactly once.
         expected_pairs = {frozenset(p) for p in combinations(members, 2)}
-        assert len(pairs) == len(expected_pairs)  # exactly once (no duplicates)
+        assert len(pairs) == len(expected_pairs)
         assert set(pairs) == expected_pairs
 
 
@@ -103,7 +99,6 @@ def test_known_four_in_one_group():
     assert len(matches) == 6  # C(4,2)
     pairs = {frozenset((m.entry1_seed, m.entry2_seed)) for m in matches}
     assert pairs == {frozenset(p) for p in combinations(range(1, 5), 2)}
-    # each round has exactly 2 matches
     for r in (1, 2, 3):
         assert len([m for m in matches if m.round == r]) == 2
 
@@ -113,7 +108,6 @@ def test_odd_group_has_no_phantom_matches():
     matches = engine.generate(5, {'group_count': 1})
     assert len(matches) == 10  # C(5,2)
     assert max(m.round for m in matches) == 5  # odd => n rounds, one bye each
-    # every emitted match has two real seeds (no phantom bye entrant)
     for m in matches:
         assert m.entry1_seed in range(1, 6)
         assert m.entry2_seed in range(1, 6)

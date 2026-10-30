@@ -4,10 +4,6 @@ import pytest
 
 from application.services.seedgen_service import SeedGenerationService
 
-# ---------------------------------------------------------------------------
-# Fixtures
-# ---------------------------------------------------------------------------
-
 
 @pytest.fixture
 def service():
@@ -23,11 +19,6 @@ def _preset(randomizer: str):
         return SimpleNamespace(settings=json.load(f))
 
 
-# ---------------------------------------------------------------------------
-# supports_triforce_texts (classmethod)
-# ---------------------------------------------------------------------------
-
-
 class TestSupportsTriforceTexts:
     def test_alttpr_is_supported(self):
         assert SeedGenerationService.supports_triforce_texts('alttpr') is True
@@ -40,11 +31,6 @@ class TestSupportsTriforceTexts:
 
     def test_unknown_is_not_supported(self):
         assert SeedGenerationService.supports_triforce_texts('unknown') is False
-
-
-# ---------------------------------------------------------------------------
-# AVAILABLE_RANDOMIZERS list
-# ---------------------------------------------------------------------------
 
 
 class TestAvailableRandomizers:
@@ -74,14 +60,8 @@ class TestAvailableRandomizers:
         assert 'smdash' in SeedGenerationService.PRESET_AWARE_RANDOMIZERS
 
     def test_dk64r_is_no_longer_a_stub(self):
-        # Promoted to a real backend (api.dk64rando.com); still selectable.
         assert 'dk64r' in SeedGenerationService.AVAILABLE_RANDOMIZERS
         assert 'dk64r' not in SeedGenerationService.STUB_RANDOMIZERS
-
-
-# ---------------------------------------------------------------------------
-# generate_seed — unsupported randomizer
-# ---------------------------------------------------------------------------
 
 
 class TestGenerateSeed:
@@ -103,11 +83,6 @@ class TestGenerateSeed:
         with patch('asyncio.sleep', fast_sleep):
             result = await service.generate_seed('test')
         assert result.startswith('https://')
-
-
-# ---------------------------------------------------------------------------
-# generate_seed — ALTTPR preset selection (no network; ALTTPR.generate patched)
-# ---------------------------------------------------------------------------
 
 
 class TestGenerateSeedPreset:
@@ -152,11 +127,6 @@ class TestGenerateSeedPreset:
         # The snapshot records the text; the shared preset row does not keep it.
         assert call.value.settings['texts']['end_triforce'] == '{NOBORDER}\nhello'
         assert preset.settings == {'mode': 'open'}
-
-
-# ---------------------------------------------------------------------------
-# generate_seed — MOCK_SEEDGEN short-circuit (no network for any randomizer)
-# ---------------------------------------------------------------------------
 
 
 class TestMockSeedgen:
@@ -220,16 +190,10 @@ class TestMockSeedgen:
             is_mock_seedgen()
 
 
-# ---------------------------------------------------------------------------
-# _generate_ff1r — pure URL manipulation, no network
-# ---------------------------------------------------------------------------
-
-
 class TestGenerateFf1r:
     async def test_returns_url_with_seed_param(self, service):
         result = (await service._generate_ff1r(_preset('ff1r'))).url
         assert '?s=' in result or '&s=' in result
-        # Seed is 8 hex chars upper-cased
         from urllib.parse import parse_qs, urlparse
         qs = parse_qs(urlparse(result).query)
         seed = qs.get('s', [None])[0]
@@ -271,16 +235,10 @@ class TestGenerateFf1r:
             await service._generate_ff1r(SimpleNamespace(settings={}))
 
 
-# ---------------------------------------------------------------------------
-# _generate_z1r — pure local computation, no network
-# ---------------------------------------------------------------------------
-
-
 class TestGenerateZ1r:
     async def test_returns_string_with_flags(self, service):
         result = (await service._generate_z1r(_preset('z1r'))).url
         assert ' - ' in result
-        # Left side is the seed integer, right side is the flags string
         parts = result.split(' - ', 1)
         assert len(parts) == 2
         seed_part = parts[0]
@@ -344,11 +302,6 @@ class TestNormalizeLocalFlagPresets:
             assert SeedGenerationService.normalize_preset_settings(randomizer, settings) == settings
 
 
-# ---------------------------------------------------------------------------
-# available_randomizers — the credential-driven selector filter
-# ---------------------------------------------------------------------------
-
-
 class TestRandomizerAvailability:
     def test_keyed_randomizers_hidden_without_credentials(self):
         available = SeedGenerationService.available_randomizers(set())
@@ -368,11 +321,6 @@ class TestRandomizerAvailability:
         # AVAILABLE_RANDOMIZERS stays whole — validity is not availability.
         for r in ('ootr', 'smmap', 'dk64r'):
             assert r in SeedGenerationService.AVAILABLE_RANDOMIZERS
-
-
-# ---------------------------------------------------------------------------
-# Per-tenant credential resolution (the successor to the *_API_KEY env vars)
-# ---------------------------------------------------------------------------
 
 
 class TestCredentialResolution:

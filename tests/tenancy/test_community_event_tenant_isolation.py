@@ -58,6 +58,5 @@ async def test_community_events_do_not_leak_across_tenants(two_tenants):
     assert (await CommunityEvent.get(id=listed.id)).status.value == 'approved'
 
     with tenant_scope(a.id):
-        # Opening B's listing marked nothing seen in A.
         assert await service.unseen_ids(member) == {listed.id}
         assert await CommunityEventSeen.filter(user=member).count() == 1

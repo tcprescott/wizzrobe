@@ -83,7 +83,6 @@ class TestNoFrameworkPayload:
         html = render_bracket_document(_elim_view())
         assert '_nicegui' not in html
         assert 'socket.io' not in html
-        # Only the app's own two stylesheets are pulled in.
         assert html.count('<link rel="stylesheet"') == 2
         assert 'quasar' not in html.lower().split('</head>')[1]
 
@@ -251,7 +250,6 @@ class TestLinks:
     def test_links_carry_the_tenant_root_path(self):
         html = render_bracket_document(_elim_view(root_path='/t/demo'))
         assert 'href="/t/demo/live/tournament/3/brackets"' in html
-        # …and the escape hatch back to the interactive page.
         assert 'href="/t/demo/brackets/7"' in html
 
     def test_the_index_links_each_stage_to_its_static_view(self):

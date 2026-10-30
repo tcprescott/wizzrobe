@@ -103,8 +103,6 @@ def test_the_four_storage_keys_are_distinct():
     assert len(set(keys)) == len(keys)
 
 
-# --- default_state_filter ----------------------------------------------------
-
 def test_default_state_filter_is_used_when_nothing_is_stored(monkeypatch):
     stored = {}
     monkeypatch.setattr('theme.tables.match_filters.tenant_session_get',
@@ -137,8 +135,6 @@ def test_another_boards_stored_value_does_not_leak(monkeypatch):
     assert _view('proctor')._stored_or_default_states() == list(DEFAULT_STATE_FILTER)
 
 
-# --- the mobile filter-count badge ------------------------------------------
-
 class _FakeSelect:
     def __init__(self, value):
         self.value = value
@@ -160,8 +156,6 @@ def test_badge_counts_a_state_filter_moved_off_the_boards_default():
     assert view._active_filter_count() == 1
 
 
-# --- The Day filter --------------------------------------------------------
-#
 # The board had no day or now anchor, so an operator standing at a venue
 # scrolled ~8 screenfuls of phone to find a match by eye.
 
@@ -243,8 +237,6 @@ def test_a_deep_link_suspends_the_day_filter():
     assert 'None if self.match_ids else day_scope_window' in src
 
 
-# --- The board's tournament scope ------------------------------------------
-#
 # A TA's or crew coordinator's authority is per tournament. The scope is a hard
 # bound on the rows; the Tournament filter is their choice *within* it.
 
@@ -309,8 +301,6 @@ def test_the_resolution_matches_the_one_refresh_uses():
     assert '_MATCHES_NOTHING' in src
 
 
-# --- The one-tap reset chip -------------------------------------------------
-#
 # Thomas's pick B: the filter count is a chip that clears every filter in one
 # tap, then offers Undo for a few seconds.
 

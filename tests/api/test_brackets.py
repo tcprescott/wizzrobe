@@ -30,9 +30,6 @@ async def _tournament(name='Cup'):
     return await Tournament.create(name=name)
 
 
-# --- Reads / auth matrix --------------------------------------------------
-
-
 class TestReads:
     async def test_list_unauthenticated(self, db, app):
         async with client_for(app) as c:
@@ -116,9 +113,6 @@ class TestUnpublishedStagesAreStaffOnly:
 
 
 
-# --- Writes / auth matrix -------------------------------------------------
-
-
 class TestWrites:
     async def test_create_role_less_forbidden(self, db, app):
         """A non-staff token can read but a write returns 403 (service gate)."""
@@ -148,9 +142,6 @@ class TestWrites:
                 'tournament_id': t.id, 'name': 'X', 'format': 'nope',
             })
             assert resp.status_code == 422
-
-
-# --- Happy path -----------------------------------------------------------
 
 
 class TestHappyPath:
@@ -280,7 +271,6 @@ class TestHappyPath:
             })
             assert bad.status_code == 400
 
-            # Same scoreline is accepted as a forfeit.
             ff = await c.post(f'/api/brackets/matches/{match_id}/result', json={
                 'winner_entry_id': winner_entry_id,
                 'entry1_score': 0, 'entry2_score': 2, 'forfeit': True,
@@ -340,9 +330,6 @@ class TestDerivedStatus:
 
             matches = (await c.get(f'/api/brackets/{bracket_id}/matches')).json()
             assert [m['status'] for m in matches] == ['complete']
-
-
-# --- Feature gate ---------------------------------------------------------
 
 
 class TestFeatureGate:
@@ -434,7 +421,6 @@ class TestSeriesEndpoints:
                 assert games[-1]['game_number'] == expected
                 assert games[-1]['state'] == 'scheduled'
 
-            # A fourth game of a best-of-3 is refused.
             r = await c.post(
                 f'/api/brackets/matches/{match_id}/games',
                 json={'scheduled_date': '2026-06-12', 'scheduled_time': '14:30'},

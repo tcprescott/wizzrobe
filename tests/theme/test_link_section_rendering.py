@@ -166,8 +166,6 @@ def test_a_linked_row_falls_back_to_the_id_when_there_is_no_username():
     assert 'Linked as x1' in render(link_holder('x1', None), make_config())
 
 
-# --- the custom-domain branch -------------------------------------------------
-
 @pytest.fixture
 def custom_domain(monkeypatch):
     """A tenant's own domain, with the cross-host link handoff turned off."""
@@ -205,8 +203,6 @@ def test_a_linked_row_on_a_custom_domain_can_still_unlink(custom_domain):
     # must not swallow it.
     assert 'Unlink Provider X account' in render(link_holder('x1', 'XName'), make_config())
 
-
-# --- sign in to the provider first -------------------------------------------
 
 def test_the_sign_in_first_dialog_links_to_the_providers_sign_in_page():
     # Challonge answers a signed-out reader with a bare 401 JSON page rather than

@@ -151,9 +151,6 @@ async def test_context_is_reset_after_request(two_tenants):
     assert get_current_tenant_id() is None
 
 
-# --- Host mode: a tenant's custom domain resolves without a /t/<slug> prefix ---
-
-
 @pytest.fixture
 async def host_tenants(two_tenants):
     """The path-mode fixture, plus custom domains on the active + inactive tenants."""
@@ -254,8 +251,6 @@ async def test_forwarded_host_multiple_header_lines_last_wins(host_tenants, monk
     assert r.json()['tenant'] == a.id
 
 
-# --- TransportPrefixMiddleware: NiceGUI assets/websocket under /t/<slug> -------
-#
 # NiceGUI addresses its static files and socket.io under the page's root_path
 # (/t/<slug>), so the browser requests them prefixed. They must be un-prefixed
 # back to the app's real routes, with root_path left empty — otherwise every
@@ -298,11 +293,10 @@ async def test_transport_asset_is_unprefixed_and_unscoped():
     body = r.json()
     assert body['path'] == '/_nicegui/3.12.1/static/nicegui.js'
     assert body['root_path'] == ''
-    assert body['tenant'] is None  # assets carry no tenant
+    assert body['tenant'] is None
 
 
 async def test_transport_middleware_passes_page_paths_through():
-    # /admin is not a transport path, so it is delivered unchanged.
     r = await _get(_build_transport_app(), '/admin')
     assert r.status_code == 200
     assert r.json()['path'] == '/admin'

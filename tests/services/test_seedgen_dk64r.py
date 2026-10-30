@@ -152,7 +152,6 @@ class TestGenerateDk64r:
         assert _json.loads(stub.calls[1][2]['json']['settings_data']) == {
             'level_randomization': 'level_order', 'generate_spoilerlog': False,
         }
-        # Poll hits task-status for the returned task id.
         assert '/task-status/task-123' in stub.calls[2][1]
 
     async def test_full_json_preset_skips_convert(self, service, monkeypatch, dk64r_key):

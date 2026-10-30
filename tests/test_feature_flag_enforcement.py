@@ -39,8 +39,6 @@ async def _staff(discord_id: int = 70001) -> User:
     return user
 
 
-# --- the error type ---------------------------------------------------------
-
 async def test_feature_disabled_is_a_not_found_error():
     """So REST answers 404 (hidden, like every other feature gate) with no extra
     plumbing, and UI ``except ValueError`` handlers still show it."""
@@ -74,8 +72,6 @@ async def test_ensure_enabled_raises_with_no_tenant_in_scope(db):
         reset_tenant_id(token)
 
 
-# --- the decorator ----------------------------------------------------------
-
 class _Subject:
     @requires_feature(FeatureFlag.EQUIPMENT)
     async def act(self, value: int) -> int:
@@ -98,8 +94,6 @@ async def test_decorator_preserves_identity_and_marks_the_flag():
     assert _Subject.act.__name__ == 'act'
     assert _Subject.act.__wizzrobe_feature__ is FeatureFlag.EQUIPMENT
 
-
-# --- the per-request cache --------------------------------------------------
 
 async def test_repeated_checks_hit_the_cache(bare_tenant, monkeypatch):
     """N guards in one request must not mean N database resolutions."""
@@ -140,8 +134,6 @@ async def test_staff_toggle_invalidates_the_cache(bare_tenant):
         await service.set_tenant_enabled(actor, FeatureFlag.EQUIPMENT, False)
         assert await service.is_enabled(FeatureFlag.EQUIPMENT) is False
 
-
-# --- every gated subsystem's service actually refuses ----------------------
 
 async def test_equipment_service_refuses_when_feature_off(bare_tenant):
     from application.services.equipment_service import EquipmentService
@@ -217,8 +209,6 @@ async def test_event_info_service_refuses_when_feature_off(bare_tenant):
             await EventInfoService.list_articles()
 
 
-# --- soft integration points must NOT raise --------------------------------
-
 async def test_a_help_icon_over_handbook_content_is_skipped_not_raised(bare_tenant):
     """``help_icon`` is called from surfaces that are not themselves gated on
     EVENT_INFO — the Player tab, the Proctor Station. It resolves the flag itself
@@ -256,8 +246,6 @@ async def test_triforce_text_embed_returns_none_not_raises(bare_tenant):
         assert await service.get_balanced_text(tournament) is None
         assert await service.get_random_text(tournament) is None
 
-
-# --- the registry stays honest ---------------------------------------------
 
 async def test_every_flag_declares_how_it_is_enforced():
     """Mirrors the check_feature_flag_gating hook so CI fails too, not just the

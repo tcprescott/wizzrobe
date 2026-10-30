@@ -27,7 +27,6 @@ from application.services.bracket_engines.base import PairingPlayer
 
 from ._trf import TrfPlayer, parse_bbp_pairings, to_trf
 
-# --- Scenario definitions -------------------------------------------------
 # Each scenario is a list of played rounds; a round is a list of pairs. A pair
 # (white, black) is a decisive game the *white* (first) player won; (num, None)
 # is a full-point bye. Results and points are derived deterministically from
@@ -106,9 +105,6 @@ def _assert_valid(
     assert set(seen) == active, f'not all active players covered: {set(seen)} != {active}'
 
 
-# --- Always-run: TRF serialization shape ----------------------------------
-
-
 def test_trf_serialization_shape():
     """Hand-checked column layout for a two-round, four-player state."""
     trf_players, _, _, _ = _build(4, SCENARIOS[1][2])
@@ -132,18 +128,12 @@ def test_trf_serialization_shape():
     assert p5[90:] == ' 0000 - U'
 
 
-# --- Always-run: our engine pairs every scenario legally -------------------
-
-
 @pytest.mark.parametrize('name,n,rounds', SCENARIOS, ids=[s[0] for s in SCENARIOS])
 def test_our_engine_produces_valid_pairings(name, n, rounds):
     _, pairing_players, active, opponents = _build(n, rounds)
     engine = get_bracket_engine('swiss')()
     pairings = engine.pair_round(pairing_players, {})
     _assert_valid(pairings, active, opponents)
-
-
-# --- Binary-gated: cross-validate against bbpPairings ----------------------
 
 
 @pytest.mark.skipif(

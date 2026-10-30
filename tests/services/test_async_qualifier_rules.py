@@ -27,7 +27,6 @@ class TestClassifyClaim:
         assert classify_claim(3600, 3620) is ClaimVerdict.OK
 
     def test_a_claim_under_the_clock_by_less_than_the_threshold_is_ok(self):
-        # Finishing and submitting a few minutes later is ordinary.
         assert classify_claim(3600, 3600 + IMPLAUSIBLE_DRIFT_SECONDS - 1) is ClaimVerdict.OK
 
     def test_a_large_shortfall_is_implausible(self):

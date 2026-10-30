@@ -58,11 +58,6 @@ def captured_events():
     event_bus.unsubscribe(token)
 
 
-# ---------------------------------------------------------------------------
-# Simple read/query surface
-# ---------------------------------------------------------------------------
-
-
 class TestReadMethods:
     async def test_get_match_by_id_and_get_by_id(self, service, db):
         t = await make_tournament()
@@ -128,11 +123,6 @@ class TestReadMethods:
         assert [m.id for m in found] == [match.id]
 
 
-# ---------------------------------------------------------------------------
-# set_stream_candidate
-# ---------------------------------------------------------------------------
-
-
 class TestSetStreamCandidate:
     async def test_not_found_raises(self, service, db):
         actor = await make_staff()
@@ -171,11 +161,6 @@ class TestSetStreamCandidate:
         assert EventType.MATCH_STREAM_CANDIDATE_SET in [e.event_type for e in captured_events]
 
 
-# ---------------------------------------------------------------------------
-# assign_stage
-# ---------------------------------------------------------------------------
-
-
 class TestAssignStage:
     async def test_not_found_raises(self, service, db):
         actor = await make_staff()
@@ -193,11 +178,6 @@ class TestAssignStage:
 
         await service.assign_stage(match_id=match.id, stage_id=None, actor=actor)
         assert (await Match.get(id=match.id)).stage_id is None
-
-
-# ---------------------------------------------------------------------------
-# assign_stations
-# ---------------------------------------------------------------------------
 
 
 class TestAssignStations:
@@ -252,11 +232,6 @@ class TestAssignStations:
         assert (await MatchPlayers.get(id=mp.id)).assigned_station is None
 
 
-# ---------------------------------------------------------------------------
-# delete_match
-# ---------------------------------------------------------------------------
-
-
 class TestDeleteMatch:
     async def test_not_found_raises(self, service, db):
         actor = await make_staff()
@@ -270,11 +245,6 @@ class TestDeleteMatch:
         await service.delete_match(match_id=match.id, actor=actor)
         assert await Match.filter(id=match.id).exists() is False
         assert EventType.MATCH_DELETED in [e.event_type for e in captured_events]
-
-
-# ---------------------------------------------------------------------------
-# record_match_result
-# ---------------------------------------------------------------------------
 
 
 class TestRecordMatchResult:
@@ -313,11 +283,6 @@ class TestRecordMatchResult:
         assert (await MatchPlayers.get(id=mp1.id)).finish_rank == 1
         assert (await MatchPlayers.get(id=mp2.id)).finish_rank == 2
         assert EventType.MATCH_RESULT_RECORDED in [e.event_type for e in captured_events]
-
-
-# ---------------------------------------------------------------------------
-# ensure_players_enrolled & _seed_acknowledgments edge cases
-# ---------------------------------------------------------------------------
 
 
 class TestEnrollmentAndSeedHelpers:

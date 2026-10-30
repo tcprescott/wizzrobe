@@ -27,22 +27,12 @@ def make_window(starts_hour, ends_hour, status=VolunteerAvailabilityStatus.AVAIL
     )
 
 
-# ---------------------------------------------------------------------------
-# Fixtures
-# ---------------------------------------------------------------------------
-
-
 @pytest.fixture
 def service():
     svc = object.__new__(VolunteerAvailabilityService)
     svc.repository = MagicMock()
     svc.audit_service = make_audit_double()
     return svc
-
-
-# ---------------------------------------------------------------------------
-# covers (static)
-# ---------------------------------------------------------------------------
 
 
 class TestCovers:
@@ -82,11 +72,6 @@ class TestCovers:
         assert result is None
 
 
-# ---------------------------------------------------------------------------
-# effective_segments (static)
-# ---------------------------------------------------------------------------
-
-
 class TestEffectiveSegments:
     def test_empty_when_end_lte_start(self):
         result = VolunteerAvailabilityService.effective_segments([], _dt(8), _dt(8))
@@ -123,22 +108,12 @@ class TestEffectiveSegments:
         assert VolunteerAvailabilityStatus.UNAVAILABLE in statuses
 
 
-# ---------------------------------------------------------------------------
-# set_windows
-# ---------------------------------------------------------------------------
-
-
 class TestSetWindows:
     async def test_raises_when_window_end_before_start(self, service):
         user = SimpleNamespace(id=1)
         bad_window = (_dt(12), _dt(8), VolunteerAvailabilityStatus.AVAILABLE, None)
         with pytest.raises(ValueError, match='end after'):
             await service.set_windows(user, [bad_window])
-
-
-# ---------------------------------------------------------------------------
-# clear
-# ---------------------------------------------------------------------------
 
 
 class TestClear:
@@ -148,11 +123,6 @@ class TestClear:
         await service.clear(user)
         service.repository.delete_for_user.assert_awaited_once_with(user)
         service.audit_service.write_log.assert_awaited_once()
-
-
-# ---------------------------------------------------------------------------
-# availability_map
-# ---------------------------------------------------------------------------
 
 
 class TestAvailabilityMap:

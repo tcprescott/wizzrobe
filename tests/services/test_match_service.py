@@ -98,9 +98,7 @@ def captured_events():
     event_bus.unsubscribe(token)
 
 
-# ---------------------------------------------------------------------------
-# create_match validation (no DB needed; error paths exit before any DB call)
-# ---------------------------------------------------------------------------
+# create_match validation needs no DB: error paths exit before any DB call.
 
 
 class TestCreateMatchValidation:
@@ -157,12 +155,6 @@ class TestCreateMatchValidation:
 
 # Lifecycle transitions (seat/start/finish/confirm) are owned by
 # MatchScheduleService._transition; see tests/services/test_match_schedule_service.py.
-# The permissive MatchService.seat_players/finish_match duplicates were removed.
-
-
-# ---------------------------------------------------------------------------
-# create_match — subscriber notification fan-out
-# ---------------------------------------------------------------------------
 
 
 def _setup_create_match_mocks(service):
@@ -253,11 +245,6 @@ class TestCreateMatchSubscriberNotifications:
         assert kwargs["is_stream_candidate"] is True
 
 
-# ---------------------------------------------------------------------------
-# Acknowledgment seeding / acknowledge_match
-# ---------------------------------------------------------------------------
-
-
 class TestSeedAcknowledgments:
     async def test_actor_auto_acked_when_in_player_list(self, service):
         actor = SimpleNamespace(id=42)
@@ -327,11 +314,6 @@ class TestAcknowledgeMatch:
         service.audit_service.write_log.assert_awaited_once()
 
 
-# ---------------------------------------------------------------------------
-# player / crew mutual exclusion
-# ---------------------------------------------------------------------------
-
-
 class TestPlayerCrewMutualExclusion:
     async def test_create_match_raises_when_player_is_commentator(self, service):
         user = SimpleNamespace(id=1, preferred_name="Alice")
@@ -372,11 +354,6 @@ class TestPlayerCrewMutualExclusion:
             await service.update_match(match_id=1, tracker_ids=[7])
 
 
-# ---------------------------------------------------------------------------
-# assign_stage event publishing
-# ---------------------------------------------------------------------------
-
-
 class TestAssignStage:
     async def test_publishes_stage_assigned_event(
         self, service, captured_events, mocker,
@@ -411,11 +388,6 @@ class TestAssignStage:
 
         assert [e.event_type for e in captured_events] == [EventType.MATCH_STAGE_CLEARED]
         assert captured_events[0].payload['stage_id'] is None
-
-
-# ---------------------------------------------------------------------------
-# match lifecycle event publishing (delete / result / acknowledge / stations)
-# ---------------------------------------------------------------------------
 
 
 class TestMatchLifecycleEvents:

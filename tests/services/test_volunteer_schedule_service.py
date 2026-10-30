@@ -41,11 +41,6 @@ def make_assignment(**overrides):
     return SimpleNamespace(**defaults)
 
 
-# ---------------------------------------------------------------------------
-# Fixtures
-# ---------------------------------------------------------------------------
-
-
 pytestmark = pytest.mark.usefixtures("bypass_auth")
 
 
@@ -85,11 +80,6 @@ def service():
     return svc
 
 
-# ---------------------------------------------------------------------------
-# create_shift validation
-# ---------------------------------------------------------------------------
-
-
 class TestCreateShift:
     async def test_raises_when_end_before_start(self, service):
         with pytest.raises(ValueError, match='end after'):
@@ -114,11 +104,6 @@ class TestCreateShift:
         )
         assert result is shift
         service.audit_service.write_log.assert_awaited_once()
-
-
-# ---------------------------------------------------------------------------
-# update_shift validation
-# ---------------------------------------------------------------------------
 
 
 class TestUpdateShift:
@@ -148,11 +133,6 @@ class TestUpdateShift:
         service.audit_service.write_log.assert_awaited_once()
 
 
-# ---------------------------------------------------------------------------
-# delete_shift
-# ---------------------------------------------------------------------------
-
-
 class TestDeleteShift:
     async def test_deletes_and_audits(self, service):
         shift = make_shift(id=7)
@@ -160,11 +140,6 @@ class TestDeleteShift:
         await service.delete_shift(actor=MagicMock(), shift=shift)
         service.shift_repository.delete.assert_awaited_once_with(shift)
         service.audit_service.write_log.assert_awaited_once()
-
-
-# ---------------------------------------------------------------------------
-# assign
-# ---------------------------------------------------------------------------
 
 
 class TestAssign:
@@ -229,11 +204,6 @@ class TestAssign:
         service.audit_service.write_log.assert_awaited_once()
 
 
-# ---------------------------------------------------------------------------
-# acknowledge
-# ---------------------------------------------------------------------------
-
-
 class TestAcknowledge:
     async def test_raises_when_assignment_not_found(self, service):
         service.assignment_repository.get_by_id = AsyncMock(return_value=None)
@@ -269,11 +239,6 @@ class TestAcknowledge:
         result = await service.acknowledge(assignment_id=1, user=SimpleNamespace(id=42))
         assert result.acknowledged_at == ts
         service.assignment_repository.save.assert_not_awaited()
-
-
-# ---------------------------------------------------------------------------
-# release
-# ---------------------------------------------------------------------------
 
 
 def _future_shift(hours_out=48):
@@ -335,11 +300,6 @@ class TestRelease:
         assert args[2]['reason'] is None
 
 
-# ---------------------------------------------------------------------------
-# confirm_assignment
-# ---------------------------------------------------------------------------
-
-
 class TestConfirmAssignment:
     async def test_publishes_notifies_and_publishes_event(self, service):
         assignment = make_assignment(auto_generated=True)
@@ -369,11 +329,6 @@ class TestConfirmAssignment:
         service.assignment_repository.mark_published.assert_not_awaited()
         service.audit_service.write_and_publish.assert_not_awaited()
         ack.assert_not_awaited()
-
-
-# ---------------------------------------------------------------------------
-# Notifications: the reverse transitions that used to be silent
-# ---------------------------------------------------------------------------
 
 
 def _coordinator(uid, *, discord_id='900', dm_notifications=True):
@@ -500,11 +455,6 @@ class TestUpdateShiftReasks:
                                 user=SimpleNamespace(id=42))
         notify = await self._update(service, [draft], starts_at=_dt(16), ends_at=_dt(20))
         notify.assert_not_awaited()
-
-
-# ---------------------------------------------------------------------------
-# coverage
-# ---------------------------------------------------------------------------
 
 
 class TestCoverage:

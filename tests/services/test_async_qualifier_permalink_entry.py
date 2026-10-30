@@ -37,8 +37,6 @@ async def _pool(service, staff, *, preset_id=None):
     return await service.create_pool(staff, q.id, name='Pool A', preset_id=preset_id)
 
 
-# ============================================================== the pure rule
-
 @pytest.mark.parametrize('url', [
     'https://alttpr.com/en/h/AbCdEf1234',
     'http://localhost:8000/seed/1',            # a dev generator, and http is fine
@@ -72,8 +70,6 @@ def test_the_refusal_quotes_the_line_but_not_all_of_it():
     assert len(error) < 120
     assert '…' in error
 
-
-# ======================================================= the three entry paths
 
 async def test_add_permalink_refuses_a_non_url(db):
     service = AsyncQualifierService()
@@ -140,8 +136,6 @@ async def test_bulk_where_every_line_is_bad_creates_nothing(db):
     assert len(result.rejected) == 2
     assert await AsyncQualifierPermalink.filter(pool_id=pool.id).count() == 0
 
-
-# ========================================================= the roll refusal
 
 async def test_roll_refusal_reads_the_same_answer_the_service_enforces(db):
     """The page asks this before offering the button; the service asks it again."""

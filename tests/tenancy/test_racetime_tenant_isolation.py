@@ -25,7 +25,7 @@ async def test_race_room_profile_reads_are_isolated(two_tenants):
 
     with tenant_scope(a.id):
         assert [p.id for p in await repo.list_all()] == [pa.id]
-        assert await repo.get_by_id(pb.id) is None  # B's profile invisible to A
+        assert await repo.get_by_id(pb.id) is None
         assert (await repo.get_by_name('House')).id == pa.id
     with tenant_scope(b.id):
         assert [p.id for p in await repo.list_all()] == [pb.id]
@@ -42,7 +42,7 @@ async def test_racetime_room_scoped_reads_are_isolated(two_tenants):
 
     with tenant_scope(a.id):
         assert [r.id for r in await repo.list_all()] == [ra.id]
-        assert await repo.get_by_id(rb.id) is None  # B's room invisible to A
+        assert await repo.get_by_id(rb.id) is None
     with tenant_scope(b.id):
         assert [r.id for r in await repo.list_all()] == [rb.id]
 
@@ -68,7 +68,6 @@ async def test_bot_grants_do_not_leak_across_tenants(two_tenants):
     await repo.create_grant(bot.id, a.id)
 
     assert [x.id for x in await repo.list_active_for_tenant(a.id)] == [bot.id]
-    # B holds no grant — the global bot must not surface for it.
     assert await repo.list_active_for_tenant(b.id) == []
 
 

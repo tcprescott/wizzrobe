@@ -47,8 +47,6 @@ async def _set_key(staff, *, limit: int = 20) -> None:
                                    api_key='mock-key', daily_limit=limit)
 
 
-# --- the sealed key -----------------------------------------------------------
-
 def test_secret_box_round_trips_only_in_its_own_context():
     token = secret_box.seal('sk-real', purpose='ai', context='tenant:1')
     assert token.startswith('v1:') and 'sk-real' not in token
@@ -58,8 +56,6 @@ def test_secret_box_round_trips_only_in_its_own_context():
     assert secret_box.open_('v1:garbage', purpose='ai', context='tenant:1') is None
     assert secret_box.open_('', purpose='ai', context='tenant:1') is None
 
-
-# --- the provider setting -----------------------------------------------------
 
 async def test_provider_save_keeps_the_key_out_of_status_and_audit(world):
     service = AiProviderService()
@@ -107,8 +103,6 @@ async def test_provider_key_stays_in_its_community(world, two_tenants):
     with tenant_scope(tenant_b.id):
         assert await AiProviderService().resolve() is None
 
-
-# --- suggestions ----------------------------------------------------------------
 
 async def test_suggest_needs_a_provider(world):
     with pytest.raises(ValueError, match='Set up an AI provider'):

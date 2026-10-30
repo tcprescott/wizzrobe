@@ -45,9 +45,6 @@ async def make_user(discord_id: int, username: str = 'u', challonge_user_id=None
     )
 
 
-# ----------------------------------------------------------------------
-# save_service_connection
-# ----------------------------------------------------------------------
 class TestSaveServiceConnection:
     async def test_persists_connection_and_resolves_username(self, db):
         actor = await make_user(1, 'admin')
@@ -91,9 +88,6 @@ class TestSaveServiceConnection:
             await make_service(oauth=oauth).save_service_connection({'refresh_token': 'r'}, actor)
 
 
-# ----------------------------------------------------------------------
-# disconnect / get_connection_status
-# ----------------------------------------------------------------------
 class TestDisconnect:
     async def test_clears_existing_connection(self, db):
         actor = await make_user(1, 'admin')
@@ -124,9 +118,6 @@ class TestConnectionStatus:
         assert 'request_quota' not in status
 
 
-# ----------------------------------------------------------------------
-# link_tournament
-# ----------------------------------------------------------------------
 class TestLinkTournament:
     def _full(self, tid='T1', url='https://challonge.com/spring25', participants=None, matches=None):
         return {
@@ -221,9 +212,6 @@ class TestLinkTournament:
             )
 
 
-# ----------------------------------------------------------------------
-# _map_state (pure)
-# ----------------------------------------------------------------------
 class TestMapState:
     def test_open(self):
         assert ChallongeService._map_state('open') == ChallongeMatchState.OPEN
@@ -239,9 +227,6 @@ class TestMapState:
         assert ChallongeService._map_state(None) == ChallongeMatchState.PENDING
 
 
-# ----------------------------------------------------------------------
-# push_result_if_linked / push_match_result edge + error paths
-# ----------------------------------------------------------------------
 class TestPushEdgeCases:
     async def _linked_setup(self, tournament_challonge_id='T1', p2_user_matches=True):
         """Build a match linked to a Challonge match with a recorded winner.
@@ -524,9 +509,6 @@ class TestPushEdgeCases:
         assert await AuditLog.filter(action=AuditActions.CHALLONGE_RESULT_PUSH_FAILED).count() == 1
 
 
-# ----------------------------------------------------------------------
-# Player OAuth code exchange
-# ----------------------------------------------------------------------
 class TestExchangeCode:
     async def test_exchange_player_code_returns_identity(self, db):
         oauth = MagicMock()
@@ -549,9 +531,6 @@ class TestExchangeCode:
         assert result == {'access_token': 'svc', 'scope': 'me'}
 
 
-# ----------------------------------------------------------------------
-# list_unscheduled_matches_for_user (repository passthrough)
-# ----------------------------------------------------------------------
 class TestListUnscheduledMatches:
     async def test_returns_open_unscheduled_matches_for_user(self, db):
         user = await make_user(1, 'alice', challonge_user_id='1001')

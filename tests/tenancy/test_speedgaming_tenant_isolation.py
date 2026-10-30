@@ -35,7 +35,7 @@ async def test_event_link_reads_are_isolated(tenants_with_tournaments):
 
     with tenant_scope(a.id):
         assert [x.id for x in await repo.list_all()] == [la.id]
-        assert await repo.get_by_id(lb.id) is None  # B's link invisible to A
+        assert await repo.get_by_id(lb.id) is None
     with tenant_scope(b.id):
         assert [x.id for x in await repo.list_all()] == [lb.id]
         assert await repo.get_by_id(la.id) is None

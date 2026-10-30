@@ -39,7 +39,6 @@ def test_mint_then_claim_roundtrips():
 def test_claim_is_single_use():
     token = _mint()
     assert h.claim(token, 'foo.gg') is not None
-    # Second presentation of the same token finds no nonce -> rejected.
     assert h.claim(token, 'foo.gg') is None
 
 
@@ -77,7 +76,7 @@ def test_host_normalization_is_consistent():
     assert h.claim(token, 'foo.gg') is not None
 
 
-# --- auth-layer helpers (imported under MOCK_DISCORD; its live client rejects null token)
+# Imported under MOCK_DISCORD; its live client rejects a null token.
 
 @pytest.fixture
 def auth(monkeypatch):

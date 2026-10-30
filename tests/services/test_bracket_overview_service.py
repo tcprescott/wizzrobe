@@ -52,11 +52,6 @@ def _find(view, set_id):
     return next(s for p in view.phases for pool in p.pools for s in pool.sets if s.id == set_id)
 
 
-# ---------------------------------------------------------------------------
-# start.gg
-# ---------------------------------------------------------------------------
-
-
 @pytest.fixture
 def startgg(monkeypatch):
     class Fake:
@@ -176,11 +171,6 @@ async def test_an_inactive_tournament_is_hidden_from_players(db, startgg):
     assert (await BracketOverviewService().get_tournament_bracket(staff, tournament.id)).phases
 
 
-# ---------------------------------------------------------------------------
-# Native
-# ---------------------------------------------------------------------------
-
-
 async def test_native_bracket_feeders_names_and_standings(db):
     staff = await _staff()
     tournament, bracket, (semi1, semi2, final), _ = await _native_elim()
@@ -223,11 +213,6 @@ async def test_native_unpublished_bracket_is_not_found_for_players(db):
         await BracketOverviewService().get_tournament_bracket(await _player(), tournament.id)
     view = await BracketOverviewService().get_tournament_bracket(await _staff(), tournament.id)
     assert view.phases
-
-
-# ---------------------------------------------------------------------------
-# Challonge
-# ---------------------------------------------------------------------------
 
 
 async def test_challonge_reads_the_mirror_without_calling_challonge(db, monkeypatch):

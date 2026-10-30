@@ -61,11 +61,6 @@ async def _app_token(*, scope: Optional[str], roles=None, username='app-user') -
     return raw
 
 
-# ---------------------------------------------------------------------------
-# The table
-# ---------------------------------------------------------------------------
-
-
 def test_every_route_has_a_scope_decision():
     live = {key for key, _, _ in _routes()}
     missing = sorted(live - set(ROUTE_SCOPES))
@@ -122,11 +117,6 @@ def test_parse_and_format_round_trip_and_drop_unknown_names():
     assert parse_scope(None) == frozenset()
     assert format_scope({ApiScope.STAFF_READ, ApiScope.PROFILE}) == 'profile staff:read'
     assert parse_scope(format_scope(ALL_SCOPES)) == ALL_SCOPES
-
-
-# ---------------------------------------------------------------------------
-# Enforcement
-# ---------------------------------------------------------------------------
 
 
 async def test_app_token_reaches_routes_inside_its_scope(db):

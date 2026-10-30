@@ -42,11 +42,6 @@ def to_display(y, mo, d, h=0, mi=0):
     return datetime(y, mo, d, h, mi, tzinfo=EASTERN_TZ)
 
 
-# ---------------------------------------------------------------------------
-# bucket_start
-# ---------------------------------------------------------------------------
-
-
 class TestBucketStart:
     def test_week_snaps_to_monday(self):
         # 2025-10-23 is a Thursday; Monday of that week is 2025-10-20.
@@ -57,11 +52,6 @@ class TestBucketStart:
 
     def test_month_snaps_to_first(self):
         assert AnalyticsService.bucket_start(date(2025, 10, 23), 'month') == date(2025, 10, 1)
-
-
-# ---------------------------------------------------------------------------
-# iter_bucket_starts
-# ---------------------------------------------------------------------------
 
 
 class TestIterBucketStarts:
@@ -101,11 +91,6 @@ class TestIterBucketStarts:
         assert len(starts) == MAX_BUCKETS
 
 
-# ---------------------------------------------------------------------------
-# bucket_label / _bucket_index
-# ---------------------------------------------------------------------------
-
-
 class TestBucketLabel:
     def test_week_label_is_iso_date(self):
         assert AnalyticsService.bucket_label(date(2025, 10, 20), 'week') == '2025-10-20'
@@ -140,11 +125,6 @@ class TestBucketIndex:
         assert starts[idx] == date(2025, 10, 13)
 
 
-# ---------------------------------------------------------------------------
-# health_score
-# ---------------------------------------------------------------------------
-
-
 class TestHealthScore:
     def test_single_component(self):
         assert AnalyticsService.health_score([(1.0, 0.3)]) == 100.0
@@ -168,11 +148,6 @@ class TestHealthScore:
 
     def test_zero_weight_ignored(self):
         assert AnalyticsService.health_score([(0.5, 0.0)]) is None
-
-
-# ---------------------------------------------------------------------------
-# _finalize_health (pure, deterministic — no now())
-# ---------------------------------------------------------------------------
 
 
 def _stats(**overrides):
@@ -256,11 +231,6 @@ class TestFinalizeHealth:
         assert row['health_score'] == expected
 
 
-# ---------------------------------------------------------------------------
-# _duration_hours / _normalize_bucket
-# ---------------------------------------------------------------------------
-
-
 class TestDurationHours:
     def test_normal(self):
         assert AnalyticsService._duration_hours(utc(2025, 1, 1, 12), utc(2025, 1, 1, 15)) == 3.0
@@ -280,11 +250,6 @@ class TestNormalizeBucket:
         assert AnalyticsService._normalize_bucket('week') == 'week'
         assert AnalyticsService._normalize_bucket(None) == 'week'
         assert AnalyticsService._normalize_bucket('garbage') == 'week'
-
-
-# ---------------------------------------------------------------------------
-# DB-backed aggregations
-# ---------------------------------------------------------------------------
 
 
 WINDOW_START = to_display(2025, 10, 1)
@@ -497,11 +462,6 @@ class TestActivityTrendsDB:
         assert by_cat['crew']['counts'] == [0, 0, 0, 1, 0]
         # sorted by total volume descending
         assert out['categories'][0]['category'] == 'match'
-
-
-# ---------------------------------------------------------------------------
-# activity_extent — what the Insights page opens on
-# ---------------------------------------------------------------------------
 
 
 class TestActivityExtent:

@@ -62,8 +62,6 @@ async def _pool_with_permalink(client, qualifier_id, pool_name='Pool A'):
     return pool_id
 
 
-# --- baseline auth --------------------------------------------------------
-
 class TestBaseline:
     async def test_list_qualifiers_admin_ok(self, db, app):
         _, raw = await _admin_token()
@@ -96,8 +94,6 @@ class TestBaseline:
             resp = await c.post('/api/async-qualifiers', json={'name': 'X'})
             assert resp.status_code == 403
 
-
-# --- admin management (QUALIFIER_ADMIN, not STAFF) ------------------------
 
 class TestAdminManagement:
     async def test_qualifier_admin_can_create_and_get(self, db, app):
@@ -215,8 +211,6 @@ class TestAdminManagement:
             assert deleted_pool.status_code == 204
 
 
-# --- open / public reads --------------------------------------------------
-
 class TestPublicReads:
     async def test_open_route_precedes_id_and_lists_active(self, db, app):
         _, raw = await _admin_token()
@@ -258,8 +252,6 @@ class TestPublicReads:
             rows = [q for q in open_list.json() if q['id'] == qid]
             assert rows and 'config' not in rows[0]
 
-
-# --- player run lifecycle + review ---------------------------------------
 
 class TestRunLifecycle:
     async def test_start_then_submit_own_run(self, db, app):
@@ -304,7 +296,6 @@ class TestRunLifecycle:
             assert resp.status_code == 400, resp.text
             assert 'longer than the run itself' in resp.json()['detail']
 
-            # Refused, not terminated — the run is still submittable.
             active = await c.get(f'/api/async-qualifiers/{qid}/me/active-run')
             assert active.json()['id'] == run_id
 
@@ -402,7 +393,6 @@ class TestRunLifecycle:
             assert granted.json()['reattempted'] is True
 
         async with client_for(app, runner_raw) as rc:
-            # The slot is free again despite the spent-nothing allowance.
             pools = await rc.get(f'/api/async-qualifiers/{qid}/pools/available')
             assert [p['id'] for p in pools.json()] == [pool_id]
 
@@ -424,14 +414,11 @@ class TestRunLifecycle:
             assert resp.json() == []
 
 
-# --- leaderboard lockdown -------------------------------------------------
-
 class TestLeaderboard:
     async def test_hidden_while_open_for_non_admin(self, db, app):
         _, admin_raw = await _admin_token()
         async with client_for(app, admin_raw) as c:
             qid = await _open_qualifier(c, name='Locked')
-            # Admin can see it even while open.
             admin_board = await c.get(f'/api/async-qualifiers/{qid}/leaderboard')
             assert admin_board.status_code == 200
         _, plain_raw = await create_user_token(username='peeker')

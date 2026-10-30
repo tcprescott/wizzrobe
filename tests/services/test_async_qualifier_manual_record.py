@@ -66,8 +66,6 @@ async def _live_race(qsvc, lrsvc, staff, *, runs_per_pool: int = 1, permalink: b
     return q, pool, pl, race
 
 
-# ==================================================== the manual record itself
-
 async def test_a_hand_recorded_race_scores_exactly_like_a_racetime_one(db):
     qsvc, lrsvc = AsyncQualifierService(), AsyncQualifierLiveRaceService()
     staff = await _staff()
@@ -117,7 +115,6 @@ async def test_the_race_start_is_derived_so_a_run_has_a_duration(db):
         assert run.finished_at > run.started_at
         # Each finisher's own finish is their start plus their own time.
         assert int((run.finished_at - run.started_at).total_seconds()) == run.elapsed_seconds
-        # And the Timed column has something to show.
         assert run.measured_seconds == run.elapsed_seconds
     assert by_user[slow.id].finished_at > by_user[fast.id].finished_at
 
@@ -217,8 +214,6 @@ async def test_a_non_admin_cannot_record_a_race(db):
             outsider, race.id, [ManualResult(outsider.id, AsyncQualifierRunStatus.FINISHED, 1000)])
 
 
-# ================================================= the unmatched-handle to-do
-
 async def test_an_unmatched_handle_is_recorded_on_the_race_not_just_the_audit(db):
     """Nobody reads the audit log looking for work, so the race carries the to-do."""
     qsvc, lrsvc = AsyncQualifierService(), AsyncQualifierLiveRaceService()
@@ -237,7 +232,6 @@ async def test_an_unmatched_handle_is_recorded_on_the_race_not_just_the_audit(db
     assert race.unmatched_handles == ['Stranger']
     assert await AsyncQualifierRun.filter(live_race_id=race.id).count() == 1
 
-    # Link the account and record again: the to-do clears itself.
     await User.filter(id=(await _racer(931092, 'stranger')).id).update(
         racetime_user_id='rt-stranger')
     await lrsvc.record_finish(race, [

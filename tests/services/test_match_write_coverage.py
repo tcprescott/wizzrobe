@@ -52,11 +52,6 @@ def captured_events():
     event_bus.unsubscribe(token)
 
 
-# ---------------------------------------------------------------------------
-# create_match
-# ---------------------------------------------------------------------------
-
-
 class TestCreateMatch:
     async def test_full_create_with_crew_and_stream_candidate(self, service, db, captured_events):
         actor = await make_staff()
@@ -86,7 +81,6 @@ class TestCreateMatch:
 
         player_ids = {p.user_id for p in await MatchPlayers.filter(match=match)}
         assert player_ids == {alice.id, bob.id}
-        # fresh players are auto-enrolled in the tournament (covers enrollment branch)
         assert await TournamentPlayers.filter(tournament=t, user=alice).exists()
 
         comms = await Commentator.filter(match=match)
@@ -232,11 +226,6 @@ class TestCreateMatch:
             actor=actor,
         )
         assert await TournamentPlayers.filter(tournament=t, user=player).count() == 1
-
-
-# ---------------------------------------------------------------------------
-# update_match
-# ---------------------------------------------------------------------------
 
 
 async def _seed_match(service, actor, tournament, player_ids, **kwargs):
@@ -437,11 +426,6 @@ class TestUpdateMatch:
             await service.update_match(match_id=match.id, commentator_ids=[424242], actor=actor)
 
 
-# ---------------------------------------------------------------------------
-# admin-assigned crew is an approval
-# ---------------------------------------------------------------------------
-
-
 def _crew_ack_dms(captured):
     return [c for c in captured if c.cr_code.co_name == "send_dm_with_crew_acknowledgment_button"]
 
@@ -552,11 +536,6 @@ class TestAdminAssignedCrew:
         assert len(_approval_events(captured_events)) == 1
         assert _crew_ack_dms(stub_discord_queue) == []
         assert "send_dm" not in [c.cr_code.co_name for c in stub_discord_queue]
-
-
-# ---------------------------------------------------------------------------
-# a player taken off the line-up is told
-# ---------------------------------------------------------------------------
 
 
 def _removed_player_dms(captured):

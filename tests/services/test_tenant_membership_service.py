@@ -128,11 +128,6 @@ async def test_addable_users_never_offers_the_system_actor(staff, db):
     assert 'System' not in names
 
 
-# ---------------------------------------------------------------------------
-# The door: requests to join
-# ---------------------------------------------------------------------------
-
-
 async def _age_decision(request_id: int, *, days: int) -> None:
     """Move a decision ``days`` into the past, past (or inside) the cooldown."""
     from datetime import datetime, timedelta, timezone
@@ -362,11 +357,6 @@ async def test_requests_switched_off_leave_the_pending_queue_decidable(staff, ca
     assert await service.is_member(outsider) is True
 
 
-# ---------------------------------------------------------------------------
-# Every way in closes the queue; the cooldown; who hears about what
-# ---------------------------------------------------------------------------
-
-
 @pytest.fixture
 def dm_log(monkeypatch):
     """Each DM's recipient, text and button, without a Discord connection."""
@@ -456,7 +446,6 @@ async def test_declining_someone_already_a_member_is_refused(staff, dm_log, db):
     assert 'already a member' in str(exc.value)
     assert (await TenantJoinRequest.get(id=request.id)).status is JoinRequestStatus.PENDING
     assert await dm_log() == []
-    # Approve still clears it.
     await service.approve_request(staff, request.id)
     assert await service.list_pending() == []
 
@@ -539,11 +528,6 @@ async def test_removing_a_member_tells_them(staff, dm_log, db):
     [dm] = await dm_log()
     assert dm['to'] == 4408
     assert 'removed you' in dm['text']
-
-
-# ---------------------------------------------------------------------------
-# Auto-join wins: removal and decline copy say so; who closed what
-# ---------------------------------------------------------------------------
 
 
 async def _auto_join_on() -> None:

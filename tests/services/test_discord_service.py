@@ -11,11 +11,6 @@ START = datetime(2026, 7, 28, 18, 30, tzinfo=timezone.utc)
 END = START + timedelta(hours=1)
 
 
-# ---------------------------------------------------------------------------
-# MockDiscordService — always available in test environments
-# ---------------------------------------------------------------------------
-
-
 @pytest.fixture
 def mock_svc(db):
     """Directly instantiate MockDiscordService (no Discord bot needed)."""
@@ -91,11 +86,6 @@ class TestMockDiscordService:
         assert mock_svc.get_bot() is None
 
 
-# ---------------------------------------------------------------------------
-# DiscordService error branches via a stub bot
-# ---------------------------------------------------------------------------
-
-
 @pytest.fixture
 def real_svc_not_ready(monkeypatch):
     """DiscordService backed by a stub bot that is never 'ready'.
@@ -124,7 +114,7 @@ class TestDiscordServiceNotReady:
     async def test_send_dm_fails_gracefully(self, real_svc_not_ready):
         ok, msg = await real_svc_not_ready.send_dm(123, 'hi')
         assert ok is False
-        assert msg  # non-empty error string
+        assert msg
 
     async def test_list_guilds_fails_gracefully(self, real_svc_not_ready):
         ok, msg = await real_svc_not_ready.list_guilds()
@@ -273,9 +263,6 @@ class TestMockAuthorityHelpers:
         assert data['id'] == 7
 
 
-# ---------------------------------------------------------------------------
-# The Discord library itself
-#
 # py-cord and discord.py are hard forks that both install into the same
 # top-level ``discord/`` package, so installing both leaves whichever unpacked
 # last owning the shared modules. That happened here: py-cord shadowed
@@ -284,7 +271,6 @@ class TestMockAuthorityHelpers:
 # while the suite stayed green (they are only ever reached through
 # MockDiscordService). These tests pin the library identity and the exact
 # signatures the service depends on.
-# ---------------------------------------------------------------------------
 
 
 class TestDiscordLibraryIdentity:
@@ -419,11 +405,6 @@ class TestScheduledEventKwargs:
         assert ok is False
         # DiscordEventReconcilerService keys its re-create branch off this text.
         assert 'not found' in msg.lower()
-
-
-# ---------------------------------------------------------------------------
-# The Discord on/off switch is enforced at the DM chokepoint
-# ---------------------------------------------------------------------------
 
 
 @pytest.fixture

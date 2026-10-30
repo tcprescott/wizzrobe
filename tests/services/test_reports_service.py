@@ -18,10 +18,6 @@ from application.services.reports_service import (
 )
 from application.utils.timezone import EASTERN_TZ, to_local
 
-# ---------------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------------
-
 
 def make_match(
     *,
@@ -63,11 +59,6 @@ def naive(year, month, day, hour=0, minute=0) -> datetime:
     return datetime(year, month, day, hour, minute)
 
 
-# ---------------------------------------------------------------------------
-# _local: naive treated as UTC
-# ---------------------------------------------------------------------------
-
-
 class TestEastern:
     def test_returns_none_for_none(self):
         assert ReportsService._local(None) is None
@@ -98,11 +89,6 @@ class TestEastern:
         result = ReportsService._local(dt)
         assert result.hour == 14
         assert result.minute == 30
-
-
-# ---------------------------------------------------------------------------
-# _match_window
-# ---------------------------------------------------------------------------
 
 
 class TestMatchWindow:
@@ -234,11 +220,6 @@ class TestMatchWindow:
         assert we >= ws
 
 
-# ---------------------------------------------------------------------------
-# _auto_interval_minutes
-# ---------------------------------------------------------------------------
-
-
 class TestAutoIntervalMinutes:
     def test_less_than_24h_gives_15min(self):
         s = to_display(2025, 10, 23, 0, 0)
@@ -264,11 +245,6 @@ class TestAutoIntervalMinutes:
         s = to_display(2025, 10, 23, 0, 0)
         e = s + timedelta(hours=96)
         assert ReportsService._auto_interval_minutes(s, e) == 60
-
-
-# ---------------------------------------------------------------------------
-# peak_times
-# ---------------------------------------------------------------------------
 
 
 class TestPeakTimes:
@@ -298,11 +274,6 @@ class TestPeakTimes:
         counts = [5, 3]
         peaks = ReportsService.peak_times(intervals, counts, top_n=10)
         assert len(peaks) == 2
-
-
-# ---------------------------------------------------------------------------
-# event_day_bounds
-# ---------------------------------------------------------------------------
 
 
 class TestEventDayBounds:

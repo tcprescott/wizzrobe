@@ -118,7 +118,6 @@ async def test_editing_an_arranged_request_keeps_it_arranged_and_flags_it(member
     # What staff arranged against, not the intermediate autosave.
     assert request.arranged_details == 'a'
     assert request.details == 'a, and also c'
-    # Still on the boards.
     assert await service.arranged_notes_for(staff, [member.id]) == {member.id: 'chair'}
     assert await service.action_needed_count(staff) == 1
 
@@ -213,7 +212,6 @@ async def test_staff_cannot_withdraw_or_reopen_on_a_members_behalf(member, staff
     await service.set_my_request(member, False)
     with pytest.raises(ValueError):
         await service.update_request(staff, request.id, AccommodationStatus.NEW, None)
-    # Notes on a withdrawn request are still editable.
     await service.update_request(staff, request.id, AccommodationStatus.WITHDRAWN, 'closed out')
     await request.refresh_from_db()
     assert request.staff_notes == 'closed out'
@@ -303,11 +301,6 @@ async def test_schedule_notes_are_empty_when_the_flag_is_off(member, staff):
     assert await AccommodationService().arranged_notes_for(staff, [member.id]) == {}
 
 
-# ---------------------------------------------------------------------------
-# Staff notifications and the action-needed count
-# ---------------------------------------------------------------------------
-
-
 @pytest.fixture
 def captured_dms(monkeypatch):
     """Collect each DM's text and button, without a Discord connection."""
@@ -368,7 +361,6 @@ async def test_the_count_covers_only_requests_needing_action(member, staff):
     assert await service.action_needed_count(staff) == 1
     await service.update_request(staff, request.id, AccommodationStatus.ARRANGED, None)
     assert await service.action_needed_count(staff) == 0
-    # Still an open request for the Users-tab filter.
     assert await service.requesting_user_ids(staff) == {member.id}
 
 

@@ -23,11 +23,6 @@ def _client(app, raw_token: str | None = None) -> AsyncClient:
     return AsyncClient(transport=ASGITransport(app=app), base_url='http://test', headers=headers)
 
 
-# ---------------------------------------------------------------------------
-# Service: creation, hashing, authentication
-# ---------------------------------------------------------------------------
-
-
 class TestApiTokenService:
     async def test_create_returns_plaintext_and_stores_only_hash(self, db):
         user = await _user()
@@ -83,11 +78,6 @@ class TestApiTokenService:
             )
 
 
-# ---------------------------------------------------------------------------
-# Endpoints + auth dependency
-# ---------------------------------------------------------------------------
-
-
 class TestTokenEndpoints:
     async def test_list_and_create(self, db, app):
         user = await _user()
@@ -103,7 +93,6 @@ class TestTokenEndpoints:
             assert listed.status_code == 200
             names = {t['name'] for t in listed.json()}
             assert {'bootstrap', 'second'} <= names
-            # The secret is never returned by the list endpoint.
             assert all('token' not in t for t in listed.json())
 
     async def test_a_token_cannot_mint_one_that_outlives_it(self, db, app):
@@ -128,7 +117,6 @@ class TestTokenEndpoints:
         async with _client(app, raw) as c:
             resp = await c.delete(f'/api/tokens/{token.id}')
             assert resp.status_code == 204
-        # The token no longer authenticates.
         assert await ApiTokenService().authenticate(raw) is None
 
     async def test_missing_token_is_401(self, db, app):
@@ -145,8 +133,6 @@ class TestTokenEndpoints:
         user = await _user()
         _, raw = await ApiTokenService().create_token(user, name='ro', read_only=True)
         async with _client(app, raw) as c:
-            # Reads are allowed.
             assert (await c.get('/api/tokens')).status_code == 200
-            # Writes (creating/revoking tokens) are rejected with 403.
             blocked = await c.post('/api/tokens', json={'name': 'escalate'})
             assert blocked.status_code == 403

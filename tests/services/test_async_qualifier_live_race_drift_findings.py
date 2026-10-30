@@ -73,8 +73,6 @@ async def _live_race(qsvc, lrsvc, staff, *, runs_per_pool: int = 2, permalink: b
     return q, pool, pl, race
 
 
-# ============================================== T2.1 the erased unmatched to-do
-
 async def test_a_hand_recorded_race_keeps_the_handles_it_did_not_record(db):
     """The to-do outlives a manual record that had nothing to do with it.
 
@@ -155,8 +153,6 @@ async def test_a_handle_matching_nobody_recorded_is_left_standing(db):
     assert race.unmatched_handles is None
 
 
-# ================================== T3.1 the finisher racetime sent without a time
-
 async def test_both_capture_paths_ask_the_same_question_of_a_finisher(db):
     """The predicate is shared, so a finish with no time cannot be a finish in one path.
 
@@ -223,8 +219,6 @@ async def test_the_racer_racetime_could_not_time_is_recordable_by_hand(db):
     assert race.unmatched_handles is None
 
 
-# ======================================= T5.12 the permalink that had no "later"
-
 async def test_a_scheduled_race_can_be_given_the_permalink_it_was_created_without(db):
     """"(assign later)" had no later: no page control and no route set one.
 
@@ -290,8 +284,6 @@ async def test_a_non_admin_cannot_assign_a_permalink(db):
     with pytest.raises(PermissionError):
         await lrsvc.assign_permalink(outsider, race.id, pl.id)
 
-
-# ============================================= T2.2 the silently dropped row
 
 def test_a_blank_row_is_named_rather_than_dropped():
     """Four rows filled, one blank, and the answer used to be "Recorded 3 run(s)"."""

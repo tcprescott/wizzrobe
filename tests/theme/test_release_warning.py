@@ -42,8 +42,6 @@ def test_an_already_started_shift_says_so():
     assert 'already started' in release_warning(_in(-1), 60)
 
 
-# --- which actions a shift row offers --------------------------------
-
 def _card(*, ends_in_hours: float, acknowledged: bool = False, checked_in: bool = False):
     now = datetime.now(timezone.utc)
     return SimpleNamespace(

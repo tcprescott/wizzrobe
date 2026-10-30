@@ -52,9 +52,6 @@ async def _flag_off(tenant_id: int = TENANT) -> None:
     reset_flag_cache()
 
 
-# --- Discovery ----------------------------------------------------------------
-
-
 async def test_metadata_is_served_at_the_path_insertion_location():
     async with client() as http:
         resp = await http.get('/.well-known/oauth-authorization-server/oauth')
@@ -65,9 +62,6 @@ async def test_metadata_is_served_at_the_path_insertion_location():
     assert doc['code_challenge_methods_supported'] == ['S256']
     assert 'client_credentials' not in doc['grant_types_supported']
     assert 'staff:write' in doc['scopes_supported']
-
-
-# --- Authorize ----------------------------------------------------------------
 
 
 async def test_unknown_client_and_unregistered_redirect_never_redirect():
@@ -128,9 +122,6 @@ async def test_a_disabled_app_cannot_start_a_sign_in():
     assert resp.status_code == 400
 
 
-# --- Consent ------------------------------------------------------------------
-
-
 async def test_consent_drops_staff_scopes_for_a_player_and_keeps_them_for_staff():
     owner, member = await _owner_and_member()
     staff, _ = await create_user_token(username='boss', roles=[Role.STAFF])
@@ -173,9 +164,6 @@ async def test_deny_sends_access_denied_and_spends_the_request():
     assert back['error'] == 'access_denied' and back['state'] == 'st4te'
     with pytest.raises(ValueError):
         OAuthGrantService().get_pending(txn)
-
-
-# --- Token exchange -----------------------------------------------------------
 
 
 async def test_confidential_app_full_flow_and_grant_is_narrowed():
@@ -298,9 +286,6 @@ async def test_approving_again_replaces_the_old_grant():
         assert (await api.get('/api/users/me')).status_code == 401
 
 
-# --- Refresh ------------------------------------------------------------------
-
-
 async def _refresh(http, app, secret, refresh_token, scope=None):
     data = {'grant_type': 'refresh_token', 'refresh_token': refresh_token}
     if scope is not None:
@@ -361,9 +346,6 @@ async def test_refresh_stops_when_the_member_leaves():
         await TenantMembership.filter(user_id=member.id, tenant_id=TENANT).delete()
         resp = await _refresh(http, app, secret, tokens['refresh_token'])
     assert resp.json()['error'] == 'invalid_grant'
-
-
-# --- Revocation and kill switches -----------------------------------------------
 
 
 async def test_revoke_endpoint_ends_the_grant_with_either_half():

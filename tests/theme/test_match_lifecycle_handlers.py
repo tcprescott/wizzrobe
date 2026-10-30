@@ -107,8 +107,6 @@ def test_the_proctor_board_declares_only_the_run_capability():
     assert 'submit_match_callback' not in src
 
 
-# --- The Stage select: one control for two different fields -----------------
-
 class _Recorder:
     """Stands in for ``MatchService``, recording what the handler asked for."""
 
@@ -213,8 +211,6 @@ async def test_a_refused_write_still_refreshes_the_row(monkeypatch):
     assert handlers.table_view.refreshed == [7]
     assert [str(e) for e in handlers.notified] == ['nope']
 
-
-# --- Start asks again for stations skipped at check-in ------------------------
 
 def _start_handlers(monkeypatch, *, stage_id=None, stations=(None, None)):
     """Handlers whose one match is checked in with the given stations."""

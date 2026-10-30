@@ -57,7 +57,6 @@ async def test_draw_reveals_permalink_and_blocks_second_active(db):
     assert run.status == AsyncQualifierRunStatus.IN_PROGRESS
     assert run.permalink is not None and run.permalink.url in {'https://seed.test/u1', 'https://seed.test/u2'}
 
-    # Second concurrent draw blocked while one is active.
     with pytest.raises(ValueError):
         await service.start_run(player, q.id, pool.id)
 
@@ -135,7 +134,6 @@ async def test_forfeit_is_terminal_and_scores_zero(db):
     forfeited = await service.forfeit_run(player, run.id)
     assert forfeited.status == AsyncQualifierRunStatus.FORFEIT
     assert forfeited.score == 0.0
-    # can't submit a forfeited run
     with pytest.raises(ValueError):
         await submit(service, player, run, 1000)
 
@@ -159,7 +157,6 @@ async def test_reattempt_requires_reason_and_is_limited(db):
     run2 = await service.start_run(player, q.id, pool.id)
     assert run2.status == AsyncQualifierRunStatus.IN_PROGRESS
     await service.forfeit_run(player, run2.id)
-    # Only one reattempt allowed.
     with pytest.raises(ValueError):
         await service.reattempt_run(player, run2.id, reason='again')
 
@@ -177,7 +174,6 @@ async def test_leaderboard_locked_down_while_active(db):
     # Non-staff cannot see the board while the qualifier is open.
     with pytest.raises(PermissionError):
         await service.get_leaderboard(player, q.id)
-    # Staff can.
     board = await service.get_leaderboard(staff, q.id)
     assert board and board[0].actual == 100.0
 
@@ -276,8 +272,6 @@ async def test_submit_tolerates_a_run_with_no_started_at(db):
     assert submitted.elapsed_seconds == 1200
 
 
-# --- a rejection owes the runner a reason ---------------------------------
-
 async def _pending_run(service, staff, player, *, seconds=1200):
     q, pool = await open_qualifier(service, staff)
     await service.add_permalinks_bulk(staff, pool.id, urls=['https://seed.test/u1'])
@@ -336,8 +330,6 @@ async def test_approval_still_works_without_a_note(db):
     assert reviewed.review_status == AsyncQualifierReviewStatus.APPROVED
     assert await AsyncQualifierReviewNote.filter(run_id=run.id).count() == 0
 
-
-# --- a remedy someone can actually spend ----------------------------------
 
 @pytest.fixture
 def captured_dms(monkeypatch):

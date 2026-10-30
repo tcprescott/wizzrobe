@@ -82,7 +82,6 @@ class TestColumns:
 class TestRowBuilders:
     def test_a_voided_run_says_so_in_its_status(self):
         row = run_rows([_run(reattempted=True)])[0]
-        # Humanised since F8 — the raw enum was the database's vocabulary.
         assert row['status'] == 'Finished (voided)'
         assert row['grantable'] is False, 'an already-voided run offers nothing'
 

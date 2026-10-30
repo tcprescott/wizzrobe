@@ -22,13 +22,7 @@ from application.utils.csv_export import (
 
 
 def _decode(b: bytes) -> str:
-    # Strip BOM if present so we can compare against plain strings.
     return b.decode('utf-8-sig')
-
-
-# ---------------------------------------------------------------------------
-# rows_to_csv_bytes
-# ---------------------------------------------------------------------------
 
 
 class TestRowsToCsvBytes:
@@ -63,7 +57,6 @@ class TestRowsToCsvBytes:
         columns = [{'name': 'a', 'label': 'A'}, {'name': 'b', 'label': 'B'}]
         rows = [{'a': '1'}]  # no 'b'
         out = _decode(rows_to_csv_bytes(columns, rows))
-        # Second row's b cell should be empty
         assert out.splitlines()[1] == '1,'
 
     def test_output_starts_with_utf8_bom(self):
@@ -79,12 +72,7 @@ class TestRowsToCsvBytes:
         rows = [{'a': '1'}, {'a': '2'}]
         out = _decode(rows_to_csv_bytes(columns, rows))
         assert '\r\n' not in out
-        assert out.count('\n') == 3  # header + 2 rows
-
-
-# ---------------------------------------------------------------------------
-# _csv_safe_cell — formula injection defense
-# ---------------------------------------------------------------------------
+        assert out.count('\n') == 3
 
 
 class TestCsvInjectionEscaping:
@@ -140,19 +128,12 @@ class TestCsvInjectionEscaping:
         assert _csv_safe_cell(False) == 'false'
 
     def test_escaping_appears_in_full_csv_output(self):
-        # End-to-end: an injection payload survives escaping through rows_to_csv_bytes.
         columns = [{'name': 'a', 'label': 'A'}]
         payload = "=cmd|' /C calc'!A0"
         out = _decode(rows_to_csv_bytes(columns, [{'a': payload}]))
-        # The cell row should be the escaped payload (leading apostrophe before '=').
         # No CSV quoting is triggered here — the payload contains no delimiter,
         # double-quote, or newline — so the line is emitted as a literal.
         assert out.splitlines()[1] == "'" + payload
-
-
-# ---------------------------------------------------------------------------
-# _stringify
-# ---------------------------------------------------------------------------
 
 
 class TestStringify:
@@ -175,11 +156,6 @@ class TestStringify:
         assert _stringify('abc') == 'abc'
 
 
-# ---------------------------------------------------------------------------
-# timestamped_filename
-# ---------------------------------------------------------------------------
-
-
 class TestTimestampedFilename:
     def test_uses_prefix_and_default_csv_extension(self):
         name = timestamped_filename('report')
@@ -191,7 +167,6 @@ class TestTimestampedFilename:
         assert name.endswith('.tsv')
 
     def test_timestamp_is_compact_iso_z(self, monkeypatch):
-        # Pin the clock so we can assert the exact filename.
         class FixedDateTime:
             @classmethod
             def now(cls, tz=None):
@@ -199,11 +174,6 @@ class TestTimestampedFilename:
 
         monkeypatch.setattr(csv_export, 'datetime', FixedDateTime)
         assert timestamped_filename('peak') == 'peak-20251023T143015Z.csv'
-
-
-# ---------------------------------------------------------------------------
-# files_to_zip_bytes
-# ---------------------------------------------------------------------------
 
 
 class TestFilesToZipBytes:
@@ -227,10 +197,6 @@ class TestFilesToZipBytes:
         with zipfile.ZipFile(io.BytesIO(files_to_zip_bytes({'a.txt': b'x'}))) as archive:
             assert archive.getinfo('a.txt').date_time == (1980, 1, 1, 0, 0, 0)
 
-
-# ---------------------------------------------------------------------------
-# Structured cells
-# ---------------------------------------------------------------------------
 
 _PLAYERS = [
     {'name': 'Player One', 'user_id': 5, 'discord_id': '100000000022537938'},

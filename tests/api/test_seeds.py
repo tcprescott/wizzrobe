@@ -27,8 +27,6 @@ def mock_seedgen(monkeypatch):
     monkeypatch.setenv('MOCK_SEEDGEN', '1')
 
 
-# --- /randomizers ---------------------------------------------------------
-
 async def test_list_randomizers(db, app):
     # The catalogue advertises what this community can actually roll: the default
     # test tenant has no randomizer credentials, so the keyed backends are absent.
@@ -77,8 +75,6 @@ async def test_uncredentialed_randomizer_dropped_from_catalogue(db, app):
         assert 'alttpr' in names
 
 
-# --- POST /seeds ----------------------------------------------------------
-
 async def test_generate_seed_happy_path(db, app):
     _, raw = await create_user_token(username='roller', roles=[Role.PRESET_MANAGER])
     async with client_for(app, raw) as c:
@@ -97,7 +93,6 @@ async def test_generate_seed_with_preset(db, app):
 
 
 async def test_generate_seed_queued_randomizer_202(db, app):
-    # A task-queue randomizer answers 202 with a pollable task, not a permalink.
     _, raw = await create_user_token(username='roller', roles=[Role.PRESET_MANAGER])
     async with client_for(app, raw) as c:
         resp = await c.post('/api/seeds', json={'randomizer': 'dk64r'})

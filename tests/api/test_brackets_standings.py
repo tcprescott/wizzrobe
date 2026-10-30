@@ -11,8 +11,6 @@ who would advance if the stage closed now. Setup helpers are shared through
 from tests.api._bracket_api import draft, enroll, staff_token, tournament
 from tests.api_helpers import client_for, create_user_token
 
-# --- standings ------------------------------------------------------------
-
 
 class TestStandings:
     async def _round_robin(self, c, tournament, names, *, group_count=1):
@@ -71,7 +69,6 @@ class TestStandings:
             assert top['losses'] == 0
             assert top['points'] == 3.0
             assert 'buchholz' in top['tiebreakers']
-            # Rows come back in rank order.
             assert [row['rank'] for row in rows] == sorted(row['rank'] for row in rows)
             # final_rank is only persisted once the stage completes.
             assert all(row['final_rank'] is None for row in rows)
@@ -90,7 +87,6 @@ class TestStandings:
             groups = (await c.get(f'/api/brackets/{bracket_id}/standings')).json()
             assert len(groups) == 2
             assert all(len(g['rows']) == 2 for g in groups)
-            # Groups come back in ascending group_number, and no entry is doubled up.
             numbers = [g['group_number'] for g in groups]
             assert numbers == sorted(numbers)
             entry_ids = [row['entry_id'] for g in groups for row in g['rows']]
@@ -159,9 +155,6 @@ class TestStandings:
             assert r.status_code == 200
 
 
-# --- stage advancement dry run --------------------------------------------
-
-
 class TestAdvancingPreview:
     async def test_preview_matches_the_advance(self, db, app):
         _, staff = await staff_token()
@@ -178,7 +171,6 @@ class TestAdvancingPreview:
             await enroll(c, groups_id, t, ('Alice', 'Bob', 'Carol', 'Dave'))
             await c.post(f'/api/brackets/{groups_id}/start')
 
-            # The source stage must complete before it can be previewed.
             early = await c.get(
                 f'/api/brackets/advancing-preview'
                 f'?tournament_id={t.id}&from_stage_order=0'
@@ -199,8 +191,6 @@ class TestAdvancingPreview:
             assert [row['final_rank'] for row in preview.json()] == [1, 2]
             previewed = [row['entrant_id'] for row in preview.json()]
 
-            # The preview wrote nothing, and the real advance carries the same
-            # field forward.
             advanced = await c.post(
                 f'/api/brackets/advance-stage?tournament_id={t.id}',
                 json={'from_stage_order': 0},

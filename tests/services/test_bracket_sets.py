@@ -125,7 +125,6 @@ async def test_calling_off_game_one_hands_the_set_to_the_next_game(db, monkeypat
     assert await BracketSetService().labels_for([lead, last]) == {
         lead.id: 'Game 1 of 3', last.id: 'Game 2 of 3',
     }
-    # One game is open to book again.
     left = await BracketSetService().open_games(lead, 3)
     assert (left.booked, left.slots) == (2, [True])
 

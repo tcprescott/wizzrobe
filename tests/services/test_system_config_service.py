@@ -80,11 +80,6 @@ def make_user(user_id=1):
     return SimpleNamespace(id=user_id, username='staff')
 
 
-# ---------------------------------------------------------------------------
-# get_raw / get_int / get_date
-# ---------------------------------------------------------------------------
-
-
 class TestGetRaw:
     async def test_returns_value_when_present(self, stub_storage):
         stub_storage['k'] = 'v'
@@ -133,11 +128,6 @@ class TestGetDate:
         assert await SystemConfigService.get_date('d', default=None) is None
 
 
-# ---------------------------------------------------------------------------
-# set_raw — permission gate, upsert, audit
-# ---------------------------------------------------------------------------
-
-
 class TestSetRaw:
     async def test_creates_new_when_missing(self, stub_storage, bypass_audit):
         await SystemConfigService.set_raw('new_key', 'new_value', make_user())
@@ -167,7 +157,6 @@ class TestSetRaw:
     async def test_writes_audit_log_with_old_and_new_values(self, stub_storage, bypass_audit):
         stub_storage['k'] = 'before'
 
-        # Replace get_or_none to return a settable namespace.
         async def fake_get_or_none(**kwargs):
             name = kwargs.get('name')
             if name not in stub_storage:
@@ -205,11 +194,6 @@ class TestSetRaw:
 
         with pytest.raises(PermissionError):
             await SystemConfigService.set_raw('k', 'v', make_user())
-
-
-# ---------------------------------------------------------------------------
-# get_event_window — fallback chain
-# ---------------------------------------------------------------------------
 
 
 def _patch_match_minmax(monkeypatch, first_at=None, last_at=None):
@@ -293,11 +277,6 @@ class TestGetEventWindow:
         assert end == date(2025, 10, 20)
 
 
-# ---------------------------------------------------------------------------
-# get_max_concurrent_players / get_max_concurrent_stages
-# ---------------------------------------------------------------------------
-
-
 class TestGetMaxConcurrentPlayers:
     async def test_returns_default_when_unset(self, stub_storage):
         assert await SystemConfigService.get_max_concurrent_players(default=60) == 60
@@ -339,11 +318,6 @@ class TestGetMaxConcurrentStages:
             'application.services.system_config_service.event_scoped', lambda qs, *_a: qs,
         )
         assert await SystemConfigService.get_max_concurrent_stages() == 5
-
-
-# ---------------------------------------------------------------------------
-# get_station_format
-# ---------------------------------------------------------------------------
 
 
 class TestGetStationFormat:

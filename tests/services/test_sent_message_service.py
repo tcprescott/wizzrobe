@@ -106,9 +106,6 @@ async def test_the_notice_is_logged_and_an_off_notice_is_not():
     assert await SentMessage.filter(discord_id='907').count() == 1
 
 
-# ------------------------------------------------- your own messages
-
-
 async def test_anyone_reads_their_own_messages_and_only_theirs():
     from application.services.notification_catalog import MATCHUP_READY, PLAYERS, SHIFT_REMINDER, VOLUNTEERS
 

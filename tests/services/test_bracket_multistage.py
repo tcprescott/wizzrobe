@@ -27,9 +27,6 @@ from models import (
 pytestmark = pytest.mark.usefixtures("db")
 
 
-# ---------------------------------------------------------------------------
-# fixtures / builders
-# ---------------------------------------------------------------------------
 async def _staff(discord_id: int = 1234, username: str = 'staff') -> User:
     user = await User.create(discord_id=discord_id, username=username)
     await UserRole.create(user=user, role=Role.STAFF)
@@ -95,9 +92,6 @@ async def _seed_of(service, bracket_id):
     return {e.id: e.seed for e in entries}
 
 
-# ---------------------------------------------------------------------------
-# group stage -> single elimination
-# ---------------------------------------------------------------------------
 class TestGroupToSingleElim:
     async def _run(self, service):
         actor = await _staff()
@@ -140,7 +134,6 @@ class TestGroupToSingleElim:
     async def test_snake_avoids_same_group_round_one(self, service):
         actor, t, stage0, stage1 = await self._run(service)
 
-        # Source group per entrant, read off the completed stage 0.
         s0_entries = await service.list_entries(stage0.id)
         source_group = {e.entrant_id: e.group_number for e in s0_entries}
 
@@ -193,7 +186,6 @@ class TestGroupToSingleElim:
 
         s0_by_entrant = {e.entrant_id: e for e in await service.list_entries(stage0.id)}
         for s1 in await service.list_entries(stage1.id):
-            # Same tournament-level entrant identity carries across the stages.
             assert s1.entrant_id in s0_by_entrant
             assert s1.id != s0_by_entrant[s1.entrant_id].id
 
@@ -209,9 +201,6 @@ class TestGroupToSingleElim:
         assert sum(1 for e in entries if e.final_rank == 1) == 1
 
 
-# ---------------------------------------------------------------------------
-# snake seeding: no same-source-group round-1 playoff match (any group count)
-# ---------------------------------------------------------------------------
 class TestSnakeSameGroupAvoidance:
     @pytest.mark.parametrize('group_count', [2, 3, 4, 5])
     @pytest.mark.parametrize('count', [2, 3])
@@ -238,7 +227,6 @@ class TestSnakeSameGroupAvoidance:
             }},
         )
 
-        # Source group per entrant, read off the completed group stage.
         s0_entries = await service.list_entries(stage0.id)
         source_group = {e.entrant_id: e.group_number for e in s0_entries}
 
@@ -263,9 +251,6 @@ class TestSnakeSameGroupAvoidance:
             )
 
 
-# ---------------------------------------------------------------------------
-# Swiss -> top cut
-# ---------------------------------------------------------------------------
 class TestSwissToTopCut:
     async def _completed_swiss(self, service, actor, t, n, ranks):
         """Run an n-player Swiss stage 0 and finalize with explicit ranks 1..n."""
@@ -289,7 +274,6 @@ class TestSwissToTopCut:
         actor = await _staff()
         t = await Tournament.create(name='Cup')
         n = 8
-        # seed k -> final_rank k, so the top `cut` are exactly seeds 1..cut.
         ranks = {k: k for k in range(1, n + 1)}
         stage0 = await self._completed_swiss(service, actor, t, n, ranks)
 
@@ -308,7 +292,6 @@ class TestSwissToTopCut:
         )
         assert advancing_ranks == list(range(1, cut + 1))
 
-        # Seed order preserves final-rank order (rank 1 -> seed 1, ...).
         for e in s1_entries:
             assert e.seed == s0_by_entrant[e.entrant_id].final_rank
 
@@ -331,9 +314,6 @@ class TestSwissToTopCut:
         assert final.state == BracketState.COMPLETE
 
 
-# ---------------------------------------------------------------------------
-# guards
-# ---------------------------------------------------------------------------
 class TestAdvanceGuards:
     async def _round_robin_pair(self, service, actor, t, *, complete):
         stage0 = await _build_stage(
@@ -410,9 +390,6 @@ class TestAdvanceGuards:
             await service.start_bracket(actor, stage1.id)
 
 
-# ---------------------------------------------------------------------------
-# authorization + tenant scoping
-# ---------------------------------------------------------------------------
 class TestAuthAndTenant:
     async def _completed_group_stage(self, service, actor, t):
         stage0 = await _build_stage(

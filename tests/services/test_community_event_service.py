@@ -93,9 +93,6 @@ async def _actions() -> list[str]:
     return [a.action for a in await AuditLog.all().order_by('id')]
 
 
-# --- submitting ---------------------------------------------------------------
-
-
 async def test_a_member_submission_waits_for_review_and_staff_are_told(member, staff, dms):
     event = await CommunityEventService().submit(member, _draft(title='  Board games  '))
 
@@ -117,9 +114,6 @@ async def test_a_staff_submission_is_listed_straight_away(staff, dms):
         AuditActions.COMMUNITY_EVENT_SUBMITTED, AuditActions.COMMUNITY_EVENT_APPROVED,
     ]
     assert await dms() == []
-
-
-# --- posting for someone else ---------------------------------------------------
 
 
 async def test_staff_can_post_an_event_with_a_member_as_host(member, staff, dms):
@@ -247,9 +241,6 @@ async def test_bad_submissions_are_refused(member, overrides, message):
     assert not await CommunityEvent.exists()
 
 
-# --- visibility -----------------------------------------------------------------
-
-
 async def test_only_approved_events_are_listed_and_pending_ones_stay_private(member, other_member, staff):
     service = CommunityEventService()
     pending = await service.submit(member, _draft(title='Pending'))
@@ -272,9 +263,6 @@ async def test_an_event_in_progress_stays_listed_until_it_ends(staff, member):
 
     await CommunityEvent.filter(id=event.id).update(duration_minutes=20)
     assert await service.list_upcoming(member) == []
-
-
-# --- review -------------------------------------------------------------------
 
 
 async def test_approving_lists_it_and_tells_the_host(member, staff, dms):
@@ -328,9 +316,6 @@ async def test_taking_a_listed_event_down_tells_its_subscribers(member, other_me
 
     recipients = sorted(d['to'] for d in await dms())
     assert recipients == [601, 602]  # the host (staff here) and the subscriber
-
-
-# --- edits and cancellation ---------------------------------------------------
 
 
 async def test_moving_a_listed_event_tells_subscribers_and_rearms_reminders(member, other_member, staff, dms):
@@ -403,9 +388,6 @@ async def test_cancelling_a_listed_event_tells_subscribers_and_freezes_it(member
         await service.approve(staff, event.id)
 
 
-# --- subscriptions ------------------------------------------------------------
-
-
 async def test_subscribing_is_idempotent_and_counted(member, other_member, staff):
     service = CommunityEventService()
     event = await service.submit(staff, _draft())
@@ -460,9 +442,6 @@ async def test_events_are_published_for_webhooks(member, staff, monkeypatch):
         EventType.COMMUNITY_EVENT_SUBMITTED, EventType.COMMUNITY_EVENT_APPROVED,
     ]
     assert published[0].payload['host_id'] == member.id
-
-
-# --- RSVPs --------------------------------------------------------------------
 
 
 async def test_rsvps_respect_the_cap_and_count_as_a_reminder(member, other_member, staff):
@@ -523,9 +502,6 @@ async def test_a_bad_rsvp_cap_is_refused(member, cap):
 async def test_a_cap_without_rsvps_is_dropped(member):
     event = await CommunityEventService().submit(member, _draft(rsvp_capacity=5))
     assert event.rsvp_enabled is False and event.rsvp_capacity is None
-
-
-# --- taking a listed event down, RSVP caps and the approval DM -------------
 
 
 async def test_a_taken_down_event_drops_its_subscribers_so_re_approval_does_not_remind_them(
@@ -600,9 +576,6 @@ async def test_the_approval_dm_matches_how_members_sign_up(member, staff, dms, r
 
     [sent] = await dms()
     assert says in sent['text']
-
-
-# --- what's new since the last visit --------------------------------------------
 
 
 async def test_everything_listed_is_new_until_the_listing_is_opened(member, other_member, staff, dms):

@@ -110,9 +110,6 @@ async def _play(service, actor, match: Match, winner: User) -> None:
     await service.settle_game_if_linked(match, actor)
 
 
-# ---------------------------------------------------------------------------
-# U3a — a cancelled or deleted Match frees its game slot (D3)
-# ---------------------------------------------------------------------------
 class TestReleaseOnCancel:
     async def test_cancelling_a_bo1_makes_the_matchup_schedulable_again(
         self, service,
@@ -222,9 +219,6 @@ class TestReleaseOnCancel:
         assert await Match.filter(id=match.id).count() == 0
 
 
-# ---------------------------------------------------------------------------
-# U3b — one correction path for a settled result (D6)
-# ---------------------------------------------------------------------------
 class TestSettledResultGuard:
     async def test_recording_a_result_on_a_settled_game_is_blocked(self, service):
         actor = await _staff()
@@ -272,9 +266,6 @@ class TestSettledResultGuard:
         assert amended.winner_id == other
 
 
-# ---------------------------------------------------------------------------
-# U2 — live match state into the bracket (D4)
-# ---------------------------------------------------------------------------
 class TestMatchupLiveState:
     async def test_a_started_game_reads_live_with_a_watch_link(self, service):
         actor = await _staff()
@@ -369,9 +360,6 @@ class TestMatchupLiveState:
         assert count['n'] == 1
 
 
-# ---------------------------------------------------------------------------
-# U5 — the one new notification (D7)
-# ---------------------------------------------------------------------------
 class TestMatchupReadyNotification:
     @staticmethod
     def _capture(monkeypatch) -> list:
@@ -425,7 +413,6 @@ class TestMatchupReadyNotification:
         assert all(link is not None for link in links), 'the invitation had no button'
         assert all('/home/player?schedule=' in link.url for link in links)
         assert all('/brackets/' not in link.url for link in links)
-        # Both entrants are pointed at the same matchup.
         assert len({link.url for link in links}) == 1
 
     async def test_a_rebook_invitation_says_new_time_on_its_button(

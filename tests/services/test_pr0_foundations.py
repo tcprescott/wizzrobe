@@ -20,10 +20,6 @@ from application.services.tournament_strategies import (
 from application.services.user_service import UserService
 from models import SYSTEM_USER_DISCORD_ID, User
 
-# ---------------------------------------------------------------------------
-# validate_tournament_config
-# ---------------------------------------------------------------------------
-
 
 class TestValidateTournamentConfig:
     def test_none_passes_through(self):
@@ -55,11 +51,6 @@ class TestValidateTournamentConfig:
     def test_model_forbids_extra(self):
         # The extra='forbid' setting is what turns unknown keys into errors.
         assert TournamentConfig.model_config.get('extra') == 'forbid'
-
-
-# ---------------------------------------------------------------------------
-# strategy registry
-# ---------------------------------------------------------------------------
 
 
 class TestStrategyRegistry:
@@ -94,11 +85,6 @@ class TestStrategyRegistry:
 
         assert available_strategies('sorted_kind') == ['aardvark', 'zed']
         assert available_strategies('nonexistent_kind') == []
-
-
-# ---------------------------------------------------------------------------
-# system user accessor (DB-backed)
-# ---------------------------------------------------------------------------
 
 
 class TestSystemUser:

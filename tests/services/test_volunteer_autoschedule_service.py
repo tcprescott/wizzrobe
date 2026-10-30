@@ -50,11 +50,6 @@ def available(*shifts):
     ]
 
 
-# ---------------------------------------------------------------------------
-# Fixtures
-# ---------------------------------------------------------------------------
-
-
 pytestmark = pytest.mark.usefixtures("bypass_auth")
 @pytest.fixture
 def service():
@@ -66,11 +61,6 @@ def service():
     svc.schedule_service = MagicMock()
     svc.audit_service = make_audit_double()
     return svc
-
-
-# ---------------------------------------------------------------------------
-# _overlaps (static)
-# ---------------------------------------------------------------------------
 
 
 class TestOverlaps:
@@ -90,11 +80,6 @@ class TestOverlaps:
         assert VolunteerAutoscheduleService._overlaps(existing, _dt(12), _dt(16)) is False
 
 
-# ---------------------------------------------------------------------------
-# _hours (static)
-# ---------------------------------------------------------------------------
-
-
 class TestHours:
     def test_four_hour_shift(self):
         assert VolunteerAutoscheduleService._hours(_dt(8), _dt(12)) == 4.0
@@ -106,11 +91,6 @@ class TestHours:
         start = _dt(8)
         end = start + timedelta(minutes=90)
         assert VolunteerAutoscheduleService._hours(start, end) == 1.5
-
-
-# ---------------------------------------------------------------------------
-# _unfilled_summary (static)
-# ---------------------------------------------------------------------------
 
 
 class TestUnfilledSummary:
@@ -149,11 +129,6 @@ class TestUnfilledSummary:
         assert result[0]['reason'] == 'Everyone qualified is already on another shift.'
 
 
-# ---------------------------------------------------------------------------
-# _heavy_loads (classmethod)
-# ---------------------------------------------------------------------------
-
-
 class TestHeavyLoads:
     def test_names_the_volunteer_on_three_touching_blocks(self):
         heavy = make_user(1, 'Heavy')
@@ -182,11 +157,6 @@ class TestHeavyLoads:
             [user], {1: 4.0}, {1: [(_dt(8), _dt(12))]}, DraftPolicy(),
         )
         assert rows == []
-
-
-# ---------------------------------------------------------------------------
-# _pick (unit)
-# ---------------------------------------------------------------------------
 
 
 class TestPick:
@@ -233,7 +203,7 @@ class TestPick:
             {1: [], 2: []}, hours, on_shift,
             policy=DraftPolicy(max_hours=0),
         )
-        assert result is bob  # Bob has fewer hours
+        assert result is bob
 
     def test_skips_user_who_has_not_stated_availability(self, service):
         user = make_user(1)
@@ -277,22 +247,12 @@ class TestPick:
         assert reasons == Counter({'not_stated': 1, 'unavailable': 1})
 
 
-# ---------------------------------------------------------------------------
-# clear_draft
-# ---------------------------------------------------------------------------
-
-
 class TestClearDraft:
     async def test_removes_auto_assignments_and_audits(self, service):
         service.assignment_repository.delete_auto_for_window = AsyncMock(return_value=3)
         removed = await service.clear_draft(actor=MagicMock(), start=_dt(0), end=_dt(23))
         assert removed == 3
         service.audit_service.write_log.assert_awaited_once()
-
-
-# ---------------------------------------------------------------------------
-# publish_draft
-# ---------------------------------------------------------------------------
 
 
 class TestPublishDraft:

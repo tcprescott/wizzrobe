@@ -133,14 +133,12 @@ async def test_record_finish_captures_and_scores(db):
     assert dnf_run.status == AsyncQualifierRunStatus.FORFEIT
     assert dnf_run.score == 0.0
 
-    # par was set from the approved finisher.
     await pl.refresh_from_db()
     assert pl.par_time == 1000
 
     # Live-race runs never enter the reviewer queue (already approved).
     assert await qsvc.list_review_queue(staff, q.id) == []
 
-    # The finisher shows on the leaderboard.
     board = await qsvc.get_leaderboard(staff, q.id)
     assert any(e.username == 'winner' and e.actual == 100.0 for e in board)
 

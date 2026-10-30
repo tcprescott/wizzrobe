@@ -284,8 +284,6 @@ if not ON_POSTGRES:
     _run_sqlite_on_the_event_loop()
 
 
-# --- The engine, built once per worker process -----------------------------
-#
 # ``Tortoise.init()`` is not a connect call: most of its ~15ms is
 # ``_build_initial_querysets()``, which re-derives a filter map for all ~70
 # models from their metadata. Running it per test made it the single most

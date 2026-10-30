@@ -68,11 +68,6 @@ async def set_config(name: str, value: str) -> None:
         await SystemConfiguration.create(name=name, value=value)
 
 
-# ---------------------------------------------------------------------------
-# get_int
-# ---------------------------------------------------------------------------
-
-
 class TestGetInt:
     async def test_parses_value(self, db):
         await set_config('n', '42')
@@ -94,11 +89,6 @@ class TestGetInt:
         assert await SystemConfigService.get_int('n', default=5) == 5
 
 
-# ---------------------------------------------------------------------------
-# get_date
-# ---------------------------------------------------------------------------
-
-
 class TestGetDate:
     async def test_valid_iso(self, db):
         await set_config('d', '2025-10-23')
@@ -115,11 +105,6 @@ class TestGetDate:
     async def test_default_when_unparseable(self, db):
         await set_config('d', '10/23/2025')
         assert await SystemConfigService.get_date('d', default=None) is None
-
-
-# ---------------------------------------------------------------------------
-# set_raw — upsert, permission gate, audit
-# ---------------------------------------------------------------------------
 
 
 class TestSetRaw:
@@ -151,11 +136,6 @@ class TestSetRaw:
         with pytest.raises(PermissionError):
             await SystemConfigService.set_raw('k', 'v', plain)
         assert await SystemConfigService.get_raw('k') is None
-
-
-# ---------------------------------------------------------------------------
-# get_event_window — fallback chain
-# ---------------------------------------------------------------------------
 
 
 class TestGetEventWindow:
@@ -193,11 +173,6 @@ class TestGetEventWindow:
         start, end = await SystemConfigService.get_event_window()
         assert start == date(2025, 10, 20)
         assert end == date(2025, 10, 20)
-
-
-# ---------------------------------------------------------------------------
-# get_max_concurrent_players / stages / volunteer reminder
-# ---------------------------------------------------------------------------
 
 
 class TestGetMaxConcurrentPlayers:
@@ -241,11 +216,6 @@ class TestGetVolunteerReminderLeadMinutes:
         assert await SystemConfigService.get_volunteer_reminder_lead_minutes(default=15) == 15
 
 
-# ---------------------------------------------------------------------------
-# get_station_format
-# ---------------------------------------------------------------------------
-
-
 class TestGetStationFormat:
     async def test_valid_stored_value(self, db):
         await set_config(KEY_STATION_FORMAT, 'numeric')
@@ -261,11 +231,6 @@ class TestGetStationFormat:
     async def test_custom_default_when_missing(self, db):
         result = await SystemConfigService.get_station_format(default=StationFormat.STRUCTURED)
         assert result == StationFormat.STRUCTURED
-
-
-# ---------------------------------------------------------------------------
-# get_tournament_hours / get_tournament_window_for_date
-# ---------------------------------------------------------------------------
 
 
 class TestGetTournamentHours:
@@ -308,11 +273,6 @@ class TestGetTournamentWindowForDate:
 
     async def test_returns_none_for_unconfigured_date(self, db):
         assert await SystemConfigService.get_tournament_window_for_date(date(2025, 10, 20)) is None
-
-
-# ---------------------------------------------------------------------------
-# Per-tournament "tournament days" override (falls back to tenant setting)
-# ---------------------------------------------------------------------------
 
 
 def _tournament(*, hours=None, start=None, end=None):
@@ -386,11 +346,6 @@ class TestEventWindowOverride:
         assert (start, end) == (date(2025, 10, 20), date(2025, 10, 23))
 
 
-# ---------------------------------------------------------------------------
-# set_tournament_hours — persistence + validation
-# ---------------------------------------------------------------------------
-
-
 class TestSetTournamentHours:
     async def test_persists_and_trims_values(self, db):
         staff = await make_user(1, staff=True)
@@ -449,11 +404,6 @@ class TestSetTournamentHours:
         assert await SystemConfigService.get_raw(KEY_TOURNAMENT_HOURS) is None
 
 
-# ---------------------------------------------------------------------------
-# Match scheduling honors a tournament's own hours (falls back to tenant)
-# ---------------------------------------------------------------------------
-
-
 class TestMatchSchedulingHonorsTournamentHours:
     async def test_tournament_override_bounds_scheduling(self, db):
         from application.services.match.match_service import MatchService
@@ -486,11 +436,6 @@ class TestMatchSchedulingHonorsTournamentHours:
         outside = parse_local_datetime('2025-10-20', '10:00')
         with pytest.raises(ValueError, match='can only start between'):
             await svc.assert_within_tournament_hours(outside, tournament.id)
-
-
-# ---------------------------------------------------------------------------
-# FeedbackService.list_recent
-# ---------------------------------------------------------------------------
 
 
 class TestListRecent:
@@ -531,11 +476,6 @@ class TestListRecent:
             await FeedbackService().list_recent(None)
 
 
-# ---------------------------------------------------------------------------
-# FeedbackService.mark_reviewed
-# ---------------------------------------------------------------------------
-
-
 class TestMarkReviewed:
     async def test_admin_marks_reviewed_and_audits(self, db):
         staff = await make_user(1, username='staff', staff=True)
@@ -567,11 +507,6 @@ class TestMarkReviewed:
         staff = await make_user(1, username='staff', staff=True)
         with pytest.raises(ValueError, match='not found'):
             await FeedbackService().mark_reviewed(staff, 999999)
-
-
-# ---------------------------------------------------------------------------
-# FeedbackService.submit — round trip through the real DB
-# ---------------------------------------------------------------------------
 
 
 class TestSubmit:

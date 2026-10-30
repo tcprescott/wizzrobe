@@ -56,9 +56,6 @@ async def _public_spa():
     return owner, app
 
 
-# --- One app's ceiling ----------------------------------------------------------
-
-
 async def test_an_apps_users_share_one_ceiling(monkeypatch):
     monkeypatch.setenv('API_APP_RATE_LIMIT_PER_MIN', '3')
     owner = await create_community_member(username='dev')
@@ -92,9 +89,6 @@ async def test_another_app_and_personal_tokens_keep_their_own_room(monkeypatch):
         assert (await as_busy.get('/api/users/me')).status_code == 429
     async with client(quiet_token) as as_quiet:
         assert (await as_quiet.get('/api/users/me')).status_code == 200
-
-
-# --- Browser origins --------------------------------------------------------------
 
 
 @pytest.mark.parametrize('uri, origin', [
@@ -164,9 +158,6 @@ async def test_issuer_metadata_is_readable_from_anywhere():
         resp = await http.get(oauth_server.METADATA_PATH)
     assert resp.status_code == 200
     assert resp.headers['access-control-allow-origin'] == 'https://anyone.example.com'
-
-
-# --- Parked sign-in requests ------------------------------------------------------
 
 
 def test_parked_requests_have_a_ceiling(monkeypatch):

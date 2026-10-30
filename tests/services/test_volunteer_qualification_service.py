@@ -13,10 +13,6 @@ from application.services.volunteer.volunteer_autoschedule_service import (
     VolunteerAutoscheduleService,
 )
 
-# ---------------------------------------------------------------------------
-# position_ids_by_user — the query the autoschedule service reads qualifications through
-# ---------------------------------------------------------------------------
-
 
 class TestQualificationsQuery:
     """Integration tests that hit the in-memory SQLite DB."""
@@ -57,11 +53,6 @@ class TestQualificationsQuery:
 
         result = await VolunteerQualificationRepository.position_ids_by_user([u1.id])
         assert u2.id not in result
-
-
-# ---------------------------------------------------------------------------
-# _pick qualification filtering (unit)
-# ---------------------------------------------------------------------------
 
 
 class TestPickQualificationFiltering:

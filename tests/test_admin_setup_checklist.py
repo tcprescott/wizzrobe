@@ -88,7 +88,6 @@ def test_the_crew_coordinators_board_offers_approval_and_nothing_else():
     access = kwargs['access']
     assert access.approve_crew is True
     assert not access.edit and not access.run and not access.confirm and not access.assign_stream
-    # And the board is theirs, not the whole community's.
     assert kwargs['tournament_ids'] == [7]
 
 

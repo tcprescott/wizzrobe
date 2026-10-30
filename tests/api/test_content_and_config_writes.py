@@ -59,12 +59,10 @@ class TestTriforce:
             assert submitted.status_code == 201
             text_id = submitted.json()['id']
 
-            # Player cannot moderate.
             assert (await player_c.post(
                 f'/api/triforce-texts/{text_id}/moderate', json={'approved': True}
             )).status_code == 400  # service raises ValueError -> 400
 
-            # Staff approves.
             approved = await staff_c.post(
                 f'/api/triforce-texts/{text_id}/moderate', json={'approved': True}
             )

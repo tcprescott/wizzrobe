@@ -17,11 +17,6 @@ from application.utils.color_contrast import contrast_ratio, mix, relative_lumin
 _CHECKED_KEYS = {'primary', 'secondary', 'accent', 'header'}
 
 
-# ---------------------------------------------------------------------------
-# contrast math
-# ---------------------------------------------------------------------------
-
-
 class TestContrastMath:
     def test_black_on_white_is_max(self):
         assert round(contrast_ratio('#000000', '#ffffff'), 1) == 21.0
@@ -42,11 +37,6 @@ class TestContrastMath:
     def test_luminance_endpoints(self):
         assert relative_luminance('#000000') == 0.0
         assert relative_luminance('#ffffff') == 1.0
-
-
-# ---------------------------------------------------------------------------
-# preset verification — the "verified" guarantee
-# ---------------------------------------------------------------------------
 
 
 @pytest.mark.parametrize('name', list(THEME_PRESETS))

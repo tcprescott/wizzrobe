@@ -64,11 +64,6 @@ def make_tournament(tournament_id=1, **overrides):
     return SimpleNamespace(**defaults)
 
 
-# ---------------------------------------------------------------------------
-# create_tournament
-# ---------------------------------------------------------------------------
-
-
 class TestCreateTournament:
     async def test_happy_path(self, service):
         created = make_tournament(tournament_id=10, name='New Cup')
@@ -131,11 +126,6 @@ class TestCreateTournament:
 
         with pytest.raises(PermissionError):
             await service.create_tournament(name='X', actor=make_user())
-
-
-# ---------------------------------------------------------------------------
-# tournament days (per-tournament override of the tenant setting)
-# ---------------------------------------------------------------------------
 
 
 class TestTournamentDays:
@@ -219,11 +209,6 @@ class TestTournamentDays:
         assert 'tournament_hours' not in kw
 
 
-# ---------------------------------------------------------------------------
-# stream-crew requirement
-# ---------------------------------------------------------------------------
-
-
 class TestCrewRequirement:
     async def test_create_defaults_to_one_of_each(self, service):
         service.repository.create = AsyncMock(return_value=make_tournament())
@@ -268,11 +253,6 @@ class TestCrewRequirement:
             await service.update_tournament(
                 make_tournament(), required_commentators=-2, actor=make_user(),
             )
-
-
-# ---------------------------------------------------------------------------
-# config substrate (hybrid config validation)
-# ---------------------------------------------------------------------------
 
 
 class TestTournamentConfig:
@@ -320,11 +300,6 @@ class TestTournamentConfig:
         t = make_tournament()
         await service.update_tournament(t, name='Renamed', actor=make_user())
         assert 'config' not in service.repository.update.await_args.kwargs
-
-
-# ---------------------------------------------------------------------------
-# preset_id wiring
-# ---------------------------------------------------------------------------
 
 
 class TestHardPreset:
@@ -459,11 +434,6 @@ class TestTournamentPreset:
             await service.update_tournament(t, preset_id=42, actor=make_user())
 
 
-# ---------------------------------------------------------------------------
-# update_tournament
-# ---------------------------------------------------------------------------
-
-
 class TestUpdateTournament:
     async def test_only_provided_fields_written(self, service):
         t = make_tournament()
@@ -489,7 +459,6 @@ class TestUpdateTournament:
         assert service.repository.update.await_args.kwargs['triforce_access_message'] is None
 
     async def test_seed_generator_explicit_value_passed_through(self, service):
-        # Real generators like 'alttpr' should land in update_data.
         # (The literal string "None" is normalized to Python None, which then
         # falls through the ``if seed_generator is not None`` guard and is
         # excluded from update_data — i.e. update doesn't support clearing
@@ -544,11 +513,6 @@ class TestUpdateTournament:
 
         with pytest.raises(PermissionError):
             await service.update_tournament(make_tournament(), name='X', actor=make_user())
-
-
-# ---------------------------------------------------------------------------
-# delete_tournament
-# ---------------------------------------------------------------------------
 
 
 class TestDeleteTournament:
@@ -613,11 +577,6 @@ class TestDeleteTournament:
         counts = await service.deletion_preview(make_tournament(tournament_id=7))
         service.repository.dependent_counts.assert_awaited_once_with(7)
         assert counts['matches'] == 2
-
-
-# ---------------------------------------------------------------------------
-# add/remove admin & crew_coordinator
-# ---------------------------------------------------------------------------
 
 
 class TestAdminAndCoordinator:
@@ -709,11 +668,6 @@ class TestAdminAndCoordinator:
 
         with pytest.raises(PermissionError):
             await service.add_admin(make_tournament(), make_user(), actor=make_user())
-
-
-# ---------------------------------------------------------------------------
-# read helpers
-# ---------------------------------------------------------------------------
 
 
 class TestReadHelpers:

@@ -31,11 +31,6 @@ def service():
     return svc
 
 
-# ---------------------------------------------------------------------------
-# _encode_details
-# ---------------------------------------------------------------------------
-
-
 class TestEncodeDetails:
     def test_none_returns_none(self):
         assert _encode_details(None) is None
@@ -74,13 +69,7 @@ class TestEncodeDetails:
         # Mapping protocol, not just dict.
         from collections import OrderedDict
         encoded = _encode_details(OrderedDict([('b', 1), ('a', 2)]))
-        # Still sorted
         assert encoded.index('"a"') < encoded.index('"b"')
-
-
-# ---------------------------------------------------------------------------
-# list_logs / count_logs — delegation to repository
-# ---------------------------------------------------------------------------
 
 
 class TestListLogs:
@@ -124,11 +113,6 @@ class TestCountLogs:
         assert await service.count_logs() == 42
 
 
-# ---------------------------------------------------------------------------
-# write_log — actor required, calls AuditLog.create
-# ---------------------------------------------------------------------------
-
-
 class TestWriteLog:
     async def test_none_actor_raises_value_error(self, service):
         with pytest.raises(ValueError, match='requires an actor'):
@@ -170,14 +154,8 @@ class TestWriteLog:
         }
 
 
-# ---------------------------------------------------------------------------
-# AuditActions — sanity checks on the constants
-# ---------------------------------------------------------------------------
-
-
 class TestAuditActionsConstants:
     def test_namespaced_format(self):
-        # Each action should be 'verb.object' lowercase with a dot.
         for name in dir(AuditActions):
             if name.startswith('_'):
                 continue

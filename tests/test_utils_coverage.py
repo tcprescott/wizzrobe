@@ -17,9 +17,6 @@ from application.utils import discord_messages_volunteer as dm_vol
 from application.utils import easter_eggs, environment, qrcode_util
 from application.utils.http_headers import header_safe
 
-# ---------------------------------------------------------------------------
-# environment.py
-# ---------------------------------------------------------------------------
 
 class TestGetEnvironment:
     def test_default_is_development(self, monkeypatch):
@@ -186,10 +183,6 @@ class TestValidateSecurityConfig:
         monkeypatch.setenv('DB_PASSWORD', 'secret')
         assert environment.validate_security_config() is None
 
-
-# ---------------------------------------------------------------------------
-# discord_messages.py
-# ---------------------------------------------------------------------------
 
 class TestPlayersLabel:
     def test_empty(self):
@@ -422,7 +415,6 @@ class TestCheckedInAndStateChangedDms:
     def test_checked_in_without_info_has_no_block(self):
         msg = dm.checked_in_dm('Cup')
         assert "You're checked in" in msg
-        # No players/time/stage block when nothing supplied.
         assert 'Players:' not in msg
 
     def test_state_changed_with_info_appends_block(self):
@@ -502,7 +494,6 @@ class TestCrewWithdrawnDm:
         assert notice(5.0).endswith('in about 5 hours.')
         # Far out enough that the countdown says nothing useful.
         assert notice(96.0).endswith('withdrawn as tracker.')
-        # A match already past its scheduled time must not read as "in under an hour".
         assert notice(-2.0).endswith('already past its scheduled time.')
 
     def test_no_notice_when_the_match_is_unscheduled(self):
@@ -562,7 +553,7 @@ class TestDiscordEmbeds:
         assert emb.title == '🗓️ Match scheduled'
         assert emb.colour.value == de.COLOR_SCHEDULED
         assert emb.description == 'Good luck!'
-        assert emb.footer.text == 'Acme Community'  # community identity
+        assert emb.footer.text == 'Acme Community'
         names = {f.name: f.value for f in emb.fields}
         assert names['Tournament'] == 'Wizzrobe Dev'
         assert names['Players'] == 'A vs B'
@@ -635,10 +626,6 @@ class TestEphemeralReplies:
     def test_unwatch_without_players(self):
         assert dm.unwatch_confirmation('', True) == 'You are no longer watching the match.'
 
-
-# ---------------------------------------------------------------------------
-# easter_eggs.py
-# ---------------------------------------------------------------------------
 
 class TestEasterEggs:
     def _all_facts(self):
@@ -736,13 +723,8 @@ class TestEasterEggs:
         assert header_safe('an — em-dash') == 'an - em-dash'
 
 
-# ---------------------------------------------------------------------------
-# qrcode_util.py
-# ---------------------------------------------------------------------------
-
 class TestQrCodeUtil:
     def test_png_bytes_have_png_signature(self):
-        # The util now takes the fully-built (tenant-qualified) URL directly.
         data = qrcode_util.asset_qr_png_bytes('https://sgl.example.org/t/acme/equipment/7')
         assert isinstance(data, bytes) and len(data) > 0
         assert data[:8] == b'\x89PNG\r\n\x1a\n'

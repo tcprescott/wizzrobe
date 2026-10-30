@@ -86,8 +86,7 @@ def test_ordinary_commands_pass(remote: bool) -> None:
 # lines, and that shell has the whole command — pattern included — in its own.
 # The pattern is always there, because it is the argument, so this is a
 # certainty rather than a risk. The shell dies (exit 143/144, no output) and the
-# intended target keeps running. It cost a session three attempts and two wrong
-# diagnoses; `./start.sh stop` exists so nobody repeats it.
+# intended target keeps running.
 #
 # Assembled from fragments for the same reason as the constants above.
 _KILL = "pk" + "ill"

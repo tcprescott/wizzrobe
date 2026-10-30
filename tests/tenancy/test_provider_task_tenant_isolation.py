@@ -52,7 +52,6 @@ async def test_active_for_match_does_not_cross_tenants(tasks_in_both):
     with tenant_scope(a.id):
         found = await ProviderTaskRepository.active_for_match(matches[a.id].id)
         assert found is not None and found.id == tasks[a.id].id
-        # Another community's match id must not resolve, even though the row exists.
         assert await ProviderTaskRepository.active_for_match(matches[b.id].id) is None
 
 
@@ -62,7 +61,6 @@ async def test_board_state_does_not_cross_tenants(tasks_in_both):
         rolling, failed = await ProviderTaskRepository.board_state_for_matches(
             [matches[a.id].id, matches[b.id].id],
         )
-        # Another community's match id is passed in and must contribute nothing.
         assert set(rolling) == {matches[a.id].id}
         assert failed == {}
 

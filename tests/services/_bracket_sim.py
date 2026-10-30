@@ -68,7 +68,6 @@ def simulate_single_elim(
     def place(dest, seed: int) -> None:
         slots[(dest.round, dest.position)][dest.slot - 1] = seed
 
-    # Repeatedly resolve any match whose both slots are settled (or that is a bye).
     progressed = True
     while progressed:
         progressed = False

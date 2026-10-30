@@ -14,7 +14,6 @@ from tests.api_helpers import client_for, create_user_token
 
 
 async def test_config_reads_are_tenant_scoped(db, app):
-    # Caller + their config live in the default tenant (id 1).
     _, raw = await create_user_token(roles=[Role.STAFF])
     await SystemConfiguration.create(name='shared_key', value='tenant1-value')
     await SystemConfiguration.create(name='tenant1_only', value='a')
@@ -29,7 +28,6 @@ async def test_config_reads_are_tenant_scoped(db, app):
         listed = await c.get('/api/config')
         assert listed.status_code == 200
         names = {e['name'] for e in listed.json()}
-        # Only the caller's tenant is visible.
         assert names == {'shared_key', 'tenant1_only'}
         assert 'tenant2_only' not in names
 
@@ -38,5 +36,4 @@ async def test_config_reads_are_tenant_scoped(db, app):
         assert got.status_code == 200
         assert got.json()['value'] == 'tenant1-value'
 
-        # A key that only exists in the other tenant is 404 here, not a leak.
         assert (await c.get('/api/config/tenant2_only')).status_code == 404

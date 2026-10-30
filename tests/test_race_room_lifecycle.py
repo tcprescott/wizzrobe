@@ -67,8 +67,6 @@ async def _match_with_players(tournament, users, *, scheduled_at=None) -> Match:
     return await Match.get(id=match.id).prefetch_related('tournament', 'players', 'players__user')
 
 
-# ---- create / open -------------------------------------------------------
-
 async def test_create_room_is_idempotent(db):
     bot = await _bot()
     tourn = await _tournament(bot)
@@ -113,8 +111,6 @@ async def test_manual_create_allows_sync_admin(db):
     assert room.match_id == match.id
 
 
-# ---- transitions ---------------------------------------------------------
-
 async def test_mark_in_progress_starts_match(db):
     bot = await _bot()
     tourn = await _tournament(bot)
@@ -141,8 +137,6 @@ async def test_cancel_room(db):
 
     assert (await RacetimeRoom.get(id=room.id)).status == RaceRoomStatus.CANCELLED
 
-
-# ---- result capture ------------------------------------------------------
 
 async def test_record_finish_captures_results(db):
     bot = await _bot()
@@ -233,8 +227,6 @@ async def test_record_finish_notes_unmatched_handles(db):
     assert 'Stranger' in details.get('unmatched_handles', [])
 
 
-# ---- lifecycle adapter ---------------------------------------------------
-
 async def test_lifecycle_adapter_routes_events(db):
     bot = await _bot()
     tourn = await _tournament(bot)
@@ -253,8 +245,6 @@ async def test_lifecycle_adapter_routes_events(db):
     )
     assert (await RacetimeRoom.get(id=room.id)).status == RaceRoomStatus.CANCELLED
 
-
-# ---- auto-open worker ----------------------------------------------------
 
 async def test_auto_open_creates_room_for_eligible_match(db):
     bot = await _bot()
@@ -303,8 +293,6 @@ async def test_auto_open_is_idempotent(db):
 
     assert await RacetimeRoom.all().count() == 1
 
-
-# ---- opening a real room ----------------------------------------------------
 
 async def test_room_is_opened_on_racetime_with_the_profile(db, racetime_rooms):
     """The row holds racetime's slug, and startrace got the profile's settings."""
@@ -402,8 +390,6 @@ async def test_creating_a_room_is_refused_with_the_flag_off(db, racetime_rooms):
         await RaceRoomService().open_rooms_for_player(admin)
     assert racetime_rooms.started == []
 
-
-# ---- the player's route in ---------------------------------------------------
 
 async def test_opening_a_room_dms_each_player_a_button_into_it(db, stub_discord_queue, monkeypatch):
     from unittest.mock import AsyncMock

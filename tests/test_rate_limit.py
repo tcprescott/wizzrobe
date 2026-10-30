@@ -40,13 +40,10 @@ def _bearer(suffix: str) -> dict:
 async def test_distinct_wellformed_tokens_isolated_across_ips(monkeypatch):
     monkeypatch.setenv('API_RATE_LIMIT_PER_MIN', '2')
     _hits.clear()
-    # Different well-formed tokens from different clients are limited
-    # independently: exhausting 'a' does not touch 'b'.
     a = _FakeRequest(headers=_bearer('a' * 32), host='10.0.0.20')
     b = _FakeRequest(headers=_bearer('b' * 32), host='10.0.0.21')
     for _ in range(2):
         await rate_limit(a)
-    # 'a' is at its limit, but 'b' (its own token + its own IP) is untouched.
     await rate_limit(b)
     with pytest.raises(HTTPException):
         await rate_limit(a)
@@ -61,7 +58,6 @@ async def test_wellformed_token_flood_from_one_ip_is_capped(monkeypatch):
     for i in range(3):
         await rate_limit(_FakeRequest(headers=_bearer(f'{i:032d}'), host='9.9.9.9'))
     with pytest.raises(HTTPException):
-        # A brand-new, never-seen well-formed token from the same IP is rejected.
         await rate_limit(_FakeRequest(headers=_bearer('f' * 32), host='9.9.9.9'))
 
 

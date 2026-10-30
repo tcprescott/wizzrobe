@@ -11,10 +11,6 @@ import application.services.discord.discord_queue as dq
 from application.services.discord.discord_queue import enqueue as real_enqueue
 from application.tenant_context import get_current_tenant_id, tenant_scope
 
-# ---------------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------------
-
 
 async def _noop():
     pass
@@ -22,11 +18,6 @@ async def _noop():
 
 async def _raise():
     raise RuntimeError('boom')
-
-
-# ---------------------------------------------------------------------------
-# enqueue (real implementation)
-# ---------------------------------------------------------------------------
 
 
 class TestEnqueue:
@@ -54,20 +45,16 @@ class TestEnqueue:
         c2 = tagged(2)
         dq._queue.put_nowait(c1)
         dq._queue.put_nowait(c2)
-        # Drain without running them
         got = []
         while not dq._queue.empty():
             item = dq._queue.get_nowait()
             got.append(item)
             item.close()
             dq._queue.task_done()
-        # The two coroutines should be distinct objects
         assert len(got) == 2
 
 
-# ---------------------------------------------------------------------------
-# _worker (tests use a fresh local queue to avoid event-loop binding issues)
-# ---------------------------------------------------------------------------
+# _worker tests use a fresh local queue to avoid event-loop binding issues.
 
 
 class TestWorker:
@@ -135,11 +122,6 @@ class TestWorker:
             await worker_task
         except asyncio.CancelledError:
             pass
-
-
-# ---------------------------------------------------------------------------
-# start / stop
-# ---------------------------------------------------------------------------
 
 
 class TestEnqueueTenantScope:

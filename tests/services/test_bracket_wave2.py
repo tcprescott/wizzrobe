@@ -49,9 +49,6 @@ async def _field(service, fmt=BracketFormat.SINGLE_ELIM, n=4, config=None, stage
     return actor, tournament, bracket, entries
 
 
-# ---------------------------------------------------------------------------
-# draw preview
-# ---------------------------------------------------------------------------
 class TestDrawPreview:
     async def test_preview_matches_what_start_persists(self, service):
         """The rehearsal has to be the performance, or it is worse than nothing."""
@@ -116,9 +113,6 @@ class TestDrawPreview:
         assert any('3 rounds' in line for line in preview.summary)
 
 
-# ---------------------------------------------------------------------------
-# leaving a stage
-# ---------------------------------------------------------------------------
 class TestUnenrollAndRetire:
     async def test_unenroll_removes_a_draft_entry(self, service):
         actor, _t, bracket, entries = await _field(service, n=4)
@@ -161,9 +155,6 @@ class TestUnenrollAndRetire:
             await service.retire_entry(plain, entries[0].id)
 
 
-# ---------------------------------------------------------------------------
-# cancelling a stage
-# ---------------------------------------------------------------------------
 class TestCancelStage:
     async def test_cancel_an_active_stage(self, service):
         actor, _t, bracket, _entries = await _field(service, n=4)
@@ -204,9 +195,6 @@ class TestCancelStage:
             await service.delete_bracket(actor, bracket.id)
 
 
-# ---------------------------------------------------------------------------
-# config validation
-# ---------------------------------------------------------------------------
 class TestConfigValidation:
     async def test_swiss_rounds_rejected_off_swiss(self, service):
         actor = await _staff()
@@ -282,9 +270,6 @@ class TestDefaultBestOf:
         assert service.resolve_best_of(bracket, match) == 1
 
 
-# ---------------------------------------------------------------------------
-# advancement plan
-# ---------------------------------------------------------------------------
 class TestAdvancementPlan:
     async def _two_stage(self, service):
         actor = await _staff()

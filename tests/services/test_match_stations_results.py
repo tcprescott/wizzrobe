@@ -36,9 +36,7 @@ def captured_events():
     event_bus.unsubscribe(token)
 
 
-# ---------------------------------------------------------------------------
-# station pool validation (T2.3) — real DB, since the ladder reads the station
-# pool and derives occupancy from other matches.
+# Station pool validation uses a real DB, since the ladder reads the station pool and derives occupancy from other matches.
 
 
 _station_seq = itertools.count(1)
@@ -63,10 +61,6 @@ async def _make_onsite_match(*, seated=False, finished=False, stations=()):
         player.assigned_station = station
         await player.save()
     return match, players
-
-
-# ---------------------------------------------------------------------------
-# record_match_result — real DB, so the ranks are asserted as persisted.
 
 
 class TestRecordMatchResult:

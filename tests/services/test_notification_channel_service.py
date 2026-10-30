@@ -60,9 +60,6 @@ async def _actions() -> list[str]:
     return [a.action for a in await AuditLog.all().order_by('id')]
 
 
-# ------------------------------------------------------------------ email
-
-
 async def test_a_mailed_code_confirms_the_address_and_turns_email_on(player, transports):
     service = NotificationChannelService()
     stored = await service.start_email_verification(player, '  Sam.K@Example.COM ')
@@ -157,9 +154,6 @@ async def test_the_unsubscribe_link_turns_email_off_only_for_its_address(player)
     assert (await User.get(id=player.id)).email_notifications is True
 
 
-# --------------------------------------------------------------- telegram
-
-
 async def test_the_start_link_binds_the_chat_once(player):
     service = NotificationChannelService()
     link = await service.create_telegram_link(player)
@@ -196,9 +190,6 @@ async def test_stop_turns_telegram_off(player):
     await telegram_bot_worker.handle_text(5555, None, '/stop')
     assert (await User.get(id=player.id)).telegram_notifications is False
     assert await telegram_bot_worker.handle_text(5555, None, 'hello') is None
-
-
-# ------------------------------------------------------- the DM copy
 
 
 async def _with_both(player) -> User:
@@ -267,9 +258,6 @@ async def test_no_copy_to_a_channel_turned_off(player, transports):
     await service.mirror_dm(700, 'Your match is up')
     assert len(transports['email']) == before
     assert len(transports['telegram']) == 1
-
-
-# ------------------------------------------------------------------ tests
 
 
 async def test_tests_go_where_asked_and_are_rate_limited(player, transports):

@@ -42,11 +42,6 @@ def make_stage(stage_id=10, **overrides):
     return SimpleNamespace(**defaults)
 
 
-# ---------------------------------------------------------------------------
-# create_stage
-# ---------------------------------------------------------------------------
-
-
 class TestCreateStage:
     async def test_happy_path_creates_stage_and_audits(self, service):
         created = make_stage(stage_id=1, name='Stage A')
@@ -59,7 +54,6 @@ class TestCreateStage:
         )
 
         assert result is created
-        # The repository should have been called with stripped strings.
         kwargs = service.repository.create.await_args.kwargs
         assert kwargs['name'] == 'Stage A'
         assert kwargs['stream_url'] == 'https://x.tv'
@@ -98,11 +92,6 @@ class TestCreateStage:
 
         with pytest.raises(PermissionError):
             await service.create_stage(name='Stage 1', actor=make_user())
-
-
-# ---------------------------------------------------------------------------
-# update_stage
-# ---------------------------------------------------------------------------
 
 
 class TestUpdateStage:
@@ -148,11 +137,6 @@ class TestUpdateStage:
         await service.update_stage(stage, stream_url='', actor=make_user())
         kwargs = service.repository.update.await_args.kwargs
         assert kwargs['stream_url'] is None
-
-
-# ---------------------------------------------------------------------------
-# delete_stage
-# ---------------------------------------------------------------------------
 
 
 class TestDeleteStage:

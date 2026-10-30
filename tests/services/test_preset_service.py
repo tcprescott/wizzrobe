@@ -100,7 +100,6 @@ class TestImportBuiltins:
     async def test_imports_committed_files(self, service, actor):
         created = await service.import_builtins(actor)
         names = {(p.randomizer, p.name) for p in created}
-        # The committed ALTTPR presets land as rows.
         assert ('alttpr', 'casualboots') in names
         assert ('alttpr', 'sglive2025') in names
         assert ('alttpr', 'openboots') in names

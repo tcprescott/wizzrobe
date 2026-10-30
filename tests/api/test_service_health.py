@@ -49,7 +49,6 @@ class TestBoard:
             resp = await c.get('/api/service-health/board')
             assert resp.status_code == 200
             body = resp.json()
-            # snapshot() returns one entry per probe, UNKNOWN before any refresh.
             assert len(body) > 0
             keys = {row['key'] for row in body}
             assert 'postgres' in keys

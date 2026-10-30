@@ -58,8 +58,6 @@ def test_guard_rejects_schedule_change():
         )
 
 
-# --------------------------------------------------------------- end-to-end
-
 async def test_update_match_rejects_etl_field_but_allows_comment(db):
     from application.repositories import UserRepository
     from application.services.match.match_service import MatchService
@@ -80,7 +78,6 @@ async def test_update_match_rejects_etl_field_but_allows_comment(db):
     await UserRole.create(user=staff, role=Role.STAFF, tenant_id=1)
 
     service = MatchService()
-    # Rescheduling an ETL-owned field is rejected.
     with pytest.raises(ValueError, match='synced from SpeedGaming'):
         await service.update_match(
             match_id=match.id, scheduled_date='2026-08-01', scheduled_time='12:00',

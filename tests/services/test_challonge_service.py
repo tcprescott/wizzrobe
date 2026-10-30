@@ -41,9 +41,6 @@ async def make_user(discord_id: int, username: str = 'u', challonge_user_id=None
     )
 
 
-# ----------------------------------------------------------------------
-# parse_tournament_identifier (pure)
-# ----------------------------------------------------------------------
 def test_default_service_scopes_include_communities_manage(monkeypatch):
     from application.services.challonge_service import _service_scopes
     monkeypatch.delenv('CHALLONGE_SCOPES', raising=False)
@@ -107,9 +104,6 @@ class TestParseIdentifier:
             ChallongeService.parse_tournament_identifier('   ')
 
 
-# ----------------------------------------------------------------------
-# get_valid_access_token
-# ----------------------------------------------------------------------
 class TestGetValidAccessToken:
     async def test_no_connection_raises(self, db):
         with pytest.raises(ValueError, match='not connected'):
@@ -144,9 +138,6 @@ class TestGetValidAccessToken:
             await make_service().get_valid_access_token(force_refresh=True)
 
 
-# ----------------------------------------------------------------------
-# sync_bracket
-# ----------------------------------------------------------------------
 class TestSyncBracket:
     async def test_mirrors_participants_and_matches(self, db):
         actor = await make_user(1, 'admin')
@@ -238,14 +229,10 @@ class TestSyncBracket:
         assert result.get('skipped') is True
         api.get_tournament_full.assert_awaited_once()
 
-        # Forcing overrides the throttle.
         await service.sync_bracket(tournament.id, actor, force=True)
         assert api.get_tournament_full.await_count == 2
 
 
-# ----------------------------------------------------------------------
-# schedule_challonge_match
-# ----------------------------------------------------------------------
 class TestScheduleChallongeMatch:
     async def _open_match(self, tournament, p1_user, p2_user):
         p1 = await ChallongeParticipant.create(
@@ -317,9 +304,6 @@ class TestScheduleChallongeMatch:
             )
 
 
-# ----------------------------------------------------------------------
-# push_match_result
-# ----------------------------------------------------------------------
 class TestPushMatchResult:
     async def _setup(self, winner_rank_set=True):
         actor = await make_user(1, 'admin')
@@ -416,9 +400,6 @@ class TestPushMatchResult:
         assert attempted is False
 
 
-# ----------------------------------------------------------------------
-# Player identity linking
-# ----------------------------------------------------------------------
 class TestPlayerLink:
     async def test_record_and_unlink(self, db):
         user = await make_user(1, 'alice')
@@ -562,9 +543,6 @@ class TestParticipantTournamentIds:
         assert await make_service().participant_tournament_ids(user) == set()
 
 
-# ----------------------------------------------------------------------
-# ChallongeClient path building
-# ----------------------------------------------------------------------
 class TestClientPaths:
     def _client(self):
         from application.utils.clients.challonge_client import ChallongeClient
@@ -595,9 +573,6 @@ class TestClientPaths:
         assert path == '/communities/speedgaming/tournaments/T1/matches/8001.json'
 
 
-# ----------------------------------------------------------------------
-# ChallongeClient participant identity (shapes captured from the live v2.1 API)
-# ----------------------------------------------------------------------
 def _included_participant(pid, username, user_rel):
     return {
         'id': pid, 'type': 'participant',
@@ -645,9 +620,6 @@ class TestClientParticipantIdentity:
         assert client._authed_request.await_count == 1
 
 
-# ----------------------------------------------------------------------
-# Manual participant -> user assignment
-# ----------------------------------------------------------------------
 class TestManualParticipantAssignment:
     async def _bracket(self):
         from models import TenantMembership

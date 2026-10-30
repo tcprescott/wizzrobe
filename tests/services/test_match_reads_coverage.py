@@ -42,11 +42,6 @@ async def _user(discord_id, name="U"):
     return await User.create(discord_id=discord_id, username=name, display_name=name)
 
 
-# ===========================================================================
-# MatchDisplayService
-# ===========================================================================
-
-
 class TestGetMatchForDisplay:
     async def test_returns_none_for_missing_match(self, db):
         svc = MatchDisplayService()
@@ -231,11 +226,6 @@ class TestFilterDropdowns:
         assert result.get(stage.id) == "Stage A"
 
 
-# ===========================================================================
-# MatchSuggestionService
-# ===========================================================================
-
-
 class TestCovers:
     def test_no_overlap_returns_available(self):
         """Opt-out: a slot no window reaches is one the player can be given."""
@@ -388,11 +378,6 @@ class TestSuggestMatchTime:
         svc = MatchSuggestionService()
         with pytest.raises(ValueError):
             await svc.suggest_match_time(t.id, [])
-
-
-# ---------------------------------------------------------------------------
-# Helpers / fixtures
-# ---------------------------------------------------------------------------
 
 
 def _win(starts_at, ends_at, status):

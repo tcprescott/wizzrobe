@@ -5,10 +5,6 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import application.services.volunteer.volunteer_reminder as reminder_mod
 
-# ---------------------------------------------------------------------------
-# start / stop lifecycle
-# ---------------------------------------------------------------------------
-
 
 class TestStartStop:
     # start/stop now delegate to the shared BackgroundLoop (application/utils/
@@ -42,18 +38,8 @@ class TestStartStop:
         assert reminder_mod._loop._task is None
 
 
-# ---------------------------------------------------------------------------
-# TICK_SECONDS constant
-# ---------------------------------------------------------------------------
-
-
 def test_tick_seconds_is_positive():
     assert reminder_mod.TICK_SECONDS > 0
-
-
-# ---------------------------------------------------------------------------
-# _tick — no-op when nothing due
-# ---------------------------------------------------------------------------
 
 
 async def test_tick_noop_when_no_due_assignments(monkeypatch):
@@ -67,11 +53,9 @@ async def test_tick_noop_when_no_due_assignments(monkeypatch):
         fake_due,
         raising=False,
     )
-    # Patch at the module path used inside _tick
     with patch('application.services.volunteer.volunteer_reminder._tick', AsyncMock(return_value=None)):
         pass  # just confirm the patch mechanism works
 
-    # Directly test via patching all internal imports
     with patch(
         'application.repositories.VolunteerAssignmentRepository',
     ) as MockRepo:
@@ -81,5 +65,4 @@ async def test_tick_noop_when_no_due_assignments(monkeypatch):
             'application.services.system_config_service.SystemConfigService.get_volunteer_reminder_lead_minutes',
             AsyncMock(return_value=60),
         ):
-            # _tick should complete without raising
             await reminder_mod._tick()

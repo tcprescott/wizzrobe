@@ -25,9 +25,6 @@ from middleware.error_handlers import (
 )
 
 
-# --------------------------------------------------------------------------- #
-# application/events/dispatch_queue.py
-# --------------------------------------------------------------------------- #
 class TestDispatchQueue:
     @pytest.fixture(autouse=True)
     async def _reset(self):
@@ -95,7 +92,6 @@ class TestDispatchQueue:
 
     async def test_stop_is_noop_when_never_started(self):
         dispatch_queue._worker_task = None
-        # Must return cleanly without touching the (absent) worker.
         await dispatch_queue.stop()
         assert dispatch_queue._worker_task is None
 
@@ -142,9 +138,6 @@ class TestDispatchQueue:
         assert not any('still queued' in r.getMessage() for r in caplog.records)
 
 
-# --------------------------------------------------------------------------- #
-# application/events/match_live.py
-# --------------------------------------------------------------------------- #
 class TestMatchEvents:
     @pytest.fixture(autouse=True)
     def _clean_subscribers(self):
@@ -172,7 +165,6 @@ class TestMatchEvents:
         assert seen == []
 
     def test_unsubscribe_unknown_token_is_noop(self):
-        # No subscribers registered; removing a stale token must not raise.
         match_live.unsubscribe(9999)
 
     def test_multiple_subscribers_each_notified(self):
@@ -190,14 +182,10 @@ class TestMatchEvents:
 
         match_live.subscribe(boom)
         match_live.subscribe(lambda mid, ct: seen.append(mid))
-        # publish must not propagate the subscriber failure.
         match_live.publish(3)
         assert seen == [3]
 
 
-# --------------------------------------------------------------------------- #
-# application/events/bus.py  (the enqueue-failure branch, lines 88-89)
-# --------------------------------------------------------------------------- #
 class TestEventBusEnqueueFailure:
     @pytest.fixture(autouse=True)
     def _clean_bus(self):
@@ -231,9 +219,6 @@ class TestEventBusEnqueueFailure:
         assert captured == []
 
 
-# --------------------------------------------------------------------------- #
-# middleware/error_handlers.py
-# --------------------------------------------------------------------------- #
 class _FakeStorage:
     def __init__(self):
         self.user = {}
@@ -260,7 +245,6 @@ class _FakeApp:
 
 class TestCurrentUserBestEffort:
     async def test_returns_none_when_storage_unavailable(self):
-        # No request/client context -> app.storage.user access fails -> None.
         assert await _current_user_best_effort() is None
 
     async def test_returns_user_on_success(self, monkeypatch):
@@ -286,7 +270,6 @@ class TestRegisteredHandlers:
         fake_app = _FakeApp()
         monkeypatch.setattr('middleware.error_handlers.app', fake_app)
         register_error_handlers(FastAPI())
-        # Both handlers registered against the (faked) NiceGUI app.
         assert 404 in fake_app.captured
         assert 'page' in fake_app.captured
         return fake_app
@@ -401,6 +384,5 @@ class TestLogUnhandledErrorExtra:
         sentry = MagicMock()
         sentry.set_tag.side_effect = RuntimeError('sentry offline')
         monkeypatch.setattr('middleware.error_handlers.sentry_sdk', sentry)
-        # Should still return a usable error id despite Sentry blowing up.
         error_id = log_unhandled_error(RuntimeError('x'), '/p')
         assert isinstance(error_id, str) and len(error_id) == 36

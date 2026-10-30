@@ -79,11 +79,6 @@ def fake_client(monkeypatch):
     return _install
 
 
-# ---------------------------------------------------------------------------
-# Configuration gating
-# ---------------------------------------------------------------------------
-
-
 class TestConfiguration:
     def test_unconfigured_without_private_key(self, no_vapid_env):
         assert WebPushService.is_configured() is False
@@ -144,11 +139,6 @@ class TestConfiguration:
         discord_service._mirror_dm_to_web_push(1, 'hello')
         assert len(enqueued) == 1
         enqueued[0].close()
-
-
-# ---------------------------------------------------------------------------
-# Subscription CRUD
-# ---------------------------------------------------------------------------
 
 
 class TestSubscriptions:
@@ -253,8 +243,6 @@ class TestSubscriptions:
         with pytest.raises(ValueError, match='not found'):
             await WebPushService().remove_subscription(other, subscription.id)
 
-    # --- pushsubscriptionchange rotation ---
-
     async def test_rotate_moves_row_to_reissued_endpoint(self, db):
         user = await _subscribed_user()
         rotated = await WebPushService().rotate_subscription(
@@ -352,11 +340,6 @@ class TestSubscriptions:
         subscription = await repo.upsert(user, ENDPOINT, RFC_UA_PUBLIC, RFC_AUTH, 'ua')
         assert subscription.endpoint == ENDPOINT
         assert await WebPushSubscription.all().count() == 1
-
-
-# ---------------------------------------------------------------------------
-# Delivery
-# ---------------------------------------------------------------------------
 
 
 class TestDelivery:

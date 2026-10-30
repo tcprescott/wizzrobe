@@ -154,7 +154,6 @@ async def test_linking_cannot_reach_across_tenants(two_tenants):
                 staff, foreign_match.id, local_match.id,
             )
 
-    # And the foreign matchup gained no game row.
     with tenant_scope(b.id):
         assert not await scoped(
             BracketMatchGame.filter(bracket_match_id=foreign_match.id)

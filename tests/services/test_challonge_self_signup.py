@@ -90,9 +90,6 @@ async def _card(user, tournament):
     )
 
 
-# --- Pure helpers -------------------------------------------------------------
-
-
 @pytest.mark.parametrize('state, locked', [
     (None, False), ('pending', False), ('checking_in', False), ('checked_in', False),
     ('underway', True), ('group_stages_underway', True), ('complete', True),
@@ -106,9 +103,6 @@ def test_misc_names_only_wizzrobe_entrants():
     assert misc_user_id('seed notes') is None
     assert misc_user_id(f'{MISC_USER_PREFIX}abc') is None
     assert misc_user_id(None) is None
-
-
-# --- Signing up ---------------------------------------------------------------
 
 
 async def test_a_linked_player_is_added_to_the_bracket(linked_player, bracket, connection, api):
@@ -192,9 +186,6 @@ async def test_signing_up_twice_is_refused(linked_player, bracket, connection, a
     assert api.create_participant.await_count == 1
 
 
-# --- Withdrawing --------------------------------------------------------------
-
-
 async def test_withdrawing_removes_the_entry_on_challonge(linked_player, bracket, connection, api):
     await TournamentService().self_enroll(bracket.id, linked_player)
     await TournamentService().self_withdraw(bracket.id, linked_player)
@@ -231,9 +222,6 @@ async def test_toggling_is_capped(linked_player, bracket, connection, api):
         await service.self_enroll(bracket.id, linked_player)
 
 
-# --- The roster on the card ---------------------------------------------------
-
-
 async def test_unmapped_entrants_are_listed_by_name(linked_player, bracket, connection):
     await ChallongeParticipant.create(
         tenant_id=1, tournament=bracket, challonge_participant_id='1', name='Walk-in',
@@ -247,9 +235,6 @@ async def test_unmapped_entrants_are_listed_by_name(linked_player, bracket, conn
     assert card.unmapped_entrant_names == ['Walk-in']
     assert [u.id for u in card.entrants] == [linked_player.id]
     assert card.enrolled
-
-
-# --- The client's two new calls -----------------------------------------------
 
 
 async def test_client_adds_an_entrant_by_username():

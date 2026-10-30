@@ -58,8 +58,6 @@ async def _finish(service, player, run, seconds: int):
     return await service.submit_run(player, run.id, elapsed_seconds=seconds)
 
 
-# ============================================== the tallies, now done in SQL
-
 async def test_play_counts_per_permalink_match_the_runs_taken(db):
     """The draw's fairness input, tallied by the database rather than in Python."""
     service = AsyncQualifierService()
@@ -145,8 +143,6 @@ async def test_self_spent_reattempts_are_counted_not_listed(db):
     allowance = await service.get_reattempt_allowance(player, q.id)
     assert (allowance.spent, allowance.allowed) == (1, 2)
 
-
-# ================================================ the par recompute, in one go
 
 async def test_par_and_every_score_derived_from_it_move_together(db):
     """The par write and the rescore are one transaction, so no run keeps a score

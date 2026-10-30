@@ -79,7 +79,6 @@ async def test_entrant_lists_are_tenant_scoped(db, tenant_b):
         [tournament_a.id, tournament_b.id],
     )
     assert [u.id for u in entrants.get(tournament_a.id, [])] == [here.id]
-    # Tenant B's tournament id was asked for explicitly and still returns nothing.
     assert entrants.get(tournament_b.id, []) == []
 
 

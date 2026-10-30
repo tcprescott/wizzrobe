@@ -76,7 +76,6 @@ async def test_run_reads_are_isolated(two_tenants):
     with tenant_scope(a.id):
         assert [r.id for r in await repo.list_for_qualifier(qa.id)] == [ra.id]
         assert await repo.get_by_id(rb.id) is None
-        # An active-run lookup never crosses tenants.
         assert await repo.get_active_for_user(qb.id, ub.id) is None
     with tenant_scope(b.id):
         assert [r.id for r in await repo.list_for_qualifier(qb.id)] == [rb.id]

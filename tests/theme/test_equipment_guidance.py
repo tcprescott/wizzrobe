@@ -54,7 +54,6 @@ class TestTheOtherActionlessStates:
 
     @pytest.mark.parametrize('status', ['available', 'checked_out', 'retired'])
     def test_a_viewer_with_no_control_always_gets_a_line(self, status):
-        # The general rule, not just the reported case.
         line = equipment_guidance(
             status=status, is_checked_out=(status == 'checked_out'),
             viewer_is_holder=False, **PLAIN_USER,

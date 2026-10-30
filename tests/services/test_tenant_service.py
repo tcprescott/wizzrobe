@@ -84,7 +84,6 @@ async def test_grant_and_revoke_super_admin(super_admin, db):
     target = await User.create(discord_id=3000, username='promote')
     await TenantService.grant_super_admin(super_admin, target)
     assert await AuthService.is_super_admin(target) is True
-    # The grant row carries tenant=NULL.
     assert await UserRole.filter(user=target, role=Role.SUPER_ADMIN, tenant=None).exists()
 
     await TenantService.revoke_super_admin(super_admin, target)
@@ -154,9 +153,6 @@ async def test_slug_cache_is_bounded(db):
         assert await TenantService.get_by_slug(f'nope{i}') is None
     assert len(ts._cache_by_slug) <= ts._CACHE_MAX
     ts._clear_cache()
-
-
-# --- list_staff: the /platform read behind the first-admin dialog -------------
 
 
 async def test_list_staff_reads_the_named_tenant_not_the_ambient_one(super_admin, db):

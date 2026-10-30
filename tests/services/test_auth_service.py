@@ -13,10 +13,6 @@ import pytest
 from application.services.auth_service import AuthService, get_user_from_discord_id
 from models import Role
 
-# ---------------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------------
-
 
 class _ExistsQS:
     """A chainable fake queryset: ``.filter(...)`` is a no-op that returns self
@@ -125,11 +121,6 @@ def patch_tournament_membership(monkeypatch):
     return _patch
 
 
-# ---------------------------------------------------------------------------
-# Primitives
-# ---------------------------------------------------------------------------
-
-
 class TestPrimitives:
     async def test_none_user_has_no_roles(self, patch_roles):
         patch_roles(set())
@@ -170,11 +161,6 @@ class TestPrimitives:
         assert await AuthService.is_tournament_admin(make_user(), 5) is False
 
 
-# ---------------------------------------------------------------------------
-# Composite policies — Staff override
-# ---------------------------------------------------------------------------
-
-
 class TestStaffOverride:
     async def test_staff_can_crud_any_match(self, patch_roles, patch_tournament_membership):
         patch_roles({Role.STAFF})
@@ -204,11 +190,6 @@ class TestStaffOverride:
         patch_roles({Role.STAFF})
         patch_tournament_membership()
         assert await AuthService.can_edit_tournament(make_user(), make_tournament(123)) is True
-
-
-# ---------------------------------------------------------------------------
-# can_crud_match vs can_run_match — Proctor distinction
-# ---------------------------------------------------------------------------
 
 
 class TestRunVsCrud:
@@ -254,11 +235,6 @@ class TestRunVsCrud:
         assert await AuthService.can_run_match(make_user(), make_match(stage_id=None)) is False
 
 
-# ---------------------------------------------------------------------------
-# can_run_match vs can_confirm_match — confirming is the admin's step
-# ---------------------------------------------------------------------------
-
-
 class TestRunVsConfirm:
     """A proctor runs matches; only staff / the tournament's admin confirms."""
 
@@ -292,11 +268,6 @@ class TestRunVsConfirm:
         assert await AuthService.can_confirm_match(make_user(), make_match()) is False
 
 
-# ---------------------------------------------------------------------------
-# can_approve_crew — TA OR CC of the match's tournament
-# ---------------------------------------------------------------------------
-
-
 class TestApproveCrew:
     async def test_ta_of_match_tournament_can_approve(self, patch_roles, patch_tournament_membership):
         patch_roles(set())
@@ -327,11 +298,6 @@ class TestApproveCrew:
         assert await AuthService.can_approve_crew(make_user(), make_match()) is False
 
 
-# ---------------------------------------------------------------------------
-# can_assign_match_stream — Stream Manager globally OR TA of match's tournament
-# ---------------------------------------------------------------------------
-
-
 class TestAssignMatchStream:
     async def test_stream_manager_can_assign_any_match(self, patch_roles, patch_tournament_membership):
         patch_roles({Role.STREAM_MANAGER})
@@ -357,11 +323,6 @@ class TestAssignMatchStream:
         assert await AuthService.can_assign_match_stream(make_user(), make_match()) is False
 
 
-# ---------------------------------------------------------------------------
-# can_grant_roles — Staff only
-# ---------------------------------------------------------------------------
-
-
 class TestGrantRoles:
     async def test_non_staff_cannot_grant_roles(self, patch_roles):
         patch_roles({Role.PROCTOR, Role.STREAM_MANAGER})
@@ -370,11 +331,6 @@ class TestGrantRoles:
     async def test_only_staff_can_grant_roles(self, patch_roles):
         patch_roles({Role.STAFF})
         assert await AuthService.can_grant_roles(make_user()) is True
-
-
-# ---------------------------------------------------------------------------
-# can_submit_triforce_text — paid global role + generator capability
-# ---------------------------------------------------------------------------
 
 
 def make_triforce_tournament(is_active=True, seed_generator='alttpr'):
@@ -419,23 +375,13 @@ class TestTriforceSubmit:
         ) is False
 
 
-# ---------------------------------------------------------------------------
-# ensure() raises PermissionError
-# ---------------------------------------------------------------------------
-
-
 class TestEnsure:
     async def test_ensure_raises_when_disallowed(self):
         with pytest.raises(PermissionError):
             await AuthService.ensure(False, "nope")
 
     async def test_ensure_silent_when_allowed(self):
-        await AuthService.ensure(True)  # should not raise
-
-
-# ---------------------------------------------------------------------------
-# can_view_admin — admin global roles or TA/CC membership (NOT proctor/volunteer)
-# ---------------------------------------------------------------------------
+        await AuthService.ensure(True)
 
 
 def make_ta_user(user_id: int = 1):
@@ -486,12 +432,6 @@ class TestViewAdmin:
     async def test_ensure_message_propagates(self):
         with pytest.raises(PermissionError, match="custom message"):
             await AuthService.ensure(False, "custom message")
-
-
-# ---------------------------------------------------------------------------
-# can_view_schedule_board — the predicate the reports resolve their drill-out
-# links against, so a link is never offered to someone the board would refuse.
-# ---------------------------------------------------------------------------
 
 
 def make_cc_user(user_id: int = 1):
@@ -578,11 +518,6 @@ class TestTournamentScope:
 
     async def test_an_operator_of_nothing_gets_empty_sets(self):
         assert await AuthService.tournament_scope(make_user()) == (set(), set())
-
-
-# ---------------------------------------------------------------------------
-# Online-tournament foundation roles (PR 0)
-# ---------------------------------------------------------------------------
 
 
 def make_system_user(user_id: int = 7):

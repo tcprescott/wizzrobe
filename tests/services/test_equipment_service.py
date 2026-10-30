@@ -141,7 +141,6 @@ class TestCheckoutCheckin:
         loan = await EquipmentLoan.get(equipment=refreshed, borrower=volunteer)
         assert loan.checked_in_at is not None
         assert loan.checked_in_by_id == manager.id
-        # Asset is checkout-able again afterward.
         assert await service.current_loan(refreshed) is None
 
 
