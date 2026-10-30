@@ -600,7 +600,7 @@ The human-driven surface over the reconciler, gated by `AuthService.can_manage_s
 
 ### equipment_service.py — EquipmentService
 
-Lending-asset management (create/edit/delete, bulk creation with auto-assigned asset numbers) and the checkout/check-in workflow with full loan history. Asset management is gated by `AuthService.can_manage_equipment` (Staff or Equipment Manager); checkout by `can_checkout_equipment` (any signed-in member, to themselves — a loaner's QR code is scanned by whoever holds it; only a manager may pass `borrower_id`, and a non-manager who does is refused rather than silently self-assigned); check-in by `can_checkin_equipment`. Audited under `equipment.*`. Module constant: `MAX_BULK_COUNT = 200`.
+Lending-asset management (create/edit/delete, bulk creation with auto-assigned asset numbers) and the checkout/check-in workflow with full loan history. Asset management is gated by `AuthService.can_manage_equipment` (Staff or Equipment Manager); checkout by `can_checkout_equipment` (any signed-in member, to themselves — a loaner's QR code is scanned by whoever holds it; only a manager may pass `borrower_id`, and a non-manager who does is refused rather than silently self-assigned); check-in by `can_checkin_equipment`. Checkout, retire and check-in each use a conditional status flip as the lock, so a double tap or two phones scanning one label move the row only once. Audited under `equipment.*`. Module constant: `MAX_BULK_COUNT = 200`.
 
 | Method | Returns | Description |
 |---|---|---|
@@ -1768,7 +1768,7 @@ SG's crew lists (`commentators`, `trackers`, `broadcasters`, `helpers`), restrea
 
 | Method | Returns | Description |
 |---|---|---|
-| `sync_event_link(link, *, actor, now=None)` | `SyncResult` | Sync one active link (assumes ambient tenant = `link.tenant`): import every episode in the window, soft-detach episodes that vanished upstream, auto-finish stale matches, and record the link's observability fields (`last_synced_at`/`last_status`/`last_error`). Never raises on a per-episode failure — failures are tallied. |
+| `sync_event_link(link, *, actor, now=None)` | `SyncResult` | Sync one active link (assumes ambient tenant = `link.tenant`): import every episode in the window, soft-detach episodes that vanished upstream (an **empty** episode list is treated as an upstream hiccup and detaches nothing, since detaching them all would fire a cancel webhook for every sourced match), auto-finish stale matches, and record the link's observability fields (`last_synced_at`/`last_status`/`last_error`). Never raises on a per-episode failure — failures are tallied. |
 | `import_episode(link, raw, *, actor, now=None)` | `str` | Transform+load one raw SG episode: upsert its staging row and materialize/refresh its match. Returns the outcome key (`'imported'`/`'unchanged'`/`'skipped'`) for the caller to tally; raises on a transform/load failure so the caller can mark that episode ERROR. |
 
 `SyncResult` (same module) is the per-run tally dataclass — `imported`, `unchanged`, `skipped`, `cancelled`, `auto_finished`, `errors`, `error_messages` — with `as_dict()` for the audit/observability payload. Collaborators: `SpeedGamingEpisodeRepository`, `SpeedGamingEventLinkRepository`, `MatchRepository`/`MatchService`, `UserRepository`, `AuditService`, the event bus, `SpeedGamingClient`.

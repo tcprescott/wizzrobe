@@ -239,6 +239,8 @@ The split in `SeedGenerationService` is `submit_async_roll` → `AsyncRollSubmis
 
 **No retry.** A failed task stays terminal for a human to re-run: every attempt consumes a real, publicly-numbered seed upstream, and a silent retry loop spends them where nobody is watching.
 
+**Terminal states say what happened.** A missing credential at submit time files no `ProviderTask` at all: nothing was submitted, so a failed row would misreport a config mistake and add another on every click. A row that never gets an upstream handle is retired by the sweeper rather than left `QUEUED`, and a task the worker stops waiting on is `ABANDONED`, not `FAILED`, because the provider may well have finished it.
+
 #### Mocking the queue
 
 DK64R is the one randomizer that does **not** take the `MOCK_SEEDGEN` short-circuit. An instantly-returned permalink would skip the very thing that makes this backend different: upstream takes two to three minutes, and the Generate button holds a spinner for all of it. So `MOCK_SEEDGEN` instead swaps the `aiohttp` session for `MockDK64Session` ([`mock_dk64.py`](../../application/utils/mocks/mock_dk64.py)), an in-process stand-in for the queue. `_generate_dk64r` is unchanged under it — it really converts, submits, and polls on the 5 s cadence while a fake task walks `queued` → `started` → `finished` over `MOCK_DK64_SECONDS` (default 20; the suite pins it to 0). No credential is needed while mocked.

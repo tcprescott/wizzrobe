@@ -39,7 +39,11 @@ and links built from `root_path` keep the `/t/<slug>` prefix.
   landing/community-picker page, `/platform`, and the shared OAuth callbacks.
 - **Excluded (tenant-agnostic) paths:** `/_nicegui`, `/static`, `/api`, `/sw.js`.
   The REST API derives its tenant from the bearer token; websocket/asset traffic
-  carries no tenant of its own.
+  carries no tenant of its own. NiceGUI addresses its static files and socket.io
+  under the page's `root_path`, so a tenant page requests `/t/<slug>/_nicegui/...`;
+  the middleware strips the prefix and leaves `root_path` **empty** for those
+  requests, since a non-empty one makes NiceGUI's static route 404 and every
+  tenant page render blank.
 - **NiceGUI prefixing is automatic.** Because the page is served with the
   `root_path` prefix, NiceGUI prepends it to every absolute-path `ui.link` /
   `ui.navigate.to('/…')` client-side — so in-app navigation stays within the
@@ -57,6 +61,12 @@ behind `TRUST_FORWARDED_HOST` (last value).
 - **One domain, one tenant.** Host mode is authoritative there: a stray
   `/t/<other>` stays literal and 404s. Path mode stays authoritative on
   `PLATFORM_HOST`.
+- **Resolution caches are bounded.** `TenantService`'s slug and domain caches are
+  per-process, dropped wholesale on any write, and FIFO-capped (`_CACHE_MAX`). The
+  slug cache stores misses keyed on the attacker-controlled URL slug, so the cap
+  is load-bearing; the domain cache keeps hits and misses in separate pools with a
+  small miss pool, so a scanner flooding random `Host` values can't evict the real
+  custom domains.
 - **Discord login runs on the custom domain** — the `redirect_uri` is built from
   the tenant's stored `domain` (https-forced), so the host-only session cookie
   lands on the right host.
@@ -109,6 +119,13 @@ from application.tenant_context import (
 Anything that runs with neither tier — the Discord bot loop, the DM-queue worker,
 the event-dispatch worker, the volunteer-reminder loop, `background_tasks` — must
 wrap its work in an explicit `tenant_scope(tenant_id)`.
+
+The client stash is **not reliable across a chain of awaited reloads** inside one
+UI handler: a mutation that reloaded three tabs read tenant 1, 1, then `None`, and
+a `None` tenant makes every feature flag read as off, so a gated tab rendered
+"feature not enabled". A handler that awaits several reloads wraps them in a
+`tenant_scope(...)` / `event_scope(...)` captured at page build (the Admin →
+Qualifiers page is the worked example).
 
 ## Query scoping: explicit threading
 
@@ -170,7 +187,9 @@ read. That is the same basis the access gate below checks, so a picker cannot
 offer someone the app would turn away at the door. Pickers and name searches
 read it through `get_community_people_summaries` (same filters, seven columns
 per row as `PersonSummary`): a hydrated `User` per member held the event loop
-for about a second on a 2,000-member community. `get_all_users` still answers
+for about a second on a 2,000-member community. The Admin → Users table is the
+one hand-scoped copy, because `UserTableView` takes a queryset rather than a
+coroutine. `get_all_users` still answers
 "every account on the platform" and has two deliberate callers, both labelled on
 screen: `/platform`'s first-admin picker, choosing from every account precisely
 because the target community has no members yet, and the checkout dialog's

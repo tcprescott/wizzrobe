@@ -237,6 +237,12 @@ time 60× too fast that reads as correct everywhere afterwards. The field echoes
 read (*"Submitting 1:23:45 — 1 hour, 23 minutes, 45 seconds"*) before the runner
 commits.
 
+**Every drawn run has a time limit.** `run_time_limit_hours` (default 12, at most a
+week) sets when the worker forfeits a run left open. Without one, an abandoned run
+would hold its permalink and the player's pool slot forever, and since a claimed
+finish is only checked against the wall clock since the draw, an indefinitely open
+run would let any finish time be claimed.
+
 **Forfeit is confirmed.** It is the one irreversible control on the run surface — the
 run scores 0 and the pool slot is spent — so it opens a `ConfirmationDialog` naming
 those consequences. Submit does not: it is the happy path.
@@ -345,6 +351,10 @@ matched no local user was mentioned only in the audit detail, which is not a pla
 anyone looks for work — so that racer simply never appeared in the results. The
 handles now sit on the race (`unmatched_handles`) and on its card, with the remedy
 named: link the account, then record the race again. Recording again clears them.
+A handle has two causes the admin can't tell apart from the handle alone: the racer
+hasn't linked racetime.gg here (only they can, from Profile → Connected accounts),
+or racetime reported them finished without a time, in which case the admin types
+the time in by hand.
 
 **A live-race run has a duration.** Every captured run stamped `started_at` at
 *record* time, so all of them read Started == Finished with a blank Timed column.

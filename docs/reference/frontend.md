@@ -68,6 +68,7 @@ Constructor: `BaseLayout(copyright_text=…, section=None, base_path=None, tabs=
 - `url_param(key, element, default=…, value=…, label=…, on_restore=…)` is the general form, for a view that is not just the control's value (a day picked from chips, an open sheet). Read what the address asked for with `url_state().requested(key)` while building; call `param.set(value)` when the viewer changes it, and wrap a redraw that builds controls with parameters of their own in `async with param.changing(value):`. `TAIL` as the key carries the value as path segments under the tab (`/admin/settings/<pane>`).
 - `'push'` for a real view change (tab, sub-view, day, sheet); `'replace'` for a filter, which the address keeps but Back skips.
 - A parameter belongs to the hub tab its control was built in and lives as long as the control: switching tabs drops the old tab's parameters, and a view switched away drops its own. Parameters nothing owns (a DM's `?schedule=`) are kept on arrival and dropped at the first switch, so a reload doesn't reopen the DM's dialog forever.
+- **Gesture-bound work runs in the click itself.** Safari (and Chrome after about five seconds) skips a Back entry pushed without a user gesture, and Safari refuses a clipboard write after a server round trip. So a hub tab's drawer row or bottom-bar tab pushes its history entry from the `data-wiz-push` attribute (`PUSH_ATTR`), and Copy controls likewise run from data attributes `anchors.js` listens for. A server-computed `replaceState` applies only while the browser is still at the path it was last told to show, so a replace computed before a Back the server hadn't heard of can't rewrite the entry Back just landed on.
 - The title is `<view labels> — <tab> — <page title>`, e.g. `Timeline — My Schedule — SpeedGaming Live`; hub pages title themselves `Admin — <community>` so the parts read in order.
 - `MatchSheet` records the open match as `?sheet=<id>` (`crew_sheet` for My Schedule's crew board, which shares a tab with the player board). Closing a sheet opened on the page is Back; closing one a link opened replaces the address.
 - The `check_view_urls` hook (and `tests/theme/test_url_state.py`) fail a `ui.tabs`/`ui.toggle` in `pages/` or `theme/` that is neither bound nor marked `# url-state: exempt — <reason>` (a form input, not a view). `scripts/ui_history.js` walks Back/Forward/reload/deep-link scenarios in Chromium, phone and desktop, in the CI `browser` job (`scripts/ui_history_ci.json`); `HISTORY_BROWSERS=webkit,firefox` runs the other engines by hand; add a scenario for a new *kind* of switcher.
@@ -816,8 +817,8 @@ CSV export (`csv_export_button`) downloads the currently rendered rows using `ro
 |---|---|
 | `REPORT_KEYS` | Tuple of report keys — currently unreferenced; the dashboard cards are driven by `dashboard.REPORT_CARDS` |
 | `async chart_palette()` / `chart_palette_for(accent)` | The main series in the community's colour, moved by `TenantThemeService.chart_series_colour` just far enough to clear 3:1 on **both** the light and dark card surfaces (canvas charts are painted once), its area and slider washes, and a second-series colour that is never the same hue (teal, or amber for a teal community) |
-| `CHART_TEAL` / `CHART_AMBER` / `CHART_RED` / `CHART_NEUTRAL` / `CHART_TEXT` / `CHART_GRID` | Fixed colours that carry a meaning (threshold, idle, a middling score) and chart chrome; assigned **by role**, never per chart |
-| `themed_chart_option(option)` | Overlay the mode-neutral chrome colours onto an ECharts option without clobbering what the chart already sets |
+| `CHART_TEAL` / `CHART_AMBER` / `CHART_RED` / `CHART_NEUTRAL` / `CHART_TEXT` / `CHART_GRID` | Fixed colours that carry a meaning (threshold, idle, a middling score) and chart chrome; assigned **by role**, never per chart. `CHART_TEXT` / `CHART_GRID` sit at the equal-contrast point between the light and dark card surfaces (about 4:1 against both), because ECharts' default greys assume a white canvas and the canvas is painted once without CSS tokens |
+| `themed_chart_option(option)` | Overlay the mode-neutral chrome colours onto an ECharts option without clobbering what the chart already sets. Charts also enable ECharts `aria` with decals, so stacked and multi-series charts don't rely on colour alone |
 | `reports_url(report=None, **params)` | Build `/admin/reports[?report=…]` URLs — `admin_url('reports', …)` from [`pages/admin_tabs/links.py`](../../pages/admin_tabs/links.py), which drops empty params and ISO-formats dates |
 | `parse_date(value)` / `parse_int(value)` | Lenient parsing; `None` on garbage |
 | `display_bounds(start_d, end_d)` | picked date range → half-open UTC bounds on the display clock (end clamped ≥ start) |
@@ -1058,6 +1059,11 @@ cannot reach it, provided `customize_table` runs *after* the slot is registered.
 `test_preferences_do_not_touch_the_mobile_card` and an AST order scan pin it for
 the bespoke tables that call it themselves.
 
+Two QTable traps behind the run sheets:
+
+- **`filter` must be a stable value.** QTable deep-watches its `filter` prop and resets to page 1 on any change, so passing a fresh object on each table update snapped page 2 back to page 1.
+- **List-valued fields get a NiceGUI `body-cell` slot.** NiceGUI patches in its own `body-cell` slot (and logs a warning) for any column whose field holds a list, even when a `body` slot draws the cell.
+
 **Resolution is async; reading it back is sync.** `BaseLayout.render()` awaits
 `TablePreferenceService().prime(user)` once — one query for every table on the
 page — and binds the result in `application/table_preferences_context.py`. Each
@@ -1193,6 +1199,12 @@ Shared component rules that come with it: every Quasar "standard" (underline) fi
 - [`css/brackets.css`](../../static/css/brackets.css) — the bracket renderer's geometry and colour, linked per page by `theme/brackets/`. Its pixel constants mirror `theme/brackets/layout.py`; change one, change both.
 
 Its neutrals (`--bracket-line`, `-card-bg`, `-text`, `-muted`, …) point at the app tokens above, so only the status tones carry a dark override. The one non-obvious rule: `--bracket-*` is declared on **`body`**, not `:root`, because `ui.colors()` writes the tenant `--q-primary` onto `body` while Quasar's stock blue sits on `:root`.
+
+## Gotchas
+
+- **Omit an action that can't be taken; don't `disable()` it.** A disabled Quasar flat button keeps its colour at 0.7 opacity, which reads as live: people click it, nothing happens, and the reason is hidden in a tooltip. Show the one control that can act (plus a sentence saying why) instead, as the qualifier review queue and pools do.
+- **Never colour alone.** Red and green read as one olive under deuteranopia, so every availability state differs in more than hue (`theme/availability_editor.py` `_STATUS_ICON`, `.avail-swatch`): Preferred is blue with a star, Available an outlined tint with a check, Unavailable hatched red with a cross. A checked-in card on the check-in desk gets a positive edge plus a badge for the same reason.
+- **The bottom bar can lose its edge on WebKit.** Firefox for iOS and Safari (WebKit bug 235888) can leave a bottom-fixed bar at the toolbar's old height once the toolbar collapses on scroll, with the page showing through underneath, and no CSS or viewport API reports the new edge. `.footer-dark-override`'s `::after` extends the footer's surface below the bar to fill that strip. In the Home Screen app, `static/js/dialog-keyboard.js` measures the fault (the tallest fixed-layout box seen at this width is the real screen) and undoes it with `--wiz-standalone-gap` via `translate`, which leaves Quasar's own transform alone.
 
 ## NiceGUI patterns
 

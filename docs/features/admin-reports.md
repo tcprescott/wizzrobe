@@ -82,6 +82,15 @@ Aggregation always happens in a service, never in the page: most reports call
 subsystem call its owner (`VolunteerScheduleService`, `TelemetryService`,
 `AuditService`).
 
+**Insights edge rules** (`analytics_service.py`):
+
+- The composite tournament-health score drops a component with no data (no
+  stream candidates, say) and renormalizes the remaining `HEALTH_WEIGHTS`, so a
+  tournament is never marked down for a dimension that doesn't apply.
+- A trend range wider than `MAX_BUCKETS` (240) keeps only the most recent 240,
+  and the query is clamped to the same window so the reported totals match the
+  chart.
+
 **CSV exports escape formula injection.** `application/utils/csv_export.py`
 prefixes a `'` to any cell whose first non-whitespace character is `=`, `+`, `-` or `@`; numerics are left alone
 (safe and expected in CSV). Covered by `tests/test_csv_export.py`.

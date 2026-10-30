@@ -57,7 +57,8 @@ between "called off" and "shouldn't have existed".
 |---|---|
 | `match.*` | `match/match_service.py`, `match_schedule_service.py`, `match_cancellation.py`, `match_request.py`, `match_review.py`, `match_acknowledgment.py`, `match_stations.py`, `match_stream_volunteer_service.py`, `match_comment_service.py` (`match.comment_added` / `_deleted`, with `kind`; `body` only on a staff message to players, never on a player comment or private note), `player_late_service.py` (`match.player_running_late` with `minutes`, `match.player_late_cleared`; never the note), `seed_ready_service.py` (`match.player_seed_ready` / `match.player_seed_not_ready`), `match_hard_preset_service.py`; `match.reschedule_*` from `match_reschedule_service.py`, `match.seed_roll_failed` from `seed_roll_service.py`, and a racetime room's `match.result_recorded` from `race_room_service.py`. The hard-preset service is the one that deliberately publishes **less** than it audits: `match.hard_preset_agreed` / `_agreement_revoked` and the staff `match.preset_override_*` go out, but an individual player's opt-in does not. The feature rests on a lone opt-in reaching nobody, and a webhook subscriber is an arbitrary outside listener — so the opt-in stays audit-only, recorded in the eventless ledger in `tests/services/test_event_audit_parity.py` |
 | `crew.*` | `crew_service.py` |
-| `volunteer.*` | `volunteer/volunteer_schedule_service.py` |
+| `volunteer.*` | `volunteer/volunteer_schedule_service.py`. `volunteer.released` (the volunteer gave the shift back, so cover is needed) is deliberately distinct from `volunteer.unassigned` (a coordinator removed them) |
+| `survey.sent`, `survey.closed` | `survey/survey_service.py`. Responses are never published: an event's timing could tie an anonymous answer back to the person who sent it |
 | `bracket.*` | `bracket_service.py` (create, cancel, roster add/update/drop, entry retire) and the `_bracket/` mixins (generation, advancement, completion, multistage, scheduling, series) |
 | `race_room.*` | `race_room_service.py` (`race_room.result_held` with `reason` + `detail`), `race_room_bot_service.py` (`race_room.fpa_called` with `runner` + `race_seconds`) |
 | `sg_sync.*` | `speedgaming_etl_service.py` |
@@ -137,3 +138,18 @@ every audited action must either be emitted (in `EventType.ALL`) or listed in an
 explicit eventless ledger (`_EVENT_CANDIDATES` / `_EXCLUDED_BY_DESIGN`). Adding a
 new `AuditAction` without triaging it fails the test, so audit/event drift cannot
 recur silently.
+
+Beyond the hard-preset opt-in and qualifier permalinks, the ledger keeps whole
+classes audit-only by design:
+
+| Class | Why no event |
+|---|---|
+| Secrets and credentials (randomizer keys, Matcherino logins, room tokens, webhook config including secret regeneration) | a subscriber is an arbitrary outside listener |
+| Personal data (accounts, emergency contacts, ADA accommodations, a member's notification channels and timezone) | same |
+| PII exports (volunteer and tournament exports) | audited for the community, never announced |
+| Bracket definition and per-stage enrolment | DRAFT-only; subscribers learn the field from `bracket.started` |
+
+A reviewer overriding a settled qualifier verdict and staff hand-recording a live
+race reuse `async_qualifier.run_reviewed` (`override: True`) and
+`async_qualifier.live_race_recorded` (`manual: True`) rather than new event
+types, so one external fact keeps one name; only the audit trail tells them apart.

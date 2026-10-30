@@ -81,7 +81,10 @@ honor the `TELEMETRY_ENABLED` kill-switch.
    - `ui.click` — any named control: button, link, menu item, tab, toggle,
      checkbox, chip, clickable list item, select. `details` notes the `kind`,
      the `dialog` and ⋮ `menu` it sat in, and the `table` key. A row button's
-     "… for <row>" suffix is dropped so every row's ⋮ counts as one control.
+     "… for <row>" suffix is dropped so every row's ⋮ counts as one control
+     and member handles never land in telemetry. A labelled button's text
+     includes its icon ligature ("add Add match"), so the label span alone is
+     the name, with the ligature as the fallback for icon-only buttons.
    - `ui.dialog_opened` / `ui.dialog_closed` — by dialog title; a close carries
      `via`, the last button pressed inside it, or `dismissed` (Escape / outside).
      A dropdown's option popup on a touch screen (Quasar's `.q-select__dialog`)

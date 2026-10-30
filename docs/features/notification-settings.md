@@ -59,6 +59,10 @@ the station.
 `followers` (tournament subscribers), `volunteers`, `on_duty`, `admins`, `staff`,
 `members`. A message only has the columns listed in its defaults.
 
+`followers` is independent of enrolment: `get_match_notification_subscribers`
+never checks the player pool, so the Profile lists every active tournament to
+follow and only marks the ones the player is in.
+
 Three of them split the staff-facing alerts (a player's comment, a reschedule
 request, a volunteer running late or giving a shift back):
 
