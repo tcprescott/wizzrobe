@@ -79,8 +79,6 @@ def roll_refusal(preset: Optional[Preset]) -> Optional[str]:
 class PoolManagementMixin:
     """Pool + permalink CRUD. Requires the host's repositories and audit service."""
 
-    # ------------------------------------------------------------------ pools
-
     @requires_feature(FeatureFlag.ASYNC_QUALIFIERS)
     async def list_pools(self, actor: Optional[User], qualifier_id: int) -> List[AsyncQualifierPool]:
         qualifier = await self._require_qualifier(qualifier_id)
@@ -155,8 +153,6 @@ class PoolManagementMixin:
             {'pool_id': pool.id, 'qualifier_id': pool.qualifier_id},
         )
         await self.pool_repository.delete(pool)
-
-    # ------------------------------------------------------------- permalinks
 
     @requires_feature(FeatureFlag.ASYNC_QUALIFIERS)
     async def add_permalink(
@@ -300,8 +296,6 @@ class PoolManagementMixin:
             {'permalink_id': permalink.id, 'pool_id': permalink.pool_id},
         )
         await self.permalink_repository.delete(permalink)
-
-    # --------------------------------------------------------------- gateways
 
     async def _require_pool(self, pool_id: int) -> AsyncQualifierPool:
         return await access.require_pool(self.pool_repository, pool_id)

@@ -55,8 +55,6 @@ MAX_BUCKETS = 240
 class AnalyticsService:
     """Trend and health aggregations over matches, crew, volunteers, audit logs."""
 
-    # --- Pure bucketing helpers -------------------------------------------
-
     @staticmethod
     def _local(dt: Optional[datetime]) -> Optional[datetime]:
         return to_display(dt)
@@ -184,8 +182,6 @@ class AnalyticsService:
     def _normalize_bucket(bucket: Optional[str]) -> str:
         return 'month' if bucket == 'month' else 'week'
 
-    # --- Crew participation trends ----------------------------------------
-
     async def crew_participation_trends(
         self,
         start: datetime,
@@ -263,8 +259,6 @@ class AnalyticsService:
                 'unique_people': len(contributors),
             },
         }
-
-    # --- Volunteer hour trends --------------------------------------------
 
     async def volunteer_hour_trends(
         self,
@@ -357,8 +351,6 @@ class AnalyticsService:
                 'volunteers': len(per_user),
             },
         }
-
-    # --- Tournament health -------------------------------------------------
 
     async def tournament_health(
         self,
@@ -498,8 +490,6 @@ class AnalyticsService:
             'health_score': score,
         }
 
-    # --- Admin activity trends --------------------------------------------
-
     async def activity_trends(
         self,
         start: datetime,
@@ -549,8 +539,6 @@ class AnalyticsService:
             'total': total,
         }
 
-    # --- Activity extent ---------------------------------------------------
-
     async def activity_extent(
         self, tournament_id: Optional[int] = None,
         *, actor: Optional[User],
@@ -595,8 +583,6 @@ class AnalyticsService:
         if not stamps:
             return None, None
         return min(stamps), max(stamps)
-
-    # --- Internal ----------------------------------------------------------
 
     @staticmethod
     def _duration_hours(starts_at: datetime, ends_at: datetime) -> float:

@@ -163,8 +163,6 @@ class NotificationChannelService:
         self.repository = NotificationChannelRepository()
         self.audit_service = AuditService()
 
-    # ------------------------------------------------------------- email
-
     @requires_feature(FeatureFlag.NOTIFICATION_CHANNELS)
     async def start_email_verification(self, user: User, raw_email: str) -> str:
         """Mail a 6-digit code to ``raw_email``. Returns the address as stored."""
@@ -267,8 +265,6 @@ class NotificationChannelService:
             await self.repository.set_email_notifications(user, False)
         return True
 
-    # ---------------------------------------------------------- telegram
-
     @requires_feature(FeatureFlag.NOTIFICATION_CHANNELS)
     async def create_telegram_link(self, user: User) -> Optional[str]:
         """The ``t.me`` link that connects this account, or ``None`` in mock mode.
@@ -338,8 +334,6 @@ class NotificationChannelService:
             user, AuditActions.NOTIFICATION_TELEGRAM_LINKED, {'target_user_id': user.id},
         )
 
-    # ------------------------------------------------------------ tests
-
     # feature-gate: exempt — Discord and device tests work in every community;
     # email and Telegram are refused below unless the flag is on.
     async def send_test(self, user: User, channels: Iterable[Channel]) -> Dict[Channel, bool]:
@@ -375,8 +369,6 @@ class NotificationChannelService:
             elif channel is Channel.TELEGRAM:
                 results[channel] = await self._telegram(user, message, url, label)
         return results
-
-    # --------------------------------------------------------- delivery
 
     # feature-gate: exempt — soft integration point on every DM; checks the flag itself.
     async def mirror_dm(

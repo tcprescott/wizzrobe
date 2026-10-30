@@ -164,8 +164,6 @@ class DiscordEventReconcilerService:
         )
         return result
 
-    # ---------------------------------------------------------------- internals
-
     async def _reconcile_match(
         self, tenant: Tenant, guild_id: int, match: Match,
         link: Optional[DiscordScheduledEvent], result: ReconcileResult,
@@ -260,8 +258,6 @@ class DiscordEventReconcilerService:
                 'discord_event_id': link.discord_event_id,
             },
         )
-
-    # ------------------------------------------------------------------ render
 
     def _render(self, match: Match) -> tuple[str, str, datetime, datetime, str]:
         """Build (title, description, start, end, location) for a match's event."""

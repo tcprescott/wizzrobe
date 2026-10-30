@@ -485,7 +485,6 @@ class DiscordRoleMappingService:
                 summary[k] for k in
                 ('granted', 'revoked', 'tournament_granted', 'tournament_revoked')
             ) and skips:
-                # Surface a single representative skip reason when nothing changed.
                 summary['skipped'] = 'discord_unavailable' if 'discord_unavailable' in skips else next(iter(skips))
             return summary
         except Exception:

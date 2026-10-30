@@ -58,7 +58,6 @@ async def _tick() -> None:
             await service.expire_run(run, now=now)
             logger.info('expired abandoned qualifier run %s', run.id)
             return
-        # Not due yet — warn once, if the deadline is close enough.
         if run.expiry_warned_at is None and now >= deadline - rules.expiry_warning_lead(qualifier):
             await service.warn_run_expiring(run, deadline, now=now)
             logger.info('warned qualifier run %s of upcoming expiry', run.id)

@@ -47,8 +47,6 @@ class AdvancementPlan:
 
 
 class MultiStageMixin(ComposedBracketService):
-    # -- B8: multi-stage chaining -----------------------------------------
-
     async def advance_stage(
         self, actor: Optional[User], tournament_id: int, from_stage_order: int
     ) -> Bracket:

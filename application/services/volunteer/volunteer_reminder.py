@@ -18,7 +18,6 @@ from models import User
 
 logger = logging.getLogger(__name__)
 
-# How often the loop wakes up to look for due reminders.
 TICK_SECONDS = 60
 
 # The reminder lead time is now a per-tenant SystemConfiguration, but the loop
@@ -152,7 +151,7 @@ async def _tick() -> None:
 
     async def _remind(assignment) -> None:
         if not await FeatureFlagService().is_enabled(FeatureFlag.VOLUNTEERS):
-            return  # tenant has Volunteers disabled
+            return
         tenant_id = assignment.tenant_id
         if tenant_id not in leads:
             leads[tenant_id] = await SystemConfigService.get_volunteer_reminder_lead_minutes()

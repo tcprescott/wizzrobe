@@ -240,8 +240,6 @@ class RunReviewMixin:
             if note:
                 await self.note_repository.create(run_id=run.id, author_id=reviewer.id, note=note)
         run = await self.run_repository.get_by_id(run.id) or run
-        # Recompute the permalink's par from the (now-updated) approved set, then
-        # rescore every approved run on it — this run included.
         if run.permalink_id is not None:
             await self.draw.recompute_par_and_scores(run.permalink_id)
             run = await self.run_repository.get_by_id(run.id) or run

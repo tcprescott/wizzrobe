@@ -68,7 +68,6 @@ class BracketService(
         self.repository = BracketRepository()
         self.audit_service = AuditService()
 
-    # -- helpers ----------------------------------------------------------
     @staticmethod
     def _coerce_format(fmt: Union[str, BracketFormat]) -> BracketFormat:
         if isinstance(fmt, BracketFormat):
@@ -105,7 +104,6 @@ class BracketService(
                 "a bracket here."
             )
 
-    # -- bracket authoring ------------------------------------------------
     @requires_feature(FeatureFlag.BRACKETS)
     async def create_bracket(
         self,
@@ -316,7 +314,6 @@ class BracketService(
             actor, AuditActions.BRACKET_DELETED, details,
         )
 
-    # -- reads ------------------------------------------------------------
     @requires_feature(FeatureFlag.BRACKETS)
     async def get_bracket(self, bracket_id: int) -> Optional[Bracket]:
         return await self.repository.get_bracket(bracket_id)
@@ -334,8 +331,6 @@ class BracketService(
         """
         return await self.repository.list_all_with_tournament()
 
-    # -- viewer-aware reads -------------------------------------------------
-    #
     # A DRAFT stage is unpublished: it exists so staff can author and seed a
     # field before announcing it. A CANCELLED one was published, then called
     # off, and leaving it listed invites people to keep reading a bracket nobody
@@ -445,7 +440,6 @@ class BracketService(
     async def list_entrants(self, tournament_id: int) -> List[BracketEntrant]:
         return await self.repository.list_entrants(tournament_id)
 
-    # -- roster (tournament-level entrants) -------------------------------
     @requires_feature(FeatureFlag.BRACKETS)
     async def add_entrant(
         self,
@@ -594,7 +588,6 @@ class BracketService(
         )
         return entrant
 
-    # -- enrollment (per-stage entries) -----------------------------------
     @requires_feature(FeatureFlag.BRACKETS)
     async def enroll(
         self,

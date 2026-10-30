@@ -98,7 +98,6 @@ _OPTED_IN = 'Only people who turned it on in their Profile'
 def _opted_in(who: str) -> str:
     return f'{who}, only if they turned it on in their Profile'
 
-# Matches
 MATCH_SCHEDULED = _notice(
     'match_scheduled', 'Matches', 'Match scheduled or rescheduled',
     'A match is booked, its time changes, or players are added to it',
@@ -280,7 +279,6 @@ SETTINGS_RELEASED = _notice(
     'Staff release a forced preset, so players choose again', {PLAYERS: PING},
 )
 
-# Brackets
 MATCHUP_READY = _notice(
     'matchup_ready', 'Brackets', 'Matchup ready to schedule',
     'A bracket matchup becomes bookable', {PLAYERS: SILENT},
@@ -316,7 +314,6 @@ PLAYER_WITHDREW = _notice(
     {ADMINS: PING}, {ADMINS: _opted_in(_TOURNAMENT_ADMINS)},
 )
 
-# Reschedule requests
 RESCHEDULE_REQUEST = _notice(
     'reschedule_request', 'Reschedule requests', 'Reschedule or cancel request',
     'A player asks to move or cancel a match',
@@ -340,7 +337,6 @@ REQUEST_WITHDRAWN = _notice(
     {PLAYERS: PING}, {PLAYERS: _opted_in('The opponent who was asked')},
 )
 
-# Crew
 _CREW_OWNERS = "The tournament's admins and crew coordinators"
 # Split by role so a community can hear about commentary and let tracking stay
 # quiet. Silent by default: a busy event sends a lot of these and none is urgent.
@@ -393,7 +389,6 @@ CREW_PARTNER_ANSWERED = _notice(
     {CREW: 'The commentator who sent the invite'},
 )
 
-# Volunteer shifts
 SHIFT_ASSIGNED = _notice(
     'shift_assigned', 'Volunteer shifts', 'Shift assigned',
     'A coordinator assigns a shift or publishes a draft', {VOLUNTEERS: PING},
@@ -442,7 +437,6 @@ VOLUNTEER_ARRIVED = _notice(
     {ON_DUTY: _opted_in(_ON_SHIFT_ROSTER), ADMINS: _opted_in('Volunteer coordinators'), STAFF: _opted_in(_FALLBACK)},
 )
 
-# Community
 JOIN_REQUEST = _notice(
     'join_request', 'Community', 'Join request', 'Someone asks to join',
     {STAFF: PING}, {STAFF: 'All staff'},
@@ -520,7 +514,6 @@ SURVEY_REMINDER = _notice(
     {MEMBERS: "Everyone it was sent to who hasn't answered"},
 )
 
-# Event check-in
 CHECKED_IN = _notice(
     'checked_in', 'Event check-in', "You're checked in",
     'The desk checks someone in (the desk also sees whether it arrived)',
@@ -532,7 +525,6 @@ MATCHERINO_REFUSED = _notice(
     {STAFF: PING}, {STAFF: 'The staff member who saved the login'},
 )
 
-# Async qualifiers
 RUN_APPROVED = _notice(
     'run_approved', 'Async qualifiers', 'Run approved',
     'A reviewer approves a run, or overturns a rejection',

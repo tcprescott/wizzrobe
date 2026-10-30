@@ -43,7 +43,6 @@ logger = logging.getLogger(__name__)
 RETENTION = timedelta(days=3)
 #: Background exports one person may have waiting or building at once.
 MAX_PENDING_PER_PERSON = 1
-#: Background exports one person may request in an hour.
 MAX_PER_HOUR = 10
 #: Background exports a community may have waiting or building at once.
 MAX_PENDING_PER_COMMUNITY = 5
@@ -73,8 +72,6 @@ class DataExportService:
     def __init__(self) -> None:
         self.repository = DataExportRepository()
         self.audit_service = AuditService()
-
-    # --- who may export what ----------------------------------------------
 
     @staticmethod
     async def exportable_tournaments(actor: Optional[User]) -> List[Tournament]:
@@ -111,8 +108,6 @@ class DataExportService:
                 'bracket_site': builder.bracket_site(t, t.id in native),
             })
         return rows
-
-    # --- requests ----------------------------------------------------------
 
     async def request_tournaments(
         self, actor: User, tournament_ids: Optional[List[int]] = None,
@@ -192,8 +187,6 @@ class DataExportService:
             params=params, progress_total=total,
         )
 
-    # --- reading back ------------------------------------------------------
-
     async def list_mine(self, actor: User, limit: int = 20) -> List[DataExport]:
         return await self.repository.list_for_requester(actor.id, limit=limit)
 
@@ -220,8 +213,6 @@ class DataExportService:
     @staticmethod
     def expires_at(export: DataExport) -> datetime:
         return export.created_at + RETENTION
-
-    # --- building (worker side) -------------------------------------------
 
     async def build(self, export: DataExport) -> None:
         """Build a claimed export inside its own tenant scope. Never raises.

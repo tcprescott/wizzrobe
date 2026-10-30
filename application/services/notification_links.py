@@ -134,10 +134,6 @@ def link_for_tenant(
     return DMLink(label, tenant_url(tenant, event_path(event_slug, path))) if tenant else None
 
 
-# ---------------------------------------------------------------------------
-# Player-facing targets
-# ---------------------------------------------------------------------------
-
 async def player_schedule(
     bracket_match_id: int, *, label: str = 'Pick a time',
 ) -> Optional[DMLink]:
@@ -285,10 +281,6 @@ async def home_tournaments(*, label: str = 'View tournaments') -> Optional[DMLin
     """
     return await link_for(label, home_url(HOME_TOURNAMENTS))
 
-
-# ---------------------------------------------------------------------------
-# Staff-facing targets
-# ---------------------------------------------------------------------------
 
 async def admin_match(match_id: int, *, label: str = 'Open the match') -> Optional[DMLink]:
     """The admin Schedule board filtered to one match — where crew gets refilled."""

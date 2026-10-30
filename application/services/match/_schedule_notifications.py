@@ -671,7 +671,6 @@ class MatchNotificationMixin:
         ))
         discord_queue.enqueue(MatchHardPresetService().send_offer(match))
 
-        # Collect IDs already notified to avoid duplicates in subscriber fan-out
         notified_ids = await self._collect_notified_discord_ids(match)
         discord_queue.enqueue(self.notify_tournament_subscribers_scheduled(
             match, message_for(AUDIENCE_SUBSCRIBER), notified_ids, embed,

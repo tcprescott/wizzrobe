@@ -166,8 +166,6 @@ class McpAuthService:
         self.token_repository = ApiTokenRepository()
         self.audit_service = AuditService()
 
-    # --- Clients ---------------------------------------------------------
-
     async def register_client(
         self,
         client_name: str,
@@ -203,8 +201,6 @@ class McpAuthService:
 
     async def get_client(self, client_id: str) -> Optional[McpOAuthClient]:
         return await self.repository.get_client(client_id)
-
-    # --- Authorization request -> consent --------------------------------
 
     def begin_authorization(self, pending: PendingAuthorization) -> str:
         """Park an authorization request and return its transaction id.
@@ -311,8 +307,6 @@ class McpAuthService:
             user.id, client.client_id, format_scope(chosen),
         )
         return raw_code, pending.redirect_uri, pending.state
-
-    # --- Code / token exchange -------------------------------------------
 
     async def load_code(self, client_id: str, raw_code: str) -> Optional[McpAuthorizationCode]:
         """Fetch a live, unconsumed code belonging to ``client_id``.

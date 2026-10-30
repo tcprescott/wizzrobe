@@ -78,8 +78,6 @@ class StandingsGroup:
 
 
 class CompletionMixin(ComposedBracketService):
-    # -- stage completion / round progression -----------------------------
-
     async def _maybe_complete_stage(
         self, bracket: Bracket, actor: Optional[User]
     ) -> None:
@@ -392,9 +390,7 @@ class CompletionMixin(ComposedBracketService):
             )
             rank_by_ref = {s.ref: s.rank for s in standings}
             # A group tie decides who advances just as a Swiss tie does, so the
-            # staff ruling applies here too — it used to be honoured on Swiss
-            # only, which made it silently inert on the grouped format where the
-            # cut line is per group and therefore tightest.
+            # staff ruling applies here too.
             if tie_breaks:
                 rank_by_ref.update(tie_breaks)
             for entry in group_entries:
@@ -423,8 +419,6 @@ class CompletionMixin(ComposedBracketService):
     @staticmethod
     def _standings_config(bracket: Bracket) -> StandingsConfig:
         return standings_config_from(bracket.config)
-
-    # -- standings (read) -------------------------------------------------
 
     async def standings(self, bracket_id: int) -> List[StandingsGroup]:
         """Live standings of a points-ranked bracket (round robin / Swiss).

@@ -141,8 +141,6 @@ class AsyncQualifierLiveRaceService:
         self.qualifier_service = AsyncQualifierService()
         self.audit_service = AuditService()
 
-    # ============================================================ management
-
     @requires_feature(FeatureFlag.ASYNC_QUALIFIERS)
     async def list_live_races(
         self, actor: Optional[User], qualifier_id: int
@@ -286,8 +284,6 @@ class AsyncQualifierLiveRaceService:
             {'live_race_id': live_race.id, 'qualifier_id': qualifier.id},
         )
         await self.repository.delete(live_race)
-
-    # =============================================================== capture
 
     @requires_feature(FeatureFlag.ASYNC_QUALIFIERS)
     async def mark_in_progress(self, live_race: AsyncQualifierLiveRace) -> AsyncQualifierLiveRace:
@@ -445,9 +441,7 @@ class AsyncQualifierLiveRaceService:
         actor = actor or await UserService().get_system_user()
         qualifier = await self._require_qualifier(await self._qualifier_id_of(live_race))
         now = datetime.now(timezone.utc)
-        # Everyone in a race starts at the same instant, and the old code stamped
-        # ``now`` as every run's start — so each one read Started == Finished with a
-        # blank Timed column, and no live-race run had a duration on any screen. The
+        # Everyone in a race starts at the same instant. The
         # slowest finisher can only just have finished, so the race began at least
         # their elapsed time ago.
         times = [r.elapsed_seconds for r in resolved if r.elapsed_seconds]
@@ -466,8 +460,6 @@ class AsyncQualifierLiveRaceService:
             fields = dict(
                 status=run_status,
                 review_status=AsyncQualifierReviewStatus.APPROVED,
-                # A finisher's own finish is their start plus their time; a
-                # non-finisher's is when the race was recorded.
                 finished_at=started_at + timedelta(seconds=elapsed) if elapsed else now,
                 elapsed_seconds=elapsed,
                 # The racetime clock *is* the measurement here — there is no runner's
@@ -535,8 +527,6 @@ class AsyncQualifierLiveRaceService:
             event_extra={'manual': manual},
         )
         return captured
-
-    # ============================================================= internals
 
     async def _over_pool_cap(
         self,

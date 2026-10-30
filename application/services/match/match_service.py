@@ -263,7 +263,6 @@ class MatchService(
             },
         )
 
-        # Seed per-player acknowledgments (actor auto-acks themselves)
         await self._seed_acknowledgments(match, player_ids, actor)
 
         await self.match_schedule_service.notify_match_scheduled(
@@ -354,7 +353,6 @@ class MatchService(
 
         old_scheduled_at = match.scheduled_at
 
-        # Snapshot the existing player list so we can detect adds/removals.
         old_player_ids = {p.user_id for p in await self.repository.get_players(match)}
         if player_ids is not None:
             new_player_ids = set(player_ids)
@@ -415,7 +413,6 @@ class MatchService(
             # Parse datetime - input is on the caller's display clock, stored UTC
             scheduled_at = parse_local_datetime(scheduled_date, scheduled_time)
         if scheduled_at is not None:
-            # Validate against the target tournament (new one on reassignment).
             await self.assert_within_tournament_hours(
                 scheduled_at, tournament_id if tournament_id is not None else match.tournament_id,
             )
@@ -720,8 +717,7 @@ class MatchService(
 
     # Match lifecycle transitions (seat / start / finish / confirm) live solely
     # in MatchScheduleService._transition, which enforces the ordering rules and
-    # emits state-change notifications. Earlier permissive seat_players /
-    # finish_match duplicates were removed to keep one lifecycle path.
+    # emits state-change notifications.
 
     async def _check_round_window(
         self, match: Match, scheduled_at: datetime, actor: Optional[User], allow_outside_round: bool,

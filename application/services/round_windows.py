@@ -157,10 +157,6 @@ def window_to_config(
     return entry or None
 
 
-# ---------------------------------------------------------------------------
-# Stage keys
-# ---------------------------------------------------------------------------
-
 def winners_final_round(rounds: Iterable[int]) -> Optional[int]:
     """The double-elim winners final, read off the losers bracket's depth.
 

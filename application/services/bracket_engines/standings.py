@@ -187,7 +187,6 @@ def compute_standings(
         else:
             raise ValueError("winner must be one of the paired refs, or None")
 
-    # Precompute the global (non-relational) tiebreakers for every ref.
     buchholz = {
         r: sum(records[o].points for o in records[r].opponents) for r in refs
     }

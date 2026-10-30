@@ -159,8 +159,6 @@ class MatchHardPresetService:
         self.match_repository = MatchRepository()
         self.audit_service = AuditService()
 
-    # -- internals ---------------------------------------------------------
-
     async def _require_match(self, match_id: int) -> Match:
         match = require_found(
             await self.match_repository.get_by_id(match_id),
@@ -202,8 +200,6 @@ class MatchHardPresetService:
             return False
         opted_in = await self.repository.user_ids_for_match(match.id)
         return player_ids <= opted_in
-
-    # -- reads -------------------------------------------------------------
 
     async def my_state(self, match: Match, user: Optional[User]) -> HardPresetState:
         """What ``user`` may know about ``match``'s preset choice.
@@ -300,8 +296,6 @@ class MatchHardPresetService:
         if hard is not None and await self._is_unanimous(match):
             return hard
         return standard
-
-    # -- player actions ----------------------------------------------------
 
     async def opt_in(self, match_id: int, user: User) -> HardPresetState:
         async with _agreement_lock(match_id):
@@ -474,8 +468,6 @@ class MatchHardPresetService:
         except Exception:
             logger.exception("send_offer unexpected error for match %s", match.id)
 
-    # -- staff action ------------------------------------------------------
-
     async def set_override(
         self, match_id: int, override: Optional[PresetOverride], actor: User,
     ) -> Match:
@@ -543,8 +535,6 @@ class MatchHardPresetService:
             recipients=[p.user for p in players],
             forced=override is not None,
         ))
-
-    # -- roster maintenance ------------------------------------------------
 
     async def snapshot(self, match: Match) -> HardPresetSnapshot:
         """Capture the opt-in situation before an edit rewrites it.

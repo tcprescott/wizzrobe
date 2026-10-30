@@ -181,8 +181,6 @@ class StreamLayoutService:
             raise NotFoundError('That layout no longer exists.')
         return layout
 
-    # ── layouts ────────────────────────────────────────────────────────
-
     @requires_feature(FeatureFlag.STREAM_LAYOUTS)
     async def list_layouts(self, actor: User) -> list[StreamLayout]:
         await self._ensure(actor)
@@ -362,8 +360,6 @@ class StreamLayoutService:
         _feed_cache.clear()
         await self.audit.write_log(actor, AuditActions.STREAM_LAYOUT_DELETED, details)
 
-    # ── stages ─────────────────────────────────────────────────────────
-
     async def _overlay(self, stage: Stage) -> StageOverlay:
         overlay = await self.repository.overlay_for_stage(stage.id)
         if overlay is None:
@@ -504,8 +500,6 @@ class StreamLayoutService:
         for stage in await self.repository.stages():
             out += await self.repository.stage_matches_between(stage.id, now - _WINDOW_BEHIND, now + _WINDOW_AHEAD)
         return sorted(out, key=lambda m: (m.scheduled_at, m.id))
-
-    # ── what an overlay shows ──────────────────────────────────────────
 
     async def _showing(self, stage: Stage, overlay: StageOverlay) -> tuple[Optional[Match], bool]:
         """The match on the overlay now, and whether it was pinned there."""

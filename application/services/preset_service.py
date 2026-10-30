@@ -315,8 +315,6 @@ class PresetService:
             )
         return created
 
-    # ------------------------------------------------------------ internals
-
     async def _require(self, preset_id: int) -> Preset:
         return require_found(await self.repository.get_by_id(preset_id), "Preset")
 

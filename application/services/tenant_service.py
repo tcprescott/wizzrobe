@@ -162,8 +162,6 @@ class TenantService:
         _clear_cache()
         return tenant
 
-    # ---- CRUD (super-admin gated, platform-level) -------------------------
-
     @staticmethod
     async def _validate_slug(slug: str, exclude_id: Optional[int] = None) -> str:
         slug = (slug or '').strip().lower()
@@ -257,13 +255,9 @@ class TenantService:
         )
         return tenant
 
-    # ---- membership -------------------------------------------------------
-
     @staticmethod
     async def is_member(user_id: int, tenant_id: int) -> bool:
         return await TenantMembershipRepository.is_member(user_id, tenant_id)
-
-    # ---- super-admin grants + per-tenant bootstrap ------------------------
 
     @staticmethod
     async def grant_super_admin(actor: User, user: User) -> None:

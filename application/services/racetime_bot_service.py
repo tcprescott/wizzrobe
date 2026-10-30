@@ -28,8 +28,6 @@ class RacetimeBotService:
         self.repository = RacetimeBotRepository()
         self.audit_service = AuditService()
 
-    # ---- serialization (secret-free) -------------------------------------
-
     @staticmethod
     def serialize(bot: RacetimeBot) -> Dict[str, Any]:
         """A dict safe for an admin table — the ``client_secret`` is omitted."""
@@ -44,8 +42,6 @@ class RacetimeBotService:
             'status': bot.status,
             'status_message': bot.status_message or '',
         }
-
-    # ---- bot CRUD (super-admin, platform-level) --------------------------
 
     async def list_bots(self, actor: Optional[User]) -> List[RacetimeBot]:
         await self._ensure_super_admin(actor)
@@ -165,8 +161,6 @@ class RacetimeBotService:
         await get_racetime_manager().restart(actor, bot_id)
         return await self._require(bot_id)
 
-    # ---- tenant authorization grants -------------------------------------
-
     async def list_grants(self, actor: Optional[User], bot_id: int) -> List[RacetimeBotTenant]:
         await self._ensure_super_admin(actor)
         await self._require(bot_id)
@@ -199,8 +193,6 @@ class RacetimeBotService:
             {'bot_id': bot_id, 'tenant_id': tenant_id},
         )
 
-    # ---- runtime health (written by the racetimebot/ connection loop) ----
-    #
     # These are NOT super-admin-gated: the caller is the trusted in-process
     # connection loop acting as the system user, not an interactive admin. They
     # run with no tenant scope (the bot is global), so their audit rows are
@@ -249,8 +241,6 @@ class RacetimeBotService:
             message=message,
         )
 
-    # ---- tenant-facing read (no secret) ----------------------------------
-
     async def list_authorized_for_tenant(self, tenant_id: int) -> List[RacetimeBot]:
         """Active bots a tenant may select on a tournament (no secret exposed).
 
@@ -262,8 +252,6 @@ class RacetimeBotService:
 
     async def is_authorized_for_tenant(self, bot_id: int, tenant_id: int) -> bool:
         return any(b.id == bot_id for b in await self.repository.list_active_for_tenant(tenant_id))
-
-    # ---- internals -------------------------------------------------------
 
     async def _require(self, bot_id: int) -> RacetimeBot:
         return require_found(await self.repository.get_by_id(bot_id), 'Racetime bot')

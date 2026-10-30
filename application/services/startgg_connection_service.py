@@ -95,9 +95,6 @@ class StartggConnectionService:
         expires_at = datetime.now(timezone.utc) + timedelta(seconds=int(expires_in)) if expires_in else None
         return access, payload.get('refresh_token'), expires_at
 
-    # ------------------------------------------------------------------
-    # Connect / disconnect (called by the OAuth pages)
-    # ------------------------------------------------------------------
     @requires_feature(FeatureFlag.STARTGG)
     async def exchange_connect_code(self, code: str) -> Dict[str, Any]:
         try:
@@ -140,9 +137,6 @@ class StartggConnectionService:
         await self.repository.clear_connection()
         await self.audit_service.write_log(actor, AuditActions.STARTGG_DISCONNECTED, {})
 
-    # ------------------------------------------------------------------
-    # Status and access
-    # ------------------------------------------------------------------
     @requires_feature(FeatureFlag.STARTGG)
     async def get_status(self) -> Dict[str, Any]:
         connection = await self.repository.get_connection()

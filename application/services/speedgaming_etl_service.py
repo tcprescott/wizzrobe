@@ -96,8 +96,6 @@ class SpeedGamingETLService:
         self.room_repo = RacetimeRoomRepository()
         self.audit_service = AuditService()
 
-    # ------------------------------------------------------------------ public
-
     async def sync_event_link(
         self,
         link: SpeedGamingEventLink,
@@ -240,7 +238,6 @@ class SpeedGamingETLService:
         for player in self._extract_players(raw):
             resolved_players.append(await self._find_or_create_user(player, actor=actor))
 
-        # Load: materialize or refresh the Match.
         created = match is None
         if match is None:
             match = await MatchRepository.create(
@@ -268,8 +265,6 @@ class SpeedGamingETLService:
             },
         )
         return 'imported'
-
-    # -------------------------------------------------------------- transform
 
     async def _find_or_create_user(self, player: Dict[str, Any], *, actor: User) -> User:
         """Resolve an SG player to a ``User``, and make them a member here.
@@ -399,8 +394,6 @@ class SpeedGamingETLService:
         await participants.reconcile_acknowledgments(match, user_ids)
         await hard_preset_service.reconcile_edit(match, before, actor)
 
-    # ------------------------------------------------------------ reconciliation
-
     async def _skip_reason(self, match: Match) -> Optional[str]:
         """Why a re-sync must not overwrite this match, or None if it may."""
         if match.finished_at is not None:
@@ -464,8 +457,6 @@ class SpeedGamingETLService:
             )
             finished += 1
         return finished
-
-    # -------------------------------------------------------------- extractors
 
     @staticmethod
     def _episode_id(raw: Dict[str, Any]) -> Optional[str]:

@@ -93,8 +93,6 @@ class RaceRoomProfileService:
         )
         await self.repository.delete(profile)
 
-    # ---- internals -------------------------------------------------------
-
     @staticmethod
     def _clean(fields: Dict[str, Any]) -> Dict[str, Any]:
         clean: Dict[str, Any] = {}

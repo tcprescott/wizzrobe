@@ -24,10 +24,7 @@ from application.utils.audit_display import AuditNames, actions_matching, area_b
 from models import AuditLog, User
 
 
-# Canonical action verbs used across the codebase. Keeping them here gives
-# one place to grep when reviewing audit coverage.
 class AuditActions:
-    # A community's events (one SGL weekend each) and their lifecycle
     EVENT_CREATED = 'event.created'
     EVENT_UPDATED = 'event.updated'
     EVENT_WENT_LIVE = 'event.went_live'
@@ -36,7 +33,6 @@ class AuditActions:
     EVENT_DEFAULT_CHANGED = 'event.default_changed'
     EVENT_DELETED = 'event.deleted'
     EVENT_SETUP_COPIED = 'event.setup_copied'
-    # Match lifecycle and CRUD
     MATCH_CREATED = 'match.created'
     MATCH_UPDATED = 'match.updated'
     MATCH_RESCHEDULED = 'match.rescheduled'
@@ -68,7 +64,6 @@ class AuditActions:
     # Advisory: neither one touches is_stream_candidate.
     MATCH_STREAM_VOLUNTEERED = 'match.stream_volunteered'
     MATCH_STREAM_VOLUNTEER_WITHDRAWN = 'match.stream_volunteer_withdrawn'
-    # A comment on a match, from a player or staff, and its removal.
     MATCH_COMMENT_ADDED = 'match.comment_added'
     MATCH_COMMENT_DELETED = 'match.comment_deleted'
     MATCH_PLAYER_RUNNING_LATE = 'match.player_running_late'
@@ -100,7 +95,6 @@ class AuditActions:
     MATCH_RESCHEDULE_WITHDRAWN = 'match.reschedule_withdrawn'
     MATCH_SET_EXTENDED = 'match.set_extended'
 
-    # Crew
     CREW_SIGNUP_CREATED = 'crew.signup_created'
     CREW_SIGNUP_REMOVED = 'crew.signup_removed'
     CREW_APPROVAL_CHANGED = 'crew.approval_changed'
@@ -110,7 +104,6 @@ class AuditActions:
     CREW_PARTNER_INVITE_ANSWERED = 'crew.partner_invite_answered'
     CREW_PARTNER_INVITE_CANCELLED = 'crew.partner_invite_cancelled'
 
-    # Tournament
     TOURNAMENT_CREATED = 'tournament.created'
     TOURNAMENT_UPDATED = 'tournament.updated'
     TOURNAMENT_ROUND_SCHEDULE_UPDATED = 'tournament.round_schedule_updated'
@@ -125,10 +118,8 @@ class AuditActions:
     TOURNAMENT_PRIZE_POOL_UPDATED = 'tournament.prize_pool_updated'
     TOURNAMENT_PAYOUT_UPDATED = 'tournament.payout_updated'
     TOURNAMENT_SGLIVE_LINK_UPDATED = 'tournament.sglive_link_updated'
-    # A participants + matches export left the app (Reports → Exports).
     TOURNAMENT_DATA_EXPORTED = 'tournament.data_exported'
 
-    # User
     USER_CREATED = 'user.created'
     USER_PROVISIONED = 'user.provisioned'
     USER_PROFILE_UPDATED = 'user.profile_updated'
@@ -143,22 +134,19 @@ class AuditActions:
     USER_PASSWORD_REMOVED = 'user.password_removed'
     USER_PASSWORD_SIGNED_IN = 'user.password_signed_in'
 
-    # Discord role mapping / sync
     DISCORD_ROLE_MAPPING_ADDED = 'discord_role.mapping_added'
     DISCORD_ROLE_MAPPING_REMOVED = 'discord_role.mapping_removed'
     ROLE_DISCORD_SYNC_GRANTED = 'role.discord_sync_granted'
     ROLE_DISCORD_SYNC_REVOKED = 'role.discord_sync_revoked'
     ROLE_DISCORD_SYNC_BULK = 'role.discord_sync_bulk'
-    # Outbound: Discord roles Wizzrobe hands out (DiscordRoleSyncService)
     DISCORD_ROLE_RULE_SET = 'discord_role.rule_set'
     DISCORD_ROLE_RULE_CLEARED = 'discord_role.rule_cleared'
     DISCORD_ROLE_RULES_RESET = 'discord_role.rules_reset'
-    # Tenant ↔ Discord server link (tenant-scoped; stamped with the tenant)
     DISCORD_SERVER_LINKED = 'discord.server_linked'
     DISCORD_SERVER_UNLINKED = 'discord.server_unlinked'
     DISCORD_LOGIN_PANEL_POSTED = 'discord.login_panel_posted'
 
-    # Discord Scheduled Events mirror (PR 8). The create/update/cancel rows are
+    # Discord Scheduled Events mirror. The create/update/cancel rows are
     # written by the reconciler (system user on the worker, or a human on-demand);
     # the per-run summary/failure and the per-tournament settings edit are
     # audit-only plumbing.
@@ -169,17 +157,14 @@ class AuditActions:
     DISCORD_EVENT_SYNC_FAILED = 'discord_event.sync_failed'
     DISCORD_EVENT_SETTINGS_UPDATED = 'discord_event.settings_updated'
 
-    # Station pool (the venue's physical seats)
     STATION_CREATED = 'station.created'
     STATION_UPDATED = 'station.updated'
     STATION_DELETED = 'station.deleted'
 
-    # Stage
     STAGE_CREATED = 'stage.created'
     STAGE_UPDATED = 'stage.updated'
     STAGE_DELETED = 'stage.deleted'
 
-    # System
     SYSTEM_CONFIG_UPDATED = 'system_config.updated'
     THEME_UPDATED = 'theme.updated'
     THEME_LOGO_UPDATED = 'theme.logo_updated'
@@ -190,13 +175,11 @@ class AuditActions:
     PROFILE_NUDGES_UPDATED = 'profile_nudges.updated'
     PROFILE_NUDGE_DISMISSED = 'profile_nudge.dismissed'
 
-    # Triforce texts
     TRIFORCE_TEXT_SUBMITTED = 'triforce_text.submitted'
     TRIFORCE_TEXT_APPROVED = 'triforce_text.approved'
     TRIFORCE_TEXT_REJECTED = 'triforce_text.rejected'
     TRIFORCE_TEXT_DELETED = 'triforce_text.deleted'
 
-    # API tokens
     APITOKEN_CREATED = 'apitoken.created'
     APITOKEN_REVOKED = 'apitoken.revoked'
 
@@ -215,16 +198,13 @@ class AuditActions:
     # A spent refresh token presented again: the grant is revoked as stolen.
     OAUTH_GRANT_REFRESH_REUSED = 'oauth_grant.refresh_reused'
 
-    # Tournament-room kiosk tokens
     ROOM_TOKEN_CREATED = 'roomtoken.created'
     ROOM_TOKEN_REVOKED = 'roomtoken.revoked'
 
-    # In-app feedback
     FEEDBACK_SUBMITTED = 'feedback.submitted'
     FEEDBACK_REVIEWED = 'feedback.reviewed'
     FEEDBACK_REOPENED = 'feedback.reopened'
 
-    # Community events (member-submitted, staff-approved)
     COMMUNITY_EVENT_SUBMITTED = 'community_event.submitted'
     COMMUNITY_EVENT_UPDATED = 'community_event.updated'
     COMMUNITY_EVENT_APPROVED = 'community_event.approved'
@@ -256,7 +236,6 @@ class AuditActions:
     EMERGENCY_CONTACT_SAVED = 'emergency_contact.saved'
     EMERGENCY_CONTACT_REMOVED = 'emergency_contact.removed'
     EMERGENCY_CONTACT_VIEWED = 'emergency_contact.viewed'
-    # Stream layouts (OBS overlays)
     STREAM_LAYOUT_CREATED = 'stream_layout.created'
     STREAM_LAYOUT_UPDATED = 'stream_layout.updated'
     STREAM_LAYOUT_DELETED = 'stream_layout.deleted'
@@ -265,14 +244,12 @@ class AuditActions:
     STAGE_OVERLAY_UNPINNED = 'stage_overlay.unpinned'
     STAGE_OVERLAY_LINK_RENEWED = 'stage_overlay.link_renewed'
 
-    # Equipment lending
     EQUIPMENT_CREATED = 'equipment.created'
     EQUIPMENT_UPDATED = 'equipment.updated'
     EQUIPMENT_DELETED = 'equipment.deleted'
     EQUIPMENT_CHECKED_OUT = 'equipment.checked_out'
     EQUIPMENT_CHECKED_IN = 'equipment.checked_in'
 
-    # Event check-in
     CHECK_IN_EVENT_CREATED = 'check_in_event.created'
     CHECK_IN_EVENT_UPDATED = 'check_in_event.updated'
     CHECK_IN_EVENT_DELETED = 'check_in_event.deleted'
@@ -288,10 +265,8 @@ class AuditActions:
     MATCHERINO_LOGIN_CLEARED = 'matcherino_login.cleared'
     MATCHERINO_LOGIN_ALERTS_UPDATED = 'matcherino_login.alerts_updated'
 
-    # Player availability
     PLAYER_AVAILABILITY_UPDATED = 'player.availability_updated'
 
-    # Challonge integration
     CHALLONGE_CONNECTED = 'challonge.connected'
     CHALLONGE_DISCONNECTED = 'challonge.disconnected'
     CHALLONGE_COMMUNITY_REMOVED = 'challonge.community_removed'
@@ -313,7 +288,6 @@ class AuditActions:
     CHALLONGE_WEBHOOK_SYNCED = 'challonge.webhook_synced'
     CHALLONGE_MATCH_LINKED = 'challonge.match_linked'
 
-    # Twitch integration
     STARTGG_LINKED = 'startgg.linked'
     STARTGG_UNLINKED = 'startgg.unlinked'
     STARTGG_EVENT_LINKED = 'startgg.event_linked'
@@ -331,7 +305,6 @@ class AuditActions:
     TWITCH_LINKED = 'twitch.linked'
     TWITCH_UNLINKED = 'twitch.unlinked'
 
-    # Racetime.gg identity linking
     RACETIME_LINKED = 'racetime.linked'
     RACETIME_UNLINKED = 'racetime.unlinked'
 
@@ -373,7 +346,6 @@ class AuditActions:
     RACE_ROOM_RESULT_HELD = 'race_room.result_held'
     RACE_ROOM_FPA_CALLED = 'race_room.fpa_called'
 
-    # Volunteer scheduling
     VOLUNTEER_POSITION_CREATED = 'volunteer.position_created'
     VOLUNTEER_POSITION_UPDATED = 'volunteer.position_updated'
     VOLUNTEER_POSITION_DELETED = 'volunteer.position_deleted'
@@ -401,7 +373,6 @@ class AuditActions:
     ROLE_VOLUNTEER_SYNC_GRANTED = 'role.volunteer_sync_granted'
     ROLE_VOLUNTEER_SYNC_REVOKED = 'role.volunteer_sync_revoked'
 
-    # Web push (device notifications)
     WEB_PUSH_SUBSCRIBED = 'web_push.subscribed'
     WEB_PUSH_UNSUBSCRIBED = 'web_push.unsubscribed'
     WEB_PUSH_ROTATED = 'web_push.rotated'
@@ -412,7 +383,6 @@ class AuditActions:
     NOTIFICATION_SETTING_CHANGED = 'notification_setting.changed'
     NOTIFICATION_SETTINGS_RESET = 'notification_settings.reset'
 
-    # Presets (seed-rolling settings)
     PRESET_CREATED = 'preset.created'
     PRESET_UPDATED = 'preset.updated'
     PRESET_DELETED = 'preset.deleted'
@@ -423,7 +393,7 @@ class AuditActions:
     AI_PROVIDER_SET = 'ai_provider.set'
     AI_PROVIDER_CLEARED = 'ai_provider.cleared'
 
-    # SpeedGaming ETL (PR 7). Config CRUD is tenant-scoped, actor = a human
+    # SpeedGaming ETL. Config CRUD is tenant-scoped, actor = a human
     # SYNC_ADMIN; the sync/import/skip/cancel/auto-finish rows are written by the
     # sync worker acting as the system user, tenant from ``tenant_scope``.
     SG_EVENT_LINK_CREATED = 'sg_sync.event_link_created'
@@ -438,7 +408,7 @@ class AuditActions:
     SG_PLACEHOLDER_CREATED = 'sg_sync.placeholder_created'
     SG_PLACEHOLDER_UPGRADED = 'sg_sync.placeholder_upgraded'
 
-    # Async Qualifiers (PR 9). A peer aggregate of Tournament: qualifier/pool/
+    # Async Qualifiers. A peer aggregate of Tournament: qualifier/pool/
     # permalink authoring and the per-qualifier ``admins`` grants are tenant-
     # internal config (event-less); the run submitted/reviewed outcomes DO emit
     # events for subscribers (see EventType.ASYNC_QUALIFIER_RUN_*). The actor is
@@ -470,7 +440,7 @@ class AuditActions:
     # rarer, more contestable act: it changes an outcome the runner was already
     # told about, and "who overturned this, and why" is the question an appeal asks.
     ASYNC_QUALIFIER_RUN_REVIEW_OVERRIDDEN = 'async_qualifier.run_review_overridden'
-    # Async Qualifier live races (PR 10). Create/open/cancel are tenant-internal
+    # Async Qualifier live races. Create/open/cancel are tenant-internal
     # scheduling (event-less); recording the finished race captures runs and DOES
     # emit an event (see EventType.ASYNC_QUALIFIER_LIVE_RACE_RECORDED).
     ASYNC_QUALIFIER_LIVE_RACE_CREATED = 'async_qualifier.live_race_created'
@@ -522,7 +492,6 @@ class AuditActions:
     BRACKET_ENTRY_RETIRED = 'bracket.entry_retired'
     BRACKET_CANCELLED = 'bracket.cancelled'
 
-    # Webhooks
     WEBHOOK_CREATED = 'webhook.created'
     WEBHOOK_UPDATED = 'webhook.updated'
     WEBHOOK_DELETED = 'webhook.deleted'

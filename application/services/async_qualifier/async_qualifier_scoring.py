@@ -72,7 +72,7 @@ class ScoreBand(str, Enum):
 # The fast side is already banded by the ``SCORE_MAX`` cap — every run 5% or more
 # under par scores exactly 105 — so the slow edge mirrors it rather than inventing
 # a second tolerance.
-NEAR_PAR_FLOOR = 2 * 100 - SCORE_MAX   # 95.0
+NEAR_PAR_FLOOR = 2 * 100 - SCORE_MAX
 
 
 def score_band(score: Optional[float]) -> Optional[ScoreBand]:

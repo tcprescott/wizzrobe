@@ -52,7 +52,6 @@ CONFIG_KEY = 'theme'
 
 _HEX_RE = re.compile(r'^#[0-9a-fA-F]{6}$')
 
-# --- Contrast (WCAG AA) ----------------------------------------------------
 # Each brand colour is checked where static/css/styles.css actually paints it,
 # in each mode, so a warning names a real use ("button text in both modes")
 # rather than an abstract score. The surfaces are the --surface / --page-bg /

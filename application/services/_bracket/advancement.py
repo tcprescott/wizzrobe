@@ -28,8 +28,6 @@ from models import (
 
 
 class AdvancementMixin(ComposedBracketService):
-    # -- B7: results, advancement, stage completion -----------------------
-
     _ELIM_FORMATS = (BracketFormat.SINGLE_ELIM, BracketFormat.DOUBLE_ELIM)
 
     async def report_result(

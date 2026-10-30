@@ -96,9 +96,6 @@ class StartggService(StartggPlaceholderMixin):
         self.audit_service = AuditService()
         self.connection_service = StartggConnectionService()
 
-    # ------------------------------------------------------------------
-    # Configuration
-    # ------------------------------------------------------------------
     @staticmethod
     def is_configured() -> bool:
         """True when the server can reach start.gg at all: a platform API token,
@@ -136,9 +133,6 @@ class StartggService(StartggPlaceholderMixin):
                 raise ValueError(f"start.gg has no event at {event_url(slug)}.") from e
             raise ValueError(f"Couldn't read the event from start.gg: {e}") from e
 
-    # ------------------------------------------------------------------
-    # Linking an event
-    # ------------------------------------------------------------------
     @requires_feature(FeatureFlag.STARTGG)
     async def link_event(self, tournament_id: int, id_or_url: str, actor: User) -> Dict[str, int]:
         tournament = await self._editable_tournament(tournament_id, actor)
@@ -202,9 +196,6 @@ class StartggService(StartggPlaceholderMixin):
             'tournament_id': tournament.id, 'enabled': bool(enabled),
         })
 
-    # ------------------------------------------------------------------
-    # Sync
-    # ------------------------------------------------------------------
     @requires_feature(FeatureFlag.STARTGG)
     async def sync_event(self, tournament_id: int, actor: User, force: bool = False) -> Dict[str, int]:
         tournament = await self._editable_tournament(tournament_id, actor)
@@ -363,9 +354,6 @@ class StartggService(StartggPlaceholderMixin):
             await self.tournament_repository.unenroll_player(tournament, enrolled[user_id])
             await record_enrolment_change(self.audit_service, actor, enrolled[user_id], tournament.id, added=False)
 
-    # ------------------------------------------------------------------
-    # Booking
-    # ------------------------------------------------------------------
     @staticmethod
     def bookable_phase_id(tournament: Tournament, phases: List[StartggPhase]) -> Optional[str]:
         """The phase players book from: the chosen one, else the earliest phase
@@ -570,9 +558,6 @@ class StartggService(StartggPlaceholderMixin):
         await self.repository.link_match(row, match)
         return match
 
-    # ------------------------------------------------------------------
-    # Entrant mapping (staff)
-    # ------------------------------------------------------------------
     @requires_feature(FeatureFlag.STARTGG)
     async def list_entrants(self, tournament_id: int, actor: User) -> List[StartggEntrant]:
         tournament = await self._editable_tournament(tournament_id, actor)
@@ -666,9 +651,6 @@ class StartggService(StartggPlaceholderMixin):
         })
         await self._mirror_players(entrant.tournament, actor)
 
-    # ------------------------------------------------------------------
-    # The public bracket view
-    # ------------------------------------------------------------------
     @requires_feature(FeatureFlag.STARTGG)
     async def get_event_view(self, tournament_id: int) -> Dict[str, Any]:
         """Everything the bracket page shows, publicly readable (names are public)."""
@@ -734,9 +716,6 @@ class StartggService(StartggPlaceholderMixin):
             return entrant.name
         return (row.slot1_label if slot == 1 else row.slot2_label) or 'TBD'
 
-    # ------------------------------------------------------------------
-    # Writeback (opt-in per tournament)
-    # ------------------------------------------------------------------
     # feature-gate: exempt — the soft integration point, like ChallongeService.push_result_if_linked.
     async def report_result_if_linked(self, match: Match, actor: Optional[User]) -> bool:
         """Report a confirmed result to start.gg when the match came from a start.gg set.

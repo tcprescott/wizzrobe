@@ -448,7 +448,6 @@ class DiscordRoleSyncService:
         return result
 
 
-# --- Sync requests ---------------------------------------------------------
 # Rule changes and events (a match starting, an enrollment) mark the tenant for
 # a sync on the worker's next short tick, so bursts coalesce into one run.
 # Module-level on purpose: the app runs one worker process (scaling-roadmap.md),

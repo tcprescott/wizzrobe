@@ -276,8 +276,6 @@ class TenantMembershipService:
             ),
         )
 
-    # ---- the door: requests to join --------------------------------------
-
     async def request_to_join(
         self, user: User, tenant_id: int, message: Optional[str] = None,
     ) -> TenantJoinRequest:
@@ -332,8 +330,6 @@ class TenantMembershipService:
             )
             await self._notify_staff_of_request(user, request, tenant_id, text)
         return request
-
-    # ---- how people get in ----------------------------------------------
 
     @staticmethod
     async def get_join_mode(tenant_id: Optional[int] = None) -> JoinMode:
@@ -585,8 +581,6 @@ class TenantMembershipService:
         await _mark_staff_dms(request, request.user, actor, approved=False)
         return request
 
-    # ---- notification (best-effort; a DM failure never blocks a decision) --
-
     async def _notify_staff_of_request(
         self, requester: User, request: TenantJoinRequest, tenant_id: int,
         message: Optional[str],
@@ -605,8 +599,6 @@ class TenantMembershipService:
             community_name=community,
             description=body,
         )
-        # "Approve or deny it on the Users tab" was the whole call to action and
-        # named a page without linking it; the button is now the tab itself.
         from application.services import notification_links, staff_request_dms
         link = await notification_links.admin_users()
         await staff_request_dms.send(

@@ -82,7 +82,6 @@ class DoubleEliminationEngine:
                     )
                 )
 
-        # --- Grand final + conditional reset ---
         # The reset (a second grand final, played only if the losers-bracket
         # entrant wins the first) is emitted unless grand_final_reset is disabled.
         # When disabled the Grand Final is terminal (no onward pointers), so GF1's

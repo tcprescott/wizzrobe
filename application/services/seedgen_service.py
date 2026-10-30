@@ -87,7 +87,6 @@ _DASH_BASE_URL = 'https://www.dashrando.net'
 class SeedGenerationService(DK64RBackend):
     """Service for generating seeds for various randomizers."""
 
-    # Available randomizers
     AVAILABLE_RANDOMIZERS: ClassVar[List[str]] = [
         'alttpr',
         'avianart',
@@ -152,7 +151,6 @@ class SeedGenerationService(DK64RBackend):
     # qualifier batch rolls refuse until that path is converted.
     ASYNC_RANDOMIZERS: ClassVar[Set[str]] = {'dk64r'}
 
-    # Randomizers whose generator can embed community triforce texts.
     TRIFORCE_TEXT_RANDOMIZERS: ClassVar[Set[str]] = {'alttpr'}
 
     # Randomizers that publish their own preset catalogue over their API, so a
@@ -659,10 +657,6 @@ class SeedGenerationService(DK64RBackend):
 
         return self._dk64r_seed(result, branch, {'branch': branch, **settings_dict})
 
-    # ------------------------------------------------------------------
-    # Asynchronous (task-queue) rolls — the persisted path
-    # ------------------------------------------------------------------
-
     async def submit_async_roll(
         self, randomizer: str, preset: Optional[Preset] = None,
     ) -> AsyncRollSubmission:
@@ -718,10 +712,6 @@ class SeedGenerationService(DK64RBackend):
             # nothing downstream reads it, and the permalink patches in-browser.
             verification_hash=result.get('hash'),
         )
-
-    # ------------------------------------------------------------------
-    # Upstream preset catalogues
-    # ------------------------------------------------------------------
 
     async def list_remote_presets(
         self, randomizer: str, *, branch: Optional[str] = None,
@@ -793,5 +783,5 @@ class SeedGenerationService(DK64RBackend):
         The deliberate sleep exercises the UI's in-progress state; it is not a
         provider call and has no settings to snapshot.
         """
-        await asyncio.sleep(5)  # Simulate processing time
+        await asyncio.sleep(5)
         return RolledSeed(url="https://example.com/test-seed-url")

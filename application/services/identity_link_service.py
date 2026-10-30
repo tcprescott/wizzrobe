@@ -61,9 +61,6 @@ class IdentityLinkService:
         self.provider = provider
         self.audit_service = AuditService()
 
-    # ------------------------------------------------------------------
-    # OAuth configuration / URLs
-    # ------------------------------------------------------------------
     def _redirect_uri(self) -> str:
         return os.getenv(self.provider.redirect_uri_env) or f"{get_base_url()}{self.provider.callback_path}"
 
@@ -93,9 +90,6 @@ class IdentityLinkService:
             client_secret=os.getenv(self.provider.client_secret_env, ''),
         )
 
-    # ------------------------------------------------------------------
-    # Player identity linking (called by the provider OAuth callback)
-    # ------------------------------------------------------------------
     async def exchange_player_code(self, client: Any, code: str) -> Dict[str, Any]:
         """Exchange a user's authorization code and return their identity.
 

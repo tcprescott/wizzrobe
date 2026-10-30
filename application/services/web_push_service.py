@@ -154,8 +154,6 @@ class WebPushService:
         self.repository = WebPushRepository()
         self.audit_service = AuditService()
 
-    # ------------------------------------------------------------ config
-
     @staticmethod
     def is_configured() -> bool:
         return _vapid_config() is not None
@@ -167,8 +165,6 @@ class WebPushService:
         if config is None:
             return None
         return protocol.public_key_b64url(config.private_key)
-
-    # ------------------------------------------------------- subscriptions
 
     async def list_subscriptions(self, user: User) -> List[WebPushSubscription]:
         return await self.repository.list_for_user(user)
@@ -297,8 +293,6 @@ class WebPushService:
             {'subscription_id': subscription.id, 'endpoint_host': urlparse(subscription.endpoint).hostname},
         )
 
-    # ------------------------------------------------------------ delivery
-
     async def mirror_dm(
         self, discord_id: int, message: str, navigate: Optional[str] = None,
         silent: bool = False, ref: Optional[SentMessageRef] = None,
@@ -342,8 +336,6 @@ class WebPushService:
             subscriptions, title='Wizzrobe', body=self._plain_text(message), navigate=navigate,
         )
         return sent > 0
-
-    # ----------------------------------------------------------- internals
 
     def _plain_text(self, message: str) -> str:
         text = _MARKDOWN_TOKENS.sub('', message or '').strip()

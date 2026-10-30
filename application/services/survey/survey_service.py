@@ -194,8 +194,6 @@ class SurveyService:
     async def _audit(self, actor: User, action: str, survey: Survey, **details: Any) -> None:
         await self.audit_service.write_log(actor, action, {'survey_id': survey.id, 'title': survey.title, **details})
 
-    # --- reads ----------------------------------------------------------
-
     @requires_feature(FeatureFlag.SURVEYS)
     async def list_surveys(self, actor: User) -> List[Survey]:
         """The current event's surveys, newest first."""
@@ -345,8 +343,6 @@ class SurveyService:
         await self._ensure_staff(actor)
         survey = await self._load(survey_id)
         return await self.repository.submitted_responses(survey.id, limit=limit, offset=offset)
-
-    # --- building -------------------------------------------------------
 
     @requires_feature(FeatureFlag.SURVEYS)
     async def create_survey(self, actor: User, title: str, *, from_template: bool = True,
@@ -640,8 +636,6 @@ class SurveyService:
         _check_order(layout, positions)
         await self.repository.place_question(question, target.id, positions)
         await self._audit(actor, AuditActions.SURVEY_UPDATED, survey, question_moved=question.id)
-
-    # --- lifecycle ------------------------------------------------------
 
     @requires_feature(FeatureFlag.SURVEYS)
     async def send(self, actor: User, survey_id: int, *, closes_at: Optional[datetime] = None) -> int:

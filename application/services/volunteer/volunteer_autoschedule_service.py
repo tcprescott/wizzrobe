@@ -238,8 +238,6 @@ class VolunteerAutoscheduleService:
         )
         return removed
 
-    # --- internals --------------------------------------------------------
-
     def _pick(
         self, shift, pool, pool_ids, quals, avail_map, intervals, hours, on_shift,
         *,

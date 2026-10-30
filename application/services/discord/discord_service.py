@@ -216,20 +216,16 @@ async def _run_sent_hook(hook: Optional[DMSentHook], channel_id: int, message_id
         logger.exception('Discord DM %s: sent hook failed', message_id)
 
 
-# Shared bot instance (singleton pattern)
 _bot_instance: Optional[commands.Bot] = None
 
 
-# ---------------------------------------------------------------------------
 # Interaction-handler and DM view-factory registries
-#
 # These invert what used to be a bidirectional import cycle between this module
 # and the Discord bot package (previously held together by ~20 deferred,
 # function-body imports). The bot package registers each interaction handler
 # and view factory here at startup, so the dependency now runs one way (the bot
 # package -> ``application.services``) and this module never imports it back.
 # Mirrors ``application/events/match_live.py``.
-# ---------------------------------------------------------------------------
 
 # Stable view-factory kinds, shared with the bot package's registration so the
 # DM senders below and the registering code agree on the lookup keys.

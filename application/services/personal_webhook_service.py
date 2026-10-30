@@ -234,16 +234,12 @@ class PersonalWebhookService:
         self.repository = PersonalWebhookRepository()
         self.audit_service = AuditService()
 
-    # ------------------------------------------------------------ catalogue
-
     @staticmethod
     @requires_feature(FeatureFlag.PERSONAL_WEBHOOKS)
     async def available_areas() -> List[WebhookArea]:
         """Areas this community has the features for."""
         live = await FeatureFlagService().enabled_flags()
         return [a for a in AREAS if a.flag is None or a.flag in live]
-
-    # ------------------------------------------------------------ CRUD
 
     @requires_feature(FeatureFlag.PERSONAL_WEBHOOKS)
     async def list_mine(self, user: User) -> List[PersonalWebhook]:
@@ -343,8 +339,6 @@ class PersonalWebhookService:
         ok, status, error = await self._post(webhook, 'webhook.test', view, datetime.now(timezone.utc))
         if not ok:
             raise ValueError(f"The test didn't go through: {error or f'HTTP {status}'}")
-
-    # ------------------------------------------------------------ delivery
 
     # feature-gate: exempt — a worker: it skips a tenant with the flag off instead of raising.
     async def deliver_event(self, event: Event) -> None:
@@ -503,8 +497,6 @@ class PersonalWebhookService:
         # No pings from text a player wrote: names and titles go out as-is.
         return {'username': 'Wizzrobe', 'embeds': [embed], 'allowed_mentions': {'parse': []}}
 
-    # ------------------------------------------------------------ views
-
     async def _match_view(self, match_id: Optional[int], owner: User) -> Optional[_View]:
         if not match_id:
             return None
@@ -650,8 +642,6 @@ class PersonalWebhookService:
         view.lines.append(f'Room: {room.url}')
         view.url = room.url
         return view
-
-    # ------------------------------------------------------------ internals
 
     async def _link(self, view: _View) -> Optional[str]:
         if view.url:

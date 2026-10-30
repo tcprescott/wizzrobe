@@ -209,8 +209,6 @@ class OAuthGrantService:
         self.token_repository = ApiTokenRepository()
         self.audit_service = AuditService()
 
-    # --- Authorization request ---------------------------------------------
-
     async def begin_authorization(
         self,
         *,
@@ -282,8 +280,6 @@ class OAuthGrantService:
     @staticmethod
     def _sweep_pending(room_for: int = 0) -> None:
         prune_parked(_pending, PENDING_TTL, room_for=room_for)
-
-    # --- Consent -----------------------------------------------------------
 
     async def consent_view(self, txn_id: str, user: User) -> ConsentView:
         """What the consent screen offers ``user`` for this request.
@@ -392,8 +388,6 @@ class OAuthGrantService:
             raise NotFoundError('This app is no longer available.')
         assert app is not None
         return app
-
-    # --- Token endpoint ----------------------------------------------------
 
     async def authenticate_client(self, client_id: Optional[str], client_secret: Optional[str]) -> OAuthApp:
         """Who is calling the token or revocation endpoint.
@@ -531,8 +525,6 @@ class OAuthGrantService:
             return
         await self._revoke_grant(grant, app, AuditActions.OAUTH_GRANT_REVOKED, 'app')
 
-    # --- REST API ----------------------------------------------------------
-
     async def ensure_grant_usable(self, token: ApiToken) -> None:
         """Refuse an app grant whose app is disabled or whose community has the flag off.
 
@@ -548,8 +540,6 @@ class OAuthGrantService:
             and await self.repository.is_blocked(token.oauth_app_id, token.tenant_id)
         ):
             raise PermissionError('This community has blocked this app.')
-
-    # --- Community staff ---------------------------------------------------
 
     async def list_community_apps(self, actor: User) -> List[CommunityApp]:
         """Apps members of this community have connected, plus any it blocks.
@@ -604,8 +594,6 @@ class OAuthGrantService:
         """Staff of this community, with apps turned on here."""
         await FeatureFlagService().ensure_enabled(FeatureFlag.THIRD_PARTY_APPS)
         await AuthService.ensure(await AuthService.is_staff(actor), 'Only staff can manage connected apps.')
-
-    # --- Internals ---------------------------------------------------------
 
     @staticmethod
     def _new_pair() -> tuple[str, str]:

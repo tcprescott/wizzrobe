@@ -44,7 +44,6 @@ logger = logging.getLogger(__name__)
 
 
 class SeriesMixin(ComposedBracketService):
-    # -- best-of resolution ------------------------------------------------
     @staticmethod
     def resolve_best_of(bracket: Bracket, bracket_match: BracketMatch) -> int:
         """The series length for one matchup: override → round → stage → 1.
@@ -138,7 +137,6 @@ class SeriesMixin(ComposedBracketService):
         )
         return bracket_match
 
-    # -- standings ---------------------------------------------------------
     async def _live_games(self, bracket_match_id: int) -> List[BracketMatchGame]:
         games = await self.repository.list_games(bracket_match_id)
         return [g for g in games if g.state != BracketMatchGameState.CANCELLED]
@@ -181,7 +179,6 @@ class SeriesMixin(ComposedBracketService):
             f"All {best_of} game(s) of this series are already scheduled."
         )
 
-    # -- settling ----------------------------------------------------------
     @staticmethod
     def _winner_from_ranks(
         match: Match, bracket_match: BracketMatch
@@ -351,7 +348,6 @@ class SeriesMixin(ComposedBracketService):
         await self._mark_games_cancelled(actor, bracket_match, pending, reason)
         await self._teardown_games(actor, pending, reason)
 
-    # -- the racetime auto-open hold ---------------------------------------
     async def held_match_ids(self, match_ids: Sequence[int]) -> Set[int]:
         """Which of ``match_ids`` must NOT have a room opened for them yet.
 

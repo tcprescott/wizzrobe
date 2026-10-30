@@ -105,8 +105,6 @@ class _SeatTally:
 class ReportsService:
     """Generates aggregated views over matches, crew, stages, and audit logs."""
 
-    # --- Capacity Forecast -------------------------------------------------
-
     @staticmethod
     def _local(dt: Optional[datetime]) -> Optional[datetime]:
         return to_display(dt)
@@ -273,8 +271,6 @@ class ReportsService:
                 out.append(match)
         return out
 
-    # --- Match Operations --------------------------------------------------
-
     async def match_operations(
         self,
         start: datetime,
@@ -385,8 +381,6 @@ class ReportsService:
             'flagged_match_ids': flagged_ids,
             'duration_outlier_ids': duration_outlier_ids,
         }
-
-    # --- Staff / Crew Activity ---------------------------------------------
 
     async def crew_coverage(
         self,
@@ -521,8 +515,6 @@ class ReportsService:
             'contribution_rows': contribution_rows,
             'tournament_rows': _tournament_rows(per_tournament),
         }
-
-    # --- Stage Utilization ------------------------------------------
 
     async def stage_utilization(
         self,

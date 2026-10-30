@@ -235,8 +235,6 @@ class VolunteerExportService:
             community_name=await TenantService.current_community_name() or '',
         )
 
-    # --- sheets -----------------------------------------------------------
-
     def _volunteers_sheet(
         self,
         users: Mapping[int, User],

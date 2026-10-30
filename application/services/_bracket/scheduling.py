@@ -28,7 +28,6 @@ from models import (
 
 
 class SchedulingMixin(ComposedBracketService):
-    # -- B9: scheduling seam (mirrors the Challonge integration) ----------
     async def list_open_matches_for_user(
         self, user_id: int, tournament_id: Optional[int] = None
     ) -> List[BracketMatch]:
@@ -275,7 +274,6 @@ class SchedulingMixin(ComposedBracketService):
             booked_by_you=booker is not None and actor is not None and booker.id == actor.id,
         )
 
-    # -- linking a manually-scheduled match onto a matchup -----------------
     async def list_linkable_matches(self, tournament_id: int) -> List[BracketMatch]:
         """OPEN matchups in a tournament that a ``Match`` could still be linked to.
 

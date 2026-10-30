@@ -109,8 +109,6 @@ class AsyncQualifierService(
             run_repository=self.run_repository,
         )
 
-    # ============================================================ management
-
     @requires_feature(FeatureFlag.ASYNC_QUALIFIERS)
     async def list_qualifiers(self, actor: Optional[User]) -> List[AsyncQualifier]:
         """The qualifiers ``actor`` may administer and review.
@@ -264,8 +262,6 @@ class AsyncQualifierService(
         qualifier = await self._require_qualifier(qualifier_id)
         await access.ensure_qualifier_admin(actor, qualifier)
         return await qualifier.admins.all()
-
-    # =============================================================== player
 
     @requires_feature(FeatureFlag.ASYNC_QUALIFIERS)
     async def start_run(self, user: User, qualifier_id: int, pool_id: int) -> AsyncQualifierRun:
@@ -443,8 +439,6 @@ class AsyncQualifierService(
         return run
 
 
-
-    # ============================================================= internals
 
     async def _require_qualifier(self, qualifier_id: int) -> AsyncQualifier:
         return await access.require_qualifier(self.repository, qualifier_id)

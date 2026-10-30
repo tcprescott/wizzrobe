@@ -51,16 +51,13 @@ class TournamentSignupCard:
     enrolled: bool
     entrant_count: int
     entrants: List[User] = field(default_factory=list)
-    # The users holding Tournament Admin on this one tournament.
     admins: List[User] = field(default_factory=list)
     # Roster lives on a linked Challonge bracket: signing up adds the player
     # there, under the Challonge account linked on their profile.
     challonge_managed: bool = False
-    # The viewer's linked Challonge username, None when they have not linked.
     challonge_name: Optional[str] = None
     # The bracket has started, so Challonge no longer takes roster changes.
     roster_locked: bool = False
-    # Bracket entrants nobody has mapped to a Wizzrobe user, by Challonge name.
     unmapped_entrant_names: List[str] = field(default_factory=list)
     # Roster lives on a linked start.gg event, read-only: players sign up and
     # withdraw there, and the sync brings them in.

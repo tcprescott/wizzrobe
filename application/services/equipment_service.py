@@ -71,8 +71,6 @@ class EquipmentService:
                     raise ValueError(_NUMBER_TAKEN) from None
         raise AssertionError('unreachable')
 
-    # --- Asset management (Equipment Manager / Staff) ---
-
     @requires_feature(FeatureFlag.EQUIPMENT)
     async def create_asset(
         self,
@@ -220,8 +218,6 @@ class EquipmentService:
             {'equipment_id': equipment_id, 'asset_number': asset_number},
         )
 
-    # --- Checkout / check-in ---
-
     @requires_feature(FeatureFlag.EQUIPMENT)
     async def checkout(
         self,
@@ -310,8 +306,6 @@ class EquipmentService:
             {'equipment_id': equipment.id, 'asset_number': equipment.asset_number},
         )
         return equipment
-
-    # --- Reads ---
 
     @requires_feature(FeatureFlag.EQUIPMENT)
     async def list_assets(self) -> List[Equipment]:

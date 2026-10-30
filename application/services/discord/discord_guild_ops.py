@@ -89,7 +89,7 @@ class GuildOpsMixin:
             if not self._bot.is_ready():
                 return False, "Discord bot is not connected. Please try again in a moment."
 
-            guilds = self._bot.guilds  # cached list of Guild objects
+            guilds = self._bot.guilds
             data = [{"id": g.id, "name": g.name} for g in guilds]
             return True, data
         except Exception as e:

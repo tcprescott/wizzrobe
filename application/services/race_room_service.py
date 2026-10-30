@@ -126,8 +126,6 @@ class RaceRoomService:
         self.room_repository = RacetimeRoomRepository()
         self.audit_service = AuditService()
 
-    # ---- creation / open -------------------------------------------------
-
     @requires_feature(FeatureFlag.RACETIME_ROOMS)
     async def create_room_for_match(
         self, match: Match, *, actor: Optional[User] = None, attach_seed: bool = True,
@@ -290,15 +288,15 @@ class RaceRoomService:
         from models import FeatureFlag
 
         if not await FeatureFlagService().is_enabled(FeatureFlag.RACETIME_ROOMS):
-            return None  # tenant has racetime rooms disabled
+            return None
         lead = match.tournament.room_open_minutes_before or 30
         if match.scheduled_at is None or match.scheduled_at > now + timedelta(minutes=lead):
-            return None  # not yet within this tournament's lead window
+            return None
         if await self.room_repository.get_by_match(match) is not None:
-            return None  # idempotent: a room already exists
+            return None
         bot = await match.tournament.racetime_bot
         if bot is None:
-            return None  # no authorized bot to host the room
+            return None
         if not self._goal_for(match.tournament, await match.tournament.race_room_profile):
             # Staff opening one by hand get the reason; the worker would only
             # log the same refusal every tick.
@@ -331,7 +329,6 @@ class RaceRoomService:
         """
         return await self.room_repository.open_for_player(user.id)
 
-    # ---- transitions -----------------------------------------------------
     # Driven by racetime for a room that already exists, so deliberately not
     # gated: switching RACETIME_ROOMS off mid-race must not drop its result or
     # leave a match unable to cancel its room.
@@ -484,8 +481,6 @@ class RaceRoomService:
         )
         match_live.publish(match.id)
 
-    # ---- held results ----------------------------------------------------
-
     @requires_feature(FeatureFlag.RACETIME_ROOMS)
     async def held_result(self, actor: Optional[User], match_id: int) -> HeldResult:
         """What the Check result dialog shows for a held race: the reason, and
@@ -567,8 +562,6 @@ class RaceRoomService:
             extra={'checked_hold': reason.value if hasattr(reason, 'value') else str(reason)},
         )
 
-    # ---- result mapping --------------------------------------------------
-
     @staticmethod
     def _map_results(
         match: Optional[Match], entrants: List[RaceEntrant],
@@ -605,8 +598,6 @@ class RaceRoomService:
             elif entrant.status != EntrantStatus.DONE:
                 unmatched.append(unmatched_handle(entrant))
         return results, unmatched
-
-    # ---- internals -------------------------------------------------------
 
     async def _attach_seed(self, match: Match, actor: User) -> None:
         """Roll and attach the tournament's seed (best-effort, non-blocking failure)."""
@@ -707,9 +698,6 @@ class RaceRoomService:
             detail['tournament_id'] = match.tournament_id
         if extra:
             detail.update(extra)
-        # Builds this domain's shared room-detail payload, then hands the
-        # audit-then-publish pairing to the one shared implementation rather than
-        # repeating it here.
         await self.audit_service.write_and_publish(
             actor, audit_action, detail, event_type,
         )

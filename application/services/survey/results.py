@@ -96,7 +96,6 @@ class QuestionResult:
     reworded_after: Optional[int] = None
     #: The question it was duplicated from, when that survey has answers.
     last_time: Optional[LastTime] = None
-    #: Who the question's section is for.
     audience: SurveyAudience = SurveyAudience.EVERYONE
     #: Asked once per tournament or position, so ``groups`` compares them.
     repeats: bool = False
@@ -285,7 +284,6 @@ def summarize(
             result.groups, result.folded = fold_small(question, per_scope)
             if question.kind is SurveyQuestionKind.COMMENT:
                 result.comment_counts = dict(Counter(a.scope_label for a in rows if (a.text or '').strip()))
-        # A comment's text, or the "Other" write-ins of a choice question.
         if question.kind is SurveyQuestionKind.COMMENT or question.other_option:
             for a in sorted(rows, key=lambda a: -a.response_id):
                 response = response_by_id.get(a.response_id)

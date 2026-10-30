@@ -119,8 +119,6 @@ class WebhookService:
         self.delivery_repository = WebhookDeliveryRepository()
         self.audit_service = AuditService()
 
-    # ------------------------------------------------------------------ CRUD
-
     async def list_webhooks(self, actor: User) -> List[Webhook]:
         await AuthService.ensure(await AuthService.is_staff(actor), "Only Staff can view webhooks")
         return await self.repository.list_all()
@@ -264,8 +262,6 @@ class WebhookService:
                 entry['last'] = last
         return summary
 
-    # ------------------------------------------------------------- delivery
-
     async def deliver_event(self, event: Event) -> None:
         """Event-bus subscriber: enqueue a POST to every webhook that wants this event.
 
@@ -393,8 +389,6 @@ class WebhookService:
             error=None if success else error,
             delivered_at=datetime.now(timezone.utc) if success else None,
         )
-
-    # ------------------------------------------------------------ internals
 
     async def _require(self, webhook_id: int) -> Webhook:
         return require_found(await self.repository.get_by_id(webhook_id), "Webhook")

@@ -108,8 +108,6 @@ class ProbeResult:
         }
 
 
-# A probe is an async callable returning (status, message). The registry pairs it
-# with display metadata.
 ProbeCheck = Callable[[], Awaitable[Tuple[ServiceStatus, str]]]
 
 
@@ -141,8 +139,6 @@ def _worst(statuses: List[ServiceStatus]) -> ServiceStatus:
         return ServiceStatus.UNKNOWN
     return max(statuses, key=lambda s: _SEVERITY[s])
 
-
-# --------------------------------------------------------------------------- probes
 
 async def _http_reachable(url: str) -> Tuple[bool, str]:
     """True when ``url`` answers at all (any HTTP status = the host is up)."""
@@ -341,8 +337,6 @@ async def _probe_sentry() -> Tuple[ServiceStatus, str]:
     return ServiceStatus.UNKNOWN, 'Sentry not configured (optional)'
 
 
-# --------------------------------------------------------------------------- registry
-
 _PROBES: List[_Probe] = [
     _Probe('postgres', 'PostgreSQL', 'core', _probe_postgres),
     _Probe('discord_bot', 'Discord bot', 'discord', _probe_discord_bot),
@@ -511,7 +505,6 @@ def _is_alert_transition(
 
 
 def _board_sort_key(result: ProbeResult) -> Tuple[int, str]:
-    # Worst first, then stable by label.
     return (-_SEVERITY[result.status], result.label)
 
 

@@ -148,8 +148,6 @@ class CommunityEventService:
         self.seen = CommunityEventSeenRepository()
         self.audit_service = AuditService()
 
-    # --- access -----------------------------------------------------------
-
     @staticmethod
     async def _ensure_member(actor: Optional[User]) -> None:
         from application.services.tenant_membership_service import TenantMembershipService
@@ -212,8 +210,6 @@ class CommunityEventService:
             'Only the host or staff can change this event.',
         )
         return event
-
-    # --- reading ----------------------------------------------------------
 
     @requires_feature(FeatureFlag.COMMUNITY_EVENTS)
     async def list_upcoming(self, actor: User) -> List[CommunityEvent]:
@@ -289,8 +285,6 @@ class CommunityEventService:
             (pair for pair in attending.values() if ends_at(pair[0]) > start),
             key=lambda pair: (pair[0].starts_at, pair[0].id),
         )
-
-    # --- the host's side --------------------------------------------------
 
     @requires_feature(FeatureFlag.COMMUNITY_EVENTS)
     async def submit(
@@ -412,8 +406,6 @@ class CommunityEventService:
             await notify.notify_subscribers(event, await self._subscribers(event), cancelled=True)
         return event
 
-    # --- subscriptions ----------------------------------------------------
-
     @requires_feature(FeatureFlag.COMMUNITY_EVENTS)
     async def subscribe(self, actor: User, event_id: int) -> None:
         """Follow an approved event for a reminder before it starts. Idempotent."""
@@ -433,8 +425,6 @@ class CommunityEventService:
         subscription = await self.subscriptions.get_for(event_id, actor.id)
         if subscription is not None:
             await self.subscriptions.delete(subscription)
-
-    # --- RSVPs ------------------------------------------------------------
 
     @requires_feature(FeatureFlag.COMMUNITY_EVENTS)
     async def rsvp_state(
@@ -488,8 +478,6 @@ class CommunityEventService:
         await self._ensure_member(actor)
         event = await self._load_managed(actor, event_id)
         return [s.user for s in await self.subscriptions.list_going(event.id)]
-
-    # --- staff review -----------------------------------------------------
 
     @requires_feature(FeatureFlag.COMMUNITY_EVENTS)
     async def list_for_review(
@@ -556,8 +544,6 @@ class CommunityEventService:
         if subscribers and ends_at(event) > _now():
             await notify.notify_subscribers(event, subscribers, cancelled=True)
         return event
-
-    # --- helpers ----------------------------------------------------------
 
     async def _subscribers(self, event: CommunityEvent) -> List[User]:
         return [s.user for s in await self.subscriptions.list_for_event(event.id)]

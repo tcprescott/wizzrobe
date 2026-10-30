@@ -197,7 +197,6 @@ class MatchSuggestionService:
         avail_map = await self._build_availability_map(player_ids, event_start_dt, event_end_dt)
         shifts = await self._shift_map(player_ids, event_start_dt, event_end_dt)
 
-        # --- Primary search: next 4 hours ---
         primary_end = now + timedelta(hours=_PRIMARY_WINDOW_HOURS)
         primary_candidates = self._in_stage_hours(self._generate_candidates(
             now, primary_end, hours_map, duration, event_start, event_end, tz, round_end,
@@ -210,7 +209,6 @@ class MatchSuggestionService:
         if result is not None:
             return result
 
-        # --- Fallback search: full remaining event window ---
         fallback_candidates = self._in_stage_hours(self._generate_candidates(
             now, None, hours_map, duration, event_start, event_end, tz, round_end,
         ), stage_window, duration, tz)
@@ -376,10 +374,6 @@ class MatchSuggestionService:
             )]
         return []
 
-    # ------------------------------------------------------------------
-    # Internals
-    # ------------------------------------------------------------------
-
     @staticmethod
     def _in_stage_hours(
         candidates: List[Tuple[datetime, datetime]], window: Optional[RoundWindow],
@@ -467,7 +461,6 @@ class MatchSuggestionService:
             slot = self._round_up_to_interval(slot)
 
             while slot + duration <= day_close:
-                # Stay within the to_dt ceiling on the last day
                 if to_dt and slot >= to_dt:
                     break
                 if hard_end is not None and slot + duration > hard_end:

@@ -28,7 +28,6 @@ class SingleEliminationEngine:
 
         matches: list[GeneratedMatch] = []
 
-        # Round 1: seed placements straight from the standard-seeding order.
         for j in range(size // 2):
             position = j + 1
             seed_a = order[2 * j]

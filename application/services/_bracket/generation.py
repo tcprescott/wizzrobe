@@ -47,7 +47,6 @@ class DrawPreview:
 
 
 class GenerationMixin(ComposedBracketService):
-    # -- draw preview (pure: the engine over the current seeding, no writes) ---
     async def preview_draw(self, bracket_id: int) -> DrawPreview:
         """Run the engine over the current seeding and return the projected draw.
 
@@ -246,7 +245,6 @@ class GenerationMixin(ComposedBracketService):
                 lines.append(f'{byes} bye(s) per round')
         return lines
 
-    # -- start (generate + persist the match graph) -----------------------
     async def start_bracket(self, actor: Optional[User], bracket_id: int) -> Bracket:
         await AuthService.ensure(
             await AuthService.is_staff(actor),
@@ -383,7 +381,6 @@ class GenerationMixin(ComposedBracketService):
             )
             by_coord[(gm.round, gm.position, gm.group_number)] = (bm, gm)
 
-        # Pass 2 — resolve winner_to / loser_to pointers into the persisted graph.
         for bm, gm in by_coord.values():
             changed = False
             if gm.winner_to is not None:
@@ -423,7 +420,6 @@ class GenerationMixin(ComposedBracketService):
                 processed.add(bm.id)
                 changed = True
 
-        # Final state pass: both entries present → OPEN, else PENDING.
         for match in await self.repository.list_matches(bracket.id):
             if match.state == BracketMatchState.COMPLETE:
                 continue

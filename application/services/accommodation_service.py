@@ -77,8 +77,6 @@ class AccommodationService:
             'Only staff can view accommodation requests.',
         )
 
-    # --- the requester's side ---------------------------------------------
-
     @requires_feature(FeatureFlag.ADA_ACCOMMODATIONS)
     async def get_mine(self, actor: User) -> Optional[AccommodationRequest]:
         """``actor``'s own request in this community, withdrawn or not."""
@@ -175,8 +173,6 @@ class AccommodationService:
             actor, AuditActions.ACCOMMODATION_WITHDRAWN, request, source='member_removed',
         )
         await self._mark_staff_dms(member, request, withdrawn=True)
-
-    # --- staff side -------------------------------------------------------
 
     @requires_feature(FeatureFlag.ADA_ACCOMMODATIONS)
     async def list_requests(

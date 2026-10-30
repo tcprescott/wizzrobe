@@ -128,8 +128,6 @@ COMMON_TIMEZONES: tuple[str, ...] = (
 class TimezoneService:
     """Read/write the community's timezone policy and resolve a viewer's clock."""
 
-    # --- tenant settings ---------------------------------------------------
-
     @staticmethod
     def _clean(stored: Optional[dict]) -> dict:
         """Normalize a stored settings blob to a full, valid ``{mode, name}``.
@@ -266,8 +264,6 @@ class TimezoneService:
         )
         return settings
 
-    # --- per-user preference -----------------------------------------------
-
     @staticmethod
     async def set_user_timezone(actor: User, name: Optional[str]) -> Optional[str]:
         """Save (or clear) ``actor``'s own timezone preference.
@@ -303,8 +299,6 @@ class TimezoneService:
             actor, AuditActions.USER_HOUR_CYCLE_UPDATED, {'hour_cycle': hour_cycle},
         )
         return hour_cycle
-
-    # --- resolution --------------------------------------------------------
 
     @staticmethod
     def pick(

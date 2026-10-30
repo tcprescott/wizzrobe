@@ -135,8 +135,6 @@ class ProfileNudgeService:
         self.repository = ProfileNudgeRepository()
         self.audit_service = AuditService()
 
-    # ------------------------------------------------------------------ rules
-
     @staticmethod
     def _clean_rules(stored: object) -> list[dict]:
         """Stored config → ``[{check, dismissible, note}]`` in catalogue order."""
@@ -233,8 +231,6 @@ class ProfileNudgeService:
             {'tenant_id': tenant_id, 'rules': stored},
         )
         return cleaned
-
-    # ---------------------------------------------------------------- members
 
     async def pending_for(self, user: Optional[User]) -> list[ProfileNudge]:
         """The rules ``user`` has neither completed nor dismissed, in catalogue order.

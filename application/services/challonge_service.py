@@ -56,7 +56,6 @@ from models import (
 
 logger = logging.getLogger(__name__)
 
-# Refresh the service token slightly before it actually expires.
 _TOKEN_REFRESH_BUFFER = timedelta(minutes=5)
 
 # Per-community, so a sync and the health worker racing on an expiring token
@@ -102,9 +101,6 @@ class ChallongeService(ChallongeParticipantAssignmentMixin, ChallongeStageMixin,
         self.tournament_repository = TournamentRepository()
         self.audit_service = AuditService()
 
-    # ------------------------------------------------------------------
-    # OAuth configuration / URLs (reused by the OAuth middleware)
-    # ------------------------------------------------------------------
     @staticmethod
     def is_configured() -> bool:
         """True when the OAuth app credentials are present (or mock is on)."""
@@ -141,9 +137,6 @@ class ChallongeService(ChallongeParticipantAssignmentMixin, ChallongeStageMixin,
     def redirect_uri() -> str:
         return _redirect_uri()
 
-    # ------------------------------------------------------------------
-    # Client factories
-    # ------------------------------------------------------------------
     def _oauth_client(self) -> ChallongeClient:
         """Client for token exchange/refresh and get_me (no bearer needed)."""
         cls = MockChallongeClient if is_mock_challonge() else ChallongeClient
@@ -163,9 +156,6 @@ class ChallongeService(ChallongeParticipantAssignmentMixin, ChallongeStageMixin,
             on_request=self.repository.increment_api_usage,
         )
 
-    # ------------------------------------------------------------------
-    # Service-account token management
-    # ------------------------------------------------------------------
     async def get_valid_access_token(self, force_refresh: bool = False) -> str:
         """Return a live service access token, refreshing if expired/forced."""
         connection = await self.repository.get_connection()
@@ -229,9 +219,6 @@ class ChallongeService(ChallongeParticipantAssignmentMixin, ChallongeStageMixin,
         )
         return access, refresh, expires_at
 
-    # ------------------------------------------------------------------
-    # Connection lifecycle (called by OAuth middleware)
-    # ------------------------------------------------------------------
     @requires_feature(FeatureFlag.CHALLONGE)
     async def save_service_connection(
         self, token_payload: Dict[str, Any], actor: User, community: Optional[str] = None,
@@ -290,9 +277,6 @@ class ChallongeService(ChallongeParticipantAssignmentMixin, ChallongeStageMixin,
             **base,
         }
 
-    # ------------------------------------------------------------------
-    # Player identity linking (called by player OAuth callback)
-    # ------------------------------------------------------------------
     async def _write_player_link(
         self,
         user: User,
@@ -471,9 +455,6 @@ class ChallongeService(ChallongeParticipantAssignmentMixin, ChallongeStageMixin,
         """Exchange the service account's authorization code for a token payload."""
         return await self._oauth_client().exchange_code(code, _redirect_uri())
 
-    # ------------------------------------------------------------------
-    # Tournament linking + bracket sync
-    # ------------------------------------------------------------------
     @staticmethod
     def parse_tournament_identifier(id_or_url: str) -> Tuple[str, Optional[str]]:
         """Extract a Challonge ``(tournament identifier, community)`` from a raw id or URL.
@@ -652,7 +633,6 @@ class ChallongeService(ChallongeParticipantAssignmentMixin, ChallongeStageMixin,
     ) -> Dict[str, int]:
         bookable_before = await self._bookable_pairings(tournament)
         unfinished_before = await self.repository.unfinished_match_ids(tournament)
-        # Participants -> resolve to linked wizzrobe users by Challonge account id.
         # Resolve every linked user in one query rather than per participant.
         users_by_cuid = await self.repository.resolve_users_by_challonge_ids(
             [rp.get('challonge_user_id') for rp in remote_participants]
@@ -689,7 +669,6 @@ class ChallongeService(ChallongeParticipantAssignmentMixin, ChallongeStageMixin,
             )
             participant_by_cid[rp['participant_id']] = participant
 
-        # Matches -> mirror with resolved participant FKs.
         letters = {rm['match_id']: rm.get('identifier') for rm in remote_matches}
         for rm in remote_matches:
             p1 = participant_by_cid.get(rm.get('player1_participant_id'))
@@ -732,9 +711,6 @@ class ChallongeService(ChallongeParticipantAssignmentMixin, ChallongeStageMixin,
             return ChallongeMatchState.COMPLETE
         return ChallongeMatchState.PENDING
 
-    # ------------------------------------------------------------------
-    # Scheduling a bracket matchup (reuses the existing match-request flow)
-    # ------------------------------------------------------------------
     @requires_feature(FeatureFlag.CHALLONGE)
     async def list_unscheduled_matches_for_user(
         self, user: User, *, include_partial_sets: bool = False,

@@ -90,8 +90,6 @@ class MatchRescheduleService(RescheduleNotificationMixin):
         self.tournament_repository = TournamentRepository()
         self.audit_service = AuditService()
 
-    # ---- reads ---------------------------------------------------------
-
     async def get_by_id(self, request_id: int) -> Optional[MatchRescheduleRequest]:
         """Read-only load-or-None for presentation/bot callers."""
         return await self.repository.get_by_id(request_id)
@@ -204,8 +202,6 @@ class MatchRescheduleService(RescheduleNotificationMixin):
             )
         return await self.repository.list_for_match(match_id)
 
-    # ---- eligibility ---------------------------------------------------
-
     async def _is_player(self, match: Match, user: User) -> bool:
         """Whether ``user`` plays in ``match``, prefetched or not.
 
@@ -292,8 +288,6 @@ class MatchRescheduleService(RescheduleNotificationMixin):
             and getattr(match, 'speedgaming_episode_id', None) is None
             and getattr(match.tournament, 'allow_reschedule_requests', True)
         }
-
-    # ---- the ask -------------------------------------------------------
 
     async def submit(
         self,
@@ -402,8 +396,6 @@ class MatchRescheduleService(RescheduleNotificationMixin):
 
         await MatchService().assert_within_tournament_hours(proposed_at, tournament_id)
 
-    # ---- the opponent's signal ----------------------------------------
-
     async def record_opponent_agreement(
         self, request_id: int, actor: User,
     ) -> MatchRescheduleRequest:
@@ -443,8 +435,6 @@ class MatchRescheduleService(RescheduleNotificationMixin):
             match_live.publish(request.match_id, match_live.CHANGED)
         return request
 
-    # ---- the requester taking it back ---------------------------------
-
     async def withdraw(self, request_id: int, actor: User) -> MatchRescheduleRequest:
         """Take a request back. The requester's alone.
 
@@ -482,8 +472,6 @@ class MatchRescheduleService(RescheduleNotificationMixin):
             request.match_id, actor.id, request.kind is RescheduleRequestKind.CANCEL,  # type: ignore[attr-defined]
         ))
         return request
-
-    # ---- the decision --------------------------------------------------
 
     async def _decidable(self, request_id: int, actor: Optional[User]) -> MatchRescheduleRequest:
         """Load a pending request ``actor`` is allowed to decide."""

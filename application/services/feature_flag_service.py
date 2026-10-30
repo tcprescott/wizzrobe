@@ -70,8 +70,6 @@ class FeatureFlagService:
         self.group_repository = FeatureFlagGroupRepository()
         self.audit_service = AuditService()
 
-    # ---- effective-state helpers -----------------------------------------
-
     async def _group_flag_keys(self, tenant_id: int) -> Set[str]:
         """The flags a tenant's group grants (its group, else the default group)."""
         tenant = await TenantRepository.get_by_id(tenant_id)
@@ -97,8 +95,6 @@ class FeatureFlagService:
         if override is not None and override.enabled is not None:
             return override.enabled
         return True  # available ⇒ on by default; community may opt out
-
-    # ---- reads (hot path) -------------------------------------------------
 
     async def is_enabled(self, flag: FeatureFlag) -> bool:
         """Whether ``flag`` is live for the ambient tenant (available AND enabled).
@@ -150,8 +146,6 @@ class FeatureFlagService:
             raise FeatureDisabledError(
                 f"The {spec_for(flag).label} feature is not enabled for this community."
             )
-
-    # ---- tenant tier: STAFF toggle ``enabled`` within availability --------
 
     async def list_for_tenant_admin(self, actor: Optional[User]) -> List[Dict[str, Any]]:
         """Every flag's effective state for the ambient tenant (admin Features tab)."""
@@ -210,8 +204,6 @@ class FeatureFlagService:
             {'flag': flag.value},
         )
 
-    # ---- platform tier: per-tenant availability override ------------------
-
     async def list_for_tenant(self, actor: Optional[User], tenant_id: int) -> List[Dict[str, Any]]:
         """Every flag's state for a chosen tenant, for the /platform surface.
 
@@ -257,8 +249,6 @@ class FeatureFlagService:
             actor, AuditActions.FEATURE_FLAG_AVAILABILITY_SET,
             {'tenant_id': tenant_id, 'flag': flag.value, 'available': available},
         )
-
-    # ---- platform tier: group (tier) CRUD ---------------------------------
 
     async def list_groups(self, actor: Optional[User]) -> List[FeatureFlagGroup]:
         await self._ensure_super_admin(actor)
@@ -392,8 +382,6 @@ class FeatureFlagService:
             actor, AuditActions.FEATURE_GROUP_ASSIGNED,
             {'tenant_id': tenant_id, 'group_id': group_id},
         )
-
-    # ---- internals --------------------------------------------------------
 
     @staticmethod
     def _clean_flags(flags: Optional[List[str]]) -> List[str]:

@@ -113,8 +113,6 @@ class TelemetryService:
     def __init__(self) -> None:
         self.repository = TelemetryRepository()
 
-    # -------------------------------------------------------------- capture
-
     async def record_event(self, event: Event) -> None:
         """Event-bus subscriber: mirror a published domain event into telemetry.
 
@@ -344,8 +342,6 @@ class TelemetryService:
             )
         except Exception:
             logger.exception("telemetry capture failed for %s", event_type)
-
-    # ---------------------------------------------------------------- reads
 
     async def list_events(
         self,

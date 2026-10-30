@@ -131,8 +131,6 @@ class CheckInService:
             return self._client
         return get_matcherino_client(await self.login_service.resolve())
 
-    # --- Events (staff) ---
-
     @staticmethod
     def _clean_event_fields(
         name: str, venue_id: Optional[int], sync_interval_minutes: int,
@@ -292,8 +290,6 @@ class CheckInService:
     @requires_feature(FeatureFlag.EVENT_CHECK_IN)
     async def has_open_event(self) -> bool:
         return await self.events.exists_with_status(CheckInEventStatus.OPEN)
-
-    # --- Matcherino sync ---
 
     @requires_feature(FeatureFlag.EVENT_CHECK_IN)
     async def sync_event(self, actor: User, event_id: int, *, audit: bool = True) -> SyncResult:
@@ -490,8 +486,6 @@ class CheckInService:
             matches.append((row, *match))
         return matches
 
-    # --- Roster reads ---
-
     @requires_feature(FeatureFlag.EVENT_CHECK_IN)
     async def roster(self, event: CheckInEvent) -> List[CheckInEntrant]:
         return await self.entrants.list_for_event(event)
@@ -598,8 +592,6 @@ class CheckInService:
         if for_link:
             taken -= set(await self.entrants.comp_rows_by_user_id(event))
         return taken
-
-    # --- Desk actions ---
 
     async def _entrant_for_desk(self, actor: User, entrant_id: int) -> CheckInEntrant:
         await AuthService.ensure(await AuthService.can_run_check_in_desk(actor), _DESK_DENIED)

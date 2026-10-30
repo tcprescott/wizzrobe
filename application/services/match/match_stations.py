@@ -61,7 +61,6 @@ class StationAssignmentMixin:
         # Every problem at once: a proctor seating a 23-player race fixes them all
         # in one pass instead of resubmitting once per clash.
         problems = []
-        # 1. Two players of the same match cannot share a station.
         duplicates = sorted({s for s in requested if requested.count(s) > 1}, key=_station_sort)
         if duplicates:
             problems.append(
@@ -71,16 +70,12 @@ class StationAssignmentMixin:
 
         clashes: dict[int, list[str]] = {}
         for station in dict.fromkeys(requested):
-            # 2. Format (unchanged behaviour, and the only check when no pool
-            #    is defined).
             if not pattern.fullmatch(station):
                 problems.append(
                     f"Station '{station}' does not match the required format ({fmt.value})."
                 )
-            # 3. Must be a real station, once this community has defined any.
             elif pool and station not in pool:
                 problems.append(f"'{station}' is not one of this community's stations.")
-            # 4. Not already in use by another match in play.
             elif station in occupied:
                 clashes.setdefault(occupied[station], []).append(station)
         if clashes:

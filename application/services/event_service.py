@@ -37,7 +37,6 @@ BROADCASTERS_KEY = 'broadcasters'
 NO_BROADCASTERS = "This event doesn't have broadcasters. Staff can turn them on in Event settings → Crew."
 _CACHE_MAX = 2048
 
-#: Lowercase letters, digits and hyphens, 2 to 64 characters, starting with a letter or digit.
 SLUG_RE = re.compile(r'^[a-z0-9][a-z0-9-]{1,63}$')
 #: Slugs that read as something else in a URL.
 RESERVED_SLUGS = frozenset({'api', 'static', 'admin', 'new', 'e', 't', 'login', 'logout', 'help'})
@@ -142,8 +141,6 @@ def with_event_name(label: str, event_id: Optional[int], names: Dict[int, str]) 
 
 
 class EventService:
-
-    # ------------------------------------------------------------------ reads
 
     @staticmethod
     async def events_for_tenant(tenant_id: int) -> tuple[EventRef, ...]:
@@ -333,8 +330,6 @@ class EventService:
             open_race_rooms=await EventRepository.open_race_rooms(event_id),
         )
 
-    # ----------------------------------------------------------- first event
-
     @staticmethod
     async def create_first_event(tenant: Tenant) -> Event:
         """Give a new community its first event: live, the default, named after it.
@@ -361,8 +356,6 @@ class EventService:
                 return event
             raise ValueError(f'{tenant.name} has events but no default event.')
         return await EventService.create_first_event(tenant)
-
-    # ------------------------------------------------------------ lifecycle
 
     @staticmethod
     async def _ensure_staff(actor: User) -> None:

@@ -56,8 +56,6 @@ class EmergencyContactService:
         self.repository = EmergencyContactRepository()
         self.audit_service = AuditService()
 
-    # --- the member's side ------------------------------------------------
-
     @requires_feature(FeatureFlag.EMERGENCY_CONTACTS)
     async def get_mine(self, actor: User) -> Optional[EmergencyContact]:
         """``actor``'s own contact in this community, with who last opened it."""
@@ -116,8 +114,6 @@ class EmergencyContactService:
             actor, AuditActions.EMERGENCY_CONTACT_REMOVED, member.id, contact_id,
             source='member_removed',
         )
-
-    # --- staff side -------------------------------------------------------
 
     @requires_feature(FeatureFlag.EMERGENCY_CONTACTS)
     async def open_for(self, actor: User, member: User) -> Optional[EmergencyContact]:

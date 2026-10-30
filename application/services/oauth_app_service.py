@@ -189,8 +189,6 @@ class OAuthAppService:
         self.token_repository = ApiTokenRepository()
         self.audit_service = AuditService()
 
-    # --- Owner -------------------------------------------------------------
-
     async def create_app(
         self,
         actor: User,
@@ -341,8 +339,6 @@ class OAuthAppService:
         """How many people have this app connected. The owner sees a count, never who."""
         app = await self.get_my_app(actor, app_id)
         return await self.token_repository.count_app_grant_users(app.id)
-
-    # --- Platform admin ----------------------------------------------------
 
     async def list_all_apps(self, actor: User) -> List[OAuthApp]:
         await AuthService.ensure_super_admin(actor)

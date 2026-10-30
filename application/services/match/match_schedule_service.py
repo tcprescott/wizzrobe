@@ -405,9 +405,8 @@ class MatchScheduleService(MatchNotificationMixin):
 
     def push_confirmed_result(self, match: Match, actor: Optional[User]) -> None:
         """Hand a confirmed result on to every bracket the match mirrors, off the request path."""
-        # Push the confirmed result to Challonge when this match mirrors a
-        # bracket match. Fire-and-forget so a Challonge outage never blocks
-        # confirmation; failures are visible via audit and the manual re-push.
+        # Fire-and-forget so a Challonge outage never blocks confirmation;
+        # failures are visible via audit and the manual re-push.
         async def _push_challonge_result() -> None:
             from application.services.challonge_service import ChallongeService
             try:
@@ -434,9 +433,8 @@ class MatchScheduleService(MatchNotificationMixin):
 
         discord_queue.enqueue(_notify_bracket_sources())
 
-        # Advance the native bracket when this match mirrors a bracket match.
-        # Peer of the Challonge push above: fire-and-forget so a failure never
-        # blocks confirmation; failures are visible via audit and manual replay.
+        # Fire-and-forget so a failure never blocks confirmation; failures are
+        # visible via audit and manual replay.
         async def _advance_bracket_result() -> None:
             from application.services.bracket_service import BracketService
             try:
@@ -697,7 +695,6 @@ class MatchScheduleService(MatchNotificationMixin):
         # players in meanwhile, so write the seed and nothing else.
         await match.save(update_fields=['generated_seed_id'])
 
-        # Send DMs to players in the background
         descriptor = _match_descriptor(match, await bracket_line_for(match.id))
         community = await _community_name()
         if is_seed_link(seed_url):

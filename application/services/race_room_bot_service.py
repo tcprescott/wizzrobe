@@ -77,8 +77,6 @@ class RaceRoomBotService:
         self.room_repository = RacetimeRoomRepository()
         self.audit_service = AuditService()
 
-    # ---- arrival ---------------------------------------------------------
-
     # feature-gate: exempt — lifecycle of an already-open room (see module docstring).
     async def on_joined(self, room: RacetimeRoom, event: RaceRoomEvent) -> None:
         match = await self._match(room)
@@ -115,8 +113,6 @@ class RaceRoomBotService:
                 'Wizzrobe profile, then join from this page.'
             )
         return ' '.join(lines)
-
-    # ---- the seed --------------------------------------------------------
 
     # feature-gate: exempt — a worker step over already-open rooms; skips, never raises.
     async def post_due_seeds(self, now: datetime) -> None:
@@ -229,8 +225,6 @@ class RaceRoomBotService:
                 await self._post_seed(room, match)
             else:
                 await self.post_seed_if_due(room, match)
-
-    # ---- chat ------------------------------------------------------------
 
     # feature-gate: exempt — lifecycle of an already-open room (see module docstring).
     async def on_chat(self, room: RacetimeRoom, event: RaceRoomEvent) -> None:
@@ -439,8 +433,6 @@ class RaceRoomBotService:
             discord_queue.enqueue(service.send_dm(
                 int(user.discord_id), message, embed=embed, link=link, notice=notice,
             ))
-
-    # ---- internals -------------------------------------------------------
 
     async def _match(self, room: RacetimeRoom) -> Optional[Match]:
         if room.match_id is None:  # type: ignore[attr-defined]

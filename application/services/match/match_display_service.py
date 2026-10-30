@@ -583,8 +583,8 @@ class MatchDisplayService:
             'tournament_seed_generator': match.tournament.seed_generator if match.tournament else None,
             # When an in-flight task-queue roll started, so the cell can show a
             # live elapsed clock. Server-side and therefore shared: it survives a
-            # refresh and every viewer sees the same roll in progress, unlike the
-            # per-browser flag it replaces. ``None`` whenever nothing is rolling.
+            # refresh and every viewer sees the same roll in progress.
+            # ``None`` whenever nothing is rolling.
             'seed_rolling_since': (
                 to_utc_aware(rolling_task.created_at).isoformat()
                 if rolling_task is not None else None

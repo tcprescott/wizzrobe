@@ -55,8 +55,6 @@ class AccountOverview:
 class PlatformAdminService:
     """Super-admin reads across every community and account."""
 
-    # ---- communities -------------------------------------------------------
-
     async def list_communities(self, actor: Optional[User]) -> List[CommunityOverview]:
         """Every community, active or not, with its tier and setup readiness."""
         await AuthService.ensure_super_admin(actor)
@@ -107,8 +105,6 @@ class PlatformAdminService:
         user = await self.require_account(actor, user_id)
         await TenantService.bootstrap_staff(actor, tenant.id, user)
         return await TenantService.list_staff(actor, tenant.id)
-
-    # ---- accounts ----------------------------------------------------------
 
     async def list_accounts(
         self,

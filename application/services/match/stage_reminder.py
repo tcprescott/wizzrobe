@@ -22,7 +22,6 @@ from application.utils.background_loop import for_each_tenant_scoped, run_worker
 
 logger = logging.getLogger(__name__)
 
-# How often the loop wakes up to look for due reminders.
 TICK_SECONDS = 60
 
 # Bound on the cross-tenant scan. The loop cannot know each tournament's lead
@@ -55,7 +54,7 @@ async def _tick() -> None:
     async def _remind(match) -> None:
         lead = match.tournament.stage_reminder_minutes or 0
         if lead <= 0:
-            return  # this tournament sends no stage reminder
+            return
         if lead > MAX_LEAD_MINUTES:
             logger.warning(
                 'Tournament %s stage_reminder_minutes=%s exceeds the %s-minute scan '

@@ -91,8 +91,6 @@ class PasswordAuthService:
         self.repository = UserRepository()
         self.audit_service = AuditService()
 
-    # ------------------------------------------------------------------ sign-in
-
     async def authenticate(self, login_name: str, password: str) -> Optional[User]:
         """The account these credentials open, or ``None`` for any failure.
 
@@ -113,8 +111,6 @@ class PasswordAuthService:
             return None
         await self.audit_service.write_log(user, AuditActions.USER_PASSWORD_SIGNED_IN, {'login_name': name})
         return user
-
-    # ----------------------------------------------------------- administration
 
     @staticmethod
     async def _ensure_super_admin(actor: User) -> None:

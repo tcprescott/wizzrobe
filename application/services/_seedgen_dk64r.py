@@ -105,7 +105,6 @@ class DK64RBackend:
         Pure: no HTTP and no credential, so an unrecognised branch raises before
         anything is sent or persisted.
         """
-        # Resolve settings: the preset when given, else the committed default.
         if preset is not None:
             settings = dict(preset.settings or {})
         else:

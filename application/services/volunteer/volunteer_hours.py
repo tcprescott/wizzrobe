@@ -143,8 +143,6 @@ class VolunteerHoursService:
         ]
         return sorted(summaries, key=lambda s: (-s.hours, s.user_name.lower()))
 
-    # --- internals --------------------------------------------------------
-
     @staticmethod
     def _summarize(
         user_id: int, user_name: str, hours: float, tiers: Sequence[float],

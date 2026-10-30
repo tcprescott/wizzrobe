@@ -151,8 +151,6 @@ class PayoutService:
         self.repository = TournamentPayoutRepository()
         self.audit_service = AuditService()
 
-    # --- reads ---------------------------------------------------------------
-
     @requires_feature(FeatureFlag.PAYOUTS)
     async def list_overview(self, actor: User) -> List[PayoutOverview]:
         """Every tournament ``actor`` may manage payouts for, with its totals.
@@ -211,8 +209,6 @@ class PayoutService:
             )
             lines.append(f'{_ordinal(line.place)} place - {self._entrant_label(line)}: {share}')
         return '\n'.join(lines)
-
-    # --- writes --------------------------------------------------------------
 
     @requires_feature(FeatureFlag.PAYOUTS)
     async def set_pool(
@@ -325,8 +321,6 @@ class PayoutService:
             EventType.TOURNAMENT_PAYOUT_UPDATED,
         )
         return payout
-
-    # --- sglive.speedgaming.org ----------------------------------------------
 
     @requires_feature(FeatureFlag.PAYOUTS)
     async def fetch_sglive_games(self, actor: User) -> List[SgliveGame]:
@@ -453,8 +447,6 @@ class PayoutService:
         if not slug or len(slug) > 64 or not all(c.isalnum() or c in '-_' for c in slug):
             raise ValueError(f'{slug!r} is not an sglive page.')
         return slug
-
-    # --- internals -----------------------------------------------------------
 
     @staticmethod
     def _quantized(value: Optional[Decimal]) -> Optional[Decimal]:

@@ -66,8 +66,6 @@ class VolunteerScheduleService:
         self.discord_service = DiscordService()
         self.role_mapping_service = VolunteerRoleMappingService()
 
-    # --- Shifts -----------------------------------------------------------
-
     async def list_shifts_for_window(self, start: datetime, end: datetime) -> List[VolunteerShift]:
         return await self.shift_repository.list_for_window(start, end)
 
@@ -330,8 +328,6 @@ class VolunteerScheduleService:
             await self._notify_removed(assignment.user, assignment.shift)
         return deleted
 
-    # --- Assignments ------------------------------------------------------
-
     async def assign(
         self,
         actor: User,
@@ -560,8 +556,6 @@ class VolunteerScheduleService:
             include_drafts=include_drafts, with_shiftmates=with_shiftmates,
         )
 
-    # --- Coverage ---------------------------------------------------------
-
     @requires_feature(FeatureFlag.VOLUNTEERS)
     async def coverage_for_viewer(self, viewer: Optional[User], start: datetime, end: datetime) -> List[Dict]:
         await _ensure_can_view_schedule(viewer)
@@ -619,8 +613,6 @@ class VolunteerScheduleService:
             ),
             'understaffed_shifts': sum(1 for r in rows if r['understaffed']),
         }
-
-    # --- Helpers ----------------------------------------------------------
 
     async def _require_position(self, position_id: int) -> VolunteerPosition:
         """This community's position, or a ValueError. Never another tenant's."""
