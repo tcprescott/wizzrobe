@@ -63,8 +63,6 @@ class WizzrobeOAuthProvider(
     def __init__(self) -> None:
         self.service = McpAuthService()
 
-    # --- Client registration ---------------------------------------------
-
     async def get_client(self, client_id: str) -> Optional[OAuthClientInformationFull]:
         client = await self.service.get_client(client_id)
         if client is None:
@@ -109,8 +107,6 @@ class WizzrobeOAuthProvider(
             # said otherwise.
             scope=client_info.scope or CLIENT_SCOPE,
         )
-
-    # --- Authorization ----------------------------------------------------
 
     async def authorize(
         self, client: OAuthClientInformationFull, params: AuthorizationParams
@@ -175,8 +171,6 @@ class WizzrobeOAuthProvider(
             refresh_token=refresh,
         )
 
-    # --- Refresh ----------------------------------------------------------
-
     async def load_refresh_token(
         self, client: OAuthClientInformationFull, refresh_token: str
     ) -> Optional[RefreshToken]:
@@ -213,8 +207,6 @@ class WizzrobeOAuthProvider(
             scope=token.scope or DEFAULT_SCOPE,
             refresh_token=refresh,
         )
-
-    # --- Introspection / revocation ---------------------------------------
 
     async def load_access_token(self, token: str) -> Optional[AccessToken]:
         record = await self.service.load_access_token(token)

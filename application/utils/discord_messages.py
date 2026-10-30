@@ -43,10 +43,6 @@ class DMLink(NamedTuple):
     url: str
 
 
-# ---------------------------------------------------------------------------
-# Shared error constants (used in multiple handlers)
-# ---------------------------------------------------------------------------
-
 MSG_NO_ACCOUNT = (
     "You don't have a Wizzrobe account yet. Log in at the website first and "
     "this will work."
@@ -65,10 +61,6 @@ def msg_unexpected_error(action: str = 'finish this') -> str:
 
 MSG_UNEXPECTED_ERROR = msg_unexpected_error()
 
-
-# ---------------------------------------------------------------------------
-# Shared formatting helpers
-# ---------------------------------------------------------------------------
 
 # Shared with the web copy, which identifies a match the same way — see
 # application/utils/match_labels.py.
@@ -103,10 +95,6 @@ def _match_info_lines(
         lines.append(f"Stage: {stage_name}")
     return lines
 
-
-# ---------------------------------------------------------------------------
-# Match scheduling DMs  (sent by MatchScheduleService / MatchService)
-# ---------------------------------------------------------------------------
 
 # Who a match DM is for. The same lifecycle change reaches four kinds of reader,
 # and copy written for one is false for the others: a tournament subscriber told
@@ -151,7 +139,6 @@ def crew_slot_line(message: str, crew_roles: Sequence[str]) -> str:
         return message
     return _join_blocks(message, f"You're on this match as {crew_slot_label(crew_roles)}.")
 
-# The subject of a sentence about the match, per audience.
 _MATCH_SUBJECT = {
     AUDIENCE_PLAYER: 'Your match',
     AUDIENCE_CREW: "A match you're on crew for",
@@ -283,9 +270,6 @@ def acknowledgment_request_dm(
     )
 
 
-# ---------------------------------------------------------------------------
-# Stage DMs  (sent by MatchService.assign_stage and the stage reminder worker)
-# ---------------------------------------------------------------------------
 # The information a runner needs is the substitution: this match happens on a
 # stage instead of in the tournament room. Say that, not "a stage has been
 # assigned", which describes a database row rather than where to walk.
@@ -640,20 +624,12 @@ def seed_dm(
     )
 
 
-# ---------------------------------------------------------------------------
-# Match acknowledgment ephemeral replies  (discordbot/match_acknowledgment.py)
-# ---------------------------------------------------------------------------
-
 def match_ack_confirmation(player_names: str) -> str:
     """Ephemeral success reply after a user clicks the match Acknowledge button."""
     if player_names:
         return f"You've acknowledged your match ({player_names}). Thanks!"
     return "You've acknowledged your match. Thanks!"
 
-
-# ---------------------------------------------------------------------------
-# Unwatch ephemeral replies  (discordbot/watch_buttons.py)
-# ---------------------------------------------------------------------------
 
 def unwatch_confirmation(player_names: str, was_watching: bool) -> str:
     """Ephemeral reply after a user clicks the Unwatch button on a match DM."""
@@ -662,10 +638,6 @@ def unwatch_confirmation(player_names: str, was_watching: bool) -> str:
         return f'You are no longer watching the match{match_ref}.'
     return f'You were not watching the match{match_ref}.'
 
-
-# ---------------------------------------------------------------------------
-# Hard-preset opt-in  (MatchHardPresetService / discordbot/match_hard_preset.py)
-# ---------------------------------------------------------------------------
 
 def hard_preset_invite_dm(tournament_name: str, preset_name: str) -> str:
     """The offer, sent with the match's scheduling DM.

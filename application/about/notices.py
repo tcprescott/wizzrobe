@@ -40,7 +40,6 @@ WEB = 'web'
 FONTS = 'fonts'
 PYTHON = 'python'
 
-#: ``(key, heading, blurb)`` in the order the notices page shows them.
 GROUPS = (
     (WEB, 'Web libraries', 'Code that runs in your browser.'),
     (FONTS, 'Fonts and icons', 'Typefaces and icon sets the pages are drawn with.'),
@@ -112,10 +111,6 @@ def _template(spdx: str, copyright: str) -> str:
     body = (_LICENSES / f'{spdx}.txt').read_text(encoding='utf-8').strip()
     return f'{copyright}\n\n{body}' if copyright else body
 
-
-# ---------------------------------------------------------------------------
-# Browser libraries NiceGUI serves, and our fonts
-# ---------------------------------------------------------------------------
 
 def _nicegui_dir() -> Optional[Path]:
     try:
@@ -201,10 +196,6 @@ def _fonts() -> list[Notice]:
     ]
 
 
-# ---------------------------------------------------------------------------
-# The editor bundle
-# ---------------------------------------------------------------------------
-
 _EDITOR_HEADER_RE = re.compile(r'^(?P<name>(?:@[^/\s]+/)?[^@\s]+)@(?P<version>\S+) \((?P<license>[^)]*)\)$')
 
 
@@ -226,10 +217,6 @@ def _editor_bundle(path: Path = _EDITOR_NOTICES) -> list[Notice]:
         ))
     return notices
 
-
-# ---------------------------------------------------------------------------
-# Python packages
-# ---------------------------------------------------------------------------
 
 _CLASSIFIER_SPDX = {
     'MIT License': 'MIT',

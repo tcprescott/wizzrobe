@@ -35,7 +35,6 @@ async def _load_room_or_404(room_id: int) -> RacetimeRoom:
     )
 
 
-# --- Reads ----------------------------------------------------------------
 # Literal single-segment routes are declared before parameterized ones.
 
 @router.get(
@@ -61,8 +60,6 @@ async def get_by_match(match_id: int, actor: User = Depends(require_api_actor)):
     match = require_found(await MatchService().get_by_id(match_id), "Match")
     return require_found(await RacetimeRoomService().get_for_match(match), "Race room")
 
-
-# --- Writes ---------------------------------------------------------------
 
 @router.post(
     "",

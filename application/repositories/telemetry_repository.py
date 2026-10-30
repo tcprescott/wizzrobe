@@ -130,8 +130,6 @@ class TelemetryRepository:
             user_id=user_id, session_id=session_id, path_contains=path_contains,
         ).count()
 
-    # --------------------------------------------------------------- aggregates
-
     @classmethod
     async def count_distinct_users(
         cls, *, start: Optional[datetime] = None, end: Optional[datetime] = None,

@@ -107,7 +107,6 @@ class RaceRoomEvent:
     started_at: Optional[datetime] = None
 
 
-# Callback signatures the connection loop hands to a transport's ``run``.
 EventCallback = Callable[[RaceRoomEvent], Awaitable[None]]
 HeartbeatCallback = Callable[[], Awaitable[None]]
 

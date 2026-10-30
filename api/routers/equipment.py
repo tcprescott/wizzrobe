@@ -85,7 +85,6 @@ async def _load_asset(equipment_id: int) -> Equipment:
     return require_found(await EquipmentService().get_asset(equipment_id), "Asset")
 
 
-# --- Reads ----------------------------------------------------------------
 # Literal single-segment routes are declared before parameterized ones.
 
 @router.get(
@@ -191,8 +190,6 @@ async def list_loans(
     return [_serialize_loan(loan) for loan in loans]
 
 
-# --- Asset management -----------------------------------------------------
-
 @router.post(
     "",
     response_model=EquipmentResponse,
@@ -297,8 +294,6 @@ async def update_equipment(
 async def delete_equipment(equipment_id: int, actor: User = Depends(require_write_actor)):
     await EquipmentService().delete_asset(actor, equipment_id)
 
-
-# --- Lending --------------------------------------------------------------
 
 @router.post(
     "/{equipment_id}/checkout",

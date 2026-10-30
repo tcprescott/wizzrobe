@@ -50,7 +50,7 @@ class Match(Model):
     preset_override = fields.CharEnumField(
         PresetOverride, max_length=16, null=True,
     )
-    # Source marker for the SpeedGaming ETL (PR 7). Non-null = this Match was
+    # Source marker for the SpeedGaming ETL. Non-null = this Match was
     # materialized from an SG episode, which makes the ETL-owned fields
     # (``scheduled_at``, players, ``tournament``) read-only in Wizzrobe — the guard
     # lives in ``MatchService.update_match``. SET_NULL so purging a synced episode
@@ -97,7 +97,6 @@ class Match(Model):
     created_at = fields.DatetimeField(auto_now_add=True)
     updated_at = fields.DatetimeField(auto_now=True)
 
-    # related fields
     acknowledgments = fields.ReverseRelation["MatchAcknowledgment"]
     challonge_match = fields.ReverseRelation["ChallongeMatch"]
 
@@ -142,7 +141,7 @@ class MatchPlayers(Model):
     user = fields.ForeignKeyField('models.User', related_name='match_players')
     finish_rank = fields.IntField(null=True)
     # Elapsed finish time in whole seconds, captured from a racetime room result
-    # (PR 6). Null for non-finishers (forfeit / no-show / DQ) and for matches not
+    # Null for non-finishers (forfeit / no-show / DQ) and for matches not
     # run through a race room. ``finish_rank`` remains the place (1 = winner).
     finish_time = fields.IntField(null=True)
     assigned_station = fields.CharField(max_length=50, null=True)

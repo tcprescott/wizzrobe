@@ -31,7 +31,6 @@ class BracketRepository(TenantScopedRepository[Bracket]):
 
     model = Bracket
 
-    # --- Bracket ---------------------------------------------------------
     async def get_bracket(self, bracket_id: int) -> Optional[Bracket]:
         return await scoped(Bracket.filter(id=bracket_id)).first()
 
@@ -55,7 +54,6 @@ class BracketRepository(TenantScopedRepository[Bracket]):
             Bracket.filter(tournament_id=tournament_id, stage_order=stage_order)
         ).first()
 
-    # --- BracketEntrant --------------------------------------------------
     async def create_entrant(self, **fields) -> BracketEntrant:
         return await BracketEntrant.create(tenant_id=current_tenant_id(), **fields)
 
@@ -85,7 +83,6 @@ class BracketRepository(TenantScopedRepository[Bracket]):
             BracketEntrant.filter(tournament_id=tournament_id)
         ).prefetch_related('user').order_by('display_name')
 
-    # --- BracketEntry ----------------------------------------------------
     async def create_entry(self, **fields) -> BracketEntry:
         return await BracketEntry.create(tenant_id=current_tenant_id(), **fields)
 
@@ -135,7 +132,6 @@ class BracketRepository(TenantScopedRepository[Bracket]):
             BracketEntry.filter(bracket_id=bracket_id, entrant_id=entrant_id)
         ).first()
 
-    # --- BracketMatch ----------------------------------------------------
     async def create_match(self, **fields) -> BracketMatch:
         return await BracketMatch.create(tenant_id=current_tenant_id(), **fields)
 
@@ -223,7 +219,6 @@ class BracketRepository(TenantScopedRepository[Bracket]):
             BracketMatch.filter(loser_to_id=match_id, loser_to_slot=slot)
         ).exclude(state=BracketMatchState.COMPLETE)
 
-    # --- scheduling seam (mirrors ChallongeRepository) -------------------
     async def get_match_with_bracket(self, bracket_match_id: int) -> Optional[BracketMatch]:
         """One matchup with its parent stage, for readers that need the stage config.
 
@@ -336,7 +331,6 @@ class BracketRepository(TenantScopedRepository[Bracket]):
             'bracket__tournament', 'entry1__entrant__user', 'entry2__entrant__user', 'games',
         ).order_by('bracket__tournament_id', 'bracket__stage_order', 'round', 'position')
 
-    # --- BracketMatchGame -------------------------------------------------
     async def create_game(self, **fields) -> BracketMatchGame:
         return await BracketMatchGame.create(tenant_id=current_tenant_id(), **fields)
 

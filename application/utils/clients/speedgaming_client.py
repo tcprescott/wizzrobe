@@ -53,14 +53,12 @@ SCHEDULE_URL = f'{SPEEDGAMING_BASE}/api/schedule'
 # A courteous cap so a misconfigured window never pulls an unbounded page.
 REQUEST_TIMEOUT_SECONDS = 20
 
-# ----------------------------------------------------------------------
 # Wire-shape manifest — the exact key set the live feed serves per object.
 #
 # Captured from an unfiltered ``GET /api/schedule/`` (25 episodes across 9
 # events). SG serves every key on every object, so these are exact sets rather
 # than minimums: a key missing from a payload means the shape changed upstream,
 # and a key we invent is one no consumer may rely on.
-# ----------------------------------------------------------------------
 SG_EPISODE_KEYS = frozenset({
     'id', 'title', 'when', 'whenCountdown', 'length', 'timezone', 'approved',
     'externalRestream', 'event', 'match1', 'match2', 'channels',
@@ -195,7 +193,6 @@ def get_speedgaming_client() -> SpeedGamingClient:
     return SpeedGamingClient()
 
 
-# ----------------------------------------------------------------------
 # Canned fixtures for MOCK_SPEEDGAMING.
 #
 # Every episode carries the full ``SG_EPISODE_KEYS`` set with live-accurate
@@ -213,7 +210,6 @@ def get_speedgaming_client() -> SpeedGamingClient:
 #    the side's ``note``.
 # 4. A doubleheader: ``match2`` populated, which the ETL unions into one Match.
 # 5. A slot with no players yet — SG publishes the airtime before the matchup.
-# ----------------------------------------------------------------------
 _MOCK_EVENT: Dict[str, Any] = {
     'id': 9100,
     'slug': 'mockevent',

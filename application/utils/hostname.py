@@ -57,7 +57,6 @@ def normalize_hostname(value: Optional[str]) -> Optional[str]:
         return None
     if '://' in v:
         v = v.split('://', 1)[1]
-    # Trim path / query / fragment, then any userinfo.
     v = v.split('/', 1)[0].split('?', 1)[0].split('#', 1)[0]
     if '@' in v:
         v = v.rsplit('@', 1)[1]

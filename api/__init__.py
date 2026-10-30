@@ -121,7 +121,6 @@ router.include_router(web_push.router)
 router.include_router(webhooks.router)
 router.include_router(graphql.router)
 
-# --- online-tournament feature routers ---
 # Feature-gated per tenant (mirrors the web UI's per-tenant flags). ``presets``,
 # ``seeds``, ``racetime_bots`` (platform infra), ``discord_events`` (ungated),
 # and ``service_health`` stay open; the rest 404 when the tenant lacks the flag.

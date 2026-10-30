@@ -35,13 +35,11 @@ WRITE_SCOPES: FrozenSet[ApiScope] = frozenset({
     ApiScope.PROFILE_WRITE, ApiScope.PLAY, ApiScope.CREW, ApiScope.VOLUNTEER, ApiScope.STAFF_WRITE,
 })
 
-#: Scopes that reach only read routes.
 READ_SCOPES: FrozenSet[ApiScope] = ALL_SCOPES - WRITE_SCOPES
 
 #: Offered on consent only to someone holding a role that could use them.
 STAFF_SCOPES: FrozenSet[ApiScope] = frozenset({ApiScope.STAFF_READ, ApiScope.STAFF_WRITE})
 
-#: What the consent page and the API docs say each scope lets an app do.
 CONSENT_WORDING: Dict[ApiScope, str] = {
     ApiScope.PROFILE: 'See your Wizzrobe profile and availability',
     ApiScope.PROFILE_WRITE: 'Update your profile, availability and notification settings',

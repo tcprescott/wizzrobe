@@ -426,10 +426,6 @@ class StartggClient:
         return {'event': event, 'entrants': entrants, 'pools': pools}
 
 
-# ----------------------------------------------------------------------
-# OAuth: player account linking (user.identity) and the community sign-in
-# (user.identity tournament.reporter)
-# ----------------------------------------------------------------------
 _PLAYER_SCOPE = 'user.identity'
 CONNECT_SCOPE = 'user.identity tournament.reporter'
 

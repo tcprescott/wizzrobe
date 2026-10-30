@@ -23,7 +23,7 @@ class RacetimeBot(Model):
     description = fields.TextField(null=True)
     is_active = fields.BooleanField(default=True)
     handler_class = fields.CharField(max_length=255, null=True)
-    # Health fields — written by the PR 4 runtime, read by the platform health
+    # Health fields — written by the bot runtime, read by the platform health
     # page. Default to UNKNOWN until a live connection reports otherwise.
     status = fields.CharEnumField(BotStatus, default=BotStatus.UNKNOWN, max_length=20)
     status_message = fields.TextField(null=True)
@@ -32,7 +32,6 @@ class RacetimeBot(Model):
     created_at = fields.DatetimeField(auto_now_add=True)
     updated_at = fields.DatetimeField(auto_now=True)
 
-    # related fields
     tenant_grants = fields.ReverseRelation["RacetimeBotTenant"]
     rooms = fields.ReverseRelation["RacetimeRoom"]
     tournaments = fields.ReverseRelation["Tournament"]
@@ -86,7 +85,6 @@ class RaceRoomProfile(Model):
     created_at = fields.DatetimeField(auto_now_add=True)
     updated_at = fields.DatetimeField(auto_now=True)
 
-    # related fields
     tournaments = fields.ReverseRelation["Tournament"]
 
     class Meta:

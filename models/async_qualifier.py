@@ -59,7 +59,6 @@ class AsyncQualifier(Model):
     created_at = fields.DatetimeField(auto_now_add=True)
     updated_at = fields.DatetimeField(auto_now=True)
 
-    # related fields
     pools = fields.ReverseRelation["AsyncQualifierPool"]
     runs = fields.ReverseRelation["AsyncQualifierRun"]
 
@@ -87,7 +86,6 @@ class AsyncQualifierPool(Model):
     created_at = fields.DatetimeField(auto_now_add=True)
     updated_at = fields.DatetimeField(auto_now=True)
 
-    # related fields
     permalinks = fields.ReverseRelation["AsyncQualifierPermalink"]
 
     class Meta:
@@ -124,7 +122,6 @@ class AsyncQualifierPermalink(Model):
     created_at = fields.DatetimeField(auto_now_add=True)
     updated_at = fields.DatetimeField(auto_now=True)
 
-    # related fields
     runs = fields.ReverseRelation["AsyncQualifierRun"]
 
     class Meta:
@@ -156,7 +153,7 @@ class AsyncQualifierRun(Model):
     permalink = fields.ForeignKeyField(
         'models.AsyncQualifierPermalink', related_name='runs', null=True, on_delete=fields.SET_NULL
     )
-    # Set for runs captured from a synchronous racetime race (PR 10); SET_NULL so
+    # Set for runs captured from a synchronous racetime race; SET_NULL so
     # deleting a live race keeps the captured run history.
     live_race = fields.ForeignKeyField(
         'models.AsyncQualifierLiveRace', related_name='runs', null=True, on_delete=fields.SET_NULL
@@ -210,7 +207,6 @@ class AsyncQualifierRun(Model):
     created_at = fields.DatetimeField(auto_now_add=True)
     updated_at = fields.DatetimeField(auto_now=True)
 
-    # related fields
     review_notes = fields.ReverseRelation["AsyncQualifierReviewNote"]
 
     class Meta:
@@ -288,7 +284,6 @@ class AsyncQualifierLiveRace(Model):
     created_at = fields.DatetimeField(auto_now_add=True)
     updated_at = fields.DatetimeField(auto_now=True)
 
-    # related fields
     runs = fields.ReverseRelation["AsyncQualifierRun"]
 
     class Meta:

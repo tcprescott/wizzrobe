@@ -73,7 +73,7 @@ class Tournament(Model):
     # which validates it with ``validate_tournament_config`` (unknown keys raise
     # ``ValueError``). ``null`` until a tournament opts into online behavior.
     config = fields.JSONField(null=True)
-    # Seed-rolling preset (PR 1+). Coexists with the legacy ``seed_generator``
+    # Seed-rolling preset. Coexists with the legacy ``seed_generator``
     # string: when this FK is set it wins (seed generation resolves the preset's
     # randomizer + settings); otherwise ``seed_generator`` still drives the
     # hard-coded path. SET_NULL so deleting a preset detaches its tournaments
@@ -93,7 +93,7 @@ class Tournament(Model):
     hard_preset: fields.ForeignKeyNullableRelation = fields.ForeignKeyField(
         'models.Preset', related_name='hard_tournaments', null=True, on_delete=fields.SET_NULL
     )
-    # Racetime room automation (PR 3+). ``racetime_bot`` must be a category the
+    # Racetime room automation. ``racetime_bot`` must be a category the
     # tenant is authorized for (enforced in the service); SET_NULL so revoking a
     # bot detaches its tournaments rather than deleting them. ``race_room_profile``
     # supplies reusable room settings. The remaining knobs are worker-queried, so
@@ -121,7 +121,7 @@ class Tournament(Model):
     # numbers for them. Zero disables the reminder.
     stage_reminder_minutes = fields.IntField(default=30)
     racetime_default_goal = fields.CharField(max_length=255, null=True)
-    # Discord Scheduled Events mirror (PR 8). Per-tournament opt-in: when enabled,
+    # Discord Scheduled Events mirror. Per-tournament opt-in: when enabled,
     # the reconciler worker mirrors this tournament's scheduled matches into the
     # tenant guild's Discord Scheduled Events. ``discord_event_duration_minutes``
     # sets each external event's end time; the templates (nullable — a built-in
@@ -209,7 +209,6 @@ class Tournament(Model):
     created_at = fields.DatetimeField(auto_now_add=True)
     updated_at = fields.DatetimeField(auto_now=True)
 
-    # related fields
     players = fields.ReverseRelation["TournamentPlayers"]
     matches = fields.ReverseRelation["Match"]
     notification_preferences = fields.ReverseRelation["TournamentNotificationPreference"]
@@ -450,7 +449,6 @@ class Preset(Model):
     created_at = fields.DatetimeField(auto_now_add=True)
     updated_at = fields.DatetimeField(auto_now=True)
 
-    # related fields
     tournaments = fields.ReverseRelation["Tournament"]
 
     class Meta:

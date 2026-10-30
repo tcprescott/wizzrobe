@@ -268,8 +268,6 @@ def init(fastapi_app: FastAPI) -> None:
     Args:
         fastapi_app (FastAPI): The FastAPI application instance to integrate with NiceGUI.
     """
-    # Refuse to start with an insecure session/DB configuration, or with a
-    # session store that is configured but unreachable.
     validate_security_config()
     validate_session_storage()
     install_log_filter()
@@ -322,10 +320,7 @@ def init(fastapi_app: FastAPI) -> None:
     # a person across the platform, not within one community.
     mcp_consent.create()
     oauth_consent.create()
-    # Shared cross-host link handoff routes (/oauth/link/start on the platform
-    # host, /oauth/link/claim on custom domains). Registered after the providers
-    # so their handoff configs are in the registry; the routes are provider-
-    # agnostic and consulted at request time.
+    # Registered after the providers so their handoff configs are in the registry.
     register_link_handoff_pages()
     admin.create()
     home.create()
@@ -358,7 +353,6 @@ def init(fastapi_app: FastAPI) -> None:
     about.create()
     ui.run_with(
         fastapi_app,
-        # mount_path='/gui',  # NOTE this can be omitted if you want the paths passed to @ui.page to be at the root
         title='Wizzrobe',
         # viewport-fit=cover lets the header/footer bleed into the iOS safe-area
         # insets so the app reads edge-to-edge when installed to the home screen.

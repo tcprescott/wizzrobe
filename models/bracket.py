@@ -55,7 +55,6 @@ class Bracket(Model):
     created_at = fields.DatetimeField(auto_now_add=True)
     updated_at = fields.DatetimeField(auto_now=True)
 
-    # related fields
     entries = fields.ReverseRelation["BracketEntry"]
     bracket_matches = fields.ReverseRelation["BracketMatch"]
 
@@ -89,7 +88,6 @@ class BracketEntrant(Model):
     created_at = fields.DatetimeField(auto_now_add=True)
     updated_at = fields.DatetimeField(auto_now=True)
 
-    # related fields
     entries = fields.ReverseRelation["BracketEntry"]
 
     class Meta:
@@ -117,7 +115,6 @@ class BracketEntry(Model):
 
     class Meta:
         table = 'bracketentry'
-        # An entrant participates in a stage at most once.
         unique_together = (('bracket', 'entrant'),)
         indexes = (('bracket',),)
 
@@ -173,12 +170,10 @@ class BracketMatch(Model):
     created_at = fields.DatetimeField(auto_now_add=True)
     updated_at = fields.DatetimeField(auto_now=True)
 
-    # related fields
     games = fields.ReverseRelation["BracketMatchGame"]
 
     class Meta:
         table = 'bracketmatch'
-        # A stage's graph is uniquely addressed by (round, position).
         unique_together = (('bracket', 'round', 'position'),)
         indexes = (('bracket',),)
 

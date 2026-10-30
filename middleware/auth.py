@@ -583,7 +583,6 @@ class AuthMiddleware(BaseHTTPMiddleware):
                 app.storage.user.get(SESSION_HOST_KEY),
             )
             app.storage.user.clear()
-        # Enforce authentication only for routes that were explicitly marked protected
         if not app.storage.user.get('authenticated', False):
             # Under path mode TenantMiddleware has already stripped /t/<slug> into
             # root_path, so request.url.path is the unprefixed route; rebuild the
@@ -595,7 +594,6 @@ class AuthMiddleware(BaseHTTPMiddleware):
                 app.storage.user['referrer_path'] = referrer_for(root_path, path, request.url.query)
                 return RedirectResponse(f'{root_path}/login')
         else:
-            # Attach the logged-in user to Sentry so error events show who hit them.
             # Guarded on discord_id being present: str(None) would file the events
             # under a phantom 'None' user that aggregates unrelated reports.
             discord_id = app.storage.user.get('discord_id')

@@ -33,7 +33,6 @@ COLOR_JOIN_REQUEST = 0x5865F2  # blurple — informational, like a new assignmen
 COLOR_CANCELLED = 0x9B2C2C    # deep red — called off, nothing to attend
 COLOR_STAGE = 0xBE185D        # rose — go somewhere else, and soon
 
-# state_changed transitions → colour
 _STATE_COLORS = {
     'Started': COLOR_STARTED,
     'Finished': COLOR_FINISHED,

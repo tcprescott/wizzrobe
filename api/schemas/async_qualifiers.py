@@ -7,7 +7,6 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from models import AsyncQualifierReviewStatus, AsyncQualifierRunStatus
 
-# --- Qualifiers -----------------------------------------------------------
 
 class AsyncQualifierResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
@@ -183,16 +182,12 @@ class QualifierUpdateRequest(BaseModel):
     )
 
 
-# --- Admins ---------------------------------------------------------------
-
 class AdminRequest(BaseModel):
     user_id: int = Field(
         ...,
         description='The ID of the person to list as an admin of this qualifier.',
     )
 
-
-# --- Pools ----------------------------------------------------------------
 
 class AsyncQualifierPoolResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
@@ -227,8 +222,6 @@ class PoolUpdateRequest(BaseModel):
         description="Set true to detach the pool's preset. Takes priority over `preset_id`.",
     )
 
-
-# --- Permalinks -----------------------------------------------------------
 
 class AsyncQualifierPermalinkResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
@@ -315,8 +308,6 @@ class PermalinkUpdateRequest(BaseModel):
     live_race: Optional[bool] = Field(None, description='Whether to keep this seed for live races.')
 
 
-# --- Runs -----------------------------------------------------------------
-
 class AsyncQualifierRunResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -363,8 +354,6 @@ class AsyncQualifierRunResponse(BaseModel):
             'reported it. Null for an unfinished run.'
         ),
     )
-    # Server-measured wall clock from the draw to the submit — an upper bound on
-    # the run, kept beside the runner's claim as evidence for the reviewer.
     measured_seconds: Optional[int] = Field(
         None,
         description=(
@@ -470,7 +459,6 @@ class MyQualifierRunResponse(BaseModel):
             'progress.'
         ),
     )
-    # When an in-progress run auto-forfeits; null once it is no longer running.
     deadline: Optional[datetime] = Field(
         None,
         description=(
@@ -499,7 +487,6 @@ class MyQualifierRunResponse(BaseModel):
             'own reattempts.'
         ),
     )
-    # Set when the expiry worker forfeited the run rather than the runner choosing to.
     expired_at: Optional[datetime] = Field(
         None,
         description=(
@@ -507,7 +494,6 @@ class MyQualifierRunResponse(BaseModel):
             'Null if you finished or forfeited it yourself.'
         ),
     )
-    # Null while the qualifier is open — read ``score_band`` then.
     score: Optional[float] = Field(
         None,
         description=(
@@ -515,8 +501,6 @@ class MyQualifierRunResponse(BaseModel):
             'instead) and for an unscored run.'
         ),
     )
-    # Null for a run that did not finish (a forfeit or disqualification): it has
-    # no pace to compare with par.
     score_band: Optional[str] = Field(
         None,
         description=(
@@ -566,8 +550,6 @@ class ReviewRequest(BaseModel):
     )
 
 
-# --- Review notes ---------------------------------------------------------
-
 class AsyncQualifierReviewNoteResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -577,8 +559,6 @@ class AsyncQualifierReviewNoteResponse(BaseModel):
     note: str = Field(..., description="The note's text.")
     created_at: datetime = Field(..., description='When the note was written (UTC).')
 
-
-# --- Leaderboard ----------------------------------------------------------
 
 class LeaderboardEntryResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)

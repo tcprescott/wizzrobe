@@ -74,7 +74,7 @@ class User(Model):
     startgg_user_id = fields.CharField(max_length=64, null=True, unique=True)
     startgg_username = fields.CharField(max_length=255, null=True)
     startgg_linked_at = fields.DatetimeField(null=True)
-    # Placeholder identity (SpeedGaming ETL, PR 7). A player the SG sync could not
+    # Placeholder identity (SpeedGaming ETL). A player the SG sync could not
     # resolve to a real account becomes a placeholder User so its ``MatchPlayers``
     # row is still first-class. ``speedgaming_id`` is the SG-side numeric id used
     # to re-find the same placeholder across syncs; unique so an SG id maps to one
@@ -116,7 +116,6 @@ class User(Model):
     telegram_linked_at = fields.DatetimeField(null=True)
     telegram_notifications = fields.BooleanField(default=False)
 
-    # related fields
     admin_tournaments = fields.ManyToManyRelation["Tournament"]
     crew_coordinated_tournaments = fields.ManyToManyRelation["Tournament"]
     match_players = fields.ReverseRelation["MatchPlayers"]

@@ -117,9 +117,6 @@ async def get_member_details(user_id: int, actor: User = Depends(require_staff))
     return MemberDetailsResponse.build(await MemberDetailsService().get(user_id, actor=actor))
 
 
-# --- Writes -----------------------------------------------------------------
-
-
 @router.post(
     "",
     response_model=UserDetailResponse,

@@ -85,7 +85,6 @@ COMMUNITY_ROOT_SCOPE_KEY = 'wizzrobe.community_root'
 # community prefix is gone.
 _EVENT_PATH_RE = re.compile(r'^/e/(?P<slug>[a-z0-9][a-z0-9-]*)(?P<rest>/.*)?$')
 
-# /t/<slug> optionally followed by the rest of the path.
 _TENANT_PATH_RE = re.compile(r'^/t/(?P<slug>[a-z0-9][a-z0-9-]*)(?P<rest>/.*)?$')
 
 # A tenant-prefixed *transport* path: /t/<slug> followed by a tenant-agnostic
@@ -260,7 +259,6 @@ class TenantMiddleware(BaseHTTPMiddleware):
 
         match = _TENANT_PATH_RE.match(path)
         if match is None:
-            # Platform surface (no /t/ prefix): run with no tenant context.
             return await call_next(request)
 
         slug = match.group('slug')

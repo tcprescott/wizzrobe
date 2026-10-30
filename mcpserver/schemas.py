@@ -766,9 +766,6 @@ class FeedbackEntry(BaseModel):
 StageBlock.model_rebuild()
 
 
-# --- Platform (super admin) ---------------------------------------------------
-
-
 class PlatformCommunity(BaseModel):
     """One community as the /platform page lists it, switched-off ones included."""
 

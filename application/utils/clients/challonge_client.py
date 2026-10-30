@@ -239,9 +239,6 @@ class ChallongeClient:
         if self._on_request is not None:
             await self._on_request()
 
-    # ------------------------------------------------------------------
-    # OAuth (explicit-token / no-connection context)
-    # ------------------------------------------------------------------
     async def exchange_code(self, code: str, redirect_uri: str) -> Dict[str, Any]:
         """Exchange an authorization code for a token payload."""
         return await self._token_request({
@@ -281,9 +278,6 @@ class ChallongeClient:
             'username': _attr(resource, 'username', 'name'),
         }
 
-    # ------------------------------------------------------------------
-    # Authenticated service calls (token via token_provider)
-    # ------------------------------------------------------------------
     async def get_tournament(self, tournament_id: str, community: Optional[str] = None) -> Dict[str, Any]:
         data = await self._authed_request('GET', f'{_tournament_path(tournament_id, community)}.json')
         resource = data.get('data') or {}
@@ -430,9 +424,6 @@ class ChallongeClient:
             f'{quote(str(participant_id), safe="")}.json',
         )
 
-    # ------------------------------------------------------------------
-    # Internals
-    # ------------------------------------------------------------------
     def _headers(self, token: str) -> Dict[str, str]:
         return {
             'Content-Type': 'application/vnd.api+json',
@@ -509,10 +500,8 @@ class ChallongeClient:
             raise ChallongeAPIError(f"Challonge API returned non-JSON: {text[:200]}") from e
 
 
-# ----------------------------------------------------------------------
 # Mock client (MOCK_CHALLONGE) — a tiny canned 4-player single-elim bracket
 # so local dev can click through connect/link/sync/schedule without a real app.
-# ----------------------------------------------------------------------
 _MOCK_PARTICIPANTS = [
     {'participant_id': '9001', 'name': 'MockPlayerOne', 'challonge_user_id': '1001', 'username': 'mockone'},
     {'participant_id': '9002', 'name': 'MockPlayerTwo', 'challonge_user_id': '1002', 'username': 'mocktwo'},

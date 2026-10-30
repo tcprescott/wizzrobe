@@ -69,10 +69,8 @@ class TwitchClient(OAuthIdentityClient):
     )
 
 
-# ----------------------------------------------------------------------
 # Mock client (MOCK_TWITCH) — a deterministic canned identity so local dev
 # can click through link/unlink without a real OAuth app.
-# ----------------------------------------------------------------------
 _MOCK_IDENTITIES = [
     {'user_id': '20001', 'username': 'mocktwitchone', 'display_name': 'MockTwitchOne'},
     {'user_id': '20002', 'username': 'mocktwitchtwo', 'display_name': 'MockTwitchTwo'},

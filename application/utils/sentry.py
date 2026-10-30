@@ -62,7 +62,6 @@ _NOISY_FOR_SENTRY_LOGS = ('uvicorn.access', 'httpx', 'httpcore')
 #: ``CancelledError`` it throws into each request still open at the deadline.
 _GRACEFUL_SHUTDOWN_CANCEL = 'timeout graceful shutdown exceeded'
 
-#: How long the lifespan shutdown waits for queued events and logs to ship.
 _SHUTDOWN_FLUSH_TIMEOUT = 2.0
 
 #: Where theme/browser_monitoring.py keeps the tab's replay id in ``app.storage.client``.

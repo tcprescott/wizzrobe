@@ -219,39 +219,27 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         await _load_browser_monitoring()
     with _startup_step('discord bot'):
         # Importing discordbot registers its interaction handlers and DM view
-        # factories with discord_service's registries — the one-way wiring that
-        # replaced the old bidirectional import cycle.
+        # factories with discord_service's registries.
         import discordbot  # noqa: F401
         await init_discord_bot()
-    # Racetime bot runtime: one long-lived connection per active RacetimeBot
-    # category. Gated by RACETIME_BOT_ENABLED (off by default) and mockable via
+    # Gated by RACETIME_BOT_ENABLED (off by default) and mockable via
     # MOCK_RACETIME; a no-op when the switch is off, so it is always safe to call.
     from racetimebot import close_racetime_bot, init_racetime_bot
     with _startup_step('racetime bot'):
         await init_racetime_bot()
     with _startup_step('background workers'):
-        # Auto-open worker: opens a racetime room ahead of each eligible scheduled
-        # match (opt-in per tournament). Runs only when the racetime runtime is on.
         from application.services import race_room_worker
         from application.utils.environment import racetime_bot_enabled
         if racetime_bot_enabled():
             race_room_worker.start()
-        # SpeedGaming ETL sync worker: polls active event links on their cadence and
-        # materializes SG episodes into Match rows. Gated by SPEEDGAMING_SYNC_ENABLED
-        # (off by default); mockable via MOCK_SPEEDGAMING.
         from application.services import speedgaming_sync_worker
         from application.utils.environment import speedgaming_sync_enabled
         if speedgaming_sync_enabled():
             speedgaming_sync_worker.start()
-        # Discord Scheduled Events reconciler: mirrors opted-in tournaments' schedules
-        # into each linked guild's Discord events. Gated by DISCORD_EVENTS_SYNC_ENABLED
-        # (off by default); uses the mock transport under MOCK_DISCORD.
         from application.services.discord import discord_event_worker
         from application.utils.environment import discord_events_sync_enabled
         if discord_events_sync_enabled():
             discord_event_worker.start()
-        # Platform external-service health monitor: periodically probes every external
-        # dependency so the /platform board is warm and alerts fire on transitions.
         # Always on; a dependency in mock mode reports "mock" and is not contacted.
         from application.services import service_health_worker
         service_health_worker.start()
@@ -271,30 +259,16 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         # and skips tenants with EVENT_CHECK_IN off.
         from application.services import check_in_sync_worker
         check_in_sync_worker.start()
-        # sglive prize pools: reads sglive.speedgaming.org every 15 minutes into
-        # linked tournaments' pools. Idle until staff link one; skips tenants
-        # with PAYOUTS off.
         from application.services import sglive_pool_worker
         sglive_pool_worker.start()
-        # start.gg mirror: re-reads linked events every two minutes (no webhooks).
-        # Idle without STARTGG_API_TOKEN; skips tenants with STARTGG off.
         from application.services import startgg_sync_worker
         startgg_sync_worker.start()
-        # Challonge auto-sync: re-reads unfinished linked brackets on the interval
-        # each community picks (off by default). Skips tenants with CHALLONGE off.
         from application.services import challonge_sync_worker
         challonge_sync_worker.start()
-        # Data exports: builds queued exports one at a time (Reports → Exports)
-        # and deletes them after three days. Idle until someone asks for one.
         from application.services import data_export_worker
         data_export_worker.start()
-        # Discord roles Wizzrobe hands out: syncs a community soon after a rule
-        # change or a match/enrollment/badge event, and every 10 minutes in full.
-        # Only communities with rules; skips tenants with DISCORD_ROLE_SYNC off.
         from application.services import discord_role_sync_worker
         discord_role_sync_worker.start()
-        # Telegram bot: binds chats from profile Connect links and answers /stop.
-        # Only with a bot token, and never against a mocked Discord.
         from application.services import telegram_bot_worker
         from application.utils.clients import telegram_client
         from application.utils.mocks.mock_discord import is_mock_discord
@@ -306,12 +280,8 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         # shortly before it starts. Ungated — a community with no staged matches has
         # nothing for it to find.
         stage_reminder.start()
-        # Community event reminders: DMs subscribers shortly before an approved
-        # event starts. Skips tenants with COMMUNITY_EVENTS off.
         from application.services import community_event_reminder
         community_event_reminder.start()
-        # Central event bus: start the async-subscriber worker and register the
-        # webhook delivery subscriber (fans published events out to staff webhooks).
         event_dispatch_queue.start()
         webhook_queue.start()
         event_bus.subscribe_async(WebhookService().deliver_event)
@@ -320,9 +290,6 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         event_bus.subscribe_async(
             PersonalWebhookService().deliver_event, event_types=SUBSCRIBABLE_EVENT_TYPES,
         )
-        # Engagement telemetry: mirror every published domain event into the
-        # TelemetryEvent log (page views / interactions are captured separately from
-        # the presentation layer). No event_types filter — record them all.
         event_bus.subscribe_async(TelemetryService().record_event)
         # The racetime room bot posts a seed that lands after its set time (an
         # async roll, or one !forceroll asked for) the moment it's rolled.

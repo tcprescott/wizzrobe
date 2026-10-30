@@ -33,7 +33,6 @@ class VolunteerPosition(Model):
     created_at = fields.DatetimeField(auto_now_add=True)
     updated_at = fields.DatetimeField(auto_now=True)
 
-    # related fields
     shifts = fields.ReverseRelation["VolunteerShift"]
     qualifications = fields.ReverseRelation["VolunteerQualification"]
 
@@ -66,7 +65,6 @@ class VolunteerShift(Model):
     created_at = fields.DatetimeField(auto_now_add=True)
     updated_at = fields.DatetimeField(auto_now=True)
 
-    # related fields
     assignments = fields.ReverseRelation["VolunteerAssignment"]
 
     class Meta:

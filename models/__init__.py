@@ -197,19 +197,13 @@ install_column_guards(globals())
 
 __all__ = [
     'STATION_REGEXES',
-    # constants
     'SYSTEM_USER_DISCORD_ID',
-    # accommodation
     'AccommodationRequest',
     'AccommodationStatus',
-    # ai
     'AiProvider',
     'AiProviderSetting',
-    # user / auth
     'ApiToken',
-    # enums
     'ApiTokenOrigin',
-    # async qualifier
     'AsyncQualifier',
     'AsyncQualifierLiveRace',
     'AsyncQualifierLiveRaceStatus',
@@ -219,10 +213,8 @@ __all__ = [
     'AsyncQualifierReviewStatus',
     'AsyncQualifierRun',
     'AsyncQualifierRunStatus',
-    # audit / telemetry
     'AuditLog',
     'BotStatus',
-    # brackets
     'Bracket',
     'BracketEntrant',
     'BracketEntrantStatus',
@@ -237,13 +229,11 @@ __all__ = [
     'Broadcaster',
     'BrowserErrorIgnoreRule',
     'BrowserMonitoringSettings',
-    # challonge
     'ChallongeApiUsage',
     'ChallongeConnection',
     'ChallongeMatch',
     'ChallongeMatchState',
     'ChallongeParticipant',
-    # check-in
     'CheckInDmStatus',
     'CheckInEntrant',
     'CheckInEntrantSource',
@@ -253,7 +243,6 @@ __all__ = [
     'CheckInPass',
     'CheckInTier',
     'CheckInTierLanyard',
-    # match / crew
     'CommentaryInvite',
     'CommentaryInviteStatus',
     'Commentator',
@@ -271,11 +260,9 @@ __all__ = [
     'DiscordRoleRule',
     'DiscordRoleRuleKind',
     'DiscordRoleSyncState',
-    # discord events
     'DiscordScheduledEvent',
     'DiscordTournamentGrant',
     'EmergencyContact',
-    # equipment
     'Equipment',
     'EquipmentLoan',
     'EquipmentStatus',
@@ -283,14 +270,11 @@ __all__ = [
     'EventStatus',
     'FeatureFlag',
     'FeatureFlagGroup',
-    # feedback
     'Feedback',
     'FeedbackCategory',
     'FeedbackStatus',
-    # column guards
     'FieldValueError',
     'ForfeitReason',
-    # tournament
     'GeneratedSeeds',
     'ItemTrackerBoard',
     'ItemTrackerChange',
@@ -307,7 +291,6 @@ __all__ = [
     'MatchStreamVolunteer',
     'MatchWatcher',
     'MatcherinoLogin',
-    # mcp oauth
     'McpAuthorizationCode',
     'McpOAuthClient',
     'MembershipSource',
@@ -320,16 +303,13 @@ __all__ = [
     'OAuthAppBlock',
     'OAuthAppCode',
     'OAuthClientType',
-    # webhooks
     'PersonalWebhook',
-    # volunteer
     'PlayerAvailability',
     'Preset',
     'PresetOverride',
     'ProfileNudgeDismissal',
     'ProviderTask',
     'ProviderTaskStatus',
-    # racetime
     'RaceRoomHoldReason',
     'RaceRoomProfile',
     'RaceRoomStatus',
@@ -344,7 +324,6 @@ __all__ = [
     'RoomToken',
     'SentMessage',
     'SentMessageStatus',
-    # speedgaming
     'SpeedGamingEpisode',
     'SpeedGamingEventLink',
     'StaffRequestDM',
@@ -377,10 +356,8 @@ __all__ = [
     'SurveyStatus',
     'SurveySuggestionBatch',
     'SyncStatus',
-    # system
     'SystemConfiguration',
     'TelemetryEvent',
-    # tenant
     'Tenant',
     'TenantFeatureFlag',
     'TenantJoinRequest',
@@ -395,7 +372,6 @@ __all__ = [
     'Tracker',
     'TriforceText',
     'User',
-    # per-user UI preferences
     'UserFriend',
     'UserRole',
     'UserTablePreference',

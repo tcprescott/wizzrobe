@@ -70,10 +70,8 @@ class RacetimeClient(OAuthIdentityClient):
     )
 
 
-# ----------------------------------------------------------------------
 # Mock client (MOCK_RACETIME) — a deterministic canned identity so local dev
 # can click through link/unlink without a real OAuth app.
-# ----------------------------------------------------------------------
 _MOCK_IDENTITIES = [
     {'user_id': 'mockrt0001', 'username': 'MockRacerOne'},
     {'user_id': 'mockrt0002', 'username': 'MockRacerTwo'},

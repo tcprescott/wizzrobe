@@ -20,12 +20,11 @@ a never-signed-in member to :data:`MOCK_GUILD_ROSTER`.
 
 from typing import Dict, List, Set, Union
 
-# --- Guild ids (match seed_dev.TENANT_SPECS) --------------------------------
+# Guild ids (match seed_dev.TENANT_SPECS)
 GUILD_WIZ_DEFAULT = 1000000000000000001
 GUILD_SECOND = 1000000000000000002
 DEFAULT_GUILD_ID = GUILD_WIZ_DEFAULT
 
-# --- Role ids ---------------------------------------------------------------
 # Mapped to app roles by seed_dev.role_mapping_specs — keep these ids/names.
 ROLE_STAFF = 2000000000000000001
 ROLE_PROCTOR = 2000000000000000002
@@ -192,8 +191,7 @@ def user_can_manage(guild_id: int, user_id: int) -> bool:
     return True
 
 
-# --- Scheduled events (mock) ------------------------------------------------
-# In-memory store so the Discord Events reconciler (PR 8) runs end-to-end under
+# In-memory store so the Discord Events reconciler runs end-to-end under
 # MOCK_DISCORD without a live bot. Keyed by a synthetic event id; ids increment
 # from a fixed base so they look like snowflakes and stay deterministic within a
 # process. Reset between tests via :func:`reset_scheduled_events`.

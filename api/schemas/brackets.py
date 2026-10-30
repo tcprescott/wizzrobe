@@ -134,7 +134,6 @@ class BracketMatchResponse(BaseModel):
         None, description="Matchup the loser drops to, in double elimination. Null otherwise."
     )
     loser_to_slot: Optional[int] = Field(None, description="Slot (1 or 2) the loser takes in that matchup.")
-    # Per-matchup override; null means "use the round's best_of, else 1".
     best_of: Optional[int] = Field(
         None, description="Series length set for this matchup. Null uses the round's best-of, else 1."
     )
@@ -145,9 +144,6 @@ class BracketMatchResponse(BaseModel):
     games: List[BracketMatchGameResponse] = Field(
         [], description="Games booked so far. Empty until the first game is scheduled."
     )
-
-
-# --- request bodies -------------------------------------------------------
 
 
 class StandingsRowResponse(BaseModel):
@@ -168,8 +164,6 @@ class StandingsRowResponse(BaseModel):
         ..., description=_ENTRANT_STATUS + " Independent of `status`; check both to show a drop."
     )
     rank: int = Field(..., description="Current rank from the standings calculation. Tied entries share a rank.")
-    # The persisted rank written at stage completion; null until then. It can
-    # differ from `rank` when staff resolved a tie by hand.
     final_rank: Optional[int] = Field(
         None, description="Rank written when the stage completed. Null until then; can differ from `rank` where staff broke a tie."
     )

@@ -45,9 +45,6 @@ from models import Bracket, BracketEntrant, BracketEntry, BracketMatch, Match, U
 router = APIRouter(prefix="/brackets", tags=["Brackets"], route_class=ServiceErrorRoute, dependencies=[Depends(event_binding(bracket_id=Bracket, match_id=BracketMatch, entrant_id=BracketEntrant, entry_id=BracketEntry, scheduled_match_id=Match))])
 
 
-# --- reads (any token; tenant-scoped in-service) --------------------------
-
-
 @router.get(
     "",
     response_model=List[BracketResponse],
@@ -244,9 +241,6 @@ async def _with_status(service: BracketService, matches: list) -> list:
 async def list_entries(bracket_id: int, actor: User = Depends(require_api_actor)):
     require_found(await BracketService().get_visible_bracket(actor, bracket_id), "Bracket")
     return await BracketService().list_entries(bracket_id)
-
-
-# --- writes (reject read-only tokens; Staff-gated in-service) --------------
 
 
 @router.post(

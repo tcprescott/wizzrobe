@@ -40,7 +40,7 @@ from racetimebot.transport import (
 logger = logging.getLogger(__name__)
 
 INITIAL_BACKOFF_SECONDS = 5
-MAX_BACKOFF_SECONDS = 300  # ~5 minutes, per the health decision
+MAX_BACKOFF_SECONDS = 300
 
 
 class CategoryConnection:

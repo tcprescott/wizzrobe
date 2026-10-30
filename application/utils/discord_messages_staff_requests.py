@@ -30,8 +30,6 @@ def _at(when: datetime) -> str:
     return f'<t:{int(when.timestamp())}:f>'
 
 
-# --- community events ---------------------------------------------------
-
 def event_approved(you: bool, staff_name: str, title: str, when: datetime) -> Card:
     return (
         f'✅ Approved by {_who(you, staff_name)}',
@@ -62,8 +60,6 @@ def event_cancelled(you: bool, name: str, title: str, when: datetime) -> Card:
     )
 
 
-# --- ADA requests -------------------------------------------------------
-
 def ada_status(you: bool, staff_name: str, member_name: str, status_label: str,
                when: datetime) -> Card:
     return (
@@ -89,8 +85,6 @@ def ada_withdrawn(member_name: str, when: datetime) -> Card:
     )
 
 
-# --- join requests ------------------------------------------------------
-
 def join_approved(you: bool, staff_name: Optional[str], requester_name: str,
                   community_name: str, when: datetime) -> Card:
     if staff_name is None:
@@ -113,8 +107,6 @@ def join_declined(you: bool, staff_name: str, requester_name: str, when: datetim
         f'to join {_at(when)}.',
     )
 
-
-# --- reschedule requests ------------------------------------------------
 
 def _ask(requester_name: str, tournament_name: str, kind_cancel: bool) -> str:
     verb = 'call off' if kind_cancel else 'move'
@@ -161,8 +153,6 @@ def reschedule_superseded(you: bool, staff_name: str, requester_name: str,
         "There's nothing to decide.",
     )
 
-
-# --- crew signups -------------------------------------------------------
 
 def crew_signup_pending(volunteer_name: str, crew_type: str) -> Card:
     """The original ask, restored when a signup is waiting again."""

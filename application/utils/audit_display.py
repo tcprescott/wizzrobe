@@ -69,7 +69,6 @@ def area_by_key(key: Optional[str]) -> Optional[AuditArea]:
 
 
 ACTION_LABELS: dict[str, str] = {
-    # Matches
     'match.created': 'Created a match',
     'match.updated': 'Edited a match',
     'match.rescheduled': 'Rescheduled a match',
@@ -131,7 +130,6 @@ ACTION_LABELS: dict[str, str] = {
     'race_room.result_recorded': 'Recorded a race room result',
     'race_room.result_held': 'Held a race room result for a check',
     'race_room.fpa_called': 'Called a fair play pause in a race room',
-    # Tournaments
     'tournament.created': 'Created a tournament',
     'tournament.updated': 'Edited a tournament',
     'tournament.deleted': 'Deleted a tournament',
@@ -204,7 +202,6 @@ ACTION_LABELS: dict[str, str] = {
     'async_qualifier.live_race_cancelled': 'Cancelled a qualifier live race',
     'async_qualifier.live_race_recorded': 'Recorded a qualifier live race',
     'async_qualifier.live_race_recorded_manually': 'Recorded a live race by hand',
-    # People
     'user.created': 'Added a member',
     'user.provisioned': 'Set up a member account',
     'user.profile_updated': 'Edited a profile',
@@ -250,7 +247,6 @@ ACTION_LABELS: dict[str, str] = {
     'tenant.join_requested': 'Asked to join the community',
     'tenant.join_approved': 'Approved a join request',
     'tenant.join_denied': 'Turned down a join request',
-    # Volunteers
     'volunteer.position_created': 'Created a volunteer position',
     'volunteer.position_updated': 'Edited a volunteer position',
     'volunteer.position_deleted': 'Deleted a volunteer position',
@@ -276,7 +272,6 @@ ACTION_LABELS: dict[str, str] = {
     'tournament.data_exported': 'Exported tournament data',
     'volunteer.role_mapping_added': 'Linked a volunteer position to a role',
     'volunteer.role_mapping_removed': 'Unlinked a volunteer position from a role',
-    # Check-in
     'check_in_event.created': 'Created a check-in event',
     'check_in_event.updated': 'Edited a check-in event',
     'check_in_event.deleted': 'Deleted a check-in event',
@@ -291,13 +286,11 @@ ACTION_LABELS: dict[str, str] = {
     'matcherino_login.set': 'Saved the Matcherino login',
     'matcherino_login.cleared': 'Removed the Matcherino login',
     'matcherino_login.alerts_updated': 'Changed Matcherino login alerts',
-    # Equipment
     'equipment.created': 'Added equipment',
     'equipment.updated': 'Edited equipment',
     'equipment.deleted': 'Deleted equipment',
     'equipment.checked_out': 'Checked out equipment',
     'equipment.checked_in': 'Returned equipment',
-    # Challonge
     'challonge.connected': 'Connected Challonge',
     'challonge.disconnected': 'Disconnected Challonge',
     'challonge.community_removed': 'Removed the Challonge connection',
@@ -318,7 +311,6 @@ ACTION_LABELS: dict[str, str] = {
     'challonge.stage_advanced': 'Advanced a Challonge stage',
     'challonge.webhook_synced': 'Challonge sent an update',
     'challonge.match_linked': 'Linked a match to its Challonge matchup',
-    # start.gg
     'startgg.linked': 'Linked a start.gg account',
     'startgg.unlinked': 'Unlinked a start.gg account',
     'startgg.event_linked': 'Linked a start.gg event',
@@ -333,7 +325,6 @@ ACTION_LABELS: dict[str, str] = {
     'startgg.set_linked': 'Linked a match to its start.gg matchup',
     'startgg.connected': 'Connected start.gg',
     'startgg.disconnected': 'Disconnected start.gg',
-    # Community
     'community_event.submitted': 'Submitted a meetup',
     'community_event.updated': 'Edited a meetup',
     'community_event.approved': 'Approved a meetup',
@@ -351,7 +342,6 @@ ACTION_LABELS: dict[str, str] = {
     'survey.questions_suggested': 'Asked the AI for survey questions',
     'survey.comment_tag_created': 'Added a survey comment tag',
     'survey.comment_tag_deleted': 'Deleted a survey comment tag',
-    # Settings
     'system_config.updated': 'Changed a setting',
     'notification_setting.changed': 'Changed how a notification is sent',
     'notification_settings.reset': 'Reset notification settings to defaults',
@@ -485,8 +475,6 @@ def actions_matching(text: str) -> list[str]:
         return []
     return [key for key, label in ACTION_LABELS.items() if needle in label.lower()]
 
-
-# --- Describing one row --------------------------------------------------------
 
 HIDDEN_KEYS = frozenset({'actor_discord_id', 'actor_username', 'tenant_id'})
 _USER_KEYS = frozenset({'user_id', 'target_user_id', 'winner_id', 'borrower_id', 'volunteer_id'})

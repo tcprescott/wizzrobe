@@ -69,9 +69,6 @@ def _response(tournament: Tournament) -> TournamentResponse:
     return TournamentResponse.model_validate(tournament, from_attributes=True)
 
 
-# --- The tournament itself ----------------------------------------------------
-
-
 async def create_tournament(
     name: str,
     tenant: TenantArg = None,
@@ -212,9 +209,6 @@ async def delete_tournament(
     return OperationResult(detail=f'{name} deleted.')
 
 
-# --- Tournament admins and crew coordinators ----------------------------------
-
-
 async def add_tournament_admin(
     tournament_id: int,
     user_id: int,
@@ -261,9 +255,6 @@ async def remove_crew_coordinator(
         tournament, await _user(user_id), actor=current_actor().user,
     )
     return OperationResult(detail=f'Removed user {user_id} from the crew coordinators of {tournament.name}.')
-
-
-# --- Roster -------------------------------------------------------------------
 
 
 async def enroll_tournament_player(
@@ -317,9 +308,6 @@ async def drop_tournament_player(
         f'{result.called_off} called off, {result.removed_from} line-ups changed'
         + (', removed on Challonge.' if result.on_bracket_site else '.')
     ))
-
-
-# --- Integrations ---------------------------------------------------------------
 
 
 async def link_challonge_tournament(
@@ -383,9 +371,6 @@ async def update_tournament_discord_events(
         title_template=title_template, description_template=description_template,
     )
     return DiscordEventTournamentResponse.model_validate(tournament, from_attributes=True)
-
-
-# --- Round schedule ---------------------------------------------------------------
 
 
 async def get_round_schedule(

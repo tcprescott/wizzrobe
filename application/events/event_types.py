@@ -22,7 +22,6 @@ class EventType:
     EVENT_DEFAULT_CHANGED = 'event.default_changed'
     EVENT_DELETED = 'event.deleted'
     EVENT_SETUP_COPIED = 'event.setup_copied'
-    # Match lifecycle
     MATCH_CREATED = 'match.created'
     MATCH_UPDATED = 'match.updated'
     MATCH_DELETED = 'match.deleted'
@@ -80,13 +79,11 @@ class EventType:
     MATCH_RESCHEDULE_DECLINED = 'match.reschedule_declined'
     MATCH_RESCHEDULE_WITHDRAWN = 'match.reschedule_withdrawn'
 
-    # Crew
     CREW_SIGNUP_CREATED = 'crew.signup_created'
     CREW_SIGNUP_REMOVED = 'crew.signup_removed'
     CREW_APPROVAL_CHANGED = 'crew.approval_changed'
     CREW_ACKNOWLEDGED = 'crew.acknowledged'
 
-    # Volunteer
     VOLUNTEER_ASSIGNED = 'volunteer.assigned'
     VOLUNTEER_UNASSIGNED = 'volunteer.unassigned'
     VOLUNTEER_ACKNOWLEDGED = 'volunteer.acknowledged'
@@ -101,9 +98,6 @@ class EventType:
     VOLUNTEER_CALLED_OFF = 'volunteer.called_off'
     VOLUNTEER_CALL_OFF_UNDONE = 'volunteer.call_off_undone'
 
-    # Racetime race-room lifecycle (mirrors AuditActions.RACE_ROOM_*). Tenant-
-    # scoped domain events a webhook subscriber can act on; published by the
-    # racetime room lifecycle as the system user.
     RACE_ROOM_CREATED = 'race_room.created'
     RACE_ROOM_OPENED = 'race_room.opened'
     RACE_ROOM_STARTED = 'race_room.started'
@@ -113,21 +107,15 @@ class EventType:
     RACE_ROOM_RESULT_HELD = 'race_room.result_held'
     RACE_ROOM_FPA_CALLED = 'race_room.fpa_called'
 
-    # SpeedGaming ETL (mirrors AuditActions.SG_*). Tenant-scoped domain events a
-    # webhook subscriber can act on; published by the sync worker as the system
-    # user. A subscriber can react to a freshly-imported or cancelled match.
     SG_EPISODE_IMPORTED = 'sg_sync.episode_imported'
     SG_EPISODE_CANCELLED = 'sg_sync.episode_cancelled'
     SG_MATCH_AUTO_FINISHED = 'sg_sync.match_auto_finished'
 
-    # Discord Scheduled Events mirror (mirrors AuditActions.DISCORD_EVENT_*).
-    # Tenant-scoped domain events a webhook subscriber can act on; published by
-    # the reconciler when it creates/updates/cancels a mirrored Discord event.
     DISCORD_EVENT_CREATED = 'discord_event.created'
     DISCORD_EVENT_UPDATED = 'discord_event.updated'
     DISCORD_EVENT_CANCELLED = 'discord_event.cancelled'
 
-    # Platform external-service health (PR 5). Published by the health monitor
+    # Platform external-service health. Published by the health monitor
     # when a probed dependency transitions into an unhealthy state (down or a
     # credential warning). Platform-level (no tenant), so tenant-scoped webhooks
     # never receive it — the alert's real delivery is Sentry + optional super-
@@ -142,7 +130,7 @@ class EventType:
     OAUTH_GRANT_CREATED = 'oauth_grant.created'
     OAUTH_GRANT_REVOKED = 'oauth_grant.revoked'
 
-    # Async Qualifiers (PR 9; mirrors AuditActions.ASYNC_QUALIFIER_RUN_*). A run
+    # Async Qualifiers (mirrors AuditActions.ASYNC_QUALIFIER_RUN_*). A run
     # entering review (submitted) and a run being reviewed (approved/rejected) are
     # tenant-scoped domain events a subscriber can act on. Qualifier/pool/permalink
     # authoring and admin grants stay audit-only (tenant-internal config).
@@ -166,15 +154,11 @@ class EventType:
     ASYNC_QUALIFIER_OPENED = 'async_qualifier.opened'
     ASYNC_QUALIFIER_CLOSED = 'async_qualifier.closed'
 
-    # Async Qualifier live races (PR 10; mirrors AuditActions). A live race whose
+    # Async Qualifier live races (mirrors AuditActions). A live race whose
     # entrants' results were captured into runs is a domain event a subscriber can
     # act on; create/open/cancel stay audit-only (tenant-internal scheduling).
     ASYNC_QUALIFIER_LIVE_RACE_RECORDED = 'async_qualifier.live_race_recorded'
 
-    # Native brackets (mirrors AuditActions.BRACKET_*). Tenant-scoped domain
-    # events a webhook subscriber can act on: a bracket created/started, a match
-    # completed, an advancement, a bracket or stage completed. Published by the
-    # bracket lifecycle as the acting STAFF user.
     BRACKET_CREATED = 'bracket.created'
     BRACKET_STARTED = 'bracket.started'
     BRACKET_MATCH_COMPLETED = 'bracket.match_completed'
@@ -323,7 +307,6 @@ class EventType:
         SURVEY_SENT, SURVEY_CLOSED,
     })
 
-    # Wildcard a subscriber can register to receive every event.
     WILDCARD = '*'
 
     #: Families about the community rather than one of its events: their

@@ -20,7 +20,6 @@ SCHEDULE = 'match-schedule'
 REPORTS = 'reports'
 VOL_SCHEDULE = 'volunteer-shifts'
 SHIFT_BOARD = 'shift-board'
-# The Challonge sign-in lives on Settings → Integrations.
 INTEGRATIONS = 'settings/integrations'
 USERS = 'members'
 QUALIFIERS = 'qualifiers'
@@ -29,7 +28,6 @@ COMMUNITY_EVENTS = 'community-events'
 NOTIFICATIONS = 'notifications'
 TOURNAMENTS = 'tournaments'
 
-# Home tab slugs.
 HOME_PLAYER = 'player'
 HOME_MY_SCHEDULE = 'my-schedule'
 HOME_SCHEDULE = 'schedule'

@@ -174,7 +174,6 @@ def partner_answered_dm(
     )
 
 
-# The partner's invite DM, once it's settled. ``(title, description)``.
 def partner_invite_accepted_card() -> tuple[str, str]:
     return ('✅ You accepted', "You're signed up as commentator. Staff still approve it.")
 
@@ -186,10 +185,6 @@ def partner_invite_declined_card() -> tuple[str, str]:
 def partner_invite_cancelled_card(inviter_name: str) -> tuple[str, str]:
     return ('↩️ Invite cancelled', f'{inviter_name} took this invite back, so there\'s nothing to answer.')
 
-
-# ---------------------------------------------------------------------------
-# Ephemeral replies to the crew buttons
-# ---------------------------------------------------------------------------
 
 def crew_ack_confirmation(crew_type: str, player_names: str) -> str:
     """Ephemeral success reply after a user clicks the crew Acknowledge button."""

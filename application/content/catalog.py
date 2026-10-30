@@ -84,7 +84,6 @@ class ContentArticle:
     #: Roles that may read this article. Empty means anyone, including signed-out
     #: readers. A reader holding *any* one of them qualifies.
     roles: tuple[Role, ...]
-    #: ``AUDIENCE_EVERYONE`` or ``AUDIENCE_STAFF``.
     audience: str
     blocks: tuple[Block, ...]
     snippets: dict[str, ContentSnippet]

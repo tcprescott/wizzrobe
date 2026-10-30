@@ -25,8 +25,6 @@ class RacetimeBotRepository(TenantScopedRepository[RacetimeBot]):
 
     model = RacetimeBot
 
-    # ---- bots (global) ----------------------------------------------------
-
     async def list_all(self) -> List[RacetimeBot]:
         return await RacetimeBot.all().order_by('category')
 
@@ -42,8 +40,6 @@ class RacetimeBotRepository(TenantScopedRepository[RacetimeBot]):
 
     async def create(self, **fields: Any) -> RacetimeBot:
         return await RacetimeBot.create(**fields)
-
-    # ---- tenant authorization grants (many-to-many) ----------------------
 
     async def get_grant(self, bot_id: int, tenant_id: int) -> Optional[RacetimeBotTenant]:
         return await RacetimeBotTenant.get_or_none(bot_id=bot_id, tenant_id=tenant_id)

@@ -84,9 +84,6 @@ async def _match_response(match_id: int) -> MatchResponse:
     return require_found(await load_match_response(match_id), 'Match')
 
 
-# --- Scheduling -------------------------------------------------------------
-
-
 async def create_match(
     tournament_id: int,
     scheduled_date: str,
@@ -230,9 +227,6 @@ async def extend_match_to_set(
     return [await _match_response(g.id) for g in games]
 
 
-# --- Stream and stations ----------------------------------------------------
-
-
 async def set_match_stream_candidate(
     match_id: int,
     flag: bool,
@@ -271,9 +265,6 @@ async def assign_match_stations(
     actor = current_actor().user
     await MatchService().assign_stations(match_id, assignments, actor=actor)
     return await _match_response(match_id)
-
-
-# --- Lifecycle --------------------------------------------------------------
 
 
 async def seat_match(
@@ -403,9 +394,6 @@ async def set_crew_approval(
     await service.update_crew_approval(crew_member, role, approved, actor=actor)  # type: ignore[arg-type]
     verdict = 'Approved' if approved else 'Rejected'
     return OperationResult(detail=f'{verdict} {role} signup {crew_id}.')
-
-
-# --- Your own participation -------------------------------------------------
 
 
 async def signup_as_crew(
