@@ -59,7 +59,5 @@ async def seed_startgg_for_tenant(
         'scopes': 'user.identity tournament.reporter',
         'startgg_user_id': MOCK_CONNECTED_USER_ID, 'startgg_username': 'MockGGOne', 'connected_by': staff,
     })
-    # The mirror itself, exactly as a sync writes it. Not audited: no one
-    # pressed anything.
     await StartggService()._apply(tournament, full, staff, audit=False)
     print(f'    [{tenant.slug}] start.gg mirror ok')

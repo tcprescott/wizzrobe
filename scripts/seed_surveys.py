@@ -49,7 +49,6 @@ _DESCRIPTIONS = {
     'Your tournaments': "About the tournament room and your matches. Skip anything you didn't use.",
 }
 
-# (section title, audience, [(prompt, kind, options, condition[, extras])])
 _SECTIONS = [
     ('The event', A.EVERYONE, [
         ('Overall, how was the event?', K.RATING, None, None),

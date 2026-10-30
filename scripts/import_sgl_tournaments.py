@@ -51,12 +51,8 @@ _NS = {
 }
 _R_ID = '{%s}id' % _NS['r']
 
-# (name pattern, randomizer, required preset). First match wins, so HMG is
-# claimed before plain ALttPR. A required preset must exist on the tenant or the
-# row gets no generator: without one, alttpr rolls its casualboots fallback,
-# which neither ALttPR tournament races, and dk64r rolls a placeholder settings
-# string that upstream rejects. Rows with no match (ALttP NMG, SM Any%, MMR,
-# which is rolled offline, and Best of NES) get no generator.
+# First match wins: keep HMG ahead of plain ALttPR. A required preset missing from the tenant
+# leaves the row with no generator, which is right: the fallbacks roll seeds these races don't use.
 _SEED_GENERATORS: List[Tuple[str, str, Optional[str]]] = [
     (r'link to the past randomizer.*(hybrid|major glitches)', 'alttpr', 'hmg'),
     (r'link to the past randomizer', 'alttpr', 'openboots'),
@@ -69,23 +65,18 @@ _SEED_GENERATORS: List[Tuple[str, str, Optional[str]]] = [
     (r'wind waker', 'wwr', None),
 ]
 
-# Where a tournament's rules doc and the sheet's "Seed Generation" cell
-# disagree, the rules doc is authoritative and wins in the description.
 _SEED_GENERATION_OVERRIDES: List[Tuple[str, str]] = [
-    # The sheet links v4.8.6; the FFR wiki's SGLive page names v4.9.7 flags,
-    # which is what Wizzrobe rolls.
+    # v4.9.7, not the sheet's v4.8.6: the FFR wiki's SGLive flags are what Wizzrobe rolls.
     (r'final fantasy randomizer',
      'https://4-9-7.finalfantasyrandomizer.com/?s=00000000&f=7yYeU3NWYWa-shYkqHmG37-rS90EfpcU'
      'fUjp78ZR6KibBTdXQJnVpIePSloACp-y7pmGE2-q9cgwtGhrPz.mWHn.CIpIv7SBX0Cq6Q-JkRCpdP4JdINmzfSpJn'
      'brJIUV7i9Zc0bReCbdLdiHKyjE6C-v9OEgBo-lQpuYWgo7KPkEA5Q58DLpK5GPOujIdXYCxVNLqv'),
-    # The race runs on generatorDev; the stable generator's copy of the preset
-    # doesn't make all locations reachable.
+    # Must be generatorDev: the stable generator's copy of this preset leaves locations unreachable.
     (r'ocarina of time', 'https://ootrandomizer.com/generatorDev'),
-    # The sheet links release s8-v2; the rules doc names this build.
+    # Not the sheet's s8-v2: the rules doc names this build.
     (r'wind waker', 'https://github.com/tanjo3/wwrando/releases/tag/dev_tanjo3.1.10.7.3'),
 ]
 
-# Sheet typos corrected in the description, as (wrong word, right word).
 _TYPO_FIXES: List[Tuple[str, str]] = [
     ('Ansyc', 'Async'),
 ]
@@ -271,8 +262,6 @@ def parse_tournaments(rows: List[List[Cell]]) -> List[SheetTournament]:
         )
         brackets = get(row, 'Brackets')
         if brackets.text.strip() or brackets.link:
-            # The bracket runs elsewhere (start.gg for OoTR); the Challonge
-            # column is then only a signup page and must not be linked.
             challonge_url = None
         bracket_url = brackets.link or challonge_url
         if bracket_url:
@@ -330,7 +319,6 @@ async def run(args: argparse.Namespace) -> int:
             raise SystemExit(f'No user with discord_id {args.actor!r}.')
         tz = await TimezoneService.tenant_timezone_name(tenant.id)
 
-        # Into the community's default event, the one its board shows.
         event_id = await EventService.default_event_id(tenant.id)
         if event_id is None:
             raise SystemExit(f'{args.tenant!r} has no event yet.')

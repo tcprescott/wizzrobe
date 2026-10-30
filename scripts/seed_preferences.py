@@ -45,8 +45,6 @@ async def seed_table_preferences(users: dict[str, User]) -> None:
     print('  table preferences ok (global)')
 
 
-#: Friends lists for Event > Schedule's Friends switch: a volunteer following
-#: two players, and a player following a racer in the big race.
 FRIEND_SPECS: dict[str, list[str]] = {
     'proctor_user': ['player_two', 'player_three'],
     'player_one': ['racer_07'],

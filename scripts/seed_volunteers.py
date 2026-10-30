@@ -42,13 +42,8 @@ async def seed_volunteers_for_tenant(
     now_utc: datetime,
 ) -> None:
     """Seed positions, opt-ins, qualifications, availability, shifts and one assignment."""
-    # staff_user is deliberately *not* granted VOLUNTEER_COORDINATOR: the gate is
-    # ``is_staff(user) or is_volunteer_coordinator(user)``, so the grant bought
-    # nothing and cost the seed its plain-STAFF fixture (one holder per role —
-    # docs/reference/dev-seed.md). vc_user is the coordinator.
+    # Don't grant staff_user VOLUNTEER_COORDINATOR: it must stay the plain-STAFF fixture. vc_user is the coordinator.
 
-    # Descriptions are what the volunteer's own card shows as the standing job
-    # brief, so two of the four carry one.
     position_specs = [
         ("Check-in Desk", 1, 1,
          "Greet arrivals at the main door, check them against the entrant list, "
@@ -56,7 +51,7 @@ async def seed_volunteers_for_tenant(
         ("Race Proctor", 2, 1,
          "Run one race room: seat the players, roll the seed, start them, record "
          "the winner."),
-        ("Broadcast Tech", 3, 3, None),  # multiple concurrent slots
+        ("Broadcast Tech", 3, 3, None),
         ("Admin Desk", 4, 1, None),
     ]
     positions: dict[str, VolunteerPosition] = {}
@@ -77,8 +72,6 @@ async def seed_volunteers_for_tenant(
         broadcast_tech.stagger_minutes = 120
         await broadcast_tech.save()
 
-    # The admin on duty: whoever holds an Admin Desk shift gets match alerts
-    # (player comments, reschedule requests) instead of every staff member.
     admin_desk = positions["Admin Desk"]
     if not admin_desk.staff_alerts:
         admin_desk.staff_alerts = True
@@ -97,11 +90,6 @@ async def seed_volunteers_for_tenant(
         )
 
     event_days = [today + timedelta(days=d) for d in range(3)]
-    # Windows per volunteer, repeated across every event day. A list rather than
-    # one window because a real declaration is not uniform: the last fixture
-    # offers the afternoon and blocks the morning, which is the only place
-    # ``UNAVAILABLE`` — the status the auto-scheduler must refuse to schedule
-    # over — exists on a volunteer.
     avail_specs = {
         "proctor_user": [("08:00", "16:00", VolunteerAvailabilityStatus.PREFERRED)],
         "sm_user": [("12:00", "20:00", VolunteerAvailabilityStatus.AVAILABLE)],
@@ -166,8 +154,6 @@ async def seed_volunteers_for_tenant(
                         "ends_at": ends_at, "slots_needed": default_slots[pos_name],
                     },
                 )
-                # Per-shift instructions, distinct from the position's standing
-                # description: the volunteer's card renders the two separately.
                 if pos_name == "Check-in Desk" and label == "Shift 1" and not shift.notes:
                     shift.notes = (
                         "Report to the info desk 10 minutes early. Radio channel 2. "
@@ -184,9 +170,6 @@ async def seed_volunteers_for_tenant(
             defaults={"assigned_by": staff},
         )
 
-    # Hour totals: one volunteer over every tier, one exactly on 8, one short of
-    # it, so the Vol. Roster chip renders all three states on a fresh seed.
-    # proctor_user's single Race Proctor block above is the below-8 case.
     hours_specs = [
         ("player_two", "Admin Desk", ["Shift 1", "Shift 2", "Shift 3", "Shift 4"]),
         ("player_one", "Check-in Desk", ["Shift 1", "Shift 2"]),
@@ -200,9 +183,7 @@ async def seed_volunteers_for_tenant(
                     defaults={"assigned_by": staff},
                 )
 
-    # A deliberately overlapping pair, so the union fold is visible in the app
-    # and not only in a unit test: the staggered Broadcast Tech blocks run
-    # 08:00-12:00 and 10:00-14:00, which is six hours served, not eight.
+    # Deliberately overlapping: 08:00-12:00 and 10:00-14:00 is six hours served, not eight.
     overlap_starts = [
         parse_local_datetime(first_day, "08:00"),
         parse_local_datetime(first_day, "10:00"),
@@ -220,18 +201,11 @@ async def seed_volunteers_for_tenant(
     second_day = event_days[1].isoformat()
     draft_shift = shift_index.get((second_day, "Check-in Desk|Shift 1"))
     if draft_shift:
-        # An unpublished autoscheduler draft: outlined on the coordinator's grid,
-        # invisible on the volunteer's page until Publish draft.
         await VolunteerAssignment.get_or_create(
             shift=draft_shift, user=users["player_three"], tenant=tenant,
             defaults={"assigned_by": staff, "auto_generated": True},
         )
 
-    # An upcoming shift on a page a volunteer can open: everything above lands
-    # on the seed's first day and has usually finished by the time anyone looks,
-    # so My Shifts (and its help screenshots) would show only "no upcoming
-    # shifts". Tomorrow's noon Broadcast Tech block, inside sm_user's stated
-    # window, with its own note so the card's "For this shift" box renders.
     upcoming_tech = await VolunteerShift.get_or_none(
         position=broadcast_tech, tenant=tenant,
         starts_at=parse_local_datetime(second_day, "12:00"),
@@ -245,8 +219,6 @@ async def seed_volunteers_for_tenant(
             defaults={"assigned_by": staff},
         )
 
-    # A published shift for the staff login, so Volunteer → Full Schedule shows
-    # its "your shift" outline to whoever the browser checks sign in as.
     staff_desk = shift_index.get((second_day, "Admin Desk|Shift 3"))
     if staff_desk:
         await VolunteerAssignment.get_or_create(
@@ -256,10 +228,7 @@ async def seed_volunteers_for_tenant(
 
     await _seed_arrivals(tenant, positions["Admin Desk"], users, staff, now_utc)
 
-    # Position → role mappings. Race Proctor → PROCTOR lands on proctor_user, who
-    # already holds it by hand, so it shows a manual grant left alone; Broadcast
-    # Tech → STREAM_MANAGER hands FULL_RACERS[1] a volunteer-sourced role. The
-    # rows go through the real reconcile so the UserRole state is the app's own.
+    # Through the real reconcile, so the UserRole state is the app's own.
     for pos_name, role in (("Race Proctor", Role.PROCTOR), ("Broadcast Tech", Role.STREAM_MANAGER)):
         await VolunteerRoleMapping.get_or_create(
             position=positions[pos_name], app_role=role, tenant=tenant,

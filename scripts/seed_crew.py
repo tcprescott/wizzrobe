@@ -57,8 +57,6 @@ async def seed_crew_for_tenant(
         match=finished, user=proctor, tenant=tenant,
         defaults={**approved, "acknowledged_at": now - timedelta(hours=3)},
     )
-    # The finished match went out on Stage 1, so it is what Reports → Crew
-    # Activity's "Crew by tournament" counts; a tracker gives it both columns.
     await Tracker.get_or_create(
         match=finished, user=players[3], tenant=tenant,
         defaults={**approved, "acknowledged_at": now - timedelta(hours=3)},
@@ -73,32 +71,21 @@ async def seed_crew_for_tenant(
     await Tracker.get_or_create(
         match=stage3, user=sm, tenant=tenant, defaults=approved,
     )
-    # So the proctor's My Crew carries all three live chips at once, which is
-    # what the crew help article's screenshot shows.
     await Commentator.get_or_create(
         match=stage3, user=proctor, tenant=tenant,
         defaults={"approved": True, "approved_by": staff},
     )
 
-    # Approved but **not yet acknowledged** — see the module docstring. Note the
-    # absent ``acknowledged_at``, not a None one: that is the whole fixture.
+    # Leave acknowledged_at absent, not None: that absence is the whole fixture.
     await Tracker.get_or_create(
         match=future, user=players[0], tenant=tenant,
         defaults={"approved": True, "approved_by": staff},
     )
 
-    # Approved on a match with **no stage yet**: crew is only needed on stage,
-    # so the stream manager's My Schedule timeline draws this slot dashed.
     await Tracker.get_or_create(
         match=scheduled, user=sm, tenant=tenant, defaults=approved,
     )
 
-    # A **fully crewed** restream: two approved commentators and an approved
-    # tracker on one match, which is what a stage match actually goes live with.
-    # Every other seeded match is partly crewed, so the coverage surfaces (and
-    # the crew card's full state) had nothing complete to show. The crew here are
-    # the two players who are *not* in this match — which is also how a community
-    # really staffs a restream.
     for commentator in (players[2], sm):
         await Commentator.get_or_create(
             match=checked_in, user=commentator, tenant=tenant, defaults=approved,

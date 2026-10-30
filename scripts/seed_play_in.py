@@ -26,8 +26,7 @@ from datetime import datetime, timedelta
 
 from models import Match, MatchPlayers, Tenant, Tournament, TournamentPlayers, User
 
-#: Finish times (seconds) for the eight racers who finished group A, in placing
-#: order. Two short of the start list on purpose: the last two forfeited.
+# Two short of the start list on purpose: the last two forfeited.
 _GROUP_A_TIMES = (5102, 5240, 5333, 5418, 5502, 5677, 5810, 6044)
 
 
@@ -48,8 +47,6 @@ async def seed_play_in_for_tenant(
             tournament=tournament, user=racer, tenant=tenant,
         )
 
-    # The two racers past the end
-    # of the time list forfeited: seat kept, no rank, no time.
     group_a = await _make_group(
         tenant, tournament, "Play-In Race — Group A", now - timedelta(hours=6),
     )

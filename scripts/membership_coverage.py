@@ -22,7 +22,7 @@ from models import (
     VolunteerAssignment,
 )
 
-Pair = Tuple[int, int]  # (user_id, tenant_id)
+Pair = Tuple[int, int]
 
 
 async def _pairs(model, user_field: str = 'user_id') -> Set[Pair]:
@@ -48,8 +48,7 @@ async def _role_pairs() -> Set[Pair]:
     }
 
 
-# Signals that grant membership. Ordered strongest first; the labels are what the
-# report prints, so keep them readable.
+# Ordered strongest first.
 GRANTING_SIGNALS = {
     'enrolled in a tournament': lambda: _pairs(TournamentPlayers),
     'played in a match': lambda: _pairs(MatchPlayers),
@@ -59,9 +58,7 @@ GRANTING_SIGNALS = {
     'holds a role': _role_pairs,
 }
 
-# Reported but **never** granted on: appearing in an audit row can mean someone
-# acted *on* you (a role revoke, a deactivation), not that you belong. Whatever
-# this surfaces that the granting signals do not is for a human to read.
+# Reported, never granted on: an audit row can mean someone acted on you (a revoke), not that you belong.
 REPORT_ONLY_SIGNALS = {
     'appears in the audit log': lambda: _pairs(AuditLog),
 }

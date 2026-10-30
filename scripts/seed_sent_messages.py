@@ -4,7 +4,6 @@ from datetime import datetime, timedelta, timezone
 
 from models import SentMessage, SentMessageStatus, Tenant, User
 
-# (recipient key, title, body, status, error, silent, push devices, link label, notice, audience)
 _ROWS = (
     ('player_one', 'Your match is ready to book',
      'Your match is ready to book: Round 3 vs player_two. Pick a time before Thursday 6:00 PM.',
@@ -48,5 +47,4 @@ async def seed_sent_messages(tenant: Tenant, users: dict[str, User]) -> None:
             },
         )
         if created:
-            # auto_now_add stamps "now"; spread them out so the log reads like a feed.
             await SentMessage.filter(id=row.id).update(created_at=now - timedelta(minutes=7 * n))

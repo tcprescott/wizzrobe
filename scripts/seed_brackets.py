@@ -35,8 +35,6 @@ from models import (
     User,
 )
 
-# (display_name, user_key | None). ``None`` seeds a placeholder entrant (no linked
-# user); a key links the entrant to a seeded ``User`` — every demo carries both.
 EntrantSpec = Tuple[str, Optional[str]]
 
 
@@ -122,10 +120,6 @@ async def _single_elim(
         return
     bracket = await service.create_bracket(
         actor, tournament.id, "Championship", BracketFormat.SINGLE_ELIM,
-        # Per-round chrome: best-of and the window each round runs in, so the
-        # round headers have metadata to render and the schedule dialog has a
-        # window to confine its suggestion to. Round 3 is left open-ended to
-        # exercise the half-configured case.
         config={
             "rounds": {
                 "1": {
@@ -155,8 +149,6 @@ async def _single_elim(
     )
     await _enroll_seeded(service, actor, bracket.id, entrants)
     await service.start_bracket(actor, bracket.id)
-    # Round 1 resolved (byes auto-completed on start); quarter/semis open, final
-    # still pending — a partially-formed elimination bracket. Round 1 is best-of-1.
     await _report_earliest_open_round(service, actor, bracket.id, best_of=1)
 
 
@@ -185,8 +177,7 @@ async def _draft_stage(
         [
             ("Player One", "player_one"),
             ("Player Two", "player_two"),
-            # Unlinked on purpose: the state the admin warns about before Start,
-            # and the one the link picker exists to resolve.
+            # Unlinked on purpose: the state the admin warns about before Start.
             ("Late Signup", None),
         ],
     )
@@ -256,10 +247,6 @@ async def _double_elim(
     )
     await _enroll_seeded(service, actor, bracket.id, entrants)
     await service.start_bracket(actor, bracket.id)
-    # Report the winners-bracket first round: both losers drop into the losers
-    # bracket, opening a losers-bracket round (and the winners final) mid-play.
-    # Make the first WB match a forfeit (a no-show DQ) so the demo exercises the
-    # "FF" card marker; report any remaining earliest-round matches with scores.
     open_matches = await service.get_open_matches(bracket.id)
     if open_matches:
         earliest = min(m.round for m in open_matches)
@@ -302,8 +289,6 @@ async def _swiss(
     await _enroll_seeded(service, actor, bracket.id, entrants)
     await service.start_bracket(actor, bracket.id)
 
-    # Report exactly one round-1 pairing (leave the other open so no next round is
-    # generated) — a mid-round state.
     matches = await service.list_matches(bracket.id)
     contests = [
         m for m in matches
@@ -313,10 +298,6 @@ async def _swiss(
         first = min(contests, key=lambda m: m.position)
         await service.report_result(actor, first.id, first.entry1_id)
 
-    # Drop one entrant mid-event: the bye recipient (its round-1 match is already
-    # complete, so the still-open pairing is untouched). Drop at both the roster
-    # level (BracketEntrantStatus) and the stage-participation level
-    # (BracketEntryStatus) so Swiss re-pairing would exclude them.
     bye = next(
         (m for m in matches if m.entry2_id is None and m.entry1_id is not None),
         None,
@@ -352,8 +333,6 @@ async def _round_robin(
     )
     await _enroll_seeded(service, actor, bracket.id, entrants)
     await service.start_bracket(actor, bracket.id)
-    # Report one match per group so both groups are partway through with a
-    # partially-formed standings table (the rest stay open).
     matches = await service.list_matches(bracket.id)
     reported_groups: set = set()
     for match in sorted(matches, key=lambda m: (m.group_number or 0, m.round, m.position)):
@@ -370,7 +349,6 @@ async def _two_stage(
     if await _already_built(service, tournament.id):
         return
 
-    # Stage 0 — round-robin groups, run to completion so final_rank is written.
     groups = await service.create_bracket(
         actor, tournament.id, "Group Stage", BracketFormat.ROUND_ROBIN,
         stage_order=0, config={"group_count": 2},
@@ -428,10 +406,6 @@ async def _seed_a_series(
     bracket_match = open_matches[0]
     best_of = service.resolve_best_of(brackets[0], bracket_match)
 
-    # One game per state: game 1 decided, game 2 still waiting on it, and game 3
-    # cancelled because a 2-0 would clinch the series. The cancelled row is the
-    # reason ``BracketMatchGame`` keeps unplayed games instead of deleting them,
-    # and nothing else in the seed produces it.
     game_states = {
         1: BracketMatchGameState.COMPLETE,
         2: BracketMatchGameState.SCHEDULED,
@@ -510,9 +484,6 @@ async def _seed_live_states(
             bracket_match=bracket_match, game_number=1, tenant=tenant,
             defaults={'match': match, 'state': BracketMatchGameState.SCHEDULED},
         )
-
-    # The third matchup is left OPEN with no game row at all — what a released
-    # slot looks like once U3a has handed it back.
 
 
 async def seed_brackets_for_tenant(

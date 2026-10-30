@@ -123,8 +123,6 @@ async def seed_matches_for_tenant(
         p1=players[1], p2=players[2], stage=stage2,
         comment="Result under review — desync reported by both players.",
     )
-    # Decided by forfeit: confirmed with the winner ranked and the no-show left
-    # without a rank, which is how dropping a player stores it.
     for title, offset, reason, note, winner, out in (
         ("Forfeited Match", -6, ForfeitReason.NO_SHOW, "Called twice, no answer.", players[3], players[0]),
         ("Withdrawn Match", -7, ForfeitReason.WITHDREW, None, players[1], players[3]),
@@ -142,8 +140,6 @@ async def seed_matches_for_tenant(
     await make_match(
         "TBD Match", None, p1=players[3], p2=players[0], stream_candidate=False,
     )
-    # A placeholder: staff held the slot before knowing who plays, so it has a
-    # title and description and no players.
     await Match.get_or_create(
         title="ALTTPR Showcase Race",
         tournament=tournament,
@@ -154,17 +150,8 @@ async def seed_matches_for_tenant(
             "description": "Top 4 from Friday's open bracket. Players are added once **Saturday's semis** finish.",
         },
     )
-    # Exactly one match with **no title**. Most matches carry a round label, but a
-    # blank one happens, and when it does every surface falls back to the roster
-    # (``match.title or players_str`` in the crew service, the reconciler's own
-    # label, the race-stage name). One fixture, because one is how often it occurs
-    # — and because ``title=None`` is only a usable natural key while it is unique
-    # within the tournament.
+    # Exactly one: title=None is a usable natural key only while it's unique in the tournament.
     await make_match(None, 6, p1=players[1], p2=players[2], stage=stage2)
-    # Seat the two matches that are checked in but not finished at real
-    # stations, so the schedule shows stations out of the box and the
-    # occupancy check has something to trip on: 1/2/5/6 read as in use when
-    # a proctor opens the picker on any other match.
     for seated_match, labels in (
         (checked_in_match, ("1", "5")),
         (in_progress_match, ("2", "6")),
@@ -179,8 +166,6 @@ async def seed_matches_for_tenant(
 
     print(f"    [{tenant.slug}] matches ok")
 
-    # Both carry provenance, because that is what the seed card renders: which
-    # randomizer, the settings as rolled, and what the roll cost.
     seed, _ = await GeneratedSeeds.get_or_create(
         seed_url="https://alttpr.com/en/h/DevSeed0",
         tenant=tenant,
@@ -205,8 +190,6 @@ async def seed_matches_for_tenant(
             "seed_info": json.dumps({"logic": "Glitched", "spoilers": "mystery"}),
             "randomizer": "alttpr",
             "settings_snapshot": {"glitches": "overworld_glitches", "mode": "open"},
-            # Two attempts: the shape a roll that survived a transient upstream
-            # failure leaves behind, which is exactly what a dispute wants to see.
             "provider_meta": {
                 "provider": "alttpr", "operation": "generate_seed",
                 "attempts": 2, "latency_ms": 11840, "surface": "match",
@@ -217,10 +200,6 @@ async def seed_matches_for_tenant(
         disputed_match.generated_seed = disputed_seed
         await disputed_match.save()
 
-    # Rolled but not yet played — the state the tournament room's seeds board
-    # exists for, and the only one the two seeds above cannot produce (both of
-    # their matches are already finished). Without it that board is empty in
-    # dev, which reads as a broken page rather than an idle room.
     upcoming_seed, _ = await GeneratedSeeds.get_or_create(
         seed_url="https://alttpr.com/en/h/DevSeed2",
         tenant=tenant,
@@ -234,8 +213,6 @@ async def seed_matches_for_tenant(
             },
         },
     )
-    # The file-select code line under a seed. Set after the fact so a dev
-    # database seeded before the column existed gets it too.
     for rolled, code in ((seed, ['Bow', 'Hookshot', 'Bombs', 'Lamp', 'Cape']),
                          (upcoming_seed, ['Moon Pearl', 'Ether', 'Shovel', 'Heart', 'Big Key'])):
         if rolled.seed_code is None:
@@ -245,11 +222,6 @@ async def seed_matches_for_tenant(
         stage3_match.generated_seed = upcoming_seed
         await stage3_match.save()
 
-    # A seed players paste rather than open: a real Wind Waker permalink (the
-    # SGL 2026 preset under a fixed seed name). It's what shows the copy button
-    # beside a seed on the schedule, the Player tab and the proctor board; every
-    # other seeded seed is a link. Pinned to a match that's rolled but unplayed,
-    # with a player who has a login, so the Player tab shows it too.
     wwr_reference = json.loads(
         (Path(__file__).resolve().parent.parent / "presets" / "wwr" / "sgl2026.json").read_text()
     )["permalink"]
@@ -274,16 +246,6 @@ async def seed_matches_for_tenant(
         off_stream_match.generated_seed = wwr_seed
         await off_stream_match.save()
 
-    # Provider tasks: the queue that carries a task-queue randomizer's roll
-    # across a restart. One row per state so every value of ProviderTaskStatus
-    # exists somewhere and the terminal ones can be inspected.
-    #
-    # The QUEUED and RUNNING rows are **transient in a running app**: their
-    # upstream ids belong to no live queue, so the poller retires them within a
-    # tick or two of boot. That is the worker doing its job, not a broken
-    # fixture — but it does mean the live "Rolling… 1:24" clock cannot be seen by
-    # seeding it. Roll a real one to watch that (with MOCK_SEEDGEN on, a DK64
-    # roll takes MOCK_DK64_SECONDS).
     provider_tasks = [
         (scheduled_match, ProviderTaskStatus.RUNNING, 'dev-task-running', None),
         (future_match, ProviderTaskStatus.QUEUED, None, None),
@@ -309,9 +271,6 @@ async def seed_matches_for_tenant(
             },
         )
 
-    # The dispute flag itself, so the admin's review queue has a contested
-    # row out of the box — this match has claimed to be disputed since the
-    # first seed script and only now actually is.
     if not disputed_match.needs_review:
         disputed_match.needs_review = True
         await disputed_match.save()
@@ -341,10 +300,6 @@ async def seed_matches_for_tenant(
     for m in (scheduled_match, in_progress_match, disputed_match):
         await MatchWatcher.get_or_create(user=staff, match=m, tenant=tenant)
 
-    # Stream volunteers — both halves of the signal, because "one player asked"
-    # and "both players asked" read differently to whoever builds the stream
-    # schedule. The scheduled match has both; the future one has a single player
-    # waiting on their opponent.
     for m, volunteers in (
         (scheduled_match, (players[0], players[1])),
         (future_match, (players[3],)),
@@ -352,19 +307,11 @@ async def seed_matches_for_tenant(
         for volunteer in volunteers:
             await MatchStreamVolunteer.get_or_create(user=volunteer, match=m, tenant=tenant)
 
-    # Reschedule requests — every state, because each one renders differently
-    # and three of them only ever appear in a player's own history. The two live
-    # ones sit on upcoming matches (that is the only place staff can act); the
-    # decided ones sit on matches that have since been played, which is what the
-    # history actually looks like a week into an event.
     reschedule_specs = [
         (scheduled_match, players[0], RescheduleRequestKind.RESCHEDULE,
          RescheduleRequestStatus.PENDING, now + timedelta(hours=6),
          "Work shifted my evening — could we push this back a few hours?",
          None, True),
-        # Waiting on the *opponent* too: players[0] has not agreed yet, so their
-        # My Schedule shows "Your opponent asked to reschedule" with an Agree
-        # button, and the opponent DM's ?agree= link has something to open.
         (off_stream_match, players[2], RescheduleRequestKind.RESCHEDULE,
          RescheduleRequestStatus.PENDING, now + timedelta(hours=8),
          "Stuck at work until late — could we start a few hours later?",
@@ -377,12 +324,9 @@ async def seed_matches_for_tenant(
          RescheduleRequestStatus.APPROVED, now + timedelta(days=1, hours=2),
          "Flight lands too late for the original slot.",
          "Moved you to the later slot — stage 1 is free then.", True),
-        # Same match, the losing half of a race: settled by the row above rather
-        # than refused by anyone.
         (future_match, players[1], RescheduleRequestKind.RESCHEDULE,
          RescheduleRequestStatus.SUPERSEDED, now + timedelta(days=2),
          "Can we move this to Sunday instead?", None, False),
-        # Refused, which is the one outcome that must carry an explanation.
         (finished_match, players[0], RescheduleRequestKind.RESCHEDULE,
          RescheduleRequestStatus.DECLINED, now - timedelta(days=2),
          "Could we start an hour later?",
@@ -407,15 +351,10 @@ async def seed_matches_for_tenant(
             },
         )
 
-    # Notification preferences — one person per level, because the level is what
-    # the fan-out reads: a fixture set where everyone is on ALL cannot show that
-    # the narrower choices actually narrow anything.
     notification_specs = [
         (staff, MatchNotificationLevel.ALL),
         (players[0], MatchNotificationLevel.STREAMED),
         (players[1], MatchNotificationLevel.STREAMED_AND_CANDIDATES),
-        # Explicitly off, which is not the same as never having chosen: the row
-        # exists and says "none".
         (players[2], MatchNotificationLevel.NONE),
     ]
     for user, level in notification_specs:
