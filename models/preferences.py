@@ -15,19 +15,10 @@ class UserTablePreference(Model):
     """One person's saved layout for one table."""
 
     id = fields.IntField(pk=True)
-    # The annotations below and the ignore on ``__str__`` are the Tortoise shape
-    # mypy cannot see: a field descriptor's type and the ``<fk>_id`` shadow
-    # column are both built at class-creation time. Every other model file
-    # carries the same errors in the mypy baseline; a new file has to state them
-    # at the line instead.
+    # Keep these annotations and the __str__ ignore: a new model file must state its mypy errors inline.
     user: fields.ForeignKeyRelation = fields.ForeignKeyField(
         'models.User', related_name='table_preferences', on_delete=fields.CASCADE)
-    # Stable identifier for one table, e.g. ``admin.users``. Declared as a
-    # constant in ``theme/tables/preferences.py`` so the guardrail can prove
-    # uniqueness; stored here as an opaque string.
     table_key = fields.CharField(max_length=64)
-    # Shape validated by TablePreferenceService.validate; column *names* are
-    # reconciled in presentation, never here.
     config: fields.Field = fields.JSONField(default=dict)
     updated_at = fields.DatetimeField(auto_now=True)
 

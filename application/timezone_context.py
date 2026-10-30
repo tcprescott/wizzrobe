@@ -47,42 +47,22 @@ from application.tenant_context import (
     set_tenant_id,
 )
 
-# The zone used when nothing else resolves: no tenant, no user, no browser hint.
-# Matches the app's historical hardcoded zone so an unresolvable context renders
-# exactly as it did before timezones became dynamic.
+# Don't change: matches the app's historical hardcoded zone.
 FALLBACK_TIMEZONE = 'America/New_York'
 
-# Cookie the browser-side detector writes with the device's IANA zone. Read by
-# ``TimezoneService.resolve`` as the lowest-priority signal, and only when the
-# tenant leaves the choice to the user and the user has set no preference.
 TZ_COOKIE = 'wiz_tz'
 
-# Cookie the same snippet writes with the browser's preferred clock, ``12`` or
-# ``24`` (from ``Intl.DateTimeFormat().resolvedOptions().hourCycle``). Read
-# around every request like TZ_COOKIE; a saved ``User.hour_cycle`` outranks it.
 HOUR_CYCLE_COOKIE = 'wiz_hc'
 HOUR_CYCLES = ('12', '24')
 
-# None means "unresolved" — read back as FALLBACK_TIMEZONE by current_timezone_name().
 _tz_var: ContextVar[Optional[str]] = ContextVar('wizzrobe_display_tz', default=None)
 
-# The zone the *browser* reported for this request, read from the TZ_COOKIE by
-# ``TenantMiddleware``. Kept separate from the resolved zone above because it is
-# an input to resolution, not its answer: a pinned community ignores it entirely,
-# and a user with a saved preference outranks it.
 _browser_tz_var: ContextVar[Optional[str]] = ContextVar('wizzrobe_browser_tz', default=None)
 
-# The clock this viewer reads times on, True for 12-hour. Same two tiers as the
-# zone (contextvar, then client stash). Unresolved reads as 12-hour, which is
-# what every worker, bot and notification render gets: only a page build binds
-# a viewer's own choice.
 _hour12_var: ContextVar[Optional[bool]] = ContextVar('wizzrobe_hour12', default=None)
 _browser_hour_cycle_var: ContextVar[Optional[str]] = ContextVar('wizzrobe_browser_hour_cycle', default=None)
 
-# ZoneInfo construction hits the filesystem; the set of live zones per process is
-# tiny (one per tenant/user in play), so cache them. ZoneInfo is immutable and
-# thread-safe, and ZoneInfo itself caches too — this also memoizes the *failures*,
-# which is what keeps a bad stored name from stat-ing the tzdata tree per render.
+# Also memoizes failures, so a bad stored name doesn't stat the tzdata tree per render.
 _zone_cache: dict[str, ZoneInfo] = {}
 
 

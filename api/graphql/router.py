@@ -127,6 +127,4 @@ async def run_query(request: Request, resolved: Tuple[User, ApiToken] = Depends(
 
 @router.get(PATH, include_in_schema=False)
 async def graphiql() -> HTMLResponse:
-    # The page is static and carries no data: its queries go back to
-    # POST /api/graphql with whatever token the viewer pastes into Headers.
     return HTMLResponse(get_graphql_ide_html('graphiql'))

@@ -21,20 +21,15 @@ from typing import Annotated, Dict, List, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
 
-# The module, not the class: a REST model bound here would be scanned as one of
-# MCP's (tests/mcp/test_mcp_snowflake_ids.py) and its numeric discord_id flagged.
+# Import the module, not the class, or the snowflake-id test scans it as an MCP model.
 from api.schemas import member_details as rest_member_details
 from mcpserver.snowflake import Snowflake
 
-# Declared once and shared, so every community-scoped tool describes its tenant
-# argument identically. The description is the only place the model learns where
-# a slug comes from, so it earns its keep in the schema of all ~20 tools.
 TenantArg = Annotated[
     Optional[str],
     Field(description='Community slug, as returned by list_tenants. Required.'),
 ]
 
-# Added by the registry to every event-owned tool rather than declared on each.
 EventArg = Annotated[
     Optional[str],
     Field(description=(
@@ -292,7 +287,7 @@ class MyShift(BaseModel):
     ends_at: Optional[datetime] = None
     acknowledged_at: Optional[datetime] = None
     checked_in_at: Optional[datetime] = None
-    called_off_at: Optional[datetime] = None  # not needed after all; still counts as worked
+    called_off_at: Optional[datetime] = None
 
 
 class AuditEntry(BaseModel):

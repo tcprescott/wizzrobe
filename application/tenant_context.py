@@ -31,9 +31,6 @@ from contextlib import contextmanager
 from contextvars import ContextVar, Token
 from typing import Iterator, Optional
 
-# None means "no tenant" — the platform surface (landing page, /platform) and
-# any code that legitimately runs tenant-agnostically. require_tenant_id() is
-# what turns a forgotten scope into a loud error rather than a silent leak.
 _tenant_id_var: ContextVar[Optional[int]] = ContextVar('wizzrobe_tenant_id', default=None)
 
 
@@ -47,12 +44,6 @@ def reset_tenant_id(token: Token) -> None:
     _tenant_id_var.reset(token)
 
 
-# Host mode: the request arrived on a tenant's own custom domain (not the
-# platform host at /t/<slug>). Tracked alongside the tenant id because a few
-# surfaces behave differently on a custom domain — chiefly the OAuth callback
-# builder and the secondary-provider link flows, which cannot complete on a
-# host whose session cookie the platform-host callback can't see. Default False
-# means path mode / platform surface, exactly as before host routing existed.
 _host_mode_var: ContextVar[bool] = ContextVar('wizzrobe_host_mode', default=False)
 
 
@@ -87,10 +78,7 @@ def client_stash() -> Optional[dict]:
         return app.storage.client
     except Exception:
         pass
-    # A handler whose own element was deleted while it awaited (a button inside
-    # a refreshable it refreshed) leaves a dead slot on top of the stack, so
-    # ``context.client`` raises; the client is still reachable from a live slot
-    # further down, which ``background_tasks`` pushes for exactly this case.
+    # A handler whose element was deleted mid-await leaves a dead slot on top; a live one sits further down.
     stack = Slot.get_stack()
     if not stack or stack[-1]._parent() is not None:
         return None

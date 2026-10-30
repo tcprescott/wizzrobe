@@ -5,11 +5,6 @@ from typing import Any, Dict, Literal, Optional, Tuple
 
 from pydantic import BaseModel, Field
 
-# Per-tournament "tournament days" override. The mapping keys off each day
-# (``YYYY-MM-DD``) to an ``[open, close]`` pair of ``HH:MM`` strings; its
-# ``model_dump()`` yields the ``{date: (open, close)}`` shape the service's
-# ``validate_hours_mapping`` consumes directly. ``None`` (or omission on update)
-# leaves the tournament inheriting the tenant setting.
 _HOURS_DESC = (
     'Per-day match hours as {"YYYY-MM-DD": ["HH:MM open", "HH:MM close"]}. '
     'Omit or null to inherit the community setting.'

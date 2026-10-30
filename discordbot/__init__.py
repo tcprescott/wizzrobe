@@ -143,8 +143,6 @@ from discordbot.watch_buttons import (
     make_unwatch_view,
 )
 
-# Component-interaction handlers, keyed by the custom_id prefix baked into each
-# button (text before the first ':').
 register_interaction_handler(CREW_SIGNUP_PREFIX, handle_crew_signup_interaction)
 register_interaction_handler(MATCH_ACK_PREFIX, handle_match_acknowledgment_interaction)
 register_interaction_handler(CREW_ACK_PREFIX, handle_crew_acknowledgment_interaction)
@@ -164,11 +162,9 @@ register_interaction_handler(HARD_PRESET_PREFIX, handle_hard_preset_interaction)
 register_interaction_handler(LOGIN_PANEL_PREFIX, handle_login_panel_interaction)
 register_interaction_handler(PARTNER_INVITE_PREFIX, handle_partner_invite_interaction)
 
-# Slash commands, added to the bot's command tree and synced when it logs in.
 register_app_command(login_command)
 register_app_command(wizzrobe_group)
 
-# DM view factories, keyed by the VIEW_* kinds the DM senders look up.
 register_view_factory(VIEW_CREW_SIGNUP, make_crew_signup_view)
 register_view_factory(VIEW_MATCH_ACK, make_match_acknowledgment_view)
 register_view_factory(VIEW_CREW_ACK, make_crew_acknowledgment_view)

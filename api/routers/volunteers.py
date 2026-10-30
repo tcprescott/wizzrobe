@@ -156,7 +156,6 @@ async def get_shift(shift_id: int, actor: User = Depends(require_api_actor)):
 async def create_shift(payload: VolunteerShiftCreate, actor: User = Depends(require_write_actor)):
     service = VolunteerScheduleService()
     shift = await service.create_shift(actor, **payload.model_dump())
-    # create_shift has already required can_manage_volunteers.
     return _shift_resp(require_found(await service.get_shift(shift.id), "Shift"), include_drafts=True)
 
 
@@ -211,7 +210,7 @@ async def assign(shift_id: int, payload: AssignRequest, actor: User = Depends(re
     shift = require_found(await service.get_shift(shift_id), "Shift")
     target = await load_community_user_or_404(payload.user_id, actor)
     assignment, warnings = await service.assign(actor, shift, target)
-    assignment.user = target  # for the response name
+    assignment.user = target
     return AssignResponse(assignment=_assignment_resp(assignment), warnings=warnings)
 
 

@@ -38,7 +38,6 @@ class ChallongeRepository:
     ``(tenant, period)``.
     """
 
-    # Service-account connection (newest row per tenant is authoritative)
     @staticmethod
     async def get_connection() -> Optional[ChallongeConnection]:
         return await scoped(ChallongeConnection.all()).order_by('-id').first()
@@ -428,7 +427,6 @@ class ChallongeRepository:
             'challonge_tournament_type',
         ])
 
-    # API-usage tally (per UTC calendar month)
     @staticmethod
     def _current_period() -> str:
         return datetime.now(timezone.utc).strftime('%Y-%m')

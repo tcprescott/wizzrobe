@@ -164,7 +164,6 @@ def _web_libraries() -> list[Notice]:
          'BSD-3-Clause', 'Copyright (c) 2013, Baidu Inc.', 'https://github.com/ecomfe/zrender'),
         ('tslib', _lock_version(echart_lock, 'tslib'),
          '0BSD', 'Copyright (c) Microsoft Corporation.', 'https://github.com/microsoft/tslib'),
-        # Vendored for the in-app event guide (static/js/guide-viewer.js).
         ('PDF.js', _vendored_version('pdfjs'),
          'Apache-2.0', 'Copyright 2024 Mozilla Foundation', 'https://mozilla.github.io/pdf.js/'),
     ]

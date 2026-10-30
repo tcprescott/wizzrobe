@@ -53,8 +53,7 @@ from mcpserver.auth import Gate, current_actor
 from mcpserver.registry import register
 from mcpserver.schemas import OperationResult, TenantArg
 
-# In the schema rather than only the prose, so the model reads the two legal
-# values off the tool definition instead of a docstring it may skim.
+# A Literal so the legal values are in the tool schema, not just the docstring.
 CrewRole = Literal['commentator', 'tracker', 'broadcaster']
 
 
@@ -361,10 +360,7 @@ async def generate_match_seed(
     lands. Every other randomizer returns the permalink directly.
     """
     actor = current_actor().user
-    # Resolve the id before handing it to the service. ``generate_seed`` reports
-    # every failure as a ``(False, message, None)`` tuple, so an unknown id would
-    # otherwise come back as `invalid_request` — and reach Sentry as a logged
-    # traceback — where every other tool here answers `not_found`.
+    # Resolve first: generate_seed would report an unknown id as invalid_request, not not_found.
     await _load_match(match_id)
     success, message, seed_url = await MatchScheduleService().generate_seed(
         match_id, actor=actor

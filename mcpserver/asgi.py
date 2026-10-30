@@ -70,8 +70,7 @@ class McpEndpoint:
             await self._session_manager.handle_request(scope, receive, send)
             return
 
-        # Headers and client only — this never reads the body, so the transport
-        # still receives the request intact.
+        # Never read the body here, so the transport still receives the request intact.
         request = Request(scope, receive)
 
         retry_after = await check_rate_limit(request)
@@ -104,10 +103,7 @@ class McpEndpoint:
             return
 
         user, token = resolved
-        # A personal access token is a REST credential: it is tenant-bound and
-        # its holder never saw an MCP consent screen. Refuse it — with the
-        # challenge, so a client that tried a stale credential can discover the
-        # authorization server and recover rather than just failing.
+        # Refuse PATs with the challenge, so a client holding a stale credential can rediscover the auth server.
         if token.origin != ApiTokenOrigin.OAUTH.value:
             logger.info('MCP rejected a non-OAuth token (id=%s)', token.id)
             await _json_error(
@@ -117,8 +113,6 @@ class McpEndpoint:
             )
             return
 
-        # No tenant is bound here: an OAuth token is platform-wide, and each tool
-        # call names its own community (see mcpserver/registry.py).
         actor_token = set_actor(McpActor(user=user, token=token))
         try:
             await self._session_manager.handle_request(scope, receive, send)

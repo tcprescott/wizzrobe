@@ -22,8 +22,6 @@ from dataclasses import dataclass
 from typing import Deque, Dict, List, Optional
 
 _RECENT = 200
-# Young-generation passes run hundreds of times a second under load and take
-# microseconds; only keep the ones long enough to matter in a stall.
 _KEEP_SECONDS = 0.01
 
 
@@ -35,18 +33,14 @@ class Pass:
     collected: int
 
 
-# An RLock: a collection can start inside a section that already holds it, on the
-# same thread, and the callback must not deadlock against itself.
+# RLock: a collection can start inside a section that already holds it, on the same thread.
 _lock = threading.RLock()
 _passes: Deque[Pass] = deque(maxlen=_RECENT)
 _totals: Dict[int, List[float]] = {0: [0, 0.0, 0.0], 1: [0, 0.0, 0.0], 2: [0, 0.0, 0.0]}
 _started: Optional[float] = None
 _frozen: Optional[int] = None
 
-#: How often the re-frozen objects are handed back for one ordinary full pass,
-#: so a cycle that formed among them is still freed. Cyclic garbage piles up
-#: frozen until then: hourly let production RSS climb 560 -> 907 MB and made the
-#: thaw pass 3.9s (2026-10-22), so the default is ten minutes.
+# Don't raise: hourly thaws let production RSS climb 560 -> 907 MB and the thaw pass take 3.9s.
 THAW_SECONDS = 600.0
 _thaw_seconds = THAW_SECONDS
 _refreeze_loop: Optional[asyncio.AbstractEventLoop] = None
@@ -116,8 +110,7 @@ def _refreeze_callback(phase: str, info: Dict[str, int]) -> None:
     loop = _refreeze_loop
     if phase != 'stop' or info.get('generation') != 2 or loop is None:
         return
-    # Not from inside the collection: the collector is still mid-pass here, and a
-    # pass can run on any thread.
+    # Not from inside the collection: the collector is still mid-pass and can run on any thread.
     try:
         loop.call_soon_threadsafe(_after_full_pass)
     except RuntimeError:

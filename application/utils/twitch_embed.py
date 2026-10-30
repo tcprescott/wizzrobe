@@ -13,7 +13,6 @@ from application.utils.safe_url import http_url_or_empty
 
 _TWITCH_HOSTS = {'twitch.tv', 'www.twitch.tv', 'm.twitch.tv', 'go.twitch.tv'}
 _CHANNEL = re.compile(r'^[A-Za-z0-9_]{1,25}$')
-# Paths under twitch.tv that are pages, not channels.
 _RESERVED = {
     'directory', 'videos', 'settings', 'subscriptions', 'inventory', 'wallet',
     'downloads', 'jobs', 'p', 'search', 'login', 'signup', 'turbo', 'prime',

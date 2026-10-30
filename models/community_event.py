@@ -23,8 +23,7 @@ class CommunityEvent(Model):
         'models.Tenant', related_name='community_events', on_delete=fields.CASCADE,
     )
     tenant_id: int
-    # Nullable until every write stamps it; the events migration backfilled the
-    # rows that existed before (see docs/features/events.md).
+    # Keep nullable: not every write path stamps it yet.
     event: fields.ForeignKeyRelation = fields.ForeignKeyField(
         'models.Event', related_name='meetups', on_delete=fields.CASCADE,
     )
@@ -41,15 +40,12 @@ class CommunityEvent(Model):
     status = fields.CharEnumField(
         CommunityEventStatus, default=CommunityEventStatus.PENDING, max_length=20,
     )
-    # SET_NULL: the decision outlives the reviewer's account; the audit row keeps who.
     reviewed_by: fields.ForeignKeyNullableRelation = fields.ForeignKeyField(
         'models.User', related_name='reviewed_community_events',
         null=True, on_delete=fields.SET_NULL,
     )
     reviewed_at = fields.DatetimeField(null=True)
-    # Why staff rejected or pulled it. Shown to the host, and sent in their DM.
     review_note = fields.TextField(null=True)
-    # The host opted in to RSVPs; ``rsvp_capacity`` caps them (null: no cap).
     rsvp_enabled = fields.BooleanField(default=False)
     rsvp_capacity = fields.IntField(null=True)
     created_at = fields.DatetimeField(auto_now_add=True)
@@ -108,8 +104,7 @@ class CommunityEventSeen(Model):
         'models.Tenant', related_name='community_events_seen', on_delete=fields.CASCADE,
     )
     tenant_id: int
-    # Nullable until every write stamps it; the events migration backfilled the
-    # rows that existed before (see docs/features/events.md).
+    # Keep nullable: not every write path stamps it yet.
     event: fields.ForeignKeyRelation = fields.ForeignKeyField(
         'models.Event', related_name='meetup_seen', on_delete=fields.CASCADE,
     )

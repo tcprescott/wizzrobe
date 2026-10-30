@@ -12,8 +12,6 @@ from typing import FrozenSet
 
 
 class EventType:
-    # A community's events (one SGL weekend each). ``event`` here is the
-    # weekend; the bus's own "event" is a published message.
     EVENT_CREATED = 'event.created'
     EVENT_UPDATED = 'event.updated'
     EVENT_WENT_LIVE = 'event.went_live'
@@ -42,35 +40,18 @@ class EventType:
     MATCH_STATIONS_ASSIGNED = 'match.stations_assigned'
     MATCH_STREAM_CANDIDATE_SET = 'match.stream_candidate_set'
     MATCH_STREAM_CANDIDATE_CLEARED = 'match.stream_candidate_cleared'
-    # A contested result is precisely what an alerting subscriber wants to hear
-    # about, and the clear tells it the contest is over — so both are emitted,
-    # unlike the tenant-internal station/venue actions.
     MATCH_FLAGGED_FOR_REVIEW = 'match.flagged_for_review'
     MATCH_REVIEW_CLEARED = 'match.review_cleared'
-    # A player putting their own match forward for stream. Advisory — it says
-    # nothing about whether the match will be streamed, only that its players
-    # are willing. MATCH_STREAM_CANDIDATE_SET is still the decision.
     MATCH_STREAM_VOLUNTEERED = 'match.stream_volunteered'
     MATCH_STREAM_VOLUNTEER_WITHDRAWN = 'match.stream_volunteer_withdrawn'
-    # A comment on a match and its removal. The payload carries ``kind``; only
-    # a staff message to players (``staff_to_players``) carries its ``body``.
-    # Player comments and private staff notes never leave the app as text.
     MATCH_COMMENT_ADDED = 'match.comment_added'
     MATCH_COMMENT_DELETED = 'match.comment_deleted'
     MATCH_PLAYER_RUNNING_LATE = 'match.player_running_late'
     MATCH_PLAYER_LATE_CLEARED = 'match.player_late_cleared'
     MATCH_PLAYER_SEED_READY = 'match.player_seed_ready'
     MATCH_PLAYER_SEED_NOT_READY = 'match.player_seed_not_ready'
-    # A player asking staff to move or call off their match. Worth publishing
-    # separately from the match.rescheduled an approval also emits: a subscriber
-    # wants to hear that someone *asked*, not only that the schedule moved.
-    # The match's players have unanimously opted into the harder preset, or a
-    # complete set has since broken. Only the unanimous state is published: the
-    # individual opt-ins that build up to it are audit-only, because a webhook
-    # subscriber is an outside listener and a lone opt-in must reach nobody.
     MATCH_HARD_PRESET_AGREED = 'match.hard_preset_agreed'
     MATCH_HARD_PRESET_AGREEMENT_REVOKED = 'match.hard_preset_agreement_revoked'
-    # Staff choosing a match's preset themselves, which overrides the above.
     MATCH_PRESET_OVERRIDE_SET = 'match.preset_override_set'
     MATCH_PRESET_OVERRIDE_CLEARED = 'match.preset_override_cleared'
     MATCH_RESCHEDULE_REQUESTED = 'match.reschedule_requested'
@@ -87,14 +68,10 @@ class EventType:
     VOLUNTEER_ASSIGNED = 'volunteer.assigned'
     VOLUNTEER_UNASSIGNED = 'volunteer.unassigned'
     VOLUNTEER_ACKNOWLEDGED = 'volunteer.acknowledged'
-    # Deliberately distinct from VOLUNTEER_UNASSIGNED: a subscriber has to be able
-    # to tell "the coordinator removed them" from "the volunteer dropped out",
-    # because only the second one needs cover found.
     VOLUNTEER_RELEASED = 'volunteer.released'
     VOLUNTEER_CHECKED_IN = 'volunteer.checked_in'
     VOLUNTEER_CHECK_IN_UNDONE = 'volunteer.check_in_undone'
     VOLUNTEER_RUNNING_LATE = 'volunteer.running_late'
-    # Staff said a volunteer isn't needed; the shift still counts as worked.
     VOLUNTEER_CALLED_OFF = 'volunteer.called_off'
     VOLUNTEER_CALL_OFF_UNDONE = 'volunteer.call_off_undone'
 
@@ -115,48 +92,19 @@ class EventType:
     DISCORD_EVENT_UPDATED = 'discord_event.updated'
     DISCORD_EVENT_CANCELLED = 'discord_event.cancelled'
 
-    # Platform external-service health. Published by the health monitor
-    # when a probed dependency transitions into an unhealthy state (down or a
-    # credential warning). Platform-level (no tenant), so tenant-scoped webhooks
-    # never receive it — the alert's real delivery is Sentry + optional super-
-    # admin DM; it is published here so the contract is uniform and any future
-    # platform-level subscriber can act on it. Not mirrored by an AuditAction:
-    # health transitions are observations by the monitor, not user actions.
     SERVICE_HEALTH_ALERT = 'service_health.alert'
 
-    # A member connecting a third-party app to this community, and that
-    # connection ending (the member, the app, staff, or reuse detection). The
-    # payload names the app and the scopes, never a token.
     OAUTH_GRANT_CREATED = 'oauth_grant.created'
     OAUTH_GRANT_REVOKED = 'oauth_grant.revoked'
 
-    # Async Qualifiers (mirrors AuditActions.ASYNC_QUALIFIER_RUN_*). A run
-    # entering review (submitted) and a run being reviewed (approved/rejected) are
-    # tenant-scoped domain events a subscriber can act on. Qualifier/pool/permalink
-    # authoring and admin grants stay audit-only (tenant-internal config).
     ASYNC_QUALIFIER_RUN_SUBMITTED = 'async_qualifier.run_submitted'
     ASYNC_QUALIFIER_RUN_REVIEWED = 'async_qualifier.run_reviewed'
-    # A run the expiry worker forfeited. Emitted (rather than audit-only) because
-    # it changes a standing on nobody's instruction — a subscriber tracking
-    # entrants needs to hear that one just went to zero.
     ASYNC_QUALIFIER_RUN_EXPIRED = 'async_qualifier.run_expired'
-    # The two other ways a slot's outcome changes: the runner giving up on a run,
-    # and a voided one handing the slot back. Both move a standing, which is the
-    # test these have to pass and `run_started` does not — a draw promises nothing.
     ASYNC_QUALIFIER_RUN_FORFEITED = 'async_qualifier.run_forfeited'
     ASYNC_QUALIFIER_RUN_REATTEMPTED = 'async_qualifier.run_reattempted'
-    # The qualifier's own window, as a state transition rather than an edit: a
-    # subscriber wants "qualifying is open" — the announcement a Discord
-    # integration would most want to make — not the seven-field PATCH that set the
-    # date weeks earlier. Published by the worker that observes the crossing (and
-    # by the service when an admin's edit crosses it immediately), so there is no
-    # actor and no audit row to pair with: nobody performed the opening.
     ASYNC_QUALIFIER_OPENED = 'async_qualifier.opened'
     ASYNC_QUALIFIER_CLOSED = 'async_qualifier.closed'
 
-    # Async Qualifier live races (mirrors AuditActions). A live race whose
-    # entrants' results were captured into runs is a domain event a subscriber can
-    # act on; create/open/cancel stay audit-only (tenant-internal scheduling).
     ASYNC_QUALIFIER_LIVE_RACE_RECORDED = 'async_qualifier.live_race_recorded'
 
     BRACKET_CREATED = 'bracket.created'
@@ -173,57 +121,27 @@ class EventType:
     BRACKET_STAGE_ADVANCED = 'bracket.stage_advanced'
     BRACKET_ENTRANT_ADDED = 'bracket.entrant_added'
     BRACKET_ENTRANT_DROPPED = 'bracket.entrant_dropped'
-    # The third roster mutation beside add/drop: which account an entrant *is*.
-    # A subscriber mirroring the roster goes stale without it — the link is what
-    # makes an entrant addressable at all.
     BRACKET_ENTRANT_UPDATED = 'bracket.entrant_updated'
-    # A field shrinking mid-stage, and a stage abandoned outright — both change
-    # what a subscriber should expect to be played, so both are announced.
     BRACKET_ENTRY_RETIRED = 'bracket.entry_retired'
     BRACKET_CANCELLED = 'bracket.cancelled'
 
-    # Community membership (mirrors AuditActions.TENANT_MEMBER_*). Who belongs to
-    # a community is exactly what an external roster or Discord-side subscriber
-    # needs to mirror, so both directions are announced. Tenant CRUD itself stays
-    # audit-only — it is a platform-level act, not something a tenant's own
-    # webhook subscriber can see or act on.
     TENANT_MEMBER_ADDED = 'tenant.member_added'
     TENANT_MEMBER_REMOVED = 'tenant.member_removed'
-    # A bulk import from the community's Discord server, one event per run
-    # carrying every added member's id rather than one event per person.
     TENANT_MEMBERS_IMPORTED = 'tenant.members_imported'
-    # The join-request lifecycle. A subscriber routing "someone wants in" to a
-    # staff channel is the point; the decisions close the loop for it.
     TENANT_JOIN_REQUESTED = 'tenant.join_requested'
     TENANT_JOIN_APPROVED = 'tenant.join_approved'
     TENANT_JOIN_DENIED = 'tenant.join_denied'
 
-    # Tournament rosters. Split by direction because a subscriber mirroring a
-    # roster — a Discord role bot, an external bracket tool — needs to know which
-    # way it moved; the audit trail keeps one action for both, since there it is
-    # one fact reached from four screens. Payload carries ``tournament_id`` and
-    # ``user_id`` as routing keys.
     TOURNAMENT_ENROLLED = 'tournament.enrolled'
     TOURNAMENT_WITHDRAWN = 'tournament.withdrawn'
     TOURNAMENT_PLAYER_DROPPED = 'tournament.player_dropped'
 
-    # Prize money. A subscriber mirroring results to a site or a payout run
-    # needs to hear both halves — the pool changing and the split changing —
-    # because either moves what every placement is owed.
     TOURNAMENT_PRIZE_POOL_UPDATED = 'tournament.prize_pool_updated'
     TOURNAMENT_PAYOUT_UPDATED = 'tournament.payout_updated'
     TOURNAMENT_SGLIVE_LINK_UPDATED = 'tournament.sglive_link_updated'
 
-    # The booking windows of a tournament's stages changed; booking clients
-    # holding a cached window should re-read it. Carries ``tournament_id``.
     TOURNAMENT_ROUND_SCHEDULE_UPDATED = 'tournament.round_schedule_updated'
 
-    # Event check-in (mirrors AuditActions.CHECK_IN_*). Someone arriving is what
-    # a subscriber wants to hear about (a welcome post, a live attendance count),
-    # and the roster mutations around it keep a mirror honest. Creating and
-    # editing the event itself stays audit-only, as tenant-internal config. A
-    # sync is published so a subscriber learns the registration list moved,
-    # including the worker's polls, which write no audit row.
     CHECK_IN_EVENT_SYNCED = 'check_in_event.synced'
     CHECK_IN_ENTRANT_CHECKED_IN = 'check_in_entrant.checked_in'
     CHECK_IN_ENTRANT_CHECK_IN_UNDONE = 'check_in_entrant.check_in_undone'
@@ -232,23 +150,15 @@ class EventType:
     CHECK_IN_ENTRANT_WALK_UP_ADDED = 'check_in_entrant.walk_up_added'
     CHECK_IN_ENTRANT_REMOVED = 'check_in_entrant.removed'
 
-    # Community events (mirrors AuditActions.COMMUNITY_EVENT_*). A subscriber
-    # reposting the listing to a Discord channel or a site needs every step: a
-    # submission to route to reviewers, the decisions, edits and cancellations
-    # to keep its copy honest. Subscriptions stay private and are not published.
     COMMUNITY_EVENT_SUBMITTED = 'community_event.submitted'
     COMMUNITY_EVENT_UPDATED = 'community_event.updated'
     COMMUNITY_EVENT_APPROVED = 'community_event.approved'
     COMMUNITY_EVENT_REJECTED = 'community_event.rejected'
     COMMUNITY_EVENT_CANCELLED = 'community_event.cancelled'
 
-    # Post-event surveys (mirrors AuditActions.SURVEY_*): when one goes out and
-    # when it stops taking answers. Responses are never published, so an
-    # anonymous answer can't be timed back to the person who sent it.
     SURVEY_SENT = 'survey.sent'
     SURVEY_CLOSED = 'survey.closed'
 
-    # Every published event name; drives the webhook UI multiselect + validation.
     ALL: FrozenSet[str] = frozenset({
         EVENT_CREATED, EVENT_UPDATED, EVENT_WENT_LIVE, EVENT_ARCHIVED, EVENT_UNARCHIVED,
         EVENT_DEFAULT_CHANGED, EVENT_DELETED, EVENT_SETUP_COPIED,
@@ -309,8 +219,6 @@ class EventType:
 
     WILDCARD = '*'
 
-    #: Families about the community rather than one of its events: their
-    #: messages carry no event, so a webhook's event filter never holds them back.
     COMMUNITY_FAMILIES: FrozenSet[str] = frozenset({'tenant', 'oauth_grant', 'service_health'})
 
     @classmethod

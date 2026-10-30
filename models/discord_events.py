@@ -22,14 +22,12 @@ class DiscordScheduledEvent(Model):
 
     id = fields.IntField(pk=True)
     tenant = fields.ForeignKeyField('models.Tenant', related_name='discord_scheduled_events', on_delete=fields.CASCADE)
-    # Nullable until every write stamps it; the events migration backfilled the
-    # rows that existed before (see docs/features/events.md).
+    # Keep nullable: not every write path stamps it yet.
     event: fields.ForeignKeyRelation = fields.ForeignKeyField(
         'models.Event', related_name='discord_scheduled_events', on_delete=fields.CASCADE,
     )
     event_id: int
-    # The guild the event lives in, snapshotted from ``Tenant.discord_guild_id``
-    # at creation so a later re-link doesn't silently orphan the row.
+    # Snapshotted at creation so a later guild re-link doesn't orphan the row.
     guild_id = fields.BigIntField()
     discord_event_id = fields.BigIntField(unique=True)
     source_type = fields.CharEnumField(DiscordEventSource, max_length=20)
@@ -60,8 +58,6 @@ class StaffRequestDM(Model):
     tenant: fields.ForeignKeyRelation = fields.ForeignKeyField(
         'models.Tenant', related_name='staff_request_dms', on_delete=fields.CASCADE)
     tenant_id: int
-    # Which event this happened during, for filtering. The row belongs to the
-    # community, so it outlives the event (SET NULL) and may carry none.
     event: fields.ForeignKeyNullableRelation = fields.ForeignKeyField(
         'models.Event', related_name='staff_request_dms', on_delete=fields.SET_NULL, null=True,
     )
@@ -95,8 +91,6 @@ class SentMessage(Model):
     tenant: fields.ForeignKeyRelation = fields.ForeignKeyField(
         'models.Tenant', related_name='sent_messages', on_delete=fields.CASCADE)
     tenant_id: int
-    # Which event this happened during, for filtering. The row belongs to the
-    # community, so it outlives the event (SET NULL) and may carry none.
     event: fields.ForeignKeyNullableRelation = fields.ForeignKeyField(
         'models.Event', related_name='sent_messages', on_delete=fields.SET_NULL, null=True,
     )

@@ -18,12 +18,10 @@ class SpeedGamingEventLink(Model):
     tenant = fields.ForeignKeyField('models.Tenant', related_name='sg_event_links', on_delete=fields.CASCADE)
     tournament = fields.ForeignKeyField('models.Tournament', related_name='sg_event_links', on_delete=fields.CASCADE)
     event_slug = fields.CharField(max_length=128)
-    # Optional SG ``content_type`` filter (a specific bracket within an event).
     content_type = fields.CharField(max_length=64, null=True)
     active = fields.BooleanField(default=True)
-    # Poll cadence; the worker skips a link whose ``last_synced_at`` is newer.
     sync_interval_minutes = fields.IntField(default=15)
-    # How far ahead (hours) to pull episodes on each poll.
+    # hours
     lookahead_hours = fields.IntField(default=72)
     last_synced_at = fields.DatetimeField(null=True)
     last_status = fields.CharField(max_length=32, null=True)

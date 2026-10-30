@@ -45,12 +45,7 @@ class Bracket(Model):
     name = fields.CharField(max_length=255)
     format = fields.CharEnumField(BracketFormat, max_length=32)
     state = fields.CharEnumField(BracketState, default=BracketState.DRAFT, max_length=16)
-    # 0-based position in the stage chain; a single-stage tournament has one row
-    # at 0. Unique per tournament (see Meta).
     stage_order = fields.IntField(default=0)
-    # Schema-validated at the service boundary (never trusted raw): grand-final
-    # reset toggle, Swiss round count, group count + points, tiebreaker order,
-    # and — on non-first stages — the advancement rule from the prior stage.
     config = fields.JSONField(null=True)
     created_at = fields.DatetimeField(auto_now_add=True)
     updated_at = fields.DatetimeField(auto_now=True)
@@ -60,8 +55,6 @@ class Bracket(Model):
 
     class Meta:
         table = 'bracket'
-        # tournament is itself tenant-scoped, so (tournament, stage_order) is a
-        # tenant-safe unique; it also serves the stage-ordered list query.
         unique_together = (('tournament', 'stage_order'),)
         indexes = (('tournament',),)
 
@@ -79,8 +72,6 @@ class BracketEntrant(Model):
     tenant = fields.ForeignKeyField('models.Tenant', related_name='bracket_entrants', on_delete=fields.CASCADE)
     tournament = fields.ForeignKeyField('models.Tournament', related_name='bracket_entrants', on_delete=fields.CASCADE)
     display_name = fields.CharField(max_length=255)
-    # SET_NULL: deleting a user detaches (and re-placeholders) their entrants
-    # rather than erasing bracket history.
     user = fields.ForeignKeyField(
         'models.User', related_name='bracket_entrants', null=True, on_delete=fields.SET_NULL
     )
@@ -102,12 +93,8 @@ class BracketEntry(Model):
     tenant = fields.ForeignKeyField('models.Tenant', related_name='bracket_entries', on_delete=fields.CASCADE)
     bracket = fields.ForeignKeyField('models.Bracket', related_name='entries', on_delete=fields.CASCADE)
     entrant = fields.ForeignKeyField('models.BracketEntrant', related_name='entries', on_delete=fields.CASCADE)
-    # Per-stage seed (stage 2's seeds derive from stage 1's final ranks).
     seed = fields.IntField(null=True)
-    # Group-stage formats only; "Group A" is derived display, not a stored name.
     group_number = fields.IntField(null=True)
-    # Written when the stage completes, after tiebreakers — this is what the next
-    # stage's advancement consumes.
     final_rank = fields.IntField(null=True)
     status = fields.CharEnumField(BracketEntryStatus, default=BracketEntryStatus.ACTIVE, max_length=16)
     created_at = fields.DatetimeField(auto_now_add=True)
@@ -128,10 +115,7 @@ class BracketMatch(Model):
     # Negative round numbers denote the losers bracket (start.gg's convention).
     round = fields.IntField()
     position = fields.IntField()
-    # Group-stage formats only.
     group_number = fields.IntField(null=True)
-    # SET_NULL on the entry slots: pruning an entry (e.g. a dropped placeholder)
-    # empties the slot rather than deleting the match.
     entry1 = fields.ForeignKeyField(
         'models.BracketEntry', related_name='matches_as_entry1', null=True, on_delete=fields.SET_NULL
     )
@@ -141,20 +125,10 @@ class BracketMatch(Model):
     winner = fields.ForeignKeyField(
         'models.BracketEntry', related_name='matches_won', null=True, on_delete=fields.SET_NULL
     )
-    # Optional set scores reported alongside the winner (nullable — win-only
-    # reporting stays valid). Positional to the entry slots: ``entry1_score`` is
-    # ``entry1``'s, ``entry2_score`` is ``entry2``'s. The winner must carry the
-    # strictly-higher score UNLESS ``forfeit`` is set.
     entry1_score = fields.IntField(null=True)
     entry2_score = fields.IntField(null=True)
-    # A DQ / walkover / no-show: when set, the recorded winner may carry the
-    # lower or zero score (the score-vs-winner rule is waived) and the card
-    # renders an "FF" marker.
     forfeit = fields.BooleanField(default=False)
     state = fields.CharEnumField(BracketMatchState, default=BracketMatchState.PENDING, max_length=16)
-    # Progression pointers into the same graph: where this match's winner/loser
-    # flow. The ``*_slot`` (1 or 2) says which entry slot they fill. Self-FK,
-    # SET_NULL so pruning a downstream match just detaches the pointer.
     winner_to = fields.ForeignKeyField(
         'models.BracketMatch', related_name='feeder_winners', null=True, on_delete=fields.SET_NULL
     )
@@ -163,9 +137,6 @@ class BracketMatch(Model):
         'models.BracketMatch', related_name='feeder_losers', null=True, on_delete=fields.SET_NULL
     )
     loser_to_slot = fields.IntField(null=True)
-    # Best-of length for THIS matchup, overriding the per-round default in
-    # ``Bracket.config['rounds'][str(round)]['best_of']``. Null = use the round's
-    # value, falling back to 1. Positive and odd (a best-of has no draws).
     best_of = fields.IntField(null=True)
     created_at = fields.DatetimeField(auto_now_add=True)
     updated_at = fields.DatetimeField(auto_now=True)
@@ -202,30 +173,21 @@ class BracketMatchGame(Model):
         'models.BracketMatch', related_name='games', on_delete=fields.CASCADE
     )
     game_number = fields.IntField()
-    # OneToOne: a scheduled Match backs at most one game. SET_NULL so deleting the
-    # Match preserves the recorded game result — the same reasoning the other
-    # bracket FKs use, and what lets a cancelled game keep its audit trail.
     match = fields.OneToOneField(
         'models.Match', related_name='bracket_match_game', null=True, on_delete=fields.SET_NULL
     )
     winner_entry = fields.ForeignKeyField(
         'models.BracketEntry', related_name='games_won', null=True, on_delete=fields.SET_NULL
     )
-    # A DQ / walkover / no-show in THIS game (one entrant ranked, the other not).
-    # A series-level forfeit is the AND of its games'.
     forfeit = fields.BooleanField(default=False)
     state = fields.CharEnumField(
         BracketMatchGameState, default=BracketMatchGameState.SCHEDULED, max_length=16
     )
-    # Why a game was never played, e.g. 'series clinched 2-0'. Null unless CANCELLED.
     cancelled_reason = fields.CharField(max_length=255, null=True)
     created_at = fields.DatetimeField(auto_now_add=True)
     updated_at = fields.DatetimeField(auto_now=True)
 
     class Meta:
         table = 'bracketmatchgame'
-        # bracket_match is itself tenant-scoped, so this is a tenant-safe unique
-        # (the same argument BracketEntry's (bracket, entrant) unique uses). It
-        # also serves the ordered per-series listing.
         unique_together = (('bracket_match', 'game_number'),)
         indexes = (('bracket_match',), ('match',))

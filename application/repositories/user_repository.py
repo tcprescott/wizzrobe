@@ -225,10 +225,7 @@ class UserRepository(TenantScopedRepository[User]):
             query = User.filter(
                 Q(tenant_memberships__tenant_id=tenant_id) | Q(id__in=list(include_user_ids))
             )
-        # Spelled positively rather than as `.exclude(discord_id=SENTINEL)`:
-        # a placeholder's discord id is NULL, `NULL = <sentinel>` is NULL, and
-        # NOT NULL is not true — so the exclude form silently drops every
-        # placeholder along with the system account.
+        # Spelled positively: exclude(discord_id=SENTINEL) would silently drop NULL-id placeholders too.
         query = query.filter(
             Q(is_system=False),
             Q(discord_id__isnull=True) | Q(discord_id__not=SYSTEM_USER_DISCORD_ID),
@@ -416,7 +413,6 @@ class UserRepository(TenantScopedRepository[User]):
         """
         if user.discord_avatar == avatar:
             return False
-        # Nullable CharField: mypy reads the descriptor as ``str``, not ``str | None``.
         user.discord_avatar = avatar  # type: ignore[assignment]
         await user.save(update_fields=['discord_avatar', 'updated_at'])
         return True

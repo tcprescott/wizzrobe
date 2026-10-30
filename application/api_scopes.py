@@ -29,15 +29,12 @@ class ApiScope(str, Enum):
 
 ALL_SCOPES: FrozenSet[ApiScope] = frozenset(ApiScope)
 
-#: Scopes that reach at least one write route. A grant holding none of them is
-#: read-only.
 WRITE_SCOPES: FrozenSet[ApiScope] = frozenset({
     ApiScope.PROFILE_WRITE, ApiScope.PLAY, ApiScope.CREW, ApiScope.VOLUNTEER, ApiScope.STAFF_WRITE,
 })
 
 READ_SCOPES: FrozenSet[ApiScope] = ALL_SCOPES - WRITE_SCOPES
 
-#: Offered on consent only to someone holding a role that could use them.
 STAFF_SCOPES: FrozenSet[ApiScope] = frozenset({ApiScope.STAFF_READ, ApiScope.STAFF_WRITE})
 
 CONSENT_WORDING: Dict[ApiScope, str] = {

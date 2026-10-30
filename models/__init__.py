@@ -191,8 +191,7 @@ from .volunteer import (
 )
 from .webhook import PersonalWebhook, Webhook, WebhookDelivery
 
-# Every model is imported by now, so the column-fit guards can be attached to
-# their fields. Must stay last: it walks this module's namespace for models.
+# Must stay last: it walks this module's namespace for every model.
 install_column_guards(globals())
 
 __all__ = [

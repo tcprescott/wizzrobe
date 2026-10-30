@@ -47,9 +47,6 @@ from models import AsyncQualifier, AsyncQualifierPermalink, AsyncQualifierPool, 
 
 router = APIRouter(prefix="/async-qualifiers", tags=["Async qualifiers"], route_class=ServiceErrorRoute, dependencies=[Depends(event_binding(qualifier_id=AsyncQualifier, run_id=AsyncQualifierRun, pool_id=AsyncQualifierPool, permalink_id=AsyncQualifierPermalink))])
 
-# One page of runs, and the most a caller may ask for at once. A 500-player
-# qualifier holds a few thousand runs, so the unbounded read this replaces was a
-# 1.66 MB body every time.
 RUNS_PAGE_DEFAULT = 100
 RUNS_PAGE_MAX = 500
 
@@ -85,7 +82,7 @@ async def list_qualifiers(actor: User = Depends(require_api_actor)):
     ),
 )
 async def list_open_qualifiers(actor: User = Depends(require_api_actor)):
-    # Ungated player-facing list: the public shell only (no internal ``config``).
+    # Ungated: the public shell only, never the internal config.
     return await AsyncQualifierService().list_open_qualifiers()
 
 
@@ -112,7 +109,6 @@ async def get_qualifier(qualifier_id: int, actor: User = Depends(require_api_act
     ),
 )
 async def get_qualifier_public(qualifier_id: int, actor: User = Depends(require_api_actor)):
-    # Ungated player shell: the public response model omits the internal ``config``.
     return await AsyncQualifierService().get_qualifier_for_player(qualifier_id)
 
 

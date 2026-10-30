@@ -12,7 +12,6 @@ Pure, so it unit-tests without a request.
 
 from typing import Any, Optional
 
-#: The largest primary key an ``IntField`` (Postgres ``INT``) can hold.
 MAX_INT_ID = 2_147_483_647
 
 

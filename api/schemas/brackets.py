@@ -115,11 +115,6 @@ class BracketMatchResponse(BaseModel):
         ...,
         description="Matchup state: `pending` (an entry isn't known yet), `open` (playable) or `complete` (winner recorded).",
     )
-    # The derived cross-surface status (docs/features/brackets.md): what the
-    # web bracket paints and what the Discord DM says, so an API
-    # consumer sees "live" while a game is being raced rather than having to
-    # re-derive it from the games' Match timestamps. Populated on the list reads;
-    # None where the matchup's games were not resolved.
     status: Optional[MatchStatus] = Field(
         None,
         description=(
@@ -139,8 +134,6 @@ class BracketMatchResponse(BaseModel):
     )
     created_at: datetime = Field(..., description="When the matchup was generated (UTC).")
     updated_at: datetime = Field(..., description="When the matchup last changed (UTC).")
-    # Empty until a game is scheduled — rows are created lazily, so a best-of-3
-    # with one game played reports one game, not three.
     games: List[BracketMatchGameResponse] = Field(
         [], description="Games booked so far. Empty until the first game is scheduled."
     )
@@ -155,10 +148,6 @@ class StandingsRowResponse(BaseModel):
     entrant_id: int = Field(..., description="The roster entrant behind the entry.")
     display_name: str = Field(..., description="Entrant's name.")
     seed: Optional[int] = Field(None, description="The entry's seed, if seeded.")
-    # `status` is this stage's participation; `entrant_status` is the
-    # tournament-wide roster state. They move independently — dropping an
-    # entrant does not cascade into the stage entry — so check both to render
-    # "dropped".
     status: BracketEntryStatus = Field(..., description=_ENTRY_STATUS)
     entrant_status: BracketEntrantStatus = Field(
         ..., description=_ENTRANT_STATUS + " Independent of `status`; check both to show a drop."

@@ -62,8 +62,6 @@ def msg_unexpected_error(action: str = 'finish this') -> str:
 MSG_UNEXPECTED_ERROR = msg_unexpected_error()
 
 
-# Shared with the web copy, which identifies a match the same way — see
-# application/utils/match_labels.py.
 _players_label = players_label
 
 
@@ -96,11 +94,6 @@ def _match_info_lines(
     return lines
 
 
-# Who a match DM is for. The same lifecycle change reaches four kinds of reader,
-# and copy written for one is false for the others: a tournament subscriber told
-# "you've got a match... good luck!" reads that as being drafted into someone
-# else's game. Players get their own acknowledgment DM for scheduling, so the
-# scheduled/rescheduled builders below never address one.
 AUDIENCE_PLAYER = 'player'
 AUDIENCE_CREW = 'crew'
 AUDIENCE_WATCHER = 'watcher'
@@ -269,10 +262,6 @@ def acknowledgment_request_dm(
         f"Click **Acknowledge** below to confirm you've seen this."
     )
 
-
-# The information a runner needs is the substitution: this match happens on a
-# stage instead of in the tournament room. Say that, not "a stage has been
-# assigned", which describes a database row rather than where to walk.
 
 def _stage_info_lines(
     player_names: Optional[list[str]], scheduled_at_display: str,
@@ -448,9 +437,6 @@ def cancelled_description(*, reason: str = '', released: bool = False) -> str:
     there is one, so a reason left in the text alone never reached anyone there.
     """
     why = f"{reason}\n\n" if reason else ''
-    # A bracket game that was cancelled hands its series slot back (D3), so the
-    # matchup is open again and the entrants are the ones who have to rebook it —
-    # the opposite of the default "nothing further is needed".
     closing = (
         "This game has been released — the matchup is open to reschedule."
         if released else "You're all set. Nothing else to do here."
@@ -694,8 +680,6 @@ def hard_preset_override_dm(
 ) -> str:
     """Staff chose the match's settings, or handed the choice back."""
     if forced:
-        # A tournament with no standard preset resolves to no preset at all, and
-        # "set your match to ****" is worse than not naming it.
         opening = (
             f"Staff set your **{tournament_name}** match to **{preset_name}**."
             if preset_name else

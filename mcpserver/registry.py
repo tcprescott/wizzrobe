@@ -64,8 +64,6 @@ from models import (
     VolunteerShift,
 )
 
-#: Tool arguments that name an event-owned row, so the call works in its event.
-#: A tool whose argument means something else here passes ``event={...}``.
 ARG_ROWS: Dict[str, type[Model]] = {
     'match_id': Match,
     'tournament_id': Tournament,
@@ -89,11 +87,9 @@ class ToolSpec:
     feature: Optional[FeatureFlag] = None
     write: bool = False
     destructive: bool = False
-    #: The row arguments of an event-owned tool; None for a community tool.
     event_rows: Optional[Mapping[str, type[Model]]] = None
 
 
-# name -> spec. Read by the catalogue test and by the tool listing.
 TOOL_SPECS: Dict[str, ToolSpec] = {}
 
 
@@ -119,8 +115,6 @@ async def _record_call(name: str, tenant_id: Optional[int], outcome: str) -> Non
     actor = optional_actor()
     if actor is None:
         return
-    # Platform and orientation tools (whoami, list_tenants) name no community,
-    # so they land as platform rows (tenant NULL).
     with tenant_scope(tenant_id):
         await TelemetryService().track_api_call(
             event_type=TelemetryEventType.MCP_TOOL_CALL,
@@ -170,8 +164,7 @@ def register(
     if (scope is None) != (gate is Gate.GLOBAL):
         raise ValueError(f'MCP tool {name}: only Gate.GLOBAL tools go without a scope')
     if scope is not None and write != (scope in WRITE_SCOPES):
-        # A read tool in a write area would only be reachable by a connection
-        # that also agreed to changes, so a read-only grant would lose it.
+        # A read tool in a write area would be unreachable to read-only grants.
         raise ValueError(f'MCP tool {name}: write tools go in write areas, reads in read areas')
     signature = inspect.signature(fn)
     rows: Optional[Dict[str, type[Model]]] = None
@@ -201,11 +194,7 @@ def register(
                     pairs = [(model, row_id) for arg, model in rows.items() for row_id in _ids(kwargs.get(arg))]
                     event_id = await EventService.call_event_id(actor.user, slug, pairs) or event_id
             with tenant_scope(tenant.id), event_scope(event_id):
-                # An MCP caller has no browser and is not "a viewer", so there is
-                # no personal clock to resolve — but tools still take and derive
-                # calendar dates (``get_schedule(date=…)``), and those must land
-                # on the community's day. Bound here, alongside the tenant, so no
-                # tool can be written that forgets it.
+                # Bind the community clock here so no tool can forget it: date arguments must land on its day.
                 with tz_scope(await TimezoneService.tenant_timezone_name(tenant.id)):
                     return await fn(**kwargs)
         except Exception as exc:
@@ -216,11 +205,7 @@ def register(
         finally:
             await _record_call(name, tenant_id, outcome)
 
-    # func_metadata builds the JSON schema from inspect.signature(func,
-    # eval_str=True), which follows __wrapped__ back to fn — so the schema comes
-    # from the real signature even though the callable takes **kwargs. Assert it
-    # rather than trusting it: a functools change here would silently publish an
-    # empty schema and every tool would start accepting anything.
+    # Assert the schema came from the real signature: a functools change would silently publish an empty one.
     if rows is not None:
         wrapped.__signature__ = signature.replace(parameters=[  # type: ignore[attr-defined]
             *signature.parameters.values(),
@@ -236,9 +221,6 @@ def register(
         wrapped,
         name=name,
         title=title,
-        # The hint a client reads before deciding whether to prompt. A read tool
-        # never needs confirmation; a write one usually does, and a destructive
-        # one always does.
         annotations=ToolAnnotations(
             read_only_hint=not write, destructive_hint=destructive
         ),

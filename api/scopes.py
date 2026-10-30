@@ -349,8 +349,6 @@ _ROUTES: Dict[RouteScope, tuple[str, ...]] = {
         'DELETE /volunteers/assignments/{assignment_id}/call-off',
         'POST /volunteers/shifts/{shift_id}/call-off',
     ),
-    # Credentials, secrets, platform-wide controls and community wiring that an
-    # app has no business holding even for a staff member.
     PAT_ONLY: (
         'GET /events/{slug}/settings',
         'PUT /events/{slug}/settings/{key}',
@@ -410,8 +408,6 @@ _ROUTES: Dict[RouteScope, tuple[str, ...]] = {
     ),
 }
 
-#: POST routes that only read. GraphQL takes its query in a POST body, but
-#: every operation on it is a query, so it sits on a read scope.
 READ_ONLY_POSTS: Final = frozenset({'POST /graphql'})
 
 

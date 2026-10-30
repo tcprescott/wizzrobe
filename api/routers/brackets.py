@@ -59,8 +59,6 @@ async def list_brackets(
     tournament_id: int = Query(..., description="The tournament whose stages to list."),
     actor: User = Depends(require_api_actor),
 ):
-    # Viewer-aware: DRAFT and CANCELLED stages are staff-only here exactly as
-    # on the public pages.
     return await BracketService().list_visible_brackets(actor, tournament_id)
 
 
@@ -78,8 +76,7 @@ async def list_entrants(
     tournament_id: int = Query(..., description="The tournament whose roster to list."),
     actor: User = Depends(require_api_actor),
 ):
-    # A tournament with nothing published has not been announced, and neither
-    # has its roster: same 404 as an unknown id, to everyone but staff.
+    # Same 404 as an unknown id for non-staff: an unpublished tournament hasn't been announced.
     service = BracketService()
     require_found(await service.get_visible_tournament(actor, tournament_id), "Tournament")
     return await service.list_entrants(tournament_id)
@@ -483,8 +480,7 @@ async def report_result(match_id: int, body: ReportResultRequest, actor: User = 
         entry2_score=body.entry2_score,
         forfeit=body.forfeit,
     )
-    # Re-read with games loaded: the response embeds them, and report_result
-    # cancels any pending game, so the caller should see that.
+    # Re-read with games: report_result may have cancelled a pending game.
     return require_found(await service.get_match_with_games(match_id), "Bracket match")
 
 

@@ -10,8 +10,6 @@ from models import ProviderTask, ProviderTaskStatus
 
 _ACTIVE = (ProviderTaskStatus.QUEUED, ProviderTaskStatus.RUNNING)
 
-# Terminal states that mean "this roll produced nothing". Kept apart from
-# SUCCEEDED because these are the ones a person needs told about.
 _FAILED = (ProviderTaskStatus.FAILED, ProviderTaskStatus.ABANDONED)
 
 
@@ -78,9 +76,7 @@ class ProviderTaskRepository(TenantScopedRepository[ProviderTask]):
             **fields,
         )
 
-    # ------------------------------------------------------------------
     # Poller-facing queries — deliberately cross-tenant
-    # ------------------------------------------------------------------
 
     @classmethod
     async def due_for_poll(cls, limit: int = 50) -> List[ProviderTask]:

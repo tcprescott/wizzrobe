@@ -26,8 +26,7 @@ class DiscordRoleRule(Model):
     id = fields.IntField(pk=True)
     tenant: fields.ForeignKeyRelation = fields.ForeignKeyField('models.Tenant', related_name='discord_role_rules', on_delete=fields.CASCADE)
     tenant_id: int
-    # Nullable until every write stamps it; the events migration backfilled the
-    # rows that existed before (see docs/features/events.md).
+    # Keep nullable: not every write path stamps it yet.
     event: fields.ForeignKeyRelation = fields.ForeignKeyField(
         'models.Event', related_name='discord_role_rules', on_delete=fields.CASCADE,
     )
@@ -64,8 +63,6 @@ class DiscordRoleGrant(Model):
     id = fields.IntField(pk=True)
     tenant: fields.ForeignKeyRelation = fields.ForeignKeyField('models.Tenant', related_name='discord_role_grants', on_delete=fields.CASCADE)
     tenant_id: int
-    # Which event this happened during, for filtering. The row belongs to the
-    # community, so it outlives the event (SET NULL) and may carry none.
     event: fields.ForeignKeyNullableRelation = fields.ForeignKeyField(
         'models.Event', related_name='discord_role_grants', on_delete=fields.SET_NULL, null=True,
     )
@@ -98,7 +95,6 @@ class DiscordRoleSyncState(Model):
     in_place = fields.IntField(default=0)
     added = fields.IntField(default=0)
     removed = fields.IntField(default=0)
-    # mypy cannot infer a JSONField's type parameter, as with every sibling.
     unreachable = fields.JSONField(default=list)  # type: ignore[var-annotated]
     updated_at = fields.DatetimeField(auto_now=True)
 

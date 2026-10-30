@@ -8,109 +8,46 @@ from .enums import Role, RoleSource, TournamentGrant
 
 class User(Model):
     id = fields.IntField(pk=True)
-    # Nullable+unique (Postgres allows many NULLs) so an unresolved SpeedGaming
-    # player can exist as a *placeholder* User (``is_placeholder=True``,
-    # ``discord_id=NULL``) — keeping ``MatchPlayers.user`` NOT NULL. A DB CHECK
-    # (``discord_id IS NOT NULL OR is_placeholder``) enforces that only
-    # placeholders may lack a discord id; see migration 26. A placeholder is
-    # *upgraded in place* to a real User when its ``discord_id`` later appears.
+    # Nullable only for placeholders: a DB CHECK requires discord_id unless is_placeholder.
     discord_id = fields.BigIntField(unique=True, null=True)
     created_at = fields.DatetimeField(auto_now_add=True)
     updated_at = fields.DatetimeField(auto_now=True)
     username = fields.CharField(max_length=150)
     display_name = fields.CharField(max_length=150, null=True)
-    # Discord avatar *hash*, not a URL: the CDN path is derived from it and the
-    # discord id (``application/utils/discord_avatar.py``), so a stale row costs
-    # one broken image rather than a wrong link. Refreshed at every web login and
-    # whenever the bot sees the member change it. NULL means "no custom avatar" —
-    # surfaces fall back to their own placeholder.
     discord_avatar = fields.CharField(max_length=64, null=True)
     pronouns = fields.CharField(max_length=50, null=True)
     is_active = fields.BooleanField(default=True)
-    # Marks the single reserved automation actor (sentinel ``discord_id`` =
-    # ``SYSTEM_USER_DISCORD_ID``). Workers/bots pass this row as ``actor`` so
-    # audit rows snapshot a real username instead of a bare sentinel. Resolve it
-    # via ``UserService.get_system_user()``, never construct it ad hoc.
+    # Resolve via UserService.get_system_user(); never construct the system user ad hoc.
     is_system = fields.BooleanField(default=False)
     dm_notifications = fields.BooleanField(default=True)
-    # A DM when staff leave a comment on one of this person's matches that
-    # players can read. Separate from ``dm_notifications``, which turns off
-    # every DM at once.
     dm_match_comments = fields.BooleanField(default=True)
-    # Display-timezone preference (IANA name). NULL means "detect from my
-    # device" — the browser reports its zone and that is used. Only consulted
-    # when the community leaves the choice to its members; a community that
-    # pins one clock overrides this. Global, like the rest of identity: a
-    # person carries one timezone across every community they belong to.
     timezone = fields.CharField(max_length=64, null=True)
-    # Clock preference: ``'12'`` or ``'24'``. NULL means "detect from my
-    # browser", then 12-hour; the same shape as ``timezone`` above. Display
-    # only, and only on the person's own pages: notification copies are 12-hour.
     hour_cycle = fields.CharField(max_length=2, null=True)
-    # Verified Challonge identity (captured via one-time OAuth, scope ``me``).
-    # Identity only — we do not retain a player's Challonge access token.
-    # Unique so bracket sync can resolve a Challonge id to exactly one user
-    # (Postgres allows multiple NULLs, so unlinked users are unconstrained).
     challonge_user_id = fields.CharField(max_length=64, null=True, unique=True)
     challonge_username = fields.CharField(max_length=255, null=True)
     challonge_linked_at = fields.DatetimeField(null=True)
-    # Verified Twitch identity (captured via one-time OAuth). Identity only — we
-    # do not retain a user's Twitch access token. Unique so a Twitch id resolves
-    # to exactly one user (Postgres allows multiple NULLs, so unlinked users are
-    # unconstrained).
     twitch_user_id = fields.CharField(max_length=64, null=True, unique=True)
     twitch_username = fields.CharField(max_length=255, null=True)
     twitch_linked_at = fields.DatetimeField(null=True)
-    # Verified racetime.gg identity (captured via one-time OAuth, read scope).
-    # Identity only — we do not retain a user's racetime access token. Unique so a
-    # racetime id resolves to exactly one user (Postgres allows multiple NULLs, so
-    # unlinked users are unconstrained).
     racetime_user_id = fields.CharField(max_length=64, null=True, unique=True)
     racetime_username = fields.CharField(max_length=255, null=True)
     racetime_linked_at = fields.DatetimeField(null=True)
-    # Verified start.gg identity (captured via one-time OAuth, ``user.identity``).
-    # Identity only, like Twitch: the token is discarded. Unique so an entrant's
-    # start.gg user id resolves to exactly one user.
     startgg_user_id = fields.CharField(max_length=64, null=True, unique=True)
     startgg_username = fields.CharField(max_length=255, null=True)
     startgg_linked_at = fields.DatetimeField(null=True)
-    # Placeholder identity (SpeedGaming ETL). A player the SG sync could not
-    # resolve to a real account becomes a placeholder User so its ``MatchPlayers``
-    # row is still first-class. ``speedgaming_id`` is the SG-side numeric id used
-    # to re-find the same placeholder across syncs; unique so an SG id maps to one
-    # User (Postgres allows many NULLs, so non-SG users are unconstrained).
     is_placeholder = fields.BooleanField(default=False)
     speedgaming_id = fields.CharField(max_length=64, null=True, unique=True)
-    # Matcherino handle, in that platform's ``name#id`` form. Self-entered,
-    # unlike the OAuth-verified links above, so deliberately NOT unique: a typo
-    # under a unique constraint would lock the rightful owner out of their own
-    # handle. Global like the rest of identity — someone who wins in two
-    # communities has one Matcherino account.
+    # Deliberately not unique: a typo would lock the rightful owner out of their handle.
     matcherino_username = fields.CharField(max_length=255, null=True)
-    # Matcherino's numeric account id. Unlike the handle above this is only
-    # written from evidence: a check-in match on an OAuth-verified Discord or
-    # Twitch id, or a link confirmed at the desk (never from the typed handle),
-    # so it is unique. It is how a registrant linked at one event is recognised
-    # at the next, whatever they have since renamed themselves.
     matcherino_user_id = fields.CharField(max_length=64, null=True, unique=True)
-    # Password sign-in, set only by a platform super-admin (no self-service).
-    # A password account may have no ``discord_id`` at all: the DB CHECK
-    # ``ck_user_identity`` requires a discord id, a password, or placeholder
-    # status. ``login_name`` is stored lower-cased so lookups are
-    # case-insensitive. ``password_changed_at`` stamps each password session;
-    # a change or removal moves it, which ends every older password session.
+    # login_name is stored lower-cased; case-insensitive lookups depend on it.
     login_name = fields.CharField(max_length=64, null=True, unique=True)
     password_hash = fields.CharField(max_length=255, null=True)
     password_changed_at = fields.DatetimeField(null=True)
-    # Extra notification channels, each a copy of what goes out as a Discord DM
-    # (see ``NotificationChannelService``). Both are global identity like the
-    # rest of this row; whether anything is sent also needs the current
-    # community's ``notification_channels`` flag. ``email`` is only ever stored
-    # confirmed: by a code we sent, or from Discord's own ``verified`` address.
+    # Only ever store a confirmed email (a code we sent, or Discord's verified address).
     email = fields.CharField(max_length=254, null=True)
     email_verified_at = fields.DatetimeField(null=True)
     email_notifications = fields.BooleanField(default=False)
-    # Unique so one Telegram chat can't be bound to two accounts.
     telegram_chat_id = fields.BigIntField(null=True, unique=True)
     telegram_username = fields.CharField(max_length=64, null=True)
     telegram_linked_at = fields.DatetimeField(null=True)
@@ -180,9 +117,7 @@ class ApiToken(Model):
     """
 
     id = fields.IntField(pk=True)
-    # NULL for OAuth tokens (platform-wide). token_hash stays globally unique —
-    # the lookup happens before any tenant context exists (api/dependencies.py,
-    # mcpserver/asgi.py).
+    # Keep token_hash globally unique: it's looked up before any tenant context exists.
     tenant = fields.ForeignKeyField(
         'models.Tenant', related_name='api_tokens', on_delete=fields.CASCADE, null=True
     )
@@ -201,10 +136,7 @@ class ApiToken(Model):
         'models.OAuthApp', related_name='grants', on_delete=fields.CASCADE, null=True
     )
     oauth_app_id: Optional[int]
-    # Refresh tokens are hashed like access tokens and rotate on every use.
     refresh_token_hash = fields.CharField(max_length=64, null=True, unique=True, index=True)
-    # The refresh hash this row rotated away from. Presenting it again means a
-    # spent refresh token is in someone else's hands, so the grant is revoked.
     previous_refresh_hash = fields.CharField(max_length=64, null=True, index=True)
     refresh_expires_at = fields.DatetimeField(null=True)
     scope = fields.CharField(max_length=255, null=True)
@@ -220,21 +152,14 @@ class ApiToken(Model):
 class UserRole(Model):
     id = fields.IntField(pk=True)
     user = fields.ForeignKeyField('models.User', related_name='roles')
-    # Nullable: every grant is per-tenant EXCEPT SUPER_ADMIN, which carries
-    # tenant=NULL and stays visible inside any tenant request (the only global
-    # role). CASCADE so a deleted tenant drops its per-tenant grants; NULL
-    # super-admin rows are untouched.
+    # NULL only for SUPER_ADMIN, the one global role.
     tenant = fields.ForeignKeyField(
         'models.Tenant', related_name='user_roles', null=True, on_delete=fields.CASCADE
     )
     role = fields.CharEnumField(Role, max_length=32)
-    # The event a per-event role (``Role.is_per_event``) is held in; NULL for a
-    # community-wide role. CASCADE, so a grant goes with its event, and that
-    # makes the row archive-guarded: an archived event's grants can't change.
     event = fields.ForeignKeyField(  # type: ignore[var-annotated]
         'models.Event', related_name='user_roles', null=True, on_delete=fields.CASCADE,
     )
-    # SET_NULL: deleting the granter must not revoke roles they granted to others.
     granted_by = fields.ForeignKeyField(
         'models.User', related_name='granted_roles', null=True, on_delete=fields.SET_NULL
     )
@@ -242,12 +167,10 @@ class UserRole(Model):
     created_at = fields.DatetimeField(auto_now_add=True)
 
     class Meta:
-        # Postgres treats NULLs as distinct, so this only holds per-event rows;
-        # migration 141's partial index ``uid_userrole_community`` holds the
-        # community-wide ones (event_id IS NULL) to one per user and role.
+        # NULLs are distinct, so this only holds per-event rows; migration 141's partial index holds the rest.
         unique_together = ('user', 'role', 'tenant', 'event')
         table = 'userrole'
-        indexes = (('role',),)  # composite is user-first; role-only enumeration uncovered
+        indexes = (('role',),)
 
 
 class DiscordRoleMapping(Model):
@@ -262,22 +185,15 @@ class DiscordRoleMapping(Model):
 
     id = fields.IntField(pk=True)
     tenant = fields.ForeignKeyField('models.Tenant', related_name='discord_role_mappings', on_delete=fields.CASCADE)
-    # The Discord guild these mappings apply to. A guild may be shared by several
-    # tenants, so ``guild_id`` alone does not isolate a tenant — reads combine it
-    # with the tenant scope, and the unique key is (tenant, discord_role_id, app_role).
+    # A guild can be shared by several tenants: always combine guild_id with the tenant scope.
     guild_id = fields.BigIntField()
     discord_role_id = fields.BigIntField()
     discord_role_name = fields.CharField(max_length=100)
     app_role = fields.CharEnumField(Role, max_length=32, null=True)
-    # The event a per-event ``app_role`` is granted in, named when the mapping
-    # is made (the default event, unless staff pick another). Fixed after that:
-    # moving the default never re-points a mapping. NULL for a community-wide
-    # role and for tournament grants, whose tournament names the event.
     event = fields.ForeignKeyField(  # type: ignore[var-annotated]
         'models.Event', related_name='discord_role_mappings', null=True, on_delete=fields.CASCADE,
     )
     tournament_grant = fields.CharEnumField(TournamentGrant, max_length=32, null=True)
-    # CASCADE: a mapping onto a deleted tournament grants nothing, so it goes with it.
     tournament = fields.ForeignKeyField(  # type: ignore[var-annotated]
         'models.Tournament', related_name='discord_role_mappings',
         null=True, on_delete=fields.CASCADE,
@@ -286,9 +202,7 @@ class DiscordRoleMapping(Model):
     updated_at = fields.DatetimeField(auto_now=True)
 
     class Meta:
-        # Two keys, one per shape. Postgres treats NULLs as distinct, so each
-        # constraint only bites on the rows whose columns are all populated —
-        # the role key ignores tournament rows and vice versa.
+        # NULLs are distinct, so each key only bites on rows with all its columns set.
         unique_together = (
             ('tenant', 'discord_role_id', 'app_role', 'event'),
             ('tenant', 'discord_role_id', 'tournament_grant', 'tournament'),
@@ -340,7 +254,6 @@ class WebPushSubscription(Model):
     endpoint = fields.CharField(max_length=1024, unique=True)
     p256dh = fields.CharField(max_length=128)
     auth = fields.CharField(max_length=64)
-    # Captured at subscribe time so the settings UI can label the device.
     user_agent = fields.CharField(max_length=255, null=True)
     created_at = fields.DatetimeField(auto_now_add=True)
     last_used_at = fields.DatetimeField(null=True)

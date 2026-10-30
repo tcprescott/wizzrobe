@@ -49,7 +49,6 @@ class RacetimeBotManager:
         self.room_service = RacetimeRoomService()
         self.audit_service = AuditService()
         self._system_user: Optional[User] = None
-        # bot_id -> (connection, task)
         self._connections: Dict[int, Tuple[CategoryConnection, asyncio.Task]] = {}
 
     async def start(self) -> None:
@@ -86,8 +85,6 @@ class RacetimeBotManager:
 
     def _spawn(self, bot_id: int, category: str, client_id: str, client_secret: str) -> None:
         assert self._system_user is not None
-        # The room-lifecycle service drives seed attach + result capture; the
-        # status-only RoomStatusLifecycle in handler.py is the runtime-half fallback.
         from application.services.race_room_service import RaceRoomLifecycle
 
         lifecycle = RaceRoomLifecycle()

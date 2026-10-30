@@ -16,8 +16,6 @@ class Feedback(Model):
 
     id = fields.IntField(pk=True)
     tenant = fields.ForeignKeyField('models.Tenant', related_name='feedback', on_delete=fields.CASCADE)
-    # Which event this happened during, for filtering. The row belongs to the
-    # community, so it outlives the event (SET NULL) and may carry none.
     event: fields.ForeignKeyNullableRelation = fields.ForeignKeyField(
         'models.Event', related_name='feedback', on_delete=fields.SET_NULL, null=True,
     )

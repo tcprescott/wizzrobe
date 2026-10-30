@@ -43,9 +43,6 @@ router = APIRouter(prefix="/seeds", tags=["Seeds"], route_class=ServiceErrorRout
     ),
 )
 async def list_randomizers(actor: User = Depends(require_api_actor)):
-    # Drop randomizers whose upstream needs a key this community has not supplied,
-    # mirroring the web selector surfaces (a stored preset stays valid, but the
-    # catalogue advertises only what this community may actually roll).
     configured = await RandomizerCredentialService().configured_randomizers()
     return [
         RandomizerResponse(
@@ -86,9 +83,6 @@ async def generate_seed(
     and there is no url to hand back yet — poll `GET /seeds/tasks/{id}`.
     """
     await AuthService.ensure_can_roll_free_seed(actor)
-    # A keyed randomizer this community has not configured raises inside the
-    # generator; ServiceErrorRoute turns that ValueError into a 400 naming the
-    # missing credential.
     preset = None
     if body.preset_id is not None:
         preset = require_found(
@@ -127,10 +121,6 @@ async def get_seed_task(task_id: int, actor: User = Depends(require_api_actor)):
 
 
 def _task_response(task: ProviderTask) -> SeedTaskResponse:
-    # The permalink lives on the GeneratedSeeds row the completion wrote, not on
-    # the task, so a finished task is resolved through its match. A task rolled
-    # without a match (a bare API roll) has nowhere to put one, and reports
-    # succeeded with no url.
     seed = getattr(getattr(task, 'match', None), 'generated_seed', None)
     return SeedTaskResponse(
         task_id=task.id,

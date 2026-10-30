@@ -39,10 +39,8 @@ AUTHORIZE_URL = 'https://api.challonge.com/oauth/authorize'
 TOKEN_URL = 'https://api.challonge.com/oauth/token'
 BASE_URL = 'https://api.challonge.com/v2.1'
 _PAGE_SIZE = 100
-# Challonge tacks this onto an invited entrant's name until they accept.
 _INVITE_PENDING = re.compile(r'\s*\(invitation pending\)\s*$', re.IGNORECASE)
-# aiohttp's default is five minutes, long enough to freeze a staff click or the
-# DM queue a result push rides on while Challonge is down.
+# Not aiohttp's 5-minute default: a hung Challonge would freeze a staff click or the DM queue.
 _TIMEOUT = aiohttp.ClientTimeout(total=20)
 
 TokenProvider = Callable[..., Awaitable[str]]
@@ -70,8 +68,7 @@ def _retry_after_seconds(value: Optional[str]) -> Optional[float]:
 
 @asynccontextmanager
 async def _session() -> AsyncIterator[aiohttp.ClientSession]:
-    # Callers only catch ChallongeAPIError, so a hung or unreachable Challonge
-    # must surface as one rather than escape as a raw aiohttp/timeout error.
+    # Callers only catch ChallongeAPIError, so timeouts and connection errors must be wrapped.
     try:
         async with aiohttp.ClientSession(timeout=_TIMEOUT) as session:
             yield session
@@ -150,15 +147,12 @@ def _normalize_participant(resource: Dict[str, Any]) -> Dict[str, Any]:
         ),
         'username': _attr(resource, 'challonge_username', 'username'),
         'misc': _opt_str(_attr(resource, 'misc')),
-        # Challonge keeps an entrant dropped after the start as inactive.
         'active': _attr(resource, 'active') is not False,
     }
 
 
 def _normalize_match(resource: Dict[str, Any]) -> Dict[str, Any]:
-    # Final-stage matches of a two-stage tournament carry no player1/player2
-    # relationships; their players appear only in ``points_by_participant``
-    # (player 1 first). Group-stage and single-stage matches carry both.
+    # Final-stage matches of a two-stage tournament have no player1/player2; only points_by_participant (player 1 first).
     points = _attr(resource, 'points_by_participant') or []
     by_points = [_opt_str(p.get('participant_id')) for p in points if isinstance(p, dict)]
     by_points += [None, None]
@@ -177,8 +171,7 @@ def _normalize_match(resource: Dict[str, Any]) -> Dict[str, Any]:
         ),
         'identifier': _opt_str(_attr(resource, 'identifier')),
         'scores': _scores_by_participant(points),
-        # Which match feeds each empty slot. Undocumented in v2.1, so the v1
-        # names and a relationship are all tried; absent, the slot reads "TBD".
+        # Undocumented in v2.1: try the v1 names and the relationship; absent, the slot reads TBD.
         **{
             f'player{n}_prereq_match_id': _opt_str(
                 _attr(resource, f'player{n}_prereq_match_id') or _rel_id(resource, f'player{n}_prereq_match')
@@ -210,9 +203,7 @@ def _opt_str(value: Any) -> Optional[str]:
 
 
 def _tournament_path(tournament_id: str, community: Optional[str] = None) -> str:
-    # A tournament hosted on an organization subdomain (``org.challonge.com/x``)
-    # only resolves under its community scope; v2.1 rejects the v1-style
-    # ``org-x`` identifier.
+    # v2.1 rejects the v1 'org-x' id: subdomain tournaments resolve only under the community scope.
     path = f'/tournaments/{quote(str(tournament_id), safe="")}'
     if community:
         path = f'/communities/{quote(community, safe="")}{path}'
@@ -324,8 +315,7 @@ class ChallongeClient:
         )
         resource = data.get('data') or {}
         if not resource.get('id'):
-            # A sync prunes whatever this answer leaves out, so an empty or
-            # truncated 200 must never read as "the bracket is now empty".
+            # A sync prunes what this leaves out, so an empty or truncated 200 must never read as an empty bracket.
             raise ChallongeAPIError('Challonge returned no tournament in its answer')
         tournament = _normalize_tournament(resource)
         participants: List[Dict[str, Any]] = []
@@ -336,9 +326,7 @@ class ChallongeClient:
                 participants.append(_normalize_participant(included))
             elif kind in ('match', 'matches'):
                 matches.append(_normalize_match(included))
-        # The embedded participants carry an empty ``user`` relationship; only the
-        # participants endpoint fills it in. An entrant with a Challonge account
-        # (it has a username) needs that id to map to its linked Wizzrobe user.
+        # Embedded participants have an empty user relationship; only the participants endpoint fills it.
         if any(p['username'] and not p['challonge_user_id'] for p in participants):
             user_ids = {
                 p['participant_id']: p['challonge_user_id']
@@ -474,7 +462,6 @@ class ChallongeClient:
                 method, BASE_URL + path, headers=self._headers(token), json=json,
             ) as resp:
                 if resp.status == 401:
-                    # Token may have expired between refresh checks — force one refresh + retry.
                     token = await token_provider(force_refresh=True)
                     await self._count_request()
                     async with session.request(
@@ -500,8 +487,6 @@ class ChallongeClient:
             raise ChallongeAPIError(f"Challonge API returned non-JSON: {text[:200]}") from e
 
 
-# Mock client (MOCK_CHALLONGE) — a tiny canned 4-player single-elim bracket
-# so local dev can click through connect/link/sync/schedule without a real app.
 _MOCK_PARTICIPANTS = [
     {'participant_id': '9001', 'name': 'MockPlayerOne', 'challonge_user_id': '1001', 'username': 'mockone'},
     {'participant_id': '9002', 'name': 'MockPlayerTwo', 'challonge_user_id': '1002', 'username': 'mocktwo'},
@@ -534,9 +519,6 @@ class MockChallongeClient(ChallongeClient):
         return await self.exchange_code('mock', 'mock')
 
     async def get_me(self, access_token: str) -> Dict[str, Any]:
-        # Deterministic per-call identity so each linking dev user maps to a
-        # distinct mock participant by their numeric position is not possible;
-        # use an env hint to choose which mock identity to bind.
         idx = int(os.environ.get('MOCK_CHALLONGE_IDENTITY', '1'))
         p = _MOCK_PARTICIPANTS[(idx - 1) % len(_MOCK_PARTICIPANTS)]
         return {'user_id': p['challonge_user_id'], 'username': p['username']}

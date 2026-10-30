@@ -76,9 +76,6 @@ class BracketRepository(TenantScopedRepository[Bracket]):
         return await self.update(entrant, **fields)
 
     async def list_entrants(self, tournament_id: int) -> List[BracketEntrant]:
-        # ``user`` is prefetched for the linked account's Discord avatar, which
-        # every bracket surface paints beside the name — one extra query for the
-        # whole field beats one per entrant at render time.
         return await scoped(
             BracketEntrant.filter(tournament_id=tournament_id)
         ).prefetch_related('user').order_by('display_name')
@@ -143,11 +140,6 @@ class BracketRepository(TenantScopedRepository[Bracket]):
         return await self.update(match, **fields)
 
     async def list_matches(self, bracket_id: int) -> List[BracketMatch]:
-        # ``games__match`` is prefetched so a whole round can render its series
-        # state — including each game's scheduled time — without an N+1 across
-        # the bracket view. ``__stage`` rides along for the live "Watch"
-        # link (U2): a fixed number of queries for the whole field, whatever its
-        # size, which is the rule the bracket view is held to.
         return await scoped(
             BracketMatch.filter(bracket_id=bracket_id)
         ).prefetch_related(
@@ -182,8 +174,6 @@ class BracketRepository(TenantScopedRepository[Bracket]):
 
     async def list_open_matches(self, bracket_id: int) -> List[BracketMatch]:
         from models import BracketMatchState
-        # ``games__match`` (not just ``games``) so callers can derive each
-        # matchup's live status without an N+1 — one more batched query.
         return await scoped(
             BracketMatch.filter(bracket_id=bracket_id, state=BracketMatchState.OPEN)
         ).prefetch_related('games__match').order_by('round', 'position')

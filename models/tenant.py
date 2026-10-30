@@ -20,20 +20,10 @@ class Tenant(Model):
 
     id = fields.IntField(pk=True)
     name = fields.CharField(max_length=255)
-    # URL-safe path routing key: ``https://<platform>/t/<slug>/…``. Mutable
-    # unique column — every join is by ``tenant.id``, so re-slugging is a
-    # one-row UPDATE.
     slug = fields.CharField(max_length=64, unique=True, index=True)
-    # Optional custom domain for host-based addressing. Nullable + unique (many
-    # NULLs allowed in Postgres); host-mode resolution is deferred, the column
-    # exists so attaching a domain later needs no schema change.
     domain = fields.CharField(max_length=255, null=True, unique=True, index=True)
-    # Discord guild this tenant owns; the shared bot routes gateway events and
-    # role sync by matching this. Nullable until a guild is linked.
     discord_guild_id = fields.BigIntField(null=True, index=True)
     is_active = fields.BooleanField(default=True)
-    # Assigned feature-flag group (live tier). NULL → falls back to the default
-    # group. SET NULL on group delete so removing a group never orphans a tenant.
     feature_group = fields.ForeignKeyField(
         'models.FeatureFlagGroup', related_name='tenants',
         on_delete=fields.SET_NULL, null=True,
@@ -58,16 +48,13 @@ class TenantMembership(Model):
     user = fields.ForeignKeyField('models.User', related_name='tenant_memberships', on_delete=fields.CASCADE)
     user_id: int
     tenant_id: int
-    # How they got in, so staff can tell a Discord auto-join from a hand-added
-    # member; ``created_at`` is when. Null on rows from before it was recorded.
     source = fields.CharEnumField(MembershipSource, max_length=32, null=True)
     created_at = fields.DatetimeField(auto_now_add=True)
 
     class Meta:
         table = 'tenantmembership'
         unique_together = (('user', 'tenant'),)
-        indexes = (('tenant',),)  # composite is user-first; per-tenant member enumeration uncovered
-
+        indexes = (('tenant',),)
 
 
 class TenantMemberBlock(Model):
@@ -133,8 +120,6 @@ class TenantJoinRequest(Model):
     user_id: int
     status = fields.CharEnumField(JoinRequestStatus, default=JoinRequestStatus.PENDING, max_length=20)
     message = fields.CharField(max_length=500, null=True)
-    # SET_NULL, like Tenant.feature_group: deleting a staff account must not
-    # delete the record of the decision they made.
     decided_by = fields.ForeignKeyField(
         'models.User', related_name='join_requests_decided', null=True, on_delete=fields.SET_NULL
     )
@@ -144,10 +129,8 @@ class TenantJoinRequest(Model):
 
     class Meta:
         table = 'tenantjoinrequest'
-        # One row per person per community: a denied request is re-opened, not
-        # appended to.
         unique_together = (('user', 'tenant'),)
-        indexes = (('tenant', 'status'),)  # the staff queue's query
+        indexes = (('tenant', 'status'),)
 
 
 class ProfileNudgeDismissal(Model):
@@ -168,8 +151,7 @@ class ProfileNudgeDismissal(Model):
     user: fields.ForeignKeyRelation = fields.ForeignKeyField(
         'models.User', related_name='profile_nudge_dismissals', on_delete=fields.CASCADE)
     user_id: int
-    # A ``ProfileCheck`` value (application/services/profile_nudge_service.py).
-    # A plain string so retiring a check never strands rows behind an enum.
+    # A plain string, not an enum, so retiring a ProfileCheck never strands rows.
     check = fields.CharField(max_length=32)
     created_at = fields.DatetimeField(auto_now_add=True)
 
@@ -189,16 +171,13 @@ class WatchLayoutVote(Model):
     tenant: fields.ForeignKeyRelation = fields.ForeignKeyField(
         'models.Tenant', related_name='watch_layout_votes', on_delete=fields.CASCADE)
     tenant_id: int
-    # Nullable until every write stamps it; the events migration backfilled the
-    # rows that existed before (see docs/features/events.md).
+    # Keep nullable: not every write path stamps it yet.
     event: fields.ForeignKeyRelation = fields.ForeignKeyField(
         'models.Event', related_name='watch_layout_votes', on_delete=fields.CASCADE,
     )
     event_id: int
     session_id = fields.CharField(max_length=64)
-    # 'one_page', 'tabs' or 'rail'.
     layout = fields.CharField(max_length=16)
-    # 'up', 'down', or null for seen but not rated.
     vote = fields.CharField(max_length=8, null=True)
     updated_at = fields.DatetimeField(auto_now=True)
 

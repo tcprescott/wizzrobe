@@ -27,8 +27,6 @@ from mcpserver.registry import register
 from mcpserver.schemas import EquipmentDetail, EquipmentSummary, LoanRecord, TenantArg
 from models import EquipmentStatus, FeatureFlag
 
-# A busy controller collects hundreds of loans over an event, and every equipment
-# write tool hands back this detail; REST caps its history at 200 for the same reason.
 MAX_LOANS = 25
 
 

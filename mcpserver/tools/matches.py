@@ -35,8 +35,6 @@ from mcpserver.schemas import (
     UnbookedMatchups,
 )
 
-# One page of matches. The cap is not politeness: an unbounded list is how a
-# tool call silently becomes 200k tokens and the model loses the thread.
 MAX_MATCHES = 200
 
 

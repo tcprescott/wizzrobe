@@ -34,7 +34,6 @@ class MatchHardPresetRepository:
         rows = await scoped(
             MatchHardPresetOptIn.filter(match_id=match_id)
         ).values_list('user_id', flat=True)
-        # flat=True yields scalars; the stub types values_list as tuples.
         return set(rows)  # type: ignore[arg-type]
 
     @staticmethod

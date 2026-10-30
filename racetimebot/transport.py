@@ -68,8 +68,6 @@ class RaceEntrant:
     status: EntrantStatus = EntrantStatus.IN_PROGRESS
     finish_time: Optional[int] = None
     place: Optional[int] = None
-    # The same finish to the millisecond, when racetime gave one: whole seconds
-    # can't tell a 0.8 second finish from a dead heat.
     finish_ms: Optional[int] = None
 
 
@@ -98,9 +96,6 @@ class RaceRoomEvent:
     status: RaceRoomStatus
     entrants: List[RaceEntrant] = field(default_factory=list)
     raw: dict = field(default_factory=dict)
-    # ``race`` is a status change, ``joined`` the bot entering the room (once per
-    # connection), ``chat`` a message (in ``chat``). The room's monitors and its
-    # start ride along on every kind, so a command can be judged on its own.
     kind: str = 'race'
     chat: Optional[RoomChat] = None
     monitor_ids: List[str] = field(default_factory=list)
@@ -134,7 +129,6 @@ class RacetimeTransport:
         return False
 
 
-# The rooms a connection should sit in: ``(slug, status we last recorded)``.
 RoomSource = Callable[[], Awaitable[List[Tuple[str, RaceRoomStatus]]]]
 
 
@@ -188,9 +182,6 @@ class RealRacetimeTransport(RacetimeTransport):
     HEARTBEAT_SECONDS = 30
     ROOM_POLL_SECONDS = 15
     ROOM_RETRY_SECONDS = 60
-    # Fall back to racetime's own default lifetime when the grant omits
-    # ``expires_in``, and always refresh with this much margin to spare so a
-    # request in flight never rides an expiring token.
     DEFAULT_TOKEN_LIFETIME_SECONDS = 36000
     REFRESH_MARGIN_SECONDS = 600
 
@@ -203,11 +194,9 @@ class RealRacetimeTransport(RacetimeTransport):
         self.category = category
         self.room_source = room_source
         self._access_token: Optional[str] = None
-        # Monotonic deadline at which the token must have been replaced.
         self._token_expires_at: Optional[float] = None
         self._stop = False
         self._session: Any = None
-        # slug -> the task sitting in that room / its open socket / when it last failed.
         self._room_tasks: Dict[str, asyncio.Task] = {}
         self._sockets: Dict[str, Any] = {}
         self._retry_after: Dict[str, float] = {}
@@ -235,7 +224,7 @@ class RealRacetimeTransport(RacetimeTransport):
                             f'({resp.status})'
                         )
                     payload = await resp.json()
-        except aiohttp.ClientError as exc:  # network-level: retryable
+        except aiohttp.ClientError as exc:
             raise RacetimeTransientError(str(exc)) from exc
         token = payload.get('access_token')
         if not token:
@@ -265,10 +254,7 @@ class RealRacetimeTransport(RacetimeTransport):
                     await on_heartbeat()
                     last_heartbeat = time.monotonic()
                 if self._token_is_stale():
-                    # An auth error here is a real credential problem (revoked, or
-                    # rotated behind our back) and propagates so the loop stops
-                    # retrying; anything else is transient and earns a reconnect,
-                    # which re-authenticates from scratch.
+                    # An auth error must propagate to stop the retries; anything else is transient and reconnects.
                     await self.authenticate()
                 await self.sync_rooms(on_event)
                 await asyncio.sleep(self.ROOM_POLL_SECONDS)

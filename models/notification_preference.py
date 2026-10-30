@@ -21,7 +21,6 @@ class NotificationPreference(Model):
         'models.User', related_name='notification_preferences', on_delete=fields.CASCADE)
     user_id: int
     preset = fields.CharEnumField(NotificationPreset, max_length=16, default=NotificationPreset.EVERYTHING)
-    # mypy cannot infer a JSONField's type parameter.
     overrides = fields.JSONField(default=dict)  # type: ignore[var-annotated]
     updated_at = fields.DatetimeField(auto_now=True)
 

@@ -10,8 +10,7 @@ class VolunteerPosition(Model):
 
     id = fields.IntField(pk=True)
     tenant = fields.ForeignKeyField('models.Tenant', related_name='volunteer_positions', on_delete=fields.CASCADE)
-    # Nullable until every write stamps it; the events migration backfilled the
-    # rows that existed before (see docs/features/events.md).
+    # Keep nullable: not every write path stamps it yet.
     event: fields.ForeignKeyRelation = fields.ForeignKeyField(
         'models.Event', related_name='volunteer_positions', on_delete=fields.CASCADE,
     )
@@ -21,14 +20,8 @@ class VolunteerPosition(Model):
     color = fields.CharField(max_length=32, null=True)
     display_order = fields.IntField(default=0)
     is_active = fields.BooleanField(default=True)
-    # When both are set, the shift generator produces staggered rolling shifts
-    # for this position instead of fixed shared blocks (overlapping windows
-    # offset by ``stagger_minutes`` so handoffs happen one at a time).
     shift_length_minutes = fields.IntField(null=True)
     stagger_minutes = fields.IntField(null=True)
-    # Whoever is on one of this position's shifts is the admin on duty: match
-    # alerts (player comments, reschedule requests) go to them and the
-    # tournament's admins rather than to every staff member.
     staff_alerts = fields.BooleanField(default=False)
     created_at = fields.DatetimeField(auto_now_add=True)
     updated_at = fields.DatetimeField(auto_now=True)
@@ -50,8 +43,7 @@ class VolunteerShift(Model):
 
     id = fields.IntField(pk=True)
     tenant = fields.ForeignKeyField('models.Tenant', related_name='volunteer_shifts', on_delete=fields.CASCADE)
-    # Nullable until every write stamps it; the events migration backfilled the
-    # rows that existed before (see docs/features/events.md).
+    # Keep nullable: not every write path stamps it yet.
     event: fields.ForeignKeyRelation = fields.ForeignKeyField(
         'models.Event', related_name='volunteer_shifts', on_delete=fields.CASCADE,
     )
@@ -69,7 +61,7 @@ class VolunteerShift(Model):
 
     class Meta:
         table = 'volunteershift'
-        indexes = (('position',),)  # starts_at is field-indexed; per-position lookups need position_id
+        indexes = (('position',),)
 
 
 class VolunteerAssignment(Model):
@@ -85,13 +77,8 @@ class VolunteerAssignment(Model):
     reminder_sent_at = fields.DatetimeField(null=True)
     checked_in_at = fields.DatetimeField(null=True)
     checked_in_by = fields.ForeignKeyField('models.User', related_name='volunteer_check_ins', null=True, on_delete=fields.SET_NULL)
-    # Stamped when the shift-start DM ("I'm here" / running late / can't make
-    # it) is queued, so each assignment gets it once.
     start_dm_sent_at = fields.DatetimeField(null=True)
-    # Self-reported from that DM; cleared on check-in.
     late_minutes = fields.IntField(null=True)
-    # Staff said this volunteer isn't needed after all. The shift still counts
-    # as worked (hours, comps, attendance), so check-in is skipped for it.
     called_off_at = fields.DatetimeField(null=True)
     called_off_by = fields.ForeignKeyField('models.User', related_name='volunteer_call_offs', null=True, on_delete=fields.SET_NULL)
     called_off_note = fields.TextField(null=True)
@@ -106,7 +93,7 @@ class VolunteerAssignment(Model):
     class Meta:
         table = 'volunteerassignment'
         unique_together = (('shift', 'user'),)
-        indexes = (('user',),)  # composite is shift-first; user-only "my shifts" lookup uncovered
+        indexes = (('user',),)
 
 
 class VolunteerQualification(Model):
@@ -122,7 +109,7 @@ class VolunteerQualification(Model):
     class Meta:
         table = 'volunteerqualification'
         unique_together = (('user', 'position'),)
-        indexes = (('position',),)  # composite is user-first; position-only lookup uncovered
+        indexes = (('position',),)
 
 
 class VolunteerRoleMapping(Model):
@@ -139,13 +126,11 @@ class VolunteerRoleMapping(Model):
     tenant = fields.ForeignKeyField(  # type: ignore[var-annotated]
         'models.Tenant', related_name='volunteer_role_mappings', on_delete=fields.CASCADE,
     )
-    # Nullable until every write stamps it; the events migration backfilled the
-    # rows that existed before (see docs/features/events.md).
+    # Keep nullable: not every write path stamps it yet.
     event: fields.ForeignKeyRelation = fields.ForeignKeyField(
         'models.Event', related_name='volunteer_role_mappings', on_delete=fields.CASCADE,
     )
     event_id: int
-    # CASCADE: a deleted position confers nothing, so its mappings go with it.
     position = fields.ForeignKeyField(  # type: ignore[var-annotated]
         'models.VolunteerPosition', related_name='role_mappings', on_delete=fields.CASCADE,
     )
@@ -163,8 +148,7 @@ class VolunteerAvailability(Model):
 
     id = fields.IntField(pk=True)
     tenant = fields.ForeignKeyField('models.Tenant', related_name='volunteer_availability', on_delete=fields.CASCADE)
-    # Nullable until every write stamps it; the events migration backfilled the
-    # rows that existed before (see docs/features/events.md).
+    # Keep nullable: not every write path stamps it yet.
     event: fields.ForeignKeyRelation = fields.ForeignKeyField(
         'models.Event', related_name='volunteer_availability', on_delete=fields.CASCADE,
     )
@@ -179,7 +163,7 @@ class VolunteerAvailability(Model):
 
     class Meta:
         table = 'volunteeravailability'
-        indexes = (('user',),)  # starts_at is field-indexed; per-user reads need user_id
+        indexes = (('user',),)
 
 
 class PlayerAvailability(Model):
@@ -192,8 +176,7 @@ class PlayerAvailability(Model):
 
     id = fields.IntField(pk=True)
     tenant = fields.ForeignKeyField('models.Tenant', related_name='player_availability', on_delete=fields.CASCADE)
-    # Nullable until every write stamps it; the events migration backfilled the
-    # rows that existed before (see docs/features/events.md).
+    # Keep nullable: not every write path stamps it yet.
     event: fields.ForeignKeyRelation = fields.ForeignKeyField(
         'models.Event', related_name='player_availability', on_delete=fields.CASCADE,
     )
@@ -208,4 +191,4 @@ class PlayerAvailability(Model):
 
     class Meta:
         table = 'playeravailability'
-        indexes = (('user',),)  # starts_at is field-indexed; per-user reads need user_id
+        indexes = (('user',),)

@@ -67,9 +67,6 @@ async def handle_crew_signup_interaction(interaction: discord.Interaction) -> No
     async def handle(_interaction, parsed, user, send: SendFn) -> None:
         role, match_id = parsed
         match_service = MatchService()
-        # The "match finished -> signup closed" rule lives in
-        # CrewService.signup_crew (raised as ValueError, handled by the wrapper)
-        # so the web UI and REST API enforce it too.
         await CrewService().signup_crew(match_id, user, role)
         player_names = await match_service.get_player_names(match_id)
         await send(crew_signup_confirmation(role, player_names))

@@ -36,11 +36,6 @@ class FeatureFlagSpec:
     description: str
     category: str
     established: bool = False
-    #: Modules that must enforce the flag at the service layer, repo-relative
-    #: (e.g. ``'application/services/bracket_service.py'``) or a package prefix
-    #: (``'application/services/volunteer/'``) when the subsystem spans files.
-    #: The ``check_feature_flag_gating`` hook asserts each one actually guards the
-    #: flag, so a new gated subsystem cannot ship with UI-only hiding.
     service_modules: Tuple[str, ...] = field(default_factory=tuple)
 
 
@@ -70,8 +65,7 @@ def requires_feature(flag: FeatureFlag) -> Callable:
     def decorator(func: Callable) -> Callable:
         @functools.wraps(func)
         async def wrapper(*args, **kwargs):
-            # Imported lazily: this module is pure metadata that repositories and
-            # pages import freely, while FeatureFlagService pulls in services.
+            # Lazy import: repositories and pages import this module freely, and the service pulls in services.
             from application.services.feature_flag_service import FeatureFlagService
 
             await FeatureFlagService().ensure_enabled(flag)
@@ -100,10 +94,7 @@ FEATURE_FLAG_REGISTRY: Dict[FeatureFlag, FeatureFlagSpec] = {
             'Automated racetime.gg race rooms driven from scheduled matches '
             '(open, attach seed, finish, record results).',
             'Online tournaments',
-            # The auto-open worker deliberately has no check of its own: every
-            # room it opens goes through RaceRoomService.auto_open_if_eligible,
-            # which enforces the flag. Declaring the worker too would only invite
-            # a redundant second read.
+            # The auto-open worker deliberately has no check: auto_open_if_eligible enforces the flag.
             service_modules=('application/services/race_room_service.py',),
         ),
         FeatureFlagSpec(
@@ -171,9 +162,6 @@ FEATURE_FLAG_REGISTRY: Dict[FeatureFlag, FeatureFlagSpec] = {
             'A feedback form in the sidebar, a staff review queue, and each '
             "person's own list of what they sent and whether it has been read.",
             'Community',
-            # Already in live use, so it backfills available+enabled rather than
-            # disappearing for communities currently collecting feedback
-            # (migration 51).
             established=True,
             service_modules=('application/services/feedback_service.py',),
         ),

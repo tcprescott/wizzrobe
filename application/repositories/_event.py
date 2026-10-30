@@ -28,9 +28,6 @@ def current_event_id() -> int:
     return require_event_id()
 
 
-#: Event-owned models whose rows take their parent's event rather than the
-#: ambient one, with the foreign key that names the parent. A match belongs to
-#: its tournament's event even when staff create it from another event's page.
 EVENT_PARENTS: dict[str, str] = {
     'Match': 'tournament',
     'VolunteerShift': 'position',

@@ -17,21 +17,19 @@ from typing import Optional, Sequence
 
 import discord
 
-# Colour by category / match state (0xRRGGBB). Warm-tuned toward the app's
-# phoenix/status palette where it doesn't fight Discord's own semantics.
-COLOR_SCHEDULED = 0x5865F2    # blurple — informational / new
-COLOR_RESCHEDULED = 0xB45309  # burnt amber — needs attention
-COLOR_CHECKED_IN = 0xB45309   # amber — imminent
-COLOR_STARTED = 0x557A1F      # olive green — live
-COLOR_FINISHED = 0x6B6258     # warm gray — done
-COLOR_CONFIRMED = 0x0E7470    # teal — settled
-COLOR_STREAM = 0xE0A82E       # gold — highlight
-COLOR_CREW = 0x5865F2         # blurple
-COLOR_SEED = 0x8250DF         # purple
-COLOR_VOLUNTEER = 0x0E7470    # teal
-COLOR_JOIN_REQUEST = 0x5865F2  # blurple — informational, like a new assignment
-COLOR_CANCELLED = 0x9B2C2C    # deep red — called off, nothing to attend
-COLOR_STAGE = 0xBE185D        # rose — go somewhere else, and soon
+COLOR_SCHEDULED = 0x5865F2
+COLOR_RESCHEDULED = 0xB45309
+COLOR_CHECKED_IN = 0xB45309
+COLOR_STARTED = 0x557A1F
+COLOR_FINISHED = 0x6B6258
+COLOR_CONFIRMED = 0x0E7470
+COLOR_STREAM = 0xE0A82E
+COLOR_CREW = 0x5865F2
+COLOR_SEED = 0x8250DF
+COLOR_VOLUNTEER = 0x0E7470
+COLOR_JOIN_REQUEST = 0x5865F2
+COLOR_CANCELLED = 0x9B2C2C
+COLOR_STAGE = 0xBE185D
 
 _STATE_COLORS = {
     'Started': COLOR_STARTED,
@@ -39,7 +37,6 @@ _STATE_COLORS = {
     'Confirmed': COLOR_CONFIRMED,
 }
 
-# A field tuple is (name, value, inline). Empty values are dropped.
 Field = tuple
 
 

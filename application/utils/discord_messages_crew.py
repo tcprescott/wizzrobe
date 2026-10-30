@@ -34,9 +34,6 @@ def _crew_match_lines(
     """
     players = players_label(player_names)
     details: list[str] = []
-    # Only show the title when it adds information beyond the roster line — some
-    # schedule feeds set the match title to the matchup itself, which would
-    # otherwise print the same value twice ("Match: A vs B" / "Players: A vs B").
     if match_title and match_title != players:
         details.append(f"**Match:** {match_title}")
     if players:

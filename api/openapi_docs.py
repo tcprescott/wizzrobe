@@ -123,7 +123,6 @@ check the signature, is under **Webhooks** at the bottom of this page.
 """
 
 
-
 def api_description() -> str:
     return _API_DESCRIPTION.replace('{rate_limit}', str(limit_per_minute()))
 
@@ -191,9 +190,6 @@ TAG_GROUPS: List[tuple[str, List[tuple[str, str]]]] = [
     ]),
 ]
 
-# Router tags written before there was a naming rule; renamed in the document
-# rather than in the routers so the five per-area documentation PRs don't all
-# touch the same ``APIRouter(...)`` lines.
 TAG_RENAMES: Dict[str, str] = {
     'health': 'Health',
     'Triforce Texts': 'Triforce texts',
@@ -358,7 +354,7 @@ def _webhook_paths() -> Dict[str, Any]:
     for name in sorted(EventType.ALL):
         family = name.split('.', 1)[0]
         if family == 'service_health':
-            continue  # platform-level, no community, so never delivered to a webhook
+            continue
         families.setdefault(family, []).append(name)
     paths: Dict[str, Any] = {}
     for family, names in families.items():

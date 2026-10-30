@@ -100,7 +100,6 @@ class StartggRepository:
     async def clear_connection() -> int:
         return await scoped(StartggConnection.all()).delete()
 
-    # Identity lookups (global: users are not tenant-scoped)
     @staticmethod
     async def users_by_startgg_ids(ids: Iterable[Optional[str]]) -> Dict[str, User]:
         wanted = list({i for i in ids if i})

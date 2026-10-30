@@ -35,8 +35,6 @@ class Event(Model):
     archived_by: fields.ForeignKeyNullableRelation = fields.ForeignKeyField(
         'models.User', related_name='archived_events', on_delete=fields.SET_NULL, null=True,
     )
-    # Set when the nightly job deletes the event's emergency contacts and
-    # accommodation requests, 30 days after it was archived.
     pii_purged_at = fields.DatetimeField(null=True)
     created_at = fields.DatetimeField(auto_now_add=True)
     updated_at = fields.DatetimeField(auto_now=True)

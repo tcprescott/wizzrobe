@@ -47,32 +47,20 @@ from application.utils.timer_teardown import is_timer_teardown_race
 
 logger = logging.getLogger(__name__)
 
-# Request headers that must never leave the process in an error report.
 _SENSITIVE_HEADERS = {'authorization', 'cookie', 'set-cookie', 'x-api-key'}
 
-#: Production's default share of requests traced when SENTRY_TRACES_SAMPLE_RATE
-#: is unset: enough to see slow pages and slow DB/HTTP calls at event load.
 _PRODUCTION_TRACES_SAMPLE_RATE = 0.1
 
-#: One line per HTTP request or outbound call: useful in the container log,
-#: pure quota burn in Sentry Logs.
 _NOISY_FOR_SENTRY_LOGS = ('uvicorn.access', 'httpx', 'httpcore')
 
-#: uvicorn's wording both for its "Cancel N running task(s)" error and for the
-#: ``CancelledError`` it throws into each request still open at the deadline.
+# Must match uvicorn's wording exactly.
 _GRACEFUL_SHUTDOWN_CANCEL = 'timeout graceful shutdown exceeded'
 
 _SHUTDOWN_FLUSH_TIMEOUT = 2.0
 
-#: Where theme/browser_monitoring.py keeps the tab's replay id in ``app.storage.client``.
 REPLAY_ID_KEY = 'sentry_replay_id'
 
 
-#: engine.io's ERRORs caused by the client, not the server: a poll naming a
-#: session the server no longer holds (a tab left open across a deploy, a phone
-#: waking from sleep), which the browser recovers from on its own, and a
-#: crawler GETting the socket URL without upgrade headers (SGLMAN-J). Nobody can
-#: act on either report.
 _STALE_SESSION_PREFIXES = ('Invalid session ', "'Session is disconnected' ", 'Invalid websocket upgrade')
 
 
@@ -125,7 +113,6 @@ def _session_user() -> Optional[Dict[str, Any]]:
     try:
         from nicegui import app
         storage = app.storage.user
-        # A password-only account has no Discord id; its account id stands in.
         ident = storage.get('discord_id') or (
             f"user:{storage['user_id']}" if storage.get('user_id') else None)
     except Exception:

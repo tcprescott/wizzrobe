@@ -146,7 +146,7 @@ async def _commit(held: _Held) -> None:
         finally:
             _nudge(held)
 
-    # The holder's tenant and event scope, whoever ends up running it.
+    # Run in the holder's tenant and event scope, whoever ends up running it.
     await asyncio.get_running_loop().create_task(run(), context=held.context.copy())
 
 

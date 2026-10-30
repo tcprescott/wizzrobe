@@ -15,7 +15,7 @@ from datetime import date, datetime
 from typing import Optional
 from urllib.parse import urlencode
 
-# Admin tab slugs (theme.base.tab_slug of each tab's label).
+# Must equal theme.base.tab_slug of each tab's label.
 SCHEDULE = 'match-schedule'
 REPORTS = 'reports'
 VOL_SCHEDULE = 'volunteer-shifts'
@@ -34,7 +34,6 @@ HOME_SCHEDULE = 'schedule'
 HOME_MY_CREW = 'my-crew'
 HOME_TOURNAMENTS = 'tournaments'
 
-# Volunteer hub tab slugs. My Shifts is retired: the hub sends it to My Schedule.
 VOLUNTEER_MY_SHIFTS = 'my-shifts'
 VOLUNTEER_CHECK_IN = 'check-in-desk'
 

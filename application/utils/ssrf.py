@@ -38,8 +38,7 @@ async def ensure_public_host(hostname: str, *, subject: str = 'URL') -> List[str
             or ip.is_reserved
             or ip.is_multicast
             or ip.is_unspecified
-            # Catches what the flags above leave out, notably 100.64.0.0/10
-            # (carrier-grade NAT, also some providers' internal services).
+            # Not redundant: catches what the flags miss, notably 100.64.0.0/10 (carrier-grade NAT).
             or not ip.is_global
         ):
             raise ValueError(f"{subject} must point to a public address")

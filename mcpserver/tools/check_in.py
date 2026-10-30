@@ -18,8 +18,6 @@ from mcpserver.registry import register
 from mcpserver.schemas import TenantArg
 from models import CheckInEvent, FeatureFlag
 
-# A roster can run to the whole venue. Without a cap one call is every badge
-# holder at the event, which buries the one person the desk is looking for.
 MAX_ROSTER_ROWS = 200
 
 
@@ -57,7 +55,7 @@ async def get_check_in_roster(
     return rows[:MAX_ROSTER_ROWS]
 
 
-#: Check-in rows: ``event_id`` here is a check-in event, not a Wizzrobe event.
+# event_id here is a check-in event, not a Wizzrobe event.
 _CHECK_IN_EVENT = {'event_id': CheckInEvent}
 
 

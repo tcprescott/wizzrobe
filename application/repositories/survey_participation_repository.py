@@ -25,7 +25,6 @@ from models import (
     VolunteerPosition,
 )
 
-# Crew role (as stored in a recipient's ``crew_roles`` fact) → the table of approvals for it.
 CREW_ROLES = {'commentary': Commentator, 'tracking': Tracker, 'broadcast': Broadcaster}
 
 

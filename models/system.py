@@ -22,16 +22,13 @@ class RoomToken(Model):
     tenant = fields.ForeignKeyField(
         'models.Tenant', related_name='room_tokens', on_delete=fields.CASCADE
     )
-    # Nullable until every write stamps it; the events migration backfilled the
-    # rows that existed before (see docs/features/events.md).
+    # Keep nullable: not every write path stamps it yet.
     event: fields.ForeignKeyRelation = fields.ForeignKeyField(
         'models.Event', related_name='room_tokens', on_delete=fields.CASCADE,
     )
     event_id: int
     label = fields.CharField(max_length=100)
     token_hash = fields.CharField(max_length=64, unique=True, index=True)
-    # SET_NULL: an issuer who leaves must not revoke the room PC's access on
-    # their way out — staff revoke a token deliberately or not at all.
     created_by = fields.ForeignKeyField(
         'models.User', related_name='room_tokens_created',
         null=True, on_delete=fields.SET_NULL,
@@ -70,7 +67,6 @@ class LogLevelOverride(Model):
     id = fields.IntField(pk=True)
     logger_name = fields.CharField(max_length=255, unique=True)
     level = fields.CharField(max_length=16)
-    # SET_NULL: the override outlives whoever set it; the audit row keeps who.
     updated_by: fields.ForeignKeyNullableRelation = fields.ForeignKeyField(
         'models.User', related_name='log_level_overrides',
         null=True, on_delete=fields.SET_NULL,
@@ -93,9 +89,7 @@ class BrowserMonitoringSettings(Model):
     id = fields.IntField(pk=True)
     enabled = fields.BooleanField(default=True)
     replay_on_error = fields.BooleanField(default=True)
-    # Share of browser errors sent, 0.0–1.0, for throttling a flood.
     sample_rate = fields.FloatField(default=1.0)
-    # SET_NULL: the setting outlives whoever changed it; the audit row keeps who.
     updated_by: fields.ForeignKeyNullableRelation = fields.ForeignKeyField(
         'models.User', related_name='browser_monitoring_updates',
         null=True, on_delete=fields.SET_NULL,

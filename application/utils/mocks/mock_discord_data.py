@@ -20,7 +20,7 @@ a never-signed-in member to :data:`MOCK_GUILD_ROSTER`.
 
 from typing import Dict, List, Set, Union
 
-# Guild ids (match seed_dev.TENANT_SPECS)
+# Guild ids must match seed_dev.TENANT_SPECS.
 GUILD_WIZ_DEFAULT = 1000000000000000001
 GUILD_SECOND = 1000000000000000002
 DEFAULT_GUILD_ID = GUILD_WIZ_DEFAULT
@@ -30,27 +30,21 @@ ROLE_STAFF = 2000000000000000001
 ROLE_PROCTOR = 2000000000000000002
 ROLE_STREAM_MANAGER = 2000000000000000003
 ROLE_VOLUNTEER = 2000000000000000004
-# Unmapped extras — present in the server, available to map in the UI.
 ROLE_ADMIN = 2000000000000000010
 ROLE_COMMENTATOR = 2000000000000000011
 ROLE_TRACKER = 2000000000000000012
 ROLE_RESTREAMER = 2000000000000000013
 
-# Unmapped roles that the outbound role sync's checklist can hand out.
 ROLE_COMPETITOR = 2000000000000000030
 ROLE_NOW_PLAYING = 2000000000000000031
 ROLE_VIP = 2000000000000000032
 ROLE_ATTENDEE = 2000000000000000033
 
-# Not mappable: Discord's @everyone and a bot's own managed role, so the
-# "Add mapping" picker has something to leave out.
 ROLE_EVERYONE = 2000000000000000000
 ROLE_BOT = 2000000000000000020
 
 _STANDARD_ROLES: List[Dict[str, object]] = [
-    # ``position`` is Discord's role order (higher outranks lower). The bot's own
-    # role sits below Admin and Staff, so the role sync's picker has roles it
-    # must refuse as "above the bot's role".
+    # Keep the bot's role below Admin and Staff, so the role sync has roles it must refuse.
     {"id": ROLE_ADMIN, "name": "Admin", "color": 0xE74C3C, "mappable": True, "position": 14},
     {"id": ROLE_STAFF, "name": "Wizzrobe Staff", "color": 0x9B59B6, "mappable": True, "position": 13},
     {"id": ROLE_BOT, "name": "Wizzrobe", "color": 0x5865F2, "mappable": False, "position": 12},
@@ -67,8 +61,7 @@ _STANDARD_ROLES: List[Dict[str, object]] = [
     {"id": ROLE_EVERYONE, "name": "@everyone", "color": 0, "mappable": False, "position": 0},
 ]
 
-# owner_id 1 matches the dev seed's first user; member_can_manage_guild treats
-# the owner (and Admin/Manage-Server holders) as able to manage the server.
+# owner_id 1 must stay the dev seed's first user.
 MOCK_GUILDS: Dict[int, dict] = {
     GUILD_WIZ_DEFAULT: {
         "name": "Wizzrobe Default",
@@ -79,29 +72,19 @@ MOCK_GUILDS: Dict[int, dict] = {
         "name": "Second Community",
         "owner_id": 1,
         "roles": [dict(r) for r in _STANDARD_ROLES],
-        # So dev shows Admin → Settings → Discord Events locked and paused.
         "bot_can_create_events": False,
     },
 }
 
-# Pin specific users' roles here (keyed by Discord user id) to script precise
-# scenarios. Anyone not listed falls back to :func:`_default_member_roles`.
 MOCK_MEMBER_ROLES: Dict[int, Set[int]] = {}
 
-# Guild members who have never signed in to Wizzrobe (discord id -> username).
-# "Sync All Users" provisions an account for each one holding a mapped role, so
-# in MOCK_DISCORD mode the button visibly creates users. The ids sit well above
-# ``seed_support.fixture_discord_id``'s block so they never collide with a
-# seeded user. Their roles come from :func:`member_role_ids` like anyone else's.
+# Keep these ids above seed_support.fixture_discord_id's block so they never collide.
 MOCK_GUILD_ROSTER: Dict[int, str] = {
     3000000000000000002: 'guild_only_proctor',
     3000000000000000003: 'guild_only_staff',
     3000000000000000005: 'guild_only_stream_manager',
 }
 
-# More never-signed-in guild members, holding no mapped role, so Admin → Users ›
-# Import from Discord has someone to bring in. One is a bot, which the import
-# skips. Same id block as ``MOCK_GUILD_ROSTER``.
 MOCK_GUILD_IMPORTABLE: Dict[int, str] = {
     3000000000000000101: 'aerinon',
     3000000000000000102: 'bigbadbeef',
@@ -113,12 +96,7 @@ MOCK_GUILD_IMPORTABLE: Dict[int, str] = {
 MOCK_GUILD_BOTS: Set[int] = {3000000000000000199}
 
 
-# Discord ids that are **not** in any mock server. Everyone else is, which is
-# what the role-sync fixtures above already assume. ``outsider`` is the seeded
-# account that belongs to no community (``seed_support.fixture_discord_id``,
-# pinned by ``tests/test_seed_coverage.py``): keeping it out of every server is
-# what keeps the join door reachable in dev when a community turns on Discord
-# auto-join.
+# Keep `outsider` out of every server, or dev's join door is unreachable under Discord auto-join.
 MOCK_NON_GUILD_MEMBERS: Set[int] = {100_000_000_093_103_805}
 
 
@@ -191,10 +169,6 @@ def user_can_manage(guild_id: int, user_id: int) -> bool:
     return True
 
 
-# In-memory store so the Discord Events reconciler runs end-to-end under
-# MOCK_DISCORD without a live bot. Keyed by a synthetic event id; ids increment
-# from a fixed base so they look like snowflakes and stay deterministic within a
-# process. Reset between tests via :func:`reset_scheduled_events`.
 _SCHEDULED_EVENT_ID_BASE = 3000000000000000000
 _scheduled_events: Dict[int, dict] = {}
 _next_scheduled_event_id = _SCHEDULED_EVENT_ID_BASE

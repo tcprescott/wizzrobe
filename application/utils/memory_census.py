@@ -61,8 +61,7 @@ def retained_by(targets: List[object], depth: int = 6, top: int = 10) -> List[Di
     counts: Counter[str] = Counter()
     for _ in range(depth):
         by_id = {id(o): o for o in current}
-        # Passed as an exact tuple, ``f(*args)`` hands this same tuple over
-        # rather than building a new one, so it can be told apart and skipped.
+        # An exact tuple, so f(*args) passes this same object and it can be told apart and skipped.
         args = tuple(current)
         own = {id(current), id(args), id(by_id), id(chain), id(weight), id(seen), id(targets), id(counts)}
         extended: set[int] = set()
@@ -105,8 +104,6 @@ def take(top: int = 40, collect: bool = True, explain: int = 50) -> Dict[str, An
     to whatever holds them."""
     from application.utils.loop_watchdog import watchdog
 
-    # The census is the stall: asked for, and not a fault to alert on
-    # (SGLMAN-2D, SGLMAN-2F). It still shows in recent_stalls under its name.
     with watchdog.expected_block('memory census'):
         return _take(top, collect, explain)
 

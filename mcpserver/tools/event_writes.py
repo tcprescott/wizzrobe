@@ -195,7 +195,7 @@ async def deny_join_request(
     return JoinRequestResponse.from_row(request)
 
 
-#: Check-in rows: ``event_id`` here is a check-in event, not a Wizzrobe event.
+# event_id here is a check-in event, not a Wizzrobe event.
 _ENTRANT = {'entrant_id': CheckInEntrant}
 _CHECK_IN_EVENT = {'event_id': CheckInEvent}
 
