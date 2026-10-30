@@ -34,7 +34,6 @@ async def seed_observability_for_tenant(
     users: dict[str, User] | None = None,
 ) -> None:
     """Seed the dev webhook + deliveries, the feedback queue, and telemetry rows."""
-    # --- Webhooks ---------------------------------------------------------
     # Inactive so a dev session never attempts outbound deliveries; the one
     # seeded delivery row makes the admin delivery log render regardless.
     webhook, _ = await Webhook.get_or_create(
@@ -92,7 +91,6 @@ async def seed_observability_for_tenant(
     )
     print(f"    [{tenant.slug}] webhooks ok (1 delivered, 2 failed in the health window)")
 
-    # --- Personal webhooks (Profile → Webhooks) ---------------------------
     # player_one gets one of each state the card paints: a working JSON hook
     # (pointed at a closed localhost port, so a dev event fails fast and never
     # leaves the machine) and a Discord one paused the way a deleted Discord
@@ -129,7 +127,6 @@ async def seed_observability_for_tenant(
         )
         print(f"    [{tenant.slug}] personal webhooks ok (player_one: one live, one paused)")
 
-    # --- Feedback --------------------------------------------------------
     # Two states across two people, and both states on one person (player_one),
     # so the staff queue and the submitter's own profile card each have
     # something to show without anyone submitting by hand.
@@ -157,7 +154,6 @@ async def seed_observability_for_tenant(
     if feedback_specs:
         print(f"    [{tenant.slug}] feedback ok (new + reviewed, both states on player_one)")
 
-    # --- Telemetry -------------------------------------------------------
     # One row per category (page / interaction / domain) so the admin
     # telemetry report renders each section.
     telemetry_specs = [

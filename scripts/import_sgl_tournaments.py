@@ -120,8 +120,6 @@ class SheetTournament:
     required_preset: Optional[str] = None
 
 
-# --- xlsx reading -----------------------------------------------------------
-
 def _col_index(ref: str) -> int:
     letters = re.match(r'[A-Z]+', ref).group(0)  # type: ignore[union-attr]
     n = 0
@@ -199,8 +197,6 @@ def load_workbook_bytes(source: str) -> bytes:
     response.raise_for_status()
     return response.content
 
-
-# --- row mapping ------------------------------------------------------------
 
 def parse_minutes(text: str) -> Optional[int]:
     """``'90 min'`` → 90; a range like ``'120-150 min'`` → its midpoint."""
@@ -303,8 +299,6 @@ def parse_tournaments(rows: List[List[Cell]]) -> List[SheetTournament]:
         ))
     return out
 
-
-# --- applying ---------------------------------------------------------------
 
 async def run(args: argparse.Namespace) -> int:
     from dotenv import load_dotenv

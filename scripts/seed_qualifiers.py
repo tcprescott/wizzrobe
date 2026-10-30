@@ -146,7 +146,6 @@ async def seed_qualifiers_for_tenant(tenant: Tenant, preset: Preset) -> None:
                 elapsed_seconds=6000, measured_seconds=9600,
                 runner_vod_url="https://twitch.tv/videos/dev-b",
             )
-        # A reviewer note on the pending run so the review surface renders notes.
         if staff is not None and not await AsyncQualifierReviewNote.filter(
             run=run_b, tenant=tenant
         ).exists():
@@ -210,7 +209,6 @@ async def seed_qualifiers_for_tenant(tenant: Tenant, preset: Preset) -> None:
                 started_at=now - timedelta(hours=5), finished_at=now - timedelta(hours=5),
                 score=0.0,
             )
-        # And one already voided by the runner's own reattempt.
         p4 = await _permalink(standard, f"https://alttpr.com/en/h/dev-{tenant.slug}-std-3")
         if not await AsyncQualifierRun.filter(
             qualifier=qualifier, user=runner_b, reattempted=True
@@ -308,9 +306,6 @@ async def seed_qualifiers_for_tenant(tenant: Tenant, preset: Preset) -> None:
                 review_status=AsyncQualifierReviewStatus.PENDING,
             )
 
-    # Defined below and never called until now, so the fixture its own docstring
-    # calls "the only way a player can see a leaderboard in dev" did not exist —
-    # and with it the exact-score half of the score lockdown was unreachable too.
     await _seed_closed_qualifier(tenant)
 
 

@@ -65,7 +65,6 @@ async def seed_access_for_tenant(tenant: Tenant, users: dict[str, User]) -> None
         await TenantMembership.filter(tenant=tenant, user=users['volunteer_only']).update(
             source=MembershipSource.JOIN_REQUEST, created_at=now - timedelta(days=3),
         )
-    # Two role holders carry the role paths, so each source shows somewhere.
     for uname, source in (
         ('proctor_only', MembershipSource.ROLE_GRANT),
         ('sm_only', MembershipSource.DISCORD_ROLE),
@@ -76,19 +75,16 @@ async def seed_access_for_tenant(tenant: Tenant, users: dict[str, User]) -> None
         await TenantMembership.filter(tenant=tenant, user=users['local_only']).update(
             source=MembershipSource.DISCORD_AUTO_JOIN, created_at=now - timedelta(hours=2),
         )
-    # One racer walked in through an open door, so the Users tab shows that
-    # source too. The community itself stays on the default join mode.
     if 'racer_05' in users:
         await TenantMembership.filter(tenant=tenant, user=users['racer_05']).update(
             source=MembershipSource.OPEN, created_at=now - timedelta(hours=1),
         )
-    # And one came in with Admin → Users › Import from Discord.
     if 'racer_06' in users:
         await TenantMembership.filter(tenant=tenant, user=users['racer_06']).update(
             source=MembershipSource.DISCORD_IMPORT, created_at=now - timedelta(days=1),
         )
 
-    # Roles (per tenant). The VOLUNTEER grants below mirror the qualified +
+    # The VOLUNTEER grants below mirror the qualified +
     # available pool seeded further down so the Vol. Roster tab and
     # the auto-scheduler actually have an assignable pool to show
     # (VolunteerPoolService.assignable_volunteers filters on Role.VOLUNTEER).

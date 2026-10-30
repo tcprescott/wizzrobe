@@ -179,7 +179,6 @@ async def seed_matches_for_tenant(
 
     print(f"    [{tenant.slug}] matches ok")
 
-    # Generated seeds, attached to matches that have already been rolled.
     # Both carry provenance, because that is what the seed card renders: which
     # randomizer, the settings as rolled, and what the roll cost.
     seed, _ = await GeneratedSeeds.get_or_create(
@@ -317,13 +316,11 @@ async def seed_matches_for_tenant(
         disputed_match.needs_review = True
         await disputed_match.save()
 
-    # Match acknowledgments — the checked-in match's players have both confirmed.
     for player in (players[0], players[1]):
         await MatchAcknowledgment.get_or_create(
             match=checked_in_match, user=player, tenant=tenant,
             defaults={"acknowledged_at": now, "auto_acknowledged": False},
         )
-    # The scheduled match still has one un-acknowledged and one pending player.
     await MatchAcknowledgment.get_or_create(
         match=scheduled_match, user=players[0], tenant=tenant,
         defaults={"acknowledged_at": now, "auto_acknowledged": False},
@@ -332,7 +329,6 @@ async def seed_matches_for_tenant(
         match=scheduled_match, user=players[1], tenant=tenant,
         defaults={"acknowledged_at": None, "auto_acknowledged": False},
     )
-    # Grand Finals — one player auto-acknowledged, the other hasn't responded.
     await MatchAcknowledgment.get_or_create(
         match=future_match, user=players[3], tenant=tenant,
         defaults={"acknowledged_at": now, "auto_acknowledged": True},
@@ -342,7 +338,6 @@ async def seed_matches_for_tenant(
         defaults={"acknowledged_at": None, "auto_acknowledged": False},
     )
 
-    # Match watchers — staff keeps an eye on the scheduled, in-progress, and disputed matches.
     for m in (scheduled_match, in_progress_match, disputed_match):
         await MatchWatcher.get_or_create(user=staff, match=m, tenant=tenant)
 
@@ -363,7 +358,6 @@ async def seed_matches_for_tenant(
     # decided ones sit on matches that have since been played, which is what the
     # history actually looks like a week into an event.
     reschedule_specs = [
-        # Waiting on staff, opponent already agreed — the queue's happy path.
         (scheduled_match, players[0], RescheduleRequestKind.RESCHEDULE,
          RescheduleRequestStatus.PENDING, now + timedelta(hours=6),
          "Work shifted my evening — could we push this back a few hours?",
@@ -375,12 +369,10 @@ async def seed_matches_for_tenant(
          RescheduleRequestStatus.PENDING, now + timedelta(hours=8),
          "Stuck at work until late — could we start a few hours later?",
          None, False),
-        # The other kind, also waiting: a call-off nobody has answered yet.
         (stage3_match, players[1], RescheduleRequestKind.CANCEL,
          RescheduleRequestStatus.PENDING, None,
          "My opponent and I both forfeited this bracket — it doesn't need playing.",
          None, False),
-        # Granted, with staff's own words on it.
         (future_match, players[3], RescheduleRequestKind.RESCHEDULE,
          RescheduleRequestStatus.APPROVED, now + timedelta(days=1, hours=2),
          "Flight lands too late for the original slot.",
@@ -395,7 +387,6 @@ async def seed_matches_for_tenant(
          RescheduleRequestStatus.DECLINED, now - timedelta(days=2),
          "Could we start an hour later?",
          "Sorry — the restream slot is locked in with the broadcast team.", False),
-        # Taken back by the person who asked; staff never had to decide.
         (in_progress_match, players[2], RescheduleRequestKind.RESCHEDULE,
          RescheduleRequestStatus.WITHDRAWN, now - timedelta(hours=20),
          "Might have a conflict — will confirm.", None, False),

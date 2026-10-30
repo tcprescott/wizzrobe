@@ -21,7 +21,6 @@ import sys
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
-# Ensure project root is on the path when run as a script
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from tortoise import Tortoise
@@ -300,17 +299,12 @@ async def seed_for_tenant(
     script mirrors that contract.
     """
     with tenant_scope(tenant.id):
-        # --- Memberships + roles (scripts/seed_access.py) ----------------
         await seed_access_for_tenant(tenant, users)
 
-        # --- Stages, stations, system config (scripts/seed_venue.py) -----
-        # The three-day window the venue hours, the volunteer fixtures and
-        # player availability all describe.
         today = now_local().date()
         event_days = [today + timedelta(days=d) for d in range(3)]
         await seed_venue_for_tenant(tenant, today, event_days)
 
-        # Tournament
         staff = users["staff_user"]
         # The operational metadata a real tournament carries. Not decoration:
         # ``average_match_duration`` is what the suggestion engine spaces matches
@@ -409,7 +403,6 @@ async def seed_for_tenant(
             await TournamentPlayers.get_or_create(tournament=tournament, user=p, tenant=tenant)
         print(f"    [{tenant.slug}] tournament ok")
 
-        # Matches — one per lifecycle state, plus extra fixtures for variety
         stage1 = await Stage.get(name="Stage 1", tenant=tenant)
         stage2 = await Stage.get(name="Stage 2", tenant=tenant)
         stage3 = await Stage.get(name="Stage 3", tenant=tenant)
@@ -423,15 +416,11 @@ async def seed_for_tenant(
         disputed_match = fixtures["disputed"]
         seed = fixtures["seed"]
 
-        # --- Online tournament (scripts/seed_online.py) ----------------------
         # Its own racetime.gg-managed tournament with its own matches, kept apart
         # from the tournament above: a racetime bot hides every on-site control
         # on the matches it owns, so the two fixtures cannot share a tournament.
         await seed_online_for_tenant(tenant, staff, players, bots)
 
-        # --- Second on-site tournament (scripts/seed_onsite.py) --------------
-        # A distinct venue event with its own "tournament days" override and one
-        # match per step of the proctor's workflow.
         onsite = await seed_onsite_for_tenant(tenant, staff, players, today, now, stage1, stage3)
         # A field longer than the Tournaments card's name preview, so its
         # "Show all" is reachable in dev.
@@ -439,10 +428,8 @@ async def seed_for_tenant(
             await TournamentPlayers.get_or_create(tournament=onsite, user=users[name], tenant=tenant)
         print(f"    [{tenant.slug}] on-site tournament ok")
 
-        # --- Prize payouts (scripts/seed_payouts.py) -------------------------
         await seed_payouts_for_tenant(tenant, players)
 
-        # --- Group play-in races (scripts/seed_play_in.py) -------------------
         # Staff-run races of ten, seeding the bracket above — the only rosters
         # longer than two, and the only match holding finishers and forfeits
         # together. They belong to this tournament because that is the bracket
@@ -450,7 +437,6 @@ async def seed_for_tenant(
         racers = players + [users[name] for name, _display, _full in RACER_SPECS]
         await seed_play_in_for_tenant(tenant, tournament, staff, racers, now)
 
-        # --- One realistic match day (scripts/seed_match_day.py) -------------
         # Density, not states: fifteen ordinary bracket matches across the three
         # stages so the schedule and the stage-utilisation report have a real day
         # to draw. Everything it creates is deliberately unremarkable.
@@ -458,7 +444,6 @@ async def seed_for_tenant(
             tenant, tournament, racers, [stage1, stage2, stage3], today, now,
         )
 
-        # --- Crew signups (scripts/seed_crew.py) ----------------------------
         sm = users["sm_user"]
         proctor = users["proctor_user"]
         await seed_crew_for_tenant(
@@ -466,12 +451,9 @@ async def seed_for_tenant(
         )
         print(f"    [{tenant.slug}] crew ok")
 
-        # --- Volunteer scheduling (scripts/seed_volunteers.py) ---------------
         now_utc = datetime.now(timezone.utc)
         await seed_volunteers_for_tenant(tenant, users, staff, today, now_utc)
 
-        # --- Player availability --------------------------------------------
-        # Same three-day window the venue hours and the volunteer fixtures use.
         # Player availability is opt-out, so the rows are blocks and preferences;
         # player_four gets none on purpose — that is the default state, fully
         # available, which the suggestion service and the heatmap must both show.
@@ -495,20 +477,15 @@ async def seed_for_tenant(
                 )
         print(f"    [{tenant.slug}] player availability ok")
 
-        # --- Equipment lending (scripts/seed_equipment.py) -------------------
         equipment = await seed_equipment_for_tenant(tenant, users, staff, now)
 
-        # --- Event check-in (scripts/seed_check_in.py) ----------------------
         await seed_check_in_for_tenant(tenant, users)
 
-        # --- API + room tokens (scripts/seed_tokens.py) -------------------
         await seed_tokens_for_tenant(tenant, staff, now)
 
-        # --- Third-party apps (scripts/seed_oauth_apps.py) ----------------
         await seed_oauth_apps_for_tenant(tenant, staff, now)
 
 
-        # --- Triforce texts --------------------------------------------------
         triforce_specs = [
             ("player_one", "You found the Triforce of Courage!", "Player One", True),
             ("player_two", "The hero's spirit lives on.", "Player Two", None),
@@ -527,18 +504,14 @@ async def seed_for_tenant(
             )
         print(f"    [{tenant.slug}] triforce texts ok")
 
-        # --- Discord role mappings (scripts/seed_discord.py) ------------
         await seed_discord_for_tenant(tenant, tournament, users)
 
-        # --- Challonge mirror (scripts/seed_challonge.py) --------------------
         await seed_challonge_for_tenant(
             tenant, users, tournament, staff, finished_match, now_utc, today,
         )
 
-        # --- start.gg mirror (scripts/seed_startgg.py) -----------------------
         await seed_startgg_for_tenant(tenant, users, staff, now_utc)
 
-        # --- Native brackets (scripts/seed_brackets.py) ----------------------
         # Seeded through BracketService, which enforces FeatureFlag.BRACKETS, so a
         # tenant whose tier lacks the feature gets no bracket rows — which is the
         # coherent fixture state anyway (bracket data in a community that cannot
@@ -550,13 +523,10 @@ async def seed_for_tenant(
             print(f"    [{tenant.slug}] brackets skipped (feature not live)")
 
 
-        # --- Webhooks + telemetry (scripts/seed_observability.py) -------------
         await seed_observability_for_tenant(tenant, staff, finished_match, now_utc, users)
 
-        # --- Community events (scripts/seed_community_events.py) -------------
         await seed_community_events_for_tenant(tenant, users, now_utc)
 
-        # --- ADA accommodation requests ---------------------------------------
         # One in each state, so the staff sub-tab, its
         # "Show withdrawn" toggle and the Users-table filter all have something
         # to show. Written directly (no flag check) like the feedback rows.
@@ -591,7 +561,6 @@ async def seed_for_tenant(
         )
         print(f"    [{tenant.slug}] ADA accommodation requests ok (one per status)")
 
-        # --- Emergency contacts -----------------------------------------------
         # player_two's has been opened by staff (the profile shows "last
         # opened"); player_one's hasn't. Everyone else has none, so the staff
         # dialog's empty state shows too.
@@ -608,7 +577,6 @@ async def seed_for_tenant(
         )
         print(f"    [{tenant.slug}] emergency contacts ok")
 
-        # --- Audit log -------------------------------------------------------
         # One row per action a staff member actually takes on a match day, so the
         # Audit tab's action filter has more than one value to filter by.
         audit_specs = [
@@ -688,7 +656,6 @@ async def seed_for_tenant(
             user=users['outsider'], tenant=tenant, status=JoinRequestStatus.DENIED,
         ).update(decided_at=now_utc)
         print(f"    [{tenant.slug}] join requests ok")
-
 
 
 async def seed_mcp_oauth(users: dict[str, User]) -> None:

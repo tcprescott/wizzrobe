@@ -390,7 +390,6 @@ async def _two_stage(
         await service.report_result(actor, match.id, match.entry1_id)
     await service.complete_stage(actor, groups.id)
 
-    # Stage 1 — single-elimination playoff seeded from the group winners.
     playoff = await service.create_bracket(
         actor, tournament.id, "Playoff", BracketFormat.SINGLE_ELIM,
         stage_order=1,

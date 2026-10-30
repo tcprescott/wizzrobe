@@ -633,7 +633,6 @@ async def _seed_speedgaming(
         },
     )
 
-    # A real player alongside the placeholder (from the scheduled match's roster).
     real_player = await MatchPlayers.filter(match=scheduled_match).prefetch_related("user").first()
     roster = [placeholder]
     if real_player is not None:

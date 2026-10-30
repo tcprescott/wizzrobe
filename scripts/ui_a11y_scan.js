@@ -301,7 +301,6 @@ function phoneProfiles(phone) {
 
   const browser = await chromium.launch({ executablePath: findChrome(cfg.chrome), args: ['--no-sandbox'] });
 
-  // One login; every pass reuses its session cookie.
   const loginCtx = await browser.newContext({ viewport: cfg.viewport || { width: 1440, height: 900 } });
   const loginPage = await loginCtx.newPage();
   await loginPage.goto(`${baseUrl}${withTenant('/login')}`, { waitUntil: 'networkidle' });

@@ -33,12 +33,10 @@ except ImportError:
     )
     sys.exit(1)
 
-# --- Brand palette --------------------------------------------------------
-CHARCOAL = (0x17, 0x12, 0x0D)   # #17120D  background
-GOLD = (0xE0, 0xA8, 0x2E)       # #E0A82E  triforce fill
-DEEP_GOLD = (0x9C, 0x6B, 0x12)  # #9C6B12  triforce edge
+CHARCOAL = (0x17, 0x12, 0x0D)
+GOLD = (0xE0, 0xA8, 0x2E)
+DEEP_GOLD = (0x9C, 0x6B, 0x12)
 
-# --- Layout constants -----------------------------------------------------
 SUPERSAMPLE = 4                 # render at 4x then LANCZOS-downscale
 CORNER_FRACTION = 0.20          # rounded-square radius (fraction of side)
 EDGE_FRACTION = 0.012           # triforce outline width (fraction of mark width)

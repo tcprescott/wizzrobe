@@ -43,7 +43,6 @@ async def seed_discord_for_tenant(
     tenant: Tenant, tournament: Tournament, users: dict[str, User]
 ) -> None:
     """Seed one tenant's guild-role mappings and the grants sync would produce."""
-    # Each tenant maps its own guild's roles onto app roles.
     guild_id = tenant.discord_guild_id
     role_mapping_specs = [
         (2000000000000000001, "Wizzrobe Staff", Role.STAFF),

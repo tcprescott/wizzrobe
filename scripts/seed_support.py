@@ -86,7 +86,6 @@ RACER_SPECS = [
 #: availability), named so ``seed_volunteers`` and the docs cannot drift apart.
 FULL_RACERS = tuple(name for name, _display, full in RACER_SPECS if full)
 
-#: Every fixture username, in seeding order.
 ALL_FIXTURE_USERNAMES = (
     [name for name, _display in USER_SPECS]
     + [name for name, _display, _full in RACER_SPECS]

@@ -29,7 +29,6 @@ async def seed_venue_for_tenant(
     the volunteer fixtures and player availability all have to describe the same
     three-day window.
     """
-    # Stages
     for name, url in [
         ("Stage 1", "https://twitch.tv/wizzrobe"),
         ("Stage 2", "https://twitch.tv/wizzrobe2"),
@@ -41,8 +40,7 @@ async def seed_venue_for_tenant(
         )
     print(f"    [{tenant.slug}] stages ok")
 
-    # Venue station pool — two banks facing into the middle of the room.
-    # Only tenant A defines one: a community with no stations keeps the
+    # Only tenant A defines a station pool: a community with no stations keeps the
     # historical free-text station field, and tenant B is that fixture.
     if tenant.slug == "default":
         # Sided and numbered so the check-in draw has a room to work with:

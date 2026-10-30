@@ -48,7 +48,7 @@ async def seed_play_in_for_tenant(
             tournament=tournament, user=racer, tenant=tenant,
         )
 
-    # Group A — run, with its finish order recorded. The two racers past the end
+    # The two racers past the end
     # of the time list forfeited: seat kept, no rank, no time.
     group_a = await _make_group(
         tenant, tournament, "Play-In Race — Group A", now - timedelta(hours=6),
@@ -68,7 +68,6 @@ async def seed_play_in_for_tenant(
                 },
             )
 
-    # Group B — scheduled, start list still filling.
     group_b = await _make_group(
         tenant, tournament, "Play-In Race — Group B", now + timedelta(hours=5),
     )

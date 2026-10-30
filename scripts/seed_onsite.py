@@ -81,8 +81,6 @@ async def seed_onsite_for_tenant(
             # re-check is exercised rather than the 30-minute default.
             "stage_reminder_minutes": 45,
             **_ONSITE_META,
-            # Per-tournament "tournament days" override: its own event window
-            # and per-day hours, distinct from the tenant default.
             "event_start_date": today,
             "event_end_date": today + timedelta(days=3),
             "tournament_hours": {
@@ -147,7 +145,6 @@ async def seed_onsite_for_tenant(
             )
         return match
 
-    # One row per step of the proctor's workflow.
     await make_match("On-Site Scheduled", 2)
     await make_match("On-Site Overdue", -0.5)
     checked_in = await make_match(
@@ -184,7 +181,6 @@ async def seed_onsite_for_tenant(
     for status in (CommentaryInviteStatus.DECLINED, CommentaryInviteStatus.CANCELLED):
         await _invite(tenant, stage_call, players[3], players[2], status, now - timedelta(hours=1))
     await make_match("On-Site In Progress", -1, seated=True, started=True, stations=('4', '8'), stage=stage3)
-    # Recorded but not yet confirmed — the admin's review queue.
     await make_match(
         "On-Site Awaiting Review", -2,
         seated=True, started=True, finished=True, stations=('1', '5'), stage=stage1,
