@@ -28,8 +28,6 @@ class RacetimeBotService:
         self.repository = RacetimeBotRepository()
         self.audit_service = AuditService()
 
-    # ---- serialization (secret-free) -------------------------------------
-
     @staticmethod
     def serialize(bot: RacetimeBot) -> Dict[str, Any]:
         """A dict safe for an admin table — the ``client_secret`` is omitted."""
@@ -44,8 +42,6 @@ class RacetimeBotService:
             'status': bot.status,
             'status_message': bot.status_message or '',
         }
-
-    # ---- bot CRUD (super-admin, platform-level) --------------------------
 
     async def list_bots(self, actor: Optional[User]) -> List[RacetimeBot]:
         await self._ensure_super_admin(actor)
@@ -122,8 +118,7 @@ class RacetimeBotService:
             if not new_client_id:
                 raise ValueError('Client id cannot be empty')
             changes['client_id'] = new_client_id
-        # An empty secret means "leave the stored secret unchanged" — the admin
-        # form never echoes it back, so blank is the untouched state, not a clear.
+        # Blank means unchanged, not cleared: the form never echoes the secret.
         if client_secret is not None and (client_secret or '').strip():
             changes['client_secret'] = client_secret.strip()
         if name is not None:
@@ -165,8 +160,6 @@ class RacetimeBotService:
         await get_racetime_manager().restart(actor, bot_id)
         return await self._require(bot_id)
 
-    # ---- tenant authorization grants -------------------------------------
-
     async def list_grants(self, actor: Optional[User], bot_id: int) -> List[RacetimeBotTenant]:
         await self._ensure_super_admin(actor)
         await self._require(bot_id)
@@ -177,7 +170,6 @@ class RacetimeBotService:
         await self._require(bot_id)
         grant = await self.repository.get_grant(bot_id, tenant_id)
         if grant is not None:
-            # Idempotent: re-granting simply re-activates a suspended grant.
             if not grant.is_active:
                 grant = await self.repository.set_grant_active(grant, True)
         else:
@@ -199,15 +191,7 @@ class RacetimeBotService:
             {'bot_id': bot_id, 'tenant_id': tenant_id},
         )
 
-    # ---- runtime health (written by the racetimebot/ connection loop) ----
-    #
-    # These are NOT super-admin-gated: the caller is the trusted in-process
-    # connection loop acting as the system user, not an interactive admin. They
-    # run with no tenant scope (the bot is global), so their audit rows are
-    # platform-level (``tenant=NULL``), and the ``client_secret`` never appears
-    # in the row. The health enum has no dedicated ``auth_failed`` member, so an
-    # auth failure is ``ERROR`` with the reason in ``status_message`` and an
-    # ``auth_failed`` flag on the audit detail (the loop uses it to stop retrying).
+    # Not super-admin-gated: the caller is the in-process connection loop acting as the system user.
 
     async def list_active_bots(self) -> List[RacetimeBot]:
         """Active bots the runtime should hold a connection for."""
@@ -249,8 +233,6 @@ class RacetimeBotService:
             message=message,
         )
 
-    # ---- tenant-facing read (no secret) ----------------------------------
-
     async def list_authorized_for_tenant(self, tenant_id: int) -> List[RacetimeBot]:
         """Active bots a tenant may select on a tournament (no secret exposed).
 
@@ -262,8 +244,6 @@ class RacetimeBotService:
 
     async def is_authorized_for_tenant(self, bot_id: int, tenant_id: int) -> bool:
         return any(b.id == bot_id for b in await self.repository.list_active_for_tenant(tenant_id))
-
-    # ---- internals -------------------------------------------------------
 
     async def _require(self, bot_id: int) -> RacetimeBot:
         return require_found(await self.repository.get_by_id(bot_id), 'Racetime bot')

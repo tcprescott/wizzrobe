@@ -16,8 +16,6 @@ from application.utils.background_loop import for_each_tenant_scoped, run_worker
 
 logger = logging.getLogger(__name__)
 
-# Matches the cadence the reference web client polls at, and the one the
-# blocking path uses. Rolls take minutes; a tighter loop would only add load.
 TICK_SECONDS = 5
 
 
@@ -27,8 +25,6 @@ async def _tick() -> None:
 
     task_service = ProviderTaskService()
 
-    # Retire the dead before polling the living, so a task that has outlived its
-    # budget stops being re-checked on every tick from here on.
     await task_service.sweep_stale()
 
     tasks = await task_service.due_for_poll()
@@ -51,7 +47,6 @@ async def _tick() -> None:
     await for_each_tenant_scoped(
         tasks, _poll,
         tenant_id_of=lambda task: task.tenant_id,  # type: ignore[attr-defined]
-        # A roll with no match (a preset test) is community-wide.
         event_id_of=lambda task: task.match.event_id if task.match_id else None,  # type: ignore[attr-defined, union-attr]
         logger=logger,
         describe=lambda task: f'provider task {task.id} ({task.provider})',

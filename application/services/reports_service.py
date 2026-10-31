@@ -29,13 +29,8 @@ from models import (
     User,
 )
 
-# How long an unchecked-in late match keeps sliding forward on the capacity
-# forecast before it's treated as a no-show and stops growing.
 LATE_PUSH_LIMIT = timedelta(hours=2)
 
-# Players are asked to check in at the scheduled time; the race itself starts
-# about this long after check-in (seat_delay/setup in the match operations
-# report measure it). The capacity forecast plans unstarted matches with it.
 CHECK_IN_TO_START = timedelta(minutes=15)
 
 
@@ -43,8 +38,6 @@ def _now() -> datetime:
     return datetime.now(timezone.utc)
 
 
-# A start or check-in this long before its scheduled time is a data-entry
-# artefact (a result recorded ahead of the slot), not a team arriving early.
 IMPLAUSIBLE_EARLY_MIN = 6 * 60
 
 _SEAT_PREFIXES = ('', 'staged_', 'unstaged_')
@@ -104,8 +97,6 @@ class _SeatTally:
 
 class ReportsService:
     """Generates aggregated views over matches, crew, stages, and audit logs."""
-
-    # --- Capacity Forecast -------------------------------------------------
 
     @staticmethod
     def _local(dt: Optional[datetime]) -> Optional[datetime]:
@@ -273,8 +264,6 @@ class ReportsService:
                 out.append(match)
         return out
 
-    # --- Match Operations --------------------------------------------------
-
     async def match_operations(
         self,
         start: datetime,
@@ -347,8 +336,6 @@ class ReportsService:
                 'seat': {prefix: _SeatTally() for prefix in _SEAT_PREFIXES},
             })
             stats['matches_total'] += 1
-            # Counted on the timestamp alone, as Insights counts them; the
-            # averages below still need both ends of their interval.
             if started:
                 stats['matches_started'] += 1
             if finished:
@@ -385,8 +372,6 @@ class ReportsService:
             'flagged_match_ids': flagged_ids,
             'duration_outlier_ids': duration_outlier_ids,
         }
-
-    # --- Staff / Crew Activity ---------------------------------------------
 
     async def crew_coverage(
         self,
@@ -521,8 +506,6 @@ class ReportsService:
             'contribution_rows': contribution_rows,
             'tournament_rows': _tournament_rows(per_tournament),
         }
-
-    # --- Stage Utilization ------------------------------------------
 
     async def stage_utilization(
         self,

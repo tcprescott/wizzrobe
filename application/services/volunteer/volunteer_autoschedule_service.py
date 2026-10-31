@@ -38,17 +38,10 @@ _AVAIL_RANK = {
     None: 2,
 }
 
-# Per-run limits on what the greedy filler may do. The defaults are the
-# conservative reading of a volunteer's declared availability: an undeclared
-# window is not consent, and eight hours is a long day on your feet.
 DEFAULT_MAX_HOURS = 8.0
 
-# Two blocks this close together are one long stretch as far as the person
-# working them is concerned.
 _CONSECUTIVE_GAP = timedelta(minutes=15)
 
-# Why an open slot stayed open, most-specific first — the tie-break order when a
-# shift failed several ways at once.
 _REASON_ORDER = ('not_stated', 'at_hour_cap', 'unavailable', 'overlapping')
 
 
@@ -89,8 +82,7 @@ class VolunteerAutoscheduleService:
         policy = policy or DraftPolicy()
 
         if clear_existing_drafts:
-            # Only the positions being re-drafted: a run for Stage Crew must not
-            # wipe the Registration draft the coordinator already reviewed.
+            # Only the re-drafted positions: other positions' reviewed drafts must survive.
             await self.assignment_repository.delete_auto_for_window(
                 start, end, position_ids=position_ids or None,
             )
@@ -117,9 +109,7 @@ class VolunteerAutoscheduleService:
         quals = await self.qualification_repository.position_ids_by_user(pool_ids)
         avail_map = await self.availability_service.availability_map(pool_ids, start, end)
 
-        # Seed per-user state from existing assignments (manual + draft) across
-        # the shifts' full span, not just the window: an overnight shift that
-        # overlaps the window can still clash with a shift entirely outside it.
+        # Seed across the shifts' full span, not the window: an overnight shift can clash outside it.
         intervals: Dict[int, List[Tuple[datetime, datetime]]] = {uid: [] for uid in pool_ids}
         hours: Dict[int, float] = {uid: 0.0 for uid in pool_ids}
         on_shift: Dict[int, Set[int]] = {uid: set() for uid in pool_ids}
@@ -203,10 +193,7 @@ class VolunteerAutoscheduleService:
             "Only volunteer coordinators can publish drafts.",
         )
         drafts = await self.assignment_repository.list_auto_for_window(start, end)
-        # Not in a transaction: each confirmation enqueues a DM and a rollback
-        # cannot un-send one. A partial publish is recoverable — confirm_assignment
-        # is idempotent, so the next click finishes the job. A draft that now
-        # clashes with a published shift stays a draft and is reported back.
+        # Not in a transaction: a rollback can't un-send the DMs, and confirm_assignment is idempotent.
         published = []
         clashes: List[str] = []
         for assignment in drafts:
@@ -229,16 +216,12 @@ class VolunteerAutoscheduleService:
             await AuthService.can_manage_volunteers(actor),
             "Only volunteer coordinators can clear drafts.",
         )
-        # Deliberately silent: a draft was never announced, so its removal has
-        # nobody to notify. Publishing is what makes a shift real.
         removed = await self.assignment_repository.delete_auto_for_window(start, end)
         await self.audit_service.write_log(
             actor, AuditActions.VOLUNTEER_DRAFT_CLEARED,
             {'removed': removed, 'start': start, 'end': end},
         )
         return removed
-
-    # --- internals --------------------------------------------------------
 
     def _pick(
         self, shift, pool, pool_ids, quals, avail_map, intervals, hours, on_shift,

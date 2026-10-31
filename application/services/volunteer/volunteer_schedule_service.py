@@ -66,8 +66,6 @@ class VolunteerScheduleService:
         self.discord_service = DiscordService()
         self.role_mapping_service = VolunteerRoleMappingService()
 
-    # --- Shifts -----------------------------------------------------------
-
     async def list_shifts_for_window(self, start: datetime, end: datetime) -> List[VolunteerShift]:
         return await self.shift_repository.list_for_window(start, end)
 
@@ -262,9 +260,6 @@ class VolunteerScheduleService:
                 actor, await self.assignment_repository.published_user_ids(shift.id),
             )
         details = {'shift_id': shift.id}
-        # Someone who agreed to 08:00–12:00 has not agreed to 16:00–20:00, so a
-        # time change withdraws the question and asks it again. A slots-only or
-        # label-only edit notifies nobody; check-ins are never cleared.
         reacknowledge = await self._reask_moved_shift(shift, old_starts, old_ends) if moved else 0
         if reacknowledge:
             details['reacknowledge_cleared'] = reacknowledge
@@ -282,7 +277,6 @@ class VolunteerScheduleService:
             if assignment.auto_generated:
                 continue
             was_acknowledged = assignment.acknowledged_at is not None
-            # The reminder was for the old time; the new one needs its own.
             if was_acknowledged or assignment.reminder_sent_at is not None:
                 assignment.acknowledged_at = None  # type: ignore[assignment]
                 assignment.reminder_sent_at = None  # type: ignore[assignment]
@@ -319,7 +313,6 @@ class VolunteerScheduleService:
             await AuthService.can_manage_volunteers(actor),
             "Only volunteer coordinators can manage shifts.",
         )
-        # Only shifts still to come: a DM about last year's finished shift is noise.
         to_tell = await self.assignment_repository.published_unfinished(datetime.now(timezone.utc))
         deleted = await self.shift_repository.delete_all()
         await self.audit_service.write_log(
@@ -329,8 +322,6 @@ class VolunteerScheduleService:
         for assignment in to_tell:
             await self._notify_removed(assignment.user, assignment.shift)
         return deleted
-
-    # --- Assignments ------------------------------------------------------
 
     async def assign(
         self,
@@ -460,7 +451,6 @@ class VolunteerScheduleService:
         await self.audit_service.write_and_publish(
             actor, AuditActions.VOLUNTEER_UNASSIGNED, details, EventType.VOLUNTEER_UNASSIGNED,
         )
-        # An unpublished draft's removal is silent because its creation was.
         if not was_draft:
             await self.role_mapping_service.reconcile_users(actor, [details['user_id']])
             await self._notify_removed(user, shift)
@@ -560,8 +550,6 @@ class VolunteerScheduleService:
             include_drafts=include_drafts, with_shiftmates=with_shiftmates,
         )
 
-    # --- Coverage ---------------------------------------------------------
-
     @requires_feature(FeatureFlag.VOLUNTEERS)
     async def coverage_for_viewer(self, viewer: Optional[User], start: datetime, end: datetime) -> List[Dict]:
         await _ensure_can_view_schedule(viewer)
@@ -619,8 +607,6 @@ class VolunteerScheduleService:
             ),
             'understaffed_shifts': sum(1 for r in rows if r['understaffed']),
         }
-
-    # --- Helpers ----------------------------------------------------------
 
     async def _require_position(self, position_id: int) -> VolunteerPosition:
         """This community's position, or a ValueError. Never another tenant's."""
@@ -799,6 +785,4 @@ class VolunteerScheduleService:
                 volunteer.preferred_name, details.get('hours_notice'), details.get('reason'),
             ),
         )
-        # The ask is "find cover", so the button opens the roster on the day of
-        # the shift rather than on whatever day the schedule defaults to.
         await notify_coordinators(shift, message, embed, link_label='Find cover', notice=notices.SHIFT_GIVEN_BACK)

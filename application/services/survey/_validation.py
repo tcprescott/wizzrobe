@@ -26,13 +26,10 @@ OTHER_TEXT_MAX = 200
 
 CHOICE_KINDS = (SurveyQuestionKind.CHOICE_ONE, SurveyQuestionKind.CHOICE_MANY)
 YES, NO = 'Yes', 'No'
-# The write-in choice a question with ``other_option`` adds; its text rides in the answer's ``text``.
 OTHER = 'Other'
-# An agree-scale answer is one of these per statement, stored as its number (1-5).
 AGREE_LEVELS = ('Strongly disagree', 'Disagree', 'Neither agree nor disagree', 'Agree', 'Strongly agree')
 
-# Control characters and the bidi/zero-width marks that can disguise text,
-# keeping newlines so a comment's paragraphs survive.
+# Leaves \x0a out so a comment's newlines survive.
 _CONTROL = re.compile(r'[\x00-\x09\x0b-\x1f\x7f-\x9f​-‏‪-‮⁦-⁩]')
 
 

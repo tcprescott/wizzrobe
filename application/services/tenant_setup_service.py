@@ -28,11 +28,8 @@ class SetupStep:
     key: str
     label: str
     done: bool
-    #: Why this matters, shown under the label when not done.
     hint: str
-    #: Admin tab this step is completed on, for the "Take me there" link.
     tab: str
-    #: A community cannot schedule a match until every required step is done.
     required: bool
 
 
@@ -107,7 +104,6 @@ class TenantSetupService:
         from application.services.event_service import EventService
         from application.tenant_context import tenant_scope
 
-        # The checklist counts the default event's tournaments and stages.
         with tenant_scope(tenant_id), event_scope(await EventService.default_event_id(tenant_id)):
             return await TenantSetupService().status()
 

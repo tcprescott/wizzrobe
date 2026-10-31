@@ -37,7 +37,6 @@ class MissingAnswer:
     part_title: str
     question_id: int
     prompt: str
-    #: An agree scale with some statements answered but not all.
     every_statement: bool = False
 
     def __str__(self) -> str:
@@ -49,12 +48,12 @@ class RespondentView:
     """Everything the survey page needs for one person."""
 
     survey: Survey
-    recipient: Optional[SurveyRecipient]  # None in the staff preview
+    recipient: Optional[SurveyRecipient]
     parts: List[plan.Part]
     answers: Dict[plan.AnswerKey, Any] = field(default_factory=dict)
     texts: Dict[plan.AnswerKey, str] = field(default_factory=dict)
     submitted: bool = False
-    anonymous: Optional[bool] = None  # known once submitted
+    anonymous: Optional[bool] = None
 
     @property
     def after_send(self) -> str:
@@ -153,8 +152,7 @@ class SurveyResponseService:
         survey = require_found(await self.repository.get_full(survey_id), 'Survey')
         recipient = await self.repository.get_recipient(survey.id, actor.id)
         if recipient is None:
-            # Not a PermissionError: whether a survey exists is nobody's business
-            # but the people it went to and staff.
+            # NotFound, not PermissionError: don't confirm the survey exists.
             raise NotFoundError("This survey wasn't sent to you.")
         return survey, recipient
 

@@ -223,8 +223,6 @@ register(SurveyCondition(
     'not_tournament_room', "Didn't play in the tournament room", per_tournament=True,
     negates='tournament_room',
 ))
-# The same two facts, ignoring which tournament: inside a section that repeats
-# per tournament they still ask about the whole event (Thomas, 2026-10-27).
 register(SurveyCondition('on_stage_any', 'Had a match on a stage (any tournament)', collect=_any(_on_stage)))
 register(SurveyCondition('not_on_stage_any', 'Had no match on a stage (any tournament)', negates='on_stage_any'))
 register(SurveyCondition(

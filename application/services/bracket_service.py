@@ -49,7 +49,6 @@ from models import (
     User,
 )
 
-#: The stage states that are not public — see the viewer-aware reads below.
 UNPUBLISHED_STATES = (BracketState.DRAFT, BracketState.CANCELLED)
 
 
@@ -68,7 +67,6 @@ class BracketService(
         self.repository = BracketRepository()
         self.audit_service = AuditService()
 
-    # -- helpers ----------------------------------------------------------
     @staticmethod
     def _coerce_format(fmt: Union[str, BracketFormat]) -> BracketFormat:
         if isinstance(fmt, BracketFormat):
@@ -105,7 +103,6 @@ class BracketService(
                 "a bracket here."
             )
 
-    # -- bracket authoring ------------------------------------------------
     @requires_feature(FeatureFlag.BRACKETS)
     async def create_bracket(
         self,
@@ -141,9 +138,7 @@ class BracketService(
             config=config,
         )
 
-        # A bracket-run tournament schedules only what the bracket produced, so
-        # attaching the first stage closes the manual player-request path. Only on
-        # the first stage: a later stage must not undo a staff re-open.
+        # Only on the first stage: a later stage must not undo a staff re-open.
         if tournament.allow_player_match_requests and stage_order == 0:
             await TournamentRepository.update(
                 tournament, allow_player_match_requests=False,
@@ -184,8 +179,6 @@ class BracketService(
                 raise ValueError("Bracket name cannot be empty")
             update_data['name'] = name.strip()
         if format is not None:
-            # Safe while DRAFT precisely because no match graph exists yet: the
-            # format is only read by ``start_bracket`` when it picks an engine.
             update_data['format'] = self._coerce_format(format)
         if stage_order is not None and stage_order != bracket.stage_order:
             existing = await self.repository.get_stage(bracket.tournament_id, stage_order)
@@ -195,9 +188,7 @@ class BracketService(
                 )
             update_data['stage_order'] = stage_order
         if config is not None:
-            # Validated against the stage as it will be *after* this edit, so
-            # changing the format and its format-specific keys in one call is
-            # checked against the new format rather than the old one.
+            # Validate against the stage as it will be after this edit, not before it.
             update_data['config'] = validate_bracket_config(
                 config,
                 fmt=update_data.get('format', bracket.format),
@@ -244,10 +235,7 @@ class BracketService(
             merged['rounds'] = rounds
         else:
             merged.pop('rounds', None)
-        # Shape-checked only: the cross-field checks belong to the authoring
-        # path, where the operator can act on them. This one is the single edit
-        # allowed after a stage starts, and it must not start refusing over a key
-        # it is not touching and the caller can no longer reach.
+        # Shape-check only: this is the one edit allowed after start and must not refuse over keys it isn't touching.
         validated = validate_bracket_config(merged)
         bracket = await self.repository.update(bracket, config=validated)
         await self.audit_service.write_log(
@@ -316,7 +304,6 @@ class BracketService(
             actor, AuditActions.BRACKET_DELETED, details,
         )
 
-    # -- reads ------------------------------------------------------------
     @requires_feature(FeatureFlag.BRACKETS)
     async def get_bracket(self, bracket_id: int) -> Optional[Bracket]:
         return await self.repository.get_bracket(bracket_id)
@@ -334,16 +321,6 @@ class BracketService(
         """
         return await self.repository.list_all_with_tournament()
 
-    # -- viewer-aware reads -------------------------------------------------
-    #
-    # A DRAFT stage is unpublished: it exists so staff can author and seed a
-    # field before announcing it. A CANCELLED one was published, then called
-    # off, and leaving it listed invites people to keep reading a bracket nobody
-    # will finish. Both are staff-only on every surface that shows stages to
-    # anyone else — the public pages, their static twins, the join door, the
-    # home browse tab, REST and MCP — so the rule lives here, once, rather than
-    # as a filter each surface has to remember. The unfiltered reads above stay
-    # for staff tooling (Admin → Brackets) and internal lifecycle code.
 
     @staticmethod
     def is_published(bracket: Bracket) -> bool:
@@ -445,7 +422,6 @@ class BracketService(
     async def list_entrants(self, tournament_id: int) -> List[BracketEntrant]:
         return await self.repository.list_entrants(tournament_id)
 
-    # -- roster (tournament-level entrants) -------------------------------
     @requires_feature(FeatureFlag.BRACKETS)
     async def add_entrant(
         self,
@@ -462,9 +438,7 @@ class BracketService(
         if not display_name or not display_name.strip():
             raise ValueError("Entrant display name is required")
         if user_id is not None:
-            # Resolve before the insert: an unknown id would otherwise surface as
-            # a raw FK IntegrityError (a 500, and an id oracle) rather than the
-            # 404 every other user-referencing service raises.
+            # Resolve before the insert: an unknown id would surface as a raw FK IntegrityError (a 500 and an id oracle).
             require_found(await UserRepository.get_by_id(user_id), f"User {user_id}")
             await TenantMembershipService.require_community_users([user_id], actor)
 
@@ -561,8 +535,7 @@ class BracketService(
                 status=BracketEntrantStatus.ACTIVE,
             )
             created.append(entrant)
-            # The same per-entrant audit + event ``add_entrant`` writes: a
-            # subscriber tracking the roster must not go blind on a bulk import.
+            # Same per-entrant audit + event as add_entrant: roster subscribers must not go blind on a bulk import.
             await self.audit_service.write_and_publish(
                 actor,
                 AuditActions.BRACKET_ENTRANT_ADDED,
@@ -594,7 +567,6 @@ class BracketService(
         )
         return entrant
 
-    # -- enrollment (per-stage entries) -----------------------------------
     @requires_feature(FeatureFlag.BRACKETS)
     async def enroll(
         self,
@@ -727,8 +699,6 @@ class BracketService(
         entries = await self.repository.list_entries(bracket_id)
         entry_by_id = {e.id: e for e in entries}
 
-        # Resolve the full per-entry seeding that would result from applying the
-        # requested changes, then validate the whole set before writing anything.
         resulting: Dict[int, Optional[int]] = {e.id: e.seed for e in entries}
         for entry_id, seed in seeds.items():
             if entry_id not in entry_by_id:

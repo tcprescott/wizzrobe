@@ -41,9 +41,6 @@ STAFF_RECIPIENTS = frozenset({
     NotificationRecipient.ON_DUTY, NotificationRecipient.ADMINS, NotificationRecipient.STAFF,
 })
 
-# Grouped by what the reader is doing when the message arrives, not by the admin
-# page's groups: the same "Match scheduled" reads differently as your own match
-# and as one you watch.
 SECTIONS: Tuple[Tuple[str, str], ...] = (
     ('Your matches', 'When you\'re playing'),
     ('Brackets and requests', 'Bookings, sign-ups and reschedule answers'),
@@ -269,8 +266,6 @@ class NotificationPreferenceService:
         if notice is None or recipient not in notice.defaults:
             raise ValueError('That is not a notification setting.')
         if recipient in STAFF_RECIPIENTS and not await AuthService.can_view_admin(actor):
-            # get_mine lists staff alerts only for the admin side, so there is
-            # no row to hand back; refuse before saving one nobody can see.
             raise ValueError('That setting is for staff alerts.')
         target = notice.to(recipient)
         pref = await NotificationPreferenceRepository.get(actor.id)
@@ -282,8 +277,7 @@ class NotificationPreferenceService:
             overrides[_key(target)] = mode.value
         await NotificationPreferenceRepository.save(actor.id, preset, overrides)
         if target == STAFF_COMMENT.to(PLAYERS):
-            # The older Profile switch for staff comments, still read by the
-            # comment sender: keep it in step so the two never disagree.
+            # The legacy Profile switch is still read by the comment sender: keep it in step.
             actor.dm_match_comments = mode is not OFF
             await save_fields(actor, 'dm_match_comments')
         cls._forget(actor)

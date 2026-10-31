@@ -164,9 +164,6 @@ class ChallongeStageMixin:
                     f"next step again from here."
                 )
             refused = f"Challonge refused to {action.label.lower()}: {failure}"
-            # Usually the cached state is stale: someone moved the bracket on
-            # Challonge's site. Catching up makes the next offered step right
-            # and mirrors any matches that stage opened.
             try:
                 await self._sync_tournament(tournament, actor, force=True)
             except (ValueError, ChallongeAPIError):

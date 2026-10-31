@@ -47,15 +47,12 @@ ALLOWED_FORMATS = frozenset({'PNG', 'JPEG', 'WEBP'})
 ACCEPT = '.svg,.png,.jpg,.jpeg,.webp'
 
 CONFIG_KEY = 'logo'
-# 'svg' when the stored logo is a sanitised SVG; absent for the WebP.
 FORMAT_KEY = 'logo_format'
 _MIME = {'svg': 'image/svg+xml', 'webp': 'image/webp'}
 ROUTE_PREFIX = '/brand-logo'
 _SHA_RE = re.compile(r'^[0-9a-f]{64}$')
 _TOO_BIG = f'Logos can be up to {MAX_SOURCE_SIDE}×{MAX_SOURCE_SIDE} pixels.'
 
-# 32 is the tab icon; 180 is the iOS home-screen (apple-touch) icon, which iOS
-# draws on black when transparent, so it gets the app's dark shell behind it.
 TAB_ICON_SIDE = 32
 TOUCH_ICON_SIDE = 180
 ICON_SIDES = frozenset({TAB_ICON_SIDE, TOUCH_ICON_SIDE})
@@ -63,8 +60,6 @@ TOUCH_ICON_BACKGROUND = (0x17, 0x12, 0x0D, 255)
 TOUCH_ICON_FILL = 0.8
 _SVG_RENDER_WIDTH = 512
 
-# Keyed by (tenant_id, sha256). Entries never go stale because the key names
-# the content, so the only policy needed is a size bound.
 _CACHE_MAX = 128
 _cache: 'OrderedDict[tuple[int, str], bytes]' = OrderedDict()
 _icon_cache: 'OrderedDict[tuple[int, str, int], bytes]' = OrderedDict()
@@ -182,7 +177,6 @@ class TenantLogoService:
             'Only Staff can change the community logo.',
         )
         tenant_id = require_tenant_id()
-        # Decoding is CPU work; off the loop so one upload can't stall every page.
         content, fmt = await asyncio.to_thread(prepare_logo, data)
         sha256 = hashlib.sha256(content).hexdigest()
 

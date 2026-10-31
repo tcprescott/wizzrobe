@@ -27,12 +27,8 @@ MIN_PASSWORD_LENGTH = 12
 MAX_PASSWORD_LENGTH = 256
 _LOGIN_NAME_RE = re.compile(r'^[a-z0-9][a-z0-9._-]{2,63}$')
 
-# scrypt cost: 2**14 * 8 * 128 bytes = 16 MiB and ~50 ms per hash.
 _N, _R, _P = 2 ** 14, 8, 1
 _SCHEME = 'scrypt'
-# Anyone can make the sign-in page hash, and fresh names and browsers dodge the
-# per-name and per-browser limits, so cap how many hashes run at once: a flood
-# queues behind this instead of claiming 16 MiB and a worker thread apiece.
 _MAX_CONCURRENT_HASHES = 4
 _hash_slots = asyncio.Semaphore(_MAX_CONCURRENT_HASHES)
 
@@ -59,8 +55,7 @@ def _verify_sync(password: str, encoded: str) -> bool:
         return False
 
 
-# Verified against when the name is unknown, so a miss costs the same time as a
-# wrong password and response timing doesn't reveal which names exist.
+# Verified on unknown names so response timing doesn't reveal which names exist.
 _DUMMY_HASH = _encode(secrets.token_urlsafe(16))
 
 
@@ -91,8 +86,6 @@ class PasswordAuthService:
         self.repository = UserRepository()
         self.audit_service = AuditService()
 
-    # ------------------------------------------------------------------ sign-in
-
     async def authenticate(self, login_name: str, password: str) -> Optional[User]:
         """The account these credentials open, or ``None`` for any failure.
 
@@ -107,14 +100,10 @@ class PasswordAuthService:
         ok = await verify_password(password, user.password_hash if user else None)
         if not ok or user is None or not user.is_active or user.is_placeholder or user.is_system:
             return None
-        # A password has no second factor, and a super-admin opens every
-        # community: they sign in with Discord only.
         if await AuthService.is_super_admin(user):
             return None
         await self.audit_service.write_log(user, AuditActions.USER_PASSWORD_SIGNED_IN, {'login_name': name})
         return user
-
-    # ----------------------------------------------------------- administration
 
     @staticmethod
     async def _ensure_super_admin(actor: User) -> None:

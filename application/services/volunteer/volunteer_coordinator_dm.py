@@ -28,9 +28,7 @@ async def notify_coordinators(
     if not recipients:
         return
 
-    # The community's own clock, not any reader's: the roster day is a property
-    # of the schedule, and a coordinator abroad must not be sent to yesterday's
-    # board.
+    # The community's clock, not the reader's: the roster day belongs to the schedule.
     day = None
     if shift.starts_at:
         local = to_local(shift.starts_at, await TimezoneService.tenant_timezone_name())

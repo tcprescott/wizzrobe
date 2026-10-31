@@ -61,8 +61,6 @@ class SentMessageService:
     def __init__(self) -> None:
         self.repository = SentMessageRepository()
 
-    # ------------------------------------------------------------- writing
-
     async def record_attempt(
         self,
         discord_id: int,
@@ -125,8 +123,6 @@ class SentMessageService:
         if fields:
             await self._update(ref, **fields)
 
-    # ------------------------------------------------------------- reading
-
     @staticmethod
     async def _ensure_can_read(actor: User) -> None:
         """Staff only: a DM can carry a staff-private note or someone's request."""
@@ -186,11 +182,6 @@ class SentMessageService:
     async def get_message(self, message_id: int, *, actor: User) -> Optional[SentMessage]:
         await self._ensure_can_read(actor)
         return await self.repository.get(message_id)
-
-    # ------------------------------------------------- your own messages
-
-    # Everyone may read the messages sent to them, and only those: the staff
-    # check above is for reading other people's.
 
     @staticmethod
     def _keys_in(group: Optional[str]) -> Optional[List[str]]:

@@ -23,16 +23,11 @@ logger = logging.getLogger(__name__)
 
 PARTICIPANT_WRITE_SCOPE = 'participants:write'
 
-# Set on the entrants Wizzrobe adds, so a sync can still map one to its player
-# while Challonge's invite is unclaimed and the entry carries no account id.
 MISC_USER_PREFIX = 'wizzrobe-user:'
 
-# Challonge states in which the roster can still change. Unknown (never synced)
-# counts as open: Challonge itself refuses the add if the bracket has started.
+# Unknown (never synced) counts as open: Challonge itself refuses the add once the bracket has started.
 _ROSTER_OPEN_STATES = frozenset({'pending', 'checking_in', 'checked_in'})
 
-# Every sign-up and withdrawal spends one request of the community's monthly
-# Challonge quota, so a player toggling the button is capped.
 ROSTER_CHANGES_PER_HOUR = 6
 
 
@@ -184,8 +179,6 @@ class ChallongeSignupMixin:
                 community=tournament.challonge_community,
             )
         except ChallongeAPIError as e:
-            # Already gone on Challonge (staff removed it there): finish the
-            # withdrawal locally rather than leave a ghost entry.
             if e.status != 404:
                 logger.warning(
                     'Challonge refused withdrawal: tournament=%s user=%s',

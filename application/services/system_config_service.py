@@ -26,50 +26,26 @@ KEY_MAX_CONCURRENT_STAGES = 'max_concurrent_stages'
 KEY_VOLUNTEER_REMINDER_LEAD_MINUTES = 'volunteer_reminder_lead_minutes'
 KEY_VOLUNTEER_COMP_TIERS = 'volunteer_comp_tiers'
 KEY_COMMUNITY_EVENT_REMINDER_LEAD_MINUTES = 'community_event_reminder_lead_minutes'
-# Whether a member's community event waits for staff before it's listed.
 KEY_COMMUNITY_EVENT_REQUIRE_APPROVAL = 'community_event_require_approval'
 KEY_TOURNAMENT_HOURS = 'tournament_hours_by_date'
 KEY_STATION_FORMAT = 'station_format'
-# Whether this event's matches have a Broadcaster crew role. An event setting,
-# off by default; ``EventService.broadcasters_on`` is the read side.
 KEY_BROADCASTERS = BROADCASTERS_KEY
-# Whether anyone in the community's linked Discord server gets in at the join
-# door without asking. Default off: a server is often wider than the community
-# (a shared server, a public one), so opening the door to all of it is a staff
-# decision, like the preview above.
 KEY_DISCORD_AUTO_JOIN = 'discord_auto_join'
-# Whether non-members may file a join request at the door. Default on (read with
-# ``default=True``): turning it off closes that way in without touching Discord
-# auto-join, so a community can admit its server and nobody else.
 KEY_JOIN_REQUESTS = 'join_requests_enabled'
-# Whether anyone who signs in becomes a member without asking — no server, no
-# staff decision. Default off; set through ``TenantMembershipService.set_join_mode``
-# so it and the two keys above always describe one coherent rule.
+# Write only through ``TenantMembershipService.set_join_mode``, which keeps the join keys coherent.
 KEY_OPEN_MEMBERSHIP = 'open_membership'
-# An invite to the linked server, offered on the join door. Typed in by staff:
-# the bot never mints one.
 KEY_DISCORD_INVITE_URL = 'discord_invite_url'
-# The Watch page (/live): 'live' (a NiceGUI page that updates itself) or
-# 'static' (one cached render shared by every reader). Default live.
 KEY_WATCH_MODE = 'watch_page_mode'
 WATCH_MODES = ('live', 'static')
-# Whether a rush of arrivals switches the page to static on its own (default
-# on), and how many arrivals in a minute count as a rush.
 KEY_WATCH_AUTO_STATIC = 'watch_page_auto_static'
 KEY_WATCH_AUTO_THRESHOLD = 'watch_page_auto_threshold'
 DEFAULT_WATCH_AUTO_THRESHOLD = 300
-# Whether signed-out visitors always get the static page while it is otherwise
-# live (default off): cheaper, but they lose the live updates.
 KEY_WATCH_STATIC_SIGNED_OUT = 'watch_page_static_signed_out'
 
-#: Settings each event keeps for itself in ``Event.config``; the rest stay the
-#: community's. Read and written for the event in scope, so a page in last
-#: year's event shows last year's capacity, and a worker reads the event it bound.
 EVENT_CONFIG_KEYS = frozenset({
     KEY_MAX_CONCURRENT_PLAYERS, KEY_MAX_CONCURRENT_STAGES, KEY_TOURNAMENT_HOURS,
     KEY_STATION_FORMAT, KEY_VOLUNTEER_COMP_TIERS, KEY_BROADCASTERS,
 })
-#: The event dates, which are the event's own columns rather than config.
 EVENT_DATE_FIELDS = {KEY_EVENT_START_DATE: 'starts_on', KEY_EVENT_END_DATE: 'ends_on'}
 
 
@@ -89,7 +65,6 @@ class SystemConfigService:
     async def get_raw(key: str) -> Optional[str]:
         if is_event_key(key):
             return await SystemConfigService._get_event_raw(key)
-        # SystemConfiguration is per-tenant (unique on (tenant, name)).
         config = await SystemConfiguration.get_or_none(name=key, tenant_id=require_tenant_id())
         return config.value if config else None
 

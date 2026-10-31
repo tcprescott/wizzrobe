@@ -24,8 +24,6 @@ from typing import Callable, Dict, List, Tuple, TypeVar
 
 T = TypeVar('T')
 
-# (kind, name) -> registered strategy object (typically a class). Kept private;
-# mutate only through the functions below so registration stays observable.
 _REGISTRY: Dict[Tuple[str, str], object] = {}
 
 

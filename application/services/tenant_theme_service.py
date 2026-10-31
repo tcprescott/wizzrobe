@@ -34,11 +34,7 @@ from application.tenant_context import get_current_tenant_id, require_tenant_id
 from application.utils.color_contrast import contrast_ratio, mix
 from models import User
 
-# The overridable brand colours and their shipped Phoenix defaults. Keep these in
-# sync with the ``:root`` seed values in static/css/styles.css and the fallback
-# used by theme/base.py — ``primary`` mirrors --wiz-gold-deep, ``accent``
-# --wiz-gold, ``secondary`` --wiz-ember-deep, ``header`` --wiz-header-bg
-# (the brand mark beside the wordmark).
+# Keep in sync with the ``:root`` seeds in static/css/styles.css and theme/base.py's fallback.
 DEFAULT_THEME: dict[str, str] = {
     'primary': '#9C6B12',
     'secondary': '#C24E12',
@@ -47,18 +43,10 @@ DEFAULT_THEME: dict[str, str] = {
 }
 THEME_KEYS: tuple[str, ...] = tuple(DEFAULT_THEME.keys())
 
-# Config sub-key under Tenant.config where the override dict lives.
 CONFIG_KEY = 'theme'
 
 _HEX_RE = re.compile(r'^#[0-9a-fA-F]{6}$')
 
-# --- Contrast (WCAG AA) ----------------------------------------------------
-# Each brand colour is checked where static/css/styles.css actually paints it,
-# in each mode, so a warning names a real use ("button text in both modes")
-# rather than an abstract score. The surfaces are the --surface / --page-bg /
-# --surface-alt tokens; tests/theme/test_style_guide.py asserts they still match
-# styles.css. Text and button labels are held to AA normal text (4.5:1); the
-# brand mark is a graphic, so it gets the 3:1 non-text line.
 _WHITE = '#ffffff'
 _LIGHT_SURFACES = ('#ffffff', '#f5f5f4', '#fafaf9')
 _DARK_SURFACES = ('#1f1d1a', '#161513', '#262420')
@@ -69,35 +57,27 @@ _AA_GRAPHIC = 3.0
 @dataclass(frozen=True)
 class _ContrastCheck:
     use: str
-    mode: str                         # 'light', 'dark' or 'both'
-    against: tuple[str, ...]          # the worst of these is reported
+    mode: str
+    against: tuple[str, ...]
     threshold: float = _AA_TEXT
-    paint: Callable[[str], str] = lambda colour: colour  # what CSS derives from it
+    paint: Callable[[str], str] = lambda colour: colour
 
 
 _CONTRAST_CHECKS: dict[str, tuple[_ContrastCheck, ...]] = {
-    # Filled buttons keep the exact primary in both modes, under a white label.
-    # Light-mode links and primary text are --wiz-link: 15% toward black.
     'primary': (
         _ContrastCheck('button text', 'both', (_WHITE,)),
         _ContrastCheck('links and highlighted text', 'light', _LIGHT_SURFACES,
                        paint=lambda c: mix(c, '#000000', 0.85)),
     ),
-    # Secondary text buttons sit on cards and dialogs; dark mode lifts the text
-    # 30% toward white (the .text-secondary rule in @layer theme).
     'secondary': (
         _ContrastCheck('button text', 'both', (_WHITE,)),
         _ContrastCheck('text buttons', 'light', (_LIGHT_SURFACES[0],)),
         _ContrastCheck('text buttons', 'dark', (_DARK_SURFACES[0],),
                        paint=lambda c: mix(c, '#ffffff', 0.7)),
     ),
-    # Dark mode's --accent: links, highlighted text, the active nav item.
     'accent': (
         _ContrastCheck('links and highlighted text', 'dark', _DARK_SURFACES),
     ),
-    # The square beside the wordmark on the white header bar. Light mode only:
-    # the mark is decorative, and a dark-mode check would flag every preset's
-    # deep header colour.
     'header': (
         _ContrastCheck('the brand mark in the header', 'light', (_LIGHT_SURFACES[0],),
                        threshold=_AA_GRAPHIC),
@@ -106,10 +86,6 @@ _CONTRAST_CHECKS: dict[str, tuple[_ContrastCheck, ...]] = {
 
 _MODE_PHRASE = {'light': 'in light mode', 'dark': 'in dark mode', 'both': 'in light and dark mode'}
 
-# Curated palettes, each **verified** to meet the contrast thresholds above —
-# tests/test_color_contrast.py asserts every field of every preset passes, so a
-# future edit that breaks a preset fails CI. 'Phoenix (default)' is the shipped
-# palette; it is listed first and equals DEFAULT_THEME.
 THEME_PRESETS: dict[str, dict[str, str]] = {
     'Phoenix (default)': dict(DEFAULT_THEME),
     'Ocean': {'primary': '#0e7470', 'secondary': '#1d4ed8', 'accent': '#38bdf8', 'header': '#0e7470'},

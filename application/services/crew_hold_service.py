@@ -84,7 +84,6 @@ class CrewHoldService:
             hold = item.hold
             if hold is not None and not (list(hold.commentators) or list(hold.trackers)  # type: ignore[attr-defined]
                                          or list(hold.broadcasters)):  # type: ignore[attr-defined]
-                # Everyone withdrew: the matchup goes back to a plain line.
                 await self.repository.delete(hold)
                 item.hold = None
             if item.hold is not None:
@@ -130,7 +129,6 @@ class CrewHoldService:
             row['_future_order'] = order[future.ref]
             row['set_label'] = future.matchup.round_label or None
             out.append(row)
-        # The board shows one event; open matchups come from every live one.
         event_id = get_current_event_id()
         for future in futures:
             if future.hold is not None:

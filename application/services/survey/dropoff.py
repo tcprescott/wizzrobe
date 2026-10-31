@@ -32,7 +32,6 @@ class Dropoff:
     submitted: int = 0
     declined: int = 0
     parts: List[PartFunnel] = field(default_factory=list)
-    #: Median minutes from first save to send, once enough people have sent it.
     median_seconds: Optional[int] = None
     estimate_seconds: Optional[int] = None
 

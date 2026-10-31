@@ -210,7 +210,6 @@ async def request_withdrawn(match_id: int, requester_id: int, cancel: bool) -> N
         players = [p.user for p in match.players]  # type: ignore[attr-defined]
         requester = next((u for u in players if u.id == requester_id), None)
         opponents = [u for u in players if u.id != requester_id]
-        # The opponent was only asked on a head-to-head match.
         if requester is None or len(opponents) != 1 or opponents[0].id not in chosen:
             return
         message = text.request_withdrawn_dm(requester.preferred_name, match.tournament.name, cancel)

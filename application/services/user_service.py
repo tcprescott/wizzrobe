@@ -43,10 +43,7 @@ def _reject_platform_role(role: Role, verb: str) -> None:
         )
 
 
-# A name is shown inside bot-authored Discord DMs and embeds, where a masked link
-# (``[Review the signup](https://…)``), a bare URL or a mention renders live. Any
-# member can set their own name and then trigger a DM to staff (a crew signup),
-# so a name carrying one would put an attacker's link in a message from the bot.
+# Names render live in bot DMs to staff: refuse links and mentions, or a member can plant one.
 _NAME_MARKUP = re.compile(r'\]\(|://|www\.|discord\.gg/|<[@#&!:]|@everyone|@here', re.IGNORECASE)
 
 
@@ -64,8 +61,7 @@ class UserService:
     def __init__(self) -> None:
         self.repository = UserRepository()
         self.role_repository = UserRoleRepository()
-        # Enrolment writes go through here rather than straight to the model:
-        # the repository is what stamps the tenant on a non-null FK.
+        # Through the repository, which stamps the tenant on the non-null FK.
         self.tournament_repository = TournamentRepository()
         self.audit_service = AuditService()
 
@@ -385,10 +381,7 @@ class UserService:
                 await self.tournament_repository.enroll_player(tournament, user)
                 created_ids.append(tournament_id)
 
-        # One record per tournament rather than one batched row for the whole
-        # edit: a staff roster change is as much a roster change as a player's
-        # own signup, and a subscriber mirroring the roster has to hear about it
-        # at the same granularity or its copy drifts with nothing to show why.
+        # One record per tournament: a subscriber mirroring the roster needs that granularity.
         for tournament_id in sorted(removed_ids):
             await record_enrolment_change(
                 self.audit_service, actor, user, tournament_id, added=False, notify=True,
@@ -414,10 +407,7 @@ class UserService:
         if not username or not username.strip():
             raise ValueError("Enter a username.")
         if discord_id:
-            # Discord ids are global and login claims the row that carries one,
-            # so creating an account here decides how that person's first sign-in
-            # goes on every community. A deactivated one would lock them out of
-            # the whole platform before they ever arrived.
+            # Discord ids are global: a deactivated row would lock the person out of every community.
             if not is_active:
                 raise ValueError(
                     "An account with a Discord ID has to start active. Create it, "
@@ -432,9 +422,6 @@ class UserService:
             is_active=is_active,
             discord_id=discord_id,
         )
-        # Staff creating an account from their own admin area mean it for their
-        # own community — without this the new user would not appear in the very
-        # table they were created from.
         await TenantMembershipService.ensure_member(
             new_user, actor=actor, source=MembershipSource.STAFF,
         )
@@ -575,10 +562,7 @@ class UserService:
         await self.role_repository.add(
             target, role, granted_by=actor, source=RoleSource.MANUAL, event_id=event_id,
         )
-        # A role in a tenant implies membership in it. Guarded on the role rather
-        # than on the ambient tenant: grant_role runs *inside* a tenant context,
-        # so without this a super-admin grant would make them a member of
-        # whichever community happened to grant it.
+        # Guard on the role's tenant, not the ambient one, or a super-admin grant joins them to the granting community.
         closed = None
         if role is not Role.SUPER_ADMIN:
             closed = await TenantMembershipService.ensure_member(

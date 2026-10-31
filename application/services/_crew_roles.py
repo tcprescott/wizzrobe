@@ -7,7 +7,6 @@ on an event without them.
 from application.services.event_service import EventService
 from models import Match
 
-#: Every crew role, by the singular the services, handlers and audit rows use.
 CREW_ROLES = ('commentator', 'tracker', 'broadcaster')
 INVALID_ROLE = "Invalid role: {}. Must be 'commentator', 'tracker' or 'broadcaster'"
 

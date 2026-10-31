@@ -107,8 +107,6 @@ class StationService:
             fields['name'] = clean
         if section is not None:
             fields['section'] = section.strip() or None
-        # Both layout fields are nullable and both are set by a picker that can
-        # be emptied, so "leave alone" and "clear" need separate signals.
         if side is not None:
             fields['side'] = side
         elif clear_side:

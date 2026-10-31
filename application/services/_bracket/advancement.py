@@ -28,8 +28,6 @@ from models import (
 
 
 class AdvancementMixin(ComposedBracketService):
-    # -- B7: results, advancement, stage completion -----------------------
-
     _ELIM_FORMATS = (BracketFormat.SINGLE_ELIM, BracketFormat.DOUBLE_ELIM)
 
     async def report_result(
@@ -177,11 +175,6 @@ class AdvancementMixin(ComposedBracketService):
 
         reset = await self._gf1_reset(match)
         if reset is not None:
-            # Grand Final 1 (double elim): winner_to and loser_to both target the
-            # terminal reset match. If the winners-bracket side (slot 1) wins, the
-            # title is decided — the reset is never played and the loser is the
-            # runner-up. If the losers-bracket side (slot 2) wins, populate and
-            # open the reset for the deciding game.
             winner_from_wb = winner_entry.id == match.entry1_id
             if winner_from_wb:
                 await self._clear_match_slots(reset)
@@ -291,9 +284,7 @@ class AdvancementMixin(ComposedBracketService):
         if has1 and has2:
             match.state = BracketMatchState.OPEN
             await save_fields(match, 'state')
-            # Keyed on the transition, not the state: a matchup whose two slots
-            # fill at different times settles twice, and its entrants must be
-            # invited to schedule exactly once (D7).
+            # Keyed on the transition, not the state: a matchup whose slots fill apart settles twice but invites once.
             if not was_open:
                 await self.notify_matchup_ready(match)
             return
@@ -363,7 +354,6 @@ class AdvancementMixin(ComposedBracketService):
         self, match: BracketMatch, _seen: set
     ) -> bool:
         if match.state == BracketMatchState.COMPLETE:
-            # A completed match yields a loser only if it was a real contest.
             return match.entry1_id is not None and match.entry2_id is not None
         slot1_live = match.entry1_id is not None or await self._slot_can_fill(
             match.id, 1, _seen
@@ -434,10 +424,7 @@ class AdvancementMixin(ComposedBracketService):
 
         await self._advance_after_result(bracket, match, winner_entry, loser_entry)
         if bracket.state == BracketState.COMPLETE:
-            # The bracket already auto-finalized (COMPLETE, final_rank written), so
-            # _maybe_complete_stage would early-return, leaving final_rank/champion
-            # stale. Re-run the same ranking path complete_stage uses so ranks are
-            # recomputed from the amended results.
+            # Already COMPLETE, so _maybe_complete_stage would early-return and leave ranks stale: re-finalize directly.
             await self._finalize_stage(bracket, actor, tie_breaks=None)
         else:
             await self._maybe_complete_stage(bracket, actor)

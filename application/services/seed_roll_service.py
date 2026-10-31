@@ -79,12 +79,7 @@ class SeedRollService:
         without re-reading the row.
         """
         if task.provider_task_id is None:
-            # No upstream handle yet, so there is nothing to poll — but this is
-            # **not** a failure. It is also the state of a task whose submit is
-            # still in flight, and the submit takes as long as the provider takes
-            # to answer. Failing here would let a tick that lands in that window
-            # kill a live roll. ``sweep_stale`` retires the ones that really are
-            # stuck, on a timer long enough to tell the two apart.
+            # Not a failure: the submit may still be in flight. sweep_stale retires the really stuck ones.
             return ProviderTaskStatus(task.status)
 
         try:
@@ -96,9 +91,7 @@ class SeedRollService:
             )
         except (aiohttp.ClientError, asyncio.TimeoutError, SeedProviderTimeout,
                 SeedProviderUnavailable, SeedProviderRateLimited) as exc:
-            # The provider blipped, not the roll: the seed may still be building
-            # upstream. Poll again next tick; sweep_stale retires it if it never
-            # comes back.
+            # A poll error is the provider blipping, not the roll: retry next tick.
             logger.warning('Provider task %s (%s) poll failed, will retry: %s',
                            task.id, task.provider, exc or type(exc).__name__)
             return ProviderTaskStatus(task.status)
@@ -112,8 +105,7 @@ class SeedRollService:
         if result.seed is None:
             return ProviderTaskStatus(task.status)
 
-        # Claim before completing: a duplicate tick that loses this race must not
-        # write a second GeneratedSeeds row or DM both players twice.
+        # Claim first, or a duplicate tick writes a second GeneratedSeeds row and DMs twice.
         if not await self.task_service.claim(task, ProviderTaskStatus.SUCCEEDED):
             return ProviderTaskStatus.SUCCEEDED
 
@@ -169,9 +161,7 @@ class SeedRollService:
 
         requester = await self._relation(User, task.requested_by_id)  # type: ignore[attr-defined]
         if requester is None:
-            # No requester means nothing to attribute the failure to, and the
-            # audit layer refuses a null actor by design. The task row still
-            # carries the error, and match_live still clears the UI below.
+            # No requester, no audit: the audit layer refuses a null actor.
             match_live.publish(match_id)
             return
 
@@ -187,8 +177,6 @@ class SeedRollService:
             EventType.MATCH_SEED_ROLL_FAILED,
             event_details={'match_id': match_id, 'error': error},
         )
-        # Puts the failure in front of whoever is looking at the schedule, and
-        # returns the row's Generate button to a usable state.
         match_live.publish(match_id)
 
     @staticmethod

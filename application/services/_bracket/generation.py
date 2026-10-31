@@ -47,7 +47,6 @@ class DrawPreview:
 
 
 class GenerationMixin(ComposedBracketService):
-    # -- draw preview (pure: the engine over the current seeding, no writes) ---
     async def preview_draw(self, bracket_id: int) -> DrawPreview:
         """Run the engine over the current seeding and return the projected draw.
 
@@ -246,7 +245,6 @@ class GenerationMixin(ComposedBracketService):
                 lines.append(f'{byes} bye(s) per round')
         return lines
 
-    # -- start (generate + persist the match graph) -----------------------
     async def start_bracket(self, actor: Optional[User], bracket_id: int) -> Bracket:
         await AuthService.ensure(
             await AuthService.is_staff(actor),
@@ -295,10 +293,7 @@ class GenerationMixin(ComposedBracketService):
         from application.services import opt_in_notifications
         from application.services.discord import discord_queue
         discord_queue.enqueue(opt_in_notifications.bracket_started(bracket.tournament_id))
-        # Generation writes the opening round straight to OPEN rather than
-        # transitioning into it, so ``_settle_match``'s per-transition DM never
-        # sees round 1 (D7). Announce them here instead — after the state pass,
-        # so every matchup this reads is settled.
+        # Round 1 is written straight to OPEN, so _settle_match never DMs it: announce here, after the state pass.
         await self.notify_open_matchups(bracket)
         return bracket
 
@@ -362,11 +357,7 @@ class GenerationMixin(ComposedBracketService):
     ) -> None:
         graph = engine.generate(num_entries, config_dict)
 
-        # Pass 1 — persist a shell BracketMatch per generated node. Grouped
-        # formats (round robin) number positions per group, so offset the
-        # persisted position by group to keep (bracket, round, position) unique;
-        # these nodes carry no winner_to/loser_to pointers, so the offset only
-        # affects storage, not routing.
+        # Offset grouped positions by group to keep (bracket, round, position) unique; storage only, not routing.
         by_coord: Dict[tuple, tuple] = {}
         for gm in graph:
             position = gm.position
@@ -383,7 +374,6 @@ class GenerationMixin(ComposedBracketService):
             )
             by_coord[(gm.round, gm.position, gm.group_number)] = (bm, gm)
 
-        # Pass 2 — resolve winner_to / loser_to pointers into the persisted graph.
         for bm, gm in by_coord.values():
             changed = False
             if gm.winner_to is not None:
@@ -403,11 +393,7 @@ class GenerationMixin(ComposedBracketService):
             if changed:
                 await save_fields(bm, 'winner_to', 'winner_to_slot', 'loser_to', 'loser_to_slot')
 
-        # Materialize initial state: auto-complete every structural bye and
-        # propagate its winner, iterating to a fixpoint (byes never create new
-        # byes, so this terminates after each bye is processed once). A downstream
-        # match that receives two propagated winners becomes a normal match and is
-        # NOT auto-completed.
+        # A match that receives two propagated winners is a real match: never auto-complete it.
         processed: set = set()
         changed = True
         while changed:
@@ -423,7 +409,6 @@ class GenerationMixin(ComposedBracketService):
                 processed.add(bm.id)
                 changed = True
 
-        # Final state pass: both entries present → OPEN, else PENDING.
         for match in await self.repository.list_matches(bracket.id):
             if match.state == BracketMatchState.COMPLETE:
                 continue

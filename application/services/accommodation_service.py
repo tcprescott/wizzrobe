@@ -46,7 +46,6 @@ logger = logging.getLogger(__name__)
 DETAILS_MAX_LENGTH = 2000
 STAFF_NOTES_MAX_LENGTH = 4000
 
-#: At most one "request opened" DM to staff per request in this window.
 STAFF_DM_WINDOW = timedelta(hours=24)
 
 OPEN_STATUSES = (
@@ -76,8 +75,6 @@ class AccommodationService:
             await AuthService.is_staff(actor),
             'Only staff can view accommodation requests.',
         )
-
-    # --- the requester's side ---------------------------------------------
 
     @requires_feature(FeatureFlag.ADA_ACCOMMODATIONS)
     async def get_mine(self, actor: User) -> Optional[AccommodationRequest]:
@@ -136,7 +133,6 @@ class AccommodationService:
         if existing.status is AccommodationStatus.ARRANGED:
             already_flagged = existing.changed_since_arranged
             arranged = existing.arranged_details if already_flagged else existing.details
-            # Typing it back to what staff arranged against is no change at all.
             flagged = details != arranged
             await self.repository.update(
                 existing, details=details,
@@ -175,8 +171,6 @@ class AccommodationService:
             actor, AuditActions.ACCOMMODATION_WITHDRAWN, request, source='member_removed',
         )
         await self._mark_staff_dms(member, request, withdrawn=True)
-
-    # --- staff side -------------------------------------------------------
 
     @requires_feature(FeatureFlag.ADA_ACCOMMODATIONS)
     async def list_requests(
@@ -322,8 +316,6 @@ class AccommodationService:
             and request.staff_notified_at is not None
             and now - request.staff_notified_at < STAFF_DM_WINDOW
         ):
-            # Reopened inside the window: no new DM, so the copies staff
-            # already have must stop saying it was withdrawn.
             await self._restore_staff_dms(member, request)
             return
         try:

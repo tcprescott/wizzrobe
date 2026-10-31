@@ -48,18 +48,11 @@ from racetimebot.transport import RaceRoomEvent
 
 logger = logging.getLogger(__name__)
 
-# Runners are untrusted: one !fpa a minute each, and a cap per race, keeps a
-# spammed command from turning into a stream of staff pings.
 FPA_COOLDOWN_SECONDS = 60
 MAX_FPA_CALLS = 10
-# !seed repeats the seed at most this often per room, so chat can't be flooded.
 SEED_REPEAT_SECONDS = 20
 
-# Process-local throttles; the single-worker deployment (docs/scaling-roadmap.md)
-# makes that enough, and a restart only resets a 20-second window.
 _last_seed_repeat: Dict[str, float] = {}
-# Matches whose seed was rolled by !forceroll on an async randomizer: post it the
-# moment the roll lands rather than waiting for the set time.
 _forced_ids: set = set()
 
 
@@ -76,8 +69,6 @@ class RaceRoomBotService:
     def __init__(self) -> None:
         self.room_repository = RacetimeRoomRepository()
         self.audit_service = AuditService()
-
-    # ---- arrival ---------------------------------------------------------
 
     # feature-gate: exempt — lifecycle of an already-open room (see module docstring).
     async def on_joined(self, room: RacetimeRoom, event: RaceRoomEvent) -> None:
@@ -115,8 +106,6 @@ class RaceRoomBotService:
                 'Wizzrobe profile, then join from this page.'
             )
         return ' '.join(lines)
-
-    # ---- the seed --------------------------------------------------------
 
     # feature-gate: exempt — a worker step over already-open rooms; skips, never raises.
     async def post_due_seeds(self, now: datetime) -> None:
@@ -229,8 +218,6 @@ class RaceRoomBotService:
                 await self._post_seed(room, match)
             else:
                 await self.post_seed_if_due(room, match)
-
-    # ---- chat ------------------------------------------------------------
 
     # feature-gate: exempt — lifecycle of an already-open room (see module docstring).
     async def on_chat(self, room: RacetimeRoom, event: RaceRoomEvent) -> None:
@@ -439,8 +426,6 @@ class RaceRoomBotService:
             discord_queue.enqueue(service.send_dm(
                 int(user.discord_id), message, embed=embed, link=link, notice=notice,
             ))
-
-    # ---- internals -------------------------------------------------------
 
     async def _match(self, room: RacetimeRoom) -> Optional[Match]:
         if room.match_id is None:  # type: ignore[attr-defined]

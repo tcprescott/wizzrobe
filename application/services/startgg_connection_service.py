@@ -39,8 +39,7 @@ logger = logging.getLogger(__name__)
 
 _REFRESH_BUFFER = timedelta(days=1)
 
-# Per-community, so two syncs racing on an expiring token refresh it once:
-# start.gg may rotate the refresh token, and the loser would send a spent one.
+# One refresh per community: start.gg may rotate the refresh token, and a racing loser sends a spent one.
 _refresh_locks: Dict[int, asyncio.Lock] = {}
 
 
@@ -95,9 +94,6 @@ class StartggConnectionService:
         expires_at = datetime.now(timezone.utc) + timedelta(seconds=int(expires_in)) if expires_in else None
         return access, payload.get('refresh_token'), expires_at
 
-    # ------------------------------------------------------------------
-    # Connect / disconnect (called by the OAuth pages)
-    # ------------------------------------------------------------------
     @requires_feature(FeatureFlag.STARTGG)
     async def exchange_connect_code(self, code: str) -> Dict[str, Any]:
         try:
@@ -140,9 +136,6 @@ class StartggConnectionService:
         await self.repository.clear_connection()
         await self.audit_service.write_log(actor, AuditActions.STARTGG_DISCONNECTED, {})
 
-    # ------------------------------------------------------------------
-    # Status and access
-    # ------------------------------------------------------------------
     @requires_feature(FeatureFlag.STARTGG)
     async def get_status(self) -> Dict[str, Any]:
         connection = await self.repository.get_connection()
@@ -152,8 +145,6 @@ class StartggConnectionService:
         }
         if connection is None:
             return {'connected': False, **base}
-        # A token nobody has used all week lapses without a renewal ever being
-        # tried, so try one before calling the sign-in lapsed.
         try:
             await self._fresh_access_token(connection)
         except StartggAPIError:

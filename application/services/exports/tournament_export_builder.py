@@ -321,8 +321,7 @@ async def _startgg(
     rows = {e.id: roster.entrant(('startgg', e.id), e.user, e.gamer_tag or e.name) for e in entrants}
     by_entrant_key = {e.entrant_id: e.id for e in entrants}
     pools = await repo.startgg_pools(tournament.id)
-    # Later phases override earlier ones, so a player's placement is the deepest
-    # phase they reached.
+    # Sort order matters: later phases override, so placement is the deepest phase reached.
     for pool in sorted(pools, key=lambda p: (p.phase.phase_order, p.id)):
         for standing in pool.standings or []:
             entrant_pk = by_entrant_key.get(str(standing.get('entrant_id')))

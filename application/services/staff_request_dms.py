@@ -34,7 +34,6 @@ from models import NotificationRecipient, StaffRequestKind, User
 
 logger = logging.getLogger(__name__)
 
-# ``you`` → the edited card: the reader who decided it reads "You", not their name.
 CardBuilder = Callable[[bool], discord.Embed]
 
 _NOTICES: dict[StaffRequestKind, Notice] = {

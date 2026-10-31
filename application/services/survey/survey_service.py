@@ -70,7 +70,6 @@ _UNSET: Any = object()
 MAX_SECTIONS = 20
 MAX_QUESTIONS_PER_SECTION = 20
 REMIND_GAP_HOURS = 24
-#: Reminders a survey can send; the last one is worded as a last call.
 MAX_REMINDERS = 2
 
 
@@ -95,12 +94,9 @@ class BuilderSummary:
     counts: Dict[str, int]
     tournaments: List[dict] = field(default_factory=list)
     positions: List[dict] = field(default_factory=list)
-    #: The middle person's time (median over everyone who took part).
     typical_seconds: int = 0
-    #: What the Checks card lists, and the checks that found nothing.
     checks: List[survey_checks.Finding] = field(default_factory=list)
     checks_passed: List[str] = field(default_factory=list)
-    #: Responses sent in so far; always 0 on a draft.
     answered: int = 0
 
     @property
@@ -135,10 +131,8 @@ class SurveyResults:
     anonymous: int
     questions: List[QuestionResult]
     dropoff: Optional[Dropoff] = None
-    #: Groups the report can be narrowed to (each with 5 or more answers).
     groups: List[GroupOption] = field(default_factory=list)
     audiences: List[AudienceRate] = field(default_factory=list)
-    #: The group the numbers are narrowed to, or ``None`` for everyone.
     group: Optional[GroupOption] = None
 
     @property
@@ -193,8 +187,6 @@ class SurveyService:
 
     async def _audit(self, actor: User, action: str, survey: Survey, **details: Any) -> None:
         await self.audit_service.write_log(actor, action, {'survey_id': survey.id, 'title': survey.title, **details})
-
-    # --- reads ----------------------------------------------------------
 
     @requires_feature(FeatureFlag.SURVEYS)
     async def list_surveys(self, actor: User) -> List[Survey]:
@@ -345,8 +337,6 @@ class SurveyService:
         await self._ensure_staff(actor)
         survey = await self._load(survey_id)
         return await self.repository.submitted_responses(survey.id, limit=limit, offset=offset)
-
-    # --- building -------------------------------------------------------
 
     @requires_feature(FeatureFlag.SURVEYS)
     async def create_survey(self, actor: User, title: str, *, from_template: bool = True,
@@ -640,8 +630,6 @@ class SurveyService:
         _check_order(layout, positions)
         await self.repository.place_question(question, target.id, positions)
         await self._audit(actor, AuditActions.SURVEY_UPDATED, survey, question_moved=question.id)
-
-    # --- lifecycle ------------------------------------------------------
 
     @requires_feature(FeatureFlag.SURVEYS)
     async def send(self, actor: User, survey_id: int, *, closes_at: Optional[datetime] = None) -> int:

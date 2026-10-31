@@ -65,8 +65,6 @@ from models import (
 
 _SLOT_INTERVAL_MIN = 30
 _PRIMARY_WINDOW_HOURS = 4
-# Fill the room to this share of its cap before going any fuller, so walk-ups
-# and overruns still have somewhere to go.
 _HEADROOM = 0.75
 _DEFAULT_CAPACITY = 60
 
@@ -158,9 +156,7 @@ class MatchSuggestionService:
         hours_map = await SystemConfigService.get_tournament_hours(tournament)
         event_start, event_end = await SystemConfigService.get_event_window(tournament)
 
-        # The whole search is laid out on the community's clock, because the
-        # operating hours and event window that bound it are written in that
-        # clock. Only the returned instant is timezone-free.
+        # Search on the community's clock: the hours and event window are written in it.
         tz_name = await TimezoneService.tenant_timezone_name()
         tz = get_zone(tz_name)
         now = now_local(tz)
@@ -176,8 +172,6 @@ class MatchSuggestionService:
             round_start = stage_window.opens.astimezone(tz) if stage_window.opens else None
             round_end = stage_window.closes.astimezone(tz) if stage_window.closes else None
         in_round = round_start is not None or round_end is not None or stage_window is not None
-        # A round that opens later moves the whole search forward; one that has
-        # already opened leaves the "no earlier than now" floor alone.
         if round_start is not None:
             now = max(now, round_start)
         if round_end is not None and now + duration > round_end:
@@ -185,7 +179,6 @@ class MatchSuggestionService:
                 "This round's scheduled window has no room left for a match."
             )
 
-        # The tournament's event: its room and its other matches, whatever page asked.
         existing_matches = await event_scoped(Match.filter(
             scheduled_at__isnull=False, confirmed_at__isnull=True,
         ), tournament.event_id if tournament else None).prefetch_related('tournament', 'players')
@@ -197,7 +190,6 @@ class MatchSuggestionService:
         avail_map = await self._build_availability_map(player_ids, event_start_dt, event_end_dt)
         shifts = await self._shift_map(player_ids, event_start_dt, event_end_dt)
 
-        # --- Primary search: next 4 hours ---
         primary_end = now + timedelta(hours=_PRIMARY_WINDOW_HOURS)
         primary_candidates = self._in_stage_hours(self._generate_candidates(
             now, primary_end, hours_map, duration, event_start, event_end, tz, round_end,
@@ -210,7 +202,6 @@ class MatchSuggestionService:
         if result is not None:
             return result
 
-        # --- Fallback search: full remaining event window ---
         fallback_candidates = self._in_stage_hours(self._generate_candidates(
             now, None, hours_map, duration, event_start, event_end, tz, round_end,
         ), stage_window, duration, tz)
@@ -314,7 +305,6 @@ class MatchSuggestionService:
                 f'and it holds {capacity}.',
             ))
 
-        # Stored instants are UTC; bound the range reads in UTC too.
         start_utc, end_utc = start.astimezone(dt_timezone.utc), end.astimezone(dt_timezone.utc)
         avail_map = await self._build_availability_map(player_ids, start_utc, end_utc)
         shifts_on = await FeatureFlagService().is_enabled(FeatureFlag.VOLUNTEERS)
@@ -375,10 +365,6 @@ class MatchSuggestionService:
                 f'{format_local_time(close)}.',
             )]
         return []
-
-    # ------------------------------------------------------------------
-    # Internals
-    # ------------------------------------------------------------------
 
     @staticmethod
     def _in_stage_hours(
@@ -446,10 +432,8 @@ class MatchSuggestionService:
             window = hours_map.get(current_date)
             if window is None:
                 if hours_map:
-                    # Some days are configured — skip unconfigured days entirely
                     current_date += timedelta(days=1)
                     continue
-                # No hours configured at all → treat every day as open all day
                 from datetime import time as time_type
                 open_t, close_t = time_type(0, 0), time_type(23, 30)
             else:
@@ -467,7 +451,6 @@ class MatchSuggestionService:
             slot = self._round_up_to_interval(slot)
 
             while slot + duration <= day_close:
-                # Stay within the to_dt ceiling on the last day
                 if to_dt and slot >= to_dt:
                     break
                 if hard_end is not None and slot + duration > hard_end:

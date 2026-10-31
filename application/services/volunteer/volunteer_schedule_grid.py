@@ -12,17 +12,13 @@ from dataclasses import dataclass, replace
 from datetime import datetime, timedelta
 from typing import Iterable, Mapping, Optional, Sequence, Tuple
 
-# An event day runs 06:00 to 06:00 local, so a 20:00–02:00 shift sits on the
-# evening it starts rather than splitting across two tabs.
 DAY_STARTS_AT_HOUR = 6
 DAY_LENGTH_HOURS = 24
 
 
-# A person's arrival on a shift that has started, for the Shift Board.
 ARRIVED = 'arrived'
 LATE = 'late'
 NOT_HERE = 'not_here'
-# Staff called it off: nobody is expected, and the shift still counts as worked.
 CALLED_OFF = 'called_off'
 
 
@@ -34,7 +30,6 @@ class GridPerson:
     user_id: int = 0
     draft: bool = False
     acknowledged: bool = False
-    # ARRIVED / LATE / NOT_HERE once the shift has started, else ''.
     arrival: str = ''
     checked_in_at: Optional[datetime] = None
     late_minutes: Optional[int] = None
@@ -47,7 +42,6 @@ class GridShift:
     starts_at: datetime
     ends_at: datetime
     label: str
-    # Hours from local midnight of the day, clipped to the day's window.
     start_hour: float
     end_hour: float
     people: Tuple[GridPerson, ...]
@@ -55,9 +49,6 @@ class GridShift:
     shift_id: int = 0
     slots_needed: int = 1
     notes: str = ''
-    # Side-by-side placement for shifts of one position that overlap (a
-    # staggered position runs 08–12 beside 10–14): this shift's lane, and how
-    # many lanes its overlapping group needs.
     lane: int = 0
     lanes: int = 1
 
@@ -192,7 +183,6 @@ def build_day_grid(
     return _framed(midnight, columns)
 
 
-# The span an empty Shift Board shows, so there is somewhere to tap.
 _EMPTY_SPAN = (8, 24)
 
 

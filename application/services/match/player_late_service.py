@@ -24,10 +24,8 @@ from application.utils.discord_messages_volunteer import LATE_CHOICES
 from application.utils.timezone import to_utc_aware
 from models import Match, MatchPlayers, User
 
-#: How long before its start a match will take a "running late".
 LATE_WINDOW = timedelta(minutes=30)
 
-#: A note is a line for the person at the desk, not a message thread.
 MAX_LATE_NOTE = 280
 
 logger = logging.getLogger(__name__)
@@ -41,7 +39,6 @@ def late_window_open(match: Match, now: Optional[datetime] = None) -> bool:
         return False
     now = now or datetime.now(timezone.utc)
     window = LATE_WINDOW
-    # A stage reminder carries the button, so it has to work as soon as it lands.
     lead = getattr(match.tournament, 'stage_reminder_minutes', 0) if getattr(match, 'stage_id', None) else 0
     if isinstance(lead, int) and lead > 0:
         window = max(window, timedelta(minutes=lead))
@@ -140,7 +137,6 @@ class PlayerLateService:
         except Exception:
             logger.exception('running late on match %s: resolving staff alerts failed', match.id)
         try:
-            # A tech who is also on the desk or admins the tournament already has it.
             told = {user.id for user, _ in recipients}
             for user, why in await StaffAlertService.tagged_broadcast_tech_recipients(
                 match, exclude=(author.id,),

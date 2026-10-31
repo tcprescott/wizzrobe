@@ -48,7 +48,6 @@ CLAIM_PATH = '/login/discord'
 _SALT = 'wizzrobe-discord-login-link'
 _STORE_MAX = 4096
 
-# nonce -> {'discord_id', 'username', 'avatar', 'host', 'tenant_id', 'expiry'}
 _pending: dict[str, dict] = {}
 
 

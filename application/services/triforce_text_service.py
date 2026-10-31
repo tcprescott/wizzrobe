@@ -22,9 +22,7 @@ from application.services.seedgen_service import SeedGenerationService
 from application.tenant_context import require_tenant_id
 from models import FeatureFlag, Tournament, TriforceText, User
 
-# Same character set as sahasrahbot: A-Z, a-z, 0-9, space, common punctuation,
-# arrow glyphs, hiragana, and katakana. 19 chars max per line is an ALTTP
-# end-game text engine limit.
+# 19 chars per line is an ALTTP end-game text engine limit.
 TEXT_LINE_REGEX = re.compile(
     r"^[A-Za-z0-9 \?!,\-….~～''↑↓→←ぁ-ゟァ-ヿ]{0,19}$"
 )

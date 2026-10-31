@@ -22,7 +22,6 @@ from application.utils.background_loop import for_each_tenant_scoped, run_worker
 
 logger = logging.getLogger(__name__)
 
-# How often the loop wakes up to look for due reminders.
 TICK_SECONDS = 60
 
 # Bound on the cross-tenant scan. The loop cannot know each tournament's lead
@@ -40,8 +39,7 @@ async def _tick() -> None:
     from application.services.match.match_schedule_service import MatchScheduleService
 
     if discord_bot_down():
-        # Reminders are stamped before their DM is queued; wait for the bot so
-        # they go out after a reconnect rather than being stamped and lost.
+        # Wait for the bot: reminders are stamped before queueing, so a send now is lost.
         return
 
     now = datetime.now(timezone.utc)
@@ -55,15 +53,14 @@ async def _tick() -> None:
     async def _remind(match) -> None:
         lead = match.tournament.stage_reminder_minutes or 0
         if lead <= 0:
-            return  # this tournament sends no stage reminder
+            return
         if lead > MAX_LEAD_MINUTES:
             logger.warning(
                 'Tournament %s stage_reminder_minutes=%s exceeds the %s-minute scan '
                 'window; its matches are reminded only once they enter the window.',
                 match.tournament_id, lead, MAX_LEAD_MINUTES,
             )
-        # Not yet within this tournament's lead — leave un-stamped so a later
-        # tick reminds it once it enters the window.
+        # Not yet in this tournament's lead: leave unstamped so a later tick sends it.
         if match.scheduled_at > now + timedelta(minutes=lead):
             return
 
@@ -71,9 +68,6 @@ async def _tick() -> None:
         match.stage_reminder_sent_at = now
         await match.save(update_fields=['stage_reminder_sent_at'])
 
-        # ``for_each_tenant_scoped`` has this match's tenant bound and
-        # ``discord_queue.enqueue`` captures it for the queue worker, so the
-        # DM's link resolves to the right community when it is finally sent.
         discord_queue.enqueue(schedule_service.notify_stage_reminder(
             match, stage_name=match.stage.name if match.stage else '',
         ))

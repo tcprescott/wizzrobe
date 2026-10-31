@@ -52,14 +52,8 @@ from models import Match, MembershipSource, SpeedGamingEventLink, SyncStatus, Us
 
 logger = logging.getLogger(__name__)
 
-# A match more than this many hours past its scheduled start with no linked room
-# and no manual close is auto-finished on the next sync (sahabot2 behaviour).
 AUTO_FINISH_HOURS = 4
-# Small backfill grace on the lower bound so a just-passed episode is still
-# pulled (e.g. after a brief worker outage).
 BACKFILL_GRACE_HOURS = 1
-# Width of ``Match.title`` / ``SpeedGamingEpisode.title``. SG's titles are
-# unbounded free text, so an over-long one would fail the whole episode.
 TITLE_MAX_LENGTH = 255
 
 
@@ -95,8 +89,6 @@ class SpeedGamingETLService:
         self.event_link_repo = SpeedGamingEventLinkRepository()
         self.room_repo = RacetimeRoomRepository()
         self.audit_service = AuditService()
-
-    # ------------------------------------------------------------------ public
 
     async def sync_event_link(
         self,
@@ -143,13 +135,12 @@ class SpeedGamingETLService:
             try:
                 outcome = await self.import_episode(link, raw, actor=actor, now=now)
                 setattr(result, outcome, getattr(result, outcome) + 1)
-            except Exception as e:  # per-episode isolation
+            except Exception as e:
                 logger.exception('SG import failed for episode %s (link %s)', sg_id, link.id)
                 result.errors += 1
                 result.error_messages.append(f'{sg_id}: {e}')
 
-        # An empty answer is far likelier an SG hiccup than every episode being
-        # cancelled at once; detaching them all would spray cancel webhooks.
+        # An empty answer is likelier an SG hiccup: detaching every episode would spray cancel webhooks.
         if raw_episodes:
             result.cancelled += await self._detect_deleted_episodes(link, seen_sg_ids, actor=actor, now=now)
         result.auto_finished += await self._auto_finish_stale(link, actor=actor, now=now)
@@ -216,10 +207,7 @@ class SpeedGamingETLService:
                 )
                 return 'skipped'
 
-        # Unchanged shortcut: nothing the loader reads moved, and the Match is
-        # already materialized. The raw snapshot is still refreshed — the
-        # fingerprint deliberately ignores crew churn, so without this the
-        # stored payload would freeze at whatever the last import happened to see.
+        # Still refresh the raw snapshot: the fingerprint ignores crew churn.
         if (
             match is not None
             and episode.content_hash == content_hash
@@ -235,12 +223,10 @@ class SpeedGamingETLService:
             )
             raise ValueError(f'SG episode {sg_id} has no scheduled time')
 
-        # Transform: resolve every player to a User (placeholder where unmatched).
         resolved_players = []
         for player in self._extract_players(raw):
             resolved_players.append(await self._find_or_create_user(player, actor=actor))
 
-        # Load: materialize or refresh the Match.
         created = match is None
         if match is None:
             match = await MatchRepository.create(
@@ -268,8 +254,6 @@ class SpeedGamingETLService:
             },
         )
         return 'imported'
-
-    # -------------------------------------------------------------- transform
 
     async def _find_or_create_user(self, player: Dict[str, Any], *, actor: User) -> User:
         """Resolve an SG player to a ``User``, and make them a member here.
@@ -305,7 +289,6 @@ class SpeedGamingETLService:
         discord_tag = (self._opt_str(player.get('discordTag')) or '').strip() or None
         display = (self._opt_str(player.get('displayName')) or '').strip() or discord_tag or (f'sg_{sg_id}' if sg_id else 'sg_unknown')
 
-        # 1. Resolve by discord id (and upgrade a matching placeholder in place).
         if discord_id.isdigit():
             did = int(discord_id)
             existing = await UserRepository.get_by_discord_id(did)
@@ -323,13 +306,11 @@ class SpeedGamingETLService:
             user, _ = await UserRepository.get_or_create_by_discord_id(did, username=discord_tag or display)
             return user
 
-        # 2. Resolve by discord username (SG discord_tag → existing real account).
         if discord_tag:
             existing = await UserRepository.get_by_username(discord_tag)
             if existing is not None:
                 return existing
 
-        # 3/4. Existing placeholder, else create one.
         if sg_id:
             placeholder = await UserRepository.get_placeholder_by_speedgaming_id(sg_id)
             if placeholder is not None:
@@ -343,7 +324,6 @@ class SpeedGamingETLService:
             )
             return placeholder
 
-        # No SG id and no discord identity — synthesize a stable placeholder key.
         synthetic = f'anon_{hashlib.sha1(display.encode()).hexdigest()[:16]}'
         placeholder = await UserRepository.get_placeholder_by_speedgaming_id(synthetic)
         if placeholder is not None:
@@ -398,8 +378,6 @@ class SpeedGamingETLService:
         await participants.sync_players(match, user_ids, tournament_id)
         await participants.reconcile_acknowledgments(match, user_ids)
         await hard_preset_service.reconcile_edit(match, before, actor)
-
-    # ------------------------------------------------------------ reconciliation
 
     async def _skip_reason(self, match: Match) -> Optional[str]:
         """Why a re-sync must not overwrite this match, or None if it may."""
@@ -465,8 +443,6 @@ class SpeedGamingETLService:
             finished += 1
         return finished
 
-    # -------------------------------------------------------------- extractors
-
     @staticmethod
     def _episode_id(raw: Dict[str, Any]) -> Optional[str]:
         raw_id = raw.get('id')
@@ -506,7 +482,6 @@ class SpeedGamingETLService:
         for candidate in candidates:
             cleaned = (candidate or '').strip()
             if cleaned:
-                # SG's titles are unbounded free text; the column is not.
                 return cleaned[:TITLE_MAX_LENGTH]
         return None
 

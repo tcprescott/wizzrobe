@@ -31,15 +31,15 @@ class MatchStatus(str, Enum):
     the bare member.
     """
 
-    PENDING = 'pending'                  # matchup exists, not yet playable
-    UNSCHEDULED = 'unscheduled'          # playable, no game booked
+    PENDING = 'pending'
+    UNSCHEDULED = 'unscheduled'
     SCHEDULED = 'scheduled'
     CHECKED_IN = 'checked_in'
     LIVE = 'live'
-    AWAITING_RESULT = 'awaiting_result'  # finished, not yet confirmed
+    AWAITING_RESULT = 'awaiting_result'
     COMPLETE = 'complete'
     CANCELLED = 'cancelled'
-    NEEDS_RESCHEDULE = 'needs_reschedule'  # series underway, next game unbooked
+    NEEDS_RESCHEDULE = 'needs_reschedule'
 
 
 @runtime_checkable
@@ -57,9 +57,6 @@ class MatchLike(Protocol):
     confirmed_at: Any
 
 
-#: Display label per status. The bracket, the REST payloads, and the Discord
-#: builders all render these; the schedule table keeps its own legacy strings
-#: (see :data:`LEGACY_STATE_LABELS`).
 STATUS_LABELS = {
     MatchStatus.PENDING: 'Pending',
     MatchStatus.UNSCHEDULED: 'Unscheduled',
@@ -72,11 +69,7 @@ STATUS_LABELS = {
     MatchStatus.NEEDS_RESCHEDULE: 'Needs reschedule',
 }
 
-#: The schedule table's five historical strings, which its filter chips, its
-#: mobile grid, and the player dashboard's Vue slots all compare against by
-#: value. Kept as a projection rather than renamed: the labels are a UI contract
-#: with saved filters and template markup, and the point of this module is that
-#: they stop *drifting* from the bracket's, not that they change.
+# Compared by value in filter chips, saved filters and Vue slots: don't rename.
 LEGACY_STATE_LABELS = {
     MatchStatus.SCHEDULED: 'Scheduled',
     MatchStatus.CHECKED_IN: 'Checked In',
@@ -85,10 +78,6 @@ LEGACY_STATE_LABELS = {
     MatchStatus.COMPLETE: 'Confirmed',
 }
 
-#: Semantic colour name per status — defined **once**, here. ``theme/`` maps
-#: these to Quasar colours and ``application/utils/discord_embeds`` maps them to
-#: its ``COLOR_*`` ints, so the two palettes agree mechanically instead of
-#: coincidentally.
 STATUS_TONES = {
     MatchStatus.PENDING: 'neutral',
     MatchStatus.UNSCHEDULED: 'info',
@@ -101,9 +90,6 @@ STATUS_TONES = {
     MatchStatus.NEEDS_RESCHEDULE: 'attention',
 }
 
-#: How interesting a status is to a reader watching a series, most-interesting
-#: first. :func:`resolve_matchup` picks the highest-ranked game status so a Bo3
-#: with game 1 done and game 2 being raced reads "Live", not "Complete".
 _SERIES_RANK = (
     MatchStatus.LIVE,
     MatchStatus.CHECKED_IN,
@@ -234,9 +220,6 @@ def has_recorded_result(players: Iterable[Any]) -> bool:
     return any(getattr(p, 'finish_rank', None) for p in players)
 
 
-#: The most players a match can have and still be played for a winner. A bigger
-#: field is an open race (a play-in, a qualifier heat): nobody records a winner,
-#: and Finish closes it out on the spot.
 WINNER_MAX_PLAYERS = 4
 
 

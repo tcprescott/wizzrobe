@@ -24,13 +24,8 @@ from application.services import availability_windows
 from application.services.audit_service import AuditActions, AuditService
 from models import PlayerAvailability, User, VolunteerAvailabilityStatus
 
-#: Availability of a stretch nobody has said anything about. Players are
-#: available by default, so the absence of a window is a yes, not a shrug.
 DEFAULT_STATUS = VolunteerAvailabilityStatus.AVAILABLE
 
-#: The one-time "tell us when you can't play" card on My Schedule. Seen-for-good
-#: is a :class:`ProfileNudgeDismissal` row under this key, beside the profile
-#: reminders' own, so it is per member per community like theirs.
 REMINDER_KEY = 'availability'
 
 

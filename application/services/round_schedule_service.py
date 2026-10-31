@@ -76,7 +76,6 @@ class ScheduleStage:
     total: int = 0
     booked: int = 0
     window: Optional[RoundWindow] = None
-    # Offered ahead of the bracket: no matches carry this key yet.
     placeholder: bool = False
     best_of: int = 1
 
@@ -107,9 +106,6 @@ class RoundScheduleService:
         self.match_repository = MatchRepository()
         self.audit_service = AuditService()
 
-    # ------------------------------------------------------------------
-    # Staff editor
-    # ------------------------------------------------------------------
     async def _editable(self, tournament_id: int, actor: Optional[User]) -> Tournament:
         tournament = require_found(
             await self.tournament_repository.get_by_id(tournament_id), 'Tournament',
@@ -283,9 +279,6 @@ class RoundScheduleService:
         stage.best_of = best_of
         return stage
 
-    # ------------------------------------------------------------------
-    # Lookups: which window a matchup is booked inside
-    # ------------------------------------------------------------------
     async def _challonge_key(self, cm: ChallongeMatch) -> Optional[str]:
         if cm.group_stage:
             return GROUP_KEY
@@ -408,9 +401,6 @@ class RoundScheduleService:
         found = await self.window_for_bracket_match(bm)
         return found.window.describe(await _tenant_zone()) if found else None
 
-    # ------------------------------------------------------------------
-    # Enforcement
-    # ------------------------------------------------------------------
     async def check_time(
         self,
         found: Optional[StageWindow],
@@ -483,7 +473,7 @@ class RoundScheduleService:
         try:
             scheduled_at = parse_local_datetime(scheduled_date, scheduled_time)
         except ValueError:
-            return  # The booking itself reports the bad input.
+            return
         await self.check_time(
             found, tournament, scheduled_at, actor, allow_outside_round=allow_outside_round,
         )

@@ -158,8 +158,6 @@ class VolunteerCallOffService:
         await self._notify_undone(assignment, actor)
         return assignment
 
-    # --- DMs ---------------------------------------------------------------
-
     async def _notify_called_off(
         self, assignment: VolunteerAssignment, actor: User, started: bool, note: Optional[str],
     ) -> None:

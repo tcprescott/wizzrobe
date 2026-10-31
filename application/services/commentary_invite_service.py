@@ -38,8 +38,6 @@ from models import CommentaryInvite, CommentaryInviteStatus, Match, User
 
 logger = logging.getLogger(__name__)
 
-#: Invites one person can send in an hour, across every match. Each one DMs
-#: somebody, and players are untrusted.
 INVITES_PER_HOUR = 10
 
 

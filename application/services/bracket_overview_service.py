@@ -65,7 +65,6 @@ class SlotView:
     name: Optional[str] = None
     user_id: Optional[int] = None
     score: Optional[int] = None
-    # "Winner of A3" while the side is undecided.
     placeholder: Optional[str] = None
     from_set_id: Optional[int] = None
     from_outcome: Optional[str] = None
@@ -280,9 +279,6 @@ class BracketOverviewService:
         view.filtered = True
         return view
 
-    # ------------------------------------------------------------------
-    # Booked games, for the sites whose set links to the game that leads it
-    # ------------------------------------------------------------------
     async def _bookings_by_lead(self, lead_ids: Iterable[Optional[int]]) -> Dict[int, List[BookingView]]:
         firsts = sorted({i for i in lead_ids if i})
         if not firsts:
@@ -303,9 +299,6 @@ class BracketOverviewService:
             return lead.set_best_of
         return 1 if bookings else None
 
-    # ------------------------------------------------------------------
-    # start.gg
-    # ------------------------------------------------------------------
     async def _startgg(self, tournament: Tournament, show_users: bool) -> TournamentBracketView:
         event = await StartggService().get_event_view(tournament.id)
         all_sets = [row for phase in event['phases'] for pool in phase['pools'] for row in pool['sets']]
@@ -370,9 +363,7 @@ class BracketOverviewService:
             ],
         )
 
-    # ------------------------------------------------------------------
-    # Challonge (mirror only: no Challonge API calls)
-    # ------------------------------------------------------------------
+    # Challonge: mirror only, no Challonge API calls.
     async def _challonge(self, tournament: Tournament, show_users: bool) -> TournamentBracketView:
         mirror = await ChallongeService().get_bracket_mirror(tournament.id)
         participants = {p.id: p for p in mirror['participants']}
@@ -457,9 +448,6 @@ class BracketOverviewService:
         best = min(ranks.values())
         return {uid: 1 if rank == best else 0 for uid, rank in ranks.items()}
 
-    # ------------------------------------------------------------------
-    # Native brackets
-    # ------------------------------------------------------------------
     async def _native(
         self, viewer: Optional[User], tournament: Tournament, show_users: bool,
     ) -> TournamentBracketView:
@@ -606,9 +594,6 @@ class BracketOverviewService:
         rows.sort(key=lambda r: (r.placement is None, r.placement or 0, -r.wins, r.losses, r.name.lower()))
         return {None: rows}
 
-    # ------------------------------------------------------------------
-    # Shared
-    # ------------------------------------------------------------------
     @staticmethod
     def _link_forward(sets: Iterable[SetView]) -> None:
         """Fill ``winner_to``/``loser_to`` from the sides' ``from_set_id``."""
@@ -643,5 +628,4 @@ class BracketOverviewService:
                 else:
                     record[slot.entrant_id].losses += 1
         return sorted(record.values(), key=lambda r: (-r.wins, r.losses, r.name.lower()))
-
 

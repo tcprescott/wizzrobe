@@ -36,17 +36,9 @@ from application.services.auth_service import AuthService
 from application.tenant_context import get_current_tenant_id, require_tenant_id
 from models import FeatureFlag, FeatureFlagGroup, Role, User
 
-# Registry keys, for validating group flag lists and ignoring legacy keys.
 _VALID_KEYS = {flag.value for flag in FeatureFlag}
 
-# Per-request cache of the live flag set, keyed by tenant id. Resolving one flag
-# costs three queries (override + tenant + group), and enforcement now sits on
-# every gated service entry point, so an un-cached read would multiply queries by
-# the number of guarded calls in a request. A contextvar (not a module dict) is
-# what makes this safe: it is per-task, so one user's tenant state can never be
-# read by another's request — the module-level-state trap that plain caching here
-# would walk straight into. Writes clear it; ``BackgroundLoop`` runs each worker
-# tick in a fresh context, so a worker re-reads flags every tick.
+# A contextvar, not a module dict: per-task, so one request can never read another's tenant state.
 _flag_cache: contextvars.ContextVar[Optional[Dict[int, Set[FeatureFlag]]]] = (
     contextvars.ContextVar('feature_flag_cache', default=None)
 )
@@ -69,8 +61,6 @@ class FeatureFlagService:
         self.repository = TenantFeatureFlagRepository()
         self.group_repository = FeatureFlagGroupRepository()
         self.audit_service = AuditService()
-
-    # ---- effective-state helpers -----------------------------------------
 
     async def _group_flag_keys(self, tenant_id: int) -> Set[str]:
         """The flags a tenant's group grants (its group, else the default group)."""
@@ -96,9 +86,7 @@ class FeatureFlagService:
             return False
         if override is not None and override.enabled is not None:
             return override.enabled
-        return True  # available ⇒ on by default; community may opt out
-
-    # ---- reads (hot path) -------------------------------------------------
+        return True
 
     async def is_enabled(self, flag: FeatureFlag) -> bool:
         """Whether ``flag`` is live for the ambient tenant (available AND enabled).
@@ -151,8 +139,6 @@ class FeatureFlagService:
                 f"The {spec_for(flag).label} feature is not enabled for this community."
             )
 
-    # ---- tenant tier: STAFF toggle ``enabled`` within availability --------
-
     async def list_for_tenant_admin(self, actor: Optional[User]) -> List[Dict[str, Any]]:
         """Every flag's effective state for the ambient tenant (admin Features tab)."""
         await self._ensure_staff(actor)
@@ -192,8 +178,6 @@ class FeatureFlagService:
         self, actor: Optional[User], flag: FeatureFlag, enabled: bool
     ) -> None:
         await self._ensure_staff(actor)
-        # A scoped write: fail loud if no tenant is in scope (the safety net),
-        # rather than silently attempting a NULL-tenant insert.
         tid = require_tenant_id()
         override = await self.repository.get_for_tenant(tid, flag.value)
         group_keys = await self._group_flag_keys(tid)
@@ -209,8 +193,6 @@ class FeatureFlagService:
             AuditActions.FEATURE_FLAG_ENABLED if enabled else AuditActions.FEATURE_FLAG_DISABLED,
             {'flag': flag.value},
         )
-
-    # ---- platform tier: per-tenant availability override ------------------
 
     async def list_for_tenant(self, actor: Optional[User], tenant_id: int) -> List[Dict[str, Any]]:
         """Every flag's state for a chosen tenant, for the /platform surface.
@@ -234,7 +216,7 @@ class FeatureFlagService:
                 'description': spec.description,
                 'category': spec.category,
                 'group_available': group_available,
-                'override': override_available,   # None = inherit, True/False = forced
+                'override': override_available,
                 'available': available,
                 'enabled': enabled,
                 'live': available and enabled,
@@ -257,8 +239,6 @@ class FeatureFlagService:
             actor, AuditActions.FEATURE_FLAG_AVAILABILITY_SET,
             {'tenant_id': tenant_id, 'flag': flag.value, 'available': available},
         )
-
-    # ---- platform tier: group (tier) CRUD ---------------------------------
 
     async def list_groups(self, actor: Optional[User]) -> List[FeatureFlagGroup]:
         await self._ensure_super_admin(actor)
@@ -307,8 +287,7 @@ class FeatureFlagService:
             is_default=is_default,
         )
         if is_default:
-            # Becoming the default tier changes availability for every *ungrouped*
-            # tenant, so the cached live set is stale even though no tenant row moved.
+            # Stale cache even though no tenant row moved: the default tier governs every ungrouped tenant.
             await self.group_repository.clear_default(exclude_id=group.id)
             reset_flag_cache()
         await self.audit_service.write_log(
@@ -344,8 +323,6 @@ class FeatureFlagService:
             changes['flags'] = self._clean_flags(flags)
         if is_default is not None:
             if group.is_default and not is_default:
-                # Un-defaulting the sole default group would leave every ungrouped
-                # tenant with no availability tier — refuse unless another exists.
                 await self._ensure_another_default_exists(group.id)
             changes['is_default'] = is_default
         group = await self.group_repository.update(group, **changes)
@@ -362,18 +339,12 @@ class FeatureFlagService:
         await self._ensure_super_admin(actor)
         group = await self._require_group(group_id)
         if group.is_default:
-            # Deleting the sole default group would leave every ungrouped tenant
-            # with no availability tier, silently disabling group-derived
-            # features platform-wide — refuse unless another default exists.
             await self._ensure_another_default_exists(group.id)
-        # Reassign tenants on this group to ungrouped (→ default fallback). The FK
-        # is ON DELETE SET NULL too, but doing it explicitly keeps behavior
-        # identical across backends (SQLite in tests doesn't enforce FKs).
+        # Explicit despite ON DELETE SET NULL: SQLite in tests doesn't enforce FKs.
         await TenantRepository.clear_feature_group(group.id)
         name = group.name
         await self.group_repository.delete(group)
         reset_flag_cache()
-        # Audit after the delete commits (audit-after-state-change convention).
         await self.audit_service.write_log(
             actor, AuditActions.FEATURE_GROUP_DELETED,
             {'group_id': group_id, 'name': name},
@@ -392,8 +363,6 @@ class FeatureFlagService:
             actor, AuditActions.FEATURE_GROUP_ASSIGNED,
             {'tenant_id': tenant_id, 'group_id': group_id},
         )
-
-    # ---- internals --------------------------------------------------------
 
     @staticmethod
     def _clean_flags(flags: Optional[List[str]]) -> List[str]:

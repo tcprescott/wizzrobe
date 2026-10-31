@@ -19,8 +19,7 @@ TICK_SECONDS = 5
 TICK_TIMEOUT_SECONDS = 600
 PRUNE_EVERY_SECONDS = 10 * 60
 
-# None until the first prune, so a process that started less than ten minutes
-# after the host booted still prunes on its first tick.
+# None, not 0: a process started under ten minutes after boot must still prune on its first tick.
 _last_prune: Optional[float] = None
 
 

@@ -151,8 +151,6 @@ class PayoutService:
         self.repository = TournamentPayoutRepository()
         self.audit_service = AuditService()
 
-    # --- reads ---------------------------------------------------------------
-
     @requires_feature(FeatureFlag.PAYOUTS)
     async def list_overview(self, actor: User) -> List[PayoutOverview]:
         """Every tournament ``actor`` may manage payouts for, with its totals.
@@ -211,8 +209,6 @@ class PayoutService:
             )
             lines.append(f'{_ordinal(line.place)} place - {self._entrant_label(line)}: {share}')
         return '\n'.join(lines)
-
-    # --- writes --------------------------------------------------------------
 
     @requires_feature(FeatureFlag.PAYOUTS)
     async def set_pool(
@@ -299,9 +295,7 @@ class PayoutService:
         if user_id is not None:
             await TenantMembershipService.require_community_users([user_id], actor)
             entrant = require_found(await User.get_or_none(id=user_id), 'User')
-            # The (tournament, place, entrant) key would raise an IntegrityError
-            # here, which reaches the caller as a 500 rather than as the thing
-            # the reader did wrong.
+            # Pre-check the unique key: the IntegrityError would reach the caller as a 500.
             clash = await TournamentPayout.filter(
                 tournament_id=payout.tournament_id, place=payout.place,  # type: ignore[attr-defined]
                 entrant_id=user_id,
@@ -325,8 +319,6 @@ class PayoutService:
             EventType.TOURNAMENT_PAYOUT_UPDATED,
         )
         return payout
-
-    # --- sglive.speedgaming.org ----------------------------------------------
 
     @requires_feature(FeatureFlag.PAYOUTS)
     async def fetch_sglive_games(self, actor: User) -> List[SgliveGame]:
@@ -454,8 +446,6 @@ class PayoutService:
             raise ValueError(f'{slug!r} is not an sglive page.')
         return slug
 
-    # --- internals -----------------------------------------------------------
-
     @staticmethod
     def _quantized(value: Optional[Decimal]) -> Optional[Decimal]:
         return None if value is None else Decimal(value).quantize(CENT)
@@ -482,9 +472,7 @@ class PayoutService:
 
     @staticmethod
     def _total(tournament: Tournament) -> Decimal:
-        # Quantized on the way out: the DB backend decides the scale it hands
-        # back (SQLite returns an unscaled Decimal), and money that renders as
-        # ``1.1E+3`` in a payout export is money nobody trusts.
+        # Quantize: the backend decides the scale (SQLite returns an unscaled Decimal).
         pool = (tournament.prize_pool or Decimal(0)).quantize(CENT)
         bonus = (tournament.prize_bonus or Decimal(0)).quantize(CENT)
         return pool + bonus
@@ -576,18 +564,12 @@ class PayoutService:
                 'note': (row.get('note') or None),
             })
         allocated = sum((row['percentage'] or Decimal(0) for row in cleaned), Decimal(0))
-        # Above the total is a mistake; below is not. An unallocated remainder
-        # is real — an organizer holding back a share is a normal state of a
-        # split part way through being agreed.
         if allocated > _HUNDRED:
             raise ValueError(
                 f'The shares add up to {format_percentage(allocated)}%, which is '
                 f'more than the pool.'
             )
-        # Money is only checked when a fixed amount is in play (per-row cent
-        # rounding can tip an all-percentage 100% split a cent over), and only
-        # against a total that exists: dollars drafted before the pool is set
-        # are a plan, not an overspend.
+        # Only with a fixed amount and a set pool: cent rounding can tip an all-percentage split over.
         if total > 0 and any(row['amount'] is not None for row in cleaned):
             money = sum(
                 (row['amount'] if row['amount'] is not None else cls.amount_for(total, row['percentage'])

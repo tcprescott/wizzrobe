@@ -61,9 +61,7 @@ class HandbookTournament:
     bracket_url: str
     signups: SignupWindow
     signups_close_at: Optional[datetime]
-    # Pool plus bonus, when Prize Payouts is on and the total is above zero.
     prize_total: Optional[Decimal] = None
-    # When the pool last came from sglive.speedgaming.org, if it syncs.
     prize_synced_at: Optional[datetime] = None
 
 

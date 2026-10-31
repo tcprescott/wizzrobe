@@ -22,7 +22,6 @@ from application.services.survey.plan import REPEATING
 from models import SurveyAnswer, SurveyAudience, SurveyQuestion, SurveyQuestionKind, SurveyResponse
 
 MIN_GROUP = 5
-#: The group every tournament admin who answered counts in, for the filter and anonymous comments.
 ORGANIZERS = 'Tournament organizers'
 
 
@@ -30,10 +29,9 @@ ORGANIZERS = 'Tournament organizers'
 class Breakdown:
     count: int
     average: Optional[float] = None
-    score: Optional[int] = None  # recommend score, -100..100
+    score: Optional[int] = None
     counts: Dict[str, int] = field(default_factory=dict)
     hidden: bool = False
-    # Agree scale: statement → how many picked each level, Strongly disagree first.
     statements: Dict[str, List[int]] = field(default_factory=dict)
 
     def agree_share(self, statement: str) -> Optional[int]:
@@ -86,25 +84,16 @@ class QuestionResult:
     kind: SurveyQuestionKind
     overall: Breakdown
     groups: Dict[str, Breakdown] = field(default_factory=dict)
-    #: A comment's answers, or a choice question's "Other" write-ins.
     comments: List[CommentRow] = field(default_factory=list)
-    #: A pick-many's exclusive "none" choice, drawn apart from the real ones.
     none_option: Optional[str] = None
-    #: Set when the prompt was reworded after answers came in: the first wording and how many saw it.
     original_prompt: Optional[str] = None
     reworded_at: Optional[datetime] = None
     reworded_after: Optional[int] = None
-    #: The question it was duplicated from, when that survey has answers.
     last_time: Optional[LastTime] = None
-    #: Who the question's section is for.
     audience: SurveyAudience = SurveyAudience.EVERYONE
-    #: Asked once per tournament or position, so ``groups`` compares them.
     repeats: bool = False
-    #: "Only if …", for a question that only some people were asked.
     condition: str = ''
-    #: Groups folded into ``OTHER``, by name.
     folded: List[str] = field(default_factory=list)
-    #: Comments per group (scope label), for a repeating comment question.
     comment_counts: Dict[str, int] = field(default_factory=dict)
 
     @property
@@ -285,7 +274,6 @@ def summarize(
             result.groups, result.folded = fold_small(question, per_scope)
             if question.kind is SurveyQuestionKind.COMMENT:
                 result.comment_counts = dict(Counter(a.scope_label for a in rows if (a.text or '').strip()))
-        # A comment's text, or the "Other" write-ins of a choice question.
         if question.kind is SurveyQuestionKind.COMMENT or question.other_option:
             for a in sorted(rows, key=lambda a: -a.response_id):
                 response = response_by_id.get(a.response_id)

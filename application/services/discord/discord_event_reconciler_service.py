@@ -38,8 +38,6 @@ from models import DiscordEventSource, DiscordScheduledEvent, Match, Tenant, Use
 
 logger = logging.getLogger(__name__)
 
-# How far ahead to mirror matches, and a small grace on the lower bound so a match
-# that just started still keeps its event until it finishes / ages out.
 LOOKAHEAD_DAYS = 14
 BACKFILL_GRACE_HOURS = 2
 
@@ -57,8 +55,6 @@ class ReconcileResult:
     unchanged: int = 0
     errors: int = 0
     error_messages: List[str] = field(default_factory=list)
-    #: Set when the pass stopped on a problem staff fix in Discord (the bot's
-    #: permissions, or it isn't in the server), which every event would hit.
     setup_error: Optional[str] = None
 
     def as_dict(self) -> Dict[str, Any]:
@@ -116,7 +112,6 @@ class DiscordEventReconcilerService:
         if matches or existing:
             problem = await self.discord.bot_event_problem(guild_id)
             if problem is not None:
-                # Paused, not failed: staff fix this in Discord, and the page says so.
                 logger.warning('Discord event reconcile paused for tenant %s: %s', tenant.id, problem)
                 result.setup_error = problem
                 return result
@@ -150,8 +145,6 @@ class DiscordEventReconcilerService:
                     result.errors += 1
                     result.error_messages.append(f'cancel {link.id}: {e}')
         except DiscordEventSetupError as e:
-            # Sentry SGLMAN-18: a missing permission is staff's to fix in Discord,
-            # and every remaining event would fail the same way.
             logger.warning('Discord event reconcile stopped for tenant %s: %s', tenant.id, e)
             result.errors += 1
             result.setup_error = str(e)
@@ -163,8 +156,6 @@ class DiscordEventReconcilerService:
             {'tenant_id': tenant.id, 'guild_id': guild_id, **result.as_dict()},
         )
         return result
-
-    # ---------------------------------------------------------------- internals
 
     async def _reconcile_match(
         self, tenant: Tenant, guild_id: int, match: Match,
@@ -188,10 +179,6 @@ class DiscordEventReconcilerService:
             end_time=end, description=description, location=location,
         )
         if not ok:
-            # Self-heal: an event deleted out-of-band in Discord (or lost when a
-            # mock/process restarted) can't be edited — re-create it and repoint
-            # the link rather than erroring on it forever. Non-recoverable errors
-            # (e.g. permission) surface when the re-create also fails.
             if 'not found' not in message.lower():
                 raise _failure(message)
             await self.repo.delete(link)
@@ -260,8 +247,6 @@ class DiscordEventReconcilerService:
                 'discord_event_id': link.discord_event_id,
             },
         )
-
-    # ------------------------------------------------------------------ render
 
     def _render(self, match: Match) -> tuple[str, str, datetime, datetime, str]:
         """Build (title, description, start, end, location) for a match's event."""

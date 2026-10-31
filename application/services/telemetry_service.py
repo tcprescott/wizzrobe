@@ -60,19 +60,15 @@ class TelemetryEventType:
     REPORT_VIEWED = 'report.viewed'
     REPORT_EXPORTED = 'report.exported'
     TAB_VIEW = 'tab.view'
-    # Reported in batches by static/js/usage.js (see track_ui_batch).
     UI_CLICK = 'ui.click'
     UI_DIALOG_OPENED = 'ui.dialog_opened'
     UI_DIALOG_CLOSED = 'ui.dialog_closed'
     UI_FIELD_USED = 'ui.field_used'
-    # One row per MCP tool call / authenticated REST request / GraphQL
-    # operation (track_api_call).
     MCP_TOOL_CALL = 'mcp.tool_call'
     REST_REQUEST = 'rest.request'
     GRAPHQL_QUERY = 'graphql.query'
 
 
-#: event_type -> the surface name the API usage reads report.
 API_SURFACES = {
     TelemetryEventType.MCP_TOOL_CALL: 'mcp',
     TelemetryEventType.REST_REQUEST: 'rest',
@@ -80,8 +76,6 @@ API_SURFACES = {
 }
 
 
-#: The client-reported kinds track_ui_batch accepts. The browser is not trusted:
-#: anything else in a batch is dropped rather than stored under a made-up name.
 UI_EVENT_TYPES = frozenset({
     TelemetryEventType.UI_CLICK,
     TelemetryEventType.UI_DIALOG_OPENED,
@@ -112,8 +106,6 @@ class TelemetryService:
 
     def __init__(self) -> None:
         self.repository = TelemetryRepository()
-
-    # -------------------------------------------------------------- capture
 
     async def record_event(self, event: Event) -> None:
         """Event-bus subscriber: mirror a published domain event into telemetry.
@@ -302,9 +294,7 @@ class TelemetryService:
     async def _resolve_user(
         discord_id: Optional[str], username: Optional[str], user_id: Optional[int] = None,
     ) -> tuple[Optional[int], Optional[str]]:
-        # Resolve to a User for the FK when possible, but attribute even
-        # deactivated accounts (unlike get_user_from_discord_id, which hides
-        # them) — telemetry is about who did what, not who may act now.
+        # Not get_user_from_discord_id: telemetry must attribute deactivated accounts too.
         if discord_id:
             user = await User.get_or_none(discord_id=discord_id)
         elif user_id:
@@ -344,8 +334,6 @@ class TelemetryService:
             )
         except Exception:
             logger.exception("telemetry capture failed for %s", event_type)
-
-    # ---------------------------------------------------------------- reads
 
     async def list_events(
         self,

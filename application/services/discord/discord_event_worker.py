@@ -21,8 +21,6 @@ from application.utils.background_loop import for_each_tenant_scoped, run_worker
 
 logger = logging.getLogger(__name__)
 
-# Reconcile is idempotent and mostly no-op, so a slower tick than the SG/racetime
-# workers is plenty — a schedule change surfaces within a few minutes.
 TICK_SECONDS = 300
 
 

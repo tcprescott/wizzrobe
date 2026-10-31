@@ -37,13 +37,9 @@ __all__ = [
     'TournamentSignupCard',
 ]
 
-# Sentinel distinguishing "caller did not supply preset_id" (leave as-is) from an
-# explicit None (detach the preset). Update-only; create defaults to no preset.
+# Distinguishes "not supplied" (leave as-is) from an explicit None (detach).
 _UNSET = object()
 
-# The phrase a caller must repeat to permanently delete a tournament. Compared
-# case-insensitively after stripping, but never inferred from anything else on
-# screen — a deletion has to be typed out.
 DELETE_CONFIRMATION_PHRASE = 'permanently delete'
 
 
@@ -166,7 +162,6 @@ class TournamentService(TournamentDropMixin, TournamentSignupMixin):
             return None
         return SystemConfigService.validate_hours_mapping(tournament_hours) or None
 
-    #: Matches ``Tournament.short_name``'s column width.
     SHORT_NAME_MAX = 40
 
     @classmethod
@@ -284,9 +279,7 @@ class TournamentService(TournamentDropMixin, TournamentSignupMixin):
         tournament_hours = self._normalize_tournament_hours(tournament_hours)
         preset = await self._resolve_preset(preset_id)
         if preset is not None:
-            # The preset owns the randomizer: everything that still reads
-            # ``seed_generator`` (triforce texts, the schedule's roll button)
-            # would otherwise treat a preset-only tournament as having none.
+            # Set seed_generator too: its readers would otherwise see a preset-only tournament as having none.
             seed_generator = preset.randomizer
         preset_id = preset.id if preset is not None else None
         hard_preset = await self._resolve_hard_preset(hard_preset_id, preset)
@@ -455,17 +448,12 @@ class TournamentService(TournamentDropMixin, TournamentSignupMixin):
         if preset_id is not _UNSET:
             preset = await self._resolve_preset(preset_id)
             update_data['preset_id'] = preset.id if preset is not None else None
-            # The preset decides which randomizer rolls the seed, so attaching one
-            # rewrites ``seed_generator`` and detaching one clears it — unless this
-            # same call named a generator explicitly (the legacy REST shape).
             if preset is not None:
                 update_data['seed_generator'] = preset.randomizer
             elif seed_generator is None:
                 update_data['seed_generator'] = None
         if hard_preset_id is not _UNSET:
-            # Validated against whichever standard preset this call leaves in
-            # place, not the one that happened to be stored: attaching both in a
-            # single edit must still be checked against each other.
+            # Validate against the preset this call leaves in place, not the stored one.
             standard = (
                 preset if preset_id is not _UNSET
                 else await self.preset_repository.get_by_id(tournament.preset_id)  # type: ignore[attr-defined]
@@ -474,8 +462,6 @@ class TournamentService(TournamentDropMixin, TournamentSignupMixin):
             hard = await self._resolve_hard_preset(hard_preset_id, standard)
             update_data['hard_preset_id'] = hard.id if hard is not None else None
         elif preset_id is not _UNSET and tournament.hard_preset_id is not None:  # type: ignore[attr-defined]
-            # The standard preset moved out from under an existing hard preset.
-            # Re-validate the pair rather than leaving a mismatched randomizer.
             existing_hard = await self.preset_repository.get_by_id(tournament.hard_preset_id)  # type: ignore[attr-defined]
             if existing_hard is not None and (
                 preset is None or existing_hard.randomizer != preset.randomizer
@@ -507,8 +493,7 @@ class TournamentService(TournamentDropMixin, TournamentSignupMixin):
                 racetime_default_goal.strip() if racetime_default_goal else None
             )
         if event_start_date is not _UNSET or event_end_date is not _UNSET:
-            # Validate the window as a pair, using the current stored value for
-            # whichever bound the caller left untouched.
+            # Validate as a pair with the stored bound this call left alone.
             raw_start = event_start_date if event_start_date is not _UNSET else tournament.event_start_date
             raw_end = event_end_date if event_end_date is not _UNSET else tournament.event_end_date
             norm_start, norm_end = self._normalize_event_dates(raw_start, raw_end)
@@ -519,9 +504,7 @@ class TournamentService(TournamentDropMixin, TournamentSignupMixin):
         if tournament_hours is not _UNSET:
             update_data['tournament_hours'] = self._normalize_tournament_hours(tournament_hours)
         if signups_open_at is not _UNSET or signups_close_at is not _UNSET:
-            # Validated as a pair against the stored value for whichever bound
-            # this call left alone, so an edit that only moves the close date
-            # cannot land it before an open date already saved.
+            # Validate as a pair with the stored bound this call left alone.
             raw_open = signups_open_at if signups_open_at is not _UNSET else tournament.signups_open_at
             raw_close = signups_close_at if signups_close_at is not _UNSET else tournament.signups_close_at
             if raw_open and raw_close and raw_close <= raw_open:
@@ -531,10 +514,7 @@ class TournamentService(TournamentDropMixin, TournamentSignupMixin):
             if signups_close_at is not _UNSET:
                 update_data['signups_close_at'] = signups_close_at
 
-        # Checked against the *post-update* shape, falling back to what is stored
-        # for every field this call left alone: clearing the bot on a tournament
-        # that already has automatic rooms on is the same broken state as
-        # switching rooms on without one, and must be refused the same way.
+        # Check the post-update shape: clearing the bot with automatic rooms on is as broken as the reverse.
         def _after(key: str, default=None):
             if key in update_data:
                 return update_data[key]

@@ -157,10 +157,6 @@ def window_to_config(
     return entry or None
 
 
-# ---------------------------------------------------------------------------
-# Stage keys
-# ---------------------------------------------------------------------------
-
 def winners_final_round(rounds: Iterable[int]) -> Optional[int]:
     """The double-elim winners final, read off the losers bracket's depth.
 
@@ -233,7 +229,6 @@ def stage_sort_key(key: str) -> tuple:
     if key == GRAND_FINAL_KEY:
         return (2, 0, 0)
     kind, depth = key[0], int(key[1:])
-    # Winners and losers interleave by depth; within a depth, losers play first.
     return (1, -depth, 0 if kind == 'l' else 1)
 
 
