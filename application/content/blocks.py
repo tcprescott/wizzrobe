@@ -39,53 +39,31 @@ __all__ = [
     'slugify',
 ]
 
-# Inline forms, matched in one pass so a later form cannot be found inside an
-# earlier one's text (a link label containing ** stays literal).
+# One pass on purpose, so a later form can't match inside an earlier one's text.
 _INLINE_RE = re.compile(
-    # Bold before italic: the alternation is ordered, so `**x**` must be offered
-    # first or the single-asterisk branch claims its opening pair.
+    # Bold must come before italic, or the single-asterisk branch claims its opening pair.
     r'\*\*(?P<strong>[^*]+?)\*\*'
     r'|\*(?P<em>[^*\n]+?)\*'
     r'|`(?P<code>[^`]+?)`'
     r'|\[(?P<link_text>[^\]]+?)\]\((?P<href>[^)\s]+?)\)'
-    # A pasted address with no label (a seed link in a tournament description).
     r'|(?P<bare_url>https://[^\s<>]+)'
-    # Colon-delimited, not pipe-delimited: chips are most useful inside the
-    # tables that explain what each state means, and a literal `|` there would
-    # split the cell it is describing.
+    # Colon-delimited, not pipe: a `|` would split the table cell the chip sits in.
     r'|\{chip:(?P<chip_tone>[a-z-]+):(?P<chip_text>[^}]+?)\}'
     r'|\{state:(?P<state_text>[^}]+?)\}'
 )
 
-# Link targets we will render as links. Everything else renders as plain text —
-# `javascript:` and `data:` URIs above all, but also anything unparseable.
-# An internal path must not open with a second slash or a backslash: browsers
-# read `//host` and `/\host` as another site, so the "stays in this tab" branch
-# would carry the reader off-site with nothing to warn them.
+# Keep the second-slash/backslash guard: browsers read //host and /\host as another site.
 _SAFE_HREF_RE = re.compile(r'^(?:/(?![/\\])[^\s\\]*|#[^\s]*|https://[^\s\\]+|mailto:[^\s]+)$')
 
-# A screenshot on a line of its own: ``![alt](src)`` or ``![alt](src "caption")``.
 _IMAGE_RE = re.compile(r'^!\[(?P<alt>[^\]]*)\]\((?P<src>[^)\s]+)(?:\s+"(?P<caption>[^"]*)")?\)$')
 
-# Images come only from the committed screenshot tree, one directory per article
-# and nothing that can climb out of it. Off-site images would let an article
-# phone home on every page view, and a ``data:`` URI is the XSS shape again.
-#: Blocks whose content the page supplies from live data rather than the article
-#: text, written as a line on its own: ``:::tournaments``. A closed set, so a
-#: typo is shown to the author as text instead of rendering nothing.
 EMBED_NAMES = frozenset({'tournaments'})
 _EMBED_RE = re.compile(r'^:::(?P<name>[a-z][a-z0-9-]*)\s*$')
 
 IMAGE_SRC_RE = re.compile(r'^/static/help/[a-z0-9-]+/[a-z0-9-]+\.(?:webp|png)$')
 
-# The six chip tones static/css/styles.css defines. An article naming any other
-# falls back to neutral rather than emitting a class with no rule behind it.
 CHIP_TONES = frozenset({'ok', 'pending', 'live', 'neutral', 'cancelled', 'candidate', 'new'})
 
-# The five match states the schedule board actually shows a player or crew
-# member, mapped to the icon and colour class the board's own state cell uses
-# (theme/tables/match_slots.py). Help that draws its own chip in its own colours
-# teaches a vocabulary the board does not speak.
 STATE_STYLES: dict[str, tuple[str, str]] = {
     'Scheduled': ('schedule', 'st-neutral'),
     'Checked In': ('check', 'st-neutral'),
@@ -197,7 +175,6 @@ def parse_inline(text: str) -> tuple[Span, ...]:
             spans.append(Span('code', groups['code']))
         elif groups['link_text'] is not None:
             href = _safe_href(groups['href'] or '')
-            # A rejected target keeps the label readable rather than vanishing.
             spans.append(
                 Span('link', groups['link_text'], href=href) if href
                 else Span('text', groups['link_text'])
@@ -216,8 +193,6 @@ def parse_inline(text: str) -> tuple[Span, ...]:
             ))
         elif groups['state_text'] is not None:
             label = groups['state_text'].strip()
-            # An unknown state name is an authoring error; render the words so
-            # the article still reads, without inventing an icon for it.
             spans.append(
                 Span('state', label) if label in STATE_STYLES else Span('text', label)
             )
@@ -267,10 +242,7 @@ def _take_list(cursor: _Cursor, line: str) -> bool:
             parts.append([item.group(1).strip()])
             cursor.index += 1
             continue
-        # A wrapped item: an indented, non-blank line that starts no new block
-        # belongs to the item above it. Without this every hard-wrapped bullet
-        # ended the list and reopened it, so a two-line item rendered as two
-        # lists with a stray paragraph between them.
+        # An indented continuation line belongs to the item above; without this, wrapped bullets split the list.
         if parts and current.startswith((' ', '\t')) and current.strip():
             parts[-1].append(current.strip())
             cursor.index += 1
@@ -316,9 +288,6 @@ def _take_image(cursor: _Cursor, line: str) -> bool:
     src = match.group('src')
     cursor.index += 1
     if not alt or not IMAGE_SRC_RE.match(src):
-        # No alt text or a source outside the screenshot tree: show the author
-        # what they typed rather than an image a screen reader cannot describe
-        # or one fetched from somewhere we do not control.
         cursor.blocks.append(Block('para', spans=(Span('text', line),)))
         return True
     cursor.blocks.append(Block(
@@ -432,8 +401,7 @@ def parse_user_blocks(text: str) -> list[Block]:
             continue
         heading = re.match(r'^#{1,6}\s+(.*)$', stripped)
         if heading:
-            # Kept as emphasis, not a heading: a heading carries an id and the
-            # weight of the page's own section titles.
+            # Emphasis, not a heading: a heading would carry an id and section-title weight.
             blocks.append(Block('para', spans=tuple(
                 Span('strong', span.text) if span.kind == 'text' else span
                 for span in _user_spans(heading.group(1).strip())

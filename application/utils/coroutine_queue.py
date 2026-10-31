@@ -33,8 +33,6 @@ _default_logger = logging.getLogger(__name__)
 _DRAIN_SECONDS = 5
 _DRAIN_POLL_SECONDS = 0.05
 
-#: Longest one queued call may run. Well above a webhook's worst case (three
-#: 10s attempts plus backoff) and a DM held up by a Discord rate limit.
 ITEM_TIMEOUT_SECONDS = 300.0
 
 _queues: 'weakref.WeakSet[CoroutineQueue]' = weakref.WeakSet()
@@ -178,10 +176,7 @@ class CoroutineQueue:
             self._restart_handle = None
         if self._worker_task is None:
             return
-        # A short drain so a routine restart delivers what was already queued
-        # (the DM a click just sent) rather than discarding it.
-        # Polled rather than ``Queue.join()``: the queue outlives an event loop
-        # in tests, and join's internal Event is bound to the first loop.
+        # Polled, not Queue.join(): the queue outlives an event loop in tests and join's Event binds to the first loop.
         for _ in range(int(_DRAIN_SECONDS / _DRAIN_POLL_SECONDS)):
             if not (self._queue.qsize() or self._busy):
                 break

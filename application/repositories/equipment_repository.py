@@ -17,8 +17,6 @@ from models import Equipment, EquipmentLoan, EquipmentStatus, User
 class EquipmentRepository:
     """Repository for equipment and loan data access."""
 
-    # --- Assets ---
-
     @staticmethod
     async def create(
         asset_number: int,
@@ -93,8 +91,6 @@ class EquipmentRepository:
     @staticmethod
     async def delete(equipment: Equipment) -> None:
         await equipment.delete()
-
-    # --- Loans ---
 
     @staticmethod
     async def create_loan(

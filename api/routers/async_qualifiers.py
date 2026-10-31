@@ -47,9 +47,6 @@ from models import AsyncQualifier, AsyncQualifierPermalink, AsyncQualifierPool, 
 
 router = APIRouter(prefix="/async-qualifiers", tags=["Async qualifiers"], route_class=ServiceErrorRoute, dependencies=[Depends(event_binding(qualifier_id=AsyncQualifier, run_id=AsyncQualifierRun, pool_id=AsyncQualifierPool, permalink_id=AsyncQualifierPermalink))])
 
-# One page of runs, and the most a caller may ask for at once. A 500-player
-# qualifier holds a few thousand runs, so the unbounded read this replaces was a
-# 1.66 MB body every time.
 RUNS_PAGE_DEFAULT = 100
 RUNS_PAGE_MAX = 500
 
@@ -60,8 +57,6 @@ async def _load_qualifier_or_404(qualifier_id: int) -> AsyncQualifier:
         "Qualifier",
     )
 
-
-# ============================================================ reads (A)
 
 @router.get(
     "", response_model=List[AsyncQualifierResponse], summary="List qualifiers (admin)",
@@ -87,7 +82,7 @@ async def list_qualifiers(actor: User = Depends(require_api_actor)):
     ),
 )
 async def list_open_qualifiers(actor: User = Depends(require_api_actor)):
-    # Ungated player-facing list: the public shell only (no internal ``config``).
+    # Ungated: the public shell only, never the internal config.
     return await AsyncQualifierService().list_open_qualifiers()
 
 
@@ -114,7 +109,6 @@ async def get_qualifier(qualifier_id: int, actor: User = Depends(require_api_act
     ),
 )
 async def get_qualifier_public(qualifier_id: int, actor: User = Depends(require_api_actor)):
-    # Ungated player shell: the public response model omits the internal ``config``.
     return await AsyncQualifierService().get_qualifier_for_player(qualifier_id)
 
 
@@ -281,8 +275,6 @@ async def get_run_notes(run_id: int, actor: User = Depends(require_api_actor)):
     return await AsyncQualifierService().get_run_notes(actor, run_id)
 
 
-# ============================================================ writes (W)
-
 @router.post(
     "",
     response_model=AsyncQualifierResponse,
@@ -363,8 +355,6 @@ async def remove_admin(qualifier_id: int, user_id: int, actor: User = Depends(re
     await AsyncQualifierService().remove_admin(actor, qualifier_id, target)
 
 
-# --- pools ---
-
 @router.post(
     "/{qualifier_id}/pools",
     response_model=AsyncQualifierPoolResponse,
@@ -405,8 +395,6 @@ async def update_pool(pool_id: int, body: PoolUpdateRequest, actor: User = Depen
 async def delete_pool(pool_id: int, actor: User = Depends(require_write_actor)):
     await AsyncQualifierService().delete_pool(actor, pool_id)
 
-
-# --- permalinks ---
 
 @router.post(
     "/pools/{pool_id}/permalinks",
@@ -507,8 +495,6 @@ async def delete_permalink(permalink_id: int, actor: User = Depends(require_writ
     await AsyncQualifierService().delete_permalink(actor, permalink_id)
 
 
-# --- player run lifecycle ---
-
 @router.post(
     "/{qualifier_id}/runs",
     response_model=AsyncQualifierRunResponse,
@@ -585,8 +571,6 @@ async def reattempt_run(run_id: int, body: ReattemptRequest, actor: User = Depen
 async def grant_reattempt(run_id: int, body: ReattemptRequest, actor: User = Depends(require_write_actor)):
     return await AsyncQualifierService().grant_reattempt(actor, run_id, reason=body.reason)
 
-
-# --- review ---
 
 @router.post(
     "/runs/{run_id}/claim", response_model=AsyncQualifierRunResponse, summary="Claim a run for review",

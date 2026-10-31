@@ -31,7 +31,6 @@ class BracketRepository(TenantScopedRepository[Bracket]):
 
     model = Bracket
 
-    # --- Bracket ---------------------------------------------------------
     async def get_bracket(self, bracket_id: int) -> Optional[Bracket]:
         return await scoped(Bracket.filter(id=bracket_id)).first()
 
@@ -55,7 +54,6 @@ class BracketRepository(TenantScopedRepository[Bracket]):
             Bracket.filter(tournament_id=tournament_id, stage_order=stage_order)
         ).first()
 
-    # --- BracketEntrant --------------------------------------------------
     async def create_entrant(self, **fields) -> BracketEntrant:
         return await BracketEntrant.create(tenant_id=current_tenant_id(), **fields)
 
@@ -78,14 +76,10 @@ class BracketRepository(TenantScopedRepository[Bracket]):
         return await self.update(entrant, **fields)
 
     async def list_entrants(self, tournament_id: int) -> List[BracketEntrant]:
-        # ``user`` is prefetched for the linked account's Discord avatar, which
-        # every bracket surface paints beside the name — one extra query for the
-        # whole field beats one per entrant at render time.
         return await scoped(
             BracketEntrant.filter(tournament_id=tournament_id)
         ).prefetch_related('user').order_by('display_name')
 
-    # --- BracketEntry ----------------------------------------------------
     async def create_entry(self, **fields) -> BracketEntry:
         return await BracketEntry.create(tenant_id=current_tenant_id(), **fields)
 
@@ -135,7 +129,6 @@ class BracketRepository(TenantScopedRepository[Bracket]):
             BracketEntry.filter(bracket_id=bracket_id, entrant_id=entrant_id)
         ).first()
 
-    # --- BracketMatch ----------------------------------------------------
     async def create_match(self, **fields) -> BracketMatch:
         return await BracketMatch.create(tenant_id=current_tenant_id(), **fields)
 
@@ -147,11 +140,6 @@ class BracketRepository(TenantScopedRepository[Bracket]):
         return await self.update(match, **fields)
 
     async def list_matches(self, bracket_id: int) -> List[BracketMatch]:
-        # ``games__match`` is prefetched so a whole round can render its series
-        # state — including each game's scheduled time — without an N+1 across
-        # the bracket view. ``__stage`` rides along for the live "Watch"
-        # link (U2): a fixed number of queries for the whole field, whatever its
-        # size, which is the rule the bracket view is held to.
         return await scoped(
             BracketMatch.filter(bracket_id=bracket_id)
         ).prefetch_related(
@@ -186,8 +174,6 @@ class BracketRepository(TenantScopedRepository[Bracket]):
 
     async def list_open_matches(self, bracket_id: int) -> List[BracketMatch]:
         from models import BracketMatchState
-        # ``games__match`` (not just ``games``) so callers can derive each
-        # matchup's live status without an N+1 — one more batched query.
         return await scoped(
             BracketMatch.filter(bracket_id=bracket_id, state=BracketMatchState.OPEN)
         ).prefetch_related('games__match').order_by('round', 'position')
@@ -223,7 +209,6 @@ class BracketRepository(TenantScopedRepository[Bracket]):
             BracketMatch.filter(loser_to_id=match_id, loser_to_slot=slot)
         ).exclude(state=BracketMatchState.COMPLETE)
 
-    # --- scheduling seam (mirrors ChallongeRepository) -------------------
     async def get_match_with_bracket(self, bracket_match_id: int) -> Optional[BracketMatch]:
         """One matchup with its parent stage, for readers that need the stage config.
 
@@ -336,7 +321,6 @@ class BracketRepository(TenantScopedRepository[Bracket]):
             'bracket__tournament', 'entry1__entrant__user', 'entry2__entrant__user', 'games',
         ).order_by('bracket__tournament_id', 'bracket__stage_order', 'round', 'position')
 
-    # --- BracketMatchGame -------------------------------------------------
     async def create_game(self, **fields) -> BracketMatchGame:
         return await BracketMatchGame.create(tenant_id=current_tenant_id(), **fields)
 

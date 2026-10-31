@@ -26,8 +26,6 @@ from cryptography.hazmat.primitives.asymmetric.utils import decode_dss_signature
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from cryptography.hazmat.primitives.kdf.hkdf import HKDF
 
-# One record per message; the header advertises the standard 4096-octet record
-# size. Push services cap payloads well below this anyway (~4 KB total).
 _RECORD_SIZE = 4096
 # aes128gcm overhead: 86-byte header + 16-byte AEAD tag + 1 padding delimiter.
 MAX_PLAINTEXT_LENGTH = _RECORD_SIZE - 86 - 16 - 1

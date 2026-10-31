@@ -11,7 +11,6 @@ from typing import Dict, List, Optional
 from application.repositories._save import save_fields
 from models import TenantFeatureFlag
 
-# Sentinel distinguishing "leave this column untouched" from "set it to None".
 _UNSET = object()
 
 

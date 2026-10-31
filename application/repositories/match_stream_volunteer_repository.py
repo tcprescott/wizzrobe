@@ -33,7 +33,6 @@ class MatchStreamVolunteerRepository:
         rows = await scoped(
             MatchStreamVolunteer.filter(user=user)
         ).values_list('match_id', flat=True)
-        # flat=True yields scalars; the stub types values_list as tuples.
         return list(rows)  # type: ignore[arg-type]
 
     @staticmethod

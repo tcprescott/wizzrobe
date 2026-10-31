@@ -17,11 +17,8 @@ import httpx
 logger = logging.getLogger(__name__)
 
 _TIMEOUT = httpx.Timeout(40.0, connect=5.0)
-# The 40s above is sized for the getUpdates long poll; a send that slow would
-# hold the shared notification queue and a person's "Send test" click.
+# Not the 40s long-poll timeout: a slow send would hold the shared notification queue.
 _SEND_TIMEOUT = httpx.Timeout(10.0, connect=5.0)
-# How long the poller rests after Telegram failed to answer, so an outage is a
-# warning every quarter minute rather than every second.
 _POLL_BACKOFF_SECONDS = 15
 
 _client: Optional[httpx.AsyncClient] = None
@@ -105,8 +102,7 @@ async def send_message(
     payload: dict = {'chat_id': chat_id, 'text': text, 'disable_web_page_preview': True}
     if silent:
         payload['disable_notification'] = True
-    # Telegram rejects the whole message for a non-https button (a dev
-    # localhost link), so that case falls back to text only.
+    # Telegram rejects the whole message for a non-https button, so fall back to text only.
     if button_url and button_url.startswith('https://'):
         payload['reply_markup'] = {
             'inline_keyboard': [[{'text': button_label or 'Open', 'url': button_url}]],

@@ -27,8 +27,7 @@ class SentMessageRepository:
 
     @staticmethod
     async def update(message_id: int, tenant_id: int, **fields: Any) -> int:
-        # Explicit tenant: the web-push mirror reports back from the dispatch
-        # worker, which runs outside any tenant scope.
+        # Explicit tenant: the web-push mirror reports back from outside any tenant scope.
         return await scoped(SentMessage.filter(id=message_id), tenant_id).update(**fields)
 
     @staticmethod
@@ -93,7 +92,6 @@ class SentMessageRepository:
 
     @staticmethod
     def _for_recipient(user_id: int, discord_id: Optional[str]) -> QuerySet:
-        # A DM sent before the account existed carries only the Discord id.
         match = Q(recipient_id=user_id)
         if discord_id:
             match |= Q(recipient_id=None, discord_id=discord_id)

@@ -19,9 +19,6 @@ from typing import Optional, Sequence
 
 import discord
 
-# A volunteer's own words, shown to coordinators in a Discord embed. Escaped so
-# they read as plain text (no links, mentions or formatting) and capped so one
-# message can't fill the card.
 REASON_MAX_CHARS = 300
 
 

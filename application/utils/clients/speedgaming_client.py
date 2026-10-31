@@ -50,17 +50,9 @@ from application.utils.environment import env_flag, is_production
 SPEEDGAMING_BASE = 'https://speedgaming.org'
 SCHEDULE_URL = f'{SPEEDGAMING_BASE}/api/schedule'
 
-# A courteous cap so a misconfigured window never pulls an unbounded page.
 REQUEST_TIMEOUT_SECONDS = 20
 
-# ----------------------------------------------------------------------
-# Wire-shape manifest — the exact key set the live feed serves per object.
-#
-# Captured from an unfiltered ``GET /api/schedule/`` (25 episodes across 9
-# events). SG serves every key on every object, so these are exact sets rather
-# than minimums: a key missing from a payload means the shape changed upstream,
-# and a key we invent is one no consumer may rely on.
-# ----------------------------------------------------------------------
+# Exact key sets, not minimums: SG serves every key, so a missing one means upstream changed.
 SG_EPISODE_KEYS = frozenset({
     'id', 'title', 'when', 'whenCountdown', 'length', 'timezone', 'approved',
     'externalRestream', 'event', 'match1', 'match2', 'channels',
@@ -73,16 +65,12 @@ SG_MATCH_KEYS = frozenset({'id', 'title', 'note', 'players'})
 SG_PLAYER_KEYS = frozenset({
     'id', 'displayName', 'discordId', 'discordTag', 'publicStream', 'streamingFrom',
 })
-# Crew carry two fields players do not: ``approved`` (staff accepted the signup)
-# and ``ready`` (the volunteer said they are set). Both flip between polls.
 SG_CREW_KEYS = frozenset({
     'id', 'displayName', 'discordId', 'discordTag', 'publicStream',
     'approved', 'ready', 'partner', 'language',
 })
 SG_CHANNEL_KEYS = frozenset({'id', 'name', 'slug', 'initials', 'language'})
 
-# The four parallel crew lists on an episode. Wizzrobe does not import crew from
-# SG yet — the raw lists are retained in ``SpeedGamingEpisode.payload``.
 SG_CREW_ROLES = ('commentators', 'trackers', 'broadcasters', 'helpers')
 
 
@@ -182,8 +170,7 @@ class MockSpeedGamingClient(SpeedGamingClient):
         end: datetime,
         content_type: Optional[str] = None,
     ) -> List[Dict[str, Any]]:
-        # Return a deep-ish copy so a caller mutating the transform input can't
-        # corrupt the canned fixtures across polls.
+        # Deep-ish copy so a caller mutating the result can't corrupt the fixtures across polls.
         import copy
         return [copy.deepcopy(ep) for ep in self._episodes]
 
@@ -195,25 +182,6 @@ def get_speedgaming_client() -> SpeedGamingClient:
     return SpeedGamingClient()
 
 
-# ----------------------------------------------------------------------
-# Canned fixtures for MOCK_SPEEDGAMING.
-#
-# Every episode carries the full ``SG_EPISODE_KEYS`` set with live-accurate
-# value conventions (``''`` for unset, ``null`` only for ``match2``, UTC offsets
-# on both instants), so the mock exercises the same parsing the real API
-# demands. ``test_speedgaming_client.py`` validates them against the manifests.
-#
-# Coverage, chosen so each fixture reaches a branch the others do not:
-#
-# 1. Two players — one resolvable by discord id, one only by tag — with crew in
-#    all four roles at mixed ``approved``/``ready``, on a restream channel.
-# 2. A repeat of player 1 alongside a new opponent; no crew at all.
-# 3. Unapproved episode, three players, one with no Discord identity whatsoever
-#    (``''``/``''`` → placeholder), matchup still TBD so the only human label is
-#    the side's ``note``.
-# 4. A doubleheader: ``match2`` populated, which the ETL unions into one Match.
-# 5. A slot with no players yet — SG publishes the airtime before the matchup.
-# ----------------------------------------------------------------------
 _MOCK_EVENT: Dict[str, Any] = {
     'id': 9100,
     'slug': 'mockevent',
@@ -257,7 +225,6 @@ def _mock_episode(**overrides: Any) -> Dict[str, Any]:
         'helpers': [],
     }
     episode.update(overrides)
-    # SG serves whenCountdown equal to when; no fixture needs to restate it.
     episode['whenCountdown'] = overrides.get('whenCountdown', episode['when'])
     return episode
 
@@ -321,8 +288,6 @@ _MOCK_EPISODES: List[Dict[str, Any]] = [
         },
     ),
     _mock_episode(
-        # Three-player match, still unapproved, crew signup pending. The matchup
-        # is TBD — SG serves '' — so ``note`` is the only label the ETL can use.
         id=900003,
         when='2026-07-22T19:00:00+00:00',
         length=120,
@@ -346,8 +311,6 @@ _MOCK_EPISODES: List[Dict[str, Any]] = [
         commentators=[_mock_crew(6006, 'CasterThree', approved=False)],
     ),
     _mock_episode(
-        # Doubleheader: two SG matches share one airtime slot. The ETL unions
-        # both sides' players into a single Wizzrobe Match.
         id=900004,
         when='2026-07-23T23:00:00+00:00',
         length=130,
@@ -377,8 +340,6 @@ _MOCK_EPISODES: List[Dict[str, Any]] = [
         },
     ),
     _mock_episode(
-        # Airtime published before the matchup is known: a real, approved
-        # episode whose only content is a title.
         id=900005,
         when='2026-07-24T01:00:00+00:00',
         length=240,

@@ -8,8 +8,6 @@ from application.repositories._event import tagged_event_id
 from application.repositories._tenant import current_tenant_id, scoped
 from models import DataExport, DataExportKind, DataExportStatus
 
-# Every column but the two file blobs: lists and status polls never need them,
-# and a ready export's files are most of the row.
 _SUMMARY_FIELDS = (
     'id', 'tenant_id', 'event_id', 'requested_by_id', 'kind', 'title', 'params', 'status',
     'progress_done', 'progress_total', 'error', 'filename', 'media_type',
@@ -77,9 +75,7 @@ class DataExportRepository(TenantScopedRepository[DataExport]):
             finished_at=datetime.now(timezone.utc), **fields,
         )
 
-    # ------------------------------------------------------------------
     # Worker-facing queries — deliberately cross-tenant
-    # ------------------------------------------------------------------
 
     @classmethod
     async def next_queued_all(cls) -> Optional[DataExport]:

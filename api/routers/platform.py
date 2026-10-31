@@ -73,9 +73,6 @@ def _flag(value: str) -> FeatureFlag:
         ) from exc
 
 
-# --- Communities --------------------------------------------------------------
-
-
 @router.get(
     "/communities",
     tags=_COMMUNITIES,
@@ -215,9 +212,6 @@ async def override_feature(
     return await service.list_for_tenant(actor, tenant_id)
 
 
-# --- Accounts -----------------------------------------------------------------
-
-
 @router.get(
     "/users",
     tags=_USERS,
@@ -268,9 +262,6 @@ async def set_platform_user_active(
     return PlatformUserResponse.from_overview(
         await PlatformAdminService().set_account_active(actor, user_id, payload.is_active)
     )
-
-
-# --- Feature groups -----------------------------------------------------------
 
 
 async def _group(actor: User, group_id: int) -> FeatureGroupResponse:
@@ -336,9 +327,6 @@ async def update_feature_group(
 )
 async def delete_feature_group(group_id: int, actor: User = Depends(require_super_admin_write)):
     await FeatureFlagService().delete_group(actor, group_id)
-
-
-# --- Log levels ---------------------------------------------------------------
 
 
 @router.get(

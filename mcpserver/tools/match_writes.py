@@ -53,8 +53,7 @@ from mcpserver.auth import Gate, current_actor
 from mcpserver.registry import register
 from mcpserver.schemas import OperationResult, TenantArg
 
-# In the schema rather than only the prose, so the model reads the two legal
-# values off the tool definition instead of a docstring it may skim.
+# A Literal so the legal values are in the tool schema, not just the docstring.
 CrewRole = Literal['commentator', 'tracker', 'broadcaster']
 
 
@@ -82,9 +81,6 @@ async def _match_response(match_id: int) -> MatchResponse:
     """
     await _load_match(match_id)
     return require_found(await load_match_response(match_id), 'Match')
-
-
-# --- Scheduling -------------------------------------------------------------
 
 
 async def create_match(
@@ -230,9 +226,6 @@ async def extend_match_to_set(
     return [await _match_response(g.id) for g in games]
 
 
-# --- Stream and stations ----------------------------------------------------
-
-
 async def set_match_stream_candidate(
     match_id: int,
     flag: bool,
@@ -271,9 +264,6 @@ async def assign_match_stations(
     actor = current_actor().user
     await MatchService().assign_stations(match_id, assignments, actor=actor)
     return await _match_response(match_id)
-
-
-# --- Lifecycle --------------------------------------------------------------
 
 
 async def seat_match(
@@ -370,10 +360,7 @@ async def generate_match_seed(
     lands. Every other randomizer returns the permalink directly.
     """
     actor = current_actor().user
-    # Resolve the id before handing it to the service. ``generate_seed`` reports
-    # every failure as a ``(False, message, None)`` tuple, so an unknown id would
-    # otherwise come back as `invalid_request` — and reach Sentry as a logged
-    # traceback — where every other tool here answers `not_found`.
+    # Resolve first: generate_seed would report an unknown id as invalid_request, not not_found.
     await _load_match(match_id)
     success, message, seed_url = await MatchScheduleService().generate_seed(
         match_id, actor=actor
@@ -403,9 +390,6 @@ async def set_crew_approval(
     await service.update_crew_approval(crew_member, role, approved, actor=actor)  # type: ignore[arg-type]
     verdict = 'Approved' if approved else 'Rejected'
     return OperationResult(detail=f'{verdict} {role} signup {crew_id}.')
-
-
-# --- Your own participation -------------------------------------------------
 
 
 async def signup_as_crew(

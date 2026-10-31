@@ -266,11 +266,8 @@ class StartggClient:
                 'or set STARTGG_API_TOKEN.'
             )
         headers = {'Authorization': f'Bearer {self.token}', 'Content-Type': 'application/json'}
-        # One retry on a rate-limit answer: the limit is a rolling minute, so a
-        # short wait usually clears a burst from a manual sync on top of the worker.
         for attempt in range(2):
-            # Sentry SGLMAN-15: a raw timeout skipped the per-event handler, so one
-            # slow answer aborted the community's whole sync and reported as an error.
+            # Catch the timeout here: raw, it skipped the per-event handler and aborted the whole sync.
             try:
                 async with aiohttp.ClientSession(timeout=_TIMEOUT) as session:
                     async with session.post(
@@ -288,8 +285,7 @@ class StartggClient:
             if status == 429 and attempt == 0:
                 await asyncio.sleep(5)
                 continue
-            # Sentry SGLMAN-2H: start.gg answers a 200 with an "internal" error now
-            # and then (its own fault, gone on the next request), so retry it once.
+            # start.gg sometimes answers 200 with a transient "internal" error; retry it once.
             if attempt == 0 and _internal_error(payload):
                 await asyncio.sleep(1)
                 continue
@@ -426,10 +422,6 @@ class StartggClient:
         return {'event': event, 'entrants': entrants, 'pools': pools}
 
 
-# ----------------------------------------------------------------------
-# OAuth: player account linking (user.identity) and the community sign-in
-# (user.identity tournament.reporter)
-# ----------------------------------------------------------------------
 _PLAYER_SCOPE = 'user.identity'
 CONNECT_SCOPE = 'user.identity tournament.reporter'
 

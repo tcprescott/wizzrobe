@@ -26,8 +26,6 @@ import re
 
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
-# The static spectator routes, with or without a ``/t/<slug>`` tenant prefix
-# and an ``/e/<slug>`` event prefix.
 _PUBLIC_CACHEABLE = re.compile(
     r'^(?:/t/[a-z0-9][a-z0-9-]*)?(?:/e/[a-z0-9][a-z0-9-]*)?/live'
     r'(?:/brackets/\d+|/tournament/\d+/brackets|/static)?/?$'
@@ -72,8 +70,7 @@ class PublicCacheMiddleware:
             return
 
         async def send_wrapper(message: Message) -> None:
-            # /live is also the live NiceGUI Watch page, which needs its session
-            # cookie: only a response actually marked public is shared.
+            # /live is also the Watch page, which needs its session cookie: share only responses marked public.
             if message['type'] == 'http.response.start' and _is_public(message.get('headers', [])):
                 headers = []
                 for name, value in message.get('headers', []):

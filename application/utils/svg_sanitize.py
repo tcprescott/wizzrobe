@@ -106,8 +106,7 @@ def sanitise_svg(data: bytes) -> bytes:
     Raises ``ValueError`` with a message fit to show the uploader.
     """
     lowered = data.lower()
-    # Entity declarations are how XML bombs and external-file reads start; a
-    # logo never needs one.
+    # Refuse entity declarations: that's how XML bombs and external-file reads start.
     if b'<!entity' in lowered or (b'<!doctype' in lowered and b'[' in lowered.split(b'<svg', 1)[0]):
         raise ValueError('That SVG declares XML entities, which logos never need. Export it again without them.')
     try:

@@ -40,8 +40,6 @@ from mcpserver.schemas import (
 from mcpserver.tools._args import clamp
 from models import RacetimeBot, User
 
-# --- shared shapes, also used by platform_writes ------------------------------
-
 
 def community_row(overview: CommunityOverview) -> PlatformCommunity:
     tenant = overview.tenant
@@ -96,9 +94,6 @@ async def group_rows(actor: User) -> List[PlatformFeatureGroup]:
         PlatformFeatureGroup(**row, community_count=row['tenant_count'])
         for row in await FeatureFlagService().list_groups_with_counts(actor)
     ]
-
-
-# --- tools --------------------------------------------------------------------
 
 
 async def platform_list_communities() -> List[PlatformCommunity]:

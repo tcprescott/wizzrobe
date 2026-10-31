@@ -27,8 +27,7 @@ class AccommodationRequest(Model):
     tenant: fields.ForeignKeyRelation = fields.ForeignKeyField(
         'models.Tenant', related_name='accommodation_requests', on_delete=fields.CASCADE,
     )
-    # Nullable until every write stamps it; the events migration backfilled the
-    # rows that existed before (see docs/features/events.md).
+    # Keep nullable: not every write path stamps it yet.
     event: fields.ForeignKeyRelation = fields.ForeignKeyField(
         'models.Event', related_name='accommodation_requests', on_delete=fields.CASCADE,
     )
@@ -39,14 +38,8 @@ class AccommodationRequest(Model):
     user_id: int
     status = fields.CharEnumField(AccommodationStatus, default=AccommodationStatus.NEW, max_length=20)
     details = fields.TextField(null=True)
-    # A member editing an Arranged request keeps it Arranged (the icon must not
-    # vanish from the boards over a typo) and raises this flag instead, with the
-    # details staff arranged against kept beside the new ones. Staff saving the
-    # request clears both.
     changed_since_arranged = fields.BooleanField(default=False)
     arranged_details = fields.TextField(null=True)
-    # When staff were last DM'd that this request opened, so ticking the box
-    # off and on again doesn't DM every staff member each time.
     staff_notified_at = fields.DatetimeField(null=True)
     staff_notes = fields.TextField(null=True)
     created_at = fields.DatetimeField(auto_now_add=True)

@@ -35,11 +35,7 @@ def app_limit_per_minute() -> int:
 
 
 _WINDOW_SECONDS = 60.0
-# Hard ceiling on the number of distinct keys tracked at once. A flood of
-# distinct bearer values (the token prefix is public) or spoofed keys must not
-# be able to grow this dict without bound and OOM the single worker.
 _MAX_TRACKED_KEYS = 10_000
-# key -> timestamps of requests within the current window
 _hits: Dict[str, Deque[float]] = defaultdict(deque)
 _last_sweep = 0.0
 
@@ -57,9 +53,6 @@ def _sweep(now: float) -> None:
     cutoff = now - _WINDOW_SECONDS
     for key in [k for k, b in _hits.items() if not b or b[-1] < cutoff]:
         del _hits[key]
-    # Still oversized after reclaiming expired keys: evict the keys whose most
-    # recent hit is oldest until back under the cap. Bounds worst-case memory
-    # even during an active flood.
     if len(_hits) > _MAX_TRACKED_KEYS:
         overflow = len(_hits) - _MAX_TRACKED_KEYS
         for key in sorted(_hits, key=lambda k: _hits[k][-1] if _hits[k] else 0.0)[:overflow]:
@@ -91,11 +84,7 @@ def _client_key(request: Request) -> str:
     auth = request.headers.get('authorization')
     if auth:
         token = auth[7:].strip() if auth[:7].lower() == 'bearer ' else auth.strip()
-        # Only bucket by a *well-formed* token so each real token is limited
-        # independently. Garbage/rotating tokens fall through to the IP key so a
-        # flood of random bearer values can't get a fresh bucket each request
-        # (bypass) or grow _hits without bound. Store only a hash, never the raw
-        # secret, as the key.
+        # Bucket only well-formed tokens, keyed by hash: random bearer values fall to the IP key so they can't mint buckets.
         for prefix in BEARER_PREFIXES:
             if token.startswith(prefix) and len(token) >= len(prefix) + 20:
                 return f'token:{hashlib.sha256(token.encode()).hexdigest()}'
@@ -125,9 +114,7 @@ async def rate_limit(request: Request) -> None:
     if client_key != ip_key:
         keys.append(client_key)
 
-    # Evaluate every applicable bucket before recording so a rejection by one
-    # bucket does not half-count the request in another. The IP key is checked
-    # first, so a flood is rejected before a per-request token key is created.
+    # Check every bucket before recording any, IP first, so a rejection never half-counts a request.
     for key in keys:
         bucket = _hits[key]
         while bucket and bucket[0] < window_start:

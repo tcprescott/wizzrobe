@@ -46,7 +46,6 @@ logger = logging.getLogger(__name__)
 
 WARN_SECONDS = 0.5
 ERROR_SECONDS = 2.0
-# A stall is the collector's when at least this share of it was a collection.
 GC_SHARE = 0.5
 GC_CULPRIT = 'garbage collection'
 STUCK_SECONDS = 10.0
@@ -225,7 +224,6 @@ class LoopWatchdog:
         verb = 'has been blocked for' if still_blocked else 'was blocked for'
         level = logging.ERROR if seconds >= ERROR_SECONDS else logging.WARNING
         with sentry_sdk.new_scope() as scope:
-            # Every collection pause is one issue, whatever generation or length.
             group = GC_CULPRIT if culprit.startswith(GC_CULPRIT) else culprit
             scope.fingerprint = ['event-loop-blocked', group]
             scope.set_tag('loop_blocked_in', culprit[:200])

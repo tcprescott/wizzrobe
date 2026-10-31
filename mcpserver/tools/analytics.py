@@ -23,8 +23,6 @@ from mcpserver.registry import register
 from mcpserver.schemas import TenantArg
 from mcpserver.tools._args import Bucket, clamp, parse_ts, window
 
-# How many busiest intervals a forecast reports. Enough to see the shape of a
-# day's peak; short enough that the answer is still readable.
 FORECAST_PEAKS = 5
 
 

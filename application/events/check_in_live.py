@@ -19,7 +19,6 @@ from typing import Callable, Dict, Optional
 
 logger = logging.getLogger(__name__)
 
-# change_type values
 CHANGED = 'changed'
 CREATED = 'created'
 DELETED = 'deleted'

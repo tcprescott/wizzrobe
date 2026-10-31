@@ -56,8 +56,7 @@ async def send_email(
             {'type': 'text/plain', 'value': text},
             {'type': 'text/html', 'value': html},
         ],
-        # Transactional mail: SendGrid's click tracking would rewrite every
-        # call-to-action link through its own domain.
+        # Keep click tracking off: it would rewrite every call-to-action link through SendGrid's domain.
         'tracking_settings': {'click_tracking': {'enable': False, 'enable_text': False}},
     }
     if headers:

@@ -55,15 +55,12 @@ class EquipmentLoan(Model):
 
     id = fields.IntField(pk=True)
     tenant = fields.ForeignKeyField('models.Tenant', related_name='equipment_loans', on_delete=fields.CASCADE)
-    # Which event this happened during, for filtering. The row belongs to the
-    # community, so it outlives the event (SET NULL) and may carry none.
     event: fields.ForeignKeyNullableRelation = fields.ForeignKeyField(
         'models.Event', related_name='equipment_loans', on_delete=fields.SET_NULL, null=True,
     )
     event_id: Optional[int]
     equipment = fields.ForeignKeyField('models.Equipment', related_name='loans', on_delete=fields.CASCADE)
-    # RESTRICT: a user with lending history cannot be hard-deleted (retire via
-    # User.is_active instead), so the asset's ownership trail is never destroyed.
+    # RESTRICT on purpose: retire a user via is_active so the ownership trail survives.
     borrower = fields.ForeignKeyField(
         'models.User', related_name='equipment_loans', on_delete=fields.RESTRICT
     )

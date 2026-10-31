@@ -27,13 +27,11 @@ def is_mock_startgg() -> bool:
     return enabled
 
 
-# The start.gg account a mock community sign-in reports as.
 MOCK_CONNECTED_USER_ID = '30001'
 
-# The start.gg account ids the dev seed links to player_one and player_two.
+# Must match the ids the dev seed links to player_one and player_two.
 MOCK_LINKED_ACCOUNTS = {'player_one': '39001', 'player_two': '39002'}
 
-# (entrant id, name, start.gg user id or None)
 _ENTRANTS = [
     ('9001', 'Player One', MOCK_LINKED_ACCOUNTS['player_one']),
     ('9002', 'Player Two', MOCK_LINKED_ACCOUNTS['player_two']),
@@ -118,8 +116,6 @@ class MockStartggClient:
         return None
 
     async def get_admin_tournament_slugs(self) -> Tuple[Optional[str], Set[str]]:
-        # The mock account admins nothing, so the card's per-tournament check
-        # falls through to get_tournament_admin_ids below.
         return MOCK_CONNECTED_USER_ID, set()
 
     async def get_tournament_admin_ids(self, slug: str) -> Set[str]:

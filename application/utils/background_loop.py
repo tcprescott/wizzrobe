@@ -36,17 +36,10 @@ T = TypeVar('T')
 
 TickFn = Callable[[], Awaitable[None]]
 
-#: A tick longer than this is logged at WARNING: it delays the worker's next
-#: run, and any synchronous stretch inside it delays every user.
 SLOW_TICK_SECONDS = 30.0
 
-#: A tick still running after this is cancelled and counted as a failure, so
-#: one ``await`` that never returns can't freeze the worker for good. Workers
-#: whose ticks are legitimately long pass their own ``tick_timeout``.
 TICK_TIMEOUT_SECONDS = 300.0
 
-#: How long the watchdog lets a worker run past what its interval (or its tick
-#: timeout, while a tick is running) allows before calling it stalled.
 STALL_GRACE_SECONDS = 60.0
 
 _RESTART_FIRST_SECONDS = 5.0
@@ -182,10 +175,7 @@ class BackgroundLoop:
         self._last_failed_at = time.time()
 
     async def _run_tick(self) -> None:
-        # A fresh copy of the loop's context per tick. The loop is one task for
-        # the life of the process, so a per-request cache a tick sets (the live
-        # feature-flag set) would otherwise be read on every later tick, and a
-        # flag toggled after boot would never reach the worker.
+        # A fresh context per tick, or a per-request cache (the live flag set) would never refresh after boot.
         async def tick() -> None:
             await self._tick()
 
@@ -344,9 +334,6 @@ async def for_each_tenant_scoped(
     per_tenant: Dict[int, List[int]] = {}
     if each_live_event:
         per_tenant = await EventRepository.live_ids_by_tenant(active)
-    # Once per community, not per item: a reminder worker hands this hundreds of
-    # rows from one community, and re-reading the tenant for each was most of
-    # its tick.
     zones: Dict[int, str] = {}
     for item, tenant_id in batch:
         if tenant_id is None or tenant_id not in active:
@@ -376,14 +363,10 @@ async def _run_scoped(
 ) -> None:
     from application.services.timezone_service import TimezoneService
 
-    # The tenant is bound around the except too, so the failure is logged
-    # (and reaches Sentry) tagged with the community it happened in.
+    # Bound around the except too, so failures are logged tagged with their community.
     with tenant_scope(tenant_id), event_scope(event_id, tenant_id), sentry_tags(work_item=describe(item)):
         try:
-            # The community's own clock, bound alongside its tenant: a worker has
-            # no viewer, so anything it renders locally (a reminder DM, an export)
-            # would otherwise fall back to the default zone and tell every
-            # community the same wrong time.
+            # Bind the community's clock: a worker has no viewer, so local renders would use the default zone.
             if tenant_id not in zones:
                 zones[tenant_id] = await TimezoneService.tenant_timezone_name(tenant_id)
             with tz_scope(zones[tenant_id]):

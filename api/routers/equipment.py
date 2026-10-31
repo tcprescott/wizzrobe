@@ -38,8 +38,6 @@ from models import Equipment, EquipmentLoan, EquipmentStatus, User
 
 router = APIRouter(prefix="/equipment", tags=["Equipment"], route_class=ServiceErrorRoute)
 
-# Loan rows carried in a response are capped so a long-lived asset cannot return
-# an unbounded history; the caller pages with ?limit=.
 MAX_LOAN_ROWS = 200
 
 
@@ -85,7 +83,6 @@ async def _load_asset(equipment_id: int) -> Equipment:
     return require_found(await EquipmentService().get_asset(equipment_id), "Asset")
 
 
-# --- Reads ----------------------------------------------------------------
 # Literal single-segment routes are declared before parameterized ones.
 
 @router.get(
@@ -155,8 +152,6 @@ async def my_checkouts(actor: User = Depends(require_api_actor)):
 async def get_equipment(equipment_id: int, actor: User = Depends(require_api_actor)):
     service = EquipmentService()
     asset = await _load_asset(equipment_id)
-    # The newest loan, read through the history so all three of its users are
-    # fetched; it is the *current* one only while it is still open.
     newest = await service.loan_history(asset, limit=1)
     loan = newest[0] if newest and newest[0].checked_in_at is None else None
     base = _serialize_asset(
@@ -190,8 +185,6 @@ async def list_loans(
     loans = await service.loan_history(asset, limit=limit)
     return [_serialize_loan(loan) for loan in loans]
 
-
-# --- Asset management -----------------------------------------------------
 
 @router.post(
     "",
@@ -243,8 +236,7 @@ async def bulk_create_equipment(
         private_notes=body.private_notes,
         owner_user_id=body.owner_user_id,
     )
-    # ``bulk_create`` does not reliably populate primary keys on every backend,
-    # so the response is built from a read-back rather than the in-memory rows.
+    # Build from a read-back: bulk_create doesn't reliably populate primary keys.
     numbers = {asset.asset_number for asset in assets}
     return [
         _serialize_asset(asset, can_manage=True)
@@ -298,8 +290,6 @@ async def delete_equipment(equipment_id: int, actor: User = Depends(require_writ
     await EquipmentService().delete_asset(actor, equipment_id)
 
 
-# --- Lending --------------------------------------------------------------
-
 @router.post(
     "/{equipment_id}/checkout",
     response_model=LoanResponse,
@@ -324,8 +314,7 @@ async def checkout_equipment(
     await service.checkout(
         actor, equipment_id, borrower_id=body.borrower_id if body else None,
     )
-    # Read the loan back rather than serializing the freshly created row: the
-    # response names three users and only a fetched row has all of them.
+    # Read back: only a fetched loan carries all three users the response names.
     asset = await _load_asset(equipment_id)
     return _serialize_loan((await service.loan_history(asset, limit=1))[0])
 

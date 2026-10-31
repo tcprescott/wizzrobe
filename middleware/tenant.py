@@ -72,34 +72,20 @@ from application.utils.hostname import effective_request_host, normalize_hostnam
 
 logger = logging.getLogger(__name__)
 
-#: Set on the ASGI scope when ``/t/<slug>`` names no active community, so the
-#: 404 handler can say "no such community" rather than "no such page".
 UNKNOWN_COMMUNITY_SCOPE_KEY = 'wizzrobe.unknown_community'
-#: The event slug the URL named (``/e/<slug>``), or None for a bare path.
 EVENT_SLUG_SCOPE_KEY = 'wizzrobe.event_slug'
-#: ``root_path`` up to the community, before any ``/e/<slug>``: where a link to
-#: another event of the same community starts.
 COMMUNITY_ROOT_SCOPE_KEY = 'wizzrobe.community_root'
 
-# /e/<event slug> optionally followed by the rest of the path, after the
-# community prefix is gone.
 _EVENT_PATH_RE = re.compile(r'^/e/(?P<slug>[a-z0-9][a-z0-9-]*)(?P<rest>/.*)?$')
 
-# /t/<slug> optionally followed by the rest of the path.
 _TENANT_PATH_RE = re.compile(r'^/t/(?P<slug>[a-z0-9][a-z0-9-]*)(?P<rest>/.*)?$')
 
-# A tenant-prefixed *transport* path: /t/<slug> followed by a tenant-agnostic
-# asset / websocket / service-worker route. NiceGUI addresses its static files
-# and its socket.io endpoint under the page's root_path (/t/<slug>), so the
-# browser requests them prefixed; these must be un-prefixed back to the app's
-# real routes. ``_nicegui_ws`` is listed before ``_nicegui`` so the alternation
-# matches the longer segment.
+# _nicegui_ws must stay before _nicegui so the alternation matches the longer segment.
 _TENANT_TRANSPORT_RE = re.compile(
     r'^(?P<prefix>(?:/t/[a-z0-9][a-z0-9-]*)?(?:/e/[a-z0-9][a-z0-9-]*)?)'
     r'(?P<rest>/(?:_nicegui_ws|_nicegui|static)(?:/.*)?|/sw\.js)$'
 )
 
-# Transport / API prefixes that carry no tenant of their own.
 _EXCLUDED_PREFIXES = ('/_nicegui', '/static', '/api', '/brand-logo/')
 _EXCLUDED_EXACT = ('/sw.js',)
 
@@ -108,8 +94,6 @@ def _is_excluded(path: str) -> bool:
     return path in _EXCLUDED_EXACT or path.startswith(_EXCLUDED_PREFIXES)
 
 
-# Bounded dedup so a configured-domain miss is logged once per host, not on every
-# request. A distinct-host flood (scanners) can only churn this set, never grow it.
 _warned_hosts: dict[str, None] = {}
 _WARNED_MAX = 256
 
@@ -209,10 +193,7 @@ class TransportPrefixMiddleware:
 
 class TenantMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request, call_next):
-        # The device's own zone, reported by a snippet in the page chrome and
-        # carried on a cookie. Bound around *every* path — platform surface
-        # included, and before the tenant is known — because it is a property of
-        # the browser, not of the community. Resolution consumes it later.
+        # Bind on every path, platform included and before the tenant is known: it's the browser's zone.
         tz_token = set_browser_timezone(read_timezone_cookie(request.cookies.get(TZ_COOKIE)))
         hc_token = set_browser_hour_cycle(read_hour_cycle_cookie(request.cookies.get(HOUR_CYCLE_COOKIE)))
         try:
@@ -228,12 +209,7 @@ class TenantMiddleware(BaseHTTPMiddleware):
         if _is_excluded(path):
             return await call_next(request)
 
-        # Host mode (authoritative for a custom domain): a Host that is not the
-        # platform host and maps to an active tenant serves that tenant on its
-        # own unprefixed routes. Runs before path mode, so a stray /t/<other> on
-        # a custom domain stays a literal (unrouted → 404): one domain, one
-        # tenant. root_path/scope are left untouched — the tenant owns the whole
-        # host, so absolute links and redirects stay bare paths on-host.
+        # Host mode must run before path mode, so a /t/<other> on a custom domain stays unrouted.
         platform_host = normalize_hostname(get_platform_host()) or get_platform_host()
         host = effective_request_host(request.headers)
         if host and host != platform_host:
@@ -248,33 +224,21 @@ class TenantMiddleware(BaseHTTPMiddleware):
                     reset_host_mode(host_token)
                     reset_event_id(event_token)
                     reset_tenant_id(tenant_token)
-            # Not an active custom domain — unknown host, or a *deactivated*
-            # tenant's domain. Fall through leniently to path/platform rather than
-            # 404ing the whole host: that keeps path mode (/t/<slug>) reachable on
-            # this host and matches the unknown-host behavior, so deactivating one
-            # tenant never blocks the others. Warn only for a genuinely unknown
-            # host on a non-path request (a known-but-inactive domain isn't a proxy
-            # misconfig, so it must not warn).
+            # Fall through, don't 404: deactivating one tenant's domain must not block path mode on this host.
             if tenant is None and _TENANT_PATH_RE.match(path) is None:
                 _warn_unresolved_host(host)
 
         match = _TENANT_PATH_RE.match(path)
         if match is None:
-            # Platform surface (no /t/ prefix): run with no tenant context.
             return await call_next(request)
 
         slug = match.group('slug')
         tenant = await TenantService.get_by_slug(slug)
         if tenant is None or not tenant.is_active:
-            # Left unrouted (nothing serves /t/<slug>/…) with no tenant bound, so
-            # the themed 404 handler renders it — a page with a way to the
-            # community picker. A bare Response carried no Content-Type and
-            # Chrome downloaded it instead of showing it.
+            # Leave unrouted for the themed 404; a bare Response had no Content-Type and Chrome downloaded it.
             scope[UNKNOWN_COMMUNITY_SCOPE_KEY] = True
             return await call_next(request)
 
-        # Rewrite the scope: strip /t/<slug> into root_path so the unprefixed
-        # routes match and url_for/redirects keep the prefix.
         _strip_prefix(scope, f'/t/{slug}', match.group('rest') or '/')
 
         token = set_tenant_id(tenant.id)

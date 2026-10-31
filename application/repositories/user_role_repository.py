@@ -30,16 +30,11 @@ from models import EventStatus, Role, RoleSource, User, UserRole
 class RoleScope(Enum):
     """Which events' grants a role read counts, besides the community-wide ones."""
 
-    #: The live events: a community page (Equipment), or no event in scope.
     LIVE = 'live'
-    #: Live and draft events: what a person still holds, for the membership rule.
     OPEN = 'open'
-    #: Every event, archived ones too: the full record, for display.
     EVERY = 'every'
 
 
-#: An event id, a :class:`RoleScope`, or None for the event in scope (and
-#: :attr:`RoleScope.LIVE` when there is none).
 EventChoice = Union[int, RoleScope, None]
 
 
@@ -86,7 +81,6 @@ class UserRoleRepository:
             user=user, role=role, tenant_id=tenant_id, event_id=event_id_for_role(role, event_id),
             defaults={'granted_by': granted_by, 'source': source},
         )
-        # A manual grant pins the role so a later Discord sync won't revoke it.
         if not created and source == RoleSource.MANUAL and instance.source != RoleSource.MANUAL:
             instance.source = RoleSource.MANUAL
             instance.granted_by = granted_by
@@ -99,8 +93,7 @@ class UserRoleRepository:
         rows = await UserRole.filter(
             user=user, role=role, tenant_id=tenant_id, event_id=event_id_for_role(role, event_id),
         )
-        # One by one, so the archive guard sees each row: an archived event's
-        # grants stay as they were.
+        # One by one so the archive guard sees each row; don't turn this into a bulk update.
         for row in rows:
             await row.delete()
         return len(rows)

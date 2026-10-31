@@ -59,8 +59,6 @@ router = APIRouter(
 )
 
 
-# How many busiest intervals a forecast reports — enough to see the shape of a
-# day's peak, short enough that the answer is still readable.
 FORECAST_PEAKS = 5
 
 Bucket = Literal['week', 'month']
@@ -333,8 +331,7 @@ async def activity_trends(
         "Fails with 400 when `end` is before `start`.\n\n"
         "**Who can call this:** Staff, Volunteer coordinators, tournament admins or crew coordinators."
     ),
-    # Feature before role, like every other gated route: a switched-off feature
-    # is hidden from everyone, so a non-admin must get the same 404 staff do.
+    # Feature before role, so a non-admin gets the same 404 staff do when it's off.
     dependencies=[Depends(require_feature(FeatureFlag.VOLUNTEERS)), Depends(require_volunteer_admin)],
 )
 async def volunteer_hour_trends(

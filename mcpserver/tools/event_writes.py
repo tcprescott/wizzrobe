@@ -35,9 +35,6 @@ async def _entrant(service: CheckInService, entrant_id: int) -> CheckInEntrantRe
     return CheckInEntrantResponse.from_row(entrant, await service.volunteer_user_ids())
 
 
-# --- Check-in desk ----------------------------------------------------------
-
-
 async def check_in_attendee(
     entrant_id: int,
     tenant: TenantArg = None,
@@ -121,9 +118,6 @@ async def sync_check_in_event(
     return CheckInSyncResponse(**result.as_dict())
 
 
-# --- Volunteers -------------------------------------------------------------
-
-
 async def check_in_volunteer(
     assignment_id: int,
     tenant: TenantArg = None,
@@ -180,9 +174,6 @@ async def undo_volunteer_call_off(
     return VolunteerAssignmentResponse.from_row(assignment)
 
 
-# --- Join requests ----------------------------------------------------------
-
-
 async def approve_join_request(
     request_id: int,
     tenant: TenantArg = None,
@@ -204,7 +195,7 @@ async def deny_join_request(
     return JoinRequestResponse.from_row(request)
 
 
-#: Check-in rows: ``event_id`` here is a check-in event, not a Wizzrobe event.
+# event_id here is a check-in event, not a Wizzrobe event.
 _ENTRANT = {'entrant_id': CheckInEntrant}
 _CHECK_IN_EVENT = {'event_id': CheckInEvent}
 

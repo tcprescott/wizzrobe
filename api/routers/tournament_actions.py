@@ -69,8 +69,6 @@ async def update_tournament(
     tournament_id: int, body: TournamentUpdateRequest, actor: User = Depends(require_write_actor),
 ):
     tournament = await _load_tournament_or_404(tournament_id)
-    # The repository mutates ``tournament`` in place (and returns None), so we
-    # return the now-updated instance.
     await TournamentService().update_tournament(
         tournament, actor=actor, **body.model_dump(exclude_unset=True),
     )

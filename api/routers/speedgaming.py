@@ -33,8 +33,6 @@ async def _load_link_or_404(link_id: int) -> SpeedGamingEventLink:
     )
 
 
-# --- Links ----------------------------------------------------------------
-
 @router.get(
     "/links",
     response_model=List[SpeedGamingLinkResponse],

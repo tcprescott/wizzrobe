@@ -27,8 +27,7 @@ def window(start: str, end: str) -> Tuple[datetime, datetime]:
         start_dt, end_dt = datetime.fromisoformat(start), datetime.fromisoformat(end)
     except ValueError as exc:
         raise ValueError('start and end must be ISO 8601 timestamps') from exc
-    # The services clamp a reversed window to an empty one, which reads as "no
-    # data" rather than "wrong arguments"; REST refuses it, so this does too.
+    # Refuse a reversed window: the services clamp it to empty, which reads as "no data".
     try:
         reversed_window = end_dt < start_dt
     except TypeError as exc:
@@ -38,8 +37,7 @@ def window(start: str, end: str) -> Tuple[datetime, datetime]:
     return start_dt, end_dt
 
 
-# Spelled out so the schema rejects anything else: the service treats every
-# value but 'month' as a week, so a typo would quietly return weekly data.
+# A Literal on purpose: the service treats every value but 'month' as a week.
 Bucket = Literal['week', 'month']
 
 

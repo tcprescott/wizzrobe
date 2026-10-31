@@ -40,7 +40,7 @@ from racetimebot.transport import (
 logger = logging.getLogger(__name__)
 
 INITIAL_BACKOFF_SECONDS = 5
-MAX_BACKOFF_SECONDS = 300  # ~5 minutes, per the health decision
+MAX_BACKOFF_SECONDS = 300
 
 
 class CategoryConnection:
@@ -125,7 +125,6 @@ class CategoryConnection:
             self._transport = None
 
     async def _sleep_backoff(self, seconds: float) -> None:
-        # Interruptible sleep: a stop request cuts the backoff short.
         try:
             await asyncio.wait_for(self._stop.wait(), timeout=seconds)
         except asyncio.TimeoutError:
@@ -144,8 +143,7 @@ class CategoryConnection:
                 try:
                     await self.bot_service.record_error(self.bot_id, self.system_user, str(exc))
                 except Exception:
-                    # Recording is bookkeeping; letting it escape would end the
-                    # connection loop for good with nothing to restart it.
+                    # Never let this escape: it would end the connection loop with nothing to restart it.
                     logger.exception('failed to record racetime bot %s error', self.category)
                 outcome, connected = 'transient', False
 
@@ -173,7 +171,6 @@ class CategoryConnection:
         self._stop.set()
         transport = self._transport
         if transport is not None:
-            # Best-effort: unblock a live run() loop.
             try:
                 asyncio.get_event_loop().create_task(transport.close())
             except Exception:

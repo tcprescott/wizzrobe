@@ -23,8 +23,6 @@ __all__ = [
 
 CONTENT_DIR = Path(__file__).parent / 'content'
 
-#: Help predates the split and its names are used across the app; they are the
-#: shared types, not parallel ones.
 HelpArticle = ContentArticle
 HelpSnippet = ContentSnippet
 

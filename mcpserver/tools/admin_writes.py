@@ -77,9 +77,6 @@ def _role(value: str) -> Role:
         raise ValueError(f"Unknown role '{value}'. Valid roles: {valid}") from exc
 
 
-# --- Stages ---------------------------------------------------------------------
-
-
 async def create_stage(
     name: str,
     tenant: TenantArg = None,
@@ -122,9 +119,6 @@ async def delete_stage(
     stage = require_found(await service.get_stage_by_id(stage_id), 'Stage')
     await service.delete_stage(stage, actor=current_actor().user)
     return OperationResult(detail=f'Stage {stage_id} deleted.')
-
-
-# --- Volunteer positions ----------------------------------------------------------
 
 
 async def create_volunteer_position(
@@ -187,9 +181,6 @@ async def delete_volunteer_position(
     position = require_found(await service.get(position_id), 'Position')
     await service.delete(current_actor().user, position)
     return OperationResult(detail=f'Position {position_id} deleted with its shifts.')
-
-
-# --- Volunteer shifts and assignments ---------------------------------------------
 
 
 async def create_volunteer_shift(
@@ -296,9 +287,6 @@ async def unassign_volunteer(
     return OperationResult(detail=f'Assignment {assignment_id} removed.')
 
 
-# --- Members and roles ----------------------------------------------------------------
-
-
 async def add_community_member(
     user_id: int,
     tenant: TenantArg = None,
@@ -359,9 +347,6 @@ async def revoke_community_role(
         event_id=await EventService.id_for_slug(event),
     )
     return OperationResult(detail=f'Revoked {parsed.value} from user {user_id}.')
-
-
-# --- Notification settings --------------------------------------------------------------
 
 
 async def set_notification_setting(
@@ -437,9 +422,6 @@ async def set_my_notification(
     return MyNotificationResponse.from_row(
         await NotificationPreferenceService.set_mode(current_actor().user, notice, recipient, mode),
     )
-
-
-# --- Equipment ------------------------------------------------------------------------
 
 
 async def create_equipment(
@@ -537,9 +519,6 @@ async def check_in_equipment(
     """Record an asset coming back. Staff or equipment managers."""
     await EquipmentService().checkin(current_actor().user, equipment_id)
     return await get_equipment(equipment_id)
-
-
-# --- Payouts --------------------------------------------------------------------------
 
 
 class PayoutLine(BaseModel):

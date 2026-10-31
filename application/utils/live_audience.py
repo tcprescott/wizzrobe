@@ -19,7 +19,6 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Deque, Dict, List, Optional, Set
 
-#: How long the page stays static after arrivals were last over the threshold.
 TRIP_MINUTES = 10
 _WINDOW_SECONDS = 60.0
 
@@ -91,7 +90,6 @@ def clear_trip(tenant_id: int) -> None:
 @dataclass(frozen=True)
 class AudienceSnapshot:
     live_viewers: int
-    #: Static readers refetch once a minute, so this approximates how many there are.
     static_readers: int
     arrivals_last_minute: int
     peak: int

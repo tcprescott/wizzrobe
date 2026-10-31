@@ -18,7 +18,6 @@ MATCH_MESSAGE = 'message'
 MATCH_URL = 'url'
 MATCH_KINDS = (MATCH_MESSAGE, MATCH_URL)
 
-#: Shares of browser errors a super-admin can choose to send.
 SAMPLE_RATES = (1.0, 0.5, 0.25, 0.1)
 
 
@@ -31,17 +30,14 @@ class IgnoreRule:
 
 
 BUILTIN_RULES: Tuple[IgnoreRule, ...] = (
-    # Extensions and in-app browsers inject their own scripts into the page.
     IgnoreRule('chrome-extension://', MATCH_URL),
     IgnoreRule('moz-extension://', MATCH_URL),
     IgnoreRule('safari-extension://', MATCH_URL),
     IgnoreRule('safari-web-extension://', MATCH_URL),
     IgnoreRule('webkit-masked-url://', MATCH_URL),
-    # Browser quirks with no actionable cause.
     IgnoreRule('ResizeObserver loop', MATCH_MESSAGE),
     IgnoreRule('Script error.', MATCH_MESSAGE),
     IgnoreRule('Non-Error promise rejection captured', MATCH_MESSAGE),
-    # The network went away: venue Wi-Fi, a phone locking, a deploy restarting.
     IgnoreRule('Load failed', MATCH_MESSAGE),
     IgnoreRule('Failed to fetch', MATCH_MESSAGE),
     IgnoreRule('NetworkError when attempting to fetch resource', MATCH_MESSAGE),
@@ -49,11 +45,6 @@ BUILTIN_RULES: Tuple[IgnoreRule, ...] = (
     IgnoreRule('AbortError', MATCH_MESSAGE),
     IgnoreRule('xhr poll error', MATCH_MESSAGE),
     IgnoreRule('websocket error', MATCH_MESSAGE),
-    # Vue's or Quasar's own script never arrived, so Quasar has no Vue to read
-    # (SGLMAN-1E) or its language pack has no Quasar to attach to (SGLMAN-1J).
-    # The page reloads itself (install_framework_load_guard) and reports a
-    # second failure as a message. Firefox says "window.Vue is undefined",
-    # Chrome "Cannot destructure property '…' of 'window.Vue'".
     IgnoreRule('window.Vue', MATCH_MESSAGE),
     IgnoreRule('/static/lang/', MATCH_URL),
 )

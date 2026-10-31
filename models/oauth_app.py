@@ -36,20 +36,12 @@ class OAuthApp(Model):
     homepage_url = fields.CharField(max_length=512, null=True)
     client_type = fields.CharEnumField(OAuthClientType, max_length=16)
     client_id = fields.CharField(max_length=64, unique=True, index=True)
-    # Confidential apps only. SHA-256 like every other credential here; the
-    # plaintext is shown once. The previous hash stays valid for a grace period
-    # after a rotation so a deployed app can pick up the new secret.
     client_secret_hash = fields.CharField(max_length=64, null=True)
     secret_prefix = fields.CharField(max_length=24, null=True)
     previous_secret_hash = fields.CharField(max_length=64, null=True)
     secret_rotated_at = fields.DatetimeField(null=True)
-    # Exact-match allowlist, checked at authorize and again at the token endpoint.
-    # mypy cannot infer a JSONField's type parameter, as with every sibling.
     redirect_uris = fields.JSONField(default=list)  # type: ignore[var-annotated]
-    # ApiScope values the app may ask for. Asking is not getting: the person
-    # approving decides what the grant carries.
     allowed_scopes = fields.JSONField(default=list)  # type: ignore[var-annotated]
-    # Set by a platform admin (abuse); every grant stops working while set.
     disabled_at = fields.DatetimeField(null=True)
     disabled_reason = fields.CharField(max_length=300, null=True)
     created_at = fields.DatetimeField(auto_now_add=True)

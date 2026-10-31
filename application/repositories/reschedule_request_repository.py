@@ -10,8 +10,6 @@ from application.repositories._base import TenantScopedRepository
 from application.repositories._tenant import current_tenant_id, scoped
 from models import MatchRescheduleRequest, RescheduleRequestStatus, User
 
-# What every surface needs to render a request without a query per row: who
-# asked, which match, and the match's tournament and roster.
 _FULL = ('requested_by', 'decided_by', 'match', 'match__tournament', 'match__players__user')
 
 
@@ -107,7 +105,6 @@ class RescheduleRequestRepository(TenantScopedRepository[MatchRescheduleRequest]
                 requested_by_id=user_id, status=RescheduleRequestStatus.PENDING,
             )
         ).values_list('match_id', flat=True)
-        # flat=True yields scalars; the stub types values_list as tuples.
         return list(rows)  # type: ignore[arg-type]
 
     @staticmethod
@@ -123,7 +120,6 @@ class RescheduleRequestRepository(TenantScopedRepository[MatchRescheduleRequest]
         rows = await scoped(
             MatchRescheduleRequest.filter(status=RescheduleRequestStatus.PENDING)
         ).values_list('match_id', flat=True)
-        # flat=True yields scalars; the stub types values_list as tuples.
         return sorted(set(rows))  # type: ignore[arg-type]
 
     @staticmethod

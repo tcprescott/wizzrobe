@@ -60,14 +60,12 @@ from api.routers import (
 from models import FeatureFlag
 
 router = APIRouter(dependencies=[Depends(rate_limit), Depends(tenant_context_scope)])
-# Unauthenticated liveness probe and build version (no auth dependency on these routers).
 router.include_router(health.router)
 router.include_router(version.router)
 router.include_router(matches.router)
 router.include_router(match_actions.router)
 router.include_router(crew.router)
-# Literal ``/reschedule-requests/mine`` before the ``/{request_id}`` routes in
-# the same module, which FastAPI resolves in declaration order.
+# Before the /{request_id} routes: FastAPI resolves in declaration order.
 router.include_router(reschedule_requests.router)
 router.include_router(events.router)
 router.include_router(tournaments.router)
@@ -76,9 +74,7 @@ router.include_router(stages.router)
 router.include_router(stage_actions.router)
 router.include_router(users.router)
 router.include_router(memberships.router)
-# The literal ``/users/me/availability`` router must be included before the one
-# carrying ``/users/{user_id}/availability``, or ``me`` matches the int path
-# param and 422s instead of falling through.
+# Include before /users/{user_id}/availability, or `me` hits the int param and 422s.
 router.include_router(player_availability.router)
 router.include_router(player_availability.other_players_router)
 router.include_router(
@@ -115,16 +111,11 @@ router.include_router(
     surveys.router,
     dependencies=[Depends(require_feature(FeatureFlag.SURVEYS))],
 )
-# Also no auth dependency: the service worker that calls it has no session to
-# present, and proves ownership of the subscription instead (see the module).
+# No auth dependency on purpose: the service worker has no session and proves subscription ownership instead.
 router.include_router(web_push.router)
 router.include_router(webhooks.router)
 router.include_router(graphql.router)
 
-# --- online-tournament feature routers ---
-# Feature-gated per tenant (mirrors the web UI's per-tenant flags). ``presets``,
-# ``seeds``, ``racetime_bots`` (platform infra), ``discord_events`` (ungated),
-# and ``service_health`` stay open; the rest 404 when the tenant lacks the flag.
 router.include_router(presets.router)
 router.include_router(
     race_room_profiles.router,
@@ -151,10 +142,7 @@ router.include_router(
     dependencies=[Depends(require_feature(FeatureFlag.EVENT_CHECK_IN))],
 )
 router.include_router(seeds.router)
-# Live-races MUST be registered before the async-qualifiers router: its literal
-# ``/async-qualifiers/live-races`` prefix would otherwise be shadowed by the
-# ``/async-qualifiers/{qualifier_id}`` int path param (a non-int segment 422s
-# rather than falling through), so the more specific router is included first.
+# Must come before the async-qualifiers router, or /{qualifier_id} shadows /live-races and 422s.
 router.include_router(
     async_qualifier_live_races.router,
     dependencies=[Depends(require_feature(FeatureFlag.ASYNC_QUALIFIERS))],

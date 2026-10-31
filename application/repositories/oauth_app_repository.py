@@ -25,8 +25,6 @@ class OAuthAppRepository(TenantScopedRepository[OAuthApp]):
 
     model = OAuthApp
 
-    # --- Apps --------------------------------------------------------------
-
     @staticmethod
     async def create_app(
         owner: User,
@@ -83,8 +81,6 @@ class OAuthAppRepository(TenantScopedRepository[OAuthApp]):
     async def list_all() -> List[OAuthApp]:
         """Every app on the platform, for the super-admin view. Global."""
         return await OAuthApp.all().order_by('name', 'id').prefetch_related('owner')
-
-    # --- Codes -------------------------------------------------------------
 
     @staticmethod
     async def create_code(
@@ -143,8 +139,6 @@ class OAuthAppRepository(TenantScopedRepository[OAuthApp]):
     async def purge_expired_codes(now: datetime) -> int:
         """Delete codes past their expiry. cross-tenant housekeeping."""
         return await OAuthAppCode.filter(expires_at__lt=now).delete()
-
-    # --- Community blocks --------------------------------------------------
 
     @staticmethod
     async def is_blocked(app_id: int, tenant_id: int) -> bool:

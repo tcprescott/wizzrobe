@@ -45,9 +45,7 @@ class TenantScopedRepository(Generic[T]):
 
     @classmethod
     async def update(cls, obj: T, **fields: Any) -> T:
-        # Writes only the named columns. A caller often holds a row loaded long
-        # before (an edit dialog's tournament), and a full save would put back
-        # every column changed since then by anyone else.
+        # Write only the named columns: a full save would revert columns others changed since the load.
         for key, value in fields.items():
             setattr(obj, key, value)
         if fields:

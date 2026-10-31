@@ -76,9 +76,7 @@ async def _row_event(info: Info[GraphContext, None], model: type, row_id: int) -
 
 class WizzrobeSchema(strawberry.Schema):
     def process_errors(self, errors, execution_context=None) -> None:
-        # Strawberry logs every error, a refused field included; only the
-        # unexpected ones are worth a Sentry issue, and errors.format_errors
-        # logs those.
+        # Return None: Strawberry would log refused fields too; errors.format_errors logs the real ones.
         return None
 
 

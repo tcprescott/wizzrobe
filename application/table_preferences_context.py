@@ -24,7 +24,6 @@ from contextlib import contextmanager
 from contextvars import ContextVar, Token
 from typing import Iterator, Optional
 
-# None means "nothing primed this context" ⇒ defaults everywhere.
 _prefs_var: ContextVar[Optional[dict[str, dict]]] = ContextVar(
     'wizzrobe_table_prefs', default=None)
 

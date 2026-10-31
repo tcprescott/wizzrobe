@@ -534,9 +534,6 @@ ROLLERCOASTER_THEME = FactTheme(
 
 FACT_THEMES = (CAT_THEME, HADESTOWN_THEME, ROLLERCOASTER_THEME)
 
-# SG Live 2026 weekend: Hadestown until Sunday 06:00, rollercoasters for Sunday,
-# cats again from Monday 06:00. Starts are wall-clock times on the viewer's
-# resolved clock, which is the community's own zone for a pinned community.
 _THEME_BEFORE_SCHEDULE = HADESTOWN_THEME
 THEME_SCHEDULE: tuple[tuple[datetime, FactTheme], ...] = (
     (datetime(2026, 10, 25, 6, 0), ROLLERCOASTER_THEME),

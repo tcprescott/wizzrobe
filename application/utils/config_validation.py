@@ -48,8 +48,6 @@ def _readable(exc: ValidationError) -> str:
     for err in exc.errors():
         location = '.'.join(str(p) for p in err.get('loc', ())) or 'config'
         message = err.get('msg', 'is invalid')
-        # Pydantic prefixes messages raised by a field validator; the prefix
-        # reads as noise once the field is already named.
         for prefix in ('Value error, ', 'Assertion failed, '):
             if message.startswith(prefix):
                 message = message[len(prefix):]

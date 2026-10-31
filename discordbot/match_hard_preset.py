@@ -85,10 +85,7 @@ async def handle_hard_preset_interaction(interaction: discord.Interaction) -> No
             state = await service.withdraw(match_id, user)
             message = hard_preset_withdraw_confirmation(state.preset_name)
 
-        # Rebuild the link button alongside the swapped action button: the DM
-        # stays the live surface after a press, and ``send_dm`` composed the two
-        # together, so editing in the bare action view would strip the route to
-        # the web control this message exists to offer.
+        # Rebuild the link button too: editing in the bare action view would strip the route to the web control.
         from application.services import notification_links
         from application.services.discord.discord_service import _with_link_button
 

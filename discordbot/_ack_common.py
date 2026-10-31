@@ -112,8 +112,7 @@ async def _run_parsed(
         return
 
     try:
-        # DM buttons carry no tenant; discover it from the referenced entity,
-        # then scope all tenant-aware service work to it.
+        # DM buttons carry no tenant: resolve it from the entity and scope everything to it.
         scope = await resolve_tenant(parsed)
         if scope is None:
             await send(not_found_message)
@@ -123,8 +122,7 @@ async def _run_parsed(
 
         with tenant_scope(tenant_id), event_scope(scope.event_id, tenant_id):
             user = await UserService().get_user_by_discord_id(str(interaction.user.id))
-            # A deactivated account is refused at web and REST login; a DM's
-            # buttons never time out, so without this they kept working.
+            # Keep this: DM buttons never time out, so a deactivated account could keep using them.
             if not user or not user.is_active:
                 await send(MSG_NO_ACCOUNT)
                 return

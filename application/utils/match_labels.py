@@ -14,10 +14,7 @@ presentation layer and the services can use it.
 import re
 from typing import Dict, List, Optional, Sequence, Tuple, Union
 
-# What a bracket sync writes for a side it hasn't decided (see
-# ``_challonge_placeholders`` / ``_startgg_placeholders``). A decided entrant
-# with no account also rides in ``bracket_placeholders`` under their own name,
-# which is why a placeholder is tested against these shapes and not assumed.
+# A decided entrant with no account rides in bracket_placeholders too, so test against these shapes.
 _UNDECIDED = re.compile(r'TBD|(?:Winner|Loser) of .+|.+ or .+')
 
 MatchupPart = Dict[str, Union[str, bool]]
@@ -100,14 +97,10 @@ def match_label(
     row it came from.
     """
     players = players_label(player_names)
-    # Some schedule feeds set the title to the matchup itself; printing both
-    # would say the same thing twice. Same suppression rule as the crew DMs.
     name = title if title and title != players else players
     context = [part for part in (tournament, scheduled_at) if part] if with_context else []
 
     if not name:
-        # No roster: the tournament and time are all there is, so they carry the
-        # label instead of trailing it.
         return ', '.join(context) if context else 'this match'
     if context:
         return f"{name} ({', '.join(context)})"
@@ -127,9 +120,7 @@ def match_model_label(match, *, with_context: bool = True) -> str:
     """
     from application.utils.timezone import format_local_display
 
-    # Defensive on both relations: a caller that loaded the match without
-    # prefetching them should get a thinner label, never an exception in the
-    # middle of building a confirmation dialog.
+    # Defensive: an unprefetched match gets a thinner label, never an exception mid-dialog.
     try:
         players = [
             p.user.preferred_name for p in match.players

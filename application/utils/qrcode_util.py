@@ -17,8 +17,7 @@ from typing import Optional
 import qrcode
 from qrcode.constants import ERROR_CORRECT_H, ERROR_CORRECT_M
 
-# Logo edge as a share of the code's data area (quiet zone excluded). The tile
-# adds one module of white around it. Tested to scan down to 110 px wide.
+# Tested to scan down to 110 px wide; re-test before raising it.
 LOGO_FRACTION = 0.24
 _BORDER = 4
 

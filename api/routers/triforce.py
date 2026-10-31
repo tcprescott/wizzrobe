@@ -56,9 +56,6 @@ async def list_for_moderation(
     )
 
 
-# --- Writes -----------------------------------------------------------------
-
-
 @router.post(
     "",
     response_model=TriforceTextResponse,

@@ -28,15 +28,13 @@ class CheckInEvent(Model):
         'models.Tenant', related_name='check_in_events', on_delete=fields.CASCADE,
     )
     tenant_id: int
-    # Nullable until every write stamps it; the events migration backfilled the
-    # rows that existed before (see docs/features/events.md).
+    # Keep nullable: not every write path stamps it yet.
     event: fields.ForeignKeyRelation = fields.ForeignKeyField(
         'models.Event', related_name='check_in_events', on_delete=fields.CASCADE,
     )
     event_id: int
     name = fields.CharField(max_length=255)
     matcherino_venue_id = fields.IntField(null=True)
-    # mypy cannot infer a JSONField's type parameter, as with every sibling.
     comp_roles = fields.JSONField(default=list)  # type: ignore[var-annotated]
     comp_volunteers = fields.BooleanField(default=False)
     status = fields.CharEnumField(CheckInEventStatus, default=CheckInEventStatus.DRAFT, max_length=16)
@@ -93,7 +91,6 @@ class CheckInEntrant(Model):
     auth_id = fields.CharField(max_length=128, null=True)
     registered_at = fields.DatetimeField(null=True)
     comp_reasons = fields.JSONField(null=True)  # type: ignore[var-annotated]
-    # mypy cannot infer a JSONField's type parameter, as with every sibling.
     source_data = fields.JSONField(null=True)  # type: ignore[var-annotated]
     user: fields.ForeignKeyNullableRelation = fields.ForeignKeyField(
         'models.User', related_name='check_in_entries', null=True, on_delete=fields.SET_NULL
@@ -108,7 +105,6 @@ class CheckInEntrant(Model):
     checked_in_by: fields.ForeignKeyNullableRelation = fields.ForeignKeyField(
         'models.User', related_name='check_ins_performed', null=True, on_delete=fields.SET_NULL
     )
-    # The test DM sent at check-in (see CheckInDmStatus); null until one is tried.
     dm_status = fields.CharEnumField(CheckInDmStatus, max_length=16, null=True)
     dm_checked_at = fields.DatetimeField(null=True)
     created_at = fields.DatetimeField(auto_now_add=True)
@@ -194,7 +190,6 @@ class CheckInPass(Model):
     purchased_at = fields.DatetimeField(null=True)
     refunded_at = fields.DatetimeField(null=True)
     removed_at = fields.DatetimeField(null=True)
-    # mypy cannot infer a JSONField's type parameter, as with every sibling.
     source_data = fields.JSONField(null=True)  # type: ignore[var-annotated]
     created_at = fields.DatetimeField(auto_now_add=True)
     updated_at = fields.DatetimeField(auto_now=True)
@@ -229,7 +224,6 @@ class MatcherinoLogin(Model):
     tenant_id: int
     refresh_token = fields.TextField()
     matcherino_user_id = fields.CharField(max_length=64, null=True)
-    # SET_NULL: the login outlives whoever pasted it; the audit row keeps who.
     updated_by: fields.ForeignKeyNullableRelation = fields.ForeignKeyField(
         'models.User', related_name='matcherino_logins_updated', null=True, on_delete=fields.SET_NULL,
     )
