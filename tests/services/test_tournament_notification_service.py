@@ -33,11 +33,6 @@ def make_tournament(tournament_id=1):
     return SimpleNamespace(id=tournament_id, name='Cup')
 
 
-# ---------------------------------------------------------------------------
-# get_preference / get_user_preferences
-# ---------------------------------------------------------------------------
-
-
 class TestGetPreference:
     async def test_returns_none_when_tournament_missing(self, service):
         service.tournament_repository.get_by_id = AsyncMock(return_value=None)
@@ -66,11 +61,6 @@ class TestGetUserPreferences:
         service.repository.get_all_for_user.assert_awaited_once_with(user)
 
 
-# ---------------------------------------------------------------------------
-# upsert_preference — enum validation + tournament existence
-# ---------------------------------------------------------------------------
-
-
 class TestUpsertPreference:
     async def test_rejects_invalid_notification_level(self, service):
         with pytest.raises(ValueError, match='Invalid notification level'):
@@ -86,7 +76,6 @@ class TestUpsertPreference:
                 make_user(), tournament_id=1, match_notifications='invalid',
             )
         msg = str(exc.value)
-        # The full set of valid level values should appear in the error.
         for level in MatchNotificationLevel:
             assert level.value in msg
 
@@ -123,6 +112,5 @@ class TestUpsertPreference:
         kwargs = service.repository.upsert.await_args.kwargs
         assert kwargs['user'] is user
         assert kwargs['tournament'] is t
-        # The service converts the raw string to an enum instance before storing.
         assert kwargs['match_notifications'] == MatchNotificationLevel.STREAMED
         assert isinstance(kwargs['match_notifications'], MatchNotificationLevel)

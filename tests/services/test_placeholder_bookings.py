@@ -67,7 +67,6 @@ async def test_book_ahead_then_sync_fills_players_in(db, monkeypatch):
     assert final.match_id == match.id
 
     service.queue.enqueue.reset_mock()
-    # Andy wins A: Challonge drops Andy into the final.
     full['matches'][0].update(state='complete', winner_participant_id='901')
     full['matches'][2].update(player1_participant_id='901')
     await service.sync_bracket(tournament.id, actor, force=True)
@@ -75,9 +74,8 @@ async def test_book_ahead_then_sync_fills_players_in(db, monkeypatch):
     assert set(await MatchPlayers.filter(match=match).values_list('user_id', flat=True)) == {players['Andy'].id}
     assert match.bracket_placeholders == ['cleo or dash']
     assert await MatchAcknowledgment.filter(match=match, user=players['Andy'], acknowledged_at=None).exists()
-    service.queue.enqueue.assert_called_once()  # Andy's "match scheduled" DM
+    service.queue.enqueue.assert_called_once()
 
-    # Dash wins B: both sides known, the placeholders go.
     full['matches'][1].update(state='complete', winner_participant_id='904')
     full['matches'][2].update(player2_participant_id='904', state='open')
     await service.sync_bracket(tournament.id, actor, force=True)
@@ -94,7 +92,6 @@ async def test_reset_keeps_the_booking_and_flags_it(db, monkeypatch):
     final = await ChallongeMatch.get(challonge_match_id='8003')
     match = await service.book_ahead(final.id, '2026-10-24', '18:00', actor)
 
-    # A reset renumbers every match.
     full['matches'][2] = dict(full['matches'][2], match_id='9003')
     await service.sync_bracket(tournament.id, actor, force=True)
     await match.refresh_from_db()
@@ -130,7 +127,6 @@ async def test_fill_never_swaps_a_player_out(db, monkeypatch):
     full['matches'][2].update(player1_participant_id='901')
     await service.sync_bracket(tournament.id, actor, force=True)
 
-    # A corrected result on Challonge puts Benny where Andy was.
     full['matches'][2].update(player1_participant_id='902', player2_participant_id='904', state='open')
     await service.sync_bracket(tournament.id, actor, force=True)
     await match.refresh_from_db()
@@ -176,7 +172,7 @@ def test_run_sheet_names_the_empty_sides():
     assert row['_status'] == 'Players TBD'
     assert row['_seats'] == []
     assert run_sheet_status({**row, 'bracket_link_lost': True})[0] == 'Bracket link lost'
-    assert row['_next'] is None  # no Check in until the bracket fills the other side
+    assert row['_next'] is None
 
 
 async def test_check_in_waits_for_the_bracket(db, monkeypatch):

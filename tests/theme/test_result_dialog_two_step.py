@@ -44,7 +44,7 @@ class TestPendingWinner:
     def test_choosing_survives_a_missing_refresh_hook(self):
         """The hook is only bound on the two-player path."""
         d = dialog()
-        d._choose(42)      # must not raise
+        d._choose(42)
         assert d._pending_winner_id == 42
 
 

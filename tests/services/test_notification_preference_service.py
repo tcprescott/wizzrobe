@@ -108,8 +108,6 @@ async def test_bad_input_is_refused():
 
 
 async def test_a_player_cannot_set_a_staff_alert():
-    # It used to save the override and then crash looking for a row get_mine
-    # never lists for them, so REST and MCP answered 500.
     player = await make_user(discord_id=8110, username='p8')
     with pytest.raises(ValueError, match='staff alerts'):
         await NotificationPreferenceService.set_mode(player, PLAYER_COMMENT.key, ON_DUTY, OFF)

@@ -62,7 +62,7 @@ class TestCheckInMemberReads:
         results = await service.search_members(event, 'pat example', limit=5)
 
         assert [u.username for u in results] == [f'patexample{i:02d}' for i in range(5)]
-        assert hydrations['n'] <= 5 + 2  # the results, plus the event and actor reads
+        assert hydrations['n'] <= 5 + 2
 
     async def test_suggestions_build_only_the_users_they_offer(self, service, client, staff, event, crowd, hydrations):
         client.set([mock_purchase(100, 'Pat_Example')])
@@ -110,7 +110,6 @@ class TestMembersTable:
         await tournament.crew_coordinators.add(member, crowd[1])
 
         class Table:
-            # set_plain_rows writes props['rows'] directly, as on a ui.table.
             def __init__(self) -> None:
                 self.props: dict = {'rows': []}
 

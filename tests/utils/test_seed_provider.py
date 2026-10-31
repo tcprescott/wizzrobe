@@ -135,8 +135,6 @@ class TestNonRetryable:
         with pytest.raises(SeedProviderInvalidRequest):
             await call_provider(rejected, provider='ootr', operation='generate_seed')
 
-        # The same payload would be rejected identically — retrying only delays
-        # an error the caller could already act on.
         assert len(calls) == 1
 
     async def test_a_value_error_is_not_retried(self):
@@ -150,8 +148,6 @@ class TestNonRetryable:
             await call_provider(malformed, provider='dk64r', operation='generate_seed')
 
         assert len(calls) == 1
-        # The generator's own wording survives — it is more specific than
-        # anything the envelope could invent.
         assert 'no seed identifier' in str(exc.value)
 
     async def test_max_attempts_one_never_retries_a_retryable_failure(self):

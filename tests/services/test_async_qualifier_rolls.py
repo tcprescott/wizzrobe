@@ -15,17 +15,8 @@ from models import AsyncQualifierPermalink, Role, User, UserRole
 
 
 async def test_roll_permalinks_blocked_when_credential_missing(db):
-    # A pool whose preset uses a keyed randomizer (ootr) cannot roll when this
-    # community has not configured the key: the first roll raises before any
-    # permalink row exists, so the whole batch aborts with nothing half-written.
-    # Deliberately not dk64r, which now refuses earlier for being asynchronous
-    # (see test_roll_permalinks_refuses_async_randomizer).
-    # A fresh tenant is used because the db-fixture tenant would otherwise share
-    # any credential a sibling test created.
-    #
-    # ASYNC_QUALIFIERS is turned on for this tenant so the subject under test is
-    # the credential, not AsyncQualifierService's own feature guard (which would
-    # refuse create_qualifier first with every flag off).
+    # Not dk64r: it's refused earlier for being async. A fresh tenant with ASYNC_QUALIFIERS on,
+    # so the missing credential, not a sibling's credential or the flag guard, is what refuses.
     from application.tenant_context import tenant_scope
     from models import FeatureFlag, Preset, Tenant, TenantFeatureFlag
 
@@ -54,13 +45,7 @@ async def test_roll_permalinks_blocked_when_credential_missing(db):
         assert await AsyncQualifierPermalink.filter(pool_id=pool.id).count() == 0
 
 
-# --- the server's own clock as evidence -----------------------------------
-
 async def test_roll_permalinks_refuses_async_randomizer(db):
-    # A task-queue backend (dk64r) cannot fill a pool yet: each roll takes
-    # minutes and lands independently, so the batch's all-or-nothing property
-    # would not hold. Refused in the service, not only in the preset picker,
-    # because a pool created before dk64r became asynchronous already exists.
     from application.tenant_context import tenant_scope
     from models import FeatureFlag, Preset, Tenant, TenantFeatureFlag
 

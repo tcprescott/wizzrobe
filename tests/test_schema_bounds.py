@@ -23,13 +23,13 @@ _END = '2025-01-01T01:00:00Z'
 ])
 def test_windows_list_is_bounded(req_cls, win_cls):
     one = win_cls(starts_at=_START, ends_at=_END)
-    req_cls(windows=[one] * 500)  # at the cap: accepted
+    req_cls(windows=[one] * 500)
     with pytest.raises(ValidationError):
-        req_cls(windows=[one] * 501)  # over the cap: rejected
+        req_cls(windows=[one] * 501)
 
 
 @pytest.mark.parametrize('win_cls', [PlayerAvailabilityWindowInput, AvailabilityWindowInput])
 def test_window_note_is_bounded(win_cls):
-    win_cls(starts_at=_START, ends_at=_END, note='x' * 1000)  # at the cap
+    win_cls(starts_at=_START, ends_at=_END, note='x' * 1000)
     with pytest.raises(ValidationError):
-        win_cls(starts_at=_START, ends_at=_END, note='x' * 1001)  # over the cap
+        win_cls(starts_at=_START, ends_at=_END, note='x' * 1001)

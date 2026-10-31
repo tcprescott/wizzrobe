@@ -87,7 +87,6 @@ def test_correcting_a_result_does_not_re_finish_the_match():
     """
     src = inspect.getsource(MatchLifecycleHandlers.on_edit_result)
     assert "mode='edit'" in src
-    # The call, not the word — the handler's docstring explains the omission.
     assert 'finish_match(' not in src
     assert 'confirm_finishing(' not in src
 
@@ -106,8 +105,6 @@ def test_the_proctor_board_declares_only_the_run_capability():
     assert 'MatchBoardAccess(run=True)' in src
     assert 'submit_match_callback' not in src
 
-
-# --- The Stage select: one control for two different fields -----------------
 
 class _Recorder:
     """Stands in for ``MatchService``, recording what the handler asked for."""
@@ -144,7 +141,6 @@ def _stage_handlers(monkeypatch, *, stage_id=None, is_stream_candidate=False):
 
     monkeypatch.setattr(match_lifecycle, 'Match', _Model)
     monkeypatch.setattr(match_lifecycle, 'require_tenant_id', lambda: 1)
-    # ``notify_error`` reaches for a NiceGUI client, which no unit test has.
     notified = []
     monkeypatch.setattr(match_lifecycle, 'notify_error', notified.append)
 
@@ -213,8 +209,6 @@ async def test_a_refused_write_still_refreshes_the_row(monkeypatch):
     assert handlers.table_view.refreshed == [7]
     assert [str(e) for e in handlers.notified] == ['nope']
 
-
-# --- Start asks again for stations skipped at check-in ------------------------
 
 def _start_handlers(monkeypatch, *, stage_id=None, stations=(None, None)):
     """Handlers whose one match is checked in with the given stations."""

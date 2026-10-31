@@ -89,8 +89,6 @@ class MockMatch:
         self.tournament = MockTournament(is_racetime_enabled=is_racetime_enabled)
         self.players = players if players is not None else []
         self.stage = stage
-        # The dispute flag: confirm_match clears it (and audits the clear), so a
-        # stand-in without this attribute would hide that half of confirming.
         self.needs_review = needs_review
         self.save = AsyncMock()
         self.fetch_related = AsyncMock()
@@ -286,7 +284,6 @@ class TestFinishMatch:
             await service.finish_match(match)
 
     async def test_does_not_require_confirmed_at_to_be_none(self, service):
-        # confirmed_at is irrelevant to finish check
         now = datetime.now()
         match = MockMatch(seated_at=now, started_at=now)
         await service.finish_match(match)
@@ -363,8 +360,6 @@ class TestFullLifecycle:
         await service.seat_match(match)
         await service.start_match(match)
         await service.finish_match(match)
-        # Recording the winner sits between finishing and confirming; without it
-        # confirm_match refuses (see TestConfirmMatch).
         match.players[0].finish_rank = 1
         match.players[1].finish_rank = 2
         await service.confirm_match(match)
@@ -426,9 +421,7 @@ class TestNotifyTournamentSubscribersScheduled:
         with patch('application.repositories.TournamentNotificationRepository', return_value=mock_repo):
             await service.notify_tournament_subscribers_scheduled(match, "msg", [])
 
-        # link=None here only because no tenant resolves in this unit fixture;
-        # the kwarg must still be passed, since it is what carries the DM's way
-        # back into the app.
+        # link=None only because no tenant resolves here; the kwarg must still be passed.
         service.discord_service.send_dm_with_crew_buttons.assert_awaited_once_with(
             999, "msg", match.id, embed=None, link=None,
             notice=MATCH_SCHEDULED.to(FOLLOWERS), broadcaster=False,
@@ -476,7 +469,6 @@ class TestNotifyTournamentSubscribersScheduled:
     async def test_swallows_exception_without_raising(self, service):
         match = MockMatch()
         with patch('application.repositories.TournamentNotificationRepository', side_effect=Exception("db error")):
-            # Should not raise
             await service.notify_tournament_subscribers_scheduled(match, "msg", [])
 
 
@@ -552,7 +544,6 @@ class TestNotifyMatchScheduled:
         assert subs_args[0] is match
         assert subs_args[2] == [111]
         service.notify_stream_candidate_subscribers.assert_not_called()
-        # Ack, crew, subscribers, plus the harder-settings offer.
         assert enqueue.call_count == 4
 
     async def test_stream_candidate_enqueued_when_flagged(self, service):
@@ -603,7 +594,6 @@ class TestCollectNotifiedDiscordIds:
         match = MockMatch()
         player = SimpleNamespace(user=SimpleNamespace(discord_id=111))
         commentator = SimpleNamespace(user=SimpleNamespace(discord_id=222))
-        # Tracker shares the commentator's id — should be deduped away.
         tracker = SimpleNamespace(user=SimpleNamespace(discord_id=222))
 
         with self._patch_query('application.services.match._match_recipients.MatchPlayers.filter', [player]), \
@@ -720,8 +710,6 @@ class TestNotifyMatchParticipants:
              self._patch_query('application.services.match._match_recipients.MatchWatcher.filter', [watcher]):
             await real_notify_service.notify_match_participants(match, "hello", notice=MATCH_STARTED)
 
-        # send_dm drops the players' copy and quiets the watcher's under the
-        # catalogue defaults; the fan-out only has to name the right target.
         real_notify_service.discord_service.send_dm.assert_awaited_once_with(
             111, "hello", embed=None, link=None, notice=MATCH_STARTED.to(PLAYERS),
         )

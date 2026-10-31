@@ -61,9 +61,6 @@ class TestTheDeadConventionsStayGone:
 
 
 class TestSortableColumnsSortOnSomethingSortable:
-    # Composite and joined cells are deliberately not sortable: 'Ann, Bo' sorts
-    # on Ann, and '2/9' sorts above '10/10'. This is the list of column names
-    # allowed to *stay* unsortable without that being a gap.
     def test_no_joined_roster_column_is_sortable(self):
         joined = {'players', 'commentators', 'trackers', 'roles', 'slots'}
         offenders = []
@@ -76,9 +73,6 @@ class TestSortableColumnsSortOnSomethingSortable:
             f'whoever happens to be listed first: {offenders}')
 
     def test_the_boards_the_audit_named_are_sortable_now(self):
-        # The home schedule and My Schedule's matches left this list when they
-        # became run sheets: their groups are the order, so no column sorts
-        # (see match_player_run_sheet).
         expected = {
             'pages/admin_tabs/admin_users.py': {'username', 'preferred_name',
                                                 'pronouns', 'challonge'},
@@ -91,8 +85,6 @@ class TestSortableColumnsSortOnSomethingSortable:
 
 class TestPagination:
     def test_the_family_views_do_not_refresh_on_pagination(self):
-        # Quasar pages client-side over table.rows; re-querying on a page turn
-        # fetched data the browser already held.
         offenders = [
             str(p.relative_to(REPO)) for p in FAMILY_VIEWS
             if "on('update:pagination'" in p.read_text()
@@ -103,19 +95,16 @@ class TestPagination:
         for path in FAMILY_VIEWS:
             source = path.read_text()
             assert "pagination={'rowsPerPage': 25, 'page': 1}" in source, path
-            # The commented-out placeholder is what made it look done for a year.
             assert '# pagination=' not in source, path
 
 
 class TestExport:
     def test_csv_export_lives_outside_the_reports(self):
         assert (REPO / 'theme' / 'tables' / 'export.py').exists()
-        # Every report still imports it from where it always did.
         shared = (REPO / 'pages' / 'admin_tabs' / 'reports' / 'shared.py').read_text()
         assert 'from theme.tables.export import csv_export_button' in shared
 
     def test_csv_export_follows_the_visible_plan(self):
-        # Export what is on screen, not the shipped defaults.
         for rel in ('theme/tables/match.py', 'theme/tables/tournament.py'):
             source = (REPO / rel).read_text()
             assert 'lambda: self._plan.columns if self._plan else self.columns' in source, rel
@@ -125,7 +114,6 @@ class TestExport:
 
 class TestStickyHeaders:
     def test_the_helper_sets_both_halves(self):
-        # A sticky header with no bounded height has nothing to stick to.
         source = (REPO / 'theme' / 'tables' / 'preferences.py').read_text()
         helper = source[source.index('def sticky_header'):]
         assert "classes(add='wiz-table--sticky')" in helper
@@ -137,9 +125,6 @@ class TestStickyHeaders:
         assert '.wiz-table--sticky thead tr th' in css
 
     def test_the_cap_skips_the_phone_grid(self):
-        # In grid mode nothing scrolls the cards, so an inline max-height clipped
-        # a phone board at its third card. The cap rides on a variable the
-        # stylesheet applies only outside grid mode.
         source = (REPO / 'theme' / 'tables' / 'preferences.py').read_text()
         helper = source[source.index('def sticky_header'):]
         assert "style(f'max-height" not in helper
@@ -152,8 +137,6 @@ class TestStickyHeaders:
 
 class TestTheEventLog:
     def test_it_renders_over_props_cols_so_reordering_lands(self):
-        # props.cols is Quasar's own visible-columns-in-order list, which is why
-        # this whole-body slot is customization-safe.
         source = (REPO / 'pages' / 'admin_tabs' / 'reports' / 'shared.py').read_text()
         assert 'v-for="col in props.cols"' in source
         assert not re.search(r'table-prefs:\s*exempt', source)

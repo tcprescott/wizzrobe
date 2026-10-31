@@ -143,11 +143,6 @@ async def test_with_no_saved_login_the_sync_says_where_to_add_one(staff):
     assert 'no Matcherino login is saved' in event.last_sync_error
 
 
-# ---------------------------------------------------------------------------
-# Refused-login alerts
-# ---------------------------------------------------------------------------
-
-
 @pytest.fixture
 def captured_dms(monkeypatch):
     """Collect each DM's recipient, text and button, without a Discord connection."""

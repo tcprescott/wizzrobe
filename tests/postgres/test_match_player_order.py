@@ -27,8 +27,7 @@ pytestmark = pytest.mark.skipif(
 async def test_seating_the_first_player_does_not_swap_the_names(db):
     tournament = await Tournament.create(name='Dev Tourney', tenant_id=1)
     match = await Match.create(tournament=tournament, tenant_id=1)
-    # The second account is older, so a lookup that walks the (match, user)
-    # index instead of the heap gets the order wrong too.
+    # The second account is older, so an index walk gets the order wrong too.
     second = await User.create(discord_id=900_202, username='racer_six')
     first = await User.create(discord_id=900_201, username='racer_five')
     seat_first = await MatchPlayers.create(match=match, user=first, tenant_id=1)

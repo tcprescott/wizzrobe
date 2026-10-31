@@ -45,8 +45,6 @@ async def _enable(tenant_id: int, flag: FeatureFlag) -> None:
     )
 
 
-# --- 1. authority carries into a tenant with no grants ----------------------
-
 async def test_is_staff_true_for_super_admin_in_a_tenant_they_have_no_roles_in(
     super_admin, fresh_tenant,
 ):
@@ -77,7 +75,6 @@ async def test_gated_helpers_grant_super_admin_in_a_foreign_tenant(
 ):
     with tenant_scope(fresh_tenant.id):
         assert await getattr(AuthService, helper)(super_admin) is True
-        # Same call, ordinary user: proves the fixture tenant really grants nothing.
         assert await getattr(AuthService, helper)(nobody) is False
 
 
@@ -99,8 +96,6 @@ async def test_super_admin_may_edit_and_crud_another_tenants_tournament(
         assert await AuthService.can_edit_tournament(super_admin, tournament) is True
         assert await AuthService.can_edit_tournament(nobody, tournament) is False
 
-
-# --- 2. authority does not bypass feature flags -----------------------------
 
 async def test_can_view_volunteer_false_for_super_admin_when_feature_off(
     super_admin, fresh_tenant,
@@ -157,8 +152,6 @@ async def test_volunteer_role_in_another_tenant_does_not_surface_the_link(
     with tenant_scope(other.id):
         assert await AuthService.can_view_volunteer(user) is True
 
-
-# --- Proctor Station follows the proctor, not the VOLUNTEERS flag -----------
 
 @pytest.mark.parametrize('volunteers_on', [False, True])
 async def test_proctor_keeps_proctor_station_whatever_volunteers_says(

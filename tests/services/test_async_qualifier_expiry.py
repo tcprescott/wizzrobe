@@ -85,7 +85,6 @@ class TestExpireRun:
 
         assert expired.status == AsyncQualifierRunStatus.FORFEIT
         assert expired.score == 0.0
-        # expired_at is what separates this from a forfeit the runner chose.
         assert expired.expired_at is not None
         assert expired.finished_at is not None
 

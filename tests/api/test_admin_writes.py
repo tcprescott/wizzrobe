@@ -61,8 +61,6 @@ class TestTournamentWrites:
             assert updated.status_code == 200
             assert updated.json()['name'] == 'Renamed Cup'
 
-            # Both delete gates apply to the API too: an active tournament is
-            # refused, and so is a wrong confirmation phrase.
             active = await c.delete(
                 f'/api/tournaments/{tid}?confirmation=permanently+delete'
             )
@@ -126,14 +124,12 @@ class TestTournamentWrites:
             assert body['event_end_date'] == '2025-10-22'
             assert body['tournament_hours'] == {'2025-10-20': {'open': '09:00', 'close': '17:00'}}
 
-            # Explicit null clears an override back to inheriting the tenant setting.
             cleared = await c.patch(f'/api/tournaments/{tid}', json={
                 'event_start_date': None, 'tournament_hours': None,
             })
             assert cleared.status_code == 200
             assert cleared.json()['event_start_date'] is None
             assert cleared.json()['tournament_hours'] is None
-            # An untouched field is preserved (only start/hours were sent).
             assert cleared.json()['event_end_date'] == '2025-10-22'
 
     async def test_create_tournament_days_rejects_bad_window(self, db, app):
@@ -157,15 +153,12 @@ class TestTournamentWrites:
         async with client_for(app, staff_raw) as staff, \
                 client_for(app, ta_raw) as ta, \
                 client_for(app, outsider_raw) as outsider:
-            # Staff grants TA membership.
             added = await staff.post(f'/api/tournaments/{t.id}/admins', json={'user_id': ta_user.id})
             assert added.status_code == 200
 
-            # TA can edit their tournament...
             edited = await ta.patch(f'/api/tournaments/{t.id}', json={'name': 'TA Edit'})
             assert edited.status_code == 200
 
-            # ...but an unrelated user cannot.
             blocked = await outsider.patch(f'/api/tournaments/{t.id}', json={'name': 'Nope'})
             assert blocked.status_code == 403
 

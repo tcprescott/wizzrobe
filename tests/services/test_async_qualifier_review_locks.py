@@ -69,8 +69,6 @@ async def _pending_run(service, staff, player, *, seconds: int = 3600):
     return q, await service.submit_run(player, run.id, elapsed_seconds=seconds)
 
 
-# ------------------------------------------------------------------ the lock
-
 async def test_the_holder_can_review_their_own_claim(db):
     """The lock keeps others out, not its owner."""
     service = AsyncQualifierService()
@@ -107,7 +105,6 @@ async def test_any_reviewer_may_release_another_reviewers_claim(db):
 
     await service.claim_run(holder, run.id)
     await service.release_claim(other, run.id)
-    # Refused a moment ago; now open to the same reviewer.
     reviewed = await service.review_run(other, run.id, approved=True)
     assert reviewed.review_status == AsyncQualifierReviewStatus.APPROVED
 
@@ -147,8 +144,6 @@ async def test_release_stale_claim_is_idempotent(db):
     run = await AsyncQualifierRun.get(id=run.id)
     assert run.review_claimed_by_id is None
 
-
-# --------------------------------------------------------------- the override
 
 async def test_an_override_audits_under_its_own_action_and_keeps_the_old_status(db):
     """"Who overturned this, and from what" is the question an appeal asks."""

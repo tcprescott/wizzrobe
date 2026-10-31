@@ -16,10 +16,6 @@ from application.repositories.user_role_repository import UserRoleRepository
 from models import Role, RoleSource, User, UserRole
 from tests.factories import make_user
 
-# ---------------------------------------------------------------------------
-# UserRepository
-# ---------------------------------------------------------------------------
-
 
 class TestUserRepository:
     async def test_get_by_id_and_discord_id(self, db):
@@ -40,7 +36,6 @@ class TestUserRepository:
         u1 = await make_user(1, "alice")
         u2 = await make_user(2, "bob")
         await UserRole.create(user=u1, role=Role.STAFF)
-        # A user with the role twice-over (different roles) should not duplicate.
         await UserRole.create(user=u1, role=Role.PROCTOR)
         await UserRole.create(user=u2, role=Role.PROCTOR)
 
@@ -51,9 +46,6 @@ class TestUserRepository:
         assert {u.id for u in proctors} == {u1.id, u2.id}
 
     async def test_get_all_has_discord_returns_users(self, db):
-        # ``discord_id`` is a required, unique column, so the ``exclude(discord_id=None)``
-        # branch can never drop a real row — it is effectively a no-op given the schema.
-        # The test still drives the branch and asserts the created user comes back.
         u = await make_user(1, "alice")
         users = await UserRepository.get_all(has_discord=True)
         assert [x.id for x in users] == [u.id]
@@ -110,16 +102,12 @@ class TestUserRepository:
         assert (await User.get(id=u.id)).discord_avatar == "abc"
 
     async def test_update_discord_info_leaves_avatar_alone_when_not_given(self, db):
-        # None means "the caller knows nothing about the avatar", not "clear it".
         u = await make_user(1, "alice")
         await UserRepository.set_discord_avatar(u, "abc")
         await UserRepository.update_discord_info(u, username="alice_dc")
         assert (await User.get(id=u.id)).discord_avatar == "abc"
 
     async def test_update_discord_info_takes_no_non_field_arguments(self, db):
-        # The signature used to accept a discriminator and assign it to the
-        # instance, where save() silently dropped it — a write that looked like
-        # it landed. It is not a column, so it is not accepted.
         u = await make_user(1, "alice")
         with pytest.raises(TypeError):
             await UserRepository.update_discord_info(u, username="alice_dc", discriminator="0001")
@@ -130,11 +118,6 @@ class TestUserRepository:
         assert await UserRepository.set_discord_avatar(u, "abc") is False
         assert await UserRepository.set_discord_avatar(u, None) is True
         assert (await User.get(id=u.id)).discord_avatar is None
-
-
-# ---------------------------------------------------------------------------
-# UserRoleRepository
-# ---------------------------------------------------------------------------
 
 
 class TestUserRoleRepository:
@@ -154,12 +137,10 @@ class TestUserRoleRepository:
     async def test_manual_grant_pins_a_discord_role(self, db):
         u = await make_user(1, "alice")
         granter = await make_user(2, "granter")
-        # Pre-existing Discord-sourced role.
         await UserRole.create(user=u, role=Role.STAFF, source=RoleSource.DISCORD)
         ur = await UserRoleRepository.add(u, Role.STAFF, granted_by=granter, source=RoleSource.MANUAL)
         assert ur.source == RoleSource.MANUAL
         assert (await ur.granted_by).id == granter.id
-        # Persisted, not just in-memory.
         refreshed = await UserRole.get(id=ur.id)
         assert refreshed.source == RoleSource.MANUAL
 
@@ -167,7 +148,6 @@ class TestUserRoleRepository:
         u = await make_user(1, "alice")
         await UserRole.create(user=u, role=Role.STAFF, source=RoleSource.DISCORD)
         ur = await UserRoleRepository.add(u, Role.STAFF, source=RoleSource.DISCORD)
-        # A Discord re-sync must not flip the source to MANUAL.
         assert ur.source == RoleSource.DISCORD
 
     async def test_remove_returns_deleted_count(self, db):

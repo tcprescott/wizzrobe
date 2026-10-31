@@ -22,7 +22,7 @@ async def test_logs_a_request_cancelled_while_open(caplog):
     middleware = InFlightRequestLogMiddleware(hanging)
     scope = {'type': 'http', 'method': 'GET', 'path': '/stuck'}
 
-    # wait_for cancels the request on timeout, as uvicorn's shutdown deadline does.
+    # wait_for cancels on timeout, as uvicorn's shutdown deadline does.
     with pytest.raises(asyncio.TimeoutError):
         await asyncio.wait_for(middleware(scope, _noop_receive, _noop_send), timeout=0.05)
     assert 'Request cancelled while still open: GET /stuck' in caplog.text

@@ -226,8 +226,6 @@ class TestTheDeepLinkParamDoesNotShadowATab:
             if callable(value) and name.endswith(('_tab', '_dashboard'))
         }
         assert not (params & imported_tabs)
-        # Every tab's content resolves to something callable, whether it is a
-        # bare function or the (func, args, kwargs) tuple form.
         assert "'content': tournaments_tab" in src
 
     def test_the_page_still_accepts_the_deep_link_param(self):
@@ -235,10 +233,7 @@ class TestTheDeepLinkParamDoesNotShadowATab:
 
         import pages.home as home
 
-        # create() closes over `home`; find it among its locals via the source.
         src = inspect.getsource(home.create)
-        # A string, parsed on the page, so a mangled id renders the page
-        # instead of a 422 (pages.home.deep_link_ids).
         assert 'schedule: str | None = None' in src
         assert 'deep_link_ids(' in src
 

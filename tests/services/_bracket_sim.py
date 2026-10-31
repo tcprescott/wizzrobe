@@ -55,7 +55,6 @@ def simulate_single_elim(
     """
     index = build_index(matches)
 
-    # slots[(round, position)] = [entry1_seed_or_None, entry2_seed_or_None]
     slots: Dict[Tuple[int, int], list] = {
         key: [m.entry1_seed, m.entry2_seed] for key, m in index.items()
     }
@@ -68,7 +67,6 @@ def simulate_single_elim(
     def place(dest, seed: int) -> None:
         slots[(dest.round, dest.position)][dest.slot - 1] = seed
 
-    # Repeatedly resolve any match whose both slots are settled (or that is a bye).
     progressed = True
     while progressed:
         progressed = False
@@ -104,9 +102,6 @@ def simulate_single_elim(
     }
 
 
-# Sentinels for the double-elim dataflow: a slot is either awaiting a feeder
-# (_UNRESOLVED), permanently empty (_EMPTY — a phantom/bye propagated in), or a
-# concrete seed.
 _UNRESOLVED = object()
 _EMPTY = object()
 
@@ -148,7 +143,6 @@ def simulate_double_elim(
             if dest is not None:
                 fed.add((dest.round, dest.position, dest.slot))
 
-    # slots[(round, position)] = [slot1_value, slot2_value]
     slots: Dict[Tuple[int, int], list] = {}
     for key, m in index.items():
         row = []
@@ -209,7 +203,6 @@ def simulate_double_elim(
 
             if key == gf_key:
                 if winner_slot == 2:
-                    # Losers-bracket side won GF1 -> the reset is contested.
                     slots[reset_key][0] = _EMPTY if winner is None else winner
                     slots[reset_key][1] = _EMPTY if loser is None else loser
                 else:

@@ -54,7 +54,6 @@ class TestTheOtherActionlessStates:
 
     @pytest.mark.parametrize('status', ['available', 'checked_out', 'retired'])
     def test_a_viewer_with_no_control_always_gets_a_line(self, status):
-        # The general rule, not just the reported case.
         line = equipment_guidance(
             status=status, is_checked_out=(status == 'checked_out'),
             viewer_is_holder=False, **PLAIN_USER,
@@ -77,8 +76,6 @@ class TestSilenceWhereThereIsAButton:
         ) is None
 
     def test_a_check_in_capable_non_manager_gets_no_line(self):
-        # Defensive: the gate is manager-only today, but the helper must not
-        # explain away a button the viewer actually has.
         assert equipment_guidance(
             status='checked_out', is_checked_out=True, viewer_is_holder=True,
             can_checkout=True, can_checkin=True, can_manage=False,

@@ -104,7 +104,6 @@ async def test_syncs_for_the_routed_tenant_when_user_known(monkeypatch, sync_spy
 
 
 async def test_syncs_every_tenant_sharing_the_guild(monkeypatch, sync_spy):
-    # A shared server backs several tenants; each one is synced for the user.
     a = SimpleNamespace(id=1, discord_guild_id=42)
     b = SimpleNamespace(id=2, discord_guild_id=42)
     _route_guild_to(monkeypatch, [a, b])
@@ -115,7 +114,6 @@ async def test_syncs_every_tenant_sharing_the_guild(monkeypatch, sync_spy):
 
 
 async def test_never_raises_on_internal_error(monkeypatch, sync_spy):
-    # A failure resolving the guild's tenants must be swallowed (best-effort).
     monkeypatch.setattr(
         tsvc.TenantService, 'list_tenants_for_guild',
         AsyncMock(side_effect=RuntimeError('db down')),

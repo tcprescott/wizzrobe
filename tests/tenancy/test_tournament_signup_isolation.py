@@ -47,7 +47,6 @@ async def test_signup_state_does_not_leak_across_tenants(db, tenant_b):
             name='Spring Open', tenant_id=tenant_b.id, **window,
         )
 
-    # One person in both communities, entered in tenant B's tournament only.
     player = await _member(8400, 'crossover', 1)
     with tenant_scope(tenant_b.id):
         await TenantMembership.create(user=player, tenant_id=tenant_b.id)
@@ -79,7 +78,6 @@ async def test_entrant_lists_are_tenant_scoped(db, tenant_b):
         [tournament_a.id, tournament_b.id],
     )
     assert [u.id for u in entrants.get(tournament_a.id, [])] == [here.id]
-    # Tenant B's tournament id was asked for explicitly and still returns nothing.
     assert entrants.get(tournament_b.id, []) == []
 
 

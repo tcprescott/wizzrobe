@@ -65,8 +65,6 @@ class TestReconciliation:
         assert names(plan) == ['username', 'pronouns', 'roles', 'actions']
 
     def test_a_new_default_column_appears_for_a_user_who_saved_earlier(self):
-        # The rule that ages: a column added after someone saved must not be
-        # invisible to them forever.
         saved = {'columns': [
             {'name': 'username', 'visible': True},
             {'name': 'actions', 'visible': True},
@@ -160,8 +158,6 @@ class TestKeys:
         assert len(declared) == len(set(declared))
 
     def test_a_footer_page_size_alone_does_not_light_the_gear(self):
-        # Rows per page is the footer's, not the gear's; the gear's dot only
-        # tracks what the gear itself can change.
         plan = effective_columns(DEFAULTS, {'page_size': 100}, page_size=25)
         assert plan.page_size == 100
         assert plan.is_customized is False

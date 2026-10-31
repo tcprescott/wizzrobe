@@ -27,8 +27,6 @@ def test_a_fully_approved_crew_is_covered():
 
 
 def test_pending_signups_do_not_count_as_cover():
-    # Someone waiting on approval has not filled the slot; another volunteer
-    # may still be the one staff pick.
     assert needs_crew(_row(
         commentators=[{'approved': True}, {'approved': False}],
         trackers=[{'approved': True}],

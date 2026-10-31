@@ -30,8 +30,6 @@ async def test_default_event_id_is_none_without_events(bare_tenant_create):
 async def test_default_event_id_is_cached_until_an_event_is_written(bare_tenant_create):
     tenant = await bare_tenant_create(name='Later', slug='later')
     assert await EventService.default_event_id(tenant.id) is None
-    # Even a row written behind the service's back drops the cache: the model's
-    # save signal clears it, so a script or migration helper can't leave it stale.
     await Event.create(tenant_id=tenant.id, name='Raw', slug='raw', is_default=True)
     assert await EventService.default_event_id(tenant.id) is not None
 
@@ -88,7 +86,6 @@ async def test_event_scoped_filters_on_community_and_event(two_tenants):
     with tenant_scope(tenant_a.id), event_scope(event_a.id):
         assert [s.name for s in await event_scoped(Stage.all())] == ['Main']
         assert [s.name for s in await event_scoped(Stage.all(), other_a.id)] == ['Side']
-    # Another community's event id never reaches across the wall.
     with tenant_scope(tenant_a.id), event_scope(event_b.id):
         assert await event_scoped(Stage.all()) == []
 

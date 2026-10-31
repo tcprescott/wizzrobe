@@ -16,8 +16,7 @@ from tests.mcp.conftest import call_tool, create_oauth_token, mcp_session
 
 TENANT = 'default'
 
-# Tool -> the minimum role that may call it, with arguments that reach the gate
-# rather than failing validation first.
+# Arguments must reach the gate rather than fail validation first.
 ADMIN_TOOLS = {
     'list_match_crew': {'match_id': 1},
     'crew_coverage_report': {'start': '2026-01-01T00:00:00', 'end': '2026-01-02T00:00:00'},
@@ -54,7 +53,6 @@ class TestMemberFloor:
             for name, args in ACTOR_TOOLS.items():
                 is_error, payload = await call_tool(client, raw, name, tenant=TENANT, **args)
                 assert is_error, name
-                # not_found, not forbidden: existence is not disclosed.
                 assert 'not_found:' in payload, (name, payload)
 
     async def test_a_member_can_use_actor_tools(self, db):
@@ -112,7 +110,6 @@ class TestGateMatrix:
                 assert not is_error, (name, payload)
             for name, args in ADMIN_TOOLS.items():
                 is_error, payload = await call_tool(client, raw, name, tenant=TENANT, **args)
-                # A missing row is fine here; a refusal is not.
                 assert not (is_error and _forbidden(payload)), (name, payload)
 
 

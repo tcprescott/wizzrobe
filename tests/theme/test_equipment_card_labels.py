@@ -14,7 +14,6 @@ from pages.admin_tabs.admin_equipment import _ACTIONS_CELL, _GRID_CARD, _ROW_ACT
 
 
 def _labels(template: str) -> set:
-    # Visible labels only: aria-label names an icon button without drawing text.
     return set(re.findall(r'(?<![-\w])label="([^"]+)"', template))
 
 

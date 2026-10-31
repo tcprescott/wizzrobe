@@ -41,7 +41,6 @@ async def test_live_race_reads_are_isolated(db):
     with tenant_scope(a.id):
         assert [lr.id for lr in await repo.list_for_pool(pa.id)] == [la.id]
         assert await repo.get_by_id(lb.id) is None
-        # A by-slug lookup never crosses tenants.
         assert await repo.get_by_racetime_slug('cat/qualifier-live-b') is None
     with tenant_scope(b.id):
         assert [lr.id for lr in await repo.list_for_pool(pb.id)] == [lb.id]

@@ -24,8 +24,7 @@ from theme.error_page import NOT_FOUND_HEADLINE, NOT_FOUND_MESSAGE
 
 
 def _request(path='/x', **scope):
-    # Named as the middleware leaves an /e/<slug> URL, so the gates below are
-    # what answers rather than the bare link's redirect to the default event.
+    # Named as the middleware leaves an /e/<slug> URL, so the gates answer rather than the default-event redirect.
     return Request({
         'type': 'http', 'method': 'GET', 'path': path, 'headers': [],
         'query_string': b'', 'root_path': '', EVENT_SLUG_SCOPE_KEY: 'bare', **scope,
@@ -120,7 +119,6 @@ async def test_the_feature_off_page_says_what_an_unknown_route_says(
     with tenant_scope(flagless_tenant.id):
         with Client(ui.page(''), request=_request()):
             await page()
-    # No headline/message override: the unknown-route defaults, word for word.
     assert 'headline' not in seen and 'message' not in seen
 
 

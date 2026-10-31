@@ -42,11 +42,6 @@ async def _user(discord_id, name="U"):
     return await User.create(discord_id=discord_id, username=name, display_name=name)
 
 
-# ===========================================================================
-# MatchDisplayService
-# ===========================================================================
-
-
 class TestGetMatchForDisplay:
     async def test_returns_none_for_missing_match(self, db):
         svc = MatchDisplayService()
@@ -231,11 +226,6 @@ class TestFilterDropdowns:
         assert result.get(stage.id) == "Stage A"
 
 
-# ===========================================================================
-# MatchSuggestionService
-# ===========================================================================
-
-
 class TestCovers:
     def test_no_overlap_returns_available(self):
         """Opt-out: a slot no window reaches is one the player can be given."""
@@ -291,7 +281,6 @@ class TestGenerateCandidatesCeiling:
             from_dt, to_dt, {}, timedelta(hours=1), date(2026, 1, 15), date(2026, 1, 15),
             EASTERN_TZ,
         )
-        # 10:00, 10:30, 11:00, 11:30 — the 12:00 slot hits the to_dt break.
         assert len(candidates) == 4
         assert all(s < to_dt for s, _ in candidates)
 
@@ -378,8 +367,6 @@ class TestSuggestMatchTime:
         start = today + timedelta(days=10)
         end = today + timedelta(days=12)
         await _event_window(start, end)
-        # Configure hours only for a date outside the event window: every event
-        # day is then unconfigured and skipped, leaving no eligible slot.
         unrelated = (today + timedelta(days=1)).isoformat()
         await set_setting(
             name="tournament_hours_by_date",
@@ -388,11 +375,6 @@ class TestSuggestMatchTime:
         svc = MatchSuggestionService()
         with pytest.raises(ValueError):
             await svc.suggest_match_time(t.id, [])
-
-
-# ---------------------------------------------------------------------------
-# Helpers / fixtures
-# ---------------------------------------------------------------------------
 
 
 def _win(starts_at, ends_at, status):

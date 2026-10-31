@@ -42,11 +42,6 @@ def make_stage(stage_id=10, **overrides):
     return SimpleNamespace(**defaults)
 
 
-# ---------------------------------------------------------------------------
-# create_stage
-# ---------------------------------------------------------------------------
-
-
 class TestCreateStage:
     async def test_happy_path_creates_stage_and_audits(self, service):
         created = make_stage(stage_id=1, name='Stage A')
@@ -59,7 +54,6 @@ class TestCreateStage:
         )
 
         assert result is created
-        # The repository should have been called with stripped strings.
         kwargs = service.repository.create.await_args.kwargs
         assert kwargs['name'] == 'Stage A'
         assert kwargs['stream_url'] == 'https://x.tv'
@@ -98,11 +92,6 @@ class TestCreateStage:
 
         with pytest.raises(PermissionError):
             await service.create_stage(name='Stage 1', actor=make_user())
-
-
-# ---------------------------------------------------------------------------
-# update_stage
-# ---------------------------------------------------------------------------
 
 
 class TestUpdateStage:
@@ -150,11 +139,6 @@ class TestUpdateStage:
         assert kwargs['stream_url'] is None
 
 
-# ---------------------------------------------------------------------------
-# delete_stage
-# ---------------------------------------------------------------------------
-
-
 class TestDeleteStage:
     async def test_calls_delete_and_audits(self, service):
         stage = make_stage(stage_id=99)
@@ -164,7 +148,6 @@ class TestDeleteStage:
         assert details == {'stage_id': 99}
 
     async def test_audit_uses_id_before_delete(self, service):
-        # Even if the orm clears the id after delete(), audit_log should still have it.
         stage = make_stage(stage_id=42)
         await service.delete_stage(stage, actor=make_user())
         assert service.audit_service.write_log.await_args.args[2]['stage_id'] == 42

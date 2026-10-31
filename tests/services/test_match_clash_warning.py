@@ -218,6 +218,5 @@ async def test_a_suggested_time_comes_back_clean(event, monkeypatch):
 
     when = await MatchSuggestionService().suggest_match_time(tournament.id, [alice.id, bob.id])
 
-    # Blocked-out time, a match and a published shift all steer the suggestion.
     assert when >= _at(THU, 14)
     assert await _clashes(tournament, alice, [alice, bob], when) == []

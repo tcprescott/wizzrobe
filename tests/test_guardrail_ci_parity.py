@@ -100,10 +100,7 @@ def test_every_check_is_wired_as_a_hook() -> None:
     )
 
 
-# Where each check must be wired. A set is not enough: moving every PostToolUse
-# check into the PreToolUse group leaves the stems identical while breaking all
-# sixteen, because an AST check would then read the pre-edit file — or, for a
-# Write to a new path, no file at all — and silently pass.
+# A set is not enough: moved into PreToolUse, an AST check reads the pre-edit file and silently passes.
 EXPECTED_WIRING = {
     "check_api_route_auth": {("PostToolUse", "Write|Edit")},
     "check_audit_actions": {("PostToolUse", "Write|Edit")},
@@ -133,8 +130,7 @@ EXPECTED_WIRING = {
     "enforce_architecture": {("PreToolUse", "Write|Edit")},
     "enforce_async_safety": {("PreToolUse", "Write|Edit")},
     "enforce_datetime_safety": {("PreToolUse", "Write|Edit")},
-    # Two modes on purpose: per-edit feedback, plus the whole-repo Stop sweep
-    # that is the only one able to catch a cross-file import break.
+    # Both modes on purpose: only the Stop sweep catches a cross-file import break.
     "enforce_import_resolution": {("PostToolUse", "Write|Edit"), ("Stop", None)},
     "enforce_migration_safety": {("PreToolUse", "Write|Edit")},
     "enforce_nicegui_client_api": {("PreToolUse", "Write|Edit")},

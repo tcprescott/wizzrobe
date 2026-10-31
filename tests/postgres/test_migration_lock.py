@@ -50,9 +50,7 @@ async def test_second_holder_waits_for_the_first_to_release():
 
     async def second():
         await first_inside.wait()
-        # Give the contender a real chance to barge in: it is now actively
-        # blocked on pg_advisory_lock, and this sleep is when a missing lock
-        # would let it through.
+        # Keep this sleep: it's when a missing lock would let the blocked contender through.
         second_task = asyncio.create_task(_enter_second(order))
         await asyncio.sleep(0.5)
         assert 'second-enter' not in order, 'second holder entered while the first held the lock'

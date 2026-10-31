@@ -27,10 +27,9 @@ from application.utils.timezone import (
     today_local,
 )
 
-# A zone deliberately unlike Eastern: +05:30, no DST, half-hour offset. Catches
-# both "still hardcoded to Eastern" and "assumes whole-hour offsets".
+# Deliberately unlike Eastern: +05:30, no DST, half-hour offset.
 KOLKATA = 'Asia/Kolkata'
-# Southern-hemisphere DST, so its summer/winter run opposite Eastern's.
+# Southern-hemisphere DST: its summer and winter run opposite Eastern's.
 SYDNEY = 'Australia/Sydney'
 
 
@@ -54,8 +53,6 @@ class TestTimezoneContext:
             assert current_timezone_name() == KOLKATA
 
     def test_unknown_zone_falls_back_rather_than_raising(self):
-        # A bad name can reach here from stored config or a forged cookie;
-        # rendering must not break because of it.
         with tz_scope('Mars/Olympus_Mons'):
             assert current_timezone_name() == FALLBACK_TIMEZONE
 
@@ -89,7 +86,6 @@ class TestReadTimezoneCookie:
         assert read_timezone_cookie('') is None
 
     def test_garbage_decodes_but_does_not_validate(self):
-        # Decoding is not validation — a forged cookie still has to load.
         assert not is_valid_timezone(read_timezone_cookie('Mars%2FOlympus_Mons'))
 
 
@@ -170,8 +166,7 @@ class TestParseLocalDatetime:
         assert dt.minute == 0
 
     def test_nonexistent_spring_forward_time_is_rejected(self):
-        # 02:30 does not exist on 2025-03-09 in New York — the clocks jump
-        # 02:00 → 03:00. Accepting it silently stored 03:30.
+        # 02:30 does not exist on 2025-03-09 in New York (02:00 -> 03:00).
         with pytest.raises(ValueError, match="does not exist"):
             parse_local_datetime("2025-03-09", "02:30")
 
@@ -180,10 +175,8 @@ class TestParseLocalDatetime:
             parse_local_datetime("2025-03-09", "02:30")
 
     def test_same_wall_clock_is_valid_in_a_zone_without_that_gap(self):
-        # The gap is zone-specific: 02:30 that day is perfectly ordinary in
-        # Kolkata, which has no DST at all.
         dt = parse_local_datetime("2025-03-09", "02:30", KOLKATA)
-        assert (dt.hour, dt.minute) == (21, 0)  # previous day 21:00 UTC
+        assert (dt.hour, dt.minute) == (21, 0)
 
     def test_ambiguous_fall_back_time_resolves_to_first_occurrence(self):
         # 01:30 happens twice on 2025-11-02; the earlier (EDT, UTC-4) is chosen.
@@ -195,7 +188,7 @@ class TestParseLocalDatetime:
 class TestCombineLocal:
     def test_combines_on_ambient_zone(self):
         dt = combine_local(date(2025, 1, 15), time(0, 0))
-        assert dt.hour == 5  # EST midnight → 05:00 UTC
+        assert dt.hour == 5
         assert dt.tzinfo is not None
 
     def test_combines_on_explicit_zone(self):
@@ -208,7 +201,6 @@ class TestCombineLocal:
         assert dt.utcoffset().total_seconds() == 0
 
     def test_does_not_reject_nonexistent_wall_clock(self):
-        # Unlike parse_local_datetime: range bounds must always yield an instant.
         assert combine_local(date(2025, 3, 9), time(2, 30)) is not None
 
 
@@ -282,7 +274,6 @@ class TestToUtcAware:
         assert result.hour == 17
 
     def test_ignores_ambient_zone(self):
-        # Normalization, not presentation: the display clock must not affect it.
         naive = datetime(2025, 1, 15, 12, 0)
         with tz_scope(KOLKATA):
             assert to_utc_aware(naive).hour == 12
@@ -302,7 +293,6 @@ class TestFormatLocalDate:
         assert format_local_date(utc_dt) == "2025-01-15"
 
     def test_date_follows_the_zone(self):
-        # The same instant is two different calendar days in two zones.
         utc_dt = datetime(2025, 1, 15, 21, 0, tzinfo=timezone.utc)
         assert format_local_date(utc_dt) == "2025-01-15"           # 16:00 EST
         assert format_local_date(utc_dt, KOLKATA) == "2025-01-16"  # 02:30 IST
@@ -311,7 +301,6 @@ class TestFormatLocalDate:
         assert format_local_date(date(2025, 1, 15)) == "2025-01-15"
 
     def test_plain_date_is_not_shifted(self):
-        # A plain date carries no instant, so no zone can move it.
         with tz_scope(KOLKATA):
             assert format_local_date(date(2025, 12, 31)) == "2025-12-31"
 
@@ -429,8 +418,7 @@ class TestTimezoneLabel:
 
     def test_zone_without_alphabetic_abbreviation_still_labels(self):
         at = datetime(2025, 1, 15, 12, 0, tzinfo=timezone.utc)
-        # tzdata may have no alphabetic abbreviation for this zone; a numeric
-        # form is still unambiguous, which is all the label promises.
+        # tzdata may have no alphabetic abbreviation here; a numeric form is still unambiguous.
         assert timezone_label('Asia/Kathmandu', at)
 
     def test_follows_ambient_zone(self):
@@ -487,7 +475,6 @@ class TestNextWholeHourLocal:
         fn = self._at(monkeypatch, datetime(2026, 3, 8, 6, 20, tzinfo=timezone.utc))
         got = fn(tz='America/New_York')
         assert (got.hour, got.minute) == (3, 0)
-        # The dialog splits it into wall-clock strings; they must parse back.
         back = parse_local_datetime(got.strftime('%Y-%m-%d'), got.strftime('%H:%M'),
                                     tz='America/New_York')
         assert back == datetime(2026, 3, 8, 7, 0, tzinfo=timezone.utc)

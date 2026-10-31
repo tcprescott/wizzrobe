@@ -52,11 +52,6 @@ def captured_events():
     event_bus.unsubscribe(token)
 
 
-# ---------------------------------------------------------------------------
-# create_match
-# ---------------------------------------------------------------------------
-
-
 class TestCreateMatch:
     async def test_full_create_with_crew_and_stream_candidate(self, service, db, captured_events):
         actor = await make_staff()
@@ -86,7 +81,6 @@ class TestCreateMatch:
 
         player_ids = {p.user_id for p in await MatchPlayers.filter(match=match)}
         assert player_ids == {alice.id, bob.id}
-        # fresh players are auto-enrolled in the tournament (covers enrollment branch)
         assert await TournamentPlayers.filter(tournament=t, user=alice).exists()
 
         comms = await Commentator.filter(match=match)
@@ -94,7 +88,6 @@ class TestCreateMatch:
         trks = await Tracker.filter(match=match)
         assert len(trks) == 1 and trks[0].user_id == tracker.id and trks[0].approved is True
 
-        # actor is not a player here, so nobody is auto-acked
         acks = await MatchAcknowledgment.filter(match=match)
         assert {a.user_id for a in acks} == {alice.id, bob.id}
         assert all(a.acknowledged_at is None for a in acks)
@@ -118,7 +111,6 @@ class TestCreateMatch:
         assert opp_ack.acknowledged_at is None
 
     async def test_tournament_admin_may_create_without_staff_role(self, service, db):
-        # non-staff actor that is a tournament admin exercises the else/ensure branch
         actor = await make_player("ta")
         t = await make_tournament()
         await t.admins.add(actor)
@@ -234,11 +226,6 @@ class TestCreateMatch:
         assert await TournamentPlayers.filter(tournament=t, user=player).count() == 1
 
 
-# ---------------------------------------------------------------------------
-# update_match
-# ---------------------------------------------------------------------------
-
-
 async def _seed_match(service, actor, tournament, player_ids, **kwargs):
     return await service.create_match(
         tournament_id=tournament.id,
@@ -272,7 +259,7 @@ class TestUpdateMatch:
             match_id=match.id,
             scheduled_date="2025-01-16",
             scheduled_time="16:00",
-            player_ids=[alice.id, carol.id],  # drop bob, add carol
+            player_ids=[alice.id, carol.id],
             commentator_ids=[commentator.id],
             tracker_ids=[tracker.id],
             comment="updated",
@@ -288,7 +275,6 @@ class TestUpdateMatch:
         assert await TournamentPlayers.filter(tournament=t, user=carol).exists()
 
         assert EventType.MATCH_RESCHEDULED in [e.event_type for e in captured_events]
-        # The audit row names the same action the event does.
         rows = await AuditLog.filter(action=AuditActions.MATCH_RESCHEDULED)
         assert [json.loads(r.details)['match_id'] for r in rows] == [match.id]
 
@@ -313,7 +299,6 @@ class TestUpdateMatch:
         t = await make_tournament()
         player = await make_player()
         match = await _seed_match(service, actor, t, [player.id])
-        # stamp lifecycle fields directly so the clear_* flags have something to clear
         match.seated_at = utc(2025, 1, 15, 18)
         match.started_at = utc(2025, 1, 15, 18, 5)
         match.finished_at = utc(2025, 1, 15, 18, 30)
@@ -396,8 +381,6 @@ class TestUpdateMatch:
         assert (await Match.get(id=match.id)).tournament_id == other.id
 
     async def test_reassign_tournament_rejected_without_target_admin(self, service, db):
-        # A non-staff TA of the SOURCE tournament must not be able to move a
-        # match into a tournament they do not administer.
         source = await make_tournament(name="Source")
         target = await make_tournament(name="Target")
         ta = await make_player("srcadmin")
@@ -406,7 +389,6 @@ class TestUpdateMatch:
         match = await _seed_match(service, await make_staff(), source, [player.id])
         with pytest.raises(PermissionError, match="cannot move match into tournament"):
             await service.update_match(match_id=match.id, tournament_id=target.id, actor=ta)
-        # The reassignment was rejected before any write.
         assert (await Match.get(id=match.id)).tournament_id == source.id
 
     async def test_reassign_tournament_allowed_for_admin_of_both(self, service, db):
@@ -435,11 +417,6 @@ class TestUpdateMatch:
         match = await _seed_match(service, actor, t, [player.id])
         with pytest.raises(ValueError, match="User 424242 not found"):
             await service.update_match(match_id=match.id, commentator_ids=[424242], actor=actor)
-
-
-# ---------------------------------------------------------------------------
-# admin-assigned crew is an approval
-# ---------------------------------------------------------------------------
 
 
 def _crew_ack_dms(captured):
@@ -552,11 +529,6 @@ class TestAdminAssignedCrew:
         assert len(_approval_events(captured_events)) == 1
         assert _crew_ack_dms(stub_discord_queue) == []
         assert "send_dm" not in [c.cr_code.co_name for c in stub_discord_queue]
-
-
-# ---------------------------------------------------------------------------
-# a player taken off the line-up is told
-# ---------------------------------------------------------------------------
 
 
 def _removed_player_dms(captured):

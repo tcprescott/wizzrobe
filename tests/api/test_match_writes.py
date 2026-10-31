@@ -90,8 +90,6 @@ class TestLifecycle:
             assert finished.status_code == 200
             assert finished.json()['finished_at'] is not None
 
-            # /finish does not record a winner, and confirming advances the
-            # bracket, so the result has to be posted before /confirm will pass.
             winner = await MatchPlayers.filter(match_id=mid).first()
             assert (await c.post(
                 f'/api/matches/{mid}/result', json={'winner_id': winner.id},
@@ -120,7 +118,6 @@ class TestLifecycle:
         t, p1, p2 = await _tournament_and_players()
         async with client_for(app, raw) as c:
             mid = (await _create_match(c, t, p1, p2)).json()['id']
-            # Must be seated+started first; finishing immediately is a 400.
             assert (await c.post(f'/api/matches/{mid}/finish')).status_code == 400
 
     async def test_record_result(self, db, app):
@@ -169,8 +166,7 @@ class TestProctorLifecycleBoundary:
             await c.post(f'/api/matches/{match.id}/seat')
             await c.post(f'/api/matches/{match.id}/start')
             assert (await c.post(f'/api/matches/{match.id}/finish')).status_code == 200
-            # Recorded, so the 403 below is about the role and not the missing
-            # result the confirm guard would otherwise reject first.
+            # Record first, so the 403 below is about the role and not the missing result.
             winner = await MatchPlayers.filter(match_id=match.id).first()
             assert (await c.post(
                 f'/api/matches/{match.id}/result', json={'winner_id': winner.id},
@@ -361,18 +357,15 @@ class TestCrewAndAck:
         async with client_for(app, staff_raw) as staff, client_for(app, caster_raw) as caster_c:
             mid = (await _create_match(staff, t, p1, p2)).json()['id']
 
-            # Caster signs themselves up as a commentator (pending).
             signup = await caster_c.post(f'/api/matches/{mid}/crew', json={'role': 'commentator'})
             assert signup.status_code == 201
 
             crew = await Commentator.filter(match_id=mid, user_id=caster.id).first()
-            # A non-moderator caster cannot approve their own signup.
             self_approve = await caster_c.post(
                 f'/api/crew/commentator/{crew.id}/approval', json={'approved': True}
             )
             assert self_approve.status_code == 403
 
-            # Staff approves, then the caster acknowledges.
             assert (await staff.post(
                 f'/api/crew/commentator/{crew.id}/approval', json={'approved': True}
             )).status_code == 200

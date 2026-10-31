@@ -17,8 +17,6 @@ async def _sync_admin_token(username='sync'):
     return await create_user_token(username=username, roles=[Role.SYNC_ADMIN])
 
 
-# --- Reads ----------------------------------------------------------------
-
 class TestReads:
     async def test_list_profiles_sync_admin_ok(self, db, app):
         _, raw = await _sync_admin_token()
@@ -74,8 +72,6 @@ class TestReads:
             assert [p['name'] for p in resp.json()] == ['Pickable']
 
 
-# --- Writes ---------------------------------------------------------------
-
 class TestWrites:
     async def test_create_profile_success(self, db, app):
         _, raw = await _sync_admin_token()
@@ -90,7 +86,6 @@ class TestWrites:
             assert body['goal'] == 'any%'
             assert body['unlisted'] is True
             assert body['time_limit'] == 12
-            # Unspecified fields fall back to model defaults.
             assert body['auto_start'] is True
 
     async def test_create_profile_read_only_forbidden(self, db, app):
@@ -192,6 +187,5 @@ class TestTenantIsolation:
         async with client_for(ctx['app'], ctx['token_b']) as c:
             resp = await c.get(f"/api/race-room-profiles/{ctx['profile_a'].id}")
             assert resp.status_code == 404
-            # B's own profile resolves.
             ok = await c.get(f"/api/race-room-profiles/{ctx['profile_b'].id}")
             assert ok.status_code == 200

@@ -22,9 +22,6 @@ def bypass_transactions(monkeypatch):
 
 @pytest.fixture
 def service(monkeypatch):
-    # Crew signup now refuses a non-member; this suite is mock-only with no DB,
-    # so stand the membership check in as satisfied. The refusal itself is
-    # covered against a real DB in tests/tenancy/test_membership_gate.py.
     monkeypatch.setattr(
         'application.services.tenant_membership_service.TenantMembershipService.is_member',
         AsyncMock(return_value=True),
@@ -69,8 +66,6 @@ def make_signup_match(**overrides):
         commentators=[],
         trackers=[],
         broadcasters=[],
-        # A tournament that staffs both roles, so a test opts *out* by passing
-        # its own with a requirement of 0.
         tournament=SimpleNamespace(required_commentators=1, required_trackers=1),
     )
     defaults.update(overrides)
@@ -99,7 +94,6 @@ def make_user(user_id=1, discord_id='12345'):
 def make_match(match_id=42):
     match = MagicMock()
     match.id = match_id
-    # Keep the DM message builder on a simple path: no title/schedule/stage.
     match.title = None
     match.scheduled_at = None
     match.stage = None
@@ -195,15 +189,12 @@ class TestUpdateCrewApproval:
 
         assert crew.approved is True
         crew.save.assert_awaited_once()
-        # The DM is built and enqueued (awaited later by the queue worker).
         service.discord_service.send_dm_with_crew_acknowledgment_button.assert_called_once()
         kwargs_or_args = service.discord_service.send_dm_with_crew_acknowledgment_button.call_args.args
         assert kwargs_or_args[2] == 'commentator'
         assert kwargs_or_args[3] == crew.id
 
     async def test_approval_dm_links_the_crew_members_own_slot(self, service, monkeypatch):
-        # The link sits beside Acknowledge, so it has to land on the card that
-        # carries Confirm and Withdraw, not on the community's whole board.
         crew_match = AsyncMock(return_value='slot-link')
         monkeypatch.setattr(
             'application.services.notification_links.crew_match', crew_match,
@@ -269,16 +260,10 @@ class TestUpdateCrewApproval:
             side_effect=RuntimeError('discord boom')
         )
 
-        # Should complete without raising; approval and audit still happen.
         await service.update_crew_approval(crew, 'commentator', approved=True, actor=user)
 
         assert crew.approved is True
         service.audit_service.write_log.assert_awaited_once()
-
-
-# ---------------------------------------------------------------------------
-# signup_crew
-# ---------------------------------------------------------------------------
 
 
 class TestSignupCrew:
@@ -298,16 +283,12 @@ class TestSignupCrew:
             await service.signup_crew(match_id=1, user=SimpleNamespace(id=42), role="commentator")
 
     async def test_raises_when_match_started(self, service):
-        # "Awaiting approval" about a match already under way describes something
-        # that will be over before anyone reads it.
         match = make_signup_match(started_at=datetime(2025, 1, 16, 20, 0))
         service.match_repository.get_by_id = AsyncMock(return_value=match)
         with pytest.raises(ValueError, match="already started"):
             await service.signup_crew(match_id=1, user=SimpleNamespace(id=42), role="commentator")
 
     async def test_allows_signup_on_a_seated_match(self, service):
-        # Checked In is not Started: that is exactly when a stream discovers it
-        # still needs a commentator.
         match = make_signup_match(seated_at=datetime(2025, 1, 16, 20, 0))
         service.match_repository.get_by_id = AsyncMock(return_value=match)
         service.commentator_repository.create = AsyncMock()
@@ -363,8 +344,6 @@ class TestSignupCrew:
             await service.signup_crew(match_id=1, user=user, role="commentator")
 
     async def test_refuses_a_role_the_tournament_does_not_use(self, service):
-        # The schedule hides the control, but hiding is not enforcing — the
-        # REST route and the Discord button reach this same method.
         match = make_signup_match(
             tournament=SimpleNamespace(required_commentators=2, required_trackers=0),
         )
@@ -384,8 +363,6 @@ class TestSignupCrew:
         service.commentator_repository.create.assert_awaited_once()
 
     async def test_withdrawing_stays_open_for_an_unused_role(self, service):
-        # A signup made before the requirement was set to 0 must still be
-        # removable, or it is stuck on the match forever.
         user = SimpleNamespace(id=42)
         signup = make_signup()
         match = make_signup_match(
@@ -479,11 +456,6 @@ class TestSignupNotifiesCrewOwners:
         service.commentator_repository.create.assert_awaited_once()
 
 
-# ---------------------------------------------------------------------------
-# undo_crew_signup
-# ---------------------------------------------------------------------------
-
-
 class TestUndoCrewSignup:
     async def test_raises_for_invalid_role(self, service):
         with pytest.raises(ValueError, match="Invalid role"):
@@ -574,7 +546,6 @@ class TestWithdrawalNotifiesCrewOwners:
         assert 'Alice' in message and 'withdrawn as commentator' in message
 
     async def test_unapproved_withdrawal_is_silent(self, notifying):
-        # Nobody was told the signup existed, so its removal corrects nothing.
         service, _ = notifying
         user = make_user(user_id=42, discord_id='111')
         match = self._match_with_players(commentators=[make_signup(approved=False)])
@@ -586,7 +557,6 @@ class TestWithdrawalNotifiesCrewOwners:
 
     async def test_the_withdrawer_is_not_told_about_their_own_withdrawal(self, notifying):
         service, owner = notifying
-        # The person leaving is also one of the tournament's admins.
         match = self._match_with_players(commentators=[make_signup(user_id=owner.id, approved=True)])
         service.match_repository.get_by_id = AsyncMock(return_value=match)
 
@@ -606,13 +576,6 @@ class TestWithdrawalNotifiesCrewOwners:
         # Discord off only drops the Discord copy, inside send_dm; devices still need the call.
         service.discord_service.send_dm.assert_called_once()
 
-
-# --- Scheduling conflicts (crew F7) ----------------------------------------
-#
-# No conflict check existed anywhere in the crew path — the only overlap-aware
-# code in the codebase was player availability — so a coordinator staffing a
-# stream day approved N people from a dialog that told them nothing they needed
-# in order to decide.
 
 def _conflict_match(match_id, when, minutes=90, players=('Alice', 'Bob')):
     return SimpleNamespace(

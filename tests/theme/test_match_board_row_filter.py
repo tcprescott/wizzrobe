@@ -43,8 +43,7 @@ def _view(rows, *, fetched=None):
     view._row_update_lock = asyncio.Lock()
     view.columns = []
     view.refreshed = 0
-    # The row-flash timer needs a live slot context, which none of these paths
-    # has; the highlight is not what is under test.
+    # The row-flash timer needs a live slot context, which none of these paths has.
     view._schedule_flash_clear = lambda _match_id: None
 
     async def _refresh(*_args):

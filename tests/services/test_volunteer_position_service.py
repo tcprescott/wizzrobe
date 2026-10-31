@@ -7,11 +7,6 @@ import pytest
 from application.services.volunteer.volunteer_position_service import VolunteerPositionService
 from tests.factories import make_audit_double
 
-# ---------------------------------------------------------------------------
-# Fixtures
-# ---------------------------------------------------------------------------
-
-
 pytestmark = pytest.mark.usefixtures("bypass_auth")
 @pytest.fixture
 def service():
@@ -33,11 +28,6 @@ def make_position(**overrides):
     defaults = dict(id=1, name='Check-in', shift_length_minutes=None, stagger_minutes=None)
     defaults.update(overrides)
     return SimpleNamespace(**defaults)
-
-
-# ---------------------------------------------------------------------------
-# _validate_stagger (static, no DB)
-# ---------------------------------------------------------------------------
 
 
 class TestValidateStagger:
@@ -69,11 +59,6 @@ class TestValidateStagger:
     def test_stagger_exceeds_length_raises(self):
         with pytest.raises(ValueError, match='exceed'):
             VolunteerPositionService._validate_stagger(120, 240)
-
-
-# ---------------------------------------------------------------------------
-# create
-# ---------------------------------------------------------------------------
 
 
 class TestCreate:
@@ -109,11 +94,6 @@ class TestCreate:
             )
 
 
-# ---------------------------------------------------------------------------
-# update
-# ---------------------------------------------------------------------------
-
-
 class TestUpdate:
     async def test_raises_when_new_name_empty(self, service):
         position = make_position()
@@ -138,11 +118,6 @@ class TestUpdate:
         service.audit_service.write_log.assert_awaited_once()
 
 
-# ---------------------------------------------------------------------------
-# delete
-# ---------------------------------------------------------------------------
-
-
 class TestDelete:
     async def test_deletes_and_audits(self, service):
         position = make_position(id=3)
@@ -150,11 +125,6 @@ class TestDelete:
         await service.delete(actor=MagicMock(), position=position)
         service.repository.delete.assert_awaited_once_with(position)
         service.audit_service.write_log.assert_awaited_once()
-
-
-# ---------------------------------------------------------------------------
-# list_all / list_active / get
-# ---------------------------------------------------------------------------
 
 
 class TestQueries:

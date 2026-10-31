@@ -52,8 +52,6 @@ def make_tournament(tournament_id=1, **overrides):
         id=tournament_id,
         name='Tournament',
         is_active=True,
-        # Real Tournament rows always carry both preset FKs; the update path
-        # reads them to re-validate the pair when one side moves.
         preset_id=None,
         hard_preset_id=None,
         admins=admins,
@@ -62,11 +60,6 @@ def make_tournament(tournament_id=1, **overrides):
     )
     defaults.update(overrides)
     return SimpleNamespace(**defaults)
-
-
-# ---------------------------------------------------------------------------
-# create_tournament
-# ---------------------------------------------------------------------------
 
 
 class TestCreateTournament:
@@ -131,11 +124,6 @@ class TestCreateTournament:
 
         with pytest.raises(PermissionError):
             await service.create_tournament(name='X', actor=make_user())
-
-
-# ---------------------------------------------------------------------------
-# tournament days (per-tournament override of the tenant setting)
-# ---------------------------------------------------------------------------
 
 
 class TestTournamentDays:
@@ -205,7 +193,6 @@ class TestTournamentDays:
         assert kw['tournament_hours'] is None
 
     async def test_update_partial_validates_against_stored_bound(self, service):
-        # end left untouched (uses stored 10-05); new start 10-10 is after it.
         t = make_tournament(event_start_date=date(2025, 10, 1), event_end_date=date(2025, 10, 5))
         with pytest.raises(ValueError, match='end date cannot be before'):
             await service.update_tournament(t, event_start_date='2025-10-10', actor=make_user())
@@ -217,11 +204,6 @@ class TestTournamentDays:
         assert 'event_start_date' not in kw
         assert 'event_end_date' not in kw
         assert 'tournament_hours' not in kw
-
-
-# ---------------------------------------------------------------------------
-# stream-crew requirement
-# ---------------------------------------------------------------------------
 
 
 class TestCrewRequirement:
@@ -242,8 +224,6 @@ class TestCrewRequirement:
         assert kw['required_trackers'] == 0
 
     async def test_negative_requirement_rejected(self, service):
-        # A negative would make every stream candidate permanently covered — the
-        # mirror image of the false gap this setting exists to fix.
         with pytest.raises(ValueError, match='cannot be negative'):
             await service.create_tournament(
                 name='X', required_trackers=-1, actor=make_user(),
@@ -268,11 +248,6 @@ class TestCrewRequirement:
             await service.update_tournament(
                 make_tournament(), required_commentators=-2, actor=make_user(),
             )
-
-
-# ---------------------------------------------------------------------------
-# config substrate (hybrid config validation)
-# ---------------------------------------------------------------------------
 
 
 class TestTournamentConfig:
@@ -320,11 +295,6 @@ class TestTournamentConfig:
         t = make_tournament()
         await service.update_tournament(t, name='Renamed', actor=make_user())
         assert 'config' not in service.repository.update.await_args.kwargs
-
-
-# ---------------------------------------------------------------------------
-# preset_id wiring
-# ---------------------------------------------------------------------------
 
 
 class TestHardPreset:
@@ -401,8 +371,6 @@ class TestTournamentPreset:
         assert service.repository.create.await_args.kwargs['preset_id'] == 7
 
     async def test_create_takes_the_randomizer_from_the_preset(self, service):
-        # The preset is the only place a randomizer is chosen now; a generator
-        # the caller named alongside it does not get to disagree.
         service.preset_repository.get_by_id.return_value = SimpleNamespace(
             id=7, randomizer='ootr')
         await service.create_tournament(
@@ -433,14 +401,10 @@ class TestTournamentPreset:
         t = make_tournament()
         await service.update_tournament(t, preset_id=None, actor=make_user())
         assert service.repository.update.await_args.kwargs['preset_id'] is None
-        # Nothing left to roll with once the preset that named the randomizer
-        # is gone.
         assert service.repository.update.await_args.kwargs['seed_generator'] is None
         service.preset_repository.get_by_id.assert_not_awaited()
 
     async def test_update_keeps_an_explicit_generator_when_clearing_the_preset(self, service):
-        # The legacy REST shape: a caller that names a generator in the same
-        # call meant it, preset or no preset.
         t = make_tournament()
         await service.update_tournament(
             t, preset_id=None, seed_generator='alttpr', actor=make_user(),
@@ -457,11 +421,6 @@ class TestTournamentPreset:
         t = make_tournament()
         with pytest.raises(ValueError, match='Preset not found'):
             await service.update_tournament(t, preset_id=42, actor=make_user())
-
-
-# ---------------------------------------------------------------------------
-# update_tournament
-# ---------------------------------------------------------------------------
 
 
 class TestUpdateTournament:
@@ -489,11 +448,6 @@ class TestUpdateTournament:
         assert service.repository.update.await_args.kwargs['triforce_access_message'] is None
 
     async def test_seed_generator_explicit_value_passed_through(self, service):
-        # Real generators like 'alttpr' should land in update_data.
-        # (The literal string "None" is normalized to Python None, which then
-        # falls through the ``if seed_generator is not None`` guard and is
-        # excluded from update_data — i.e. update doesn't support clearing
-        # the seed generator via this path.)
         t = make_tournament()
         await service.update_tournament(
             t, seed_generator='alttpr', actor=make_user(),
@@ -515,7 +469,6 @@ class TestUpdateTournament:
         assert set(details['changed_fields']) == {'name', 'is_active', 'players_per_match'}
 
     async def test_none_for_string_field_means_no_update(self, service):
-        # Distinct from passing empty string; None means "don't update this field"
         t = make_tournament()
         await service.update_tournament(
             t, name='X', description=None, actor=make_user(),
@@ -544,11 +497,6 @@ class TestUpdateTournament:
 
         with pytest.raises(PermissionError):
             await service.update_tournament(make_tournament(), name='X', actor=make_user())
-
-
-# ---------------------------------------------------------------------------
-# delete_tournament
-# ---------------------------------------------------------------------------
 
 
 class TestDeleteTournament:
@@ -615,11 +563,6 @@ class TestDeleteTournament:
         assert counts['matches'] == 2
 
 
-# ---------------------------------------------------------------------------
-# add/remove admin & crew_coordinator
-# ---------------------------------------------------------------------------
-
-
 class TestAdminAndCoordinator:
     @pytest.fixture(autouse=True)
     def _everyone_is_a_member(self, monkeypatch):
@@ -648,8 +591,7 @@ class TestAdminAndCoordinator:
         assert action == 'tournament.admin_revoked'
 
     async def test_add_admin_is_idempotent_at_orm_level(self, service):
-        # Tortoise's M2M add silently dedupes. We just verify the service
-        # forwards the add call without trying to pre-check membership.
+        # Tortoise's M2M add silently dedupes, so the service shouldn't pre-check membership.
         t = make_tournament()
         target = make_user()
         await service.add_admin(t, target, actor=make_user())
@@ -657,8 +599,6 @@ class TestAdminAndCoordinator:
         assert service.repository.set_tournament_grant.await_count == 2
 
     async def test_manual_grant_clears_discord_provenance(self, service):
-        # A hand-made grant is the staff member's, so the guild-role sync must
-        # stop counting it as one of its own to revoke.
         t = make_tournament(tournament_id=5)
         target = make_user(user_id=99)
         await service.add_admin(t, target, actor=make_user(user_id=1))
@@ -709,11 +649,6 @@ class TestAdminAndCoordinator:
 
         with pytest.raises(PermissionError):
             await service.add_admin(make_tournament(), make_user(), actor=make_user())
-
-
-# ---------------------------------------------------------------------------
-# read helpers
-# ---------------------------------------------------------------------------
 
 
 class TestReadHelpers:

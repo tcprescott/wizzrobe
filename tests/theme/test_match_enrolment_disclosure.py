@@ -34,8 +34,6 @@ class TestPreview:
         )
 
     def test_the_tournament_is_named(self):
-        # "2 players will be enrolled" is not enough: which tournament is the
-        # thing the user is deciding about.
         assert 'Spring Open' in enrolment_preview(['Alice'], 'Spring Open')
 
 

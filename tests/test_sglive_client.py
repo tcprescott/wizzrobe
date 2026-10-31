@@ -6,7 +6,6 @@ import pytest
 
 from application.utils.clients.sglive_client import SgliveAPIError, parse_games
 
-# Trimmed from the live feed at /data/ (2026-10-19).
 PAYLOAD = {'tournaments': [
     {'slug': 'alttpr', 'long_name': 'The Legend of Zelda: A Link to the Past Randomizer Tournament',
      'short_name': 'A Link to the Past Randomizer Tournament', 'donations_total': '$1,054.00',

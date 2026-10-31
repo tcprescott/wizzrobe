@@ -33,8 +33,7 @@ from application.services.api_token_service import MCP_TOKEN_PREFIX
 from application.services.mcp_auth_service import granted_scope
 from models import ApiToken, ApiTokenOrigin, McpOAuthClient, Role, User, UserRole
 
-# The transport validates both: a POST without JSON content-type is rejected,
-# and json_response=True still requires application/json in Accept.
+# Both headers required: the transport rejects a POST without JSON content-type and needs JSON in Accept.
 MCP_HEADERS = {
     'Content-Type': 'application/json',
     'Accept': 'application/json, text/event-stream',
@@ -68,9 +67,7 @@ def _cached_build_server() -> MCPServer:
     return mcp
 
 
-# Patched at the module the production ``mount()`` resolves it from, so mount()
-# itself still runs for real: routes, discovery and the OAuth endpoints are all
-# registered by the code that registers them in production.
+# Patch where mount() resolves it, so mount() itself still runs for real.
 mcpserver.build_server = _cached_build_server
 
 

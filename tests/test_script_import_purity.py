@@ -23,8 +23,7 @@ import pytest
 REPO = Path(__file__).resolve().parents[1]
 SCRIPTS = REPO / 'scripts'
 
-# Scripts the test suite imports (directly or transitively). These must stay
-# import-pure; the rest may load .env at import because only a shell runs them.
+# Scripts the test suite imports, directly or transitively: these must stay import-pure.
 IMPORTED_BY_TESTS = [
     'seed_dev.py', 'seed_fledgling.py', 'backfill_memberships.py', 'import_sgl_tournaments.py',
 ]

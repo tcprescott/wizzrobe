@@ -208,7 +208,6 @@ class TestPersistence:
             'density': 'compact', 'folded': {'In play': True}}
 
     async def test_preferences_are_not_tenant_scoped(self, two_tenants):
-        # The decision, pinned: one person carries one answer between communities.
         tenant_a, tenant_b = two_tenants
         user = await make_user()
         service = TablePreferenceService()

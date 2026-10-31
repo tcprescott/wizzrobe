@@ -88,7 +88,6 @@ async def test_open_room_creates_room_and_slug(db, racetime_rooms):
     _, _, _, lr = await _live_race(qsvc, lrsvc, staff)
 
     opened = await lrsvc.open_room(staff, lr.id)
-    # racetime's slug, not one made up locally.
     assert opened.racetime_slug.startswith('alttpr/mock-room-')
     [(category, settings)] = racetime_rooms.started
     assert category == 'alttpr' and settings.info_user == lr.match_title
@@ -125,22 +124,19 @@ async def test_record_finish_captures_and_scores(db):
 
     win_run = by_user[winner.id]
     assert win_run.status == AsyncQualifierRunStatus.FINISHED
-    assert win_run.review_status == AsyncQualifierReviewStatus.APPROVED  # skips review
+    assert win_run.review_status == AsyncQualifierReviewStatus.APPROVED
     assert win_run.elapsed_seconds == 1000
-    assert win_run.score == 100.0  # par == its own time → full score
+    assert win_run.score == 100.0
 
     dnf_run = by_user[dnf.id]
     assert dnf_run.status == AsyncQualifierRunStatus.FORFEIT
     assert dnf_run.score == 0.0
 
-    # par was set from the approved finisher.
     await pl.refresh_from_db()
     assert pl.par_time == 1000
 
-    # Live-race runs never enter the reviewer queue (already approved).
     assert await qsvc.list_review_queue(staff, q.id) == []
 
-    # The finisher shows on the leaderboard.
     board = await qsvc.get_leaderboard(staff, q.id)
     assert any(e.username == 'winner' and e.actual == 100.0 for e in board)
 

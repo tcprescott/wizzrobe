@@ -81,15 +81,14 @@ class TestStatusLogic:
         down = _result('k', ServiceStatus.DOWN)
         healthy = _result('k', ServiceStatus.HEALTHY)
         warn = _result('k', ServiceStatus.CREDENTIAL_WARNING)
-        assert _is_alert_transition(None, down) is False         # first probe down: wait for a second
-        assert _is_alert_transition(healthy, down) is False      # one failed check is a blip
-        assert _is_alert_transition(down, down) is True          # confirmed by the next check
-        assert _is_alert_transition(down, down, ServiceStatus.DOWN) is False  # already alerted
-        assert _is_alert_transition(healthy, warn) is True       # credential warning: no wait
-        assert _is_alert_transition(down, warn, ServiceStatus.DOWN) is True   # down -> warning (changed)
-        assert _is_alert_transition(down, healthy) is False      # recovered: not alertable
-        assert _is_alert_transition(None, healthy) is False      # first probe, healthy
-
+        assert _is_alert_transition(None, down) is False
+        assert _is_alert_transition(healthy, down) is False
+        assert _is_alert_transition(down, down) is True
+        assert _is_alert_transition(down, down, ServiceStatus.DOWN) is False
+        assert _is_alert_transition(healthy, warn) is True
+        assert _is_alert_transition(down, warn, ServiceStatus.DOWN) is True
+        assert _is_alert_transition(down, healthy) is False
+        assert _is_alert_transition(None, healthy) is False
 
 
 class TestMockMode:
@@ -247,30 +246,28 @@ class TestRefreshAndAlert:
         )
         try:
             service = ServiceHealthService()
-            await service.refresh()                 # healthy: no alert
+            await service.refresh()
             assert captured == []
             state['status'] = ServiceStatus.DOWN
-            await service.refresh()                 # one failed check: no alert yet
+            await service.refresh()
             assert captured == []
-            await service.refresh()                 # still down next check: one alert
+            await service.refresh()
             assert len(captured) == 1
             assert captured[0].payload['key'] == 'demo'
             assert captured[0].payload['status'] == 'down'
             assert captured[0].payload['previous_status'] == 'down'
-            await service.refresh()                 # stayed down: no re-alert
+            await service.refresh()
             assert len(captured) == 1
             state['status'] = ServiceStatus.HEALTHY
-            await service.refresh()                 # recovered
+            await service.refresh()
             state['status'] = ServiceStatus.DOWN
             await service.refresh()
-            await service.refresh()                 # a fresh outage alerts again
+            await service.refresh()
             assert len(captured) == 2
         finally:
             event_bus.unsubscribe(token)
 
     async def test_single_timeout_between_healthy_checks_never_alerts(self, db, monkeypatch):
-        # SGLMAN-2A: one ReadTimeout from maprando.com opened an error issue
-        # although the next check, two minutes later, was healthy.
         results = iter([
             (ServiceStatus.HEALTHY, 'HTTP 200'),
             (ServiceStatus.DOWN, 'Unreachable: ReadTimeout: '),
@@ -290,7 +287,7 @@ class TestRefreshAndAlert:
         service = ServiceHealthService()
         await service.refresh()
         down = await service.refresh()
-        assert down[0].status == ServiceStatus.DOWN    # the board still shows it
+        assert down[0].status == ServiceStatus.DOWN
         await service.refresh()
         assert alerts == []
 
@@ -358,7 +355,6 @@ class TestTenantSubset:
             subset = await ServiceHealthService().tenant_subset(tenant.id, actor=await _platform_admin())
 
         assert [r.key for r in subset] == []
-
 
 
 async def test_tenant_subset_refuses_a_non_staff_member(db):

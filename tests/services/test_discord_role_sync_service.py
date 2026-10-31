@@ -255,7 +255,6 @@ class TestSync:
     async def test_withdrawn_player_loses_only_the_role_we_gave(self, discord, staff, service):
         cup = await Tournament.create(name='Cup')
         alice = await player(discord, 101)
-        # Bob already had Competitor from a moderator: we must never take it.
         bob = await player(discord, 102, held={COMPETITOR})
         await enroll(alice, cup)
         await enroll(bob, cup)
@@ -350,7 +349,6 @@ class TestSync:
         await service.set_rule(staff, DiscordRoleRuleKind.ANY_TOURNAMENT, COMPETITOR)
         await service.sync_now(staff)
         await TournamentPlayers.all().delete()
-        # Someone drags Competitor above the bot after the rule was saved.
         next(r for r in discord.roles if r['id'] == COMPETITOR)['position'] = 20
         discord.writes.clear()
 
@@ -359,7 +357,6 @@ class TestSync:
         rule = await DiscordRoleRule.get(key='any_tournament')
         assert 'above the bot' in rule.problem
         assert discord.writes == []
-        # The grant is kept so the role comes off once the order is fixed.
         assert await DiscordRoleGrant.all().count() == 1
 
     async def test_discord_down_changes_nothing_and_records_why(self, discord, staff, service):

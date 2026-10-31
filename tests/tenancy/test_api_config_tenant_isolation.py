@@ -14,12 +14,10 @@ from tests.api_helpers import client_for, create_user_token
 
 
 async def test_config_reads_are_tenant_scoped(db, app):
-    # Caller + their config live in the default tenant (id 1).
     _, raw = await create_user_token(roles=[Role.STAFF])
     await SystemConfiguration.create(name='shared_key', value='tenant1-value')
     await SystemConfiguration.create(name='tenant1_only', value='a')
 
-    # A second tenant has the *same* key with a different value, plus its own key.
     tenant_b = await Tenant.create(name='Tenant B', slug='tenant-b')
     with tenant_scope(tenant_b.id):
         await SystemConfiguration.create(name='shared_key', value='tenant2-value', tenant_id=tenant_b.id)
@@ -29,14 +27,11 @@ async def test_config_reads_are_tenant_scoped(db, app):
         listed = await c.get('/api/config')
         assert listed.status_code == 200
         names = {e['name'] for e in listed.json()}
-        # Only the caller's tenant is visible.
         assert names == {'shared_key', 'tenant1_only'}
         assert 'tenant2_only' not in names
 
-        # The shared key resolves to the caller's tenant — not a 500, not tenant B's value.
         got = await c.get('/api/config/shared_key')
         assert got.status_code == 200
         assert got.json()['value'] == 'tenant1-value'
 
-        # A key that only exists in the other tenant is 404 here, not a leak.
         assert (await c.get('/api/config/tenant2_only')).status_code == 404

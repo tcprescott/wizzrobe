@@ -39,8 +39,7 @@ def hook():
         sys.path.remove(str(HOOK.parent))
 
 
-# The exact shape found live, including the `with client:` that makes check 1
-# pass — which is why check 2 has to exist separately.
+# The `with client:` makes check 1 pass, which is why check 2 must catch this separately.
 BUG = '''
 from nicegui import background_tasks, context, ui
 
@@ -64,8 +63,7 @@ def build(row):
     ui.button('go', on_click=lambda: background_tasks.create(acknowledge(row, context.client)))
 '''
 
-# context.client at the *call site* is the fix, not the bug — a hook that
-# flagged this would make the correct pattern unwritable.
+# context.client at the call site is the fix: a hook flagging it would make the correct pattern unwritable.
 CALL_SITE_ONLY = '''
 from nicegui import background_tasks, context, ui
 
@@ -77,8 +75,6 @@ def build(row):
     ui.button('go', on_click=lambda: background_tasks.create(handle(row, context.client)))
 '''
 
-# Never scheduled as a background task, so it runs in the event handler's own
-# context where context.client resolves fine.
 NOT_A_BACKGROUND_TASK = '''
 from nicegui import context, ui
 
@@ -114,7 +110,6 @@ class TestTheShapeItCatches:
         message = _client_violations(hook, BUG)[0]
         assert 'context.client' in message
         assert 'pass it in' in message
-        # The failure mode is the point: silence, not a traceback the user sees.
         assert 'silently' in message
 
 

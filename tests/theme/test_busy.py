@@ -24,8 +24,6 @@ def _click(button: ui.button) -> ClickEventArguments:
     return ClickEventArguments(sender=button, client=button.client)
 
 
-
-
 async def test_button_says_what_it_is_doing_and_recovers(slot):
     with slot:
         button = ui.button('Sync', icon='sync')

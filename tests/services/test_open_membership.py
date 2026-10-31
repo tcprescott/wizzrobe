@@ -79,7 +79,6 @@ class TestJoinOpenly:
         assert request.status is JoinRequestStatus.APPROVED
 
     async def test_another_communitys_door_stays_shut(self, db):
-        # Open here says nothing about community 2.
         await _open()
         other = await Tenant.create(name='Other', slug='other')
         user = await _stranger()
@@ -89,7 +88,6 @@ class TestJoinOpenly:
 
 class TestAdmit:
     async def test_admit_lets_a_first_contact_in_when_open(self, db):
-        # A Discord button pressed before the site was ever opened.
         await _open()
         user = await _stranger()
         with tenant_scope(1):

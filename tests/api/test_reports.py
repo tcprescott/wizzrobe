@@ -90,7 +90,6 @@ class TestReshapedReports:
             body = (await c.get('/api/reports/stage-utilization', params=WINDOW)).json()
         assert [r['stage_name'] for r in body['stages']] == ['Main']
         row = body['stages'][0]
-        # The ORM Match rows the service returns are collapsed to a count.
         assert 'matches' not in row
         assert row['match_count'] == 1
         assert 'unplaced_candidate_count' in body
@@ -146,7 +145,6 @@ class TestPassThroughReports:
         _, raw = await create_user_token(username='staff', roles=[Role.STAFF])
         async with client_for(app, raw) as c:
             assert (await c.get('/api/reports/volunteer-hour-trends', params=WINDOW)).status_code == 404
-            # Its unflagged siblings keep working.
             assert (await c.get('/api/reports/activity-trends', params=WINDOW)).status_code == 200
 
     async def test_volunteer_hour_trends_without_the_flag_404s_for_a_non_admin_too(self, db, app):

@@ -56,8 +56,6 @@ async def test_the_tooltip_names_what_is_outstanding(db):
 
 
 async def test_readiness_counts_only_required_steps(db):
-    # A tenant with all three required steps done but neither advisory one
-    # reads Ready, not "3 of 5".
     t = await Tenant.create(name='NoStage', slug='nostage')
     user = await User.create(discord_id=8102, username='op3')
     with tenant_scope(t.id):

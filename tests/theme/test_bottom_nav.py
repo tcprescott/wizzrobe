@@ -49,22 +49,15 @@ class TestWhenTheBarRenders:
             assert not renders_bar(_tabs(n)), f'{n} tabs should not render the bar'
 
     def test_a_tab_less_page_gets_no_bar(self):
-        # /help and /event-info render chrome with no tabs at all; an empty strip
-        # reserving 72px is worse than no footer.
         assert not renders_bar([])
         assert not renders_bar(None)
 
 
 class TestTheBarHasNoMoreButton:
     def test_more_is_gone(self):
-        # More only ever existed to reach tabs the bar could not hold. The bar no
-        # longer renders in that case, so the button has nothing left to do and
-        # its absence is what frees the space for the tabs that remain.
-        # Read past the docstring, which still explains the button it replaced.
         assert "'More'" not in _body(BaseLayout._render_footer)
         assert '_more_btn' not in _body(BaseLayout._render_footer)
         assert not hasattr(BaseLayout, '_more_btn')
 
     def test_every_tab_is_in_the_bar_when_it_renders(self):
-        # No slicing: the bar either holds all of them or does not render.
         assert 'self.tabs[:' not in _body(BaseLayout._render_footer)

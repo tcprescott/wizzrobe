@@ -126,7 +126,6 @@ class TestBuildWatchView:
             await _match_on(stage, cup, 12, days_ahead=2)
             view = await watch_data.build_watch_view(DEFAULT_TEST_TENANT_ID)
 
-        # No stream and nothing today: the stage column is left out.
         assert view.stages == []
         assert len(view.coming) == 2
         assert [m.stage for d in view.coming for m in d.matches] == ['Main', 'Main']
@@ -143,7 +142,6 @@ class TestBuildWatchView:
         rows = [m for d in view.coming for m in d.matches]
         assert [m.tournament_short for m in rows] == ['ALTTPR', 'Cup']
         assert rows[0].tournament == 'A Link to the Past Randomizer'
-        # The Tournaments panel keeps the full name; the tight rows use the short one.
         assert 'wizs-muted">ALTTPR<' in render_watch_document(view)
 
     async def test_tournaments_with_a_bracket_or_a_streamed_match_are_listed(self, db):

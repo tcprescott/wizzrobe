@@ -39,14 +39,11 @@ def test_mint_then_claim_roundtrips():
 def test_claim_is_single_use():
     token = _mint()
     assert h.claim(token, 'foo.gg') is not None
-    # Second presentation of the same token finds no nonce -> rejected.
     assert h.claim(token, 'foo.gg') is None
 
 
 def test_claim_rejects_wrong_host():
     token = _mint(host='foo.gg')
-    # A token minted for foo.gg is useless on bar.gg (host binding), and the
-    # attempt still consumes the nonce so it can't be retried on the right host.
     assert h.claim(token, 'bar.gg') is None
     assert h.claim(token, 'foo.gg') is None
 
@@ -58,8 +55,6 @@ def test_claim_rejects_tampered_token():
 
 def test_claim_rejects_expired_via_store(monkeypatch):
     token = _mint()
-    # Advance the service's clock past the TTL so the store-expiry check trips
-    # (belt-and-braces alongside the signer's own max_age).
     real = h.time.time()
     monkeypatch.setattr(h.time, 'time', lambda: real + h._TTL_SECONDS + 5)
     assert h.claim(token, 'foo.gg') is None
@@ -71,13 +66,12 @@ def test_mint_rejects_unnormalizable_host():
 
 
 def test_host_normalization_is_consistent():
-    # Minted with a port/scheme form, claimed with the browser's bare host.
     token = h.mint(discord_id=5, username='y', avatar=None,
                    target_host='https://Foo.GG/', next_path='/')
     assert h.claim(token, 'foo.gg') is not None
 
 
-# --- auth-layer helpers (imported under MOCK_DISCORD; its live client rejects null token)
+# Imported under MOCK_DISCORD; its live client rejects a null token.
 
 @pytest.fixture
 def auth(monkeypatch):
@@ -89,13 +83,13 @@ def auth(monkeypatch):
 @pytest.mark.parametrize('raw,expected', [
     ('/admin', '/admin'),
     ('/home/profile?tab=1', '/home/profile?tab=1'),
-    ('//evil.com', '/'),            # protocol-relative open-redirect
-    ('/\\evil.com', '/'),           # backslash form (browsers normalize \ to /)
-    ('/a\\b', '/'),                 # any backslash rejected
-    ('/a\r\nSet-Cookie: x', '/'),   # control chars / header smuggling
-    ('/a b', '/'),                  # whitespace
-    ('https://evil.com', '/'),      # absolute URL
-    ('/login', '/'),                # auth route would loop
+    ('//evil.com', '/'),
+    ('/\\evil.com', '/'),
+    ('/a\\b', '/'),
+    ('/a\r\nSet-Cookie: x', '/'),
+    ('/a b', '/'),
+    ('https://evil.com', '/'),
+    ('/login', '/'),
     ('', '/'),
     (None, '/'),
 ])
@@ -116,8 +110,6 @@ def test_mint_carries_bind_commit_through_claim():
                    target_host='foo.gg', next_path='/', bind_commit=commit)
     payload = h.claim(token, 'foo.gg')
     assert payload is not None
-    # The route compares this against sha256(browser-secret); the service just
-    # carries it end to end unmodified.
     assert payload['bind_commit'] == commit
 
 

@@ -83,7 +83,7 @@ class TestBestOfResolution:
         assert service.resolve_best_of(bracket, bmatch) == 5
 
         bmatch.best_of = None
-        bmatch.round = 99  # a round the config says nothing about
+        bmatch.round = 99
         assert service.resolve_best_of(bracket, bmatch) == 1
 
     async def test_wins_needed(self, service):
@@ -92,7 +92,7 @@ class TestBestOfResolution:
     async def test_best_of_locked_once_games_exist(self, service):
         actor = await _staff()
         _, _, _, bmatch = await _series(service, actor, best_of=3)
-        await service.set_best_of(actor, bmatch.id, 5)  # fine before scheduling
+        await service.set_best_of(actor, bmatch.id, 5)
 
         await service.schedule_bracket_match(
             actor, bmatch.id, scheduled_date='2026-06-12', scheduled_time='14:30',
@@ -140,7 +140,6 @@ class TestGameNumbering:
         match = await service.schedule_bracket_match(
             actor, bmatch.id, scheduled_date='2026-06-12', scheduled_time='14:30',
         )
-        # Not a bare "Game 1 of 3": Match.title replaces the whole Discord event title.
         assert 'Cup' in match.title
         assert 'P1' in match.title and 'P2' in match.title
         assert 'Game 1 of 3' in match.title
@@ -151,7 +150,7 @@ class TestGameNumbering:
         match = await service.schedule_bracket_match(
             actor, bmatch.id, scheduled_date='2026-06-12', scheduled_time='14:30',
         )
-        assert match.title is None  # existing Bo1 events/rooms render unchanged
+        assert match.title is None
 
 
 class TestClinch:
@@ -205,7 +204,7 @@ class TestClinch:
         await _play(service, actor, matches[0], users[0])
         await _play(service, actor, matches[1], users[1])
         await bmatch.refresh_from_db()
-        assert bmatch.state == BracketMatchState.OPEN  # 1-1, still live
+        assert bmatch.state == BracketMatchState.OPEN
 
         await _play(service, actor, matches[2], users[1])
         await bmatch.refresh_from_db()
@@ -221,7 +220,7 @@ class TestClinch:
         )
 
         await _play(service, actor, match, users[0])
-        await service.settle_game_if_linked(match, actor)  # the second path
+        await service.settle_game_if_linked(match, actor)
 
         assert await service.series_standing(bmatch) == (1, 0)
         await bmatch.refresh_from_db()
@@ -350,7 +349,7 @@ class TestAutoOpenHold:
         m2 = await service.schedule_bracket_match(
             actor, bmatch.id, scheduled_date='2026-06-12', scheduled_time='10:35',
         )
-        await Match.filter(id=m1.id).delete()  # SET_NULL leaves game 1 unresolved
+        await Match.filter(id=m1.id).delete()
 
         assert await service.held_match_ids([m2.id]) == set()
 
@@ -480,7 +479,6 @@ class TestScheduleBracketLink:
             'id': bracket.id, 'name': 'Main', 'game': 2,
             'best_of': 3, 'standing': '',
         }
-        # Game 1 of a best-of-3 still says so, so the run sheet reads "Game 1 of 3".
         first = next(r for r in rows.values() if r['bracket'] and r['id'] != game2.id)
         assert first['bracket']['game'] == 1
 

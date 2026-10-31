@@ -187,8 +187,6 @@ async def test_the_export_block_reads_as_it_is_pasted(staff, tournament):
                           matcherino_username='jemgold#100234')
     blueshell = await make_user(discord_id=11, username='blueshell', display_name='blueshell',
                            matcherino_username='blueshell#204871')
-    # No handle on purpose: a payout run stalls on exactly this, so the block
-    # has to say so rather than leave a blank.
     greenpotion = await make_user(discord_id=12, username='greenpotion', display_name='greenpotion')
     await _split(tournament, [
         (1, '50.00', jem), (2, '30.00', blueshell),

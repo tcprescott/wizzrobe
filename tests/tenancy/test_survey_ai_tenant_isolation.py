@@ -26,7 +26,6 @@ async def test_provider_settings_are_isolated(two_tenants):
         assert await repo.delete_current()
     with tenant_scope(a.id):
         assert (await repo.get_current()).id == row_a.id
-    # The sealed key is bound to its community.
     assert secret_box.open_(row_a.key_ciphertext, purpose='ai-provider-key', context=f'tenant:{b.id}') is None
 
 

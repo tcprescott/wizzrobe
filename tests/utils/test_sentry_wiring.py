@@ -52,8 +52,6 @@ class TestEnrichment:
         assert log['attributes']['tenant_id'] == 7
 
     def test_log_before_startup_creates_no_client(self, monkeypatch):
-        # Before NiceGUI starts, reading context.client with no slot builds a
-        # request-less script client that crashed prune_user_storage in prod.
         from nicegui import core
         from nicegui.app.app import State
         from nicegui.client import Client
@@ -194,8 +192,6 @@ class TestGracefulShutdownNoise:
         assert wiring._before_send(event, self._hint(exc)) is not None
 
     def test_shutdown_warning_still_reaches_sentry_logs(self):
-        # The per-request warning is what keeps a real stall visible; it must
-        # stay out of the logger blocklist and at a level Sentry Logs ships.
         assert 'wizzrobe.shutdown' not in wiring._NOISY_FOR_SENTRY_LOGS
         assert wiring._sentry_logs_level() <= logging.WARNING
 

@@ -27,9 +27,6 @@ from models import (
 pytestmark = pytest.mark.usefixtures("db")
 
 
-# ---------------------------------------------------------------------------
-# fixtures / builders
-# ---------------------------------------------------------------------------
 async def _staff(discord_id: int = 1234, username: str = 'staff') -> User:
     user = await User.create(discord_id=discord_id, username=username)
     await UserRole.create(user=user, role=Role.STAFF)
@@ -95,14 +92,10 @@ async def _seed_of(service, bracket_id):
     return {e.id: e.seed for e in entries}
 
 
-# ---------------------------------------------------------------------------
-# group stage -> single elimination
-# ---------------------------------------------------------------------------
 class TestGroupToSingleElim:
     async def _run(self, service):
         actor = await _staff()
         t = await Tournament.create(name='Cup')
-        # Stage 0: two round-robin groups of four (seeds 1,4,5,8 | 2,3,6,7).
         stage0 = await _build_stage(
             service, actor, t.id, BracketFormat.ROUND_ROBIN, 8,
             stage_order=0, config={'group_count': 2},
@@ -110,7 +103,6 @@ class TestGroupToSingleElim:
         await service.start_bracket(actor, stage0.id)
         await _play_to_completion(service, actor, stage0, await _seed_of(service, stage0.id))
 
-        # Stage 1: single elimination, top 2 per group advance, snake seeded.
         stage1 = await _build_stage(
             service, actor, t.id, BracketFormat.SINGLE_ELIM, 0,
             stage_order=1,
@@ -140,7 +132,6 @@ class TestGroupToSingleElim:
     async def test_snake_avoids_same_group_round_one(self, service):
         actor, t, stage0, stage1 = await self._run(service)
 
-        # Source group per entrant, read off the completed stage 0.
         s0_entries = await service.list_entries(stage0.id)
         source_group = {e.entrant_id: e.group_number for e in s0_entries}
 
@@ -172,8 +163,6 @@ class TestGroupToSingleElim:
         s1_entries = await service.list_entries(stage1.id)
         seed_of_entrant = {e.entrant_id: e.seed for e in s1_entries}
 
-        # Group winners occupy the two lowest seeds; standard seeding then places
-        # them on opposite halves of the bracket.
         winner_seeds = sorted(seed_of_entrant[eid] for eid in winners)
         assert winner_seeds == [1, 2]
 
@@ -193,7 +182,6 @@ class TestGroupToSingleElim:
 
         s0_by_entrant = {e.entrant_id: e for e in await service.list_entries(stage0.id)}
         for s1 in await service.list_entries(stage1.id):
-            # Same tournament-level entrant identity carries across the stages.
             assert s1.entrant_id in s0_by_entrant
             assert s1.id != s0_by_entrant[s1.entrant_id].id
 
@@ -209,9 +197,6 @@ class TestGroupToSingleElim:
         assert sum(1 for e in entries if e.final_rank == 1) == 1
 
 
-# ---------------------------------------------------------------------------
-# snake seeding: no same-source-group round-1 playoff match (any group count)
-# ---------------------------------------------------------------------------
 class TestSnakeSameGroupAvoidance:
     @pytest.mark.parametrize('group_count', [2, 3, 4, 5])
     @pytest.mark.parametrize('count', [2, 3])
@@ -238,7 +223,6 @@ class TestSnakeSameGroupAvoidance:
             }},
         )
 
-        # Source group per entrant, read off the completed group stage.
         s0_entries = await service.list_entries(stage0.id)
         source_group = {e.entrant_id: e.group_number for e in s0_entries}
 
@@ -263,9 +247,6 @@ class TestSnakeSameGroupAvoidance:
             )
 
 
-# ---------------------------------------------------------------------------
-# Swiss -> top cut
-# ---------------------------------------------------------------------------
 class TestSwissToTopCut:
     async def _completed_swiss(self, service, actor, t, n, ranks):
         """Run an n-player Swiss stage 0 and finalize with explicit ranks 1..n."""
@@ -276,8 +257,6 @@ class TestSwissToTopCut:
         seed_of = await _seed_of(service, stage0.id)
         await _play_to_completion(service, actor, stage0, seed_of, finalize=False)
 
-        # Finalize with an explicit, tie-free ranking so "top N" is unambiguous:
-        # entrant with stage-0 seed k gets final_rank = ranks[k].
         entries = await service.list_entries(stage0.id)
         tie_breaks = {e.id: ranks[e.seed] for e in entries}
         if (await service.get_bracket(stage0.id)).state != BracketState.COMPLETE:
@@ -289,7 +268,6 @@ class TestSwissToTopCut:
         actor = await _staff()
         t = await Tournament.create(name='Cup')
         n = 8
-        # seed k -> final_rank k, so the top `cut` are exactly seeds 1..cut.
         ranks = {k: k for k in range(1, n + 1)}
         stage0 = await self._completed_swiss(service, actor, t, n, ranks)
 
@@ -308,7 +286,6 @@ class TestSwissToTopCut:
         )
         assert advancing_ranks == list(range(1, cut + 1))
 
-        # Seed order preserves final-rank order (rank 1 -> seed 1, ...).
         for e in s1_entries:
             assert e.seed == s0_by_entrant[e.entrant_id].final_rank
 
@@ -325,15 +302,11 @@ class TestSwissToTopCut:
         await service.start_bracket(actor, stage1.id)
         await _play_to_completion(service, actor, stage1, await _seed_of(service, stage1.id))
 
-        # Standard seeding pairs the cut as 1v4 and 2v3 in round 1.
         assert standard_seeding(4) == [1, 4, 2, 3]
         final = await service.get_bracket(stage1.id)
         assert final.state == BracketState.COMPLETE
 
 
-# ---------------------------------------------------------------------------
-# guards
-# ---------------------------------------------------------------------------
 class TestAdvanceGuards:
     async def _round_robin_pair(self, service, actor, t, *, complete):
         stage0 = await _build_stage(
@@ -377,7 +350,6 @@ class TestAdvanceGuards:
         actor = await _staff()
         t = await Tournament.create(name='Cup')
         await self._round_robin_pair(service, actor, t, complete=True)
-        # Each group has 4; asking for 5 per group cannot be satisfied.
         await _build_stage(
             service, actor, t.id, BracketFormat.SINGLE_ELIM, 0, stage_order=1,
             config={'advancement': {'count': 5, 'per_group': True}},
@@ -404,15 +376,10 @@ class TestAdvanceGuards:
         stage1 = await _build_stage(
             service, actor, t.id, BracketFormat.SINGLE_ELIM, 8, stage_order=1,
         )
-        # Even with its own entries, a later stage may not start until stage 0 is
-        # complete.
         with pytest.raises(ValueError, match='previous stage'):
             await service.start_bracket(actor, stage1.id)
 
 
-# ---------------------------------------------------------------------------
-# authorization + tenant scoping
-# ---------------------------------------------------------------------------
 class TestAuthAndTenant:
     async def _completed_group_stage(self, service, actor, t):
         stage0 = await _build_stage(

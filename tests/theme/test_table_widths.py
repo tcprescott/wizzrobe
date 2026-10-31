@@ -42,7 +42,6 @@ def table():
 
 class TestWidthsReachTheTable:
     def test_a_stored_width_pins_the_column_from_both_sides(self, table):
-        # width alone is a suggestion the browser overrides from content.
         saved = {'columns': [{'name': 'username', 'visible': True, 'width': 260}]}
         with table_prefs_scope({'admin.users': saved}):
             customize_table(table, COLUMNS, key='admin.users')
@@ -53,8 +52,6 @@ class TestWidthsReachTheTable:
             assert 'max-width: 260px' in style
 
     def test_a_sized_table_does_not_switch_to_a_fixed_layout(self, table):
-        # One dragged column on a nine-column board must not resize the other
-        # eight — which is exactly what table-layout: fixed did.
         css = (REPO / 'static' / 'css' / 'styles.css').read_text()
         assert 'table-layout: fixed' not in css
 
@@ -64,8 +61,6 @@ class TestWidthsReachTheTable:
         assert 'wiz-table--sized' not in table.classes
 
     def test_every_header_carries_its_column_name(self, table):
-        # The resize client reads the column off this class; Quasar's own header
-        # cells carry no identifier.
         customize_table(table, COLUMNS, key='admin.users')
         assert all(f"wiz-col-{c['name']}" in c['headerClasses'] for c in table.columns)
 
@@ -84,7 +79,6 @@ class TestTheStore:
             {'name': 'username', 'visible': True, 'width': None}]
 
     async def test_width_out_of_range_is_rejected(self, db):
-        # A hand-crafted emitEvent is untrusted input, like any other browser payload.
         user = await make_user()
         for bad in (9000, 1, -5):
             with pytest.raises(ValueError):
@@ -107,7 +101,6 @@ class TestTheClient:
         assert "addEventListener('pointerup', function () { finish(true); });" in CLIENT
 
     def test_it_uses_pointer_capture(self):
-        # A fast drag that leaves the window otherwise strands the table.
         assert 'setPointerCapture' in CLIENT
 
     def test_double_click_clears_the_width(self):
@@ -119,8 +112,6 @@ class TestTheClient:
         assert f'MAX_WIDTH = {TablePreferenceService.MAX_WIDTH}' in CLIENT
 
     def test_it_injects_no_handle_elements(self):
-        # Vue destroys anything injected on the next row refresh; the affordance
-        # is a CSS pseudo-element and the listener is delegated.
         assert 'createElement' not in CLIENT
 
     def test_the_handler_captures_the_client_at_build_time(self):

@@ -16,7 +16,6 @@ from application.utils.clients.matcherino_client import (
     parse_purchase,
 )
 
-# Key sets captured from the live venue admin endpoints.
 LIVE_PURCHASE_KEYS = {
     'address1', 'address2', 'bountyAttachments', 'city', 'code', 'completed', 'country', 'email',
     'entries', 'firstName', 'id', 'lastName', 'meta', 'pass', 'passId', 'phone', 'purchasedAt',

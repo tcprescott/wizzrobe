@@ -47,12 +47,8 @@ async def _flag_off(tenant_id: int = TENANT) -> None:
     await TenantFeatureFlag.filter(tenant_id=tenant_id, flag=FeatureFlag.THIRD_PARTY_APPS.value).update(
         enabled=False,
     )
-    # The per-request flag cache lives in a contextvar; the direct service
-    # calls above ran in this test's own context and filled it.
+    # The flag cache is a contextvar the direct service calls above already filled.
     reset_flag_cache()
-
-
-# --- Discovery ----------------------------------------------------------------
 
 
 async def test_metadata_is_served_at_the_path_insertion_location():
@@ -65,9 +61,6 @@ async def test_metadata_is_served_at_the_path_insertion_location():
     assert doc['code_challenge_methods_supported'] == ['S256']
     assert 'client_credentials' not in doc['grant_types_supported']
     assert 'staff:write' in doc['scopes_supported']
-
-
-# --- Authorize ----------------------------------------------------------------
 
 
 async def test_unknown_client_and_unregistered_redirect_never_redirect():
@@ -128,9 +121,6 @@ async def test_a_disabled_app_cannot_start_a_sign_in():
     assert resp.status_code == 400
 
 
-# --- Consent ------------------------------------------------------------------
-
-
 async def test_consent_drops_staff_scopes_for_a_player_and_keeps_them_for_staff():
     owner, member = await _owner_and_member()
     staff, _ = await create_user_token(username='boss', roles=[Role.STAFF])
@@ -175,9 +165,6 @@ async def test_deny_sends_access_denied_and_spends_the_request():
         OAuthGrantService().get_pending(txn)
 
 
-# --- Token exchange -----------------------------------------------------------
-
-
 async def test_confidential_app_full_flow_and_grant_is_narrowed():
     owner, member = await _owner_and_member()
     app, secret = await make_app(owner)
@@ -191,7 +178,7 @@ async def test_confidential_app_full_flow_and_grant_is_narrowed():
     grant = await ApiToken.get(token_hash=hashlib.sha256(tokens['access_token'].encode()).hexdigest())
     assert grant.origin == ApiTokenOrigin.APP.value
     assert grant.tenant_id == TENANT
-    assert grant.read_only is True  # no write scope approved
+    assert grant.read_only is True
 
     async with client(tokens['access_token']) as api:
         me = await api.get('/api/users/me')
@@ -231,7 +218,7 @@ async def test_public_app_uses_pkce_alone_and_may_not_send_a_secret():
     assert with_secret.status_code == 401 and with_secret.json()['error'] == 'invalid_client'
     assert ok.status_code == 200
     grant = await ApiToken.get(token_hash=hashlib.sha256(ok.json()['access_token'].encode()).hexdigest())
-    assert grant.read_only is False  # crew is a write scope
+    assert grant.read_only is False
 
 
 async def test_confidential_app_must_authenticate():
@@ -298,9 +285,6 @@ async def test_approving_again_replaces_the_old_grant():
         assert (await api.get('/api/users/me')).status_code == 401
 
 
-# --- Refresh ------------------------------------------------------------------
-
-
 async def _refresh(http, app, secret, refresh_token, scope=None):
     data = {'grant_type': 'refresh_token', 'refresh_token': refresh_token}
     if scope is not None:
@@ -361,9 +345,6 @@ async def test_refresh_stops_when_the_member_leaves():
         await TenantMembership.filter(user_id=member.id, tenant_id=TENANT).delete()
         resp = await _refresh(http, app, secret, tokens['refresh_token'])
     assert resp.json()['error'] == 'invalid_grant'
-
-
-# --- Revocation and kill switches -----------------------------------------------
 
 
 async def test_revoke_endpoint_ends_the_grant_with_either_half():

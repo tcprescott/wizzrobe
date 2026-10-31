@@ -19,8 +19,6 @@ class TestAuthentication:
         async with mcp_session() as client:
             resp = await rpc(client, None, 'tools/list')
         assert resp.status_code == 401
-        # The challenge is what turns a rejection into a recovery: a compliant
-        # client reads it, finds the authorization server, and starts OAuth.
         assert 'resource_metadata=' in resp.headers['www-authenticate']
 
     async def test_garbage_token_is_401(self, db):
@@ -86,8 +84,6 @@ class TestTransport:
         assert resp.status_code == 200
         result = resp.json()['result']
         assert result['serverInfo']['name'] == 'Wizzrobe'
-        # The instructions are the server-level prompt; losing them would
-        # silently degrade every conversation, with no error anywhere.
         assert 'whoami' in result['instructions']
 
     async def test_wrong_method_is_rejected(self, db):
@@ -168,7 +164,6 @@ class TestDiscovery:
                 assert resp.status_code == 200, path
                 body = resp.json()
                 assert body['resource'].endswith('/mcp')
-                # Without this a client cannot find the authorization server.
                 assert body['authorization_servers']
                 assert body['bearer_methods_supported'] == ['header']
 

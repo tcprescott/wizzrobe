@@ -10,7 +10,6 @@ from application.services.async_qualifier.async_qualifier_scoring import (
 
 class TestComputePar:
     def test_mean_of_n_fastest(self):
-        # fastest 3 of [100,120,140,900] → mean(100,120,140)=120
         assert compute_par([900, 100, 140, 120], sample_size=3) == 120
 
     def test_fewer_than_sample_uses_all(self):
@@ -44,7 +43,6 @@ class TestComputeScore:
 
 class TestLeaderboard:
     def test_fills_slots_and_pads_missing_with_zero(self):
-        # 2 pools, 1 run/pool → 2 slots. 'a' fills both, 'b' fills one.
         entries = build_leaderboard(
             pool_ids=[1, 2], runs_per_pool=1,
             scored_runs=[
@@ -56,12 +54,11 @@ class TestLeaderboard:
         by_user = {e.user_id: e for e in entries}
         assert by_user[1].actual == 180.0
         assert by_user[1].estimate == 180.0
-        assert by_user[2].actual == 90.0        # only one slot filled
-        assert by_user[2].estimate == 180.0     # projected across both slots
-        assert entries[0].user_id == 1          # ranked by actual desc
+        assert by_user[2].actual == 90.0
+        assert by_user[2].estimate == 180.0
+        assert entries[0].user_id == 1
 
     def test_caps_scores_per_pool_at_runs_per_pool(self):
-        # runs_per_pool=1 but two runs in the same pool → only the best counts.
         entries = build_leaderboard(
             pool_ids=[1], runs_per_pool=1,
             scored_runs=[ScoredRun(1, 'a', 1, 40.0), ScoredRun(1, 'a', 1, 95.0)],
@@ -97,7 +94,6 @@ class TestOpenPools:
         assert board[0].actual == 190.0
 
     def test_omitting_open_pool_ids_keeps_every_pool_open(self):
-        # The no-live-races case, and the signature the 12 original tests use.
         board = build_leaderboard(
             pool_ids=[10, 20], runs_per_pool=1,
             scored_runs=[ScoredRun(1, 'A', 10, 100.0)],

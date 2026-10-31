@@ -31,8 +31,6 @@ async def _coordinator_token(username='coord'):
     return await create_user_token(username=username, roles=[Role.VOLUNTEER_COORDINATOR])
 
 
-# --- Positions ------------------------------------------------------------
-
 class TestPositions:
     async def test_list_positions_all_and_active_only(self, db, app):
         _, raw = await create_user_token(username='reader', roles=[Role.VOLUNTEER], read_only=True)
@@ -139,8 +137,6 @@ class TestPositions:
             resp = await c.delete('/api/volunteers/positions/9999')
             assert resp.status_code == 404
 
-
-# --- Shifts ---------------------------------------------------------------
 
 class TestShifts:
     async def test_list_shifts_in_window(self, db, app):
@@ -300,8 +296,6 @@ class TestShifts:
             assert resp.status_code == 404
 
 
-# --- Assignments ----------------------------------------------------------
-
 class TestAssignments:
     async def _shift(self, slots_needed=1):
         pos = await VolunteerPosition.create(name='Desk')
@@ -428,8 +422,6 @@ class TestAssignments:
             assert resp.status_code == 400
 
 
-# --- Coverage -------------------------------------------------------------
-
 class TestCoverage:
     async def test_coverage_reports_understaffed(self, db, app):
         _, raw = await create_user_token(username='reader', roles=[Role.VOLUNTEER])
@@ -454,8 +446,6 @@ class TestCoverage:
             assert row['understaffed'] is True
             assert row['position'] == 'Desk'
 
-
-# --- Hours ----------------------------------------------------------------
 
 class TestHours:
     async def test_my_hours_counts_overlap_once(self, db, app):
@@ -489,8 +479,6 @@ class TestHours:
             assert resp.status_code == 200
             assert [r['user_id'] for r in resp.json()] == [vol.id]
 
-
-# --- Self-service ---------------------------------------------------------
 
 class TestSelfService:
     async def test_get_availability_empty(self, db, app):
@@ -600,8 +588,6 @@ class TestSelfService:
             assert resp.status_code == 200
             assert resp.json() == []
 
-
-# --- Who may read the schedule -------------------------------------------
 
 WINDOW = {'start': iso(2025, 10, 1), 'end': iso(2025, 10, 31)}
 

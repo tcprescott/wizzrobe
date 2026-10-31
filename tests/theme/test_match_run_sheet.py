@@ -60,7 +60,6 @@ class TestArrange:
         assert row['_day'] == 'Today'
 
     def test_columns_are_not_sortable(self):
-        # The groups are the order; a header sort would scatter them.
         assert not any(c.get('sortable') for c in RUN_SHEET_COLUMNS)
 
 
@@ -107,7 +106,6 @@ class TestCrew:
 
 
     def test_no_need_means_no_needs_crew_but_still_to_approve(self):
-        # A match off stage needs no crew (the display row sends zeros).
         row = _row(1, 'Scheduled', crew_wanted={'commentators': True},
                    crew_required={'commentators': 0}, commentators=[{'approved': False}])
         crew = arrange_run_sheet([row])[0]['_crew'][0]
@@ -160,8 +158,7 @@ class TestReadiness:
 
 
 def test_no_column_points_at_a_list():
-    # NiceGUI patches in its own body-cell slot (and logs a warning) for any
-    # column whose field holds a list, unaware the body slot draws the cell.
+    # NiceGUI patches in its own body-cell slot for any column whose field holds a list.
     row = arrange_run_sheet([_row(1, 'Scheduled', commentators=[], trackers=[{'name': 'T'}])])[0]
     for col in RUN_SHEET_COLUMNS + PROCTOR_RUN_SHEET_COLUMNS:
         assert not isinstance(row.get(col['field']), (list, set, tuple)), col['name']
@@ -191,11 +188,8 @@ class TestQuickApprove:
     def test_one_tap_and_the_viewers_gate(self):
         names = crew_names('[3].includes(props.row.tournament_id)')
         assert "$parent.$emit('approve_crew'" in names
-        # No armed state on the client: a board refresh used to clear it
-        # between the two taps, so the second tap only re-armed the button.
         assert '_arm' not in names
         assert '[3].includes(props.row.tournament_id)' in names
-        # The note gives way to the button rather than sitting beside it.
         assert 'p.note && !(' in names
 
     def test_phone_card_is_a_div_when_it_holds_winner_buttons(self):
@@ -206,9 +200,6 @@ class TestQuickApprove:
         assert "report_winner" not in _body_slot(False) + _item_slot(False)
 
     def test_phone_card_stops_being_a_button_when_it_holds_one(self):
-        # A button inside the card's button is invalid HTML and the inner click
-        # would never land, so the approving board's card is a div whose names
-        # are the keyboard's way in.
         assert '<button v-if="!props.row._folded" type="button" class="run-sheet__card"' in _item_slot(False)
         slot = _item_slot(False, approve='true')
         assert '<div v-if="!props.row._folded" class="run-sheet__card"' in slot
