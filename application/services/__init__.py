@@ -141,6 +141,7 @@ from .racetime_bot_service import RacetimeBotService
 from .racetime_room_service import RacetimeRoomService
 from .racetime_service import RacetimeService
 from .randomizer_credential_service import RandomizerCredentialService
+from .rate_limit_service import RateLimitService, shared_counters_enabled
 from .reports_service import ReportsService
 from .room_token_service import RoomTokenService
 from .round_schedule_service import RoundScheduleService, RoundWindowError, ScheduleStage
@@ -304,6 +305,7 @@ __all__ = [
     'RacetimeRoomService',
     'RacetimeService',
     'RandomizerCredentialService',
+    'RateLimitService',
     'ReportsService',
     'RespondentView',
     'RoleScope',
@@ -400,6 +402,7 @@ __all__ = [
     'seed_roll_worker',
     'service_health_worker',
     'sglive_pool_worker',
+    'shared_counters_enabled',
     'speedgaming_sync_worker',
     'staff_request_dms',
     'startgg_sync_worker',

@@ -1,8 +1,8 @@
-"""In-process rate limiting for the REST API.
+"""Rate limiting for the REST API.
 
-The app runs single-worker (``uvicorn --workers 1``), so a per-process
-fixed-window counter is sufficient and avoids an external dependency or shared
-store. Requests are keyed by bearer token when present (so one client's tokens
+A single process counts in memory (a sliding minute). With ``MULTI_INSTANCE``
+set, counts go to Postgres through ``RateLimitService`` so every instance
+shares one budget per key. Requests are keyed by bearer token when present (so one client's tokens
 are limited independently) and otherwise by client IP.
 
 Attached as a dependency on the aggregating API router so it covers every REST
@@ -17,6 +17,7 @@ from typing import Deque, Dict
 
 from fastapi import HTTPException, Request, status
 
+from application.services import RateLimitService, shared_counters_enabled
 from application.services.api_token_service import BEARER_PREFIXES
 
 
@@ -104,15 +105,25 @@ async def rate_limit(request: Request) -> None:
     is throttled independently below the shared IP ceiling.
     """
     limit = limit_per_minute()
-    now = time.monotonic()
-    _sweep(now)
-    window_start = now - _WINDOW_SECONDS
-
     ip_key = _client_ip_key(request)
     keys = [ip_key]
     client_key = _client_key(request)
     if client_key != ip_key:
         keys.append(client_key)
+
+    if shared_counters_enabled():
+        retry_after = await RateLimitService().over_limit(keys, {key: limit for key in keys})
+        if retry_after is not None:
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail='Rate limit exceeded',
+                headers={'Retry-After': str(retry_after)},
+            )
+        return
+
+    now = time.monotonic()
+    _sweep(now)
+    window_start = now - _WINDOW_SECONDS
 
     # Check every bucket before recording any, IP first, so a rejection never half-counts a request.
     for key in keys:
@@ -131,7 +142,7 @@ async def rate_limit(request: Request) -> None:
         _hits[key].append(now)
 
 
-def enforce_app_limit(app_id: int) -> None:
+async def enforce_app_limit(app_id: int) -> None:
     """Cap one third-party app's calls across all of its users.
 
     Each grant already has its own token bucket; this is the ceiling over all
@@ -139,9 +150,19 @@ def enforce_app_limit(app_id: int) -> None:
     everyone else. Runs after the token is resolved, since only then is the app
     known, and so counts only calls that got that far.
     """
+    key = f'app:{app_id}'
+    if shared_counters_enabled():
+        retry = await RateLimitService().over_limit([key], {key: app_limit_per_minute()})
+        if retry is not None:
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail='This app is making too many requests. Try again shortly.',
+                headers={'Retry-After': str(retry)},
+            )
+        return
     now = time.monotonic()
     _sweep(now)
-    bucket = _hits[f'app:{app_id}']
+    bucket = _hits[key]
     while bucket and bucket[0] < now - _WINDOW_SECONDS:
         bucket.popleft()
     if len(bucket) >= app_limit_per_minute():

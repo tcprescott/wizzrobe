@@ -149,6 +149,7 @@ from .system import (
     BrowserMonitoringSettings,
     LogLevelOverride,
     OAuthHandoff,
+    RateLimitWindow,
     RoomToken,
     SystemConfiguration,
 )
@@ -318,6 +319,7 @@ __all__ = [
     'RacetimeBotTenant',
     'RacetimeRoom',
     'RandomizerCredential',
+    'RateLimitWindow',
     'RescheduleRequestKind',
     'RescheduleRequestStatus',
     'Role',

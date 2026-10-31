@@ -135,8 +135,28 @@ class OAuthHandoff(Model):
 
     nonce = fields.CharField(max_length=64, pk=True)
     host = fields.CharField(max_length=255)
-    payload = fields.JSONField()
+    payload: dict = fields.JSONField()
     expires_at = fields.DatetimeField(index=True)
 
     class Meta:
         table = 'oauthhandoff'
+
+
+class RateLimitWindow(Model):
+    """One rate-limit key's request count for one fixed one-minute window.
+
+    **Global** (no ``tenant`` FK): keys are client IPs, token hashes and OAuth
+    apps, counted across the whole API. Used only when ``MULTI_INSTANCE`` is
+    set, so every instance shares one budget per key; a single process keeps
+    its counters in memory. Rows older than a couple of windows are pruned as
+    requests arrive.
+    """
+
+    id = fields.BigIntField(pk=True)
+    key = fields.CharField(max_length=100)
+    window_start = fields.BigIntField()
+    hits = fields.IntField(default=0)
+
+    class Meta:
+        table = 'ratelimitwindow'
+        unique_together = (('key', 'window_start'),)
