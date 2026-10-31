@@ -807,6 +807,7 @@ A third-party app a user registered for the `/oauth` authorization server. **Glo
 | `redirect_uris` | `JSONField` | default `[]` | Exact-match allowlist (max 10) |
 | `allowed_scopes` | `JSONField` | default `[]` | `ApiScope` values the app may request |
 | `disabled_at` / `disabled_reason` | `DatetimeField` / `CharField(300)` | null | Platform-admin kill switch; grants stop while set |
+| `first_party` | `BooleanField` | default `False` | Wizzrobe's own app (`web/`): no consent, grants with no community (`X-Wizzrobe-Community` per call). Set only by `scripts/register_first_party_app.py` |
 | `created_at` / `updated_at` | `DatetimeField` | auto | |
 
 #### `OAuthAppBlock`
@@ -827,7 +828,8 @@ A single-use authorization code for an `OAuthApp`, 5-minute expiry, hash only. C
 | Field | Type | Null / default | Notes |
 |---|---|---|---|
 | `code_hash` | `CharField(64)` | `unique=True`, `index=True` | |
-| `app` / `user` / `tenant` | FK | not null, `CASCADE` | |
+| `app` / `user` | FK | not null, `CASCADE` | |
+| `tenant` | FK → `Tenant` | null, `CASCADE` | NULL only for a first-party app's code |
 | `redirect_uri` / `code_challenge` / `scope` | `CharField` | not null | S256 challenge only |
 | `expires_at` / `consumed_at` | `DatetimeField` | consumed null | |
 | `grant` | FK → `ApiToken` | null, `SET_NULL` | |
