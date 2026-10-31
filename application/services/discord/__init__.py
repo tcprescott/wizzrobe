@@ -38,7 +38,6 @@ from application.services.discord.discord_role_sync_service import DiscordRoleSy
 from application.services.discord.discord_service import DiscordService
 
 __all__ = [
-    'bot_state',
     'DiscordEmailService',
     'DiscordEventReconcilerService',
     'DiscordEventSyncService',
@@ -50,6 +49,7 @@ __all__ = [
     'DiscordRoleMappingService',
     'DiscordRoleSyncService',
     'DiscordService',
+    'bot_state',
     'discord_event_worker',
     'discord_guild_ops',
     'discord_member_events',
