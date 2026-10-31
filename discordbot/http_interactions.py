@@ -100,7 +100,7 @@ def _callback_echo(interaction_id: int, response_type: int) -> Dict[str, Any]:
 
 
 class _CapturingAdapter(AsyncWebhookAdapter):
-    def create_interaction_response(self, interaction_id, token, *, session, proxy=None, proxy_auth=None, params):  # type: ignore[override]
+    def create_interaction_response(self, interaction_id, token, *, session, proxy=None, proxy_auth=None, params):
         pending = _pending.get(int(interaction_id))
         if pending is None:
             return super().create_interaction_response(

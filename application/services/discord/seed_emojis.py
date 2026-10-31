@@ -63,7 +63,7 @@ def expected_names() -> dict[str, list[str]]:
 
 async def _app_emojis(bot: Optional[commands.Bot]) -> dict[str, str]:
     global _emojis, _fetched_at
-    if not bot_ready(bot):
+    if bot is None or not bot_ready(bot):
         return _emojis
     if _fetched_at is not None and time.monotonic() - _fetched_at < REFRESH_SECONDS:
         return _emojis
