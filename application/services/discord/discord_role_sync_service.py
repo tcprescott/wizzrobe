@@ -20,7 +20,6 @@ Three rules shape it:
   Discord confirms each add or removal, so the next run picks up where it left.
 """
 
-import asyncio
 import logging
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
@@ -38,6 +37,7 @@ from application.services.discord.discord_service import DiscordService
 from application.services.feature_flag_service import FeatureFlagService
 from application.services.tenant_service import TenantService
 from application.tenant_context import require_tenant_id
+from application.utils.shared_lock import LockBusy, shared_lock
 from models import (
     CheckInTierLanyard,
     DiscordRoleRule,
@@ -64,7 +64,6 @@ INBOUND_CONFLICT = (
 )
 BADGES_OFF = "Event check-in is turned off for this community, so no one has a badge."
 
-_locks: Dict[int, asyncio.Lock] = {}
 
 
 def rule_key(
@@ -268,11 +267,11 @@ class DiscordRoleSyncService:
         return await self._sync(wait=False)
 
     async def _sync(self, wait: bool) -> RoleSyncResult:
-        lock = _locks.setdefault(require_tenant_id(), asyncio.Lock())
-        if lock.locked() and not wait:
+        try:
+            async with shared_lock('discord.role_sync', require_tenant_id(), wait=wait):
+                return await self._run()
+        except LockBusy:
             return RoleSyncResult(skipped=True)
-        async with lock:
-            return await self._run()
 
     async def _read_server(self) -> ServerRead:
         """``(guild_id, roles, bot_access)`` for this community's server, or why not."""

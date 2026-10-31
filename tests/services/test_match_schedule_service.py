@@ -125,7 +125,6 @@ def service():
     svc.match_repository.stamp_if_unset = AsyncMock(return_value=True)
     svc.discord_service = MagicMock()
     svc.seedgen_service = MagicMock()
-    svc._seed_locks = {}
     svc.audit_service = make_audit_double()
     svc.notify_match_participants = AsyncMock()
     return svc

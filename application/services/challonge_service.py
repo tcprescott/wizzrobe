@@ -11,7 +11,6 @@ their own Challonge identity (scope ``me``) only so we can map them to bracket
 participants; their tokens are not retained.
 """
 
-import asyncio
 import logging
 import os
 import re
@@ -44,6 +43,7 @@ from application.utils.clients.challonge_client import (
 )
 from application.utils.environment import get_base_url
 from application.utils.mocks.mock_challonge import is_mock_challonge
+from application.utils.shared_lock import shared_lock
 from models import (
     ChallongeConnection,
     ChallongeMatch,
@@ -59,7 +59,6 @@ logger = logging.getLogger(__name__)
 _TOKEN_REFRESH_BUFFER = timedelta(minutes=5)
 
 # Per-community lock: Challonge rotates the refresh token, so the losing racer would send a spent one.
-_refresh_locks: Dict[int, asyncio.Lock] = {}
 
 _SYNC_THROTTLE_WINDOW = timedelta(seconds=60)
 
@@ -182,8 +181,7 @@ class ChallongeService(ChallongeParticipantAssignmentMixin, ChallongeStageMixin,
         return not self._token_expiring(connection, window)
 
     async def _refresh_token(self, connection: ChallongeConnection, buffer: timedelta, *, force: bool = False) -> str:
-        lock = _refresh_locks.setdefault(connection.tenant_id, asyncio.Lock())
-        async with lock:
+        async with shared_lock('challonge.token_refresh', connection.tenant_id):
             await connection.refresh_from_db()
             if not force and not self._token_expiring(connection, buffer):
                 return connection.access_token
