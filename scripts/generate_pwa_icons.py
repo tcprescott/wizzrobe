@@ -33,15 +33,13 @@ except ImportError:
     )
     sys.exit(1)
 
-# --- Brand palette --------------------------------------------------------
-CHARCOAL = (0x17, 0x12, 0x0D)   # #17120D  background
-GOLD = (0xE0, 0xA8, 0x2E)       # #E0A82E  triforce fill
-DEEP_GOLD = (0x9C, 0x6B, 0x12)  # #9C6B12  triforce edge
+CHARCOAL = (0x17, 0x12, 0x0D)
+GOLD = (0xE0, 0xA8, 0x2E)
+DEEP_GOLD = (0x9C, 0x6B, 0x12)
 
-# --- Layout constants -----------------------------------------------------
-SUPERSAMPLE = 4                 # render at 4x then LANCZOS-downscale
-CORNER_FRACTION = 0.20          # rounded-square radius (fraction of side)
-EDGE_FRACTION = 0.012           # triforce outline width (fraction of mark width)
+SUPERSAMPLE = 4
+CORNER_FRACTION = 0.20
+EDGE_FRACTION = 0.012
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 ICONS_DIR = PROJECT_ROOT / "static" / "icons"
@@ -67,9 +65,9 @@ def _triforce_triangles(cx: float, cy: float, mark_w: float) -> list[list[tuple[
     base_mid = mid(bottom_left, bottom_right)
 
     return [
-        [apex, left_mid, right_mid],          # top
-        [left_mid, bottom_left, base_mid],    # bottom-left
-        [right_mid, base_mid, bottom_right],  # bottom-right
+        [apex, left_mid, right_mid],
+        [left_mid, bottom_left, base_mid],
+        [right_mid, base_mid, bottom_right],
     ]
 
 
@@ -107,15 +105,12 @@ def _render_icon(size: int, mark_fraction: float, *, rounded: bool, opaque: bool
     return img
 
 
-# name -> (size, mark_fraction, rounded, opaque)
 ICONS: dict[str, tuple[int, float, bool, bool]] = {
-    # Standard PWA icons: rounded charcoal plate, transparent corners (RGBA).
     "icon-192.png": (192, 0.78, True, False),
     "icon-512.png": (512, 0.78, True, False),
-    # Maskable icon: full-bleed opaque charcoal, mark inside the central 60%
-    # safe zone so launcher masks never clip it (RGB, no alpha).
+    # Maskable: keep the mark inside the central 60% safe zone or launcher masks clip it.
     "icon-maskable-512.png": (512, 0.56, False, True),
-    # Apple touch icon: full-bleed opaque charcoal, iOS applies its own mask (RGB).
+    # Apple touch: full-bleed and opaque (RGB); iOS applies its own mask.
     "apple-touch-icon.png": (180, 0.82, False, True),
 }
 

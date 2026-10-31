@@ -29,14 +29,10 @@ import logging
 import sys
 from pathlib import Path
 
-# Ensure project root is on the path when run as a script
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from tortoise import Tortoise
 
-# Worker name -> module holding `_tick`. Keep in step with the
-# `run_worker_loop(...)` call sites; tests/test_registry_drift.py fails when a
-# worker is missing here.
 WORKERS = {
     'discord_event': 'application.services.discord.discord_event_worker',
     'seed_roll': 'application.services.seed_roll_worker',
@@ -78,9 +74,6 @@ async def run_tick(worker: str, tenant: str | None) -> None:
                 f"changed and this runner needs updating."
             )
         if tenant:
-            # A worker normally discovers its own tenants and wraps each in
-            # tenant_scope. Pinning one is for reproducing a single tenant's
-            # behaviour, not for exercising the fan-out.
             from application.tenant_context import tenant_scope
             from models import Tenant
 

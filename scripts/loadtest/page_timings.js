@@ -31,8 +31,6 @@ function psql(sql) {
   return execFileSync('psql', [PGURL, '-Atc', sql], { encoding: 'utf8' }).trim();
 }
 
-// The server's CPU time, so a page's cost is visible apart from network and
-// browser time. SERVER_PID overrides discovery.
 const SERVER_PID = process.env.SERVER_PID || execFileSync('pgrep', ['-f', 'uvicorn main:app'], { encoding: 'utf8' })
   .trim().split('\n').pop();
 function cpuMs() {
@@ -121,8 +119,6 @@ async function timeOnce(page, url, target) {
     const url = t.path.startsWith('/t/') || t.platform ? base + t.path : `${base}/t/${tenant}${t.path}`;
     const runs = [];
     for (let i = 0; i < (cfg.repeat || 2); i++) {
-      // Under profile_server.py, bracket the last run with SIGUSR1 so its
-      // profile lands in a file of its own (named in the log line).
       const profiling = PROFILE_PID && i === (cfg.repeat || 2) - 1;
       if (profiling) { process.kill(+PROFILE_PID, 'SIGUSR1'); profileN += 1; await page.waitForTimeout(300); }
       try { runs.push(await timeOnce(page, url, t)); } catch (e) { runs.push({ error: e.message.split('\n')[0] }); }

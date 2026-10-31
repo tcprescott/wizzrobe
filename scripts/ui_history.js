@@ -71,7 +71,6 @@ async function clickText(page, text, within, mobile) {
       return;
     }
   }
-  // A hub tab that is only in the drawer: open the drawer first on a phone.
   if (mobile) {
     const burger = page.locator('.wiz-header button[aria-label*="enu"], .wiz-header .q-btn').first();
     if (await burger.count()) {
@@ -94,7 +93,6 @@ async function check(page, want, prefix, before) {
     problems.length = 0;
     const url = new URL(page.url());
     const path = url.pathname.startsWith(prefix) ? url.pathname.slice(prefix.length) : url.pathname;
-    // An event page answers at /e/<event>/…; the scenarios name the event-free path.
     const local = path.replace(/^\/e\/[^/]+(?=\/|$)/, '') + url.search;
     if (want.url && !new RegExp(want.url).test(local)) problems.push(`url ${local} !~ ${want.url}`);
     if (want.noUrl && new RegExp(want.noUrl).test(local)) problems.push(`url ${local} should not match ${want.noUrl}`);
@@ -181,10 +179,8 @@ async function check(page, want, prefix, before) {
               await page.goForward({ waitUntil: 'commit' });
               await settle(page);
             } else if (step.reload) {
-              // Playwright's WebKit on Linux crashes any navigation of a tab
-              // that has done a same-document Back/Forward (even on a static
-              // file), so WebKit opens the address in a fresh tab instead: the
-              // same request a reload makes.
+              // Playwright's WebKit on Linux crashes navigating a tab after a
+              // same-document Back/Forward, so reload in a fresh tab instead.
               if (engine === 'webkit') {
                 const url = page.url();
                 const fresh = await ctx.newPage();

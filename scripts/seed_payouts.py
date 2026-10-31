@@ -15,7 +15,6 @@ from decimal import Decimal
 
 from models import Tenant, Tournament, TournamentPayout, TournamentPlayers, User
 
-#: place -> (percentage, index into the players list). Two rows at place 3.
 _ARCHIVED_SPLIT = [
     (1, Decimal('50.00'), 0),
     (2, Decimal('30.00'), 1),
@@ -23,16 +22,13 @@ _ARCHIVED_SPLIT = [
     (3, Decimal('10.00'), 3),
 ]
 
-#: place -> (fixed dollar amount, index into the players list).
 _FIXED_SPLIT = [
     (1, Decimal('400.00'), 0),
     (2, Decimal('200.00'), 1),
     (3, Decimal('135.00'), 3),
 ]
 
-#: Who carries a handle. player_three is left without one on purpose — they are
-#: a third place in the split above, so the export renders its missing-handle
-#: branch every time someone opens it.
+# player_three has no handle on purpose: it keeps the export's missing-handle branch covered.
 MATCHERINO_HANDLES = {
     'player_one': 'jemgold#100234',
     'player_two': 'blueshell#204871',
@@ -71,24 +67,18 @@ async def seed_payouts_for_tenant(
                 defaults={'percentage': percentage},
             )
 
-    # The drafting state: money announced, nobody placed. Its rows stay absent
-    # rather than sitting at place 1 with no name — an empty split is what the
-    # tab shows before the bracket finishes.
     active = await Tournament.get_or_none(
         name='Wizzrobe Dev Tournament', tenant=tenant,
     )
     if active is not None and active.prize_pool is None:
         active.prize_pool = Decimal('500.00')
         await active.save()
-    # Linked to sglive's Wind Waker page so the synced-pool lock, the Pool
-    # column's sync icon and the handbook footnote all have a row to show.
     if active is not None and active.sglive_slug is None:
         active.sglive_slug = 'wwr'
         active.prize_pool_synced_at = datetime.now(timezone.utc)
         await active.save()
 
-    # Fixed dollars, as SGL26 ALTTPR announced them: $400 / $200 / $135 of a
-    # $735 pool, which no two-decimal percentage reproduces to the cent.
+    # Fixed dollars: no two-decimal percentage reproduces $400/$200/$135 of $735 to the cent.
     fixed = await Tournament.get_or_none(name='Wizzrobe Archive Cup', tenant=tenant)
     if fixed is not None:
         if fixed.prize_pool is None:

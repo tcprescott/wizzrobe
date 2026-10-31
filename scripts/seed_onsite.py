@@ -28,11 +28,6 @@ from models import (
 )
 from scripts.seed_support import backfill
 
-#: What a venue event fills in besides its name. The durations are the pair the
-#: schedule's suggestion engine and the reports' expected-average column read
-#: (both fall back to a hard-coded 90 minutes when NULL), and a Cup match is
-#: shorter than a bracket race — so the two on-site fixtures no longer look
-#: identical to anything that reasons about match length.
 _ONSITE_META = {
     "tournament_format": "Swiss rounds into a single-elimination top 8",
     "rules_url": "https://example.invalid/wizzrobe/cup/rules",
@@ -62,27 +57,15 @@ async def seed_onsite_for_tenant(
         name="Wizzrobe Cup", tenant=tenant,
         defaults={
             "description": "On-site fixture — no racetime.gg integration.",
-            # **Closed** signups, the state the Tournaments tab has to render
-            # without a button: the dev tournament covers open, and the
-            # not-yet-open case is seeded on the archived one below.
             "signups_open_at": now - timedelta(days=60),
             "signups_close_at": now - timedelta(days=7),
             "seed_generator": "alttpr",
             "is_active": True,
             "players_per_match": 2,
-            # A commentary-only community: this tournament runs restreams with
-            # two commentators and no tracker. Without the requirement set to 0
-            # every streamed match here would report a permanent coverage gap —
-            # which is exactly the bug the setting exists to fix, so dev needs a
-            # tournament that exercises the non-default side of it.
             "required_commentators": 2,
             "required_trackers": 0,
-            # A non-default stage reminder lead, so the worker's per-tournament
-            # re-check is exercised rather than the 30-minute default.
             "stage_reminder_minutes": 45,
             **_ONSITE_META,
-            # Per-tournament "tournament days" override: its own event window
-            # and per-day hours, distinct from the tenant default.
             "event_start_date": today,
             "event_end_date": today + timedelta(days=3),
             "tournament_hours": {
@@ -92,15 +75,12 @@ async def seed_onsite_for_tenant(
         },
     )
     await backfill(onsite, **_ONSITE_META)
-    # ``backfill`` only fills NULLs, and these columns are NOT NULL defaulting to
-    # 1/1 — so a dev database seeded before the crew requirement existed would
-    # still show this commentary-only tournament a false gap. Converge it, but
-    # only while it holds the column defaults, so a hand-set value survives.
+    # Converge only while the columns hold their NOT NULL defaults, so a hand-set value survives.
     if (onsite.required_commentators, onsite.required_trackers) == (1, 1):
         onsite.required_commentators = 2
         onsite.required_trackers = 0
         await onsite.save()
-    # Same reasoning for the stage reminder lead, which also defaults NOT NULL.
+    # Same for the stage reminder lead.
     if onsite.stage_reminder_minutes == 30:
         onsite.stage_reminder_minutes = 45
         await onsite.save()
@@ -147,30 +127,17 @@ async def seed_onsite_for_tenant(
             )
         return match
 
-    # One row per step of the proctor's workflow.
     await make_match("On-Site Scheduled", 2)
     await make_match("On-Site Overdue", -0.5)
     checked_in = await make_match(
         "On-Site Checked In", 0.25, seated=True, stations=('3', '7'), stage=stage1,
     )
-    # Two approved commentators and **no tracker**: a fully staffed restream for
-    # a tournament that does not use trackers, and this tournament's crew
-    # requirement (2 commentators, 0 trackers) says so — the coverage reports
-    # call it covered. The dev tournament requires one of each and staffs both,
-    # so the two fixtures together show the requirement actually varying. Crew
-    # are the two entrants not in this match, which is how a restream really
-    # gets staffed.
     for commentator in (players[2], players[3]):
         await Commentator.get_or_create(
             match=checked_in, user=commentator, tenant=tenant,
             defaults={"approved": True, "approved_by": staff, "acknowledged_at": now},
         )
-    # Scheduled, on a stage, and inside this tournament's 45-minute lead — the
-    # row the stage reminder worker has to find on a freshly seeded database.
     stage_call = await make_match("On-Site Stage Call", 0.5, stage=stage3)
-    # Pair commentary, both states: on the stage call players[2] is signed up
-    # and waiting on players[3]'s answer (their My Schedule carries the invite);
-    # on the scheduled match players[3] brought players[2], who accepted.
     await Commentator.get_or_create(match=stage_call, user=players[2], tenant=tenant)
     await _invite(tenant, stage_call, players[2], players[3], CommentaryInviteStatus.PENDING, None)
     paired = await Match.get(title="On-Site Scheduled", tournament=onsite, tenant=tenant)
@@ -179,17 +146,14 @@ async def seed_onsite_for_tenant(
         match=paired, user=players[2], tenant=tenant, defaults={"invited_by": players[3]},
     )
     await _invite(tenant, paired, players[3], players[2], CommentaryInviteStatus.ACCEPTED, now)
-    # The settled states the board never draws: an invite declined and one
-    # taken back. Seed-only history, so the audit log has no row for them.
     for status in (CommentaryInviteStatus.DECLINED, CommentaryInviteStatus.CANCELLED):
         await _invite(tenant, stage_call, players[3], players[2], status, now - timedelta(hours=1))
     await make_match("On-Site In Progress", -1, seated=True, started=True, stations=('4', '8'), stage=stage3)
-    # Recorded but not yet confirmed — the admin's review queue.
     await make_match(
         "On-Site Awaiting Review", -2,
         seated=True, started=True, finished=True, stations=('1', '5'), stage=stage1,
     )
-    # Finished with *no* winner recorded: confirming this must be refused.
+    # Finished with no winner on purpose: confirming it must be refused.
     await make_match(
         "On-Site Result Missing", -3,
         seated=True, started=True, finished=True, winner_rank=False, stations=('2', '6'),

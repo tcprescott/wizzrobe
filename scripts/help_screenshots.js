@@ -68,7 +68,6 @@ const VIEWPORTS = {
   desktop: { viewport: { width: 1280, height: 800 }, deviceScaleFactor: 1, isMobile: false, hasTouch: false },
 };
 
-// Transient chrome that would date a screenshot or cover what it is about.
 const DEFAULT_HIDE = ['.q-notifications', '.q-loading-bar', '.wiz-skip-link'];
 
 const WEBP_QUALITY = 0.85;
@@ -117,7 +116,7 @@ function tenantPath(tenant, p) {
 
 async function settle(page) {
   await page.waitForLoadState('networkidle').catch(() => {});
-  // NiceGUI builds the page over its websocket after load; give it a beat.
+  // NiceGUI builds the page over its websocket after load.
   await page.waitForTimeout(1200);
 }
 
@@ -144,11 +143,8 @@ async function runSetup(page, steps) {
   }
 }
 
-// Numbered call-outs: a red outline padded clear of the control, with its number
-// in a tab on the outline's top-left edge (or bottom-left when the top would fall
-// outside the capture). Drawn as page overlays so they scale with the device.
-// They hang off <html>, not <body>: with a dialog open Quasar pins the body with
-// position:fixed and a negative top, which would shift anything placed inside it.
+// Marks hang off <html>, not <body>: with a dialog open Quasar pins the body with
+// position:fixed and a negative top, which would shift them.
 const MARK = { color: '#D92D20', border: 3, radius: 6, gap: 4, tab: 21 };
 
 async function drawAnnotations(page, marks, captureTop) {
@@ -216,8 +212,7 @@ async function capturePng(page, shot) {
     const target = page.locator(shot.selector).first();
     await target.waitFor({ state: 'visible' });
     await target.scrollIntoViewIfNeeded();
-    // Page coordinates rather than viewport ones, so an element taller than the
-    // viewport is captured whole.
+    // Page coordinates, not viewport ones, so a tall element is captured whole.
     const box = await target.evaluate((el) => {
       const r = el.getBoundingClientRect();
       return { x: r.left + window.scrollX, y: r.top + window.scrollY, width: r.width, height: r.height };
@@ -233,8 +228,6 @@ async function capturePng(page, shot) {
       width: Math.min(size.width - x, box.width + pad * 2),
       height: Math.min(size.height - y, box.height + pad * 2),
     };
-    // A mark on a control at the crop's edge widens the crop just enough to
-    // show the whole outline, rather than cutting it off.
     for (const e of await drawAnnotations(page, shot.annotate, y)) {
       const x1 = Math.max(0, Math.min(clip.x, e.x1 - 1));
       const x2 = Math.min(size.width, Math.max(clip.x + clip.width, e.x2 + 1));

@@ -7,11 +7,6 @@
  * on to its client makes the count of dead-but-alive pages grow with every
  * round, and the check fails printing what holds them (`stale_clients_held_by`).
  *
- * SGLMAN-29 was this: per-tab state in a WeakKeyDictionary whose value pointed
- * back at its client, so every closed tab's page stayed in memory and every
- * full garbage collection got longer with uptime. Per-tab state must let go in
- * `client.on_delete`; docs/features/observability.md#finding-a-leak-memory_census.
- *
  * A few dead pages held by a shared refreshable's target list are normal (NiceGUI
  * prunes them on its next call), and which ones depends on which page rendered
  * last, so that count wobbles by one or two between rounds. A leak grows on every
@@ -51,8 +46,7 @@ async function census(dump) {
   throw new Error('the app wrote no census within 60s');
 }
 
-// Closed tabs stay registered until NiceGUI's reconnect window runs out
-// (frontend.py: 30s), so wait for the server to drop them before counting.
+// Closed tabs stay registered until NiceGUI's 30s reconnect window ends: wait before counting.
 async function settled(dump) {
   let last;
   for (let i = 0; i < 24; i++) {

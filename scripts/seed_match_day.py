@@ -21,11 +21,8 @@ from datetime import date, datetime, timedelta
 from application.utils.timezone import parse_local_datetime
 from models import Match, MatchPlayers, Stage, Tenant, Tournament, User
 
-#: Start of each slot on the day, and how long the stage is booked for. Five
-#: slots from the venue's opening hour, two hours apart.
 _SLOT_TIMES = ("10:00", "12:00", "14:00", "16:00", "18:00")
 
-#: Round labels, one per slot — what a bracket match is actually called.
 _ROUND_LABELS = (
     "Winners Round 1",
     "Winners Round 2",
@@ -51,8 +48,7 @@ async def seed_match_day_for_tenant(
     created = 0
     for slot_index, (start_hhmm, round_label) in enumerate(zip(_SLOT_TIMES, _ROUND_LABELS, strict=False)):
         starts_at = parse_local_datetime(day_str, start_hhmm)
-        # Six racers per slot, taken in order so nobody is booked onto two stages
-        # at the same time (the pool is twelve, so a slot never wraps onto itself).
+        # Taken in order so nobody is booked onto two stages at once.
         offset = (slot_index * len(stages) * 2) % len(racers)
         for stage_index, stage in enumerate(stages):
             title = f"{round_label} — Match {stage_index + 1}"

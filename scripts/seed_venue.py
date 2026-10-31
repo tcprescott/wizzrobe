@@ -29,7 +29,6 @@ async def seed_venue_for_tenant(
     the volunteer fixtures and player availability all have to describe the same
     three-day window.
     """
-    # Stages
     for name, url in [
         ("Stage 1", "https://twitch.tv/wizzrobe"),
         ("Stage 2", "https://twitch.tv/wizzrobe2"),
@@ -41,13 +40,7 @@ async def seed_venue_for_tenant(
         )
     print(f"    [{tenant.slug}] stages ok")
 
-    # Venue station pool — two banks facing into the middle of the room.
-    # Only tenant A defines one: a community with no stations keeps the
-    # historical free-text station field, and tenant B is that fixture.
     if tenant.slug == "default":
-        # Sided and numbered so the check-in draw has a room to work with:
-        # six a side, neighbours one apart, more than the live matches
-        # occupy. Station 13 has no layout — the "no side set" fixture.
         layout = (
             [(f"{n}", "North wall", StationSide.LEFT, n) for n in range(1, 7)]
             + [(f"{n}", "South wall", StationSide.RIGHT, n - 6) for n in range(7, 13)]
@@ -62,10 +55,6 @@ async def seed_venue_for_tenant(
         print(f"    [{tenant.slug}] stations ok")
     else:
         print(f"    [{tenant.slug}] stations skipped (free-text fallback fixture)")
-    # System configuration — every key SystemConfigService reads, because a
-    # key the seed omits is a Settings-tab field that reads as "not
-    # configured" in dev and a code path (venue hours, the reminder lead, the
-    # station-label format) that only ever runs on its fallback.
     venue_hours = {
         event_days[0].isoformat(): {"open": "10:00", "close": "23:00"},
         event_days[1].isoformat(): {"open": "09:00", "close": "23:00"},
@@ -79,22 +68,11 @@ async def seed_venue_for_tenant(
         ("volunteer_reminder_lead_minutes", "90"),
         ("volunteer_comp_tiers", "8, 12, 16"),
         ("tournament_hours_by_date", json.dumps(venue_hours, sort_keys=True)),
-        # Tenant A's stations are the numbered pool seeded below, so it
-        # enforces numeric labels; tenant B has no station pool and keeps the
-        # free-text default — the two halves of the same setting.
         ("station_format", "numeric" if tenant.slug == "default" else "free"),
-        # Both halves of Discord auto-join, the same way: tenant B lets its
-        # server in, tenant A only offers the invite. ``outsider`` is in no mock
-        # server (mock_discord_data.MOCK_NON_GUILD_MEMBERS), so it still meets
-        # each door and reads both versions of its copy.
         ("discord_auto_join", "true" if tenant.slug == "second" else "false"),
-        # And tenant B takes no join requests, so its door is the
-        # Discord-only one: the case the switch exists for. Tenant A keeps
-        # the default request form.
         ("join_requests_enabled", "false" if tenant.slug == "second" else "true"),
         ("discord_invite_url", f"https://discord.gg/wizzrobe-{tenant.slug}"),
     ]
-    # The event's own settings go on the default event; the rest stay rows.
     default_event = await Event.get(tenant=tenant, is_default=True)
     event_config = dict(default_event.config or {})
     for key, val in config_specs:

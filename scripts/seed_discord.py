@@ -43,7 +43,6 @@ async def seed_discord_for_tenant(
     tenant: Tenant, tournament: Tournament, users: dict[str, User]
 ) -> None:
     """Seed one tenant's guild-role mappings and the grants sync would produce."""
-    # Each tenant maps its own guild's roles onto app roles.
     guild_id = tenant.discord_guild_id
     role_mapping_specs = [
         (2000000000000000001, "Wizzrobe Staff", Role.STAFF),
@@ -56,9 +55,6 @@ async def seed_discord_for_tenant(
             guild_id=guild_id, discord_role_id=discord_role_id, app_role=app_role,
             tenant=tenant, defaults={"discord_role_name": discord_role_name},
         )
-    # The other shape of mapping: a guild role onto one tournament's grants
-    # rather than a community-wide role. Both live in the same table and the
-    # admin tab renders them side by side, so the seed needs one of each.
     for discord_role_id, discord_role_name, grant in [
         (2000000000000000005, "Event Admins", TournamentGrant.TOURNAMENT_ADMIN),
         (2000000000000000006, "Crew Leads", TournamentGrant.CREW_COORDINATOR),
@@ -68,9 +64,6 @@ async def seed_discord_for_tenant(
             tournament_grant=grant, tournament=tournament, tenant=tenant,
             defaults={"discord_role_name": discord_role_name},
         )
-    # And the provenance rows sync would leave behind, so the "a re-sync may
-    # take this back" state sits next to a hand-made grant that it may not:
-    # staff holds both grants manually, these two came from the guild roles.
     for uname, grant in [
         ("player_three", TournamentGrant.CREW_COORDINATOR),
         ("player_four", TournamentGrant.TOURNAMENT_ADMIN),

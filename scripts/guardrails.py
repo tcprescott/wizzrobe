@@ -45,7 +45,6 @@ ROOT = Path(__file__).resolve().parent.parent
 HOOKS = ROOT / ".claude" / "scripts"
 BASELINE_PATH = ROOT / "scripts" / "guardrail_baseline.json"
 
-# Per-file checks: each is handed one path at a time.
 FILE_CHECKS = [
     "check_api_route_auth",
     "check_audit_actions",
@@ -78,22 +77,11 @@ FILE_CHECKS = [
     "enforce_nicegui_client_api",
 ]
 
-# Only meaningful against a diff, and only against files the diff *modified*:
-# "you edited a migration that already exists" is a violation, but every migration
-# in the tree trivially matches it, and a newly added one is not an edit at all —
-# adding a migration is how schema changes ship. Skipped for added paths (see
-# ``added_files``), mirroring the hook's own allowance for a Write to a path that
-# does not yet exist.
+# Modified files only: adding a migration is how schema changes ship, so added paths are skipped.
 CHANGED_ONLY_CHECKS = {"enforce_migration_safety"}
 
-# Whole-repo checks: run once, with no file payload.
 REPO_CHECKS: list[str] = []
 
-# Deliberately not replayed here, each with the reason. Data rather than a
-# comment because ``tests/test_guardrail_ci_parity.py`` reads it: every script in
-# ``.claude/scripts/`` must appear in one of the lists above or in this mapping,
-# so a new hook cannot quietly end up enforced in a Claude session and nowhere
-# else. That is exactly how ``check_fixture_cost`` was missed for a while.
 EXCLUDED_CHECKS = {
     "run_full_tests": "a test runner, not a check — CI runs pytest directly",
     "run_related_tests": "a test runner, not a check — CI runs pytest directly",
@@ -253,7 +241,7 @@ def main() -> int:
     hits: dict[str, dict[str, int]] = defaultdict(lambda: defaultdict(int))
     messages: list[str] = []
 
-    # Warm the base-revision cache serially; git is not the thing to parallelize.
+    # Warm the base-revision cache serially; don't parallelize git.
     for path in paths:
         base_content(path, base)
 
