@@ -2,3 +2,7 @@ node_modules/
 dist/
 *.tsbuildinfo
 a11y-report/
+
+# The repo root ignores lib/ (Python builds) and .env*; these two are source.
+!src/lib/
+!.env.development
