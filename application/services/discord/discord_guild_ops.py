@@ -20,6 +20,7 @@ from typing import AbstractSet, Dict, FrozenSet, List, Optional, Set, Tuple, Uni
 import discord
 from discord.ext import commands
 
+from application.services.discord.bot_state import bot_ready
 from application.utils.mocks import mock_discord_data
 
 logger = logging.getLogger(__name__)
@@ -68,6 +69,17 @@ class GuildOpsMixin:
 
     _bot: Optional[commands.Bot]
 
+    async def _cached_or_fetched_guild(self, guild_id: int) -> Optional[discord.Guild]:
+        """The guild from the gateway cache, else from REST; ``None`` when the bot isn't in it."""
+        assert self._bot is not None
+        guild = self._bot.get_guild(guild_id)
+        if guild is not None:
+            return guild
+        try:
+            return await self._bot.fetch_guild(guild_id)
+        except discord.NotFound:
+            return None
+
     async def list_guilds(self) -> Tuple[bool, Union[List[Dict[str, Union[int, str]]], str]]:
         """
         Retrieve the list of guilds (servers) the bot is currently connected to.
@@ -84,10 +96,13 @@ class GuildOpsMixin:
             if self._bot is None:
                 return False, "Discord bot not initialized"
 
-            if not self._bot.is_ready():
+            if not bot_ready(self._bot):
                 return False, "Discord bot is not connected. Please try again in a moment."
 
-            guilds = self._bot.guilds
+            # A REST-only client has no guild cache, so ask Discord.
+            guilds = self._bot.guilds if self._bot.is_ready() else [
+                g async for g in self._bot.fetch_guilds(limit=None)
+            ]
             data = [{"id": g.id, "name": g.name} for g in guilds]
             return True, data
         except Exception as e:
@@ -112,7 +127,7 @@ class GuildOpsMixin:
             if self._bot is None:
                 return False, "Discord bot not initialized"
 
-            if not self._bot.is_ready():
+            if not bot_ready(self._bot):
                 return False, "Discord bot is not connected. Please try again in a moment."
 
             guild = self._bot.get_guild(guild_id)
@@ -157,7 +172,7 @@ class GuildOpsMixin:
         try:
             if self._bot is None:
                 return False, "Discord bot not initialized"
-            if not self._bot.is_ready():
+            if not bot_ready(self._bot):
                 return False, "Discord bot is not connected. Please try again in a moment."
 
             guild = self._bot.get_guild(guild_id) or await self._bot.fetch_guild(guild_id)
@@ -235,9 +250,9 @@ class GuildOpsMixin:
         try:
             if self._bot is None:
                 return False, "Discord bot not initialized"
-            if not self._bot.is_ready():
+            if not bot_ready(self._bot):
                 return False, "Discord bot is not connected. Please try again in a moment."
-            guild = self._bot.get_guild(guild_id)
+            guild = await self._cached_or_fetched_guild(guild_id)
             if guild is None:
                 return False, "The bot is not in this server."
             me = guild.me
@@ -268,11 +283,11 @@ class GuildOpsMixin:
         try:
             if self._bot is None:
                 return False, "Discord bot not initialized"
-            if not self._bot.is_ready():
+            if not bot_ready(self._bot):
                 return False, "Discord bot is not connected. Please try again in a moment."
             if not user_ids:
                 return True, {}
-            guild = self._bot.get_guild(guild_id)
+            guild = await self._cached_or_fetched_guild(guild_id)
             if guild is None:
                 return False, "The bot is not in this server."
             if guild.chunked:
@@ -303,7 +318,7 @@ class GuildOpsMixin:
         try:
             if self._bot is None:
                 return False, "Discord bot not initialized"
-            if not self._bot.is_ready():
+            if not bot_ready(self._bot):
                 return False, "Discord bot is not connected. Please try again in a moment."
 
             guild = self._bot.get_guild(guild_id) or await self._bot.fetch_guild(guild_id)
@@ -348,7 +363,7 @@ class GuildOpsMixin:
         try:
             if self._bot is None:
                 return False, "Discord bot not initialized"
-            if not self._bot.is_ready():
+            if not bot_ready(self._bot):
                 return False, "Discord bot is not connected. Please try again in a moment."
 
             guild = self._bot.get_guild(guild_id)
@@ -382,7 +397,7 @@ class GuildOpsMixin:
         try:
             if self._bot is None:
                 return False, "Discord bot not initialized"
-            if not self._bot.is_ready():
+            if not bot_ready(self._bot):
                 return False, "Discord bot is not connected. Please try again in a moment."
             guild = self._bot.get_guild(guild_id)
             if guild is None:
@@ -413,7 +428,7 @@ class GuildOpsMixin:
         try:
             if self._bot is None:
                 return False, "Discord bot not initialized"
-            if not self._bot.is_ready():
+            if not bot_ready(self._bot):
                 return False, "Discord bot is not connected. Please try again in a moment."
             guild = self._bot.get_guild(guild_id)
             if guild is None:
@@ -452,7 +467,7 @@ class GuildOpsMixin:
         try:
             if self._bot is None:
                 return False, "Discord bot not initialized"
-            if not self._bot.is_ready():
+            if not bot_ready(self._bot):
                 return False, "Discord bot is not connected. Please try again in a moment."
             guild = self._bot.get_guild(guild_id)
             if guild is None:

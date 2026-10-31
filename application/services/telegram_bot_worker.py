@@ -1,7 +1,10 @@
 """The Telegram bot: answers ``/start <token>`` and ``/stop``.
 
-Long-polls ``getUpdates`` so no public webhook has to be registered. It only
-binds chats through the one-time tokens a profile mints (see
+Two ways in. By default it long-polls ``getUpdates`` so no public webhook has
+to be registered. With ``TELEGRAM_WEBHOOK_SECRET`` set, :func:`start` registers
+``<BASE_URL>/telegram/webhook`` instead and Telegram POSTs each update there
+(:func:`handle_update`), so nothing has to stay up polling. It only binds chats
+through the one-time tokens a profile mints (see
 ``NotificationChannelService.create_telegram_link``), and answers commands in
 private chats only; anything else gets a short pointer back to the profile.
 Started only when ``TELEGRAM_BOT_TOKEN`` is set and Discord isn't mocked.
@@ -41,27 +44,61 @@ async def handle_text(chat_id: int, username: Optional[str], text: str) -> Optio
     return None
 
 
+async def handle_update(update: telegram_client.TelegramUpdate) -> None:
+    """Answer one update, from the poll or the webhook. Never raises."""
+    if update.chat_id is None or update.chat_type != 'private' or not update.text.startswith('/'):
+        return
+    try:
+        reply = await handle_text(update.chat_id, update.username, update.text)
+        if reply:
+            await telegram_client.send_message(update.chat_id, reply)
+    except telegram_client.TelegramBlocked:
+        return
+    except Exception:
+        logger.exception('Telegram update %s failed', update.update_id)
+
+
+_webhook_cleared = False
+
+
 async def _tick() -> None:
-    global _offset
+    global _offset, _webhook_cleared
+    # A webhook left over from webhook mode makes every getUpdates fail.
+    if not _webhook_cleared:
+        _webhook_cleared = await telegram_client.delete_webhook()
     updates = await telegram_client.get_updates(_offset, poll_seconds=POLL_TIMEOUT)
     for update in updates:
         _offset = update.update_id + 1
-        if update.chat_id is None or update.chat_type != 'private' or not update.text.startswith('/'):
-            continue
-        try:
-            reply = await handle_text(update.chat_id, update.username, update.text)
-            if reply:
-                await telegram_client.send_message(update.chat_id, reply)
-        except telegram_client.TelegramBlocked:
-            continue
-        except Exception:
-            logger.exception('Telegram update %s failed', update.update_id)
+        await handle_update(update)
 
 
 _loop = run_worker_loop(_tick, TICK_SECONDS, 'telegram bot', logger)
 
 
-def start() -> None:
+WEBHOOK_PATH = '/telegram/webhook'
+
+
+def webhook_url() -> str:
+    from application.utils.environment import get_base_url
+    return f'{get_base_url().rstrip("/")}{WEBHOOK_PATH}'
+
+
+async def register_webhook() -> bool:
+    """Point Telegram at this deployment's webhook; ``False`` when webhook mode is off."""
+    secret = telegram_client.webhook_secret()
+    if secret is None:
+        return False
+    if await telegram_client.set_webhook(webhook_url(), secret):
+        logger.info('Telegram webhook registered at %s', webhook_url())
+    else:
+        logger.warning('Telegram webhook registration failed; updates will not arrive')
+    return True
+
+
+async def start() -> None:
+    """Register the webhook, or start polling when no webhook secret is set."""
+    if await register_webhook():
+        return
     _loop.start()
 
 

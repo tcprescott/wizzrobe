@@ -18,6 +18,7 @@ from typing import Optional
 from discord.ext import commands
 
 from application.services._seedgen_codes import ALTTPR_CODE_NAMES, DK64R_CODE_NAMES
+from application.services.discord.bot_state import bot_ready
 
 logger = logging.getLogger(__name__)
 
@@ -62,7 +63,7 @@ def expected_names() -> dict[str, list[str]]:
 
 async def _app_emojis(bot: Optional[commands.Bot]) -> dict[str, str]:
     global _emojis, _fetched_at
-    if bot is None or not bot.is_ready():
+    if not bot_ready(bot):
         return _emojis
     if _fetched_at is not None and time.monotonic() - _fetched_at < REFRESH_SECONDS:
         return _emojis

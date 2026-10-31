@@ -12,6 +12,7 @@ composed into it, beside the mock twin it must stay in step with.
 """
 
 from application.services.discord import (
+    bot_state,
     discord_event_worker,
     discord_guild_ops,
     discord_member_events,
@@ -37,6 +38,7 @@ from application.services.discord.discord_role_sync_service import DiscordRoleSy
 from application.services.discord.discord_service import DiscordService
 
 __all__ = [
+    'bot_state',
     'DiscordEmailService',
     'DiscordEventReconcilerService',
     'DiscordEventSyncService',

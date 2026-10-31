@@ -14,6 +14,7 @@ from discord import app_commands
 from discord.ext import commands
 
 from application.events import dispatch_queue as event_dispatch_queue
+from application.services.discord.bot_state import bot_ready
 from application.services.discord.discord_guild_ops import (
     GuildMember,
     GuildOpsMixin,
@@ -32,6 +33,7 @@ from application.services.notification_links import settings_footnote
 from application.services.sent_message_service import SentMessageRef, SentMessageService
 from application.services.web_push_service import WebPushService
 from application.utils.discord_messages import DMLink
+from application.utils.environment import discord_gateway_enabled
 from application.utils.settings_footnote import SettingsFootnote
 from models import SentMessageStatus
 
@@ -265,6 +267,9 @@ def register_app_command(command: AppCommand) -> None:
 async def _install_app_commands(bot: commands.Bot) -> None:
     for command in _app_commands:
         bot.tree.add_command(command, override=True)
+    # A REST-only API instance starts often; the gateway process owns the sync.
+    if not discord_gateway_enabled():
+        return
     try:
         synced = await bot.tree.sync()
         logger.info('Synced %d Discord application commands', len(synced))
@@ -327,6 +332,48 @@ def get_discord_bot() -> commands.Bot:
             await sync_member_roles(member.guild.id, member.id)
 
     return _bot_instance
+
+
+_rest_login_lock: Optional[asyncio.Lock] = None
+
+
+async def sign_in_for_rest() -> bool:
+    """Sign the shared client in over REST without opening the gateway.
+
+    Used when ``DISCORD_GATEWAY`` is off. Returns whether it is signed in.
+    ``login`` also runs ``setup_hook``, so slash commands are in the tree for
+    HTTP interactions even though this process never syncs them.
+    """
+    global _rest_login_lock
+    token = os.environ.get('DISCORD_TOKEN')
+    if not token or is_mock_discord():
+        return False
+    bot = get_discord_bot()
+    if _rest_login_lock is None:
+        _rest_login_lock = asyncio.Lock()
+    async with _rest_login_lock:
+        if bot.user is None:
+            await bot.login(token)
+    return True
+
+
+async def ensure_rest_client() -> Optional[commands.Bot]:
+    """The shared client once it holds a token, signing in first when gateway-less.
+
+    ``None`` while a gateway process is still connecting, or when there is no
+    token; an HTTP interaction arriving then can't be answered.
+    """
+    bot = get_discord_bot()
+    if bot.user is not None and not bot.is_closed():
+        return bot
+    if discord_gateway_enabled():
+        return None
+    try:
+        if await sign_in_for_rest():
+            return bot
+    except Exception:
+        logger.exception('Discord REST sign-in failed')
+    return None
 
 
 class DiscordService(GuildOpsMixin, ScheduledEventsMixin):
@@ -429,7 +476,7 @@ class DiscordService(GuildOpsMixin, ScheduledEventsMixin):
                 logger.error('Discord DM to %s not sent: bot not initialized', user_id)
                 return False, "Discord bot not initialized"
 
-            if not self._bot.is_ready():
+            if not bot_ready(self._bot):
                 logger.error('Discord DM to %s not sent: bot is not connected', user_id)
                 return False, "Discord bot is not connected. Please try again in a moment."
 
@@ -480,7 +527,7 @@ class DiscordService(GuildOpsMixin, ScheduledEventsMixin):
         the original can't be changed: this updates the message in place and
         nothing else. Any old buttons go, and ``link`` is the only one left.
         """
-        if self._bot is None or not self._bot.is_ready():
+        if not bot_ready(self._bot):
             logger.error('Discord DM %s not edited: bot is not connected', message_id)
             return False, "Discord bot is not connected. Please try again in a moment."
         try:
@@ -739,4 +786,4 @@ def discord_bot_down() -> bool:
     """
     if is_mock_discord() or _bot_instance is None or not os.environ.get('DISCORD_TOKEN'):
         return False
-    return not _bot_instance.is_ready()
+    return not bot_ready(_bot_instance)

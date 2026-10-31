@@ -475,6 +475,57 @@ No feature flag: it's on wherever the bot is in a linked server. The token
 store is in-process, like the Design B handoff's, so it assumes the
 single-worker deployment ([scaling-roadmap.md](../scaling-roadmap.md)).
 
+## Interactions over HTTP
+
+Button presses, modal submits and slash commands can reach Wizzrobe two ways,
+and the handlers in `discordbot/` don't know which:
+
+- **Gateway** (the default). Discord pushes `INTERACTION_CREATE` down the bot's
+  websocket and the handler answers by POSTing to Discord's callback endpoint.
+- **HTTP.** With **Interactions Endpoint URL** set in the Developer Portal to
+  `<BASE_URL>/discord/interactions`, Discord stops using the gateway for them
+  and POSTs each one there, signed with the application's ed25519 key.
+  [`api/inbound_webhooks.py`](../../api/inbound_webhooks.py) checks the
+  signature against `DISCORD_PUBLIC_KEY` (and refuses one more than 5 minutes
+  old), answers Discord's `PING`, and hands the rest to
+  [`discordbot/http_interactions.py`](../../discordbot/http_interactions.py).
+
+`http_interactions.dispatch` feeds the payload through discord.py's own
+`parse_interaction_create`, so the command tree, the view store and the
+`custom_id` prefix registry all run exactly as they do for a gateway event. The
+difference is one webhook adapter, set in the dispatch's context: for that
+interaction id it captures the handler's first response (`defer`,
+`send_message`, `send_modal`, `edit_message`, `autocomplete`) instead of
+POSTing it, and the endpoint returns it as the HTTP body. Followups and message
+edits go over REST as before. A handler still silent after 2.5 seconds gets a
+stand-in (a deferred update for a button, a private "thinking" for a command),
+and its late first answer is then sent as a followup or an edit of the message.
+Every handler defers first, so in practice the body is the defer.
+
+Setting the URL is a switch for the whole application, so set
+`DISCORD_PUBLIC_KEY` on the running app first: Discord validates the URL by
+sending a `PING` and a badly signed request, and saves it only if the first
+gets a `PONG` and the second a 401. Clearing the URL puts everything back on
+the gateway.
+
+**Running without the gateway.** `DISCORD_GATEWAY=off` makes a process sign in
+for REST only (`bot.login`, no websocket). DMs, DM edits and guild reads all
+still work (they're REST calls; `bot_ready()` counts a REST sign-in as usable),
+and buttons work through the endpoint above. What it loses is everything the
+gateway pushes: `on_member_update` / `on_member_remove` (inbound role sync and
+avatar refresh) and slash-command sync. Those run on
+[`bots.py`](../../bots.py), the always-on bot service, which forces the
+gateway on and also runs the racetime room bot and its auto-open worker, with
+the same delivery queues as the main app so events its handlers publish still
+reach webhooks. Today's single process needs none of this: leave
+`DISCORD_GATEWAY` on and `bots.py` unused.
+
+Not yet split across processes, for the Cloud Run step of
+[the mobile app spec](../specs/mobile-app.md): the racetime bot's room actions
+and the platform page's "restart bot" call into the in-process runtime, and the
+seed-rolled event that posts a seed to a room fires on the API. Both need the
+cross-process event bus.
+
 ## Mock mode
 
 `MOCK_DISCORD=true` makes the whole integration developable with no Discord
