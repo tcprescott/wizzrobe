@@ -93,9 +93,13 @@ async def _tick() -> None:
 _loop = run_worker_loop(_tick, TICK_SECONDS, 'Discord role sync', logger, tick_timeout=900)
 
 
-def start() -> None:
+def subscribe() -> None:
     if 'token' not in _subscription:
         _subscription['token'] = event_bus.subscribe_sync(_on_event, TRIGGERS)
+
+
+def start() -> None:
+    subscribe()
     _loop.start()
 
 

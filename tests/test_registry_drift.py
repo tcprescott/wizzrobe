@@ -15,13 +15,9 @@ REPO = Path(__file__).resolve().parents[1]
 
 
 def _worker_tick_table() -> dict[str, str]:
-    tree = ast.parse((REPO / 'scripts' / 'run_worker_tick.py').read_text())
-    for node in tree.body:
-        if isinstance(node, ast.Assign) and any(
-            isinstance(t, ast.Name) and t.id == 'WORKERS' for t in node.targets
-        ):
-            return ast.literal_eval(node.value)
-    raise AssertionError('scripts/run_worker_tick.py has no WORKERS table')
+    from application.worker_registry import WORKERS
+
+    return {key: spec.module for key, spec in WORKERS.items()}
 
 
 def _worker_loop_modules() -> set[str]:
@@ -46,9 +42,35 @@ def test_tick_script_names_every_worker_loop():
     loops = _worker_loop_modules()
     assert loops, 'found no run_worker_loop call sites; the scan is broken'
     missing = sorted(loops - set(table.values()))
-    assert not missing, f'add these workers to WORKERS in scripts/run_worker_tick.py: {missing}'
+    assert not missing, f'add these workers to WORKERS in application/worker_registry.py: {missing}'
     stale = sorted(set(table.values()) - loops)
-    assert not stale, f'WORKERS in scripts/run_worker_tick.py names modules with no worker loop: {stale}'
+    assert not stale, f'WORKERS in application/worker_registry.py names modules with no worker loop: {stale}'
+
+
+def test_every_registered_worker_has_the_shape_main_and_the_tick_endpoint_use():
+    from application.worker_registry import WORKERS
+
+    for spec in WORKERS.values():
+        module = spec.load()
+        spec.loop()
+        assert callable(getattr(module, 'start', None)), f'{spec.module} has no start()'
+        assert callable(getattr(module, 'stop', None)), f'{spec.module} has no stop()'
+        assert callable(getattr(module, '_tick', None)), f'{spec.module} has no _tick (scripts/run_worker_tick.py)'
+        if spec.boot:
+            assert callable(getattr(module, spec.boot, None)), f'{spec.module} has no {spec.boot}()'
+
+
+def test_main_starts_workers_through_the_registry():
+    from application.worker_registry import WORKERS
+
+    source = (REPO / 'main.py').read_text()
+    by_hand = sorted(
+        spec.key for spec in WORKERS.values()
+        if spec.module.rsplit('.', 1)[1] + '.start()' in source
+    )
+    assert by_hand == ['metrics_sampler', 'worker_watchdog'], (
+        f'main.py starts these workers by hand; use worker_registry.start_in_process(): {by_hand}'
+    )
 
 
 def test_every_dm_view_kind_has_a_factory():
