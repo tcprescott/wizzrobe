@@ -7,10 +7,10 @@ It talks to the backend only through the REST API and the `/oauth` server.
 ## Run it
 
 ```bash
-# backend on :8080 with the dev seed (see docs/development.md), then:
+# backend on :8000 with the dev seed (see docs/development.md), then:
 cd web
 npm install
-npm run dev          # http://localhost:5173, proxies /api and /oauth to :8080
+npm run dev          # http://localhost:5173, proxies /api and /oauth to :8000
 ```
 
 `WIZZROBE_API=http://host:port npm run dev` points the proxy elsewhere. Sign-in

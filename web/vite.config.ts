@@ -4,7 +4,7 @@ import svgr from 'vite-plugin-svgr'
 
 // In dev the app and the API share an origin through this proxy, so sign-in and
 // API calls need no CORS. Point it at a running backend with WIZZROBE_API.
-const backend = process.env.WIZZROBE_API ?? 'http://localhost:8080'
+const backend = process.env.WIZZROBE_API ?? 'http://localhost:8000'
 const proxied = ['/api', '/oauth', '/.well-known/oauth-authorization-server']
 
 export default defineConfig({
