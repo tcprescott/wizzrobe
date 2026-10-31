@@ -43,6 +43,10 @@ Tokens can also be managed programmatically via the `/api/tokens` endpoints (cre
 
 **MCP tokens are not REST credentials.** `ApiToken` also stores the platform-wide OAuth tokens issued to MCP clients (`origin='oauth'`, `tenant=NULL`); those are refused here with `401`, and a personal access token is refused at `/mcp` with `401` plus the OAuth challenge. A credential minted for one surface can never be replayed against the other. The MCP server is a sibling entry surface, not part of this API — see [features/mcp-server.md](../features/mcp-server.md).
 
+### Wizzrobe's own app (first-party)
+
+The new app in [`web/`](../../web/README.md) signs in once at the `/oauth` server as a **first-party public client** (`OAuthApp.first_party`, set only by `scripts/register_first_party_app.py`; the dev seed registers `wizzrobe-app` for `localhost:5173`/`4173`). It skips the consent screen, and its grant (`origin='app'`, `tenant=NULL`) names no community. Instead **every call names one in the `X-Wizzrobe-Community: <slug>` header**: missing is `400`, an unknown slug `404`, and a community the person doesn't belong to `403` (a super-admin excepted), exactly as for a PAT. The scope table and the `third_party_apps` flag don't apply to it. Signing in on a second device keeps the first one signed in. `GET /api/me/communities` (no header needed; first-party or PAT only) lists the communities, roles and openable events to pick from.
+
 ### App scopes
 
 Third-party apps signed in through OAuth call this same API with tokens of `origin='app'`. Such a token carries the scopes its user approved, space-separated in `ApiToken.scope`, and `resolve_token` refuses any route outside them with `403` and `WWW-Authenticate: Bearer error="insufficient_scope", scope="<needed>"`.
@@ -179,6 +183,8 @@ Behind `FeatureFlag.PAYOUTS` (the whole router 404s when the community lacks it)
 - `POST /users` (Staff; always creates an active account, and a `discord_id` that already has one is `400`) · `PATCH /users/me` · `PATCH /users/{id}` · `PATCH /users/{id}/admin` (Staff) · `PUT /users/{id}/tournaments` (Staff for anyone; a player editing their own list goes through the same signup rules as `POST /tournaments/{id}/signup`).
 - `POST /users/{id}/roles` · `DELETE /users/{id}/roles/{role}` (Staff) — grant/revoke a role. Roles are per-tenant except `SUPER_ADMIN`; see [authentication.md § Roles](authentication.md#roles).
 - `POST /users/{id}/membership` · `DELETE /users/{id}/membership` (Staff) — add someone to this community or take them out, as the Users tab does. Removing is `400` while they hold a role here or admin or coordinate a tournament.
+
+- `GET /me/communities` (`me.py`) — the caller's active communities with their roles and openable events, for the app's community picker. Spans communities, so it takes no community header; a third-party app's grant is refused (`403`).
 
 ### Player availability (`/api/users/me/availability`) · `player_availability.py`
 - `GET` (own windows) · `PUT` (replace all windows) · `DELETE` (clear). Self-service for any authenticated user; windows feed match-time suggestions. **Opt-out:** a player with no windows is available for the whole event, so a window is a time they cannot play (`unavailable`) or would rather (`preferred`) — an `available` window is accepted but states the default. Volunteer availability, on the same wire shape, is the opposite (opt-in).

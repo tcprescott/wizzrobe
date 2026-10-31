@@ -13,6 +13,10 @@ a role that could use them, and are never ticked for them.
 
 Everything about the app (name, maker, homepage) is player-written and is
 rendered as plain labels.
+
+Wizzrobe's own app (``OAuthApp.first_party``) skips this screen entirely: once
+the person is signed in, the request is approved and they're sent straight
+back to it.
 """
 
 import logging
@@ -60,6 +64,14 @@ def create() -> None:
         user = await get_user_from_session(app.storage.user)
         if user is None:
             return RedirectResponse('/login', status_code=302)
+
+        try:
+            first_party = await service.approve_first_party(request, user)
+        except NotFoundError as exc:
+            _render_notice('This sign-in request has expired', str(exc))
+            return None
+        if first_party is not None:
+            return RedirectResponse(first_party, status_code=302)
 
         ui.page_title('Authorize an app — Wizzrobe')
         try:

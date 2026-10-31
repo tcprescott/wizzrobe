@@ -29,7 +29,7 @@ logger = logging.getLogger(__name__)
 _CACHE_SECONDS = 60.0
 _TOKEN_PATHS = frozenset({'/oauth/token', '/oauth/revoke'})
 _ALLOW_METHODS = 'GET, POST, PUT, PATCH, DELETE'
-_ALLOW_HEADERS = 'Authorization, Content-Type'
+_ALLOW_HEADERS = 'Authorization, Content-Type, X-Wizzrobe-Community'
 _EXPOSE_HEADERS = 'WWW-Authenticate, Retry-After'
 _MAX_AGE = '600'
 
