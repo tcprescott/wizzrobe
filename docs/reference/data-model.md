@@ -1422,6 +1422,17 @@ Constraint: `unique_together (('pattern', 'match'),)`.
 | `updated_by` | FK → `User` | null, `SET_NULL` | Who last set it; the audit row keeps the history |
 | `created_at` / `updated_at` | `DatetimeField` | auto | |
 
+#### `OAuthHandoff`
+
+**Global** (no `tenant` FK). One pending cross-host login handoff (`oauth_handoff_service`): the platform host mints it after Discord OAuth, the custom domain claims it. In the database rather than process memory so the claim can reach a different instance from the mint. Claiming deletes the row (single-use); each mint prunes expired rows.
+
+| Field | Type | Null / default | Notes |
+|---|---|---|---|
+| `nonce` | `CharField(64)` | **primary key** | Random; the signed token carries it with the host |
+| `host` | `CharField(255)` | not null | Normalized target host |
+| `payload` | `JSONField` | not null | Identity or link data, `host`, `next`, `bind_commit` |
+| `expires_at` | `DatetimeField` | not null, indexed | Mint time + 30 s |
+
 #### `SystemConfiguration`
 
 Key-value application settings. Accessed directly by `SystemConfigService` (typed get/set; no repository) — see [services.md](services.md).

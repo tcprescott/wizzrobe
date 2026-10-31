@@ -121,3 +121,22 @@ class BrowserErrorIgnoreRule(Model):
     class Meta:
         table = 'browsererrorignorerule'
         unique_together = (('pattern', 'match'),)
+
+
+class OAuthHandoff(Model):
+    """A pending cross-host login handoff (``oauth_handoff_service``).
+
+    **Global** (no ``tenant`` FK): it carries a Discord login from the platform
+    host to whichever custom domain started it, before any community session
+    exists. Lives in the database rather than process memory so the claim can
+    land on a different instance from the mint. Single-use: the claim deletes the
+    row; expired rows are pruned on each mint.
+    """
+
+    nonce = fields.CharField(max_length=64, pk=True)
+    host = fields.CharField(max_length=255)
+    payload = fields.JSONField()
+    expires_at = fields.DatetimeField(index=True)
+
+    class Meta:
+        table = 'oauthhandoff'

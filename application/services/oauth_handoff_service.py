@@ -9,11 +9,9 @@ and writes the host-local session so the auth cookie lands on the right host.
 
 Why this is safe despite a token travelling in a URL:
 
-- **Single-use.** The token's nonce is popped from an in-process store on first
-  claim; a replay after the victim's own claim finds nothing. (The store is
-  in-memory, matching the app's single-worker deployment — the same precondition
-  the tenant-resolution caches already rely on. It is *not* shared across
-  workers; a multi-worker deployment would need a shared store.)
+- **Single-use.** The token's nonce is deleted from the ``oauthhandoff`` table on
+  first claim; a replay after the victim's own claim finds nothing. The table is
+  shared, so the claim may land on a different instance from the mint.
 - **Short TTL.** The signer enforces ``_TTL_SECONDS``; a leaked URL (browser
   history / ``Referer``) is only briefly replayable, and the redirect→claim round
   trip is sub-second in practice.
@@ -23,28 +21,23 @@ Why this is safe despite a token travelling in a URL:
 - **Identity carried server-side.** Only the nonce + host travel in the URL; the
   ``discord_id``/username/avatar live in the store, so no PII is exposed in the
   URL or logs.
-
-This lives in ``application/services`` but, like the tenant caches, holds a small
-module-level store rather than per-instance state; its functions are stateless
-entry points over that store.
 """
 
 import logging
 import secrets
 import time
+from datetime import datetime, timezone
 from typing import Optional
 
 from itsdangerous import BadData, URLSafeTimedSerializer
 
+from application.repositories import OAuthHandoffRepository
 from application.utils.hostname import normalize_hostname
 
 logger = logging.getLogger(__name__)
 
 _SALT = 'wizzrobe-oauth-handoff'
 _TTL_SECONDS = 30
-_STORE_MAX = 4096
-
-_pending: dict[str, dict] = {}
 
 
 def _serializer() -> URLSafeTimedSerializer:
@@ -53,20 +46,17 @@ def _serializer() -> URLSafeTimedSerializer:
     return URLSafeTimedSerializer(os.environ.get('STORAGE_SECRET') or '', salt=_SALT)
 
 
-def _prune(now: float) -> None:
-    """Drop expired entries (cheap, bounded); called on every mint."""
-    expired = [n for n, p in _pending.items() if p['expiry'] <= now]
-    for n in expired:
-        _pending.pop(n, None)
+async def reset() -> None:
+    """Drop every pending handoff (test isolation)."""
+    await OAuthHandoffRepository.delete_all()
 
 
-def reset() -> None:
-    """Clear the pending store (test isolation)."""
-    _pending.clear()
+def _at(epoch: float) -> datetime:
+    return datetime.fromtimestamp(epoch, tz=timezone.utc)
 
 
-def _mint(fields: dict, target_host: str, next_path: str,
-          bind_commit: Optional[str]) -> Optional[str]:
+async def _mint(fields: dict, target_host: str, next_path: str,
+                bind_commit: Optional[str]) -> Optional[str]:
     """Store ``fields`` under a fresh nonce bound to ``target_host``; return the token.
 
     ``target_host`` must already be validated as a known active tenant domain by
@@ -77,22 +67,18 @@ def _mint(fields: dict, target_host: str, next_path: str,
     if host is None:
         return None
     now = time.time()
-    _prune(now)
+    await OAuthHandoffRepository.delete_expired(_at(now))
     nonce = secrets.token_urlsafe(24)
-    if nonce not in _pending and len(_pending) >= _STORE_MAX:
-        _pending.pop(next(iter(_pending)), None)
-    _pending[nonce] = {
-        **fields,
-        'host': host,
-        'next': next_path,
-        'bind_commit': bind_commit,
-        'expiry': now + _TTL_SECONDS,
-    }
+    await OAuthHandoffRepository.create(
+        nonce, host,
+        {**fields, 'host': host, 'next': next_path, 'bind_commit': bind_commit},
+        _at(now + _TTL_SECONDS),
+    )
     return _serializer().dumps({'n': nonce, 'h': host})
 
 
-def mint(*, discord_id, username: Optional[str], avatar: Optional[str],
-         target_host: str, next_path: str, bind_commit: Optional[str] = None) -> Optional[str]:
+async def mint(*, discord_id, username: Optional[str], avatar: Optional[str],
+               target_host: str, next_path: str, bind_commit: Optional[str] = None) -> Optional[str]:
     """Mint a Discord-login handoff token for ``discord_id`` bound to ``target_host``.
 
     ``bind_commit`` is a hash the *initiating* browser committed to at ``/login``
@@ -100,14 +86,14 @@ def mint(*, discord_id, username: Optional[str], avatar: Optional[str],
     route re-derives it from the browser's cookie and compares, so a token minted
     in one browser can't be delivered to another (login-CSRF / forced login).
     """
-    return _mint(
+    return await _mint(
         {'discord_id': discord_id, 'username': username, 'avatar': avatar},
         target_host, next_path, bind_commit,
     )
 
 
-def mint_data(*, data: dict, target_host: str, next_path: str,
-              bind_commit: Optional[str] = None) -> Optional[str]:
+async def mint_data(*, data: dict, target_host: str, next_path: str,
+                    bind_commit: Optional[str] = None) -> Optional[str]:
     """Mint a generic handoff token carrying an arbitrary ``data`` payload.
 
     Used by the secondary-provider link handoff (``pages/_oauth_link.py``): the
@@ -117,10 +103,10 @@ def mint_data(*, data: dict, target_host: str, next_path: str,
     binding guarantees as :func:`mint`; only the payload shape differs — the
     claim returns it under ``payload['data']``.
     """
-    return _mint({'data': data}, target_host, next_path, bind_commit)
+    return await _mint({'data': data}, target_host, next_path, bind_commit)
 
 
-def claim(token: str, request_host: str) -> Optional[dict]:
+async def claim(token: str, request_host: str) -> Optional[dict]:
     """Validate + consume a handoff token presented on ``request_host``.
 
     Returns the stored payload (``discord_id``/``username``/``avatar``/``next``)
@@ -141,11 +127,12 @@ def claim(token: str, request_host: str) -> Optional[dict]:
     signed_host = data.get('h')
     if not nonce:
         return None
-    payload = _pending.pop(nonce, None)  # consume regardless of outcome (single-use)
-    if payload is None:
+    row = await OAuthHandoffRepository.take(nonce)  # consume regardless of outcome (single-use)
+    if row is None:
         return None
-    if payload['expiry'] <= time.time():
+    if row.expires_at <= _at(time.time()):
         return None
+    payload = row.payload
     # All three must match: a token minted for one host is useless on any other.
     if signed_host != host or payload['host'] != host:
         logger.warning('OAuth handoff token host mismatch (presented on %r)', host)

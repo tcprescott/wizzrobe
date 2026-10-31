@@ -28,7 +28,7 @@ from api import oauth_server
 from api.openapi_docs import api_description, warm_openapi
 from api.openapi_docs import install as install_openapi_docs
 from application.events import dispatch_queue as event_dispatch_queue
-from application.events import event_bus, webhook_queue
+from application.events import event_bus, live_relay, webhook_queue
 from application.services import PersonalWebhookService, TelemetryService, WebhookService, web_push_service
 from application.services.discord import discord_queue
 from application.services.discord.discord_service import get_discord_bot
@@ -204,6 +204,8 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     logger.info('startup: module imports took %.2fs', lifespan_started - _IMPORT_STARTED)
     with _startup_step('database'):
         await init_db()
+    with _startup_step('live relay'):
+        await live_relay.start(DB_URL)
     with _startup_step('stored log levels'):
         await _apply_stored_log_levels()
         await _load_browser_monitoring()
@@ -315,6 +317,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         await community_event_reminder.stop()
         await event_dispatch_queue.stop()
         await webhook_queue.stop()
+        await live_relay.stop()
         await discord_queue.stop()
         await web_push_service.aclose_http_client()
         await close_discord_bot()

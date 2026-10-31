@@ -148,6 +148,7 @@ from .system import (
     BrowserErrorIgnoreRule,
     BrowserMonitoringSettings,
     LogLevelOverride,
+    OAuthHandoff,
     RoomToken,
     SystemConfiguration,
 )
@@ -302,6 +303,7 @@ __all__ = [
     'OAuthAppBlock',
     'OAuthAppCode',
     'OAuthClientType',
+    'OAuthHandoff',
     'PersonalWebhook',
     'PlayerAvailability',
     'Preset',

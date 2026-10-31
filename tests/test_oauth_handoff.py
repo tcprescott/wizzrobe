@@ -13,62 +13,59 @@ from application.services import oauth_handoff_service as h
 
 
 @pytest.fixture(autouse=True)
-def _secret_and_reset(monkeypatch):
+def _secret(monkeypatch):
     monkeypatch.setenv('STORAGE_SECRET', 'x' * 40)
-    h.reset()
-    yield
-    h.reset()
 
 
-def _mint(host='foo.gg', next_path='/admin'):
-    return h.mint(
+async def _mint(host='foo.gg', next_path='/admin'):
+    return await h.mint(
         discord_id=123, username='bob', avatar='http://a/av.png',
         target_host=host, next_path=next_path,
     )
 
 
-def test_mint_then_claim_roundtrips():
-    token = _mint()
-    payload = h.claim(token, 'foo.gg')
+async def test_mint_then_claim_roundtrips(db):
+    token = await _mint()
+    payload = await h.claim(token, 'foo.gg')
     assert payload is not None
     assert payload['discord_id'] == 123
     assert payload['username'] == 'bob'
     assert payload['next'] == '/admin'
 
 
-def test_claim_is_single_use():
-    token = _mint()
-    assert h.claim(token, 'foo.gg') is not None
-    assert h.claim(token, 'foo.gg') is None
+async def test_claim_is_single_use(db):
+    token = await _mint()
+    assert await h.claim(token, 'foo.gg') is not None
+    assert await h.claim(token, 'foo.gg') is None
 
 
-def test_claim_rejects_wrong_host():
-    token = _mint(host='foo.gg')
-    assert h.claim(token, 'bar.gg') is None
-    assert h.claim(token, 'foo.gg') is None
+async def test_claim_rejects_wrong_host(db):
+    token = await _mint(host='foo.gg')
+    assert await h.claim(token, 'bar.gg') is None
+    assert await h.claim(token, 'foo.gg') is None
 
 
-def test_claim_rejects_tampered_token():
-    token = _mint()
-    assert h.claim(token + 'x', 'foo.gg') is None
+async def test_claim_rejects_tampered_token(db):
+    token = await _mint()
+    assert await h.claim(token + 'x', 'foo.gg') is None
 
 
-def test_claim_rejects_expired_via_store(monkeypatch):
-    token = _mint()
+async def test_claim_rejects_expired_via_store(db, monkeypatch):
+    token = await _mint()
     real = h.time.time()
     monkeypatch.setattr(h.time, 'time', lambda: real + h._TTL_SECONDS + 5)
-    assert h.claim(token, 'foo.gg') is None
+    assert await h.claim(token, 'foo.gg') is None
 
 
-def test_mint_rejects_unnormalizable_host():
-    assert h.mint(discord_id=1, username='x', avatar=None,
+async def test_mint_rejects_unnormalizable_host(db):
+    assert await h.mint(discord_id=1, username='x', avatar=None,
                   target_host='not a host', next_path='/') is None
 
 
-def test_host_normalization_is_consistent():
-    token = h.mint(discord_id=5, username='y', avatar=None,
+async def test_host_normalization_is_consistent(db):
+    token = await h.mint(discord_id=5, username='y', avatar=None,
                    target_host='https://Foo.GG/', next_path='/')
-    assert h.claim(token, 'foo.gg') is not None
+    assert await h.claim(token, 'foo.gg') is not None
 
 
 # Imported under MOCK_DISCORD; its live client rejects a null token.
@@ -104,11 +101,11 @@ def test_bind_commit_is_deterministic_sha256(auth):
     assert auth._bind_commit('other') != auth._bind_commit(secret)
 
 
-def test_mint_carries_bind_commit_through_claim():
+async def test_mint_carries_bind_commit_through_claim(db):
     commit = 'deadbeef' * 8
-    token = h.mint(discord_id=9, username='z', avatar=None,
+    token = await h.mint(discord_id=9, username='z', avatar=None,
                    target_host='foo.gg', next_path='/', bind_commit=commit)
-    payload = h.claim(token, 'foo.gg')
+    payload = await h.claim(token, 'foo.gg')
     assert payload is not None
     assert payload['bind_commit'] == commit
 

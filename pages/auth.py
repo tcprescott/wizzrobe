@@ -423,7 +423,7 @@ def create() -> None:
             handoff_next = app.storage.user.pop('handoff_next', None)
             handoff_bind_commit = app.storage.user.pop('handoff_bind_commit', None)
             if handoff_host and host_oauth_handoff_enabled():
-                token = handoff_service.mint(
+                token = await handoff_service.mint(
                     discord_id=current_user.id,
                     username=current_user.username,
                     avatar=current_user.avatar_url,
@@ -497,7 +497,7 @@ def create() -> None:
         token = next(iter(parse_qs(parsed.query).get('token', [])), None)
         request_host = normalize_hostname(parsed.netloc)
         bind = app.storage.user.pop('handoff_bind', None)
-        payload = handoff_service.claim(token, request_host) if (token and request_host) else None
+        payload = await handoff_service.claim(token, request_host) if (token and request_host) else None
         if payload is None:
             stash_notice("That login link has expired or already been used. Log in again to continue.", color='warning')
             await wait.navigate_to('/login')
