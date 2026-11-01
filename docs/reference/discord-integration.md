@@ -33,7 +33,8 @@ This page documents mechanics only — singletons, method signatures, custom_id 
 | [`discordbot/match_hard_preset.py`](../../discordbot/match_hard_preset.py) | The harder-settings opt-in / back-out button + handler (`match_hard:`) |
 | [`discordbot/login.py`](../../discordbot/login.py) | `/login`, `/wizzrobe login-panel` and the panel's Log in button (`wiz_login:`) |
 | [`application/services/discord/discord_login_service.py`](../../application/services/discord/discord_login_service.py) | `DiscordLoginService` — mints and redeems the one-time login links; the panel's STAFF gate |
-| [`main.py`](../../main.py) | `init_discord_bot()` / `close_discord_bot()`, the `import discordbot` registration hook, queue and worker start/stop in the FastAPI lifespan |
+| [`main.py`](../../main.py) / [`bots.py`](../../bots.py) | The `import discordbot` registration hook and worker start/stop in each lifespan; both start Discord and the delivery queues through [`application/bot_runtime.py`](../../application/bot_runtime.py) |
+| [`discordbot/http_interactions.py`](../../discordbot/http_interactions.py) | Signed HTTP interactions: signature check, dispatch through `parse_interaction_create`, first-response capture |
 | [`application/utils/mocks/mock_discord.py`](../../application/utils/mocks/mock_discord.py) | `is_mock_discord()` flag with production guard |
 | [`application/services/match/_schedule_notifications.py`](../../application/services/match/_schedule_notifications.py) | `MatchNotificationMixin` — the match notification fan-out coroutines, composed into `MatchScheduleService` |
 | [`application/services/notification_links.py`](../../application/services/notification_links.py) | `DMLink` builders (`player_schedule`, `player_match`, `player_hard_preset`, `admin_match`, …) — absolute, tenant-qualified, never raise |
@@ -47,9 +48,13 @@ This page documents mechanics only — singletons, method signatures, custom_id 
 The bot is a **discord.py `commands.Bot`** that lives inside the single Uvicorn worker (see [architecture.md](../architecture.md) for why one worker is a hard requirement). It is created lazily by `get_discord_bot()` in [`application/services/discord/discord_service.py`](../../application/services/discord/discord_service.py) and started during FastAPI lifespan startup in [`main.py`](../../main.py):
 
 1. `import discordbot` — registers the interaction handlers and view factories (below) before any interaction can dispatch or DM can be sent.
-2. `init_discord_bot()` — under `MOCK_DISCORD` it logs `MOCK_DISCORD enabled — skipping Discord bot start.` and returns. Otherwise it reads `DISCORD_TOKEN` and schedules `bot.start(token)` as an asyncio task with a done-callback that logs a crashed task. An unset token logs a warning and continues — the app runs, but the bot never connects.
-3. `discord_queue.start()` — starts the outbound send worker; `discord_event_worker.start()` runs too when `DISCORD_EVENTS_SYNC_ENABLED` is on.
-4. On shutdown, the reverse: `discord_queue.stop()` → `close_discord_bot()` (`bot.close()` + task cancel; no-op under mock) → DB close.
+2. `bot_runtime.start_discord(gateway=...)` ([`application/bot_runtime.py`](../../application/bot_runtime.py)) — under `MOCK_DISCORD` it logs `MOCK_DISCORD enabled — skipping Discord bot start.` and returns. Otherwise it reads `DISCORD_TOKEN` and schedules, as an asyncio task with a done-callback that logs a crash, either `bot.start(token)` (the gateway, retried every 30s until it connects) or, with `DISCORD_GATEWAY=off`, `sign_in_for_rest()`: `bot.login(token)` only, which runs `setup_hook` but opens no gateway. An unset token logs a warning and continues — the app runs, but the bot never connects.
+3. `bot_runtime.start_delivery()` — starts the outbound send worker `discord_queue`, the event dispatch and webhook queues, and their subscribers; `discord_event_worker.start()` runs too when `DISCORD_EVENTS_SYNC_ENABLED` is on.
+4. On shutdown, the reverse: `stop_delivery()` → `close_discord()` (`bot.close()` + task cancel; no-op under mock) → DB close.
+
+`bots.py` uses the same two calls with the gateway forced on; see [discord.md](../features/discord.md#interactions-over-http).
+
+**Usable means `bot_ready(bot)`, not `bot.is_ready()`.** `is_ready()` is a gateway flag and stays false in a REST-only process, so every `DiscordService` path checks [`bot_state.bot_ready`](../../application/services/discord/bot_state.py) (gateway ready, or signed in with the gateway switched off). Guild reads fall back from the gateway cache to REST (`_cached_or_fetched_guild`, `fetch_guilds`).
 
 Degradation is graceful at every layer: when the bot is missing or not connected, every `DiscordService` method returns a `(False, reason)` tuple instead of raising, and the fan-out methods log the failure and move on.
 

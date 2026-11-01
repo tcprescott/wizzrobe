@@ -177,6 +177,9 @@ async def _probe_discord_bot() -> Tuple[ServiceStatus, str]:
         return ServiceStatus.DOWN, 'Bot runtime not started'
     if bot.is_ready():
         return ServiceStatus.HEALTHY, f'Connected as {bot.user}' if bot.user else 'Connected'
+    from application.services.discord.bot_state import bot_ready
+    if bot_ready(bot):
+        return ServiceStatus.HEALTHY, f'Signed in as {bot.user} (REST only, no gateway)'
     return ServiceStatus.DOWN, 'Gateway not ready (disconnected)'
 
 
@@ -480,6 +483,7 @@ class ServiceHealthService:
         try:
             from application.services.discord.discord_service import DiscordService
             from models import Role, UserRole
+            # cross-event: the platform role has no community, let alone an event.
             rows = await UserRole.filter(role=Role.SUPER_ADMIN, tenant=None).prefetch_related('user')
             service = DiscordService()
             for row in rows:

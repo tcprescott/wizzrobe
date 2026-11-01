@@ -42,6 +42,7 @@ from . import (
     stream_layout_starters,
     telegram_bot_worker,
     telemetry_retention,
+    webhook_outbox_worker,
 )
 from .accommodation_service import AccommodationService
 from .ai_provider_service import AiProviderService
@@ -417,4 +418,5 @@ __all__ = [
     'validate_tournament_config',
     'validate_window',
     'volunteer_reminder',
+    'webhook_outbox_worker',
 ]
