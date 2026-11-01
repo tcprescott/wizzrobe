@@ -57,6 +57,7 @@ How each shipped subsystem behaves.
 | [features/graphql-api.md](features/graphql-api.md) | Read-only GraphQL at `/api/graphql`: REST's token door, limits, error codes, the committed schema |
 | [features/oauth-apps.md](features/oauth-apps.md) | The `/oauth` authorization server for third-party apps: registration, consent, PKCE, community-bound grants, rotation and reuse detection |
 | [features/webhooks.md](features/webhooks.md) | Staff-managed outbound webhooks: signing, retries, delivery log |
+| [features/scheduled-workers.md](features/scheduled-workers.md) | Worker registry, `WORKER_MODE`, the Cloud Scheduler tick endpoint and its OIDC check |
 | [features/event-system.md](features/event-system.md) | In-process event bus: publish/subscribe, `EventType` registry, `match_live` |
 | [features/audit-logging.md](features/audit-logging.md) | `AuditService`, `AuditActions` naming, `write_and_publish` |
 | [features/telemetry.md](features/telemetry.md) | Page views, curated interactions, domain-event mirror, Staff-only report |

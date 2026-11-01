@@ -10,6 +10,7 @@ private chats only; anything else gets a short pointer back to the profile.
 Started only when ``TELEGRAM_BOT_TOKEN`` is set and Discord isn't mocked.
 """
 
+import asyncio
 import logging
 from typing import Optional
 
@@ -95,9 +96,15 @@ async def register_webhook() -> bool:
     return True
 
 
-async def start() -> None:
-    """Register the webhook, or start polling when no webhook secret is set."""
-    if await register_webhook():
+# Hold the reference: an unreferenced task can be garbage collected.
+_register_task: Optional[asyncio.Task] = None
+
+
+def start() -> None:
+    """Register the webhook in the background, or start polling when no webhook secret is set."""
+    global _register_task
+    if telegram_client.webhook_secret() is not None:
+        _register_task = asyncio.get_running_loop().create_task(register_webhook())
         return
     _loop.start()
 

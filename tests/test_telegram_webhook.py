@@ -68,7 +68,8 @@ async def test_start_registers_the_webhook_instead_of_polling(monkeypatch):
     monkeypatch.setattr(telegram_client, 'set_webhook', register)
     loop = MagicMock()
     monkeypatch.setattr(telegram_bot_worker, '_loop', loop)
-    await telegram_bot_worker.start()
+    telegram_bot_worker.start()
+    await telegram_bot_worker._register_task
     register.assert_awaited_once_with('https://wizzrobe.test/telegram/webhook', 'right')
     loop.start.assert_not_called()
 
@@ -77,7 +78,7 @@ async def test_start_polls_without_a_secret(monkeypatch):
     monkeypatch.delenv('TELEGRAM_WEBHOOK_SECRET', raising=False)
     loop = MagicMock()
     monkeypatch.setattr(telegram_bot_worker, '_loop', loop)
-    await telegram_bot_worker.start()
+    telegram_bot_worker.start()
     loop.start.assert_called_once()
 
 

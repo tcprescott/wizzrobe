@@ -24,12 +24,10 @@ import frontend
 
 # mcpserver must not build MCPServer at import: its logging.basicConfig would beat ours.
 import mcpserver
-from api import inbound_webhooks, oauth_server
+from api import inbound_webhooks, oauth_server, worker_ticks
 from api.openapi_docs import api_description, warm_openapi
 from api.openapi_docs import install as install_openapi_docs
-from application import bot_runtime
-from application.services.match import stage_reminder
-from application.services.volunteer import volunteer_reminder
+from application import bot_runtime, worker_registry
 from application.utils import element_cycles, gc_monitor, memory_census, metrics_sampler, worker_watchdog
 from application.utils.easter_eggs import random_fact
 from application.utils.environment import discord_gateway_enabled, env_flag, loop_watchdog_enabled
@@ -134,46 +132,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     with _startup_step('racetime bot'):
         await init_racetime_bot()
     with _startup_step('background workers'):
-        from application.services import race_room_worker
-        from application.utils.environment import racetime_bot_enabled
-        if racetime_bot_enabled():
-            race_room_worker.start()
-        from application.services import speedgaming_sync_worker
-        from application.utils.environment import speedgaming_sync_enabled
-        if speedgaming_sync_enabled():
-            speedgaming_sync_worker.start()
-        from application.services.discord import discord_event_worker
-        from application.utils.environment import discord_events_sync_enabled
-        if discord_events_sync_enabled():
-            discord_event_worker.start()
-        from application.services import service_health_worker
-        service_health_worker.start()
-        from application.services.async_qualifier import async_qualifier_worker
-        async_qualifier_worker.start()
-        # Leave ungated: gating it would strand rolls already in flight across a restart.
-        from application.services import seed_roll_worker
-        seed_roll_worker.start()
-        from application.services import check_in_sync_worker
-        check_in_sync_worker.start()
-        from application.services import sglive_pool_worker
-        sglive_pool_worker.start()
-        from application.services import startgg_sync_worker
-        startgg_sync_worker.start()
-        from application.services import challonge_sync_worker
-        challonge_sync_worker.start()
-        from application.services import data_export_worker
-        data_export_worker.start()
-        from application.services import discord_role_sync_worker
-        discord_role_sync_worker.start()
-        from application.services import telegram_bot_worker
-        from application.utils.clients import telegram_client
-        from application.utils.mocks.mock_discord import is_mock_discord
-        if telegram_client.is_configured() and not is_mock_discord():
-            await telegram_bot_worker.start()
-        volunteer_reminder.start()
-        stage_reminder.start()
-        from application.services import community_event_reminder
-        community_event_reminder.start()
+        worker_registry.start_in_process()
         bot_runtime.start_delivery()
     # Started after boot so migrations and the first imports don't read as stalls.
     if loop_watchdog_enabled():
@@ -182,10 +141,6 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     warm_openapi(app)
     metrics_sampler.start()
     worker_watchdog.start()
-    from application.services import active_users_metrics, event_retention, telemetry_retention
-    active_users_metrics.start()
-    telemetry_retention.start()
-    event_retention.start()
     element_cycles.install()
     if env_flag('GC_FREEZE', default=True):
         logger.info('startup: froze %d objects out of garbage collection', gc_monitor.freeze())
@@ -203,26 +158,8 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         # Must flush before the workers that carry its DMs and webhooks stop.
         from application import pending_actions
         await pending_actions.flush_all()
-        await active_users_metrics.stop()
-        await telemetry_retention.stop()
-        await event_retention.stop()
-        await race_room_worker.stop()
-        await seed_roll_worker.stop()
-        await check_in_sync_worker.stop()
-        await sglive_pool_worker.stop()
-        await startgg_sync_worker.stop()
-        await challonge_sync_worker.stop()
-        await data_export_worker.stop()
-        await discord_role_sync_worker.stop()
-        await telegram_bot_worker.stop()
-        await speedgaming_sync_worker.stop()
-        await discord_event_worker.stop()
-        await service_health_worker.stop()
+        await worker_registry.stop_all()
         await close_racetime_bot()
-        await async_qualifier_worker.stop()
-        await volunteer_reminder.stop()
-        await stage_reminder.stop()
-        await community_event_reminder.stop()
         await bot_runtime.stop_delivery()
         await bot_runtime.close_discord()
         await close_db()
@@ -265,10 +202,11 @@ app.include_router(
 install_openapi_docs(app)
 
 # ORDER IS LOAD-BEARING: frontend.init() hands the app to NiceGUI, which mounts
-# itself at '/' and would swallow /mcp and /oauth. Register those routes first.
+# itself at '/' and would swallow /mcp, /oauth and /internal. Register those routes first.
 mcpserver.mount(app)
 oauth_server.mount(app)
 inbound_webhooks.mount(app)
+worker_ticks.mount(app)
 
 frontend.init(app)
 
