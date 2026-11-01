@@ -47,6 +47,7 @@ class TimelineItem:
     event_id: int = 0
     badge: str = ''
     optional: bool = False
+    approved: Optional[bool] = None
 
 
 @dataclass(frozen=True)
@@ -214,4 +215,5 @@ class MyTimelineService:
             title=_ROLE_TITLES.get(crew_role, 'Crew'),
             detail=' · '.join(part for part in (names, short) if part),
             match_id=match.id, badge=NO_STAGE if off_stage else '', optional=off_stage,
+            approved=approved,
         )

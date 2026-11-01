@@ -27,6 +27,7 @@ from api.schemas.match_actions import (
     StreamCandidateRequest,
 )
 from api.schemas.matches import MatchResponse
+from api.schemas.my_schedule import RunningLateRequest
 from application.errors import require_found
 from application.services import (
     BracketSetService,
@@ -35,6 +36,7 @@ from application.services import (
     MatchService,
     MatchStreamVolunteerService,
     MatchWatcherService,
+    PlayerLateService,
 )
 from application.tenant_context import require_tenant_id
 from models import Match, User
@@ -476,6 +478,26 @@ async def undo_crew_signup(match_id: int, role: str, actor: User = Depends(requi
 async def acknowledge_match(match_id: int, actor: User = Depends(require_write_actor)):
     await MatchService().acknowledge_match(match_id, actor)
     return DetailResponse(detail="Match acknowledged")
+
+
+@router.post(
+    "/{match_id}/running-late",
+    response_model=DetailResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Say you're running late",
+    description=(
+        "Tells the match's staff and on-duty desk you're on your way, with how late you "
+        "expect to be and an optional note. Saying it again with a new number updates it. "
+        "Opens 30 minutes before the match (earlier for a stage match with a reminder). "
+        "Fails with 400 when you don't play in it, you're already checked in, the window "
+        "isn't open, or the match is raced online."
+        "\n\n"
+        "**Who can call this:** Any member who plays in the match."
+    ),
+)
+async def running_late(match_id: int, body: RunningLateRequest, actor: User = Depends(require_write_actor)):
+    await PlayerLateService().report_late(match_id, actor, body.minutes, body.note)
+    return DetailResponse(detail="Heads-up sent")
 
 
 @router.post(

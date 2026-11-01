@@ -81,6 +81,12 @@ _ROUTES: Dict[RouteScope, tuple[str, ...]] = {
         'GET /tournaments/{tournament_id}/round-schedule',
     ),
     ApiScope.PLAY: (
+        'GET /me/home',
+        'GET /me/schedule',
+        'GET /me/bookable',
+        'GET /me/bookable/{source}/{key}/check',
+        'POST /me/bookable/{source}/{key}/book',
+        'POST /matches/{match_id}/running-late',
         'POST /matches/request',
         'POST /matches/{match_id}/acknowledge',
         'POST /matches/{match_id}/stream-offer',

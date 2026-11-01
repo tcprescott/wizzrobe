@@ -25,6 +25,17 @@ import ChevronRight from '@material-symbols/svg-400/outlined/chevron_right.svg?r
 import ProgressActivity from '@material-symbols/svg-400/outlined/progress_activity.svg?react'
 import Groups from '@material-symbols/svg-400/outlined/groups.svg?react'
 import ArrowBack from '@material-symbols/svg-400/outlined/arrow_back.svg?react'
+import EventAvailable from '@material-symbols/svg-400/outlined/event_available.svg?react'
+import SwapHoriz from '@material-symbols/svg-400/outlined/swap_horiz.svg?react'
+import Schedule from '@material-symbols/svg-400/outlined/schedule.svg?react'
+import Tv from '@material-symbols/svg-400/outlined/tv.svg?react'
+import OpenInNew from '@material-symbols/svg-400/outlined/open_in_new.svg?react'
+import SportsEsports from '@material-symbols/svg-400/outlined/sports_esports.svg?react'
+import Mic from '@material-symbols/svg-400/outlined/mic.svg?react'
+import DirectionsRun from '@material-symbols/svg-400/outlined/directions_run.svg?react'
+import TaskAlt from '@material-symbols/svg-400/outlined/task_alt.svg?react'
+import Desk from '@material-symbols/svg-400/outlined/desk.svg?react'
+import History from '@material-symbols/svg-400/outlined/history.svg?react'
 import HomeFill from '@material-symbols/svg-400/outlined/home-fill.svg?react'
 import CalendarMonthFill from '@material-symbols/svg-400/outlined/calendar_month-fill.svg?react'
 import StadiumFill from '@material-symbols/svg-400/outlined/stadium-fill.svg?react'
@@ -58,6 +69,17 @@ export const ICONS = {
   progress_activity: ProgressActivity,
   groups: Groups,
   arrow_back: ArrowBack,
+  event_available: EventAvailable,
+  swap_horiz: SwapHoriz,
+  schedule: Schedule,
+  tv: Tv,
+  open_in_new: OpenInNew,
+  sports_esports: SportsEsports,
+  mic: Mic,
+  directions_run: DirectionsRun,
+  task_alt: TaskAlt,
+  desk: Desk,
+  history: History,
 } satisfies Record<string, Svg>
 
 export const FILLED: Partial<Record<IconName, Svg>> = {
