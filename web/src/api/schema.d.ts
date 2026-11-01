@@ -31243,7 +31243,10 @@ export interface operations {
     };
     my_bookable_api_me_bookable_get: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404. */
+                event?: string | null;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -31286,6 +31289,15 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
             /** @description Over the rate limit. Wait the number of seconds in the `Retry-After` header. */
             429: {
                 headers: {
@@ -31299,7 +31311,10 @@ export interface operations {
     };
     book_api_me_bookable__source___key__book_post: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404. */
+                event?: string | null;
+            };
             header?: never;
             path: {
                 source: "bracket" | "challonge" | "startgg";
@@ -31383,6 +31398,8 @@ export interface operations {
             query: {
                 /** @description The time to check, as an ISO 8601 instant with an offset. */
                 at: string;
+                /** @description The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404. */
+                event?: string | null;
             };
             header?: never;
             path: {
@@ -31507,7 +31524,10 @@ export interface operations {
     };
     my_home_api_me_home_get: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404. */
+                event?: string | null;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -31550,6 +31570,15 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
             /** @description Over the rate limit. Wait the number of seconds in the `Retry-After` header. */
             429: {
                 headers: {
@@ -31566,6 +31595,8 @@ export interface operations {
             query?: {
                 /** @description Show what has ended instead of what's coming. */
                 past?: boolean;
+                /** @description The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404. */
+                event?: string | null;
             };
             header?: never;
             path?: never;

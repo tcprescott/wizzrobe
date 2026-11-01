@@ -10,7 +10,7 @@ from typing import Literal
 
 from fastapi import APIRouter, Depends, Query
 
-from api.dependencies import ServiceErrorRoute, require_api_actor, require_write_actor
+from api.dependencies import ServiceErrorRoute, event_binding, require_api_actor, require_write_actor
 from api.schemas.my_schedule import (
     BookableResponse,
     BookedResponse,
@@ -24,7 +24,9 @@ from application.services import PlayerHomeService
 from application.utils.timezone import to_utc_aware
 from models import User
 
-router = APIRouter(prefix='/me', tags=['My schedule'], route_class=ServiceErrorRoute)
+router = APIRouter(
+    prefix='/me', tags=['My schedule'], route_class=ServiceErrorRoute, dependencies=[Depends(event_binding())],
+)
 
 Source = Literal['bracket', 'challonge', 'startgg']
 

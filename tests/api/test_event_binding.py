@@ -19,7 +19,7 @@ EVENT_OWNED_PREFIXES = (
     '/api/async-qualifiers', '/api/brackets', '/api/check-in', '/api/crew', '/api/discord-events',
     '/api/matches', '/api/race-rooms', '/api/reports', '/api/seeds', '/api/speedgaming',
     '/api/stages', '/api/tournaments', '/api/triforce-texts', '/api/volunteers',
-    '/api/reschedule-requests',
+    '/api/reschedule-requests', '/api/me/home', '/api/me/schedule', '/api/me/bookable',
 )
 NOT_ROWS = {
     'user_id': 'a person, community-wide',
@@ -28,6 +28,8 @@ NOT_ROWS = {
     'crew_id': 'paired with crew_type, so no single model',
     'task_id': 'a seed-roll task id from the randomizer',
     'stage_key': 'a bracket stage key, not a Stage row',
+    'source': 'a bracket site name',
+    'key': "a matchup id within its source's own table, checked against the caller's own list",
 }
 
 
